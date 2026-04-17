@@ -3,7 +3,7 @@ import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 
 const CONFIG = {
   canvasId: "game",
-  backgroundColor: 0x000000,
+  backgroundColor: 0x070010,
   debug: {
     input: false,
     velocity: false,
@@ -20,6 +20,8 @@ const CONFIG = {
     rotationSpeedRadPerSec: 0.35,
     friction: 2.2,
     restitution: 0.0,
+    color: 0x050006,
+    rimColor: 0xff2bd6,
   },
 
   cart: {
@@ -57,9 +59,9 @@ const CONFIG = {
   },
 
   camera: {
-    height: 10,
-    distance: 14,
-    fov: 60,
+    height: 18,
+    distance: 28,
+    fov: 55,
   },
 };
 
@@ -148,8 +150,56 @@ async function main() {
   camera.position.set(0, CONFIG.camera.height, CONFIG.camera.distance);
   camera.lookAt(0, 0, 0);
 
-  // Minimal light so geometry is visible without textures/fancy setup.
-  scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+  // Minimal ambient + a few colored spotlights for "neon" vibe.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+
+  function addSpotlightWithCone({ color, position, intensity, target }) {
+    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 5.4, 0.75, 1.1);
+    light.position.copy(position);
+    light.target.position.copy(target);
+    scene.add(light);
+    scene.add(light.target);
+
+    // Fake a visible light cone without fog (simple transparent cone mesh).
+    const height = position.distanceTo(target);
+    const radius = Math.tan(light.angle) * height;
+    const coneGeo = new THREE.ConeGeometry(radius, height, 18, 1, true);
+    const coneMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.13,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const coneMesh = new THREE.Mesh(coneGeo, coneMat);
+    const mid = position.clone().add(target).multiplyScalar(0.5);
+    coneMesh.position.copy(mid);
+    coneMesh.lookAt(target);
+    coneMesh.rotateX(Math.PI / 2); // orient cone axis along -Z
+    scene.add(coneMesh);
+
+    return { light, coneMesh };
+  }
+
+  addSpotlightWithCone({
+    color: 0xff2bd6,
+    position: new THREE.Vector3(-16, 20, 12),
+    intensity: 110,
+    target: new THREE.Vector3(-12, 0, 9),
+  });
+  addSpotlightWithCone({
+    color: 0x2bd6ff,
+    position: new THREE.Vector3(16, 20, 12),
+    intensity: 110,
+    target: new THREE.Vector3(12, 0, 9),
+  });
+  addSpotlightWithCone({
+    color: 0x8dff2b,
+    position: new THREE.Vector3(0, 20, -18),
+    intensity: 95,
+    target: new THREE.Vector3(0, 0, -13),
+  });
 
   const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
@@ -164,14 +214,28 @@ async function main() {
     false,
   );
   const recordMat = new THREE.MeshStandardMaterial({
-    color: 0x202020,
-    roughness: 1,
-    metalness: 0,
+    color: CONFIG.record.color,
+    roughness: 0.95,
+    metalness: 0.15,
   });
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
   recordMesh.position.set(0, CONFIG.record.y, 0);
   recordMesh.receiveShadow = false;
   scene.add(recordMesh);
+
+  // Neon rim (visual only).
+  const rimGeo = new THREE.TorusGeometry(CONFIG.record.radius * 0.985, 0.12, 10, 72);
+  const rimMat = new THREE.MeshStandardMaterial({
+    color: CONFIG.record.rimColor,
+    emissive: CONFIG.record.rimColor,
+    emissiveIntensity: 2.2,
+    roughness: 0.5,
+    metalness: 0.0,
+  });
+  const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+  rimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
+  rimMesh.rotation.x = Math.PI / 2;
+  scene.add(rimMesh);
 
   const recordBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.fixed().setTranslation(0, CONFIG.record.y, 0),
@@ -184,7 +248,18 @@ async function main() {
   );
   void recordCollider;
 
-  function createCart({ color, spawn }) {
+  function yawToCenter(spawn) {
+    // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
+    // Facing the center means forward should point from spawn -> (0,0).
+    return Math.atan2(spawn.x, spawn.z);
+  }
+
+  function quatFromYaw(yaw) {
+    const half = yaw / 2;
+    return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
+  }
+
+  function createCart({ color, spawn, spawnYaw }) {
     const cartGeo = new THREE.BoxGeometry(
       CONFIG.cart.size.x,
       CONFIG.cart.size.y,
@@ -204,6 +279,7 @@ async function main() {
         .setLinearDamping(CONFIG.cart.linearDamping)
         .setAngularDamping(CONFIG.cart.angularDamping),
     );
+    body.setRotation(quatFromYaw(spawnYaw), true);
     // Keep the cart responsive; some Rapier builds may sleep bodies aggressively.
     if (typeof body.setCanSleep === "function") {
       body.setCanSleep(false);
@@ -227,6 +303,7 @@ async function main() {
       body,
       collider,
       spawn,
+      spawnYaw,
       respawnAtMs: null,
       pendingRam: null,
     };
@@ -241,7 +318,7 @@ async function main() {
     cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
     cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    cart.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
+    cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
     cart.respawnAtMs = null;
     cart.pendingRam = null;
   }
@@ -307,14 +384,20 @@ async function main() {
     }
   }
 
+  const edgeSpawnX = CONFIG.record.radius * 0.7;
+  const playerSpawn = { x: -edgeSpawnX, y: CONFIG.cart.spawn.y, z: 0 };
+  const aiSpawn = { x: edgeSpawnX, y: CONFIG.cart.spawn.y, z: 0 };
+
   const playerCart = createCart({
-    color: 0x8a8a8a,
-    spawn: { ...CONFIG.cart.spawn },
+    color: 0x2bd6ff,
+    spawn: playerSpawn,
+    spawnYaw: yawToCenter(playerSpawn),
   });
 
   const aiCart = createCart({
-    color: 0x3aa0ff,
-    spawn: { x: 2.0, y: CONFIG.cart.spawn.y, z: 2.0 },
+    color: 0xff2bd6,
+    spawn: aiSpawn,
+    spawnYaw: yawToCenter(aiSpawn),
   });
 
   const colliderHandleToCart = new Map();
@@ -405,7 +488,89 @@ async function main() {
     "ArrowDown",
     "ArrowRight",
   ]);
+
+  // --- Horn (player only) ---
+  const hornUrlWav = new URL("sounds/horn.wav", window.location.href).toString();
+  const hornUrlMp3 = new URL("sounds/horn.mp3", window.location.href).toString();
+  const hornPreload = new Audio();
+  hornPreload.src = hornUrlWav;
+  hornPreload.preload = "auto";
+  hornPreload.volume = 0.85;
+  let hornLoaded = false;
+  let hornFailed = false;
+  hornPreload.addEventListener("canplaythrough", () => {
+    hornLoaded = true;
+  });
+  hornPreload.addEventListener("error", () => {
+    // Fall back to mp3 if wav isn't present.
+    if (hornPreload.src !== hornUrlMp3) {
+      hornPreload.src = hornUrlMp3;
+      hornPreload.load();
+      return;
+    }
+    hornFailed = true;
+  });
+  hornPreload.load();
+
+  let audioCtx = null;
+  function getAudioContext() {
+    if (audioCtx) return audioCtx;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+  function playProceduralHorn() {
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") {
+      // Best-effort resume; user gesture (Space) should allow it.
+      void ctx.resume();
+    }
+
+    const now = ctx.currentTime;
+    const duration = 0.24;
+
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(760, now + duration * 0.55);
+    osc.frequency.exponentialRampToValueAtTime(620, now + duration);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(900, now);
+    filter.Q.setValueAtTime(7, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  }
+  function playHorn() {
+    if (!hornFailed && hornLoaded) {
+      // Allow overlap by cloning the preloaded element.
+      const a = hornPreload.cloneNode(true);
+      a.currentTime = 0;
+      a.volume = hornPreload.volume;
+      void a.play().catch(() => {
+        playProceduralHorn();
+      });
+      return;
+    }
+    playProceduralHorn();
+  }
+
   function onKeyDown(e) {
+    if (e.code === "Space") {
+      e.preventDefault();
+      playHorn();
+      return;
+    }
     if (handledCodes.has(e.code)) e.preventDefault();
     keys.add(e.code);
     if (CONFIG.debug.input && handledCodes.has(e.code)) {
