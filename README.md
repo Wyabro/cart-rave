@@ -11,8 +11,11 @@ This repo is a **minimal prototype** (Day 1-ish): get the core physics feel work
   - WASD / arrow keys
   - Tank steering (turn-in-place)
   - Slight drift/slide while turning
+- **Third-person chase camera** behind the player cart (smooth damping)
 - **Ramming boost**: collisions get a speed-scaled shove so fast hits feel punchy
 - **Fall + respawn**: fall off the record → respawn quickly
+- **Horn**: Space bar honk (purely cosmetic, spammable)
+- **Neon vibe pass**: colored spotlights + black vinyl rim glow
 
 ## Tech
 - **Three.js** (rendering, loaded via CDN)
@@ -32,3 +35,4 @@ Then open `http://localhost:5173/`.
 - **W / Up Arrow**: forward
 - **S / Down Arrow**: reverse
 - **A/D / Left/Right**: turn
+- **Space**: horn

@@ -8,4 +8,4 @@ python -m http.server 5173
 
 Then open `http://localhost:5173/`.
 
-Controls: **WASD** or **arrow keys**.
+Controls: **WASD** or **arrow keys**. Space = **horn**.

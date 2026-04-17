@@ -59,9 +59,16 @@ const CONFIG = {
   },
 
   camera: {
-    height: 18,
-    distance: 28,
     fov: 55,
+    minFov: 50,
+    maxFov: 75,
+    followBack: 6.0,
+    followUp: 2.8,
+    lookAhead: 5.0,
+    lookUp: 1.2,
+    positionDamping: 10.0,
+    rotationDamping: 12.0,
+    snapDistance: 40.0,
   },
 };
 
@@ -147,21 +154,56 @@ async function main() {
     0.1,
     200,
   );
-  camera.position.set(0, CONFIG.camera.height, CONFIG.camera.distance);
+  camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
+
+  const cameraState = {
+    pos: camera.position.clone(),
+    quat: camera.quaternion.clone(),
+  };
+
+  function dampFactor(lambda, dt) {
+    return 1 - Math.exp(-lambda * dt);
+  }
+
+  function updateCameraFraming() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const portraitBoost = (1 / Math.max(0.5, aspect)) - 1;
+    const wideBoost = Math.max(0, aspect - 1.8);
+    const fov =
+      CONFIG.camera.fov +
+      portraitBoost * 18 +
+      wideBoost * 7;
+    camera.fov = clamp(fov, CONFIG.camera.minFov, CONFIG.camera.maxFov);
+  }
+
+  function updateViewport() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    updateCameraFraming();
+    camera.updateProjectionMatrix();
+  }
+
+  updateViewport();
 
   // Minimal ambient + a few colored spotlights for "neon" vibe.
   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
+  const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
+
   function addSpotlightWithCone({ color, position, intensity, target }) {
     const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 5.4, 0.75, 1.1);
     light.position.copy(position);
-    light.target.position.copy(target);
+    light.target.position.set(target.x, platformTopY, target.z);
     scene.add(light);
     scene.add(light.target);
 
     // Fake a visible light cone without fog (simple transparent cone mesh).
-    const height = position.distanceTo(target);
+    const coneTarget = new THREE.Vector3(target.x, platformTopY, target.z);
+    const height = Math.max(0.01, position.y - platformTopY);
     const radius = Math.tan(light.angle) * height;
     const coneGeo = new THREE.ConeGeometry(radius, height, 18, 1, true);
     const coneMat = new THREE.MeshBasicMaterial({
@@ -173,9 +215,9 @@ async function main() {
       depthWrite: false,
     });
     const coneMesh = new THREE.Mesh(coneGeo, coneMat);
-    const mid = position.clone().add(target).multiplyScalar(0.5);
+    const mid = position.clone().add(coneTarget).multiplyScalar(0.5);
     coneMesh.position.copy(mid);
-    coneMesh.lookAt(target);
+    coneMesh.lookAt(coneTarget);
     coneMesh.rotateX(Math.PI / 2); // orient cone axis along -Z
     scene.add(coneMesh);
 
@@ -628,14 +670,47 @@ async function main() {
       doRespawn(aiCart);
     }
 
-    // Camera follows the cart.
-    const camTarget = new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z);
-    camera.position.set(
-      playerPos.x,
-      playerPos.y + CONFIG.camera.height,
-      playerPos.z + CONFIG.camera.distance,
+    // Third-person follow camera (behind the cart), smoothed.
+    const playerRot = playerCart.body.rotation();
+    const playerQuat = new THREE.Quaternion(
+      playerRot.x,
+      playerRot.y,
+      playerRot.z,
+      playerRot.w,
     );
-    camera.lookAt(camTarget);
+    const playerPosition = new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z);
+    const forwardWorld = new THREE.Vector3(0, 0, -1).applyQuaternion(playerQuat);
+
+    const desiredPos = playerPosition
+      .clone()
+      .addScaledVector(forwardWorld, -CONFIG.camera.followBack)
+      .add(new THREE.Vector3(0, CONFIG.camera.followUp, 0));
+
+    const desiredLook = playerPosition
+      .clone()
+      .addScaledVector(forwardWorld, CONFIG.camera.lookAhead)
+      .add(new THREE.Vector3(0, CONFIG.camera.lookUp, 0));
+
+    // Desired camera rotation from look direction.
+    const lookMat = new THREE.Matrix4().lookAt(
+      desiredPos,
+      desiredLook,
+      new THREE.Vector3(0, 1, 0),
+    );
+    const desiredQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
+
+    if (cameraState.pos.distanceTo(desiredPos) > CONFIG.camera.snapDistance) {
+      cameraState.pos.copy(desiredPos);
+      cameraState.quat.copy(desiredQuat);
+    } else {
+      const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
+      const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
+      cameraState.pos.lerp(desiredPos, posAlpha);
+      cameraState.quat.slerp(desiredQuat, rotAlpha);
+    }
+
+    camera.position.copy(cameraState.pos);
+    camera.quaternion.copy(cameraState.quat);
 
     // Debug: print velocity while input is held (throttled).
     if (
@@ -711,13 +786,7 @@ async function main() {
     requestAnimationFrame(step);
   }
 
-  window.addEventListener("resize", () => {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    renderer.setSize(w, h);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  });
+  window.addEventListener("resize", updateViewport);
 
   requestAnimationFrame(step);
 }
