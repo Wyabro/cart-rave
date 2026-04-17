@@ -70,6 +70,26 @@ const CONFIG = {
     rotationDamping: 12.0,
     snapDistance: 40.0,
   },
+
+  audio: {
+    hornVolume: 0.45,
+    hornRefDistance: 5,
+    hornRolloffFactor: 1.5,
+    musicVolume: 0.15,
+    // * Sparse IR convolver on buffered horn: dry spike + soft reflections.
+    hornEchoIrDurationSec: 0.16,
+    hornEchoTaps: [
+      { delaySec: 0.032, gain: 0.1 },
+      { delaySec: 0.058, gain: 0.055 },
+      { delaySec: 0.09, gain: 0.03 },
+    ],
+    // * Procedural horn: parallel delay tap (matches convolver feel).
+    hornEchoProceduralDelaySec: 0.04,
+    hornEchoProceduralDry: 0.88,
+    hornEchoProceduralWet: 0.14,
+    // * Chance the NPC honks when a ram into the player is registered.
+    aiRamHornChance: 0.38,
+  },
 };
 
 function clamp(value, min, max) {
@@ -124,6 +144,21 @@ function wrapAngleRad(angle) {
   return a;
 }
 
+// * Mono IR: direct impulse plus sparse taps for subtle echo via ConvolverNode.
+function buildSparseEchoImpulseResponse(audioContext) {
+  const rate = audioContext.sampleRate;
+  const dur = CONFIG.audio.hornEchoIrDurationSec;
+  const len = Math.max(1, Math.ceil(dur * rate));
+  const buffer = audioContext.createBuffer(1, len, rate);
+  const ch0 = buffer.getChannelData(0);
+  ch0[0] = 1;
+  for (const tap of CONFIG.audio.hornEchoTaps) {
+    const i = Math.min(len - 1, Math.round(tap.delaySec * rate));
+    ch0[i] += tap.gain;
+  }
+  return buffer;
+}
+
 async function main() {
   await RAPIER.init();
 
@@ -134,9 +169,6 @@ async function main() {
   // Make canvas able to receive keyboard focus.
   canvas.tabIndex = 0;
   canvas.style.outline = "none";
-  canvas.addEventListener("pointerdown", () => {
-    canvas.focus();
-  });
   // Try to focus immediately on load (some browsers require a user gesture;
   // pointerdown above covers that).
   setTimeout(() => canvas.focus(), 0);
@@ -156,6 +188,9 @@ async function main() {
   );
   camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
+
+  const audioListener = new THREE.AudioListener();
+  camera.add(audioListener);
 
   const cameraState = {
     pos: camera.position.clone(),
@@ -446,42 +481,6 @@ async function main() {
   colliderHandleToCart.set(playerCart.collider.handle, playerCart);
   colliderHandleToCart.set(aiCart.collider.handle, aiCart);
 
-  function applyRammingImpulse(rammer, victim) {
-    const rv = rammer.body.linvel();
-    const speed = planarSpeed(rv);
-    if (speed < CONFIG.ramming.minSpeed) return;
-
-    const dir = vec3PlanarDirection(rv);
-    if (!dir) return;
-
-    const rp = rammer.body.translation();
-    const vp = victim.body.translation();
-    const toVictim = new THREE.Vector3(vp.x - rp.x, 0, vp.z - rp.z);
-    if (toVictim.lengthSq() < 1e-6) return;
-    toVictim.normalize();
-
-    // Only count as a "ram" if moving roughly toward the other cart.
-    if (dir.dot(toVictim) < 0.1) return;
-
-    const impulseMag = clamp(
-      CONFIG.ramming.strength * speed * getBodyMass(victim.body),
-      0,
-      CONFIG.ramming.maxImpulse,
-    );
-    const impulse = { x: dir.x * impulseMag, y: 0, z: dir.z * impulseMag };
-
-    // Spread impact over a few physics steps to reduce jitter spikes.
-    const steps = 3;
-    if (!victim.pendingRam) {
-      victim.pendingRam = { impulse, remainingSteps: steps };
-      return;
-    }
-    victim.pendingRam.impulse.x += impulse.x;
-    victim.pendingRam.impulse.y += impulse.y;
-    victim.pendingRam.impulse.z += impulse.z;
-    victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
-  }
-
   let aiNextDecisionMs = 0;
   let aiTarget = { x: 0, z: 0 };
   function pickAiTarget(fromPos) {
@@ -531,39 +530,154 @@ async function main() {
     "ArrowRight",
   ]);
 
-  // --- Horn (player only) ---
+  // --- Horn (positional at player cart) & ambient music ---
   const hornUrlWav = new URL("sounds/horn.wav", window.location.href).toString();
   const hornUrlMp3 = new URL("sounds/horn.mp3", window.location.href).toString();
-  const hornPreload = new Audio();
-  hornPreload.src = hornUrlWav;
-  hornPreload.preload = "auto";
-  hornPreload.volume = 0.85;
-  let hornLoaded = false;
-  let hornFailed = false;
-  hornPreload.addEventListener("canplaythrough", () => {
-    hornLoaded = true;
-  });
-  hornPreload.addEventListener("error", () => {
-    // Fall back to mp3 if wav isn't present.
-    if (hornPreload.src !== hornUrlMp3) {
-      hornPreload.src = hornUrlMp3;
-      hornPreload.load();
-      return;
-    }
-    hornFailed = true;
-  });
-  hornPreload.load();
 
-  let audioCtx = null;
-  function getAudioContext() {
-    if (audioCtx) return audioCtx;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    return audioCtx;
+  const hornEchoIRBuffer = buildSparseEchoImpulseResponse(audioListener.context);
+
+  const playerCartHorn = new THREE.PositionalAudio(audioListener);
+  playerCart.mesh.add(playerCartHorn);
+  playerCartHorn.setRefDistance(CONFIG.audio.hornRefDistance);
+  playerCartHorn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
+  playerCartHorn.setVolume(CONFIG.audio.hornVolume);
+  const playerHornEchoConvolver = audioListener.context.createConvolver();
+  playerHornEchoConvolver.buffer = hornEchoIRBuffer;
+  playerHornEchoConvolver.normalize = false;
+  playerCartHorn.setFilter(playerHornEchoConvolver);
+
+  const aiCartHorn = new THREE.PositionalAudio(audioListener);
+  aiCart.mesh.add(aiCartHorn);
+  aiCartHorn.setRefDistance(CONFIG.audio.hornRefDistance);
+  aiCartHorn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
+  aiCartHorn.setVolume(CONFIG.audio.hornVolume);
+  const aiHornEchoConvolver = audioListener.context.createConvolver();
+  aiHornEchoConvolver.buffer = hornEchoIRBuffer;
+  aiHornEchoConvolver.normalize = false;
+  aiCartHorn.setFilter(aiHornEchoConvolver);
+
+  const hornLoader = new THREE.AudioLoader();
+  let hornBufferReady = false;
+
+  function loadHornFromMp3() {
+    hornLoader.load(
+      hornUrlMp3,
+      (buffer) => {
+        playerCartHorn.setBuffer(buffer);
+        aiCartHorn.setBuffer(buffer);
+        hornBufferReady = true;
+      },
+      undefined,
+      () => {
+        // * Horn samples unavailable; procedural horn is used instead.
+      },
+    );
   }
-  function playProceduralHorn() {
-    const ctx = getAudioContext();
+
+  hornLoader.load(
+    hornUrlWav,
+    (buffer) => {
+      playerCartHorn.setBuffer(buffer);
+      aiCartHorn.setBuffer(buffer);
+      hornBufferReady = true;
+    },
+    undefined,
+    () => {
+      loadHornFromMp3();
+    },
+  );
+
+  const musicUrl = new URL("sounds/music.mp3", window.location.href).toString();
+  const musicEl = new Audio();
+  musicEl.loop = true;
+  musicEl.volume = CONFIG.audio.musicVolume;
+  musicEl.preload = "auto";
+  musicEl.src = musicUrl;
+  let musicStarted = false;
+  let musicUnavailable = false;
+  musicEl.addEventListener("error", () => {
+    musicUnavailable = true;
+  });
+  musicEl.load();
+
+  let audioMuted = false;
+  const muteBtn = document.createElement("button");
+  muteBtn.type = "button";
+  muteBtn.setAttribute("aria-label", "Mute game audio");
+  muteBtn.title = "Mute (M)";
+  Object.assign(muteBtn.style, {
+    position: "fixed",
+    bottom: "14px",
+    right: "86px",
+    zIndex: "10000",
+    width: "42px",
+    height: "42px",
+    padding: "0",
+    margin: "0",
+    boxSizing: "border-box",
+    border: "1px solid rgba(255, 43, 214, 0.55)",
+    borderRadius: "10px",
+    cursor: "pointer",
+    background: "rgba(7, 0, 16, 0.72)",
+    color: "#e8f6ff",
+    fontSize: "22px",
+    lineHeight: "1",
+    boxShadow: "0 0 14px rgba(43, 214, 255, 0.22)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+  });
+
+  function applySessionAudioMute() {
+    audioListener.setMasterVolume(audioMuted ? 0 : 1);
+    musicEl.muted = audioMuted;
+  }
+
+  function refreshMuteButtonUi() {
+    muteBtn.textContent = audioMuted ? "🔇" : "🔊";
+    muteBtn.setAttribute("aria-label", audioMuted ? "Unmute game audio" : "Mute game audio");
+    muteBtn.title = audioMuted ? "Unmute (M)" : "Mute (M)";
+    muteBtn.setAttribute("aria-pressed", audioMuted ? "true" : "false");
+  }
+
+  function toggleSessionAudioMute() {
+    audioMuted = !audioMuted;
+    applySessionAudioMute();
+    refreshMuteButtonUi();
+  }
+
+  muteBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    toggleSessionAudioMute();
+  });
+  document.body.appendChild(muteBtn);
+  refreshMuteButtonUi();
+
+  function tryStartAmbientMusic() {
+    if (musicStarted || musicUnavailable) return;
+    void musicEl.play().then(
+      () => {
+        musicStarted = true;
+      },
+      () => {
+        // * Autoplay may block until a gesture; missing file sets musicUnavailable.
+      },
+    );
+  }
+
+  function unlockAudioAndMaybeStartMusic() {
+    void audioListener.context.resume();
+    tryStartAmbientMusic();
+  }
+
+  canvas.addEventListener("pointerdown", () => {
+    unlockAudioAndMaybeStartMusic();
+    canvas.focus();
+  });
+  window.addEventListener("pointerdown", unlockAudioAndMaybeStartMusic, { passive: true });
+
+  function playProceduralHornAtCart(cart) {
+    const ctx = audioListener.context;
     if (ctx.state === "suspended") {
-      // Best-effort resume; user gesture (Space) should allow it.
       void ctx.resume();
     }
 
@@ -586,28 +700,113 @@ async function main() {
     gain.gain.exponentialRampToValueAtTime(0.22, now + 0.015);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
+    const panner = ctx.createPannerNode();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = CONFIG.audio.hornRefDistance;
+    panner.rolloffFactor = CONFIG.audio.hornRolloffFactor;
+    const p = cart.body.translation();
+    if (panner.positionX) {
+      panner.positionX.setValueAtTime(p.x, now);
+      panner.positionY.setValueAtTime(p.y, now);
+      panner.positionZ.setValueAtTime(p.z, now);
+    } else {
+      panner.setPosition(p.x, p.y, p.z);
+    }
+
+    const echoDry = ctx.createGain();
+    echoDry.gain.value = CONFIG.audio.hornEchoProceduralDry;
+    const echoWet = ctx.createGain();
+    echoWet.gain.value = CONFIG.audio.hornEchoProceduralWet;
+    const echoDelay = ctx.createDelay(0.25);
+    echoDelay.delayTime.value = CONFIG.audio.hornEchoProceduralDelaySec;
+
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(echoDry);
+    gain.connect(echoDelay);
+    echoDelay.connect(echoWet);
+    echoDry.connect(panner);
+    echoWet.connect(panner);
+    panner.connect(audioListener.gain);
 
     osc.start(now);
     osc.stop(now + duration + 0.02);
   }
-  function playHorn() {
-    if (!hornFailed && hornLoaded) {
-      // Allow overlap by cloning the preloaded element.
-      const a = hornPreload.cloneNode(true);
-      a.currentTime = 0;
-      a.volume = hornPreload.volume;
-      void a.play().catch(() => {
-        playProceduralHorn();
-      });
+
+  function playBufferHorn(hornPositional, cartForProcedural) {
+    void audioListener.context.resume();
+    if (hornBufferReady) {
+      if (hornPositional.isPlaying) {
+        hornPositional.stop();
+      }
+      try {
+        hornPositional.play();
+      } catch {
+        playProceduralHornAtCart(cartForProcedural);
+      }
       return;
     }
-    playProceduralHorn();
+    playProceduralHornAtCart(cartForProcedural);
+  }
+
+  function playHorn() {
+    playBufferHorn(playerCartHorn, playerCart);
+  }
+
+  function maybePlayAiRamHornOnPlayerHit() {
+    if (Math.random() >= CONFIG.audio.aiRamHornChance) return;
+    playBufferHorn(aiCartHorn, aiCart);
+  }
+
+  function applyRammingImpulse(rammer, victim) {
+    const rv = rammer.body.linvel();
+    const speed = planarSpeed(rv);
+    if (speed < CONFIG.ramming.minSpeed) return;
+
+    const dir = vec3PlanarDirection(rv);
+    if (!dir) return;
+
+    const rp = rammer.body.translation();
+    const vp = victim.body.translation();
+    const toVictim = new THREE.Vector3(vp.x - rp.x, 0, vp.z - rp.z);
+    if (toVictim.lengthSq() < 1e-6) return;
+    toVictim.normalize();
+
+    // Only count as a "ram" if moving roughly toward the other cart.
+    if (dir.dot(toVictim) < 0.1) return;
+
+    if (rammer === aiCart && victim === playerCart) {
+      maybePlayAiRamHornOnPlayerHit();
+    }
+
+    const impulseMag = clamp(
+      CONFIG.ramming.strength * speed * getBodyMass(victim.body),
+      0,
+      CONFIG.ramming.maxImpulse,
+    );
+    const impulse = { x: dir.x * impulseMag, y: 0, z: dir.z * impulseMag };
+
+    // Spread impact over a few physics steps to reduce jitter spikes.
+    const steps = 3;
+    if (!victim.pendingRam) {
+      victim.pendingRam = { impulse, remainingSteps: steps };
+      return;
+    }
+    victim.pendingRam.impulse.x += impulse.x;
+    victim.pendingRam.impulse.y += impulse.y;
+    victim.pendingRam.impulse.z += impulse.z;
+    victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
   }
 
   function onKeyDown(e) {
+    unlockAudioAndMaybeStartMusic();
+    if (e.code === "KeyM") {
+      if (e.repeat) return;
+      e.preventDefault();
+      toggleSessionAudioMute();
+      return;
+    }
     if (e.code === "Space") {
       e.preventDefault();
       playHorn();
