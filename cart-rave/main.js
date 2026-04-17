@@ -636,8 +636,8 @@ async function main() {
       (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) +
       (keys.has("KeyS") || keys.has("ArrowDown") ? -1 : 0);
     const turn =
-      (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) +
-      (keys.has("KeyA") || keys.has("ArrowLeft") ? -1 : 0);
+      (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
+      (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
     return { forward: clamp(forward, -1, 1), turn: clamp(turn, -1, 1) };
   }
 
