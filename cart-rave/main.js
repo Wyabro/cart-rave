@@ -63,12 +63,11 @@ const CONFIG = {
     minFov: 50,
     maxFov: 75,
     followBack: 6.0,
-    followUp: 3.3,
+    followUp: 2.8,
     lookAhead: 5.0,
     lookUp: 1.2,
     positionDamping: 10.0,
     rotationDamping: 12.0,
-    yawCatchupSeconds: 0.24,
     snapDistance: 40.0,
   },
 };
@@ -161,7 +160,6 @@ async function main() {
   const cameraState = {
     pos: camera.position.clone(),
     quat: camera.quaternion.clone(),
-    yaw: yawFromQuaternion(camera.quaternion),
   };
 
   function dampFactor(lambda, dt) {
@@ -638,8 +636,8 @@ async function main() {
       (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) +
       (keys.has("KeyS") || keys.has("ArrowDown") ? -1 : 0);
     const turn =
-      (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
-      (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
+      (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) +
+      (keys.has("KeyA") || keys.has("ArrowLeft") ? -1 : 0);
     return { forward: clamp(forward, -1, 1), turn: clamp(turn, -1, 1) };
   }
 
@@ -693,22 +691,22 @@ async function main() {
       .addScaledVector(forwardWorld, CONFIG.camera.lookAhead)
       .add(new THREE.Vector3(0, CONFIG.camera.lookUp, 0));
 
-    const toLook = desiredLook.clone().sub(desiredPos);
-    const planar = Math.hypot(toLook.x, toLook.z);
-    const desiredYaw = Math.atan2(toLook.x, toLook.z);
-    const desiredPitch = -Math.atan2(toLook.y, Math.max(1e-6, planar));
+    // Desired camera rotation from look direction.
+    const lookMat = new THREE.Matrix4().lookAt(
+      desiredPos,
+      desiredLook,
+      new THREE.Vector3(0, 1, 0),
+    );
+    const desiredQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
 
     if (cameraState.pos.distanceTo(desiredPos) > CONFIG.camera.snapDistance) {
       cameraState.pos.copy(desiredPos);
-      cameraState.yaw = desiredYaw;
-      cameraState.quat.setFromEuler(new THREE.Euler(desiredPitch, cameraState.yaw, 0, "YXZ"));
+      cameraState.quat.copy(desiredQuat);
     } else {
       const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
+      const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
       cameraState.pos.lerp(desiredPos, posAlpha);
-      const yawAlpha = dampFactor(1 / CONFIG.camera.yawCatchupSeconds, dt);
-      const yawDelta = wrapAngleRad(desiredYaw - cameraState.yaw);
-      cameraState.yaw = wrapAngleRad(cameraState.yaw + yawDelta * yawAlpha);
-      cameraState.quat.setFromEuler(new THREE.Euler(desiredPitch, cameraState.yaw, 0, "YXZ"));
+      cameraState.quat.slerp(desiredQuat, rotAlpha);
     }
 
     camera.position.copy(cameraState.pos);
