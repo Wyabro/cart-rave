@@ -1,0 +1,101 @@
+# Cart Rave — Design Document / Project Bible
+
+## What this project is
+Cart Rave — a browser-based multiplayer physics sumo game entered into the Cursor Vibe Jam 2026.
+Shopping carts on a giant spinning vinyl record in a nightclub setting. Last cart on the record wins. Short rounds, instant respawn, intentionally janky physics. The name is a nod to the Crab Rave meme, and the whole thing is meant to be dumb in a way that makes people want to send clips to friends.
+
+Pitch: "Cart Rave. Sumo on a spinning turntable. Last cart at the afterparty."
+Tonal references: Halo Sumo (Warthogs on Sandtrap) + Gorillaz Final Drive flash game + Crab Rave energy.
+
+## Stack
+- Three.js (rendering)
+- Rapier3D (physics)
+- PartyKit or Colyseus (multiplayer if stretch)
+- Supabase (leaderboard)
+- Vercel (hosting)
+- Single domain: cartrave.lol
+
+## Jam Rules (CRITICAL)
+- MANDATORY widget in HTML: <script async src="https://vibej.am/2026/widget.js"></script>
+- 90%+ AI-generated code
+- Browser-playable, no login, no loading screens (instant load required)
+- Free to play, single domain
+- Deadline: May 1, 2026 @ 13:37 UTC
+
+## What players should feel
+Disbelief, chaos, "I need to show someone this," satisfaction from a good ram, Crab Rave victory energy when they win.
+
+## Core loop
+Spawn on rotating turntable with up to 7 other carts → 30-60 seconds of ramming and surviving → fall off = ragdoll into void → last cart wins round → music stinger → instant respawn.
+
+## Core verb
+Push. No weapons, no power-ups, no abilities. Physics + positioning = all skill expression.
+
+## Arena
+Giant vinyl record spinning slowly (0.5-1 rotation per round). Center label is safest, edges are deadly. Floats in neon-lit club space — DJ booth background, strobes, fog, colored spotlights. Not full club interior, not pure void.
+
+## Vehicle
+Stock shopping cart. Stretch: 3-4 cosmetic variants including a crab-driven cart as rare/hidden.
+
+## Controls
+- WASD/arrows to drive
+- Space for horn (no mechanical effect, pure comedy button)
+- Nothing else
+
+## Round structure
+One cart remaining OR 60-second timer (cart closest to center wins on timeout). Running session tally, no match end.
+
+## Visual direction
+Low-poly with modern lighting. Neon rave palette: hot pink, electric blue, lime green, UV purple. Strobes and color cycling but not seizure-inducing. Chunky readable shapes. Intentionally janky animations — the jank is the point.
+
+## Audio direction
+- One main track (Crab Rave-adjacent original loop, steel drum energy)
+- Bass-reactive visual elements
+- Bicycle-horn-pitched-up for the horn SFX
+- Long Wilhelm-adjacent ragdoll scream on death
+- Airhorn + cheering on victory
+
+## Personality details
+- Ragdoll ejection on death
+- Spammable horn with no cooldown
+- Title screen "CART RAVE" in club-poster font with tagline "like crab rave but with carts"
+- Fake 16/32 bit color toggle (does nothing, Final Drive homage)
+- Hidden void hole somewhere on record
+- One cart skin is a crab
+
+## Scope tiers
+
+### MUST SHIP (MVP)
+- One arena, one cart, single-player survival mode
+- Rotating platform, fall detection, respawn
+- Core physics feel nailed
+- Horn button
+- Basic lighting and music
+- Personal-best leaderboard
+- Vibe Jam widget deployed
+- Deployed to cartrave.lol
+
+### SHOULD SHIP (stretch 1)
+- Multiplayer (2-4 min, 8 ideal)
+- Ragdoll death animation
+- Multiple cart skins
+- Title screen polish with meme jokes
+
+### NICE TO HAVE (stretch 2)
+- Crab cart unlockable
+- Music rotation
+- Hidden void hole
+- Mobile support
+- Fake bit-depth toggle
+- Between-round song voting
+
+## Non-goals (will NOT build)
+Story mode, campaign, progression systems, unlocks that gate gameplay, microtransactions, accounts/logins, custom arenas, anything taking >30min to add during final week.
+
+## Key constraints for AI coding
+- Instant load is a hard constraint — no splash screen, no preloader, no click-to-start
+- Lazy-load all assets, no big upfront bundle
+- Widget script must be in index.html at all times
+- Single file or minimal bundled setup preferred
+- Physics tuning is highest priority — cart feel is the game
+- Keep scope tight, do not add features not listed above

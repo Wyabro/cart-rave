@@ -1,0 +1,20 @@
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+
+# Cursor
+.cursor/
+
+# Node (if added later)
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
