@@ -1,6 +1,11 @@
 .DS_Store
 Thumbs.db
 
+# Env / deploy artifacts
+.env
+.env.local
+.vercel/
+
 # Logs
 *.log
 
