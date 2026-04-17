@@ -1,38 +1,19 @@
-# Cart Rave
+# Cart Rave (prototype)
 
-Browser-based physics sumo: shopping carts on a giant spinning vinyl record. Last cart on the record wins.
-
-This repo is a **minimal prototype** (Day 1-ish): get the core physics feel working first.
-
-## Current prototype features
-- **Rotating record platform** (visual rotation; physics platform is fixed for stability)
-- **2 carts with physics**: player cart + a dumb **AI wanderer**
-- **Arcade driving**
-  - WASD / arrow keys
-  - Tank steering (turn-in-place)
-  - Slight drift/slide while turning
-- **Third-person chase camera** behind the player cart (smooth damping)
-- **Ramming boost**: collisions get a speed-scaled shove so fast hits feel punchy
-- **Fall + respawn**: fall off the record → respawn quickly
-- **Horn**: Space bar honk (purely cosmetic, spammable)
-- **Neon vibe pass**: colored spotlights + black vinyl rim glow
-
-## Tech
-- **Three.js** (rendering, loaded via CDN)
-- **Rapier3D** (physics, loaded via CDN)
-
-## Run locally
-From the repo root:
+Open via a local server (module + audio need HTTP, not `file://`):
 
 ```bash
-cd cart-rave
 python -m http.server 5173
 ```
 
 Then open `http://localhost:5173/`.
 
 ## Controls
-- **W / Up Arrow**: forward
-- **S / Down Arrow**: reverse
-- **A/D / Left/Right**: turn
-- **Space**: horn
+- **WASD** or **arrow keys** — drive
+- **Space** — horn
+- **M** or the **speaker button** (bottom of the screen) — mute / unmute all audio
+
+## Sounds
+Optional files in `sounds/`:
+- **`music.mp3`** — background music (first click or key starts playback)
+- **`horn.wav`** / **`horn.mp3`** — horn clip (synth honk if missing)

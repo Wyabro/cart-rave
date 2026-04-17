@@ -1,0 +1,132 @@
+# Cart Rave — .cursorrules
+
+## What this is
+Cart Rave is a browser-based 4-player physics sumo game for Cursor Vibe Jam 2026.
+Shopping carts on a slowly rotating neon dancefloor in a club. Last cart standing wins.
+Pitch: "Sumo on a spinning dancefloor. Last cart at the afterparty."
+Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
+
+## Jam context
+- Deadline: May 1, 2026 @ 13:37 UTC
+- Entry must be 90%+ AI-generated (Cursor is primary tool)
+- No login, no loading screens, instant-to-play
+- Must include Vibe Jam widget: <script async src="https://vibej.am/2026/widget.js"></script>
+- Vibe Jam portal integration planned (exit portal on spawn platform → https://vibej.am/portal/2026)
+
+## Stack
+- Three.js (rendering)
+- Rapier3D (physics, client-side)
+- PartyKit (multiplayer server, Cloudflare Workers edge)
+- Vercel (static hosting)
+- Porkbun (DNS for cartrave.lol)
+- localStorage for username + personal stats
+- Supabase planned as stretch goal for global leaderboard (not yet integrated)
+
+## Architecture
+- **Host-authoritative multiplayer.** First player in a room runs physics for all carts (human and NPC); other clients render interpolated state.
+- **4 cart slots per room, always filled.** Empty slots are occupied by NPCs. Humans replace NPCs on join; departing humans revert to NPCs. Room is never empty, rounds never wait.
+- **Solo play is first-class.** A single human + 3 NPCs is a complete, playable game — not a degraded state.
+- **Drop-in/drop-out.** Rounds start immediately with whatever mix of humans and NPCs exists. Joining mid-round spawns you on the lobby platform for next round.
+- **Room code in URL** (e.g., cartrave.lol/?room=ABCD). Default landing page with no params = public Quickplay room. Shared URL joins that specific private room.
+- **Server-synced time** for dancefloor rotation. Compute rotation angle from `serverTime % rotationPeriod` on every client — NEVER use local deltaTime for dancefloor rotation, it will cause desync.
+- **Sync cart transforms (position + rotation + linear velocity + angular velocity) at 20Hz.** Wheels, audio, and effects are derived locally from synced state. Sync treats human and NPC carts identically — both are just "cart states being broadcast."
+- **Disconnect handling:** human leaves → slot converts to NPC mid-round, round continues seamlessly.
+- **Host migration:** if host leaves, assign new host from remaining humans. New host picks up NPC control. Show "host migrated" message briefly, don't break the room or freeze NPCs.
+
+## Landing page UX
+- **No menu screen.** cartrave.lol loads directly into the game — dancefloor visible, NPCs already playing, rotation already happening.
+- **Quickplay button** (small, top-left): drops player into current public room or creates a new public room if none exists.
+- **Play with friends button**: creates a private room, auto-copies the URL to clipboard, shows "Link copied!" confirmation.
+- **Username prompt on first visit only**, stored in localStorage for future sessions.
+- **Instant-to-fun rule**: every click moves the player closer to carts-on-dancefloor, never further.
+
+## Game structure
+- **Spawn platform** (separate from the dancefloor): players spawn here, see each other, jump onto the dancefloor when ready. Vibe Jam exit portal lives here as a glowing gateway.
+- **Main arena:** a circular neon dancefloor that rotates slowly (one rotation per ~25 seconds). Shaped as a RING, not a disc — there is a **hole in the center** (vinyl's center hole reimagined). Hole radius ~15-20% of dancefloor radius; tunable. Emissive tile grid on the floor with equalizer-style pulses. Fog drifting across the surface.
+- **Two danger zones:** outer edge (centrifugal fling-off into surrounding darkness) and inner edge (fall through the center hole into a colored uplit void). Both are valid kill vectors — ram opponents outward OR toward the center.
+- **External reference points:** DJ booth, speaker stacks, or club-interior geometry at fixed (non-rotating) positions around the dancefloor. Critical for player orientation — a rotating floor without fixed references causes disorientation. These double as visual atmosphere.
+- **Physics implementation note:** the dancefloor must be a RING collider (inner radius + outer radius), NOT a solid disc with a script-side "is inside hole" check. Carts falling into the hole must actually fall through the geometry, not sit on an invisible disc.
+- **Round loop:**
+  1. Countdown (3s) once 2+ carts (humans or NPCs) are on the dancefloor
+  2. Round runs for 60s OR until 1 cart remains
+  3. Winner gets podium moment (2-3s)
+  4. Scoreboard updates (wins per player in current session)
+  5. Return to spawn platform, next round begins when 2+ ready
+
+## NPCs
+- **Fill empty slots automatically.** 4 cart slots always active; empty slots = NPCs.
+- **AI controlled host-side.** NPC logic runs on the host client alongside physics; other clients render them as regular synced carts.
+- **Skill level: "competent but beatable."** Current wandering AI with edge-bias is baseline; tune up from there once round structure exists. NPCs should also fear the center hole, not just the outer edge.
+- **Procedurally-named** from a comedy-coded pool: RollBot, CartGPT, Trolley McTrolleyFace, WheelE, BaggerVance, PushPop, ShopTilIDrop, Cartholic, RamBuggy, Wheelicious, etc. Pick up to 3 per room, no duplicates.
+- **First-class scoreboard participants.** NPC wins count, display their names, include in session totals. "CartGPT wins!" is a feature, not a bug.
+- **Honk and are rammable like humans.** NPCs honk occasionally and use the same positional audio system.
+- **Replaced seamlessly by joining humans.** When a human joins, their cart inherits an NPC's slot/color (or spawns fresh on the lobby platform if mid-round) and the NPC is retired from the room.
+
+## Visuals
+- **Procedural cart models** (no external assets). Built from Three.js primitives — box for basket frame, cylinders for wheels and handle.
+- **Four wheels per cart** with two rotation axes:
+  - Pitch (spin) based on velocity magnitude, axis = wheel's local X
+  - Yaw (caster swivel) follows cart VELOCITY VECTOR in world space (not cart forward direction — this makes drifts read correctly), with damping for the "stuck sideways" look and sinusoidal wobble at high speed
+- **Four cart colors** for player distinguishability: hot pink, electric blue, lime green, neon yellow. Assigned on join.
+- **Emissive materials** on cart frames for neon readability under spotlights.
+- **Dancefloor:** emissive tile grid with subtle equalizer pulses, drifting fog at floor level, dark void beyond the outer edge.
+- **Center hole styling:** flush edge (no lip), emissive ring around the hole rim as visual warning. Void below lit with colored uplighting — carts falling through drop into a visible neon-lit pit, not just darkness.
+- **Edge vs center death animations:** carts flung off the outer edge tumble into surrounding darkness; carts falling through the center hole drop into the colored uplit void. Two visually distinct "deaths."
+- **Club environment:** DJ booth + speaker stacks + suggested club walls/ceiling in the distance. Provides fixed reference points for spatial orientation while the dancefloor rotates.
+- **Lighting:** existing hot pink / electric blue / lime green spotlights from above, tuned for 4-cart visibility. Emissive floor adds from below.
+
+## Audio
+- Positional 3D audio via Three.js PositionalAudio, listener on camera.
+- Bicycle horn SFX per cart (Space key). Each remote cart's horn plays from its synced position.
+- Background music at 0.15 volume, starts on first input (autoplay policy).
+- Mute button (bottom-right, does not overlap Vibe Jam widget) + M key toggle.
+
+## Controls
+- WASD or arrow keys: tank steering (drift when moving)
+- Space: horn
+- M: mute toggle
+- Mouse/touch: not supported. **Desktop only.** Show "desktop only" message on mobile user agents.
+
+## Physics feel
+- Speed-scaled ramming (spread impulse over multiple frames to avoid jank)
+- 600ms fall-and-respawn with visible fall
+- Tank steering with drift
+- **Two fall triggers:** outer edge (cart position beyond dancefloor outer radius) and center hole (cart position within hole inner radius). Both trigger the fall-and-respawn with their respective animations.
+- Rapier deterministic config where possible (minimizes drift between host and clients).
+
+## UX rules (hard)
+- **No loading screens.** Game renders immediately; multiplayer connects in background.
+- **No login.** Username prompt on first visit only, stored in localStorage.
+- **No blocking "connecting..." UI.** Cart appears and is drivable as soon as local scene loads; syncs to other players when connection completes.
+- **No "waiting for players" screen, ever.** NPCs fill empty slots so the game always has a full lobby.
+- **Instant-to-fun.** Every click should move the player closer to carts-on-dancefloor, not further.
+
+## What's deferred
+- Ragdoll cart death animation (visual polish)
+- Cart skin variants (crab cart easter egg)
+- Bit-depth toggle, title screen polish
+- Supabase global leaderboard (stretch)
+- 5-8 player support (stretch, only if 4-player is rock solid by day 11)
+- Mobile support (CUT — desktop only)
+
+## How Wyatt works
+- Directs Cursor via prompts, does not hand-edit code
+- Commits frequently, reverts over debugging broken state
+- Pushback > validation; start new agents if Cursor spirals on the same code
+- Screenshots for visual review mid-session
+
+## Execution order (the plan)
+1. Deploy to cartrave.lol via Vercel (infrastructure)
+2. Empty PartyKit server, confirm client-server handshake (infrastructure)
+3. Procedural cart models with caster wheels (visual identity)
+4. Round structure + 60s timer + last-cart-standing + session scoreboard (gameplay loop)
+5. Multiplayer sync for 2 human carts (the hard part)
+6. NPC fill for empty slots (solves empty-lobby problem)
+7. Scale to 4 humans + NPCs mixing (scale test)
+8. Vibe Jam portal on spawn platform (webring integration)
+9. Physics/visual tuning with real game context (feel pass)
+10. Polish pass — lighting, particles, UI juice (polish)
+11. STRETCH: Supabase global leaderboard (cut if tight)
+12. Ship
+
+Cut points in order: Supabase (11), polish depth (10), 5-8 player scaling. Everything 1-9 is core.
