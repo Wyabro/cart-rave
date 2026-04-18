@@ -614,7 +614,11 @@ async function main() {
   }
 
   const spawnR = CONFIG.record.radius * 0.7;
-  const playerSpawn = { x: -spawnR, y: CONFIG.cart.spawn.y, z: 0 };
+  const playerSpawn = {
+    x: CONFIG.cart.spawn.x,
+    y: CONFIG.cart.spawn.y,
+    z: CONFIG.cart.spawn.z,
+  };
   const playerAngle = Math.atan2(playerSpawn.z, playerSpawn.x);
 
   const playerCart = createCart({
@@ -1102,6 +1106,11 @@ async function main() {
         recordRadius: CONFIG.record.radius,
         recordInnerRadius: CONFIG.record.innerRadius,
         cartSpawnConfig: CONFIG.cart.spawn,
+        playerTranslationMatchesSpawnConfig: {
+          x: Math.abs(playerT.x - CONFIG.cart.spawn.x) < 0.02,
+          y: Math.abs(playerT.y - CONFIG.cart.spawn.y) < 0.02,
+          z: Math.abs(playerT.z - CONFIG.cart.spawn.z) < 0.02,
+        },
       });
     }
 
