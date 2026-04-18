@@ -40,6 +40,9 @@ const CONFIG = {
     angularDamping: 3.5,
   },
 
+  // * TEST scaffolding only: extra NPC carts (not slot-fill / PartyKit join flow).
+  npcCount: 3,
+
   driving: {
     maxSpeed: 14.0,
     reverseMaxSpeed: 8.0,
@@ -603,9 +606,9 @@ async function main() {
     }
   }
 
-  const edgeSpawnX = CONFIG.record.radius * 0.7;
-  const playerSpawn = { x: -edgeSpawnX, y: CONFIG.cart.spawn.y, z: 0 };
-  const aiSpawn = { x: edgeSpawnX, y: CONFIG.cart.spawn.y, z: 0 };
+  const spawnR = CONFIG.record.radius * 0.7;
+  const playerSpawn = { x: -spawnR, y: CONFIG.cart.spawn.y, z: 0 };
+  const playerAngle = Math.atan2(playerSpawn.z, playerSpawn.x);
 
   const playerCart = createCart({
     color: 0x2bd6ff,
@@ -614,19 +617,33 @@ async function main() {
     label: "player",
   });
 
-  const aiCart = createCart({
-    color: 0xff2bd6,
-    spawn: aiSpawn,
-    spawnYaw: yawToCenter(aiSpawn),
-    label: "ai",
-  });
+  const NPC_TEST_COLORS = [0xff2bd6, 0x8dff2b, 0xffee00, 0xff8800, 0xaa66ff];
+  const npcCount = Math.max(0, Math.floor(CONFIG.npcCount));
+  const npcCarts = [];
+  for (let i = 0; i < npcCount; i += 1) {
+    const theta = playerAngle + ((i + 1) * Math.PI) / 2;
+    const spawn = {
+      x: spawnR * Math.cos(theta),
+      y: CONFIG.cart.spawn.y,
+      z: spawnR * Math.sin(theta),
+    };
+    const cart = createCart({
+      color: NPC_TEST_COLORS[i % NPC_TEST_COLORS.length],
+      spawn,
+      spawnYaw: yawToCenter(spawn),
+      label: `npc-${i}`,
+    });
+    cart.aiNextDecisionMs = 0;
+    cart.aiTarget = { x: 0, z: 0 };
+    npcCarts.push(cart);
+  }
 
   const colliderHandleToCart = new Map();
   colliderHandleToCart.set(playerCart.collider.handle, playerCart);
-  colliderHandleToCart.set(aiCart.collider.handle, aiCart);
+  for (const c of npcCarts) {
+    colliderHandleToCart.set(c.collider.handle, c);
+  }
 
-  let aiNextDecisionMs = 0;
-  let aiTarget = { x: 0, z: 0 };
   function pickAiTarget(fromPos) {
     const dist = Math.hypot(fromPos.x, fromPos.z);
     const edgeBiasStart = CONFIG.record.radius * 0.78;
@@ -637,23 +654,27 @@ async function main() {
     return { x: Math.cos(a) * r, z: Math.sin(a) * r };
   }
 
-  function getAiAxis(now) {
-    const p = aiCart.body.translation();
-    if (now >= aiNextDecisionMs) {
-      aiTarget = pickAiTarget(p);
-      aiNextDecisionMs = now + (2000 + Math.random() * 2000);
+  /**
+   * @param {number} now
+   * @param {{ body: any; aiNextDecisionMs: number; aiTarget: { x: number; z: number } }} cart
+   */
+  function getAiAxis(now, cart) {
+    const p = cart.body.translation();
+    if (now >= cart.aiNextDecisionMs) {
+      cart.aiTarget = pickAiTarget(p);
+      cart.aiNextDecisionMs = now + (2000 + Math.random() * 2000);
     }
 
-    const toTarget = new THREE.Vector3(aiTarget.x - p.x, 0, aiTarget.z - p.z);
+    const toTarget = new THREE.Vector3(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     if (toTarget.lengthSq() < 0.25) {
-      aiTarget = pickAiTarget(p);
-      aiNextDecisionMs = now + (2000 + Math.random() * 2000);
-      toTarget.set(aiTarget.x - p.x, 0, aiTarget.z - p.z);
+      cart.aiTarget = pickAiTarget(p);
+      cart.aiNextDecisionMs = now + (2000 + Math.random() * 2000);
+      toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
     toTarget.normalize();
 
     const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
-    const currentYaw = yawFromQuaternion(aiCart.body.rotation());
+    const currentYaw = yawFromQuaternion(cart.body.rotation());
     const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
 
     const turn = clamp(yawDiff * 1.4, -1, 1);
@@ -690,15 +711,20 @@ async function main() {
   playerHornEchoConvolver.normalize = false;
   playerCartHorn.setFilter(playerHornEchoConvolver);
 
-  const aiCartHorn = new THREE.PositionalAudio(audioListener);
-  aiCart.mesh.add(aiCartHorn);
-  aiCartHorn.setRefDistance(CONFIG.audio.hornRefDistance);
-  aiCartHorn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
-  aiCartHorn.setVolume(CONFIG.audio.hornVolume);
-  const aiHornEchoConvolver = audioListener.context.createConvolver();
-  aiHornEchoConvolver.buffer = hornEchoIRBuffer;
-  aiHornEchoConvolver.normalize = false;
-  aiCartHorn.setFilter(aiHornEchoConvolver);
+  /** @type {{ horn: THREE.PositionalAudio; cart: (typeof playerCart) }[]} */
+  const npcHornEntries = [];
+  for (const c of npcCarts) {
+    const horn = new THREE.PositionalAudio(audioListener);
+    c.mesh.add(horn);
+    horn.setRefDistance(CONFIG.audio.hornRefDistance);
+    horn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
+    horn.setVolume(CONFIG.audio.hornVolume);
+    const conv = audioListener.context.createConvolver();
+    conv.buffer = hornEchoIRBuffer;
+    conv.normalize = false;
+    horn.setFilter(conv);
+    npcHornEntries.push({ horn, cart: c });
+  }
 
   const hornLoader = new THREE.AudioLoader();
   let hornBufferReady = false;
@@ -708,7 +734,9 @@ async function main() {
       hornUrlMp3,
       (buffer) => {
         playerCartHorn.setBuffer(buffer);
-        aiCartHorn.setBuffer(buffer);
+        for (const { horn } of npcHornEntries) {
+          horn.setBuffer(buffer);
+        }
         hornBufferReady = true;
       },
       undefined,
@@ -722,7 +750,9 @@ async function main() {
     hornUrlWav,
     (buffer) => {
       playerCartHorn.setBuffer(buffer);
-      aiCartHorn.setBuffer(buffer);
+      for (const { horn } of npcHornEntries) {
+        horn.setBuffer(buffer);
+      }
       hornBufferReady = true;
     },
     undefined,
@@ -898,9 +928,11 @@ async function main() {
     playBufferHorn(playerCartHorn, playerCart);
   }
 
-  function maybePlayAiRamHornOnPlayerHit() {
+  function maybePlayAiRamHornOnPlayerHit(rammerCart) {
     if (Math.random() >= CONFIG.audio.aiRamHornChance) return;
-    playBufferHorn(aiCartHorn, aiCart);
+    const entry = npcHornEntries.find((e) => e.cart === rammerCart);
+    if (!entry) return;
+    playBufferHorn(entry.horn, rammerCart);
   }
 
   function applyRammingImpulse(rammer, victim) {
@@ -920,8 +952,8 @@ async function main() {
     // Only count as a "ram" if moving roughly toward the other cart.
     if (dir.dot(toVictim) < 0.1) return;
 
-    if (rammer === aiCart && victim === playerCart) {
-      maybePlayAiRamHornOnPlayerHit();
+    if (victim === playerCart && npcCarts.includes(rammer)) {
+      maybePlayAiRamHornOnPlayerHit(rammer);
     }
 
     const impulseMag = clamp(
@@ -998,19 +1030,20 @@ async function main() {
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
 
     const playerAxis = getAxis();
-    const aiAxis = getAiAxis(now);
 
     const playerPos = playerCart.body.translation();
-    const aiPos = aiCart.body.translation();
 
     // Fall detection / respawn.
     if (playerPos.y < CONFIG.fall.yThreshold) scheduleRespawn(playerCart, now);
     if (playerCart.respawnAtMs !== null && now >= playerCart.respawnAtMs) {
       doRespawn(playerCart);
     }
-    if (aiPos.y < CONFIG.fall.yThreshold) scheduleRespawn(aiCart, now);
-    if (aiCart.respawnAtMs !== null && now >= aiCart.respawnAtMs) {
-      doRespawn(aiCart);
+    for (const c of npcCarts) {
+      const p = c.body.translation();
+      if (p.y < CONFIG.fall.yThreshold) scheduleRespawn(c, now);
+      if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
+        doRespawn(c);
+      }
     }
 
     // Third-person follow camera (behind the cart), smoothed.
@@ -1083,10 +1116,12 @@ async function main() {
       substeps < CONFIG.maxSubsteps
     ) {
       applyArcadeControls(playerCart, playerAxis, CONFIG.fixedTimeStep);
-      applyArcadeControls(aiCart, aiAxis, CONFIG.fixedTimeStep);
+      for (const c of npcCarts) {
+        applyArcadeControls(c, getAiAxis(now, c), CONFIG.fixedTimeStep);
+      }
 
       // Apply any pending ramming impulses over multiple physics steps.
-      for (const cart of [playerCart, aiCart]) {
+      for (const cart of [playerCart, ...npcCarts]) {
         if (!cart.pendingRam) continue;
         const { impulse, remainingSteps } = cart.pendingRam;
         const denom = Math.max(1, remainingSteps);
@@ -1122,15 +1157,15 @@ async function main() {
       cartLinvelScratch.set(lv.x, lv.y, lv.z);
       updateCartVisuals(playerCart.mesh, cartLinvelScratch, dt, now);
     }
-    {
-      const p = aiCart.body.translation();
-      const r = aiCart.body.rotation();
-      aiCart.mesh.position.set(p.x, p.y, p.z);
-      aiCart.mesh.quaternion.set(r.x, r.y, r.z, r.w);
-      aiCart.mesh.updateMatrixWorld(true);
-      const lv = aiCart.body.linvel();
+    for (const c of npcCarts) {
+      const p = c.body.translation();
+      const r = c.body.rotation();
+      c.mesh.position.set(p.x, p.y, p.z);
+      c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+      c.mesh.updateMatrixWorld(true);
+      const lv = c.body.linvel();
       cartLinvelScratch.set(lv.x, lv.y, lv.z);
-      updateCartVisuals(aiCart.mesh, cartLinvelScratch, dt, now);
+      updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
     }
 
     renderer.render(scene, camera);
