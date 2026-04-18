@@ -32,7 +32,6 @@ const CONFIG = {
     swirl: {
       enabled: true,
       maxForce: 8.0,
-      falloffRadius: 6.0,
       falloffExponent: 2.0,
       direction: 1,
     },
@@ -108,6 +107,8 @@ const CONFIG = {
     aiRamHornChance: 0.38,
   },
 };
+
+CONFIG.record.swirl.falloffRadius = CONFIG.record.radius * 0.75;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
