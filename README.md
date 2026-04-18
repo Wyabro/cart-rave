@@ -31,6 +31,7 @@ Tuning lives under **`CONFIG.record`** in **`main.js`** (e.g. `radius`, `innerRa
 
 - **Visuals:** edit the exported constants at the top of **`cart.js`** (basket, chassis, wheels, caster behavior). **`main.js`** imports `buildCart`, `updateCartVisuals`, and `resetCartVisualState`.
 - **Physics / feel:** **`CONFIG.cart`**, **`CONFIG.driving`**, **`CONFIG.ramming`**, **`CONFIG.fall`** in **`main.js`**. Collider size is `CONFIG.cart.size` (half-extents are derived in code). Center-of-mass is adjusted for tipping (see comments around cart spawn / mass properties in **`main.js`**—not a full mass pipeline).
+- **Spawn height:** `CONFIG.cart.spawn.y` is tuned to reduce the initial drop onto the floor (which can cause a brief, ugly tilt/roll as contacts resolve) and to better align the visual wheels with the floor.
 
 ## NPC test scaffolding (not “slot fill”)
 
