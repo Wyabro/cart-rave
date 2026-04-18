@@ -1,12 +1,12 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
-export const BASKET_LENGTH = 1.4;
-export const BASKET_WIDTH = 0.9;
-export const BASKET_HEIGHT_BACK = 0.7;
-export const BASKET_HEIGHT_FRONT = 0.45;
-export const BASKET_RIM_TOP_Y = 0.34;
-export const BASKET_RAIL_RADIUS = 0.011;
+export const BASKET_LENGTH = 2.1;
+export const BASKET_WIDTH = 1.35;
+export const BASKET_HEIGHT_BACK = 1.05;
+export const BASKET_HEIGHT_FRONT = 0.675;
+export const BASKET_RIM_TOP_Y = 0.51;
+export const BASKET_RAIL_RADIUS = 0.0165;
 export const BASKET_RAIL_SEGMENTS = 6;
 export const HORIZONTAL_RAILS_LONG = 4;
 export const VERTICAL_RAILS_LONG = 6;
@@ -19,15 +19,15 @@ export const BOTTOM_GRID_ALONG_Z = 5;
 export const BOTTOM_Z_SEGMENTS = 10;
 
 // * Handle (top-back, slightly proud of rim).
-export const HANDLE_BAR_RADIUS = 0.048;
-export const HANDLE_SPREAD_X = 0.28;
-export const HANDLE_BAR_Y = BASKET_RIM_TOP_Y + 0.095;
-export const HANDLE_PUSH_Z = 0.07;
+export const HANDLE_BAR_RADIUS = 0.072;
+export const HANDLE_SPREAD_X = 0.42;
+export const HANDLE_BAR_Y = BASKET_RIM_TOP_Y + 0.1425;
+export const HANDLE_PUSH_Z = 0.105;
 
 // * Open chassis under basket (rails + crossbars, no solid shelf).
-export const CHASSIS_RAIL_RADIUS = 0.016;
-export const CHASSIS_HALF_WIDTH = 0.36;
-export const CHASSIS_HALF_LENGTH = 0.62;
+export const CHASSIS_RAIL_RADIUS = 0.024;
+export const CHASSIS_HALF_WIDTH = 0.54;
+export const CHASSIS_HALF_LENGTH = 0.93;
 export const CHASSIS_RAIL_Y = -0.48;
 export const CHASSIS_CROSSBAR_COUNT = 2;
 export const CHASSIS_CROSSBAR_Z_FRACTIONS = [-0.55, 0.55];
@@ -36,11 +36,11 @@ export const CHASSIS_CROSSBAR_Z_FRACTIONS = [-0.55, 0.55];
 export const CASTER_YAW_DAMPING = 0.28;
 export const CASTER_YAW_WOBBLE_AMPLITUDE = 0.11;
 export const CASTER_YAW_MIN_SPEED = 0.35;
-export const WHEEL_RADIUS = 0.18;
-export const WHEEL_WIDTH = 0.12;
+export const WHEEL_RADIUS = 0.27;
+export const WHEEL_WIDTH = 0.18;
 export const WHEEL_RADIAL_SEGMENTS = 20;
-export const CASTER_STEM_HEIGHT = 0.1;
-export const CASTER_CORNER_INSET = 0.035;
+export const CASTER_STEM_HEIGHT = 0.15;
+export const CASTER_CORNER_INSET = 0.0525;
 export const CASTER_MOUNT_DROP_BELOW_CHASSIS = 0.02;
 
 const _v = new THREE.Vector3();
