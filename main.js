@@ -29,6 +29,13 @@ const CONFIG = {
     restitution: 0.0,
     color: 0x050006,
     rimColor: 0xff2bd6,
+    swirl: {
+      enabled: true,
+      maxForce: 8.0,
+      falloffRadius: 6.0,
+      falloffExponent: 2.0,
+      direction: 1,
+    },
   },
 
   cart: {
@@ -644,6 +651,49 @@ async function main() {
     colliderHandleToCart.set(c.collider.handle, c);
   }
 
+  const allCarts = [playerCart, ...npcCarts];
+
+  /**
+   * * Planar tangential push toward the record rim: strongest at center, ~0 beyond falloffRadius.
+   * @param {number} fixedDt
+   * @param {(sample: { r: number; falloff: number; impulseMag: number; skippedSmallR?: boolean }) => void} [onPlayerSample]
+   */
+  function applyRecordSwirlImpulsesForSubstep(fixedDt, onPlayerSample) {
+    const swirl = CONFIG.record.swirl;
+    if (!swirl.enabled) return;
+
+    const maxF = swirl.maxForce;
+    const falloffR = swirl.falloffRadius;
+    const exp = swirl.falloffExponent;
+    const dirSign = swirl.direction;
+
+    for (const cart of allCarts) {
+      const p = cart.body.translation();
+      const x = p.x;
+      const z = p.z;
+      const r = Math.sqrt(x * x + z * z);
+      if (r < 0.01) {
+        if (cart === playerCart && typeof onPlayerSample === "function") {
+          onPlayerSample({ r, falloff: 0, impulseMag: 0, skippedSmallR: true });
+        }
+        continue;
+      }
+      const raw = 1 - r / falloffR;
+      const falloff = Math.max(0, raw) ** exp;
+      const forceMag = maxF * falloff;
+      const tx = (-z / r) * dirSign;
+      const tz = (x / r) * dirSign;
+      const impulseMag = forceMag * fixedDt;
+      cart.body.applyImpulse(
+        { x: tx * forceMag * fixedDt, y: 0, z: tz * forceMag * fixedDt },
+        true,
+      );
+      if (cart === playerCart && typeof onPlayerSample === "function") {
+        onPlayerSample({ r, falloff, impulseMag });
+      }
+    }
+  }
+
   function pickAiTarget(fromPos) {
     const dist = Math.hypot(fromPos.x, fromPos.z);
     const edgeBiasStart = CONFIG.record.radius * 0.78;
@@ -1020,11 +1070,20 @@ async function main() {
   let lastT = performance.now();
   let accumulator = 0;
   let lastDebugMs = 0;
+  let simFrameIndex = 0;
+  let playerSwirlFrame120Logged = false;
+  /** @type {{ r: number; falloff: number; impulseMag: number; skippedSmallR?: boolean } | null} */
+  let playerSwirlFrame120Sample = null;
 
   function step(now) {
     const dt = Math.min((now - lastT) / 1000, 0.05);
     lastT = now;
     accumulator += dt;
+
+    simFrameIndex += 1;
+    if (simFrameIndex === 120) {
+      playerSwirlFrame120Sample = null;
+    }
 
     // Visual-only record rotation.
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
@@ -1121,7 +1180,7 @@ async function main() {
       }
 
       // Apply any pending ramming impulses over multiple physics steps.
-      for (const cart of [playerCart, ...npcCarts]) {
+      for (const cart of allCarts) {
         if (!cart.pendingRam) continue;
         const { impulse, remainingSteps } = cart.pendingRam;
         const denom = Math.max(1, remainingSteps);
@@ -1132,6 +1191,12 @@ async function main() {
         cart.pendingRam.remainingSteps -= 1;
         if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
       }
+
+      applyRecordSwirlImpulsesForSubstep(CONFIG.fixedTimeStep, (sample) => {
+        if (simFrameIndex === 120) {
+          playerSwirlFrame120Sample = sample;
+        }
+      });
 
       world.step(eventQueue);
       eventQueue.drainCollisionEvents((h1, h2, started) => {
@@ -1144,6 +1209,34 @@ async function main() {
       });
       accumulator -= CONFIG.fixedTimeStep;
       substeps += 1;
+    }
+
+    if (simFrameIndex === 120 && !playerSwirlFrame120Logged) {
+      playerSwirlFrame120Logged = true;
+      const swirl = CONFIG.record.swirl;
+      const t = playerCart.body.translation();
+      const rNow = Math.hypot(t.x, t.z);
+
+      let r = rNow;
+      let falloff = 0;
+      let impulseMag = 0;
+      if (playerSwirlFrame120Sample) {
+        r = playerSwirlFrame120Sample.r;
+        falloff = playerSwirlFrame120Sample.falloff;
+        impulseMag = playerSwirlFrame120Sample.impulseMag;
+      } else if (rNow >= 0.01) {
+        const raw = 1 - rNow / swirl.falloffRadius;
+        falloff = Math.max(0, raw) ** swirl.falloffExponent;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] record swirl @ sim frame 120 (player)", {
+        r,
+        falloff,
+        impulseMag,
+        physicsSubstepsThisRenderFrame: substeps,
+        swirlEnabled: swirl.enabled,
+      });
     }
 
     // Sync render meshes from physics.
