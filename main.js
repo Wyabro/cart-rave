@@ -1096,22 +1096,31 @@ async function main() {
 
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
       recordVersusPlayerFrame30Logged = true;
-      const recT = recordBody.translation();
       const playerT = playerCart.body.translation();
-      const distXZ = Math.hypot(playerT.x - recT.x, playerT.z - recT.z);
+      const cartRows = allCarts.map((cart) => {
+        const t = cart.body.translation();
+        const s = cart.spawn;
+        const distPlayer = Math.hypot(t.x - playerT.x, t.y - playerT.y, t.z - playerT.z);
+        const distOrigin = Math.hypot(t.x, t.y, t.z);
+        const id =
+          cart === playerCart ? "player" : `npc-${npcCarts.indexOf(cart)}`;
+        return {
+          id,
+          translation: { x: t.x, y: t.y, z: t.z },
+          spawnAtCreation: { x: s.x, y: s.y, z: s.z },
+          distanceToPlayer: distPlayer,
+          distanceToWorldOrigin: distOrigin,
+        };
+      });
       // eslint-disable-next-line no-console
-      console.log("[diagnostic] disc vs player @ sim frame 30", {
-        recordBodyTranslation: { x: recT.x, y: recT.y, z: recT.z },
-        playerBodyTranslation: { x: playerT.x, y: playerT.y, z: playerT.z },
-        distancePlayerToRecordCenterXZ: distXZ,
-        recordRadius: CONFIG.record.radius,
-        recordInnerRadius: CONFIG.record.innerRadius,
-        cartSpawnConfig: CONFIG.cart.spawn,
-        playerTranslationMatchesSpawnConfig: {
-          x: Math.abs(playerT.x - CONFIG.cart.spawn.x) < 0.02,
-          y: Math.abs(playerT.y - CONFIG.cart.spawn.y) < 0.02,
-          z: Math.abs(playerT.z - CONFIG.cart.spawn.z) < 0.02,
+      console.log("[diagnostic] spawn layout @ sim frame 30", {
+        layoutConstants: {
+          playerAngleRad: playerAngle,
+          spawnRingRadius: spawnR,
+          npcCount: npcCarts.length,
+          cartSpawnConfig: CONFIG.cart.spawn,
         },
+        carts: cartRows,
       });
     }
 
