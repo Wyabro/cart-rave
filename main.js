@@ -39,7 +39,8 @@ const CONFIG = {
 
   cart: {
     size: { x: 1.95, y: 1.35, z: 3.3 },
-    spawn: { x: 0, y: 1.077, z: 0 },
+    // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
+    spawnHeight: 1.077,
     friction: 1.6,
     restitution: 0.0,
     linearDamping: 2.5,
@@ -109,6 +110,7 @@ const CONFIG = {
 };
 
 CONFIG.record.swirl.falloffRadius = CONFIG.record.radius * 0.75;
+CONFIG.cart.spawnRingRadius = CONFIG.record.radius * 0.7;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -614,14 +616,19 @@ async function main() {
     }
   }
 
-  const spawnR = CONFIG.record.radius * 0.7;
-  const playerSpawn = {
-    x: CONFIG.cart.spawn.x,
-    y: CONFIG.cart.spawn.y,
-    z: CONFIG.cart.spawn.z,
-  };
-  const playerAngle = Math.atan2(playerSpawn.z, playerSpawn.x);
+  const ring = CONFIG.cart.spawnRingRadius;
+  const spawnY = CONFIG.cart.spawnHeight;
 
+  function spawnOnRingForSlot(slotIndex) {
+    const angle = (slotIndex * Math.PI) / 2;
+    return {
+      x: ring * Math.cos(angle),
+      y: spawnY,
+      z: ring * Math.sin(angle),
+    };
+  }
+
+  const playerSpawn = spawnOnRingForSlot(0);
   const playerCart = createCart({
     color: 0x2bd6ff,
     spawn: playerSpawn,
@@ -633,12 +640,8 @@ async function main() {
   const npcCount = Math.max(0, Math.floor(CONFIG.npcCount));
   const npcCarts = [];
   for (let i = 0; i < npcCount; i += 1) {
-    const theta = playerAngle + ((i + 1) * Math.PI) / 2;
-    const spawn = {
-      x: spawnR * Math.cos(theta),
-      y: CONFIG.cart.spawn.y,
-      z: spawnR * Math.sin(theta),
-    };
+    const slotIndex = i + 1;
+    const spawn = spawnOnRingForSlot(slotIndex);
     const cart = createCart({
       color: NPC_TEST_COLORS[i % NPC_TEST_COLORS.length],
       spawn,
@@ -1097,11 +1100,13 @@ async function main() {
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
       recordVersusPlayerFrame30Logged = true;
       const playerT = playerCart.body.translation();
+      const ringR = CONFIG.cart.spawnRingRadius;
       const cartRows = allCarts.map((cart) => {
         const t = cart.body.translation();
         const s = cart.spawn;
         const distPlayer = Math.hypot(t.x - playerT.x, t.y - playerT.y, t.z - playerT.z);
         const distOrigin = Math.hypot(t.x, t.y, t.z);
+        const distOriginXZ = Math.hypot(t.x, t.z);
         const id =
           cart === playerCart ? "player" : `npc-${npcCarts.indexOf(cart)}`;
         return {
@@ -1110,15 +1115,44 @@ async function main() {
           spawnAtCreation: { x: s.x, y: s.y, z: s.z },
           distanceToPlayer: distPlayer,
           distanceToWorldOrigin: distOrigin,
+          distanceToWorldOriginXZ: distOriginXZ,
         };
       });
+      const expectedAdjacent = ringR * Math.SQRT2;
+      const expectedOpposite = 2 * ringR;
+      const planarRingTolerance = 0.1;
+      const chordTolerance = 0.5;
+      const planarOk = cartRows.every(
+        (row) => Math.abs(row.distanceToWorldOriginXZ - ringR) <= planarRingTolerance,
+      );
+      const playerDistChecks = cartRows
+        .filter((row) => row.id !== "player")
+        .map((row, j) => {
+          const slotDelta = j + 1;
+          const expectedChord =
+            slotDelta === 2 ? expectedOpposite : expectedAdjacent;
+          return {
+            toId: row.id,
+            distanceToPlayer: row.distanceToPlayer,
+            expectedChord,
+            matchesExpected:
+              Math.abs(row.distanceToPlayer - expectedChord) <= chordTolerance,
+          };
+        });
       // eslint-disable-next-line no-console
       console.log("[diagnostic] spawn layout @ sim frame 30", {
         layoutConstants: {
-          playerAngleRad: playerAngle,
-          spawnRingRadius: spawnR,
+          spawnRingRadius: ringR,
+          spawnHeight: CONFIG.cart.spawnHeight,
           npcCount: npcCarts.length,
-          cartSpawnConfig: CONFIG.cart.spawn,
+        },
+        verification: {
+          allPlanarOriginDistancesWithinToleranceOfRing: planarOk,
+          planarRingTolerance,
+          expectedAdjacentChord: expectedAdjacent,
+          expectedOppositeChord: expectedOpposite,
+          chordTolerance,
+          fromPlayerChordChecks: playerDistChecks,
         },
         carts: cartRows,
       });
