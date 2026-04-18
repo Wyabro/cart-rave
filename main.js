@@ -12,6 +12,7 @@ const CONFIG = {
   debug: {
     input: false,
     velocity: false,
+    arenaTrimesh: false,
   },
 
   gravity: -24,
@@ -20,6 +21,7 @@ const CONFIG = {
 
   record: {
     radius: 20,
+    innerRadius: 3.0,
     thickness: 0.6,
     y: -0.3,
     rotationSpeedRadPerSec: 0.35,
@@ -99,6 +101,27 @@ const CONFIG = {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function buildRecordRingGeometry({ outerRadius, innerRadius, thickness, curveSegments }) {
+  const shape = new THREE.Shape();
+  shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
+
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    steps: 1,
+    depth: thickness,
+    bevelEnabled: false,
+    curveSegments,
+  });
+
+  // ExtrudeGeometry extrudes along +Z; center it and rotate so thickness becomes Y (floor height).
+  geo.translate(0, 0, -thickness / 2);
+  geo.rotateX(Math.PI / 2);
+  return geo;
 }
 
 function yawFromQuaternion(q) {
@@ -289,14 +312,12 @@ async function main() {
   const eventQueue = new RAPIER.EventQueue(true);
 
   // --- Record platform (visual rotates, physics stays fixed for day 1) ---
-  const recordGeo = new THREE.CylinderGeometry(
-    CONFIG.record.radius,
-    CONFIG.record.radius,
-    CONFIG.record.thickness,
-    64,
-    1,
-    false,
-  );
+  const recordGeo = buildRecordRingGeometry({
+    outerRadius: CONFIG.record.radius,
+    innerRadius: CONFIG.record.innerRadius,
+    thickness: CONFIG.record.thickness,
+    curveSegments: 64,
+  });
   const recordMat = new THREE.MeshStandardMaterial({
     color: CONFIG.record.color,
     roughness: 0.95,
@@ -321,16 +342,39 @@ async function main() {
   rimMesh.rotation.x = Math.PI / 2;
   scene.add(rimMesh);
 
+  // Inner neon rim (visual only): sells the hole edge.
+  const innerRimGeo = new THREE.TorusGeometry(CONFIG.record.innerRadius * 1.015, 0.12, 10, 72);
+  const innerRimMesh = new THREE.Mesh(innerRimGeo, rimMat);
+  innerRimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
+  innerRimMesh.rotation.x = Math.PI / 2;
+  scene.add(innerRimMesh);
+
   const recordBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.fixed().setTranslation(0, CONFIG.record.y, 0),
   );
-  const recordCollider = world.createCollider(
-    RAPIER.ColliderDesc.cylinder(CONFIG.record.thickness / 2, CONFIG.record.radius)
-      .setFriction(CONFIG.record.friction)
-      .setRestitution(CONFIG.record.restitution),
-    recordBody,
-  );
+
+  const recordVerts = /** @type {Float32Array} */ (recordGeo.attributes.position.array);
+  const recordIndices = recordGeo.index
+    ? Uint32Array.from(recordGeo.index.array)
+    : Uint32Array.from(
+        Array.from({ length: recordGeo.attributes.position.count }, (_, i) => i),
+      );
+  const recordColliderDesc = RAPIER.ColliderDesc.trimesh(recordVerts, recordIndices)
+    .setFriction(CONFIG.record.friction)
+    .setRestitution(CONFIG.record.restitution);
+  const recordCollider = world.createCollider(recordColliderDesc, recordBody);
   void recordCollider;
+
+  if (CONFIG.debug.arenaTrimesh) {
+    const vCount = recordGeo.attributes.position.count;
+    const iCount = recordGeo.index ? recordGeo.index.count : vCount;
+    // eslint-disable-next-line no-console
+    console.log("[arena] record ring trimesh", {
+      vertices: vCount,
+      indices: iCount,
+      triangles: Math.floor(iCount / 3),
+    });
+  }
 
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
