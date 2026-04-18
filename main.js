@@ -666,12 +666,15 @@ async function main() {
     const falloffR = swirl.falloffRadius;
     const exp = swirl.falloffExponent;
     const dirSign = swirl.direction;
+    const rec = recordBody.translation();
+    const cx = rec.x;
+    const cz = rec.z;
 
     for (const cart of allCarts) {
       const p = cart.body.translation();
-      const x = p.x;
-      const z = p.z;
-      const r = Math.sqrt(x * x + z * z);
+      const relX = p.x - cx;
+      const relZ = p.z - cz;
+      const r = Math.hypot(relX, relZ);
       if (r < 0.01) {
         if (cart === playerCart && typeof onPlayerSample === "function") {
           onPlayerSample({ r, falloff: 0, impulseMag: 0, skippedSmallR: true });
@@ -681,8 +684,8 @@ async function main() {
       const raw = 1 - r / falloffR;
       const falloff = Math.max(0, raw) ** exp;
       const forceMag = maxF * falloff;
-      const tx = (-z / r) * dirSign;
-      const tz = (x / r) * dirSign;
+      const tx = (-relZ / r) * dirSign;
+      const tz = (relX / r) * dirSign;
       const impulseMag = forceMag * fixedDt;
       cart.body.applyImpulse(
         { x: tx * forceMag * fixedDt, y: 0, z: tz * forceMag * fixedDt },
@@ -1071,6 +1074,7 @@ async function main() {
   let accumulator = 0;
   let lastDebugMs = 0;
   let simFrameIndex = 0;
+  let recordVersusPlayerFrame30Logged = false;
   let playerSwirlFrame120Logged = false;
   /** @type {{ r: number; falloff: number; impulseMag: number; skippedSmallR?: boolean } | null} */
   let playerSwirlFrame120Sample = null;
@@ -1083,6 +1087,22 @@ async function main() {
     simFrameIndex += 1;
     if (simFrameIndex === 120) {
       playerSwirlFrame120Sample = null;
+    }
+
+    if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
+      recordVersusPlayerFrame30Logged = true;
+      const recT = recordBody.translation();
+      const playerT = playerCart.body.translation();
+      const distXZ = Math.hypot(playerT.x - recT.x, playerT.z - recT.z);
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] disc vs player @ sim frame 30", {
+        recordBodyTranslation: { x: recT.x, y: recT.y, z: recT.z },
+        playerBodyTranslation: { x: playerT.x, y: playerT.y, z: playerT.z },
+        distancePlayerToRecordCenterXZ: distXZ,
+        recordRadius: CONFIG.record.radius,
+        recordInnerRadius: CONFIG.record.innerRadius,
+        cartSpawnConfig: CONFIG.cart.spawn,
+      });
     }
 
     // Visual-only record rotation.
@@ -1214,8 +1234,9 @@ async function main() {
     if (simFrameIndex === 120 && !playerSwirlFrame120Logged) {
       playerSwirlFrame120Logged = true;
       const swirl = CONFIG.record.swirl;
+      const recT = recordBody.translation();
       const t = playerCart.body.translation();
-      const rNow = Math.hypot(t.x, t.z);
+      const rNow = Math.hypot(t.x - recT.x, t.z - recT.z);
 
       let r = rNow;
       let falloff = 0;
