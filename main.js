@@ -165,6 +165,90 @@ function vec3PlanarDirection(v) {
   return d.multiplyScalar(1 / len);
 }
 
+/**
+ * @param {number} mass
+ * @param {number} hx
+ * @param {number} hy
+ * @param {number} hz
+ * @param {{ x: number; y: number; z: number }} comOffsetFromColliderCenter
+ * @returns {{ ix: number; iy: number; iz: number }}
+ */
+function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffsetFromColliderCenter) {
+  // * Solid cuboid inertia about its geometric center (principal axes align with the box).
+  const ix0 = (mass / 12) * (4 * hy * hy + 4 * hz * hz);
+  const iy0 = (mass / 12) * (4 * hx * hx + 4 * hz * hz);
+  const iz0 = (mass / 12) * (4 * hx * hx + 4 * hy * hy);
+
+  // * Parallel axis theorem: shift inertia to a new body origin given an explicit center of mass.
+  const x = comOffsetFromColliderCenter.x;
+  const y = comOffsetFromColliderCenter.y;
+  const z = comOffsetFromColliderCenter.z;
+  const r2 = x * x + y * y + z * z;
+  const ix = ix0 + mass * (r2 - x * x);
+  const iy = iy0 + mass * (r2 - y * y);
+  const iz = iz0 + mass * (r2 - z * z);
+
+  return { ix, iy, iz };
+}
+
+/**
+ * @param {any} body
+ * @param {any} collider
+ * @param {{ label: string; hx: number; hy: number; hz: number; colliderLocalY: number }}
+ */
+function applyCartMassPropertiesOverride(body, collider, { label, hx, hy, hz, colliderLocalY }) {
+  // * Capture Rapier's default mass from the cuboid collider, then move mass to the collider without contributing mass.
+  let baseMass =
+    collider && typeof collider.mass === "function"
+      ? collider.mass()
+      : typeof body.mass === "function"
+        ? body.mass()
+        : 1;
+  if (!Number.isFinite(baseMass) || baseMass <= 0) {
+    baseMass = 1;
+  }
+
+  if (typeof collider.setDensity === "function") {
+    collider.setDensity(0);
+  }
+
+  const targetCom = new RAPIER.Vector3(0, -0.55, 0);
+
+  const comOffsetFromColliderCenter = {
+    x: 0,
+    y: -0.55 - colliderLocalY,
+    z: 0,
+  };
+  const { ix, iy, iz } = principalInertiaForTranslatedBox(
+    baseMass,
+    hx,
+    hy,
+    hz,
+    comOffsetFromColliderCenter,
+  );
+
+  body.setAdditionalMassProperties(
+    baseMass,
+    targetCom,
+    new RAPIER.Vector3(ix, iy, iz),
+    RAPIER.RotationOps.identity(),
+    true,
+  );
+
+  if (typeof body.recomputeMassPropertiesFromColliders === "function") {
+    body.recomputeMassPropertiesFromColliders(true);
+  }
+
+  const com = body.localCom();
+  const inertia = body.principalInertia();
+  // eslint-disable-next-line no-console
+  console.log(`[cart:${label}] massProperties`, {
+    mass: body.mass(),
+    localCom: { x: com.x, y: com.y, z: com.z },
+    principalInertia: { x: inertia.x, y: inertia.y, z: inertia.z },
+  });
+}
+
 function wrapAngleRad(angle) {
   let a = angle;
   while (a > Math.PI) a -= 2 * Math.PI;
@@ -387,7 +471,7 @@ async function main() {
     return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
   }
 
-  function createCart({ color, spawn, spawnYaw }) {
+  function createCart({ color, spawn, spawnYaw, label }) {
     const mesh = buildCart(color);
     scene.add(mesh);
 
@@ -403,18 +487,27 @@ async function main() {
       body.setCanSleep(false);
     }
 
-    const colliderDesc = RAPIER.ColliderDesc.cuboid(
-      CONFIG.cart.size.x / 2,
-      CONFIG.cart.size.y / 2,
-      CONFIG.cart.size.z / 2,
-    )
-      .setTranslation(0, -0.12, 0)
+    const hx = CONFIG.cart.size.x / 2;
+    const hy = CONFIG.cart.size.y / 2;
+    const hz = CONFIG.cart.size.z / 2;
+    const colliderLocalY = -0.12;
+
+    const colliderDesc = RAPIER.ColliderDesc.cuboid(hx, hy, hz)
+      .setTranslation(0, colliderLocalY, 0)
       .setFriction(CONFIG.cart.friction)
       .setRestitution(CONFIG.cart.restitution);
     if (typeof colliderDesc.setActiveEvents === "function") {
       colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
     }
     const collider = world.createCollider(colliderDesc, body);
+
+    applyCartMassPropertiesOverride(body, collider, {
+      label,
+      hx,
+      hy,
+      hz,
+      colliderLocalY,
+    });
 
     return {
       mesh,
@@ -511,12 +604,14 @@ async function main() {
     color: 0x2bd6ff,
     spawn: playerSpawn,
     spawnYaw: yawToCenter(playerSpawn),
+    label: "player",
   });
 
   const aiCart = createCart({
     color: 0xff2bd6,
     spawn: aiSpawn,
     spawnYaw: yawToCenter(aiSpawn),
+    label: "ai",
   });
 
   const colliderHandleToCart = new Map();
