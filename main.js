@@ -33,7 +33,7 @@ const CONFIG = {
 
   cart: {
     size: { x: 1.95, y: 1.35, z: 3.3 },
-    spawn: { x: 0, y: 2.5, z: 0 },
+    spawn: { x: 0, y: 1.077, z: 0 },
     friction: 1.6,
     restitution: 0.0,
     linearDamping: 2.5,
