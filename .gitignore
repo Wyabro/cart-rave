@@ -18,6 +18,9 @@ Thumbs.db
 # Node (if added later)
 node_modules/
 
+# PartyKit local dev state
+.partykit/
+
 # Python
 __pycache__/
 *.pyc

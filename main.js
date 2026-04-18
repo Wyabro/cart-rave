@@ -1,5 +1,9 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
+import PartySocket from "partysocket";
+
+// * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
+const PARTYKIT_PUBLIC_HOST = "";
 
 const CONFIG = {
   canvasId: "game",
@@ -989,6 +993,26 @@ async function main() {
 
   requestAnimationFrame(step);
 }
+
+(function initPartyKitHandshake() {
+  if (typeof window === "undefined") return;
+  const hostname = window.location.hostname;
+  const host =
+    hostname === "localhost" || hostname === "127.0.0.1"
+      ? "127.0.0.1:1999"
+      : PARTYKIT_PUBLIC_HOST.trim() || null;
+  if (!host) return;
+
+  const socket = new PartySocket({
+    host,
+    party: "main",
+    room: "default",
+  });
+
+  socket.addEventListener("open", () => {
+    console.log("connected to party");
+  });
+})();
 
 main();
 

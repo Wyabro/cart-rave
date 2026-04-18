@@ -1,0 +1,7 @@
+{
+  "name": "cart-rave",
+  "private": true,
+  "devDependencies": {
+    "partykit": "^0.0.115"
+  }
+}
