@@ -20,7 +20,7 @@ const CONFIG = {
   maxSubsteps: 4,
 
   record: {
-    radius: 20,
+    radius: 24,
     innerRadius: 3.0,
     thickness: 0.6,
     y: -0.3,
@@ -69,8 +69,8 @@ const CONFIG = {
     fov: 55,
     minFov: 50,
     maxFov: 75,
-    followBack: 6.0,
-    followUp: 2.8,
+    followBack: 7.08,
+    followUp: 3.304,
     lookAhead: 5.0,
     lookUp: 1.2,
     positionDamping: 10.0,
@@ -114,7 +114,11 @@ function buildRecordRingGeometry({ outerRadius, innerRadius, thickness, curveSeg
   const geo = new THREE.ExtrudeGeometry(shape, {
     steps: 1,
     depth: thickness,
-    bevelEnabled: false,
+    bevelEnabled: true,
+    bevelThickness: 0.15,
+    bevelSize: 0.15,
+    bevelOffset: 0,
+    bevelSegments: 3,
     curveSegments,
   });
 
