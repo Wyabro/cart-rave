@@ -41,7 +41,7 @@ export const WHEEL_WIDTH = 0.18;
 export const WHEEL_RADIAL_SEGMENTS = 20;
 export const CASTER_STEM_HEIGHT = 0.15;
 export const CASTER_CORNER_INSET = 0.0525;
-export const CASTER_MOUNT_DROP_BELOW_CHASSIS = 0.02;
+export const CASTER_MOUNT_DROP_BELOW_CHASSIS = -0.16;
 
 const _v = new THREE.Vector3();
 const _localDir = new THREE.Vector3();
