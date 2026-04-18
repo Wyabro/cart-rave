@@ -1189,6 +1189,7 @@ async function main() {
     }
 
     // Fixed substeps for stability/consistency.
+    const accumulatorEnteringPhysics = accumulator;
     let substeps = 0;
     while (
       accumulator >= CONFIG.fixedTimeStep &&
@@ -1229,6 +1230,24 @@ async function main() {
       });
       accumulator -= CONFIG.fixedTimeStep;
       substeps += 1;
+    }
+
+    if (simFrameIndex <= 10) {
+      const fixedTs = CONFIG.fixedTimeStep;
+      const maxSub = CONFIG.maxSubsteps;
+      const accumEnter = accumulatorEnteringPhysics;
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] physics substep gate", {
+        simFrameIndex,
+        dtSec: dt,
+        accumulatorEnteringPhysics: accumEnter,
+        accumulatorAfterWhileLoop: accumulator,
+        fixedTimeStep: fixedTs,
+        maxSubsteps: maxSub,
+        whileConditionAccumulatorGteFixedDt: accumEnter >= fixedTs,
+        whileConditionSubstepsLtMax: 0 < maxSub,
+        substepsThisRenderFrame: substeps,
+      });
     }
 
     if (simFrameIndex === 120 && !playerSwirlFrame120Logged) {
