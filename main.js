@@ -30,7 +30,7 @@ const CONFIG = {
   },
 
   cart: {
-    size: { x: 1.3, y: 0.9, z: 2.2 },
+    size: { x: 2.6, y: 1.8, z: 4.4 },
     spawn: { x: 0, y: 2.5, z: 0 },
     friction: 1.6,
     restitution: 0.0,
@@ -364,7 +364,7 @@ async function main() {
       CONFIG.cart.size.y / 2,
       CONFIG.cart.size.z / 2,
     )
-      .setTranslation(0, -0.08, 0)
+      .setTranslation(0, -0.16, 0)
       .setFriction(CONFIG.cart.friction)
       .setRestitution(CONFIG.cart.restitution);
     if (typeof colliderDesc.setActiveEvents === "function") {
