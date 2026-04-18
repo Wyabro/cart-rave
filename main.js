@@ -20,8 +20,8 @@ const CONFIG = {
   maxSubsteps: 4,
 
   record: {
-    radius: 24,
-    innerRadius: 3.0,
+    radius: 26.4,
+    innerRadius: 3.3,
     thickness: 0.6,
     y: -0.3,
     rotationSpeedRadPerSec: 0.35,
@@ -69,8 +69,8 @@ const CONFIG = {
     fov: 55,
     minFov: 50,
     maxFov: 75,
-    followBack: 7.08,
-    followUp: 3.304,
+    followBack: 7.6,
+    followUp: 3.54,
     lookAhead: 5.0,
     lookUp: 1.2,
     positionDamping: 10.0,
@@ -417,23 +417,26 @@ async function main() {
   scene.add(recordMesh);
 
   // Neon rim (visual only).
-  const rimGeo = new THREE.TorusGeometry(CONFIG.record.radius * 0.985, 0.12, 10, 72);
   const rimMat = new THREE.MeshStandardMaterial({
     color: CONFIG.record.rimColor,
     emissive: CONFIG.record.rimColor,
     emissiveIntensity: 2.2,
     roughness: 0.5,
     metalness: 0.0,
+    depthWrite: false,
   });
+  // * Beveled ExtrudeGeometry extends past nominal outerRadius — inset torus (0.985*r) sits inside the floor mesh and
+  // * disappears; place slightly outside the nominal edge (mirrors inner rim * 1.015) so the neon ring stays visible.
+  const rimGeo = new THREE.TorusGeometry(CONFIG.record.radius * 1.015, 0.12, 10, 72);
   const rimMesh = new THREE.Mesh(rimGeo, rimMat);
   rimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
   rimMesh.rotation.x = Math.PI / 2;
   scene.add(rimMesh);
 
   // Inner neon rim (visual only): sells the hole edge.
-  const innerRimGeo = new THREE.TorusGeometry(CONFIG.record.innerRadius * 1.015, 0.12, 10, 72);
+  const innerRimGeo = new THREE.TorusGeometry(CONFIG.record.innerRadius * 1.02, 0.12, 10, 72);
   const innerRimMesh = new THREE.Mesh(innerRimGeo, rimMat);
-  innerRimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
+  innerRimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.03, 0);
   innerRimMesh.rotation.x = Math.PI / 2;
   scene.add(innerRimMesh);
 
