@@ -1,6 +1,7 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
+import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "";
@@ -201,6 +202,8 @@ async function main() {
     quat: camera.quaternion.clone(),
   };
 
+  const cartLinvelScratch = new THREE.Vector3();
+
   function dampFactor(lambda, dt) {
     return 1 - Math.exp(-lambda * dt);
   }
@@ -341,17 +344,7 @@ async function main() {
   }
 
   function createCart({ color, spawn, spawnYaw }) {
-    const cartGeo = new THREE.BoxGeometry(
-      CONFIG.cart.size.x,
-      CONFIG.cart.size.y,
-      CONFIG.cart.size.z,
-    );
-    const cartMat = new THREE.MeshStandardMaterial({
-      color,
-      roughness: 1,
-      metalness: 0,
-    });
-    const mesh = new THREE.Mesh(cartGeo, cartMat);
+    const mesh = buildCart(color);
     scene.add(mesh);
 
     const body = world.createRigidBody(
@@ -402,6 +395,7 @@ async function main() {
     cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
     cart.respawnAtMs = null;
     cart.pendingRam = null;
+    resetCartVisualState(cart.mesh);
   }
 
   function applyArcadeControls(cart, axis, dtFixed) {
@@ -977,12 +971,20 @@ async function main() {
       const r = playerCart.body.rotation();
       playerCart.mesh.position.set(p.x, p.y, p.z);
       playerCart.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+      playerCart.mesh.updateMatrixWorld(true);
+      const lv = playerCart.body.linvel();
+      cartLinvelScratch.set(lv.x, lv.y, lv.z);
+      updateCartVisuals(playerCart.mesh, cartLinvelScratch, dt, now);
     }
     {
       const p = aiCart.body.translation();
       const r = aiCart.body.rotation();
       aiCart.mesh.position.set(p.x, p.y, p.z);
       aiCart.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+      aiCart.mesh.updateMatrixWorld(true);
+      const lv = aiCart.body.linvel();
+      cartLinvelScratch.set(lv.x, lv.y, lv.z);
+      updateCartVisuals(aiCart.mesh, cartLinvelScratch, dt, now);
     }
 
     renderer.render(scene, camera);

@@ -1,5 +1,7 @@
 # Cart Rave (prototype)
 
+Browser prototype: Three.js rendering, Rapier3D physics, optional PartyKit handshake. Carts are **fully procedural** (no GLTF or external models): wire basket, open chassis, chunky casters, and emissive neon materials live in **`cart.js`**. Caster **yaw** follows planar velocity (damped, with a little wobble at speed); **wheel roll** is derived from speed and `WHEEL_RADIUS`. Rapier colliders stay simple boxes—visuals are a separate layer synced to each body each frame.
+
 Open via a local server (module + audio need HTTP, not `file://`):
 
 ```bash
@@ -7,6 +9,10 @@ python -m http.server 5173
 ```
 
 Then open `http://localhost:5173/`.
+
+## Tuning cart visuals
+
+Edit the exported constants at the top of **`cart.js`** (basket dimensions, rail counts, chassis, `WHEEL_RADIUS` / `WHEEL_WIDTH`, caster damping, etc.). **`main.js`** imports `buildCart`, `updateCartVisuals`, and `resetCartVisualState` only—physics and controls are unchanged.
 
 ## PartyKit (step 2 — handshake only)
 
