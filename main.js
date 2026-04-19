@@ -1376,6 +1376,7 @@ async function main() {
   let recordVersusPlayerFrame30Logged = false;
   // * One-shot per page load; full reload (or HMR re-entry into main()) resets for re-measure.
   let playerColliderVisualOvershootSimFrame10Logged = false;
+  let dancefloorSurfaceVisualDiagSimFrame10Logged = false;
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
 
@@ -1437,6 +1438,133 @@ async function main() {
             overshootPercent: pct(colliderFull.z, visualSize.z),
           },
         },
+      });
+    }
+
+    if (simFrameIndex === 10 && !dancefloorSurfaceVisualDiagSimFrame10Logged) {
+      dancefloorSurfaceVisualDiagSimFrame10Logged = true;
+      const scratchWorldPos = new THREE.Vector3();
+      const scratchBox = new THREE.Box3();
+      let diagError = null;
+      /** @type {unknown[]} */
+      const childRows = [];
+      try {
+        const recordInSceneRoot = scene.children.includes(recordMesh);
+        for (let i = 0; i < recordMesh.children.length; i += 1) {
+          const ch = recordMesh.children[i];
+          if (!(ch instanceof THREE.Mesh)) {
+            childRows.push({ index: i, kind: "non-mesh", type: ch.type });
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          ch.updateMatrixWorld(true);
+          ch.getWorldPosition(scratchWorldPos);
+          scratchBox.setFromObject(ch);
+          const mats = Array.isArray(ch.material) ? ch.material : [ch.material];
+          const matSummaries = mats.map((m) => ({
+            type: m.type,
+            visible: m.visible,
+            opacity: m.opacity,
+            transparent: m.transparent,
+          }));
+          childRows.push({
+            index: i,
+            geometryType: ch.geometry?.type,
+            inRecordMeshChildren: true,
+            worldPosition: {
+              x: scratchWorldPos.x,
+              y: scratchWorldPos.y,
+              z: scratchWorldPos.z,
+            },
+            worldBoundingBox: {
+              min: { x: scratchBox.min.x, y: scratchBox.min.y, z: scratchBox.min.z },
+              max: { x: scratchBox.max.x, y: scratchBox.max.y, z: scratchBox.max.z },
+              size: {
+                x: scratchBox.max.x - scratchBox.min.x,
+                y: scratchBox.max.y - scratchBox.min.y,
+                z: scratchBox.max.z - scratchBox.min.z,
+              },
+            },
+            materials: matSummaries,
+            rotation: { x: ch.rotation.x, y: ch.rotation.y, z: ch.rotation.z },
+          });
+        }
+      } catch (err) {
+        diagError = err instanceof Error ? err.message : String(err);
+      }
+
+      const ringMeshes = recordMesh.children.filter((c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry");
+      const spokeMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.geometry?.type === "BoxGeometry",
+      );
+      const labelMesh = recordMesh.children.find(
+        (c) => c instanceof THREE.Mesh && c.geometry?.type === "PlaneGeometry",
+      );
+      const lb = CONFIG.record.surface.label;
+      /** @type {Record<string, unknown> | null} */
+      let labelDiag = null;
+      if (labelMesh instanceof THREE.Mesh) {
+        labelMesh.updateMatrixWorld(true);
+        labelMesh.getWorldPosition(scratchWorldPos);
+        scratchBox.setFromObject(labelMesh);
+        const pg = labelMesh.geometry;
+        const params = pg && "parameters" in pg ? /** @type {{ width?: number; height?: number }} */ (pg).parameters : {};
+        labelDiag = {
+          found: true,
+          configWorldWidth: lb.worldWidth,
+          configWorldHeight: lb.worldHeight,
+          planeGeometryParametersWidth: params.width,
+          planeGeometryParametersHeight: params.height,
+          localPosition: {
+            x: labelMesh.position.x,
+            y: labelMesh.position.y,
+            z: labelMesh.position.z,
+          },
+          worldPosition: {
+            x: scratchWorldPos.x,
+            y: scratchWorldPos.y,
+            z: scratchWorldPos.z,
+          },
+          rotationX: labelMesh.rotation.x,
+          worldBoundingBox: {
+            min: { x: scratchBox.min.x, y: scratchBox.min.y, z: scratchBox.min.z },
+            max: { x: scratchBox.max.x, y: scratchBox.max.y, z: scratchBox.max.z },
+            size: {
+              x: scratchBox.max.x - scratchBox.min.x,
+              y: scratchBox.max.y - scratchBox.min.y,
+              z: scratchBox.max.z - scratchBox.min.z,
+            },
+          },
+          material: Array.isArray(labelMesh.material)
+            ? labelMesh.material.map((m) => ({
+                type: m.type,
+                visible: m.visible,
+                opacity: m.opacity,
+                transparent: m.transparent,
+              }))
+            : {
+                type: labelMesh.material.type,
+                visible: labelMesh.material.visible,
+                opacity: labelMesh.material.opacity,
+                transparent: labelMesh.material.transparent,
+              },
+        };
+      } else {
+        labelDiag = { found: false, note: "no PlaneGeometry child on recordMesh" };
+      }
+
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] dancefloor surface visuals @ sim frame 10", {
+        simFrameIndex,
+        implementationNote:
+          "Rings and spokes are created inside the buildRecordSurfaceGrooves IIFE (not separate buildConcentricRings/buildRadialSpokes functions). Label is buildRecordSurfaceLabel IIFE.",
+        recordMeshInSceneChildren: scene.children.includes(recordMesh),
+        recordMeshChildCount: recordMesh.children.length,
+        ringGeometryMeshCount: ringMeshes.length,
+        boxGeometryMeshCount: spokeMeshes.length,
+        perChild: childRows,
+        labelPlane: labelDiag,
+        scanError: diagError,
       });
     }
 
