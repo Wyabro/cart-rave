@@ -38,7 +38,11 @@ const CONFIG = {
   },
 
   cart: {
-    size: { x: 1.95, y: 1.35, z: 3.3 },
+    size: {
+      x: 1.31,
+      y: 1.35, // y undersized vs visual by ~11%; entangled with wheel/spawn-height, deferred
+      z: 2.26,
+    },
     // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
     spawnHeight: 1.077,
     friction: 1.6,
@@ -1087,6 +1091,7 @@ async function main() {
   let lastDebugMs = 0;
   let simFrameIndex = 0;
   let recordVersusPlayerFrame30Logged = false;
+  // * One-shot per page load; full reload (or HMR re-entry into main()) resets for re-measure.
   let playerColliderVisualOvershootSimFrame10Logged = false;
   let playerSwirlFrame120Logged = false;
   /** @type {ReadonlySet<number>} */
