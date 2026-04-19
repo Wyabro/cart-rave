@@ -44,6 +44,16 @@ const CONFIG = {
         color: 0x00ff88,
         yOffset: 0.02,
       },
+      label: {
+        text: "CART RAVE",
+        fontSize: 256,
+        textColor: "#00ffff",
+        backgroundColor: null,
+        worldWidth: 8,
+        worldHeight: 2,
+        yOffset: 0.03,
+        position: { x: 0, z: 0 },
+      },
     },
   },
 
@@ -526,6 +536,43 @@ async function main() {
       spokeMesh.rotation.y = theta;
       parentMesh.add(spokeMesh);
     }
+  })(recordMesh);
+
+  (function buildRecordSurfaceLabel(parentMesh) {
+    const lb = CONFIG.record.surface.label;
+    const th = CONFIG.record.thickness;
+    const yBase = th / 2 + lb.yOffset;
+    const cw = 1024;
+    const ch = 256;
+    const canvas = document.createElement("canvas");
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    if (lb.backgroundColor != null) {
+      ctx.fillStyle = lb.backgroundColor;
+      ctx.fillRect(0, 0, cw, ch);
+    } else {
+      ctx.clearRect(0, 0, cw, ch);
+    }
+    ctx.fillStyle = lb.textColor;
+    ctx.font = `bold ${lb.fontSize}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(lb.text, cw / 2, ch / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const planeGeo = new THREE.PlaneGeometry(lb.worldWidth, lb.worldHeight);
+    const planeMat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const labelMesh = new THREE.Mesh(planeGeo, planeMat);
+    labelMesh.position.set(lb.position.x, yBase, lb.position.z);
+    labelMesh.rotation.x = -Math.PI / 2;
+    parentMesh.add(labelMesh);
   })(recordMesh);
 
   // Neon rim (visual only).
