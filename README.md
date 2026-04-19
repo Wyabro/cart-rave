@@ -22,10 +22,10 @@ npx http-server -p 8085
 
 The floor is a **ring** (outer radius + inner hole), not a solid disc:
 
-- **Visual:** `ExtrudeGeometry` from a circular shape with a hole (beveled top/bottom for a smoother inner lip). **Neon torus rims** on outer and inner edges.
+- **Visual:** `ExtrudeGeometry` from a circular shape with a hole (beveled top/bottom for a smoother inner lip). **Neon torus rims** on outer and inner edges. On top of the disc, a **45rpm-style** surface treatment: **hairline concentric grooves** (dark grey on the near-black vinyl), a **cyan label ring**, a **white spindle ring** around the center hole, and **“CART RAVE”** drawn on a **canvas texture** in two curved arcs (top and bottom) so the title stays readable as the floor spins. Grooves are confined to an annulus so they do not cross the label area.
 - **Physics:** one static **Rapier trimesh** built from the same mesh vertices/indices as the visual, so carts can fall through the **center hole**. The floor mesh rotates for vibe; the collider stays fixed (hole is axis-aligned with rotation).
 
-Tuning lives under **`CONFIG.record`** in **`main.js`** (e.g. `radius`, `innerRadius`, `thickness`, `y`, friction).
+Tuning lives under **`CONFIG.record`** in **`main.js`** (e.g. `radius`, `innerRadius`, `thickness`, `y`, friction). Decorative surface layers are under **`CONFIG.record.surface`**: **`concentricRings`** (groove count, width, color, inner/outer radius, `yOffset`), **`labelDisc`**, **`spindleRing`**, and **`labelText`** (arc radius/angle, font, colors, `yOffset`).
 
 ## Carts & tuning
 
