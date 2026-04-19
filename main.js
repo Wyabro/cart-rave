@@ -30,6 +30,21 @@ const CONFIG = {
     restitution: 0.0,
     color: 0x050006,
     rimColor: 0xff2bd6,
+    surface: {
+      concentricRings: {
+        count: 8,
+        lineWidth: 0.03,
+        color: 0xff00ff,
+        emissiveIntensity: 1.0,
+        yOffset: 0.02,
+      },
+      radialSpokes: {
+        count: 12,
+        lineWidth: 0.04,
+        color: 0x00ff88,
+        yOffset: 0.02,
+      },
+    },
   },
 
   cart: {
@@ -453,6 +468,65 @@ async function main() {
   recordMesh.position.set(0, CONFIG.record.y, 0);
   recordMesh.receiveShadow = false;
   scene.add(recordMesh);
+
+  (function buildRecordSurfaceGrooves(parentMesh) {
+    const surf = CONFIG.record.surface;
+    const th = CONFIG.record.thickness;
+    const margin = 0.35;
+    const rMin = CONFIG.record.innerRadius + margin;
+    const rMax = CONFIG.record.radius - margin;
+    const yBase = th / 2;
+
+    const rings = surf.concentricRings;
+    // * MeshBasicMaterial has no emissive; emissiveIntensity in config is reserved for a future StandardMaterial swap.
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: rings.color,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.98,
+    });
+
+    for (let i = 0; i < rings.count; i += 1) {
+      const t = (i + 0.5) / rings.count;
+      const rCenter = rMin + (rMax - rMin) * t;
+      const halfW = rings.lineWidth / 2;
+      let inner = rCenter - halfW;
+      let outer = rCenter + halfW;
+      inner = Math.max(inner, CONFIG.record.innerRadius + 0.05);
+      outer = Math.min(outer, CONFIG.record.radius - 0.05);
+      if (outer - inner < 0.002) continue;
+      const ringGeo = new THREE.RingGeometry(inner, outer, 96);
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = -Math.PI / 2;
+      ringMesh.position.y = yBase + rings.yOffset;
+      parentMesh.add(ringMesh);
+    }
+
+    const spokes = surf.radialSpokes;
+    const spokeMat = new THREE.MeshBasicMaterial({
+      color: spokes.color,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.98,
+    });
+
+    const innerSpoke = rMin;
+    const outerSpoke = rMax;
+    const span = outerSpoke - innerSpoke;
+    const midR = (innerSpoke + outerSpoke) / 2;
+    for (let k = 0; k < spokes.count; k += 1) {
+      const theta = (k / spokes.count) * Math.PI * 2;
+      const spokeGeo = new THREE.BoxGeometry(spokes.lineWidth, 0.022, span);
+      const spokeMesh = new THREE.Mesh(spokeGeo, spokeMat);
+      spokeMesh.position.set(
+        Math.sin(theta) * midR,
+        yBase + spokes.yOffset,
+        Math.cos(theta) * midR,
+      );
+      spokeMesh.rotation.y = theta;
+      parentMesh.add(spokeMesh);
+    }
+  })(recordMesh);
 
   // Neon rim (visual only).
   const rimMat = new THREE.MeshStandardMaterial({
