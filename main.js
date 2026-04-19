@@ -48,7 +48,7 @@ const CONFIG = {
     friction: 1.6,
     restitution: 0.0,
     linearDamping: 2.5,
-    angularDamping: 3.5,
+    angularDamping: 1.5,
   },
 
   // * TEST scaffolding only: extra NPC carts (not slot-fill / PartyKit join flow).
