@@ -49,6 +49,15 @@ const CONFIG = {
     restitution: 0.0,
     linearDamping: 2.5,
     angularDamping: 1.5,
+
+    // NOTE: CoM tuning deferred. Baseline -0.55 is stable-but-boring.
+    // Tried y=-0.4 (tippy) and y=-0.45 with z=-0.2 rearward (caused front-flips under acceleration).
+    // Next attempt should be small, single-axis changes with angular damping co-tuned:
+    //   1. Try y=-0.5 alone, adjust angularDamping 1.5 -> 2.0-2.5 if tippy
+    //   2. If that's stable, try y=-0.475
+    //   3. Do NOT shift CoM in z until pitch stability is confirmed at target y
+    //   4. Revisit only after ram boost and other feel work lands — need full context
+    // * Rigid-body localCoM is applied in applyCartMassPropertiesOverride (not this object).
   },
 
   // * TEST scaffolding only: extra NPC carts (not slot-fill / PartyKit join flow).
@@ -233,12 +242,13 @@ function applyCartMassPropertiesOverride(body, collider, { label, hx, hy, hz, co
     collider.setDensity(0);
   }
 
-  const targetCom = new RAPIER.Vector3(0, -0.45, -0.2);
+  // * Baseline localCoM; tuning notes: CONFIG.cart and deferred/cart-feel-tuning.md
+  const targetCom = new RAPIER.Vector3(0, -0.55, 0);
 
   const comOffsetFromColliderCenter = {
     x: 0,
-    y: -0.45 - colliderLocalY,
-    z: -0.2,
+    y: -0.55 - colliderLocalY,
+    z: 0,
   };
   const { ix, iy, iz } = principalInertiaForTranslatedBox(
     baseMass,
