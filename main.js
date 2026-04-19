@@ -1087,6 +1087,7 @@ async function main() {
   let lastDebugMs = 0;
   let simFrameIndex = 0;
   let recordVersusPlayerFrame30Logged = false;
+  let playerColliderVisualOvershootSimFrame10Logged = false;
   let playerSwirlFrame120Logged = false;
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
@@ -1101,6 +1102,60 @@ async function main() {
     simFrameIndex += 1;
     if (simFrameIndex === 120) {
       playerSwirlFrame120Sample = null;
+    }
+
+    if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
+      playerColliderVisualOvershootSimFrame10Logged = true;
+      const hx = CONFIG.cart.size.x / 2;
+      const hy = CONFIG.cart.size.y / 2;
+      const hz = CONFIG.cart.size.z / 2;
+      const colliderFull = { x: 2 * hx, y: 2 * hy, z: 2 * hz };
+
+      const cartVisualRoot = playerCart.mesh;
+      const prevPos = cartVisualRoot.position.clone();
+      const prevQuat = cartVisualRoot.quaternion.clone();
+      cartVisualRoot.position.set(0, 0, 0);
+      cartVisualRoot.quaternion.identity();
+      cartVisualRoot.updateMatrixWorld(true);
+      const visualBox = new THREE.Box3().setFromObject(cartVisualRoot);
+      cartVisualRoot.position.copy(prevPos);
+      cartVisualRoot.quaternion.copy(prevQuat);
+      cartVisualRoot.updateMatrixWorld(true);
+
+      const visualMin = visualBox.min.clone();
+      const visualMax = visualBox.max.clone();
+      const visualSize = new THREE.Vector3().subVectors(visualMax, visualMin);
+
+      const pct = (colliderLen, visLen) =>
+        visLen > 1e-10 ? ((colliderLen - visLen) / visLen) * 100 : null;
+
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] player collider vs visual mesh @ sim frame 10", {
+        simFrameIndex,
+        colliderCuboidHalfExtents: { hx, hy, hz },
+        visualBoundingBoxAtIdentityRotation: {
+          min: { x: visualMin.x, y: visualMin.y, z: visualMin.z },
+          max: { x: visualMax.x, y: visualMax.y, z: visualMax.z },
+          size: { x: visualSize.x, y: visualSize.y, z: visualSize.z },
+        },
+        comparison: {
+          x: {
+            colliderFullExtent: colliderFull.x,
+            visualSize: visualSize.x,
+            overshootPercent: pct(colliderFull.x, visualSize.x),
+          },
+          y: {
+            colliderFullExtent: colliderFull.y,
+            visualSize: visualSize.y,
+            overshootPercent: pct(colliderFull.y, visualSize.y),
+          },
+          z: {
+            colliderFullExtent: colliderFull.z,
+            visualSize: visualSize.z,
+            overshootPercent: pct(colliderFull.z, visualSize.z),
+          },
+        },
+      });
     }
 
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
