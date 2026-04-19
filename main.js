@@ -233,13 +233,12 @@ function applyCartMassPropertiesOverride(body, collider, { label, hx, hy, hz, co
     collider.setDensity(0);
   }
 
-  const cartAdditionalComY = -0.4;
-  const targetCom = new RAPIER.Vector3(0, cartAdditionalComY, 0);
+  const targetCom = new RAPIER.Vector3(0, -0.45, -0.2);
 
   const comOffsetFromColliderCenter = {
     x: 0,
-    y: cartAdditionalComY - colliderLocalY,
-    z: 0,
+    y: -0.45 - colliderLocalY,
+    z: -0.2,
   };
   const { ix, iy, iz } = principalInertiaForTranslatedBox(
     baseMass,
