@@ -33,26 +33,25 @@ const CONFIG = {
     surface: {
       concentricRings: {
         count: 8,
-        lineWidth: 0.03,
+        lineWidth: 0.12,
         color: 0xff00ff,
         emissiveIntensity: 1.0,
-        yOffset: 0.02,
+        yOffset: 0.1,
       },
       radialSpokes: {
         count: 12,
-        lineWidth: 0.04,
+        lineWidth: 0.12,
         color: 0x00ff88,
-        yOffset: 0.02,
+        yOffset: 0.1,
       },
       label: {
         text: "CART RAVE",
         fontSize: 256,
         textColor: "#00ffff",
         backgroundColor: null,
-        worldWidth: 8,
-        worldHeight: 2,
-        yOffset: 0.03,
-        position: { x: 0, z: 0 },
+        worldWidth: 5,
+        worldHeight: 1.5,
+        yOffset: 0.12,
       },
     },
   },
@@ -569,10 +568,16 @@ async function main() {
       side: THREE.DoubleSide,
       depthWrite: false,
     });
-    const labelMesh = new THREE.Mesh(planeGeo, planeMat);
-    labelMesh.position.set(lb.position.x, yBase, lb.position.z);
-    labelMesh.rotation.x = -Math.PI / 2;
-    parentMesh.add(labelMesh);
+    const labelMeshA = new THREE.Mesh(planeGeo, planeMat);
+    labelMeshA.position.set(6, yBase, 0);
+    labelMeshA.rotation.x = -Math.PI / 2;
+    labelMeshA.rotation.z = 0;
+    parentMesh.add(labelMeshA);
+    const labelMeshB = new THREE.Mesh(planeGeo, planeMat);
+    labelMeshB.position.set(-6, yBase, 0);
+    labelMeshB.rotation.x = -Math.PI / 2;
+    labelMeshB.rotation.z = Math.PI;
+    parentMesh.add(labelMeshB);
   })(recordMesh);
 
   // Neon rim (visual only).
@@ -1497,61 +1502,45 @@ async function main() {
       const spokeMeshes = recordMesh.children.filter(
         (c) => c instanceof THREE.Mesh && c.geometry?.type === "BoxGeometry",
       );
-      const labelMesh = recordMesh.children.find(
+      const labelMeshes = recordMesh.children.filter(
         (c) => c instanceof THREE.Mesh && c.geometry?.type === "PlaneGeometry",
       );
       const lb = CONFIG.record.surface.label;
-      /** @type {Record<string, unknown> | null} */
-      let labelDiag = null;
-      if (labelMesh instanceof THREE.Mesh) {
-        labelMesh.updateMatrixWorld(true);
-        labelMesh.getWorldPosition(scratchWorldPos);
-        scratchBox.setFromObject(labelMesh);
-        const pg = labelMesh.geometry;
-        const params = pg && "parameters" in pg ? /** @type {{ width?: number; height?: number }} */ (pg).parameters : {};
-        labelDiag = {
-          found: true,
-          configWorldWidth: lb.worldWidth,
-          configWorldHeight: lb.worldHeight,
-          planeGeometryParametersWidth: params.width,
-          planeGeometryParametersHeight: params.height,
-          localPosition: {
-            x: labelMesh.position.x,
-            y: labelMesh.position.y,
-            z: labelMesh.position.z,
-          },
-          worldPosition: {
-            x: scratchWorldPos.x,
-            y: scratchWorldPos.y,
-            z: scratchWorldPos.z,
-          },
-          rotationX: labelMesh.rotation.x,
-          worldBoundingBox: {
-            min: { x: scratchBox.min.x, y: scratchBox.min.y, z: scratchBox.min.z },
-            max: { x: scratchBox.max.x, y: scratchBox.max.y, z: scratchBox.max.z },
-            size: {
-              x: scratchBox.max.x - scratchBox.min.x,
-              y: scratchBox.max.y - scratchBox.min.y,
-              z: scratchBox.max.z - scratchBox.min.z,
+      /** @type {Record<string, unknown>} */
+      const labelDiag = {
+        planeCount: labelMeshes.length,
+        configWorldWidth: lb.worldWidth,
+        configWorldHeight: lb.worldHeight,
+        planes: labelMeshes.map((lm, idx) => {
+          if (!(lm instanceof THREE.Mesh)) return { index: idx };
+          lm.updateMatrixWorld(true);
+          lm.getWorldPosition(scratchWorldPos);
+          scratchBox.setFromObject(lm);
+          const pg = lm.geometry;
+          const params = pg && "parameters" in pg ? /** @type {{ width?: number; height?: number }} */ (pg).parameters : {};
+          return {
+            index: idx,
+            planeGeometryParametersWidth: params.width,
+            planeGeometryParametersHeight: params.height,
+            localPosition: { x: lm.position.x, y: lm.position.y, z: lm.position.z },
+            worldPosition: {
+              x: scratchWorldPos.x,
+              y: scratchWorldPos.y,
+              z: scratchWorldPos.z,
             },
-          },
-          material: Array.isArray(labelMesh.material)
-            ? labelMesh.material.map((m) => ({
-                type: m.type,
-                visible: m.visible,
-                opacity: m.opacity,
-                transparent: m.transparent,
-              }))
-            : {
-                type: labelMesh.material.type,
-                visible: labelMesh.material.visible,
-                opacity: labelMesh.material.opacity,
-                transparent: labelMesh.material.transparent,
+            rotation: { x: lm.rotation.x, y: lm.rotation.y, z: lm.rotation.z },
+            worldBoundingBox: {
+              min: { x: scratchBox.min.x, y: scratchBox.min.y, z: scratchBox.min.z },
+              max: { x: scratchBox.max.x, y: scratchBox.max.y, z: scratchBox.max.z },
+              size: {
+                x: scratchBox.max.x - scratchBox.min.x,
+                y: scratchBox.max.y - scratchBox.min.y,
+                z: scratchBox.max.z - scratchBox.min.z,
               },
-        };
-      } else {
-        labelDiag = { found: false, note: "no PlaneGeometry child on recordMesh" };
-      }
+            },
+          };
+        }),
+      };
 
       // eslint-disable-next-line no-console
       console.log("[diagnostic] dancefloor surface visuals @ sim frame 10", {
@@ -1563,7 +1552,7 @@ async function main() {
         ringGeometryMeshCount: ringMeshes.length,
         boxGeometryMeshCount: spokeMeshes.length,
         perChild: childRows,
-        labelPlane: labelDiag,
+        labelPlanes: labelDiag,
         scanError: diagError,
       });
     }
@@ -1737,7 +1726,6 @@ async function main() {
     }
 
     // Fixed substeps for stability/consistency.
-    const accumulatorEnteringPhysics = accumulator;
     let substeps = 0;
     /** @type {Map<object, { forward: number; turn: number }>} */
     const npcDiagLastAiByCart = new Map();
@@ -1809,24 +1797,6 @@ async function main() {
           aiTarget: { x: c.aiTarget.x, z: c.aiTarget.z },
         });
       }
-    }
-
-    if (simFrameIndex <= 10) {
-      const fixedTs = CONFIG.fixedTimeStep;
-      const maxSub = CONFIG.maxSubsteps;
-      const accumEnter = accumulatorEnteringPhysics;
-      // eslint-disable-next-line no-console
-      console.log("[diagnostic] physics substep gate", {
-        simFrameIndex,
-        dtSec: dt,
-        accumulatorEnteringPhysics: accumEnter,
-        accumulatorAfterWhileLoop: accumulator,
-        fixedTimeStep: fixedTs,
-        maxSubsteps: maxSub,
-        whileConditionAccumulatorGteFixedDt: accumEnter >= fixedTs,
-        whileConditionSubstepsLtMax: 0 < maxSub,
-        substepsThisRenderFrame: substeps,
-      });
     }
 
     // Sync render meshes from physics.
