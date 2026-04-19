@@ -1,6 +1,6 @@
 # Cart Rave (prototype)
 
-Browser prototype: **Three.js** rendering, **Rapier3D** physics, optional **PartyKit** handshake. Carts are **fully procedural** (no GLTF or external models): wire basket, open chassis, chunky casters, and emissive neon materials live in **`cart.js`**. Caster **yaw** follows planar velocity (damped, with a little wobble at speed); **wheel roll** is derived from speed and `WHEEL_RADIUS`. Rapier uses a **single cuboid** per cart for collisions—visuals are a separate layer synced to each body every frame.
+Browser prototype: **Three.js** rendering, **Rapier3D** physics, optional **PartyKit** multiplayer (**host-authoritative** sim: one client runs physics and streams transforms; others interpolate). Carts are **fully procedural** (no GLTF or external models): wire basket, open chassis, chunky casters, and emissive neon materials live in **`cart.js`**. Caster **yaw** follows planar velocity (damped, with a little wobble at speed); **wheel roll** is derived from speed and `WHEEL_RADIUS`. Rapier uses a **single cuboid** per cart for collisions—visuals are a separate layer synced to each body every frame.
 
 ## Run locally
 
@@ -16,6 +16,12 @@ Alternatively:
 
 ```bash
 npx http-server -p 8085
+```
+
+For PartyKit (below), install dev dependencies once:
+
+```bash
+npm install
 ```
 
 ## Arena (dancefloor)
@@ -41,11 +47,15 @@ For multi-cart testing, **`CONFIG.npcCount`** in **`main.js`** spawns that many 
 
 Third-person follow uses **`CONFIG.camera`** (`followBack`, `followUp`, `lookAhead`, `lookUp`, damping, etc.). Portrait/wide aspect adjusts **FOV** within `minFov` / `maxFov` clamp bounds.
 
-## PartyKit (handshake only)
+## PartyKit (multiplayer)
+
+Server logic lives in **`party/index.ts`** (see **`partykit.json`** for entry). The room party name is **`main`** (must match the client `PartySocket` config in **`main.js`**).
+
+**Model:** up to **four slots** (humans fill in join order; empty slots stay **NPC**). The **designated host** runs **Rapier** and the full game tick; it sends periodic **`host_transform`** updates (~**20 Hz**, see **`CONFIG.net.hostSendHz`**). **Non-host** clients send **`client_input`** only and render **interpolated** snapshots (**~150 ms** buffer, **`CONFIG.net.interpBufferMs`**). If the host disconnects, the PartyKit server **migrates** host to the next connected human (oldest join order).
 
 The static game and the PartyKit server run as **two local processes**:
 
-1. **PartyKit dev server** (WebSocket party). The client expects **`127.0.0.1:1999`**; pin the port if something else grabbed it first:
+1. **PartyKit dev server** (WebSocket party). The client expects **`127.0.0.1:1999`** in dev; pin the port if something else grabbed it first:
 
    ```bash
    npx partykit dev -p 1999
@@ -57,19 +67,20 @@ The static game and the PartyKit server run as **two local processes**:
    python -m http.server 8085
    ```
 
-Open the static URL. With both running, you should see **`connected to party`** in the **browser console** and in the **`partykit dev` terminal** when the socket opens.
+Open the static URL from **`localhost`** or **`127.0.0.1`** so the client targets **`127.0.0.1:1999`**. With both running, the socket should open and slot / host messages should appear in the **browser console** and in **`partykit dev`**.
 
-**Production party:** deploy the server separately to PartyKit (not Vercel):
+**Production party:** deploy the server separately to PartyKit (not the static host):
 
 ```bash
 npx partykit deploy
 ```
 
-After deploy, set **`PARTYKIT_PUBLIC_HOST`** in **`main.js`** to your PartyKit host (for example `your-project.your-user.partykit.dev`) so the production static site can open the pipe.
+After deploy, set **`PARTYKIT_PUBLIC_HOST`** at the top of **`main.js`** to your PartyKit host (for example `your-project.your-user.partykit.dev`, **no** `https://` prefix) so a production static site can reach the party. If `PARTYKIT_PUBLIC_HOST` is empty, non-localhost pages default to **`{pageHostname}:1999`**, which is only useful when you intentionally proxy WebSockets to that port.
 
 ## Controls
 
 - **WASD** or **arrow keys** — drive
+- **Shift** — ram boost (nitro); networked as **`client_input`** when you are not the PartyKit host
 - **Space** — horn
 - **M** or the **speaker button** (bottom of the screen) — mute / unmute all audio
 
