@@ -491,13 +491,15 @@ async function main() {
     return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
   }
 
-  function createCart({ color, spawn, spawnYaw, label }) {
+  function createCart({ color, spawn, spawnYaw, label, slotIndex }) {
     const mesh = buildCart(color);
     scene.add(mesh);
 
+    const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
+
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(spawn.x, spawn.y, spawn.z)
+        .setTranslation(spawnFrozen.x, spawnFrozen.y, spawnFrozen.z)
         .setLinearDamping(CONFIG.cart.linearDamping)
         .setAngularDamping(CONFIG.cart.angularDamping),
     );
@@ -533,8 +535,9 @@ async function main() {
       mesh,
       body,
       collider,
-      spawn,
+      spawn: spawnFrozen,
       spawnYaw,
+      slotIndex,
       respawnAtMs: null,
       pendingRam: null,
     };
@@ -616,15 +619,13 @@ async function main() {
     }
   }
 
-  const ring = CONFIG.cart.spawnRingRadius;
-  const spawnY = CONFIG.cart.spawnHeight;
-
   function spawnOnRingForSlot(slotIndex) {
+    const ringR = CONFIG.cart.spawnRingRadius;
     const angle = (slotIndex * Math.PI) / 2;
     return {
-      x: ring * Math.cos(angle),
-      y: spawnY,
-      z: ring * Math.sin(angle),
+      x: ringR * Math.cos(angle),
+      y: CONFIG.cart.spawnHeight,
+      z: ringR * Math.sin(angle),
     };
   }
 
@@ -634,19 +635,22 @@ async function main() {
     spawn: playerSpawn,
     spawnYaw: yawToCenter(playerSpawn),
     label: "player",
+    slotIndex: 0,
   });
 
   const NPC_TEST_COLORS = [0xff2bd6, 0x8dff2b, 0xffee00, 0xff8800, 0xaa66ff];
   const npcCount = Math.max(0, Math.floor(CONFIG.npcCount));
   const npcCarts = [];
+  const npcSlotIndices = [1, 2, 3];
   for (let i = 0; i < npcCount; i += 1) {
-    const slotIndex = i + 1;
+    const slotIndex = npcSlotIndices[i];
     const spawn = spawnOnRingForSlot(slotIndex);
     const cart = createCart({
       color: NPC_TEST_COLORS[i % NPC_TEST_COLORS.length],
       spawn,
       spawnYaw: yawToCenter(spawn),
       label: `npc-${i}`,
+      slotIndex,
     });
     cart.aiNextDecisionMs = 0;
     cart.aiTarget = { x: 0, z: 0 };
@@ -1101,9 +1105,11 @@ async function main() {
       recordVersusPlayerFrame30Logged = true;
       const playerT = playerCart.body.translation();
       const ringR = CONFIG.cart.spawnRingRadius;
+      const spawnSlotAxisTol = 0.01;
       const cartRows = allCarts.map((cart) => {
         const t = cart.body.translation();
         const s = cart.spawn;
+        const expectedSpawn = spawnOnRingForSlot(cart.slotIndex);
         const distPlayer = Math.hypot(t.x - playerT.x, t.y - playerT.y, t.z - playerT.z);
         const distOrigin = Math.hypot(t.x, t.y, t.z);
         const distOriginXZ = Math.hypot(t.x, t.z);
@@ -1111,8 +1117,15 @@ async function main() {
           cart === playerCart ? "player" : `npc-${npcCarts.indexOf(cart)}`;
         return {
           id,
+          slotIndex: cart.slotIndex,
           translation: { x: t.x, y: t.y, z: t.z },
           spawnAtCreation: { x: s.x, y: s.y, z: s.z },
+          expectedSpawnForSlot: { x: expectedSpawn.x, y: expectedSpawn.y, z: expectedSpawn.z },
+          spawnRecordDeltaFromSlot: {
+            x: s.x - expectedSpawn.x,
+            y: s.y - expectedSpawn.y,
+            z: s.z - expectedSpawn.z,
+          },
           distanceToPlayer: distPlayer,
           distanceToWorldOrigin: distOrigin,
           distanceToWorldOriginXZ: distOriginXZ,
@@ -1125,6 +1138,14 @@ async function main() {
       const planarOk = cartRows.every(
         (row) => Math.abs(row.distanceToWorldOriginXZ - ringR) <= planarRingTolerance,
       );
+      const spawnRecordsMatchSlotPositions = cartRows.every((row) => {
+        const d = row.spawnRecordDeltaFromSlot;
+        return (
+          Math.abs(d.x) <= spawnSlotAxisTol &&
+          Math.abs(d.y) <= spawnSlotAxisTol &&
+          Math.abs(d.z) <= spawnSlotAxisTol
+        );
+      });
       const playerDistChecks = cartRows
         .filter((row) => row.id !== "player")
         .map((row, j) => {
@@ -1147,6 +1168,8 @@ async function main() {
           npcCount: npcCarts.length,
         },
         verification: {
+          spawnRecordsMatchSlotPositionsWithin001: spawnRecordsMatchSlotPositions,
+          spawnSlotAxisTolerance: spawnSlotAxisTol,
           allPlanarOriginDistancesWithinToleranceOfRing: planarOk,
           planarRingTolerance,
           expectedAdjacentChord: expectedAdjacent,
