@@ -1382,6 +1382,7 @@ async function main() {
   // * One-shot per page load; full reload (or HMR re-entry into main()) resets for re-measure.
   let playerColliderVisualOvershootSimFrame10Logged = false;
   let dancefloorSurfaceVisualDiagSimFrame10Logged = false;
+  let dancefloorSurfaceDeepDiagSimFrame15Logged = false;
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
 
@@ -1554,6 +1555,196 @@ async function main() {
         perChild: childRows,
         labelPlanes: labelDiag,
         scanError: diagError,
+      });
+    }
+
+    if (simFrameIndex === 15 && !dancefloorSurfaceDeepDiagSimFrame15Logged) {
+      dancefloorSurfaceDeepDiagSimFrame15Logged = true;
+      const scratchWp = new THREE.Vector3();
+      const scratchB = new THREE.Box3();
+      const clearCol = new THREE.Color();
+
+      /** @param {number} side */
+      const sideString = (side) =>
+        side === THREE.FrontSide
+          ? "FrontSide"
+          : side === THREE.DoubleSide
+            ? "DoubleSide"
+            : side === THREE.BackSide
+              ? "BackSide"
+              : String(side);
+
+      /**
+       * @param {THREE.Material} m
+       */
+      const summarizeMaterial = (m) => ({
+        colorHex: m.color && typeof m.color.getHex === "function" ? m.color.getHex() : null,
+        transparent: m.transparent,
+        opacity: m.opacity,
+        depthWrite: m.depthWrite,
+        depthTest: m.depthTest,
+        side: m.side,
+        sideString: sideString(m.side),
+        visible: m.visible,
+      });
+
+      recordMesh.updateMatrixWorld(true);
+      recordMesh.getWorldPosition(scratchWp);
+      scratchB.setFromObject(recordMesh);
+      const recordWorldPos = { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z };
+      const recordWorldBbox = {
+        min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
+        max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
+        size: {
+          x: scratchB.max.x - scratchB.min.x,
+          y: scratchB.max.y - scratchB.min.y,
+          z: scratchB.max.z - scratchB.min.z,
+        },
+      };
+      const recMatRaw = recordMesh.material;
+      const recMat = Array.isArray(recMatRaw) ? recMatRaw[0] : recMatRaw;
+
+      const ringMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry",
+      );
+      const spokeMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.geometry?.type === "BoxGeometry",
+      );
+      const labelMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.geometry?.type === "PlaneGeometry",
+      );
+
+      /** @type {Record<string, unknown> | null} */
+      let firstRingReport = null;
+      const firstRing = ringMeshes[0];
+      if (firstRing instanceof THREE.Mesh) {
+        firstRing.updateMatrixWorld(true);
+        firstRing.getWorldPosition(scratchWp);
+        const g = firstRing.geometry;
+        g.computeBoundingBox();
+        scratchB.setFromObject(firstRing);
+        const m = Array.isArray(firstRing.material) ? firstRing.material[0] : firstRing.material;
+        const p = /** @type {{ innerRadius?: number; outerRadius?: number; thetaSegments?: number }} */ (
+          g.parameters || {}
+        );
+        firstRingReport = {
+          geometryParameters: {
+            innerRadius: p.innerRadius,
+            outerRadius: p.outerRadius,
+            thetaSegments: p.thetaSegments,
+          },
+          material: summarizeMaterial(m),
+          worldPosition: { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z },
+          worldBoundingBox: {
+            min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
+            max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
+            size: {
+              x: scratchB.max.x - scratchB.min.x,
+              y: scratchB.max.y - scratchB.min.y,
+              z: scratchB.max.z - scratchB.min.z,
+            },
+          },
+          geometryBoundingBox: g.boundingBox
+            ? {
+                min: { x: g.boundingBox.min.x, y: g.boundingBox.min.y, z: g.boundingBox.min.z },
+                max: { x: g.boundingBox.max.x, y: g.boundingBox.max.y, z: g.boundingBox.max.z },
+              }
+            : null,
+        };
+      }
+
+      /** @type {Record<string, unknown> | null} */
+      let firstSpokeReport = null;
+      const firstSpoke = spokeMeshes[0];
+      if (firstSpoke instanceof THREE.Mesh) {
+        firstSpoke.updateMatrixWorld(true);
+        firstSpoke.getWorldPosition(scratchWp);
+        const g = firstSpoke.geometry;
+        g.computeBoundingBox();
+        scratchB.setFromObject(firstSpoke);
+        const m = Array.isArray(firstSpoke.material) ? firstSpoke.material[0] : firstSpoke.material;
+        const p = /** @type {{ width?: number; height?: number; depth?: number }} */ (g.parameters || {});
+        firstSpokeReport = {
+          geometryParameters: { width: p.width, height: p.height, depth: p.depth },
+          material: summarizeMaterial(m),
+          worldPosition: { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z },
+          worldBoundingBox: {
+            min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
+            max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
+            size: {
+              x: scratchB.max.x - scratchB.min.x,
+              y: scratchB.max.y - scratchB.min.y,
+              z: scratchB.max.z - scratchB.min.z,
+            },
+          },
+          geometryBoundingBox: g.boundingBox
+            ? {
+                min: { x: g.boundingBox.min.x, y: g.boundingBox.min.y, z: g.boundingBox.min.z },
+                max: { x: g.boundingBox.max.x, y: g.boundingBox.max.y, z: g.boundingBox.max.z },
+              }
+            : null,
+        };
+      }
+
+      /** @type {Record<string, unknown> | null} */
+      let firstLabelReport = null;
+      const firstLabel = labelMeshes[0];
+      if (firstLabel instanceof THREE.Mesh) {
+        firstLabel.updateMatrixWorld(true);
+        firstLabel.getWorldPosition(scratchWp);
+        const g = firstLabel.geometry;
+        g.computeBoundingBox();
+        scratchB.setFromObject(firstLabel);
+        const m = Array.isArray(firstLabel.material) ? firstLabel.material[0] : firstLabel.material;
+        const map = /** @type {THREE.MeshBasicMaterial} */ (m).map;
+        const texOk =
+          map != null &&
+          map.image != null &&
+          typeof map.image.width === "number" &&
+          map.image.width > 0;
+        const lp = /** @type {{ width?: number; height?: number }} */ (g.parameters || {});
+        firstLabelReport = {
+          geometryParameters: { width: lp.width, height: lp.height },
+          material: summarizeMaterial(m),
+          textureOk: texOk,
+          textureImageWidth: map && map.image ? map.image.width : null,
+          textureImageHeight: map && map.image ? map.image.height : null,
+          worldPosition: { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z },
+          worldBoundingBox: {
+            min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
+            max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
+            size: {
+              x: scratchB.max.x - scratchB.min.x,
+              y: scratchB.max.y - scratchB.min.y,
+              z: scratchB.max.z - scratchB.min.z,
+            },
+          },
+          geometryBoundingBox: g.boundingBox
+            ? {
+                min: { x: g.boundingBox.min.x, y: g.boundingBox.min.y, z: g.boundingBox.min.z },
+                max: { x: g.boundingBox.max.x, y: g.boundingBox.max.y, z: g.boundingBox.max.z },
+              }
+            : null,
+        };
+      }
+
+      renderer.getClearColor(clearCol);
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] dancefloor surface deep render @ sim frame 15", {
+        simFrameIndex,
+        recordMesh: {
+          material: summarizeMaterial(recMat),
+          worldPosition: recordWorldPos,
+          worldBoundingBox: recordWorldBbox,
+        },
+        firstRingMesh: firstRingReport,
+        firstSpokeMesh: firstSpokeReport,
+        firstLabelPlane: firstLabelReport,
+        renderer: {
+          sortObjects: renderer.sortObjects,
+          clearColorHex: clearCol.getHex(),
+          clearAlpha: renderer.getClearAlpha(),
+        },
       });
     }
 
