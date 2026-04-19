@@ -1088,6 +1088,8 @@ async function main() {
   let simFrameIndex = 0;
   let recordVersusPlayerFrame30Logged = false;
   let playerSwirlFrame120Logged = false;
+  /** @type {ReadonlySet<number>} */
+  const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
   /** @type {{ r: number; falloff: number; impulseMag: number; skippedSmallR?: boolean } | null} */
   let playerSwirlFrame120Sample = null;
 
@@ -1267,13 +1269,17 @@ async function main() {
     // Fixed substeps for stability/consistency.
     const accumulatorEnteringPhysics = accumulator;
     let substeps = 0;
+    /** @type {Map<object, { forward: number; turn: number }>} */
+    const npcDiagLastAiByCart = new Map();
     while (
       accumulator >= CONFIG.fixedTimeStep &&
       substeps < CONFIG.maxSubsteps
     ) {
       applyArcadeControls(playerCart, playerAxis, CONFIG.fixedTimeStep);
       for (const c of npcCarts) {
-        applyArcadeControls(c, getAiAxis(now, c), CONFIG.fixedTimeStep);
+        const aiAxis = getAiAxis(now, c);
+        npcDiagLastAiByCart.set(c, aiAxis);
+        applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep);
       }
 
       // Apply any pending ramming impulses over multiple physics steps.
@@ -1306,6 +1312,32 @@ async function main() {
       });
       accumulator -= CONFIG.fixedTimeStep;
       substeps += 1;
+    }
+
+    if (NPC_INWARD_DRIFT_LOG_FRAMES.has(simFrameIndex)) {
+      for (const c of npcCarts) {
+        const t = c.body.translation();
+        const lv = c.body.linvel();
+        const av = c.body.angvel();
+        const s = c.spawn;
+        const aiAxis = npcDiagLastAiByCart.get(c) ?? { forward: 0, turn: 0 };
+        // eslint-disable-next-line no-console
+        console.log("[diagnostic] npc inward drift on spawn", {
+          simFrameIndex,
+          label: c.label,
+          slotIndex: c.slotIndex,
+          linvel: { x: lv.x, y: lv.y, z: lv.z },
+          angvel: { x: av.x, y: av.y, z: av.z },
+          positionDeltaFromSpawnAtCreation: {
+            x: t.x - s.x,
+            y: t.y - s.y,
+            z: t.z - s.z,
+          },
+          distanceToWorldOriginXZ: Math.hypot(t.x, t.z),
+          aiAxisAppliedLastSubstep: aiAxis,
+          aiTarget: { x: c.aiTarget.x, z: c.aiTarget.z },
+        });
+      }
     }
 
     if (simFrameIndex <= 10) {
