@@ -25,16 +25,11 @@ const CONFIG = {
     thickness: 0.6,
     y: -0.3,
     rotationSpeedRadPerSec: 0.35,
+    physicsSpinRadPerSec: 0.08,
     friction: 2.2,
     restitution: 0.0,
     color: 0x050006,
     rimColor: 0xff2bd6,
-    swirl: {
-      enabled: true,
-      maxForce: 8.0,
-      falloffExponent: 2.0,
-      direction: 1,
-    },
   },
 
   cart: {
@@ -139,7 +134,6 @@ const CONFIG = {
   },
 };
 
-CONFIG.record.swirl.falloffRadius = CONFIG.record.radius * 0.75;
 CONFIG.cart.spawnRingRadius = CONFIG.record.radius * 0.7;
 
 function clamp(value, min, max) {
@@ -485,7 +479,7 @@ async function main() {
   scene.add(innerRimMesh);
 
   const recordBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, CONFIG.record.y, 0),
+    RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, CONFIG.record.y, 0),
   );
 
   const recordVerts = /** @type {Float32Array} */ (recordGeo.attributes.position.array);
@@ -871,50 +865,6 @@ async function main() {
         ramBoostStreaks.splice(i, 1);
       } else {
         s.material.opacity = 1 - t;
-      }
-    }
-  }
-
-  /**
-   * * Planar tangential push toward the record rim: strongest at center, ~0 beyond falloffRadius.
-   * @param {number} fixedDt
-   * @param {(sample: { r: number; falloff: number; impulseMag: number; skippedSmallR?: boolean }) => void} [onPlayerSample]
-   */
-  function applyRecordSwirlImpulsesForSubstep(fixedDt, onPlayerSample) {
-    const swirl = CONFIG.record.swirl;
-    if (!swirl.enabled) return;
-
-    const maxF = swirl.maxForce;
-    const falloffR = swirl.falloffRadius;
-    const exp = swirl.falloffExponent;
-    const dirSign = swirl.direction;
-    const rec = recordBody.translation();
-    const cx = rec.x;
-    const cz = rec.z;
-
-    for (const cart of allCarts) {
-      const p = cart.body.translation();
-      const relX = p.x - cx;
-      const relZ = p.z - cz;
-      const r = Math.hypot(relX, relZ);
-      if (r < 0.01) {
-        if (cart === playerCart && typeof onPlayerSample === "function") {
-          onPlayerSample({ r, falloff: 0, impulseMag: 0, skippedSmallR: true });
-        }
-        continue;
-      }
-      const raw = 1 - r / falloffR;
-      const falloff = Math.max(0, raw) ** exp;
-      const forceMag = maxF * falloff;
-      const tx = (-relZ / r) * dirSign;
-      const tz = (relX / r) * dirSign;
-      const impulseMag = forceMag * fixedDt;
-      cart.body.applyImpulse(
-        { x: tx * forceMag * fixedDt, y: 0, z: tz * forceMag * fixedDt },
-        true,
-      );
-      if (cart === playerCart && typeof onPlayerSample === "function") {
-        onPlayerSample({ r, falloff, impulseMag });
       }
     }
   }
@@ -1305,11 +1255,8 @@ async function main() {
   let recordVersusPlayerFrame30Logged = false;
   // * One-shot per page load; full reload (or HMR re-entry into main()) resets for re-measure.
   let playerColliderVisualOvershootSimFrame10Logged = false;
-  let playerSwirlFrame120Logged = false;
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
-  /** @type {{ r: number; falloff: number; impulseMag: number; skippedSmallR?: boolean } | null} */
-  let playerSwirlFrame120Sample = null;
 
   function step(now) {
     const dt = Math.min((now - lastT) / 1000, 0.05);
@@ -1317,9 +1264,6 @@ async function main() {
     accumulator += dt;
 
     simFrameIndex += 1;
-    if (simFrameIndex === 120) {
-      playerSwirlFrame120Sample = null;
-    }
 
     if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
       playerColliderVisualOvershootSimFrame10Logged = true;
@@ -1572,11 +1516,10 @@ async function main() {
         if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
       }
 
-      applyRecordSwirlImpulsesForSubstep(CONFIG.fixedTimeStep, (sample) => {
-        if (simFrameIndex === 120) {
-          playerSwirlFrame120Sample = sample;
-        }
-      });
+      recordBody.setAngvel(
+        { x: 0, y: CONFIG.record.physicsSpinRadPerSec, z: 0 },
+        true,
+      );
 
       world.step(eventQueue);
       eventQueue.drainCollisionEvents((h1, h2, started) => {
@@ -1634,35 +1577,6 @@ async function main() {
         whileConditionAccumulatorGteFixedDt: accumEnter >= fixedTs,
         whileConditionSubstepsLtMax: 0 < maxSub,
         substepsThisRenderFrame: substeps,
-      });
-    }
-
-    if (simFrameIndex === 120 && !playerSwirlFrame120Logged) {
-      playerSwirlFrame120Logged = true;
-      const swirl = CONFIG.record.swirl;
-      const recT = recordBody.translation();
-      const t = playerCart.body.translation();
-      const rNow = Math.hypot(t.x - recT.x, t.z - recT.z);
-
-      let r = rNow;
-      let falloff = 0;
-      let impulseMag = 0;
-      if (playerSwirlFrame120Sample) {
-        r = playerSwirlFrame120Sample.r;
-        falloff = playerSwirlFrame120Sample.falloff;
-        impulseMag = playerSwirlFrame120Sample.impulseMag;
-      } else if (rNow >= 0.01) {
-        const raw = 1 - rNow / swirl.falloffRadius;
-        falloff = Math.max(0, raw) ** swirl.falloffExponent;
-      }
-
-      // eslint-disable-next-line no-console
-      console.log("[diagnostic] record swirl @ sim frame 120 (player)", {
-        r,
-        falloff,
-        impulseMag,
-        physicsSubstepsThisRenderFrame: substeps,
-        swirlEnabled: swirl.enabled,
       });
     }
 
