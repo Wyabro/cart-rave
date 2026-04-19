@@ -52,11 +52,19 @@ const CONFIG = {
 
     ramBoost: {
       enabled: true,
-      impulse: 30,
-      cooldownSec: 2.0,
-      streakDurationSec: 0.5,
-      streakCount: 12,
+      durationSec: 1.5,
+      cooldownSec: 2.5,
+      boostedMaxSpeed: 22,
+      boostedAccel: null,
+      streakDurationSec: 0.4,
+      streakSpawnRatePerSec: 12,
       streakLengthMeters: 2.0,
+      npc: {
+        enabled: true,
+        alignmentAngleDeg: 15,
+        minTargetDistance: 4.0,
+        maxTargetDistance: 18.0,
+      },
     },
 
     // NOTE: CoM tuning deferred. Baseline -0.55 is stable-but-boring.
@@ -561,7 +569,11 @@ async function main() {
       spawn: spawnFrozen,
       spawnYaw,
       slotIndex,
+      label,
+      cartColor: color,
       lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
+      ramBoostActiveUntilMs: 0,
+      ramBoostStreakCarry: 0,
       respawnAtMs: null,
       pendingRam: null,
     };
@@ -579,10 +591,15 @@ async function main() {
     cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
     cart.respawnAtMs = null;
     cart.pendingRam = null;
+    cart.ramBoostActiveUntilMs = 0;
+    cart.ramBoostStreakCarry = 0;
     resetCartVisualState(cart.mesh);
   }
 
-  function applyArcadeControls(cart, axis, dtFixed) {
+  /**
+   * @param {number} nowMs
+   */
+  function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     const pos = cart.body.translation();
     const rot = cart.body.rotation();
     const linvel = cart.body.linvel();
@@ -611,10 +628,18 @@ async function main() {
     cart.body.applyImpulse(vec3ToRapier(gripImpulse), true);
 
     if (axis.forward !== 0) {
-      const targetSpeed =
+      const rb = CONFIG.cart.ramBoost;
+      const nitroForward =
+        rb.enabled && nowMs <= cart.ramBoostActiveUntilMs && axis.forward > 0;
+      let targetSpeed =
         axis.forward > 0 ? CONFIG.driving.maxSpeed : -CONFIG.driving.reverseMaxSpeed;
+      if (nitroForward) {
+        targetSpeed = rb.boostedMaxSpeed;
+      }
+      const accelRate =
+        nitroForward && rb.boostedAccel != null ? rb.boostedAccel : CONFIG.driving.accel;
       const speedError = targetSpeed - vForward;
-      const maxDeltaV = CONFIG.driving.accel * controlFactor * dtFixed;
+      const maxDeltaV = accelRate * controlFactor * dtFixed;
       const dvForward = clamp(speedError, -maxDeltaV, maxDeltaV);
       if (Math.abs(dvForward) > 1e-4) {
         const driveImpulse = forward.clone().multiplyScalar(mass * dvForward);
@@ -691,73 +716,145 @@ async function main() {
 
   /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number }[]} */
   const ramBoostStreaks = [];
-  /** @type {{ x: number; y: number; z: number } | null} */
-  let playerRamBoostPendingImpulse = null;
-  /** @type {{ before: { x: number; y: number; z: number }; impulse: { x: number; y: number; z: number }; forward: { x: number; y: number; z: number }; streakSpawned: number } | null} */
-  let playerRamBoostPostStepDiagnostic = null;
-  let playerRamBoostFirstSuccessDiagnosticLogged = false;
+  let nitroFirstBoostDiagnosticLogged = false;
   const ramBoostStreakAlignQuat = new THREE.Quaternion();
   const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
   const ramBoostStreakScratchOrigin = new THREE.Vector3();
   const ramBoostStreakScratchPos = new THREE.Vector3();
+  const ramBoostForwardXZ = new THREE.Vector3();
+  const ramBoostToTargetXZ = new THREE.Vector3();
 
   /**
-   * @param {THREE.Vector3} forward
-   * @param {THREE.Vector3} right
-   * @param {{ x: number; y: number; z: number }} translation
-   * @param {typeof CONFIG.cart.ramBoost} rb
+   * @param {typeof playerCart} cart
    * @param {number} birthMs
    */
-  function spawnPlayerRamBoostStreaks(forward, right, translation, rb, birthMs) {
+  function spawnRamBoostStreakForCart(cart, birthMs) {
+    const rb = CONFIG.cart.ramBoost;
+    const rot = cart.body.rotation();
+    const yaw = yawFromQuaternion(rot);
+    const { forward, right } = getForwardRightFromYaw(yaw);
     const fwd = forward.clone().normalize();
     const rgt = right.clone().normalize();
     ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
-    ramBoostStreakScratchOrigin.set(translation.x, translation.y, translation.z);
-    for (let i = 0; i < rb.streakCount; i += 1) {
-      const back = Math.random() * 1.0;
-      const lat = (Math.random() * 2 - 1) * 0.5;
-      ramBoostStreakScratchPos
-        .copy(ramBoostStreakScratchOrigin)
-        .addScaledVector(fwd, -back)
-        .addScaledVector(rgt, lat);
-      const geo = new THREE.CylinderGeometry(0.03, 0.03, rb.streakLengthMeters, 8, 1);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 1,
-        depthWrite: false,
+    const t = cart.body.translation();
+    ramBoostStreakScratchOrigin.set(t.x, t.y, t.z);
+    const back = Math.random() * 1.0;
+    const lat = (Math.random() * 2 - 1) * 0.5;
+    ramBoostStreakScratchPos
+      .copy(ramBoostStreakScratchOrigin)
+      .addScaledVector(fwd, -back)
+      .addScaledVector(rgt, lat);
+    const geo = new THREE.CylinderGeometry(0.03, 0.03, rb.streakLengthMeters, 8, 1);
+    const mat = new THREE.MeshBasicMaterial({
+      color: cart.cartColor,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(ramBoostStreakScratchPos);
+    mesh.quaternion.copy(ramBoostStreakAlignQuat);
+    scene.add(mesh);
+    ramBoostStreaks.push({
+      mesh,
+      material: mat,
+      birthMs,
+      durationMs: rb.streakDurationSec * 1000,
+    });
+  }
+
+  /**
+   * @param {typeof playerCart} cart
+   * @param {number} nowMs
+   */
+  function triggerRamBoost(cart, nowMs) {
+    const rb = CONFIG.cart.ramBoost;
+    if (!rb.enabled) return;
+    if (nowMs <= cart.ramBoostActiveUntilMs) return;
+    if (nowMs - cart.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
+    cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
+    cart.lastRamBoostTimeMs = nowMs;
+    cart.ramBoostStreakCarry = 0;
+
+    if (!nitroFirstBoostDiagnosticLogged) {
+      const rot = cart.body.rotation();
+      const yaw = yawFromQuaternion(rot);
+      const { forward } = getForwardRightFromYaw(yaw);
+      const lv = cart.body.linvel();
+      const vForward = forward.x * lv.x + forward.y * lv.y + forward.z * lv.z;
+      // eslint-disable-next-line no-console
+      console.log("[diagnostic] nitro first boost", {
+        id: cart.label,
+        cartColor: cart.cartColor,
+        boostDurationSec: rb.durationSec,
+        targetMaxSpeedWhileNitro: rb.boostedMaxSpeed,
+        forwardSpeedAtTrigger: vForward,
       });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(ramBoostStreakScratchPos);
-      mesh.quaternion.copy(ramBoostStreakAlignQuat);
-      scene.add(mesh);
-      ramBoostStreaks.push({
-        mesh,
-        material: mat,
-        birthMs,
-        durationMs: rb.streakDurationSec * 1000,
-      });
+      nitroFirstBoostDiagnosticLogged = true;
     }
   }
 
   /**
    * @param {number} nowMs
+   * @param {number} dtSec
    */
-  function attemptPlayerRamBoost(nowMs) {
+  function tickRamBoostStreakSpawners(nowMs, dtSec) {
     const rb = CONFIG.cart.ramBoost;
-    if (!rb.enabled) return;
-    if (playerRamBoostPendingImpulse) return;
-    if ((nowMs - playerCart.lastRamBoostTimeMs) / 1000 < rb.cooldownSec) return;
-    const rot = playerCart.body.rotation();
+    if (!rb.enabled || dtSec <= 0) return;
+    for (const cart of allCarts) {
+      if (nowMs > cart.ramBoostActiveUntilMs) continue;
+      cart.ramBoostStreakCarry += rb.streakSpawnRatePerSec * dtSec;
+      while (cart.ramBoostStreakCarry >= 1) {
+        cart.ramBoostStreakCarry -= 1;
+        spawnRamBoostStreakForCart(cart, nowMs);
+      }
+    }
+  }
+
+  /**
+   * @param {number} nowMs
+   * @param {typeof playerCart} npc
+   */
+  function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
+    const rb = CONFIG.cart.ramBoost;
+    const ncfg = rb.npc;
+    if (!rb.enabled || !ncfg.enabled) return;
+    if (nowMs <= npc.ramBoostActiveUntilMs) return;
+    if (nowMs - npc.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
+
+    let nearestOther = null;
+    let nearestD2 = Infinity;
+    const p = npc.body.translation();
+    for (const o of allCarts) {
+      if (o === npc) continue;
+      const op = o.body.translation();
+      const dx = op.x - p.x;
+      const dz = op.z - p.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < nearestD2) {
+        nearestD2 = d2;
+        nearestOther = o;
+      }
+    }
+    if (!nearestOther) return;
+    const dist = Math.sqrt(nearestD2);
+    if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
+
+    const rot = npc.body.rotation();
     const yaw = yawFromQuaternion(rot);
-    const { forward, right } = getForwardRightFromYaw(yaw);
-    const mag = rb.impulse;
-    playerRamBoostPendingImpulse = {
-      x: forward.x * mag,
-      y: forward.y * mag,
-      z: forward.z * mag,
-    };
-    spawnPlayerRamBoostStreaks(forward, right, playerCart.body.translation(), rb, nowMs);
+    const { forward } = getForwardRightFromYaw(yaw);
+    const op = nearestOther.body.translation();
+    ramBoostToTargetXZ.set(op.x - p.x, 0, op.z - p.z);
+    if (ramBoostToTargetXZ.lengthSq() < 1e-8) return;
+    ramBoostToTargetXZ.normalize();
+    ramBoostForwardXZ.set(forward.x, 0, forward.z);
+    if (ramBoostForwardXZ.lengthSq() < 1e-8) return;
+    ramBoostForwardXZ.normalize();
+    const dot = clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1);
+    const angleDeg = Math.acos(dot) * (180 / Math.PI);
+    if (angleDeg > ncfg.alignmentAngleDeg) return;
+
+    triggerRamBoost(npc, nowMs);
   }
 
   /**
@@ -1158,7 +1255,7 @@ async function main() {
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
       if (e.repeat) return;
       e.preventDefault();
-      attemptPlayerRamBoost(performance.now());
+      triggerRamBoost(playerCart, performance.now());
       return;
     }
     if (e.code === "KeyM") {
@@ -1378,6 +1475,11 @@ async function main() {
       }
     }
 
+    for (const c of npcCarts) {
+      maybeTriggerNpcOpportunisticRamBoost(now, c);
+    }
+    tickRamBoostStreakSpawners(now, dt);
+
     // Third-person follow camera (behind the cart), smoothed.
     const playerRot = playerCart.body.rotation();
     const playerQuat = new THREE.Quaternion(
@@ -1450,31 +1552,11 @@ async function main() {
       accumulator >= CONFIG.fixedTimeStep &&
       substeps < CONFIG.maxSubsteps
     ) {
-      if (playerRamBoostPendingImpulse) {
-        const rot = playerCart.body.rotation();
-        const yaw = yawFromQuaternion(rot);
-        const { forward } = getForwardRightFromYaw(yaw);
-        const before = playerCart.body.linvel();
-        const imp = playerRamBoostPendingImpulse;
-        playerCart.body.applyImpulse(imp, true);
-        playerCart.lastRamBoostTimeMs = now;
-        const impCopy = { x: imp.x, y: imp.y, z: imp.z };
-        playerRamBoostPendingImpulse = null;
-        if (!playerRamBoostFirstSuccessDiagnosticLogged) {
-          playerRamBoostPostStepDiagnostic = {
-            before: { x: before.x, y: before.y, z: before.z },
-            impulse: impCopy,
-            forward: { x: forward.x, y: forward.y, z: forward.z },
-            streakSpawned: CONFIG.cart.ramBoost.streakCount,
-          };
-        }
-      }
-
-      applyArcadeControls(playerCart, playerAxis, CONFIG.fixedTimeStep);
+      applyArcadeControls(playerCart, playerAxis, CONFIG.fixedTimeStep, now);
       for (const c of npcCarts) {
         const aiAxis = getAiAxis(now, c);
         npcDiagLastAiByCart.set(c, aiAxis);
-        applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep);
+        applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep, now);
       }
 
       // Apply any pending ramming impulses over multiple physics steps.
@@ -1505,24 +1587,6 @@ async function main() {
         applyRammingImpulse(c1, c2);
         applyRammingImpulse(c2, c1);
       });
-      if (playerRamBoostPostStepDiagnostic && !playerRamBoostFirstSuccessDiagnosticLogged) {
-        const d = playerRamBoostPostStepDiagnostic;
-        const lvAfter = playerCart.body.linvel();
-        const rb = CONFIG.cart.ramBoost;
-        // eslint-disable-next-line no-console
-        console.log("[diagnostic] ram boost first success", {
-          linvelBeforeImpulse: d.before,
-          impulseApplied: d.impulse,
-          linvelAfterOneSubstep: { x: lvAfter.x, y: lvAfter.y, z: lvAfter.z },
-          cartForward: d.forward,
-          streaksSpawned: d.streakSpawned,
-          cooldownSec: rb.cooldownSec,
-          lastBoostTimeMs: playerCart.lastRamBoostTimeMs,
-          nextBoostEligibleAfterMs: playerCart.lastRamBoostTimeMs + rb.cooldownSec * 1000,
-        });
-        playerRamBoostFirstSuccessDiagnosticLogged = true;
-        playerRamBoostPostStepDiagnostic = null;
-      }
       accumulator -= CONFIG.fixedTimeStep;
       substeps += 1;
     }
