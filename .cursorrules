@@ -13,6 +13,10 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Must include Vibe Jam widget: <script async src="https://vibej.am/2026/widget.js"></script>
 - Vibe Jam portal integration planned (exit portal on spawn platform → https://vibej.am/portal/2026)
 
+## JAM SCOPE CUTS
+- **CUT (jam): server-synced dancefloor rotation.** Jam build computes dancefloor rotation from local time. Server-synced time is post-jam work.
+- **CUT (jam): dancefloor physics drag.** Jam build uses a visual-only rotating floor; carts are not pushed by floor rotation. Physics drag/spin coupling is post-jam work.
+
 ## Stack
 - Three.js (rendering)
 - Rapier3D (physics, client-side)
@@ -28,7 +32,8 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Solo play is first-class.** A single human + 3 NPCs is a complete, playable game — not a degraded state.
 - **Drop-in/drop-out.** Rounds start immediately with whatever mix of humans and NPCs exists. Joining mid-round spawns you on the lobby platform for next round.
 - **Room code in URL** (e.g., cartrave.lol/?room=ABCD). Default landing page with no params = public Quickplay room. Shared URL joins that specific private room.
-- **Server-synced time** for dancefloor rotation. Compute rotation angle from `serverTime % rotationPeriod` on every client — NEVER use local deltaTime for dancefloor rotation, it will cause desync.
+- **Dancefloor rotation (jam cut): local-time based.** Jam build computes dancefloor rotation from local time on each client. Server-synced time rotation is post-jam work.
+- **Dancefloor physics drag (jam cut): visual-only floor.** Jam build does not push carts via floor rotation; physics drag/spin coupling is post-jam work.
 - **Sync cart transforms (position + rotation + linear velocity + angular velocity) at 20Hz.** Wheels, audio, and effects are derived locally from synced state. Sync treats human and NPC carts identically — both are just "cart states being broadcast."
 - **Disconnect handling:** human leaves → slot converts to NPC mid-round, round continues seamlessly.
 - **Host migration:** if host leaves, assign new host from remaining humans. New host picks up NPC control. Show "host migrated" message briefly, don't break the room or freeze NPCs.

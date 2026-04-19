@@ -6,6 +6,24 @@ import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "";
 
+// --- PartyKit protocol constants (must match server exactly) ---
+const MSG = {
+  // Client -> server
+  join: "join",
+  hostTransform: "host_transform",
+  clientInput: "client_input",
+  hostEventFall: "host_event_fall",
+  hostRound: "host_round",
+
+  // Server -> client
+  hello: "hello",
+  hostAssigned: "host_assigned",
+  hostMigrated: "host_migrated",
+  slots: "slots",
+  state: "state",
+  round: "round",
+};
+
 const CONFIG = {
   canvasId: "game",
   backgroundColor: 0x070010,
@@ -13,6 +31,12 @@ const CONFIG = {
     input: false,
     velocity: false,
     arenaTrimesh: false,
+  },
+  net: {
+    // * Non-host renders 150ms behind latest packet for smoothness.
+    interpBufferMs: 150,
+    // * Host sends authoritative transforms at 20Hz.
+    hostSendHz: 20,
   },
 
   gravity: -24,
@@ -106,9 +130,6 @@ const CONFIG = {
     // * Rigid-body localCoM is applied in applyCartMassPropertiesOverride (not this object).
   },
 
-  // * TEST scaffolding only: extra NPC carts (not slot-fill / PartyKit join flow).
-  npcCount: 3,
-
   driving: {
     maxSpeed: 14.0,
     reverseMaxSpeed: 8.0,
@@ -169,6 +190,341 @@ const CONFIG = {
 };
 
 CONFIG.cart.spawnRingRadius = CONFIG.record.radius * 0.7;
+
+function partyHostFromWindowLocation() {
+  const hostname = window.location.hostname;
+  const publicHost = PARTYKIT_PUBLIC_HOST.trim();
+  return publicHost
+    ? publicHost
+    : hostname === "localhost" || hostname === "127.0.0.1"
+      ? "127.0.0.1:1999"
+      : `${hostname}:1999`;
+}
+
+// --- Module-scope netcode state (per handover spec) ---
+/** @type {PartySocket | null} */
+let partySocket = null;
+
+/** @type {string | null} */
+let youConnId = null;
+/** @type {string | null} */
+let hostId = null;
+let isHost = false;
+
+// * Input bridge for non-host client_input nitro (Shift key).
+let localNitroHeld = false;
+
+const SLOT_COLORS = {
+  hotPink: 0xff2bd6,
+  electricBlue: 0x2bd6ff,
+  limeGreen: 0x8dff2b,
+  neonYellow: 0xffee00,
+};
+
+/** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
+let netSlots = [
+  { slotId: 0, kind: "npc", connId: null, name: "CartGPT", color: "hotPink" },
+  { slotId: 1, kind: "npc", connId: null, name: "RollBot", color: "electricBlue" },
+  { slotId: 2, kind: "npc", connId: null, name: "WheelE", color: "limeGreen" },
+  { slotId: 3, kind: "npc", connId: null, name: "PushPop", color: "neonYellow" },
+];
+
+/**
+ * Last authoritative carts snapshot (host caches and non-host consumes).
+ * @type {Record<string, any> | null}
+ */
+let lastCartsCache = null;
+
+/**
+ * Non-host interpolation buffer entries.
+ * @type {{ serverNowMs: number; seq: number; carts: Record<string, any> }[]}
+ */
+let netStateBuffer = [];
+
+/** @type {Map<string, { throttle: number; steer: number; nitro: boolean }>} */
+let remoteInputsByConnId = new Map();
+/** @type {Map<string, boolean>} */
+let remoteNitroLatchedByConnId = new Map();
+
+/** @type {ReturnType<typeof setInterval> | null} */
+let hostSendTimer = null;
+/** @type {ReturnType<typeof setInterval> | null} */
+let inputSendTimer = null;
+
+let hostSeq = 0;
+let inputSeq = 0;
+
+// These are assigned once main() constructs the physics world + carts.
+/** @type {any[] | null} */
+let allCartsRef = null;
+/** @type {(() => { forward: number; turn: number }) | null} */
+let getAxisRef = null;
+/** @type {(cart: any, nowMs: number) => void | null} */
+let triggerRamBoostRef = null;
+
+function colorHexForSlot(slot) {
+  if (!slot) return 0xffffff;
+  const c = slot.color;
+  if (typeof c === "number") return c;
+  if (typeof c === "string" && c in SLOT_COLORS) return SLOT_COLORS[c];
+  return 0xffffff;
+}
+
+function strictSlotIndexForConn(connId) {
+  if (!connId) return -1;
+  return netSlots.findIndex((s) => s && s.connId === connId);
+}
+
+function localSlotIndexForConn(connId) {
+  const idx = strictSlotIndexForConn(connId);
+  return idx >= 0 ? idx : 0;
+}
+
+function localCartForConnId() {
+  const carts = allCartsRef || [];
+  const idx = localSlotIndexForConn(youConnId);
+  return carts[idx] || carts[0] || null;
+}
+
+function stopHostSendLoop() {
+  if (hostSendTimer) {
+    clearInterval(hostSendTimer);
+    hostSendTimer = null;
+  }
+}
+
+function stopInputSendLoop() {
+  if (inputSendTimer) {
+    clearInterval(inputSendTimer);
+    inputSendTimer = null;
+  }
+}
+
+function applyCartsSnapshotToBodies(carts) {
+  if (!allCartsRef) return;
+  if (!carts || typeof carts !== "object") return;
+  for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
+    const cart = allCartsRef[slotIndex];
+    const snap = carts[String(slotIndex)];
+    if (!cart || !snap) continue;
+    const p = snap.p;
+    const q = snap.q;
+    const lv = snap.lv;
+    const av = snap.av;
+    if (Array.isArray(p) && p.length === 3) {
+      cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
+    }
+    if (Array.isArray(q) && q.length === 4) {
+      cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
+    }
+    if (Array.isArray(lv) && lv.length === 3) {
+      cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
+    }
+    if (Array.isArray(av) && av.length === 3) {
+      cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
+    }
+  }
+}
+
+function bufferAuthoritativeState(serverNowMs, seq, carts) {
+  if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
+  if (!carts || typeof carts !== "object") return;
+
+  netStateBuffer.push({ serverNowMs, seq, carts });
+  netStateBuffer.sort((a, b) => a.seq - b.seq);
+  const maxEntries = 64;
+  if (netStateBuffer.length > maxEntries) {
+    netStateBuffer = netStateBuffer.slice(netStateBuffer.length - maxEntries);
+  }
+}
+
+function startHostSendLoop() {
+  stopHostSendLoop();
+  if (!partySocket) return;
+  if (!allCartsRef) return;
+
+  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
+  hostSendTimer = setInterval(() => {
+    if (!partySocket || !isHost || !allCartsRef) return;
+
+    hostSeq += 1;
+    const carts = {};
+    for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
+      const c = allCartsRef[slotIndex];
+      const t = c.body.translation();
+      const r = c.body.rotation();
+      const lv = c.body.linvel();
+      const av = c.body.angvel();
+      carts[String(slotIndex)] = {
+        p: [t.x, t.y, t.z],
+        q: [r.x, r.y, r.z, r.w],
+        lv: [lv.x, lv.y, lv.z],
+        av: [av.x, av.y, av.z],
+      };
+    }
+
+    lastCartsCache = carts;
+    partySocket.send(
+      JSON.stringify({
+        type: MSG.hostTransform,
+        seq: hostSeq,
+        tHost: Date.now(),
+        carts,
+      }),
+    );
+  }, intervalMs);
+}
+
+function startInputSendLoop() {
+  stopInputSendLoop();
+  if (!partySocket) return;
+
+  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
+  inputSendTimer = setInterval(() => {
+    if (!partySocket || isHost) return;
+    if (!getAxisRef) return;
+
+    inputSeq += 1;
+    const axis = getAxisRef();
+    partySocket.send(
+      JSON.stringify({
+        type: MSG.clientInput,
+        seq: inputSeq,
+        tClient: Date.now(),
+        input: {
+          throttle: axis.forward,
+          steer: axis.turn,
+          nitro: localNitroHeld,
+        },
+      }),
+    );
+  }, intervalMs);
+}
+
+function setAuthorityMode(nextIsHost) {
+  const becomingHost = Boolean(nextIsHost) && !isHost;
+  const becomingClient = !nextIsHost && isHost;
+  isHost = Boolean(nextIsHost);
+
+  if (becomingHost) {
+    stopInputSendLoop();
+    if (lastCartsCache) {
+      applyCartsSnapshotToBodies(lastCartsCache);
+    }
+    startHostSendLoop();
+    return;
+  }
+
+  if (becomingClient) {
+    stopHostSendLoop();
+    startInputSendLoop();
+    return;
+  }
+
+  if (isHost) {
+    stopInputSendLoop();
+    if (!hostSendTimer) startHostSendLoop();
+  } else {
+    stopHostSendLoop();
+    if (!inputSendTimer) startInputSendLoop();
+  }
+}
+
+function initNetcode() {
+  if (typeof window === "undefined") return;
+  if (partySocket) return;
+
+  partySocket = new PartySocket({
+    host: partyHostFromWindowLocation(),
+    party: "main",
+    room: "default",
+  });
+
+  partySocket.addEventListener("open", () => {
+    partySocket?.send(JSON.stringify({ type: MSG.join }));
+  });
+
+  partySocket.addEventListener("message", (ev) => {
+    let msg = null;
+    try {
+      msg = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
+    if (!msg || typeof msg !== "object") return;
+
+    const type = msg.type;
+    if (type === MSG.hello) {
+      // eslint-disable-next-line no-console
+      console.log("[net] hello received (raw slots)", JSON.stringify(msg.slots));
+      youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
+      hostId = typeof msg.hostId === "string" ? msg.hostId : null;
+      if (Array.isArray(msg.slots)) netSlots = msg.slots;
+
+      if (msg.carts && typeof msg.carts === "object") {
+        lastCartsCache = msg.carts;
+        applyCartsSnapshotToBodies(msg.carts);
+      }
+
+      setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
+      return;
+    }
+
+    if (type === MSG.hostMigrated) {
+      hostId = typeof msg.hostId === "string" ? msg.hostId : null;
+      const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
+      if (nextIsHost && lastCartsCache) {
+        applyCartsSnapshotToBodies(lastCartsCache);
+      }
+      setAuthorityMode(nextIsHost);
+      return;
+    }
+
+    if (type === MSG.state) {
+      if (msg.carts && typeof msg.carts === "object") {
+        lastCartsCache = msg.carts;
+      }
+      if (!isHost) {
+        const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
+        const seq = typeof msg.seq === "number" ? msg.seq : -1;
+        bufferAuthoritativeState(serverNowMs, seq, msg.carts);
+      }
+      return;
+    }
+
+    if (type === MSG.clientInput) {
+      if (!isHost) return;
+      const connId = typeof msg.connId === "string" ? msg.connId : null;
+      const input = msg.input;
+      if (!connId || !input || typeof input !== "object") return;
+
+      const throttle = Number.isFinite(input.throttle) ? input.throttle : 0;
+      const steer = Number.isFinite(input.steer) ? input.steer : 0;
+      const nitro = Boolean(input.nitro);
+
+      remoteInputsByConnId.set(connId, {
+        throttle: clamp(throttle, -1, 1),
+        steer: clamp(steer, -1, 1),
+        nitro,
+      });
+
+      const was = remoteNitroLatchedByConnId.get(connId) || false;
+      if (!was && nitro && allCartsRef && triggerRamBoostRef) {
+        const slotIndex = strictSlotIndexForConn(connId);
+        if (slotIndex >= 0) {
+          const cart = allCartsRef[slotIndex];
+          if (cart) triggerRamBoostRef(cart, performance.now());
+        }
+      }
+      remoteNitroLatchedByConnId.set(connId, nitro);
+      return;
+    }
+
+    if (type === MSG.round) {
+      return;
+    }
+  });
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -385,6 +741,8 @@ function buildSparseEchoImpulseResponse(audioContext) {
 }
 
 async function main() {
+  // eslint-disable-next-line no-console
+  console.log("[boot] main() start", { href: window.location.href });
   await RAPIER.init();
 
   const canvas = document.getElementById(CONFIG.canvasId);
@@ -750,6 +1108,8 @@ async function main() {
       ramBoostStreakCarry: 0,
       respawnAtMs: null,
       pendingRam: null,
+      aiNextDecisionMs: 0,
+      aiTarget: { x: 0, z: 0 },
     };
   }
 
@@ -852,41 +1212,32 @@ async function main() {
     };
   }
 
-  const playerSpawn = spawnOnRingForSlot(0);
-  const playerCart = createCart({
-    color: 0x2bd6ff,
-    spawn: playerSpawn,
-    spawnYaw: yawToCenter(playerSpawn),
-    label: "player",
-    slotIndex: 0,
-  });
-
-  const NPC_TEST_COLORS = [0xff2bd6, 0x8dff2b, 0xffee00, 0xff8800, 0xaa66ff];
-  const npcCount = Math.max(0, Math.floor(CONFIG.npcCount));
-  const npcCarts = [];
-  const npcSlotIndices = [1, 2, 3];
-  for (let i = 0; i < npcCount; i += 1) {
-    const slotIndex = npcSlotIndices[i];
+  /** @type {ReturnType<typeof createCart>[]} */
+  const cartsBySlotId = [];
+  for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
     const spawn = spawnOnRingForSlot(slotIndex);
+    const slot = netSlots[slotIndex];
     const cart = createCart({
-      color: NPC_TEST_COLORS[i % NPC_TEST_COLORS.length],
+      color: colorHexForSlot(slot),
       spawn,
       spawnYaw: yawToCenter(spawn),
-      label: `npc-${i}`,
+      label: slot?.name ?? `slot-${slotIndex}`,
       slotIndex,
     });
-    cart.aiNextDecisionMs = 0;
-    cart.aiTarget = { x: 0, z: 0 };
-    npcCarts.push(cart);
+    cartsBySlotId[slotIndex] = cart;
   }
 
   const colliderHandleToCart = new Map();
-  colliderHandleToCart.set(playerCart.collider.handle, playerCart);
-  for (const c of npcCarts) {
+  for (const c of cartsBySlotId) {
     colliderHandleToCart.set(c.collider.handle, c);
   }
 
-  const allCarts = [playerCart, ...npcCarts];
+  const allCarts = cartsBySlotId;
+
+  // Expose carts + input + nitro for netcode helpers (module-scope).
+  allCartsRef = allCarts;
+  getAxisRef = getAxis;
+  triggerRamBoostRef = triggerRamBoost;
 
   /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number }[]} */
   const ramBoostStreaks = [];
@@ -899,7 +1250,7 @@ async function main() {
   const ramBoostToTargetXZ = new THREE.Vector3();
 
   /**
-   * @param {typeof playerCart} cart
+   * @param {ReturnType<typeof createCart>} cart
    * @param {number} birthMs
    */
   function spawnRamBoostStreakForCart(cart, birthMs) {
@@ -938,7 +1289,7 @@ async function main() {
   }
 
   /**
-   * @param {typeof playerCart} cart
+   * @param {ReturnType<typeof createCart>} cart
    * @param {number} nowMs
    */
   function triggerRamBoost(cart, nowMs) {
@@ -987,7 +1338,7 @@ async function main() {
 
   /**
    * @param {number} nowMs
-   * @param {typeof playerCart} npc
+   * @param {ReturnType<typeof createCart>} npc
    */
   function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
     const rb = CONFIG.cart.ramBoost;
@@ -1107,7 +1458,7 @@ async function main() {
   const hornEchoIRBuffer = buildSparseEchoImpulseResponse(audioListener.context);
 
   const playerCartHorn = new THREE.PositionalAudio(audioListener);
-  playerCart.mesh.add(playerCartHorn);
+  localCartForConnId().mesh.add(playerCartHorn);
   playerCartHorn.setRefDistance(CONFIG.audio.hornRefDistance);
   playerCartHorn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
   playerCartHorn.setVolume(CONFIG.audio.hornVolume);
@@ -1116,9 +1467,12 @@ async function main() {
   playerHornEchoConvolver.normalize = false;
   playerCartHorn.setFilter(playerHornEchoConvolver);
 
-  /** @type {{ horn: THREE.PositionalAudio; cart: (typeof playerCart) }[]} */
+  /** @type {{ horn: THREE.PositionalAudio; cart: ReturnType<typeof createCart> }[]} */
   const npcHornEntries = [];
-  for (const c of npcCarts) {
+  for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+    const slot = netSlots[slotIndex];
+    const c = allCarts[slotIndex];
+    if (!slot || slot.kind !== "npc") continue;
     const horn = new THREE.PositionalAudio(audioListener);
     c.mesh.add(horn);
     horn.setRefDistance(CONFIG.audio.hornRefDistance);
@@ -1330,7 +1684,12 @@ async function main() {
   }
 
   function playHorn() {
-    playBufferHorn(playerCartHorn, playerCart);
+    const localCart = localCartForConnId();
+    // Ensure horn follows local cart even if slot assignment changes.
+    if (playerCartHorn.parent !== localCart.mesh) {
+      localCart.mesh.add(playerCartHorn);
+    }
+    playBufferHorn(playerCartHorn, localCart);
   }
 
   function maybePlayAiRamHornOnPlayerHit(rammerCart) {
@@ -1357,8 +1716,12 @@ async function main() {
     // Only count as a "ram" if moving roughly toward the other cart.
     if (dir.dot(toVictim) < 0.1) return;
 
-    if (victim === playerCart && npcCarts.includes(rammer)) {
-      maybePlayAiRamHornOnPlayerHit(rammer);
+    const localCart = localCartForConnId();
+    if (victim === localCart) {
+      const rammerSlot = netSlots[rammer.slotIndex];
+      if (rammerSlot && rammerSlot.kind === "npc") {
+        maybePlayAiRamHornOnPlayerHit(rammer);
+      }
     }
 
     const impulseMag = clamp(
@@ -1385,7 +1748,8 @@ async function main() {
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
       if (e.repeat) return;
       e.preventDefault();
-      triggerRamBoost(playerCart, performance.now());
+      localNitroHeld = true;
+      triggerRamBoost(localCartForConnId(), performance.now());
       return;
     }
     if (e.code === "KeyM") {
@@ -1407,6 +1771,10 @@ async function main() {
     }
   }
   function onKeyUp(e) {
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+      e.preventDefault();
+      localNitroHeld = false;
+    }
     if (handledCodes.has(e.code)) e.preventDefault();
     keys.delete(e.code);
   }
@@ -1447,6 +1815,16 @@ async function main() {
 
     simFrameIndex += 1;
 
+    if (simFrameIndex % 60 === 0) {
+      // eslint-disable-next-line no-console
+      console.log("[diag] slot mapping @ frame", {
+        simFrameIndex,
+        youConnId,
+        localSlotIndex: localSlotIndexForConn(youConnId),
+        slot0: netSlots[0] ? JSON.stringify(netSlots[0]) : null,
+      });
+    }
+
     if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
       playerColliderVisualOvershootSimFrame10Logged = true;
       const hx = CONFIG.cart.size.x / 2;
@@ -1454,7 +1832,7 @@ async function main() {
       const hz = CONFIG.cart.size.z / 2;
       const colliderFull = { x: 2 * hx, y: 2 * hy, z: 2 * hz };
 
-      const cartVisualRoot = playerCart.mesh;
+      const cartVisualRoot = localCartForConnId().mesh;
       const prevPos = cartVisualRoot.position.clone();
       const prevQuat = cartVisualRoot.quaternion.clone();
       cartVisualRoot.position.set(0, 0, 0);
@@ -1780,7 +2158,7 @@ async function main() {
 
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
       recordVersusPlayerFrame30Logged = true;
-      const playerT = playerCart.body.translation();
+      const playerT = localCartForConnId().body.translation();
       const ringR = CONFIG.cart.spawnRingRadius;
       const spawnSlotAxisTol = 0.01;
       const cartRows = allCarts.map((cart) => {
@@ -1790,8 +2168,7 @@ async function main() {
         const distPlayer = Math.hypot(t.x - playerT.x, t.y - playerT.y, t.z - playerT.z);
         const distOrigin = Math.hypot(t.x, t.y, t.z);
         const distOriginXZ = Math.hypot(t.x, t.z);
-        const id =
-          cart === playerCart ? "player" : `npc-${npcCarts.indexOf(cart)}`;
+        const id = `slot-${cart.slotIndex}`;
         return {
           id,
           slotIndex: cart.slotIndex,
@@ -1842,7 +2219,7 @@ async function main() {
         layoutConstants: {
           spawnRingRadius: ringR,
           spawnHeight: CONFIG.cart.spawnHeight,
-          npcCount: npcCarts.length,
+          npcCount: netSlots.filter((s) => s && s.kind === "npc").length,
         },
         verification: {
           spawnRecordsMatchSlotPositionsWithin001: spawnRecordsMatchSlotPositions,
@@ -1862,29 +2239,41 @@ async function main() {
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
 
     const playerAxis = getAxis();
-
-    const playerPos = playerCart.body.translation();
-
-    // Fall detection / respawn.
-    if (playerPos.y < CONFIG.fall.yThreshold) scheduleRespawn(playerCart, now);
-    if (playerCart.respawnAtMs !== null && now >= playerCart.respawnAtMs) {
-      doRespawn(playerCart);
+    if (simFrameIndex === 1 || simFrameIndex === 30) {
+      // eslint-disable-next-line no-console
+      console.log("[boot] sim tick", {
+        simFrameIndex,
+        axis: playerAxis,
+        localSlotIndex: localSlotIndexForConn(youConnId),
+        youConnId,
+      });
     }
-    for (const c of npcCarts) {
-      const p = c.body.translation();
-      if (p.y < CONFIG.fall.yThreshold) scheduleRespawn(c, now);
-      if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
-        doRespawn(c);
+
+    const localCart = localCartForConnId();
+    const playerPos = localCart.body.translation();
+
+    if (isHost) {
+      // Fall detection / respawn (host-authoritative).
+      if (playerPos.y < CONFIG.fall.yThreshold) scheduleRespawn(localCart, now);
+      if (localCart.respawnAtMs !== null && now >= localCart.respawnAtMs) {
+        doRespawn(localCart);
       }
+      for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+        const slot = netSlots[slotIndex];
+        const c = allCarts[slotIndex];
+        if (!slot || slot.kind !== "npc") continue;
+        const p = c.body.translation();
+        if (p.y < CONFIG.fall.yThreshold) scheduleRespawn(c, now);
+        if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
+          doRespawn(c);
+        }
+        maybeTriggerNpcOpportunisticRamBoost(now, c);
+      }
+      tickRamBoostStreakSpawners(now, dt);
     }
-
-    for (const c of npcCarts) {
-      maybeTriggerNpcOpportunisticRamBoost(now, c);
-    }
-    tickRamBoostStreakSpawners(now, dt);
 
     // Third-person follow camera (behind the cart), smoothed.
-    const playerRot = playerCart.body.rotation();
+    const playerRot = localCart.body.rotation();
     const playerQuat = new THREE.Quaternion(
       playerRot.x,
       playerRot.y,
@@ -1931,10 +2320,10 @@ async function main() {
       (playerAxis.forward !== 0 || playerAxis.turn !== 0) &&
       now - lastDebugMs >= 100
     ) {
-      const lv = playerCart.body.linvel();
+      const lv = localCart.body.linvel();
       const sleeping =
-        typeof playerCart.body.isSleeping === "function"
-          ? playerCart.body.isSleeping()
+        typeof localCart.body.isSleeping === "function"
+          ? localCart.body.isSleeping()
           : "unknown";
       // eslint-disable-next-line no-console
       console.log(
@@ -1946,56 +2335,105 @@ async function main() {
       lastDebugMs = now;
     }
 
-    // Fixed substeps for stability/consistency.
+    // Fixed substeps for stability/consistency (host only).
     let substeps = 0;
     /** @type {Map<object, { forward: number; turn: number }>} */
     const npcDiagLastAiByCart = new Map();
-    while (
-      accumulator >= CONFIG.fixedTimeStep &&
-      substeps < CONFIG.maxSubsteps
-    ) {
-      applyArcadeControls(playerCart, playerAxis, CONFIG.fixedTimeStep, now);
-      for (const c of npcCarts) {
-        const aiAxis = getAiAxis(now, c);
-        npcDiagLastAiByCart.set(c, aiAxis);
-        applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep, now);
-      }
 
-      // Apply any pending ramming impulses over multiple physics steps.
-      for (const cart of allCarts) {
-        if (!cart.pendingRam) continue;
-        const { impulse, remainingSteps } = cart.pendingRam;
-        const denom = Math.max(1, remainingSteps);
-        cart.body.applyImpulse(
-          { x: impulse.x / denom, y: impulse.y / denom, z: impulse.z / denom },
+    if (isHost) {
+      while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
+        applyArcadeControls(localCart, playerAxis, CONFIG.fixedTimeStep, now);
+
+        // Apply remote human inputs on host.
+        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+          const slot = netSlots[slotIndex];
+          const c = allCarts[slotIndex];
+          if (!slot || !c) continue;
+          if (slot.kind !== "human") continue;
+          if (!slot.connId) continue;
+          if (slot.connId === youConnId) continue;
+
+          const ri = remoteInputsByConnId.get(slot.connId) || {
+            throttle: 0,
+            steer: 0,
+            nitro: false,
+          };
+          applyArcadeControls(
+            c,
+            { forward: clamp(ri.throttle, -1, 1), turn: clamp(ri.steer, -1, 1) },
+            CONFIG.fixedTimeStep,
+            now,
+          );
+        }
+
+        // NPC AI on host.
+        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+          const slot = netSlots[slotIndex];
+          const c = allCarts[slotIndex];
+          if (!slot || slot.kind !== "npc") continue;
+          const aiAxis = getAiAxis(now, c);
+          npcDiagLastAiByCart.set(c, aiAxis);
+          applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep, now);
+        }
+
+        // Apply any pending ramming impulses over multiple physics steps.
+        for (const cart of allCarts) {
+          if (!cart.pendingRam) continue;
+          const { impulse, remainingSteps } = cart.pendingRam;
+          const denom = Math.max(1, remainingSteps);
+          cart.body.applyImpulse(
+            { x: impulse.x / denom, y: impulse.y / denom, z: impulse.z / denom },
+            true,
+          );
+          cart.pendingRam.remainingSteps -= 1;
+          if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
+        }
+
+        recordBody.setAngvel(
+          { x: 0, y: CONFIG.record.physicsSpinRadPerSec, z: 0 },
           true,
         );
-        cart.pendingRam.remainingSteps -= 1;
-        if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
+
+        world.step(eventQueue);
+        eventQueue.drainCollisionEvents((h1, h2, started) => {
+          if (!started) return;
+          const c1 = colliderHandleToCart.get(h1);
+          const c2 = colliderHandleToCart.get(h2);
+          if (!c1 || !c2 || c1 === c2) return;
+          applyRammingImpulse(c1, c2);
+          applyRammingImpulse(c2, c1);
+        });
+        accumulator -= CONFIG.fixedTimeStep;
+        substeps += 1;
       }
-
-      recordBody.setAngvel(
-        { x: 0, y: CONFIG.record.physicsSpinRadPerSec, z: 0 },
-        true,
-      );
-
-      world.step(eventQueue);
-      eventQueue.drainCollisionEvents((h1, h2, started) => {
-        if (!started) return;
-        const c1 = colliderHandleToCart.get(h1);
-        const c2 = colliderHandleToCart.get(h2);
-        if (!c1 || !c2 || c1 === c2) return;
-        applyRammingImpulse(c1, c2);
-        applyRammingImpulse(c2, c1);
-      });
-      accumulator -= CONFIG.fixedTimeStep;
-      substeps += 1;
+    } else {
+      // Non-host: do not step physics. Apply transforms from buffer ~150ms behind.
+      const targetServerNowMs = Date.now() - CONFIG.net.interpBufferMs;
+      let chosen = null;
+      for (let i = netStateBuffer.length - 1; i >= 0; i -= 1) {
+        const e = netStateBuffer[i];
+        if (e.serverNowMs <= targetServerNowMs) {
+          chosen = e;
+          break;
+        }
+      }
+      if (!chosen && netStateBuffer.length > 0) {
+        chosen = netStateBuffer[0];
+      }
+      if (chosen) {
+        applyCartsSnapshotToBodies(chosen.carts);
+      } else if (lastCartsCache) {
+        applyCartsSnapshotToBodies(lastCartsCache);
+      }
     }
 
     updateRamBoostStreaks(now);
 
     if (NPC_INWARD_DRIFT_LOG_FRAMES.has(simFrameIndex)) {
-      for (const c of npcCarts) {
+      for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+        const slot = netSlots[slotIndex];
+        const c = allCarts[slotIndex];
+        if (!slot || slot.kind !== "npc") continue;
         const t = c.body.translation();
         const lv = c.body.linvel();
         const av = c.body.angvel();
@@ -2015,23 +2453,13 @@ async function main() {
           },
           distanceToWorldOriginXZ: Math.hypot(t.x, t.z),
           aiAxisAppliedLastSubstep: aiAxis,
-          aiTarget: { x: c.aiTarget.x, z: c.aiTarget.z },
+          aiTarget: c.aiTarget ? { x: c.aiTarget.x, z: c.aiTarget.z } : null,
         });
       }
     }
 
     // Sync render meshes from physics.
-    {
-      const p = playerCart.body.translation();
-      const r = playerCart.body.rotation();
-      playerCart.mesh.position.set(p.x, p.y, p.z);
-      playerCart.mesh.quaternion.set(r.x, r.y, r.z, r.w);
-      playerCart.mesh.updateMatrixWorld(true);
-      const lv = playerCart.body.linvel();
-      cartLinvelScratch.set(lv.x, lv.y, lv.z);
-      updateCartVisuals(playerCart.mesh, cartLinvelScratch, dt, now);
-    }
-    for (const c of npcCarts) {
+    for (const c of allCarts) {
       const p = c.body.translation();
       const r = c.body.rotation();
       c.mesh.position.set(p.x, p.y, p.z);
@@ -2051,25 +2479,7 @@ async function main() {
   requestAnimationFrame(step);
 }
 
-(function initPartyKitHandshake() {
-  if (typeof window === "undefined") return;
-  const hostname = window.location.hostname;
-  const host =
-    hostname === "localhost" || hostname === "127.0.0.1"
-      ? "127.0.0.1:1999"
-      : PARTYKIT_PUBLIC_HOST.trim() || null;
-  if (!host) return;
-
-  const socket = new PartySocket({
-    host,
-    party: "main",
-    room: "default",
-  });
-
-  socket.addEventListener("open", () => {
-    console.log("connected to party");
-  });
-})();
+initNetcode();
 
 main();
 
