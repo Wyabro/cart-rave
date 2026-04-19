@@ -32,25 +32,35 @@ const CONFIG = {
     rimColor: 0xff2bd6,
     surface: {
       concentricRings: {
-        count: 8,
-        lineWidth: 0.12,
-        color: 0xff00ff,
-        emissiveIntensity: 1.0,
+        count: 24,
+        lineWidth: 0.04,
+        color: 0x444444,
+        yOffset: 0.3,
+        innerRadius: 7.0,
+        outerRadius: 25.9,
+      },
+      labelDisc: {
+        enabled: true,
+        innerRadius: 3.7,
+        outerRadius: 6.5,
+        color: 0x2bd6ff,
         yOffset: 0.3,
       },
-      radialSpokes: {
-        count: 12,
-        lineWidth: 0.12,
-        color: 0x00ff88,
+      spindleRing: {
+        enabled: true,
+        innerRadius: 3.3,
+        outerRadius: 3.7,
+        color: 0xffffff,
         yOffset: 0.3,
       },
-      label: {
+      labelText: {
+        enabled: true,
         text: "CART RAVE",
+        arcRadius: 5.3,
+        arcAngleDeg: 120,
+        arcCenterDeg: 90,
         fontSize: 256,
-        textColor: "#00ffff",
-        backgroundColor: null,
-        worldWidth: 5,
-        worldHeight: 1.5,
+        color: "#000000",
         yOffset: 0.32,
       },
     },
@@ -187,6 +197,43 @@ function buildRecordRingGeometry({ outerRadius, innerRadius, thickness, curveSeg
   geo.translate(0, 0, -thickness / 2);
   geo.rotateX(Math.PI / 2);
   return geo;
+}
+
+/**
+ * * Draws one string along a circular arc on a 2D canvas (vinyl label typography).
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} arcRadiusPx
+ * @param {number} arcCenterDeg
+ * @param {number} arcAngleDeg
+ * @param {string} fontSpec
+ * @param {string} fillStyle
+ */
+function drawArcTextOnCanvas(ctx, text, cx, cy, arcRadiusPx, arcCenterDeg, arcAngleDeg, fontSpec, fillStyle) {
+  const n = text.length;
+  if (n === 0) return;
+  ctx.save();
+  ctx.font = fontSpec;
+  ctx.fillStyle = fillStyle;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const span = arcAngleDeg;
+  const startDeg = arcCenterDeg - span / 2;
+  for (let i = 0; i < n; i += 1) {
+    const char = text[i];
+    const angleDeg = n === 1 ? arcCenterDeg : startDeg + (i / (n - 1)) * span;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angleRad);
+    ctx.translate(0, -arcRadiusPx);
+    ctx.rotate(angleRad + Math.PI / 2);
+    ctx.fillText(char, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 function yawFromQuaternion(q) {
@@ -481,18 +528,16 @@ async function main() {
   (function buildRecordSurfaceGrooves(parentMesh) {
     const surf = CONFIG.record.surface;
     const th = CONFIG.record.thickness;
-    const margin = 0.35;
-    const rMin = CONFIG.record.innerRadius + margin;
-    const rMax = CONFIG.record.radius - margin;
     const yBase = th / 2;
 
     const rings = surf.concentricRings;
-    // * MeshBasicMaterial has no emissive; emissiveIntensity in config is reserved for a future StandardMaterial swap.
+    const rMin = rings.innerRadius;
+    const rMax = rings.outerRadius;
     const ringMat = new THREE.MeshBasicMaterial({
       color: rings.color,
       depthWrite: false,
       transparent: true,
-      opacity: 0.98,
+      opacity: 0.92,
     });
 
     for (let i = 0; i < rings.count; i += 1) {
@@ -501,83 +546,92 @@ async function main() {
       const halfW = rings.lineWidth / 2;
       let inner = rCenter - halfW;
       let outer = rCenter + halfW;
-      inner = Math.max(inner, CONFIG.record.innerRadius + 0.05);
-      outer = Math.min(outer, CONFIG.record.radius - 0.05);
+      inner = Math.max(inner, rMin + 0.001);
+      outer = Math.min(outer, rMax - 0.001);
       if (outer - inner < 0.002) continue;
       const ringGeo = new THREE.RingGeometry(inner, outer, 96);
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.userData.recordSurfacePart = "groove";
       ringMesh.rotation.x = -Math.PI / 2;
       ringMesh.position.y = yBase + rings.yOffset;
       parentMesh.add(ringMesh);
     }
-
-    const spokes = surf.radialSpokes;
-    const spokeMat = new THREE.MeshBasicMaterial({
-      color: spokes.color,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.98,
-    });
-
-    const innerSpoke = rMin;
-    const outerSpoke = rMax;
-    const span = outerSpoke - innerSpoke;
-    const midR = (innerSpoke + outerSpoke) / 2;
-    for (let k = 0; k < spokes.count; k += 1) {
-      const theta = (k / spokes.count) * Math.PI * 2;
-      const spokeGeo = new THREE.BoxGeometry(spokes.lineWidth, 0.022, span);
-      const spokeMesh = new THREE.Mesh(spokeGeo, spokeMat);
-      spokeMesh.position.set(
-        Math.sin(theta) * midR,
-        yBase + spokes.yOffset,
-        Math.cos(theta) * midR,
-      );
-      spokeMesh.rotation.y = theta;
-      parentMesh.add(spokeMesh);
-    }
   })(recordMesh);
 
-  (function buildRecordSurfaceLabel(parentMesh) {
-    const lb = CONFIG.record.surface.label;
+  (function buildRecordSurfaceVinylLabel(parentMesh) {
+    const surf = CONFIG.record.surface;
     const th = CONFIG.record.thickness;
-    const yBase = th / 2 + lb.yOffset;
-    const cw = 1024;
-    const ch = 256;
+    const yBase = th / 2;
+
+    const spindle = surf.spindleRing;
+    if (spindle.enabled) {
+      const spindleGeo = new THREE.RingGeometry(spindle.innerRadius, spindle.outerRadius, 96);
+      const spindleMat = new THREE.MeshBasicMaterial({
+        color: spindle.color,
+        depthWrite: false,
+      });
+      const spindleMesh = new THREE.Mesh(spindleGeo, spindleMat);
+      spindleMesh.userData.recordSurfacePart = "spindleRing";
+      spindleMesh.rotation.x = -Math.PI / 2;
+      spindleMesh.position.y = yBase + spindle.yOffset;
+      parentMesh.add(spindleMesh);
+    }
+
+    const disc = surf.labelDisc;
+    if (disc.enabled) {
+      const discGeo = new THREE.RingGeometry(disc.innerRadius, disc.outerRadius, 96);
+      const discMat = new THREE.MeshBasicMaterial({
+        color: disc.color,
+        depthWrite: false,
+      });
+      const discMesh = new THREE.Mesh(discGeo, discMat);
+      discMesh.userData.recordSurfacePart = "labelDisc";
+      discMesh.rotation.x = -Math.PI / 2;
+      discMesh.position.y = yBase + disc.yOffset;
+      parentMesh.add(discMesh);
+    }
+
+    const lt = surf.labelText;
+    if (!lt.enabled) return;
+
+    const canvasSize = 1024;
     const canvas = document.createElement("canvas");
-    canvas.width = cw;
-    canvas.height = ch;
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    if (lb.backgroundColor != null) {
-      ctx.fillStyle = lb.backgroundColor;
-      ctx.fillRect(0, 0, cw, ch);
-    } else {
-      ctx.clearRect(0, 0, cw, ch);
-    }
-    ctx.fillStyle = lb.textColor;
-    ctx.font = `bold ${lb.fontSize}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(lb.text, cw / 2, ch / 2);
+
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
+    const cx = canvasSize / 2;
+    const cy = canvasSize / 2;
+    const labelOuterWorld = disc.enabled ? disc.outerRadius : 6.5;
+    const arcRadiusPx = (lt.arcRadius / labelOuterWorld) * (canvasSize / 2);
+    const fontSpec = `900 ${lt.fontSize}px Arial Black, Impact, sans-serif`;
+
+    drawArcTextOnCanvas(ctx, lt.text, cx, cy, arcRadiusPx, lt.arcCenterDeg, lt.arcAngleDeg, fontSpec, lt.color);
+    drawArcTextOnCanvas(ctx, lt.text, cx, cy, arcRadiusPx, 270, lt.arcAngleDeg, fontSpec, lt.color);
+
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
-    const planeGeo = new THREE.PlaneGeometry(lb.worldWidth, lb.worldHeight);
-    const planeMat = new THREE.MeshBasicMaterial({
+    tex.colorSpace = THREE.SRGBColorSpace;
+
+    const textRadius = Math.min(labelOuterWorld - 0.04, 6.45);
+    const textGeo = new THREE.CircleGeometry(textRadius, 96);
+    const textMat = new THREE.MeshBasicMaterial({
       map: tex,
       transparent: true,
-      side: THREE.DoubleSide,
       depthWrite: false,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
-    const labelMeshA = new THREE.Mesh(planeGeo, planeMat);
-    labelMeshA.position.set(6, yBase, 0);
-    labelMeshA.rotation.x = -Math.PI / 2;
-    labelMeshA.rotation.z = 0;
-    parentMesh.add(labelMeshA);
-    const labelMeshB = new THREE.Mesh(planeGeo, planeMat);
-    labelMeshB.position.set(-6, yBase, 0);
-    labelMeshB.rotation.x = -Math.PI / 2;
-    labelMeshB.rotation.z = Math.PI;
-    parentMesh.add(labelMeshB);
+    const textMesh = new THREE.Mesh(textGeo, textMat);
+    textMesh.userData.recordSurfacePart = "labelText";
+    textMesh.renderOrder = 2;
+    textMesh.rotation.x = -Math.PI / 2;
+    textMesh.position.y = yBase + lt.yOffset;
+    parentMesh.add(textMesh);
   })(recordMesh);
 
   // Neon rim (visual only).
@@ -1499,30 +1553,35 @@ async function main() {
         diagError = err instanceof Error ? err.message : String(err);
       }
 
-      const ringMeshes = recordMesh.children.filter((c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry");
+      const ringMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry",
+      );
+      const grooveRingMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "groove",
+      );
       const spokeMeshes = recordMesh.children.filter(
         (c) => c instanceof THREE.Mesh && c.geometry?.type === "BoxGeometry",
       );
-      const labelMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.geometry?.type === "PlaneGeometry",
+      const labelTextMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "labelText",
       );
-      const lb = CONFIG.record.surface.label;
+      const lt = CONFIG.record.surface.labelText;
       /** @type {Record<string, unknown>} */
       const labelDiag = {
-        planeCount: labelMeshes.length,
-        configWorldWidth: lb.worldWidth,
-        configWorldHeight: lb.worldHeight,
-        planes: labelMeshes.map((lm, idx) => {
+        labelTextMeshCount: labelTextMeshes.length,
+        configText: lt.text,
+        configArcRadius: lt.arcRadius,
+        meshes: labelTextMeshes.map((lm, idx) => {
           if (!(lm instanceof THREE.Mesh)) return { index: idx };
           lm.updateMatrixWorld(true);
           lm.getWorldPosition(scratchWorldPos);
           scratchBox.setFromObject(lm);
           const pg = lm.geometry;
-          const params = pg && "parameters" in pg ? /** @type {{ width?: number; height?: number }} */ (pg).parameters : {};
+          const params =
+            pg && "parameters" in pg ? /** @type {{ radius?: number }} */ (pg).parameters : {};
           return {
             index: idx,
-            planeGeometryParametersWidth: params.width,
-            planeGeometryParametersHeight: params.height,
+            circleGeometryRadius: params.radius,
             localPosition: { x: lm.position.x, y: lm.position.y, z: lm.position.z },
             worldPosition: {
               x: scratchWorldPos.x,
@@ -1547,13 +1606,14 @@ async function main() {
       console.log("[diagnostic] dancefloor surface visuals @ sim frame 10", {
         simFrameIndex,
         implementationNote:
-          "Rings and spokes are created inside the buildRecordSurfaceGrooves IIFE (not separate buildConcentricRings/buildRadialSpokes functions). Label is buildRecordSurfaceLabel IIFE.",
+          "Hairline groove rings in buildRecordSurfaceGrooves; spindle ring, cyan label disc, and curved canvas label text in buildRecordSurfaceVinylLabel.",
         recordMeshInSceneChildren: scene.children.includes(recordMesh),
         recordMeshChildCount: recordMesh.children.length,
         ringGeometryMeshCount: ringMeshes.length,
+        grooveRingMeshCount: grooveRingMeshes.length,
         boxGeometryMeshCount: spokeMeshes.length,
         perChild: childRows,
-        labelPlanes: labelDiag,
+        labelText: labelDiag,
         scanError: diagError,
       });
     }
@@ -1607,16 +1667,16 @@ async function main() {
       const ringMeshes = recordMesh.children.filter(
         (c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry",
       );
-      const spokeMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.geometry?.type === "BoxGeometry",
+      const grooveRingMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "groove",
       );
-      const labelMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.geometry?.type === "PlaneGeometry",
+      const labelTextMeshes = recordMesh.children.filter(
+        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "labelText",
       );
 
       /** @type {Record<string, unknown> | null} */
       let firstRingReport = null;
-      const firstRing = ringMeshes[0];
+      const firstRing = grooveRingMeshes[0] ?? ringMeshes[0];
       if (firstRing instanceof THREE.Mesh) {
         firstRing.updateMatrixWorld(true);
         firstRing.getWorldPosition(scratchWp);
@@ -1654,57 +1714,27 @@ async function main() {
       }
 
       /** @type {Record<string, unknown> | null} */
-      let firstSpokeReport = null;
-      const firstSpoke = spokeMeshes[0];
-      if (firstSpoke instanceof THREE.Mesh) {
-        firstSpoke.updateMatrixWorld(true);
-        firstSpoke.getWorldPosition(scratchWp);
-        const g = firstSpoke.geometry;
-        g.computeBoundingBox();
-        scratchB.setFromObject(firstSpoke);
-        const m = Array.isArray(firstSpoke.material) ? firstSpoke.material[0] : firstSpoke.material;
-        const p = /** @type {{ width?: number; height?: number; depth?: number }} */ (g.parameters || {});
-        firstSpokeReport = {
-          geometryParameters: { width: p.width, height: p.height, depth: p.depth },
-          material: summarizeMaterial(m),
-          worldPosition: { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z },
-          worldBoundingBox: {
-            min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
-            max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
-            size: {
-              x: scratchB.max.x - scratchB.min.x,
-              y: scratchB.max.y - scratchB.min.y,
-              z: scratchB.max.z - scratchB.min.z,
-            },
-          },
-          geometryBoundingBox: g.boundingBox
-            ? {
-                min: { x: g.boundingBox.min.x, y: g.boundingBox.min.y, z: g.boundingBox.min.z },
-                max: { x: g.boundingBox.max.x, y: g.boundingBox.max.y, z: g.boundingBox.max.z },
-              }
-            : null,
-        };
-      }
+      const firstSpokeReport = null;
 
       /** @type {Record<string, unknown> | null} */
-      let firstLabelReport = null;
-      const firstLabel = labelMeshes[0];
-      if (firstLabel instanceof THREE.Mesh) {
-        firstLabel.updateMatrixWorld(true);
-        firstLabel.getWorldPosition(scratchWp);
-        const g = firstLabel.geometry;
+      let firstLabelTextReport = null;
+      const firstLabelText = labelTextMeshes[0];
+      if (firstLabelText instanceof THREE.Mesh) {
+        firstLabelText.updateMatrixWorld(true);
+        firstLabelText.getWorldPosition(scratchWp);
+        const g = firstLabelText.geometry;
         g.computeBoundingBox();
-        scratchB.setFromObject(firstLabel);
-        const m = Array.isArray(firstLabel.material) ? firstLabel.material[0] : firstLabel.material;
+        scratchB.setFromObject(firstLabelText);
+        const m = Array.isArray(firstLabelText.material) ? firstLabelText.material[0] : firstLabelText.material;
         const map = /** @type {THREE.MeshBasicMaterial} */ (m).map;
         const texOk =
           map != null &&
           map.image != null &&
           typeof map.image.width === "number" &&
           map.image.width > 0;
-        const lp = /** @type {{ width?: number; height?: number }} */ (g.parameters || {});
-        firstLabelReport = {
-          geometryParameters: { width: lp.width, height: lp.height },
+        const lp = /** @type {{ radius?: number }} */ (g.parameters || {});
+        firstLabelTextReport = {
+          geometryParameters: { radius: lp.radius },
           material: summarizeMaterial(m),
           textureOk: texOk,
           textureImageWidth: map && map.image ? map.image.width : null,
@@ -1739,7 +1769,7 @@ async function main() {
         },
         firstRingMesh: firstRingReport,
         firstSpokeMesh: firstSpokeReport,
-        firstLabelPlane: firstLabelReport,
+        firstLabelTextMesh: firstLabelTextReport,
         renderer: {
           sortObjects: renderer.sortObjects,
           clearColorHex: clearCol.getHex(),
