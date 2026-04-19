@@ -50,6 +50,15 @@ const CONFIG = {
     linearDamping: 2.5,
     angularDamping: 1.5,
 
+    ramBoost: {
+      enabled: true,
+      impulse: 30,
+      cooldownSec: 2.0,
+      streakDurationSec: 0.5,
+      streakCount: 12,
+      streakLengthMeters: 2.0,
+    },
+
     // NOTE: CoM tuning deferred. Baseline -0.55 is stable-but-boring.
     // Tried y=-0.4 (tippy) and y=-0.45 with z=-0.2 rearward (caused front-flips under acceleration).
     // Next attempt should be small, single-axis changes with angular damping co-tuned:
@@ -552,6 +561,7 @@ async function main() {
       spawn: spawnFrozen,
       spawnYaw,
       slotIndex,
+      lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
       respawnAtMs: null,
       pendingRam: null,
     };
@@ -678,6 +688,95 @@ async function main() {
   }
 
   const allCarts = [playerCart, ...npcCarts];
+
+  /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number }[]} */
+  const ramBoostStreaks = [];
+  /** @type {{ x: number; y: number; z: number } | null} */
+  let playerRamBoostPendingImpulse = null;
+  /** @type {{ before: { x: number; y: number; z: number }; impulse: { x: number; y: number; z: number }; forward: { x: number; y: number; z: number }; streakSpawned: number } | null} */
+  let playerRamBoostPostStepDiagnostic = null;
+  let playerRamBoostFirstSuccessDiagnosticLogged = false;
+  const ramBoostStreakAlignQuat = new THREE.Quaternion();
+  const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
+  const ramBoostStreakScratchOrigin = new THREE.Vector3();
+  const ramBoostStreakScratchPos = new THREE.Vector3();
+
+  /**
+   * @param {THREE.Vector3} forward
+   * @param {THREE.Vector3} right
+   * @param {{ x: number; y: number; z: number }} translation
+   * @param {typeof CONFIG.cart.ramBoost} rb
+   * @param {number} birthMs
+   */
+  function spawnPlayerRamBoostStreaks(forward, right, translation, rb, birthMs) {
+    const fwd = forward.clone().normalize();
+    const rgt = right.clone().normalize();
+    ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
+    ramBoostStreakScratchOrigin.set(translation.x, translation.y, translation.z);
+    for (let i = 0; i < rb.streakCount; i += 1) {
+      const back = Math.random() * 1.0;
+      const lat = (Math.random() * 2 - 1) * 0.5;
+      ramBoostStreakScratchPos
+        .copy(ramBoostStreakScratchOrigin)
+        .addScaledVector(fwd, -back)
+        .addScaledVector(rgt, lat);
+      const geo = new THREE.CylinderGeometry(0.03, 0.03, rb.streakLengthMeters, 8, 1);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(ramBoostStreakScratchPos);
+      mesh.quaternion.copy(ramBoostStreakAlignQuat);
+      scene.add(mesh);
+      ramBoostStreaks.push({
+        mesh,
+        material: mat,
+        birthMs,
+        durationMs: rb.streakDurationSec * 1000,
+      });
+    }
+  }
+
+  /**
+   * @param {number} nowMs
+   */
+  function attemptPlayerRamBoost(nowMs) {
+    const rb = CONFIG.cart.ramBoost;
+    if (!rb.enabled) return;
+    if (playerRamBoostPendingImpulse) return;
+    if ((nowMs - playerCart.lastRamBoostTimeMs) / 1000 < rb.cooldownSec) return;
+    const rot = playerCart.body.rotation();
+    const yaw = yawFromQuaternion(rot);
+    const { forward, right } = getForwardRightFromYaw(yaw);
+    const mag = rb.impulse;
+    playerRamBoostPendingImpulse = {
+      x: forward.x * mag,
+      y: forward.y * mag,
+      z: forward.z * mag,
+    };
+    spawnPlayerRamBoostStreaks(forward, right, playerCart.body.translation(), rb, nowMs);
+  }
+
+  /**
+   * @param {number} nowMs
+   */
+  function updateRamBoostStreaks(nowMs) {
+    for (let i = ramBoostStreaks.length - 1; i >= 0; i -= 1) {
+      const s = ramBoostStreaks[i];
+      const t = (nowMs - s.birthMs) / s.durationMs;
+      if (t >= 1) {
+        scene.remove(s.mesh);
+        s.mesh.geometry.dispose();
+        s.material.dispose();
+        ramBoostStreaks.splice(i, 1);
+      } else {
+        s.material.opacity = 1 - t;
+      }
+    }
+  }
 
   /**
    * * Planar tangential push toward the record rim: strongest at center, ~0 beyond falloffRadius.
@@ -1056,6 +1155,12 @@ async function main() {
 
   function onKeyDown(e) {
     unlockAudioAndMaybeStartMusic();
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+      if (e.repeat) return;
+      e.preventDefault();
+      attemptPlayerRamBoost(performance.now());
+      return;
+    }
     if (e.code === "KeyM") {
       if (e.repeat) return;
       e.preventDefault();
@@ -1345,6 +1450,26 @@ async function main() {
       accumulator >= CONFIG.fixedTimeStep &&
       substeps < CONFIG.maxSubsteps
     ) {
+      if (playerRamBoostPendingImpulse) {
+        const rot = playerCart.body.rotation();
+        const yaw = yawFromQuaternion(rot);
+        const { forward } = getForwardRightFromYaw(yaw);
+        const before = playerCart.body.linvel();
+        const imp = playerRamBoostPendingImpulse;
+        playerCart.body.applyImpulse(imp, true);
+        playerCart.lastRamBoostTimeMs = now;
+        const impCopy = { x: imp.x, y: imp.y, z: imp.z };
+        playerRamBoostPendingImpulse = null;
+        if (!playerRamBoostFirstSuccessDiagnosticLogged) {
+          playerRamBoostPostStepDiagnostic = {
+            before: { x: before.x, y: before.y, z: before.z },
+            impulse: impCopy,
+            forward: { x: forward.x, y: forward.y, z: forward.z },
+            streakSpawned: CONFIG.cart.ramBoost.streakCount,
+          };
+        }
+      }
+
       applyArcadeControls(playerCart, playerAxis, CONFIG.fixedTimeStep);
       for (const c of npcCarts) {
         const aiAxis = getAiAxis(now, c);
@@ -1380,9 +1505,29 @@ async function main() {
         applyRammingImpulse(c1, c2);
         applyRammingImpulse(c2, c1);
       });
+      if (playerRamBoostPostStepDiagnostic && !playerRamBoostFirstSuccessDiagnosticLogged) {
+        const d = playerRamBoostPostStepDiagnostic;
+        const lvAfter = playerCart.body.linvel();
+        const rb = CONFIG.cart.ramBoost;
+        // eslint-disable-next-line no-console
+        console.log("[diagnostic] ram boost first success", {
+          linvelBeforeImpulse: d.before,
+          impulseApplied: d.impulse,
+          linvelAfterOneSubstep: { x: lvAfter.x, y: lvAfter.y, z: lvAfter.z },
+          cartForward: d.forward,
+          streaksSpawned: d.streakSpawned,
+          cooldownSec: rb.cooldownSec,
+          lastBoostTimeMs: playerCart.lastRamBoostTimeMs,
+          nextBoostEligibleAfterMs: playerCart.lastRamBoostTimeMs + rb.cooldownSec * 1000,
+        });
+        playerRamBoostFirstSuccessDiagnosticLogged = true;
+        playerRamBoostPostStepDiagnostic = null;
+      }
       accumulator -= CONFIG.fixedTimeStep;
       substeps += 1;
     }
+
+    updateRamBoostStreaks(now);
 
     if (NPC_INWARD_DRIFT_LOG_FRAMES.has(simFrameIndex)) {
       for (const c of npcCarts) {
