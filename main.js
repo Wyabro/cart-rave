@@ -206,6 +206,14 @@ function partyHostFromWindowLocation() {
   return publicHost ? publicHost : `${hostname}:1999`;
 }
 
+function resolvedPartyRoomFromUrl() {
+  if (typeof window === "undefined") return "quickplay";
+  const params = new URLSearchParams(window.location.search || "");
+  const raw = (params.get("room") || "").trim();
+  const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
+  return isValid ? raw : "quickplay";
+}
+
 // --- Module-scope netcode state (per handover spec) ---
 /** @type {PartySocket | null} */
 let partySocket = null;
@@ -458,15 +466,16 @@ function initNetcode() {
   if (typeof window === "undefined") return;
   if (partySocket) return;
 
+  const resolvedRoom = resolvedPartyRoomFromUrl();
   partySocket = new PartySocket({
     host: partyHostFromWindowLocation(),
     party: "main",
-    room: "default",
+    room: resolvedRoom,
   });
 
   partySocket.addEventListener("open", () => {
     // eslint-disable-next-line no-console
-    console.log("[net] socket open, sending join");
+    console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
     partySocket?.send(JSON.stringify({ type: MSG.join }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
   });
