@@ -237,6 +237,20 @@ let netSlots = [
   { slotId: 3, kind: "npc", connId: null, name: "PushPop", color: "neonYellow" },
 ];
 
+let firstHelloReceived = false;
+/** @type {((slots: typeof netSlots) => void) | null} */
+let resolveFirstHello = null;
+/** @type {Promise<typeof netSlots>} */
+const firstHelloPromise = new Promise((resolve) => {
+  resolveFirstHello = resolve;
+});
+
+function markFirstHelloReceived() {
+  if (firstHelloReceived) return;
+  firstHelloReceived = true;
+  resolveFirstHello?.(netSlots);
+}
+
 /**
  * Last authoritative carts snapshot (host caches and non-host consumes).
  * @type {Record<string, any> | null}
@@ -477,6 +491,7 @@ function initNetcode() {
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
+      markFirstHelloReceived();
 
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
@@ -1231,6 +1246,8 @@ async function main() {
     };
   }
 
+  await firstHelloPromise;
+
   /** @type {ReturnType<typeof createCart>[]} */
   const cartsBySlotId = [];
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
@@ -1552,7 +1569,7 @@ async function main() {
   });
   musicEl.load();
 
-  let audioMuted = false;
+  let audioMuted = true;
   const muteBtn = document.createElement("button");
   muteBtn.type = "button";
   muteBtn.setAttribute("aria-label", "Mute game audio");
@@ -1602,6 +1619,7 @@ async function main() {
     toggleSessionAudioMute();
   });
   document.body.appendChild(muteBtn);
+  applySessionAudioMute();
   refreshMuteButtonUi();
 
   function tryStartAmbientMusic() {
@@ -1854,7 +1872,7 @@ async function main() {
 
     if (simFrameIndex % 60 === 0) {
       // eslint-disable-next-line no-console
-      console.log("[diag] slot mapping @ frame", {
+      console.log("[diag] slot mapping @ frame " + simFrameIndex, {
         simFrameIndex,
         youConnId,
         localSlotIndex: localSlotIndexForConn(youConnId),
