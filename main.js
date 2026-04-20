@@ -1827,6 +1827,24 @@ async function main() {
     accumulator += dt;
 
     simFrameIndex += 1;
+    if (simFrameIndex === 60) {
+      console.log('[void-debug]', {
+        isHost,
+        youConnId,
+        hostId,
+        localSlotIndex: localSlotIndexForConn(youConnId),
+        sceneChildren: scene.children.length,
+        recordInScene: scene.children.includes(recordMesh),
+        rimInScene: scene.children.includes(rimMesh),
+        cart0Pos: allCarts[0].body.translation(),
+        cart1Pos: allCarts[1].body.translation(),
+        cart0InScene: scene.children.includes(allCarts[0].mesh),
+        netStateBufferLen: netStateBuffer.length,
+        lastCartsCacheKeys: lastCartsCache ? Object.keys(lastCartsCache) : null,
+        cameraPos: [camera.position.x, camera.position.y, camera.position.z],
+        cameraLookingAt: [cameraState.pos.x, cameraState.pos.y, cameraState.pos.z],
+      });
+    }
 
     if (simFrameIndex % 60 === 0) {
       // eslint-disable-next-line no-console
