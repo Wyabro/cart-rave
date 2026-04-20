@@ -55,7 +55,7 @@ Server logic lives in **`party/index.ts`** (see **`partykit.json`** for entry). 
 
 The static game and the PartyKit server run as **two local processes**:
 
-1. **PartyKit dev server** (WebSocket party). The client expects **`127.0.0.1:1999`** in dev; pin the port if something else grabbed it first:
+1. **PartyKit dev server** (WebSocket party). Pin the port so the client can find it:
 
    ```bash
    npx partykit dev -p 1999
@@ -67,7 +67,16 @@ The static game and the PartyKit server run as **two local processes**:
    python -m http.server 8085
    ```
 
-Open the static URL from **`localhost`** or **`127.0.0.1`** so the client targets **`127.0.0.1:1999`**. With both running, the socket should open and slot / host messages should appear in the **browser console** and in **`partykit dev`**.
+Open the static URL from:
+
+- **Local dev**: `http://localhost:8085/` (or `http://127.0.0.1:8085/`)
+- **LAN testing (phone / other PC)**: serve on all interfaces and open via your LAN IP
+
+```bash
+serve . -l tcp://0.0.0.0:8085
+```
+
+When the page hostname is **LAN** (`192.168.*`, `10.*`, `172.16–31.*`), the client routes PartySocket to **local PartyKit dev** (`127.0.0.1:1999`) instead of trying `{lan-ip}:1999`.
 
 **Production party:** deploy the server separately to PartyKit (not the static host):
 
@@ -75,7 +84,19 @@ Open the static URL from **`localhost`** or **`127.0.0.1`** so the client target
 npx partykit deploy
 ```
 
-After deploy, set **`PARTYKIT_PUBLIC_HOST`** at the top of **`main.js`** to your PartyKit host (for example `your-project.your-user.partykit.dev`, **no** `https://` prefix) so a production static site can reach the party. If `PARTYKIT_PUBLIC_HOST` is empty, non-localhost pages default to **`{pageHostname}:1999`**, which is only useful when you intentionally proxy WebSockets to that port.
+After deploy, set **`PARTYKIT_PUBLIC_HOST`** to your PartyKit host (for example `cart-rave.wyabro.partykit.dev`, **no** `https://` prefix) so a production static site can reach the party. If `PARTYKIT_PUBLIC_HOST` is empty, non-localhost pages default to **`{pageHostname}:1999`**, which is only useful when you intentionally proxy WebSockets to that port.
+
+## Netcode debugging helpers
+
+Client-side helpers in `main.js`:
+
+- `window.__debug()`: dumps useful netcode state (host/client role, IDs, slot info).
+- `window.__log(label, payload)`: structured debug log helper.
+- `__msgCounts`: in/out message counters (useful for quickly spotting bad loops or missing messages).
+
+Server-side helper in `party/index.ts`:
+
+- `debug_log` message handler: enables a “phone → PartyKit server” log bridge during LAN testing.
 
 ## Controls
 
