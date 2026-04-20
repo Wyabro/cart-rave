@@ -11,7 +11,8 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Entry must be 90%+ AI-generated (Cursor is primary tool)
 - No login, no loading screens, instant-to-play
 - Must include Vibe Jam widget: <script async src="https://vibej.am/2026/widget.js"></script>
-- Vibe Jam portal integration planned (exit portal on spawn platform → https://vibej.am/portal/2026)
+- Vibe Jam compliance: ensure widget script tag exists in index.html
+- Vibe Jam portal: exit portal appears ONLY on results screen (never mid-game) → https://vibej.am/portal/2026
 
 ## JAM SCOPE CUTS
 - **CUT (jam): server-synced dancefloor rotation.** Jam build computes dancefloor rotation from local time. Server-synced time is post-jam work.
@@ -38,6 +39,20 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Disconnect handling:** human leaves → slot converts to NPC mid-round, round continues seamlessly.
 - **Host migration:** if host leaves, assign new host from remaining humans. New host picks up NPC control. Show "host migrated" message briefly, don't break the room or freeze NPCs.
 
+## Scoring & Round Structure
+- **Round**: 60s host-authoritative timer; last-cart-standing wins.
+- **Scoring**:
+  - Standard +1
+  - Critical +2 (hit at max Shift velocity)
+  - Target +3 (vs current leader)
+  - Jackpot +5 (Critical vs Target)
+  - Leader glow: red emissive.
+
+## Menu & Results Screen
+- **Color picker**: pre-match UI, 5 options (hotPink, electricBlue, limeGreen, neonYellow, neonOrange). First-come-first-served. Colors tie to slots; NPCs fill the remainder.
+- **Results screen**: shown at round end; freezes physics; final scores + Play Again + Exit to Vibe Jam portal + session match history (in-memory only).
+- **Vibe Jam**: widget script required in index.html; exit portal appears only on results screen (never mid-game).
+
 ## Landing page UX
 - **No menu screen.** cartrave.lol loads directly into the game — dancefloor visible, NPCs already playing, rotation already happening.
 - **Quickplay button** (small, top-left): drops player into current public room or creates a new public room if none exists.
@@ -46,7 +61,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Instant-to-fun rule**: every click moves the player closer to carts-on-dancefloor, never further.
 
 ## Game structure
-- **Spawn platform** (separate from the dancefloor): players spawn here, see each other, jump onto the dancefloor when ready. Vibe Jam exit portal lives here as a glowing gateway.
+- **Spawn platform** (separate from the dancefloor): players spawn here, see each other, jump onto the dancefloor when ready.
 - **Main arena:** a circular neon dancefloor that rotates slowly (one rotation per ~25 seconds). Shaped as a RING, not a disc — there is a **hole in the center** (vinyl's center hole reimagined). Hole radius ~15-20% of dancefloor radius; tunable. Emissive tile grid on the floor with equalizer-style pulses. Fog drifting across the surface.
 - **Two danger zones:** outer edge (centrifugal fling-off into surrounding darkness) and inner edge (fall through the center hole into a colored uplit void). Both are valid kill vectors — ram opponents outward OR toward the center.
 - **External reference points:** DJ booth, speaker stacks, or club-interior geometry at fixed (non-rotating) positions around the dancefloor. Critical for player orientation — a rotating floor without fixed references causes disorientation. These double as visual atmosphere.
@@ -128,7 +143,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 5. Multiplayer sync for 2 human carts (the hard part)
 6. NPC fill for empty slots (solves empty-lobby problem)
 7. Scale to 4 humans + NPCs mixing (scale test)
-8. Vibe Jam portal on spawn platform (webring integration)
+8. Vibe Jam portal on results screen (webring integration)
 9. Physics/visual tuning with real game context (feel pass)
 10. Polish pass — lighting, particles, UI juice (polish)
 11. STRETCH: Supabase global leaderboard (cut if tight)
