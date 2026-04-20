@@ -4,7 +4,7 @@ import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
-const PARTYKIT_PUBLIC_HOST = "";
+const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
 
 // --- PartyKit protocol constants (must match server exactly) ---
 const MSG = {
@@ -193,12 +193,17 @@ CONFIG.cart.spawnRingRadius = CONFIG.record.radius * 0.7;
 
 function partyHostFromWindowLocation() {
   const hostname = window.location.hostname;
+  const isLocalHostname =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    /^192\.168\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+  if (isLocalHostname) {
+    return `${hostname}:1999`;
+  }
   const publicHost = PARTYKIT_PUBLIC_HOST.trim();
-  return publicHost
-    ? publicHost
-    : hostname === "localhost" || hostname === "127.0.0.1"
-      ? "127.0.0.1:1999"
-      : `${hostname}:1999`;
+  return publicHost ? publicHost : `${hostname}:1999`;
 }
 
 // --- Module-scope netcode state (per handover spec) ---
@@ -210,6 +215,9 @@ let youConnId = null;
 /** @type {string | null} */
 let hostId = null;
 let isHost = false;
+
+// TEMP DEBUG — message counters
+const __msgCounts = { in: {}, out: {} };
 
 // * Input bridge for non-host client_input nitro (Shift key).
 let localNitroHeld = false;
@@ -372,6 +380,7 @@ function startHostSendLoop() {
         carts,
       }),
     );
+    __msgCounts.out[MSG.hostTransform] = (__msgCounts.out[MSG.hostTransform] || 0) + 1;
   }, intervalMs);
 }
 
@@ -398,6 +407,7 @@ function startInputSendLoop() {
         },
       }),
     );
+    __msgCounts.out[MSG.clientInput] = (__msgCounts.out[MSG.clientInput] || 0) + 1;
   }, intervalMs);
 }
 
@@ -442,6 +452,7 @@ function initNetcode() {
 
   partySocket.addEventListener("open", () => {
     partySocket?.send(JSON.stringify({ type: MSG.join }));
+    __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
   });
 
   partySocket.addEventListener("message", (ev) => {
@@ -452,6 +463,8 @@ function initNetcode() {
       return;
     }
     if (!msg || typeof msg !== "object") return;
+
+    __msgCounts.in[msg.type || "unknown"] = (__msgCounts.in[msg.type || "unknown"] || 0) + 1;
 
     const type = msg.type;
     if (type === MSG.hello) {
@@ -2483,3 +2496,32 @@ initNetcode();
 
 main();
 
+// TEMP DEBUG — remove before jam submission (session 9 multiplayer debug)
+window.__debug = () => {
+  try {
+    return {
+      youConnId,
+      localSlotIndex: localSlotIndexForConn(youConnId),
+      isHost,
+      hostId,
+      partyHost: partySocket?.host,
+      readyState: partySocket?.readyState,
+      __msgCounts
+    };
+  } catch (e) {
+    return { error: String(e) };
+  }
+};
+
+// TEMP DEBUG — phone-to-server log bridge
+window.__log = (label, payload) => {
+  if (!partySocket || partySocket.readyState !== 1) {
+    console.warn("partySocket not ready");
+    return;
+  }
+  partySocket.send(JSON.stringify({
+    type: "debug_log",
+    label: String(label ?? ""),
+    payload: payload ?? null
+  }));
+};

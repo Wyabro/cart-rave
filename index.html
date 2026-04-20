@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cart Rave</title>
+  <script>
+    (function() {
+      var h = window.location.hostname;
+      var isLocal = h === "localhost" || h === "127.0.0.1" || /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h);
+      if (isLocal) {
+        var s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/eruda";
+        s.onload = function() { eruda.init(); };
+        document.head.appendChild(s);
+      }
+    })();
+  </script>
   <script async src="https://vibej.am/2026/widget.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }

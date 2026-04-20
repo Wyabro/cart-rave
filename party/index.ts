@@ -226,6 +226,11 @@ export default class Server implements Party.Server {
     }
 
     const type = data?.type;
+    if (type === "debug_log") {
+      console.log(`[DEBUG ${conn.id.slice(0,8)}] ${data?.label ?? ""}:`, JSON.stringify(data?.payload ?? null));
+      return;
+    }
+
     if (type === MSG.join) {
       // Optional client metadata; server already assigned a slot on connect.
       const name = typeof data?.name === "string" ? data.name.trim() : "";
