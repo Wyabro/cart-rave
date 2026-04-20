@@ -2444,11 +2444,6 @@ async function main() {
           if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
         }
 
-        recordBody.setAngvel(
-          { x: 0, y: CONFIG.record.physicsSpinRadPerSec, z: 0 },
-          true,
-        );
-
         world.step(eventQueue);
         eventQueue.drainCollisionEvents((h1, h2, started) => {
           if (!started) return;
