@@ -1,77 +1,58 @@
-# Session 9 Handover — Netcode Integrated + Solo-First Restored
+## Session 9 handover — tonight summary
 
-Date: 2026-04-19
+### 1) Time check
 
-## Current state (verified)
+- **12 days** to the **May 1, 2026 13:37 UTC** deadline at the start of Session 9.
+- Re-check at the start of **Session 10**.
 
-- **Solo play works end-to-end through the new netcode architecture.**
-  - On a fresh single-client load: `hello` arrives, `youConnId` and `hostId` set, and `isHost=true`.
-  - **Slot assignment is correct**: the server marks slot 0 as `kind:"human"` with `connId === youConnId`; remaining slots stay NPC.
-  - **Controls**: WASD drives the cart in the slot assigned to `youConnId` (slot-based local player resolution).
-  - **NPC fill**: NPCs occupy the other slots and run AI host-side.
-  - **Gameplay feel features still work**: ramming impulses, horn audio, and nitro (Shift) all function under the host-authoritative model.
+### 2) Shipped in commit `56c4de4` (pushed to `main`, Vercel auto-deployed)
 
-## What was fixed this session
+- `partyHostFromWindowLocation` routes LAN IPs (`192.168.*`, `10.*`, `172.16–31.*`) to local PartyKit dev, production hostname to `cart-rave.wyabro.partykit.dev`.
+- `PARTYKIT_PUBLIC_HOST` set so `cartrave.lol` works in production.
+- Eruda loader in `index.html` (**local/LAN only, never on production**).
+- Debug helpers:
+  - `window.__debug()`
+  - `window.__log(label, payload)`
+  - `__msgCounts` in/out counters
+- Server-side `debug_log` handler in `party/index.ts` for client-to-server log bridge.
 
-- **Client netcode was not actually integrated** (handover/spec mismatch from prior session).
-  - Implemented the client netcode from scratch in `main.js` per `docs/session-8-handover.md` + `.cursorrules`:
-    - Single PartySocket instance + message dispatch (`hello`, `host_migrated`, `state`, `client_input`, `round`).
-    - Authority switching (`isHost`), 20Hz `host_transform` send loop, 20Hz `client_input` send loop.
-    - Non-host mode stops stepping physics; applies authoritative transforms from buffered state.
-    - Host mode runs physics + NPC AI; applies remote human inputs to the right slots.
+### 3) Verified end of session
 
-- **Shadowing bug (root cause of slot mismatch)**:
-  - There were *two* `netSlots` (and duplicate `SLOT_COLORS` / `colorHexForSlot`) declarations: module scope + inside `main()`.
-  - The `hello` handler updated module-scope `netSlots`, while the sim loop read the shadowed local `netSlots`.
-  - Fixed by removing the inner declarations so there is **exactly one** module-scope `netSlots`, `SLOT_COLORS`, and `colorHexForSlot`.
+- 2-browser multiplayer sync on localhost (NORMAL + incognito) working.
+- Host migration on refresh works.
+- `cartrave.lol` loads and connects to deployed PartyKit.
 
-- **Stale-serve / caching issue**:
-  - The browser was running an older cached `main.js` even after edits.
-  - Added a cache-busting query param in `index.html`:
-    - `<script type="module" src="main.js?v=dev"></script>`
-  - Dev workflow note: keep DevTools open with Network → “Disable cache” while iterating.
+### 4) Known bugs remaining
 
-- **Server-side hello payload visibility**:
-  - `party/index.ts` logs the full `hello` payload body (`JSON.stringify(helloPayload)`), including `slots`, `hostId`, `youConnId`, and `carts`.
+- Non-host clients render in a “void” — no arena/dancefloor visible, only their own cart. Render-side bug, not netcode. **THIS IS THE NEXT PRIORITY.**
+- Host client also runs `startInputSendLoop` (`out.client_input` increments on host). Wasteful, not broken.
+- Spurious `host_migrated` observed on solo production connection. Root cause unknown, likely NPC fill logic. Low priority.
 
-- **Single-workerd discipline for PartyKit dev**:
-  - Multiple `workerd` processes caused ambiguity and intermittent internal errors in prior testing.
-  - Cleaned to **exactly one** `workerd` process and **one** `0.0.0.0:1999` listener before continuing debugging.
+### 5) Lessons from this session
 
-## Not yet tested
+- Zombie node processes from external PowerShell survive Cursor restart. Always launch dev servers inside Cursor terminals, or plan for manual cleanup.
+- Session 8’s “solo play confirmed working” was insufficient acceptance criteria. Two-browser or two-device test must happen before committing netcode changes.
+- Production deploy target was never set in Session 8; fix was one-line but took hours to diagnose because multiple bugs were stacked.
+- `__msgCounts` counters were the key diagnostic. Keep them in place until jam submission.
+- Cursor prompts work best when they demand verification output (diff + grep) before claiming done.
 
-- **2-device multiplayer has not been validated**.
-  - The sync architecture exists (host-authoritative transforms at 20Hz; input relayed to host), but it has **not** been proven with real devices (PC + phone on LAN).
+### 6) Next session priorities in order
 
-## Next session priorities (in order)
+- **a.** Fix void rendering on non-host clients (blocks step 4).
+- **b.** Round state machine (WAITING → COUNTDOWN → ACTIVE → ROUND_END, server-authoritative).
+- **c.** Minimum HUD (timer, round state, winner text).
+- **d.** `?room=ABCD` URL parsing for private rooms.
 
-1. **2-device functional test (PC + phone)**
-   - Both devices join the same room and see each other’s carts.
-   - Non-host inputs are forwarded to host and correctly applied to the mapped slot.
-   - Host sends authoritative transforms; non-host interpolates/render-only.
-   - **Host migration**: when host disconnects, remaining client becomes host and continues simulation without re-init.
+### 7) Environment
 
-2. **Round state machine** (Step 4 from `.cursorrules` execution order)
-   - Countdown → running → podium → back to lobby/spawn platform.
-   - Winner detection (last cart standing or timer expiry).
+- Working directory: `C:\Users\wyatt\cart-rave`.
+- Two terminals required:
+  - `npx partykit dev -p 1999 --verbose`
+  - `npx serve . -l tcp://0.0.0.0:8085`
+- PartyKit deployed at `cart-rave.wyabro.partykit.dev`.
+- Main branch pushed and synced with `origin`. Production verified working as of end of Session 9.
 
-3. **HUD minimum**
-   - Minimal display for host status, slot/name list, and round phase/timer.
+### 8) Personal note
 
-4. **URL room param parsing**
-   - `?room=ABCD` routing for room selection.
-   - Quickplay default behavior for no params.
-
-## Scope cuts confirmed (`.cursorrules`)
-
-- **CUT (jam)**: server-synced dancefloor rotation (rotation stays local-time based client-side).
-- **CUT (jam)**: dancefloor physics drag / pushing carts via rotating floor (visual-only rotation).
-- **KEPT**: private room codes via URL parameter (`?room=ABCD`) — not implemented yet.
-
-## Session-8 lessons (process)
-
-- Cursor/agents fabricated completion multiple times.
-  - **Verification must be evidence-based** (e.g., grep output, git history, runtime logs), not claims.
-- Large patches should be chunked with verification at each step.
-- Handover docs are essential for continuity: treat them as specs unless confirmed by repo history.
+Wyatt grinded through another long session. Multiplayer that was broken going in is working going out. Don’t let a fresh Cursor agent’s confidence bypass verification habits — make it prove things with diff + grep + test evidence every time.
 

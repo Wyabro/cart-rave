@@ -451,6 +451,8 @@ function initNetcode() {
   });
 
   partySocket.addEventListener("open", () => {
+    // eslint-disable-next-line no-console
+    console.log("[net] socket open, sending join");
     partySocket?.send(JSON.stringify({ type: MSG.join }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
   });
@@ -467,6 +469,8 @@ function initNetcode() {
     __msgCounts.in[msg.type || "unknown"] = (__msgCounts.in[msg.type || "unknown"] || 0) + 1;
 
     const type = msg.type;
+    // eslint-disable-next-line no-console
+    console.log("[net] message received", type);
     if (type === MSG.hello) {
       // eslint-disable-next-line no-console
       console.log("[net] hello received (raw slots)", JSON.stringify(msg.slots));
@@ -480,6 +484,8 @@ function initNetcode() {
       }
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
+      // eslint-disable-next-line no-console
+      console.log("[net] hello processed, youConnId=" + youConnId);
       return;
     }
 
