@@ -278,12 +278,13 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.clientInput) {
+      data.connId = conn.id;
       // Relay to host only. Do not broadcast.
       this.#sendJsonToHost({
         v: PROTOCOL_VERSION,
         type: MSG.clientInput,
         serverNowMs: this.#serverNowMs(),
-        connId: conn.id,
+        connId: data.connId,
         seq: typeof data?.seq === "number" ? data.seq : null,
         tClient: typeof data?.tClient === "number" ? data.tClient : null,
         input: data?.input ?? null,
@@ -291,10 +292,8 @@ export default class Server implements Party.Server {
       return;
     }
 
-    const isHost = conn.id === this.#hostId;
-    if (!isHost) return;
-
     if (type === MSG.hostTransform) {
+      if (conn.id !== this.#hostId) return;
       const seq = typeof data?.seq === "number" ? data.seq : null;
       if (seq === null) return;
       if (seq <= this.#lastSeq) return;
@@ -318,6 +317,7 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.hostRound) {
+      if (conn.id !== this.#hostId) return;
       const round = data?.round;
       if (round && typeof round === "object") {
         this.#round = round as RoundState;
@@ -332,6 +332,7 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.hostEventFall) {
+      if (conn.id !== this.#hostId) return;
       // Placeholder: keep for diagnostics/telemetry; clients can infer via cart flags.
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
