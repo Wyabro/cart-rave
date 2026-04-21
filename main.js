@@ -14,6 +14,7 @@ const MSG = {
   clientInput: "client_input",
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
+  keepalive: "keepalive",
 
   // Server -> client
   hello: "hello",
@@ -39,6 +40,9 @@ const CONFIG = {
     hostSendHz: 20,
     // * Non-host sends client_input at 60Hz.
     clientInputHz: 60,
+    // * Keepalive ping interval (ms). Kept well below the server-side reap
+    // * timeout (20s) so hosts idle during podium/lobby stay alive.
+    keepaliveIntervalMs: 5000,
   },
 
   gravity: -24,
@@ -315,6 +319,8 @@ let roundPodiumTimeoutId = null;
 let hostSendTimer = null;
 /** @type {ReturnType<typeof setInterval> | null} */
 let inputSendTimer = null;
+/** @type {ReturnType<typeof setInterval> | null} */
+let keepaliveTimer = null;
 
 let hostSeq = 0;
 let inputSeq = 0;
@@ -368,6 +374,13 @@ function stopInputSendLoop() {
   if (inputSendTimer) {
     clearInterval(inputSendTimer);
     inputSendTimer = null;
+  }
+}
+
+function stopKeepaliveLoop() {
+  if (keepaliveTimer) {
+    clearInterval(keepaliveTimer);
+    keepaliveTimer = null;
   }
 }
 
@@ -475,6 +488,22 @@ function startInputSendLoop() {
   }, intervalMs);
 }
 
+// * Keepalive heartbeat. Sent regardless of role or round phase so the server
+// * reaper never drops a legitimate client who's idle during lobby/countdown/
+// * podium (host's host_transform loop is gated on running phase, so without
+// * this a host sitting in podium > REAP_TIMEOUT_MS would be reaped).
+function startKeepaliveLoop() {
+  stopKeepaliveLoop();
+  if (!partySocket) return;
+  const intervalMs = CONFIG.net.keepaliveIntervalMs ?? 5000;
+  keepaliveTimer = setInterval(() => {
+    if (!partySocket) return;
+    partySocket.send(
+      JSON.stringify({ type: MSG.keepalive, tClient: Date.now() }),
+    );
+  }, intervalMs);
+}
+
 function setAuthorityMode(nextIsHost) {
   const becomingHost = Boolean(nextIsHost) && !isHost;
   const becomingClient = !nextIsHost && isHost;
@@ -521,6 +550,7 @@ function initNetcode() {
     console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
     partySocket?.send(JSON.stringify({ type: MSG.join }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
+    startKeepaliveLoop();
   });
 
   partySocket.addEventListener("message", (ev) => {
