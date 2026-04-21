@@ -1177,7 +1177,7 @@ async function main() {
     playAgain.type = "button";
     playAgain.className = "results-playAgain";
     playAgain.textContent = "Play Again";
-    playAgain.disabled = true;
+    playAgain.disabled = false;
 
     const exitPortal = document.createElement("a");
     exitPortal.className = "results-exitPortal";
@@ -1915,6 +1915,46 @@ async function main() {
     }
   }
 
+  function rematchResetWorld() {
+    for (let i = ramBoostStreaks.length - 1; i >= 0; i -= 1) {
+      const s = ramBoostStreaks[i];
+      scene.remove(s.mesh);
+      s.mesh.geometry.dispose();
+      s.material.dispose();
+      ramBoostStreaks.splice(i, 1);
+    }
+    lastHitBy.clear();
+    for (const cart of allCarts) {
+      cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
+      cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
+      cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      cart.respawnAtMs = null;
+      cart.pendingRam = null;
+      cart.ramBoostActiveUntilMs = 0;
+      cart.ramBoostStreakCarry = 0;
+      cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
+      cart.aiNextDecisionMs = 0;
+      cart.aiTarget = { x: 0, z: 0 };
+      resetCartVisualState(cart.mesh);
+    }
+    const carts = {};
+    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+      const c = allCarts[slotIndex];
+      const t = c.body.translation();
+      const r = c.body.rotation();
+      const lv = c.body.linvel();
+      const av = c.body.angvel();
+      carts[String(slotIndex)] = {
+        p: [t.x, t.y, t.z],
+        q: [r.x, r.y, r.z, r.w],
+        lv: [lv.x, lv.y, lv.z],
+        av: [av.x, av.y, av.z],
+      };
+    }
+    lastCartsCache = carts;
+  }
+
   function pickAiTarget(fromPos) {
     const dist = Math.hypot(fromPos.x, fromPos.z);
     const edgeBiasStart = CONFIG.record.radius * 0.78;
@@ -2334,6 +2374,30 @@ async function main() {
     roundWinnerSlotIndex = winnerSlotIndex;
     sendHostRound();
   }
+
+  function onHostPlayAgainClick() {
+    if (!isHost) return;
+    if (roundPodiumTimeoutId != null) {
+      clearTimeout(roundPodiumTimeoutId);
+      roundPodiumTimeoutId = null;
+    }
+    rematchResetWorld();
+    if (partySocket && partySocket.readyState === 1 && lastCartsCache) {
+      hostSeq += 1;
+      partySocket.send(
+        JSON.stringify({
+          type: MSG.hostTransform,
+          seq: hostSeq,
+          tHost: Date.now(),
+          carts: lastCartsCache,
+        }),
+      );
+      __msgCounts.out[MSG.hostTransform] = (__msgCounts.out[MSG.hostTransform] || 0) + 1;
+    }
+    startCountdown();
+  }
+
+  resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
 
   function onKeyDown(e) {
     unlockAudioAndMaybeStartMusic();
