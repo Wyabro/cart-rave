@@ -562,6 +562,17 @@ function initNetcode() {
       console.log("[net] slots msg raw payload", JSON.stringify(msg));
       if (Array.isArray(msg.slots)) {
         netSlots = msg.slots;
+        const liveConnIds = new Set(
+          netSlots
+            .map((s) => (s && typeof s.connId === "string" ? s.connId : null))
+            .filter(Boolean),
+        );
+        for (const id of remoteInputsByConnId.keys()) {
+          if (!liveConnIds.has(id)) remoteInputsByConnId.delete(id);
+        }
+        for (const id of remoteNitroLatchedByConnId.keys()) {
+          if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
+        }
         console.log("[net] slots updated", JSON.stringify(msg.slots));
       } else {
         console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
