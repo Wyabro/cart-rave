@@ -408,6 +408,7 @@ function startHostSendLoop() {
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
   hostSendTimer = setInterval(() => {
     if (!partySocket || !isHost || !allCartsRef) return;
+    if (roundPhase !== "running") return;
 
     hostSeq += 1;
     const carts = {};
@@ -2833,7 +2834,7 @@ async function main() {
     const localCart = localCartForConnId();
     const playerPos = localCart.body.translation();
 
-    if (isHost) {
+    if (isHost && roundPhase === "running") {
       // Fall detection / respawn (host-authoritative).
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
         const slot = netSlots[slotIndex];
@@ -2971,65 +2972,69 @@ async function main() {
     const npcDiagLastAiByCart = new Map();
 
     if (isHost) {
-      while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
-        applyArcadeControls(localCart, playerAxis, CONFIG.fixedTimeStep, now);
+      if (roundPhase === "running") {
+        while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
+          applyArcadeControls(localCart, playerAxis, CONFIG.fixedTimeStep, now);
 
-        // Apply remote human inputs on host.
-        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-          const slot = netSlots[slotIndex];
-          const c = allCarts[slotIndex];
-          if (!slot || !c) continue;
-          if (slot.kind !== "human") continue;
-          if (!slot.connId) continue;
-          if (slot.connId === youConnId) continue;
+          // Apply remote human inputs on host.
+          for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+            const slot = netSlots[slotIndex];
+            const c = allCarts[slotIndex];
+            if (!slot || !c) continue;
+            if (slot.kind !== "human") continue;
+            if (!slot.connId) continue;
+            if (slot.connId === youConnId) continue;
 
-          const ri = remoteInputsByConnId.get(slot.connId) || {
-            throttle: 0,
-            steer: 0,
-            nitro: false,
-          };
-          applyArcadeControls(
-            c,
-            { forward: clamp(ri.throttle, -1, 1), turn: clamp(ri.steer, -1, 1) },
-            CONFIG.fixedTimeStep,
-            now,
-          );
+            const ri = remoteInputsByConnId.get(slot.connId) || {
+              throttle: 0,
+              steer: 0,
+              nitro: false,
+            };
+            applyArcadeControls(
+              c,
+              { forward: clamp(ri.throttle, -1, 1), turn: clamp(ri.steer, -1, 1) },
+              CONFIG.fixedTimeStep,
+              now,
+            );
+          }
+
+          // NPC AI on host.
+          for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+            const slot = netSlots[slotIndex];
+            const c = allCarts[slotIndex];
+            if (!slot || slot.kind !== "npc") continue;
+            const aiAxis = getAiAxis(now, c);
+            npcDiagLastAiByCart.set(c, aiAxis);
+            applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep, now);
+          }
+
+          // Apply any pending ramming impulses over multiple physics steps.
+          for (const cart of allCarts) {
+            if (!cart.pendingRam) continue;
+            const { impulse, remainingSteps } = cart.pendingRam;
+            const denom = Math.max(1, remainingSteps);
+            cart.body.applyImpulse(
+              { x: impulse.x / denom, y: impulse.y / denom, z: impulse.z / denom },
+              true,
+            );
+            cart.pendingRam.remainingSteps -= 1;
+            if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
+          }
+
+          world.step(eventQueue);
+          eventQueue.drainCollisionEvents((h1, h2, started) => {
+            if (!started) return;
+            const c1 = colliderHandleToCart.get(h1);
+            const c2 = colliderHandleToCart.get(h2);
+            if (!c1 || !c2 || c1 === c2) return;
+            applyRammingImpulse(c1, c2);
+            applyRammingImpulse(c2, c1);
+          });
+          accumulator -= CONFIG.fixedTimeStep;
+          substeps += 1;
         }
-
-        // NPC AI on host.
-        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-          const slot = netSlots[slotIndex];
-          const c = allCarts[slotIndex];
-          if (!slot || slot.kind !== "npc") continue;
-          const aiAxis = getAiAxis(now, c);
-          npcDiagLastAiByCart.set(c, aiAxis);
-          applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep, now);
-        }
-
-        // Apply any pending ramming impulses over multiple physics steps.
-        for (const cart of allCarts) {
-          if (!cart.pendingRam) continue;
-          const { impulse, remainingSteps } = cart.pendingRam;
-          const denom = Math.max(1, remainingSteps);
-          cart.body.applyImpulse(
-            { x: impulse.x / denom, y: impulse.y / denom, z: impulse.z / denom },
-            true,
-          );
-          cart.pendingRam.remainingSteps -= 1;
-          if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
-        }
-
-        world.step(eventQueue);
-        eventQueue.drainCollisionEvents((h1, h2, started) => {
-          if (!started) return;
-          const c1 = colliderHandleToCart.get(h1);
-          const c2 = colliderHandleToCart.get(h2);
-          if (!c1 || !c2 || c1 === c2) return;
-          applyRammingImpulse(c1, c2);
-          applyRammingImpulse(c2, c1);
-        });
-        accumulator -= CONFIG.fixedTimeStep;
-        substeps += 1;
+      } else {
+        accumulator = 0;
       }
     } else {
       // Non-host: do not step physics. Apply transforms from buffer ~150ms behind.
