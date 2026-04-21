@@ -2499,7 +2499,7 @@ async function main() {
         startCountdown();
       }
       // running → end when timer expires
-      if (roundPhase === "running" && Date.now() - roundStartedAtMs >= 60000) {
+      if (roundPhase === "running" && roundStartedAtMs > 0 && Date.now() - roundStartedAtMs >= 60000) {
         endRound();
       }
     }
