@@ -302,6 +302,9 @@ let roundCountdownStartedAtMs = 0;
 let roundWinnerSlotIndex = null;
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
 
+/** @type {ReturnType<typeof setTimeout> | null} */
+let roundPodiumTimeoutId = null;
+
 /** @type {ReturnType<typeof setInterval> | null} */
 let hostSendTimer = null;
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -2289,6 +2292,10 @@ async function main() {
   }
 
   function endRound() {
+    if (roundPodiumTimeoutId != null) {
+      clearTimeout(roundPodiumTimeoutId);
+      roundPodiumTimeoutId = null;
+    }
     // Find highest scorer
     let winnerSlotIndex = 0;
     let winnerScore = -Infinity;
@@ -2302,9 +2309,6 @@ async function main() {
     console.log("[round] phase=" + roundPhase);
     roundWinnerSlotIndex = winnerSlotIndex;
     sendHostRound();
-    setTimeout(() => {
-      if (roundPhase === "podium") startCountdown();
-    }, 3000);
   }
 
   function onKeyDown(e) {
