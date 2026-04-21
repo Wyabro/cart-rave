@@ -239,9 +239,17 @@ const SLOT_COLORS = {
   neonYellow: 0xffee00,
 };
 
+function cssHexFromRgbNumber(rgb) {
+  if (!Number.isFinite(rgb)) return "#888888";
+  const hex = (rgb >>> 0).toString(16).padStart(6, "0");
+  return `#${hex}`;
+}
+
 function getSlotColor(slotIndex) {
-  const SLOT_COLORS = ["#ff3b3b", "#3b8bff", "#3bd17a", "#ffd23b"];
-  return SLOT_COLORS[slotIndex] ?? "#888888";
+  const slotKeyByIndex = ["hotPink", "electricBlue", "limeGreen", "neonYellow"];
+  const key = slotKeyByIndex[slotIndex] ?? null;
+  if (!key) return "#888888";
+  return cssHexFromRgbNumber(SLOT_COLORS[key]);
 }
 
 /** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
@@ -951,7 +959,8 @@ async function main() {
       }
 
       #hud .hud-scoreBox.isLocal {
-        border-color: rgba(255,255,255,0.95);
+        border-color: rgba(255,255,255,1);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.35), 0 0 12px rgba(255,255,255,0.6);
       }
 
       #hud .hud-scoreBox.isLocal .hud-scoreLabel,
@@ -1057,6 +1066,12 @@ async function main() {
     if (roundPhase === "running") {
       hud.scores.style.display = "flex";
       const localIdx = localSlotIndexForConn(youConnId);
+      if (updateHud._lastLocalIdx !== localIdx) {
+        // PRE-SUBMISSION CLEANUP
+        // eslint-disable-next-line no-console
+        console.log("local slot:", localIdx);
+        updateHud._lastLocalIdx = localIdx;
+      }
       for (let i = 0; i < 4; i += 1) {
         const entry = hud.scoreBoxes[i];
         const score = roundScores && roundScores[i] != null ? roundScores[i] : 0;
