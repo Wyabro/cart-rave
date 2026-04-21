@@ -691,67 +691,6 @@ function planarSpeed(v) {
   return Math.hypot(v.x, v.z);
 }
 
-function portalLabelSprite({ text, colorHex }) {
-  const canvas = document.createElement("canvas");
-  const size = 512;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-
-  const color = `#${colorHex.toString(16).padStart(6, "0")}`;
-  ctx.clearRect(0, 0, size, size);
-  ctx.font = "900 72px Arial Black, Impact, sans-serif";
-  ctx.fillStyle = color;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.shadowColor = "rgba(0,0,0,0.55)";
-  ctx.shadowBlur = 12;
-  ctx.fillText(text, size / 2, size / 2);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.SpriteMaterial({
-    map: tex,
-    transparent: true,
-    depthWrite: false,
-  });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(8, 2.2, 1);
-  return sprite;
-}
-
-function createPortalGroup({ colorHex, position, labelText, labelColorHex }) {
-  const group = new THREE.Group();
-  group.position.set(position.x, position.y, position.z);
-
-  const geo = new THREE.TorusGeometry(3, 0.4, 16, 64);
-  const mat = new THREE.MeshStandardMaterial({
-    color: colorHex,
-    emissive: colorHex,
-    emissiveIntensity: 2.6,
-    roughness: 0.3,
-    metalness: 0.05,
-  });
-  const torus = new THREE.Mesh(geo, mat);
-  torus.rotation.x = Math.PI / 2;
-  group.add(torus);
-
-  if (labelText) {
-    const sprite = portalLabelSprite({
-      text: labelText,
-      colorHex: labelColorHex ?? colorHex,
-    });
-    if (sprite) {
-      sprite.position.set(0, 5.2, 0);
-      group.add(sprite);
-    }
-  }
-
-  return group;
-}
-
 function vec3PlanarDirection(v) {
   const d = new THREE.Vector3(v.x, 0, v.z);
   const len = d.length();
@@ -991,27 +930,6 @@ async function main() {
 
   const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
-
-  // --- Vibe Jam 2026 portals ---
-  const exitPortalGroup = createPortalGroup({
-    colorHex: 0xff2bd6,
-    position: { x: CONFIG.record.radius + 5, y: 2, z: 0 },
-    labelText: "VIBE JAM 2026",
-    labelColorHex: 0xff2bd6,
-  });
-  scene.add(exitPortalGroup);
-
-  const startPortalEnabled = Boolean(new URLSearchParams(window.location.search).get("portal"));
-  const startPortalGroup = startPortalEnabled
-    ? createPortalGroup({
-        colorHex: 0x2bd6ff,
-        position: { x: CONFIG.cart.spawnRingRadius, y: CONFIG.cart.spawnHeight, z: 0 },
-      })
-    : null;
-  if (startPortalGroup) scene.add(startPortalGroup);
-
-  let exitPortalRedirectFired = false;
-  let startPortalRedirectFired = false;
 
   // --- Record platform (visual rotates, physics stays fixed for day 1) ---
   const recordGeo = buildRecordRingGeometry({
@@ -2406,10 +2324,6 @@ async function main() {
     // Visual-only record rotation.
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
 
-    // Portal animation (no new rAF loop).
-    exitPortalGroup.rotation.z += 0.01 * dt;
-    if (startPortalGroup) startPortalGroup.rotation.z += 0.01 * dt;
-
     const playerAxis = getAxis();
     if (simFrameIndex === 1 || simFrameIndex === 30) {
       // eslint-disable-next-line no-console
@@ -2422,57 +2336,7 @@ async function main() {
     }
 
     const localCart = localCartForConnId();
-    if (localCart) {
-      const playerPos = localCart.body.translation();
-
-      // Portal collision checks (distance threshold, one-shot redirects).
-      if (!exitPortalRedirectFired) {
-        const dx = playerPos.x - exitPortalGroup.position.x;
-        const dy = playerPos.y - exitPortalGroup.position.y;
-        const dz = playerPos.z - exitPortalGroup.position.z;
-        if (Math.hypot(dx, dy, dz) <= 4) {
-          exitPortalRedirectFired = true;
-          const localSlot = netSlots[localSlotIndexForConn(youConnId)] ?? null;
-          const username = localSlot && typeof localSlot.name === "string" ? localSlot.name : "player";
-          const color = localSlot && typeof localSlot.color === "string" ? localSlot.color : "hotPink";
-          const lv = localCart.body.linvel();
-          const speed = Number(planarSpeed(lv).toFixed(1));
-
-          const url = new URL("https://vibejam.cc/portal/2026");
-          url.searchParams.set("portal", "true");
-          url.searchParams.set("ref", "cartrave.lol");
-          url.searchParams.set("username", username);
-          url.searchParams.set("color", color);
-          url.searchParams.set("speed", String(speed));
-          window.location.href = url.toString();
-          return;
-        }
-      }
-
-      if (startPortalGroup && !startPortalRedirectFired) {
-        const dx = playerPos.x - startPortalGroup.position.x;
-        const dy = playerPos.y - startPortalGroup.position.y;
-        const dz = playerPos.z - startPortalGroup.position.z;
-        if (Math.hypot(dx, dy, dz) <= 4) {
-          startPortalRedirectFired = true;
-          const params = new URLSearchParams(window.location.search);
-          const ref = (params.get("ref") || "").trim();
-          params.delete("ref");
-          if (ref) {
-            let dest = null;
-            try {
-              dest = new URL(ref);
-            } catch {
-              dest = new URL(`https://${ref}`);
-            }
-            const qs = params.toString();
-            dest.search = qs ? `?${qs}` : "";
-            window.location.href = dest.toString();
-            return;
-          }
-        }
-      }
-    }
+    const playerPos = localCart.body.translation();
 
     if (isHost) {
       // Fall detection / respawn (host-authoritative).
