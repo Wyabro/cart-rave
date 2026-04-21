@@ -44,6 +44,12 @@ const MSG = {
 } as const;
 
 const PROTOCOL_VERSION = 1;
+// * Activity-based connection reaper thresholds. PartyKit's onClose is not
+// * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
+// * yet detected by the runtime) so we track lastSeenAtMs per connection and
+// * forcibly remove any that hasn't spoken in REAP_TIMEOUT_MS.
+const REAP_TIMEOUT_MS = 20_000;
+const REAP_THROTTLE_MS = 5_000;
 
 export default class Server implements Party.Server {
   readonly #connections = new Map<string, Party.Connection>();
@@ -54,6 +60,12 @@ export default class Server implements Party.Server {
   #carts: Record<string, CartState> = {};
   #round: RoundState = { phase: "lobby", winnerSlotId: null };
   #lastSeq: number = 0;
+  // * Per-connection last-activity timestamp. A missing entry is intentionally
+  // * treated as epoch (0) so that connections already present at reaper-deploy
+  // * time (no prior lastSeenAtMs ever set) are reap-eligible on the first pass.
+  // * Legitimate live connections will have an entry set by onConnect or onMessage.
+  readonly #lastSeenAtMs = new Map<string, number>();
+  #lastReapAtMs: number = 0;
 
   constructor(readonly room: Party.Room) {}
 
@@ -166,11 +178,65 @@ export default class Server implements Party.Server {
     // Keep last known name/color for continuity; name can be replaced later by NPC naming.
   }
 
+  // * Removes connections that haven't sent a message in REAP_TIMEOUT_MS.
+  // * Intended as a safety net for when onClose doesn't fire (crash, network
+  // * drop, platform bug, phantom tabs). Host handoff is delegated to
+  // * #ensureLiveHost() so we don't duplicate the migration broadcast logic.
+  #reapSilentConnections() {
+    const now = this.#serverNowMs();
+    const reapedIds: string[] = [];
+
+    for (const id of this.#connections.keys()) {
+      const lastSeen = this.#lastSeenAtMs.get(id) ?? 0;
+      if (now - lastSeen > REAP_TIMEOUT_MS) {
+        reapedIds.push(id);
+      }
+    }
+
+    this.#lastReapAtMs = now;
+    if (reapedIds.length === 0) return;
+
+    let slotsChanged = false;
+    for (const id of reapedIds) {
+      const lastSeen = this.#lastSeenAtMs.get(id) ?? 0;
+      const age = now - lastSeen;
+      const wasHost = id === this.#hostId;
+      const slot = this.#slots?.find((s) => s.connId === id);
+      if (slot && slot.kind === "human") slotsChanged = true;
+      console.log(
+        `reap: connId=${id} reason=silent age=${age} was_host=${wasHost}`,
+      );
+      this.#connections.delete(id);
+      this.#lastSeenAtMs.delete(id);
+      this.#convertHumanSlotToNpc(id);
+    }
+
+    // * Delegate host repair + hostMigrated broadcast to #ensureLiveHost so
+    // * handoff logic lives in exactly one place.
+    this.#ensureLiveHost();
+
+    if (slotsChanged) {
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.slots,
+        serverNowMs: this.#serverNowMs(),
+        slots: this.#slots,
+      });
+    }
+  }
+
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
     this.#ensureInitialized();
 
     this.#connections.set(conn.id, conn);
     this.#joinOrder.push(conn.id);
+    this.#lastSeenAtMs.set(conn.id, this.#serverNowMs());
+
+    // * Reap before reconcile so a freshly-reaped ghost host is already gone
+    // * by the time we compute orphan slots and build the hello snapshot.
+    // * The new conn is already in #connections and lastSeenAtMs, so it's
+    // * immune to reap and a valid host successor.
+    this.#reapSilentConnections();
 
     // Reconcile: any slot marked "human" whose connId is not in the platform's live
     // connection list is orphaned. Use room.getConnections() rather than #connections
@@ -251,6 +317,7 @@ export default class Server implements Party.Server {
 
   onClose(conn: Party.Connection) {
     this.#connections.delete(conn.id);
+    this.#lastSeenAtMs.delete(conn.id);
     this.#convertHumanSlotToNpc(conn.id);
 
     const wasHost = this.#hostId === conn.id;
@@ -279,6 +346,12 @@ export default class Server implements Party.Server {
   }
 
   onMessage(message: string, conn: Party.Connection) {
+    const now = this.#serverNowMs();
+    this.#lastSeenAtMs.set(conn.id, now);
+    if (now - this.#lastReapAtMs >= REAP_THROTTLE_MS) {
+      this.#reapSilentConnections();
+    }
+
     let data: any;
     try {
       data = JSON.parse(message);
