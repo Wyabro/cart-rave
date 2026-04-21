@@ -278,6 +278,11 @@ let remoteInputsByConnId = new Map();
 /** @type {Map<string, boolean>} */
 let remoteNitroLatchedByConnId = new Map();
 
+// Stage A scoring (host-only logic lives inside isHost blocks).
+const lastHitBy = new Map(); // slotIndex -> { attackerSlotIndex, wasBoost, timestamp }
+
+let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+
 /** @type {ReturnType<typeof setInterval> | null} */
 let hostSendTimer = null;
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -1803,12 +1808,33 @@ async function main() {
     const steps = 3;
     if (!victim.pendingRam) {
       victim.pendingRam = { impulse, remainingSteps: steps };
+
+      // Stage A: record last hit for scoring attribution (host only).
+      const carts = allCartsRef || [];
+      const attackerSlotIndex = carts.indexOf(rammer) >= 0 ? carts.indexOf(rammer) : rammer.slotIndex;
+      const victimSlotIndex = carts.indexOf(victim) >= 0 ? carts.indexOf(victim) : victim.slotIndex;
+      if (Number.isFinite(attackerSlotIndex) && Number.isFinite(victimSlotIndex)) {
+        const nowPerf = performance.now();
+        const wasBoost = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
+        lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasBoost, timestamp: Date.now() });
+      }
+
       return;
     }
     victim.pendingRam.impulse.x += impulse.x;
     victim.pendingRam.impulse.y += impulse.y;
     victim.pendingRam.impulse.z += impulse.z;
     victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
+
+    // Stage A: record last hit for scoring attribution (host only).
+    const carts = allCartsRef || [];
+    const attackerSlotIndex = carts.indexOf(rammer) >= 0 ? carts.indexOf(rammer) : rammer.slotIndex;
+    const victimSlotIndex = carts.indexOf(victim) >= 0 ? carts.indexOf(victim) : victim.slotIndex;
+    if (Number.isFinite(attackerSlotIndex) && Number.isFinite(victimSlotIndex)) {
+      const nowPerf = performance.now();
+      const wasBoost = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
+      lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasBoost, timestamp: Date.now() });
+    }
   }
 
   function onKeyDown(e) {
@@ -2345,7 +2371,47 @@ async function main() {
         const c = allCarts[slotIndex];
         if (!slot) continue;
         const p = c.body.translation();
-        if (p.y < CONFIG.fall.yThreshold) scheduleRespawn(c, now);
+        if (p.y < CONFIG.fall.yThreshold) {
+          // Stage A scoring: credit last hit if recent.
+          // Only score once per fall event.
+          if (c.respawnAtMs === null) {
+            const hit = lastHitBy.get(slotIndex) || null;
+            if (hit && Date.now() - hit.timestamp <= 3000) {
+              const distOriginXZ = Math.hypot(p.x, p.z);
+              const isCenterHole = distOriginXZ < CONFIG.record.innerRadius + 2;
+              let points = isCenterHole ? 2 : 1;
+
+              if (hit.wasBoost) points += 1; // critical bonus
+
+              // Leader lookup (before applying this score).
+              let leaderSlotIndex = 0;
+              let leaderScore = -Infinity;
+              for (let i = 0; i < 4; i += 1) {
+                const s = Number(roundScores[i] || 0);
+                if (s > leaderScore) {
+                  leaderScore = s;
+                  leaderSlotIndex = i;
+                }
+              }
+              if (slotIndex === leaderSlotIndex) points += 1; // target bonus
+
+              if (roundScores[hit.attackerSlotIndex] == null) {
+                roundScores[hit.attackerSlotIndex] = 0;
+              }
+              roundScores[hit.attackerSlotIndex] += points;
+              // eslint-disable-next-line no-console
+              console.log("[score] hit credited", {
+                attacker: hit.attackerSlotIndex,
+                victim: slotIndex,
+                points,
+                roundScores,
+              });
+            }
+            lastHitBy.delete(slotIndex);
+          }
+
+          scheduleRespawn(c, now);
+        }
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
           doRespawn(c);
         }
