@@ -302,6 +302,12 @@ let roundCountdownStartedAtMs = 0;
 let roundWinnerSlotIndex = null;
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
 
+/**
+ * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
+ * @type {{ endedAtMs: number, winnerSlotIndex: number, scores: Record<number, number> }[]}
+ */
+let matchHistory = [];
+
 /** @type {ReturnType<typeof setTimeout> | null} */
 let roundPodiumTimeoutId = null;
 
@@ -630,6 +636,24 @@ function initNetcode() {
       if (r && typeof r === "object") {
         const prevPhase = roundPhase;
         const newPhase = r.phase;
+        // * Approach (a): single source of truth via MSG.round transition into podium — host and clients append the same
+        // * moment without endRound() duplication or dedupe keys.
+        if (typeof newPhase === "string" && prevPhase !== "podium" && newPhase === "podium") {
+          const w = r.winnerSlotIndex;
+          const winnerSlotIndex = Number.isFinite(w) ? w : 0;
+          const src = r.scores && typeof r.scores === "object" ? r.scores : roundScores;
+          /** @type {Record<number, number>} */
+          const scores = {};
+          for (let i = 0; i < 4; i += 1) {
+            scores[i] = Number(src[i] ?? 0);
+          }
+          matchHistory.push({
+            endedAtMs: Date.now(),
+            winnerSlotIndex,
+            scores,
+          });
+          while (matchHistory.length > 10) matchHistory.shift();
+        }
         if (!isHost && typeof newPhase === "string" && newPhase !== prevPhase) {
           // PRE-SUBMISSION CLEANUP
           // eslint-disable-next-line no-console
