@@ -67,6 +67,17 @@ Server logic lives in `party/index.ts`. The party name is `main`.
 - Non-host clients send `client_input` and render interpolated snapshots.
 - Rooms are always **4 slots**; unused slots are **NPCs**.
 
+### Slot mapping updates
+
+- The server broadcasts `slots` whenever slot assignments change (connect/disconnect/join metadata).
+- The client listens for `slots` and updates `netSlots` live (not just at `hello`).
+- The server reconciles orphaned `"human"` slots on `onConnect` using `room.getConnections()` and prunes zombie entries from its internal `#connections` map.
+
+### Respawn rules (host)
+
+- Fall detection / respawn checks apply to **all slots** (humans and NPCs) when `y < CONFIG.fall.yThreshold`.
+- NPC-only behaviors (e.g. opportunistic ram boost AI) still run only for `slot.kind === "npc"`.
+
 ### PartyKit dev server (local)
 
 The static game and the PartyKit server run as two local processes:

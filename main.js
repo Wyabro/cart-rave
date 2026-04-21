@@ -2338,20 +2338,16 @@ async function main() {
 
     if (isHost) {
       // Fall detection / respawn (host-authoritative).
-      if (playerPos.y < CONFIG.fall.yThreshold) scheduleRespawn(localCart, now);
-      if (localCart.respawnAtMs !== null && now >= localCart.respawnAtMs) {
-        doRespawn(localCart);
-      }
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
         const slot = netSlots[slotIndex];
         const c = allCarts[slotIndex];
-        if (!slot || slot.kind !== "npc") continue;
+        if (!slot) continue;
         const p = c.body.translation();
         if (p.y < CONFIG.fall.yThreshold) scheduleRespawn(c, now);
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
           doRespawn(c);
         }
-        maybeTriggerNpcOpportunisticRamBoost(now, c);
+        if (slot.kind === "npc") maybeTriggerNpcOpportunisticRamBoost(now, c);
       }
       tickRamBoostStreakSpawners(now, dt);
     }
