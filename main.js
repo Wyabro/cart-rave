@@ -2376,7 +2376,7 @@ async function main() {
           // Only score once per fall event.
           if (c.respawnAtMs === null) {
             const hit = lastHitBy.get(slotIndex) || null;
-            if (hit && Date.now() - hit.timestamp <= 3000) {
+            if (hit && Date.now() - hit.timestamp <= 1500) {
               const distOriginXZ = Math.hypot(p.x, p.z);
               const isCenterHole = distOriginXZ < CONFIG.record.innerRadius + 2;
               let points = isCenterHole ? 2 : 1;
