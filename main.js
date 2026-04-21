@@ -599,6 +599,13 @@ function initNetcode() {
     if (type === MSG.round) {
       const r = msg.round;
       if (r && typeof r === "object") {
+        const prevPhase = roundPhase;
+        const newPhase = r.phase;
+        if (!isHost && typeof newPhase === "string" && newPhase !== prevPhase) {
+          // PRE-SUBMISSION CLEANUP
+          // eslint-disable-next-line no-console
+          console.log("[round] phase=" + newPhase + " (client)");
+        }
         roundPhase = r.phase ?? roundPhase;
         roundStartedAtMs = r.startedAtMs ?? roundStartedAtMs;
         roundCountdownStartedAtMs = r.countdownStartedAtMs ?? roundCountdownStartedAtMs;
