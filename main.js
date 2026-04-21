@@ -2349,6 +2349,9 @@ async function main() {
     roundPhase = "countdown";
     console.log("[round] phase=" + roundPhase);
     roundCountdownStartedAtMs = Date.now();
+    roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    roundWinnerSlotIndex = null;
+    roundStartedAtMs = 0;
     sendHostRound();
     setTimeout(() => {
       if (roundPhase === "countdown") startRunning();
