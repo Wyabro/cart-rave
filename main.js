@@ -1875,9 +1875,8 @@ async function main() {
   }
 
   function startRunning() {
-    // eslint-disable-next-line no-console
-    console.log("[round]", roundPhase);
     roundPhase = "running";
+    console.log("[round] phase=" + roundPhase);
     roundStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
@@ -1885,9 +1884,8 @@ async function main() {
   }
 
   function startCountdown() {
-    // eslint-disable-next-line no-console
-    console.log("[round]", roundPhase);
     roundPhase = "countdown";
+    console.log("[round] phase=" + roundPhase);
     roundCountdownStartedAtMs = Date.now();
     sendHostRound();
     setTimeout(() => {
@@ -1905,9 +1903,8 @@ async function main() {
         winnerSlotIndex = i;
       }
     }
-    // eslint-disable-next-line no-console
-    console.log("[round]", roundPhase);
     roundPhase = "podium";
+    console.log("[round] phase=" + roundPhase);
     roundWinnerSlotIndex = winnerSlotIndex;
     sendHostRound();
     setTimeout(() => {
