@@ -239,6 +239,11 @@ const SLOT_COLORS = {
   neonYellow: 0xffee00,
 };
 
+function getSlotColor(slotIndex) {
+  const SLOT_COLORS = ["#ff3b3b", "#3b8bff", "#3bd17a", "#ffd23b"];
+  return SLOT_COLORS[slotIndex] ?? "#888888";
+}
+
 /** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
 let netSlots = [
   { slotId: 0, kind: "npc", connId: null, name: "CartGPT", color: "hotPink" },
@@ -853,6 +858,220 @@ async function main() {
   renderer.setClearColor(CONFIG.backgroundColor, 1);
 
   const scene = new THREE.Scene();
+
+  function initHud() {
+    const existing = document.getElementById("hud");
+    if (existing) existing.remove();
+    const existingStyle = document.getElementById("hud-style");
+    if (existingStyle) existingStyle.remove();
+
+    const style = document.createElement("style");
+    style.id = "hud-style";
+    style.textContent = `
+      #hud {
+        position: fixed;
+        inset: 0;
+        z-index: 20000;
+        pointer-events: none;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        color: #ffffff;
+        text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+      }
+
+      #hud .hud-status {
+        position: absolute;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 2.4rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        padding: 10px 14px;
+        border-radius: 14px;
+        background: rgba(7, 0, 16, 0.35);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+        display: none;
+        white-space: nowrap;
+      }
+
+      #hud .hud-timer {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        font-size: 1.8rem;
+        font-weight: 800;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(7, 0, 16, 0.35);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+        display: none;
+        min-width: 72px;
+        text-align: right;
+      }
+
+      #hud .hud-scores {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        display: none;
+        gap: 10px;
+        align-items: stretch;
+        justify-content: center;
+      }
+
+      #hud .hud-scoreBox {
+        width: 88px;
+        padding: 10px 10px 9px;
+        border-radius: 14px;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+        color: #ffffff;
+        line-height: 1.05;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid rgba(255,255,255,0.0);
+      }
+
+      #hud .hud-scoreLabel {
+        font-size: 1.05rem;
+        font-weight: 800;
+        opacity: 0.95;
+      }
+
+      #hud .hud-scoreValue {
+        font-size: 1.35rem;
+        font-weight: 800;
+        margin-top: 4px;
+      }
+
+      #hud .hud-scoreBox.isLocal {
+        border-color: rgba(255,255,255,0.95);
+      }
+
+      #hud .hud-scoreBox.isLocal .hud-scoreLabel,
+      #hud .hud-scoreBox.isLocal .hud-scoreValue {
+        font-weight: 900;
+      }
+    `.trim();
+    document.head.appendChild(style);
+
+    const root = document.createElement("div");
+    root.id = "hud";
+
+    const status = document.createElement("div");
+    status.className = "hud-status";
+
+    const timer = document.createElement("div");
+    timer.className = "hud-timer";
+
+    const scores = document.createElement("div");
+    scores.className = "hud-scores";
+
+    /** @type {{ root: HTMLDivElement; box: HTMLDivElement; label: HTMLDivElement; value: HTMLDivElement }[]} */
+    const scoreBoxes = [];
+    for (let i = 0; i < 4; i += 1) {
+      const box = document.createElement("div");
+      box.className = "hud-scoreBox";
+      box.style.background = getSlotColor(i);
+
+      const label = document.createElement("div");
+      label.className = "hud-scoreLabel";
+      label.textContent = `P${i + 1}`;
+
+      const value = document.createElement("div");
+      value.className = "hud-scoreValue";
+      value.textContent = "0";
+
+      box.appendChild(label);
+      box.appendChild(value);
+      scores.appendChild(box);
+      scoreBoxes.push({ root, box, label, value });
+    }
+
+    root.appendChild(status);
+    root.appendChild(timer);
+    root.appendChild(scores);
+    document.body.appendChild(root);
+
+    return { root, status, timer, scores, scoreBoxes };
+  }
+
+  const hud = initHud();
+
+  function clampInt(value, min, max) {
+    const v = Math.round(value);
+    if (!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function updateHud() {
+    if (!hud) return;
+
+    // --- Status line ---
+    if (roundPhase === "countdown") {
+      const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
+      const remainingMs = 3000 - elapsedMs;
+      const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
+      hud.status.style.display = "block";
+      hud.status.style.color = "#ffffff";
+      hud.status.textContent = `GET READY  ${n}`;
+    } else if (roundPhase === "podium") {
+      const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
+      if (idx != null) {
+        const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
+        hud.status.style.display = "block";
+        hud.status.style.color = getSlotColor(idx);
+        hud.status.textContent = `P${idx + 1} WINS — ${score} pts`;
+      } else {
+        hud.status.style.display = "none";
+        hud.status.textContent = "";
+      }
+    } else {
+      hud.status.style.display = "none";
+      hud.status.textContent = "";
+    }
+
+    // --- Timer ---
+    if (roundPhase === "running") {
+      const elapsedMs = Date.now() - (roundStartedAtMs || 0);
+      const remainingMs = 60000 - elapsedMs;
+      const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, 60);
+      const text =
+        seconds >= 60
+          ? "1:00"
+          : `:${String(seconds).padStart(2, "0")}`;
+      hud.timer.style.display = "block";
+      hud.timer.textContent = text;
+    } else {
+      hud.timer.style.display = "none";
+      hud.timer.textContent = "";
+    }
+
+    // --- Score row ---
+    if (roundPhase === "running") {
+      hud.scores.style.display = "flex";
+      const localIdx = localSlotIndexForConn(youConnId);
+      for (let i = 0; i < 4; i += 1) {
+        const entry = hud.scoreBoxes[i];
+        const score = roundScores && roundScores[i] != null ? roundScores[i] : 0;
+        entry.value.textContent = String(score);
+        entry.box.classList.toggle("isLocal", i === localIdx);
+      }
+    } else {
+      hud.scores.style.display = "none";
+      for (let i = 0; i < 4; i += 1) {
+        const entry = hud.scoreBoxes[i];
+        entry.box.classList.remove("isLocal");
+        entry.value.textContent = "";
+      }
+    }
+  }
 
   const camera = new THREE.PerspectiveCamera(
     CONFIG.camera.fov,
@@ -2701,6 +2920,7 @@ async function main() {
       updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
     }
 
+    updateHud();
     renderer.render(scene, camera);
     requestAnimationFrame(step);
   }
