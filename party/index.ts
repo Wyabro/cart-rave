@@ -94,6 +94,7 @@ export default class Server implements Party.Server {
 
   #snapshot() {
     this.#ensureInitialized();
+    this.#ensureLiveHost();
     return {
       v: PROTOCOL_VERSION,
       roomId: this.room.id,
@@ -112,6 +113,29 @@ export default class Server implements Party.Server {
       if (this.#connections.has(id)) return id;
     }
     return null;
+  }
+
+  // * Repairs #hostId if it points at a connection that no longer exists in
+  // * #connections (e.g. onClose never fired for the host due to crash/network
+  // * drop). Must be called after any operation that may have removed the host
+  // * from #connections, and before hostId is surfaced to clients.
+  #ensureLiveHost() {
+    if (this.#hostId === null) return;
+    if (this.#connections.has(this.#hostId)) return;
+    const prevHostId = this.#hostId;
+    this.#hostId = this.#pickNextHostId();
+    this.#lastSeq = -1;
+    console.log(
+      `ensureLiveHost: stale hostId=${prevHostId} newHostId=${this.#hostId}`,
+    );
+    if (this.#hostId) {
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.hostMigrated,
+        serverNowMs: this.#serverNowMs(),
+        hostId: this.#hostId,
+      });
+    }
   }
 
   #assignHumanToSlot(connId: string): Slot | null {
@@ -148,16 +172,6 @@ export default class Server implements Party.Server {
     this.#connections.set(conn.id, conn);
     this.#joinOrder.push(conn.id);
 
-    if (!this.#hostId) {
-      this.#hostId = conn.id;
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.hostAssigned,
-        serverNowMs: this.#serverNowMs(),
-        hostId: this.#hostId,
-      });
-    }
-
     // Reconcile: any slot marked "human" whose connId is not in the platform's live
     // connection list is orphaned. Use room.getConnections() rather than #connections
     // because WebSocket close events are not guaranteed to fire (tab crash, incognito
@@ -184,6 +198,24 @@ export default class Server implements Party.Server {
         console.log(`reconcile: pruning zombie connection ${staleId}`);
         this.#connections.delete(staleId);
       }
+    }
+
+    // * After pruning, the prior host may have been a zombie we just removed.
+    // * Repair #hostId before we advertise it via hello. The newly joined conn
+    // * is already in #connections and #joinOrder, so #pickNextHostId() will
+    // * return it as a last resort if no older connection survives.
+    this.#ensureLiveHost();
+
+    // * First-ever host assignment, or fallthrough when #ensureLiveHost found
+    // * no successor (empty room edge case).
+    if (!this.#hostId) {
+      this.#hostId = conn.id;
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.hostAssigned,
+        serverNowMs: this.#serverNowMs(),
+        hostId: this.#hostId,
+      });
     }
 
     this.#assignHumanToSlot(conn.id);
