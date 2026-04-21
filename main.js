@@ -1219,16 +1219,9 @@ async function main() {
       hud.status.style.color = "#ffffff";
       hud.status.textContent = `GET READY  ${n}`;
     } else if (roundPhase === "podium") {
-      const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
-      if (idx != null) {
-        const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
-        hud.status.style.display = "block";
-        hud.status.style.color = getSlotColor(idx);
-        hud.status.textContent = `P${idx + 1} WINS — ${score} pts`;
-      } else {
-        hud.status.style.display = "none";
-        hud.status.textContent = "";
-      }
+      // * Winner line lives on the results overlay; keep top HUD clear during podium.
+      hud.status.style.display = "none";
+      hud.status.textContent = "";
     } else {
       hud.status.style.display = "none";
       hud.status.textContent = "";
@@ -1273,6 +1266,61 @@ async function main() {
         entry.box.classList.remove("isLocal");
         entry.value.textContent = "";
       }
+    }
+
+    updateResultsOverlay();
+  }
+
+  function updateResultsOverlay() {
+    if (!resultsUi) return;
+    const { overlay, title, finalScores, history, playAgain, exitPortal } = resultsUi;
+    if (roundPhase === "podium") {
+      overlay.style.display = "flex";
+      overlay.style.pointerEvents = "auto";
+      playAgain.disabled = !isHost;
+
+      const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
+      if (idx != null) {
+        const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
+        title.textContent = `P${idx + 1} wins — ${score} pts`;
+        title.style.color = getSlotColor(idx);
+      } else {
+        title.textContent = "Round complete";
+        title.style.color = "#ffffff";
+      }
+
+      const scoreLines = [];
+      for (let i = 0; i < 4; i += 1) {
+        const s = roundScores && roundScores[i] != null ? roundScores[i] : 0;
+        scoreLines.push(`P${i + 1}: ${s} pts`);
+      }
+      finalScores.textContent = scoreLines.join("\n");
+
+      history.replaceChildren();
+      if (matchHistory.length === 0) {
+        const emptyRow = document.createElement("div");
+        emptyRow.textContent = "No prior matches this session.";
+        history.appendChild(emptyRow);
+      } else {
+        for (let i = matchHistory.length - 1; i >= 0; i -= 1) {
+          const m = matchHistory[i];
+          const row = document.createElement("div");
+          row.style.marginBottom = "6px";
+          const parts = [0, 1, 2, 3].map((j) => m.scores[j] ?? 0).join(", ");
+          row.textContent = `P${m.winnerSlotIndex + 1} won — ${parts} (t=${new Date(m.endedAtMs).toLocaleTimeString()})`;
+          history.appendChild(row);
+        }
+      }
+
+      try {
+        const ref = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
+        exitPortal.href = `https://vibej.am/portal/2026?ref=${ref}`;
+      } catch {
+        exitPortal.href = "https://vibej.am/portal/2026";
+      }
+    } else {
+      overlay.style.display = "none";
+      overlay.style.pointerEvents = "none";
     }
   }
 
