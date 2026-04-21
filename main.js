@@ -305,15 +305,21 @@ function strictSlotIndexForConn(connId) {
   return netSlots.findIndex((s) => s && s.connId === connId);
 }
 
+let _slotLookupMissWarned = false;
 function localSlotIndexForConn(connId) {
   const idx = strictSlotIndexForConn(connId);
-  return idx >= 0 ? idx : 0;
+  if (idx < 0 && !_slotLookupMissWarned) {
+    _slotLookupMissWarned = true;
+    console.warn("[net] localSlotIndexForConn miss — connId not in netSlots", { connId, netSlots });
+  }
+  return idx;
 }
 
 function localCartForConnId() {
   const carts = allCartsRef || [];
   const idx = localSlotIndexForConn(youConnId);
-  return carts[idx] || carts[0] || null;
+  if (idx < 0) return null;
+  return carts[idx] || null;
 }
 
 function stopHostSendLoop() {
@@ -494,6 +500,9 @@ function initNetcode() {
     const type = msg.type;
     // eslint-disable-next-line no-console
     console.log("[net] message received", type);
+    if (type === "slots") {
+      console.log("[net] HARDCODED slots branch hit, MSG.slots value is:", MSG.slots);
+    }
     if (type === MSG.hello) {
       // eslint-disable-next-line no-console
       console.log("[net] hello received (raw slots)", JSON.stringify(msg.slots));
@@ -520,6 +529,17 @@ function initNetcode() {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
       setAuthorityMode(nextIsHost);
+      return;
+    }
+
+    if (type === MSG.slots) {
+      console.log("[net] slots msg raw payload", JSON.stringify(msg));
+      if (Array.isArray(msg.slots)) {
+        netSlots = msg.slots;
+        console.log("[net] slots updated", JSON.stringify(msg.slots));
+      } else {
+        console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
+      }
       return;
     }
 
@@ -1763,7 +1783,7 @@ async function main() {
     if (dir.dot(toVictim) < 0.1) return;
 
     const localCart = localCartForConnId();
-    if (victim === localCart) {
+    if (localCart && victim === localCart) {
       const rammerSlot = netSlots[rammer.slotIndex];
       if (rammerSlot && rammerSlot.kind === "npc") {
         maybePlayAiRamHornOnPlayerHit(rammer);

@@ -158,6 +158,34 @@ export default class Server implements Party.Server {
       });
     }
 
+    // Reconcile: any slot marked "human" whose connId is not in the platform's live
+    // connection list is orphaned. Use room.getConnections() rather than #connections
+    // because WebSocket close events are not guaranteed to fire (tab crash, incognito
+    // close, network drop) and #connections can hold zombies.
+    if (this.#slots) {
+      const liveConnIds = new Set<string>();
+      for (const c of this.room.getConnections()) {
+        liveConnIds.add(c.id);
+      }
+      // The new connection itself is not yet in getConnections() during onConnect, so add it.
+      liveConnIds.add(conn.id);
+      for (const slot of this.#slots) {
+        if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
+          console.log(`reconcile: orphan slot ${slot.slotId} connId=${slot.connId} -> npc`);
+          slot.kind = "npc";
+          slot.connId = null;
+        }
+      }
+    }
+
+    // Prune zombies from #connections to match platform reality.
+    for (const staleId of [...this.#connections.keys()]) {
+      if (!this.room.getConnections().some((c) => c.id === staleId) && staleId !== conn.id) {
+        console.log(`reconcile: pruning zombie connection ${staleId}`);
+        this.#connections.delete(staleId);
+      }
+    }
+
     this.#assignHumanToSlot(conn.id);
 
     console.log("connected to party");
