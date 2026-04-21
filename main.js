@@ -283,6 +283,12 @@ const lastHitBy = new Map(); // slotIndex -> { attackerSlotIndex, wasBoost, time
 
 let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
 
+let roundPhase = "lobby"; // "lobby" | "countdown" | "running" | "podium"
+let roundStartedAtMs = 0;
+let roundCountdownStartedAtMs = 0;
+let roundWinnerSlotIndex = null;
+let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
+
 /** @type {ReturnType<typeof setInterval> | null} */
 let hostSendTimer = null;
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -591,6 +597,14 @@ function initNetcode() {
     }
 
     if (type === MSG.round) {
+      const r = msg.round;
+      if (r && typeof r === "object") {
+        roundPhase = r.phase ?? roundPhase;
+        roundStartedAtMs = r.startedAtMs ?? roundStartedAtMs;
+        roundCountdownStartedAtMs = r.countdownStartedAtMs ?? roundCountdownStartedAtMs;
+        roundWinnerSlotIndex = r.winnerSlotIndex ?? null;
+        if (r.scores && typeof r.scores === "object") roundScores = r.scores;
+      }
       return;
     }
   });
@@ -1837,6 +1851,63 @@ async function main() {
     }
   }
 
+  function sendHostRound() {
+    if (!partySocket) return;
+    partySocket.send(
+      JSON.stringify({
+        type: MSG.hostRound,
+        round: {
+          phase: roundPhase,
+          startedAtMs: roundStartedAtMs,
+          countdownStartedAtMs: roundCountdownStartedAtMs,
+          winnerSlotIndex: roundWinnerSlotIndex,
+          scores: roundScores,
+        },
+      }),
+    );
+  }
+
+  function startRunning() {
+    // eslint-disable-next-line no-console
+    console.log("[round]", roundPhase);
+    roundPhase = "running";
+    roundStartedAtMs = Date.now();
+    roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    roundWinnerSlotIndex = null;
+    sendHostRound();
+  }
+
+  function startCountdown() {
+    // eslint-disable-next-line no-console
+    console.log("[round]", roundPhase);
+    roundPhase = "countdown";
+    roundCountdownStartedAtMs = Date.now();
+    sendHostRound();
+    setTimeout(() => {
+      if (roundPhase === "countdown") startRunning();
+    }, 3000);
+  }
+
+  function endRound() {
+    // Find highest scorer
+    let winnerSlotIndex = 0;
+    let winnerScore = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      if ((roundScores[i] || 0) > winnerScore) {
+        winnerScore = roundScores[i] || 0;
+        winnerSlotIndex = i;
+      }
+    }
+    // eslint-disable-next-line no-console
+    console.log("[round]", roundPhase);
+    roundPhase = "podium";
+    roundWinnerSlotIndex = winnerSlotIndex;
+    sendHostRound();
+    setTimeout(() => {
+      if (roundPhase === "podium") startCountdown();
+    }, 3000);
+  }
+
   function onKeyDown(e) {
     unlockAudioAndMaybeStartMusic();
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
@@ -2418,6 +2489,19 @@ async function main() {
         if (slot.kind === "npc") maybeTriggerNpcOpportunisticRamBoost(now, c);
       }
       tickRamBoostStreakSpawners(now, dt);
+    }
+
+    // Round phase transitions (host only)
+    if (isHost) {
+      // lobby → countdown once carts exist
+      if (roundPhase === "lobby" && allCarts.length > 0 && !roundAutoStarted) {
+        roundAutoStarted = true;
+        startCountdown();
+      }
+      // running → end when timer expires
+      if (roundPhase === "running" && Date.now() - roundStartedAtMs >= 60000) {
+        endRound();
+      }
     }
 
     // Third-person follow camera (behind the cart), smoothed.
