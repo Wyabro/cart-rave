@@ -147,16 +147,23 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Commits frequently, reverts over debugging broken state
 - Pushback > validation; start new agents if Cursor spirals on the same code
 - Screenshots for visual review mid-session
+- Production verification rule: post-push, fetch production main.js and grep for the new code. Local grep alone has produced false positives.
 
 ## Execution order (the plan)
+ 
+Current status: Steps 1–8 shipped and verified on production (cartrave.lol).
+Round phase machine working (lobby → countdown 3s → running 60s → podium 3s → loop).
+HUD complete: status line, timer, score boxes, local player highlight, slot colors matching carts.
+Next: Step 9 (results screen).
+
 1. ✅ Deploy to cartrave.lol via Vercel
 2. ✅ PartyKit server + client handshake
 3. ✅ Procedural cart models with caster wheels
 4. ✅ Multiplayer sync for 2 human carts (host-authoritative, 60Hz input, 20Hz transforms)
 5. ✅ NPC fill for empty slots
 6. ✅ Slot sync + non-host respawn fix
-7. Vibe Jam widget tag in index.html (jam compliance)
-8. Round structure: 60s timer, score tracking, host-authoritative
+7. ✅ Vibe Jam widget tag in index.html (jam compliance)
+8. ✅ Round structure + HUD overlay: countdown/running/podium loop + timer/scores/status
 9. Results screen: final scores, Play Again, Vibe Jam exit portal link
 10. Color picker: pre-match UI, 5 options (hotPink, electricBlue, limeGreen, neonYellow, neonOrange)
 11. Username prompt on first visit, localStorage
