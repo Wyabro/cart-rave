@@ -172,15 +172,6 @@ export default class Server implements Party.Server {
     this.#connections.set(conn.id, conn);
     this.#joinOrder.push(conn.id);
 
-    // DIAGNOSTIC (temporary): dump runtime vs internal connection state so we
-    // can see whether a suspected ghost id is present in room.getConnections()
-    // (platform live) vs #connections (our map).
-    const rtIds = this.room.getConnections().map((c) => c.id);
-    const mapIds = [...this.#connections.keys()];
-    console.log(
-      `diag onConnect joiner=${conn.id} hostId=${this.#hostId} rtConns=[${rtIds.join(",")}] mapConns=[${mapIds.join(",")}]`,
-    );
-
     // Reconcile: any slot marked "human" whose connId is not in the platform's live
     // connection list is orphaned. Use room.getConnections() rather than #connections
     // because WebSocket close events are not guaranteed to fire (tab crash, incognito
