@@ -1023,7 +1023,155 @@ async function main() {
     return { root, status, timer, scores, scoreBoxes };
   }
 
+  function initResultsOverlay() {
+    const existing = document.getElementById("results-overlay");
+    if (existing) existing.remove();
+    const existingStyle = document.getElementById("results-overlay-style");
+    if (existingStyle) existingStyle.remove();
+
+    const style = document.createElement("style");
+    style.id = "results-overlay-style";
+    style.textContent = `
+      #results-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 25000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        color: #ffffff;
+        text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+        background: rgba(7, 0, 16, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+
+      #results-overlay .results-panel {
+        pointer-events: auto;
+        min-width: min(420px, 92vw);
+        max-width: 520px;
+        padding: 22px 24px 20px;
+        border-radius: 18px;
+        background: rgba(12, 4, 28, 0.92);
+        box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+
+      #results-overlay .results-title {
+        font-size: 1.65rem;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        margin: 0 0 14px;
+        min-height: 1.3em;
+      }
+
+      #results-overlay .results-final {
+        min-height: 3.5rem;
+        margin-bottom: 12px;
+        font-size: 1rem;
+        line-height: 1.45;
+        opacity: 0.95;
+      }
+
+      #results-overlay .results-history {
+        min-height: 72px;
+        max-height: 160px;
+        overflow: auto;
+        margin-bottom: 16px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.25);
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+
+      #results-overlay .results-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      #results-overlay .results-actions button,
+      #results-overlay .results-actions a {
+        font: inherit;
+        font-weight: 800;
+        font-size: 0.95rem;
+        padding: 10px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.2);
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+      }
+
+      #results-overlay .results-playAgain {
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+      }
+
+      #results-overlay .results-playAgain:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      #results-overlay .results-exitPortal {
+        background: #ffffff;
+        color: #070010;
+      }
+    `.trim();
+    document.head.appendChild(style);
+
+    const overlay = document.createElement("div");
+    overlay.id = "results-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "Round results");
+
+    const panel = document.createElement("div");
+    panel.className = "results-panel";
+
+    const title = document.createElement("h2");
+    title.className = "results-title";
+
+    const finalScores = document.createElement("div");
+    finalScores.className = "results-final";
+
+    const history = document.createElement("div");
+    history.className = "results-history";
+
+    const actions = document.createElement("div");
+    actions.className = "results-actions";
+
+    const playAgain = document.createElement("button");
+    playAgain.type = "button";
+    playAgain.className = "results-playAgain";
+    playAgain.textContent = "Play Again";
+    playAgain.disabled = true;
+
+    const exitPortal = document.createElement("a");
+    exitPortal.className = "results-exitPortal";
+    exitPortal.href = "https://vibej.am/portal/2026";
+    exitPortal.target = "_blank";
+    exitPortal.rel = "noopener noreferrer";
+    exitPortal.textContent = "Vibe Jam portal";
+
+    actions.appendChild(playAgain);
+    actions.appendChild(exitPortal);
+    panel.appendChild(title);
+    panel.appendChild(finalScores);
+    panel.appendChild(history);
+    panel.appendChild(actions);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    return { overlay, panel, title, finalScores, history, playAgain, exitPortal };
+  }
+
   const hud = initHud();
+  const resultsUi = initResultsOverlay();
 
   function clampInt(value, min, max) {
     const v = Math.round(value);
