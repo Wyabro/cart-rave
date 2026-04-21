@@ -37,6 +37,8 @@ const CONFIG = {
     interpBufferMs: 150,
     // * Host sends authoritative transforms at 20Hz.
     hostSendHz: 20,
+    // * Non-host sends client_input at 60Hz.
+    clientInputHz: 60,
   },
 
   gravity: -24,
@@ -416,7 +418,7 @@ function startInputSendLoop() {
   stopInputSendLoop();
   if (!partySocket) return;
 
-  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
+  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.clientInputHz));
   inputSendTimer = setInterval(() => {
     if (!partySocket || isHost) return;
     if (!getAxisRef) return;
