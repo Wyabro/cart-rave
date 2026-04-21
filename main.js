@@ -472,6 +472,7 @@ function setAuthorityMode(nextIsHost) {
 
   if (becomingHost) {
     stopInputSendLoop();
+    netStateBuffer = [];
     if (lastCartsCache) {
       applyCartsSnapshotToBodies(lastCartsCache);
     }

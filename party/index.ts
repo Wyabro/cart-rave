@@ -225,6 +225,7 @@ export default class Server implements Party.Server {
     if (wasHost) {
       const prevHostId = this.#hostId;
       this.#hostId = this.#pickNextHostId();
+      this.#lastSeq = -1;
       console.log(`host disconnected: prevHostId=${prevHostId} newHostId=${this.#hostId}`);
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
