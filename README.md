@@ -67,16 +67,29 @@ Server logic lives in `party/index.ts`. The party name is `main`.
 - Non-host clients send `client_input` and render interpolated snapshots.
 - Rooms are always **4 slots**; unused slots are **NPCs**.
 
-### Slot mapping updates
+### Slot mapping and connection liveness
 
 - The server broadcasts `slots` whenever slot assignments change (connect/disconnect/join metadata).
 - The client listens for `slots` and updates `netSlots` live (not just at `hello`).
 - The server reconciles orphaned `"human"` slots on `onConnect` using `room.getConnections()` and prunes zombie entries from its internal `#connections` map.
+- **Activity-based reaper**: PartyKit's `onClose` is not guaranteed to fire (tab crash, network drop, phone sleep, phantom sockets the runtime hasn't GC'd), so the server tracks `#lastSeenAtMs` per connection and forcibly removes any that hasn't sent a message in **20 seconds**. Reaped slots revert to NPC; if the reaped conn was host, `#ensureLiveHost()` promotes the oldest surviving connection and broadcasts `host_migrated`.
+- **Client keepalive**: the client sends a `keepalive` ping every **5 seconds** regardless of round phase or role. This keeps legitimate players alive during lobby / countdown / podium when the host's `host_transform` loop is paused. The 20s / 5s ratio gives 4× safety margin against dropped packets.
+
+### Host migration
+
+On clean host disconnect (`onClose`) or reaper-driven removal, the server picks the oldest surviving connection as the new host, resets `#lastSeq = -1`, and broadcasts `host_migrated`. Clients receiving `host_migrated` apply the last cached cart snapshot before assuming authority, avoiding visual pops when the baton passes.
 
 ### Respawn rules (host)
 
 - Fall detection / respawn checks apply to **all slots** (humans and NPCs) when `y < CONFIG.fall.yThreshold`.
 - NPC-only behaviors (e.g. opportunistic ram boost AI) still run only for `slot.kind === "npc"`.
+
+### Rounds and results
+
+- Rounds progress through phases: `lobby` → `countdown` → `running` → `podium`. Host drives transitions via `host_round`; server relays.
+- Host physics (substep loop, fall/respawn, NPC AI) and `host_transform` broadcast are gated on `roundPhase === "running"` — the world is frozen during countdown and podium.
+- The podium overlay shows final scores, a **Play Again** button (host-only; triggers `rematchResetWorld` and a fresh countdown), and a link to the [Vibe Jam 2026 portal](https://vibej.am/portal/2026).
+- In-memory match history (capped at 10) is retained client-side for the session.
 
 ### PartyKit dev server (local)
 
