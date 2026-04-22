@@ -3111,6 +3111,7 @@ async function main() {
                 points,
                 roundScores,
               });
+              sendHostRound(); // broadcast score update to non-host clients
             }
             lastHitBy.delete(slotIndex);
           }
