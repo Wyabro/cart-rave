@@ -3148,6 +3148,17 @@ async function main() {
               if (isHost && roundPhase === "running") endRound();
             }, 3000);
           }
+          // If the override is already armed and the survivor has now also fallen,
+          // cancel — let normal score-based / DRAW logic crown the winner.
+          if (
+            lastCartStandingTimeoutId != null &&
+            aliveHumanCount === 0
+          ) {
+            clearTimeout(lastCartStandingTimeoutId);
+            lastCartStandingTimeoutId = null;
+            lastCartStandingWinnerSlotIndex = null;
+            console.log("[round] last-cart-standing canceled — survivor fell");
+          }
         }
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
           doRespawn(c);
