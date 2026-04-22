@@ -23,7 +23,7 @@ type Slot = {
 type RoundState = {
   phase: "lobby" | "countdown" | "running" | "podium";
   // Intentionally minimal for now; host drives transitions.
-  winnerSlotId: SlotId | null;
+  winnerSlotId: SlotId | "draw" | null;
 };
 
 const MSG = {
@@ -43,7 +43,7 @@ const MSG = {
   round: "round",
 } as const;
 
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 // * Activity-based connection reaper thresholds. PartyKit's onClose is not
 // * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
 // * yet detected by the runtime) so we track lastSeenAtMs per connection and

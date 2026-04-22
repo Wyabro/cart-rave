@@ -310,12 +310,13 @@ let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
 let roundPhase = "lobby"; // "lobby" | "countdown" | "running" | "podium"
 let roundStartedAtMs = 0;
 let roundCountdownStartedAtMs = 0;
+/** @type {null|number|"draw"} */
 let roundWinnerSlotIndex = null;
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
- * @type {{ endedAtMs: number, winnerSlotIndex: number, scores: Record<number, number> }[]}
+ * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number> }[]}
  */
 let matchHistory = [];
 
@@ -677,7 +678,8 @@ function initNetcode() {
         // * moment without endRound() duplication or dedupe keys.
         if (typeof newPhase === "string" && prevPhase !== "podium" && newPhase === "podium") {
           const w = r.winnerSlotIndex;
-          const winnerSlotIndex = Number.isFinite(w) ? w : 0;
+          const winnerSlotIndex =
+            w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
           const src = r.scores && typeof r.scores === "object" ? r.scores : roundScores;
           /** @type {Record<number, number>} */
           const scores = {};
@@ -1316,14 +1318,19 @@ async function main() {
       overlay.style.pointerEvents = "auto";
       playAgain.disabled = !isHost;
 
-      const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
-      if (idx != null) {
-        const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
-        title.textContent = `P${idx + 1} wins — ${score} pts`;
-        title.style.color = getSlotColor(idx);
-      } else {
-        title.textContent = "Round complete";
+      if (roundWinnerSlotIndex === "draw") {
+        title.textContent = "DRAW";
         title.style.color = "#ffffff";
+      } else {
+        const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
+        if (idx != null) {
+          const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
+          title.textContent = `P${idx + 1} wins — ${score} pts`;
+          title.style.color = getSlotColor(idx);
+        } else {
+          title.textContent = "Round complete";
+          title.style.color = "#ffffff";
+        }
       }
 
       const scoreLines = [];
@@ -1344,7 +1351,10 @@ async function main() {
           const row = document.createElement("div");
           row.style.marginBottom = "6px";
           const parts = [0, 1, 2, 3].map((j) => m.scores[j] ?? 0).join(", ");
-          row.textContent = `P${m.winnerSlotIndex + 1} won — ${parts} (t=${new Date(m.endedAtMs).toLocaleTimeString()})`;
+          row.textContent =
+            m.winnerSlotIndex === "draw"
+              ? `DRAW — ${parts} (t=${new Date(m.endedAtMs).toLocaleTimeString()})`
+              : `P${m.winnerSlotIndex + 1} won — ${parts} (t=${new Date(m.endedAtMs).toLocaleTimeString()})`;
           history.appendChild(row);
         }
       }
@@ -2446,7 +2456,7 @@ async function main() {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
     }
-    // Find highest scorer
+    // * Find highest score and how many slots share it (lowest index wins on non-zero ties only).
     let winnerSlotIndex = 0;
     let winnerScore = -Infinity;
     for (let i = 0; i < 4; i++) {
@@ -2455,9 +2465,18 @@ async function main() {
         winnerSlotIndex = i;
       }
     }
+    let tieAtTop = 0;
+    for (let i = 0; i < 4; i++) {
+      if ((roundScores[i] || 0) === winnerScore) tieAtTop += 1;
+    }
     roundPhase = "podium";
     console.log("[round] phase=" + roundPhase);
-    roundWinnerSlotIndex = winnerSlotIndex;
+    if (winnerScore === 0 && tieAtTop >= 2) {
+      roundWinnerSlotIndex = "draw";
+      console.log("[round] draw — no winner");
+    } else {
+      roundWinnerSlotIndex = winnerSlotIndex;
+    }
     sendHostRound();
   }
 
