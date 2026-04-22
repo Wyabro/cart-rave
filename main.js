@@ -2639,16 +2639,6 @@ async function main() {
       });
     }
 
-    if (simFrameIndex % 60 === 0) {
-      // eslint-disable-next-line no-console
-      console.log("[diag] slot mapping @ frame " + simFrameIndex, {
-        simFrameIndex,
-        youConnId,
-        localSlotIndex: localSlotIndexForConn(youConnId),
-        slot0: netSlots[0] ? JSON.stringify(netSlots[0]) : null,
-      });
-    }
-
     if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
       playerColliderVisualOvershootSimFrame10Logged = true;
       const hx = CONFIG.cart.size.x / 2;
@@ -3140,7 +3130,10 @@ async function main() {
           if (
             aliveHumanCount === 1 &&
             roundStartingHumanCount >= 2 &&
-            lastCartStandingTimeoutId == null
+            lastCartStandingTimeoutId == null &&
+            roundStartedAtMs > 0 &&
+            Date.now() - roundStartedAtMs >= 30000 &&
+            (roundScores[lastStandingSlotIndex] || 0) >= 1
           ) {
             lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
             lastCartStandingTimeoutId = setTimeout(() => {
