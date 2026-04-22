@@ -151,15 +151,16 @@ const CONFIG = {
   },
 
   scoring: {
-    // * Critical bonus triggers at top speed (pure velocity; not tied to nitro).
-    // * Chosen to be reachable at max non-nitro speed (CONFIG.driving.maxSpeed=14)
-    // * while avoiding incidental low-speed bumps.
-    criticalVelocityThreshold: 13.5,
+    // * Critical bonus triggers on committed rams. Threshold 11.0 leaves
+    // * ~3 units of headroom below maxSpeed=14, so straight-line driving
+    // * crits but slow turn-bumps do not. Ram-boosted rams (boostedMaxSpeed=26)
+    // * always crit, as intended.
+    criticalVelocityThreshold: 11.0,
   },
 
   ramming: {
     minSpeed: 0.8,
-    strength: 6.0,
+    strength: 8.0,
     maxImpulse: 120.0,
   },
 
