@@ -137,9 +137,9 @@ const CONFIG = {
   },
 
   driving: {
-    maxSpeed: 14.0,
+    maxSpeed: 17.0,
     reverseMaxSpeed: 8.0,
-    accel: 110.0,
+    accel: 150.0,
     braking: 35.0,
     steeringTorque: 110.0,
     tankYawRate: 5.6, // rad/s at full input (in-place rotation)
@@ -151,10 +151,10 @@ const CONFIG = {
   },
 
   scoring: {
-    // * Critical bonus triggers on committed rams. Threshold 11.0 leaves
-    // * ~3 units of headroom below maxSpeed=14, so straight-line driving
-    // * crits but slow turn-bumps do not. Ram-boosted rams (boostedMaxSpeed=26)
-    // * always crit, as intended.
+    // * Critical bonus triggers on committed rams. Threshold 11.0 is now
+    // * well below maxSpeed=17, meaning most committed driving will crit.
+    // * Intentionally generous after playtest feedback. Ram-boosted rams
+    // * (boostedMaxSpeed=26) always crit.
     criticalVelocityThreshold: 11.0,
   },
 
