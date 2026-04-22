@@ -27,6 +27,11 @@ Cart Rave is a browser-based **4-player physics sumo game**. Players drive neon 
 
 ## 2. Current Architecture
 
+**AI Modding Constraints:**
+* **Host-Driven Physics:** The first connected client is the host and calculates all Rapier3D physics. The PartyKit server only relays inputs and state.
+* **Single-File Editing:** `main.js` is ~3,400 lines. When providing code fixes, provide ONLY the specific function or block being changed. Do not output the full file.
+* **No Build Step:** Do not add package.json dependencies. All Three.js and Rapier3D imports must remain as CDN esm.sh URLs.
+
 ### File structure (flat at root)
 
 ```
