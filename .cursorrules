@@ -147,7 +147,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - Yaw (caster swivel) follows cart VELOCITY VECTOR in world space (not cart forward direction — this makes drifts read correctly), with damping for the "stuck sideways" look and sinusoidal wobble at high speed
 - **Five cart colors** for player distinguishability: hot pink, electric blue, lime green, neon yellow, neon orange. Assigned via color picker on join.
 - **Emissive materials** on cart frames for neon readability under spotlights.
-- **Dancefloor:** emissive tile grid with subtle equalizer pulses, drifting fog at floor level, dark void beyond the outer edge.
+- **Dancefloor:** emissive vinyl record design, drifting fog at floor level, sparkly void beyond the outer edge.
 - **Center hole**: ~12-13% of dancefloor radius (tunable in CONFIG). Flush edge with emissive warning ring. Void below lit with colored uplighting.
 - **Edge vs center death animations:** carts flung off the outer edge tumble into surrounding darkness; carts falling through the center hole drop into the colored uplit void. Two visually distinct "deaths."
 - **Club environment:** DJ booth + speaker stacks + suggested club walls/ceiling in the distance. Provides fixed reference points for spatial orientation while the dancefloor rotates.
