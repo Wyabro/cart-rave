@@ -150,6 +150,13 @@ const CONFIG = {
     airControlFactor: 0.15,
   },
 
+  scoring: {
+    // * Critical bonus triggers at top speed (pure velocity; not tied to nitro).
+    // * Chosen to be reachable at max non-nitro speed (CONFIG.driving.maxSpeed=14)
+    // * while avoiding incidental low-speed bumps.
+    criticalVelocityThreshold: 13.5,
+  },
+
   ramming: {
     minSpeed: 0.8,
     strength: 6.0,
@@ -296,7 +303,7 @@ let remoteInputsByConnId = new Map();
 let remoteNitroLatchedByConnId = new Map();
 
 // Stage A scoring (host-only logic lives inside isHost blocks).
-const lastHitBy = new Map(); // slotIndex -> { attackerSlotIndex, wasBoost, timestamp }
+const lastHitBy = new Map(); // slotIndex -> { attackerSlotIndex, wasCritical, timestamp }
 
 let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
 
@@ -2375,9 +2382,8 @@ async function main() {
       const attackerSlotIndex = carts.indexOf(rammer) >= 0 ? carts.indexOf(rammer) : rammer.slotIndex;
       const victimSlotIndex = carts.indexOf(victim) >= 0 ? carts.indexOf(victim) : victim.slotIndex;
       if (Number.isFinite(attackerSlotIndex) && Number.isFinite(victimSlotIndex)) {
-        const nowPerf = performance.now();
-        const wasBoost = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
-        lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasBoost, timestamp: Date.now() });
+        const wasCritical = speed >= CONFIG.scoring.criticalVelocityThreshold;
+        lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasCritical, timestamp: Date.now() });
       }
 
       return;
@@ -2392,9 +2398,8 @@ async function main() {
     const attackerSlotIndex = carts.indexOf(rammer) >= 0 ? carts.indexOf(rammer) : rammer.slotIndex;
     const victimSlotIndex = carts.indexOf(victim) >= 0 ? carts.indexOf(victim) : victim.slotIndex;
     if (Number.isFinite(attackerSlotIndex) && Number.isFinite(victimSlotIndex)) {
-      const nowPerf = performance.now();
-      const wasBoost = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
-      lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasBoost, timestamp: Date.now() });
+      const wasCritical = speed >= CONFIG.scoring.criticalVelocityThreshold;
+      lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasCritical, timestamp: Date.now() });
     }
   }
 
@@ -3024,7 +3029,7 @@ async function main() {
               const isCenterHole = distOriginXZ < CONFIG.record.innerRadius + 2;
               let points = isCenterHole ? 2 : 1;
 
-              if (hit.wasBoost) points += 1; // critical bonus
+              if (hit.wasCritical) points += 1; // critical bonus
 
               // Leader lookup (before applying this score).
               let leaderSlotIndex = 0;
