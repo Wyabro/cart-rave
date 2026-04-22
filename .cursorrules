@@ -1,3 +1,9 @@
+## STRICT AI GUARDRAILS (CRITICAL)
+1. NO BUNDLERS: Do not suggest `npm install`, Vite, or Webpack. This project strictly relies on static ES modules via CDN.
+2. NO SERVER-SIDE PHYSICS: The PartyKit server (`party/index.ts`) is strictly a message relay. The host client runs all Rapier3D physics. Never attempt to move collision logic to the server.
+3. TARGETED EDITS ONLY: `main.js` is intentionally large. Never rewrite or output the entire file. Only read and edit the specific namespaced sections (e.g., `// --- Scoring ---`) requested.
+4. WIN CONDITION: A round ends at 60 seconds, or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
+
 # Cart Rave — .cursorrules
 
 ## What this is
