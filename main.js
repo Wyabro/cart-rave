@@ -313,6 +313,11 @@ let roundCountdownStartedAtMs = 0;
 /** @type {null|number|"draw"} */
 let roundWinnerSlotIndex = null;
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
+let roundStartingHumanCount = 0;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let lastCartStandingTimeoutId = null;
+/** @type {null|number} */
+let lastCartStandingWinnerSlotIndex = null;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
@@ -1250,7 +1255,11 @@ async function main() {
     if (!hud) return;
 
     // --- Status line ---
-    if (roundPhase === "countdown") {
+    if (roundPhase === "running" && lastCartStandingTimeoutId !== null) {
+      hud.status.style.display = "block";
+      hud.status.style.color = "#ffffff";
+      hud.status.textContent = "LAST CART STANDING!";
+    } else if (roundPhase === "countdown") {
       const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
       const remainingMs = 3000 - elapsedMs;
       const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
@@ -2435,6 +2444,16 @@ async function main() {
     roundStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
+    roundStartingHumanCount = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const s = netSlots[i];
+      if (s && s.kind === "human" && s.connId != null) roundStartingHumanCount += 1;
+    }
+    if (lastCartStandingTimeoutId != null) {
+      clearTimeout(lastCartStandingTimeoutId);
+      lastCartStandingTimeoutId = null;
+    }
+    lastCartStandingWinnerSlotIndex = null;
     sendHostRound();
   }
 
@@ -2445,6 +2464,11 @@ async function main() {
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
     roundStartedAtMs = 0;
+    if (lastCartStandingTimeoutId != null) {
+      clearTimeout(lastCartStandingTimeoutId);
+      lastCartStandingTimeoutId = null;
+    }
+    lastCartStandingWinnerSlotIndex = null;
     sendHostRound();
     setTimeout(() => {
       if (roundPhase === "countdown") startRunning();
@@ -2452,9 +2476,29 @@ async function main() {
   }
 
   function endRound() {
+    if (lastCartStandingWinnerSlotIndex !== null) {
+      if (roundPodiumTimeoutId != null) {
+        clearTimeout(roundPodiumTimeoutId);
+        roundPodiumTimeoutId = null;
+      }
+      if (lastCartStandingTimeoutId != null) {
+        clearTimeout(lastCartStandingTimeoutId);
+        lastCartStandingTimeoutId = null;
+      }
+      roundPhase = "podium";
+      console.log("[round] phase=" + roundPhase + " (last-cart-standing)");
+      roundWinnerSlotIndex = lastCartStandingWinnerSlotIndex;
+      lastCartStandingWinnerSlotIndex = null;
+      sendHostRound();
+      return;
+    }
     if (roundPodiumTimeoutId != null) {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
+    }
+    if (lastCartStandingTimeoutId != null) {
+      clearTimeout(lastCartStandingTimeoutId);
+      lastCartStandingTimeoutId = null;
     }
     // * Find highest score and how many slots share it (lowest index wins on non-zero ties only).
     let winnerSlotIndex = 0;
@@ -3078,6 +3122,28 @@ async function main() {
           }
 
           scheduleRespawn(c, now);
+          let aliveHumanCount = 0;
+          let lastStandingSlotIndex = -1;
+          for (let j = 0; j < 4; j += 1) {
+            const sj = netSlots[j];
+            const cj = allCarts[j];
+            if (!sj || sj.kind !== "human" || sj.connId == null || !cj) continue;
+            if (cj.respawnAtMs === null) {
+              aliveHumanCount += 1;
+              lastStandingSlotIndex = j;
+            }
+          }
+          if (
+            aliveHumanCount === 1 &&
+            roundStartingHumanCount >= 2 &&
+            lastCartStandingTimeoutId == null
+          ) {
+            lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
+            lastCartStandingTimeoutId = setTimeout(() => {
+              lastCartStandingTimeoutId = null;
+              if (isHost && roundPhase === "running") endRound();
+            }, 3000);
+          }
         }
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
           doRespawn(c);
@@ -3095,7 +3161,12 @@ async function main() {
         startCountdown();
       }
       // running → end when timer expires
-      if (roundPhase === "running" && roundStartedAtMs > 0 && Date.now() - roundStartedAtMs >= 60000) {
+      if (
+        roundPhase === "running" &&
+        roundStartedAtMs > 0 &&
+        Date.now() - roundStartedAtMs >= 60000 &&
+        lastCartStandingTimeoutId === null
+      ) {
         endRound();
       }
     }
