@@ -3088,7 +3088,10 @@ async function main() {
           // Only score once per fall event.
           if (c.respawnAtMs === null) {
             const hit = lastHitBy.get(slotIndex) || null;
-            if (hit && Date.now() - hit.timestamp <= 1500) {
+            // 2500ms window: covers slow slide-offs and falls; long enough
+            // to avoid "ghost kills" where rammer gets no credit despite
+            // clearly causing the fall.
+            if (hit && Date.now() - hit.timestamp <= 2500) {
               const distOriginXZ = Math.hypot(p.x, p.z);
               const isCenterHole = distOriginXZ < CONFIG.record.innerRadius + 2;
               let points = isCenterHole ? 2 : 1;
