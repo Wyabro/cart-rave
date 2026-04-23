@@ -3899,7 +3899,8 @@ async function main() {
     const p = cameraState.pos;
     const d = desiredPos;
     const farSnap = p.distanceTo(d) > CONFIG.camera.snapDistance;
-    if (farSnap) {
+    // * Host: no lerp (physics @ fixed timestep vs display @ >60Hz would ghost). Non-host: lerp hides net cadence.
+    if (farSnap || isHost) {
       p.copy(d);
       cameraState.quat.copy(desiredQuat);
     } else {
