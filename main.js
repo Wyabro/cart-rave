@@ -918,7 +918,7 @@ function initNetcode() {
         const newPhase = r.phase;
         // * Approach (a): single source of truth via MSG.round transition into podium — host and clients append the same
         // * moment without endRound() duplication or dedupe keys.
-        if (typeof newPhase === "string" && prevPhase !== "podium" && newPhase === "podium") {
+        if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
           const w = r.winnerSlotIndex;
           const winnerSlotIndex =
             w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
