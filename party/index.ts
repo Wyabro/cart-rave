@@ -295,6 +295,20 @@ export default class Server implements Party.Server {
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
     this.#ensureInitialized();
 
+    for (const slot of this.#slots!) {
+      if (slot.kind === "human" && slot.connId !== conn.id) {
+        slot.connId = conn.id;
+        slot.isReady = false;
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.slots,
+          serverNowMs: this.#serverNowMs(),
+          slots: this.#slots,
+        });
+        return;
+      }
+    }
+
     if (!this.#assignHumanToSlot(conn.id)) {
       this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
       return;
