@@ -17,6 +17,7 @@ const MSG = {
   keepalive: "keepalive",
   colorPick: "color_pick",
   readyToggle: "ready_toggle",
+  playAgain: "play_again",
 
   // Server -> client
   hello: "hello",
@@ -3102,7 +3103,9 @@ async function main() {
       );
       __msgCounts.out[MSG.hostTransform] = (__msgCounts.out[MSG.hostTransform] || 0) + 1;
     }
-    startCountdown();
+    if (partySocket && partySocket.readyState === 1) {
+      partySocket.send(JSON.stringify({ type: MSG.playAgain }));
+    }
   }
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);

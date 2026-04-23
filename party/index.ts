@@ -36,6 +36,7 @@ const MSG = {
   hostRound: "host_round",
   colorPick: "color_pick",
   readyToggle: "ready_toggle",
+  playAgain: "play_again",
 
   // Server -> client
   hello: "hello",
@@ -477,6 +478,28 @@ export default class Server implements Party.Server {
         });
         this.#checkAllReady();
       }
+      return;
+    }
+
+    if (type === MSG.playAgain) {
+      if (conn.id !== this.#hostId) return;
+      this.#round = { phase: "lobby", winnerSlotId: null };
+      for (const slot of this.#slots!) {
+        if (slot.kind === "human") slot.isReady = true;
+      }
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.slots,
+        serverNowMs: this.#serverNowMs(),
+        slots: this.#slots,
+      });
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.round,
+        serverNowMs: this.#serverNowMs(),
+        round: this.#round,
+      });
+      this.#checkAllReady();
       return;
     }
 

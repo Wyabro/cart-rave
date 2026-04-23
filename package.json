@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npx partykit dev",
-    "ship": "npx partykit deploy"
+    "ship": "git push && npx partykit deploy"
   },
   "devDependencies": {
     "partykit": "^0.0.115"
