@@ -276,9 +276,8 @@ const CONFIG = {
     followUp: 3.894,
     lookAhead: 5.0,
     lookUp: 1.2,
-    // * Per-frame lerp/slerp toward follow targets (hides 20Hz transform cadence for non-hosts).
-    followLerp: 0.75,
-    followSlerp: 0.85,
+    positionDamping: 10.0,
+    rotationDamping: 12.0,
     snapDistance: 40.0,
   },
 
@@ -2102,6 +2101,10 @@ async function main() {
 
   const cartLinvelScratch = new THREE.Vector3();
 
+  function dampFactor(lambda, dt) {
+    return 1 - Math.exp(-lambda * dt);
+  }
+
   function updateCameraFraming() {
     const aspect = window.innerWidth / window.innerHeight;
     const portraitBoost = (1 / Math.max(0.5, aspect)) - 1;
@@ -3896,19 +3899,14 @@ async function main() {
     );
     const desiredQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
 
-    const p = cameraState.pos;
-    const d = desiredPos;
-    const farSnap = p.distanceTo(d) > CONFIG.camera.snapDistance;
-    if (farSnap) {
-      p.copy(d);
+    if (cameraState.pos.distanceTo(desiredPos) > CONFIG.camera.snapDistance) {
+      cameraState.pos.copy(desiredPos);
       cameraState.quat.copy(desiredQuat);
     } else {
-      const tLerp = CONFIG.camera.followLerp;
-      const tSlerp = CONFIG.camera.followSlerp;
-      p.x = THREE.MathUtils.lerp(p.x, d.x, tLerp);
-      p.y = THREE.MathUtils.lerp(p.y, d.y, tLerp);
-      p.z = THREE.MathUtils.lerp(p.z, d.z, tLerp);
-      cameraState.quat.slerp(desiredQuat, tSlerp);
+      const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
+      const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
+      cameraState.pos.lerp(desiredPos, posAlpha);
+      cameraState.quat.slerp(desiredQuat, rotAlpha);
     }
 
     camera.position.copy(cameraState.pos);
