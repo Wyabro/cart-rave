@@ -18,6 +18,7 @@ type Slot = {
   connId: string | null;
   name: string;
   color: string;
+  isReady: boolean;
 };
 
 type RoundState = {
@@ -34,6 +35,7 @@ const MSG = {
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
   colorPick: "color_pick",
+  readyToggle: "ready_toggle",
 
   // Server -> client
   hello: "hello",
@@ -43,6 +45,7 @@ const MSG = {
   state: "state",
   round: "round",
   joinRejected: "join_rejected",
+  gameStart: "game_start",
 } as const;
 
 const PROTOCOL_VERSION = 2;
@@ -69,6 +72,7 @@ export default class Server implements Party.Server {
   // * Legitimate live connections will have an entry set by onConnect or onMessage.
   readonly #lastSeenAtMs = new Map<string, number>();
   #lastReapAtMs: number = 0;
+  #countdownTimerHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor(readonly room: Party.Room) {}
 
@@ -88,6 +92,7 @@ export default class Server implements Party.Server {
       connId: null,
       name: npcNames[slotId] ?? `NPC-${slotId}`,
       color: colors[slotId] ?? `slot-${slotId}`,
+      isReady: false,
     }));
   }
 
@@ -182,12 +187,46 @@ export default class Server implements Party.Server {
     if (!slot) return;
     slot.kind = "npc";
     slot.connId = null;
+    slot.isReady = false;
     // Keep last known name/color for continuity; name can be replaced later by NPC naming.
   }
 
   #getAvailableColors(): string[] {
     const used = new Set(this.#slots?.map((s) => s.color) ?? []);
     return PALETTE.filter((c) => !used.has(c));
+  }
+
+  // * Cancels the game-start countdown if the "all ready" condition is no
+  // * longer satisfied. Called after any human slot reverts to NPC to
+  // * prevent a countdown from firing with fewer players than intended.
+  #cancelCountdownIfNeeded() {
+    if (this.#countdownTimerHandle === null) return;
+    const humanSlots = this.#slots!.filter((s) => s.kind === "human");
+    if (humanSlots.every((s) => s.isReady)) return;
+    clearTimeout(this.#countdownTimerHandle);
+    this.#countdownTimerHandle = null;
+  }
+
+  // * Checks whether every human slot has toggled ready. If so, arms a
+  // * 3-second timer and broadcasts MSG.gameStart with a startsAtMs timestamp.
+  // * The timer handle acts as the one-shot guard — re-entrant calls are no-ops
+  // * until the timer fires and clears the handle.
+  #checkAllReady() {
+    if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
+    const humanSlots = this.#slots!.filter((s) => s.kind === "human");
+    if (humanSlots.length === 0) return;
+    if (!humanSlots.every((s) => s.isReady)) return;
+
+    const startsAtMs = this.#serverNowMs() + 3000;
+    this.#broadcastJson({
+      v: PROTOCOL_VERSION,
+      type: MSG.gameStart,
+      serverNowMs: this.#serverNowMs(),
+      startsAtMs,
+    });
+    this.#countdownTimerHandle = setTimeout(() => {
+      this.#countdownTimerHandle = null;
+    }, 3000);
   }
 
   // * Removes connections that haven't sent a message in REAP_TIMEOUT_MS.
@@ -222,6 +261,11 @@ export default class Server implements Party.Server {
       this.#lastSeenAtMs.delete(id);
       this.#convertHumanSlotToNpc(id);
     }
+
+    // * Cancel any armed countdown if the departed human(s) broke the all-ready
+    // * condition. Must run before #ensureLiveHost so the check sees the final
+    // * post-reap slot state.
+    this.#cancelCountdownIfNeeded();
 
     // * Delegate host repair + hostMigrated broadcast to #ensureLiveHost so
     // * handoff logic lives in exactly one place.
@@ -271,6 +315,7 @@ export default class Server implements Party.Server {
           console.log(`reconcile: orphan slot ${slot.slotId} connId=${slot.connId} -> npc`);
           slot.kind = "npc";
           slot.connId = null;
+          slot.isReady = false;
         }
       }
     }
@@ -335,6 +380,7 @@ export default class Server implements Party.Server {
     this.#connections.delete(conn.id);
     this.#lastSeenAtMs.delete(conn.id);
     this.#convertHumanSlotToNpc(conn.id);
+    this.#cancelCountdownIfNeeded();
 
     const wasHost = this.#hostId === conn.id;
     if (wasHost) {
@@ -415,6 +461,21 @@ export default class Server implements Party.Server {
             slots: this.#slots,
           });
         }
+      }
+      return;
+    }
+
+    if (type === MSG.readyToggle) {
+      const slot = this.#slots?.find((s) => s.connId === conn.id);
+      if (slot && slot.kind === "human") {
+        slot.isReady = !slot.isReady;
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.slots,
+          serverNowMs: this.#serverNowMs(),
+          slots: this.#slots,
+        });
+        this.#checkAllReady();
       }
       return;
     }

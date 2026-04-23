@@ -16,6 +16,7 @@ const MSG = {
   hostRound: "host_round",
   keepalive: "keepalive",
   colorPick: "color_pick",
+  readyToggle: "ready_toggle",
 
   // Server -> client
   hello: "hello",
@@ -25,6 +26,7 @@ const MSG = {
   state: "state",
   round: "round",
   joinRejected: "join_rejected",
+  gameStart: "game_start",
 };
 
 const CART_COLORS = {
@@ -408,6 +410,8 @@ let roundCountdownStartedAtMs = 0;
 let roundWinnerSlotIndex = null;
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
 let roundStartingHumanCount = 0;
+/** @type {((msg: object) => void) | null} */
+let onGameStartHandler = null;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
@@ -912,6 +916,11 @@ function initNetcode() {
       }
       return;
     }
+
+    if (type === MSG.gameStart) {
+      if (onGameStartHandler) onGameStartHandler(msg);
+      return;
+    }
   });
 }
 
@@ -1252,6 +1261,39 @@ async function main() {
       #hud .hud-scoreBox.isLocal .hud-scoreValue {
         font-weight: 900;
       }
+
+      #hud .hud-ready-btn {
+        position: absolute;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: 'Bungee', cursive, system-ui, sans-serif;
+        font-size: 1.6rem;
+        letter-spacing: 0.1em;
+        padding: 14px 40px;
+        background: transparent;
+        color: #2bd6ff;
+        border: 2px solid #2bd6ff;
+        border-radius: 0;
+        cursor: pointer;
+        pointer-events: auto;
+        text-transform: uppercase;
+        display: none;
+        white-space: nowrap;
+        transition: color 0.2s ease, border-color 0.2s ease;
+        animation: readyPulse 2s ease-in-out infinite;
+      }
+
+      #hud .hud-ready-btn.is-ready {
+        color: #8dff2b;
+        border-color: #8dff2b;
+        animation: readyPulse 1.2s ease-in-out infinite;
+      }
+
+      @keyframes readyPulse {
+        0%, 100% { box-shadow: 0 0 8px currentColor; }
+        50%       { box-shadow: 0 0 22px currentColor, 0 0 44px currentColor; }
+      }
     `.trim();
     document.head.appendChild(style);
 
@@ -1288,12 +1330,23 @@ async function main() {
       scoreBoxes.push({ root, box, label, value });
     }
 
+    const readyBtn = document.createElement("button");
+    readyBtn.id = "ready-button";
+    readyBtn.className = "hud-ready-btn";
+    readyBtn.textContent = "CLICK TO READY";
+    readyBtn.addEventListener("click", () => {
+      if (partySocket) {
+        partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
+      }
+    });
+
     root.appendChild(status);
     root.appendChild(timer);
     root.appendChild(scores);
+    root.appendChild(readyBtn);
     document.body.appendChild(root);
 
-    return { root, status, timer, scores, scoreBoxes };
+    return { root, status, timer, scores, scoreBoxes, readyBtn };
   }
 
   function initResultsOverlay() {
@@ -1764,17 +1817,19 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
-    
-    // If we're the host and in lobby phase, allow auto-start now
-    if (isHost && roundPhase === "lobby") {
-      roundAutoStarted = false; // Reset so auto-start can trigger
-    }
   }
 
 
   hud = initHud();
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
+
+  // * Bridges the server-driven game-start signal into main()'s nested functions.
+  // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
+  onGameStartHandler = (msg) => {
+    if (menuVisible) hideMenu();
+    if (isHost) startCountdown();
+  };
 
   function clampInt(value, min, max) {
     const v = Math.round(value);
@@ -1844,6 +1899,19 @@ async function main() {
         const entry = hud.scoreBoxes[i];
         entry.box.classList.remove("isLocal");
         entry.value.textContent = "";
+      }
+    }
+
+    // --- Ready button ---
+    if (hud.readyBtn) {
+      if (roundPhase === "lobby" && !menuVisible) {
+        const localSlot = netSlots.find((s) => s && s.connId === youConnId);
+        const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
+        hud.readyBtn.style.display = "block";
+        hud.readyBtn.textContent = isLocalReady ? "READY!" : "CLICK TO READY";
+        hud.readyBtn.classList.toggle("is-ready", isLocalReady);
+      } else {
+        hud.readyBtn.style.display = "none";
       }
     }
 
@@ -3663,11 +3731,6 @@ async function main() {
 
     // Round phase transitions (host only)
     if (isHost) {
-      // lobby → countdown once carts exist AND menu is not visible
-      if (roundPhase === "lobby" && allCarts.length > 0 && !roundAutoStarted && !menuVisible) {
-        roundAutoStarted = true;
-        startCountdown();
-      }
       // running → end when timer expires
       if (
         roundPhase === "running" &&
