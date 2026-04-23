@@ -318,6 +318,7 @@ export default class Server implements Party.Server {
     const existingHumans = this.#slots!.filter(s => s.kind === "human");
     if (existingHumans.length === 0) {
       this.#round = { phase: "lobby", winnerSlotId: null };
+      this.#carts = {}; // Nuke the stale physical positions
       if (this.#countdownTimerHandle) {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
