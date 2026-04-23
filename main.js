@@ -277,8 +277,8 @@ const CONFIG = {
     lookAhead: 5.0,
     lookUp: 1.2,
     // * Per-frame lerp/slerp toward follow targets (hides 20Hz transform cadence for non-hosts).
-    followLerp: 0.5,
-    followSlerp: 0.6,
+    followLerp: 0.75,
+    followSlerp: 0.85,
     snapDistance: 40.0,
   },
 
@@ -3899,8 +3899,7 @@ async function main() {
     const p = cameraState.pos;
     const d = desiredPos;
     const farSnap = p.distanceTo(d) > CONFIG.camera.snapDistance;
-    // * Host: no lerp (physics @ fixed timestep vs display @ >60Hz would ghost). Non-host: lerp hides net cadence.
-    if (farSnap || isHost) {
+    if (farSnap) {
       p.copy(d);
       cameraState.quat.copy(desiredQuat);
     } else {
