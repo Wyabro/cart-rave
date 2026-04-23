@@ -499,6 +499,10 @@ export default class Server implements Party.Server {
 
     if (type === MSG.playAgain) {
       if (conn.id !== this.#hostId) return;
+      if (this.#countdownTimerHandle !== null) {
+        clearTimeout(this.#countdownTimerHandle);
+        this.#countdownTimerHandle = null;
+      }
       this.#round = { phase: "lobby", winnerSlotId: null };
       for (const slot of this.#slots!) {
         if (slot.kind === "human") slot.isReady = true;
