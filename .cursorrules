@@ -1,14 +1,17 @@
+# Cart Rave — .cursorrules
+
 ## STRICT AI GUARDRAILS (CRITICAL)
 1. NO BUNDLERS: Do not suggest `npm install`, Vite, or Webpack. This project strictly relies on static ES modules via CDN.
 2. NO SERVER-SIDE PHYSICS: The PartyKit server (`party/index.ts`) is strictly a message relay. The host client runs all Rapier3D physics. Never attempt to move collision logic to the server.
 3. TARGETED EDITS ONLY: `main.js` is intentionally large. Never rewrite or output the entire file. Only read and edit the specific namespaced sections (e.g., `// --- Scoring ---`) requested.
 4. WIN CONDITION: A round ends at 60 seconds, or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
-
-# Cart Rave — .cursorrules
+5. COLOR IMMUTABILITY (NEW): All color logic must strictly use the `CART_COLORS` object in `main.js`. Do not modify this object or the `traverse` material logic. These are the "Original Rave" source of truth.
+6. SERVER-DRIVEN START (NEW): Rounds must ONLY start via `MSG.gameStart`. Tick-level auto-starts in `update()` are strictly forbidden to prevent premature starts during the lobby phase.
 
 ## What this is
 Cart Rave is a browser-based 4-player physics sumo game for Cursor Vibe Jam 2026.
-Shopping Carts on a slowly rotating neon arena resembling a vinyl record in a boisterous club. Cart with the most points wins.
+Shopping Carts on a slowly rotating neon arena resembling a vinyl record in a boisterous club.
+Cart with the most points wins.
 Pitch: "Sumo on a dangerous spinning platform. Using shopping carts for some reason."
 Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
@@ -38,7 +41,12 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## Architecture
 - **Host-authoritative multiplayer.** First player in a room is elected host and runs Rapier physics for all carts (human and NPC), computes collisions, fall detection, respawn, and NPC AI. Host broadcasts cart transforms (position, rotation, linear velocity, angular velocity) at ~20Hz. Non-host clients send input at 60Hz to the host via the server relay and render remote carts from an interpolation buffer (`interpBufferMs`) that smooths between received snapshots.
-- **4 cart slots per room, always filled when 1+ human present.** Empty slots are occupied by NPCs. When a human joins, they pick a color (see Color Picker section); the NPC currently holding that color is re-colored to whichever of the 5 colors is currently unused (5 colors − 4 slots = always 1 free). When a human departs, their slot reverts to NPC with the same color and a fresh comedy-coded name; the slot's current-round score is inherited by the NPC. Room is never empty while 1+ human is present; rounds never wait.
+- **4 cart slots per room, always filled when 1+ human present.** Empty slots are occupied by NPCs. When a human joins, they pick a color; the NPC currently holding that color is re-colored to whichever of the 5 colors is currently unused (5 colors − 4 slots = always 1 free). When a human departs, their slot reverts to NPC with the same color and a fresh comedy-coded name; the slot's current-round score is inherited by the NPC. Room is never empty while 1+ human is present; rounds never wait.
+- **Ready-Up System (Step 12):**
+  - All human players start as `isReady: false`. NPCs are considered "always ready".
+  - Humans toggle their ready state via a HUD button (`readyToggle`).
+  - The server guards the start using `#checkAllReady()`. When all humans are ready, the server sets a `#countdownTimerHandle` and broadcasts `MSG.gameStart` with a `startsAtMs` timestamp.
+  - If a human player leaves during the 3-second countdown, `#cancelCountdownIfNeeded()` clears the timer to prevent the game from starting.
 - **Empty-room handling.** When the last human leaves a room, the current round finishes cleanly (countdown / running / podium runs to completion). Before the next countdown would start, the round loop pauses. NPCs remain in slots but no new rounds run until a human joins. On first human join, rounds resume from the lobby phase. PartyKit DO will naturally evict on platform inactivity timeout; no explicit server-side teardown needed.
 - **Solo play is first-class and reuses the multiplayer code path.** Solo = a private room the player is alone in; 3 NPCs fill the other slots. Solo rooms use randomly generated codes (e.g., `soloXXXXXX` where X is alphanumeric) for privacy by obscurity — the URL is never shared or displayed. No separate offline mode; Solo still runs through PartyKit.
 - **Drop-in/drop-out.** When a player completes color pick, they enter the room in whatever phase it's in:
@@ -46,14 +54,16 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - If room is mid-`countdown` → player joins the countdown in progress, spawns on lobby platform.
   - If room is mid-`running` → server atomically swaps the NPC matching the picked color for the human: NPC AI control stops, human input takes over, cart respawns on lobby platform (drivable — player can roll onto the arena mid-round if they choose), slot's score for the current round resets to 0.
   - If room is mid-`podium` → player spawns on lobby platform and waits for next countdown.
-  Pre-color-pick connections are tracked server-side in `#pendingPickers` and do not occupy slots. Slot assignment is atomic with the color pick message.
+  - Pre-color-pick connections are tracked server-side in `#pendingPickers` and do not occupy slots. Slot assignment is atomic with the color pick message.
 - **Room code in URL** (e.g., cartrave.lol/?room=ABCD). Room codes are alphanumeric only, 2–16 chars (Solo rooms use format `soloXXXXXX` where X is alphanumeric, no hyphens).
   - Shared URL (`?room=ABCD`), returning visitor (username in localStorage): bypasses menu, goes straight to color picker → game.
   - Shared URL, first-time visitor (no username set): shows full menu so they get game context, then color picker → game.
   - Invalid or malformed `?room=` value: lands on the menu (clear slate), room param discarded.
   - Missing `?room=` (plain cartrave.lol): lands on the menu.
-- **Sync protocol is network-identity-agnostic.** Cart transforms (position + rotation + linear velocity + angular velocity) are broadcast by the host at ~20Hz. The protocol does not distinguish between human and NPC carts — both are serialized identically and interpolated on non-host clients from a buffer (`interpBufferMs`). Wheels, audio, and visual effects are derived locally on each client from the synced state, not broadcast over the wire. **Intent:** if the interpolation buffer is empty (network stall, host pause, tab throttling), non-host carts hold their last known state rather than extrapolating — extrapolation without authoritative confirmation risks desync. Verify this matches current implementation (Cursor audit task).
-- **Host migration.** If the host leaves (clean disconnect or reaper-driven removal), the server assigns the oldest surviving connection as new host, broadcasts `host_migrated`, and new host picks up NPC control. Clients apply the last cached cart snapshot before assuming authority to avoid visual pops. Rounds continue without freezing NPCs. **Invariants that must hold on migration:** `#lastSeq` resets to -1 on the server; receiving client clears its `netStateBuffer`. Breaking either reintroduces subtle sync bugs.
+- **Sync protocol is network-identity-agnostic.** Cart transforms (position + rotation + linear velocity + angular velocity) are broadcast by the host at ~20Hz. The protocol does not distinguish between human and NPC carts — both are serialized identically and interpolated on non-host clients from a buffer (`interpBufferMs`). Wheels, audio, and visual effects are derived locally on each client from the synced state, not broadcast over the wire.
+  - **Intent:** if the interpolation buffer is empty (network stall, host pause, tab throttling), non-host carts hold their last known state rather than extrapolating — extrapolation without authoritative confirmation risks desync. Verify this matches current implementation (Cursor audit task).
+- **Host migration.** If the host leaves (clean disconnect or reaper-driven removal), the server assigns the oldest surviving connection as new host, broadcasts `host_migrated`, and new host picks up NPC control. Clients apply the last cached cart snapshot before assuming authority to avoid visual pops. Rounds continue without freezing NPCs.
+  - **Invariants that must hold on migration:** `#lastSeq` resets to -1 on the server; receiving client clears its `netStateBuffer`. Breaking either reintroduces subtle sync bugs.
 - **Activity-based reaper**: server tracks `#lastSeenAtMs` per connection; reaps connections silent >20s. Client sends `keepalive` every 5s regardless of phase. Do not rely on PartyKit `onClose` alone.
 
 ## Menu & Mode Selection
@@ -97,10 +107,10 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - Jackpot: Critical + Target stacked (+2 bonus total)
 - **Leader visual**: red SpotLight tracks leader cart in world space + red emissive on leader cart frame.
 
-## Color Picker
-- **5 options**: hotPink, electricBlue, limeGreen, neonYellow, neonOrange.
+## Color Picker (Updated to Step 11/12 Spec)
+- **5 options**: pink (`0xff00ff`), blue (`0x00ffff`), green (`0x00ff00`), yellow (`0xffff00`), neonOrange (`0xff6600`).
 - **Appears after mode click**, before game entry. Not shown on menu, not shown pre-connect.
-- **Server-gated**: client connects, server sends `available_colors` based on colors currently held by human slots. All 5 colors minus colors held by humans = available to pick. Since max 4 human slots + 5 colors, at least 1 color is always available.
+- **Server-gated**: client connects, server sends `available_colors` based on colors currently held by human slots. NPCs do not block humans from picking colors. All 5 colors minus colors held by humans = available to pick. Since max 4 human slots + 5 colors, at least 1 color is always available.
 - **Single click picks and enters game.** No confirm step.
 - **First-come-first-served with server serialization.** Server processes `color_pick` messages in order; first valid pick for a given color wins. If a second picker races for the same color, server responds with an error and an updated `available_colors` list; the losing picker stays in the picker UI.
 - **Slot assignment atomic with pick**: on valid `color_pick`, server finds the NPC holding that color, swaps `kind: "npc" → "human"` in that slot, re-colors the displaced NPC to the currently unused color (the 5th), and broadcasts `slots` update. Slot score for the current round resets to 0 if joining mid-running (per Architecture).
@@ -124,7 +134,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **External reference points:** DJ booth, speaker stacks, or club-interior geometry at fixed (non-rotating) positions around the dancefloor. Critical for player orientation — a rotating floor without fixed references causes disorientation. These double as visual atmosphere.
 - **Physics implementation note:** the dancefloor must be a RING collider (inner radius + outer radius), NOT a solid disc with a script-side "is inside hole" check. Carts falling into the hole must actually fall through the geometry, not sit on an invisible disc.
 - **Round loop:**
-  1. Countdown (3s) once 2+ carts (humans or NPCs) are on the dancefloor
+  1. Countdown (3s) once 2+ carts (humans or NPCs) are on the dancefloor AND all humans are `isReady: true`.
   2. Round runs for 60s OR until 1 cart remains
   3. Winner gets podium moment (2-3s)
   4. Scoreboard updates (wins per player in current session)
@@ -145,8 +155,8 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Four wheels per cart** with two rotation axes:
   - Pitch (spin) based on velocity magnitude, axis = wheel's local X
   - Yaw (caster swivel) follows cart VELOCITY VECTOR in world space (not cart forward direction — this makes drifts read correctly), with damping for the "stuck sideways" look and sinusoidal wobble at high speed
-- **Five cart colors** for player distinguishability: hot pink, electric blue, lime green, neon yellow, neon orange. Assigned via color picker on join.
-- **Emissive materials** on cart frames for neon readability under spotlights.
+- **Five cart colors** for player distinguishability: pink, blue, green, yellow, neonOrange. Assigned via color picker on join.
+- **Emissive materials**: Handled via `mesh.traverse()` setting color and `emissive` (emissiveIntensity = 1) for readability under spotlights.
 - **Dancefloor:** emissive vinyl record design, drifting fog at floor level, sparkly void beyond the outer edge.
 - **Center hole**: ~12-13% of dancefloor radius (tunable in CONFIG). Flush edge with emissive warning ring. Void below lit with colored uplighting.
 - **Edge vs center death animations:** carts flung off the outer edge tumble into surrounding darkness; carts falling through the center hole drop into the colored uplit void. Two visually distinct "deaths."
@@ -216,19 +226,14 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Production verification rule: post-push, fetch production main.js and `Select-String` for the new code. Local grep alone has produced false positives.
 - PowerShell env: `Select-String` not `grep`; single-line commit messages with `-m "..."`.
 - Diff-before-apply is a hard rule. Unified diff format, wait for ack, then apply.
-- For `party/index.ts` changes: `npx partykit deploy` + `npx partykit tail` to verify live behavior. GitHub main does not match deployed edge.
-- PartyKit DO state persists across deploys. Deploys do not reset in-memory server state.
+- **NEW DEPLOY RULE**: Use `npm run ship` (git push && npx partykit deploy) for every session update to keep protocol in sync.
+- GitHub main does not match deployed edge. PartyKit DO state persists across deploys. Deploys do not reset in-memory server state.
 - **`room.getConnections()` returns an Iterator, not an Array.** Do not call `.map().join()` or Array methods on it. Use `for...of` or spread explicitly (`[...room.getConnections()]`). A single bad `.join()` took down production for ~90 seconds in Session 13.
 - **Behavior-changing diffs require human playtest on prod** before moving to the next diff. String checks confirm code shipped; they do not confirm behavior.
 
 ## Execution order (the plan)
 
-Current status: Steps 1–9 shipped and verified on production (cartrave.lol).
-Round phase machine working (lobby → countdown 3s → running 60s → podium 3s → loop).
-HUD complete: status line, timer, score boxes, local player highlight, slot colors matching carts.
-Results screen complete: final scores, Play Again, Vibe Jam portal link, match history.
-Security audit fixes and activity-based reaper shipped.
-Next: Step 10 (menu shell).
+Current status: Steps 1–12 shipped and verified on production (cartrave.lol). Round phase machine working (lobby → countdown 3s → running 60s → podium 3s → loop). HUD complete: status line, timer, score boxes, local player highlight, slot colors matching carts. Results screen complete: final scores, Play Again, Vibe Jam portal link, match history. Security audit fixes and activity-based reaper shipped.
 
 1. ✅ Deploy to cartrave.lol via Vercel
 2. ✅ PartyKit server + client handshake
@@ -239,24 +244,25 @@ Next: Step 10 (menu shell).
 7. ✅ Vibe Jam widget tag in index.html (jam compliance)
 8. ✅ Round structure + HUD overlay: countdown/running/podium loop + timer/scores/status
 9. ✅ Results screen: final scores, Play Again, Vibe Jam exit portal link, match history
-10. **Menu shell**
-    - 10a: **Prerequisite audit**: scoring system — what's implemented (outer edge, center hole, Critical, Target, Jackpot), what's partial, what's missing. Stats (Step 13) depend on rounds reaching `podium` with scores; scoring must work before Step 13.
+10. ✅ Menu shell
+    - 10a: Prerequisite audit: scoring system implemented.
     - 10b: Menu DOM + CSS/SVG animated background + three mode buttons (Solo / Quickplay / Friends) + title + Vibe Jam portal button
     - 10c: Username field (prompt on first visit; editable inline; stored in localStorage)
     - 10d: Volume slider (0–100 → master gain 0.0–1.0) + mute toggle, both persisted to localStorage
     - 10e: Mobile UA detection → "desktop only" message on menu
-11. **Mode routing + color picker**
+11. ✅ **Mode routing + color picker (Restored Step 11 Spec)**
     - 11a: Mode button routing (Solo → `soloXXXXXX` random room; Quickplay → `quickplay` public room; Friends → random alphanumeric room code with auto-copy URL + "Link copied!" toast)
-    - 11b: Server `available_colors` message + client color picker overlay (5 colors, server-gated, first-come-first-served with server serialization)
-    - 11c: Slot assignment atomic with color pick; `#pendingPickers` server-side state; reaper extended to evict pickers >30s idle; hybrid color-swap (displaced NPC re-colored to unused 5th color)
-    - 11d: neonOrange added as 5th cart color in code (currently 4; confirm against code)
-12. **In-game polish + URL flows**
-    - 12a: Esc in-game overlay (controls reminder, volume, mute, resume, Quit to Menu) — settings panel, does not pause
+    - 11b: Server `available_colors` message + client color picker overlay (5 colors, server-gated, first-come-first-served with server serialization). Colors locked to `CART_COLORS` high-vibrancy spec.
+    - 11c: Slot assignment atomic with color pick; `#pendingPickers` server-side state; reaper extended to evict pickers >30s idle; hybrid color-swap (displaced NPC re-colored to unused 5th color).
+    - 11d: neonOrange added as 5th cart color in code.
+12. **In-game polish + URL flows / Ready-Up System**
+    - 12a: Esc in-game overlay (controls reminder, volume, mute, resume, Quit to Menu) — settings panel, does not pause.
     - 12b: Quit to Menu flow (disconnect + return to menu; URL strips `?room=`)
-    - 12c: Shared-URL flow: `?room=ABCD` with username set → skip menu → color picker → game; without username → show full menu first
-    - 12d: `?portal=true` bypass: skip menu, enter default Quickplay room, preserve `?ref=` for exit portal button
-13. **Stats tracking + display**
-    - 13a: Personal stats tracking (wins/matches/total points, mode recorded per-match, updated on `podium` phase transition, localStorage)
+    - 12c: Shared-URL flow: `?room=ABCD` with username set → skip menu → color picker → game; without username → show full menu first.
+    - 12d: `?portal=true` bypass: skip menu, enter default Quickplay room, preserve `?ref=` for exit portal button.
+    - 12e: Server-driven game start via `isReady` slot checking and `MSG.gameStart` broadcast.
+13. **Stats tracking + display** (Next)
+    - 13a: Personal stats tracking (wins/matches/total points, aggregated across all modes, mode recorded per-match, updated on `podium` phase transition, localStorage)
     - 13b: Personal stats display on menu
     - 13c: Personal stats display on results screen + Main Menu button on results screen
 14. **Lag mitigation** (non-host multiplayer feel)
