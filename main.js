@@ -1935,7 +1935,7 @@ async function main() {
         if (idx != null) {
           const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
           title.textContent = `P${idx + 1} wins — ${score} pts`;
-          title.style.color = getSlotColor(idx);
+          title.style.color = getColorForSlot(netSlots[idx]);
         } else {
           title.textContent = "Round complete";
           title.style.color = "#ffffff";
