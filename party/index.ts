@@ -193,8 +193,12 @@ export default class Server implements Party.Server {
   }
 
   #getAvailableColors(): string[] {
-    const used = new Set(this.#slots?.map((s) => s.color) ?? []);
-    return PALETTE.filter((c) => !used.has(c));
+    const humanColors = new Set(
+      this.#slots
+        ?.filter((s) => s.kind === "human")
+        .map((s) => s.color) ?? []
+    );
+    return PALETTE.filter((c) => !humanColors.has(c));
   }
 
   // * Cancels the game-start countdown if the "all ready" condition is no
@@ -454,7 +458,19 @@ export default class Server implements Party.Server {
       ) {
         const slot = this.#slots?.find((s) => s.connId === conn.id);
         if (slot) {
+          const oldColor = slot.color;
           slot.color = color;
+
+          // Displace any NPC holding the picked color to the unused 5th color.
+          const npcWithColor = this.#slots!.find(
+            (s) => s !== slot && s.kind === "npc" && s.color === color
+          );
+          if (npcWithColor) {
+            const allUsed = new Set(this.#slots!.map((s) => s.color));
+            const unused = PALETTE.find((c) => !allUsed.has(c)) ?? oldColor;
+            npcWithColor.color = unused;
+          }
+
           this.#broadcastJson({
             v: PROTOCOL_VERSION,
             type: MSG.slots,
