@@ -315,6 +315,12 @@ let roundCountdownStartedAtMs = 0;
 let roundWinnerSlotIndex = null;
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
 let roundStartingHumanCount = 0;
+/** @type {boolean} */
+let menuVisible = true; // Step 10b: menu visibility flag
+/** @type {number} */
+let masterGain = 1.0; // Step 10d: Volume control (0.0 to 1.0)
+/** @type {boolean} */
+let isMuted = false; // Step 10d: Mute state
 /** @type {ReturnType<typeof setTimeout> | null} */
 let lastCartStandingTimeoutId = null;
 /** @type {null|number} */
@@ -1243,8 +1249,289 @@ async function main() {
     return { overlay, panel, title, finalScores, history, playAgain, exitPortal };
   }
 
+  // Step 10b: Menu initialization
+  function initMenu() {
+    // Create menu container
+    const menu = document.createElement("div");
+    menu.id = "menu";
+    
+    // Create animated SVG background
+    const svgBg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svgBg.id = "menu-bg";
+    svgBg.setAttribute("viewBox", "0 0 100 100");
+    svgBg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+    
+    // Add animated circles to SVG
+    const circles = [];
+    for (let i = 0; i < 8; i++) {
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const radius = 2 + Math.random() * 4;
+      const cx = 10 + Math.random() * 80;
+      const cy = 10 + Math.random() * 80;
+      const color = i % 4 === 0 ? "#ff2bd6" : i % 4 === 1 ? "#2bd6ff" : i % 4 === 2 ? "#8dff2b" : "#ffee00";
+      
+      circle.setAttribute("cx", cx);
+      circle.setAttribute("cy", cy);
+      circle.setAttribute("r", radius);
+      circle.setAttribute("fill", color);
+      circle.setAttribute("opacity", "0.3");
+      
+      // Add animation
+      const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+      animate.setAttribute("attributeName", "r");
+      animate.setAttribute("values", `${radius};${radius * 1.5};${radius}`);
+      animate.setAttribute("dur", `${3 + Math.random() * 4}s`);
+      animate.setAttribute("repeatCount", "indefinite");
+      circle.appendChild(animate);
+      
+      svgBg.appendChild(circle);
+      circles.push(circle);
+    }
+    
+    menu.appendChild(svgBg);
+    
+    // Create title
+    const title = document.createElement("div");
+    title.className = "menu-title";
+    title.textContent = "CART RAVE";
+    menu.appendChild(title);
+    
+    const subtitle = document.createElement("div");
+    subtitle.className = "menu-subtitle";
+    subtitle.textContent = "SHOPPING CART ARENA";
+    menu.appendChild(subtitle);
+    
+    // Step 10c: Username field
+    const usernameInput = document.createElement("input");
+    usernameInput.type = "text";
+    usernameInput.placeholder = "ENTER USERNAME";
+    usernameInput.style.cssText = `
+      background: transparent;
+      border: 2px solid #8dff2b;
+      color: white;
+      text-align: center;
+      text-transform: uppercase;
+      font-family: system-ui, sans-serif;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      width: 300px;
+      outline: none;
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+    `;
+    
+    // Load saved username from localStorage
+    const savedName = localStorage.getItem('cartRaveUsername');
+    if (savedName) {
+      usernameInput.value = savedName;
+    }
+    
+    // Save username to localStorage on input
+    usernameInput.addEventListener('input', () => {
+      localStorage.setItem('cartRaveUsername', usernameInput.value.trim());
+    });
+    
+    menu.appendChild(usernameInput);
+    
+    // Create button container
+    const buttons = document.createElement("div");
+    buttons.className = "menu-buttons";
+    
+    // Solo button
+    const soloBtn = document.createElement("button");
+    soloBtn.className = "menu-button menu-button-solo";
+    soloBtn.textContent = "Solo";
+    soloBtn.addEventListener("click", () => {
+      console.log("Clicked Solo");
+      hideMenu();
+    });
+    buttons.appendChild(soloBtn);
+    
+    // Quickplay button
+    const quickplayBtn = document.createElement("button");
+    quickplayBtn.className = "menu-button menu-button-quickplay";
+    quickplayBtn.textContent = "Quickplay";
+    quickplayBtn.addEventListener("click", () => {
+      console.log("Clicked Quickplay");
+      hideMenu();
+    });
+    buttons.appendChild(quickplayBtn);
+    
+    // Friends button
+    const friendsBtn = document.createElement("button");
+    friendsBtn.className = "menu-button menu-button-friends";
+    friendsBtn.textContent = "Friends";
+    friendsBtn.addEventListener("click", () => {
+      console.log("Clicked Friends");
+      hideMenu();
+    });
+    buttons.appendChild(friendsBtn);
+    
+    // Vibe Jam button
+    const vibejamBtn = document.createElement("button");
+    vibejamBtn.className = "menu-button menu-button-vibejam";
+    vibejamBtn.textContent = "Vibe Jam 2026";
+    vibejamBtn.addEventListener("click", () => {
+      window.open("https://vibej.am/2026", "_blank");
+    });
+    buttons.appendChild(vibejamBtn);
+    
+    menu.appendChild(buttons);
+    
+    // Step 10d: Volume and Mute Controls
+    const settingsContainer = document.createElement("div");
+    settingsContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 1;
+    `;
+    
+    // Volume slider
+    const volumeSlider = document.createElement("input");
+    volumeSlider.type = "range";
+    volumeSlider.min = "0";
+    volumeSlider.max = "100";
+    volumeSlider.style.cssText = `
+      width: 150px;
+      background: transparent;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: #444;
+      outline: none;
+    `;
+    
+    // Custom slider thumb
+    volumeSlider.style.setProperty('--thumb-size', '16px');
+    volumeSlider.style.setProperty('--track-color', '#444');
+    volumeSlider.style.setProperty('--thumb-color', '#2bd6ff');
+    
+    // Load saved volume from localStorage (default 50)
+    const savedVolume = localStorage.getItem('cartRaveVolume');
+    const initialVolume = savedVolume ? parseInt(savedVolume, 10) : 50;
+    volumeSlider.value = initialVolume;
+    masterGain = initialVolume / 100;
+    
+    // Volume slider event listener
+    volumeSlider.addEventListener('input', () => {
+      const volume = parseInt(volumeSlider.value, 10);
+      masterGain = volume / 100;
+      localStorage.setItem('cartRaveVolume', volume.toString());
+      
+      // Update mute state if volume is 0
+      if (volume === 0 && !isMuted) {
+        isMuted = true;
+        localStorage.setItem('cartRaveMuted', 'true');
+        muteBtn.textContent = 'UNMUTE';
+      } else if (volume > 0 && isMuted) {
+        isMuted = false;
+        localStorage.removeItem('cartRaveMuted');
+        muteBtn.textContent = 'MUTE';
+      }
+      
+      // Apply volume to audio engine
+      applyAudioVolume();
+    });
+    
+    // Prevent game key events on slider
+    volumeSlider.addEventListener('keydown', (e) => e.stopPropagation());
+    volumeSlider.addEventListener('keyup', (e) => e.stopPropagation());
+    
+    settingsContainer.appendChild(volumeSlider);
+    
+    // Mute button
+    const muteBtn = document.createElement("button");
+    muteBtn.style.cssText = `
+      background: transparent;
+      border: 1px solid #2bd6ff;
+      color: #2bd6ff;
+      font-family: system-ui, sans-serif;
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      outline: none;
+    `;
+    
+    // Load saved mute state from localStorage (default false)
+    const savedMuted = localStorage.getItem('cartRaveMuted');
+    isMuted = savedMuted === 'true';
+    muteBtn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
+    
+    // Mute button event listener
+    muteBtn.addEventListener('click', () => {
+      isMuted = !isMuted;
+      
+      if (isMuted) {
+        localStorage.setItem('cartRaveMuted', 'true');
+        muteBtn.textContent = 'UNMUTE';
+        // Store current volume before muting
+        const currentVolume = parseInt(volumeSlider.value, 10);
+        if (currentVolume > 0) {
+          localStorage.setItem('cartRaveVolumeBeforeMute', currentVolume.toString());
+        }
+        volumeSlider.value = 0;
+        masterGain = 0;
+      } else {
+        localStorage.removeItem('cartRaveMuted');
+        muteBtn.textContent = 'MUTE';
+        // Restore previous volume
+        const savedVolumeBeforeMute = localStorage.getItem('cartRaveVolumeBeforeMute');
+        const restoreVolume = savedVolumeBeforeMute ? parseInt(savedVolumeBeforeMute, 10) : 50;
+        volumeSlider.value = restoreVolume;
+        masterGain = restoreVolume / 100;
+        localStorage.setItem('cartRaveVolume', restoreVolume.toString());
+      }
+      
+      // Apply volume to audio engine
+      applyAudioVolume();
+    });
+    
+    // Prevent game key events on mute button
+    muteBtn.addEventListener('keydown', (e) => e.stopPropagation());
+    muteBtn.addEventListener('keyup', (e) => e.stopPropagation());
+    
+    settingsContainer.appendChild(muteBtn);
+    menu.appendChild(settingsContainer);
+    
+    // Footer
+    const footer = document.createElement("div");
+    footer.className = "menu-footer";
+    footer.textContent = "4-PLAYER PHYSICS · PARTYKIT · THREE.JS · RAPIER3D";
+    menu.appendChild(footer);
+    
+    document.body.appendChild(menu);
+  }
+
+  // Step 10b: Hide menu function
+  function hideMenu() {
+    const menu = document.getElementById("menu");
+    if (menu) {
+      menu.style.opacity = "0";
+      menu.style.pointerEvents = "none";
+      setTimeout(() => {
+        if (menu.parentNode) {
+          menu.parentNode.removeChild(menu);
+        }
+      }, 300);
+    }
+    menuVisible = false;
+    
+    // If we're the host and in lobby phase, allow auto-start now
+    if (isHost && roundPhase === "lobby") {
+      roundAutoStarted = false; // Reset so auto-start can trigger
+    }
+  }
+
   const hud = initHud();
   const resultsUi = initResultsOverlay();
+  initMenu(); // Step 10b: Add menu initialization
 
   function clampInt(value, min, max) {
     const v = Math.round(value);
@@ -2193,58 +2480,18 @@ async function main() {
   });
   musicEl.load();
 
-  let audioMuted = true;
-  const muteBtn = document.createElement("button");
-  muteBtn.type = "button";
-  muteBtn.setAttribute("aria-label", "Mute game audio");
-  muteBtn.title = "Mute (M)";
-  Object.assign(muteBtn.style, {
-    position: "fixed",
-    bottom: "14px",
-    right: "86px",
-    zIndex: "10000",
-    width: "42px",
-    height: "42px",
-    padding: "0",
-    margin: "0",
-    boxSizing: "border-box",
-    border: "1px solid rgba(255, 43, 214, 0.55)",
-    borderRadius: "10px",
-    cursor: "pointer",
-    background: "rgba(7, 0, 16, 0.72)",
-    color: "#e8f6ff",
-    fontSize: "22px",
-    lineHeight: "1",
-    boxShadow: "0 0 14px rgba(43, 214, 255, 0.22)",
-    backdropFilter: "blur(6px)",
-    WebkitBackdropFilter: "blur(6px)",
-  });
-
-  function applySessionAudioMute() {
-    audioListener.setMasterVolume(audioMuted ? 0 : 1);
-    musicEl.muted = audioMuted;
+  // Step 10d: Apply audio volume to engine
+  function applyAudioVolume() {
+    // Apply master gain to Three.js AudioListener
+    if (audioListener && typeof audioListener.setMasterVolume === 'function') {
+      audioListener.setMasterVolume(isMuted ? 0 : masterGain);
+    }
+    // Apply mute state to HTML audio element
+    musicEl.muted = isMuted;
   }
 
-  function refreshMuteButtonUi() {
-    muteBtn.textContent = audioMuted ? "🔇" : "🔊";
-    muteBtn.setAttribute("aria-label", audioMuted ? "Unmute game audio" : "Mute game audio");
-    muteBtn.title = audioMuted ? "Unmute (M)" : "Mute (M)";
-    muteBtn.setAttribute("aria-pressed", audioMuted ? "true" : "false");
-  }
-
-  function toggleSessionAudioMute() {
-    audioMuted = !audioMuted;
-    applySessionAudioMute();
-    refreshMuteButtonUi();
-  }
-
-  muteBtn.addEventListener("click", (ev) => {
-    ev.stopPropagation();
-    toggleSessionAudioMute();
-  });
-  document.body.appendChild(muteBtn);
-  applySessionAudioMute();
-  refreshMuteButtonUi();
+  // Initialize audio with saved settings
+  applyAudioVolume();
 
   function tryStartAmbientMusic() {
     if (musicStarted || musicUnavailable) return;
@@ -2550,6 +2797,9 @@ async function main() {
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
 
   function onKeyDown(e) {
+    // Allow typing in input fields without triggering game controls
+    if (e.target.tagName === 'INPUT') return;
+    
     unlockAudioAndMaybeStartMusic();
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
       if (e.repeat) return;
@@ -2561,7 +2811,10 @@ async function main() {
     if (e.code === "KeyM") {
       if (e.repeat) return;
       e.preventDefault();
-      toggleSessionAudioMute();
+      // Toggle mute using new volume system
+      isMuted = !isMuted;
+      localStorage.setItem('cartRaveMuted', isMuted ? 'true' : 'false');
+      applyAudioVolume();
       return;
     }
     if (e.code === "Space") {
@@ -2577,6 +2830,9 @@ async function main() {
     }
   }
   function onKeyUp(e) {
+    // Allow typing in input fields without triggering game controls
+    if (e.target.tagName === 'INPUT') return;
+    
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
       e.preventDefault();
       localNitroHeld = false;
@@ -3164,8 +3420,8 @@ async function main() {
 
     // Round phase transitions (host only)
     if (isHost) {
-      // lobby → countdown once carts exist
-      if (roundPhase === "lobby" && allCarts.length > 0 && !roundAutoStarted) {
+      // lobby → countdown once carts exist AND menu is not visible
+      if (roundPhase === "lobby" && allCarts.length > 0 && !roundAutoStarted && !menuVisible) {
         roundAutoStarted = true;
         startCountdown();
       }
