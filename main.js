@@ -272,13 +272,13 @@ const CONFIG = {
     fov: 55,
     minFov: 50,
     maxFov: 75,
-    followBack: 7.6,
-    followUp: 3.54,
+    followBack: 8.36,
+    followUp: 3.894,
     lookAhead: 5.0,
     lookUp: 1.2,
     // * Per-frame lerp/slerp toward follow targets (hides 20Hz transform cadence for non-hosts).
-    followLerp: 0.35,
-    followSlerp: 0.4,
+    followLerp: 0.5,
+    followSlerp: 0.6,
     snapDistance: 40.0,
   },
 
@@ -3255,7 +3255,7 @@ async function main() {
       if (playerCartHorn.parent !== localCartBySlot.mesh) {
         localCartBySlot.mesh.add(playerCartHorn);
       }
-      playBufferHorn(playerCartHorn, localCartBySlot, 1.2);
+      playBufferHorn(playerCartHorn, localCartBySlot, 1.6);
       return;
     }
     if (handledCodes.has(e.code)) e.preventDefault();
