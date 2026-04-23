@@ -496,6 +496,24 @@ export default class Server implements Party.Server {
       const slot = this.#slots?.find((s) => s.connId === conn.id);
       if (slot && slot.kind === "human") {
         slot.isReady = !slot.isReady;
+
+        // Reconcile orphan human slots before checking ready state.
+        // On hard refresh, the old connection may not have been cleaned up
+        // during onConnect (platform hadn't closed it yet). By the time the
+        // player clicks Ready, the stale conn is gone from getConnections().
+        const liveConnIds = new Set<string>();
+        for (const c of this.room.getConnections()) {
+          liveConnIds.add(c.id);
+        }
+        for (const s of this.#slots!) {
+          if (s.kind === "human" && s.connId && !liveConnIds.has(s.connId)) {
+            console.log(`readyToggle reconcile: orphan slot ${s.slotId} connId=${s.connId} -> npc`);
+            s.kind = "npc";
+            s.connId = null;
+            s.isReady = false;
+          }
+        }
+
         this.#broadcastJson({
           v: PROTOCOL_VERSION,
           type: MSG.slots,
