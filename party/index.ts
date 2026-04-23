@@ -217,6 +217,11 @@ export default class Server implements Party.Server {
   // * The timer handle acts as the one-shot guard — re-entrant calls are no-ops
   // * until the timer fires and clears the handle.
   #checkAllReady() {
+    // --- DIAGNOSTIC LOG FOR READY-UP BUG ---
+    const currentHumanSlots = this.#slots!.filter(s => s.kind === "human");
+    console.log(`[DIAGNOSTIC] checkAllReady | phase: ${this.#round.phase} | timerArmed: ${this.#countdownTimerHandle !== null} | humans: ${JSON.stringify(currentHumanSlots.map(s => ({id: s.slotId, conn: s.connId, ready: s.isReady})))}`);
+    // ---------------------------------------
+
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
     const liveConnIds = new Set<string>();
     for (const c of this.room.getConnections()) {
