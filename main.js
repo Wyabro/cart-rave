@@ -133,8 +133,8 @@ const CONFIG = {
     arenaTrimesh: false,
   },
   net: {
-    // * Non-host renders 150ms behind latest packet for smoothness.
-    interpBufferMs: 150,
+    // * Non-host renders 100ms behind latest packet for smoothness.
+    interpBufferMs: 100,
     // * Host sends authoritative transforms at 20Hz.
     hostSendHz: 20,
     // * Non-host sends client_input at 60Hz.
@@ -276,13 +276,16 @@ const CONFIG = {
     followUp: 3.54,
     lookAhead: 5.0,
     lookUp: 1.2,
-    positionDamping: 10.0,
-    rotationDamping: 12.0,
+    // * Per-frame lerp/slerp toward follow targets (hides 20Hz transform cadence for non-hosts).
+    followLerp: 0.16,
+    followSlerp: 0.18,
     snapDistance: 40.0,
   },
 
   audio: {
     hornVolume: 0.45,
+    // * Min time between local horn key triggers (msec); prevents spam when key repeat fires.
+    hornKeyMinIntervalMs: 220,
     hornRefDistance: 5,
     hornRolloffFactor: 1.5,
     musicVolume: 0.15,
@@ -2099,10 +2102,6 @@ async function main() {
 
   const cartLinvelScratch = new THREE.Vector3();
 
-  function dampFactor(lambda, dt) {
-    return 1 - Math.exp(-lambda * dt);
-  }
-
   function updateCameraFraming() {
     const aspect = window.innerWidth / window.innerHeight;
     const portraitBoost = (1 / Math.max(0.5, aspect)) - 1;
@@ -3003,15 +3002,6 @@ async function main() {
     playProceduralHornAtCart(cartForProcedural);
   }
 
-  function playHorn() {
-    const localCart = localCartForConnId();
-    // Ensure horn follows local cart even if slot assignment changes.
-    if (playerCartHorn.parent !== localCart.mesh) {
-      localCart.mesh.add(playerCartHorn);
-    }
-    playBufferHorn(playerCartHorn, localCart);
-  }
-
   function maybePlayAiRamHornOnPlayerHit(rammerCart) {
     if (Math.random() >= CONFIG.audio.aiRamHornChance) return;
     const entry = npcHornEntries.find((e) => e.cart === rammerCart);
@@ -3210,6 +3200,9 @@ async function main() {
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
 
+  // * Throttle for Space horn (keydown repeat + rapid taps); aligns with one-shot sample length.
+  let lastLocalHornKeyAtMs = 0;
+
   function onKeyDown(e) {
     // Allow typing in input fields without triggering game controls
     if (e.target.tagName === 'INPUT') return;
@@ -3233,7 +3226,17 @@ async function main() {
     }
     if (e.code === "Space") {
       e.preventDefault();
-      playHorn();
+      if (e.repeat) return;
+      const tKey = performance.now();
+      if (tKey - lastLocalHornKeyAtMs < CONFIG.audio.hornKeyMinIntervalMs) return;
+      lastLocalHornKeyAtMs = tKey;
+      const mySlot = localSlotIndexForConn(youConnId);
+      const localCartBySlot =
+        mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
+      if (playerCartHorn.parent !== localCartBySlot.mesh) {
+        localCartBySlot.mesh.add(playerCartHorn);
+      }
+      playBufferHorn(playerCartHorn, localCartBySlot);
       return;
     }
     if (handledCodes.has(e.code)) e.preventDefault();
@@ -3874,14 +3877,19 @@ async function main() {
     );
     const desiredQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
 
-    if (cameraState.pos.distanceTo(desiredPos) > CONFIG.camera.snapDistance) {
-      cameraState.pos.copy(desiredPos);
+    const p = cameraState.pos;
+    const d = desiredPos;
+    const farSnap = p.distanceTo(d) > CONFIG.camera.snapDistance;
+    if (farSnap) {
+      p.copy(d);
       cameraState.quat.copy(desiredQuat);
     } else {
-      const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
-      const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
-      cameraState.pos.lerp(desiredPos, posAlpha);
-      cameraState.quat.slerp(desiredQuat, rotAlpha);
+      const tLerp = CONFIG.camera.followLerp;
+      const tSlerp = CONFIG.camera.followSlerp;
+      p.x = THREE.MathUtils.lerp(p.x, d.x, tLerp);
+      p.y = THREE.MathUtils.lerp(p.y, d.y, tLerp);
+      p.z = THREE.MathUtils.lerp(p.z, d.z, tLerp);
+      cameraState.quat.slerp(desiredQuat, tSlerp);
     }
 
     camera.position.copy(cameraState.pos);
@@ -3979,7 +3987,7 @@ async function main() {
         accumulator = 0;
       }
     } else {
-      // Non-host: do not step physics. Apply transforms from buffer ~150ms behind.
+      // Non-host: do not step physics. Apply transforms from buffer ~100ms behind.
       const targetServerNowMs = Date.now() - CONFIG.net.interpBufferMs;
       let chosen = null;
       for (let i = netStateBuffer.length - 1; i >= 0; i -= 1) {
