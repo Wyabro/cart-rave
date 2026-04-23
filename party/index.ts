@@ -218,7 +218,13 @@ export default class Server implements Party.Server {
   // * until the timer fires and clears the handle.
   #checkAllReady() {
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
-    const humanSlots = this.#slots!.filter((s) => s.kind === "human");
+    const liveConnIds = new Set<string>();
+    for (const c of this.room.getConnections()) {
+      liveConnIds.add(c.id);
+    }
+    const humanSlots = this.#slots!.filter(
+      (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId)
+    );
     if (humanSlots.length === 0) return;
     if (!humanSlots.every((s) => s.isReady)) return;
 
