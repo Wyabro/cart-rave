@@ -294,6 +294,16 @@ export default class Server implements Party.Server {
       return;
     }
 
+    // If the round is stuck at podium (or any non-active phase besides lobby),
+    // reset to lobby so #checkAllReady can fire when humans ready up.
+    if (this.#round.phase === "podium") {
+      this.#round = { phase: "lobby", winnerSlotId: null };
+      if (this.#countdownTimerHandle !== null) {
+        clearTimeout(this.#countdownTimerHandle);
+        this.#countdownTimerHandle = null;
+      }
+    }
+
     this.#connections.set(conn.id, conn);
     this.#joinOrder.push(conn.id);
     this.#lastSeenAtMs.set(conn.id, this.#serverNowMs());
