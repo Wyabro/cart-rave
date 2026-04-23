@@ -360,6 +360,37 @@ function getColorForSlot(slot) {
   return cssHexFromRgbNumber(CART_COLORS[slot.color]?.hex ?? 0x888888);
 }
 
+// --- Personal Stats (localStorage) ---
+function getPersonalStats() {
+  try {
+    const raw = localStorage.getItem("cartRaveStats");
+    if (!raw) return { wins: 0, matches: 0, totalPoints: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      wins: Number(parsed.wins) || 0,
+      matches: Number(parsed.matches) || 0,
+      totalPoints: Number(parsed.totalPoints) || 0,
+    };
+  } catch {
+    return { wins: 0, matches: 0, totalPoints: 0 };
+  }
+}
+
+function savePersonalStats(stats) {
+  try {
+    localStorage.setItem("cartRaveStats", JSON.stringify(stats));
+  } catch {
+    // localStorage full or unavailable — silently fail
+  }
+}
+
+function detectGameMode() {
+  const room = resolvedPartyRoomFromUrl();
+  if (room.startsWith("solo")) return "solo";
+  if (room === "quickplay") return "quickplay";
+  return "friends";
+}
+
 /** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
 let netSlots = [
   { slotId: 0, kind: "npc", connId: null, name: "CartGPT", color: "pink" },
@@ -426,7 +457,7 @@ let lastCartStandingWinnerSlotIndex = null;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
- * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number> }[]}
+ * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number>, mode?: "solo" | "quickplay" | "friends" }[]}
  */
 let matchHistory = [];
 
@@ -901,8 +932,21 @@ function initNetcode() {
             endedAtMs: Date.now(),
             winnerSlotIndex,
             scores,
+            mode: detectGameMode(),
           });
           while (matchHistory.length > 10) matchHistory.shift();
+
+          // Update personal stats — only if this round had scoring (not an all-zero draw)
+          if (winnerSlotIndex !== "draw") {
+            const mySlotIdx = localSlotIndexForConn(youConnId);
+            if (mySlotIdx >= 0) {
+              const stats = getPersonalStats();
+              stats.matches += 1;
+              stats.totalPoints += scores[mySlotIdx] || 0;
+              if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
+              savePersonalStats(stats);
+            }
+          }
         }
         if (!isHost && typeof newPhase === "string" && newPhase !== prevPhase) {
           // PRE-SUBMISSION CLEANUP
@@ -1485,16 +1529,41 @@ async function main() {
     exitPortal.rel = "noopener noreferrer";
     exitPortal.textContent = "Vibe Jam portal";
 
+    const mainMenuBtn = document.createElement("button");
+    mainMenuBtn.type = "button";
+    mainMenuBtn.className = "results-playAgain";
+    mainMenuBtn.textContent = "Main Menu";
+    mainMenuBtn.addEventListener("click", () => {
+      // Strip room param and go to plain cartrave.lol
+      const url = new URL(window.location.href);
+      url.searchParams.delete("room");
+      url.searchParams.delete("portal");
+      window.location.href = url.pathname;
+    });
+
     actions.appendChild(playAgain);
+    actions.appendChild(mainMenuBtn);
     actions.appendChild(exitPortal);
+
+    const statsLine = document.createElement("div");
+    statsLine.className = "results-stats";
+    statsLine.style.cssText = `
+      color: #aaa;
+      font-size: 0.8rem;
+      text-align: center;
+      margin-top: 0.5rem;
+      letter-spacing: 0.05em;
+    `;
+
     panel.appendChild(title);
     panel.appendChild(finalScores);
+    panel.appendChild(statsLine);
     panel.appendChild(history);
     panel.appendChild(actions);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
 
-    return { overlay, panel, title, finalScores, history, playAgain, exitPortal };
+    return { overlay, panel, title, finalScores, history, playAgain, exitPortal, statsLine, mainMenuBtn };
   }
 
   // Step 10b: Menu initialization
@@ -1793,6 +1862,23 @@ async function main() {
     settingsContainer.appendChild(muteBtn);
     menu.appendChild(settingsContainer);
     
+    // Personal stats display
+    const statsDisplay = document.createElement("div");
+    statsDisplay.id = "menu-stats";
+    statsDisplay.style.cssText = `
+      color: #aaa;
+      font-family: system-ui, sans-serif;
+      font-size: 0.85rem;
+      text-align: center;
+      margin-top: 1.5rem;
+      position: relative;
+      z-index: 1;
+      letter-spacing: 0.05em;
+    `;
+    const ps = getPersonalStats();
+    statsDisplay.textContent = `${ps.wins}W / ${ps.matches} played / ${ps.totalPoints} pts`;
+    menu.appendChild(statsDisplay);
+
     // Footer
     const footer = document.createElement("div");
     footer.className = "menu-footer";
@@ -1800,6 +1886,7 @@ async function main() {
     menu.appendChild(footer);
     
     document.body.appendChild(menu);
+    refreshMenuStats();
     
     // Render color picker immediately with full palette
     renderColorPicker(PALETTE);
@@ -1818,6 +1905,13 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
+  }
+
+  function refreshMenuStats() {
+    const el = document.getElementById("menu-stats");
+    if (!el) return;
+    const ps = getPersonalStats();
+    el.textContent = `${ps.wins}W / ${ps.matches} played / ${ps.totalPoints} pts`;
   }
 
 
@@ -1921,7 +2015,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, title, finalScores, history, playAgain, exitPortal } = resultsUi;
+    const { overlay, title, finalScores, history, playAgain, exitPortal, statsLine } = resultsUi;
     if (roundPhase === "podium") {
       overlay.style.display = "flex";
       overlay.style.pointerEvents = "auto";
@@ -1973,6 +2067,12 @@ async function main() {
         exitPortal.href = `https://vibej.am/portal/2026?ref=${ref}`;
       } catch {
         exitPortal.href = "https://vibej.am/portal/2026";
+      }
+
+      // Update personal stats display
+      if (statsLine) {
+        const ps = getPersonalStats();
+        statsLine.textContent = `${ps.wins}W / ${ps.matches} played / ${ps.totalPoints} pts`;
       }
     } else {
       overlay.style.display = "none";
