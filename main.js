@@ -277,8 +277,8 @@ const CONFIG = {
     lookAhead: 5.0,
     lookUp: 1.2,
     // * Per-frame lerp/slerp toward follow targets (hides 20Hz transform cadence for non-hosts).
-    followLerp: 0.16,
-    followSlerp: 0.18,
+    followLerp: 0.35,
+    followSlerp: 0.4,
     snapDistance: 40.0,
   },
 
@@ -2927,7 +2927,7 @@ async function main() {
   });
   window.addEventListener("pointerdown", unlockAudioAndMaybeStartMusic, { passive: true });
 
-  function playProceduralHornAtCart(cart) {
+  function playProceduralHornAtCart(cart, volumeScale = 1) {
     const ctx = audioListener.context;
     if (ctx.state === "suspended") {
       void ctx.resume();
@@ -2948,8 +2948,9 @@ async function main() {
     filter.Q.setValueAtTime(7, now);
 
     const gain = ctx.createGain();
+    const peak = 0.22 * volumeScale;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(peak, now + 0.015);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     const panner = ctx.createPannerNode();
@@ -2986,20 +2987,38 @@ async function main() {
     osc.stop(now + duration + 0.02);
   }
 
-  function playBufferHorn(hornPositional, cartForProcedural) {
+  function playBufferHorn(hornPositional, cartForProcedural, volumeScale = 1) {
     void audioListener.context.resume();
+    const baseVol = CONFIG.audio.hornVolume;
+    if (volumeScale !== 1) {
+      hornPositional.setVolume(baseVol * volumeScale);
+    }
     if (hornBufferReady) {
       if (hornPositional.isPlaying) {
         hornPositional.stop();
       }
       try {
         hornPositional.play();
+        if (volumeScale !== 1 && hornPositional.source) {
+          const s = hornPositional.source;
+          const was = s.onended;
+          s.onended = function onLocalHornEnded() {
+            hornPositional.setVolume(baseVol);
+            if (typeof was === "function") was();
+          };
+        }
       } catch {
-        playProceduralHornAtCart(cartForProcedural);
+        if (volumeScale !== 1) {
+          hornPositional.setVolume(baseVol);
+        }
+        playProceduralHornAtCart(cartForProcedural, volumeScale);
       }
       return;
     }
-    playProceduralHornAtCart(cartForProcedural);
+    if (volumeScale !== 1) {
+      hornPositional.setVolume(baseVol);
+    }
+    playProceduralHornAtCart(cartForProcedural, volumeScale);
   }
 
   function maybePlayAiRamHornOnPlayerHit(rammerCart) {
@@ -3236,7 +3255,7 @@ async function main() {
       if (playerCartHorn.parent !== localCartBySlot.mesh) {
         localCartBySlot.mesh.add(playerCartHorn);
       }
-      playBufferHorn(playerCartHorn, localCartBySlot);
+      playBufferHorn(playerCartHorn, localCartBySlot, 1.2);
       return;
     }
     if (handledCodes.has(e.code)) e.preventDefault();
