@@ -389,6 +389,12 @@ export default class Server implements Party.Server {
       serverNowMs: this.#serverNowMs(),
       slots: this.#slots,
     });
+
+    // After cleaning up a disconnected player's slot, re-evaluate ready state.
+    // Handles the refresh race: new conn readied up while old conn was still alive,
+    // #checkAllReady failed (2 humans, 1 not ready). Now that the orphan is gone,
+    // the remaining humans may all be ready.
+    this.#checkAllReady();
   }
 
   onClose(conn: Party.Connection) {
