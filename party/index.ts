@@ -314,19 +314,19 @@ export default class Server implements Party.Server {
       }
     }
 
-    if (!this.#assignHumanToSlot(conn.id)) {
-      this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
-      return;
-    }
-
-    // If the round is stuck at podium (or any non-active phase besides lobby),
-    // reset to lobby so #checkAllReady can fire when humans ready up.
-    if (this.#round.phase === "podium") {
+    // --- Phase Reset: If room was completely empty of humans, nuke the state ---
+    const existingHumans = this.#slots!.filter(s => s.kind === "human");
+    if (existingHumans.length === 0) {
       this.#round = { phase: "lobby", winnerSlotId: null };
-      if (this.#countdownTimerHandle !== null) {
+      if (this.#countdownTimerHandle) {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
       }
+    }
+
+    if (!this.#assignHumanToSlot(conn.id)) {
+      this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
+      return;
     }
 
     this.#connections.set(conn.id, conn);
