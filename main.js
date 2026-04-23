@@ -15,6 +15,7 @@ const MSG = {
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
   keepalive: "keepalive",
+  colorPick: "color_pick",
 
   // Server -> client
   hello: "hello",
@@ -23,7 +24,102 @@ const MSG = {
   slots: "slots",
   state: "state",
   round: "round",
+  joinRejected: "join_rejected",
 };
+
+const CART_COLORS = {
+  pink:       { hex: 0xff00ff, css: "bg-pink" },
+  blue:       { hex: 0x00ffff, css: "bg-blue" },
+  green:      { hex: 0x00ff00, css: "bg-green" },
+  yellow:     { hex: 0xffff00, css: "bg-yellow" },
+  neonOrange: { hex: 0xff6600, css: "bg-neonOrange" },
+};
+const PALETTE = Object.keys(CART_COLORS);
+
+function renderColorPicker(availableColors) {
+  // Create or get color picker container
+  let container = document.getElementById('color-picker-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'color-picker-container';
+    container.className = 'color-picker-container';
+  }
+  
+  // Ensure container is in the right place (menu if it exists)
+  const menu = document.getElementById('menu');
+  if (menu) {
+    // Menu exists - make sure container is in menu
+    if (!menu.contains(container)) {
+      // Container exists but not in menu - move it
+      const usernameInput = menu.querySelector('input[type="text"]');
+      if (usernameInput && usernameInput.parentNode) {
+        usernameInput.parentNode.insertBefore(container, usernameInput);
+      } else {
+        // Fallback: append to menu
+        menu.appendChild(container);
+      }
+      // Make sure it's visible
+      container.style.display = '';
+    }
+  } else if (container.parentNode !== document.body) {
+    // Menu doesn't exist yet and container is not on body - append to body temporarily
+    container.style.display = 'none';
+    document.body.appendChild(container);
+  }
+  
+  // Clear existing dots
+  container.innerHTML = '';
+  
+  // Get saved color from localStorage
+  const savedColor = localStorage.getItem('cartRaveColor');
+  
+  // Create color dots
+  PALETTE.forEach(colorId => {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.dataset.colorId = colorId;
+    dot.style.backgroundColor = cssHexFromRgbNumber(CART_COLORS[colorId]?.hex) || colorId;
+    
+    // Check if color is available
+    const isAvailable = availableColors.includes(colorId);
+    if (!isAvailable) {
+      dot.style.opacity = '0.3';
+      dot.style.pointerEvents = 'none';
+    }
+    
+    // Highlight saved color
+    if (colorId === savedColor) {
+      dot.style.border = '2px solid white';
+      dot.classList.add('selected');
+    }
+    
+    // Add click handler
+    dot.addEventListener('click', () => {
+      if (isAvailable) {
+        // Save to localStorage
+        localStorage.setItem('cartRaveColor', colorId);
+        
+        // Update visual selection
+        document.querySelectorAll('.color-dot').forEach(d => {
+          d.style.border = 'none';
+          d.classList.remove('selected');
+        });
+        dot.style.border = '2px solid white';
+        dot.classList.add('selected');
+        
+        // Send to server if socket exists and is open
+        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+          partySocket.send(JSON.stringify({
+            type: MSG.colorPick,
+            color: colorId
+          }));
+        }
+      }
+    });
+    
+    container.appendChild(dot);
+  });
+}
 
 const CONFIG = {
   canvasId: "game",
@@ -244,13 +340,6 @@ const __msgCounts = { in: {}, out: {} };
 // * Input bridge for non-host client_input nitro (Shift key).
 let localNitroHeld = false;
 
-const SLOT_COLORS = {
-  hotPink: 0xff2bd6,
-  electricBlue: 0x2bd6ff,
-  limeGreen: 0x8dff2b,
-  neonYellow: 0xffee00,
-};
-
 function cssHexFromRgbNumber(rgb) {
   if (!Number.isFinite(rgb)) return "#888888";
   const hex = (rgb >>> 0).toString(16).padStart(6, "0");
@@ -258,18 +347,22 @@ function cssHexFromRgbNumber(rgb) {
 }
 
 function getSlotColor(slotIndex) {
-  const slotKeyByIndex = ["hotPink", "electricBlue", "limeGreen", "neonYellow"];
-  const key = slotKeyByIndex[slotIndex] ?? null;
+  const key = PALETTE[slotIndex] ?? null;
   if (!key) return "#888888";
-  return cssHexFromRgbNumber(SLOT_COLORS[key]);
+  return cssHexFromRgbNumber(CART_COLORS[key]?.hex ?? 0x888888);
+}
+
+function getColorForSlot(slot) {
+  if (!slot || !slot.color) return "#888888";
+  return cssHexFromRgbNumber(CART_COLORS[slot.color]?.hex ?? 0x888888);
 }
 
 /** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
 let netSlots = [
-  { slotId: 0, kind: "npc", connId: null, name: "CartGPT", color: "hotPink" },
-  { slotId: 1, kind: "npc", connId: null, name: "RollBot", color: "electricBlue" },
-  { slotId: 2, kind: "npc", connId: null, name: "WheelE", color: "limeGreen" },
-  { slotId: 3, kind: "npc", connId: null, name: "PushPop", color: "neonYellow" },
+  { slotId: 0, kind: "npc", connId: null, name: "CartGPT", color: "pink" },
+  { slotId: 1, kind: "npc", connId: null, name: "RollBot", color: "blue" },
+  { slotId: 2, kind: "npc", connId: null, name: "WheelE", color: "green" },
+  { slotId: 3, kind: "npc", connId: null, name: "PushPop", color: "yellow" },
 ];
 
 let firstHelloReceived = false;
@@ -345,7 +438,9 @@ let keepaliveTimer = null;
 let hostSeq = 0;
 let inputSeq = 0;
 
-// These are assigned once main() constructs the physics world + carts.
+// These are assigned once main() constructs the scene / HUD / physics world.
+/** @type {ReturnType<typeof initHud> | null} */
+let hud = null;
 /** @type {any[] | null} */
 let allCartsRef = null;
 /** @type {(() => { forward: number; turn: number }) | null} */
@@ -354,11 +449,68 @@ let getAxisRef = null;
 let triggerRamBoostRef = null;
 
 function colorHexForSlot(slot) {
-  if (!slot) return 0xffffff;
+  if (!slot) return 0x888888;
   const c = slot.color;
   if (typeof c === "number") return c;
-  if (typeof c === "string" && c in SLOT_COLORS) return SLOT_COLORS[c];
-  return 0xffffff;
+  return CART_COLORS[c]?.hex ?? 0x888888;
+}
+
+function updateCartMaterialsFromSlots(slots) {
+  if (!allCartsRef || !Array.isArray(slots)) return;
+
+  for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+    const slot = slots[slotIndex];
+    const cart = allCartsRef[slotIndex];
+    if (!slot || !cart?.mesh) continue;
+
+    const colorData = CART_COLORS[slot.color];
+    const finalHex = colorData ? colorData.hex : 0x888888;
+
+    // * buildCart returns a THREE.Group, not a Mesh — traverse all child meshes to repaint.
+    cart.mesh.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      child.material.color.setHex(finalHex);
+      if (child.material.emissive) {
+        child.material.emissive.setHex(finalHex);
+        child.material.emissiveIntensity = 1;
+      }
+    });
+
+    // Keep the cached hex in sync so respawn rebuilds use the right color
+    cart.cartColor = finalHex;
+  }
+}
+
+function updateHudColorsFromSlots(slots) {
+  if (!hud || !hud.scoreBoxes || !Array.isArray(slots)) return;
+
+  slots.forEach((slot, i) => {
+    const scoreBox = hud.scoreBoxes[i];
+    if (!scoreBox || !scoreBox.box) return;
+    if (!slot || !slot.color) return;
+
+    const data = CART_COLORS[slot.color];
+    if (!data) return;
+
+    const box = scoreBox.box;
+    const hexStr = `#${data.hex.toString(16).padStart(6, "0")}`;
+
+    // Hard reset: preserve structural class, apply exactly one color class
+    box.className = `hud-scoreBox ${data.css}`;
+
+    // Force background via !important so no other rule can win
+    box.style.setProperty("background-color", hexStr, "important");
+    box.style.setProperty("color", "black", "important");
+
+    // * Local player gets a white outline; all others have none
+    box.style.setProperty(
+      "border",
+      slot.connId === youConnId ? "3px solid white" : "none",
+      "important",
+    );
+
+    box.dataset.hudColor = slot.color;
+  });
 }
 
 function strictSlotIndexForConn(connId) {
@@ -556,7 +708,10 @@ function setAuthorityMode(nextIsHost) {
 
 function initNetcode() {
   if (typeof window === "undefined") return;
-  if (partySocket) return;
+  if (partySocket) {
+    partySocket.close();
+    partySocket = null;
+  }
 
   const resolvedRoom = resolvedPartyRoomFromUrl();
   partySocket = new PartySocket({
@@ -570,6 +725,17 @@ function initNetcode() {
     console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
     partySocket?.send(JSON.stringify({ type: MSG.join }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
+    
+    // Send saved color if available
+    const savedColor = localStorage.getItem('cartRaveColor');
+    if (savedColor && PALETTE.includes(savedColor)) {
+      partySocket?.send(JSON.stringify({
+        type: MSG.colorPick,
+        color: savedColor
+      }));
+      __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
+    }
+    
     startKeepaliveLoop();
   });
 
@@ -606,6 +772,21 @@ function initNetcode() {
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
       // eslint-disable-next-line no-console
       console.log("[net] hello processed, youConnId=" + youConnId);
+      
+      // Only count other human players as taking a color; NPCs don't block the picker
+      if (Array.isArray(msg.slots)) {
+        const takenColors = msg.slots
+          .filter((s) => s && s.kind === "human" && s.connId !== youConnId)
+          .map((s) => s.color);
+        const availableColors = PALETTE.filter((c) => !takenColors.includes(c));
+        renderColorPicker(availableColors);
+      }
+      
+      // Update 3D cart materials with initial colors
+      updateCartMaterialsFromSlots(msg.slots);
+      
+      // Update HUD colors with initial colors
+      updateHudColorsFromSlots(msg.slots);
       return;
     }
 
@@ -635,6 +816,19 @@ function initNetcode() {
           if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
         }
         console.log("[net] slots updated", JSON.stringify(msg.slots));
+        
+        // Only count other human players as taking a color; NPCs don't block the picker
+        const takenColors = msg.slots
+          .filter((s) => s && s.kind === "human" && s.connId !== youConnId)
+          .map((s) => s.color);
+        const availableColors = PALETTE.filter((c) => !takenColors.includes(c));
+        renderColorPicker(availableColors);
+        
+        // Update 3D cart materials with new colors
+        updateCartMaterialsFromSlots(msg.slots);
+        
+        // Update HUD colors with new colors
+        updateHudColorsFromSlots(msg.slots);
       } else {
         console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
       }
@@ -1078,8 +1272,8 @@ async function main() {
     for (let i = 0; i < 4; i += 1) {
       const box = document.createElement("div");
       box.className = "hud-scoreBox";
-      box.style.background = getSlotColor(i);
-
+      // Initial color class will be set when slots are received
+      
       const label = document.createElement("div");
       label.className = "hud-scoreLabel";
       label.textContent = `P${i + 1}`;
@@ -1301,6 +1495,18 @@ async function main() {
     subtitle.textContent = "SHOPPING CART ARENA";
     menu.appendChild(subtitle);
     
+    // Color picker container - reuse existing if already created by renderColorPicker
+    let colorPickerContainer = document.getElementById("color-picker-container");
+    if (!colorPickerContainer) {
+      colorPickerContainer = document.createElement("div");
+      colorPickerContainer.id = "color-picker-container";
+      colorPickerContainer.className = "color-picker-container";
+    }
+    // Make sure it's in the menu (renderColorPicker might have put it on body)
+    if (!menu.contains(colorPickerContainer)) {
+      menu.appendChild(colorPickerContainer);
+    }
+    
     // Step 10c: Username field
     const usernameInput = document.createElement("input");
     usernameInput.type = "text";
@@ -1343,7 +1549,12 @@ async function main() {
     soloBtn.textContent = "Solo";
     soloBtn.addEventListener("click", () => {
       console.log("Clicked Solo");
+      const roomId = `solo-${Math.random().toString(36).substring(2, 8)}`;
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', roomId);
+      history.pushState({}, '', url);
       hideMenu();
+      initNetcode();
     });
     buttons.appendChild(soloBtn);
     
@@ -1353,7 +1564,11 @@ async function main() {
     quickplayBtn.textContent = "Quickplay";
     quickplayBtn.addEventListener("click", () => {
       console.log("Clicked Quickplay");
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', 'quickplay');
+      history.pushState({}, '', url);
       hideMenu();
+      initNetcode();
     });
     buttons.appendChild(quickplayBtn);
     
@@ -1361,9 +1576,33 @@ async function main() {
     const friendsBtn = document.createElement("button");
     friendsBtn.className = "menu-button menu-button-friends";
     friendsBtn.textContent = "Friends";
-    friendsBtn.addEventListener("click", () => {
+    friendsBtn.addEventListener("click", async () => {
       console.log("Clicked Friends");
+      const roomId = `party-${Math.random().toString(36).substring(2, 8)}`;
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', roomId);
+      history.pushState({}, '', url);
+      
+      // Copy link to clipboard
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        // Show temporary "LINK COPIED" feedback
+        const originalText = friendsBtn.textContent;
+        friendsBtn.textContent = "LINK COPIED!";
+        friendsBtn.style.color = "#8dff2b";
+        friendsBtn.style.borderColor = "#8dff2b";
+        
+        setTimeout(() => {
+          friendsBtn.textContent = originalText;
+          friendsBtn.style.color = "";
+          friendsBtn.style.borderColor = "";
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy link:", err);
+      }
+      
       hideMenu();
+      initNetcode();
     });
     buttons.appendChild(friendsBtn);
     
@@ -1507,6 +1746,9 @@ async function main() {
     menu.appendChild(footer);
     
     document.body.appendChild(menu);
+    
+    // Render color picker immediately with full palette
+    renderColorPicker(PALETTE);
   }
 
   // Step 10b: Hide menu function
@@ -1529,7 +1771,8 @@ async function main() {
     }
   }
 
-  const hud = initHud();
+
+  hud = initHud();
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
 

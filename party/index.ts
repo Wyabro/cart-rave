@@ -33,6 +33,7 @@ const MSG = {
   clientInput: "client_input",
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
+  colorPick: "color_pick",
 
   // Server -> client
   hello: "hello",
@@ -41,9 +42,11 @@ const MSG = {
   slots: "slots",
   state: "state",
   round: "round",
+  joinRejected: "join_rejected",
 } as const;
 
 const PROTOCOL_VERSION = 2;
+const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 // * Activity-based connection reaper thresholds. PartyKit's onClose is not
 // * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
 // * yet detected by the runtime) so we track lastSeenAtMs per connection and
@@ -76,7 +79,7 @@ export default class Server implements Party.Server {
   #ensureInitialized() {
     if (this.#slots) return;
 
-    const colors = ["hotPink", "electricBlue", "limeGreen", "neonYellow"];
+    const colors = ["pink", "blue", "green", "yellow"];
     const npcNames = ["CartGPT", "RollBot", "WheelE", "PushPop"];
 
     this.#slots = ([0, 1, 2, 3] as SlotId[]).map((slotId) => ({
@@ -120,9 +123,13 @@ export default class Server implements Party.Server {
   }
 
   #pickNextHostId(): string | null {
-    // Oldest still-connected human wins.
     for (const id of this.#joinOrder) {
-      if (this.#connections.has(id)) return id;
+      if (
+        this.#connections.has(id) &&
+        this.#slots?.some((s) => s.connId === id && s.kind === "human")
+      ) {
+        return id;
+      }
     }
     return null;
   }
@@ -178,6 +185,11 @@ export default class Server implements Party.Server {
     // Keep last known name/color for continuity; name can be replaced later by NPC naming.
   }
 
+  #getAvailableColors(): string[] {
+    const used = new Set(this.#slots?.map((s) => s.color) ?? []);
+    return PALETTE.filter((c) => !used.has(c));
+  }
+
   // * Removes connections that haven't sent a message in REAP_TIMEOUT_MS.
   // * Intended as a safety net for when onClose doesn't fire (crash, network
   // * drop, platform bug, phantom tabs). Host handoff is delegated to
@@ -227,6 +239,11 @@ export default class Server implements Party.Server {
 
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
     this.#ensureInitialized();
+
+    if (!this.#assignHumanToSlot(conn.id)) {
+      this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
+      return;
+    }
 
     this.#connections.set(conn.id, conn);
     this.#joinOrder.push(conn.id);
@@ -284,8 +301,6 @@ export default class Server implements Party.Server {
       });
     }
 
-    this.#assignHumanToSlot(conn.id);
-
     console.log("connected to party");
     console.log(
       `party client id=${conn.id} room=${this.room.id} path=${new URL(ctx.request.url).pathname}`,
@@ -298,6 +313,7 @@ export default class Server implements Party.Server {
       ...this.#snapshot(),
       youConnId: conn.id,
       path: new URL(ctx.request.url).pathname,
+      availableColors: this.#getAvailableColors(),
     };
     console.log(
       `sending hello to conn=${conn.id} hostId=${this.#hostId} slots=${this.#slots?.length ?? 0} cartsKeys=${Object.keys(this.#carts).length} payload=${JSON.stringify(
@@ -380,6 +396,26 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         slots: this.#slots,
       });
+      return;
+    }
+
+    if (type === MSG.colorPick) {
+      const color = data?.color;
+      if (
+        typeof color === "string" &&
+        this.#getAvailableColors().includes(color)
+      ) {
+        const slot = this.#slots?.find((s) => s.connId === conn.id);
+        if (slot) {
+          slot.color = color;
+          this.#broadcastJson({
+            v: PROTOCOL_VERSION,
+            type: MSG.slots,
+            serverNowMs: this.#serverNowMs(),
+            slots: this.#slots,
+          });
+        }
+      }
       return;
     }
 

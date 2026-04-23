@@ -205,6 +205,42 @@
       width: 100%;
       z-index: 1;
     }
+
+    /* Color Picker */
+    .color-picker-container {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .color-dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+
+    .color-dot:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    }
+
+    .color-dot.selected {
+      border: 2px solid white;
+      box-shadow: 0 0 15px white;
+    }
+
+    /* HUD Color Classes */
+    .bg-pink       { background-color: #ff00ff !important; color: black !important; }
+    .bg-blue       { background-color: #00ffff !important; color: black !important; }
+    .bg-green      { background-color: #00ff00 !important; color: black !important; }
+    .bg-yellow     { background-color: #ffff00 !important; color: black !important; }
+    .bg-neonOrange { background-color: #ff6600 !important; color: black !important; }
   </style>
   <script type="importmap">
     {
