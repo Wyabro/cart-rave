@@ -2356,9 +2356,9 @@ async function main() {
   composer.addPass(new RenderPass(scene, camera));
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.8,
-    0.2,
-    0.85,
+    1.2,
+    0.35,
+    0.3,
   );
   composer.addPass(bloomPass);
 
@@ -2439,7 +2439,7 @@ async function main() {
   const spotlightEntries = [];
   const spotlightPositionRadius = CONFIG.record.radius * 0.7;
   const spotlightHeight = 25;
-  const spotlightIntensity = 66;
+  const spotlightIntensity = 110;
   const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
   const spotlightConfigs = [
     { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
