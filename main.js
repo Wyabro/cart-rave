@@ -1673,7 +1673,7 @@ async function main() {
           masterGain = 0.5;
           localStorage.setItem("cartRaveVolume", "50");
         }
-        if (typeof audioListener !== "undefined" && audioListener) applyAudioVolume();
+        try { applyAudioVolume(); } catch(e) {}
         syncMenuVolume();
       });
     }
@@ -1692,7 +1692,7 @@ async function main() {
           isMuted = true;
           localStorage.setItem("cartRaveMuted", "true");
         }
-        if (typeof audioListener !== "undefined" && audioListener) applyAudioVolume();
+        try { applyAudioVolume(); } catch(e) {}
         syncMenuVolume();
       });
     }
@@ -1702,7 +1702,7 @@ async function main() {
     if (savedVol !== null) masterGain = parseInt(savedVol, 10) / 100;
     const savedMute = localStorage.getItem("cartRaveMuted");
     if (savedMute === "true") isMuted = true;
-    if (typeof audioListener !== "undefined" && audioListener) applyAudioVolume();
+    try { applyAudioVolume(); } catch(e) {}
     syncMenuVolume();
   }
 
