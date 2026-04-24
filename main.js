@@ -2416,7 +2416,7 @@ async function main() {
   const spotlightConeAxisY = new THREE.Vector3(0, 1, 0);
 
   function addSpotlightWithCone({ color, position, intensity, target }) {
-    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 7, 0.2, 1.1);
+    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 8.75, 0.2, 1.1);
     light.position.copy(position);
     light.target.position.set(target.x, platformTopY, target.z);
     scene.add(light);
@@ -2450,7 +2450,7 @@ async function main() {
   const spotlightEntries = [];
   const spotlightPositionRadius = CONFIG.record.radius * 0.7;
   const spotlightHeight = 25;
-  const spotlightIntensity = 25;
+  const spotlightIntensity = 12;
   const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
   const spotlightConfigs = [
     { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
