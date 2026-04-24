@@ -2450,7 +2450,7 @@ async function main() {
   const spotlightEntries = [];
   const spotlightPositionRadius = CONFIG.record.radius * 0.7;
   const spotlightHeight = 25;
-  const spotlightIntensity = 55;
+  const spotlightIntensity = 25;
   const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
   const spotlightConfigs = [
     { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
