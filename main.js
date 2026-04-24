@@ -492,8 +492,8 @@ let allCartsRef = null;
 let getAxisRef = null;
 /** @type {(cart: any, nowMs: number) => void | null} */
 let triggerRamBoostRef = null;
-/** @type {(() => void) | null} */
-let updateNameLabelsRef = null;
+/** @type {{ current: (() => void) | null }} */
+const updateNameLabelsRef = { current: null };
 
 function colorHexForSlot(slot) {
   if (!slot) return 0x888888;
@@ -833,7 +833,7 @@ function initNetcode(roomOverride) {
       
       // Update HUD colors with initial colors
       updateHudColorsFromSlots(msg.slots);
-      updateNameLabelsRef?.();
+      updateNameLabelsRef.current?.();
       return;
     }
 
@@ -876,7 +876,7 @@ function initNetcode(roomOverride) {
         
         // Update HUD colors with new colors
         updateHudColorsFromSlots(msg.slots);
-        updateNameLabelsRef?.();
+        updateNameLabelsRef.current?.();
       } else {
         console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
       }
@@ -1203,6 +1203,10 @@ async function main() {
   let menuMusicEl = null;
   let startMenuMusic = () => {};
   let stopMenuMusic = () => {};
+  let musicEl = null;
+  let musicStarted = false;
+  let musicUnavailable = false;
+  let tryStartAmbientMusic = () => {};
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -1901,7 +1905,7 @@ async function main() {
       pendingInviteRoomFromUrl = null;
       document.getElementById("cr-btn-join-invite")?.remove();
       if (action === "solo") {
-        const roomId = `solo-${Math.random().toString(36).substring(2, 8)}`;
+        const roomId = `solo${Math.random().toString(36).substring(2, 8)}`;
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
@@ -1914,7 +1918,7 @@ async function main() {
         hideMenu();
         initNetcode();
       } else if (action === "friends") {
-        const roomId = `party-${Math.random().toString(36).substring(2, 8)}`;
+        const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
@@ -2078,19 +2082,25 @@ async function main() {
         }
       }, 30);
     }
-    // Start game music with fade in
-    musicEl.volume = 0;
-    musicEl.muted = isMuted;
-    tryStartAmbientMusic();
-    const targetVol = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-    const fadeIn = setInterval(() => {
-      if (musicEl.volume < targetVol - 0.015) {
-        musicEl.volume = Math.min(targetVol, musicEl.volume + 0.015);
-      } else {
-        musicEl.volume = targetVol;
-        clearInterval(fadeIn);
-      }
-    }, 30);
+    // Start game music with fade in once the game audio element exists.
+    if (musicEl) {
+      musicEl.volume = 0;
+      musicEl.muted = isMuted;
+      tryStartAmbientMusic();
+      const targetVol = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+      const fadeIn = setInterval(() => {
+        if (!musicEl) {
+          clearInterval(fadeIn);
+          return;
+        }
+        if (musicEl.volume < targetVol - 0.015) {
+          musicEl.volume = Math.min(targetVol, musicEl.volume + 0.015);
+        } else {
+          musicEl.volume = targetVol;
+          clearInterval(fadeIn);
+        }
+      }, 30);
+    }
   }
 
   function refreshMenuStats() {
@@ -3183,17 +3193,19 @@ async function main() {
       const colorCSS = colorHex ? "#" + colorHex.toString(16).padStart(6, "0") : "#ffffff";
 
       if (nameSprites[i]) {
-        // Update existing sprite text if name changed
-        if (nameSprites[i]._labelText !== name) {
+        // Update existing sprite when server slot data changes name or color.
+        if (nameSprites[i]._labelText !== name || nameSprites[i]._labelColor !== colorCSS) {
           scene.remove(nameSprites[i]);
           const sp = makeNameSprite(name, colorCSS);
           sp._labelText = name;
+          sp._labelColor = colorCSS;
           scene.add(sp);
           nameSprites[i] = sp;
         }
       } else {
         const sp = makeNameSprite(name, colorCSS);
         sp._labelText = name;
+        sp._labelColor = colorCSS;
         scene.add(sp);
         nameSprites[i] = sp;
       }
@@ -3211,7 +3223,8 @@ async function main() {
     }
   }
 
-  updateNameLabelsRef = updateNameLabels;
+  updateNameLabelsRef.current = updateNameLabels;
+  updateNameLabels();
 
   getAxisRef = getAxis;
   triggerRamBoostRef = triggerRamBoost;
@@ -3538,13 +3551,11 @@ async function main() {
   );
 
   const musicUrl = new URL("sounds/music.mp3", window.location.href).toString();
-  const musicEl = new Audio();
+  musicEl = new Audio();
   musicEl.loop = true;
   musicEl.volume = CONFIG.audio.musicVolume * masterGain;
   musicEl.preload = "auto";
   musicEl.src = musicUrl;
-  let musicStarted = false;
-  let musicUnavailable = false;
   musicEl.addEventListener("error", () => {
     musicUnavailable = true;
   });
@@ -3606,7 +3617,7 @@ async function main() {
       audioListener.setMasterVolume(isMuted ? 0 : masterGain);
     }
     // Apply mute state to HTML audio element
-    musicEl.muted = isMuted;
+    if (musicEl) musicEl.muted = isMuted;
     if (menuMusicEl) {
       menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
       menuMusicEl.muted = isMuted;
@@ -3616,8 +3627,8 @@ async function main() {
   // Initialize audio with saved settings
   applyAudioVolume();
 
-  function tryStartAmbientMusic() {
-    if (musicStarted || musicUnavailable) return;
+  tryStartAmbientMusic = function () {
+    if (!musicEl || musicStarted || musicUnavailable) return;
     void musicEl.play().then(
       () => {
         musicStarted = true;
@@ -3626,7 +3637,7 @@ async function main() {
         // * Autoplay may block until a gesture; missing file sets musicUnavailable.
       },
     );
-  }
+  };
 
   function unlockAudioAndMaybeStartMusic() {
     void audioListener.context.resume();
