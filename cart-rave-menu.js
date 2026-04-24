@@ -59,6 +59,9 @@
     return `${a}${b}${n}`;
   };
 
+  // * Game color IDs in slot order — must match PALETTE = Object.keys(CART_COLORS) in main.js.
+  const PALETTE_GAME = ['pink', 'blue', 'green', 'yellow', 'neonOrange'];
+
   // ─── State ────────────────────────────────────────────────────────────────
   const state = {
     palette: PALETTES[CONFIG.palette] || PALETTES.classic,
@@ -189,6 +192,7 @@
     colorRow.querySelectorAll('.cr-color-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         state.playerIdx = parseInt(chip.dataset.idx, 10);
+        localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
         buildColorChips();
         renderCart();
         applyPalette();
@@ -372,6 +376,15 @@
   scanEl.style.opacity = 0.05 + CONFIG.intensity * 0.01;
 
   // ─── Init ─────────────────────────────────────────────────────────────────
+  // Restore the player's last chosen color, or seed localStorage with the default.
+  const _savedGameColor = localStorage.getItem('cartRaveColor');
+  const _savedColorIdx = PALETTE_GAME.indexOf(_savedGameColor);
+  if (_savedColorIdx >= 0) {
+    state.playerIdx = _savedColorIdx;
+  } else {
+    localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
+  }
+
   buildSpotlights();
   buildParticles();
   buildColorChips();

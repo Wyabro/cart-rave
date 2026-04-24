@@ -39,118 +39,10 @@ const CART_COLORS = {
 };
 const PALETTE = Object.keys(CART_COLORS);
 
-function renderColorPicker(availableColors) {
-  // * Guard: if player already has a confirmed slot or has already clicked a color, keep the picker hidden.
-  if (_localColorPicked) {
-    const existing = document.getElementById('color-picker-container');
-    if (existing) existing.style.display = 'none';
-    return;
-  }
-  const alreadyInSlot = netSlots.some(
-    (s) => s && s.connId === youConnId && s.kind === 'human',
-  );
-  if (alreadyInSlot) {
-    const existing = document.getElementById('color-picker-container');
-    if (existing) existing.style.display = 'none';
-    return;
-  }
-
-  // * Fullscreen fixed overlay — independent of menu visibility so it works
-  // * whether the menu is still fading out or already hidden.
-  let container = document.getElementById('color-picker-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'color-picker-container';
-    document.body.appendChild(container);
-  }
-
-  Object.assign(container.style, {
-    position: 'fixed',
-    top: '0',
-    left: '0',
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(0,0,0,0.85)',
-    zIndex: '99999',
-  });
-
-  container.innerHTML = '';
-
-  const label = document.createElement('div');
-  label.textContent = 'CHOOSE YOUR COLOR';
-  Object.assign(label.style, {
-    color: '#ffffff',
-    fontFamily: '"Bungee", monospace',
-    fontSize: '20px',
-    letterSpacing: '4px',
-    marginBottom: '28px',
-    textShadow: '0 0 18px #ff2bd6',
-    userSelect: 'none',
-  });
-  container.appendChild(label);
-
-  const row = document.createElement('div');
-  Object.assign(row.style, {
-    display: 'flex',
-    gap: '20px',
-    alignItems: 'center',
-  });
-  container.appendChild(row);
-
-  const savedColor = localStorage.getItem('cartRaveColor');
-
-  PALETTE.forEach((colorId) => {
-    const hex = cssHexFromRgbNumber(CART_COLORS[colorId]?.hex);
-    const isAvailable = availableColors.includes(colorId);
-
-    const btn = document.createElement('button');
-    btn.className = 'color-dot';
-    btn.dataset.colorId = colorId;
-    Object.assign(btn.style, {
-      width: '60px',
-      height: '60px',
-      borderRadius: '50%',
-      background: hex,
-      border: colorId === savedColor ? '3px solid #ffffff' : '3px solid transparent',
-      boxShadow: `0 0 20px ${hex}`,
-      cursor: isAvailable ? 'pointer' : 'not-allowed',
-      opacity: isAvailable ? '1' : '0.3',
-      outline: 'none',
-      transition: 'transform 0.1s, box-shadow 0.1s',
-    });
-    btn.disabled = !isAvailable;
-
-    if (isAvailable) {
-      btn.addEventListener('mouseover', () => {
-        btn.style.transform = 'scale(1.18)';
-        btn.style.boxShadow = `0 0 36px ${hex}, 0 0 8px #fff`;
-      });
-      btn.addEventListener('mouseout', () => {
-        btn.style.transform = 'scale(1)';
-        btn.style.boxShadow = `0 0 20px ${hex}`;
-      });
-      btn.addEventListener('click', () => {
-        localStorage.setItem('cartRaveColor', colorId);
-        _localColorPicked = true;
-        container.style.display = 'none';
-
-        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-          partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorId }));
-          __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
-        }
-
-        // * Hide the menu (if still visible) now that the player has committed to a color.
-        if (menuVisible) hideMenuRef?.();
-      });
-    }
-
-    row.appendChild(btn);
-  });
-}
+// * Menu color picker (cart-rave-menu.js) is the only color selection UI.
+// * Color is auto-submitted on hello receipt using localStorage cartRaveColor.
+// eslint-disable-next-line no-unused-vars
+function renderColorPicker(_availableColors) {}
 
 const CONFIG = {
   canvasId: "game",
@@ -923,16 +815,19 @@ function initNetcode(roomOverride) {
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
       // eslint-disable-next-line no-console
       console.log("[net] hello processed, youConnId=" + youConnId);
-      
-      // Only count other human players as taking a color; NPCs don't block the picker
-      if (Array.isArray(msg.slots)) {
-        const takenColors = msg.slots
-          .filter((s) => s && s.kind === "human" && s.connId !== youConnId)
-          .map((s) => s.color);
-        const availableColors = PALETTE.filter((c) => !takenColors.includes(c));
-        renderColorPicker(availableColors);
+
+      // * Auto-submit color picked on the menu. Only fires when the player deliberately
+      // * joined (menuVisible is false because hideMenu() was called in the mode handler).
+      if (!menuVisible) {
+        const savedColor = localStorage.getItem('cartRaveColor');
+        const colorToSend = (savedColor && PALETTE.includes(savedColor)) ? savedColor : PALETTE[0];
+        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+          partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
+          __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
+        }
+        hideMenuRef?.();
       }
-      
+
       // Update 3D cart materials with initial colors
       updateCartMaterialsFromSlots(msg.slots);
       
