@@ -1612,6 +1612,20 @@ async function main() {
   // Step 10b: Menu initialization
   function initMenu() {
     menuVisible = true;
+    // Fade out game music, fade in menu music
+    try {
+      if (musicEl && !musicEl.paused) {
+        const fadeOut = setInterval(() => {
+          if (musicEl.volume > 0.02) {
+            musicEl.volume = Math.max(0, musicEl.volume - 0.02);
+          } else {
+            clearInterval(fadeOut);
+            musicEl.pause();
+            musicEl.currentTime = 0;
+          }
+        }, 30);
+      }
+    } catch (e) {}
     try { startMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
@@ -1722,7 +1736,31 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
-    try { stopMenuMusic(); } catch (e) {}
+    // Crossfade: fade out menu music, fade in game music
+    if (menuMusicEl) {
+      const fadeOut = setInterval(() => {
+        if (menuMusicEl.volume > 0.02) {
+          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.02);
+        } else {
+          clearInterval(fadeOut);
+          menuMusicEl.pause();
+          menuMusicEl.currentTime = 0;
+        }
+      }, 30);
+    }
+    // Start game music with fade in
+    musicEl.volume = 0;
+    musicEl.muted = isMuted;
+    tryStartAmbientMusic();
+    const targetVol = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+    const fadeIn = setInterval(() => {
+      if (musicEl.volume < targetVol - 0.02) {
+        musicEl.volume = Math.min(targetVol, musicEl.volume + 0.02);
+      } else {
+        musicEl.volume = targetVol;
+        clearInterval(fadeIn);
+      }
+    }, 30);
   }
 
   function refreshMenuStats() {
@@ -3034,7 +3072,7 @@ async function main() {
   const musicUrl = new URL("sounds/music.mp3", window.location.href).toString();
   const musicEl = new Audio();
   musicEl.loop = true;
-  musicEl.volume = CONFIG.audio.musicVolume;
+  musicEl.volume = CONFIG.audio.musicVolume * masterGain;
   musicEl.preload = "auto";
   musicEl.src = musicUrl;
   let musicStarted = false;
