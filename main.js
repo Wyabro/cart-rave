@@ -4058,7 +4058,7 @@ async function main() {
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
     if (boothNeonMeshes.length > 0) {
-      const t = (Math.sin(nowMs * 0.001 * Math.PI * 2 * CONFIG.booth.neonCycleSpeed) + 1) / 2;
+      const t = (Math.sin(performance.now() * 0.001 * Math.PI * 2 * CONFIG.booth.neonCycleSpeed) + 1) / 2;
       const c1 = new THREE.Color(CONFIG.booth.neonColor1);
       const c2 = new THREE.Color(CONFIG.booth.neonColor2);
       const mixed = c1.clone().lerp(c2, t);
