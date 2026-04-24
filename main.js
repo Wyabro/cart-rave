@@ -276,13 +276,13 @@ const CONFIG = {
     platformThickness: 0.6,    // slab height
 
     // Ramp (slopes from platform front edge down toward arena)
-    rampLength: 12.0,          // how far the ramp extends toward the arena
+    rampLength: 0,             // how far the ramp extends toward the arena
     rampWidth: 5.0,            // slightly narrower than platform
     rampEndY: 0.1,             // bottom of ramp — almost flush with record surface, not touching
     rampThickness: 0.3,
 
     // Gap — distance from ramp bottom edge to arena outer rim
-    gapDistance: 2.0,
+    gapDistance: 1.5,
 
     // Railings
     railHeight: 1.8,
@@ -2558,48 +2558,6 @@ async function main() {
         platBody,
       );
 
-      // ===== RAMP =====
-      const rampRise = topY - B.rampEndY;
-      const rampHyp = Math.sqrt(B.rampLength * B.rampLength + rampRise * rampRise);
-      const rampPitch = Math.atan2(rampRise, B.rampLength);
-
-      const rampGeo = new THREE.BoxGeometry(B.rampWidth, B.rampThickness, rampHyp);
-      const rampMat = new THREE.MeshStandardMaterial({
-        color: 0x1a1a2e,
-        roughness: 0.8,
-        metalness: 0.2,
-      });
-      const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-      const rampCenterLocalZ = -(B.platformDepth / 2) - B.rampLength / 2;
-      const rampCenterY = (topY + B.rampEndY) / 2;
-      rampMesh.position.set(0, rampCenterY, rampCenterLocalZ);
-      rampMesh.rotation.x = -rampPitch;
-      boothGroup.add(rampMesh);
-
-      // Ramp collider (world space)
-      const cosYaw = Math.cos(yaw);
-      const sinYaw = Math.sin(yaw);
-      const rampWorldX = cx + rampCenterLocalZ * sinYaw;
-      const rampWorldZ = cz + rampCenterLocalZ * cosYaw;
-      const rampBody = world.createRigidBody(
-        RAPIER.RigidBodyDesc.fixed().setTranslation(rampWorldX, rampCenterY, rampWorldZ),
-      );
-      const cyaw = Math.cos(yaw / 2);
-      const syaw = Math.sin(yaw / 2);
-      const cp = Math.cos(rampPitch / 2);
-      const sp = Math.sin(rampPitch / 2);
-      rampBody.setRotation({
-        x: cyaw * (-sp),
-        y: syaw * cp,
-        z: -syaw * (-sp),
-        w: cyaw * cp,
-      }, true);
-      world.createCollider(
-        RAPIER.ColliderDesc.cuboid(B.rampWidth / 2, B.rampThickness / 2, rampHyp / 2)
-          .setFriction(B.friction)
-          .setRestitution(B.restitution),
-        rampBody,
-      );
 
       // ===== NEON EDGE STRIPS (platform perimeter) =====
       const pw = B.platformWidth / 2;
@@ -2619,35 +2577,6 @@ async function main() {
         boothNeonMeshes.push(tube);
       }
 
-      // ===== NEON RAMP EDGE STRIPS =====
-      const rampFrontZ = -(pd + B.rampLength);
-      const rampFrontY = B.rampEndY;
-      const rampBackZ = -pd;
-      const rampBackY = topY;
-
-      const lramp = makeNeonTube(
-        new THREE.Vector3(-B.rampWidth / 2, rampBackY, rampBackZ),
-        new THREE.Vector3(-B.rampWidth / 2, rampFrontY, rampFrontZ),
-        edgeR, accentColor,
-      );
-      boothGroup.add(lramp);
-      boothNeonMeshes.push(lramp);
-
-      const rramp = makeNeonTube(
-        new THREE.Vector3(B.rampWidth / 2, rampBackY, rampBackZ),
-        new THREE.Vector3(B.rampWidth / 2, rampFrontY, rampFrontZ),
-        edgeR, accentColor,
-      );
-      boothGroup.add(rramp);
-      boothNeonMeshes.push(rramp);
-
-      const framp = makeNeonTube(
-        new THREE.Vector3(-B.rampWidth / 2, rampFrontY, rampFrontZ),
-        new THREE.Vector3(B.rampWidth / 2, rampFrontY, rampFrontZ),
-        edgeR, accentColor,
-      );
-      boothGroup.add(framp);
-      boothNeonMeshes.push(framp);
 
       // ===== SIDE RAILINGS (platform only) =====
       const rh = B.railHeight;
