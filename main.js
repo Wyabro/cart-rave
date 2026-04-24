@@ -1616,8 +1616,8 @@ async function main() {
     try {
       if (musicEl && !musicEl.paused) {
         const fadeOut = setInterval(() => {
-          if (musicEl.volume > 0.02) {
-            musicEl.volume = Math.max(0, musicEl.volume - 0.02);
+          if (musicEl.volume > 0.015) {
+            musicEl.volume = Math.max(0, musicEl.volume - 0.015);
           } else {
             clearInterval(fadeOut);
             musicEl.pause();
@@ -1739,8 +1739,8 @@ async function main() {
     // Crossfade: fade out menu music, fade in game music
     if (menuMusicEl) {
       const fadeOut = setInterval(() => {
-        if (menuMusicEl.volume > 0.02) {
-          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.02);
+        if (menuMusicEl.volume > 0.015) {
+          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.015);
         } else {
           clearInterval(fadeOut);
           menuMusicEl.pause();
@@ -1754,8 +1754,8 @@ async function main() {
     tryStartAmbientMusic();
     const targetVol = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
     const fadeIn = setInterval(() => {
-      if (musicEl.volume < targetVol - 0.02) {
-        musicEl.volume = Math.min(targetVol, musicEl.volume + 0.02);
+      if (musicEl.volume < targetVol - 0.015) {
+        musicEl.volume = Math.min(targetVol, musicEl.volume + 0.015);
       } else {
         musicEl.volume = targetVol;
         clearInterval(fadeIn);
