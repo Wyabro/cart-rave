@@ -491,40 +491,72 @@ html, body {
 
 .cr-portal {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 12px 24px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 2px solid #2bff7a;
-  border-radius: 6px;
-  cursor: pointer;
+  gap: 8px;
   text-decoration: none;
-  transition: transform 120ms ease, box-shadow 180ms ease;
-  box-shadow: 0 0 12px #2bff7a, 0 0 28px rgba(43, 255, 122, 0.4);
-  position: relative;
-  overflow: hidden;
+  cursor: pointer;
+  transition: transform 200ms ease;
+  margin-bottom: 8px;
 }
 .cr-portal:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 0 20px #2bff7a, 0 0 44px #2bff7a;
+  transform: scale(1.08);
 }
 .cr-portal-swirl {
-  width: 36px;
-  height: 36px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #2bff7a, #0a4a2a, #2bff7a, #0a4a2a, #2bff7a);
-  animation: cr-swirl-spin 2s linear infinite;
-  box-shadow: 0 0 12px #2bff7a, 0 0 24px rgba(43, 255, 122, 0.5);
-  flex-shrink: 0;
+  background: conic-gradient(from 0deg, #2bff7a, #0a2a1a, #00ff88, #003a20, #2bff7a, #0a4a2a, #00ffaa, #002a15, #2bff7a);
+  animation: cr-swirl-spin 1.5s linear infinite;
+  box-shadow: 0 0 20px #2bff7a, 0 0 40px rgba(43, 255, 122, 0.5), 0 0 60px rgba(43, 255, 122, 0.25), inset 0 0 20px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+.cr-portal-swirl::after {
+  content: "";
+  position: absolute;
+  top: 15%;
+  left: 15%;
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, #00ff88, #002a15, #2bff7a, #0a2a1a, #00ffaa, #003a20, #2bff7a);
+  animation: cr-swirl-spin-reverse 2.2s linear infinite;
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
+}
+.cr-portal-swirl::before {
+  content: "";
+  position: absolute;
+  top: 35%;
+  left: 35%;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #000 0%, #001a0a 60%, #002a15 100%);
+  z-index: 2;
+  box-shadow: 0 0 10px #000, 0 0 20px rgba(0, 40, 20, 0.8);
 }
 @keyframes cr-swirl-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+@keyframes cr-swirl-spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
 .cr-portal-label {
   font-family: var(--display);
-  font-size: 18px;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  letter-spacing: 0.15em;
   color: #2bff7a;
-  text-shadow: 0 0 12px #2bff7a, 0 0 28px #2bff7a;
+  text-shadow: 0 0 8px #2bff7a;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.cr-portal:hover .cr-portal-label {
+  opacity: 1;
+}
+@media (hover: none) {
+  .cr-portal-label {
+    opacity: 1;
+  }
 }
