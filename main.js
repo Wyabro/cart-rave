@@ -2448,7 +2448,7 @@ async function main() {
     function makeTruss(height, baseY, color) {
       const trussGroup = new THREE.Group();
       const legW = 0.12;
-      const trussW = 0.8;
+      const trussW = 0.45;
       const legMat = new THREE.MeshStandardMaterial({
         color: 0x888899, roughness: 0.5, metalness: 0.7,
       });
@@ -2570,10 +2570,10 @@ async function main() {
         metalness: 0.2,
       });
       const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-      const rampCenterLocalZ = -(B.platformDepth / 2) - B.rampLength / 2;
+      const rampCenterLocalZ = (B.platformDepth / 2) + B.rampLength / 2;
       const rampCenterY = (topY + B.rampEndY) / 2;
       rampMesh.position.set(0, rampCenterY, rampCenterLocalZ);
-      rampMesh.rotation.x = rampPitch;
+      rampMesh.rotation.x = -rampPitch;
       boothGroup.add(rampMesh);
 
       // Ramp collider (world space)
@@ -2589,9 +2589,9 @@ async function main() {
       const cp = Math.cos(rampPitch / 2);
       const sp = Math.sin(rampPitch / 2);
       rampBody.setRotation({
-        x: cyaw * sp,
+        x: cyaw * (-sp),
         y: syaw * cp,
-        z: -syaw * sp,
+        z: -syaw * (-sp),
         w: cyaw * cp,
       }, true);
       world.createCollider(
@@ -2605,7 +2605,7 @@ async function main() {
       const pw = B.platformWidth / 2;
       const pd = B.platformDepth / 2;
       const edgeY = topY + B.platformThickness / 2 + 0.02;
-      const edgeR = 0.06;
+      const edgeR = 0.035;
 
       const platformEdges = [
         [new THREE.Vector3(-pw, edgeY, -pd), new THREE.Vector3(pw, edgeY, -pd)],
@@ -2620,9 +2620,9 @@ async function main() {
       }
 
       // ===== NEON RAMP EDGE STRIPS =====
-      const rampFrontZ = -pd - B.rampLength;
+      const rampFrontZ = pd + B.rampLength;
       const rampFrontY = B.rampEndY;
-      const rampBackZ = -pd;
+      const rampBackZ = pd;
       const rampBackY = topY;
 
       const lramp = makeNeonTube(
@@ -2700,7 +2700,7 @@ async function main() {
       boothNeonMeshes.push(rtop);
 
       // ===== TRUSS TOWERS (4 corners of platform) =====
-      const trussHeight = 10;
+      const trussHeight = 6;
       const trussBaseY = railBaseY;
       const trussOffsets = [
         [-pw + 0.5, -pd + 0.5],
