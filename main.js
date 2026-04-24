@@ -1607,350 +1607,74 @@ async function main() {
 
   // Step 10b: Menu initialization
   function initMenu() {
-    // Create menu container
-    const menu = document.createElement("div");
-    menu.id = "menu";
-    
-    // Create animated SVG background
-    const svgBg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svgBg.id = "menu-bg";
-    svgBg.setAttribute("viewBox", "0 0 100 100");
-    svgBg.setAttribute("preserveAspectRatio", "xMidYMid slice");
-    
-    // Add animated circles to SVG
-    const circles = [];
-    for (let i = 0; i < 8; i++) {
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      const radius = 2 + Math.random() * 4;
-      const cx = 10 + Math.random() * 80;
-      const cy = 10 + Math.random() * 80;
-      const color = i % 4 === 0 ? "#ff2bd6" : i % 4 === 1 ? "#2bd6ff" : i % 4 === 2 ? "#8dff2b" : "#ffee00";
-      
-      circle.setAttribute("cx", cx);
-      circle.setAttribute("cy", cy);
-      circle.setAttribute("r", radius);
-      circle.setAttribute("fill", color);
-      circle.setAttribute("opacity", "0.3");
-      
-      // Add animation
-      const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
-      animate.setAttribute("attributeName", "r");
-      animate.setAttribute("values", `${radius};${radius * 1.5};${radius}`);
-      animate.setAttribute("dur", `${3 + Math.random() * 4}s`);
-      animate.setAttribute("repeatCount", "indefinite");
-      circle.appendChild(animate);
-      
-      svgBg.appendChild(circle);
-      circles.push(circle);
+    menuVisible = true;
+    const wrap = document.getElementById("cr-root");
+    if (wrap) {
+      wrap.style.display = "";
+      wrap.style.opacity = "1";
+      wrap.style.pointerEvents = "";
     }
-    
-    menu.appendChild(svgBg);
-    
-    // Create title
-    const title = document.createElement("div");
-    title.className = "menu-title";
-    title.textContent = "CART RAVE";
-    menu.appendChild(title);
-    
-    const subtitle = document.createElement("div");
-    subtitle.className = "menu-subtitle";
-    subtitle.textContent = "SHOPPING CART ARENA";
-    menu.appendChild(subtitle);
-    
-    // Color picker container - reuse existing if already created by renderColorPicker
-    let colorPickerContainer = document.getElementById("color-picker-container");
-    if (!colorPickerContainer) {
-      colorPickerContainer = document.createElement("div");
-      colorPickerContainer.id = "color-picker-container";
-      colorPickerContainer.className = "color-picker-container";
-    }
-    // Make sure it's in the menu (renderColorPicker might have put it on body)
-    if (!menu.contains(colorPickerContainer)) {
-      menu.appendChild(colorPickerContainer);
-    }
-    
-    // Step 10c: Username field
-    const usernameInput = document.createElement("input");
-    usernameInput.type = "text";
-    usernameInput.placeholder = "ENTER USERNAME";
-    usernameInput.style.cssText = `
-      background: transparent;
-      border: 2px solid #8dff2b;
-      color: white;
-      text-align: center;
-      text-transform: uppercase;
-      font-family: system-ui, sans-serif;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      width: 300px;
-      outline: none;
-      font-size: 1rem;
-      letter-spacing: 0.1em;
-    `;
-    
-    // Load saved username from localStorage
-    const savedName = localStorage.getItem('cartRaveUsername');
-    if (savedName) {
-      usernameInput.value = savedName;
-    }
-    
-    // Save username to localStorage on input
-    usernameInput.addEventListener('input', () => {
-      localStorage.setItem('cartRaveUsername', usernameInput.value.trim());
-    });
-    
-    menu.appendChild(usernameInput);
-    
-    // Create button container
-    const buttons = document.createElement("div");
-    buttons.className = "menu-buttons";
-    
-    // Solo button
-    const soloBtn = document.createElement("button");
-    soloBtn.className = "menu-button menu-button-solo";
-    soloBtn.textContent = "Solo";
-    soloBtn.addEventListener("click", () => {
-      console.log("Clicked Solo");
-      const roomId = `solo-${Math.random().toString(36).substring(2, 8)}`;
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', roomId);
-      history.pushState({}, '', url);
-      hideMenu();
-      initNetcode();
-    });
-    buttons.appendChild(soloBtn);
-    
-    // Quickplay button
-    const quickplayBtn = document.createElement("button");
-    quickplayBtn.className = "menu-button menu-button-quickplay";
-    quickplayBtn.textContent = "Quickplay";
-    quickplayBtn.addEventListener("click", () => {
-      console.log("Clicked Quickplay");
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', 'quickplay');
-      history.pushState({}, '', url);
-      hideMenu();
-      initNetcode();
-    });
-    buttons.appendChild(quickplayBtn);
-    
-    // Friends button
-    const friendsBtn = document.createElement("button");
-    friendsBtn.className = "menu-button menu-button-friends";
-    friendsBtn.textContent = "Friends";
-    friendsBtn.addEventListener("click", async () => {
-      console.log("Clicked Friends");
-      const roomId = `party-${Math.random().toString(36).substring(2, 8)}`;
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', roomId);
-      history.pushState({}, '', url);
-      
-      // Copy link to clipboard
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        // Show temporary "LINK COPIED" feedback
-        const originalText = friendsBtn.textContent;
-        friendsBtn.textContent = "LINK COPIED!";
-        friendsBtn.style.color = "#8dff2b";
-        friendsBtn.style.borderColor = "#8dff2b";
-        
-        setTimeout(() => {
-          friendsBtn.textContent = originalText;
-          friendsBtn.style.color = "";
-          friendsBtn.style.borderColor = "";
-        }, 2000);
-      } catch (err) {
-        console.error("Failed to copy link:", err);
-      }
-      
-      hideMenu();
-      initNetcode();
-    });
-    buttons.appendChild(friendsBtn);
-    
-    // Vibe Jam button
-    const vibejamBtn = document.createElement("button");
-    vibejamBtn.className = "menu-button menu-button-vibejam";
-    vibejamBtn.textContent = "Vibe Jam 2026";
-    vibejamBtn.addEventListener("click", () => {
-      window.open("https://vibej.am/2026", "_blank");
-    });
-    buttons.appendChild(vibejamBtn);
-    
-    menu.appendChild(buttons);
-    
-    // Step 10d: Volume and Mute Controls
-    const settingsContainer = document.createElement("div");
-    settingsContainer.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-top: 2rem;
-      margin-bottom: 1rem;
-      position: relative;
-      z-index: 1;
-    `;
-    
-    // Volume slider
-    const volumeSlider = document.createElement("input");
-    volumeSlider.type = "range";
-    volumeSlider.min = "0";
-    volumeSlider.max = "100";
-    volumeSlider.style.cssText = `
-      width: 150px;
-      background: transparent;
-      -webkit-appearance: none;
-      appearance: none;
-      height: 4px;
-      border-radius: 2px;
-      background: #444;
-      outline: none;
-    `;
-    
-    // Custom slider thumb
-    volumeSlider.style.setProperty('--thumb-size', '16px');
-    volumeSlider.style.setProperty('--track-color', '#444');
-    volumeSlider.style.setProperty('--thumb-color', '#2bd6ff');
-    
-    // Load saved volume from localStorage (default 50)
-    const savedVolume = localStorage.getItem('cartRaveVolume');
-    const initialVolume = savedVolume ? parseInt(savedVolume, 10) : 50;
-    volumeSlider.value = initialVolume;
-    masterGain = initialVolume / 100;
-    
-    // Volume slider event listener
-    volumeSlider.addEventListener('input', () => {
-      const volume = parseInt(volumeSlider.value, 10);
-      masterGain = volume / 100;
-      localStorage.setItem('cartRaveVolume', volume.toString());
-      
-      // Update mute state if volume is 0
-      if (volume === 0 && !isMuted) {
-        isMuted = true;
-        localStorage.setItem('cartRaveMuted', 'true');
-        muteBtn.textContent = 'UNMUTE';
-      } else if (volume > 0 && isMuted) {
-        isMuted = false;
-        localStorage.removeItem('cartRaveMuted');
-        muteBtn.textContent = 'MUTE';
-      }
-      
-      // Apply volume to audio engine
-      applyAudioVolume();
-    });
-    
-    // Prevent game key events on slider
-    volumeSlider.addEventListener('keydown', (e) => e.stopPropagation());
-    volumeSlider.addEventListener('keyup', (e) => e.stopPropagation());
-    
-    settingsContainer.appendChild(volumeSlider);
-    
-    // Mute button
-    const muteBtn = document.createElement("button");
-    muteBtn.style.cssText = `
-      background: transparent;
-      border: 1px solid #2bd6ff;
-      color: #2bd6ff;
-      font-family: system-ui, sans-serif;
-      font-size: 0.9rem;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      outline: none;
-    `;
-    
-    // Load saved mute state from localStorage (default false)
-    const savedMuted = localStorage.getItem('cartRaveMuted');
-    isMuted = savedMuted === 'true';
-    muteBtn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
-    
-    // Mute button event listener
-    muteBtn.addEventListener('click', () => {
-      isMuted = !isMuted;
-      
-      if (isMuted) {
-        localStorage.setItem('cartRaveMuted', 'true');
-        muteBtn.textContent = 'UNMUTE';
-        // Store current volume before muting
-        const currentVolume = parseInt(volumeSlider.value, 10);
-        if (currentVolume > 0) {
-          localStorage.setItem('cartRaveVolumeBeforeMute', currentVolume.toString());
-        }
-        volumeSlider.value = 0;
-        masterGain = 0;
-      } else {
-        localStorage.removeItem('cartRaveMuted');
-        muteBtn.textContent = 'MUTE';
-        // Restore previous volume
-        const savedVolumeBeforeMute = localStorage.getItem('cartRaveVolumeBeforeMute');
-        const restoreVolume = savedVolumeBeforeMute ? parseInt(savedVolumeBeforeMute, 10) : 50;
-        volumeSlider.value = restoreVolume;
-        masterGain = restoreVolume / 100;
-        localStorage.setItem('cartRaveVolume', restoreVolume.toString());
-      }
-      
-      // Apply volume to audio engine
-      applyAudioVolume();
-    });
-    
-    // Prevent game key events on mute button
-    muteBtn.addEventListener('keydown', (e) => e.stopPropagation());
-    muteBtn.addEventListener('keyup', (e) => e.stopPropagation());
-    
-    settingsContainer.appendChild(muteBtn);
-    menu.appendChild(settingsContainer);
-    
-    // Personal stats display
-    const statsDisplay = document.createElement("div");
-    statsDisplay.id = "menu-stats";
-    statsDisplay.style.cssText = `
-      color: #aaa;
-      font-family: system-ui, sans-serif;
-      font-size: 0.85rem;
-      text-align: center;
-      margin-top: 1.5rem;
-      position: relative;
-      z-index: 1;
-      letter-spacing: 0.05em;
-    `;
-    const ps = getPersonalStats();
-    statsDisplay.textContent = `${ps.wins}W / ${ps.matches} played / ${ps.totalPoints} pts`;
-    menu.appendChild(statsDisplay);
 
-    // Footer
-    const footer = document.createElement("div");
-    footer.className = "menu-footer";
-    footer.textContent = "4-PLAYER PHYSICS · PARTYKIT · THREE.JS · RAPIER3D";
-    menu.appendChild(footer);
-    
-    document.body.appendChild(menu);
-    refreshMenuStats();
-    
-    // Render color picker immediately with full palette
-    renderColorPicker(PALETTE);
+    // Wire new menu button events
+    window.addEventListener("cartrave:menu", (e) => {
+      const action = e.detail.action;
+      if (action === "solo") {
+        const roomId = `solo-${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        hideMenu();
+        initNetcode();
+      } else if (action === "quickplay") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", "quickplay");
+        history.pushState({}, "", url);
+        hideMenu();
+        initNetcode();
+      } else if (action === "friends") {
+        const roomId = `party-${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        navigator.clipboard.writeText(window.location.href).catch(() => {});
+        hideMenu();
+        initNetcode();
+      } else if (action === "vibejam") {
+        window.open("https://vibej.am/2026", "_blank");
+      }
+    });
+
+    // Update stats display if CartRave API is available
+    const ps = getPersonalStats();
+    const winsEl = document.getElementById("stat-wins");
+    const playedEl = document.getElementById("stat-played");
+    const ptsEl = document.getElementById("stat-pts");
+    if (winsEl) winsEl.textContent = ps.wins;
+    if (playedEl) playedEl.textContent = ps.matches;
+    if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
   }
 
   // Step 10b: Hide menu function
   function hideMenu() {
-    const menu = document.getElementById("menu");
-    if (menu) {
-      menu.style.opacity = "0";
-      menu.style.pointerEvents = "none";
+    const wrap = document.getElementById("cr-root");
+    if (wrap) {
+      wrap.style.opacity = "0";
+      wrap.style.pointerEvents = "none";
       setTimeout(() => {
-        if (menu.parentNode) {
-          menu.parentNode.removeChild(menu);
-        }
+        wrap.style.display = "none";
       }, 300);
     }
     menuVisible = false;
   }
 
   function refreshMenuStats() {
-    const el = document.getElementById("menu-stats");
-    if (!el) return;
     const ps = getPersonalStats();
-    el.textContent = `${ps.wins}W / ${ps.matches} played / ${ps.totalPoints} pts`;
+    const winsEl = document.getElementById("stat-wins");
+    const playedEl = document.getElementById("stat-played");
+    const ptsEl = document.getElementById("stat-pts");
+    if (winsEl) winsEl.textContent = ps.wins;
+    if (playedEl) playedEl.textContent = ps.matches;
+    if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
   }
 
 
@@ -4139,6 +3863,7 @@ async function main() {
     }
 
     const localCart = localCartForConnId();
+    if (!localCart || !localCart.body) return;
     const playerPos = localCart.body.translation();
 
     if (isHost && roundPhase === "running") {
