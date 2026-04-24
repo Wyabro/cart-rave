@@ -70,7 +70,7 @@ const CONFIG = {
 
   record: {
     radius: 26.4,
-    innerRadius: 3.3,
+    innerRadius: 3.63,
     thickness: 0.6,
     y: -0.3,
     rotationSpeedRadPerSec: 0.35,
@@ -235,7 +235,7 @@ const CONFIG = {
   },
 
   audio: {
-    hornVolume: 0.45,
+    hornVolume: 0.5625,
     // * Min time between local horn key triggers (msec); prevents spam when key repeat fires.
     hornKeyMinIntervalMs: 220,
     hornRefDistance: 5,
@@ -3433,9 +3433,15 @@ async function main() {
   function pickAiTarget(fromPos) {
     const dist = Math.hypot(fromPos.x, fromPos.z);
     const edgeBiasStart = CONFIG.record.radius * 0.78;
-    if (dist > edgeBiasStart) return { x: 0, z: 0 };
+    if (dist > edgeBiasStart) {
+      const a = Math.random() * Math.PI * 2;
+      const r = CONFIG.record.radius * 0.45;
+      return { x: Math.cos(a) * r, z: Math.sin(a) * r };
+    }
 
-    const r = Math.sqrt(Math.random()) * (CONFIG.record.radius * 0.85);
+    const minR = CONFIG.record.innerRadius * 2.0;
+    const maxR = CONFIG.record.radius * 0.85;
+    const r = minR + Math.sqrt(Math.random()) * (maxR - minR);
     const a = Math.random() * Math.PI * 2;
     return { x: Math.cos(a) * r, z: Math.sin(a) * r };
   }
