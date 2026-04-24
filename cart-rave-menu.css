@@ -488,3 +488,43 @@ html, body {
   .cr-content { grid-template-columns: 1fr; padding: 20px; gap: 16px; }
   .cr-right { display: none; }
 }
+
+.cr-portal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid #2bff7a;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 120ms ease, box-shadow 180ms ease;
+  box-shadow: 0 0 12px #2bff7a, 0 0 28px rgba(43, 255, 122, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+.cr-portal:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 20px #2bff7a, 0 0 44px #2bff7a;
+}
+.cr-portal-swirl {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #2bff7a, #0a4a2a, #2bff7a, #0a4a2a, #2bff7a);
+  animation: cr-swirl-spin 2s linear infinite;
+  box-shadow: 0 0 12px #2bff7a, 0 0 24px rgba(43, 255, 122, 0.5);
+  flex-shrink: 0;
+}
+@keyframes cr-swirl-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.cr-portal-label {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: #2bff7a;
+  text-shadow: 0 0 12px #2bff7a, 0 0 28px #2bff7a;
+}

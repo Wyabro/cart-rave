@@ -1289,7 +1289,7 @@ async function main() {
       #hud .hud-timer {
         position: absolute;
         top: 18px;
-        right: 180px;
+        left: 18px;
         font-size: 1.8rem;
         font-weight: 800;
         padding: 10px 12px;
@@ -1774,10 +1774,19 @@ async function main() {
         navigator.clipboard.writeText(window.location.href).catch(() => {});
         hideMenu();
         initNetcode();
-      } else if (action === "vibejam") {
-        window.open("https://vibej.am/2026", "_blank");
       }
     });
+
+    // Set portal href with referral
+    const portal = document.getElementById("cr-portal");
+    if (portal) {
+      try {
+        const ref = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
+        portal.href = `https://vibej.am/portal/2026?ref=${ref}`;
+      } catch {
+        portal.href = "https://vibej.am/portal/2026";
+      }
+    }
 
     // Update stats display if CartRave API is available
     const ps = getPersonalStats();
