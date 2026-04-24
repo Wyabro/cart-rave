@@ -1771,7 +1771,9 @@ async function main() {
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
-        const roomLink = window.location.href;
+        const cleanLink = new URL(window.location.origin + window.location.pathname);
+        cleanLink.searchParams.set("room", roomId);
+        const roomLink = cleanLink.toString();
         navigator.clipboard.writeText(roomLink).catch(() => {});
 
         // Show friends screen
