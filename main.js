@@ -3124,7 +3124,7 @@ async function main() {
     const spawn = spawnOnRingForSlot(slotIndex);
     const slot = netSlots[slotIndex];
     const cart = createCart({
-      color: colorHexForSlot(slot),
+      color: slot?.connId === youConnId && CART_COLORS[localStorage.getItem("cartRaveColor")] ? CART_COLORS[localStorage.getItem("cartRaveColor")].hex : colorHexForSlot(slot),
       spawn,
       spawnYaw: yawToCenter(spawn),
       label: slot?.name ?? `slot-${slotIndex}`,
