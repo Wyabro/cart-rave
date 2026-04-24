@@ -2389,7 +2389,7 @@ async function main() {
   const spotlightConeAxisY = new THREE.Vector3(0, 1, 0);
 
   function addSpotlightWithCone({ color, position, intensity, target }) {
-    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 6, 0.2, 1.1);
+    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 7, 0.2, 1.1);
     light.position.copy(position);
     light.target.position.set(target.x, platformTopY, target.z);
     scene.add(light);
@@ -2424,13 +2424,13 @@ async function main() {
   const spotlightPositionRadius = CONFIG.record.radius * 0.7;
   const spotlightHeight = 25;
   const spotlightIntensity = 110;
-  const spotlightDriftAmplitudeRad = (12 * Math.PI) / 180;
+  const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
   const spotlightConfigs = [
-    { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.08, phase: 0.0 },
-    { color: CART_COLORS.blue.hex, angleDeg: -18, driftSpeed: 0.065, phase: 1.4 },
-    { color: CART_COLORS.green.hex, angleDeg: 54, driftSpeed: 0.075, phase: 2.8 },
-    { color: CART_COLORS.yellow.hex, angleDeg: 126, driftSpeed: 0.055, phase: 4.2 },
-    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, driftSpeed: 0.07, phase: 5.6 },
+    { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
+    { color: CART_COLORS.blue.hex, angleDeg: -18, driftSpeed: 0.0455, phase: 1.4 },
+    { color: CART_COLORS.green.hex, angleDeg: 54, driftSpeed: 0.0525, phase: 2.8 },
+    { color: CART_COLORS.yellow.hex, angleDeg: 126, driftSpeed: 0.0385, phase: 4.2 },
+    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, driftSpeed: 0.049, phase: 5.6 },
   ];
 
   for (const cfg of spotlightConfigs) {
