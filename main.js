@@ -2573,13 +2573,13 @@ async function main() {
       const rampCenterLocalZ = -(B.platformDepth / 2) - B.rampLength / 2;
       const rampCenterY = (topY + B.rampEndY) / 2;
       rampMesh.position.set(0, rampCenterY, rampCenterLocalZ);
-      rampMesh.rotation.x = rampPitch;
+      rampMesh.rotation.x = -rampPitch;
       boothGroup.add(rampMesh);
 
       // Ramp collider (world space)
       const cosYaw = Math.cos(yaw);
       const sinYaw = Math.sin(yaw);
-      const rampWorldX = cx + rampCenterLocalZ * (-sinYaw);
+      const rampWorldX = cx + rampCenterLocalZ * sinYaw;
       const rampWorldZ = cz + rampCenterLocalZ * cosYaw;
       const rampBody = world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(rampWorldX, rampCenterY, rampWorldZ),
@@ -2589,9 +2589,9 @@ async function main() {
       const cp = Math.cos(rampPitch / 2);
       const sp = Math.sin(rampPitch / 2);
       rampBody.setRotation({
-        x: cyaw * (-sp),
+        x: cyaw * sp,
         y: syaw * cp,
-        z: -syaw * (-sp),
+        z: -syaw * sp,
         w: cyaw * cp,
       }, true);
       world.createCollider(
