@@ -40,87 +40,115 @@ const CART_COLORS = {
 const PALETTE = Object.keys(CART_COLORS);
 
 function renderColorPicker(availableColors) {
-  // Create or get color picker container
+  // * Guard: if player already has a confirmed slot or has already clicked a color, keep the picker hidden.
+  if (_localColorPicked) {
+    const existing = document.getElementById('color-picker-container');
+    if (existing) existing.style.display = 'none';
+    return;
+  }
+  const alreadyInSlot = netSlots.some(
+    (s) => s && s.connId === youConnId && s.kind === 'human',
+  );
+  if (alreadyInSlot) {
+    const existing = document.getElementById('color-picker-container');
+    if (existing) existing.style.display = 'none';
+    return;
+  }
+
+  // * Fullscreen fixed overlay — independent of menu visibility so it works
+  // * whether the menu is still fading out or already hidden.
   let container = document.getElementById('color-picker-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'color-picker-container';
-    container.className = 'color-picker-container';
-  }
-  
-  // Ensure container is in the right place (menu if it exists)
-  const menu = document.getElementById('menu');
-  if (menu) {
-    // Menu exists - make sure container is in menu
-    if (!menu.contains(container)) {
-      // Container exists but not in menu - move it
-      const usernameInput = menu.querySelector('input[type="text"]');
-      if (usernameInput && usernameInput.parentNode) {
-        usernameInput.parentNode.insertBefore(container, usernameInput);
-      } else {
-        // Fallback: append to menu
-        menu.appendChild(container);
-      }
-      // Make sure it's visible
-      container.style.display = '';
-    }
-  } else if (container.parentNode !== document.body) {
-    // Menu doesn't exist yet and container is not on body - append to body temporarily
-    container.style.display = 'none';
     document.body.appendChild(container);
   }
-  
-  // Clear existing dots
+
+  Object.assign(container.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.85)',
+    zIndex: '99999',
+  });
+
   container.innerHTML = '';
-  
-  // Get saved color from localStorage
+
+  const label = document.createElement('div');
+  label.textContent = 'CHOOSE YOUR COLOR';
+  Object.assign(label.style, {
+    color: '#ffffff',
+    fontFamily: '"Bungee", monospace',
+    fontSize: '20px',
+    letterSpacing: '4px',
+    marginBottom: '28px',
+    textShadow: '0 0 18px #ff2bd6',
+    userSelect: 'none',
+  });
+  container.appendChild(label);
+
+  const row = document.createElement('div');
+  Object.assign(row.style, {
+    display: 'flex',
+    gap: '20px',
+    alignItems: 'center',
+  });
+  container.appendChild(row);
+
   const savedColor = localStorage.getItem('cartRaveColor');
-  
-  // Create color dots
-  PALETTE.forEach(colorId => {
-    const dot = document.createElement('div');
-    dot.className = 'color-dot';
-    dot.dataset.colorId = colorId;
-    dot.style.backgroundColor = cssHexFromRgbNumber(CART_COLORS[colorId]?.hex) || colorId;
-    
-    // Check if color is available
+
+  PALETTE.forEach((colorId) => {
+    const hex = cssHexFromRgbNumber(CART_COLORS[colorId]?.hex);
     const isAvailable = availableColors.includes(colorId);
-    if (!isAvailable) {
-      dot.style.opacity = '0.3';
-      dot.style.pointerEvents = 'none';
-    }
-    
-    // Highlight saved color
-    if (colorId === savedColor) {
-      dot.style.border = '2px solid white';
-      dot.classList.add('selected');
-    }
-    
-    // Add click handler
-    dot.addEventListener('click', () => {
-      if (isAvailable) {
-        // Save to localStorage
-        localStorage.setItem('cartRaveColor', colorId);
-        
-        // Update visual selection
-        document.querySelectorAll('.color-dot').forEach(d => {
-          d.style.border = 'none';
-          d.classList.remove('selected');
-        });
-        dot.style.border = '2px solid white';
-        dot.classList.add('selected');
-        
-        // Send to server if socket exists and is open
-        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-          partySocket.send(JSON.stringify({
-            type: MSG.colorPick,
-            color: colorId
-          }));
-        }
-      }
+
+    const btn = document.createElement('button');
+    btn.className = 'color-dot';
+    btn.dataset.colorId = colorId;
+    Object.assign(btn.style, {
+      width: '60px',
+      height: '60px',
+      borderRadius: '50%',
+      background: hex,
+      border: colorId === savedColor ? '3px solid #ffffff' : '3px solid transparent',
+      boxShadow: `0 0 20px ${hex}`,
+      cursor: isAvailable ? 'pointer' : 'not-allowed',
+      opacity: isAvailable ? '1' : '0.3',
+      outline: 'none',
+      transition: 'transform 0.1s, box-shadow 0.1s',
     });
-    
-    container.appendChild(dot);
+    btn.disabled = !isAvailable;
+
+    if (isAvailable) {
+      btn.addEventListener('mouseover', () => {
+        btn.style.transform = 'scale(1.18)';
+        btn.style.boxShadow = `0 0 36px ${hex}, 0 0 8px #fff`;
+      });
+      btn.addEventListener('mouseout', () => {
+        btn.style.transform = 'scale(1)';
+        btn.style.boxShadow = `0 0 20px ${hex}`;
+      });
+      btn.addEventListener('click', () => {
+        localStorage.setItem('cartRaveColor', colorId);
+        _localColorPicked = true;
+        container.style.display = 'none';
+
+        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+          partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorId }));
+          __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
+        }
+
+        // * Hide the menu (if still visible) now that the player has committed to a color.
+        if (menuVisible) hideMenuRef?.();
+      });
+    }
+
+    row.appendChild(btn);
   });
 }
 
@@ -391,6 +419,9 @@ function captureInviteRoomForDeferredMenu() {
   const raw = (params.get("room") || "").trim();
   const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
   if (!isValid) return false;
+  // * Exclude well-known self-created room codes so a refresh after Quickplay or Solo
+  // * does not show the JOIN ROOM button as if it were a friend invite.
+  if (raw === "quickplay" || raw.toLowerCase().startsWith("solo")) return false;
   pendingInviteRoomFromUrl = raw;
   return true;
 }
@@ -526,6 +557,10 @@ let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires o
 let roundStartingHumanCount = 0;
 /** @type {((msg: object) => void) | null} */
 let onGameStartHandler = null;
+/** @type {(() => void) | null} Set by main() once hideMenu is defined; bridges module-level renderColorPicker to the inner function. */
+let hideMenuRef = null;
+/** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
+let _localColorPicked = false;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
@@ -828,6 +863,7 @@ function setAuthorityMode(nextIsHost) {
 
 function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
+  _localColorPicked = false;
   if (partySocket) {
     partySocket.close();
     partySocket = null;
@@ -850,16 +886,6 @@ function initNetcode(roomOverride) {
     const savedUsername = localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "";
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername || undefined }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
-    
-    // Send saved color if available
-    const savedColor = localStorage.getItem('cartRaveColor');
-    if (savedColor && PALETTE.includes(savedColor)) {
-      partySocket?.send(JSON.stringify({
-        type: MSG.colorPick,
-        color: savedColor
-      }));
-      __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
-    }
     
     startKeepaliveLoop();
   });
@@ -2186,6 +2212,7 @@ async function main() {
   hud = initHud();
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
+  hideMenuRef = hideMenu;
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
   // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
