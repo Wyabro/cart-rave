@@ -366,6 +366,49 @@ function resolvedPartyRoomFromUrl() {
   return isValid ? raw : "quickplay";
 }
 
+/** Valid ?room= on first paint: show menu before PartyKit connect (friend links). */
+let pendingInviteRoomFromUrl = null;
+
+function isPortalWebringBypassFromUrl() {
+  if (typeof window === "undefined") return false;
+  const v = new URLSearchParams(window.location.search || "").get("portal");
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "true" || s === "1" || s === "yes";
+}
+
+function applyPortalWebringBypassToUrl() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("room", "quickplay");
+  history.replaceState({}, "", url);
+}
+
+function captureInviteRoomForDeferredMenu() {
+  pendingInviteRoomFromUrl = null;
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search || "");
+  const raw = (params.get("room") || "").trim();
+  const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
+  if (!isValid) return false;
+  pendingInviteRoomFromUrl = raw;
+  return true;
+}
+
+function bootstrapNetcodeEntryFromUrl() {
+  if (typeof window === "undefined") return;
+  if (isPortalWebringBypassFromUrl()) {
+    applyPortalWebringBypassToUrl();
+    window.__cartRaveSkipMenuForPortalBypass = true;
+    initNetcode();
+    return;
+  }
+  if (captureInviteRoomForDeferredMenu()) {
+    return;
+  }
+  initNetcode();
+}
+
 // --- Module-scope netcode state (per handover spec) ---
 /** @type {PartySocket | null} */
 let partySocket = null;
@@ -783,14 +826,18 @@ function setAuthorityMode(nextIsHost) {
   }
 }
 
-function initNetcode() {
+function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
   if (partySocket) {
     partySocket.close();
     partySocket = null;
   }
 
-  const resolvedRoom = resolvedPartyRoomFromUrl();
+  let resolvedRoom = resolvedPartyRoomFromUrl();
+  if (roomOverride != null && String(roomOverride).trim() !== "") {
+    const r = String(roomOverride).trim();
+    if (/^[A-Za-z0-9]{2,16}$/.test(r)) resolvedRoom = r;
+  }
   partySocket = new PartySocket({
     host: partyHostFromWindowLocation(),
     party: "main",
@@ -1840,9 +1887,51 @@ async function main() {
       wrap.style.pointerEvents = "";
     }
 
+    if (typeof window !== "undefined" && window.__cartRaveSkipMenuForPortalBypass) {
+      window.__cartRaveSkipMenuForPortalBypass = false;
+      hideMenu();
+    }
+
+    document.getElementById("cr-btn-join-invite")?.remove();
+    if (pendingInviteRoomFromUrl) {
+      const btnRow = document.querySelector(".cr-buttons");
+      if (btnRow) {
+        const btn = document.createElement("button");
+        btn.id = "cr-btn-join-invite";
+        btn.type = "button";
+        btn.className = "cr-btn";
+        btn.dataset.action = "joinroom";
+        btn.dataset.colorkey = "secondary";
+        btn.innerHTML =
+          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>' +
+          '<span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>' +
+          '<span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>';
+        btnRow.insertBefore(btn, btnRow.firstChild);
+        const refGlow = btnRow.querySelector('.cr-btn[data-action="quickplay"]');
+        if (refGlow) {
+          const g = getComputedStyle(refGlow).getPropertyValue("--glow").trim();
+          if (g) btn.style.setProperty("--glow", g);
+        }
+        btn.addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
+        });
+      }
+    }
+
     // Wire new menu button events
     window.addEventListener("cartrave:menu", (e) => {
       const action = e.detail.action;
+      if (action === "joinroom") {
+        const room = pendingInviteRoomFromUrl;
+        if (!room) return;
+        pendingInviteRoomFromUrl = null;
+        document.getElementById("cr-btn-join-invite")?.remove();
+        hideMenu();
+        initNetcode(room);
+        return;
+      }
+      pendingInviteRoomFromUrl = null;
+      document.getElementById("cr-btn-join-invite")?.remove();
       if (action === "solo") {
         const roomId = `solo-${Math.random().toString(36).substring(2, 8)}`;
         const url = new URL(window.location.href);
@@ -4718,7 +4807,7 @@ async function main() {
   requestAnimationFrame(step);
 }
 
-initNetcode();
+bootstrapNetcodeEntryFromUrl();
 
 main();
 

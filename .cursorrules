@@ -316,7 +316,16 @@ Current status: Steps 1–15 shipped and verified on production (cartrave.lol). 
 22. Pre-submission cleanup
     - Remove all diagnostic logs
     - **Audit**: remove `CONFIG.record.physicsSpinRadPerSec` if unused
-    - Final QA pass on prod
+    - **Multiplayer playtest (two-browser test on prod):**
+      - Friend flow: ?room= link → menu → JOIN ROOM → color picker → game
+      - Host migration: host closes tab, second player becomes host, NPCs don't freeze
+      - Non-host input lag / interpolation feel
+      - Name labels correct for both players
+      - Results screen shows correct names for both players
+      - Score attribution across slots (human kills NPC, NPC kills human, etc.)
+      - NPC color swap when second human joins (displaced NPC gets unused 5th color)
+      - Keepalive / reaper: idle tab doesn't get reaped prematurely, dead tab does get reaped
+    - Final QA pass on prod (solo + quickplay)
 23. STRETCH: Supabase leaderboard
 24. Ship
 
