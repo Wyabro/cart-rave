@@ -3128,10 +3128,14 @@ async function main() {
   }
 
   canvas.addEventListener("pointerdown", () => {
-    unlockAudioAndMaybeStartMusic();
+    void audioListener.context.resume();
+    if (!menuVisible) tryStartAmbientMusic();
     canvas.focus();
   });
-  window.addEventListener("pointerdown", unlockAudioAndMaybeStartMusic, { passive: true });
+  window.addEventListener("pointerdown", () => {
+    void audioListener.context.resume();
+    if (!menuVisible) tryStartAmbientMusic();
+  }, { passive: true });
 
   function playProceduralHornAtCart(cart, volumeScale = 1) {
     const ctx = audioListener.context;
