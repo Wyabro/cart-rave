@@ -1289,7 +1289,7 @@ async function main() {
       #hud .hud-timer {
         position: absolute;
         top: 18px;
-        right: 140px;
+        right: 180px;
         font-size: 1.8rem;
         font-weight: 800;
         padding: 10px 12px;
@@ -1726,6 +1726,8 @@ async function main() {
   // Step 10b: Menu initialization
   function initMenu() {
     menuVisible = true;
+    const hudAudio = document.querySelector(".hud-audio");
+    if (hudAudio) hudAudio.style.display = "none";
     // Fade out game music, fade in menu music
     try {
       if (musicEl && !musicEl.paused) {
@@ -1850,6 +1852,8 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
+    const hudAudio = document.querySelector(".hud-audio");
+    if (hudAudio) hudAudio.style.display = "flex";
     // Crossfade: fade out menu music, fade in game music
     if (menuMusicEl) {
       const fadeOut = setInterval(() => {
