@@ -2386,6 +2386,7 @@ async function main() {
   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
+  const spotlightConeAxisY = new THREE.Vector3(0, 1, 0);
 
   function addSpotlightWithCone({ color, position, intensity, target }) {
     const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 5.4, 0.75, 1.1);
@@ -2410,8 +2411,10 @@ async function main() {
     const coneMesh = new THREE.Mesh(coneGeo, coneMat);
     const mid = position.clone().add(coneTarget).multiplyScalar(0.5);
     coneMesh.position.copy(mid);
-    coneMesh.lookAt(coneTarget);
-    coneMesh.rotateX(Math.PI / 2); // orient cone axis along -Z
+    coneMesh.quaternion.setFromUnitVectors(
+      spotlightConeAxisY,
+      position.clone().sub(coneTarget).normalize(),
+    );
     scene.add(coneMesh);
 
     return { light, coneMesh };
@@ -4515,8 +4518,10 @@ async function main() {
         entry.light.target.position.copy(coneTarget);
         entry.light.target.updateMatrixWorld();
         entry.coneMesh.position.copy(lightPos.clone().add(coneTarget).multiplyScalar(0.5));
-        entry.coneMesh.lookAt(coneTarget);
-        entry.coneMesh.rotateX(Math.PI / 2);
+        entry.coneMesh.quaternion.setFromUnitVectors(
+          spotlightConeAxisY,
+          lightPos.clone().sub(coneTarget).normalize(),
+        );
       }
     }
 
