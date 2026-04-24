@@ -2389,7 +2389,7 @@ async function main() {
   const spotlightConeAxisY = new THREE.Vector3(0, 1, 0);
 
   function addSpotlightWithCone({ color, position, intensity, target }) {
-    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 5.4, 0.75, 1.1);
+    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 5, 0.75, 1.1);
     light.position.copy(position);
     light.target.position.set(target.x, platformTopY, target.z);
     scene.add(light);
@@ -2421,16 +2421,16 @@ async function main() {
   }
 
   const spotlightEntries = [];
-  const spotlightPositionRadius = CONFIG.record.radius;
-  const spotlightHeight = 34;
+  const spotlightPositionRadius = CONFIG.record.radius * 1.5;
+  const spotlightHeight = 45;
   const spotlightIntensity = 110;
   const spotlightDriftAmplitudeRad = (12 * Math.PI) / 180;
   const spotlightConfigs = [
-    { color: CART_COLORS.pink.hex, angleDeg: -90, target: new THREE.Vector3(0, 0, 10), driftSpeed: 0.08, phase: 0.0 },
-    { color: CART_COLORS.blue.hex, angleDeg: -18, target: new THREE.Vector3(-10, 0, 3), driftSpeed: 0.065, phase: 1.4 },
-    { color: CART_COLORS.green.hex, angleDeg: 54, target: new THREE.Vector3(-6, 0, -8), driftSpeed: 0.075, phase: 2.8 },
-    { color: CART_COLORS.yellow.hex, angleDeg: 126, target: new THREE.Vector3(6, 0, -8), driftSpeed: 0.055, phase: 4.2 },
-    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, target: new THREE.Vector3(10, 0, 3), driftSpeed: 0.07, phase: 5.6 },
+    { color: CART_COLORS.pink.hex, angleDeg: -90, target: new THREE.Vector3(0, 0, -8), driftSpeed: 0.08, phase: 0.0 },
+    { color: CART_COLORS.blue.hex, angleDeg: -18, target: new THREE.Vector3(8, 0, -2.5), driftSpeed: 0.065, phase: 1.4 },
+    { color: CART_COLORS.green.hex, angleDeg: 54, target: new THREE.Vector3(5, 0, 7), driftSpeed: 0.075, phase: 2.8 },
+    { color: CART_COLORS.yellow.hex, angleDeg: 126, target: new THREE.Vector3(-5, 0, 7), driftSpeed: 0.055, phase: 4.2 },
+    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, target: new THREE.Vector3(-8, 0, -2.5), driftSpeed: 0.07, phase: 5.6 },
   ];
 
   for (const cfg of spotlightConfigs) {
