@@ -486,7 +486,7 @@ let onGameStartHandler = null;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
-let masterGain = 1.0; // Step 10d: Volume control (0.0 to 1.0)
+let masterGain = 0.25; // Step 10d: Volume control (0.0 to 1.0)
 /** @type {boolean} */
 let isMuted = false; // Step 10d: Mute state
 /** @type {ReturnType<typeof setTimeout> | null} */
@@ -1227,6 +1227,10 @@ async function main() {
   console.log("[boot] main() start", { href: window.location.href });
   await RAPIER.init();
 
+  let menuMusicEl = null;
+  let startMenuMusic = () => {};
+  let stopMenuMusic = () => {};
+
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error(`Canvas element '#${CONFIG.canvasId}' not found.`);
@@ -1608,6 +1612,7 @@ async function main() {
   // Step 10b: Menu initialization
   function initMenu() {
     menuVisible = true;
+    try { startMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
       wrap.style.display = "";
@@ -1717,6 +1722,7 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
+    try { stopMenuMusic(); } catch (e) {}
   }
 
   function refreshMenuStats() {
@@ -3038,6 +3044,55 @@ async function main() {
   });
   musicEl.load();
 
+  // Menu music — plays on page load, stops when game starts
+  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
+  menuMusicEl = new Audio();
+  menuMusicEl.loop = true;
+  menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+  menuMusicEl.preload = "auto";
+  menuMusicEl.src = menuMusicUrl;
+  let menuMusicStarted = false;
+  menuMusicEl.addEventListener("error", () => {
+    console.warn("[audio] menu music not found");
+  });
+  menuMusicEl.load();
+
+  // Try to autoplay menu music immediately (will need user gesture on most browsers)
+  function tryStartMenuMusic() {
+    if (!menuMusicEl || menuMusicStarted || isMuted) return;
+    menuMusicEl.volume = CONFIG.audio.musicVolume * masterGain;
+    void menuMusicEl.play().then(
+      () => {
+        menuMusicStarted = true;
+      },
+      () => {},
+    );
+  }
+  tryStartMenuMusic();
+  // Also try on first user interaction
+  window.addEventListener("pointerdown", tryStartMenuMusic, { passive: true });
+  window.addEventListener("keydown", tryStartMenuMusic, { once: true });
+
+  stopMenuMusic = function () {
+    if (!menuMusicEl) return;
+    menuMusicEl.pause();
+    menuMusicEl.currentTime = 0;
+    menuMusicStarted = false;
+  };
+
+  startMenuMusic = function () {
+    if (!menuMusicEl) return;
+    menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+    menuMusicStarted = false;
+    tryStartMenuMusic();
+  };
+
+  if (menuVisible) {
+    try {
+      startMenuMusic();
+    } catch (e) {}
+  }
+
   // Step 10d: Apply audio volume to engine
   function applyAudioVolume() {
     // Apply master gain to Three.js AudioListener
@@ -3046,6 +3101,10 @@ async function main() {
     }
     // Apply mute state to HTML audio element
     musicEl.muted = isMuted;
+    if (menuMusicEl) {
+      menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+      menuMusicEl.muted = isMuted;
+    }
   }
 
   // Initialize audio with saved settings
