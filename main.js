@@ -1,4 +1,7 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
+import { EffectComposer } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
@@ -1225,6 +1228,7 @@ async function main() {
   renderer.setClearColor(CONFIG.backgroundColor, 1);
 
   const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x050510, 0.012);
 
   function initHud() {
     const existing = document.getElementById("hud");
@@ -2348,6 +2352,16 @@ async function main() {
   const audioListener = new THREE.AudioListener();
   camera.add(audioListener);
 
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    1.5,
+    0.4,
+    0.1,
+  );
+  composer.addPass(bloomPass);
+
   const cameraState = {
     pos: camera.position.clone(),
     quat: camera.quaternion.clone(),
@@ -2375,6 +2389,8 @@ async function main() {
     const h = window.innerHeight;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(w, h);
+    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    composer.setSize(w, h);
     camera.aspect = w / h;
     updateCameraFraming();
     camera.updateProjectionMatrix();
@@ -4856,7 +4872,7 @@ async function main() {
 
     updateHud();
     positionNameLabels();
-    renderer.render(scene, camera);
+    composer.render();
     requestAnimationFrame(step);
   }
 
