@@ -1565,7 +1565,11 @@ async function main() {
     const style = document.createElement("style");
     style.id = "results-overlay-style";
     style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap');
+
       #results-overlay {
+        --results-mono: "Space Mono", ui-monospace, monospace;
+        --results-display: "Bungee", "Archivo Black", sans-serif;
         position: fixed;
         inset: 0;
         z-index: 25000;
@@ -1573,87 +1577,175 @@ async function main() {
         align-items: center;
         justify-content: center;
         pointer-events: none;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        color: #ffffff;
-        text-shadow: 0 2px 12px rgba(0,0,0,0.85);
-        background: rgba(7, 0, 16, 0.55);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
+        font-family: var(--results-mono);
+        color: #fff;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        background: radial-gradient(ellipse at center, #0a0014 0%, #000 90%);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
 
       #results-overlay .results-panel {
         pointer-events: auto;
         min-width: min(420px, 92vw);
         max-width: 520px;
-        padding: 22px 24px 20px;
-        border-radius: 18px;
-        background: rgba(12, 4, 28, 0.92);
-        box-shadow: 0 16px 48px rgba(0,0,0,0.55);
-        border: 1px solid rgba(255,255,255,0.12);
+        width: 90%;
+        padding: 36px 32px 28px;
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 0 40px rgba(43, 255, 122, 0.08), 0 16px 48px rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
 
       #results-overlay .results-title {
-        font-size: 1.65rem;
-        font-weight: 900;
-        letter-spacing: 0.04em;
-        margin: 0 0 14px;
-        min-height: 1.3em;
+        font-family: var(--results-display);
+        font-size: clamp(22px, 5vw, 32px);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        margin: 0 0 18px;
+        min-height: 1.2em;
+        text-align: center;
+        line-height: 1.15;
+        color: var(--title-glow, #ffe53d);
+        text-shadow: 0 0 12px var(--title-glow, #ffe53d), 0 0 28px color-mix(in oklab, var(--title-glow, #ffe53d), transparent 50%);
       }
 
       #results-overlay .results-final {
-        min-height: 3.5rem;
-        margin-bottom: 12px;
-        font-size: 1rem;
-        line-height: 1.45;
-        opacity: 0.95;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      #results-overlay .results-score-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 12px 16px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: box-shadow 180ms ease, border-color 180ms ease;
+      }
+
+      #results-overlay .results-score-row.is-winner {
+        border-color: var(--slot-glow, #2bff7a);
+        box-shadow: 0 0 12px var(--slot-glow, #2bff7a), 0 0 28px color-mix(in oklab, var(--slot-glow, #2bff7a), transparent 55%);
+      }
+
+      #results-overlay .results-score-name {
+        font-family: var(--results-mono);
+        font-size: 13px;
+        letter-spacing: 0.04em;
+        color: rgba(255, 255, 255, 0.88);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+        flex: 1;
+      }
+
+      #results-overlay .results-score-val {
+        font-family: var(--results-display);
+        font-size: 18px;
+        letter-spacing: 0.04em;
+        color: var(--slot-glow, #22e6ff);
+        text-shadow: 0 0 10px var(--slot-glow, #22e6ff);
+        flex-shrink: 0;
+      }
+
+      #results-overlay .results-stats {
+        font-family: var(--results-mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
+        margin: 0 0 14px;
+        line-height: 1.5;
       }
 
       #results-overlay .results-history {
         min-height: 72px;
         max-height: 160px;
         overflow: auto;
-        margin-bottom: 16px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(0,0,0,0.25);
-        font-size: 0.9rem;
-        line-height: 1.4;
+        margin-bottom: 18px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: var(--results-mono);
+        font-size: 11px;
+        line-height: 1.65;
+        letter-spacing: 0.03em;
+        color: rgba(255, 255, 255, 0.65);
+      }
+
+      #results-overlay .results-history-row {
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+      }
+
+      #results-overlay .results-history-row:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
       }
 
       #results-overlay .results-actions {
         display: flex;
-        flex-wrap: wrap;
+        flex-direction: column;
         gap: 10px;
-        justify-content: center;
+        width: 100%;
       }
 
-      #results-overlay .results-actions button,
-      #results-overlay .results-actions a {
-        font: inherit;
-        font-weight: 800;
-        font-size: 0.95rem;
-        padding: 10px 16px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.2);
+      #results-overlay .results-btn {
+        width: 100%;
+        padding: 14px 22px;
+        border-radius: 6px;
+        font-family: var(--results-display);
+        font-size: 16px;
+        letter-spacing: 0.06em;
         cursor: pointer;
         text-decoration: none;
-        display: inline-block;
         text-align: center;
+        display: block;
+        border: 2px solid var(--btn-glow, #ff2bd6);
+        background: rgba(0, 0, 0, 0.55);
+        color: var(--btn-glow, #ff2bd6);
+        text-shadow: 0 0 10px var(--btn-glow, #ff2bd6);
+        box-shadow: 0 0 12px var(--btn-glow, #ff2bd6), 0 0 28px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 60%);
+        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
       }
 
-      #results-overlay .results-playAgain {
-        background: rgba(255, 255, 255, 0.12);
-        color: #ffffff;
+      #results-overlay .results-btn:hover:not(:disabled) {
+        transform: translateY(-2px) scale(1.02);
+        background: rgba(0, 0, 0, 0.35);
+        box-shadow: 0 0 20px var(--btn-glow, #ff2bd6), 0 0 44px var(--btn-glow, #ff2bd6);
       }
 
-      #results-overlay .results-playAgain:disabled {
-        opacity: 0.45;
+      #results-overlay .results-btn:disabled {
+        opacity: 0.5;
         cursor: not-allowed;
+        transform: none;
+        box-shadow: 0 0 8px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 70%);
       }
 
-      #results-overlay .results-exitPortal {
-        background: #ffffff;
-        color: #070010;
+      #results-overlay .results-btn--play {
+        --btn-glow: #ff2bd6;
+      }
+
+      #results-overlay .results-btn--menu {
+        --btn-glow: #22e6ff;
+      }
+
+      #results-overlay .results-btn--portal {
+        --btn-glow: #2bff7a;
       }
     `.trim();
     document.head.appendChild(style);
@@ -1680,21 +1772,21 @@ async function main() {
 
     const playAgain = document.createElement("button");
     playAgain.type = "button";
-    playAgain.className = "results-playAgain";
-    playAgain.textContent = "Play Again";
+    playAgain.className = "results-btn results-btn--play";
+    playAgain.textContent = "PLAY AGAIN";
     playAgain.disabled = false;
 
     const exitPortal = document.createElement("a");
-    exitPortal.className = "results-exitPortal";
+    exitPortal.className = "results-btn results-btn--portal";
     exitPortal.href = "https://vibej.am/portal/2026";
     exitPortal.target = "_blank";
     exitPortal.rel = "noopener noreferrer";
-    exitPortal.textContent = "Vibe Jam portal";
+    exitPortal.textContent = "VIBE JAM PORTAL";
 
     const mainMenuBtn = document.createElement("button");
     mainMenuBtn.type = "button";
-    mainMenuBtn.className = "results-playAgain";
-    mainMenuBtn.textContent = "Main Menu";
+    mainMenuBtn.className = "results-btn results-btn--menu";
+    mainMenuBtn.textContent = "MAIN MENU";
     mainMenuBtn.addEventListener("click", () => {
       // Strip room param and go to plain cartrave.lol
       const url = new URL(window.location.href);
@@ -1709,13 +1801,6 @@ async function main() {
 
     const statsLine = document.createElement("div");
     statsLine.className = "results-stats";
-    statsLine.style.cssText = `
-      color: #aaa;
-      font-size: 0.8rem;
-      text-align: center;
-      margin-top: 0.5rem;
-      letter-spacing: 0.05em;
-    `;
 
     panel.appendChild(title);
     panel.appendChild(finalScores);
@@ -2075,28 +2160,46 @@ async function main() {
       overlay.style.display = "flex";
       overlay.style.pointerEvents = "auto";
       playAgain.disabled = !isHost;
+      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
+
+      const slotDisplayName = (slotIndex) => netSlots[slotIndex]?.name || `P${slotIndex + 1}`;
 
       if (roundWinnerSlotIndex === "draw") {
         title.textContent = "DRAW";
-        title.style.color = "#ffffff";
+        title.style.setProperty("--title-glow", "#ffe53d");
       } else {
         const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
         if (idx != null) {
           const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
-          title.textContent = `P${idx + 1} wins — ${score} pts`;
-          title.style.color = getColorForSlot(netSlots[idx]);
+          title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
+          title.style.setProperty("--title-glow", getColorForSlot(netSlots[idx]));
         } else {
-          title.textContent = "Round complete";
-          title.style.color = "#ffffff";
+          title.textContent = "ROUND COMPLETE";
+          title.style.setProperty("--title-glow", "#ffffff");
         }
       }
 
-      const scoreLines = [];
+      finalScores.replaceChildren();
       for (let i = 0; i < 4; i += 1) {
         const s = roundScores && roundScores[i] != null ? roundScores[i] : 0;
-        scoreLines.push(`P${i + 1}: ${s} pts`);
+        const row = document.createElement("div");
+        row.className = "results-score-row";
+        const isWinner = roundWinnerSlotIndex !== "draw" && roundWinnerSlotIndex === i;
+        if (isWinner) row.classList.add("is-winner");
+        row.style.setProperty("--slot-glow", getColorForSlot(netSlots[i]));
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "results-score-name";
+        nameEl.textContent = slotDisplayName(i);
+
+        const valEl = document.createElement("span");
+        valEl.className = "results-score-val";
+        valEl.textContent = `${s} pts`;
+
+        row.appendChild(nameEl);
+        row.appendChild(valEl);
+        finalScores.appendChild(row);
       }
-      finalScores.textContent = scoreLines.join("\n");
 
       history.replaceChildren();
       if (matchHistory.length === 0) {
@@ -2107,12 +2210,14 @@ async function main() {
         for (let i = matchHistory.length - 1; i >= 0; i -= 1) {
           const m = matchHistory[i];
           const row = document.createElement("div");
-          row.style.marginBottom = "6px";
-          const parts = [0, 1, 2, 3].map((j) => m.scores[j] ?? 0).join(", ");
+          row.className = "results-history-row";
+          const parts = [0, 1, 2, 3]
+            .map((j) => `${slotDisplayName(j)} ${m.scores[j] ?? 0}`)
+            .join(" · ");
           row.textContent =
             m.winnerSlotIndex === "draw"
-              ? `DRAW — ${parts} (t=${new Date(m.endedAtMs).toLocaleTimeString()})`
-              : `P${m.winnerSlotIndex + 1} won — ${parts} (t=${new Date(m.endedAtMs).toLocaleTimeString()})`;
+              ? `DRAW — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`
+              : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
           history.appendChild(row);
         }
       }
