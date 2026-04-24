@@ -2418,9 +2418,8 @@ async function main() {
   }
 
   const spotlightEntries = [];
-  const spotlightPositionRadius = 20;
-  const spotlightTargetRadius = 14;
-  const spotlightHeight = 20;
+  const spotlightPositionRadius = CONFIG.record.radius;
+  const spotlightHeight = 34;
   const spotlightIntensity = 110;
   const spotlightDriftAmplitudeRad = (12 * Math.PI) / 180;
   const spotlightConfigs = [
@@ -2438,11 +2437,7 @@ async function main() {
       spotlightHeight,
       Math.sin(baseAngleRad) * spotlightPositionRadius,
     );
-    const target = new THREE.Vector3(
-      Math.cos(baseAngleRad) * spotlightTargetRadius,
-      0,
-      Math.sin(baseAngleRad) * spotlightTargetRadius,
-    );
+    const target = new THREE.Vector3(0, 0, 0);
     const entry = addSpotlightWithCone({
       color: cfg.color,
       position,
@@ -4512,9 +4507,9 @@ async function main() {
           Math.sin(angle) * spotlightPositionRadius,
         );
         const coneTarget = new THREE.Vector3(
-          Math.cos(angle) * spotlightTargetRadius,
+          0,
           platformTopY,
-          Math.sin(angle) * spotlightTargetRadius,
+          0,
         );
         entry.light.position.copy(lightPos);
         entry.light.target.position.copy(coneTarget);
