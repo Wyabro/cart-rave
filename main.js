@@ -1228,7 +1228,7 @@ async function main() {
   renderer.setClearColor(CONFIG.backgroundColor, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x050510, 0.012);
+  scene.fog = new THREE.FogExp2(0x050510, 0.018);
 
   function initHud() {
     const existing = document.getElementById("hud");
@@ -2356,9 +2356,9 @@ async function main() {
   composer.addPass(new RenderPass(scene, camera));
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    1.5,
+    2.0,
     0.4,
-    0.1,
+    0.6,
   );
   composer.addPass(bloomPass);
 
