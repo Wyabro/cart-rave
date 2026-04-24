@@ -270,7 +270,7 @@ const CONFIG = {
 
   booth: {
     // Platform
-    platformY: 8.0,            // top-surface Y of the raised booth
+    platformY: 4.0,            // top-surface Y of the raised booth
     platformWidth: 7.0,        // X-extent (side to side)
     platformDepth: 5.0,        // Z-extent (front to back, not counting ramp)
     platformThickness: 0.6,    // slab height
@@ -2411,23 +2411,48 @@ async function main() {
     // Distance from world origin to the center of each booth platform
     const boothCenterDist = arenaR + B.gapDistance + B.rampLength + B.platformDepth / 2;
 
-    // The four cardinal angles (N=+Z, E=+X, S=-Z, W=-X) matching spawnOnRingForSlot
+    // The four cardinal angles matching spawnOnRingForSlot: slot 0 = +X, slot 1 = +Z, slot 2 = -X, slot 3 = -Z
     const angles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+
+    // Helper: create a neon tube (thin cylinder) between two local-space points
+    function makeNeonTube(p1, p2, radius) {
+      const dir = new THREE.Vector3().subVectors(p2, p1);
+      const len = dir.length();
+      const geo = new THREE.CylinderGeometry(radius, radius, len, 6);
+      const mat = new THREE.MeshStandardMaterial({
+        color: B.neonColor1,
+        emissive: B.neonColor1,
+        emissiveIntensity: 1.5,
+        roughness: 0.3,
+        metalness: 0.8,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      // Position at midpoint
+      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+      mesh.position.copy(mid);
+      // Orient cylinder (default Y-axis) to point along p1->p2
+      const axis = new THREE.Vector3(0, 1, 0);
+      const target = dir.clone().normalize();
+      const quat = new THREE.Quaternion().setFromUnitVectors(axis, target);
+      mesh.quaternion.copy(quat);
+      return mesh;
+    }
 
     for (let i = 0; i < 4; i += 1) {
       const angle = angles[i];
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
 
       // Booth center in world XZ
-      const cx = boothCenterDist * cos;
-      const cz = boothCenterDist * sin;
+      const cx = boothCenterDist * Math.cos(angle);
+      const cz = boothCenterDist * Math.sin(angle);
       const topY = B.platformY;
+
+      // Yaw so local -Z points toward world origin (arena center)
+      // From booth at angle, direction to center is angle + PI
+      const yaw = angle + Math.PI;
 
       const boothGroup = new THREE.Group();
       boothGroup.position.set(cx, 0, cz);
-      // Rotate so the booth's local -Z faces the arena center
-      boothGroup.rotation.y = angle;
+      boothGroup.rotation.y = yaw;
 
       // --- Platform slab ---
       const platGeo = new THREE.BoxGeometry(B.platformWidth, B.platformThickness, B.platformDepth);
@@ -2440,13 +2465,12 @@ async function main() {
       platMesh.position.set(0, topY, 0);
       boothGroup.add(platMesh);
 
-      // Platform collider
+      // Platform collider (world space)
       const platBody = world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(cx, topY, cz),
       );
-      // Rotate the physics body to match the visual group
-      const platHalfAngle = angle / 2;
-      platBody.setRotation({ x: 0, y: Math.sin(platHalfAngle), z: 0, w: Math.cos(platHalfAngle) }, true);
+      const platHalfYaw = yaw / 2;
+      platBody.setRotation({ x: 0, y: Math.sin(platHalfYaw), z: 0, w: Math.cos(platHalfYaw) }, true);
       world.createCollider(
         RAPIER.ColliderDesc.cuboid(B.platformWidth / 2, B.platformThickness / 2, B.platformDepth / 2)
           .setFriction(B.friction)
@@ -2454,12 +2478,11 @@ async function main() {
         platBody,
       );
 
-      // --- Ramp (flat incline from platform front down toward arena) ---
-      // In local space: ramp goes from front of platform (local z = -platformDepth/2)
-      // down to rampEndY, extending rampLength in -Z direction.
+      // --- Ramp (slopes from platform front edge toward arena) ---
+      // Local -Z = toward arena. Ramp starts at local z = -platformDepth/2, goes further -Z.
       const rampRise = topY - B.rampEndY;
       const rampHyp = Math.sqrt(B.rampLength * B.rampLength + rampRise * rampRise);
-      const rampPitch = Math.atan2(rampRise, B.rampLength); // angle of incline
+      const rampPitch = Math.atan2(rampRise, B.rampLength);
 
       const rampGeo = new THREE.BoxGeometry(B.rampWidth, B.rampThickness, rampHyp);
       const rampMat = new THREE.MeshStandardMaterial({
@@ -2468,34 +2491,30 @@ async function main() {
         metalness: 0.2,
       });
       const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-      // Position ramp: center it along its length, starting from platform front edge
-      const rampCenterZ = -(B.platformDepth / 2) - B.rampLength / 2;
+      const rampCenterLocalZ = -(B.platformDepth / 2) - B.rampLength / 2;
       const rampCenterY = (topY + B.rampEndY) / 2;
-      rampMesh.position.set(0, rampCenterY, rampCenterZ);
-      rampMesh.rotation.x = -rampPitch;
+      rampMesh.position.set(0, rampCenterY, rampCenterLocalZ);
+      rampMesh.rotation.x = rampPitch; // tilt front down
       boothGroup.add(rampMesh);
 
-      // Ramp collider — world-space position & rotation
-      // Local ramp center -> world via the booth rotation
-      const rampLocalX = 0;
-      const rampLocalZ = rampCenterZ;
-      const rampWorldX = cx + rampLocalX * Math.cos(angle) - rampLocalZ * Math.sin(angle);
-      const rampWorldZ = cz + rampLocalX * Math.sin(angle) + rampLocalZ * Math.cos(angle);
+      // Ramp collider (world space — transform local position through booth yaw)
+      const cosYaw = Math.cos(yaw);
+      const sinYaw = Math.sin(yaw);
+      const rampWorldX = cx + rampCenterLocalZ * (-sinYaw);
+      const rampWorldZ = cz + rampCenterLocalZ * cosYaw;
       const rampBody = world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(rampWorldX, rampCenterY, rampWorldZ),
       );
-      // Compose booth yaw + ramp pitch into a quaternion
-      // First: rotation about Y (booth facing), then X (ramp tilt)
-      const cyaw = Math.cos(angle / 2);
-      const syaw = Math.sin(angle / 2);
-      const cpitch = Math.cos(-rampPitch / 2);
-      const spitch = Math.sin(-rampPitch / 2);
-      // Qyaw * Qpitch
+      // Compose Qyaw * Qpitch (yaw about Y, then pitch about local X)
+      const cy = Math.cos(yaw / 2);
+      const sy = Math.sin(yaw / 2);
+      const cp = Math.cos(rampPitch / 2);
+      const sp = Math.sin(rampPitch / 2);
       rampBody.setRotation({
-        x: cyaw * spitch,
-        y: syaw * cpitch,
-        z: -syaw * spitch,
-        w: cyaw * cpitch,
+        x: cy * sp,
+        y: sy * cp,
+        z: -sy * sp,
+        w: cy * cp,
       }, true);
       world.createCollider(
         RAPIER.ColliderDesc.cuboid(B.rampWidth / 2, B.rampThickness / 2, rampHyp / 2)
@@ -2504,162 +2523,151 @@ async function main() {
         rampBody,
       );
 
-      // --- Railings (sides + back of platform, NOT front where ramp is) ---
-      const neonMat = new THREE.MeshStandardMaterial({
-        color: B.neonColor1,
-        emissive: B.neonColor1,
-        emissiveIntensity: 1.5,
-        roughness: 0.3,
-        metalness: 0.8,
-      });
+      // --- Neon tube railings ---
+      const tubeR = B.railThickness / 2;
+      const rh = B.railHeight;
+      const pw = B.platformWidth / 2;
+      const pd = B.platformDepth / 2;
+      const railBaseY = topY + B.platformThickness / 2;
+      const railTopY = railBaseY + rh;
 
-      const railParts = [];
+      // Back rail (horizontal tube across back of platform)
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-pw, railBaseY, pd),
+        new THREE.Vector3(pw, railBaseY, pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-pw, railTopY, pd),
+        new THREE.Vector3(pw, railTopY, pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
 
-      // Back rail (behind cart, full platform width)
-      const backRailGeo = new THREE.BoxGeometry(B.platformWidth, B.railHeight, B.railThickness);
-      const backRail = new THREE.Mesh(backRailGeo, neonMat.clone());
-      backRail.position.set(0, topY + B.railHeight / 2, B.platformDepth / 2);
-      boothGroup.add(backRail);
-      railParts.push(backRail);
+      // Left side rail (vertical posts + horizontal top)
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-pw, railBaseY, -pd),
+        new THREE.Vector3(-pw, railTopY, -pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-pw, railBaseY, pd),
+        new THREE.Vector3(-pw, railTopY, pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-pw, railTopY, -pd),
+        new THREE.Vector3(-pw, railTopY, pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
 
-      // Left rail (from back to front of platform only — stops at ramp)
-      const sideRailGeo = new THREE.BoxGeometry(B.railThickness, B.railHeight, B.platformDepth);
-      const leftRail = new THREE.Mesh(sideRailGeo, neonMat.clone());
-      leftRail.position.set(-B.platformWidth / 2, topY + B.railHeight / 2, 0);
-      boothGroup.add(leftRail);
-      railParts.push(leftRail);
+      // Right side rail
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(pw, railBaseY, -pd),
+        new THREE.Vector3(pw, railTopY, -pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(pw, railBaseY, pd),
+        new THREE.Vector3(pw, railTopY, pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(pw, railTopY, -pd),
+        new THREE.Vector3(pw, railTopY, pd), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
 
-      // Right rail
-      const rightRail = new THREE.Mesh(sideRailGeo, neonMat.clone());
-      rightRail.position.set(B.platformWidth / 2, topY + B.railHeight / 2, 0);
-      boothGroup.add(rightRail);
-      railParts.push(rightRail);
+      // Ramp side rails (two tubes running along each ramp edge, following the slope)
+      const rampFrontZ = -(pd) - B.rampLength;
+      const rampFrontY = B.rampEndY;
+      const rampBackZ = -pd;
+      const rampBackY = topY;
 
-      // Ramp side rails (run along the ramp edges)
-      const rampSideRailGeo = new THREE.BoxGeometry(B.railThickness, B.railHeight, rampHyp);
-      const rampLeftRail = new THREE.Mesh(rampSideRailGeo, neonMat.clone());
-      rampLeftRail.position.set(-B.rampWidth / 2, rampCenterY + B.railHeight / 2, rampCenterZ);
-      rampLeftRail.rotation.x = -rampPitch;
-      boothGroup.add(rampLeftRail);
-      railParts.push(rampLeftRail);
+      // Left ramp rail
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-B.rampWidth / 2, rampBackY + rh, rampBackZ),
+        new THREE.Vector3(-B.rampWidth / 2, rampFrontY + rh, rampFrontZ), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(-B.rampWidth / 2, rampBackY, rampBackZ),
+        new THREE.Vector3(-B.rampWidth / 2, rampFrontY, rampFrontZ), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
 
-      const rampRightRail = new THREE.Mesh(rampSideRailGeo, neonMat.clone());
-      rampRightRail.position.set(B.rampWidth / 2, rampCenterY + B.railHeight / 2, rampCenterZ);
-      rampRightRail.rotation.x = -rampPitch;
-      boothGroup.add(rampRightRail);
-      railParts.push(rampRightRail);
+      // Right ramp rail
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(B.rampWidth / 2, rampBackY + rh, rampBackZ),
+        new THREE.Vector3(B.rampWidth / 2, rampFrontY + rh, rampFrontZ), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
+      boothNeonMeshes.push(boothGroup.add(makeNeonTube(
+        new THREE.Vector3(B.rampWidth / 2, rampBackY, rampBackZ),
+        new THREE.Vector3(B.rampWidth / 2, rampFrontY, rampFrontZ), tubeR,
+      )) && boothGroup.children[boothGroup.children.length - 1]);
 
-      // Platform edge glow strips (top edges of platform slab)
-      const edgeStripFront = new THREE.Mesh(
-        new THREE.BoxGeometry(B.platformWidth, 0.08, 0.08),
-        neonMat.clone(),
-      );
-      edgeStripFront.position.set(0, topY + B.platformThickness / 2 + 0.04, -B.platformDepth / 2);
-      boothGroup.add(edgeStripFront);
-      railParts.push(edgeStripFront);
+      // Platform edge glow strips (thin tubes along platform top edges)
+      const edgeY = railBaseY + 0.02;
+      const edgeTubes = [
+        [new THREE.Vector3(-pw, edgeY, -pd), new THREE.Vector3(pw, edgeY, -pd)],   // front
+        [new THREE.Vector3(-pw, edgeY, pd), new THREE.Vector3(pw, edgeY, pd)],      // back
+        [new THREE.Vector3(-pw, edgeY, -pd), new THREE.Vector3(-pw, edgeY, pd)],    // left
+        [new THREE.Vector3(pw, edgeY, -pd), new THREE.Vector3(pw, edgeY, pd)],      // right
+      ];
+      for (const [a, b] of edgeTubes) {
+        const tube = makeNeonTube(a, b, 0.04);
+        boothGroup.add(tube);
+        boothNeonMeshes.push(tube);
+      }
 
-      const edgeStripBack = new THREE.Mesh(
-        new THREE.BoxGeometry(B.platformWidth, 0.08, 0.08),
-        neonMat.clone(),
-      );
-      edgeStripBack.position.set(0, topY + B.platformThickness / 2 + 0.04, B.platformDepth / 2);
-      boothGroup.add(edgeStripBack);
-      railParts.push(edgeStripBack);
-
-      const edgeStripLeft = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.08, B.platformDepth),
-        neonMat.clone(),
-      );
-      edgeStripLeft.position.set(-B.platformWidth / 2, topY + B.platformThickness / 2 + 0.04, 0);
-      boothGroup.add(edgeStripLeft);
-      railParts.push(edgeStripLeft);
-
-      const edgeStripRight = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.08, B.platformDepth),
-        neonMat.clone(),
-      );
-      edgeStripRight.position.set(B.platformWidth / 2, topY + B.platformThickness / 2 + 0.04, 0);
-      boothGroup.add(edgeStripRight);
-      railParts.push(edgeStripRight);
-
-      boothNeonMeshes.push(...railParts);
-
-      // --- DJ Gear (behind cart spawn, at back of platform) ---
+      // --- DJ Gear (behind cart spawn, at back of platform in local +Z) ---
       if (B.gearEnabled) {
         const gearGroup = new THREE.Group();
-        // Position gear at back of platform (positive local Z = away from arena)
         gearGroup.position.set(0, topY + B.platformThickness / 2, B.platformDepth / 2 - 0.6);
 
-        // Mixer desk (wide, low box)
+        // Mixer desk
         const mixerGeo = new THREE.BoxGeometry(3.0, 0.5, 1.2);
         const mixerMat = new THREE.MeshStandardMaterial({
-          color: 0x1a1a2e,
-          roughness: 0.6,
-          metalness: 0.4,
+          color: 0x1a1a2e, roughness: 0.6, metalness: 0.4,
         });
         const mixer = new THREE.Mesh(mixerGeo, mixerMat);
         mixer.position.set(0, 0.25, 0);
         gearGroup.add(mixer);
 
-        // Mixer surface detail (faders/knobs — a thin lighter panel)
+        // Mixer panel
         const panelGeo = new THREE.BoxGeometry(2.6, 0.06, 0.8);
         const panelMat = new THREE.MeshStandardMaterial({
-          color: 0x333355,
-          roughness: 0.4,
-          metalness: 0.6,
-          emissive: 0x111133,
-          emissiveIntensity: 0.3,
+          color: 0x333355, roughness: 0.4, metalness: 0.6,
+          emissive: 0x111133, emissiveIntensity: 0.3,
         });
-        const panel = new THREE.Mesh(panelGeo, panelMat);
-        panel.position.set(0, 0.52, 0);
-        gearGroup.add(panel);
+        gearGroup.add(new THREE.Mesh(panelGeo, panelMat)).position.set(0, 0.52, 0);
 
-        // Left turntable (cylinder)
+        // Turntables
         const deckGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16);
         const deckMat = new THREE.MeshStandardMaterial({
-          color: 0x0d0d0d,
-          roughness: 0.3,
-          metalness: 0.7,
+          color: 0x0d0d0d, roughness: 0.3, metalness: 0.7,
         });
-        const leftDeck = new THREE.Mesh(deckGeo, deckMat);
-        leftDeck.position.set(-0.9, 0.55, 0);
-        gearGroup.add(leftDeck);
+        const ld = new THREE.Mesh(deckGeo, deckMat);
+        ld.position.set(-0.9, 0.55, 0);
+        gearGroup.add(ld);
+        const rd = new THREE.Mesh(deckGeo, deckMat);
+        rd.position.set(0.9, 0.55, 0);
+        gearGroup.add(rd);
 
-        const rightDeck = new THREE.Mesh(deckGeo, deckMat);
-        rightDeck.position.set(0.9, 0.55, 0);
-        gearGroup.add(rightDeck);
-
-        // Speaker stacks (left and right of mixer, against back railing)
-        const speakerGeo = new THREE.BoxGeometry(0.9, 1.6, 0.9);
-        const speakerMat = new THREE.MeshStandardMaterial({
-          color: 0x0e0e1a,
-          roughness: 0.7,
-          metalness: 0.3,
+        // Speaker stacks
+        const spkGeo = new THREE.BoxGeometry(0.9, 1.6, 0.9);
+        const spkMat = new THREE.MeshStandardMaterial({
+          color: 0x0e0e1a, roughness: 0.7, metalness: 0.3,
         });
-        const leftSpeaker = new THREE.Mesh(speakerGeo, speakerMat);
-        leftSpeaker.position.set(-2.4, 0.8, 0.2);
-        gearGroup.add(leftSpeaker);
+        const ls = new THREE.Mesh(spkGeo, spkMat);
+        ls.position.set(-2.4, 0.8, 0.2);
+        gearGroup.add(ls);
+        const rs = new THREE.Mesh(spkGeo, spkMat);
+        rs.position.set(2.4, 0.8, 0.2);
+        gearGroup.add(rs);
 
-        const rightSpeaker = new THREE.Mesh(speakerGeo, speakerMat);
-        rightSpeaker.position.set(2.4, 0.8, 0.2);
-        gearGroup.add(rightSpeaker);
-
-        // Speaker cone detail (dark circle on front face)
+        // Speaker cones
         const coneGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.04, 12);
         const coneMat = new THREE.MeshStandardMaterial({
-          color: 0x222233,
-          roughness: 0.9,
-          metalness: 0.1,
+          color: 0x222233, roughness: 0.9, metalness: 0.1,
         });
-        const leftCone = new THREE.Mesh(coneGeo, coneMat);
-        leftCone.rotation.x = Math.PI / 2;
-        leftCone.position.set(-2.4, 0.9, -0.25);
-        gearGroup.add(leftCone);
-
-        const rightCone = new THREE.Mesh(coneGeo, coneMat);
-        rightCone.rotation.x = Math.PI / 2;
-        rightCone.position.set(2.4, 0.9, -0.25);
-        gearGroup.add(rightCone);
+        const lc = new THREE.Mesh(coneGeo, coneMat);
+        lc.rotation.x = Math.PI / 2;
+        lc.position.set(-2.4, 0.9, -0.25);
+        gearGroup.add(lc);
+        const rc = new THREE.Mesh(coneGeo, coneMat);
+        rc.rotation.x = Math.PI / 2;
+        rc.position.set(2.4, 0.9, -0.25);
+        gearGroup.add(rc);
 
         boothGroup.add(gearGroup);
       }
