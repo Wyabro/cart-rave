@@ -522,6 +522,8 @@ let allCartsRef = null;
 let getAxisRef = null;
 /** @type {(cart: any, nowMs: number) => void | null} */
 let triggerRamBoostRef = null;
+/** @type {(() => void) | null} */
+let updateNameLabelsRef = null;
 
 function colorHexForSlot(slot) {
   if (!slot) return 0x888888;
@@ -798,7 +800,8 @@ function initNetcode() {
   partySocket.addEventListener("open", () => {
     // eslint-disable-next-line no-console
     console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
-    partySocket?.send(JSON.stringify({ type: MSG.join }));
+    const savedUsername = localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "";
+    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername || undefined }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
     
     // Send saved color if available
@@ -862,6 +865,7 @@ function initNetcode() {
       
       // Update HUD colors with initial colors
       updateHudColorsFromSlots(msg.slots);
+      updateNameLabelsRef?.();
       return;
     }
 
@@ -904,6 +908,7 @@ function initNetcode() {
         
         // Update HUD colors with new colors
         updateHudColorsFromSlots(msg.slots);
+        updateNameLabelsRef?.();
       } else {
         console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
       }
@@ -1886,6 +1891,30 @@ async function main() {
     if (savedMute === "true") isMuted = true;
     try { applyAudioVolume(); } catch(e) {}
     syncMenuVolume();
+
+    // Sync new menu name to localStorage for join message
+    const crNameText = document.getElementById("cr-name-text");
+    if (crNameText) {
+      // Set initial value from localStorage
+      const saved = localStorage.getItem("cartRaveUsername");
+      if (saved) crNameText.textContent = saved;
+
+      // Watch for changes via MutationObserver
+      const nameObs = new MutationObserver(() => {
+        const name = crNameText.textContent.trim();
+        if (name) localStorage.setItem("cartRaveUsername", name);
+      });
+      nameObs.observe(crNameText, { childList: true, characterData: true, subtree: true });
+    }
+
+    // Also sync the menu JS state
+    const crNameInput = document.getElementById("cr-name-input");
+    if (crNameInput) {
+      crNameInput.addEventListener("blur", () => {
+        const name = crNameInput.value.trim();
+        if (name) localStorage.setItem("cartRaveUsername", name);
+      });
+    }
   }
 
   // Step 10b: Hide menu function
@@ -2010,6 +2039,8 @@ async function main() {
         const entry = hud.scoreBoxes[i];
         const score = roundScores && roundScores[i] != null ? roundScores[i] : 0;
         entry.value.textContent = String(score);
+        const slotName = netSlots[i]?.name || `P${i + 1}`;
+        entry.label.textContent = slotName;
         entry.box.classList.toggle("isLocal", i === localIdx);
       }
     } else {
@@ -2910,6 +2941,87 @@ async function main() {
 
   // Expose carts + input + nitro for netcode helpers (module-scope).
   allCartsRef = allCarts;
+
+  // --- Floating name labels above carts ---
+  const nameSprites = [];
+  function makeNameSprite(text, color) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, 512, 64);
+
+    // Background pill
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    const textWidth = ctx.measureText(text).width; // rough pre-measure
+    ctx.font = "bold 32px monospace";
+    const measured = ctx.measureText(text).width;
+    const pad = 20;
+    const pillW = Math.min(measured + pad * 2, 500);
+    const pillX = (512 - pillW) / 2;
+    ctx.beginPath();
+    ctx.roundRect(pillX, 6, pillW, 48, 8);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = color;
+    ctx.font = "bold 32px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.fillText(text, 256, 32);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(6, 0.75, 1);
+    sprite.center.set(0.5, 0);
+    return sprite;
+  }
+
+  function updateNameLabels() {
+    for (let i = 0; i < allCarts.length; i++) {
+      const slot = netSlots[i];
+      const cart = allCarts[i];
+      if (!slot || !cart || !cart.mesh) continue;
+
+      const name = slot.name || `P${i + 1}`;
+      const colorHex = CART_COLORS[slot.color]?.hex;
+      const colorCSS = colorHex ? "#" + colorHex.toString(16).padStart(6, "0") : "#ffffff";
+
+      if (nameSprites[i]) {
+        // Update existing sprite text if name changed
+        if (nameSprites[i]._labelText !== name) {
+          scene.remove(nameSprites[i]);
+          const sp = makeNameSprite(name, colorCSS);
+          sp._labelText = name;
+          scene.add(sp);
+          nameSprites[i] = sp;
+        }
+      } else {
+        const sp = makeNameSprite(name, colorCSS);
+        sp._labelText = name;
+        scene.add(sp);
+        nameSprites[i] = sp;
+      }
+    }
+  }
+
+  // Position name labels each frame (called in game loop)
+  function positionNameLabels() {
+    for (let i = 0; i < nameSprites.length; i++) {
+      const sp = nameSprites[i];
+      const cart = allCarts[i];
+      if (!sp || !cart || !cart.body) continue;
+      const pos = cart.body.translation();
+      sp.position.set(pos.x, pos.y + 3.0, pos.z);
+    }
+  }
+
+  updateNameLabelsRef = updateNameLabels;
+
   getAxisRef = getAxis;
   triggerRamBoostRef = triggerRamBoost;
 
@@ -4491,6 +4603,7 @@ async function main() {
     }
 
     updateHud();
+    positionNameLabels();
     renderer.render(scene, camera);
     requestAnimationFrame(step);
   }
