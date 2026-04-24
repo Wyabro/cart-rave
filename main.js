@@ -2570,10 +2570,10 @@ async function main() {
         metalness: 0.2,
       });
       const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-      const rampCenterLocalZ = (B.platformDepth / 2) + B.rampLength / 2;
+      const rampCenterLocalZ = -(B.platformDepth / 2) - B.rampLength / 2;
       const rampCenterY = (topY + B.rampEndY) / 2;
       rampMesh.position.set(0, rampCenterY, rampCenterLocalZ);
-      rampMesh.rotation.x = -rampPitch;
+      rampMesh.rotation.x = rampPitch;
       boothGroup.add(rampMesh);
 
       // Ramp collider (world space)
@@ -2620,9 +2620,9 @@ async function main() {
       }
 
       // ===== NEON RAMP EDGE STRIPS =====
-      const rampFrontZ = pd + B.rampLength;
+      const rampFrontZ = -(pd + B.rampLength);
       const rampFrontY = B.rampEndY;
-      const rampBackZ = pd;
+      const rampBackZ = -pd;
       const rampBackY = topY;
 
       const lramp = makeNeonTube(
@@ -2724,13 +2724,13 @@ async function main() {
 
       const textGeoL = new THREE.PlaneGeometry(B.platformDepth, 1.2);
       const textMeshL = new THREE.Mesh(textGeoL, textMat);
-      textMeshL.position.set(-pw - 0.01, topY + 0.3, 0);
+      textMeshL.position.set(-pw - 0.01, topY + 1.5, 0);
       textMeshL.rotation.y = -Math.PI / 2;
       boothGroup.add(textMeshL);
 
       const textGeoR = new THREE.PlaneGeometry(B.platformDepth, 1.2);
       const textMeshR = new THREE.Mesh(textGeoR, textMat);
-      textMeshR.position.set(pw + 0.01, topY + 0.3, 0);
+      textMeshR.position.set(pw + 0.01, topY + 1.5, 0);
       textMeshR.rotation.y = Math.PI / 2;
       boothGroup.add(textMeshR);
 
