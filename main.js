@@ -1211,6 +1211,7 @@ async function main() {
   let musicStarted = false;
   let musicUnavailable = false;
   let tryStartAmbientMusic = () => {};
+  let labelRenderer = null;
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -1840,6 +1841,7 @@ async function main() {
   // Step 10b: Menu initialization
   function initMenu() {
     menuVisible = true;
+    if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "none";
     // Fade out game music, fade in menu music
@@ -2073,6 +2075,7 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
+    if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
     // Crossfade: fade out menu music, fade in game music
@@ -2363,13 +2366,14 @@ async function main() {
   );
   composer.addPass(bloomPass);
 
-  const labelRenderer = new CSS2DRenderer();
+  labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
   labelRenderer.domElement.style.position = "fixed";
   labelRenderer.domElement.style.top = "0";
   labelRenderer.domElement.style.left = "0";
   labelRenderer.domElement.style.pointerEvents = "none";
   labelRenderer.domElement.style.zIndex = "1";
+  labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
   document.body.appendChild(labelRenderer.domElement);
 
   const cameraState = {
@@ -2413,38 +2417,56 @@ async function main() {
   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
-  const spotlightConeAxisY = new THREE.Vector3(0, 1, 0);
+  const spotlightBeamAxisY = new THREE.Vector3(0, 1, 0);
 
-  function addSpotlightWithCone({ color, position, intensity, target }) {
+  function positionSpotlightBeam(beamGroup, source, target) {
+    beamGroup.position.copy(source.clone().add(target).multiplyScalar(0.5));
+    beamGroup.quaternion.setFromUnitVectors(
+      spotlightBeamAxisY,
+      source.clone().sub(target).normalize(),
+    );
+  }
+
+  function addSpotlightWithBeam({ color, position, intensity, target }) {
     const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 8.75, 0.2, 1.1);
     light.position.copy(position);
     light.target.position.set(target.x, platformTopY, target.z);
     scene.add(light);
     scene.add(light.target);
 
-    // Fake a visible light cone without fog (simple transparent cone mesh).
-    const coneTarget = new THREE.Vector3(target.x, platformTopY, target.z);
+    const beamTarget = new THREE.Vector3(target.x, platformTopY, target.z);
     const height = Math.max(0.01, position.y - platformTopY);
-    const radius = Math.tan(light.angle) * height;
-    const coneGeo = new THREE.ConeGeometry(radius, height, 18, 1, true);
-    const coneMat = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.13,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const coneMesh = new THREE.Mesh(coneGeo, coneMat);
-    const mid = position.clone().add(coneTarget).multiplyScalar(0.5);
-    coneMesh.position.copy(mid);
-    coneMesh.quaternion.setFromUnitVectors(
-      spotlightConeAxisY,
-      position.clone().sub(coneTarget).normalize(),
-    );
-    scene.add(coneMesh);
+    const beamGroup = new THREE.Group();
+    const beamLayers = [
+      { sourceRadius: 0.45, floorRadius: 1.2, opacity: 0.1 },
+      { sourceRadius: 0.65, floorRadius: 1.8, opacity: 0.055 },
+      { sourceRadius: 0.9, floorRadius: 2.6, opacity: 0.025 },
+    ];
 
-    return { light, coneMesh };
+    for (const layer of beamLayers) {
+      const beamGeo = new THREE.CylinderGeometry(
+        layer.sourceRadius,
+        layer.floorRadius,
+        height,
+        24,
+        1,
+        true,
+      );
+      const beamMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: layer.opacity,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      beamGroup.add(new THREE.Mesh(beamGeo, beamMat));
+    }
+
+    positionSpotlightBeam(beamGroup, position, beamTarget);
+    scene.add(beamGroup);
+
+    return { light, beamGroup };
   }
 
   const spotlightEntries = [];
@@ -2468,7 +2490,7 @@ async function main() {
       Math.sin(baseAngleRad) * spotlightPositionRadius,
     );
     const target = new THREE.Vector3(position.x, 0, position.z);
-    const entry = addSpotlightWithCone({
+    const entry = addSpotlightWithBeam({
       color: cfg.color,
       position,
       intensity: spotlightIntensity,
@@ -3247,6 +3269,11 @@ async function main() {
       if (!label || !cart || !cart.body) continue;
       const pos = cart.body.translation();
       label.position.set(pos.x, pos.y + 3.0, pos.z);
+      const distance = Math.max(0.001, camera.position.distanceTo(label.position));
+      const scale = clamp(18 / distance, 0.65, 1.2);
+      label.element.style.fontSize = `${32 * scale}px`;
+      label.element.style.padding = `${6 * scale}px ${20 * scale}px`;
+      label.element.style.textShadow = `0 0 ${8 * scale}px ${label._labelColor}`;
     }
   }
 
@@ -4516,15 +4543,11 @@ async function main() {
           spotlightHeight,
           Math.sin(angle) * spotlightPositionRadius,
         );
-        const coneTarget = new THREE.Vector3(lightPos.x, platformTopY, lightPos.z);
+        const beamTarget = new THREE.Vector3(lightPos.x, platformTopY, lightPos.z);
         entry.light.position.copy(lightPos);
-        entry.light.target.position.copy(coneTarget);
+        entry.light.target.position.copy(beamTarget);
         entry.light.target.updateMatrixWorld();
-        entry.coneMesh.position.copy(lightPos.clone().add(coneTarget).multiplyScalar(0.5));
-        entry.coneMesh.quaternion.setFromUnitVectors(
-          spotlightConeAxisY,
-          lightPos.clone().sub(coneTarget).normalize(),
-        );
+        positionSpotlightBeam(entry.beamGroup, lightPos, beamTarget);
       }
     }
 
