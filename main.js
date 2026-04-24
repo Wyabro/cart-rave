@@ -2589,9 +2589,9 @@ async function main() {
       const cp = Math.cos(rampPitch / 2);
       const sp = Math.sin(rampPitch / 2);
       rampBody.setRotation({
-        x: cyaw * sp,
+        x: cyaw * (-sp),
         y: syaw * cp,
-        z: -syaw * sp,
+        z: -syaw * (-sp),
         w: cyaw * cp,
       }, true);
       world.createCollider(
