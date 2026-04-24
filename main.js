@@ -2,6 +2,7 @@ import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import { EffectComposer } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { CSS2DObject, CSS2DRenderer } from "https://esm.sh/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
@@ -2356,11 +2357,20 @@ async function main() {
   composer.addPass(new RenderPass(scene, camera));
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    1.2,
+    0.6,
     0.35,
     0.3,
   );
   composer.addPass(bloomPass);
+
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.domElement.style.position = "fixed";
+  labelRenderer.domElement.style.top = "0";
+  labelRenderer.domElement.style.left = "0";
+  labelRenderer.domElement.style.pointerEvents = "none";
+  labelRenderer.domElement.style.zIndex = "1";
+  document.body.appendChild(labelRenderer.domElement);
 
   const cameraState = {
     pos: camera.position.clone(),
@@ -2391,6 +2401,7 @@ async function main() {
     renderer.setSize(w, h);
     composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     composer.setSize(w, h);
+    labelRenderer.setSize(w, h);
     camera.aspect = w / h;
     updateCameraFraming();
     camera.updateProjectionMatrix();
@@ -2439,7 +2450,7 @@ async function main() {
   const spotlightEntries = [];
   const spotlightPositionRadius = CONFIG.record.radius * 0.7;
   const spotlightHeight = 25;
-  const spotlightIntensity = 110;
+  const spotlightIntensity = 55;
   const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
   const spotlightConfigs = [
     { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
@@ -3180,42 +3191,23 @@ async function main() {
   allCartsRef = allCarts;
 
   // --- Floating name labels above carts ---
-  const nameSprites = [];
-  function makeNameSprite(text, color) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 64;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, 512, 64);
+  const nameLabels = [];
+  function makeNameLabel(text, color) {
+    const el = document.createElement("div");
+    el.textContent = text;
+    el.style.padding = "6px 20px";
+    el.style.borderRadius = "8px";
+    el.style.background = "rgba(0, 0, 0, 0.55)";
+    el.style.color = color;
+    el.style.font = "bold 32px monospace";
+    el.style.lineHeight = "1";
+    el.style.whiteSpace = "nowrap";
+    el.style.textShadow = `0 0 8px ${color}`;
+    el.style.transform = "translate(-50%, 0)";
 
-    // Background pill
-    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-    const textWidth = ctx.measureText(text).width; // rough pre-measure
-    ctx.font = "bold 32px monospace";
-    const measured = ctx.measureText(text).width;
-    const pad = 20;
-    const pillW = Math.min(measured + pad * 2, 500);
-    const pillX = (512 - pillW) / 2;
-    ctx.beginPath();
-    ctx.roundRect(pillX, 6, pillW, 48, 8);
-    ctx.fill();
-
-    // Text
-    ctx.fillStyle = color;
-    ctx.font = "bold 32px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8;
-    ctx.fillText(text, 256, 32);
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(6, 0.75, 1);
-    sprite.center.set(0.5, 0);
-    return sprite;
+    const label = new CSS2DObject(el);
+    label.center.set(0.5, 0);
+    return label;
   }
 
   function updateNameLabels() {
@@ -3228,34 +3220,33 @@ async function main() {
       const colorHex = CART_COLORS[slot.color]?.hex;
       const colorCSS = colorHex ? "#" + colorHex.toString(16).padStart(6, "0") : "#ffffff";
 
-      if (nameSprites[i]) {
-        // Update existing sprite when server slot data changes name or color.
-        if (nameSprites[i]._labelText !== name || nameSprites[i]._labelColor !== colorCSS) {
-          scene.remove(nameSprites[i]);
-          const sp = makeNameSprite(name, colorCSS);
-          sp._labelText = name;
-          sp._labelColor = colorCSS;
-          scene.add(sp);
-          nameSprites[i] = sp;
+      if (nameLabels[i]) {
+        if (nameLabels[i]._labelText !== name || nameLabels[i]._labelColor !== colorCSS) {
+          scene.remove(nameLabels[i]);
+          const label = makeNameLabel(name, colorCSS);
+          label._labelText = name;
+          label._labelColor = colorCSS;
+          scene.add(label);
+          nameLabels[i] = label;
         }
       } else {
-        const sp = makeNameSprite(name, colorCSS);
-        sp._labelText = name;
-        sp._labelColor = colorCSS;
-        scene.add(sp);
-        nameSprites[i] = sp;
+        const label = makeNameLabel(name, colorCSS);
+        label._labelText = name;
+        label._labelColor = colorCSS;
+        scene.add(label);
+        nameLabels[i] = label;
       }
     }
   }
 
   // Position name labels each frame (called in game loop)
   function positionNameLabels() {
-    for (let i = 0; i < nameSprites.length; i++) {
-      const sp = nameSprites[i];
+    for (let i = 0; i < nameLabels.length; i++) {
+      const label = nameLabels[i];
       const cart = allCarts[i];
-      if (!sp || !cart || !cart.body) continue;
+      if (!label || !cart || !cart.body) continue;
       const pos = cart.body.translation();
-      sp.position.set(pos.x, pos.y + 3.0, pos.z);
+      label.position.set(pos.x, pos.y + 3.0, pos.z);
     }
   }
 
@@ -4873,6 +4864,7 @@ async function main() {
     updateHud();
     positionNameLabels();
     composer.render();
+    labelRenderer.render(scene, camera);
     requestAnimationFrame(step);
   }
 
