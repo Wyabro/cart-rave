@@ -1236,7 +1236,16 @@ async function main() {
   const ambientParticleRadius = 35;
   const ambientParticleHeight = 30;
   const ambientParticlePositions = new Float32Array(ambientParticleCount * 3);
+  const ambientParticleColors = new Float32Array(ambientParticleCount * 3);
   const ambientParticleDrift = new Float32Array(ambientParticleCount * 4);
+  const ambientParticlePalette = [
+    CART_COLORS.pink.hex,
+    CART_COLORS.blue.hex,
+    CART_COLORS.green.hex,
+    CART_COLORS.yellow.hex,
+    CART_COLORS.neonOrange.hex,
+  ];
+  const ambientParticleColor = new THREE.Color();
 
   for (let i = 0; i < ambientParticleCount; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -1247,6 +1256,13 @@ async function main() {
     ambientParticlePositions[p] = Math.cos(angle) * radius;
     ambientParticlePositions[p + 1] = Math.random() * ambientParticleHeight;
     ambientParticlePositions[p + 2] = Math.sin(angle) * radius;
+
+    ambientParticleColor.setHex(
+      ambientParticlePalette[Math.floor(Math.random() * ambientParticlePalette.length)],
+    );
+    ambientParticleColors[p] = ambientParticleColor.r;
+    ambientParticleColors[p + 1] = ambientParticleColor.g;
+    ambientParticleColors[p + 2] = ambientParticleColor.b;
 
     const driftAngle = Math.random() * Math.PI * 2;
     const driftSpeed = 0.08 + Math.random() * 0.1;
@@ -1261,13 +1277,37 @@ async function main() {
     "position",
     new THREE.BufferAttribute(ambientParticlePositions, 3),
   );
+  ambientParticleGeometry.setAttribute(
+    "color",
+    new THREE.BufferAttribute(ambientParticleColors, 3),
+  );
+  const ambientParticleTextureCanvas = document.createElement("canvas");
+  ambientParticleTextureCanvas.width = 64;
+  ambientParticleTextureCanvas.height = 64;
+  const ambientParticleTextureCtx = ambientParticleTextureCanvas.getContext("2d");
+  const ambientParticleGradient = ambientParticleTextureCtx.createRadialGradient(
+    32,
+    32,
+    0,
+    32,
+    32,
+    32,
+  );
+  ambientParticleGradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+  ambientParticleGradient.addColorStop(0.35, "rgba(255, 255, 255, 0.55)");
+  ambientParticleGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ambientParticleTextureCtx.fillStyle = ambientParticleGradient;
+  ambientParticleTextureCtx.fillRect(0, 0, 64, 64);
+  const ambientParticleTexture = new THREE.CanvasTexture(ambientParticleTextureCanvas);
+  ambientParticleTexture.needsUpdate = true;
   const ambientParticles = new THREE.Points(
     ambientParticleGeometry,
     new THREE.PointsMaterial({
-      color: 0xf4f8ff,
-      size: 0.2,
+      map: ambientParticleTexture,
+      size: 0.35,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.55,
+      vertexColors: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }),
