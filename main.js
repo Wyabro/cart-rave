@@ -1706,14 +1706,61 @@ async function main() {
       }
 
       #results-overlay .results-stats {
-        font-family: var(--results-mono);
-        font-size: 11px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        text-align: center;
-        color: rgba(255, 255, 255, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 43, 214, 0.22);
+        border-radius: 12px;
         margin: 0 0 14px;
-        line-height: 1.5;
+        position: relative;
+      }
+
+      #results-overlay .results-stats-tag {
+        position: absolute;
+        top: -8px; left: 14px;
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 1px 8px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        font-family: var(--results-mono);
+        font-size: 8px;
+        letter-spacing: 0.22em;
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      #results-overlay .results-stats-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        flex: 1;
+      }
+
+      #results-overlay .results-stats-num {
+        font-family: var(--results-display);
+        font-size: 22px;
+        line-height: 1;
+        color: #ff2bd6;
+        text-shadow: 0 0 10px #ff2bd6;
+        letter-spacing: 0.02em;
+      }
+
+      #results-overlay .results-stats-lbl {
+        font-family: var(--results-mono);
+        font-size: 8px;
+        letter-spacing: 0.18em;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+      }
+
+      #results-overlay .results-stats-div {
+        width: 1px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.12);
+        flex-shrink: 0;
       }
 
       #results-overlay .results-history {
@@ -1985,6 +2032,7 @@ async function main() {
           friendsBack.onclick = () => {
             friendsScreen.style.display = "none";
             if (menuRoot) { menuRoot.style.display = ""; menuRoot.style.opacity = "1"; menuRoot.style.pointerEvents = ""; }
+            refreshMenuStats();
             // Clear the room param
             const cleanUrl = new URL(window.location.href);
             cleanUrl.searchParams.delete("room");
@@ -2005,14 +2053,7 @@ async function main() {
       }
     }
 
-    // Update stats display if CartRave API is available
-    const ps = getPersonalStats();
-    const winsEl = document.getElementById("stat-wins");
-    const playedEl = document.getElementById("stat-played");
-    const ptsEl = document.getElementById("stat-pts");
-    if (winsEl) winsEl.textContent = ps.wins;
-    if (playedEl) playedEl.textContent = ps.matches;
-    if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
+    refreshMenuStats();
 
     // Wire new menu audio controls to game audio
     const crMuteBtn = document.getElementById("cr-mute-btn");
@@ -2321,7 +2362,41 @@ async function main() {
       // Update personal stats display
       if (statsLine) {
         const ps = getPersonalStats();
-        statsLine.textContent = `${ps.wins}W / ${ps.matches} played / ${ps.totalPoints} pts`;
+        statsLine.replaceChildren();
+
+        const tag = document.createElement("div");
+        tag.className = "results-stats-tag";
+        const pulse = document.createElement("i");
+        pulse.style.cssText =
+          "display:inline-block;width:5px;height:5px;border-radius:50%;" +
+          "background:#ff00ff;box-shadow:0 0 4px #ff00ff;flex-shrink:0";
+        tag.appendChild(pulse);
+        tag.appendChild(document.createTextNode("\u00a0YOUR STATS"));
+        statsLine.appendChild(tag);
+
+        const statDefs = [
+          { num: String(ps.wins), lbl: "WINS" },
+          { num: String(ps.matches), lbl: "PLAYED" },
+          { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
+        ];
+        statDefs.forEach((def, idx) => {
+          if (idx > 0) {
+            const sep = document.createElement("div");
+            sep.className = "results-stats-div";
+            statsLine.appendChild(sep);
+          }
+          const item = document.createElement("div");
+          item.className = "results-stats-item";
+          const numEl = document.createElement("span");
+          numEl.className = "results-stats-num";
+          numEl.textContent = def.num;
+          const lblEl = document.createElement("span");
+          lblEl.className = "results-stats-lbl";
+          lblEl.textContent = def.lbl;
+          item.appendChild(numEl);
+          item.appendChild(lblEl);
+          statsLine.appendChild(item);
+        });
       }
     } else {
       overlay.style.display = "none";
