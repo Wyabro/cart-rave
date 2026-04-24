@@ -303,19 +303,6 @@
       </svg>`;
     }
   }
-  muteBtn.addEventListener('click', () => {
-    state.muted = !state.muted;
-    applyPalette();
-    updateVolume();
-  });
-  volTrack.addEventListener('click', (e) => {
-    const r = volTrack.getBoundingClientRect();
-    const v = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    state.vol = v;
-    if (state.muted && v > 0) state.muted = false;
-    applyPalette();
-    updateVolume();
-  });
 
   // ─── Button clicks ────────────────────────────────────────────────────────
   document.querySelectorAll('.cr-btn').forEach(btn => {

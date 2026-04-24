@@ -1652,6 +1652,58 @@ async function main() {
     if (winsEl) winsEl.textContent = ps.wins;
     if (playedEl) playedEl.textContent = ps.matches;
     if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
+
+    // Wire new menu audio controls to game audio
+    const crMuteBtn = document.getElementById("cr-mute-btn");
+    const crVolTrack = document.getElementById("cr-vol-track");
+    const crVolFill = document.getElementById("cr-vol-fill");
+    const crVolVal = document.getElementById("cr-vol-val");
+
+    function syncMenuVolume() {
+      const vol = isMuted ? 0 : masterGain;
+      if (crVolFill) crVolFill.style.width = (vol * 100) + "%";
+      if (crVolVal) crVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+    }
+
+    if (crMuteBtn) {
+      crMuteBtn.addEventListener("click", () => {
+        isMuted = !isMuted;
+        localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+        if (!isMuted && masterGain === 0) {
+          masterGain = 0.5;
+          localStorage.setItem("cartRaveVolume", "50");
+        }
+        applyAudioVolume();
+        syncMenuVolume();
+      });
+    }
+
+    if (crVolTrack) {
+      crVolTrack.addEventListener("click", (e) => {
+        const r = crVolTrack.getBoundingClientRect();
+        const v = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        masterGain = v;
+        localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
+        if (v > 0 && isMuted) {
+          isMuted = false;
+          localStorage.removeItem("cartRaveMuted");
+        }
+        if (v === 0) {
+          isMuted = true;
+          localStorage.setItem("cartRaveMuted", "true");
+        }
+        applyAudioVolume();
+        syncMenuVolume();
+      });
+    }
+
+    // Set initial state from saved values
+    const savedVol = localStorage.getItem("cartRaveVolume");
+    if (savedVol !== null) masterGain = parseInt(savedVol, 10) / 100;
+    const savedMute = localStorage.getItem("cartRaveMuted");
+    if (savedMute === "true") isMuted = true;
+    applyAudioVolume();
+    syncMenuVolume();
   }
 
   // Step 10b: Hide menu function
