@@ -1232,6 +1232,76 @@ async function main() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x050510, 0.018);
 
+  const ambientParticleCount = 260;
+  const ambientParticleRadius = 35;
+  const ambientParticleHeight = 30;
+  const ambientParticlePositions = new Float32Array(ambientParticleCount * 3);
+  const ambientParticleDrift = new Float32Array(ambientParticleCount * 4);
+
+  for (let i = 0; i < ambientParticleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = Math.sqrt(Math.random()) * ambientParticleRadius;
+    const p = i * 3;
+    const d = i * 4;
+
+    ambientParticlePositions[p] = Math.cos(angle) * radius;
+    ambientParticlePositions[p + 1] = Math.random() * ambientParticleHeight;
+    ambientParticlePositions[p + 2] = Math.sin(angle) * radius;
+
+    const driftAngle = Math.random() * Math.PI * 2;
+    const driftSpeed = 0.08 + Math.random() * 0.1;
+    ambientParticleDrift[d] = Math.cos(driftAngle) * driftSpeed;
+    ambientParticleDrift[d + 1] = 0.015 + Math.random() * 0.035;
+    ambientParticleDrift[d + 2] = Math.sin(driftAngle) * driftSpeed;
+    ambientParticleDrift[d + 3] = Math.random() * Math.PI * 2;
+  }
+
+  const ambientParticleGeometry = new THREE.BufferGeometry();
+  ambientParticleGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(ambientParticlePositions, 3),
+  );
+  const ambientParticles = new THREE.Points(
+    ambientParticleGeometry,
+    new THREE.PointsMaterial({
+      color: 0xf4f8ff,
+      size: 0.2,
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  scene.add(ambientParticles);
+
+  function updateAmbientParticles(dt, nowMs) {
+    const nowSec = nowMs * 0.001;
+    const positions = ambientParticleGeometry.attributes.position.array;
+
+    for (let i = 0; i < ambientParticleCount; i++) {
+      const p = i * 3;
+      const d = i * 4;
+      const wave = Math.sin(nowSec * 0.55 + ambientParticleDrift[d + 3]) * 0.04;
+
+      positions[p] += (ambientParticleDrift[d] + wave) * dt;
+      positions[p + 1] += ambientParticleDrift[d + 1] * dt;
+      positions[p + 2] += (ambientParticleDrift[d + 2] - wave) * dt;
+
+      const x = positions[p];
+      const z = positions[p + 2];
+      const r = Math.hypot(x, z);
+      if (r > ambientParticleRadius) {
+        const wrapScale = -ambientParticleRadius / r;
+        positions[p] = x * wrapScale;
+        positions[p + 2] = z * wrapScale;
+      }
+      if (positions[p + 1] > ambientParticleHeight) positions[p + 1] = 0;
+      if (positions[p + 1] < 0) positions[p + 1] = ambientParticleHeight;
+    }
+
+    ambientParticleGeometry.attributes.position.needsUpdate = true;
+  }
+
   function initHud() {
     const existing = document.getElementById("hud");
     if (existing) existing.remove();
@@ -4886,6 +4956,7 @@ async function main() {
 
     updateHud();
     positionNameLabels();
+    updateAmbientParticles(dt, now);
     composer.render();
     labelRenderer.render(scene, camera);
     requestAnimationFrame(step);
