@@ -2426,11 +2426,11 @@ async function main() {
   const spotlightIntensity = 110;
   const spotlightDriftAmplitudeRad = (12 * Math.PI) / 180;
   const spotlightConfigs = [
-    { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.08, phase: 0.0 },
-    { color: CART_COLORS.blue.hex, angleDeg: -18, driftSpeed: 0.065, phase: 1.4 },
-    { color: CART_COLORS.green.hex, angleDeg: 54, driftSpeed: 0.075, phase: 2.8 },
-    { color: CART_COLORS.yellow.hex, angleDeg: 126, driftSpeed: 0.055, phase: 4.2 },
-    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, driftSpeed: 0.07, phase: 5.6 },
+    { color: CART_COLORS.pink.hex, angleDeg: -90, target: new THREE.Vector3(0, 0, 10), driftSpeed: 0.08, phase: 0.0 },
+    { color: CART_COLORS.blue.hex, angleDeg: -18, target: new THREE.Vector3(-10, 0, 3), driftSpeed: 0.065, phase: 1.4 },
+    { color: CART_COLORS.green.hex, angleDeg: 54, target: new THREE.Vector3(-6, 0, -8), driftSpeed: 0.075, phase: 2.8 },
+    { color: CART_COLORS.yellow.hex, angleDeg: 126, target: new THREE.Vector3(6, 0, -8), driftSpeed: 0.055, phase: 4.2 },
+    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, target: new THREE.Vector3(10, 0, 3), driftSpeed: 0.07, phase: 5.6 },
   ];
 
   for (const cfg of spotlightConfigs) {
@@ -2440,7 +2440,7 @@ async function main() {
       spotlightHeight,
       Math.sin(baseAngleRad) * spotlightPositionRadius,
     );
-    const target = new THREE.Vector3(0, 0, 0);
+    const target = cfg.target;
     const entry = addSpotlightWithCone({
       color: cfg.color,
       position,
@@ -2451,6 +2451,7 @@ async function main() {
       ...entry,
       baseAngleRad,
       color: cfg.color,
+      target,
       driftSpeed: cfg.driftSpeed,
       phase: cfg.phase,
     });
@@ -4509,11 +4510,7 @@ async function main() {
           spotlightHeight,
           Math.sin(angle) * spotlightPositionRadius,
         );
-        const coneTarget = new THREE.Vector3(
-          0,
-          platformTopY,
-          0,
-        );
+        const coneTarget = entry.target;
         entry.light.position.copy(lightPos);
         entry.light.target.position.copy(coneTarget);
         entry.light.target.updateMatrixWorld();
