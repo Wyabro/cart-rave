@@ -2417,24 +2417,46 @@ async function main() {
     return { light, coneMesh };
   }
 
-  addSpotlightWithCone({
-    color: 0xff2bd6,
-    position: new THREE.Vector3(-16, 20, 12),
-    intensity: 110,
-    target: new THREE.Vector3(-12, 0, 9),
-  });
-  addSpotlightWithCone({
-    color: 0x2bd6ff,
-    position: new THREE.Vector3(16, 20, 12),
-    intensity: 110,
-    target: new THREE.Vector3(12, 0, 9),
-  });
-  addSpotlightWithCone({
-    color: 0x8dff2b,
-    position: new THREE.Vector3(0, 20, -18),
-    intensity: 95,
-    target: new THREE.Vector3(0, 0, -13),
-  });
+  const spotlightEntries = [];
+  const spotlightPositionRadius = 20;
+  const spotlightTargetRadius = 14;
+  const spotlightHeight = 20;
+  const spotlightIntensity = 110;
+  const spotlightDriftAmplitudeRad = (12 * Math.PI) / 180;
+  const spotlightConfigs = [
+    { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.08, phase: 0.0 },
+    { color: CART_COLORS.blue.hex, angleDeg: -18, driftSpeed: 0.065, phase: 1.4 },
+    { color: CART_COLORS.green.hex, angleDeg: 54, driftSpeed: 0.075, phase: 2.8 },
+    { color: CART_COLORS.yellow.hex, angleDeg: 126, driftSpeed: 0.055, phase: 4.2 },
+    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, driftSpeed: 0.07, phase: 5.6 },
+  ];
+
+  for (const cfg of spotlightConfigs) {
+    const baseAngleRad = (cfg.angleDeg * Math.PI) / 180;
+    const position = new THREE.Vector3(
+      Math.cos(baseAngleRad) * spotlightPositionRadius,
+      spotlightHeight,
+      Math.sin(baseAngleRad) * spotlightPositionRadius,
+    );
+    const target = new THREE.Vector3(
+      Math.cos(baseAngleRad) * spotlightTargetRadius,
+      0,
+      Math.sin(baseAngleRad) * spotlightTargetRadius,
+    );
+    const entry = addSpotlightWithCone({
+      color: cfg.color,
+      position,
+      intensity: spotlightIntensity,
+      target,
+    });
+    spotlightEntries.push({
+      ...entry,
+      baseAngleRad,
+      color: cfg.color,
+      driftSpeed: cfg.driftSpeed,
+      phase: cfg.phase,
+    });
+  }
 
   const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
@@ -4476,6 +4498,32 @@ async function main() {
 
     // Visual-only record rotation.
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
+
+    if (spotlightEntries.length > 0) {
+      const nowSec = performance.now() * 0.001;
+      for (const entry of spotlightEntries) {
+        const drift =
+          Math.sin(nowSec * entry.driftSpeed * Math.PI * 2 + entry.phase) *
+          spotlightDriftAmplitudeRad;
+        const angle = entry.baseAngleRad + drift;
+        const lightPos = new THREE.Vector3(
+          Math.cos(angle) * spotlightPositionRadius,
+          spotlightHeight,
+          Math.sin(angle) * spotlightPositionRadius,
+        );
+        const coneTarget = new THREE.Vector3(
+          Math.cos(angle) * spotlightTargetRadius,
+          platformTopY,
+          Math.sin(angle) * spotlightTargetRadius,
+        );
+        entry.light.position.copy(lightPos);
+        entry.light.target.position.copy(coneTarget);
+        entry.light.target.updateMatrixWorld();
+        entry.coneMesh.position.copy(lightPos.clone().add(coneTarget).multiplyScalar(0.5));
+        entry.coneMesh.lookAt(coneTarget);
+        entry.coneMesh.rotateX(Math.PI / 2);
+      }
+    }
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
     if (boothNeonMeshes.length > 0) {
