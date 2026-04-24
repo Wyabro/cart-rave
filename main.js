@@ -1289,7 +1289,7 @@ async function main() {
       #hud .hud-timer {
         position: absolute;
         top: 18px;
-        right: 18px;
+        right: 140px;
         font-size: 1.8rem;
         font-weight: 800;
         padding: 10px 12px;
@@ -1382,6 +1382,69 @@ async function main() {
         0%, 100% { box-shadow: 0 0 8px currentColor; }
         50%       { box-shadow: 0 0 22px currentColor, 0 0 44px currentColor; }
       }
+
+      #hud .hud-audio {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        pointer-events: auto;
+        z-index: 20001;
+      }
+      #hud .hud-mute-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(0, 0, 0, 0.4);
+        color: #22e6ff;
+        cursor: pointer;
+        font-size: 14px;
+        transition: transform 150ms, background 150ms;
+      }
+      #hud .hud-mute-btn:hover {
+        transform: scale(1.08);
+        background: rgba(255, 255, 255, 0.08);
+      }
+      #hud .hud-mute-btn.muted {
+        color: #888;
+        border-color: rgba(255, 80, 80, 0.3);
+      }
+      #hud .hud-vol-track {
+        width: 80px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        cursor: pointer;
+        overflow: hidden;
+      }
+      #hud .hud-vol-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #22e6ff, #ff2bd6);
+        box-shadow: 0 0 6px #ff2bd6;
+        transition: width 100ms ease;
+      }
+      #hud .hud-vol-val {
+        font-family: 'Space Mono', monospace;
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.6);
+        min-width: 22px;
+        text-align: right;
+        letter-spacing: 0.05em;
+      }
     `.trim();
     document.head.appendChild(style);
 
@@ -1432,6 +1495,57 @@ async function main() {
     root.appendChild(timer);
     root.appendChild(scores);
     root.appendChild(readyBtn);
+
+    // In-game audio widget
+    const audioWidget = document.createElement("div");
+    audioWidget.className = "hud-audio";
+
+    const hudMuteBtn = document.createElement("button");
+    hudMuteBtn.className = "hud-mute-btn";
+    hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
+    if (isMuted) hudMuteBtn.classList.add("muted");
+    hudMuteBtn.addEventListener("click", () => {
+      isMuted = !isMuted;
+      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+      if (!isMuted && masterGain === 0) {
+        masterGain = 0.25;
+        localStorage.setItem("cartRaveVolume", "25");
+      }
+      try { applyAudioVolume(); } catch (e) {}
+      hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
+      hudMuteBtn.classList.toggle("muted", isMuted);
+      hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
+      hudVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+    });
+
+    const hudVolTrack = document.createElement("div");
+    hudVolTrack.className = "hud-vol-track";
+    const hudVolFill = document.createElement("div");
+    hudVolFill.className = "hud-vol-fill";
+    hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
+    hudVolTrack.appendChild(hudVolFill);
+    hudVolTrack.addEventListener("click", (e) => {
+      const r = hudVolTrack.getBoundingClientRect();
+      const v = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      masterGain = v;
+      localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
+      if (v > 0 && isMuted) { isMuted = false; localStorage.removeItem("cartRaveMuted"); }
+      if (v === 0) { isMuted = true; localStorage.setItem("cartRaveMuted", "true"); }
+      try { applyAudioVolume(); } catch (e) {}
+      hudVolFill.style.width = (isMuted ? 0 : v * 100) + "%";
+      hudVolVal.textContent = isMuted ? "OFF" : Math.round(v * 100);
+      hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
+      hudMuteBtn.classList.toggle("muted", isMuted);
+    });
+
+    const hudVolVal = document.createElement("span");
+    hudVolVal.className = "hud-vol-val";
+    hudVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+
+    audioWidget.appendChild(hudMuteBtn);
+    audioWidget.appendChild(hudVolTrack);
+    audioWidget.appendChild(hudVolVal);
+    root.appendChild(audioWidget);
     document.body.appendChild(root);
 
     return { root, status, timer, scores, scoreBoxes, readyBtn };
