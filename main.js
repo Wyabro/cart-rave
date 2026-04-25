@@ -2751,7 +2751,7 @@ async function main() {
   updateViewport();
 
   // Minimal ambient + a few colored spotlights for "neon" vibe.
-  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.27));
 
   const visualRecordThickness = 0.28;
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
@@ -3611,7 +3611,7 @@ async function main() {
 
   const groundDiscGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
-    color: 0x141428,
+    color: 0x1e1e3a,
     metalness: 0.2,
     roughness: 0.8,
     side: THREE.DoubleSide,
