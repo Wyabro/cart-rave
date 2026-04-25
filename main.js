@@ -2,6 +2,7 @@ import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import { EffectComposer } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/ShaderPass.js";
 import { CSS2DObject, CSS2DRenderer } from "https://esm.sh/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
 import { Reflector } from "https://esm.sh/three@0.164.1/examples/jsm/objects/Reflector.js";
 import { RoomEnvironment } from "https://esm.sh/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
@@ -2506,6 +2507,35 @@ async function main() {
     0.3,
   );
   composer.addPass(bloomPass);
+  const VignetteShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      darkness: { value: 1.2 },
+      offset: { value: 1.0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform float darkness;
+      uniform float offset;
+      varying vec2 vUv;
+      void main() {
+        vec4 color = texture2D(tDiffuse, vUv);
+        float dist = distance(vUv, vec2(0.5));
+        float vig = smoothstep(0.8, offset * 0.5, dist * (darkness + offset));
+        color.rgb *= vig;
+        gl_FragColor = color;
+      }
+    `,
+  };
+  const vignettePass = new ShaderPass(VignetteShader);
+  composer.addPass(vignettePass);
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
