@@ -3523,7 +3523,7 @@ async function main() {
     const z = Math.sin(angle) * r;
     const scale = 0.25 + Math.random() * 0.2;
 
-    dummy.position.set(x, -3, z);
+    dummy.position.set(x, -2.5, z);
     dummy.scale.set(scale, scale, scale);
     dummy.rotation.y = angle + Math.PI + (Math.random() - 0.5) * 0.8;
     dummy.updateMatrix();
@@ -3536,7 +3536,7 @@ async function main() {
   if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
 
-  /** @type {{ target: THREE.Object3D, index: number }[]} */
+  /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, index: number }[]} */
   const crowdSearchlightEntries = [];
   const crowdSearchlightColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
   const crowdSearchlightSourceRadius = pitInnerRadius + 30;
@@ -3566,7 +3566,40 @@ async function main() {
     );
     searchlight.target = target;
     scene.add(searchlight);
-    crowdSearchlightEntries.push({ target, index: i });
+
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(12, 30, 16, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: crowdSearchlightColors[i],
+        transparent: true,
+        opacity: 0.06,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    cone.position.copy(searchlight.position);
+    cone.lookAt(target.position);
+    cone.rotateX(-Math.PI / 2);
+    scene.add(cone);
+    crowdSearchlightEntries.push({ target, cone, index: i });
+  }
+
+  /** @type {{ light: THREE.PointLight, index: number }[]} */
+  const crowdPointLightEntries = [];
+  const crowdPointLightRadiusMin = pitInnerRadius + 10;
+  const crowdPointLightRadiusRange = 50;
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i / 8) * Math.PI * 2;
+    const radius = crowdPointLightRadiusMin + Math.random() * crowdPointLightRadiusRange;
+    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 3, 30, 2);
+    light.position.set(
+      Math.cos(angle) * radius,
+      2,
+      Math.sin(angle) * radius,
+    );
+    scene.add(light);
+    crowdPointLightEntries.push({ light, index: i });
   }
 
   const stageAngle = 0;
@@ -5378,6 +5411,15 @@ async function main() {
         entry.target.position.y = -3;
         entry.target.position.z = Math.sin(angle) * crowdSearchlightTargetRadius;
         entry.target.updateMatrixWorld();
+        entry.cone.lookAt(entry.target.position);
+        entry.cone.rotateX(-Math.PI / 2);
+      }
+    }
+
+    if (crowdPointLightEntries.length > 0) {
+      const nowSec = now * 0.001;
+      for (const entry of crowdPointLightEntries) {
+        entry.light.intensity = 2 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 1.5;
       }
     }
 
