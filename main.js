@@ -3428,14 +3428,29 @@ async function main() {
   })();
 
   const groundDiscGeo = new THREE.CircleGeometry(60, 64);
-  const groundDiscMat = new THREE.MeshBasicMaterial({
-    color: 0x050508,
+  const groundDiscMat = new THREE.MeshStandardMaterial({
+    color: 0x0c0c1a,
+    metalness: 0.2,
+    roughness: 0.8,
     side: THREE.DoubleSide,
   });
   const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
   groundDisc.rotation.x = -Math.PI / 2;
   groundDisc.position.y = -0.5;
   scene.add(groundDisc);
+
+  const groundGridGeo = new THREE.PlaneGeometry(120, 120, 60, 60);
+  const groundGridMat = new THREE.MeshBasicMaterial({
+    color: 0x1a1a3a,
+    wireframe: true,
+    opacity: 0.15,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+  });
+  const groundGrid = new THREE.Mesh(groundGridGeo, groundGridMat);
+  groundGrid.rotation.x = -Math.PI / 2;
+  groundGrid.position.y = -0.49;
+  scene.add(groundGrid);
 
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
