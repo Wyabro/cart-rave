@@ -3890,14 +3890,29 @@ async function main() {
   crowdGlow.position.y = -2.95;
   scene.add(crowdGlow);
 
-  const horizonFogGeo = new THREE.CylinderGeometry(150, 150, 40, 64, 1, true);
-  const horizonFogMat = new THREE.MeshBasicMaterial({
-    color: 0x0a0520,
+  const horizonFogGeo = new THREE.CylinderGeometry(150, 150, 40, 64, 8, true);
+  const horizonFogMat = new THREE.ShaderMaterial({
     transparent: true,
-    opacity: 0.4,
-    blending: THREE.NormalBlending,
     depthWrite: false,
     side: THREE.BackSide,
+    uniforms: {
+      uColor: { value: new THREE.Color(0x0a0520) },
+    },
+    vertexShader: `
+      varying float vY;
+      void main() {
+        vY = position.y;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      varying float vY;
+      void main() {
+        float fade = smoothstep(20.0, -10.0, vY);
+        gl_FragColor = vec4(uColor, fade * 0.5);
+      }
+    `,
   });
   const horizonFog = new THREE.Mesh(horizonFogGeo, horizonFogMat);
   horizonFog.position.y = -3;
