@@ -3563,7 +3563,49 @@ async function main() {
   const stageLightPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
   /** @type {{ target: THREE.Object3D, baseX: number, index: number }[]} */
   const stageLightEntries = [];
-  const stageLasers = [];
+  /** @type {{ mesh: THREE.Mesh, index: number, speed: number, phaseStep: number, amplitude: number, baseZ: number }[]} */
+  const laserEntries = [];
+
+  function addLaserBeam({
+    position,
+    color,
+    radius,
+    length,
+    opacity,
+    tiltX,
+    index,
+    speed,
+    phaseStep,
+    amplitude,
+    baseQuaternion,
+    faceCenter = false,
+  }) {
+    const laserGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
+    laserGeo.translate(0, length / 2, 0);
+    const laserMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      blending: THREE.AdditiveBlending,
+    });
+    const laser = new THREE.Mesh(laserGeo, laserMat);
+    laser.position.copy(position);
+    if (baseQuaternion) {
+      laser.quaternion.copy(baseQuaternion);
+    } else if (faceCenter) {
+      laser.lookAt(0, 0, 0);
+    }
+    laser.rotateX(tiltX);
+    scene.add(laser);
+    laserEntries.push({
+      mesh: laser,
+      index,
+      speed,
+      phaseStep,
+      amplitude,
+      baseZ: laser.rotation.z,
+    });
+  }
 
   stageGroup.clear();
 
@@ -3665,25 +3707,74 @@ async function main() {
     stageGroup.add(target);
     light.target = target;
     stageLightEntries.push({ target, baseX: lx, index: i });
-
-    const laserGeo = new THREE.CylinderGeometry(0.05, 0.05, 80, 8);
-    laserGeo.translate(0, 40, 0);
-    const laserMat = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.4,
-      blending: THREE.AdditiveBlending,
-    });
-    const laser = new THREE.Mesh(laserGeo, laserMat);
-    laser.position.set(lx, 18, 0);
-    laser.rotation.x = -Math.PI * 0.3;
-    stageGroup.add(laser);
-    stageLasers.push(laser);
   }
 
   stageGroup.position.set(stageX, stageY, stageZ);
   stageGroup.lookAt(0, stageGroup.position.y, 0);
   scene.add(stageGroup);
+  stageGroup.updateMatrixWorld(true);
+
+  for (let i = 0; i < 6; i += 1) {
+    const t = i / 5;
+    const lx = -10 + t * 20;
+    addLaserBeam({
+      position: stageGroup.localToWorld(new THREE.Vector3(lx, 18, 0)),
+      color: stageLightPalette[i % stageLightPalette.length],
+      radius: 0.05,
+      length: 80,
+      opacity: 0.4,
+      tiltX: -Math.PI * 0.3,
+      index: i,
+      speed: 0.5,
+      phaseStep: 1.05,
+      amplitude: 0.6,
+      baseQuaternion: stageGroup.quaternion,
+    });
+  }
+
+  const arenaLaserRadius = pitInnerRadius + 5;
+  for (let i = 0; i < 12; i += 1) {
+    const angle = (i / 12) * Math.PI * 2;
+    addLaserBeam({
+      position: new THREE.Vector3(
+        Math.cos(angle) * arenaLaserRadius,
+        -3,
+        Math.sin(angle) * arenaLaserRadius,
+      ),
+      color: stageLightPalette[i % stageLightPalette.length],
+      radius: 0.05,
+      length: 80,
+      opacity: 0.3,
+      tiltX: -Math.PI * 0.35,
+      index: i,
+      speed: 0.4,
+      phaseStep: 0.52,
+      amplitude: 0.5,
+      faceCenter: true,
+    });
+  }
+
+  const skyLaserRadius = pitInnerRadius + 50;
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i / 8) * Math.PI * 2;
+    addLaserBeam({
+      position: new THREE.Vector3(
+        Math.cos(angle) * skyLaserRadius,
+        -3,
+        Math.sin(angle) * skyLaserRadius,
+      ),
+      color: i % 2 === 0 ? 0xff00ff : 0x00ffff,
+      radius: 0.08,
+      length: 120,
+      opacity: 0.2,
+      tiltX: -Math.PI * 0.4,
+      index: i,
+      speed: 0.3,
+      phaseStep: 0.79,
+      amplitude: 0.7,
+      faceCenter: true,
+    });
+  }
 
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
@@ -5234,10 +5325,13 @@ async function main() {
       }
     }
 
-    if (stageLasers.length > 0) {
+    if (laserEntries.length > 0) {
       const nowSec = now * 0.001;
-      for (let i = 0; i < stageLasers.length; i += 1) {
-        stageLasers[i].rotation.z = Math.sin(nowSec * 0.5 + i * 1.05) * 0.6;
+      for (const entry of laserEntries) {
+        entry.mesh.rotation.z =
+          entry.baseZ +
+          Math.sin(nowSec * entry.speed + entry.index * entry.phaseStep) *
+            entry.amplitude;
       }
     }
 
