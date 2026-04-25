@@ -2510,7 +2510,7 @@ async function main() {
   const VignetteShader = {
     uniforms: {
       tDiffuse: { value: null },
-      darkness: { value: 1.2 },
+      darkness: { value: 0.5 },
       offset: { value: 1.0 },
     },
     vertexShader: `
