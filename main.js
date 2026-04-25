@@ -3434,7 +3434,7 @@ async function main() {
     }
   })();
 
-  const groundDiscGeo = new THREE.CircleGeometry(150, 64);
+  const groundDiscGeo = new THREE.RingGeometry(12, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
     color: 0x141428,
     metalness: 0.2,
@@ -3443,10 +3443,10 @@ async function main() {
   });
   const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
   groundDisc.rotation.x = -Math.PI / 2;
-  groundDisc.position.y = -20;
+  groundDisc.position.y = -3;
   scene.add(groundDisc);
 
-  const groundGridGeo = new THREE.PlaneGeometry(300, 300, 80, 80);
+  const groundGridGeo = new THREE.RingGeometry(12, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
     color: 0x2a2a5a,
     wireframe: true,
@@ -3456,7 +3456,7 @@ async function main() {
   });
   const groundGrid = new THREE.Mesh(groundGridGeo, groundGridMat);
   groundGrid.rotation.x = -Math.PI / 2;
-  groundGrid.position.y = -19.99;
+  groundGrid.position.y = -2.99;
   scene.add(groundGrid);
 
   const crowdGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
@@ -3465,11 +3465,11 @@ async function main() {
   const crowdDummy = new THREE.Object3D();
   for (let i = 0; i < 200; i += 1) {
     const angle = 0.75 * Math.PI + Math.random() * 1.5 * Math.PI;
-    const radius = 22 + Math.random() * 6;
+    const radius = 13 + Math.random() * 5;
     const height = 0.8 + Math.random() * 0.7;
     crowdDummy.position.set(
       Math.cos(angle) * radius,
-      -20 + height / 2,
+      -3 + height / 2,
       Math.sin(angle) * radius,
     );
     crowdDummy.scale.set(1, height, 1);
