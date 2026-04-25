@@ -849,6 +849,9 @@ function initNetcode(roomOverride) {
         roundCountdownStartedAtMs = msg.round.countdownStartedAtMs ?? roundCountdownStartedAtMs;
         roundWinnerSlotIndex = msg.round.winnerSlotIndex ?? roundWinnerSlotIndex;
       }
+      if (roundPhase === "running" && youConnId) {
+        pendingMidRoundJoinRespawnConnId = youConnId;
+      }
       markFirstHelloReceived();
 
       if (msg.carts && typeof msg.carts === "object") {
