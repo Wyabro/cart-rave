@@ -3427,7 +3427,7 @@ async function main() {
     }
   })();
 
-  const groundDiscGeo = new THREE.CircleGeometry(60, 64);
+  const groundDiscGeo = new THREE.CircleGeometry(150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
     color: 0x0c0c1a,
     metalness: 0.2,
@@ -3436,10 +3436,10 @@ async function main() {
   });
   const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
   groundDisc.rotation.x = -Math.PI / 2;
-  groundDisc.position.y = -0.5;
+  groundDisc.position.y = -5;
   scene.add(groundDisc);
 
-  const groundGridGeo = new THREE.PlaneGeometry(120, 120, 60, 60);
+  const groundGridGeo = new THREE.PlaneGeometry(300, 300, 80, 80);
   const groundGridMat = new THREE.MeshBasicMaterial({
     color: 0x1a1a3a,
     wireframe: true,
@@ -3449,7 +3449,7 @@ async function main() {
   });
   const groundGrid = new THREE.Mesh(groundGridGeo, groundGridMat);
   groundGrid.rotation.x = -Math.PI / 2;
-  groundGrid.position.y = -0.49;
+  groundGrid.position.y = -4.99;
   scene.add(groundGrid);
 
   function yawToCenter(spawn) {
