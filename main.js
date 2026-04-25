@@ -2534,8 +2534,30 @@ async function main() {
   // Minimal ambient + a few colored spotlights for "neon" vibe.
   scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
+  const visualRecordThickness = 0.28;
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
+  const recordSurfaceGlowY =
+    platformTopY + CONFIG.record.surface.concentricRings.yOffset + 0.018;
   const spotlightBeamAxisY = new THREE.Vector3(0, 1, 0);
+  const spotlightPoolTextureCanvas = document.createElement("canvas");
+  spotlightPoolTextureCanvas.width = 128;
+  spotlightPoolTextureCanvas.height = 128;
+  const spotlightPoolTextureCtx = spotlightPoolTextureCanvas.getContext("2d");
+  const spotlightPoolGradient = spotlightPoolTextureCtx.createRadialGradient(
+    64,
+    64,
+    0,
+    64,
+    64,
+    64,
+  );
+  spotlightPoolGradient.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+  spotlightPoolGradient.addColorStop(0.45, "rgba(255, 255, 255, 0.28)");
+  spotlightPoolGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  spotlightPoolTextureCtx.fillStyle = spotlightPoolGradient;
+  spotlightPoolTextureCtx.fillRect(0, 0, 128, 128);
+  const spotlightPoolTexture = new THREE.CanvasTexture(spotlightPoolTextureCanvas);
+  spotlightPoolTexture.needsUpdate = true;
 
   function positionSpotlightBeam(beamGroup, source, target) {
     beamGroup.position.copy(source.clone().add(target).multiplyScalar(0.5));
@@ -2584,7 +2606,23 @@ async function main() {
     positionSpotlightBeam(beamGroup, position, beamTarget);
     scene.add(beamGroup);
 
-    return { light, beamGroup };
+    const glowGeo = new THREE.CircleGeometry(5.25, 48);
+    const glowMat = new THREE.MeshBasicMaterial({
+      map: spotlightPoolTexture,
+      color,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    glowMesh.rotation.x = -Math.PI / 2;
+    glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
+    glowMesh.renderOrder = 2;
+    scene.add(glowMesh);
+
+    return { light, beamGroup, glowMesh };
   }
 
   const spotlightEntries = [];
@@ -2627,7 +2665,6 @@ async function main() {
   const eventQueue = new RAPIER.EventQueue(true);
 
   // --- Record platform (visual rotates, physics stays fixed for day 1) ---
-  const visualRecordThickness = 0.28;
   const visualRecordY = CONFIG.record.y + (CONFIG.record.thickness - visualRecordThickness) / 2;
   const recordGeo = buildRecordRingGeometry({
     outerRadius: CONFIG.record.radius,
@@ -2711,7 +2748,11 @@ async function main() {
 
     const spindle = surf.spindleRing;
     if (spindle.enabled) {
-      const spindleGeo = new THREE.RingGeometry(spindle.innerRadius, spindle.outerRadius, 96);
+      const spindleGeo = new THREE.RingGeometry(
+        CONFIG.record.innerRadius,
+        Math.max(spindle.outerRadius, CONFIG.record.innerRadius + 0.18),
+        96,
+      );
       const spindleMat = new THREE.MeshBasicMaterial({
         color: spindle.color,
         depthWrite: false,
@@ -2725,7 +2766,7 @@ async function main() {
 
     const disc = surf.labelDisc;
     if (disc.enabled) {
-      const discGeo = new THREE.RingGeometry(disc.innerRadius, disc.outerRadius, 96);
+      const discGeo = new THREE.RingGeometry(CONFIG.record.innerRadius, disc.outerRadius, 96);
       const discMat = new THREE.MeshBasicMaterial({
         color: disc.color,
         depthWrite: false,
@@ -2754,7 +2795,6 @@ async function main() {
     const cx = canvasSize / 2;
     const cy = canvasSize / 2;
     const labelOuterWorld = disc.enabled ? disc.outerRadius : 6.5;
-    const arcRadiusPx = (lt.arcRadius / labelOuterWorld) * (canvasSize / 2);
     const labelOuterPx = canvasSize * 0.5 - 16;
     const labelInnerPx = (CONFIG.record.innerRadius / labelOuterWorld) * (canvasSize / 2);
     const labelColors = [
@@ -2764,7 +2804,6 @@ async function main() {
       "#ffff00",
       "#ff6600",
     ];
-    const fontSpec = `900 ${lt.fontSize}px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
 
     ctx.save();
     for (let i = 0; i < labelColors.length; i += 1) {
@@ -2853,15 +2892,12 @@ async function main() {
     ctx.fillText("RAVE", cx, cy + 74);
     ctx.restore();
 
-    drawArcTextOnCanvas(ctx, lt.text, cx, cy, arcRadiusPx, lt.arcCenterDeg, lt.arcAngleDeg, fontSpec, lt.color);
-    drawArcTextOnCanvas(ctx, lt.text, cx, cy, arcRadiusPx, 270, lt.arcAngleDeg, fontSpec, lt.color);
-
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
     tex.colorSpace = THREE.SRGBColorSpace;
 
     const textRadius = labelOuterWorld - 0.04;
-    const textGeo = new THREE.CircleGeometry(textRadius, 96);
+    const textGeo = new THREE.RingGeometry(CONFIG.record.innerRadius, textRadius, 96);
     const textMat = new THREE.MeshBasicMaterial({
       map: tex,
       transparent: true,
@@ -4799,6 +4835,7 @@ async function main() {
         entry.light.target.position.copy(beamTarget);
         entry.light.target.updateMatrixWorld();
         positionSpotlightBeam(entry.beamGroup, lightPos, beamTarget);
+        entry.glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
       }
     }
 
