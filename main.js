@@ -1286,51 +1286,117 @@ async function main() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x050510, 0.018);
 
-  // --- Starfield skybox ---
-  const starCount = 2000;
+  // --- Starfield + Nebula Skybox ---
+  // Stars - bigger, brighter, more of them
+  const starCount = 4000;
   const starGeo = new THREE.BufferGeometry();
   const starPositions = new Float32Array(starCount * 3);
   const starColors = new Float32Array(starCount * 3);
-  const starSizes = new Float32Array(starCount);
   for (let i = 0; i < starCount; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
-    const r = 300 + Math.random() * 200;
+    const r = 350 + Math.random() * 150;
     starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    starPositions[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)); // bias upward
     starPositions[i * 3 + 2] = r * Math.cos(phi);
-    // Tint some stars with nebula colors
     const tint = Math.random();
-    if (tint < 0.1) {
+    if (tint < 0.15) {
       starColors[i * 3] = 1;
-      starColors[i * 3 + 1] = 0.17;
-      starColors[i * 3 + 2] = 0.84;
-    } else if (tint < 0.2) {
-      starColors[i * 3] = 0.13;
+      starColors[i * 3 + 1] = 0.2;
+      starColors[i * 3 + 2] = 0.85;
+    } else if (tint < 0.3) {
+      starColors[i * 3] = 0.15;
       starColors[i * 3 + 1] = 0.9;
       starColors[i * 3 + 2] = 1;
+    } else if (tint < 0.38) {
+      starColors[i * 3] = 1;
+      starColors[i * 3 + 1] = 1;
+      starColors[i * 3 + 2] = 0.4;
     } else {
-      const b = 0.7 + Math.random() * 0.3;
+      const b = 0.8 + Math.random() * 0.2;
       starColors[i * 3] = b;
       starColors[i * 3 + 1] = b;
       starColors[i * 3 + 2] = b;
     }
-    starSizes[i] = 0.5 + Math.random() * 1.5;
   }
   starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
   starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
-  starGeo.setAttribute("size", new THREE.BufferAttribute(starSizes, 1));
   const starMat = new THREE.PointsMaterial({
-    size: 1.2,
+    size: 2.5,
     vertexColors: true,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.9,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: true,
   });
   const starField = new THREE.Points(starGeo, starMat);
   scene.add(starField);
+
+  // Nebula clouds - large additive spheres with low opacity
+  const nebulaColors = [0x6600aa, 0xaa0066, 0x003366, 0x220044, 0x660033];
+  for (let i = 0; i < 8; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = 0.3 + Math.random() * 1.0; // upper hemisphere bias
+    const r = 280 + Math.random() * 100;
+    const nebula = new THREE.Mesh(
+      new THREE.SphereGeometry(40 + Math.random() * 60, 16, 16),
+      new THREE.MeshBasicMaterial({
+        color: nebulaColors[i % nebulaColors.length],
+        transparent: true,
+        opacity: 0.06 + Math.random() * 0.06,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.BackSide,
+      }),
+    );
+    nebula.position.set(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.cos(phi),
+      r * Math.sin(phi) * Math.sin(theta),
+    );
+    scene.add(nebula);
+  }
+
+  // UFOs - small glowing discs that orbit slowly
+  const ufoEntries = [];
+  for (let i = 0; i < 3; i++) {
+    const ufoGroup = new THREE.Group();
+    // Saucer body
+    const body = new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      new THREE.MeshBasicMaterial({ color: 0x888888 }),
+    );
+    ufoGroup.add(body);
+    // Dome
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(0.7, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.8 }),
+    );
+    dome.position.y = 0.3;
+    ufoGroup.add(dome);
+    // Glow ring
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.5, 0.15, 8, 24),
+      new THREE.MeshBasicMaterial({
+        color: i === 0 ? 0x00ff88 : i === 1 ? 0xff00ff : 0x00ffff,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ufoGroup.add(ring);
+
+    const orbitRadius = 200 + i * 40;
+    const orbitSpeed = 0.03 + i * 0.01;
+    const orbitHeight = 80 + i * 30;
+    const phaseOffset = i * Math.PI * 0.66;
+    ufoGroup.scale.set(2, 2, 2);
+    scene.add(ufoGroup);
+    ufoEntries.push({ group: ufoGroup, orbitRadius, orbitSpeed, orbitHeight, phaseOffset });
+  }
 
   // * Environment map for IBL: gives metallic materials something to reflect.
   // * No scene.background is set so the void stays pure black.
@@ -5684,6 +5750,17 @@ async function main() {
           Math.sin(nowSec * entry.speed + entry.index * entry.phaseStep) *
             entry.amplitude;
       }
+    }
+
+    // UFO orbit
+    for (const ufo of ufoEntries) {
+      const angle = now * 0.001 * ufo.orbitSpeed + ufo.phaseOffset;
+      ufo.group.position.set(
+        Math.cos(angle) * ufo.orbitRadius,
+        ufo.orbitHeight + Math.sin(angle * 2) * 10,
+        Math.sin(angle) * ufo.orbitRadius,
+      );
+      ufo.group.rotation.y = angle + Math.PI;
     }
 
     if (crowdSearchlightEntries.length > 0) {
