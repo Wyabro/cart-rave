@@ -3711,25 +3711,57 @@ async function main() {
         boothGroup.add(truss);
       }
 
-      // ===== "SPAWN BOOTH" TEXT (on platform sides) =====
-      const textTex = makeTextTexture("SPAWN BOOTH", accentColor);
-      const textMat = new THREE.MeshBasicMaterial({
-        map: textTex,
+      // ===== DECORATIVE SIDE PANELS =====
+      const sidePanelMat = new THREE.MeshBasicMaterial({
+        color: accentColor,
         transparent: true,
+        opacity: 0.12,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
         side: THREE.DoubleSide,
       });
+      const sidePanelGeo = new THREE.PlaneGeometry(B.platformDepth * 0.8, 1.0);
+      for (const side of [-1, 1]) {
+        const panel = new THREE.Mesh(sidePanelGeo, sidePanelMat);
+        panel.position.set(side * (pw + 0.02), topY + 1.5, 0);
+        panel.rotation.y = side * Math.PI / 2;
+        boothGroup.add(panel);
 
-      const textGeoL = new THREE.PlaneGeometry(B.platformDepth, 1.2);
-      const textMeshL = new THREE.Mesh(textGeoL, textMat);
-      textMeshL.position.set(-pw - 0.01, topY + 1.5, 0);
-      textMeshL.rotation.y = -Math.PI / 2;
-      boothGroup.add(textMeshL);
+        // Horizontal neon strips on side panels
+        for (let s = 0; s < 3; s++) {
+          const stripY = topY + 0.8 + s * 0.6;
+          const strip = makeNeonTube(
+            new THREE.Vector3(side * (pw + 0.03), stripY, -pd * 0.35),
+            new THREE.Vector3(side * (pw + 0.03), stripY, pd * 0.35),
+            0.02, accentColor
+          );
+          boothGroup.add(strip);
+          boothNeonMeshes.push(strip);
+        }
+      }
 
-      const textGeoR = new THREE.PlaneGeometry(B.platformDepth, 1.2);
-      const textMeshR = new THREE.Mesh(textGeoR, textMat);
-      textMeshR.position.set(pw + 0.01, topY + 1.5, 0);
-      textMeshR.rotation.y = Math.PI / 2;
-      boothGroup.add(textMeshR);
+      // Diamond accent on each side
+      for (const side of [-1, 1]) {
+        const diamondShape = new THREE.BufferGeometry();
+        const dh = 0.4;
+        const dw = 0.25;
+        const verts = new Float32Array([
+          0, dh, 0, -dw, 0, 0, 0, -dh, 0,
+          0, dh, 0, 0, -dh, 0, dw, 0, 0,
+        ]);
+        diamondShape.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+        const diamond = new THREE.Mesh(diamondShape, new THREE.MeshBasicMaterial({
+          color: accentColor,
+          transparent: true,
+          opacity: 0.5,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }));
+        diamond.position.set(side * (pw + 0.04), topY + 1.5, 0);
+        diamond.rotation.y = side * Math.PI / 2;
+        boothGroup.add(diamond);
+      }
 
       // ===== DJ GEAR (behind cart spawn, local +Z = away from arena) =====
       if (B.gearEnabled) {
@@ -3787,6 +3819,65 @@ async function main() {
         rc.rotation.x = Math.PI / 2;
         rc.position.set(2.2, 0.9, -0.25);
         gearGroup.add(rc);
+
+        // Speaker neon trim
+        for (const sx of [-2.2, 2.2]) {
+          const spkEdges = [
+            [new THREE.Vector3(sx - 0.45, 0.0, -0.25), new THREE.Vector3(sx + 0.45, 0.0, -0.25)],
+            [new THREE.Vector3(sx - 0.45, 1.6, -0.25), new THREE.Vector3(sx + 0.45, 1.6, -0.25)],
+            [new THREE.Vector3(sx - 0.45, 0.0, -0.25), new THREE.Vector3(sx - 0.45, 1.6, -0.25)],
+            [new THREE.Vector3(sx + 0.45, 0.0, -0.25), new THREE.Vector3(sx + 0.45, 1.6, -0.25)],
+          ];
+          for (const [a, b] of spkEdges) {
+            const edge = makeNeonTube(a, b, 0.015, accentColor);
+            gearGroup.add(edge);
+            boothNeonMeshes.push(edge);
+          }
+          // Second speaker cone (woofer)
+          const woofer = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.04, 12),
+            coneMat
+          );
+          woofer.rotation.x = Math.PI / 2;
+          woofer.position.set(sx, 0.4, -0.25);
+          gearGroup.add(woofer);
+        }
+
+        // Turntable platters (spinning disc on each deck)
+        const platterMat = new THREE.MeshStandardMaterial({
+          color: 0x222222, roughness: 0.15, metalness: 0.85,
+        });
+        for (const dx of [-0.9, 0.9]) {
+          const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.02, 24), platterMat);
+          platter.position.set(dx, 0.6, 0);
+          gearGroup.add(platter);
+          // Label dot
+          const dot = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.08, 0.08, 0.025, 12),
+            new THREE.MeshBasicMaterial({ color: accentColor })
+          );
+          dot.position.set(dx, 0.62, 0);
+          gearGroup.add(dot);
+        }
+
+        // Fader knobs on mixer panel
+        const knobMat = new THREE.MeshStandardMaterial({
+          color: 0xcccccc, roughness: 0.2, metalness: 0.8,
+        });
+        for (let k = 0; k < 5; k++) {
+          const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8), knobMat);
+          knob.position.set(-0.5 + k * 0.25, 0.56, 0);
+          gearGroup.add(knob);
+        }
+
+        // LED strip on mixer front edge
+        const ledStrip = makeNeonTube(
+          new THREE.Vector3(-1.3, 0.3, -0.6),
+          new THREE.Vector3(1.3, 0.3, -0.6),
+          0.025, accentColor
+        );
+        gearGroup.add(ledStrip);
+        boothNeonMeshes.push(ledStrip);
 
         boothGroup.add(gearGroup);
       }
