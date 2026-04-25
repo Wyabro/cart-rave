@@ -531,6 +531,7 @@ function updateCartMaterialsFromSlots(slots) {
         }
         mat.metalness = 0.9;
         mat.roughness = 0.2;
+        mat.envMapIntensity = 0.5;
       } else {
         mat.color.setHex(finalHex);
         if (mat.emissive) {
@@ -539,6 +540,7 @@ function updateCartMaterialsFromSlots(slots) {
         }
         mat.metalness = 0.7;
         mat.roughness = 0.3;
+        mat.envMapIntensity = 0.3;
       }
     });
 
