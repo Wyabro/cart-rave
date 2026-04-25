@@ -2542,9 +2542,11 @@ async function main() {
     const exitPortal = document.createElement("a");
     exitPortal.className = "results-btn results-btn--portal";
     exitPortal.href = "https://vibej.am/portal/2026";
-    exitPortal.target = "_blank";
-    exitPortal.rel = "noopener noreferrer";
     exitPortal.textContent = "VIBE JAM PORTAL";
+    exitPortal.addEventListener("click", (event) => {
+      event.preventDefault();
+      window.location.href = "https://vibej.am/portal/2026";
+    });
 
     const mainMenuBtn = document.createElement("button");
     mainMenuBtn.type = "button";
@@ -3046,13 +3048,6 @@ async function main() {
               : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
           history.appendChild(row);
         }
-      }
-
-      try {
-        const ref = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
-        exitPortal.href = `https://vibej.am/portal/2026?ref=${ref}`;
-      } catch {
-        exitPortal.href = "https://vibej.am/portal/2026";
       }
 
       // Update personal stats display
