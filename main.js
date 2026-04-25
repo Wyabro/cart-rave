@@ -4088,6 +4088,13 @@ async function main() {
       slotIndex,
     });
     cartsBySlotId[slotIndex] = cart;
+    if (
+      pendingMidRoundJoinRespawnConnId === youConnId &&
+      slot?.connId === youConnId
+    ) {
+      doRespawn(cart);
+      pendingMidRoundJoinRespawnConnId = null;
+    }
   }
 
   const colliderHandleToCart = new Map();
