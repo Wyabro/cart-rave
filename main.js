@@ -3459,6 +3459,26 @@ async function main() {
   groundGrid.position.y = -19.99;
   scene.add(groundGrid);
 
+  const crowdGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
+  const crowdMat = new THREE.MeshBasicMaterial({ color: 0x06060f });
+  const crowdMesh = new THREE.InstancedMesh(crowdGeo, crowdMat, 200);
+  const crowdDummy = new THREE.Object3D();
+  for (let i = 0; i < 200; i += 1) {
+    const angle = 0.75 * Math.PI + Math.random() * 1.5 * Math.PI;
+    const radius = 22 + Math.random() * 6;
+    const height = 0.8 + Math.random() * 0.7;
+    crowdDummy.position.set(
+      Math.cos(angle) * radius,
+      -20 + height / 2,
+      Math.sin(angle) * radius,
+    );
+    crowdDummy.scale.set(1, height, 1);
+    crowdDummy.rotation.y = (Math.random() - 0.5) * 0.6;
+    crowdDummy.updateMatrix();
+    crowdMesh.setMatrixAt(i, crowdDummy.matrix);
+  }
+  scene.add(crowdMesh);
+
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
     // Facing the center means forward should point from spawn -> (0,0).
