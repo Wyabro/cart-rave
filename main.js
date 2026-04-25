@@ -2502,7 +2502,7 @@ async function main() {
   composer.addPass(new RenderPass(scene, camera));
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.6,
+    0.5,
     0.35,
     0.3,
   );
@@ -2510,7 +2510,7 @@ async function main() {
   const VignetteShader = {
     uniforms: {
       tDiffuse: { value: null },
-      darkness: { value: 0.5 },
+      darkness: { value: 0.3 },
       offset: { value: 1.0 },
     },
     vertexShader: `
