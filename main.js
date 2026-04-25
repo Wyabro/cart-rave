@@ -2806,17 +2806,33 @@ async function main() {
     ];
 
     ctx.save();
-    for (let i = 0; i < labelColors.length; i += 1) {
-      const start = -Math.PI / 2 + (i / labelColors.length) * Math.PI * 2;
-      const end = -Math.PI / 2 + ((i + 1) / labelColors.length) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, labelOuterPx, start, end);
-      ctx.closePath();
-      ctx.fillStyle = labelColors[i];
-      ctx.globalAlpha = 0.86;
-      ctx.fill();
+    const labelImage = ctx.createImageData(canvasSize, canvasSize);
+    const palette = labelColors.map((color) => new THREE.Color(color));
+    for (let y = 0; y < canvasSize; y += 1) {
+      for (let x = 0; x < canvasSize; x += 1) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const radius = Math.hypot(dx, dy);
+        if (radius < labelInnerPx || radius > labelOuterPx) continue;
+
+        const angle = Math.atan2(dy, dx);
+        const spiral = ((angle + Math.PI) / (Math.PI * 2) + radius / labelOuterPx * 0.75) * palette.length;
+        const colorIndex = Math.floor(spiral) % palette.length;
+        const nextColorIndex = (colorIndex + 1) % palette.length;
+        const blend = spiral - Math.floor(spiral);
+        const smoothBlend = blend * blend * (3 - 2 * blend);
+        const color = palette[colorIndex].clone().lerp(palette[nextColorIndex], smoothBlend);
+        const alpha = 0.92 - (radius / labelOuterPx) * 0.12;
+        const pixel = (y * canvasSize + x) * 4;
+
+        labelImage.data[pixel] = Math.round(color.r * 255);
+        labelImage.data[pixel + 1] = Math.round(color.g * 255);
+        labelImage.data[pixel + 2] = Math.round(color.b * 255);
+        labelImage.data[pixel + 3] = Math.round(alpha * 255);
+      }
     }
+    ctx.putImageData(labelImage, 0, 0);
+
     const labelShade = ctx.createRadialGradient(cx, cy, labelInnerPx, cx, cy, labelOuterPx);
     labelShade.addColorStop(0, "rgba(0, 0, 0, 0.08)");
     labelShade.addColorStop(0.65, "rgba(0, 0, 0, 0.24)");
@@ -2873,7 +2889,7 @@ async function main() {
       drawCartIconOnLabel(
         cx + Math.cos(angle) * iconRadius,
         cy + Math.sin(angle) * iconRadius,
-        0.42,
+        0.63,
         "rgba(0, 0, 0, 0.58)",
         angle + Math.PI / 2,
       );
@@ -2882,14 +2898,16 @@ async function main() {
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "#050006";
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
-    ctx.lineWidth = 8;
-    ctx.font = `900 118px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#050006";
+    ctx.lineWidth = 14;
+    ctx.shadowColor = "rgba(255, 255, 255, 0.75)";
+    ctx.shadowBlur = 12;
+    ctx.font = `900 142px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
     ctx.strokeText("CART", cx, cy - 42);
     ctx.fillText("CART", cx, cy - 42);
-    ctx.strokeText("RAVE", cx, cy + 74);
-    ctx.fillText("RAVE", cx, cy + 74);
+    ctx.strokeText("RAVE", cx, cy + 92);
+    ctx.fillText("RAVE", cx, cy + 92);
     ctx.restore();
 
     const tex = new THREE.CanvasTexture(canvas);
