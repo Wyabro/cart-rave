@@ -3506,12 +3506,8 @@ async function main() {
     crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
-  const crowdMat = new THREE.MeshStandardMaterial({
+  const crowdMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
-    emissive: new THREE.Color(0xffffff),
-    emissiveIntensity: 0.5,
-    metalness: 0.3,
-    roughness: 0.7,
   });
   const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 5000);
   const crowdPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
@@ -3529,7 +3525,7 @@ async function main() {
     dummy.updateMatrix();
     crowdCarts.setMatrixAt(i, dummy.matrix);
     const baseColor = new THREE.Color(crowdPalette[Math.floor(Math.random() * crowdPalette.length)]);
-    baseColor.multiplyScalar(0.08);
+    baseColor.multiplyScalar(0.15);
     crowdCarts.setColorAt(i, baseColor);
   }
   crowdCarts.instanceMatrix.needsUpdate = true;
