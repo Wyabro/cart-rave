@@ -3506,23 +3506,32 @@ async function main() {
     crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
-  const crowdMat = new THREE.MeshBasicMaterial({ color: 0x0a0a18 });
-  const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 1500);
+  const crowdMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0.3,
+    roughness: 0.7,
+  });
+  const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 3000);
+  const crowdPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
   const dummy = new THREE.Object3D();
-  for (let i = 0; i < 1500; i += 1) {
-    const angle = 0.75 * Math.PI + Math.random() * 1.5 * Math.PI;
-    const r = pitInnerRadius + 0.5 + Math.random() * 10;
+  for (let i = 0; i < 3000; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = pitInnerRadius + 0.5 + Math.random() * 80;
     const x = Math.cos(angle) * r;
     const z = Math.sin(angle) * r;
-    const scale = 0.15 + Math.random() * 0.05;
+    const scale = 0.25 + Math.random() * 0.2;
 
     dummy.position.set(x, -3, z);
     dummy.scale.set(scale, scale, scale);
     dummy.rotation.y = angle + Math.PI + (Math.random() - 0.5) * 0.8;
     dummy.updateMatrix();
     crowdCarts.setMatrixAt(i, dummy.matrix);
+    const baseColor = new THREE.Color(crowdPalette[Math.floor(Math.random() * crowdPalette.length)]);
+    baseColor.multiplyScalar(0.08);
+    crowdCarts.setColorAt(i, baseColor);
   }
   crowdCarts.instanceMatrix.needsUpdate = true;
+  if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
 
   function yawToCenter(spawn) {
