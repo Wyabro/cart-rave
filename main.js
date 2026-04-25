@@ -3455,7 +3455,17 @@ async function main() {
   groundDisc.position.y = -3;
   scene.add(groundDisc);
 
-  const pitWallGeo = new THREE.CylinderGeometry(pitInnerRadius, pitInnerRadius, 15, 64, 1, true);
+  const pitWallDepth = 600;
+  const pitWallTopY = -3;
+  const pitWallCenterY = pitWallTopY - pitWallDepth / 2;
+  const pitWallGeo = new THREE.CylinderGeometry(
+    pitInnerRadius,
+    pitInnerRadius,
+    pitWallDepth,
+    64,
+    1,
+    true,
+  );
   const pitWallMat = new THREE.MeshStandardMaterial({
     color: 0x08081a,
     metalness: 0.3,
@@ -3463,10 +3473,10 @@ async function main() {
     side: THREE.BackSide,
   });
   const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
-  pitWall.position.y = -10.5;
+  pitWall.position.y = pitWallCenterY;
   scene.add(pitWall);
   const pitWallBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, -10.5, 0),
+    RAPIER.RigidBodyDesc.fixed().setTranslation(0, pitWallCenterY, 0),
   );
   const pitWallVerts = /** @type {Float32Array} */ (pitWallGeo.attributes.position.array);
   const pitWallIndices = pitWallGeo.index
