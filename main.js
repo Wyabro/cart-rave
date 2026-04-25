@@ -4336,6 +4336,11 @@ async function main() {
   stageGroup.updateMatrixWorld(true);
 
   // ===== CURSOR VIBE JAM 2026 BILLBOARD =====
+  // Hoisted so the render loop can animate them
+  let bbSmallCtx;
+  let bbTex;
+  let slTex;
+  let bbLastRedraw = 0;
   {
     const bbAngle = Math.PI;
     const bbRadius = pitInnerRadius + 25;
@@ -4344,7 +4349,7 @@ async function main() {
     const bbSmallCanvas = document.createElement('canvas');
     bbSmallCanvas.width = 256;
     bbSmallCanvas.height = 64;
-    const bbSmallCtx = bbSmallCanvas.getContext('2d');
+    bbSmallCtx = bbSmallCanvas.getContext('2d');
     bbSmallCtx.imageSmoothingEnabled = false;
     bbSmallCtx.fillStyle = '#000000';
     bbSmallCtx.fillRect(0, 0, 256, 64);
@@ -4353,12 +4358,12 @@ async function main() {
     bbSmallCtx.textAlign = 'center';
     bbSmallCtx.textBaseline = 'middle';
     bbSmallCtx.fillText('CURSOR VIBE JAM 2026', 128, 32);
-    const bbTex = new THREE.CanvasTexture(bbSmallCanvas);
+    bbTex = new THREE.CanvasTexture(bbSmallCanvas);
     bbTex.magFilter = THREE.NearestFilter;
     bbTex.minFilter = THREE.NearestFilter;
     bbTex.colorSpace = THREE.SRGBColorSpace;
 
-    // Scanline overlay canvas
+    // Scanline overlay canvas with RepeatWrapping for UV scroll
     const slCanvas = document.createElement('canvas');
     slCanvas.width = 128;
     slCanvas.height = 256;
@@ -4367,10 +4372,20 @@ async function main() {
       slCtx.fillStyle = 'rgba(0,0,0,0.3)';
       slCtx.fillRect(0, y + 1, 128, 1);
     }
-    const slTex = new THREE.CanvasTexture(slCanvas);
+    slTex = new THREE.CanvasTexture(slCanvas);
+    slTex.wrapS = THREE.RepeatWrapping;
+    slTex.wrapT = THREE.RepeatWrapping;
 
-    const bbFrameMat = new THREE.MeshStandardMaterial({
+    const bbPoleMat = new THREE.MeshStandardMaterial({
       color: 0x333344, metalness: 0.8, roughness: 0.3,
+    });
+    const bbNeonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    const bbNeonMagentaMat = new THREE.MeshBasicMaterial({
+      color: 0xff00ff,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
 
     const billboardGroup = new THREE.Group();
@@ -4395,28 +4410,39 @@ async function main() {
     bbScanlines.position.z = 0.01;
     billboardGroup.add(bbScanlines);
 
-    // Metal frame bars (top, bottom, left, right)
+    // Neon frame bars — cyan front layer + magenta halo behind
     const bbFrameParts = [
-      { w: 12.3, h: 0.15, d: 0.15, x: 0,    y:  1.575, z: 0 },
-      { w: 12.3, h: 0.15, d: 0.15, x: 0,    y: -1.575, z: 0 },
-      { w: 0.15, h: 3.3,  d: 0.15, x: -6.075, y: 0,   z: 0 },
-      { w: 0.15, h: 3.3,  d: 0.15, x:  6.075, y: 0,   z: 0 },
+      { w: 12.3, h: 0.15, d: 0.15, x: 0,      y:  1.575, z: 0 },
+      { w: 12.3, h: 0.15, d: 0.15, x: 0,      y: -1.575, z: 0 },
+      { w: 0.15, h: 3.3,  d: 0.15, x: -6.075, y:  0,     z: 0 },
+      { w: 0.15, h: 3.3,  d: 0.15, x:  6.075, y:  0,     z: 0 },
     ];
-    for (const { w, h, d, x, y, z } of bbFrameParts) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bbFrameMat);
-      bar.position.set(x, y, z);
-      billboardGroup.add(bar);
+    for (const { w, h, d, x, y } of bbFrameParts) {
+      const cyanBar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bbNeonCyanMat);
+      cyanBar.position.set(x, y, 0);
+      billboardGroup.add(cyanBar);
+      const haloBar = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, h + 0.1, d + 0.1), bbNeonMagentaMat);
+      haloBar.position.set(x, y, -0.05);
+      billboardGroup.add(haloBar);
     }
 
     // Support poles
     for (const sx of [-5.5, 5.5]) {
       const pole = new THREE.Mesh(
         new THREE.CylinderGeometry(0.1, 0.1, 5, 8),
-        bbFrameMat
+        bbPoleMat
       );
       pole.position.set(sx, -1.5 - 2.5, 0);
       billboardGroup.add(pole);
     }
+
+    // Accent point lights — cyan left, magenta right
+    const bbLightL = new THREE.PointLight(0x00ffff, 2, 8);
+    bbLightL.position.set(-6.5, 0, 0.5);
+    billboardGroup.add(bbLightL);
+    const bbLightR = new THREE.PointLight(0xff00ff, 2, 8);
+    bbLightR.position.set(6.5, 0, 0.5);
+    billboardGroup.add(bbLightR);
 
     billboardGroup.position.set(
       Math.cos(bbAngle) * bbRadius,
@@ -6186,6 +6212,29 @@ async function main() {
         ledCtx.fillRect(0, y, 512, 2);
       }
       ledTex.needsUpdate = true;
+    }
+
+    // Billboard text glow + scanline UV scroll
+    {
+      if (now - bbLastRedraw > 100) {
+        bbLastRedraw = now;
+        const t = (Math.sin(now * 0.003) + 1) / 2;
+        // Lerp white (255,255,255) → cyan (0,255,255)
+        const r = Math.round(255 * (1 - t));
+        bbSmallCtx.imageSmoothingEnabled = false;
+        bbSmallCtx.fillStyle = '#000000';
+        bbSmallCtx.fillRect(0, 0, 256, 64);
+        bbSmallCtx.font = '14px monospace';
+        bbSmallCtx.textAlign = 'center';
+        bbSmallCtx.textBaseline = 'middle';
+        bbSmallCtx.shadowColor = '#ff00ff';
+        bbSmallCtx.shadowBlur = 4 + Math.sin(now * 0.005) * 3;
+        bbSmallCtx.fillStyle = `rgb(${r}, 255, 255)`;
+        bbSmallCtx.fillText('CURSOR VIBE JAM 2026', 128, 32);
+        bbSmallCtx.shadowBlur = 0;
+        bbTex.needsUpdate = true;
+      }
+      slTex.offset.y = (now * 0.0005) % 1;
     }
 
     const playerAxis = getAxis();
