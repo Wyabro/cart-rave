@@ -3697,7 +3697,7 @@ async function main() {
   if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
 
-  const crowdGlowGeo = new THREE.RingGeometry(pitInnerRadius + 2, pitInnerRadius + 80, 64);
+  const crowdGlowGeo = new THREE.RingGeometry(pitInnerRadius, pitInnerRadius + 80, 64);
   const crowdGlowMat = new THREE.MeshBasicMaterial({
     color: 0xff00ff,
     transparent: true,
@@ -3708,7 +3708,7 @@ async function main() {
   });
   const crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
   crowdGlow.rotation.x = -Math.PI / 2;
-  crowdGlow.position.y = -2.4;
+  crowdGlow.position.y = -2.95;
   scene.add(crowdGlow);
 
   /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, index: number }[]} */
