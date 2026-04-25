@@ -802,8 +802,13 @@ function initNetcode(roomOverride) {
   partySocket.addEventListener("open", () => {
     // eslint-disable-next-line no-console
     console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
-    const savedUsername = localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "";
-    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername || undefined }));
+    let savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    if (!savedUsername) {
+      savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
+      localStorage.setItem("cartRaveUsername", savedUsername);
+      localStorage.setItem("cartRaveName", savedUsername);
+    }
+    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
     
     startKeepaliveLoop();
