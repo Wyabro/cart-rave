@@ -4461,9 +4461,9 @@ async function main() {
   const portalWorldPos = new THREE.Vector3();
   {
     const bbAngle = Math.PI;
-    const portalRadius = pitInnerRadius + 1;
+    const portalRadius = pitInnerRadius - 2;
     const px = Math.cos(bbAngle) * portalRadius;
-    const py = -1.5;
+    const py = -3.5;
     const pz = Math.sin(bbAngle) * portalRadius;
     portalWorldPos.set(px, py, pz);
 
