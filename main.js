@@ -4245,7 +4245,39 @@ async function main() {
   }
 
   // --- LED screen (center back wall) ---
-  const ledScreen = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 0.3), stageLedMat);
+  const ledCanvas = document.createElement('canvas');
+  ledCanvas.width = 512;
+  ledCanvas.height = 256;
+  const ledCtx = ledCanvas.getContext('2d');
+  // Background gradient
+  const ledGrad = ledCtx.createLinearGradient(0, 0, 512, 256);
+  ledGrad.addColorStop(0, '#0a0020');
+  ledGrad.addColorStop(0.5, '#1a0040');
+  ledGrad.addColorStop(1, '#0a0020');
+  ledCtx.fillStyle = ledGrad;
+  ledCtx.fillRect(0, 0, 512, 256);
+  // "CART" text
+  ledCtx.font = 'bold 90px "Arial Black", "Impact", sans-serif';
+  ledCtx.textAlign = 'center';
+  ledCtx.textBaseline = 'middle';
+  ledCtx.fillStyle = '#ff2bd6';
+  ledCtx.shadowColor = '#ff2bd6';
+  ledCtx.shadowBlur = 20;
+  ledCtx.fillText('CART', 256, 100);
+  // "RAVE" text
+  ledCtx.fillStyle = '#ffe53d';
+  ledCtx.shadowColor = '#ffe53d';
+  ledCtx.shadowBlur = 20;
+  ledCtx.fillText('RAVE', 256, 185);
+  // Scanline overlay
+  ledCtx.shadowBlur = 0;
+  for (let y = 0; y < 256; y += 4) {
+    ledCtx.fillStyle = 'rgba(0,0,0,0.15)';
+    ledCtx.fillRect(0, y, 512, 2);
+  }
+  const ledTex = new THREE.CanvasTexture(ledCanvas);
+  const ledScreenMat = new THREE.MeshBasicMaterial({ map: ledTex });
+  const ledScreen = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 0.3), ledScreenMat);
   ledScreen.position.set(0, 9, -4);
   stageGroup.add(ledScreen);
   const ledFrame = new THREE.Mesh(new THREE.BoxGeometry(16.5, 8.5, 0.2), stageFrameMat);
