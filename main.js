@@ -3446,6 +3446,17 @@ async function main() {
   groundDisc.position.y = -3;
   scene.add(groundDisc);
 
+  const pitWallGeo = new THREE.CylinderGeometry(12, 12, 15, 64, 1, true);
+  const pitWallMat = new THREE.MeshStandardMaterial({
+    color: 0x08081a,
+    metalness: 0.3,
+    roughness: 0.7,
+    side: THREE.BackSide,
+  });
+  const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
+  pitWall.position.y = -10.5;
+  scene.add(pitWall);
+
   const groundGridGeo = new THREE.RingGeometry(12, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
     color: 0x2a2a5a,
