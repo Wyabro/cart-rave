@@ -4453,6 +4453,74 @@ async function main() {
     scene.add(billboardGroup);
   }
 
+  // ===== EXIT PORTAL =====
+  // Hoisted so render loop can animate and check proximity
+  let portalCtx;
+  let portalTex;
+  let portalTriggered = false;
+  const portalWorldPos = new THREE.Vector3();
+  {
+    const bbAngle = Math.PI;
+    const portalRadius = pitInnerRadius + 1;
+    const px = Math.cos(bbAngle) * portalRadius;
+    const py = -1.5;
+    const pz = Math.sin(bbAngle) * portalRadius;
+    portalWorldPos.set(px, py, pz);
+
+    const portalCanvas = document.createElement('canvas');
+    portalCanvas.width = 128;
+    portalCanvas.height = 128;
+    portalCtx = portalCanvas.getContext('2d');
+    portalTex = new THREE.CanvasTexture(portalCanvas);
+    portalTex.magFilter = THREE.NearestFilter;
+    portalTex.minFilter = THREE.NearestFilter;
+
+    const portalGroup = new THREE.Group();
+
+    // Portal face
+    const portalMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(2.5, 32),
+      new THREE.MeshBasicMaterial({ map: portalTex, side: THREE.DoubleSide })
+    );
+    portalGroup.add(portalMesh);
+
+    // Glow ring
+    const glowRing = new THREE.Mesh(
+      new THREE.TorusGeometry(2.7, 0.15, 8, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff66,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    portalGroup.add(glowRing);
+
+    // Ambient green glow on nearby crowd/wall
+    const portalLight = new THREE.PointLight(0x00ff44, 3, 10);
+    portalGroup.add(portalLight);
+
+    // CSS2D floating label
+    const portalLabelEl = document.createElement('div');
+    portalLabelEl.textContent = 'EXIT PORTAL';
+    portalLabelEl.style.color = '#00ff66';
+    portalLabelEl.style.fontFamily = "'Bungee', monospace";
+    portalLabelEl.style.fontSize = '16px';
+    portalLabelEl.style.fontWeight = 'bold';
+    portalLabelEl.style.textShadow = '0 0 8px #00ff66, 0 0 16px #00ff44';
+    portalLabelEl.style.whiteSpace = 'nowrap';
+    portalLabelEl.style.transform = 'translate(-50%, 0)';
+    portalLabelEl.style.pointerEvents = 'none';
+    const portalLabel = new CSS2DObject(portalLabelEl);
+    portalLabel.position.set(0, 3.0, 0);
+    portalGroup.add(portalLabel);
+
+    portalGroup.position.set(px, py, pz);
+    portalGroup.lookAt(0, py, 0);
+    scene.add(portalGroup);
+  }
+
   for (let i = 0; i < 6; i += 1) {
     const t = i / 5;
     const lx = -10 + t * 20;
@@ -6237,6 +6305,35 @@ async function main() {
       slTex.offset.y = (now * 0.0005) % 1;
     }
 
+    // Portal swirl animation
+    {
+      const imgData = portalCtx.createImageData(128, 128);
+      const d = imgData.data;
+      const swirlT = now * 0.002;
+      for (let row = 0; row < 128; row++) {
+        for (let col = 0; col < 128; col++) {
+          const nx = (col - 64) / 64;
+          const ny = (row - 64) / 64;
+          const dist = Math.sqrt(nx * nx + ny * ny);
+          const idx = (row * 128 + col) * 4;
+          if (dist < 1.0) {
+            const angle = Math.atan2(ny, nx);
+            const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
+            const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
+            const centerGlow = Math.max(0, 1 - dist * 1.8);
+            d[idx]     = Math.round(brightness * 80  + centerGlow * 255);
+            d[idx + 1] = Math.round(brightness * 255 + centerGlow * 255);
+            d[idx + 2] = Math.round(brightness * 100 + centerGlow * 200);
+            d[idx + 3] = 255;
+          } else {
+            d[idx + 3] = 0;
+          }
+        }
+      }
+      portalCtx.putImageData(imgData, 0, 0);
+      portalTex.needsUpdate = true;
+    }
+
     const playerAxis = getAxis();
     if (simFrameIndex === 1 || simFrameIndex === 30) {
       // eslint-disable-next-line no-console
@@ -6251,6 +6348,17 @@ async function main() {
     const localCart = localCartForConnId();
     if (!localCart || !localCart.body) return;
     const playerPos = localCart.body.translation();
+
+    // Portal proximity trigger (single-fire)
+    if (!portalTriggered) {
+      const dx = playerPos.x - portalWorldPos.x;
+      const dy = playerPos.y - portalWorldPos.y;
+      const dz = playerPos.z - portalWorldPos.z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
+        portalTriggered = true;
+        window.location.href = 'https://vibej.am/portal/2026';
+      }
+    }
 
     if (isHost && roundPhase === "running") {
       // Fall detection / respawn (host-authoritative).
