@@ -1380,27 +1380,20 @@ async function main() {
   for (const p of planetConfigs) {
     const planet = new THREE.Mesh(
       new THREE.SphereGeometry(p.radius, 24, 24),
-      new THREE.MeshBasicMaterial({
-        color: p.color,
-        transparent: true,
-        opacity: 0.5,
-      }),
+      new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.5 }),
     );
-    planet.position.set(...p.pos);
+    planet.position.set(p.pos[0], p.pos[1], p.pos[2]);
     scene.add(planet);
     if (p.ring) {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(p.radius * 1.6, 0.4, 8, 48),
         new THREE.MeshBasicMaterial({
-          color: p.ringColor,
-          transparent: true,
-          opacity: 0.35,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
+          color: p.ringColor, transparent: true, opacity: 0.35,
+          blending: THREE.AdditiveBlending, depthWrite: false,
         }),
       );
       ring.rotation.x = Math.PI * 0.35;
-      ring.position.copy(planet.position);
+      ring.position.set(p.pos[0], p.pos[1], p.pos[2]);
       scene.add(ring);
     }
   }
@@ -1411,29 +1404,24 @@ async function main() {
     { pos: [130, 85, -100], color: 0xaa4466, size: 8 },
   ];
   for (const g of galaxyConfigs) {
-    const galaxyCanvas = document.createElement("canvas");
-    galaxyCanvas.width = 64;
-    galaxyCanvas.height = 64;
-    const gCtx = galaxyCanvas.getContext("2d");
+    const gCanvas = document.createElement("canvas");
+    gCanvas.width = 64; gCanvas.height = 64;
+    const gCtx = gCanvas.getContext("2d");
     const gGrad = gCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
     gGrad.addColorStop(0, "rgba(255,255,255,0.6)");
-    gGrad.addColorStop(0.3, `rgba(${(g.color >> 16) & 255},${(g.color >> 8) & 255},${g.color & 255},0.3)`);
+    gGrad.addColorStop(0.3, "rgba(180,120,220,0.3)");
     gGrad.addColorStop(1, "rgba(0,0,0,0)");
     gCtx.fillStyle = gGrad;
     gCtx.beginPath();
     gCtx.ellipse(32, 32, 30, 15, 0, 0, Math.PI * 2);
     gCtx.fill();
-    const galaxyTex = new THREE.CanvasTexture(galaxyCanvas);
+    const gTex = new THREE.CanvasTexture(gCanvas);
     const galaxy = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: galaxyTex,
-      color: g.color,
-      transparent: true,
-      opacity: 0.4,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
+      map: gTex, color: g.color, transparent: true, opacity: 0.4,
+      blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     galaxy.scale.set(g.size, g.size * 0.5, 1);
-    galaxy.position.set(...g.pos);
+    galaxy.position.set(g.pos[0], g.pos[1], g.pos[2]);
     scene.add(galaxy);
   }
 
@@ -1470,7 +1458,7 @@ async function main() {
 
     const orbitRadius = 100 + i * 20;
     const orbitSpeed = 0.03 + i * 0.01;
-    const orbitHeight = 25 + i * 10;
+    const orbitHeight = 15 + i * 8;
     const phaseOffset = i * Math.PI * 0.66;
     ufoGroup.scale.set(2, 2, 2);
     scene.add(ufoGroup);
@@ -3901,6 +3889,19 @@ async function main() {
   crowdGlow.rotation.x = -Math.PI / 2;
   crowdGlow.position.y = -2.95;
   scene.add(crowdGlow);
+
+  const horizonFogGeo = new THREE.CylinderGeometry(150, 150, 40, 64, 1, true);
+  const horizonFogMat = new THREE.MeshBasicMaterial({
+    color: 0x0a0520,
+    transparent: true,
+    opacity: 0.4,
+    blending: THREE.NormalBlending,
+    depthWrite: false,
+    side: THREE.BackSide,
+  });
+  const horizonFog = new THREE.Mesh(horizonFogGeo, horizonFogMat);
+  horizonFog.position.y = -3;
+  scene.add(horizonFog);
 
   /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, index: number }[]} */
   const crowdSearchlightEntries = [];
