@@ -3672,9 +3672,9 @@ async function main() {
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
   const crowdMat = new THREE.MeshStandardMaterial({
-    color: 0x000000,
+    color: 0xffffff,
     emissive: 0xffffff,
-    emissiveIntensity: 0.6,
+    emissiveIntensity: 1.0,
     metalness: 0.3,
     roughness: 0.7,
   });
