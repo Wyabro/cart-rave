@@ -6067,6 +6067,35 @@ async function main() {
       }
     }
 
+    // LED screen text pulse
+    {
+      const pulse = 0.6 + Math.sin(now * 0.002) * 0.4;
+      const pulse2 = 0.6 + Math.sin(now * 0.002 + 1.5) * 0.4;
+      const ledGradAnim = ledCtx.createLinearGradient(0, 0, 512, 256);
+      ledGradAnim.addColorStop(0, '#0a0020');
+      ledGradAnim.addColorStop(0.5, '#1a0040');
+      ledGradAnim.addColorStop(1, '#0a0020');
+      ledCtx.fillStyle = ledGradAnim;
+      ledCtx.fillRect(0, 0, 512, 256);
+      ledCtx.font = 'bold 90px "Arial Black", "Impact", sans-serif';
+      ledCtx.textAlign = 'center';
+      ledCtx.textBaseline = 'middle';
+      ledCtx.fillStyle = `rgba(255, 43, 214, ${pulse})`;
+      ledCtx.shadowColor = '#ff2bd6';
+      ledCtx.shadowBlur = 20 + pulse * 15;
+      ledCtx.fillText('CART', 256, 100);
+      ledCtx.fillStyle = `rgba(255, 229, 61, ${pulse2})`;
+      ledCtx.shadowColor = '#ffe53d';
+      ledCtx.shadowBlur = 20 + pulse2 * 15;
+      ledCtx.fillText('RAVE', 256, 185);
+      ledCtx.shadowBlur = 0;
+      for (let y = 0; y < 256; y += 4) {
+        ledCtx.fillStyle = 'rgba(0,0,0,0.15)';
+        ledCtx.fillRect(0, y, 512, 2);
+      }
+      ledTex.needsUpdate = true;
+    }
+
     const playerAxis = getAxis();
     if (simFrameIndex === 1 || simFrameIndex === 30) {
       // eslint-disable-next-line no-console
