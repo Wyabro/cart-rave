@@ -2895,30 +2895,28 @@ async function main() {
       );
     }
 
-    function drawLabelArcText(text, arcCenterDeg, radiusPx, flipLetters) {
+    function drawLabelArcText(text, centerAngleRad, radiusPx, textRotationRad) {
       const chars = Array.from(text);
-      const fontSpec = `900 82px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
-      const arcAngleDeg = 96;
-      const startDeg = arcCenterDeg - arcAngleDeg / 2;
+      const arcSpanRad = (120 * Math.PI) / 180;
+      const startAngleRad = centerAngleRad - arcSpanRad / 2;
 
       ctx.save();
-      ctx.font = fontSpec;
+      ctx.font = `900 66px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
-      ctx.strokeStyle = "rgba(5, 0, 6, 0.92)";
-      ctx.lineWidth = 7;
-      ctx.shadowColor = "rgba(255, 255, 255, 0.45)";
-      ctx.shadowBlur = 5;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.strokeStyle = "#050006";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "rgba(255, 255, 255, 0.35)";
+      ctx.shadowBlur = 4;
 
       for (let i = 0; i < chars.length; i += 1) {
-        const angleDeg = startDeg + (i / Math.max(1, chars.length - 1)) * arcAngleDeg;
-        const angleRad = (angleDeg * Math.PI) / 180;
+        const angleRad = startAngleRad + (i / Math.max(1, chars.length - 1)) * arcSpanRad;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
         ctx.translate(0, -radiusPx);
-        ctx.rotate(flipLetters ? angleRad - Math.PI / 2 : angleRad + Math.PI / 2);
+        ctx.rotate(textRotationRad);
         ctx.strokeText(chars[i], 0, 0);
         ctx.fillText(chars[i], 0, 0);
         ctx.restore();
@@ -2928,8 +2926,8 @@ async function main() {
     }
 
     const labelTextArcRadius = labelInnerPx + (labelOuterPx - labelInnerPx) * 0.5;
-    drawLabelArcText("CART RAVE", 90, labelTextArcRadius, false);
-    drawLabelArcText("CART RAVE", 270, labelTextArcRadius, true);
+    drawLabelArcText("CART RAVE", 0, labelTextArcRadius, 0);
+    drawLabelArcText("CART RAVE", Math.PI, labelTextArcRadius, Math.PI);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
