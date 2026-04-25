@@ -4,6 +4,7 @@ import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postproces
 import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { CSS2DObject, CSS2DRenderer } from "https://esm.sh/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
 import { Reflector } from "https://esm.sh/three@0.164.1/examples/jsm/objects/Reflector.js";
+import { RoomEnvironment } from "https://esm.sh/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
@@ -1252,6 +1253,13 @@ async function main() {
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x050510, 0.018);
+
+  // * Environment map for IBL: gives metallic materials something to reflect.
+  // * No scene.background is set so the void stays pure black.
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
+  scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+  pmremGenerator.dispose();
 
   const ambientParticleCount = 260;
   const ambientParticleRadius = 35;
