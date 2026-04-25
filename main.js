@@ -3571,7 +3571,7 @@ async function main() {
     }
 
     // Spawn platform fog particles
-    const fogPuffCount = 20;
+    const fogPuffCount = 40;
     const fogPuffCanvas = document.createElement("canvas");
     fogPuffCanvas.width = 64;
     fogPuffCanvas.height = 64;
@@ -3796,16 +3796,16 @@ async function main() {
           map: fogPuffTex,
           color: accentColor,
           transparent: true,
-          opacity: 0.15 + Math.random() * 0.1,
+          opacity: 0.25 + Math.random() * 0.15,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         }));
-        const spread = B.platformWidth * 0.8;
-        const puffScale = 1.5 + Math.random() * 2;
-        puff.scale.set(puffScale, puffScale * 0.4, 1);
+        const spread = B.platformWidth * 1.5;
+        const puffScale = 4 + Math.random() * 4;
+        puff.scale.set(puffScale, puffScale * 0.3, 1);
         puff.position.set(
           cx + (Math.random() - 0.5) * spread,
-          B.platformY + 0.2 + Math.random() * 0.5,
+          B.platformY + 0.05 + Math.random() * 0.3,
           cz + (Math.random() - 0.5) * spread,
         );
         scene.add(puff);
