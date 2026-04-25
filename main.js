@@ -5652,21 +5652,18 @@ async function main() {
 
     if (crowdCarts) {
       const nowSec = now * 0.001;
-      const dummy = new THREE.Object3D();
       const batchSize = 200;
       const offset = Math.floor(nowSec * 4) % Math.ceil(5000 / batchSize);
       const start = offset * batchSize;
       const end = Math.min(start + batchSize, 5000);
+      const _dm = new THREE.Object3D();
       for (let i = start; i < end; i++) {
-        crowdCarts.getMatrixAt(i, dummy.matrix);
-        dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
-        const baseY = -2.5;
+        crowdCarts.getMatrixAt(i, _dm.matrix);
+        _dm.matrix.decompose(_dm.position, _dm.quaternion, _dm.scale);
         const bounce = Math.abs(Math.sin(nowSec * 3 + i * 0.7)) * 0.3;
-        const tilt = Math.sin(nowSec * 2 + i * 1.1) * 0.08;
-        dummy.position.y = baseY + bounce;
-        dummy.rotation.z = tilt;
-        dummy.updateMatrix();
-        crowdCarts.setMatrixAt(i, dummy.matrix);
+        _dm.position.y = -2.5 + bounce;
+        _dm.updateMatrix();
+        crowdCarts.setMatrixAt(i, _dm.matrix);
       }
       crowdCarts.instanceMatrix.needsUpdate = true;
     }
