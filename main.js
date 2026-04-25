@@ -3434,7 +3434,7 @@ async function main() {
     }
   })();
 
-  const groundDiscGeo = new THREE.RingGeometry(12, 150, 64);
+  const groundDiscGeo = new THREE.RingGeometry(8, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
     color: 0x141428,
     metalness: 0.2,
@@ -3446,7 +3446,7 @@ async function main() {
   groundDisc.position.y = -3;
   scene.add(groundDisc);
 
-  const pitWallGeo = new THREE.CylinderGeometry(12, 12, 15, 64, 1, true);
+  const pitWallGeo = new THREE.CylinderGeometry(8, 8, 15, 64, 1, true);
   const pitWallMat = new THREE.MeshStandardMaterial({
     color: 0x08081a,
     metalness: 0.3,
@@ -3457,7 +3457,7 @@ async function main() {
   pitWall.position.y = -10.5;
   scene.add(pitWall);
 
-  const groundGridGeo = new THREE.RingGeometry(12, 150, 64);
+  const groundGridGeo = new THREE.RingGeometry(8, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
     color: 0x2a2a5a,
     wireframe: true,
