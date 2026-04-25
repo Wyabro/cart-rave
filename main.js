@@ -3,6 +3,7 @@ import { EffectComposer } from "https://esm.sh/three@0.164.1/examples/jsm/postpr
 import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/ShaderPass.js";
+import { mergeGeometries } from "https://esm.sh/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
 import { CSS2DObject, CSS2DRenderer } from "https://esm.sh/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
 import { Reflector } from "https://esm.sh/three@0.164.1/examples/jsm/objects/Reflector.js";
 import { RoomEnvironment } from "https://esm.sh/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
@@ -3497,32 +3498,32 @@ async function main() {
   groundGrid.position.y = -2.99;
   scene.add(groundGrid);
 
-  const bodyGeo = new THREE.BoxGeometry(0.25, 1, 0.15);
-  const headGeo = new THREE.SphereGeometry(0.12, 6, 4);
-  const crowdMat = new THREE.MeshBasicMaterial({ color: 0x08081a });
-  const bodyMesh = new THREE.InstancedMesh(bodyGeo, crowdMat, 500);
-  const headMesh = new THREE.InstancedMesh(headGeo, crowdMat, 500);
+  const crowdSourceCart = buildCart("white");
+  crowdSourceCart.updateMatrixWorld(true);
+  const crowdCartParts = [];
+  crowdSourceCart.traverse((child) => {
+    if (!(child instanceof THREE.Mesh) || !child.geometry) return;
+    crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
+  });
+  const mergedGeo = mergeGeometries(crowdCartParts);
+  const crowdMat = new THREE.MeshBasicMaterial({ color: 0x0a0a18 });
+  const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 1500);
   const dummy = new THREE.Object3D();
-  for (let i = 0; i < 500; i += 1) {
+  for (let i = 0; i < 1500; i += 1) {
     const angle = 0.75 * Math.PI + Math.random() * 1.5 * Math.PI;
-    const r = pitInnerRadius + 0.5 + Math.random() * 8;
-    const h = 0.7 + Math.random() * 0.6;
+    const r = pitInnerRadius + 0.5 + Math.random() * 10;
     const x = Math.cos(angle) * r;
     const z = Math.sin(angle) * r;
+    const scale = 0.15 + Math.random() * 0.05;
 
-    dummy.position.set(x, -3 + h / 2, z);
-    dummy.scale.set(1, h, 1);
-    dummy.rotation.y = (Math.random() - 0.5) * 0.6;
+    dummy.position.set(x, -3, z);
+    dummy.scale.set(scale, scale, scale);
+    dummy.rotation.y = angle + Math.PI + (Math.random() - 0.5) * 0.8;
     dummy.updateMatrix();
-    bodyMesh.setMatrixAt(i, dummy.matrix);
-
-    dummy.position.set(x, -3 + h + 0.12, z);
-    dummy.scale.set(1, 1, 1);
-    dummy.updateMatrix();
-    headMesh.setMatrixAt(i, dummy.matrix);
+    crowdCarts.setMatrixAt(i, dummy.matrix);
   }
-  scene.add(bodyMesh);
-  scene.add(headMesh);
+  crowdCarts.instanceMatrix.needsUpdate = true;
+  scene.add(crowdCarts);
 
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
