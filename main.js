@@ -3429,27 +3429,27 @@ async function main() {
 
   const groundDiscGeo = new THREE.CircleGeometry(150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
-    color: 0x0c0c1a,
+    color: 0x141428,
     metalness: 0.2,
     roughness: 0.8,
     side: THREE.DoubleSide,
   });
   const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
   groundDisc.rotation.x = -Math.PI / 2;
-  groundDisc.position.y = -5;
+  groundDisc.position.y = -15;
   scene.add(groundDisc);
 
   const groundGridGeo = new THREE.PlaneGeometry(300, 300, 80, 80);
   const groundGridMat = new THREE.MeshBasicMaterial({
-    color: 0x1a1a3a,
+    color: 0x2a2a5a,
     wireframe: true,
-    opacity: 0.15,
+    opacity: 0.25,
     transparent: true,
     blending: THREE.AdditiveBlending,
   });
   const groundGrid = new THREE.Mesh(groundGridGeo, groundGridMat);
   groundGrid.rotation.x = -Math.PI / 2;
-  groundGrid.position.y = -4.99;
+  groundGrid.position.y = -14.99;
   scene.add(groundGrid);
 
   function yawToCenter(spawn) {
