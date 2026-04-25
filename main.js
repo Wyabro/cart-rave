@@ -3434,7 +3434,14 @@ async function main() {
     }
   })();
 
-  const groundDiscGeo = new THREE.RingGeometry(8, 150, 64);
+  const pitInnerRadius = CONFIG.record.radius + 2;
+  // eslint-disable-next-line no-console
+  console.log("[arena] dancefloor outer radius", {
+    radius: CONFIG.record.radius,
+    pitInnerRadius,
+  });
+
+  const groundDiscGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
     color: 0x141428,
     metalness: 0.2,
@@ -3446,7 +3453,7 @@ async function main() {
   groundDisc.position.y = -3;
   scene.add(groundDisc);
 
-  const pitWallGeo = new THREE.CylinderGeometry(8, 8, 15, 64, 1, true);
+  const pitWallGeo = new THREE.CylinderGeometry(pitInnerRadius, pitInnerRadius, 15, 64, 1, true);
   const pitWallMat = new THREE.MeshStandardMaterial({
     color: 0x08081a,
     metalness: 0.3,
@@ -3457,7 +3464,7 @@ async function main() {
   pitWall.position.y = -10.5;
   scene.add(pitWall);
 
-  const groundGridGeo = new THREE.RingGeometry(8, 150, 64);
+  const groundGridGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
     color: 0x2a2a5a,
     wireframe: true,
@@ -3476,7 +3483,7 @@ async function main() {
   const crowdDummy = new THREE.Object3D();
   for (let i = 0; i < 200; i += 1) {
     const angle = 0.75 * Math.PI + Math.random() * 1.5 * Math.PI;
-    const radius = 13 + Math.random() * 5;
+    const radius = pitInnerRadius + 1 + Math.random() * 5;
     const height = 0.8 + Math.random() * 0.7;
     crowdDummy.position.set(
       Math.cos(angle) * radius,
