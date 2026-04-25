@@ -298,21 +298,15 @@ export default class Server implements Party.Server {
   }
 
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    this.#ensureInitialized();
-
-    for (const slot of this.#slots!) {
-      if (slot.kind === "human" && slot.connId !== conn.id) {
-        slot.connId = conn.id;
-        slot.isReady = false;
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.slots,
-          serverNowMs: this.#serverNowMs(),
-          slots: this.#slots,
-        });
-        return;
-      }
+    const ua = new URL(ctx.request.url).searchParams.get("_ua") ||
+      ctx.request.headers.get("user-agent") || "";
+    const mobileRe = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i;
+    if (mobileRe.test(ua)) {
+      conn.close(4003, "Mobile not supported");
+      return;
     }
+
+    this.#ensureInitialized();
 
     // --- Phase Reset: If room was completely empty of humans, nuke the state ---
     const existingHumans = this.#slots!.filter(s => s.kind === "human");
