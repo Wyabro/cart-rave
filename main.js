@@ -3543,34 +3543,128 @@ async function main() {
   const stageBaseMat = new THREE.MeshStandardMaterial({
     color: 0x0a0a1a,
     metalness: 0.8,
-    roughness: 0.4,
+    roughness: 0.3,
   });
-  const stageFrameMat = new THREE.MeshStandardMaterial({
+  const stageMetalMat = new THREE.MeshStandardMaterial({
     color: 0x1a1a2e,
     metalness: 0.8,
     roughness: 0.4,
   });
+  const stageSpeakerMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0a12,
+    metalness: 0.7,
+    roughness: 0.3,
+  });
+  const stageSpeakerFaceMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+  const stageLedMat = new THREE.MeshBasicMaterial({ color: 0x1100aa });
+  const stageFrameMat = new THREE.MeshBasicMaterial({ color: 0x0a0a1a });
+  const neonMagentaMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+  const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+  const stageLightPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
+  /** @type {{ target: THREE.Object3D, baseX: number, index: number }[]} */
+  const stageLightEntries = [];
 
-  const stageBase = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 8), stageBaseMat);
+  stageGroup.clear();
+
+  // --- Base platform ---
+  const stageBase = new THREE.Mesh(new THREE.BoxGeometry(24, 1.5, 10), stageBaseMat);
+  stageBase.position.y = 0.75;
   stageGroup.add(stageBase);
 
-  const stageColumnL = new THREE.Mesh(new THREE.BoxGeometry(1, 14, 1), stageFrameMat);
-  stageColumnL.position.set(-9.5, 7, 0);
-  stageGroup.add(stageColumnL);
-  const stageColumnR = new THREE.Mesh(new THREE.BoxGeometry(1, 14, 1), stageFrameMat);
-  stageColumnR.position.set(9.5, 7, 0);
-  stageGroup.add(stageColumnR);
+  // --- Two outer truss towers (left and right) ---
+  const towerXs = [-11, 11];
+  for (const towerX of towerXs) {
+    for (const ox of [-0.5, 0.5]) {
+      for (const oz of [-0.5, 0.5]) {
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.15, 0.15, 18, 8),
+          stageMetalMat,
+        );
+        pole.position.set(towerX + ox, 9, oz);
+        stageGroup.add(pole);
+      }
+    }
 
-  const stageCrossbar = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 1), stageFrameMat);
-  stageCrossbar.position.set(0, 14, 0);
-  stageGroup.add(stageCrossbar);
+    for (let b = 0; b < 6; b += 1) {
+      const braceY = 1.5 + b * 3;
+      const braceX = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 0.1), stageMetalMat);
+      braceX.position.set(towerX, braceY, 0);
+      stageGroup.add(braceX);
+      const braceZ = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1), stageMetalMat);
+      braceZ.position.set(towerX, braceY, 0);
+      stageGroup.add(braceZ);
+    }
+  }
 
-  const stageTrussL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 14, 0.5), stageFrameMat);
-  stageTrussL.position.set(-6, 7, 0);
-  stageGroup.add(stageTrussL);
-  const stageTrussR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 14, 0.5), stageFrameMat);
-  stageTrussR.position.set(6, 7, 0);
-  stageGroup.add(stageTrussR);
+  // --- Top horizontal truss spanning between towers ---
+  for (const z of [-0.5, 0.5]) {
+    const topPole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.15, 22, 8),
+      stageMetalMat,
+    );
+    topPole.rotation.z = Math.PI / 2;
+    topPole.position.set(0, 18, z);
+    stageGroup.add(topPole);
+  }
+  for (let x = -10; x <= 10; x += 2) {
+    const spanBrace = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1), stageMetalMat);
+    spanBrace.position.set(x, 18, 0);
+    stageGroup.add(spanBrace);
+  }
+
+  // --- LED screen (center back wall) ---
+  const ledScreen = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 0.3), stageLedMat);
+  ledScreen.position.set(0, 9, -4);
+  stageGroup.add(ledScreen);
+  const ledFrame = new THREE.Mesh(new THREE.BoxGeometry(16.5, 8.5, 0.2), stageFrameMat);
+  ledFrame.position.set(0, 9, -4.3);
+  stageGroup.add(ledFrame);
+
+  // --- Speaker stacks (two per side) ---
+  const speakerXs = [-9, -7, 7, 9];
+  const speakerYs = [1.5, 3.5, 5.5];
+  for (const sx of speakerXs) {
+    for (const sy of speakerYs) {
+      const speaker = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), stageSpeakerMat);
+      speaker.position.set(sx, sy, 0);
+      stageGroup.add(speaker);
+      const speakerFace = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 0.6, 0.1, 16),
+        stageSpeakerFaceMat,
+      );
+      speakerFace.rotation.x = Math.PI / 2;
+      speakerFace.position.set(sx, sy, 1.01);
+      stageGroup.add(speakerFace);
+    }
+  }
+
+  // --- Neon trim ---
+  const neonTop = new THREE.Mesh(new THREE.BoxGeometry(22, 0.08, 0.08), neonMagentaMat);
+  neonTop.position.set(0, 18, 0);
+  stageGroup.add(neonTop);
+  for (const towerX of towerXs) {
+    const towerTopNeon = new THREE.Mesh(new THREE.BoxGeometry(1, 0.08, 0.08), neonCyanMat);
+    towerTopNeon.position.set(towerX, 18, 0);
+    stageGroup.add(towerTopNeon);
+  }
+  const neonBaseFront = new THREE.Mesh(new THREE.BoxGeometry(24, 0.08, 0.08), neonMagentaMat);
+  neonBaseFront.position.set(0, 1.54, 5);
+  stageGroup.add(neonBaseFront);
+
+  // --- Stage lights (mounted on top truss, sweeping targets over stage base) ---
+  for (let i = 0; i < 6; i += 1) {
+    const t = i / 5;
+    const lx = -10 + t * 20;
+    const color = stageLightPalette[i % stageLightPalette.length];
+    const light = new THREE.SpotLight(color, 3, 30, Math.PI / 6, 0.5);
+    light.position.set(lx, 18, 0);
+    stageGroup.add(light);
+    const target = new THREE.Object3D();
+    target.position.set(lx, 0, 0);
+    stageGroup.add(target);
+    light.target = target;
+    stageLightEntries.push({ target, baseX: lx, index: i });
+  }
 
   stageGroup.position.set(stageX, stageY, stageZ);
   stageGroup.rotation.y = stageAngle;
@@ -5112,6 +5206,16 @@ async function main() {
         entry.light.target.updateMatrixWorld();
         positionSpotlightBeam(entry.beamGroup, lightPos, beamTarget);
         entry.glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
+      }
+    }
+
+    if (stageLightEntries.length > 0) {
+      const nowSec = now * 0.001;
+      for (const entry of stageLightEntries) {
+        entry.target.position.x = entry.baseX + Math.sin(nowSec * 0.5 + entry.index) * 5;
+        entry.target.position.y = 0;
+        entry.target.position.z = 0;
+        entry.target.updateMatrixWorld();
       }
     }
 
