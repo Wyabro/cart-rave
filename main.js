@@ -484,6 +484,8 @@ let roundPodiumTimeoutId = null;
 let autoContinuePodiumTimeoutId = null;
 /** @type {string | null} */
 let autoContinuePodiumKey = null;
+/** @type {string | null} */
+let autoReadyConnId = null;
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let hostSendTimer = null;
@@ -837,6 +839,12 @@ function initNetcode(roomOverride) {
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
+      if (msg.round && typeof msg.round === "object") {
+        roundPhase = msg.round.phase ?? roundPhase;
+        roundStartedAtMs = msg.round.startedAtMs ?? roundStartedAtMs;
+        roundCountdownStartedAtMs = msg.round.countdownStartedAtMs ?? roundCountdownStartedAtMs;
+        roundWinnerSlotIndex = msg.round.winnerSlotIndex ?? roundWinnerSlotIndex;
+      }
       markFirstHelloReceived();
 
       if (msg.carts && typeof msg.carts === "object") {
@@ -2362,14 +2370,29 @@ async function main() {
 
     // --- Ready button ---
     if (hud.readyBtn) {
+      const localSlot = netSlots.find((s) => s && s.connId === youConnId);
+      const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
       if (roundPhase === "lobby" && !menuVisible) {
-        const localSlot = netSlots.find((s) => s && s.connId === youConnId);
-        const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
+        autoReadyConnId = null;
         hud.readyBtn.style.display = "block";
         hud.readyBtn.textContent = isLocalReady ? "READY!" : "CLICK TO READY";
         hud.readyBtn.classList.toggle("is-ready", isLocalReady);
       } else {
         hud.readyBtn.style.display = "none";
+        hud.readyBtn.classList.remove("is-ready");
+        if (
+          !menuVisible &&
+          youConnId &&
+          localSlot?.kind === "human" &&
+          !isLocalReady &&
+          autoReadyConnId !== youConnId &&
+          partySocket &&
+          partySocket.readyState === WebSocket.OPEN
+        ) {
+          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
+          __msgCounts.out[MSG.readyToggle] = (__msgCounts.out[MSG.readyToggle] || 0) + 1;
+          autoReadyConnId = youConnId;
+        }
       }
     }
 
