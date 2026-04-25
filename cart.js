@@ -425,7 +425,12 @@ export function buildCart(colorHex) {
   const faceCenterY = yBottomFront + hFront * 0.55;
 
   // * Sunglasses: two dark lenses connected by a bridge.
-  const lensMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const lensMat = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    metalness: 0.9,
+    roughness: 0.1,
+    envMapIntensity: 1.0,
+  });
   const lensGlowMat = new THREE.MeshBasicMaterial({
     color: baseColor,
     transparent: true,
@@ -433,9 +438,9 @@ export function buildCart(colorHex) {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const lensW = halfW * 0.38;
-  const lensH = hFront * 0.18;
-  const lensGap = halfW * 0.08;
+  const lensW = halfW * 0.7;
+  const lensH = hFront * 0.35;
+  const lensGap = halfW * 0.06;
 
   // * Left lens.
   const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
@@ -466,12 +471,16 @@ export function buildCart(colorHex) {
   // * Mouth: wide grin.
   const mouthY = faceCenterY - hFront * 0.28;
   const mouthCurve = new THREE.QuadraticBezierCurve3(
-    new THREE.Vector3(-halfW * 0.35, mouthY, faceZ),
-    new THREE.Vector3(0, mouthY - hFront * 0.1, faceZ),
-    new THREE.Vector3(halfW * 0.35, mouthY, faceZ),
+    new THREE.Vector3(-halfW * 0.6, mouthY, faceZ),
+    new THREE.Vector3(0, mouthY - hFront * 0.15, faceZ),
+    new THREE.Vector3(halfW * 0.6, mouthY, faceZ),
   );
-  const mouthGeo = new THREE.TubeGeometry(mouthCurve, 12, 0.02, 4, false);
-  const mouthMat = new THREE.MeshBasicMaterial({ color: baseColor });
+  const mouthGeo = new THREE.TubeGeometry(mouthCurve, 12, 0.035, 4, false);
+  const mouthMat = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    metalness: 0.9,
+    roughness: 0.1,
+  });
   const mouth = new THREE.Mesh(mouthGeo, mouthMat);
   basketGroup.add(mouth);
 
