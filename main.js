@@ -3690,7 +3690,7 @@ async function main() {
     dummy.updateMatrix();
     crowdCarts.setMatrixAt(i, dummy.matrix);
     const baseColor = new THREE.Color(crowdPalette[Math.floor(Math.random() * crowdPalette.length)]);
-    baseColor.multiplyScalar(0.15);
+    baseColor.multiplyScalar(0.35);
     crowdCarts.setColorAt(i, baseColor);
   }
   crowdCarts.instanceMatrix.needsUpdate = true;
@@ -3750,10 +3750,10 @@ async function main() {
   const crowdPointLightEntries = [];
   const crowdPointLightRadiusMin = pitInnerRadius + 10;
   const crowdPointLightRadiusRange = 50;
-  for (let i = 0; i < 8; i += 1) {
-    const angle = (i / 8) * Math.PI * 2;
+  for (let i = 0; i < 16; i += 1) {
+    const angle = (i / 16) * Math.PI * 2;
     const radius = crowdPointLightRadiusMin + Math.random() * crowdPointLightRadiusRange;
-    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 3, 60, 2);
+    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 8, 100, 2);
     light.position.set(
       Math.cos(angle) * radius,
       2,
