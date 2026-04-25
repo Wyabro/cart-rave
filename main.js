@@ -3570,6 +3570,20 @@ async function main() {
       return tex;
     }
 
+    // Spawn platform fog particles
+    const fogPuffCount = 20;
+    const fogPuffCanvas = document.createElement("canvas");
+    fogPuffCanvas.width = 64;
+    fogPuffCanvas.height = 64;
+    const fogPuffCtx = fogPuffCanvas.getContext("2d");
+    const fogPuffGrad = fogPuffCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    fogPuffGrad.addColorStop(0, "rgba(255,255,255,0.3)");
+    fogPuffGrad.addColorStop(0.5, "rgba(255,255,255,0.08)");
+    fogPuffGrad.addColorStop(1, "rgba(255,255,255,0)");
+    fogPuffCtx.fillStyle = fogPuffGrad;
+    fogPuffCtx.fillRect(0, 0, 64, 64);
+    const fogPuffTex = new THREE.CanvasTexture(fogPuffCanvas);
+
     for (let i = 0; i < 4; i += 1) {
       const angle = angles[i];
       const accentColor = boothColors[i];
@@ -3777,22 +3791,24 @@ async function main() {
 
       scene.add(boothGroup);
 
-      // Spawn platform fog
-      const fogPlaneCount = 3;
-      for (let f = 0; f < fogPlaneCount; f++) {
-        const fogGeo = new THREE.PlaneGeometry(B.platformWidth * 1.8, B.platformDepth * 1.8);
-        const fogMat = new THREE.MeshBasicMaterial({
+      for (let f = 0; f < fogPuffCount; f++) {
+        const puff = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: fogPuffTex,
           color: accentColor,
           transparent: true,
-          opacity: 0.08 + f * 0.03,
+          opacity: 0.15 + Math.random() * 0.1,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
-          side: THREE.DoubleSide,
-        });
-        const fogPlane = new THREE.Mesh(fogGeo, fogMat);
-        fogPlane.rotation.x = -Math.PI / 2;
-        fogPlane.position.set(cx, B.platformY + 0.1 + f * 0.15, cz);
-        scene.add(fogPlane);
+        }));
+        const spread = B.platformWidth * 0.8;
+        const puffScale = 1.5 + Math.random() * 2;
+        puff.scale.set(puffScale, puffScale * 0.4, 1);
+        puff.position.set(
+          cx + (Math.random() - 0.5) * spread,
+          B.platformY + 0.2 + Math.random() * 0.5,
+          cz + (Math.random() - 0.5) * spread,
+        );
+        scene.add(puff);
       }
     }
   })();
