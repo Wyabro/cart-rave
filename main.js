@@ -3697,6 +3697,20 @@ async function main() {
   if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
 
+  const crowdGlowGeo = new THREE.RingGeometry(pitInnerRadius + 2, pitInnerRadius + 80, 64);
+  const crowdGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xff00ff,
+    transparent: true,
+    opacity: 0.08,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
+  crowdGlow.rotation.x = -Math.PI / 2;
+  crowdGlow.position.y = -2.4;
+  scene.add(crowdGlow);
+
   /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, index: number }[]} */
   const crowdSearchlightEntries = [];
   const crowdSearchlightColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
