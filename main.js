@@ -3671,8 +3671,12 @@ async function main() {
     crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
-  const crowdMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+  const crowdMat = new THREE.MeshStandardMaterial({
+    color: 0x000000,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.6,
+    metalness: 0.3,
+    roughness: 0.7,
   });
   const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 5000);
   const crowdPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
@@ -3690,7 +3694,7 @@ async function main() {
     dummy.updateMatrix();
     crowdCarts.setMatrixAt(i, dummy.matrix);
     const baseColor = new THREE.Color(crowdPalette[Math.floor(Math.random() * crowdPalette.length)]);
-    baseColor.multiplyScalar(0.35);
+    baseColor.multiplyScalar(0.5);
     crowdCarts.setColorAt(i, baseColor);
   }
   crowdCarts.instanceMatrix.needsUpdate = true;
@@ -5644,6 +5648,27 @@ async function main() {
       for (const entry of crowdPointLightEntries) {
         entry.light.intensity = 6 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 3;
       }
+    }
+
+    if (crowdCarts) {
+      const nowSec = now * 0.001;
+      const dummy = new THREE.Object3D();
+      const batchSize = 200;
+      const offset = Math.floor(nowSec * 4) % Math.ceil(5000 / batchSize);
+      const start = offset * batchSize;
+      const end = Math.min(start + batchSize, 5000);
+      for (let i = start; i < end; i++) {
+        crowdCarts.getMatrixAt(i, dummy.matrix);
+        dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+        const baseY = -2.5;
+        const bounce = Math.abs(Math.sin(nowSec * 3 + i * 0.7)) * 0.3;
+        const tilt = Math.sin(nowSec * 2 + i * 1.1) * 0.08;
+        dummy.position.y = baseY + bounce;
+        dummy.rotation.z = tilt;
+        dummy.updateMatrix();
+        crowdCarts.setMatrixAt(i, dummy.matrix);
+      }
+      crowdCarts.instanceMatrix.needsUpdate = true;
     }
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
