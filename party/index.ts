@@ -201,6 +201,12 @@ export default class Server implements Party.Server {
     return PALETTE.filter((c) => !humanColors.has(c));
   }
 
+  #gameMode(): "solo" | "quickplay" | "friends" {
+    if (this.room.id.startsWith("solo")) return "solo";
+    if (this.room.id === "quickplay") return "quickplay";
+    return "friends";
+  }
+
   // * Cancels the game-start countdown if the "all ready" condition is no
   // * longer satisfied. Called after any human slot reverts to NPC to
   // * prevent a countdown from firing with fewer players than intended.
@@ -558,8 +564,9 @@ export default class Server implements Party.Server {
         this.#countdownTimerHandle = null;
       }
       this.#round = { phase: "lobby", winnerSlotId: null };
+      const shouldAutoReady = this.#gameMode() === "quickplay";
       for (const slot of this.#slots!) {
-        if (slot.kind === "human") slot.isReady = true;
+        if (slot.kind === "human") slot.isReady = shouldAutoReady;
       }
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
@@ -573,7 +580,7 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         round: this.#round,
       });
-      this.#checkAllReady();
+      if (shouldAutoReady) this.#checkAllReady();
       return;
     }
 

@@ -2916,6 +2916,7 @@ async function main() {
         hud.readyBtn.style.display = "none";
         hud.readyBtn.classList.remove("is-ready");
         if (
+          detectGameMode() === "quickplay" &&
           !menuVisible &&
           youConnId &&
           localSlot?.kind === "human" &&
@@ -5822,7 +5823,7 @@ async function main() {
   function maybeScheduleAutoContinuePodium() {
     if (!isHost || roundPhase !== "podium") return;
     const mode = detectGameMode();
-    if (mode === "friends") return;
+    if (mode !== "quickplay") return;
 
     const key = currentPodiumAutoContinueKey();
     if (autoContinuePodiumTimeoutId != null || autoContinuePodiumKey === key) return;
@@ -5831,7 +5832,7 @@ async function main() {
     autoContinuePodiumTimeoutId = setTimeout(() => {
       autoContinuePodiumTimeoutId = null;
       if (!isHost || roundPhase !== "podium") return;
-      if (detectGameMode() === "friends") return;
+      if (detectGameMode() !== "quickplay") return;
       onHostPlayAgainClick();
     }, 5000);
   }
