@@ -428,13 +428,8 @@ export function buildCart(colorHex) {
   const faceCenterY = yBottomFront + hFront * 0.55;
 
   // * Sunglasses: two dark lenses connected by a bridge.
-  const lensMat = new THREE.MeshPhysicalMaterial({
+  const lensMat = new THREE.MeshBasicMaterial({
     color: 0x050505,
-    metalness: 0.2,
-    roughness: 0.05,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
-    reflectivity: 0.8,
     side: THREE.DoubleSide,
   });
   const lensGlowMat = new THREE.MeshBasicMaterial({
