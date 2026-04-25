@@ -1281,10 +1281,10 @@ async function main() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(0x020008, 1);
+  renderer.setClearColor(0x0a0520, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x050510, 0.006);
+  scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
 
   // --- Starfield + Nebula Skybox ---
   // Stars - bigger, brighter, more of them
@@ -1321,8 +1321,21 @@ async function main() {
   }
   starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
   starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+  const starCanvas = document.createElement("canvas");
+  starCanvas.width = 32;
+  starCanvas.height = 32;
+  const starCtx = starCanvas.getContext("2d");
+  const starGrad = starCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  starGrad.addColorStop(0, "rgba(255,255,255,1)");
+  starGrad.addColorStop(0.15, "rgba(255,255,255,0.8)");
+  starGrad.addColorStop(0.4, "rgba(255,255,255,0.15)");
+  starGrad.addColorStop(1, "rgba(255,255,255,0)");
+  starCtx.fillStyle = starGrad;
+  starCtx.fillRect(0, 0, 32, 32);
+  const starTexture = new THREE.CanvasTexture(starCanvas);
   const starMat = new THREE.PointsMaterial({
-    size: 2.5,
+    size: 1.5,
+    map: starTexture,
     vertexColors: true,
     transparent: true,
     opacity: 0.9,
@@ -1358,6 +1371,72 @@ async function main() {
     scene.add(nebula);
   }
 
+  // Planets
+  const planetConfigs = [
+    { radius: 8, color: 0x993366, pos: [100, 70, -80], ring: true, ringColor: 0xcc6699 },
+    { radius: 5, color: 0x334488, pos: [-120, 55, -60], ring: false },
+    { radius: 3, color: 0x886633, pos: [60, 90, 100], ring: false },
+  ];
+  for (const p of planetConfigs) {
+    const planet = new THREE.Mesh(
+      new THREE.SphereGeometry(p.radius, 24, 24),
+      new THREE.MeshBasicMaterial({
+        color: p.color,
+        transparent: true,
+        opacity: 0.5,
+      }),
+    );
+    planet.position.set(...p.pos);
+    scene.add(planet);
+    if (p.ring) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(p.radius * 1.6, 0.4, 8, 48),
+        new THREE.MeshBasicMaterial({
+          color: p.ringColor,
+          transparent: true,
+          opacity: 0.35,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      ring.rotation.x = Math.PI * 0.35;
+      ring.position.copy(planet.position);
+      scene.add(ring);
+    }
+  }
+
+  // Distant galaxies (flat discs with glow)
+  const galaxyConfigs = [
+    { pos: [-80, 100, -130], color: 0x6644aa, size: 12 },
+    { pos: [130, 85, -100], color: 0xaa4466, size: 8 },
+  ];
+  for (const g of galaxyConfigs) {
+    const galaxyCanvas = document.createElement("canvas");
+    galaxyCanvas.width = 64;
+    galaxyCanvas.height = 64;
+    const gCtx = galaxyCanvas.getContext("2d");
+    const gGrad = gCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gGrad.addColorStop(0, "rgba(255,255,255,0.6)");
+    gGrad.addColorStop(0.3, `rgba(${(g.color >> 16) & 255},${(g.color >> 8) & 255},${g.color & 255},0.3)`);
+    gGrad.addColorStop(1, "rgba(0,0,0,0)");
+    gCtx.fillStyle = gGrad;
+    gCtx.beginPath();
+    gCtx.ellipse(32, 32, 30, 15, 0, 0, Math.PI * 2);
+    gCtx.fill();
+    const galaxyTex = new THREE.CanvasTexture(galaxyCanvas);
+    const galaxy = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: galaxyTex,
+      color: g.color,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }));
+    galaxy.scale.set(g.size, g.size * 0.5, 1);
+    galaxy.position.set(...g.pos);
+    scene.add(galaxy);
+  }
+
   // UFOs - small glowing discs that orbit slowly
   const ufoEntries = [];
   for (let i = 0; i < 3; i++) {
@@ -1391,7 +1470,7 @@ async function main() {
 
     const orbitRadius = 100 + i * 20;
     const orbitSpeed = 0.03 + i * 0.01;
-    const orbitHeight = 50 + i * 15;
+    const orbitHeight = 25 + i * 10;
     const phaseOffset = i * Math.PI * 0.66;
     ufoGroup.scale.set(2, 2, 2);
     scene.add(ufoGroup);
