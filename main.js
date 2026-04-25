@@ -3434,12 +3434,14 @@ async function main() {
     }
   })();
 
-  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.15;
+  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.30;
   // eslint-disable-next-line no-console
   console.log("[arena] dancefloor outer radius", {
     radius: CONFIG.record.radius,
     pitInnerRadius,
   });
+  // eslint-disable-next-line no-console
+  console.log("[debug] death threshold Y:", CONFIG.fall.yThreshold);
 
   const groundDiscGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
