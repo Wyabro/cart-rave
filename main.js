@@ -1295,7 +1295,7 @@ async function main() {
   for (let i = 0; i < starCount; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
-    const r = 350 + Math.random() * 150;
+    const r = 150 + Math.random() * 80;
     starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     starPositions[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)); // bias upward
     starPositions[i * 3 + 2] = r * Math.cos(phi);
@@ -1338,9 +1338,9 @@ async function main() {
   for (let i = 0; i < 8; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = 0.3 + Math.random() * 1.0; // upper hemisphere bias
-    const r = 280 + Math.random() * 100;
+    const r = 120 + Math.random() * 50;
     const nebula = new THREE.Mesh(
-      new THREE.SphereGeometry(40 + Math.random() * 60, 16, 16),
+      new THREE.SphereGeometry(20 + Math.random() * 30, 16, 16),
       new THREE.MeshBasicMaterial({
         color: nebulaColors[i % nebulaColors.length],
         transparent: true,
@@ -1389,9 +1389,9 @@ async function main() {
     ring.rotation.x = Math.PI / 2;
     ufoGroup.add(ring);
 
-    const orbitRadius = 200 + i * 40;
+    const orbitRadius = 100 + i * 20;
     const orbitSpeed = 0.03 + i * 0.01;
-    const orbitHeight = 80 + i * 30;
+    const orbitHeight = 50 + i * 15;
     const phaseOffset = i * Math.PI * 0.66;
     ufoGroup.scale.set(2, 2, 2);
     scene.add(ufoGroup);
