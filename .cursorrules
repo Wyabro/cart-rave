@@ -249,6 +249,9 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - NPC names pool: verify actual pool in code matches the list in this file
 - Post-jam: server-synced dancefloor rotation, dancefloor physics drag, Supabase leaderboard, menu-background upgrade to live game
 - In-world 3D exit portal (Vibe Jam webring eligibility) — current jam ships with button-only portal on results screen
+- Mid-round Quickplay join doesn't respawn cart to booth (deferred post-jam)
+- Host migration mid-round causes brief speed-up (deferred post-jam)
+- Quickplay refresh drops to menu instead of rejoining room (deferred post-jam)
 
 ## How Wyatt works
 - Directs Cursor via prompts, does not hand-edit code
@@ -265,7 +268,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## Execution order (the plan)
 
-Current status: Steps 1–15 shipped and verified on production (cartrave.lol). Session 21 environment shipped: ground plane, pit wall, crowd silhouettes, main stage with animated spotlights. Multiplayer slot hijacking bug fixed (onConnect was overwriting existing human slots). Mobile gate added (client-side in index.html + server-side UA rejection in onConnect).
+Current status: Steps 1–15 shipped. Session 22 additions shipped: multiplayer slot hijacking fix, mobile gate (client + server), quickplay auto-continue (commit 468dbe9), fallback username (commit 0376e55), mid-round join auto-ready (commit 4f16c2d), mid-round join respawn (commits 7e68573, fd2d663 — working for Friends, broken for Quickplay mid-round, deferred), stage lasers, crowd searchlights, pulsing crowd lights, crowd cart MeshBasicMaterial. Environment from Session 21 shipped: ground plane, pit wall, crowd silhouettes, main stage with animated spotlights.
 
 1. ✅ Deploy to cartrave.lol via Vercel
 2. ✅ PartyKit server + client handshake
@@ -300,35 +303,35 @@ Current status: Steps 1–15 shipped and verified on production (cartrave.lol). 
     - Null cart crash guard added
 15. ✅ Spawn booths: per-booth colors, trusses, SPAWN BOOTH text, DJ gear, neon edges, platforms close to arena with gap (no ramp)
 
-### Remaining (pre-submission)
+### Remaining (pre-submission) — Priority Order
 
-16. **Results screen names** — show names instead of player numbers on results screen
-17. **Friend flow fix** — friends opening room link should see menu to pick name/color before joining
-18. **Stats tracking + display** (deferred from original Step 13)
-    - 18a: Personal stats tracking (wins/matches/total points, aggregated across all modes, mode recorded per-match, updated on `podium` phase transition, localStorage)
-    - 18b: Personal stats display on menu
-    - 18c: Personal stats display on results screen
-19. **Lag mitigation** (non-host multiplayer feel)
-    - 19a: Reduce `interpBufferMs` 150 → 100
-    - 19b: Play horn SFX locally on Space press (bypass host broadcast for local player)
-    - 19c: **Audit**: interpolation buffer empty-state behavior — do non-host remote carts hold last known position, freeze, or extrapolate? Fix to match intent.
-20. Physics / visual tuning
-    - Includes **audits**: hole radius (resolve 12-13% vs 15-20%), spotlight count/colors (target all 5 cart colors), NPC hole awareness
-21. Eye candy: interactive lighting, equalizer pulses, fog, DJ booth / speaker geometry
-22. Pre-submission cleanup
-    - Remove all diagnostic logs
-    - **Audit**: remove `CONFIG.record.physicsSpinRadPerSec` if unused
-    - **Multiplayer playtest (two-browser test on prod):**
-      - Friend flow: ?room= link → menu → JOIN ROOM → color picker → game
-      - Host migration: host closes tab, second player becomes host, NPCs don't freeze
-      - Non-host input lag / interpolation feel
-      - Name labels correct for both players
-      - Results screen shows correct names for both players
-      - Score attribution across slots (human kills NPC, NPC kills human, etc.)
-      - NPC color swap when second human joins (displaced NPC gets unused 5th color)
-      - Keepalive / reaper: idle tab doesn't get reaped prematurely, dead tab does get reaped
-    - Final QA pass on prod (solo + quickplay)
-23. STRETCH: Supabase leaderboard
-24. Ship
+**Visual Polish (priority 1):**
+- HUD overhaul: restyle all in-game HUD elements (ready-up UI, countdown, score boxes) to match menu visual style
+- Crowd lighting: crowd area too dark, add more lights to illuminate crowd carts
+- Stage lasers: currently thin/hard to see, increase visibility
+- Crowd carts: colors present but dim/underwhelming, improve brightness
+- Sky/skybox: add space nebula theme with stars and occasional UFOs
+- Spawn platform fog: low-lying fog rolling off spawn platforms
+- Cart faces: add stylized mouths and sunglasses as eyes to player carts
+- Spawn booth redesign: replace current booth with more intricate/detailed design
+- DJ screen logo: place Cart Rave logo on the void DJ screen
+- Vibe Jam billboard: add billboard somewhere in arena background
+- In-world exit portal: driveable "Enter Portal" object in the arena, navigates to https://vibej.am/portal/2026 (same tab)
 
-Cut points in order: Supabase (23), eye candy depth (21), stats (18), lag mitigation (19). Steps 16–17 + 20 + 22 are core for submission.
+**Physics Tuning (priority 2):**
+- Step 20: hole radius audit (resolve 12-13% vs 15-20%), NPC hole awareness, spotlight count/colors, general physics feel tuning
+
+**Essentials (priority 3):**
+- Esc overlay: never built — implement per spec (controls section, volume slider, mute toggle, resume button, quit to menu)
+- Step 16: Results screen names — show names instead of player numbers
+- Step 17: Friend flow fix — friends opening room link should see menu first
+- NPC names: randomize from comedy pool per lobby, not static
+- Portal button: results screen portal should navigate same tab, not open new tab
+- Verify: Solo is strictly single-player, Quickplay drops into strangers lobby, results screen stats work in Solo, match history works in Solo, hard refresh ready-up bug status
+
+**Post-essentials (priority 4):**
+- Step 22: Pre-submission cleanup + multiplayer playtest checklist
+- .cursorrules update with final state
+- Step 18: Stats tracking fix if broken (cut candidate)
+- Step 19: Lag mitigation (cut candidate)
+- Step 23: Supabase leaderboard (stretch)
