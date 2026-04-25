@@ -420,6 +420,61 @@ export function buildCart(colorHex) {
     wobblePhases: corners.map((_, j) => j * 1.83 + 0.4),
   };
 
+  // * Cart face: sunglasses + mouth.
+  const faceZ = frontZ - 0.02; // * Sits just in front of the front wall.
+  const faceCenterY = yBottomFront + hFront * 0.55;
+
+  // * Sunglasses: two dark lenses connected by a bridge.
+  const lensMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const lensGlowMat = new THREE.MeshBasicMaterial({
+    color: baseColor,
+    transparent: true,
+    opacity: 0.4,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const lensW = halfW * 0.38;
+  const lensH = hFront * 0.18;
+  const lensGap = halfW * 0.08;
+
+  // * Left lens.
+  const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
+  leftLens.position.set(-lensGap - lensW * 0.5, faceCenterY, faceZ);
+  basketGroup.add(leftLens);
+  const leftGlow = new THREE.Mesh(new THREE.PlaneGeometry(lensW * 1.2, lensH * 1.4), lensGlowMat);
+  leftGlow.position.copy(leftLens.position);
+  leftGlow.position.z -= 0.01;
+  basketGroup.add(leftGlow);
+
+  // * Right lens.
+  const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
+  rightLens.position.set(lensGap + lensW * 0.5, faceCenterY, faceZ);
+  basketGroup.add(rightLens);
+  const rightGlow = new THREE.Mesh(new THREE.PlaneGeometry(lensW * 1.2, lensH * 1.4), lensGlowMat);
+  rightGlow.position.copy(rightLens.position);
+  rightGlow.position.z -= 0.01;
+  basketGroup.add(rightGlow);
+
+  // * Bridge.
+  const bridge = new THREE.Mesh(
+    new THREE.PlaneGeometry(lensGap * 2, lensH * 0.3),
+    lensMat,
+  );
+  bridge.position.set(0, faceCenterY, faceZ);
+  basketGroup.add(bridge);
+
+  // * Mouth: wide grin.
+  const mouthY = faceCenterY - hFront * 0.28;
+  const mouthCurve = new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(-halfW * 0.35, mouthY, faceZ),
+    new THREE.Vector3(0, mouthY - hFront * 0.1, faceZ),
+    new THREE.Vector3(halfW * 0.35, mouthY, faceZ),
+  );
+  const mouthGeo = new THREE.TubeGeometry(mouthCurve, 12, 0.02, 4, false);
+  const mouthMat = new THREE.MeshBasicMaterial({ color: baseColor });
+  const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+  basketGroup.add(mouth);
+
   return root;
 }
 
