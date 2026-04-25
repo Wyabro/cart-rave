@@ -3434,7 +3434,7 @@ async function main() {
     }
   })();
 
-  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.30;
+  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.30 * 1.20;
   // eslint-disable-next-line no-console
   console.log("[arena] dancefloor outer radius", {
     radius: CONFIG.record.radius,
@@ -3465,6 +3465,14 @@ async function main() {
   const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
   pitWall.position.y = -10.5;
   scene.add(pitWall);
+  const pitWallBody = world.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed().setTranslation(0, -10.5, 0),
+  );
+  const pitWallVerts = /** @type {Float32Array} */ (pitWallGeo.attributes.position.array);
+  const pitWallIndices = pitWallGeo.index
+    ? Uint32Array.from(pitWallGeo.index.array)
+    : Uint32Array.from(Array.from({ length: pitWallGeo.attributes.position.count }, (_, i) => i));
+  world.createCollider(RAPIER.ColliderDesc.trimesh(pitWallVerts, pitWallIndices), pitWallBody);
 
   const groundGridGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
