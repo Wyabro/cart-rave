@@ -258,6 +258,7 @@
     document.getElementById('ctl-shift').style.setProperty('--kc', p.tertiary);
     document.getElementById('ctl-space').style.setProperty('--kc', p.primary);
     document.getElementById('ctl-m').style.setProperty('--kc', p.players[2]);
+    document.getElementById('ctl-esc').style.setProperty('--kc', p.players[4]);
   }
 
   // ─── Name editing ─────────────────────────────────────────────────────────
