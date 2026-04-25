@@ -432,14 +432,6 @@ export function buildCart(colorHex) {
     color: 0x050505,
     side: THREE.DoubleSide,
   });
-  const lensGlowMat = new THREE.MeshBasicMaterial({
-    color: baseColor,
-    transparent: true,
-    opacity: 0.4,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
   const lensW = halfW * 0.7;
   const lensH = hFront * 0.35;
   const lensGap = halfW * 0.06;
@@ -449,20 +441,12 @@ export function buildCart(colorHex) {
   leftLens.position.set(-lensGap - lensW * 0.5, faceCenterY, faceZ);
   leftLens.userData.isFace = true;
   basketGroup.add(leftLens);
-  const leftGlow = new THREE.Mesh(new THREE.PlaneGeometry(lensW * 1.2, lensH * 1.4), lensGlowMat);
-  leftGlow.position.set(leftLens.position.x, faceCenterY, faceGlowZ);
-  leftGlow.userData.isFace = true;
-  basketGroup.add(leftGlow);
 
   // * Right lens.
   const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
   rightLens.position.set(lensGap + lensW * 0.5, faceCenterY, faceZ);
   rightLens.userData.isFace = true;
   basketGroup.add(rightLens);
-  const rightGlow = new THREE.Mesh(new THREE.PlaneGeometry(lensW * 1.2, lensH * 1.4), lensGlowMat);
-  rightGlow.position.set(rightLens.position.x, faceCenterY, faceGlowZ);
-  rightGlow.userData.isFace = true;
-  basketGroup.add(rightGlow);
 
   // * Bridge.
   const bridge = new THREE.Mesh(
