@@ -3427,6 +3427,16 @@ async function main() {
     }
   })();
 
+  const groundDiscGeo = new THREE.CircleGeometry(60, 64);
+  const groundDiscMat = new THREE.MeshBasicMaterial({
+    color: 0x050508,
+    side: THREE.DoubleSide,
+  });
+  const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
+  groundDisc.rotation.x = -Math.PI / 2;
+  groundDisc.position.y = -0.5;
+  scene.add(groundDisc);
+
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
     // Facing the center means forward should point from spawn -> (0,0).
