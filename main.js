@@ -3563,6 +3563,7 @@ async function main() {
   const stageLightPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
   /** @type {{ target: THREE.Object3D, baseX: number, index: number }[]} */
   const stageLightEntries = [];
+  const stageLasers = [];
 
   stageGroup.clear();
 
@@ -3664,6 +3665,20 @@ async function main() {
     stageGroup.add(target);
     light.target = target;
     stageLightEntries.push({ target, baseX: lx, index: i });
+
+    const laserGeo = new THREE.CylinderGeometry(0.05, 0.05, 80, 8);
+    laserGeo.translate(0, 40, 0);
+    const laserMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+    });
+    const laser = new THREE.Mesh(laserGeo, laserMat);
+    laser.position.set(lx, 18, 0);
+    laser.rotation.x = -Math.PI * 0.3;
+    stageGroup.add(laser);
+    stageLasers.push(laser);
   }
 
   stageGroup.position.set(stageX, stageY, stageZ);
@@ -5216,6 +5231,13 @@ async function main() {
         entry.target.position.y = 0;
         entry.target.position.z = 0;
         entry.target.updateMatrixWorld();
+      }
+    }
+
+    if (stageLasers.length > 0) {
+      const nowSec = now * 0.001;
+      for (let i = 0; i < stageLasers.length; i += 1) {
+        stageLasers[i].rotation.z = Math.sin(nowSec * 0.5 + i * 1.05) * 0.6;
       }
     }
 
