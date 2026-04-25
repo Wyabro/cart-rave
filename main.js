@@ -2895,22 +2895,41 @@ async function main() {
       );
     }
 
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeStyle = "#050006";
-    ctx.lineWidth = 16;
-    ctx.shadowColor = "rgba(255, 255, 255, 0.75)";
-    ctx.shadowBlur = 12;
-    ctx.font = `900 156px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
-    const cartTextY = cy - labelInnerPx - 58;
-    const raveTextY = cy + labelInnerPx + 58;
-    ctx.strokeText("CART", cx, cartTextY);
-    ctx.fillText("CART", cx, cartTextY);
-    ctx.strokeText("RAVE", cx, raveTextY);
-    ctx.fillText("RAVE", cx, raveTextY);
-    ctx.restore();
+    function drawLabelArcText(text, arcCenterDeg, radiusPx, flipLetters) {
+      const chars = Array.from(text);
+      const fontSpec = `900 82px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
+      const arcAngleDeg = 96;
+      const startDeg = arcCenterDeg - arcAngleDeg / 2;
+
+      ctx.save();
+      ctx.font = fontSpec;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.strokeStyle = "rgba(5, 0, 6, 0.92)";
+      ctx.lineWidth = 7;
+      ctx.shadowColor = "rgba(255, 255, 255, 0.45)";
+      ctx.shadowBlur = 5;
+
+      for (let i = 0; i < chars.length; i += 1) {
+        const angleDeg = startDeg + (i / Math.max(1, chars.length - 1)) * arcAngleDeg;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angleRad);
+        ctx.translate(0, -radiusPx);
+        ctx.rotate(flipLetters ? angleRad - Math.PI / 2 : angleRad + Math.PI / 2);
+        ctx.strokeText(chars[i], 0, 0);
+        ctx.fillText(chars[i], 0, 0);
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    const labelTextArcRadius = labelInnerPx + (labelOuterPx - labelInnerPx) * 0.5;
+    drawLabelArcText("CART RAVE", 90, labelTextArcRadius, false);
+    drawLabelArcText("CART RAVE", 270, labelTextArcRadius, true);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
