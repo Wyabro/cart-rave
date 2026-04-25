@@ -3497,25 +3497,32 @@ async function main() {
   groundGrid.position.y = -2.99;
   scene.add(groundGrid);
 
-  const crowdGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
-  const crowdMat = new THREE.MeshBasicMaterial({ color: 0x06060f });
-  const crowdMesh = new THREE.InstancedMesh(crowdGeo, crowdMat, 200);
-  const crowdDummy = new THREE.Object3D();
-  for (let i = 0; i < 200; i += 1) {
+  const bodyGeo = new THREE.BoxGeometry(0.25, 1, 0.15);
+  const headGeo = new THREE.SphereGeometry(0.12, 6, 4);
+  const crowdMat = new THREE.MeshBasicMaterial({ color: 0x08081a });
+  const bodyMesh = new THREE.InstancedMesh(bodyGeo, crowdMat, 500);
+  const headMesh = new THREE.InstancedMesh(headGeo, crowdMat, 500);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < 500; i += 1) {
     const angle = 0.75 * Math.PI + Math.random() * 1.5 * Math.PI;
-    const radius = pitInnerRadius + 1 + Math.random() * 5;
-    const height = 0.8 + Math.random() * 0.7;
-    crowdDummy.position.set(
-      Math.cos(angle) * radius,
-      -3 + height / 2,
-      Math.sin(angle) * radius,
-    );
-    crowdDummy.scale.set(1, height, 1);
-    crowdDummy.rotation.y = (Math.random() - 0.5) * 0.6;
-    crowdDummy.updateMatrix();
-    crowdMesh.setMatrixAt(i, crowdDummy.matrix);
+    const r = pitInnerRadius + 0.5 + Math.random() * 8;
+    const h = 0.7 + Math.random() * 0.6;
+    const x = Math.cos(angle) * r;
+    const z = Math.sin(angle) * r;
+
+    dummy.position.set(x, -3 + h / 2, z);
+    dummy.scale.set(1, h, 1);
+    dummy.rotation.y = (Math.random() - 0.5) * 0.6;
+    dummy.updateMatrix();
+    bodyMesh.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.set(x, -3 + h + 0.12, z);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    headMesh.setMatrixAt(i, dummy.matrix);
   }
-  scene.add(crowdMesh);
+  scene.add(bodyMesh);
+  scene.add(headMesh);
 
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
