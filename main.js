@@ -3573,7 +3573,7 @@ async function main() {
   stageGroup.add(stageTrussR);
 
   stageGroup.position.set(stageX, stageY, stageZ);
-  stageGroup.rotation.y = stageAngle + Math.PI;
+  stageGroup.rotation.y = stageAngle;
   scene.add(stageGroup);
 
   function yawToCenter(spawn) {
