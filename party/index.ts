@@ -118,6 +118,10 @@ export default class Server implements Party.Server {
   #countdownTimerHandle: ReturnType<typeof setTimeout> | null = null;
   #npcNameDeck: string[] = [];
 
+  // Security: Rate limiting state
+  readonly #ipConnectionCounts = new Map<string, number>();
+  readonly #connToIp = new Map<string, string>();
+
   constructor(readonly room: Party.Room) {}
 
   #serverNowMs() {
@@ -362,6 +366,14 @@ export default class Server implements Party.Server {
       this.#connections.delete(id);
       this.#lastSeenAtMs.delete(id);
       this.#convertHumanSlotToNpc(id);
+      
+      // Cleanup IP tracking on reap
+      const ip = this.#connToIp.get(id);
+      if (ip) {
+        const count = this.#ipConnectionCounts.get(ip) ?? 1;
+        this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+        this.#connToIp.delete(id);
+      }
     }
 
     // * Cancel any armed countdown if the departed human(s) broke the all-ready
@@ -391,6 +403,16 @@ export default class Server implements Party.Server {
       conn.close(4003, "Mobile not supported");
       return;
     }
+
+    // Security: Enforce connection rate limit per IP
+    const ip = ctx.request.headers.get("cf-connecting-ip") || "unknown";
+    const currentConnections = this.#ipConnectionCounts.get(ip) ?? 0;
+    if (currentConnections >= 5) {
+      conn.close(4029, "Too many connections");
+      return;
+    }
+    this.#ipConnectionCounts.set(ip, currentConnections + 1);
+    this.#connToIp.set(conn.id, ip);
 
     this.#ensureInitialized();
 
@@ -504,6 +526,14 @@ export default class Server implements Party.Server {
   }
 
   onClose(conn: Party.Connection) {
+    // Security: Cleanup IP tracking
+    const ip = this.#connToIp.get(conn.id);
+    if (ip) {
+      const count = this.#ipConnectionCounts.get(ip) ?? 1;
+      this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+      this.#connToIp.delete(conn.id);
+    }
+
     this.#connections.delete(conn.id);
     this.#lastSeenAtMs.delete(conn.id);
     this.#convertHumanSlotToNpc(conn.id);
@@ -535,6 +565,13 @@ export default class Server implements Party.Server {
   }
 
   onMessage(message: string, conn: Party.Connection) {
+    // Security: Block massive payload bombs before trying to parse
+    if (message.length > 4096) {
+      console.warn(`[SECURITY] Kicked ${conn.id} for payload bomb (${message.length} bytes)`);
+      conn.close(4009, "Payload too large");
+      return;
+    }
+
     const now = this.#serverNowMs();
     this.#lastSeenAtMs.set(conn.id, now);
     if (now - this.#lastReapAtMs >= REAP_THROTTLE_MS) {
@@ -686,9 +723,13 @@ export default class Server implements Party.Server {
       if (seq <= this.#lastSeq) return;
       this.#lastSeq = seq;
 
+      // Security: Validate the host isn't flooding us with fake physics objects
       const carts = data?.carts;
-      if (carts && typeof carts === "object") {
-        this.#carts = carts;
+      if (carts && typeof carts === "object" && !Array.isArray(carts)) {
+        const keys = Object.keys(carts);
+        if (keys.length <= 4) {
+          this.#carts = carts;
+        }
       }
 
       // Relay authoritative state to all clients (including host for confirmation).
