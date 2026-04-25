@@ -480,6 +480,10 @@ let matchHistory = [];
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let roundPodiumTimeoutId = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let autoContinuePodiumTimeoutId = null;
+/** @type {string | null} */
+let autoContinuePodiumKey = null;
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let hostSendTimer = null;
@@ -1956,6 +1960,7 @@ async function main() {
     mainMenuBtn.className = "results-btn results-btn--menu";
     mainMenuBtn.textContent = "MAIN MENU";
     mainMenuBtn.addEventListener("click", () => {
+      clearAutoContinuePodiumTimeout();
       // Strip room param and go to plain cartrave.lol
       const url = new URL(window.location.href);
       url.searchParams.delete("room");
@@ -2481,7 +2486,11 @@ async function main() {
           statsLine.appendChild(item);
         });
       }
+
+      maybeScheduleAutoContinuePodium();
     } else {
+      clearAutoContinuePodiumTimeout();
+      autoContinuePodiumKey = null;
       overlay.style.display = "none";
       overlay.style.pointerEvents = "none";
     }
@@ -4807,8 +4816,38 @@ async function main() {
     sendHostRound();
   }
 
+  function clearAutoContinuePodiumTimeout() {
+    if (autoContinuePodiumTimeoutId != null) {
+      clearTimeout(autoContinuePodiumTimeoutId);
+      autoContinuePodiumTimeoutId = null;
+    }
+  }
+
+  function currentPodiumAutoContinueKey() {
+    return `${roundStartedAtMs}:${roundWinnerSlotIndex}:${matchHistory.length}`;
+  }
+
+  function maybeScheduleAutoContinuePodium() {
+    if (!isHost || roundPhase !== "podium") return;
+    const mode = detectGameMode();
+    if (mode === "friends") return;
+
+    const key = currentPodiumAutoContinueKey();
+    if (autoContinuePodiumTimeoutId != null || autoContinuePodiumKey === key) return;
+
+    autoContinuePodiumKey = key;
+    autoContinuePodiumTimeoutId = setTimeout(() => {
+      autoContinuePodiumTimeoutId = null;
+      if (!isHost || roundPhase !== "podium") return;
+      if (detectGameMode() === "friends") return;
+      onHostPlayAgainClick();
+    }, 5000);
+  }
+
   function onHostPlayAgainClick() {
     if (!isHost) return;
+    autoContinuePodiumKey = currentPodiumAutoContinueKey();
+    clearAutoContinuePodiumTimeout();
     if (roundPodiumTimeoutId != null) {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
