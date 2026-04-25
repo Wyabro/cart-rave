@@ -3434,7 +3434,7 @@ async function main() {
     }
   })();
 
-  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.25;
+  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.15;
   // eslint-disable-next-line no-console
   console.log("[arena] dancefloor outer radius", {
     radius: CONFIG.record.radius,
