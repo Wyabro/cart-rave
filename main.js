@@ -2900,14 +2900,16 @@ async function main() {
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#050006";
-    ctx.lineWidth = 14;
+    ctx.lineWidth = 16;
     ctx.shadowColor = "rgba(255, 255, 255, 0.75)";
     ctx.shadowBlur = 12;
-    ctx.font = `900 142px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
-    ctx.strokeText("CART", cx, cy - 42);
-    ctx.fillText("CART", cx, cy - 42);
-    ctx.strokeText("RAVE", cx, cy + 92);
-    ctx.fillText("RAVE", cx, cy + 92);
+    ctx.font = `900 156px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
+    const cartTextY = cy - labelInnerPx - 58;
+    const raveTextY = cy + labelInnerPx + 58;
+    ctx.strokeText("CART", cx, cartTextY);
+    ctx.fillText("CART", cx, cartTextY);
+    ctx.strokeText("RAVE", cx, raveTextY);
+    ctx.fillText("RAVE", cx, raveTextY);
     ctx.restore();
 
     const tex = new THREE.CanvasTexture(canvas);
