@@ -3534,6 +3534,48 @@ async function main() {
   if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
 
+  const stageAngle = Math.PI;
+  const stageRadius = pitInnerRadius + 15;
+  const stageX = Math.cos(stageAngle) * stageRadius;
+  const stageZ = Math.sin(stageAngle) * stageRadius;
+  const stageY = -3;
+  const stageGroup = new THREE.Group();
+  const stageBaseMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0a1a,
+    metalness: 0.8,
+    roughness: 0.4,
+  });
+  const stageFrameMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a2e,
+    metalness: 0.8,
+    roughness: 0.4,
+  });
+
+  const stageBase = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 8), stageBaseMat);
+  stageGroup.add(stageBase);
+
+  const stageColumnL = new THREE.Mesh(new THREE.BoxGeometry(1, 14, 1), stageFrameMat);
+  stageColumnL.position.set(-9.5, 7, 0);
+  stageGroup.add(stageColumnL);
+  const stageColumnR = new THREE.Mesh(new THREE.BoxGeometry(1, 14, 1), stageFrameMat);
+  stageColumnR.position.set(9.5, 7, 0);
+  stageGroup.add(stageColumnR);
+
+  const stageCrossbar = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 1), stageFrameMat);
+  stageCrossbar.position.set(0, 14, 0);
+  stageGroup.add(stageCrossbar);
+
+  const stageTrussL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 14, 0.5), stageFrameMat);
+  stageTrussL.position.set(-6, 7, 0);
+  stageGroup.add(stageTrussL);
+  const stageTrussR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 14, 0.5), stageFrameMat);
+  stageTrussR.position.set(6, 7, 0);
+  stageGroup.add(stageTrussR);
+
+  stageGroup.position.set(stageX, stageY, stageZ);
+  stageGroup.rotation.y = stageAngle + Math.PI;
+  scene.add(stageGroup);
+
   function yawToCenter(spawn) {
     // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
     // Facing the center means forward should point from spawn -> (0,0).
