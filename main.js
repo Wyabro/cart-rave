@@ -2768,7 +2768,7 @@ async function main() {
     CONFIG.camera.fov,
     window.innerWidth / window.innerHeight,
     0.1,
-    200,
+    600,
   );
   camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
