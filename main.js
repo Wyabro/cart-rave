@@ -3749,14 +3749,14 @@ async function main() {
   /** @type {{ light: THREE.PointLight, index: number }[]} */
   const crowdPointLightEntries = [];
   const crowdPointLightRadiusMin = pitInnerRadius + 10;
-  const crowdPointLightRadiusRange = 50;
-  for (let i = 0; i < 16; i += 1) {
-    const angle = (i / 16) * Math.PI * 2;
+  const crowdPointLightRadiusRange = 35;
+  for (let i = 0; i < 32; i += 1) {
+    const angle = (i / 32) * Math.PI * 2;
     const radius = crowdPointLightRadiusMin + Math.random() * crowdPointLightRadiusRange;
-    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 8, 100, 2);
+    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 4, 50, 2);
     light.position.set(
       Math.cos(angle) * radius,
-      2,
+      1 + Math.random() * 6,
       Math.sin(angle) * radius,
     );
     scene.add(light);
