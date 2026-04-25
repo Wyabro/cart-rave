@@ -3534,7 +3534,7 @@ async function main() {
   if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
 
-  const stageAngle = Math.PI;
+  const stageAngle = 0;
   const stageRadius = pitInnerRadius + 15;
   const stageX = Math.cos(stageAngle) * stageRadius;
   const stageZ = Math.sin(stageAngle) * stageRadius;
@@ -3667,7 +3667,7 @@ async function main() {
   }
 
   stageGroup.position.set(stageX, stageY, stageZ);
-  stageGroup.rotation.y = stageAngle;
+  stageGroup.lookAt(0, stageGroup.position.y, 0);
   scene.add(stageGroup);
 
   function yawToCenter(spawn) {
