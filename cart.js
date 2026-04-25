@@ -428,11 +428,13 @@ export function buildCart(colorHex) {
   const faceCenterY = yBottomFront + hFront * 0.55;
 
   // * Sunglasses: two dark lenses connected by a bridge.
-  const lensMat = new THREE.MeshStandardMaterial({
-    color: 0x111111,
-    metalness: 0.9,
-    roughness: 0.1,
-    envMapIntensity: 1.0,
+  const lensMat = new THREE.MeshPhysicalMaterial({
+    color: 0x050505,
+    metalness: 0.2,
+    roughness: 0.05,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    reflectivity: 0.8,
     side: THREE.DoubleSide,
   });
   const lensGlowMat = new THREE.MeshBasicMaterial({
@@ -484,10 +486,8 @@ export function buildCart(colorHex) {
     new THREE.Vector3(halfW * 0.6, mouthY, faceZ),
   );
   const mouthGeo = new THREE.TubeGeometry(mouthCurve, 12, 0.035, 4, false);
-  const mouthMat = new THREE.MeshStandardMaterial({
-    color: 0x111111,
-    metalness: 0.9,
-    roughness: 0.1,
+  const mouthMat = new THREE.MeshBasicMaterial({
+    color: 0x050505,
   });
   const mouth = new THREE.Mesh(mouthGeo, mouthMat);
   mouth.userData.isFace = true;
