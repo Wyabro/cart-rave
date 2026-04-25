@@ -1284,7 +1284,7 @@ async function main() {
   renderer.setClearColor(0x020008, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x050510, 0.018);
+  scene.fog = new THREE.FogExp2(0x050510, 0.006);
 
   // --- Starfield + Nebula Skybox ---
   // Stars - bigger, brighter, more of them
