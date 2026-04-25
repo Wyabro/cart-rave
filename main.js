@@ -2751,7 +2751,7 @@ async function main() {
   updateViewport();
 
   // Minimal ambient + a few colored spotlights for "neon" vibe.
-  scene.add(new THREE.AmbientLight(0xffffff, 0.27));
+  scene.add(new THREE.AmbientLight(0x221133, 0.15));
 
   const visualRecordThickness = 0.28;
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
