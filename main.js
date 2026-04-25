@@ -851,6 +851,7 @@ function initNetcode(roomOverride) {
       }
       if (roundPhase === "running" && youConnId) {
         pendingMidRoundJoinRespawnConnId = youConnId;
+        respawnLocalMidRoundJoinRef.current?.();
       }
       markFirstHelloReceived();
 
