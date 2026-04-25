@@ -3508,6 +3508,8 @@ async function main() {
   const mergedGeo = mergeGeometries(crowdCartParts);
   const crowdMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.15,
     metalness: 0.3,
     roughness: 0.7,
   });
@@ -3533,6 +3535,39 @@ async function main() {
   crowdCarts.instanceMatrix.needsUpdate = true;
   if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
   scene.add(crowdCarts);
+
+  /** @type {{ target: THREE.Object3D, index: number }[]} */
+  const crowdSearchlightEntries = [];
+  const crowdSearchlightColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
+  const crowdSearchlightSourceRadius = pitInnerRadius + 30;
+  const crowdSearchlightTargetRadius = pitInnerRadius + 35;
+  for (let i = 0; i < 4; i += 1) {
+    const angle = i * Math.PI * 0.5;
+    const target = new THREE.Object3D();
+    target.position.set(
+      Math.cos(angle) * crowdSearchlightTargetRadius,
+      -3,
+      Math.sin(angle) * crowdSearchlightTargetRadius,
+    );
+    scene.add(target);
+
+    const searchlight = new THREE.SpotLight(
+      crowdSearchlightColors[i],
+      8,
+      100,
+      Math.PI * 0.25,
+      0.8,
+      1.5,
+    );
+    searchlight.position.set(
+      Math.cos(angle) * crowdSearchlightSourceRadius,
+      25,
+      Math.sin(angle) * crowdSearchlightSourceRadius,
+    );
+    searchlight.target = target;
+    scene.add(searchlight);
+    crowdSearchlightEntries.push({ target, index: i });
+  }
 
   const stageAngle = 0;
   const stageRadius = pitInnerRadius + 15;
@@ -5332,6 +5367,17 @@ async function main() {
           entry.baseZ +
           Math.sin(nowSec * entry.speed + entry.index * entry.phaseStep) *
             entry.amplitude;
+      }
+    }
+
+    if (crowdSearchlightEntries.length > 0) {
+      const nowSec = now * 0.001;
+      for (const entry of crowdSearchlightEntries) {
+        const angle = nowSec * 0.3 + entry.index * Math.PI * 0.5;
+        entry.target.position.x = Math.cos(angle) * crowdSearchlightTargetRadius;
+        entry.target.position.y = -3;
+        entry.target.position.z = Math.sin(angle) * crowdSearchlightTargetRadius;
+        entry.target.updateMatrixWorld();
       }
     }
 
