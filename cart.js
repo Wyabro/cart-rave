@@ -123,8 +123,8 @@ function neonFrameMaterial(base) {
     color: c,
     emissive: c,
     emissiveIntensity: 1.85,
-    roughness: 0.45,
-    metalness: 0.12,
+    roughness: 0.3,
+    metalness: 0.7,
   });
 }
 
@@ -133,13 +133,12 @@ function neonFrameMaterial(base) {
  * @returns {THREE.MeshStandardMaterial}
  */
 function neonWheelMaterial(base) {
-  const c = base.clone().multiplyScalar(0.55);
   return new THREE.MeshStandardMaterial({
-    color: c,
+    color: 0x333333,
     emissive: base.clone(),
-    emissiveIntensity: 0.9,
-    roughness: 0.35,
-    metalness: 0.35,
+    emissiveIntensity: 0.15,
+    roughness: 0.2,
+    metalness: 0.9,
   });
 }
 
@@ -371,6 +370,14 @@ export function buildCart(colorHex) {
     WHEEL_RADIAL_SEGMENTS,
     1,
   );
+  // * Inset hub disc per wheel: painted-metal frame color stands out against the dark chrome tire.
+  const hubGeo = new THREE.CylinderGeometry(
+    WHEEL_RADIUS * 0.42,
+    WHEEL_RADIUS * 0.42,
+    WHEEL_WIDTH * 1.04,
+    14,
+    1,
+  );
   for (let i = 0; i < corners.length; i += 1) {
     const { x, z } = corners[i];
     const mount = new THREE.Group();
@@ -382,6 +389,7 @@ export function buildCart(colorHex) {
       stemMat,
     );
     stem.position.y = -CASTER_STEM_HEIGHT * 0.35;
+    stem.userData.isWheel = true;
     mount.add(stem);
 
     const yawGroup = new THREE.Group();
@@ -394,7 +402,13 @@ export function buildCart(colorHex) {
 
     const wheel = new THREE.Mesh(wheelGeo, wheelMat);
     wheel.rotation.z = Math.PI / 2;
+    wheel.userData.isWheel = true;
     pitchGroup.add(wheel);
+
+    const hub = new THREE.Mesh(hubGeo, frameMat);
+    hub.rotation.z = Math.PI / 2;
+    pitchGroup.add(hub);
+
     wheelPitchObjects.push(pitchGroup);
   }
 

@@ -521,10 +521,23 @@ function updateCartMaterialsFromSlots(slots) {
     // * buildCart returns a THREE.Group, not a Mesh — traverse all child meshes to repaint.
     cart.mesh.traverse((child) => {
       if (!child.isMesh || !child.material) return;
-      child.material.color.setHex(finalHex);
-      if (child.material.emissive) {
-        child.material.emissive.setHex(finalHex);
-        child.material.emissiveIntensity = 1;
+      const mat = child.material;
+      if (child.userData.isWheel) {
+        // * Chrome casters: keep dark gray, glow subtly with the cart's brand color.
+        if (mat.emissive) {
+          mat.emissive.setHex(finalHex);
+          mat.emissiveIntensity = 0.15;
+        }
+        mat.metalness = 0.9;
+        mat.roughness = 0.2;
+      } else {
+        mat.color.setHex(finalHex);
+        if (mat.emissive) {
+          mat.emissive.setHex(finalHex);
+          mat.emissiveIntensity = 1;
+        }
+        mat.metalness = 0.7;
+        mat.roughness = 0.3;
       }
     });
 
