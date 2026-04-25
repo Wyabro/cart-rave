@@ -3511,10 +3511,10 @@ async function main() {
     metalness: 0.3,
     roughness: 0.7,
   });
-  const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 3000);
+  const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 5000);
   const crowdPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
   const dummy = new THREE.Object3D();
-  for (let i = 0; i < 3000; i += 1) {
+  for (let i = 0; i < 5000; i += 1) {
     const angle = Math.random() * Math.PI * 2;
     const r = pitInnerRadius + 0.5 + Math.random() * 80;
     const x = Math.cos(angle) * r;
