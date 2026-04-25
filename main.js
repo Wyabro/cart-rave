@@ -1413,6 +1413,9 @@ async function main() {
     style.id = "hud-style";
     style.textContent = `
       #hud {
+        --hud-display: "Bungee", "Archivo Black", cursive, sans-serif;
+        --hud-mono: "Space Mono", ui-monospace, monospace;
+        --hud-glow: #22e6ff;
         position: fixed;
         inset: 0;
         z-index: 20000;
@@ -1427,15 +1430,16 @@ async function main() {
         top: 18px;
         left: 50%;
         transform: translateX(-50%);
+        font-family: var(--hud-display);
         font-size: 2.4rem;
         font-weight: 900;
         letter-spacing: 0.06em;
         padding: 10px 14px;
-        border-radius: 14px;
-        background: rgba(7, 0, 16, 0.35);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+        color: #ff2bd6;
+        text-shadow:
+          4px 4px 0 #22e6ff,
+          0 0 24px #ff2bd6,
+          0 0 42px #ff2bd6;
         display: none;
         white-space: nowrap;
       }
@@ -1444,14 +1448,22 @@ async function main() {
         position: absolute;
         top: 18px;
         left: 18px;
+        font-family: var(--hud-display);
         font-size: 1.8rem;
         font-weight: 800;
+        letter-spacing: 0.04em;
         padding: 10px 12px;
-        border-radius: 14px;
-        background: rgba(7, 0, 16, 0.35);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+        border: 2px solid var(--hud-glow);
+        border-radius: 6px;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.05) inset,
+          0 0 12px var(--hud-glow),
+          0 0 28px color-mix(in oklab, var(--hud-glow), transparent 60%);
+        color: #ffffff;
+        text-shadow: 0 0 8px var(--hud-glow);
         display: none;
         min-width: 72px;
         text-align: right;
@@ -1469,34 +1481,96 @@ async function main() {
       }
 
       #hud .hud-scoreBox {
+        --hud-glow: #22e6ff;
+        position: relative;
         width: 88px;
         padding: 10px 10px 9px;
-        border-radius: 14px;
-        box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+        border-radius: 6px;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.05) inset,
+          0 0 12px var(--hud-glow),
+          0 0 28px color-mix(in oklab, var(--hud-glow), transparent 60%);
         color: #ffffff;
         line-height: 1.05;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        border: 2px solid rgba(255,255,255,0.0);
+        border: 2px solid var(--hud-glow);
+        overflow: hidden;
+        text-shadow: 0 0 8px var(--hud-glow);
+      }
+
+      #hud .hud-scoreBox[data-hud-color="pink"] { --hud-glow: #ff00ff; }
+      #hud .hud-scoreBox[data-hud-color="blue"] { --hud-glow: #00ffff; }
+      #hud .hud-scoreBox[data-hud-color="green"] { --hud-glow: #00ff00; }
+      #hud .hud-scoreBox[data-hud-color="yellow"] { --hud-glow: #ffff00; }
+      #hud .hud-scoreBox[data-hud-color="neonOrange"] { --hud-glow: #ff6600; }
+
+      #hud .hud-scoreBox::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--hud-glow), transparent 75%), transparent);
+        transform: translateX(-100%);
+        animation: hudScoreSweep 3.8s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      #hud .hud-scoreBox::after {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border: 2px solid var(--hud-glow);
+        border-radius: 6px;
+        filter: drop-shadow(0 0 6px var(--hud-glow));
+        pointer-events: none;
+      }
+
+      @keyframes hudScoreSweep {
+        0%, 48% { transform: translateX(-100%); }
+        62%, 100% { transform: translateX(100%); }
       }
 
       #hud .hud-scoreLabel {
+        position: relative;
+        z-index: 1;
+        font-family: var(--hud-display);
         font-size: 1.05rem;
         font-weight: 800;
         opacity: 0.95;
+        color: var(--hud-glow);
+        text-shadow: 0 0 12px var(--hud-glow), 0 0 28px var(--hud-glow);
       }
 
       #hud .hud-scoreValue {
+        position: relative;
+        z-index: 1;
+        font-family: var(--hud-mono);
         font-size: 1.35rem;
-        font-weight: 800;
+        font-weight: 700;
         margin-top: 4px;
+        color: #ffffff;
+        text-shadow: 0 0 10px currentColor;
       }
 
       #hud .hud-scoreBox.isLocal {
         border-color: rgba(255,255,255,1);
-        box-shadow: 0 12px 28px rgba(0,0,0,0.35), 0 0 12px rgba(255,255,255,0.6);
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.1) inset,
+          0 0 12px #ffffff,
+          0 0 24px var(--hud-glow),
+          0 0 44px var(--hud-glow);
+      }
+
+      #hud .hud-scoreBox.isLocal::after {
+        border-color: #ffffff;
+        filter:
+          drop-shadow(0 0 8px #ffffff)
+          drop-shadow(0 0 14px var(--hud-glow));
       }
 
       #hud .hud-scoreBox.isLocal .hud-scoreLabel,
@@ -1614,12 +1688,47 @@ async function main() {
     const scores = document.createElement("div");
     scores.className = "hud-scores";
 
+    const hudGlowByColor = {
+      pink: "#ff00ff",
+      blue: "#00ffff",
+      green: "#00ff00",
+      yellow: "#ffff00",
+      neonOrange: "#ff6600",
+    };
+
     /** @type {{ root: HTMLDivElement; box: HTMLDivElement; label: HTMLDivElement; value: HTMLDivElement }[]} */
     const scoreBoxes = [];
+    let scoreBoxStyleObserver = null;
+    const applyScoreBoxMenuStyle = (box) => {
+      const glow = hudGlowByColor[box.dataset.hudColor] || "#22e6ff";
+      const borderColor = box.classList.contains("isLocal") ? "#ffffff" : glow;
+      const boxShadow = box.classList.contains("isLocal")
+        ? `0 0 0 1px rgba(255,255,255,0.1) inset, 0 0 12px #ffffff, 0 0 24px ${glow}, 0 0 44px ${glow}`
+        : `0 0 0 1px rgba(255,255,255,0.05) inset, 0 0 12px ${glow}, 0 0 28px ${glow}`;
+
+      box.style.setProperty("--hud-glow", glow);
+      box.style.setProperty("background-color", "rgba(0,0,0,0.55)", "important");
+      box.style.setProperty("border", `2px solid ${borderColor}`, "important");
+      box.style.setProperty("box-shadow", boxShadow, "important");
+      box.style.setProperty("color", "#ffffff", "important");
+    };
+    const syncScoreBoxMenuStyles = () => {
+      if (scoreBoxStyleObserver) scoreBoxStyleObserver.disconnect();
+      scoreBoxes.forEach(({ box }) => {
+        applyScoreBoxMenuStyle(box);
+        if (scoreBoxStyleObserver) {
+          scoreBoxStyleObserver.observe(box, {
+            attributes: true,
+            attributeFilter: ["class", "data-hud-color", "style"],
+          });
+        }
+      });
+    };
+
     for (let i = 0; i < 4; i += 1) {
       const box = document.createElement("div");
       box.className = "hud-scoreBox";
-      // Initial color class will be set when slots are received
+      // * Initial color class is set when slots are received.
       
       const label = document.createElement("div");
       label.className = "hud-scoreLabel";
@@ -1634,6 +1743,8 @@ async function main() {
       scores.appendChild(box);
       scoreBoxes.push({ root, box, label, value });
     }
+    scoreBoxStyleObserver = new MutationObserver(syncScoreBoxMenuStyles);
+    syncScoreBoxMenuStyles();
 
     const readyBtn = document.createElement("button");
     readyBtn.id = "ready-button";
