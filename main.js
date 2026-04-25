@@ -1625,10 +1625,11 @@ async function main() {
         gap: 8px;
         padding: 8px 14px;
         background: rgba(0, 0, 0, 0.55);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(34, 230, 255, 0.25);
         border-radius: 10px;
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
+        box-shadow: 0 0 12px rgba(34, 230, 255, 0.3), 0 0 28px rgba(34, 230, 255, 0.15);
         pointer-events: auto;
         z-index: 20001;
       }
