@@ -4463,7 +4463,7 @@ async function main() {
     const bbAngle = Math.PI;
     const portalRadius = pitInnerRadius - 2;
     const px = Math.cos(bbAngle) * portalRadius;
-    const py = -3.5;
+    const py = -9.5;
     const pz = Math.sin(bbAngle) * portalRadius;
     portalWorldPos.set(px, py, pz);
 
