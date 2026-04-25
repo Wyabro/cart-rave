@@ -2791,7 +2791,6 @@ async function main() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvasSize, canvasSize);
     const cx = canvasSize / 2;
     const cy = canvasSize / 2;
     const labelOuterWorld = disc.enabled ? disc.outerRadius : 6.5;
@@ -2805,141 +2804,7 @@ async function main() {
       "#ff6600",
     ];
 
-    ctx.save();
-    const labelImage = ctx.createImageData(canvasSize, canvasSize);
-    const palette = labelColors.map((color) => new THREE.Color(color));
-    for (let y = 0; y < canvasSize; y += 1) {
-      for (let x = 0; x < canvasSize; x += 1) {
-        const dx = x - cx;
-        const dy = y - cy;
-        const radius = Math.hypot(dx, dy);
-        if (radius < labelInnerPx || radius > labelOuterPx) continue;
-
-        const angle = Math.atan2(dy, dx);
-        const spiral = ((angle + Math.PI) / (Math.PI * 2) + radius / labelOuterPx * 0.75) * palette.length;
-        const colorIndex = Math.floor(spiral) % palette.length;
-        const nextColorIndex = (colorIndex + 1) % palette.length;
-        const blend = spiral - Math.floor(spiral);
-        const smoothBlend = blend * blend * (3 - 2 * blend);
-        const color = palette[colorIndex].clone().lerp(palette[nextColorIndex], smoothBlend);
-        const alpha = 0.92 - (radius / labelOuterPx) * 0.12;
-        const pixel = (y * canvasSize + x) * 4;
-
-        labelImage.data[pixel] = Math.round(color.r * 255);
-        labelImage.data[pixel + 1] = Math.round(color.g * 255);
-        labelImage.data[pixel + 2] = Math.round(color.b * 255);
-        labelImage.data[pixel + 3] = Math.round(alpha * 255);
-      }
-    }
-    ctx.putImageData(labelImage, 0, 0);
-
-    const labelShade = ctx.createRadialGradient(cx, cy, labelInnerPx, cx, cy, labelOuterPx);
-    labelShade.addColorStop(0, "rgba(0, 0, 0, 0.08)");
-    labelShade.addColorStop(0.65, "rgba(0, 0, 0, 0.24)");
-    labelShade.addColorStop(1, "rgba(0, 0, 0, 0.62)");
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = labelShade;
-    ctx.beginPath();
-    ctx.arc(cx, cy, labelOuterPx, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    ctx.arc(cx, cy, labelInnerPx * 0.98, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = "source-over";
-    ctx.restore();
-
-    function drawCartIconOnLabel(x, y, scale, color, rotation) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(rotation);
-      ctx.scale(scale, scale);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 10;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.moveTo(-72, -34);
-      ctx.lineTo(-40, -34);
-      ctx.lineTo(-22, 26);
-      ctx.moveTo(-36, -10);
-      ctx.lineTo(74, -10);
-      ctx.lineTo(58, 34);
-      ctx.lineTo(-14, 34);
-      ctx.closePath();
-      ctx.moveTo(-20, 10);
-      ctx.lineTo(68, 10);
-      ctx.moveTo(8, -10);
-      ctx.lineTo(2, 34);
-      ctx.moveTo(38, -10);
-      ctx.lineTo(42, 34);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(-4, 58, 13, 0, Math.PI * 2);
-      ctx.arc(54, 58, 13, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    for (let i = 0; i < labelColors.length; i += 1) {
-      const angle = -Math.PI / 2 + (i / labelColors.length) * Math.PI * 2;
-      const iconRadius = labelOuterPx * 0.66;
-      drawCartIconOnLabel(
-        cx + Math.cos(angle) * iconRadius,
-        cy + Math.sin(angle) * iconRadius,
-        0.63,
-        "rgba(0, 0, 0, 0.58)",
-        angle + Math.PI / 2,
-      );
-    }
-
-    // --- Arc text helper: draws text along a circular path ---
-    function drawArcText(ctx, text, centerX, centerY, radius, startAngle, charSpacing, outward) {
-      ctx.save();
-      ctx.font = 'bold 56px Arial, sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 4;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      const totalAngle = charSpacing * (text.length - 1);
-      let angle = startAngle - totalAngle / 2;
-
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        const x = centerX + radius * Math.cos(angle);
-        const y = centerY + radius * Math.sin(angle);
-
-        ctx.save();
-        ctx.translate(x, y);
-
-        if (outward) {
-          ctx.rotate(angle + Math.PI / 2);
-        } else {
-          ctx.rotate(angle - Math.PI / 2);
-        }
-
-        ctx.strokeText(ch, 0, 0);
-        ctx.fillText(ch, 0, 0);
-        ctx.restore();
-
-        angle += charSpacing;
-      }
-
-      ctx.restore();
-    }
-
-    // Draw CART RAVE on top half (12 o'clock, reading left-to-right)
-    drawArcText(ctx, 'CART RAVE', 512, 512, 378, -Math.PI / 2, 0.18, true);
-
-    // Draw CART RAVE on bottom half (6 o'clock, reading left-to-right)
-    drawArcText(ctx, 'CART RAVE', 512, 512, 378, Math.PI / 2, -0.18, false);
-
     const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
     tex.colorSpace = THREE.SRGBColorSpace;
 
     const textRadius = labelOuterWorld - 0.04;
@@ -2959,6 +2824,169 @@ async function main() {
     textMesh.rotation.x = -Math.PI / 2;
     textMesh.position.y = yBase + lt.yOffset + 0.02;
     parentMesh.add(textMesh);
+
+    // * Defer drawing until Bungee is available so canvas glyphs render with the correct face.
+    document.fonts.load('64px "Bungee"').then(() => {
+      ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+      ctx.save();
+      const labelImage = ctx.createImageData(canvasSize, canvasSize);
+      const palette = labelColors.map((color) => new THREE.Color(color));
+      for (let y = 0; y < canvasSize; y += 1) {
+        for (let x = 0; x < canvasSize; x += 1) {
+          const dx = x - cx;
+          const dy = y - cy;
+          const radius = Math.hypot(dx, dy);
+          if (radius < labelInnerPx || radius > labelOuterPx) continue;
+
+          const angle = Math.atan2(dy, dx);
+          const spiral = ((angle + Math.PI) / (Math.PI * 2) + radius / labelOuterPx * 0.75) * palette.length;
+          const colorIndex = Math.floor(spiral) % palette.length;
+          const nextColorIndex = (colorIndex + 1) % palette.length;
+          const blend = spiral - Math.floor(spiral);
+          const smoothBlend = blend * blend * (3 - 2 * blend);
+          const color = palette[colorIndex].clone().lerp(palette[nextColorIndex], smoothBlend);
+          const alpha = 0.92 - (radius / labelOuterPx) * 0.12;
+          const pixel = (y * canvasSize + x) * 4;
+
+          labelImage.data[pixel] = Math.round(color.r * 255);
+          labelImage.data[pixel + 1] = Math.round(color.g * 255);
+          labelImage.data[pixel + 2] = Math.round(color.b * 255);
+          labelImage.data[pixel + 3] = Math.round(alpha * 255);
+        }
+      }
+      ctx.putImageData(labelImage, 0, 0);
+
+      // * Subtle vignette: transparent center -> rgba(0,0,0,0.3) at the outer label edge for added depth.
+      const vignette = ctx.createRadialGradient(cx, cy, labelInnerPx, cx, cy, labelOuterPx);
+      vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+      vignette.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+      ctx.fillStyle = vignette;
+      ctx.beginPath();
+      ctx.arc(cx, cy, labelOuterPx, 0, Math.PI * 2);
+      ctx.fill();
+      // * Punch the spindle hole back out so the center stays clean.
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(cx, cy, labelInnerPx * 0.98, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.restore();
+
+      // * Sample the swirl at a given polar position to pick the dominant color underneath.
+      function nearestSwirlColor(angleRad, radiusPx) {
+        const spiral = ((angleRad + Math.PI) / (Math.PI * 2) + (radiusPx / labelOuterPx) * 0.75) * labelColors.length;
+        const idx = ((Math.floor(spiral) % labelColors.length) + labelColors.length) % labelColors.length;
+        return labelColors[idx];
+      }
+
+      function drawCartIconOnLabel(x, y, scale, strokeColor, fillColor, shadowColor, rotation) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 10;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.shadowColor = shadowColor;
+        ctx.shadowBlur = 12;
+
+        ctx.beginPath();
+        ctx.moveTo(-72, -34);
+        ctx.lineTo(-40, -34);
+        ctx.lineTo(-22, 26);
+        ctx.moveTo(-36, -10);
+        ctx.lineTo(74, -10);
+        ctx.lineTo(58, 34);
+        ctx.lineTo(-14, 34);
+        ctx.closePath();
+        ctx.moveTo(-20, 10);
+        ctx.lineTo(68, 10);
+        ctx.moveTo(8, -10);
+        ctx.lineTo(2, 34);
+        ctx.moveTo(38, -10);
+        ctx.lineTo(42, 34);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-4, 58, 13, 0, Math.PI * 2);
+        ctx.arc(54, 58, 13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // * 8 evenly-spaced cart icons, each shadowed with the swirl color directly beneath it.
+      const iconCount = 8;
+      const iconRadius = labelOuterPx * 0.66;
+      for (let i = 0; i < iconCount; i += 1) {
+        const angle = -Math.PI / 2 + (i / iconCount) * Math.PI * 2;
+        drawCartIconOnLabel(
+          cx + Math.cos(angle) * iconRadius,
+          cy + Math.sin(angle) * iconRadius,
+          0.85,
+          "rgba(255, 255, 255, 0.4)",
+          "rgba(0, 0, 0, 0.25)",
+          nearestSwirlColor(angle, iconRadius),
+          angle + Math.PI / 2,
+        );
+      }
+
+      // --- Arc text helper: draws text along a circular path ---
+      function drawArcText(ctx, text, centerX, centerY, radius, startAngle, charSpacing, outward) {
+        ctx.save();
+        ctx.font = '64px "Bungee", sans-serif';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const totalAngle = charSpacing * (text.length - 1);
+        let angle = startAngle - totalAngle / 2;
+
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
+
+          ctx.save();
+          ctx.translate(x, y);
+
+          if (outward) {
+            ctx.rotate(angle + Math.PI / 2);
+          } else {
+            ctx.rotate(angle - Math.PI / 2);
+          }
+
+          // * Per-character white-to-pink shimmer for a metallic/holographic record-label feel.
+          const grad = ctx.createLinearGradient(0, -10, 0, 10);
+          grad.addColorStop(0.0, '#ffffff');
+          grad.addColorStop(0.5, '#ffccff');
+          grad.addColorStop(1.0, '#ff66ff');
+          ctx.fillStyle = grad;
+
+          ctx.strokeText(ch, 0, 0);
+          ctx.fillText(ch, 0, 0);
+          ctx.restore();
+
+          angle += charSpacing;
+        }
+
+        ctx.restore();
+      }
+
+      // Draw CART RAVE on top half (12 o'clock, reading left-to-right)
+      drawArcText(ctx, 'CART RAVE', 512, 512, 378, -Math.PI / 2, 0.18, true);
+
+      // Draw CART RAVE on bottom half (6 o'clock, reading left-to-right)
+      drawArcText(ctx, 'CART RAVE', 512, 512, 378, Math.PI / 2, -0.18, false);
+
+      tex.needsUpdate = true;
+    });
   })(recordMesh);
 
   // Neon rim (visual only).
