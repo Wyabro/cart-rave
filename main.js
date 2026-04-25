@@ -4335,6 +4335,98 @@ async function main() {
   scene.add(stageGroup);
   stageGroup.updateMatrixWorld(true);
 
+  // ===== CURSOR VIBE JAM 2026 BILLBOARD =====
+  {
+    const bbAngle = Math.PI;
+    const bbRadius = pitInnerRadius + 25;
+
+    // Pixel-art canvas texture
+    const bbSmallCanvas = document.createElement('canvas');
+    bbSmallCanvas.width = 256;
+    bbSmallCanvas.height = 64;
+    const bbSmallCtx = bbSmallCanvas.getContext('2d');
+    bbSmallCtx.imageSmoothingEnabled = false;
+    bbSmallCtx.fillStyle = '#000000';
+    bbSmallCtx.fillRect(0, 0, 256, 64);
+    bbSmallCtx.fillStyle = '#ffffff';
+    bbSmallCtx.font = '14px monospace';
+    bbSmallCtx.textAlign = 'center';
+    bbSmallCtx.textBaseline = 'middle';
+    bbSmallCtx.fillText('CURSOR VIBE JAM 2026', 128, 32);
+    const bbTex = new THREE.CanvasTexture(bbSmallCanvas);
+    bbTex.magFilter = THREE.NearestFilter;
+    bbTex.minFilter = THREE.NearestFilter;
+    bbTex.colorSpace = THREE.SRGBColorSpace;
+
+    // Scanline overlay canvas
+    const slCanvas = document.createElement('canvas');
+    slCanvas.width = 128;
+    slCanvas.height = 256;
+    const slCtx = slCanvas.getContext('2d');
+    for (let y = 0; y < 256; y += 2) {
+      slCtx.fillStyle = 'rgba(0,0,0,0.3)';
+      slCtx.fillRect(0, y + 1, 128, 1);
+    }
+    const slTex = new THREE.CanvasTexture(slCanvas);
+
+    const bbFrameMat = new THREE.MeshStandardMaterial({
+      color: 0x333344, metalness: 0.8, roughness: 0.3,
+    });
+
+    const billboardGroup = new THREE.Group();
+
+    // Screen
+    const bbScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(12, 3),
+      new THREE.MeshBasicMaterial({ map: bbTex })
+    );
+    billboardGroup.add(bbScreen);
+
+    // Scanline overlay
+    const bbScanlines = new THREE.Mesh(
+      new THREE.PlaneGeometry(12, 3),
+      new THREE.MeshBasicMaterial({
+        map: slTex,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+      })
+    );
+    bbScanlines.position.z = 0.01;
+    billboardGroup.add(bbScanlines);
+
+    // Metal frame bars (top, bottom, left, right)
+    const bbFrameParts = [
+      { w: 12.3, h: 0.15, d: 0.15, x: 0,    y:  1.575, z: 0 },
+      { w: 12.3, h: 0.15, d: 0.15, x: 0,    y: -1.575, z: 0 },
+      { w: 0.15, h: 3.3,  d: 0.15, x: -6.075, y: 0,   z: 0 },
+      { w: 0.15, h: 3.3,  d: 0.15, x:  6.075, y: 0,   z: 0 },
+    ];
+    for (const { w, h, d, x, y, z } of bbFrameParts) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bbFrameMat);
+      bar.position.set(x, y, z);
+      billboardGroup.add(bar);
+    }
+
+    // Support poles
+    for (const sx of [-5.5, 5.5]) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.1, 6, 8),
+        bbFrameMat
+      );
+      pole.position.set(sx, -1.5 - 3, 0);
+      billboardGroup.add(pole);
+    }
+
+    billboardGroup.position.set(
+      Math.cos(bbAngle) * bbRadius,
+      -3,
+      Math.sin(bbAngle) * bbRadius
+    );
+    billboardGroup.lookAt(0, -3, 0);
+    scene.add(billboardGroup);
+  }
+
   for (let i = 0; i < 6; i += 1) {
     const t = i / 5;
     const lx = -10 + t * 20;
