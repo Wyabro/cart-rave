@@ -4411,16 +4411,16 @@ async function main() {
     // Support poles
     for (const sx of [-5.5, 5.5]) {
       const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.1, 6, 8),
+        new THREE.CylinderGeometry(0.1, 0.1, 5, 8),
         bbFrameMat
       );
-      pole.position.set(sx, -1.5 - 3, 0);
+      pole.position.set(sx, -1.5 - 2.5, 0);
       billboardGroup.add(pole);
     }
 
     billboardGroup.position.set(
       Math.cos(bbAngle) * bbRadius,
-      -3,
+      0,
       Math.sin(bbAngle) * bbRadius
     );
     billboardGroup.lookAt(0, -3, 0);
