@@ -3452,10 +3452,6 @@ async function main() {
   groundDisc.rotation.x = -Math.PI / 2;
   groundDisc.position.y = -3;
   scene.add(groundDisc);
-  const groundPlaneBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, -3, 0),
-  );
-  world.createCollider(RAPIER.ColliderDesc.cuboid(150, 0.1, 150), groundPlaneBody);
 
   const pitWallGeo = new THREE.CylinderGeometry(pitInnerRadius, pitInnerRadius, 15, 64, 1, true);
   const pitWallMat = new THREE.MeshStandardMaterial({
@@ -3467,14 +3463,6 @@ async function main() {
   const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
   pitWall.position.y = -10.5;
   scene.add(pitWall);
-  const pitWallBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, -10.5, 0),
-  );
-  const pitWallVerts = /** @type {Float32Array} */ (pitWallGeo.attributes.position.array);
-  const pitWallIndices = pitWallGeo.index
-    ? Uint32Array.from(pitWallGeo.index.array)
-    : Uint32Array.from(Array.from({ length: pitWallGeo.attributes.position.count }, (_, i) => i));
-  world.createCollider(RAPIER.ColliderDesc.trimesh(pitWallVerts, pitWallIndices), pitWallBody);
 
   const groundGridGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
