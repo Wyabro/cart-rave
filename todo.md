@@ -1,68 +1,88 @@
-## Execution order (the plan)
+Execution order (the plan)
+Current status: Steps 1–15 shipped. Sessions 21–23 visual polish and fixes shipped. Session 24 in progress.
 
-Current status: Steps 1–15 shipped. Session 22 additions shipped: multiplayer slot hijacking fix, mobile gate (client + server), quickplay auto-continue (commit 468dbe9), fallback username (commit 0376e55), mid-round join auto-ready (commit 4f16c2d), mid-round join respawn (commits 7e68573, fd2d663 — working for Friends, broken for Quickplay mid-round, deferred), stage lasers, crowd searchlights, pulsing crowd lights, crowd cart MeshBasicMaterial. Environment from Session 21 shipped: ground plane, pit wall, crowd silhouettes, main stage with animated spotlights.
-1. ✅ Deploy to cartrave.lol via Vercel
-2. ✅ PartyKit server + client handshake
-3. ✅ Procedural cart models with caster wheels
-4. ✅ Multiplayer sync for 2 human carts (host-authoritative, 60Hz input, 20Hz transforms)
-5. ✅ NPC fill for empty slots
-6. ✅ Slot sync + non-host respawn fix
-7. ✅ Vibe Jam widget tag in index.html (jam compliance)
-8. ✅ Round structure + HUD overlay: countdown/running/podium loop + timer/scores/status
-9. ✅ Results screen: final scores, Play Again, Vibe Jam exit portal link, match history
-10. ✅ Menu shell (DOM, CSS/SVG background, mode buttons, username, volume/mute, mobile detection)
-11. ✅ Mode routing + color picker (server-gated, atomic slot assignment, 5 colors, neonOrange)
-12. ✅ In-game polish + URL flows / Ready-Up System (Esc overlay, Quit to Menu, shared-URL flow, portal bypass, server-driven start)
-13. ✅ Menu integration + audio (Sessions 14–19)
-    - Menu buttons wired (Solo, Quickplay, Friends, Portal)
-    - Color picker wired to game cart color system
-    - Volume/mute wired from menu to game audio
-    - Menu music (`sounds/menu.mp3`) with 2-second crossfade
-    - Default volume 25%
-    - In-game HUD volume/mute widget (top-right)
-    - Green swirly portal button on menu (Rick-and-Morty style)
-    - Friends invite screen (room link auto-copy + copy button + enter game + back)
-    - Friends link cleaned to `?room=` only
-    - Favicon added
-14. ✅ Username system (Session 19)
-    - Username sent with join message
-    - localStorage sync via MutationObserver
-    - 3D floating name labels above all carts (player + NPCs)
-    - Name labels update on slot changes via `updateNameLabelsRef` pattern
-    - HUD score boxes show names instead of P1/P2/P3/P4
-    - Timer moved to top-left to avoid HUD audio widget overlap
-    - Null cart crash guard added
-15. ✅ Spawn booths: per-booth colors, trusses, SPAWN BOOTH text, DJ gear, neon edges, platforms close to arena with gap (no ramp)
+✅ Deploy to cartrave.lol via Vercel
+✅ PartyKit server + client handshake
+✅ Procedural cart models with caster wheels
+✅ Multiplayer sync for 2 human carts (host-authoritative, 60Hz input, 20Hz transforms)
+✅ NPC fill for empty slots
+✅ Slot sync + non-host respawn fix
+✅ Vibe Jam widget tag in index.html (jam compliance)
+✅ Round structure + HUD overlay: countdown/running/podium loop + timer/scores/status
+✅ Results screen: final scores, Play Again, Vibe Jam exit portal link, match history
+✅ Menu shell (DOM, CSS/SVG background, mode buttons, username, volume/mute, mobile detection)
+✅ Mode routing + color picker (server-gated, atomic slot assignment, 5 colors, neonOrange)
+✅ In-game polish + URL flows / Ready-Up System
+✅ Menu integration + audio (Sessions 14–19)
+✅ Username system (Session 19)
+✅ Spawn booths: per-booth colors, trusses, DJ gear, neon edges, platforms
 
-### Remaining (pre-submission) — Priority Order
+Session 21–23 shipped
 
-**Visual Polish (priority 1):**
-- HUD overhaul: restyle all in-game HUD elements (ready-up UI, countdown, score boxes) to match menu visual style
-- Crowd lighting: crowd area too dark, add more lights to illuminate crowd carts
-- Stage lasers: currently thin/hard to see, increase visibility
-- Crowd carts: colors present but dim/underwhelming, improve brightness
-- Sky/skybox: add space nebula theme with stars and occasional UFOs
-- Spawn platform fog: low-lying fog rolling off spawn platforms
-- Cart faces: add stylized mouths and sunglasses as eyes to player carts
-- Spawn booth redesign: replace current booth with more intricate/detailed design
-- DJ screen logo: place Cart Rave logo on the void DJ screen
-- Vibe Jam billboard: add billboard somewhere in arena background
-- In-world exit portal: driveable "Enter Portal" object in the arena, navigates to https://vibej.am/portal/2026 (same tab)
+✅ Ground plane, pit wall, crowd silhouettes, main stage with animated spotlights
+✅ Multiplayer slot hijacking fix, mobile gate, quickplay auto-continue, fallback username, mid-round join auto-ready/respawn
+✅ HUD overhaul (menu-matching fonts/glassmorphism)
+✅ Crowd lighting (32 point lights, glow spheres, ground plane, MeshBasicMaterial)
+✅ Stage laser visibility (3x radius, higher opacity)
+✅ Fog density reduction (0.018→0.006)
+✅ Ambient light purple tint
+✅ Skybox (stars, nebula, UFOs, planets, galaxy sprites, horizon fog)
+✅ Cart faces (sunglasses + mouth, isFace guard)
+✅ Spawn booth redesign (neon strips, diamond accents, DJ gear, speaker trim)
+✅ DJ screen logo (animated CART RAVE canvas with glow + scanlines)
+✅ Spawn platform fog puffs
+✅ HUD audio widget glow
+✅ Score box auto-width for long usernames
 
-**Physics Tuning (priority 2):**
-- Step 20: hole radius audit (resolve 12-13% vs 15-20%), NPC hole awareness, spotlight count/colors, general physics feel tuning
+Session 24 shipped
 
-**Essentials (priority 3):**
-- Esc overlay: never built — implement per spec (controls section, volume slider, mute toggle, resume button, quit to menu)
-- Step 16: Results screen names — show names instead of player numbers
-- Step 17: Friend flow fix — friends opening room link should see menu first
-- NPC names: randomize from comedy pool per lobby, not static
-- Portal button: results screen portal should navigate same tab, not open new tab
-- Verify: Solo is strictly single-player, Quickplay drops into strangers lobby, results screen stats work in Solo, match history works in Solo, hard refresh ready-up bug status
+✅ Vibe Jam billboard ("CURSOR VIBE JAM 2026" pixel-art billboard in crowd area, neon frame, animated text glow, scanlines, accent lights)
+✅ In-world exit portal (Rick & Morty green swirl on void pit wall, same-tab navigation to vibej.am/portal/2026)
+✅ Esc overlay (MENU screen with controls, resume, quit to menu — game runs behind it)
+✅ Main menu controls section updated with Esc key
+✅ NPC names randomized from comedy pool per lobby
+✅ Portal button fixed (same tab navigation)
+✅ Solo auto-start fix (auto-start gated to Quickplay only)
+✅ Results screen names (show names instead of player numbers)
 
-**Post-essentials (priority 4):**
-- Step 22: Pre-submission cleanup + multiplayer playtest checklist
-- .cursorrules update with final state
-- Step 18: Stats tracking fix if broken (cut candidate)
-- Step 19: Lag mitigation (cut candidate)
-- Step 23: Supabase leaderboard (stretch)
+Remaining (pre-submission) — Priority Order
+Physics & Collision Tuning (priority 1 — critical):
+
+Head-on collision bounce/impact — carts need better bounce behavior on direct hits
+Hole radius audit (12-13% vs 15-20%)
+NPC hole awareness
+General physics feel tuning
+
+Quick Visual Wins (priority 2 — easy ships):
+
+Center record spotlight: one mellow color-shifting PointLight in the center of the record
+Void wall gradient: purple at top fading to black at bottom of pit
+Scoring explanation: display scoring rules somewhere accessible (menu, Esc overlay, or in-game)
+
+Sound Design (priority 2):
+
+Add sound effects: collision impacts, nitro boost, fall-off, and any other gaps
+
+Essentials — need playtesting (priority 3):
+
+Friend flow fix: friends opening room link should see menu first
+Stats tracker: main menu global stats are cosmetic/placeholder — wire up to real localStorage values
+Verify: Solo single-player, Quickplay strangers lobby, stats/history in Solo, hard-refresh ready-up bug
+
+Post-essentials (priority 4):
+
+Pre-submission cleanup + playtest
+.cursorrules final update
+
+Stretch / Post-jam:
+
+Crazy Carts mode: second solo mode with 8 NPCs for chaotic gameplay
+Stats fix if deeper issues found
+Lag mitigation
+Supabase leaderboard
+
+Known deferred (post-jam):
+
+Quickplay mid-round respawn
+Host migration speed-up
+Quickplay refresh rejoin
