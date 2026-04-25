@@ -3508,8 +3508,8 @@ async function main() {
   const mergedGeo = mergeGeometries(crowdCartParts);
   const crowdMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.15,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0.5,
     metalness: 0.3,
     roughness: 0.7,
   });
@@ -3553,9 +3553,9 @@ async function main() {
 
     const searchlight = new THREE.SpotLight(
       crowdSearchlightColors[i],
-      8,
-      100,
-      Math.PI * 0.25,
+      30,
+      200,
+      Math.PI * 0.35,
       0.8,
       1.5,
     );
@@ -3592,7 +3592,7 @@ async function main() {
   for (let i = 0; i < 8; i += 1) {
     const angle = (i / 8) * Math.PI * 2;
     const radius = crowdPointLightRadiusMin + Math.random() * crowdPointLightRadiusRange;
-    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 3, 30, 2);
+    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 3, 60, 2);
     light.position.set(
       Math.cos(angle) * radius,
       2,
@@ -5419,7 +5419,7 @@ async function main() {
     if (crowdPointLightEntries.length > 0) {
       const nowSec = now * 0.001;
       for (const entry of crowdPointLightEntries) {
-        entry.light.intensity = 2 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 1.5;
+        entry.light.intensity = 6 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 3;
       }
     }
 
