@@ -3760,6 +3760,18 @@ async function main() {
       Math.sin(angle) * radius,
     );
     scene.add(light);
+    const lightBulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 8, 8),
+      new THREE.MeshBasicMaterial({
+        color: crowdPalette[i % crowdPalette.length],
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    lightBulb.position.copy(light.position);
+    scene.add(lightBulb);
     crowdPointLightEntries.push({ light, index: i });
   }
 
