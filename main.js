@@ -1483,8 +1483,9 @@ async function main() {
       #hud .hud-scoreBox {
         --hud-glow: #22e6ff;
         position: relative;
-        width: 88px;
-        padding: 10px 10px 9px;
+        min-width: 80px;
+        max-width: 160px;
+        padding: 10px 14px 9px;
         border-radius: 6px;
         background: rgba(0,0,0,0.55);
         backdrop-filter: blur(8px);
@@ -1539,9 +1540,13 @@ async function main() {
         position: relative;
         z-index: 1;
         font-family: var(--hud-display);
-        font-size: 1.05rem;
+        font-size: 0.85rem;
         font-weight: 800;
         opacity: 0.95;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 130px;
         color: var(--hud-glow);
         text-shadow: 0 0 12px var(--hud-glow), 0 0 28px var(--hud-glow);
       }
