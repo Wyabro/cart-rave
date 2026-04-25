@@ -508,6 +508,10 @@ let getAxisRef = null;
 let triggerRamBoostRef = null;
 /** @type {{ current: (() => void) | null }} */
 const updateNameLabelsRef = { current: null };
+/** @type {{ current: (() => void) | null }} */
+const respawnLocalMidRoundJoinRef = { current: null };
+/** @type {string | null} */
+let pendingMidRoundJoinRespawnConnId = null;
 
 function colorHexForSlot(slot) {
   if (!slot) return 0x888888;
@@ -864,6 +868,9 @@ function initNetcode(roomOverride) {
         if (partySocket && partySocket.readyState === WebSocket.OPEN) {
           partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
           __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
+          if (roundPhase === "running" && youConnId) {
+            pendingMidRoundJoinRespawnConnId = youConnId;
+          }
         }
         hideMenuRef?.();
       }
@@ -917,6 +924,7 @@ function initNetcode(roomOverride) {
         // Update HUD colors with new colors
         updateHudColorsFromSlots(msg.slots);
         updateNameLabelsRef.current?.();
+        respawnLocalMidRoundJoinRef.current?.();
       } else {
         console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
       }
@@ -3963,6 +3971,19 @@ async function main() {
     cart.ramBoostStreakCarry = 0;
     resetCartVisualState(cart.mesh);
   }
+
+  respawnLocalMidRoundJoinRef.current = () => {
+    if (!youConnId || pendingMidRoundJoinRespawnConnId !== youConnId) return;
+    if (roundPhase !== "running") return;
+    const slotIndex = localSlotIndexForConn(youConnId);
+    if (slotIndex < 0) return;
+    const slot = netSlots[slotIndex];
+    if (!slot || slot.kind !== "human") return;
+    const cart = allCarts[slotIndex];
+    if (!cart) return;
+    doRespawn(cart);
+    pendingMidRoundJoinRespawnConnId = null;
+  };
 
   /**
    * @param {number} nowMs
