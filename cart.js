@@ -421,7 +421,10 @@ export function buildCart(colorHex) {
   };
 
   // * Cart face: sunglasses + mouth.
-  const faceZ = frontZ - 0.02; // * Sits just in front of the front wall.
+  // * Sit clearly outside the front wall: frontZ is the inner-wall plane, so we
+  // * step out by the rail radius plus a small gap to avoid z-fighting with rails.
+  const faceZ = frontZ - railR - 0.03;
+  const faceGlowZ = frontZ - railR - 0.04;
   const faceCenterY = yBottomFront + hFront * 0.55;
 
   // * Sunglasses: two dark lenses connected by a bridge.
@@ -430,6 +433,7 @@ export function buildCart(colorHex) {
     metalness: 0.9,
     roughness: 0.1,
     envMapIntensity: 1.0,
+    side: THREE.DoubleSide,
   });
   const lensGlowMat = new THREE.MeshBasicMaterial({
     color: baseColor,
@@ -437,6 +441,7 @@ export function buildCart(colorHex) {
     opacity: 0.4,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
+    side: THREE.DoubleSide,
   });
   const lensW = halfW * 0.7;
   const lensH = hFront * 0.35;
@@ -445,19 +450,21 @@ export function buildCart(colorHex) {
   // * Left lens.
   const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
   leftLens.position.set(-lensGap - lensW * 0.5, faceCenterY, faceZ);
+  leftLens.userData.isFace = true;
   basketGroup.add(leftLens);
   const leftGlow = new THREE.Mesh(new THREE.PlaneGeometry(lensW * 1.2, lensH * 1.4), lensGlowMat);
-  leftGlow.position.copy(leftLens.position);
-  leftGlow.position.z -= 0.01;
+  leftGlow.position.set(leftLens.position.x, faceCenterY, faceGlowZ);
+  leftGlow.userData.isFace = true;
   basketGroup.add(leftGlow);
 
   // * Right lens.
   const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
   rightLens.position.set(lensGap + lensW * 0.5, faceCenterY, faceZ);
+  rightLens.userData.isFace = true;
   basketGroup.add(rightLens);
   const rightGlow = new THREE.Mesh(new THREE.PlaneGeometry(lensW * 1.2, lensH * 1.4), lensGlowMat);
-  rightGlow.position.copy(rightLens.position);
-  rightGlow.position.z -= 0.01;
+  rightGlow.position.set(rightLens.position.x, faceCenterY, faceGlowZ);
+  rightGlow.userData.isFace = true;
   basketGroup.add(rightGlow);
 
   // * Bridge.
@@ -466,6 +473,7 @@ export function buildCart(colorHex) {
     lensMat,
   );
   bridge.position.set(0, faceCenterY, faceZ);
+  bridge.userData.isFace = true;
   basketGroup.add(bridge);
 
   // * Mouth: wide grin.
@@ -482,6 +490,7 @@ export function buildCart(colorHex) {
     roughness: 0.1,
   });
   const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+  mouth.userData.isFace = true;
   basketGroup.add(mouth);
 
   return root;

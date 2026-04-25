@@ -534,6 +534,8 @@ function updateCartMaterialsFromSlots(slots) {
     // * buildCart returns a THREE.Group, not a Mesh — traverse all child meshes to repaint.
     cart.mesh.traverse((child) => {
       if (!child.isMesh || !child.material) return;
+      // * Face meshes (sunglasses + mouth) keep their authored materials.
+      if (child.userData && child.userData.isFace) return;
       const mat = child.material;
       if (child.userData.isWheel) {
         // * Chrome casters: keep dark gray, glow subtly with the cart's brand color.
