@@ -1860,6 +1860,161 @@ async function main() {
         text-align: right;
         letter-spacing: 0.05em;
       }
+
+      #esc-overlay {
+        --esc-display: "Bungee", "Archivo Black", cursive, sans-serif;
+        --esc-mono: "Space Mono", ui-monospace, monospace;
+        position: fixed;
+        inset: 0;
+        z-index: 20010;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10, 10, 30, 0.85);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #ffffff;
+        pointer-events: auto;
+      }
+
+      #esc-overlay .esc-panel {
+        width: min(420px, calc(100vw - 40px));
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 18px;
+        padding: 30px;
+        background: rgba(0, 0, 0, 0.55);
+        border: 2px solid rgba(34, 230, 255, 0.75);
+        border-radius: 12px;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+          0 0 24px rgba(34, 230, 255, 0.35),
+          0 0 54px rgba(255, 43, 214, 0.22);
+        font-family: var(--esc-mono);
+      }
+
+      #esc-overlay .esc-title {
+        margin: 0;
+        font-family: var(--esc-display);
+        font-size: clamp(2rem, 7vw, 3.3rem);
+        letter-spacing: 0.08em;
+        text-align: center;
+        color: #22e6ff;
+        text-shadow:
+          3px 3px 0 #ff2bd6,
+          0 0 18px #22e6ff,
+          0 0 42px rgba(34, 230, 255, 0.8);
+      }
+
+      #esc-overlay .esc-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      #esc-overlay .esc-control-row,
+      #esc-overlay .esc-volume-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      #esc-overlay .esc-keycap {
+        min-width: 112px;
+        padding: 7px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.42);
+        color: #22e6ff;
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-align: center;
+        text-transform: uppercase;
+        box-shadow: 0 0 12px rgba(34, 230, 255, 0.18) inset;
+      }
+
+      #esc-overlay .esc-control-label,
+      #esc-overlay .esc-volume-label,
+      #esc-overlay .esc-volume-value {
+        color: rgba(255, 255, 255, 0.84);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      #esc-overlay .esc-volume-row {
+        justify-content: space-between;
+      }
+
+      #esc-overlay .esc-volume-label {
+        min-width: 78px;
+        color: #ff2bd6;
+      }
+
+      #esc-overlay .esc-volume-value {
+        min-width: 34px;
+        text-align: right;
+        color: #22e6ff;
+      }
+
+      #esc-overlay .esc-volume-slider {
+        flex: 1;
+        min-width: 0;
+        accent-color: #22e6ff;
+        cursor: pointer;
+      }
+
+      #esc-overlay .esc-mute-btn {
+        align-self: center;
+        min-width: 132px;
+        padding: 10px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #22e6ff;
+        font-family: var(--esc-mono);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        box-shadow: 0 0 14px rgba(34, 230, 255, 0.2);
+      }
+
+      #esc-overlay .esc-mute-btn.muted {
+        color: #ff2bd6;
+        box-shadow: 0 0 14px rgba(255, 43, 214, 0.26);
+      }
+
+      #esc-overlay .esc-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      #esc-overlay .esc-btn {
+        padding: 13px 18px;
+        border: 2px solid #22e6ff;
+        border-radius: 0;
+        background: rgba(0, 0, 0, 0.45);
+        color: #ffffff;
+        font-family: var(--esc-display);
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        box-shadow: 0 0 14px rgba(34, 230, 255, 0.28);
+      }
+
+      #esc-overlay .esc-btn:hover,
+      #esc-overlay .esc-mute-btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.12);
+      }
+
+      #esc-overlay .esc-btn--quit {
+        border-color: #ff2bd6;
+        box-shadow: 0 0 14px rgba(255, 43, 214, 0.28);
+      }
     `.trim();
     document.head.appendChild(style);
 
@@ -1952,6 +2107,13 @@ async function main() {
     const audioWidget = document.createElement("div");
     audioWidget.className = "hud-audio";
 
+    /** @type {HTMLInputElement | null} */
+    let escVolSlider = null;
+    /** @type {HTMLSpanElement | null} */
+    let escVolVal = null;
+    /** @type {HTMLButtonElement | null} */
+    let escMuteBtn = null;
+
     const hudMuteBtn = document.createElement("button");
     hudMuteBtn.className = "hud-mute-btn";
     hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
@@ -1964,10 +2126,7 @@ async function main() {
         localStorage.setItem("cartRaveVolume", "25");
       }
       try { applyAudioVolume(); } catch (e) {}
-      hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
-      hudMuteBtn.classList.toggle("muted", isMuted);
-      hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
-      hudVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+      syncAudioControls();
     });
 
     const hudVolTrack = document.createElement("div");
@@ -1984,10 +2143,7 @@ async function main() {
       if (v > 0 && isMuted) { isMuted = false; localStorage.removeItem("cartRaveMuted"); }
       if (v === 0) { isMuted = true; localStorage.setItem("cartRaveMuted", "true"); }
       try { applyAudioVolume(); } catch (e) {}
-      hudVolFill.style.width = (isMuted ? 0 : v * 100) + "%";
-      hudVolVal.textContent = isMuted ? "OFF" : Math.round(v * 100);
-      hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
-      hudMuteBtn.classList.toggle("muted", isMuted);
+      syncAudioControls();
     });
 
     const hudVolVal = document.createElement("span");
@@ -2000,7 +2156,157 @@ async function main() {
     root.appendChild(audioWidget);
     document.body.appendChild(root);
 
-    return { root, status, timer, scores, scoreBoxes, readyBtn };
+    const escOverlay = document.createElement("div");
+    escOverlay.id = "esc-overlay";
+    escOverlay.setAttribute("role", "dialog");
+    escOverlay.setAttribute("aria-label", "Settings");
+    escOverlay.style.display = "none";
+
+    const escPanel = document.createElement("div");
+    escPanel.className = "esc-panel";
+
+    const escTitle = document.createElement("h2");
+    escTitle.className = "esc-title";
+    escTitle.textContent = "SETTINGS";
+
+    const controls = document.createElement("div");
+    controls.className = "esc-controls";
+    [
+      ["WASD / Arrows", "drive"],
+      ["Shift", "nitro"],
+      ["Space", "horn"],
+      ["M", "mute"],
+      ["Esc", "close"],
+    ].forEach(([key, labelText]) => {
+      const row = document.createElement("div");
+      row.className = "esc-control-row";
+      const keycap = document.createElement("span");
+      keycap.className = "esc-keycap";
+      keycap.textContent = key;
+      const label = document.createElement("span");
+      label.className = "esc-control-label";
+      label.textContent = labelText;
+      row.appendChild(keycap);
+      row.appendChild(label);
+      controls.appendChild(row);
+    });
+
+    const volumeRow = document.createElement("label");
+    volumeRow.className = "esc-volume-row";
+    const volumeLabel = document.createElement("span");
+    volumeLabel.className = "esc-volume-label";
+    volumeLabel.textContent = "VOLUME";
+    escVolSlider = document.createElement("input");
+    escVolSlider.className = "esc-volume-slider";
+    escVolSlider.type = "range";
+    escVolSlider.min = "0";
+    escVolSlider.max = "100";
+    escVolSlider.value = Math.round(masterGain * 100).toString();
+    escVolVal = document.createElement("span");
+    escVolVal.className = "esc-volume-value";
+    escVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100).toString();
+    volumeRow.appendChild(volumeLabel);
+    volumeRow.appendChild(escVolSlider);
+    volumeRow.appendChild(escVolVal);
+
+    escMuteBtn = document.createElement("button");
+    escMuteBtn.type = "button";
+    escMuteBtn.className = "esc-mute-btn";
+
+    const actions = document.createElement("div");
+    actions.className = "esc-actions";
+
+    const resumeBtn = document.createElement("button");
+    resumeBtn.type = "button";
+    resumeBtn.className = "esc-btn";
+    resumeBtn.textContent = "RESUME";
+
+    const quitBtn = document.createElement("button");
+    quitBtn.type = "button";
+    quitBtn.className = "esc-btn esc-btn--quit";
+    quitBtn.textContent = "QUIT TO MENU";
+
+    actions.appendChild(resumeBtn);
+    actions.appendChild(quitBtn);
+    escPanel.appendChild(escTitle);
+    escPanel.appendChild(controls);
+    escPanel.appendChild(volumeRow);
+    escPanel.appendChild(escMuteBtn);
+    escPanel.appendChild(actions);
+    escOverlay.appendChild(escPanel);
+    document.body.appendChild(escOverlay);
+
+    function syncAudioControls() {
+      const percent = Math.round(masterGain * 100);
+      hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
+      hudMuteBtn.classList.toggle("muted", isMuted);
+      hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
+      hudVolVal.textContent = isMuted ? "OFF" : percent;
+      if (escVolSlider) escVolSlider.value = percent.toString();
+      if (escVolVal) escVolVal.textContent = isMuted ? "OFF" : percent.toString();
+      if (escMuteBtn) {
+        escMuteBtn.textContent = isMuted ? "MUTED" : "SOUND ON";
+        escMuteBtn.classList.toggle("muted", isMuted);
+      }
+    }
+
+    function hideEscOverlay() {
+      escOverlay.style.display = "none";
+    }
+
+    function showEscOverlay() {
+      escOverlay.style.display = "flex";
+      keys.clear();
+      localNitroHeld = false;
+      syncAudioControls();
+      resumeBtn.focus();
+    }
+
+    function isEscOverlayVisible() {
+      return getComputedStyle(escOverlay).display !== "none";
+    }
+
+    escVolSlider.addEventListener("input", () => {
+      const percent = Number.parseInt(escVolSlider.value, 10);
+      masterGain = clamp(percent, 0, 100) / 100;
+      localStorage.setItem("cartRaveVolume", Math.round(masterGain * 100).toString());
+      try { applyAudioVolume(); } catch (e) {}
+      syncAudioControls();
+    });
+
+    escMuteBtn.addEventListener("click", () => {
+      isMuted = !isMuted;
+      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+      if (!isMuted && masterGain === 0) {
+        masterGain = 0.25;
+        localStorage.setItem("cartRaveVolume", "25");
+      }
+      try { applyAudioVolume(); } catch (e) {}
+      syncAudioControls();
+    });
+
+    resumeBtn.addEventListener("click", hideEscOverlay);
+    quitBtn.addEventListener("click", () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("room");
+      url.searchParams.delete("portal");
+      window.location.href = url.pathname;
+    });
+    syncAudioControls();
+
+    return {
+      root,
+      status,
+      timer,
+      scores,
+      scoreBoxes,
+      readyBtn,
+      escOverlay,
+      syncAudioControls,
+      showEscOverlay,
+      hideEscOverlay,
+      isEscOverlayVisible,
+    };
   }
 
   function initResultsOverlay() {
@@ -2467,6 +2773,7 @@ async function main() {
       const vol = isMuted ? 0 : masterGain;
       if (crVolFill) crVolFill.style.width = (vol * 100) + "%";
       if (crVolVal) crVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+      if (hud && hud.syncAudioControls) hud.syncAudioControls();
     }
 
     if (crMuteBtn) {
@@ -2890,7 +3197,7 @@ async function main() {
   labelRenderer.domElement.style.top = "0";
   labelRenderer.domElement.style.left = "0";
   labelRenderer.domElement.style.pointerEvents = "none";
-  labelRenderer.domElement.style.zIndex = "1";
+  labelRenderer.domElement.style.zIndex = "20020";
   labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
   document.body.appendChild(labelRenderer.domElement);
 
@@ -5642,6 +5949,30 @@ async function main() {
   let lastLocalHornKeyAtMs = 0;
 
   function onKeyDown(e) {
+    if (e.code === "Escape") {
+      if (e.repeat) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (hud && hud.isEscOverlayVisible && hud.isEscOverlayVisible()) {
+        hud.hideEscOverlay();
+      } else if (!menuVisible && hud && hud.showEscOverlay) {
+        hud.showEscOverlay();
+      }
+      return;
+    }
+
+    if (hud && hud.isEscOverlayVisible && hud.isEscOverlayVisible()) {
+      if (
+        handledCodes.has(e.code) ||
+        e.code === "Space" ||
+        e.code === "ShiftLeft" ||
+        e.code === "ShiftRight"
+      ) {
+        e.preventDefault();
+        return;
+      }
+    }
+
     // Allow typing in input fields without triggering game controls
     if (e.target.tagName === 'INPUT') return;
     
@@ -5660,6 +5991,7 @@ async function main() {
       isMuted = !isMuted;
       localStorage.setItem('cartRaveMuted', isMuted ? 'true' : 'false');
       applyAudioVolume();
+      if (hud && hud.syncAudioControls) hud.syncAudioControls();
       return;
     }
     if (e.code === "Space") {
