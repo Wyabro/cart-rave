@@ -1862,158 +1862,217 @@ async function main() {
       }
 
       #esc-overlay {
-        --esc-display: "Bungee", "Archivo Black", cursive, sans-serif;
+        --esc-display: "Bungee", "Archivo Black", sans-serif;
         --esc-mono: "Space Mono", ui-monospace, monospace;
         position: fixed;
         inset: 0;
-        z-index: 20010;
+        z-index: 26000;
         display: none;
         align-items: center;
         justify-content: center;
-        background: rgba(10, 10, 30, 0.85);
+        pointer-events: none;
+        font-family: var(--esc-mono);
+        color: #fff;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        background: radial-gradient(ellipse at center, #0a0014 0%, #000 90%);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        color: #ffffff;
-        pointer-events: auto;
       }
 
       #esc-overlay .esc-panel {
-        width: min(420px, calc(100vw - 40px));
+        pointer-events: auto;
+        min-width: min(420px, 92vw);
+        max-width: 520px;
+        width: 90%;
+        padding: 36px 32px 28px;
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 0 40px rgba(43, 255, 122, 0.08), 0 16px 48px rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         display: flex;
         flex-direction: column;
-        align-items: stretch;
-        gap: 18px;
-        padding: 30px;
-        background: rgba(0, 0, 0, 0.55);
-        border: 2px solid rgba(34, 230, 255, 0.75);
-        border-radius: 12px;
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-          0 0 24px rgba(34, 230, 255, 0.35),
-          0 0 54px rgba(255, 43, 214, 0.22);
-        font-family: var(--esc-mono);
       }
 
       #esc-overlay .esc-title {
-        margin: 0;
         font-family: var(--esc-display);
-        font-size: clamp(2rem, 7vw, 3.3rem);
-        letter-spacing: 0.08em;
+        font-size: clamp(22px, 5vw, 32px);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        margin: 0 0 18px;
+        min-height: 1.2em;
         text-align: center;
+        line-height: 1.15;
         color: #22e6ff;
-        text-shadow:
-          3px 3px 0 #ff2bd6,
-          0 0 18px #22e6ff,
-          0 0 42px rgba(34, 230, 255, 0.8);
+        text-shadow: 0 0 12px #22e6ff, 0 0 28px color-mix(in oklab, #22e6ff, transparent 50%);
       }
 
       #esc-overlay .esc-controls {
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: minmax(118px, auto) 1fr;
         gap: 8px;
+        margin-bottom: 16px;
       }
 
-      #esc-overlay .esc-control-row,
-      #esc-overlay .esc-volume-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+      #esc-overlay .esc-control-row {
+        display: contents;
+      }
+
+      #esc-overlay .esc-keycap,
+      #esc-overlay .esc-control-label {
+        padding: 12px 16px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: var(--esc-mono);
+        font-size: 13px;
+        letter-spacing: 0.04em;
+        color: rgba(255, 255, 255, 0.88);
+        min-width: 0;
       }
 
       #esc-overlay .esc-keycap {
-        min-width: 112px;
-        padding: 7px 10px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.42);
         color: #22e6ff;
-        font-weight: 700;
-        font-size: 0.82rem;
+        text-shadow: 0 0 10px #22e6ff;
         text-align: center;
-        text-transform: uppercase;
-        box-shadow: 0 0 12px rgba(34, 230, 255, 0.18) inset;
       }
 
-      #esc-overlay .esc-control-label,
-      #esc-overlay .esc-volume-label,
-      #esc-overlay .esc-volume-value {
-        color: rgba(255, 255, 255, 0.84);
-        font-weight: 700;
-        letter-spacing: 0.06em;
+      #esc-overlay .esc-control-label {
         text-transform: uppercase;
       }
 
       #esc-overlay .esc-volume-row {
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: auto minmax(60%, 1fr) auto auto;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 43, 214, 0.22);
+        border-radius: 12px;
+        margin: 0 0 14px;
       }
 
-      #esc-overlay .esc-volume-label {
-        min-width: 78px;
-        color: #ff2bd6;
+      #esc-overlay .esc-volume-label,
+      #esc-overlay .esc-volume-value {
+        font-family: var(--esc-mono);
+        font-size: 11px;
+        line-height: 1.65;
+        letter-spacing: 0.03em;
+        color: rgba(255, 255, 255, 0.65);
+        text-transform: uppercase;
       }
 
       #esc-overlay .esc-volume-value {
-        min-width: 34px;
+        color: #ff2bd6;
+        text-shadow: 0 0 10px #ff2bd6;
         text-align: right;
-        color: #22e6ff;
+        min-width: 34px;
       }
 
       #esc-overlay .esc-volume-slider {
-        flex: 1;
+        width: 100%;
         min-width: 0;
+        height: 8px;
+        background: transparent;
         accent-color: #22e6ff;
         cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      #esc-overlay .esc-volume-slider::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #22e6ff, rgba(34, 230, 255, 0.35));
+        box-shadow: 0 0 12px rgba(34, 230, 255, 0.35);
+      }
+
+      #esc-overlay .esc-volume-slider::-webkit-slider-thumb {
+        width: 18px;
+        height: 18px;
+        margin-top: -5px;
+        border-radius: 50%;
+        background: #ff2bd6;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 12px #ff2bd6, 0 0 28px color-mix(in oklab, #ff2bd6, transparent 55%);
+        -webkit-appearance: none;
+      }
+
+      #esc-overlay .esc-volume-slider::-moz-range-track {
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #22e6ff, rgba(34, 230, 255, 0.35));
+        box-shadow: 0 0 12px rgba(34, 230, 255, 0.35);
+      }
+
+      #esc-overlay .esc-volume-slider::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ff2bd6;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 12px #ff2bd6, 0 0 28px color-mix(in oklab, #ff2bd6, transparent 55%);
       }
 
       #esc-overlay .esc-mute-btn {
-        align-self: center;
-        min-width: 132px;
-        padding: 10px 16px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.45);
-        color: #22e6ff;
+        padding: 8px 10px;
+        border-radius: 6px;
         font-family: var(--esc-mono);
+        font-size: 10px;
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.06em;
         cursor: pointer;
-        box-shadow: 0 0 14px rgba(34, 230, 255, 0.2);
+        border: 1px solid #22e6ff;
+        background: rgba(0, 0, 0, 0.55);
+        color: #22e6ff;
+        text-shadow: 0 0 10px #22e6ff;
+        box-shadow: 0 0 12px rgba(34, 230, 255, 0.35);
+        white-space: nowrap;
       }
 
       #esc-overlay .esc-mute-btn.muted {
         color: #ff2bd6;
-        box-shadow: 0 0 14px rgba(255, 43, 214, 0.26);
+        border-color: #ff2bd6;
+        text-shadow: 0 0 10px #ff2bd6;
+        box-shadow: 0 0 12px rgba(255, 43, 214, 0.35);
       }
 
       #esc-overlay .esc-actions {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
+        width: 100%;
       }
 
       #esc-overlay .esc-btn {
-        padding: 13px 18px;
-        border: 2px solid #22e6ff;
-        border-radius: 0;
-        background: rgba(0, 0, 0, 0.45);
-        color: #ffffff;
+        width: 100%;
+        padding: 14px 22px;
+        border-radius: 6px;
         font-family: var(--esc-display);
-        font-size: 1rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        font-size: 16px;
+        letter-spacing: 0.06em;
         cursor: pointer;
-        box-shadow: 0 0 14px rgba(34, 230, 255, 0.28);
+        text-decoration: none;
+        text-align: center;
+        display: block;
+        border: 2px solid var(--btn-glow, #ff2bd6);
+        background: rgba(0, 0, 0, 0.55);
+        color: var(--btn-glow, #ff2bd6);
+        text-shadow: 0 0 10px var(--btn-glow, #ff2bd6);
+        box-shadow: 0 0 12px var(--btn-glow, #ff2bd6), 0 0 28px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 60%);
+        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
       }
 
-      #esc-overlay .esc-btn:hover,
-      #esc-overlay .esc-mute-btn:hover {
-        transform: translateY(-1px);
-        filter: brightness(1.12);
+      #esc-overlay .esc-btn:hover:not(:disabled) {
+        transform: translateY(-2px) scale(1.02);
+        background: rgba(255, 255, 255, 0.05);
       }
 
       #esc-overlay .esc-btn--quit {
-        border-color: #ff2bd6;
-        box-shadow: 0 0 14px rgba(255, 43, 214, 0.28);
+        --btn-glow: #22e6ff;
       }
     `.trim();
     document.head.appendChild(style);
@@ -2191,7 +2250,7 @@ async function main() {
       controls.appendChild(row);
     });
 
-    const volumeRow = document.createElement("label");
+    const volumeRow = document.createElement("div");
     volumeRow.className = "esc-volume-row";
     const volumeLabel = document.createElement("span");
     volumeLabel.className = "esc-volume-label";
@@ -2207,11 +2266,12 @@ async function main() {
     escVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100).toString();
     volumeRow.appendChild(volumeLabel);
     volumeRow.appendChild(escVolSlider);
-    volumeRow.appendChild(escVolVal);
 
     escMuteBtn = document.createElement("button");
     escMuteBtn.type = "button";
     escMuteBtn.className = "esc-mute-btn";
+    volumeRow.appendChild(escMuteBtn);
+    volumeRow.appendChild(escVolVal);
 
     const actions = document.createElement("div");
     actions.className = "esc-actions";
@@ -2231,7 +2291,6 @@ async function main() {
     escPanel.appendChild(escTitle);
     escPanel.appendChild(controls);
     escPanel.appendChild(volumeRow);
-    escPanel.appendChild(escMuteBtn);
     escPanel.appendChild(actions);
     escOverlay.appendChild(escPanel);
     document.body.appendChild(escOverlay);
@@ -2252,10 +2311,12 @@ async function main() {
 
     function hideEscOverlay() {
       escOverlay.style.display = "none";
+      if (labelRenderer) labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
     }
 
     function showEscOverlay() {
       escOverlay.style.display = "flex";
+      if (labelRenderer) labelRenderer.domElement.style.display = "none";
       keys.clear();
       localNitroHeld = false;
       syncAudioControls();
