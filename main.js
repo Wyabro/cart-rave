@@ -1870,22 +1870,29 @@ async function main() {
         display: none;
         align-items: center;
         justify-content: center;
-        pointer-events: none;
+        pointer-events: auto;
         font-family: var(--esc-mono);
         color: #fff;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
-        background: radial-gradient(ellipse at center, #0a0014 0%, #000 90%);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+      }
+
+      #esc-overlay .esc-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(5, 5, 20, 0.7);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
       }
 
       #esc-overlay .esc-panel {
+        position: relative;
+        z-index: 1;
         pointer-events: auto;
         min-width: min(420px, 92vw);
-        max-width: 520px;
+        max-width: 460px;
         width: 90%;
-        padding: 36px 32px 28px;
+        padding: 22px 22px 18px;
         border-radius: 16px;
         background: rgba(0, 0, 0, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1898,10 +1905,10 @@ async function main() {
 
       #esc-overlay .esc-title {
         font-family: var(--esc-display);
-        font-size: clamp(22px, 5vw, 32px);
+        font-size: clamp(20px, 4vw, 28px);
         font-weight: 400;
         letter-spacing: 0.06em;
-        margin: 0 0 18px;
+        margin: 0 0 12px;
         min-height: 1.2em;
         text-align: center;
         line-height: 1.15;
@@ -1911,9 +1918,9 @@ async function main() {
 
       #esc-overlay .esc-controls {
         display: grid;
-        grid-template-columns: minmax(118px, auto) 1fr;
-        gap: 8px;
-        margin-bottom: 16px;
+        grid-template-columns: minmax(104px, auto) 1fr;
+        gap: 6px;
+        margin-bottom: 10px;
       }
 
       #esc-overlay .esc-control-row {
@@ -1922,12 +1929,12 @@ async function main() {
 
       #esc-overlay .esc-keycap,
       #esc-overlay .esc-control-label {
-        padding: 12px 16px;
+        padding: 8px 12px;
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.45);
         border: 1px solid rgba(255, 255, 255, 0.1);
         font-family: var(--esc-mono);
-        font-size: 13px;
+        font-size: 11px;
         letter-spacing: 0.04em;
         color: rgba(255, 255, 255, 0.88);
         min-width: 0;
@@ -1943,116 +1950,19 @@ async function main() {
         text-transform: uppercase;
       }
 
-      #esc-overlay .esc-volume-row {
-        display: grid;
-        grid-template-columns: auto minmax(60%, 1fr) auto auto;
-        align-items: center;
-        gap: 12px;
-        padding: 14px 18px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid rgba(255, 43, 214, 0.22);
-        border-radius: 12px;
-        margin: 0 0 14px;
-      }
-
-      #esc-overlay .esc-volume-label,
-      #esc-overlay .esc-volume-value {
-        font-family: var(--esc-mono);
-        font-size: 11px;
-        line-height: 1.65;
-        letter-spacing: 0.03em;
-        color: rgba(255, 255, 255, 0.65);
-        text-transform: uppercase;
-      }
-
-      #esc-overlay .esc-volume-value {
-        color: #ff2bd6;
-        text-shadow: 0 0 10px #ff2bd6;
-        text-align: right;
-        min-width: 34px;
-      }
-
-      #esc-overlay .esc-volume-slider {
-        width: 100%;
-        min-width: 0;
-        height: 8px;
-        background: transparent;
-        accent-color: #22e6ff;
-        cursor: pointer;
-        -webkit-appearance: none;
-        appearance: none;
-      }
-
-      #esc-overlay .esc-volume-slider::-webkit-slider-runnable-track {
-        height: 8px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #22e6ff, rgba(34, 230, 255, 0.35));
-        box-shadow: 0 0 12px rgba(34, 230, 255, 0.35);
-      }
-
-      #esc-overlay .esc-volume-slider::-webkit-slider-thumb {
-        width: 18px;
-        height: 18px;
-        margin-top: -5px;
-        border-radius: 50%;
-        background: #ff2bd6;
-        border: 2px solid #ffffff;
-        box-shadow: 0 0 12px #ff2bd6, 0 0 28px color-mix(in oklab, #ff2bd6, transparent 55%);
-        -webkit-appearance: none;
-      }
-
-      #esc-overlay .esc-volume-slider::-moz-range-track {
-        height: 8px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #22e6ff, rgba(34, 230, 255, 0.35));
-        box-shadow: 0 0 12px rgba(34, 230, 255, 0.35);
-      }
-
-      #esc-overlay .esc-volume-slider::-moz-range-thumb {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #ff2bd6;
-        border: 2px solid #ffffff;
-        box-shadow: 0 0 12px #ff2bd6, 0 0 28px color-mix(in oklab, #ff2bd6, transparent 55%);
-      }
-
-      #esc-overlay .esc-mute-btn {
-        padding: 8px 10px;
-        border-radius: 6px;
-        font-family: var(--esc-mono);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        cursor: pointer;
-        border: 1px solid #22e6ff;
-        background: rgba(0, 0, 0, 0.55);
-        color: #22e6ff;
-        text-shadow: 0 0 10px #22e6ff;
-        box-shadow: 0 0 12px rgba(34, 230, 255, 0.35);
-        white-space: nowrap;
-      }
-
-      #esc-overlay .esc-mute-btn.muted {
-        color: #ff2bd6;
-        border-color: #ff2bd6;
-        text-shadow: 0 0 10px #ff2bd6;
-        box-shadow: 0 0 12px rgba(255, 43, 214, 0.35);
-      }
-
       #esc-overlay .esc-actions {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
       }
 
       #esc-overlay .esc-btn {
         width: 100%;
-        padding: 14px 22px;
+        padding: 10px 18px;
         border-radius: 6px;
         font-family: var(--esc-display);
-        font-size: 16px;
+        font-size: 14px;
         letter-spacing: 0.06em;
         cursor: pointer;
         text-decoration: none;
@@ -2166,13 +2076,6 @@ async function main() {
     const audioWidget = document.createElement("div");
     audioWidget.className = "hud-audio";
 
-    /** @type {HTMLInputElement | null} */
-    let escVolSlider = null;
-    /** @type {HTMLSpanElement | null} */
-    let escVolVal = null;
-    /** @type {HTMLButtonElement | null} */
-    let escMuteBtn = null;
-
     const hudMuteBtn = document.createElement("button");
     hudMuteBtn.className = "hud-mute-btn";
     hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
@@ -2221,6 +2124,9 @@ async function main() {
     escOverlay.setAttribute("aria-label", "Settings");
     escOverlay.style.display = "none";
 
+    const escBackdrop = document.createElement("div");
+    escBackdrop.className = "esc-backdrop";
+
     const escPanel = document.createElement("div");
     escPanel.className = "esc-panel";
 
@@ -2250,29 +2156,6 @@ async function main() {
       controls.appendChild(row);
     });
 
-    const volumeRow = document.createElement("div");
-    volumeRow.className = "esc-volume-row";
-    const volumeLabel = document.createElement("span");
-    volumeLabel.className = "esc-volume-label";
-    volumeLabel.textContent = "VOLUME";
-    escVolSlider = document.createElement("input");
-    escVolSlider.className = "esc-volume-slider";
-    escVolSlider.type = "range";
-    escVolSlider.min = "0";
-    escVolSlider.max = "100";
-    escVolSlider.value = Math.round(masterGain * 100).toString();
-    escVolVal = document.createElement("span");
-    escVolVal.className = "esc-volume-value";
-    escVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100).toString();
-    volumeRow.appendChild(volumeLabel);
-    volumeRow.appendChild(escVolSlider);
-
-    escMuteBtn = document.createElement("button");
-    escMuteBtn.type = "button";
-    escMuteBtn.className = "esc-mute-btn";
-    volumeRow.appendChild(escMuteBtn);
-    volumeRow.appendChild(escVolVal);
-
     const actions = document.createElement("div");
     actions.className = "esc-actions";
 
@@ -2290,8 +2173,8 @@ async function main() {
     actions.appendChild(quitBtn);
     escPanel.appendChild(escTitle);
     escPanel.appendChild(controls);
-    escPanel.appendChild(volumeRow);
     escPanel.appendChild(actions);
+    escOverlay.appendChild(escBackdrop);
     escOverlay.appendChild(escPanel);
     document.body.appendChild(escOverlay);
 
@@ -2301,12 +2184,6 @@ async function main() {
       hudMuteBtn.classList.toggle("muted", isMuted);
       hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
       hudVolVal.textContent = isMuted ? "OFF" : percent;
-      if (escVolSlider) escVolSlider.value = percent.toString();
-      if (escVolVal) escVolVal.textContent = isMuted ? "OFF" : percent.toString();
-      if (escMuteBtn) {
-        escMuteBtn.textContent = isMuted ? "MUTED" : "SOUND ON";
-        escMuteBtn.classList.toggle("muted", isMuted);
-      }
     }
 
     function hideEscOverlay() {
@@ -2326,25 +2203,6 @@ async function main() {
     function isEscOverlayVisible() {
       return getComputedStyle(escOverlay).display !== "none";
     }
-
-    escVolSlider.addEventListener("input", () => {
-      const percent = Number.parseInt(escVolSlider.value, 10);
-      masterGain = clamp(percent, 0, 100) / 100;
-      localStorage.setItem("cartRaveVolume", Math.round(masterGain * 100).toString());
-      try { applyAudioVolume(); } catch (e) {}
-      syncAudioControls();
-    });
-
-    escMuteBtn.addEventListener("click", () => {
-      isMuted = !isMuted;
-      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
-      if (!isMuted && masterGain === 0) {
-        masterGain = 0.25;
-        localStorage.setItem("cartRaveVolume", "25");
-      }
-      try { applyAudioVolume(); } catch (e) {}
-      syncAudioControls();
-    });
 
     resumeBtn.addEventListener("click", hideEscOverlay);
     quitBtn.addEventListener("click", () => {
