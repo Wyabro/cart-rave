@@ -1281,10 +1281,56 @@ async function main() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(CONFIG.backgroundColor, 1);
+  renderer.setClearColor(0x020008, 1);
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x050510, 0.018);
+
+  // --- Starfield skybox ---
+  const starCount = 2000;
+  const starGeo = new THREE.BufferGeometry();
+  const starPositions = new Float32Array(starCount * 3);
+  const starColors = new Float32Array(starCount * 3);
+  const starSizes = new Float32Array(starCount);
+  for (let i = 0; i < starCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 300 + Math.random() * 200;
+    starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    starPositions[i * 3 + 2] = r * Math.cos(phi);
+    // Tint some stars with nebula colors
+    const tint = Math.random();
+    if (tint < 0.1) {
+      starColors[i * 3] = 1;
+      starColors[i * 3 + 1] = 0.17;
+      starColors[i * 3 + 2] = 0.84;
+    } else if (tint < 0.2) {
+      starColors[i * 3] = 0.13;
+      starColors[i * 3 + 1] = 0.9;
+      starColors[i * 3 + 2] = 1;
+    } else {
+      const b = 0.7 + Math.random() * 0.3;
+      starColors[i * 3] = b;
+      starColors[i * 3 + 1] = b;
+      starColors[i * 3 + 2] = b;
+    }
+    starSizes[i] = 0.5 + Math.random() * 1.5;
+  }
+  starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+  starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+  starGeo.setAttribute("size", new THREE.BufferAttribute(starSizes, 1));
+  const starMat = new THREE.PointsMaterial({
+    size: 1.2,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+  const starField = new THREE.Points(starGeo, starMat);
+  scene.add(starField);
 
   // * Environment map for IBL: gives metallic materials something to reflect.
   // * No scene.background is set so the void stays pure black.
