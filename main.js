@@ -4502,19 +4502,31 @@ async function main() {
     portalGroup.add(portalLight);
 
     // CSS2D floating label
-    const portalLabelEl = document.createElement('div');
-    portalLabelEl.textContent = 'EXIT PORTAL';
-    portalLabelEl.style.color = '#00ff66';
-    portalLabelEl.style.fontFamily = "'Bungee', monospace";
-    portalLabelEl.style.fontSize = '16px';
-    portalLabelEl.style.fontWeight = 'bold';
-    portalLabelEl.style.textShadow = '0 0 8px #00ff66, 0 0 16px #00ff44';
-    portalLabelEl.style.whiteSpace = 'nowrap';
-    portalLabelEl.style.transform = 'translate(-50%, 0)';
-    portalLabelEl.style.pointerEvents = 'none';
-    const portalLabel = new CSS2DObject(portalLabelEl);
-    portalLabel.position.set(0, 3.0, 0);
-    portalGroup.add(portalLabel);
+    // 3D canvas label — occluded naturally by scene geometry
+    const plLabelCanvas = document.createElement('canvas');
+    plLabelCanvas.width = 256;
+    plLabelCanvas.height = 48;
+    const plLabelCtx = plLabelCanvas.getContext('2d');
+    plLabelCtx.clearRect(0, 0, 256, 48);
+    plLabelCtx.font = 'bold 22px "Bungee", monospace';
+    plLabelCtx.textAlign = 'center';
+    plLabelCtx.textBaseline = 'middle';
+    plLabelCtx.shadowColor = '#00ff44';
+    plLabelCtx.shadowBlur = 10;
+    plLabelCtx.fillStyle = '#00ff66';
+    plLabelCtx.fillText('EXIT PORTAL', 128, 24);
+    const plLabelTex = new THREE.CanvasTexture(plLabelCanvas);
+    const plLabel = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.5, 0.65),
+      new THREE.MeshBasicMaterial({
+        map: plLabelTex,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+    plLabel.position.set(0, 3.0, 0);
+    portalGroup.add(plLabel);
 
     portalGroup.position.set(px, py, pz);
     portalGroup.lookAt(0, py, 0);
