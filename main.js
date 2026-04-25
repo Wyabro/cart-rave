@@ -2132,7 +2132,7 @@ async function main() {
 
     const escTitle = document.createElement("h2");
     escTitle.className = "esc-title";
-    escTitle.textContent = "SETTINGS";
+    escTitle.textContent = "MENU";
 
     const controls = document.createElement("div");
     controls.className = "esc-controls";
