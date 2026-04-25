@@ -3059,6 +3059,13 @@ async function main() {
   rimMesh.rotation.x = Math.PI / 2;
   scene.add(rimMesh);
 
+  const edgeRingGeo = new THREE.TorusGeometry(CONFIG.record.radius * 1.015, 0.05, 10, 96);
+  const edgeRingMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+  const edgeRingMesh = new THREE.Mesh(edgeRingGeo, edgeRingMat);
+  edgeRingMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
+  edgeRingMesh.rotation.x = Math.PI / 2;
+  scene.add(edgeRingMesh);
+
   // Inner neon rim (visual only): sells the hole edge.
   const innerRimGeo = new THREE.TorusGeometry(CONFIG.record.innerRadius * 1.02, 0.12, 10, 72);
   const innerRimMesh = new THREE.Mesh(innerRimGeo, rimMat);
@@ -3436,7 +3443,7 @@ async function main() {
   });
   const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
   groundDisc.rotation.x = -Math.PI / 2;
-  groundDisc.position.y = -15;
+  groundDisc.position.y = -20;
   scene.add(groundDisc);
 
   const groundGridGeo = new THREE.PlaneGeometry(300, 300, 80, 80);
@@ -3449,7 +3456,7 @@ async function main() {
   });
   const groundGrid = new THREE.Mesh(groundGridGeo, groundGridMat);
   groundGrid.rotation.x = -Math.PI / 2;
-  groundGrid.position.y = -14.99;
+  groundGrid.position.y = -19.99;
   scene.add(groundGrid);
 
   function yawToCenter(spawn) {
