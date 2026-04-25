@@ -3,6 +3,7 @@ import { EffectComposer } from "https://esm.sh/three@0.164.1/examples/jsm/postpr
 import { RenderPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "https://esm.sh/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { CSS2DObject, CSS2DRenderer } from "https://esm.sh/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
+import { Reflector } from "https://esm.sh/three@0.164.1/examples/jsm/objects/Reflector.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
@@ -85,17 +86,17 @@ const CONFIG = {
     rimColor: 0xff2bd6,
     surface: {
       concentricRings: {
-        count: 24,
-        lineWidth: 0.04,
-        color: 0x444444,
+        count: 96,
+        lineWidth: 0.018,
+        color: 0x2a2a32,
         yOffset: 0.3,
-        innerRadius: 7.0,
+        innerRadius: 7.15,
         outerRadius: 25.9,
       },
       labelDisc: {
         enabled: true,
         innerRadius: 3.7,
-        outerRadius: 6.5,
+        outerRadius: 7.15,
         color: 0x2bd6ff,
         yOffset: 0.3,
       },
@@ -109,7 +110,7 @@ const CONFIG = {
       labelText: {
         enabled: true,
         text: "CART RAVE",
-        arcRadius: 5.3,
+        arcRadius: 5.9,
         arcAngleDeg: 120,
         arcCenterDeg: 90,
         fontSize: 256,
@@ -989,7 +990,14 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function buildRecordRingGeometry({ outerRadius, innerRadius, thickness, curveSegments }) {
+function buildRecordRingGeometry({
+  outerRadius,
+  innerRadius,
+  thickness,
+  curveSegments,
+  bevelThickness = 0.15,
+  bevelSize = 0.15,
+}) {
   const shape = new THREE.Shape();
   shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
 
@@ -1001,8 +1009,8 @@ function buildRecordRingGeometry({ outerRadius, innerRadius, thickness, curveSeg
     steps: 1,
     depth: thickness,
     bevelEnabled: true,
-    bevelThickness: 0.15,
-    bevelSize: 0.15,
+    bevelThickness,
+    bevelSize,
     bevelOffset: 0,
     bevelSegments: 3,
     curveSegments,
@@ -1304,9 +1312,9 @@ async function main() {
     ambientParticleGeometry,
     new THREE.PointsMaterial({
       map: ambientParticleTexture,
-      size: 0.35,
+      size: 0.25,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.75,
       vertexColors: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -2619,36 +2627,54 @@ async function main() {
   const eventQueue = new RAPIER.EventQueue(true);
 
   // --- Record platform (visual rotates, physics stays fixed for day 1) ---
+  const visualRecordThickness = 0.28;
+  const visualRecordY = CONFIG.record.y + (CONFIG.record.thickness - visualRecordThickness) / 2;
   const recordGeo = buildRecordRingGeometry({
     outerRadius: CONFIG.record.radius,
     innerRadius: CONFIG.record.innerRadius,
-    thickness: CONFIG.record.thickness,
+    thickness: visualRecordThickness,
+    bevelThickness: 0.04,
+    bevelSize: 0.04,
     curveSegments: 64,
   });
   const recordMat = new THREE.MeshStandardMaterial({
     color: CONFIG.record.color,
-    roughness: 0.95,
-    metalness: 0.15,
+    roughness: 0.72,
+    metalness: 0.35,
+    transparent: true,
+    opacity: 0.7,
   });
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
-  recordMesh.position.set(0, CONFIG.record.y, 0);
+  recordMesh.position.set(0, visualRecordY, 0);
   recordMesh.receiveShadow = false;
   scene.add(recordMesh);
 
+  const visualRecordTopY = visualRecordThickness / 2;
+  const recordReflectorGeo = new THREE.RingGeometry(
+    CONFIG.record.innerRadius,
+    CONFIG.record.radius,
+    128,
+    1,
+  );
+  const recordReflector = new Reflector(recordReflectorGeo, {
+    clipBias: 0.003,
+    textureWidth: Math.floor(window.innerWidth * Math.min(window.devicePixelRatio || 1, 2)),
+    textureHeight: Math.floor(window.innerHeight * Math.min(window.devicePixelRatio || 1, 2)),
+    color: 0x111111,
+  });
+  recordReflector.rotation.x = -Math.PI / 2;
+  recordReflector.position.y = visualRecordTopY + CONFIG.record.surface.concentricRings.yOffset + 0.001;
+  recordReflector.renderOrder = 0;
+  recordMesh.add(recordReflector);
+
   (function buildRecordSurfaceGrooves(parentMesh) {
     const surf = CONFIG.record.surface;
-    const th = CONFIG.record.thickness;
+    const th = visualRecordThickness;
     const yBase = th / 2;
 
     const rings = surf.concentricRings;
     const rMin = rings.innerRadius;
     const rMax = rings.outerRadius;
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: rings.color,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.92,
-    });
 
     for (let i = 0; i < rings.count; i += 1) {
       const t = (i + 0.5) / rings.count;
@@ -2660,17 +2686,27 @@ async function main() {
       outer = Math.min(outer, rMax - 0.001);
       if (outer - inner < 0.002) continue;
       const ringGeo = new THREE.RingGeometry(inner, outer, 96);
+      const glint = i % 3 === 0 ? 0.13 : 0.06;
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: i % 2 === 0 ? rings.color : 0x111118,
+        roughness: i % 2 === 0 ? 0.38 : 0.86,
+        metalness: 0.55,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.52 + glint,
+      });
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.userData.recordSurfacePart = "groove";
       ringMesh.rotation.x = -Math.PI / 2;
-      ringMesh.position.y = yBase + rings.yOffset;
+      ringMesh.position.y = yBase + rings.yOffset + 0.006;
+      ringMesh.renderOrder = 1;
       parentMesh.add(ringMesh);
     }
   })(recordMesh);
 
   (function buildRecordSurfaceVinylLabel(parentMesh) {
     const surf = CONFIG.record.surface;
-    const th = CONFIG.record.thickness;
+    const th = visualRecordThickness;
     const yBase = th / 2;
 
     const spindle = surf.spindleRing;
@@ -2693,11 +2729,14 @@ async function main() {
       const discMat = new THREE.MeshBasicMaterial({
         color: disc.color,
         depthWrite: false,
+        transparent: true,
+        opacity: 0.7,
       });
       const discMesh = new THREE.Mesh(discGeo, discMat);
       discMesh.userData.recordSurfacePart = "labelDisc";
       discMesh.rotation.x = -Math.PI / 2;
-      discMesh.position.y = yBase + disc.yOffset;
+      discMesh.position.y = yBase + disc.yOffset + 0.01;
+      discMesh.renderOrder = 2;
       parentMesh.add(discMesh);
     }
 
@@ -2716,7 +2755,103 @@ async function main() {
     const cy = canvasSize / 2;
     const labelOuterWorld = disc.enabled ? disc.outerRadius : 6.5;
     const arcRadiusPx = (lt.arcRadius / labelOuterWorld) * (canvasSize / 2);
-    const fontSpec = `900 ${lt.fontSize}px Arial Black, Impact, sans-serif`;
+    const labelOuterPx = canvasSize * 0.5 - 16;
+    const labelInnerPx = (CONFIG.record.innerRadius / labelOuterWorld) * (canvasSize / 2);
+    const labelColors = [
+      "#ff00ff",
+      "#00ffff",
+      "#00ff00",
+      "#ffff00",
+      "#ff6600",
+    ];
+    const fontSpec = `900 ${lt.fontSize}px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
+
+    ctx.save();
+    for (let i = 0; i < labelColors.length; i += 1) {
+      const start = -Math.PI / 2 + (i / labelColors.length) * Math.PI * 2;
+      const end = -Math.PI / 2 + ((i + 1) / labelColors.length) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, labelOuterPx, start, end);
+      ctx.closePath();
+      ctx.fillStyle = labelColors[i];
+      ctx.globalAlpha = 0.86;
+      ctx.fill();
+    }
+    const labelShade = ctx.createRadialGradient(cx, cy, labelInnerPx, cx, cy, labelOuterPx);
+    labelShade.addColorStop(0, "rgba(0, 0, 0, 0.08)");
+    labelShade.addColorStop(0.65, "rgba(0, 0, 0, 0.24)");
+    labelShade.addColorStop(1, "rgba(0, 0, 0, 0.62)");
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = labelShade;
+    ctx.beginPath();
+    ctx.arc(cx, cy, labelOuterPx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(cx, cy, labelInnerPx * 0.98, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.restore();
+
+    function drawCartIconOnLabel(x, y, scale, color, rotation) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.scale(scale, scale);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 10;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(-72, -34);
+      ctx.lineTo(-40, -34);
+      ctx.lineTo(-22, 26);
+      ctx.moveTo(-36, -10);
+      ctx.lineTo(74, -10);
+      ctx.lineTo(58, 34);
+      ctx.lineTo(-14, 34);
+      ctx.closePath();
+      ctx.moveTo(-20, 10);
+      ctx.lineTo(68, 10);
+      ctx.moveTo(8, -10);
+      ctx.lineTo(2, 34);
+      ctx.moveTo(38, -10);
+      ctx.lineTo(42, 34);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(-4, 58, 13, 0, Math.PI * 2);
+      ctx.arc(54, 58, 13, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    for (let i = 0; i < labelColors.length; i += 1) {
+      const angle = -Math.PI / 2 + (i / labelColors.length) * Math.PI * 2;
+      const iconRadius = labelOuterPx * 0.66;
+      drawCartIconOnLabel(
+        cx + Math.cos(angle) * iconRadius,
+        cy + Math.sin(angle) * iconRadius,
+        0.42,
+        "rgba(0, 0, 0, 0.58)",
+        angle + Math.PI / 2,
+      );
+    }
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#050006";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
+    ctx.lineWidth = 8;
+    ctx.font = `900 118px "Bungee Shade", Bungee, "Arial Black", Impact, sans-serif`;
+    ctx.strokeText("CART", cx, cy - 42);
+    ctx.fillText("CART", cx, cy - 42);
+    ctx.strokeText("RAVE", cx, cy + 74);
+    ctx.fillText("RAVE", cx, cy + 74);
+    ctx.restore();
 
     drawArcTextOnCanvas(ctx, lt.text, cx, cy, arcRadiusPx, lt.arcCenterDeg, lt.arcAngleDeg, fontSpec, lt.color);
     drawArcTextOnCanvas(ctx, lt.text, cx, cy, arcRadiusPx, 270, lt.arcAngleDeg, fontSpec, lt.color);
@@ -2725,7 +2860,7 @@ async function main() {
     tex.needsUpdate = true;
     tex.colorSpace = THREE.SRGBColorSpace;
 
-    const textRadius = Math.min(labelOuterWorld - 0.04, 6.45);
+    const textRadius = labelOuterWorld - 0.04;
     const textGeo = new THREE.CircleGeometry(textRadius, 96);
     const textMat = new THREE.MeshBasicMaterial({
       map: tex,
@@ -2738,9 +2873,9 @@ async function main() {
     });
     const textMesh = new THREE.Mesh(textGeo, textMat);
     textMesh.userData.recordSurfacePart = "labelText";
-    textMesh.renderOrder = 2;
+    textMesh.renderOrder = 3;
     textMesh.rotation.x = -Math.PI / 2;
-    textMesh.position.y = yBase + lt.yOffset;
+    textMesh.position.y = yBase + lt.yOffset + 0.02;
     parentMesh.add(textMesh);
   })(recordMesh);
 
@@ -2772,11 +2907,17 @@ async function main() {
     RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, CONFIG.record.y, 0),
   );
 
-  const recordVerts = /** @type {Float32Array} */ (recordGeo.attributes.position.array);
-  const recordIndices = recordGeo.index
-    ? Uint32Array.from(recordGeo.index.array)
+  const recordPhysicsGeo = buildRecordRingGeometry({
+    outerRadius: CONFIG.record.radius,
+    innerRadius: CONFIG.record.innerRadius,
+    thickness: CONFIG.record.thickness,
+    curveSegments: 64,
+  });
+  const recordVerts = /** @type {Float32Array} */ (recordPhysicsGeo.attributes.position.array);
+  const recordIndices = recordPhysicsGeo.index
+    ? Uint32Array.from(recordPhysicsGeo.index.array)
     : Uint32Array.from(
-        Array.from({ length: recordGeo.attributes.position.count }, (_, i) => i),
+        Array.from({ length: recordPhysicsGeo.attributes.position.count }, (_, i) => i),
       );
   const recordColliderDesc = RAPIER.ColliderDesc.trimesh(recordVerts, recordIndices)
     .setFriction(CONFIG.record.friction)
@@ -2785,8 +2926,8 @@ async function main() {
   void recordCollider;
 
   if (CONFIG.debug.arenaTrimesh) {
-    const vCount = recordGeo.attributes.position.count;
-    const iCount = recordGeo.index ? recordGeo.index.count : vCount;
+    const vCount = recordPhysicsGeo.attributes.position.count;
+    const iCount = recordPhysicsGeo.index ? recordPhysicsGeo.index.count : vCount;
     // eslint-disable-next-line no-console
     console.log("[arena] record ring trimesh", {
       vertices: vCount,
