@@ -2826,7 +2826,7 @@ async function main() {
     parentMesh.add(textMesh);
 
     // * Defer drawing until Bungee is available so canvas glyphs render with the correct face.
-    document.fonts.load('64px "Bungee"').then(() => {
+    document.fonts.load('88px "Bungee"').then(() => {
       ctx.clearRect(0, 0, canvasSize, canvasSize);
 
       ctx.save();
@@ -2939,9 +2939,9 @@ async function main() {
       // --- Arc text helper: draws text along a circular path ---
       function drawArcText(ctx, text, centerX, centerY, radius, startAngle, charSpacing, outward) {
         ctx.save();
-        ctx.font = '64px "Bungee", sans-serif';
+        ctx.font = '88px "Bungee", sans-serif';
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 6;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -2964,9 +2964,9 @@ async function main() {
 
           // * Per-character white-to-pink shimmer for a metallic/holographic record-label feel.
           const grad = ctx.createLinearGradient(0, -10, 0, 10);
-          grad.addColorStop(0.0, '#ffffff');
-          grad.addColorStop(0.5, '#ffccff');
-          grad.addColorStop(1.0, '#ff66ff');
+          grad.addColorStop(0.0, '#cccccc');
+          grad.addColorStop(0.5, '#cc99bb');
+          grad.addColorStop(1.0, '#bb44aa');
           ctx.fillStyle = grad;
 
           ctx.strokeText(ch, 0, 0);
