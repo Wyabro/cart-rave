@@ -51,6 +51,48 @@ const MSG = {
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
+const NPC_NAME_POOL = [
+  "CartNapper",
+  "WheelSnipe",
+  "BuggyBrawler",
+  "TrolleyTerror",
+  "AisleDrifter",
+  "CartJacker",
+  "PushNPray",
+  "WobbleBot",
+  "RimRattler",
+  "BasketCase",
+  "SkidMark",
+  "BumperDumper",
+  "RollCage",
+  "HotWheelz",
+  "CurbStomp",
+  "CartBlanche",
+  "DriftWood",
+  "NitroNancy",
+  "TurboTuesday",
+  "WipeOut",
+  "SendIt",
+  "FullSend",
+  "YeetCart",
+  "NoBrakes",
+  "CartGod",
+  "Spinout",
+  "ParkingPal",
+  "LaneCrasher",
+  "CartWheel",
+  "RampRat",
+  "AisleGoblin",
+  "CouponCrusher",
+  "BagRattler",
+  "DentedDolly",
+  "WobblesMcGee",
+  "ReceiptReaper",
+  "ShelfShark",
+  "SnackBandit",
+  "CheckoutChamp",
+  "GreaseGremlin",
+] as const;
 // * Activity-based connection reaper thresholds. PartyKit's onClose is not
 // * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
 // * yet detected by the runtime) so we track lastSeenAtMs per connection and
@@ -74,6 +116,7 @@ export default class Server implements Party.Server {
   readonly #lastSeenAtMs = new Map<string, number>();
   #lastReapAtMs: number = 0;
   #countdownTimerHandle: ReturnType<typeof setTimeout> | null = null;
+  #npcNameDeck: string[] = [];
 
   constructor(readonly room: Party.Room) {}
 
@@ -85,7 +128,7 @@ export default class Server implements Party.Server {
     if (this.#slots) return;
 
     const colors = ["pink", "blue", "green", "yellow"];
-    const npcNames = ["CartGPT", "RollBot", "WheelE", "PushPop"];
+    const npcNames = this.#drawNpcNames(4);
 
     this.#slots = ([0, 1, 2, 3] as SlotId[]).map((slotId) => ({
       slotId,
@@ -95,6 +138,42 @@ export default class Server implements Party.Server {
       color: colors[slotId] ?? `slot-${slotId}`,
       isReady: false,
     }));
+  }
+
+  #shuffleNpcNames() {
+    this.#npcNameDeck = [...NPC_NAME_POOL];
+    for (let i = this.#npcNameDeck.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.#npcNameDeck[i], this.#npcNameDeck[j]] = [this.#npcNameDeck[j], this.#npcNameDeck[i]];
+    }
+  }
+
+  #drawNpcNames(count: number): string[] {
+    const names: string[] = [];
+    for (let i = 0; i < count; i += 1) {
+      names.push(this.#drawNpcName(new Set([...names])));
+    }
+    return names;
+  }
+
+  #drawNpcName(excludedNames = new Set<string>()) {
+    const activeNpcNames = new Set(
+      this.#slots
+        ?.filter((s) => s.kind === "npc")
+        .map((s) => s.name) ?? []
+    );
+    const unavailableNames = new Set([...activeNpcNames, ...excludedNames]);
+
+    if (this.#npcNameDeck.length === 0) this.#shuffleNpcNames();
+    let attempts = 0;
+    while (attempts < NPC_NAME_POOL.length) {
+      if (this.#npcNameDeck.length === 0) this.#shuffleNpcNames();
+      const name = this.#npcNameDeck.shift();
+      if (name && !unavailableNames.has(name)) return name;
+      attempts += 1;
+    }
+
+    return NPC_NAME_POOL.find((name) => !unavailableNames.has(name)) ?? "CartGoblin";
   }
 
   #broadcastJson(payload: unknown) {
@@ -189,7 +268,8 @@ export default class Server implements Party.Server {
     slot.kind = "npc";
     slot.connId = null;
     slot.isReady = false;
-    // Keep last known name/color for continuity; name can be replaced later by NPC naming.
+    slot.name = this.#drawNpcName();
+    // Keep color for continuity; NPC identity gets a fresh comedy name.
   }
 
   #getAvailableColors(): string[] {

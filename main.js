@@ -404,12 +404,56 @@ function detectGameMode() {
   return "friends";
 }
 
+const CLIENT_NPC_NAME_POOL = [
+  "CartNapper",
+  "WheelSnipe",
+  "BuggyBrawler",
+  "TrolleyTerror",
+  "AisleDrifter",
+  "CartJacker",
+  "PushNPray",
+  "WobbleBot",
+  "RimRattler",
+  "BasketCase",
+  "SkidMark",
+  "BumperDumper",
+  "RollCage",
+  "HotWheelz",
+  "CurbStomp",
+  "CartBlanche",
+  "DriftWood",
+  "NitroNancy",
+  "TurboTuesday",
+  "WipeOut",
+  "SendIt",
+  "FullSend",
+  "YeetCart",
+  "NoBrakes",
+  "CartGod",
+  "Spinout",
+  "ParkingPal",
+  "LaneCrasher",
+  "CartWheel",
+  "RampRat",
+];
+
+function shuffledClientNpcNames(count) {
+  const names = [...CLIENT_NPC_NAME_POOL];
+  for (let i = names.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [names[i], names[j]] = [names[j], names[i]];
+  }
+  return names.slice(0, count);
+}
+
+const initialNpcNames = shuffledClientNpcNames(4);
+
 /** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
 let netSlots = [
-  { slotId: 0, kind: "npc", connId: null, name: "CartGPT", color: "pink" },
-  { slotId: 1, kind: "npc", connId: null, name: "RollBot", color: "blue" },
-  { slotId: 2, kind: "npc", connId: null, name: "WheelE", color: "green" },
-  { slotId: 3, kind: "npc", connId: null, name: "PushPop", color: "yellow" },
+  { slotId: 0, kind: "npc", connId: null, name: initialNpcNames[0], color: "pink" },
+  { slotId: 1, kind: "npc", connId: null, name: initialNpcNames[1], color: "blue" },
+  { slotId: 2, kind: "npc", connId: null, name: initialNpcNames[2], color: "green" },
+  { slotId: 3, kind: "npc", connId: null, name: initialNpcNames[3], color: "yellow" },
 ];
 
 let firstHelloReceived = false;
