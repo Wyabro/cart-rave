@@ -531,16 +531,16 @@ function updateCartMaterialsFromSlots(slots) {
         }
         mat.metalness = 0.9;
         mat.roughness = 0.2;
-        mat.envMapIntensity = 0.5;
+        mat.envMapIntensity = 0.25;
       } else {
         mat.color.setHex(finalHex);
         if (mat.emissive) {
           mat.emissive.setHex(finalHex);
-          mat.emissiveIntensity = 1;
+          mat.emissiveIntensity = 0.6;
         }
         mat.metalness = 0.7;
         mat.roughness = 0.3;
-        mat.envMapIntensity = 0.3;
+        mat.envMapIntensity = 0.15;
       }
     });
 
