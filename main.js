@@ -3776,6 +3776,24 @@ async function main() {
       }
 
       scene.add(boothGroup);
+
+      // Spawn platform fog
+      const fogPlaneCount = 3;
+      for (let f = 0; f < fogPlaneCount; f++) {
+        const fogGeo = new THREE.PlaneGeometry(B.platformWidth * 1.8, B.platformDepth * 1.8);
+        const fogMat = new THREE.MeshBasicMaterial({
+          color: accentColor,
+          transparent: true,
+          opacity: 0.08 + f * 0.03,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        const fogPlane = new THREE.Mesh(fogGeo, fogMat);
+        fogPlane.rotation.x = -Math.PI / 2;
+        fogPlane.position.set(cx, B.platformY + 0.1 + f * 0.15, cz);
+        scene.add(fogPlane);
+      }
     }
   })();
 
