@@ -12,8 +12,7 @@
 
 ## What this is
 Cart Rave is a browser-based 4-player physics sumo game for Cursor Vibe Jam 2026.
-Shopping Carts on a slowly rotating neon arena resembling a vinyl record in a boisterous club.
-Cart with the most points wins.
+Shopping Carts on a slowly rotating neon arena resembling a vinyl record in a boisterous club. Cart with the most points wins.
 Pitch: "Sumo on a dangerous spinning platform. Using shopping carts for some reason."
 Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
@@ -55,7 +54,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Drop-in/drop-out.** When a player completes color pick, they enter the room in whatever phase it's in:
   - If room is in `lobby` or between rounds → player spawns on spawn booth platform; countdown begins if conditions met.
   - If room is mid-`countdown` → player joins the countdown in progress, spawns on spawn booth platform.
-  - If room is mid-`running` → server atomically swaps the NPC matching the picked color for the human: NPC AI control stops, human input takes over, cart respawns on spawn booth platform (drivable — player can roll onto the arena mid-round if they choose), slot's score for the current round resets to 0.
+  - If room is mid-`running` → server atomically swaps the NPC matching the picked color for the human: NPC AI control stops, human input takes over wherever the NPC currently is on the map (DO NOT attempt to respawn the cart to the booth mid-round, this breaks multiplayer sync), slot's score for the current round resets to 0.
   - If room is mid-`podium` → player spawns on spawn booth platform and waits for next countdown.
   - Pre-color-pick connections are tracked server-side in `#pendingPickers` and do not occupy slots. Slot assignment is atomic with the color pick message.
 - **Room code in URL** (e.g., cartrave.lol/?room=ABCD). Room codes are alphanumeric only, 2–16 chars (Solo rooms use format `soloXXXXXX` where X is alphanumeric, no hyphens).
@@ -86,7 +85,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - Personal stats display: wins, matches played, total points scored (aggregated across all modes)
   - Vibe Jam portal button
 - **Mode button flow**: click mode → brief connect to PartyKit → color picker overlay appears showing only server-available colors → player picks → slot locked → enter game.
-- **Friends mode**: on click, create private room with generated code, auto-copy URL (`cartrave.lol/?room=XXXX`) to clipboard. Friends invite screen shows room link with auto-copy + copy button + enter game + back. Link cleaned to only include `?room=` param.
+  - **Friends mode**: on click, create private room with generated code, auto-copy URL (`cartrave.lol/?room=XXXX`) to clipboard. Friends invite screen shows room link with auto-copy + copy button + enter game + back. Link cleaned to only include `?room=` param.
 - **Shared-URL flow**: visiting `cartrave.lol/?room=ABCD` follows the rules in Architecture (returning visitor skips menu; first-time visitor sees full menu). **TODO:** friend flow should show menu for all joiners so they can pick name/color.
 - **In-memory match history persists until the tab is closed**, surviving Quit-to-Menu and subsequent mode switches within the same session.
 - **Menu music**: plays on menu screen (`sounds/menu.mp3`). 2-second crossfade between menu music and game music on transition. Menu music resumes on return to menu.
@@ -224,8 +223,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Lag mitigation applied post-Step-10 (low-risk):**
   - Reduce interpolation buffer `interpBufferMs` from 150 → 100 (cuts ~50ms of remote-cart visual delay)
   - Play horn SFX locally immediately on Space press (networked horn audio for other players still goes through host)
-  - Camera lerps toward cart yaw responsively rather than waiting for physics confirmation
-- **Interpolation buffer empty-state behavior (intent):** if a non-host's buffer runs dry (network stall, host pause, tab throttling), remote carts hold their last known position rather than extrapolating. Extrapolation without authoritative confirmation risks desync. Verify against code (Cursor audit task).
+- **Interpolation buffer empty-state behavior (intent):** if a non-host's buffer runs dry (network stall, host pause, tab throttling), non-host carts hold their last known position rather than extrapolating. Extrapolation without authoritative confirmation risks desync. Verify against code (Cursor audit task).
 - **Host-authoritative means host CPU runs everything.** Physics, NPC AI, fall detection, respawn. Weaker host hardware = slower simulation = worse experience for everyone. Host migration partially mitigates (a failing host eventually gets replaced) but doesn't fix "host has a bad laptop."
 
 ## UX rules (hard)
@@ -261,77 +259,6 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Production verification rule: post-push, fetch production main.js and `Select-String` for the new code. Local grep alone has produced false positives.
 - PowerShell env: `Select-String` not `grep`; single-line commit messages with `-m "..."`.
 - Diff-before-apply is a hard rule. Unified diff format, wait for ack, then apply.
-- **NEW DEPLOY RULE**: Use `npm run ship` (git push && npx partykit deploy) for every session update to keep protocol in sync.
-- GitHub main does not match deployed edge. PartyKit DO state persists across deploys. Deploys do not reset in-memory server state.
+- **NEW DEPLOY RULE**: Use `npm run ship` (git push && npx partykit deploy) for every session update to keep protocol in sync. GitHub main does not match deployed edge. PartyKit DO state persists across deploys. Deploys do not reset in-memory server state.
 - **`room.getConnections()` returns an Iterator, not an Array.** Do not call `.map().join()` or Array methods on it. Use `for...of` or spread explicitly (`[...room.getConnections()]`). A single bad `.join()` took down production for ~90 seconds in Session 13.
-- **Behavior-changing diffs require human playtest on prod** before moving to the next diff. String checks confirm code shipped; they do not confirm behavior.
-
-## Execution order (the plan)
-
-Current status: Steps 1–15 shipped. Session 22 additions shipped: multiplayer slot hijacking fix, mobile gate (client + server), quickplay auto-continue (commit 468dbe9), fallback username (commit 0376e55), mid-round join auto-ready (commit 4f16c2d), mid-round join respawn (commits 7e68573, fd2d663 — working for Friends, broken for Quickplay mid-round, deferred), stage lasers, crowd searchlights, pulsing crowd lights, crowd cart MeshBasicMaterial. Environment from Session 21 shipped: ground plane, pit wall, crowd silhouettes, main stage with animated spotlights.
-
-1. ✅ Deploy to cartrave.lol via Vercel
-2. ✅ PartyKit server + client handshake
-3. ✅ Procedural cart models with caster wheels
-4. ✅ Multiplayer sync for 2 human carts (host-authoritative, 60Hz input, 20Hz transforms)
-5. ✅ NPC fill for empty slots
-6. ✅ Slot sync + non-host respawn fix
-7. ✅ Vibe Jam widget tag in index.html (jam compliance)
-8. ✅ Round structure + HUD overlay: countdown/running/podium loop + timer/scores/status
-9. ✅ Results screen: final scores, Play Again, Vibe Jam exit portal link, match history
-10. ✅ Menu shell (DOM, CSS/SVG background, mode buttons, username, volume/mute, mobile detection)
-11. ✅ Mode routing + color picker (server-gated, atomic slot assignment, 5 colors, neonOrange)
-12. ✅ In-game polish + URL flows / Ready-Up System (Esc overlay, Quit to Menu, shared-URL flow, portal bypass, server-driven start)
-13. ✅ Menu integration + audio (Sessions 14–19)
-    - Menu buttons wired (Solo, Quickplay, Friends, Portal)
-    - Color picker wired to game cart color system
-    - Volume/mute wired from menu to game audio
-    - Menu music (`sounds/menu.mp3`) with 2-second crossfade
-    - Default volume 25%
-    - In-game HUD volume/mute widget (top-right)
-    - Green swirly portal button on menu (Rick-and-Morty style)
-    - Friends invite screen (room link auto-copy + copy button + enter game + back)
-    - Friends link cleaned to `?room=` only
-    - Favicon added
-14. ✅ Username system (Session 19)
-    - Username sent with join message
-    - localStorage sync via MutationObserver
-    - 3D floating name labels above all carts (player + NPCs)
-    - Name labels update on slot changes via `updateNameLabelsRef` pattern
-    - HUD score boxes show names instead of P1/P2/P3/P4
-    - Timer moved to top-left to avoid HUD audio widget overlap
-    - Null cart crash guard added
-15. ✅ Spawn booths: per-booth colors, trusses, SPAWN BOOTH text, DJ gear, neon edges, platforms close to arena with gap (no ramp)
-
-### Remaining (pre-submission) — Priority Order
-
-**Visual Polish (priority 1):**
-- HUD overhaul: restyle all in-game HUD elements (ready-up UI, countdown, score boxes) to match menu visual style
-- Crowd lighting: crowd area too dark, add more lights to illuminate crowd carts
-- Stage lasers: currently thin/hard to see, increase visibility
-- Crowd carts: colors present but dim/underwhelming, improve brightness
-- Sky/skybox: add space nebula theme with stars and occasional UFOs
-- Spawn platform fog: low-lying fog rolling off spawn platforms
-- Cart faces: add stylized mouths and sunglasses as eyes to player carts
-- Spawn booth redesign: replace current booth with more intricate/detailed design
-- DJ screen logo: place Cart Rave logo on the void DJ screen
-- Vibe Jam billboard: add billboard somewhere in arena background
-- In-world exit portal: driveable "Enter Portal" object in the arena, navigates to https://vibej.am/portal/2026 (same tab)
-
-**Physics Tuning (priority 2):**
-- Step 20: hole radius audit (resolve 12-13% vs 15-20%), NPC hole awareness, spotlight count/colors, general physics feel tuning
-
-**Essentials (priority 3):**
-- Esc overlay: never built — implement per spec (controls section, volume slider, mute toggle, resume button, quit to menu)
-- Step 16: Results screen names — show names instead of player numbers
-- Step 17: Friend flow fix — friends opening room link should see menu first
-- NPC names: randomize from comedy pool per lobby, not static
-- Portal button: results screen portal should navigate same tab, not open new tab
-- Verify: Solo is strictly single-player, Quickplay drops into strangers lobby, results screen stats work in Solo, match history works in Solo, hard refresh ready-up bug status
-
-**Post-essentials (priority 4):**
-- Step 22: Pre-submission cleanup + multiplayer playtest checklist
-- .cursorrules update with final state
-- Step 18: Stats tracking fix if broken (cut candidate)
-- Step 19: Lag mitigation (cut candidate)
-- Step 23: Supabase leaderboard (stretch)
+- **Behavior-changing diffs require human playtest on prod** before moving to the next diff. String checks confirm code shipped; they do not confirm behavior
