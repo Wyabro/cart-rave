@@ -134,7 +134,7 @@ const CONFIG = {
     friction: 1.6,
     restitution: 0.4,
     linearDamping: 2.5,
-    angularDamping: 4.5,
+    angularDamping: 6.0,
 
     ramBoost: {
       enabled: true,
@@ -5030,6 +5030,16 @@ async function main() {
           dtFixed;
         cart.body.applyImpulse(vec3ToRapier(driftDir.multiplyScalar(driftMag)), true);
       }
+    }
+
+    const av = cart.body.angvel();
+    const maxPitchRoll = 1.5;
+    if (Math.abs(av.x) > maxPitchRoll || Math.abs(av.z) > maxPitchRoll) {
+      cart.body.setAngvel({
+        x: clamp(av.x, -maxPitchRoll, maxPitchRoll),
+        y: av.y,
+        z: clamp(av.z, -maxPitchRoll, maxPitchRoll),
+      }, true);
     }
   }
 
