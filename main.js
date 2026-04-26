@@ -1994,6 +1994,57 @@ async function main() {
         text-transform: uppercase;
       }
 
+      #esc-overlay .esc-scoring-title {
+        font-family: var(--esc-display);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.1em;
+        color: #ff2bd6;
+        text-shadow: 0 0 8px #ff2bd6;
+        text-transform: uppercase;
+        margin: 8px 0 4px;
+      }
+
+      #esc-overlay .esc-scoring {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 8px;
+        margin-bottom: 10px;
+      }
+
+      #esc-overlay .esc-scoring-key,
+      #esc-overlay .esc-scoring-val {
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: var(--esc-mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        color: rgba(255, 255, 255, 0.88);
+        min-width: 0;
+      }
+
+      #esc-overlay .esc-scoring-val {
+        color: #22e6ff;
+        text-shadow: 0 0 8px #22e6ff;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      #esc-overlay .esc-scoring-hint {
+        grid-column: 1 / -1;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 43, 214, 0.08);
+        border: 1px solid rgba(255, 43, 214, 0.2);
+        font-family: var(--esc-mono);
+        font-size: 10px;
+        letter-spacing: 0.03em;
+        color: rgba(255, 255, 255, 0.65);
+        font-style: italic;
+      }
+
       #esc-overlay .esc-actions {
         display: flex;
         flex-direction: column;
@@ -2215,8 +2266,36 @@ async function main() {
 
     actions.appendChild(resumeBtn);
     actions.appendChild(quitBtn);
+    const scoringTitle = document.createElement("div");
+    scoringTitle.className = "esc-scoring-title";
+    scoringTitle.textContent = "SCORING";
+
+    const scoring = document.createElement("div");
+    scoring.className = "esc-scoring";
+    [
+      ["Edge knockout", "1 pt"],
+      ["Center hole knockout", "2 pts"],
+      ["Critical hit (high speed)", "+1 pt"],
+      ["Knock out the leader", "+1 pt"],
+    ].forEach(([key, val]) => {
+      const k = document.createElement("span");
+      k.className = "esc-scoring-key";
+      k.textContent = key;
+      const v = document.createElement("span");
+      v.className = "esc-scoring-val";
+      v.textContent = val;
+      scoring.appendChild(k);
+      scoring.appendChild(v);
+    });
+    const hint = document.createElement("div");
+    hint.className = "esc-scoring-hint";
+    hint.textContent = "The leading player glows — knock them out for bonus points!";
+    scoring.appendChild(hint);
+
     escPanel.appendChild(escTitle);
     escPanel.appendChild(controls);
+    escPanel.appendChild(scoringTitle);
+    escPanel.appendChild(scoring);
     escPanel.appendChild(actions);
     escOverlay.appendChild(escBackdrop);
     escOverlay.appendChild(escPanel);
@@ -4224,10 +4303,10 @@ async function main() {
       const t = yMax > yMin
         ? Math.max(0, Math.min(1, (y - yMin) / (yMax - yMin)))
         : 0;
-      // * Bottom: black. Top: purple in linear components (0.42, 0.05, 0.68).
-      pitWallColorArray[i * 3] = 0.42 * t;
-      pitWallColorArray[i * 3 + 1] = 0.05 * t;
-      pitWallColorArray[i * 3 + 2] = 0.68 * t;
+      // * Bottom: black. Top: purple in linear components (0.25, 0.03, 0.41).
+      pitWallColorArray[i * 3] = 0.25 * t;
+      pitWallColorArray[i * 3 + 1] = 0.03 * t;
+      pitWallColorArray[i * 3 + 2] = 0.41 * t;
     }
     pitWallGeo.setAttribute("color", new THREE.BufferAttribute(pitWallColorArray, 3));
   }
@@ -7009,6 +7088,49 @@ async function main() {
       const lv = c.body.linvel();
       cartLinvelScratch.set(lv.x, lv.y, lv.z);
       updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
+    }
+
+    // Leader glow: pulsing inverted-color emissive on the current score leader.
+    {
+      let leaderSlot = -1;
+      let leaderScore = 0;
+      let isTied = false;
+      if (roundPhase === "running") {
+        for (let i = 0; i < 4; i += 1) {
+          const s = Number(roundScores[i] || 0);
+          if (s > leaderScore) { leaderScore = s; leaderSlot = i; isTied = false; }
+          else if (s === leaderScore && s > 0) { isTied = true; }
+        }
+        if (isTied) leaderSlot = -1;
+      }
+      const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 2) + 1) / 2;
+      for (let i = 0; i < allCarts.length; i += 1) {
+        const cart = allCarts[i];
+        if (!cart || !cart.mesh) continue;
+        const isLeader = i === leaderSlot;
+        cart.mesh.traverse((child) => {
+          if (!child.isMesh || !child.material || !child.material.emissive) return;
+          if (child.userData.isFace || child.userData.isWheel) return;
+          if (isLeader) {
+            // * Inverted RGB of cart's base color for the glow.
+            const baseHex = colorHexForSlot(netSlots[i]);
+            const br = ((baseHex >> 16) & 0xff) / 255;
+            const bg = ((baseHex >> 8) & 0xff) / 255;
+            const bb = (baseHex & 0xff) / 255;
+            child.material.emissive.setRGB(
+              (1 - br) * glowPulse,
+              (1 - bg) * glowPulse,
+              (1 - bb) * glowPulse,
+            );
+            child.material.emissiveIntensity = 1.0;
+          } else {
+            // * Restore standard emissive (cart's own color at normal intensity).
+            const baseHex = colorHexForSlot(netSlots[i]);
+            child.material.emissive.setHex(baseHex);
+            child.material.emissiveIntensity = 0.6;
+          }
+        });
+      }
     }
 
     updateHud();
