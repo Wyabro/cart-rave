@@ -101,7 +101,7 @@ const CONFIG = {
         innerRadius: 3.7,
         outerRadius: 7.15,
         color: 0x2bd6ff,
-        yOffset: 0.3,
+        yOffset: 0.28,
       },
       spindleRing: {
         enabled: true,
