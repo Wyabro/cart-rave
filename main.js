@@ -3355,6 +3355,11 @@ async function main() {
   recordMesh.receiveShadow = false;
   scene.add(recordMesh);
 
+  // * Spindle accent light: slowly cycles pink <-> cyan in the render loop.
+  const spindleLight = new THREE.PointLight(0xff2bd6, 15, 20, 2);
+  spindleLight.position.set(0, 3, 0);
+  scene.add(spindleLight);
+
   const visualRecordTopY = visualRecordThickness / 2;
   const recordReflectorGeo = new THREE.RingGeometry(
     CONFIG.record.innerRadius,
@@ -6548,6 +6553,14 @@ async function main() {
         crowdCarts.setMatrixAt(i, _dm.matrix);
       }
       crowdCarts.instanceMatrix.needsUpdate = true;
+    }
+
+    {
+      // * Spindle PointLight cycle: pink <-> cyan, ~8s full cycle.
+      const t = (Math.sin(now * 0.001 * Math.PI * 2 / 8) + 1) / 2;
+      const cPink = new THREE.Color(0xff2bd6);
+      const cCyan = new THREE.Color(0x2bd6ff);
+      spindleLight.color.copy(cPink).lerp(cCyan, t);
     }
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
