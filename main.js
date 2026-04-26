@@ -7103,7 +7103,10 @@ async function main() {
         }
         if (isTied) leaderSlot = -1;
       }
-      const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 2) + 1) / 2;
+      // * 0.5 Hz = one full cycle every 2 seconds.
+      const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 0.5) + 1) / 2;
+      // * emissiveIntensity pulses 0.3 → 1.2 so bloom picks it up at peak.
+      const glowIntensity = 0.3 + glowPulse * 0.9;
       for (let i = 0; i < allCarts.length; i += 1) {
         const cart = allCarts[i];
         if (!cart || !cart.mesh) continue;
@@ -7112,17 +7115,13 @@ async function main() {
           if (!child.isMesh || !child.material || !child.material.emissive) return;
           if (child.userData.isFace || child.userData.isWheel) return;
           if (isLeader) {
-            // * Inverted RGB of cart's base color for the glow.
+            // * Inverted RGB of cart's base color, full value — intensity carries the pulse.
             const baseHex = colorHexForSlot(netSlots[i]);
             const br = ((baseHex >> 16) & 0xff) / 255;
             const bg = ((baseHex >> 8) & 0xff) / 255;
             const bb = (baseHex & 0xff) / 255;
-            child.material.emissive.setRGB(
-              (1 - br) * glowPulse,
-              (1 - bg) * glowPulse,
-              (1 - bb) * glowPulse,
-            );
-            child.material.emissiveIntensity = 1.0;
+            child.material.emissive.setRGB(1 - br, 1 - bg, 1 - bb);
+            child.material.emissiveIntensity = glowIntensity;
           } else {
             // * Restore standard emissive (cart's own color at normal intensity).
             const baseHex = colorHexForSlot(netSlots[i]);
