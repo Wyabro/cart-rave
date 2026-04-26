@@ -418,6 +418,24 @@ html, body {
   border-color: rgba(255,80,80,0.3);
   color: #888;
 }
+.cr-vol-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+.cr-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.cr-vol-label {
+  width: 14px;
+  text-align: center;
+  color: var(--mc, #22e6ff);
+  font-size: 12px;
+  text-shadow: 0 0 6px var(--mc, #22e6ff);
+}
 .cr-vol-track {
   flex: 1; height: 6px;
   background: rgba(255,255,255,0.1);

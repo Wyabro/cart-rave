@@ -509,6 +509,15 @@ let _localColorPicked = false;
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
 let masterGain = 0.25; // Step 10d: Volume control (0.0 to 1.0)
+/** @type {number} */
+let sfxVolume = 0.25;
+try {
+  const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
+  if (savedSfxVol !== null) {
+    const parsedSfxVol = parseInt(savedSfxVol, 10);
+    sfxVolume = Number.isNaN(parsedSfxVol) ? 0.25 : clamp(parsedSfxVol / 100, 0, 1);
+  }
+} catch {}
 /** @type {boolean} */
 let isMuted = false; // Step 10d: Mute state
 /** @type {ReturnType<typeof setTimeout> | null} */
@@ -1304,6 +1313,7 @@ async function main() {
   console.log("[boot] main() start", { href: window.location.href });
   await RAPIER.init();
 
+  let sfx = null;
   let menuMusicEl = null;
   let startMenuMusic = () => {};
   let stopMenuMusic = () => {};
@@ -1628,6 +1638,24 @@ async function main() {
     ambientParticleGeometry.attributes.position.needsUpdate = true;
   }
 
+  function setAllAudioMuted(muted) {
+    isMuted = muted;
+    localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+    if (sfx) {
+      sfx._muted = isMuted;
+      sfx.setVolume(sfxVolume);
+    }
+    try { applyAudioVolume(); } catch (e) {}
+  }
+
+  function setSfxSliderVolume(v) {
+    sfxVolume = clamp(v, 0, 1);
+    localStorage.setItem("cartRaveSfxVol", Math.round(sfxVolume * 100).toString());
+    if (sfx) {
+      sfx.setVolume(sfxVolume);
+    }
+  }
+
   function initHud() {
     const existing = document.getElementById("hud");
     if (existing) existing.remove();
@@ -1887,6 +1915,23 @@ async function main() {
       #hud .hud-mute-btn.muted {
         color: #888;
         border-color: rgba(255, 80, 80, 0.3);
+      }
+      #hud .hud-vol-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      #hud .hud-vol-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #hud .hud-vol-label {
+        width: 14px;
+        text-align: center;
+        color: #22e6ff;
+        font-size: 12px;
+        text-shadow: 0 0 6px rgba(34, 230, 255, 0.7);
       }
       #hud .hud-vol-track {
         width: 80px;
@@ -2195,40 +2240,49 @@ async function main() {
     hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
     if (isMuted) hudMuteBtn.classList.add("muted");
     hudMuteBtn.addEventListener("click", () => {
-      isMuted = !isMuted;
-      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
-      if (!isMuted && masterGain === 0) {
-        masterGain = 0.25;
-        localStorage.setItem("cartRaveVolume", "25");
-      }
-      try { applyAudioVolume(); } catch (e) {}
+      setAllAudioMuted(!isMuted);
       syncAudioControls();
     });
 
-    const hudVolTrack = document.createElement("div");
-    hudVolTrack.className = "hud-vol-track";
-    const hudVolFill = document.createElement("div");
-    hudVolFill.className = "hud-vol-fill";
-    hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
-    hudVolTrack.appendChild(hudVolFill);
-    hudVolTrack.addEventListener("click", (e) => {
-      const r = hudVolTrack.getBoundingClientRect();
-      const v = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    function createHudVolumeRow(labelText, onChange) {
+      const row = document.createElement("div");
+      row.className = "hud-vol-row";
+      const label = document.createElement("span");
+      label.className = "hud-vol-label";
+      label.textContent = labelText;
+      const track = document.createElement("div");
+      track.className = "hud-vol-track";
+      const fill = document.createElement("div");
+      fill.className = "hud-vol-fill";
+      track.appendChild(fill);
+      const val = document.createElement("span");
+      val.className = "hud-vol-val";
+      track.addEventListener("click", (e) => {
+        const r = track.getBoundingClientRect();
+        onChange(clamp((e.clientX - r.left) / r.width, 0, 1));
+        syncAudioControls();
+      });
+      row.appendChild(label);
+      row.appendChild(track);
+      row.appendChild(val);
+      return { row, fill, val };
+    }
+
+    const hudMusicVol = createHudVolumeRow("♫", (v) => {
       masterGain = v;
       localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
-      if (v > 0 && isMuted) { isMuted = false; localStorage.removeItem("cartRaveMuted"); }
-      if (v === 0) { isMuted = true; localStorage.setItem("cartRaveMuted", "true"); }
       try { applyAudioVolume(); } catch (e) {}
-      syncAudioControls();
     });
-
-    const hudVolVal = document.createElement("span");
-    hudVolVal.className = "hud-vol-val";
-    hudVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+    const hudSfxVol = createHudVolumeRow("⚡", (v) => {
+      setSfxSliderVolume(v);
+    });
+    const hudVolStack = document.createElement("div");
+    hudVolStack.className = "hud-vol-stack";
+    hudVolStack.appendChild(hudMusicVol.row);
+    hudVolStack.appendChild(hudSfxVol.row);
 
     audioWidget.appendChild(hudMuteBtn);
-    audioWidget.appendChild(hudVolTrack);
-    audioWidget.appendChild(hudVolVal);
+    audioWidget.appendChild(hudVolStack);
     root.appendChild(audioWidget);
     document.body.appendChild(root);
 
@@ -2325,11 +2379,14 @@ async function main() {
     document.body.appendChild(escOverlay);
 
     function syncAudioControls() {
-      const percent = Math.round(masterGain * 100);
+      const musicPercent = Math.round(masterGain * 100);
+      const sfxPercent = Math.round(sfxVolume * 100);
       hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
       hudMuteBtn.classList.toggle("muted", isMuted);
-      hudVolFill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
-      hudVolVal.textContent = isMuted ? "OFF" : percent;
+      hudMusicVol.fill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
+      hudMusicVol.val.textContent = isMuted ? "OFF" : musicPercent;
+      hudSfxVol.fill.style.width = (isMuted ? 0 : sfxVolume * 100) + "%";
+      hudSfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
     }
 
     function hideEscOverlay() {
@@ -2832,45 +2889,44 @@ async function main() {
 
     // Wire new menu audio controls to game audio
     const crMuteBtn = document.getElementById("cr-mute-btn");
-    const crVolTrack = document.getElementById("cr-vol-track");
-    const crVolFill = document.getElementById("cr-vol-fill");
-    const crVolVal = document.getElementById("cr-vol-val");
+    const crMusicVolTrack = document.getElementById("cr-music-vol-track");
+    const crMusicVolFill = document.getElementById("cr-music-vol-fill");
+    const crMusicVolVal = document.getElementById("cr-music-vol-val");
+    const crSfxVolTrack = document.getElementById("cr-sfx-vol-track");
+    const crSfxVolFill = document.getElementById("cr-sfx-vol-fill");
+    const crSfxVolVal = document.getElementById("cr-sfx-vol-val");
 
     function syncMenuVolume() {
-      const vol = isMuted ? 0 : masterGain;
-      if (crVolFill) crVolFill.style.width = (vol * 100) + "%";
-      if (crVolVal) crVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+      if (crMusicVolFill) crMusicVolFill.style.width = ((isMuted ? 0 : masterGain) * 100) + "%";
+      if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+      if (crSfxVolFill) crSfxVolFill.style.width = ((isMuted ? 0 : sfxVolume) * 100) + "%";
+      if (crSfxVolVal) crSfxVolVal.textContent = isMuted ? "OFF" : Math.round(sfxVolume * 100);
+      if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
       if (hud && hud.syncAudioControls) hud.syncAudioControls();
     }
 
     if (crMuteBtn) {
       crMuteBtn.addEventListener("click", () => {
-        isMuted = !isMuted;
-        localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
-        if (!isMuted && masterGain === 0) {
-          masterGain = 0.5;
-          localStorage.setItem("cartRaveVolume", "50");
-        }
+        setAllAudioMuted(!isMuted);
+        syncMenuVolume();
+      });
+    }
+
+    if (crMusicVolTrack) {
+      crMusicVolTrack.addEventListener("click", (e) => {
+        const r = crMusicVolTrack.getBoundingClientRect();
+        const v = clamp((e.clientX - r.left) / r.width, 0, 1);
+        masterGain = v;
+        localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
         try { applyAudioVolume(); } catch(e) {}
         syncMenuVolume();
       });
     }
 
-    if (crVolTrack) {
-      crVolTrack.addEventListener("click", (e) => {
-        const r = crVolTrack.getBoundingClientRect();
-        const v = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-        masterGain = v;
-        localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
-        if (v > 0 && isMuted) {
-          isMuted = false;
-          localStorage.removeItem("cartRaveMuted");
-        }
-        if (v === 0) {
-          isMuted = true;
-          localStorage.setItem("cartRaveMuted", "true");
-        }
-        try { applyAudioVolume(); } catch(e) {}
+    if (crSfxVolTrack) {
+      crSfxVolTrack.addEventListener("click", (e) => {
+        const r = crSfxVolTrack.getBoundingClientRect();
+        setSfxSliderVolume(clamp((e.clientX - r.left) / r.width, 0, 1));
         syncMenuVolume();
       });
     }
@@ -2881,8 +2937,14 @@ async function main() {
       const parsed = parseInt(savedVol, 10);
       masterGain = Number.isNaN(parsed) ? 0.25 : Math.max(0, Math.min(1, parsed / 100));
     }
+    const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
+    if (savedSfxVol !== null) {
+      const parsed = parseInt(savedSfxVol, 10);
+      sfxVolume = Number.isNaN(parsed) ? 0.25 : clamp(parsed / 100, 0, 1);
+      if (sfx) sfx.setVolume(sfxVolume);
+    }
     const savedMute = localStorage.getItem("cartRaveMuted");
-    if (savedMute === "true") isMuted = true;
+    if (savedMute === "true") setAllAudioMuted(true);
     try { applyAudioVolume(); } catch(e) {}
     syncMenuVolume();
 
@@ -3214,7 +3276,23 @@ async function main() {
   camera.lookAt(0, 0, 0);
 
   const audioListener = new THREE.AudioListener();
-  const sfx = {
+  const sfxGain = audioListener.context.createGain();
+  const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
+  if (savedSfxVol !== null) {
+    const parsedSfxVol = parseInt(savedSfxVol, 10);
+    sfxVolume = Number.isNaN(parsedSfxVol) ? 0.25 : clamp(parsedSfxVol / 100, 0, 1);
+  }
+  sfxGain.gain.value = isMuted ? 0 : sfxVolume;
+  sfxGain.connect(audioListener.context.destination);
+  sfx = {
+    _muted: isMuted,
+    setVolume(v) {
+      const nextVolume = clamp(v, 0, 1);
+      sfxGain.gain.value = this._muted ? 0 : nextVolume;
+      if (audioListener && typeof audioListener.setMasterVolume === "function") {
+        audioListener.setMasterVolume(this._muted ? 0 : nextVolume);
+      }
+    },
     playCollision(intensity) {
       const collisionIntensity = clamp(intensity, 0, 1);
       if (collisionIntensity <= 0) return;
@@ -3232,7 +3310,7 @@ async function main() {
       gain.gain.setValueAtTime(0.0001, now);
       gain.gain.exponentialRampToValueAtTime(peakGain, now + 0.002);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-      gain.connect(audioListener.gain);
+      gain.connect(sfxGain);
 
       const osc = ctx.createOscillator();
       osc.type = "triangle";
@@ -3293,7 +3371,7 @@ async function main() {
 
       noise.connect(filter);
       filter.connect(gain);
-      gain.connect(audioListener.gain);
+      gain.connect(sfxGain);
 
       noise.start(now);
       noise.stop(now + noiseDuration);
@@ -3319,12 +3397,13 @@ async function main() {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       osc.connect(gain);
-      gain.connect(audioListener.gain);
+      gain.connect(sfxGain);
 
       osc.start(now);
       osc.stop(now + duration);
     },
   };
+  sfx.setVolume(sfxVolume);
   camera.add(audioListener);
 
   const composer = new EffectComposer(renderer);
@@ -5791,12 +5870,13 @@ async function main() {
 
   // Step 10d: Apply audio volume to engine
   function applyAudioVolume() {
-    // Apply master gain to Three.js AudioListener
     if (audioListener && typeof audioListener.setMasterVolume === 'function') {
-      audioListener.setMasterVolume(isMuted ? 0 : masterGain);
+      audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
     }
-    // Apply mute state to HTML audio element
-    if (musicEl) musicEl.muted = isMuted;
+    if (musicEl) {
+      musicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+      musicEl.muted = isMuted;
+    }
     if (menuMusicEl) {
       menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
       menuMusicEl.muted = isMuted;
@@ -6203,10 +6283,7 @@ async function main() {
     if (e.code === "KeyM") {
       if (e.repeat) return;
       e.preventDefault();
-      // Toggle mute using new volume system
-      isMuted = !isMuted;
-      localStorage.setItem('cartRaveMuted', isMuted ? 'true' : 'false');
-      applyAudioVolume();
+      setAllAudioMuted(!isMuted);
       if (hud && hud.syncAudioControls) hud.syncAudioControls();
       return;
     }
