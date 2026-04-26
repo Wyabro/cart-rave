@@ -132,9 +132,9 @@ const CONFIG = {
     // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
     spawnHeight: 1.077,
     friction: 1.6,
-    restitution: 0.0,
+    restitution: 0.4,
     linearDamping: 2.5,
-    angularDamping: 2.0,
+    angularDamping: 4.5,
 
     ramBoost: {
       enabled: true,
@@ -188,7 +188,7 @@ const CONFIG = {
   ramming: {
     minSpeed: 0.8,
     strength: 8.0,
-    maxImpulse: 120.0,
+    maxImpulse: 200.0,
   },
 
   fall: {
@@ -5683,10 +5683,12 @@ async function main() {
   function applyRammingImpulse(rammer, victim) {
     const rv = rammer.body.linvel();
     const speed = planarSpeed(rv);
+    const vv = victim.body.linvel();
     if (speed < CONFIG.ramming.minSpeed) return;
 
     const dir = vec3PlanarDirection(rv);
     if (!dir) return;
+    const closingSpeed = Math.max(speed, speed + (-(vv.x * dir.x + vv.z * dir.z)));
 
     const rp = rammer.body.translation();
     const vp = victim.body.translation();
@@ -5706,7 +5708,7 @@ async function main() {
     }
 
     const impulseMag = clamp(
-      CONFIG.ramming.strength * speed * getBodyMass(victim.body),
+      CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body),
       0,
       CONFIG.ramming.maxImpulse,
     );
