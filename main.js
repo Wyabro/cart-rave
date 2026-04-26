@@ -101,7 +101,7 @@ const CONFIG = {
         innerRadius: 3.7,
         outerRadius: 7.15,
         color: 0x2bd6ff,
-        yOffset: 0.28,
+        yOffset: 0.2,
       },
       spindleRing: {
         enabled: true,
@@ -3466,11 +3466,8 @@ async function main() {
     const labelOuterPx = canvasSize * 0.5 - 16;
     const labelInnerPx = (CONFIG.record.innerRadius / labelOuterWorld) * (canvasSize / 2);
     const labelColors = [
-      "#ff00ff",
-      "#00ffff",
-      "#00ff00",
-      "#ffff00",
-      "#ff6600",
+      "#ff2bd6",
+      "#39ff14",
     ];
 
     const tex = new THREE.CanvasTexture(canvas);
