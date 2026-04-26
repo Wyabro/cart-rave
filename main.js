@@ -3356,8 +3356,8 @@ async function main() {
   scene.add(recordMesh);
 
   // * Spindle accent light: slowly cycles pink <-> cyan in the render loop.
-  const spindleLight = new THREE.PointLight(0xff2bd6, 15, 20, 2);
-  spindleLight.position.set(0, 3, 0);
+  const spindleLight = new THREE.PointLight(0xff2bd6, 80, 30, 2);
+  spindleLight.position.set(0, 1.5, 0);
   scene.add(spindleLight);
 
   const visualRecordTopY = visualRecordThickness / 2;
