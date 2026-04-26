@@ -95,8 +95,6 @@
   const muteBtn = $("cr-mute-btn");
   const musicVolFill = $("cr-music-vol-fill");
   const musicVolVal = $("cr-music-vol-val");
-  const sfxVolFill = $("cr-sfx-vol-fill");
-  const sfxVolVal = $("cr-sfx-vol-val");
   const audioEl = $("cr-audio");
   const onlineEl = $("stat-online");
   const playsEl = $("stat-plays");
@@ -250,11 +248,8 @@
     audioEl.style.setProperty('--ag', p.secondary);
     if (!state.muted) {
       muteBtn.style.setProperty('--mc', p.secondary);
-      [musicVolFill, sfxVolFill].forEach((fill) => {
-        if (!fill) return;
-        fill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
-        fill.style.boxShadow = `0 0 8px ${p.primary}`;
-      });
+      musicVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
+      musicVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
     }
 
     // Controls kbd colors
@@ -296,8 +291,6 @@
     const w = (state.muted ? 0 : state.vol) * 100;
     if (musicVolFill) musicVolFill.style.width = w + '%';
     if (musicVolVal) musicVolVal.textContent = state.muted ? 'OFF' : Math.round(state.vol * 100);
-    if (sfxVolFill) sfxVolFill.style.width = w + '%';
-    if (sfxVolVal) sfxVolVal.textContent = state.muted ? 'OFF' : Math.round(state.vol * 100);
     if (state.muted) {
       muteBtn.classList.add('muted');
       muteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">

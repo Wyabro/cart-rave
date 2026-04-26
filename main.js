@@ -2889,15 +2889,10 @@ async function main() {
     const crMusicVolTrack = document.getElementById("cr-music-vol-track");
     const crMusicVolFill = document.getElementById("cr-music-vol-fill");
     const crMusicVolVal = document.getElementById("cr-music-vol-val");
-    const crSfxVolTrack = document.getElementById("cr-sfx-vol-track");
-    const crSfxVolFill = document.getElementById("cr-sfx-vol-fill");
-    const crSfxVolVal = document.getElementById("cr-sfx-vol-val");
 
     function syncMenuVolume() {
       if (crMusicVolFill) crMusicVolFill.style.width = ((isMuted ? 0 : masterGain) * 100) + "%";
       if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
-      if (crSfxVolFill) crSfxVolFill.style.width = ((isMuted ? 0 : sfxVolume) * 100) + "%";
-      if (crSfxVolVal) crSfxVolVal.textContent = isMuted ? "OFF" : Math.round(sfxVolume * 100);
       if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
       if (hud && hud.syncAudioControls) hud.syncAudioControls();
     }
@@ -2916,14 +2911,6 @@ async function main() {
         masterGain = v;
         localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
         try { applyAudioVolume(); } catch(e) {}
-        syncMenuVolume();
-      });
-    }
-
-    if (crSfxVolTrack) {
-      crSfxVolTrack.addEventListener("click", (e) => {
-        const r = crSfxVolTrack.getBoundingClientRect();
-        setSfxSliderVolume(clamp((e.clientX - r.left) / r.width, 0, 1));
         syncMenuVolume();
       });
     }
