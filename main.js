@@ -5673,8 +5673,8 @@ async function main() {
     const dist = Math.hypot(fromPos.x, fromPos.z);
     const edgeBiasStart = CONFIG.record.radius * 0.78;
 
-    // * 30% chance: target nearest human cart position with a small offset.
-    if (Math.random() < 0.3) {
+    // * 45% chance: target nearest human cart position with a small offset.
+    if (Math.random() < 0.45) {
       let nearestHuman = null;
       let nearestD2 = Infinity;
       for (let i = 0; i < allCarts.length; i += 1) {
@@ -5717,13 +5717,13 @@ async function main() {
     const p = cart.body.translation();
     if (now >= cart.aiNextDecisionMs) {
       cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (1200 + Math.random() * 1200);
+      cart.aiNextDecisionMs = now + (800 + Math.random() * 1000);
     }
 
     const toTarget = new THREE.Vector3(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     if (toTarget.lengthSq() < 0.25) {
       cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (1200 + Math.random() * 1200);
+      cart.aiNextDecisionMs = now + (800 + Math.random() * 1000);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
     toTarget.normalize();
