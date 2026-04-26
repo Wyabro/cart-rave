@@ -628,22 +628,7 @@ function updateHudColorsFromSlots(slots) {
     if (!data) return;
 
     const box = scoreBox.box;
-    const hexStr = `#${data.hex.toString(16).padStart(6, "0")}`;
-
-    // Hard reset: preserve structural class, apply exactly one color class
-    box.className = `hud-scoreBox ${data.css}`;
-
-    // Force background via !important so no other rule can win
-    box.style.setProperty("background-color", hexStr, "important");
-    box.style.setProperty("color", "black", "important");
-
-    // * Local player gets a white outline; all others have none
-    box.style.setProperty(
-      "border",
-      slot.connId === youConnId ? "3px solid white" : "none",
-      "important",
-    );
-
+    box.className = "hud-scoreBox";
     box.dataset.hudColor = slot.color;
   });
 }
@@ -1781,38 +1766,34 @@ async function main() {
 
       #hud .hud-scores {
         position: absolute;
+        top: 18px;
         left: 50%;
-        bottom: 18px;
         transform: translateX(-50%);
         display: none;
-        gap: 10px;
-        align-items: stretch;
+        flex-direction: row;
+        gap: 0;
+        align-items: center;
         justify-content: center;
+        background: rgba(0,0,0,0.75);
+        border: 2px solid rgba(255,255,255,0.15);
+        border-radius: 6px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        overflow: hidden;
       }
 
       #hud .hud-scoreBox {
         --hud-glow: #22e6ff;
-        position: relative;
-        min-width: 80px;
-        max-width: 160px;
-        padding: 10px 14px 9px;
-        border-radius: 6px;
-        background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        box-shadow:
-          0 0 0 1px rgba(255,255,255,0.05) inset,
-          0 0 12px var(--hud-glow),
-          0 0 28px color-mix(in oklab, var(--hud-glow), transparent 60%);
-        color: #ffffff;
-        line-height: 1.05;
+        padding: 14px 18px;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
-        justify-content: center;
-        border: 2px solid var(--hud-glow);
-        overflow: hidden;
-        text-shadow: 0 0 8px var(--hud-glow);
+        gap: 8px;
+        border-right: 1px solid rgba(255,255,255,0.08);
+      }
+
+      #hud .hud-scoreBox:last-child {
+        border-right: none;
       }
 
       #hud .hud-scoreBox[data-hud-color="pink"] { --hud-glow: #ff00ff; }
@@ -1821,71 +1802,45 @@ async function main() {
       #hud .hud-scoreBox[data-hud-color="yellow"] { --hud-glow: #ffff00; }
       #hud .hud-scoreBox[data-hud-color="neonOrange"] { --hud-glow: #ff6600; }
 
-      #hud .hud-scoreBox::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--hud-glow), transparent 75%), transparent);
-        transform: translateX(-100%);
-        animation: hudScoreSweep 3.8s ease-in-out infinite;
-        pointer-events: none;
-      }
-
-      #hud .hud-scoreBox::after {
-        content: "";
-        position: absolute;
-        inset: -2px;
-        border: 2px solid var(--hud-glow);
-        border-radius: 6px;
-        filter: drop-shadow(0 0 6px var(--hud-glow));
-        pointer-events: none;
-      }
-
-      @keyframes hudScoreSweep {
-        0%, 48% { transform: translateX(-100%); }
-        62%, 100% { transform: translateX(100%); }
+      #hud .hud-scoreRank {
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 16px;
+        color: var(--hud-glow);
+        text-shadow: 0 0 8px var(--hud-glow);
+        min-width: 16px;
       }
 
       #hud .hud-scoreLabel {
-        position: relative;
-        z-index: 1;
-        font-family: var(--hud-display);
-        font-size: 0.85rem;
-        font-weight: 800;
-        opacity: 0.95;
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 14px;
+        letter-spacing: 1px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        max-width: 130px;
-        color: var(--hud-glow);
-        text-shadow: 0 0 12px var(--hud-glow), 0 0 28px var(--hud-glow);
+        max-width: 160px;
+        color: #ffffff;
+        text-shadow: 0 0 6px rgba(255,255,255,0.2);
       }
 
       #hud .hud-scoreValue {
-        position: relative;
-        z-index: 1;
-        font-family: var(--hud-mono);
-        font-size: 1.35rem;
-        font-weight: 700;
-        margin-top: 4px;
-        color: #ffffff;
-        text-shadow: 0 0 10px currentColor;
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 18px;
+        color: var(--hud-glow);
+        text-shadow: 0 0 10px var(--hud-glow);
+        min-width: 24px;
+        text-align: right;
       }
 
-      #hud .hud-scoreBox.isLocal {
-        border-color: rgba(255,255,255,1);
-        box-shadow:
-          0 0 0 1px rgba(255,255,255,0.1) inset,
-          0 0 12px #ffffff,
-          0 0 24px var(--hud-glow),
-          0 0 44px var(--hud-glow);
-      }
-
-      #hud .hud-scoreBox.isLocal::after {
-        border-color: #ffffff;
-        filter:
-          drop-shadow(0 0 8px #ffffff)
-          drop-shadow(0 0 14px var(--hud-glow));
+      #hud .hud-scoreYou {
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 9px;
+        background: var(--hud-glow);
+        color: #000000;
+        padding: 2px 5px;
+        border-radius: 3px;
+        letter-spacing: 1px;
+        box-shadow: 0 0 8px var(--hud-glow);
+        display: none;
       }
 
       #hud .hud-scoreBox.isLocal .hud-scoreLabel,
@@ -2246,63 +2201,36 @@ async function main() {
     const scores = document.createElement("div");
     scores.className = "hud-scores";
 
-    const hudGlowByColor = {
-      pink: "#ff00ff",
-      blue: "#00ffff",
-      green: "#00ff00",
-      yellow: "#ffff00",
-      neonOrange: "#ff6600",
-    };
-
-    /** @type {{ root: HTMLDivElement; box: HTMLDivElement; label: HTMLDivElement; value: HTMLDivElement }[]} */
+    /** @type {{ root: HTMLDivElement; box: HTMLDivElement; rank: HTMLDivElement; label: HTMLDivElement; you: HTMLSpanElement; value: HTMLDivElement }[]} */
     const scoreBoxes = [];
-    let scoreBoxStyleObserver = null;
-    const applyScoreBoxMenuStyle = (box) => {
-      const glow = hudGlowByColor[box.dataset.hudColor] || "#22e6ff";
-      const borderColor = box.classList.contains("isLocal") ? "#ffffff" : glow;
-      const boxShadow = box.classList.contains("isLocal")
-        ? `0 0 0 1px rgba(255,255,255,0.1) inset, 0 0 12px #ffffff, 0 0 24px ${glow}, 0 0 44px ${glow}`
-        : `0 0 0 1px rgba(255,255,255,0.05) inset, 0 0 12px ${glow}, 0 0 28px ${glow}`;
-
-      box.style.setProperty("--hud-glow", glow);
-      box.style.setProperty("background-color", "rgba(0,0,0,0.55)", "important");
-      box.style.setProperty("border", `2px solid ${borderColor}`, "important");
-      box.style.setProperty("box-shadow", boxShadow, "important");
-      box.style.setProperty("color", "#ffffff", "important");
-    };
-    const syncScoreBoxMenuStyles = () => {
-      if (scoreBoxStyleObserver) scoreBoxStyleObserver.disconnect();
-      scoreBoxes.forEach(({ box }) => {
-        applyScoreBoxMenuStyle(box);
-        if (scoreBoxStyleObserver) {
-          scoreBoxStyleObserver.observe(box, {
-            attributes: true,
-            attributeFilter: ["class", "data-hud-color", "style"],
-          });
-        }
-      });
-    };
 
     for (let i = 0; i < 4; i += 1) {
       const box = document.createElement("div");
       box.className = "hud-scoreBox";
-      // * Initial color class is set when slots are received.
-      
+
+      const rank = document.createElement("div");
+      rank.className = "hud-scoreRank";
+      rank.textContent = String(i + 1);
+
       const label = document.createElement("div");
       label.className = "hud-scoreLabel";
       label.textContent = `P${i + 1}`;
+
+      const you = document.createElement("span");
+      you.className = "hud-scoreYou";
+      you.textContent = "YOU";
 
       const value = document.createElement("div");
       value.className = "hud-scoreValue";
       value.textContent = "0";
 
+      box.appendChild(rank);
       box.appendChild(label);
+      box.appendChild(you);
       box.appendChild(value);
       scores.appendChild(box);
-      scoreBoxes.push({ root, box, label, value });
+      scoreBoxes.push({ root, box, rank, label, you, value });
     }
-    scoreBoxStyleObserver = new MutationObserver(syncScoreBoxMenuStyles);
-    syncScoreBoxMenuStyles();
 
     const readyBtn = document.createElement("button");
     readyBtn.id = "ready-button";
@@ -3187,13 +3115,33 @@ async function main() {
         console.log("local slot:", localIdx);
         updateHud._lastLocalIdx = localIdx;
       }
+      const rows = [];
       for (let i = 0; i < 4; i += 1) {
-        const entry = hud.scoreBoxes[i];
-        const score = roundScores && roundScores[i] != null ? roundScores[i] : 0;
-        entry.value.textContent = String(score);
+        const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
         const slotName = netSlots[i]?.name || `P${i + 1}`;
-        entry.label.textContent = slotName;
-        entry.box.classList.toggle("isLocal", i === localIdx);
+        const slotColor = netSlots[i]?.color || null;
+        rows.push({ slotIndex: i, score, slotName, slotColor });
+      }
+      rows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
+
+      for (let pos = 0; pos < 4; pos += 1) {
+        const entry = hud.scoreBoxes[pos];
+        const row = rows[pos];
+        if (!entry || !row) continue;
+
+        entry.rank.textContent = String(pos + 1);
+        entry.label.textContent = row.slotName;
+        entry.value.textContent = String(row.score);
+
+        if (row.slotColor) {
+          entry.box.dataset.hudColor = row.slotColor;
+        } else {
+          delete entry.box.dataset.hudColor;
+        }
+
+        const isLocal = row.slotIndex === localIdx;
+        entry.box.classList.toggle("isLocal", isLocal);
+        entry.you.style.display = isLocal ? "inline-block" : "none";
       }
     } else {
       hud.scores.style.display = "none";
@@ -3201,6 +3149,8 @@ async function main() {
         const entry = hud.scoreBoxes[i];
         entry.box.classList.remove("isLocal");
         entry.value.textContent = "";
+        entry.rank.textContent = String(i + 1);
+        entry.you.style.display = "none";
       }
     }
 
