@@ -3214,6 +3214,117 @@ async function main() {
   camera.lookAt(0, 0, 0);
 
   const audioListener = new THREE.AudioListener();
+  const sfx = {
+    playCollision(intensity) {
+      const collisionIntensity = clamp(intensity, 0, 1);
+      if (collisionIntensity <= 0) return;
+
+      const ctx = audioListener.context;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+      const duration = 0.14;
+      const peakGain = collisionIntensity * 0.6;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(peakGain, now + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      gain.connect(audioListener.gain);
+
+      const osc = ctx.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(180, now);
+      osc.connect(gain);
+
+      const noiseDuration = 0.04;
+      const noiseBuffer = ctx.createBuffer(
+        1,
+        Math.ceil(ctx.sampleRate * noiseDuration),
+        ctx.sampleRate,
+      );
+      const noiseData = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseData.length; i += 1) {
+        noiseData[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      noise.connect(gain);
+
+      osc.start(now);
+      osc.stop(now + duration);
+      noise.start(now);
+      noise.stop(now + noiseDuration);
+    },
+    playNitro() {
+      const ctx = audioListener.context;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+      const noiseDuration = 0.2;
+      const noiseBuffer = ctx.createBuffer(
+        1,
+        Math.ceil(ctx.sampleRate * noiseDuration),
+        ctx.sampleRate,
+      );
+      const noiseData = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseData.length; i += 1) {
+        noiseData[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(400, now);
+      filter.frequency.linearRampToValueAtTime(2000, now + 0.15);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + 0.005);
+      gain.gain.setValueAtTime(0.35, now + 0.085);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.205);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioListener.gain);
+
+      noise.start(now);
+      noise.stop(now + noiseDuration);
+    },
+    playFallOff() {
+      const ctx = audioListener.context;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+      const duration = 0.45;
+
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.4);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.4, now + 0.003);
+      gain.gain.setValueAtTime(0.4, now + 0.303);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(audioListener.gain);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    },
+  };
   camera.add(audioListener);
 
   const composer = new EffectComposer(renderer);
@@ -5064,6 +5175,9 @@ async function main() {
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
     cart.respawnAtMs = now + CONFIG.fall.respawnDelayMs;
+    if (cart === localCartForConnId()) {
+      sfx.playFallOff();
+    }
   }
 
   function doRespawn(cart) {
@@ -5345,6 +5459,9 @@ async function main() {
     if (nowMs - cart.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
     cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
     cart.lastRamBoostTimeMs = nowMs;
+    if (cart === localCartForConnId()) {
+      sfx.playNitro();
+    }
     cart.ramBoostStreakCarry = 0;
 
     if (!nitroFirstBoostDiagnosticLogged) {
@@ -5849,6 +5966,10 @@ async function main() {
       0,
       CONFIG.ramming.maxImpulse,
     );
+    if (localCart && (victim === localCart || rammer === localCart)) {
+      sfx.playCollision(impulseMag / CONFIG.ramming.maxImpulse);
+    }
+
     const impulse = { x: dir.x * impulseMag, y: 0, z: dir.z * impulseMag };
 
     // Spread impact over a few physics steps to reduce jitter spikes.
