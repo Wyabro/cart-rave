@@ -2010,18 +2010,19 @@ async function main() {
 
       #esc-overlay .esc-scoring-title {
         font-family: var(--esc-display);
-        font-size: 11px;
+        font-size: 14px;
         font-weight: 400;
         letter-spacing: 0.1em;
         color: #ff2bd6;
         text-shadow: 0 0 8px #ff2bd6;
         text-transform: uppercase;
         margin: 0 0 6px;
+        text-align: center;
       }
 
       #esc-overlay .esc-scoring {
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr max-content;
         gap: 12px 8px;
         margin-bottom: 0;
         padding: 16px 0;
@@ -2043,7 +2044,7 @@ async function main() {
       #esc-overlay .esc-scoring-val {
         color: #22e6ff;
         text-shadow: 0 0 8px #22e6ff;
-        text-align: right;
+        text-align: left;
         white-space: nowrap;
         font-size: 13px;
         font-weight: 700;
@@ -2052,11 +2053,12 @@ async function main() {
       #esc-overlay .esc-scoring-hint {
         grid-column: 1 / -1;
         padding: 6px 10px;
-        font-family: var(--esc-mono);
-        font-size: 10px;
-        letter-spacing: 0.06em;
+        font-family: var(--esc-display);
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 0.1em;
         color: #ff2bd6;
-        text-shadow: 0 0 6px #ff2bd6;
+        text-shadow: 0 0 8px #ff2bd6;
         text-transform: uppercase;
         text-align: center;
       }
