@@ -132,9 +132,9 @@ const CONFIG = {
     // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
     spawnHeight: 1.077,
     friction: 1.6,
-    restitution: 0.4,
+    restitution: 0.25,
     linearDamping: 2.5,
-    angularDamping: 6.0,
+    angularDamping: 9.0,
 
     ramBoost: {
       enabled: true,
@@ -5340,7 +5340,7 @@ async function main() {
     }
 
     const av = cart.body.angvel();
-    const maxPitchRoll = 1.5;
+    const maxPitchRoll = 0.8;
     if (Math.abs(av.x) > maxPitchRoll || Math.abs(av.z) > maxPitchRoll) {
       cart.body.setAngvel({
         x: clamp(av.x, -maxPitchRoll, maxPitchRoll),
