@@ -715,8 +715,8 @@ function bufferAuthoritativeState(serverNowMs, seq, carts) {
   netStateBuffer.push({ serverNowMs, seq, carts });
   netStateBuffer.sort((a, b) => a.seq - b.seq);
   const maxEntries = 64;
-  if (netStateBuffer.length > maxEntries) {
-    netStateBuffer = netStateBuffer.slice(netStateBuffer.length - maxEntries);
+  while (netStateBuffer.length > maxEntries) {
+    netStateBuffer.shift();
   }
 }
 
@@ -2775,7 +2775,10 @@ async function main() {
 
     // Set initial state from saved values
     const savedVol = localStorage.getItem("cartRaveVolume");
-    if (savedVol !== null) masterGain = parseInt(savedVol, 10) / 100;
+    if (savedVol !== null) {
+      const parsed = parseInt(savedVol, 10);
+      masterGain = Number.isNaN(parsed) ? 0.25 : Math.max(0, Math.min(1, parsed / 100));
+    }
     const savedMute = localStorage.getItem("cartRaveMuted");
     if (savedMute === "true") isMuted = true;
     try { applyAudioVolume(); } catch(e) {}
@@ -4951,13 +4954,7 @@ async function main() {
   respawnLocalMidRoundJoinRef.current = () => {
     if (!youConnId || pendingMidRoundJoinRespawnConnId !== youConnId) return;
     if (roundPhase !== "running") return;
-    const slotIndex = localSlotIndexForConn(youConnId);
-    if (slotIndex < 0) return;
-    const slot = netSlots[slotIndex];
-    if (!slot || slot.kind !== "human") return;
-    const cart = allCarts[slotIndex];
-    if (!cart) return;
-    doRespawn(cart);
+    // * Mid-round joins take over NPC in place. DO NOT call doRespawn().
     pendingMidRoundJoinRespawnConnId = null;
   };
 
