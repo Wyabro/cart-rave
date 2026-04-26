@@ -5672,6 +5672,30 @@ async function main() {
   function pickAiTarget(fromPos) {
     const dist = Math.hypot(fromPos.x, fromPos.z);
     const edgeBiasStart = CONFIG.record.radius * 0.78;
+
+    // * 30% chance: target nearest human cart position with a small offset.
+    if (Math.random() < 0.3) {
+      let nearestHuman = null;
+      let nearestD2 = Infinity;
+      for (let i = 0; i < allCarts.length; i += 1) {
+        const s = netSlots[i];
+        if (!s || s.kind !== "human" || !s.connId) continue;
+        const hp = allCarts[i].body.translation();
+        const dx = hp.x - fromPos.x;
+        const dz = hp.z - fromPos.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < nearestD2) {
+          nearestD2 = d2;
+          nearestHuman = allCarts[i];
+        }
+      }
+      if (nearestHuman) {
+        const hp = nearestHuman.body.translation();
+        const jitter = 2.0;
+        return { x: hp.x + (Math.random() - 0.5) * jitter, z: hp.z + (Math.random() - 0.5) * jitter };
+      }
+    }
+
     if (dist > edgeBiasStart) {
       const a = Math.random() * Math.PI * 2;
       const r = CONFIG.record.radius * 0.45;
@@ -5693,13 +5717,13 @@ async function main() {
     const p = cart.body.translation();
     if (now >= cart.aiNextDecisionMs) {
       cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (2000 + Math.random() * 2000);
+      cart.aiNextDecisionMs = now + (1200 + Math.random() * 1200);
     }
 
     const toTarget = new THREE.Vector3(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     if (toTarget.lengthSq() < 0.25) {
       cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (2000 + Math.random() * 2000);
+      cart.aiNextDecisionMs = now + (1200 + Math.random() * 1200);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
     toTarget.normalize();
@@ -5708,8 +5732,8 @@ async function main() {
     const currentYaw = yawFromQuaternion(cart.body.rotation());
     const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
 
-    const turn = clamp(yawDiff * 1.4, -1, 1);
-    const forward = Math.abs(yawDiff) > 2.2 ? -0.5 : 1;
+    const turn = clamp(yawDiff * 2.0, -1, 1);
+    const forward = Math.abs(yawDiff) > 1.8 ? -0.7 : 1;
     return { forward, turn };
   }
 
