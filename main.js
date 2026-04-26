@@ -1809,6 +1809,7 @@ async function main() {
       }
 
       #hud .hud-ready-btn {
+        --btn-glow: #22e6ff;
         position: absolute;
         bottom: 80px;
         left: 50%;
@@ -1817,28 +1818,35 @@ async function main() {
         font-size: 1.6rem;
         letter-spacing: 0.1em;
         padding: 14px 40px;
-        background: transparent;
-        color: #2bd6ff;
-        border: 2px solid #2bd6ff;
-        border-radius: 0;
+        background: rgba(0, 0, 0, 0.85);
+        color: var(--btn-glow);
+        border: 2px solid var(--btn-glow);
+        border-radius: 6px;
         cursor: pointer;
         pointer-events: auto;
         text-transform: uppercase;
         display: none;
         white-space: nowrap;
-        transition: color 0.2s ease, border-color 0.2s ease;
+        text-shadow: 0 0 10px var(--btn-glow);
+        box-shadow: 0 0 12px var(--btn-glow), 0 0 28px color-mix(in oklab, var(--btn-glow), transparent 60%);
+        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
         animation: readyPulse 2s ease-in-out infinite;
       }
 
+      #hud .hud-ready-btn:hover {
+        transform: translateX(-50%) translateY(-2px) scale(1.02);
+        background: rgba(0, 0, 0, 0.65);
+        box-shadow: 0 0 20px var(--btn-glow), 0 0 44px var(--btn-glow);
+      }
+
       #hud .hud-ready-btn.is-ready {
-        color: #8dff2b;
-        border-color: #8dff2b;
+        --btn-glow: #8dff2b;
         animation: readyPulse 1.2s ease-in-out infinite;
       }
 
       @keyframes readyPulse {
-        0%, 100% { box-shadow: 0 0 8px currentColor; }
-        50%       { box-shadow: 0 0 22px currentColor, 0 0 44px currentColor; }
+        0%, 100% { box-shadow: 0 0 12px var(--btn-glow, #22e6ff), 0 0 28px color-mix(in oklab, var(--btn-glow, #22e6ff), transparent 60%); }
+        50%       { box-shadow: 0 0 20px var(--btn-glow, #22e6ff), 0 0 44px var(--btn-glow, #22e6ff); }
       }
 
       #hud .hud-audio {
@@ -2054,10 +2062,10 @@ async function main() {
 
       #esc-overlay .esc-btn {
         width: 100%;
-        padding: 10px 18px;
+        padding: 14px 22px;
         border-radius: 6px;
         font-family: var(--esc-display);
-        font-size: 14px;
+        font-size: 16px;
         letter-spacing: 0.06em;
         cursor: pointer;
         text-decoration: none;
@@ -2073,7 +2081,8 @@ async function main() {
 
       #esc-overlay .esc-btn:hover:not(:disabled) {
         transform: translateY(-2px) scale(1.02);
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(0, 0, 0, 0.35);
+        box-shadow: 0 0 20px var(--btn-glow, #ff2bd6), 0 0 44px var(--btn-glow, #ff2bd6);
       }
 
       #esc-overlay .esc-btn--quit {
