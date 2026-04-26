@@ -1643,7 +1643,6 @@ async function main() {
     localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
     if (sfx) {
       sfx._muted = isMuted;
-      sfx.setVolume(sfxVolume);
     }
     try { applyAudioVolume(); } catch (e) {}
   }
@@ -1651,9 +1650,7 @@ async function main() {
   function setSfxSliderVolume(v) {
     sfxVolume = clamp(v, 0, 1);
     localStorage.setItem("cartRaveSfxVol", Math.round(sfxVolume * 100).toString());
-    if (sfx) {
-      sfx.setVolume(sfxVolume);
-    }
+    try { applyAudioVolume(); } catch (e) {}
   }
 
   function initHud() {
@@ -2941,7 +2938,6 @@ async function main() {
     if (savedSfxVol !== null) {
       const parsed = parseInt(savedSfxVol, 10);
       sfxVolume = Number.isNaN(parsed) ? 0.25 : clamp(parsed / 100, 0, 1);
-      if (sfx) sfx.setVolume(sfxVolume);
     }
     const savedMute = localStorage.getItem("cartRaveMuted");
     if (savedMute === "true") setAllAudioMuted(true);
@@ -3276,134 +3272,138 @@ async function main() {
   camera.lookAt(0, 0, 0);
 
   const audioListener = new THREE.AudioListener();
-  const sfxGain = audioListener.context.createGain();
   const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
   if (savedSfxVol !== null) {
     const parsedSfxVol = parseInt(savedSfxVol, 10);
     sfxVolume = Number.isNaN(parsedSfxVol) ? 0.25 : clamp(parsedSfxVol / 100, 0, 1);
   }
-  sfxGain.gain.value = isMuted ? 0 : sfxVolume;
-  sfxGain.connect(audioListener.context.destination);
   sfx = {
     _muted: isMuted,
-    setVolume(v) {
-      const nextVolume = clamp(v, 0, 1);
-      sfxGain.gain.value = this._muted ? 0 : nextVolume;
-      if (audioListener && typeof audioListener.setMasterVolume === "function") {
-        audioListener.setMasterVolume(this._muted ? 0 : nextVolume);
-      }
-    },
     playCollision(intensity) {
-      const collisionIntensity = clamp(intensity, 0, 1);
-      if (collisionIntensity <= 0) return;
-
+      const i = clamp(intensity, 0, 1);
+      if (i <= 0) return;
       const ctx = audioListener.context;
       if (ctx.state === "suspended") {
         void ctx.resume();
       }
-
       const now = ctx.currentTime;
-      const duration = 0.14;
-      const peakGain = collisionIntensity * 0.6;
+      const vol = i * 0.45;
 
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(peakGain, now + 0.002);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-      gain.connect(sfxGain);
+      // * Layer 1: low thump, simulating body impact.
+      const thump = ctx.createOscillator();
+      thump.type = "sine";
+      thump.frequency.setValueAtTime(80, now);
+      thump.frequency.exponentialRampToValueAtTime(40, now + 0.06);
+      const thumpGain = ctx.createGain();
+      thumpGain.gain.setValueAtTime(vol, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      thump.connect(thumpGain);
+      thumpGain.connect(audioListener.gain);
+      thump.start(now);
+      thump.stop(now + 0.1);
 
-      const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(180, now);
-      osc.connect(gain);
-
-      const noiseDuration = 0.04;
-      const noiseBuffer = ctx.createBuffer(
-        1,
-        Math.ceil(ctx.sampleRate * noiseDuration),
-        ctx.sampleRate,
-      );
-      const noiseData = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < noiseData.length; i += 1) {
-        noiseData[i] = Math.random() * 2 - 1;
+      // * Layer 2: mid crack, a short high-passed noise burst.
+      const crackLen = 0.02;
+      const crackBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * crackLen), ctx.sampleRate);
+      const crackData = crackBuf.getChannelData(0);
+      for (let j = 0; j < crackData.length; j += 1) {
+        crackData[j] = (Math.random() * 2 - 1) * (1 - j / crackData.length);
       }
+      const crack = ctx.createBufferSource();
+      crack.buffer = crackBuf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 2000;
+      hp.Q.value = 0.5;
+      const crackGain = ctx.createGain();
+      crackGain.gain.setValueAtTime(vol * 0.5, now);
+      crackGain.gain.exponentialRampToValueAtTime(0.001, now + crackLen);
+      crack.connect(hp);
+      hp.connect(crackGain);
+      crackGain.connect(audioListener.gain);
+      crack.start(now);
+      crack.stop(now + crackLen);
 
-      const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuffer;
-      noise.connect(gain);
-
-      osc.start(now);
-      osc.stop(now + duration);
-      noise.start(now);
-      noise.stop(now + noiseDuration);
+      if (i > 0.5) {
+        // * Layer 3: heavy-hit bass punch.
+        const punch = ctx.createOscillator();
+        punch.type = "sine";
+        punch.frequency.setValueAtTime(50, now);
+        punch.frequency.exponentialRampToValueAtTime(25, now + 0.04);
+        const punchGain = ctx.createGain();
+        punchGain.gain.setValueAtTime(vol * 0.7, now);
+        punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        punch.connect(punchGain);
+        punchGain.connect(audioListener.gain);
+        punch.start(now);
+        punch.stop(now + 0.06);
+      }
     },
     playNitro() {
       const ctx = audioListener.context;
       if (ctx.state === "suspended") {
         void ctx.resume();
       }
-
       const now = ctx.currentTime;
-      const noiseDuration = 0.2;
-      const noiseBuffer = ctx.createBuffer(
-        1,
-        Math.ceil(ctx.sampleRate * noiseDuration),
-        ctx.sampleRate,
-      );
-      const noiseData = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < noiseData.length; i += 1) {
-        noiseData[i] = Math.random() * 2 - 1;
+
+      // * Short filtered noise rush, like a fighting-game dash.
+      const len = 0.1;
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j += 1) {
+        d[j] = Math.random() * 2 - 1;
       }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(800, now);
+      bp.frequency.exponentialRampToValueAtTime(3000, now + 0.06);
+      bp.Q.value = 2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.3, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + len);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(audioListener.gain);
+      src.start(now);
+      src.stop(now + len);
 
-      const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuffer;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = "bandpass";
-      filter.frequency.setValueAtTime(400, now);
-      filter.frequency.linearRampToValueAtTime(2000, now + 0.15);
-
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + 0.005);
-      gain.gain.setValueAtTime(0.35, now + 0.085);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.205);
-
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(sfxGain);
-
-      noise.start(now);
-      noise.stop(now + noiseDuration);
+      // * Subtle pitch accent adds the quick rising tone.
+      const accent = ctx.createOscillator();
+      accent.type = "sine";
+      accent.frequency.setValueAtTime(300, now);
+      accent.frequency.exponentialRampToValueAtTime(900, now + 0.05);
+      const ag = ctx.createGain();
+      ag.gain.setValueAtTime(0.12, now);
+      ag.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      accent.connect(ag);
+      ag.connect(audioListener.gain);
+      accent.start(now);
+      accent.stop(now + 0.08);
     },
     playFallOff() {
       const ctx = audioListener.context;
       if (ctx.state === "suspended") {
         void ctx.resume();
       }
-
       const now = ctx.currentTime;
-      const duration = 0.45;
 
+      // * Quick low drop, keeping the fall cue short and grounded.
       const osc = ctx.createOscillator();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(120, now + 0.4);
-
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.4, now + 0.003);
-      gain.gain.setValueAtTime(0.4, now + 0.303);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-      osc.connect(gain);
-      gain.connect(sfxGain);
-
+      osc.frequency.setValueAtTime(250, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.3, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.connect(g);
+      g.connect(audioListener.gain);
       osc.start(now);
-      osc.stop(now + duration);
+      osc.stop(now + 0.18);
     },
   };
-  sfx.setVolume(sfxVolume);
+  applyAudioVolume();
   camera.add(audioListener);
 
   const composer = new EffectComposer(renderer);
