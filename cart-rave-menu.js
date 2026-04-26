@@ -55,8 +55,7 @@
   const rollHandle = () => {
     const a = HANDLE_PARTS[0][Math.floor(Math.random() * HANDLE_PARTS[0].length)];
     const b = HANDLE_PARTS[1][Math.floor(Math.random() * HANDLE_PARTS[1].length)];
-    const n = Math.floor(Math.random() * 90 + 10);
-    return `${a}${b}${n}`;
+    return `${a}${b}`;
   };
 
   // * Game color IDs in slot order — must match PALETTE = Object.keys(CART_COLORS) in main.js.
@@ -66,7 +65,7 @@
   const state = {
     palette: PALETTES[CONFIG.palette] || PALETTES.classic,
     playerIdx: 0,
-    name: "BASSLORD42",
+    name: localStorage.getItem("cartRaveUsername") || "BASSLORD42",
     muted: false,
     vol: 0.25,
     beat: 0,
@@ -74,6 +73,11 @@
     globalOnline: 2431,
     globalPlayed: 1847293,
   };
+
+  if (!localStorage.getItem("cartRaveUsername")) {
+    state.name = rollHandle();
+    localStorage.setItem("cartRaveUsername", state.name);
+  }
 
   // ─── DOM refs ─────────────────────────────────────────────────────────────
   const $ = (id) => document.getElementById(id);
@@ -270,6 +274,7 @@
   });
   const finishNameEdit = () => {
     state.name = (nameInput.value || '').toUpperCase().slice(0, 12) || state.name;
+    localStorage.setItem("cartRaveUsername", state.name);
     nameText.textContent = state.name;
     nameInput.style.display = 'none';
     nameDisplay.style.display = '';
@@ -283,6 +288,7 @@
   });
   rerollBtn.addEventListener('click', () => {
     state.name = rollHandle();
+    localStorage.setItem("cartRaveUsername", state.name);
     nameText.textContent = state.name;
   });
 
