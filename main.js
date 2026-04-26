@@ -7103,10 +7103,10 @@ async function main() {
         }
         if (isTied) leaderSlot = -1;
       }
-      // * 0.5 Hz = one full cycle every 2 seconds.
-      const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 0.5) + 1) / 2;
-      // * emissiveIntensity pulses 0.3 → 1.2 so bloom picks it up at peak.
-      const glowIntensity = 0.3 + glowPulse * 0.9;
+      // * 1 Hz = one full cycle per second.
+      const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
+      // * emissiveIntensity pulses 0.5 → 2.0 for strong bloom at peak.
+      const glowIntensity = 0.5 + glowPulse * 1.5;
       for (let i = 0; i < allCarts.length; i += 1) {
         const cart = allCarts[i];
         if (!cart || !cart.mesh) continue;
