@@ -7115,12 +7115,8 @@ async function main() {
           if (!child.isMesh || !child.material || !child.material.emissive) return;
           if (child.userData.isFace || child.userData.isWheel) return;
           if (isLeader) {
-            // * Inverted RGB of cart's base color, full value — intensity carries the pulse.
-            const baseHex = colorHexForSlot(netSlots[i]);
-            const br = ((baseHex >> 16) & 0xff) / 255;
-            const bg = ((baseHex >> 8) & 0xff) / 255;
-            const bb = (baseHex & 0xff) / 255;
-            child.material.emissive.setRGB(1 - br, 1 - bg, 1 - bb);
+            // * White emissive — intensity carries the pulse.
+            child.material.emissive.setRGB(1, 1, 1);
             child.material.emissiveIntensity = glowIntensity;
           } else {
             // * Restore standard emissive (cart's own color at normal intensity).
