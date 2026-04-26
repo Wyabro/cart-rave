@@ -1698,25 +1698,85 @@ async function main() {
         position: absolute;
         top: 18px;
         left: 18px;
-        font-family: var(--hud-display);
-        font-size: 1.8rem;
-        font-weight: 800;
-        letter-spacing: 0.04em;
-        padding: 10px 12px;
-        border: 2px solid var(--hud-glow);
-        border-radius: 6px;
-        background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        box-shadow:
-          0 0 0 1px rgba(255,255,255,0.05) inset,
-          0 0 12px var(--hud-glow),
-          0 0 28px color-mix(in oklab, var(--hud-glow), transparent 60%);
-        color: #ffffff;
-        text-shadow: 0 0 8px var(--hud-glow);
         display: none;
-        min-width: 72px;
-        text-align: right;
+        align-items: stretch;
+        justify-content: flex-start;
+        flex-direction: row;
+        background: rgba(0,0,0,0.75);
+        border: 2px solid rgba(255,255,255,0.15);
+        border-radius: 6px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      #hud .hud-timer-stripe {
+        width: 8px;
+        background: #39ff14;
+        box-shadow: 0 0 12px #39ff14aa;
+        flex: 0 0 auto;
+      }
+
+      #hud .hud-timer-body {
+        padding: 10px 20px 12px 16px;
+        min-width: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      #hud .hud-timer-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "Share Tech Mono", ui-monospace, monospace;
+        font-size: 13px;
+        letter-spacing: 2px;
+        color: rgba(255,255,255,0.6);
+        text-transform: uppercase;
+        line-height: 1;
+      }
+
+      #hud .hud-timer-pip {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #39ff14;
+        box-shadow: 0 0 6px #39ff14;
+        flex: 0 0 auto;
+      }
+
+      #hud .hud-timer-rd {
+        margin-left: auto;
+        color: rgba(255,255,255,0.45);
+        font-size: 12px;
+        letter-spacing: 1px;
+      }
+
+      #hud .hud-timer-num {
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 72px;
+        line-height: 1;
+        letter-spacing: 4px;
+        color: #ffffff;
+        text-shadow: 0 0 20px rgba(57,255,20,0.4);
+      }
+
+      #hud .hud-timer-bar {
+        height: 5px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      #hud .hud-timer-bar i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #39ff14, #22e6ff);
+        border-radius: 3px;
+        box-shadow: 0 0 8px #39ff1488;
       }
 
       #hud .hud-scores {
@@ -2151,6 +2211,37 @@ async function main() {
 
     const timer = document.createElement("div");
     timer.className = "hud-timer";
+    const timerStripe = document.createElement("div");
+    timerStripe.className = "hud-timer-stripe";
+    const timerBody = document.createElement("div");
+    timerBody.className = "hud-timer-body";
+    const timerMeta = document.createElement("div");
+    timerMeta.className = "hud-timer-meta";
+    const timerPip = document.createElement("span");
+    timerPip.className = "hud-timer-pip";
+    const timerMetaText = document.createElement("span");
+    timerMetaText.textContent = "TIME LEFT";
+    const timerRd = document.createElement("span");
+    timerRd.className = "hud-timer-rd";
+    timerRd.textContent = "";
+    timerMeta.appendChild(timerPip);
+    timerMeta.appendChild(timerMetaText);
+    timerMeta.appendChild(timerRd);
+
+    const timerNum = document.createElement("div");
+    timerNum.className = "hud-timer-num";
+    timerNum.textContent = "";
+
+    const timerBar = document.createElement("div");
+    timerBar.className = "hud-timer-bar";
+    const timerFill = document.createElement("i");
+    timerBar.appendChild(timerFill);
+
+    timerBody.appendChild(timerMeta);
+    timerBody.appendChild(timerNum);
+    timerBody.appendChild(timerBar);
+    timer.appendChild(timerStripe);
+    timer.appendChild(timerBody);
 
     const scores = document.createElement("div");
     scores.className = "hud-scores";
@@ -2417,6 +2508,9 @@ async function main() {
       root,
       status,
       timer,
+      timerNum,
+      timerRd,
+      timerFill,
       scores,
       scoreBoxes,
       readyBtn,
@@ -3059,17 +3153,28 @@ async function main() {
     // --- Timer ---
     if (roundPhase === "running") {
       const elapsedMs = Date.now() - (roundStartedAtMs || 0);
-      const remainingMs = 60000 - elapsedMs;
+      const totalRoundMs = 60000;
+      const remainingMs = totalRoundMs - elapsedMs;
       const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, 60);
       const text =
         seconds >= 60
           ? "1:00"
           : `:${String(seconds).padStart(2, "0")}`;
       hud.timer.style.display = "block";
-      hud.timer.textContent = text;
+      if (hud.timerNum) hud.timerNum.textContent = text;
+      if (hud.timerRd) {
+        const currentRound = Math.max(1, matchHistory.length + 1);
+        hud.timerRd.textContent = `RD ${currentRound}`;
+      }
+      if (hud.timerFill) {
+        const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
+        hud.timerFill.style.width = `${pct}%`;
+      }
     } else {
       hud.timer.style.display = "none";
-      hud.timer.textContent = "";
+      if (hud.timerNum) hud.timerNum.textContent = "";
+      if (hud.timerRd) hud.timerRd.textContent = "";
+      if (hud.timerFill) hud.timerFill.style.width = "0%";
     }
 
     // --- Score row ---
