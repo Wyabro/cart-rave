@@ -2002,6 +2002,12 @@ async function main() {
         text-transform: uppercase;
       }
 
+      #esc-overlay .esc-scoring-divider {
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        margin: 16px 0;
+      }
+
       #esc-overlay .esc-scoring-title {
         font-family: var(--esc-display);
         font-size: 11px;
@@ -2010,14 +2016,15 @@ async function main() {
         color: #ff2bd6;
         text-shadow: 0 0 8px #ff2bd6;
         text-transform: uppercase;
-        margin: 8px 0 4px;
+        margin: 0 0 6px;
       }
 
       #esc-overlay .esc-scoring {
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 4px 8px;
-        margin-bottom: 10px;
+        gap: 12px 8px;
+        margin-bottom: 0;
+        padding: 16px 0;
       }
 
       #esc-overlay .esc-scoring-key,
@@ -2038,19 +2045,20 @@ async function main() {
         text-shadow: 0 0 8px #22e6ff;
         text-align: right;
         white-space: nowrap;
+        font-size: 13px;
+        font-weight: 700;
       }
 
       #esc-overlay .esc-scoring-hint {
         grid-column: 1 / -1;
         padding: 6px 10px;
-        border-radius: 10px;
-        background: rgba(255, 43, 214, 0.08);
-        border: 1px solid rgba(255, 43, 214, 0.2);
         font-family: var(--esc-mono);
         font-size: 10px;
-        letter-spacing: 0.03em;
-        color: rgba(255, 255, 255, 0.65);
-        font-style: italic;
+        letter-spacing: 0.06em;
+        color: #ff2bd6;
+        text-shadow: 0 0 6px #ff2bd6;
+        text-transform: uppercase;
+        text-align: center;
       }
 
       #esc-overlay .esc-actions {
@@ -2275,6 +2283,9 @@ async function main() {
 
     actions.appendChild(resumeBtn);
     actions.appendChild(quitBtn);
+    const scoringDivider = document.createElement("hr");
+    scoringDivider.className = "esc-scoring-divider";
+
     const scoringTitle = document.createElement("div");
     scoringTitle.className = "esc-scoring-title";
     scoringTitle.textContent = "SCORING";
@@ -2282,10 +2293,10 @@ async function main() {
     const scoring = document.createElement("div");
     scoring.className = "esc-scoring";
     [
-      ["Edge knockout", "1 pt"],
-      ["Center hole knockout", "2 pts"],
-      ["Critical hit (high speed)", "+1 pt"],
-      ["Knock out the leader", "+1 pt"],
+      ["KNOCK OFF EDGE", "◆"],
+      ["KNOCK INTO HOLE", "◆◆"],
+      ["AT HIGH SPEED", "◆◆◆"],
+      ["TARGET THE LEADER", "◆◆◆◆"],
     ].forEach(([key, val]) => {
       const k = document.createElement("span");
       k.className = "esc-scoring-key";
@@ -2298,11 +2309,12 @@ async function main() {
     });
     const hint = document.createElement("div");
     hint.className = "esc-scoring-hint";
-    hint.textContent = "The leading player glows — knock them out for bonus points!";
+    hint.textContent = "LEADER GLOWS WHITE";
     scoring.appendChild(hint);
 
     escPanel.appendChild(escTitle);
     escPanel.appendChild(controls);
+    escPanel.appendChild(scoringDivider);
     escPanel.appendChild(scoringTitle);
     escPanel.appendChild(scoring);
     escPanel.appendChild(actions);
