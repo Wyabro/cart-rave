@@ -4209,11 +4209,33 @@ async function main() {
     1,
     true,
   );
+  {
+    // * Top ring (higher y, toward arena): purple. Bottom: black. Per-vertex; Three.js shades between rings.
+    const pos = pitWallGeo.attributes.position;
+    const pitWallColorArray = new Float32Array(pos.count * 3);
+    const cTop = new THREE.Color(0x6a0dad);
+    const cBot = new THREE.Color(0x000000);
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    for (let i = 0; i < pos.count; i += 1) {
+      const y = pos.getY(i);
+      yMin = Math.min(yMin, y);
+      yMax = Math.max(yMax, y);
+    }
+    for (let i = 0; i < pos.count; i += 1) {
+      const t = yMax > yMin ? (pos.getY(i) - yMin) / (yMax - yMin) : 0;
+      pitWallColorArray[i * 3] = cBot.r + (cTop.r - cBot.r) * t;
+      pitWallColorArray[i * 3 + 1] = cBot.g + (cTop.g - cBot.g) * t;
+      pitWallColorArray[i * 3 + 2] = cBot.b + (cTop.b - cBot.b) * t;
+    }
+    pitWallGeo.setAttribute("color", new THREE.BufferAttribute(pitWallColorArray, 3));
+  }
   const pitWallMat = new THREE.MeshStandardMaterial({
-    color: 0x08081a,
+    color: 0xffffff,
     metalness: 0.3,
     roughness: 0.7,
     side: THREE.BackSide,
+    vertexColors: true,
   });
   const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
   pitWall.position.y = pitWallCenterY;
