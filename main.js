@@ -323,6 +323,7 @@ function getPortalQueryParams() {
 const incomingPortalParams = getPortalQueryParams();
 
 let returnPortalTriggered = false;
+let returnPortalArmedAtMs = 0;
 const returnPortalWorldPositions = [];
 
 function buildExitPortalUrl() {
@@ -5711,6 +5712,7 @@ async function main() {
   }
 
   await firstHelloPromise;
+  returnPortalArmedAtMs = Date.now() + 3000;
 
   /** @type {ReturnType<typeof createCart>[]} */
   const cartsBySlotId = [];
@@ -7285,7 +7287,7 @@ async function main() {
       }
     }
 
-    if (!returnPortalTriggered && incomingPortalParams?.ref && hasReturnPortals) {
+    if (!returnPortalTriggered && incomingPortalParams?.ref && hasReturnPortals && Date.now() > returnPortalArmedAtMs) {
       for (const pos of returnPortalWorldPositions) {
         const dx = playerPos.x - pos.x;
         const dy = playerPos.y - pos.y;
