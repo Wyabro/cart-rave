@@ -3711,8 +3711,64 @@ async function main() {
       }
       const now = ctx.currentTime;
 
-      // * Filtered noise burst to suggest tire slip without dominating the mix.
+      // * Rubber squeal: oscillator layer dominates; filtered noise adds texture.
       const len = 0.25;
+
+      const master = ctx.createGain();
+      const base = 0.15 * sfxVolume;
+      const peak = base * (0.35 + i * 0.65);
+      master.gain.setValueAtTime(0.001, now);
+      master.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + 0.03);
+      master.gain.exponentialRampToValueAtTime(0.001, now + len);
+      master.connect(audioListener.gain);
+
+      const squealMix = ctx.createGain();
+      squealMix.gain.setValueAtTime(1.0, now);
+      squealMix.connect(master);
+
+      // Noise stays ~30% of the mix.
+      const noiseMix = ctx.createGain();
+      noiseMix.gain.setValueAtTime(0.3, now);
+      noiseMix.connect(master);
+
+      // Random base pitch per trigger so squeals don't sound identical.
+      const baseHz = 600 + Math.random() * 600;
+      const baseVar = 0.92 + Math.random() * 0.16;
+      const f0 = baseHz * baseVar;
+
+      // Slow frequency wobble (rubbery squeal).
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.setValueAtTime(7 + Math.random() * 3, now); // 7–10 Hz
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.setValueAtTime(30 + Math.random() * 20, now); // ±30–50 Hz
+      lfo.connect(lfoGain);
+
+      const voiceCount = 2 + (Math.random() < 0.6 ? 1 : 0); // 2–3 voices
+      for (let v = 0; v < voiceCount; v += 1) {
+        const osc = ctx.createOscillator();
+        osc.type = v === 0 ? "triangle" : "sine";
+
+        // Slight detune per voice (Hz), plus a tiny extra random offset.
+        const detuneHz = (v - (voiceCount - 1) / 2) * (18 + Math.random() * 10);
+        osc.frequency.setValueAtTime(f0 + detuneHz + (Math.random() - 0.5) * 25, now);
+
+        // Gentle drift upward during the squeal.
+        osc.frequency.linearRampToValueAtTime((f0 + detuneHz) * 1.08, now + len);
+
+        // Apply the shared LFO wobble to each voice.
+        lfoGain.connect(osc.frequency);
+
+        const vg = ctx.createGain();
+        vg.gain.setValueAtTime(0.75 / voiceCount, now);
+        osc.connect(vg);
+        vg.connect(squealMix);
+        osc.start(now);
+        osc.stop(now + len);
+      }
+      lfo.start(now);
+      lfo.stop(now + len);
+
       const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
       const d = buf.getChannelData(0);
       for (let j = 0; j < d.length; j += 1) {
@@ -3732,17 +3788,9 @@ async function main() {
       bp.frequency.setValueAtTime(1800, now);
       bp.Q.value = 1.2;
 
-      const g = ctx.createGain();
-      const base = 0.15 * sfxVolume;
-      const peak = base * (0.35 + i * 0.65);
-      g.gain.setValueAtTime(0.001, now);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.001, now + len);
-
       src.connect(hp);
       hp.connect(bp);
-      bp.connect(g);
-      g.connect(audioListener.gain);
+      bp.connect(noiseMix);
       src.start(now);
       src.stop(now + len);
     },
