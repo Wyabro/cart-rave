@@ -64,7 +64,7 @@ const CONFIG = {
     // * Non-host renders 100ms behind latest packet for smoothness.
     interpBufferMs: 100,
     // * Host sends authoritative transforms at 20Hz.
-    hostSendHz: 20,
+    hostSendHz: 30,
     // * Non-host sends client_input at 60Hz.
     clientInputHz: 60,
     // * Keepalive ping interval (ms). Kept well below the server-side reap
