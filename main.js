@@ -563,6 +563,8 @@ let triggerRamBoostRef = null;
 const updateNameLabelsRef = { current: null };
 /** @type {{ current: (() => void) | null }} */
 const respawnLocalMidRoundJoinRef = { current: null };
+/** @type {{ current: (() => void) | null }} */
+const resetSimTimingRef = { current: null };
 /** @type {string | null} */
 let pendingMidRoundJoinRespawnConnId = null;
 
@@ -807,6 +809,8 @@ function setAuthorityMode(nextIsHost) {
     if (lastCartsCache) {
       applyCartsSnapshotToBodies(lastCartsCache);
     }
+    // Prevent a huge accumulated fixed-step catch-up on host migration.
+    resetSimTimingRef.current?.();
     startHostSendLoop();
     return;
   }
@@ -6566,8 +6570,14 @@ async function main() {
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
 
+  resetSimTimingRef.current = () => {
+    lastT = performance.now();
+    accumulator = 0;
+  };
+
   function step(now) {
-    const dt = Math.min((now - lastT) / 1000, 0.05);
+    let dt = (now - lastT) / 1000;
+    dt = Math.min(dt, 0.05);
     lastT = now;
     accumulator += dt;
 
