@@ -2897,6 +2897,17 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "none";
+    if (hud) {
+      if (hud.timer) hud.timer.style.display = "none";
+      if (hud.scores) hud.scores.style.display = "none";
+      if (hud.readyBtn) hud.readyBtn.style.display = "none";
+      if (hud.status) hud.status.style.display = "none";
+    }
+    const feed = (hud && hud.feed) || document.querySelector(".hud-feed");
+    if (feed) {
+      feed.style.display = "none";
+      while (feed.firstChild) feed.removeChild(feed.firstChild);
+    }
     // Fade out game music, fade in menu music
     try {
       if (musicEl && !musicEl.paused) {
@@ -3189,6 +3200,7 @@ async function main() {
   }
 
   function updateHud() {
+    if (menuVisible) return;
     if (!hud) return;
 
     // --- Status line ---
