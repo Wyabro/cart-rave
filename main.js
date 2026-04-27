@@ -903,6 +903,28 @@ function initNetcode(roomOverride) {
     room: resolvedRoom,
   });
 
+  let didSendJoin = false;
+  let netcodeRetryScheduled = false;
+  const scheduleNetcodeRetry = () => {
+    if (netcodeRetryScheduled) return;
+    netcodeRetryScheduled = true;
+    setTimeout(() => {
+      netcodeRetryScheduled = false;
+      if (partySocket) return;
+      initNetcode(roomOverride);
+    }, 400 + Math.random() * 600);
+  };
+
+  partySocket.addEventListener("close", () => {
+    if (didSendJoin) return;
+    try { scheduleNetcodeRetry(); } catch {}
+  });
+
+  partySocket.addEventListener("error", () => {
+    if (didSendJoin) return;
+    try { scheduleNetcodeRetry(); } catch {}
+  });
+
   partySocket.addEventListener("open", () => {
     let savedUsername = (incomingPortalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
@@ -919,6 +941,7 @@ function initNetcode(roomOverride) {
       }
     }
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
+    didSendJoin = true;
     
     startKeepaliveLoop();
 
@@ -2177,6 +2200,16 @@ async function main() {
       #hud .hud-scoreBox.isLocal .hud-scoreLabel,
       #hud .hud-scoreBox.isLocal .hud-scoreValue {
         font-weight: 900;
+      }
+
+      #hud .hud-status.pulse {
+        animation: hudStatusPulse 200ms ease-out both;
+      }
+
+      @keyframes hudStatusPulse {
+        0% { transform: scale(1); }
+        40% { transform: scale(1.3); }
+        100% { transform: scale(1); }
       }
 
       #hud .hud-ready-btn {
@@ -3464,6 +3497,10 @@ async function main() {
     }
     // Start game music with fade in once the game audio element exists.
     if (musicEl) {
+      if (gameMusicFadeOutInterval !== null) {
+        clearInterval(gameMusicFadeOutInterval);
+        gameMusicFadeOutInterval = null;
+      }
       musicEl.volume = 0;
       musicEl.muted = isMuted;
       tryStartAmbientMusic();
@@ -3522,6 +3559,20 @@ async function main() {
     if (hud && hud.feed) hud.feed.style.display = "";
 
     // --- Status line ---
+    if (updateHud._goUntilMs == null) updateHud._goUntilMs = 0;
+    if (updateHud._prevRoundPhase == null) updateHud._prevRoundPhase = null;
+    const prevPhase = updateHud._prevRoundPhase;
+    if (prevPhase === "countdown" && roundPhase === "running") {
+      updateHud._goUntilMs = Date.now() + 500;
+    }
+    updateHud._prevRoundPhase = roundPhase;
+
+    if (Date.now() < updateHud._goUntilMs) {
+      hud.status.style.display = "block";
+      hud.status.style.color = "#22e6ff";
+      hud.status.textContent = "GO!";
+      hud.status.classList.remove("pulse");
+    } else
     if (roundPhase === "running" && lastCartStandingTimeoutId !== null) {
       hud.status.style.display = "block";
       hud.status.style.color = "#ffffff";
@@ -3531,8 +3582,15 @@ async function main() {
       const remainingMs = 3000 - elapsedMs;
       const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
       hud.status.style.display = "block";
-      hud.status.style.color = "#ffffff";
+      hud.status.style.color = "#ff2bd6";
       hud.status.textContent = `GET READY  ${n}`;
+      if (updateHud._lastCountdownN == null) updateHud._lastCountdownN = null;
+      if (updateHud._lastCountdownN !== n) {
+        updateHud._lastCountdownN = n;
+        hud.status.classList.remove("pulse");
+        void hud.status.offsetWidth; // restart animation
+        hud.status.classList.add("pulse");
+      }
     } else if (roundPhase === "podium") {
       // * Winner line lives on the results overlay; keep top HUD clear during podium.
       hud.status.style.display = "none";
@@ -6466,6 +6524,10 @@ async function main() {
 
   function advanceGameMusicTrack() {
     if (!musicEl || gameMusicUrls.length === 0) return;
+    try {
+      musicEl.pause();
+      musicEl.currentTime = 0;
+    } catch {}
     gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
     musicEl.src = gameMusicUrls[gameMusicIndex];
     try { musicEl.load(); } catch {}
@@ -6483,6 +6545,7 @@ async function main() {
   musicEl.src = musicUrl;
   musicEl.addEventListener("ended", () => {
     if (menuVisible) return;
+    if (musicEl.paused) return;
     advanceGameMusicTrack();
   });
   musicEl.addEventListener("error", () => {
