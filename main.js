@@ -543,6 +543,152 @@ try {
       ? AUDIO_VOLUME_DEFAULT
       : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
+
+  // --- P2 SFX: crowd bed + leader hum (procedural Web Audio; no assets) ---
+  const crowd = (() => {
+    const ctx = audioListener.context;
+    const len = 1.0;
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 900;
+    lp.Q.value = 0.4;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 320;
+    bp.Q.value = 0.7;
+
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+
+    src.connect(lp);
+    lp.connect(bp);
+    bp.connect(g);
+    g.connect(audioListener.gain);
+
+    let started = false;
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    let bumpTimeoutId = null;
+
+    const applyAmbient = () => {
+      const now = ctx.currentTime;
+      const base = 0.012 * sfxVolume;
+      const target = isMuted ? 0.0001 : base;
+      g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.25);
+      lp.frequency.setTargetAtTime(900, now, 0.25);
+      bp.frequency.setTargetAtTime(320, now, 0.25);
+      bp.Q.setTargetAtTime(0.7, now, 0.25);
+    };
+
+    const ensureStarted = () => {
+      if (started) return;
+      try { src.start(); } catch {}
+      started = true;
+      applyAmbient();
+    };
+
+    const bump = () => {
+      ensureStarted();
+      if (isMuted || sfxVolume <= 0) return;
+      const now = ctx.currentTime;
+      const ambient = 0.012 * sfxVolume;
+      const peak = 0.028 * sfxVolume;
+      g.gain.cancelScheduledValues(now);
+      g.gain.setTargetAtTime(Math.max(0.0001, peak), now, 0.04);
+      lp.frequency.setTargetAtTime(1400, now, 0.05);
+      bp.frequency.setTargetAtTime(520, now, 0.05);
+      bp.Q.setTargetAtTime(1.2, now, 0.05);
+
+      if (bumpTimeoutId) clearTimeout(bumpTimeoutId);
+      bumpTimeoutId = setTimeout(() => {
+        bumpTimeoutId = null;
+        const t = ctx.currentTime;
+        g.gain.setTargetAtTime(Math.max(0.0001, ambient), t, 0.35);
+        lp.frequency.setTargetAtTime(900, t, 0.35);
+        bp.frequency.setTargetAtTime(320, t, 0.35);
+        bp.Q.setTargetAtTime(0.7, t, 0.35);
+      }, 1500);
+    };
+
+    return { ensureStarted, applyAmbient, bump };
+  })();
+
+  const leaderHum = (() => {
+    const ctx = audioListener.context;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 58;
+
+    const drive = ctx.createGain();
+    drive.gain.value = 0.12;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 220;
+    lp.Q.value = 0.8;
+
+    const panner = ctx.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = 4;
+    panner.maxDistance = 60;
+    panner.rolloffFactor = 1.2;
+
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+
+    osc.connect(drive);
+    drive.connect(lp);
+    lp.connect(panner);
+    panner.connect(g);
+    g.connect(audioListener.gain);
+
+    let started = false;
+    /** @type {null|number} */
+    let currentLeaderSlot = null;
+
+    const ensureStarted = () => {
+      if (started) return;
+      try { osc.start(); } catch {}
+      started = true;
+    };
+
+    const setLeader = (slotIndex) => {
+      ensureStarted();
+      const now = ctx.currentTime;
+      const wants = Number.isFinite(slotIndex) ? slotIndex : null;
+      if (wants === currentLeaderSlot) return;
+      currentLeaderSlot = wants;
+      const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.035 * sfxVolume) : 0.0001;
+      g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
+    };
+
+    const updatePositionFromCart = (cart) => {
+      if (!cart || !cart.mesh) return;
+      const pos = cart.mesh.position;
+      if (!pos) return;
+      const now = ctx.currentTime;
+      panner.positionX.setValueAtTime(pos.x, now);
+      panner.positionY.setValueAtTime(pos.y, now);
+      panner.positionZ.setValueAtTime(pos.z, now);
+    };
+
+    const resyncVolume = () => {
+      const now = ctx.currentTime;
+      const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.035 * sfxVolume) : 0.0001;
+      g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
+    };
+
+    return { setLeader, updatePositionFromCart, resyncVolume };
+  })();
 } catch {}
 /** @type {boolean} */
 let isMuted = false; // Step 10d: Mute state
@@ -1117,6 +1263,17 @@ function initNetcode(roomOverride) {
     if (type === MSG.round) {
       const r = msg.round;
       if (r && typeof r === "object") {
+        // Crowd swell: react to any positive score delta while running.
+        if (r.phase === "running" && r.scores && typeof r.scores === "object") {
+          let didScore = false;
+          for (let i = 0; i < 4; i += 1) {
+            const prev = Number(roundScores?.[i] ?? 0);
+            const next = Number(r.scores?.[i] ?? prev);
+            if (next > prev) { didScore = true; break; }
+          }
+          if (didScore) crowd.bump();
+        }
+
         const prevPhase = roundPhase;
         const newPhase = r.phase;
         // * Approach (a): single source of truth via MSG.round transition into podium — host and clients append the same
@@ -3251,6 +3408,7 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
+    try { crowd.ensureStarted(); } catch {}
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
@@ -3579,6 +3737,11 @@ async function main() {
       ? AUDIO_VOLUME_DEFAULT
       : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
+
+  // Limits to prevent infinite stacking of short transient impact SFX.
+  /** @type {{ intensity: number; stop: () => void }[]} */
+  const activeImpactSfx = [];
+  const MAX_ACTIVE_IMPACTS = 3;
   sfx = {
     _muted: isMuted,
     playCollision(intensity) {
@@ -3590,6 +3753,18 @@ async function main() {
       }
       const now = ctx.currentTime;
       const vol = i * 0.45;
+
+      // Drop the quietest active impact if too many overlap.
+      if (activeImpactSfx.length >= MAX_ACTIVE_IMPACTS) {
+        let quietestIdx = 0;
+        let quietestI = activeImpactSfx[0]?.intensity ?? Infinity;
+        for (let k = 1; k < activeImpactSfx.length; k += 1) {
+          const ki = activeImpactSfx[k]?.intensity ?? Infinity;
+          if (ki < quietestI) { quietestI = ki; quietestIdx = k; }
+        }
+        try { activeImpactSfx[quietestIdx]?.stop?.(); } catch {}
+        activeImpactSfx.splice(quietestIdx, 1);
+      }
 
       // * Layer 1: low thump, simulating body impact.
       const thump = ctx.createOscillator();
@@ -3640,6 +3815,70 @@ async function main() {
         punch.start(now);
         punch.stop(now + 0.06);
       }
+
+      // * Layer 4: metallic clang (detuned partials) + rattle noise.
+      const clangLen = 0.08 + i * 0.06; // 0.08–0.14s
+      const detuneCents = 10 + i * 90; // 10–100 cents spread
+      const clangBaseHz = 900 + Math.random() * 1900; // 900–2800 Hz
+
+      const clangGain = ctx.createGain();
+      const clangPeak = Math.max(0.001, (0.08 + i * 0.18) * sfxVolume);
+      clangGain.gain.setValueAtTime(0.001, now);
+      clangGain.gain.exponentialRampToValueAtTime(clangPeak, now + 0.004);
+      clangGain.gain.exponentialRampToValueAtTime(0.001, now + clangLen);
+      clangGain.connect(audioListener.gain);
+
+      const partialCount = i > 0.65 ? 3 : 2;
+      /** @type {OscillatorNode[]} */
+      const partials = [];
+      for (let p = 0; p < partialCount; p += 1) {
+        const o = ctx.createOscillator();
+        o.type = "sine";
+        const ratio = p === 0 ? 1 : (p === 1 ? 1.48 : 2.02);
+        o.frequency.setValueAtTime(clangBaseHz * ratio, now);
+        const cents = (Math.random() * 2 - 1) * detuneCents * (p + 1);
+        o.detune.setValueAtTime(cents, now);
+        o.connect(clangGain);
+        o.start(now);
+        o.stop(now + clangLen + 0.02);
+        partials.push(o);
+      }
+
+      const rattleLen = 0.03 + i * 0.03;
+      const rattleBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * rattleLen), ctx.sampleRate);
+      const rattleData = rattleBuf.getChannelData(0);
+      for (let j = 0; j < rattleData.length; j += 1) {
+        const t = 1 - j / Math.max(1, rattleData.length);
+        rattleData[j] = (Math.random() * 2 - 1) * t;
+      }
+      const rattle = ctx.createBufferSource();
+      rattle.buffer = rattleBuf;
+      const rattleBp = ctx.createBiquadFilter();
+      rattleBp.type = "bandpass";
+      rattleBp.frequency.setValueAtTime(2200 + i * 1200, now);
+      rattleBp.Q.value = 2.8 + i * 1.2;
+      const rattleGain = ctx.createGain();
+      rattleGain.gain.setValueAtTime(0.001, now);
+      rattleGain.gain.exponentialRampToValueAtTime(Math.max(0.001, clangPeak * 0.55), now + 0.003);
+      rattleGain.gain.exponentialRampToValueAtTime(0.001, now + rattleLen);
+      rattle.connect(rattleBp);
+      rattleBp.connect(rattleGain);
+      rattleGain.connect(audioListener.gain);
+      rattle.start(now);
+      rattle.stop(now + rattleLen + 0.02);
+
+      activeImpactSfx.push({
+        intensity: i,
+        stop: () => {
+          const t = ctx.currentTime;
+          try { clangGain.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
+          try { rattleGain.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
+          for (const o of partials) {
+            try { o.stop(t + 0.01); } catch {}
+          }
+          try { rattle.stop(t + 0.01); } catch {}
+        },
+      });
     },
     playNitro() {
       const ctx = audioListener.context;
@@ -6318,6 +6557,10 @@ async function main() {
       menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
       menuMusicEl.muted = isMuted;
     }
+
+    // Keep procedural P2 SFX in sync with mute/volume changes.
+    try { crowd.applyAmbient(); } catch {}
+    try { leaderHum.resyncVolume(); } catch {}
   }
 
   // Initialize audio with saved settings
@@ -7808,6 +8051,15 @@ async function main() {
         }
         if (isTied) leaderSlot = -1;
       }
+
+      // Leader hum: subtle spatial drone on the current leader.
+      if (!menuVisible && roundPhase === "running" && leaderSlot >= 0 && allCarts[leaderSlot]) {
+        leaderHum.setLeader(leaderSlot);
+        leaderHum.updatePositionFromCart(allCarts[leaderSlot]);
+      } else {
+        leaderHum.setLeader(null);
+      }
+
       // * 1 Hz = one full cycle per second.
       const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
       // * emissiveIntensity pulses 0.5 → 2.0 for strong bloom at peak.
