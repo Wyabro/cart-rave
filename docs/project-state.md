@@ -102,7 +102,7 @@ Current priority: fix the ready-up refresh race (§3), then continue with Steps 
 
 1. ✅ Steps 1–13 (shipped)
 2. **FIX: Ready-up refresh race** (blocking — see §3)
-3. Step 14: Lag mitigation (interpBufferMs, local horn SFX, camera lerp)
+3. Step 14: Lag mitigation (interpBufferMs, local hop SFX, camera lerp)
 4. Step 15: Spawn platform with ramp
 5. Step 16: Physics/visual tuning (hole radius, spotlight count, NPC hole awareness)
 6. Step 17: Eye candy (lighting, equalizer pulses, fog, DJ booth)

@@ -92,7 +92,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## In-game Esc Overlay
 - **Esc key in-game opens an overlay.** Overlay contents:
-  - Controls reminder (visible): `WASD / Arrows = drive`, `Shift = nitro`, `Space = horn`, `M = mute`, `Esc = close`
+  - Controls reminder (visible): `WASD / Arrows = drive`, `Shift = nitro`, `Space = hop`, `M = mute`, `Esc = close`
   - Volume slider
   - Mute toggle
   - Resume button (Esc again also closes)
@@ -168,7 +168,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Procedurally-named** from a comedy-coded pool: RollBot, CartGPT, Trolley McTrolleyFace, WheelE, BaggerVance, PushPop, ShopTilIDrop, Cartholic, RamBuggy, Wheelicious, etc. Assigned at room creation, no duplicates within a room. NPC names persist across color changes (identity = name, not slot or color).
 - **3D floating name labels** above NPC carts, same system as human players.
 - **First-class scoreboard participants.** NPC wins count in session match history, display their names, include in round totals. "CartGPT wins!" is a feature, not a bug. NPCs do not accumulate persistent personal stats (no localStorage records for bots).
-- **Honk and are rammable like humans.** NPCs honk occasionally and use the same positional audio system.
+- **Are rammable like humans.**
 - **Slot handoff on human join/leave**: see Architecture for the hybrid color-swap mechanics. Summary: human's color pick determines which NPC slot gets swapped; displaced NPC is re-colored (not re-named or removed).
 - **NPC spawn position**: NPCs spawn on their assigned spawn booth platform.
 
@@ -190,7 +190,6 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## Audio
 - Positional 3D audio via Three.js PositionalAudio, listener on camera.
-- Bicycle horn SFX per cart (Space key). Each remote cart's horn plays from its synced position.
 - Background game music starts on first input (autoplay policy).
 - **Menu music** (`sounds/menu.mp3`): plays while on menu screen. 2-second crossfade between menu and game music on transitions in both directions.
 - **Master volume controlled by the slider on menu and Esc overlay.** Slider range 0–100 maps to master gain node 0.0–1.0 (gain = slider/100). Default 25% → 0.25 gain. Persisted to localStorage.
@@ -205,7 +204,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 ## Controls
 - WASD or arrow keys: tank steering (drift when moving)
 - Shift: nitro / ram boost
-- Space: horn
+- Space: hop
 - M: mute toggle
 - Esc: open/close in-game overlay
 - Mouse/touch: not supported. **Desktop only.** Show "desktop only" message on mobile user agents.
@@ -222,7 +221,6 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **Solo and host-in-multiplayer have zero input lag.** Most players will experience the game in one of these modes. The lag only affects the non-host in a 2+ human room.
 - **Lag mitigation applied post-Step-10 (low-risk):**
   - Reduce interpolation buffer `interpBufferMs` from 150 → 100 (cuts ~50ms of remote-cart visual delay)
-  - Play horn SFX locally immediately on Space press (networked horn audio for other players still goes through host)
 - **Interpolation buffer empty-state behavior (intent):** if a non-host's buffer runs dry (network stall, host pause, tab throttling), non-host carts hold their last known position rather than extrapolating. Extrapolation without authoritative confirmation risks desync. Verify against code (Cursor audit task).
 - **Host-authoritative means host CPU runs everything.** Physics, NPC AI, fall detection, respawn. Weaker host hardware = slower simulation = worse experience for everyone. Host migration partially mitigates (a failing host eventually gets replaced) but doesn't fix "host has a bad laptop."
 

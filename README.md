@@ -39,7 +39,7 @@ npm install
 
 - **WASD / Arrow keys**: drive
 - **Shift**: nitro / ram boost
-- **Space**: horn
+- **Space**: hop
 - **M** or the on-screen speaker button: mute toggle
 
 ## Arena (dancefloor ring)
@@ -135,4 +135,3 @@ Project decisions and constraints live in `.cursorrules`.
 Optional files in **`sounds/`**:
 
 - **`music.mp3`** — background music (first click or key starts playback)
-- **`horn.wav`** / **`horn.mp3`** — horn clip (synth honk if missing)

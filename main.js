@@ -153,6 +153,11 @@ const CONFIG = {
       },
     },
 
+    hop: {
+      impulse: 8,           // upward impulse magnitude
+      cooldownMs: 1500,     // min time between hops
+    },
+
     // NOTE: CoM tuning deferred. Baseline -0.55 is stable-but-boring.
     // Tried y=-0.4 (tippy) and y=-0.45 with z=-0.2 rearward (caused front-flips under acceleration).
     // Next attempt should be small, single-axis changes with angular damping co-tuned:
@@ -243,25 +248,7 @@ const CONFIG = {
   },
 
   audio: {
-    hornVolume: 0.5625,
-    // * Min time between local horn key triggers (msec); prevents spam when key repeat fires.
-    hornKeyMinIntervalMs: 220,
-    hornRefDistance: 5,
-    hornRolloffFactor: 1.5,
     musicVolume: 0.15,
-    // * Sparse IR convolver on buffered horn: dry spike + soft reflections.
-    hornEchoIrDurationSec: 0.16,
-    hornEchoTaps: [
-      { delaySec: 0.032, gain: 0.1 },
-      { delaySec: 0.058, gain: 0.055 },
-      { delaySec: 0.09, gain: 0.03 },
-    ],
-    // * Procedural horn: parallel delay tap (matches convolver feel).
-    hornEchoProceduralDelaySec: 0.04,
-    hornEchoProceduralDry: 0.88,
-    hornEchoProceduralWet: 0.14,
-    // * Chance the NPC honks when a ram into the player is registered.
-    aiRamHornChance: 0.38,
   },
 };
 
@@ -1378,21 +1365,6 @@ function wrapAngleRad(angle) {
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;
   return a;
-}
-
-// * Mono IR: direct impulse plus sparse taps for subtle echo via ConvolverNode.
-function buildSparseEchoImpulseResponse(audioContext) {
-  const rate = audioContext.sampleRate;
-  const dur = CONFIG.audio.hornEchoIrDurationSec;
-  const len = Math.max(1, Math.ceil(dur * rate));
-  const buffer = audioContext.createBuffer(1, len, rate);
-  const ch0 = buffer.getChannelData(0);
-  ch0[0] = 1;
-  for (const tap of CONFIG.audio.hornEchoTaps) {
-    const i = Math.min(len - 1, Math.round(tap.delaySec * rate));
-    ch0[i] += tap.gain;
-  }
-  return buffer;
 }
 
 async function main() {
@@ -2555,7 +2527,7 @@ async function main() {
     [
       ["WASD / Arrows", "drive"],
       ["Shift", "nitro"],
-      ["Space", "horn"],
+      ["Space", "hop"],
       ["M", "mute"],
       ["Esc", "close"],
     ].forEach(([key, labelText]) => {
@@ -3652,6 +3624,21 @@ async function main() {
       ag.connect(audioListener.gain);
       accent.start(now);
       accent.stop(now + 0.08);
+    },
+    playHop() {
+      if (isMuted || sfxVolume <= 0) return;
+      const ctx = audioListener.context;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(300, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.3 * sfxVolume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(audioListener.gain);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
     },
     playFallOff() {
       const ctx = audioListener.context;
@@ -5582,6 +5569,7 @@ async function main() {
       lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
       ramBoostActiveUntilMs: 0,
       ramBoostStreakCarry: 0,
+      lastHopAtMs: 0,
       respawnAtMs: null,
       pendingRam: null,
       aiNextDecisionMs: 0,
@@ -5889,6 +5877,16 @@ async function main() {
     nitroFirstBoostDiagnosticLogged = true;
   }
 
+  function triggerHop(cart, nowMs) {
+    if (nowMs - cart.lastHopAtMs < CONFIG.cart.hop.cooldownMs) return;
+    if (!cart.body) return;
+    cart.lastHopAtMs = nowMs;
+    cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
+    if (cart === localCartForConnId()) {
+      sfx.playHop();
+    }
+  }
+
   /**
    * @param {number} nowMs
    * @param {number} dtSec
@@ -6091,74 +6089,7 @@ async function main() {
     "ArrowRight",
   ]);
 
-  // --- Horn (positional at player cart) & ambient music ---
-  const hornUrlWav = new URL("sounds/horn.wav", window.location.href).toString();
-  const hornUrlMp3 = new URL("sounds/horn.mp3", window.location.href).toString();
-
-  const hornEchoIRBuffer = buildSparseEchoImpulseResponse(audioListener.context);
-
-  const playerCartHorn = new THREE.PositionalAudio(audioListener);
-  localCartForConnId().mesh.add(playerCartHorn);
-  playerCartHorn.setRefDistance(CONFIG.audio.hornRefDistance);
-  playerCartHorn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
-  playerCartHorn.setVolume(CONFIG.audio.hornVolume);
-  const playerHornEchoConvolver = audioListener.context.createConvolver();
-  playerHornEchoConvolver.buffer = hornEchoIRBuffer;
-  playerHornEchoConvolver.normalize = false;
-  playerCartHorn.setFilter(playerHornEchoConvolver);
-
-  /** @type {{ horn: THREE.PositionalAudio; cart: ReturnType<typeof createCart> }[]} */
-  const npcHornEntries = [];
-  for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-    const slot = netSlots[slotIndex];
-    const c = allCarts[slotIndex];
-    if (!slot || slot.kind !== "npc") continue;
-    const horn = new THREE.PositionalAudio(audioListener);
-    c.mesh.add(horn);
-    horn.setRefDistance(CONFIG.audio.hornRefDistance);
-    horn.setRolloffFactor(CONFIG.audio.hornRolloffFactor);
-    horn.setVolume(CONFIG.audio.hornVolume);
-    const conv = audioListener.context.createConvolver();
-    conv.buffer = hornEchoIRBuffer;
-    conv.normalize = false;
-    horn.setFilter(conv);
-    npcHornEntries.push({ horn, cart: c });
-  }
-
-  const hornLoader = new THREE.AudioLoader();
-  let hornBufferReady = false;
-
-  function loadHornFromMp3() {
-    hornLoader.load(
-      hornUrlMp3,
-      (buffer) => {
-        playerCartHorn.setBuffer(buffer);
-        for (const { horn } of npcHornEntries) {
-          horn.setBuffer(buffer);
-        }
-        hornBufferReady = true;
-      },
-      undefined,
-      () => {
-        // * Horn samples unavailable; procedural horn is used instead.
-      },
-    );
-  }
-
-  hornLoader.load(
-    hornUrlWav,
-    (buffer) => {
-      playerCartHorn.setBuffer(buffer);
-      for (const { horn } of npcHornEntries) {
-        horn.setBuffer(buffer);
-      }
-      hornBufferReady = true;
-    },
-    undefined,
-    () => {
-      loadHornFromMp3();
-    },
-  );
+  // --- Ambient music ---
 
   const musicUrl = new URL("sounds/music.mp3", window.location.href).toString();
   musicEl = new Audio();
@@ -6265,107 +6196,6 @@ async function main() {
     if (!menuVisible) tryStartAmbientMusic();
   }, { passive: true });
 
-  function playProceduralHornAtCart(cart, volumeScale = 1) {
-    const ctx = audioListener.context;
-    if (ctx.state === "suspended") {
-      void ctx.resume();
-    }
-
-    const now = ctx.currentTime;
-    const duration = 0.24;
-
-    const osc = ctx.createOscillator();
-    osc.type = "square";
-    osc.frequency.setValueAtTime(520, now);
-    osc.frequency.exponentialRampToValueAtTime(760, now + duration * 0.55);
-    osc.frequency.exponentialRampToValueAtTime(620, now + duration);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(900, now);
-    filter.Q.setValueAtTime(7, now);
-
-    const gain = ctx.createGain();
-    const peak = 0.22 * volumeScale;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(peak, now + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    const panner = ctx.createPannerNode();
-    panner.panningModel = "HRTF";
-    panner.distanceModel = "inverse";
-    panner.refDistance = CONFIG.audio.hornRefDistance;
-    panner.rolloffFactor = CONFIG.audio.hornRolloffFactor;
-    const p = cart.body.translation();
-    if (panner.positionX) {
-      panner.positionX.setValueAtTime(p.x, now);
-      panner.positionY.setValueAtTime(p.y, now);
-      panner.positionZ.setValueAtTime(p.z, now);
-    } else {
-      panner.setPosition(p.x, p.y, p.z);
-    }
-
-    const echoDry = ctx.createGain();
-    echoDry.gain.value = CONFIG.audio.hornEchoProceduralDry;
-    const echoWet = ctx.createGain();
-    echoWet.gain.value = CONFIG.audio.hornEchoProceduralWet;
-    const echoDelay = ctx.createDelay(0.25);
-    echoDelay.delayTime.value = CONFIG.audio.hornEchoProceduralDelaySec;
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(echoDry);
-    gain.connect(echoDelay);
-    echoDelay.connect(echoWet);
-    echoDry.connect(panner);
-    echoWet.connect(panner);
-    panner.connect(audioListener.gain);
-
-    osc.start(now);
-    osc.stop(now + duration + 0.02);
-  }
-
-  function playBufferHorn(hornPositional, cartForProcedural, volumeScale = 1) {
-    void audioListener.context.resume();
-    const baseVol = CONFIG.audio.hornVolume;
-    if (volumeScale !== 1) {
-      hornPositional.setVolume(baseVol * volumeScale);
-    }
-    if (hornBufferReady) {
-      if (hornPositional.isPlaying) {
-        hornPositional.stop();
-      }
-      try {
-        hornPositional.play();
-        if (volumeScale !== 1 && hornPositional.source) {
-          const s = hornPositional.source;
-          const was = s.onended;
-          s.onended = function onLocalHornEnded() {
-            hornPositional.setVolume(baseVol);
-            if (typeof was === "function") was();
-          };
-        }
-      } catch {
-        if (volumeScale !== 1) {
-          hornPositional.setVolume(baseVol);
-        }
-        playProceduralHornAtCart(cartForProcedural, volumeScale);
-      }
-      return;
-    }
-    if (volumeScale !== 1) {
-      hornPositional.setVolume(baseVol);
-    }
-    playProceduralHornAtCart(cartForProcedural, volumeScale);
-  }
-
-  function maybePlayAiRamHornOnPlayerHit(rammerCart) {
-    if (Math.random() >= CONFIG.audio.aiRamHornChance) return;
-    const entry = npcHornEntries.find((e) => e.cart === rammerCart);
-    if (!entry) return;
-    playBufferHorn(entry.horn, rammerCart);
-  }
-
   function applyRammingImpulse(rammer, victim) {
     const rv = rammer.body.linvel();
     const speed = planarSpeed(rv);
@@ -6386,12 +6216,6 @@ async function main() {
     if (dir.dot(toVictim) < 0.1) return;
 
     const localCart = localCartForConnId();
-    if (localCart && victim === localCart) {
-      const rammerSlot = netSlots[rammer.slotIndex];
-      if (rammerSlot && rammerSlot.kind === "npc") {
-        maybePlayAiRamHornOnPlayerHit(rammer);
-      }
-    }
 
     const impulseMag = clamp(
       CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body),
@@ -6588,9 +6412,6 @@ async function main() {
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
 
-  // * Throttle for Space horn (keydown repeat + rapid taps); aligns with one-shot sample length.
-  let lastLocalHornKeyAtMs = 0;
-
   function onKeyDown(e) {
     if (e.code === "Escape") {
       if (e.repeat) return;
@@ -6637,16 +6458,11 @@ async function main() {
     if (e.code === "Space") {
       e.preventDefault();
       if (e.repeat) return;
-      const tKey = performance.now();
-      if (tKey - lastLocalHornKeyAtMs < CONFIG.audio.hornKeyMinIntervalMs) return;
-      lastLocalHornKeyAtMs = tKey;
+      if (menuVisible) return;
+      if (roundPhase !== "running") return;
       const mySlot = localSlotIndexForConn(youConnId);
-      const localCartBySlot =
-        mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
-      if (playerCartHorn.parent !== localCartBySlot.mesh) {
-        localCartBySlot.mesh.add(playerCartHorn);
-      }
-      playBufferHorn(playerCartHorn, localCartBySlot, 1.6);
+      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
+      triggerHop(cart, performance.now());
       return;
     }
     if (handledCodes.has(e.code)) e.preventDefault();
