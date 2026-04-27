@@ -5414,7 +5414,7 @@ async function main() {
 
     for (let i = 0; i < 4; i++) {
       const angle = (i * Math.PI) / 2;
-      const dist = CONFIG.cart.spawnRingRadius + CONFIG.booth.platformDepth / 2 - 0.5;
+      const dist = CONFIG.cart.spawnRingRadius + CONFIG.booth.platformDepth / 2 + 1.0;
       const rpx = dist * Math.cos(angle);
       const rpz = dist * Math.sin(angle);
       const rpy = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + 2.5;
