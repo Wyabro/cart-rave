@@ -151,9 +151,9 @@ const CONFIG = {
       streakLengthMeters: 2.0,
       npc: {
         enabled: true,
-        alignmentAngleDeg: 12,
-        minTargetDistance: 4.0,
-        maxTargetDistance: 18.0,
+        alignmentAngleDeg: 13.2,
+        minTargetDistance: 3.6,
+        maxTargetDistance: 19.8,
       },
     },
 
@@ -3019,8 +3019,8 @@ async function main() {
     try {
       if (musicEl && !musicEl.paused) {
         const fadeOut = setInterval(() => {
-          if (musicEl.volume > 0.015) {
-            musicEl.volume = Math.max(0, musicEl.volume - 0.015);
+          if (musicEl.volume > 0.0075) {
+            musicEl.volume = Math.max(0, musicEl.volume - 0.0075);
           } else {
             clearInterval(fadeOut);
             musicEl.pause();
@@ -3252,8 +3252,8 @@ async function main() {
     // Crossfade: fade out menu music, fade in game music
     if (menuMusicEl) {
       const fadeOut = setInterval(() => {
-        if (menuMusicEl.volume > 0.015) {
-          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.015);
+        if (menuMusicEl.volume > 0.0075) {
+          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.0075);
         } else {
           clearInterval(fadeOut);
           menuMusicEl.pause();
@@ -3272,8 +3272,8 @@ async function main() {
           clearInterval(fadeIn);
           return;
         }
-        if (musicEl.volume < targetVol - 0.015) {
-          musicEl.volume = Math.min(targetVol, musicEl.volume + 0.015);
+        if (musicEl.volume < targetVol - 0.0075) {
+          musicEl.volume = Math.min(targetVol, musicEl.volume + 0.0075);
         } else {
           musicEl.volume = targetVol;
           clearInterval(fadeIn);
@@ -3700,6 +3700,51 @@ async function main() {
       g.connect(audioListener.gain);
       osc.start(now);
       osc.stop(now + 0.18);
+    },
+    playWheelScreech(intensity) {
+      if (isMuted || sfxVolume <= 0) return;
+      const i = clamp(intensity, 0, 1);
+      if (i <= 0) return;
+      const ctx = audioListener.context;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const now = ctx.currentTime;
+
+      // * Short, filtered noise burst to hint tire slip without dominating the mix.
+      const len = 0.075;
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j += 1) {
+        // White noise with a quick decay tail.
+        d[j] = (Math.random() * 2 - 1) * (1 - j / d.length);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.setValueAtTime(1400, now);
+      hp.Q.value = 0.7;
+
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(3200, now);
+      bp.Q.value = 2.2;
+
+      const g = ctx.createGain();
+      const base = 0.06 * sfxVolume;
+      const peak = base * (0.35 + i * 0.65);
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, now + len);
+
+      src.connect(hp);
+      hp.connect(bp);
+      bp.connect(g);
+      g.connect(audioListener.gain);
+      src.start(now);
+      src.stop(now + len);
     },
   };
   applyAudioVolume();
@@ -5611,6 +5656,7 @@ async function main() {
       ramBoostActiveUntilMs: 0,
       ramBoostStreakCarry: 0,
       lastHopAtMs: 0,
+      lastWheelScreechAtMs: Number.NEGATIVE_INFINITY,
       respawnAtMs: null,
       pendingRam: null,
       aiNextDecisionMs: 0,
@@ -6054,7 +6100,7 @@ async function main() {
     const edgeBiasStart = CONFIG.record.radius * 0.78;
 
     // * 45% chance: target nearest human cart position with a small offset.
-    if (Math.random() < 0.45) {
+    if (Math.random() < 0.495) {
       let nearestHuman = null;
       let nearestD2 = Infinity;
       for (let i = 0; i < allCarts.length; i += 1) {
@@ -6071,7 +6117,7 @@ async function main() {
       }
       if (nearestHuman) {
         const hp = nearestHuman.body.translation();
-        const jitter = 2.0;
+        const jitter = 1.8;
         return { x: hp.x + (Math.random() - 0.5) * jitter, z: hp.z + (Math.random() - 0.5) * jitter };
       }
     }
@@ -6097,13 +6143,13 @@ async function main() {
     const p = cart.body.translation();
     if (now >= cart.aiNextDecisionMs) {
       cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (800 + Math.random() * 1000);
+      cart.aiNextDecisionMs = now + (720 + Math.random() * 900);
     }
 
     const toTarget = new THREE.Vector3(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     if (toTarget.lengthSq() < 0.25) {
       cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (800 + Math.random() * 1000);
+      cart.aiNextDecisionMs = now + (720 + Math.random() * 900);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
     toTarget.normalize();
@@ -6112,7 +6158,7 @@ async function main() {
     const currentYaw = yawFromQuaternion(cart.body.rotation());
     const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
 
-    const turn = clamp(yawDiff * 2.0, -1, 1);
+    const turn = clamp(yawDiff * 2.2, -1, 1);
     const forward = Math.abs(yawDiff) > 1.8 ? -0.7 : 1;
     return { forward, turn };
   }
@@ -7689,6 +7735,39 @@ async function main() {
       const lv = c.body.linvel();
       cartLinvelScratch.set(lv.x, lv.y, lv.z);
       updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
+    }
+
+    // Subtle wheel screech: short noise bursts on sharp turns, nearby carts only.
+    if (!isMuted && sfxVolume > 0 && sfx && typeof sfx.playWheelScreech === "function") {
+      const camPos = camera.position;
+      for (let i = 0; i < allCarts.length; i += 1) {
+        const c = allCarts[i];
+        if (!c || !c.body) continue;
+
+        const p = c.body.translation();
+        const dx = p.x - camPos.x;
+        const dy = p.y - camPos.y;
+        const dz = p.z - camPos.z;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 > 16 * 16) continue;
+
+        const lv = c.body.linvel();
+        const speed = Math.hypot(lv.x, lv.z);
+        if (speed < 4.0) continue;
+
+        const av = c.body.angvel();
+        const yawRate = Math.abs(av.y || 0);
+        const yawRateThreshold = 2.2;
+        if (yawRate < yawRateThreshold) continue;
+
+        if (now - (c.lastWheelScreechAtMs || 0) < 120) continue;
+        c.lastWheelScreechAtMs = now;
+
+        const yawRateMax = 6.0;
+        const turnFactor = clamp((yawRate - yawRateThreshold) / (yawRateMax - yawRateThreshold), 0, 1);
+        const speedFactor = clamp((speed - 4.0) / 10.0, 0, 1);
+        sfx.playWheelScreech(turnFactor * speedFactor);
+      }
     }
 
     // Leader glow: pulsing inverted-color emissive on the current score leader.
