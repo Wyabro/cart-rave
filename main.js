@@ -1741,7 +1741,7 @@ async function main() {
 
       #hud .hud-timer-num {
         font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 72px;
+        font-size: 54px;
         line-height: 1;
         letter-spacing: 4px;
         color: #ffffff;
@@ -1869,21 +1869,21 @@ async function main() {
 
       #hud .hud-feed-actor {
         font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 13px;
+        font-size: 14px;
         color: var(--c);
         text-shadow: 0 0 8px var(--c);
       }
 
       #hud .hud-feed-verb {
         font-family: "Share Tech Mono", ui-monospace, monospace;
-        font-size: 11px;
+        font-size: 12px;
         color: rgba(255,255,255,0.45);
         letter-spacing: 2px;
       }
 
       #hud .hud-feed-target {
         font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 13px;
+        font-size: 14px;
         color: var(--c2);
         text-shadow: 0 0 8px var(--c2);
       }
@@ -1952,12 +1952,11 @@ async function main() {
         align-items: center;
         gap: 8px;
         padding: 8px 14px;
-        background: rgba(0, 0, 0, 0.55);
-        border: 1px solid rgba(34, 230, 255, 0.25);
-        border-radius: 10px;
+        background: rgba(0,0,0,0.75);
+        border: 2px solid rgba(255,255,255,0.15);
+        border-radius: 6px;
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
-        box-shadow: 0 0 12px rgba(34, 230, 255, 0.3), 0 0 28px rgba(34, 230, 255, 0.15);
         pointer-events: auto;
         z-index: 20001;
       }
@@ -1968,9 +1967,9 @@ async function main() {
         width: 28px;
         height: 28px;
         border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255,255,255,0.15);
         background: rgba(0, 0, 0, 0.4);
-        color: #22e6ff;
+        color: #ffffff;
         cursor: pointer;
         font-size: 14px;
         transition: transform 150ms, background 150ms;
@@ -1996,9 +1995,8 @@ async function main() {
       #hud .hud-vol-label {
         width: 14px;
         text-align: center;
-        color: #22e6ff;
+        color: rgba(255,255,255,0.6);
         font-size: 12px;
-        text-shadow: 0 0 6px rgba(34, 230, 255, 0.7);
       }
       #hud .hud-vol-track {
         width: 80px;
@@ -2011,15 +2009,14 @@ async function main() {
       #hud .hud-vol-fill {
         height: 100%;
         border-radius: 3px;
-        background: linear-gradient(90deg, #22e6ff, #ff2bd6);
-        box-shadow: 0 0 6px #ff2bd6;
+        background: #ffffff;
         transition: width 100ms ease;
       }
       #hud .hud-vol-val {
         font-family: 'Space Mono', monospace;
         font-size: 10px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255,255,255,0.5);
         min-width: 22px;
         text-align: right;
         letter-spacing: 0.05em;
@@ -5596,7 +5593,7 @@ async function main() {
     el.style.background = "rgba(0, 0, 0, 0.7)";
     el.style.color = "#fff";
     el.style.fontFamily = "'Bungee', cursive";
-    el.style.fontSize = "28px";
+    el.style.fontSize = "24px";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
     el.style.whiteSpace = "nowrap";
@@ -5649,7 +5646,7 @@ async function main() {
       label.position.set(pos.x, pos.y + 3.0, pos.z);
       const distance = Math.max(0.001, camera.position.distanceTo(label.position));
       const scale = clamp(18 / distance, 0.65, 1.2);
-      label.element.style.fontSize = `${28 * scale}px`;
+      label.element.style.fontSize = `${24 * scale}px`;
       label.element.style.padding = `${6 * scale}px ${14 * scale}px`;
       label.element.style.textShadow = `0 0 ${6 * scale}px ${label._labelColor}`;
     }
