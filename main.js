@@ -3931,13 +3931,11 @@ async function main() {
     },
     playNitro() {
       const ctx = audioListener.context;
-      if (ctx.state === "suspended") {
-        void ctx.resume();
-      }
+      if (ctx.state !== "running") return;
       const now = ctx.currentTime;
 
-      // * Short filtered noise rush, like a fighting-game dash.
-      const len = 0.1;
+      // * Aggressive nitro burst: wide whoosh + saw accent + low thump.
+      const len = 0.25;
       const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
       const d = buf.getChannelData(0);
       for (let j = 0; j < d.length; j += 1) {
@@ -3947,11 +3945,11 @@ async function main() {
       src.buffer = buf;
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
-      bp.frequency.setValueAtTime(800, now);
-      bp.frequency.exponentialRampToValueAtTime(3000, now + 0.06);
+      bp.frequency.setValueAtTime(400, now);
+      bp.frequency.exponentialRampToValueAtTime(4000, now + len);
       bp.Q.value = 2;
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0.3, now);
+      g.gain.setValueAtTime(0.5 * sfxVolume, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + len);
       src.connect(bp);
       bp.connect(g);
@@ -3959,18 +3957,30 @@ async function main() {
       src.start(now);
       src.stop(now + len);
 
-      // * Subtle pitch accent adds the quick rising tone.
+      // * Pitch accent: sawtooth sweep for extra bite.
       const accent = ctx.createOscillator();
-      accent.type = "sine";
-      accent.frequency.setValueAtTime(300, now);
-      accent.frequency.exponentialRampToValueAtTime(900, now + 0.05);
+      accent.type = "sawtooth";
+      accent.frequency.setValueAtTime(200, now);
+      accent.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
       const ag = ctx.createGain();
-      ag.gain.setValueAtTime(0.12, now);
-      ag.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      ag.gain.setValueAtTime(0.25 * sfxVolume, now);
+      ag.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
       accent.connect(ag);
       ag.connect(audioListener.gain);
       accent.start(now);
-      accent.stop(now + 0.08);
+      accent.stop(now + 0.15);
+
+      // * Low-end thump: quick chest-punch.
+      const thump = ctx.createOscillator();
+      thump.type = "sine";
+      thump.frequency.setValueAtTime(80, now);
+      const tg = ctx.createGain();
+      tg.gain.setValueAtTime(0.3 * sfxVolume, now);
+      tg.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      thump.connect(tg);
+      tg.connect(audioListener.gain);
+      thump.start(now);
+      thump.stop(now + 0.15);
     },
     playHop() {
       if (isMuted || sfxVolume <= 0) return;
