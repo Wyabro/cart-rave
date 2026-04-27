@@ -7295,7 +7295,7 @@ async function main() {
           const rawRef = String(incomingPortalParams.ref || "").trim();
           const returnUrl = new URL(rawRef.startsWith("http") ? rawRef : `https://${rawRef}`);
           returnUrl.searchParams.set("portal", "true");
-          returnUrl.searchParams.set("ref", encodeURIComponent(window.location.origin + window.location.pathname));
+          returnUrl.searchParams.set("ref", window.location.origin + window.location.pathname);
           if (incomingPortalParams.username) returnUrl.searchParams.set("username", incomingPortalParams.username);
           if (incomingPortalParams.color) returnUrl.searchParams.set("color", incomingPortalParams.color);
           if (incomingPortalParams.speed) returnUrl.searchParams.set("speed", incomingPortalParams.speed);
