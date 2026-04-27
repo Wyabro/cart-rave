@@ -833,6 +833,8 @@ function setAuthorityMode(nextIsHost) {
 function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
   _localColorPicked = false;
+  const modeAtConnect = detectGameMode();
+  let didAutoReadyOnOpen = false;
   if (partySocket) {
     partySocket.close();
     partySocket = null;
@@ -862,6 +864,21 @@ function initNetcode(roomOverride) {
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
     
     startKeepaliveLoop();
+
+    if (!didAutoReadyOnOpen && !menuVisible && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
+      didAutoReadyOnOpen = true;
+      setTimeout(() => {
+        if (
+          partySocket &&
+          partySocket.readyState === WebSocket.OPEN &&
+          !menuVisible &&
+          (detectGameMode() === "quickplay" || detectGameMode() === "solo")
+        ) {
+          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
+          __msgCounts.out[MSG.readyToggle] = (__msgCounts.out[MSG.readyToggle] || 0) + 1;
+        }
+      }, 500);
+    }
   });
 
   partySocket.addEventListener("message", (ev) => {
@@ -3309,27 +3326,12 @@ async function main() {
       const localSlot = netSlots.find((s) => s && s.connId === youConnId);
       const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
       if (roundPhase === "lobby" && !menuVisible) {
-        autoReadyConnId = null;
         hud.readyBtn.style.display = "block";
         hud.readyBtn.textContent = isLocalReady ? "READY!" : "CLICK TO READY";
         hud.readyBtn.classList.toggle("is-ready", isLocalReady);
       } else {
         hud.readyBtn.style.display = "none";
         hud.readyBtn.classList.remove("is-ready");
-        if (
-          detectGameMode() === "quickplay" &&
-          !menuVisible &&
-          youConnId &&
-          localSlot?.kind === "human" &&
-          !isLocalReady &&
-          autoReadyConnId !== youConnId &&
-          partySocket &&
-          partySocket.readyState === WebSocket.OPEN
-        ) {
-          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-          __msgCounts.out[MSG.readyToggle] = (__msgCounts.out[MSG.readyToggle] || 0) + 1;
-          autoReadyConnId = youConnId;
-        }
       }
     }
 
