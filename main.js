@@ -1843,6 +1843,61 @@ async function main() {
         display: none;
       }
 
+      #hud .hud-feed {
+        position: absolute;
+        top: 100px;
+        right: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 20001;
+        text-align: right;
+        pointer-events: none;
+      }
+
+      #hud .hud-feed-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        font-size: 14px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        opacity: 0.9;
+        animation: hud-feed-in 300ms ease-out both;
+      }
+
+      #hud .hud-feed-actor {
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 13px;
+        color: var(--c);
+        text-shadow: 0 0 8px var(--c);
+      }
+
+      #hud .hud-feed-verb {
+        font-family: "Share Tech Mono", ui-monospace, monospace;
+        font-size: 11px;
+        color: rgba(255,255,255,0.45);
+        letter-spacing: 2px;
+      }
+
+      #hud .hud-feed-target {
+        font-family: "Bungee", cursive, system-ui, sans-serif;
+        font-size: 13px;
+        color: var(--c2);
+        text-shadow: 0 0 8px var(--c2);
+      }
+
+      @keyframes hud-feed-in {
+        from { opacity: 0; transform: translateX(20px); }
+        to   { opacity: 0.9; transform: translateX(0); }
+      }
+
+      @keyframes hud-feed-out {
+        from { opacity: 0.9; }
+        to   { opacity: 0; }
+      }
+
       #hud .hud-scoreBox.isLocal .hud-scoreLabel,
       #hud .hud-scoreBox.isLocal .hud-scoreValue {
         font-weight: 900;
@@ -2201,6 +2256,83 @@ async function main() {
     const scores = document.createElement("div");
     scores.className = "hud-scores";
 
+    const feed = document.createElement("div");
+    feed.className = "hud-feed";
+
+    const hexToCss = (hex) => `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
+    const pickVerb = (hit) => {
+      if (hit?.wasCritical) return "BOOSTED OFF";
+      const verbs = ["YEETED", "RAMMED", "BOOSTED OFF"];
+      return verbs[Math.floor(Math.random() * verbs.length)];
+    };
+
+    /**
+     * @param {string | null} actorName
+     * @param {string | null} actorColor
+     * @param {string} verb
+     * @param {string} targetName
+     * @param {string | null} targetColor
+     */
+    function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor) {
+      if (!feed) return;
+      const row = document.createElement("div");
+      row.className = "hud-feed-row";
+      row.style.setProperty("--c", actorColor || "rgba(255,255,255,0.9)");
+      row.style.setProperty("--c2", targetColor || "rgba(255,255,255,0.9)");
+
+      if (actorName) {
+        const actor = document.createElement("span");
+        actor.className = "hud-feed-actor";
+        actor.textContent = actorName;
+        const v = document.createElement("span");
+        v.className = "hud-feed-verb";
+        v.textContent = verb;
+        const target = document.createElement("span");
+        target.className = "hud-feed-target";
+        target.textContent = targetName;
+        row.appendChild(actor);
+        row.appendChild(v);
+        row.appendChild(target);
+      } else {
+        const target = document.createElement("span");
+        target.className = "hud-feed-target";
+        target.textContent = targetName;
+        const v = document.createElement("span");
+        v.className = "hud-feed-verb";
+        v.textContent = verb;
+        row.appendChild(target);
+        row.appendChild(v);
+      }
+
+      feed.prepend(row);
+      while (feed.children.length > 5) {
+        const last = feed.lastElementChild;
+        if (last) last.remove();
+        else break;
+      }
+
+      const fadeTimer = setTimeout(() => {
+        row.style.animation = "hud-feed-out 500ms ease-out forwards";
+        const removeTimer = setTimeout(() => row.remove(), 520);
+        row.addEventListener(
+          "animationend",
+          () => {
+            clearTimeout(removeTimer);
+            row.remove();
+          },
+          { once: true },
+        );
+      }, 4000);
+
+      row.addEventListener(
+        "DOMNodeRemoved",
+        () => {
+          clearTimeout(fadeTimer);
+        },
+        { once: true },
+      );
+    }
+
     /** @type {{ root: HTMLDivElement; box: HTMLDivElement; rank: HTMLDivElement; label: HTMLDivElement; you: HTMLSpanElement; value: HTMLDivElement }[]} */
     const scoreBoxes = [];
 
@@ -2245,6 +2377,7 @@ async function main() {
     root.appendChild(status);
     root.appendChild(timer);
     root.appendChild(scores);
+    root.appendChild(feed);
     root.appendChild(readyBtn);
 
     // In-game audio widget
@@ -2440,8 +2573,12 @@ async function main() {
       timerRd,
       timerFill,
       scores,
+      feed,
       scoreBoxes,
       readyBtn,
+      addKillFeedEntry,
+      pickKillFeedVerb: pickVerb,
+      colorHexToCss: hexToCss,
       escOverlay,
       syncAudioControls,
       showEscOverlay,
@@ -5454,14 +5591,18 @@ async function main() {
   function makeNameLabel(text, color) {
     const el = document.createElement("div");
     el.textContent = text;
-    el.style.padding = "6px 20px";
-    el.style.borderRadius = "8px";
-    el.style.background = "rgba(0, 0, 0, 0.55)";
-    el.style.color = color;
-    el.style.font = "bold 32px monospace";
+    el.style.padding = "6px 14px";
+    el.style.borderRadius = "4px";
+    el.style.background = "rgba(0, 0, 0, 0.7)";
+    el.style.color = "#fff";
+    el.style.fontFamily = "'Bungee', cursive";
+    el.style.fontSize = "28px";
+    el.style.fontWeight = "700";
     el.style.lineHeight = "1";
     el.style.whiteSpace = "nowrap";
-    el.style.textShadow = `0 0 8px ${color}`;
+    el.style.border = `2px solid ${color}`;
+    el.style.boxShadow = `0 0 12px ${color}66, inset 0 0 8px ${color}26`;
+    el.style.textShadow = `0 0 6px ${color}`;
     el.style.transform = "translate(-50%, 0)";
 
     const label = new CSS2DObject(el);
@@ -5508,9 +5649,9 @@ async function main() {
       label.position.set(pos.x, pos.y + 3.0, pos.z);
       const distance = Math.max(0.001, camera.position.distanceTo(label.position));
       const scale = clamp(18 / distance, 0.65, 1.2);
-      label.element.style.fontSize = `${32 * scale}px`;
-      label.element.style.padding = `${6 * scale}px ${20 * scale}px`;
-      label.element.style.textShadow = `0 0 ${8 * scale}px ${label._labelColor}`;
+      label.element.style.fontSize = `${28 * scale}px`;
+      label.element.style.padding = `${6 * scale}px ${14 * scale}px`;
+      label.element.style.textShadow = `0 0 ${6 * scale}px ${label._labelColor}`;
     }
   }
 
@@ -7109,6 +7250,18 @@ async function main() {
                 roundScores[hit.attackerSlotIndex] = 0;
               }
               roundScores[hit.attackerSlotIndex] += points;
+
+              {
+                const attackerSlot = netSlots[hit.attackerSlotIndex];
+                const victimSlot = netSlots[slotIndex];
+                const actorName = attackerSlot?.name || `P${hit.attackerSlotIndex + 1}`;
+                const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+                const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(attackerSlot)) : null;
+                const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
+                const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
+                hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
+              }
+
               // eslint-disable-next-line no-console
               console.log("[score] hit credited", {
                 attacker: hit.attackerSlotIndex,
@@ -7117,6 +7270,11 @@ async function main() {
                 roundScores,
               });
               sendHostRound(); // broadcast score update to non-host clients
+            } else {
+              const victimSlot = netSlots[slotIndex];
+              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+              const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
+              hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
             }
             lastHitBy.delete(slotIndex);
           }
