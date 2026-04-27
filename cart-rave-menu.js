@@ -102,6 +102,8 @@
   const audioEl = $("cr-audio");
   const onlineEl = $("stat-online");
   const playsEl = $("stat-plays");
+  const kbmToast = $("cr-kbm-toast");
+  const kbmToastClose = $("cr-kbm-toast-close");
 
   // ─── Neon cart SVG builder ────────────────────────────────────────────────
   function makeCartSVG(color) {
@@ -138,6 +140,20 @@
   <circle cx="34" cy="30" r="3.5" fill="none" stroke="${color}" stroke-width="2" />
 </svg>`;
   }
+
+  // ─── Keyboard & mouse hint toast ──────────────────────────────────────────
+  (function initKbmToast() {
+    if (!kbmToast || !kbmToastClose) return;
+    const key = "cartRaveKbmToastDismissed";
+    if (localStorage.getItem(key) === "1") {
+      kbmToast.style.display = "none";
+      return;
+    }
+    kbmToastClose.addEventListener("click", () => {
+      localStorage.setItem(key, "1");
+      kbmToast.style.display = "none";
+    });
+  })();
 
   // ─── Build spotlights ─────────────────────────────────────────────────────
   function buildSpotlights() {

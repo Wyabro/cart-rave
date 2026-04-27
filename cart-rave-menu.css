@@ -127,6 +127,149 @@ html, body {
   gap: 32px;
 }
 
+.cr-kbm-toast {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 43, 214, 0.28);
+  box-shadow:
+    0 0 18px rgba(255, 43, 214, 0.16),
+    0 0 10px rgba(34, 230, 255, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.82);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.cr-kbm-toast-text {
+  text-shadow: 0 0 10px rgba(34, 230, 255, 0.18);
+}
+
+.cr-kbm-toast-close {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  box-shadow: 0 0 10px rgba(255, 43, 214, 0.14);
+}
+
+.cr-kbm-toast-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cr-kbm-toast-close:active {
+  transform: translateY(1px);
+}
+
+/* Touch controls (mobile / coarse pointer) */
+.cr-touch {
+  position: absolute;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+}
+
+.cr-joy {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  width: 140px;
+  height: 140px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(34, 230, 255, 0.28);
+  box-shadow:
+    0 0 18px rgba(34, 230, 255, 0.14),
+    0 0 12px rgba(255, 43, 214, 0.10);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.cr-joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 43, 214, 0.28);
+  box-shadow:
+    0 0 16px rgba(255, 43, 214, 0.22),
+    0 0 10px rgba(34, 230, 255, 0.14);
+}
+
+.cr-touch-btns {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.cr-touch-btn {
+  width: 108px;
+  height: 54px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.30);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 0 16px rgba(255, 43, 214, 0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  touch-action: none;
+}
+
+.cr-touch-btn--boost {
+  border-color: rgba(34, 230, 255, 0.24);
+  box-shadow: 0 0 16px rgba(34, 230, 255, 0.14);
+}
+
+.cr-touch-btn--hop {
+  border-color: rgba(255, 43, 214, 0.24);
+  box-shadow: 0 0 16px rgba(255, 43, 214, 0.14);
+}
+
+.cr-touch-btn:active {
+  transform: translateY(1px);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+@media (pointer: fine) {
+  .cr-touch { display: none; }
+}
+
 .cr-left {
   display: flex; flex-direction: column;
   align-items: center; gap: 18px;

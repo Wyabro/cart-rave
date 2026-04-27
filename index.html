@@ -13,17 +13,6 @@
   <link rel="modulepreload" href="https://esm.sh/partysocket@1.1.16">
   <script>
     (function() {
-      var isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (isMobile) {
-        document.addEventListener('DOMContentLoaded', function() {
-          document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a1a;color:#ff00ff;font-family:monospace;text-align:center;padding:2rem;"><h1 style="font-size:2rem;margin-bottom:1rem;">CART RAVE</h1><p style="font-size:1.2rem;color:#00ffff;">Desktop only — grab a keyboard and come back!</p></div>';
-        });
-        window.stop();
-      }
-    })();
-  </script>
-  <script>
-    (function() {
       var h = window.location.hostname;
       var isLocal = h === "localhost" || h === "127.0.0.1" || /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h);
       if (isLocal) {
@@ -113,6 +102,21 @@
     <div class="cr-vignette"></div>
     <div class="cr-particles" id="cr-particles"></div>
     <div class="cr-scan" id="cr-scan"></div>
+
+    <div class="cr-kbm-toast" id="cr-kbm-toast" role="status" aria-live="polite">
+      <span class="cr-kbm-toast-text">Designed for keyboard &amp; mouse</span>
+      <button class="cr-kbm-toast-close" id="cr-kbm-toast-close" type="button" aria-label="Dismiss">×</button>
+    </div>
+
+    <div class="cr-touch" id="cr-touch" aria-hidden="true">
+      <div class="cr-joy" id="cr-joy" aria-label="Virtual joystick">
+        <div class="cr-joy-knob" id="cr-joy-knob"></div>
+      </div>
+      <div class="cr-touch-btns">
+        <button class="cr-touch-btn cr-touch-btn--boost" id="cr-touch-boost" type="button">BOOST</button>
+        <button class="cr-touch-btn cr-touch-btn--hop" id="cr-touch-hop" type="button">HOP</button>
+      </div>
+    </div>
 
     <!-- Main content -->
     <div class="cr-content">

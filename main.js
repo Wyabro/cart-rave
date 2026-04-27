@@ -377,6 +377,7 @@ const __msgCounts = { in: {}, out: {} };
 
 // * Input bridge for non-host client_input nitro (Shift key).
 let localNitroHeld = false;
+let localTouchNitroHeld = false;
 
 function cssHexFromRgbNumber(rgb) {
   if (!Number.isFinite(rgb)) return "#888888";
@@ -815,7 +816,7 @@ function startInputSendLoop() {
         input: {
           throttle: axis.forward,
           steer: axis.turn,
-          nitro: localNitroHeld,
+          nitro: localNitroHeld || localTouchNitroHeld,
         },
       }),
     );
@@ -3001,6 +3002,7 @@ async function main() {
   // Step 10b: Menu initialization
   function initMenu() {
     menuVisible = true;
+    if (touchRoot) touchRoot.style.display = "none";
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "none";
@@ -3246,6 +3248,7 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
+    if (touchRoot) touchRoot.style.display = touchEnabled ? "" : "none";
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
@@ -6626,6 +6629,116 @@ async function main() {
   canvas.addEventListener("keyup", onKeyUp, { passive: false });
   window.addEventListener("blur", () => keys.clear());
 
+  // --- Touch controls (virtual joystick + buttons) ---
+  /** @type {{ active: boolean; pointerId: number|null; origin: { x: number; y: number }; axis: { forward: number; turn: number } }} */
+  const touchMove = {
+    active: false,
+    pointerId: null,
+    origin: { x: 0, y: 0 },
+    axis: { forward: 0, turn: 0 },
+  };
+
+  const touchRoot = document.getElementById("cr-touch");
+  const joyEl = document.getElementById("cr-joy");
+  const joyKnobEl = document.getElementById("cr-joy-knob");
+  const boostBtn = document.getElementById("cr-touch-boost");
+  const hopBtn = document.getElementById("cr-touch-hop");
+
+  const touchEnabled =
+    typeof window !== "undefined" &&
+    (("ontouchstart" in window) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+
+  if (touchRoot && touchEnabled) {
+    touchRoot.style.display = "";
+    touchRoot.setAttribute("aria-hidden", "false");
+  } else if (touchRoot) {
+    touchRoot.style.display = "none";
+  }
+
+  const setJoyKnob = (dx, dy) => {
+    if (!joyKnobEl) return;
+    joyKnobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  };
+
+  const resetTouchMove = () => {
+    touchMove.active = false;
+    touchMove.pointerId = null;
+    touchMove.axis.forward = 0;
+    touchMove.axis.turn = 0;
+    setJoyKnob(0, 0);
+  };
+
+  if (joyEl && touchEnabled) {
+    const radiusPx = 52;
+    joyEl.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      unlockAudioAndMaybeStartMusic();
+      touchMove.active = true;
+      touchMove.pointerId = e.pointerId;
+      touchMove.origin.x = e.clientX;
+      touchMove.origin.y = e.clientY;
+      try { joyEl.setPointerCapture(e.pointerId); } catch {}
+    });
+    joyEl.addEventListener("pointermove", (e) => {
+      if (!touchMove.active || touchMove.pointerId !== e.pointerId) return;
+      e.preventDefault();
+      const dx = e.clientX - touchMove.origin.x;
+      const dy = e.clientY - touchMove.origin.y;
+      const mag = Math.hypot(dx, dy) || 1;
+      const clamped = Math.min(radiusPx, mag);
+      const nx = (dx / mag) * clamped;
+      const ny = (dy / mag) * clamped;
+      setJoyKnob(nx, ny);
+      // Map joystick to the same axes as WASD:
+      // - forward: up = +1, down = -1
+      // - turn: left = +1, right = -1
+      touchMove.axis.forward = clamp(-ny / radiusPx, -1, 1);
+      touchMove.axis.turn = clamp(-nx / radiusPx, -1, 1);
+    });
+    const endJoy = (e) => {
+      if (!touchMove.active || touchMove.pointerId !== e.pointerId) return;
+      e.preventDefault();
+      resetTouchMove();
+    };
+    joyEl.addEventListener("pointerup", endJoy);
+    joyEl.addEventListener("pointercancel", endJoy);
+    joyEl.addEventListener("lostpointercapture", () => resetTouchMove());
+  }
+
+  if (boostBtn && touchEnabled) {
+    const press = (e) => {
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      unlockAudioAndMaybeStartMusic();
+      localTouchNitroHeld = true;
+      // Mirror Shift behavior: trigger boost once on press.
+      try { triggerRamBoost(localCartForConnId(), performance.now()); } catch {}
+    };
+    const release = (e) => {
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      localTouchNitroHeld = false;
+    };
+    boostBtn.addEventListener("pointerdown", press);
+    boostBtn.addEventListener("pointerup", release);
+    boostBtn.addEventListener("pointercancel", release);
+    boostBtn.addEventListener("lostpointercapture", () => { localTouchNitroHeld = false; });
+  }
+
+  if (hopBtn && touchEnabled) {
+    hopBtn.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      unlockAudioAndMaybeStartMusic();
+      if (menuVisible) return;
+      if (roundPhase !== "running") return;
+      const mySlot = localSlotIndexForConn(youConnId);
+      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
+      triggerHop(cart, performance.now());
+    });
+  }
+
   function getAxis() {
     const forward =
       (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) +
@@ -6633,7 +6746,9 @@ async function main() {
     const turn =
       (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
       (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
-    return { forward: clamp(forward, -1, 1), turn: clamp(turn, -1, 1) };
+    const outForward = clamp(forward + (touchMove.axis.forward || 0), -1, 1);
+    const outTurn = clamp(turn + (touchMove.axis.turn || 0), -1, 1);
+    return { forward: outForward, turn: outTurn };
   }
 
   // --- Simulation loop (fixed timestep) ---
