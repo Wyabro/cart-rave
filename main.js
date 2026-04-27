@@ -154,8 +154,8 @@ const CONFIG = {
     },
 
     hop: {
-      impulse: 8,           // upward impulse magnitude
-      cooldownMs: 1500,     // min time between hops
+      impulse: 25,           // upward impulse magnitude
+      cooldownMs: 500,     // min time between hops
     },
 
     // NOTE: CoM tuning deferred. Baseline -0.55 is stable-but-boring.
