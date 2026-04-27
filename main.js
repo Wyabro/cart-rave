@@ -62,7 +62,7 @@ const CONFIG = {
   },
   net: {
     // * Non-host renders 100ms behind latest packet for smoothness.
-    interpBufferMs: 100,
+    interpBufferMs: 75,
     // * Host sends authoritative transforms at 20Hz.
     hostSendHz: 40,
     // * Non-host sends client_input at 60Hz.
