@@ -924,8 +924,6 @@ function initNetcode(roomOverride) {
 
     const type = msg.type;
     if (type === MSG.hello) {
-      // eslint-disable-next-line no-console
-      console.log("[net] hello received (raw slots)", JSON.stringify(msg.slots));
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
@@ -1122,9 +1120,7 @@ function initNetcode(roomOverride) {
           }
         }
         if (!isHost && typeof newPhase === "string" && newPhase !== prevPhase) {
-          // PRE-SUBMISSION CLEANUP
-          // eslint-disable-next-line no-console
-          console.log("[round] phase=" + newPhase + " (client)");
+          // Diagnostics removed for submission.
         }
         roundPhase = r.phase ?? roundPhase;
         roundStartedAtMs = r.startedAtMs ?? roundStartedAtMs;
@@ -1333,12 +1329,6 @@ function applyCartMassPropertiesOverride(body, collider, { label, hx, hy, hz, co
 
   const com = body.localCom();
   const inertia = body.principalInertia();
-  // eslint-disable-next-line no-console
-  console.log(`[cart:${label}] massProperties`, {
-    mass: body.mass(),
-    localCom: { x: com.x, y: com.y, z: com.z },
-    principalInertia: { x: inertia.x, y: inertia.y, z: inertia.z },
-  });
 }
 
 function wrapAngleRad(angle) {
@@ -3325,12 +3315,7 @@ async function main() {
     if (roundPhase === "running") {
       hud.scores.style.display = "flex";
       const localIdx = localSlotIndexForConn(youConnId);
-      if (updateHud._lastLocalIdx !== localIdx) {
-        // PRE-SUBMISSION CLEANUP
-        // eslint-disable-next-line no-console
-        console.log("local slot:", localIdx);
-        updateHud._lastLocalIdx = localIdx;
-      }
+      updateHud._lastLocalIdx = localIdx;
       const rows = [];
       for (let i = 0; i < 4; i += 1) {
         const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
@@ -4248,16 +4233,7 @@ async function main() {
   const recordCollider = world.createCollider(recordColliderDesc, recordBody);
   void recordCollider;
 
-  if (CONFIG.debug.arenaTrimesh) {
-    const vCount = recordPhysicsGeo.attributes.position.count;
-    const iCount = recordPhysicsGeo.index ? recordPhysicsGeo.index.count : vCount;
-    // eslint-disable-next-line no-console
-    console.log("[arena] record ring trimesh", {
-      vertices: vCount,
-      indices: iCount,
-      triangles: Math.floor(iCount / 3),
-    });
-  }
+  // Diagnostics removed for submission.
 
   // ========================================================================
   // Step 15 — DJ Spawn Booths (4x, N/S/E/W)
@@ -4713,13 +4689,7 @@ async function main() {
   })();
 
   const pitInnerRadius = (CONFIG.record.radius + 2) * 1.30 * 1.20;
-  // eslint-disable-next-line no-console
-  console.log("[arena] dancefloor outer radius", {
-    radius: CONFIG.record.radius,
-    pitInnerRadius,
-  });
-  // eslint-disable-next-line no-console
-  console.log("[debug] death threshold Y:", CONFIG.fall.yThreshold);
+  // Diagnostics removed for submission.
 
   const groundDiscGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
@@ -5794,22 +5764,7 @@ async function main() {
     }
     cart.ramBoostStreakCarry = 0;
 
-    if (!nitroFirstBoostDiagnosticLogged) {
-      const rot = cart.body.rotation();
-      const yaw = yawFromQuaternion(rot);
-      const { forward } = getForwardRightFromYaw(yaw);
-      const lv = cart.body.linvel();
-      const vForward = forward.x * lv.x + forward.y * lv.y + forward.z * lv.z;
-      // eslint-disable-next-line no-console
-      console.log("[diagnostic] nitro first boost", {
-        id: cart.label,
-        cartColor: cart.cartColor,
-        boostDurationSec: rb.durationSec,
-        targetMaxSpeedWhileNitro: rb.boostedMaxSpeed,
-        forwardSpeedAtTrigger: vForward,
-      });
-      nitroFirstBoostDiagnosticLogged = true;
-    }
+    nitroFirstBoostDiagnosticLogged = true;
   }
 
   /**
@@ -6376,7 +6331,6 @@ async function main() {
 
   function startRunning() {
     roundPhase = "running";
-    console.log("[round] phase=" + roundPhase);
     roundStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
@@ -6395,7 +6349,6 @@ async function main() {
 
   function startCountdown() {
     roundPhase = "countdown";
-    console.log("[round] phase=" + roundPhase);
     roundCountdownStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
@@ -6422,7 +6375,6 @@ async function main() {
         lastCartStandingTimeoutId = null;
       }
       roundPhase = "podium";
-      console.log("[round] phase=" + roundPhase + " (last-cart-standing)");
       roundWinnerSlotIndex = lastCartStandingWinnerSlotIndex;
       lastCartStandingWinnerSlotIndex = null;
       sendHostRound();
@@ -6450,10 +6402,8 @@ async function main() {
       if ((roundScores[i] || 0) === winnerScore) tieAtTop += 1;
     }
     roundPhase = "podium";
-    console.log("[round] phase=" + roundPhase);
     if (winnerScore === 0 && tieAtTop >= 2) {
       roundWinnerSlotIndex = "draw";
-      console.log("[round] draw — no winner");
     } else {
       roundWinnerSlotIndex = winnerSlotIndex;
     }
@@ -6580,8 +6530,7 @@ async function main() {
     if (handledCodes.has(e.code)) e.preventDefault();
     keys.add(e.code);
     if (CONFIG.debug.input && handledCodes.has(e.code)) {
-      // eslint-disable-next-line no-console
-      console.log("[input] keydown", e.code);
+      // Diagnostics removed for submission.
     }
   }
   function onKeyUp(e) {
@@ -6637,25 +6586,6 @@ async function main() {
     accumulator += dt;
 
     simFrameIndex += 1;
-    if (simFrameIndex === 60) {
-      console.log('[void-debug]', {
-        isHost,
-        youConnId,
-        hostId,
-        localSlotIndex: localSlotIndexForConn(youConnId),
-        sceneChildren: scene.children.length,
-        recordInScene: scene.children.includes(recordMesh),
-        rimInScene: scene.children.includes(rimMesh),
-        cart0Pos: allCarts[0].body.translation(),
-        cart1Pos: allCarts[1].body.translation(),
-        cart0InScene: scene.children.includes(allCarts[0].mesh),
-        netStateBufferLen: netStateBuffer.length,
-        lastCartsCacheKeys: lastCartsCache ? Object.keys(lastCartsCache) : null,
-        cameraPos: [camera.position.x, camera.position.y, camera.position.z],
-        cameraLookingAt: [cameraState.pos.x, cameraState.pos.y, cameraState.pos.z],
-      });
-    }
-
     if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
       playerColliderVisualOvershootSimFrame10Logged = true;
       const hx = CONFIG.cart.size.x / 2;
@@ -6681,33 +6611,6 @@ async function main() {
       const pct = (colliderLen, visLen) =>
         visLen > 1e-10 ? ((colliderLen - visLen) / visLen) * 100 : null;
 
-      // eslint-disable-next-line no-console
-      console.log("[diagnostic] player collider vs visual mesh @ sim frame 10", {
-        simFrameIndex,
-        colliderCuboidHalfExtents: { hx, hy, hz },
-        visualBoundingBoxAtIdentityRotation: {
-          min: { x: visualMin.x, y: visualMin.y, z: visualMin.z },
-          max: { x: visualMax.x, y: visualMax.y, z: visualMax.z },
-          size: { x: visualSize.x, y: visualSize.y, z: visualSize.z },
-        },
-        comparison: {
-          x: {
-            colliderFullExtent: colliderFull.x,
-            visualSize: visualSize.x,
-            overshootPercent: pct(colliderFull.x, visualSize.x),
-          },
-          y: {
-            colliderFullExtent: colliderFull.y,
-            visualSize: visualSize.y,
-            overshootPercent: pct(colliderFull.y, visualSize.y),
-          },
-          z: {
-            colliderFullExtent: colliderFull.z,
-            visualSize: visualSize.z,
-            overshootPercent: pct(colliderFull.z, visualSize.z),
-          },
-        },
-      });
     }
 
     if (simFrameIndex === 10 && !dancefloorSurfaceVisualDiagSimFrame10Logged) {
@@ -6812,19 +6715,7 @@ async function main() {
       };
 
       // eslint-disable-next-line no-console
-      console.log("[diagnostic] dancefloor surface visuals @ sim frame 10", {
-        simFrameIndex,
-        implementationNote:
-          "Hairline groove rings in buildRecordSurfaceGrooves; spindle ring, cyan label disc, and curved canvas label text in buildRecordSurfaceVinylLabel.",
-        recordMeshInSceneChildren: scene.children.includes(recordMesh),
-        recordMeshChildCount: recordMesh.children.length,
-        ringGeometryMeshCount: ringMeshes.length,
-        grooveRingMeshCount: grooveRingMeshes.length,
-        boxGeometryMeshCount: spokeMeshes.length,
-        perChild: childRows,
-        labelText: labelDiag,
-        scanError: diagError,
-      });
+      // Diagnostics removed for submission.
     }
 
     if (simFrameIndex === 15 && !dancefloorSurfaceDeepDiagSimFrame15Logged) {
@@ -6969,22 +6860,7 @@ async function main() {
 
       renderer.getClearColor(clearCol);
       // eslint-disable-next-line no-console
-      console.log("[diagnostic] dancefloor surface deep render @ sim frame 15", {
-        simFrameIndex,
-        recordMesh: {
-          material: summarizeMaterial(recMat),
-          worldPosition: recordWorldPos,
-          worldBoundingBox: recordWorldBbox,
-        },
-        firstRingMesh: firstRingReport,
-        firstSpokeMesh: firstSpokeReport,
-        firstLabelTextMesh: firstLabelTextReport,
-        renderer: {
-          sortObjects: renderer.sortObjects,
-          clearColorHex: clearCol.getHex(),
-          clearAlpha: renderer.getClearAlpha(),
-        },
-      });
+      // Diagnostics removed for submission.
     }
 
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
@@ -7046,24 +6922,7 @@ async function main() {
           };
         });
       // eslint-disable-next-line no-console
-      console.log("[diagnostic] spawn layout @ sim frame 30", {
-        layoutConstants: {
-          spawnRingRadius: ringR,
-          spawnHeight: CONFIG.cart.spawnHeight,
-          npcCount: netSlots.filter((s) => s && s.kind === "npc").length,
-        },
-        verification: {
-          spawnRecordsMatchSlotPositionsWithin001: spawnRecordsMatchSlotPositions,
-          spawnSlotAxisTolerance: spawnSlotAxisTol,
-          allPlanarOriginDistancesWithinToleranceOfRing: planarOk,
-          planarRingTolerance,
-          expectedAdjacentChord: expectedAdjacent,
-          expectedOppositeChord: expectedOpposite,
-          chordTolerance,
-          fromPlayerChordChecks: playerDistChecks,
-        },
-        carts: cartRows,
-      });
+      // Diagnostics removed for submission.
     }
 
     // Visual-only record rotation.
@@ -7261,15 +7120,7 @@ async function main() {
     }
 
     const playerAxis = getAxis();
-    if (simFrameIndex === 1 || simFrameIndex === 30) {
-      // eslint-disable-next-line no-console
-      console.log("[boot] sim tick", {
-        simFrameIndex,
-        axis: playerAxis,
-        localSlotIndex: localSlotIndexForConn(youConnId),
-        youConnId,
-      });
-    }
+    // Diagnostics removed for submission.
 
     const localCart = localCartForConnId();
     if (!localCart || !localCart.body) return;
@@ -7336,13 +7187,6 @@ async function main() {
                 hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
               }
 
-              // eslint-disable-next-line no-console
-              console.log("[score] hit credited", {
-                attacker: hit.attackerSlotIndex,
-                victim: slotIndex,
-                points,
-                roundScores,
-              });
               sendHostRound(); // broadcast score update to non-host clients
             } else {
               const victimSlot = netSlots[slotIndex];
@@ -7388,7 +7232,6 @@ async function main() {
             clearTimeout(lastCartStandingTimeoutId);
             lastCartStandingTimeoutId = null;
             lastCartStandingWinnerSlotIndex = null;
-            console.log("[round] last-cart-standing canceled — survivor fell");
           }
         }
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
@@ -7454,26 +7297,7 @@ async function main() {
     camera.position.copy(cameraState.pos);
     camera.quaternion.copy(cameraState.quat);
 
-    // Debug: print velocity while input is held (throttled).
-    if (
-      CONFIG.debug.velocity &&
-      (playerAxis.forward !== 0 || playerAxis.turn !== 0) &&
-      now - lastDebugMs >= 100
-    ) {
-      const lv = localCart.body.linvel();
-      const sleeping =
-        typeof localCart.body.isSleeping === "function"
-          ? localCart.body.isSleeping()
-          : "unknown";
-      // eslint-disable-next-line no-console
-      console.log(
-        "[debug] linvel",
-        { x: lv.x.toFixed(3), y: lv.y.toFixed(3), z: lv.z.toFixed(3) },
-        "sleeping=",
-        sleeping,
-      );
-      lastDebugMs = now;
-    }
+    // Diagnostics removed for submission.
 
     // Fixed substeps for stability/consistency (host only).
     let substeps = 0;
@@ -7751,22 +7575,7 @@ async function main() {
         const av = c.body.angvel();
         const s = c.spawn;
         const aiAxis = npcDiagLastAiByCart.get(c) ?? { forward: 0, turn: 0 };
-        // eslint-disable-next-line no-console
-        console.log("[diagnostic] npc inward drift on spawn", {
-          simFrameIndex,
-          label: c.label,
-          slotIndex: c.slotIndex,
-          linvel: { x: lv.x, y: lv.y, z: lv.z },
-          angvel: { x: av.x, y: av.y, z: av.z },
-          positionDeltaFromSpawnAtCreation: {
-            x: t.x - s.x,
-            y: t.y - s.y,
-            z: t.z - s.z,
-          },
-          distanceToWorldOriginXZ: Math.hypot(t.x, t.z),
-          aiAxisAppliedLastSubstep: aiAxis,
-          aiTarget: c.aiTarget ? { x: c.aiTarget.x, z: c.aiTarget.z } : null,
-        });
+        // Diagnostics removed for submission.
       }
     }
 
