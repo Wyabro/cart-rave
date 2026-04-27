@@ -4327,6 +4327,8 @@ async function main() {
 
   // * Spindle accent light: slowly cycles pink <-> cyan in the render loop.
   const spindleLight = new THREE.PointLight(0xff2bd6, 80, 30, 2);
+  const spindleLightColorPink = new THREE.Color(0xff2bd6);
+  const spindleLightColorCyan = new THREE.Color(0x2bd6ff);
   spindleLight.position.set(0, 1.5, 0);
   scene.add(spindleLight);
 
@@ -5232,6 +5234,8 @@ async function main() {
   const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 5000);
   const crowdPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
   const dummy = new THREE.Object3D();
+  const crowdWiggleAxisY = new THREE.Vector3(0, 1, 0);
+  const crowdWiggleQuat = new THREE.Quaternion();
   for (let i = 0; i < 5000; i += 1) {
     const angle = Math.random() * Math.PI * 2;
     const r = pitInnerRadius + 0.5 + Math.random() * 80;
@@ -5294,9 +5298,10 @@ async function main() {
   horizonFog.position.y = -3;
   scene.add(horizonFog);
 
-  /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, index: number }[]} */
+  /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, light: THREE.SpotLight, index: number }[]} */
   const crowdSearchlightEntries = [];
   const crowdSearchlightColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
+  const crowdSearchlightSpeeds = [0.2, 0.35, 0.5, 0.25];
   const crowdSearchlightSourceRadius = pitInnerRadius + 30;
   const crowdSearchlightTargetRadius = pitInnerRadius + 35;
   for (let i = 0; i < 4; i += 1) {
@@ -5340,7 +5345,7 @@ async function main() {
     cone.lookAt(target.position);
     cone.rotateX(-Math.PI / 2);
     scene.add(cone);
-    crowdSearchlightEntries.push({ target, cone, index: i });
+    crowdSearchlightEntries.push({ target, cone, light: searchlight, index: i });
   }
 
   /** @type {{ light: THREE.PointLight, index: number }[]} */
@@ -7157,21 +7162,29 @@ async function main() {
     if (crowdSearchlightEntries.length > 0) {
       const nowSec = now * 0.001;
       for (const entry of crowdSearchlightEntries) {
-        const angle = nowSec * 0.3 + entry.index * Math.PI * 0.5;
+        const speed = crowdSearchlightSpeeds[entry.index % crowdSearchlightSpeeds.length] || 0.3;
+        const angle = nowSec * speed + entry.index * Math.PI * 0.5;
         entry.target.position.x = Math.cos(angle) * crowdSearchlightTargetRadius;
         entry.target.position.y = -3;
         entry.target.position.z = Math.sin(angle) * crowdSearchlightTargetRadius;
         entry.target.updateMatrixWorld();
         entry.cone.lookAt(entry.target.position);
         entry.cone.rotateX(-Math.PI / 2);
+        entry.light.intensity = 20 + Math.sin(nowSec * 1.1 + entry.index) * 15;
       }
     }
 
     if (crowdPointLightEntries.length > 0) {
       const nowSec = now * 0.001;
       for (const entry of crowdPointLightEntries) {
-        entry.light.intensity = 6 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 3;
+        entry.light.intensity = 5 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 5;
       }
+    }
+
+    // Crowd glow ring pulse (subtle)
+    if (crowdGlowMat) {
+      const nowSec = now * 0.001;
+      crowdGlowMat.opacity = 0.09 + Math.sin(nowSec * 0.35) * 0.03;
     }
 
     if (crowdCarts) {
@@ -7184,8 +7197,29 @@ async function main() {
       for (let i = start; i < end; i++) {
         crowdCarts.getMatrixAt(i, _dm.matrix);
         _dm.matrix.decompose(_dm.position, _dm.quaternion, _dm.scale);
-        const bounce = Math.abs(Math.sin(nowSec * 3 + i * 0.7)) * 0.3;
+
+        // CROWD VARIATION: seeded per-cart "energy" (0..1) from index
+        const energy = ((i * 7919) % 100) / 100;
+        const baseFreq = 3;
+        const baseAmp = 0.3;
+
+        let bounce = 0;
+        let wiggleYaw = 0;
+        if (energy > 0.7) {
+          bounce = Math.abs(Math.sin(nowSec * baseFreq * 1.5 + i * 0.7)) * (baseAmp * 1.8);
+          wiggleYaw = Math.sin(nowSec * 6.0 + i * 0.9) * (0.18 * ((energy - 0.7) / 0.3));
+        } else if (energy < 0.3) {
+          bounce = Math.sin(nowSec * baseFreq * 0.5 + i * 0.45) * (baseAmp * 0.12);
+          wiggleYaw = Math.sin(nowSec * 0.8 + i * 0.6) * 0.04;
+        } else {
+          bounce = Math.abs(Math.sin(nowSec * baseFreq + i * 0.7)) * baseAmp;
+        }
+
         _dm.position.y = -2.5 + bounce;
+        if (wiggleYaw !== 0) {
+          crowdWiggleQuat.setFromAxisAngle(crowdWiggleAxisY, wiggleYaw);
+          _dm.quaternion.multiply(crowdWiggleQuat);
+        }
         _dm.updateMatrix();
         crowdCarts.setMatrixAt(i, _dm.matrix);
       }
@@ -7195,9 +7229,7 @@ async function main() {
     {
       // * Spindle PointLight cycle: pink <-> cyan, ~8s full cycle.
       const t = (Math.sin(now * 0.001 * Math.PI * 2 / 8) + 1) / 2;
-      const cPink = new THREE.Color(0xff2bd6);
-      const cCyan = new THREE.Color(0x2bd6ff);
-      spindleLight.color.copy(cPink).lerp(cCyan, t);
+      spindleLight.color.copy(spindleLightColorPink).lerp(spindleLightColorCyan, t);
     }
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
