@@ -1604,9 +1604,10 @@ async function main() {
   scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
 
   const trashPool = [];
-  const TRASH_POOL_SIZE = 20;
+  const TRASH_POOL_SIZE = 40;
   const trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-  const trashMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true });
+  const trashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+  const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
   for (let i = 0; i < TRASH_POOL_SIZE; i++) {
     const m = new THREE.Mesh(trashGeo, trashMat.clone());
     m.visible = false;
@@ -1618,19 +1619,20 @@ async function main() {
   }
 
   function spawnTrashBurst(position, intensity) {
-    const count = Math.floor(3 + intensity * 5); // 3-8 particles
+    const count = Math.floor(6 + intensity * 8); // 6-14 particles
     let spawned = 0;
     for (let i = 0; i < trashPool.length && spawned < count; i++) {
       const p = trashPool[i];
       if (p.visible) continue;
       p.position.set(position.x, position.y + 0.5, position.z);
-      p.scale.setScalar(0.5 + intensity * 0.5);
+      p.scale.setScalar(0.8 + intensity * 0.8);
+      p.material.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
       p.material.opacity = 1;
       p.visible = true;
       p.userData.vel.set(
-        (Math.random() - 0.5) * 6 * intensity,
-        2 + Math.random() * 3 * intensity,
-        (Math.random() - 0.5) * 6 * intensity
+        (Math.random() - 0.5) * 10 * intensity,
+        4 + Math.random() * 5 * intensity,
+        (Math.random() - 0.5) * 10 * intensity
       );
       p.userData.life = 0;
       p.userData.maxLife = 0.4 + Math.random() * 0.2;
@@ -3820,7 +3822,6 @@ async function main() {
   /** @type {{ intensity: number; stop: () => void }[]} */
   const activeImpactSfx = [];
   const MAX_ACTIVE_IMPACTS = 3;
-  let hitStopUntil = 0; // timestamp (perf ms) to skip rendering until
   let shakeUntil = 0;
   let shakeIntensity = 0;
   let slowMoUntil = 0;
@@ -3897,12 +3898,9 @@ async function main() {
         },
       });
 
-      if (roundPhase === "running" && i > 0.5) {
-        hitStopUntil = performance.now() + 50 + i * 33; // 50-83ms
-      }
-      if (roundPhase === "running" && i > 0.3) {
-        shakeIntensity = i * 8; // max ~8px offset
-        shakeUntil = performance.now() + 150 + i * 100; // 150-250ms
+      if (roundPhase === "running" && i > 0.2) {
+        shakeIntensity = i * 8 * 2; // max ~16px offset
+        shakeUntil = performance.now() + 225 + i * 150; // ~50% longer than before
       }
     },
     playNitro() {
@@ -6178,7 +6176,7 @@ async function main() {
   getAxisRef = getAxis;
   triggerRamBoostRef = triggerRamBoost;
 
-  /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number }[]} */
+  /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number; cart: ReturnType<typeof createCart> }[]} */
   const ramBoostStreaks = [];
   let nitroFirstBoostDiagnosticLogged = false;
   const ramBoostStreakAlignQuat = new THREE.Quaternion();
@@ -6224,6 +6222,7 @@ async function main() {
       material: mat,
       birthMs,
       durationMs: rb.streakDurationSec * 1000,
+      cart,
     });
   }
 
@@ -6332,7 +6331,13 @@ async function main() {
         s.material.dispose();
         ramBoostStreaks.splice(i, 1);
       } else {
-        s.material.opacity = 1 - t;
+        const baseOpacity = 1 - t;
+        if (roundPhase === "running" && s.cart && s.cart.ramBoostActiveUntilMs > performance.now()) {
+          const pulse = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
+          s.material.opacity = clamp(baseOpacity * (pulse / 1.2), 0, 1);
+        } else {
+          s.material.opacity = baseOpacity;
+        }
       }
     }
   }
@@ -7622,11 +7627,17 @@ async function main() {
                 const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
                 hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
               }
-              if (
-                roundPhase === "running" &&
-                hit.attackerSlotIndex === localSlotIndexForConn(youConnId)
-              ) {
-                fovPunchUntil = performance.now() + 200;
+              if (roundPhase === "running") {
+                const localIdx = localSlotIndexForConn(youConnId);
+                // eslint-disable-next-line no-console
+                console.log("[FOV PUNCH DEBUG]", {
+                  attackerSlotIndex: hit.attackerSlotIndex,
+                  localSlotIndex: localIdx,
+                  youConnId,
+                });
+                if (hit.attackerSlotIndex === localIdx) {
+                  fovPunchUntil = performance.now() + 200;
+                }
               }
 
               sendHostRound(); // broadcast score update to non-host clients
@@ -7660,8 +7671,8 @@ async function main() {
             (roundScores[lastStandingSlotIndex] || 0) >= 1
           ) {
             lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
-            slowMoUntil = performance.now() + 300;
-            slowMoRate = 0.5;
+            slowMoUntil = performance.now() + 3000;
+            slowMoRate = 0.35;
             lastCartStandingTimeoutId = setTimeout(() => {
               lastCartStandingTimeoutId = null;
               if (isHost && roundPhase === "running") endRound();
@@ -8133,12 +8144,8 @@ async function main() {
     updateHud();
     positionNameLabels();
     updateAmbientParticles(dt, now);
-    if (performance.now() < hitStopUntil) {
-      // hit-stop: skip visual frame, physics + network keep running
-    } else {
-      composer.render();
-      labelRenderer.render(scene, camera);
-    }
+    composer.render();
+    labelRenderer.render(scene, camera);
 
     if (roundPhase === "running" && performance.now() < shakeUntil) {
       const t = (shakeUntil - performance.now()) / 250;
