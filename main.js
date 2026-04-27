@@ -557,6 +557,8 @@ let serverClockOffsetSamples = 0;
 
 let lastSlotsJson = "";
 
+let skipNextPhysicsStep = false;
+
 // These are assigned once main() constructs the scene / HUD / physics world.
 /** @type {ReturnType<typeof initHud> | null} */
 let hud = null;
@@ -819,12 +821,9 @@ function setAuthorityMode(nextIsHost) {
       applyCartsSnapshotToBodies(lastCartsCache);
     }
     // Prevent a huge accumulated fixed-step catch-up on host migration.
+    // Reset accumulator to avoid a big substep burst; align lastT to now so dt doesn't spike.
     resetSimTimingRef.current?.();
-    if (allCartsRef) {
-      for (const c of allCartsRef) {
-        if (c && c.body) c.body.wakeUp();
-      }
-    }
+    skipNextPhysicsStep = true;
     startHostSendLoop();
     return;
   }
@@ -7522,6 +7521,14 @@ async function main() {
             );
             cart.pendingRam.remainingSteps -= 1;
             if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
+          }
+
+          if (skipNextPhysicsStep) {
+            skipNextPhysicsStep = false;
+            accumulator -= CONFIG.fixedTimeStep;
+            substeps += 1;
+            // eslint-disable-next-line no-continue
+            continue;
           }
 
           world.step(eventQueue);
