@@ -708,8 +708,9 @@ function bufferAuthoritativeState(serverNowMs, seq, carts) {
   if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
   if (!carts || typeof carts !== "object") return;
 
+  const last = netStateBuffer.length > 0 ? netStateBuffer[netStateBuffer.length - 1] : null;
+  if (last && typeof last.seq === "number" && seq <= last.seq) return;
   netStateBuffer.push({ serverNowMs, seq, carts });
-  netStateBuffer.sort((a, b) => a.seq - b.seq);
   const maxEntries = 64;
   while (netStateBuffer.length > maxEntries) {
     netStateBuffer.shift();
@@ -5389,6 +5390,7 @@ async function main() {
   function createCart({ color, spawn, spawnYaw, label, slotIndex }) {
     const mesh = buildCart(color);
     scene.add(mesh);
+    mesh.updateMatrixWorld(true);
 
     const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
 
@@ -5435,6 +5437,9 @@ async function main() {
       slotIndex,
       label,
       cartColor: color,
+      _lastNetLinvel: { x: 0, y: 0, z: 0 },
+      _netTargetPos: mesh.position.clone(),
+      _netTargetQuat: mesh.quaternion.clone(),
       lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
       ramBoostActiveUntilMs: 0,
       ramBoostStreakCarry: 0,
@@ -7495,6 +7500,7 @@ async function main() {
     } else {
       // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
       const targetServerNowMs = Date.now() - CONFIG.net.interpBufferMs;
+      const localSlotIndex = netSlots.findIndex((s) => s && s.connId === youConnId);
 
       // Find surrounding snapshots.
       let afterIndex = -1;
@@ -7512,7 +7518,6 @@ async function main() {
       if (before && after && before.carts && after.carts) {
         const denom = (after.serverNowMs - before.serverNowMs) || 1;
         const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
-        const localIdx = netSlots.findIndex((s) => s && s.connId === youConnId);
 
         const outQ = [0, 0, 0, 1];
         for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
@@ -7524,7 +7529,7 @@ async function main() {
           if (!b || !a) continue;
 
           // Never interpolate local player's cart; snap to the buffered value.
-          if (slotIndex === localIdx) {
+          if (slotIndex === localSlotIndex) {
             const bp = b.p;
             const bq = b.q;
             const blv = b.lv;
@@ -7551,21 +7556,23 @@ async function main() {
             const x = bp[0] + (ap[0] - bp[0]) * alpha;
             const y = bp[1] + (ap[1] - bp[1]) * alpha;
             const z = bp[2] + (ap[2] - bp[2]) * alpha;
-            cart.body.setTranslation({ x, y, z }, true);
+            cart._netTargetPos.set(x, y, z);
           }
 
           const bq = b.q;
           const aq = a.q;
           if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
             THREE.Quaternion.slerpFlat(outQ, 0, bq, 0, aq, 0, alpha);
-            cart.body.setRotation({ x: outQ[0], y: outQ[1], z: outQ[2], w: outQ[3] }, true);
+            cart._netTargetQuat.set(outQ[0], outQ[1], outQ[2], outQ[3]);
           }
 
           // Use "after" velocities so direction stays correct between frames.
           const alv = a.lv;
           const aav = a.av;
           if (Array.isArray(alv) && alv.length === 3) {
-            cart.body.setLinvel({ x: alv[0], y: alv[1], z: alv[2] }, true);
+            cart._lastNetLinvel.x = alv[0];
+            cart._lastNetLinvel.y = alv[1];
+            cart._lastNetLinvel.z = alv[2];
           }
           if (Array.isArray(aav) && aav.length === 3) {
             cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
@@ -7574,7 +7581,6 @@ async function main() {
       } else if (before && before.carts) {
         const extrapMs = targetServerNowMs - before.serverNowMs;
         const extrapS = Math.min(extrapMs, 50) / 1000;
-        const localIdx = netSlots.findIndex((s) => s && s.connId === youConnId);
 
         for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
           const cart = allCarts[slotIndex];
@@ -7589,34 +7595,83 @@ async function main() {
           const bav = b.av;
 
           // Never extrapolate local player's cart; snap to the buffered value.
-          if (slotIndex === localIdx) {
+          if (slotIndex === localSlotIndex) {
             if (Array.isArray(bp) && bp.length === 3) {
               cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
             }
           } else if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
-            cart.body.setTranslation(
-              { x: bp[0] + blv[0] * extrapS, y: bp[1] + blv[1] * extrapS, z: bp[2] + blv[2] * extrapS },
-              true,
+            cart._netTargetPos.set(
+              bp[0] + blv[0] * extrapS,
+              bp[1] + blv[1] * extrapS,
+              bp[2] + blv[2] * extrapS,
             );
           } else if (Array.isArray(bp) && bp.length === 3) {
-            cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
+            cart._netTargetPos.set(bp[0], bp[1], bp[2]);
           }
 
           // Do not extrapolate rotation; snap it.
           if (Array.isArray(bq) && bq.length === 4) {
-            cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
+            if (slotIndex === localSlotIndex) {
+              cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
+            } else {
+              cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
+            }
           }
           if (Array.isArray(blv) && blv.length === 3) {
-            cart.body.setLinvel({ x: blv[0], y: blv[1], z: blv[2] }, true);
+            cart._lastNetLinvel.x = blv[0];
+            cart._lastNetLinvel.y = blv[1];
+            cart._lastNetLinvel.z = blv[2];
+            if (slotIndex === localSlotIndex) cart.body.setLinvel({ x: blv[0], y: blv[1], z: blv[2] }, true);
           }
           if (Array.isArray(bav) && bav.length === 3) {
             cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
           }
         }
       } else if (after && after.carts) {
-        applyCartsSnapshotToBodies(after.carts);
+        // Snap remote carts to "after" snapshot; keep local cart bound to Rapier.
+        const carts = after.carts;
+        const localSnap = carts[String(localSlotIndex)];
+        if (localSlotIndex >= 0 && localSnap) {
+          applyCartsSnapshotToBodies({ [String(localSlotIndex)]: localSnap });
+        }
+        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+          if (slotIndex === localSlotIndex) continue;
+          const cart = allCarts[slotIndex];
+          const snap = carts[String(slotIndex)];
+          if (!cart || !snap) continue;
+          const p = snap.p;
+          const q = snap.q;
+          const lv = snap.lv;
+          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
+          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+          if (Array.isArray(lv) && lv.length === 3) {
+            cart._lastNetLinvel.x = lv[0];
+            cart._lastNetLinvel.y = lv[1];
+            cart._lastNetLinvel.z = lv[2];
+          }
+        }
       } else if (lastCartsCache) {
-        applyCartsSnapshotToBodies(lastCartsCache);
+        const carts = lastCartsCache;
+        const localSnap = carts[String(localSlotIndex)];
+        if (localSlotIndex >= 0 && localSnap) {
+          applyCartsSnapshotToBodies({ [String(localSlotIndex)]: localSnap });
+        }
+        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+          if (slotIndex === localSlotIndex) continue;
+          const cart = allCarts[slotIndex];
+          const snap = carts[String(slotIndex)];
+          if (!cart || !snap) continue;
+          const p = snap.p;
+          const q = snap.q;
+          const lv = snap.lv;
+          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
+          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+          if (Array.isArray(lv) && lv.length === 3) {
+            cart._lastNetLinvel.x = lv[0];
+            cart._lastNetLinvel.y = lv[1];
+            cart._lastNetLinvel.z = lv[2];
+          }
+        }
       }
 
       const pruneIdx = before ? netStateBuffer.indexOf(before) : -1;
@@ -7654,8 +7709,23 @@ async function main() {
       }
     }
 
-    // Sync render meshes from physics.
-    for (const c of allCarts) {
+    // Sync render meshes from physics (or from net targets for remote non-host carts).
+    const localSlotIndexForFrame = netSlots.findIndex((s) => s && s.connId === youConnId);
+    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+      const c = allCarts[slotIndex];
+      if (!c || !c.mesh) continue;
+
+      if (!isHost && slotIndex !== localSlotIndexForFrame) {
+        if (c._netTargetPos) c.mesh.position.lerp(c._netTargetPos, 0.45);
+        if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.45);
+        c.mesh.updateMatrixWorld(true);
+        const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
+        cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
+        updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
       const p = c.body.translation();
       const r = c.body.rotation();
       c.mesh.position.set(p.x, p.y, p.z);
