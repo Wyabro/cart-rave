@@ -483,6 +483,8 @@ export function resetCartVisualState(root) {
   const data = root.userData.cartVisual;
   if (!data) return;
   data.smoothedCasterYaw = 0;
+  // Keep wheelRoll and wheelPitchObjects in sync in case the mesh changes.
+  data.wheelRoll = new Array(data.wheelPitchObjects.length).fill(0);
   for (let i = 0; i < data.wheelRoll.length; i += 1) {
     data.wheelRoll[i] = 0;
   }
@@ -527,6 +529,7 @@ export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
   const yawBase = data.smoothedCasterYaw;
 
   for (let i = 0; i < casterYawGroups.length; i += 1) {
+    if (i >= data.wheelRoll.length) break;
     const yawG = casterYawGroups[i];
     const wob = Math.sin(t * 14.2 + wobblePhases[i]) * wobbleScale;
     yawG.rotation.y = yawBase + wob;

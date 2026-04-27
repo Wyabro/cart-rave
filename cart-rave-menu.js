@@ -324,6 +324,8 @@
   const interval = 60000 / bpm;
   let lastBeat = performance.now();
   const animStart = performance.now();
+  let animFrameId = null;
+  let statsIntervalId = null;
   function animLoop(now) {
     // Beat
     if (CONFIG.cartDance) {
@@ -358,9 +360,44 @@
       floorGrid.style.transform = `rotateX(62deg) translateY(${state.beat * -4}px)`;
     }
 
-    requestAnimationFrame(animLoop);
+    animFrameId = requestAnimationFrame(animLoop);
   }
-  requestAnimationFrame(animLoop);
+  animFrameId = requestAnimationFrame(animLoop);
+
+  let menuHidden = false;
+  const stopMenuLoops = () => {
+    if (menuHidden) return;
+    menuHidden = true;
+    if (animFrameId != null) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+  };
+
+  // If any future fake/global stats ticks exist, ensure they stop when the menu hides.
+  // (Interval is intentionally initialized to null; this is a stability guard.)
+  const stopMenuTimers = () => {
+    if (statsIntervalId != null) {
+      clearInterval(statsIntervalId);
+      statsIntervalId = null;
+    }
+  };
+  const stopMenuLoopsAndTimers = () => {
+    stopMenuTimers();
+    stopMenuLoops();
+  };
+  // Stop menu loops/timers when the menu is hidden by the host app.
+  if (root) {
+    const obs = new MutationObserver(() => {
+      const isHidden =
+        root.style.display === 'none' ||
+        root.style.pointerEvents === 'none' ||
+        root.style.opacity === '0' ||
+        root.getAttribute('aria-hidden') === 'true';
+      if (isHidden) stopMenuLoopsAndTimers();
+    });
+    obs.observe(root, { attributes: true, attributeFilter: ['style', 'aria-hidden'] });
+  }
 
   // ─── FX toggles via CONFIG ────────────────────────────────────────────────
   if (!CONFIG.showFloor) floorEl.style.display = 'none';
@@ -370,9 +407,10 @@
   // Restore the player's last chosen color, or seed localStorage with the default.
   const _savedGameColor = localStorage.getItem('cartRaveColor');
   const _savedColorIdx = PALETTE_GAME.indexOf(_savedGameColor);
-  if (_savedColorIdx >= 0) {
+  if (_savedColorIdx >= 0 && _savedColorIdx < state.palette.players.length) {
     state.playerIdx = _savedColorIdx;
   } else {
+    state.playerIdx = 0;
     localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
   }
 
