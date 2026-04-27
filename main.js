@@ -3905,7 +3905,7 @@ async function main() {
       };
 
       activeImpactSfx.push(entry);
-      try { src.start(now); } catch {}
+      try { src.start(0); } catch {}
 
       if (roundPhase === "running" && i > 0.2) {
         shakeIntensity = i * 8 * 2; // max ~16px offset
@@ -6637,12 +6637,18 @@ async function main() {
   }
 
   canvas.addEventListener("pointerdown", () => {
-    void audioListener.context.resume();
+    void audioListener.context.resume().then(
+      () => { ensureCartCrashBufferLoaded(); },
+      () => {},
+    );
     if (!menuVisible) tryStartAmbientMusic();
     canvas.focus();
   });
   window.addEventListener("pointerdown", () => {
-    void audioListener.context.resume();
+    void audioListener.context.resume().then(
+      () => { ensureCartCrashBufferLoaded(); },
+      () => {},
+    );
     if (!menuVisible) tryStartAmbientMusic();
   }, { passive: true });
 
