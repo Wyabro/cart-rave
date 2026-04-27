@@ -3290,6 +3290,8 @@ async function main() {
   hud = initHud();
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
+  // Lazy-fetch extra game tracks after menu renders (avoids extra network on first paint).
+  setTimeout(preloadExtraGameMusicTracks, 0);
   hideMenuRef = hideMenu;
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
@@ -6124,13 +6126,53 @@ async function main() {
 
   // --- Ambient music ---
 
-  const musicUrl = new URL("sounds/music.mp3", window.location.href).toString();
+  const gameMusicFiles = ["music.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
+  const gameMusicUrls = gameMusicFiles.map((f) =>
+    new URL(`sounds/${f}`, window.location.href).toString(),
+  );
+  let gameMusicIndex = 0;
+
+  /** @type {HTMLAudioElement[]|null} */
+  let lazyGameMusicPreloads = null;
+
+  function preloadExtraGameMusicTracks() {
+    if (lazyGameMusicPreloads) return;
+    lazyGameMusicPreloads = [];
+    for (let i = 1; i < gameMusicUrls.length; i += 1) {
+      const a = new Audio();
+      a.preload = "auto";
+      a.src = gameMusicUrls[i];
+      try { a.load(); } catch {}
+      lazyGameMusicPreloads.push(a);
+    }
+  }
+
+  function advanceGameMusicTrack() {
+    if (!musicEl || gameMusicUrls.length === 0) return;
+    gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
+    musicEl.src = gameMusicUrls[gameMusicIndex];
+    try { musicEl.load(); } catch {}
+    try { applyAudioVolume(); } catch {}
+    if (!menuVisible) {
+      void musicEl.play().catch(() => {});
+    }
+  }
+
+  const musicUrl = gameMusicUrls[gameMusicIndex];
   musicEl = new Audio();
-  musicEl.loop = true;
+  musicEl.loop = false;
   musicEl.volume = CONFIG.audio.musicVolume * masterGain;
   musicEl.preload = "auto";
   musicEl.src = musicUrl;
+  musicEl.addEventListener("ended", () => {
+    if (menuVisible) return;
+    advanceGameMusicTrack();
+  });
   musicEl.addEventListener("error", () => {
+    if (gameMusicUrls.length > 1) {
+      advanceGameMusicTrack();
+      return;
+    }
     musicUnavailable = true;
   });
   musicEl.load();
