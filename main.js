@@ -3711,9 +3711,9 @@ async function main() {
       }
       const now = ctx.currentTime;
 
-      // * Resonant filtered noise squeal (no oscillators/LFOs).
-      const len = 0.18;
-      const attackSec = 0.01;
+      // * Rubber-on-glass squeak via high-Q resonant bandpass noise (no oscillators/LFOs).
+      const len = 0.12;
+      const attackSec = 0.005;
 
       const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
       const d = buf.getChannelData(0);
@@ -3725,14 +3725,16 @@ async function main() {
 
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
-      // Center freq: 1800–2400 Hz with slight per-trigger variance.
-      const centerHz = 2100 + (Math.random() - 0.5) * 600;
-      bp.frequency.setValueAtTime(clamp(centerHz, 1800, 2400), now);
-      // High resonance yields the "squeal" character.
-      bp.Q.value = 8 + Math.random() * 4; // 8–12
+      // Center freq: 2800–3800 Hz (higher pitch = squeakier).
+      const centerHz = 2800 + Math.random() * 1000;
+      bp.frequency.setValueAtTime(centerHz, now);
+      // High resonance makes the filter ring/squeal; add small per-trigger Q variation.
+      const baseQ = 15 + Math.random() * 5; // 15–20
+      const qJitter = (Math.random() - 0.5) * 6; // ±3
+      bp.Q.value = Math.max(1, baseQ + qJitter);
 
       const g = ctx.createGain();
-      const base = 0.15 * sfxVolume;
+      const base = 0.12 * sfxVolume;
       const peak = base * (0.35 + i * 0.65);
       g.gain.setValueAtTime(0.001, now);
       g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + attackSec);
