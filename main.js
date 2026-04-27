@@ -104,7 +104,7 @@ const CONFIG = {
         innerRadius: 3.7,
         outerRadius: 7.15,
         color: 0x2bd6ff,
-        yOffset: 0.2,
+        yOffset: 0.05,
       },
       spindleRing: {
         enabled: true,
@@ -137,7 +137,8 @@ const CONFIG = {
     friction: 1.6,
     restitution: 0.3,
     linearDamping: 2.5,
-    angularDamping: 7.5,
+    angularDamping: 8.25,
+    maxPitchRoll: 0.99,
 
     ramBoost: {
       enabled: true,
@@ -5684,7 +5685,7 @@ async function main() {
     }
 
     const av = cart.body.angvel();
-    const maxPitchRoll = 1.1;
+    const maxPitchRoll = CONFIG.cart.maxPitchRoll;
     if (Math.abs(av.x) > maxPitchRoll || Math.abs(av.z) > maxPitchRoll) {
       cart.body.setAngvel({
         x: clamp(av.x, -maxPitchRoll, maxPitchRoll),

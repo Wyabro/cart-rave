@@ -148,6 +148,58 @@ html, body {
 }
 #cr-cart-holder svg { transition: transform 90ms linear; overflow: visible; }
 
+.cr-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 12px;
+  padding: 14px 18px;
+  background: rgba(10, 0, 20, 0.92);
+  border: 1px solid rgba(255, 43, 214, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(255, 43, 214, 0.2);
+  backdrop-filter: blur(8px);
+  width: max-content;
+  max-width: 320px;
+  z-index: 100;
+  pointer-events: none;
+  font-family: "Space Mono", monospace;
+  color: #e0e0e0;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.cr-cart-stage:hover .cr-tooltip { display: block; }
+
+.cr-tooltip-headline {
+  color: #ff2bd6;
+  font-weight: bold;
+  font-size: 13px;
+  margin: 0 0 8px 0;
+}
+
+.cr-tooltip-list {
+  margin: 0 0 8px 0;
+  padding-left: 16px;
+}
+
+.cr-tooltip-list li {
+  margin-bottom: 4px;
+}
+
+.cr-tooltip-list strong {
+  color: #2bd6ff;
+}
+
+.cr-tooltip-footer {
+  margin: 0;
+  color: #888;
+  font-size: 11px;
+}
+
 .cr-stats {
   display: flex; align-items: center; gap: 16px;
   padding: 16px 22px;
