@@ -234,9 +234,6 @@ export default class Server implements Party.Server {
     const prevHostId = this.#hostId;
     this.#hostId = this.#pickNextHostId();
     this.#lastSeq = -1;
-    console.log(
-      `ensureLiveHost: stale hostId=${prevHostId} newHostId=${this.#hostId}`,
-    );
     if (this.#hostId) {
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
@@ -308,11 +305,6 @@ export default class Server implements Party.Server {
   // * The timer handle acts as the one-shot guard — re-entrant calls are no-ops
   // * until the timer fires and clears the handle.
   #checkAllReady() {
-    // --- DIAGNOSTIC LOG FOR READY-UP BUG ---
-    const currentHumanSlots = this.#slots!.filter(s => s.kind === "human");
-    console.log(`[DIAGNOSTIC] checkAllReady | phase: ${this.#round.phase} | timerArmed: ${this.#countdownTimerHandle !== null} | humans: ${JSON.stringify(currentHumanSlots.map(s => ({id: s.slotId, conn: s.connId, ready: s.isReady})))}`);
-    // ---------------------------------------
-
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
     const liveConnIds = new Set<string>();
     for (const c of this.room.getConnections()) {
@@ -341,7 +333,6 @@ export default class Server implements Party.Server {
     let changed = false;
     for (const slot of this.#slots!) {
       if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
-        console.log(`reconcile: orphan slot ${slot.slotId} connId=${slot.connId} -> npc`);
         slot.kind = "npc";
         slot.connId = null;
         slot.isReady = false;
@@ -376,9 +367,6 @@ export default class Server implements Party.Server {
       const wasHost = id === this.#hostId;
       const slot = this.#slots?.find((s) => s.connId === id);
       if (slot && slot.kind === "human") slotsChanged = true;
-      console.log(
-        `reap: connId=${id} reason=silent age=${age} was_host=${wasHost}`,
-      );
       this.#connections.delete(id);
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
@@ -469,7 +457,6 @@ export default class Server implements Party.Server {
     // Prune zombies from #connections to match platform reality.
     for (const staleId of [...this.#connections.keys()]) {
       if (!this.room.getConnections().some((c) => c.id === staleId) && staleId !== conn.id) {
-        console.log(`reconcile: pruning zombie connection ${staleId}`);
         this.#connections.delete(staleId);
       }
     }
@@ -492,11 +479,6 @@ export default class Server implements Party.Server {
       });
     }
 
-    console.log("connected to party");
-    console.log(
-      `party client id=${conn.id} room=${this.room.id} path=${new URL(ctx.request.url).pathname}`,
-    );
-
     // Late-join snapshot: send full room state immediately.
     const helloPayload = {
       v: PROTOCOL_VERSION,
@@ -506,11 +488,6 @@ export default class Server implements Party.Server {
       path: new URL(ctx.request.url).pathname,
       availableColors: this.#getAvailableColors(),
     };
-    console.log(
-      `sending hello to conn=${conn.id} hostId=${this.#hostId} slots=${this.#slots?.length ?? 0} cartsKeys=${Object.keys(this.#carts).length} payload=${JSON.stringify(
-        helloPayload,
-      )}`,
-    );
     this.#sendJson(conn, helloPayload);
 
     // Broadcast current slot mapping so all clients stay consistent.
@@ -548,7 +525,6 @@ export default class Server implements Party.Server {
       const prevHostId = this.#hostId;
       this.#hostId = this.#pickNextHostId();
       this.#lastSeq = -1;
-      console.log(`host disconnected: prevHostId=${prevHostId} newHostId=${this.#hostId}`);
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.hostMigrated,
@@ -556,8 +532,6 @@ export default class Server implements Party.Server {
         hostId: this.#hostId,
       });
       // * Carts continue from last-known transforms. No re-init.
-    } else {
-      console.log(`client disconnected: connId=${conn.id} hostId=${this.#hostId}`);
     }
 
     this.#broadcastJson({
@@ -591,7 +565,6 @@ export default class Server implements Party.Server {
 
     const type = data?.type;
     if (type === "debug_log") {
-      console.log(`[DEBUG ${conn.id.slice(0,8)}] ${data?.label ?? ""}:`, JSON.stringify(data?.payload ?? null));
       return;
     }
 
@@ -695,7 +668,6 @@ export default class Server implements Party.Server {
         }
         for (const s of this.#slots!) {
           if (s.kind === "human" && s.connId && !liveConnIds.has(s.connId)) {
-            console.log(`readyToggle reconcile: orphan slot ${s.slotId} connId=${s.connId} -> npc`);
             s.kind = "npc";
             s.connId = null;
             s.isReady = false;

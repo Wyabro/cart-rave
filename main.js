@@ -11,6 +11,9 @@ import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 
+// eslint-disable-next-line no-console
+console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
+
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
 
@@ -248,7 +251,7 @@ const CONFIG = {
   },
 
   audio: {
-    musicVolume: 0.15,
+    musicVolume: 0.1725,
   },
 };
 
@@ -526,14 +529,18 @@ let _localColorPicked = false;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
-let masterGain = 0.25; // Step 10d: Volume control (0.0 to 1.0)
+const AUDIO_VOLUME_MAX = 1.15;
+const AUDIO_VOLUME_DEFAULT = 0.25 * AUDIO_VOLUME_MAX;
+let masterGain = AUDIO_VOLUME_DEFAULT; // Step 10d: Volume control (0.0 to AUDIO_VOLUME_MAX)
 /** @type {number} */
-let sfxVolume = 0.25;
+let sfxVolume = AUDIO_VOLUME_DEFAULT;
 try {
   const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
   if (savedSfxVol !== null) {
     const parsedSfxVol = parseInt(savedSfxVol, 10);
-    sfxVolume = Number.isNaN(parsedSfxVol) ? 0.25 : clamp(parsedSfxVol / 100, 0, 1);
+    sfxVolume = Number.isNaN(parsedSfxVol)
+      ? AUDIO_VOLUME_DEFAULT
+      : clamp(parsedSfxVol / 100, 0, AUDIO_VOLUME_MAX);
   }
 } catch {}
 /** @type {boolean} */
@@ -902,8 +909,6 @@ function initNetcode(roomOverride) {
   });
 
   partySocket.addEventListener("open", () => {
-    // eslint-disable-next-line no-console
-    console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
     let savedUsername = (incomingPortalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
@@ -972,8 +977,6 @@ function initNetcode(roomOverride) {
       }
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
-      // eslint-disable-next-line no-console
-      console.log("[net] hello processed, youConnId=" + youConnId);
 
       // * Auto-submit color picked on the menu. Only fires when the player deliberately
       // * joined (menuVisible is false because hideMenu() was called in the mode handler).
@@ -1368,8 +1371,6 @@ function wrapAngleRad(angle) {
 }
 
 async function main() {
-  // eslint-disable-next-line no-console
-  console.log("[boot] main() start", { href: window.location.href });
   await RAPIER.init();
 
   let sfx = null;
@@ -1707,7 +1708,7 @@ async function main() {
   }
 
   function setSfxSliderVolume(v) {
-    sfxVolume = clamp(v, 0, 1);
+    sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
     localStorage.setItem("cartRaveSfxVol", Math.round(sfxVolume * 100).toString());
     try { applyAudioVolume(); } catch (e) {}
   }
@@ -2479,7 +2480,7 @@ async function main() {
       val.className = "hud-vol-val";
       track.addEventListener("click", (e) => {
         const r = track.getBoundingClientRect();
-        onChange(clamp((e.clientX - r.left) / r.width, 0, 1));
+        onChange(clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX));
         syncAudioControls();
       });
       row.appendChild(label);
@@ -2603,9 +2604,9 @@ async function main() {
       const sfxPercent = Math.round(sfxVolume * 100);
       hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
       hudMuteBtn.classList.toggle("muted", isMuted);
-      hudMusicVol.fill.style.width = (isMuted ? 0 : masterGain * 100) + "%";
+      hudMusicVol.fill.style.width = (isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX) * 100) + "%";
       hudMusicVol.val.textContent = isMuted ? "OFF" : musicPercent;
-      hudSfxVol.fill.style.width = (isMuted ? 0 : sfxVolume * 100) + "%";
+      hudSfxVol.fill.style.width = (isMuted ? 0 : (sfxVolume / AUDIO_VOLUME_MAX) * 100) + "%";
       hudSfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
     }
 
@@ -3133,7 +3134,7 @@ async function main() {
     const crMusicVolVal = document.getElementById("cr-music-vol-val");
 
     function syncMenuVolume() {
-      if (crMusicVolFill) crMusicVolFill.style.width = ((isMuted ? 0 : masterGain) * 100) + "%";
+      if (crMusicVolFill) crMusicVolFill.style.width = ((isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX)) * 100) + "%";
       if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
       if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
       if (hud && hud.syncAudioControls) hud.syncAudioControls();
@@ -3149,7 +3150,7 @@ async function main() {
     if (crMusicVolTrack) {
       crMusicVolTrack.addEventListener("click", (e) => {
         const r = crMusicVolTrack.getBoundingClientRect();
-        const v = clamp((e.clientX - r.left) / r.width, 0, 1);
+        const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
         masterGain = v;
         localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
         try { applyAudioVolume(); } catch(e) {}
@@ -3161,12 +3162,16 @@ async function main() {
     const savedVol = localStorage.getItem("cartRaveVolume");
     if (savedVol !== null) {
       const parsed = parseInt(savedVol, 10);
-      masterGain = Number.isNaN(parsed) ? 0.25 : Math.max(0, Math.min(1, parsed / 100));
+      masterGain = Number.isNaN(parsed)
+        ? AUDIO_VOLUME_DEFAULT
+        : clamp(parsed / 100, 0, AUDIO_VOLUME_MAX);
     }
     const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
     if (savedSfxVol !== null) {
       const parsed = parseInt(savedSfxVol, 10);
-      sfxVolume = Number.isNaN(parsed) ? 0.25 : clamp(parsed / 100, 0, 1);
+      sfxVolume = Number.isNaN(parsed)
+        ? AUDIO_VOLUME_DEFAULT
+        : clamp(parsed / 100, 0, AUDIO_VOLUME_MAX);
     }
     const savedMute = localStorage.getItem("cartRaveMuted");
     if (savedMute === "true") setAllAudioMuted(true);

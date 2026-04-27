@@ -68,11 +68,12 @@ Session 26 shipped
 
 Remaining (pre-submission) — Priority Order
 
-Verification pass (priority 1):
-Solo single-player: full round, scores save, stats update on return to menu
-Quickplay strangers: two browsers connect and play
-Hard-refresh ready-up: player hard-refreshes mid-lobby, ready state doesn't break
-Stats/history in Solo: multiple rounds, wins/matches/points accumulate correctly
+✅ Portal system (exit + return portals, vibeverse query params)
+✅ Horn replaced with spacebar hop
+✅ Volume increased 15%
+✅ Console logs cleaned
+✅ Stat tracking audited (working correctly)
+✅ Refresh stutter fix (host migration freeze)
 
 Supabase global stats (priority 2):
 Wire real global stats (carts online, total plays) to Supabase backend
@@ -80,7 +81,6 @@ Replace placeholder GLOBAL section in menu with live data
 Single table, two RPCs (increment plays, count active rooms)
 
 Pre-submission cleanup (priority 3):
-Remove all diagnostic console.logs
 .cursorrules final update
 Final playtest pass
 
