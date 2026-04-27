@@ -151,6 +151,10 @@ export function buildCart(colorHex) {
   const frameMat = neonFrameMaterial(baseColor);
   const wheelMat = neonWheelMaterial(baseColor);
   const stemMat = neonWheelMaterial(baseColor);
+  const handleMat = frameMat.clone();
+  handleMat.color.setHex(0x000000);
+  handleMat.emissive.setHex(0x000000);
+  handleMat.emissiveIntensity = 0.0;
 
   const root = new THREE.Group();
   root.name = "CartVisual";
@@ -297,12 +301,12 @@ export function buildCart(colorHex) {
   for (const sx of [-HANDLE_SPREAD_X, HANDLE_SPREAD_X]) {
     _p0.set(sx, postBottomY, backZ);
     _p1.set(sx, postTopY, handleZ);
-    addRailCylinder(root, _p0, _p1, railR * 1.15, railSeg, frameMat);
+    addRailCylinder(root, _p0, _p1, railR * 1.15, railSeg, handleMat);
   }
   const handleLen = BASKET_WIDTH * 0.92;
   const handleBar = new THREE.Mesh(
     new THREE.CylinderGeometry(HANDLE_BAR_RADIUS, HANDLE_BAR_RADIUS, handleLen, 14, 1),
-    frameMat,
+    handleMat,
   );
   handleBar.rotation.z = Math.PI / 2;
   handleBar.position.set(0, HANDLE_BAR_Y, handleZ);

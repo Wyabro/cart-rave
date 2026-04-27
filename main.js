@@ -1285,7 +1285,7 @@ function initCrowdSfx(audioListener) {
 }
 
 function initLeaderHumSfx(audioListener) {
-  /** @type {null | { ctx: AudioContext; osc: OscillatorNode; drive: GainNode; lp: BiquadFilterNode; panner: PannerNode; g: GainNode }} */
+  /** @type {null | { ctx: AudioContext; osc: OscillatorNode; osc2: OscillatorNode; drive: GainNode; lp: BiquadFilterNode; g: GainNode }} */
   let nodes = null;
   let started = false;
   /** @type {null|number} */
@@ -1298,7 +1298,11 @@ function initLeaderHumSfx(audioListener) {
 
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.value = 58;
+    osc.frequency.value = 120;
+
+    const osc2 = ctx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.value = 180;
 
     const drive = ctx.createGain();
     drive.gain.value = 0.35;
@@ -1308,23 +1312,16 @@ function initLeaderHumSfx(audioListener) {
     lp.frequency.value = 220;
     lp.Q.value = 0.8;
 
-    const panner = ctx.createPanner();
-    panner.panningModel = "HRTF";
-    panner.distanceModel = "inverse";
-    panner.refDistance = 4;
-    panner.maxDistance = 60;
-    panner.rolloffFactor = 1.2;
-
     const g = ctx.createGain();
     g.gain.value = 0.0001;
 
     osc.connect(drive);
+    osc2.connect(drive);
     drive.connect(lp);
-    lp.connect(panner);
-    panner.connect(g);
+    lp.connect(g);
     g.connect(audioListener.gain);
 
-    nodes = { ctx, osc, drive, lp, panner, g };
+    nodes = { ctx, osc, osc2, drive, lp, g };
     return nodes;
   };
 
@@ -1333,6 +1330,7 @@ function initLeaderHumSfx(audioListener) {
     const n = ensureNodes();
     if (!n) return;
     try { n.osc.start(); } catch {}
+    try { n.osc2.start(); } catch {}
     started = true;
   };
 
@@ -1345,27 +1343,20 @@ function initLeaderHumSfx(audioListener) {
     const wants = Number.isFinite(slotIndex) ? slotIndex : null;
     if (wants === currentLeaderSlot) return;
     currentLeaderSlot = wants;
-    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.12 * sfxVolume) : 0.0001;
+    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.35 * sfxVolume) : 0.0001;
     g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
   };
 
   const updatePositionFromCart = (cart) => {
-    if (!cart || !cart.mesh) return;
-    const n = ensureNodes();
-    if (!n) return;
-    const pos = cart.mesh.position;
-    if (!pos) return;
-    const now = n.ctx.currentTime;
-    n.panner.positionX.setValueAtTime(pos.x, now);
-    n.panner.positionY.setValueAtTime(pos.y, now);
-    n.panner.positionZ.setValueAtTime(pos.z, now);
+    // Non-spatial: no-op.
+    void cart;
   };
 
   const resyncVolume = () => {
     const n = ensureNodes();
     if (!n) return;
     const now = n.ctx.currentTime;
-    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.12 * sfxVolume) : 0.0001;
+    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.35 * sfxVolume) : 0.0001;
     n.g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
   };
 
@@ -2705,7 +2696,7 @@ async function main() {
     const readyBtn = document.createElement("button");
     readyBtn.id = "ready-button";
     readyBtn.className = "hud-ready-btn";
-    readyBtn.textContent = "CLICK TO READY";
+    readyBtn.textContent = "READY";
     readyBtn.addEventListener("click", () => {
       if (partySocket) {
         partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
@@ -3668,7 +3659,7 @@ async function main() {
       const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
       if (roundPhase === "lobby" && !menuVisible) {
         hud.readyBtn.style.display = "block";
-        hud.readyBtn.textContent = isLocalReady ? "READY!" : "CLICK TO READY";
+        hud.readyBtn.textContent = isLocalReady ? "READY!" : "READY";
         hud.readyBtn.classList.toggle("is-ready", isLocalReady);
       } else {
         hud.readyBtn.style.display = "none";
