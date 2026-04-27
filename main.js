@@ -3822,12 +3822,36 @@ async function main() {
   /** @type {{ intensity: number; stop: () => void }[]} */
   const activeImpactSfx = [];
   const MAX_ACTIVE_IMPACTS = 3;
+  /** @type {AudioBuffer | null} */
+  let cartCrashBuffer = null;
+  let cartCrashBufferLoadInFlight = false;
   let shakeUntil = 0;
   let shakeIntensity = 0;
   let slowMoUntil = 0;
   let slowMoRate = 1;
   let fovPunchUntil = 0;
   const BASE_FOV = CONFIG.camera.fov;
+
+  const ensureCartCrashBufferLoaded = () => {
+    const ctx = audioListener.context;
+    if (ctx.state !== "running") return;
+    if (cartCrashBuffer || cartCrashBufferLoadInFlight) return;
+    cartCrashBufferLoadInFlight = true;
+
+    const url = new URL("sounds/cart-crash.wav", window.location.href).toString();
+    void fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((ab) => ctx.decodeAudioData(ab))
+      .then(
+        (buf) => {
+          cartCrashBuffer = buf;
+          cartCrashBufferLoadInFlight = false;
+        },
+        () => {
+          cartCrashBufferLoadInFlight = false;
+        },
+      );
+  };
   sfx = {
     _muted: isMuted,
     playCollision(intensity) {
@@ -3849,54 +3873,39 @@ async function main() {
         activeImpactSfx.splice(quietestIdx, 1);
       }
 
-      // Metallic clang only: 3 detuned partials + subtle vibrato.
-      const baseDecaySec = 0.45;
-      const decaySec = baseDecaySec + i * 0.4; // 0.45–0.85s
-      const peak = Math.max(0.001, 0.3 * (0.15 + 0.85 * i) * sfxVolume);
-      const detuneSpreadCents = 6 + i * 40; // wider spread on harder hits
+      ensureCartCrashBufferLoaded();
+      if (!cartCrashBuffer) return;
+
+      const src = ctx.createBufferSource();
+      src.buffer = cartCrashBuffer;
+      src.playbackRate.setValueAtTime(0.8 + i * 0.4, now);
 
       const out = ctx.createGain();
-      out.gain.setValueAtTime(Math.max(0.0001, peak), now);
-      out.gain.exponentialRampToValueAtTime(0.0001, now + decaySec);
+      const g = (0.2 + i * 0.8) * sfxVolume;
+      out.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : g), now);
+
+      src.connect(out);
       out.connect(audioListener.gain);
 
-      const vibOsc = ctx.createOscillator();
-      vibOsc.type = "sine";
-      vibOsc.frequency.setValueAtTime(5, now);
-      const vibGain = ctx.createGain();
-      const vibDepthHz = 10 + i * 15; // ~20Hz around mid/high impulse
-      vibGain.gain.setValueAtTime(vibDepthHz, now);
-      vibOsc.connect(vibGain);
-
-      const freqs = [3700, 4850, 2200];
-      /** @type {OscillatorNode[]} */
-      const oscs = [];
-      for (let j = 0; j < freqs.length; j += 1) {
-        const o = ctx.createOscillator();
-        o.type = "sine";
-        o.frequency.setValueAtTime(freqs[j], now);
-        o.detune.setValueAtTime((Math.random() * 2 - 1) * detuneSpreadCents, now);
-        vibGain.connect(o.frequency);
-        o.connect(out);
-        o.start(now);
-        o.stop(now + decaySec + 0.05);
-        oscs.push(o);
-      }
-
-      vibOsc.start(now);
-      vibOsc.stop(now + decaySec + 0.05);
-
-      activeImpactSfx.push({
+      const entry = {
         intensity: i,
         stop: () => {
           const t = ctx.currentTime;
           try { out.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
-          for (const o of oscs) {
-            try { o.stop(t + 0.01); } catch {}
-          }
-          try { vibOsc.stop(t + 0.01); } catch {}
+          try { src.stop(t + 0.01); } catch {}
+          try { src.disconnect(); } catch {}
+          try { out.disconnect(); } catch {}
         },
-      });
+      };
+      src.onended = () => {
+        const idx = activeImpactSfx.indexOf(entry);
+        if (idx >= 0) activeImpactSfx.splice(idx, 1);
+        try { src.disconnect(); } catch {}
+        try { out.disconnect(); } catch {}
+      };
+
+      activeImpactSfx.push(entry);
+      try { src.start(now); } catch {}
 
       if (roundPhase === "running" && i > 0.2) {
         shakeIntensity = i * 8 * 2; // max ~16px offset
@@ -6617,6 +6626,7 @@ async function main() {
         () => {
           didResumeAudioContext = true;
           audioContextResumeInFlight = false;
+          ensureCartCrashBufferLoaded();
         },
         () => {
           audioContextResumeInFlight = false;
