@@ -372,9 +372,6 @@ let youConnId = null;
 let hostId = null;
 let isHost = false;
 
-// TEMP DEBUG — message counters
-const __msgCounts = { in: {}, out: {} };
-
 // * Input bridge for non-host client_input nitro (Shift key).
 let localNitroHeld = false;
 
@@ -382,12 +379,6 @@ function cssHexFromRgbNumber(rgb) {
   if (!Number.isFinite(rgb)) return "#888888";
   const hex = Math.floor(rgb).toString(16).padStart(6, "0");
   return `#${hex}`;
-}
-
-function getSlotColor(slotIndex) {
-  const key = PALETTE[slotIndex] ?? null;
-  if (!key) return "#888888";
-  return cssHexFromRgbNumber(CART_COLORS[key]?.hex ?? 0x888888);
 }
 
 function getColorForSlot(slot) {
@@ -795,7 +786,6 @@ function startHostSendLoop() {
         carts,
       }),
     );
-    __msgCounts.out[MSG.hostTransform] = (__msgCounts.out[MSG.hostTransform] || 0) + 1;
   }, intervalMs);
 }
 
@@ -822,7 +812,6 @@ function startInputSendLoop() {
         },
       }),
     );
-    __msgCounts.out[MSG.clientInput] = (__msgCounts.out[MSG.clientInput] || 0) + 1;
   }, intervalMs);
 }
 
@@ -930,7 +919,6 @@ function initNetcode(roomOverride) {
       }
     }
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
-    __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
     
     startKeepaliveLoop();
 
@@ -944,7 +932,6 @@ function initNetcode(roomOverride) {
           (detectGameMode() === "quickplay" || detectGameMode() === "solo")
         ) {
           partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-          __msgCounts.out[MSG.readyToggle] = (__msgCounts.out[MSG.readyToggle] || 0) + 1;
         }
       }, 500);
     }
@@ -958,8 +945,6 @@ function initNetcode(roomOverride) {
       return;
     }
     if (!msg || typeof msg !== "object") return;
-
-    __msgCounts.in[msg.type || "unknown"] = (__msgCounts.in[msg.type || "unknown"] || 0) + 1;
 
     const type = msg.type;
     if (type === MSG.hello) {
@@ -991,7 +976,6 @@ function initNetcode(roomOverride) {
         const colorToSend = (savedColor && PALETTE.includes(savedColor)) ? savedColor : PALETTE[0];
         if (partySocket && partySocket.readyState === WebSocket.OPEN) {
           partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
-          __msgCounts.out[MSG.colorPick] = (__msgCounts.out[MSG.colorPick] || 0) + 1;
           if (roundPhase === "running" && youConnId) {
             pendingMidRoundJoinRespawnConnId = youConnId;
           }
@@ -1285,7 +1269,7 @@ function initCrowdSfx(audioListener) {
 }
 
 function initLeaderHumSfx(audioListener) {
-  /** @type {null | { ctx: AudioContext; osc: OscillatorNode; osc2: OscillatorNode; drive: GainNode; lp: BiquadFilterNode; g: GainNode }} */
+  /** @type {null | { ctx: AudioContext; osc: OscillatorNode; osc2: OscillatorNode; lfo: OscillatorNode; lfoGain: GainNode; drive: GainNode; lp: BiquadFilterNode; g: GainNode }} */
   let nodes = null;
   let started = false;
   /** @type {null|number} */
@@ -1298,19 +1282,27 @@ function initLeaderHumSfx(audioListener) {
 
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.value = 120;
+    osc.frequency.value = 880;
 
     const osc2 = ctx.createOscillator();
     osc2.type = "sine";
-    osc2.frequency.value = 180;
+    osc2.frequency.value = 1320;
+
+    const lfo = ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 6;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 15;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
 
     const drive = ctx.createGain();
-    drive.gain.value = 0.35;
+    drive.gain.value = 0.15;
 
     const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 220;
-    lp.Q.value = 0.8;
+    lp.type = "bandpass";
+    lp.frequency.value = 900;
+    lp.Q.value = 2;
 
     const g = ctx.createGain();
     g.gain.value = 0.0001;
@@ -1321,7 +1313,7 @@ function initLeaderHumSfx(audioListener) {
     lp.connect(g);
     g.connect(audioListener.gain);
 
-    nodes = { ctx, osc, osc2, drive, lp, g };
+    nodes = { ctx, osc, osc2, lfo, lfoGain, drive, lp, g };
     return nodes;
   };
 
@@ -1331,6 +1323,7 @@ function initLeaderHumSfx(audioListener) {
     if (!n) return;
     try { n.osc.start(); } catch {}
     try { n.osc2.start(); } catch {}
+    try { n.lfo.start(); } catch {}
     started = true;
   };
 
@@ -1343,7 +1336,7 @@ function initLeaderHumSfx(audioListener) {
     const wants = Number.isFinite(slotIndex) ? slotIndex : null;
     if (wants === currentLeaderSlot) return;
     currentLeaderSlot = wants;
-    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.35 * sfxVolume) : 0.0001;
+    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.12 * sfxVolume) : 0.0001;
     g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
   };
 
@@ -1356,7 +1349,7 @@ function initLeaderHumSfx(audioListener) {
     const n = ensureNodes();
     if (!n) return;
     const now = n.ctx.currentTime;
-    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.35 * sfxVolume) : 0.0001;
+    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.12 * sfxVolume) : 0.0001;
     n.g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
   };
 
@@ -3869,7 +3862,7 @@ async function main() {
 
       const src = ctx.createBufferSource();
       src.buffer = cartCrashBuffer;
-      src.playbackRate.setValueAtTime(0.8 + i * 0.4, now);
+      src.playbackRate.setValueAtTime(0.6 + Math.random() * 0.4 + i * 0.5, now);
 
       const out = ctx.createGain();
       const g = (0.2 + i * 0.8) * sfxVolume * 0.85;
@@ -6858,7 +6851,6 @@ async function main() {
           carts: lastCartsCache,
         }),
       );
-      __msgCounts.out[MSG.hostTransform] = (__msgCounts.out[MSG.hostTransform] || 0) + 1;
     }
     if (partySocket && partySocket.readyState === 1) {
       partySocket.send(JSON.stringify({ type: MSG.playAgain }));
@@ -6960,10 +6952,6 @@ async function main() {
   let lastDebugMs = 0;
   let simFrameIndex = 0;
   let recordVersusPlayerFrame30Logged = false;
-  // * One-shot per page load; full reload (or HMR re-entry into main()) resets for re-measure.
-  let playerColliderVisualOvershootSimFrame10Logged = false;
-  let dancefloorSurfaceVisualDiagSimFrame10Logged = false;
-  let dancefloorSurfaceDeepDiagSimFrame15Logged = false;
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
 
@@ -6982,282 +6970,6 @@ async function main() {
     }
 
     simFrameIndex += 1;
-    if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
-      playerColliderVisualOvershootSimFrame10Logged = true;
-      const hx = CONFIG.cart.size.x / 2;
-      const hy = CONFIG.cart.size.y / 2;
-      const hz = CONFIG.cart.size.z / 2;
-      const colliderFull = { x: 2 * hx, y: 2 * hy, z: 2 * hz };
-
-      const cartVisualRoot = localCartForConnId().mesh;
-      const prevPos = cartVisualRoot.position.clone();
-      const prevQuat = cartVisualRoot.quaternion.clone();
-      cartVisualRoot.position.set(0, 0, 0);
-      cartVisualRoot.quaternion.identity();
-      cartVisualRoot.updateMatrixWorld(true);
-      const visualBox = new THREE.Box3().setFromObject(cartVisualRoot);
-      cartVisualRoot.position.copy(prevPos);
-      cartVisualRoot.quaternion.copy(prevQuat);
-      cartVisualRoot.updateMatrixWorld(true);
-
-      const visualMin = visualBox.min.clone();
-      const visualMax = visualBox.max.clone();
-      const visualSize = new THREE.Vector3().subVectors(visualMax, visualMin);
-
-      const pct = (colliderLen, visLen) =>
-        visLen > 1e-10 ? ((colliderLen - visLen) / visLen) * 100 : null;
-
-    }
-
-    if (simFrameIndex === 10 && !dancefloorSurfaceVisualDiagSimFrame10Logged) {
-      dancefloorSurfaceVisualDiagSimFrame10Logged = true;
-      const scratchWorldPos = new THREE.Vector3();
-      const scratchBox = new THREE.Box3();
-      let diagError = null;
-      /** @type {unknown[]} */
-      const childRows = [];
-      try {
-        const recordInSceneRoot = scene.children.includes(recordMesh);
-        for (let i = 0; i < recordMesh.children.length; i += 1) {
-          const ch = recordMesh.children[i];
-          if (!(ch instanceof THREE.Mesh)) {
-            childRows.push({ index: i, kind: "non-mesh", type: ch.type });
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-          ch.updateMatrixWorld(true);
-          ch.getWorldPosition(scratchWorldPos);
-          scratchBox.setFromObject(ch);
-          const mats = Array.isArray(ch.material) ? ch.material : [ch.material];
-          const matSummaries = mats.map((m) => ({
-            type: m.type,
-            visible: m.visible,
-            opacity: m.opacity,
-            transparent: m.transparent,
-          }));
-          childRows.push({
-            index: i,
-            geometryType: ch.geometry?.type,
-            inRecordMeshChildren: true,
-            worldPosition: {
-              x: scratchWorldPos.x,
-              y: scratchWorldPos.y,
-              z: scratchWorldPos.z,
-            },
-            worldBoundingBox: {
-              min: { x: scratchBox.min.x, y: scratchBox.min.y, z: scratchBox.min.z },
-              max: { x: scratchBox.max.x, y: scratchBox.max.y, z: scratchBox.max.z },
-              size: {
-                x: scratchBox.max.x - scratchBox.min.x,
-                y: scratchBox.max.y - scratchBox.min.y,
-                z: scratchBox.max.z - scratchBox.min.z,
-              },
-            },
-            materials: matSummaries,
-            rotation: { x: ch.rotation.x, y: ch.rotation.y, z: ch.rotation.z },
-          });
-        }
-      } catch (err) {
-        diagError = err instanceof Error ? err.message : String(err);
-      }
-
-      const ringMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry",
-      );
-      const grooveRingMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "groove",
-      );
-      const spokeMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.geometry?.type === "BoxGeometry",
-      );
-      const labelTextMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "labelText",
-      );
-      const lt = CONFIG.record.surface.labelText;
-      /** @type {Record<string, unknown>} */
-      const labelDiag = {
-        labelTextMeshCount: labelTextMeshes.length,
-        configText: lt.text,
-        configArcRadius: lt.arcRadius,
-        meshes: labelTextMeshes.map((lm, idx) => {
-          if (!(lm instanceof THREE.Mesh)) return { index: idx };
-          lm.updateMatrixWorld(true);
-          lm.getWorldPosition(scratchWorldPos);
-          scratchBox.setFromObject(lm);
-          const pg = lm.geometry;
-          const params =
-            pg && "parameters" in pg ? /** @type {{ radius?: number }} */ (pg).parameters : {};
-          return {
-            index: idx,
-            circleGeometryRadius: params.radius,
-            localPosition: { x: lm.position.x, y: lm.position.y, z: lm.position.z },
-            worldPosition: {
-              x: scratchWorldPos.x,
-              y: scratchWorldPos.y,
-              z: scratchWorldPos.z,
-            },
-            rotation: { x: lm.rotation.x, y: lm.rotation.y, z: lm.rotation.z },
-            worldBoundingBox: {
-              min: { x: scratchBox.min.x, y: scratchBox.min.y, z: scratchBox.min.z },
-              max: { x: scratchBox.max.x, y: scratchBox.max.y, z: scratchBox.max.z },
-              size: {
-                x: scratchBox.max.x - scratchBox.min.x,
-                y: scratchBox.max.y - scratchBox.min.y,
-                z: scratchBox.max.z - scratchBox.min.z,
-              },
-            },
-          };
-        }),
-      };
-
-      // eslint-disable-next-line no-console
-      // Diagnostics removed for submission.
-    }
-
-    if (simFrameIndex === 15 && !dancefloorSurfaceDeepDiagSimFrame15Logged) {
-      dancefloorSurfaceDeepDiagSimFrame15Logged = true;
-      const scratchWp = new THREE.Vector3();
-      const scratchB = new THREE.Box3();
-      const clearCol = new THREE.Color();
-
-      /** @param {number} side */
-      const sideString = (side) =>
-        side === THREE.FrontSide
-          ? "FrontSide"
-          : side === THREE.DoubleSide
-            ? "DoubleSide"
-            : side === THREE.BackSide
-              ? "BackSide"
-              : String(side);
-
-      /**
-       * @param {THREE.Material} m
-       */
-      const summarizeMaterial = (m) => ({
-        colorHex: m.color && typeof m.color.getHex === "function" ? m.color.getHex() : null,
-        transparent: m.transparent,
-        opacity: m.opacity,
-        depthWrite: m.depthWrite,
-        depthTest: m.depthTest,
-        side: m.side,
-        sideString: sideString(m.side),
-        visible: m.visible,
-      });
-
-      recordMesh.updateMatrixWorld(true);
-      recordMesh.getWorldPosition(scratchWp);
-      scratchB.setFromObject(recordMesh);
-      const recordWorldPos = { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z };
-      const recordWorldBbox = {
-        min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
-        max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
-        size: {
-          x: scratchB.max.x - scratchB.min.x,
-          y: scratchB.max.y - scratchB.min.y,
-          z: scratchB.max.z - scratchB.min.z,
-        },
-      };
-      const recMatRaw = recordMesh.material;
-      const recMat = Array.isArray(recMatRaw) ? recMatRaw[0] : recMatRaw;
-
-      const ringMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.geometry?.type === "RingGeometry",
-      );
-      const grooveRingMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "groove",
-      );
-      const labelTextMeshes = recordMesh.children.filter(
-        (c) => c instanceof THREE.Mesh && c.userData.recordSurfacePart === "labelText",
-      );
-
-      /** @type {Record<string, unknown> | null} */
-      let firstRingReport = null;
-      const firstRing = grooveRingMeshes[0] ?? ringMeshes[0];
-      if (firstRing instanceof THREE.Mesh) {
-        firstRing.updateMatrixWorld(true);
-        firstRing.getWorldPosition(scratchWp);
-        const g = firstRing.geometry;
-        g.computeBoundingBox();
-        scratchB.setFromObject(firstRing);
-        const m = Array.isArray(firstRing.material) ? firstRing.material[0] : firstRing.material;
-        const p = /** @type {{ innerRadius?: number; outerRadius?: number; thetaSegments?: number }} */ (
-          g.parameters || {}
-        );
-        firstRingReport = {
-          geometryParameters: {
-            innerRadius: p.innerRadius,
-            outerRadius: p.outerRadius,
-            thetaSegments: p.thetaSegments,
-          },
-          material: summarizeMaterial(m),
-          worldPosition: { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z },
-          worldBoundingBox: {
-            min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
-            max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
-            size: {
-              x: scratchB.max.x - scratchB.min.x,
-              y: scratchB.max.y - scratchB.min.y,
-              z: scratchB.max.z - scratchB.min.z,
-            },
-          },
-          geometryBoundingBox: g.boundingBox
-            ? {
-                min: { x: g.boundingBox.min.x, y: g.boundingBox.min.y, z: g.boundingBox.min.z },
-                max: { x: g.boundingBox.max.x, y: g.boundingBox.max.y, z: g.boundingBox.max.z },
-              }
-            : null,
-        };
-      }
-
-      /** @type {Record<string, unknown> | null} */
-      const firstSpokeReport = null;
-
-      /** @type {Record<string, unknown> | null} */
-      let firstLabelTextReport = null;
-      const firstLabelText = labelTextMeshes[0];
-      if (firstLabelText instanceof THREE.Mesh) {
-        firstLabelText.updateMatrixWorld(true);
-        firstLabelText.getWorldPosition(scratchWp);
-        const g = firstLabelText.geometry;
-        g.computeBoundingBox();
-        scratchB.setFromObject(firstLabelText);
-        const m = Array.isArray(firstLabelText.material) ? firstLabelText.material[0] : firstLabelText.material;
-        const map = /** @type {THREE.MeshBasicMaterial} */ (m).map;
-        const texOk =
-          map != null &&
-          map.image != null &&
-          typeof map.image.width === "number" &&
-          map.image.width > 0;
-        const lp = /** @type {{ radius?: number }} */ (g.parameters || {});
-        firstLabelTextReport = {
-          geometryParameters: { radius: lp.radius },
-          material: summarizeMaterial(m),
-          textureOk: texOk,
-          textureImageWidth: map && map.image ? map.image.width : null,
-          textureImageHeight: map && map.image ? map.image.height : null,
-          worldPosition: { x: scratchWp.x, y: scratchWp.y, z: scratchWp.z },
-          worldBoundingBox: {
-            min: { x: scratchB.min.x, y: scratchB.min.y, z: scratchB.min.z },
-            max: { x: scratchB.max.x, y: scratchB.max.y, z: scratchB.max.z },
-            size: {
-              x: scratchB.max.x - scratchB.min.x,
-              y: scratchB.max.y - scratchB.min.y,
-              z: scratchB.max.z - scratchB.min.z,
-            },
-          },
-          geometryBoundingBox: g.boundingBox
-            ? {
-                min: { x: g.boundingBox.min.x, y: g.boundingBox.min.y, z: g.boundingBox.min.z },
-                max: { x: g.boundingBox.max.x, y: g.boundingBox.max.y, z: g.boundingBox.max.z },
-              }
-            : null,
-        };
-      }
-
-      renderer.getClearColor(clearCol);
-      // eslint-disable-next-line no-console
-      // Diagnostics removed for submission.
-    }
 
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
       recordVersusPlayerFrame30Logged = true;
@@ -8374,32 +8086,3 @@ if (isMobileGameplayBlocked()) {
   bootstrapNetcodeEntryFromUrl();
   main();
 }
-
-// TEMP DEBUG — remove before jam submission (session 9 multiplayer debug)
-window.__debug = () => {
-  try {
-    return {
-      youConnId,
-      localSlotIndex: localSlotIndexForConn(youConnId),
-      isHost,
-      hostId,
-      partyHost: partySocket?.host,
-      readyState: partySocket?.readyState,
-      __msgCounts
-    };
-  } catch (e) {
-    return { error: String(e) };
-  }
-};
-
-// TEMP DEBUG — phone-to-server log bridge
-window.__log = (label, payload) => {
-  if (!partySocket || partySocket.readyState !== 1) {
-    return;
-  }
-  partySocket.send(JSON.stringify({
-    type: "debug_log",
-    label: String(label ?? ""),
-    payload: payload ?? null
-  }));
-};
