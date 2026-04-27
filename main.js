@@ -3711,8 +3711,8 @@ async function main() {
       }
       const now = ctx.currentTime;
 
-      // * Short, filtered noise burst to hint tire slip without dominating the mix.
-      const len = 0.075;
+      // * Filtered noise burst to suggest tire slip without dominating the mix.
+      const len = 0.25;
       const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
       const d = buf.getChannelData(0);
       for (let j = 0; j < d.length; j += 1) {
@@ -3724,19 +3724,19 @@ async function main() {
 
       const hp = ctx.createBiquadFilter();
       hp.type = "highpass";
-      hp.frequency.setValueAtTime(1400, now);
+      hp.frequency.setValueAtTime(800, now);
       hp.Q.value = 0.7;
 
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
-      bp.frequency.setValueAtTime(3200, now);
-      bp.Q.value = 2.2;
+      bp.frequency.setValueAtTime(1800, now);
+      bp.Q.value = 1.2;
 
       const g = ctx.createGain();
-      const base = 0.06 * sfxVolume;
+      const base = 0.15 * sfxVolume;
       const peak = base * (0.35 + i * 0.65);
       g.gain.setValueAtTime(0.001, now);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + 0.008);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + 0.03);
       g.gain.exponentialRampToValueAtTime(0.001, now + len);
 
       src.connect(hp);
