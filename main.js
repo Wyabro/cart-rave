@@ -7493,21 +7493,91 @@ async function main() {
         accumulator = 0;
       }
     } else {
-      // Non-host: do not step physics. Apply transforms from buffer ~100ms behind.
+      // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
       const targetServerNowMs = Date.now() - CONFIG.net.interpBufferMs;
-      let chosen = null;
-      for (let i = netStateBuffer.length - 1; i >= 0; i -= 1) {
+
+      // Find surrounding snapshots.
+      let afterIndex = -1;
+      for (let i = 0; i < netStateBuffer.length; i += 1) {
         const e = netStateBuffer[i];
-        if (e.serverNowMs <= targetServerNowMs) {
-          chosen = e;
+        if (e.serverNowMs > targetServerNowMs) {
+          afterIndex = i;
           break;
         }
       }
-      if (!chosen && netStateBuffer.length > 0) {
-        chosen = netStateBuffer[0];
-      }
-      if (chosen) {
-        applyCartsSnapshotToBodies(chosen.carts);
+      const beforeIndex = afterIndex > 0 ? afterIndex - 1 : (afterIndex === 0 ? -1 : netStateBuffer.length - 1);
+      const before = beforeIndex >= 0 ? netStateBuffer[beforeIndex] : null;
+      const after = afterIndex >= 0 ? netStateBuffer[afterIndex] : null;
+
+      // Prune entries strictly older than "before" (never needed again).
+      if (beforeIndex > 0) netStateBuffer.splice(0, beforeIndex);
+
+      if (before && after && before.carts && after.carts) {
+        const denom = (after.serverNowMs - before.serverNowMs) || 1;
+        const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
+        const localIdx = netSlots.findIndex((s) => s && s.connId === youConnId);
+
+        const outQ = [0, 0, 0, 1];
+        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+          const cart = allCarts[slotIndex];
+          if (!cart) continue;
+
+          const b = before.carts[String(slotIndex)];
+          const a = after.carts[String(slotIndex)];
+          if (!b || !a) continue;
+
+          // Never interpolate local player's cart; snap to the buffered value.
+          if (slotIndex === localIdx) {
+            const bp = b.p;
+            const bq = b.q;
+            const blv = b.lv;
+            const bav = b.av;
+            if (Array.isArray(bp) && bp.length === 3) {
+              cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
+            }
+            if (Array.isArray(bq) && bq.length === 4) {
+              cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
+            }
+            if (Array.isArray(blv) && blv.length === 3) {
+              cart.body.setLinvel({ x: blv[0], y: blv[1], z: blv[2] }, true);
+            }
+            if (Array.isArray(bav) && bav.length === 3) {
+              cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
+            }
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+
+          const bp = b.p;
+          const ap = a.p;
+          if (Array.isArray(bp) && bp.length === 3 && Array.isArray(ap) && ap.length === 3) {
+            const x = bp[0] + (ap[0] - bp[0]) * alpha;
+            const y = bp[1] + (ap[1] - bp[1]) * alpha;
+            const z = bp[2] + (ap[2] - bp[2]) * alpha;
+            cart.body.setTranslation({ x, y, z }, true);
+          }
+
+          const bq = b.q;
+          const aq = a.q;
+          if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
+            THREE.Quaternion.slerpFlat(outQ, 0, bq, 0, aq, 0, alpha);
+            cart.body.setRotation({ x: outQ[0], y: outQ[1], z: outQ[2], w: outQ[3] }, true);
+          }
+
+          // Use "after" velocities so direction stays correct between frames.
+          const alv = a.lv;
+          const aav = a.av;
+          if (Array.isArray(alv) && alv.length === 3) {
+            cart.body.setLinvel({ x: alv[0], y: alv[1], z: alv[2] }, true);
+          }
+          if (Array.isArray(aav) && aav.length === 3) {
+            cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
+          }
+        }
+      } else if (before && before.carts) {
+        applyCartsSnapshotToBodies(before.carts);
+      } else if (after && after.carts) {
+        applyCartsSnapshotToBodies(after.carts);
       } else if (lastCartsCache) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
