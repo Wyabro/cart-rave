@@ -923,11 +923,6 @@ function initNetcode(roomOverride) {
     __msgCounts.in[msg.type || "unknown"] = (__msgCounts.in[msg.type || "unknown"] || 0) + 1;
 
     const type = msg.type;
-    // eslint-disable-next-line no-console
-    console.log("[net] message received", type);
-    if (type === "slots") {
-      console.log("[net] HARDCODED slots branch hit, MSG.slots value is:", MSG.slots);
-    }
     if (type === MSG.hello) {
       // eslint-disable-next-line no-console
       console.log("[net] hello received (raw slots)", JSON.stringify(msg.slots));
@@ -995,7 +990,6 @@ function initNetcode(roomOverride) {
     }
 
     if (type === MSG.slots) {
-      console.log("[net] slots msg raw payload", JSON.stringify(msg));
       const incomingJson = JSON.stringify(msg.slots);
       if (incomingJson === lastSlotsJson) return;
       lastSlotsJson = incomingJson;
@@ -1016,7 +1010,6 @@ function initNetcode(roomOverride) {
         for (const id of remoteNitroLatchedByConnId.keys()) {
           if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
         }
-        console.log("[net] slots updated", JSON.stringify(msg.slots));
         
         // Only count other human players as taking a color; NPCs don't block the picker
         const takenColors = msg.slots
