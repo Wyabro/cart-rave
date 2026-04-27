@@ -1603,6 +1603,41 @@ async function main() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
 
+  const trashPool = [];
+  const TRASH_POOL_SIZE = 20;
+  const trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+  const trashMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true });
+  for (let i = 0; i < TRASH_POOL_SIZE; i++) {
+    const m = new THREE.Mesh(trashGeo, trashMat.clone());
+    m.visible = false;
+    m.userData.vel = new THREE.Vector3();
+    m.userData.life = 0;
+    m.userData.maxLife = 0;
+    scene.add(m);
+    trashPool.push(m);
+  }
+
+  function spawnTrashBurst(position, intensity) {
+    const count = Math.floor(3 + intensity * 5); // 3-8 particles
+    let spawned = 0;
+    for (let i = 0; i < trashPool.length && spawned < count; i++) {
+      const p = trashPool[i];
+      if (p.visible) continue;
+      p.position.set(position.x, position.y + 0.5, position.z);
+      p.scale.setScalar(0.5 + intensity * 0.5);
+      p.material.opacity = 1;
+      p.visible = true;
+      p.userData.vel.set(
+        (Math.random() - 0.5) * 6 * intensity,
+        2 + Math.random() * 3 * intensity,
+        (Math.random() - 0.5) * 6 * intensity
+      );
+      p.userData.life = 0;
+      p.userData.maxLife = 0.4 + Math.random() * 0.2;
+      spawned++;
+    }
+  }
+
   // --- Starfield + Nebula Skybox ---
   // Stars - bigger, brighter, more of them
   const starCount = 4000;
@@ -3785,6 +3820,13 @@ async function main() {
   /** @type {{ intensity: number; stop: () => void }[]} */
   const activeImpactSfx = [];
   const MAX_ACTIVE_IMPACTS = 3;
+  let hitStopUntil = 0; // timestamp (perf ms) to skip rendering until
+  let shakeUntil = 0;
+  let shakeIntensity = 0;
+  let slowMoUntil = 0;
+  let slowMoRate = 1;
+  let fovPunchUntil = 0;
+  const BASE_FOV = CONFIG.camera.fov;
   sfx = {
     _muted: isMuted,
     playCollision(intensity) {
@@ -3854,6 +3896,14 @@ async function main() {
           try { vibOsc.stop(t + 0.01); } catch {}
         },
       });
+
+      if (roundPhase === "running" && i > 0.5) {
+        hitStopUntil = performance.now() + 50 + i * 33; // 50-83ms
+      }
+      if (roundPhase === "running" && i > 0.3) {
+        shakeIntensity = i * 8; // max ~8px offset
+        shakeUntil = performance.now() + 150 + i * 100; // 150-250ms
+      }
     },
     playNitro() {
       const ctx = audioListener.context;
@@ -6609,6 +6659,12 @@ async function main() {
     );
     if (localCart && (victim === localCart || rammer === localCart)) {
       sfx.playCollision(impulseMag / CONFIG.ramming.maxImpulse);
+      if (roundPhase === "running") {
+        const rp2 = rammer.body.translation();
+        const vp2 = victim.body.translation();
+        const midpoint = { x: (rp2.x + vp2.x) / 2, y: (rp2.y + vp2.y) / 2, z: (rp2.z + vp2.z) / 2 };
+        spawnTrashBurst(midpoint, impulseMag / CONFIG.ramming.maxImpulse);
+      }
     }
 
     const impulse = { x: dir.x * impulseMag, y: 0, z: dir.z * impulseMag };
@@ -6909,6 +6965,9 @@ async function main() {
     dt = Math.min(dt, 0.05);
     lastT = now;
     accumulator += dt;
+    if (roundPhase === "running" && performance.now() < slowMoUntil) {
+      dt *= slowMoRate;
+    }
 
     simFrameIndex += 1;
     if (simFrameIndex === 10 && !playerColliderVisualOvershootSimFrame10Logged) {
@@ -7563,6 +7622,9 @@ async function main() {
                 const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
                 hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
               }
+              if (roundPhase === "running" && hit.attackerSlotIndex === localSlotIndex()) {
+                fovPunchUntil = performance.now() + 200;
+              }
 
               sendHostRound(); // broadcast score update to non-host clients
             } else {
@@ -7595,6 +7657,8 @@ async function main() {
             (roundScores[lastStandingSlotIndex] || 0) >= 1
           ) {
             lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
+            slowMoUntil = performance.now() + 300;
+            slowMoRate = 0.5;
             lastCartStandingTimeoutId = setTimeout(() => {
               lastCartStandingTimeoutId = null;
               if (isHost && roundPhase === "running") endRound();
@@ -8050,6 +8114,9 @@ async function main() {
             // * White emissive — intensity carries the pulse.
             child.material.emissive.setRGB(1, 1, 1);
             child.material.emissiveIntensity = glowIntensity;
+          } else if (roundPhase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
+            child.material.emissive.setHex(colorHexForSlot(netSlots[i]));
+            child.material.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
           } else {
             // * Restore standard emissive (cart's own color at normal intensity).
             const baseHex = colorHexForSlot(netSlots[i]);
@@ -8063,8 +8130,49 @@ async function main() {
     updateHud();
     positionNameLabels();
     updateAmbientParticles(dt, now);
-    composer.render();
-    labelRenderer.render(scene, camera);
+    if (performance.now() < hitStopUntil) {
+      // hit-stop: skip visual frame, physics + network keep running
+    } else {
+      composer.render();
+      labelRenderer.render(scene, camera);
+    }
+
+    if (roundPhase === "running" && performance.now() < shakeUntil) {
+      const t = (shakeUntil - performance.now()) / 250;
+      const ox = (Math.random() - 0.5) * 2 * shakeIntensity * t;
+      const oy = (Math.random() - 0.5) * 2 * shakeIntensity * t;
+      canvas.style.transform = `translate(${ox}px, ${oy}px)`;
+    } else {
+      canvas.style.transform = "";
+    }
+
+    if (roundPhase === "running" && performance.now() < fovPunchUntil) {
+      const t = (fovPunchUntil - performance.now()) / 200;
+      camera.fov = BASE_FOV - 8 * t; // narrow punch
+      camera.updateProjectionMatrix();
+    } else if (camera.fov !== BASE_FOV) {
+      camera.fov = BASE_FOV;
+      camera.updateProjectionMatrix();
+    }
+
+    if (roundPhase === "running") {
+      for (let i = 0; i < trashPool.length; i++) {
+        const p = trashPool[i];
+        if (!p.visible) continue;
+        p.userData.life += dt;
+        if (p.userData.life >= p.userData.maxLife) {
+          p.visible = false;
+          continue;
+        }
+        const t = p.userData.life / p.userData.maxLife;
+        p.position.x += p.userData.vel.x * dt;
+        p.position.y += p.userData.vel.y * dt;
+        p.position.z += p.userData.vel.z * dt;
+        p.userData.vel.y -= 9.8 * dt; // gravity
+        p.scale.setScalar((1 - t) * (0.5 + 0.5));
+        p.material.opacity = 1 - t;
+      }
+    }
     requestAnimationFrame(step);
   }
 
