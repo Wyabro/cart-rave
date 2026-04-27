@@ -555,6 +555,8 @@ let hostEpoch = 0;
 let serverClockOffsetMs = 0;
 let serverClockOffsetSamples = 0;
 
+let lastSlotsJson = "";
+
 // These are assigned once main() constructs the scene / HUD / physics world.
 /** @type {ReturnType<typeof initHud> | null} */
 let hud = null;
@@ -989,6 +991,9 @@ function initNetcode(roomOverride) {
 
     if (type === MSG.slots) {
       console.log("[net] slots msg raw payload", JSON.stringify(msg));
+      const incomingJson = JSON.stringify(msg.slots);
+      if (incomingJson === lastSlotsJson) return;
+      lastSlotsJson = incomingJson;
       if (Array.isArray(msg.slots)) {
         netSlots = msg.slots;
         const liveConnIds = new Set(
