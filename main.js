@@ -3296,8 +3296,6 @@ async function main() {
   hud = initHud();
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
-  // Lazy-fetch extra game tracks after menu renders (avoids extra network on first paint).
-  setTimeout(preloadExtraGameMusicTracks, 0);
   hideMenuRef = hideMenu;
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
@@ -6160,6 +6158,10 @@ async function main() {
       lazyGameMusicPreloads.push(a);
     }
   }
+
+  // Lazy-fetch extra game tracks after menu renders (avoids extra network on first paint).
+  // This is scheduled after ambient music state initializes to avoid TDZ/hoisting issues.
+  setTimeout(preloadExtraGameMusicTracks, 0);
 
   function advanceGameMusicTrack() {
     if (!musicEl || gameMusicUrls.length === 0) return;
