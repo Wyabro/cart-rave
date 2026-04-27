@@ -1847,6 +1847,7 @@ async function main() {
         transform: translateX(-50%);
         display: none;
         flex-direction: row;
+        flex-wrap: nowrap;
         gap: 0;
         align-items: center;
         justify-content: center;
@@ -1921,7 +1922,7 @@ async function main() {
 
       #hud .hud-feed {
         position: absolute;
-        top: 100px;
+        top: 120px;
         right: 18px;
         display: flex;
         flex-direction: column;
@@ -2035,6 +2036,21 @@ async function main() {
         -webkit-backdrop-filter: blur(6px);
         pointer-events: auto;
         z-index: 20001;
+      }
+
+      @media (max-width: 1200px) {
+        #hud .hud-scoreBox { font-size: 11px; padding: 4px 8px; gap: 4px; }
+        #hud .hud-scoreLabel { font-size: 11px; }
+        #hud .hud-scoreValue { font-size: 13px; }
+      }
+
+      @media (max-width: 800px) {
+        #hud .hud-scores { gap: 4px; overflow: hidden; }
+        #hud .hud-scoreBox { font-size: 10px; padding: 3px 6px; gap: 2px; }
+        #hud .hud-scoreLabel { font-size: 10px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+        #hud .hud-scoreValue { font-size: 12px; }
+        #hud .hud-timer { transform: scale(0.8); transform-origin: top left; }
+        #hud .hud-audio { transform: scale(0.8); transform-origin: top right; }
       }
       #hud .hud-mute-btn {
         display: flex;
