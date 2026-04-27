@@ -3143,8 +3143,9 @@ async function main() {
     const portal = document.getElementById("cr-portal");
     if (portal) {
       try {
-        const ref = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
-        portal.href = `https://vibej.am/portal/2026?ref=${ref}`;
+        const url = new URL("https://vibej.am/portal/2026");
+        url.searchParams.set("ref", window.location.origin + window.location.pathname);
+        portal.href = url.toString();
       } catch {
         portal.href = "https://vibej.am/portal/2026";
       }
