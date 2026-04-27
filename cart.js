@@ -55,6 +55,22 @@ const _p1 = new THREE.Vector3();
 const _mid = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 
+const SHARED_WHEEL_GEO = new THREE.CylinderGeometry(
+  WHEEL_RADIUS,
+  WHEEL_RADIUS,
+  WHEEL_WIDTH,
+  WHEEL_RADIAL_SEGMENTS,
+  1,
+);
+// * Inset hub disc per wheel: painted-metal frame color stands out against the dark chrome tire.
+const SHARED_HUB_GEO = new THREE.CylinderGeometry(
+  WHEEL_RADIUS * 0.42,
+  WHEEL_RADIUS * 0.42,
+  WHEEL_WIDTH * 1.04,
+  14,
+  1,
+);
+
 /**
  * @param {number} value
  * @param {number} min
@@ -367,21 +383,6 @@ export function buildCart(colorHex) {
     CHASSIS_RAIL_Y - CHASSIS_RAIL_RADIUS - CASTER_MOUNT_DROP_BELOW_CHASSIS;
   const mountY = chassisUnderside - CASTER_STEM_HEIGHT * 0.35;
 
-  const wheelGeo = new THREE.CylinderGeometry(
-    WHEEL_RADIUS,
-    WHEEL_RADIUS,
-    WHEEL_WIDTH,
-    WHEEL_RADIAL_SEGMENTS,
-    1,
-  );
-  // * Inset hub disc per wheel: painted-metal frame color stands out against the dark chrome tire.
-  const hubGeo = new THREE.CylinderGeometry(
-    WHEEL_RADIUS * 0.42,
-    WHEEL_RADIUS * 0.42,
-    WHEEL_WIDTH * 1.04,
-    14,
-    1,
-  );
   for (let i = 0; i < corners.length; i += 1) {
     const { x, z } = corners[i];
     const mount = new THREE.Group();
@@ -404,12 +405,12 @@ export function buildCart(colorHex) {
     const pitchGroup = new THREE.Group();
     yawGroup.add(pitchGroup);
 
-    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+    const wheel = new THREE.Mesh(SHARED_WHEEL_GEO, wheelMat);
     wheel.rotation.z = Math.PI / 2;
     wheel.userData.isWheel = true;
     pitchGroup.add(wheel);
 
-    const hub = new THREE.Mesh(hubGeo, frameMat);
+    const hub = new THREE.Mesh(SHARED_HUB_GEO, frameMat);
     hub.rotation.z = Math.PI / 2;
     pitchGroup.add(hub);
 

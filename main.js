@@ -390,15 +390,16 @@ function getColorForSlot(slot) {
 function getPersonalStats() {
   try {
     const raw = localStorage.getItem("cartRaveStats");
-    if (!raw) return { wins: 0, matches: 0, totalPoints: 0 };
+    if (!raw) return { wins: 0, matches: 0, totalPoints: 0, soloGames: 0 };
     const parsed = JSON.parse(raw);
     return {
       wins: Number(parsed.wins) || 0,
       matches: Number(parsed.matches) || 0,
       totalPoints: Number(parsed.totalPoints) || 0,
+      soloGames: Number(parsed.soloGames) || 0,
     };
   } catch {
-    return { wins: 0, matches: 0, totalPoints: 0 };
+    return { wins: 0, matches: 0, totalPoints: 0, soloGames: 0 };
   }
 }
 
@@ -1161,6 +1162,20 @@ function initNetcode(roomOverride) {
             mode: detectGameMode(),
           });
           while (matchHistory.length > 10) matchHistory.shift();
+
+          // Update solo games counter (1 human player match end)
+          if (detectGameMode() === "solo") {
+            let humanCount = 0;
+            for (let i = 0; i < 4; i += 1) {
+              const s = netSlots[i];
+              if (s && s.kind === "human" && s.connId != null) humanCount += 1;
+            }
+            if (humanCount === 1) {
+              const stats = getPersonalStats();
+              stats.soloGames += 1;
+              savePersonalStats(stats);
+            }
+          }
 
           // Update personal stats — only if this round had scoring (not an all-zero draw)
           if (winnerSlotIndex !== "draw") {
@@ -3528,9 +3543,11 @@ async function main() {
     const winsEl = document.getElementById("stat-wins");
     const playedEl = document.getElementById("stat-played");
     const ptsEl = document.getElementById("stat-pts");
+    const soloEl = document.getElementById("stat-solo");
     if (winsEl) winsEl.textContent = ps.wins;
     if (playedEl) playedEl.textContent = ps.matches;
     if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
+    if (soloEl) soloEl.textContent = ps.soloGames;
   }
 
 
@@ -3784,6 +3801,7 @@ async function main() {
           { num: String(ps.wins), lbl: "WINS" },
           { num: String(ps.matches), lbl: "PLAYED" },
           { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
+          { num: String(ps.soloGames || 0), lbl: "SOLO" },
         ];
         statDefs.forEach((def, idx) => {
           if (idx > 0) {
