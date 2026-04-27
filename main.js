@@ -1384,6 +1384,9 @@ async function main() {
   let musicUnavailable = false;
   let tryStartAmbientMusic = () => {};
   let labelRenderer = null;
+  /** @type {HTMLElement|null} */
+  let touchRoot = null;
+  let touchEnabled = false;
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -6638,13 +6641,13 @@ async function main() {
     axis: { forward: 0, turn: 0 },
   };
 
-  const touchRoot = document.getElementById("cr-touch");
+  touchRoot = document.getElementById("cr-touch");
   const joyEl = document.getElementById("cr-joy");
   const joyKnobEl = document.getElementById("cr-joy-knob");
   const boostBtn = document.getElementById("cr-touch-boost");
   const hopBtn = document.getElementById("cr-touch-hop");
 
-  const touchEnabled =
+  touchEnabled =
     typeof window !== "undefined" &&
     (("ontouchstart" in window) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
 
