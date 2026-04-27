@@ -1238,7 +1238,7 @@ function initCrowdSfx(audioListener) {
     if (!n) return;
     const { ctx, lp, bp, g } = n;
     const now = ctx.currentTime;
-    const base = 0.012 * sfxVolume;
+    const base = 0.012 * 1.2 * sfxVolume;
     const target = isMuted ? 0.0001 : base;
     g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.25);
     lp.frequency.setTargetAtTime(900, now, 0.25);
@@ -1262,8 +1262,8 @@ function initCrowdSfx(audioListener) {
     if (!n) return;
     const { ctx, lp, bp, g } = n;
     const now = ctx.currentTime;
-    const ambient = 0.012 * sfxVolume;
-    const peak = 0.028 * sfxVolume;
+    const ambient = 0.012 * 1.2 * sfxVolume;
+    const peak = 0.028 * 1.2 * sfxVolume;
     g.gain.cancelScheduledValues(now);
     g.gain.setTargetAtTime(Math.max(0.0001, peak), now, 0.04);
     lp.frequency.setTargetAtTime(1400, now, 0.05);
@@ -1301,7 +1301,7 @@ function initLeaderHumSfx(audioListener) {
     osc.frequency.value = 58;
 
     const drive = ctx.createGain();
-    drive.gain.value = 0.12;
+    drive.gain.value = 0.35;
 
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
@@ -1345,7 +1345,7 @@ function initLeaderHumSfx(audioListener) {
     const wants = Number.isFinite(slotIndex) ? slotIndex : null;
     if (wants === currentLeaderSlot) return;
     currentLeaderSlot = wants;
-    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.035 * sfxVolume) : 0.0001;
+    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.12 * sfxVolume) : 0.0001;
     g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
   };
 
@@ -1365,7 +1365,7 @@ function initLeaderHumSfx(audioListener) {
     const n = ensureNodes();
     if (!n) return;
     const now = n.ctx.currentTime;
-    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.035 * sfxVolume) : 0.0001;
+    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.12 * sfxVolume) : 0.0001;
     n.g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
   };
 
@@ -3881,7 +3881,7 @@ async function main() {
       src.playbackRate.setValueAtTime(0.8 + i * 0.4, now);
 
       const out = ctx.createGain();
-      const g = (0.2 + i * 0.8) * sfxVolume;
+      const g = (0.2 + i * 0.8) * sfxVolume * 0.85;
       out.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : g), now);
 
       src.connect(out);
@@ -7645,12 +7645,6 @@ async function main() {
               }
               if (roundPhase === "running") {
                 const localIdx = localSlotIndexForConn(youConnId);
-                // eslint-disable-next-line no-console
-                console.log("[FOV PUNCH DEBUG]", {
-                  attackerSlotIndex: hit.attackerSlotIndex,
-                  localSlotIndex: localIdx,
-                  youConnId,
-                });
                 if (hit.attackerSlotIndex === localIdx) {
                   fovPunchUntil = performance.now() + 200;
                 }
