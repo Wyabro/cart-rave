@@ -323,7 +323,7 @@ function getPortalQueryParams() {
 const incomingPortalParams = getPortalQueryParams();
 
 let returnPortalTriggered = false;
-const returnPortalWorldPos = new THREE.Vector3();
+const returnPortalWorldPositions = [];
 
 function buildExitPortalUrl() {
   if (typeof window === "undefined") return "https://vibej.am/portal/2026";
@@ -5301,7 +5301,7 @@ async function main() {
   const portalWorldPos = new THREE.Vector3();
   let returnPortalCtx = null;
   let returnPortalTex = null;
-  let returnPortalGroup = null;
+  let hasReturnPortals = false;
   {
     const bbAngle = Math.PI;
     const portalRadius = pitInnerRadius - 2;
@@ -5378,13 +5378,6 @@ async function main() {
 
   // ===== RETURN PORTAL (only when arriving via portal with ?ref=) =====
   if (incomingPortalParams?.ref) {
-    const returnPortalSlotAngle = 0; // slot 0 booth
-    const returnPortalDist = CONFIG.cart.spawnRingRadius;
-    const rpx = returnPortalDist * Math.cos(returnPortalSlotAngle);
-    const rpz = returnPortalDist * Math.sin(returnPortalSlotAngle);
-    const rpy = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + 2.5;
-    returnPortalWorldPos.set(rpx, rpy, rpz);
-
     const portalCanvas = document.createElement("canvas");
     portalCanvas.width = 128;
     portalCanvas.height = 128;
@@ -5392,29 +5385,6 @@ async function main() {
     returnPortalTex = new THREE.CanvasTexture(portalCanvas);
     returnPortalTex.magFilter = THREE.NearestFilter;
     returnPortalTex.minFilter = THREE.NearestFilter;
-
-    const portalGroup = new THREE.Group();
-
-    const portalMesh = new THREE.Mesh(
-      new THREE.CircleGeometry(2.5, 32),
-      new THREE.MeshBasicMaterial({ map: returnPortalTex, side: THREE.DoubleSide })
-    );
-    portalGroup.add(portalMesh);
-
-    const glowRing = new THREE.Mesh(
-      new THREE.TorusGeometry(2.7, 0.15, 8, 32),
-      new THREE.MeshBasicMaterial({
-        color: 0x00ccff,
-        transparent: true,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      })
-    );
-    portalGroup.add(glowRing);
-
-    const portalLight = new THREE.PointLight(0x00ccff, 3, 10);
-    portalGroup.add(portalLight);
 
     const plLabelCanvas = document.createElement("canvas");
     plLabelCanvas.width = 256;
@@ -5439,12 +5409,46 @@ async function main() {
       })
     );
     plLabel.position.set(0, 3.0, 0);
-    portalGroup.add(plLabel);
 
-    portalGroup.position.set(rpx, rpy, rpz);
-    portalGroup.lookAt(0, rpy, 0);
-    scene.add(portalGroup);
-    returnPortalGroup = portalGroup;
+    for (let i = 0; i < 4; i++) {
+      const angle = (i * Math.PI) / 2;
+      const dist = CONFIG.cart.spawnRingRadius + CONFIG.booth.platformDepth / 2 - 0.5;
+      const rpx = dist * Math.cos(angle);
+      const rpz = dist * Math.sin(angle);
+      const rpy = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + 2.5;
+      returnPortalWorldPositions.push(new THREE.Vector3(rpx, rpy, rpz));
+
+      const portalGroup = new THREE.Group();
+
+      const portalMesh = new THREE.Mesh(
+        new THREE.CircleGeometry(2.5, 32),
+        new THREE.MeshBasicMaterial({ map: returnPortalTex, side: THREE.DoubleSide })
+      );
+      portalGroup.add(portalMesh);
+
+      const glowRing = new THREE.Mesh(
+        new THREE.TorusGeometry(2.7, 0.15, 8, 32),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ccff,
+          transparent: true,
+          opacity: 0.6,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      portalGroup.add(glowRing);
+
+      const portalLight = new THREE.PointLight(0x00ccff, 3, 10);
+      portalGroup.add(portalLight);
+
+      portalGroup.add(plLabel.clone());
+
+      portalGroup.position.set(rpx, rpy, rpz);
+      portalGroup.lookAt(0, rpy, 0);
+      scene.add(portalGroup);
+    }
+
+    hasReturnPortals = returnPortalWorldPositions.length > 0;
   }
 
   for (let i = 0; i < 6; i += 1) {
@@ -7280,24 +7284,27 @@ async function main() {
       }
     }
 
-    if (!returnPortalTriggered && incomingPortalParams?.ref && returnPortalGroup) {
-      const dx = playerPos.x - returnPortalWorldPos.x;
-      const dy = playerPos.y - returnPortalWorldPos.y;
-      const dz = playerPos.z - returnPortalWorldPos.z;
-      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
-        returnPortalTriggered = true;
+    if (!returnPortalTriggered && incomingPortalParams?.ref && hasReturnPortals) {
+      for (const pos of returnPortalWorldPositions) {
+        const dx = playerPos.x - pos.x;
+        const dy = playerPos.y - pos.y;
+        const dz = playerPos.z - pos.z;
+        if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
+          returnPortalTriggered = true;
 
-        const rawRef = String(incomingPortalParams.ref || "").trim();
-        const returnUrl = new URL(rawRef.startsWith("http") ? rawRef : `https://${rawRef}`);
-        returnUrl.searchParams.set("portal", "true");
-        returnUrl.searchParams.set("ref", encodeURIComponent(window.location.origin + window.location.pathname));
-        if (incomingPortalParams.username) returnUrl.searchParams.set("username", incomingPortalParams.username);
-        if (incomingPortalParams.color) returnUrl.searchParams.set("color", incomingPortalParams.color);
-        if (incomingPortalParams.speed) returnUrl.searchParams.set("speed", incomingPortalParams.speed);
-        if (incomingPortalParams.avatar_url) returnUrl.searchParams.set("avatar_url", incomingPortalParams.avatar_url);
-        if (incomingPortalParams.team) returnUrl.searchParams.set("team", incomingPortalParams.team);
-        if (incomingPortalParams.hp) returnUrl.searchParams.set("hp", incomingPortalParams.hp);
-        window.location.href = returnUrl.toString();
+          const rawRef = String(incomingPortalParams.ref || "").trim();
+          const returnUrl = new URL(rawRef.startsWith("http") ? rawRef : `https://${rawRef}`);
+          returnUrl.searchParams.set("portal", "true");
+          returnUrl.searchParams.set("ref", encodeURIComponent(window.location.origin + window.location.pathname));
+          if (incomingPortalParams.username) returnUrl.searchParams.set("username", incomingPortalParams.username);
+          if (incomingPortalParams.color) returnUrl.searchParams.set("color", incomingPortalParams.color);
+          if (incomingPortalParams.speed) returnUrl.searchParams.set("speed", incomingPortalParams.speed);
+          if (incomingPortalParams.avatar_url) returnUrl.searchParams.set("avatar_url", incomingPortalParams.avatar_url);
+          if (incomingPortalParams.team) returnUrl.searchParams.set("team", incomingPortalParams.team);
+          if (incomingPortalParams.hp) returnUrl.searchParams.set("hp", incomingPortalParams.hp);
+          window.location.href = returnUrl.toString();
+          break;
+        }
       }
     }
 
