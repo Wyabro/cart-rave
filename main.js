@@ -1191,39 +1191,52 @@ function clamp(value, min, max) {
 }
 
 function initCrowdSfx(audioListener) {
-  const ctx = audioListener.context;
-  const len = 1.0;
-  const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
-
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.loop = true;
-
-  const lp = ctx.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.frequency.value = 900;
-  lp.Q.value = 0.4;
-
-  const bp = ctx.createBiquadFilter();
-  bp.type = "bandpass";
-  bp.frequency.value = 320;
-  bp.Q.value = 0.7;
-
-  const g = ctx.createGain();
-  g.gain.value = 0.0001;
-
-  src.connect(lp);
-  lp.connect(bp);
-  bp.connect(g);
-  g.connect(audioListener.gain);
-
+  /** @type {null | { ctx: AudioContext; src: AudioBufferSourceNode; lp: BiquadFilterNode; bp: BiquadFilterNode; g: GainNode }} */
+  let nodes = null;
   let started = false;
   /** @type {ReturnType<typeof setTimeout> | null} */
   let bumpTimeoutId = null;
 
+  const ensureNodes = () => {
+    const ctx = audioListener.context;
+    if (ctx.state !== "running") return null;
+    if (nodes) return nodes;
+
+    const len = 1.0;
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 900;
+    lp.Q.value = 0.4;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 320;
+    bp.Q.value = 0.7;
+
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+
+    src.connect(lp);
+    lp.connect(bp);
+    bp.connect(g);
+    g.connect(audioListener.gain);
+
+    nodes = { ctx, src, lp, bp, g };
+    return nodes;
+  };
+
   const applyAmbient = () => {
+    const n = ensureNodes();
+    if (!n) return;
+    const { ctx, lp, bp, g } = n;
     const now = ctx.currentTime;
     const base = 0.012 * sfxVolume;
     const target = isMuted ? 0.0001 : base;
@@ -1235,7 +1248,9 @@ function initCrowdSfx(audioListener) {
 
   const ensureStarted = () => {
     if (started) return;
-    try { src.start(); } catch {}
+    const n = ensureNodes();
+    if (!n) return;
+    try { n.src.start(); } catch {}
     started = true;
     applyAmbient();
   };
@@ -1243,6 +1258,9 @@ function initCrowdSfx(audioListener) {
   const bump = () => {
     ensureStarted();
     if (isMuted || sfxVolume <= 0) return;
+    const n = ensureNodes();
+    if (!n) return;
+    const { ctx, lp, bp, g } = n;
     const now = ctx.currentTime;
     const ambient = 0.012 * sfxVolume;
     const peak = 0.028 * sfxVolume;
@@ -1267,47 +1285,62 @@ function initCrowdSfx(audioListener) {
 }
 
 function initLeaderHumSfx(audioListener) {
-  const ctx = audioListener.context;
-  const osc = ctx.createOscillator();
-  osc.type = "sine";
-  osc.frequency.value = 58;
-
-  const drive = ctx.createGain();
-  drive.gain.value = 0.12;
-
-  const lp = ctx.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.frequency.value = 220;
-  lp.Q.value = 0.8;
-
-  const panner = ctx.createPanner();
-  panner.panningModel = "HRTF";
-  panner.distanceModel = "inverse";
-  panner.refDistance = 4;
-  panner.maxDistance = 60;
-  panner.rolloffFactor = 1.2;
-
-  const g = ctx.createGain();
-  g.gain.value = 0.0001;
-
-  osc.connect(drive);
-  drive.connect(lp);
-  lp.connect(panner);
-  panner.connect(g);
-  g.connect(audioListener.gain);
-
+  /** @type {null | { ctx: AudioContext; osc: OscillatorNode; drive: GainNode; lp: BiquadFilterNode; panner: PannerNode; g: GainNode }} */
+  let nodes = null;
   let started = false;
   /** @type {null|number} */
   let currentLeaderSlot = null;
 
+  const ensureNodes = () => {
+    const ctx = audioListener.context;
+    if (ctx.state !== "running") return null;
+    if (nodes) return nodes;
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 58;
+
+    const drive = ctx.createGain();
+    drive.gain.value = 0.12;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 220;
+    lp.Q.value = 0.8;
+
+    const panner = ctx.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = 4;
+    panner.maxDistance = 60;
+    panner.rolloffFactor = 1.2;
+
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+
+    osc.connect(drive);
+    drive.connect(lp);
+    lp.connect(panner);
+    panner.connect(g);
+    g.connect(audioListener.gain);
+
+    nodes = { ctx, osc, drive, lp, panner, g };
+    return nodes;
+  };
+
   const ensureStarted = () => {
     if (started) return;
-    try { osc.start(); } catch {}
+    const n = ensureNodes();
+    if (!n) return;
+    try { n.osc.start(); } catch {}
     started = true;
   };
 
   const setLeader = (slotIndex) => {
     ensureStarted();
+    const n = ensureNodes();
+    if (!n) return;
+    const { ctx, g } = n;
     const now = ctx.currentTime;
     const wants = Number.isFinite(slotIndex) ? slotIndex : null;
     if (wants === currentLeaderSlot) return;
@@ -1318,18 +1351,22 @@ function initLeaderHumSfx(audioListener) {
 
   const updatePositionFromCart = (cart) => {
     if (!cart || !cart.mesh) return;
+    const n = ensureNodes();
+    if (!n) return;
     const pos = cart.mesh.position;
     if (!pos) return;
-    const now = ctx.currentTime;
-    panner.positionX.setValueAtTime(pos.x, now);
-    panner.positionY.setValueAtTime(pos.y, now);
-    panner.positionZ.setValueAtTime(pos.z, now);
+    const now = n.ctx.currentTime;
+    n.panner.positionX.setValueAtTime(pos.x, now);
+    n.panner.positionY.setValueAtTime(pos.y, now);
+    n.panner.positionZ.setValueAtTime(pos.z, now);
   };
 
   const resyncVolume = () => {
-    const now = ctx.currentTime;
+    const n = ensureNodes();
+    if (!n) return;
+    const now = n.ctx.currentTime;
     const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.035 * sfxVolume) : 0.0001;
-    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
+    n.g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
   };
 
   return { setLeader, updatePositionFromCart, resyncVolume };
@@ -3754,11 +3791,8 @@ async function main() {
       const i = clamp(intensity, 0, 1);
       if (i <= 0) return;
       const ctx = audioListener.context;
-      if (ctx.state === "suspended") {
-        void ctx.resume();
-      }
+      if (ctx.state !== "running") return;
       const now = ctx.currentTime;
-      const vol = i * 0.45;
 
       // Drop the quietest active impact if too many overlap.
       if (activeImpactSfx.length >= MAX_ACTIVE_IMPACTS) {
@@ -3772,117 +3806,52 @@ async function main() {
         activeImpactSfx.splice(quietestIdx, 1);
       }
 
-      // * Layer 1: low thump, simulating body impact.
-      const thump = ctx.createOscillator();
-      thump.type = "sine";
-      thump.frequency.setValueAtTime(80, now);
-      thump.frequency.exponentialRampToValueAtTime(40, now + 0.06);
-      const thumpGain = ctx.createGain();
-      thumpGain.gain.setValueAtTime(vol, now);
-      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-      thump.connect(thumpGain);
-      thumpGain.connect(audioListener.gain);
-      thump.start(now);
-      thump.stop(now + 0.1);
+      // Metallic clang only: 3 detuned partials + subtle vibrato.
+      const baseDecaySec = 0.45;
+      const decaySec = baseDecaySec + i * 0.4; // 0.45–0.85s
+      const peak = Math.max(0.001, 0.3 * (0.15 + 0.85 * i) * sfxVolume);
+      const detuneSpreadCents = 6 + i * 40; // wider spread on harder hits
 
-      // * Layer 2: mid crack, a short high-passed noise burst.
-      const crackLen = 0.02;
-      const crackBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * crackLen), ctx.sampleRate);
-      const crackData = crackBuf.getChannelData(0);
-      for (let j = 0; j < crackData.length; j += 1) {
-        crackData[j] = (Math.random() * 2 - 1) * (1 - j / crackData.length);
-      }
-      const crack = ctx.createBufferSource();
-      crack.buffer = crackBuf;
-      const hp = ctx.createBiquadFilter();
-      hp.type = "highpass";
-      hp.frequency.value = 2000;
-      hp.Q.value = 0.5;
-      const crackGain = ctx.createGain();
-      crackGain.gain.setValueAtTime(vol * 0.5, now);
-      crackGain.gain.exponentialRampToValueAtTime(0.001, now + crackLen);
-      crack.connect(hp);
-      hp.connect(crackGain);
-      crackGain.connect(audioListener.gain);
-      crack.start(now);
-      crack.stop(now + crackLen);
+      const out = ctx.createGain();
+      out.gain.setValueAtTime(Math.max(0.0001, peak), now);
+      out.gain.exponentialRampToValueAtTime(0.0001, now + decaySec);
+      out.connect(audioListener.gain);
 
-      if (i > 0.5) {
-        // * Layer 3: heavy-hit bass punch.
-        const punch = ctx.createOscillator();
-        punch.type = "sine";
-        punch.frequency.setValueAtTime(50, now);
-        punch.frequency.exponentialRampToValueAtTime(25, now + 0.04);
-        const punchGain = ctx.createGain();
-        punchGain.gain.setValueAtTime(vol * 0.7, now);
-        punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        punch.connect(punchGain);
-        punchGain.connect(audioListener.gain);
-        punch.start(now);
-        punch.stop(now + 0.06);
-      }
+      const vibOsc = ctx.createOscillator();
+      vibOsc.type = "sine";
+      vibOsc.frequency.setValueAtTime(5, now);
+      const vibGain = ctx.createGain();
+      const vibDepthHz = 10 + i * 15; // ~20Hz around mid/high impulse
+      vibGain.gain.setValueAtTime(vibDepthHz, now);
+      vibOsc.connect(vibGain);
 
-      // * Layer 4: metallic clang (detuned partials) + rattle noise.
-      const clangLen = 0.08 + i * 0.06; // 0.08–0.14s
-      const detuneCents = 10 + i * 90; // 10–100 cents spread
-      const clangBaseHz = 900 + Math.random() * 1900; // 900–2800 Hz
-
-      const clangGain = ctx.createGain();
-      const clangPeak = Math.max(0.001, (0.08 + i * 0.18) * sfxVolume);
-      clangGain.gain.setValueAtTime(0.001, now);
-      clangGain.gain.exponentialRampToValueAtTime(clangPeak, now + 0.004);
-      clangGain.gain.exponentialRampToValueAtTime(0.001, now + clangLen);
-      clangGain.connect(audioListener.gain);
-
-      const partialCount = i > 0.65 ? 3 : 2;
+      const freqs = [3700, 4850, 2200];
       /** @type {OscillatorNode[]} */
-      const partials = [];
-      for (let p = 0; p < partialCount; p += 1) {
+      const oscs = [];
+      for (let j = 0; j < freqs.length; j += 1) {
         const o = ctx.createOscillator();
         o.type = "sine";
-        const ratio = p === 0 ? 1 : (p === 1 ? 1.48 : 2.02);
-        o.frequency.setValueAtTime(clangBaseHz * ratio, now);
-        const cents = (Math.random() * 2 - 1) * detuneCents * (p + 1);
-        o.detune.setValueAtTime(cents, now);
-        o.connect(clangGain);
+        o.frequency.setValueAtTime(freqs[j], now);
+        o.detune.setValueAtTime((Math.random() * 2 - 1) * detuneSpreadCents, now);
+        vibGain.connect(o.frequency);
+        o.connect(out);
         o.start(now);
-        o.stop(now + clangLen + 0.02);
-        partials.push(o);
+        o.stop(now + decaySec + 0.05);
+        oscs.push(o);
       }
 
-      const rattleLen = 0.03 + i * 0.03;
-      const rattleBuf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * rattleLen), ctx.sampleRate);
-      const rattleData = rattleBuf.getChannelData(0);
-      for (let j = 0; j < rattleData.length; j += 1) {
-        const t = 1 - j / Math.max(1, rattleData.length);
-        rattleData[j] = (Math.random() * 2 - 1) * t;
-      }
-      const rattle = ctx.createBufferSource();
-      rattle.buffer = rattleBuf;
-      const rattleBp = ctx.createBiquadFilter();
-      rattleBp.type = "bandpass";
-      rattleBp.frequency.setValueAtTime(2200 + i * 1200, now);
-      rattleBp.Q.value = 2.8 + i * 1.2;
-      const rattleGain = ctx.createGain();
-      rattleGain.gain.setValueAtTime(0.001, now);
-      rattleGain.gain.exponentialRampToValueAtTime(Math.max(0.001, clangPeak * 0.55), now + 0.003);
-      rattleGain.gain.exponentialRampToValueAtTime(0.001, now + rattleLen);
-      rattle.connect(rattleBp);
-      rattleBp.connect(rattleGain);
-      rattleGain.connect(audioListener.gain);
-      rattle.start(now);
-      rattle.stop(now + rattleLen + 0.02);
+      vibOsc.start(now);
+      vibOsc.stop(now + decaySec + 0.05);
 
       activeImpactSfx.push({
         intensity: i,
         stop: () => {
           const t = ctx.currentTime;
-          try { clangGain.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
-          try { rattleGain.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
-          for (const o of partials) {
+          try { out.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
+          for (const o of oscs) {
             try { o.stop(t + 0.01); } catch {}
           }
-          try { rattle.stop(t + 0.01); } catch {}
+          try { vibOsc.stop(t + 0.01); } catch {}
         },
       });
     },
