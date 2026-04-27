@@ -125,6 +125,28 @@ export default class Server implements Party.Server {
 
   constructor(readonly room: Party.Room) {}
 
+  #clamp(value: unknown, min: number, max: number) {
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  #safeStructuredClone<T>(value: T): T {
+    try {
+      // PartyKit runs on a modern runtime where structuredClone should exist.
+      return structuredClone(value);
+    } catch {
+      // Fallback: keep server alive even if clone fails.
+      return JSON.parse(JSON.stringify(value)) as T;
+    }
+  }
+
+  #removeFromJoinOrder(connId: string) {
+    for (let i = this.#joinOrder.length - 1; i >= 0; i -= 1) {
+      if (this.#joinOrder[i] === connId) this.#joinOrder.splice(i, 1);
+    }
+  }
+
   #serverNowMs() {
     return Date.now();
   }
@@ -207,7 +229,7 @@ export default class Server implements Party.Server {
       hostId: this.#hostId,
       slots: this.#slots,
       round: this.#round,
-      carts: this.#carts,
+      carts: this.#safeStructuredClone(this.#carts),
       seq: this.#lastSeq,
     };
   }
@@ -368,6 +390,7 @@ export default class Server implements Party.Server {
       const slot = this.#slots?.find((s) => s.connId === id);
       if (slot && slot.kind === "human") slotsChanged = true;
       this.#connections.delete(id);
+      this.#removeFromJoinOrder(id);
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
       this.#convertHumanSlotToNpc(id);
@@ -515,6 +538,7 @@ export default class Server implements Party.Server {
     }
 
     this.#connections.delete(conn.id);
+    this.#removeFromJoinOrder(conn.id);
     this.#lastSeenAtMs.delete(conn.id);
     this.#connClientId.delete(conn.id);
     this.#convertHumanSlotToNpc(conn.id);
@@ -522,6 +546,10 @@ export default class Server implements Party.Server {
 
     const wasHost = this.#hostId === conn.id;
     if (wasHost) {
+      if (this.#countdownTimerHandle !== null) {
+        clearTimeout(this.#countdownTimerHandle);
+        this.#countdownTimerHandle = null;
+      }
       const prevHostId = this.#hostId;
       this.#hostId = this.#pickNextHostId();
       this.#lastSeq = -1;
@@ -590,6 +618,7 @@ export default class Server implements Party.Server {
           const ghostConn = this.#connections.get(ghostConnId);
           this.#convertHumanSlotToNpc(ghostConnId);
           this.#connections.delete(ghostConnId);
+          this.#removeFromJoinOrder(ghostConnId);
           this.#lastSeenAtMs.delete(ghostConnId);
           this.#connClientId.delete(ghostConnId);
 
@@ -691,6 +720,7 @@ export default class Server implements Party.Server {
         this.#countdownTimerHandle = null;
       }
       this.#round = { phase: "lobby", winnerSlotId: null };
+      this.#carts = {};
       const shouldAutoReady = this.#gameMode() === "quickplay";
       for (const slot of this.#slots!) {
         if (slot.kind === "human") slot.isReady = shouldAutoReady;
@@ -712,7 +742,12 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.clientInput) {
+      // Security: prevent connId spoofing by forcing sender id.
       data.connId = conn.id;
+      // Clamp inputs before relaying to host.
+      const throttle = this.#clamp(data?.input?.throttle, -1, 1);
+      const steer = this.#clamp(data?.input?.steer, -1, 1);
+      const nitro = Boolean(data?.input?.nitro);
       // Relay to host only. Do not broadcast.
       this.#sendJsonToHost({
         v: PROTOCOL_VERSION,
@@ -721,12 +756,13 @@ export default class Server implements Party.Server {
         connId: data.connId,
         seq: typeof data?.seq === "number" ? data.seq : null,
         tClient: typeof data?.tClient === "number" ? data.tClient : null,
-        input: data?.input ?? null,
+        input: { throttle, steer, nitro },
       });
       return;
     }
 
     if (type === MSG.hostTransform) {
+      // Security: host-only.
       if (conn.id !== this.#hostId) return;
       const seq = typeof data?.seq === "number" ? data.seq : null;
       if (seq === null) return;
@@ -749,12 +785,13 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         seq: this.#lastSeq,
         tHost: typeof data?.tHost === "number" ? data.tHost : null,
-        carts: this.#carts,
+        carts: this.#safeStructuredClone(this.#carts),
       });
       return;
     }
 
     if (type === MSG.hostRound) {
+      // Security: host-only.
       if (conn.id !== this.#hostId) return;
       const round = data?.round;
       if (round && typeof round === "object") {
@@ -770,6 +807,7 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.hostEventFall) {
+      // Security: host-only.
       if (conn.id !== this.#hostId) return;
       // Placeholder: keep for diagnostics/telemetry; clients can infer via cart flags.
       this.#broadcastJson({
