@@ -535,6 +535,10 @@ const AUDIO_VOLUME_DEFAULT = 0.25 * AUDIO_VOLUME_MAX;
 let masterGain = AUDIO_VOLUME_DEFAULT; // Step 10d: Volume control (0.0 to AUDIO_VOLUME_MAX)
 /** @type {number} */
 let sfxVolume = AUDIO_VOLUME_DEFAULT;
+/** @type {null | { ensureStarted: () => void; applyAmbient: () => void; bump: () => void }} */
+let crowd = null;
+/** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
+let leaderHum = null;
 try {
   const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
   if (savedSfxVol !== null) {
@@ -543,152 +547,6 @@ try {
       ? AUDIO_VOLUME_DEFAULT
       : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
-
-  // --- P2 SFX: crowd bed + leader hum (procedural Web Audio; no assets) ---
-  const crowd = (() => {
-    const ctx = audioListener.context;
-    const len = 1.0;
-    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
-
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 900;
-    lp.Q.value = 0.4;
-
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 320;
-    bp.Q.value = 0.7;
-
-    const g = ctx.createGain();
-    g.gain.value = 0.0001;
-
-    src.connect(lp);
-    lp.connect(bp);
-    bp.connect(g);
-    g.connect(audioListener.gain);
-
-    let started = false;
-    /** @type {ReturnType<typeof setTimeout> | null} */
-    let bumpTimeoutId = null;
-
-    const applyAmbient = () => {
-      const now = ctx.currentTime;
-      const base = 0.012 * sfxVolume;
-      const target = isMuted ? 0.0001 : base;
-      g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.25);
-      lp.frequency.setTargetAtTime(900, now, 0.25);
-      bp.frequency.setTargetAtTime(320, now, 0.25);
-      bp.Q.setTargetAtTime(0.7, now, 0.25);
-    };
-
-    const ensureStarted = () => {
-      if (started) return;
-      try { src.start(); } catch {}
-      started = true;
-      applyAmbient();
-    };
-
-    const bump = () => {
-      ensureStarted();
-      if (isMuted || sfxVolume <= 0) return;
-      const now = ctx.currentTime;
-      const ambient = 0.012 * sfxVolume;
-      const peak = 0.028 * sfxVolume;
-      g.gain.cancelScheduledValues(now);
-      g.gain.setTargetAtTime(Math.max(0.0001, peak), now, 0.04);
-      lp.frequency.setTargetAtTime(1400, now, 0.05);
-      bp.frequency.setTargetAtTime(520, now, 0.05);
-      bp.Q.setTargetAtTime(1.2, now, 0.05);
-
-      if (bumpTimeoutId) clearTimeout(bumpTimeoutId);
-      bumpTimeoutId = setTimeout(() => {
-        bumpTimeoutId = null;
-        const t = ctx.currentTime;
-        g.gain.setTargetAtTime(Math.max(0.0001, ambient), t, 0.35);
-        lp.frequency.setTargetAtTime(900, t, 0.35);
-        bp.frequency.setTargetAtTime(320, t, 0.35);
-        bp.Q.setTargetAtTime(0.7, t, 0.35);
-      }, 1500);
-    };
-
-    return { ensureStarted, applyAmbient, bump };
-  })();
-
-  const leaderHum = (() => {
-    const ctx = audioListener.context;
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = 58;
-
-    const drive = ctx.createGain();
-    drive.gain.value = 0.12;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 220;
-    lp.Q.value = 0.8;
-
-    const panner = ctx.createPanner();
-    panner.panningModel = "HRTF";
-    panner.distanceModel = "inverse";
-    panner.refDistance = 4;
-    panner.maxDistance = 60;
-    panner.rolloffFactor = 1.2;
-
-    const g = ctx.createGain();
-    g.gain.value = 0.0001;
-
-    osc.connect(drive);
-    drive.connect(lp);
-    lp.connect(panner);
-    panner.connect(g);
-    g.connect(audioListener.gain);
-
-    let started = false;
-    /** @type {null|number} */
-    let currentLeaderSlot = null;
-
-    const ensureStarted = () => {
-      if (started) return;
-      try { osc.start(); } catch {}
-      started = true;
-    };
-
-    const setLeader = (slotIndex) => {
-      ensureStarted();
-      const now = ctx.currentTime;
-      const wants = Number.isFinite(slotIndex) ? slotIndex : null;
-      if (wants === currentLeaderSlot) return;
-      currentLeaderSlot = wants;
-      const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.035 * sfxVolume) : 0.0001;
-      g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
-    };
-
-    const updatePositionFromCart = (cart) => {
-      if (!cart || !cart.mesh) return;
-      const pos = cart.mesh.position;
-      if (!pos) return;
-      const now = ctx.currentTime;
-      panner.positionX.setValueAtTime(pos.x, now);
-      panner.positionY.setValueAtTime(pos.y, now);
-      panner.positionZ.setValueAtTime(pos.z, now);
-    };
-
-    const resyncVolume = () => {
-      const now = ctx.currentTime;
-      const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.035 * sfxVolume) : 0.0001;
-      g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
-    };
-
-    return { setLeader, updatePositionFromCart, resyncVolume };
-  })();
 } catch {}
 /** @type {boolean} */
 let isMuted = false; // Step 10d: Mute state
@@ -1271,7 +1129,7 @@ function initNetcode(roomOverride) {
             const next = Number(r.scores?.[i] ?? prev);
             if (next > prev) { didScore = true; break; }
           }
-          if (didScore) crowd.bump();
+          crowd?.bump?.();
         }
 
         const prevPhase = roundPhase;
@@ -1330,6 +1188,151 @@ function initNetcode(roomOverride) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function initCrowdSfx(audioListener) {
+  const ctx = audioListener.context;
+  const len = 1.0;
+  const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 900;
+  lp.Q.value = 0.4;
+
+  const bp = ctx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 320;
+  bp.Q.value = 0.7;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.0001;
+
+  src.connect(lp);
+  lp.connect(bp);
+  bp.connect(g);
+  g.connect(audioListener.gain);
+
+  let started = false;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let bumpTimeoutId = null;
+
+  const applyAmbient = () => {
+    const now = ctx.currentTime;
+    const base = 0.012 * sfxVolume;
+    const target = isMuted ? 0.0001 : base;
+    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.25);
+    lp.frequency.setTargetAtTime(900, now, 0.25);
+    bp.frequency.setTargetAtTime(320, now, 0.25);
+    bp.Q.setTargetAtTime(0.7, now, 0.25);
+  };
+
+  const ensureStarted = () => {
+    if (started) return;
+    try { src.start(); } catch {}
+    started = true;
+    applyAmbient();
+  };
+
+  const bump = () => {
+    ensureStarted();
+    if (isMuted || sfxVolume <= 0) return;
+    const now = ctx.currentTime;
+    const ambient = 0.012 * sfxVolume;
+    const peak = 0.028 * sfxVolume;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setTargetAtTime(Math.max(0.0001, peak), now, 0.04);
+    lp.frequency.setTargetAtTime(1400, now, 0.05);
+    bp.frequency.setTargetAtTime(520, now, 0.05);
+    bp.Q.setTargetAtTime(1.2, now, 0.05);
+
+    if (bumpTimeoutId) clearTimeout(bumpTimeoutId);
+    bumpTimeoutId = setTimeout(() => {
+      bumpTimeoutId = null;
+      const t = ctx.currentTime;
+      g.gain.setTargetAtTime(Math.max(0.0001, ambient), t, 0.35);
+      lp.frequency.setTargetAtTime(900, t, 0.35);
+      bp.frequency.setTargetAtTime(320, t, 0.35);
+      bp.Q.setTargetAtTime(0.7, t, 0.35);
+    }, 1500);
+  };
+
+  return { ensureStarted, applyAmbient, bump };
+}
+
+function initLeaderHumSfx(audioListener) {
+  const ctx = audioListener.context;
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = 58;
+
+  const drive = ctx.createGain();
+  drive.gain.value = 0.12;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 220;
+  lp.Q.value = 0.8;
+
+  const panner = ctx.createPanner();
+  panner.panningModel = "HRTF";
+  panner.distanceModel = "inverse";
+  panner.refDistance = 4;
+  panner.maxDistance = 60;
+  panner.rolloffFactor = 1.2;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.0001;
+
+  osc.connect(drive);
+  drive.connect(lp);
+  lp.connect(panner);
+  panner.connect(g);
+  g.connect(audioListener.gain);
+
+  let started = false;
+  /** @type {null|number} */
+  let currentLeaderSlot = null;
+
+  const ensureStarted = () => {
+    if (started) return;
+    try { osc.start(); } catch {}
+    started = true;
+  };
+
+  const setLeader = (slotIndex) => {
+    ensureStarted();
+    const now = ctx.currentTime;
+    const wants = Number.isFinite(slotIndex) ? slotIndex : null;
+    if (wants === currentLeaderSlot) return;
+    currentLeaderSlot = wants;
+    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.035 * sfxVolume) : 0.0001;
+    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
+  };
+
+  const updatePositionFromCart = (cart) => {
+    if (!cart || !cart.mesh) return;
+    const pos = cart.mesh.position;
+    if (!pos) return;
+    const now = ctx.currentTime;
+    panner.positionX.setValueAtTime(pos.x, now);
+    panner.positionY.setValueAtTime(pos.y, now);
+    panner.positionZ.setValueAtTime(pos.z, now);
+  };
+
+  const resyncVolume = () => {
+    const now = ctx.currentTime;
+    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.035 * sfxVolume) : 0.0001;
+    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
+  };
+
+  return { setLeader, updatePositionFromCart, resyncVolume };
 }
 
 function buildRecordRingGeometry({
@@ -3408,7 +3411,7 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
-    try { crowd.ensureStarted(); } catch {}
+    try { crowd?.ensureStarted?.(); } catch {}
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
@@ -3737,6 +3740,9 @@ async function main() {
       ? AUDIO_VOLUME_DEFAULT
       : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
+
+  if (!crowd) crowd = initCrowdSfx(audioListener);
+  if (!leaderHum) leaderHum = initLeaderHumSfx(audioListener);
 
   // Limits to prevent infinite stacking of short transient impact SFX.
   /** @type {{ intensity: number; stop: () => void }[]} */
@@ -6559,8 +6565,8 @@ async function main() {
     }
 
     // Keep procedural P2 SFX in sync with mute/volume changes.
-    try { crowd.applyAmbient(); } catch {}
-    try { leaderHum.resyncVolume(); } catch {}
+    try { crowd?.applyAmbient?.(); } catch {}
+    try { leaderHum?.resyncVolume?.(); } catch {}
   }
 
   // Initialize audio with saved settings
@@ -8054,10 +8060,10 @@ async function main() {
 
       // Leader hum: subtle spatial drone on the current leader.
       if (!menuVisible && roundPhase === "running" && leaderSlot >= 0 && allCarts[leaderSlot]) {
-        leaderHum.setLeader(leaderSlot);
-        leaderHum.updatePositionFromCart(allCarts[leaderSlot]);
+        leaderHum?.setLeader?.(leaderSlot);
+        leaderHum?.updatePositionFromCart?.(allCarts[leaderSlot]);
       } else {
-        leaderHum.setLeader(null);
+        leaderHum?.setLeader?.(null);
       }
 
       // * 1 Hz = one full cycle per second.
