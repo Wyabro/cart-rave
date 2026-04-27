@@ -2052,6 +2052,15 @@ async function main() {
         #hud .hud-timer { transform: scale(0.8); transform-origin: top left; }
         #hud .hud-audio { transform: scale(0.8); transform-origin: top right; }
       }
+
+      @media (max-width: 900px) {
+        #hud .hud-scores {
+          top: auto;
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+      }
       #hud .hud-mute-btn {
         display: flex;
         align-items: center;
@@ -3299,6 +3308,8 @@ async function main() {
   function updateHud() {
     if (menuVisible) return;
     if (!hud) return;
+
+    if (hud && hud.feed) hud.feed.style.display = "";
 
     // --- Status line ---
     if (roundPhase === "running" && lastCartStandingTimeoutId !== null) {
