@@ -545,7 +545,6 @@ export default class Server implements Party.Server {
   onMessage(message: string, conn: Party.Connection) {
     // Security: Block massive payload bombs before trying to parse
     if (message.length > 4096) {
-      console.warn(`[SECURITY] Kicked ${conn.id} for payload bomb (${message.length} bytes)`);
       conn.close(4009, "Payload too large");
       return;
     }

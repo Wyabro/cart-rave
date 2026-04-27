@@ -684,7 +684,6 @@ function localSlotIndexForConn(connId) {
   const idx = strictSlotIndexForConn(connId);
   if (idx < 0 && !_slotLookupMissWarned) {
     _slotLookupMissWarned = true;
-    console.warn("[net] localSlotIndexForConn miss — connId not in netSlots", { connId, netSlots });
   }
   return idx;
 }
@@ -1060,8 +1059,6 @@ function initNetcode(roomOverride) {
           updateNameLabelsRef.current?.();
         });
         respawnLocalMidRoundJoinRef.current?.();
-      } else {
-        console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
       }
       return;
     }
@@ -6248,7 +6245,6 @@ async function main() {
   menuMusicEl.src = menuMusicUrl;
   let menuMusicStarted = false;
   menuMusicEl.addEventListener("error", () => {
-    console.warn("[audio] menu music not found");
   });
   menuMusicEl.load();
 
@@ -6318,8 +6314,21 @@ async function main() {
     );
   };
 
+  let didResumeAudioContext = false;
+  let audioContextResumeInFlight = false;
   function unlockAudioAndMaybeStartMusic() {
-    void audioListener.context.resume();
+    if (!didResumeAudioContext && !audioContextResumeInFlight) {
+      audioContextResumeInFlight = true;
+      void audioListener.context.resume().then(
+        () => {
+          didResumeAudioContext = true;
+          audioContextResumeInFlight = false;
+        },
+        () => {
+          audioContextResumeInFlight = false;
+        },
+      );
+    }
     tryStartAmbientMusic();
   }
 
@@ -8024,7 +8033,6 @@ window.__debug = () => {
 // TEMP DEBUG — phone-to-server log bridge
 window.__log = (label, payload) => {
   if (!partySocket || partySocket.readyState !== 1) {
-    console.warn("partySocket not ready");
     return;
   }
   partySocket.send(JSON.stringify({

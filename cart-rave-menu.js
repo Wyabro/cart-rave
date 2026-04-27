@@ -70,8 +70,6 @@
     vol: 0.25,
     beat: 0,
     tilt: 0,
-    globalOnline: 2431,
-    globalPlayed: 1847293,
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
@@ -100,8 +98,6 @@
   const musicVolFill = $("cr-music-vol-fill");
   const musicVolVal = $("cr-music-vol-val");
   const audioEl = $("cr-audio");
-  const onlineEl = $("stat-online");
-  const playsEl = $("stat-plays");
   // NOTE: Keyboard/mouse gating toast is driven by main.js (mobile gameplay block).
 
   // ─── Neon cart SVG builder ────────────────────────────────────────────────
@@ -367,15 +363,6 @@
     requestAnimationFrame(animLoop);
   }
   requestAnimationFrame(animLoop);
-
-  // ─── Global stats tick ────────────────────────────────────────────────────
-  function fmt(n) { return n.toLocaleString(); }
-  setInterval(() => {
-    state.globalOnline = Math.max(1800, state.globalOnline + Math.round((Math.random() - 0.45) * 8));
-    state.globalPlayed += Math.floor(Math.random() * 3);
-    onlineEl.textContent = fmt(state.globalOnline);
-    playsEl.textContent = fmt(state.globalPlayed);
-  }, 1400);
 
   // ─── FX toggles via CONFIG ────────────────────────────────────────────────
   if (!CONFIG.showFloor) floorEl.style.display = 'none';
