@@ -231,8 +231,6 @@
     document.getElementById('stat-wins').style.color = p.primary;
     document.getElementById('stat-played').style.color = p.secondary;
     document.getElementById('stat-pts').style.color = p.tertiary;
-    onlineEl.style.color = p.secondary;
-    playsEl.style.color = p.primary;
 
     // Buttons
     document.querySelectorAll('.cr-btn').forEach(btn => {
