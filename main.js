@@ -558,6 +558,8 @@ let serverClockOffsetSamples = 0;
 let lastSlotsJson = "";
 let nameLabelUpdatePending = null;
 
+let hostMigrationFreezeUntilMs = 0;
+
 let skipNextPhysicsStep = false;
 
 // These are assigned once main() constructs the scene / HUD / physics world.
@@ -982,6 +984,7 @@ function initNetcode(roomOverride) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
       setAuthorityMode(nextIsHost);
+      if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + 300;
       hostEpoch += 1;
       netStateBuffer = [];
       return;
@@ -7379,6 +7382,9 @@ async function main() {
       }
     } else {
       // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
+      if (Date.now() < hostMigrationFreezeUntilMs) {
+        // * Hold remote carts at last rendered position until fresh host state arrives.
+      } else {
       const targetServerNowMs = Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
       const localSlotIndex = netSlots.findIndex((s) => s && s.connId === youConnId);
 
@@ -7561,6 +7567,7 @@ async function main() {
 
       const pruneIdx = before ? netStateBuffer.indexOf(before) : -1;
       if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
+      }
     }
 
     updateRamBoostStreaks(now);
