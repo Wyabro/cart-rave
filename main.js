@@ -305,6 +305,36 @@ function isPortalWebringBypassFromUrl() {
   return s === "true" || s === "1" || s === "yes";
 }
 
+function getPortalQueryParams() {
+  if (typeof window === "undefined") return null;
+  const p = new URLSearchParams(window.location.search || "");
+  if (!isPortalWebringBypassFromUrl()) return null;
+  return {
+    username: p.get("username") || null,
+    color: p.get("color") || null,
+    speed: p.get("speed") || null,
+    ref: p.get("ref") || null,
+    avatar_url: p.get("avatar_url") || null,
+    team: p.get("team") || null,
+    hp: p.get("hp") || null,
+  };
+}
+
+const incomingPortalParams = getPortalQueryParams();
+
+let returnPortalTriggered = false;
+const returnPortalWorldPos = new THREE.Vector3();
+
+function buildExitPortalUrl() {
+  if (typeof window === "undefined") return "https://vibej.am/portal/2026";
+  const url = new URL("https://vibej.am/portal/2026");
+  url.searchParams.set("ref", window.location.origin + window.location.pathname);
+  const mySlot = netSlots?.find((s) => s && s.connId === youConnId);
+  if (mySlot?.name) url.searchParams.set("username", mySlot.name);
+  if (mySlot?.color) url.searchParams.set("color", mySlot.color);
+  return url.toString();
+}
+
 function applyPortalWebringBypassToUrl() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
@@ -886,11 +916,19 @@ function initNetcode(roomOverride) {
   partySocket.addEventListener("open", () => {
     // eslint-disable-next-line no-console
     console.log("[net] socket open, room=" + resolvedRoom + ", sending join");
-    let savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    let savedUsername = (incomingPortalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       localStorage.setItem("cartRaveUsername", savedUsername);
       localStorage.setItem("cartRaveName", savedUsername);
+    }
+    if (incomingPortalParams?.username) {
+      try {
+        localStorage.setItem("cartRaveUsername", savedUsername);
+        localStorage.setItem("cartRaveName", savedUsername);
+      } catch {
+        // ignore
+      }
     }
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
@@ -2916,11 +2954,11 @@ async function main() {
 
     const exitPortal = document.createElement("a");
     exitPortal.className = "results-btn results-btn--portal";
-    exitPortal.href = "https://vibej.am/portal/2026";
+    exitPortal.href = buildExitPortalUrl();
     exitPortal.textContent = "VIBE JAM PORTAL";
     exitPortal.addEventListener("click", (event) => {
       event.preventDefault();
-      window.location.href = "https://vibej.am/portal/2026";
+      window.location.href = buildExitPortalUrl();
     });
 
     const mainMenuBtn = document.createElement("button");
@@ -5261,6 +5299,9 @@ async function main() {
   let portalTex;
   let portalTriggered = false;
   const portalWorldPos = new THREE.Vector3();
+  let returnPortalCtx = null;
+  let returnPortalTex = null;
+  let returnPortalGroup = null;
   {
     const bbAngle = Math.PI;
     const portalRadius = pitInnerRadius - 2;
@@ -5333,6 +5374,77 @@ async function main() {
     portalGroup.position.set(px, py, pz);
     portalGroup.lookAt(0, py, 0);
     scene.add(portalGroup);
+  }
+
+  // ===== RETURN PORTAL (only when arriving via portal with ?ref=) =====
+  if (incomingPortalParams?.ref) {
+    const returnPortalSlotAngle = 0; // slot 0 booth
+    const returnPortalDist = CONFIG.cart.spawnRingRadius;
+    const rpx = returnPortalDist * Math.cos(returnPortalSlotAngle);
+    const rpz = returnPortalDist * Math.sin(returnPortalSlotAngle);
+    const rpy = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + 2.5;
+    returnPortalWorldPos.set(rpx, rpy, rpz);
+
+    const portalCanvas = document.createElement("canvas");
+    portalCanvas.width = 128;
+    portalCanvas.height = 128;
+    returnPortalCtx = portalCanvas.getContext("2d");
+    returnPortalTex = new THREE.CanvasTexture(portalCanvas);
+    returnPortalTex.magFilter = THREE.NearestFilter;
+    returnPortalTex.minFilter = THREE.NearestFilter;
+
+    const portalGroup = new THREE.Group();
+
+    const portalMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(2.5, 32),
+      new THREE.MeshBasicMaterial({ map: returnPortalTex, side: THREE.DoubleSide })
+    );
+    portalGroup.add(portalMesh);
+
+    const glowRing = new THREE.Mesh(
+      new THREE.TorusGeometry(2.7, 0.15, 8, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ccff,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    portalGroup.add(glowRing);
+
+    const portalLight = new THREE.PointLight(0x00ccff, 3, 10);
+    portalGroup.add(portalLight);
+
+    const plLabelCanvas = document.createElement("canvas");
+    plLabelCanvas.width = 256;
+    plLabelCanvas.height = 48;
+    const plLabelCtx = plLabelCanvas.getContext("2d");
+    plLabelCtx.clearRect(0, 0, 256, 48);
+    plLabelCtx.font = 'bold 22px "Bungee", monospace';
+    plLabelCtx.textAlign = "center";
+    plLabelCtx.textBaseline = "middle";
+    plLabelCtx.shadowColor = "#00ccff";
+    plLabelCtx.shadowBlur = 10;
+    plLabelCtx.fillStyle = "#00ccff";
+    plLabelCtx.fillText("RETURN PORTAL", 128, 24);
+    const plLabelTex = new THREE.CanvasTexture(plLabelCanvas);
+    const plLabel = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.2, 0.65),
+      new THREE.MeshBasicMaterial({
+        map: plLabelTex,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+    plLabel.position.set(0, 3.0, 0);
+    portalGroup.add(plLabel);
+
+    portalGroup.position.set(rpx, rpy, rpz);
+    portalGroup.lookAt(0, rpy, 0);
+    scene.add(portalGroup);
+    returnPortalGroup = portalGroup;
   }
 
   for (let i = 0; i < 6; i += 1) {
@@ -7122,6 +7234,34 @@ async function main() {
       portalTex.needsUpdate = true;
     }
 
+    if (returnPortalCtx && returnPortalTex) {
+      const imgData = returnPortalCtx.createImageData(128, 128);
+      const d = imgData.data;
+      const swirlT = now * 0.002;
+      for (let row = 0; row < 128; row++) {
+        for (let col = 0; col < 128; col++) {
+          const nx = (col - 64) / 64;
+          const ny = (row - 64) / 64;
+          const dist = Math.sqrt(nx * nx + ny * ny);
+          const idx = (row * 128 + col) * 4;
+          if (dist < 1.0) {
+            const angle = Math.atan2(ny, nx);
+            const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
+            const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
+            const centerGlow = Math.max(0, 1 - dist * 1.8);
+            d[idx] = Math.round(brightness * 80 + centerGlow * 0);
+            d[idx + 1] = Math.round(brightness * 210 + centerGlow * 255);
+            d[idx + 2] = Math.round(brightness * 255 + centerGlow * 255);
+            d[idx + 3] = 255;
+          } else {
+            d[idx + 3] = 0;
+          }
+        }
+      }
+      returnPortalCtx.putImageData(imgData, 0, 0);
+      returnPortalTex.needsUpdate = true;
+    }
+
     const playerAxis = getAxis();
     // Diagnostics removed for submission.
 
@@ -7136,7 +7276,28 @@ async function main() {
       const dz = playerPos.z - portalWorldPos.z;
       if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
         portalTriggered = true;
-        window.location.href = 'https://vibej.am/portal/2026';
+        window.location.href = buildExitPortalUrl();
+      }
+    }
+
+    if (!returnPortalTriggered && incomingPortalParams?.ref && returnPortalGroup) {
+      const dx = playerPos.x - returnPortalWorldPos.x;
+      const dy = playerPos.y - returnPortalWorldPos.y;
+      const dz = playerPos.z - returnPortalWorldPos.z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
+        returnPortalTriggered = true;
+
+        const rawRef = String(incomingPortalParams.ref || "").trim();
+        const returnUrl = new URL(rawRef.startsWith("http") ? rawRef : `https://${rawRef}`);
+        returnUrl.searchParams.set("portal", "true");
+        returnUrl.searchParams.set("ref", encodeURIComponent(window.location.origin + window.location.pathname));
+        if (incomingPortalParams.username) returnUrl.searchParams.set("username", incomingPortalParams.username);
+        if (incomingPortalParams.color) returnUrl.searchParams.set("color", incomingPortalParams.color);
+        if (incomingPortalParams.speed) returnUrl.searchParams.set("speed", incomingPortalParams.speed);
+        if (incomingPortalParams.avatar_url) returnUrl.searchParams.set("avatar_url", incomingPortalParams.avatar_url);
+        if (incomingPortalParams.team) returnUrl.searchParams.set("team", incomingPortalParams.team);
+        if (incomingPortalParams.hp) returnUrl.searchParams.set("hp", incomingPortalParams.hp);
+        window.location.href = returnUrl.toString();
       }
     }
 
