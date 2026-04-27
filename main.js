@@ -7509,9 +7509,6 @@ async function main() {
       const before = beforeIndex >= 0 ? netStateBuffer[beforeIndex] : null;
       const after = afterIndex >= 0 ? netStateBuffer[afterIndex] : null;
 
-      // Prune entries strictly older than "before" (never needed again).
-      if (beforeIndex > 0) netStateBuffer.splice(0, beforeIndex);
-
       if (before && after && before.carts && after.carts) {
         const denom = (after.serverNowMs - before.serverNowMs) || 1;
         const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
@@ -7575,12 +7572,55 @@ async function main() {
           }
         }
       } else if (before && before.carts) {
-        applyCartsSnapshotToBodies(before.carts);
+        const extrapMs = targetServerNowMs - before.serverNowMs;
+        const extrapS = Math.min(extrapMs, 50) / 1000;
+        const localIdx = netSlots.findIndex((s) => s && s.connId === youConnId);
+
+        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+          const cart = allCarts[slotIndex];
+          if (!cart) continue;
+
+          const b = before.carts[String(slotIndex)];
+          if (!b) continue;
+
+          const bp = b.p;
+          const bq = b.q;
+          const blv = b.lv;
+          const bav = b.av;
+
+          // Never extrapolate local player's cart; snap to the buffered value.
+          if (slotIndex === localIdx) {
+            if (Array.isArray(bp) && bp.length === 3) {
+              cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
+            }
+          } else if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
+            cart.body.setTranslation(
+              { x: bp[0] + blv[0] * extrapS, y: bp[1] + blv[1] * extrapS, z: bp[2] + blv[2] * extrapS },
+              true,
+            );
+          } else if (Array.isArray(bp) && bp.length === 3) {
+            cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
+          }
+
+          // Do not extrapolate rotation; snap it.
+          if (Array.isArray(bq) && bq.length === 4) {
+            cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
+          }
+          if (Array.isArray(blv) && blv.length === 3) {
+            cart.body.setLinvel({ x: blv[0], y: blv[1], z: blv[2] }, true);
+          }
+          if (Array.isArray(bav) && bav.length === 3) {
+            cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
+          }
+        }
       } else if (after && after.carts) {
         applyCartsSnapshotToBodies(after.carts);
       } else if (lastCartsCache) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
+
+      const pruneIdx = before ? netStateBuffer.indexOf(before) : -1;
+      if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
     }
 
     updateRamBoostStreaks(now);
