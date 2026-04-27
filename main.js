@@ -7622,7 +7622,10 @@ async function main() {
                 const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
                 hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
               }
-              if (roundPhase === "running" && hit.attackerSlotIndex === localSlotIndex()) {
+              if (
+                roundPhase === "running" &&
+                hit.attackerSlotIndex === localSlotIndexForConn(youConnId)
+              ) {
                 fovPunchUntil = performance.now() + 200;
               }
 
