@@ -594,6 +594,7 @@ function updateCartMaterialsFromSlots(slots) {
 
     const colorData = CART_COLORS[slot.color];
     const finalHex = colorData ? colorData.hex : 0x888888;
+    if (finalHex === cart.cartColor) continue;
 
     // * buildCart returns a THREE.Group, not a Mesh — traverse all child meshes to repaint.
     cart.mesh.traverse((child) => {
