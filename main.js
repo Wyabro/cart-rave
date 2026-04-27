@@ -541,7 +541,7 @@ try {
     const parsedSfxVol = parseInt(savedSfxVol, 10);
     sfxVolume = Number.isNaN(parsedSfxVol)
       ? AUDIO_VOLUME_DEFAULT
-      : clamp(parsedSfxVol / 100, 0, AUDIO_VOLUME_MAX);
+      : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
 } catch {}
 /** @type {boolean} */
@@ -1710,7 +1710,10 @@ async function main() {
 
   function setSfxSliderVolume(v) {
     sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
-    localStorage.setItem("cartRaveSfxVol", Math.round(sfxVolume * 100).toString());
+    localStorage.setItem(
+      "cartRaveSfxVol",
+      Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
+    );
     try { applyAudioVolume(); } catch (e) {}
   }
 
@@ -2517,7 +2520,10 @@ async function main() {
 
     const hudMusicVol = createHudVolumeRow("♫", (v) => {
       masterGain = v;
-      localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
+      localStorage.setItem(
+        "cartRaveVolume",
+        Math.round((v / AUDIO_VOLUME_MAX) * 100).toString(),
+      );
       try { applyAudioVolume(); } catch (e) {}
     });
     const hudSfxVol = createHudVolumeRow("⚡", (v) => {
@@ -2626,8 +2632,8 @@ async function main() {
     document.body.appendChild(escOverlay);
 
     function syncAudioControls() {
-      const musicPercent = Math.round(masterGain * 100);
-      const sfxPercent = Math.round(sfxVolume * 100);
+      const musicPercent = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
+      const sfxPercent = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
       hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
       hudMuteBtn.classList.toggle("muted", isMuted);
       hudMusicVol.fill.style.width = (isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX) * 100) + "%";
@@ -3161,7 +3167,7 @@ async function main() {
 
     function syncMenuVolume() {
       if (crMusicVolFill) crMusicVolFill.style.width = ((isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX)) * 100) + "%";
-      if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round(masterGain * 100);
+      if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
       if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
       if (hud && hud.syncAudioControls) hud.syncAudioControls();
     }
@@ -3178,7 +3184,7 @@ async function main() {
         const r = crMusicVolTrack.getBoundingClientRect();
         const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
         masterGain = v;
-        localStorage.setItem("cartRaveVolume", Math.round(v * 100).toString());
+        localStorage.setItem("cartRaveVolume", Math.round((v / AUDIO_VOLUME_MAX) * 100).toString());
         try { applyAudioVolume(); } catch(e) {}
         syncMenuVolume();
       });
@@ -3190,14 +3196,14 @@ async function main() {
       const parsed = parseInt(savedVol, 10);
       masterGain = Number.isNaN(parsed)
         ? AUDIO_VOLUME_DEFAULT
-        : clamp(parsed / 100, 0, AUDIO_VOLUME_MAX);
+        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
     }
     const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
     if (savedSfxVol !== null) {
       const parsed = parseInt(savedSfxVol, 10);
       sfxVolume = Number.isNaN(parsed)
         ? AUDIO_VOLUME_DEFAULT
-        : clamp(parsed / 100, 0, AUDIO_VOLUME_MAX);
+        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
     }
     const savedMute = localStorage.getItem("cartRaveMuted");
     if (savedMute === "true") setAllAudioMuted(true);
@@ -3553,7 +3559,9 @@ async function main() {
   const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
   if (savedSfxVol !== null) {
     const parsedSfxVol = parseInt(savedSfxVol, 10);
-    sfxVolume = Number.isNaN(parsedSfxVol) ? 0.25 : clamp(parsedSfxVol / 100, 0, 1);
+    sfxVolume = Number.isNaN(parsedSfxVol)
+      ? AUDIO_VOLUME_DEFAULT
+      : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
   sfx = {
     _muted: isMuted,
@@ -6130,6 +6138,12 @@ async function main() {
   const gameMusicUrls = gameMusicFiles.map((f) =>
     new URL(`sounds/${f}`, window.location.href).toString(),
   );
+  for (let i = gameMusicUrls.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = gameMusicUrls[i];
+    gameMusicUrls[i] = gameMusicUrls[j];
+    gameMusicUrls[j] = tmp;
+  }
   let gameMusicIndex = 0;
 
   /** @type {HTMLAudioElement[]|null} */
