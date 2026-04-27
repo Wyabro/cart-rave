@@ -523,7 +523,7 @@ let _localColorPicked = false;
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
 const AUDIO_VOLUME_MAX = 1.15;
-const AUDIO_VOLUME_DEFAULT = 0.25 * AUDIO_VOLUME_MAX;
+const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
 let masterGain = AUDIO_VOLUME_DEFAULT; // Step 10d: Volume control (0.0 to AUDIO_VOLUME_MAX)
 /** @type {number} */
 let sfxVolume = AUDIO_VOLUME_DEFAULT;
@@ -2222,9 +2222,9 @@ async function main() {
       }
 
       @keyframes hudStatusPulse {
-        0% { transform: scale(1); }
-        40% { transform: scale(1.3); }
-        100% { transform: scale(1); }
+        0% { transform: translateX(-50%) scale(1); }
+        40% { transform: translateX(-50%) scale(1.3); }
+        100% { transform: translateX(-50%) scale(1); }
       }
 
       #hud .hud-ready-btn {
@@ -4422,7 +4422,7 @@ async function main() {
       const discMesh = new THREE.Mesh(discGeo, discMat);
       discMesh.userData.recordSurfacePart = "labelDisc";
       discMesh.rotation.x = -Math.PI / 2;
-      discMesh.position.y = yBase + disc.yOffset + 0.01;
+      discMesh.position.y = yBase + disc.yOffset - 0.065;
       discMesh.renderOrder = 2;
       parentMesh.add(discMesh);
     }
@@ -4465,7 +4465,7 @@ async function main() {
     textMesh.userData.recordSurfacePart = "labelText";
     textMesh.renderOrder = 3;
     textMesh.rotation.x = -Math.PI / 2;
-    textMesh.position.y = yBase + lt.yOffset + 0.02;
+    textMesh.position.y = yBase + lt.yOffset - 0.055;
     parentMesh.add(textMesh);
 
     // * Defer drawing until Bungee is available so canvas glyphs render with the correct face.
@@ -5243,7 +5243,7 @@ async function main() {
     const z = Math.sin(angle) * r;
     const scale = 0.25 + Math.random() * 0.2;
 
-    dummy.position.set(x, -2.5, z);
+    dummy.position.set(x, -3.1, z);
     dummy.scale.set(scale, scale, scale);
     dummy.rotation.y = angle + Math.PI + (Math.random() - 0.5) * 0.8;
     dummy.updateMatrix();
@@ -6926,6 +6926,9 @@ async function main() {
     if (partySocket && partySocket.readyState === 1) {
       partySocket.send(JSON.stringify({ type: MSG.playAgain }));
     }
+
+    // Skip re-ready flow: host immediately starts the next round.
+    setTimeout(() => startCountdown(), 3000);
   }
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
@@ -7215,7 +7218,7 @@ async function main() {
           bounce = Math.abs(Math.sin(nowSec * baseFreq + i * 0.7)) * baseAmp;
         }
 
-        _dm.position.y = -2.5 + bounce;
+        _dm.position.y = -3.1 + bounce;
         if (wiggleYaw !== 0) {
           crowdWiggleQuat.setFromAxisAngle(crowdWiggleAxisY, wiggleYaw);
           _dm.quaternion.multiply(crowdWiggleQuat);
