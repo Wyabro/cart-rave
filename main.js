@@ -7769,36 +7769,29 @@ async function main() {
       updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
     }
 
-    // Subtle wheel screech: short noise bursts on sharp turns, nearby carts only.
+    // Subtle wheel screech: short noise bursts on sharp steering, local cart only.
+    // * Uses steering input magnitude (not physics yaw rate) so it remains consistent across hosts/clients.
     if (!isMuted && sfxVolume > 0 && sfx && typeof sfx.playWheelScreech === "function") {
-      const camPos = camera.position;
-      for (let i = 0; i < allCarts.length; i += 1) {
-        const c = allCarts[i];
-        if (!c || !c.body) continue;
-
-        const p = c.body.translation();
-        const dx = p.x - camPos.x;
-        const dy = p.y - camPos.y;
-        const dz = p.z - camPos.z;
-        const d2 = dx * dx + dy * dy + dz * dz;
-        if (d2 > 16 * 16) continue;
-
-        const lv = c.body.linvel();
-        const speed = Math.hypot(lv.x, lv.z);
-        if (speed < 4.0) continue;
-
-        const av = c.body.angvel();
-        const yawRate = Math.abs(av.y || 0);
-        const yawRateThreshold = 2.2;
-        if (yawRate < yawRateThreshold) continue;
-
-        if (now - (c.lastWheelScreechAtMs || 0) < 120) continue;
-        c.lastWheelScreechAtMs = now;
-
-        const yawRateMax = 6.0;
-        const turnFactor = clamp((yawRate - yawRateThreshold) / (yawRateMax - yawRateThreshold), 0, 1);
-        const speedFactor = clamp((speed - 4.0) / 10.0, 0, 1);
-        sfx.playWheelScreech(turnFactor * speedFactor);
+      if (!menuVisible && roundPhase === "running") {
+        const localSlotIndexForFrame = netSlots.findIndex((s) => s && s.connId === youConnId);
+        const c = localSlotIndexForFrame >= 0 ? allCarts[localSlotIndexForFrame] : null;
+        if (c && c.body) {
+          const lv = c.body.linvel();
+          const speed = Math.hypot(lv.x, lv.z);
+          if (speed >= 4.0) {
+            const axis = getAxis();
+            const steerMag = Math.abs(axis.turn || 0);
+            const steerThreshold = 0.55;
+            if (steerMag >= steerThreshold) {
+              if (now - (c.lastWheelScreechAtMs || 0) >= 120) {
+                c.lastWheelScreechAtMs = now;
+                const steerFactor = clamp((steerMag - steerThreshold) / (1 - steerThreshold), 0, 1);
+                const speedFactor = clamp((speed - 4.0) / 10.0, 0, 1);
+                sfx.playWheelScreech(steerFactor * speedFactor);
+              }
+            }
+          }
+        }
       }
     }
 
