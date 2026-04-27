@@ -380,7 +380,7 @@ let localNitroHeld = false;
 
 function cssHexFromRgbNumber(rgb) {
   if (!Number.isFinite(rgb)) return "#888888";
-  const hex = (rgb >>> 0).toString(16).padStart(6, "0");
+  const hex = Math.floor(rgb).toString(16).padStart(6, "0");
   return `#${hex}`;
 }
 
@@ -846,6 +846,8 @@ function setAuthorityMode(nextIsHost) {
   if (becomingHost) {
     stopInputSendLoop();
     netStateBuffer = [];
+    // Reset host seq so the first authoritative send after migration is always newer.
+    hostSeq = -1;
     if (lastCartsCache) {
       applyCartsSnapshotToBodies(lastCartsCache);
     }
@@ -1120,6 +1122,7 @@ function initNetcode(roomOverride) {
         // * Approach (a): single source of truth via MSG.round transition into podium — host and clients append the same
         // * moment without endRound() duplication or dedupe keys.
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
+          pendingMidRoundJoinRespawnConnId = null;
           const w = r.winnerSlotIndex;
           const winnerSlotIndex =
             w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
@@ -1380,6 +1383,9 @@ async function main() {
   let musicUnavailable = false;
   let tryStartAmbientMusic = () => {};
   let labelRenderer = null;
+  let gameMusicFadeOutInterval = null;
+  let menuMusicFadeOutInterval = null;
+  let gameMusicFadeInInterval = null;
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -3015,11 +3021,13 @@ async function main() {
     // Fade out game music, fade in menu music
     try {
       if (musicEl && !musicEl.paused) {
-        const fadeOut = setInterval(() => {
+        if (gameMusicFadeOutInterval !== null) clearInterval(gameMusicFadeOutInterval);
+        gameMusicFadeOutInterval = setInterval(() => {
           if (musicEl.volume > 0.0075) {
             musicEl.volume = Math.max(0, musicEl.volume - 0.0075);
           } else {
-            clearInterval(fadeOut);
+            clearInterval(gameMusicFadeOutInterval);
+            gameMusicFadeOutInterval = null;
             musicEl.pause();
             musicEl.currentTime = 0;
           }
@@ -3248,11 +3256,13 @@ async function main() {
     if (hudAudio) hudAudio.style.display = "flex";
     // Crossfade: fade out menu music, fade in game music
     if (menuMusicEl) {
-      const fadeOut = setInterval(() => {
+      if (menuMusicFadeOutInterval !== null) clearInterval(menuMusicFadeOutInterval);
+      menuMusicFadeOutInterval = setInterval(() => {
         if (menuMusicEl.volume > 0.0075) {
           menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.0075);
         } else {
-          clearInterval(fadeOut);
+          clearInterval(menuMusicFadeOutInterval);
+          menuMusicFadeOutInterval = null;
           menuMusicEl.pause();
           menuMusicEl.currentTime = 0;
         }
@@ -3264,16 +3274,19 @@ async function main() {
       musicEl.muted = isMuted;
       tryStartAmbientMusic();
       const targetVol = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-      const fadeIn = setInterval(() => {
+      if (gameMusicFadeInInterval !== null) clearInterval(gameMusicFadeInInterval);
+      gameMusicFadeInInterval = setInterval(() => {
         if (!musicEl) {
-          clearInterval(fadeIn);
+          clearInterval(gameMusicFadeInInterval);
+          gameMusicFadeInInterval = null;
           return;
         }
         if (musicEl.volume < targetVol - 0.0075) {
           musicEl.volume = Math.min(targetVol, musicEl.volume + 0.0075);
         } else {
           musicEl.volume = targetVol;
-          clearInterval(fadeIn);
+          clearInterval(gameMusicFadeInInterval);
+          gameMusicFadeInInterval = null;
         }
       }, 30);
     }
@@ -3367,14 +3380,22 @@ async function main() {
       hud.scores.style.display = "flex";
       const localIdx = localSlotIndexForConn(youConnId);
       updateHud._lastLocalIdx = localIdx;
-      const rows = [];
-      for (let i = 0; i < 4; i += 1) {
-        const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
-        const slotName = netSlots[i]?.name || `P${i + 1}`;
-        const slotColor = netSlots[i]?.color || null;
-        rows.push({ slotIndex: i, score, slotName, slotColor });
+      const rowsKey =
+        `${Number(roundScores?.[0] ?? 0)}|${Number(roundScores?.[1] ?? 0)}|${Number(roundScores?.[2] ?? 0)}|${Number(roundScores?.[3] ?? 0)}` +
+        `__${(netSlots || []).slice(0, 4).map((s, i) => `${s?.name || `P${i + 1}`}:${s?.color || ""}`).join("|")}`;
+      if (updateHud._sortedScoreRowsKey !== rowsKey) {
+        updateHud._sortedScoreRowsKey = rowsKey;
+        const nextRows = [];
+        for (let i = 0; i < 4; i += 1) {
+          const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
+          const slotName = netSlots[i]?.name || `P${i + 1}`;
+          const slotColor = netSlots[i]?.color || null;
+          nextRows.push({ slotIndex: i, score, slotName, slotColor });
+        }
+        nextRows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
+        updateHud._sortedScoreRows = nextRows;
       }
-      rows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
+      const rows = updateHud._sortedScoreRows || [];
 
       for (let pos = 0; pos < 4; pos += 1) {
         const entry = hud.scoreBoxes[pos];
@@ -6467,6 +6488,7 @@ async function main() {
         lastCartStandingTimeoutId = null;
       }
       roundPhase = "podium";
+      pendingMidRoundJoinRespawnConnId = null;
       roundWinnerSlotIndex = lastCartStandingWinnerSlotIndex;
       lastCartStandingWinnerSlotIndex = null;
       sendHostRound();
@@ -6494,6 +6516,7 @@ async function main() {
       if ((roundScores[i] || 0) === winnerScore) tieAtTop += 1;
     }
     roundPhase = "podium";
+    pendingMidRoundJoinRespawnConnId = null;
     if (winnerScore === 0 && tieAtTop >= 2) {
       roundWinnerSlotIndex = "draw";
     } else {
