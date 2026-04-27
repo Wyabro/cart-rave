@@ -556,6 +556,7 @@ let serverClockOffsetMs = 0;
 let serverClockOffsetSamples = 0;
 
 let lastSlotsJson = "";
+let nameLabelUpdatePending = null;
 
 let skipNextPhysicsStep = false;
 
@@ -973,7 +974,11 @@ function initNetcode(roomOverride) {
       
       // Update HUD colors with initial colors
       updateHudColorsFromSlots(msg.slots);
-      updateNameLabelsRef.current?.();
+      if (nameLabelUpdatePending) cancelAnimationFrame(nameLabelUpdatePending);
+      nameLabelUpdatePending = requestAnimationFrame(() => {
+        nameLabelUpdatePending = null;
+        updateNameLabelsRef.current?.();
+      });
       return;
     }
 
@@ -995,6 +1000,10 @@ function initNetcode(roomOverride) {
       if (incomingJson === lastSlotsJson) return;
       lastSlotsJson = incomingJson;
       if (Array.isArray(msg.slots)) {
+        const newColors = msg.slots.map((s) => (s?.color || ""));
+        const oldColors = netSlots.map((s) => (s?.color || ""));
+        const colorsChanged = newColors.some((c, i) => c !== oldColors[i]);
+
         netSlots = msg.slots;
         const liveConnIds = new Set(
           netSlots
@@ -1017,11 +1026,15 @@ function initNetcode(roomOverride) {
         renderColorPicker(availableColors);
         
         // Update 3D cart materials with new colors
-        updateCartMaterialsFromSlots(msg.slots);
+        if (colorsChanged) updateCartMaterialsFromSlots(msg.slots);
         
         // Update HUD colors with new colors
-        updateHudColorsFromSlots(msg.slots);
-        updateNameLabelsRef.current?.();
+        if (colorsChanged) updateHudColorsFromSlots(msg.slots);
+        if (nameLabelUpdatePending) cancelAnimationFrame(nameLabelUpdatePending);
+        nameLabelUpdatePending = requestAnimationFrame(() => {
+          nameLabelUpdatePending = null;
+          updateNameLabelsRef.current?.();
+        });
         respawnLocalMidRoundJoinRef.current?.();
       } else {
         console.warn("[net] slots msg payload has no slots array", { slotsField: msg.slots, msgKeys: Object.keys(msg) });
@@ -5684,12 +5697,12 @@ async function main() {
 
       if (nameLabels[i]) {
         if (nameLabels[i]._labelText !== name || nameLabels[i]._labelColor !== colorCSS) {
-          scene.remove(nameLabels[i]);
-          const label = makeNameLabel(name, colorCSS);
-          label._labelText = name;
-          label._labelColor = colorCSS;
-          scene.add(label);
-          nameLabels[i] = label;
+          nameLabels[i].element.textContent = name;
+          nameLabels[i].element.style.borderColor = colorCSS;
+          nameLabels[i].element.style.boxShadow = `0 0 12px ${colorCSS}66, inset 0 0 8px ${colorCSS}26`;
+          nameLabels[i].element.style.textShadow = `0 0 6px ${colorCSS}`;
+          nameLabels[i]._labelText = name;
+          nameLabels[i]._labelColor = colorCSS;
         }
       } else {
         const label = makeNameLabel(name, colorCSS);
