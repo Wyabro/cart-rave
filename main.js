@@ -379,6 +379,10 @@ const __msgCounts = { in: {}, out: {} };
 let localNitroHeld = false;
 let localTouchNitroHeld = false;
 
+/** @type {HTMLElement|null} */
+let touchRoot = null;
+let touchEnabled = false;
+
 function cssHexFromRgbNumber(rgb) {
   if (!Number.isFinite(rgb)) return "#888888";
   const hex = (rgb >>> 0).toString(16).padStart(6, "0");
@@ -1384,9 +1388,6 @@ async function main() {
   let musicUnavailable = false;
   let tryStartAmbientMusic = () => {};
   let labelRenderer = null;
-  /** @type {HTMLElement|null} */
-  let touchRoot = null;
-  let touchEnabled = false;
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
