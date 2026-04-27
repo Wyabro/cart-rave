@@ -103,6 +103,7 @@ const REAP_THROTTLE_MS = 5_000;
 export default class Server implements Party.Server {
   readonly #connections = new Map<string, Party.Connection>();
   readonly #joinOrder: string[] = [];
+  readonly #connClientId = new Map<string, string>();
 
   #hostId: string | null = null;
   #slots: Slot[] | null = null;
@@ -335,6 +336,21 @@ export default class Server implements Party.Server {
     }, 3000);
   }
 
+  #reconcileOrphanSlots(liveConnIds: Set<string>) {
+    this.#ensureInitialized();
+    let changed = false;
+    for (const slot of this.#slots!) {
+      if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
+        console.log(`reconcile: orphan slot ${slot.slotId} connId=${slot.connId} -> npc`);
+        slot.kind = "npc";
+        slot.connId = null;
+        slot.isReady = false;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   // * Removes connections that haven't sent a message in REAP_TIMEOUT_MS.
   // * Intended as a safety net for when onClose doesn't fire (crash, network
   // * drop, platform bug, phantom tabs). Host handoff is delegated to
@@ -351,7 +367,7 @@ export default class Server implements Party.Server {
     }
 
     this.#lastReapAtMs = now;
-    if (reapedIds.length === 0) return;
+    if (reapedIds.length === 0) return false;
 
     let slotsChanged = false;
     for (const id of reapedIds) {
@@ -365,6 +381,7 @@ export default class Server implements Party.Server {
       );
       this.#connections.delete(id);
       this.#lastSeenAtMs.delete(id);
+      this.#connClientId.delete(id);
       this.#convertHumanSlotToNpc(id);
       
       // Cleanup IP tracking on reap
@@ -385,14 +402,7 @@ export default class Server implements Party.Server {
     // * handoff logic lives in exactly one place.
     this.#ensureLiveHost();
 
-    if (slotsChanged) {
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.slots,
-        serverNowMs: this.#serverNowMs(),
-        slots: this.#slots,
-      });
-    }
+    return slotsChanged;
   }
 
   onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
@@ -440,28 +450,21 @@ export default class Server implements Party.Server {
     // * by the time we compute orphan slots and build the hello snapshot.
     // * The new conn is already in #connections and lastSeenAtMs, so it's
     // * immune to reap and a valid host successor.
-    this.#reapSilentConnections();
+    const reaped = this.#reapSilentConnections();
 
     // Reconcile: any slot marked "human" whose connId is not in the platform's live
     // connection list is orphaned. Use room.getConnections() rather than #connections
     // because WebSocket close events are not guaranteed to fire (tab crash, incognito
     // close, network drop) and #connections can hold zombies.
-    if (this.#slots) {
-      const liveConnIds = new Set<string>();
-      for (const c of this.room.getConnections()) {
-        liveConnIds.add(c.id);
-      }
-      // The new connection itself is not yet in getConnections() during onConnect, so add it.
-      liveConnIds.add(conn.id);
-      for (const slot of this.#slots) {
-        if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
-          console.log(`reconcile: orphan slot ${slot.slotId} connId=${slot.connId} -> npc`);
-          slot.kind = "npc";
-          slot.connId = null;
-          slot.isReady = false;
-        }
-      }
+    const liveConnIds = new Set<string>();
+    for (const c of this.room.getConnections()) {
+      liveConnIds.add(c.id);
     }
+    // The new connection itself is not yet in getConnections() during onConnect, so add it.
+    liveConnIds.add(conn.id);
+    const reconciled = this.#reconcileOrphanSlots(liveConnIds);
+    void reaped;
+    void reconciled;
 
     // Prune zombies from #connections to match platform reality.
     for (const staleId of [...this.#connections.keys()]) {
@@ -510,7 +513,7 @@ export default class Server implements Party.Server {
     );
     this.#sendJson(conn, helloPayload);
 
-    // Also broadcast current slot mapping so all clients stay consistent.
+    // Broadcast current slot mapping so all clients stay consistent.
     this.#broadcastJson({
       v: PROTOCOL_VERSION,
       type: MSG.slots,
@@ -536,6 +539,7 @@ export default class Server implements Party.Server {
 
     this.#connections.delete(conn.id);
     this.#lastSeenAtMs.delete(conn.id);
+    this.#connClientId.delete(conn.id);
     this.#convertHumanSlotToNpc(conn.id);
     this.#cancelCountdownIfNeeded();
 
@@ -594,10 +598,45 @@ export default class Server implements Party.Server {
     if (type === MSG.join) {
       // Optional client metadata; server already assigned a slot on connect.
       const name = typeof data?.name === "string" ? data.name.trim() : "";
+      const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
       if (name) {
         this.#ensureInitialized();
         const slot = this.#slots!.find((s) => s.connId === conn.id);
         if (slot) slot.name = name.slice(0, 24);
+      }
+
+      if (clientId) {
+        // Exorcise ghost: same clientId, different connId.
+        let ghostConnId: string | null = null;
+        for (const [id, cid] of this.#connClientId.entries()) {
+          if (id !== conn.id && cid === clientId) {
+            ghostConnId = id;
+            break;
+          }
+        }
+        if (ghostConnId && this.#connections.has(ghostConnId)) {
+          const ghostConn = this.#connections.get(ghostConnId);
+          this.#convertHumanSlotToNpc(ghostConnId);
+          this.#connections.delete(ghostConnId);
+          this.#lastSeenAtMs.delete(ghostConnId);
+          this.#connClientId.delete(ghostConnId);
+
+          // Cleanup IP tracking on ghost exorcism
+          const ip = this.#connToIp.get(ghostConnId);
+          if (ip) {
+            const count = this.#ipConnectionCounts.get(ip) ?? 1;
+            this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+            this.#connToIp.delete(ghostConnId);
+          }
+
+          try {
+            ghostConn?.close(4010, "Replaced by new session");
+          } catch {
+            // ignore
+          }
+        }
+
+        this.#connClientId.set(conn.id, clientId);
       }
 
       this.#broadcastJson({

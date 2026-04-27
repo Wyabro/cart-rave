@@ -550,6 +550,8 @@ let keepaliveTimer = null;
 let hostSeq = 0;
 let inputSeq = 0;
 
+let hostEpoch = 0;
+
 let serverClockOffsetMs = 0;
 let serverClockOffsetSamples = 0;
 
@@ -707,13 +709,13 @@ function applyCartsSnapshotToBodies(carts) {
   }
 }
 
-function bufferAuthoritativeState(serverNowMs, seq, carts) {
+function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
   if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
   if (!carts || typeof carts !== "object") return;
 
   const last = netStateBuffer.length > 0 ? netStateBuffer[netStateBuffer.length - 1] : null;
   if (last && typeof last.seq === "number" && seq <= last.seq) return;
-  netStateBuffer.push({ serverNowMs, seq, carts });
+  netStateBuffer.push({ serverNowMs, seq, carts, epoch });
   const maxEntries = 64;
   while (netStateBuffer.length > maxEntries) {
     netStateBuffer.shift();
@@ -845,6 +847,19 @@ function initNetcode(roomOverride) {
   _localColorPicked = false;
   serverClockOffsetMs = 0;
   serverClockOffsetSamples = 0;
+  let clientId = localStorage.getItem("cartRaveClientId");
+  if (!clientId) {
+    try {
+      clientId = crypto.randomUUID();
+    } catch {
+      clientId = `cr-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    }
+    try {
+      localStorage.setItem("cartRaveClientId", clientId);
+    } catch {
+      // ignore
+    }
+  }
   const modeAtConnect = detectGameMode();
   let didAutoReadyOnOpen = false;
   if (partySocket) {
@@ -872,7 +887,7 @@ function initNetcode(roomOverride) {
       localStorage.setItem("cartRaveUsername", savedUsername);
       localStorage.setItem("cartRaveName", savedUsername);
     }
-    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername }));
+    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     __msgCounts.out[MSG.join] = (__msgCounts.out[MSG.join] || 0) + 1;
     
     startKeepaliveLoop();
@@ -967,6 +982,8 @@ function initNetcode(roomOverride) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
       setAuthorityMode(nextIsHost);
+      hostEpoch += 1;
+      netStateBuffer = [];
       return;
     }
 
@@ -1023,7 +1040,7 @@ function initNetcode(roomOverride) {
           }
         }
         const seq = typeof msg.seq === "number" ? msg.seq : -1;
-        bufferAuthoritativeState(serverNowMs, seq, msg.carts);
+        bufferAuthoritativeState(serverNowMs, seq, msg.carts, hostEpoch);
       }
       return;
     }
@@ -7521,6 +7538,11 @@ async function main() {
       // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
       const targetServerNowMs = Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
       const localSlotIndex = netSlots.findIndex((s) => s && s.connId === youConnId);
+
+      for (let i = netStateBuffer.length - 1; i >= 0; i -= 1) {
+        const e = netStateBuffer[i];
+        if (!e || e.epoch !== hostEpoch) netStateBuffer.splice(i, 1);
+      }
 
       // Find surrounding snapshots.
       let afterIndex = -1;
