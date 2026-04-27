@@ -64,7 +64,7 @@ const CONFIG = {
     // * Non-host renders 100ms behind latest packet for smoothness.
     interpBufferMs: 100,
     // * Host sends authoritative transforms at 20Hz.
-    hostSendHz: 30,
+    hostSendHz: 40,
     // * Non-host sends client_input at 60Hz.
     clientInputHz: 60,
     // * Keepalive ping interval (ms). Kept well below the server-side reap
@@ -550,6 +550,9 @@ let keepaliveTimer = null;
 let hostSeq = 0;
 let inputSeq = 0;
 
+let serverClockOffsetMs = 0;
+let serverClockOffsetSamples = 0;
+
 // These are assigned once main() constructs the scene / HUD / physics world.
 /** @type {ReturnType<typeof initHud> | null} */
 let hud = null;
@@ -729,6 +732,7 @@ function startHostSendLoop() {
 
     hostSeq += 1;
     const carts = {};
+    const round3 = (v) => Math.round(v * 1000) / 1000;
     for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
       const c = allCartsRef[slotIndex];
       const t = c.body.translation();
@@ -736,10 +740,10 @@ function startHostSendLoop() {
       const lv = c.body.linvel();
       const av = c.body.angvel();
       carts[String(slotIndex)] = {
-        p: [t.x, t.y, t.z],
-        q: [r.x, r.y, r.z, r.w],
-        lv: [lv.x, lv.y, lv.z],
-        av: [av.x, av.y, av.z],
+        p: [round3(t.x), round3(t.y), round3(t.z)],
+        q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
+        lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
+        av: [round3(av.x), round3(av.y), round3(av.z)],
       };
     }
 
@@ -839,6 +843,8 @@ function setAuthorityMode(nextIsHost) {
 function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
   _localColorPicked = false;
+  serverClockOffsetMs = 0;
+  serverClockOffsetSamples = 0;
   const modeAtConnect = detectGameMode();
   let didAutoReadyOnOpen = false;
   if (partySocket) {
@@ -1007,6 +1013,15 @@ function initNetcode(roomOverride) {
       }
       if (!isHost) {
         const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
+        if (typeof serverNowMs === "number") {
+          const sample = Date.now() - serverNowMs;
+          serverClockOffsetSamples += 1;
+          if (serverClockOffsetSamples <= 10) {
+            serverClockOffsetMs = sample;
+          } else {
+            serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.05;
+          }
+        }
         const seq = typeof msg.seq === "number" ? msg.seq : -1;
         bufferAuthoritativeState(serverNowMs, seq, msg.carts);
       }
@@ -7504,7 +7519,7 @@ async function main() {
       }
     } else {
       // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
-      const targetServerNowMs = Date.now() - CONFIG.net.interpBufferMs;
+      const targetServerNowMs = Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
       const localSlotIndex = netSlots.findIndex((s) => s && s.connId === youConnId);
 
       // Find surrounding snapshots.
