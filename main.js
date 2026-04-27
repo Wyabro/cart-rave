@@ -7721,8 +7721,8 @@ async function main() {
       if (!c || !c.mesh) continue;
 
       if (!isHost && slotIndex !== localSlotIndexForFrame) {
-        if (c._netTargetPos) c.mesh.position.lerp(c._netTargetPos, 1.0);
-        if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 1.0);
+        if (c._netTargetPos) c.mesh.position.lerp(c._netTargetPos, 0.75);
+        if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.75);
         c.mesh.updateMatrixWorld(true);
         const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
         cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
