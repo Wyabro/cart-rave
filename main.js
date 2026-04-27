@@ -1269,75 +1269,54 @@ function initCrowdSfx(audioListener) {
 }
 
 function initLeaderHumSfx(audioListener) {
-  /** @type {null | { ctx: AudioContext; osc: OscillatorNode; osc2: OscillatorNode; lfo: OscillatorNode; lfoGain: GainNode; drive: GainNode; lp: BiquadFilterNode; g: GainNode }} */
-  let nodes = null;
-  let started = false;
   /** @type {null|number} */
   let currentLeaderSlot = null;
 
-  const ensureNodes = () => {
+  const playLeadChime = () => {
+    if (isMuted || sfxVolume <= 0) return;
     const ctx = audioListener.context;
-    if (ctx.state !== "running") return null;
-    if (nodes) return nodes;
+    if (ctx.state !== "running") return;
+    const now = ctx.currentTime;
 
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = 880;
+    const out = ctx.createGain();
+    const g = 0.15 * sfxVolume;
+    out.gain.setValueAtTime(Math.max(0.0001, g), now);
+    out.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+    out.connect(audioListener.gain);
 
-    const osc2 = ctx.createOscillator();
-    osc2.type = "sine";
-    osc2.frequency.value = 1320;
+    const o1 = ctx.createOscillator();
+    o1.type = "sine";
+    o1.frequency.setValueAtTime(660, now);
+    o1.connect(out);
+    o1.start(now);
+    o1.stop(now + 0.075);
 
-    const lfo = ctx.createOscillator();
-    lfo.type = "sine";
-    lfo.frequency.value = 6;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 15;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
+    const o2 = ctx.createOscillator();
+    o2.type = "sine";
+    o2.frequency.setValueAtTime(880, now + 0.075);
+    o2.connect(out);
+    o2.start(now + 0.075);
+    o2.stop(now + 0.15);
 
-    const drive = ctx.createGain();
-    drive.gain.value = 0.15;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "bandpass";
-    lp.frequency.value = 900;
-    lp.Q.value = 2;
-
-    const g = ctx.createGain();
-    g.gain.value = 0.0001;
-
-    osc.connect(drive);
-    osc2.connect(drive);
-    drive.connect(lp);
-    lp.connect(g);
-    g.connect(audioListener.gain);
-
-    nodes = { ctx, osc, osc2, lfo, lfoGain, drive, lp, g };
-    return nodes;
-  };
-
-  const ensureStarted = () => {
-    if (started) return;
-    const n = ensureNodes();
-    if (!n) return;
-    try { n.osc.start(); } catch {}
-    try { n.osc2.start(); } catch {}
-    try { n.lfo.start(); } catch {}
-    started = true;
+    o2.onended = () => {
+      try { o1.disconnect(); } catch {}
+      try { o2.disconnect(); } catch {}
+      try { out.disconnect(); } catch {}
+    };
   };
 
   const setLeader = (slotIndex) => {
-    ensureStarted();
-    const n = ensureNodes();
-    if (!n) return;
-    const { ctx, g } = n;
-    const now = ctx.currentTime;
     const wants = Number.isFinite(slotIndex) ? slotIndex : null;
     if (wants === currentLeaderSlot) return;
+
+    const localIdx = localSlotIndexForConn(youConnId);
+    const wasLocalLeader = currentLeaderSlot !== null && currentLeaderSlot === localIdx;
+    const isLocalLeader = wants !== null && wants === localIdx;
+
     currentLeaderSlot = wants;
-    const target = (!isMuted && sfxVolume > 0 && wants !== null) ? (0.12 * sfxVolume) : 0.0001;
-    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.18);
+    if (!wasLocalLeader && isLocalLeader) {
+      playLeadChime();
+    }
   };
 
   const updatePositionFromCart = (cart) => {
@@ -1346,11 +1325,7 @@ function initLeaderHumSfx(audioListener) {
   };
 
   const resyncVolume = () => {
-    const n = ensureNodes();
-    if (!n) return;
-    const now = n.ctx.currentTime;
-    const target = (!isMuted && sfxVolume > 0 && currentLeaderSlot !== null) ? (0.12 * sfxVolume) : 0.0001;
-    n.g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.12);
+    // One-shot: no continuous volume to resync.
   };
 
   return { setLeader, updatePositionFromCart, resyncVolume };
