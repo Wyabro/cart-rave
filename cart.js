@@ -169,11 +169,11 @@ export function buildCart(colorHex) {
   const wheelMat = neonWheelMaterial(baseColor);
   const stemMat = neonWheelMaterial(baseColor);
   const handleMat = new THREE.MeshStandardMaterial({
-    color: 0x000000,
+    color: 0x111111,
     emissive: 0x000000,
     emissiveIntensity: 0.0,
-    roughness: 0.35,
-    metalness: 0.75,
+    roughness: 0.2,
+    metalness: 0.9,
   });
 
   const root = new THREE.Group();
