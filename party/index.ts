@@ -854,6 +854,8 @@ export default class Server implements Party.Server {
         tHost: typeof data?.tHost === "number" ? data.tHost : null,
         slotId: data?.slotId ?? null,
         reason: data?.reason ?? null,
+        attackerSlotIndex: data?.attackerSlotIndex ?? null,
+        wasCritical: data?.wasCritical ?? null,
       });
     }
   }
