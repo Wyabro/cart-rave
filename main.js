@@ -1179,7 +1179,10 @@ function initNetcode(roomOverride) {
 
           // Update personal stats — only if this round had scoring (not an all-zero draw)
           if (winnerSlotIndex !== "draw") {
-            const mySlotIdx = localSlotIndexForConn(youConnId);
+            let mySlotIdx = localSlotIndexForConn(youConnId);
+            if (mySlotIdx < 0) {
+              mySlotIdx = netSlots.findIndex((s) => s && s.kind === "human" && s.connId);
+            }
             if (mySlotIdx >= 0) {
               const stats = getPersonalStats();
               stats.matches += 1;
