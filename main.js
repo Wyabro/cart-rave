@@ -4551,7 +4551,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     map: recordLabelTex,
     transparent: true,
     depthWrite: false,
-    opacity: 0.55,
+    opacity: 0.495,
     blending: THREE.NormalBlending,
     color: 0xffffff,
     side: THREE.DoubleSide,
