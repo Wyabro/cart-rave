@@ -117,7 +117,7 @@ function bottomYAtZ(z, halfL, yFront, yBack) {
 function addRailCylinder(parent, a, b, radius, segments, material) {
   _dir.subVectors(b, a);
   const len = _dir.length();
-  if (len < 1e-5) return;
+  if (len < 1e-5) return null;
   _dir.multiplyScalar(1 / len);
   _mid.addVectors(a, b).multiplyScalar(0.5);
   const mesh = new THREE.Mesh(
@@ -127,6 +127,7 @@ function addRailCylinder(parent, a, b, radius, segments, material) {
   mesh.position.copy(_mid);
   mesh.quaternion.setFromUnitVectors(_axisY, _dir);
   parent.add(mesh);
+  return mesh;
 }
 
 /**
@@ -320,7 +321,8 @@ export function buildCart(colorHex) {
   for (const sx of [-HANDLE_SPREAD_X, HANDLE_SPREAD_X]) {
     _p0.set(sx, postBottomY, backZ);
     _p1.set(sx, postTopY, handleZ);
-    addRailCylinder(root, _p0, _p1, railR * 1.15, railSeg, handleMat);
+    const postMesh = addRailCylinder(root, _p0, _p1, railR * 1.15, railSeg, handleMat);
+    if (postMesh) postMesh.userData.isHandle = true;
   }
   const handleLen = BASKET_WIDTH * 0.92;
   const handleBar = new THREE.Mesh(
@@ -329,6 +331,7 @@ export function buildCart(colorHex) {
   );
   handleBar.rotation.z = Math.PI / 2;
   handleBar.position.set(0, HANDLE_BAR_Y, handleZ);
+  handleBar.userData.isHandle = true;
   root.add(handleBar);
 
   // * Chassis: two long rails + crossbars (open frame).
