@@ -108,12 +108,38 @@ Session 31 shipped
 ✅ Collision sound pitch variation
 ✅ Dead code cleanup (getSlotColor, firstSpokeReport)
 
-Remaining — Session 32 (pre-submission)
+Session 32 shipped
+✅ Firefox import map fix (merged two importmap blocks into one, first child of <head>)
+✅ Menu perf: step() early-return when menuVisible
+✅ Menu perf: particle count reduced (20+intensity*4 → 12+intensity*2)
+✅ musicStarted reset to false in showMenu()
 
-Playtest & verify all Session 31 changes on prod
-Fix any regressions found
-Final prod playtest desktop + mobile (incognito)
-Verify Vibe Jam widget tag + exit portal link
+Remaining — Session 33 (pre-submission)
+
+BUGS — Must fix before submission:
+
+1. advanceGameMusicTrack broken guard: Session 32 added `!musicEl.paused` check that prevents play() from ever firing (pause() is called earlier in the same function). Revert to `if (!menuVisible)`. This also likely causes music stopping entirely after several matches.
+2. Host cart visually frozen in friend mode: host's own screen shows their cart frozen while non-host sees it moving. Suspected slot/connId mismatch — camera follows wrong cart while physics drives correct one. Debug next playtest with console: youConnId, hostId, isHost, netSlots.
+3. Solo mode stat tracker not updating correctly in the menu.
+4. Record label has dropped into the floor and is no longer visible — needs Y offset adjustment.
+5. Crowd carts partially sunk into the plane they sit on — needs Y offset adjustment.
+6. Cart handles still not black (unfixed across multiple sessions).
+
+POLISH — Fix before submission:
+
+7. Ready button redundancy: "Ready" and "Ready!" buttons are functionally redundant. Either hide/remove the redundant one, or rename the first to "READY UP!".
+8. Menu instructions: add that the leader glows white, fix formatting to match rest of menu design.
+
+PRE-SUBMISSION CHECKLIST:
+
+- `git add -A && git commit -m "submission" && git push && npm run ship`
+- Fetch production main.js and grep remotely to verify deploy
+- Load cartrave.lol in incognito — full playthrough
+- Mobile check: menu loads, toast works, no crash
+- Verify Vibe Jam widget tag in index.html
+- Verify exit portal links to vibej.am/portal/2026
+
+UPDATE .cursorrules to reflect current state after fixes are applied.
 
 Stretch / Post-jam
 

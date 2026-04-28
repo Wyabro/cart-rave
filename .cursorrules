@@ -112,7 +112,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - Critical bonus +1 (hit delivered at top speed — tunable velocity threshold, not dependent on nitro being active)
   - Target bonus +1 (victim is current leader)
   - Jackpot: Critical + Target stacked (+2 bonus total)
-- **Leader visual**: red SpotLight tracks leader cart in world space + red emissive on leader cart frame.
+- **Leader visual**: white pulsing emissive on the highest-scoring cart.
 
 ## Color Picker (Updated to Step 11/12 Spec)
 - **5 options**: pink (`0xff00ff`), blue (`0x00ffff`), green (`0x00ff00`), yellow (`0xffff00`), neonOrange (`0xff6600`).
@@ -130,7 +130,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **3D floating name labels** above all carts (player + NPCs) using Three.js sprites/canvas textures.
 - Name labels update on slot changes via `updateNameLabelsRef` pattern (see Architecture).
 - **HUD score boxes show names** instead of P1/P2/P3/P4.
-- **Results screen**: TODO — still shows player numbers instead of names. Needs update.
+- **Results screen**: shows player names (shipped).
 
 ## Spawn Booths (Step 15 — Shipped)
 - **Per-booth colored platforms** positioned close to arena with a gap (no ramp — ramp was removed).
@@ -141,7 +141,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 ## Results Screen
 - Shown at round end; host enters `podium` phase, physics substep loop and `host_transform` broadcast pause. Cart visual state holds at last-broadcast snapshot.
 - **Contents:**
-  - Final scores per slot (winner highlighted) — **TODO: show names instead of player numbers**
+  - Final scores per slot (winner highlighted)
   - Play Again button (host-only; non-hosts see "Waiting for host to play again" text instead)
   - Main Menu button (strips `?room=` from URL, navigates to plain `cartrave.lol`)
   - Personal stats display: wins, matches played, total points scored (aggregated across all modes)
@@ -260,3 +260,14 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - **NEW DEPLOY RULE**: Use `npm run ship` (git push && npx partykit deploy) for every session update to keep protocol in sync. GitHub main does not match deployed edge. PartyKit DO state persists across deploys. Deploys do not reset in-memory server state.
 - **`room.getConnections()` returns an Iterator, not an Array.** Do not call `.map().join()` or Array methods on it. Use `for...of` or spread explicitly (`[...room.getConnections()]`). A single bad `.join()` took down production for ~90 seconds in Session 13.
 - **Behavior-changing diffs require human playtest on prod** before moving to the next diff. String checks confirm code shipped; they do not confirm behavior
+
+## Session 33 — Known bugs (pre-submission)
+
+1. **advanceGameMusicTrack broken guard**: Session 32 added `!musicEl.paused` check that prevents play() from ever firing (pause() is called earlier in the same function). Revert guard to `if (!menuVisible)`. This also likely causes music stopping entirely after several matches.
+2. **Host cart visually frozen in friend mode**: host screen shows their cart frozen while non-host sees it moving. Suspected slot/connId mismatch — camera follows wrong cart while physics drives correct one.
+3. **Solo mode stat tracker not updating correctly in the menu.**
+4. **Record label dropped into floor**: Y offset needs raising — was previously "lowered (less wheel clipping)" but has now gone too far.
+5. **Crowd carts partially sunk into ground plane**: need Y offset adjustment.
+6. **Cart handles still not black** despite multiple prior attempts.
+7. **Ready button redundancy**: "Ready" and "Ready!" buttons are functionally redundant. Either hide/remove the redundant one or rename the first to "READY UP!".
+8. **Menu instructions missing leader glow info**: add that the leader glows white. Fix formatting to match rest of menu design.
