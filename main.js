@@ -4430,7 +4430,7 @@ async function main() {
       const discMesh = new THREE.Mesh(discGeo, discMat);
       discMesh.userData.recordSurfacePart = "labelDisc";
       discMesh.rotation.x = -Math.PI / 2;
-      discMesh.position.y = yBase + disc.yOffset + 0.03;
+      discMesh.position.y = yBase + disc.yOffset + 0.15;
       discMesh.renderOrder = 2;
       parentMesh.add(discMesh);
     }
