@@ -3274,6 +3274,7 @@ async function main() {
           }
         }, 30);
       }
+      musicStarted = false;
     } catch (e) {}
     try { startMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
@@ -6565,7 +6566,7 @@ async function main() {
     musicEl.src = gameMusicUrls[gameMusicIndex];
     try { musicEl.load(); } catch {}
     try { applyAudioVolume(); } catch {}
-    if (!menuVisible) {
+    if (!menuVisible && !musicEl.paused) {
       void musicEl.play().catch(() => {});
     }
   }
@@ -7035,6 +7036,10 @@ async function main() {
   };
 
   function step(now) {
+    if (menuVisible) {
+      requestAnimationFrame(step);
+      return;
+    }
     let dt = (now - lastT) / 1000;
     dt = Math.min(dt, 0.05);
     lastT = now;
