@@ -6566,7 +6566,7 @@ async function main() {
     musicEl.src = gameMusicUrls[gameMusicIndex];
     try { musicEl.load(); } catch {}
     try { applyAudioVolume(); } catch {}
-    if (!menuVisible && !musicEl.paused) {
+    if (!menuVisible) {
       void musicEl.play().catch(() => {});
     }
   }
