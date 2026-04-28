@@ -401,6 +401,56 @@ function detectGameMode() {
   return "friends";
 }
 
+/**
+ * Records end-of-round match history and local personal stats at the moment a round transitions into podium.
+ * @param {number | "draw" | null} winnerSlotIndex
+ * @param {Record<number, number> | null | undefined} scoresSrc
+ */
+function recordPodiumStats(winnerSlotIndex, scoresSrc) {
+  /** @type {Record<number, number>} */
+  const scores = {};
+  for (let i = 0; i < 4; i += 1) {
+    scores[i] = Number(scoresSrc?.[i] ?? 0);
+  }
+
+  matchHistory.push({
+    endedAtMs: Date.now(),
+    winnerSlotIndex: winnerSlotIndex === "draw" ? "draw" : Number.isFinite(winnerSlotIndex) ? winnerSlotIndex : 0,
+    scores,
+    mode: detectGameMode(),
+  });
+  while (matchHistory.length > 10) matchHistory.shift();
+
+  // Update solo games counter (1 human player match end)
+  if (detectGameMode() === "solo") {
+    let humanCount = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const s = netSlots[i];
+      if (s && s.kind === "human" && s.connId != null) humanCount += 1;
+    }
+    if (humanCount === 1) {
+      const stats = getPersonalStats();
+      stats.soloGames += 1;
+      savePersonalStats(stats);
+    }
+  }
+
+  // Update personal stats — only if this round had scoring (not an all-zero draw)
+  if (winnerSlotIndex !== "draw") {
+    let mySlotIdx = localSlotIndexForConn(youConnId);
+    if (mySlotIdx < 0) {
+      mySlotIdx = netSlots.findIndex((s) => s && s.kind === "human" && s.connId);
+    }
+    if (mySlotIdx >= 0) {
+      const stats = getPersonalStats();
+      stats.matches += 1;
+      stats.totalPoints += scores[mySlotIdx] || 0;
+      if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
+      savePersonalStats(stats);
+    }
+  }
+}
+
 const CLIENT_NPC_NAME_POOL = [
   "CartNapper",
   "WheelSnipe",
@@ -1129,50 +1179,12 @@ function initNetcode(roomOverride) {
         // * moment without endRound() duplication or dedupe keys.
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
           pendingMidRoundJoinRespawnConnId = null;
-          const w = r.winnerSlotIndex;
-          const winnerSlotIndex =
-            w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
-          const src = r.scores && typeof r.scores === "object" ? r.scores : roundScores;
-          /** @type {Record<number, number>} */
-          const scores = {};
-          for (let i = 0; i < 4; i += 1) {
-            scores[i] = Number(src[i] ?? 0);
-          }
-          matchHistory.push({
-            endedAtMs: Date.now(),
-            winnerSlotIndex,
-            scores,
-            mode: detectGameMode(),
-          });
-          while (matchHistory.length > 10) matchHistory.shift();
-
-          // Update solo games counter (1 human player match end)
-          if (detectGameMode() === "solo") {
-            let humanCount = 0;
-            for (let i = 0; i < 4; i += 1) {
-              const s = netSlots[i];
-              if (s && s.kind === "human" && s.connId != null) humanCount += 1;
-            }
-            if (humanCount === 1) {
-              const stats = getPersonalStats();
-              stats.soloGames += 1;
-              savePersonalStats(stats);
-            }
-          }
-
-          // Update personal stats — only if this round had scoring (not an all-zero draw)
-          if (winnerSlotIndex !== "draw") {
-            let mySlotIdx = localSlotIndexForConn(youConnId);
-            if (mySlotIdx < 0) {
-              mySlotIdx = netSlots.findIndex((s) => s && s.kind === "human" && s.connId);
-            }
-            if (mySlotIdx >= 0) {
-              const stats = getPersonalStats();
-              stats.matches += 1;
-              stats.totalPoints += scores[mySlotIdx] || 0;
-              if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
-              savePersonalStats(stats);
-            }
+          if (!isHost) {
+            const w = r.winnerSlotIndex;
+            const winnerSlotIndex =
+              w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
+            const src = r.scores && typeof r.scores === "object" ? r.scores : roundScores;
+            recordPodiumStats(winnerSlotIndex, src);
           }
         }
         if (!isHost && typeof newPhase === "string" && newPhase !== prevPhase) {
@@ -6580,9 +6592,10 @@ async function main() {
         clearTimeout(lastCartStandingTimeoutId);
         lastCartStandingTimeoutId = null;
       }
-      roundPhase = "podium";
       pendingMidRoundJoinRespawnConnId = null;
       roundWinnerSlotIndex = lastCartStandingWinnerSlotIndex;
+      recordPodiumStats(roundWinnerSlotIndex, roundScores);
+      roundPhase = "podium";
       lastCartStandingWinnerSlotIndex = null;
       sendHostRound();
       return;
@@ -6608,13 +6621,14 @@ async function main() {
     for (let i = 0; i < 4; i++) {
       if ((roundScores[i] || 0) === winnerScore) tieAtTop += 1;
     }
-    roundPhase = "podium";
     pendingMidRoundJoinRespawnConnId = null;
     if (winnerScore === 0 && tieAtTop >= 2) {
       roundWinnerSlotIndex = "draw";
     } else {
       roundWinnerSlotIndex = winnerSlotIndex;
     }
+    recordPodiumStats(roundWinnerSlotIndex, roundScores);
+    roundPhase = "podium";
     sendHostRound();
   }
 
