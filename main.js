@@ -100,7 +100,7 @@ const CONFIG = {
         outerRadius: 25.9,
       },
       labelDisc: {
-        enabled: true,
+        enabled: false,
         innerRadius: 3.7,
         outerRadius: 7.15,
         color: 0x2bd6ff,
