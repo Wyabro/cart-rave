@@ -6187,7 +6187,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       const label = nameLabels[i];
       const cart = allCarts[i];
       if (!label || !cart || !cart.body) continue;
-      const pos = cart.body.translation();
+      const pos = cart.mesh.position;
       label.position.set(pos.x, pos.y + 3.0, pos.z);
       const distance = Math.max(0.001, camera.position.distanceTo(label.position));
       const scale = clamp(18 / distance, 0.65, 1.2);
