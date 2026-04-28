@@ -559,6 +559,11 @@ let pendingColorKey = null;
 let menuColorPickListenerWired = false;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
+let bloomEnabled = true;
+try {
+  const saved = localStorage.getItem("cartRaveBloom");
+  if (saved === "off") bloomEnabled = false;
+} catch {}
 /** @type {number} */
 const AUDIO_VOLUME_MAX = 1.15;
 const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
@@ -2854,8 +2859,20 @@ async function main() {
     quitBtn.className = "esc-btn esc-btn--quit";
     quitBtn.textContent = "QUIT TO MENU";
 
+    const bloomBtn = document.createElement("button");
+    bloomBtn.type = "button";
+    bloomBtn.className = "esc-btn";
+    bloomBtn.textContent = bloomEnabled ? "BLOOM: ON" : "BLOOM: OFF";
+    bloomBtn.addEventListener("click", () => {
+      bloomEnabled = !bloomEnabled;
+      bloomBtn.textContent = bloomEnabled ? "BLOOM: ON" : "BLOOM: OFF";
+      if (bloomPass) bloomPass.enabled = bloomEnabled;
+      try { localStorage.setItem("cartRaveBloom", bloomEnabled ? "on" : "off"); } catch {}
+    });
+
     actions.appendChild(resumeBtn);
     actions.appendChild(quitBtn);
+    actions.appendChild(bloomBtn);
     const scoringDivider = document.createElement("hr");
     scoringDivider.className = "esc-scoring-divider";
 
@@ -4135,6 +4152,7 @@ async function main() {
     0.3,
   );
   composer.addPass(bloomPass);
+  if (!bloomEnabled && bloomPass) bloomPass.enabled = false;
   const VignetteShader = {
     uniforms: {
       tDiffuse: { value: null },
@@ -6827,6 +6845,8 @@ async function main() {
   let lastDebugMs = 0;
   let simFrameIndex = 0;
   let recordVersusPlayerFrame30Logged = false;
+  let lastLedUpdate = 0;
+  let lastPortalUpdate = 0;
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
 
@@ -7052,8 +7072,8 @@ async function main() {
       }
     }
 
-    // LED screen text pulse
-    {
+    // LED screen text pulse (throttled)
+    if (now - lastLedUpdate > 150) {
       const pulse = 0.6 + Math.sin(now * 0.002) * 0.4;
       const pulse2 = 0.6 + Math.sin(now * 0.002 + 1.5) * 0.4;
       const ledGradAnim = ledCtx.createLinearGradient(0, 0, 512, 256);
@@ -7079,6 +7099,7 @@ async function main() {
         ledCtx.fillRect(0, y, 512, 2);
       }
       ledTex.needsUpdate = true;
+      lastLedUpdate = now;
     }
 
     // Billboard text glow + scanline UV scroll
@@ -7104,8 +7125,8 @@ async function main() {
       slTex.offset.y = (now * 0.0005) % 1;
     }
 
-    // Portal swirl animation
-    {
+    // Portal swirl animation (throttled)
+    if (now - lastPortalUpdate > 150) {
       const imgData = portalCtx.createImageData(128, 128);
       const d = imgData.data;
       const swirlT = now * 0.002;
@@ -7131,34 +7152,33 @@ async function main() {
       }
       portalCtx.putImageData(imgData, 0, 0);
       portalTex.needsUpdate = true;
-    }
-
-    if (returnPortalCtx && returnPortalTex) {
-      const imgData = returnPortalCtx.createImageData(128, 128);
-      const d = imgData.data;
-      const swirlT = now * 0.002;
-      for (let row = 0; row < 128; row++) {
-        for (let col = 0; col < 128; col++) {
-          const nx = (col - 64) / 64;
-          const ny = (row - 64) / 64;
-          const dist = Math.sqrt(nx * nx + ny * ny);
-          const idx = (row * 128 + col) * 4;
-          if (dist < 1.0) {
-            const angle = Math.atan2(ny, nx);
-            const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
-            const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
-            const centerGlow = Math.max(0, 1 - dist * 1.8);
-            d[idx] = Math.round(brightness * 80 + centerGlow * 0);
-            d[idx + 1] = Math.round(brightness * 210 + centerGlow * 255);
-            d[idx + 2] = Math.round(brightness * 255 + centerGlow * 255);
-            d[idx + 3] = 255;
-          } else {
-            d[idx + 3] = 0;
+      if (returnPortalCtx && returnPortalTex) {
+        const imgData2 = returnPortalCtx.createImageData(128, 128);
+        const d2 = imgData2.data;
+        for (let row = 0; row < 128; row++) {
+          for (let col = 0; col < 128; col++) {
+            const nx = (col - 64) / 64;
+            const ny = (row - 64) / 64;
+            const dist = Math.sqrt(nx * nx + ny * ny);
+            const idx = (row * 128 + col) * 4;
+            if (dist < 1.0) {
+              const angle = Math.atan2(ny, nx);
+              const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
+              const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
+              const centerGlow = Math.max(0, 1 - dist * 1.8);
+              d2[idx] = Math.round(brightness * 80 + centerGlow * 0);
+              d2[idx + 1] = Math.round(brightness * 210 + centerGlow * 255);
+              d2[idx + 2] = Math.round(brightness * 255 + centerGlow * 255);
+              d2[idx + 3] = 255;
+            } else {
+              d2[idx + 3] = 0;
+            }
           }
         }
+        returnPortalCtx.putImageData(imgData2, 0, 0);
+        returnPortalTex.needsUpdate = true;
       }
-      returnPortalCtx.putImageData(imgData, 0, 0);
-      returnPortalTex.needsUpdate = true;
+      lastPortalUpdate = now;
     }
 
     const playerAxis = getAxis();
