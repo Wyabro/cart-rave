@@ -4423,10 +4423,13 @@ async function main() {
         transparent: true,
         opacity: 0.7,
       });
+      discMat.polygonOffset = true;
+      discMat.polygonOffsetFactor = -1;
+      discMat.polygonOffsetUnits = -1;
       const discMesh = new THREE.Mesh(discGeo, discMat);
       discMesh.userData.recordSurfacePart = "labelDisc";
       discMesh.rotation.x = -Math.PI / 2;
-      discMesh.position.y = yBase + disc.yOffset + 0.006;
+      discMesh.position.y = yBase + disc.yOffset + 0.03;
       discMesh.renderOrder = 2;
       parentMesh.add(discMesh);
     }
