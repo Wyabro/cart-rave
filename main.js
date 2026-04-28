@@ -4324,6 +4324,7 @@ async function main() {
     transparent: true,
     opacity: 0.7,
   });
+  recordMat.depthWrite = false;
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
   recordMesh.position.set(0, visualRecordY, 0);
   recordMesh.receiveShadow = false;
