@@ -4493,6 +4493,74 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   recordReflector.renderOrder = 0;
   recordMesh.add(recordReflector);
 
+  // --- Record center label (stars) ---
+  const recordLabelCanvas = document.createElement("canvas");
+  recordLabelCanvas.width = 512;
+  recordLabelCanvas.height = 512;
+  const recordLabelCtx = recordLabelCanvas.getContext("2d");
+  recordLabelCtx.clearRect(0, 0, 512, 512);
+
+  const labelCx = 256;
+  const labelCy = 256;
+  const labelR = 256;
+
+  // Label background disc (white; tint comes from material.color)
+  recordLabelCtx.fillStyle = "#ffffff";
+  recordLabelCtx.beginPath();
+  recordLabelCtx.arc(labelCx, labelCy, labelR, 0, Math.PI * 2);
+  recordLabelCtx.fill();
+
+  // 5-point star path helper.
+  const drawStar = (cx, cy, outerR, innerR, rotationRad) => {
+    recordLabelCtx.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const a = rotationRad + (i * Math.PI) / 5;
+      const r = i % 2 === 0 ? outerR : innerR;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) recordLabelCtx.moveTo(x, y);
+      else recordLabelCtx.lineTo(x, y);
+    }
+    recordLabelCtx.closePath();
+    recordLabelCtx.fill();
+  };
+
+  // Three stars, 120° apart.
+  recordLabelCtx.fillStyle = "#ffffff";
+  const starOrbit = labelR * 0.6;
+  const starOuter = labelR * 0.32;
+  const starInner = starOuter * 0.45;
+  for (let i = 0; i < 3; i += 1) {
+    const a = (i * Math.PI * 2) / 3 - Math.PI / 2;
+    const sx = labelCx + Math.cos(a) * starOrbit;
+    const sy = labelCy + Math.sin(a) * starOrbit;
+    drawStar(sx, sy, starOuter, starInner, a);
+  }
+
+  // Transparent center hole.
+  recordLabelCtx.globalCompositeOperation = "destination-out";
+  recordLabelCtx.beginPath();
+  recordLabelCtx.arc(labelCx, labelCy, labelR * 0.27, 0, Math.PI * 2);
+  recordLabelCtx.fill();
+  recordLabelCtx.globalCompositeOperation = "source-over";
+
+  const recordLabelTex = new THREE.CanvasTexture(recordLabelCanvas);
+  recordLabelTex.needsUpdate = true;
+  const recordLabelGeo = new THREE.RingGeometry(3.7, 7.0, 96);
+  const recordLabelMat = new THREE.MeshBasicMaterial({
+    map: recordLabelTex,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    color: 0xffffff,
+    side: THREE.DoubleSide,
+  });
+  const recordLabelMesh = new THREE.Mesh(recordLabelGeo, recordLabelMat);
+  recordLabelMesh.rotation.x = -Math.PI / 2;
+  recordLabelMesh.position.y = visualRecordTopY + CONFIG.record.surface.concentricRings.yOffset + 0.032;
+  recordLabelMesh.renderOrder = 3;
+  recordMesh.add(recordLabelMesh);
+
   (function buildRecordSurfaceGrooves(parentMesh) {
     const surf = CONFIG.record.surface;
     const th = visualRecordThickness;
@@ -6939,6 +7007,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   let recordVersusPlayerFrame30Logged = false;
   let lastLedUpdate = 0;
   let lastPortalUpdate = 0;
+  const recordLabelCycleColors = [
+    new THREE.Color(CART_COLORS.pink.hex),
+    new THREE.Color(CART_COLORS.blue.hex),
+    new THREE.Color(CART_COLORS.green.hex),
+    new THREE.Color(CART_COLORS.yellow.hex),
+    new THREE.Color(CART_COLORS.neonOrange.hex),
+  ];
   /** @type {ReadonlySet<number>} */
   const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
 
@@ -7160,6 +7235,17 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       // * Spindle PointLight cycle: pink <-> cyan, ~8s full cycle.
       const t = (Math.sin(now * 0.001 * Math.PI * 2 / 8) + 1) / 2;
       spindleLight.color.copy(spindleLightColorPink).lerp(spindleLightColorCyan, t);
+    }
+
+    // Record label color cycle (5 colors, ~2s each, ~10s full loop).
+    if (recordLabelMat) {
+      const segMs = 2000;
+      const idx = Math.floor(now / segMs) % recordLabelCycleColors.length;
+      const nextIdx = (idx + 1) % recordLabelCycleColors.length;
+      const f = (now % segMs) / segMs;
+      recordLabelMat.color
+        .copy(recordLabelCycleColors[idx])
+        .lerp(recordLabelCycleColors[nextIdx], f);
     }
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
