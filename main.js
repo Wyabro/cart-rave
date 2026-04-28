@@ -7684,7 +7684,7 @@ async function main() {
         const isLeader = i === leaderSlot;
         cart.mesh.traverse((child) => {
           if (!child.isMesh || !child.material || !child.material.emissive) return;
-          if (child.userData.isFace || child.userData.isWheel) return;
+          if (child.userData.isFace || child.userData.isWheel || child.userData.isHandle) return;
           if (isLeader) {
             // * White emissive — intensity carries the pulse.
             child.material.emissive.setRGB(1, 1, 1);
