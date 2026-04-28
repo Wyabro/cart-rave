@@ -3942,6 +3942,10 @@ async function main() {
   let shakeIntensity = 0;
   let slowMoUntil = 0;
   let slowMoRate = 1;
+let slowMoActive = false;
+let slowMoStartMs = 0;
+const SLOW_MO_DURATION_MS = 3500;
+const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   let fovPunchUntil = 0;
   const BASE_FOV = CONFIG.camera.fov;
 
@@ -6688,6 +6692,7 @@ async function main() {
 
   function startRunning() {
     roundPhase = "running";
+    slowMoActive = false;
     roundStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
@@ -6707,6 +6712,7 @@ async function main() {
   function startCountdown() {
     if (!isHost) return;
     roundPhase = "countdown";
+    slowMoActive = false;
     roundCountdownStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     roundWinnerSlotIndex = null;
@@ -6737,6 +6743,10 @@ async function main() {
       recordPodiumStats(roundWinnerSlotIndex, roundScores);
       roundPhase = "podium";
       lastCartStandingWinnerSlotIndex = null;
+      if (!slowMoActive) {
+        slowMoActive = true;
+        slowMoStartMs = performance.now();
+      }
       sendHostRound();
       return;
     }
@@ -6769,6 +6779,10 @@ async function main() {
     }
     recordPodiumStats(roundWinnerSlotIndex, roundScores);
     roundPhase = "podium";
+    if (!slowMoActive) {
+      slowMoActive = true;
+      slowMoStartMs = performance.now();
+    }
     sendHostRound();
   }
 
@@ -6944,6 +6958,12 @@ async function main() {
     accumulator += dt;
     if (roundPhase === "running" && performance.now() < slowMoUntil) {
       dt *= slowMoRate;
+    }
+    if (isHost && slowMoActive) {
+      dt *= SLOW_MO_TIME_SCALE;
+      if (performance.now() - slowMoStartMs > SLOW_MO_DURATION_MS) {
+        slowMoActive = false;
+      }
     }
 
     if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
