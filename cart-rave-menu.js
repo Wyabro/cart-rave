@@ -157,7 +157,7 @@
   // ─── Build particles ──────────────────────────────────────────────────────
   function buildParticles() {
     if (!CONFIG.showParticles) { particlesEl.innerHTML = ""; return; }
-    const count = Math.round(20 + CONFIG.intensity * 4);
+    const count = Math.round(12 + CONFIG.intensity * 2);
     const p = state.palette;
     const colors = [p.primary, p.secondary, p.tertiary];
     let html = "";
