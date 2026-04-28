@@ -4986,7 +4986,7 @@ async function main() {
     const z = Math.sin(angle) * r;
     const scale = 0.25 + Math.random() * 0.2;
 
-    dummy.position.set(x, -3.1, z);
+    dummy.position.set(x, -2.9, z);
     dummy.scale.set(scale, scale, scale);
     dummy.rotation.y = angle + Math.PI + (Math.random() - 0.5) * 0.8;
     dummy.updateMatrix();
@@ -6965,7 +6965,7 @@ async function main() {
           bounce = Math.abs(Math.sin(nowSec * baseFreq + i * 0.7)) * baseAmp;
         }
 
-        _dm.position.y = -3.1 + bounce;
+        _dm.position.y = -2.9 + bounce;
         if (wiggleYaw !== 0) {
           crowdWiggleQuat.setFromAxisAngle(crowdWiggleAxisY, wiggleYaw);
           _dm.quaternion.multiply(crowdWiggleQuat);
