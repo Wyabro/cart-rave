@@ -4424,10 +4424,7 @@ async function main() {
         transparent: true,
         opacity: 0.7,
       });
-      discMat.depthTest = false;
-      discMat.polygonOffset = true;
-      discMat.polygonOffsetFactor = -1;
-      discMat.polygonOffsetUnits = -1;
+      discMat.depthTest = true;
       const discMesh = new THREE.Mesh(discGeo, discMat);
       discMesh.userData.recordSurfacePart = "labelDisc";
       discMesh.rotation.x = -Math.PI / 2;
