@@ -13,7 +13,6 @@
 - Debug helpers:
   - `window.__debug()`
   - `window.__log(label, payload)`
-  - `__msgCounts` in/out counters
 - Server-side `debug_log` handler in `party/index.ts` for client-to-server log bridge.
 
 ### 3) Verified end of session
@@ -33,7 +32,6 @@
 - Zombie node processes from external PowerShell survive Cursor restart. Always launch dev servers inside Cursor terminals, or plan for manual cleanup.
 - Session 8’s “solo play confirmed working” was insufficient acceptance criteria. Two-browser or two-device test must happen before committing netcode changes.
 - Production deploy target was never set in Session 8; fix was one-line but took hours to diagnose because multiple bugs were stacked.
-- `__msgCounts` counters were the key diagnostic. Keep them in place until jam submission.
 - Cursor prompts work best when they demand verification output (diff + grep) before claiming done.
 
 ### 6) Next session priorities in order

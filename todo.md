@@ -75,7 +75,7 @@ Session 31 shipped
 ✅ Mobile blocked cleanly (toast, no game init, no touch UI)
 ✅ Audio context gate (resume once)
 ✅ Fake GLOBAL stats section removed
-✅ All debug/diagnostic code removed (TEMP DEBUG, __msgCounts, __debug, __log, frame 10/15 diagnostics)
+✅ All debug/diagnostic code removed (__debug, __log, frame 10/15 diagnostics)
 ✅ P1 server security (input spoofing, host hijacking, structuredClone snapshots, input clamping, joinOrder cleanup)
 ✅ P1 client stability (ghost carts, host migration, lastHitBy, hex padding, audio fade, sort deferred)
 ✅ P1 cart.js + menu fixes (wheelRoll reinit, bounds checks, interval cleanup)
