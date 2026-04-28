@@ -564,6 +564,13 @@ try {
   const saved = localStorage.getItem("cartRaveBloom");
   if (saved === "off") bloomEnabled = false;
 } catch {}
+let fxPassEnabled = true;
+try {
+  const s = localStorage.getItem("cartRaveFx");
+  if (s === "off") fxPassEnabled = false;
+} catch {}
+/** @type {ShaderPass | null} */
+let fxPass = null;
 /** @type {number} */
 const AUDIO_VOLUME_MAX = 1.15;
 const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
@@ -2870,9 +2877,21 @@ async function main() {
       try { localStorage.setItem("cartRaveBloom", bloomEnabled ? "on" : "off"); } catch {}
     });
 
+    const fxBtn = document.createElement("button");
+    fxBtn.type = "button";
+    fxBtn.className = "esc-btn";
+    fxBtn.textContent = fxPassEnabled ? "FX: ON" : "FX: OFF";
+    fxBtn.addEventListener("click", () => {
+      fxPassEnabled = !fxPassEnabled;
+      fxBtn.textContent = fxPassEnabled ? "FX: ON" : "FX: OFF";
+      if (fxPass) fxPass.enabled = fxPassEnabled;
+      try { localStorage.setItem("cartRaveFx", fxPassEnabled ? "on" : "off"); } catch {}
+    });
+
     actions.appendChild(resumeBtn);
     actions.appendChild(quitBtn);
     actions.appendChild(bloomBtn);
+    actions.appendChild(fxBtn);
     const scoringDivider = document.createElement("hr");
     scoringDivider.className = "esc-scoring-divider";
 
@@ -4153,6 +4172,7 @@ async function main() {
   );
   composer.addPass(bloomPass);
   if (!bloomEnabled && bloomPass) bloomPass.enabled = false;
+  const fxClock = new THREE.Clock();
   const VignetteShader = {
     uniforms: {
       tDiffuse: { value: null },
@@ -4182,6 +4202,61 @@ async function main() {
   };
   const vignettePass = new ShaderPass(VignetteShader);
   composer.addPass(vignettePass);
+
+  const FxShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      uTime: { value: 0.0 },
+      uChromaStrength: { value: 0.003 },
+      uGrainStrength: { value: 0.04 },
+      uScanlineStrength: { value: 0.03 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform float uTime;
+      uniform float uChromaStrength;
+      uniform float uGrainStrength;
+      uniform float uScanlineStrength;
+      uniform vec2 uResolution;
+      varying vec2 vUv;
+
+      float rand(vec2 co) {
+        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+      }
+
+      void main() {
+        vec2 center = vec2(0.5, 0.5);
+        vec2 fromCenter = vUv - center;
+        float dist = length(fromCenter);
+        vec2 dir = dist > 0.00001 ? (fromCenter / dist) : vec2(0.0);
+        vec2 off = dir * dist * uChromaStrength;
+
+        vec4 cR = texture2D(tDiffuse, vUv + off);
+        vec4 cG = texture2D(tDiffuse, vUv);
+        vec4 cB = texture2D(tDiffuse, vUv - off);
+        vec4 color = vec4(cR.r, cG.g, cB.b, cG.a);
+
+        float n = rand(gl_FragCoord.xy + vec2(uTime * 123.45, uTime * 67.89));
+        color.rgb += (n - 0.5) * uGrainStrength;
+
+        float scanline = sin(gl_FragCoord.y * 1.5) * 0.5 + 0.5;
+        color.rgb -= (1.0 - scanline) * uScanlineStrength;
+
+        gl_FragColor = color;
+      }
+    `,
+  };
+  fxPass = new ShaderPass(FxShader);
+  composer.addPass(fxPass);
+  if (!fxPassEnabled) fxPass.enabled = false;
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -4222,6 +4297,9 @@ async function main() {
     renderer.setSize(w, h);
     composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     composer.setSize(w, h);
+    if (fxPass && fxPass.uniforms && fxPass.uniforms.uResolution) {
+      fxPass.uniforms.uResolution.value.set(w, h);
+    }
     labelRenderer.setSize(w, h);
     camera.aspect = w / h;
     updateCameraFraming();
@@ -6866,6 +6944,10 @@ async function main() {
     accumulator += dt;
     if (roundPhase === "running" && performance.now() < slowMoUntil) {
       dt *= slowMoRate;
+    }
+
+    if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
+      fxPass.uniforms.uTime.value = fxClock.getElapsedTime();
     }
 
     simFrameIndex += 1;
