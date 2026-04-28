@@ -1242,23 +1242,6 @@ function initNetcode(roomOverride) {
       return;
     }
 
-    if (type === MSG.hostEventFall && !isHost) {
-      const victimSlot = netSlots[msg.slotId];
-      const targetName = victimSlot?.name || `P${msg.slotId + 1}`;
-      const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
-
-      if (msg.reason === "kill" && msg.attackerSlotIndex != null) {
-        const attackerSlot = netSlots[msg.attackerSlotIndex];
-        const actorName = attackerSlot?.name || `P${msg.attackerSlotIndex + 1}`;
-        const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(attackerSlot)) : null;
-        const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb({ wasCritical: msg.wasCritical }) : "RAMMED";
-        hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
-      } else {
-        hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
-      }
-      return;
-    }
-
     if (type === MSG.gameStart) {
       if (onGameStartHandler) onGameStartHandler(msg);
       return;
@@ -7488,16 +7471,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
                 const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
                 hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
               }
-              if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-                partySocket.send(JSON.stringify({
-                  type: MSG.hostEventFall,
-                  tHost: Date.now(),
-                  slotId: slotIndex,
-                  reason: "kill",
-                  attackerSlotIndex: hit.attackerSlotIndex,
-                  wasCritical: hit.wasCritical,
-                }));
-              }
               if (roundPhase === "running") {
                 const localIdx = localSlotIndexForConn(youConnId);
                 if (hit.attackerSlotIndex === localIdx) {
@@ -7511,14 +7484,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               const targetName = victimSlot?.name || `P${slotIndex + 1}`;
               const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
               hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
-              if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-                partySocket.send(JSON.stringify({
-                  type: MSG.hostEventFall,
-                  tHost: Date.now(),
-                  slotId: slotIndex,
-                  reason: "self",
-                }));
-              }
             }
             lastHitBy.delete(slotIndex);
           }
