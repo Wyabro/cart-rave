@@ -58,6 +58,79 @@
     return `${a}${b}`;
   };
 
+  const PLAYER_NAME_POOL = [
+    "ShelfSmasher",
+    "CartCrasher",
+    "AisleRipper",
+    "PriceChopper",
+    "StockPiler",
+    "ExpressLane",
+    "BarcodeBlitz",
+    "CartSurgeon",
+    "WheelDeal",
+    "BagBandit",
+    "CartPunk",
+    "RollCall",
+    "SkidRow",
+    "PushStart",
+    "CartAttack",
+    "DriftKart",
+    "RampRunner",
+    "FloorModel",
+    "CartSmash",
+    "BargainBin",
+    "ShopDropper",
+    "CartStarter",
+    "RaveRoller",
+    "NeonDrifter",
+    "GlowCart",
+    "BassCart",
+    "DropBeat",
+    "CartMosh",
+    "ClubCart",
+  ];
+
+  // Keep player names distinct from in-game NPC name pool (see CLIENT_NPC_NAME_POOL in main.js).
+  const CLIENT_NPC_NAME_SET = new Set([
+    "CartNapper",
+    "WheelSnipe",
+    "BuggyBrawler",
+    "TrolleyTerror",
+    "AisleDrifter",
+    "CartJacker",
+    "PushNPray",
+    "WobbleBot",
+    "RimRattler",
+    "BasketCase",
+    "SkidMark",
+    "BumperDumper",
+    "RollCage",
+    "HotWheelz",
+    "CurbStomp",
+    "CartBlanche",
+    "DriftWood",
+    "NitroNancy",
+    "TurboTuesday",
+    "WipeOut",
+    "SendIt",
+    "FullSend",
+    "YeetCart",
+    "NoBrakes",
+    "CartGod",
+    "Spinout",
+    "ParkingPal",
+    "LaneCrasher",
+    "CartWheel",
+    "RampRat",
+  ]);
+
+  const rollPlayerName = () => {
+    const pool = PLAYER_NAME_POOL.filter((n) => !CLIENT_NPC_NAME_SET.has(n));
+    const base = pool[Math.floor(Math.random() * pool.length)] || "CartRaver";
+    const suffix = String(Math.floor(Math.random() * 100)).padStart(2, "0");
+    return `${base}${suffix}`;
+  };
+
   // * Game color IDs in slot order — must match PALETTE = Object.keys(CART_COLORS) in main.js.
   const PALETTE_GAME = ['pink', 'blue', 'green', 'yellow', 'neonOrange'];
 
@@ -65,7 +138,7 @@
   const state = {
     palette: PALETTES[CONFIG.palette] || PALETTES.classic,
     playerIdx: 0,
-    name: localStorage.getItem("cartRaveUsername") || "BASSLORD42",
+    name: localStorage.getItem("cartRaveUsername") || rollPlayerName(),
     muted: false,
     vol: 0.25,
     beat: 0,
@@ -73,7 +146,7 @@
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
-    state.name = rollHandle();
+    state.name = rollPlayerName();
     localStorage.setItem("cartRaveUsername", state.name);
   }
 
