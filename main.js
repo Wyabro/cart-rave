@@ -2710,7 +2710,7 @@ async function main() {
     const readyBtn = document.createElement("button");
     readyBtn.id = "ready-button";
     readyBtn.className = "hud-ready-btn";
-    readyBtn.textContent = "READY UP!";
+    readyBtn.textContent = "";
     readyBtn.addEventListener("click", () => {
       if (partySocket) {
         partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
@@ -6566,6 +6566,7 @@ async function main() {
   }
 
   function startCountdown() {
+    if (!isHost) return;
     roundPhase = "countdown";
     roundCountdownStartedAtMs = Date.now();
     roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
