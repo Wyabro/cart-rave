@@ -4551,14 +4551,16 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     map: recordLabelTex,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.55,
+    blending: THREE.NormalBlending,
     color: 0xffffff,
     side: THREE.DoubleSide,
   });
+  recordLabelMat.depthTest = true;
   const recordLabelMesh = new THREE.Mesh(recordLabelGeo, recordLabelMat);
   recordLabelMesh.rotation.x = -Math.PI / 2;
-  recordLabelMesh.position.y = visualRecordTopY + CONFIG.record.surface.concentricRings.yOffset + 0.032;
-  recordLabelMesh.renderOrder = 3;
+  recordLabelMesh.position.y = visualRecordTopY + CONFIG.record.surface.concentricRings.yOffset + 0.012;
+  recordLabelMesh.renderOrder = -1;
   recordMesh.add(recordLabelMesh);
 
   (function buildRecordSurfaceGrooves(parentMesh) {
