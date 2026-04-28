@@ -1128,11 +1128,6 @@ function initNetcode(roomOverride) {
             }
           }
         }
-
-        // If we joined mid-round (direct quickplay URL / refresh), hide the menu so rendering begins.
-        if (menuVisible && roundPhase !== "lobby") {
-          hideMenuRef?.();
-        }
         
         // Update 3D cart materials with new colors
         if (colorsChanged) updateCartMaterialsFromSlots(msg.slots);
@@ -1201,10 +1196,6 @@ function initNetcode(roomOverride) {
     if (type === MSG.round) {
       const r = msg.round;
       if (r && typeof r === "object") {
-        if (menuVisible && typeof r.phase === "string" && r.phase !== "lobby") {
-          hideMenuRef?.();
-        }
-
         // Crowd swell: react to any positive score delta while running.
         if (r.phase === "running" && r.scores && typeof r.scores === "object") {
           let didScore = false;
