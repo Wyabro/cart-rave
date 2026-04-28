@@ -2698,7 +2698,7 @@ async function main() {
     const readyBtn = document.createElement("button");
     readyBtn.id = "ready-button";
     readyBtn.className = "hud-ready-btn";
-    readyBtn.textContent = "READY";
+    readyBtn.textContent = "READY UP!";
     readyBtn.addEventListener("click", () => {
       if (partySocket) {
         partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
@@ -3689,7 +3689,7 @@ async function main() {
       const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
       if (roundPhase === "lobby" && !menuVisible) {
         hud.readyBtn.style.display = "block";
-        hud.readyBtn.textContent = isLocalReady ? "READY!" : "READY";
+        hud.readyBtn.textContent = isLocalReady ? "READY!" : "READY UP!";
         hud.readyBtn.classList.toggle("is-ready", isLocalReady);
       } else {
         hud.readyBtn.style.display = "none";
