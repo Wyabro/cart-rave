@@ -1,27 +1,38 @@
 # Cart Rave
 
-Cart Rave is a browser-based **4-player** physics sumo game for **Cursor Vibe Jam 2026**.
-You drive neon shopping carts on a slowly rotating club dancefloor ring with a hole in the center.
-Last cart standing wins.
+**Cart Rave** is a browser-based **4-player physics sumo** game built for **Cursor Vibe Jam 2026**. You drive neon shopping carts on a slowly rotating club dancefloor ring with a center hole. **Rounds last 60 seconds** (host timer); the **highest score** wins. A round can end early only in the rare **last-cart-standing** case. Ties use the most recent scoring hit as tiebreaker.
 
-**Stack:** Three.js (rendering), Rapier3D (physics), PartyKit (multiplayer), Vercel (static hosting).
+**Pitch:** *Sumo on a dangerous spinning platform — with shopping carts.*
+
+**Stack:** Three.js (rendering), Rapier3D (physics, host client only), PartyKit (WebSocket relay), Vercel (static hosting), esm.sh / unpkg import map — **no bundler, no build step** for the game client.
 
 ## Play
 
-- **Production:** `https://www.cartrave.lol/`
-- **Room URLs:** `https://www.cartrave.lol/?room=ABCD`
-  - `?room=ABCD` joins PartyKit room `"ABCD"` (alphanumeric only, 2–16 chars).
-  - Missing/invalid `?room=` falls back to `"quickplay"`.
+- **Production:** [https://www.cartrave.lol/](https://www.cartrave.lol/) (apex [cartrave.lol](https://cartrave.lol/) also works)
+- **Room URLs:** `https://www.cartrave.lol/?room=ABCD` — joins PartyKit room `ABCD` (alphanumeric, 2–16 chars). Invalid or missing `?room=` falls back to **`quickplay`**.
+- **Vibe Jam:** widget script is in `index.html`; results screen and in-world portal link to [Vibe Jam 2026 portal](https://vibej.am/portal/2026) (with `?ref=` preserved where applicable).
+
+## Project highlights
+
+- **Modes:** **Solo** (private room + NPCs), **Quickplay** (public), **Friends** (shareable `?room=` link).
+- **Menu:** username (localStorage), personal stats, music volume/mute, neon UI; full **desktop** gameplay uses keyboard.
+- **Mobile:** narrow touch devices get the **menu** (including audio controls) and a **keyboard/mouse required** toast — **3D gameplay is not started** without desktop-style input.
+- **Multiplayer:** host-authoritative physics (~20 Hz snapshots), 60 Hz client input, **4 slots** always filled with humans + **NPC** comedy names.
+- **Flow:** server-gated **color picker** (5 colors), **ready-up**, countdown, **60 s** round, podium **results** (names, scores, match history, Play Again, quit to menu).
+- **In-game:** HUD (timer, scores, kill feed, **dual music + SFX** sliders), **Esc** overlay (controls, volume, resume, quit — game keeps running).
+- **World:** procedural carts, club/stage/crowd visuals, skybox, leader **white pulsing emissive**, procedural + sample **SFX**, lazy-loaded **game music** tracks + menu loop.
+
+Deeper architecture, jam cuts, and conventions live in **`.cursorrules`**. Session planning and known issues: **`todo.md`** and handover notes under **`docs/`**.
 
 ## Run locally
 
-Open via a local server (ES modules + audio need HTTP, not `file://`):
+Open via a **local HTTP server** (ES modules + audio need HTTP, not `file://`):
 
 ```bash
 python -m http.server 8085
 ```
 
-Then open `http://localhost:8085/` (or any free port; **5173** is often reserved on Windows).
+Then open `http://localhost:8085/` (any free port is fine; **5173** is often taken on Windows).
 
 Alternatively:
 
@@ -29,109 +40,100 @@ Alternatively:
 npx http-server -p 8085
 ```
 
-For PartyKit (below), install dependencies once:
+Install **npm** deps once if you use PartyKit CLI:
 
 ```bash
 npm install
 ```
 
+## npm scripts
+
+| Script        | Purpose |
+|---------------|---------|
+| `npm run dev` | `npx partykit dev` — local PartyKit party server |
+| `npm run ship` | `git push` then `npx partykit deploy` — keep static site (e.g. Vercel) and edge party in sync |
+
+After changing **`party/index.ts`**, run **`npm run ship`** (or at least `npx partykit deploy`) so production clients talk to the updated server.
+
 ## Controls
 
-- **WASD / Arrow keys**: drive
-- **Shift**: nitro / ram boost
-- **Space**: hop
-- **M** or the on-screen speaker button: mute toggle
+- **WASD / Arrow keys** — drive  
+- **Shift** — nitro / ram boost  
+- **Space** — hop  
+- **M** or HUD speaker — mute  
+- **Esc** — in-game overlay (settings + quit to menu; does not pause simulation)
 
 ## Arena (dancefloor ring)
 
 The arena is a **ring** (outer radius + inner hole), not a solid disc:
 
-- **Visual**: emissive neon tile grid + fog + club props.
-- **Physics**: Rapier ring collider so carts can fall through the **center hole**.
-- **Jam cut**: floor rotation is **visual-only** (no physics drag).
+- **Visual:** emissive floor, fog, crowd/stage/club dressing, **visual-only** slow rotation.  
+- **Physics:** Rapier **ring** collider so carts can fall through the **center hole**.  
+- **Jam cut:** floor rotation does **not** apply physics drag/spin to carts.
 
-Tuning lives under `CONFIG.record` in `main.js`.
+Tuning lives under `CONFIG.record`, `CONFIG.cart`, `CONFIG.driving`, etc. in `main.js`.
 
 ## Carts & tuning
 
-- Procedural cart visuals + physics live in `main.js` under `CONFIG.cart`, `CONFIG.driving`, `CONFIG.ramming`, `CONFIG.fall`, etc.
-- Caster wheels yaw toward velocity (damped) so drifts read correctly.
+- Procedural cart meshes + Rapier bodies; **caster wheels** yaw toward velocity (damped) so drifts read correctly.  
+- Colors come from the shared **`CART_COLORS`** map (do not fork ad-hoc palette literals for cart materials).
 
 ## Multiplayer (PartyKit)
 
-Server logic lives in `party/index.ts`. The party name is `main`.
+Server logic: **`party/index.ts`**. Party name: **`main`** (see `partykit.json`). Production host (current deploy): **`cart-rave.wyabro.partykit.dev`** — wired from `PARTYKIT_PUBLIC_HOST` in `main.js` (no `https://` in the constant).
 
-**Model: host-authoritative.**
-- One connected human is the **host** and runs physics.
-- The host broadcasts `host_transform` snapshots (~20 Hz).
-- Non-host clients send `client_input` and render interpolated snapshots.
-- Rooms are always **4 slots**; unused slots are **NPCs**.
+### Model: host-authoritative
 
-### Slot mapping and connection liveness
+- One connected human is the **host** and runs **all** Rapier physics (humans + NPCs).  
+- Host broadcasts **transform snapshots ~20 Hz** (`host_transform`).  
+- Non-host clients send **input ~60 Hz** and interpolate remote carts (`interpBufferMs`).  
+- **NPCs** fill empty slots; AI runs **only on the host** during `running` phase.
 
-- The server broadcasts `slots` whenever slot assignments change (connect/disconnect/join metadata).
-- The client listens for `slots` and updates `netSlots` live (not just at `hello`).
-- The server reconciles orphaned `"human"` slots on `onConnect` using `room.getConnections()` and prunes zombie entries from its internal `#connections` map.
-- **Activity-based reaper**: PartyKit's `onClose` is not guaranteed to fire (tab crash, network drop, phone sleep, phantom sockets the runtime hasn't GC'd), so the server tracks `#lastSeenAtMs` per connection and forcibly removes any that hasn't sent a message in **20 seconds**. Reaped slots revert to NPC; if the reaped conn was host, `#ensureLiveHost()` promotes the oldest surviving connection and broadcasts `host_migrated`.
-- **Client keepalive**: the client sends a `keepalive` ping every **5 seconds** regardless of round phase or role. This keeps legitimate players alive during lobby / countdown / podium when the host's `host_transform` loop is paused. The 20s / 5s ratio gives 4× safety margin against dropped packets.
+### Slot mapping, keepalive, reaper
+
+- Server broadcasts **`slots`** on assignment changes.  
+- **`keepalive`** from clients every **5 s**; server **reaps** silent connections after **20 s** (`#lastSeenAtMs`). Reaped humans become NPCs; host loss triggers **`host_migrated`**.  
+- **`room.getConnections()`** returns an **Iterator** — spread or `for…of` before Array methods (see `.cursorrules`).
 
 ### Host migration
 
-On clean host disconnect (`onClose`) or reaper-driven removal, the server picks the oldest surviving connection as the new host, resets `#lastSeq = -1`, and broadcasts `host_migrated`. Clients receiving `host_migrated` apply the last cached cart snapshot before assuming authority, avoiding visual pops when the baton passes.
-
-### Respawn rules (host)
-
-- Fall detection / respawn checks apply to **all slots** (humans and NPCs) when `y < CONFIG.fall.yThreshold`.
-- NPC-only behaviors (e.g. opportunistic ram boost AI) still run only for `slot.kind === "npc"`.
+New host is oldest surviving connection; server resets `#lastSeq = -1` and broadcasts **`host_migrated`**. Clients apply last cached cart poses before taking authority to reduce pops.
 
 ### Rounds and results
 
-- Rounds progress through phases: `lobby` → `countdown` → `running` → `podium`. Host drives transitions via `host_round`; server relays.
-- Host physics (substep loop, fall/respawn, NPC AI) and `host_transform` broadcast are gated on `roundPhase === "running"` — the world is frozen during countdown and podium.
-- The podium overlay shows final scores, a **Play Again** button (host-only; triggers `rematchResetWorld` and a fresh countdown), and a link to the [Vibe Jam 2026 portal](https://vibej.am/portal/2026).
-- In-memory match history (capped at 10) is retained client-side for the session.
+Phases: **`lobby` → `countdown` → `running` → `podium`**. Physics + `host_transform` run only in **`running`**. Podium shows **final scores**, **Play Again** (host), main menu, stats, session history (in-memory, capped), and **Vibe Jam** portal URL.
 
-### PartyKit dev server (local)
+### PartyKit dev + static site
 
-The static game and the PartyKit server run as two local processes:
-
-1. **PartyKit dev server** (WebSocket party). Pin the port so the client can find it:
+1. **PartyKit** (fix port for the client):
 
    ```bash
    npx partykit dev -p 1999
    ```
 
-2. **Static site** (serves `index.html` + `main.js`; `partysocket` loads from the import map CDN):
+2. **Static files** (same repo root as `index.html`):
 
    ```bash
    python -m http.server 8085
    ```
 
-Open the static URL from:
+On **LAN** hostnames, the client targets **local PartyKit** at `127.0.0.1:1999` (see `main.js`).
 
-- **Local dev**: `http://localhost:8085/` (or `http://127.0.0.1:8085/`)
-- **LAN testing (phone / other PC)**: serve on all interfaces and open via your LAN IP
-
-```bash
-serve . -l tcp://0.0.0.0:8085
-```
-
-When the page hostname is **LAN** (`192.168.*`, `10.*`, `172.16–31.*`), the client routes PartySocket to **local PartyKit dev** (`127.0.0.1:1999`) instead of trying `{lan-ip}:1999`.
-
-**Production party:** deploy the server separately to PartyKit (not the static host):
+**Production party** — deploy separately from Vercel static:
 
 ```bash
 npx partykit deploy
 ```
 
-After deploy, set **`PARTYKIT_PUBLIC_HOST`** to your PartyKit host (for example `cart-rave.wyabro.partykit.dev`, **no** `https://` prefix) so a production static site can reach the party. If `PARTYKIT_PUBLIC_HOST` is empty, non-localhost pages default to **`{pageHostname}:1999`**, which is only useful when you intentionally proxy WebSockets to that port.
+For a **fork**, set `PARTYKIT_PUBLIC_HOST` in `main.js` to your PartyKit hostname (no scheme). If empty on a non-localhost page, the client may fall back to `{pageHostname}:1999` (only useful with a local WS proxy).
 
-## Jam notes
+## Sounds (`sounds/`)
 
-Project decisions and constraints live in `.cursorrules`.
+- **`menu.mp3`** — menu / crossfade source  
+- **Game tracks** — `music.mp3` plus additional **MP3** tracks, **lazy-loaded** after first paint; order may shuffle per session  
+- **Samples** — e.g. cart crash **wav**; many effects use **Web Audio** (procedural) for impacts, boost, crowd, etc.
 
-## Sounds
+## Jam compliance
 
-Optional files in **`sounds/`**:
-
-- **`music.mp3`** — background music (first click or key starts playback)
+- **Vibe Jam 2026** widget: `https://vibej.am/2026/widget.js` (async in `index.html`).  
+- **Entry** deadline context and scope cuts: see **`.cursorrules`**.
