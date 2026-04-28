@@ -263,6 +263,7 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         hostId: this.#hostId,
       });
+      this.#checkAllReady();
     }
   }
 
@@ -293,7 +294,14 @@ export default class Server implements Party.Server {
     slot.connId = null;
     slot.isReady = false;
     slot.name = this.#drawNpcName();
-    // Keep color for continuity; NPC identity gets a fresh comedy name.
+    // Reassign color to avoid collisions with other slots.
+    const usedColors = new Set(
+      slots
+        .filter((s) => s !== slot)
+        .map((s) => s.color)
+    );
+    const nextColor = PALETTE.find((c) => !usedColors.has(c)) ?? slot.color;
+    slot.color = nextColor;
   }
 
   #getAvailableColors(): string[] {
@@ -770,7 +778,40 @@ export default class Server implements Party.Server {
       if (carts && typeof carts === "object" && !Array.isArray(carts)) {
         const keys = Object.keys(carts);
         if (keys.length <= 4) {
-          this.#carts = carts;
+          /**
+           * @param {unknown} arr
+           * @param {number} len
+           * @param {number} min
+           * @param {number} max
+           */
+          const validateNumberArray = (arr: unknown, len: number, min: number, max: number) => {
+            if (!Array.isArray(arr) || arr.length !== len) return false;
+            for (let i = 0; i < len; i += 1) {
+              const n = arr[i];
+              if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) return false;
+            }
+            return true;
+          };
+
+          /** @type {Record<string, CartState>} */
+          const sanitized: Record<string, CartState> = { ...this.#carts };
+          for (const id of keys) {
+            const c = (carts as any)[id];
+            const ok =
+              c &&
+              typeof c === "object" &&
+              validateNumberArray((c as any).p, 3, -100, 100) &&
+              validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
+              validateNumberArray((c as any).lv, 3, -50, 50) &&
+              validateNumberArray((c as any).av, 3, -50, 50);
+            if (!ok) {
+              // eslint-disable-next-line no-console
+              console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart "${id}"`);
+              continue;
+            }
+            sanitized[id] = c as CartState;
+          }
+          this.#carts = sanitized;
         }
       }
 

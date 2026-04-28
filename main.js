@@ -552,6 +552,11 @@ let onGameStartHandler = null;
 let hideMenuRef = null;
 /** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
 let _localColorPicked = false;
+/** @type {HTMLElement | null} */
+let pendingColorChipEl = null;
+/** @type {string | null} */
+let pendingColorKey = null;
+let menuColorPickListenerWired = false;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
 /** @type {number} */
@@ -874,7 +879,8 @@ function setAuthorityMode(nextIsHost) {
     stopInputSendLoop();
     netStateBuffer = [];
     // Reset host seq so the first authoritative send after migration is always newer.
-    hostSeq = -1;
+    hostSeq = 0;
+    inputSeq = 0;
     if (lastCartsCache) {
       applyCartsSnapshotToBodies(lastCartsCache);
     }
@@ -922,6 +928,7 @@ function initNetcode(roomOverride) {
   const modeAtConnect = detectGameMode();
   let didAutoReadyOnOpen = false;
   if (partySocket) {
+    stopKeepaliveLoop();
     partySocket.close();
     partySocket = null;
   }
@@ -1094,6 +1101,21 @@ function initNetcode(roomOverride) {
           .map((s) => s.color);
         const availableColors = PALETTE.filter((c) => !takenColors.includes(c));
         renderColorPicker(availableColors);
+
+        // Clear local "pending" UI once the server confirms (or rejects) our color pick.
+        if (_localColorPicked && youConnId) {
+          const mySlot = msg.slots.find((s) => s && s.connId === youConnId) || null;
+          if (mySlot && typeof mySlot.color === "string") {
+            const isConfirmed = pendingColorKey && mySlot.color === pendingColorKey;
+            const isRejected = pendingColorKey && mySlot.color !== pendingColorKey;
+            if (isConfirmed || isRejected) {
+              pendingColorChipEl?.classList.remove("color-pending");
+              pendingColorChipEl = null;
+              pendingColorKey = null;
+              _localColorPicked = false;
+            }
+          }
+        }
         
         // Update 3D cart materials with new colors
         if (colorsChanged) updateCartMaterialsFromSlots(msg.slots);
@@ -3280,6 +3302,27 @@ async function main() {
       wrap.style.display = "";
       wrap.style.opacity = "1";
       wrap.style.pointerEvents = "";
+    }
+
+    // Cosmetic: mark color chip as pending until server confirms slots.
+    if (!menuColorPickListenerWired) {
+      menuColorPickListenerWired = true;
+      const colorRow = document.getElementById("cr-color-row");
+      if (colorRow) {
+        colorRow.addEventListener("click", (e) => {
+          const chip = e.target && e.target.closest ? e.target.closest(".cr-color-chip") : null;
+          if (!chip) return;
+          pendingColorChipEl?.classList.remove("color-pending");
+          pendingColorChipEl = chip;
+          pendingColorChipEl.classList.add("color-pending");
+          _localColorPicked = true;
+          const colorToSend = localStorage.getItem("cartRaveColor");
+          pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
+          if (pendingColorKey && partySocket && partySocket.readyState === WebSocket.OPEN) {
+            partySocket.send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));
+          }
+        });
+      }
     }
 
     if (typeof window !== "undefined" && window.__cartRaveSkipMenuForPortalBypass) {
@@ -7255,14 +7298,15 @@ async function main() {
             }, 3000);
           }
           // If the override is already armed and the survivor has now also fallen,
-          // cancel — let normal score-based / DRAW logic crown the winner.
+          // end immediately using the already-chosen last-standing winner.
           if (
             lastCartStandingTimeoutId != null &&
             aliveHumanCount === 0
           ) {
             clearTimeout(lastCartStandingTimeoutId);
             lastCartStandingTimeoutId = null;
-            lastCartStandingWinnerSlotIndex = null;
+            if (lastCartStandingWinnerSlotIndex === null) lastCartStandingWinnerSlotIndex = "draw";
+            if (isHost && roundPhase === "running") endRound();
           }
         }
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
