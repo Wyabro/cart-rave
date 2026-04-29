@@ -800,10 +800,10 @@ export default class Server implements Party.Server {
             const ok =
               c &&
               typeof c === "object" &&
-              validateNumberArray((c as any).p, 3, -100, 100) &&
+              validateNumberArray((c as any).p, 3, -500, 500) &&
               validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
-              validateNumberArray((c as any).lv, 3, -50, 50) &&
-              validateNumberArray((c as any).av, 3, -50, 50);
+              validateNumberArray((c as any).lv, 3, -200, 200) &&
+              validateNumberArray((c as any).av, 3, -200, 200);
             if (!ok) {
               // eslint-disable-next-line no-console
               console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart "${id}"`);
