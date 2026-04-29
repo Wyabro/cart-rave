@@ -3353,20 +3353,15 @@ async function main() {
       feed.style.display = "none";
       while (feed.firstChild) feed.removeChild(feed.firstChild);
     }
-    // Fade out game music, fade in menu music
+    // Stop game music before menu music starts.
     try {
-      if (musicEl && !musicEl.paused) {
+      if (musicEl) {
         if (gameMusicFadeOutInterval !== null) clearInterval(gameMusicFadeOutInterval);
-        gameMusicFadeOutInterval = setInterval(() => {
-          if (musicEl.volume > 0.0075) {
-            musicEl.volume = Math.max(0, musicEl.volume - 0.0075);
-          } else {
-            clearInterval(gameMusicFadeOutInterval);
-            gameMusicFadeOutInterval = null;
-            musicEl.pause();
-            musicEl.currentTime = 0;
-          }
-        }, 30);
+        gameMusicFadeOutInterval = null;
+        if (gameMusicFadeInInterval !== null) clearInterval(gameMusicFadeInInterval);
+        gameMusicFadeInInterval = null;
+        musicEl.pause();
+        musicEl.currentTime = 0;
       }
       musicStarted = false;
     } catch (e) {}
@@ -3612,19 +3607,12 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
-    // Crossfade: fade out menu music, fade in game music
+    // Stop menu music before game music starts.
     if (menuMusicEl) {
       if (menuMusicFadeOutInterval !== null) clearInterval(menuMusicFadeOutInterval);
-      menuMusicFadeOutInterval = setInterval(() => {
-        if (menuMusicEl.volume > 0.0075) {
-          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.0075);
-        } else {
-          clearInterval(menuMusicFadeOutInterval);
-          menuMusicFadeOutInterval = null;
-          menuMusicEl.pause();
-          menuMusicEl.currentTime = 0;
-        }
-      }, 30);
+      menuMusicFadeOutInterval = null;
+      menuMusicEl.pause();
+      menuMusicEl.currentTime = 0;
     }
     // Start game music with fade in once the game audio element exists.
     if (musicEl) {
