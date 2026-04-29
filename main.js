@@ -23,6 +23,7 @@ const MSG = {
   join: "join",
   hostTransform: "host_transform",
   clientInput: "client_input",
+  hostEventCollision: "host_event_collision",
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
   keepalive: "keepalive",
@@ -642,6 +643,10 @@ let allCartsRef = null;
 let getAxisRef = null;
 /** @type {(cart: any, nowMs: number) => void | null} */
 let triggerRamBoostRef = null;
+/** @type {((intensity: number) => void) | null} */
+let playCollisionRef = null;
+/** @type {((position: { x: number; y: number; z: number }, intensity: number) => void) | null} */
+let spawnTrashBurstRef = null;
 /** @type {{ current: (() => void) | null }} */
 const updateNameLabelsRef = { current: null };
 /** @type {{ current: (() => void) | null }} */
@@ -1168,6 +1173,19 @@ function initNetcode(roomOverride) {
       return;
     }
 
+    if (type === MSG.hostEventCollision) {
+      if (isHost) return;
+      const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
+      const mp = msg.midpoint;
+      if (mp && typeof mp.x === "number") {
+        playCollisionRef?.(intensity);
+        if (roundPhase === "running") {
+          spawnTrashBurstRef?.(mp, intensity);
+        }
+      }
+      return;
+    }
+
     if (type === MSG.clientInput) {
       if (!isHost) return;
       const connId = typeof msg.connId === "string" ? msg.connId : null;
@@ -1671,6 +1689,7 @@ async function main() {
       spawned++;
     }
   }
+  spawnTrashBurstRef = spawnTrashBurst;
 
   // --- Starfield + Nebula Skybox ---
   // Stars - bigger, brighter, more of them
@@ -4167,6 +4186,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       src.stop(now + len);
     },
   };
+  playCollisionRef = sfx.playCollision;
   applyAudioVolume();
   camera.add(audioListener);
 
@@ -6713,6 +6733,21 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         const vp2 = victim.body.translation();
         const midpoint = { x: (rp2.x + vp2.x) / 2, y: (rp2.y + vp2.y) / 2, z: (rp2.z + vp2.z) / 2 };
         spawnTrashBurst(midpoint, impulseMag / CONFIG.ramming.maxImpulse);
+      }
+    }
+
+    if (isHost && partySocket) {
+      const carts = allCartsRef || [];
+      const slotA = carts.indexOf(rammer);
+      const slotB = carts.indexOf(victim);
+      if (slotA >= 0 && slotB >= 0 && slotA < slotB) {
+        partySocket.send(JSON.stringify({
+          type: MSG.hostEventCollision,
+          slotA,
+          slotB,
+          intensity: impulseMag / CONFIG.ramming.maxImpulse,
+          midpoint: { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 },
+        }));
       }
     }
 

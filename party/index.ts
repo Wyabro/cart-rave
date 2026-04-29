@@ -32,6 +32,7 @@ const MSG = {
   join: "join",
   hostTransform: "host_transform",
   clientInput: "client_input",
+  hostEventCollision: "host_event_collision",
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
   colorPick: "color_pick",
@@ -839,6 +840,20 @@ export default class Server implements Party.Server {
         type: MSG.round,
         serverNowMs: this.#serverNowMs(),
         round: this.#round,
+      });
+      return;
+    }
+
+    if (type === MSG.hostEventCollision) {
+      if (conn.id !== this.#hostId) return;
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.hostEventCollision,
+        serverNowMs: this.#serverNowMs(),
+        slotA: data?.slotA ?? null,
+        slotB: data?.slotB ?? null,
+        intensity: data?.intensity ?? 0,
+        midpoint: data?.midpoint ?? null,
       });
       return;
     }
