@@ -2675,9 +2675,7 @@ async function main() {
 
     const feed = document.createElement("div");
     feed.className = "hud-feed";
-    const fpsElLocal = document.createElement("div");
-    fpsElLocal.className = "hud-fps";
-    fpsElLocal.style.cssText = "position:fixed;bottom:8px;right:10px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.35);pointer-events:none;z-index:99999;";
+    const fpsElLocal = null; // created lazily in render loop
 
     const hexToCss = (hex) => `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
     const pickVerb = (hit) => {
@@ -2798,8 +2796,6 @@ async function main() {
     root.appendChild(timer);
     root.appendChild(scores);
     root.appendChild(feed);
-    document.body.appendChild(fpsElLocal);
-    fpsEl = fpsElLocal;
     root.appendChild(readyBtn);
 
     // In-game audio widget
@@ -8045,7 +8041,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     const fpsNow = performance.now();
     if (fpsNow - window.__fpsLast >= 500) {
       const fps = Math.round((window.__fpsFrames * 1000) / (fpsNow - window.__fpsLast));
-      if (fpsEl) fpsEl.textContent = menuVisible ? "" : fps + " FPS";
+      if (!fpsEl) {
+        fpsEl = document.createElement("div");
+        fpsEl.id = "cart-rave-fps";
+        fpsEl.style.cssText = "position:fixed;bottom:8px;right:10px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.35);pointer-events:none;z-index:99999;";
+        document.body.appendChild(fpsEl);
+      }
+      fpsEl.textContent = menuVisible ? "" : fps + " FPS";
       window.__fpsFrames = 0;
       window.__fpsLast = fpsNow;
     }
