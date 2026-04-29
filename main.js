@@ -637,8 +637,8 @@ let skipNextPhysicsStep = false;
 // These are assigned once main() constructs the scene / HUD / physics world.
 /** @type {ReturnType<typeof initHud> | null} */
 let hud = null;
-/** @type {HTMLDivElement | null} */
-let fpsEl = null;
+let fpsCanvas2d = null;
+let fpsCtx2d = null;
 /** @type {any[] | null} */
 let allCartsRef = null;
 /** @type {(() => { forward: number; turn: number }) | null} */
@@ -2675,7 +2675,6 @@ async function main() {
 
     const feed = document.createElement("div");
     feed.className = "hud-feed";
-    const fpsElLocal = null; // created lazily in render loop
 
     const hexToCss = (hex) => `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
     const pickVerb = (hit) => {
@@ -3017,7 +3016,6 @@ async function main() {
       addKillFeedEntry,
       pickKillFeedVerb: pickVerb,
       colorHexToCss: hexToCss,
-      fps: fpsElLocal,
       escOverlay,
       syncAudioControls,
       showEscOverlay,
@@ -4340,6 +4338,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     camera.aspect = w / h;
     updateCameraFraming();
     camera.updateProjectionMatrix();
+    if (fpsCanvas2d) {
+      fpsCanvas2d.style.position = "absolute";
+      fpsCanvas2d.style.bottom = "8px";
+      fpsCanvas2d.style.right = "10px";
+    }
   }
 
   updateViewport();
@@ -8040,14 +8043,22 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     window.__fpsFrames++;
     const fpsNow = performance.now();
     if (fpsNow - window.__fpsLast >= 500) {
-      const fps = Math.round((window.__fpsFrames * 1000) / (fpsNow - window.__fpsLast));
-      if (!fpsEl) {
-        fpsEl = document.createElement("div");
-        fpsEl.id = "cart-rave-fps";
-        fpsEl.style.cssText = "position:fixed;bottom:8px;right:10px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.35);pointer-events:none;z-index:99999;";
-        document.body.appendChild(fpsEl);
+      const fpsVal = Math.round((window.__fpsFrames * 1000) / (fpsNow - window.__fpsLast));
+      if (!fpsCanvas2d) {
+        fpsCanvas2d = document.createElement("canvas");
+        fpsCanvas2d.width = 90;
+        fpsCanvas2d.height = 24;
+        fpsCanvas2d.style.cssText = "position:absolute;bottom:8px;right:10px;z-index:99999;pointer-events:none;";
+        document.body.appendChild(fpsCanvas2d);
+        fpsCtx2d = fpsCanvas2d.getContext("2d");
       }
-      fpsEl.textContent = menuVisible ? "" : fps + " FPS";
+      fpsCtx2d.clearRect(0, 0, 90, 24);
+      if (!menuVisible) {
+        fpsCtx2d.font = "11px 'Space Mono', monospace";
+        fpsCtx2d.fillStyle = "rgba(255,255,255,0.35)";
+        fpsCtx2d.textAlign = "right";
+        fpsCtx2d.fillText(fpsVal + " FPS", 86, 16);
+      }
       window.__fpsFrames = 0;
       window.__fpsLast = fpsNow;
     }
