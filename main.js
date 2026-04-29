@@ -899,6 +899,12 @@ function setAuthorityMode(nextIsHost) {
     // Reset accumulator to avoid a big substep burst; align lastT to now so dt doesn't spike.
     resetSimTimingRef.current?.();
     skipNextPhysicsStep = true;
+    for (const cart of allCartsRef || []) {
+      if (cart.body) {
+        cart.body.wakeUp();
+        cart.body.setCanSleep(false);
+      }
+    }
     startHostSendLoop();
     return;
   }
