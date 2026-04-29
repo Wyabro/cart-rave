@@ -11,6 +11,9 @@ import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 
+// eslint-disable-next-line no-console
+console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
+
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
 
@@ -65,7 +68,7 @@ const CONFIG = {
     // * Non-host renders 100ms behind latest packet for smoothness.
     interpBufferMs: 75,
     // * Host sends authoritative transforms at 20Hz.
-    hostSendHz: 20,
+    hostSendHz: 40,
     // * Non-host sends client_input at 60Hz.
     clientInputHz: 60,
     // * Keepalive ping interval (ms). Kept well below the server-side reap
@@ -946,15 +949,9 @@ function initNetcode(roomOverride) {
   }
   const modeAtConnect = detectGameMode();
   let didAutoReadyOnOpen = false;
-  let suppressReconnect = false;
-  try {
-    // If the page is navigating away, any reconnect attempts are wasted and can race teardown.
-    window.addEventListener("pagehide", () => { suppressReconnect = true; }, { once: true });
-  } catch {}
   if (partySocket) {
     stopKeepaliveLoop();
-    suppressReconnect = true;
-    try { partySocket.close(); } catch {}
+    partySocket.close();
     partySocket = null;
   }
 
@@ -963,12 +960,11 @@ function initNetcode(roomOverride) {
     const r = String(roomOverride).trim();
     if (/^[A-Za-z0-9]{2,16}$/.test(r)) resolvedRoom = r;
   }
-  const socket = new PartySocket({
+  partySocket = new PartySocket({
     host: partyHostFromWindowLocation(),
     party: "main",
     room: resolvedRoom,
   });
-  partySocket = socket;
 
   let didSendJoin = false;
   let netcodeRetryScheduled = false;
@@ -982,29 +978,17 @@ function initNetcode(roomOverride) {
     }, 400 + Math.random() * 600);
   };
 
-  socket.addEventListener("close", () => {
-    if (partySocket !== socket) return; // stale socket; ignore
-    stopKeepaliveLoop();
-    stopHostSendLoop();
-    stopInputSendLoop();
-    partySocket = null;
-    didSendJoin = false;
-    if (!suppressReconnect) {
-      try { scheduleNetcodeRetry(); } catch {}
-    }
+  partySocket.addEventListener("close", () => {
+    if (didSendJoin) return;
+    try { scheduleNetcodeRetry(); } catch {}
   });
 
-  socket.addEventListener("error", () => {
-    if (partySocket !== socket) return; // stale socket; ignore
-    // "error" does not always imply "closed", but a fast reconnect attempt is
-    // safer than leaving the game stuck without state updates.
-    if (!suppressReconnect) {
-      try { scheduleNetcodeRetry(); } catch {}
-    }
+  partySocket.addEventListener("error", () => {
+    if (didSendJoin) return;
+    try { scheduleNetcodeRetry(); } catch {}
   });
 
-  socket.addEventListener("open", () => {
-    if (partySocket !== socket) return; // stale socket; ignore
+  partySocket.addEventListener("open", () => {
     let savedUsername = (incomingPortalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
@@ -1019,7 +1003,7 @@ function initNetcode(roomOverride) {
         // ignore
       }
     }
-    socket.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
+    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
     
     startKeepaliveLoop();
@@ -1028,19 +1012,18 @@ function initNetcode(roomOverride) {
       didAutoReadyOnOpen = true;
       setTimeout(() => {
         if (
-          partySocket === socket &&
-          socket.readyState === WebSocket.OPEN &&
+          partySocket &&
+          partySocket.readyState === WebSocket.OPEN &&
           !menuVisible &&
           (detectGameMode() === "quickplay" || detectGameMode() === "solo")
         ) {
-          socket.send(JSON.stringify({ type: MSG.readyToggle }));
+          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
         }
       }, 500);
     }
   });
 
-  socket.addEventListener("message", (ev) => {
-    if (partySocket !== socket) return; // stale socket; ignore
+  partySocket.addEventListener("message", (ev) => {
     let msg = null;
     try {
       msg = JSON.parse(ev.data);
@@ -1687,39 +1670,6 @@ async function main() {
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
-
-  /**
-   * Disposes GPU resources (geometry, material, textures) for an Object3D subtree.
-   * Intentionally skips meshes marked with `userData.isSharedGeometry`.
-   * @param {THREE.Object3D} root
-   */
-  function disposeObject3D(root) {
-    if (!root) return;
-    root.traverse((obj) => {
-      const mesh = /** @type {any} */ (obj);
-      const geo = mesh?.geometry;
-      const mat = mesh?.material;
-
-      if (geo && !mesh?.userData?.isSharedGeometry && typeof geo.dispose === "function") {
-        geo.dispose();
-      }
-
-      const disposeMaterial = (m) => {
-        if (!m || typeof m.dispose !== "function") return;
-        for (const key of Object.keys(m)) {
-          const v = m[key];
-          if (v && v.isTexture && typeof v.dispose === "function") v.dispose();
-        }
-        m.dispose();
-      };
-
-      if (Array.isArray(mat)) {
-        for (const m of mat) disposeMaterial(m);
-      } else {
-        disposeMaterial(mat);
-      }
-    });
-  }
 
   const trashPool = [];
   const TRASH_POOL_SIZE = 40;
@@ -4035,18 +3985,18 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     cartCrashBufferLoadInFlight = true;
 
     const url = new URL("sounds/cart-crash.wav", window.location.href).toString();
-    void (async () => {
-      try {
-        const r = await fetch(url);
-        if (!r.ok) return;
-        const ab = await r.arrayBuffer();
-        cartCrashBuffer = await ctx.decodeAudioData(ab);
-      } catch {
-        // ignore (offline / audio decode failure)
-      } finally {
-        cartCrashBufferLoadInFlight = false;
-      }
-    })();
+    void fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((ab) => ctx.decodeAudioData(ab))
+      .then(
+        (buf) => {
+          cartCrashBuffer = buf;
+          cartCrashBufferLoadInFlight = false;
+        },
+        () => {
+          cartCrashBufferLoadInFlight = false;
+        },
+      );
   };
   sfx = {
     _muted: isMuted,
@@ -5281,12 +5231,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
-  for (const g of crowdCartParts) {
-    try { g.dispose(); } catch {}
-  }
-  // `crowdSourceCart` is a temporary builder mesh, never added to the scene.
-  // Dispose its per-build resources now to avoid GPU memory leaks.
-  disposeObject3D(crowdSourceCart);
   const crowdMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
   });
@@ -6002,24 +5946,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     scene.add(mesh);
     mesh.updateMatrixWorld(true);
 
-    // Cache emissive materials once (avoid per-frame full subtree traversal).
-    /** @type {THREE.Material[]} */
-    const emissiveMaterials = [];
-    mesh.traverse((child) => {
-      if (!child?.isMesh) return;
-      const ud = child.userData || {};
-      if (ud.isFace || ud.isWheel || ud.isHandle) return;
-      const m = child.material;
-      if (!m) return;
-      if (Array.isArray(m)) {
-        for (const mm of m) {
-          if (mm && mm.emissive) emissiveMaterials.push(mm);
-        }
-      } else if (m.emissive) {
-        emissiveMaterials.push(m);
-      }
-    });
-
     const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
 
     const body = world.createRigidBody(
@@ -6065,12 +5991,9 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       slotIndex,
       label,
       cartColor: color,
-      emissiveMaterials,
       _lastNetLinvel: { x: 0, y: 0, z: 0 },
       _netTargetPos: mesh.position.clone(),
       _netTargetQuat: mesh.quaternion.clone(),
-      _hasNetTargetPos: false,
-      _hasNetTargetQuat: false,
       lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
       ramBoostActiveUntilMs: 0,
       ramBoostStreakCarry: 0,
@@ -7869,7 +7792,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
             const y = bp[1] + (ap[1] - bp[1]) * alpha;
             const z = bp[2] + (ap[2] - bp[2]) * alpha;
             cart._netTargetPos.set(x, y, z);
-            cart._hasNetTargetPos = true;
           }
 
           const bq = b.q;
@@ -7877,7 +7799,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
             THREE.Quaternion.slerpFlat(outQ, 0, bq, 0, aq, 0, alpha);
             cart._netTargetQuat.set(outQ[0], outQ[1], outQ[2], outQ[3]);
-            cart._hasNetTargetQuat = true;
           }
 
           // Use "after" velocities so direction stays correct between frames.
@@ -7919,10 +7840,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               bp[1] + blv[1] * extrapS,
               bp[2] + blv[2] * extrapS,
             );
-            cart._hasNetTargetPos = true;
           } else if (Array.isArray(bp) && bp.length === 3) {
             cart._netTargetPos.set(bp[0], bp[1], bp[2]);
-            cart._hasNetTargetPos = true;
           }
 
           // Do not extrapolate rotation; snap it.
@@ -7931,7 +7850,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
             } else {
               cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
-              cart._hasNetTargetQuat = true;
             }
           }
           if (Array.isArray(blv) && blv.length === 3) {
@@ -7959,14 +7877,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           const p = snap.p;
           const q = snap.q;
           const lv = snap.lv;
-          if (Array.isArray(p) && p.length === 3) {
-            cart._netTargetPos.set(p[0], p[1], p[2]);
-            cart._hasNetTargetPos = true;
-          }
-          if (Array.isArray(q) && q.length === 4) {
-            cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
-            cart._hasNetTargetQuat = true;
-          }
+          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
+          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
           if (Array.isArray(lv) && lv.length === 3) {
             cart._lastNetLinvel.x = lv[0];
             cart._lastNetLinvel.y = lv[1];
@@ -7987,14 +7899,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           const p = snap.p;
           const q = snap.q;
           const lv = snap.lv;
-          if (Array.isArray(p) && p.length === 3) {
-            cart._netTargetPos.set(p[0], p[1], p[2]);
-            cart._hasNetTargetPos = true;
-          }
-          if (Array.isArray(q) && q.length === 4) {
-            cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
-            cart._hasNetTargetQuat = true;
-          }
+          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
+          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
           if (Array.isArray(lv) && lv.length === 3) {
             cart._lastNetLinvel.x = lv[0];
             cart._lastNetLinvel.y = lv[1];
@@ -8031,10 +7937,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       if (!c || !c.mesh) continue;
 
       if (!isHost && slotIndex !== localSlotIndexForFrame) {
-        if (c._hasNetTargetPos && c._hasNetTargetQuat) {
-          c.mesh.position.copy(c._netTargetPos);
-          c.mesh.quaternion.copy(c._netTargetQuat);
-        }
+        if (c._netTargetPos) c.mesh.position.lerp(c._netTargetPos, 0.75);
+        if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.75);
         c.mesh.updateMatrixWorld(true);
         const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
         cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
@@ -8109,25 +8013,23 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         const cart = allCarts[i];
         if (!cart || !cart.mesh) continue;
         const isLeader = i === leaderSlot;
-        const baseHex = colorHexForSlot(netSlots[i]);
-        const ramBoosted = roundPhase === "running" && cart.ramBoostActiveUntilMs > now;
-        const ramPulseIntensity = 1.2 + 0.4 * Math.sin(now * 0.02);
-        const mats = cart.emissiveMaterials || [];
-        for (let mi = 0; mi < mats.length; mi += 1) {
-          const m = mats[mi];
-          if (!m || !m.emissive) continue;
+        cart.mesh.traverse((child) => {
+          if (!child.isMesh || !child.material || !child.material.emissive) return;
+          if (child.userData.isFace || child.userData.isWheel || child.userData.isHandle) return;
           if (isLeader) {
             // * White emissive — intensity carries the pulse.
-            m.emissive.setRGB(1, 1, 1);
-            m.emissiveIntensity = glowIntensity;
-          } else if (ramBoosted) {
-            m.emissive.setHex(baseHex);
-            m.emissiveIntensity = ramPulseIntensity;
+            child.material.emissive.setRGB(1, 1, 1);
+            child.material.emissiveIntensity = glowIntensity;
+          } else if (roundPhase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
+            child.material.emissive.setHex(colorHexForSlot(netSlots[i]));
+            child.material.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
           } else {
-            m.emissive.setHex(baseHex);
-            m.emissiveIntensity = 0.6;
+            // * Restore standard emissive (cart's own color at normal intensity).
+            const baseHex = colorHexForSlot(netSlots[i]);
+            child.material.emissive.setHex(baseHex);
+            child.material.emissiveIntensity = 0.6;
           }
-        }
+        });
       }
     }
 

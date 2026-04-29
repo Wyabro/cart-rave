@@ -805,7 +805,11 @@ export default class Server implements Party.Server {
               validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
               validateNumberArray((c as any).lv, 3, -200, 200) &&
               validateNumberArray((c as any).av, 3, -200, 200);
-            if (!ok) continue;
+            if (!ok) {
+              // eslint-disable-next-line no-console
+              console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart "${id}"`);
+              continue;
+            }
             sanitized[id] = c as CartState;
           }
           this.#carts = sanitized;
