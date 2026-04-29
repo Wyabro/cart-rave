@@ -477,6 +477,12 @@
   scanEl.style.opacity = 0.05 + CONFIG.intensity * 0.01;
 
   // ─── Init ─────────────────────────────────────────────────────────────────
+  document.addEventListener("pointerdown", function startMenuAudio() {
+    const evt = new CustomEvent("cartrave:startMenuMusic");
+    window.dispatchEvent(evt);
+    document.removeEventListener("pointerdown", startMenuAudio, true);
+  }, { capture: true });
+
   // Restore the player's last chosen color, or seed localStorage with the default.
   const _savedGameColor = localStorage.getItem('cartRaveColor');
   const _savedColorIdx = PALETTE_GAME.indexOf(_savedGameColor);

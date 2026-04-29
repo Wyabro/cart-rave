@@ -3607,6 +3607,20 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
+    // Crossfade: fade out menu music
+    if (menuMusicEl && !menuMusicEl.paused) {
+      if (menuMusicFadeOutInterval !== null) clearInterval(menuMusicFadeOutInterval);
+      menuMusicFadeOutInterval = setInterval(() => {
+        if (menuMusicEl.volume > 0.0075) {
+          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.0075);
+        } else {
+          clearInterval(menuMusicFadeOutInterval);
+          menuMusicFadeOutInterval = null;
+          menuMusicEl.pause();
+          menuMusicEl.currentTime = 0;
+        }
+      }, 30);
+    }
     // Start game music with fade in once the game audio element exists.
     if (musicEl) {
       if (gameMusicFadeOutInterval !== null) {
@@ -6603,6 +6617,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       () => {},
     );
   }
+  window.addEventListener("cartrave:startMenuMusic", () => { if (menuVisible) tryStartMenuMusic(); });
   tryStartMenuMusic();
   // Also try on first user interaction
   window.addEventListener("pointerdown", () => { if (menuVisible) tryStartMenuMusic(); }, { passive: true });
@@ -6655,7 +6670,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     void musicEl.play().then(
       () => {
         musicStarted = true;
-        stopMenuMusic();
       },
       () => {
         // * Autoplay may block until a gesture; missing file sets musicUnavailable.
