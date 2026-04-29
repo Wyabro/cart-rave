@@ -478,8 +478,9 @@
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   document.addEventListener("pointerdown", function startMenuAudio() {
-    const evt = new CustomEvent("cartrave:startMenuMusic");
-    window.dispatchEvent(evt);
+    if (typeof window.__cartRaveTryStartMenuMusic === "function") {
+      window.__cartRaveTryStartMenuMusic();
+    }
     document.removeEventListener("pointerdown", startMenuAudio, true);
   }, { capture: true });
 
