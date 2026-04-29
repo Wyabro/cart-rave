@@ -11,9 +11,6 @@ import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 
-// eslint-disable-next-line no-console
-console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
-
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
 
@@ -949,9 +946,15 @@ function initNetcode(roomOverride) {
   }
   const modeAtConnect = detectGameMode();
   let didAutoReadyOnOpen = false;
+  let suppressReconnect = false;
+  try {
+    // If the page is navigating away, any reconnect attempts are wasted and can race teardown.
+    window.addEventListener("pagehide", () => { suppressReconnect = true; }, { once: true });
+  } catch {}
   if (partySocket) {
     stopKeepaliveLoop();
-    partySocket.close();
+    suppressReconnect = true;
+    try { partySocket.close(); } catch {}
     partySocket = null;
   }
 
@@ -960,11 +963,12 @@ function initNetcode(roomOverride) {
     const r = String(roomOverride).trim();
     if (/^[A-Za-z0-9]{2,16}$/.test(r)) resolvedRoom = r;
   }
-  partySocket = new PartySocket({
+  const socket = new PartySocket({
     host: partyHostFromWindowLocation(),
     party: "main",
     room: resolvedRoom,
   });
+  partySocket = socket;
 
   let didSendJoin = false;
   let netcodeRetryScheduled = false;
@@ -978,17 +982,29 @@ function initNetcode(roomOverride) {
     }, 400 + Math.random() * 600);
   };
 
-  partySocket.addEventListener("close", () => {
-    if (didSendJoin) return;
-    try { scheduleNetcodeRetry(); } catch {}
+  socket.addEventListener("close", () => {
+    if (partySocket !== socket) return; // stale socket; ignore
+    stopKeepaliveLoop();
+    stopHostSendLoop();
+    stopInputSendLoop();
+    partySocket = null;
+    didSendJoin = false;
+    if (!suppressReconnect) {
+      try { scheduleNetcodeRetry(); } catch {}
+    }
   });
 
-  partySocket.addEventListener("error", () => {
-    if (didSendJoin) return;
-    try { scheduleNetcodeRetry(); } catch {}
+  socket.addEventListener("error", () => {
+    if (partySocket !== socket) return; // stale socket; ignore
+    // "error" does not always imply "closed", but a fast reconnect attempt is
+    // safer than leaving the game stuck without state updates.
+    if (!suppressReconnect) {
+      try { scheduleNetcodeRetry(); } catch {}
+    }
   });
 
-  partySocket.addEventListener("open", () => {
+  socket.addEventListener("open", () => {
+    if (partySocket !== socket) return; // stale socket; ignore
     let savedUsername = (incomingPortalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
@@ -1003,7 +1019,7 @@ function initNetcode(roomOverride) {
         // ignore
       }
     }
-    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
+    socket.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
     
     startKeepaliveLoop();
@@ -1012,18 +1028,19 @@ function initNetcode(roomOverride) {
       didAutoReadyOnOpen = true;
       setTimeout(() => {
         if (
-          partySocket &&
-          partySocket.readyState === WebSocket.OPEN &&
+          partySocket === socket &&
+          socket.readyState === WebSocket.OPEN &&
           !menuVisible &&
           (detectGameMode() === "quickplay" || detectGameMode() === "solo")
         ) {
-          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
+          socket.send(JSON.stringify({ type: MSG.readyToggle }));
         }
       }, 500);
     }
   });
 
-  partySocket.addEventListener("message", (ev) => {
+  socket.addEventListener("message", (ev) => {
+    if (partySocket !== socket) return; // stale socket; ignore
     let msg = null;
     try {
       msg = JSON.parse(ev.data);
@@ -4018,18 +4035,18 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     cartCrashBufferLoadInFlight = true;
 
     const url = new URL("sounds/cart-crash.wav", window.location.href).toString();
-    void fetch(url)
-      .then((r) => r.arrayBuffer())
-      .then((ab) => ctx.decodeAudioData(ab))
-      .then(
-        (buf) => {
-          cartCrashBuffer = buf;
-          cartCrashBufferLoadInFlight = false;
-        },
-        () => {
-          cartCrashBufferLoadInFlight = false;
-        },
-      );
+    void (async () => {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) return;
+        const ab = await r.arrayBuffer();
+        cartCrashBuffer = await ctx.decodeAudioData(ab);
+      } catch {
+        // ignore (offline / audio decode failure)
+      } finally {
+        cartCrashBufferLoadInFlight = false;
+      }
+    })();
   };
   sfx = {
     _muted: isMuted,
