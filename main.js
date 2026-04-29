@@ -14,6 +14,82 @@ import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
 
+/**
+ * Safely disposes a Three.js subtree (geometries + materials).
+ * Skips disposing geometry for meshes tagged with `userData.isSharedGeometry`.
+ * @param {THREE.Object3D | null | undefined} root
+ */
+function disposeObject3D(root) {
+  if (!root) return;
+  if (root.parent) root.parent.remove(root);
+
+  /**
+   * @param {THREE.Material | THREE.Material[]} material
+   */
+  function disposeMaterial(material) {
+    if (Array.isArray(material)) {
+      material.forEach((m) => m && typeof m.dispose === "function" && m.dispose());
+      return;
+    }
+    if (material && typeof material.dispose === "function") material.dispose();
+  }
+
+  root.traverse((child) => {
+    // Dispose any materials found on renderables.
+    if (child.material) disposeMaterial(child.material);
+
+    // Dispose geometries unless explicitly marked as shared.
+    const isShared = Boolean(child.userData && child.userData.isSharedGeometry);
+    if (!isShared && child.geometry && typeof child.geometry.dispose === "function") {
+      child.geometry.dispose();
+    }
+  });
+}
+
+/**
+ * Caches per-cart materials so recoloring doesn't traverse the mesh every update.
+ * @param {THREE.Object3D} cartMesh
+ */
+function buildCartMaterialCache(cartMesh) {
+  const frameMats = [];
+  const wheelGlowMats = [];
+  const frameGlowMats = [];
+  const seen = new Set();
+
+  /**
+   * @param {THREE.Material | THREE.Material[] | null | undefined} material
+   * @param {(m: THREE.Material) => void} add
+   */
+  function forEachMaterial(material, add) {
+    if (!material) return;
+    if (Array.isArray(material)) {
+      material.forEach((m) => m && add(m));
+      return;
+    }
+    add(material);
+  }
+
+  cartMesh.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    if (child.userData && (child.userData.isFace || child.userData.isHandle)) return;
+
+    const isWheel = Boolean(child.userData && child.userData.isWheel);
+    forEachMaterial(child.material, (mat) => {
+      if (seen.has(mat)) return;
+      seen.add(mat);
+
+      if (isWheel) {
+        if (mat.emissive) wheelGlowMats.push(mat);
+      } else {
+        frameMats.push(mat);
+        if (mat.emissive) frameGlowMats.push(mat);
+      }
+    });
+  });
+
+  return { frameMats, wheelGlowMats, frameGlowMats };
+}
+
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
 
@@ -677,32 +753,25 @@ function updateCartMaterialsFromSlots(slots) {
     const finalHex = colorData ? colorData.hex : 0x888888;
     if (finalHex === cart.cartColor) continue;
 
-    // * buildCart returns a THREE.Group, not a Mesh — traverse all child meshes to repaint.
-    cart.mesh.traverse((child) => {
-      if (!child.isMesh || !child.material) return;
-      // * Face meshes (sunglasses + mouth) keep their authored materials.
-      if (child.userData && (child.userData.isFace || child.userData.isHandle)) return;
-      const mat = child.material;
-      if (child.userData.isWheel) {
-        // * Chrome casters: keep dark gray, glow subtly with the cart's brand color.
-        if (mat.emissive) {
-          mat.emissive.setHex(finalHex);
-          mat.emissiveIntensity = 0.15;
-        }
-        mat.metalness = 0.9;
-        mat.roughness = 0.2;
-        mat.envMapIntensity = 0.25;
-      } else {
-        mat.color.setHex(finalHex);
-        if (mat.emissive) {
-          mat.emissive.setHex(finalHex);
-          mat.emissiveIntensity = 0.6;
-        }
-        mat.metalness = 0.7;
-        mat.roughness = 0.3;
-        mat.envMapIntensity = 0.15;
+    const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
+
+    // Wheels: keep dark chrome, only update subtle emissive tint.
+    for (const mat of cache.wheelGlowMats) {
+      mat.emissive.setHex(finalHex);
+      mat.emissiveIntensity = 0.15;
+    }
+
+    // Frame: recolor and update emissive glow.
+    for (const mat of cache.frameMats) {
+      if (mat.color) mat.color.setHex(finalHex);
+      if (mat.emissive) {
+        mat.emissive.setHex(finalHex);
+        mat.emissiveIntensity = 0.6;
       }
-    });
+      if (typeof mat.metalness === "number") mat.metalness = 0.7;
+      if (typeof mat.roughness === "number") mat.roughness = 0.3;
+      if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = 0.15;
+    }
 
     // Keep the cached hex in sync so respawn rebuilds use the right color
     cart.cartColor = finalHex;
@@ -5231,6 +5300,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
+  for (const g of crowdCartParts) g.dispose();
+  disposeObject3D(crowdSourceCart);
   const crowdMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
   });
@@ -5945,6 +6016,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     const mesh = buildCart(color);
     scene.add(mesh);
     mesh.updateMatrixWorld(true);
+    const materialCache = buildCartMaterialCache(mesh);
 
     const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
 
@@ -5991,6 +6063,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       slotIndex,
       label,
       cartColor: color,
+      _materialCache: materialCache,
       _lastNetLinvel: { x: 0, y: 0, z: 0 },
       _netTargetPos: mesh.position.clone(),
       _netTargetQuat: mesh.quaternion.clone(),
