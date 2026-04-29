@@ -808,7 +808,6 @@ function startHostSendLoop() {
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
   hostSendTimer = setInterval(() => {
     if (!partySocket || !isHost || !allCartsRef) return;
-    if (performance.now() % 2000 < 17) console.log("[host send loop]", "roundPhase:", roundPhase, "isHost:", isHost, "allCartsRef:", allCartsRef?.length, "partySocket:", !!partySocket);
     if (roundPhase !== "running") return;
     hostSeq += 1;
     const carts = {};
@@ -1149,7 +1148,6 @@ function initNetcode(roomOverride) {
     }
 
     if (type === MSG.state) {
-      if (performance.now() % 2000 < 17) console.log("[non-host hostTransform]", "received, type:", type);
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
       }
@@ -7669,7 +7667,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         accumulator = 0;
       }
     } else {
-      if (performance.now() % 2000 < 17) console.log("[non-host debug]", "netStateBuffer.length:", netStateBuffer.length, "allCarts.length:", allCarts.length, "roundPhase:", roundPhase);
       // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
       if (Date.now() < hostMigrationFreezeUntilMs) {
         // * Hold remote carts at last rendered position until fresh host state arrives.
