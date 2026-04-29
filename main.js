@@ -2355,6 +2355,17 @@ async function main() {
         z-index: 20001;
       }
 
+      #hud .hud-fps {
+        position: absolute;
+        bottom: 8px;
+        right: 10px;
+        font-family: var(--hud-mono);
+        font-size: 11px;
+        color: rgba(255,255,255,0.35);
+        pointer-events: none;
+        z-index: 20001;
+      }
+
       @media (max-width: 1200px) {
         #hud .hud-scoreBox { font-size: 11px; padding: 4px 8px; gap: 4px; }
         #hud .hud-scoreLabel { font-size: 11px; }
@@ -2673,6 +2684,8 @@ async function main() {
 
     const feed = document.createElement("div");
     feed.className = "hud-feed";
+    const fpsEl = document.createElement("div");
+    fpsEl.className = "hud-fps";
 
     const hexToCss = (hex) => `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
     const pickVerb = (hit) => {
@@ -2793,6 +2806,7 @@ async function main() {
     root.appendChild(timer);
     root.appendChild(scores);
     root.appendChild(feed);
+    root.appendChild(fpsEl);
     root.appendChild(readyBtn);
 
     // In-game audio widget
@@ -2904,32 +2918,25 @@ async function main() {
     quitBtn.className = "esc-btn esc-btn--quit";
     quitBtn.textContent = "QUIT TO MENU";
 
-    const bloomBtn = document.createElement("button");
-    bloomBtn.type = "button";
-    bloomBtn.className = "esc-btn";
-    bloomBtn.textContent = bloomEnabled ? "BLOOM: ON" : "BLOOM: OFF";
-    bloomBtn.addEventListener("click", () => {
-      bloomEnabled = !bloomEnabled;
-      bloomBtn.textContent = bloomEnabled ? "BLOOM: ON" : "BLOOM: OFF";
-      if (bloomPass) bloomPass.enabled = bloomEnabled;
-      try { localStorage.setItem("cartRaveBloom", bloomEnabled ? "on" : "off"); } catch {}
-    });
-
-    const fxBtn = document.createElement("button");
-    fxBtn.type = "button";
-    fxBtn.className = "esc-btn";
-    fxBtn.textContent = fxPassEnabled ? "FX: ON" : "FX: OFF";
-    fxBtn.addEventListener("click", () => {
-      fxPassEnabled = !fxPassEnabled;
-      fxBtn.textContent = fxPassEnabled ? "FX: ON" : "FX: OFF";
-      if (fxPass) fxPass.enabled = fxPassEnabled;
-      try { localStorage.setItem("cartRaveFx", fxPassEnabled ? "on" : "off"); } catch {}
+    const postFxEnabled = () => bloomEnabled && fxPassEnabled;
+    const postFxBtn = document.createElement("button");
+    postFxBtn.type = "button";
+    postFxBtn.className = "esc-btn";
+    postFxBtn.textContent = postFxEnabled() ? "POST-FX: ON" : "POST-FX: OFF";
+    postFxBtn.addEventListener("click", () => {
+      const next = !postFxEnabled();
+      bloomEnabled = next;
+      fxPassEnabled = next;
+      if (bloomPass) bloomPass.enabled = next;
+      if (fxPass) fxPass.enabled = next;
+      postFxBtn.textContent = next ? "POST-FX: ON" : "POST-FX: OFF";
+      try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch {}
+      try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch {}
     });
 
     actions.appendChild(resumeBtn);
     actions.appendChild(quitBtn);
-    actions.appendChild(bloomBtn);
-    actions.appendChild(fxBtn);
+    actions.appendChild(postFxBtn);
     const scoringDivider = document.createElement("hr");
     scoringDivider.className = "esc-scoring-divider";
 
@@ -3021,6 +3028,7 @@ async function main() {
       addKillFeedEntry,
       pickKillFeedVerb: pickVerb,
       colorHexToCss: hexToCss,
+      fps: fpsEl,
       escOverlay,
       syncAudioControls,
       showEscOverlay,
@@ -8039,6 +8047,16 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     updateAmbientParticles(dt, now);
     composer.render();
     labelRenderer.render(scene, camera);
+
+    if (!window.__fpsFrames) { window.__fpsFrames = 0; window.__fpsLast = performance.now(); }
+    window.__fpsFrames++;
+    const fpsNow = performance.now();
+    if (fpsNow - window.__fpsLast >= 500) {
+      const fps = Math.round((window.__fpsFrames * 1000) / (fpsNow - window.__fpsLast));
+      if (hud && hud.fps) hud.fps.textContent = menuVisible ? "" : fps + " FPS";
+      window.__fpsFrames = 0;
+      window.__fpsLast = fpsNow;
+    }
 
     if (roundPhase === "running" && performance.now() < shakeUntil) {
       const t = (shakeUntil - performance.now()) / 250;
