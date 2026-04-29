@@ -2355,7 +2355,7 @@ async function main() {
         z-index: 20001;
       }
 
-      #hud .hud-fps {
+      .hud-fps {
         position: fixed;
         bottom: 8px;
         right: 10px;
@@ -2806,7 +2806,7 @@ async function main() {
     root.appendChild(timer);
     root.appendChild(scores);
     root.appendChild(feed);
-    root.appendChild(fpsEl);
+    document.body.appendChild(fpsEl);
     root.appendChild(readyBtn);
 
     // In-game audio widget
