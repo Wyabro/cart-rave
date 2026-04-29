@@ -342,7 +342,6 @@ function bootstrapNetcodeEntryFromUrl() {
   if (captureInviteRoomForDeferredMenu()) {
     return;
   }
-  initNetcode();
 }
 
 // --- Module-scope netcode state (per handover spec) ---
