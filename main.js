@@ -7668,7 +7668,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         accumulator = 0;
       }
     } else {
-      if (frameCount % 120 === 0) console.log("[non-host debug]", "netStateBuffer.length:", netStateBuffer.length, "allCarts.length:", allCarts.length, "roundPhase:", roundPhase);
+      if (performance.now() % 2000 < 17) console.log("[non-host debug]", "netStateBuffer.length:", netStateBuffer.length, "allCarts.length:", allCarts.length, "roundPhase:", roundPhase);
       // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
       if (Date.now() < hostMigrationFreezeUntilMs) {
         // * Hold remote carts at last rendered position until fresh host state arrives.
