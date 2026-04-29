@@ -414,10 +414,14 @@ export function buildCart(colorHex) {
     const wheel = new THREE.Mesh(SHARED_WHEEL_GEO, wheelMat);
     wheel.rotation.z = Math.PI / 2;
     wheel.userData.isWheel = true;
+    // * Marks shared geometry so cleanup utilities avoid disposing it per-instance.
+    wheel.userData.isSharedGeometry = true;
     pitchGroup.add(wheel);
 
     const hub = new THREE.Mesh(SHARED_HUB_GEO, frameMat);
     hub.rotation.z = Math.PI / 2;
+    // * Uses shared geometry across all carts.
+    hub.userData.isSharedGeometry = true;
     pitchGroup.add(hub);
 
     wheelPitchObjects.push(pitchGroup);

@@ -1671,6 +1671,39 @@ async function main() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
 
+  /**
+   * Disposes GPU resources (geometry, material, textures) for an Object3D subtree.
+   * Intentionally skips meshes marked with `userData.isSharedGeometry`.
+   * @param {THREE.Object3D} root
+   */
+  function disposeObject3D(root) {
+    if (!root) return;
+    root.traverse((obj) => {
+      const mesh = /** @type {any} */ (obj);
+      const geo = mesh?.geometry;
+      const mat = mesh?.material;
+
+      if (geo && !mesh?.userData?.isSharedGeometry && typeof geo.dispose === "function") {
+        geo.dispose();
+      }
+
+      const disposeMaterial = (m) => {
+        if (!m || typeof m.dispose !== "function") return;
+        for (const key of Object.keys(m)) {
+          const v = m[key];
+          if (v && v.isTexture && typeof v.dispose === "function") v.dispose();
+        }
+        m.dispose();
+      };
+
+      if (Array.isArray(mat)) {
+        for (const m of mat) disposeMaterial(m);
+      } else {
+        disposeMaterial(mat);
+      }
+    });
+  }
+
   const trashPool = [];
   const TRASH_POOL_SIZE = 40;
   const trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
@@ -5231,6 +5264,12 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
   });
   const mergedGeo = mergeGeometries(crowdCartParts);
+  for (const g of crowdCartParts) {
+    try { g.dispose(); } catch {}
+  }
+  // `crowdSourceCart` is a temporary builder mesh, never added to the scene.
+  // Dispose its per-build resources now to avoid GPU memory leaks.
+  disposeObject3D(crowdSourceCart);
   const crowdMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
   });
@@ -5946,6 +5985,24 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     scene.add(mesh);
     mesh.updateMatrixWorld(true);
 
+    // Cache emissive materials once (avoid per-frame full subtree traversal).
+    /** @type {THREE.Material[]} */
+    const emissiveMaterials = [];
+    mesh.traverse((child) => {
+      if (!child?.isMesh) return;
+      const ud = child.userData || {};
+      if (ud.isFace || ud.isWheel || ud.isHandle) return;
+      const m = child.material;
+      if (!m) return;
+      if (Array.isArray(m)) {
+        for (const mm of m) {
+          if (mm && mm.emissive) emissiveMaterials.push(mm);
+        }
+      } else if (m.emissive) {
+        emissiveMaterials.push(m);
+      }
+    });
+
     const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
 
     const body = world.createRigidBody(
@@ -5991,6 +6048,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       slotIndex,
       label,
       cartColor: color,
+      emissiveMaterials,
       _lastNetLinvel: { x: 0, y: 0, z: 0 },
       _netTargetPos: mesh.position.clone(),
       _netTargetQuat: mesh.quaternion.clone(),
@@ -8013,23 +8071,25 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         const cart = allCarts[i];
         if (!cart || !cart.mesh) continue;
         const isLeader = i === leaderSlot;
-        cart.mesh.traverse((child) => {
-          if (!child.isMesh || !child.material || !child.material.emissive) return;
-          if (child.userData.isFace || child.userData.isWheel || child.userData.isHandle) return;
+        const baseHex = colorHexForSlot(netSlots[i]);
+        const ramBoosted = roundPhase === "running" && cart.ramBoostActiveUntilMs > now;
+        const ramPulseIntensity = 1.2 + 0.4 * Math.sin(now * 0.02);
+        const mats = cart.emissiveMaterials || [];
+        for (let mi = 0; mi < mats.length; mi += 1) {
+          const m = mats[mi];
+          if (!m || !m.emissive) continue;
           if (isLeader) {
             // * White emissive — intensity carries the pulse.
-            child.material.emissive.setRGB(1, 1, 1);
-            child.material.emissiveIntensity = glowIntensity;
-          } else if (roundPhase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
-            child.material.emissive.setHex(colorHexForSlot(netSlots[i]));
-            child.material.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
+            m.emissive.setRGB(1, 1, 1);
+            m.emissiveIntensity = glowIntensity;
+          } else if (ramBoosted) {
+            m.emissive.setHex(baseHex);
+            m.emissiveIntensity = ramPulseIntensity;
           } else {
-            // * Restore standard emissive (cart's own color at normal intensity).
-            const baseHex = colorHexForSlot(netSlots[i]);
-            child.material.emissive.setHex(baseHex);
-            child.material.emissiveIntensity = 0.6;
+            m.emissive.setHex(baseHex);
+            m.emissiveIntensity = 0.6;
           }
-        });
+        }
       }
     }
 
