@@ -6619,9 +6619,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   }
   window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
   tryStartMenuMusic();
-  // Also try on first user interaction
-  window.addEventListener("pointerdown", () => { if (menuVisible) tryStartMenuMusic(); }, { passive: true });
-  window.addEventListener("keydown", () => { if (menuVisible) tryStartMenuMusic(); });
 
   stopMenuMusic = function () {
     if (!menuMusicEl) return;

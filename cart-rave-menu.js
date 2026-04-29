@@ -480,8 +480,8 @@
   document.addEventListener("pointerdown", function startMenuAudio() {
     if (typeof window.__cartRaveTryStartMenuMusic === "function") {
       window.__cartRaveTryStartMenuMusic();
+      document.removeEventListener("pointerdown", startMenuAudio, true);
     }
-    document.removeEventListener("pointerdown", startMenuAudio, true);
   }, { capture: true });
 
   // Restore the player's last chosen color, or seed localStorage with the default.
