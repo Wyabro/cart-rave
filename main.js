@@ -6129,6 +6129,53 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     };
   }
 
+  // Menu music — plays on page load, stops when game starts
+  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
+  menuMusicEl = new Audio();
+  menuMusicEl.loop = true;
+  menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+  menuMusicEl.preload = "auto";
+  menuMusicEl.src = menuMusicUrl;
+  let menuMusicStarted = false;
+  menuMusicEl.addEventListener("error", () => {
+  });
+  menuMusicEl.load();
+
+  // Try to autoplay menu music immediately (will need user gesture on most browsers)
+  function tryStartMenuMusic() {
+    console.log("tryStartMenuMusic:", { menuMusicStarted, paused: menuMusicEl?.paused, isMuted });
+    if (!menuMusicEl || menuMusicStarted || isMuted) return;
+    menuMusicEl.volume = CONFIG.audio.musicVolume * masterGain;
+    void menuMusicEl.play().then(
+      () => {
+        menuMusicStarted = true;
+      },
+      () => {},
+    );
+  }
+  window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
+  tryStartMenuMusic();
+
+  stopMenuMusic = function () {
+    if (!menuMusicEl) return;
+    menuMusicEl.pause();
+    menuMusicEl.currentTime = 0;
+    menuMusicStarted = false;
+  };
+
+  startMenuMusic = function () {
+    if (!menuMusicEl) return;
+    menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
+    menuMusicStarted = false;
+    tryStartMenuMusic();
+  };
+
+  if (menuVisible) {
+    try {
+      startMenuMusic();
+    } catch (e) {}
+  }
+
   await firstHelloPromise;
   returnPortalArmedAtMs = Date.now() + 3000;
 
@@ -6594,53 +6641,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     musicUnavailable = true;
   });
   musicEl.load();
-
-  // Menu music — plays on page load, stops when game starts
-  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
-  menuMusicEl = new Audio();
-  menuMusicEl.loop = true;
-  menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-  menuMusicEl.preload = "auto";
-  menuMusicEl.src = menuMusicUrl;
-  let menuMusicStarted = false;
-  menuMusicEl.addEventListener("error", () => {
-  });
-  menuMusicEl.load();
-
-  // Try to autoplay menu music immediately (will need user gesture on most browsers)
-  function tryStartMenuMusic() {
-    console.log("tryStartMenuMusic:", { menuMusicStarted, paused: menuMusicEl?.paused, isMuted });
-    if (!menuMusicEl || menuMusicStarted || isMuted) return;
-    menuMusicEl.volume = CONFIG.audio.musicVolume * masterGain;
-    void menuMusicEl.play().then(
-      () => {
-        menuMusicStarted = true;
-      },
-      () => {},
-    );
-  }
-  window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
-  tryStartMenuMusic();
-
-  stopMenuMusic = function () {
-    if (!menuMusicEl) return;
-    menuMusicEl.pause();
-    menuMusicEl.currentTime = 0;
-    menuMusicStarted = false;
-  };
-
-  startMenuMusic = function () {
-    if (!menuMusicEl) return;
-    menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-    menuMusicStarted = false;
-    tryStartMenuMusic();
-  };
-
-  if (menuVisible) {
-    try {
-      startMenuMusic();
-    } catch (e) {}
-  }
 
   // Step 10d: Apply audio volume to engine
   function applyAudioVolume() {
