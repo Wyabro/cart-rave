@@ -2355,17 +2355,6 @@ async function main() {
         z-index: 20001;
       }
 
-      .hud-fps {
-        position: fixed;
-        bottom: 8px;
-        right: 10px;
-        font-family: var(--hud-mono);
-        font-size: 11px;
-        color: rgba(255,255,255,0.35);
-        pointer-events: none;
-        z-index: 20001;
-      }
-
       @media (max-width: 1200px) {
         #hud .hud-scoreBox { font-size: 11px; padding: 4px 8px; gap: 4px; }
         #hud .hud-scoreLabel { font-size: 11px; }
@@ -2686,6 +2675,7 @@ async function main() {
     feed.className = "hud-feed";
     const fpsEl = document.createElement("div");
     fpsEl.className = "hud-fps";
+    fpsEl.style.cssText = "position:fixed;bottom:8px;right:10px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.35);pointer-events:none;z-index:99999;";
 
     const hexToCss = (hex) => `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
     const pickVerb = (hit) => {
