@@ -810,6 +810,7 @@ function startHostSendLoop() {
     if (!partySocket || !isHost || !allCartsRef) return;
     if (roundPhase !== "running") return;
 
+    if (performance.now() % 2000 < 17) console.log("[host sending transform]", "allCarts.length:", allCartsRef.length);
     hostSeq += 1;
     const carts = {};
     const round3 = (v) => Math.round(v * 1000) / 1000;
@@ -1150,6 +1151,7 @@ function initNetcode(roomOverride) {
     }
 
     if (type === MSG.state) {
+      if (performance.now() % 2000 < 17) console.log("[non-host hostTransform]", "received, type:", type);
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
       }
