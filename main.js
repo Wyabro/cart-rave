@@ -2356,7 +2356,7 @@ async function main() {
       }
 
       #hud .hud-fps {
-        position: absolute;
+        position: fixed;
         bottom: 8px;
         right: 10px;
         font-family: var(--hud-mono);
