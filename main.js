@@ -6069,6 +6069,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       _lastNetLinvel: { x: 0, y: 0, z: 0 },
       _netTargetPos: mesh.position.clone(),
       _netTargetQuat: mesh.quaternion.clone(),
+      _hasNetTargetPos: false,
+      _hasNetTargetQuat: false,
       lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
       ramBoostActiveUntilMs: 0,
       ramBoostStreakCarry: 0,
@@ -7867,6 +7869,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
             const y = bp[1] + (ap[1] - bp[1]) * alpha;
             const z = bp[2] + (ap[2] - bp[2]) * alpha;
             cart._netTargetPos.set(x, y, z);
+            cart._hasNetTargetPos = true;
           }
 
           const bq = b.q;
@@ -7874,6 +7877,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
             THREE.Quaternion.slerpFlat(outQ, 0, bq, 0, aq, 0, alpha);
             cart._netTargetQuat.set(outQ[0], outQ[1], outQ[2], outQ[3]);
+            cart._hasNetTargetQuat = true;
           }
 
           // Use "after" velocities so direction stays correct between frames.
@@ -7915,8 +7919,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               bp[1] + blv[1] * extrapS,
               bp[2] + blv[2] * extrapS,
             );
+            cart._hasNetTargetPos = true;
           } else if (Array.isArray(bp) && bp.length === 3) {
             cart._netTargetPos.set(bp[0], bp[1], bp[2]);
+            cart._hasNetTargetPos = true;
           }
 
           // Do not extrapolate rotation; snap it.
@@ -7925,6 +7931,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
             } else {
               cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
+              cart._hasNetTargetQuat = true;
             }
           }
           if (Array.isArray(blv) && blv.length === 3) {
@@ -7952,8 +7959,14 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           const p = snap.p;
           const q = snap.q;
           const lv = snap.lv;
-          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
-          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+          if (Array.isArray(p) && p.length === 3) {
+            cart._netTargetPos.set(p[0], p[1], p[2]);
+            cart._hasNetTargetPos = true;
+          }
+          if (Array.isArray(q) && q.length === 4) {
+            cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+            cart._hasNetTargetQuat = true;
+          }
           if (Array.isArray(lv) && lv.length === 3) {
             cart._lastNetLinvel.x = lv[0];
             cart._lastNetLinvel.y = lv[1];
@@ -7974,8 +7987,14 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           const p = snap.p;
           const q = snap.q;
           const lv = snap.lv;
-          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
-          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+          if (Array.isArray(p) && p.length === 3) {
+            cart._netTargetPos.set(p[0], p[1], p[2]);
+            cart._hasNetTargetPos = true;
+          }
+          if (Array.isArray(q) && q.length === 4) {
+            cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+            cart._hasNetTargetQuat = true;
+          }
           if (Array.isArray(lv) && lv.length === 3) {
             cart._lastNetLinvel.x = lv[0];
             cart._lastNetLinvel.y = lv[1];
@@ -8012,8 +8031,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       if (!c || !c.mesh) continue;
 
       if (!isHost && slotIndex !== localSlotIndexForFrame) {
-        if (c._netTargetPos) c.mesh.position.copy(c._netTargetPos);
-        if (c._netTargetQuat) c.mesh.quaternion.copy(c._netTargetQuat);
+        if (c._hasNetTargetPos && c._hasNetTargetQuat) {
+          c.mesh.position.copy(c._netTargetPos);
+          c.mesh.quaternion.copy(c._netTargetQuat);
+        }
         c.mesh.updateMatrixWorld(true);
         const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
         cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
