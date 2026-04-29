@@ -6612,8 +6612,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   }
   tryStartMenuMusic();
   // Also try on first user interaction
-  window.addEventListener("pointerdown", tryStartMenuMusic, { once: true, passive: true });
-  window.addEventListener("keydown", tryStartMenuMusic, { once: true });
+  window.addEventListener("pointerdown", () => { if (menuVisible) tryStartMenuMusic(); }, { passive: true });
+  window.addEventListener("keydown", () => { if (menuVisible) tryStartMenuMusic(); });
 
   stopMenuMusic = function () {
     if (!menuMusicEl) return;
