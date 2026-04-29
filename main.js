@@ -6176,6 +6176,84 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     } catch (e) {}
   }
 
+  const gameMusicFiles = ["music.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
+  const gameMusicUrls = gameMusicFiles.map((f) =>
+    new URL(`sounds/${f}`, window.location.href).toString(),
+  );
+  for (let i = gameMusicUrls.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = gameMusicUrls[i];
+    gameMusicUrls[i] = gameMusicUrls[j];
+    gameMusicUrls[j] = tmp;
+  }
+  let gameMusicIndex = 0;
+
+  /** @type {HTMLAudioElement[]|null} */
+  let lazyGameMusicPreloads = null;
+
+  function preloadExtraGameMusicTracks() {
+    if (lazyGameMusicPreloads) return;
+    lazyGameMusicPreloads = [];
+    for (let i = 1; i < gameMusicUrls.length; i += 1) {
+      const a = new Audio();
+      a.preload = "auto";
+      a.src = gameMusicUrls[i];
+      try { a.load(); } catch {}
+      lazyGameMusicPreloads.push(a);
+    }
+  }
+
+  // Lazy-fetch extra game tracks after menu renders (avoids extra network on first paint).
+  // This is scheduled after ambient music state initializes to avoid TDZ/hoisting issues.
+  setTimeout(preloadExtraGameMusicTracks, 0);
+
+  function advanceGameMusicTrack() {
+    if (!musicEl || gameMusicUrls.length === 0) return;
+    try {
+      musicEl.pause();
+      musicEl.currentTime = 0;
+    } catch {}
+    gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
+    musicEl.src = gameMusicUrls[gameMusicIndex];
+    try { musicEl.load(); } catch {}
+    try { applyAudioVolume(); } catch {}
+    if (!menuVisible) {
+      void musicEl.play().catch(() => {});
+    }
+  }
+
+  const musicUrl = gameMusicUrls[gameMusicIndex];
+  musicEl = new Audio();
+  musicEl.loop = false;
+  musicEl.volume = CONFIG.audio.musicVolume * masterGain;
+  musicEl.preload = "auto";
+  musicEl.src = musicUrl;
+  musicEl.addEventListener("ended", () => {
+    if (menuVisible) return;
+    if (musicEl.paused) return;
+    advanceGameMusicTrack();
+  });
+  musicEl.addEventListener("error", () => {
+    if (gameMusicUrls.length > 1) {
+      advanceGameMusicTrack();
+      return;
+    }
+    musicUnavailable = true;
+  });
+  musicEl.load();
+
+  tryStartAmbientMusic = function () {
+    if (!musicEl || musicStarted || musicUnavailable) return;
+    void musicEl.play().then(
+      () => {
+        musicStarted = true;
+      },
+      () => {
+        // * Autoplay may block until a gesture; missing file sets musicUnavailable.
+      },
+    );
+  };
+
   await firstHelloPromise;
   returnPortalArmedAtMs = Date.now() + 3000;
 
@@ -6576,72 +6654,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // --- Ambient music ---
 
-  const gameMusicFiles = ["music.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
-  const gameMusicUrls = gameMusicFiles.map((f) =>
-    new URL(`sounds/${f}`, window.location.href).toString(),
-  );
-  for (let i = gameMusicUrls.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = gameMusicUrls[i];
-    gameMusicUrls[i] = gameMusicUrls[j];
-    gameMusicUrls[j] = tmp;
-  }
-  let gameMusicIndex = 0;
-
-  /** @type {HTMLAudioElement[]|null} */
-  let lazyGameMusicPreloads = null;
-
-  function preloadExtraGameMusicTracks() {
-    if (lazyGameMusicPreloads) return;
-    lazyGameMusicPreloads = [];
-    for (let i = 1; i < gameMusicUrls.length; i += 1) {
-      const a = new Audio();
-      a.preload = "auto";
-      a.src = gameMusicUrls[i];
-      try { a.load(); } catch {}
-      lazyGameMusicPreloads.push(a);
-    }
-  }
-
-  // Lazy-fetch extra game tracks after menu renders (avoids extra network on first paint).
-  // This is scheduled after ambient music state initializes to avoid TDZ/hoisting issues.
-  setTimeout(preloadExtraGameMusicTracks, 0);
-
-  function advanceGameMusicTrack() {
-    if (!musicEl || gameMusicUrls.length === 0) return;
-    try {
-      musicEl.pause();
-      musicEl.currentTime = 0;
-    } catch {}
-    gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
-    musicEl.src = gameMusicUrls[gameMusicIndex];
-    try { musicEl.load(); } catch {}
-    try { applyAudioVolume(); } catch {}
-    if (!menuVisible) {
-      void musicEl.play().catch(() => {});
-    }
-  }
-
-  const musicUrl = gameMusicUrls[gameMusicIndex];
-  musicEl = new Audio();
-  musicEl.loop = false;
-  musicEl.volume = CONFIG.audio.musicVolume * masterGain;
-  musicEl.preload = "auto";
-  musicEl.src = musicUrl;
-  musicEl.addEventListener("ended", () => {
-    if (menuVisible) return;
-    if (musicEl.paused) return;
-    advanceGameMusicTrack();
-  });
-  musicEl.addEventListener("error", () => {
-    if (gameMusicUrls.length > 1) {
-      advanceGameMusicTrack();
-      return;
-    }
-    musicUnavailable = true;
-  });
-  musicEl.load();
-
   // Step 10d: Apply audio volume to engine
   function applyAudioVolume() {
     if (audioListener && typeof audioListener.setMasterVolume === 'function') {
@@ -6663,18 +6675,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // Initialize audio with saved settings
   applyAudioVolume();
-
-  tryStartAmbientMusic = function () {
-    if (!musicEl || musicStarted || musicUnavailable) return;
-    void musicEl.play().then(
-      () => {
-        musicStarted = true;
-      },
-      () => {
-        // * Autoplay may block until a gesture; missing file sets musicUnavailable.
-      },
-    );
-  };
 
   let didResumeAudioContext = false;
   let audioContextResumeInFlight = false;
