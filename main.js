@@ -4339,9 +4339,9 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     updateCameraFraming();
     camera.updateProjectionMatrix();
     if (fpsCanvas2d) {
-      fpsCanvas2d.style.position = "absolute";
+      fpsCanvas2d.style.position = "fixed";
       fpsCanvas2d.style.bottom = "8px";
-      fpsCanvas2d.style.right = "10px";
+      fpsCanvas2d.style.left = "10px";
     }
   }
 
@@ -8048,7 +8048,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         fpsCanvas2d = document.createElement("canvas");
         fpsCanvas2d.width = 90;
         fpsCanvas2d.height = 24;
-        fpsCanvas2d.style.cssText = "position:absolute;bottom:8px;right:10px;z-index:99999;pointer-events:none;";
+        fpsCanvas2d.style.cssText = "position:fixed;bottom:8px;left:10px;z-index:99999;pointer-events:none;";
         document.body.appendChild(fpsCanvas2d);
         fpsCtx2d = fpsCanvas2d.getContext("2d");
       }
