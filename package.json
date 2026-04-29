@@ -7,5 +7,8 @@
   },
   "devDependencies": {
     "partykit": "^0.0.115"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }
