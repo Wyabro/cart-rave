@@ -6300,18 +6300,18 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   function makeNameLabel(text, color) {
     const el = document.createElement("div");
     el.textContent = text;
-    el.style.padding = "6px 14px";
+    el.style.padding = "4px 10px";
     el.style.borderRadius = "4px";
     el.style.background = "rgba(0, 0, 0, 0.7)";
     el.style.color = "#fff";
     el.style.fontFamily = "'Bungee', cursive";
-    el.style.fontSize = "24px";
+    el.style.fontSize = "18px";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
     el.style.whiteSpace = "nowrap";
     el.style.border = `2px solid ${color}`;
-    el.style.boxShadow = `0 0 12px ${color}66, inset 0 0 8px ${color}26`;
-    el.style.textShadow = `0 0 6px ${color}`;
+    el.style.boxShadow = `0 0 9px ${color}66, inset 0 0 8px ${color}26`;
+    el.style.textShadow = `0 0 4px ${color}`;
     el.style.transform = "translate(-50%, 0)";
 
     const label = new CSS2DObject(el);
