@@ -3607,7 +3607,6 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
-    console.log("hideMenu music state:", { paused: menuMusicEl?.paused, volume: menuMusicEl?.volume });
     // Crossfade: fade out menu music
     if (menuMusicEl) {
       if (menuMusicFadeOutInterval !== null) clearInterval(menuMusicFadeOutInterval);
@@ -6143,7 +6142,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // Try to autoplay menu music immediately (will need user gesture on most browsers)
   function tryStartMenuMusic() {
-    console.log("tryStartMenuMusic:", { menuMusicStarted, paused: menuMusicEl?.paused, isMuted });
     if (!menuMusicEl || menuMusicStarted || isMuted) return;
     menuMusicEl.volume = CONFIG.audio.musicVolume * masterGain;
     void menuMusicEl.play().then(
