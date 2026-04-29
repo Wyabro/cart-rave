@@ -6236,7 +6236,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   musicEl.src = musicUrl;
   musicEl.addEventListener("ended", () => {
     if (menuVisible) return;
-    if (musicEl.paused) return;
     advanceGameMusicTrack();
   });
   musicEl.addEventListener("error", () => {
