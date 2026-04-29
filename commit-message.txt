@@ -1,3 +1,0 @@
-fix(three): dispose temp cart geometry and cache glow mats
-
-Add safe Three.js subtree disposal helper that skips shared geometries. Dispose crowd cart source + intermediate clones after mergeGeometries(), and cache per-cart materials to avoid traversing meshes during recolor updates.
