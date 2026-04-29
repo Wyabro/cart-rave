@@ -902,7 +902,6 @@ function setAuthorityMode(nextIsHost) {
     for (const cart of allCartsRef || []) {
       if (cart.body) {
         cart.body.wakeUp();
-        cart.body.setCanSleep(false);
       }
     }
     startHostSendLoop();
@@ -6133,6 +6132,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // Expose carts + input + nitro for netcode helpers (module-scope).
   allCartsRef = allCarts;
+  if (isHost && !hostSendTimer) startHostSendLoop();
 
   // --- Floating name labels above carts ---
   const nameLabels = [];
