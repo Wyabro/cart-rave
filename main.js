@@ -3608,7 +3608,7 @@ async function main() {
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
     // Crossfade: fade out menu music
-    if (menuMusicEl && !menuMusicEl.paused) {
+    if (menuMusicEl) {
       if (menuMusicFadeOutInterval !== null) clearInterval(menuMusicFadeOutInterval);
       menuMusicFadeOutInterval = setInterval(() => {
         if (menuMusicEl.volume > 0.0075) {
