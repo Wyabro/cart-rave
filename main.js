@@ -68,7 +68,7 @@ const CONFIG = {
     // * Non-host renders 100ms behind latest packet for smoothness.
     interpBufferMs: 75,
     // * Host sends authoritative transforms at 20Hz.
-    hostSendHz: 40,
+    hostSendHz: 20,
     // * Non-host sends client_input at 60Hz.
     clientInputHz: 60,
     // * Keepalive ping interval (ms). Kept well below the server-side reap
@@ -7995,8 +7995,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       if (!c || !c.mesh) continue;
 
       if (!isHost && slotIndex !== localSlotIndexForFrame) {
-        if (c._netTargetPos) c.mesh.position.lerp(c._netTargetPos, 0.75);
-        if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.75);
+        if (c._netTargetPos) c.mesh.position.copy(c._netTargetPos);
+        if (c._netTargetQuat) c.mesh.quaternion.copy(c._netTargetQuat);
         c.mesh.updateMatrixWorld(true);
         const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
         cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
