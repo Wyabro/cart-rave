@@ -1186,6 +1186,22 @@ function initNetcode(roomOverride) {
       return;
     }
 
+    if (type === MSG.hostEventFall) {
+      if (isHost) return;
+      const victimSlot = netSlots[msg.slotId];
+      const targetName = victimSlot?.name || `P${(msg.slotId ?? 0) + 1}`;
+      const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
+      if (msg.attackerSlot != null) {
+        const attackerSlot = netSlots[msg.attackerSlot];
+        const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
+        const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(attackerSlot)) : null;
+        hud?.addKillFeedEntry?.(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor);
+      } else {
+        hud?.addKillFeedEntry?.(null, null, msg.verb || "FELL OFF", targetName, targetColor);
+      }
+      return;
+    }
+
     if (type === MSG.clientInput) {
       if (!isHost) return;
       const connId = typeof msg.connId === "string" ? msg.connId : null;
@@ -7465,6 +7481,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           // Only score once per fall event.
           if (c.respawnAtMs === null) {
             const hit = lastHitBy.get(slotIndex) || null;
+            let fallEventAttackerSlot = null;
+            let fallEventVerb = "FELL OFF";
             // 2500ms window: covers slow slide-offs and falls; long enough
             // to avoid "ghost kills" where rammer gets no credit despite
             // clearly causing the fall.
@@ -7501,6 +7519,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
                 const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
                 const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
                 hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
+                fallEventAttackerSlot = hit.attackerSlotIndex;
+                fallEventVerb = verb;
               }
               if (roundPhase === "running") {
                 const localIdx = localSlotIndexForConn(youConnId);
@@ -7515,6 +7535,16 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               const targetName = victimSlot?.name || `P${slotIndex + 1}`;
               const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
               hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+            }
+            if (partySocket) {
+              partySocket.send(JSON.stringify({
+                type: MSG.hostEventFall,
+                slotId: slotIndex,
+                victimSlotIndex: slotIndex,
+                attackerSlot: fallEventAttackerSlot,
+                attackerSlotIndex: fallEventAttackerSlot,
+                verb: fallEventVerb,
+              }));
             }
             lastHitBy.delete(slotIndex);
           }

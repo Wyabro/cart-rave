@@ -868,6 +868,10 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         tHost: typeof data?.tHost === "number" ? data.tHost : null,
         slotId: data?.slotId ?? null,
+        victimSlotIndex: data?.victimSlotIndex ?? null,
+        attackerSlot: data?.attackerSlot ?? null,
+        attackerSlotIndex: data?.attackerSlotIndex ?? null,
+        verb: data?.verb ?? null,
         reason: data?.reason ?? null,
       });
     }
