@@ -808,9 +808,8 @@ function startHostSendLoop() {
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
   hostSendTimer = setInterval(() => {
     if (!partySocket || !isHost || !allCartsRef) return;
+    if (performance.now() % 2000 < 17) console.log("[host send loop]", "roundPhase:", roundPhase, "isHost:", isHost, "allCartsRef:", allCartsRef?.length, "partySocket:", !!partySocket);
     if (roundPhase !== "running") return;
-
-    if (performance.now() % 2000 < 17) console.log("[host sending transform]", "allCarts.length:", allCartsRef.length);
     hostSeq += 1;
     const carts = {};
     const round3 = (v) => Math.round(v * 1000) / 1000;
