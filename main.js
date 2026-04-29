@@ -3701,13 +3701,14 @@ async function main() {
     // --- Timer ---
     if (roundPhase === "running") {
       const elapsedMs = Date.now() - (roundStartedAtMs || 0);
-      const totalRoundMs = 60000;
+      const totalRoundMs = 95000;
       const remainingMs = totalRoundMs - elapsedMs;
-      const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, 60);
-      const text =
-        seconds >= 60
-          ? "1:00"
-          : `:${String(seconds).padStart(2, "0")}`;
+      const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
+      const minutes = Math.floor(seconds / 60);
+      const secondsPart = seconds % 60;
+      const text = minutes > 0
+        ? `${minutes}:${String(secondsPart).padStart(2, "0")}`
+        : `:${String(secondsPart).padStart(2, "0")}`;
       hud.timer.style.display = "block";
       if (hud.timerNum) hud.timerNum.textContent = text;
       if (hud.timerRd) {
@@ -4153,7 +4154,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       bp.Q.value = Math.max(1, baseQ + qJitter);
 
       const g = ctx.createGain();
-      const base = 0.12 * sfxVolume;
+      const base = 0.25 * sfxVolume;
       const peak = base * (0.35 + i * 0.65);
       g.gain.setValueAtTime(0.001, now);
       g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + attackSec);
@@ -7537,7 +7538,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       if (
         roundPhase === "running" &&
         roundStartedAtMs > 0 &&
-        Date.now() - roundStartedAtMs >= 60000 &&
+        Date.now() - roundStartedAtMs >= 95000 &&
         lastCartStandingTimeoutId === null
       ) {
         endRound();
