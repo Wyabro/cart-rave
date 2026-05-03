@@ -1,5 +1,8 @@
 # Cart Rave
 
+The game is currently live and playable at
+cartrave lol
+
 **Cart Rave** is a neon-soaked **4‑player shopping-cart brawler**: slam, boost-ram, and hop your way around a club dancefloor ring — and try not to get yeeted through the **center hole**. Matches are **60 seconds** of physics chaos, and the cart with the **most points** takes the podium.
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
