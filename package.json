@@ -7,5 +7,9 @@
   },
   "devDependencies": {
     "partykit": "^0.0.115"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d": "^0.19.3",
+    "@dimforge/rapier3d-compat": "^0.19.3"
   }
 }
