@@ -10,6 +10,17 @@ import { RoomEnvironment } from "https://unpkg.com/three@0.164.1/examples/jsm/en
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
 import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
+import * as Simulation from "./src/simulation.js";
+import * as Entities from "./src/entities.js";
+import * as HUD from "./src/hud.js";
+import * as Input from "./src/input.js";
+import * as Netcode from "./src/netcode.js";
+import * as GameState from "./src/gameState.js";
+import * as GameAudio from "./src/audio.js";
+import * as SceneMod from "./src/scene.js";
+import * as Effects from "./src/visuals.js";
+
+
 
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
@@ -163,8 +174,8 @@ const CONFIG = {
     y: -0.3,
     rotationSpeedRadPerSec: 0.35,
     physicsSpinRadPerSec: 0.08,
-    friction: 2.2,
-    restitution: 0.0,
+    friction: 2.6,
+    restitution: 0.05,
     color: 0x050006,
     rimColor: 0xff2bd6,
     surface: {
@@ -194,11 +205,12 @@ const CONFIG = {
     },
     // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
     spawnHeight: 1.077,
-    friction: 1.6,
+    friction: 1.8,
     restitution: 0.3,
     linearDamping: 2.5,
     angularDamping: 8.25,
     maxPitchRoll: 0.99,
+    visualOffset: 0.45,
 
     ramBoost: {
       enabled: true,
@@ -347,6 +359,7 @@ function resolvedPartyRoomFromUrl() {
 
 /** Valid ?room= on first paint: show menu before PartyKit connect (friend links). */
 let pendingInviteRoomFromUrl = null;
+let skipMenuForPortalBypass = false;
 
 function isPortalWebringBypassFromUrl() {
   if (typeof window === "undefined") return false;
@@ -381,7 +394,7 @@ function buildExitPortalUrl() {
   if (typeof window === "undefined") return "https://vibej.am/portal/2026";
   const url = new URL("https://vibej.am/portal/2026");
   url.searchParams.set("ref", window.location.origin + window.location.pathname);
-  const mySlot = netSlots?.find((s) => s && s.connId === youConnId);
+  const mySlot = Netcode.getNetSlots()?.find((s) => s && s.connId === Netcode.getYouConnId());
   if (mySlot?.name) url.searchParams.set("username", mySlot.name);
   if (mySlot?.color) url.searchParams.set("color", mySlot.color);
   return url.toString();
@@ -410,10 +423,51 @@ function captureInviteRoomForDeferredMenu() {
 
 function bootstrapNetcodeEntryFromUrl() {
   if (typeof window === "undefined") return;
+
+  Netcode.registerCallbacks({
+    detectGameMode: () => detectGameMode(),
+    getIncomingPortalParams: () => incomingPortalParams,
+    getPALETTE: () => PALETTE,
+    getInitialNpcNames: () => initialNpcNames,
+    markFirstHelloReceived: () => markFirstHelloReceived(),
+    getOnGameStartHandler: () => onGameStartHandler,
+    getMenuVisible: () => menuVisible,
+    hideMenuRef: () => { if (hideMenuRef) hideMenuRef(); },
+    updateCartMaterialsFromSlots: (slots) => updateCartMaterialsFromSlots(slots),
+    updateHudColorsFromSlots: (slots) => updateHudColorsFromSlots(slots),
+    scheduleNameLabelUpdate: () => {
+      if (nameLabelUpdatePending) cancelAnimationFrame(nameLabelUpdatePending);
+      nameLabelUpdatePending = requestAnimationFrame(() => {
+        nameLabelUpdatePending = null;
+        if (updateNameLabelsRef.current) updateNameLabelsRef.current();
+      });
+    },
+    respawnLocalMidRoundJoinRef: () => { if (respawnLocalMidRoundJoinRef.current) respawnLocalMidRoundJoinRef.current(); },
+    playCollisionRef: (intensity) => playCollisionRef?.(intensity),
+    playFloorImpactRef: (intensity) => sfx?.playFloorImpact?.(intensity),
+    playEdgeImpactRef: (intensity) => sfx?.playEdgeImpact?.(intensity),
+    spawnTrashBurstRef: (mp, intensity, type) => { if (spawnTrashBurstRef) spawnTrashBurstRef(mp, intensity, type); },
+    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor) => {
+      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor);
+    },
+    colorHexForSlot: (slot) => colorHexForSlot(slot),
+    getPendingColorKey: () => pendingColorKey,
+    getPendingColorChipEl: () => pendingColorChipEl,
+    setPendingColorKey: (val) => { pendingColorKey = val; },
+    setPendingColorChipEl: (val) => { pendingColorChipEl = val; },
+    getLocalColorPicked: () => _localColorPicked,
+    setLocalColorPicked: (val) => { _localColorPicked = val; },
+    renderColorPicker: (colors) => renderColorPicker(colors),
+    recordPodiumStats: (winner, scores) => recordPodiumStats(winner, scores),
+    bumpCrowd: () => { crowd?.bump?.(); },
+    getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
+    setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; }
+  });
+
   if (isPortalWebringBypassFromUrl()) {
     applyPortalWebringBypassToUrl();
-    window.__cartRaveSkipMenuForPortalBypass = true;
-    initNetcode();
+    skipMenuForPortalBypass = true;
+    Netcode.initNetcode();
     return;
   }
   if (captureInviteRoomForDeferredMenu()) {
@@ -421,15 +475,8 @@ function bootstrapNetcodeEntryFromUrl() {
   }
 }
 
-// --- Module-scope netcode state (per handover spec) ---
-/** @type {PartySocket | null} */
-let partySocket = null;
-
-/** @type {string | null} */
-let youConnId = null;
-/** @type {string | null} */
-let hostId = null;
-let isHost = false;
+// --- Module-scope netcode state ---
+// Replaced by Netcode.getPartySocket(), Netcode.getYouConnId(), Netcode.getIsHost()
 
 // * Input bridge for non-host client_input nitro (Shift key).
 let localNitroHeld = false;
@@ -471,7 +518,7 @@ function savePersonalStats(stats) {
 }
 
 function detectGameMode() {
-  const room = resolvedPartyRoomFromUrl();
+  const room = Netcode.resolvedPartyRoomFromUrl();
   if (room.startsWith("solo")) return "solo";
   if (room === "quickplay") return "quickplay";
   return "friends";
@@ -501,7 +548,7 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
   if (detectGameMode() === "solo") {
     let humanCount = 0;
     for (let i = 0; i < 4; i += 1) {
-      const s = netSlots[i];
+      const s = Netcode.getNetSlots()[i];
       if (s && s.kind === "human" && s.connId != null) humanCount += 1;
     }
     if (humanCount === 1) {
@@ -513,9 +560,9 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
 
   // Update personal stats — only if this round had scoring (not an all-zero draw)
   if (winnerSlotIndex !== "draw") {
-    let mySlotIdx = localSlotIndexForConn(youConnId);
+    let mySlotIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
     if (mySlotIdx < 0) {
-      mySlotIdx = netSlots.findIndex((s) => s && s.kind === "human" && s.connId);
+      mySlotIdx = Netcode.getNetSlots().findIndex((s) => s && s.kind === "human" && s.connId);
     }
     if (mySlotIdx >= 0) {
       const stats = getPersonalStats();
@@ -571,18 +618,8 @@ function shuffledClientNpcNames(count) {
 
 const initialNpcNames = shuffledClientNpcNames(4);
 
-/** @type {{ slotId: number; kind: "human"|"npc"; connId: string|null; name: string; color: string }[]} */
-let netSlots = [
-  { slotId: 0, kind: "npc", connId: null, name: initialNpcNames[0], color: "pink" },
-  { slotId: 1, kind: "npc", connId: null, name: initialNpcNames[1], color: "blue" },
-  { slotId: 2, kind: "npc", connId: null, name: initialNpcNames[2], color: "green" },
-  { slotId: 3, kind: "npc", connId: null, name: initialNpcNames[3], color: "yellow" },
-];
-
 let firstHelloReceived = false;
-/** @type {((slots: typeof netSlots) => void) | null} */
 let resolveFirstHello = null;
-/** @type {Promise<typeof netSlots>} */
 const firstHelloPromise = new Promise((resolve) => {
   resolveFirstHello = resolve;
 });
@@ -590,36 +627,15 @@ const firstHelloPromise = new Promise((resolve) => {
 function markFirstHelloReceived() {
   if (firstHelloReceived) return;
   firstHelloReceived = true;
-  resolveFirstHello?.(netSlots);
+  resolveFirstHello?.(Netcode.getNetSlots());
 }
 
-/**
- * Last authoritative carts snapshot (host caches and non-host consumes).
- * @type {Record<string, any> | null}
- */
-let lastCartsCache = null;
-
-/**
- * Non-host interpolation buffer entries.
- * @type {{ serverNowMs: number; seq: number; carts: Record<string, any> }[]}
- */
-let netStateBuffer = [];
-
-/** @type {Map<string, { throttle: number; steer: number; nitro: boolean }>} */
-let remoteInputsByConnId = new Map();
-/** @type {Map<string, boolean>} */
-let remoteNitroLatchedByConnId = new Map();
-
-// Stage A scoring (host-only logic lives inside isHost blocks).
-const lastHitBy = new Map(); // slotIndex -> { attackerSlotIndex, wasCritical, timestamp }
-
-let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-
-let roundPhase = "lobby"; // "lobby" | "countdown" | "running" | "podium"
-let roundStartedAtMs = 0;
-let roundCountdownStartedAtMs = 0;
-/** @type {null|number|"draw"} */
-let roundWinnerSlotIndex = null;
+function syncRoundPhase(phase) {
+  GameState.setRoundPhase(phase);
+  try {
+    Simulation.setRoundPhase(phase);
+  } catch (e) {}
+}
 let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
 let roundStartingHumanCount = 0;
 /** @type {((msg: object) => void) | null} */
@@ -711,7 +727,7 @@ let hostMigrationFreezeUntilMs = 0;
 let skipNextPhysicsStep = false;
 
 // These are assigned once main() constructs the scene / HUD / physics world.
-/** @type {ReturnType<typeof initHud> | null} */
+/** @type {ReturnType<typeof HUD.init> | null} */
 let hud = null;
 let fpsCanvas2d = null;
 let fpsCtx2d = null;
@@ -795,557 +811,11 @@ function updateHudColorsFromSlots(slots) {
   });
 }
 
-function strictSlotIndexForConn(connId) {
-  if (!connId) return -1;
-  return netSlots.findIndex((s) => s && s.connId === connId);
-}
-
-let _slotLookupMissWarned = false;
-function localSlotIndexForConn(connId) {
-  const idx = strictSlotIndexForConn(connId);
-  if (idx < 0 && !_slotLookupMissWarned) {
-    _slotLookupMissWarned = true;
-  }
-  return idx;
-}
-
 function localCartForConnId() {
   const carts = allCartsRef || [];
-  const idx = localSlotIndexForConn(youConnId);
+  const idx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
   if (idx < 0) return null;
   return carts[idx] || null;
-}
-
-function stopHostSendLoop() {
-  if (hostSendTimer) {
-    clearInterval(hostSendTimer);
-    hostSendTimer = null;
-  }
-}
-
-function stopInputSendLoop() {
-  if (inputSendTimer) {
-    clearInterval(inputSendTimer);
-    inputSendTimer = null;
-  }
-}
-
-function stopKeepaliveLoop() {
-  if (keepaliveTimer) {
-    clearInterval(keepaliveTimer);
-    keepaliveTimer = null;
-  }
-}
-
-function applyCartsSnapshotToBodies(carts) {
-  if (!allCartsRef) return;
-  if (!carts || typeof carts !== "object") return;
-  for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
-    const cart = allCartsRef[slotIndex];
-    const snap = carts[String(slotIndex)];
-    if (!cart || !snap) continue;
-    const p = snap.p;
-    const q = snap.q;
-    const lv = snap.lv;
-    const av = snap.av;
-    if (Array.isArray(p) && p.length === 3) {
-      cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
-    }
-    if (Array.isArray(q) && q.length === 4) {
-      cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
-    }
-    if (Array.isArray(lv) && lv.length === 3) {
-      cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
-    }
-    if (Array.isArray(av) && av.length === 3) {
-      cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
-    }
-  }
-}
-
-function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
-  if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
-  if (!carts || typeof carts !== "object") return;
-
-  const last = netStateBuffer.length > 0 ? netStateBuffer[netStateBuffer.length - 1] : null;
-  if (last && typeof last.seq === "number" && seq <= last.seq) return;
-  netStateBuffer.push({ serverNowMs, seq, carts, epoch });
-  const maxEntries = 64;
-  while (netStateBuffer.length > maxEntries) {
-    netStateBuffer.shift();
-  }
-}
-
-function startHostSendLoop() {
-  stopHostSendLoop();
-  if (!partySocket) return;
-  if (!allCartsRef) return;
-
-  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
-  hostSendTimer = setInterval(() => {
-    if (!partySocket || !isHost || !allCartsRef) return;
-    if (roundPhase !== "running") return;
-    hostSeq += 1;
-    const carts = {};
-    const round3 = (v) => Math.round(v * 1000) / 1000;
-    for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
-      const c = allCartsRef[slotIndex];
-      const t = c.body.translation();
-      const r = c.body.rotation();
-      const lv = c.body.linvel();
-      const av = c.body.angvel();
-      carts[String(slotIndex)] = {
-        p: [round3(t.x), round3(t.y), round3(t.z)],
-        q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
-        lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
-        av: [round3(av.x), round3(av.y), round3(av.z)],
-      };
-    }
-
-    lastCartsCache = carts;
-    partySocket.send(
-      JSON.stringify({
-        type: MSG.hostTransform,
-        seq: hostSeq,
-        tHost: Date.now(),
-        carts,
-      }),
-    );
-  }, intervalMs);
-}
-
-function startInputSendLoop() {
-  stopInputSendLoop();
-  if (!partySocket) return;
-
-  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.clientInputHz));
-  inputSendTimer = setInterval(() => {
-    if (!partySocket || isHost) return;
-    if (!getAxisRef) return;
-
-    inputSeq += 1;
-    const axis = getAxisRef();
-    partySocket.send(
-      JSON.stringify({
-        type: MSG.clientInput,
-        seq: inputSeq,
-        tClient: Date.now(),
-        input: {
-          throttle: axis.forward,
-          steer: axis.turn,
-          nitro: localNitroHeld,
-        },
-      }),
-    );
-  }, intervalMs);
-}
-
-// * Keepalive heartbeat. Sent regardless of role or round phase so the server
-// * reaper never drops a legitimate client who's idle during lobby/countdown/
-// * podium (host's host_transform loop is gated on running phase, so without
-// * this a host sitting in podium > REAP_TIMEOUT_MS would be reaped).
-function startKeepaliveLoop() {
-  stopKeepaliveLoop();
-  if (!partySocket) return;
-  const intervalMs = CONFIG.net.keepaliveIntervalMs ?? 5000;
-  keepaliveTimer = setInterval(() => {
-    if (!partySocket) return;
-    partySocket.send(
-      JSON.stringify({ type: MSG.keepalive, tClient: Date.now() }),
-    );
-  }, intervalMs);
-}
-
-function setAuthorityMode(nextIsHost) {
-  const becomingHost = Boolean(nextIsHost) && !isHost;
-  const becomingClient = !nextIsHost && isHost;
-  isHost = Boolean(nextIsHost);
-
-  if (becomingHost) {
-    stopInputSendLoop();
-    netStateBuffer = [];
-    // Reset host seq so the first authoritative send after migration is always newer.
-    hostSeq = 0;
-    inputSeq = 0;
-    if (lastCartsCache) {
-      applyCartsSnapshotToBodies(lastCartsCache);
-    }
-    // Prevent a huge accumulated fixed-step catch-up on host migration.
-    // Reset accumulator to avoid a big substep burst; align lastT to now so dt doesn't spike.
-    resetSimTimingRef.current?.();
-    skipNextPhysicsStep = true;
-    for (const cart of allCartsRef || []) {
-      if (cart.body) {
-        cart.body.wakeUp();
-      }
-    }
-    startHostSendLoop();
-    return;
-  }
-
-  if (becomingClient) {
-    stopHostSendLoop();
-    startInputSendLoop();
-    return;
-  }
-
-  if (isHost) {
-    stopInputSendLoop();
-    if (!hostSendTimer) startHostSendLoop();
-  } else {
-    stopHostSendLoop();
-    if (!inputSendTimer) startInputSendLoop();
-  }
-}
-
-function initNetcode(roomOverride) {
-  if (typeof window === "undefined") return;
-  _localColorPicked = false;
-  serverClockOffsetMs = 0;
-  serverClockOffsetSamples = 0;
-  let clientId = localStorage.getItem("cartRaveClientId");
-  if (!clientId) {
-    try {
-      clientId = crypto.randomUUID();
-    } catch {
-      clientId = `cr-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-    }
-    try {
-      localStorage.setItem("cartRaveClientId", clientId);
-    } catch {
-      // ignore
-    }
-  }
-  const modeAtConnect = detectGameMode();
-  let didAutoReadyOnOpen = false;
-  if (partySocket) {
-    stopKeepaliveLoop();
-    partySocket.close();
-    partySocket = null;
-  }
-
-  let resolvedRoom = resolvedPartyRoomFromUrl();
-  if (roomOverride != null && String(roomOverride).trim() !== "") {
-    const r = String(roomOverride).trim();
-    if (/^[A-Za-z0-9]{2,16}$/.test(r)) resolvedRoom = r;
-  }
-  partySocket = new PartySocket({
-    host: partyHostFromWindowLocation(),
-    party: "main",
-    room: resolvedRoom,
-  });
-
-  let didSendJoin = false;
-  let netcodeRetryScheduled = false;
-  const scheduleNetcodeRetry = () => {
-    if (netcodeRetryScheduled) return;
-    netcodeRetryScheduled = true;
-    setTimeout(() => {
-      netcodeRetryScheduled = false;
-      if (partySocket) return;
-      initNetcode(roomOverride);
-    }, 400 + Math.random() * 600);
-  };
-
-  partySocket.addEventListener("close", () => {
-    if (didSendJoin) return;
-    try { scheduleNetcodeRetry(); } catch {}
-  });
-
-  partySocket.addEventListener("error", () => {
-    if (didSendJoin) return;
-    try { scheduleNetcodeRetry(); } catch {}
-  });
-
-  partySocket.addEventListener("open", () => {
-    let savedUsername = (incomingPortalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
-    if (!savedUsername) {
-      savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
-      localStorage.setItem("cartRaveUsername", savedUsername);
-      localStorage.setItem("cartRaveName", savedUsername);
-    }
-    if (incomingPortalParams?.username) {
-      try {
-        localStorage.setItem("cartRaveUsername", savedUsername);
-        localStorage.setItem("cartRaveName", savedUsername);
-      } catch {
-        // ignore
-      }
-    }
-    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
-    didSendJoin = true;
-    
-    startKeepaliveLoop();
-
-    if (!didAutoReadyOnOpen && !menuVisible && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
-      didAutoReadyOnOpen = true;
-      setTimeout(() => {
-        if (
-          partySocket &&
-          partySocket.readyState === WebSocket.OPEN &&
-          !menuVisible &&
-          (detectGameMode() === "quickplay" || detectGameMode() === "solo")
-        ) {
-          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-        }
-      }, 500);
-    }
-  });
-
-  partySocket.addEventListener("message", (ev) => {
-    let msg = null;
-    try {
-      msg = JSON.parse(ev.data);
-    } catch {
-      return;
-    }
-    if (!msg || typeof msg !== "object") return;
-
-    const type = msg.type;
-    if (type === MSG.hello) {
-      youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
-      hostId = typeof msg.hostId === "string" ? msg.hostId : null;
-      if (Array.isArray(msg.slots)) netSlots = msg.slots;
-      if (msg.round && typeof msg.round === "object") {
-        roundPhase = msg.round.phase ?? roundPhase;
-        roundStartedAtMs = msg.round.startedAtMs ?? roundStartedAtMs;
-        roundCountdownStartedAtMs = msg.round.countdownStartedAtMs ?? roundCountdownStartedAtMs;
-        roundWinnerSlotIndex = msg.round.winnerSlotIndex ?? roundWinnerSlotIndex;
-      }
-      if (roundPhase === "running" && youConnId) {
-        pendingMidRoundJoinRespawnConnId = youConnId;
-      }
-      markFirstHelloReceived();
-
-      if (msg.carts && typeof msg.carts === "object") {
-        lastCartsCache = msg.carts;
-        applyCartsSnapshotToBodies(msg.carts);
-      }
-
-      setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
-
-      // * Auto-submit color picked on the menu. Only fires when the player deliberately
-      // * joined (menuVisible is false because hideMenu() was called in the mode handler).
-      if (!menuVisible) {
-        const savedColor = localStorage.getItem('cartRaveColor');
-        const colorToSend = (savedColor && PALETTE.includes(savedColor)) ? savedColor : PALETTE[0];
-        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-          partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
-          if (roundPhase === "running" && youConnId) {
-            pendingMidRoundJoinRespawnConnId = youConnId;
-          }
-        }
-        hideMenuRef?.();
-      }
-
-      // Update 3D cart materials with initial colors
-      updateCartMaterialsFromSlots(msg.slots);
-      
-      // Update HUD colors with initial colors
-      updateHudColorsFromSlots(msg.slots);
-      if (nameLabelUpdatePending) cancelAnimationFrame(nameLabelUpdatePending);
-      nameLabelUpdatePending = requestAnimationFrame(() => {
-        nameLabelUpdatePending = null;
-        updateNameLabelsRef.current?.();
-      });
-      return;
-    }
-
-    if (type === MSG.hostMigrated) {
-      hostId = typeof msg.hostId === "string" ? msg.hostId : null;
-      const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
-      if (nextIsHost && lastCartsCache) {
-        applyCartsSnapshotToBodies(lastCartsCache);
-      }
-      setAuthorityMode(nextIsHost);
-      if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + 300;
-      hostEpoch += 1;
-      netStateBuffer = [];
-      return;
-    }
-
-    if (type === MSG.slots) {
-      const incomingJson = JSON.stringify(msg.slots);
-      if (incomingJson === lastSlotsJson) return;
-      lastSlotsJson = incomingJson;
-      if (Array.isArray(msg.slots)) {
-        const newColors = msg.slots.map((s) => (s?.color || ""));
-        const oldColors = netSlots.map((s) => (s?.color || ""));
-        const colorsChanged = newColors.some((c, i) => c !== oldColors[i]);
-
-        netSlots = msg.slots;
-        const liveConnIds = new Set(
-          netSlots
-            .map((s) => (s && typeof s.connId === "string" ? s.connId : null))
-            .filter(Boolean),
-        );
-        for (const id of remoteInputsByConnId.keys()) {
-          if (!liveConnIds.has(id)) remoteInputsByConnId.delete(id);
-        }
-        for (const id of remoteNitroLatchedByConnId.keys()) {
-          if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
-        }
-        
-        // Only count other human players as taking a color; NPCs don't block the picker
-        const takenColors = msg.slots
-          .filter((s) => s && s.kind === "human" && s.connId !== youConnId)
-          .map((s) => s.color);
-        const availableColors = PALETTE.filter((c) => !takenColors.includes(c));
-        renderColorPicker(availableColors);
-
-        // Clear local "pending" UI once the server confirms (or rejects) our color pick.
-        if (_localColorPicked && youConnId) {
-          const mySlot = msg.slots.find((s) => s && s.connId === youConnId) || null;
-          if (mySlot && typeof mySlot.color === "string") {
-            const isConfirmed = pendingColorKey && mySlot.color === pendingColorKey;
-            const isRejected = pendingColorKey && mySlot.color !== pendingColorKey;
-            if (isConfirmed || isRejected) {
-              pendingColorChipEl?.classList.remove("color-pending");
-              pendingColorChipEl = null;
-              pendingColorKey = null;
-              _localColorPicked = false;
-            }
-          }
-        }
-        
-        // Update 3D cart materials with new colors
-        if (colorsChanged) updateCartMaterialsFromSlots(msg.slots);
-        
-        // Update HUD colors with new colors
-        if (colorsChanged) updateHudColorsFromSlots(msg.slots);
-        if (nameLabelUpdatePending) cancelAnimationFrame(nameLabelUpdatePending);
-        nameLabelUpdatePending = requestAnimationFrame(() => {
-          nameLabelUpdatePending = null;
-          updateNameLabelsRef.current?.();
-        });
-        respawnLocalMidRoundJoinRef.current?.();
-      }
-      return;
-    }
-
-    if (type === MSG.state) {
-      if (msg.carts && typeof msg.carts === "object") {
-        lastCartsCache = msg.carts;
-      }
-      if (!isHost) {
-        const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
-        if (typeof serverNowMs === "number") {
-          const sample = Date.now() - serverNowMs;
-          serverClockOffsetSamples += 1;
-          if (serverClockOffsetSamples <= 10) {
-            serverClockOffsetMs = sample;
-          } else {
-            serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.05;
-          }
-        }
-        const seq = typeof msg.seq === "number" ? msg.seq : -1;
-        bufferAuthoritativeState(serverNowMs, seq, msg.carts, hostEpoch);
-      }
-      return;
-    }
-
-    if (type === MSG.hostEventCollision) {
-      if (isHost) return;
-      const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
-      const mp = msg.midpoint;
-      if (mp && typeof mp.x === "number") {
-        playCollisionRef?.(intensity);
-        if (roundPhase === "running") {
-          spawnTrashBurstRef?.(mp, intensity);
-        }
-      }
-      return;
-    }
-
-    if (type === MSG.hostEventFall) {
-      if (isHost) return;
-      const victimSlot = netSlots[msg.slotId];
-      const targetName = victimSlot?.name || `P${(msg.slotId ?? 0) + 1}`;
-      const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
-      if (msg.attackerSlot != null) {
-        const attackerSlot = netSlots[msg.attackerSlot];
-        const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
-        const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(attackerSlot)) : null;
-        hud?.addKillFeedEntry?.(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor);
-      } else {
-        hud?.addKillFeedEntry?.(null, null, msg.verb || "FELL OFF", targetName, targetColor);
-      }
-      return;
-    }
-
-    if (type === MSG.clientInput) {
-      if (!isHost) return;
-      const connId = typeof msg.connId === "string" ? msg.connId : null;
-      const input = msg.input;
-      if (!connId || !input || typeof input !== "object") return;
-
-      const throttle = Number.isFinite(input.throttle) ? input.throttle : 0;
-      const steer = Number.isFinite(input.steer) ? input.steer : 0;
-      const nitro = Boolean(input.nitro);
-
-      remoteInputsByConnId.set(connId, {
-        throttle: clamp(throttle, -1, 1),
-        steer: clamp(steer, -1, 1),
-        nitro,
-      });
-
-      const was = remoteNitroLatchedByConnId.get(connId) || false;
-      if (!was && nitro && allCartsRef && triggerRamBoostRef) {
-        const slotIndex = strictSlotIndexForConn(connId);
-        if (slotIndex >= 0) {
-          const cart = allCartsRef[slotIndex];
-          if (cart) triggerRamBoostRef(cart, performance.now());
-        }
-      }
-      remoteNitroLatchedByConnId.set(connId, nitro);
-      return;
-    }
-
-    if (type === MSG.round) {
-      const r = msg.round;
-      if (r && typeof r === "object") {
-        // Crowd swell: react to any positive score delta while running.
-        if (r.phase === "running" && r.scores && typeof r.scores === "object") {
-          let didScore = false;
-          for (let i = 0; i < 4; i += 1) {
-            const prev = Number(roundScores?.[i] ?? 0);
-            const next = Number(r.scores?.[i] ?? prev);
-            if (next > prev) { didScore = true; break; }
-          }
-          crowd?.bump?.();
-        }
-
-        const prevPhase = roundPhase;
-        const newPhase = r.phase;
-        // * Approach (a): single source of truth via MSG.round transition into podium — host and clients append the same
-        // * moment without endRound() duplication or dedupe keys.
-        if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
-          pendingMidRoundJoinRespawnConnId = null;
-          if (!isHost) {
-            const w = r.winnerSlotIndex;
-            const winnerSlotIndex =
-              w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
-            const src = r.scores && typeof r.scores === "object" ? r.scores : roundScores;
-            recordPodiumStats(winnerSlotIndex, src);
-          }
-        }
-        if (!isHost && typeof newPhase === "string" && newPhase !== prevPhase) {
-          // Diagnostics removed for submission.
-        }
-        roundPhase = r.phase ?? roundPhase;
-        roundStartedAtMs = r.startedAtMs ?? roundStartedAtMs;
-        roundCountdownStartedAtMs = r.countdownStartedAtMs ?? roundCountdownStartedAtMs;
-        roundWinnerSlotIndex = r.winnerSlotIndex ?? null;
-        if (r.scores && typeof r.scores === "object") roundScores = r.scores;
-      }
-      return;
-    }
-
-    if (type === MSG.gameStart) {
-      if (onGameStartHandler) onGameStartHandler(msg);
-      return;
-    }
-  });
 }
 
 function clamp(value, min, max) {
@@ -1487,7 +957,7 @@ function initLeaderHumSfx(audioListener) {
     const wants = Number.isFinite(slotIndex) ? slotIndex : null;
     if (wants === currentLeaderSlot) return;
 
-    const localIdx = localSlotIndexForConn(youConnId);
+    const localIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
     const wasLocalLeader = currentLeaderSlot !== null && currentLeaderSlot === localIdx;
     const isLocalLeader = wants !== null && wants === localIdx;
 
@@ -1578,132 +1048,7 @@ function drawArcTextOnCanvas(ctx, text, cx, cy, arcRadiusPx, arcCenterDeg, arcAn
   ctx.restore();
 }
 
-function yawFromQuaternion(q) {
-  // Assumes Y-up.
-  const siny = 2 * (q.w * q.y + q.x * q.z);
-  const cosy = 1 - 2 * (q.y * q.y + q.z * q.z);
-  return Math.atan2(siny, cosy);
-}
-
-function getForwardRightFromYaw(yaw) {
-  // Coordinate convention for this prototype:
-  // - Camera sits behind the cart at +Z.
-  // - "Forward" (W) should move away from the camera, toward -Z when yaw = 0.
-  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-  const up = new THREE.Vector3(0, 1, 0);
-  const right = new THREE.Vector3().crossVectors(forward, up).normalize();
-  return { forward, right };
-}
-
-function vec3ToRapier(v) {
-  return { x: v.x, y: v.y, z: v.z };
-}
-
-function rapierToVec3(v) {
-  return new THREE.Vector3(v.x, v.y, v.z);
-}
-
-function getBodyMass(body) {
-  if (body && typeof body.mass === "function") return body.mass();
-  return 1;
-}
-
-function planarSpeed(v) {
-  return Math.hypot(v.x, v.z);
-}
-
-function vec3PlanarDirection(v) {
-  const d = new THREE.Vector3(v.x, 0, v.z);
-  const len = d.length();
-  if (len <= 1e-6) return null;
-  return d.multiplyScalar(1 / len);
-}
-
-/**
- * @param {number} mass
- * @param {number} hx
- * @param {number} hy
- * @param {number} hz
- * @param {{ x: number; y: number; z: number }} comOffsetFromColliderCenter
- * @returns {{ ix: number; iy: number; iz: number }}
- */
-function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffsetFromColliderCenter) {
-  // * Solid cuboid inertia about its geometric center (principal axes align with the box).
-  const ix0 = (mass / 12) * (4 * hy * hy + 4 * hz * hz);
-  const iy0 = (mass / 12) * (4 * hx * hx + 4 * hz * hz);
-  const iz0 = (mass / 12) * (4 * hx * hx + 4 * hy * hy);
-
-  // * Parallel axis theorem: shift inertia to a new body origin given an explicit center of mass.
-  const x = comOffsetFromColliderCenter.x;
-  const y = comOffsetFromColliderCenter.y;
-  const z = comOffsetFromColliderCenter.z;
-  const r2 = x * x + y * y + z * z;
-  const ix = ix0 + mass * (r2 - x * x);
-  const iy = iy0 + mass * (r2 - y * y);
-  const iz = iz0 + mass * (r2 - z * z);
-
-  return { ix, iy, iz };
-}
-
-/**
- * @param {any} body
- * @param {any} collider
- * @param {{ label: string; hx: number; hy: number; hz: number; colliderLocalY: number }}
- */
-function applyCartMassPropertiesOverride(body, collider, { label, hx, hy, hz, colliderLocalY }) {
-  // * Capture Rapier's default mass from the cuboid collider, then move mass to the collider without contributing mass.
-  let baseMass =
-    collider && typeof collider.mass === "function"
-      ? collider.mass()
-      : typeof body.mass === "function"
-        ? body.mass()
-        : 1;
-  if (!Number.isFinite(baseMass) || baseMass <= 0) {
-    baseMass = 1;
-  }
-
-  if (typeof collider.setDensity === "function") {
-    collider.setDensity(0);
-  }
-
-  // * Baseline localCoM; tuning notes: CONFIG.cart and deferred/cart-feel-tuning.md
-  const targetCom = new RAPIER.Vector3(0, -0.55, 0);
-
-  const comOffsetFromColliderCenter = {
-    x: 0,
-    y: -0.55 - colliderLocalY,
-    z: 0,
-  };
-  const { ix, iy, iz } = principalInertiaForTranslatedBox(
-    baseMass,
-    hx,
-    hy,
-    hz,
-    comOffsetFromColliderCenter,
-  );
-
-  body.setAdditionalMassProperties(
-    baseMass,
-    targetCom,
-    new RAPIER.Vector3(ix, iy, iz),
-    RAPIER.RotationOps.identity(),
-    true,
-  );
-
-  if (typeof body.recomputeMassPropertiesFromColliders === "function") {
-    body.recomputeMassPropertiesFromColliders(true);
-  }
-
-  const com = body.localCom();
-  const inertia = body.principalInertia();
-}
-
-function wrapAngleRad(angle) {
-  let a = angle;
-  while (a > Math.PI) a -= 2 * Math.PI;
-  while (a < -Math.PI) a += 2 * Math.PI;
-  return a;
-}
+// (Physics helper functions removed - using modular Simulation equivalents)
 
 async function main() {
   await RAPIER.init();
@@ -1720,6 +1065,8 @@ async function main() {
   let gameMusicFadeOutInterval = null;
   let menuMusicFadeOutInterval = null;
   let gameMusicFadeInInterval = null;
+  let input = null;
+  const ramBoostStreaks = [];
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -1731,6 +1078,31 @@ async function main() {
   // Try to focus immediately on load (some browsers require a user gesture;
   // pointerdown above covers that).
   setTimeout(() => canvas.focus(), 0);
+
+  input = Input.setupInput(
+    canvas,
+    () => {
+      if (HUD.isEscOverlayVisible()) {
+        HUD.hideEscOverlay();
+      } else {
+        HUD.showEscOverlay();
+      }
+    },
+    () => {
+      setAllAudioMuted(!isMuted);
+      if (hud && hud.syncAudioControls) hud.syncAudioControls();
+    },
+    () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
+      const mySlot = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
+      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
+      triggerHop(cart, performance.now());
+    },
+    () => {
+      triggerRamBoost(localCartForConnId(), performance.now());
+    }
+  );
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -1755,24 +1127,53 @@ async function main() {
     trashPool.push(m);
   }
 
-  function spawnTrashBurst(position, intensity) {
-    const count = Math.floor(6 + intensity * 8); // 6-14 particles
+  function spawnTrashBurst(position, intensity, type = "cart") {
+    const count = type === "floor" 
+      ? Math.floor(4 + intensity * 4) 
+      : Math.floor(6 + intensity * 8);
     let spawned = 0;
     for (let i = 0; i < trashPool.length && spawned < count; i++) {
       const p = trashPool[i];
       if (p.visible) continue;
-      p.position.set(position.x, position.y + 0.5, position.z);
-      p.scale.setScalar(0.8 + intensity * 0.8);
-      p.material.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
+      p.position.set(position.x, position.y + (type === "floor" ? 0.05 : 0.5), position.z);
+      p.scale.setScalar((0.8 + intensity * 0.8) * (type === "floor" ? 0.65 : 1.0));
+      if (type === "floor") {
+        const colors = [0x551a8b, 0xff00ff, 0x333333];
+        p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+      } else if (type === "edge") {
+        const colors = [0xff00ff, 0x00ffff, 0xffffff];
+        p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+      } else {
+        p.material.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
+      }
       p.material.opacity = 1;
       p.visible = true;
-      p.userData.vel.set(
-        (Math.random() - 0.5) * 10 * intensity,
-        4 + Math.random() * 5 * intensity,
-        (Math.random() - 0.5) * 10 * intensity
-      );
+      if (type === "floor") {
+        const angle = Math.random() * Math.PI * 2;
+        const sp = (3 + Math.random() * 5) * intensity;
+        p.userData.vel.set(
+          Math.cos(angle) * sp,
+          1.5 + Math.random() * 2.5,
+          Math.sin(angle) * sp
+        );
+      } else if (type === "edge") {
+        const toCenter = new THREE.Vector3(-position.x, 0, -position.z).normalize();
+        const spreadX = (Math.random() - 0.5) * 3;
+        const spreadZ = (Math.random() - 0.5) * 3;
+        p.userData.vel.set(
+          toCenter.x * (6 + Math.random() * 6) * intensity + spreadX,
+          2 + Math.random() * 4 * intensity,
+          toCenter.z * (6 + Math.random() * 6) * intensity + spreadZ
+        );
+      } else {
+        p.userData.vel.set(
+          (Math.random() - 0.5) * 10 * intensity,
+          4 + Math.random() * 5 * intensity,
+          (Math.random() - 0.5) * 10 * intensity
+        );
+      }
       p.userData.life = 0;
-      p.userData.maxLife = 0.4 + Math.random() * 0.2;
+      p.userData.maxLife = type === "floor" ? 0.35 + Math.random() * 0.15 : 0.4 + Math.random() * 0.2;
       spawned++;
     }
   }
@@ -2092,1006 +1493,7 @@ async function main() {
     try { applyAudioVolume(); } catch (e) {}
   }
 
-  function initHud() {
-    const existing = document.getElementById("hud");
-    if (existing) existing.remove();
-    const existingStyle = document.getElementById("hud-style");
-    if (existingStyle) existingStyle.remove();
-
-    const style = document.createElement("style");
-    style.id = "hud-style";
-    style.textContent = `
-      #hud {
-        --hud-display: "Bungee", "Archivo Black", cursive, sans-serif;
-        --hud-mono: "Space Mono", ui-monospace, monospace;
-        --hud-glow: #22e6ff;
-        position: fixed;
-        inset: 0;
-        z-index: 20000;
-        pointer-events: none;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        color: #ffffff;
-        text-shadow: 0 2px 12px rgba(0,0,0,0.85);
-      }
-
-      #hud .hud-status {
-        position: absolute;
-        top: 18px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-family: var(--hud-display);
-        font-size: 2.4rem;
-        font-weight: 900;
-        letter-spacing: 0.06em;
-        padding: 10px 14px;
-        color: #ff2bd6;
-        text-shadow:
-          4px 4px 0 #22e6ff,
-          0 0 24px #ff2bd6,
-          0 0 42px #ff2bd6;
-        display: none;
-        white-space: nowrap;
-      }
-
-      #hud .hud-timer {
-        position: absolute;
-        top: 18px;
-        left: 18px;
-        display: none;
-        align-items: stretch;
-        justify-content: flex-start;
-        flex-direction: row;
-        background: rgba(0,0,0,0.75);
-        border: 2px solid rgba(255,255,255,0.15);
-        border-radius: 6px;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        overflow: hidden;
-        pointer-events: none;
-      }
-
-      #hud .hud-timer-stripe {
-        width: 8px;
-        background: #39ff14;
-        box-shadow: 0 0 12px #39ff14aa;
-        flex: 0 0 auto;
-      }
-
-      #hud .hud-timer-body {
-        padding: 10px 20px 12px 16px;
-        min-width: 200px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      #hud .hud-timer-meta {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-family: "Share Tech Mono", ui-monospace, monospace;
-        font-size: 13px;
-        letter-spacing: 2px;
-        color: rgba(255,255,255,0.6);
-        text-transform: uppercase;
-        line-height: 1;
-      }
-
-      #hud .hud-timer-pip {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #39ff14;
-        box-shadow: 0 0 6px #39ff14;
-        flex: 0 0 auto;
-      }
-
-      #hud .hud-timer-rd {
-        margin-left: auto;
-        color: rgba(255,255,255,0.45);
-        font-size: 12px;
-        letter-spacing: 1px;
-      }
-
-      #hud .hud-timer-num {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 54px;
-        line-height: 1;
-        letter-spacing: 4px;
-        color: #ffffff;
-        text-shadow: 0 0 20px rgba(57,255,20,0.4);
-      }
-
-      #hud .hud-timer-bar {
-        height: 5px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 3px;
-        overflow: hidden;
-      }
-
-      #hud .hud-timer-bar i {
-        display: block;
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(90deg, #39ff14, #22e6ff);
-        border-radius: 3px;
-        box-shadow: 0 0 8px #39ff1488;
-      }
-
-      #hud .hud-scores {
-        position: absolute;
-        top: 18px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: none;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        gap: 0;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0,0,0,0.75);
-        border: 2px solid rgba(255,255,255,0.15);
-        border-radius: 6px;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        overflow: hidden;
-      }
-
-      #hud .hud-scoreBox {
-        --hud-glow: #22e6ff;
-        padding: 14px 18px;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-        border-right: 1px solid rgba(255,255,255,0.08);
-      }
-
-      #hud .hud-scoreBox:last-child {
-        border-right: none;
-      }
-
-      #hud .hud-scoreBox[data-hud-color="pink"] { --hud-glow: #ff00ff; }
-      #hud .hud-scoreBox[data-hud-color="blue"] { --hud-glow: #00ffff; }
-      #hud .hud-scoreBox[data-hud-color="green"] { --hud-glow: #00ff00; }
-      #hud .hud-scoreBox[data-hud-color="yellow"] { --hud-glow: #ffff00; }
-      #hud .hud-scoreBox[data-hud-color="neonOrange"] { --hud-glow: #ff6600; }
-
-      #hud .hud-scoreRank {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 16px;
-        color: var(--hud-glow);
-        text-shadow: 0 0 8px var(--hud-glow);
-        min-width: 16px;
-      }
-
-      #hud .hud-scoreLabel {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 14px;
-        letter-spacing: 1px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 160px;
-        color: #ffffff;
-        text-shadow: 0 0 6px rgba(255,255,255,0.2);
-      }
-
-      #hud .hud-scoreValue {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 18px;
-        color: var(--hud-glow);
-        text-shadow: 0 0 10px var(--hud-glow);
-        min-width: 24px;
-        text-align: right;
-      }
-
-      #hud .hud-scoreYou {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 9px;
-        background: var(--hud-glow);
-        color: #000000;
-        padding: 2px 5px;
-        border-radius: 3px;
-        letter-spacing: 1px;
-        box-shadow: 0 0 8px var(--hud-glow);
-        display: none;
-      }
-
-      #hud .hud-feed {
-        position: absolute;
-        top: 120px;
-        right: 18px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        z-index: 20001;
-        text-align: right;
-        pointer-events: none;
-      }
-
-      #hud .hud-feed-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 8px;
-        font-size: 14px;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        opacity: 0.9;
-        animation: hud-feed-in 300ms ease-out both;
-      }
-
-      #hud .hud-feed-actor {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 14px;
-        color: var(--c);
-        text-shadow: 0 0 8px var(--c);
-      }
-
-      #hud .hud-feed-verb {
-        font-family: "Share Tech Mono", ui-monospace, monospace;
-        font-size: 12px;
-        color: rgba(255,255,255,0.45);
-        letter-spacing: 2px;
-      }
-
-      #hud .hud-feed-target {
-        font-family: "Bungee", cursive, system-ui, sans-serif;
-        font-size: 14px;
-        color: var(--c2);
-        text-shadow: 0 0 8px var(--c2);
-      }
-
-      @keyframes hud-feed-in {
-        from { opacity: 0; transform: translateX(20px); }
-        to   { opacity: 0.9; transform: translateX(0); }
-      }
-
-      @keyframes hud-feed-out {
-        from { opacity: 0.9; }
-        to   { opacity: 0; }
-      }
-
-      #hud .hud-scoreBox.isLocal .hud-scoreLabel,
-      #hud .hud-scoreBox.isLocal .hud-scoreValue {
-        font-weight: 900;
-      }
-
-      #hud .hud-status.pulse {
-        animation: hudStatusPulse 200ms ease-out both;
-      }
-
-      @keyframes hudStatusPulse {
-        0% { transform: translateX(-50%) scale(1); }
-        40% { transform: translateX(-50%) scale(1.3); }
-        100% { transform: translateX(-50%) scale(1); }
-      }
-
-      #hud .hud-ready-btn {
-        --btn-glow: #22e6ff;
-        position: absolute;
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-family: 'Bungee', cursive, system-ui, sans-serif;
-        font-size: 1.6rem;
-        letter-spacing: 0.1em;
-        padding: 14px 40px;
-        background: rgba(0, 0, 0, 0.85);
-        color: var(--btn-glow);
-        border: 2px solid var(--btn-glow);
-        border-radius: 6px;
-        cursor: pointer;
-        pointer-events: auto;
-        text-transform: uppercase;
-        display: none;
-        white-space: nowrap;
-        text-shadow: 0 0 10px var(--btn-glow);
-        box-shadow: 0 0 12px var(--btn-glow), 0 0 28px color-mix(in oklab, var(--btn-glow), transparent 60%);
-        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
-        animation: readyPulse 2s ease-in-out infinite;
-      }
-
-      #hud .hud-ready-btn:hover {
-        transform: translateX(-50%) translateY(-2px) scale(1.02);
-        background: rgba(0, 0, 0, 0.65);
-        box-shadow: 0 0 20px var(--btn-glow), 0 0 44px var(--btn-glow);
-      }
-
-      #hud .hud-ready-btn.is-ready {
-        --btn-glow: #8dff2b;
-        animation: readyPulse 1.2s ease-in-out infinite;
-      }
-
-      @keyframes readyPulse {
-        0%, 100% { box-shadow: 0 0 12px var(--btn-glow, #22e6ff), 0 0 28px color-mix(in oklab, var(--btn-glow, #22e6ff), transparent 60%); }
-        50%       { box-shadow: 0 0 20px var(--btn-glow, #22e6ff), 0 0 44px var(--btn-glow, #22e6ff); }
-      }
-
-      #hud .hud-audio {
-        position: absolute;
-        top: 18px;
-        right: 18px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        background: rgba(0,0,0,0.75);
-        border: 2px solid rgba(255,255,255,0.15);
-        border-radius: 6px;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        pointer-events: auto;
-        z-index: 20001;
-      }
-
-      @media (max-width: 1200px) {
-        #hud .hud-scoreBox { font-size: 11px; padding: 4px 8px; gap: 4px; }
-        #hud .hud-scoreLabel { font-size: 11px; }
-        #hud .hud-scoreValue { font-size: 13px; }
-      }
-
-      @media (max-width: 800px) {
-        #hud .hud-scores { gap: 4px; overflow: hidden; }
-        #hud .hud-scoreBox { font-size: 10px; padding: 3px 6px; gap: 2px; }
-        #hud .hud-scoreLabel { font-size: 10px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
-        #hud .hud-scoreValue { font-size: 12px; }
-        #hud .hud-timer { transform: scale(0.8); transform-origin: top left; }
-        #hud .hud-audio { transform: scale(0.8); transform-origin: top right; }
-      }
-
-      @media (max-width: 900px) {
-        #hud .hud-scores {
-          top: auto;
-          bottom: 12px;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-      }
-      #hud .hud-mute-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: rgba(0, 0, 0, 0.4);
-        color: #ffffff;
-        cursor: pointer;
-        font-size: 14px;
-        transition: transform 150ms, background 150ms;
-      }
-      #hud .hud-mute-btn:hover {
-        transform: scale(1.08);
-        background: rgba(255, 255, 255, 0.08);
-      }
-      #hud .hud-mute-btn.muted {
-        color: #888;
-        border-color: rgba(255, 80, 80, 0.3);
-      }
-      #hud .hud-vol-stack {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      #hud .hud-vol-row {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      #hud .hud-vol-label {
-        width: 14px;
-        text-align: center;
-        color: rgba(255,255,255,0.6);
-        font-size: 12px;
-      }
-      #hud .hud-vol-track {
-        width: 80px;
-        height: 5px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 3px;
-        cursor: pointer;
-        overflow: hidden;
-      }
-      #hud .hud-vol-fill {
-        height: 100%;
-        border-radius: 3px;
-        background: #ffffff;
-        transition: width 100ms ease;
-      }
-      #hud .hud-vol-val {
-        font-family: 'Space Mono', monospace;
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(255,255,255,0.5);
-        min-width: 22px;
-        text-align: right;
-        letter-spacing: 0.05em;
-      }
-
-      #esc-overlay {
-        --esc-display: "Bungee", "Archivo Black", sans-serif;
-        --esc-mono: "Space Mono", ui-monospace, monospace;
-        position: fixed;
-        inset: 0;
-        z-index: 26000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        pointer-events: auto;
-        font-family: var(--esc-mono);
-        color: #fff;
-        -webkit-font-smoothing: antialiased;
-        text-rendering: optimizeLegibility;
-      }
-
-      #esc-overlay .esc-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(5, 5, 20, 0.7);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-      }
-
-      #esc-overlay .esc-panel {
-        position: relative;
-        z-index: 1;
-        pointer-events: auto;
-        min-width: min(420px, 92vw);
-        max-width: 460px;
-        width: 90%;
-        padding: 22px 22px 18px;
-        border-radius: 16px;
-        background: rgba(0, 0, 0, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 0 0 40px rgba(43, 255, 122, 0.08), 0 16px 48px rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        display: flex;
-        flex-direction: column;
-      }
-
-      #esc-overlay .esc-title {
-        font-family: var(--esc-display);
-        font-size: clamp(20px, 4vw, 28px);
-        font-weight: 400;
-        letter-spacing: 0.06em;
-        margin: 0 0 12px;
-        min-height: 1.2em;
-        text-align: center;
-        line-height: 1.15;
-        color: #22e6ff;
-        text-shadow: 0 0 12px #22e6ff, 0 0 28px color-mix(in oklab, #22e6ff, transparent 50%);
-      }
-
-      #esc-overlay .esc-controls {
-        display: grid;
-        grid-template-columns: minmax(104px, auto) 1fr;
-        gap: 6px;
-        margin-bottom: 10px;
-      }
-
-      #esc-overlay .esc-control-row {
-        display: contents;
-      }
-
-      #esc-overlay .esc-keycap,
-      #esc-overlay .esc-control-label {
-        padding: 8px 12px;
-        border-radius: 10px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        font-family: var(--esc-mono);
-        font-size: 11px;
-        letter-spacing: 0.04em;
-        color: rgba(255, 255, 255, 0.88);
-        min-width: 0;
-      }
-
-      #esc-overlay .esc-keycap {
-        color: #22e6ff;
-        text-shadow: 0 0 10px #22e6ff;
-        text-align: center;
-      }
-
-      #esc-overlay .esc-control-label {
-        text-transform: uppercase;
-      }
-
-      #esc-overlay .esc-scoring-divider {
-        border: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.15);
-        margin: 16px 0;
-      }
-
-      #esc-overlay .esc-scoring-title {
-        font-family: var(--esc-display);
-        font-size: 14px;
-        font-weight: 400;
-        letter-spacing: 0.1em;
-        color: #ff2bd6;
-        text-shadow: 0 0 8px #ff2bd6;
-        text-transform: uppercase;
-        margin: 0 0 6px;
-        text-align: center;
-      }
-
-      #esc-overlay .esc-scoring {
-        display: grid;
-        grid-template-columns: 1fr max-content;
-        gap: 12px 8px;
-        margin-bottom: 0;
-        padding: 16px 0;
-      }
-
-      #esc-overlay .esc-scoring-key,
-      #esc-overlay .esc-scoring-val {
-        padding: 6px 10px;
-        border-radius: 10px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        font-family: var(--esc-mono);
-        font-size: 11px;
-        letter-spacing: 0.04em;
-        color: rgba(255, 255, 255, 0.88);
-        min-width: 0;
-      }
-
-      #esc-overlay .esc-scoring-val {
-        color: #22e6ff;
-        text-shadow: 0 0 8px #22e6ff;
-        text-align: left;
-        white-space: nowrap;
-        font-size: 13px;
-        font-weight: 700;
-      }
-
-      #esc-overlay .esc-scoring-hint {
-        grid-column: 1 / -1;
-        padding: 6px 10px;
-        font-family: var(--esc-display);
-        font-size: 14px;
-        font-weight: 400;
-        letter-spacing: 0.1em;
-        color: #ff2bd6;
-        text-shadow: 0 0 8px #ff2bd6;
-        text-transform: uppercase;
-        text-align: center;
-      }
-
-      #esc-overlay .esc-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        width: 100%;
-      }
-
-      #esc-overlay .esc-btn {
-        width: 100%;
-        padding: 14px 22px;
-        border-radius: 6px;
-        font-family: var(--esc-display);
-        font-size: 16px;
-        letter-spacing: 0.06em;
-        cursor: pointer;
-        text-decoration: none;
-        text-align: center;
-        display: block;
-        border: 2px solid var(--btn-glow, #ff2bd6);
-        background: rgba(0, 0, 0, 0.55);
-        color: var(--btn-glow, #ff2bd6);
-        text-shadow: 0 0 10px var(--btn-glow, #ff2bd6);
-        box-shadow: 0 0 12px var(--btn-glow, #ff2bd6), 0 0 28px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 60%);
-        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
-      }
-
-      #esc-overlay .esc-btn:hover:not(:disabled) {
-        transform: translateY(-2px) scale(1.02);
-        background: rgba(0, 0, 0, 0.35);
-        box-shadow: 0 0 20px var(--btn-glow, #ff2bd6), 0 0 44px var(--btn-glow, #ff2bd6);
-      }
-
-      #esc-overlay .esc-btn--quit {
-        --btn-glow: #22e6ff;
-      }
-    `.trim();
-    document.head.appendChild(style);
-
-    const root = document.createElement("div");
-    root.id = "hud";
-
-    const status = document.createElement("div");
-    status.className = "hud-status";
-
-    const timer = document.createElement("div");
-    timer.className = "hud-timer";
-    const timerStripe = document.createElement("div");
-    timerStripe.className = "hud-timer-stripe";
-    const timerBody = document.createElement("div");
-    timerBody.className = "hud-timer-body";
-    const timerMeta = document.createElement("div");
-    timerMeta.className = "hud-timer-meta";
-    const timerPip = document.createElement("span");
-    timerPip.className = "hud-timer-pip";
-    const timerMetaText = document.createElement("span");
-    timerMetaText.textContent = "TIME LEFT";
-    const timerRd = document.createElement("span");
-    timerRd.className = "hud-timer-rd";
-    timerRd.textContent = "";
-    timerMeta.appendChild(timerPip);
-    timerMeta.appendChild(timerMetaText);
-    timerMeta.appendChild(timerRd);
-
-    const timerNum = document.createElement("div");
-    timerNum.className = "hud-timer-num";
-    timerNum.textContent = "";
-
-    const timerBar = document.createElement("div");
-    timerBar.className = "hud-timer-bar";
-    const timerFill = document.createElement("i");
-    timerBar.appendChild(timerFill);
-
-    timerBody.appendChild(timerMeta);
-    timerBody.appendChild(timerNum);
-    timerBody.appendChild(timerBar);
-    timer.appendChild(timerStripe);
-    timer.appendChild(timerBody);
-
-    const scores = document.createElement("div");
-    scores.className = "hud-scores";
-
-    const feed = document.createElement("div");
-    feed.className = "hud-feed";
-
-    const hexToCss = (hex) => `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
-    const pickVerb = (hit) => {
-      if (hit?.wasCritical) return "BOOSTED OFF";
-      const verbs = ["YEETED", "RAMMED", "BOOSTED OFF"];
-      return verbs[Math.floor(Math.random() * verbs.length)];
-    };
-
-    /**
-     * @param {string | null} actorName
-     * @param {string | null} actorColor
-     * @param {string} verb
-     * @param {string} targetName
-     * @param {string | null} targetColor
-     */
-    function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor) {
-      if (!feed) return;
-      const row = document.createElement("div");
-      row.className = "hud-feed-row";
-      row.style.setProperty("--c", actorColor || "rgba(255,255,255,0.9)");
-      row.style.setProperty("--c2", targetColor || "rgba(255,255,255,0.9)");
-
-      if (actorName) {
-        const actor = document.createElement("span");
-        actor.className = "hud-feed-actor";
-        actor.textContent = actorName;
-        const v = document.createElement("span");
-        v.className = "hud-feed-verb";
-        v.textContent = verb;
-        const target = document.createElement("span");
-        target.className = "hud-feed-target";
-        target.textContent = targetName;
-        row.appendChild(actor);
-        row.appendChild(v);
-        row.appendChild(target);
-      } else {
-        const target = document.createElement("span");
-        target.className = "hud-feed-target";
-        target.textContent = targetName;
-        const v = document.createElement("span");
-        v.className = "hud-feed-verb";
-        v.textContent = verb;
-        row.appendChild(target);
-        row.appendChild(v);
-      }
-
-      feed.prepend(row);
-      while (feed.children.length > 5) {
-        const last = feed.lastElementChild;
-        if (last) last.remove();
-        else break;
-      }
-
-      const fadeTimer = setTimeout(() => {
-        row.style.animation = "hud-feed-out 500ms ease-out forwards";
-        const removeTimer = setTimeout(() => row.remove(), 520);
-        row.addEventListener(
-          "animationend",
-          () => {
-            clearTimeout(removeTimer);
-            row.remove();
-          },
-          { once: true },
-        );
-      }, 4000);
-
-      row.addEventListener(
-        "DOMNodeRemoved",
-        () => {
-          clearTimeout(fadeTimer);
-        },
-        { once: true },
-      );
-    }
-
-    /** @type {{ root: HTMLDivElement; box: HTMLDivElement; rank: HTMLDivElement; label: HTMLDivElement; you: HTMLSpanElement; value: HTMLDivElement }[]} */
-    const scoreBoxes = [];
-
-    for (let i = 0; i < 4; i += 1) {
-      const box = document.createElement("div");
-      box.className = "hud-scoreBox";
-
-      const rank = document.createElement("div");
-      rank.className = "hud-scoreRank";
-      rank.textContent = String(i + 1);
-
-      const label = document.createElement("div");
-      label.className = "hud-scoreLabel";
-      label.textContent = `P${i + 1}`;
-
-      const you = document.createElement("span");
-      you.className = "hud-scoreYou";
-      you.textContent = "YOU";
-
-      const value = document.createElement("div");
-      value.className = "hud-scoreValue";
-      value.textContent = "0";
-
-      box.appendChild(rank);
-      box.appendChild(label);
-      box.appendChild(you);
-      box.appendChild(value);
-      scores.appendChild(box);
-      scoreBoxes.push({ root, box, rank, label, you, value });
-    }
-
-    const readyBtn = document.createElement("button");
-    readyBtn.id = "ready-button";
-    readyBtn.className = "hud-ready-btn";
-    readyBtn.textContent = "";
-    readyBtn.addEventListener("click", () => {
-      if (partySocket) {
-        partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-      }
-    });
-
-    root.appendChild(status);
-    root.appendChild(timer);
-    root.appendChild(scores);
-    root.appendChild(feed);
-    root.appendChild(readyBtn);
-
-    // In-game audio widget
-    const audioWidget = document.createElement("div");
-    audioWidget.className = "hud-audio";
-
-    const hudMuteBtn = document.createElement("button");
-    hudMuteBtn.className = "hud-mute-btn";
-    hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
-    if (isMuted) hudMuteBtn.classList.add("muted");
-    hudMuteBtn.addEventListener("click", () => {
-      setAllAudioMuted(!isMuted);
-      syncAudioControls();
-    });
-
-    function createHudVolumeRow(labelText, onChange) {
-      const row = document.createElement("div");
-      row.className = "hud-vol-row";
-      const label = document.createElement("span");
-      label.className = "hud-vol-label";
-      label.textContent = labelText;
-      const track = document.createElement("div");
-      track.className = "hud-vol-track";
-      const fill = document.createElement("div");
-      fill.className = "hud-vol-fill";
-      track.appendChild(fill);
-      const val = document.createElement("span");
-      val.className = "hud-vol-val";
-      track.addEventListener("click", (e) => {
-        const r = track.getBoundingClientRect();
-        onChange(clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX));
-        syncAudioControls();
-      });
-      row.appendChild(label);
-      row.appendChild(track);
-      row.appendChild(val);
-      return { row, fill, val };
-    }
-
-    const hudMusicVol = createHudVolumeRow("♫", (v) => {
-      masterGain = v;
-      localStorage.setItem(
-        "cartRaveVolume",
-        Math.round((v / AUDIO_VOLUME_MAX) * 100).toString(),
-      );
-      try { applyAudioVolume(); } catch (e) {}
-    });
-    const hudSfxVol = createHudVolumeRow("⚡", (v) => {
-      setSfxSliderVolume(v);
-    });
-    const hudVolStack = document.createElement("div");
-    hudVolStack.className = "hud-vol-stack";
-    hudVolStack.appendChild(hudMusicVol.row);
-    hudVolStack.appendChild(hudSfxVol.row);
-
-    audioWidget.appendChild(hudMuteBtn);
-    audioWidget.appendChild(hudVolStack);
-    root.appendChild(audioWidget);
-    document.body.appendChild(root);
-
-    const escOverlay = document.createElement("div");
-    escOverlay.id = "esc-overlay";
-    escOverlay.setAttribute("role", "dialog");
-    escOverlay.setAttribute("aria-label", "Settings");
-    escOverlay.style.display = "none";
-
-    const escBackdrop = document.createElement("div");
-    escBackdrop.className = "esc-backdrop";
-
-    const escPanel = document.createElement("div");
-    escPanel.className = "esc-panel";
-
-    const escTitle = document.createElement("h2");
-    escTitle.className = "esc-title";
-    escTitle.textContent = "MENU";
-
-    const controls = document.createElement("div");
-    controls.className = "esc-controls";
-    [
-      ["WASD / Arrows", "drive"],
-      ["Shift", "nitro"],
-      ["Space", "hop"],
-      ["M", "mute"],
-      ["Esc", "close"],
-    ].forEach(([key, labelText]) => {
-      const row = document.createElement("div");
-      row.className = "esc-control-row";
-      const keycap = document.createElement("span");
-      keycap.className = "esc-keycap";
-      keycap.textContent = key;
-      const label = document.createElement("span");
-      label.className = "esc-control-label";
-      label.textContent = labelText;
-      row.appendChild(keycap);
-      row.appendChild(label);
-      controls.appendChild(row);
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "esc-actions";
-
-    const resumeBtn = document.createElement("button");
-    resumeBtn.type = "button";
-    resumeBtn.className = "esc-btn";
-    resumeBtn.textContent = "RESUME";
-
-    const quitBtn = document.createElement("button");
-    quitBtn.type = "button";
-    quitBtn.className = "esc-btn esc-btn--quit";
-    quitBtn.textContent = "QUIT TO MENU";
-
-    const postFxEnabled = () => bloomEnabled && fxPassEnabled;
-    const postFxBtn = document.createElement("button");
-    postFxBtn.type = "button";
-    postFxBtn.className = "esc-btn";
-    postFxBtn.textContent = postFxEnabled() ? "POST-FX: ON" : "POST-FX: OFF";
-    postFxBtn.addEventListener("click", () => {
-      const next = !postFxEnabled();
-      bloomEnabled = next;
-      fxPassEnabled = next;
-      if (bloomPass) bloomPass.enabled = next;
-      if (fxPass) fxPass.enabled = next;
-      postFxBtn.textContent = next ? "POST-FX: ON" : "POST-FX: OFF";
-      try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch {}
-      try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch {}
-    });
-
-    actions.appendChild(resumeBtn);
-    actions.appendChild(quitBtn);
-    actions.appendChild(postFxBtn);
-    const scoringDivider = document.createElement("hr");
-    scoringDivider.className = "esc-scoring-divider";
-
-    const scoringTitle = document.createElement("div");
-    scoringTitle.className = "esc-scoring-title";
-    scoringTitle.textContent = "SCORING";
-
-    const scoring = document.createElement("div");
-    scoring.className = "esc-scoring";
-    [
-      ["KNOCK OFF EDGE", "◆"],
-      ["KNOCK INTO HOLE", "◆◆"],
-      ["AT HIGH SPEED", "◆◆◆"],
-      ["TARGET THE LEADER", "◆◆◆◆"],
-    ].forEach(([key, val]) => {
-      const k = document.createElement("span");
-      k.className = "esc-scoring-key";
-      k.textContent = key;
-      const v = document.createElement("span");
-      v.className = "esc-scoring-val";
-      v.textContent = val;
-      scoring.appendChild(k);
-      scoring.appendChild(v);
-    });
-    const hint = document.createElement("div");
-    hint.className = "esc-scoring-hint";
-    hint.textContent = "LEADER GLOWS WHITE";
-    scoring.appendChild(hint);
-
-    escPanel.appendChild(escTitle);
-    escPanel.appendChild(controls);
-    escPanel.appendChild(scoringDivider);
-    escPanel.appendChild(scoringTitle);
-    escPanel.appendChild(scoring);
-    escPanel.appendChild(actions);
-    escOverlay.appendChild(escBackdrop);
-    escOverlay.appendChild(escPanel);
-    document.body.appendChild(escOverlay);
-
-    function syncAudioControls() {
-      const musicPercent = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
-      const sfxPercent = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
-      hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
-      hudMuteBtn.classList.toggle("muted", isMuted);
-      hudMusicVol.fill.style.width = (isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX) * 100) + "%";
-      hudMusicVol.val.textContent = isMuted ? "OFF" : musicPercent;
-      hudSfxVol.fill.style.width = (isMuted ? 0 : (sfxVolume / AUDIO_VOLUME_MAX) * 100) + "%";
-      hudSfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
-    }
-
-    function hideEscOverlay() {
-      escOverlay.style.display = "none";
-      if (labelRenderer) labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
-    }
-
-    function showEscOverlay() {
-      escOverlay.style.display = "flex";
-      if (labelRenderer) labelRenderer.domElement.style.display = "none";
-      keys.clear();
-      localNitroHeld = false;
-      syncAudioControls();
-      resumeBtn.focus();
-    }
-
-    function isEscOverlayVisible() {
-      return getComputedStyle(escOverlay).display !== "none";
-    }
-
-    resumeBtn.addEventListener("click", hideEscOverlay);
-    quitBtn.addEventListener("click", () => {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("room");
-      url.searchParams.delete("portal");
-      window.location.href = url.pathname;
-    });
-    syncAudioControls();
-
-    return {
-      root,
-      status,
-      timer,
-      timerNum,
-      timerRd,
-      timerFill,
-      scores,
-      feed,
-      scoreBoxes,
-      readyBtn,
-      addKillFeedEntry,
-      pickKillFeedVerb: pickVerb,
-      colorHexToCss: hexToCss,
-      escOverlay,
-      syncAudioControls,
-      showEscOverlay,
-      hideEscOverlay,
-      isEscOverlayVisible,
-    };
-  }
+  // (Legacy initHud removed)
 
   function initResultsOverlay() {
     const existing = document.getElementById("results-overlay");
@@ -3451,16 +1853,23 @@ async function main() {
           _localColorPicked = true;
           const colorToSend = localStorage.getItem("cartRaveColor");
           pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
-          if (pendingColorKey && partySocket && partySocket.readyState === WebSocket.OPEN) {
-            partySocket.send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));
+          if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
+            Netcode.getPartySocket().send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));
           }
         });
       }
     }
 
-    if (typeof window !== "undefined" && window.__cartRaveSkipMenuForPortalBypass) {
-      window.__cartRaveSkipMenuForPortalBypass = false;
+    if (skipMenuForPortalBypass) {
+      skipMenuForPortalBypass = false;
       hideMenu();
+    }
+
+    const room = resolvedPartyRoomFromUrl();
+    if (room && room.toLowerCase().startsWith("solo")) {
+      hideMenu();
+      Netcode.initNetcode();
+      return;
     }
 
     document.getElementById("cr-btn-join-invite")?.remove();
@@ -3498,7 +1907,7 @@ async function main() {
         pendingInviteRoomFromUrl = null;
         document.getElementById("cr-btn-join-invite")?.remove();
         hideMenu();
-        initNetcode(room);
+        Netcode.initNetcode(room);
         return;
       }
       pendingInviteRoomFromUrl = null;
@@ -3509,13 +1918,13 @@ async function main() {
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
         hideMenu();
-        initNetcode();
+        Netcode.initNetcode();
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
         hideMenu();
-        initNetcode();
+        Netcode.initNetcode();
       } else if (action === "friends") {
         const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
         const url = new URL(window.location.href);
@@ -3549,7 +1958,7 @@ async function main() {
           friendsEnter.onclick = () => {
             friendsScreen.style.display = "none";
             hideMenu();
-            initNetcode();
+            Netcode.initNetcode();
           };
         }
         if (friendsBack) {
@@ -3726,7 +2135,37 @@ async function main() {
   }
 
 
-  hud = initHud();
+  hud = HUD.init({
+    getIsMuted: () => isMuted,
+    setIsMuted: (val) => { setAllAudioMuted(val); },
+    getMasterGain: () => masterGain,
+    setMasterGain: (val) => {
+      masterGain = val;
+      localStorage.setItem("cartRaveVolume", Math.round((val / AUDIO_VOLUME_MAX) * 100).toString());
+      try { applyAudioVolume(); } catch (e) {}
+    },
+    getSfxVolume: () => sfxVolume,
+    setSfxVolume: (val) => { setSfxSliderVolume(val); },
+    getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
+    getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
+    getBloomEnabled: () => bloomEnabled,
+    setBloomEnabled: (val) => {
+      bloomEnabled = val;
+      try { localStorage.setItem("cartRaveBloom", val ? "on" : "off"); } catch (e) {}
+    },
+    getFxPassEnabled: () => fxPassEnabled,
+    setFxPassEnabled: (val) => {
+      fxPassEnabled = val;
+      try { localStorage.setItem("cartRaveFx", val ? "on" : "off"); } catch (e) {}
+    },
+    getBloomPass: () => bloomPass,
+    getFxPass: () => fxPass,
+    getLabelRenderer: () => labelRenderer,
+    getMenuVisible: () => menuVisible,
+    getPartySocket: () => Netcode.getPartySocket(),
+    getReadyToggleMsgType: () => MSG.readyToggle,
+    getCART_COLORS: () => CART_COLORS
+  });
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
   hideMenuRef = hideMenu;
@@ -3735,7 +2174,7 @@ async function main() {
   // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
   onGameStartHandler = (msg) => {
     if (menuVisible) hideMenu();
-    if (isHost) startCountdown();
+    if (Netcode.getIsHost()) startCountdown();
   };
 
   function clampInt(value, min, max) {
@@ -3744,171 +2183,29 @@ async function main() {
     return Math.max(min, Math.min(max, v));
   }
 
-  function updateHud() {
-    if (menuVisible) return;
-    if (!hud) return;
-
-    if (hud && hud.feed) hud.feed.style.display = "";
-
-    // --- Status line ---
-    if (updateHud._goUntilMs == null) updateHud._goUntilMs = 0;
-    if (updateHud._prevRoundPhase == null) updateHud._prevRoundPhase = null;
-    const prevPhase = updateHud._prevRoundPhase;
-    if (prevPhase === "countdown" && roundPhase === "running") {
-      updateHud._goUntilMs = Date.now() + 500;
-    }
-    updateHud._prevRoundPhase = roundPhase;
-
-    if (Date.now() < updateHud._goUntilMs) {
-      hud.status.style.display = "block";
-      hud.status.style.color = "#22e6ff";
-      hud.status.textContent = "GO!";
-      hud.status.classList.remove("pulse");
-    } else
-    if (roundPhase === "running" && lastCartStandingTimeoutId !== null) {
-      hud.status.style.display = "block";
-      hud.status.style.color = "#ffffff";
-      hud.status.textContent = "LAST CART STANDING!";
-    } else if (roundPhase === "countdown") {
-      const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
-      const remainingMs = 3000 - elapsedMs;
-      const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
-      hud.status.style.display = "block";
-      hud.status.style.color = "#ff2bd6";
-      hud.status.textContent = `GET READY  ${n}`;
-      if (updateHud._lastCountdownN == null) updateHud._lastCountdownN = null;
-      if (updateHud._lastCountdownN !== n) {
-        updateHud._lastCountdownN = n;
-        hud.status.classList.remove("pulse");
-        void hud.status.offsetWidth; // restart animation
-        hud.status.classList.add("pulse");
-      }
-    } else if (roundPhase === "podium") {
-      // * Winner line lives on the results overlay; keep top HUD clear during podium.
-      hud.status.style.display = "none";
-      hud.status.textContent = "";
-    } else {
-      hud.status.style.display = "none";
-      hud.status.textContent = "";
-    }
-
-    // --- Timer ---
-    if (roundPhase === "running") {
-      const elapsedMs = Date.now() - (roundStartedAtMs || 0);
-      const totalRoundMs = 95000;
-      const remainingMs = totalRoundMs - elapsedMs;
-      const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
-      const minutes = Math.floor(seconds / 60);
-      const secondsPart = seconds % 60;
-      const text = minutes > 0
-        ? `${minutes}:${String(secondsPart).padStart(2, "0")}`
-        : `:${String(secondsPart).padStart(2, "0")}`;
-      hud.timer.style.display = "block";
-      if (hud.timerNum) hud.timerNum.textContent = text;
-      if (hud.timerRd) {
-        const currentRound = Math.max(1, matchHistory.length + 1);
-        hud.timerRd.textContent = `RD ${currentRound}`;
-      }
-      if (hud.timerFill) {
-        const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
-        hud.timerFill.style.width = `${pct}%`;
-      }
-    } else {
-      hud.timer.style.display = "none";
-      if (hud.timerNum) hud.timerNum.textContent = "";
-      if (hud.timerRd) hud.timerRd.textContent = "";
-      if (hud.timerFill) hud.timerFill.style.width = "0%";
-    }
-
-    // --- Score row ---
-    if (roundPhase === "running") {
-      hud.scores.style.display = "flex";
-      const localIdx = localSlotIndexForConn(youConnId);
-      updateHud._lastLocalIdx = localIdx;
-      const rowsKey =
-        `${Number(roundScores?.[0] ?? 0)}|${Number(roundScores?.[1] ?? 0)}|${Number(roundScores?.[2] ?? 0)}|${Number(roundScores?.[3] ?? 0)}` +
-        `__${(netSlots || []).slice(0, 4).map((s, i) => `${s?.name || `P${i + 1}`}:${s?.color || ""}`).join("|")}`;
-      if (updateHud._sortedScoreRowsKey !== rowsKey) {
-        updateHud._sortedScoreRowsKey = rowsKey;
-        const nextRows = [];
-        for (let i = 0; i < 4; i += 1) {
-          const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
-          const slotName = netSlots[i]?.name || `P${i + 1}`;
-          const slotColor = netSlots[i]?.color || null;
-          nextRows.push({ slotIndex: i, score, slotName, slotColor });
-        }
-        nextRows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
-        updateHud._sortedScoreRows = nextRows;
-      }
-      const rows = updateHud._sortedScoreRows || [];
-
-      for (let pos = 0; pos < 4; pos += 1) {
-        const entry = hud.scoreBoxes[pos];
-        const row = rows[pos];
-        if (!entry || !row) continue;
-
-        entry.rank.textContent = String(pos + 1);
-        entry.label.textContent = row.slotName;
-        entry.value.textContent = String(row.score);
-
-        if (row.slotColor) {
-          entry.box.dataset.hudColor = row.slotColor;
-        } else {
-          delete entry.box.dataset.hudColor;
-        }
-
-        const isLocal = row.slotIndex === localIdx;
-        entry.box.classList.toggle("isLocal", isLocal);
-        entry.you.style.display = isLocal ? "inline-block" : "none";
-      }
-    } else {
-      hud.scores.style.display = "none";
-      for (let i = 0; i < 4; i += 1) {
-        const entry = hud.scoreBoxes[i];
-        entry.box.classList.remove("isLocal");
-        entry.value.textContent = "";
-        entry.rank.textContent = String(i + 1);
-        entry.you.style.display = "none";
-      }
-    }
-
-    // --- Ready button ---
-    if (hud.readyBtn) {
-      const localSlot = netSlots.find((s) => s && s.connId === youConnId);
-      const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
-      if (roundPhase === "lobby" && !menuVisible) {
-        hud.readyBtn.style.display = "block";
-        hud.readyBtn.textContent = isLocalReady ? "READY!" : "READY UP!";
-        hud.readyBtn.classList.toggle("is-ready", isLocalReady);
-      } else {
-        hud.readyBtn.style.display = "none";
-        hud.readyBtn.classList.remove("is-ready");
-      }
-    }
-
-    updateResultsOverlay();
-  }
+  // (Legacy updateHud removed)
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
     const { overlay, title, finalScores, history, playAgain, exitPortal, statsLine } = resultsUi;
-    if (roundPhase === "podium") {
+    if (GameState.getRoundState().phase === "podium") {
       overlay.style.display = "flex";
       overlay.style.pointerEvents = "auto";
-      playAgain.disabled = !isHost;
-      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
+      playAgain.disabled = !Netcode.getIsHost();
+      playAgain.textContent = Netcode.getIsHost() ? "PLAY AGAIN" : "WAITING FOR HOST…";
 
-      const slotDisplayName = (slotIndex) => netSlots[slotIndex]?.name || `P${slotIndex + 1}`;
+      const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
-      if (roundWinnerSlotIndex === "draw") {
+      const winnerIdx = GameState.getRoundState().winnerSlotIndex;
+      if (winnerIdx === "draw") {
         title.textContent = "DRAW";
         title.style.setProperty("--title-glow", "#ffe53d");
       } else {
-        const idx = Number.isFinite(roundWinnerSlotIndex) ? roundWinnerSlotIndex : null;
+        const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
         if (idx != null) {
-          const score = roundScores && roundScores[idx] != null ? roundScores[idx] : 0;
+          const score = GameState.getRoundScores() && GameState.getRoundScores()[idx] != null ? GameState.getRoundScores()[idx] : 0;
           title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
-          title.style.setProperty("--title-glow", getColorForSlot(netSlots[idx]));
+          title.style.setProperty("--title-glow", getColorForSlot(Netcode.getNetSlots()[idx]));
         } else {
           title.textContent = "ROUND COMPLETE";
           title.style.setProperty("--title-glow", "#ffffff");
@@ -3917,12 +2214,12 @@ async function main() {
 
       finalScores.replaceChildren();
       for (let i = 0; i < 4; i += 1) {
-        const s = roundScores && roundScores[i] != null ? roundScores[i] : 0;
+        const s = GameState.getRoundScores() && GameState.getRoundScores()[i] != null ? GameState.getRoundScores()[i] : 0;
         const row = document.createElement("div");
         row.className = "results-score-row";
-        const isWinner = roundWinnerSlotIndex !== "draw" && roundWinnerSlotIndex === i;
+        const isWinner = winnerIdx !== "draw" && winnerIdx === i;
         if (isWinner) row.classList.add("is-winner");
-        row.style.setProperty("--slot-glow", getColorForSlot(netSlots[i]));
+        row.style.setProperty("--slot-glow", getColorForSlot(Netcode.getNetSlots()[i]));
 
         const nameEl = document.createElement("span");
         nameEl.className = "results-score-name";
@@ -4069,6 +2366,104 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   };
   sfx = {
     _muted: isMuted,
+    playFloorImpact(intensity) {
+      const i = clamp(intensity, 0, 1);
+      if (i <= 0.05) return;
+      const ctx = audioListener.context;
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime;
+
+      const thump = ctx.createOscillator();
+      thump.type = "sine";
+      thump.frequency.setValueAtTime(85 + Math.random() * 15, now);
+      thump.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+
+      const len = 0.18;
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j += 1) {
+        d[j] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(180, now);
+
+      const gainThump = ctx.createGain();
+      const gThump = 0.45 * i * sfxVolume;
+      gainThump.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gThump), now);
+      gainThump.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+      const gainNoise = ctx.createGain();
+      const gNoise = 0.3 * i * sfxVolume;
+      gainNoise.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gNoise), now);
+      gainNoise.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+
+      thump.connect(gainThump);
+      gainThump.connect(audioListener.gain);
+
+      noise.connect(lp);
+      lp.connect(gainNoise);
+      gainNoise.connect(audioListener.gain);
+
+      try {
+        thump.start(now);
+        thump.stop(now + 0.2);
+        noise.start(now);
+        noise.stop(now + 0.18);
+      } catch {}
+    },
+    playEdgeImpact(intensity) {
+      const i = clamp(intensity, 0, 1);
+      if (i <= 0.05) return;
+      const ctx = audioListener.context;
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime;
+
+      const ring = ctx.createOscillator();
+      ring.type = "triangle";
+      ring.frequency.setValueAtTime(400 + Math.random() * 100, now);
+      ring.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+
+      const len = 0.1;
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j += 1) {
+        d[j] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.setValueAtTime(900, now);
+
+      const gainRing = ctx.createGain();
+      const gRing = 0.4 * i * sfxVolume;
+      gainRing.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gRing), now);
+      gainRing.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+      const gainNoise = ctx.createGain();
+      const gNoise = 0.25 * i * sfxVolume;
+      gainNoise.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gNoise), now);
+      gainNoise.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+
+      ring.connect(gainRing);
+      gainRing.connect(audioListener.gain);
+
+      noise.connect(hp);
+      hp.connect(gainNoise);
+      gainNoise.connect(audioListener.gain);
+
+      try {
+        ring.start(now);
+        ring.stop(now + 0.25);
+        noise.start(now);
+        noise.stop(now + 0.1);
+      } catch {}
+    },
     playCollision(intensity) {
       const i = clamp(intensity, 0, 1);
       if (i <= 0) return;
@@ -4122,7 +2517,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       activeImpactSfx.push(entry);
       try { src.start(0); } catch {}
 
-      if (roundPhase === "running" && i > 0.2) {
+      if (GameState.getRoundState().phase === "running" && i > 0.2) {
         shakeIntensity = i * 8 * 2; // max ~16px offset
         shakeUntil = performance.now() + 225 + i * 150; // ~50% longer than before
       }
@@ -4377,6 +2772,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   };
 
   const cartLinvelScratch = new THREE.Vector3();
+  const netTargetPosScratch = new THREE.Vector3();
+  const interpPrevQuat = new THREE.Quaternion();
+  const interpCurrQuat = new THREE.Quaternion();
+  let fpsFrames = 0;
+  let fpsLast = performance.now();
 
   function dampFactor(lambda, dt) {
     return 1 - Math.exp(-lambda * dt);
@@ -4744,6 +3144,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     innerRadius: CONFIG.record.innerRadius,
     thickness: CONFIG.record.thickness,
     curveSegments: 64,
+    bevelThickness: 0.20, // moderately thicker/smoother bevel slope (no clipping)
+    bevelSize: 0.20,      // moderately wider bevel slope (no clipping)
   });
   const recordVerts = /** @type {Float32Array} */ (recordPhysicsGeo.attributes.position.array);
   const recordIndices = recordPhysicsGeo.index
@@ -4763,6 +3165,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   // Step 15 — DJ Spawn Booths (4x, N/S/E/W)
   // ========================================================================
   const boothNeonMeshes = []; // collect for RGB cycling in game loop
+  const boothColliderHandles = [];
 
   (function buildBooths() {
     const B = CONFIG.booth;
@@ -4925,12 +3328,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       );
       const halfYaw = yaw / 2;
       platBody.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
-      world.createCollider(
+      const boothCollider = world.createCollider(
         RAPIER.ColliderDesc.cuboid(B.platformWidth / 2, B.platformThickness / 2, B.platformDepth / 2)
           .setFriction(B.friction)
           .setRestitution(B.restitution),
         platBody,
       );
+      boothColliderHandles.push(boothCollider.handle);
 
 
       // ===== NEON EDGE STRIPS (platform perimeter) =====
@@ -5277,7 +3681,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   const pitWallIndices = pitWallGeo.index
     ? Uint32Array.from(pitWallGeo.index.array)
     : Uint32Array.from(Array.from({ length: pitWallGeo.attributes.position.count }, (_, i) => i));
-  world.createCollider(RAPIER.ColliderDesc.trimesh(pitWallVerts, pitWallIndices), pitWallBody);
+  const pitWallCollider = world.createCollider(
+    RAPIER.ColliderDesc.trimesh(pitWallVerts, pitWallIndices)
+      .setFriction(0.2)
+      .setRestitution(0.8),
+    pitWallBody
+  );
+  const pitWallColliderHandle = pitWallCollider.handle;
 
   const groundGridGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
@@ -6001,83 +4411,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     });
   }
 
-  function yawToCenter(spawn) {
-    // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
-    // Facing the center means forward should point from spawn -> (0,0).
-    return Math.atan2(spawn.x, spawn.z);
-  }
-
-  function quatFromYaw(yaw) {
-    const half = yaw / 2;
-    return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
-  }
-
-  function createCart({ color, spawn, spawnYaw, label, slotIndex }) {
-    const mesh = buildCart(color);
-    scene.add(mesh);
-    mesh.updateMatrixWorld(true);
-    const materialCache = buildCartMaterialCache(mesh);
-
-    const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
-
-    const body = world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(spawnFrozen.x, spawnFrozen.y, spawnFrozen.z)
-        .setLinearDamping(CONFIG.cart.linearDamping)
-        .setAngularDamping(CONFIG.cart.angularDamping),
-    );
-    body.setRotation(quatFromYaw(spawnYaw), true);
-    // Keep the cart responsive; some Rapier builds may sleep bodies aggressively.
-    if (typeof body.setCanSleep === "function") {
-      body.setCanSleep(false);
-    }
-
-    const hx = CONFIG.cart.size.x / 2;
-    const hy = CONFIG.cart.size.y / 2;
-    const hz = CONFIG.cart.size.z / 2;
-    const colliderLocalY = -0.12;
-
-    const colliderDesc = RAPIER.ColliderDesc.cuboid(hx, hy, hz)
-      .setTranslation(0, colliderLocalY, 0)
-      .setFriction(CONFIG.cart.friction)
-      .setRestitution(CONFIG.cart.restitution);
-    if (typeof colliderDesc.setActiveEvents === "function") {
-      colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
-    }
-    const collider = world.createCollider(colliderDesc, body);
-
-    applyCartMassPropertiesOverride(body, collider, {
-      label,
-      hx,
-      hy,
-      hz,
-      colliderLocalY,
-    });
-
-    return {
-      mesh,
-      body,
-      collider,
-      spawn: spawnFrozen,
-      spawnYaw,
-      slotIndex,
-      label,
-      cartColor: color,
-      _materialCache: materialCache,
-      _lastNetLinvel: { x: 0, y: 0, z: 0 },
-      _netTargetPos: mesh.position.clone(),
-      _netTargetQuat: mesh.quaternion.clone(),
-      lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
-      ramBoostActiveUntilMs: 0,
-      ramBoostStreakCarry: 0,
-      lastHopAtMs: 0,
-      lastWheelScreechAtMs: Number.NEGATIVE_INFINITY,
-      respawnAtMs: null,
-      pendingRam: null,
-      aiNextDecisionMs: 0,
-      aiTarget: { x: 0, z: 0 },
-    };
-  }
+  // (yawToCenter, quatFromYaw, and createCart removed - using modular Entities equivalents)
 
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
@@ -6087,119 +4421,17 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     }
   }
 
-  function doRespawn(cart) {
-    cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
-    cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
-    cart.respawnAtMs = null;
-    cart.pendingRam = null;
-    cart.ramBoostActiveUntilMs = 0;
-    cart.ramBoostStreakCarry = 0;
-    resetCartVisualState(cart.mesh);
-  }
+  // (doRespawn removed - using modular Entities version)
 
   respawnLocalMidRoundJoinRef.current = () => {
-    if (!youConnId || pendingMidRoundJoinRespawnConnId !== youConnId) return;
-    if (roundPhase !== "running") return;
+    const localConnId = Netcode.getYouConnId();
+    if (!localConnId || pendingMidRoundJoinRespawnConnId !== localConnId) return;
+    if (GameState.getRoundState().phase !== "running") return;
     // * Mid-round joins take over NPC in place. DO NOT call doRespawn().
     pendingMidRoundJoinRespawnConnId = null;
   };
 
-  /**
-   * @param {number} nowMs
-   */
-  function applyArcadeControls(cart, axis, dtFixed, nowMs) {
-    const pos = cart.body.translation();
-    const rot = cart.body.rotation();
-    const linvel = cart.body.linvel();
-    const mass = getBodyMass(cart.body);
-
-    // Cheap ground check: if vertical velocity is near zero and the cart isn't
-    // well below the arena, treat as grounded. Works on booths and arena alike.
-    const vertVel = Math.abs(linvel.y);
-    const onGround = vertVel < 2.0 && pos.y > CONFIG.fall.yThreshold;
-    const controlFactor = onGround ? 1 : CONFIG.driving.airControlFactor;
-
-    const yaw = yawFromQuaternion(rot);
-    const { forward, right } = getForwardRightFromYaw(yaw);
-
-    const v = rapierToVec3(linvel);
-    const vForward = forward.dot(v);
-    const vRight = right.dot(v);
-
-    if (axis.forward !== 0 || axis.turn !== 0) {
-      cart.body.wakeUp();
-    }
-
-    const grip =
-      axis.turn !== 0
-        ? CONFIG.driving.lateralGrip * CONFIG.driving.driftGripFactor
-        : CONFIG.driving.lateralGrip;
-    const dvRight = (-vRight) * grip * dtFixed;
-    const gripImpulse = right.clone().multiplyScalar(mass * dvRight);
-    cart.body.applyImpulse(vec3ToRapier(gripImpulse), true);
-
-    if (axis.forward !== 0) {
-      const rb = CONFIG.cart.ramBoost;
-      const nitroForward =
-        rb.enabled && nowMs <= cart.ramBoostActiveUntilMs && axis.forward > 0;
-      let targetSpeed =
-        axis.forward > 0 ? CONFIG.driving.maxSpeed : -CONFIG.driving.reverseMaxSpeed;
-      if (nitroForward) {
-        targetSpeed = rb.boostedMaxSpeed;
-      }
-      const accelRate =
-        nitroForward && rb.boostedAccel != null ? rb.boostedAccel : CONFIG.driving.accel;
-      const speedError = targetSpeed - vForward;
-      const maxDeltaV = accelRate * controlFactor * dtFixed;
-      const dvForward = clamp(speedError, -maxDeltaV, maxDeltaV);
-      if (Math.abs(dvForward) > 1e-4) {
-        const driveImpulse = forward.clone().multiplyScalar(mass * dvForward);
-        cart.body.applyImpulse(vec3ToRapier(driveImpulse), true);
-      }
-    }
-
-    if (axis.turn !== 0) {
-      const av = cart.body.angvel();
-      const desiredYawRate = axis.turn * CONFIG.driving.tankYawRate * controlFactor;
-      const yawError = desiredYawRate - av.y;
-      const torqueImpulseY = yawError * CONFIG.driving.yawResponsiveness * mass * dtFixed;
-      cart.body.applyTorqueImpulse({ x: 0, y: torqueImpulseY, z: 0 }, true);
-
-      const speedForDrift = Math.abs(vForward);
-      if (speedForDrift > 0.25) {
-        const driftDir = right.clone().multiplyScalar(axis.turn * Math.sign(vForward || 1));
-        const driftMag =
-          speedForDrift *
-          CONFIG.driving.driftImpulseStrength *
-          controlFactor *
-          mass *
-          dtFixed;
-        cart.body.applyImpulse(vec3ToRapier(driftDir.multiplyScalar(driftMag)), true);
-      }
-    }
-
-    const av = cart.body.angvel();
-    const maxPitchRoll = CONFIG.cart.maxPitchRoll;
-    if (Math.abs(av.x) > maxPitchRoll || Math.abs(av.z) > maxPitchRoll) {
-      cart.body.setAngvel({
-        x: clamp(av.x, -maxPitchRoll, maxPitchRoll),
-        y: av.y,
-        z: clamp(av.z, -maxPitchRoll, maxPitchRoll),
-      }, true);
-    }
-  }
-
-  function spawnOnRingForSlot(slotIndex) {
-    const ringR = CONFIG.cart.spawnRingRadius;
-    const angle = (slotIndex * Math.PI) / 2;
-    return {
-      x: ringR * Math.cos(angle),
-      y: CONFIG.cart.spawnHeight,
-      z: ringR * Math.sin(angle),
-    };
-  }
+  // (applyArcadeControls and spawnOnRingForSlot removed - using modular equivalents)
 
   // Menu music — plays on page load, stops when game starts
   const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
@@ -6327,38 +4559,22 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   await firstHelloPromise;
   returnPortalArmedAtMs = Date.now() + 3000;
 
-  /** @type {ReturnType<typeof createCart>[]} */
-  const cartsBySlotId = [];
-  for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
-    const spawn = spawnOnRingForSlot(slotIndex);
-    const slot = netSlots[slotIndex];
-    const cart = createCart({
-      color: slot?.connId === youConnId && CART_COLORS[localStorage.getItem("cartRaveColor")] ? CART_COLORS[localStorage.getItem("cartRaveColor")].hex : colorHexForSlot(slot),
-      spawn,
-      spawnYaw: yawToCenter(spawn),
-      label: slot?.name ?? `slot-${slotIndex}`,
-      slotIndex,
-    });
-    cartsBySlotId[slotIndex] = cart;
-    if (
-      pendingMidRoundJoinRespawnConnId === youConnId &&
-      slot?.connId === youConnId
-    ) {
-      doRespawn(cart);
-      pendingMidRoundJoinRespawnConnId = null;
-    }
-  }
+  const { allCarts, colliderHandleToCart, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
+    scene,
+    world,
+    ramBoostStreaks,
+    netSlots: Netcode.getNetSlots(),
+    youConnId: Netcode.getYouConnId(),
+    CART_COLORS,
+    colorHexForSlot,
+    pendingMidRoundJoinRespawnConnId,
+  });
+  pendingMidRoundJoinRespawnConnId = nextPendingMidRoundJoinRespawnConnId;
 
-  const colliderHandleToCart = new Map();
-  for (const c of cartsBySlotId) {
-    colliderHandleToCart.set(c.collider.handle, c);
-  }
-
-  const allCarts = cartsBySlotId;
-
-  // Expose carts + input + nitro for netcode helpers (module-scope).
+  // Expose carts to netcode.
   allCartsRef = allCarts;
-  if (isHost && !hostSendTimer) startHostSendLoop();
+  Netcode.setRefs({ allCartsRef: allCarts });
+  if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
 
   // --- Floating name labels above carts ---
   const nameLabels = [];
@@ -6386,7 +4602,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   function updateNameLabels() {
     for (let i = 0; i < allCarts.length; i++) {
-      const slot = netSlots[i];
+      const slot = Netcode.getNetSlots()[i];
       const cart = allCarts[i];
       if (!slot || !cart || !cart.mesh) continue;
 
@@ -6432,11 +4648,15 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   updateNameLabelsRef.current = updateNameLabels;
   updateNameLabels();
 
-  getAxisRef = getAxis;
+  getAxisRef = input.getAxis;
   triggerRamBoostRef = triggerRamBoost;
+  Netcode.setRefs({
+    getAxisRef: input.getAxis,
+    triggerRamBoostRef: triggerRamBoost,
+    resetSimTimingRef,
+  });
 
   /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number; cart: ReturnType<typeof createCart> }[]} */
-  const ramBoostStreaks = [];
   let nitroFirstBoostDiagnosticLogged = false;
   const ramBoostStreakAlignQuat = new THREE.Quaternion();
   const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
@@ -6452,8 +4672,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   function spawnRamBoostStreakForCart(cart, birthMs) {
     const rb = CONFIG.cart.ramBoost;
     const rot = cart.body.rotation();
-    const yaw = yawFromQuaternion(rot);
-    const { forward, right } = getForwardRightFromYaw(yaw);
+    const yaw = Simulation.yawFromQuaternion(rot);
+    const { forward, right } = Simulation.getForwardRightFromYaw(yaw);
     const fwd = forward.clone().normalize();
     const rgt = right.clone().normalize();
     ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
@@ -6561,8 +4781,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
 
     const rot = npc.body.rotation();
-    const yaw = yawFromQuaternion(rot);
-    const { forward } = getForwardRightFromYaw(yaw);
+    const yaw = Simulation.yawFromQuaternion(rot);
+    const { forward } = Simulation.getForwardRightFromYaw(yaw);
     const op = nearestOther.body.translation();
     ramBoostToTargetXZ.set(op.x - p.x, 0, op.z - p.z);
     if (ramBoostToTargetXZ.lengthSq() < 1e-8) return;
@@ -6591,7 +4811,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         ramBoostStreaks.splice(i, 1);
       } else {
         const baseOpacity = 1 - t;
-        if (roundPhase === "running" && s.cart && s.cart.ramBoostActiveUntilMs > performance.now()) {
+        if (GameState.getRoundState().phase === "running" && s.cart && s.cart.ramBoostActiveUntilMs > performance.now()) {
           const pulse = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
           s.material.opacity = clamp(baseOpacity * (pulse / 1.2), 0, 1);
         } else {
@@ -6601,45 +4821,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     }
   }
 
-  function rematchResetWorld() {
-    for (let i = ramBoostStreaks.length - 1; i >= 0; i -= 1) {
-      const s = ramBoostStreaks[i];
-      scene.remove(s.mesh);
-      s.mesh.geometry.dispose();
-      s.material.dispose();
-      ramBoostStreaks.splice(i, 1);
-    }
-    lastHitBy.clear();
-    for (const cart of allCarts) {
-      cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
-      cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
-      cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-      cart.respawnAtMs = null;
-      cart.pendingRam = null;
-      cart.ramBoostActiveUntilMs = 0;
-      cart.ramBoostStreakCarry = 0;
-      cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
-      cart.aiNextDecisionMs = 0;
-      cart.aiTarget = { x: 0, z: 0 };
-      resetCartVisualState(cart.mesh);
-    }
-    const carts = {};
-    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-      const c = allCarts[slotIndex];
-      const t = c.body.translation();
-      const r = c.body.rotation();
-      const lv = c.body.linvel();
-      const av = c.body.angvel();
-      carts[String(slotIndex)] = {
-        p: [t.x, t.y, t.z],
-        q: [r.x, r.y, r.z, r.w],
-        lv: [lv.x, lv.y, lv.z],
-        av: [av.x, av.y, av.z],
-      };
-    }
-    lastCartsCache = carts;
-  }
+  // (rematchResetWorld removed - using modular Entities version)
 
   function pickAiTarget(fromPos) {
     const dist = Math.hypot(fromPos.x, fromPos.z);
@@ -6650,7 +4832,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       let nearestHuman = null;
       let nearestD2 = Infinity;
       for (let i = 0; i < allCarts.length; i += 1) {
-        const s = netSlots[i];
+        const s = Netcode.getNetSlots()[i];
         if (!s || s.kind !== "human" || !s.connId) continue;
         const hp = allCarts[i].body.translation();
         const dx = hp.x - fromPos.x;
@@ -6701,8 +4883,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     toTarget.normalize();
 
     const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
-    const currentYaw = yawFromQuaternion(cart.body.rotation());
-    const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
+    const currentYaw = Simulation.yawFromQuaternion(cart.body.rotation());
+    const yawDiff = Simulation.wrapAngleRad(desiredYaw - currentYaw);
 
     const turn = clamp(yawDiff * 2.2, -1, 1);
     const forward = Math.abs(yawDiff) > 1.8 ? -0.7 : 1;
@@ -6710,17 +4892,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   }
 
   // --- Input ---
-  const keys = new Set();
-  const handledCodes = new Set([
-    "KeyW",
-    "KeyA",
-    "KeyS",
-    "KeyD",
-    "ArrowUp",
-    "ArrowLeft",
-    "ArrowDown",
-    "ArrowRight",
-  ]);
 
   // --- Ambient music ---
 
@@ -6781,115 +4952,19 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     if (!menuVisible) tryStartAmbientMusic();
   }, { passive: true });
 
-  function applyRammingImpulse(rammer, victim) {
-    const rv = rammer.body.linvel();
-    const speed = planarSpeed(rv);
-    const vv = victim.body.linvel();
-    if (speed < CONFIG.ramming.minSpeed) return;
+  // (applyRammingImpulse removed - using modular Simulation version)
 
-    const dir = vec3PlanarDirection(rv);
-    if (!dir) return;
-    const closingSpeed = Math.max(speed, speed + (-(vv.x * dir.x + vv.z * dir.z)));
 
-    const rp = rammer.body.translation();
-    const vp = victim.body.translation();
-    const toVictim = new THREE.Vector3(vp.x - rp.x, 0, vp.z - rp.z);
-    if (toVictim.lengthSq() < 1e-6) return;
-    toVictim.normalize();
-
-    // Only count as a "ram" if moving roughly toward the other cart.
-    if (dir.dot(toVictim) < 0.1) return;
-
-    const localCart = localCartForConnId();
-
-    const impulseMag = clamp(
-      CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body),
-      0,
-      CONFIG.ramming.maxImpulse,
-    );
-    if (localCart && (victim === localCart || rammer === localCart)) {
-      sfx.playCollision(impulseMag / CONFIG.ramming.maxImpulse);
-      if (roundPhase === "running") {
-        const rp2 = rammer.body.translation();
-        const vp2 = victim.body.translation();
-        const midpoint = { x: (rp2.x + vp2.x) / 2, y: (rp2.y + vp2.y) / 2, z: (rp2.z + vp2.z) / 2 };
-        spawnTrashBurst(midpoint, impulseMag / CONFIG.ramming.maxImpulse);
-      }
-    }
-
-    if (isHost && partySocket) {
-      const carts = allCartsRef || [];
-      const slotA = carts.indexOf(rammer);
-      const slotB = carts.indexOf(victim);
-      if (slotA >= 0 && slotB >= 0 && slotA < slotB) {
-        partySocket.send(JSON.stringify({
-          type: MSG.hostEventCollision,
-          slotA,
-          slotB,
-          intensity: impulseMag / CONFIG.ramming.maxImpulse,
-          midpoint: { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 },
-        }));
-      }
-    }
-
-    const impulse = { x: dir.x * impulseMag, y: 0, z: dir.z * impulseMag };
-
-    // Spread impact over a few physics steps to reduce jitter spikes.
-    const steps = 3;
-    if (!victim.pendingRam) {
-      victim.pendingRam = { impulse, remainingSteps: steps };
-
-      // Stage A: record last hit for scoring attribution (host only).
-      const carts = allCartsRef || [];
-      const attackerSlotIndex = carts.indexOf(rammer) >= 0 ? carts.indexOf(rammer) : rammer.slotIndex;
-      const victimSlotIndex = carts.indexOf(victim) >= 0 ? carts.indexOf(victim) : victim.slotIndex;
-      if (Number.isFinite(attackerSlotIndex) && Number.isFinite(victimSlotIndex)) {
-        const wasCritical = speed >= CONFIG.scoring.criticalVelocityThreshold;
-        lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasCritical, timestamp: Date.now() });
-      }
-
-      return;
-    }
-    victim.pendingRam.impulse.x += impulse.x;
-    victim.pendingRam.impulse.y += impulse.y;
-    victim.pendingRam.impulse.z += impulse.z;
-    victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
-
-    // Stage A: record last hit for scoring attribution (host only).
-    const carts = allCartsRef || [];
-    const attackerSlotIndex = carts.indexOf(rammer) >= 0 ? carts.indexOf(rammer) : rammer.slotIndex;
-    const victimSlotIndex = carts.indexOf(victim) >= 0 ? carts.indexOf(victim) : victim.slotIndex;
-    if (Number.isFinite(attackerSlotIndex) && Number.isFinite(victimSlotIndex)) {
-      const wasCritical = speed >= CONFIG.scoring.criticalVelocityThreshold;
-      lastHitBy.set(victimSlotIndex, { attackerSlotIndex, wasCritical, timestamp: Date.now() });
-    }
-  }
-
-  function sendHostRound() {
-    if (!partySocket) return;
-    partySocket.send(
-      JSON.stringify({
-        type: MSG.hostRound,
-        round: {
-          phase: roundPhase,
-          startedAtMs: roundStartedAtMs,
-          countdownStartedAtMs: roundCountdownStartedAtMs,
-          winnerSlotIndex: roundWinnerSlotIndex,
-          scores: roundScores,
-        },
-      }),
-    );
-  }
 
   function startRunning() {
-    roundPhase = "running";
+    syncRoundPhase("running");
     slowMoActive = false;
-    roundStartedAtMs = Date.now();
-    roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-    roundWinnerSlotIndex = null;
+    GameState.setRoundStartedAtMs(Date.now());
+    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    GameState.setRoundWinnerSlotIndex(null);
     roundStartingHumanCount = 0;
     for (let i = 0; i < 4; i += 1) {
-      const s = netSlots[i];
+      const s = Netcode.getNetSlots()[i];
       if (s && s.kind === "human" && s.connId != null) roundStartingHumanCount += 1;
     }
     if (lastCartStandingTimeoutId != null) {
@@ -6897,25 +4972,25 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       lastCartStandingTimeoutId = null;
     }
     lastCartStandingWinnerSlotIndex = null;
-    sendHostRound();
+    Netcode.sendHostRound();
   }
 
   function startCountdown() {
-    if (!isHost) return;
-    roundPhase = "countdown";
+    if (!Netcode.getIsHost()) return;
+    syncRoundPhase("countdown");
     slowMoActive = false;
-    roundCountdownStartedAtMs = Date.now();
-    roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-    roundWinnerSlotIndex = null;
-    roundStartedAtMs = 0;
+    GameState.setRoundCountdownStartedAtMs(Date.now());
+    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    GameState.setRoundWinnerSlotIndex(null);
+    GameState.setRoundStartedAtMs(0);
     if (lastCartStandingTimeoutId != null) {
       clearTimeout(lastCartStandingTimeoutId);
       lastCartStandingTimeoutId = null;
     }
     lastCartStandingWinnerSlotIndex = null;
-    sendHostRound();
+    Netcode.sendHostRound();
     setTimeout(() => {
-      if (roundPhase === "countdown") startRunning();
+      if (GameState.getRoundState().phase === "countdown") startRunning();
     }, 3000);
   }
 
@@ -6930,15 +5005,15 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         lastCartStandingTimeoutId = null;
       }
       pendingMidRoundJoinRespawnConnId = null;
-      roundWinnerSlotIndex = lastCartStandingWinnerSlotIndex;
-      recordPodiumStats(roundWinnerSlotIndex, roundScores);
-      roundPhase = "podium";
+      GameState.setRoundWinnerSlotIndex(lastCartStandingWinnerSlotIndex);
+      recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
+      syncRoundPhase("podium");
       lastCartStandingWinnerSlotIndex = null;
       if (!slowMoActive) {
         slowMoActive = true;
         slowMoStartMs = performance.now();
       }
-      sendHostRound();
+      Netcode.sendHostRound();
       return;
     }
     if (roundPodiumTimeoutId != null) {
@@ -6952,29 +5027,30 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     // * Find highest score and how many slots share it (lowest index wins on non-zero ties only).
     let winnerSlotIndex = 0;
     let winnerScore = -Infinity;
+    const scores = GameState.getRoundScores();
     for (let i = 0; i < 4; i++) {
-      if ((roundScores[i] || 0) > winnerScore) {
-        winnerScore = roundScores[i] || 0;
+      if ((scores[i] || 0) > winnerScore) {
+        winnerScore = scores[i] || 0;
         winnerSlotIndex = i;
       }
     }
     let tieAtTop = 0;
     for (let i = 0; i < 4; i++) {
-      if ((roundScores[i] || 0) === winnerScore) tieAtTop += 1;
+      if ((scores[i] || 0) === winnerScore) tieAtTop += 1;
     }
     pendingMidRoundJoinRespawnConnId = null;
     if (winnerScore === 0 && tieAtTop >= 2) {
-      roundWinnerSlotIndex = "draw";
+      GameState.setRoundWinnerSlotIndex("draw");
     } else {
-      roundWinnerSlotIndex = winnerSlotIndex;
+      GameState.setRoundWinnerSlotIndex(winnerSlotIndex);
     }
-    recordPodiumStats(roundWinnerSlotIndex, roundScores);
-    roundPhase = "podium";
+    recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
+    syncRoundPhase("podium");
     if (!slowMoActive) {
       slowMoActive = true;
       slowMoStartMs = performance.now();
     }
-    sendHostRound();
+    Netcode.sendHostRound();
   }
 
   function clearAutoContinuePodiumTimeout() {
@@ -6985,11 +5061,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   }
 
   function currentPodiumAutoContinueKey() {
-    return `${roundStartedAtMs}:${roundWinnerSlotIndex}:${matchHistory.length}`;
+    return `${GameState.getRoundState().startedAtMs}:${GameState.getRoundState().winnerSlotIndex}:${matchHistory.length}`;
   }
 
   function maybeScheduleAutoContinuePodium() {
-    if (!isHost || roundPhase !== "podium") return;
+    if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
     const mode = detectGameMode();
     if (mode !== "quickplay") return;
 
@@ -6999,35 +5075,26 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     autoContinuePodiumKey = key;
     autoContinuePodiumTimeoutId = setTimeout(() => {
       autoContinuePodiumTimeoutId = null;
-      if (!isHost || roundPhase !== "podium") return;
+      if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
       if (detectGameMode() !== "quickplay") return;
       onHostPlayAgainClick();
     }, 5000);
   }
 
   function onHostPlayAgainClick() {
-    if (!isHost) return;
+    if (!Netcode.getIsHost()) return;
     autoContinuePodiumKey = currentPodiumAutoContinueKey();
     clearAutoContinuePodiumTimeout();
     if (roundPodiumTimeoutId != null) {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
     }
-    rematchResetWorld();
-    if (partySocket && partySocket.readyState === 1 && lastCartsCache) {
-      hostSeq += 1;
-      partySocket.send(
-        JSON.stringify({
-          type: MSG.hostTransform,
-          seq: hostSeq,
-          tHost: Date.now(),
-          carts: lastCartsCache,
-        }),
-      );
+    Entities.rematchResetWorld();
+    const cache = Netcode.getLastCartsCache();
+    if (cache) {
+      Netcode.broadcastHostTransform(cache);
     }
-    if (partySocket && partySocket.readyState === 1) {
-      partySocket.send(JSON.stringify({ type: MSG.playAgain }));
-    }
+    Netcode.sendPlayAgain();
 
     // Skip re-ready flow: host immediately starts the next round.
     setTimeout(() => startCountdown(), 3000);
@@ -7035,92 +5102,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
 
-  function onKeyDown(e) {
-    if (e.code === "Escape") {
-      if (e.repeat) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (hud && hud.isEscOverlayVisible && hud.isEscOverlayVisible()) {
-        hud.hideEscOverlay();
-      } else if (!menuVisible && hud && hud.showEscOverlay) {
-        hud.showEscOverlay();
-      }
-      return;
-    }
 
-    if (hud && hud.isEscOverlayVisible && hud.isEscOverlayVisible()) {
-      if (
-        handledCodes.has(e.code) ||
-        e.code === "Space" ||
-        e.code === "ShiftLeft" ||
-        e.code === "ShiftRight"
-      ) {
-        e.preventDefault();
-        return;
-      }
-    }
-
-    // Allow typing in input fields without triggering game controls
-    if (e.target.tagName === 'INPUT') return;
-    
-    unlockAudioAndMaybeStartMusic();
-    if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
-      if (e.repeat) return;
-      e.preventDefault();
-      localNitroHeld = true;
-      triggerRamBoost(localCartForConnId(), performance.now());
-      return;
-    }
-    if (e.code === "KeyM") {
-      if (e.repeat) return;
-      e.preventDefault();
-      setAllAudioMuted(!isMuted);
-      if (hud && hud.syncAudioControls) hud.syncAudioControls();
-      return;
-    }
-    if (e.code === "Space") {
-      e.preventDefault();
-      if (e.repeat) return;
-      if (menuVisible) return;
-      if (roundPhase !== "running") return;
-      const mySlot = localSlotIndexForConn(youConnId);
-      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
-      triggerHop(cart, performance.now());
-      return;
-    }
-    if (handledCodes.has(e.code)) e.preventDefault();
-    keys.add(e.code);
-    if (CONFIG.debug.input && handledCodes.has(e.code)) {
-      // Diagnostics removed for submission.
-    }
-  }
-  function onKeyUp(e) {
-    // Allow typing in input fields without triggering game controls
-    if (e.target.tagName === 'INPUT') return;
-    
-    if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
-      e.preventDefault();
-      localNitroHeld = false;
-    }
-    if (handledCodes.has(e.code)) e.preventDefault();
-    keys.delete(e.code);
-  }
-  // Attach to both window and canvas so input works regardless of focus quirks.
-  window.addEventListener("keydown", onKeyDown, { passive: false });
-  window.addEventListener("keyup", onKeyUp, { passive: false });
-  canvas.addEventListener("keydown", onKeyDown, { passive: false });
-  canvas.addEventListener("keyup", onKeyUp, { passive: false });
-  window.addEventListener("blur", () => keys.clear());
-
-  function getAxis() {
-    const forward =
-      (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) +
-      (keys.has("KeyS") || keys.has("ArrowDown") ? -1 : 0);
-    const turn =
-      (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
-      (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
-    return { forward: clamp(forward, -1, 1), turn: clamp(turn, -1, 1) };
-  }
 
   // --- Simulation loop (fixed timestep) ---
   let lastT = performance.now();
@@ -7145,6 +5127,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     accumulator = 0;
   };
 
+
   function step(now) {
     if (menuVisible) {
       requestAnimationFrame(step);
@@ -7154,10 +5137,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     dt = Math.min(dt, 0.05);
     lastT = now;
     accumulator += dt;
-    if (roundPhase === "running" && performance.now() < slowMoUntil) {
+    if (GameState.getRoundState().phase === "running" && performance.now() < slowMoUntil) {
       dt *= slowMoRate;
     }
-    if (isHost && slowMoActive) {
+    if (Netcode.getIsHost() && slowMoActive) {
       dt *= SLOW_MO_TIME_SCALE;
       if (performance.now() - slowMoStartMs > SLOW_MO_DURATION_MS) {
         slowMoActive = false;
@@ -7178,7 +5161,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       const cartRows = allCarts.map((cart) => {
         const t = cart.body.translation();
         const s = cart.spawn;
-        const expectedSpawn = spawnOnRingForSlot(cart.slotIndex);
+        const expectedSpawn = Entities.spawnOnRingForSlot(cart.slotIndex);
         const distPlayer = Math.hypot(t.x - playerT.x, t.y - playerT.y, t.z - playerT.z);
         const distOrigin = Math.hypot(t.x, t.y, t.z);
         const distOriginXZ = Math.hypot(t.x, t.z);
@@ -7492,7 +5475,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       lastPortalUpdate = now;
     }
 
-    const playerAxis = getAxis();
+    const playerAxis = Input.getAxis();
     // Diagnostics removed for submission.
 
     const localCart = localCartForConnId();
@@ -7534,10 +5517,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
     }
 
-    if (isHost && roundPhase === "running") {
+    if (Netcode.getIsHost() && GameState.getRoundState().phase === "running") {
       // Fall detection / respawn (host-authoritative).
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-        const slot = netSlots[slotIndex];
+        const slot = Netcode.getNetSlots()[slotIndex];
         const c = allCarts[slotIndex];
         if (!slot) continue;
         const p = c.body.translation();
@@ -7545,7 +5528,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           // Stage A scoring: credit last hit if recent.
           // Only score once per fall event.
           if (c.respawnAtMs === null) {
-            const hit = lastHitBy.get(slotIndex) || null;
+            const hit = GameState.getLastHitBy().get(slotIndex) || null;
             let fallEventAttackerSlot = null;
             let fallEventVerb = "FELL OFF";
             // 2500ms window: covers slow slide-offs and falls; long enough
@@ -7562,7 +5545,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               let leaderSlotIndex = 0;
               let leaderScore = -Infinity;
               for (let i = 0; i < 4; i += 1) {
-                const s = Number(roundScores[i] || 0);
+                const s = Number(GameState.getRoundScores()[i] || 0);
                 if (s > leaderScore) {
                   leaderScore = s;
                   leaderSlotIndex = i;
@@ -7570,14 +5553,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               }
               if (slotIndex === leaderSlotIndex) points += 1; // target bonus
 
-              if (roundScores[hit.attackerSlotIndex] == null) {
-                roundScores[hit.attackerSlotIndex] = 0;
-              }
-              roundScores[hit.attackerSlotIndex] += points;
+              GameState.addScore(hit.attackerSlotIndex, points);
 
               {
-                const attackerSlot = netSlots[hit.attackerSlotIndex];
-                const victimSlot = netSlots[slotIndex];
+                const attackerSlot = Netcode.getNetSlots()[hit.attackerSlotIndex];
+                const victimSlot = Netcode.getNetSlots()[slotIndex];
                 const actorName = attackerSlot?.name || `P${hit.attackerSlotIndex + 1}`;
                 const targetName = victimSlot?.name || `P${slotIndex + 1}`;
                 const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(attackerSlot)) : null;
@@ -7587,22 +5567,22 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
                 fallEventAttackerSlot = hit.attackerSlotIndex;
                 fallEventVerb = verb;
               }
-              if (roundPhase === "running") {
-                const localIdx = localSlotIndexForConn(youConnId);
+              if (GameState.getRoundState().phase === "running") {
+                const localIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
                 if (hit.attackerSlotIndex === localIdx) {
                   fovPunchUntil = performance.now() + 200;
                 }
               }
 
-              sendHostRound(); // broadcast score update to non-host clients
+              Netcode.sendHostRound(); // broadcast score update to non-host clients
             } else {
-              const victimSlot = netSlots[slotIndex];
+              const victimSlot = Netcode.getNetSlots()[slotIndex];
               const targetName = victimSlot?.name || `P${slotIndex + 1}`;
               const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
               hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
             }
-            if (partySocket) {
-              partySocket.send(JSON.stringify({
+            if (Netcode.getPartySocket()) {
+              Netcode.getPartySocket().send(JSON.stringify({
                 type: MSG.hostEventFall,
                 slotId: slotIndex,
                 victimSlotIndex: slotIndex,
@@ -7611,14 +5591,14 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
                 verb: fallEventVerb,
               }));
             }
-            lastHitBy.delete(slotIndex);
+            GameState.getLastHitBy().delete(slotIndex);
           }
 
           scheduleRespawn(c, now);
           let aliveHumanCount = 0;
           let lastStandingSlotIndex = -1;
           for (let j = 0; j < 4; j += 1) {
-            const sj = netSlots[j];
+            const sj = Netcode.getNetSlots()[j];
             const cj = allCarts[j];
             if (!sj || sj.kind !== "human" || sj.connId == null || !cj) continue;
             if (cj.respawnAtMs === null) {
@@ -7630,16 +5610,16 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
             aliveHumanCount === 1 &&
             roundStartingHumanCount >= 2 &&
             lastCartStandingTimeoutId == null &&
-            roundStartedAtMs > 0 &&
-            Date.now() - roundStartedAtMs >= 30000 &&
-            (roundScores[lastStandingSlotIndex] || 0) >= 1
+            GameState.getRoundState().startedAtMs > 0 &&
+            Date.now() - GameState.getRoundState().startedAtMs >= 30000 &&
+            (GameState.getRoundScores()[lastStandingSlotIndex] || 0) >= 1
           ) {
             lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
             slowMoUntil = performance.now() + 3000;
             slowMoRate = 0.35;
             lastCartStandingTimeoutId = setTimeout(() => {
               lastCartStandingTimeoutId = null;
-              if (isHost && roundPhase === "running") endRound();
+              if (Netcode.getIsHost() && GameState.getRoundState().phase === "running") endRound();
             }, 3000);
           }
           // If the override is already armed and the survivor has now also fallen,
@@ -7651,11 +5631,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
             clearTimeout(lastCartStandingTimeoutId);
             lastCartStandingTimeoutId = null;
             if (lastCartStandingWinnerSlotIndex === null) lastCartStandingWinnerSlotIndex = "draw";
-            if (isHost && roundPhase === "running") endRound();
+            if (Netcode.getIsHost() && GameState.getRoundState().phase === "running") endRound();
           }
         }
         if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
-          doRespawn(c);
+          Entities.doRespawn(c);
         }
         if (slot.kind === "npc") maybeTriggerNpcOpportunisticRamBoost(now, c);
       }
@@ -7663,12 +5643,12 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     }
 
     // Round phase transitions (host only)
-    if (isHost) {
+    if (Netcode.getIsHost()) {
       // running → end when timer expires
       if (
-        roundPhase === "running" &&
-        roundStartedAtMs > 0 &&
-        Date.now() - roundStartedAtMs >= 95000 &&
+        GameState.getRoundState().phase === "running" &&
+        GameState.getRoundState().startedAtMs > 0 &&
+        Date.now() - GameState.getRoundState().startedAtMs >= 95000 &&
         lastCartStandingTimeoutId === null
       ) {
         endRound();
@@ -7721,79 +5701,44 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
     // Fixed substeps for stability/consistency (host only).
     let substeps = 0;
-    /** @type {Map<object, { forward: number; turn: number }>} */
-    const npcDiagLastAiByCart = new Map();
+    let alpha = null;
+    if (Netcode.getIsHost()) {
+      if (GameState.getRoundState().phase === "running") {
+        for (const c of allCarts) {
+          if (c && c.body) {
+            c.prevPosition = c.body.translation();
+            c.prevRotation = c.body.rotation();
+          }
+        }
 
-    if (isHost) {
-      if (roundPhase === "running") {
         while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
-          applyArcadeControls(localCart, playerAxis, CONFIG.fixedTimeStep, now);
-
-          // Apply remote human inputs on host.
-          for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-            const slot = netSlots[slotIndex];
-            const c = allCarts[slotIndex];
-            if (!slot || !c) continue;
-            if (slot.kind !== "human") continue;
-            if (!slot.connId) continue;
-            if (slot.connId === youConnId) continue;
-
-            const ri = remoteInputsByConnId.get(slot.connId) || {
-              throttle: 0,
-              steer: 0,
-              nitro: false,
-            };
-            applyArcadeControls(
-              c,
-              { forward: clamp(ri.throttle, -1, 1), turn: clamp(ri.steer, -1, 1) },
-              CONFIG.fixedTimeStep,
-              now,
-            );
-          }
-
-          // NPC AI on host.
-          for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-            const slot = netSlots[slotIndex];
-            const c = allCarts[slotIndex];
-            if (!slot || slot.kind !== "npc") continue;
-            const aiAxis = getAiAxis(now, c);
-            npcDiagLastAiByCart.set(c, aiAxis);
-            applyArcadeControls(c, aiAxis, CONFIG.fixedTimeStep, now);
-          }
-
-          // Apply any pending ramming impulses over multiple physics steps.
-          for (const cart of allCarts) {
-            if (!cart.pendingRam) continue;
-            const { impulse, remainingSteps } = cart.pendingRam;
-            const denom = Math.max(1, remainingSteps);
-            cart.body.applyImpulse(
-              { x: impulse.x / denom, y: impulse.y / denom, z: impulse.z / denom },
-              true,
-            );
-            cart.pendingRam.remainingSteps -= 1;
-            if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
-          }
-
-          if (skipNextPhysicsStep) {
-            skipNextPhysicsStep = false;
-            accumulator -= CONFIG.fixedTimeStep;
-            substeps += 1;
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-
-          world.step(eventQueue);
-          eventQueue.drainCollisionEvents((h1, h2, started) => {
-            if (!started) return;
-            const c1 = colliderHandleToCart.get(h1);
-            const c2 = colliderHandleToCart.get(h2);
-            if (!c1 || !c2 || c1 === c2) return;
-            applyRammingImpulse(c1, c2);
-            applyRammingImpulse(c2, c1);
+          Simulation.runFixedPhysicsStep({
+            world,
+            eventQueue,
+            allCarts: allCartsRef,
+            localCart: localCartForConnId(),
+            remoteInputs: Netcode.getRemoteInputsByConnId(),
+            npcs: allCartsRef.filter((c, idx) => Netcode.getNetSlots()[idx] && Netcode.getNetSlots()[idx].kind === "npc"),
+            dt: CONFIG.fixedTimeStep,
+            now: performance.now(),
+            isHost: Netcode.getIsHost(),
+            callbacks: {
+              getAxis: Input.getAxis,
+              getAiAxis: getAiAxis,
+              playCollision: playCollisionRef,
+              spawnTrashBurst: spawnTrashBurstRef,
+              partySocket: Netcode.getPartySocket(),
+              recordColliderHandle: recordCollider.handle,
+              pitWallColliderHandle: pitWallColliderHandle,
+              boothColliderHandles: boothColliderHandles,
+              playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
+              playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+            }
           });
           accumulator -= CONFIG.fixedTimeStep;
           substeps += 1;
         }
+        alpha = accumulator / CONFIG.fixedTimeStep;
       } else {
         accumulator = 0;
       }
@@ -7803,7 +5748,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         // * Hold remote carts at last rendered position until fresh host state arrives.
       } else {
       const targetServerNowMs = Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
-      const localSlotIndex = netSlots.findIndex((s) => s && s.connId === youConnId);
+      const localSlotIndex = Netcode.getNetSlots().findIndex((s) => s && s.connId === Netcode.getYouConnId());
 
       for (let i = netStateBuffer.length - 1; i >= 0; i -= 1) {
         const e = netStateBuffer[i];
@@ -7986,31 +5931,20 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
       }
     }
-
     updateRamBoostStreaks(now);
 
-    if (NPC_INWARD_DRIFT_LOG_FRAMES.has(simFrameIndex)) {
-      for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-        const slot = netSlots[slotIndex];
-        const c = allCarts[slotIndex];
-        if (!slot || slot.kind !== "npc") continue;
-        const t = c.body.translation();
-        const lv = c.body.linvel();
-        const av = c.body.angvel();
-        const s = c.spawn;
-        const aiAxis = npcDiagLastAiByCart.get(c) ?? { forward: 0, turn: 0 };
-        // Diagnostics removed for submission.
-      }
-    }
-
     // Sync render meshes from physics (or from net targets for remote non-host carts).
-    const localSlotIndexForFrame = netSlots.findIndex((s) => s && s.connId === youConnId);
+    const localSlotIndexForFrame = Netcode.getNetSlots().findIndex((s) => s && s.connId === Netcode.getYouConnId());
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
       const c = allCarts[slotIndex];
       if (!c || !c.mesh) continue;
 
-      if (!isHost && slotIndex !== localSlotIndexForFrame) {
-        if (c._netTargetPos) c.mesh.position.lerp(c._netTargetPos, 0.75);
+      if (!Netcode.getIsHost() && slotIndex !== localSlotIndexForFrame) {
+        if (c._netTargetPos) {
+          netTargetPosScratch.copy(c._netTargetPos);
+          netTargetPosScratch.y += CONFIG.cart.visualOffset;
+          c.mesh.position.lerp(netTargetPosScratch, 0.75);
+        }
         if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.75);
         c.mesh.updateMatrixWorld(true);
         const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
@@ -8022,7 +5956,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
       const p = c.body.translation();
       const r = c.body.rotation();
-      c.mesh.position.set(p.x, p.y, p.z);
+      c.mesh.position.set(p.x, p.y + CONFIG.cart.visualOffset, p.z);
       c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
       c.mesh.updateMatrixWorld(true);
       const lv = c.body.linvel();
@@ -8033,14 +5967,14 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     // Subtle wheel screech: short noise bursts on sharp steering, local cart only.
     // * Uses steering input magnitude (not physics yaw rate) so it remains consistent across hosts/clients.
     if (!isMuted && sfxVolume > 0 && sfx && typeof sfx.playWheelScreech === "function") {
-      if (!menuVisible && roundPhase === "running") {
-        const localSlotIndexForFrame = netSlots.findIndex((s) => s && s.connId === youConnId);
+      if (!menuVisible && GameState.getRoundState().phase === "running") {
+        const localSlotIndexForFrame = Netcode.getNetSlots().findIndex((s) => s && s.connId === Netcode.getYouConnId());
         const c = localSlotIndexForFrame >= 0 ? allCarts[localSlotIndexForFrame] : null;
         if (c && c.body) {
           const lv = c.body.linvel();
           const speed = Math.hypot(lv.x, lv.z);
           if (speed >= 4.0) {
-            const axis = getAxis();
+            const axis = Input.getAxis();
             const steerMag = Math.abs(axis.turn || 0);
             const steerThreshold = 0.55;
             if (steerMag >= steerThreshold) {
@@ -8061,9 +5995,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       let leaderSlot = -1;
       let leaderScore = 0;
       let isTied = false;
-      if (roundPhase === "running") {
+      if (GameState.getRoundState().phase === "running") {
+        const scores = GameState.getRoundScores();
         for (let i = 0; i < 4; i += 1) {
-          const s = Number(roundScores[i] || 0);
+          const s = Number(scores[i] || 0);
           if (s > leaderScore) { leaderScore = s; leaderSlot = i; isTied = false; }
           else if (s === leaderScore && s > 0) { isTied = true; }
         }
@@ -8071,7 +6006,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
 
       // Leader hum: subtle spatial drone on the current leader.
-      if (!menuVisible && roundPhase === "running" && leaderSlot >= 0 && allCarts[leaderSlot]) {
+      if (!menuVisible && GameState.getRoundState().phase === "running" && leaderSlot >= 0 && allCarts[leaderSlot]) {
         leaderHum?.setLeader?.(leaderSlot);
         leaderHum?.updatePositionFromCart?.(allCarts[leaderSlot]);
       } else {
@@ -8093,12 +6028,12 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
             // * White emissive — intensity carries the pulse.
             child.material.emissive.setRGB(1, 1, 1);
             child.material.emissiveIntensity = glowIntensity;
-          } else if (roundPhase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
-            child.material.emissive.setHex(colorHexForSlot(netSlots[i]));
+          } else if (GameState.getRoundState().phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
+            child.material.emissive.setHex(colorHexForSlot(Netcode.getNetSlots()[i]));
             child.material.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
           } else {
             // * Restore standard emissive (cart's own color at normal intensity).
-            const baseHex = colorHexForSlot(netSlots[i]);
+            const baseHex = colorHexForSlot(Netcode.getNetSlots()[i]);
             child.material.emissive.setHex(baseHex);
             child.material.emissiveIntensity = 0.6;
           }
@@ -8106,17 +6041,27 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
     }
 
-    updateHud();
+    HUD.update({
+      youConnId: Netcode.getYouConnId(),
+      netSlots: Netcode.getNetSlots(),
+      roundState: GameState.getRoundState(),
+      matchHistoryLength: matchHistory ? matchHistory.length : 0,
+      isLastCartStandingActive: lastCartStandingTimeoutId !== null,
+      menuVisible
+    });
+    updateResultsOverlay();
     positionNameLabels();
+
     updateAmbientParticles(dt, now);
+
     composer.render();
+
     labelRenderer.render(scene, camera);
 
-    if (!window.__fpsFrames) { window.__fpsFrames = 0; window.__fpsLast = performance.now(); }
-    window.__fpsFrames++;
+    fpsFrames++;
     const fpsNow = performance.now();
-    if (fpsNow - window.__fpsLast >= 500) {
-      const fpsVal = Math.round((window.__fpsFrames * 1000) / (fpsNow - window.__fpsLast));
+    if (fpsNow - fpsLast >= 500) {
+      const fpsVal = Math.round((fpsFrames * 1000) / (fpsNow - fpsLast));
       if (!fpsCanvas2d) {
         fpsCanvas2d = document.createElement("canvas");
         fpsCanvas2d.width = 90;
@@ -8132,11 +6077,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         fpsCtx2d.textAlign = "right";
         fpsCtx2d.fillText(fpsVal + " FPS", 86, 16);
       }
-      window.__fpsFrames = 0;
-      window.__fpsLast = fpsNow;
+      fpsFrames = 0;
+      fpsLast = fpsNow;
     }
 
-    if (roundPhase === "running" && performance.now() < shakeUntil) {
+    if (GameState.getRoundState().phase === "running" && performance.now() < shakeUntil) {
       const t = (shakeUntil - performance.now()) / 250;
       const ox = (Math.random() - 0.5) * 2 * shakeIntensity * t;
       const oy = (Math.random() - 0.5) * 2 * shakeIntensity * t;
@@ -8145,7 +6090,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       canvas.style.transform = "";
     }
 
-    if (roundPhase === "running" && performance.now() < fovPunchUntil) {
+    if (GameState.getRoundState().phase === "running" && performance.now() < fovPunchUntil) {
       const t = (fovPunchUntil - performance.now()) / 200;
       camera.fov = BASE_FOV - 8 * t; // narrow punch
       camera.updateProjectionMatrix();
@@ -8154,7 +6099,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       camera.updateProjectionMatrix();
     }
 
-    if (roundPhase === "running") {
+    if (GameState.getRoundState().phase === "running") {
       for (let i = 0; i < trashPool.length; i++) {
         const p = trashPool[i];
         if (!p.visible) continue;

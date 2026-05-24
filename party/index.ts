@@ -798,10 +798,18 @@ export default class Server implements Party.Server {
           const sanitized: Record<string, CartState> = { ...this.#carts };
           for (const id of keys) {
             const c = (carts as any)[id];
+            const p = (c as any)?.p;
+            const isPositionValid =
+              Array.isArray(p) &&
+              p.length === 3 &&
+              typeof p[0] === "number" && Number.isFinite(p[0]) && p[0] >= -500 && p[0] <= 500 &&
+              typeof p[1] === "number" && Number.isFinite(p[1]) && p[1] >= -500 && p[1] <= 501.0 &&
+              typeof p[2] === "number" && Number.isFinite(p[2]) && p[2] >= -500 && p[2] <= 500;
+
             const ok =
               c &&
               typeof c === "object" &&
-              validateNumberArray((c as any).p, 3, -500, 500) &&
+              isPositionValid &&
               validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
               validateNumberArray((c as any).lv, 3, -200, 200) &&
               validateNumberArray((c as any).av, 3, -200, 200);
