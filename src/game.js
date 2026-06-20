@@ -1,5 +1,6 @@
-// game.js — thin orchestrator (new main game entry)
+// game.js — thin orchestrator (modular game entry)
 
+import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import { CONFIG, MSG } from "./config.js";
 import * as Simulation from "./simulation.js";
 import * as Netcode from "./netcode.js";
@@ -17,6 +18,12 @@ const state = {
   composer: null,
   hud: null,
   isRunning: false,
+  lastT: performance.now(),
+  accumulator: 0,
+  rafId: null,
+  eventQueue: null,
+  getAiAxis: null,
+  physicsCallbacks: {},
 };
 
 const refs = {
@@ -28,19 +35,88 @@ const refs = {
 
 Netcode.setRefs(refs);
 
+/**
+ * @param {Array<object> | null | undefined} allCarts
+ * @returns {object | null}
+ */
+function resolveLocalCart(allCarts) {
+  if (!allCarts) return null;
+
+  const youConnId = Netcode.getYouConnId?.();
+  if (!youConnId) return null;
+
+  const idx = Netcode.localSlotIndexForConn(youConnId);
+  if (idx < 0) return null;
+
+  return allCarts[idx] ?? null;
+}
+
+/**
+ * @param {Array<object> | null | undefined} allCarts
+ * @returns {object[]}
+ */
+function resolveNpcs(allCarts) {
+  if (!allCarts) return [];
+
+  const slots = Netcode.getNetSlots?.() ?? [];
+  return allCarts.filter((cart, idx) => cart && slots[idx]?.kind === "npc");
+}
+
+/**
+ * @param {string | null | undefined} connId
+ * @returns {object | null}
+ */
+function resolveCartForConn(connId) {
+  const idx = Netcode.strictSlotIndexForConn(connId);
+  if (idx < 0) return null;
+  return state.allCarts?.[idx] ?? null;
+}
+
+function ensureEventQueue() {
+  if (!state.world) return null;
+  if (!state.eventQueue) {
+    state.eventQueue = new RAPIER.EventQueue(true);
+  }
+  return state.eventQueue;
+}
+
+function resetSimTiming() {
+  state.lastT = performance.now();
+  state.accumulator = 0;
+}
+
+refs.resetSimTimingRef.current = resetSimTiming;
+
 // === Initialization ===
+/**
+ * @param {object} [options]
+ */
 export function initGame(options = {}) {
+  if (!options || typeof options !== "object") {
+    options = {};
+  }
+
   console.log("[game] Initializing modular Cart Rave...");
 
-  // Store core Three/Rapier refs when passed in
-  if (options.allCarts) state.allCarts = options.allCarts;
-  if (options.world) state.world = options.world;
+  if (options.allCarts) {
+    state.allCarts = options.allCarts;
+    refs.allCartsRef = state.allCarts;
+  }
+  if (options.world) {
+    state.world = options.world;
+    state.eventQueue = null;
+  }
   if (options.camera) state.camera = options.camera;
   if (options.scene) state.scene = options.scene;
+  if (options.renderer) state.renderer = options.renderer;
+  if (options.composer) state.composer = options.composer;
+  if (options.hud) state.hud = options.hud;
+  if (typeof options.getAiAxis === "function") state.getAiAxis = options.getAiAxis;
+  if (options.physicsCallbacks && typeof options.physicsCallbacks === "object") {
+    state.physicsCallbacks = options.physicsCallbacks;
+  }
 
-  refs.allCartsRef = state.allCarts;
   refs.getAxisRef = Input.getAxis;
-
   Netcode.setRefs(refs);
 
   return {
@@ -52,56 +128,66 @@ export function initGame(options = {}) {
   };
 }
 
-// === Main Loop (placeholder - will be filled) ===
-let lastT = performance.now();
-let accumulator = 0;
-
+// === Main Loop ===
 export function gameStep(now = performance.now()) {
   if (!state.isRunning) return;
 
-  const dt = Math.min((now - lastT) / 1000, 0.05);
-  lastT = now;
-  accumulator += dt;
+  const dt = Math.min((now - state.lastT) / 1000, 0.05);
+  state.lastT = now;
+  state.accumulator += dt;
 
-  // Fixed timestep physics
-  while (accumulator >= CONFIG.fixedTimeStep) {
-    Simulation.runFixedPhysicsStep({
-      world: state.world,
-      eventQueue: null, // TODO
-      allCarts: state.allCarts,
-      localCart: null,  // TODO: resolve local cart
-      remoteInputs: null,
-      npcs: null,
-      dt: CONFIG.fixedTimeStep,
-      now,
-      isHost: Netcode.getIsHost?.() ?? false,
-      callbacks: {
-        getAxis: Input.getAxis,
-      },
-    });
-    accumulator -= CONFIG.fixedTimeStep;
+  const { world, allCarts } = state;
+  const isHost = Netcode.getIsHost?.() ?? false;
+  const eventQueue = ensureEventQueue();
+  const localCart = resolveLocalCart(allCarts);
+  const remoteInputs = isHost ? Netcode.getRemoteInputsByConnId?.() ?? null : null;
+  const npcs = isHost ? resolveNpcs(allCarts) : [];
+
+  if (world && allCarts && eventQueue) {
+    while (state.accumulator >= CONFIG.fixedTimeStep) {
+      Simulation.runFixedPhysicsStep({
+        world,
+        eventQueue,
+        allCarts,
+        localCart,
+        remoteInputs,
+        npcs,
+        dt: CONFIG.fixedTimeStep,
+        now,
+        isHost,
+        callbacks: {
+          getAxis: Input.getAxis,
+          getAiAxis: state.getAiAxis,
+          resolveCartForConn,
+          ...state.physicsCallbacks,
+        },
+      });
+      state.accumulator -= CONFIG.fixedTimeStep;
+    }
   }
 
-  // Visual updates
-  // Visuals + rendering will go here
+  // Visual updates + rendering remain in main.js until full cutover.
 
-  requestAnimationFrame(gameStep);
+  state.rafId = requestAnimationFrame(gameStep);
 }
 
 export function startGameLoop() {
   if (state.isRunning) return;
+
   state.isRunning = true;
-  lastT = performance.now();
-  accumulator = 0;
+  resetSimTiming();
   console.log("[game] Starting game loop");
-  requestAnimationFrame(gameStep);
+  state.rafId = requestAnimationFrame(gameStep);
 }
 
 export function stopGameLoop() {
   state.isRunning = false;
+  if (state.rafId != null) {
+    cancelAnimationFrame(state.rafId);
+    state.rafId = null;
+  }
 }
 
-// Expose everything for migration
 export {
   Simulation,
   Netcode,
@@ -113,17 +199,12 @@ export {
 };
 
 /**
- * Migration Roadmap
+ * Modular layout status
  *
- * Phase 1 (complete):
- *   config, simulation, netcode, input, visuals extracted
+ * Extracted modules: config, simulation, netcode, input, visuals, gameState,
+ * entities, scene, audio, hud.
  *
- * Phase 2 (current):
- *   - Move real fixed-timestep logic into gameStep()
- *   - Wire physicsSubstep from simulation.js
- *   - Begin moving cart creation & scene setup
- *
- * Phase 3:
- *   Extract gameState.js, hud.js, audio.js
- *   Full cutover from old main.js
+ * main.js still owns the production render loop, scene bootstrap, and HUD wiring.
+ * game.js provides a thin fixed-timestep orchestrator for gradual cutover — pass
+ * world/allCarts via initGame(), optional getAiAxis + physicsCallbacks for host sim.
  */

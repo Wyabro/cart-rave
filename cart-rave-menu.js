@@ -46,6 +46,46 @@
     showSpotlights: true,
     showParticles: true,
     cartDance: true,
+
+    // Beat / cart dance animation
+    bpm: 128,
+    beatDecay: 0.8,
+    tiltSpeedHz: 1.2,
+    tiltAmplitude: 0.6,
+    cartPulseScale: 0.06,
+    cartBobPx: 8,
+    cartTiltDeg: 6,
+    shadowBeatScale: 0.15,
+    titleBeatScale: 0.015,
+    floorBeatParallaxPx: 4,
+
+    // Particles
+    particleCountBase: 12,
+    particleCountPerIntensity: 2,
+    particleSizeMin: 2,
+    particleSizeRange: 5,
+    particleDurMin: 8,
+    particleDurRange: 14,
+    particleDelayMax: 20,
+
+    // Spotlights
+    spotlightCount: 4,
+    spotlightDurBase: 5,
+    spotlightDurStep: 1.3,
+    spotlightDelayStep: -0.7,
+    spotlightLeftBase: 12,
+    spotlightLeftStep: 22,
+    spotlightOpacityBase: 0.35,
+    spotlightOpacityPerIntensity: 0.06,
+
+    // Intensity-driven scene opacity
+    floorOpacityBase: 0.3,
+    floorOpacityPerIntensity: 0.05,
+    scanOpacityBase: 0.05,
+    scanOpacityPerIntensity: 0.01,
+
+    nameMaxLength: 12,
+    defaultVolume: 0.25,
   };
 
   const HANDLE_PARTS = [
@@ -133,6 +173,7 @@
 
   // * Game color IDs in slot order — must match PALETTE = Object.keys(CART_COLORS) in main.js.
   const PALETTE_GAME = ['pink', 'blue', 'green', 'yellow', 'neonOrange'];
+  const COLOR_ARIA_LABELS = ['Pink', 'Blue', 'Green', 'Yellow', 'Neon orange'];
 
   // ─── State ────────────────────────────────────────────────────────────────
   const state = {
@@ -140,7 +181,7 @@
     playerIdx: 0,
     name: localStorage.getItem("cartRaveUsername") || rollPlayerName(),
     muted: false,
-    vol: 0.25,
+    vol: CONFIG.defaultVolume,
     beat: 0,
     tilt: 0,
   };
@@ -174,6 +215,11 @@
   // NOTE: Keyboard/mouse gating toast is driven by main.js (mobile gameplay block).
 
   // ─── Neon cart SVG builder ────────────────────────────────────────────────
+  /**
+   * Builds the large neon cart SVG shown in the menu cart stage.
+   * @param {string} color Hex color for strokes, fills, and glow filter.
+   * @returns {string} SVG markup string.
+   */
   function makeCartSVG(color) {
     const gid = 'g' + Math.random().toString(36).slice(2, 8);
     return `
@@ -215,13 +261,13 @@
     const p = state.palette;
     const colors = [p.primary, p.secondary, p.tertiary, p.players[0]];
     let html = "";
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < CONFIG.spotlightCount; i++) {
       html += `<div class="cr-light" style="
         --col:${colors[i % colors.length]};
-        --dur:${5 + i * 1.3}s;
-        --delay:${i * -0.7}s;
-        left:${12 + i * 22}%;
-        opacity:${0.35 + CONFIG.intensity * 0.06};
+        --dur:${CONFIG.spotlightDurBase + i * CONFIG.spotlightDurStep}s;
+        --delay:${i * CONFIG.spotlightDelayStep}s;
+        left:${CONFIG.spotlightLeftBase + i * CONFIG.spotlightLeftStep}%;
+        opacity:${CONFIG.spotlightOpacityBase + CONFIG.intensity * CONFIG.spotlightOpacityPerIntensity};
       "></div>`;
     }
     lightsEl.innerHTML = html;
@@ -230,15 +276,15 @@
   // ─── Build particles ──────────────────────────────────────────────────────
   function buildParticles() {
     if (!CONFIG.showParticles) { particlesEl.innerHTML = ""; return; }
-    const count = Math.round(12 + CONFIG.intensity * 2);
+    const count = Math.round(CONFIG.particleCountBase + CONFIG.intensity * CONFIG.particleCountPerIntensity);
     const p = state.palette;
     const colors = [p.primary, p.secondary, p.tertiary];
     let html = "";
     for (let i = 0; i < count; i++) {
       const left = Math.random() * 100;
-      const size = 2 + Math.random() * 5;
-      const dur = 8 + Math.random() * 14;
-      const delay = -Math.random() * 20;
+      const size = CONFIG.particleSizeMin + Math.random() * CONFIG.particleSizeRange;
+      const dur = CONFIG.particleDurMin + Math.random() * CONFIG.particleDurRange;
+      const delay = -Math.random() * CONFIG.particleDelayMax;
       const color = colors[i % colors.length];
       html += `<div class="cr-particle" style="
         left:${left}%;
@@ -253,11 +299,17 @@
   }
 
   // ─── Build color chips ────────────────────────────────────────────────────
+  /**
+   * Rebuilds the player color picker chips and wires click handlers.
+   * Syncs active chip, localStorage, cart preview, and palette CSS vars.
+   */
   function buildColorChips() {
     const p = state.palette;
     let html = "";
     p.players.forEach((col, i) => {
-      html += `<button class="cr-color-chip ${state.playerIdx === i ? 'active' : ''}" data-idx="${i}" style="--cc:${col};">
+      const isActive = state.playerIdx === i;
+      const colorLabel = COLOR_ARIA_LABELS[i] || `Color ${i + 1}`;
+      html += `<button class="cr-color-chip ${isActive ? 'active' : ''}" data-idx="${i}" style="--cc:${col};" role="radio" aria-checked="${isActive}" aria-label="${colorLabel}">
         ${makeMiniCart(col)}
       </button>`;
     });
@@ -274,6 +326,9 @@
   }
 
   // ─── Render cart ──────────────────────────────────────────────────────────
+  /**
+   * Renders the menu cart SVG and shadow for the currently selected player color.
+   */
   function renderCart() {
     const color = state.palette.players[state.playerIdx];
     cartHolder.innerHTML = makeCartSVG(color);
@@ -281,6 +336,10 @@
   }
 
   // ─── Apply palette to all CSS vars / floor / title / buttons ──────────────
+  /**
+   * Propagates the active palette and player color to CSS custom properties,
+   * stat colors, mode buttons, audio widget, and control key hints.
+   */
   function applyPalette() {
     const p = state.palette;
     const pc = p.players[state.playerIdx];
@@ -289,7 +348,7 @@
 
     floorGrid.style.setProperty('--c1', p.primary);
     floorGrid.style.setProperty('--c2', p.secondary);
-    floorEl.style.opacity = 0.3 + CONFIG.intensity * 0.05;
+    floorEl.style.opacity = CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity;
 
     titleEl.style.setProperty('--t1', p.primary);
     titleEl.style.setProperty('--t2', p.secondary);
@@ -333,23 +392,26 @@
   }
 
   // ─── Name editing ─────────────────────────────────────────────────────────
-  nameDisplay.addEventListener('click', () => {
+  function startNameEdit() {
     nameInput.value = state.name;
     nameInput.style.display = '';
     nameDisplay.style.display = 'none';
     nameInput.focus();
     nameInput.select();
-  });
-  const finishNameEdit = () => {
-    state.name = (nameInput.value || '').toUpperCase().slice(0, 12) || state.name;
+  }
+
+  function finishNameEdit() {
+    state.name = (nameInput.value || '').toUpperCase().slice(0, CONFIG.nameMaxLength) || state.name;
     localStorage.setItem("cartRaveUsername", state.name);
     nameText.textContent = state.name;
     nameInput.style.display = 'none';
     nameDisplay.style.display = '';
-  };
+  }
+
+  nameDisplay.addEventListener('click', startNameEdit);
   nameInput.addEventListener('blur', finishNameEdit);
   nameInput.addEventListener('input', () => {
-    nameInput.value = nameInput.value.toUpperCase().slice(0, 12);
+    nameInput.value = nameInput.value.toUpperCase().slice(0, CONFIG.nameMaxLength);
   });
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') finishNameEdit();
@@ -393,44 +455,49 @@
   });
 
   // ─── Beat + tilt animation ────────────────────────────────────────────────
-  const bpm = 128;
-  const interval = 60000 / bpm;
   let lastBeat = performance.now();
   const animStart = performance.now();
   let animFrameId = null;
   let statsIntervalId = null;
+
+  /**
+   * Main menu animation loop: beat pulse, cart bob/tilt, title scale, floor parallax.
+   * @param {number} now `performance.now()` timestamp from requestAnimationFrame.
+   */
   function animLoop(now) {
+    const beatIntervalMs = 60000 / CONFIG.bpm;
+
     // Beat
     if (CONFIG.cartDance) {
-      if (now - lastBeat > interval) {
+      if (now - lastBeat > beatIntervalMs) {
         state.beat = 1;
         lastBeat = now;
       } else {
         const since = now - lastBeat;
-        state.beat = Math.max(0, 1 - since / (interval * 0.8));
+        state.beat = Math.max(0, 1 - since / (beatIntervalMs * CONFIG.beatDecay));
       }
     } else {
       state.beat = 0;
     }
     // Tilt
     const elapsed = (now - animStart) / 1000;
-    state.tilt = Math.sin(elapsed * 1.2) * 0.6;
+    state.tilt = Math.sin(elapsed * CONFIG.tiltSpeedHz) * CONFIG.tiltAmplitude;
 
     // Apply to cart
-    const pulse = 1 + state.beat * 0.06;
-    const bob = Math.sin(state.beat * Math.PI) * -8;
+    const pulse = 1 + state.beat * CONFIG.cartPulseScale;
+    const bob = Math.sin(state.beat * Math.PI) * -CONFIG.cartBobPx;
     const svg = cartHolder.querySelector('svg');
     if (svg) {
-      svg.style.transform = `translateY(${bob}px) rotate(${state.tilt * 6}deg) scale(${pulse})`;
+      svg.style.transform = `translateY(${bob}px) rotate(${state.tilt * CONFIG.cartTiltDeg}deg) scale(${pulse})`;
     }
-    cartShadow.style.transform = `translateX(-50%) scale(${1 - state.beat * 0.15})`;
+    cartShadow.style.transform = `translateX(-50%) scale(${1 - state.beat * CONFIG.shadowBeatScale})`;
 
     // Title subtle scale pulse
-    titleEl.style.transform = `scale(${1 + state.beat * 0.015})`;
+    titleEl.style.transform = `scale(${1 + state.beat * CONFIG.titleBeatScale})`;
 
     // Floor parallax
     if (floorGrid) {
-      floorGrid.style.transform = `rotateX(62deg) translateY(${state.beat * -4}px)`;
+      floorGrid.style.transform = `rotateX(62deg) translateY(${state.beat * -CONFIG.floorBeatParallaxPx}px)`;
     }
 
     animFrameId = requestAnimationFrame(animLoop);
@@ -474,7 +541,7 @@
 
   // ─── FX toggles via CONFIG ────────────────────────────────────────────────
   if (!CONFIG.showFloor) floorEl.style.display = 'none';
-  scanEl.style.opacity = 0.05 + CONFIG.intensity * 0.01;
+  scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   document.addEventListener("pointerdown", function startMenuAudio() {
@@ -518,8 +585,8 @@
       CONFIG.intensity = Math.max(0, Math.min(10, n));
       buildSpotlights();
       buildParticles();
-      scanEl.style.opacity = 0.05 + CONFIG.intensity * 0.01;
-      floorEl.style.opacity = 0.3 + CONFIG.intensity * 0.05;
+      scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
+      floorEl.style.opacity = CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity;
     },
     onMenu(cb) {
       window.addEventListener('cartrave:menu', (e) => cb(e.detail.action));

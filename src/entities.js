@@ -66,47 +66,88 @@ export function buildCartMaterialCache(cartMesh) {
   return { frameMats, wheelGlowMats, frameGlowMats };
 }
 
-export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) {
-  const mesh = buildCart(color);
-  scene.add(mesh);
-  mesh.updateMatrixWorld(true);
-  const materialCache = buildCartMaterialCache(mesh);
-
-  const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
+/**
+ * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {{ x: number, y: number, z: number }} spawn
+ * @param {number} spawnYaw
+ * @returns {import("@dimforge/rapier3d-compat").RigidBody | null}
+ */
+function createCartBody(world, spawn, spawnYaw) {
+  if (!world || !spawn) return null;
 
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(spawnFrozen.x, spawnFrozen.y, spawnFrozen.z)
+      .setTranslation(spawn.x, spawn.y, spawn.z)
       .setLinearDamping(CONFIG.cart.linearDamping)
       .setAngularDamping(CONFIG.cart.angularDamping),
   );
   body.setRotation(quatFromYaw(spawnYaw), true);
-  // Keep the cart responsive; some Rapier builds may sleep bodies aggressively.
+
+  const { canSleep, enabledRotations } = CONFIG.cart.rigidBody;
   if (typeof body.setCanSleep === "function") {
-    body.setCanSleep(false);
+    body.setCanSleep(canSleep);
   }
-  // Lock pitch and roll rotations for maximum movement stability
-  if (typeof body.setEnabledRotations === "function") {
-    body.setEnabledRotations(false, true, false, true);
+  if (typeof body.setEnabledRotations === "function" && Array.isArray(enabledRotations)) {
+    const [pitch, yaw, roll, wake] = enabledRotations;
+    body.setEnabledRotations(pitch, yaw, roll, wake);
   }
+
+  return body;
+}
+
+/**
+ * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d-compat").RigidBody} body
+ * @returns {{
+ *   collider: import("@dimforge/rapier3d-compat").Collider,
+ *   hx: number,
+ *   hyPhys: number,
+ *   hz: number,
+ *   colliderLocalY: number,
+ * } | null}
+ */
+function createCartCollider(world, body) {
+  if (!world || !body) return null;
 
   const hx = CONFIG.cart.size.x / 2;
   const hy = CONFIG.cart.size.y / 2;
   const hz = CONFIG.cart.size.z / 2;
+  const { hyReduction, localYOffset, roundRadius } = CONFIG.cart.collider;
+  const hyPhys = hy - hyReduction;
+  const colliderLocalY = localYOffset;
 
-  // Reduce physical collider height and translate upward to lift it off the floor
-  const hyPhys = hy - 0.25;
-  const colliderLocalY = -0.12 + 0.25;
-
-  // Replace sharp cuboid with a round cuboid to stop trimesh snagging
-  const colliderDesc = RAPIER.ColliderDesc.roundCuboid(hx, hyPhys, hz, 0.1)
+  const colliderDesc = RAPIER.ColliderDesc.roundCuboid(hx, hyPhys, hz, roundRadius)
     .setTranslation(0, colliderLocalY, 0)
     .setFriction(CONFIG.cart.friction)
     .setRestitution(CONFIG.cart.restitution);
   if (typeof colliderDesc.setActiveEvents === "function") {
     colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
   }
+
   const collider = world.createCollider(colliderDesc, body);
+  return { collider, hx, hyPhys, hz, colliderLocalY };
+}
+
+/**
+ * @param {THREE.Scene} scene
+ * @param {number} color
+ * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartMaterialCache> }}
+ */
+function setupCartVisuals(scene, color) {
+  const mesh = buildCart(color);
+  scene.add(mesh);
+  mesh.updateMatrixWorld(true);
+  const materialCache = buildCartMaterialCache(mesh);
+  return { mesh, materialCache };
+}
+
+/**
+ * @param {import("@dimforge/rapier3d-compat").RigidBody} body
+ * @param {import("@dimforge/rapier3d-compat").Collider} collider
+ * @param {{ label?: string, hx: number, hyPhys: number, hz: number, colliderLocalY: number }} dims
+ */
+function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY }) {
+  if (!body || !collider) return;
 
   applyCartMassPropertiesOverride(body, collider, {
     label,
@@ -115,6 +156,32 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
     hz,
     colliderLocalY,
   });
+}
+
+/**
+ * Creates a cart rigid body, collider, and mesh wired for netcode and gameplay state.
+ *
+ * @param {{
+ *   scene: THREE.Scene,
+ *   world: import("@dimforge/rapier3d-compat").World,
+ *   color: number,
+ *   spawn: { x: number, y: number, z: number },
+ *   spawnYaw: number,
+ *   label: string,
+ *   slotIndex: number,
+ * }} params
+ * @returns {object}
+ */
+export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) {
+  const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
+  const { mesh, materialCache } = setupCartVisuals(scene, color);
+
+  const body = createCartBody(world, spawnFrozen, spawnYaw);
+  const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
+  applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY });
+
+  const prevPosition = body.translation();
+  const prevRotation = body.rotation();
 
   return {
     mesh,
@@ -129,6 +196,8 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
     _lastNetLinvel: { x: 0, y: 0, z: 0 },
     _netTargetPos: mesh.position.clone(),
     _netTargetQuat: mesh.quaternion.clone(),
+    prevPosition,
+    prevRotation,
     lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
     ramBoostActiveUntilMs: 0,
     ramBoostStreakCarry: 0,
@@ -141,7 +210,14 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
   };
 }
 
+/**
+ * Teleports a cart to its spawn pose and clears transient combat / boost state.
+ *
+ * @param {ReturnType<typeof createCart>} cart
+ */
 export function doRespawn(cart) {
+  if (!cart?.body) return;
+
   cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
   cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -152,9 +228,15 @@ export function doRespawn(cart) {
   cart.pendingRam = null;
   cart.ramBoostActiveUntilMs = 0;
   cart.ramBoostStreakCarry = 0;
-  Visuals.resetCartVisualState(cart.mesh);
+  if (cart.mesh) {
+    Visuals.resetCartVisualState(cart.mesh);
+  }
 }
 
+/**
+ * @param {number} slotIndex
+ * @returns {{ x: number, y: number, z: number }}
+ */
 export function spawnOnRingForSlot(slotIndex) {
   const ringR = CONFIG.cart.spawnRingRadius;
   const angle = (slotIndex * Math.PI) / 2;
@@ -165,20 +247,16 @@ export function spawnOnRingForSlot(slotIndex) {
   };
 }
 
+/**
+ * Resets every cart to spawn between rounds and broadcasts a host transform snapshot.
+ */
 export function rematchResetWorld() {
-  if (ramBoostStreaksRef) {
-    for (let i = ramBoostStreaksRef.length - 1; i >= 0; i -= 1) {
-      const s = ramBoostStreaksRef[i];
-      if (sceneRef) {
-        sceneRef.remove(s.mesh);
-      }
-      s.mesh.geometry.dispose();
-      s.material.dispose();
-      ramBoostStreaksRef.splice(i, 1);
-    }
-  }
+  Visuals.disposeAllRamBoostStreaks(ramBoostStreaksRef, sceneRef);
   GameState.clearAllHits();
+
   for (const cart of allCartsRef) {
+    if (!cart?.body) continue;
+
     cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
     cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
     cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -192,11 +270,16 @@ export function rematchResetWorld() {
     cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
     cart.aiNextDecisionMs = 0;
     cart.aiTarget = { x: 0, z: 0 };
-    Visuals.resetCartVisualState(cart.mesh);
+    if (cart.mesh) {
+      Visuals.resetCartVisualState(cart.mesh);
+    }
   }
+
   const carts = {};
   for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
     const c = allCartsRef[slotIndex];
+    if (!c?.body) continue;
+
     const t = c.body.translation();
     const r = c.body.rotation();
     const lv = c.body.linvel();
@@ -211,6 +294,20 @@ export function rematchResetWorld() {
   Netcode.broadcastHostTransform(carts);
 }
 
+/**
+ * Spawns four slot carts, registers collider handles, and handles mid-round join respawn.
+ *
+ * @param {{
+ *   scene: THREE.Scene,
+ *   world: import("@dimforge/rapier3d-compat").World,
+ *   ramBoostStreaks: Array<object>,
+ *   netSlots: Array<object | null | undefined>,
+ *   youConnId: string | null | undefined,
+ *   CART_COLORS: Record<string, { hex: number }>,
+ *   colorHexForSlot: (slot: object | null | undefined) => number,
+ *   pendingMidRoundJoinRespawnConnId: string | null | undefined,
+ * }} params
+ */
 export function initCarts({
   scene,
   world,
@@ -219,7 +316,7 @@ export function initCarts({
   youConnId,
   CART_COLORS,
   colorHexForSlot,
-  pendingMidRoundJoinRespawnConnId
+  pendingMidRoundJoinRespawnConnId,
 }) {
   sceneRef = scene;
   worldRef = world;
@@ -257,7 +354,9 @@ export function initCarts({
 
   colliderHandleToCart.clear();
   for (const c of cartsBySlotId) {
-    colliderHandleToCart.set(c.collider.handle, c);
+    if (c?.collider) {
+      colliderHandleToCart.set(c.collider.handle, c);
+    }
   }
 
   allCartsRef = cartsBySlotId;
@@ -265,6 +364,6 @@ export function initCarts({
   return {
     allCarts: allCartsRef,
     colliderHandleToCart,
-    nextPendingMidRoundJoinRespawnConnId
+    nextPendingMidRoundJoinRespawnConnId,
   };
 }

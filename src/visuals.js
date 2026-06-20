@@ -5,6 +5,35 @@ import { updateCartVisuals as _updateCartVisuals, resetCartVisualState as _reset
 
 export { _updateCartVisuals as updateCartVisuals, _resetCartVisualState as resetCartVisualState };
 
+/**
+ * Removes and disposes every ram-boost streak mesh (e.g. between-round reset).
+ *
+ * @param {Array<{ mesh?: THREE.Mesh, material?: THREE.Material }> | null | undefined} streaks
+ * @param {THREE.Scene | null | undefined} scene
+ */
+export function disposeAllRamBoostStreaks(streaks, scene) {
+  if (!streaks) return;
+
+  for (let i = streaks.length - 1; i >= 0; i -= 1) {
+    const s = streaks[i];
+    if (!s) {
+      streaks.splice(i, 1);
+      continue;
+    }
+
+    if (scene && s.mesh) {
+      scene.remove(s.mesh);
+    }
+    if (s.mesh?.geometry) {
+      s.mesh.geometry.dispose();
+    }
+    if (s.material) {
+      s.material.dispose();
+    }
+    streaks.splice(i, 1);
+  }
+}
+
 const _v = new THREE.Vector3();
 
 export function updateAmbientParticles(geometry, count, radius, height, drift, dt, nowMs) {

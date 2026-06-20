@@ -1,4 +1,5 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
+import * as BufferGeometryUtils from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
 export const BASKET_LENGTH = 2.1;
@@ -54,6 +55,9 @@ const _p0 = new THREE.Vector3();
 const _p1 = new THREE.Vector3();
 const _mid = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _matrix = new THREE.Matrix4();
+const _quat = new THREE.Quaternion();
+const _scaleOne = new THREE.Vector3(1, 1, 1);
 
 const SHARED_WHEEL_GEO = new THREE.CylinderGeometry(
   WHEEL_RADIUS,
@@ -107,26 +111,56 @@ function bottomYAtZ(z, halfL, yFront, yBack) {
 }
 
 /**
- * @param {THREE.Object3D} parent
+ * Builds a cylinder rail segment as a standalone transformed geometry.
  * @param {THREE.Vector3} a
  * @param {THREE.Vector3} b
  * @param {number} radius
  * @param {number} segments
- * @param {THREE.Material} material
+ * @returns {THREE.BufferGeometry | null}
  */
-function addRailCylinder(parent, a, b, radius, segments, material) {
+function addRailCylinder(a, b, radius, segments) {
   _dir.subVectors(b, a);
   const len = _dir.length();
   if (len < 1e-5) return null;
   _dir.multiplyScalar(1 / len);
   _mid.addVectors(a, b).multiplyScalar(0.5);
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius, radius, len, segments, 1),
-    material,
-  );
-  mesh.position.copy(_mid);
-  mesh.quaternion.setFromUnitVectors(_axisY, _dir);
-  parent.add(mesh);
+  const geo = new THREE.CylinderGeometry(radius, radius, len, segments, 1);
+  _quat.setFromUnitVectors(_axisY, _dir);
+  _matrix.compose(_mid, _quat, _scaleOne);
+  geo.applyMatrix4(_matrix);
+  return geo;
+}
+
+/**
+ * @param {THREE.BufferGeometry[]} geometries
+ * @param {THREE.Vector3} a
+ * @param {THREE.Vector3} b
+ * @param {number} radius
+ * @param {number} segments
+ */
+function pushRailGeometry(geometries, a, b, radius, segments) {
+  const geo = addRailCylinder(a, b, radius, segments);
+  if (geo) geometries.push(geo);
+}
+
+/**
+ * @param {THREE.BufferGeometry[]} sourceGeometries
+ * @param {THREE.Material} material
+ * @param {string} name
+ * @param {Record<string, unknown>} [userData]
+ * @returns {THREE.Mesh | null}
+ */
+function mergeGeometriesIntoMesh(sourceGeometries, material, name, userData) {
+  if (sourceGeometries.length === 0) return null;
+  const merged = BufferGeometryUtils.mergeGeometries(sourceGeometries, false);
+  for (const geo of sourceGeometries) {
+    geo.dispose();
+  }
+  sourceGeometries.length = 0;
+  if (!merged) return null;
+  const mesh = new THREE.Mesh(merged, material);
+  mesh.name = name;
+  if (userData) mesh.userData = { ...userData };
   return mesh;
 }
 
@@ -160,53 +194,41 @@ function neonWheelMaterial(base) {
 }
 
 /**
- * @param {number} colorHex
- * @returns {THREE.Group}
+ * @typedef {object} CartBuildDims
+ * @property {number} halfW
+ * @property {number} halfL
+ * @property {number} frontZ
+ * @property {number} backZ
+ * @property {number} yBottomFront
+ * @property {number} yBottomBack
+ * @property {number} railR
+ * @property {number} railSeg
+ * @property {number} hFront
+ * @property {number} hBack
+ * @property {(z: number) => number} yBottom
+ * @property {(z: number) => number} wallHeight
  */
-export function buildCart(colorHex) {
-  const baseColor = new THREE.Color(colorHex);
-  const frameMat = neonFrameMaterial(baseColor);
-  const wheelMat = neonWheelMaterial(baseColor);
-  const stemMat = neonWheelMaterial(baseColor);
-  const handleMat = new THREE.MeshStandardMaterial({
-    color: 0x222222,
-    emissive: 0x000000,
-    emissiveIntensity: 0.0,
-    roughness: 0.2,
-    metalness: 0.9,
-  });
 
-  const root = new THREE.Group();
-  root.name = "CartVisual";
+/**
+ * Builds the open wireframe basket: long sides, front/back walls, rim, and bottom grid.
+ * @param {THREE.BufferGeometry[]} frameGeometries Collected static frame geometries for merging.
+ * @param {THREE.Color} baseColor Cart base color (reserved for future basket accents).
+ * @param {CartBuildDims} dims Shared basket geometry helpers and dimensions.
+ */
+function buildBasketWireframe(frameGeometries, baseColor, dims) {
+  void baseColor;
 
-  const halfW = BASKET_WIDTH * 0.5;
-  const halfL = BASKET_LENGTH * 0.5;
-  const frontZ = -halfL;
-  const backZ = halfL;
-  const yBottomFront = BASKET_RIM_TOP_Y - BASKET_HEIGHT_FRONT;
-  const yBottomBack = BASKET_RIM_TOP_Y - BASKET_HEIGHT_BACK;
-  const railR = BASKET_RAIL_RADIUS;
-  const railSeg = BASKET_RAIL_SEGMENTS;
-
-  const basketGroup = new THREE.Group();
-  basketGroup.name = "BasketWire";
-  root.add(basketGroup);
-
-  /**
-   * @param {number} z
-   * @returns {number}
-   */
-  function yBottom(z) {
-    return bottomYAtZ(z, halfL, yBottomFront, yBottomBack);
-  }
-
-  /**
-   * @param {number} z
-   * @returns {number}
-   */
-  function wallHeight(z) {
-    return BASKET_RIM_TOP_Y - yBottom(z);
-  }
+  const {
+    halfW,
+    frontZ,
+    backZ,
+    railR,
+    railSeg,
+    hFront,
+    hBack,
+    yBottom,
+    wallHeight,
+  } = dims;
 
   // * Long sides: vertical rails along Z, horizontal tiers as polylines along Z (sloped silhouette).
   for (let i = 0; i < VERTICAL_RAILS_LONG; i += 1) {
@@ -215,10 +237,10 @@ export function buildCart(colorHex) {
     const y0 = yBottom(z);
     _p0.set(-halfW, y0, z);
     _p1.set(-halfW, BASKET_RIM_TOP_Y, z);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
     _p0.set(halfW, y0, z);
     _p1.set(halfW, BASKET_RIM_TOP_Y, z);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   }
 
   for (let k = 0; k < HORIZONTAL_RAILS_LONG; k += 1) {
@@ -235,61 +257,59 @@ export function buildCart(colorHex) {
       const y1 = yBottom(z1) + f * h1;
       _p0.set(-halfW, y0, z0);
       _p1.set(-halfW, y1, z1);
-      addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+      pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
       _p0.set(halfW, y0, z0);
       _p1.set(halfW, y1, z1);
-      addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+      pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
     }
   }
 
   // * Front wall (short): grid in X at z = frontZ.
-  const hFront = BASKET_HEIGHT_FRONT;
   for (let i = 0; i < VERTICAL_RAILS_FRONT; i += 1) {
     const u = VERTICAL_RAILS_FRONT <= 1 ? 0.5 : i / (VERTICAL_RAILS_FRONT - 1);
     const x = -halfW + u * (2 * halfW);
     _p0.set(x, yBottom(frontZ), frontZ);
     _p1.set(x, BASKET_RIM_TOP_Y, frontZ);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   }
   for (let k = 0; k < HORIZONTAL_RAILS_FRONT; k += 1) {
     const f = (k + 1) / (HORIZONTAL_RAILS_FRONT + 1);
     const y = yBottom(frontZ) + f * hFront;
     _p0.set(-halfW, y, frontZ);
     _p1.set(halfW, y, frontZ);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   }
 
   // * Back wall (tall): grid in X at z = backZ.
-  const hBack = BASKET_HEIGHT_BACK;
   for (let i = 0; i < VERTICAL_RAILS_BACK; i += 1) {
     const u = VERTICAL_RAILS_BACK <= 1 ? 0.5 : i / (VERTICAL_RAILS_BACK - 1);
     const x = -halfW + u * (2 * halfW);
     _p0.set(x, yBottom(backZ), backZ);
     _p1.set(x, BASKET_RIM_TOP_Y, backZ);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   }
   for (let k = 0; k < HORIZONTAL_RAILS_BACK; k += 1) {
     const f = (k + 1) / (HORIZONTAL_RAILS_BACK + 1);
     const y = yBottom(backZ) + f * hBack;
     _p0.set(-halfW, y, backZ);
     _p1.set(halfW, y, backZ);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   }
 
   // * Top rim (open basket): rectangle of rails so the read is clearly "cart top".
   const rimInset = railR * 2.2;
   _p0.set(-halfW + rimInset, BASKET_RIM_TOP_Y, frontZ + rimInset);
   _p1.set(halfW - rimInset, BASKET_RIM_TOP_Y, frontZ + rimInset);
-  addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+  pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   _p0.set(-halfW + rimInset, BASKET_RIM_TOP_Y, backZ - rimInset);
   _p1.set(halfW - rimInset, BASKET_RIM_TOP_Y, backZ - rimInset);
-  addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+  pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   _p0.set(-halfW, BASKET_RIM_TOP_Y, frontZ + rimInset);
   _p1.set(-halfW, BASKET_RIM_TOP_Y, backZ - rimInset);
-  addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+  pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   _p0.set(halfW, BASKET_RIM_TOP_Y, frontZ + rimInset);
   _p1.set(halfW, BASKET_RIM_TOP_Y, backZ - rimInset);
-  addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+  pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
 
   // * Sloped bottom wire grid (rails along X at several Z, rails along Z in segments).
   for (let j = 0; j < BOTTOM_GRID_ALONG_X; j += 1) {
@@ -298,7 +318,7 @@ export function buildCart(colorHex) {
     const y = yBottom(z);
     _p0.set(-halfW, y, z);
     _p1.set(halfW, y, z);
-    addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
   }
   for (let i = 0; i < BOTTOM_GRID_ALONG_Z; i += 1) {
     const segs = BOTTOM_Z_SEGMENTS;
@@ -310,44 +330,59 @@ export function buildCart(colorHex) {
       const x = -halfW + (i / Math.max(1, BOTTOM_GRID_ALONG_Z - 1)) * (2 * halfW);
       _p0.set(x, yBottom(z0), z0);
       _p1.set(x, yBottom(z1), z1);
-      addRailCylinder(basketGroup, _p0, _p1, railR, railSeg, frameMat);
+      pushRailGeometry(frameGeometries, _p0, _p1, railR, railSeg);
     }
   }
+}
 
-  // * Handle: horizontal bar + two vertical posts from rim to bar (behind basket in +Z).
+/**
+ * Builds the rear handle: two vertical posts and a horizontal grip bar.
+ * @param {THREE.BufferGeometry[]} frameGeometries Collected static frame geometries for merging.
+ * @param {CartBuildDims} dims Shared basket geometry helpers and dimensions.
+ */
+function buildHandle(frameGeometries, dims) {
+  const { backZ, railR, railSeg } = dims;
   const handleZ = backZ + HANDLE_PUSH_Z;
   const postTopY = HANDLE_BAR_Y - HANDLE_BAR_RADIUS * 0.9;
   const postBottomY = BASKET_RIM_TOP_Y - railR * 0.5;
+
   for (const sx of [-HANDLE_SPREAD_X, HANDLE_SPREAD_X]) {
     _p0.set(sx, postBottomY, backZ);
     _p1.set(sx, postTopY, handleZ);
-    const postMesh = addRailCylinder(root, _p0, _p1, railR * 1.15, railSeg, handleMat);
-    if (postMesh) postMesh.userData.isHandle = true;
+    pushRailGeometry(frameGeometries, _p0, _p1, railR * 1.15, railSeg);
   }
-  const handleLen = BASKET_WIDTH * 0.92;
-  const handleBar = new THREE.Mesh(
-    new THREE.CylinderGeometry(HANDLE_BAR_RADIUS, HANDLE_BAR_RADIUS, handleLen, 14, 1),
-    handleMat,
-  );
-  handleBar.rotation.z = Math.PI / 2;
-  handleBar.position.set(0, HANDLE_BAR_Y, handleZ);
-  handleBar.userData.isHandle = true;
-  root.add(handleBar);
 
-  // * Chassis: two long rails + crossbars (open frame).
-  const chassisGroup = new THREE.Group();
-  chassisGroup.name = "Chassis";
-  root.add(chassisGroup);
+  const handleLen = BASKET_WIDTH * 0.92;
+  const handleBarGeo = new THREE.CylinderGeometry(
+    HANDLE_BAR_RADIUS,
+    HANDLE_BAR_RADIUS,
+    handleLen,
+    14,
+    1,
+  );
+  _quat.setFromEuler(new THREE.Euler(0, 0, Math.PI / 2));
+  _matrix.compose(_v.set(0, HANDLE_BAR_Y, handleZ), _quat, _scaleOne);
+  handleBarGeo.applyMatrix4(_matrix);
+  frameGeometries.push(handleBarGeo);
+}
+
+/**
+ * Builds the open chassis frame: long rails, crossbars, and corner struts.
+ * @param {THREE.BufferGeometry[]} frameGeometries Collected static frame geometries for merging.
+ * @param {CartBuildDims} dims Shared basket geometry helpers and dimensions.
+ */
+function buildChassis(frameGeometries, dims) {
+  const { halfW, frontZ, backZ, railR, yBottom } = dims;
 
   const chY = CHASSIS_RAIL_Y;
   const chX = CHASSIS_HALF_WIDTH;
   const chZ = CHASSIS_HALF_LENGTH;
   _p0.set(-chX, chY, -chZ);
   _p1.set(-chX, chY, chZ);
-  addRailCylinder(chassisGroup, _p0, _p1, CHASSIS_RAIL_RADIUS, 8, frameMat);
+  pushRailGeometry(frameGeometries, _p0, _p1, CHASSIS_RAIL_RADIUS, 8);
   _p0.set(chX, chY, -chZ);
   _p1.set(chX, chY, chZ);
-  addRailCylinder(chassisGroup, _p0, _p1, CHASSIS_RAIL_RADIUS, 8, frameMat);
+  pushRailGeometry(frameGeometries, _p0, _p1, CHASSIS_RAIL_RADIUS, 8);
 
   const crossCount = Math.min(CHASSIS_CROSSBAR_COUNT, CHASSIS_CROSSBAR_Z_FRACTIONS.length);
   for (let c = 0; c < crossCount; c += 1) {
@@ -355,7 +390,7 @@ export function buildCart(colorHex) {
     const zc = frac * chZ;
     _p0.set(-chX, chY, zc);
     _p1.set(chX, chY, zc);
-    addRailCylinder(chassisGroup, _p0, _p1, CHASSIS_RAIL_RADIUS, 8, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, CHASSIS_RAIL_RADIUS, 8);
   }
 
   // * Corner struts (basket → chassis) sell the classic curved-frame read without a solid shelf.
@@ -370,10 +405,19 @@ export function buildCart(colorHex) {
     const y1 = yBottom(s.zKey) + railR * 3;
     _p0.set(s.x0, chY, s.z0);
     _p1.set(s.x1, y1, s.z1);
-    addRailCylinder(chassisGroup, _p0, _p1, strutR, 6, frameMat);
+    pushRailGeometry(frameGeometries, _p0, _p1, strutR, 6);
   }
+}
 
-  // * Casters at chassis corners (same hierarchy as before).
+/**
+ * Builds caster mounts, stems, yaw/pitch groups, wheels, and hub discs at chassis corners.
+ * @param {THREE.Group} root Cart root group.
+ * @param {THREE.Material} frameMat Neon frame material for wheel hubs.
+ * @param {THREE.Material} wheelMat Dark chrome wheel tire material.
+ * @param {THREE.Material} stemMat Caster stem material.
+ * @returns {{ casterYawGroups: THREE.Group[], wheelPitchObjects: THREE.Group[], wobblePhases: number[] }}
+ */
+function buildCastersAndWheels(root, frameMat, wheelMat, stemMat) {
   const casterYawGroups = [];
   const wheelPitchObjects = [];
   const hx = CHASSIS_HALF_WIDTH - CASTER_CORNER_INSET;
@@ -427,19 +471,28 @@ export function buildCart(colorHex) {
     wheelPitchObjects.push(pitchGroup);
   }
 
-  root.userData.cartVisual = {
+  return {
     casterYawGroups,
     wheelPitchObjects,
-    smoothedCasterYaw: 0,
-    wheelRoll: [0, 0, 0, 0],
     wobblePhases: corners.map((_, j) => j * 1.83 + 0.4),
   };
+}
+
+/**
+ * Builds the cart face on the front basket wall: sunglasses lenses, bridge, and grin mouth.
+ * @param {THREE.Group} basketGroup Parent group for face meshes.
+ * @param {number} frontZ Front wall Z coordinate.
+ * @param {number} yBottomFront Y of the basket floor at the front wall.
+ * @param {number} hFront Front wall height.
+ * @param {number} halfW Half basket width.
+ */
+function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
+  const railR = BASKET_RAIL_RADIUS;
 
   // * Cart face: sunglasses + mouth.
   // * Sit clearly outside the front wall: frontZ is the inner-wall plane, so we
   // * step out by the rail radius plus a small gap to avoid z-fighting with rails.
   const faceZ = frontZ - railR - 0.03;
-  const faceGlowZ = frontZ - railR - 0.04;
   const faceCenterY = yBottomFront + hFront * 0.55;
 
   // * Sunglasses: two dark lenses connected by a bridge.
@@ -486,13 +539,81 @@ export function buildCart(colorHex) {
   const mouth = new THREE.Mesh(mouthGeo, mouthMat);
   mouth.userData.isFace = true;
   basketGroup.add(mouth);
+}
+
+/**
+ * Builds a complete procedural shopping cart mesh with basket, handle, chassis, casters, and face.
+ * Attaches runtime wheel/caster state on `root.userData.cartVisual`.
+ * @param {number} colorHex Cart emissive frame color as a hex number (e.g. `0xff00ff`).
+ * @returns {THREE.Group} Named `"CartVisual"` root group ready to add to the scene.
+ */
+export function buildCart(colorHex) {
+  const baseColor = new THREE.Color(colorHex);
+  const frameMat = neonFrameMaterial(baseColor);
+  const wheelMat = neonWheelMaterial(baseColor);
+  const stemMat = neonWheelMaterial(baseColor);
+  const root = new THREE.Group();
+  root.name = "CartVisual";
+
+  const halfW = BASKET_WIDTH * 0.5;
+  const halfL = BASKET_LENGTH * 0.5;
+  const frontZ = -halfL;
+  const backZ = halfL;
+  const yBottomFront = BASKET_RIM_TOP_Y - BASKET_HEIGHT_FRONT;
+  const yBottomBack = BASKET_RIM_TOP_Y - BASKET_HEIGHT_BACK;
+  const railR = BASKET_RAIL_RADIUS;
+  const railSeg = BASKET_RAIL_SEGMENTS;
+  const hFront = BASKET_HEIGHT_FRONT;
+  const hBack = BASKET_HEIGHT_BACK;
+
+  /** @type {CartBuildDims} */
+  const dims = {
+    halfW,
+    halfL,
+    frontZ,
+    backZ,
+    yBottomFront,
+    yBottomBack,
+    railR,
+    railSeg,
+    hFront,
+    hBack,
+    yBottom: (z) => bottomYAtZ(z, halfL, yBottomFront, yBottomBack),
+    wallHeight: (z) => BASKET_RIM_TOP_Y - bottomYAtZ(z, halfL, yBottomFront, yBottomBack),
+  };
+
+  const frameGeometries = [];
+
+  buildBasketWireframe(frameGeometries, baseColor, dims);
+  buildChassis(frameGeometries, dims);
+  buildHandle(frameGeometries, dims);
+
+  const frameMesh = mergeGeometriesIntoMesh(frameGeometries, frameMat, "CartFrame");
+  if (frameMesh) root.add(frameMesh);
+
+  const { casterYawGroups, wheelPitchObjects, wobblePhases } =
+    buildCastersAndWheels(root, frameMat, wheelMat, stemMat);
+
+  root.userData.cartVisual = {
+    casterYawGroups,
+    wheelPitchObjects,
+    smoothedCasterYaw: 0,
+    wheelRoll: [0, 0, 0, 0],
+    wobblePhases,
+  };
+
+  const faceGroup = new THREE.Group();
+  faceGroup.name = "BasketFace";
+  root.add(faceGroup);
+  buildFace(faceGroup, frontZ, yBottomFront, hFront, halfW);
 
   return root;
 }
 
 /**
- * * Resets caster angles after teleport / respawn so visuals do not inherit stale state.
- * @param {THREE.Object3D} root
+ * Resets caster yaw and wheel roll angles after teleport or respawn so visuals
+ * do not inherit stale rotation state from the previous pose.
+ * @param {THREE.Object3D} root Cart root returned by {@link buildCart}.
  */
 export function resetCartVisualState(root) {
   const data = root.userData.cartVisual;
@@ -512,11 +633,12 @@ export function resetCartVisualState(root) {
 }
 
 /**
- * * Updates caster yaw (velocity-aligned, damped, wobble) and wheel roll from planar speed.
- * @param {THREE.Object3D} root
- * @param {THREE.Vector3} linvelWorld
- * @param {number} dtSec
- * @param {number} timeMs
+ * Updates per-frame cart visuals: caster yaw aligned to planar velocity (with damping
+ * and high-speed wobble) and wheel roll from signed speed along each caster heading.
+ * @param {THREE.Object3D} root Cart root returned by {@link buildCart}.
+ * @param {THREE.Vector3} linvelWorld World-space linear velocity of the cart body.
+ * @param {number} dtSec Delta time in seconds since the last update.
+ * @param {number} timeMs Absolute time in milliseconds (used for wobble phase).
  */
 export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
   const data = root.userData.cartVisual;
@@ -556,7 +678,8 @@ export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
     if (rl > 1e-5) _rollDir.multiplyScalar(1 / rl);
 
     const signedSpeed = vx * _rollDir.x + vz * _rollDir.z;
-    data.wheelRoll[i] += (signedSpeed / Math.max(WHEEL_RADIUS, 1e-4)) * dtSec;
+    data.wheelRoll[i] =
+      (data.wheelRoll[i] + (signedSpeed / Math.max(WHEEL_RADIUS, 1e-4)) * dtSec) % (Math.PI * 2);
 
     wheelPitchObjects[i].rotation.x = data.wheelRoll[i];
   }

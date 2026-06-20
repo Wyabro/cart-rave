@@ -195,6 +195,19 @@ const CONFIG = {
         yOffset: 0.3,
       },
     },
+    physics: {
+      chamferWidth: 0.55,
+      holeClearance: 1.05,
+      outerBevel: 0.12,
+      segments: 72,
+    },
+    holeAssist: {
+      lowFrictionBandM: 1.5,
+      lowFriction: 0.05,
+      approachDownAccel: 5.0,
+      fallThroughAccel: 16.0,
+      unstickAccel: 32.0,
+    },
   },
 
   cart: {
@@ -544,8 +557,8 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
   });
   while (matchHistory.length > 10) matchHistory.shift();
 
-  // Update solo games counter (1 human player match end)
-  if (detectGameMode() === "solo") {
+  // Update solo games counter only for rounds that count as matches.
+  if (winnerSlotIndex !== "draw" && detectGameMode() === "solo") {
     let humanCount = 0;
     for (let i = 0; i < 4; i += 1) {
       const s = Netcode.getNetSlots()[i];
@@ -560,10 +573,7 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
 
   // Update personal stats — only if this round had scoring (not an all-zero draw)
   if (winnerSlotIndex !== "draw") {
-    let mySlotIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
-    if (mySlotIdx < 0) {
-      mySlotIdx = Netcode.getNetSlots().findIndex((s) => s && s.kind === "human" && s.connId);
-    }
+    const mySlotIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
     if (mySlotIdx >= 0) {
       const stats = getPersonalStats();
       stats.matches += 1;
@@ -636,8 +646,6 @@ function syncRoundPhase(phase) {
     Simulation.setRoundPhase(phase);
   } catch (e) {}
 }
-let roundAutoStarted = false; // one-shot flag so lobby→countdown only fires once per load
-let roundStartingHumanCount = 0;
 /** @type {((msg: object) => void) | null} */
 let onGameStartHandler = null;
 /** @type {(() => void) | null} Set by main() once hideMenu is defined; bridges module-level renderColorPicker to the inner function. */
@@ -704,27 +712,7 @@ let autoContinuePodiumKey = null;
 /** @type {string | null} */
 let autoReadyConnId = null;
 
-/** @type {ReturnType<typeof setInterval> | null} */
-let hostSendTimer = null;
-/** @type {ReturnType<typeof setInterval> | null} */
-let inputSendTimer = null;
-/** @type {ReturnType<typeof setInterval> | null} */
-let keepaliveTimer = null;
-
-let hostSeq = 0;
-let inputSeq = 0;
-
-let hostEpoch = 0;
-
-let serverClockOffsetMs = 0;
-let serverClockOffsetSamples = 0;
-
-let lastSlotsJson = "";
 let nameLabelUpdatePending = null;
-
-let hostMigrationFreezeUntilMs = 0;
-
-let skipNextPhysicsStep = false;
 
 // These are assigned once main() constructs the scene / HUD / physics world.
 /** @type {ReturnType<typeof HUD.init> | null} */
@@ -1012,6 +1000,76 @@ function buildRecordRingGeometry({
 }
 
 /**
+ * * Procedural record physics mesh: flat annulus with an expanded open center.
+ * * The visible hole stays at innerRadius; the collider hole is larger so cart
+ * * bodies lose support before they can hit or ride the visual lip.
+ */
+function buildRecordPhysicsGeometry({
+  outerRadius,
+  innerRadius,
+  thickness,
+  chamferWidth = 0.55,
+  holeClearance = 1.05,
+  outerBevel = 0.12,
+  segments = 72,
+}) {
+  const positions = [];
+  const indices = [];
+  const halfT = thickness / 2;
+  const topY = halfT;
+  const bottomY = -halfT;
+  const collisionInnerR = innerRadius + Math.max(holeClearance, chamferWidth, 0);
+  const outerTopR = outerRadius - outerBevel;
+
+  const pushVertex = (x, y, z) => {
+    positions.push(x, y, z);
+    return positions.length / 3 - 1;
+  };
+  const pushTri = (a, b, c) => {
+    indices.push(a, b, c);
+  };
+  const addQuad = (i0, i1, i2, i3) => {
+    pushTri(i0, i1, i2);
+    pushTri(i0, i2, i3);
+  };
+
+  for (let i = 0; i < segments; i += 1) {
+    const t0 = (i / segments) * Math.PI * 2;
+    const t1 = ((i + 1) / segments) * Math.PI * 2;
+    const cos0 = Math.cos(t0);
+    const sin0 = Math.sin(t0);
+    const cos1 = Math.cos(t1);
+    const sin1 = Math.sin(t1);
+
+    // Top playing surface (flat annulus). There is no inner wall/chamfer.
+    const ot0 = pushVertex(outerTopR * cos0, topY, outerTopR * sin0);
+    const ot1 = pushVertex(outerTopR * cos1, topY, outerTopR * sin1);
+    const it0 = pushVertex(collisionInnerR * cos0, topY, collisionInnerR * sin0);
+    const it1 = pushVertex(collisionInnerR * cos1, topY, collisionInnerR * sin1);
+    addQuad(ot0, ot1, it1, it0);
+
+    // Substrate ring on the underside; it also stops at the expanded collision hole.
+    const ob0 = pushVertex(outerRadius * cos0, bottomY, outerRadius * sin0);
+    const ob1 = pushVertex(outerRadius * cos1, bottomY, outerRadius * sin1);
+    const if0 = pushVertex(collisionInnerR * cos0, bottomY, collisionInnerR * sin0);
+    const if1 = pushVertex(collisionInnerR * cos1, bottomY, collisionInnerR * sin1);
+    addQuad(ob0, ob1, if1, if0);
+
+    // Outer rim bevel + wall.
+    const otop0 = pushVertex(outerRadius * cos0, topY, outerRadius * sin0);
+    const otop1 = pushVertex(outerRadius * cos1, topY, outerRadius * sin1);
+    addQuad(otop0, otop1, ot1, ot0);
+    addQuad(ot0, ot1, ob1, ob0);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
  * * Draws one string along a circular arc on a 2D canvas (vinyl label typography).
  * @param {CanvasRenderingContext2D} ctx
  * @param {string} text
@@ -1100,7 +1158,9 @@ async function main() {
       triggerHop(cart, performance.now());
     },
     () => {
-      triggerRamBoost(localCartForConnId(), performance.now());
+      const cart = localCartForConnId();
+      if (!cart) return;
+      triggerRamBoost(cart, performance.now());
     }
   );
 
@@ -2174,7 +2234,19 @@ async function main() {
   // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
   onGameStartHandler = (msg) => {
     if (menuVisible) hideMenu();
-    if (Netcode.getIsHost()) startCountdown();
+    const serverStartsAtMs = Number(msg?.startsAtMs);
+    const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
+      ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
+      : Date.now() + 3000;
+    if (Netcode.getIsHost()) {
+      startCountdown(startsAtLocalMs);
+    } else if (GameState.getRoundState().phase !== "running") {
+      syncRoundPhase("countdown");
+      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
+      GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+      GameState.setRoundWinnerSlotIndex(null);
+      GameState.setRoundStartedAtMs(0);
+    }
   };
 
   function clampInt(value, min, max) {
@@ -2185,25 +2257,42 @@ async function main() {
 
   // (Legacy updateHud removed)
 
+  let lastResultsOverlayKey = null;
+
   function updateResultsOverlay() {
     if (!resultsUi) return;
     const { overlay, title, finalScores, history, playAgain, exitPortal, statsLine } = resultsUi;
-    if (GameState.getRoundState().phase === "podium") {
+    const roundState = GameState.getRoundState();
+    if (roundState.phase === "podium") {
       overlay.style.display = "flex";
       overlay.style.pointerEvents = "auto";
-      playAgain.disabled = !Netcode.getIsHost();
-      playAgain.textContent = Netcode.getIsHost() ? "PLAY AGAIN" : "WAITING FOR HOST…";
+      const isHost = Netcode.getIsHost();
+      const scores = GameState.getRoundScores() || {};
+      const renderKey = JSON.stringify({
+        winner: roundState.winnerSlotIndex,
+        scores: [scores[0] || 0, scores[1] || 0, scores[2] || 0, scores[3] || 0],
+        historyLength: matchHistory.length,
+        host: isHost,
+        stats: getPersonalStats(),
+      });
+      if (renderKey === lastResultsOverlayKey) {
+        maybeScheduleAutoContinuePodium();
+        return;
+      }
+      lastResultsOverlayKey = renderKey;
+      playAgain.disabled = !isHost;
+      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
-      const winnerIdx = GameState.getRoundState().winnerSlotIndex;
+      const winnerIdx = roundState.winnerSlotIndex;
       if (winnerIdx === "draw") {
         title.textContent = "DRAW";
         title.style.setProperty("--title-glow", "#ffe53d");
       } else {
         const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
         if (idx != null) {
-          const score = GameState.getRoundScores() && GameState.getRoundScores()[idx] != null ? GameState.getRoundScores()[idx] : 0;
+          const score = scores[idx] != null ? scores[idx] : 0;
           title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
           title.style.setProperty("--title-glow", getColorForSlot(Netcode.getNetSlots()[idx]));
         } else {
@@ -2214,7 +2303,7 @@ async function main() {
 
       finalScores.replaceChildren();
       for (let i = 0; i < 4; i += 1) {
-        const s = GameState.getRoundScores() && GameState.getRoundScores()[i] != null ? GameState.getRoundScores()[i] : 0;
+        const s = scores[i] != null ? scores[i] : 0;
         const row = document.createElement("div");
         row.className = "results-score-row";
         const isWinner = winnerIdx !== "draw" && winnerIdx === i;
@@ -2300,6 +2389,7 @@ async function main() {
     } else {
       clearAutoContinuePodiumTimeout();
       autoContinuePodiumKey = null;
+      lastResultsOverlayKey = null;
       overlay.style.display = "none";
       overlay.style.pointerEvents = "none";
     }
@@ -2773,8 +2863,18 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   const cartLinvelScratch = new THREE.Vector3();
   const netTargetPosScratch = new THREE.Vector3();
-  const interpPrevQuat = new THREE.Quaternion();
-  const interpCurrQuat = new THREE.Quaternion();
+  const cameraPlayerQuat = new THREE.Quaternion();
+  const cameraPlayerPosition = new THREE.Vector3();
+  const cameraForwardWorld = new THREE.Vector3();
+  const cameraDesiredPos = new THREE.Vector3();
+  const cameraDesiredLook = new THREE.Vector3();
+  const cameraUp = new THREE.Vector3(0, 1, 0);
+  const cameraLookMat = new THREE.Matrix4();
+  const cameraDesiredQuat = new THREE.Quaternion();
+  const crowdAnimDummy = new THREE.Object3D();
+  const boothNeonColor1 = new THREE.Color(CONFIG.booth.neonColor1);
+  const boothNeonColor2 = new THREE.Color(CONFIG.booth.neonColor2);
+  const boothNeonMixed = new THREE.Color();
   let fpsFrames = 0;
   let fpsLast = performance.now();
 
@@ -2824,6 +2924,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   const recordSurfaceGlowY =
     platformTopY + CONFIG.record.surface.concentricRings.yOffset + 0.018;
   const spotlightBeamAxisY = new THREE.Vector3(0, 1, 0);
+  const spotlightBeamMid = new THREE.Vector3();
+  const spotlightBeamDir = new THREE.Vector3();
+  const spotlightLightPosScratch = new THREE.Vector3();
+  const spotlightTargetScratch = new THREE.Vector3();
   const spotlightPoolTextureCanvas = document.createElement("canvas");
   spotlightPoolTextureCanvas.width = 128;
   spotlightPoolTextureCanvas.height = 128;
@@ -2845,10 +2949,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   spotlightPoolTexture.needsUpdate = true;
 
   function positionSpotlightBeam(beamGroup, source, target) {
-    beamGroup.position.copy(source.clone().add(target).multiplyScalar(0.5));
+    beamGroup.position.copy(spotlightBeamMid.copy(source).add(target).multiplyScalar(0.5));
     beamGroup.quaternion.setFromUnitVectors(
       spotlightBeamAxisY,
-      source.clone().sub(target).normalize(),
+      spotlightBeamDir.copy(source).sub(target).normalize(),
     );
   }
 
@@ -3139,13 +3243,15 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, CONFIG.record.y, 0),
   );
 
-  const recordPhysicsGeo = buildRecordRingGeometry({
+  const recordPhysics = CONFIG.record.physics || {};
+  const recordPhysicsGeo = buildRecordPhysicsGeometry({
     outerRadius: CONFIG.record.radius,
     innerRadius: CONFIG.record.innerRadius,
     thickness: CONFIG.record.thickness,
-    curveSegments: 64,
-    bevelThickness: 0.20, // moderately thicker/smoother bevel slope (no clipping)
-    bevelSize: 0.20,      // moderately wider bevel slope (no clipping)
+    chamferWidth: recordPhysics.chamferWidth ?? 0.55,
+    holeClearance: recordPhysics.holeClearance ?? 1.05,
+    outerBevel: recordPhysics.outerBevel ?? 0.12,
+    segments: recordPhysics.segments ?? 72,
   });
   const recordVerts = /** @type {Float32Array} */ (recordPhysicsGeo.attributes.position.array);
   const recordIndices = recordPhysicsGeo.index
@@ -3157,9 +3263,19 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     .setFriction(CONFIG.record.friction)
     .setRestitution(CONFIG.record.restitution);
   const recordCollider = world.createCollider(recordColliderDesc, recordBody);
-  void recordCollider;
 
-  // Diagnostics removed for submission.
+  if (CONFIG.debug.arenaTrimesh) {
+    const debugMat = new THREE.MeshBasicMaterial({
+      color: 0x00ff88,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.45,
+      depthTest: false,
+    });
+    const debugMesh = new THREE.Mesh(recordPhysicsGeo.clone(), debugMat);
+    debugMesh.position.set(0, CONFIG.record.y, 0);
+    scene.add(debugMesh);
+  }
 
   // ========================================================================
   // Step 15 — DJ Spawn Booths (4x, N/S/E/W)
@@ -4195,10 +4311,12 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   // Hoisted so render loop can animate and check proximity
   let portalCtx;
   let portalTex;
+  let portalImgData = null;
   let portalTriggered = false;
   const portalWorldPos = new THREE.Vector3();
   let returnPortalCtx = null;
   let returnPortalTex = null;
+  let returnPortalImgData = null;
   let hasReturnPortals = false;
   {
     const bbAngle = Math.PI;
@@ -4652,18 +4770,18 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   triggerRamBoostRef = triggerRamBoost;
   Netcode.setRefs({
     getAxisRef: input.getAxis,
+    isNitroHeldRef: input.isNitroHeld,
     triggerRamBoostRef: triggerRamBoost,
     resetSimTimingRef,
   });
 
-  /** @type {{ mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; birthMs: number; durationMs: number; cart: ReturnType<typeof createCart> }[]} */
-  let nitroFirstBoostDiagnosticLogged = false;
   const ramBoostStreakAlignQuat = new THREE.Quaternion();
   const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
   const ramBoostStreakScratchOrigin = new THREE.Vector3();
   const ramBoostStreakScratchPos = new THREE.Vector3();
   const ramBoostForwardXZ = new THREE.Vector3();
   const ramBoostToTargetXZ = new THREE.Vector3();
+  const aiToTargetScratch = new THREE.Vector3();
 
   /**
    * @param {ReturnType<typeof createCart>} cart
@@ -4710,6 +4828,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
    * @param {number} nowMs
    */
   function triggerRamBoost(cart, nowMs) {
+    if (!cart?.body) return;
     const rb = CONFIG.cart.ramBoost;
     if (!rb.enabled) return;
     if (nowMs <= cart.ramBoostActiveUntilMs) return;
@@ -4720,13 +4839,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       sfx.playNitro();
     }
     cart.ramBoostStreakCarry = 0;
-
-    nitroFirstBoostDiagnosticLogged = true;
   }
 
   function triggerHop(cart, nowMs) {
+    if (!cart?.body) return;
     if (nowMs - cart.lastHopAtMs < CONFIG.cart.hop.cooldownMs) return;
-    if (!cart.body) return;
     cart.lastHopAtMs = nowMs;
     cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
     if (cart === localCartForConnId()) {
@@ -4874,7 +4991,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       cart.aiNextDecisionMs = now + (720 + Math.random() * 900);
     }
 
-    const toTarget = new THREE.Vector3(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+    const toTarget = aiToTargetScratch.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     if (toTarget.lengthSq() < 0.25) {
       cart.aiTarget = pickAiTarget(p);
       cart.aiNextDecisionMs = now + (720 + Math.random() * 900);
@@ -4954,19 +5071,12 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // (applyRammingImpulse removed - using modular Simulation version)
 
-
-
-  function startRunning() {
+  function startRunningAt(startedAtMs) {
     syncRoundPhase("running");
     slowMoActive = false;
-    GameState.setRoundStartedAtMs(Date.now());
+    GameState.setRoundStartedAtMs(startedAtMs);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
-    roundStartingHumanCount = 0;
-    for (let i = 0; i < 4; i += 1) {
-      const s = Netcode.getNetSlots()[i];
-      if (s && s.kind === "human" && s.connId != null) roundStartingHumanCount += 1;
-    }
     if (lastCartStandingTimeoutId != null) {
       clearTimeout(lastCartStandingTimeoutId);
       lastCartStandingTimeoutId = null;
@@ -4975,11 +5085,22 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     Netcode.sendHostRound();
   }
 
-  function startCountdown() {
+  let roundCountdownTimeoutId = null;
+
+  function clearRoundCountdownTimeout() {
+    if (roundCountdownTimeoutId != null) {
+      clearTimeout(roundCountdownTimeoutId);
+      roundCountdownTimeoutId = null;
+    }
+  }
+
+  function startCountdown(startsAtLocalMs = Date.now() + 3000) {
     if (!Netcode.getIsHost()) return;
+    if (GameState.getRoundState().phase === "countdown" || GameState.getRoundState().phase === "running") return;
+    clearRoundCountdownTimeout();
     syncRoundPhase("countdown");
     slowMoActive = false;
-    GameState.setRoundCountdownStartedAtMs(Date.now());
+    GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
     GameState.setRoundStartedAtMs(0);
@@ -4989,12 +5110,14 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     }
     lastCartStandingWinnerSlotIndex = null;
     Netcode.sendHostRound();
-    setTimeout(() => {
-      if (GameState.getRoundState().phase === "countdown") startRunning();
-    }, 3000);
+    roundCountdownTimeoutId = setTimeout(() => {
+      roundCountdownTimeoutId = null;
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
+    }, Math.max(0, startsAtLocalMs - Date.now()));
   }
 
   function endRound() {
+    clearRoundCountdownTimeout();
     if (lastCartStandingWinnerSlotIndex !== null) {
       if (roundPodiumTimeoutId != null) {
         clearTimeout(roundPodiumTimeoutId);
@@ -5081,23 +5204,38 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     }, 5000);
   }
 
+  function currentCartSnapshot() {
+    const carts = {};
+    const round3 = (v) => Math.round(v * 1000) / 1000;
+    for (let i = 0; i < allCarts.length; i += 1) {
+      const c = allCarts[i];
+      if (!c?.body) continue;
+      const t = c.body.translation();
+      const r = c.body.rotation();
+      const lv = c.body.linvel();
+      const av = c.body.angvel();
+      carts[String(i)] = {
+        p: [round3(t.x), round3(t.y), round3(t.z)],
+        q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
+        lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
+        av: [round3(av.x), round3(av.y), round3(av.z)],
+      };
+    }
+    return carts;
+  }
+
   function onHostPlayAgainClick() {
     if (!Netcode.getIsHost()) return;
     autoContinuePodiumKey = currentPodiumAutoContinueKey();
     clearAutoContinuePodiumTimeout();
+    clearRoundCountdownTimeout();
     if (roundPodiumTimeoutId != null) {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
     }
     Entities.rematchResetWorld();
-    const cache = Netcode.getLastCartsCache();
-    if (cache) {
-      Netcode.broadcastHostTransform(cache);
-    }
+    Netcode.broadcastHostTransform(currentCartSnapshot());
     Netcode.sendPlayAgain();
-
-    // Skip re-ready flow: host immediately starts the next round.
-    setTimeout(() => startCountdown(), 3000);
   }
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
@@ -5107,7 +5245,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   // --- Simulation loop (fixed timestep) ---
   let lastT = performance.now();
   let accumulator = 0;
-  let lastDebugMs = 0;
   let simFrameIndex = 0;
   let recordVersusPlayerFrame30Logged = false;
   let lastLedUpdate = 0;
@@ -5119,9 +5256,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     new THREE.Color(CART_COLORS.yellow.hex),
     new THREE.Color(CART_COLORS.neonOrange.hex),
   ];
-  /** @type {ReadonlySet<number>} */
-  const NPC_INWARD_DRIFT_LOG_FRAMES = new Set([1, 5, 15, 30]);
-
   resetSimTimingRef.current = () => {
     lastT = performance.now();
     accumulator = 0;
@@ -5155,64 +5289,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
     if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
       recordVersusPlayerFrame30Logged = true;
-      const playerT = localCartForConnId().body.translation();
-      const ringR = CONFIG.cart.spawnRingRadius;
-      const spawnSlotAxisTol = 0.01;
-      const cartRows = allCarts.map((cart) => {
-        const t = cart.body.translation();
-        const s = cart.spawn;
-        const expectedSpawn = Entities.spawnOnRingForSlot(cart.slotIndex);
-        const distPlayer = Math.hypot(t.x - playerT.x, t.y - playerT.y, t.z - playerT.z);
-        const distOrigin = Math.hypot(t.x, t.y, t.z);
-        const distOriginXZ = Math.hypot(t.x, t.z);
-        const id = `slot-${cart.slotIndex}`;
-        return {
-          id,
-          slotIndex: cart.slotIndex,
-          translation: { x: t.x, y: t.y, z: t.z },
-          spawnAtCreation: { x: s.x, y: s.y, z: s.z },
-          expectedSpawnForSlot: { x: expectedSpawn.x, y: expectedSpawn.y, z: expectedSpawn.z },
-          spawnRecordDeltaFromSlot: {
-            x: s.x - expectedSpawn.x,
-            y: s.y - expectedSpawn.y,
-            z: s.z - expectedSpawn.z,
-          },
-          distanceToPlayer: distPlayer,
-          distanceToWorldOrigin: distOrigin,
-          distanceToWorldOriginXZ: distOriginXZ,
-        };
-      });
-      const expectedAdjacent = ringR * Math.SQRT2;
-      const expectedOpposite = 2 * ringR;
-      const planarRingTolerance = 0.1;
-      const chordTolerance = 0.5;
-      const planarOk = cartRows.every(
-        (row) => Math.abs(row.distanceToWorldOriginXZ - ringR) <= planarRingTolerance,
-      );
-      const spawnRecordsMatchSlotPositions = cartRows.every((row) => {
-        const d = row.spawnRecordDeltaFromSlot;
-        return (
-          Math.abs(d.x) <= spawnSlotAxisTol &&
-          Math.abs(d.y) <= spawnSlotAxisTol &&
-          Math.abs(d.z) <= spawnSlotAxisTol
-        );
-      });
-      const playerDistChecks = cartRows
-        .filter((row) => row.id !== "player")
-        .map((row, j) => {
-          const slotDelta = j + 1;
-          const expectedChord =
-            slotDelta === 2 ? expectedOpposite : expectedAdjacent;
-          return {
-            toId: row.id,
-            distanceToPlayer: row.distanceToPlayer,
-            expectedChord,
-            matchesExpected:
-              Math.abs(row.distanceToPlayer - expectedChord) <= chordTolerance,
-          };
-        });
-      // eslint-disable-next-line no-console
-      // Diagnostics removed for submission.
     }
 
     // Visual-only record rotation.
@@ -5225,17 +5301,17 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           Math.sin(nowSec * entry.driftSpeed * Math.PI * 2 + entry.phase) *
           spotlightDriftAmplitudeRad;
         const angle = entry.baseAngleRad + drift;
-        const lightPos = new THREE.Vector3(
+        spotlightLightPosScratch.set(
           Math.cos(angle) * spotlightPositionRadius,
           spotlightHeight,
           Math.sin(angle) * spotlightPositionRadius,
         );
-        const beamTarget = new THREE.Vector3(lightPos.x, platformTopY, lightPos.z);
-        entry.light.position.copy(lightPos);
-        entry.light.target.position.copy(beamTarget);
-        entry.light.target.updateMatrixWorld();
-        positionSpotlightBeam(entry.beamGroup, lightPos, beamTarget);
-        entry.glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
+        spotlightTargetScratch.set(spotlightLightPosScratch.x, platformTopY, spotlightLightPosScratch.z);
+        entry.light.position.copy(spotlightLightPosScratch);
+        entry.light.target.position.copy(spotlightTargetScratch);
+        entry.light.target.updateMatrix();
+        positionSpotlightBeam(entry.beamGroup, spotlightLightPosScratch, spotlightTargetScratch);
+        entry.glowMesh.position.set(spotlightTargetScratch.x, recordSurfaceGlowY, spotlightTargetScratch.z);
       }
     }
 
@@ -5245,7 +5321,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         entry.target.position.x = entry.baseX + Math.sin(nowSec * 0.5 + entry.index) * 5;
         entry.target.position.y = 0;
         entry.target.position.z = 0;
-        entry.target.updateMatrixWorld();
+        entry.target.updateMatrix();
       }
     }
 
@@ -5278,7 +5354,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         entry.target.position.x = Math.cos(angle) * crowdSearchlightTargetRadius;
         entry.target.position.y = -3;
         entry.target.position.z = Math.sin(angle) * crowdSearchlightTargetRadius;
-        entry.target.updateMatrixWorld();
+        entry.target.updateMatrix();
         entry.cone.lookAt(entry.target.position);
         entry.cone.rotateX(-Math.PI / 2);
         entry.light.intensity = 20 + Math.sin(nowSec * 1.1 + entry.index) * 15;
@@ -5304,10 +5380,9 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       const offset = Math.floor(nowSec * 4) % Math.ceil(5000 / batchSize);
       const start = offset * batchSize;
       const end = Math.min(start + batchSize, 5000);
-      const _dm = new THREE.Object3D();
       for (let i = start; i < end; i++) {
-        crowdCarts.getMatrixAt(i, _dm.matrix);
-        _dm.matrix.decompose(_dm.position, _dm.quaternion, _dm.scale);
+        crowdCarts.getMatrixAt(i, crowdAnimDummy.matrix);
+        crowdAnimDummy.matrix.decompose(crowdAnimDummy.position, crowdAnimDummy.quaternion, crowdAnimDummy.scale);
 
         // CROWD VARIATION: seeded per-cart "energy" (0..1) from index
         const energy = ((i * 7919) % 100) / 100;
@@ -5326,13 +5401,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           bounce = Math.abs(Math.sin(nowSec * baseFreq + i * 0.7)) * baseAmp;
         }
 
-        _dm.position.y = -2.9 + bounce;
+        crowdAnimDummy.position.y = -2.9 + bounce;
         if (wiggleYaw !== 0) {
           crowdWiggleQuat.setFromAxisAngle(crowdWiggleAxisY, wiggleYaw);
-          _dm.quaternion.multiply(crowdWiggleQuat);
+          crowdAnimDummy.quaternion.multiply(crowdWiggleQuat);
         }
-        _dm.updateMatrix();
-        crowdCarts.setMatrixAt(i, _dm.matrix);
+        crowdAnimDummy.updateMatrix();
+        crowdCarts.setMatrixAt(i, crowdAnimDummy.matrix);
       }
       crowdCarts.instanceMatrix.needsUpdate = true;
     }
@@ -5357,12 +5432,10 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     // Booth neon RGB cycle (fuchsia <-> neon blue)
     if (boothNeonMeshes.length > 0) {
       const t = (Math.sin(performance.now() * 0.001 * Math.PI * 2 * CONFIG.booth.neonCycleSpeed) + 1) / 2;
-      const c1 = new THREE.Color(CONFIG.booth.neonColor1);
-      const c2 = new THREE.Color(CONFIG.booth.neonColor2);
-      const mixed = c1.clone().lerp(c2, t);
+      boothNeonMixed.copy(boothNeonColor1).lerp(boothNeonColor2, t);
       for (const m of boothNeonMeshes) {
-        m.material.color.copy(mixed);
-        m.material.emissive.copy(mixed);
+        m.material.color.copy(boothNeonMixed);
+        m.material.emissive.copy(boothNeonMixed);
       }
     }
 
@@ -5421,7 +5494,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
     // Portal swirl animation (throttled)
     if (now - lastPortalUpdate > 150) {
-      const imgData = portalCtx.createImageData(128, 128);
+      const imgData = portalImgData || (portalImgData = portalCtx.createImageData(128, 128));
       const d = imgData.data;
       const swirlT = now * 0.002;
       for (let row = 0; row < 128; row++) {
@@ -5447,7 +5520,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       portalCtx.putImageData(imgData, 0, 0);
       portalTex.needsUpdate = true;
       if (returnPortalCtx && returnPortalTex) {
-        const imgData2 = returnPortalCtx.createImageData(128, 128);
+        const imgData2 = returnPortalImgData || (returnPortalImgData = returnPortalCtx.createImageData(128, 128));
         const d2 = imgData2.data;
         for (let row = 0; row < 128; row++) {
           for (let col = 0; col < 128; col++) {
@@ -5475,15 +5548,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       lastPortalUpdate = now;
     }
 
-    const playerAxis = Input.getAxis();
-    // Diagnostics removed for submission.
-
     const localCart = localCartForConnId();
-    if (!localCart || !localCart.body) return;
-    const playerPos = localCart.body.translation();
+    const playerPos = localCart?.body ? localCart.body.translation() : null;
+    const netSlotsForFrame = Netcode.getNetSlots();
+    const localSlotIndexThisFrame = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
 
     // Portal proximity trigger (single-fire)
-    if (!portalTriggered) {
+    if (playerPos && !portalTriggered) {
       const dx = playerPos.x - portalWorldPos.x;
       const dy = playerPos.y - portalWorldPos.y;
       const dz = playerPos.z - portalWorldPos.z;
@@ -5493,7 +5564,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
     }
 
-    if (!returnPortalTriggered && incomingPortalParams?.ref && hasReturnPortals && Date.now() > returnPortalArmedAtMs) {
+    if (playerPos && !returnPortalTriggered && incomingPortalParams?.ref && hasReturnPortals && Date.now() > returnPortalArmedAtMs) {
       for (const pos of returnPortalWorldPositions) {
         const dx = playerPos.x - pos.x;
         const dy = playerPos.y - pos.y;
@@ -5542,16 +5613,20 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               if (hit.wasCritical) points += 1; // critical bonus
 
               // Leader lookup (before applying this score).
-              let leaderSlotIndex = 0;
-              let leaderScore = -Infinity;
+              let leaderSlotIndex = -1;
+              let leaderScore = 0;
+              let leaderTied = false;
               for (let i = 0; i < 4; i += 1) {
                 const s = Number(GameState.getRoundScores()[i] || 0);
                 if (s > leaderScore) {
                   leaderScore = s;
                   leaderSlotIndex = i;
+                  leaderTied = false;
+                } else if (s === leaderScore && s > 0) {
+                  leaderTied = true;
                 }
               }
-              if (slotIndex === leaderSlotIndex) points += 1; // target bonus
+              if (!leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex) points += 1; // target bonus
 
               GameState.addScore(hit.attackerSlotIndex, points);
 
@@ -5568,8 +5643,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
                 fallEventVerb = verb;
               }
               if (GameState.getRoundState().phase === "running") {
-                const localIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
-                if (hit.attackerSlotIndex === localIdx) {
+                if (hit.attackerSlotIndex === localSlotIndexThisFrame) {
                   fovPunchUntil = performance.now() + 200;
                 }
               }
@@ -5595,24 +5669,20 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           }
 
           scheduleRespawn(c, now);
-          let aliveHumanCount = 0;
+          let aliveCartCount = 0;
           let lastStandingSlotIndex = -1;
           for (let j = 0; j < 4; j += 1) {
-            const sj = Netcode.getNetSlots()[j];
             const cj = allCarts[j];
-            if (!sj || sj.kind !== "human" || sj.connId == null || !cj) continue;
+            if (!cj) continue;
             if (cj.respawnAtMs === null) {
-              aliveHumanCount += 1;
+              aliveCartCount += 1;
               lastStandingSlotIndex = j;
             }
           }
           if (
-            aliveHumanCount === 1 &&
-            roundStartingHumanCount >= 2 &&
+            aliveCartCount === 1 &&
             lastCartStandingTimeoutId == null &&
-            GameState.getRoundState().startedAtMs > 0 &&
-            Date.now() - GameState.getRoundState().startedAtMs >= 30000 &&
-            (GameState.getRoundScores()[lastStandingSlotIndex] || 0) >= 1
+            GameState.getRoundState().startedAtMs > 0
           ) {
             lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
             slowMoUntil = performance.now() + 3000;
@@ -5626,7 +5696,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
           // end immediately using the already-chosen last-standing winner.
           if (
             lastCartStandingTimeoutId != null &&
-            aliveHumanCount === 0
+            aliveCartCount === 0
           ) {
             clearTimeout(lastCartStandingTimeoutId);
             lastCartStandingTimeoutId = null;
@@ -5655,47 +5725,39 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
     }
 
-    // Third-person follow camera (behind the cart), smoothed.
-    const playerRot = localCart.body.rotation();
-    const playerQuat = new THREE.Quaternion(
-      playerRot.x,
-      playerRot.y,
-      playerRot.z,
-      playerRot.w,
-    );
-    const playerPosition = new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z);
-    const forwardWorld = new THREE.Vector3(0, 0, -1).applyQuaternion(playerQuat);
+    // Third-person follow camera (behind the cart).
+    if (localCart?.body && playerPos) {
+      const playerRot = localCart.body.rotation();
+      cameraPlayerQuat.set(playerRot.x, playerRot.y, playerRot.z, playerRot.w);
+      cameraPlayerPosition.set(playerPos.x, playerPos.y, playerPos.z);
+      cameraForwardWorld.set(0, 0, -1).applyQuaternion(cameraPlayerQuat);
 
-    const desiredPos = playerPosition
-      .clone()
-      .addScaledVector(forwardWorld, -CONFIG.camera.followBack)
-      .add(new THREE.Vector3(0, CONFIG.camera.followUp, 0));
+      cameraDesiredPos
+        .copy(cameraPlayerPosition)
+        .addScaledVector(cameraForwardWorld, -CONFIG.camera.followBack);
+      cameraDesiredPos.y += CONFIG.camera.followUp;
 
-    const desiredLook = playerPosition
-      .clone()
-      .addScaledVector(forwardWorld, CONFIG.camera.lookAhead)
-      .add(new THREE.Vector3(0, CONFIG.camera.lookUp, 0));
+      cameraDesiredLook
+        .copy(cameraPlayerPosition)
+        .addScaledVector(cameraForwardWorld, CONFIG.camera.lookAhead);
+      cameraDesiredLook.y += CONFIG.camera.lookUp;
 
-    // Desired camera rotation from look direction.
-    const lookMat = new THREE.Matrix4().lookAt(
-      desiredPos,
-      desiredLook,
-      new THREE.Vector3(0, 1, 0),
-    );
-    const desiredQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
+      cameraLookMat.lookAt(cameraDesiredPos, cameraDesiredLook, cameraUp);
+      cameraDesiredQuat.setFromRotationMatrix(cameraLookMat);
 
-    if (cameraState.pos.distanceTo(desiredPos) > CONFIG.camera.snapDistance) {
-      cameraState.pos.copy(desiredPos);
-      cameraState.quat.copy(desiredQuat);
-    } else {
-      const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
-      const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
-      cameraState.pos.lerp(desiredPos, posAlpha);
-      cameraState.quat.slerp(desiredQuat, rotAlpha);
+      if (cameraState.pos.distanceTo(cameraDesiredPos) > CONFIG.camera.snapDistance) {
+        cameraState.pos.copy(cameraDesiredPos);
+        cameraState.quat.copy(cameraDesiredQuat);
+      } else {
+        const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
+        const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
+        cameraState.pos.lerp(cameraDesiredPos, posAlpha);
+        cameraState.quat.slerp(cameraDesiredQuat, rotAlpha);
+      }
+
+      camera.position.copy(cameraState.pos);
+      camera.quaternion.copy(cameraState.quat);
     }
-
-    camera.position.copy(cameraState.pos);
-    camera.quaternion.copy(cameraState.quat);
 
     // Diagnostics removed for submission.
 
@@ -5704,21 +5766,23 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     let alpha = null;
     if (Netcode.getIsHost()) {
       if (GameState.getRoundState().phase === "running") {
-        for (const c of allCarts) {
-          if (c && c.body) {
-            c.prevPosition = c.body.translation();
-            c.prevRotation = c.body.rotation();
-          }
-        }
+        const npcCartsForFrame = allCartsRef.filter((c, idx) => netSlotsForFrame[idx] && netSlotsForFrame[idx].kind === "npc");
 
         while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
+          if (Netcode.getSkipNextPhysicsStep()) {
+            Netcode.setSkipNextPhysicsStep(false);
+            accumulator -= CONFIG.fixedTimeStep;
+            substeps += 1;
+            continue;
+          }
+
           Simulation.runFixedPhysicsStep({
             world,
             eventQueue,
             allCarts: allCartsRef,
-            localCart: localCartForConnId(),
+            localCart,
             remoteInputs: Netcode.getRemoteInputsByConnId(),
-            npcs: allCartsRef.filter((c, idx) => Netcode.getNetSlots()[idx] && Netcode.getNetSlots()[idx].kind === "npc"),
+            npcs: npcCartsForFrame,
             dt: CONFIG.fixedTimeStep,
             now: performance.now(),
             isHost: Netcode.getIsHost(),
@@ -5733,6 +5797,11 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
               boothColliderHandles: boothColliderHandles,
               playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
               playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+              // * Resolves a connId to the cart object so the host can drive remote bodies.
+              resolveCartForConn: (connId) => {
+                const idx = Netcode.strictSlotIndexForConn(connId);
+                return idx >= 0 ? allCartsRef[idx] : null;
+              },
             }
           });
           accumulator -= CONFIG.fixedTimeStep;
@@ -5742,199 +5811,85 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       } else {
         accumulator = 0;
       }
-    } else {
-      // Non-host: do not step physics. Render from buffer ~100ms behind with interpolation.
-      if (Date.now() < hostMigrationFreezeUntilMs) {
-        // * Hold remote carts at last rendered position until fresh host state arrives.
+    } else if (Netcode.shouldUseClientPrediction()) {
+      // * Multiplayer client: prediction + reconciliation (solo never enters this branch).
+      const localSlotIndex = localSlotIndexThisFrame;
+
+      if (Date.now() < Netcode.getHostMigrationFreezeUntilMs()) {
+        // * Hold positions until a new host's snapshots arrive after migration.
       } else {
-      const targetServerNowMs = Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
-      const localSlotIndex = Netcode.getNetSlots().findIndex((s) => s && s.connId === Netcode.getYouConnId());
+        // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
+        Netcode.updateRemoteCartNetTargets(localSlotIndex);
+        // 2. Align remote physics bodies so prediction collides against current net poses.
+        Netcode.syncRemoteCartBodiesForPrediction(localSlotIndex);
 
-      for (let i = netStateBuffer.length - 1; i >= 0; i -= 1) {
-        const e = netStateBuffer[i];
-        if (!e || e.epoch !== hostEpoch) netStateBuffer.splice(i, 1);
+        // 3. Prediction: step Rapier locally with the player's input (instant feel).
+        if (GameState.getRoundState().phase === "running") {
+          while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
+            Simulation.runFixedPhysicsStep({
+              world,
+              eventQueue,
+              allCarts: allCartsRef,
+              localCart,
+              remoteInputs: null,
+              npcs: [],
+              dt: CONFIG.fixedTimeStep,
+              now: performance.now(),
+              isHost: false,
+              callbacks: {
+                getAxis: Input.getAxis,
+                getAiAxis: null,
+                playCollision: playCollisionRef,
+                spawnTrashBurst: spawnTrashBurstRef,
+                partySocket: Netcode.getPartySocket(),
+                recordColliderHandle: recordCollider.handle,
+                pitWallColliderHandle: pitWallColliderHandle,
+                boothColliderHandles: boothColliderHandles,
+                playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
+                playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+              },
+            });
+            accumulator -= CONFIG.fixedTimeStep;
+            substeps += 1;
+          }
+          alpha = accumulator / CONFIG.fixedTimeStep;
+        } else {
+          accumulator = 0;
+        }
+
+        // 4. Reconciliation: softly correct predicted pose toward host authority.
+        Netcode.reconcilePredictedLocalCart(localCart, localSlotIndex, dt);
       }
-
-      // Find surrounding snapshots.
-      let afterIndex = -1;
-      for (let i = 0; i < netStateBuffer.length; i += 1) {
-        const e = netStateBuffer[i];
-        if (e.serverNowMs > targetServerNowMs) {
-          afterIndex = i;
-          break;
-        }
-      }
-      const beforeIndex = afterIndex > 0 ? afterIndex - 1 : (afterIndex === 0 ? -1 : netStateBuffer.length - 1);
-      const before = beforeIndex >= 0 ? netStateBuffer[beforeIndex] : null;
-      const after = afterIndex >= 0 ? netStateBuffer[afterIndex] : null;
-
-      if (before && after && before.carts && after.carts) {
-        const denom = (after.serverNowMs - before.serverNowMs) || 1;
-        const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
-
-        const outQ = [0, 0, 0, 1];
-        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-          const cart = allCarts[slotIndex];
-          if (!cart) continue;
-
-          const b = before.carts[String(slotIndex)];
-          const a = after.carts[String(slotIndex)];
-          if (!b || !a) continue;
-
-          // Never interpolate local player's cart; snap to the buffered value.
-          if (slotIndex === localSlotIndex) {
-            const bp = b.p;
-            const bq = b.q;
-            const blv = b.lv;
-            const bav = b.av;
-            if (Array.isArray(bp) && bp.length === 3) {
-              cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
-            }
-            if (Array.isArray(bq) && bq.length === 4) {
-              cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
-            }
-            if (Array.isArray(blv) && blv.length === 3) {
-              cart.body.setLinvel({ x: blv[0], y: blv[1], z: blv[2] }, true);
-            }
-            if (Array.isArray(bav) && bav.length === 3) {
-              cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
-            }
-            // eslint-disable-next-line no-continue
-            continue;
+    } else {
+      // Non-host without prediction (defensive fallback): interpolate all carts from buffer.
+      if (Date.now() < Netcode.getHostMigrationFreezeUntilMs()) {
+        // hold
+      } else {
+        const localSlotIndex = localSlotIndexThisFrame;
+        Netcode.updateRemoteCartNetTargets(-1);
+        const localSnap = Netcode.sampleAuthoritativeCartState(localSlotIndex);
+        const localCart = localSlotIndex >= 0 ? allCarts[localSlotIndex] : null;
+        if (localCart && localSnap) {
+          const { p, q, lv, av } = localSnap;
+          if (Array.isArray(p) && p.length === 3) {
+            localCart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
           }
-
-          const bp = b.p;
-          const ap = a.p;
-          if (Array.isArray(bp) && bp.length === 3 && Array.isArray(ap) && ap.length === 3) {
-            const x = bp[0] + (ap[0] - bp[0]) * alpha;
-            const y = bp[1] + (ap[1] - bp[1]) * alpha;
-            const z = bp[2] + (ap[2] - bp[2]) * alpha;
-            cart._netTargetPos.set(x, y, z);
+          if (Array.isArray(q) && q.length === 4) {
+            localCart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
           }
-
-          const bq = b.q;
-          const aq = a.q;
-          if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
-            THREE.Quaternion.slerpFlat(outQ, 0, bq, 0, aq, 0, alpha);
-            cart._netTargetQuat.set(outQ[0], outQ[1], outQ[2], outQ[3]);
-          }
-
-          // Use "after" velocities so direction stays correct between frames.
-          const alv = a.lv;
-          const aav = a.av;
-          if (Array.isArray(alv) && alv.length === 3) {
-            cart._lastNetLinvel.x = alv[0];
-            cart._lastNetLinvel.y = alv[1];
-            cart._lastNetLinvel.z = alv[2];
-          }
-          if (Array.isArray(aav) && aav.length === 3) {
-            cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
-          }
-        }
-      } else if (before && before.carts) {
-        const extrapMs = targetServerNowMs - before.serverNowMs;
-        const extrapS = Math.min(extrapMs, 50) / 1000;
-
-        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-          const cart = allCarts[slotIndex];
-          if (!cart) continue;
-
-          const b = before.carts[String(slotIndex)];
-          if (!b) continue;
-
-          const bp = b.p;
-          const bq = b.q;
-          const blv = b.lv;
-          const bav = b.av;
-
-          // Never extrapolate local player's cart; snap to the buffered value.
-          if (slotIndex === localSlotIndex) {
-            if (Array.isArray(bp) && bp.length === 3) {
-              cart.body.setTranslation({ x: bp[0], y: bp[1], z: bp[2] }, true);
-            }
-          } else if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
-            cart._netTargetPos.set(
-              bp[0] + blv[0] * extrapS,
-              bp[1] + blv[1] * extrapS,
-              bp[2] + blv[2] * extrapS,
-            );
-          } else if (Array.isArray(bp) && bp.length === 3) {
-            cart._netTargetPos.set(bp[0], bp[1], bp[2]);
-          }
-
-          // Do not extrapolate rotation; snap it.
-          if (Array.isArray(bq) && bq.length === 4) {
-            if (slotIndex === localSlotIndex) {
-              cart.body.setRotation({ x: bq[0], y: bq[1], z: bq[2], w: bq[3] }, true);
-            } else {
-              cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
-            }
-          }
-          if (Array.isArray(blv) && blv.length === 3) {
-            cart._lastNetLinvel.x = blv[0];
-            cart._lastNetLinvel.y = blv[1];
-            cart._lastNetLinvel.z = blv[2];
-            if (slotIndex === localSlotIndex) cart.body.setLinvel({ x: blv[0], y: blv[1], z: blv[2] }, true);
-          }
-          if (Array.isArray(bav) && bav.length === 3) {
-            cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
-          }
-        }
-      } else if (after && after.carts) {
-        // Snap remote carts to "after" snapshot; keep local cart bound to Rapier.
-        const carts = after.carts;
-        const localSnap = carts[String(localSlotIndex)];
-        if (localSlotIndex >= 0 && localSnap) {
-          applyCartsSnapshotToBodies({ [String(localSlotIndex)]: localSnap });
-        }
-        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-          if (slotIndex === localSlotIndex) continue;
-          const cart = allCarts[slotIndex];
-          const snap = carts[String(slotIndex)];
-          if (!cart || !snap) continue;
-          const p = snap.p;
-          const q = snap.q;
-          const lv = snap.lv;
-          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
-          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
           if (Array.isArray(lv) && lv.length === 3) {
-            cart._lastNetLinvel.x = lv[0];
-            cart._lastNetLinvel.y = lv[1];
-            cart._lastNetLinvel.z = lv[2];
+            localCart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
+          }
+          if (Array.isArray(av) && av.length === 3) {
+            localCart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
           }
         }
-      } else if (lastCartsCache) {
-        const carts = lastCartsCache;
-        const localSnap = carts[String(localSlotIndex)];
-        if (localSlotIndex >= 0 && localSnap) {
-          applyCartsSnapshotToBodies({ [String(localSlotIndex)]: localSnap });
-        }
-        for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-          if (slotIndex === localSlotIndex) continue;
-          const cart = allCarts[slotIndex];
-          const snap = carts[String(slotIndex)];
-          if (!cart || !snap) continue;
-          const p = snap.p;
-          const q = snap.q;
-          const lv = snap.lv;
-          if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
-          if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
-          if (Array.isArray(lv) && lv.length === 3) {
-            cart._lastNetLinvel.x = lv[0];
-            cart._lastNetLinvel.y = lv[1];
-            cart._lastNetLinvel.z = lv[2];
-          }
-        }
-      }
-
-      const pruneIdx = before ? netStateBuffer.indexOf(before) : -1;
-      if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
       }
     }
     updateRamBoostStreaks(now);
 
     // Sync render meshes from physics (or from net targets for remote non-host carts).
-    const localSlotIndexForFrame = Netcode.getNetSlots().findIndex((s) => s && s.connId === Netcode.getYouConnId());
+    const localSlotIndexForFrame = localSlotIndexThisFrame;
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
       const c = allCarts[slotIndex];
       if (!c || !c.mesh) continue;
@@ -5968,8 +5923,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     // * Uses steering input magnitude (not physics yaw rate) so it remains consistent across hosts/clients.
     if (!isMuted && sfxVolume > 0 && sfx && typeof sfx.playWheelScreech === "function") {
       if (!menuVisible && GameState.getRoundState().phase === "running") {
-        const localSlotIndexForFrame = Netcode.getNetSlots().findIndex((s) => s && s.connId === Netcode.getYouConnId());
-        const c = localSlotIndexForFrame >= 0 ? allCarts[localSlotIndexForFrame] : null;
+        const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
         if (c && c.body) {
           const lv = c.body.linvel();
           const speed = Math.hypot(lv.x, lv.z);
@@ -6021,23 +5975,22 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         const cart = allCarts[i];
         if (!cart || !cart.mesh) continue;
         const isLeader = i === leaderSlot;
-        cart.mesh.traverse((child) => {
-          if (!child.isMesh || !child.material || !child.material.emissive) return;
-          if (child.userData.isFace || child.userData.isWheel || child.userData.isHandle) return;
+        const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
+        for (const mat of cache.frameGlowMats) {
           if (isLeader) {
             // * White emissive — intensity carries the pulse.
-            child.material.emissive.setRGB(1, 1, 1);
-            child.material.emissiveIntensity = glowIntensity;
+            mat.emissive.setRGB(1, 1, 1);
+            mat.emissiveIntensity = glowIntensity;
           } else if (GameState.getRoundState().phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
-            child.material.emissive.setHex(colorHexForSlot(Netcode.getNetSlots()[i]));
-            child.material.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
+            mat.emissive.setHex(colorHexForSlot(netSlotsForFrame[i]));
+            mat.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
           } else {
             // * Restore standard emissive (cart's own color at normal intensity).
-            const baseHex = colorHexForSlot(Netcode.getNetSlots()[i]);
-            child.material.emissive.setHex(baseHex);
-            child.material.emissiveIntensity = 0.6;
+            const baseHex = colorHexForSlot(netSlotsForFrame[i]);
+            mat.emissive.setHex(baseHex);
+            mat.emissiveIntensity = 0.6;
           }
-        });
+        }
       }
     }
 

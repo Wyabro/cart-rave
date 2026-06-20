@@ -92,28 +92,79 @@ export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, co
   }
 }
 
-export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
-  const pos = cart.body.translation();
-  const rot = cart.body.rotation();
-  const linvel = cart.body.linvel();
-  const mass = getBodyMass(cart.body);
+/**
+ * * Center-hole fall-through assist (called from applyArcadeControls).
+ *
+ * * Goal: a cart that reaches the hole should TUMBLE IN and then die — never wedge on the
+ * * lip, and never die early on the flat floor. The physics collider's center hole is larger
+ * * than the visual hole and has no inner wall/chamfer, so carts lose support before their
+ * * colliders can catch the neon lip.
+ *
+ * * Fix: once the cart's nearest edge overhangs the expanded physics hole, strip its friction and add a
+ * * gentle inward + downward pull (ramped by how far it overhangs) so it slides off the lip
+ * * and free-falls through the open hole. No teleport — the cart visibly drops into the void,
+ * * and the host-authoritative fall detector then scores the center-hole knockout (+2) once it
+ * * passes `CONFIG.fall.yThreshold`. Carts fully on the flat floor keep normal grip.
+ */
+export function applyCenterHoleAssist(cart, dtFixed, pos, mass) {
+  // * Already committed to a fall/respawn — let the existing pipeline run its course.
+  if (cart.respawnAtMs != null) return;
 
-  const vertVel = Math.abs(linvel.y);
-  const onGround = vertVel < 2.0 && pos.y > CONFIG.fall.yThreshold;
-  const controlFactor = onGround ? 1 : CONFIG.driving.airControlFactor;
+  const posX = pos.x;
+  const posZ = pos.z;
+  const distanceFromCenter = Math.hypot(posX, posZ);
+  if (distanceFromCenter < 1e-3) return; // dead center: already over the open hole, falling
 
-  const yaw = yawFromQuaternion(rot);
+  const innerR = CONFIG.record.innerRadius;
+  // * Flat playable surface ends here; inside is open space in the physics collider.
+  const holeClearance =
+    CONFIG.record.physics?.holeClearance ??
+    CONFIG.record.physics?.chamferWidth ??
+    1.05;
+  const floorInnerR = innerR + holeClearance;
+
+  const dirX = posX / distanceFromCenter;
+  const dirZ = posZ / distanceFromCenter;
+
+  // * Overhang-aware: project the oriented footprint onto the radial direction to find how
+  // * close the cart's nearest edge is to the center (handles nose-in and side-on poses).
+  const hx = CONFIG.cart.size.x / 2;
+  const hz = CONFIG.cart.size.z / 2;
+  const yaw = yawFromQuaternion(cart.body.rotation());
   const { forward, right } = getForwardRightFromYaw(yaw);
+  const reach =
+    Math.abs(hx * (right.x * dirX + right.z * dirZ)) +
+    Math.abs(hz * (forward.x * dirX + forward.z * dirZ));
+  const nearestEdge = distanceFromCenter - reach;
 
-  const v = rapierToVec3(linvel);
-  const vForward = forward.dot(v);
-  const vRight = right.dot(v);
-
-  if (axis.forward !== 0 || axis.turn !== 0) {
-    cart.body.wakeUp();
+  if (nearestEdge >= floorInnerR) {
+    // * Fully on the flat floor: restore normal grip, no assist.
+    if (cart.collider) cart.collider.setFriction(CONFIG.cart.friction);
+    return;
   }
 
-  // Lateral grip
+  // * Cart overhangs the physics hole: make it slide off and fall in cleanly.
+  cart.body.wakeUp();
+  if (cart.collider) cart.collider.setFriction(0);
+
+  const assistBand = CONFIG.record.holeAssist?.lowFrictionBandM ?? 1.5;
+  const commit = Math.max(0, Math.min(1, (floorInnerR - nearestEdge) / Math.max(assistBand, 1e-3)));
+  const downAccel =
+    (CONFIG.record.holeAssist?.approachDownAccel ?? 6.0) +
+    (CONFIG.record.holeAssist?.fallThroughAccel ?? 22.0) * commit;
+  const inAccel = (CONFIG.record.holeAssist?.unstickAccel ?? 32.0) * 0.3 * commit;
+  cart.body.applyImpulse(
+    {
+      x: -dirX * inAccel * mass * dtFixed,
+      y: -downAccel * mass * dtFixed,
+      z: -dirZ * inAccel * mass * dtFixed,
+    },
+    true,
+  );
+}
+
+function applyLateralGrip(cart, axis, dtFixed, mass, v, right) {
+  const vRight = right.dot(v);
   const grip = axis.turn !== 0
     ? CONFIG.driving.lateralGrip * CONFIG.driving.driftGripFactor
     : CONFIG.driving.lateralGrip;
@@ -121,28 +172,30 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   const dvRight = (-vRight) * grip * dtFixed;
   const gripImpulse = right.clone().multiplyScalar(mass * dvRight);
   cart.body.applyImpulse(vec3ToRapier(gripImpulse), true);
+}
 
-  // Forward drive
-  if (axis.forward !== 0) {
-    const rb = CONFIG.cart.ramBoost;
-    const nitroForward = rb.enabled && nowMs <= cart.ramBoostActiveUntilMs && axis.forward > 0;
+function applyForwardDrive(cart, axis, dtFixed, nowMs, controlFactor, forward, vForward, mass) {
+  if (axis.forward === 0) return;
 
-    let targetSpeed = axis.forward > 0 ? CONFIG.driving.maxSpeed : -CONFIG.driving.reverseMaxSpeed;
-    if (nitroForward) targetSpeed = rb.boostedMaxSpeed;
+  const rb = CONFIG.cart.ramBoost;
+  const nitroForward = rb.enabled && nowMs <= cart.ramBoostActiveUntilMs && axis.forward > 0;
 
-    const accelRate = nitroForward && rb.boostedAccel != null ? rb.boostedAccel : CONFIG.driving.accel;
-    const speedError = targetSpeed - vForward;
-    const maxDeltaV = accelRate * controlFactor * dtFixed;
-    const dvForward = Math.max(-maxDeltaV, Math.min(maxDeltaV, speedError));
+  let targetSpeed = axis.forward > 0 ? CONFIG.driving.maxSpeed : -CONFIG.driving.reverseMaxSpeed;
+  if (nitroForward) targetSpeed = rb.boostedMaxSpeed;
 
-    if (Math.abs(dvForward) > 1e-4) {
-      const driveImpulse = forward.clone().multiplyScalar(mass * dvForward);
-      cart.body.applyImpulse(vec3ToRapier(driveImpulse), true);
-    }
+  const accelRate = nitroForward && rb.boostedAccel != null ? rb.boostedAccel : CONFIG.driving.accel;
+  const speedError = targetSpeed - vForward;
+  const maxDeltaV = accelRate * controlFactor * dtFixed;
+  const dvForward = Math.max(-maxDeltaV, Math.min(maxDeltaV, speedError));
+
+  if (Math.abs(dvForward) > 1e-4) {
+    const driveImpulse = forward.clone().multiplyScalar(mass * dvForward);
+    cart.body.applyImpulse(vec3ToRapier(driveImpulse), true);
   }
+}
 
-  // Steering torque + drift impulse
-  if (Math.abs(axis.turn) > 0.01) {
+function applySteeringAndDrift(cart, axis, dtFixed, controlFactor, right, vForward, mass) {
+  if (Math.abs(axis.turn) > CONFIG.driving.steerDeadzone) {
     const av = cart.body.angvel();
     const desiredYawRate = axis.turn * CONFIG.driving.tankYawRate * controlFactor;
     const yawError = desiredYawRate - av.y;
@@ -150,63 +203,79 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     cart.body.applyTorqueImpulse({ x: 0, y: torqueImpulseY, z: 0 }, true);
 
     const speedForDrift = Math.abs(vForward);
-    if (speedForDrift > 0.25) {
+    if (speedForDrift > CONFIG.driving.driftMinSpeed) {
       const driftDir = right.clone().multiplyScalar(axis.turn * Math.sign(vForward || 1));
       const driftMag = speedForDrift * CONFIG.driving.driftImpulseStrength * controlFactor * mass * dtFixed;
       cart.body.applyImpulse(vec3ToRapier(driftDir.multiplyScalar(driftMag)), true);
     }
   } else {
-    // When not steering, damp any unwanted yaw rotations extra hard to ensure straight driving and prevent tiny random turns
     const av = cart.body.angvel();
-    const extraYawDamping = 12.0; // strong damping to keep driving straight
-    cart.body.applyTorqueImpulse({ x: 0, y: -av.y * extraYawDamping * mass * dtFixed, z: 0 }, true);
+    cart.body.applyTorqueImpulse(
+      { x: 0, y: -av.y * CONFIG.driving.extraYawDamping * mass * dtFixed, z: 0 },
+      true,
+    );
+  }
+}
+
+function applyDampingAndStability(cart, dtFixed, pos, linvel) {
+  if (!cart.body) return;
+
+  const mass = getBodyMass(cart.body);
+  cart.body.setAngularDamping(CONFIG.cart.angularDamping);
+
+  // Anisotropic linear damping: Rapier default set to 0, applied manually per axis.
+  cart.body.setLinearDamping(0);
+
+  const dvX = -linvel.x * CONFIG.cart.linearDamping * dtFixed;
+  const dvZ = -linvel.z * CONFIG.cart.linearDamping * dtFixed;
+  const distXZForDamp = Math.hypot(pos.x, pos.z);
+  const innerRForDamp = CONFIG.record.innerRadius;
+  const holeBandM = CONFIG.record.holeAssist?.lowFrictionBandM ?? 1.5;
+  const inHoleZone =
+    distXZForDamp < innerRForDamp ||
+    (distXZForDamp >= innerRForDamp && distXZForDamp <= innerRForDamp + holeBandM);
+  const yDamping = inHoleZone
+    ? CONFIG.driving.holeZoneLinearYDamping
+    : CONFIG.driving.defaultLinearYDamping;
+  const dvY = -linvel.y * yDamping * dtFixed;
+
+  cart.body.applyImpulse({ x: dvX * mass, y: dvY * mass, z: dvZ * mass }, true);
+}
+
+/**
+ * Applies arcade tank steering, grip, drift, damping, and center-hole assist to one cart.
+ *
+ * @param {object} cart Cart entity with Rapier body/collider.
+ * @param {{ forward: number, turn: number }} axis Normalized drive input.
+ * @param {number} dtFixed Fixed physics timestep in seconds.
+ * @param {number} nowMs Current time in milliseconds (for nitro window checks).
+ */
+export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
+  const pos = cart.body.translation();
+  const rot = cart.body.rotation();
+  const linvel = cart.body.linvel();
+  const mass = getBodyMass(cart.body);
+
+  const vertVel = Math.abs(linvel.y);
+  const onGround = vertVel < CONFIG.driving.groundVerticalVelThreshold && pos.y > CONFIG.fall.yThreshold;
+  const controlFactor = onGround ? 1 : CONFIG.driving.airControlFactor;
+
+  const yaw = yawFromQuaternion(rot);
+  const { forward, right } = getForwardRightFromYaw(yaw);
+
+  const v = rapierToVec3(linvel);
+  const vForward = forward.dot(v);
+
+  if (axis.forward !== 0 || axis.turn !== 0) {
+    cart.body.wakeUp();
   }
 
-  // Damping + pitch/roll clamp
-  if (cart.body) {
-    cart.body.setAngularDamping(CONFIG.cart.angularDamping);
-    
-    // Anisotropic Linear Damping: set Rapier's default linear damping to 0 and apply manually
-    cart.body.setLinearDamping(0);
-    
-    const dvX = -linvel.x * CONFIG.cart.linearDamping * dtFixed;
-    const dvZ = -linvel.z * CONFIG.cart.linearDamping * dtFixed;
-    // Y damping: use a stable constant damping (1.2) to prevent micro-bounces and hopping
-    // while keeping falls fast and planted under gravity.
-    const yDamping = 1.2;
-    const dvY = -linvel.y * yDamping * dtFixed;
-    
-    cart.body.applyImpulse({ x: dvX * mass, y: dvY * mass, z: dvZ * mass }, true);
+  applyLateralGrip(cart, axis, dtFixed, mass, v, right);
+  applyForwardDrive(cart, axis, dtFixed, nowMs, controlFactor, forward, vForward, mass);
+  applySteeringAndDrift(cart, axis, dtFixed, controlFactor, right, vForward, mass);
+  applyDampingAndStability(cart, dtFixed, pos, linvel);
 
-  }
-
-  // Center hole gravity well pull & downward assist
-  const distXZ = Math.hypot(pos.x, pos.z);
-  
-  // Low-friction band right at the rim (0.1–0.2) so carts slide off instead of catching
-  if (cart.collider) {
-    if (distXZ > CONFIG.record.innerRadius - 0.2 && distXZ < CONFIG.record.innerRadius + 0.8) {
-      cart.collider.setFriction(0.15); // low friction right at the rim
-    } else {
-      cart.collider.setFriction(CONFIG.cart.friction); // Restore standard high floor friction
-    }
-  }
-
-  const pullOuterRadius = CONFIG.record.innerRadius + 3.0; // e.g. 3.63 + 3.0 = 6.63
-  if (distXZ < pullOuterRadius && distXZ > CONFIG.record.innerRadius - 1.0) {
-    // Direction toward center (0,0) in XZ plane
-    const pullDir = new THREE.Vector3(-pos.x, 0, -pos.z).normalize();
-    // Strength scales up as the cart gets closer to the hole
-    const t = 1.0 - (distXZ - (CONFIG.record.innerRadius - 1.0)) / (pullOuterRadius - (CONFIG.record.innerRadius - 1.0));
-    const pullStrength = 15.0 * t; // max 15 m/s^2 pull acceleration
-    const pullImpulse = pullDir.multiplyScalar(mass * pullStrength * dtFixed);
-    cart.body.applyImpulse(vec3ToRapier(pullImpulse), true);
-  }
-  // Sharp downward pull when crossing the rim (only after center of mass crosses the edge)
-  if (distXZ < CONFIG.record.innerRadius) {
-    const downAssistStrength = 22.0; // additional downward acceleration
-    cart.body.applyImpulse({ x: 0, y: -downAssistStrength * mass * dtFixed, z: 0 }, true);
-  }
+  applyCenterHoleAssist(cart, dtFixed, pos, mass);
 
   const av = cart.body.angvel();
   const maxPR = CONFIG.cart.maxPitchRoll;
@@ -219,6 +288,17 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   }
 }
 
+/**
+ * Applies a spread ramming impulse from rammer to victim and triggers FX / host events.
+ *
+ * @param {object} rammer Attacking cart entity.
+ * @param {object} victim Target cart entity.
+ * @param {Function|null} playCollisionRef Local collision audio callback.
+ * @param {Function|null} spawnTrashBurstRef Local particle burst callback.
+ * @param {boolean} isHost Whether this client is the room host.
+ * @param {object|null} partySocket Active PartyKit socket (host broadcast).
+ * @param {object[]|null} allCarts All cart entities in slot order.
+ */
 export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrashBurstRef, isHost, partySocket, allCarts) {
   const rv = rammer.body.linvel();
   const speed = planarSpeed(rv);
@@ -236,7 +316,7 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
   if (toVictim.lengthSq() < 1e-6) return;
   toVictim.normalize();
 
-  if (dir.dot(toVictim) < 0.1) return;
+  if (dir.dot(toVictim) < CONFIG.ramming.alignmentDotMin) return;
 
   const impulseMag = Math.max(
     0,
@@ -258,7 +338,7 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
   }
 
   // Spread impulse
-  const steps = 3;
+  const steps = CONFIG.ramming.spreadSteps;
   if (!victim.pendingRam) {
     victim.pendingRam = { impulse, remainingSteps: steps };
   } else {
@@ -300,9 +380,114 @@ export function setRoundPhase(phase) {
   GameState.setRoundPhase(phase);
 }
 
+function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) {
+  const colliderHandleToCart = new Map();
+  for (const c of allCarts || []) {
+    if (c && c.collider) {
+      colliderHandleToCart.set(c.collider.handle, c);
+    }
+  }
+
+  const impacts = CONFIG.environmentImpacts;
+
+  eventQueue.drainCollisionEvents((h1, h2, started) => {
+    if (!started) return;
+    const c1 = colliderHandleToCart.get(h1);
+    const c2 = colliderHandleToCart.get(h2);
+
+    if (c1 && c2) {
+      if (c1 !== c2) {
+        applyRammingImpulse(c1, c2, callbacks.playCollision, callbacks.spawnTrashBurst, isHost, callbacks.partySocket, allCarts);
+        applyRammingImpulse(c2, c1, callbacks.playCollision, callbacks.spawnTrashBurst, isHost, callbacks.partySocket, allCarts);
+      }
+    } else if (c1 || c2) {
+      const cart = c1 || c2;
+      const otherHandle = c1 ? h2 : h1;
+
+      let envType = "floor";
+      if (otherHandle === callbacks.recordColliderHandle) {
+        envType = "floor";
+      } else if (otherHandle === callbacks.pitWallColliderHandle) {
+        envType = "edge";
+      } else if (callbacks.boothColliderHandles && callbacks.boothColliderHandles.includes(otherHandle)) {
+        envType = "edge";
+      }
+
+      const lv = cart.body.linvel();
+      const pre = cart.preStepLinvel || lv;
+      let intensity = 0;
+      let shouldTrigger = false;
+
+      if (envType === "floor") {
+        const fallSpeed = -pre.y;
+        if (fallSpeed > impacts.floorFallSpeedThreshold) {
+          intensity = Math.min(1.0, (fallSpeed - impacts.floorFallSpeedThreshold) / impacts.intensityRange);
+          shouldTrigger = true;
+        }
+      } else if (envType === "edge") {
+        const dvX = lv.x - pre.x;
+        const dvZ = lv.z - pre.z;
+        const dvXZ = Math.hypot(dvX, dvZ);
+        if (dvXZ > impacts.edgeDeltaVThreshold) {
+          intensity = Math.min(1.0, (dvXZ - impacts.edgeDeltaVThreshold) / impacts.intensityRange);
+          shouldTrigger = true;
+        }
+      }
+
+      if (shouldTrigger && intensity > impacts.minIntensity) {
+        const rp = cart.body.translation();
+        const contactPos = { x: rp.x, y: rp.y + impacts.contactYOffset, z: rp.z };
+
+        if (envType === "edge") {
+          const pitInnerRadius =
+            (CONFIG.record.radius + impacts.pitRadiusOffset) * impacts.pitRadiusScale;
+          const dist = Math.hypot(rp.x, rp.z);
+          if (dist > 1e-3) {
+            contactPos.x = rp.x * (pitInnerRadius / dist);
+            contactPos.y = rp.y;
+            contactPos.z = rp.z * (pitInnerRadius / dist);
+          }
+        }
+
+        if (envType === "floor") {
+          if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
+          if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
+        } else if (envType === "edge") {
+          if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
+          if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
+        }
+
+        if (isHost && callbacks.partySocket && allCarts) {
+          const slotIndex = allCarts.indexOf(cart);
+          if (slotIndex >= 0) {
+            callbacks.partySocket.send(JSON.stringify({
+              type: "host_event_collision",
+              slotA: slotIndex,
+              slotB: envType === "floor" ? -1 : -2,
+              intensity,
+              midpoint: contactPos,
+            }));
+          }
+        }
+      }
+    }
+  });
+}
+
 /**
- * High-level fixed physics step.
- * This is what game.js will call every fixed timestep.
+ * Runs one fixed-timestep physics update: controls, pending rams, world step, and collisions.
+ *
+ * @param {object} params
+ * @param {object} params.world Rapier physics world.
+ * @param {object} params.eventQueue Rapier event queue for collision draining.
+ * @param {object[]} params.allCarts All cart entities in slot order.
+ * @param {object|null} params.localCart Local human cart (may be null on non-host observers).
+ * @param {Map|null} params.remoteInputs Host-side remote input map (connId → input).
+ * @param {object[]} [params.npcs] NPC cart entities controlled by host AI.
+ * @param {number} params.dt Fixed timestep in seconds.
+ * @param {number} params.now Current time in milliseconds.
+ * @param {boolean} params.isHost Whether this client runs authoritative physics.
+ * @param {object} [params.callbacks] Injected helpers (getAxis, FX, collider handles, etc.).
  */
 export function runFixedPhysicsStep({
   world,
@@ -334,9 +519,18 @@ export function runFixedPhysicsStep({
   }
 
   // 2. Remote players (host only)
-  if (isHost && remoteInputs) {
+  // * resolveCartForConn is injected by the caller (main.js) so this module stays
+  // * free of netSlots / connId knowledge.
+  if (isHost && remoteInputs && callbacks.resolveCartForConn) {
     for (const [connId, input] of remoteInputs.entries()) {
-      // TODO: resolve cart and apply
+      const remoteCart = callbacks.resolveCartForConn(connId);
+      if (!remoteCart) continue;
+      applyArcadeControls(
+        remoteCart,
+        { forward: input.throttle ?? 0, turn: input.steer ?? 0 },
+        dt,
+        now,
+      );
     }
   }
 
@@ -363,101 +557,6 @@ export function runFixedPhysicsStep({
   // 5. Step world
   if (world && eventQueue) {
     world.step(eventQueue);
-
-    const colliderHandleToCart = new Map();
-    for (const c of allCarts || []) {
-      if (c && c.collider) {
-        colliderHandleToCart.set(c.collider.handle, c);
-      }
-    }
-
-    eventQueue.drainCollisionEvents((h1, h2, started) => {
-      if (!started) return;
-      const c1 = colliderHandleToCart.get(h1);
-      const c2 = colliderHandleToCart.get(h2);
-      
-      if (c1 && c2) {
-        if (c1 !== c2) {
-          applyRammingImpulse(c1, c2, callbacks.playCollision, callbacks.spawnTrashBurst, isHost, callbacks.partySocket, allCarts);
-          applyRammingImpulse(c2, c1, callbacks.playCollision, callbacks.spawnTrashBurst, isHost, callbacks.partySocket, allCarts);
-        }
-      } else if (c1 || c2) {
-        // Environment collision!
-        const cart = c1 || c2;
-        const otherHandle = c1 ? h2 : h1;
-
-        let envType = "floor";
-        if (otherHandle === callbacks.recordColliderHandle) {
-          envType = "floor";
-        } else if (otherHandle === callbacks.pitWallColliderHandle) {
-          envType = "edge";
-        } else if (callbacks.boothColliderHandles && callbacks.boothColliderHandles.includes(otherHandle)) {
-          envType = "edge"; // Booth platforms behave like edges (bouncy wall)
-        }
-
-        const lv = cart.body.linvel();
-        const pre = cart.preStepLinvel || lv;
-        let intensity = 0;
-        let shouldTrigger = false;
-
-        if (envType === "floor") {
-          // Hard landing: downward velocity prior to impact
-          const fallSpeed = -pre.y;
-          const threshold = 3.0; // only trigger if falling faster than 3 m/s
-          if (fallSpeed > threshold) {
-            intensity = Math.min(1.0, (fallSpeed - threshold) / 15.0);
-            shouldTrigger = true;
-          }
-        } else if (envType === "edge") {
-          // Hard wall hit: horizontal velocity change
-          const dvX = lv.x - pre.x;
-          const dvZ = lv.z - pre.z;
-          const dvXZ = Math.hypot(dvX, dvZ);
-          const threshold = 2.5; // only trigger on sudden horizontal velocity change
-          if (dvXZ > threshold) {
-            intensity = Math.min(1.0, (dvXZ - threshold) / 15.0);
-            shouldTrigger = true;
-          }
-        }
-
-        if (shouldTrigger && intensity > 0.01) {
-          const rp = cart.body.translation();
-          const contactPos = { x: rp.x, y: rp.y - 0.4, z: rp.z };
-          
-          if (envType === "edge") {
-            const pitInnerRadius = (CONFIG.record.radius + 2) * 1.30 * 1.20;
-            const dist = Math.hypot(rp.x, rp.z);
-            if (dist > 1e-3) {
-              contactPos.x = rp.x * (pitInnerRadius / dist);
-              contactPos.y = rp.y;
-              contactPos.z = rp.z * (pitInnerRadius / dist);
-            }
-          }
-
-          // Trigger local callbacks on host (since host runs local audio / particles too)
-          if (envType === "floor") {
-            if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
-            if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
-          } else if (envType === "edge") {
-            if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
-            if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
-          }
-
-          // Broadcast to other clients (host only)
-          if (isHost && callbacks.partySocket && allCarts) {
-            const slotIndex = allCarts.indexOf(cart);
-            if (slotIndex >= 0) {
-              callbacks.partySocket.send(JSON.stringify({
-                type: "host_event_collision",
-                slotA: slotIndex,
-                slotB: envType === "floor" ? -1 : -2, // -1 means floor, -2 means edge/booth
-                intensity,
-                midpoint: contactPos,
-              }));
-            }
-          }
-        }
-      }
-    });
+    processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost);
   }
 }

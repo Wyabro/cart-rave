@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="Cart Rave — Neon shopping cart arena brawler. Play solo or with friends in this fast-paced multiplayer browser game." />
 <title>Cart Rave — Main Menu</title>
 <link rel="stylesheet" href="cart-rave-menu.css" />
 </head>
@@ -44,7 +45,7 @@
 
       <div class="cr-stats cr-stats-global">
         <div class="cr-stats-tag">
-          <i class="cr-pulse" style="background:#2bff7a"></i> GLOBAL
+          <i class="cr-pulse cr-pulse--online"></i> GLOBAL
         </div>
         <div class="cr-stat">
           <span class="cr-stat-num" id="stat-online">2,431</span>
@@ -100,26 +101,26 @@
         <div class="cr-player-hd">
           <span>◇ YOUR CART</span>
           <span class="cr-player-status">
-            <i class="cr-pulse" style="background:#2bff7a"></i> ONLINE
+            <i class="cr-pulse cr-pulse--online"></i> ONLINE
           </span>
         </div>
 
         <div class="cr-name-row">
-          <div class="cr-name-display" id="cr-name-display">
+          <div class="cr-name-display" id="cr-name-display" aria-label="Your username">
             <span class="cr-tag">@</span><span id="cr-name-text"></span>
             <span class="cr-edit-hint">✎</span>
           </div>
-          <input class="cr-name-input" id="cr-name-input" style="display:none" maxlength="12" />
-          <button class="cr-reroll" id="cr-reroll" title="Re-roll handle">⟲</button>
+          <input class="cr-name-input" id="cr-name-input" style="display:none" maxlength="12" aria-label="Your username" />
+          <button class="cr-reroll" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
         </div>
 
         <div class="cr-color-label">CHOOSE COLOR</div>
-        <div class="cr-color-row" id="cr-color-row"></div>
+        <div class="cr-color-row" id="cr-color-row" role="radiogroup" aria-label="Choose cart color"></div>
       </div>
 
       <!-- Audio widget -->
       <div class="cr-audio" id="cr-audio">
-        <button class="cr-mute-btn" id="cr-mute-btn" title="Mute">
+        <button class="cr-mute-btn" id="cr-mute-btn" title="Mute" aria-label="Toggle mute">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 5 6 9H3v6h3l5 4z"/>
             <path d="M15.5 8.5a5 5 0 0 1 0 7"/>

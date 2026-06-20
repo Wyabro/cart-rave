@@ -1,64 +1,42 @@
 let _options = {};
 
-// Module-level state for DOM elements
-let hudRoot = null;
-let hudStatus = null;
-let hudTimer = null;
-let hudTimerNum = null;
-let hudTimerRd = null;
-let hudTimerFill = null;
-let hudScores = null;
-let hudFeed = null;
-let hudScoreBoxes = [];
-let hudReadyBtn = null;
-let hudAudio = null;
-let escOverlay = null;
-let resumeBtn = null;
-let quitBtn = null;
-let postFxBtn = null;
-let hudMuteBtn = null;
-let hudMusicVol = null;
-let hudSfxVol = null;
+/** @type {Record<string, HTMLElement | null | Array<object>>} */
+const elements = {
+  root: null,
+  status: null,
+  timer: null,
+  timerNum: null,
+  timerRd: null,
+  timerFill: null,
+  scores: null,
+  feed: null,
+  scoreBoxes: [],
+  readyBtn: null,
+  audio: null,
+  escOverlay: null,
+  resumeBtn: null,
+  quitBtn: null,
+  postFxBtn: null,
+  muteBtn: null,
+  musicVol: null,
+  sfxVol: null,
+};
 
-// Module-level cached variables for updateHud
+// * Cached update() state — avoids recomputing sort order and retriggering animations every frame.
+/** Timestamp until which the "GO!" flash is shown after countdown → running. */
 let _goUntilMs = 0;
+/** Previous round phase; used to detect countdown → running transition. */
 let _prevRoundPhase = null;
+/** Last rendered countdown digit; drives pulse animation only when the number changes. */
 let _lastCountdownN = null;
+/** Slot index of the local human player from the last score update. */
 let _lastLocalIdx = null;
+/** Cache key for sorted score rows (scores + slot names/colors). */
 let _sortedScoreRowsKey = null;
+/** Cached score rows sorted by score descending; rebuilt when _sortedScoreRowsKey changes. */
 let _sortedScoreRows = null;
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function clampInt(value, min, max) {
-  const v = Math.round(value);
-  if (!Number.isFinite(v)) return min;
-  return Math.max(min, Math.min(max, v));
-}
-
-export function colorHexToCss(hex) {
-  return `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
-}
-
-export function pickKillFeedVerb(hit) {
-  if (hit?.wasCritical) return "BOOSTED OFF";
-  const verbs = ["YEETED", "RAMMED", "BOOSTED OFF"];
-  return verbs[Math.floor(Math.random() * verbs.length)];
-}
-
-export function init(options) {
-  _options = options || {};
-
-  const existing = document.getElementById("hud");
-  if (existing) existing.remove();
-  const existingStyle = document.getElementById("hud-style");
-  if (existingStyle) existingStyle.remove();
-
-  const style = document.createElement("style");
-  style.id = "hud-style";
-  style.textContent = `
+export const HUD_CSS = `
     #hud {
       --hud-display: "Bungee", "Archivo Black", cursive, sans-serif;
       --hud-mono: "Space Mono", ui-monospace, monospace;
@@ -655,16 +633,225 @@ export function init(options) {
       --btn-glow: #22e6ff;
     }
   `.trim();
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clampInt(value, min, max) {
+  const v = Math.round(value);
+  if (!Number.isFinite(v)) return min;
+  return Math.max(min, Math.min(max, v));
+}
+
+export function colorHexToCss(hex) {
+  return `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
+}
+
+export function pickKillFeedVerb(hit) {
+  if (hit?.wasCritical) return "BOOSTED OFF";
+  const verbs = ["YEETED", "RAMMED", "BOOSTED OFF"];
+  return verbs[Math.floor(Math.random() * verbs.length)];
+}
+
+
+/**
+ * Updates the center status line (GO!, countdown, last-cart-standing).
+ * @param {object} roundState
+ * @param {boolean} isLastCartStandingActive
+ */
+function updateStatus(roundState, isLastCartStandingActive) {
+  const roundPhase = roundState?.phase;
+  const roundCountdownStartedAtMs = roundState?.countdownStartedAtMs;
+
+  const prevPhase = _prevRoundPhase;
+  if (prevPhase === "countdown" && roundPhase === "running") {
+    _goUntilMs = Date.now() + 500;
+  }
+  _prevRoundPhase = roundPhase;
+
+  if (Date.now() < _goUntilMs) {
+    elements.status.style.display = "block";
+    elements.status.style.color = "#22e6ff";
+    elements.status.textContent = "GO!";
+    elements.status.classList.remove("pulse");
+  } else if (roundPhase === "running" && isLastCartStandingActive) {
+    elements.status.style.display = "block";
+    elements.status.style.color = "#ffffff";
+    elements.status.textContent = "LAST CART STANDING!";
+  } else if (roundPhase === "countdown") {
+    const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
+    const remainingMs = 3000 - elapsedMs;
+    const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
+    elements.status.style.display = "block";
+    elements.status.style.color = "#ff2bd6";
+    elements.status.textContent = `GET READY  ${n}`;
+    if (_lastCountdownN !== n) {
+      _lastCountdownN = n;
+      elements.status.classList.remove("pulse");
+      void elements.status.offsetWidth; // restart animation
+      elements.status.classList.add("pulse");
+    }
+  } else if (roundPhase === "podium") {
+    elements.status.style.display = "none";
+    elements.status.textContent = "";
+  } else {
+    elements.status.style.display = "none";
+    elements.status.textContent = "";
+  }
+}
+
+/**
+ * Updates the round timer display and progress bar.
+ * @param {object} roundState
+ * @param {number} matchHistoryLength
+ */
+function updateTimer(roundState, matchHistoryLength) {
+  const roundPhase = roundState?.phase;
+  const roundStartedAtMs = roundState?.startedAtMs;
+
+  if (roundPhase === "running") {
+    const elapsedMs = Date.now() - (roundStartedAtMs || 0);
+    const totalRoundMs = 95000;
+    const remainingMs = totalRoundMs - elapsedMs;
+    const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
+    const minutes = Math.floor(seconds / 60);
+    const secondsPart = seconds % 60;
+    const text = minutes > 0
+      ? `${minutes}:${String(secondsPart).padStart(2, "0")}`
+      : `:${String(secondsPart).padStart(2, "0")}`;
+    elements.timer.style.display = "block";
+    if (elements.timerNum) elements.timerNum.textContent = text;
+    if (elements.timerRd) {
+      const currentRound = Math.max(1, matchHistoryLength + 1);
+      elements.timerRd.textContent = `RD ${currentRound}`;
+    }
+    if (elements.timerFill) {
+      const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
+      elements.timerFill.style.width = `${pct}%`;
+    }
+  } else {
+    elements.timer.style.display = "none";
+    if (elements.timerNum) elements.timerNum.textContent = "";
+    if (elements.timerRd) elements.timerRd.textContent = "";
+    if (elements.timerFill) elements.timerFill.style.width = "0%";
+  }
+}
+
+/**
+ * Updates the ranked score boxes during a running round.
+ * @param {object} roundState
+ * @param {Array<object>|null} netSlots
+ * @param {string|null} youConnId
+ */
+function updateScores(roundState, netSlots, youConnId) {
+  const roundPhase = roundState?.phase;
+  const roundScores = roundState?.scores;
+
+  if (roundPhase === "running") {
+    elements.scores.style.display = "flex";
+    const localIdx = netSlots ? netSlots.findIndex((s) => s && s.kind === "human" && s.connId === youConnId) : -1;
+    _lastLocalIdx = localIdx;
+
+    const rowsKey =
+      `${Number(roundScores?.[0] ?? 0)}|${Number(roundScores?.[1] ?? 0)}|${Number(roundScores?.[2] ?? 0)}|${Number(roundScores?.[3] ?? 0)}` +
+      `__${(netSlots || []).slice(0, 4).map((s, i) => `${s?.name || `P${i + 1}`}:${s?.color || ""}`).join("|")}`;
+
+    if (_sortedScoreRowsKey !== rowsKey) {
+      _sortedScoreRowsKey = rowsKey;
+      const nextRows = [];
+      for (let i = 0; i < 4; i += 1) {
+        const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
+        const slotName = netSlots[i]?.name || `P${i + 1}`;
+        const slotColor = netSlots[i]?.color || null;
+        nextRows.push({ slotIndex: i, score, slotName, slotColor });
+      }
+      nextRows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
+      _sortedScoreRows = nextRows;
+    }
+    const rows = _sortedScoreRows || [];
+
+    for (let pos = 0; pos < 4; pos += 1) {
+      const entry = elements.scoreBoxes[pos];
+      const row = rows[pos];
+      if (!entry || !row) continue;
+
+      entry.rank.textContent = String(pos + 1);
+      entry.label.textContent = row.slotName;
+      entry.value.textContent = String(row.score);
+
+      if (row.slotColor) {
+        entry.box.dataset.hudColor = row.slotColor;
+      } else {
+        delete entry.box.dataset.hudColor;
+      }
+
+      const isLocal = row.slotIndex === localIdx;
+      entry.box.classList.toggle("isLocal", isLocal);
+      entry.you.style.display = isLocal ? "inline-block" : "none";
+    }
+  } else {
+    elements.scores.style.display = "none";
+    for (let i = 0; i < 4; i += 1) {
+      const entry = elements.scoreBoxes[i];
+      if (entry) {
+        entry.box.classList.remove("isLocal");
+        entry.value.textContent = "";
+        entry.rank.textContent = String(i + 1);
+        entry.you.style.display = "none";
+      }
+    }
+  }
+}
+
+/**
+ * Shows or hides the lobby ready-up button for the local player.
+ * @param {string|null|undefined} roundPhase
+ * @param {Array<object>|null} netSlots
+ * @param {string|null} youConnId
+ * @param {boolean} menuVisible
+ */
+function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
+  if (!elements.readyBtn) return;
+
+  const localSlot = netSlots?.find((s) => s && s.connId === youConnId);
+  const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
+  if (roundPhase === "lobby" && !menuVisible) {
+    elements.readyBtn.style.display = "block";
+    elements.readyBtn.textContent = isLocalReady ? "READY!" : "READY UP!";
+    elements.readyBtn.classList.toggle("is-ready", isLocalReady);
+  } else {
+    elements.readyBtn.style.display = "none";
+    elements.readyBtn.classList.remove("is-ready");
+  }
+}
+
+/**
+ * Builds HUD DOM, injects styles, and wires event listeners.
+ * @param {object} options Callbacks and getters from the game layer.
+ * @returns {object} HUD element references and helpers for legacy callers.
+ */
+export function init(options) {
+  _options = options || {};
+
+  const existing = document.getElementById("hud");
+  if (existing) existing.remove();
+  const existingStyle = document.getElementById("hud-style");
+  if (existingStyle) existingStyle.remove();
+
+  const style = document.createElement("style");
+  style.id = "hud-style";
+  style.textContent = HUD_CSS;
   document.head.appendChild(style);
 
-  hudRoot = document.createElement("div");
-  hudRoot.id = "hud";
+  elements.root = document.createElement("div");
+  elements.root.id = "hud";
 
-  hudStatus = document.createElement("div");
-  hudStatus.className = "hud-status";
+  elements.status = document.createElement("div");
+  elements.status.className = "hud-status";
 
-  hudTimer = document.createElement("div");
-  hudTimer.className = "hud-timer";
+  elements.timer = document.createElement("div");
+  elements.timer.className = "hud-timer";
   const timerStripe = document.createElement("div");
   timerStripe.className = "hud-timer-stripe";
   const timerBody = document.createElement("div");
@@ -675,35 +862,35 @@ export function init(options) {
   timerPip.className = "hud-timer-pip";
   const timerMetaText = document.createElement("span");
   timerMetaText.textContent = "TIME LEFT";
-  hudTimerRd = document.createElement("span");
-  hudTimerRd.className = "hud-timer-rd";
-  hudTimerRd.textContent = "";
+  elements.timerRd = document.createElement("span");
+  elements.timerRd.className = "hud-timer-rd";
+  elements.timerRd.textContent = "";
   timerMeta.appendChild(timerPip);
   timerMeta.appendChild(timerMetaText);
-  timerMeta.appendChild(hudTimerRd);
+  timerMeta.appendChild(elements.timerRd);
 
-  hudTimerNum = document.createElement("div");
-  hudTimerNum.className = "hud-timer-num";
-  hudTimerNum.textContent = "";
+  elements.timerNum = document.createElement("div");
+  elements.timerNum.className = "hud-timer-num";
+  elements.timerNum.textContent = "";
 
   const timerBar = document.createElement("div");
   timerBar.className = "hud-timer-bar";
-  hudTimerFill = document.createElement("i");
-  timerBar.appendChild(hudTimerFill);
+  elements.timerFill = document.createElement("i");
+  timerBar.appendChild(elements.timerFill);
 
   timerBody.appendChild(timerMeta);
-  timerBody.appendChild(hudTimerNum);
+  timerBody.appendChild(elements.timerNum);
   timerBody.appendChild(timerBar);
-  hudTimer.appendChild(timerStripe);
-  hudTimer.appendChild(timerBody);
+  elements.timer.appendChild(timerStripe);
+  elements.timer.appendChild(timerBody);
 
-  hudScores = document.createElement("div");
-  hudScores.className = "hud-scores";
+  elements.scores = document.createElement("div");
+  elements.scores.className = "hud-scores";
 
-  hudFeed = document.createElement("div");
-  hudFeed.className = "hud-feed";
+  elements.feed = document.createElement("div");
+  elements.feed.className = "hud-feed";
 
-  hudScoreBoxes = [];
+  elements.scoreBoxes = [];
   for (let i = 0; i < 4; i += 1) {
     const box = document.createElement("div");
     box.className = "hud-scoreBox";
@@ -728,15 +915,15 @@ export function init(options) {
     box.appendChild(label);
     box.appendChild(you);
     box.appendChild(value);
-    hudScores.appendChild(box);
-    hudScoreBoxes.push({ root: hudRoot, box, rank, label, you, value });
+    elements.scores.appendChild(box);
+    elements.scoreBoxes.push({ root: elements.root, box, rank, label, you, value });
   }
 
-  hudReadyBtn = document.createElement("button");
-  hudReadyBtn.id = "ready-button";
-  hudReadyBtn.className = "hud-ready-btn";
-  hudReadyBtn.textContent = "";
-  hudReadyBtn.addEventListener("click", () => {
+  elements.readyBtn = document.createElement("button");
+  elements.readyBtn.id = "ready-button";
+  elements.readyBtn.className = "hud-ready-btn";
+  elements.readyBtn.textContent = "";
+  elements.readyBtn.addEventListener("click", () => {
     const pSock = _options.getPartySocket ? _options.getPartySocket() : null;
     const msgType = _options.getReadyToggleMsgType ? _options.getReadyToggleMsgType() : "ready_toggle";
     if (pSock) {
@@ -744,22 +931,22 @@ export function init(options) {
     }
   });
 
-  hudRoot.appendChild(hudStatus);
-  hudRoot.appendChild(hudTimer);
-  hudRoot.appendChild(hudScores);
-  hudRoot.appendChild(hudFeed);
-  hudRoot.appendChild(hudReadyBtn);
+  elements.root.appendChild(elements.status);
+  elements.root.appendChild(elements.timer);
+  elements.root.appendChild(elements.scores);
+  elements.root.appendChild(elements.feed);
+  elements.root.appendChild(elements.readyBtn);
 
   // In-game audio widget
-  hudAudio = document.createElement("div");
-  hudAudio.className = "hud-audio";
+  elements.audio = document.createElement("div");
+  elements.audio.className = "hud-audio";
 
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
-  hudMuteBtn = document.createElement("button");
-  hudMuteBtn.className = "hud-mute-btn";
-  hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
-  if (isMuted) hudMuteBtn.classList.add("muted");
-  hudMuteBtn.addEventListener("click", () => {
+  elements.muteBtn = document.createElement("button");
+  elements.muteBtn.className = "hud-mute-btn";
+  elements.muteBtn.innerHTML = isMuted ? "✕" : "♪";
+  if (isMuted) elements.muteBtn.classList.add("muted");
+  elements.muteBtn.addEventListener("click", () => {
     if (_options.setIsMuted) {
       _options.setIsMuted(!_options.getIsMuted());
     }
@@ -791,31 +978,31 @@ export function init(options) {
     return { row, fill, val };
   }
 
-  hudMusicVol = createHudVolumeRow("♫", (v) => {
+  elements.musicVol = createHudVolumeRow("♫", (v) => {
     if (_options.setMasterGain) {
       _options.setMasterGain(v);
     }
   });
-  hudSfxVol = createHudVolumeRow("⚡", (v) => {
+  elements.sfxVol = createHudVolumeRow("⚡", (v) => {
     if (_options.setSfxVolume) {
       _options.setSfxVolume(v);
     }
   });
   const hudVolStack = document.createElement("div");
   hudVolStack.className = "hud-vol-stack";
-  hudVolStack.appendChild(hudMusicVol.row);
-  hudVolStack.appendChild(hudSfxVol.row);
+  hudVolStack.appendChild(elements.musicVol.row);
+  hudVolStack.appendChild(elements.sfxVol.row);
 
-  hudAudio.appendChild(hudMuteBtn);
-  hudAudio.appendChild(hudVolStack);
-  hudRoot.appendChild(hudAudio);
-  document.body.appendChild(hudRoot);
+  elements.audio.appendChild(elements.muteBtn);
+  elements.audio.appendChild(hudVolStack);
+  elements.root.appendChild(elements.audio);
+  document.body.appendChild(elements.root);
 
-  escOverlay = document.createElement("div");
-  escOverlay.id = "esc-overlay";
-  escOverlay.setAttribute("role", "dialog");
-  escOverlay.setAttribute("aria-label", "Settings");
-  escOverlay.style.display = "none";
+  elements.escOverlay = document.createElement("div");
+  elements.escOverlay.id = "esc-overlay";
+  elements.escOverlay.setAttribute("role", "dialog");
+  elements.escOverlay.setAttribute("aria-label", "Settings");
+  elements.escOverlay.style.display = "none";
 
   const escBackdrop = document.createElement("div");
   escBackdrop.className = "esc-backdrop";
@@ -852,22 +1039,22 @@ export function init(options) {
   const actions = document.createElement("div");
   actions.className = "esc-actions";
 
-  resumeBtn = document.createElement("button");
-  resumeBtn.type = "button";
-  resumeBtn.className = "esc-btn";
-  resumeBtn.textContent = "RESUME";
+  elements.resumeBtn = document.createElement("button");
+  elements.resumeBtn.type = "button";
+  elements.resumeBtn.className = "esc-btn";
+  elements.resumeBtn.textContent = "RESUME";
 
-  quitBtn = document.createElement("button");
-  quitBtn.type = "button";
-  quitBtn.className = "esc-btn esc-btn--quit";
-  quitBtn.textContent = "QUIT TO MENU";
+  elements.quitBtn = document.createElement("button");
+  elements.quitBtn.type = "button";
+  elements.quitBtn.className = "esc-btn esc-btn--quit";
+  elements.quitBtn.textContent = "QUIT TO MENU";
 
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);
-  postFxBtn = document.createElement("button");
-  postFxBtn.type = "button";
-  postFxBtn.className = "esc-btn";
-  postFxBtn.textContent = postFxEnabled() ? "POST-FX: ON" : "POST-FX: OFF";
-  postFxBtn.addEventListener("click", () => {
+  elements.postFxBtn = document.createElement("button");
+  elements.postFxBtn.type = "button";
+  elements.postFxBtn.className = "esc-btn";
+  elements.postFxBtn.textContent = postFxEnabled() ? "POST-FX: ON" : "POST-FX: OFF";
+  elements.postFxBtn.addEventListener("click", () => {
     const next = !postFxEnabled();
     if (_options.setBloomEnabled) _options.setBloomEnabled(next);
     if (_options.setFxPassEnabled) _options.setFxPassEnabled(next);
@@ -875,12 +1062,12 @@ export function init(options) {
     const fxPass = _options.getFxPass ? _options.getFxPass() : null;
     if (bloomPass) bloomPass.enabled = next;
     if (fxPass) fxPass.enabled = next;
-    postFxBtn.textContent = next ? "POST-FX: ON" : "POST-FX: OFF";
+    elements.postFxBtn.textContent = next ? "POST-FX: ON" : "POST-FX: OFF";
   });
 
-  actions.appendChild(resumeBtn);
-  actions.appendChild(quitBtn);
-  actions.appendChild(postFxBtn);
+  actions.appendChild(elements.resumeBtn);
+  actions.appendChild(elements.quitBtn);
+  actions.appendChild(elements.postFxBtn);
   const scoringDivider = document.createElement("hr");
   scoringDivider.className = "esc-scoring-divider";
 
@@ -916,12 +1103,12 @@ export function init(options) {
   escPanel.appendChild(scoringTitle);
   escPanel.appendChild(scoring);
   escPanel.appendChild(actions);
-  escOverlay.appendChild(escBackdrop);
-  escOverlay.appendChild(escPanel);
-  document.body.appendChild(escOverlay);
+  elements.escOverlay.appendChild(escBackdrop);
+  elements.escOverlay.appendChild(escPanel);
+  document.body.appendChild(elements.escOverlay);
 
-  resumeBtn.addEventListener("click", hideEscOverlay);
-  quitBtn.addEventListener("click", () => {
+  elements.resumeBtn.addEventListener("click", hideEscOverlay);
+  elements.quitBtn.addEventListener("click", () => {
     const url = new URL(window.location.href);
     url.searchParams.delete("room");
     url.searchParams.delete("portal");
@@ -932,20 +1119,20 @@ export function init(options) {
 
   // Return structure matching old HUD references
   return {
-    root: hudRoot,
-    status: hudStatus,
-    timer: hudTimer,
-    timerNum: hudTimerNum,
-    timerRd: hudTimerRd,
-    timerFill: hudTimerFill,
-    scores: hudScores,
-    feed: hudFeed,
-    scoreBoxes: hudScoreBoxes,
-    readyBtn: hudReadyBtn,
+    root: elements.root,
+    status: elements.status,
+    timer: elements.timer,
+    timerNum: elements.timerNum,
+    timerRd: elements.timerRd,
+    timerFill: elements.timerFill,
+    scores: elements.scores,
+    feed: elements.feed,
+    scoreBoxes: elements.scoreBoxes,
+    readyBtn: elements.readyBtn,
     addKillFeedEntry,
     pickKillFeedVerb: pickKillFeedVerb,
     colorHexToCss: colorHexToCss,
-    escOverlay: escOverlay,
+    escOverlay: elements.escOverlay,
     syncAudioControls,
     showEscOverlay,
     hideEscOverlay,
@@ -953,6 +1140,16 @@ export function init(options) {
   };
 }
 
+/**
+ * Refreshes all HUD widgets from current game and network state.
+ * @param {object} params
+ * @param {string|null} params.youConnId
+ * @param {Array<object>|null} params.netSlots
+ * @param {object} params.roundState
+ * @param {number} params.matchHistoryLength
+ * @param {boolean} params.isLastCartStandingActive
+ * @param {boolean} params.menuVisible
+ */
 export function update({
   youConnId,
   netSlots,
@@ -962,157 +1159,24 @@ export function update({
   menuVisible
 }) {
   if (menuVisible) return;
-  if (!hudRoot) return;
+  if (!elements.root) return;
 
   const roundPhase = roundState?.phase;
-  const roundCountdownStartedAtMs = roundState?.countdownStartedAtMs;
-  const roundStartedAtMs = roundState?.startedAtMs;
-  const roundScores = roundState?.scores;
 
-  if (hudFeed) hudFeed.style.display = "";
+  if (elements.feed) elements.feed.style.display = "";
 
-  // --- Status line ---
-  const prevPhase = _prevRoundPhase;
-  if (prevPhase === "countdown" && roundPhase === "running") {
-    _goUntilMs = Date.now() + 500;
-  }
-  _prevRoundPhase = roundPhase;
-
-  if (Date.now() < _goUntilMs) {
-    hudStatus.style.display = "block";
-    hudStatus.style.color = "#22e6ff";
-    hudStatus.textContent = "GO!";
-    hudStatus.classList.remove("pulse");
-  } else if (roundPhase === "running" && isLastCartStandingActive) {
-    hudStatus.style.display = "block";
-    hudStatus.style.color = "#ffffff";
-    hudStatus.textContent = "LAST CART STANDING!";
-  } else if (roundPhase === "countdown") {
-    const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
-    const remainingMs = 3000 - elapsedMs;
-    const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
-    hudStatus.style.display = "block";
-    hudStatus.style.color = "#ff2bd6";
-    hudStatus.textContent = `GET READY  ${n}`;
-    if (_lastCountdownN !== n) {
-      _lastCountdownN = n;
-      hudStatus.classList.remove("pulse");
-      void hudStatus.offsetWidth; // restart animation
-      hudStatus.classList.add("pulse");
-    }
-  } else if (roundPhase === "podium") {
-    hudStatus.style.display = "none";
-    hudStatus.textContent = "";
-  } else {
-    hudStatus.style.display = "none";
-    hudStatus.textContent = "";
-  }
-
-  // --- Timer ---
-  if (roundPhase === "running") {
-    const elapsedMs = Date.now() - (roundStartedAtMs || 0);
-    const totalRoundMs = 95000;
-    const remainingMs = totalRoundMs - elapsedMs;
-    const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
-    const minutes = Math.floor(seconds / 60);
-    const secondsPart = seconds % 60;
-    const text = minutes > 0
-      ? `${minutes}:${String(secondsPart).padStart(2, "0")}`
-      : `:${String(secondsPart).padStart(2, "0")}`;
-    hudTimer.style.display = "block";
-    if (hudTimerNum) hudTimerNum.textContent = text;
-    if (hudTimerRd) {
-      const currentRound = Math.max(1, matchHistoryLength + 1);
-      hudTimerRd.textContent = `RD ${currentRound}`;
-    }
-    if (hudTimerFill) {
-      const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
-      hudTimerFill.style.width = `${pct}%`;
-    }
-  } else {
-    hudTimer.style.display = "none";
-    if (hudTimerNum) hudTimerNum.textContent = "";
-    if (hudTimerRd) hudTimerRd.textContent = "";
-    if (hudTimerFill) hudTimerFill.style.width = "0%";
-  }
-
-  // --- Score row ---
-  if (roundPhase === "running") {
-    hudScores.style.display = "flex";
-    const localIdx = netSlots ? netSlots.findIndex((s) => s && s.kind === "human" && s.connId === youConnId) : -1;
-    _lastLocalIdx = localIdx;
-    
-    const rowsKey =
-      `${Number(roundScores?.[0] ?? 0)}|${Number(roundScores?.[1] ?? 0)}|${Number(roundScores?.[2] ?? 0)}|${Number(roundScores?.[3] ?? 0)}` +
-      `__${(netSlots || []).slice(0, 4).map((s, i) => `${s?.name || `P${i + 1}`}:${s?.color || ""}`).join("|")}`;
-    
-    if (_sortedScoreRowsKey !== rowsKey) {
-      _sortedScoreRowsKey = rowsKey;
-      const nextRows = [];
-      for (let i = 0; i < 4; i += 1) {
-        const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
-        const slotName = netSlots[i]?.name || `P${i + 1}`;
-        const slotColor = netSlots[i]?.color || null;
-        nextRows.push({ slotIndex: i, score, slotName, slotColor });
-      }
-      nextRows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
-      _sortedScoreRows = nextRows;
-    }
-    const rows = _sortedScoreRows || [];
-
-    for (let pos = 0; pos < 4; pos += 1) {
-      const entry = hudScoreBoxes[pos];
-      const row = rows[pos];
-      if (!entry || !row) continue;
-
-      entry.rank.textContent = String(pos + 1);
-      entry.label.textContent = row.slotName;
-      entry.value.textContent = String(row.score);
-
-      if (row.slotColor) {
-        entry.box.dataset.hudColor = row.slotColor;
-      } else {
-        delete entry.box.dataset.hudColor;
-      }
-
-      const isLocal = row.slotIndex === localIdx;
-      entry.box.classList.toggle("isLocal", isLocal);
-      entry.you.style.display = isLocal ? "inline-block" : "none";
-    }
-  } else {
-    hudScores.style.display = "none";
-    for (let i = 0; i < 4; i += 1) {
-      const entry = hudScoreBoxes[i];
-      if (entry) {
-        entry.box.classList.remove("isLocal");
-        entry.value.textContent = "";
-        entry.rank.textContent = String(i + 1);
-        entry.you.style.display = "none";
-      }
-    }
-  }
-
-  // --- Ready button ---
-  if (hudReadyBtn) {
-    const localSlot = netSlots?.find((s) => s && s.connId === youConnId);
-    const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
-    if (roundPhase === "lobby" && !menuVisible) {
-      hudReadyBtn.style.display = "block";
-      hudReadyBtn.textContent = isLocalReady ? "READY!" : "READY UP!";
-      hudReadyBtn.classList.toggle("is-ready", isLocalReady);
-    } else {
-      hudReadyBtn.style.display = "none";
-      hudReadyBtn.classList.remove("is-ready");
-    }
-  }
+  updateStatus(roundState, isLastCartStandingActive);
+  updateTimer(roundState, matchHistoryLength);
+  updateScores(roundState, netSlots, youConnId);
+  updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
 }
 
 export function syncColors(slots) {
-  if (!hudScoreBoxes || !Array.isArray(slots)) return;
+  if (!elements.scoreBoxes || !Array.isArray(slots)) return;
 
   const CART_COLORS = _options.getCART_COLORS ? _options.getCART_COLORS() : {};
   slots.forEach((slot, i) => {
-    const scoreBox = hudScoreBoxes[i];
+    const scoreBox = elements.scoreBoxes[i];
     if (!scoreBox || !scoreBox.box) return;
     if (!slot || !slot.color) return;
 
@@ -1125,8 +1189,16 @@ export function syncColors(slots) {
   });
 }
 
+/**
+ * Prepends a kill-feed row and auto-fades it after a few seconds.
+ * @param {string|null} actorName
+ * @param {string|null} actorColor
+ * @param {string} verb
+ * @param {string} targetName
+ * @param {string|null} targetColor
+ */
 export function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor) {
-  if (!hudFeed) return;
+  if (!elements.feed) return;
   const row = document.createElement("div");
   row.className = "hud-feed-row";
   row.style.setProperty("--c", actorColor || "rgba(255,255,255,0.9)");
@@ -1156,9 +1228,9 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     row.appendChild(v);
   }
 
-  hudFeed.prepend(row);
-  while (hudFeed.children.length > 5) {
-    const last = hudFeed.lastElementChild;
+  elements.feed.prepend(row);
+  while (elements.feed.children.length > 5) {
+    const last = elements.feed.lastElementChild;
     if (last) last.remove();
     else break;
   }
@@ -1186,51 +1258,57 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
 }
 
 export function hideGameplayElements() {
-  if (hudTimer) hudTimer.style.display = "none";
-  if (hudScores) hudScores.style.display = "none";
-  if (hudReadyBtn) hudReadyBtn.style.display = "none";
-  if (hudStatus) hudStatus.style.display = "none";
+  if (elements.timer) elements.timer.style.display = "none";
+  if (elements.scores) elements.scores.style.display = "none";
+  if (elements.readyBtn) elements.readyBtn.style.display = "none";
+  if (elements.status) elements.status.style.display = "none";
 }
 
 export function showGameplayElements() {
-  if (hudTimer) hudTimer.style.display = "block";
-  if (hudScores) hudScores.style.display = "flex";
-  if (hudReadyBtn) hudReadyBtn.style.display = "block";
-  if (hudStatus) hudStatus.style.display = "block";
+  if (elements.timer) elements.timer.style.display = "block";
+  if (elements.scores) elements.scores.style.display = "flex";
+  if (elements.readyBtn) elements.readyBtn.style.display = "block";
+  if (elements.status) elements.status.style.display = "block";
 }
 
 export function clearFeed() {
-  if (hudFeed) {
-    hudFeed.style.display = "none";
-    while (hudFeed.firstChild) {
-      hudFeed.removeChild(hudFeed.firstChild);
+  if (elements.feed) {
+    elements.feed.style.display = "none";
+    while (elements.feed.firstChild) {
+      elements.feed.removeChild(elements.feed.firstChild);
     }
   }
 }
 
 export function showAudioWidget() {
-  if (hudAudio) hudAudio.style.display = "flex";
+  if (elements.audio) elements.audio.style.display = "flex";
 }
 
 export function hideAudioWidget() {
-  if (hudAudio) hudAudio.style.display = "none";
+  if (elements.audio) elements.audio.style.display = "none";
 }
 
+/**
+ * Opens the in-game Esc settings overlay and syncs audio widgets.
+ */
 export function showEscOverlay() {
   const menuVisible = _options.getMenuVisible ? _options.getMenuVisible() : false;
   if (menuVisible) return;
-  if (escOverlay) {
-    escOverlay.style.display = "flex";
+  if (elements.escOverlay) {
+    elements.escOverlay.style.display = "flex";
     const labelRenderer = _options.getLabelRenderer ? _options.getLabelRenderer() : null;
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     syncAudioControls();
-    if (resumeBtn) resumeBtn.focus();
+    if (elements.resumeBtn) elements.resumeBtn.focus();
   }
 }
 
+/**
+ * Closes the Esc overlay and restores name-label visibility.
+ */
 export function hideEscOverlay() {
-  if (escOverlay) {
-    escOverlay.style.display = "none";
+  if (elements.escOverlay) {
+    elements.escOverlay.style.display = "none";
     const labelRenderer = _options.getLabelRenderer ? _options.getLabelRenderer() : null;
     const menuVisible = _options.getMenuVisible ? _options.getMenuVisible() : false;
     if (labelRenderer) labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
@@ -1238,12 +1316,15 @@ export function hideEscOverlay() {
 }
 
 export function isEscOverlayVisible() {
-  if (!escOverlay) return false;
-  return getComputedStyle(escOverlay).display !== "none";
+  if (!elements.escOverlay) return false;
+  return getComputedStyle(elements.escOverlay).display !== "none";
 }
 
+/**
+ * Syncs HUD mute button and volume sliders with persisted audio settings.
+ */
 export function syncAudioControls() {
-  if (!hudMuteBtn || !hudMusicVol || !hudSfxVol) return;
+  if (!elements.muteBtn || !elements.musicVol || !elements.sfxVol) return;
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
   const masterGain = _options.getMasterGain ? _options.getMasterGain() : 0.5;
   const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
@@ -1251,10 +1332,10 @@ export function syncAudioControls() {
 
   const musicPercent = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
   const sfxPercent = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
-  hudMuteBtn.innerHTML = isMuted ? "✕" : "♪";
-  hudMuteBtn.classList.toggle("muted", isMuted);
-  hudMusicVol.fill.style.width = (isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX) * 100) + "%";
-  hudMusicVol.val.textContent = isMuted ? "OFF" : musicPercent;
-  hudSfxVol.fill.style.width = (isMuted ? 0 : (sfxVolume / AUDIO_VOLUME_MAX) * 100) + "%";
-  hudSfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
+  elements.muteBtn.innerHTML = isMuted ? "✕" : "♪";
+  elements.muteBtn.classList.toggle("muted", isMuted);
+  elements.musicVol.fill.style.width = (isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX) * 100) + "%";
+  elements.musicVol.val.textContent = isMuted ? "OFF" : musicPercent;
+  elements.sfxVol.fill.style.width = (isMuted ? 0 : (sfxVolume / AUDIO_VOLUME_MAX) * 100) + "%";
+  elements.sfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
 }
