@@ -3,6 +3,9 @@
 import * as Effects from "./effects.js";
 import { clamp } from "./utils.js";
 
+/** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
+let lastResultsOverlayPhase = null;
+
 /**
  * @typedef {object} FrameVisualDeps
  * @property {() => Array<object>} getAllCarts
@@ -175,7 +178,10 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     isLastCartStandingActive: deps.isLastCartStandingActive(),
     menuVisible: deps.isMenuVisible(),
   });
-  deps.updateResultsOverlay();
+  if (roundState.phase === "podium" || lastResultsOverlayPhase === "podium") {
+    deps.updateResultsOverlay();
+  }
+  lastResultsOverlayPhase = roundState.phase;
   deps.positionNameLabels();
 
   Effects.updateAmbientParticles(dt, now);

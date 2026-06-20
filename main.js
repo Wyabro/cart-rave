@@ -1937,13 +1937,8 @@ async function main() {
       overlay.style.pointerEvents = "auto";
       const isHost = Netcode.getIsHost();
       const scores = GameState.getRoundScores() || {};
-      const renderKey = JSON.stringify({
-        winner: roundState.winnerSlotIndex,
-        scores: [scores[0] || 0, scores[1] || 0, scores[2] || 0, scores[3] || 0],
-        historyLength: matchHistory.length,
-        host: isHost,
-        stats: getPersonalStats(),
-      });
+      const stats = getPersonalStats();
+      const renderKey = `${roundState.winnerSlotIndex}-${scores[0] ?? 0}-${scores[1] ?? 0}-${scores[2] ?? 0}-${scores[3] ?? 0}-${matchHistory.length}-${isHost}-${stats.matches}-${stats.wins}-${stats.totalPoints}-${stats.soloGames ?? 0}`;
       if (renderKey === lastResultsOverlayKey) {
         maybeScheduleAutoContinuePodium();
         return;
@@ -2092,6 +2087,16 @@ async function main() {
   /** @type {AudioBuffer | null} */
   let cartCrashBuffer = null;
   let cartCrashBufferLoadInFlight = false;
+  /** @type {AudioBuffer | null} */
+  let sharedNoiseBuffer = null;
+  function ensureSharedNoiseBuffer(ctx) {
+    if (sharedNoiseBuffer) return sharedNoiseBuffer;
+    const len = 2.0;
+    sharedNoiseBuffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
+    const d = sharedNoiseBuffer.getChannelData(0);
+    for (let j = 0; j < d.length; j += 1) d[j] = Math.random() * 2 - 1;
+    return sharedNoiseBuffer;
+  }
   let shakeUntil = 0;
   let shakeIntensity = 0;
   const gameCtx = createGameContext().registerModules({
@@ -2139,14 +2144,11 @@ async function main() {
       thump.frequency.setValueAtTime(85 + Math.random() * 15, now);
       thump.frequency.exponentialRampToValueAtTime(40, now + 0.2);
 
-      const len = 0.18;
-      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < d.length; j += 1) {
-        d[j] = Math.random() * 2 - 1;
-      }
+      const noiseLen = 0.18;
+      const buf = ensureSharedNoiseBuffer(ctx);
       const noise = ctx.createBufferSource();
       noise.buffer = buf;
+      noise.playbackRate.setValueAtTime(0.8 + Math.random() * 0.4, now);
 
       const lp = ctx.createBiquadFilter();
       lp.type = "lowpass";
@@ -2173,7 +2175,7 @@ async function main() {
         thump.start(now);
         thump.stop(now + 0.2);
         noise.start(now);
-        noise.stop(now + 0.18);
+        noise.stop(now + noiseLen);
       } catch {}
     },
     playEdgeImpact(intensity) {
@@ -2188,14 +2190,11 @@ async function main() {
       ring.frequency.setValueAtTime(400 + Math.random() * 100, now);
       ring.frequency.exponentialRampToValueAtTime(200, now + 0.25);
 
-      const len = 0.1;
-      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < d.length; j += 1) {
-        d[j] = Math.random() * 2 - 1;
-      }
+      const noiseLen = 0.1;
+      const buf = ensureSharedNoiseBuffer(ctx);
       const noise = ctx.createBufferSource();
       noise.buffer = buf;
+      noise.playbackRate.setValueAtTime(0.8 + Math.random() * 0.4, now);
 
       const hp = ctx.createBiquadFilter();
       hp.type = "highpass";
@@ -2222,7 +2221,7 @@ async function main() {
         ring.start(now);
         ring.stop(now + 0.25);
         noise.start(now);
-        noise.stop(now + 0.1);
+        noise.stop(now + noiseLen);
       } catch {}
     },
     playCollision(intensity) {
@@ -2290,13 +2289,10 @@ async function main() {
 
       // * Aggressive nitro burst: wide whoosh + saw accent + low thump.
       const len = 0.25;
-      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < d.length; j += 1) {
-        d[j] = Math.random() * 2 - 1;
-      }
+      const buf = ensureSharedNoiseBuffer(ctx);
       const src = ctx.createBufferSource();
       src.buffer = buf;
+      src.playbackRate.setValueAtTime(0.9 + Math.random() * 0.2, now);
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
       bp.frequency.setValueAtTime(400, now);
@@ -2385,13 +2381,10 @@ async function main() {
       const len = 0.12;
       const attackSec = 0.005;
 
-      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < d.length; j += 1) {
-        d[j] = Math.random() * 2 - 1;
-      }
+      const buf = ensureSharedNoiseBuffer(ctx);
       const src = ctx.createBufferSource();
       src.buffer = buf;
+      src.playbackRate.setValueAtTime(0.85 + Math.random() * 0.3, now);
 
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
@@ -2849,18 +2842,18 @@ async function main() {
   function makeNameLabel(text, color) {
     const el = document.createElement("div");
     el.textContent = text;
-    el.style.padding = "4px 10px";
+    el.style.padding = "6px 14px";
     el.style.borderRadius = "4px";
     el.style.background = "rgba(0, 0, 0, 0.7)";
     el.style.color = "#fff";
     el.style.fontFamily = "'Bungee', cursive";
-    el.style.fontSize = "18px";
+    el.style.fontSize = "24px";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
     el.style.whiteSpace = "nowrap";
     el.style.border = `2px solid ${color}`;
     el.style.boxShadow = `0 0 9px ${color}66, inset 0 0 8px ${color}26`;
-    el.style.textShadow = `0 0 4px ${color}`;
+    el.style.textShadow = `0 0 6px ${color}`;
     el.style.transform = "translate(-50%, 0)";
 
     const label = new CSS2DObject(el);
@@ -2895,6 +2888,14 @@ async function main() {
         nameLabels[i] = label;
       }
     }
+    while (nameLabels.length > allCarts.length) {
+      const removedLabel = nameLabels.pop();
+      if (!removedLabel) continue;
+      scene.remove(removedLabel);
+      if (removedLabel.element?.parentNode) {
+        removedLabel.element.parentNode.removeChild(removedLabel.element);
+      }
+    }
   }
 
   // Position name labels each frame (called in game loop)
@@ -2907,9 +2908,7 @@ async function main() {
       label.position.set(pos.x, pos.y + 3.0, pos.z);
       const distance = Math.max(0.001, camera.position.distanceTo(label.position));
       const scale = clamp(18 / distance, 0.65, 1.2);
-      label.element.style.fontSize = `${24 * scale}px`;
-      label.element.style.padding = `${6 * scale}px ${14 * scale}px`;
-      label.element.style.textShadow = `0 0 ${6 * scale}px ${label._labelColor}`;
+      label.element.style.transform = `translate(-50%, 0) scale(${scale})`;
     }
   }
 
@@ -3078,40 +3077,24 @@ async function main() {
   // Initialize audio with saved settings
   GameAudio.applyAudioVolume();
 
-  let didResumeAudioContext = false;
-  let audioContextResumeInFlight = false;
-  function unlockAudioAndMaybeStartMusic() {
-    if (!didResumeAudioContext && !audioContextResumeInFlight) {
-      audioContextResumeInFlight = true;
-      void audioListener.context.resume().then(
-        () => {
-          didResumeAudioContext = true;
-          audioContextResumeInFlight = false;
-          ensureCartCrashBufferLoaded();
-        },
-        () => {
-          audioContextResumeInFlight = false;
-        },
+  function unlockAudio() {
+    const ctx = audioListener.context;
+    if (ctx.state === "suspended") {
+      void ctx.resume().then(
+        () => { ensureCartCrashBufferLoaded(); },
+        () => {},
       );
+    } else {
+      ensureCartCrashBufferLoaded();
     }
-    GameAudio.startGameMusic();
+    if (!menuVisible) GameAudio.startGameMusic();
   }
 
+  window.addEventListener("pointerdown", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio, { once: true });
   canvas.addEventListener("pointerdown", () => {
-    void audioListener.context.resume().then(
-      () => { ensureCartCrashBufferLoaded(); },
-      () => {},
-    );
-    if (!menuVisible) GameAudio.startGameMusic();
     canvas.focus();
   });
-  window.addEventListener("pointerdown", () => {
-    void audioListener.context.resume().then(
-      () => { ensureCartCrashBufferLoaded(); },
-      () => {},
-    );
-    if (!menuVisible) GameAudio.startGameMusic();
-  }, { passive: true });
 
   // (applyRammingImpulse removed - using modular Simulation version)
 
