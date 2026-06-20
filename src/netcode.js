@@ -5,11 +5,18 @@ import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import * as GameState from "./gameState.js";
 import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
 
-/** Scratch quaternion for snapshot interpolation (remote carts). */
-const _slerpOutQ = [0, 0, 0, 1];
-/** Scratch quaternions for reconciliation slerp. */
+/** Scratch quaternions for interpolation and reconciliation slerp. */
+const _interpFromQ = new THREE.Quaternion();
+const _interpToQ = new THREE.Quaternion();
 const _reconcilePredQ = new THREE.Quaternion();
 const _reconcileAuthQ = new THREE.Quaternion();
+
+/** Reads a per-slot cart snapshot from array or legacy string-keyed object payloads. */
+function getCartSnap(carts, slotIndex) {
+  if (!carts) return null;
+  if (Array.isArray(carts)) return carts[slotIndex] ?? null;
+  return carts[String(slotIndex)] ?? carts[slotIndex] ?? null;
+}
 
 // === MODULE STATE & REFS ===
 
@@ -274,9 +281,8 @@ function applySnapshotToCartBody(cart, snap) {
 }
 
 function sampleCartSnapshotFromPair(before, after, alpha, slotIndex) {
-  const key = String(slotIndex);
-  const b = before?.carts?.[key];
-  const a = after?.carts?.[key];
+  const b = getCartSnap(before?.carts, slotIndex);
+  const a = getCartSnap(after?.carts, slotIndex);
   if (!b && !a) return null;
   if (b && a) {
     const bp = b.p;
@@ -293,25 +299,63 @@ function sampleCartSnapshotFromPair(before, after, alpha, slotIndex) {
         bp[2] + (ap[2] - bp[2]) * alpha,
       ];
     } else if (Array.isArray(bp) && bp.length === 3) {
-      out.p = bp.slice();
+      out.p = [bp[0], bp[1], bp[2]];
     }
     if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
-      THREE.Quaternion.slerpFlat(_slerpOutQ, 0, bq, 0, aq, 0, alpha);
-      out.q = _slerpOutQ.slice();
+      _interpFromQ.set(bq[0], bq[1], bq[2], bq[3]);
+      _interpToQ.set(aq[0], aq[1], aq[2], aq[3]);
+      _interpFromQ.slerp(_interpToQ, alpha);
+      out.q = [_interpFromQ.x, _interpFromQ.y, _interpFromQ.z, _interpFromQ.w];
     } else if (Array.isArray(bq) && bq.length === 4) {
-      out.q = bq.slice();
+      out.q = [bq[0], bq[1], bq[2], bq[3]];
     }
-    if (Array.isArray(alv) && alv.length === 3) out.lv = alv.slice();
-    if (Array.isArray(aav) && aav.length === 3) out.av = aav.slice();
+    if (Array.isArray(alv) && alv.length === 3) out.lv = [alv[0], alv[1], alv[2]];
+    if (Array.isArray(aav) && aav.length === 3) out.av = [aav[0], aav[1], aav[2]];
     return out;
   }
   const snap = b || a;
   return {
-    p: Array.isArray(snap.p) ? snap.p.slice() : null,
-    q: Array.isArray(snap.q) ? snap.q.slice() : null,
-    lv: Array.isArray(snap.lv) ? snap.lv.slice() : null,
-    av: Array.isArray(snap.av) ? snap.av.slice() : null,
+    p: Array.isArray(snap.p) ? [snap.p[0], snap.p[1], snap.p[2]] : null,
+    q: Array.isArray(snap.q) ? [snap.q[0], snap.q[1], snap.q[2], snap.q[3]] : null,
+    lv: Array.isArray(snap.lv) ? [snap.lv[0], snap.lv[1], snap.lv[2]] : null,
+    av: Array.isArray(snap.av) ? [snap.av[0], snap.av[1], snap.av[2]] : null,
   };
+}
+
+/** Writes interpolated snapshot fields directly onto cart net targets (zero per-frame allocations). */
+function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
+  const bp = b.p;
+  const ap = a.p;
+  if (Array.isArray(bp) && bp.length === 3 && Array.isArray(ap) && ap.length === 3) {
+    cart._netTargetPos.set(
+      bp[0] + (ap[0] - bp[0]) * alpha,
+      bp[1] + (ap[1] - bp[1]) * alpha,
+      bp[2] + (ap[2] - bp[2]) * alpha,
+    );
+  } else if (Array.isArray(bp) && bp.length === 3) {
+    cart._netTargetPos.set(bp[0], bp[1], bp[2]);
+  }
+
+  const bq = b.q;
+  const aq = a.q;
+  if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
+    _interpFromQ.set(bq[0], bq[1], bq[2], bq[3]);
+    _interpToQ.set(aq[0], aq[1], aq[2], aq[3]);
+    cart._netTargetQuat.copy(_interpFromQ).slerp(_interpToQ, alpha);
+  } else if (Array.isArray(bq) && bq.length === 4) {
+    cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
+  }
+
+  const alv = a.lv;
+  if (Array.isArray(alv) && alv.length === 3) {
+    cart._lastNetLinvel.x = alv[0];
+    cart._lastNetLinvel.y = alv[1];
+    cart._lastNetLinvel.z = alv[2];
+  }
+  const aav = a.av;
+  if (Array.isArray(aav) && aav.length === 3) {
+    cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
+  }
 }
 
 /**
@@ -333,7 +377,7 @@ export function sampleAuthoritativeCartState(slotIndex, targetServerNowMs = getI
     return sampleCartSnapshotFromPair(before, after, alpha, slotIndex);
   }
   if (before?.carts) {
-    const snap = before.carts[String(slotIndex)];
+    const snap = getCartSnap(before.carts, slotIndex);
     if (!snap) return null;
     const extrapMs = targetServerNowMs - before.serverNowMs;
     const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
@@ -355,7 +399,7 @@ export function sampleAuthoritativeCartState(slotIndex, targetServerNowMs = getI
     };
   }
   if (after?.carts) {
-    const snap = after.carts[String(slotIndex)];
+    const snap = getCartSnap(after.carts, slotIndex);
     if (!snap) return null;
     return {
       p: Array.isArray(snap.p) ? snap.p.slice() : null,
@@ -365,7 +409,7 @@ export function sampleAuthoritativeCartState(slotIndex, targetServerNowMs = getI
     };
   }
   const cache = lastCartsCache;
-  const snap = cache?.[String(slotIndex)];
+  const snap = getCartSnap(cache, slotIndex);
   if (!snap) return null;
   return {
     p: Array.isArray(snap.p) ? snap.p.slice() : null,
@@ -411,8 +455,17 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     const denom = (after.serverNowMs - before.serverNowMs) || 1;
     const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
     for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
-      const sampled = sampleCartSnapshotFromPair(before, after, alpha, slotIndex);
-      if (sampled) applyRemoteTargets(slotIndex, sampled);
+      if (slotIndex === localSlotIndex) continue;
+      const cart = allCartsRef[slotIndex];
+      if (!cart) continue;
+      const b = getCartSnap(before.carts, slotIndex);
+      const a = getCartSnap(after.carts, slotIndex);
+      if (b && a) {
+        writeInterpolatedRemoteTargets(cart, b, a, alpha);
+      } else {
+        const snap = b || a;
+        if (snap) applyRemoteTargets(slotIndex, snap);
+      }
     }
     const pruneIdx = beforeIndex >= 0 ? beforeIndex : -1;
     if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
@@ -424,7 +477,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
     for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
       if (slotIndex === localSlotIndex) continue;
-      const b = before.carts[String(slotIndex)];
+      const b = getCartSnap(before.carts, slotIndex);
       if (!b) continue;
       const bp = b.p;
       const bq = b.q;
@@ -460,7 +513,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   if (!carts) return;
   for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
     if (slotIndex === localSlotIndex) continue;
-    const snap = carts[String(slotIndex)];
+    const snap = getCartSnap(carts, slotIndex);
     if (!snap) continue;
     applyRemoteTargets(slotIndex, snap);
   }
@@ -510,12 +563,13 @@ export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
   const latestSnap = netStateBuffer.length > 0
     ? netStateBuffer[netStateBuffer.length - 1]
     : null;
-  const auth = latestSnap?.carts?.[String(localSlotIndex)]
+  const latestCartSnap = latestSnap ? getCartSnap(latestSnap.carts, localSlotIndex) : null;
+  const auth = latestCartSnap
     ? {
-        p: latestSnap.carts[String(localSlotIndex)].p,
-        q: latestSnap.carts[String(localSlotIndex)].q,
-        lv: latestSnap.carts[String(localSlotIndex)].lv,
-        av: latestSnap.carts[String(localSlotIndex)].av,
+        p: latestCartSnap.p,
+        q: latestCartSnap.q,
+        lv: latestCartSnap.lv,
+        av: latestCartSnap.av,
       }
     : sampleAuthoritativeCartState(localSlotIndex);
   if (!auth || !Array.isArray(auth.p) || auth.p.length !== 3) return;
@@ -579,7 +633,7 @@ export function applyCartsSnapshotToBodies(carts) {
   if (!allCartsRef) return;
   for (let i = 0; i < allCartsRef.length; i++) {
     const cart = allCartsRef[i];
-    const snap = carts[String(i)];
+    const snap = getCartSnap(carts, i);
     if (!cart || !snap) continue;
 
     const { p, q, lv, av } = snap;
@@ -596,7 +650,7 @@ export function applyCartsSnapshotToBodies(carts) {
  *
  * @param {number} serverNowMs Server clock timestamp for the snapshot.
  * @param {number} seq Monotonic sequence number from the host.
- * @param {Record<string, object>} carts Per-slot transform snapshot keyed by slot index string.
+ * @param {Array<object>|Record<string, object>} carts Per-slot transform snapshot (array preferred).
  * @param {number} epoch Host epoch (increments on host migration).
  */
 export function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
@@ -636,7 +690,7 @@ export function startHostSendLoop() {
     if (!partySocket || !isHost || !allCartsRef || GameState.getRoundState().phase !== "running") return;
 
     hostSeq += 1;
-    const carts = {};
+    const carts = [];
     const round3 = v => Math.round(v * 1000) / 1000;
 
     for (let i = 0; i < allCartsRef.length; i++) {
@@ -646,7 +700,7 @@ export function startHostSendLoop() {
       const lv = c.body.linvel();
       const av = c.body.angvel();
 
-      carts[String(i)] = {
+      carts[i] = {
         p: [round3(t.x), round3(t.y), round3(t.z)],
         q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
         lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
@@ -714,6 +768,8 @@ export function setAuthorityMode(nextIsHost) {
     netStateBuffer = [];
     hostSeq = 0;
     inputSeq = 0;
+    remoteInputsByConnId.clear();
+    remoteNitroLatchedByConnId.clear();
 
     if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
     resetSimTimingRef?.current?.();
@@ -742,10 +798,6 @@ export function setAuthorityMode(nextIsHost) {
 export function strictSlotIndexForConn(connId) {
   if (!connId) return -1;
   return netSlots.findIndex((s) => s && s.connId === connId);
-}
-
-export function localSlotIndexForConn(connId) {
-  return strictSlotIndexForConn(connId);
 }
 
 /**
@@ -1018,11 +1070,14 @@ export function initNetcode(roomOverride) {
         const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
         if (typeof serverNowMs === "number") {
           const sample = Date.now() - serverNowMs;
-          serverClockOffsetSamples += 1;
-          if (serverClockOffsetSamples <= 10) {
-            serverClockOffsetMs = sample;
-          } else {
-            serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.05;
+          const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500 && serverClockOffsetSamples > 0;
+          if (!isClockOutlier) {
+            serverClockOffsetSamples += 1;
+            if (serverClockOffsetSamples === 1) {
+              serverClockOffsetMs = sample;
+            } else {
+              serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.1;
+            }
           }
         }
         const seq = typeof msg.seq === "number" ? msg.seq : -1;

@@ -108,7 +108,7 @@ export default class Server implements Party.Server {
 
   #hostId: string | null = null;
   #slots: Slot[] | null = null;
-  #carts: Record<string, CartState> = {};
+  #carts: (CartState | undefined)[] = [];
   #round: RoundState = { phase: "lobby", winnerSlotId: null };
   #lastSeq: number = 0;
   // * Per-connection last-activity timestamp. A missing entry is intentionally
@@ -450,7 +450,7 @@ export default class Server implements Party.Server {
     const existingHumans = this.#slots!.filter(s => s.kind === "human");
     if (existingHumans.length === 0) {
       this.#round = { phase: "lobby", winnerSlotId: null };
-      this.#carts = {}; // Nuke the stale physical positions
+      this.#carts = []; // Nuke the stale physical positions
       if (this.#countdownTimerHandle) {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
@@ -725,7 +725,7 @@ export default class Server implements Party.Server {
         this.#countdownTimerHandle = null;
       }
       this.#round = { phase: "lobby", winnerSlotId: null };
-      this.#carts = {};
+      this.#carts = [];
       const shouldAutoReady = this.#gameMode() === "quickplay";
       for (const slot of this.#slots!) {
         if (slot.kind === "human") slot.isReady = shouldAutoReady;
@@ -776,49 +776,68 @@ export default class Server implements Party.Server {
 
       // Security: Validate the host isn't flooding us with fake physics objects
       const carts = data?.carts;
-      if (carts && typeof carts === "object" && !Array.isArray(carts)) {
+      /**
+       * @param {unknown} arr
+       * @param {number} len
+       * @param {number} min
+       * @param {number} max
+       */
+      const validateNumberArray = (arr: unknown, len: number, min: number, max: number) => {
+        if (!Array.isArray(arr) || arr.length !== len) return false;
+        for (let i = 0; i < len; i += 1) {
+          const n = arr[i];
+          if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) return false;
+        }
+        return true;
+      };
+
+      /** @param {unknown} c */
+      const validateCartState = (c: unknown): c is CartState => {
+        const p = (c as any)?.p;
+        const isPositionValid =
+          Array.isArray(p) &&
+          p.length === 3 &&
+          typeof p[0] === "number" && Number.isFinite(p[0]) && p[0] >= -500 && p[0] <= 500 &&
+          typeof p[1] === "number" && Number.isFinite(p[1]) && p[1] >= -500 && p[1] <= 501.0 &&
+          typeof p[2] === "number" && Number.isFinite(p[2]) && p[2] >= -500 && p[2] <= 500;
+
+        return Boolean(
+          c &&
+          typeof c === "object" &&
+          isPositionValid &&
+          validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
+          validateNumberArray((c as any).lv, 3, -200, 200) &&
+          validateNumberArray((c as any).av, 3, -200, 200),
+        );
+      };
+
+      if (Array.isArray(carts) && carts.length <= 4) {
+        const sanitized: (CartState | undefined)[] = [...this.#carts];
+        for (let i = 0; i < carts.length; i += 1) {
+          const c = carts[i];
+          if (!c) continue;
+          if (!validateCartState(c)) {
+            // eslint-disable-next-line no-console
+            console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart ${i}`);
+            continue;
+          }
+          sanitized[i] = c;
+        }
+        this.#carts = sanitized;
+      } else if (carts && typeof carts === "object" && !Array.isArray(carts)) {
         const keys = Object.keys(carts);
         if (keys.length <= 4) {
-          /**
-           * @param {unknown} arr
-           * @param {number} len
-           * @param {number} min
-           * @param {number} max
-           */
-          const validateNumberArray = (arr: unknown, len: number, min: number, max: number) => {
-            if (!Array.isArray(arr) || arr.length !== len) return false;
-            for (let i = 0; i < len; i += 1) {
-              const n = arr[i];
-              if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) return false;
-            }
-            return true;
-          };
-
-          /** @type {Record<string, CartState>} */
-          const sanitized: Record<string, CartState> = { ...this.#carts };
+          const sanitized: (CartState | undefined)[] = [...this.#carts];
           for (const id of keys) {
+            const slotIndex = Number(id);
+            if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) continue;
             const c = (carts as any)[id];
-            const p = (c as any)?.p;
-            const isPositionValid =
-              Array.isArray(p) &&
-              p.length === 3 &&
-              typeof p[0] === "number" && Number.isFinite(p[0]) && p[0] >= -500 && p[0] <= 500 &&
-              typeof p[1] === "number" && Number.isFinite(p[1]) && p[1] >= -500 && p[1] <= 501.0 &&
-              typeof p[2] === "number" && Number.isFinite(p[2]) && p[2] >= -500 && p[2] <= 500;
-
-            const ok =
-              c &&
-              typeof c === "object" &&
-              isPositionValid &&
-              validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
-              validateNumberArray((c as any).lv, 3, -200, 200) &&
-              validateNumberArray((c as any).av, 3, -200, 200);
-            if (!ok) {
+            if (!validateCartState(c)) {
               // eslint-disable-next-line no-console
               console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart "${id}"`);
               continue;
             }
-            sanitized[id] = c as CartState;
+            sanitized[slotIndex] = c;
           }
           this.#carts = sanitized;
         }

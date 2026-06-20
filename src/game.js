@@ -45,7 +45,7 @@ function resolveLocalCart(allCarts) {
   const youConnId = Netcode.getYouConnId?.();
   if (!youConnId) return null;
 
-  const idx = Netcode.localSlotIndexForConn(youConnId);
+  const idx = Netcode.strictSlotIndexForConn(youConnId);
   if (idx < 0) return null;
 
   return allCarts[idx] ?? null;

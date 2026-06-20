@@ -108,7 +108,7 @@ export function createGameContext() {
         isHost: () => Netcode.getIsHost(),
         getRoundState: () => GameState.getRoundState(),
         getRoundScores: () => GameState.getRoundScores(),
-        getLocalSlotIndex: () => Netcode.localSlotIndexForConn(Netcode.getYouConnId()),
+        getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
         CONFIG: runtime.CONFIG,
       };
     },

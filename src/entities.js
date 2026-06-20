@@ -275,7 +275,7 @@ export function rematchResetWorld() {
     }
   }
 
-  const carts = {};
+  const carts = [];
   for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
     const c = allCartsRef[slotIndex];
     if (!c?.body) continue;
@@ -284,7 +284,7 @@ export function rematchResetWorld() {
     const r = c.body.rotation();
     const lv = c.body.linvel();
     const av = c.body.angvel();
-    carts[String(slotIndex)] = {
+    carts[slotIndex] = {
       p: [t.x, t.y, t.z],
       q: [r.x, r.y, r.z, r.w],
       lv: [lv.x, lv.y, lv.z],

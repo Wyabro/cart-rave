@@ -21,6 +21,8 @@ import * as SceneMod from "./src/scene.js";
 import * as CameraMod from "./src/camera.js";
 import * as Effects from "./src/effects.js";
 import { initArena } from "./src/arena.js";
+import { initSceneExtras } from "./src/sceneSetup.js";
+import { initAudioSystem } from "./src/audioSetup.js";
 import {
   applySlowMoToDt,
   createGameLoopState,
@@ -582,7 +584,7 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
 
   // Update personal stats — only if this round had scoring (not an all-zero draw)
   if (winnerSlotIndex !== "draw") {
-    const mySlotIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
+    const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
     if (mySlotIdx >= 0) {
       const stats = getPersonalStats();
       stats.matches += 1;
@@ -803,168 +805,9 @@ function updateHudColorsFromSlots(slots) {
 
 function localCartForConnId() {
   const carts = allCartsRef || [];
-  const idx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
+  const idx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
   if (idx < 0) return null;
   return carts[idx] || null;
-}
-
-// === AUDIO SYSTEM ===
-
-function initCrowdSfx(audioListener) {
-  /** @type {null | { ctx: AudioContext; src: AudioBufferSourceNode; lp: BiquadFilterNode; bp: BiquadFilterNode; g: GainNode }} */
-  let nodes = null;
-  let started = false;
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let bumpTimeoutId = null;
-
-  const ensureNodes = () => {
-    const ctx = audioListener.context;
-    if (ctx.state !== "running") return null;
-    if (nodes) return nodes;
-
-    const len = 1.0;
-    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
-
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 900;
-    lp.Q.value = 0.4;
-
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 320;
-    bp.Q.value = 0.7;
-
-    const g = ctx.createGain();
-    g.gain.value = 0.0001;
-
-    src.connect(lp);
-    lp.connect(bp);
-    bp.connect(g);
-    g.connect(audioListener.gain);
-
-    nodes = { ctx, src, lp, bp, g };
-    return nodes;
-  };
-
-  const applyAmbient = () => {
-    const n = ensureNodes();
-    if (!n) return;
-    const { ctx, lp, bp, g } = n;
-    const now = ctx.currentTime;
-    const base = 0.012 * 1.2 * sfxVolume;
-    const target = isMuted ? 0.0001 : base;
-    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.25);
-    lp.frequency.setTargetAtTime(900, now, 0.25);
-    bp.frequency.setTargetAtTime(320, now, 0.25);
-    bp.Q.setTargetAtTime(0.7, now, 0.25);
-  };
-
-  const ensureStarted = () => {
-    if (started) return;
-    const n = ensureNodes();
-    if (!n) return;
-    try { n.src.start(); } catch {}
-    started = true;
-    applyAmbient();
-  };
-
-  const bump = () => {
-    ensureStarted();
-    if (isMuted || sfxVolume <= 0) return;
-    const n = ensureNodes();
-    if (!n) return;
-    const { ctx, lp, bp, g } = n;
-    const now = ctx.currentTime;
-    const ambient = 0.012 * 1.2 * sfxVolume;
-    const peak = 0.028 * 1.2 * sfxVolume;
-    g.gain.cancelScheduledValues(now);
-    g.gain.setTargetAtTime(Math.max(0.0001, peak), now, 0.04);
-    lp.frequency.setTargetAtTime(1400, now, 0.05);
-    bp.frequency.setTargetAtTime(520, now, 0.05);
-    bp.Q.setTargetAtTime(1.2, now, 0.05);
-
-    if (bumpTimeoutId) clearTimeout(bumpTimeoutId);
-    bumpTimeoutId = setTimeout(() => {
-      bumpTimeoutId = null;
-      const t = ctx.currentTime;
-      g.gain.setTargetAtTime(Math.max(0.0001, ambient), t, 0.35);
-      lp.frequency.setTargetAtTime(900, t, 0.35);
-      bp.frequency.setTargetAtTime(320, t, 0.35);
-      bp.Q.setTargetAtTime(0.7, t, 0.35);
-    }, 1500);
-  };
-
-  return { ensureStarted, applyAmbient, bump };
-}
-
-function initLeaderHumSfx(audioListener) {
-  /** @type {null|number} */
-  let currentLeaderSlot = null;
-
-  const playLeadChime = () => {
-    if (isMuted || sfxVolume <= 0) return;
-    const ctx = audioListener.context;
-    if (ctx.state !== "running") return;
-    const now = ctx.currentTime;
-
-    const out = ctx.createGain();
-    const g = 0.15 * sfxVolume;
-    out.gain.setValueAtTime(Math.max(0.0001, g), now);
-    out.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
-    out.connect(audioListener.gain);
-
-    const o1 = ctx.createOscillator();
-    o1.type = "sine";
-    o1.frequency.setValueAtTime(660, now);
-    o1.connect(out);
-    o1.start(now);
-    o1.stop(now + 0.075);
-
-    const o2 = ctx.createOscillator();
-    o2.type = "sine";
-    o2.frequency.setValueAtTime(880, now + 0.075);
-    o2.connect(out);
-    o2.start(now + 0.075);
-    o2.stop(now + 0.15);
-
-    o2.onended = () => {
-      try { o1.disconnect(); } catch {}
-      try { o2.disconnect(); } catch {}
-      try { out.disconnect(); } catch {}
-    };
-  };
-
-  const setLeader = (slotIndex) => {
-    const wants = Number.isFinite(slotIndex) ? slotIndex : null;
-    if (wants === currentLeaderSlot) return;
-
-    const localIdx = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
-    const wasLocalLeader = currentLeaderSlot !== null && currentLeaderSlot === localIdx;
-    const isLocalLeader = wants !== null && wants === localIdx;
-
-    currentLeaderSlot = wants;
-    if (!wasLocalLeader && isLocalLeader) {
-      playLeadChime();
-    }
-  };
-
-  const updatePositionFromCart = (cart) => {
-    // Non-spatial: no-op.
-    void cart;
-  };
-
-  const resyncVolume = () => {
-    // One-shot: no continuous volume to resync.
-  };
-
-  return { setLeader, updatePositionFromCart, resyncVolume };
 }
 
 // === SCENE / WORLD SETUP ===
@@ -1044,7 +887,7 @@ async function main() {
     () => {
       if (menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      const mySlot = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
+      const mySlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
       const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
       triggerHop(cart, performance.now());
     },
@@ -1065,185 +908,6 @@ async function main() {
 
   const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
   spawnTrashBurstRef = Effects.spawnTrashBurst;
-
-  // --- Starfield + Nebula Skybox ---
-  // Stars - bigger, brighter, more of them
-  const starCount = 4000;
-  const starGeo = new THREE.BufferGeometry();
-  const starPositions = new Float32Array(starCount * 3);
-  const starColors = new Float32Array(starCount * 3);
-  for (let i = 0; i < starCount; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const r = 150 + Math.random() * 80;
-    starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    starPositions[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)); // bias upward
-    starPositions[i * 3 + 2] = r * Math.cos(phi);
-    const tint = Math.random();
-    if (tint < 0.15) {
-      starColors[i * 3] = 1;
-      starColors[i * 3 + 1] = 0.2;
-      starColors[i * 3 + 2] = 0.85;
-    } else if (tint < 0.3) {
-      starColors[i * 3] = 0.15;
-      starColors[i * 3 + 1] = 0.9;
-      starColors[i * 3 + 2] = 1;
-    } else if (tint < 0.38) {
-      starColors[i * 3] = 1;
-      starColors[i * 3 + 1] = 1;
-      starColors[i * 3 + 2] = 0.4;
-    } else {
-      const b = 0.8 + Math.random() * 0.2;
-      starColors[i * 3] = b;
-      starColors[i * 3 + 1] = b;
-      starColors[i * 3 + 2] = b;
-    }
-  }
-  starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-  starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
-  const starCanvas = document.createElement("canvas");
-  starCanvas.width = 32;
-  starCanvas.height = 32;
-  const starCtx = starCanvas.getContext("2d");
-  const starGrad = starCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-  starGrad.addColorStop(0, "rgba(255,255,255,1)");
-  starGrad.addColorStop(0.15, "rgba(255,255,255,0.8)");
-  starGrad.addColorStop(0.4, "rgba(255,255,255,0.15)");
-  starGrad.addColorStop(1, "rgba(255,255,255,0)");
-  starCtx.fillStyle = starGrad;
-  starCtx.fillRect(0, 0, 32, 32);
-  const starTexture = new THREE.CanvasTexture(starCanvas);
-  const starMat = new THREE.PointsMaterial({
-    size: 1.5,
-    map: starTexture,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.9,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    sizeAttenuation: true,
-  });
-  const starField = new THREE.Points(starGeo, starMat);
-  scene.add(starField);
-
-  // Nebula clouds - large additive spheres with low opacity
-  const nebulaColors = [0x6600aa, 0xaa0066, 0x003366, 0x220044, 0x660033];
-  for (let i = 0; i < 8; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const phi = 0.3 + Math.random() * 1.0; // upper hemisphere bias
-    const r = 120 + Math.random() * 50;
-    const nebula = new THREE.Mesh(
-      new THREE.SphereGeometry(20 + Math.random() * 30, 16, 16),
-      new THREE.MeshBasicMaterial({
-        color: nebulaColors[i % nebulaColors.length],
-        transparent: true,
-        opacity: 0.06 + Math.random() * 0.06,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.BackSide,
-      }),
-    );
-    nebula.position.set(
-      r * Math.sin(phi) * Math.cos(theta),
-      r * Math.cos(phi),
-      r * Math.sin(phi) * Math.sin(theta),
-    );
-    scene.add(nebula);
-  }
-
-  // Planets
-  const planetConfigs = [
-    { radius: 8, color: 0x993366, pos: [100, 70, -80], ring: true, ringColor: 0xcc6699 },
-    { radius: 5, color: 0x334488, pos: [-120, 55, -60], ring: false },
-    { radius: 3, color: 0x886633, pos: [60, 90, 100], ring: false },
-  ];
-  for (const p of planetConfigs) {
-    const planet = new THREE.Mesh(
-      new THREE.SphereGeometry(p.radius, 24, 24),
-      new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.5 }),
-    );
-    planet.position.set(p.pos[0], p.pos[1], p.pos[2]);
-    scene.add(planet);
-    if (p.ring) {
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(p.radius * 1.6, 0.4, 8, 48),
-        new THREE.MeshBasicMaterial({
-          color: p.ringColor, transparent: true, opacity: 0.35,
-          blending: THREE.AdditiveBlending, depthWrite: false,
-        }),
-      );
-      ring.rotation.x = Math.PI * 0.35;
-      ring.position.set(p.pos[0], p.pos[1], p.pos[2]);
-      scene.add(ring);
-    }
-  }
-
-  // Distant galaxies (flat discs with glow)
-  const galaxyConfigs = [
-    { pos: [-80, 100, -130], color: 0x6644aa, size: 12 },
-    { pos: [130, 85, -100], color: 0xaa4466, size: 8 },
-  ];
-  for (const g of galaxyConfigs) {
-    const gCanvas = document.createElement("canvas");
-    gCanvas.width = 64; gCanvas.height = 64;
-    const gCtx = gCanvas.getContext("2d");
-    const gGrad = gCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gGrad.addColorStop(0, "rgba(255,255,255,0.6)");
-    gGrad.addColorStop(0.3, "rgba(180,120,220,0.3)");
-    gGrad.addColorStop(1, "rgba(0,0,0,0)");
-    gCtx.fillStyle = gGrad;
-    gCtx.beginPath();
-    gCtx.ellipse(32, 32, 30, 15, 0, 0, Math.PI * 2);
-    gCtx.fill();
-    const gTex = new THREE.CanvasTexture(gCanvas);
-    const galaxy = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: gTex, color: g.color, transparent: true, opacity: 0.4,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    galaxy.scale.set(g.size, g.size * 0.5, 1);
-    galaxy.position.set(g.pos[0], g.pos[1], g.pos[2]);
-    scene.add(galaxy);
-  }
-
-  // UFOs - small glowing discs that orbit slowly
-  const ufoEntries = [];
-  for (let i = 0; i < 3; i++) {
-    const ufoGroup = new THREE.Group();
-    // Saucer body
-    const body = new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
-      new THREE.MeshBasicMaterial({ color: 0x888888 }),
-    );
-    ufoGroup.add(body);
-    // Dome
-    const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(0.7, 8, 6),
-      new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.8 }),
-    );
-    dome.position.y = 0.3;
-    ufoGroup.add(dome);
-    // Glow ring
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1.5, 0.15, 8, 24),
-      new THREE.MeshBasicMaterial({
-        color: i === 0 ? 0x00ff88 : i === 1 ? 0xff00ff : 0x00ffff,
-        transparent: true,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    ring.rotation.x = Math.PI / 2;
-    ufoGroup.add(ring);
-
-    const orbitRadius = 100 + i * 20;
-    const orbitSpeed = 0.03 + i * 0.01;
-    const orbitHeight = 15 + i * 8;
-    const phaseOffset = i * Math.PI * 0.66;
-    ufoGroup.scale.set(2, 2, 2);
-    scene.add(ufoGroup);
-    ufoEntries.push({ group: ufoGroup, orbitRadius, orbitSpeed, orbitHeight, phaseOffset });
-  }
 
   // * Environment map for IBL: gives metallic materials something to reflect.
   // * No scene.background is set so the void stays pure black.
@@ -2077,26 +1741,6 @@ async function main() {
       : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
 
-  if (!crowd) crowd = initCrowdSfx(audioListener);
-  if (!leaderHum) leaderHum = initLeaderHumSfx(audioListener);
-
-  // Limits to prevent infinite stacking of short transient impact SFX.
-  /** @type {{ intensity: number; stop: () => void }[]} */
-  const activeImpactSfx = [];
-  const MAX_ACTIVE_IMPACTS = 3;
-  /** @type {AudioBuffer | null} */
-  let cartCrashBuffer = null;
-  let cartCrashBufferLoadInFlight = false;
-  /** @type {AudioBuffer | null} */
-  let sharedNoiseBuffer = null;
-  function ensureSharedNoiseBuffer(ctx) {
-    if (sharedNoiseBuffer) return sharedNoiseBuffer;
-    const len = 2.0;
-    sharedNoiseBuffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-    const d = sharedNoiseBuffer.getChannelData(0);
-    for (let j = 0; j < d.length; j += 1) d[j] = Math.random() * 2 - 1;
-    return sharedNoiseBuffer;
-  }
   let shakeUntil = 0;
   let shakeIntensity = 0;
   const gameCtx = createGameContext().registerModules({
@@ -2110,29 +1754,31 @@ async function main() {
   let fovPunchUntil = 0;
   const BASE_FOV = CONFIG.camera.fov;
 
-  const ensureCartCrashBufferLoaded = () => {
-    const ctx = audioListener.context;
-    if (ctx.state !== "running") return;
-    if (cartCrashBuffer || cartCrashBufferLoadInFlight) return;
-    cartCrashBufferLoadInFlight = true;
+  let ensureCartCrashBufferLoaded = () => {};
+  const audioSystem = initAudioSystem(audioListener, {
+    getSfxVolume: () => sfxVolume,
+    getIsMuted: () => isMuted,
+    onCollisionShake: (i) => {
+      shakeIntensity = i * 8 * 2; // max ~16px offset
+      shakeUntil = performance.now() + 225 + i * 150; // ~50% longer than before
+    },
+  });
+  sfx = audioSystem.sfx;
+  if (!crowd) crowd = audioSystem.crowd;
+  if (!leaderHum) leaderHum = audioSystem.leaderHum;
+  ensureCartCrashBufferLoaded = audioSystem.ensureCartCrashBufferLoaded;
+  playCollisionRef = sfx.playCollision;
+  gameSfx = sfx;
+  GameAudio.registerMusicVolumeDeps({
+    audioListener,
+    getSfxVolume: () => sfxVolume,
+  });
+  GameAudio.registerAudioRefs({ sfx, crowd, leaderHum });
+  GameAudio.applyAudioVolume();
+  camera.add(audioListener);
 
-    const url = new URL("sounds/cart-crash.wav", window.location.href).toString();
-    void fetch(url)
-      .then((r) => r.arrayBuffer())
-      .then((ab) => ctx.decodeAudioData(ab))
-      .then(
-        (buf) => {
-          cartCrashBuffer = buf;
-          cartCrashBufferLoadInFlight = false;
-        },
-        () => {
-          cartCrashBufferLoadInFlight = false;
-        },
-      );
-  };
-  sfx = {
-    _muted: isMuted,
-    playFloorImpact(intensity) {
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
       const i = clamp(intensity, 0, 1);
       if (i <= 0.05) return;
       const ctx = audioListener.context;
@@ -2579,136 +2225,6 @@ async function main() {
   // Minimal ambient + a few colored spotlights for "neon" vibe.
   scene.add(new THREE.AmbientLight(0x221133, 0.15));
 
-  const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
-  const recordSurfaceGlowY =
-    platformTopY + CONFIG.record.surface.concentricRings.yOffset + 0.018;
-  const spotlightBeamAxisY = new THREE.Vector3(0, 1, 0);
-  const spotlightBeamMid = new THREE.Vector3();
-  const spotlightBeamDir = new THREE.Vector3();
-  const spotlightLightPosScratch = new THREE.Vector3();
-  const spotlightTargetScratch = new THREE.Vector3();
-  const spotlightPoolTextureCanvas = document.createElement("canvas");
-  spotlightPoolTextureCanvas.width = 128;
-  spotlightPoolTextureCanvas.height = 128;
-  const spotlightPoolTextureCtx = spotlightPoolTextureCanvas.getContext("2d");
-  const spotlightPoolGradient = spotlightPoolTextureCtx.createRadialGradient(
-    64,
-    64,
-    0,
-    64,
-    64,
-    64,
-  );
-  spotlightPoolGradient.addColorStop(0, "rgba(255, 255, 255, 0.8)");
-  spotlightPoolGradient.addColorStop(0.45, "rgba(255, 255, 255, 0.28)");
-  spotlightPoolGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-  spotlightPoolTextureCtx.fillStyle = spotlightPoolGradient;
-  spotlightPoolTextureCtx.fillRect(0, 0, 128, 128);
-  const spotlightPoolTexture = new THREE.CanvasTexture(spotlightPoolTextureCanvas);
-  spotlightPoolTexture.needsUpdate = true;
-
-  function positionSpotlightBeam(beamGroup, source, target) {
-    beamGroup.position.copy(spotlightBeamMid.copy(source).add(target).multiplyScalar(0.5));
-    beamGroup.quaternion.setFromUnitVectors(
-      spotlightBeamAxisY,
-      spotlightBeamDir.copy(source).sub(target).normalize(),
-    );
-  }
-
-  function addSpotlightWithBeam({ color, position, intensity, target }) {
-    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 8.75, 0.2, 1.1);
-    light.position.copy(position);
-    light.target.position.set(target.x, platformTopY, target.z);
-    scene.add(light);
-    scene.add(light.target);
-
-    const beamTarget = new THREE.Vector3(target.x, platformTopY, target.z);
-    const height = Math.max(0.01, position.y - platformTopY);
-    const beamGroup = new THREE.Group();
-    const beamLayers = [
-      { sourceRadius: 0.45, floorRadius: 1.2, opacity: 0.1 },
-      { sourceRadius: 0.65, floorRadius: 1.8, opacity: 0.055 },
-      { sourceRadius: 0.9, floorRadius: 2.6, opacity: 0.025 },
-    ];
-
-    for (const layer of beamLayers) {
-      const beamGeo = new THREE.CylinderGeometry(
-        layer.sourceRadius,
-        layer.floorRadius,
-        height,
-        24,
-        1,
-        true,
-      );
-      const beamMat = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: layer.opacity,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
-      beamGroup.add(new THREE.Mesh(beamGeo, beamMat));
-    }
-
-    positionSpotlightBeam(beamGroup, position, beamTarget);
-    scene.add(beamGroup);
-
-    const glowGeo = new THREE.CircleGeometry(5.25, 48);
-    const glowMat = new THREE.MeshBasicMaterial({
-      map: spotlightPoolTexture,
-      color,
-      transparent: true,
-      opacity: 0.3,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-    glowMesh.rotation.x = -Math.PI / 2;
-    glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
-    glowMesh.renderOrder = 2;
-    scene.add(glowMesh);
-
-    return { light, beamGroup, glowMesh };
-  }
-
-  const spotlightEntries = [];
-  const spotlightPositionRadius = CONFIG.record.radius * 0.7;
-  const spotlightHeight = 25;
-  const spotlightIntensity = 12;
-  const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
-  const spotlightConfigs = [
-    { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
-    { color: CART_COLORS.blue.hex, angleDeg: -18, driftSpeed: 0.0455, phase: 1.4 },
-    { color: CART_COLORS.green.hex, angleDeg: 54, driftSpeed: 0.0525, phase: 2.8 },
-    { color: CART_COLORS.yellow.hex, angleDeg: 126, driftSpeed: 0.0385, phase: 4.2 },
-    { color: CART_COLORS.neonOrange.hex, angleDeg: 198, driftSpeed: 0.049, phase: 5.6 },
-  ];
-
-  for (const cfg of spotlightConfigs) {
-    const baseAngleRad = (cfg.angleDeg * Math.PI) / 180;
-    const position = new THREE.Vector3(
-      Math.cos(baseAngleRad) * spotlightPositionRadius,
-      spotlightHeight,
-      Math.sin(baseAngleRad) * spotlightPositionRadius,
-    );
-    const target = new THREE.Vector3(position.x, 0, position.z);
-    const entry = addSpotlightWithBeam({
-      color: cfg.color,
-      position,
-      intensity: spotlightIntensity,
-      target,
-    });
-    spotlightEntries.push({
-      ...entry,
-      baseAngleRad,
-      color: cfg.color,
-      driftSpeed: cfg.driftSpeed,
-      phase: cfg.phase,
-    });
-  }
-
   const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
 
@@ -2725,60 +2241,21 @@ async function main() {
     recordLabelMat,
   } = initArena(scene, world, CONFIG);
 
-  const groundDiscGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
-  const groundDiscMat = new THREE.MeshStandardMaterial({
-    color: 0x1e1e3a,
-    metalness: 0.2,
-    roughness: 0.8,
-    side: THREE.DoubleSide,
-  });
-  const groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
-  groundDisc.rotation.x = -Math.PI / 2;
-  groundDisc.position.y = -3;
-  scene.add(groundDisc);
-
-  const groundGridGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
-  const groundGridMat = new THREE.MeshBasicMaterial({
-    color: 0x2a2a5a,
-    wireframe: true,
-    opacity: 0.25,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-  });
-  const groundGrid = new THREE.Mesh(groundGridGeo, groundGridMat);
-  groundGrid.rotation.x = -Math.PI / 2;
-  groundGrid.position.y = -2.99;
-  scene.add(groundGrid);
+  const sceneExtras = initSceneExtras(scene, pitInnerRadius);
+  const {
+    ufoEntries,
+    spotlightEntries,
+    spotlightPositionRadius,
+    spotlightHeight,
+    spotlightDriftAmplitudeRad,
+    platformTopY,
+    recordSurfaceGlowY,
+    spotlightLightPosScratch,
+    spotlightTargetScratch,
+    positionSpotlightBeam,
+  } = sceneExtras;
 
   Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
-
-  const horizonFogGeo = new THREE.CylinderGeometry(150, 150, 40, 64, 8, true);
-  const horizonFogMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    side: THREE.BackSide,
-    uniforms: {
-      uColor: { value: new THREE.Color(0x0a0520) },
-    },
-    vertexShader: `
-      varying float vY;
-      void main() {
-        vY = position.y;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 uColor;
-      varying float vY;
-      void main() {
-        float fade = smoothstep(20.0, -10.0, vY);
-        gl_FragColor = vec4(uColor, fade * 0.5);
-      }
-    `,
-  });
-  const horizonFog = new THREE.Mesh(horizonFogGeo, horizonFogMat);
-  horizonFog.position.y = -3;
-  scene.add(horizonFog);
 
   Effects.initStage(scene, pitInnerRadius, CART_COLORS);
   Effects.initBillboard(scene, pitInnerRadius);
@@ -3232,7 +2709,7 @@ async function main() {
   }
 
   function currentCartSnapshot() {
-    const carts = {};
+    const carts = [];
     const round3 = (v) => Math.round(v * 1000) / 1000;
     for (let i = 0; i < allCarts.length; i += 1) {
       const c = allCarts[i];
@@ -3241,7 +2718,7 @@ async function main() {
       const r = c.body.rotation();
       const lv = c.body.linvel();
       const av = c.body.angvel();
-      carts[String(i)] = {
+      carts[i] = {
         p: [round3(t.x), round3(t.y), round3(t.z)],
         q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
         lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
