@@ -1,11 +1,11 @@
+// === IMPORTS ===
+
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import { EffectComposer } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/ShaderPass.js";
-import { mergeGeometries } from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
 import { CSS2DObject, CSS2DRenderer } from "https://unpkg.com/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
-import { Reflector } from "https://unpkg.com/three@0.164.1/examples/jsm/objects/Reflector.js";
 import { RoomEnvironment } from "https://unpkg.com/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 import PartySocket from "partysocket";
@@ -18,12 +18,29 @@ import * as Netcode from "./src/netcode.js";
 import * as GameState from "./src/gameState.js";
 import * as GameAudio from "./src/audio.js";
 import * as SceneMod from "./src/scene.js";
-import * as Effects from "./src/visuals.js";
-
-
+import * as CameraMod from "./src/camera.js";
+import * as Effects from "./src/effects.js";
+import { initArena } from "./src/arena.js";
+import {
+  applySlowMoToDt,
+  createGameLoopState,
+  resetGameLoopTiming,
+  runGameLoop,
+  runPhysicsStep,
+  updateVisualsAndEffects,
+} from "./src/gameLoop.js";
+import { updateGameFlow } from "./src/gameFlow.js";
+import { createGameContext } from "./src/gameContext.js";
+import {
+  clamp,
+  colorHexForSlot,
+  getColorForSlot,
+} from "./src/utils.js";
 
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
+
+// === UTILITY HELPERS ===
 
 /**
  * Safely disposes a Three.js subtree (geometries + materials).
@@ -100,6 +117,8 @@ function buildCartMaterialCache(cartMesh) {
 
   return { frameMats, wheelGlowMats, frameGlowMats };
 }
+
+// === CONSTANTS & CONFIG ===
 
 // * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
 const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
@@ -347,6 +366,8 @@ CONFIG.cart.spawnRingRadius = CONFIG.record.radius + CONFIG.booth.gapDistance + 
 // Spawn height: on top of the booth platform
 CONFIG.cart.spawnHeight = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + CONFIG.cart.size.y / 2 + 0.05;
 
+// === NETCODE BRIDGING ===
+
 function partyHostFromWindowLocation() {
   const hostname = window.location.hostname;
   const isLocalHostname =
@@ -399,10 +420,6 @@ function getPortalQueryParams() {
 
 const incomingPortalParams = getPortalQueryParams();
 
-let returnPortalTriggered = false;
-let returnPortalArmedAtMs = 0;
-const returnPortalWorldPositions = [];
-
 function buildExitPortalUrl() {
   if (typeof window === "undefined") return "https://vibej.am/portal/2026";
   const url = new URL("https://vibej.am/portal/2026");
@@ -434,48 +451,49 @@ function captureInviteRoomForDeferredMenu() {
   return true;
 }
 
-function bootstrapNetcodeEntryFromUrl() {
-  if (typeof window === "undefined") return;
+/** @type {null | { playFloorImpact?: (intensity: number) => void, playEdgeImpact?: (intensity: number) => void }} */
+let gameSfx = null;
 
-  Netcode.registerCallbacks({
-    detectGameMode: () => detectGameMode(),
-    getIncomingPortalParams: () => incomingPortalParams,
-    getPALETTE: () => PALETTE,
-    getInitialNpcNames: () => initialNpcNames,
-    markFirstHelloReceived: () => markFirstHelloReceived(),
+/** Live refs from main.js for Netcode.registerGameCallbacks. */
+function createNetcodeCallbackDeps() {
+  return {
+    detectGameMode,
+    incomingPortalParams,
+    palette: PALETTE,
+    initialNpcNames,
+    markFirstHelloReceived,
     getOnGameStartHandler: () => onGameStartHandler,
     getMenuVisible: () => menuVisible,
-    hideMenuRef: () => { if (hideMenuRef) hideMenuRef(); },
-    updateCartMaterialsFromSlots: (slots) => updateCartMaterialsFromSlots(slots),
-    updateHudColorsFromSlots: (slots) => updateHudColorsFromSlots(slots),
-    scheduleNameLabelUpdate: () => {
-      if (nameLabelUpdatePending) cancelAnimationFrame(nameLabelUpdatePending);
-      nameLabelUpdatePending = requestAnimationFrame(() => {
-        nameLabelUpdatePending = null;
-        if (updateNameLabelsRef.current) updateNameLabelsRef.current();
-      });
-    },
-    respawnLocalMidRoundJoinRef: () => { if (respawnLocalMidRoundJoinRef.current) respawnLocalMidRoundJoinRef.current(); },
-    playCollisionRef: (intensity) => playCollisionRef?.(intensity),
-    playFloorImpactRef: (intensity) => sfx?.playFloorImpact?.(intensity),
-    playEdgeImpactRef: (intensity) => sfx?.playEdgeImpact?.(intensity),
-    spawnTrashBurstRef: (mp, intensity, type) => { if (spawnTrashBurstRef) spawnTrashBurstRef(mp, intensity, type); },
-    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor) => {
-      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor);
-    },
-    colorHexForSlot: (slot) => colorHexForSlot(slot),
+    invokeHideMenu: () => { if (hideMenuRef) hideMenuRef(); },
+    updateCartMaterialsFromSlots,
+    updateHudColorsFromSlots,
+    updateNameLabelsRef,
+    getNameLabelUpdatePending: () => nameLabelUpdatePending,
+    setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
+    respawnLocalMidRoundJoinRef,
+    getPlayCollisionRef: () => playCollisionRef,
+    getSfx: () => gameSfx,
+    getSpawnTrashBurstRef: () => spawnTrashBurstRef,
+    getHud: () => hud,
+    colorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
     getPendingColorChipEl: () => pendingColorChipEl,
     setPendingColorKey: (val) => { pendingColorKey = val; },
     setPendingColorChipEl: (val) => { pendingColorChipEl = val; },
     getLocalColorPicked: () => _localColorPicked,
     setLocalColorPicked: (val) => { _localColorPicked = val; },
-    renderColorPicker: (colors) => renderColorPicker(colors),
-    recordPodiumStats: (winner, scores) => recordPodiumStats(winner, scores),
-    bumpCrowd: () => { crowd?.bump?.(); },
+    renderColorPicker,
+    recordPodiumStats,
+    getCrowd: () => crowd,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
-    setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; }
-  });
+    setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; },
+  };
+}
+
+function bootstrapNetcodeEntryFromUrl() {
+  if (typeof window === "undefined") return;
+
+  Netcode.registerGameCallbacks(createNetcodeCallbackDeps());
 
   if (isPortalWebringBypassFromUrl()) {
     applyPortalWebringBypassToUrl();
@@ -488,22 +506,13 @@ function bootstrapNetcodeEntryFromUrl() {
   }
 }
 
+// === STATE & REFS ===
+
 // --- Module-scope netcode state ---
 // Replaced by Netcode.getPartySocket(), Netcode.getYouConnId(), Netcode.getIsHost()
 
 // * Input bridge for non-host client_input nitro (Shift key).
 let localNitroHeld = false;
-
-function cssHexFromRgbNumber(rgb) {
-  if (!Number.isFinite(rgb)) return "#888888";
-  const hex = Math.floor(rgb).toString(16).padStart(6, "0");
-  return `#${hex}`;
-}
-
-function getColorForSlot(slot) {
-  if (!slot || !slot.color) return "#888888";
-  return cssHexFromRgbNumber(CART_COLORS[slot.color]?.hex ?? 0x888888);
-}
 
 // --- Personal Stats (localStorage) ---
 function getPersonalStats() {
@@ -738,13 +747,6 @@ const resetSimTimingRef = { current: null };
 /** @type {string | null} */
 let pendingMidRoundJoinRespawnConnId = null;
 
-function colorHexForSlot(slot) {
-  if (!slot) return 0x888888;
-  const c = slot.color;
-  if (typeof c === "number") return c;
-  return CART_COLORS[c]?.hex ?? 0x888888;
-}
-
 function updateCartMaterialsFromSlots(slots) {
   if (!allCartsRef || !Array.isArray(slots)) return;
 
@@ -806,9 +808,7 @@ function localCartForConnId() {
   return carts[idx] || null;
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
+// === AUDIO SYSTEM ===
 
 function initCrowdSfx(audioListener) {
   /** @type {null | { ctx: AudioContext; src: AudioBufferSourceNode; lp: BiquadFilterNode; bp: BiquadFilterNode; g: GainNode }} */
@@ -967,107 +967,7 @@ function initLeaderHumSfx(audioListener) {
   return { setLeader, updatePositionFromCart, resyncVolume };
 }
 
-function buildRecordRingGeometry({
-  outerRadius,
-  innerRadius,
-  thickness,
-  curveSegments,
-  bevelThickness = 0.15,
-  bevelSize = 0.15,
-}) {
-  const shape = new THREE.Shape();
-  shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
-
-  const hole = new THREE.Path();
-  hole.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
-  shape.holes.push(hole);
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    steps: 1,
-    depth: thickness,
-    bevelEnabled: true,
-    bevelThickness,
-    bevelSize,
-    bevelOffset: 0,
-    bevelSegments: 3,
-    curveSegments,
-  });
-
-  // ExtrudeGeometry extrudes along +Z; center it and rotate so thickness becomes Y (floor height).
-  geo.translate(0, 0, -thickness / 2);
-  geo.rotateX(Math.PI / 2);
-  return geo;
-}
-
-/**
- * * Procedural record physics mesh: flat annulus with an expanded open center.
- * * The visible hole stays at innerRadius; the collider hole is larger so cart
- * * bodies lose support before they can hit or ride the visual lip.
- */
-function buildRecordPhysicsGeometry({
-  outerRadius,
-  innerRadius,
-  thickness,
-  chamferWidth = 0.55,
-  holeClearance = 1.05,
-  outerBevel = 0.12,
-  segments = 72,
-}) {
-  const positions = [];
-  const indices = [];
-  const halfT = thickness / 2;
-  const topY = halfT;
-  const bottomY = -halfT;
-  const collisionInnerR = innerRadius + Math.max(holeClearance, chamferWidth, 0);
-  const outerTopR = outerRadius - outerBevel;
-
-  const pushVertex = (x, y, z) => {
-    positions.push(x, y, z);
-    return positions.length / 3 - 1;
-  };
-  const pushTri = (a, b, c) => {
-    indices.push(a, b, c);
-  };
-  const addQuad = (i0, i1, i2, i3) => {
-    pushTri(i0, i1, i2);
-    pushTri(i0, i2, i3);
-  };
-
-  for (let i = 0; i < segments; i += 1) {
-    const t0 = (i / segments) * Math.PI * 2;
-    const t1 = ((i + 1) / segments) * Math.PI * 2;
-    const cos0 = Math.cos(t0);
-    const sin0 = Math.sin(t0);
-    const cos1 = Math.cos(t1);
-    const sin1 = Math.sin(t1);
-
-    // Top playing surface (flat annulus). There is no inner wall/chamfer.
-    const ot0 = pushVertex(outerTopR * cos0, topY, outerTopR * sin0);
-    const ot1 = pushVertex(outerTopR * cos1, topY, outerTopR * sin1);
-    const it0 = pushVertex(collisionInnerR * cos0, topY, collisionInnerR * sin0);
-    const it1 = pushVertex(collisionInnerR * cos1, topY, collisionInnerR * sin1);
-    addQuad(ot0, ot1, it1, it0);
-
-    // Substrate ring on the underside; it also stops at the expanded collision hole.
-    const ob0 = pushVertex(outerRadius * cos0, bottomY, outerRadius * sin0);
-    const ob1 = pushVertex(outerRadius * cos1, bottomY, outerRadius * sin1);
-    const if0 = pushVertex(collisionInnerR * cos0, bottomY, collisionInnerR * sin0);
-    const if1 = pushVertex(collisionInnerR * cos1, bottomY, collisionInnerR * sin1);
-    addQuad(ob0, ob1, if1, if0);
-
-    // Outer rim bevel + wall.
-    const otop0 = pushVertex(outerRadius * cos0, topY, outerRadius * sin0);
-    const otop1 = pushVertex(outerRadius * cos1, topY, outerRadius * sin1);
-    addQuad(otop0, otop1, ot1, ot0);
-    addQuad(ot0, ot1, ob1, ob0);
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-  return geo;
-}
+// === SCENE / WORLD SETUP ===
 
 /**
  * * Draws one string along a circular arc on a 2D canvas (vinyl label typography).
@@ -1108,23 +1008,14 @@ function drawArcTextOnCanvas(ctx, text, cx, cy, arcRadiusPx, arcCenterDeg, arcAn
 
 // (Physics helper functions removed - using modular Simulation equivalents)
 
+// === GAME LOOP ===
+
 async function main() {
   await RAPIER.init();
 
   let sfx = null;
-  let menuMusicEl = null;
-  let startMenuMusic = () => {};
-  let stopMenuMusic = () => {};
-  let musicEl = null;
-  let musicStarted = false;
-  let musicUnavailable = false;
-  let tryStartAmbientMusic = () => {};
   let labelRenderer = null;
-  let gameMusicFadeOutInterval = null;
-  let menuMusicFadeOutInterval = null;
-  let gameMusicFadeInInterval = null;
   let input = null;
-  const ramBoostStreaks = [];
 
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -1172,72 +1063,8 @@ async function main() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
 
-  const trashPool = [];
-  const TRASH_POOL_SIZE = 40;
-  const trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-  const trashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
-  const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
-  for (let i = 0; i < TRASH_POOL_SIZE; i++) {
-    const m = new THREE.Mesh(trashGeo, trashMat.clone());
-    m.visible = false;
-    m.userData.vel = new THREE.Vector3();
-    m.userData.life = 0;
-    m.userData.maxLife = 0;
-    scene.add(m);
-    trashPool.push(m);
-  }
-
-  function spawnTrashBurst(position, intensity, type = "cart") {
-    const count = type === "floor" 
-      ? Math.floor(4 + intensity * 4) 
-      : Math.floor(6 + intensity * 8);
-    let spawned = 0;
-    for (let i = 0; i < trashPool.length && spawned < count; i++) {
-      const p = trashPool[i];
-      if (p.visible) continue;
-      p.position.set(position.x, position.y + (type === "floor" ? 0.05 : 0.5), position.z);
-      p.scale.setScalar((0.8 + intensity * 0.8) * (type === "floor" ? 0.65 : 1.0));
-      if (type === "floor") {
-        const colors = [0x551a8b, 0xff00ff, 0x333333];
-        p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
-      } else if (type === "edge") {
-        const colors = [0xff00ff, 0x00ffff, 0xffffff];
-        p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
-      } else {
-        p.material.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
-      }
-      p.material.opacity = 1;
-      p.visible = true;
-      if (type === "floor") {
-        const angle = Math.random() * Math.PI * 2;
-        const sp = (3 + Math.random() * 5) * intensity;
-        p.userData.vel.set(
-          Math.cos(angle) * sp,
-          1.5 + Math.random() * 2.5,
-          Math.sin(angle) * sp
-        );
-      } else if (type === "edge") {
-        const toCenter = new THREE.Vector3(-position.x, 0, -position.z).normalize();
-        const spreadX = (Math.random() - 0.5) * 3;
-        const spreadZ = (Math.random() - 0.5) * 3;
-        p.userData.vel.set(
-          toCenter.x * (6 + Math.random() * 6) * intensity + spreadX,
-          2 + Math.random() * 4 * intensity,
-          toCenter.z * (6 + Math.random() * 6) * intensity + spreadZ
-        );
-      } else {
-        p.userData.vel.set(
-          (Math.random() - 0.5) * 10 * intensity,
-          4 + Math.random() * 5 * intensity,
-          (Math.random() - 0.5) * 10 * intensity
-        );
-      }
-      p.userData.life = 0;
-      p.userData.maxLife = type === "floor" ? 0.35 + Math.random() * 0.15 : 0.4 + Math.random() * 0.2;
-      spawned++;
-    }
-  }
-  spawnTrashBurstRef = spawnTrashBurst;
+  const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
+  spawnTrashBurstRef = Effects.spawnTrashBurst;
 
   // --- Starfield + Nebula Skybox ---
   // Stars - bigger, brighter, more of them
@@ -1425,123 +1252,14 @@ async function main() {
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
   pmremGenerator.dispose();
 
-  const ambientParticleCount = 260;
-  const ambientParticleRadius = 35;
-  const ambientParticleHeight = 30;
-  const ambientParticlePositions = new Float32Array(ambientParticleCount * 3);
-  const ambientParticleColors = new Float32Array(ambientParticleCount * 3);
-  const ambientParticleDrift = new Float32Array(ambientParticleCount * 4);
-  const ambientParticlePalette = [
-    CART_COLORS.pink.hex,
-    CART_COLORS.blue.hex,
-    CART_COLORS.green.hex,
-    CART_COLORS.yellow.hex,
-    CART_COLORS.neonOrange.hex,
-  ];
-  const ambientParticleColor = new THREE.Color();
-
-  for (let i = 0; i < ambientParticleCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = Math.sqrt(Math.random()) * ambientParticleRadius;
-    const p = i * 3;
-    const d = i * 4;
-
-    ambientParticlePositions[p] = Math.cos(angle) * radius;
-    ambientParticlePositions[p + 1] = Math.random() * ambientParticleHeight;
-    ambientParticlePositions[p + 2] = Math.sin(angle) * radius;
-
-    ambientParticleColor.setHex(
-      ambientParticlePalette[Math.floor(Math.random() * ambientParticlePalette.length)],
-    );
-    ambientParticleColors[p] = ambientParticleColor.r;
-    ambientParticleColors[p + 1] = ambientParticleColor.g;
-    ambientParticleColors[p + 2] = ambientParticleColor.b;
-
-    const driftAngle = Math.random() * Math.PI * 2;
-    const driftSpeed = 0.08 + Math.random() * 0.1;
-    ambientParticleDrift[d] = Math.cos(driftAngle) * driftSpeed;
-    ambientParticleDrift[d + 1] = 0.015 + Math.random() * 0.035;
-    ambientParticleDrift[d + 2] = Math.sin(driftAngle) * driftSpeed;
-    ambientParticleDrift[d + 3] = Math.random() * Math.PI * 2;
-  }
-
-  const ambientParticleGeometry = new THREE.BufferGeometry();
-  ambientParticleGeometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(ambientParticlePositions, 3),
-  );
-  ambientParticleGeometry.setAttribute(
-    "color",
-    new THREE.BufferAttribute(ambientParticleColors, 3),
-  );
-  const ambientParticleTextureCanvas = document.createElement("canvas");
-  ambientParticleTextureCanvas.width = 64;
-  ambientParticleTextureCanvas.height = 64;
-  const ambientParticleTextureCtx = ambientParticleTextureCanvas.getContext("2d");
-  const ambientParticleGradient = ambientParticleTextureCtx.createRadialGradient(
-    32,
-    32,
-    0,
-    32,
-    32,
-    32,
-  );
-  ambientParticleGradient.addColorStop(0, "rgba(255, 255, 255, 1)");
-  ambientParticleGradient.addColorStop(0.35, "rgba(255, 255, 255, 0.55)");
-  ambientParticleGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-  ambientParticleTextureCtx.fillStyle = ambientParticleGradient;
-  ambientParticleTextureCtx.fillRect(0, 0, 64, 64);
-  const ambientParticleTexture = new THREE.CanvasTexture(ambientParticleTextureCanvas);
-  ambientParticleTexture.needsUpdate = true;
-  const ambientParticles = new THREE.Points(
-    ambientParticleGeometry,
-    new THREE.PointsMaterial({
-      map: ambientParticleTexture,
-      size: 0.25,
-      transparent: true,
-      opacity: 0.75,
-      vertexColors: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  scene.add(ambientParticles);
-
-  function updateAmbientParticles(dt, nowMs) {
-    const nowSec = nowMs * 0.001;
-    const positions = ambientParticleGeometry.attributes.position.array;
-
-    for (let i = 0; i < ambientParticleCount; i++) {
-      const p = i * 3;
-      const d = i * 4;
-      const wave = Math.sin(nowSec * 0.55 + ambientParticleDrift[d + 3]) * 0.04;
-
-      positions[p] += (ambientParticleDrift[d] + wave) * dt;
-      positions[p + 1] += ambientParticleDrift[d + 1] * dt;
-      positions[p + 2] += (ambientParticleDrift[d + 2] - wave) * dt;
-
-      const x = positions[p];
-      const z = positions[p + 2];
-      const r = Math.hypot(x, z);
-      if (r > ambientParticleRadius) {
-        const wrapScale = -ambientParticleRadius / r;
-        positions[p] = x * wrapScale;
-        positions[p + 2] = z * wrapScale;
-      }
-      if (positions[p + 1] > ambientParticleHeight) positions[p + 1] = 0;
-      if (positions[p + 1] < 0) positions[p + 1] = ambientParticleHeight;
-    }
-
-    ambientParticleGeometry.attributes.position.needsUpdate = true;
-  }
-
   function setAllAudioMuted(muted) {
-    isMuted = muted;
-    localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
-    if (sfx) {
-      sfx._muted = isMuted;
-    }
-    try { applyAudioVolume(); } catch (e) {}
+    GameAudio.setMuted(muted, (val) => {
+      isMuted = val;
+      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+      if (sfx) {
+        sfx._muted = isMuted;
+      }
+    });
   }
 
   function setSfxSliderVolume(v) {
@@ -1550,7 +1268,7 @@ async function main() {
       "cartRaveSfxVol",
       Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
     );
-    try { applyAudioVolume(); } catch (e) {}
+    try { GameAudio.applyAudioVolume(); } catch (e) {}
   }
 
   // (Legacy initHud removed)
@@ -1881,22 +1599,12 @@ async function main() {
     }
     // Stop game music before menu music starts.
     try {
-      if (musicEl) {
-        if (gameMusicFadeOutInterval !== null) clearInterval(gameMusicFadeOutInterval);
-        gameMusicFadeOutInterval = null;
-        if (gameMusicFadeInInterval !== null) clearInterval(gameMusicFadeInInterval);
-        gameMusicFadeInInterval = null;
-        musicEl.pause();
-        musicEl.currentTime = 0;
-      }
-      musicStarted = false;
+      GameAudio.stopGameMusic();
     } catch (e) {}
-    try { startMenuMusic(); } catch (e) {}
+    try { GameAudio.startMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
-      wrap.style.display = "";
-      wrap.style.opacity = "1";
-      wrap.style.pointerEvents = "";
+      window.CartRave?.show?.();
     }
 
     // Cosmetic: mark color chip as pending until server confirms slots.
@@ -2004,6 +1712,7 @@ async function main() {
         const menuRoot = document.getElementById("cr-root");
 
         if (friendsLink) friendsLink.value = roomLink;
+        window.CartRave?.stopAnimations?.();
         if (menuRoot) menuRoot.style.display = "none";
         if (friendsScreen) friendsScreen.style.display = "flex";
 
@@ -2024,7 +1733,7 @@ async function main() {
         if (friendsBack) {
           friendsBack.onclick = () => {
             friendsScreen.style.display = "none";
-            if (menuRoot) { menuRoot.style.display = ""; menuRoot.style.opacity = "1"; menuRoot.style.pointerEvents = ""; }
+            window.CartRave?.show?.();
             refreshMenuStats();
             // Clear the room param
             const cleanUrl = new URL(window.location.href);
@@ -2056,7 +1765,7 @@ async function main() {
     const crMusicVolVal = document.getElementById("cr-music-vol-val");
 
     function syncMenuVolume() {
-      if (crMusicVolFill) crMusicVolFill.style.width = ((isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX)) * 100) + "%";
+      if (crMusicVolFill) crMusicVolFill.style.setProperty("--vol-scale", String(isMuted ? 0 : masterGain / AUDIO_VOLUME_MAX));
       if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
       if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
       if (hud && hud.syncAudioControls) hud.syncAudioControls();
@@ -2075,7 +1784,7 @@ async function main() {
         const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
         masterGain = v;
         localStorage.setItem("cartRaveVolume", Math.round((v / AUDIO_VOLUME_MAX) * 100).toString());
-        try { applyAudioVolume(); } catch(e) {}
+        try { GameAudio.applyAudioVolume(); } catch(e) {}
         syncMenuVolume();
       });
     }
@@ -2097,7 +1806,7 @@ async function main() {
     }
     const savedMute = localStorage.getItem("cartRaveMuted");
     if (savedMute === "true") setAllAudioMuted(true);
-    try { applyAudioVolume(); } catch(e) {}
+    try { GameAudio.applyAudioVolume(); } catch(e) {}
     syncMenuVolume();
 
     // Sync new menu name to localStorage for join message
@@ -2128,6 +1837,7 @@ async function main() {
   // Step 10b: Hide menu function
   function hideMenu() {
     const wrap = document.getElementById("cr-root");
+    window.CartRave?.stopAnimations?.();
     if (wrap) {
       wrap.style.opacity = "0";
       wrap.style.pointerEvents = "none";
@@ -2140,46 +1850,9 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) hudAudio.style.display = "flex";
-    // Crossfade: fade out menu music
-    if (menuMusicEl) {
-      if (menuMusicFadeOutInterval !== null) clearInterval(menuMusicFadeOutInterval);
-      menuMusicFadeOutInterval = setInterval(() => {
-        if (menuMusicEl.volume > 0.0075) {
-          menuMusicEl.volume = Math.max(0, menuMusicEl.volume - 0.0075);
-        } else {
-          clearInterval(menuMusicFadeOutInterval);
-          menuMusicFadeOutInterval = null;
-          menuMusicEl.pause();
-          menuMusicEl.currentTime = 0;
-        }
-      }, 30);
-    }
-    // Start game music with fade in once the game audio element exists.
-    if (musicEl) {
-      if (gameMusicFadeOutInterval !== null) {
-        clearInterval(gameMusicFadeOutInterval);
-        gameMusicFadeOutInterval = null;
-      }
-      musicEl.volume = 0;
-      musicEl.muted = isMuted;
-      tryStartAmbientMusic();
-      const targetVol = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-      if (gameMusicFadeInInterval !== null) clearInterval(gameMusicFadeInInterval);
-      gameMusicFadeInInterval = setInterval(() => {
-        if (!musicEl) {
-          clearInterval(gameMusicFadeInInterval);
-          gameMusicFadeInInterval = null;
-          return;
-        }
-        if (musicEl.volume < targetVol - 0.0075) {
-          musicEl.volume = Math.min(targetVol, musicEl.volume + 0.0075);
-        } else {
-          musicEl.volume = targetVol;
-          clearInterval(gameMusicFadeInInterval);
-          gameMusicFadeInInterval = null;
-        }
-      }, 30);
-    }
+    // Crossfade: fade out menu music, fade in game music.
+    GameAudio.fadeOutMenuMusic();
+    GameAudio.fadeInGameMusic();
   }
 
   function refreshMenuStats() {
@@ -2202,7 +1875,7 @@ async function main() {
     setMasterGain: (val) => {
       masterGain = val;
       localStorage.setItem("cartRaveVolume", Math.round((val / AUDIO_VOLUME_MAX) * 100).toString());
-      try { applyAudioVolume(); } catch (e) {}
+      try { GameAudio.applyAudioVolume(); } catch (e) {}
     },
     getSfxVolume: () => sfxVolume,
     setSfxVolume: (val) => { setSfxSliderVolume(val); },
@@ -2224,7 +1897,9 @@ async function main() {
     getMenuVisible: () => menuVisible,
     getPartySocket: () => Netcode.getPartySocket(),
     getReadyToggleMsgType: () => MSG.readyToggle,
-    getCART_COLORS: () => CART_COLORS
+    getCART_COLORS: () => CART_COLORS,
+    getDefaultRoundMs: () => 95000,
+    getCountdownMs: () => 3000,
   });
   const resultsUi = initResultsOverlay();
   initMenu(); // Step 10b: Add menu initialization
@@ -2248,12 +1923,6 @@ async function main() {
       GameState.setRoundStartedAtMs(0);
     }
   };
-
-  function clampInt(value, min, max) {
-    const v = Math.round(value);
-    if (!Number.isFinite(v)) return min;
-    return Math.max(min, Math.min(max, v));
-  }
 
   // (Legacy updateHud removed)
 
@@ -2425,12 +2094,14 @@ async function main() {
   let cartCrashBufferLoadInFlight = false;
   let shakeUntil = 0;
   let shakeIntensity = 0;
-  let slowMoUntil = 0;
-  let slowMoRate = 1;
-let slowMoActive = false;
-let slowMoStartMs = 0;
-const SLOW_MO_DURATION_MS = 3500;
-const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
+  const gameCtx = createGameContext().registerModules({
+    Netcode,
+    GameState,
+    Simulation,
+    Entities,
+    Input,
+    HUD,
+  });
   let fovPunchUntil = 0;
   const BASE_FOV = CONFIG.camera.fov;
 
@@ -2747,7 +2418,13 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     },
   };
   playCollisionRef = sfx.playCollision;
-  applyAudioVolume();
+  gameSfx = sfx;
+  GameAudio.registerMusicVolumeDeps({
+    audioListener,
+    getSfxVolume: () => sfxVolume,
+  });
+  GameAudio.registerAudioRefs({ sfx, crowd, leaderHum });
+  GameAudio.applyAudioVolume();
   camera.add(audioListener);
 
   const composer = new EffectComposer(renderer);
@@ -2856,31 +2533,21 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
   document.body.appendChild(labelRenderer.domElement);
 
-  const cameraState = {
-    pos: camera.position.clone(),
-    quat: camera.quaternion.clone(),
-  };
+  CameraMod.initCameraFollow(camera, CONFIG.camera);
 
   const cartLinvelScratch = new THREE.Vector3();
   const netTargetPosScratch = new THREE.Vector3();
-  const cameraPlayerQuat = new THREE.Quaternion();
-  const cameraPlayerPosition = new THREE.Vector3();
-  const cameraForwardWorld = new THREE.Vector3();
-  const cameraDesiredPos = new THREE.Vector3();
-  const cameraDesiredLook = new THREE.Vector3();
-  const cameraUp = new THREE.Vector3(0, 1, 0);
-  const cameraLookMat = new THREE.Matrix4();
-  const cameraDesiredQuat = new THREE.Quaternion();
-  const crowdAnimDummy = new THREE.Object3D();
   const boothNeonColor1 = new THREE.Color(CONFIG.booth.neonColor1);
   const boothNeonColor2 = new THREE.Color(CONFIG.booth.neonColor2);
   const boothNeonMixed = new THREE.Color();
-  let fpsFrames = 0;
-  let fpsLast = performance.now();
-
-  function dampFactor(lambda, dt) {
-    return 1 - Math.exp(-lambda * dt);
-  }
+  const fpsState = {
+    frames: 0,
+    last: performance.now(),
+    get canvas() { return fpsCanvas2d; },
+    set canvas(v) { fpsCanvas2d = v; },
+    get ctx() { return fpsCtx2d; },
+    set ctx(v) { fpsCtx2d = v; },
+  };
 
   function updateCameraFraming() {
     const aspect = window.innerWidth / window.innerHeight;
@@ -2919,7 +2586,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   // Minimal ambient + a few colored spotlights for "neon" vibe.
   scene.add(new THREE.AmbientLight(0x221133, 0.15));
 
-  const visualRecordThickness = 0.28;
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
   const recordSurfaceGlowY =
     platformTopY + CONFIG.record.surface.concentricRings.yOffset + 0.018;
@@ -3053,687 +2719,18 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
 
-  // --- Record platform (visual rotates, physics stays fixed for day 1) ---
-  const visualRecordY = CONFIG.record.y + (CONFIG.record.thickness - visualRecordThickness) / 2;
-  const recordGeo = buildRecordRingGeometry({
-    outerRadius: CONFIG.record.radius,
-    innerRadius: CONFIG.record.innerRadius,
-    thickness: visualRecordThickness,
-    bevelThickness: 0.04,
-    bevelSize: 0.04,
-    curveSegments: 64,
-  });
-  const recordMat = new THREE.MeshStandardMaterial({
-    color: CONFIG.record.color,
-    roughness: 0.72,
-    metalness: 0.35,
-    transparent: true,
-    opacity: 0.7,
-  });
-  recordMat.depthWrite = false;
-  const recordMesh = new THREE.Mesh(recordGeo, recordMat);
-  recordMesh.position.set(0, visualRecordY, 0);
-  recordMesh.receiveShadow = false;
-  scene.add(recordMesh);
-
-  // * Spindle accent light: slowly cycles pink <-> cyan in the render loop.
-  const spindleLight = new THREE.PointLight(0xff2bd6, 80, 30, 2);
-  const spindleLightColorPink = new THREE.Color(0xff2bd6);
-  const spindleLightColorCyan = new THREE.Color(0x2bd6ff);
-  spindleLight.position.set(0, 1.5, 0);
-  scene.add(spindleLight);
-
-  const visualRecordTopY = visualRecordThickness / 2;
-  const recordReflectorGeo = new THREE.RingGeometry(
-    CONFIG.record.innerRadius,
-    CONFIG.record.radius,
-    128,
-    1,
-  );
-  const recordReflector = new Reflector(recordReflectorGeo, {
-    clipBias: 0.003,
-    textureWidth: Math.floor(window.innerWidth * Math.min(window.devicePixelRatio || 1, 2)),
-    textureHeight: Math.floor(window.innerHeight * Math.min(window.devicePixelRatio || 1, 2)),
-    color: 0x111111,
-  });
-  recordReflector.rotation.x = -Math.PI / 2;
-  recordReflector.position.y = visualRecordTopY + CONFIG.record.surface.concentricRings.yOffset + 0.001;
-  recordReflector.renderOrder = 0;
-  recordMesh.add(recordReflector);
-
-  // --- Record center label (stars) ---
-  const recordLabelCanvas = document.createElement("canvas");
-  recordLabelCanvas.width = 512;
-  recordLabelCanvas.height = 512;
-  const recordLabelCtx = recordLabelCanvas.getContext("2d");
-  recordLabelCtx.clearRect(0, 0, 512, 512);
-
-  const labelCx = 256;
-  const labelCy = 256;
-  const labelR = 256;
-
-  // Label background disc (white; tint comes from material.color)
-  recordLabelCtx.fillStyle = "#ffffff";
-  recordLabelCtx.beginPath();
-  recordLabelCtx.arc(labelCx, labelCy, labelR, 0, Math.PI * 2);
-  recordLabelCtx.fill();
-
-  // 5-point star path helper.
-  const drawStar = (cx, cy, outerR, innerR, rotationRad) => {
-    recordLabelCtx.beginPath();
-    for (let i = 0; i < 10; i += 1) {
-      const a = rotationRad + (i * Math.PI) / 5;
-      const r = i % 2 === 0 ? outerR : innerR;
-      const x = cx + Math.cos(a) * r;
-      const y = cy + Math.sin(a) * r;
-      if (i === 0) recordLabelCtx.moveTo(x, y);
-      else recordLabelCtx.lineTo(x, y);
-    }
-    recordLabelCtx.closePath();
-    recordLabelCtx.fill();
-  };
-
-  // Three stars, 120° apart.
-  recordLabelCtx.fillStyle = "#ffffff";
-  const starOrbit = labelR * 0.6;
-  const starOuter = labelR * 0.32;
-  const starInner = starOuter * 0.45;
-  for (let i = 0; i < 3; i += 1) {
-    const a = (i * Math.PI * 2) / 3 - Math.PI / 2;
-    const sx = labelCx + Math.cos(a) * starOrbit;
-    const sy = labelCy + Math.sin(a) * starOrbit;
-    drawStar(sx, sy, starOuter, starInner, a);
-  }
-
-  // Transparent center hole.
-  recordLabelCtx.globalCompositeOperation = "destination-out";
-  recordLabelCtx.beginPath();
-  recordLabelCtx.arc(labelCx, labelCy, labelR * 0.27, 0, Math.PI * 2);
-  recordLabelCtx.fill();
-  recordLabelCtx.globalCompositeOperation = "source-over";
-
-  const recordLabelTex = new THREE.CanvasTexture(recordLabelCanvas);
-  recordLabelTex.needsUpdate = true;
-  const recordLabelGeo = new THREE.RingGeometry(3.7, 7.0, 96);
-  const recordLabelMat = new THREE.MeshBasicMaterial({
-    map: recordLabelTex,
-    transparent: true,
-    depthWrite: false,
-    opacity: 0.495,
-    blending: THREE.NormalBlending,
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-  });
-  recordLabelMat.depthTest = true;
-  const recordLabelMesh = new THREE.Mesh(recordLabelGeo, recordLabelMat);
-  recordLabelMesh.rotation.x = -Math.PI / 2;
-  recordLabelMesh.position.y = visualRecordTopY + CONFIG.record.surface.concentricRings.yOffset + 0.012;
-  recordLabelMesh.renderOrder = -1;
-  recordMesh.add(recordLabelMesh);
-
-  (function buildRecordSurfaceGrooves(parentMesh) {
-    const surf = CONFIG.record.surface;
-    const th = visualRecordThickness;
-    const yBase = th / 2;
-
-    const rings = surf.concentricRings;
-    const rMin = rings.innerRadius;
-    const rMax = rings.outerRadius;
-
-    for (let i = 0; i < rings.count; i += 1) {
-      const t = (i + 0.5) / rings.count;
-      const rCenter = rMin + (rMax - rMin) * t;
-      const halfW = rings.lineWidth / 2;
-      let inner = rCenter - halfW;
-      let outer = rCenter + halfW;
-      inner = Math.max(inner, rMin + 0.001);
-      outer = Math.min(outer, rMax - 0.001);
-      if (outer - inner < 0.002) continue;
-      const ringGeo = new THREE.RingGeometry(inner, outer, 96);
-      const glint = i % 3 === 0 ? 0.13 : 0.06;
-      const ringMat = new THREE.MeshStandardMaterial({
-        color: i % 2 === 0 ? rings.color : 0x111118,
-        roughness: i % 2 === 0 ? 0.38 : 0.86,
-        metalness: 0.55,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.52 + glint,
-      });
-      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-      ringMesh.userData.recordSurfacePart = "groove";
-      ringMesh.rotation.x = -Math.PI / 2;
-      ringMesh.position.y = yBase + rings.yOffset + 0.006;
-      ringMesh.renderOrder = 1;
-      parentMesh.add(ringMesh);
-    }
-  })(recordMesh);
-
-  // Neon rim (visual only).
-  const rimMat = new THREE.MeshStandardMaterial({
-    color: CONFIG.record.rimColor,
-    emissive: CONFIG.record.rimColor,
-    emissiveIntensity: 2.2,
-    roughness: 0.5,
-    metalness: 0.0,
-    depthWrite: false,
-  });
-  // * Beveled ExtrudeGeometry extends past nominal outerRadius — inset torus (0.985*r) sits inside the floor mesh and
-  // * disappears; place slightly outside the nominal edge (mirrors inner rim * 1.015) so the neon ring stays visible.
-  const rimGeo = new THREE.TorusGeometry(CONFIG.record.radius * 1.015, 0.12, 10, 72);
-  const rimMesh = new THREE.Mesh(rimGeo, rimMat);
-  rimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
-  rimMesh.rotation.x = Math.PI / 2;
-  scene.add(rimMesh);
-
-  const edgeRingGeo = new THREE.TorusGeometry(CONFIG.record.radius * 1.015, 0.05, 10, 96);
-  const edgeRingMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-  const edgeRingMesh = new THREE.Mesh(edgeRingGeo, edgeRingMat);
-  edgeRingMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.02, 0);
-  edgeRingMesh.rotation.x = Math.PI / 2;
-  scene.add(edgeRingMesh);
-
-  // Inner neon rim (visual only): sells the hole edge.
-  const innerRimGeo = new THREE.TorusGeometry(CONFIG.record.innerRadius * 1.02, 0.12, 10, 72);
-  const innerRimMesh = new THREE.Mesh(innerRimGeo, rimMat);
-  innerRimMesh.position.set(0, CONFIG.record.y + CONFIG.record.thickness / 2 + 0.03, 0);
-  innerRimMesh.rotation.x = Math.PI / 2;
-  scene.add(innerRimMesh);
-
-  const recordBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, CONFIG.record.y, 0),
-  );
-
-  const recordPhysics = CONFIG.record.physics || {};
-  const recordPhysicsGeo = buildRecordPhysicsGeometry({
-    outerRadius: CONFIG.record.radius,
-    innerRadius: CONFIG.record.innerRadius,
-    thickness: CONFIG.record.thickness,
-    chamferWidth: recordPhysics.chamferWidth ?? 0.55,
-    holeClearance: recordPhysics.holeClearance ?? 1.05,
-    outerBevel: recordPhysics.outerBevel ?? 0.12,
-    segments: recordPhysics.segments ?? 72,
-  });
-  const recordVerts = /** @type {Float32Array} */ (recordPhysicsGeo.attributes.position.array);
-  const recordIndices = recordPhysicsGeo.index
-    ? Uint32Array.from(recordPhysicsGeo.index.array)
-    : Uint32Array.from(
-        Array.from({ length: recordPhysicsGeo.attributes.position.count }, (_, i) => i),
-      );
-  const recordColliderDesc = RAPIER.ColliderDesc.trimesh(recordVerts, recordIndices)
-    .setFriction(CONFIG.record.friction)
-    .setRestitution(CONFIG.record.restitution);
-  const recordCollider = world.createCollider(recordColliderDesc, recordBody);
-
-  if (CONFIG.debug.arenaTrimesh) {
-    const debugMat = new THREE.MeshBasicMaterial({
-      color: 0x00ff88,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.45,
-      depthTest: false,
-    });
-    const debugMesh = new THREE.Mesh(recordPhysicsGeo.clone(), debugMat);
-    debugMesh.position.set(0, CONFIG.record.y, 0);
-    scene.add(debugMesh);
-  }
-
-  // ========================================================================
-  // Step 15 — DJ Spawn Booths (4x, N/S/E/W)
-  // ========================================================================
-  const boothNeonMeshes = []; // collect for RGB cycling in game loop
-  const boothColliderHandles = [];
-
-  (function buildBooths() {
-    const B = CONFIG.booth;
-    const arenaR = CONFIG.record.radius;
-
-    // Distance from world origin to the center of each booth platform
-    const boothCenterDist = arenaR + B.gapDistance + B.rampLength + B.platformDepth / 2;
-
-    // Cardinal angles: slot 0 = +X, slot 1 = +Z, slot 2 = -X, slot 3 = -Z
-    const angles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-
-    // Per-booth accent colors (saturated, matching reference image)
-    const boothColors = [
-      0xff2bd6, // fuchsia/pink
-      0x2bff6e, // neon green
-      0x2bd6ff, // neon cyan
-      0xff6b2b, // neon orange
-    ];
-
-    // --- Helper: neon tube between two local-space points ---
-    function makeNeonTube(p1, p2, radius, color) {
-      const dir = new THREE.Vector3().subVectors(p2, p1);
-      const len = dir.length();
-      const geo = new THREE.CylinderGeometry(radius, radius, len, 6);
-      const mat = new THREE.MeshStandardMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 1.5,
-        roughness: 0.3,
-        metalness: 0.8,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-      mesh.position.copy(mid);
-      const axis = new THREE.Vector3(0, 1, 0);
-      const target = dir.clone().normalize();
-      const quat = new THREE.Quaternion().setFromUnitVectors(axis, target);
-      mesh.quaternion.copy(quat);
-      return mesh;
-    }
-
-    // --- Helper: truss tower (lattice of thin boxes) ---
-    function makeTruss(height, baseY, color) {
-      const trussGroup = new THREE.Group();
-      const legW = 0.12;
-      const trussW = 0.45;
-      const legMat = new THREE.MeshStandardMaterial({
-        color: 0x888899, roughness: 0.5, metalness: 0.7,
-      });
-      const crossMat = new THREE.MeshStandardMaterial({
-        color: 0x666677, roughness: 0.5, metalness: 0.6,
-      });
-
-      const offsets = [
-        [-trussW / 2, -trussW / 2],
-        [trussW / 2, -trussW / 2],
-        [-trussW / 2, trussW / 2],
-        [trussW / 2, trussW / 2],
-      ];
-      for (const [ox, oz] of offsets) {
-        const legGeo = new THREE.BoxGeometry(legW, height, legW);
-        const leg = new THREE.Mesh(legGeo, legMat);
-        leg.position.set(ox, baseY + height / 2, oz);
-        trussGroup.add(leg);
-      }
-
-      const braceH = 0.08;
-      const braceCount = Math.floor(height / 2);
-      for (let b = 0; b <= braceCount; b++) {
-        const by = baseY + b * 2;
-        const xGeo = new THREE.BoxGeometry(trussW, braceH, braceH);
-        const xf = new THREE.Mesh(xGeo, crossMat);
-        xf.position.set(0, by, -trussW / 2);
-        trussGroup.add(xf);
-        const xb = new THREE.Mesh(xGeo, crossMat);
-        xb.position.set(0, by, trussW / 2);
-        trussGroup.add(xb);
-        const zGeo = new THREE.BoxGeometry(braceH, braceH, trussW);
-        const zl = new THREE.Mesh(zGeo, crossMat);
-        zl.position.set(-trussW / 2, by, 0);
-        trussGroup.add(zl);
-        const zr = new THREE.Mesh(zGeo, crossMat);
-        zr.position.set(trussW / 2, by, 0);
-        trussGroup.add(zr);
-      }
-
-      const lightGeo = new THREE.BoxGeometry(0.5, 0.3, 0.5);
-      const lightMat = new THREE.MeshStandardMaterial({
-        color: color, emissive: color, emissiveIntensity: 2.0,
-        roughness: 0.3, metalness: 0.5,
-      });
-      const light = new THREE.Mesh(lightGeo, lightMat);
-      light.position.set(0, baseY + height + 0.2, 0);
-      trussGroup.add(light);
-
-      return trussGroup;
-    }
-
-    // --- Helper: canvas text texture ---
-    function makeTextTexture(text, color) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 128;
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, 512, 128);
-      ctx.fillStyle = "#" + new THREE.Color(color).getHexString();
-      ctx.font = "bold 64px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 256, 64);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    // Spawn platform fog particles
-    const fogPuffCount = 40;
-    const fogPuffCanvas = document.createElement("canvas");
-    fogPuffCanvas.width = 64;
-    fogPuffCanvas.height = 64;
-    const fogPuffCtx = fogPuffCanvas.getContext("2d");
-    const fogPuffGrad = fogPuffCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    fogPuffGrad.addColorStop(0, "rgba(255,255,255,0.3)");
-    fogPuffGrad.addColorStop(0.5, "rgba(255,255,255,0.08)");
-    fogPuffGrad.addColorStop(1, "rgba(255,255,255,0)");
-    fogPuffCtx.fillStyle = fogPuffGrad;
-    fogPuffCtx.fillRect(0, 0, 64, 64);
-    const fogPuffTex = new THREE.CanvasTexture(fogPuffCanvas);
-
-    for (let i = 0; i < 4; i += 1) {
-      const angle = angles[i];
-      const accentColor = boothColors[i];
-
-      const cx = boothCenterDist * Math.cos(angle);
-      const cz = boothCenterDist * Math.sin(angle);
-      const topY = B.platformY;
-
-      const yaw = Math.PI / 2 - angle;
-
-      const boothGroup = new THREE.Group();
-      boothGroup.position.set(cx, 0, cz);
-      boothGroup.rotation.y = yaw;
-
-      // ===== PLATFORM SLAB =====
-      const platGeo = new THREE.BoxGeometry(B.platformWidth, B.platformThickness, B.platformDepth);
-      const platMat = new THREE.MeshStandardMaterial({
-        color: accentColor,
-        roughness: 0.7,
-        metalness: 0.3,
-        emissive: accentColor,
-        emissiveIntensity: 0.15,
-      });
-      const platMesh = new THREE.Mesh(platGeo, platMat);
-      platMesh.position.set(0, topY, 0);
-      boothGroup.add(platMesh);
-
-      // Platform collider (world space)
-      const platBody = world.createRigidBody(
-        RAPIER.RigidBodyDesc.fixed().setTranslation(cx, topY, cz),
-      );
-      const halfYaw = yaw / 2;
-      platBody.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
-      const boothCollider = world.createCollider(
-        RAPIER.ColliderDesc.cuboid(B.platformWidth / 2, B.platformThickness / 2, B.platformDepth / 2)
-          .setFriction(B.friction)
-          .setRestitution(B.restitution),
-        platBody,
-      );
-      boothColliderHandles.push(boothCollider.handle);
-
-
-      // ===== NEON EDGE STRIPS (platform perimeter) =====
-      const pw = B.platformWidth / 2;
-      const pd = B.platformDepth / 2;
-      const edgeY = topY + B.platformThickness / 2 + 0.02;
-      const edgeR = 0.035;
-
-      const platformEdges = [
-        [new THREE.Vector3(-pw, edgeY, -pd), new THREE.Vector3(pw, edgeY, -pd)],
-        [new THREE.Vector3(-pw, edgeY, pd), new THREE.Vector3(pw, edgeY, pd)],
-        [new THREE.Vector3(-pw, edgeY, -pd), new THREE.Vector3(-pw, edgeY, pd)],
-        [new THREE.Vector3(pw, edgeY, -pd), new THREE.Vector3(pw, edgeY, pd)],
-      ];
-      for (const [a, b] of platformEdges) {
-        const tube = makeNeonTube(a, b, edgeR, accentColor);
-        boothGroup.add(tube);
-        boothNeonMeshes.push(tube);
-      }
-
-
-      // ===== SIDE RAILINGS (platform only) =====
-      const rh = B.railHeight;
-      const railBaseY = topY + B.platformThickness / 2;
-      const railTopY = railBaseY + rh;
-      const tubeR = B.railThickness / 2;
-
-      for (const ry of [railBaseY, railTopY]) {
-        const t = makeNeonTube(
-          new THREE.Vector3(-pw, ry, pd),
-          new THREE.Vector3(pw, ry, pd),
-          tubeR, accentColor,
-        );
-        boothGroup.add(t);
-        boothNeonMeshes.push(t);
-      }
-
-      for (const sz of [-pd, pd]) {
-        const t = makeNeonTube(
-          new THREE.Vector3(-pw, railBaseY, sz),
-          new THREE.Vector3(-pw, railTopY, sz),
-          tubeR, accentColor,
-        );
-        boothGroup.add(t);
-        boothNeonMeshes.push(t);
-      }
-      const ltop = makeNeonTube(
-        new THREE.Vector3(-pw, railTopY, -pd),
-        new THREE.Vector3(-pw, railTopY, pd),
-        tubeR, accentColor,
-      );
-      boothGroup.add(ltop);
-      boothNeonMeshes.push(ltop);
-
-      for (const sz of [-pd, pd]) {
-        const t = makeNeonTube(
-          new THREE.Vector3(pw, railBaseY, sz),
-          new THREE.Vector3(pw, railTopY, sz),
-          tubeR, accentColor,
-        );
-        boothGroup.add(t);
-        boothNeonMeshes.push(t);
-      }
-      const rtop = makeNeonTube(
-        new THREE.Vector3(pw, railTopY, -pd),
-        new THREE.Vector3(pw, railTopY, pd),
-        tubeR, accentColor,
-      );
-      boothGroup.add(rtop);
-      boothNeonMeshes.push(rtop);
-
-      // ===== TRUSS TOWERS (4 corners of platform) =====
-      const trussHeight = 6;
-      const trussBaseY = railBaseY;
-      const trussOffsets = [
-        [-pw + 0.5, -pd + 0.5],
-        [pw - 0.5, -pd + 0.5],
-        [-pw + 0.5, pd - 0.5],
-        [pw - 0.5, pd - 0.5],
-      ];
-      for (const [tx, tz] of trussOffsets) {
-        const truss = makeTruss(trussHeight, trussBaseY, accentColor);
-        truss.position.set(tx, 0, tz);
-        boothGroup.add(truss);
-      }
-
-      // ===== DECORATIVE SIDE PANELS =====
-      const sidePanelMat = new THREE.MeshBasicMaterial({
-        color: accentColor,
-        transparent: true,
-        opacity: 0.12,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-      const sidePanelGeo = new THREE.PlaneGeometry(B.platformDepth * 0.8, 1.0);
-      for (const side of [-1, 1]) {
-        const panel = new THREE.Mesh(sidePanelGeo, sidePanelMat);
-        panel.position.set(side * (pw + 0.02), topY + 1.5, 0);
-        panel.rotation.y = side * Math.PI / 2;
-        boothGroup.add(panel);
-
-        // Horizontal neon strips on side panels
-        for (let s = 0; s < 3; s++) {
-          const stripY = topY + 0.8 + s * 0.6;
-          const strip = makeNeonTube(
-            new THREE.Vector3(side * (pw + 0.03), stripY, -pd * 0.35),
-            new THREE.Vector3(side * (pw + 0.03), stripY, pd * 0.35),
-            0.02, accentColor
-          );
-          boothGroup.add(strip);
-          boothNeonMeshes.push(strip);
-        }
-      }
-
-      // Diamond accent on each side
-      for (const side of [-1, 1]) {
-        const diamondShape = new THREE.BufferGeometry();
-        const dh = 0.4;
-        const dw = 0.25;
-        const verts = new Float32Array([
-          0, dh, 0, -dw, 0, 0, 0, -dh, 0,
-          0, dh, 0, 0, -dh, 0, dw, 0, 0,
-        ]);
-        diamondShape.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-        const diamond = new THREE.Mesh(diamondShape, new THREE.MeshBasicMaterial({
-          color: accentColor,
-          transparent: true,
-          opacity: 0.5,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        }));
-        diamond.position.set(side * (pw + 0.04), topY + 1.5, 0);
-        diamond.rotation.y = side * Math.PI / 2;
-        boothGroup.add(diamond);
-      }
-
-      // ===== DJ GEAR (behind cart spawn, local +Z = away from arena) =====
-      if (B.gearEnabled) {
-        const gearGroup = new THREE.Group();
-        gearGroup.position.set(0, topY + B.platformThickness / 2, pd - 0.6);
-
-        const mixerGeo = new THREE.BoxGeometry(3.0, 0.5, 1.2);
-        const mixerMat = new THREE.MeshStandardMaterial({
-          color: 0x1a1a2e, roughness: 0.6, metalness: 0.4,
-        });
-        const mixer = new THREE.Mesh(mixerGeo, mixerMat);
-        mixer.position.set(0, 0.25, 0);
-        gearGroup.add(mixer);
-
-        const panelGeo = new THREE.BoxGeometry(2.6, 0.06, 0.8);
-        const panelMat = new THREE.MeshStandardMaterial({
-          color: 0x333355, roughness: 0.4, metalness: 0.6,
-          emissive: accentColor, emissiveIntensity: 0.15,
-        });
-        const panel = new THREE.Mesh(panelGeo, panelMat);
-        panel.position.set(0, 0.52, 0);
-        gearGroup.add(panel);
-
-        const deckGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16);
-        const deckMat = new THREE.MeshStandardMaterial({
-          color: 0x0d0d0d, roughness: 0.3, metalness: 0.7,
-        });
-        const ld = new THREE.Mesh(deckGeo, deckMat);
-        ld.position.set(-0.9, 0.55, 0);
-        gearGroup.add(ld);
-        const rd = new THREE.Mesh(deckGeo, deckMat);
-        rd.position.set(0.9, 0.55, 0);
-        gearGroup.add(rd);
-
-        const spkGeo = new THREE.BoxGeometry(0.9, 1.6, 0.9);
-        const spkMat = new THREE.MeshStandardMaterial({
-          color: 0x0e0e1a, roughness: 0.7, metalness: 0.3,
-        });
-        const ls = new THREE.Mesh(spkGeo, spkMat);
-        ls.position.set(-2.2, 0.8, 0.2);
-        gearGroup.add(ls);
-        const rs = new THREE.Mesh(spkGeo, spkMat);
-        rs.position.set(2.2, 0.8, 0.2);
-        gearGroup.add(rs);
-
-        const coneGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.04, 12);
-        const coneMat = new THREE.MeshStandardMaterial({
-          color: 0x222233, roughness: 0.9, metalness: 0.1,
-        });
-        const lc = new THREE.Mesh(coneGeo, coneMat);
-        lc.rotation.x = Math.PI / 2;
-        lc.position.set(-2.2, 0.9, -0.25);
-        gearGroup.add(lc);
-        const rc = new THREE.Mesh(coneGeo, coneMat);
-        rc.rotation.x = Math.PI / 2;
-        rc.position.set(2.2, 0.9, -0.25);
-        gearGroup.add(rc);
-
-        // Speaker neon trim
-        for (const sx of [-2.2, 2.2]) {
-          const spkEdges = [
-            [new THREE.Vector3(sx - 0.45, 0.0, -0.25), new THREE.Vector3(sx + 0.45, 0.0, -0.25)],
-            [new THREE.Vector3(sx - 0.45, 1.6, -0.25), new THREE.Vector3(sx + 0.45, 1.6, -0.25)],
-            [new THREE.Vector3(sx - 0.45, 0.0, -0.25), new THREE.Vector3(sx - 0.45, 1.6, -0.25)],
-            [new THREE.Vector3(sx + 0.45, 0.0, -0.25), new THREE.Vector3(sx + 0.45, 1.6, -0.25)],
-          ];
-          for (const [a, b] of spkEdges) {
-            const edge = makeNeonTube(a, b, 0.015, accentColor);
-            gearGroup.add(edge);
-            boothNeonMeshes.push(edge);
-          }
-          // Second speaker cone (woofer)
-          const woofer = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.2, 0.2, 0.04, 12),
-            coneMat
-          );
-          woofer.rotation.x = Math.PI / 2;
-          woofer.position.set(sx, 0.4, -0.25);
-          gearGroup.add(woofer);
-        }
-
-        // Turntable platters (spinning disc on each deck)
-        const platterMat = new THREE.MeshStandardMaterial({
-          color: 0x222222, roughness: 0.15, metalness: 0.85,
-        });
-        for (const dx of [-0.9, 0.9]) {
-          const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.02, 24), platterMat);
-          platter.position.set(dx, 0.6, 0);
-          gearGroup.add(platter);
-          // Label dot
-          const dot = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.08, 0.08, 0.025, 12),
-            new THREE.MeshBasicMaterial({ color: accentColor })
-          );
-          dot.position.set(dx, 0.62, 0);
-          gearGroup.add(dot);
-        }
-
-        // Fader knobs on mixer panel
-        const knobMat = new THREE.MeshStandardMaterial({
-          color: 0xcccccc, roughness: 0.2, metalness: 0.8,
-        });
-        for (let k = 0; k < 5; k++) {
-          const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8), knobMat);
-          knob.position.set(-0.5 + k * 0.25, 0.56, 0);
-          gearGroup.add(knob);
-        }
-
-        // LED strip on mixer front edge
-        const ledStrip = makeNeonTube(
-          new THREE.Vector3(-1.3, 0.3, -0.6),
-          new THREE.Vector3(1.3, 0.3, -0.6),
-          0.025, accentColor
-        );
-        gearGroup.add(ledStrip);
-        boothNeonMeshes.push(ledStrip);
-
-        boothGroup.add(gearGroup);
-      }
-
-      scene.add(boothGroup);
-
-      for (let f = 0; f < fogPuffCount; f++) {
-        const puff = new THREE.Sprite(new THREE.SpriteMaterial({
-          map: fogPuffTex,
-          color: accentColor,
-          transparent: true,
-          opacity: 0.25 + Math.random() * 0.15,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }));
-        const spread = B.platformWidth * 1.5;
-        const puffScale = 4 + Math.random() * 4;
-        puff.scale.set(puffScale, puffScale * 0.3, 1);
-        puff.position.set(
-          cx + (Math.random() - 0.5) * spread,
-          B.platformY + 0.05 + Math.random() * 0.3,
-          cz + (Math.random() - 0.5) * spread,
-        );
-        scene.add(puff);
-      }
-    }
-  })();
-
-  const pitInnerRadius = (CONFIG.record.radius + 2) * 1.30 * 1.20;
-  // Diagnostics removed for submission.
+  const {
+    recordMesh,
+    recordCollider,
+    pitWallColliderHandle,
+    boothColliderHandles,
+    boothNeonMeshes,
+    spindleLight,
+    spindleLightColorPink,
+    spindleLightColorCyan,
+    pitInnerRadius,
+    recordLabelMat,
+  } = initArena(scene, world, CONFIG);
 
   const groundDiscGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundDiscMat = new THREE.MeshStandardMaterial({
@@ -3746,64 +2743,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   groundDisc.rotation.x = -Math.PI / 2;
   groundDisc.position.y = -3;
   scene.add(groundDisc);
-
-  const pitWallDepth = 600;
-  const pitWallTopY = -3;
-  const pitWallCenterY = pitWallTopY - pitWallDepth / 2;
-  const pitWallGeo = new THREE.CylinderGeometry(
-    pitInnerRadius,
-    pitInnerRadius,
-    pitWallDepth,
-    64,
-    1,
-    true,
-  );
-  {
-    const pos = pitWallGeo.attributes.position;
-    const pitWallColorArray = new Float32Array(pos.count * 3);
-    let yMin = Infinity;
-    let yMax = -Infinity;
-    for (let i = 0; i < pos.count; i += 1) {
-      const y = pos.getY(i);
-      yMin = Math.min(yMin, y);
-      yMax = Math.max(yMax, y);
-    }
-    for (let i = 0; i < pos.count; i += 1) {
-      const y = pos.getY(i);
-      const t = yMax > yMin
-        ? Math.max(0, Math.min(1, (y - yMin) / (yMax - yMin)))
-        : 0;
-      // * Bottom: black. Top: purple in linear components (0.25, 0.03, 0.41).
-      pitWallColorArray[i * 3] = 0.25 * t;
-      pitWallColorArray[i * 3 + 1] = 0.03 * t;
-      pitWallColorArray[i * 3 + 2] = 0.41 * t;
-    }
-    pitWallGeo.setAttribute("color", new THREE.BufferAttribute(pitWallColorArray, 3));
-  }
-  const pitWallMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    metalness: 0.3,
-    roughness: 0.7,
-    side: THREE.BackSide,
-    vertexColors: true,
-  });
-  const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
-  pitWall.position.y = pitWallCenterY;
-  scene.add(pitWall);
-  const pitWallBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, pitWallCenterY, 0),
-  );
-  const pitWallVerts = /** @type {Float32Array} */ (pitWallGeo.attributes.position.array);
-  const pitWallIndices = pitWallGeo.index
-    ? Uint32Array.from(pitWallGeo.index.array)
-    : Uint32Array.from(Array.from({ length: pitWallGeo.attributes.position.count }, (_, i) => i));
-  const pitWallCollider = world.createCollider(
-    RAPIER.ColliderDesc.trimesh(pitWallVerts, pitWallIndices)
-      .setFriction(0.2)
-      .setRestitution(0.8),
-    pitWallBody
-  );
-  const pitWallColliderHandle = pitWallCollider.handle;
 
   const groundGridGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
   const groundGridMat = new THREE.MeshBasicMaterial({
@@ -3818,57 +2757,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   groundGrid.position.y = -2.99;
   scene.add(groundGrid);
 
-  const crowdSourceCart = buildCart("white");
-  crowdSourceCart.updateMatrixWorld(true);
-  const crowdCartParts = [];
-  crowdSourceCart.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !child.geometry) return;
-    crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
-  });
-  const mergedGeo = mergeGeometries(crowdCartParts);
-  for (const g of crowdCartParts) g.dispose();
-  disposeObject3D(crowdSourceCart);
-  const crowdMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-  });
-  const crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, 5000);
-  const crowdPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
-  const dummy = new THREE.Object3D();
-  const crowdWiggleAxisY = new THREE.Vector3(0, 1, 0);
-  const crowdWiggleQuat = new THREE.Quaternion();
-  for (let i = 0; i < 5000; i += 1) {
-    const angle = Math.random() * Math.PI * 2;
-    const r = pitInnerRadius + 0.5 + Math.random() * 80;
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-    const scale = 0.25 + Math.random() * 0.2;
-
-    dummy.position.set(x, -2.9, z);
-    dummy.scale.set(scale, scale, scale);
-    dummy.rotation.y = angle + Math.PI + (Math.random() - 0.5) * 0.8;
-    dummy.updateMatrix();
-    crowdCarts.setMatrixAt(i, dummy.matrix);
-    const baseColor = new THREE.Color(crowdPalette[Math.floor(Math.random() * crowdPalette.length)]);
-    baseColor.multiplyScalar(0.5);
-    crowdCarts.setColorAt(i, baseColor);
-  }
-  crowdCarts.instanceMatrix.needsUpdate = true;
-  if (crowdCarts.instanceColor) crowdCarts.instanceColor.needsUpdate = true;
-  scene.add(crowdCarts);
-
-  const crowdGlowGeo = new THREE.RingGeometry(pitInnerRadius, pitInnerRadius + 80, 64);
-  const crowdGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xff00ff,
-    transparent: true,
-    opacity: 0.08,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
-  const crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
-  crowdGlow.rotation.x = -Math.PI / 2;
-  crowdGlow.position.y = -2.95;
-  scene.add(crowdGlow);
+  Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
 
   const horizonFogGeo = new THREE.CylinderGeometry(150, 150, 40, 64, 8, true);
   const horizonFogMat = new THREE.ShaderMaterial({
@@ -3898,638 +2787,15 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
   horizonFog.position.y = -3;
   scene.add(horizonFog);
 
-  /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, light: THREE.SpotLight, index: number }[]} */
-  const crowdSearchlightEntries = [];
-  const crowdSearchlightColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
-  const crowdSearchlightSpeeds = [0.2, 0.35, 0.5, 0.25];
-  const crowdSearchlightSourceRadius = pitInnerRadius + 30;
-  const crowdSearchlightTargetRadius = pitInnerRadius + 35;
-  for (let i = 0; i < 4; i += 1) {
-    const angle = i * Math.PI * 0.5;
-    const target = new THREE.Object3D();
-    target.position.set(
-      Math.cos(angle) * crowdSearchlightTargetRadius,
-      -3,
-      Math.sin(angle) * crowdSearchlightTargetRadius,
-    );
-    scene.add(target);
-
-    const searchlight = new THREE.SpotLight(
-      crowdSearchlightColors[i],
-      30,
-      200,
-      Math.PI * 0.35,
-      0.8,
-      1.5,
-    );
-    searchlight.position.set(
-      Math.cos(angle) * crowdSearchlightSourceRadius,
-      25,
-      Math.sin(angle) * crowdSearchlightSourceRadius,
-    );
-    searchlight.target = target;
-    scene.add(searchlight);
-
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(12, 30, 16, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: crowdSearchlightColors[i],
-        transparent: true,
-        opacity: 0.06,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    cone.position.copy(searchlight.position);
-    cone.lookAt(target.position);
-    cone.rotateX(-Math.PI / 2);
-    scene.add(cone);
-    crowdSearchlightEntries.push({ target, cone, light: searchlight, index: i });
-  }
-
-  /** @type {{ light: THREE.PointLight, index: number }[]} */
-  const crowdPointLightEntries = [];
-  const crowdPointLightRadiusMin = pitInnerRadius + 10;
-  const crowdPointLightRadiusRange = 35;
-  for (let i = 0; i < 32; i += 1) {
-    const angle = (i / 32) * Math.PI * 2;
-    const radius = crowdPointLightRadiusMin + Math.random() * crowdPointLightRadiusRange;
-    const light = new THREE.PointLight(crowdPalette[i % crowdPalette.length], 4, 50, 2);
-    light.position.set(
-      Math.cos(angle) * radius,
-      1 + Math.random() * 6,
-      Math.sin(angle) * radius,
-    );
-    scene.add(light);
-    const lightBulb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 8, 8),
-      new THREE.MeshBasicMaterial({
-        color: crowdPalette[i % crowdPalette.length],
-        transparent: true,
-        opacity: 0.7,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    lightBulb.position.copy(light.position);
-    scene.add(lightBulb);
-    crowdPointLightEntries.push({ light, index: i });
-  }
-
-  const stageAngle = 0;
-  const stageRadius = pitInnerRadius + 15;
-  const stageX = Math.cos(stageAngle) * stageRadius;
-  const stageZ = Math.sin(stageAngle) * stageRadius;
-  const stageY = -3;
-  const stageGroup = new THREE.Group();
-  const stageBaseMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a1a,
-    metalness: 0.8,
-    roughness: 0.3,
+  Effects.initStage(scene, pitInnerRadius, CART_COLORS);
+  Effects.initBillboard(scene, pitInnerRadius);
+  Effects.initPortals(scene, pitInnerRadius, {
+    incomingPortalParams,
+    boothConfig: CONFIG.booth,
+    spawnRingRadius: CONFIG.cart.spawnRingRadius,
+    boothPlatformDepth: CONFIG.booth.platformDepth,
   });
-  const stageMetalMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a2e,
-    metalness: 0.8,
-    roughness: 0.4,
-  });
-  const stageSpeakerMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a12,
-    metalness: 0.7,
-    roughness: 0.3,
-  });
-  const stageSpeakerFaceMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
-  const stageLedMat = new THREE.MeshBasicMaterial({ color: 0x1100aa });
-  const stageFrameMat = new THREE.MeshBasicMaterial({ color: 0x0a0a1a });
-  const neonMagentaMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-  const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-  const stageLightPalette = Object.values(CART_COLORS).map((entry) => entry.hex);
-  /** @type {{ target: THREE.Object3D, baseX: number, index: number }[]} */
-  const stageLightEntries = [];
-  /** @type {{ mesh: THREE.Mesh, index: number, speed: number, phaseStep: number, amplitude: number, baseZ: number }[]} */
-  const laserEntries = [];
-
-  function addLaserBeam({
-    position,
-    color,
-    radius,
-    length,
-    opacity,
-    tiltX,
-    index,
-    speed,
-    phaseStep,
-    amplitude,
-    baseQuaternion,
-    faceCenter = false,
-  }) {
-    const laserGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
-    laserGeo.translate(0, length / 2, 0);
-    const laserMat = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity,
-      blending: THREE.AdditiveBlending,
-    });
-    const laser = new THREE.Mesh(laserGeo, laserMat);
-    laser.position.copy(position);
-    if (baseQuaternion) {
-      laser.quaternion.copy(baseQuaternion);
-    } else if (faceCenter) {
-      laser.lookAt(0, 0, 0);
-    }
-    laser.rotateX(tiltX);
-    scene.add(laser);
-    laserEntries.push({
-      mesh: laser,
-      index,
-      speed,
-      phaseStep,
-      amplitude,
-      baseZ: laser.rotation.z,
-    });
-  }
-
-  stageGroup.clear();
-
-  // --- Base platform ---
-  const stageBase = new THREE.Mesh(new THREE.BoxGeometry(24, 1.5, 10), stageBaseMat);
-  stageBase.position.y = 0.75;
-  stageGroup.add(stageBase);
-
-  // --- Two outer truss towers (left and right) ---
-  const towerXs = [-11, 11];
-  for (const towerX of towerXs) {
-    for (const ox of [-0.5, 0.5]) {
-      for (const oz of [-0.5, 0.5]) {
-        const pole = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.15, 0.15, 18, 8),
-          stageMetalMat,
-        );
-        pole.position.set(towerX + ox, 9, oz);
-        stageGroup.add(pole);
-      }
-    }
-
-    for (let b = 0; b < 6; b += 1) {
-      const braceY = 1.5 + b * 3;
-      const braceX = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 0.1), stageMetalMat);
-      braceX.position.set(towerX, braceY, 0);
-      stageGroup.add(braceX);
-      const braceZ = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1), stageMetalMat);
-      braceZ.position.set(towerX, braceY, 0);
-      stageGroup.add(braceZ);
-    }
-  }
-
-  // --- Top horizontal truss spanning between towers ---
-  for (const z of [-0.5, 0.5]) {
-    const topPole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0.15, 22, 8),
-      stageMetalMat,
-    );
-    topPole.rotation.z = Math.PI / 2;
-    topPole.position.set(0, 18, z);
-    stageGroup.add(topPole);
-  }
-  for (let x = -10; x <= 10; x += 2) {
-    const spanBrace = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1), stageMetalMat);
-    spanBrace.position.set(x, 18, 0);
-    stageGroup.add(spanBrace);
-  }
-
-  // --- LED screen (center back wall) ---
-  const ledCanvas = document.createElement('canvas');
-  ledCanvas.width = 512;
-  ledCanvas.height = 256;
-  const ledCtx = ledCanvas.getContext('2d');
-  // Background gradient
-  const ledGrad = ledCtx.createLinearGradient(0, 0, 512, 256);
-  ledGrad.addColorStop(0, '#0a0020');
-  ledGrad.addColorStop(0.5, '#1a0040');
-  ledGrad.addColorStop(1, '#0a0020');
-  ledCtx.fillStyle = ledGrad;
-  ledCtx.fillRect(0, 0, 512, 256);
-  // "CART" text
-  ledCtx.font = 'bold 90px "Arial Black", "Impact", sans-serif';
-  ledCtx.textAlign = 'center';
-  ledCtx.textBaseline = 'middle';
-  ledCtx.fillStyle = '#ff2bd6';
-  ledCtx.shadowColor = '#ff2bd6';
-  ledCtx.shadowBlur = 20;
-  ledCtx.fillText('CART', 256, 100);
-  // "RAVE" text
-  ledCtx.fillStyle = '#ffe53d';
-  ledCtx.shadowColor = '#ffe53d';
-  ledCtx.shadowBlur = 20;
-  ledCtx.fillText('RAVE', 256, 185);
-  // Scanline overlay
-  ledCtx.shadowBlur = 0;
-  for (let y = 0; y < 256; y += 4) {
-    ledCtx.fillStyle = 'rgba(0,0,0,0.15)';
-    ledCtx.fillRect(0, y, 512, 2);
-  }
-  const ledTex = new THREE.CanvasTexture(ledCanvas);
-  const ledScreenMat = new THREE.MeshBasicMaterial({ map: ledTex });
-  const ledScreen = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 0.3), ledScreenMat);
-  ledScreen.position.set(0, 9, -4);
-  stageGroup.add(ledScreen);
-  const ledFrame = new THREE.Mesh(new THREE.BoxGeometry(16.5, 8.5, 0.2), stageFrameMat);
-  ledFrame.position.set(0, 9, -4.3);
-  stageGroup.add(ledFrame);
-
-  // --- Speaker stacks (two per side) ---
-  const speakerXs = [-9, -7, 7, 9];
-  const speakerYs = [1.5, 3.5, 5.5];
-  for (const sx of speakerXs) {
-    for (const sy of speakerYs) {
-      const speaker = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), stageSpeakerMat);
-      speaker.position.set(sx, sy, 0);
-      stageGroup.add(speaker);
-      const speakerFace = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.6, 0.6, 0.1, 16),
-        stageSpeakerFaceMat,
-      );
-      speakerFace.rotation.x = Math.PI / 2;
-      speakerFace.position.set(sx, sy, 1.01);
-      stageGroup.add(speakerFace);
-    }
-  }
-
-  // --- Neon trim ---
-  const neonTop = new THREE.Mesh(new THREE.BoxGeometry(22, 0.08, 0.08), neonMagentaMat);
-  neonTop.position.set(0, 18, 0);
-  stageGroup.add(neonTop);
-  for (const towerX of towerXs) {
-    const towerTopNeon = new THREE.Mesh(new THREE.BoxGeometry(1, 0.08, 0.08), neonCyanMat);
-    towerTopNeon.position.set(towerX, 18, 0);
-    stageGroup.add(towerTopNeon);
-  }
-  const neonBaseFront = new THREE.Mesh(new THREE.BoxGeometry(24, 0.08, 0.08), neonMagentaMat);
-  neonBaseFront.position.set(0, 1.54, 5);
-  stageGroup.add(neonBaseFront);
-
-  // --- Stage lights (mounted on top truss, sweeping targets over stage base) ---
-  for (let i = 0; i < 6; i += 1) {
-    const t = i / 5;
-    const lx = -10 + t * 20;
-    const color = stageLightPalette[i % stageLightPalette.length];
-    const light = new THREE.SpotLight(color, 3, 30, Math.PI / 6, 0.5);
-    light.position.set(lx, 18, 0);
-    stageGroup.add(light);
-    const target = new THREE.Object3D();
-    target.position.set(lx, 0, 0);
-    stageGroup.add(target);
-    light.target = target;
-    stageLightEntries.push({ target, baseX: lx, index: i });
-  }
-
-  stageGroup.position.set(stageX, stageY, stageZ);
-  stageGroup.lookAt(0, stageGroup.position.y, 0);
-  scene.add(stageGroup);
-  stageGroup.updateMatrixWorld(true);
-
-  // ===== CURSOR VIBE JAM 2026 BILLBOARD =====
-  // Hoisted so the render loop can animate them
-  let bbSmallCtx;
-  let bbTex;
-  let slTex;
-  let bbLastRedraw = 0;
-  {
-    const bbAngle = Math.PI;
-    const bbRadius = pitInnerRadius + 25;
-
-    // Pixel-art canvas texture
-    const bbSmallCanvas = document.createElement('canvas');
-    bbSmallCanvas.width = 256;
-    bbSmallCanvas.height = 64;
-    bbSmallCtx = bbSmallCanvas.getContext('2d');
-    bbSmallCtx.imageSmoothingEnabled = false;
-    bbSmallCtx.fillStyle = '#000000';
-    bbSmallCtx.fillRect(0, 0, 256, 64);
-    bbSmallCtx.fillStyle = '#ffffff';
-    bbSmallCtx.font = '14px monospace';
-    bbSmallCtx.textAlign = 'center';
-    bbSmallCtx.textBaseline = 'middle';
-    bbSmallCtx.fillText('CURSOR VIBE JAM 2026', 128, 32);
-    bbTex = new THREE.CanvasTexture(bbSmallCanvas);
-    bbTex.magFilter = THREE.NearestFilter;
-    bbTex.minFilter = THREE.NearestFilter;
-    bbTex.colorSpace = THREE.SRGBColorSpace;
-
-    // Scanline overlay canvas with RepeatWrapping for UV scroll
-    const slCanvas = document.createElement('canvas');
-    slCanvas.width = 128;
-    slCanvas.height = 256;
-    const slCtx = slCanvas.getContext('2d');
-    for (let y = 0; y < 256; y += 2) {
-      slCtx.fillStyle = 'rgba(0,0,0,0.3)';
-      slCtx.fillRect(0, y + 1, 128, 1);
-    }
-    slTex = new THREE.CanvasTexture(slCanvas);
-    slTex.wrapS = THREE.RepeatWrapping;
-    slTex.wrapT = THREE.RepeatWrapping;
-
-    const bbPoleMat = new THREE.MeshStandardMaterial({
-      color: 0x333344, metalness: 0.8, roughness: 0.3,
-    });
-    const bbNeonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-    const bbNeonMagentaMat = new THREE.MeshBasicMaterial({
-      color: 0xff00ff,
-      transparent: true,
-      opacity: 0.4,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-
-    const billboardGroup = new THREE.Group();
-
-    // Screen
-    const bbScreen = new THREE.Mesh(
-      new THREE.PlaneGeometry(12, 3),
-      new THREE.MeshBasicMaterial({ map: bbTex })
-    );
-    billboardGroup.add(bbScreen);
-
-    // Scanline overlay
-    const bbScanlines = new THREE.Mesh(
-      new THREE.PlaneGeometry(12, 3),
-      new THREE.MeshBasicMaterial({
-        map: slTex,
-        transparent: true,
-        opacity: 0.5,
-        depthWrite: false,
-      })
-    );
-    bbScanlines.position.z = 0.01;
-    billboardGroup.add(bbScanlines);
-
-    // Neon frame bars — cyan front layer + magenta halo behind
-    const bbFrameParts = [
-      { w: 12.3, h: 0.15, d: 0.15, x: 0,      y:  1.575, z: 0 },
-      { w: 12.3, h: 0.15, d: 0.15, x: 0,      y: -1.575, z: 0 },
-      { w: 0.15, h: 3.3,  d: 0.15, x: -6.075, y:  0,     z: 0 },
-      { w: 0.15, h: 3.3,  d: 0.15, x:  6.075, y:  0,     z: 0 },
-    ];
-    for (const { w, h, d, x, y } of bbFrameParts) {
-      const cyanBar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bbNeonCyanMat);
-      cyanBar.position.set(x, y, 0);
-      billboardGroup.add(cyanBar);
-      const haloBar = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, h + 0.1, d + 0.1), bbNeonMagentaMat);
-      haloBar.position.set(x, y, -0.05);
-      billboardGroup.add(haloBar);
-    }
-
-    // Support poles
-    for (const sx of [-5.5, 5.5]) {
-      const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.1, 5, 8),
-        bbPoleMat
-      );
-      pole.position.set(sx, -1.5 - 2.5, 0);
-      billboardGroup.add(pole);
-    }
-
-    // Accent point lights — cyan left, magenta right
-    const bbLightL = new THREE.PointLight(0x00ffff, 2, 8);
-    bbLightL.position.set(-6.5, 0, 0.5);
-    billboardGroup.add(bbLightL);
-    const bbLightR = new THREE.PointLight(0xff00ff, 2, 8);
-    bbLightR.position.set(6.5, 0, 0.5);
-    billboardGroup.add(bbLightR);
-
-    billboardGroup.position.set(
-      Math.cos(bbAngle) * bbRadius,
-      0,
-      Math.sin(bbAngle) * bbRadius
-    );
-    billboardGroup.lookAt(0, -3, 0);
-    scene.add(billboardGroup);
-  }
-
-  // ===== EXIT PORTAL =====
-  // Hoisted so render loop can animate and check proximity
-  let portalCtx;
-  let portalTex;
-  let portalImgData = null;
-  let portalTriggered = false;
-  const portalWorldPos = new THREE.Vector3();
-  let returnPortalCtx = null;
-  let returnPortalTex = null;
-  let returnPortalImgData = null;
-  let hasReturnPortals = false;
-  {
-    const bbAngle = Math.PI;
-    const portalRadius = pitInnerRadius - 2;
-    const px = Math.cos(bbAngle) * portalRadius;
-    const py = -9.5;
-    const pz = Math.sin(bbAngle) * portalRadius;
-    portalWorldPos.set(px, py, pz);
-
-    const portalCanvas = document.createElement('canvas');
-    portalCanvas.width = 128;
-    portalCanvas.height = 128;
-    portalCtx = portalCanvas.getContext('2d');
-    portalTex = new THREE.CanvasTexture(portalCanvas);
-    portalTex.magFilter = THREE.NearestFilter;
-    portalTex.minFilter = THREE.NearestFilter;
-
-    const portalGroup = new THREE.Group();
-
-    // Portal face
-    const portalMesh = new THREE.Mesh(
-      new THREE.CircleGeometry(2.5, 32),
-      new THREE.MeshBasicMaterial({ map: portalTex, side: THREE.DoubleSide })
-    );
-    portalGroup.add(portalMesh);
-
-    // Glow ring
-    const glowRing = new THREE.Mesh(
-      new THREE.TorusGeometry(2.7, 0.15, 8, 32),
-      new THREE.MeshBasicMaterial({
-        color: 0x00ff66,
-        transparent: true,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      })
-    );
-    portalGroup.add(glowRing);
-
-    // Ambient green glow on nearby crowd/wall
-    const portalLight = new THREE.PointLight(0x00ff44, 3, 10);
-    portalGroup.add(portalLight);
-
-    // CSS2D floating label
-    // 3D canvas label — occluded naturally by scene geometry
-    const plLabelCanvas = document.createElement('canvas');
-    plLabelCanvas.width = 256;
-    plLabelCanvas.height = 48;
-    const plLabelCtx = plLabelCanvas.getContext('2d');
-    plLabelCtx.clearRect(0, 0, 256, 48);
-    plLabelCtx.font = 'bold 22px "Bungee", monospace';
-    plLabelCtx.textAlign = 'center';
-    plLabelCtx.textBaseline = 'middle';
-    plLabelCtx.shadowColor = '#00ff44';
-    plLabelCtx.shadowBlur = 10;
-    plLabelCtx.fillStyle = '#00ff66';
-    plLabelCtx.fillText('EXIT PORTAL', 128, 24);
-    const plLabelTex = new THREE.CanvasTexture(plLabelCanvas);
-    const plLabel = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.5, 0.65),
-      new THREE.MeshBasicMaterial({
-        map: plLabelTex,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      })
-    );
-    plLabel.position.set(0, 3.0, 0);
-    portalGroup.add(plLabel);
-
-    portalGroup.position.set(px, py, pz);
-    portalGroup.lookAt(0, py, 0);
-    scene.add(portalGroup);
-  }
-
-  // ===== RETURN PORTAL (only when arriving via portal with ?ref=) =====
-  if (incomingPortalParams?.ref) {
-    const portalCanvas = document.createElement("canvas");
-    portalCanvas.width = 128;
-    portalCanvas.height = 128;
-    returnPortalCtx = portalCanvas.getContext("2d");
-    returnPortalTex = new THREE.CanvasTexture(portalCanvas);
-    returnPortalTex.magFilter = THREE.NearestFilter;
-    returnPortalTex.minFilter = THREE.NearestFilter;
-
-    const plLabelCanvas = document.createElement("canvas");
-    plLabelCanvas.width = 256;
-    plLabelCanvas.height = 48;
-    const plLabelCtx = plLabelCanvas.getContext("2d");
-    plLabelCtx.clearRect(0, 0, 256, 48);
-    plLabelCtx.font = 'bold 22px "Bungee", monospace';
-    plLabelCtx.textAlign = "center";
-    plLabelCtx.textBaseline = "middle";
-    plLabelCtx.shadowColor = "#00ccff";
-    plLabelCtx.shadowBlur = 10;
-    plLabelCtx.fillStyle = "#00ccff";
-    plLabelCtx.fillText("RETURN PORTAL", 128, 24);
-    const plLabelTex = new THREE.CanvasTexture(plLabelCanvas);
-    const plLabel = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.2, 0.65),
-      new THREE.MeshBasicMaterial({
-        map: plLabelTex,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      })
-    );
-    plLabel.position.set(0, 3.0, 0);
-
-    for (let i = 0; i < 4; i++) {
-      const angle = (i * Math.PI) / 2;
-      const dist = CONFIG.cart.spawnRingRadius + CONFIG.booth.platformDepth / 2 + 1.0;
-      const rpx = dist * Math.cos(angle);
-      const rpz = dist * Math.sin(angle);
-      const rpy = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + 2.5;
-      returnPortalWorldPositions.push(new THREE.Vector3(rpx, rpy, rpz));
-
-      const portalGroup = new THREE.Group();
-
-      const portalMesh = new THREE.Mesh(
-        new THREE.CircleGeometry(2.5, 32),
-        new THREE.MeshBasicMaterial({ map: returnPortalTex, side: THREE.DoubleSide })
-      );
-      portalGroup.add(portalMesh);
-
-      const glowRing = new THREE.Mesh(
-        new THREE.TorusGeometry(2.7, 0.15, 8, 32),
-        new THREE.MeshBasicMaterial({
-          color: 0x00ccff,
-          transparent: true,
-          opacity: 0.6,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        })
-      );
-      portalGroup.add(glowRing);
-
-      const portalLight = new THREE.PointLight(0x00ccff, 3, 10);
-      portalGroup.add(portalLight);
-
-      portalGroup.add(plLabel.clone());
-
-      portalGroup.position.set(rpx, rpy, rpz);
-      portalGroup.lookAt(0, rpy, 0);
-      scene.add(portalGroup);
-    }
-
-    hasReturnPortals = returnPortalWorldPositions.length > 0;
-  }
-
-  for (let i = 0; i < 6; i += 1) {
-    const t = i / 5;
-    const lx = -10 + t * 20;
-    addLaserBeam({
-      position: stageGroup.localToWorld(new THREE.Vector3(lx, 18, 0)),
-      color: stageLightPalette[i % stageLightPalette.length],
-      radius: 0.15,
-      length: 80,
-      opacity: 0.6,
-      tiltX: -Math.PI * 0.3,
-      index: i,
-      speed: 0.5,
-      phaseStep: 1.05,
-      amplitude: 0.6,
-      baseQuaternion: stageGroup.quaternion,
-    });
-  }
-
-  const arenaLaserRadius = pitInnerRadius + 5;
-  for (let i = 0; i < 12; i += 1) {
-    const angle = (i / 12) * Math.PI * 2;
-    addLaserBeam({
-      position: new THREE.Vector3(
-        Math.cos(angle) * arenaLaserRadius,
-        -3,
-        Math.sin(angle) * arenaLaserRadius,
-      ),
-      color: stageLightPalette[i % stageLightPalette.length],
-      radius: 0.12,
-      length: 80,
-      opacity: 0.5,
-      tiltX: -Math.PI * 0.35,
-      index: i,
-      speed: 0.4,
-      phaseStep: 0.52,
-      amplitude: 0.5,
-      faceCenter: true,
-    });
-  }
-
-  const skyLaserRadius = pitInnerRadius + 50;
-  for (let i = 0; i < 8; i += 1) {
-    const angle = (i / 8) * Math.PI * 2;
-    addLaserBeam({
-      position: new THREE.Vector3(
-        Math.cos(angle) * skyLaserRadius,
-        -3,
-        Math.sin(angle) * skyLaserRadius,
-      ),
-      color: i % 2 === 0 ? 0xff00ff : 0x00ffff,
-      radius: 0.18,
-      length: 120,
-      opacity: 0.45,
-      tiltX: -Math.PI * 0.4,
-      index: i,
-      speed: 0.3,
-      phaseStep: 0.79,
-      amplitude: 0.7,
-      faceCenter: true,
-    });
-  }
-
-  // (yawToCenter, quatFromYaw, and createCart removed - using modular Entities equivalents)
+  Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
 
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
@@ -4551,131 +2817,15 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // (applyArcadeControls and spawnOnRingForSlot removed - using modular equivalents)
 
-  // Menu music — plays on page load, stops when game starts
-  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
-  menuMusicEl = new Audio();
-  menuMusicEl.loop = true;
-  menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-  menuMusicEl.preload = "auto";
-  menuMusicEl.src = menuMusicUrl;
-  let menuMusicStarted = false;
-  menuMusicEl.addEventListener("error", () => {
+  GameAudio.initMusic({
+    getMasterGain: () => masterGain,
+    getIsMuted: () => isMuted,
+    getMenuVisible: () => menuVisible,
+    startMenuOnInit: menuVisible,
   });
-  menuMusicEl.load();
-
-  // Try to autoplay menu music immediately (will need user gesture on most browsers)
-  function tryStartMenuMusic() {
-    if (!menuMusicEl || menuMusicStarted || isMuted) return;
-    menuMusicEl.volume = CONFIG.audio.musicVolume * masterGain;
-    void menuMusicEl.play().then(
-      () => {
-        menuMusicStarted = true;
-      },
-      () => {},
-    );
-  }
-  window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
-  tryStartMenuMusic();
-
-  stopMenuMusic = function () {
-    if (!menuMusicEl) return;
-    menuMusicEl.pause();
-    menuMusicEl.currentTime = 0;
-    menuMusicStarted = false;
-  };
-
-  startMenuMusic = function () {
-    if (!menuMusicEl) return;
-    menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-    menuMusicStarted = false;
-    tryStartMenuMusic();
-  };
-
-  if (menuVisible) {
-    try {
-      startMenuMusic();
-    } catch (e) {}
-  }
-
-  const gameMusicFiles = ["music.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
-  const gameMusicUrls = gameMusicFiles.map((f) =>
-    new URL(`sounds/${f}`, window.location.href).toString(),
-  );
-  for (let i = gameMusicUrls.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = gameMusicUrls[i];
-    gameMusicUrls[i] = gameMusicUrls[j];
-    gameMusicUrls[j] = tmp;
-  }
-  let gameMusicIndex = 0;
-
-  /** @type {HTMLAudioElement[]|null} */
-  let lazyGameMusicPreloads = null;
-
-  function preloadExtraGameMusicTracks() {
-    if (lazyGameMusicPreloads) return;
-    lazyGameMusicPreloads = [];
-    for (let i = 1; i < gameMusicUrls.length; i += 1) {
-      const a = new Audio();
-      a.preload = "auto";
-      a.src = gameMusicUrls[i];
-      try { a.load(); } catch {}
-      lazyGameMusicPreloads.push(a);
-    }
-  }
-
-  // Lazy-fetch extra game tracks after menu renders (avoids extra network on first paint).
-  // This is scheduled after ambient music state initializes to avoid TDZ/hoisting issues.
-  setTimeout(preloadExtraGameMusicTracks, 0);
-
-  function advanceGameMusicTrack() {
-    if (!musicEl || gameMusicUrls.length === 0) return;
-    try {
-      musicEl.pause();
-      musicEl.currentTime = 0;
-    } catch {}
-    gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
-    musicEl.src = gameMusicUrls[gameMusicIndex];
-    try { musicEl.load(); } catch {}
-    try { applyAudioVolume(); } catch {}
-    if (!menuVisible) {
-      void musicEl.play().catch(() => {});
-    }
-  }
-
-  const musicUrl = gameMusicUrls[gameMusicIndex];
-  musicEl = new Audio();
-  musicEl.loop = false;
-  musicEl.volume = CONFIG.audio.musicVolume * masterGain;
-  musicEl.preload = "auto";
-  musicEl.src = musicUrl;
-  musicEl.addEventListener("ended", () => {
-    if (menuVisible) return;
-    advanceGameMusicTrack();
-  });
-  musicEl.addEventListener("error", () => {
-    if (gameMusicUrls.length > 1) {
-      advanceGameMusicTrack();
-      return;
-    }
-    musicUnavailable = true;
-  });
-  musicEl.load();
-
-  tryStartAmbientMusic = function () {
-    if (!musicEl || musicStarted || musicUnavailable) return;
-    void musicEl.play().then(
-      () => {
-        musicStarted = true;
-      },
-      () => {
-        // * Autoplay may block until a gesture; missing file sets musicUnavailable.
-      },
-    );
-  };
 
   await firstHelloPromise;
-  returnPortalArmedAtMs = Date.now() + 3000;
+  Effects.setReturnPortalArmedAtMs(Date.now() + 3000);
 
   const { allCarts, colliderHandleToCart, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
     scene,
@@ -4775,53 +2925,9 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     resetSimTimingRef,
   });
 
-  const ramBoostStreakAlignQuat = new THREE.Quaternion();
-  const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
-  const ramBoostStreakScratchOrigin = new THREE.Vector3();
-  const ramBoostStreakScratchPos = new THREE.Vector3();
   const ramBoostForwardXZ = new THREE.Vector3();
   const ramBoostToTargetXZ = new THREE.Vector3();
   const aiToTargetScratch = new THREE.Vector3();
-
-  /**
-   * @param {ReturnType<typeof createCart>} cart
-   * @param {number} birthMs
-   */
-  function spawnRamBoostStreakForCart(cart, birthMs) {
-    const rb = CONFIG.cart.ramBoost;
-    const rot = cart.body.rotation();
-    const yaw = Simulation.yawFromQuaternion(rot);
-    const { forward, right } = Simulation.getForwardRightFromYaw(yaw);
-    const fwd = forward.clone().normalize();
-    const rgt = right.clone().normalize();
-    ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
-    const t = cart.body.translation();
-    ramBoostStreakScratchOrigin.set(t.x, t.y, t.z);
-    const back = Math.random() * 1.0;
-    const lat = (Math.random() * 2 - 1) * 0.5;
-    ramBoostStreakScratchPos
-      .copy(ramBoostStreakScratchOrigin)
-      .addScaledVector(fwd, -back)
-      .addScaledVector(rgt, lat);
-    const geo = new THREE.CylinderGeometry(0.03, 0.03, rb.streakLengthMeters, 8, 1);
-    const mat = new THREE.MeshBasicMaterial({
-      color: cart.cartColor,
-      transparent: true,
-      opacity: 1,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(ramBoostStreakScratchPos);
-    mesh.quaternion.copy(ramBoostStreakAlignQuat);
-    scene.add(mesh);
-    ramBoostStreaks.push({
-      mesh,
-      material: mat,
-      birthMs,
-      durationMs: rb.streakDurationSec * 1000,
-      cart,
-    });
-  }
 
   /**
    * @param {ReturnType<typeof createCart>} cart
@@ -4848,23 +2954,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
     if (cart === localCartForConnId()) {
       sfx.playHop();
-    }
-  }
-
-  /**
-   * @param {number} nowMs
-   * @param {number} dtSec
-   */
-  function tickRamBoostStreakSpawners(nowMs, dtSec) {
-    const rb = CONFIG.cart.ramBoost;
-    if (!rb.enabled || dtSec <= 0) return;
-    for (const cart of allCarts) {
-      if (nowMs > cart.ramBoostActiveUntilMs) continue;
-      cart.ramBoostStreakCarry += rb.streakSpawnRatePerSec * dtSec;
-      while (cart.ramBoostStreakCarry >= 1) {
-        cart.ramBoostStreakCarry -= 1;
-        spawnRamBoostStreakForCart(cart, nowMs);
-      }
     }
   }
 
@@ -4912,30 +3001,6 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     if (angleDeg > ncfg.alignmentAngleDeg) return;
 
     triggerRamBoost(npc, nowMs);
-  }
-
-  /**
-   * @param {number} nowMs
-   */
-  function updateRamBoostStreaks(nowMs) {
-    for (let i = ramBoostStreaks.length - 1; i >= 0; i -= 1) {
-      const s = ramBoostStreaks[i];
-      const t = (nowMs - s.birthMs) / s.durationMs;
-      if (t >= 1) {
-        scene.remove(s.mesh);
-        s.mesh.geometry.dispose();
-        s.material.dispose();
-        ramBoostStreaks.splice(i, 1);
-      } else {
-        const baseOpacity = 1 - t;
-        if (GameState.getRoundState().phase === "running" && s.cart && s.cart.ramBoostActiveUntilMs > performance.now()) {
-          const pulse = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
-          s.material.opacity = clamp(baseOpacity * (pulse / 1.2), 0, 1);
-        } else {
-          s.material.opacity = baseOpacity;
-        }
-      }
-    }
   }
 
   // (rematchResetWorld removed - using modular Entities version)
@@ -5010,29 +3075,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
   // --- Input ---
 
-  // --- Ambient music ---
-
-  // Step 10d: Apply audio volume to engine
-  function applyAudioVolume() {
-    if (audioListener && typeof audioListener.setMasterVolume === 'function') {
-      audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
-    }
-    if (musicEl) {
-      musicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-      musicEl.muted = isMuted;
-    }
-    if (menuMusicEl) {
-      menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-      menuMusicEl.muted = isMuted;
-    }
-
-    // Keep procedural P2 SFX in sync with mute/volume changes.
-    try { crowd?.applyAmbient?.(); } catch {}
-    try { leaderHum?.resyncVolume?.(); } catch {}
-  }
-
   // Initialize audio with saved settings
-  applyAudioVolume();
+  GameAudio.applyAudioVolume();
 
   let didResumeAudioContext = false;
   let audioContextResumeInFlight = false;
@@ -5050,7 +3094,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
         },
       );
     }
-    tryStartAmbientMusic();
+    GameAudio.startGameMusic();
   }
 
   canvas.addEventListener("pointerdown", () => {
@@ -5058,7 +3102,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       () => { ensureCartCrashBufferLoaded(); },
       () => {},
     );
-    if (!menuVisible) tryStartAmbientMusic();
+    if (!menuVisible) GameAudio.startGameMusic();
     canvas.focus();
   });
   window.addEventListener("pointerdown", () => {
@@ -5066,14 +3110,14 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       () => { ensureCartCrashBufferLoaded(); },
       () => {},
     );
-    if (!menuVisible) tryStartAmbientMusic();
+    if (!menuVisible) GameAudio.startGameMusic();
   }, { passive: true });
 
   // (applyRammingImpulse removed - using modular Simulation version)
 
   function startRunningAt(startedAtMs) {
     syncRoundPhase("running");
-    slowMoActive = false;
+    gameCtx.slowMo.active = false;
     GameState.setRoundStartedAtMs(startedAtMs);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
@@ -5099,7 +3143,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     if (GameState.getRoundState().phase === "countdown" || GameState.getRoundState().phase === "running") return;
     clearRoundCountdownTimeout();
     syncRoundPhase("countdown");
-    slowMoActive = false;
+    gameCtx.slowMo.active = false;
     GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
@@ -5132,9 +3176,9 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
       syncRoundPhase("podium");
       lastCartStandingWinnerSlotIndex = null;
-      if (!slowMoActive) {
-        slowMoActive = true;
-        slowMoStartMs = performance.now();
+      if (!gameCtx.slowMo.active) {
+        gameCtx.slowMo.active = true;
+        gameCtx.slowMo.startMs = performance.now();
       }
       Netcode.sendHostRound();
       return;
@@ -5169,9 +3213,9 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     }
     recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
     syncRoundPhase("podium");
-    if (!slowMoActive) {
-      slowMoActive = true;
-      slowMoStartMs = performance.now();
+    if (!gameCtx.slowMo.active) {
+      gameCtx.slowMo.active = true;
+      gameCtx.slowMo.startMs = performance.now();
     }
     Netcode.sendHostRound();
   }
@@ -5243,12 +3287,15 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
 
 
   // --- Simulation loop (fixed timestep) ---
-  let lastT = performance.now();
-  let accumulator = 0;
-  let simFrameIndex = 0;
+  const loopState = createGameLoopState();
+  gameCtx.setLoopState(loopState);
+  gameCtx.registerRuntime({
+    getAllCarts: () => allCarts,
+    getAllCartsRef: () => allCartsRef,
+    CONFIG,
+  });
+
   let recordVersusPlayerFrame30Logged = false;
-  let lastLedUpdate = 0;
-  let lastPortalUpdate = 0;
   const recordLabelCycleColors = [
     new THREE.Color(CART_COLORS.pink.hex),
     new THREE.Color(CART_COLORS.blue.hex),
@@ -5256,38 +3303,131 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
     new THREE.Color(CART_COLORS.yellow.hex),
     new THREE.Color(CART_COLORS.neonOrange.hex),
   ];
-  resetSimTimingRef.current = () => {
-    lastT = performance.now();
-    accumulator = 0;
+  resetSimTimingRef.current = () => resetGameLoopTiming(gameCtx.loopState);
+
+  const sharedLoopGetters = gameCtx.createSharedGetters();
+
+  const visualDeps = {
+    ...sharedLoopGetters,
+    netTargetPosScratch,
+    cartLinvelScratch,
+    updateCartVisuals,
+    buildCartMaterialCache,
+    colorHexForSlot,
+    isMuted: () => isMuted,
+    getSfxVolume: () => sfxVolume,
+    sfx,
+    isMenuVisible: () => menuVisible,
+    getAxis: Input.getAxis,
+    hud,
+    leaderHum,
+    HUD,
+    getYouConnId: () => Netcode.getYouConnId(),
+    getMatchHistoryLength: () => (matchHistory ? matchHistory.length : 0),
+    isLastCartStandingActive: () => lastCartStandingTimeoutId !== null,
+    updateResultsOverlay,
+    positionNameLabels,
+    composer,
+    scene,
+    camera,
+    labelRenderer,
+    canvas,
+    BASE_FOV,
+    getShakeUntil: () => shakeUntil,
+    shakeIntensity,
+    getFovPunchUntil: () => fovPunchUntil,
+    fpsState,
   };
 
+  const gameFlowDeps = {
+    ...sharedLoopGetters,
+    getLastHitBy: () => GameState.getLastHitBy(),
+    getLocalCart: localCartForConnId,
+    scheduleRespawn,
+    doRespawn: Entities.doRespawn,
+    maybeTriggerNpcOpportunisticRamBoost,
+    endRound,
+    addScore: GameState.addScore,
+    colorHexForSlot,
+    hud,
+    sendHostRound: () => Netcode.sendHostRound(),
+    getPartySocket: () => Netcode.getPartySocket(),
+    MSG,
+    setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
+    getLastCartStandingTimeoutId: () => lastCartStandingTimeoutId,
+    setLastCartStandingTimeoutId: (id) => { lastCartStandingTimeoutId = id; },
+    getLastCartStandingWinnerSlotIndex: () => lastCartStandingWinnerSlotIndex,
+    setLastCartStandingWinnerSlotIndex: (idx) => { lastCartStandingWinnerSlotIndex = idx; },
+    setSlowMoUntil: (untilMs) => { gameCtx.slowMo.until = untilMs; },
+    setSlowMoRate: (rate) => { gameCtx.slowMo.rate = rate; },
+    camera,
+    getPhysicsWorld: () => world,
+  };
 
-  function step(now) {
-    if (menuVisible) {
-      requestAnimationFrame(step);
-      return;
-    }
-    let dt = (now - lastT) / 1000;
-    dt = Math.min(dt, 0.05);
-    lastT = now;
-    accumulator += dt;
-    if (GameState.getRoundState().phase === "running" && performance.now() < slowMoUntil) {
-      dt *= slowMoRate;
-    }
-    if (Netcode.getIsHost() && slowMoActive) {
-      dt *= SLOW_MO_TIME_SCALE;
-      if (performance.now() - slowMoStartMs > SLOW_MO_DURATION_MS) {
-        slowMoActive = false;
-      }
-    }
+  const physicsDeps = {
+    ...sharedLoopGetters,
+    world,
+    eventQueue,
+    getAllCartsRef: () => allCartsRef,
+    getLocalCart: localCartForConnId,
+    shouldUseClientPrediction: () => Netcode.shouldUseClientPrediction(),
+    ...gameCtx.getSlowMoDeps(),
+    getSkipNextPhysicsStep: () => Netcode.getSkipNextPhysicsStep(),
+    setSkipNextPhysicsStep: (skip) => Netcode.setSkipNextPhysicsStep(skip),
+    getRemoteInputsByConnId: () => Netcode.getRemoteInputsByConnId(),
+    getHostMigrationFreezeUntilMs: () => Netcode.getHostMigrationFreezeUntilMs(),
+    updateRemoteCartNetTargets: (idx) => Netcode.updateRemoteCartNetTargets(idx),
+    syncRemoteCartBodiesForPrediction: (idx) => Netcode.syncRemoteCartBodiesForPrediction(idx),
+    reconcilePredictedLocalCart: (cart, idx, dt) => Netcode.reconcilePredictedLocalCart(cart, idx, dt),
+    sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
+    runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
+    getSimulationCallbacks: (isHost) => (isHost ? {
+      getAxis: Input.getAxis,
+      getAiAxis: getAiAxis,
+      playCollision: playCollisionRef,
+      spawnTrashBurst: spawnTrashBurstRef,
+      partySocket: Netcode.getPartySocket(),
+      recordColliderHandle: recordCollider.handle,
+      pitWallColliderHandle: pitWallColliderHandle,
+      boothColliderHandles: boothColliderHandles,
+      playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
+      playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+      resolveCartForConn: (connId) => {
+        const idx = Netcode.strictSlotIndexForConn(connId);
+        return idx >= 0 ? allCartsRef[idx] : null;
+      },
+    } : {
+      getAxis: Input.getAxis,
+      getAiAxis: null,
+      playCollision: playCollisionRef,
+      spawnTrashBurst: spawnTrashBurstRef,
+      partySocket: Netcode.getPartySocket(),
+      recordColliderHandle: recordCollider.handle,
+      pitWallColliderHandle: pitWallColliderHandle,
+      boothColliderHandles: boothColliderHandles,
+      playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
+      playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+    }),
+  };
+
+  gameCtx.attachDeps({
+    visual: visualDeps,
+    gameFlow: gameFlowDeps,
+    physics: physicsDeps,
+  });
+
+  runGameLoop(gameCtx.loopState, {
+    shouldSkipTiming: () => menuVisible,
+    onFrame(frameCtx) {
+    gameCtx.setFrameCtx(frameCtx);
+    const { now, loopState } = frameCtx;
+    const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
 
     if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
       fxPass.uniforms.uTime.value = fxClock.getElapsedTime();
     }
 
-    simFrameIndex += 1;
-
-    if (simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
+    if (loopState.simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
       recordVersusPlayerFrame30Logged = true;
     }
 
@@ -5315,25 +3455,8 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
     }
 
-    if (stageLightEntries.length > 0) {
-      const nowSec = now * 0.001;
-      for (const entry of stageLightEntries) {
-        entry.target.position.x = entry.baseX + Math.sin(nowSec * 0.5 + entry.index) * 5;
-        entry.target.position.y = 0;
-        entry.target.position.z = 0;
-        entry.target.updateMatrix();
-      }
-    }
-
-    if (laserEntries.length > 0) {
-      const nowSec = now * 0.001;
-      for (const entry of laserEntries) {
-        entry.mesh.rotation.z =
-          entry.baseZ +
-          Math.sin(nowSec * entry.speed + entry.index * entry.phaseStep) *
-            entry.amplitude;
-      }
-    }
+    Effects.updateStageLights(now);
+    Effects.updateLasers(now);
 
     // UFO orbit
     for (const ufo of ufoEntries) {
@@ -5346,71 +3469,7 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       ufo.group.rotation.y = angle + Math.PI;
     }
 
-    if (crowdSearchlightEntries.length > 0) {
-      const nowSec = now * 0.001;
-      for (const entry of crowdSearchlightEntries) {
-        const speed = crowdSearchlightSpeeds[entry.index % crowdSearchlightSpeeds.length] || 0.3;
-        const angle = nowSec * speed + entry.index * Math.PI * 0.5;
-        entry.target.position.x = Math.cos(angle) * crowdSearchlightTargetRadius;
-        entry.target.position.y = -3;
-        entry.target.position.z = Math.sin(angle) * crowdSearchlightTargetRadius;
-        entry.target.updateMatrix();
-        entry.cone.lookAt(entry.target.position);
-        entry.cone.rotateX(-Math.PI / 2);
-        entry.light.intensity = 20 + Math.sin(nowSec * 1.1 + entry.index) * 15;
-      }
-    }
-
-    if (crowdPointLightEntries.length > 0) {
-      const nowSec = now * 0.001;
-      for (const entry of crowdPointLightEntries) {
-        entry.light.intensity = 5 + Math.sin(nowSec * 1.5 + entry.index * 0.8) * 5;
-      }
-    }
-
-    // Crowd glow ring pulse (subtle)
-    if (crowdGlowMat) {
-      const nowSec = now * 0.001;
-      crowdGlowMat.opacity = 0.09 + Math.sin(nowSec * 0.35) * 0.03;
-    }
-
-    if (crowdCarts) {
-      const nowSec = now * 0.001;
-      const batchSize = 200;
-      const offset = Math.floor(nowSec * 4) % Math.ceil(5000 / batchSize);
-      const start = offset * batchSize;
-      const end = Math.min(start + batchSize, 5000);
-      for (let i = start; i < end; i++) {
-        crowdCarts.getMatrixAt(i, crowdAnimDummy.matrix);
-        crowdAnimDummy.matrix.decompose(crowdAnimDummy.position, crowdAnimDummy.quaternion, crowdAnimDummy.scale);
-
-        // CROWD VARIATION: seeded per-cart "energy" (0..1) from index
-        const energy = ((i * 7919) % 100) / 100;
-        const baseFreq = 3;
-        const baseAmp = 0.3;
-
-        let bounce = 0;
-        let wiggleYaw = 0;
-        if (energy > 0.7) {
-          bounce = Math.abs(Math.sin(nowSec * baseFreq * 1.5 + i * 0.7)) * (baseAmp * 1.8);
-          wiggleYaw = Math.sin(nowSec * 6.0 + i * 0.9) * (0.18 * ((energy - 0.7) / 0.3));
-        } else if (energy < 0.3) {
-          bounce = Math.sin(nowSec * baseFreq * 0.5 + i * 0.45) * (baseAmp * 0.12);
-          wiggleYaw = Math.sin(nowSec * 0.8 + i * 0.6) * 0.04;
-        } else {
-          bounce = Math.abs(Math.sin(nowSec * baseFreq + i * 0.7)) * baseAmp;
-        }
-
-        crowdAnimDummy.position.y = -2.9 + bounce;
-        if (wiggleYaw !== 0) {
-          crowdWiggleQuat.setFromAxisAngle(crowdWiggleAxisY, wiggleYaw);
-          crowdAnimDummy.quaternion.multiply(crowdWiggleQuat);
-        }
-        crowdAnimDummy.updateMatrix();
-        crowdCarts.setMatrixAt(i, crowdAnimDummy.matrix);
-      }
-      crowdCarts.instanceMatrix.needsUpdate = true;
-    }
+    Effects.updateCrowd(now);
 
     {
       // * Spindle PointLight cycle: pink <-> cyan, ~8s full cycle.
@@ -5439,643 +3498,28 @@ const SLOW_MO_TIME_SCALE = 0.25; // quarter speed
       }
     }
 
-    // LED screen text pulse (throttled)
-    if (now - lastLedUpdate > 150) {
-      const pulse = 0.6 + Math.sin(now * 0.002) * 0.4;
-      const pulse2 = 0.6 + Math.sin(now * 0.002 + 1.5) * 0.4;
-      const ledGradAnim = ledCtx.createLinearGradient(0, 0, 512, 256);
-      ledGradAnim.addColorStop(0, '#0a0020');
-      ledGradAnim.addColorStop(0.5, '#1a0040');
-      ledGradAnim.addColorStop(1, '#0a0020');
-      ledCtx.fillStyle = ledGradAnim;
-      ledCtx.fillRect(0, 0, 512, 256);
-      ledCtx.font = 'bold 90px "Arial Black", "Impact", sans-serif';
-      ledCtx.textAlign = 'center';
-      ledCtx.textBaseline = 'middle';
-      ledCtx.fillStyle = `rgba(255, 43, 214, ${pulse})`;
-      ledCtx.shadowColor = '#ff2bd6';
-      ledCtx.shadowBlur = 20 + pulse * 15;
-      ledCtx.fillText('CART', 256, 100);
-      ledCtx.fillStyle = `rgba(255, 229, 61, ${pulse2})`;
-      ledCtx.shadowColor = '#ffe53d';
-      ledCtx.shadowBlur = 20 + pulse2 * 15;
-      ledCtx.fillText('RAVE', 256, 185);
-      ledCtx.shadowBlur = 0;
-      for (let y = 0; y < 256; y += 4) {
-        ledCtx.fillStyle = 'rgba(0,0,0,0.15)';
-        ledCtx.fillRect(0, y, 512, 2);
-      }
-      ledTex.needsUpdate = true;
-      lastLedUpdate = now;
-    }
-
-    // Billboard text glow + scanline UV scroll
-    {
-      if (now - bbLastRedraw > 100) {
-        bbLastRedraw = now;
-        const t = (Math.sin(now * 0.003) + 1) / 2;
-        // Lerp white (255,255,255) → cyan (0,255,255)
-        const r = Math.round(255 * (1 - t));
-        bbSmallCtx.imageSmoothingEnabled = false;
-        bbSmallCtx.fillStyle = '#000000';
-        bbSmallCtx.fillRect(0, 0, 256, 64);
-        bbSmallCtx.font = '14px monospace';
-        bbSmallCtx.textAlign = 'center';
-        bbSmallCtx.textBaseline = 'middle';
-        bbSmallCtx.shadowColor = '#ff00ff';
-        bbSmallCtx.shadowBlur = 4 + Math.sin(now * 0.005) * 3;
-        bbSmallCtx.fillStyle = `rgb(${r}, 255, 255)`;
-        bbSmallCtx.fillText('CURSOR VIBE JAM 2026', 128, 32);
-        bbSmallCtx.shadowBlur = 0;
-        bbTex.needsUpdate = true;
-      }
-      slTex.offset.y = (now * 0.0005) % 1;
-    }
-
-    // Portal swirl animation (throttled)
-    if (now - lastPortalUpdate > 150) {
-      const imgData = portalImgData || (portalImgData = portalCtx.createImageData(128, 128));
-      const d = imgData.data;
-      const swirlT = now * 0.002;
-      for (let row = 0; row < 128; row++) {
-        for (let col = 0; col < 128; col++) {
-          const nx = (col - 64) / 64;
-          const ny = (row - 64) / 64;
-          const dist = Math.sqrt(nx * nx + ny * ny);
-          const idx = (row * 128 + col) * 4;
-          if (dist < 1.0) {
-            const angle = Math.atan2(ny, nx);
-            const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
-            const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
-            const centerGlow = Math.max(0, 1 - dist * 1.8);
-            d[idx]     = Math.round(brightness * 80  + centerGlow * 255);
-            d[idx + 1] = Math.round(brightness * 255 + centerGlow * 255);
-            d[idx + 2] = Math.round(brightness * 100 + centerGlow * 200);
-            d[idx + 3] = 255;
-          } else {
-            d[idx + 3] = 0;
-          }
-        }
-      }
-      portalCtx.putImageData(imgData, 0, 0);
-      portalTex.needsUpdate = true;
-      if (returnPortalCtx && returnPortalTex) {
-        const imgData2 = returnPortalImgData || (returnPortalImgData = returnPortalCtx.createImageData(128, 128));
-        const d2 = imgData2.data;
-        for (let row = 0; row < 128; row++) {
-          for (let col = 0; col < 128; col++) {
-            const nx = (col - 64) / 64;
-            const ny = (row - 64) / 64;
-            const dist = Math.sqrt(nx * nx + ny * ny);
-            const idx = (row * 128 + col) * 4;
-            if (dist < 1.0) {
-              const angle = Math.atan2(ny, nx);
-              const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
-              const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
-              const centerGlow = Math.max(0, 1 - dist * 1.8);
-              d2[idx] = Math.round(brightness * 80 + centerGlow * 0);
-              d2[idx + 1] = Math.round(brightness * 210 + centerGlow * 255);
-              d2[idx + 2] = Math.round(brightness * 255 + centerGlow * 255);
-              d2[idx + 3] = 255;
-            } else {
-              d2[idx + 3] = 0;
-            }
-          }
-        }
-        returnPortalCtx.putImageData(imgData2, 0, 0);
-        returnPortalTex.needsUpdate = true;
-      }
-      lastPortalUpdate = now;
-    }
+    Effects.updateStageLed(now);
+    Effects.updateBillboard(now);
 
     const localCart = localCartForConnId();
     const playerPos = localCart?.body ? localCart.body.translation() : null;
-    const netSlotsForFrame = Netcode.getNetSlots();
-    const localSlotIndexThisFrame = Netcode.localSlotIndexForConn(Netcode.getYouConnId());
-
-    // Portal proximity trigger (single-fire)
-    if (playerPos && !portalTriggered) {
-      const dx = playerPos.x - portalWorldPos.x;
-      const dy = playerPos.y - portalWorldPos.y;
-      const dz = playerPos.z - portalWorldPos.z;
-      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
-        portalTriggered = true;
-        window.location.href = buildExitPortalUrl();
-      }
-    }
-
-    if (playerPos && !returnPortalTriggered && incomingPortalParams?.ref && hasReturnPortals && Date.now() > returnPortalArmedAtMs) {
-      for (const pos of returnPortalWorldPositions) {
-        const dx = playerPos.x - pos.x;
-        const dy = playerPos.y - pos.y;
-        const dz = playerPos.z - pos.z;
-        if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
-          returnPortalTriggered = true;
-
-          const rawRef = String(incomingPortalParams.ref || "").trim();
-          const returnUrl = new URL(rawRef.startsWith("http") ? rawRef : `https://${rawRef}`);
-          returnUrl.searchParams.set("portal", "true");
-          returnUrl.searchParams.set("ref", window.location.origin + window.location.pathname);
-          if (incomingPortalParams.username) returnUrl.searchParams.set("username", incomingPortalParams.username);
-          if (incomingPortalParams.color) returnUrl.searchParams.set("color", incomingPortalParams.color);
-          if (incomingPortalParams.speed) returnUrl.searchParams.set("speed", incomingPortalParams.speed);
-          if (incomingPortalParams.avatar_url) returnUrl.searchParams.set("avatar_url", incomingPortalParams.avatar_url);
-          if (incomingPortalParams.team) returnUrl.searchParams.set("team", incomingPortalParams.team);
-          if (incomingPortalParams.hp) returnUrl.searchParams.set("hp", incomingPortalParams.hp);
-          window.location.href = returnUrl.toString();
-          break;
-        }
-      }
-    }
-
-    if (Netcode.getIsHost() && GameState.getRoundState().phase === "running") {
-      // Fall detection / respawn (host-authoritative).
-      for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-        const slot = Netcode.getNetSlots()[slotIndex];
-        const c = allCarts[slotIndex];
-        if (!slot) continue;
-        const p = c.body.translation();
-        if (p.y < CONFIG.fall.yThreshold) {
-          // Stage A scoring: credit last hit if recent.
-          // Only score once per fall event.
-          if (c.respawnAtMs === null) {
-            const hit = GameState.getLastHitBy().get(slotIndex) || null;
-            let fallEventAttackerSlot = null;
-            let fallEventVerb = "FELL OFF";
-            // 2500ms window: covers slow slide-offs and falls; long enough
-            // to avoid "ghost kills" where rammer gets no credit despite
-            // clearly causing the fall.
-            if (hit && Date.now() - hit.timestamp <= 2500) {
-              const distOriginXZ = Math.hypot(p.x, p.z);
-              const isCenterHole = distOriginXZ < CONFIG.record.innerRadius + 2;
-              let points = isCenterHole ? 2 : 1;
-
-              if (hit.wasCritical) points += 1; // critical bonus
-
-              // Leader lookup (before applying this score).
-              let leaderSlotIndex = -1;
-              let leaderScore = 0;
-              let leaderTied = false;
-              for (let i = 0; i < 4; i += 1) {
-                const s = Number(GameState.getRoundScores()[i] || 0);
-                if (s > leaderScore) {
-                  leaderScore = s;
-                  leaderSlotIndex = i;
-                  leaderTied = false;
-                } else if (s === leaderScore && s > 0) {
-                  leaderTied = true;
-                }
-              }
-              if (!leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex) points += 1; // target bonus
-
-              GameState.addScore(hit.attackerSlotIndex, points);
-
-              {
-                const attackerSlot = Netcode.getNetSlots()[hit.attackerSlotIndex];
-                const victimSlot = Netcode.getNetSlots()[slotIndex];
-                const actorName = attackerSlot?.name || `P${hit.attackerSlotIndex + 1}`;
-                const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-                const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(attackerSlot)) : null;
-                const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
-                const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
-                hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
-                fallEventAttackerSlot = hit.attackerSlotIndex;
-                fallEventVerb = verb;
-              }
-              if (GameState.getRoundState().phase === "running") {
-                if (hit.attackerSlotIndex === localSlotIndexThisFrame) {
-                  fovPunchUntil = performance.now() + 200;
-                }
-              }
-
-              Netcode.sendHostRound(); // broadcast score update to non-host clients
-            } else {
-              const victimSlot = Netcode.getNetSlots()[slotIndex];
-              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-              const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(colorHexForSlot(victimSlot)) : null;
-              hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
-            }
-            if (Netcode.getPartySocket()) {
-              Netcode.getPartySocket().send(JSON.stringify({
-                type: MSG.hostEventFall,
-                slotId: slotIndex,
-                victimSlotIndex: slotIndex,
-                attackerSlot: fallEventAttackerSlot,
-                attackerSlotIndex: fallEventAttackerSlot,
-                verb: fallEventVerb,
-              }));
-            }
-            GameState.getLastHitBy().delete(slotIndex);
-          }
-
-          scheduleRespawn(c, now);
-          let aliveCartCount = 0;
-          let lastStandingSlotIndex = -1;
-          for (let j = 0; j < 4; j += 1) {
-            const cj = allCarts[j];
-            if (!cj) continue;
-            if (cj.respawnAtMs === null) {
-              aliveCartCount += 1;
-              lastStandingSlotIndex = j;
-            }
-          }
-          if (
-            aliveCartCount === 1 &&
-            lastCartStandingTimeoutId == null &&
-            GameState.getRoundState().startedAtMs > 0
-          ) {
-            lastCartStandingWinnerSlotIndex = lastStandingSlotIndex;
-            slowMoUntil = performance.now() + 3000;
-            slowMoRate = 0.35;
-            lastCartStandingTimeoutId = setTimeout(() => {
-              lastCartStandingTimeoutId = null;
-              if (Netcode.getIsHost() && GameState.getRoundState().phase === "running") endRound();
-            }, 3000);
-          }
-          // If the override is already armed and the survivor has now also fallen,
-          // end immediately using the already-chosen last-standing winner.
-          if (
-            lastCartStandingTimeoutId != null &&
-            aliveCartCount === 0
-          ) {
-            clearTimeout(lastCartStandingTimeoutId);
-            lastCartStandingTimeoutId = null;
-            if (lastCartStandingWinnerSlotIndex === null) lastCartStandingWinnerSlotIndex = "draw";
-            if (Netcode.getIsHost() && GameState.getRoundState().phase === "running") endRound();
-          }
-        }
-        if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
-          Entities.doRespawn(c);
-        }
-        if (slot.kind === "npc") maybeTriggerNpcOpportunisticRamBoost(now, c);
-      }
-      tickRamBoostStreakSpawners(now, dt);
-    }
-
-    // Round phase transitions (host only)
-    if (Netcode.getIsHost()) {
-      // running → end when timer expires
-      if (
-        GameState.getRoundState().phase === "running" &&
-        GameState.getRoundState().startedAtMs > 0 &&
-        Date.now() - GameState.getRoundState().startedAtMs >= 95000 &&
-        lastCartStandingTimeoutId === null
-      ) {
-        endRound();
-      }
-    }
-
-    // Third-person follow camera (behind the cart).
-    if (localCart?.body && playerPos) {
-      const playerRot = localCart.body.rotation();
-      cameraPlayerQuat.set(playerRot.x, playerRot.y, playerRot.z, playerRot.w);
-      cameraPlayerPosition.set(playerPos.x, playerPos.y, playerPos.z);
-      cameraForwardWorld.set(0, 0, -1).applyQuaternion(cameraPlayerQuat);
-
-      cameraDesiredPos
-        .copy(cameraPlayerPosition)
-        .addScaledVector(cameraForwardWorld, -CONFIG.camera.followBack);
-      cameraDesiredPos.y += CONFIG.camera.followUp;
-
-      cameraDesiredLook
-        .copy(cameraPlayerPosition)
-        .addScaledVector(cameraForwardWorld, CONFIG.camera.lookAhead);
-      cameraDesiredLook.y += CONFIG.camera.lookUp;
-
-      cameraLookMat.lookAt(cameraDesiredPos, cameraDesiredLook, cameraUp);
-      cameraDesiredQuat.setFromRotationMatrix(cameraLookMat);
-
-      if (cameraState.pos.distanceTo(cameraDesiredPos) > CONFIG.camera.snapDistance) {
-        cameraState.pos.copy(cameraDesiredPos);
-        cameraState.quat.copy(cameraDesiredQuat);
-      } else {
-        const posAlpha = dampFactor(CONFIG.camera.positionDamping, dt);
-        const rotAlpha = dampFactor(CONFIG.camera.rotationDamping, dt);
-        cameraState.pos.lerp(cameraDesiredPos, posAlpha);
-        cameraState.quat.slerp(cameraDesiredQuat, rotAlpha);
-      }
-
-      camera.position.copy(cameraState.pos);
-      camera.quaternion.copy(cameraState.quat);
-    }
-
-    // Diagnostics removed for submission.
-
-    // Fixed substeps for stability/consistency (host only).
-    let substeps = 0;
-    let alpha = null;
-    if (Netcode.getIsHost()) {
-      if (GameState.getRoundState().phase === "running") {
-        const npcCartsForFrame = allCartsRef.filter((c, idx) => netSlotsForFrame[idx] && netSlotsForFrame[idx].kind === "npc");
-
-        while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
-          if (Netcode.getSkipNextPhysicsStep()) {
-            Netcode.setSkipNextPhysicsStep(false);
-            accumulator -= CONFIG.fixedTimeStep;
-            substeps += 1;
-            continue;
-          }
-
-          Simulation.runFixedPhysicsStep({
-            world,
-            eventQueue,
-            allCarts: allCartsRef,
-            localCart,
-            remoteInputs: Netcode.getRemoteInputsByConnId(),
-            npcs: npcCartsForFrame,
-            dt: CONFIG.fixedTimeStep,
-            now: performance.now(),
-            isHost: Netcode.getIsHost(),
-            callbacks: {
-              getAxis: Input.getAxis,
-              getAiAxis: getAiAxis,
-              playCollision: playCollisionRef,
-              spawnTrashBurst: spawnTrashBurstRef,
-              partySocket: Netcode.getPartySocket(),
-              recordColliderHandle: recordCollider.handle,
-              pitWallColliderHandle: pitWallColliderHandle,
-              boothColliderHandles: boothColliderHandles,
-              playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
-              playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
-              // * Resolves a connId to the cart object so the host can drive remote bodies.
-              resolveCartForConn: (connId) => {
-                const idx = Netcode.strictSlotIndexForConn(connId);
-                return idx >= 0 ? allCartsRef[idx] : null;
-              },
-            }
-          });
-          accumulator -= CONFIG.fixedTimeStep;
-          substeps += 1;
-        }
-        alpha = accumulator / CONFIG.fixedTimeStep;
-      } else {
-        accumulator = 0;
-      }
-    } else if (Netcode.shouldUseClientPrediction()) {
-      // * Multiplayer client: prediction + reconciliation (solo never enters this branch).
-      const localSlotIndex = localSlotIndexThisFrame;
-
-      if (Date.now() < Netcode.getHostMigrationFreezeUntilMs()) {
-        // * Hold positions until a new host's snapshots arrive after migration.
-      } else {
-        // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
-        Netcode.updateRemoteCartNetTargets(localSlotIndex);
-        // 2. Align remote physics bodies so prediction collides against current net poses.
-        Netcode.syncRemoteCartBodiesForPrediction(localSlotIndex);
-
-        // 3. Prediction: step Rapier locally with the player's input (instant feel).
-        if (GameState.getRoundState().phase === "running") {
-          while (accumulator >= CONFIG.fixedTimeStep && substeps < CONFIG.maxSubsteps) {
-            Simulation.runFixedPhysicsStep({
-              world,
-              eventQueue,
-              allCarts: allCartsRef,
-              localCart,
-              remoteInputs: null,
-              npcs: [],
-              dt: CONFIG.fixedTimeStep,
-              now: performance.now(),
-              isHost: false,
-              callbacks: {
-                getAxis: Input.getAxis,
-                getAiAxis: null,
-                playCollision: playCollisionRef,
-                spawnTrashBurst: spawnTrashBurstRef,
-                partySocket: Netcode.getPartySocket(),
-                recordColliderHandle: recordCollider.handle,
-                pitWallColliderHandle: pitWallColliderHandle,
-                boothColliderHandles: boothColliderHandles,
-                playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
-                playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
-              },
-            });
-            accumulator -= CONFIG.fixedTimeStep;
-            substeps += 1;
-          }
-          alpha = accumulator / CONFIG.fixedTimeStep;
-        } else {
-          accumulator = 0;
-        }
-
-        // 4. Reconciliation: softly correct predicted pose toward host authority.
-        Netcode.reconcilePredictedLocalCart(localCart, localSlotIndex, dt);
-      }
-    } else {
-      // Non-host without prediction (defensive fallback): interpolate all carts from buffer.
-      if (Date.now() < Netcode.getHostMigrationFreezeUntilMs()) {
-        // hold
-      } else {
-        const localSlotIndex = localSlotIndexThisFrame;
-        Netcode.updateRemoteCartNetTargets(-1);
-        const localSnap = Netcode.sampleAuthoritativeCartState(localSlotIndex);
-        const localCart = localSlotIndex >= 0 ? allCarts[localSlotIndex] : null;
-        if (localCart && localSnap) {
-          const { p, q, lv, av } = localSnap;
-          if (Array.isArray(p) && p.length === 3) {
-            localCart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
-          }
-          if (Array.isArray(q) && q.length === 4) {
-            localCart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
-          }
-          if (Array.isArray(lv) && lv.length === 3) {
-            localCart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
-          }
-          if (Array.isArray(av) && av.length === 3) {
-            localCart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
-          }
-        }
-      }
-    }
-    updateRamBoostStreaks(now);
-
-    // Sync render meshes from physics (or from net targets for remote non-host carts).
-    const localSlotIndexForFrame = localSlotIndexThisFrame;
-    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-      const c = allCarts[slotIndex];
-      if (!c || !c.mesh) continue;
-
-      if (!Netcode.getIsHost() && slotIndex !== localSlotIndexForFrame) {
-        if (c._netTargetPos) {
-          netTargetPosScratch.copy(c._netTargetPos);
-          netTargetPosScratch.y += CONFIG.cart.visualOffset;
-          c.mesh.position.lerp(netTargetPosScratch, 0.75);
-        }
-        if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.75);
-        c.mesh.updateMatrixWorld(true);
-        const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
-        cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
-        updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-
-      const p = c.body.translation();
-      const r = c.body.rotation();
-      c.mesh.position.set(p.x, p.y + CONFIG.cart.visualOffset, p.z);
-      c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
-      c.mesh.updateMatrixWorld(true);
-      const lv = c.body.linvel();
-      cartLinvelScratch.set(lv.x, lv.y, lv.z);
-      updateCartVisuals(c.mesh, cartLinvelScratch, dt, now);
-    }
-
-    // Subtle wheel screech: short noise bursts on sharp steering, local cart only.
-    // * Uses steering input magnitude (not physics yaw rate) so it remains consistent across hosts/clients.
-    if (!isMuted && sfxVolume > 0 && sfx && typeof sfx.playWheelScreech === "function") {
-      if (!menuVisible && GameState.getRoundState().phase === "running") {
-        const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
-        if (c && c.body) {
-          const lv = c.body.linvel();
-          const speed = Math.hypot(lv.x, lv.z);
-          if (speed >= 4.0) {
-            const axis = Input.getAxis();
-            const steerMag = Math.abs(axis.turn || 0);
-            const steerThreshold = 0.55;
-            if (steerMag >= steerThreshold) {
-              if (now - (c.lastWheelScreechAtMs || 0) >= 120) {
-                c.lastWheelScreechAtMs = now;
-                const steerFactor = clamp((steerMag - steerThreshold) / (1 - steerThreshold), 0, 1);
-                const speedFactor = clamp((speed - 4.0) / 10.0, 0, 1);
-                sfx.playWheelScreech(steerFactor * speedFactor);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Leader glow: pulsing inverted-color emissive on the current score leader.
-    {
-      let leaderSlot = -1;
-      let leaderScore = 0;
-      let isTied = false;
-      if (GameState.getRoundState().phase === "running") {
-        const scores = GameState.getRoundScores();
-        for (let i = 0; i < 4; i += 1) {
-          const s = Number(scores[i] || 0);
-          if (s > leaderScore) { leaderScore = s; leaderSlot = i; isTied = false; }
-          else if (s === leaderScore && s > 0) { isTied = true; }
-        }
-        if (isTied) leaderSlot = -1;
-      }
-
-      // Leader hum: subtle spatial drone on the current leader.
-      if (!menuVisible && GameState.getRoundState().phase === "running" && leaderSlot >= 0 && allCarts[leaderSlot]) {
-        leaderHum?.setLeader?.(leaderSlot);
-        leaderHum?.updatePositionFromCart?.(allCarts[leaderSlot]);
-      } else {
-        leaderHum?.setLeader?.(null);
-      }
-
-      // * 1 Hz = one full cycle per second.
-      const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
-      // * emissiveIntensity pulses 0.5 → 2.0 for strong bloom at peak.
-      const glowIntensity = 0.5 + glowPulse * 1.5;
-      for (let i = 0; i < allCarts.length; i += 1) {
-        const cart = allCarts[i];
-        if (!cart || !cart.mesh) continue;
-        const isLeader = i === leaderSlot;
-        const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
-        for (const mat of cache.frameGlowMats) {
-          if (isLeader) {
-            // * White emissive — intensity carries the pulse.
-            mat.emissive.setRGB(1, 1, 1);
-            mat.emissiveIntensity = glowIntensity;
-          } else if (GameState.getRoundState().phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
-            mat.emissive.setHex(colorHexForSlot(netSlotsForFrame[i]));
-            mat.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
-          } else {
-            // * Restore standard emissive (cart's own color at normal intensity).
-            const baseHex = colorHexForSlot(netSlotsForFrame[i]);
-            mat.emissive.setHex(baseHex);
-            mat.emissiveIntensity = 0.6;
-          }
-        }
-      }
-    }
-
-    HUD.update({
-      youConnId: Netcode.getYouConnId(),
-      netSlots: Netcode.getNetSlots(),
-      roundState: GameState.getRoundState(),
-      matchHistoryLength: matchHistory ? matchHistory.length : 0,
-      isLastCartStandingActive: lastCartStandingTimeoutId !== null,
-      menuVisible
+    Effects.updatePortals(now, playerPos, {
+      buildExitPortalUrl,
+      incomingPortalParams,
     });
-    updateResultsOverlay();
-    positionNameLabels();
 
-    updateAmbientParticles(dt, now);
+    updateGameFlow(gameCtx.deps.gameFlow, gameCtx.makePhaseContext(dt));
 
-    composer.render();
-
-    labelRenderer.render(scene, camera);
-
-    fpsFrames++;
-    const fpsNow = performance.now();
-    if (fpsNow - fpsLast >= 500) {
-      const fpsVal = Math.round((fpsFrames * 1000) / (fpsNow - fpsLast));
-      if (!fpsCanvas2d) {
-        fpsCanvas2d = document.createElement("canvas");
-        fpsCanvas2d.width = 90;
-        fpsCanvas2d.height = 24;
-        fpsCanvas2d.style.cssText = "position:fixed;bottom:8px;left:10px;z-index:99999;pointer-events:none;";
-        document.body.appendChild(fpsCanvas2d);
-        fpsCtx2d = fpsCanvas2d.getContext("2d");
-      }
-      fpsCtx2d.clearRect(0, 0, 90, 24);
-      if (!menuVisible) {
-        fpsCtx2d.font = "11px 'Space Mono', monospace";
-        fpsCtx2d.fillStyle = "rgba(255,255,255,0.35)";
-        fpsCtx2d.textAlign = "right";
-        fpsCtx2d.fillText(fpsVal + " FPS", 86, 16);
-      }
-      fpsFrames = 0;
-      fpsLast = fpsNow;
-    }
-
-    if (GameState.getRoundState().phase === "running" && performance.now() < shakeUntil) {
-      const t = (shakeUntil - performance.now()) / 250;
-      const ox = (Math.random() - 0.5) * 2 * shakeIntensity * t;
-      const oy = (Math.random() - 0.5) * 2 * shakeIntensity * t;
-      canvas.style.transform = `translate(${ox}px, ${oy}px)`;
-    } else {
-      canvas.style.transform = "";
-    }
-
-    if (GameState.getRoundState().phase === "running" && performance.now() < fovPunchUntil) {
-      const t = (fovPunchUntil - performance.now()) / 200;
-      camera.fov = BASE_FOV - 8 * t; // narrow punch
-      camera.updateProjectionMatrix();
-    } else if (camera.fov !== BASE_FOV) {
-      camera.fov = BASE_FOV;
-      camera.updateProjectionMatrix();
-    }
-
-    if (GameState.getRoundState().phase === "running") {
-      for (let i = 0; i < trashPool.length; i++) {
-        const p = trashPool[i];
-        if (!p.visible) continue;
-        p.userData.life += dt;
-        if (p.userData.life >= p.userData.maxLife) {
-          p.visible = false;
-          continue;
-        }
-        const t = p.userData.life / p.userData.maxLife;
-        p.position.x += p.userData.vel.x * dt;
-        p.position.y += p.userData.vel.y * dt;
-        p.position.z += p.userData.vel.z * dt;
-        p.userData.vel.y -= 9.8 * dt; // gravity
-        p.scale.setScalar((1 - t) * (0.5 + 0.5));
-        p.material.opacity = 1 - t;
-      }
-    }
-    requestAnimationFrame(step);
-  }
+    runPhysicsStep(gameCtx.loopState, gameCtx.deps.physics, { now, dt });
+    frameCtx.dt = dt;
+    },
+    onVisualUpdate(frameCtx) {
+      gameCtx.setFrameCtx(frameCtx);
+      updateVisualsAndEffects(gameCtx.deps.visual, gameCtx.frameCtx);
+    },
+  });
 
   window.addEventListener("resize", updateViewport);
-
-  requestAnimationFrame(step);
 }
 
 function isMobileGameplayBlocked() {
@@ -6145,7 +3589,7 @@ function initMobileMenuAudioOnly() {
   const crMusicVolVal = document.getElementById("cr-music-vol-val");
 
   const syncMenuVolumeUi = () => {
-    if (crMusicVolFill) crMusicVolFill.style.width = `${(isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX)) * 100}%`;
+    if (crMusicVolFill) crMusicVolFill.style.setProperty("--vol-scale", String(isMuted ? 0 : masterGain / AUDIO_VOLUME_MAX));
     if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : String(Math.round((masterGain / AUDIO_VOLUME_MAX) * 100));
     if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
   };
@@ -6218,6 +3662,7 @@ function initMobileGameplayBlock() {
     cleanLink.searchParams.set("room", roomId);
     const roomLink = cleanLink.toString();
     if (friendsLink) friendsLink.value = roomLink;
+    window.CartRave?.stopAnimations?.();
     if (menuRoot) menuRoot.style.display = "none";
     if (friendsScreen) friendsScreen.style.display = "flex";
     if (friendsCopy) friendsCopy.textContent = "COPY";
@@ -6239,7 +3684,7 @@ function initMobileGameplayBlock() {
   if (friendsBack) {
     friendsBack.onclick = () => {
       if (friendsScreen) friendsScreen.style.display = "none";
-      if (menuRoot) menuRoot.style.display = "";
+      window.CartRave?.show?.();
     };
   }
 

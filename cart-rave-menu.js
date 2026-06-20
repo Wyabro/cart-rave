@@ -212,6 +212,12 @@
   const musicVolFill = $("cr-music-vol-fill");
   const musicVolVal = $("cr-music-vol-val");
   const audioEl = $("cr-audio");
+  let currentCartSvg = null;
+  const spotlightPool = [];
+  const particlePool = [];
+  const PARTICLE_POOL_MAX = Math.round(
+    CONFIG.particleCountBase + 10 * CONFIG.particleCountPerIntensity
+  );
   // NOTE: Keyboard/mouse gating toast is driven by main.js (mobile gameplay block).
 
   // ─── Neon cart SVG builder ────────────────────────────────────────────────
@@ -255,47 +261,77 @@
 </svg>`;
   }
 
-  // ─── Build spotlights ─────────────────────────────────────────────────────
-  function buildSpotlights() {
-    if (!CONFIG.showSpotlights) { lightsEl.innerHTML = ""; return; }
-    const p = state.palette;
-    const colors = [p.primary, p.secondary, p.tertiary, p.players[0]];
-    let html = "";
+  // ─── Spotlights (pooled DOM) ──────────────────────────────────────────────
+  function initSpotlights() {
+    if (!lightsEl) return;
+    lightsEl.innerHTML = '';
     for (let i = 0; i < CONFIG.spotlightCount; i++) {
-      html += `<div class="cr-light" style="
-        --col:${colors[i % colors.length]};
-        --dur:${CONFIG.spotlightDurBase + i * CONFIG.spotlightDurStep}s;
-        --delay:${i * CONFIG.spotlightDelayStep}s;
-        left:${CONFIG.spotlightLeftBase + i * CONFIG.spotlightLeftStep}%;
-        opacity:${CONFIG.spotlightOpacityBase + CONFIG.intensity * CONFIG.spotlightOpacityPerIntensity};
-      "></div>`;
+      const el = document.createElement('div');
+      el.className = 'cr-light';
+      lightsEl.appendChild(el);
+      spotlightPool.push(el);
     }
-    lightsEl.innerHTML = html;
   }
 
-  // ─── Build particles ──────────────────────────────────────────────────────
-  function buildParticles() {
-    if (!CONFIG.showParticles) { particlesEl.innerHTML = ""; return; }
+  function updateSpotlights() {
+    if (!CONFIG.showSpotlights) {
+      spotlightPool.forEach((el) => { el.style.display = 'none'; });
+      return;
+    }
+    const p = state.palette;
+    const colors = [p.primary, p.secondary, p.tertiary, p.players[0]];
+    const opacity = CONFIG.spotlightOpacityBase + CONFIG.intensity * CONFIG.spotlightOpacityPerIntensity;
+    for (let i = 0; i < spotlightPool.length; i++) {
+      const el = spotlightPool[i];
+      el.style.display = '';
+      el.style.setProperty('--col', colors[i % colors.length]);
+      el.style.setProperty('--dur', `${CONFIG.spotlightDurBase + i * CONFIG.spotlightDurStep}s`);
+      el.style.setProperty('--delay', `${i * CONFIG.spotlightDelayStep}s`);
+      el.style.left = `${CONFIG.spotlightLeftBase + i * CONFIG.spotlightLeftStep}%`;
+      el.style.opacity = String(opacity);
+    }
+  }
+
+  // ─── Particles (pooled DOM) ───────────────────────────────────────────────
+  function initParticles() {
+    if (!particlesEl) return;
+    particlesEl.innerHTML = '';
+    for (let i = 0; i < PARTICLE_POOL_MAX; i++) {
+      const el = document.createElement('div');
+      el.className = 'cr-particle';
+      particlesEl.appendChild(el);
+      particlePool.push(el);
+    }
+  }
+
+  function updateParticles() {
+    if (!CONFIG.showParticles) {
+      particlePool.forEach((el) => { el.style.display = 'none'; });
+      return;
+    }
     const count = Math.round(CONFIG.particleCountBase + CONFIG.intensity * CONFIG.particleCountPerIntensity);
     const p = state.palette;
     const colors = [p.primary, p.secondary, p.tertiary];
-    let html = "";
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < particlePool.length; i++) {
+      const el = particlePool[i];
+      if (i >= count) {
+        el.style.display = 'none';
+        continue;
+      }
+      el.style.display = '';
       const left = Math.random() * 100;
       const size = CONFIG.particleSizeMin + Math.random() * CONFIG.particleSizeRange;
       const dur = CONFIG.particleDurMin + Math.random() * CONFIG.particleDurRange;
       const delay = -Math.random() * CONFIG.particleDelayMax;
       const color = colors[i % colors.length];
-      html += `<div class="cr-particle" style="
-        left:${left}%;
-        width:${size}px; height:${size}px;
-        background:${color};
-        box-shadow: 0 0 ${size * 2}px ${color};
-        animation-duration:${dur}s;
-        animation-delay:${delay}s;
-      "></div>`;
+      el.style.left = `${left}%`;
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.background = color;
+      el.style.boxShadow = `0 0 ${size * 2}px ${color}`;
+      el.style.animationDuration = `${dur}s`;
+      el.style.animationDelay = `${delay}s`;
     }
-    particlesEl.innerHTML = html;
   }
 
   // ─── Build color chips ────────────────────────────────────────────────────
@@ -304,6 +340,8 @@
    * Syncs active chip, localStorage, cart preview, and palette CSS vars.
    */
   function buildColorChips() {
+    colorRow.setAttribute('role', 'radiogroup');
+    colorRow.setAttribute('aria-label', 'Player Color Selection');
     const p = state.palette;
     let html = "";
     p.players.forEach((col, i) => {
@@ -332,6 +370,7 @@
   function renderCart() {
     const color = state.palette.players[state.playerIdx];
     cartHolder.innerHTML = makeCartSVG(color);
+    currentCartSvg = cartHolder.querySelector('svg');
     cartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
   }
 
@@ -410,9 +449,6 @@
 
   nameDisplay.addEventListener('click', startNameEdit);
   nameInput.addEventListener('blur', finishNameEdit);
-  nameInput.addEventListener('input', () => {
-    nameInput.value = nameInput.value.toUpperCase().slice(0, CONFIG.nameMaxLength);
-  });
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') finishNameEdit();
   });
@@ -424,8 +460,7 @@
 
   // ─── Mute / volume ────────────────────────────────────────────────────────
   function updateVolume() {
-    const w = (state.muted ? 0 : state.vol) * 100;
-    if (musicVolFill) musicVolFill.style.width = w + '%';
+    if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(state.muted ? 0 : state.vol));
     if (musicVolVal) musicVolVal.textContent = state.muted ? 'OFF' : Math.round(state.vol * 100);
     if (state.muted) {
       muteBtn.classList.add('muted');
@@ -486,9 +521,8 @@
     // Apply to cart
     const pulse = 1 + state.beat * CONFIG.cartPulseScale;
     const bob = Math.sin(state.beat * Math.PI) * -CONFIG.cartBobPx;
-    const svg = cartHolder.querySelector('svg');
-    if (svg) {
-      svg.style.transform = `translateY(${bob}px) rotate(${state.tilt * CONFIG.cartTiltDeg}deg) scale(${pulse})`;
+    if (currentCartSvg) {
+      currentCartSvg.style.transform = `translateY(${bob}px) rotate(${state.tilt * CONFIG.cartTiltDeg}deg) scale(${pulse})`;
     }
     cartShadow.style.transform = `translateX(-50%) scale(${1 - state.beat * CONFIG.shadowBeatScale})`;
 
@@ -526,17 +560,13 @@
     stopMenuTimers();
     stopMenuLoops();
   };
-  // Stop menu loops/timers when the menu is hidden by the host app.
-  if (root) {
-    const obs = new MutationObserver(() => {
-      const isHidden =
-        root.style.display === 'none' ||
-        root.style.pointerEvents === 'none' ||
-        root.style.opacity === '0' ||
-        root.getAttribute('aria-hidden') === 'true';
-      if (isHidden) stopMenuLoopsAndTimers();
-    });
-    obs.observe(root, { attributes: true, attributeFilter: ['style', 'aria-hidden'] });
+
+  function startMenuAnimations() {
+    menuHidden = false;
+    if (animFrameId == null) {
+      lastBeat = performance.now();
+      animFrameId = requestAnimationFrame(animLoop);
+    }
   }
 
   // ─── FX toggles via CONFIG ────────────────────────────────────────────────
@@ -561,8 +591,10 @@
     localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
   }
 
-  buildSpotlights();
-  buildParticles();
+  initSpotlights();
+  initParticles();
+  updateSpotlights();
+  updateParticles();
   buildColorChips();
   renderCart();
   applyPalette();
@@ -575,18 +607,34 @@
       if (!PALETTES[key]) return;
       state.palette = PALETTES[key];
       CONFIG.palette = key;
-      buildSpotlights();
-      buildParticles();
+      updateSpotlights();
+      updateParticles();
       buildColorChips();
       renderCart();
       applyPalette();
     },
     setIntensity(n) {
       CONFIG.intensity = Math.max(0, Math.min(10, n));
-      buildSpotlights();
-      buildParticles();
+      updateSpotlights();
+      updateParticles();
       scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
       floorEl.style.opacity = CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity;
+    },
+    stopAnimations() {
+      stopMenuLoopsAndTimers();
+    },
+    hide() {
+      stopMenuLoopsAndTimers();
+      if (root) root.style.display = 'none';
+    },
+    show() {
+      if (root) {
+        root.style.display = '';
+        root.style.opacity = '1';
+        root.style.pointerEvents = '';
+        root.removeAttribute('aria-hidden');
+      }
+      startMenuAnimations();
     },
     onMenu(cb) {
       window.addEventListener('cartrave:menu', (e) => cb(e.detail.action));

@@ -48,8 +48,6 @@ const _v = new THREE.Vector3();
 const _localDir = new THREE.Vector3();
 const _rootWorld = new THREE.Quaternion();
 const _rootInv = new THREE.Quaternion();
-const _yawWorld = new THREE.Quaternion();
-const _rollDir = new THREE.Vector3();
 const _axisY = new THREE.Vector3(0, 1, 0);
 const _p0 = new THREE.Vector3();
 const _p1 = new THREE.Vector3();
@@ -74,6 +72,16 @@ const SHARED_HUB_GEO = new THREE.CylinderGeometry(
   14,
   1,
 );
+
+// * Unit cylinders for rail segments — clone + scale beats rebuilding per segment.
+const UNIT_CYL_GEO_6 = new THREE.CylinderGeometry(1, 1, 1, BASKET_RAIL_SEGMENTS, 1);
+const UNIT_CYL_GEO_8 = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
+
+const SHARED_LENS_MAT = new THREE.MeshBasicMaterial({
+  color: 0x050505,
+  side: THREE.DoubleSide,
+});
+const SHARED_MOUTH_MAT = new THREE.MeshBasicMaterial({ color: 0x050505 });
 
 /**
  * @param {number} value
@@ -124,7 +132,21 @@ function addRailCylinder(a, b, radius, segments) {
   if (len < 1e-5) return null;
   _dir.multiplyScalar(1 / len);
   _mid.addVectors(a, b).multiplyScalar(0.5);
-  const geo = new THREE.CylinderGeometry(radius, radius, len, segments, 1);
+
+  let geo;
+  if (segments === 8) {
+    geo = UNIT_CYL_GEO_8.clone();
+  } else if (segments === BASKET_RAIL_SEGMENTS) {
+    geo = UNIT_CYL_GEO_6.clone();
+  } else {
+    geo = new THREE.CylinderGeometry(radius, radius, len, segments, 1);
+    _quat.setFromUnitVectors(_axisY, _dir);
+    _matrix.compose(_mid, _quat, _scaleOne);
+    geo.applyMatrix4(_matrix);
+    return geo;
+  }
+
+  geo.scale(radius, len, radius);
   _quat.setFromUnitVectors(_axisY, _dir);
   _matrix.compose(_mid, _quat, _scaleOne);
   geo.applyMatrix4(_matrix);
@@ -413,11 +435,10 @@ function buildChassis(frameGeometries, dims) {
  * Builds caster mounts, stems, yaw/pitch groups, wheels, and hub discs at chassis corners.
  * @param {THREE.Group} root Cart root group.
  * @param {THREE.Material} frameMat Neon frame material for wheel hubs.
- * @param {THREE.Material} wheelMat Dark chrome wheel tire material.
- * @param {THREE.Material} stemMat Caster stem material.
+ * @param {THREE.Material} wheelMat Dark chrome wheel tire and stem material.
  * @returns {{ casterYawGroups: THREE.Group[], wheelPitchObjects: THREE.Group[], wobblePhases: number[] }}
  */
-function buildCastersAndWheels(root, frameMat, wheelMat, stemMat) {
+function buildCastersAndWheels(root, frameMat, wheelMat) {
   const casterYawGroups = [];
   const wheelPitchObjects = [];
   const hx = CHASSIS_HALF_WIDTH - CASTER_CORNER_INSET;
@@ -441,7 +462,7 @@ function buildCastersAndWheels(root, frameMat, wheelMat, stemMat) {
 
     const stem = new THREE.Mesh(
       new THREE.CylinderGeometry(WHEEL_WIDTH * 0.42, WHEEL_WIDTH * 0.5, CASTER_STEM_HEIGHT, 10, 1),
-      stemMat,
+      wheelMat,
     );
     stem.position.y = -CASTER_STEM_HEIGHT * 0.35;
     stem.userData.isWheel = true;
@@ -496,22 +517,18 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
   const faceCenterY = yBottomFront + hFront * 0.55;
 
   // * Sunglasses: two dark lenses connected by a bridge.
-  const lensMat = new THREE.MeshBasicMaterial({
-    color: 0x050505,
-    side: THREE.DoubleSide,
-  });
   const lensW = halfW * 0.7;
   const lensH = hFront * 0.35;
   const lensGap = halfW * 0.06;
 
   // * Left lens.
-  const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
+  const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), SHARED_LENS_MAT);
   leftLens.position.set(-lensGap - lensW * 0.5, faceCenterY, faceZ);
   leftLens.userData.isFace = true;
   basketGroup.add(leftLens);
 
   // * Right lens.
-  const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), lensMat);
+  const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), SHARED_LENS_MAT);
   rightLens.position.set(lensGap + lensW * 0.5, faceCenterY, faceZ);
   rightLens.userData.isFace = true;
   basketGroup.add(rightLens);
@@ -519,7 +536,7 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
   // * Bridge.
   const bridge = new THREE.Mesh(
     new THREE.PlaneGeometry(lensGap * 2, lensH * 0.3),
-    lensMat,
+    SHARED_LENS_MAT,
   );
   bridge.position.set(0, faceCenterY, faceZ);
   bridge.userData.isFace = true;
@@ -533,10 +550,7 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
     new THREE.Vector3(halfW * 0.6, mouthY, faceZ),
   );
   const mouthGeo = new THREE.TubeGeometry(mouthCurve, 12, 0.035, 4, false);
-  const mouthMat = new THREE.MeshBasicMaterial({
-    color: 0x050505,
-  });
-  const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+  const mouth = new THREE.Mesh(mouthGeo, SHARED_MOUTH_MAT);
   mouth.userData.isFace = true;
   basketGroup.add(mouth);
 }
@@ -551,7 +565,6 @@ export function buildCart(colorHex) {
   const baseColor = new THREE.Color(colorHex);
   const frameMat = neonFrameMaterial(baseColor);
   const wheelMat = neonWheelMaterial(baseColor);
-  const stemMat = neonWheelMaterial(baseColor);
   const root = new THREE.Group();
   root.name = "CartVisual";
 
@@ -592,7 +605,7 @@ export function buildCart(colorHex) {
   if (frameMesh) root.add(frameMesh);
 
   const { casterYawGroups, wheelPitchObjects, wobblePhases } =
-    buildCastersAndWheels(root, frameMat, wheelMat, stemMat);
+    buildCastersAndWheels(root, frameMat, wheelMat);
 
   root.userData.cartVisual = {
     casterYawGroups,
@@ -657,6 +670,9 @@ export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
     const targetYaw = Math.atan2(_localDir.x, _localDir.z);
     const alpha = 1 - (1 - CASTER_YAW_DAMPING) ** Math.min(240 * dtSec, 1);
     data.smoothedCasterYaw = lerpAngle(data.smoothedCasterYaw, targetYaw, alpha);
+  } else if (speed > 1e-5) {
+    // * Wheel roll still needs local velocity when below caster-yaw threshold.
+    _localDir.copy(_v).applyQuaternion(_rootInv);
   }
 
   const speedNorm = clamp(speed / 14, 0, 1);
@@ -664,23 +680,18 @@ export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
   const t = timeMs * 0.001;
 
   const yawBase = data.smoothedCasterYaw;
+  const wheelRadius = Math.max(WHEEL_RADIUS, 1e-4);
 
   for (let i = 0; i < casterYawGroups.length; i += 1) {
     if (i >= data.wheelRoll.length) break;
     const yawG = casterYawGroups[i];
     const wob = Math.sin(t * 14.2 + wobblePhases[i]) * wobbleScale;
-    yawG.rotation.y = yawBase + wob;
+    const localYaw = yawBase + wob;
+    yawG.rotation.y = localYaw;
 
-    yawG.getWorldQuaternion(_yawWorld);
-    _rollDir.set(0, 0, 1).applyQuaternion(_yawWorld);
-    _rollDir.y = 0;
-    const rl = _rollDir.length();
-    if (rl > 1e-5) _rollDir.multiplyScalar(1 / rl);
-
-    const signedSpeed = vx * _rollDir.x + vz * _rollDir.z;
-    data.wheelRoll[i] =
-      (data.wheelRoll[i] + (signedSpeed / Math.max(WHEEL_RADIUS, 1e-4)) * dtSec) % (Math.PI * 2);
-
+    const localSignedSpeed =
+      _localDir.x * Math.sin(localYaw) + _localDir.z * Math.cos(localYaw);
+    data.wheelRoll[i] += (localSignedSpeed / wheelRadius) * dtSec;
     wheelPitchObjects[i].rotation.x = data.wheelRoll[i];
   }
 }

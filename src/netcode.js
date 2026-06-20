@@ -102,6 +102,60 @@ export function registerCallbacks(cb) {
   callbacks = { ...callbacks, ...cb };
 }
 
+/**
+ * Binds main-game hooks into netcode message handlers (slots, collisions, color pick, podium, etc.).
+ * Call once during bootstrap before initNetcode(); deps supply live refs to main.js state.
+ * @param {object} deps
+ */
+export function registerGameCallbacks(deps) {
+  registerCallbacks({
+    detectGameMode: () => deps.detectGameMode(),
+    getIncomingPortalParams: () => deps.incomingPortalParams,
+    getPALETTE: () => deps.palette,
+    getInitialNpcNames: () => deps.initialNpcNames,
+    markFirstHelloReceived: () => deps.markFirstHelloReceived(),
+    getOnGameStartHandler: () => deps.getOnGameStartHandler(),
+    getMenuVisible: () => deps.getMenuVisible(),
+    hideMenuRef: () => deps.invokeHideMenu(),
+    updateCartMaterialsFromSlots: (slots) => deps.updateCartMaterialsFromSlots(slots),
+    updateHudColorsFromSlots: (slots) => deps.updateHudColorsFromSlots(slots),
+    scheduleNameLabelUpdate: () => {
+      const pending = deps.getNameLabelUpdatePending();
+      if (pending) cancelAnimationFrame(pending);
+      deps.setNameLabelUpdatePending(requestAnimationFrame(() => {
+        deps.setNameLabelUpdatePending(null);
+        if (deps.updateNameLabelsRef.current) deps.updateNameLabelsRef.current();
+      }));
+    },
+    respawnLocalMidRoundJoinRef: () => {
+      if (deps.respawnLocalMidRoundJoinRef.current) deps.respawnLocalMidRoundJoinRef.current();
+    },
+    playCollisionRef: (intensity) => deps.getPlayCollisionRef()?.(intensity),
+    playFloorImpactRef: (intensity) => deps.getSfx()?.playFloorImpact?.(intensity),
+    playEdgeImpactRef: (intensity) => deps.getSfx()?.playEdgeImpact?.(intensity),
+    spawnTrashBurstRef: (mp, intensity, type) => {
+      const spawnTrashBurst = deps.getSpawnTrashBurstRef();
+      if (spawnTrashBurst) spawnTrashBurst(mp, intensity, type);
+    },
+    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor) => {
+      const hud = deps.getHud();
+      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor);
+    },
+    colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
+    getPendingColorKey: () => deps.getPendingColorKey(),
+    getPendingColorChipEl: () => deps.getPendingColorChipEl(),
+    setPendingColorKey: (val) => deps.setPendingColorKey(val),
+    setPendingColorChipEl: (val) => deps.setPendingColorChipEl(val),
+    getLocalColorPicked: () => deps.getLocalColorPicked(),
+    setLocalColorPicked: (val) => deps.setLocalColorPicked(val),
+    renderColorPicker: (colors) => deps.renderColorPicker(colors),
+    recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
+    bumpCrowd: () => deps.getCrowd()?.bump?.(),
+    getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
+    setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
+  });
+}
+
 export function setRefs(refs) {
   if (refs.allCartsRef !== undefined) allCartsRef = refs.allCartsRef;
   if (refs.getAxisRef !== undefined) getAxisRef = refs.getAxisRef;

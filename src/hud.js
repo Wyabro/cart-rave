@@ -31,10 +31,16 @@ let _prevRoundPhase = null;
 let _lastCountdownN = null;
 /** Slot index of the local human player from the last score update. */
 let _lastLocalIdx = null;
-/** Cache key for sorted score rows (scores + slot names/colors). */
-let _sortedScoreRowsKey = null;
-/** Cached score rows sorted by score descending; rebuilt when _sortedScoreRowsKey changes. */
+/** Cached score rows sorted by score descending; rebuilt when scores or slot metadata change. */
 let _sortedScoreRows = null;
+/** Last rendered scores per slot — shallow compare avoids per-frame string allocation. */
+let _lastScores = [0, 0, 0, 0];
+/** Last rendered slot name:color per slot index. */
+let _lastSlotMeta = ["", "", "", ""];
+/** Cached display values — skip redundant style.display writes each frame. */
+let _statusDisplay = null;
+let _timerDisplay = null;
+let _scoresDisplay = null;
 
 export const HUD_CSS = `
     #hud {
@@ -424,18 +430,58 @@ export const HUD_CSS = `
       font-size: 12px;
     }
     #hud .hud-vol-track {
+      -webkit-appearance: none;
+      appearance: none;
       width: 80px;
-      height: 5px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 3px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
       cursor: pointer;
-      overflow: hidden;
+      flex: 0 0 80px;
+      pointer-events: auto;
+      --vol-pct: 50%;
     }
-    #hud .hud-vol-fill {
-      height: 100%;
+    #hud .hud-vol-track::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 3px;
+      background: linear-gradient(
+        to right,
+        #ffffff var(--vol-pct),
+        rgba(255, 255, 255, 0.1) var(--vol-pct)
+      );
+    }
+    #hud .hud-vol-track::-moz-range-track {
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #hud .hud-vol-track::-moz-range-progress {
+      height: 5px;
       border-radius: 3px;
       background: #ffffff;
-      transition: width 100ms ease;
+    }
+    #hud .hud-vol-track::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      margin-top: -2.5px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+    }
+    #hud .hud-vol-track::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border: none;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+    }
+    #hud .hud-vol-track:focus-visible {
+      outline: 2px solid #22e6ff;
+      outline-offset: 2px;
     }
     #hud .hud-vol-val {
       font-family: 'Space Mono', monospace;
@@ -644,6 +690,24 @@ function clampInt(value, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+/**
+ * Sets element display only when the value changes.
+ * @param {HTMLElement|null} el
+ * @param {string} display
+ * @param {"status"|"timer"|"scores"} cacheKey
+ */
+function setHudDisplay(el, display, cacheKey) {
+  if (!el) return;
+  const cache = cacheKey === "status" ? _statusDisplay
+    : cacheKey === "timer" ? _timerDisplay
+      : _scoresDisplay;
+  if (cache === display) return;
+  if (cacheKey === "status") _statusDisplay = display;
+  else if (cacheKey === "timer") _timerDisplay = display;
+  else _scoresDisplay = display;
+  el.style.display = display;
+}
+
 export function colorHexToCss(hex) {
   return `#${Number(hex || 0).toString(16).padStart(6, "0")}`;
 }
@@ -671,32 +735,38 @@ function updateStatus(roundState, isLastCartStandingActive) {
   _prevRoundPhase = roundPhase;
 
   if (Date.now() < _goUntilMs) {
-    elements.status.style.display = "block";
+    setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "#22e6ff";
     elements.status.textContent = "GO!";
-    elements.status.classList.remove("pulse");
   } else if (roundPhase === "running" && isLastCartStandingActive) {
-    elements.status.style.display = "block";
+    setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "#ffffff";
     elements.status.textContent = "LAST CART STANDING!";
   } else if (roundPhase === "countdown") {
+    const countdownMs = roundState?.countdownMs
+      ?? (_options.getCountdownMs ? _options.getCountdownMs() : 3000);
     const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
-    const remainingMs = 3000 - elapsedMs;
-    const n = clampInt(Math.ceil(remainingMs / 1000), 1, 3);
-    elements.status.style.display = "block";
+    const remainingMs = countdownMs - elapsedMs;
+    const n = clampInt(Math.ceil(remainingMs / 1000), 1, Math.ceil(countdownMs / 1000));
+    setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "#ff2bd6";
     elements.status.textContent = `GET READY  ${n}`;
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;
-      elements.status.classList.remove("pulse");
-      void elements.status.offsetWidth; // restart animation
-      elements.status.classList.add("pulse");
+      elements.status.animate(
+        [
+          { transform: "translateX(-50%) scale(1)" },
+          { transform: "translateX(-50%) scale(1.3)", offset: 0.4 },
+          { transform: "translateX(-50%) scale(1)" },
+        ],
+        { duration: 200, easing: "ease-out" },
+      );
     }
   } else if (roundPhase === "podium") {
-    elements.status.style.display = "none";
+    setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
   } else {
-    elements.status.style.display = "none";
+    setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
   }
 }
@@ -712,7 +782,8 @@ function updateTimer(roundState, matchHistoryLength) {
 
   if (roundPhase === "running") {
     const elapsedMs = Date.now() - (roundStartedAtMs || 0);
-    const totalRoundMs = 95000;
+    const totalRoundMs = roundState?.totalRoundMs
+      ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 95000);
     const remainingMs = totalRoundMs - elapsedMs;
     const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
     const minutes = Math.floor(seconds / 60);
@@ -720,7 +791,7 @@ function updateTimer(roundState, matchHistoryLength) {
     const text = minutes > 0
       ? `${minutes}:${String(secondsPart).padStart(2, "0")}`
       : `:${String(secondsPart).padStart(2, "0")}`;
-    elements.timer.style.display = "block";
+    setHudDisplay(elements.timer, "flex", "timer");
     if (elements.timerNum) elements.timerNum.textContent = text;
     if (elements.timerRd) {
       const currentRound = Math.max(1, matchHistoryLength + 1);
@@ -731,7 +802,7 @@ function updateTimer(roundState, matchHistoryLength) {
       elements.timerFill.style.width = `${pct}%`;
     }
   } else {
-    elements.timer.style.display = "none";
+    setHudDisplay(elements.timer, "none", "timer");
     if (elements.timerNum) elements.timerNum.textContent = "";
     if (elements.timerRd) elements.timerRd.textContent = "";
     if (elements.timerFill) elements.timerFill.style.width = "0%";
@@ -749,49 +820,64 @@ function updateScores(roundState, netSlots, youConnId) {
   const roundScores = roundState?.scores;
 
   if (roundPhase === "running") {
-    elements.scores.style.display = "flex";
+    setHudDisplay(elements.scores, "flex", "scores");
     const localIdx = netSlots ? netSlots.findIndex((s) => s && s.kind === "human" && s.connId === youConnId) : -1;
-    _lastLocalIdx = localIdx;
 
-    const rowsKey =
-      `${Number(roundScores?.[0] ?? 0)}|${Number(roundScores?.[1] ?? 0)}|${Number(roundScores?.[2] ?? 0)}|${Number(roundScores?.[3] ?? 0)}` +
-      `__${(netSlots || []).slice(0, 4).map((s, i) => `${s?.name || `P${i + 1}`}:${s?.color || ""}`).join("|")}`;
+    let dataChanged = false;
+    for (let i = 0; i < 4; i += 1) {
+      const score = Number(roundScores?.[i] ?? 0);
+      const meta = `${netSlots?.[i]?.name || `P${i + 1}`}:${netSlots?.[i]?.color || ""}`;
+      if (_lastScores[i] !== score || _lastSlotMeta[i] !== meta) {
+        dataChanged = true;
+      }
+    }
+    const localChanged = localIdx !== _lastLocalIdx;
 
-    if (_sortedScoreRowsKey !== rowsKey) {
-      _sortedScoreRowsKey = rowsKey;
+    if (dataChanged) {
+      for (let i = 0; i < 4; i += 1) {
+        _lastScores[i] = Number(roundScores?.[i] ?? 0);
+        _lastSlotMeta[i] = `${netSlots?.[i]?.name || `P${i + 1}`}:${netSlots?.[i]?.color || ""}`;
+      }
       const nextRows = [];
       for (let i = 0; i < 4; i += 1) {
-        const score = roundScores && roundScores[i] != null ? Number(roundScores[i]) : 0;
-        const slotName = netSlots[i]?.name || `P${i + 1}`;
-        const slotColor = netSlots[i]?.color || null;
+        const score = _lastScores[i];
+        const slotName = netSlots?.[i]?.name || `P${i + 1}`;
+        const slotColor = netSlots?.[i]?.color || null;
         nextRows.push({ slotIndex: i, score, slotName, slotColor });
       }
       nextRows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
       _sortedScoreRows = nextRows;
     }
-    const rows = _sortedScoreRows || [];
+    _lastLocalIdx = localIdx;
 
-    for (let pos = 0; pos < 4; pos += 1) {
-      const entry = elements.scoreBoxes[pos];
-      const row = rows[pos];
-      if (!entry || !row) continue;
+    if (dataChanged || localChanged) {
+      const rows = _sortedScoreRows || [];
+      for (let pos = 0; pos < 4; pos += 1) {
+        const entry = elements.scoreBoxes[pos];
+        const row = rows[pos];
+        if (!entry || !row) continue;
 
-      entry.rank.textContent = String(pos + 1);
-      entry.label.textContent = row.slotName;
-      entry.value.textContent = String(row.score);
+        entry.rank.textContent = String(pos + 1);
+        entry.label.textContent = row.slotName;
+        entry.value.textContent = String(row.score);
 
-      if (row.slotColor) {
-        entry.box.dataset.hudColor = row.slotColor;
-      } else {
-        delete entry.box.dataset.hudColor;
+        if (row.slotColor) {
+          entry.box.dataset.hudColor = row.slotColor;
+        } else {
+          delete entry.box.dataset.hudColor;
+        }
+
+        const isLocal = row.slotIndex === localIdx;
+        entry.box.classList.toggle("isLocal", isLocal);
+        entry.you.style.display = isLocal ? "inline-block" : "none";
       }
-
-      const isLocal = row.slotIndex === localIdx;
-      entry.box.classList.toggle("isLocal", isLocal);
-      entry.you.style.display = isLocal ? "inline-block" : "none";
     }
   } else {
-    elements.scores.style.display = "none";
+    setHudDisplay(elements.scores, "none", "scores");
+    _lastScores = [0, 0, 0, 0];
+    _lastSlotMeta = ["", "", "", ""];
+    _sortedScoreRows = null;
+    _lastLocalIdx = null;
     for (let i = 0; i < 4; i += 1) {
       const entry = elements.scoreBoxes[i];
       if (entry) {
@@ -833,6 +919,16 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
  */
 export function init(options) {
   _options = options || {};
+  _statusDisplay = null;
+  _timerDisplay = null;
+  _scoresDisplay = null;
+  _lastScores = [0, 0, 0, 0];
+  _lastSlotMeta = ["", "", "", ""];
+  _sortedScoreRows = null;
+  _lastLocalIdx = null;
+  _lastCountdownN = null;
+  _prevRoundPhase = null;
+  _goUntilMs = 0;
 
   const existing = document.getElementById("hud");
   if (existing) existing.remove();
@@ -953,41 +1049,43 @@ export function init(options) {
     syncAudioControls();
   });
 
-  function createHudVolumeRow(labelText, onChange) {
+  function createHudVolumeRow(labelText, onChange, ariaLabel) {
     const row = document.createElement("div");
     row.className = "hud-vol-row";
     const label = document.createElement("span");
     label.className = "hud-vol-label";
     label.textContent = labelText;
-    const track = document.createElement("div");
-    track.className = "hud-vol-track";
-    const fill = document.createElement("div");
-    fill.className = "hud-vol-fill";
-    track.appendChild(fill);
-    const val = document.createElement("span");
-    val.className = "hud-vol-val";
-    track.addEventListener("click", (e) => {
-      const r = track.getBoundingClientRect();
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = "0";
+    input.max = "100";
+    input.className = "hud-vol-track";
+    input.setAttribute("aria-label", ariaLabel);
+    input.addEventListener("input", (e) => {
       const valueMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
-      onChange(clamp(((e.clientX - r.left) / r.width) * valueMax, 0, valueMax));
+      const pct = Number(e.target.value);
+      e.target.style.setProperty("--vol-pct", `${pct}%`);
+      onChange(clamp((pct / 100) * valueMax, 0, valueMax));
       syncAudioControls();
     });
+    const val = document.createElement("span");
+    val.className = "hud-vol-val";
     row.appendChild(label);
-    row.appendChild(track);
+    row.appendChild(input);
     row.appendChild(val);
-    return { row, fill, val };
+    return { row, input, val };
   }
 
   elements.musicVol = createHudVolumeRow("♫", (v) => {
     if (_options.setMasterGain) {
       _options.setMasterGain(v);
     }
-  });
+  }, "Music volume");
   elements.sfxVol = createHudVolumeRow("⚡", (v) => {
     if (_options.setSfxVolume) {
       _options.setSfxVolume(v);
     }
-  });
+  }, "SFX volume");
   const hudVolStack = document.createElement("div");
   hudVolStack.className = "hud-vol-stack";
   hudVolStack.appendChild(elements.musicVol.row);
@@ -1184,7 +1282,9 @@ export function syncColors(slots) {
     if (!data) return;
 
     const box = scoreBox.box;
-    box.className = "hud-scoreBox";
+    if (!box.classList.contains("hud-scoreBox")) {
+      box.classList.add("hud-scoreBox");
+    }
     box.dataset.hudColor = slot.color;
   });
 }
@@ -1235,40 +1335,27 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     else break;
   }
 
-  const fadeTimer = setTimeout(() => {
+  setTimeout(() => {
+    if (!row.isConnected) return;
     row.style.animation = "hud-feed-out 500ms ease-out forwards";
-    const removeTimer = setTimeout(() => row.remove(), 520);
-    row.addEventListener(
-      "animationend",
-      () => {
-        clearTimeout(removeTimer);
-        row.remove();
-      },
-      { once: true },
-    );
+    setTimeout(() => {
+      if (row.isConnected) row.remove();
+    }, 520);
   }, 4000);
-
-  row.addEventListener(
-    "DOMNodeRemoved",
-    () => {
-      clearTimeout(fadeTimer);
-    },
-    { once: true },
-  );
 }
 
 export function hideGameplayElements() {
-  if (elements.timer) elements.timer.style.display = "none";
-  if (elements.scores) elements.scores.style.display = "none";
+  setHudDisplay(elements.timer, "none", "timer");
+  setHudDisplay(elements.scores, "none", "scores");
   if (elements.readyBtn) elements.readyBtn.style.display = "none";
-  if (elements.status) elements.status.style.display = "none";
+  setHudDisplay(elements.status, "none", "status");
 }
 
 export function showGameplayElements() {
-  if (elements.timer) elements.timer.style.display = "block";
-  if (elements.scores) elements.scores.style.display = "flex";
+  setHudDisplay(elements.timer, "flex", "timer");
+  setHudDisplay(elements.scores, "flex", "scores");
   if (elements.readyBtn) elements.readyBtn.style.display = "block";
-  if (elements.status) elements.status.style.display = "block";
+  setHudDisplay(elements.status, "block", "status");
 }
 
 export function clearFeed() {
@@ -1332,10 +1419,14 @@ export function syncAudioControls() {
 
   const musicPercent = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
   const sfxPercent = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
+  const musicPct = isMuted ? 0 : musicPercent;
+  const sfxPct = isMuted ? 0 : sfxPercent;
   elements.muteBtn.innerHTML = isMuted ? "✕" : "♪";
   elements.muteBtn.classList.toggle("muted", isMuted);
-  elements.musicVol.fill.style.width = (isMuted ? 0 : (masterGain / AUDIO_VOLUME_MAX) * 100) + "%";
+  elements.musicVol.input.value = String(musicPct);
+  elements.musicVol.input.style.setProperty("--vol-pct", `${musicPct}%`);
   elements.musicVol.val.textContent = isMuted ? "OFF" : musicPercent;
-  elements.sfxVol.fill.style.width = (isMuted ? 0 : (sfxVolume / AUDIO_VOLUME_MAX) * 100) + "%";
+  elements.sfxVol.input.value = String(sfxPct);
+  elements.sfxVol.input.style.setProperty("--vol-pct", `${sfxPct}%`);
   elements.sfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
 }

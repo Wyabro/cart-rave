@@ -1,6 +1,5 @@
 /* Cart Rave — Main Menu Styles (vanilla) */
-
-@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Bungee+Shade&family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap');
+/* Fonts loaded via <link> in index.html (parallel fetch, non-blocking) */
 
 /* === DESIGN TOKENS === */
 :root {
@@ -207,10 +206,13 @@ html, body {
   top: -10%;
   width: 280px; height: 140%;
   background: radial-gradient(ellipse at top, var(--col) 0%, transparent 60%);
-  filter: blur(24px);
+  filter: blur(18px);
+  mix-blend-mode: screen;
   transform-origin: 50% 0%;
   animation: cr-light-sway var(--dur) ease-in-out infinite alternate;
   animation-delay: var(--delay);
+  will-change: transform, opacity;
+  isolation: isolate;
 }
 
 @keyframes cr-light-sway {
@@ -852,7 +854,14 @@ html, body {
   overflow: hidden;
 }
 
-.cr-vol-fill { height: 100%; border-radius: 3px; transition: width 100ms ease; }
+.cr-vol-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+  transform: scaleX(var(--vol-scale, 0.25));
+  transition: transform 100ms ease;
+}
 
 .cr-vol-val {
   font-family: var(--mono);
@@ -1123,6 +1132,16 @@ html, body {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
+/* === FOCUS (keyboard accessibility) === */
+.cr-btn:focus-visible,
+.cr-color-chip:focus-visible,
+.cr-reroll:focus-visible,
+.cr-friends-enter:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 4px;
+  box-shadow: 0 0 12px var(--glow-cyan-50);
+}
+
 /* === RESPONSIVE === */
 @media (max-width: 1180px) {
   .cr-content { grid-template-columns: 1fr 1.2fr; padding: 32px; }
@@ -1131,5 +1150,5 @@ html, body {
 
 @media (max-width: 780px) {
   .cr-content { grid-template-columns: 1fr; padding: 20px; gap: var(--space-2xl); }
-  .cr-right { display: none; }
+  .cr-title-stack { font-size: clamp(48px, 12vw, 80px); }
 }

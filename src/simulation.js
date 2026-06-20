@@ -6,6 +6,29 @@ import { CONFIG, BASELINE_CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 
 const _v = new THREE.Vector3();
+const _forward = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
+const _quat = new THREE.Quaternion();
+const _impulseVec = new THREE.Vector3();
+const _toVictim = new THREE.Vector3();
+const _planarDir = new THREE.Vector3();
+const _colliderMap = new Map();
+
+/**
+ * * Writes planar forward/right basis vectors from a body rotation quaternion.
+ * * Flattens Y so driving controls stay correct when the cart is tilted or airborne.
+ */
+function setPlanarBasisFromRotation(rot, forward, right) {
+  forward.set(0, 0, -1).applyQuaternion(_quat.set(rot.x, rot.y, rot.z, rot.w));
+  forward.y = 0;
+  if (forward.lengthSq() > 1e-6) {
+    forward.normalize();
+  } else {
+    forward.set(0, 0, -1);
+  }
+  right.crossVectors(forward, _up).normalize();
+}
 
 export function vec3ToRapier(v) {
   return { x: v.x, y: v.y, z: v.z };
@@ -130,11 +153,10 @@ export function applyCenterHoleAssist(cart, dtFixed, pos, mass) {
   // * close the cart's nearest edge is to the center (handles nose-in and side-on poses).
   const hx = CONFIG.cart.size.x / 2;
   const hz = CONFIG.cart.size.z / 2;
-  const yaw = yawFromQuaternion(cart.body.rotation());
-  const { forward, right } = getForwardRightFromYaw(yaw);
+  setPlanarBasisFromRotation(cart.body.rotation(), _forward, _right);
   const reach =
-    Math.abs(hx * (right.x * dirX + right.z * dirZ)) +
-    Math.abs(hz * (forward.x * dirX + forward.z * dirZ));
+    Math.abs(hx * (_right.x * dirX + _right.z * dirZ)) +
+    Math.abs(hz * (_forward.x * dirX + _forward.z * dirZ));
   const nearestEdge = distanceFromCenter - reach;
 
   if (nearestEdge >= floorInnerR) {
@@ -170,8 +192,8 @@ function applyLateralGrip(cart, axis, dtFixed, mass, v, right) {
     : CONFIG.driving.lateralGrip;
 
   const dvRight = (-vRight) * grip * dtFixed;
-  const gripImpulse = right.clone().multiplyScalar(mass * dvRight);
-  cart.body.applyImpulse(vec3ToRapier(gripImpulse), true);
+  _impulseVec.copy(right).multiplyScalar(mass * dvRight);
+  cart.body.applyImpulse(vec3ToRapier(_impulseVec), true);
 }
 
 function applyForwardDrive(cart, axis, dtFixed, nowMs, controlFactor, forward, vForward, mass) {
@@ -189,8 +211,8 @@ function applyForwardDrive(cart, axis, dtFixed, nowMs, controlFactor, forward, v
   const dvForward = Math.max(-maxDeltaV, Math.min(maxDeltaV, speedError));
 
   if (Math.abs(dvForward) > 1e-4) {
-    const driveImpulse = forward.clone().multiplyScalar(mass * dvForward);
-    cart.body.applyImpulse(vec3ToRapier(driveImpulse), true);
+    _impulseVec.copy(forward).multiplyScalar(mass * dvForward);
+    cart.body.applyImpulse(vec3ToRapier(_impulseVec), true);
   }
 }
 
@@ -204,9 +226,9 @@ function applySteeringAndDrift(cart, axis, dtFixed, controlFactor, right, vForwa
 
     const speedForDrift = Math.abs(vForward);
     if (speedForDrift > CONFIG.driving.driftMinSpeed) {
-      const driftDir = right.clone().multiplyScalar(axis.turn * Math.sign(vForward || 1));
       const driftMag = speedForDrift * CONFIG.driving.driftImpulseStrength * controlFactor * mass * dtFixed;
-      cart.body.applyImpulse(vec3ToRapier(driftDir.multiplyScalar(driftMag)), true);
+      _impulseVec.copy(right).multiplyScalar(axis.turn * Math.sign(vForward || 1) * driftMag);
+      cart.body.applyImpulse(vec3ToRapier(_impulseVec), true);
     }
   } else {
     const av = cart.body.angvel();
@@ -260,19 +282,18 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   const onGround = vertVel < CONFIG.driving.groundVerticalVelThreshold && pos.y > CONFIG.fall.yThreshold;
   const controlFactor = onGround ? 1 : CONFIG.driving.airControlFactor;
 
-  const yaw = yawFromQuaternion(rot);
-  const { forward, right } = getForwardRightFromYaw(yaw);
+  setPlanarBasisFromRotation(rot, _forward, _right);
 
-  const v = rapierToVec3(linvel);
-  const vForward = forward.dot(v);
+  _v.set(linvel.x, linvel.y, linvel.z);
+  const vForward = _forward.dot(_v);
 
   if (axis.forward !== 0 || axis.turn !== 0) {
     cart.body.wakeUp();
   }
 
-  applyLateralGrip(cart, axis, dtFixed, mass, v, right);
-  applyForwardDrive(cart, axis, dtFixed, nowMs, controlFactor, forward, vForward, mass);
-  applySteeringAndDrift(cart, axis, dtFixed, controlFactor, right, vForward, mass);
+  applyLateralGrip(cart, axis, dtFixed, mass, _v, _right);
+  applyForwardDrive(cart, axis, dtFixed, nowMs, controlFactor, _forward, vForward, mass);
+  applySteeringAndDrift(cart, axis, dtFixed, controlFactor, _right, vForward, mass);
   applyDampingAndStability(cart, dtFixed, pos, linvel);
 
   applyCenterHoleAssist(cart, dtFixed, pos, mass);
@@ -289,6 +310,44 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
 }
 
 /**
+ * * Returns a ramming qualification score for rammer → victim, or 0 if the hit does not qualify.
+ */
+function getRammingQualificationScore(rammer, victim) {
+  const rv = rammer.body.linvel();
+  const speed = planarSpeed(rv);
+  if (speed < CONFIG.ramming.minSpeed) return 0;
+
+  _planarDir.set(rv.x, 0, rv.z);
+  const dirLen = _planarDir.length();
+  if (dirLen <= 1e-6) return 0;
+  _planarDir.multiplyScalar(1 / dirLen);
+
+  const vv = victim.body.linvel();
+  const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
+
+  const rp = rammer.body.translation();
+  const vp = victim.body.translation();
+  _toVictim.set(vp.x - rp.x, 0, vp.z - rp.z);
+  if (_toVictim.lengthSq() < 1e-6) return 0;
+  _toVictim.normalize();
+
+  if (_planarDir.dot(_toVictim) < CONFIG.ramming.alignmentDotMin) return 0;
+
+  return closingSpeed;
+}
+
+/**
+ * * Picks the dominant rammer/victim pair for a cart-on-cart collision.
+ */
+function resolveCartRamCollision(c1, c2) {
+  const score1 = getRammingQualificationScore(c1, c2);
+  const score2 = getRammingQualificationScore(c2, c1);
+  if (score1 <= 0 && score2 <= 0) return null;
+  if (score1 >= score2) return { rammer: c1, victim: c2 };
+  return { rammer: c2, victim: c1 };
+}
+
+/**
  * Applies a spread ramming impulse from rammer to victim and triggers FX / host events.
  *
  * @param {object} rammer Attacking cart entity.
@@ -297,26 +356,28 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
  * @param {Function|null} spawnTrashBurstRef Local particle burst callback.
  * @param {boolean} isHost Whether this client is the room host.
  * @param {object|null} partySocket Active PartyKit socket (host broadcast).
- * @param {object[]|null} allCarts All cart entities in slot order.
+ * @param {object[]|null} allCarts All cart entities in slot order (legacy param, unused for slot lookup).
  */
 export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrashBurstRef, isHost, partySocket, allCarts) {
   const rv = rammer.body.linvel();
   const speed = planarSpeed(rv);
   if (speed < CONFIG.ramming.minSpeed) return;
 
-  const dir = vec3PlanarDirection(rv);
-  if (!dir) return;
+  _planarDir.set(rv.x, 0, rv.z);
+  const dirLen = _planarDir.length();
+  if (dirLen <= 1e-6) return;
+  _planarDir.multiplyScalar(1 / dirLen);
 
   const vv = victim.body.linvel();
-  const closingSpeed = Math.max(speed, speed + (-(vv.x * dir.x + vv.z * dir.z)));
+  const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
   const rp = rammer.body.translation();
   const vp = victim.body.translation();
-  const toVictim = new THREE.Vector3(vp.x - rp.x, 0, vp.z - rp.z);
-  if (toVictim.lengthSq() < 1e-6) return;
-  toVictim.normalize();
+  _toVictim.set(vp.x - rp.x, 0, vp.z - rp.z);
+  if (_toVictim.lengthSq() < 1e-6) return;
+  _toVictim.normalize();
 
-  if (dir.dot(toVictim) < CONFIG.ramming.alignmentDotMin) return;
+  if (_planarDir.dot(_toVictim) < CONFIG.ramming.alignmentDotMin) return;
 
   const impulseMag = Math.max(
     0,
@@ -326,7 +387,7 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
     )
   );
 
-  const impulse = { x: dir.x * impulseMag, y: 0, z: dir.z * impulseMag };
+  const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
 
   // Visual + audio feedback (local only)
   if (playCollisionRef) {
@@ -349,9 +410,9 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
   }
 
   // Stage A: record last hit for scoring attribution (host only).
-  if (isHost && allCarts) {
-    const attackerSlotIndex = allCarts.indexOf(rammer);
-    const victimSlotIndex = allCarts.indexOf(victim);
+  if (isHost) {
+    const attackerSlotIndex = rammer.slotIndex;
+    const victimSlotIndex = victim.slotIndex;
     if (attackerSlotIndex >= 0 && victimSlotIndex >= 0) {
       const nowPerf = performance.now();
       const wasCritical = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
@@ -360,9 +421,9 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
   }
 
   // Host collision event broadcast
-  if (isHost && partySocket && allCarts) {
-    const slotA = allCarts.indexOf(rammer);
-    const slotB = allCarts.indexOf(victim);
+  if (isHost && partySocket) {
+    const slotA = rammer.slotIndex;
+    const slotB = victim.slotIndex;
     if (slotA >= 0 && slotB >= 0 && slotA < slotB) {
       partySocket.send(JSON.stringify({
         type: "host_event_collision",
@@ -381,10 +442,10 @@ export function setRoundPhase(phase) {
 }
 
 function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) {
-  const colliderHandleToCart = new Map();
+  _colliderMap.clear();
   for (const c of allCarts || []) {
     if (c && c.collider) {
-      colliderHandleToCart.set(c.collider.handle, c);
+      _colliderMap.set(c.collider.handle, c);
     }
   }
 
@@ -392,13 +453,23 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
 
   eventQueue.drainCollisionEvents((h1, h2, started) => {
     if (!started) return;
-    const c1 = colliderHandleToCart.get(h1);
-    const c2 = colliderHandleToCart.get(h2);
+    const c1 = _colliderMap.get(h1);
+    const c2 = _colliderMap.get(h2);
 
     if (c1 && c2) {
       if (c1 !== c2) {
-        applyRammingImpulse(c1, c2, callbacks.playCollision, callbacks.spawnTrashBurst, isHost, callbacks.partySocket, allCarts);
-        applyRammingImpulse(c2, c1, callbacks.playCollision, callbacks.spawnTrashBurst, isHost, callbacks.partySocket, allCarts);
+        const ram = resolveCartRamCollision(c1, c2);
+        if (ram) {
+          applyRammingImpulse(
+            ram.rammer,
+            ram.victim,
+            callbacks.playCollision,
+            callbacks.spawnTrashBurst,
+            isHost,
+            callbacks.partySocket,
+            allCarts,
+          );
+        }
       }
     } else if (c1 || c2) {
       const cart = c1 || c2;
@@ -457,8 +528,8 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
           if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
         }
 
-        if (isHost && callbacks.partySocket && allCarts) {
-          const slotIndex = allCarts.indexOf(cart);
+        if (isHost && callbacks.partySocket) {
+          const slotIndex = cart.slotIndex;
           if (slotIndex >= 0) {
             callbacks.partySocket.send(JSON.stringify({
               type: "host_event_collision",
