@@ -30,7 +30,6 @@ let lastResultsOverlayPhase = null;
  * @property {object} HUD
  * @property {() => string | null} getYouConnId
  * @property {() => number} getMatchHistoryLength
- * @property {() => boolean} isLastCartStandingActive
  * @property {() => void} updateResultsOverlay
  * @property {() => void} positionNameLabels
  * @property {import("three/examples/jsm/postprocessing/EffectComposer.js").EffectComposer} composer
@@ -175,7 +174,6 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     netSlots: netSlotsForFrame,
     roundState,
     matchHistoryLength: deps.getMatchHistoryLength(),
-    isLastCartStandingActive: deps.isLastCartStandingActive(),
     menuVisible: deps.isMenuVisible(),
   });
   if (roundState.phase === "podium" || lastResultsOverlayPhase === "podium") {

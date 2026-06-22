@@ -10,61 +10,50 @@
  * @returns {GameContext}
  */
 export function createGameContext() {
-  /** @type {GameContext} */
-  const ctx = {
-    /** @type {Record<string, object>} Netcode, GameState, Simulation, etc. */
+  const state = {
     modules: {},
-
-    /** @type {Record<string, unknown>} Closures and handles owned by main (carts, world, CONFIG). */
     runtime: {},
-
-    /** @type {import("./gameLoop.js").GameLoopState | null} */
     loopState: null,
-
-    /** @type {import("./gameLoop.js").FrameContext | null} Current rAF tick payload. */
     frameCtx: null,
-
-    /** Last-cart-standing and podium slow-mo state (shared by gameFlow + physics). */
     slowMo: {
-      until: 0,
-      rate: 1,
       active: false,
       startMs: 0,
       timeScale: 0.25,
       durationMs: 3500,
     },
-
-    /** Per-phase dependency objects passed to updateGameFlow / runPhysicsStep / updateVisualsAndEffects. */
     deps: {
       visual: null,
       gameFlow: null,
       physics: null,
     },
+  };
 
+  let slowMoDepsCache = null;
+  let sharedGettersCache = null;
+
+  const ctx = {
     registerModules(modules) {
-      Object.assign(ctx.modules, modules);
+      Object.assign(state.modules, modules);
       return ctx;
     },
 
     registerRuntime(runtime) {
-      Object.assign(ctx.runtime, runtime);
+      Object.assign(state.runtime, runtime);
       return ctx;
     },
 
     setLoopState(loopState) {
-      ctx.loopState = loopState;
+      state.loopState = loopState;
       return ctx;
     },
 
     attachDeps(deps) {
-      if (deps.visual !== undefined) ctx.deps.visual = deps.visual;
-      if (deps.gameFlow !== undefined) ctx.deps.gameFlow = deps.gameFlow;
-      if (deps.physics !== undefined) ctx.deps.physics = deps.physics;
+      Object.assign(state.deps, deps);
       return ctx;
     },
 
     setFrameCtx(frameCtx) {
-      ctx.frameCtx = frameCtx;
+      state.frameCtx = frameCtx;
       return ctx;
     },
 
@@ -74,45 +63,55 @@ export function createGameContext() {
      * @param {number} dt Slow-mo-adjusted frame delta (seconds).
      */
     makePhaseContext(dt) {
-      const fc = ctx.frameCtx;
       return {
-        now: fc.now,
+        now: state.frameCtx.now,
         dt,
-        loopState: ctx.loopState,
+        loopState: state.loopState,
       };
     },
 
     /** Getters consumed by {@link import("./gameLoop.js").applySlowMoToDt}. */
     getSlowMoDeps() {
-      const { GameState, Netcode } = ctx.modules;
-      return {
-        getRoundState: () => GameState.getRoundState(),
-        getSlowMoUntil: () => ctx.slowMo.until,
-        getSlowMoRate: () => ctx.slowMo.rate,
-        isHost: () => Netcode.getIsHost(),
-        isSlowMoActive: () => ctx.slowMo.active,
-        getSlowMoStartMs: () => ctx.slowMo.startMs,
-        setSlowMoActive: (active) => { ctx.slowMo.active = active; },
-        SLOW_MO_TIME_SCALE: ctx.slowMo.timeScale,
-        SLOW_MO_DURATION_MS: ctx.slowMo.durationMs,
-      };
+      if (!slowMoDepsCache) {
+        slowMoDepsCache = {
+          isHost: () => state.modules.Netcode.getIsHost(),
+          isSlowMoActive: () => state.slowMo.active,
+          getSlowMoStartMs: () => state.slowMo.startMs,
+          setSlowMoActive: (active) => { state.slowMo.active = active; },
+          SLOW_MO_TIME_SCALE: state.slowMo.timeScale,
+          SLOW_MO_DURATION_MS: state.slowMo.durationMs,
+        };
+      }
+      return slowMoDepsCache;
     },
 
     /** Netcode / GameState accessors shared across visual, gameFlow, and physics deps. */
     createSharedGetters() {
-      const { Netcode, GameState } = ctx.modules;
-      const { runtime } = ctx;
-      return {
-        getAllCarts: () => runtime.getAllCarts(),
-        getNetSlots: () => Netcode.getNetSlots(),
-        isHost: () => Netcode.getIsHost(),
-        getRoundState: () => GameState.getRoundState(),
-        getRoundScores: () => GameState.getRoundScores(),
-        getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
-        CONFIG: runtime.CONFIG,
-      };
+      if (!sharedGettersCache) {
+        sharedGettersCache = {
+          getAllCarts: () => state.runtime.getAllCarts(),
+          getNetSlots: () => state.modules.Netcode.getNetSlots(),
+          isHost: () => state.modules.Netcode.getIsHost(),
+          getRoundState: () => state.modules.GameState.getRoundState(),
+          getRoundScores: () => state.modules.GameState.getRoundScores(),
+          getLocalSlotIndex: () => state.modules.Netcode.strictSlotIndexForConn(
+            state.modules.Netcode.getYouConnId(),
+          ),
+          CONFIG: state.runtime.CONFIG,
+        };
+      }
+      return sharedGettersCache;
     },
   };
+
+  Object.defineProperties(ctx, {
+    modules: { get: () => state.modules, enumerable: true },
+    runtime: { get: () => state.runtime, enumerable: true },
+    loopState: { get: () => state.loopState, enumerable: true },
+    frameCtx: { get: () => state.frameCtx, enumerable: true },
+    slowMo: { get: () => state.slowMo, enumerable: true },
+    deps: { get: () => state.deps, enumerable: true },
+  });
 
   return ctx;
 }

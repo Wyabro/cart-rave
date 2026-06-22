@@ -726,9 +726,9 @@ export default class Server implements Party.Server {
       }
       this.#round = { phase: "lobby", winnerSlotId: null };
       this.#carts = [];
-      const shouldAutoReady = this.#gameMode() === "quickplay";
+      // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
       for (const slot of this.#slots!) {
-        if (slot.kind === "human") slot.isReady = shouldAutoReady;
+        if (slot.kind === "human") slot.isReady = true;
       }
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
@@ -742,7 +742,7 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         round: this.#round,
       });
-      if (shouldAutoReady) this.#checkAllReady();
+      this.#checkAllReady();
       return;
     }
 

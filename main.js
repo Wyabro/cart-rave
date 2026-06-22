@@ -8,8 +8,7 @@ import { ShaderPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postpro
 import { CSS2DObject, CSS2DRenderer } from "https://unpkg.com/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
 import { RoomEnvironment } from "https://unpkg.com/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
-import PartySocket from "partysocket";
-import { buildCart, resetCartVisualState, updateCartVisuals } from "./cart.js";
+import { updateCartVisuals } from "./cart.js";
 import * as Simulation from "./src/simulation.js";
 import * as Entities from "./src/entities.js";
 import * as HUD from "./src/hud.js";
@@ -17,12 +16,12 @@ import * as Input from "./src/input.js";
 import * as Netcode from "./src/netcode.js";
 import * as GameState from "./src/gameState.js";
 import * as GameAudio from "./src/audio.js";
-import * as SceneMod from "./src/scene.js";
 import * as CameraMod from "./src/camera.js";
 import * as Effects from "./src/effects.js";
 import { initArena } from "./src/arena.js";
 import { initSceneExtras } from "./src/sceneSetup.js";
 import { initAudioSystem } from "./src/audioSetup.js";
+import { initResultsOverlay } from "./src/ui/resultsOverlay.js";
 import {
   applySlowMoToDt,
   createGameLoopState,
@@ -43,38 +42,6 @@ import {
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
 
 // === UTILITY HELPERS ===
-
-/**
- * Safely disposes a Three.js subtree (geometries + materials).
- * Skips disposing geometry for meshes tagged with `userData.isSharedGeometry`.
- * @param {THREE.Object3D | null | undefined} root
- */
-function disposeObject3D(root) {
-  if (!root) return;
-  if (root.parent) root.parent.remove(root);
-
-  /**
-   * @param {THREE.Material | THREE.Material[]} material
-   */
-  function disposeMaterial(material) {
-    if (Array.isArray(material)) {
-      material.forEach((m) => m && typeof m.dispose === "function" && m.dispose());
-      return;
-    }
-    if (material && typeof material.dispose === "function") material.dispose();
-  }
-
-  root.traverse((child) => {
-    // Dispose any materials found on renderables.
-    if (child.material) disposeMaterial(child.material);
-
-    // Dispose geometries unless explicitly marked as shared.
-    const isShared = Boolean(child.userData && child.userData.isSharedGeometry);
-    if (!isShared && child.geometry && typeof child.geometry.dispose === "function") {
-      child.geometry.dispose();
-    }
-  });
-}
 
 /**
  * Caches per-cart materials so recoloring doesn't traverse the mesh every update.
@@ -122,8 +89,7 @@ function buildCartMaterialCache(cartMesh) {
 
 // === CONSTANTS & CONFIG ===
 
-// * PartyKit public host after `npx partykit deploy` (partykit.dev). Local dev uses 127.0.0.1:1999.
-const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
+// * PartyKit public host lives in netcode.js (`partyHostFromWindowLocation`).
 
 // --- PartyKit protocol constants (must match server exactly) ---
 const MSG = {
@@ -195,7 +161,7 @@ const CONFIG = {
     y: -0.3,
     rotationSpeedRadPerSec: 0.35,
     physicsSpinRadPerSec: 0.08,
-    friction: 2.6,
+    friction: 0.8,    // Was 1.95 — high friction catches on trimesh seams
     restitution: 0.05,
     color: 0x050006,
     rimColor: 0xff2bd6,
@@ -216,9 +182,11 @@ const CONFIG = {
         yOffset: 0.3,
       },
     },
+    // Physics-only hole clearance (visual mesh unchanged). Tuned to reduce center-hole
+    // sticking and random hopping while keeping a protective expanded collision hole.
     physics: {
-      chamferWidth: 0.55,
-      holeClearance: 1.05,
+      chamferWidth: 0.35,
+      holeClearance: 0.45,
       outerBevel: 0.12,
       segments: 72,
     },
@@ -239,12 +207,12 @@ const CONFIG = {
     },
     // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
     spawnHeight: 1.077,
-    friction: 1.8,
+    friction: 1.1,
     restitution: 0.3,
-    linearDamping: 2.5,
-    angularDamping: 8.25,
-    maxPitchRoll: 0.99,
-    visualOffset: 0.45,
+    linearDamping: 0.6,
+    angularDamping: 1.2,
+    maxPitchRoll: 4.5,
+    visualOffset: 0.82,
 
     ramBoost: {
       enabled: true,
@@ -302,7 +270,7 @@ const CONFIG = {
 
   ramming: {
     minSpeed: 0.8,
-    strength: 8.0,
+    strength: 2.64, // 8.0 × 0.33
     maxImpulse: 200.0,
   },
 
@@ -370,74 +338,8 @@ CONFIG.cart.spawnHeight = CONFIG.booth.platformY + CONFIG.booth.platformThicknes
 
 // === NETCODE BRIDGING ===
 
-function partyHostFromWindowLocation() {
-  const hostname = window.location.hostname;
-  const isLocalHostname =
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    /^192\.168\./.test(hostname) ||
-    /^10\./.test(hostname) ||
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
-  if (isLocalHostname) {
-    return `${hostname}:1999`;
-  }
-  const publicHost = PARTYKIT_PUBLIC_HOST.trim();
-  return publicHost ? publicHost : `${hostname}:1999`;
-}
-
-function resolvedPartyRoomFromUrl() {
-  if (typeof window === "undefined") return "quickplay";
-  const params = new URLSearchParams(window.location.search || "");
-  const raw = (params.get("room") || "").trim();
-  const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
-  return isValid ? raw : "quickplay";
-}
-
 /** Valid ?room= on first paint: show menu before PartyKit connect (friend links). */
 let pendingInviteRoomFromUrl = null;
-let skipMenuForPortalBypass = false;
-
-function isPortalWebringBypassFromUrl() {
-  if (typeof window === "undefined") return false;
-  const v = new URLSearchParams(window.location.search || "").get("portal");
-  if (v == null) return false;
-  const s = String(v).trim().toLowerCase();
-  return s === "true" || s === "1" || s === "yes";
-}
-
-function getPortalQueryParams() {
-  if (typeof window === "undefined") return null;
-  const p = new URLSearchParams(window.location.search || "");
-  if (!isPortalWebringBypassFromUrl()) return null;
-  return {
-    username: p.get("username") || null,
-    color: p.get("color") || null,
-    speed: p.get("speed") || null,
-    ref: p.get("ref") || null,
-    avatar_url: p.get("avatar_url") || null,
-    team: p.get("team") || null,
-    hp: p.get("hp") || null,
-  };
-}
-
-const incomingPortalParams = getPortalQueryParams();
-
-function buildExitPortalUrl() {
-  if (typeof window === "undefined") return "https://vibej.am/portal/2026";
-  const url = new URL("https://vibej.am/portal/2026");
-  url.searchParams.set("ref", window.location.origin + window.location.pathname);
-  const mySlot = Netcode.getNetSlots()?.find((s) => s && s.connId === Netcode.getYouConnId());
-  if (mySlot?.name) url.searchParams.set("username", mySlot.name);
-  if (mySlot?.color) url.searchParams.set("color", mySlot.color);
-  return url.toString();
-}
-
-function applyPortalWebringBypassToUrl() {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("room", "quickplay");
-  history.replaceState({}, "", url);
-}
 
 function captureInviteRoomForDeferredMenu() {
   pendingInviteRoomFromUrl = null;
@@ -460,7 +362,6 @@ let gameSfx = null;
 function createNetcodeCallbackDeps() {
   return {
     detectGameMode,
-    incomingPortalParams,
     palette: PALETTE,
     initialNpcNames,
     markFirstHelloReceived,
@@ -497,12 +398,6 @@ function bootstrapNetcodeEntryFromUrl() {
 
   Netcode.registerGameCallbacks(createNetcodeCallbackDeps());
 
-  if (isPortalWebringBypassFromUrl()) {
-    applyPortalWebringBypassToUrl();
-    skipMenuForPortalBypass = true;
-    Netcode.initNetcode();
-    return;
-  }
   if (captureInviteRoomForDeferredMenu()) {
     return;
   }
@@ -512,9 +407,6 @@ function bootstrapNetcodeEntryFromUrl() {
 
 // --- Module-scope netcode state ---
 // Replaced by Netcode.getPartySocket(), Netcode.getYouConnId(), Netcode.getIsHost()
-
-// * Input bridge for non-host client_input nitro (Shift key).
-let localNitroHeld = false;
 
 // --- Personal Stats (localStorage) ---
 function getPersonalStats() {
@@ -703,10 +595,6 @@ try {
 } catch {}
 /** @type {boolean} */
 let isMuted = false; // Step 10d: Mute state
-/** @type {ReturnType<typeof setTimeout> | null} */
-let lastCartStandingTimeoutId = null;
-/** @type {null|number} */
-let lastCartStandingWinnerSlotIndex = null;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
@@ -720,8 +608,6 @@ let roundPodiumTimeoutId = null;
 let autoContinuePodiumTimeoutId = null;
 /** @type {string | null} */
 let autoContinuePodiumKey = null;
-/** @type {string | null} */
-let autoReadyConnId = null;
 
 let nameLabelUpdatePending = null;
 
@@ -810,47 +696,6 @@ function localCartForConnId() {
   return carts[idx] || null;
 }
 
-// === SCENE / WORLD SETUP ===
-
-/**
- * * Draws one string along a circular arc on a 2D canvas (vinyl label typography).
- * @param {CanvasRenderingContext2D} ctx
- * @param {string} text
- * @param {number} cx
- * @param {number} cy
- * @param {number} arcRadiusPx
- * @param {number} arcCenterDeg
- * @param {number} arcAngleDeg
- * @param {string} fontSpec
- * @param {string} fillStyle
- */
-function drawArcTextOnCanvas(ctx, text, cx, cy, arcRadiusPx, arcCenterDeg, arcAngleDeg, fontSpec, fillStyle) {
-  const n = text.length;
-  if (n === 0) return;
-  ctx.save();
-  ctx.font = fontSpec;
-  ctx.fillStyle = fillStyle;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const span = arcAngleDeg;
-  const startDeg = arcCenterDeg - span / 2;
-  for (let i = 0; i < n; i += 1) {
-    const char = text[i];
-    const angleDeg = n === 1 ? arcCenterDeg : startDeg + (i / (n - 1)) * span;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(angleRad);
-    ctx.translate(0, -arcRadiusPx);
-    ctx.rotate(angleRad + Math.PI / 2);
-    ctx.fillText(char, 0, 0);
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
-// (Physics helper functions removed - using modular Simulation equivalents)
-
 // === GAME LOOP ===
 
 async function main() {
@@ -860,6 +705,7 @@ async function main() {
   let labelRenderer = null;
   let input = null;
 
+  // --- Canvas & input ---
   const canvas = document.getElementById(CONFIG.canvasId);
   if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error(`Canvas element '#${CONFIG.canvasId}' not found.`);
@@ -898,6 +744,7 @@ async function main() {
     }
   );
 
+  // --- Renderer & scene ---
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -916,813 +763,7 @@ async function main() {
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
   pmremGenerator.dispose();
 
-  function setAllAudioMuted(muted) {
-    GameAudio.setMuted(muted, (val) => {
-      isMuted = val;
-      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
-      if (sfx) {
-        sfx._muted = isMuted;
-      }
-    });
-  }
-
-  function setSfxSliderVolume(v) {
-    sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
-    localStorage.setItem(
-      "cartRaveSfxVol",
-      Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
-    );
-    try { GameAudio.applyAudioVolume(); } catch (e) {}
-  }
-
-  // (Legacy initHud removed)
-
-  function initResultsOverlay() {
-    const existing = document.getElementById("results-overlay");
-    if (existing) existing.remove();
-    const existingStyle = document.getElementById("results-overlay-style");
-    if (existingStyle) existingStyle.remove();
-
-    const style = document.createElement("style");
-    style.id = "results-overlay-style";
-    style.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap');
-
-      #results-overlay {
-        --results-mono: "Space Mono", ui-monospace, monospace;
-        --results-display: "Bungee", "Archivo Black", sans-serif;
-        position: fixed;
-        inset: 0;
-        z-index: 25000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-        font-family: var(--results-mono);
-        color: #fff;
-        -webkit-font-smoothing: antialiased;
-        text-rendering: optimizeLegibility;
-        background: radial-gradient(ellipse at center, #0a0014 0%, #000 90%);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-      }
-
-      #results-overlay .results-panel {
-        pointer-events: auto;
-        min-width: min(420px, 92vw);
-        max-width: 520px;
-        width: 90%;
-        padding: 36px 32px 28px;
-        border-radius: 16px;
-        background: rgba(0, 0, 0, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 0 0 40px rgba(43, 255, 122, 0.08), 0 16px 48px rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-      }
-
-      #results-overlay .results-title {
-        font-family: var(--results-display);
-        font-size: clamp(22px, 5vw, 32px);
-        font-weight: 400;
-        letter-spacing: 0.06em;
-        margin: 0 0 18px;
-        min-height: 1.2em;
-        text-align: center;
-        line-height: 1.15;
-        color: var(--title-glow, #ffe53d);
-        text-shadow: 0 0 12px var(--title-glow, #ffe53d), 0 0 28px color-mix(in oklab, var(--title-glow, #ffe53d), transparent 50%);
-      }
-
-      #results-overlay .results-final {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-
-      #results-overlay .results-score-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        padding: 12px 16px;
-        border-radius: 10px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: box-shadow 180ms ease, border-color 180ms ease;
-      }
-
-      #results-overlay .results-score-row.is-winner {
-        border-color: var(--slot-glow, #2bff7a);
-        box-shadow: 0 0 12px var(--slot-glow, #2bff7a), 0 0 28px color-mix(in oklab, var(--slot-glow, #2bff7a), transparent 55%);
-      }
-
-      #results-overlay .results-score-name {
-        font-family: var(--results-mono);
-        font-size: 13px;
-        letter-spacing: 0.04em;
-        color: rgba(255, 255, 255, 0.88);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        min-width: 0;
-        flex: 1;
-      }
-
-      #results-overlay .results-score-val {
-        font-family: var(--results-display);
-        font-size: 18px;
-        letter-spacing: 0.04em;
-        color: var(--slot-glow, #22e6ff);
-        text-shadow: 0 0 10px var(--slot-glow, #22e6ff);
-        flex-shrink: 0;
-      }
-
-      #results-overlay .results-stats {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 14px 18px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid rgba(255, 43, 214, 0.22);
-        border-radius: 12px;
-        margin: 0 0 14px;
-        position: relative;
-      }
-
-      #results-overlay .results-stats-tag {
-        position: absolute;
-        top: -8px; left: 14px;
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 1px 8px;
-        background: rgba(0, 0, 0, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        font-family: var(--results-mono);
-        font-size: 8px;
-        letter-spacing: 0.22em;
-        color: rgba(255, 255, 255, 0.6);
-      }
-
-      #results-overlay .results-stats-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-        flex: 1;
-      }
-
-      #results-overlay .results-stats-num {
-        font-family: var(--results-display);
-        font-size: 22px;
-        line-height: 1;
-        color: #ff2bd6;
-        text-shadow: 0 0 10px #ff2bd6;
-        letter-spacing: 0.02em;
-      }
-
-      #results-overlay .results-stats-lbl {
-        font-family: var(--results-mono);
-        font-size: 8px;
-        letter-spacing: 0.18em;
-        color: rgba(255, 255, 255, 0.5);
-        text-transform: uppercase;
-      }
-
-      #results-overlay .results-stats-div {
-        width: 1px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.12);
-        flex-shrink: 0;
-      }
-
-      #results-overlay .results-history {
-        min-height: 72px;
-        max-height: 160px;
-        overflow: auto;
-        margin-bottom: 18px;
-        padding: 14px 16px;
-        border-radius: 14px;
-        background: rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        font-family: var(--results-mono);
-        font-size: 11px;
-        line-height: 1.65;
-        letter-spacing: 0.03em;
-        color: rgba(255, 255, 255, 0.65);
-      }
-
-      #results-overlay .results-history-row {
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-      }
-
-      #results-overlay .results-history-row:last-child {
-        margin-bottom: 0;
-        padding-bottom: 0;
-        border-bottom: none;
-      }
-
-      #results-overlay .results-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        width: 100%;
-      }
-
-      #results-overlay .results-btn {
-        width: 100%;
-        padding: 14px 22px;
-        border-radius: 6px;
-        font-family: var(--results-display);
-        font-size: 16px;
-        letter-spacing: 0.06em;
-        cursor: pointer;
-        text-decoration: none;
-        text-align: center;
-        display: block;
-        border: 2px solid var(--btn-glow, #ff2bd6);
-        background: rgba(0, 0, 0, 0.55);
-        color: var(--btn-glow, #ff2bd6);
-        text-shadow: 0 0 10px var(--btn-glow, #ff2bd6);
-        box-shadow: 0 0 12px var(--btn-glow, #ff2bd6), 0 0 28px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 60%);
-        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
-      }
-
-      #results-overlay .results-btn:hover:not(:disabled) {
-        transform: translateY(-2px) scale(1.02);
-        background: rgba(0, 0, 0, 0.35);
-        box-shadow: 0 0 20px var(--btn-glow, #ff2bd6), 0 0 44px var(--btn-glow, #ff2bd6);
-      }
-
-      #results-overlay .results-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: 0 0 8px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 70%);
-      }
-
-      #results-overlay .results-btn--play {
-        --btn-glow: #ff2bd6;
-      }
-
-      #results-overlay .results-btn--menu {
-        --btn-glow: #22e6ff;
-      }
-
-      #results-overlay .results-btn--portal {
-        --btn-glow: #2bff7a;
-      }
-    `.trim();
-    document.head.appendChild(style);
-
-    const overlay = document.createElement("div");
-    overlay.id = "results-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", "Round results");
-
-    const panel = document.createElement("div");
-    panel.className = "results-panel";
-
-    const title = document.createElement("h2");
-    title.className = "results-title";
-
-    const finalScores = document.createElement("div");
-    finalScores.className = "results-final";
-
-    const history = document.createElement("div");
-    history.className = "results-history";
-
-    const actions = document.createElement("div");
-    actions.className = "results-actions";
-
-    const playAgain = document.createElement("button");
-    playAgain.type = "button";
-    playAgain.className = "results-btn results-btn--play";
-    playAgain.textContent = "PLAY AGAIN";
-    playAgain.disabled = false;
-
-    const exitPortal = document.createElement("a");
-    exitPortal.className = "results-btn results-btn--portal";
-    exitPortal.href = buildExitPortalUrl();
-    exitPortal.textContent = "VIBE JAM PORTAL";
-    exitPortal.addEventListener("click", (event) => {
-      event.preventDefault();
-      window.location.href = buildExitPortalUrl();
-    });
-
-    const mainMenuBtn = document.createElement("button");
-    mainMenuBtn.type = "button";
-    mainMenuBtn.className = "results-btn results-btn--menu";
-    mainMenuBtn.textContent = "MAIN MENU";
-    mainMenuBtn.addEventListener("click", () => {
-      clearAutoContinuePodiumTimeout();
-      // Strip room param and go to plain cartrave.lol
-      const url = new URL(window.location.href);
-      url.searchParams.delete("room");
-      url.searchParams.delete("portal");
-      window.location.href = url.pathname;
-    });
-
-    actions.appendChild(playAgain);
-    actions.appendChild(mainMenuBtn);
-    actions.appendChild(exitPortal);
-
-    const statsLine = document.createElement("div");
-    statsLine.className = "results-stats";
-
-    panel.appendChild(title);
-    panel.appendChild(finalScores);
-    panel.appendChild(statsLine);
-    panel.appendChild(history);
-    panel.appendChild(actions);
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
-
-    return { overlay, panel, title, finalScores, history, playAgain, exitPortal, statsLine, mainMenuBtn };
-  }
-
-  // Step 10b: Menu initialization
-  function initMenu() {
-    menuVisible = true;
-    if (labelRenderer) labelRenderer.domElement.style.display = "none";
-    const hudAudio = document.querySelector(".hud-audio");
-    if (hudAudio) hudAudio.style.display = "none";
-    if (hud) {
-      if (hud.timer) hud.timer.style.display = "none";
-      if (hud.scores) hud.scores.style.display = "none";
-      if (hud.readyBtn) hud.readyBtn.style.display = "none";
-      if (hud.status) hud.status.style.display = "none";
-    }
-    const feed = (hud && hud.feed) || document.querySelector(".hud-feed");
-    if (feed) {
-      feed.style.display = "none";
-      while (feed.firstChild) feed.removeChild(feed.firstChild);
-    }
-    // Stop game music before menu music starts.
-    try {
-      GameAudio.stopGameMusic();
-    } catch (e) {}
-    try { GameAudio.startMenuMusic(); } catch (e) {}
-    const wrap = document.getElementById("cr-root");
-    if (wrap) {
-      window.CartRave?.show?.();
-    }
-
-    // Cosmetic: mark color chip as pending until server confirms slots.
-    if (!menuColorPickListenerWired) {
-      menuColorPickListenerWired = true;
-      const colorRow = document.getElementById("cr-color-row");
-      if (colorRow) {
-        colorRow.addEventListener("click", (e) => {
-          const chip = e.target && e.target.closest ? e.target.closest(".cr-color-chip") : null;
-          if (!chip) return;
-          pendingColorChipEl?.classList.remove("color-pending");
-          pendingColorChipEl = chip;
-          pendingColorChipEl.classList.add("color-pending");
-          _localColorPicked = true;
-          const colorToSend = localStorage.getItem("cartRaveColor");
-          pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
-          if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
-            Netcode.getPartySocket().send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));
-          }
-        });
-      }
-    }
-
-    if (skipMenuForPortalBypass) {
-      skipMenuForPortalBypass = false;
-      hideMenu();
-    }
-
-    const room = resolvedPartyRoomFromUrl();
-    if (room && room.toLowerCase().startsWith("solo")) {
-      hideMenu();
-      Netcode.initNetcode();
-      return;
-    }
-
-    document.getElementById("cr-btn-join-invite")?.remove();
-    if (pendingInviteRoomFromUrl) {
-      const btnRow = document.querySelector(".cr-buttons");
-      if (btnRow) {
-        const btn = document.createElement("button");
-        btn.id = "cr-btn-join-invite";
-        btn.type = "button";
-        btn.className = "cr-btn";
-        btn.dataset.action = "joinroom";
-        btn.dataset.colorkey = "secondary";
-        btn.innerHTML =
-          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>' +
-          '<span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>' +
-          '<span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>';
-        btnRow.insertBefore(btn, btnRow.firstChild);
-        const refGlow = btnRow.querySelector('.cr-btn[data-action="quickplay"]');
-        if (refGlow) {
-          const g = getComputedStyle(refGlow).getPropertyValue("--glow").trim();
-          if (g) btn.style.setProperty("--glow", g);
-        }
-        btn.addEventListener("click", () => {
-          window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
-        });
-      }
-    }
-
-    // Wire new menu button events
-    window.addEventListener("cartrave:menu", (e) => {
-      const action = e.detail.action;
-      if (action === "joinroom") {
-        const room = pendingInviteRoomFromUrl;
-        if (!room) return;
-        pendingInviteRoomFromUrl = null;
-        document.getElementById("cr-btn-join-invite")?.remove();
-        hideMenu();
-        Netcode.initNetcode(room);
-        return;
-      }
-      pendingInviteRoomFromUrl = null;
-      document.getElementById("cr-btn-join-invite")?.remove();
-      if (action === "solo") {
-        const roomId = `solo${Math.random().toString(36).substring(2, 8)}`;
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", roomId);
-        history.pushState({}, "", url);
-        hideMenu();
-        Netcode.initNetcode();
-      } else if (action === "quickplay") {
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", "quickplay");
-        history.pushState({}, "", url);
-        hideMenu();
-        Netcode.initNetcode();
-      } else if (action === "friends") {
-        const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", roomId);
-        history.pushState({}, "", url);
-        const cleanLink = new URL(window.location.origin + window.location.pathname);
-        cleanLink.searchParams.set("room", roomId);
-        const roomLink = cleanLink.toString();
-        navigator.clipboard.writeText(roomLink).catch(() => {});
-
-        // Show friends screen
-        const friendsScreen = document.getElementById("cr-friends-screen");
-        const friendsLink = document.getElementById("cr-friends-link");
-        const friendsCopy = document.getElementById("cr-friends-copy");
-        const friendsEnter = document.getElementById("cr-friends-enter");
-        const friendsBack = document.getElementById("cr-friends-back");
-        const menuRoot = document.getElementById("cr-root");
-
-        if (friendsLink) friendsLink.value = roomLink;
-        window.CartRave?.stopAnimations?.();
-        if (menuRoot) menuRoot.style.display = "none";
-        if (friendsScreen) friendsScreen.style.display = "flex";
-
-        if (friendsCopy) {
-          friendsCopy.onclick = () => {
-            navigator.clipboard.writeText(roomLink).catch(() => {});
-            friendsCopy.textContent = "COPIED!";
-            setTimeout(() => { friendsCopy.textContent = "COPY"; }, 1500);
-          };
-        }
-        if (friendsEnter) {
-          friendsEnter.onclick = () => {
-            friendsScreen.style.display = "none";
-            hideMenu();
-            Netcode.initNetcode();
-          };
-        }
-        if (friendsBack) {
-          friendsBack.onclick = () => {
-            friendsScreen.style.display = "none";
-            window.CartRave?.show?.();
-            refreshMenuStats();
-            // Clear the room param
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete("room");
-            history.pushState({}, "", cleanUrl);
-          };
-        }
-      }
-    });
-
-    // Set portal href with referral
-    const portal = document.getElementById("cr-portal");
-    if (portal) {
-      try {
-        const url = new URL("https://vibej.am/portal/2026");
-        url.searchParams.set("ref", window.location.origin + window.location.pathname);
-        portal.href = url.toString();
-      } catch {
-        portal.href = "https://vibej.am/portal/2026";
-      }
-    }
-
-    refreshMenuStats();
-
-    // Wire new menu audio controls to game audio
-    const crMuteBtn = document.getElementById("cr-mute-btn");
-    const crMusicVolTrack = document.getElementById("cr-music-vol-track");
-    const crMusicVolFill = document.getElementById("cr-music-vol-fill");
-    const crMusicVolVal = document.getElementById("cr-music-vol-val");
-
-    function syncMenuVolume() {
-      if (crMusicVolFill) crMusicVolFill.style.setProperty("--vol-scale", String(isMuted ? 0 : masterGain / AUDIO_VOLUME_MAX));
-      if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
-      if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
-      if (hud && hud.syncAudioControls) hud.syncAudioControls();
-    }
-
-    if (crMuteBtn) {
-      crMuteBtn.addEventListener("click", () => {
-        setAllAudioMuted(!isMuted);
-        syncMenuVolume();
-      });
-    }
-
-    if (crMusicVolTrack) {
-      crMusicVolTrack.addEventListener("click", (e) => {
-        const r = crMusicVolTrack.getBoundingClientRect();
-        const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-        masterGain = v;
-        localStorage.setItem("cartRaveVolume", Math.round((v / AUDIO_VOLUME_MAX) * 100).toString());
-        try { GameAudio.applyAudioVolume(); } catch(e) {}
-        syncMenuVolume();
-      });
-    }
-
-    // Set initial state from saved values
-    const savedVol = localStorage.getItem("cartRaveVolume");
-    if (savedVol !== null) {
-      const parsed = parseInt(savedVol, 10);
-      masterGain = Number.isNaN(parsed)
-        ? AUDIO_VOLUME_DEFAULT
-        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-    }
-    const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
-    if (savedSfxVol !== null) {
-      const parsed = parseInt(savedSfxVol, 10);
-      sfxVolume = Number.isNaN(parsed)
-        ? AUDIO_VOLUME_DEFAULT
-        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-    }
-    const savedMute = localStorage.getItem("cartRaveMuted");
-    if (savedMute === "true") setAllAudioMuted(true);
-    try { GameAudio.applyAudioVolume(); } catch(e) {}
-    syncMenuVolume();
-
-    // Sync new menu name to localStorage for join message
-    const crNameText = document.getElementById("cr-name-text");
-    if (crNameText) {
-      // Set initial value from localStorage
-      const saved = localStorage.getItem("cartRaveUsername");
-      if (saved) crNameText.textContent = saved;
-
-      // Watch for changes via MutationObserver
-      const nameObs = new MutationObserver(() => {
-        const name = crNameText.textContent.trim();
-        if (name) localStorage.setItem("cartRaveUsername", name);
-      });
-      nameObs.observe(crNameText, { childList: true, characterData: true, subtree: true });
-    }
-
-    // Also sync the menu JS state
-    const crNameInput = document.getElementById("cr-name-input");
-    if (crNameInput) {
-      crNameInput.addEventListener("blur", () => {
-        const name = crNameInput.value.trim();
-        if (name) localStorage.setItem("cartRaveUsername", name);
-      });
-    }
-  }
-
-  // Step 10b: Hide menu function
-  function hideMenu() {
-    const wrap = document.getElementById("cr-root");
-    window.CartRave?.stopAnimations?.();
-    if (wrap) {
-      wrap.style.opacity = "0";
-      wrap.style.pointerEvents = "none";
-      setTimeout(() => {
-        wrap.style.display = "none";
-      }, 300);
-    }
-    menuVisible = false;
-    try { crowd?.ensureStarted?.(); } catch {}
-    if (labelRenderer) labelRenderer.domElement.style.display = "block";
-    const hudAudio = document.querySelector(".hud-audio");
-    if (hudAudio) hudAudio.style.display = "flex";
-    // Crossfade: fade out menu music, fade in game music.
-    GameAudio.fadeOutMenuMusic();
-    GameAudio.fadeInGameMusic();
-  }
-
-  function refreshMenuStats() {
-    const ps = getPersonalStats();
-    const winsEl = document.getElementById("stat-wins");
-    const playedEl = document.getElementById("stat-played");
-    const ptsEl = document.getElementById("stat-pts");
-    const soloEl = document.getElementById("stat-solo");
-    if (winsEl) winsEl.textContent = ps.wins;
-    if (playedEl) playedEl.textContent = ps.matches;
-    if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
-    if (soloEl) soloEl.textContent = ps.soloGames;
-  }
-
-
-  hud = HUD.init({
-    getIsMuted: () => isMuted,
-    setIsMuted: (val) => { setAllAudioMuted(val); },
-    getMasterGain: () => masterGain,
-    setMasterGain: (val) => {
-      masterGain = val;
-      localStorage.setItem("cartRaveVolume", Math.round((val / AUDIO_VOLUME_MAX) * 100).toString());
-      try { GameAudio.applyAudioVolume(); } catch (e) {}
-    },
-    getSfxVolume: () => sfxVolume,
-    setSfxVolume: (val) => { setSfxSliderVolume(val); },
-    getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
-    getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
-    getBloomEnabled: () => bloomEnabled,
-    setBloomEnabled: (val) => {
-      bloomEnabled = val;
-      try { localStorage.setItem("cartRaveBloom", val ? "on" : "off"); } catch (e) {}
-    },
-    getFxPassEnabled: () => fxPassEnabled,
-    setFxPassEnabled: (val) => {
-      fxPassEnabled = val;
-      try { localStorage.setItem("cartRaveFx", val ? "on" : "off"); } catch (e) {}
-    },
-    getBloomPass: () => bloomPass,
-    getFxPass: () => fxPass,
-    getLabelRenderer: () => labelRenderer,
-    getMenuVisible: () => menuVisible,
-    getPartySocket: () => Netcode.getPartySocket(),
-    getReadyToggleMsgType: () => MSG.readyToggle,
-    getCART_COLORS: () => CART_COLORS,
-    getDefaultRoundMs: () => 95000,
-    getCountdownMs: () => 3000,
-  });
-  const resultsUi = initResultsOverlay();
-  initMenu(); // Step 10b: Add menu initialization
-  hideMenuRef = hideMenu;
-
-  // * Bridges the server-driven game-start signal into main()'s nested functions.
-  // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
-  onGameStartHandler = (msg) => {
-    if (menuVisible) hideMenu();
-    const serverStartsAtMs = Number(msg?.startsAtMs);
-    const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
-      ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
-      : Date.now() + 3000;
-    if (Netcode.getIsHost()) {
-      startCountdown(startsAtLocalMs);
-    } else if (GameState.getRoundState().phase !== "running") {
-      syncRoundPhase("countdown");
-      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
-      GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-      GameState.setRoundWinnerSlotIndex(null);
-      GameState.setRoundStartedAtMs(0);
-    }
-  };
-
-  // (Legacy updateHud removed)
-
-  let lastResultsOverlayKey = null;
-
-  function updateResultsOverlay() {
-    if (!resultsUi) return;
-    const { overlay, title, finalScores, history, playAgain, exitPortal, statsLine } = resultsUi;
-    const roundState = GameState.getRoundState();
-    if (roundState.phase === "podium") {
-      overlay.style.display = "flex";
-      overlay.style.pointerEvents = "auto";
-      const isHost = Netcode.getIsHost();
-      const scores = GameState.getRoundScores() || {};
-      const stats = getPersonalStats();
-      const renderKey = `${roundState.winnerSlotIndex}-${scores[0] ?? 0}-${scores[1] ?? 0}-${scores[2] ?? 0}-${scores[3] ?? 0}-${matchHistory.length}-${isHost}-${stats.matches}-${stats.wins}-${stats.totalPoints}-${stats.soloGames ?? 0}`;
-      if (renderKey === lastResultsOverlayKey) {
-        maybeScheduleAutoContinuePodium();
-        return;
-      }
-      lastResultsOverlayKey = renderKey;
-      playAgain.disabled = !isHost;
-      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
-
-      const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
-
-      const winnerIdx = roundState.winnerSlotIndex;
-      if (winnerIdx === "draw") {
-        title.textContent = "DRAW";
-        title.style.setProperty("--title-glow", "#ffe53d");
-      } else {
-        const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
-        if (idx != null) {
-          const score = scores[idx] != null ? scores[idx] : 0;
-          title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
-          title.style.setProperty("--title-glow", getColorForSlot(Netcode.getNetSlots()[idx]));
-        } else {
-          title.textContent = "ROUND COMPLETE";
-          title.style.setProperty("--title-glow", "#ffffff");
-        }
-      }
-
-      finalScores.replaceChildren();
-      for (let i = 0; i < 4; i += 1) {
-        const s = scores[i] != null ? scores[i] : 0;
-        const row = document.createElement("div");
-        row.className = "results-score-row";
-        const isWinner = winnerIdx !== "draw" && winnerIdx === i;
-        if (isWinner) row.classList.add("is-winner");
-        row.style.setProperty("--slot-glow", getColorForSlot(Netcode.getNetSlots()[i]));
-
-        const nameEl = document.createElement("span");
-        nameEl.className = "results-score-name";
-        nameEl.textContent = slotDisplayName(i);
-
-        const valEl = document.createElement("span");
-        valEl.className = "results-score-val";
-        valEl.textContent = `${s} pts`;
-
-        row.appendChild(nameEl);
-        row.appendChild(valEl);
-        finalScores.appendChild(row);
-      }
-
-      history.replaceChildren();
-      if (matchHistory.length === 0) {
-        const emptyRow = document.createElement("div");
-        emptyRow.textContent = "No prior matches this session.";
-        history.appendChild(emptyRow);
-      } else {
-        for (let i = matchHistory.length - 1; i >= 0; i -= 1) {
-          const m = matchHistory[i];
-          const row = document.createElement("div");
-          row.className = "results-history-row";
-          const parts = [0, 1, 2, 3]
-            .map((j) => `${slotDisplayName(j)} ${m.scores[j] ?? 0}`)
-            .join(" · ");
-          row.textContent =
-            m.winnerSlotIndex === "draw"
-              ? `DRAW — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`
-              : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
-          history.appendChild(row);
-        }
-      }
-
-      // Update personal stats display
-      if (statsLine) {
-        const ps = getPersonalStats();
-        statsLine.replaceChildren();
-
-        const tag = document.createElement("div");
-        tag.className = "results-stats-tag";
-        const pulse = document.createElement("i");
-        pulse.style.cssText =
-          "display:inline-block;width:5px;height:5px;border-radius:50%;" +
-          "background:#ff00ff;box-shadow:0 0 4px #ff00ff;flex-shrink:0";
-        tag.appendChild(pulse);
-        tag.appendChild(document.createTextNode("\u00a0YOUR STATS"));
-        statsLine.appendChild(tag);
-
-        const statDefs = [
-          { num: String(ps.wins), lbl: "WINS" },
-          { num: String(ps.matches), lbl: "PLAYED" },
-          { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
-          { num: String(ps.soloGames || 0), lbl: "SOLO" },
-        ];
-        statDefs.forEach((def, idx) => {
-          if (idx > 0) {
-            const sep = document.createElement("div");
-            sep.className = "results-stats-div";
-            statsLine.appendChild(sep);
-          }
-          const item = document.createElement("div");
-          item.className = "results-stats-item";
-          const numEl = document.createElement("span");
-          numEl.className = "results-stats-num";
-          numEl.textContent = def.num;
-          const lblEl = document.createElement("span");
-          lblEl.className = "results-stats-lbl";
-          lblEl.textContent = def.lbl;
-          item.appendChild(numEl);
-          item.appendChild(lblEl);
-          statsLine.appendChild(item);
-        });
-      }
-
-      maybeScheduleAutoContinuePodium();
-    } else {
-      clearAutoContinuePodiumTimeout();
-      autoContinuePodiumKey = null;
-      lastResultsOverlayKey = null;
-      overlay.style.display = "none";
-      overlay.style.pointerEvents = "none";
-    }
-  }
-
+  // --- Camera, audio, post-processing ---
   const camera = new THREE.PerspectiveCamera(
     CONFIG.camera.fov,
     window.innerWidth / window.innerHeight,
@@ -1767,295 +808,6 @@ async function main() {
   if (!crowd) crowd = audioSystem.crowd;
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
   ensureCartCrashBufferLoaded = audioSystem.ensureCartCrashBufferLoaded;
-  playCollisionRef = sfx.playCollision;
-  gameSfx = sfx;
-  GameAudio.registerMusicVolumeDeps({
-    audioListener,
-    getSfxVolume: () => sfxVolume,
-  });
-  GameAudio.registerAudioRefs({ sfx, crowd, leaderHum });
-  GameAudio.applyAudioVolume();
-  camera.add(audioListener);
-
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-      const i = clamp(intensity, 0, 1);
-      if (i <= 0.05) return;
-      const ctx = audioListener.context;
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-
-      const thump = ctx.createOscillator();
-      thump.type = "sine";
-      thump.frequency.setValueAtTime(85 + Math.random() * 15, now);
-      thump.frequency.exponentialRampToValueAtTime(40, now + 0.2);
-
-      const noiseLen = 0.18;
-      const buf = ensureSharedNoiseBuffer(ctx);
-      const noise = ctx.createBufferSource();
-      noise.buffer = buf;
-      noise.playbackRate.setValueAtTime(0.8 + Math.random() * 0.4, now);
-
-      const lp = ctx.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.setValueAtTime(180, now);
-
-      const gainThump = ctx.createGain();
-      const gThump = 0.45 * i * sfxVolume;
-      gainThump.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gThump), now);
-      gainThump.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-
-      const gainNoise = ctx.createGain();
-      const gNoise = 0.3 * i * sfxVolume;
-      gainNoise.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gNoise), now);
-      gainNoise.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
-
-      thump.connect(gainThump);
-      gainThump.connect(audioListener.gain);
-
-      noise.connect(lp);
-      lp.connect(gainNoise);
-      gainNoise.connect(audioListener.gain);
-
-      try {
-        thump.start(now);
-        thump.stop(now + 0.2);
-        noise.start(now);
-        noise.stop(now + noiseLen);
-      } catch {}
-    },
-    playEdgeImpact(intensity) {
-      const i = clamp(intensity, 0, 1);
-      if (i <= 0.05) return;
-      const ctx = audioListener.context;
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-
-      const ring = ctx.createOscillator();
-      ring.type = "triangle";
-      ring.frequency.setValueAtTime(400 + Math.random() * 100, now);
-      ring.frequency.exponentialRampToValueAtTime(200, now + 0.25);
-
-      const noiseLen = 0.1;
-      const buf = ensureSharedNoiseBuffer(ctx);
-      const noise = ctx.createBufferSource();
-      noise.buffer = buf;
-      noise.playbackRate.setValueAtTime(0.8 + Math.random() * 0.4, now);
-
-      const hp = ctx.createBiquadFilter();
-      hp.type = "highpass";
-      hp.frequency.setValueAtTime(900, now);
-
-      const gainRing = ctx.createGain();
-      const gRing = 0.4 * i * sfxVolume;
-      gainRing.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gRing), now);
-      gainRing.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
-
-      const gainNoise = ctx.createGain();
-      const gNoise = 0.25 * i * sfxVolume;
-      gainNoise.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : gNoise), now);
-      gainNoise.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
-
-      ring.connect(gainRing);
-      gainRing.connect(audioListener.gain);
-
-      noise.connect(hp);
-      hp.connect(gainNoise);
-      gainNoise.connect(audioListener.gain);
-
-      try {
-        ring.start(now);
-        ring.stop(now + 0.25);
-        noise.start(now);
-        noise.stop(now + noiseLen);
-      } catch {}
-    },
-    playCollision(intensity) {
-      const i = clamp(intensity, 0, 1);
-      if (i <= 0) return;
-      const ctx = audioListener.context;
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-
-      // Drop the quietest active impact if too many overlap.
-      if (activeImpactSfx.length >= MAX_ACTIVE_IMPACTS) {
-        let quietestIdx = 0;
-        let quietestI = activeImpactSfx[0]?.intensity ?? Infinity;
-        for (let k = 1; k < activeImpactSfx.length; k += 1) {
-          const ki = activeImpactSfx[k]?.intensity ?? Infinity;
-          if (ki < quietestI) { quietestI = ki; quietestIdx = k; }
-        }
-        try { activeImpactSfx[quietestIdx]?.stop?.(); } catch {}
-        activeImpactSfx.splice(quietestIdx, 1);
-      }
-
-      ensureCartCrashBufferLoaded();
-      if (!cartCrashBuffer) return;
-
-      const src = ctx.createBufferSource();
-      src.buffer = cartCrashBuffer;
-      src.playbackRate.setValueAtTime(0.6 + Math.random() * 0.4 + i * 0.5, now);
-
-      const out = ctx.createGain();
-      const g = (0.2 + i * 0.8) * sfxVolume * 0.85;
-      out.gain.setValueAtTime(Math.max(0.0001, isMuted ? 0.0001 : g), now);
-
-      src.connect(out);
-      out.connect(audioListener.gain);
-
-      const entry = {
-        intensity: i,
-        stop: () => {
-          const t = ctx.currentTime;
-          try { out.gain.setTargetAtTime(0.0001, t, 0.01); } catch {}
-          try { src.stop(t + 0.01); } catch {}
-          try { src.disconnect(); } catch {}
-          try { out.disconnect(); } catch {}
-        },
-      };
-      src.onended = () => {
-        const idx = activeImpactSfx.indexOf(entry);
-        if (idx >= 0) activeImpactSfx.splice(idx, 1);
-        try { src.disconnect(); } catch {}
-        try { out.disconnect(); } catch {}
-      };
-
-      activeImpactSfx.push(entry);
-      try { src.start(0); } catch {}
-
-      if (GameState.getRoundState().phase === "running" && i > 0.2) {
-        shakeIntensity = i * 8 * 2; // max ~16px offset
-        shakeUntil = performance.now() + 225 + i * 150; // ~50% longer than before
-      }
-    },
-    playNitro() {
-      const ctx = audioListener.context;
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-
-      // * Aggressive nitro burst: wide whoosh + saw accent + low thump.
-      const len = 0.25;
-      const buf = ensureSharedNoiseBuffer(ctx);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.setValueAtTime(0.9 + Math.random() * 0.2, now);
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.setValueAtTime(400, now);
-      bp.frequency.exponentialRampToValueAtTime(4000, now + len);
-      bp.Q.value = 2;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.5 * sfxVolume, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + len);
-      src.connect(bp);
-      bp.connect(g);
-      g.connect(audioListener.gain);
-      src.start(now);
-      src.stop(now + len);
-
-      // * Pitch accent: sawtooth sweep for extra bite.
-      const accent = ctx.createOscillator();
-      accent.type = "sawtooth";
-      accent.frequency.setValueAtTime(200, now);
-      accent.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
-      const ag = ctx.createGain();
-      ag.gain.setValueAtTime(0.25 * sfxVolume, now);
-      ag.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      accent.connect(ag);
-      ag.connect(audioListener.gain);
-      accent.start(now);
-      accent.stop(now + 0.15);
-
-      // * Low-end thump: quick chest-punch.
-      const thump = ctx.createOscillator();
-      thump.type = "sine";
-      thump.frequency.setValueAtTime(80, now);
-      const tg = ctx.createGain();
-      tg.gain.setValueAtTime(0.3 * sfxVolume, now);
-      tg.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      thump.connect(tg);
-      tg.connect(audioListener.gain);
-      thump.start(now);
-      thump.stop(now + 0.15);
-    },
-    playHop() {
-      if (isMuted || sfxVolume <= 0) return;
-      const ctx = audioListener.context;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(300, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.3 * sfxVolume, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain);
-      gain.connect(audioListener.gain);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.15);
-    },
-    playFallOff() {
-      const ctx = audioListener.context;
-      if (ctx.state === "suspended") {
-        void ctx.resume();
-      }
-      const now = ctx.currentTime;
-
-      // * Quick low drop, keeping the fall cue short and grounded.
-      const osc = ctx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(250, now);
-      osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.3, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc.connect(g);
-      g.connect(audioListener.gain);
-      osc.start(now);
-      osc.stop(now + 0.18);
-    },
-    playWheelScreech(intensity) {
-      if (isMuted || sfxVolume <= 0) return;
-      const i = clamp(intensity, 0, 1);
-      if (i <= 0) return;
-      const ctx = audioListener.context;
-      if (ctx.state === "suspended") {
-        void ctx.resume();
-      }
-      const now = ctx.currentTime;
-
-      // * Rubber-on-glass squeak via high-Q resonant bandpass noise (no oscillators/LFOs).
-      const len = 0.12;
-      const attackSec = 0.005;
-
-      const buf = ensureSharedNoiseBuffer(ctx);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.setValueAtTime(0.85 + Math.random() * 0.3, now);
-
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      // Center freq: 2800–3800 Hz (higher pitch = squeakier).
-      const centerHz = 2800 + Math.random() * 1000;
-      bp.frequency.setValueAtTime(centerHz, now);
-      // High resonance makes the filter ring/squeal; add small per-trigger Q variation.
-      const baseQ = 15 + Math.random() * 5; // 15–20
-      const qJitter = (Math.random() - 0.5) * 6; // ±3
-      bp.Q.value = Math.max(1, baseQ + qJitter);
-
-      const g = ctx.createGain();
-      const base = 0.25 * sfxVolume;
-      const peak = base * (0.35 + i * 0.65);
-      g.gain.setValueAtTime(0.001, now);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + attackSec);
-      g.gain.exponentialRampToValueAtTime(0.001, now + len);
-
-      src.connect(bp);
-      bp.connect(g);
-      g.connect(audioListener.gain);
-      src.start(now);
-      src.stop(now + len);
-    },
-  };
   playCollisionRef = sfx.playCollision;
   gameSfx = sfx;
   GameAudio.registerMusicVolumeDeps({
@@ -2222,6 +974,492 @@ async function main() {
 
   updateViewport();
 
+  // --- HUD, menu, results overlay ---
+  function setAllAudioMuted(muted) {
+    GameAudio.setMuted(muted, (val) => {
+      isMuted = val;
+      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+      if (sfx) {
+        sfx._muted = isMuted;
+      }
+    });
+  }
+
+  function setSfxSliderVolume(v) {
+    sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
+    localStorage.setItem(
+      "cartRaveSfxVol",
+      Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
+    );
+    try { GameAudio.applyAudioVolume(); } catch (e) {}
+  }
+
+  /** Wired after clearAutoContinuePodiumTimeout is defined in main(). */
+  const podiumAutoContinue = { clear: () => {} };
+
+  function initMenu() {
+    menuVisible = true;
+    if (labelRenderer) labelRenderer.domElement.style.display = "none";
+    const hudAudio = document.querySelector(".hud-audio");
+    if (hudAudio) hudAudio.style.display = "none";
+    if (hud) {
+      if (hud.timer) hud.timer.style.display = "none";
+      if (hud.scores) hud.scores.style.display = "none";
+      if (hud.readyBtn) hud.readyBtn.style.display = "none";
+      if (hud.status) hud.status.style.display = "none";
+    }
+    const feed = (hud && hud.feed) || document.querySelector(".hud-feed");
+    if (feed) {
+      feed.style.display = "none";
+      while (feed.firstChild) feed.removeChild(feed.firstChild);
+    }
+    // Stop game music before menu music starts.
+    try {
+      GameAudio.stopGameMusic();
+    } catch (e) {}
+    try { GameAudio.startMenuMusic(); } catch (e) {}
+    const wrap = document.getElementById("cr-root");
+    if (wrap) {
+      window.CartRave?.show?.();
+    }
+
+    // Cosmetic: mark color chip as pending until server confirms slots.
+    if (!menuColorPickListenerWired) {
+      menuColorPickListenerWired = true;
+      const colorRow = document.getElementById("cr-color-row");
+      if (colorRow) {
+        colorRow.addEventListener("click", (e) => {
+          const chip = e.target && e.target.closest ? e.target.closest(".cr-color-chip") : null;
+          if (!chip) return;
+          pendingColorChipEl?.classList.remove("color-pending");
+          pendingColorChipEl = chip;
+          pendingColorChipEl.classList.add("color-pending");
+          _localColorPicked = true;
+          const colorToSend = localStorage.getItem("cartRaveColor");
+          pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
+          if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
+            Netcode.getPartySocket().send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));
+          }
+        });
+      }
+    }
+
+    const room = Netcode.resolvedPartyRoomFromUrl();
+    if (room && room.toLowerCase().startsWith("solo")) {
+      hideMenu();
+      Netcode.initNetcode();
+      return;
+    }
+
+    document.getElementById("cr-btn-join-invite")?.remove();
+    if (pendingInviteRoomFromUrl) {
+      const btnRow = document.querySelector(".cr-buttons");
+      if (btnRow) {
+        const btn = document.createElement("button");
+        btn.id = "cr-btn-join-invite";
+        btn.type = "button";
+        btn.className = "cr-btn";
+        btn.dataset.action = "joinroom";
+        btn.dataset.colorkey = "secondary";
+        btn.innerHTML =
+          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>' +
+          '<span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>' +
+          '<span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>';
+        btnRow.insertBefore(btn, btnRow.firstChild);
+        const refGlow = btnRow.querySelector('.cr-btn[data-action="quickplay"]');
+        if (refGlow) {
+          const g = getComputedStyle(refGlow).getPropertyValue("--glow").trim();
+          if (g) btn.style.setProperty("--glow", g);
+        }
+        btn.addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
+        });
+      }
+    }
+
+    // Wire new menu button events
+    window.addEventListener("cartrave:menu", (e) => {
+      const action = e.detail.action;
+      if (action === "joinroom") {
+        const room = pendingInviteRoomFromUrl;
+        if (!room) return;
+        pendingInviteRoomFromUrl = null;
+        document.getElementById("cr-btn-join-invite")?.remove();
+        hideMenu();
+        Netcode.initNetcode(room);
+        return;
+      }
+      pendingInviteRoomFromUrl = null;
+      document.getElementById("cr-btn-join-invite")?.remove();
+      if (action === "solo") {
+        const roomId = `solo${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        hideMenu();
+        Netcode.initNetcode();
+      } else if (action === "quickplay") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", "quickplay");
+        history.pushState({}, "", url);
+        hideMenu();
+        Netcode.initNetcode();
+      } else if (action === "friends") {
+        const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        const cleanLink = new URL(window.location.origin + window.location.pathname);
+        cleanLink.searchParams.set("room", roomId);
+        const roomLink = cleanLink.toString();
+        navigator.clipboard.writeText(roomLink).catch(() => {});
+
+        // Show friends screen
+        const friendsScreen = document.getElementById("cr-friends-screen");
+        const friendsLink = document.getElementById("cr-friends-link");
+        const friendsCopy = document.getElementById("cr-friends-copy");
+        const friendsEnter = document.getElementById("cr-friends-enter");
+        const friendsBack = document.getElementById("cr-friends-back");
+        const menuRoot = document.getElementById("cr-root");
+
+        if (friendsLink) friendsLink.value = roomLink;
+        window.CartRave?.stopAnimations?.();
+        if (menuRoot) menuRoot.style.display = "none";
+        if (friendsScreen) friendsScreen.style.display = "flex";
+
+        if (friendsCopy) {
+          friendsCopy.onclick = () => {
+            navigator.clipboard.writeText(roomLink).catch(() => {});
+            friendsCopy.textContent = "COPIED!";
+            setTimeout(() => { friendsCopy.textContent = "COPY"; }, 1500);
+          };
+        }
+        if (friendsEnter) {
+          friendsEnter.onclick = () => {
+            friendsScreen.style.display = "none";
+            hideMenu();
+            Netcode.initNetcode();
+          };
+        }
+        if (friendsBack) {
+          friendsBack.onclick = () => {
+            friendsScreen.style.display = "none";
+            window.CartRave?.show?.();
+            refreshMenuStats();
+            // Clear the room param
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete("room");
+            history.pushState({}, "", cleanUrl);
+          };
+        }
+      }
+    });
+
+    refreshMenuStats();
+
+    // Wire new menu audio controls to game audio
+    const crMuteBtn = document.getElementById("cr-mute-btn");
+    const crMusicVolTrack = document.getElementById("cr-music-vol-track");
+    const crMusicVolFill = document.getElementById("cr-music-vol-fill");
+    const crMusicVolVal = document.getElementById("cr-music-vol-val");
+
+    function syncMenuVolume() {
+      if (crMusicVolFill) crMusicVolFill.style.setProperty("--vol-scale", String(isMuted ? 0 : masterGain / AUDIO_VOLUME_MAX));
+      if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
+      if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
+      if (hud && hud.syncAudioControls) hud.syncAudioControls();
+    }
+
+    if (crMuteBtn) {
+      crMuteBtn.addEventListener("click", () => {
+        setAllAudioMuted(!isMuted);
+        syncMenuVolume();
+      });
+    }
+
+    if (crMusicVolTrack) {
+      crMusicVolTrack.addEventListener("click", (e) => {
+        const r = crMusicVolTrack.getBoundingClientRect();
+        const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
+        masterGain = v;
+        localStorage.setItem("cartRaveVolume", Math.round((v / AUDIO_VOLUME_MAX) * 100).toString());
+        try { GameAudio.applyAudioVolume(); } catch(e) {}
+        syncMenuVolume();
+      });
+    }
+
+    // Set initial state from saved values
+    const savedVol = localStorage.getItem("cartRaveVolume");
+    if (savedVol !== null) {
+      const parsed = parseInt(savedVol, 10);
+      masterGain = Number.isNaN(parsed)
+        ? AUDIO_VOLUME_DEFAULT
+        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
+    }
+    const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
+    if (savedSfxVol !== null) {
+      const parsed = parseInt(savedSfxVol, 10);
+      sfxVolume = Number.isNaN(parsed)
+        ? AUDIO_VOLUME_DEFAULT
+        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
+    }
+    const savedMute = localStorage.getItem("cartRaveMuted");
+    if (savedMute === "true") setAllAudioMuted(true);
+    try { GameAudio.applyAudioVolume(); } catch(e) {}
+    syncMenuVolume();
+
+    // Sync new menu name to localStorage for join message
+    const crNameText = document.getElementById("cr-name-text");
+    if (crNameText) {
+      // Set initial value from localStorage
+      const saved = localStorage.getItem("cartRaveUsername");
+      if (saved) crNameText.textContent = saved;
+
+      // Watch for changes via MutationObserver
+      const nameObs = new MutationObserver(() => {
+        const name = crNameText.textContent.trim();
+        if (name) localStorage.setItem("cartRaveUsername", name);
+      });
+      nameObs.observe(crNameText, { childList: true, characterData: true, subtree: true });
+    }
+
+    // Also sync the menu JS state
+    const crNameInput = document.getElementById("cr-name-input");
+    if (crNameInput) {
+      crNameInput.addEventListener("blur", () => {
+        const name = crNameInput.value.trim();
+        if (name) localStorage.setItem("cartRaveUsername", name);
+      });
+    }
+  }
+
+  function hideMenu() {
+    const wrap = document.getElementById("cr-root");
+    window.CartRave?.stopAnimations?.();
+    if (wrap) {
+      wrap.style.opacity = "0";
+      wrap.style.pointerEvents = "none";
+      setTimeout(() => {
+        wrap.style.display = "none";
+      }, 300);
+    }
+    menuVisible = false;
+    try { crowd?.ensureStarted?.(); } catch {}
+    if (labelRenderer) labelRenderer.domElement.style.display = "block";
+    const hudAudio = document.querySelector(".hud-audio");
+    if (hudAudio) hudAudio.style.display = "flex";
+    // Crossfade: fade out menu music, fade in game music.
+    GameAudio.fadeOutMenuMusic();
+    GameAudio.fadeInGameMusic();
+  }
+
+  function refreshMenuStats() {
+    const ps = getPersonalStats();
+    const winsEl = document.getElementById("stat-wins");
+    const playedEl = document.getElementById("stat-played");
+    const ptsEl = document.getElementById("stat-pts");
+    const soloEl = document.getElementById("stat-solo");
+    if (winsEl) winsEl.textContent = ps.wins;
+    if (playedEl) playedEl.textContent = ps.matches;
+    if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
+    if (soloEl) soloEl.textContent = ps.soloGames;
+  }
+
+
+  hud = HUD.init({
+    getIsMuted: () => isMuted,
+    setIsMuted: (val) => { setAllAudioMuted(val); },
+    getMasterGain: () => masterGain,
+    setMasterGain: (val) => {
+      masterGain = val;
+      localStorage.setItem("cartRaveVolume", Math.round((val / AUDIO_VOLUME_MAX) * 100).toString());
+      try { GameAudio.applyAudioVolume(); } catch (e) {}
+    },
+    getSfxVolume: () => sfxVolume,
+    setSfxVolume: (val) => { setSfxSliderVolume(val); },
+    getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
+    getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
+    getBloomEnabled: () => bloomEnabled,
+    setBloomEnabled: (val) => {
+      bloomEnabled = val;
+      try { localStorage.setItem("cartRaveBloom", val ? "on" : "off"); } catch (e) {}
+    },
+    getFxPassEnabled: () => fxPassEnabled,
+    setFxPassEnabled: (val) => {
+      fxPassEnabled = val;
+      try { localStorage.setItem("cartRaveFx", val ? "on" : "off"); } catch (e) {}
+    },
+    getBloomPass: () => bloomPass,
+    getFxPass: () => fxPass,
+    getLabelRenderer: () => labelRenderer,
+    getMenuVisible: () => menuVisible,
+    getPartySocket: () => Netcode.getPartySocket(),
+    getReadyToggleMsgType: () => MSG.readyToggle,
+    detectGameMode,
+    getCART_COLORS: () => CART_COLORS,
+    getDefaultRoundMs: () => 95000,
+    getCountdownMs: () => 3000,
+  });
+  const resultsUi = initResultsOverlay({
+    onMainMenuClick: () => podiumAutoContinue.clear(),
+  });
+  initMenu();
+  hideMenuRef = hideMenu;
+
+  // * Bridges the server-driven game-start signal into main()'s nested functions.
+  // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
+  onGameStartHandler = (msg) => {
+    if (menuVisible) hideMenu();
+    const serverStartsAtMs = Number(msg?.startsAtMs);
+    const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
+      ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
+      : Date.now() + 3000;
+    if (Netcode.getIsHost()) {
+      startCountdown(startsAtLocalMs);
+    } else if (GameState.getRoundState().phase !== "running") {
+      syncRoundPhase("countdown");
+      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
+      GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+      GameState.setRoundWinnerSlotIndex(null);
+      GameState.setRoundStartedAtMs(0);
+    }
+  };
+
+  let lastResultsOverlayKey = null;
+
+  function updateResultsOverlay() {
+    if (!resultsUi) return;
+    const { overlay, title, finalScores, history, playAgain, statsLine } = resultsUi;
+    const roundState = GameState.getRoundState();
+    if (roundState.phase === "podium") {
+      overlay.style.display = "flex";
+      overlay.style.pointerEvents = "auto";
+      const isHost = Netcode.getIsHost();
+      const scores = GameState.getRoundScores() || {};
+      const stats = getPersonalStats();
+      const renderKey = `${roundState.winnerSlotIndex}-${scores[0] ?? 0}-${scores[1] ?? 0}-${scores[2] ?? 0}-${scores[3] ?? 0}-${matchHistory.length}-${isHost}-${stats.matches}-${stats.wins}-${stats.totalPoints}-${stats.soloGames ?? 0}`;
+      if (renderKey === lastResultsOverlayKey) {
+        maybeScheduleAutoContinuePodium();
+        return;
+      }
+      lastResultsOverlayKey = renderKey;
+      playAgain.disabled = !isHost;
+      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
+
+      const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
+
+      const winnerIdx = roundState.winnerSlotIndex;
+      if (winnerIdx === "draw") {
+        title.textContent = "DRAW";
+        title.style.setProperty("--title-glow", "#ffe53d");
+      } else {
+        const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
+        if (idx != null) {
+          const score = scores[idx] != null ? scores[idx] : 0;
+          title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
+          title.style.setProperty("--title-glow", getColorForSlot(Netcode.getNetSlots()[idx]));
+        } else {
+          title.textContent = "ROUND COMPLETE";
+          title.style.setProperty("--title-glow", "#ffffff");
+        }
+      }
+
+      finalScores.replaceChildren();
+      for (let i = 0; i < 4; i += 1) {
+        const s = scores[i] != null ? scores[i] : 0;
+        const row = document.createElement("div");
+        row.className = "results-score-row";
+        const isWinner = winnerIdx !== "draw" && winnerIdx === i;
+        if (isWinner) row.classList.add("is-winner");
+        row.style.setProperty("--slot-glow", getColorForSlot(Netcode.getNetSlots()[i]));
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "results-score-name";
+        nameEl.textContent = slotDisplayName(i);
+
+        const valEl = document.createElement("span");
+        valEl.className = "results-score-val";
+        valEl.textContent = `${s} pts`;
+
+        row.appendChild(nameEl);
+        row.appendChild(valEl);
+        finalScores.appendChild(row);
+      }
+
+      history.replaceChildren();
+      if (matchHistory.length === 0) {
+        const emptyRow = document.createElement("div");
+        emptyRow.textContent = "No prior matches this session.";
+        history.appendChild(emptyRow);
+      } else {
+        for (let i = matchHistory.length - 1; i >= 0; i -= 1) {
+          const m = matchHistory[i];
+          const row = document.createElement("div");
+          row.className = "results-history-row";
+          const parts = [0, 1, 2, 3]
+            .map((j) => `${slotDisplayName(j)} ${m.scores[j] ?? 0}`)
+            .join(" · ");
+          row.textContent =
+            m.winnerSlotIndex === "draw"
+              ? `DRAW — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`
+              : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
+          history.appendChild(row);
+        }
+      }
+
+      // Update personal stats display
+      if (statsLine) {
+        const ps = getPersonalStats();
+        statsLine.replaceChildren();
+
+        const tag = document.createElement("div");
+        tag.className = "results-stats-tag";
+        const pulse = document.createElement("i");
+        pulse.style.cssText =
+          "display:inline-block;width:5px;height:5px;border-radius:50%;" +
+          "background:#ff00ff;box-shadow:0 0 4px #ff00ff;flex-shrink:0";
+        tag.appendChild(pulse);
+        tag.appendChild(document.createTextNode("\u00a0YOUR STATS"));
+        statsLine.appendChild(tag);
+
+        const statDefs = [
+          { num: String(ps.wins), lbl: "WINS" },
+          { num: String(ps.matches), lbl: "PLAYED" },
+          { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
+          { num: String(ps.soloGames || 0), lbl: "SOLO" },
+        ];
+        statDefs.forEach((def, idx) => {
+          if (idx > 0) {
+            const sep = document.createElement("div");
+            sep.className = "results-stats-div";
+            statsLine.appendChild(sep);
+          }
+          const item = document.createElement("div");
+          item.className = "results-stats-item";
+          const numEl = document.createElement("span");
+          numEl.className = "results-stats-num";
+          numEl.textContent = def.num;
+          const lblEl = document.createElement("span");
+          lblEl.className = "results-stats-lbl";
+          lblEl.textContent = def.lbl;
+          item.appendChild(numEl);
+          item.appendChild(lblEl);
+          statsLine.appendChild(item);
+        });
+      }
+
+      maybeScheduleAutoContinuePodium();
+    } else {
+      clearAutoContinuePodiumTimeout();
+      autoContinuePodiumKey = null;
+      lastResultsOverlayKey = null;
+      overlay.style.display = "none";
+      overlay.style.pointerEvents = "none";
+    }
+  }
+
+
+  // --- Arena, physics, world visuals ---
   // Minimal ambient + a few colored spotlights for "neon" vibe.
   scene.add(new THREE.AmbientLight(0x221133, 0.15));
 
@@ -2259,14 +1497,9 @@ async function main() {
 
   Effects.initStage(scene, pitInnerRadius, CART_COLORS);
   Effects.initBillboard(scene, pitInnerRadius);
-  Effects.initPortals(scene, pitInnerRadius, {
-    incomingPortalParams,
-    boothConfig: CONFIG.booth,
-    spawnRingRadius: CONFIG.cart.spawnRingRadius,
-    boothPlatformDepth: CONFIG.booth.platformDepth,
-  });
   Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
 
+  // --- Carts, labels, gameplay helpers ---
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
     cart.respawnAtMs = now + CONFIG.fall.respawnDelayMs;
@@ -2274,8 +1507,6 @@ async function main() {
       sfx.playFallOff();
     }
   }
-
-  // (doRespawn removed - using modular Entities version)
 
   respawnLocalMidRoundJoinRef.current = () => {
     const localConnId = Netcode.getYouConnId();
@@ -2285,8 +1516,6 @@ async function main() {
     pendingMidRoundJoinRespawnConnId = null;
   };
 
-  // (applyArcadeControls and spawnOnRingForSlot removed - using modular equivalents)
-
   GameAudio.initMusic({
     getMasterGain: () => masterGain,
     getIsMuted: () => isMuted,
@@ -2295,7 +1524,6 @@ async function main() {
   });
 
   await firstHelloPromise;
-  Effects.setReturnPortalArmedAtMs(Date.now() + 3000);
 
   const { allCarts, colliderHandleToCart, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
     scene,
@@ -2403,7 +1631,14 @@ async function main() {
 
   const ramBoostForwardXZ = new THREE.Vector3();
   const ramBoostToTargetXZ = new THREE.Vector3();
-  const aiToTargetScratch = new THREE.Vector3();
+
+  /**
+   * @param {number} now
+   * @param {ReturnType<typeof createCart>} cart
+   */
+  function getAiAxis(now, cart) {
+    return Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
+  }
 
   /**
    * @param {ReturnType<typeof createCart>} cart
@@ -2479,79 +1714,7 @@ async function main() {
     triggerRamBoost(npc, nowMs);
   }
 
-  // (rematchResetWorld removed - using modular Entities version)
-
-  function pickAiTarget(fromPos) {
-    const dist = Math.hypot(fromPos.x, fromPos.z);
-    const edgeBiasStart = CONFIG.record.radius * 0.78;
-
-    // * 45% chance: target nearest human cart position with a small offset.
-    if (Math.random() < 0.495) {
-      let nearestHuman = null;
-      let nearestD2 = Infinity;
-      for (let i = 0; i < allCarts.length; i += 1) {
-        const s = Netcode.getNetSlots()[i];
-        if (!s || s.kind !== "human" || !s.connId) continue;
-        const hp = allCarts[i].body.translation();
-        const dx = hp.x - fromPos.x;
-        const dz = hp.z - fromPos.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < nearestD2) {
-          nearestD2 = d2;
-          nearestHuman = allCarts[i];
-        }
-      }
-      if (nearestHuman) {
-        const hp = nearestHuman.body.translation();
-        const jitter = 1.8;
-        return { x: hp.x + (Math.random() - 0.5) * jitter, z: hp.z + (Math.random() - 0.5) * jitter };
-      }
-    }
-
-    if (dist > edgeBiasStart) {
-      const a = Math.random() * Math.PI * 2;
-      const r = CONFIG.record.radius * 0.45;
-      return { x: Math.cos(a) * r, z: Math.sin(a) * r };
-    }
-
-    const minR = CONFIG.record.innerRadius * 2.0;
-    const maxR = CONFIG.record.radius * 0.85;
-    const r = minR + Math.sqrt(Math.random()) * (maxR - minR);
-    const a = Math.random() * Math.PI * 2;
-    return { x: Math.cos(a) * r, z: Math.sin(a) * r };
-  }
-
-  /**
-   * @param {number} now
-   * @param {{ body: any; aiNextDecisionMs: number; aiTarget: { x: number; z: number } }} cart
-   */
-  function getAiAxis(now, cart) {
-    const p = cart.body.translation();
-    if (now >= cart.aiNextDecisionMs) {
-      cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (720 + Math.random() * 900);
-    }
-
-    const toTarget = aiToTargetScratch.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
-    if (toTarget.lengthSq() < 0.25) {
-      cart.aiTarget = pickAiTarget(p);
-      cart.aiNextDecisionMs = now + (720 + Math.random() * 900);
-      toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
-    }
-    toTarget.normalize();
-
-    const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
-    const currentYaw = Simulation.yawFromQuaternion(cart.body.rotation());
-    const yawDiff = Simulation.wrapAngleRad(desiredYaw - currentYaw);
-
-    const turn = clamp(yawDiff * 2.2, -1, 1);
-    const forward = Math.abs(yawDiff) > 1.8 ? -0.7 : 1;
-    return { forward, turn };
-  }
-
-  // --- Input ---
-
-  // Initialize audio with saved settings
+  // --- Round flow (countdown, podium, AI) ---
   GameAudio.applyAudioVolume();
 
   function unlockAudio() {
@@ -2573,19 +1736,12 @@ async function main() {
     canvas.focus();
   });
 
-  // (applyRammingImpulse removed - using modular Simulation version)
-
   function startRunningAt(startedAtMs) {
     syncRoundPhase("running");
     gameCtx.slowMo.active = false;
     GameState.setRoundStartedAtMs(startedAtMs);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
-    if (lastCartStandingTimeoutId != null) {
-      clearTimeout(lastCartStandingTimeoutId);
-      lastCartStandingTimeoutId = null;
-    }
-    lastCartStandingWinnerSlotIndex = null;
     Netcode.sendHostRound();
   }
 
@@ -2608,11 +1764,6 @@ async function main() {
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
     GameState.setRoundStartedAtMs(0);
-    if (lastCartStandingTimeoutId != null) {
-      clearTimeout(lastCartStandingTimeoutId);
-      lastCartStandingTimeoutId = null;
-    }
-    lastCartStandingWinnerSlotIndex = null;
     Netcode.sendHostRound();
     roundCountdownTimeoutId = setTimeout(() => {
       roundCountdownTimeoutId = null;
@@ -2622,34 +1773,9 @@ async function main() {
 
   function endRound() {
     clearRoundCountdownTimeout();
-    if (lastCartStandingWinnerSlotIndex !== null) {
-      if (roundPodiumTimeoutId != null) {
-        clearTimeout(roundPodiumTimeoutId);
-        roundPodiumTimeoutId = null;
-      }
-      if (lastCartStandingTimeoutId != null) {
-        clearTimeout(lastCartStandingTimeoutId);
-        lastCartStandingTimeoutId = null;
-      }
-      pendingMidRoundJoinRespawnConnId = null;
-      GameState.setRoundWinnerSlotIndex(lastCartStandingWinnerSlotIndex);
-      recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
-      syncRoundPhase("podium");
-      lastCartStandingWinnerSlotIndex = null;
-      if (!gameCtx.slowMo.active) {
-        gameCtx.slowMo.active = true;
-        gameCtx.slowMo.startMs = performance.now();
-      }
-      Netcode.sendHostRound();
-      return;
-    }
     if (roundPodiumTimeoutId != null) {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
-    }
-    if (lastCartStandingTimeoutId != null) {
-      clearTimeout(lastCartStandingTimeoutId);
-      lastCartStandingTimeoutId = null;
     }
     // * Find highest score and how many slots share it (lowest index wins on non-zero ties only).
     let winnerSlotIndex = 0;
@@ -2686,6 +1812,7 @@ async function main() {
       autoContinuePodiumTimeoutId = null;
     }
   }
+  podiumAutoContinue.clear = clearAutoContinuePodiumTimeout;
 
   function currentPodiumAutoContinueKey() {
     return `${GameState.getRoundState().startedAtMs}:${GameState.getRoundState().winnerSlotIndex}:${matchHistory.length}`;
@@ -2737,8 +1864,18 @@ async function main() {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
     }
+    gameCtx.slowMo.active = false;
+    lastResultsOverlayKey = null;
     Entities.rematchResetWorld();
-    Netcode.broadcastHostTransform(currentCartSnapshot());
+    if (detectGameMode() === "solo") {
+      startCountdown(Date.now() + 3000);
+      return;
+    }
+    syncRoundPhase("lobby");
+    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    GameState.setRoundWinnerSlotIndex(null);
+    GameState.setRoundStartedAtMs(0);
+    GameState.setRoundCountdownStartedAtMs(0);
     Netcode.sendPlayAgain();
   }
 
@@ -2784,7 +1921,6 @@ async function main() {
     HUD,
     getYouConnId: () => Netcode.getYouConnId(),
     getMatchHistoryLength: () => (matchHistory ? matchHistory.length : 0),
-    isLastCartStandingActive: () => lastCartStandingTimeoutId !== null,
     updateResultsOverlay,
     positionNameLabels,
     composer,
@@ -2814,12 +1950,6 @@ async function main() {
     getPartySocket: () => Netcode.getPartySocket(),
     MSG,
     setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
-    getLastCartStandingTimeoutId: () => lastCartStandingTimeoutId,
-    setLastCartStandingTimeoutId: (id) => { lastCartStandingTimeoutId = id; },
-    getLastCartStandingWinnerSlotIndex: () => lastCartStandingWinnerSlotIndex,
-    setLastCartStandingWinnerSlotIndex: (idx) => { lastCartStandingWinnerSlotIndex = idx; },
-    setSlowMoUntil: (untilMs) => { gameCtx.slowMo.until = untilMs; },
-    setSlowMoRate: (rate) => { gameCtx.slowMo.rate = rate; },
     camera,
     getPhysicsWorld: () => world,
   };
@@ -2960,13 +2090,6 @@ async function main() {
 
     Effects.updateStageLed(now);
     Effects.updateBillboard(now);
-
-    const localCart = localCartForConnId();
-    const playerPos = localCart?.body ? localCart.body.translation() : null;
-    Effects.updatePortals(now, playerPos, {
-      buildExitPortalUrl,
-      incomingPortalParams,
-    });
 
     updateGameFlow(gameCtx.deps.gameFlow, gameCtx.makePhaseContext(dt));
 

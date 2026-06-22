@@ -720,11 +720,10 @@ export function pickKillFeedVerb(hit) {
 
 
 /**
- * Updates the center status line (GO!, countdown, last-cart-standing).
+ * Updates the center status line (GO!, countdown).
  * @param {object} roundState
- * @param {boolean} isLastCartStandingActive
  */
-function updateStatus(roundState, isLastCartStandingActive) {
+function updateStatus(roundState) {
   const roundPhase = roundState?.phase;
   const roundCountdownStartedAtMs = roundState?.countdownStartedAtMs;
 
@@ -738,10 +737,6 @@ function updateStatus(roundState, isLastCartStandingActive) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "#22e6ff";
     elements.status.textContent = "GO!";
-  } else if (roundPhase === "running" && isLastCartStandingActive) {
-    setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "#ffffff";
-    elements.status.textContent = "LAST CART STANDING!";
   } else if (roundPhase === "countdown") {
     const countdownMs = roundState?.countdownMs
       ?? (_options.getCountdownMs ? _options.getCountdownMs() : 3000);
@@ -900,9 +895,10 @@ function updateScores(roundState, netSlots, youConnId) {
 function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
   if (!elements.readyBtn) return;
 
+  const isSolo = _options.detectGameMode?.() === "solo";
   const localSlot = netSlots?.find((s) => s && s.connId === youConnId);
   const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
-  if (roundPhase === "lobby" && !menuVisible) {
+  if (roundPhase === "lobby" && !menuVisible && !isSolo) {
     elements.readyBtn.style.display = "block";
     elements.readyBtn.textContent = isLocalReady ? "READY!" : "READY UP!";
     elements.readyBtn.classList.toggle("is-ready", isLocalReady);
@@ -1209,7 +1205,6 @@ export function init(options) {
   elements.quitBtn.addEventListener("click", () => {
     const url = new URL(window.location.href);
     url.searchParams.delete("room");
-    url.searchParams.delete("portal");
     window.location.href = url.pathname;
   });
 
@@ -1245,7 +1240,6 @@ export function init(options) {
  * @param {Array<object>|null} params.netSlots
  * @param {object} params.roundState
  * @param {number} params.matchHistoryLength
- * @param {boolean} params.isLastCartStandingActive
  * @param {boolean} params.menuVisible
  */
 export function update({
@@ -1253,7 +1247,6 @@ export function update({
   netSlots,
   roundState,
   matchHistoryLength,
-  isLastCartStandingActive,
   menuVisible
 }) {
   if (menuVisible) return;
@@ -1263,7 +1256,7 @@ export function update({
 
   if (elements.feed) elements.feed.style.display = "";
 
-  updateStatus(roundState, isLastCartStandingActive);
+  updateStatus(roundState);
   updateTimer(roundState, matchHistoryLength);
   updateScores(roundState, netSlots, youConnId);
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
@@ -1354,7 +1347,9 @@ export function hideGameplayElements() {
 export function showGameplayElements() {
   setHudDisplay(elements.timer, "flex", "timer");
   setHudDisplay(elements.scores, "flex", "scores");
-  if (elements.readyBtn) elements.readyBtn.style.display = "block";
+  if (elements.readyBtn && _options.detectGameMode?.() !== "solo") {
+    elements.readyBtn.style.display = "block";
+  }
   setHudDisplay(elements.status, "block", "status");
 }
 

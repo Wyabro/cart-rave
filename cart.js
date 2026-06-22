@@ -42,7 +42,7 @@ export const WHEEL_WIDTH = 0.18;
 export const WHEEL_RADIAL_SEGMENTS = 20;
 export const CASTER_STEM_HEIGHT = 0.15;
 export const CASTER_CORNER_INSET = 0.0525;
-export const CASTER_MOUNT_DROP_BELOW_CHASSIS = -0.16;
+export const CASTER_MOUNT_DROP_BELOW_CHASSIS = 0.16;
 
 const _v = new THREE.Vector3();
 const _localDir = new THREE.Vector3();
@@ -82,6 +82,12 @@ const SHARED_LENS_MAT = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 const SHARED_MOUTH_MAT = new THREE.MeshBasicMaterial({ color: 0x050505 });
+const SHARED_HANDLE_MAT = new THREE.MeshStandardMaterial({
+  color: 0x111111,
+  roughness: 0.6,
+  metalness: 0.8,
+  emissive: 0x000000,
+});
 
 /**
  * @param {number} value
@@ -359,10 +365,10 @@ function buildBasketWireframe(frameGeometries, baseColor, dims) {
 
 /**
  * Builds the rear handle: two vertical posts and a horizontal grip bar.
- * @param {THREE.BufferGeometry[]} frameGeometries Collected static frame geometries for merging.
+ * @param {THREE.BufferGeometry[]} handleGeometries Collected handle geometries for merging.
  * @param {CartBuildDims} dims Shared basket geometry helpers and dimensions.
  */
-function buildHandle(frameGeometries, dims) {
+function buildHandle(handleGeometries, dims) {
   const { backZ, railR, railSeg } = dims;
   const handleZ = backZ + HANDLE_PUSH_Z;
   const postTopY = HANDLE_BAR_Y - HANDLE_BAR_RADIUS * 0.9;
@@ -371,7 +377,7 @@ function buildHandle(frameGeometries, dims) {
   for (const sx of [-HANDLE_SPREAD_X, HANDLE_SPREAD_X]) {
     _p0.set(sx, postBottomY, backZ);
     _p1.set(sx, postTopY, handleZ);
-    pushRailGeometry(frameGeometries, _p0, _p1, railR * 1.15, railSeg);
+    pushRailGeometry(handleGeometries, _p0, _p1, railR * 1.15, railSeg);
   }
 
   const handleLen = BASKET_WIDTH * 0.92;
@@ -385,7 +391,7 @@ function buildHandle(frameGeometries, dims) {
   _quat.setFromEuler(new THREE.Euler(0, 0, Math.PI / 2));
   _matrix.compose(_v.set(0, HANDLE_BAR_Y, handleZ), _quat, _scaleOne);
   handleBarGeo.applyMatrix4(_matrix);
-  frameGeometries.push(handleBarGeo);
+  handleGeometries.push(handleBarGeo);
 }
 
 /**
@@ -596,13 +602,22 @@ export function buildCart(colorHex) {
   };
 
   const frameGeometries = [];
+  const handleGeometries = [];
 
   buildBasketWireframe(frameGeometries, baseColor, dims);
   buildChassis(frameGeometries, dims);
-  buildHandle(frameGeometries, dims);
+  buildHandle(handleGeometries, dims);
 
   const frameMesh = mergeGeometriesIntoMesh(frameGeometries, frameMat, "CartFrame");
   if (frameMesh) root.add(frameMesh);
+
+  const handleMesh = mergeGeometriesIntoMesh(
+    handleGeometries,
+    SHARED_HANDLE_MAT,
+    "CartHandle",
+    { isHandle: true },
+  );
+  if (handleMesh) root.add(handleMesh);
 
   const { casterYawGroups, wheelPitchObjects, wobblePhases } =
     buildCastersAndWheels(root, frameMat, wheelMat);

@@ -30,7 +30,7 @@ const physics = {
     y: -0.3, // meters — floor center height
     rotationSpeedRadPerSec: 0.35, // rad/s — visual mesh spin
     physicsSpinRadPerSec: 0.08, // rad/s — host-applied floor tangential push
-    friction: 2.6, // unitless — Rapier friction coefficient
+    friction: 0.8, // unitless — high values catch on trimesh seams and cause grip-hop
     restitution: 0.05, // unitless — bounce on floor contact
     color: 0x050006,
     rimColor: 0xff2bd6,
@@ -51,10 +51,11 @@ const physics = {
         yOffset: 0.3, // meters
       },
     },
-    // * Physics-only hole clearance (visual mesh unchanged).
+    // * Physics-only hole clearance (visual mesh unchanged). Tuned to reduce center-hole
+    // * sticking and random hopping while keeping a protective expanded collision hole.
     physics: {
-      chamferWidth: 0.55, // meters — legacy fallback for older tuning references
-      holeClearance: 1.05, // meters — expands collider hole so carts do not catch the lip
+      chamferWidth: 0.35, // meters — radial width of the inner hole chamfer ramp
+      holeClearance: 0.45, // meters — modest physics hole expansion beyond visual inner radius
       outerBevel: 0.12, // meters
       segments: 72, // count — radial collision mesh segments
     },
@@ -72,16 +73,16 @@ const physics = {
   cart: {
     size: { x: 1.31, y: 1.35, z: 2.26 }, // meters — collider half-extents basis
     spawnHeight: 1.077, // meters — overridden below from booth geometry
-    friction: 1.8, // unitless
+    friction: 1.1, // unitless — Mongoose-style grip
     restitution: 0.3, // unitless
-    linearDamping: 2.0, // 1/s — Rapier linear damping
-    angularDamping: 12.5, // 1/s — Rapier angular damping
-    maxPitchRoll: 0.99, // radians — clamp tilt from upright
-    visualOffset: 0.45, // meters — mesh Y offset from body origin
+    linearDamping: 0.6, // 1/s — light, agile coast
+    angularDamping: 1.2, // 1/s — tippy but not endless spin
+    maxPitchRoll: 4.5, // rad/s — high limit for edge tipping (clamp disabled in sim)
+    visualOffset: 0.82, // meters — mesh Y offset from body origin
     collider: {
       hyReduction: 0.25, // meters — subtract from half-height for physics collider
       localYOffset: 0.13, // meters — collider translation Y in body space
-      roundRadius: 0.1, // meters — roundCuboid corner radius (prevents trimesh snagging)
+      roundRadius: 0.08, // meters — roundCuboid corner radius (Mongoose-style bounce)
     },
     rigidBody: {
       canSleep: false, // bool — keep carts awake for responsive physics
@@ -134,7 +135,7 @@ const physics = {
 
   ramming: {
     minSpeed: 0.8, // m/s — minimum relative speed to score a hit
-    strength: 8.0, // unitless — collision impulse multiplier
+    strength: 2.64, // unitless — collision impulse multiplier (8.0 × 0.33)
     maxImpulse: 200.0, // N·s — per-frame impulse clamp
     spreadSteps: 3, // count — frames over which ram impulse is applied
     alignmentDotMin: 0.1, // unitless — min rammer→victim alignment dot product

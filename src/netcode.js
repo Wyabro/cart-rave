@@ -57,9 +57,8 @@ let lastSlotsJson = "";
 // === CALLBACK REGISTRATION ===
 // Registration of external callbacks/functions from main.js
 let callbacks = {
-  // Game mode & portal
+  // Game mode
   detectGameMode: () => "quickplay",
-  getIncomingPortalParams: () => null,
 
   // Palette & NPC names
   getPALETTE: () => [],
@@ -117,7 +116,6 @@ export function registerCallbacks(cb) {
 export function registerGameCallbacks(deps) {
   registerCallbacks({
     detectGameMode: () => deps.detectGameMode(),
-    getIncomingPortalParams: () => deps.incomingPortalParams,
     getPALETTE: () => deps.palette,
     getInitialNpcNames: () => deps.initialNpcNames,
     markFirstHelloReceived: () => deps.markFirstHelloReceived(),
@@ -837,8 +835,7 @@ export function initNetcode(roomOverride) {
     isHost = true;
     setAuthorityMode(true);
 
-    const portalParams = callbacks.getIncomingPortalParams();
-    let savedUsername = (portalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    let savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       try {
@@ -905,20 +902,11 @@ export function initNetcode(roomOverride) {
   });
 
   partySocket.addEventListener("open", () => {
-    const portalParams = callbacks.getIncomingPortalParams();
-    let savedUsername = (portalParams?.username || localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    let savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       localStorage.setItem("cartRaveUsername", savedUsername);
       localStorage.setItem("cartRaveName", savedUsername);
-    }
-    if (portalParams?.username) {
-      try {
-        localStorage.setItem("cartRaveUsername", savedUsername);
-        localStorage.setItem("cartRaveName", savedUsername);
-      } catch {
-        // ignore
-      }
     }
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
@@ -1172,6 +1160,12 @@ export function initNetcode(roomOverride) {
 
         const prevPhase = GameState.getRoundState().phase;
         const newPhase = r.phase;
+        if (typeof newPhase === "string" && prevPhase === "podium" && newPhase === "lobby") {
+          GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+          GameState.setRoundStartedAtMs(0);
+          GameState.setRoundCountdownStartedAtMs(0);
+          GameState.setRoundWinnerSlotIndex(null);
+        }
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
           callbacks.setPendingMidRoundJoinRespawnConnId(null);
           if (!isHost) {

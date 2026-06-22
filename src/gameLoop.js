@@ -8,9 +8,6 @@ export { updateVisualsAndEffects } from "./frameVisuals.js";
 
 /**
  * @typedef {object} SlowMoDeps
- * @property {() => { phase: string }} getRoundState
- * @property {() => number} getSlowMoUntil
- * @property {() => number} getSlowMoRate
  * @property {() => boolean} isHost
  * @property {() => boolean} isSlowMoActive
  * @property {() => number} getSlowMoStartMs
@@ -20,7 +17,7 @@ export { updateVisualsAndEffects } from "./frameVisuals.js";
  */
 
 /**
- * Applies last-cart-standing and host slow-mo scaling to frame delta time.
+ * Applies host slow-mo scaling to frame delta time at round end.
  * Used before ambient visuals and again reflected in physics-phase reconciliation dt.
  *
  * @param {SlowMoDeps} deps
@@ -29,9 +26,6 @@ export { updateVisualsAndEffects } from "./frameVisuals.js";
  */
 export function applySlowMoToDt(deps, dt) {
   let adjusted = dt;
-  if (deps.getRoundState().phase === "running" && performance.now() < deps.getSlowMoUntil()) {
-    adjusted *= deps.getSlowMoRate();
-  }
   if (deps.isHost() && deps.isSlowMoActive()) {
     adjusted *= deps.SLOW_MO_TIME_SCALE;
     if (performance.now() - deps.getSlowMoStartMs() > deps.SLOW_MO_DURATION_MS) {

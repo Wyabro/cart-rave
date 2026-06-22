@@ -78,19 +78,23 @@ function createCartBody(world, spawn, spawnYaw) {
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(spawn.x, spawn.y, spawn.z)
-      .setLinearDamping(CONFIG.cart.linearDamping)
-      .setAngularDamping(CONFIG.cart.angularDamping),
+      .setLinearDamping(0.6)
+      .setAngularDamping(1.2),
   );
   body.setRotation(quatFromYaw(spawnYaw), true);
 
-  const { canSleep, enabledRotations } = CONFIG.cart.rigidBody;
+  const { canSleep } = CONFIG.cart.rigidBody;
   if (typeof body.setCanSleep === "function") {
     body.setCanSleep(canSleep);
   }
+  // Temporarily disabled for tipping test — config enabledRotations locks pitch/roll off
+  /*
+  const { enabledRotations } = CONFIG.cart.rigidBody;
   if (typeof body.setEnabledRotations === "function" && Array.isArray(enabledRotations)) {
     const [pitch, yaw, roll, wake] = enabledRotations;
     body.setEnabledRotations(pitch, yaw, roll, wake);
   }
+  */
 
   return body;
 }
@@ -112,11 +116,11 @@ function createCartCollider(world, body) {
   const hx = CONFIG.cart.size.x / 2;
   const hy = CONFIG.cart.size.y / 2;
   const hz = CONFIG.cart.size.z / 2;
-  const { hyReduction, localYOffset, roundRadius } = CONFIG.cart.collider;
+  const { hyReduction, localYOffset } = CONFIG.cart.collider;
   const hyPhys = hy - hyReduction;
   const colliderLocalY = localYOffset;
 
-  const colliderDesc = RAPIER.ColliderDesc.roundCuboid(hx, hyPhys, hz, roundRadius)
+  const colliderDesc = RAPIER.ColliderDesc.roundCuboid(hx, hyPhys, hz, 0.08)
     .setTranslation(0, colliderLocalY, 0)
     .setFriction(CONFIG.cart.friction)
     .setRestitution(CONFIG.cart.restitution);
@@ -205,6 +209,7 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
     lastWheelScreechAtMs: Number.NEGATIVE_INFINITY,
     respawnAtMs: null,
     pendingRam: null,
+    lastRamTimeMs: 0,
     aiNextDecisionMs: 0,
     aiTarget: { x: 0, z: 0 },
   };

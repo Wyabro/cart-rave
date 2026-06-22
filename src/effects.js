@@ -138,39 +138,6 @@ let slTex = null;
 
 let bbLastRedraw = 0;
 
-/** @type {CanvasRenderingContext2D | null} */
-let portalCtx = null;
-
-/** @type {THREE.CanvasTexture | null} */
-let portalTex = null;
-
-/** @type {ImageData | null} */
-let portalImgData = null;
-
-let portalTriggered = false;
-
-const portalWorldPos = new THREE.Vector3();
-
-/** @type {CanvasRenderingContext2D | null} */
-let returnPortalCtx = null;
-
-/** @type {THREE.CanvasTexture | null} */
-let returnPortalTex = null;
-
-/** @type {ImageData | null} */
-let returnPortalImgData = null;
-
-let returnPortalTriggered = false;
-
-let returnPortalArmedAtMs = 0;
-
-let hasReturnPortals = false;
-
-/** @type {THREE.Vector3[]} */
-const returnPortalWorldPositions = [];
-
-let lastPortalUpdate = 0;
-
 /**
  * Creates drifting additive neon Points around the arena.
  * @param {THREE.Scene} scene
@@ -1000,7 +967,7 @@ export function initLasers(scene, pitInnerRadius, cartColors) {
 }
 
 /**
- * Builds the Cursor Vibe Jam 2026 billboard opposite the stage.
+ * Builds the arena billboard opposite the stage.
  * @param {THREE.Scene} scene
  * @param {number} pitInnerRadius
  */
@@ -1019,7 +986,7 @@ export function initBillboard(scene, pitInnerRadius) {
   bbSmallCtx.font = "14px monospace";
   bbSmallCtx.textAlign = "center";
   bbSmallCtx.textBaseline = "middle";
-  bbSmallCtx.fillText("CURSOR VIBE JAM 2026", 128, 32);
+  bbSmallCtx.fillText("CART RAVE", 128, 32);
   bbTex = new THREE.CanvasTexture(bbSmallCanvas);
   bbTex.magFilter = THREE.NearestFilter;
   bbTex.minFilter = THREE.NearestFilter;
@@ -1110,177 +1077,6 @@ export function initBillboard(scene, pitInnerRadius) {
 }
 
 /**
- * Builds exit and optional return portals around the arena.
- * @param {THREE.Scene} scene
- * @param {number} pitInnerRadius
- * @param {{
- *   incomingPortalParams?: { ref?: string | null, username?: string | null, color?: string | null, speed?: string | null, avatar_url?: string | null, team?: string | null, hp?: string | null } | null,
- *   boothConfig?: { platformY: number, platformThickness: number },
- *   spawnRingRadius?: number,
- *   boothPlatformDepth?: number,
- * }} [options]
- */
-export function initPortals(scene, pitInnerRadius, options = {}) {
-  portalTriggered = false;
-  returnPortalTriggered = false;
-  returnPortalWorldPositions.length = 0;
-  hasReturnPortals = false;
-  portalImgData = null;
-  returnPortalImgData = null;
-
-  const bbAngle = Math.PI;
-  const portalRadius = pitInnerRadius - 2;
-  const px = Math.cos(bbAngle) * portalRadius;
-  const py = -9.5;
-  const pz = Math.sin(bbAngle) * portalRadius;
-  portalWorldPos.set(px, py, pz);
-
-  const portalCanvas = document.createElement("canvas");
-  portalCanvas.width = 128;
-  portalCanvas.height = 128;
-  portalCtx = portalCanvas.getContext("2d");
-  portalTex = new THREE.CanvasTexture(portalCanvas);
-  portalTex.magFilter = THREE.NearestFilter;
-  portalTex.minFilter = THREE.NearestFilter;
-
-  const portalGroup = new THREE.Group();
-  const portalMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(2.5, 32),
-    new THREE.MeshBasicMaterial({ map: portalTex, side: THREE.DoubleSide }),
-  );
-  portalGroup.add(portalMesh);
-
-  const glowRing = new THREE.Mesh(
-    new THREE.TorusGeometry(2.7, 0.15, 8, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x00ff66,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  portalGroup.add(glowRing);
-
-  const portalLight = new THREE.PointLight(0x00ff44, 3, 10);
-  portalGroup.add(portalLight);
-
-  const plLabelCanvas = document.createElement("canvas");
-  plLabelCanvas.width = 256;
-  plLabelCanvas.height = 48;
-  const plLabelCtx = plLabelCanvas.getContext("2d");
-  plLabelCtx.clearRect(0, 0, 256, 48);
-  plLabelCtx.font = 'bold 22px "Bungee", monospace';
-  plLabelCtx.textAlign = "center";
-  plLabelCtx.textBaseline = "middle";
-  plLabelCtx.shadowColor = "#00ff44";
-  plLabelCtx.shadowBlur = 10;
-  plLabelCtx.fillStyle = "#00ff66";
-  plLabelCtx.fillText("EXIT PORTAL", 128, 24);
-  const plLabelTex = new THREE.CanvasTexture(plLabelCanvas);
-  const plLabel = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.5, 0.65),
-    new THREE.MeshBasicMaterial({
-      map: plLabelTex,
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    }),
-  );
-  plLabel.position.set(0, 3.0, 0);
-  portalGroup.add(plLabel);
-
-  portalGroup.position.set(px, py, pz);
-  portalGroup.lookAt(0, py, 0);
-  scene.add(portalGroup);
-
-  const incomingPortalParams = options.incomingPortalParams;
-  if (incomingPortalParams?.ref) {
-    const returnCanvas = document.createElement("canvas");
-    returnCanvas.width = 128;
-    returnCanvas.height = 128;
-    returnPortalCtx = returnCanvas.getContext("2d");
-    returnPortalTex = new THREE.CanvasTexture(returnCanvas);
-    returnPortalTex.magFilter = THREE.NearestFilter;
-    returnPortalTex.minFilter = THREE.NearestFilter;
-
-    const returnLabelCanvas = document.createElement("canvas");
-    returnLabelCanvas.width = 256;
-    returnLabelCanvas.height = 48;
-    const returnLabelCtx = returnLabelCanvas.getContext("2d");
-    returnLabelCtx.clearRect(0, 0, 256, 48);
-    returnLabelCtx.font = 'bold 22px "Bungee", monospace';
-    returnLabelCtx.textAlign = "center";
-    returnLabelCtx.textBaseline = "middle";
-    returnLabelCtx.shadowColor = "#00ccff";
-    returnLabelCtx.shadowBlur = 10;
-    returnLabelCtx.fillStyle = "#00ccff";
-    returnLabelCtx.fillText("RETURN PORTAL", 128, 24);
-    const returnLabelTex = new THREE.CanvasTexture(returnLabelCanvas);
-    const returnLabel = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.2, 0.65),
-      new THREE.MeshBasicMaterial({
-        map: returnLabelTex,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      }),
-    );
-    returnLabel.position.set(0, 3.0, 0);
-
-    const boothConfig = options.boothConfig || { platformY: 4.0, platformThickness: 0.5 };
-    const spawnRingRadius = options.spawnRingRadius ?? 0;
-    const boothPlatformDepth = options.boothPlatformDepth ?? 0;
-
-    for (let i = 0; i < 4; i++) {
-      const angle = (i * Math.PI) / 2;
-      const dist = spawnRingRadius + boothPlatformDepth / 2 + 1.0;
-      const rpx = dist * Math.cos(angle);
-      const rpz = dist * Math.sin(angle);
-      const rpy = boothConfig.platformY + boothConfig.platformThickness / 2 + 2.5;
-      returnPortalWorldPositions.push(new THREE.Vector3(rpx, rpy, rpz));
-
-      const returnPortalGroup = new THREE.Group();
-      const returnPortalMesh = new THREE.Mesh(
-        new THREE.CircleGeometry(2.5, 32),
-        new THREE.MeshBasicMaterial({ map: returnPortalTex, side: THREE.DoubleSide }),
-      );
-      returnPortalGroup.add(returnPortalMesh);
-
-      const returnGlowRing = new THREE.Mesh(
-        new THREE.TorusGeometry(2.7, 0.15, 8, 32),
-        new THREE.MeshBasicMaterial({
-          color: 0x00ccff,
-          transparent: true,
-          opacity: 0.6,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }),
-      );
-      returnPortalGroup.add(returnGlowRing);
-
-      const returnPortalLight = new THREE.PointLight(0x00ccff, 3, 10);
-      returnPortalGroup.add(returnPortalLight);
-      returnPortalGroup.add(returnLabel.clone());
-
-      returnPortalGroup.position.set(rpx, rpy, rpz);
-      returnPortalGroup.lookAt(0, rpy, 0);
-      scene.add(returnPortalGroup);
-    }
-
-    hasReturnPortals = returnPortalWorldPositions.length > 0;
-  }
-}
-
-/**
- * Sets the timestamp after which return-portal proximity triggers are armed.
- * @param {number} armedAtMs
- */
-export function setReturnPortalArmedAtMs(armedAtMs) {
-  returnPortalArmedAtMs = armedAtMs;
-}
-
-/**
  * Sweeps stage spot targets over the deck.
  * @param {number} nowMs Current time (ms).
  */
@@ -1365,118 +1161,9 @@ export function updateBillboard(nowMs) {
     bbSmallCtx.shadowColor = "#ff00ff";
     bbSmallCtx.shadowBlur = 4 + Math.sin(nowMs * 0.005) * 3;
     bbSmallCtx.fillStyle = `rgb(${r}, 255, 255)`;
-    bbSmallCtx.fillText("CURSOR VIBE JAM 2026", 128, 32);
+    bbSmallCtx.fillText("CART RAVE", 128, 32);
     bbSmallCtx.shadowBlur = 0;
     bbTex.needsUpdate = true;
   }
   slTex.offset.y = (nowMs * 0.0005) % 1;
-}
-
-/**
- * Animates portal swirl textures and checks player proximity for navigation.
- * @param {number} nowMs Current time (ms).
- * @param {{ x: number, y: number, z: number } | null | undefined} playerPos Local cart translation.
- * @param {{
- *   buildExitPortalUrl?: () => string,
- *   incomingPortalParams?: { ref?: string | null, username?: string | null, color?: string | null, speed?: string | null, avatar_url?: string | null, team?: string | null, hp?: string | null } | null,
- * }} [options]
- */
-export function updatePortals(nowMs, playerPos, options = {}) {
-  if (portalCtx && portalTex && nowMs - lastPortalUpdate > 150) {
-    const imgData = portalImgData || (portalImgData = portalCtx.createImageData(128, 128));
-    const d = imgData.data;
-    const swirlT = nowMs * 0.002;
-    for (let row = 0; row < 128; row++) {
-      for (let col = 0; col < 128; col++) {
-        const nx = (col - 64) / 64;
-        const ny = (row - 64) / 64;
-        const dist = Math.sqrt(nx * nx + ny * ny);
-        const idx = (row * 128 + col) * 4;
-        if (dist < 1.0) {
-          const angle = Math.atan2(ny, nx);
-          const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
-          const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
-          const centerGlow = Math.max(0, 1 - dist * 1.8);
-          d[idx] = Math.round(brightness * 80 + centerGlow * 255);
-          d[idx + 1] = Math.round(brightness * 255 + centerGlow * 255);
-          d[idx + 2] = Math.round(brightness * 100 + centerGlow * 200);
-          d[idx + 3] = 255;
-        } else {
-          d[idx + 3] = 0;
-        }
-      }
-    }
-    portalCtx.putImageData(imgData, 0, 0);
-    portalTex.needsUpdate = true;
-
-    if (returnPortalCtx && returnPortalTex) {
-      const imgData2 = returnPortalImgData || (returnPortalImgData = returnPortalCtx.createImageData(128, 128));
-      const d2 = imgData2.data;
-      for (let row = 0; row < 128; row++) {
-        for (let col = 0; col < 128; col++) {
-          const nx = (col - 64) / 64;
-          const ny = (row - 64) / 64;
-          const dist = Math.sqrt(nx * nx + ny * ny);
-          const idx = (row * 128 + col) * 4;
-          if (dist < 1.0) {
-            const angle = Math.atan2(ny, nx);
-            const spiral = ((angle / (Math.PI * 2) + dist * 3 - swirlT) % 1 + 1) % 1;
-            const brightness = 0.5 + 0.5 * Math.sin(spiral * Math.PI * 2);
-            const centerGlow = Math.max(0, 1 - dist * 1.8);
-            d2[idx] = Math.round(brightness * 80 + centerGlow * 0);
-            d2[idx + 1] = Math.round(brightness * 210 + centerGlow * 255);
-            d2[idx + 2] = Math.round(brightness * 255 + centerGlow * 255);
-            d2[idx + 3] = 255;
-          } else {
-            d2[idx + 3] = 0;
-          }
-        }
-      }
-      returnPortalCtx.putImageData(imgData2, 0, 0);
-      returnPortalTex.needsUpdate = true;
-    }
-    lastPortalUpdate = nowMs;
-  }
-
-  if (!playerPos) return;
-
-  if (!portalTriggered && options.buildExitPortalUrl) {
-    const dx = playerPos.x - portalWorldPos.x;
-    const dy = playerPos.y - portalWorldPos.y;
-    const dz = playerPos.z - portalWorldPos.z;
-    if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
-      portalTriggered = true;
-      window.location.href = options.buildExitPortalUrl();
-    }
-  }
-
-  const incomingPortalParams = options.incomingPortalParams;
-  if (
-    !returnPortalTriggered &&
-    incomingPortalParams?.ref &&
-    hasReturnPortals &&
-    Date.now() > returnPortalArmedAtMs
-  ) {
-    for (const pos of returnPortalWorldPositions) {
-      const dx = playerPos.x - pos.x;
-      const dy = playerPos.y - pos.y;
-      const dz = playerPos.z - pos.z;
-      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 3) {
-        returnPortalTriggered = true;
-
-        const rawRef = String(incomingPortalParams.ref || "").trim();
-        const returnUrl = new URL(rawRef.startsWith("http") ? rawRef : `https://${rawRef}`);
-        returnUrl.searchParams.set("portal", "true");
-        returnUrl.searchParams.set("ref", window.location.origin + window.location.pathname);
-        if (incomingPortalParams.username) returnUrl.searchParams.set("username", incomingPortalParams.username);
-        if (incomingPortalParams.color) returnUrl.searchParams.set("color", incomingPortalParams.color);
-        if (incomingPortalParams.speed) returnUrl.searchParams.set("speed", incomingPortalParams.speed);
-        if (incomingPortalParams.avatar_url) returnUrl.searchParams.set("avatar_url", incomingPortalParams.avatar_url);
-        if (incomingPortalParams.team) returnUrl.searchParams.set("team", incomingPortalParams.team);
-        if (incomingPortalParams.hp) returnUrl.searchParams.set("hp", incomingPortalParams.hp);
-        window.location.href = returnUrl.toString();
-        break;
-      }
-    }
-  }
 }

@@ -24,18 +24,12 @@ import * as CameraMod from "./camera.js";
  * @property {{ hostEventFall: string }} MSG
  * @property {(attackerSlotIndex: number, points: number) => void} addScore
  * @property {(untilMs: number) => void} setFovPunchUntil
- * @property {() => ReturnType<typeof setTimeout> | null} getLastCartStandingTimeoutId
- * @property {(id: ReturnType<typeof setTimeout> | null) => void} setLastCartStandingTimeoutId
- * @property {() => number | string | null} getLastCartStandingWinnerSlotIndex
- * @property {(idx: number | string | null) => void} setLastCartStandingWinnerSlotIndex
- * @property {(untilMs: number) => void} setSlowMoUntil
- * @property {(rate: number) => void} setSlowMoRate
  * @property {import("three").PerspectiveCamera} camera
  * @property {() => import("@dimforge/rapier3d-compat").World | null} getPhysicsWorld
  */
 
 /**
- * Host fall/score handling, respawns, last-cart-standing, round timer end, and camera follow.
+ * Host fall/score handling, respawns, round timer end, and camera follow.
  * Runs once per frame after ambient visuals and before physics substeps.
  *
  * @param {GameFlowDeps} deps Wiring from main — closures for mutable round/slow-mo state.
@@ -130,42 +124,6 @@ export function updateGameFlow(deps, context) {
         }
 
         deps.scheduleRespawn(c, now);
-        let aliveCartCount = 0;
-        let lastStandingSlotIndex = -1;
-        for (let j = 0; j < 4; j += 1) {
-          const cj = allCarts[j];
-          if (!cj) continue;
-          if (cj.respawnAtMs === null) {
-            aliveCartCount += 1;
-            lastStandingSlotIndex = j;
-          }
-        }
-        if (
-          aliveCartCount === 1 &&
-          deps.getLastCartStandingTimeoutId() == null &&
-          deps.getRoundState().startedAtMs > 0
-        ) {
-          deps.setLastCartStandingWinnerSlotIndex(lastStandingSlotIndex);
-          deps.setSlowMoUntil(performance.now() + 3000);
-          deps.setSlowMoRate(0.35);
-          deps.setLastCartStandingTimeoutId(setTimeout(() => {
-            deps.setLastCartStandingTimeoutId(null);
-            if (deps.isHost() && deps.getRoundState().phase === "running") deps.endRound();
-          }, 3000));
-        }
-        // If the override is already armed and the survivor has now also fallen,
-        // end immediately using the already-chosen last-standing winner.
-        if (
-          deps.getLastCartStandingTimeoutId() != null &&
-          aliveCartCount === 0
-        ) {
-          clearTimeout(deps.getLastCartStandingTimeoutId());
-          deps.setLastCartStandingTimeoutId(null);
-          if (deps.getLastCartStandingWinnerSlotIndex() === null) {
-            deps.setLastCartStandingWinnerSlotIndex("draw");
-          }
-          if (deps.isHost() && deps.getRoundState().phase === "running") deps.endRound();
-        }
       }
       if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
         deps.doRespawn(c);
@@ -180,8 +138,7 @@ export function updateGameFlow(deps, context) {
     if (
       deps.getRoundState().phase === "running" &&
       deps.getRoundState().startedAtMs > 0 &&
-      Date.now() - deps.getRoundState().startedAtMs >= 95000 &&
-      deps.getLastCartStandingTimeoutId() === null
+      Date.now() - deps.getRoundState().startedAtMs >= 95000
     ) {
       deps.endRound();
     }

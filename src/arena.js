@@ -42,16 +42,16 @@ function buildRecordRingGeometry({
 }
 
 /**
- * * Procedural record physics mesh: flat annulus with an expanded open center.
- * * The visible hole stays at innerRadius; the collider hole is larger so cart
- * * bodies lose support before they can hit or ride the visual lip.
+ * * Procedural record physics mesh: annular floor with beveled outer rim and a chamfered
+ * * inner hole. The visible hole stays at innerRadius; physics adds a modest clearance
+ * * plus a sloped transition so carts slide off the lip instead of catching a sharp edge.
  */
 function buildRecordPhysicsGeometry({
   outerRadius,
   innerRadius,
   thickness,
-  chamferWidth = 0.55,
-  holeClearance = 1.05,
+  chamferWidth = 0.35,
+  holeClearance = 0.45,
   outerBevel = 0.12,
   segments = 72,
 }) {
@@ -60,8 +60,12 @@ function buildRecordPhysicsGeometry({
   const halfT = thickness / 2;
   const topY = halfT;
   const bottomY = -halfT;
-  const collisionInnerR = innerRadius + Math.max(holeClearance, chamferWidth, 0);
   const outerTopR = outerRadius - outerBevel;
+
+  // * Flat playing surface ends slightly beyond the visual hole (holeClearance).
+  // * The chamfer ramp then slopes inward/down over chamferWidth before the open void.
+  const playInnerR = innerRadius + Math.max(holeClearance, 0);
+  const chamferInnerR = Math.max(innerRadius, playInnerR - Math.max(chamferWidth, 0));
 
   const pushVertex = (x, y, z) => {
     positions.push(x, y, z);
@@ -75,6 +79,12 @@ function buildRecordPhysicsGeometry({
     pushTri(i0, i2, i3);
   };
 
+  let prevOt = null;
+  let prevPi = null;
+  let prevCi = null;
+  let prevOb = null;
+  let prevOr = null;
+
   for (let i = 0; i < segments; i += 1) {
     const t0 = (i / segments) * Math.PI * 2;
     const t1 = ((i + 1) / segments) * Math.PI * 2;
@@ -83,25 +93,39 @@ function buildRecordPhysicsGeometry({
     const cos1 = Math.cos(t1);
     const sin1 = Math.sin(t1);
 
-    // Top playing surface (flat annulus). There is no inner wall/chamfer.
-    const ot0 = pushVertex(outerTopR * cos0, topY, outerTopR * sin0);
+    // * Reuse seam vertices from the previous segment instead of duplicating radial edges.
+    const ot0 = prevOt ?? pushVertex(outerTopR * cos0, topY, outerTopR * sin0);
+    const pi0 = prevPi ?? pushVertex(playInnerR * cos0, topY, playInnerR * sin0);
+    const ci0 = prevCi ?? pushVertex(chamferInnerR * cos0, bottomY, chamferInnerR * sin0);
+    const ob0 = prevOb ?? pushVertex(outerRadius * cos0, bottomY, outerRadius * sin0);
+    const or0 = prevOr ?? pushVertex(outerRadius * cos0, topY, outerRadius * sin0);
+
     const ot1 = pushVertex(outerTopR * cos1, topY, outerTopR * sin1);
-    const it0 = pushVertex(collisionInnerR * cos0, topY, collisionInnerR * sin0);
-    const it1 = pushVertex(collisionInnerR * cos1, topY, collisionInnerR * sin1);
-    addQuad(ot0, ot1, it1, it0);
-
-    // Substrate ring on the underside; it also stops at the expanded collision hole.
-    const ob0 = pushVertex(outerRadius * cos0, bottomY, outerRadius * sin0);
+    const pi1 = pushVertex(playInnerR * cos1, topY, playInnerR * sin1);
+    const ci1 = pushVertex(chamferInnerR * cos1, bottomY, chamferInnerR * sin1);
     const ob1 = pushVertex(outerRadius * cos1, bottomY, outerRadius * sin1);
-    const if0 = pushVertex(collisionInnerR * cos0, bottomY, collisionInnerR * sin0);
-    const if1 = pushVertex(collisionInnerR * cos1, bottomY, collisionInnerR * sin1);
-    addQuad(ob0, ob1, if1, if0);
+    const or1 = pushVertex(outerRadius * cos1, topY, outerRadius * sin1);
 
-    // Outer rim bevel + wall.
-    const otop0 = pushVertex(outerRadius * cos0, topY, outerRadius * sin0);
-    const otop1 = pushVertex(outerRadius * cos1, topY, outerRadius * sin1);
-    addQuad(otop0, otop1, ot1, ot0);
+    // Top playing surface — flat annulus up to the chamfer start.
+    addQuad(ot0, ot1, pi1, pi0);
+
+    // Inner hole chamfer — gentle inward slope instead of a vertical drop at the rim.
+    addQuad(pi0, pi1, ci1, ci0);
+
+    // Underside substrate ring; open void begins at chamferInnerR.
+    addQuad(ob0, ob1, ci1, ci0);
+
+    // Outer top bevel — matches the visual record's softened outer edge.
+    addQuad(or0, or1, ot1, ot0);
+
+    // Outer rim wall.
     addQuad(ot0, ot1, ob1, ob0);
+
+    prevOt = ot1;
+    prevPi = pi1;
+    prevCi = ci1;
+    prevOb = ob1;
+    prevOr = or1;
   }
 
   const geo = new THREE.BufferGeometry();
@@ -134,7 +158,7 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
     outer = Math.min(outer, rMax - 0.001);
     if (outer - inner < 0.002) continue;
 
-    const ringGeo = new THREE.RingGeometry(inner, outer, 96);
+    const ringGeo = new THREE.RingGeometry(inner, outer, 32);
     ringGeo.rotateX(-Math.PI / 2);
 
     const ringColor = i % 2 === 0 ? ringColorA : ringColorB;
@@ -273,21 +297,15 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   const neonAxis = new THREE.Vector3(0, 1, 0);
   const neonDir = new THREE.Vector3();
   const neonMid = new THREE.Vector3();
-  const diamondGeo = new THREE.BufferGeometry();
-  const dh = 0.4;
-  const dw = 0.25;
-  diamondGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-    0, dh, 0, -dw, 0, 0, 0, -dh, 0,
-    0, dh, 0, 0, -dh, 0, dw, 0, 0,
-  ]), 3));
+  const diamondGeo = new THREE.PlaneGeometry(0.5, 0.8);
+  diamondGeo.rotateZ(Math.PI / 4);
   const dotGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.025, 12);
 
   function makeNeonTube(p1, p2, radius, neonMat) {
     neonDir.subVectors(p2, p1);
     const len = neonDir.length();
-    const geo = UNIT_CYL.clone();
-    geo.scale(radius, len, radius);
-    const mesh = new THREE.Mesh(geo, neonMat);
+    const mesh = new THREE.Mesh(UNIT_CYL, neonMat);
+    mesh.scale.set(radius, len, radius);
     neonMid.addVectors(p1, p2).multiplyScalar(0.5);
     mesh.position.copy(neonMid);
     mesh.quaternion.setFromUnitVectors(neonAxis, neonDir.normalize());
@@ -812,8 +830,8 @@ export function initArena(scene, world, config) {
     outerRadius: config.record.radius,
     innerRadius: config.record.innerRadius,
     thickness: config.record.thickness,
-    chamferWidth: recordPhysics.chamferWidth ?? 0.55,
-    holeClearance: recordPhysics.holeClearance ?? 1.05,
+    chamferWidth: recordPhysics.chamferWidth ?? 0.35,
+    holeClearance: recordPhysics.holeClearance ?? 0.45,
     outerBevel: recordPhysics.outerBevel ?? 0.12,
     segments: recordPhysics.segments ?? 72,
   });
