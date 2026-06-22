@@ -1,10 +1,7 @@
 // === IMPORTS ===
 
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import { EffectComposer } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { ShaderPass } from "https://unpkg.com/three@0.164.1/examples/jsm/postprocessing/ShaderPass.js";
+import { createRenderer, createComposer, updateViewport as updateSceneViewport } from "./src/scene.js";
 import { CSS2DObject, CSS2DRenderer } from "https://unpkg.com/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
 import { RoomEnvironment } from "https://unpkg.com/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
 import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
@@ -49,7 +46,6 @@ console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shado
  */
 function buildCartMaterialCache(cartMesh) {
   const frameMats = [];
-  const wheelGlowMats = [];
   const frameGlowMats = [];
   const seen = new Set();
 
@@ -68,23 +64,17 @@ function buildCartMaterialCache(cartMesh) {
 
   cartMesh.traverse((child) => {
     if (!child.isMesh || !child.material) return;
-    if (child.userData && (child.userData.isFace || child.userData.isHandle)) return;
+    if (child.userData && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel)) return;
 
-    const isWheel = Boolean(child.userData && child.userData.isWheel);
     forEachMaterial(child.material, (mat) => {
       if (seen.has(mat)) return;
       seen.add(mat);
-
-      if (isWheel) {
-        if (mat.emissive) wheelGlowMats.push(mat);
-      } else {
-        frameMats.push(mat);
-        if (mat.emissive) frameGlowMats.push(mat);
-      }
+      frameMats.push(mat);
+      if (mat.emissive) frameGlowMats.push(mat);
     });
   });
 
-  return { frameMats, wheelGlowMats, frameGlowMats };
+  return { frameMats, frameGlowMats };
 }
 
 // === CONSTANTS & CONFIG ===
@@ -220,9 +210,19 @@ const CONFIG = {
       cooldownSec: 3.0,
       boostedMaxSpeed: 26,
       boostedAccel: null,
-      streakDurationSec: 0.4,
-      streakSpawnRatePerSec: 12,
+      streakDurationSec: 0.36,
+      streakSpawnRatePerSec: 16,
       streakLengthMeters: 2.0,
+      streakRadiusMeters: 0.014,
+      streakTipRadiusScale: 0.12,
+      streakGlowRadiusMul: 2.0,
+      streakGlowOpacity: 0.26,
+      streakCoreOpacity: 0.52,
+      streakSaturationMul: 1.05,
+      streakBrightnessMul: 1.0,
+      streakSecondaryChance: 0.1,
+      streakMaxActive: 72,
+      streakPulseHz: 0,
       npc: {
         enabled: true,
         alignmentAngleDeg: 13.2,
@@ -266,12 +266,31 @@ const CONFIG = {
     // * Intentionally generous after playtest feedback. Ram-boosted rams
     // * (boostedMaxSpeed=26) always crit.
     criticalVelocityThreshold: 11.0,
+    hitWindowMs: 2500,
+  },
+
+  round: {
+    durationMs: 95000,
   },
 
   ramming: {
     minSpeed: 0.8,
-    strength: 2.64, // 8.0 × 0.33
+    strength: 2.88,
     maxImpulse: 200.0,
+    spreadSteps: 3,
+    alignmentDotMin: 0.1,
+    boostImpulseMultiplier: 2.35,
+    nitroAccelMultiplier: 1.6,
+    fx: {
+      particleCountBase: 8,
+      particleCountPerIntensity: 16,
+      particleBoostCountBonus: 5,
+      particleMaxCount: 28,
+      shakeMinIntensity: 0.38,
+      shakeBoostMinIntensity: 0.24,
+      shakePixelScale: 5.5,
+      audioBoostGain: 1.35,
+    },
   },
 
   fall: {
@@ -368,6 +387,7 @@ function createNetcodeCallbackDeps() {
     getOnGameStartHandler: () => onGameStartHandler,
     getMenuVisible: () => menuVisible,
     invokeHideMenu: () => { if (hideMenuRef) hideMenuRef(); },
+    onJoinRejected: () => { if (returnToMenuRef) returnToMenuRef(); },
     updateCartMaterialsFromSlots,
     updateHudColorsFromSlots,
     updateNameLabelsRef,
@@ -377,6 +397,7 @@ function createNetcodeCallbackDeps() {
     getPlayCollisionRef: () => playCollisionRef,
     getSfx: () => gameSfx,
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
+    getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getHud: () => hud,
     colorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
@@ -553,6 +574,8 @@ function syncRoundPhase(phase) {
 let onGameStartHandler = null;
 /** @type {(() => void) | null} Set by main() once hideMenu is defined; bridges module-level renderColorPicker to the inner function. */
 let hideMenuRef = null;
+/** @type {(() => void) | null} Restores menu after a failed PartyKit join. */
+let returnToMenuRef = null;
 /** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
 let _localColorPicked = false;
 /** @type {HTMLElement | null} */
@@ -560,6 +583,8 @@ let pendingColorChipEl = null;
 /** @type {string | null} */
 let pendingColorKey = null;
 let menuColorPickListenerWired = false;
+let menuActionListenerWired = false;
+let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
 let bloomEnabled = true;
@@ -626,6 +651,8 @@ let triggerRamBoostRef = null;
 let playCollisionRef = null;
 /** @type {((position: { x: number; y: number; z: number }, intensity: number) => void) | null} */
 let spawnTrashBurstRef = null;
+/** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
+let triggerLocalRamShakeRef = null;
 /** @type {{ current: (() => void) | null }} */
 const updateNameLabelsRef = { current: null };
 /** @type {{ current: (() => void) | null }} */
@@ -645,22 +672,15 @@ function updateCartMaterialsFromSlots(slots) {
 
     const colorData = CART_COLORS[slot.color];
     const finalHex = colorData ? colorData.hex : 0x888888;
-    if (finalHex === cart.cartColor) continue;
 
     const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
 
-    // Wheels: keep dark chrome, only update subtle emissive tint.
-    for (const mat of cache.wheelGlowMats) {
-      mat.emissive.setHex(finalHex);
-      mat.emissiveIntensity = 0.15;
-    }
-
-    // Frame: recolor and update emissive glow.
+    // Frame: recolor and update emissive glow (always sync — hello fires before carts exist).
     for (const mat of cache.frameMats) {
       if (mat.color) mat.color.setHex(finalHex);
       if (mat.emissive) {
         mat.emissive.setHex(finalHex);
-        mat.emissiveIntensity = 0.6;
+        mat.emissiveIntensity = 1.0;
       }
       if (typeof mat.metalness === "number") mat.metalness = 0.7;
       if (typeof mat.roughness === "number") mat.roughness = 0.3;
@@ -710,6 +730,15 @@ async function main() {
   if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error(`Canvas element '#${CONFIG.canvasId}' not found.`);
   }
+
+  // * Start menu music fetch immediately — before RAPIER/scene init blocks the main thread.
+  GameAudio.initMusic({
+    getMasterGain: () => masterGain,
+    getIsMuted: () => isMuted,
+    getMenuVisible: () => menuVisible,
+    startMenuOnInit: menuVisible,
+  });
+
   // Make canvas able to receive keyboard focus.
   canvas.tabIndex = 0;
   canvas.style.outline = "none";
@@ -745,10 +774,7 @@ async function main() {
   );
 
   // --- Renderer & scene ---
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(0x0a0520, 1);
+  const renderer = createRenderer(canvas);
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
@@ -784,6 +810,22 @@ async function main() {
 
   let shakeUntil = 0;
   let shakeIntensity = 0;
+  let fovPunchUntil = 0;
+  function triggerLocalRamShake(intensity, isBoosting = false) {
+    const fx = CONFIG.ramming?.fx ?? {};
+    const minI = isBoosting
+      ? (fx.shakeBoostMinIntensity ?? 0.24)
+      : (fx.shakeMinIntensity ?? 0.38);
+    if (intensity < minI) return;
+    const clampedI = Math.min(intensity, 1.2);
+    const boostMul = isBoosting ? 1.3 : 1.0;
+    shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
+    shakeUntil = performance.now() + 150 + clampedI * 100;
+    if (clampedI >= 0.45 && isBoosting) {
+      fovPunchUntil = performance.now() + 100;
+    }
+  }
+  triggerLocalRamShakeRef = triggerLocalRamShake;
   const gameCtx = createGameContext().registerModules({
     Netcode,
     GameState,
@@ -792,17 +834,12 @@ async function main() {
     Input,
     HUD,
   });
-  let fovPunchUntil = 0;
   const BASE_FOV = CONFIG.camera.fov;
 
   let ensureCartCrashBufferLoaded = () => {};
   const audioSystem = initAudioSystem(audioListener, {
     getSfxVolume: () => sfxVolume,
     getIsMuted: () => isMuted,
-    onCollisionShake: (i) => {
-      shakeIntensity = i * 8 * 2; // max ~16px offset
-      shakeUntil = performance.now() + 225 + i * 150; // ~50% longer than before
-    },
   });
   sfx = audioSystem.sfx;
   if (!crowd) crowd = audioSystem.crowd;
@@ -818,101 +855,11 @@ async function main() {
   GameAudio.applyAudioVolume();
   camera.add(audioListener);
 
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.5,
-    0.35,
-    0.3,
-  );
-  composer.addPass(bloomPass);
+  const { composer, bloomPass, arcadePass, fxaaPass } = createComposer(renderer, scene, camera);
+  fxPass = arcadePass;
   if (!bloomEnabled && bloomPass) bloomPass.enabled = false;
+  if (!fxPassEnabled && fxPass) fxPass.enabled = false;
   const fxClock = new THREE.Clock();
-  const VignetteShader = {
-    uniforms: {
-      tDiffuse: { value: null },
-      darkness: { value: 0.15 },
-      offset: { value: 1.0 },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D tDiffuse;
-      uniform float darkness;
-      uniform float offset;
-      varying vec2 vUv;
-      void main() {
-        vec4 color = texture2D(tDiffuse, vUv);
-        float dist = distance(vUv, vec2(0.5));
-        float vig = smoothstep(0.8, offset * 0.5, dist * (darkness + offset));
-        color.rgb *= vig;
-        gl_FragColor = color;
-      }
-    `,
-  };
-  const vignettePass = new ShaderPass(VignetteShader);
-  composer.addPass(vignettePass);
-
-  const FxShader = {
-    uniforms: {
-      tDiffuse: { value: null },
-      uTime: { value: 0.0 },
-      uChromaStrength: { value: 0.003 },
-      uGrainStrength: { value: 0.04 },
-      uScanlineStrength: { value: 0.03 },
-      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D tDiffuse;
-      uniform float uTime;
-      uniform float uChromaStrength;
-      uniform float uGrainStrength;
-      uniform float uScanlineStrength;
-      uniform vec2 uResolution;
-      varying vec2 vUv;
-
-      float rand(vec2 co) {
-        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
-      }
-
-      void main() {
-        vec2 center = vec2(0.5, 0.5);
-        vec2 fromCenter = vUv - center;
-        float dist = length(fromCenter);
-        vec2 dir = dist > 0.00001 ? (fromCenter / dist) : vec2(0.0);
-        vec2 off = dir * dist * uChromaStrength;
-
-        vec4 cR = texture2D(tDiffuse, vUv + off);
-        vec4 cG = texture2D(tDiffuse, vUv);
-        vec4 cB = texture2D(tDiffuse, vUv - off);
-        vec4 color = vec4(cR.r, cG.g, cB.b, cG.a);
-
-        float n = rand(gl_FragCoord.xy + vec2(uTime * 123.45, uTime * 67.89));
-        color.rgb += (n - 0.5) * uGrainStrength;
-
-        float scanline = sin(gl_FragCoord.y * 1.5) * 0.5 + 0.5;
-        color.rgb -= (1.0 - scanline) * uScanlineStrength;
-
-        gl_FragColor = color;
-      }
-    `,
-  };
-  fxPass = new ShaderPass(FxShader);
-  composer.addPass(fxPass);
-  if (!fxPassEnabled) fxPass.enabled = false;
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -954,17 +901,12 @@ async function main() {
   function updateViewport() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(w, h);
-    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    composer.setSize(w, h);
-    if (fxPass && fxPass.uniforms && fxPass.uniforms.uResolution) {
-      fxPass.uniforms.uResolution.value.set(w, h);
-    }
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(pixelRatio);
+    composer.setPixelRatio(pixelRatio);
+    updateSceneViewport(renderer, camera, composer, arcadePass, fxaaPass);
     labelRenderer.setSize(w, h);
-    camera.aspect = w / h;
     updateCameraFraming();
-    camera.updateProjectionMatrix();
     if (fpsCanvas2d) {
       fpsCanvas2d.style.position = "fixed";
       fpsCanvas2d.style.bottom = "8px";
@@ -1051,6 +993,15 @@ async function main() {
       return;
     }
 
+    // * Returning visitor refreshing ?room=quickplay — auto-rejoin once per page load.
+    const savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    const roomParam = new URLSearchParams(window.location.search || "").get("room");
+    if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
+      quickplayAutoRejoinAttempted = true;
+      Netcode.initNetcode();
+      return;
+    }
+
     document.getElementById("cr-btn-join-invite")?.remove();
     if (pendingInviteRoomFromUrl) {
       const btnRow = document.querySelector(".cr-buttons");
@@ -1077,15 +1028,16 @@ async function main() {
       }
     }
 
-    // Wire new menu button events
-    window.addEventListener("cartrave:menu", (e) => {
+    // Wire new menu button events (once — initMenu may run again after failed joins).
+    if (!menuActionListenerWired) {
+      menuActionListenerWired = true;
+      window.addEventListener("cartrave:menu", (e) => {
       const action = e.detail.action;
       if (action === "joinroom") {
         const room = pendingInviteRoomFromUrl;
         if (!room) return;
         pendingInviteRoomFromUrl = null;
         document.getElementById("cr-btn-join-invite")?.remove();
-        hideMenu();
         Netcode.initNetcode(room);
         return;
       }
@@ -1102,7 +1054,6 @@ async function main() {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
-        hideMenu();
         Netcode.initNetcode();
       } else if (action === "friends") {
         const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
@@ -1137,7 +1088,6 @@ async function main() {
         if (friendsEnter) {
           friendsEnter.onclick = () => {
             friendsScreen.style.display = "none";
-            hideMenu();
             Netcode.initNetcode();
           };
         }
@@ -1154,6 +1104,7 @@ async function main() {
         }
       }
     });
+    }
 
     refreshMenuStats();
 
@@ -1303,8 +1254,9 @@ async function main() {
   const resultsUi = initResultsOverlay({
     onMainMenuClick: () => podiumAutoContinue.clear(),
   });
-  initMenu();
   hideMenuRef = hideMenu;
+  returnToMenuRef = () => initMenu();
+  initMenu();
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
   // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
@@ -1480,18 +1432,6 @@ async function main() {
   } = initArena(scene, world, CONFIG);
 
   const sceneExtras = initSceneExtras(scene, pitInnerRadius);
-  const {
-    ufoEntries,
-    spotlightEntries,
-    spotlightPositionRadius,
-    spotlightHeight,
-    spotlightDriftAmplitudeRad,
-    platformTopY,
-    recordSurfaceGlowY,
-    spotlightLightPosScratch,
-    spotlightTargetScratch,
-    positionSpotlightBeam,
-  } = sceneExtras;
 
   Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
 
@@ -1516,13 +1456,6 @@ async function main() {
     pendingMidRoundJoinRespawnConnId = null;
   };
 
-  GameAudio.initMusic({
-    getMasterGain: () => masterGain,
-    getIsMuted: () => isMuted,
-    getMenuVisible: () => menuVisible,
-    startMenuOnInit: menuVisible,
-  });
-
   await firstHelloPromise;
 
   const { allCarts, colliderHandleToCart, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
@@ -1540,6 +1473,8 @@ async function main() {
   // Expose carts to netcode.
   allCartsRef = allCarts;
   Netcode.setRefs({ allCartsRef: allCarts });
+  // * hello calls updateCartMaterials before carts exist; apply slot colors now.
+  updateCartMaterialsFromSlots(Netcode.getNetSlots());
   if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
 
   // --- Floating name labels above carts ---
@@ -1628,6 +1563,8 @@ async function main() {
     triggerRamBoostRef: triggerRamBoost,
     resetSimTimingRef,
   });
+  // * hello can arrive before input/cart refs exist; startInputSendLoop no-ops without getAxisRef.
+  Netcode.setAuthorityMode(Netcode.getIsHost());
 
   const ramBoostForwardXZ = new THREE.Vector3();
   const ramBoostToTargetXZ = new THREE.Vector3();
@@ -1930,7 +1867,7 @@ async function main() {
     canvas,
     BASE_FOV,
     getShakeUntil: () => shakeUntil,
-    shakeIntensity,
+    getShakeIntensity: () => shakeIntensity,
     getFovPunchUntil: () => fovPunchUntil,
     fpsState,
   };
@@ -1976,6 +1913,7 @@ async function main() {
       getAiAxis: getAiAxis,
       playCollision: playCollisionRef,
       spawnTrashBurst: spawnTrashBurstRef,
+      onLocalRamImpact: triggerLocalRamShake,
       partySocket: Netcode.getPartySocket(),
       recordColliderHandle: recordCollider.handle,
       pitWallColliderHandle: pitWallColliderHandle,
@@ -1991,6 +1929,7 @@ async function main() {
       getAiAxis: null,
       playCollision: playCollisionRef,
       spawnTrashBurst: spawnTrashBurstRef,
+      onLocalRamImpact: triggerLocalRamShake,
       partySocket: Netcode.getPartySocket(),
       recordColliderHandle: recordCollider.handle,
       pitWallColliderHandle: pitWallColliderHandle,
@@ -2024,40 +1963,10 @@ async function main() {
     // Visual-only record rotation.
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
 
-    if (spotlightEntries.length > 0) {
-      const nowSec = performance.now() * 0.001;
-      for (const entry of spotlightEntries) {
-        const drift =
-          Math.sin(nowSec * entry.driftSpeed * Math.PI * 2 + entry.phase) *
-          spotlightDriftAmplitudeRad;
-        const angle = entry.baseAngleRad + drift;
-        spotlightLightPosScratch.set(
-          Math.cos(angle) * spotlightPositionRadius,
-          spotlightHeight,
-          Math.sin(angle) * spotlightPositionRadius,
-        );
-        spotlightTargetScratch.set(spotlightLightPosScratch.x, platformTopY, spotlightLightPosScratch.z);
-        entry.light.position.copy(spotlightLightPosScratch);
-        entry.light.target.position.copy(spotlightTargetScratch);
-        entry.light.target.updateMatrix();
-        positionSpotlightBeam(entry.beamGroup, spotlightLightPosScratch, spotlightTargetScratch);
-        entry.glowMesh.position.set(spotlightTargetScratch.x, recordSurfaceGlowY, spotlightTargetScratch.z);
-      }
-    }
+    sceneExtras.update(now);
 
     Effects.updateStageLights(now);
     Effects.updateLasers(now);
-
-    // UFO orbit
-    for (const ufo of ufoEntries) {
-      const angle = now * 0.001 * ufo.orbitSpeed + ufo.phaseOffset;
-      ufo.group.position.set(
-        Math.cos(angle) * ufo.orbitRadius,
-        ufo.orbitHeight + Math.sin(angle * 2) * 10,
-        Math.sin(angle) * ufo.orbitRadius,
-      );
-      ufo.group.rotation.y = angle + Math.PI;
-    }
 
     Effects.updateCrowd(now);
 

@@ -27,12 +27,16 @@ let menuMusicEl = null;
 /** @type {HTMLAudioElement | null} */
 let activeMusicEl = null;
 
-/** @type {HTMLAudioElement[] | null} */
+/** @type {(HTMLAudioElement | null)[] | null} */
 let gameMusicElements = null;
 
 let menuMusicStarted = false;
 let musicStarted = false;
 let musicUnavailable = false;
+let menuMusicPlayInFlight = false;
+let gameMusicPlayInFlight = false;
+let menuGestureUnlockInstalled = false;
+let musicInitialized = false;
 
 /** @type {number | null} */
 let menuMusicFadeRaf = null;
@@ -64,6 +68,81 @@ function getMusicTargetVolume() {
   return calcVol(CONFIG.audio.musicVolume * (_getIsMuted?.() ? 0 : (_getMasterGain?.() ?? 0)));
 }
 
+/** @param {HTMLAudioElement} el @param {() => void} onStarted */
+function playWhenReady(el, onStarted) {
+  const attemptPlay = () => {
+    void el.play().then(
+      () => { onStarted(); },
+      () => {},
+    );
+  };
+  if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    attemptPlay();
+    return;
+  }
+  const onReady = () => {
+    el.removeEventListener("canplay", onReady);
+    el.removeEventListener("error", onReady);
+    attemptPlay();
+  };
+  el.addEventListener("canplay", onReady, { once: true });
+  el.addEventListener("error", onReady, { once: true });
+  try { el.load(); } catch {}
+}
+
+/** @returns {HTMLAudioElement} */
+function ensureMenuMusicElement() {
+  if (menuMusicEl) return menuMusicEl;
+  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
+  menuMusicEl = new Audio();
+  menuMusicEl.loop = true;
+  menuMusicEl.preload = "auto";
+  menuMusicEl.src = menuMusicUrl;
+  menuMusicEl.addEventListener("error", () => {});
+  try { menuMusicEl.load(); } catch {}
+  return menuMusicEl;
+}
+
+/** @param {string} url @returns {HTMLAudioElement} */
+function createGameMusicElement(url) {
+  const a = new Audio();
+  a.loop = false;
+  a.preload = "auto";
+  a.src = url;
+  a.addEventListener("ended", onGameMusicEnded);
+  a.addEventListener("error", onGameMusicError);
+  try { a.load(); } catch {}
+  return a;
+}
+
+/** @param {number} index @returns {HTMLAudioElement | null} */
+function getOrCreateGameTrack(index) {
+  if (!gameMusicElements || index < 0 || index >= gameMusicUrls.length) return null;
+  if (!gameMusicElements[index]) {
+    gameMusicElements[index] = createGameMusicElement(gameMusicUrls[index]);
+  }
+  return gameMusicElements[index];
+}
+
+/** @param {number} index @returns {void} */
+function preloadGameTrackInBackground(index) {
+  if (_getMenuVisible?.()) return;
+  getOrCreateGameTrack(index);
+}
+
+/** @returns {void} */
+function installMenuGestureUnlock() {
+  if (menuGestureUnlockInstalled) return;
+  menuGestureUnlockInstalled = true;
+  const attempt = () => {
+    if (_getMenuVisible?.() && !menuMusicStarted && !menuMusicPlayInFlight) {
+      tryStartMenuMusic();
+    }
+  };
+  window.addEventListener("pointerdown", attempt, { passive: true });
+  window.addEventListener("keydown", attempt, { passive: true });
+}
+
 /** @returns {void} */
 function onGameMusicEnded() {
   if (_getMenuVisible?.()) return;
@@ -72,7 +151,7 @@ function onGameMusicEnded() {
 
 /** @returns {void} */
 function onGameMusicError() {
-  if (gameMusicElements && gameMusicElements.length > 1) {
+  if (gameMusicUrls.length > 1) {
     advanceGameMusicTrack();
     return;
   }
@@ -122,21 +201,18 @@ export function registerMusicVolumeDeps(deps) {
  * @param {{ getMasterGain: () => number, getIsMuted: () => boolean, getMenuVisible: () => boolean, startMenuOnInit?: boolean }} options
  */
 export function initMusic(options) {
+  if (musicInitialized) return;
+  musicInitialized = true;
+
   _getMasterGain = options.getMasterGain;
   _getIsMuted = options.getIsMuted;
   _getMenuVisible = options.getMenuVisible;
 
-  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
-  menuMusicEl = new Audio();
-  menuMusicEl.loop = true;
-  menuMusicEl.volume = calcVol(CONFIG.audio.musicVolume * (_getIsMuted() ? 0 : _getMasterGain()));
-  menuMusicEl.preload = "auto";
-  menuMusicEl.src = menuMusicUrl;
-  menuMusicEl.addEventListener("error", () => {});
-  menuMusicEl.load();
+  ensureMenuMusicElement();
+  menuMusicEl.volume = getMusicTargetVolume();
 
   window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
-  tryStartMenuMusic();
+  installMenuGestureUnlock();
 
   const gameMusicFiles = ["music.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
   gameMusicUrls = gameMusicFiles.map((f) =>
@@ -149,21 +225,8 @@ export function initMusic(options) {
     gameMusicUrls[j] = tmp;
   }
   gameMusicIndex = 0;
-
-  gameMusicElements = gameMusicUrls.map((url) => {
-    const a = new Audio();
-    a.loop = false;
-    a.preload = "auto";
-    a.src = url;
-    a.addEventListener("ended", onGameMusicEnded);
-    a.addEventListener("error", onGameMusicError);
-    try { a.load(); } catch {}
-    return a;
-  });
-  activeMusicEl = gameMusicElements[0] ?? null;
-  if (activeMusicEl) {
-    activeMusicEl.volume = calcVol(CONFIG.audio.musicVolume * _getMasterGain());
-  }
+  gameMusicElements = new Array(gameMusicUrls.length).fill(null);
+  activeMusicEl = null;
 
   if (options.startMenuOnInit !== false && _getMenuVisible?.()) {
     try {
@@ -176,37 +239,56 @@ export function initMusic(options) {
 
 /** @returns {void} */
 function advanceGameMusicTrack() {
-  if (!gameMusicElements?.length) return;
+  if (!gameMusicUrls.length) return;
   if (activeMusicEl) {
     try {
       activeMusicEl.pause();
       activeMusicEl.currentTime = 0;
     } catch {}
   }
-  gameMusicIndex = (gameMusicIndex + 1) % gameMusicElements.length;
-  activeMusicEl = gameMusicElements[gameMusicIndex];
-  if (!_getMenuVisible?.()) {
+  musicStarted = false;
+  gameMusicPlayInFlight = false;
+  gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
+  activeMusicEl = getOrCreateGameTrack(gameMusicIndex);
+  if (!_getMenuVisible?.() && activeMusicEl) {
     activeMusicEl.volume = getMusicTargetVolume();
-    void activeMusicEl.play().catch(() => {});
+    gameMusicPlayInFlight = true;
+    playWhenReady(activeMusicEl, () => {
+      gameMusicPlayInFlight = false;
+      if (!_getMenuVisible?.()) {
+        musicStarted = true;
+        preloadGameTrackInBackground((gameMusicIndex + 1) % gameMusicUrls.length);
+      } else {
+        try { activeMusicEl.pause(); } catch {}
+      }
+    });
   }
 }
 
 /** @returns {void} */
 export function tryStartMenuMusic() {
-  if (!menuMusicEl || menuMusicStarted || _getIsMuted?.()) return;
+  if (!menuMusicEl || menuMusicStarted || menuMusicPlayInFlight) return;
+  if (_getIsMuted?.()) return;
+  if (_getMenuVisible && !_getMenuVisible()) return;
+
+  stopGameMusic();
   menuMusicEl.volume = getMusicTargetVolume();
-  void menuMusicEl.play().then(
-    () => {
+  menuMusicPlayInFlight = true;
+  playWhenReady(menuMusicEl, () => {
+    menuMusicPlayInFlight = false;
+    if (_getMenuVisible?.()) {
       menuMusicStarted = true;
-    },
-    () => {},
-  );
+    } else {
+      try { menuMusicEl.pause(); } catch {}
+    }
+  });
 }
 
 /** @returns {void} */
 export function stopMenuMusic() {
   if (!menuMusicEl) return;
   menuMusicFadeRaf = cancelFadeRaf(menuMusicFadeRaf);
+  menuMusicPlayInFlight = false;
   menuMusicEl.pause();
   menuMusicEl.currentTime = 0;
   menuMusicStarted = false;
@@ -215,22 +297,27 @@ export function stopMenuMusic() {
 /** @returns {void} */
 export function startMenuMusic() {
   if (!menuMusicEl) return;
-  menuMusicEl.volume = getMusicTargetVolume();
   menuMusicStarted = false;
+  menuMusicPlayInFlight = false;
+  menuMusicEl.volume = getMusicTargetVolume();
   tryStartMenuMusic();
 }
 
 /** @returns {void} */
 export function startGameMusic() {
-  if (!activeMusicEl || musicStarted || musicUnavailable) return;
-  void activeMusicEl.play().then(
-    () => {
+  if (!activeMusicEl || musicStarted || musicUnavailable || gameMusicPlayInFlight) return;
+  if (_getMenuVisible?.()) return;
+
+  gameMusicPlayInFlight = true;
+  playWhenReady(activeMusicEl, () => {
+    gameMusicPlayInFlight = false;
+    if (!_getMenuVisible?.()) {
       musicStarted = true;
-    },
-    () => {
-      // Autoplay may block until a gesture; missing file sets musicUnavailable.
-    },
-  );
+      preloadGameTrackInBackground((gameMusicIndex + 1) % gameMusicUrls.length);
+    } else {
+      try { activeMusicEl.pause(); } catch {}
+    }
+  });
 }
 
 /** @returns {void} */
@@ -238,6 +325,7 @@ export function stopGameMusic() {
   try {
     gameMusicFadeInRaf = cancelFadeRaf(gameMusicFadeInRaf);
     gameMusicFadeOutRaf = cancelFadeRaf(gameMusicFadeOutRaf);
+    gameMusicPlayInFlight = false;
     if (activeMusicEl) {
       activeMusicEl.pause();
       activeMusicEl.currentTime = 0;
@@ -255,6 +343,7 @@ export function stopGameMusic() {
 export function fadeOutMenuMusic() {
   if (!menuMusicEl) return;
   menuMusicFadeRaf = cancelFadeRaf(menuMusicFadeRaf);
+  menuMusicPlayInFlight = false;
   let currentVol = menuMusicEl.volume;
   const fadeStep = () => {
     if (!menuMusicEl) {
@@ -266,6 +355,7 @@ export function fadeOutMenuMusic() {
       menuMusicEl.volume = 0;
       menuMusicEl.pause();
       menuMusicEl.currentTime = 0;
+      menuMusicStarted = false;
       menuMusicFadeRaf = null;
       return;
     }
@@ -280,9 +370,14 @@ export function fadeOutMenuMusic() {
  * @returns {void}
  */
 export function fadeInGameMusic() {
+  if (!gameMusicUrls.length) return;
+  activeMusicEl = getOrCreateGameTrack(gameMusicIndex);
   if (!activeMusicEl) return;
+
   gameMusicFadeOutRaf = cancelFadeRaf(gameMusicFadeOutRaf);
   gameMusicFadeInRaf = cancelFadeRaf(gameMusicFadeInRaf);
+  musicStarted = false;
+  gameMusicPlayInFlight = false;
   activeMusicEl.volume = 0;
   activeMusicEl.muted = _getIsMuted?.() ?? false;
   startGameMusic();
@@ -320,6 +415,7 @@ export function destroyMusic() {
   }
   if (gameMusicElements) {
     gameMusicElements.forEach((a) => {
+      if (!a) return;
       a.pause();
       a.src = "";
     });
@@ -332,6 +428,9 @@ export function destroyMusic() {
   menuMusicStarted = false;
   musicStarted = false;
   musicUnavailable = false;
+  menuMusicPlayInFlight = false;
+  gameMusicPlayInFlight = false;
+  musicInitialized = false;
 }
 
 /**

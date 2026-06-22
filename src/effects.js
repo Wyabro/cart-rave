@@ -7,6 +7,7 @@ import { mergeGeometries } from "https://unpkg.com/three@0.164.1/examples/jsm/ut
 import { buildCart } from "../cart.js";
 import * as Simulation from "./simulation.js";
 import * as GameState from "./gameState.js";
+import { CONFIG } from "./config.js";
 import { clamp } from "./utils.js";
 
 const CROWD_INSTANCE_COUNT = 5000;
@@ -46,11 +47,21 @@ function disposeObject3D(root) {
  *   streakDurationSec: number,
  *   streakLengthMeters: number,
  *   streakSpawnRatePerSec: number,
+ *   streakRadiusMeters?: number,
+ *   streakTipRadiusScale?: number,
+ *   streakGlowRadiusMul?: number,
+ *   streakGlowOpacity?: number,
+ *   streakCoreOpacity?: number,
+ *   streakSaturationMul?: number,
+ *   streakBrightnessMul?: number,
+ *   streakSecondaryChance?: number,
+ *   streakMaxActive?: number,
+ *   streakPulseHz?: number,
  * }} RamBoostVisualConfig */
 
 /** @typedef {Record<string, { hex: number }>} CartColorMap */
 
-const TRASH_POOL_SIZE = 40;
+const TRASH_POOL_SIZE = 52;
 const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
 
 const AMBIENT_PARTICLE_COUNT = 260;
@@ -79,6 +90,14 @@ const ramBoostStreakAlignQuat = new THREE.Quaternion();
 const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
 const ramBoostStreakScratchOrigin = new THREE.Vector3();
 const ramBoostStreakScratchPos = new THREE.Vector3();
+const ramBoostStreakColorScratch = new THREE.Color();
+const ramBoostStreakHslScratch = { h: 0, s: 0, l: 0 };
+
+/** @type {THREE.CylinderGeometry | null} */
+let streakCoreUnitGeo = null;
+
+/** @type {THREE.CylinderGeometry | null} */
+let streakGlowUnitGeo = null;
 
 /** @type {Float32Array | null} */
 let ambientParticleDrift = null;
@@ -441,6 +460,7 @@ export function initEffects(scene, options = {}) {
   sceneRef = scene;
   ramBoostConfig = options.ramBoost ?? null;
   ramBoostStreaks = [];
+  if (ramBoostConfig) ensureStreakGeometries(ramBoostConfig);
 
   trashPool = [];
   trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
@@ -466,19 +486,40 @@ export function initEffects(scene, options = {}) {
 /**
  * Spawns a burst of trash particles at `position`.
  * @param {{ x: number, y: number, z: number }} position World-space origin.
- * @param {number} intensity 0–1 style intensity scaler.
+ * @param {number} intensity 0–1+ style intensity scaler.
  * @param {"cart" | "floor" | "edge"} [type] Burst profile.
+ * @param {{ isBoosting?: boolean }} [opts] Optional ram FX modifiers.
  */
-export function spawnTrashBurst(position, intensity, type = "cart") {
-  const count = type === "floor"
-    ? Math.floor(4 + intensity * 4)
-    : Math.floor(6 + intensity * 8);
+export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
+  const isBoosting = Boolean(opts.isBoosting);
+  const clampedI = clamp(intensity, 0, 1.35);
+  const fx = CONFIG.ramming?.fx ?? {};
+
+  let count;
+  if (type === "floor") {
+    count = Math.floor(4 + clampedI * 5);
+  } else if (type === "edge") {
+    count = Math.floor(6 + clampedI * 10);
+  } else {
+    const base = fx.particleCountBase ?? 8;
+    const perI = fx.particleCountPerIntensity ?? 16;
+    const boostBonus = isBoosting ? (fx.particleBoostCountBonus ?? 5) : 0;
+    const maxCount = fx.particleMaxCount ?? 28;
+    count = Math.min(Math.floor(base + clampedI * perI + boostBonus), maxCount);
+  }
+
+  const sizeMul =
+    (0.85 + clampedI * 1.05) *
+    (type === "floor" ? 0.65 : 1.0) *
+    (isBoosting && type === "cart" ? 1.22 : 1.0);
+  const velScale = (1 + clampedI * 0.45) * (isBoosting && type === "cart" ? 1.18 : 1.0);
+
   let spawned = 0;
   for (let i = 0; i < trashPool.length && spawned < count; i++) {
     const p = trashPool[i];
     if (p.visible) continue;
     p.position.set(position.x, position.y + (type === "floor" ? 0.05 : 0.5), position.z);
-    p.scale.setScalar((0.8 + intensity * 0.8) * (type === "floor" ? 0.65 : 1.0));
+    p.scale.setScalar(sizeMul * (0.92 + Math.random() * 0.16));
     if (type === "floor") {
       const colors = [0x551a8b, 0xff00ff, 0x333333];
       p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
@@ -492,7 +533,7 @@ export function spawnTrashBurst(position, intensity, type = "cart") {
     p.visible = true;
     if (type === "floor") {
       const angle = Math.random() * Math.PI * 2;
-      const sp = (3 + Math.random() * 5) * intensity;
+      const sp = (3 + Math.random() * 5) * clampedI * velScale;
       p.userData.vel.set(
         Math.cos(angle) * sp,
         1.5 + Math.random() * 2.5,
@@ -503,19 +544,21 @@ export function spawnTrashBurst(position, intensity, type = "cart") {
       const spreadX = (Math.random() - 0.5) * 3;
       const spreadZ = (Math.random() - 0.5) * 3;
       p.userData.vel.set(
-        toCenter.x * (6 + Math.random() * 6) * intensity + spreadX,
-        2 + Math.random() * 4 * intensity,
-        toCenter.z * (6 + Math.random() * 6) * intensity + spreadZ,
+        toCenter.x * (6 + Math.random() * 6) * clampedI * velScale + spreadX,
+        2 + Math.random() * 4 * clampedI * velScale,
+        toCenter.z * (6 + Math.random() * 6) * clampedI * velScale + spreadZ,
       );
     } else {
       p.userData.vel.set(
-        (Math.random() - 0.5) * 10 * intensity,
-        4 + Math.random() * 5 * intensity,
-        (Math.random() - 0.5) * 10 * intensity,
+        (Math.random() - 0.5) * 10 * clampedI * velScale,
+        (4 + Math.random() * 5) * clampedI * velScale,
+        (Math.random() - 0.5) * 10 * clampedI * velScale,
       );
     }
     p.userData.life = 0;
-    p.userData.maxLife = type === "floor" ? 0.35 + Math.random() * 0.15 : 0.4 + Math.random() * 0.2;
+    p.userData.maxLife = type === "floor"
+      ? 0.35 + Math.random() * 0.15
+      : 0.38 + Math.random() * 0.22 + clampedI * 0.08;
     spawned++;
   }
 }
@@ -581,13 +624,65 @@ export function updateAmbientParticles(dt, nowMs) {
 }
 
 /**
+ * Builds shared unit streak geometries (scaled per instance for perf).
+ * @param {RamBoostVisualConfig} rb
+ */
+function ensureStreakGeometries(rb) {
+  const tipScale = rb.streakTipRadiusScale ?? 0.12;
+  const glowMul = rb.streakGlowRadiusMul ?? 3.6;
+  if (!streakCoreUnitGeo) {
+    streakCoreUnitGeo = new THREE.CylinderGeometry(tipScale, 1, 1, 6, 1);
+  }
+  if (!streakGlowUnitGeo) {
+    streakGlowUnitGeo = new THREE.CylinderGeometry(tipScale * 1.15, glowMul, 1, 6, 1);
+  }
+}
+
+/**
+ * Pushes cart color toward anime-neon saturation/brightness.
+ * @param {number} hex
+ * @param {RamBoostVisualConfig} rb
+ * @returns {THREE.Color}
+ */
+function getAnimeStreakColor(hex, rb) {
+  const satMul = rb.streakSaturationMul ?? 1.5;
+  const brightMul = rb.streakBrightnessMul ?? 1.3;
+  ramBoostStreakColorScratch.setHex(hex);
+  ramBoostStreakColorScratch.getHSL(ramBoostStreakHslScratch);
+  ramBoostStreakColorScratch.setHSL(
+    ramBoostStreakHslScratch.h,
+    Math.min(1, ramBoostStreakHslScratch.s * satMul),
+    Math.min(0.85, ramBoostStreakHslScratch.l * brightMul),
+  );
+  return ramBoostStreakColorScratch;
+}
+
+/**
+ * Drops oldest streaks when the global pool is full.
+ * @param {number} maxActive
+ */
+function trimRamBoostStreakPool(maxActive) {
+  while (ramBoostStreaks.length >= maxActive) {
+    const oldest = ramBoostStreaks.shift();
+    if (!oldest) break;
+    sceneRef?.remove(oldest.group);
+    oldest.coreMat.dispose();
+    oldest.glowMat.dispose();
+  }
+}
+
+/**
  * @param {object} cart
  * @param {number} birthMs
+ * @param {{ lateral?: number, lengthMul?: number }} [variant]
  */
-function spawnRamBoostStreakForCart(cart, birthMs) {
-  if (!sceneRef || !ramBoostConfig) return;
+function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
+  if (!sceneRef || !ramBoostConfig || !streakCoreUnitGeo || !streakGlowUnitGeo) return;
 
   const rb = ramBoostConfig;
+  const maxActive = rb.streakMaxActive ?? 150;
+  trimRamBoostStreakPool(maxActive);
+
   const rot = cart.body.rotation();
   const yaw = Simulation.yawFromQuaternion(rot);
   const { forward, right } = Simulation.getForwardRightFromYaw(yaw);
@@ -596,29 +691,53 @@ function spawnRamBoostStreakForCart(cart, birthMs) {
   ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
   const t = cart.body.translation();
   ramBoostStreakScratchOrigin.set(t.x, t.y, t.z);
-  const back = Math.random() * 1.0;
-  const lat = (Math.random() * 2 - 1) * 0.5;
+  const back = 0.12 + Math.random() * 0.55;
+  const lat = variant.lateral ?? (Math.random() * 2 - 1) * 0.28;
   ramBoostStreakScratchPos
     .copy(ramBoostStreakScratchOrigin)
     .addScaledVector(fwd, -back)
     .addScaledVector(rgt, lat);
-  const geo = new THREE.CylinderGeometry(0.03, 0.03, rb.streakLengthMeters, 8, 1);
-  const mat = new THREE.MeshBasicMaterial({
-    color: cart.cartColor,
+
+  const baseRadius = rb.streakRadiusMeters ?? 0.014;
+  const lengthMul = variant.lengthMul ?? 0.88 + Math.random() * 0.2;
+  const streakLength = rb.streakLengthMeters * lengthMul;
+  const streakColor = getAnimeStreakColor(cart.cartColor, rb);
+  const coreOpacity = rb.streakCoreOpacity ?? 0.52;
+
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: streakColor,
     transparent: true,
-    opacity: 1,
+    opacity: coreOpacity,
     depthWrite: false,
+    blending: THREE.AdditiveBlending,
   });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.copy(ramBoostStreakScratchPos);
-  mesh.quaternion.copy(ramBoostStreakAlignQuat);
-  sceneRef.add(mesh);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: streakColor,
+    transparent: true,
+    opacity: rb.streakGlowOpacity ?? 0.62,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  const group = new THREE.Group();
+  const coreMesh = new THREE.Mesh(streakCoreUnitGeo, coreMat);
+  const glowMesh = new THREE.Mesh(streakGlowUnitGeo, glowMat);
+  group.add(glowMesh);
+  group.add(coreMesh);
+  group.position.copy(ramBoostStreakScratchPos);
+  group.quaternion.copy(ramBoostStreakAlignQuat);
+  group.scale.set(baseRadius, streakLength, baseRadius);
+  sceneRef.add(group);
+
   ramBoostStreaks.push({
-    mesh,
-    material: mat,
+    group,
+    coreMat,
+    glowMat,
     birthMs,
     durationMs: rb.streakDurationSec * 1000,
     cart,
+    baseRadius,
+    length: streakLength,
   });
 }
 
@@ -631,12 +750,19 @@ function spawnRamBoostStreakForCart(cart, birthMs) {
 export function tickRamBoostStreakSpawners(allCarts, nowMs, dtSec) {
   const rb = ramBoostConfig;
   if (!rb || !rb.enabled || dtSec <= 0) return;
+  const secondaryChance = rb.streakSecondaryChance ?? 0.55;
   for (const cart of allCarts) {
     if (nowMs > cart.ramBoostActiveUntilMs) continue;
     cart.ramBoostStreakCarry += rb.streakSpawnRatePerSec * dtSec;
     while (cart.ramBoostStreakCarry >= 1) {
       cart.ramBoostStreakCarry -= 1;
       spawnRamBoostStreakForCart(cart, nowMs);
+      if (Math.random() < secondaryChance) {
+        spawnRamBoostStreakForCart(cart, nowMs, {
+          lateral: (Math.random() * 2 - 1) * 0.85,
+          lengthMul: 0.65 + Math.random() * 0.45,
+        });
+      }
     }
   }
 }
@@ -648,23 +774,34 @@ export function tickRamBoostStreakSpawners(allCarts, nowMs, dtSec) {
 export function updateRamBoostStreaks(nowMs) {
   if (!sceneRef) return;
 
+  const pulseHz = ramBoostConfig?.streakPulseHz ?? 16;
+  const glowBase = ramBoostConfig?.streakGlowOpacity ?? 0.62;
+
   for (let i = ramBoostStreaks.length - 1; i >= 0; i -= 1) {
     const s = ramBoostStreaks[i];
     const t = (nowMs - s.birthMs) / s.durationMs;
     if (t >= 1) {
-      sceneRef.remove(s.mesh);
-      s.mesh.geometry.dispose();
-      s.material.dispose();
+      sceneRef.remove(s.group);
+      s.coreMat.dispose();
+      s.glowMat.dispose();
       ramBoostStreaks.splice(i, 1);
-    } else {
-      const baseOpacity = 1 - t;
-      if (GameState.getRoundState().phase === "running" && s.cart && s.cart.ramBoostActiveUntilMs > performance.now()) {
-        const pulse = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
-        s.material.opacity = clamp(baseOpacity * (pulse / 1.2), 0, 1);
-      } else {
-        s.material.opacity = baseOpacity;
-      }
+      continue;
     }
+
+    const fade = 1 - t * t;
+    const stretch = 1 + t * 0.25;
+    s.group.scale.set(s.baseRadius, s.length * stretch, s.baseRadius);
+
+    const isBoosting = GameState.getRoundState().phase === "running"
+      && s.cart
+      && s.cart.ramBoostActiveUntilMs > nowMs;
+    const pulse = isBoosting && pulseHz > 0
+      ? 1 + 0.12 * Math.sin(nowMs * 0.001 * Math.PI * 2 * pulseHz)
+      : 1;
+
+    const coreBase = ramBoostConfig?.streakCoreOpacity ?? 0.52;
+    s.coreMat.opacity = clamp(fade * coreBase * pulse, 0, 1);
+    s.glowMat.opacity = clamp(fade * glowBase * pulse, 0, 1);
   }
 }
 

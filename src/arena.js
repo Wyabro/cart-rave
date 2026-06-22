@@ -43,8 +43,10 @@ function buildRecordRingGeometry({
 
 /**
  * * Procedural record physics mesh: annular floor with beveled outer rim and a chamfered
- * * inner hole. The visible hole stays at innerRadius; physics adds a modest clearance
- * * plus a sloped transition so carts slide off the lip instead of catching a sharp edge.
+ * * inner hole. Visual hole stays at innerRadius; physics flat surface ends at
+ * * playInnerR (= innerRadius + holeClearance), then chamferWidth slopes inward to
+ * * chamferInnerR before the open void. Must stay aligned with getRecordFloorInnerR()
+ * * in simulation.js (floorInnerR = innerRadius + holeClearance).
  */
 function buildRecordPhysicsGeometry({
   outerRadius,

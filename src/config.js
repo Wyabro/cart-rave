@@ -61,13 +61,13 @@ const physics = {
     },
   },
 
-  // * Host-applied assist so carts slide off the rim and fall through cleanly.
+  // * Host-applied hole response — only active when cart footprint overhangs playInnerR.
   holeAssist: {
-    lowFrictionBandM: 1.5, // meters — rim band width for reduced friction
-    lowFriction: 0.05, // unitless — friction inside rim band
-    approachDownAccel: 5.0, // m/s² — downward nudge near hole edge
-    fallThroughAccel: 16.0, // m/s² — stronger pull once over the hole
-    unstickAccel: 32.0, // m/s² — escape stuck contacts on hole lip
+    lowFrictionBandM: 1.5, // meters — overhang depth ramp for inward/down assist
+    lowFriction: 0.05, // unitless — cart friction while overhanging the physics lip
+    approachDownAccel: 5.0, // m/s² — base downward nudge once overhanging
+    fallThroughAccel: 16.0, // m/s² — extra downward pull at full overhang (commit → 1)
+    unstickAccel: 32.0, // m/s² — inward pull off the chamfer lip (scaled ×0.3 × commit)
   },
 
   cart: {
@@ -77,7 +77,7 @@ const physics = {
     restitution: 0.3, // unitless
     linearDamping: 0.6, // 1/s — light, agile coast
     angularDamping: 1.2, // 1/s — tippy but not endless spin
-    maxPitchRoll: 4.5, // rad/s — high limit for edge tipping (clamp disabled in sim)
+    maxPitchRoll: 4.5, // rad/s — reference limit; sim clamp disabled for V1 tipping
     visualOffset: 0.82, // meters — mesh Y offset from body origin
     collider: {
       hyReduction: 0.25, // meters — subtract from half-height for physics collider
@@ -86,8 +86,8 @@ const physics = {
     },
     rigidBody: {
       canSleep: false, // bool — keep carts awake for responsive physics
-      // pitch, yaw, roll, wake — Rapier setEnabledRotations args
-      enabledRotations: [false, true, false, true],
+      // pitch, yaw, roll, wake — Rapier setEnabledRotations args (not applied; V1 tipping)
+      enabledRotations: [true, true, true, true],
     },
 
     ramBoost: {
@@ -96,9 +96,19 @@ const physics = {
       cooldownSec: 3.0, // seconds — time before nitro recharges
       boostedMaxSpeed: 26, // m/s — speed cap while nitro active
       boostedAccel: null, // m/s² — null uses driving.accel × multiplier in sim
-      streakDurationSec: 0.4, // seconds — trail particle lifetime
-      streakSpawnRatePerSec: 12, // particles/s — nitro trail spawn rate
-      streakLengthMeters: 2.0, // meters — trail segment length
+      streakDurationSec: 0.36, // seconds — short afterimage, blends with cart
+      streakSpawnRatePerSec: 16, // particles/s — nitro trail spawn rate
+      streakLengthMeters: 2.0, // meters — speed-line segment length
+      streakRadiusMeters: 0.014, // meters — thin core line width
+      streakTipRadiusScale: 0.12, // unitless — taper to point at trailing tip
+      streakGlowRadiusMul: 2.0, // unitless — subtle outer halo vs core
+      streakGlowOpacity: 0.26, // unitless — soft halo (keeps trails cart-adjacent)
+      streakCoreOpacity: 0.52, // unitless — core line transparency
+      streakSaturationMul: 1.05, // unitless — near cart color, not hyper-neon
+      streakBrightnessMul: 1.0, // unitless — no extra lightness punch
+      streakSecondaryChance: 0.1, // unitless — rare twin streak
+      streakMaxActive: 72, // count — global streak cap (perf guard)
+      streakPulseHz: 0, // Hz — 0 disables shimmer pulse
       npc: {
         enabled: true,
         alignmentAngleDeg: 13.2, // degrees — aim cone toward target
@@ -129,16 +139,26 @@ const physics = {
     groundVerticalVelThreshold: 2.0, // m/s — |vy| below this counts as grounded
     steerDeadzone: 0.01, // unitless — axis magnitude below this skips steer/drift
     driftMinSpeed: 0.25, // m/s — minimum |vForward| before drift impulse applies
-    holeZoneLinearYDamping: 0.35, // 1/s — vertical linear damping scale near center hole
-    defaultLinearYDamping: 1.2, // 1/s — vertical linear damping scale elsewhere
   },
 
   ramming: {
     minSpeed: 0.8, // m/s — minimum relative speed to score a hit
-    strength: 2.64, // unitless — collision impulse multiplier (8.0 × 0.33)
+    strength: 2.88, // unitless — collision impulse multiplier
     maxImpulse: 200.0, // N·s — per-frame impulse clamp
     spreadSteps: 3, // count — frames over which ram impulse is applied
     alignmentDotMin: 0.1, // unitless — min rammer→victim alignment dot product
+    boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale
+    nitroAccelMultiplier: 1.6, // unitless — drive accel while nitro active (when boostedAccel null)
+    fx: {
+      particleCountBase: 8, // count — cart-hit burst floor
+      particleCountPerIntensity: 16, // count — extra particles per unit intensity
+      particleBoostCountBonus: 5, // count — extra particles when rammer is boosting
+      particleMaxCount: 28, // count — hard cap per burst (pool performance guard)
+      shakeMinIntensity: 0.38, // unitless — min intensity for local ram screen shake
+      shakeBoostMinIntensity: 0.24, // unitless — lower shake threshold during nitro rams
+      shakePixelScale: 5.5, // px — screen shake amplitude scale
+      audioBoostGain: 1.35, // unitless — collision SFX gain multiplier when boosting
+    },
   },
 
   environmentImpacts: {
@@ -234,12 +254,17 @@ export const CONFIG = {
 
   scoring: {
     criticalVelocityThreshold: 11.0, // m/s — speed for critical hit bonus
+    hitWindowMs: 2500, // ms — max time after a hit to credit a fall kill
+  },
+
+  round: {
+    durationMs: 95000, // ms — host-authoritative round length
   },
 
   postFx: {
-    bloomStrength: 0.6, // unitless — UnrealBloomPass intensity
-    bloomRadius: 0.4, // unitless — bloom spread
-    bloomThreshold: 0.85, // unitless — luminance cutoff before bloom applies
+    bloomStrength: 0.675, // unitless — UnrealBloomPass intensity
+    bloomRadius: 0.45, // unitless — bloom spread
+    bloomThreshold: 0.75, // unitless — luminance cutoff before bloom applies
   },
 
   physics,

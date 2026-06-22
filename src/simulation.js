@@ -118,138 +118,128 @@ export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, co
 }
 
 /**
- * * Center-hole fall-through assist (called from applyArcadeControls).
- *
- * * Goal: a cart that reaches the hole should TUMBLE IN and then die — never wedge on the
- * * lip, and never die early on the flat floor. The physics collider's center hole is larger
- * * than the visual hole and has no inner wall/chamfer, so carts lose support before their
- * * colliders can catch the neon lip.
- *
- * * Fix: once the cart's nearest edge overhangs the expanded physics hole, strip its friction and add a
- * * gentle inward + downward pull (ramped by how far it overhangs) so it slides off the lip
- * * and free-falls through the open hole. No teleport — the cart visibly drops into the void,
- * * and the host-authoritative fall detector then scores the center-hole knockout (+2) once it
- * * passes `CONFIG.fall.yThreshold`. Carts fully on the flat floor keep normal grip.
+ * * Inner radius of the flat physics playing surface (matches arena `playInnerR`).
+ * * Visual hole stays at `CONFIG.record.innerRadius`; physics adds `holeClearance`.
  */
-export function applyCenterHoleAssist(cart, dtFixed, pos, mass) {
-  // * Already committed to a fall/respawn — let the existing pipeline run its course.
-  if (cart.respawnAtMs != null) return;
-
-  const posX = pos.x;
-  const posZ = pos.z;
-  const distanceFromCenter = Math.hypot(posX, posZ);
-  if (distanceFromCenter < 1e-3) return; // dead center: already over the open hole, falling
-
+function getRecordFloorInnerR() {
   const innerR = CONFIG.record.innerRadius;
-  // * Flat playable surface ends here; inside is open space in the physics collider.
   const holeClearance =
     CONFIG.record.physics?.holeClearance ??
     CONFIG.record.physics?.chamferWidth ??
-    1.05;
-  const floorInnerR = innerR + holeClearance;
+    0.45;
+  return innerR + holeClearance;
+}
+
+/**
+ * * Overhang state for center-hole response. Uses oriented footprint projection so tipped
+ * * carts (V1 pitch/roll) trigger low-friction + assist only when an edge crosses the lip.
+ *
+ * @returns {{
+ *   floorInnerR: number,
+ *   overhanging: boolean,
+ *   nearestEdge: number,
+ *   commit: number,
+ *   dirX: number,
+ *   dirZ: number,
+ * }}
+ */
+function getCenterHoleOverhangState(cart, pos) {
+  const floorInnerR = getRecordFloorInnerR();
+  const posX = pos.x;
+  const posZ = pos.z;
+  const distanceFromCenter = Math.hypot(posX, posZ);
+
+  const hx = CONFIG.cart.size.x / 2;
+  const hz = CONFIG.cart.size.z / 2;
+  const maxReach = hx + hz;
+
+  if (distanceFromCenter - maxReach >= floorInnerR) {
+    return {
+      floorInnerR,
+      overhanging: false,
+      nearestEdge: distanceFromCenter - maxReach,
+      commit: 0,
+      dirX: 0,
+      dirZ: 0,
+    };
+  }
+
+  const assistBand = CONFIG.record.holeAssist?.lowFrictionBandM ?? 1.5;
+
+  // * Dead center: fully over the open hole — full assist, no radial unstick.
+  if (distanceFromCenter < 1e-3) {
+    return {
+      floorInnerR,
+      overhanging: true,
+      nearestEdge: 0,
+      commit: 1,
+      dirX: 0,
+      dirZ: 0,
+    };
+  }
 
   const dirX = posX / distanceFromCenter;
   const dirZ = posZ / distanceFromCenter;
 
-  // * Overhang-aware: project the oriented footprint onto the radial direction to find how
-  // * close the cart's nearest edge is to the center (handles nose-in and side-on poses).
-  const hx = CONFIG.cart.size.x / 2;
-  const hz = CONFIG.cart.size.z / 2;
   setPlanarBasisFromRotation(cart.body.rotation(), _forward, _right);
-  const reach =
+  const radialReach =
     Math.abs(hx * (_right.x * dirX + _right.z * dirZ)) +
     Math.abs(hz * (_forward.x * dirX + _forward.z * dirZ));
-  const nearestEdge = distanceFromCenter - reach;
+  const nearestEdge = distanceFromCenter - radialReach;
+  const overhanging = nearestEdge < floorInnerR;
+  const commit = overhanging
+    ? Math.max(0, Math.min(1, (floorInnerR - nearestEdge) / Math.max(assistBand, 1e-3)))
+    : 0;
 
-  if (nearestEdge >= floorInnerR) {
-    // * Fully on the flat floor: restore normal grip, no assist.
-    if (cart.collider) cart.collider.setFriction(CONFIG.cart.friction);
-    return;
-  }
-
-  // * Cart overhangs the physics hole: make it slide off and fall in cleanly.
-  cart.body.wakeUp();
-  if (cart.collider) cart.collider.setFriction(0);
-
-  const assistBand = CONFIG.record.holeAssist?.lowFrictionBandM ?? 1.5;
-  const commit = Math.max(0, Math.min(1, (floorInnerR - nearestEdge) / Math.max(assistBand, 1e-3)));
-  const downAccel =
-    (CONFIG.record.holeAssist?.approachDownAccel ?? 6.0) +
-    (CONFIG.record.holeAssist?.fallThroughAccel ?? 22.0) * commit;
-  const inAccel = (CONFIG.record.holeAssist?.unstickAccel ?? 32.0) * 0.3 * commit;
-  cart.body.applyImpulse(
-    {
-      x: -dirX * inAccel * mass * dtFixed,
-      y: -downAccel * mass * dtFixed,
-      z: -dirZ * inAccel * mass * dtFixed,
-    },
-    true,
-  );
+  return { floorInnerR, overhanging, nearestEdge, commit, dirX, dirZ };
 }
 
 /**
  * Applies continuous arena contact response for one cart.
  *
  * Flat record driving uses Rapier-native linear/angular damping set at body spawn —
- * no per-frame planar impulses here. Manual X/Z damping impulses fight the trimesh
- * contact solver and cause micro-hopping on the flat floor.
+ * no per-frame planar impulses on the open floor. Manual X/Z damping impulses fight the
+ * trimesh contact solver and cause micro-hopping.
  *
- * Center-hole logic runs only when the cart is near the hole: low friction when the
- * footprint overhangs the open hole so the cart slides off and falls through cleanly.
+ * Center-hole: once the oriented footprint overhangs the physics lip (`playInnerR` in
+ * `buildRecordPhysicsGeometry`), friction drops to `holeAssist.lowFriction` and a gentle
+ * inward + downward assist (ramped by overhang depth) helps the cart slide off the chamfer
+ * and tumble through. Carts fully on the flat annulus keep normal grip and receive no assist.
+ * Fall scoring still happens via `CONFIG.fall.yThreshold` in gameFlow.
  *
  * @param {object} cart Cart entity with Rapier body/collider.
- * @param {number} _dtFixed Fixed physics timestep in seconds (reserved for future hole assist).
+ * @param {number} dtFixed Fixed physics timestep in seconds (drives hole assist impulses).
  */
-export function applyEnvironmentResponse(cart, _dtFixed) {
+export function applyEnvironmentResponse(cart, dtFixed) {
   if (!cart?.body || cart.respawnAtMs != null || !cart.collider) return;
 
   const pos = cart.body.translation();
   const collider = cart.collider;
+  const { overhanging, commit, dirX, dirZ } = getCenterHoleOverhangState(cart, pos);
 
-  const innerR = CONFIG.record.innerRadius;
-  const holeClearance =
-    CONFIG.record.physics?.holeClearance ??
-    CONFIG.record.physics?.chamferWidth ??
-    1.05;
-  const floorInnerR = innerR + holeClearance;
-
-  const posX = pos.x;
-  const posZ = pos.z;
-  const distanceFromCenter = Math.hypot(posX, posZ);
-
-  // * Dead center: already over the open hole — low grip so the cart can fall through.
-  if (distanceFromCenter < 1e-3) {
-    collider.setFriction(CONFIG.record.holeAssist?.lowFriction ?? 0);
-    return;
-  }
-
-  const hx = CONFIG.cart.size.x / 2;
-  const hz = CONFIG.cart.size.z / 2;
-  const maxReach = hx + hz;
-
-  // * Fully on the flat record: normal grip, no special handling. Linear/angular damping
-  // * stay at spawn-time Rapier values — do not zero damping or apply planar impulses.
-  if (distanceFromCenter - maxReach >= floorInnerR) {
+  if (!overhanging) {
     collider.setFriction(CONFIG.cart.friction);
     return;
   }
 
-  // --- Near center hole: only adjust friction when the footprint overhangs the hole ---
-  const dirX = posX / distanceFromCenter;
-  const dirZ = posZ / distanceFromCenter;
+  collider.setFriction(CONFIG.record.holeAssist?.lowFriction ?? 0);
+  cart.body.wakeUp();
 
-  setPlanarBasisFromRotation(cart.body.rotation(), _forward, _right);
+  if (!dtFixed || dtFixed <= 0) return;
 
-  const radialReach =
-    Math.abs(hx * (_right.x * dirX + _right.z * dirZ)) +
-    Math.abs(hz * (_forward.x * dirX + _forward.z * dirZ));
-  const nearestEdge = distanceFromCenter - radialReach;
+  const mass = getBodyMass(cart.body);
+  const downAccel =
+    (CONFIG.record.holeAssist?.approachDownAccel ?? 5.0) +
+    (CONFIG.record.holeAssist?.fallThroughAccel ?? 16.0) * commit;
+  const inAccel = (CONFIG.record.holeAssist?.unstickAccel ?? 32.0) * 0.3 * commit;
 
-  const overhangingHole = nearestEdge < floorInnerR;
-  collider.setFriction(
-    overhangingHole
-      ? CONFIG.record.holeAssist?.lowFriction ?? 0
-      : CONFIG.cart.friction,
+  cart.body.applyImpulse(
+    {
+      x: dirX ? -dirX * inAccel * mass * dtFixed : 0,
+      y: -downAccel * mass * dtFixed,
+      z: dirZ ? -dirZ * inAccel * mass * dtFixed : 0,
+    },
+    true,
   );
 }
 
@@ -294,10 +284,11 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     let targetSpeed =
       axis.forward > 0 ? CONFIG.driving.maxSpeed : -CONFIG.driving.reverseMaxSpeed;
     if (nitroForward) {
-      targetSpeed = CONFIG.driving.maxSpeed * 1.2;
+      targetSpeed = rb.boostedMaxSpeed ?? CONFIG.driving.maxSpeed * 1.2;
     }
-    const accelRate =
-      nitroForward && rb.boostedAccel != null ? rb.boostedAccel : CONFIG.driving.accel;
+    const accelRate = nitroForward
+      ? (rb.boostedAccel ?? CONFIG.driving.accel * (CONFIG.ramming.nitroAccelMultiplier ?? 1.6))
+      : CONFIG.driving.accel;
     const speedError = targetSpeed - vForward;
     const maxDeltaV = accelRate * controlFactor * dtFixed;
     const dvForward = Math.max(-maxDeltaV, Math.min(maxDeltaV, speedError));
@@ -329,18 +320,7 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
 
   applyEnvironmentResponse(cart, dtFixed);
 
-  // Temporarily disabled for testing — restore later
-  /*
-  const av = cart.body.angvel();
-  const maxPitchRoll = 3.2;
-  if (Math.abs(av.x) > maxPitchRoll || Math.abs(av.z) > maxPitchRoll) {
-    cart.body.setAngvel({
-      x: clamp(av.x, -maxPitchRoll, maxPitchRoll),
-      y: av.y,
-      z: clamp(av.z, -maxPitchRoll, maxPitchRoll),
-    }, true);
-  }
-  */
+  // * Pitch/roll angular clamp intentionally off — V1 tipping must stay free near the hole lip.
 }
 
 /**
@@ -386,13 +366,13 @@ function resolveCartRamCollision(c1, c2) {
  *
  * @param {object} rammer Attacking cart entity.
  * @param {object} victim Target cart entity.
- * @param {Function|null} playCollisionRef Local collision audio callback.
- * @param {Function|null} spawnTrashBurstRef Local particle burst callback.
+ * @param {object} callbacks Injected helpers (FX, local cart, host broadcast).
  * @param {boolean} isHost Whether this client is the room host.
- * @param {object|null} partySocket Active PartyKit socket (host broadcast).
- * @param {object[]|null} allCarts All cart entities in slot order (legacy param, unused for slot lookup).
  */
-export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrashBurstRef, isHost, partySocket, allCarts) {
+export function applyRammingImpulse(rammer, victim, callbacks, isHost) {
+  const playCollisionRef = callbacks?.playCollision;
+  const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
+  const partySocket = callbacks?.partySocket;
   const rv = rammer.body.linvel();
   const speed = planarSpeed(rv);
   if (speed < CONFIG.ramming.minSpeed) return;
@@ -421,17 +401,26 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
     )
   );
   const isRammerBoosting = performance.now() <= (rammer.ramBoostActiveUntilMs || 0);
-  const impulseMag = isRammerBoosting ? impulseMagBase * 2 : impulseMagBase;
+  const boostMul = CONFIG.ramming.boostImpulseMultiplier ?? 2;
+  const impulseMag = isRammerBoosting ? impulseMagBase * boostMul : impulseMagBase;
+  const fxIntensity = Math.min(impulseMag / CONFIG.ramming.maxImpulse, 1.35);
+  const fxOpts = { isBoosting: isRammerBoosting };
 
   const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
 
-  // Visual + audio feedback (local only)
-  if (playCollisionRef) {
-    playCollisionRef(impulseMag / CONFIG.ramming.maxImpulse);
-  }
-  if (spawnTrashBurstRef && GameState.getRoundState().phase === "running") {
-    const midpoint = { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 };
-    spawnTrashBurstRef(midpoint, impulseMag / CONFIG.ramming.maxImpulse);
+  // * Host plays FX locally; non-host replays the same events from host_event_collision
+  // * so prediction physics does not double-spawn bright particles (extra bloom).
+  if (isHost) {
+    if (playCollisionRef) {
+      playCollisionRef(fxIntensity, fxOpts);
+    }
+    if (spawnTrashBurstRef && GameState.getRoundState().phase === "running") {
+      const midpoint = { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 };
+      spawnTrashBurstRef(midpoint, fxIntensity, "cart", fxOpts);
+    }
+    if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
+      callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
+    }
   }
 
   // Spread impulse
@@ -467,7 +456,9 @@ export function applyRammingImpulse(rammer, victim, playCollisionRef, spawnTrash
       partySocket.send(JSON.stringify({
         type: "host_event_collision",
         slotA, slotB,
-        intensity: impulseMag / CONFIG.ramming.maxImpulse,
+        rammerSlot: rammer.slotIndex,
+        isBoosting: isRammerBoosting,
+        intensity: fxIntensity,
         midpoint: { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 },
       }));
     }
@@ -540,10 +531,49 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots) {
   };
 }
 
-function pickAiPatrolTarget() {
+function pickAiPatrolTarget(cautious = false) {
   const angle = Math.random() * Math.PI * 2;
-  const r = CONFIG.record.radius * (0.68 + Math.random() * 0.14);
+  const r = CONFIG.record.radius * (
+    cautious
+      ? 0.58 + Math.random() * 0.12
+      : 0.68 + Math.random() * 0.14
+  );
+  return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, cautious);
+}
+
+function pickAiRandomWanderTarget(fromPos, cautious) {
+  if (cautious) {
+    const minR = CONFIG.record.innerRadius * 2.5;
+    const maxR = CONFIG.record.radius * 0.65;
+    const r = minR + Math.sqrt(Math.random()) * (maxR - minR);
+    const angle = Math.random() * Math.PI * 2;
+    return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, true);
+  }
+
+  const dist = Math.hypot(fromPos.x, fromPos.z);
+  const edgeBiasStart = CONFIG.record.radius * 0.78;
+  if (dist > edgeBiasStart) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = CONFIG.record.radius * (0.38 + Math.random() * 0.22);
+    return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, false);
+  }
+
+  const minR = CONFIG.record.innerRadius * 2.0;
+  const maxR = CONFIG.record.radius * 0.85;
+  const r = minR + Math.sqrt(Math.random()) * (maxR - minR);
+  const angle = Math.random() * Math.PI * 2;
   return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, false);
+}
+
+/**
+ * @param {object} cart
+ */
+function ensureAiBehaviorState(cart) {
+  if (cart.aiPauseUntilMs == null) cart.aiPauseUntilMs = 0;
+  if (cart.aiReverseUntilMs == null) cart.aiReverseUntilMs = 0;
+  if (cart.aiSteerGain == null) cart.aiSteerGain = 1.1;
+  if (cart.aiLastProgressMs == null) cart.aiLastProgressMs = 0;
+  if (cart.aiLastDistToTarget == null) cart.aiLastDistToTarget = Infinity;
 }
 
 /**
@@ -557,42 +587,20 @@ function pickAiPatrolTarget() {
  */
 export function pickAiTarget(fromPos, allCarts, netSlots, nowMs) {
   const cautious = isAiCautiousPhase(nowMs, allCarts, netSlots);
-  const dist = Math.hypot(fromPos.x, fromPos.z);
+  const humanTarget = findNearestHumanTarget(fromPos, allCarts, netSlots);
+  const roll = Math.random();
 
-  // * Prefer humans when available.
-  if (Math.random() < 0.72) {
-    const humanTarget = findNearestHumanTarget(fromPos, allCarts, netSlots);
-    if (humanTarget) {
-      return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious);
-    }
+  // * Weighted mix: humans, outer-ring patrol, random wander.
+  const humanWeight = cautious ? 0.38 : 0.42;
+  const patrolWeight = cautious ? 0.18 : 0.30;
+
+  if (roll < humanWeight && humanTarget) {
+    return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious);
   }
-
-  // * Occasional outer-ring patrol.
-  const patrolChance = cautious ? 0.1 : 0.25;
-  if (Math.random() < patrolChance) {
-    return pickAiPatrolTarget();
+  if (roll < humanWeight + patrolWeight) {
+    return pickAiPatrolTarget(cautious);
   }
-
-  if (cautious) {
-    const minR = CONFIG.record.innerRadius * 2.5;
-    const maxR = CONFIG.record.radius * 0.65;
-    const r = minR + Math.sqrt(Math.random()) * (maxR - minR);
-    const angle = Math.random() * Math.PI * 2;
-    return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, true);
-  }
-
-  const edgeBiasStart = CONFIG.record.radius * 0.78;
-  if (dist > edgeBiasStart) {
-    const angle = Math.random() * Math.PI * 2;
-    const r = CONFIG.record.radius * 0.45;
-    return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, false);
-  }
-
-  const minR = CONFIG.record.innerRadius * 2.0;
-  const maxR = CONFIG.record.radius * 0.85;
-  const r = minR + Math.sqrt(Math.random()) * (maxR - minR);
-  const angle = Math.random() * Math.PI * 2;
-  return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, false);
+  return pickAiRandomWanderTarget(fromPos, cautious);
 }
 
 /**
@@ -605,17 +613,60 @@ export function pickAiTarget(fromPos, allCarts, netSlots, nowMs) {
  * @returns {{ forward: number, turn: number }}
  */
 export function getAiAxis(now, cart, allCarts, netSlots) {
+  ensureAiBehaviorState(cart);
+
+  if (now < cart.aiPauseUntilMs) {
+    const idleWobble = Math.sin(now * 0.002 + (cart.slotIndex || 0)) * 0.12;
+    return { forward: 0, turn: clamp(idleWobble, -0.18, 0.18) };
+  }
+
   const p = cart.body.translation();
   if (now >= cart.aiNextDecisionMs) {
     cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now);
-    cart.aiNextDecisionMs = now + (900 + Math.random() * 1100);
+    cart.aiNextDecisionMs = now + (800 + Math.random() * 1200);
+    cart.aiSteerGain = 1.0 + Math.random() * 0.5;
+    cart.aiLastProgressMs = now;
+    cart.aiLastDistToTarget = Infinity;
+
+    // * Random short stop to break up constant circling.
+    if (Math.random() < 0.14) {
+      cart.aiPauseUntilMs = now + (500 + Math.random() * 1000);
+      return { forward: 0, turn: 0 };
+    }
   }
 
   const toTarget = _aiToTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
-  if (toTarget.lengthSq() < 0.25) {
+  const distToTarget = Math.sqrt(toTarget.lengthSq());
+
+  if (distToTarget < 0.5) {
     cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now);
-    cart.aiNextDecisionMs = now + (900 + Math.random() * 1100);
+    cart.aiNextDecisionMs = now + (800 + Math.random() * 1200);
+    cart.aiLastProgressMs = now;
     toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+  }
+
+  const lv = cart.body.linvel();
+  const speed = Math.hypot(lv.x, lv.z);
+  if (distToTarget < cart.aiLastDistToTarget - 0.35) {
+    cart.aiLastProgressMs = now;
+  }
+  cart.aiLastDistToTarget = distToTarget;
+
+  const stuckForMs = now - cart.aiLastProgressMs;
+  const isStuck = speed < 1.4 && stuckForMs > 1100 && distToTarget > 2.0;
+  const isClose = distToTarget < 2.8;
+
+  if (now >= cart.aiReverseUntilMs && (isStuck || isClose)) {
+    const reverseChance = isStuck ? 0.2 : 0.12;
+    if (Math.random() < reverseChance) {
+      cart.aiReverseUntilMs = now + (450 + Math.random() * 650);
+      cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now);
+      toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+    }
+  }
+
+  if (toTarget.lengthSq() < 1e-6) {
+    return { forward: 0, turn: 0 };
   }
   toTarget.normalize();
 
@@ -623,8 +674,19 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   const currentYaw = yawFromQuaternion(cart.body.rotation());
   const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
 
-  const turn = clamp(yawDiff * 1.45, -1, 1);
-  const forward = Math.abs(yawDiff) > 2.4 ? -0.35 : 1;
+  const slotPhase = (cart.slotIndex || 0) * 1.7;
+  const steerWobble = Math.sin(now * 0.0022 + slotPhase) * 0.1;
+  const turn = clamp(yawDiff * cart.aiSteerGain + steerWobble, -1, 1);
+
+  if (now < cart.aiReverseUntilMs) {
+    return {
+      forward: -(0.5 + Math.random() * 0.3),
+      turn,
+    };
+  }
+
+  // * Gentle correction only — no constant hard reverse on wide headings.
+  const forward = Math.abs(yawDiff) > 2.85 ? 0.25 : 1;
   return { forward, turn };
 }
 
@@ -695,15 +757,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
       if (c1 !== c2) {
         const ram = resolveCartRamCollision(c1, c2);
         if (ram) {
-          applyRammingImpulse(
-            ram.rammer,
-            ram.victim,
-            callbacks.playCollision,
-            callbacks.spawnTrashBurst,
-            isHost,
-            callbacks.partySocket,
-            allCarts,
-          );
+          applyRammingImpulse(ram.rammer, ram.victim, callbacks, isHost);
         }
       }
     } else if (c1 || c2) {
@@ -715,12 +769,14 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
 
       const contactPos = getEnvironmentContactPosition(cart, envType, impacts);
 
-      if (envType === "floor") {
-        if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
-        if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
-      } else {
-        if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
-        if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
+      if (isHost) {
+        if (envType === "floor") {
+          if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
+          if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
+        } else {
+          if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
+          if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
+        }
       }
 
       if (isHost && callbacks.partySocket) {
@@ -822,6 +878,6 @@ export function runFixedPhysicsStep({
   // 5. Step world
   if (world && eventQueue) {
     world.step(eventQueue);
-    processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost);
+    processCollisionEvents(world, eventQueue, allCarts, { ...callbacks, localCart }, isHost);
   }
 }

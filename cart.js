@@ -77,16 +77,22 @@ const SHARED_HUB_GEO = new THREE.CylinderGeometry(
 const UNIT_CYL_GEO_6 = new THREE.CylinderGeometry(1, 1, 1, BASKET_RAIL_SEGMENTS, 1);
 const UNIT_CYL_GEO_8 = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
 
-const SHARED_LENS_MAT = new THREE.MeshBasicMaterial({
-  color: 0x050505,
-  side: THREE.DoubleSide,
-});
-const SHARED_MOUTH_MAT = new THREE.MeshBasicMaterial({ color: 0x050505 });
+// * Shared near-black trim: handles, wheel tires/stems, sunglasses, and smile.
+const CART_BLACK = 0x111111;
+
 const SHARED_HANDLE_MAT = new THREE.MeshStandardMaterial({
-  color: 0x111111,
+  color: CART_BLACK,
   roughness: 0.6,
   metalness: 0.8,
   emissive: 0x000000,
+});
+// * Face decals sit on thin planes/tubes viewed from outside the basket front (-Z).
+const SHARED_FACE_TRIM_MAT = new THREE.MeshStandardMaterial({
+  color: CART_BLACK,
+  roughness: 0.6,
+  metalness: 0.8,
+  emissive: 0x000000,
+  side: THREE.DoubleSide,
 });
 
 /**
@@ -201,23 +207,9 @@ function neonFrameMaterial(base) {
   return new THREE.MeshStandardMaterial({
     color: c,
     emissive: c,
-    emissiveIntensity: 1.85,
+    emissiveIntensity: 1.0,
     roughness: 0.3,
     metalness: 0.7,
-  });
-}
-
-/**
- * @param {THREE.Color} base
- * @returns {THREE.MeshStandardMaterial}
- */
-function neonWheelMaterial(base) {
-  return new THREE.MeshStandardMaterial({
-    color: 0x333333,
-    emissive: base.clone(),
-    emissiveIntensity: 0.15,
-    roughness: 0.2,
-    metalness: 0.9,
   });
 }
 
@@ -441,10 +433,9 @@ function buildChassis(frameGeometries, dims) {
  * Builds caster mounts, stems, yaw/pitch groups, wheels, and hub discs at chassis corners.
  * @param {THREE.Group} root Cart root group.
  * @param {THREE.Material} frameMat Neon frame material for wheel hubs.
- * @param {THREE.Material} wheelMat Dark chrome wheel tire and stem material.
  * @returns {{ casterYawGroups: THREE.Group[], wheelPitchObjects: THREE.Group[], wobblePhases: number[] }}
  */
-function buildCastersAndWheels(root, frameMat, wheelMat) {
+function buildCastersAndWheels(root, frameMat) {
   const casterYawGroups = [];
   const wheelPitchObjects = [];
   const hx = CHASSIS_HALF_WIDTH - CASTER_CORNER_INSET;
@@ -468,7 +459,7 @@ function buildCastersAndWheels(root, frameMat, wheelMat) {
 
     const stem = new THREE.Mesh(
       new THREE.CylinderGeometry(WHEEL_WIDTH * 0.42, WHEEL_WIDTH * 0.5, CASTER_STEM_HEIGHT, 10, 1),
-      wheelMat,
+      SHARED_HANDLE_MAT,
     );
     stem.position.y = -CASTER_STEM_HEIGHT * 0.35;
     stem.userData.isWheel = true;
@@ -482,7 +473,7 @@ function buildCastersAndWheels(root, frameMat, wheelMat) {
     const pitchGroup = new THREE.Group();
     yawGroup.add(pitchGroup);
 
-    const wheel = new THREE.Mesh(SHARED_WHEEL_GEO, wheelMat);
+    const wheel = new THREE.Mesh(SHARED_WHEEL_GEO, SHARED_HANDLE_MAT);
     wheel.rotation.z = Math.PI / 2;
     wheel.userData.isWheel = true;
     // * Marks shared geometry so cleanup utilities avoid disposing it per-instance.
@@ -527,14 +518,16 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
   const lensH = hFront * 0.35;
   const lensGap = halfW * 0.06;
 
-  // * Left lens.
-  const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), SHARED_LENS_MAT);
+  // * Left lens — PlaneGeometry defaults to +Z; rotate so the lit face points out the cart front (-Z).
+  const leftLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), SHARED_FACE_TRIM_MAT);
+  leftLens.rotation.y = Math.PI;
   leftLens.position.set(-lensGap - lensW * 0.5, faceCenterY, faceZ);
   leftLens.userData.isFace = true;
   basketGroup.add(leftLens);
 
   // * Right lens.
-  const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), SHARED_LENS_MAT);
+  const rightLens = new THREE.Mesh(new THREE.PlaneGeometry(lensW, lensH), SHARED_FACE_TRIM_MAT);
+  rightLens.rotation.y = Math.PI;
   rightLens.position.set(lensGap + lensW * 0.5, faceCenterY, faceZ);
   rightLens.userData.isFace = true;
   basketGroup.add(rightLens);
@@ -542,8 +535,9 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
   // * Bridge.
   const bridge = new THREE.Mesh(
     new THREE.PlaneGeometry(lensGap * 2, lensH * 0.3),
-    SHARED_LENS_MAT,
+    SHARED_FACE_TRIM_MAT,
   );
+  bridge.rotation.y = Math.PI;
   bridge.position.set(0, faceCenterY, faceZ);
   bridge.userData.isFace = true;
   basketGroup.add(bridge);
@@ -556,7 +550,7 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
     new THREE.Vector3(halfW * 0.6, mouthY, faceZ),
   );
   const mouthGeo = new THREE.TubeGeometry(mouthCurve, 12, 0.035, 4, false);
-  const mouth = new THREE.Mesh(mouthGeo, SHARED_MOUTH_MAT);
+  const mouth = new THREE.Mesh(mouthGeo, SHARED_FACE_TRIM_MAT);
   mouth.userData.isFace = true;
   basketGroup.add(mouth);
 }
@@ -570,7 +564,6 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
 export function buildCart(colorHex) {
   const baseColor = new THREE.Color(colorHex);
   const frameMat = neonFrameMaterial(baseColor);
-  const wheelMat = neonWheelMaterial(baseColor);
   const root = new THREE.Group();
   root.name = "CartVisual";
 
@@ -620,7 +613,7 @@ export function buildCart(colorHex) {
   if (handleMesh) root.add(handleMesh);
 
   const { casterYawGroups, wheelPitchObjects, wobblePhases } =
-    buildCastersAndWheels(root, frameMat, wheelMat);
+    buildCastersAndWheels(root, frameMat);
 
   root.userData.cartVisual = {
     casterYawGroups,

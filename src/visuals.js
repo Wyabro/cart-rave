@@ -6,9 +6,9 @@ import { updateCartVisuals as _updateCartVisuals, resetCartVisualState as _reset
 export { _updateCartVisuals as updateCartVisuals, _resetCartVisualState as resetCartVisualState };
 
 /**
- * Removes and disposes every ram-boost streak mesh (e.g. between-round reset).
+ * Removes and disposes every ram-boost streak (e.g. between-round reset).
  *
- * @param {Array<{ mesh?: THREE.Mesh, material?: THREE.Material }> | null | undefined} streaks
+ * @param {Array<{ group?: THREE.Group, mesh?: THREE.Mesh, coreMat?: THREE.Material, glowMat?: THREE.Material, material?: THREE.Material }> | null | undefined} streaks
  * @param {THREE.Scene | null | undefined} scene
  */
 export function disposeAllRamBoostStreaks(streaks, scene) {
@@ -21,12 +21,16 @@ export function disposeAllRamBoostStreaks(streaks, scene) {
       continue;
     }
 
-    if (scene && s.mesh) {
+    if (scene && s.group) {
+      scene.remove(s.group);
+    } else if (scene && s.mesh) {
       scene.remove(s.mesh);
     }
     if (s.mesh?.geometry) {
       s.mesh.geometry.dispose();
     }
+    if (s.coreMat) s.coreMat.dispose();
+    if (s.glowMat) s.glowMat.dispose();
     if (s.material) {
       s.material.dispose();
     }

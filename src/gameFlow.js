@@ -29,6 +29,48 @@ import * as CameraMod from "./camera.js";
  */
 
 /**
+ * Helper to calculate score and determine if a hit qualifies for a kill.
+ * Extracted to keep the main loop clean.
+ */
+function calculateFallScore(deps, slotIndex, p, nowMs) {
+  const hit = deps.getLastHitBy().get(slotIndex);
+  const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 2500;
+
+  if (!hit || (nowMs - hit.timestamp > hitWindowMs)) {
+    return { isKill: false, points: 0, attackerSlot: null, verb: "FELL OFF" };
+  }
+
+  const distOriginXZ = Math.hypot(p.x, p.z);
+  const isCenterHole = distOriginXZ < deps.CONFIG.record.innerRadius + 2;
+  let points = isCenterHole ? 2 : 1;
+
+  if (hit.wasCritical) points += 1;
+
+  const scores = deps.getRoundScores();
+  let leaderSlotIndex = -1;
+  let leaderScore = 0;
+  let leaderTied = false;
+
+  for (let i = 0; i < 4; i += 1) {
+    const s = Number(scores[i] || 0);
+    if (s > leaderScore) {
+      leaderScore = s;
+      leaderSlotIndex = i;
+      leaderTied = false;
+    } else if (s === leaderScore && s > 0) {
+      leaderTied = true;
+    }
+  }
+
+  if (!leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex) {
+    points += 1;
+  }
+
+  const verb = deps.hud?.pickKillFeedVerb ? deps.hud.pickKillFeedVerb(hit) : "RAMMED";
+  return { isKill: true, points, attackerSlot: hit.attackerSlotIndex, verb };
+}
+
+/**
  * Host fall/score handling, respawns, round timer end, and camera follow.
  * Runs once per frame after ambient visuals and before physics substeps.
  *
@@ -39,112 +81,78 @@ export function updateGameFlow(deps, context) {
   const { now, dt } = context;
   const allCarts = deps.getAllCarts();
   const localSlotIndexThisFrame = deps.getLocalSlotIndex();
+  const roundState = deps.getRoundState();
+  const isHost = deps.isHost();
 
-  if (deps.isHost() && deps.getRoundState().phase === "running") {
-    // Fall detection / respawn (host-authoritative).
-    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-      const slot = deps.getNetSlots()[slotIndex];
-      const c = allCarts[slotIndex];
-      if (!slot) continue;
-      const p = c.body.translation();
-      if (p.y < deps.CONFIG.fall.yThreshold) {
-        // Stage A scoring: credit last hit if recent.
-        // Only score once per fall event.
-        if (c.respawnAtMs === null) {
-          const hit = deps.getLastHitBy().get(slotIndex) || null;
-          let fallEventAttackerSlot = null;
-          let fallEventVerb = "FELL OFF";
-          // 2500ms window: covers slow slide-offs and falls; long enough
-          // to avoid "ghost kills" where rammer gets no credit despite
-          // clearly causing the fall.
-          if (hit && Date.now() - hit.timestamp <= 2500) {
-            const distOriginXZ = Math.hypot(p.x, p.z);
-            const isCenterHole = distOriginXZ < deps.CONFIG.record.innerRadius + 2;
-            let points = isCenterHole ? 2 : 1;
+  if (isHost && roundState.phase === "running") {
+    const netSlots = deps.getNetSlots();
+    const nowMs = Date.now();
+    const roundDurationMs = deps.CONFIG.round?.durationMs ?? 95000;
 
-            if (hit.wasCritical) points += 1; // critical bonus
+    if (roundState.startedAtMs > 0 && nowMs - roundState.startedAtMs >= roundDurationMs) {
+      deps.endRound();
+    } else {
+      for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+        const slot = netSlots[slotIndex];
+        const cart = allCarts[slotIndex];
+        if (!slot || !cart?.body) continue;
 
-            // Leader lookup (before applying this score).
-            let leaderSlotIndex = -1;
-            let leaderScore = 0;
-            let leaderTied = false;
-            for (let i = 0; i < 4; i += 1) {
-              const s = Number(deps.getRoundScores()[i] || 0);
-              if (s > leaderScore) {
-                leaderScore = s;
-                leaderSlotIndex = i;
-                leaderTied = false;
-              } else if (s === leaderScore && s > 0) {
-                leaderTied = true;
-              }
-            }
-            if (!leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex) points += 1; // target bonus
+        const p = cart.body.translation();
 
-            // GameState.addScore is accessed via deps in main — use callback
-            deps.addScore(hit.attackerSlotIndex, points);
+        if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
+          const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
 
-            {
-              const attackerSlot = deps.getNetSlots()[hit.attackerSlotIndex];
-              const victimSlot = deps.getNetSlots()[slotIndex];
-              const actorName = attackerSlot?.name || `P${hit.attackerSlotIndex + 1}`;
-              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-              const hud = deps.hud;
-              const actorColor = hud?.colorHexToCss ? hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
-              const targetColor = hud?.colorHexToCss ? hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
-              const verb = hud?.pickKillFeedVerb ? hud.pickKillFeedVerb(hit) : "RAMMED";
-              hud?.addKillFeedEntry?.(actorName, actorColor, verb, targetName, targetColor);
-              fallEventAttackerSlot = hit.attackerSlotIndex;
-              fallEventVerb = verb;
-            }
-            if (deps.getRoundState().phase === "running") {
-              if (hit.attackerSlotIndex === localSlotIndexThisFrame) {
-                deps.setFovPunchUntil(performance.now() + 200);
-              }
+          if (scoreData.isKill) {
+            deps.addScore(scoreData.attackerSlot, scoreData.points);
+            deps.sendHostRound();
+
+            if (scoreData.attackerSlot === localSlotIndexThisFrame) {
+              deps.setFovPunchUntil(performance.now() + 200);
             }
 
-            deps.sendHostRound(); // broadcast score update to non-host clients
+            const attackerSlot = netSlots[scoreData.attackerSlot];
+            const victimSlot = netSlots[slotIndex];
+            const actorName = attackerSlot?.name || `P${scoreData.attackerSlot + 1}`;
+            const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+            const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
+            const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+
+            deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor);
           } else {
-            const victimSlot = deps.getNetSlots()[slotIndex];
+            const victimSlot = netSlots[slotIndex];
             const targetName = victimSlot?.name || `P${slotIndex + 1}`;
             const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+
             deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
           }
+
           const partySocket = deps.getPartySocket();
           if (partySocket) {
             partySocket.send(JSON.stringify({
               type: deps.MSG.hostEventFall,
               slotId: slotIndex,
               victimSlotIndex: slotIndex,
-              attackerSlot: fallEventAttackerSlot,
-              attackerSlotIndex: fallEventAttackerSlot,
-              verb: fallEventVerb,
+              attackerSlot: scoreData.attackerSlot,
+              attackerSlotIndex: scoreData.attackerSlot,
+              verb: scoreData.verb,
             }));
           }
+
           deps.getLastHitBy().delete(slotIndex);
+          deps.scheduleRespawn(cart, now);
         }
 
-        deps.scheduleRespawn(c, now);
+        if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
+          deps.doRespawn(cart);
+        }
+
+        if (slot.kind === "npc") {
+          deps.maybeTriggerNpcOpportunisticRamBoost(now, cart);
+        }
       }
-      if (c.respawnAtMs !== null && now >= c.respawnAtMs) {
-        deps.doRespawn(c);
-      }
-      if (slot.kind === "npc") deps.maybeTriggerNpcOpportunisticRamBoost(now, c);
     }
   }
 
-  // Round phase transitions (host only)
-  if (deps.isHost()) {
-    // running → end when timer expires
-    if (
-      deps.getRoundState().phase === "running" &&
-      deps.getRoundState().startedAtMs > 0 &&
-      Date.now() - deps.getRoundState().startedAtMs >= 95000
-    ) {
-      deps.endRound();
-    }
-  }
-
-  // Third-person follow camera (behind the cart).
   const localCart = deps.getLocalCart();
   if (localCart?.body) {
     const playerPos = localCart.body.translation();

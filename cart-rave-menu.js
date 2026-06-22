@@ -88,6 +88,9 @@
     defaultVolume: 0.25,
   };
 
+  const capitalizeWord = (word) =>
+    word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "";
+
   const HANDLE_PARTS = [
     ["CART", "BASS", "NEON", "TROLLEY", "WHEEL", "RAVE", "GLOW", "KICK", "BOOM", "ZAP", "DISCO", "STROBE"],
     ["LORD", "QUEEN", "KILLER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE"],
@@ -95,7 +98,7 @@
   const rollHandle = () => {
     const a = HANDLE_PARTS[0][Math.floor(Math.random() * HANDLE_PARTS[0].length)];
     const b = HANDLE_PARTS[1][Math.floor(Math.random() * HANDLE_PARTS[1].length)];
-    return `${a}${b}`;
+    return `${capitalizeWord(a)}${capitalizeWord(b)}`;
   };
 
   const PLAYER_NAME_POOL = [
@@ -166,9 +169,7 @@
 
   const rollPlayerName = () => {
     const pool = PLAYER_NAME_POOL.filter((n) => !CLIENT_NPC_NAME_SET.has(n));
-    const base = pool[Math.floor(Math.random() * pool.length)] || "CartRaver";
-    const suffix = String(Math.floor(Math.random() * 100)).padStart(2, "0");
-    return `${base}${suffix}`;
+    return pool[Math.floor(Math.random() * pool.length)] || "CartRaver";
   };
 
   // * Game color IDs in slot order — must match PALETTE = Object.keys(CART_COLORS) in main.js.
@@ -440,7 +441,7 @@
   }
 
   function finishNameEdit() {
-    state.name = (nameInput.value || '').toUpperCase().slice(0, CONFIG.nameMaxLength) || state.name;
+    state.name = (nameInput.value || '').trim().slice(0, CONFIG.nameMaxLength) || state.name;
     localStorage.setItem("cartRaveUsername", state.name);
     nameText.textContent = state.name;
     nameInput.style.display = 'none';

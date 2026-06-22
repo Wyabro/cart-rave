@@ -3,6 +3,7 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
+import { CONFIG } from "./config.js";
 import { clamp } from "./utils.js";
 
 /**
@@ -186,7 +187,7 @@ function initLeaderHumSfx(audioListener, getSfxVolume, getIsMuted) {
  *   onCollisionShake?: (intensity: number) => void,
  * }} deps
  */
-function createSfxSystem(audioListener, { getSfxVolume, getIsMuted, onCollisionShake }) {
+function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
   /** @type {{ intensity: number; stop: () => void }[]} */
   const activeImpactSfx = [];
   const MAX_ACTIVE_IMPACTS = 3;
@@ -203,6 +204,16 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted, onCollisionS
     const d = sharedNoiseBuffer.getChannelData(0);
     for (let j = 0; j < d.length; j += 1) d[j] = Math.random() * 2 - 1;
     return sharedNoiseBuffer;
+  }
+
+  /** @param {AudioContext} ctx @param {number} now @param {number} peak @param {number} attack @param {number} hold @param {number} release */
+  function scheduleImpactEnvelope(gainNode, ctx, now, peak, attack, hold, release) {
+    const g = getIsMuted() ? 0.0001 : Math.max(0.0001, peak * getSfxVolume());
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.exponentialRampToValueAtTime(g, now + attack);
+    gainNode.gain.setValueAtTime(g, now + attack + hold);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + attack + hold + release);
   }
 
   const ensureCartCrashBufferLoaded = () => {
@@ -320,8 +331,10 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted, onCollisionS
         noise.stop(now + noiseLen);
       } catch {}
     },
-    playCollision(intensity) {
-      const i = clamp(intensity, 0, 1);
+    playCollision(intensity, opts = {}) {
+      const isBoosting = Boolean(opts.isBoosting);
+      const rawI = clamp(intensity, 0, 1.35);
+      const i = Math.min(1, rawI);
       if (i <= 0) return;
       const ctx = audioListener.context;
       if (ctx.state !== "running") return;
@@ -344,10 +357,11 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted, onCollisionS
 
       const src = ctx.createBufferSource();
       src.buffer = cartCrashBuffer;
-      src.playbackRate.setValueAtTime(0.6 + Math.random() * 0.4 + i * 0.5, now);
+      src.playbackRate.setValueAtTime(0.6 + Math.random() * 0.4 + rawI * 0.55 + (isBoosting ? 0.12 : 0), now);
 
       const out = ctx.createGain();
-      const g = (0.2 + i * 0.8) * getSfxVolume() * 0.85;
+      const boostGain = isBoosting ? (CONFIG?.ramming?.fx?.audioBoostGain ?? 1.35) : 1;
+      const g = (0.22 + rawI * 0.88) * getSfxVolume() * 0.85 * boostGain;
       out.gain.setValueAtTime(Math.max(0.0001, getIsMuted() ? 0.0001 : g), now);
 
       src.connect(out);
@@ -372,95 +386,180 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted, onCollisionS
 
       activeImpactSfx.push(entry);
       try { src.start(0); } catch {}
-
-      if (GameState.getRoundState().phase === "running" && i > 0.2) {
-        onCollisionShake?.(i);
-      }
     },
     playNitro() {
+      if (getIsMuted() || getSfxVolume() <= 0) return;
       const ctx = audioListener.context;
       if (ctx.state !== "running") return;
       const now = ctx.currentTime;
 
-      // * Aggressive nitro burst: wide whoosh + saw accent + low thump.
-      const len = 0.25;
+      // * Sub punch
+      const punch = ctx.createOscillator();
+      punch.type = "sine";
+      punch.frequency.setValueAtTime(58, now);
+      punch.frequency.exponentialRampToValueAtTime(32, now + 0.09);
+      const punchG = ctx.createGain();
+      scheduleImpactEnvelope(punchG, ctx, now, 0.42, 0.003, 0.02, 0.07);
+      punch.connect(punchG);
+      punchG.connect(audioListener.gain);
+
+      // * Engine growl — filtered triangle sweep reads as motor strain, not a toy laser.
+      const growl = ctx.createOscillator();
+      growl.type = "triangle";
+      growl.frequency.setValueAtTime(72 + Math.random() * 8, now);
+      growl.frequency.exponentialRampToValueAtTime(195, now + 0.38);
+      const growlLp = ctx.createBiquadFilter();
+      growlLp.type = "lowpass";
+      growlLp.frequency.setValueAtTime(280, now);
+      growlLp.frequency.exponentialRampToValueAtTime(520, now + 0.2);
+      growlLp.Q.value = 0.9;
+      const growlG = ctx.createGain();
+      scheduleImpactEnvelope(growlG, ctx, now, 0.34, 0.008, 0.12, 0.28);
+      growl.connect(growlLp);
+      growlLp.connect(growlG);
+      growlG.connect(audioListener.gain);
+
+      // * Turbulence whoosh — dual-band noise sweep for weight + air release.
+      const whooshLen = 0.42;
       const buf = ensureSharedNoiseBuffer(ctx);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.setValueAtTime(0.9 + Math.random() * 0.2, now);
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.setValueAtTime(400, now);
-      bp.frequency.exponentialRampToValueAtTime(4000, now + len);
-      bp.Q.value = 2;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.5 * getSfxVolume(), now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + len);
-      src.connect(bp);
-      bp.connect(g);
-      g.connect(audioListener.gain);
-      src.start(now);
-      src.stop(now + len);
+      const turb = ctx.createBufferSource();
+      turb.buffer = buf;
+      turb.playbackRate.setValueAtTime(0.75 + Math.random() * 0.1, now);
+      const turbBp = ctx.createBiquadFilter();
+      turbBp.type = "bandpass";
+      turbBp.frequency.setValueAtTime(180, now);
+      turbBp.frequency.exponentialRampToValueAtTime(2200, now + whooshLen * 0.7);
+      turbBp.Q.value = 0.85;
+      const turbG = ctx.createGain();
+      scheduleImpactEnvelope(turbG, ctx, now, 0.38, 0.012, 0.08, 0.32);
 
-      // * Pitch accent: sawtooth sweep for extra bite.
-      const accent = ctx.createOscillator();
-      accent.type = "sawtooth";
-      accent.frequency.setValueAtTime(200, now);
-      accent.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
-      const ag = ctx.createGain();
-      ag.gain.setValueAtTime(0.25 * getSfxVolume(), now);
-      ag.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      accent.connect(ag);
-      ag.connect(audioListener.gain);
-      accent.start(now);
-      accent.stop(now + 0.15);
+      const air = ctx.createBufferSource();
+      air.buffer = buf;
+      air.playbackRate.setValueAtTime(1.05 + Math.random() * 0.15, now);
+      const airHp = ctx.createBiquadFilter();
+      airHp.type = "highpass";
+      airHp.frequency.setValueAtTime(1200, now);
+      const airG = ctx.createGain();
+      scheduleImpactEnvelope(airG, ctx, now, 0.14, 0.004, 0.015, 0.12);
 
-      // * Low-end thump: quick chest-punch.
-      const thump = ctx.createOscillator();
-      thump.type = "sine";
-      thump.frequency.setValueAtTime(80, now);
-      const tg = ctx.createGain();
-      tg.gain.setValueAtTime(0.3 * getSfxVolume(), now);
-      tg.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      thump.connect(tg);
-      tg.connect(audioListener.gain);
-      thump.start(now);
-      thump.stop(now + 0.15);
+      turb.connect(turbBp);
+      turbBp.connect(turbG);
+      turbG.connect(audioListener.gain);
+      air.connect(airHp);
+      airHp.connect(airG);
+      airG.connect(audioListener.gain);
+
+      try {
+        punch.start(now);
+        punch.stop(now + 0.1);
+        growl.start(now);
+        growl.stop(now + 0.4);
+        turb.start(now);
+        turb.stop(now + whooshLen);
+        air.start(now);
+        air.stop(now + 0.18);
+      } catch {}
     },
     playHop() {
       if (getIsMuted() || getSfxVolume() <= 0) return;
       const ctx = audioListener.context;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(300, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.3 * getSfxVolume(), ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain);
-      gain.connect(audioListener.gain);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.15);
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime;
+
+      // * Mechanical click — instant tactile onset.
+      const click = ctx.createBufferSource();
+      click.buffer = ensureSharedNoiseBuffer(ctx);
+      const clickBp = ctx.createBiquadFilter();
+      clickBp.type = "bandpass";
+      clickBp.frequency.setValueAtTime(2800, now);
+      clickBp.Q.value = 2.2;
+      const clickG = ctx.createGain();
+      scheduleImpactEnvelope(clickG, ctx, now, 0.22, 0.001, 0.004, 0.025);
+      click.connect(clickBp);
+      clickBp.connect(clickG);
+      clickG.connect(audioListener.gain);
+
+      // * Spring release — quick pitch drop feels like suspension compressing.
+      const spring = ctx.createOscillator();
+      spring.type = "sine";
+      spring.frequency.setValueAtTime(210, now);
+      spring.frequency.exponentialRampToValueAtTime(88, now + 0.055);
+      const springG = ctx.createGain();
+      scheduleImpactEnvelope(springG, ctx, now, 0.3, 0.002, 0.012, 0.05);
+      spring.connect(springG);
+      springG.connect(audioListener.gain);
+
+      // * Body thump — grounds the hop so it is not a cartoon boing.
+      const thump = ctx.createOscillator();
+      thump.type = "triangle";
+      thump.frequency.setValueAtTime(95, now);
+      thump.frequency.exponentialRampToValueAtTime(48, now + 0.04);
+      const thumpG = ctx.createGain();
+      scheduleImpactEnvelope(thumpG, ctx, now, 0.18, 0.002, 0.008, 0.035);
+      thump.connect(thumpG);
+      thumpG.connect(audioListener.gain);
+
+      try {
+        click.start(now);
+        click.stop(now + 0.035);
+        spring.start(now);
+        spring.stop(now + 0.07);
+        thump.start(now);
+        thump.stop(now + 0.05);
+      } catch {}
     },
     playFallOff() {
+      if (getIsMuted() || getSfxVolume() <= 0) return;
       const ctx = audioListener.context;
       if (ctx.state === "suspended") {
         void ctx.resume();
       }
+      if (ctx.state !== "running") return;
       const now = ctx.currentTime;
+      const fallLen = 0.45;
 
-      // * Quick low drop, keeping the fall cue short and grounded.
-      const osc = ctx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(250, now);
-      osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.3, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc.connect(g);
-      g.connect(audioListener.gain);
-      osc.start(now);
-      osc.stop(now + 0.18);
+      // * Deep sub plunge — the "oh no" drop.
+      const sub = ctx.createOscillator();
+      sub.type = "sine";
+      sub.frequency.setValueAtTime(130, now);
+      sub.frequency.exponentialRampToValueAtTime(28, now + fallLen);
+      const subG = ctx.createGain();
+      scheduleImpactEnvelope(subG, ctx, now, 0.42, 0.006, 0.06, fallLen - 0.04);
+      sub.connect(subG);
+      subG.connect(audioListener.gain);
+
+      // * Mid descent adds drama without sounding chirpy.
+      const mid = ctx.createOscillator();
+      mid.type = "triangle";
+      mid.frequency.setValueAtTime(220, now);
+      mid.frequency.exponentialRampToValueAtTime(42, now + fallLen * 0.85);
+      const midG = ctx.createGain();
+      scheduleImpactEnvelope(midG, ctx, now, 0.2, 0.004, 0.04, fallLen * 0.7);
+      mid.connect(midG);
+      midG.connect(audioListener.gain);
+
+      // * Air-rush whoosh follows the cart over the edge.
+      const rush = ctx.createBufferSource();
+      rush.buffer = ensureSharedNoiseBuffer(ctx);
+      const rushBp = ctx.createBiquadFilter();
+      rushBp.type = "bandpass";
+      rushBp.frequency.setValueAtTime(1100, now);
+      rushBp.frequency.exponentialRampToValueAtTime(120, now + fallLen);
+      rushBp.Q.value = 0.6;
+      const rushG = ctx.createGain();
+      scheduleImpactEnvelope(rushG, ctx, now, 0.28, 0.01, 0.05, fallLen * 0.75);
+      rush.connect(rushBp);
+      rushBp.connect(rushG);
+      rushG.connect(audioListener.gain);
+
+      try {
+        sub.start(now);
+        sub.stop(now + fallLen + 0.05);
+        mid.start(now);
+        mid.stop(now + fallLen);
+        rush.start(now);
+        rush.stop(now + fallLen);
+      } catch {}
     },
     playWheelScreech(intensity) {
       if (getIsMuted() || getSfxVolume() <= 0) return;
@@ -470,39 +569,39 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted, onCollisionS
       if (ctx.state === "suspended") {
         void ctx.resume();
       }
+      if (ctx.state !== "running") return;
       const now = ctx.currentTime;
 
-      // * Rubber-on-glass squeak via high-Q resonant bandpass noise (no oscillators/LFOs).
-      const len = 0.12;
-      const attackSec = 0.005;
-
-      const buf = ensureSharedNoiseBuffer(ctx);
+      // * Subtle wheel friction — soft wide-band noise, not a tonal squeal.
+      const len = 0.07 + i * 0.05;
       const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.setValueAtTime(0.85 + Math.random() * 0.3, now);
+      src.buffer = ensureSharedNoiseBuffer(ctx);
+      src.playbackRate.setValueAtTime(0.9 + Math.random() * 0.15, now);
 
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      // Center freq: 2800–3800 Hz (higher pitch = squeakier).
-      const centerHz = 2800 + Math.random() * 1000;
-      bp.frequency.setValueAtTime(centerHz, now);
-      // High resonance makes the filter ring/squeal; add small per-trigger Q variation.
-      const baseQ = 15 + Math.random() * 5; // 15–20
-      const qJitter = (Math.random() - 0.5) * 6; // ±3
-      bp.Q.value = Math.max(1, baseQ + qJitter);
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.setValueAtTime(500 + Math.random() * 200, now);
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(1400 + Math.random() * 400, now);
+      lp.Q.value = 0.5;
 
       const g = ctx.createGain();
-      const base = 0.25 * getSfxVolume();
-      const peak = base * (0.35 + i * 0.65);
-      g.gain.setValueAtTime(0.001, now);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + attackSec);
-      g.gain.exponentialRampToValueAtTime(0.001, now + len);
+      const peak = (0.04 + i * 0.07) * getSfxVolume();
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(Math.max(0.0001, peak), now + 0.012);
+      g.gain.linearRampToValueAtTime(0.0001, now + len);
 
-      src.connect(bp);
-      bp.connect(g);
+      src.connect(hp);
+      hp.connect(lp);
+      lp.connect(g);
       g.connect(audioListener.gain);
-      src.start(now);
-      src.stop(now + len);
+
+      try {
+        src.start(now);
+        src.stop(now + len);
+      } catch {}
     },
   };
 

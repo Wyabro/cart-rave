@@ -67,6 +67,7 @@ let callbacks = {
   // Connection lifecycle
   markFirstHelloReceived: () => {},
   getOnGameStartHandler: () => null,
+  onJoinRejected: () => {},
 
   // Menu & HUD
   getMenuVisible: () => true,
@@ -83,6 +84,7 @@ let callbacks = {
   // Audio & VFX
   playCollisionRef: () => {},
   spawnTrashBurstRef: () => {},
+  triggerLocalRamShakeRef: () => {},
   playFloorImpactRef: () => {},
   playEdgeImpactRef: () => {},
 
@@ -120,6 +122,7 @@ export function registerGameCallbacks(deps) {
     getInitialNpcNames: () => deps.initialNpcNames,
     markFirstHelloReceived: () => deps.markFirstHelloReceived(),
     getOnGameStartHandler: () => deps.getOnGameStartHandler(),
+    onJoinRejected: () => deps.onJoinRejected?.(),
     getMenuVisible: () => deps.getMenuVisible(),
     hideMenuRef: () => deps.invokeHideMenu(),
     updateCartMaterialsFromSlots: (slots) => deps.updateCartMaterialsFromSlots(slots),
@@ -135,12 +138,15 @@ export function registerGameCallbacks(deps) {
     respawnLocalMidRoundJoinRef: () => {
       if (deps.respawnLocalMidRoundJoinRef.current) deps.respawnLocalMidRoundJoinRef.current();
     },
-    playCollisionRef: (intensity) => deps.getPlayCollisionRef()?.(intensity),
+    playCollisionRef: (intensity, opts) => deps.getPlayCollisionRef()?.(intensity, opts),
     playFloorImpactRef: (intensity) => deps.getSfx()?.playFloorImpact?.(intensity),
     playEdgeImpactRef: (intensity) => deps.getSfx()?.playEdgeImpact?.(intensity),
-    spawnTrashBurstRef: (mp, intensity, type) => {
+    spawnTrashBurstRef: (mp, intensity, type, opts) => {
       const spawnTrashBurst = deps.getSpawnTrashBurstRef();
-      if (spawnTrashBurst) spawnTrashBurst(mp, intensity, type);
+      if (spawnTrashBurst) spawnTrashBurst(mp, intensity, type, opts);
+    },
+    triggerLocalRamShakeRef: (intensity, isBoosting) => {
+      deps.getTriggerLocalRamShake?.()?.(intensity, isBoosting);
     },
     addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor) => {
       const hud = deps.getHud();
@@ -880,6 +886,7 @@ export function initNetcode(roomOverride) {
   });
 
   let didSendJoin = false;
+  let helloReceivedThisSession = false;
   let netcodeRetryScheduled = false;
   const scheduleNetcodeRetry = () => {
     if (netcodeRetryScheduled) return;
@@ -892,11 +899,19 @@ export function initNetcode(roomOverride) {
   };
 
   partySocket.addEventListener("close", () => {
+    if (didSendJoin && !helloReceivedThisSession) {
+      try { callbacks.onJoinRejected(); } catch {}
+      return;
+    }
     if (didSendJoin) return;
     try { scheduleNetcodeRetry(); } catch {}
   });
 
   partySocket.addEventListener("error", () => {
+    if (didSendJoin && !helloReceivedThisSession) {
+      try { callbacks.onJoinRejected(); } catch {}
+      return;
+    }
     if (didSendJoin) return;
     try { scheduleNetcodeRetry(); } catch {}
   });
@@ -914,13 +929,12 @@ export function initNetcode(roomOverride) {
     startKeepaliveLoop();
 
     const menuVisible = callbacks.getMenuVisible();
-    if (!didAutoReadyOnOpen && !menuVisible && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
+    if (!didAutoReadyOnOpen && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
       didAutoReadyOnOpen = true;
       setTimeout(() => {
         if (
           partySocket &&
           partySocket.readyState === WebSocket.OPEN &&
-          !callbacks.getMenuVisible() &&
           (callbacks.detectGameMode() === "quickplay" || callbacks.detectGameMode() === "solo")
         ) {
           partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
@@ -942,7 +956,13 @@ export function initNetcode(roomOverride) {
     const type = msg.type;
     const menuVisible = callbacks.getMenuVisible();
 
+    if (type === MSG.joinRejected) {
+      try { callbacks.onJoinRejected(); } catch {}
+      return;
+    }
+
     if (type === MSG.hello) {
+      helloReceivedThisSession = true;
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
@@ -965,18 +985,17 @@ export function initNetcode(roomOverride) {
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
 
-      if (!menuVisible) {
-        const savedColor = localStorage.getItem('cartRaveColor');
-        const palette = callbacks.getPALETTE();
-        const colorToSend = (savedColor && palette.includes(savedColor)) ? savedColor : palette[0];
-        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-          partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
-          if (GameState.getRoundState().phase === "running" && youConnId) {
-            callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
-          }
+      // * Enter game only after server hello — menu stays up while connecting.
+      const savedColor = localStorage.getItem('cartRaveColor');
+      const palette = callbacks.getPALETTE();
+      const colorToSend = (savedColor && palette.includes(savedColor)) ? savedColor : palette[0];
+      if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+        partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
+        if (GameState.getRoundState().phase === "running" && youConnId) {
+          callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
         }
-        callbacks.hideMenuRef();
       }
+      callbacks.hideMenuRef();
 
       callbacks.updateCartMaterialsFromSlots(msg.slots);
       callbacks.updateHudColorsFromSlots(msg.slots);
@@ -1091,9 +1110,14 @@ export function initNetcode(roomOverride) {
             callbacks.spawnTrashBurstRef(mp, intensity, "edge");
           }
         } else {
-          callbacks.playCollisionRef(intensity);
+          const isBoosting = Boolean(msg.isBoosting);
+          callbacks.playCollisionRef(intensity, { isBoosting });
           if (GameState.getRoundState().phase === "running") {
-            callbacks.spawnTrashBurstRef(mp, intensity);
+            callbacks.spawnTrashBurstRef(mp, intensity, "cart", { isBoosting });
+          }
+          const localSlot = strictSlotIndexForConn(youConnId);
+          if (typeof msg.rammerSlot === "number" && msg.rammerSlot === localSlot) {
+            callbacks.triggerLocalRamShakeRef(intensity, isBoosting);
           }
         }
       }

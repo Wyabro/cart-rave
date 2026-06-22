@@ -31,7 +31,7 @@ let _prevRoundPhase = null;
 let _lastCountdownN = null;
 /** Slot index of the local human player from the last score update. */
 let _lastLocalIdx = null;
-/** Cached score rows sorted by score descending; rebuilt when scores or slot metadata change. */
+/** Cached score rows in display order (local → humans → NPCs); rebuilt when scores or slot metadata change. */
 let _sortedScoreRows = null;
 /** Last rendered scores per slot — shallow compare avoids per-frame string allocation. */
 let _lastScores = [0, 0, 0, 0];
@@ -47,6 +47,13 @@ export const HUD_CSS = `
       --hud-display: "Bungee", "Archivo Black", cursive, sans-serif;
       --hud-mono: "Space Mono", ui-monospace, monospace;
       --hud-glow: #22e6ff;
+      --hud-pad: clamp(8px, 1.5vw, 18px);
+      --hud-radius: clamp(4px, 0.8vw, 6px);
+      --hud-panel-bg: rgba(0,0,0,0.75);
+      --hud-border: 2px solid rgba(255,255,255,0.15);
+      --hud-timer-reserve: clamp(128px, 15vw, 208px);
+      --hud-audio-reserve: clamp(150px, 20vw, 240px);
+      --hud-feed-top: clamp(96px, 12vh, 120px);
       position: fixed;
       inset: 0;
       z-index: 20000;
@@ -58,34 +65,32 @@ export const HUD_CSS = `
 
     #hud .hud-status {
       position: absolute;
-      top: 18px;
+      top: var(--hud-pad);
       left: 50%;
       transform: translateX(-50%);
       font-family: var(--hud-display);
-      font-size: 2.4rem;
+      font-size: clamp(1.4rem, 4vw, 2.4rem);
       font-weight: 900;
       letter-spacing: 0.06em;
-      padding: 10px 14px;
+      padding: clamp(4px, 1vw, 10px) clamp(8px, 1.5vw, 14px);
       color: #ff2bd6;
-      text-shadow:
-        4px 4px 0 #22e6ff,
-        0 0 24px #ff2bd6,
-        0 0 42px #ff2bd6;
+      text-shadow: 4px 4px 0 #22e6ff, 0 0 24px #ff2bd6, 0 0 42px #ff2bd6;
       display: none;
       white-space: nowrap;
+      z-index: 10;
     }
 
     #hud .hud-timer {
       position: absolute;
-      top: 18px;
-      left: 18px;
+      top: var(--hud-pad);
+      left: var(--hud-pad);
       display: none;
       align-items: stretch;
       justify-content: flex-start;
       flex-direction: row;
-      background: rgba(0,0,0,0.75);
-      border: 2px solid rgba(255,255,255,0.15);
-      border-radius: 6px;
+      background: var(--hud-panel-bg);
+      border: var(--hud-border);
+      border-radius: var(--hud-radius);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       overflow: hidden;
@@ -93,26 +98,26 @@ export const HUD_CSS = `
     }
 
     #hud .hud-timer-stripe {
-      width: 8px;
+      width: clamp(4px, 0.8vw, 8px);
       background: #39ff14;
       box-shadow: 0 0 12px #39ff14aa;
       flex: 0 0 auto;
     }
 
     #hud .hud-timer-body {
-      padding: 10px 20px 12px 16px;
-      min-width: 200px;
+      padding: clamp(6px, 1vw, 10px) clamp(10px, 1.5vw, 20px) clamp(8px, 1vw, 12px) clamp(10px, 1vw, 16px);
+      min-width: clamp(120px, 15vw, 200px);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: clamp(4px, 0.8vw, 8px);
     }
 
     #hud .hud-timer-meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: clamp(4px, 0.8vw, 8px);
       font-family: "Share Tech Mono", ui-monospace, monospace;
-      font-size: 13px;
+      font-size: clamp(10px, 1.2vw, 13px);
       letter-spacing: 2px;
       color: rgba(255,255,255,0.6);
       text-transform: uppercase;
@@ -131,13 +136,13 @@ export const HUD_CSS = `
     #hud .hud-timer-rd {
       margin-left: auto;
       color: rgba(255,255,255,0.45);
-      font-size: 12px;
+      font-size: clamp(10px, 1.1vw, 12px);
       letter-spacing: 1px;
     }
 
     #hud .hud-timer-num {
       font-family: "Bungee", cursive, system-ui, sans-serif;
-      font-size: 54px;
+      font-size: clamp(28px, 5.5vw, 54px);
       line-height: 1;
       letter-spacing: 4px;
       color: #ffffff;
@@ -145,7 +150,7 @@ export const HUD_CSS = `
     }
 
     #hud .hud-timer-bar {
-      height: 5px;
+      height: clamp(4px, 0.8vw, 5px);
       background: rgba(255,255,255,0.1);
       border-radius: 3px;
       overflow: hidden;
@@ -162,7 +167,7 @@ export const HUD_CSS = `
 
     #hud .hud-scores {
       position: absolute;
-      top: 18px;
+      top: var(--hud-pad);
       left: 50%;
       transform: translateX(-50%);
       display: none;
@@ -171,21 +176,25 @@ export const HUD_CSS = `
       gap: 0;
       align-items: center;
       justify-content: center;
-      background: rgba(0,0,0,0.75);
-      border: 2px solid rgba(255,255,255,0.15);
-      border-radius: 6px;
+      background: var(--hud-panel-bg);
+      border: var(--hud-border);
+      border-radius: var(--hud-radius);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       overflow: hidden;
+      width: max-content;
+      max-width: calc(100% - (var(--hud-pad) * 2) - var(--hud-timer-reserve) - var(--hud-audio-reserve));
     }
 
     #hud .hud-scoreBox {
       --hud-glow: #22e6ff;
-      padding: 14px 18px;
+      flex: 0 1 auto;
+      min-width: 0;
+      padding: clamp(6px, 1.2vw, 14px) clamp(8px, 1.5vw, 18px);
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 8px;
+      gap: clamp(4px, 0.8vw, 8px);
       border-right: 1px solid rgba(255,255,255,0.08);
     }
 
@@ -201,30 +210,33 @@ export const HUD_CSS = `
 
     #hud .hud-scoreRank {
       font-family: "Bungee", cursive, system-ui, sans-serif;
-      font-size: 16px;
+      font-size: clamp(12px, 1.4vw, 16px);
       color: var(--hud-glow);
       text-shadow: 0 0 8px var(--hud-glow);
       min-width: 16px;
+      flex-shrink: 0;
     }
 
     #hud .hud-scoreLabel {
       font-family: "Bungee", cursive, system-ui, sans-serif;
-      font-size: 14px;
+      font-size: clamp(11px, 1.2vw, 14px);
       letter-spacing: 1px;
+      flex: 0 1 auto;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 160px;
       color: #ffffff;
       text-shadow: 0 0 6px rgba(255,255,255,0.2);
     }
 
     #hud .hud-scoreValue {
       font-family: "Bungee", cursive, system-ui, sans-serif;
-      font-size: 18px;
+      font-size: clamp(13px, 1.5vw, 18px);
       color: var(--hud-glow);
       text-shadow: 0 0 10px var(--hud-glow);
-      min-width: 24px;
+      min-width: 1.5em;
+      flex-shrink: 0;
       text-align: right;
     }
 
@@ -237,17 +249,19 @@ export const HUD_CSS = `
       border-radius: 3px;
       letter-spacing: 1px;
       box-shadow: 0 0 8px var(--hud-glow);
+      flex-shrink: 0;
       display: none;
     }
 
     #hud .hud-feed {
       position: absolute;
-      top: 120px;
-      right: 18px;
+      top: var(--hud-feed-top);
+      right: var(--hud-pad);
+      max-width: calc(100% - var(--hud-pad) - var(--hud-audio-reserve));
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      z-index: 20001;
+      gap: clamp(4px, 0.8vw, 8px);
+      z-index: 20000;
       text-align: right;
       pointer-events: none;
     }
@@ -257,7 +271,7 @@ export const HUD_CSS = `
       align-items: center;
       justify-content: flex-end;
       gap: 8px;
-      font-size: 14px;
+      font-size: clamp(11px, 1.3vw, 14px);
       letter-spacing: 1.5px;
       text-transform: uppercase;
       opacity: 0.9;
@@ -266,23 +280,31 @@ export const HUD_CSS = `
 
     #hud .hud-feed-actor {
       font-family: "Bungee", cursive, system-ui, sans-serif;
-      font-size: 14px;
+      font-size: clamp(11px, 1.3vw, 14px);
       color: var(--c);
       text-shadow: 0 0 8px var(--c);
+      max-width: clamp(72px, 14vw, 140px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     #hud .hud-feed-verb {
       font-family: "Share Tech Mono", ui-monospace, monospace;
-      font-size: 12px;
+      font-size: clamp(10px, 1.1vw, 12px);
       color: rgba(255,255,255,0.45);
       letter-spacing: 2px;
     }
 
     #hud .hud-feed-target {
       font-family: "Bungee", cursive, system-ui, sans-serif;
-      font-size: 14px;
+      font-size: clamp(11px, 1.3vw, 14px);
       color: var(--c2);
       text-shadow: 0 0 8px var(--c2);
+      max-width: clamp(72px, 14vw, 140px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     @keyframes hud-feed-in {
@@ -300,26 +322,16 @@ export const HUD_CSS = `
       font-weight: 900;
     }
 
-    #hud .hud-status.pulse {
-      animation: hudStatusPulse 200ms ease-out both;
-    }
-
-    @keyframes hudStatusPulse {
-      0% { transform: translateX(-50%) scale(1); }
-      40% { transform: translateX(-50%) scale(1.3); }
-      100% { transform: translateX(-50%) scale(1); }
-    }
-
     #hud .hud-ready-btn {
       --btn-glow: #22e6ff;
       position: absolute;
-      bottom: 80px;
+      bottom: clamp(40px, 10vh, 80px);
       left: 50%;
       transform: translateX(-50%);
       font-family: 'Bungee', cursive, system-ui, sans-serif;
-      font-size: 1.6rem;
+      font-size: clamp(1.1rem, 3vw, 1.6rem);
       letter-spacing: 0.1em;
-      padding: 14px 40px;
+      padding: clamp(8px, 1.5vw, 14px) clamp(20px, 4vw, 40px);
       background: rgba(0, 0, 0, 0.85);
       color: var(--btn-glow);
       border: 2px solid var(--btn-glow);
@@ -353,56 +365,33 @@ export const HUD_CSS = `
 
     #hud .hud-audio {
       position: absolute;
-      top: 18px;
-      right: 18px;
+      top: var(--hud-pad);
+      right: var(--hud-pad);
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: rgba(0,0,0,0.75);
-      border: 2px solid rgba(255,255,255,0.15);
-      border-radius: 6px;
+      gap: clamp(4px, 0.8vw, 8px);
+      padding: clamp(4px, 1vw, 8px) clamp(8px, 1.5vw, 14px);
+      background: var(--hud-panel-bg);
+      border: var(--hud-border);
+      border-radius: var(--hud-radius);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       pointer-events: auto;
       z-index: 20001;
     }
 
-    @media (max-width: 1200px) {
-      #hud .hud-scoreBox { font-size: 11px; padding: 4px 8px; gap: 4px; }
-      #hud .hud-scoreLabel { font-size: 11px; }
-      #hud .hud-scoreValue { font-size: 13px; }
-    }
-
-    @media (max-width: 800px) {
-      #hud .hud-scores { gap: 4px; overflow: hidden; }
-      #hud .hud-scoreBox { font-size: 10px; padding: 3px 6px; gap: 2px; }
-      #hud .hud-scoreLabel { font-size: 10px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
-      #hud .hud-scoreValue { font-size: 12px; }
-      #hud .hud-timer { transform: scale(0.8); transform-origin: top left; }
-      #hud .hud-audio { transform: scale(0.8); transform-origin: top right; }
-    }
-
-    @media (max-width: 900px) {
-      #hud .hud-scores {
-        top: auto;
-        bottom: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-      }
-    }
     #hud .hud-mute-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
+      width: clamp(24px, 3vw, 28px);
+      height: clamp(24px, 3vw, 28px);
       border-radius: 6px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(0, 0, 0, 0.4);
       color: #ffffff;
       cursor: pointer;
-      font-size: 14px;
+      font-size: clamp(12px, 1.5vw, 14px);
       transition: transform 150ms, background 150ms;
     }
     #hud .hud-mute-btn:hover {
@@ -416,30 +405,30 @@ export const HUD_CSS = `
     #hud .hud-vol-stack {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: clamp(4px, 0.8vw, 6px);
     }
     #hud .hud-vol-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: clamp(4px, 0.8vw, 6px);
     }
     #hud .hud-vol-label {
-      width: 14px;
+      width: clamp(12px, 1.5vw, 14px);
       text-align: center;
       color: rgba(255,255,255,0.6);
-      font-size: 12px;
+      font-size: clamp(10px, 1.2vw, 12px);
     }
     #hud .hud-vol-track {
       -webkit-appearance: none;
       appearance: none;
-      width: 80px;
+      width: clamp(60px, 8vw, 80px);
       height: 16px;
       margin: 0;
       padding: 0;
       border: none;
       background: transparent;
       cursor: pointer;
-      flex: 0 0 80px;
+      flex: 0 0 auto;
       pointer-events: auto;
       --vol-pct: 50%;
     }
@@ -485,12 +474,160 @@ export const HUD_CSS = `
     }
     #hud .hud-vol-val {
       font-family: 'Space Mono', monospace;
-      font-size: 10px;
+      font-size: clamp(9px, 1.1vw, 10px);
       font-weight: 700;
       color: rgba(255,255,255,0.5);
-      min-width: 22px;
+      min-width: clamp(18px, 2vw, 22px);
       text-align: right;
       letter-spacing: 0.05em;
+    }
+
+    /* Large desktops — grow to full names; ellipsize only when bar hits timer/audio bounds */
+    @media (min-width: 1201px) {
+      #hud {
+        --hud-timer-reserve: clamp(148px, 11vw, 200px);
+        --hud-audio-reserve: clamp(168px, 13vw, 228px);
+      }
+      #hud .hud-scores {
+        width: fit-content;
+      }
+      #hud .hud-scoreBox {
+        flex: 0 1 auto;
+        min-width: 0;
+        width: auto;
+      }
+      #hud .hud-scoreLabel {
+        flex: 0 1 auto;
+        width: auto;
+        max-width: none;
+      }
+    }
+
+    /* Tighter score bar on medium desktops — structural shrink, not scale hacks */
+    @media (max-width: 1200px) {
+      #hud {
+        --hud-timer-reserve: clamp(112px, 14vw, 180px);
+        --hud-audio-reserve: clamp(136px, 18vw, 210px);
+        --hud-feed-top: clamp(104px, 13vh, 128px);
+      }
+      #hud .hud-scoreBox {
+        padding: clamp(4px, 1vw, 10px) clamp(6px, 1.2vw, 12px);
+        gap: clamp(3px, 0.6vw, 6px);
+      }
+      #hud .hud-scoreRank {
+        font-size: clamp(11px, 1.2vw, 14px);
+      }
+      #hud .hud-scoreLabel {
+        font-size: clamp(10px, 1.1vw, 12px);
+      }
+      #hud .hud-scoreValue {
+        font-size: clamp(12px, 1.3vw, 16px);
+      }
+      #hud .hud-scoreYou {
+        display: none !important;
+      }
+    }
+
+    /* Compact top bar before dock — rank + score only when horizontal space is tight */
+    @media (max-width: 1024px) and (min-width: 901px) {
+      #hud {
+        --hud-timer-reserve: clamp(100px, 13vw, 160px);
+        --hud-audio-reserve: clamp(120px, 16vw, 180px);
+        --hud-feed-top: clamp(112px, 15vh, 136px);
+      }
+      #hud .hud-scoreBox {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: clamp(4px, 0.8vw, 8px) clamp(5px, 1vw, 10px);
+      }
+      #hud .hud-scoreLabel {
+        display: none;
+      }
+    }
+
+    /* Dock score bar to bottom on narrow viewports */
+    @media (max-width: 900px) {
+      #hud {
+        --hud-audio-reserve: clamp(56px, 14vw, 72px);
+        --hud-feed-top: clamp(120px, 17vh, 148px);
+      }
+      #hud .hud-scores {
+        top: auto;
+        bottom: max(var(--hud-pad), env(safe-area-inset-bottom, 0px));
+        left: var(--hud-pad);
+        right: var(--hud-pad);
+        transform: none;
+        width: auto;
+        max-width: none;
+        border-radius: var(--hud-radius);
+        border: var(--hud-border);
+      }
+      #hud .hud-scoreBox {
+        flex: 1 1 0;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: clamp(4px, 1.2vw, 6px) clamp(2px, 0.8vw, 4px);
+        min-width: 0;
+      }
+      #hud .hud-scoreRank {
+        font-size: clamp(9px, 2.2vw, 11px);
+        min-width: 0;
+      }
+      #hud .hud-scoreLabel {
+        display: block;
+        font-size: clamp(8px, 2vw, 9px);
+        letter-spacing: 0;
+        text-align: center;
+        width: 100%;
+      }
+      #hud .hud-scoreValue {
+        font-size: clamp(11px, 2.8vw, 13px);
+        min-width: 0;
+      }
+      #hud .hud-scoreYou {
+        display: none !important;
+      }
+      #hud .hud-feed {
+        max-width: calc(100% - var(--hud-pad) * 2);
+      }
+    }
+
+    @media (max-width: 768px) {
+      #hud {
+        --hud-feed-top: clamp(128px, 18vh, 156px);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      #hud {
+        --hud-feed-top: clamp(116px, 17vh, 140px);
+      }
+      #hud .hud-audio {
+        flex-direction: column;
+        gap: 4px;
+        padding: 4px 8px;
+      }
+      #hud .hud-vol-stack {
+        display: none;
+      }
+      #hud .hud-timer-body {
+        min-width: clamp(96px, 28vw, 120px);
+        padding: 5px 8px 6px 10px;
+        gap: 4px;
+      }
+      #hud .hud-timer-num {
+        font-size: clamp(22px, 6vw, 28px);
+        letter-spacing: 2px;
+      }
+      #hud .hud-timer-meta {
+        font-size: clamp(9px, 2.2vw, 11px);
+        letter-spacing: 1px;
+      }
+      #hud .hud-scoreLabel {
+        display: none;
+      }
     }
 
     #esc-overlay {
@@ -524,7 +661,7 @@ export const HUD_CSS = `
       min-width: min(420px, 92vw);
       max-width: 460px;
       width: 90%;
-      padding: 22px 22px 18px;
+      padding: clamp(16px, 3vw, 22px) clamp(16px, 3vw, 22px) clamp(14px, 2.5vw, 18px);
       border-radius: 16px;
       background: rgba(0, 0, 0, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.12);
@@ -561,12 +698,12 @@ export const HUD_CSS = `
 
     #esc-overlay .esc-keycap,
     #esc-overlay .esc-control-label {
-      padding: 8px 12px;
+      padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 12px);
       border-radius: 10px;
       background: rgba(0, 0, 0, 0.45);
       border: 1px solid rgba(255, 255, 255, 0.1);
       font-family: var(--esc-mono);
-      font-size: 11px;
+      font-size: clamp(10px, 2vw, 11px);
       letter-spacing: 0.04em;
       color: rgba(255, 255, 255, 0.88);
       min-width: 0;
@@ -585,12 +722,12 @@ export const HUD_CSS = `
     #esc-overlay .esc-scoring-divider {
       border: none;
       border-top: 1px solid rgba(255, 255, 255, 0.15);
-      margin: 16px 0;
+      margin: clamp(12px, 2.5vw, 16px) 0;
     }
 
     #esc-overlay .esc-scoring-title {
       font-family: var(--esc-display);
-      font-size: 14px;
+      font-size: clamp(12px, 2.5vw, 14px);
       font-weight: 400;
       letter-spacing: 0.1em;
       color: #ff2bd6;
@@ -603,19 +740,19 @@ export const HUD_CSS = `
     #esc-overlay .esc-scoring {
       display: grid;
       grid-template-columns: 1fr max-content;
-      gap: 12px 8px;
+      gap: clamp(8px, 2vw, 12px) clamp(6px, 1.5vw, 8px);
       margin-bottom: 0;
-      padding: 16px 0;
+      padding: clamp(12px, 2.5vw, 16px) 0;
     }
 
     #esc-overlay .esc-scoring-key,
     #esc-overlay .esc-scoring-val {
-      padding: 6px 10px;
+      padding: clamp(4px, 1vw, 6px) clamp(8px, 2vw, 10px);
       border-radius: 10px;
       background: rgba(0, 0, 0, 0.45);
       border: 1px solid rgba(255, 255, 255, 0.1);
       font-family: var(--esc-mono);
-      font-size: 11px;
+      font-size: clamp(10px, 2vw, 11px);
       letter-spacing: 0.04em;
       color: rgba(255, 255, 255, 0.88);
       min-width: 0;
@@ -626,7 +763,7 @@ export const HUD_CSS = `
       text-shadow: 0 0 8px #22e6ff;
       text-align: left;
       white-space: nowrap;
-      font-size: 13px;
+      font-size: clamp(11px, 2.5vw, 13px);
       font-weight: 700;
     }
 
@@ -634,7 +771,7 @@ export const HUD_CSS = `
       grid-column: 1 / -1;
       padding: 6px 10px;
       font-family: var(--esc-display);
-      font-size: 14px;
+      font-size: clamp(12px, 2.5vw, 14px);
       font-weight: 400;
       letter-spacing: 0.1em;
       color: #ff2bd6;
@@ -652,10 +789,10 @@ export const HUD_CSS = `
 
     #esc-overlay .esc-btn {
       width: 100%;
-      padding: 14px 22px;
+      padding: clamp(10px, 2.5vw, 14px) clamp(16px, 3vw, 22px);
       border-radius: 6px;
       font-family: var(--esc-display);
-      font-size: 16px;
+      font-size: clamp(14px, 3vw, 16px);
       letter-spacing: 0.06em;
       cursor: pointer;
       text-decoration: none;
@@ -679,6 +816,7 @@ export const HUD_CSS = `
       --btn-glow: #22e6ff;
     }
   `.trim();
+
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -805,7 +943,47 @@ function updateTimer(roundState, matchHistoryLength) {
 }
 
 /**
- * Updates the ranked score boxes during a running round.
+ * Display-order tier: local human, other humans, then NPCs.
+ * @param {{ kind?: string, connId?: string|null }} row
+ * @param {string|null} youConnId
+ * @returns {number}
+ */
+function scoreboardDisplayTier(row, youConnId) {
+  if (row.kind === "human" && row.connId === youConnId) return 0;
+  if (row.kind === "human") return 1;
+  return 2;
+}
+
+/**
+ * Sorts scoreboard left-to-right: you, other humans, NPCs; score desc within each tier.
+ * @param {{ slotIndex: number, score: number, kind?: string, connId?: string|null }} a
+ * @param {{ slotIndex: number, score: number, kind?: string, connId?: string|null }} b
+ * @param {string|null} youConnId
+ * @returns {number}
+ */
+function compareScoreboardDisplayOrder(a, b, youConnId) {
+  const tierDiff = scoreboardDisplayTier(a, youConnId) - scoreboardDisplayTier(b, youConnId);
+  if (tierDiff !== 0) return tierDiff;
+  const scoreDiff = b.score - a.score;
+  if (scoreDiff !== 0) return scoreDiff;
+  return a.slotIndex - b.slotIndex;
+}
+
+/**
+ * Maps slot index → score rank (1 = highest score).
+ * @param {Array<{ slotIndex: number, score: number }>} rows
+ * @returns {Map<number, number>}
+ */
+function scoreRanksBySlot(rows) {
+  const ranks = new Map();
+  [...rows]
+    .sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex))
+    .forEach((row, i) => ranks.set(row.slotIndex, i + 1));
+  return ranks;
+}
+
+/**
+ * Updates the score boxes during a running round.
  * @param {object} roundState
  * @param {Array<object>|null} netSlots
  * @param {string|null} youConnId
@@ -821,7 +999,8 @@ function updateScores(roundState, netSlots, youConnId) {
     let dataChanged = false;
     for (let i = 0; i < 4; i += 1) {
       const score = Number(roundScores?.[i] ?? 0);
-      const meta = `${netSlots?.[i]?.name || `P${i + 1}`}:${netSlots?.[i]?.color || ""}`;
+      const slot = netSlots?.[i];
+      const meta = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind || "npc"}:${slot?.connId || ""}`;
       if (_lastScores[i] !== score || _lastSlotMeta[i] !== meta) {
         dataChanged = true;
       }
@@ -830,29 +1009,39 @@ function updateScores(roundState, netSlots, youConnId) {
 
     if (dataChanged) {
       for (let i = 0; i < 4; i += 1) {
+        const slot = netSlots?.[i];
         _lastScores[i] = Number(roundScores?.[i] ?? 0);
-        _lastSlotMeta[i] = `${netSlots?.[i]?.name || `P${i + 1}`}:${netSlots?.[i]?.color || ""}`;
+        _lastSlotMeta[i] = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind || "npc"}:${slot?.connId || ""}`;
       }
+    }
+
+    if (dataChanged || localChanged) {
       const nextRows = [];
       for (let i = 0; i < 4; i += 1) {
-        const score = _lastScores[i];
-        const slotName = netSlots?.[i]?.name || `P${i + 1}`;
-        const slotColor = netSlots?.[i]?.color || null;
-        nextRows.push({ slotIndex: i, score, slotName, slotColor });
+        const slot = netSlots?.[i];
+        nextRows.push({
+          slotIndex: i,
+          score: Number(roundScores?.[i] ?? 0),
+          slotName: slot?.name || `P${i + 1}`,
+          slotColor: slot?.color || null,
+          kind: slot?.kind || "npc",
+          connId: slot?.connId || null,
+        });
       }
-      nextRows.sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex));
+      nextRows.sort((a, b) => compareScoreboardDisplayOrder(a, b, youConnId));
       _sortedScoreRows = nextRows;
     }
     _lastLocalIdx = localIdx;
 
     if (dataChanged || localChanged) {
       const rows = _sortedScoreRows || [];
+      const ranks = scoreRanksBySlot(rows);
       for (let pos = 0; pos < 4; pos += 1) {
         const entry = elements.scoreBoxes[pos];
         const row = rows[pos];
         if (!entry || !row) continue;
 
-        entry.rank.textContent = String(pos + 1);
+        entry.rank.textContent = String(ranks.get(row.slotIndex) ?? pos + 1);
         entry.label.textContent = row.slotName;
         entry.value.textContent = String(row.score);
 

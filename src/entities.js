@@ -28,7 +28,6 @@ function quatFromYaw(yaw) {
 
 export function buildCartMaterialCache(cartMesh) {
   const frameMats = [];
-  const wheelGlowMats = [];
   const frameGlowMats = [];
   const seen = new Set();
 
@@ -47,23 +46,17 @@ export function buildCartMaterialCache(cartMesh) {
 
   cartMesh.traverse((child) => {
     if (!child.isMesh || !child.material) return;
-    if (child.userData && (child.userData.isFace || child.userData.isHandle)) return;
+    if (child.userData && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel)) return;
 
-    const isWheel = Boolean(child.userData && child.userData.isWheel);
     forEachMaterial(child.material, (mat) => {
       if (seen.has(mat)) return;
       seen.add(mat);
-
-      if (isWheel) {
-        if (mat.emissive) wheelGlowMats.push(mat);
-      } else {
-        frameMats.push(mat);
-        if (mat.emissive) frameGlowMats.push(mat);
-      }
+      frameMats.push(mat);
+      if (mat.emissive) frameGlowMats.push(mat);
     });
   });
 
-  return { frameMats, wheelGlowMats, frameGlowMats };
+  return { frameMats, frameGlowMats };
 }
 
 /**
@@ -87,14 +80,8 @@ function createCartBody(world, spawn, spawnYaw) {
   if (typeof body.setCanSleep === "function") {
     body.setCanSleep(canSleep);
   }
-  // Temporarily disabled for tipping test — config enabledRotations locks pitch/roll off
-  /*
-  const { enabledRotations } = CONFIG.cart.rigidBody;
-  if (typeof body.setEnabledRotations === "function" && Array.isArray(enabledRotations)) {
-    const [pitch, yaw, roll, wake] = enabledRotations;
-    body.setEnabledRotations(pitch, yaw, roll, wake);
-  }
-  */
+  // * V1 tipping: leave Rapier rotation axes unlocked (setEnabledRotations not applied).
+  // * Hole overhang detection in simulation.js uses oriented footprint projection.
 
   return body;
 }

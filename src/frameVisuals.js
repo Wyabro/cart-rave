@@ -39,7 +39,7 @@ let lastResultsOverlayPhase = null;
  * @property {HTMLCanvasElement} canvas
  * @property {number} BASE_FOV
  * @property {() => number} getShakeUntil
- * @property {number} shakeIntensity
+ * @property {() => number} getShakeIntensity
  * @property {() => number} getFovPunchUntil
  * @property {{ frames: number, last: number, canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null }} fpsState
  */
@@ -158,12 +158,16 @@ export function updateVisualsAndEffects(deps, frameCtx) {
           mat.emissive.setRGB(1, 1, 1);
           mat.emissiveIntensity = glowIntensity;
         } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
-          mat.emissive.setHex(deps.colorHexForSlot(netSlotsForFrame[i]));
+          const boostHex = deps.colorHexForSlot(netSlotsForFrame[i]);
+          if (mat.color) mat.color.setHex(boostHex);
+          mat.emissive.setHex(boostHex);
           mat.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
         } else {
           const baseHex = deps.colorHexForSlot(netSlotsForFrame[i]);
+          if (mat.color) mat.color.setHex(baseHex);
           mat.emissive.setHex(baseHex);
-          mat.emissiveIntensity = 0.6;
+          mat.emissiveIntensity = 1.0;
+          if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = 0.15;
         }
       }
     }
@@ -212,6 +216,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   }
 
   const shakeUntil = deps.getShakeUntil();
+  const shakeIntensity = deps.getShakeIntensity();
   if (roundState.phase === "running" && performance.now() < shakeUntil) {
     const t = (shakeUntil - performance.now()) / 250;
     const ox = (Math.random() - 0.5) * 2 * deps.shakeIntensity * t;
