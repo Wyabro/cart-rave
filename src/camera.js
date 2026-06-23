@@ -2,8 +2,8 @@
  * camera.js — Third-person chase camera follow (behind the local cart).
  */
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
+import * as THREE from "three";
+import RAPIER from "@dimforge/rapier3d-compat";
 
 /** @typedef {{
  *   followBack: number,

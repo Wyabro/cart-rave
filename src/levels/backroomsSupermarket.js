@@ -15,9 +15,11 @@
 // Returns the same level contract as initArena()/initClassicRecord() so main.js consumes
 // it unchanged.
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import * as BufferGeometryUtils from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
-import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
+import * as THREE from "three";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import RAPIER from "@dimforge/rapier3d-compat";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
+import { createStaticContactShadowCluster } from "../contactShadows.js";
 
 // ===== Tunable layout constants =====
 
@@ -865,8 +867,122 @@ function buildCenterFurniturePile(scene, world) {
   mergeAdd(parts.cardboard, cardboardMat);
   mergeAdd(parts.dark, darkMat);
 
+  const pileShadows = createStaticContactShadowCluster([
+    { x: 0, z: 0.1, radiusX: 3.5, radiusZ: 3.1 },
+    { x: -0.8, z: -0.5, radiusX: 2.6, radiusZ: 2.3, opacity: 0.36 },
+  ]);
+  group.add(pileShadows.group);
+
   scene.add(group);
-  return { group, bodies, ownedGeometries, ownedMaterials };
+  return {
+    group,
+    bodies,
+    ownedGeometries: [...ownedGeometries, ...pileShadows.ownedGeometries],
+    ownedMaterials: [...ownedMaterials, ...pileShadows.ownedMaterials],
+  };
+}
+
+// ===== Flickering spotlight over center furniture pile =====
+
+/**
+ * Hangs a single warm spotlight above the furniture pile with slow, irregular flicker —
+ * occasional dips and rare blinks, smoothed so it reads as a dying fluorescent, not a glitch.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {{
+ *   spot: THREE.SpotLight,
+ *   fixture: THREE.Mesh,
+ *   ownedGeometries: THREE.BufferGeometry[],
+ *   ownedMaterials: THREE.Material[],
+ *   update: (timeMs: number) => void,
+ * }}
+ */
+function buildFurniturePileSpotlight(scene) {
+  const pileTargetX = 0;
+  const pileTargetZ = 0;
+  const pileTargetY = 4.8;
+  const fixtureY = CEILING_Y - 0.28;
+  const baseIntensity = 30;
+
+  const spot = new THREE.SpotLight(
+    0xfff0cf,
+    baseIntensity,
+    16,
+    Math.PI / 6.2,
+    0.68,
+    2.4,
+  );
+  spot.position.set(pileTargetX, fixtureY - 0.12, pileTargetZ);
+  spot.target.position.set(pileTargetX, pileTargetY, pileTargetZ);
+
+  const fixtureGeo = new THREE.BoxGeometry(1.35, 0.09, 0.55);
+  const fixtureMat = new THREE.MeshStandardMaterial({
+    color: 0xfff6e0,
+    emissive: 0xfff2d6,
+    emissiveIntensity: 0.85,
+    roughness: 0.5,
+    metalness: 0.0,
+  });
+  const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+  fixture.position.set(pileTargetX, fixtureY, pileTargetZ);
+
+  scene.add(spot.target);
+  scene.add(spot);
+  scene.add(fixture);
+
+  let lastTimeMs = 0;
+  let currentIntensity = baseIntensity;
+  let goalIntensity = baseIntensity;
+  /** @type {"idle" | "dipping" | "blink" | "recovering"} */
+  let eventPhase = "idle";
+  let phaseUntil = 0;
+  let nextEventAt = 2500 + Math.random() * 4000;
+
+  function scheduleIdleGap(timeMs) {
+    eventPhase = "idle";
+    nextEventAt = timeMs + 5000 + Math.random() * 9000;
+  }
+
+  function update(timeMs) {
+    const dt = lastTimeMs ? Math.min((timeMs - lastTimeMs) * 0.001, 0.05) : 0.016;
+    lastTimeMs = timeMs;
+
+    if (timeMs >= phaseUntil) {
+      if (eventPhase === "idle" && timeMs >= nextEventAt) {
+        const roll = Math.random();
+        if (roll < 0.42) {
+          eventPhase = "dipping";
+          goalIntensity = baseIntensity * (0.52 + Math.random() * 0.22);
+          phaseUntil = timeMs + 280 + Math.random() * 520;
+        } else if (roll < 0.52) {
+          eventPhase = "blink";
+          goalIntensity = baseIntensity * 0.06;
+          phaseUntil = timeMs + 110 + Math.random() * 90;
+        } else {
+          scheduleIdleGap(timeMs);
+        }
+      } else if (eventPhase === "dipping" || eventPhase === "blink") {
+        eventPhase = "recovering";
+        goalIntensity = baseIntensity;
+        phaseUntil = timeMs + 320 + Math.random() * 480;
+      } else if (eventPhase === "recovering") {
+        scheduleIdleGap(timeMs);
+      }
+    }
+
+    const smooth = 1 - Math.exp(-3.2 * dt);
+    currentIntensity += (goalIntensity - currentIntensity) * smooth;
+    spot.intensity = currentIntensity;
+    fixtureMat.emissiveIntensity = 0.1 + (currentIntensity / baseIntensity) * 0.78;
+  }
+
+  return {
+    spot,
+    fixture,
+    ownedGeometries: [fixtureGeo],
+    ownedMaterials: [fixtureMat],
+    update,
+  };
 }
 
 /**
@@ -1118,11 +1234,11 @@ function buildCeiling(scene, world, ceilingTex) {
     color: 0x3a382f, roughness: 0.7, metalness: 0.3,
   });
   const litMat = new THREE.MeshStandardMaterial({
-    color: 0xfff6e0, emissive: 0xfff2d6, emissiveIntensity: 1.67,
+    color: 0xfff6e0, emissive: 0xfff2d6, emissiveIntensity: 1.42,
     roughness: 0.5, metalness: 0.0,
   });
   const dimMat = new THREE.MeshStandardMaterial({
-    color: 0xb7ad8e, emissive: 0xb7a87a, emissiveIntensity: 0.48,
+    color: 0xb7ad8e, emissive: 0xb7a87a, emissiveIntensity: 0.41,
     roughness: 0.6, metalness: 0.0,
   });
   const deadMat = new THREE.MeshStandardMaterial({
@@ -1138,12 +1254,13 @@ function buildCeiling(scene, world, ceilingTex) {
   const grid = 5;
   const span = ARENA_HALF * 1.75;
   const fixtureY = CEILING_Y - 0.22;
-  // * Subtle downward wash — barely brighter than ambient, not a glowing floor patch.
-  const spotIntensity = 24;
-  const spotDistance = 48;
-  const spotAngle = Math.PI / 3.2;
-  const spotPenumbra = 0.62;
-  const spotDecay = 2;
+  // * Tight cones aimed above the floor — wash mid-air, not hot carpet pools.
+  const spotIntensity = 12;
+  const spotDistance = 32;
+  const spotAngle = Math.PI / 5.4;
+  const spotPenumbra = 0.74;
+  const spotDecay = 2.35;
+  const spotTargetY = 4.2;
   for (let gx = 0; gx < grid; gx += 1) {
     for (let gz = 0; gz < grid; gz += 1) {
       const px = -span / 2 + (gx + 0.5) * (span / grid);
@@ -1181,7 +1298,7 @@ function buildCeiling(scene, world, ceilingTex) {
           spotDecay,
         );
         spot.position.set(px, fixtureY - 0.14, pz);
-        spot.target.position.set(px, FLOOR_TOP_Y + 0.4, pz);
+        spot.target.position.set(px, spotTargetY, pz);
         group.add(spot.target);
         group.add(spot);
       }
@@ -1237,8 +1354,8 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const slabMat = new THREE.MeshStandardMaterial({
     color: 0x7c766a, roughness: 0.9, metalness: 0.05,
   });
-  const railMat = new THREE.MeshStandardMaterial({
-    color: 0x6c6a62, roughness: 0.6, metalness: 0.55,
+  const railMat = createPhysicalMaterial({
+    color: 0x6c6a62, roughness: 0.45, metalness: 0.7,
   });
   const boxMat = new THREE.MeshStandardMaterial({
     color: 0xa68a5c, roughness: 0.9, metalness: 0.0,
@@ -1353,17 +1470,27 @@ export function initBackroomsSupermarket(scene, world, config) {
   config.record.centerHole = { enabled: false };
 
   const prevFog = scene.fog;
+  const backroomsFog = config.postFx.fog.backrooms;
   // * Thick, musty warm fog — oppressive haze that swallows far walls and pit depth.
-  scene.fog = new THREE.FogExp2(0x2a2418, 0.029);
+  scene.fog = new THREE.FogExp2(backroomsFog.color, backroomsFog.density);
 
   // ===== Floor (visual + physics share one trimesh) =====
   const floorGeo = buildFloorGeometry();
   const carpetTex = buildCarpetTexture();
   carpetTex.repeat.set(1, 1); // UVs already scaled in geometry by CARPET_TILE_M
-  const floorMat = new THREE.MeshStandardMaterial({
-    map: carpetTex, color: 0xffffff, roughness: 0.95, metalness: 0.0,
-    side: THREE.DoubleSide, vertexColors: true,
+  // * Matte worn carpet — roughness 0.98, no sheen, minimal IBL (envMapIntensityScale 0.08)
+  const carpetEnvScale = 0.08;
+  const floorMat = createPhysicalMaterial({
+    map: carpetTex,
+    color: 0xffffff,
+    roughness: 0.98,
+    metalness: 0.0,
+    sheen: 0.0,
+    envMapIntensity: getMaterialEnvMapIntensity() * carpetEnvScale,
+    side: THREE.DoubleSide,
+    vertexColors: true,
   });
+  floorMat.userData.envMapIntensityScale = carpetEnvScale;
   const floorMesh = new THREE.Mesh(floorGeo, floorMat);
   floorMesh.receiveShadow = false;
   scene.add(floorMesh);
@@ -1417,6 +1544,7 @@ export function initBackroomsSupermarket(scene, world, config) {
 
   // ===== Center furniture pile (Backrooms-only obstacle) =====
   const furniturePile = buildCenterFurniturePile(scene, world);
+  const furnitureSpotlight = buildFurniturePileSpotlight(scene);
 
   // ===== Contract stand-ins =====
   // * spindleLight is required by main.js (it lerps its color each frame). Keep it as a
@@ -1438,18 +1566,19 @@ export function initBackroomsSupermarket(scene, world, config) {
   const sceneRoots = [
     floorMesh, voidGroup, pit.group, walls.group, ceiling.group, booths.group,
     furniturePile.group,
+    furnitureSpotlight.spot, furnitureSpotlight.spot.target, furnitureSpotlight.fixture,
     hemiLight, ambient, spindleLight,
   ];
 
   const ownedGeometries = [
     floorGeo, ...voidGeometries, ...pit.geometries,
     ...walls.ownedGeometries, ...ceiling.ownedGeometries, ...booths.ownedGeometries,
-    ...furniturePile.ownedGeometries,
+    ...furniturePile.ownedGeometries, ...furnitureSpotlight.ownedGeometries,
   ];
   const ownedMaterials = [
     floorMat, voidShaftMat, ...pit.materials,
     ...walls.ownedMaterials, ...ceiling.ownedMaterials, ...booths.ownedMaterials,
-    ...furniturePile.ownedMaterials,
+    ...furniturePile.ownedMaterials, ...furnitureSpotlight.ownedMaterials,
   ];
   const ownedTextures = [carpetTex, wallpaperTex, ceilingTex];
 
@@ -1496,9 +1625,11 @@ export function initBackroomsSupermarket(scene, world, config) {
     aiHazards: {
       squareHoles: HOLE_CENTERS.map((h) => ({ x: h.x, z: h.z })),
       half: HOLE_HALF,
+      arenaHalf: ARENA_HALF,
       avoidMargin: 2.4,
       influenceBand: 6.5,
     },
+    update: furnitureSpotlight.update,
     dispose,
   };
 }

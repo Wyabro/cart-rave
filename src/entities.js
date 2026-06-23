@@ -1,7 +1,8 @@
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
-import { buildCart } from "../cart.js";
+import * as THREE from "three";
+import RAPIER from "@dimforge/rapier3d-compat";
+import { buildCart } from "./cart.js";
 import { CONFIG } from "./config.js";
+import * as ContactShadows from "./contactShadows.js";
 import * as Visuals from "./visuals.js";
 import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
@@ -127,9 +128,11 @@ function createCartCollider(world, body) {
 function setupCartVisuals(scene, color) {
   const mesh = buildCart(color);
   scene.add(mesh);
+  const contactShadow = ContactShadows.createCartContactShadow();
+  if (contactShadow) scene.add(contactShadow);
   mesh.updateMatrixWorld(true);
   const materialCache = buildCartMaterialCache(mesh);
-  return { mesh, materialCache };
+  return { mesh, materialCache, contactShadow };
 }
 
 /**
@@ -165,7 +168,7 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  */
 export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) {
   const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
-  const { mesh, materialCache } = setupCartVisuals(scene, color);
+  const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color);
 
   const body = createCartBody(world, spawnFrozen, spawnYaw);
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
@@ -176,6 +179,7 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
 
   return {
     mesh,
+    contactShadow,
     body,
     collider,
     spawn: spawnFrozen,
@@ -248,6 +252,10 @@ export function destroyCarts(options = {}) {
       if (cart.mesh && scene) {
         scene.remove(cart.mesh);
         disposeCartMeshResources(cart.mesh, cart._materialCache);
+      }
+      if (cart.contactShadow && scene) {
+        scene.remove(cart.contactShadow);
+        ContactShadows.disposeContactShadow(cart.contactShadow);
       }
     }
   }

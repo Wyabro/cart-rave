@@ -1,6 +1,6 @@
 // audioSetup.js — SFX, crowd ambient, and leader chime initialization
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
+import * as THREE from "three";
 import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
 import { CONFIG } from "./config.js";

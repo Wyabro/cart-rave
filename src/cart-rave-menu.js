@@ -618,7 +618,8 @@
 
     const hex = colorMode === 'custom'
       ? hueToNeonHex(customHue)
-      : 0;
+      : parseInt((state.palette.players[state.playerIdx] || state.palette.players[0]).replace('#', ''), 16);
+
     const payload = {
       colorMode,
       color: colorMode === 'custom' ? CUSTOM_COLOR_ID : color,
@@ -640,7 +641,7 @@
       colorMode,
       color: payload.color,
       customHue,
-      hex: colorMode === 'custom' ? hex : hueToNeonHex(0),
+      hex,
       cssHex: getActiveColorCss(),
     };
     window.dispatchEvent(new CustomEvent('cartrave:customization-changed', { detail }));
@@ -800,6 +801,14 @@
 
   function closeCustomizeScreen() {
     if (!customizeScreen) return;
+    // * Persist final COLOR tab choice when leaving Customize (chip/slider changes also save live).
+    saveCustomization({
+      colorMode: state.colorMode,
+      color: state.colorMode === 'custom'
+        ? CUSTOM_COLOR_ID
+        : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
+      customHue: state.customHue,
+    });
     customizeScreen.style.display = 'none';
     customizeScreen.setAttribute('aria-hidden', 'true');
     renderCart();

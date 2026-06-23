@@ -1,27 +1,29 @@
 // === IMPORTS ===
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import { createRenderer, createComposer, updateViewport as updateSceneViewport } from "./src/scene.js";
-import { CSS2DObject, CSS2DRenderer } from "https://unpkg.com/three@0.164.1/examples/jsm/renderers/CSS2DRenderer.js";
-import { RoomEnvironment } from "https://unpkg.com/three@0.164.1/examples/jsm/environments/RoomEnvironment.js";
-import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
+import "./cart-rave-menu.js";
+import "./cart-rave-menu.css";
+import * as THREE from "three";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, updateViewport as updateSceneViewport } from "./scene.js";
+import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import RAPIER from "@dimforge/rapier3d-compat";
 import { updateCartVisuals } from "./cart.js";
-import * as Simulation from "./src/simulation.js";
-import * as Entities from "./src/entities.js";
-import * as HUD from "./src/hud.js";
-import * as Input from "./src/input.js";
-import * as Netcode from "./src/netcode.js";
-import * as GameState from "./src/gameState.js";
-import * as GameAudio from "./src/audio.js";
-import * as CameraMod from "./src/camera.js";
-import * as Effects from "./src/effects.js";
-import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./src/levels/index.js";
-import { initSceneExtras, disposeSceneExtras } from "./src/sceneExtras.js";
-import { initAudioSystem } from "./src/audioSetup.js";
-import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations } from "./src/ui/resultsOverlay.js";
-import { showRotatePromptIfNeeded } from "./src/ui/rotatePrompt.js";
-import { animateCartBoostPulse, crossfadeElement, animateMuteToggle, animateVolumeTick } from "./src/animations.js";
-import { flashBoostActivate } from "./src/touchControls.js";
+import * as Simulation from "./simulation.js";
+import * as Entities from "./entities.js";
+import * as HUD from "./hud.js";
+import * as Input from "./input.js";
+import * as Netcode from "./netcode.js";
+import * as GameState from "./gameState.js";
+import * as GameAudio from "./audio.js";
+import * as CameraMod from "./camera.js";
+import * as Effects from "./effects.js";
+import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { setContactShadowHazards } from "./contactShadows.js";
+import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
+import { initAudioSystem } from "./audioSetup.js";
+import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations } from "./ui/resultsOverlay.js";
+import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
+import { animateCartBoostPulse, crossfadeElement, animateMuteToggle, animateVolumeTick } from "./animations.js";
+import { flashBoostActivate } from "./touchControls.js";
 import {
   applySlowMoToDt,
   createGameLoopState,
@@ -29,19 +31,21 @@ import {
   runGameLoop,
   runPhysicsStep,
   updateVisualsAndEffects,
-} from "./src/gameLoop.js";
-import { updateGameFlow } from "./src/gameFlow.js";
-import { createGameContext } from "./src/gameContext.js";
+} from "./gameLoop.js";
+import { updateGameFlow } from "./gameFlow.js";
+import { createGameContext } from "./gameContext.js";
 import {
   applyCartFrameGlow,
   clamp,
-  colorHexForSlot,
-  getColorForSlot,
   isTouchDevice,
-} from "./src/utils.js";
-import { loadPlayerCustomization, resolveServerColorPick } from "./src/customization.js";
-import { CONFIG, MSG, CART_COLORS, PALETTE } from "./src/config.js";
-import { NPC_NAME_POOL } from "./src/npcNames.js";
+} from "./utils.js";
+import {
+  resolveCartNeonCss,
+  resolveCartNeonHex,
+  resolveServerColorPick,
+} from "./customization.js";
+import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
+import { NPC_NAME_POOL } from "./npcNames.js";
 
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
@@ -83,6 +87,26 @@ function buildCartMaterialCache(cartMesh) {
   });
 
   return { frameMats, frameGlowMats };
+}
+
+/**
+ * Neon frame color for rendering — local human uses Customize menu; others use server slot color.
+ * Wired into cart spawn, slot sync, and per-frame frame glow (see customization.js).
+ *
+ * @param {{ color?: string | number, kind?: string, connId?: string } | null | undefined} slot
+ * @returns {number}
+ */
+function displayColorHexForSlot(slot) {
+  return resolveCartNeonHex(slot, { youConnId: Netcode.getYouConnId() });
+}
+
+/**
+ * CSS hex for HUD, name labels, and results — same rules as displayColorHexForSlot.
+ * @param {{ color?: string | number, kind?: string, connId?: string } | null | undefined} slot
+ * @returns {string}
+ */
+function displayCssColorForSlot(slot) {
+  return resolveCartNeonCss(slot, { youConnId: Netcode.getYouConnId() });
 }
 
 // === CONSTANTS & CONFIG ===
@@ -140,7 +164,7 @@ function createNetcodeCallbackDeps() {
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getHud: () => hud,
-    colorHexForSlot,
+    colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
     getPendingColorChipEl: () => pendingColorChipEl,
     setPendingColorKey: (val) => { pendingColorKey = val; },
@@ -294,6 +318,7 @@ let pendingColorChipEl = null;
 /** @type {string | null} */
 let pendingColorKey = null;
 let menuColorPickListenerWired = false;
+let customizationChangeListenerWired = false;
 let menuActionListenerWired = false;
 let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
@@ -383,17 +408,7 @@ function updateCartMaterialsFromSlots(slots) {
     const cart = allCartsRef[slotIndex];
     if (!slot || !cart?.mesh) continue;
 
-    const colorData = CART_COLORS[slot.color];
-    let finalHex = colorData ? colorData.hex : 0x888888;
-
-    const localSlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-    if (slotIndex === localSlotIdx && slot.kind === "human") {
-      const playerLook = loadPlayerCustomization();
-      if (playerLook.colorMode === "custom") {
-        finalHex = playerLook.hex;
-      }
-    }
-
+    const finalHex = displayColorHexForSlot(slot);
     const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
 
     // Frame: recolor and update emissive glow (always sync — hello fires before carts exist).
@@ -401,26 +416,13 @@ function updateCartMaterialsFromSlots(slots) {
       applyCartFrameGlow(mat, finalHex);
     }
 
-    // Keep the cached hex in sync so respawn rebuilds use the right color
+    // Keep the cached hex in sync so ram-boost streaks and respawns use the right color.
     cart.cartColor = finalHex;
   }
 }
 
 function updateHudColorsFromSlots(slots) {
-  if (!hud || !hud.scoreBoxes || !Array.isArray(slots)) return;
-
-  slots.forEach((slot, i) => {
-    const scoreBox = hud.scoreBoxes[i];
-    if (!scoreBox || !scoreBox.box) return;
-    if (!slot || !slot.color) return;
-
-    const data = CART_COLORS[slot.color];
-    if (!data) return;
-
-    const box = scoreBox.box;
-    box.className = "hud-scoreBox";
-    box.dataset.hudColor = slot.color;
-  });
+  HUD.refreshScoreBoxGlows(slots, Netcode.getYouConnId());
 }
 
 function localCartForConnId() {
@@ -515,18 +517,13 @@ async function main() {
   // --- Renderer & scene ---
   const renderer = createRenderer(canvas);
 
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0a0520, 0.006);
+  const scene = createScene();
 
   const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
   spawnTrashBurstRef = Effects.spawnTrashBurst;
 
-  // * Environment map for IBL: gives metallic materials something to reflect.
-  // * No scene.background is set so the void stays pure black.
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  pmremGenerator.compileEquirectangularShader();
-  scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
-  pmremGenerator.dispose();
+  // * IBL — centralized in scene.js; shared by Classic and Backrooms (not rebuilt on level swap).
+  setupSceneEnvironment(renderer, scene);
 
   // --- Camera, audio, post-processing ---
   const camera = new THREE.PerspectiveCamera(
@@ -598,6 +595,13 @@ async function main() {
   fxPass = arcadePass;
   if (!bloomEnabled && bloomPass) bloomPass.enabled = false;
   if (!fxPassEnabled && fxPass) fxPass.enabled = false;
+
+  if (import.meta.env.DEV) {
+    import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
+      initPostFxDebugGui({ renderer, scene, bloomPass, arcadePass, fxaaPass });
+    }).catch(() => {});
+  }
+
   const fxClock = new THREE.Clock();
 
   labelRenderer = new CSS2DRenderer();
@@ -720,7 +724,7 @@ async function main() {
           const colorToSend = resolveServerColorPick();
           pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
           if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
-            Netcode.getPartySocket().send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));
+            Netcode.sendColorPick(pendingColorKey);
           }
         });
       }
@@ -1030,6 +1034,7 @@ async function main() {
   let recordLabelMat;
   let levelHazards;
   let disposeLevel;
+  let levelUpdate;
   let loadedLevelId;
   let sceneExtras;
 
@@ -1045,11 +1050,14 @@ async function main() {
     pitInnerRadius,
     recordLabelMat,
     aiHazards: levelHazards,
+    update: levelUpdate,
     dispose: disposeLevel,
   } = loadLevel(undefined, scene, world, CONFIG));
+  refreshSceneEnvironmentMaterials(scene);
 
   loadedLevelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
   Simulation.setLevelHazards(levelHazards ?? null);
+  setContactShadowHazards(levelHazards ?? null);
 
   Effects.setAmbientDustStyle(
     loadedLevelId === "backrooms" ? "backrooms" : "rainbow",
@@ -1091,10 +1099,13 @@ async function main() {
           pitInnerRadius,
           recordLabelMat,
           aiHazards: levelHazards,
+          update: levelUpdate,
           dispose: disposeLevel,
         } = loadLevel(selected, scene, world, CONFIG));
+        refreshSceneEnvironmentMaterials(scene);
         loadedLevelId = selected;
         Simulation.setLevelHazards(levelHazards ?? null);
+  setContactShadowHazards(levelHazards ?? null);
 
         const wantRaveExtras = selected !== "backrooms";
         disposeSceneExtras(sceneExtras);
@@ -1183,7 +1194,7 @@ async function main() {
         if (idx != null) {
           const score = scores[idx] != null ? scores[idx] : 0;
           title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
-          title.style.setProperty("--title-glow", getColorForSlot(Netcode.getNetSlots()[idx]));
+          title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
         } else {
           title.textContent = "ROUND COMPLETE";
           title.style.setProperty("--title-glow", "#ffffff");
@@ -1199,7 +1210,7 @@ async function main() {
         row.className = "results-score-row";
         const isWinner = winnerIdx !== "draw" && winnerIdx === i;
         if (isWinner) row.classList.add("is-winner");
-        row.style.setProperty("--slot-glow", getColorForSlot(Netcode.getNetSlots()[i]));
+        row.style.setProperty("--slot-glow", displayCssColorForSlot(Netcode.getNetSlots()[i]));
 
         const nameEl = document.createElement("span");
         nameEl.className = "results-score-name";
@@ -1336,7 +1347,7 @@ async function main() {
     netSlots: Netcode.getNetSlots(),
     youConnId: Netcode.getYouConnId(),
     CART_COLORS,
-    colorHexForSlot,
+    colorHexForSlot: displayColorHexForSlot,
     pendingMidRoundJoinRespawnConnId,
   });
   pendingMidRoundJoinRespawnConnId = nextPendingMidRoundJoinRespawnConnId;
@@ -1346,6 +1357,17 @@ async function main() {
   Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
   // * hello calls updateCartMaterials before carts exist; apply slot colors now.
   updateCartMaterialsFromSlots(Netcode.getNetSlots());
+  if (!customizationChangeListenerWired) {
+    customizationChangeListenerWired = true;
+    window.addEventListener("cartrave:customization-changed", () => {
+      const slots = Netcode.getNetSlots();
+      Netcode.syncLocalSlotLookHex();
+      Netcode.syncCartLookToServer();
+      updateCartMaterialsFromSlots(slots);
+      updateHudColorsFromSlots(slots);
+      updateNameLabelsRef.current?.();
+    });
+  }
   if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
 
   // --- Floating name labels above carts ---
@@ -1379,8 +1401,7 @@ async function main() {
       if (!slot || !cart || !cart.mesh) continue;
 
       const name = slot.name || `P${i + 1}`;
-      const colorHex = CART_COLORS[slot.color]?.hex;
-      const colorCSS = colorHex ? "#" + colorHex.toString(16).padStart(6, "0") : "#ffffff";
+      const colorCSS = displayCssColorForSlot(slot);
 
       if (nameLabels[i]) {
         if (nameLabels[i]._labelText !== name || nameLabels[i]._labelColor !== colorCSS) {
@@ -1765,7 +1786,7 @@ async function main() {
     cartLinvelScratch,
     updateCartVisuals,
     buildCartMaterialCache,
-    colorHexForSlot,
+    colorHexForSlot: displayColorHexForSlot,
     isMuted: () => isMuted,
     getSfxVolume: () => sfxVolume,
     sfx,
@@ -1800,7 +1821,7 @@ async function main() {
     maybeTriggerNpcOpportunisticRamBoost,
     endRound,
     addScore: GameState.addScore,
-    colorHexForSlot,
+    colorHexForSlot: displayColorHexForSlot,
     hud,
     sendHostRound: () => Netcode.sendHostRound(),
     getPartySocket: () => Netcode.getPartySocket(),
@@ -1884,6 +1905,7 @@ async function main() {
     recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
 
     sceneExtras.update(now);
+    levelUpdate?.(now);
 
     Effects.updateStageLights(now);
     Effects.updateLasers(now);

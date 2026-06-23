@@ -14,6 +14,7 @@ import {
   scheduleKillFeedExit,
   wireButtonPressFeedback,
 } from "./animations.js";
+import { applyHudScoreBoxGlow } from "./customization.js";
 
 let _options = {};
 
@@ -1901,9 +1902,14 @@ function updateScores(roundState, netSlots, youConnId) {
         }
         entry.value.textContent = String(row.score);
 
-        if (row.slotColor) {
-          entry.box.dataset.hudColor = row.slotColor;
+        const slot = netSlots?.[row.slotIndex];
+        if (slot) {
+          if (!entry.box.classList.contains("hud-scoreBox")) {
+            entry.box.classList.add("hud-scoreBox");
+          }
+          applyHudScoreBoxGlow(entry.box, slot, youConnId);
         } else {
+          entry.box.style.removeProperty("--hud-glow");
           delete entry.box.dataset.hudColor;
         }
 
@@ -2427,24 +2433,36 @@ export function update({
   scheduleHudLayoutSync();
 }
 
-export function syncColors(slots) {
+export function refreshScoreBoxGlows(slots, youConnId) {
   if (!elements.scoreBoxes || !Array.isArray(slots)) return;
 
-  const CART_COLORS = _options.getCART_COLORS ? _options.getCART_COLORS() : {};
-  slots.forEach((slot, i) => {
-    const scoreBox = elements.scoreBoxes[i];
-    if (!scoreBox || !scoreBox.box) return;
-    if (!slot || !slot.color) return;
-
-    const data = CART_COLORS[slot.color];
-    if (!data) return;
-
-    const box = scoreBox.box;
-    if (!box.classList.contains("hud-scoreBox")) {
-      box.classList.add("hud-scoreBox");
+  const rows = _sortedScoreRows;
+  if (rows && rows.length) {
+    for (let pos = 0; pos < 4; pos += 1) {
+      const entry = elements.scoreBoxes[pos];
+      const row = rows[pos];
+      if (!entry?.box || !row) continue;
+      const slot = slots[row.slotIndex];
+      if (!entry.box.classList.contains("hud-scoreBox")) {
+        entry.box.classList.add("hud-scoreBox");
+      }
+      applyHudScoreBoxGlow(entry.box, slot, youConnId);
     }
-    box.dataset.hudColor = slot.color;
+    return;
+  }
+
+  slots.forEach((slot, i) => {
+    const entry = elements.scoreBoxes[i];
+    if (!entry?.box) return;
+    if (!entry.box.classList.contains("hud-scoreBox")) {
+      entry.box.classList.add("hud-scoreBox");
+    }
+    applyHudScoreBoxGlow(entry.box, slot, youConnId);
   });
+}
+
+export function syncColors(slots) {
+  refreshScoreBoxGlows(slots, _options.getYouConnId ? _options.getYouConnId() : null);
 }
 
 /**

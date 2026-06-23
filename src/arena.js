@@ -1,9 +1,10 @@
 // arena.js — dancefloor record, pit wall, and spawn booth geometry + physics
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import { Reflector } from "https://unpkg.com/three@0.164.1/examples/jsm/objects/Reflector.js";
-import * as BufferGeometryUtils from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
-import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
+import * as THREE from "three";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import RAPIER from "@dimforge/rapier3d-compat";
+import { createPhysicalMaterial } from "./scene.js";
 
 const REFLECTOR_TEXTURE_SIZE = 1024;
 
@@ -182,7 +183,8 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
   const mergedGrooves = BufferGeometryUtils.mergeGeometries(grooveGeometries, false);
   grooveGeometries.forEach((g) => g.dispose());
 
-  const ringMat = new THREE.MeshStandardMaterial({
+  // * Grooves — Physical: metalness 0.55, roughness 0.5, opacity 0.6
+  const ringMat = createPhysicalMaterial({
     vertexColors: true,
     roughness: 0.5,
     metalness: 0.55,
@@ -212,11 +214,12 @@ export function buildBooths(scene, world, config, boothNeonMeshes, boothCollider
     0xff6b2b,
   ];
 
-  const trussLegMat = new THREE.MeshStandardMaterial({
-    color: 0x888899, roughness: 0.5, metalness: 0.7,
+  // * Booth truss — Physical metal: leg metalness 0.85 / roughness 0.35, cross metalness 0.75 / roughness 0.4
+  const trussLegMat = createPhysicalMaterial({
+    color: 0x888899, roughness: 0.35, metalness: 0.85,
   });
-  const trussCrossMat = new THREE.MeshStandardMaterial({
-    color: 0x666677, roughness: 0.5, metalness: 0.6,
+  const trussCrossMat = createPhysicalMaterial({
+    color: 0x666677, roughness: 0.4, metalness: 0.75,
   });
   const trussLightGeo = new THREE.BoxGeometry(0.5, 0.3, 0.5);
   const mixerGeo = new THREE.BoxGeometry(3.0, 0.5, 1.2);
@@ -225,12 +228,14 @@ export function buildBooths(scene, world, config, boothNeonMeshes, boothCollider
   });
   const mixerPanelGeo = new THREE.BoxGeometry(2.6, 0.06, 0.8);
   const deckGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16);
-  const deckMat = new THREE.MeshStandardMaterial({
-    color: 0x0d0d0d, roughness: 0.3, metalness: 0.7,
+  // * Booth DJ deck — Physical: metalness 0.8, roughness 0.25
+  const deckMat = createPhysicalMaterial({
+    color: 0x0d0d0d, roughness: 0.25, metalness: 0.8,
   });
   const spkGeo = new THREE.BoxGeometry(0.9, 1.6, 0.9);
-  const spkMat = new THREE.MeshStandardMaterial({
-    color: 0x0e0e1a, roughness: 0.7, metalness: 0.3,
+  // * Booth speaker cabinets — Physical: metalness 0.65, roughness 0.35
+  const spkMat = createPhysicalMaterial({
+    color: 0x0e0e1a, roughness: 0.35, metalness: 0.65,
   });
   const coneGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.04, 12);
   const coneMat = new THREE.MeshStandardMaterial({
@@ -238,8 +243,9 @@ export function buildBooths(scene, world, config, boothNeonMeshes, boothCollider
   });
   const wooferGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 12);
   const platterGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.02, 24);
-  const platterMat = new THREE.MeshStandardMaterial({
-    color: 0x222222, roughness: 0.15, metalness: 0.85,
+  // * DJ platter — Physical chrome: metalness 0.9, roughness 0.12
+  const platterMat = createPhysicalMaterial({
+    color: 0x222222, roughness: 0.12, metalness: 0.9,
   });
   const knobGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8);
   const knobMat = new THREE.MeshStandardMaterial({
@@ -250,19 +256,21 @@ export function buildBooths(scene, world, config, boothNeonMeshes, boothCollider
   const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
   const UNIT_CYL = new THREE.CylinderGeometry(1, 1, 1, 6);
 
-  const neonMats = boothColors.map((color) => new THREE.MeshStandardMaterial({
+  const neonMats = boothColors.map((color) => createPhysicalMaterial({
     color,
     emissive: color,
     emissiveIntensity: 1.5,
-    roughness: 0.3,
-    metalness: 0.8,
+    roughness: 0.25,
+    metalness: 0.85,
+    toneMapped: false,
   }));
-  const trussLightMats = boothColors.map((color) => new THREE.MeshStandardMaterial({
+  const trussLightMats = boothColors.map((color) => createPhysicalMaterial({
     color,
     emissive: color,
     emissiveIntensity: 2.0,
-    roughness: 0.3,
-    metalness: 0.5,
+    roughness: 0.2,
+    metalness: 0.7,
+    toneMapped: false,
   }));
   const platMats = boothColors.map((color) => new THREE.MeshStandardMaterial({
     color,
@@ -682,10 +690,13 @@ export function initArena(scene, world, config) {
     bevelSize: 0.04,
     curveSegments: 64,
   });
-  const recordMat = new THREE.MeshStandardMaterial({
+  // * Vinyl dancefloor — Physical + clearcoat: metalness 0.35, roughness 0.68, clearcoat 0.4, opacity 0.7
+  const recordMat = createPhysicalMaterial({
     color: config.record.color,
-    roughness: 0.72,
+    roughness: 0.68,
     metalness: 0.35,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.22,
     transparent: true,
     opacity: 0.7,
   });
@@ -793,13 +804,15 @@ export function initArena(scene, world, config) {
   const grooveResult = buildRecordSurfaceGrooves(recordMesh, config, visualRecordThickness);
 
   // Neon rim (visual only).
-  const rimMat = new THREE.MeshStandardMaterial({
+  // * Record neon rim — Physical emissive: emissiveIntensity 2.2, metalness 0, roughness 0.45
+  const rimMat = createPhysicalMaterial({
     color: config.record.rimColor,
     emissive: config.record.rimColor,
     emissiveIntensity: 2.2,
-    roughness: 0.5,
+    roughness: 0.45,
     metalness: 0.0,
     depthWrite: false,
+    toneMapped: false,
   });
   // * Beveled ExtrudeGeometry extends past nominal outerRadius — inset torus (0.985*r) sits inside the floor mesh and
   // * disappears; place slightly outside the nominal edge (mirrors inner rim * 1.015) so the neon ring stays visible.

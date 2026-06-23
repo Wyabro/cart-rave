@@ -1,7 +1,7 @@
 // simulation.js — core physics + arcade driving simulation (extracted)
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
+import * as THREE from "three";
+import RAPIER from "@dimforge/rapier3d-compat";
 import { CONFIG, BASELINE_CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 

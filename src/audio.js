@@ -52,6 +52,27 @@ let gameMusicUrls = [];
 
 let gameMusicIndex = 0;
 
+// * Dev-only: block music autostart on Vite full reload until the first click/keypress
+// * in this page load (in-memory — resets every refresh so HMR does not spam audio).
+let devMusicUserEnabled = !import.meta.env.DEV;
+
+/** @returns {boolean} */
+function devAllowsAutoplayMusic() {
+  return devMusicUserEnabled;
+}
+
+/** @returns {void} */
+function installDevMusicGate() {
+  if (!import.meta.env.DEV || devMusicUserEnabled) return;
+  const unlock = () => {
+    devMusicUserEnabled = true;
+    window.removeEventListener("pointerdown", unlock, true);
+    window.removeEventListener("keydown", unlock, true);
+  };
+  window.addEventListener("pointerdown", unlock, { capture: true });
+  window.addEventListener("keydown", unlock, { capture: true });
+}
+
 /** @param {number} vol @returns {number} */
 function calcVol(vol) {
   return Math.max(0, Math.min(1, vol));
@@ -204,6 +225,8 @@ export function initMusic(options) {
   if (musicInitialized) return;
   musicInitialized = true;
 
+  installDevMusicGate();
+
   _getMasterGain = options.getMasterGain;
   _getIsMuted = options.getIsMuted;
   _getMenuVisible = options.getMenuVisible;
@@ -228,7 +251,7 @@ export function initMusic(options) {
   gameMusicElements = new Array(gameMusicUrls.length).fill(null);
   activeMusicEl = null;
 
-  if (options.startMenuOnInit !== false && _getMenuVisible?.()) {
+  if (options.startMenuOnInit !== false && _getMenuVisible?.() && devAllowsAutoplayMusic()) {
     try {
       startMenuMusic();
     } catch (e) {
@@ -268,6 +291,7 @@ function advanceGameMusicTrack() {
 /** @returns {void} */
 export function tryStartMenuMusic() {
   if (!menuMusicEl || menuMusicStarted || menuMusicPlayInFlight) return;
+  if (!devAllowsAutoplayMusic()) return;
   if (_getIsMuted?.()) return;
   if (_getMenuVisible && !_getMenuVisible()) return;
 
@@ -297,6 +321,7 @@ export function stopMenuMusic() {
 /** @returns {void} */
 export function startMenuMusic() {
   if (!menuMusicEl) return;
+  if (!devAllowsAutoplayMusic()) return;
   menuMusicStarted = false;
   menuMusicPlayInFlight = false;
   menuMusicEl.volume = getMusicTargetVolume();
@@ -306,6 +331,7 @@ export function startMenuMusic() {
 /** @returns {void} */
 export function startGameMusic() {
   if (!activeMusicEl || musicStarted || musicUnavailable || gameMusicPlayInFlight) return;
+  if (!devAllowsAutoplayMusic()) return;
   if (_getMenuVisible?.()) return;
 
   gameMusicPlayInFlight = true;
@@ -370,6 +396,7 @@ export function fadeOutMenuMusic() {
  * @returns {void}
  */
 export function fadeInGameMusic() {
+  if (!devAllowsAutoplayMusic()) return;
   if (!gameMusicUrls.length) return;
   activeMusicEl = getOrCreateGameTrack(gameMusicIndex);
   if (!activeMusicEl) return;

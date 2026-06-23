@@ -3,6 +3,7 @@
  */
 
 import { CART_COLORS } from "./config.js";
+import { getMaterialEnvMapIntensity } from "./scene.js";
 
 /** Reference luminance for perceptually even cart glow (pure green channel in linear sRGB). */
 const CART_EMISSIVE_REF_LUMA = 0.7152;
@@ -56,9 +57,9 @@ export function applyCartFrameGlow(mat, hex, intensityMul = 1) {
   if (typeof mat.emissiveIntensity === "number") {
     mat.emissiveIntensity = cartEmissiveIntensityForHex(hex, intensityMul);
   }
-  if (typeof mat.metalness === "number") mat.metalness = 0.7;
-  if (typeof mat.roughness === "number") mat.roughness = 0.3;
-  if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = 0.15;
+  if (typeof mat.metalness === "number") mat.metalness = 0.55;
+  if (typeof mat.roughness === "number") mat.roughness = 0.16;
+  if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = getMaterialEnvMapIntensity();
 }
 
 /**

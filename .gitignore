@@ -15,8 +15,9 @@ Thumbs.db
 # Cursor
 .cursor/
 
-# Node (if added later)
+# Node / Vite
 node_modules/
+dist/
 
 # PartyKit local dev state
 .partykit/

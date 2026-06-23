@@ -2,13 +2,13 @@
 
 ## STRICT AI GUARDRAILS (CRITICAL)
 
-1. **NO BUNDLERS**: Do not suggest `npm install`, Vite, or Webpack. This project strictly relies on static ES modules via CDN.
+1. **VITE BUILD**: Use Vite for development and building. Run `npm run dev` for local development and `npm run ship` for deployment (`npm run build` then `npx partykit deploy`). Use `npm run dev:party` alongside Vite when testing multiplayer locally.
 2. **NO SERVER-SIDE PHYSICS**: The PartyKit server (`party/index.ts`) is strictly a message relay. The host client runs all Rapier3D physics. Never move collision logic to the server.
-3. **TARGETED EDITS ONLY**: `main.js` is the live entry point and wiring hub; core systems live in `src/`. Never rewrite or output entire files. Only read and edit the specific namespaced sections requested.
+3. **TARGETED EDITS ONLY**: `src/main.js` is the live entry point and wiring hub; core systems live alongside it in `src/`. Never rewrite or output entire files. Only read and edit the specific namespaced sections requested.
 4. **WIN CONDITION**: A round ends at 60 seconds, or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
 5. **COLOR IMMUTABILITY**: All color logic must strictly use the `CART_COLORS` object in `src/config.js`. Do not modify this object or the `traverse` material logic. These are the "Original Rave" source of truth.
 6. **SERVER-DRIVEN START**: Rounds must ONLY start via `MSG.gameStart`. Tick-level auto-starts in `update()` are forbidden.
-7. **MENU MARKUP SOURCE OF TRUTH**: `index.html` is the canonical source for menu markup. `cart-rave-menu.html` has been deleted (stale duplicate). `cart-rave-menu.js` has its own internal state for color/name — game wiring overrides via localStorage and event listeners in `initMenu()`.
+7. **MENU MARKUP SOURCE OF TRUTH**: `index.html` is the canonical source for menu markup. `cart-rave-menu.html` has been deleted (stale duplicate). `src/cart-rave-menu.js` has its own internal state for color/name — game wiring overrides via localStorage and event listeners in `initMenu()`.
 8. **NO CAMERA LERP/SLERP SMOOTHING**: Do not re-introduce camera lerp or slerp smoothing. It has been intentionally removed.
 
 ## What this is
@@ -20,8 +20,8 @@ Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 ## Stack
 
 - Three.js (rendering), Rapier3D (client-side physics), PartyKit (message relay on Cloudflare Workers)
-- Static hosting (Vercel); esm.sh CDN import map; flat repo, no build step
-- `main.js` orchestrates; gameplay systems extracted to `src/` (netcode, hud, levels, input, etc.)
+- Vite (dev server + production build); static hosting on Vercel (`dist/` output)
+- `src/main.js` orchestrates; gameplay systems in `src/` (netcode, hud, levels, input, etc.)
 - localStorage: username, volume/mute, personal stats, level choice (`cartRaveLevel`)
 
 ## Current Architecture
@@ -51,7 +51,7 @@ Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - Invalid/malformed `?room=` lands on menu with param discarded.
 - **Mobile/touch** is supported: `isTouchDevice()` shows virtual joystick + Boost/Hop (`src/touchControls.js`, `src/input.js`). Landscape recommended (`src/ui/rotatePrompt.js`). Menu is fully usable on touch.
 - In-memory match history persists until tab close (survives Quit-to-Menu within session).
-- Menu music (`sounds/menu.mp3`) with 2-second crossfade to/from game music.
+- Menu music (`public/sounds/menu.mp3`) with 2-second crossfade to/from game music.
 
 ## In-game Esc Overlay
 
@@ -174,8 +174,8 @@ Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Commits frequently and reverts on broken state.
 - Prefers pushback over validation. Starts new agents if Cursor loops.
 - Uses screenshots for visual review.
-- **Deploy rule**: Always use `npm run ship` (git push + PartyKit deploy) for protocol changes so edge and client stay in sync. PartyKit DO state persists across deploys.
-- **Production verification**: post-push, fetch production `main.js` and `Select-String` for new code. Local grep alone has produced false positives.
+- **Deploy rule**: Run `npm run build` then `npm run ship` (or `git push` separately) for protocol changes so edge and client stay in sync. PartyKit DO state persists across deploys.
+- **Production verification**: post-push, fetch production `index.html` (or the hashed bundle under `dist/assets/`) and `Select-String` for new code. Local grep alone has produced false positives.
 - PowerShell env: `Select-String` not `grep`; single-line commit messages with `-m "..."`.
 - `room.getConnections()` returns an Iterator — use spread or `for...of`, never `.map().join()`.
 - Behavior-changing diffs require human playtest on prod before proceeding.

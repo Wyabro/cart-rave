@@ -1,10 +1,10 @@
 // netcode.js — PartyKit networking, interpolation, host/client authority (extracted)
 
 import PartySocket from "partysocket";
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
+import * as THREE from "three";
 import * as GameState from "./gameState.js";
 import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
-import { resolveServerColorPick } from "./customization.js";
+import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 
 /** Scratch quaternions for interpolation and reconciliation slerp. */
@@ -841,6 +841,32 @@ export function strictSlotIndexForConn(connId) {
 }
 
 /**
+ * Sends multiplayer color pick with the player's cosmetic neon hex.
+ * @param {string} color Preset palette id for slot assignment.
+ */
+export function sendColorPick(color) {
+  if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
+  const lookHex = loadPlayerCustomization().hex;
+  partySocket.send(JSON.stringify({ type: MSG.colorPick, color, lookHex }));
+}
+
+/** Pushes an updated cosmetic hex to the server (Customize menu mid-session). */
+export function syncCartLookToServer() {
+  if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
+  const lookHex = loadPlayerCustomization().hex;
+  partySocket.send(JSON.stringify({ type: MSG.cartLook, lookHex }));
+}
+
+/** Solo / offline path: patch lookHex on the local human slot in netSlots. */
+export function syncLocalSlotLookHex() {
+  if (!youConnId) return;
+  const lookHex = loadPlayerCustomization().hex;
+  const idx = strictSlotIndexForConn(youConnId);
+  if (idx < 0 || !netSlots[idx]) return;
+  netSlots[idx].lookHex = lookHex;
+}
+
+/**
  * Initializes PartyKit networking for the current game mode.
  * Solo mode skips the socket and seeds local slots; multiplayer opens a WebSocket and wires handlers.
  *
@@ -886,10 +912,11 @@ export function initNetcode(roomOverride) {
       } catch {}
     }
     const colorToSend = resolveServerColorPick();
+    const lookHex = loadPlayerCustomization().hex;
     const npcNames = callbacks.getInitialNpcNames();
 
     netSlots = [
-      { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend },
+      { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
       { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: "blue" },
       { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: "green" },
       { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: "yellow" },
@@ -1007,7 +1034,7 @@ export function initNetcode(roomOverride) {
       // * Enter game only after server hello — menu stays up while connecting.
       const colorToSend = resolveServerColorPick();
       if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-        partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
+        sendColorPick(colorToSend);
         if (GameState.getRoundState().phase === "running" && youConnId) {
           callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
         }
@@ -1058,6 +1085,11 @@ export function initNetcode(roomOverride) {
         const newColors = msg.slots.map((s) => (s?.color || ""));
         const oldColors = netSlots.map((s) => (s?.color || ""));
         const colorsChanged = newColors.some((c, i) => c !== oldColors[i]);
+        const looksChanged = msg.slots.some((s, i) => {
+          const oldLook = netSlots[i]?.lookHex ?? null;
+          const newLook = s?.lookHex ?? null;
+          return oldLook !== newLook;
+        });
 
         netSlots = msg.slots;
         const liveConnIds = new Set(
@@ -1095,8 +1127,8 @@ export function initNetcode(roomOverride) {
           }
         }
         
-        if (colorsChanged) callbacks.updateCartMaterialsFromSlots(msg.slots);
-        if (colorsChanged) callbacks.updateHudColorsFromSlots(msg.slots);
+        if (colorsChanged || looksChanged) callbacks.updateCartMaterialsFromSlots(msg.slots);
+        if (colorsChanged || looksChanged) callbacks.updateHudColorsFromSlots(msg.slots);
         callbacks.scheduleNameLabelUpdate();
         callbacks.respawnLocalMidRoundJoinRef();
       }

@@ -2,13 +2,14 @@
  * effects.js — Trash burst particles, ram-boost streaks, ambient particles, and crowd visuals.
  */
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import { mergeGeometries } from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
-import { buildCart } from "../cart.js";
+import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { buildCart } from "./cart.js";
 import * as Simulation from "./simulation.js";
 import * as GameState from "./gameState.js";
 import { CONFIG } from "./config.js";
 import { clamp } from "./utils.js";
+import { createPhysicalMaterial } from "./scene.js";
 
 const CROWD_INSTANCE_COUNT = 5000;
 const CROWD_SEARCHLIGHT_SPEEDS = [0.2, 0.35, 0.5, 0.25];
@@ -1037,20 +1038,23 @@ export function initStage(scene, pitInnerRadius, cartColors) {
   const stageY = -3;
   stageGroup = new THREE.Group();
 
-  const stageBaseMat = new THREE.MeshStandardMaterial({
+  // * Stage platform — Physical: metalness 0.85, roughness 0.28
+  const stageBaseMat = createPhysicalMaterial({
     color: 0x0a0a1a,
-    metalness: 0.8,
-    roughness: 0.3,
+    metalness: 0.85,
+    roughness: 0.28,
   });
-  const stageMetalMat = new THREE.MeshStandardMaterial({
+  // * Stage truss poles — Physical: metalness 0.9, roughness 0.32
+  const stageMetalMat = createPhysicalMaterial({
     color: 0x1a1a2e,
-    metalness: 0.8,
-    roughness: 0.4,
+    metalness: 0.9,
+    roughness: 0.32,
   });
-  const stageSpeakerMat = new THREE.MeshStandardMaterial({
+  // * Stage speaker stacks — Physical: metalness 0.75, roughness 0.28
+  const stageSpeakerMat = createPhysicalMaterial({
     color: 0x0a0a12,
-    metalness: 0.7,
-    roughness: 0.3,
+    metalness: 0.75,
+    roughness: 0.28,
   });
   const stageSpeakerFaceMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
   const stageFrameMat = new THREE.MeshBasicMaterial({ color: 0x0a0a1a });
@@ -1301,8 +1305,9 @@ export function initBillboard(scene, pitInnerRadius) {
   slTex.wrapS = THREE.RepeatWrapping;
   slTex.wrapT = THREE.RepeatWrapping;
 
-  const bbPoleMat = new THREE.MeshStandardMaterial({
-    color: 0x333344, metalness: 0.8, roughness: 0.3,
+  // * Billboard poles — Physical: metalness 0.85, roughness 0.3
+  const bbPoleMat = createPhysicalMaterial({
+    color: 0x333344, metalness: 0.85, roughness: 0.3,
   });
   const bbNeonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
   const bbNeonMagentaMat = new THREE.MeshBasicMaterial({

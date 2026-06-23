@@ -269,9 +269,59 @@ export const CONFIG = {
   },
 
   postFx: {
-    bloomStrength: 0.675, // unitless — UnrealBloomPass intensity
-    bloomRadius: 0.45, // unitless — bloom spread
-    bloomThreshold: 0.75, // unitless — luminance cutoff before bloom applies
+    // * Renderer exposure — lower keeps diffuse surfaces subdued while emissive neon blooms.
+    toneMappingExposure: 0.88,
+
+    // * IBL (Image-Based Lighting) — RoomEnvironment PMREM on scene.environment.
+    // * intensity scales all MeshStandardMaterial envMapIntensity; tune in postFxDebug (H / ?debug).
+    environment: {
+      intensity: 0.6, // unitless — global IBL multiplier
+      materialEnvMapIntensity: 0.4, // unitless — base per-material reflectivity (× intensity)
+    },
+
+    // * UnrealBloomPass tuning — see applyBloomSettings() in scene.js.
+    bloom: {
+      strength: 0.67, // unitless — bloom composite intensity
+      radius: 0.34, // unitless — halo tightness (lower = crisper neon, higher = hazier)
+      threshold: 0.86, // unitless — luminance cutoff (higher = emissive-only bloom)
+      smoothWidth: 0.055, // unitless — soft knee on the high-pass (avoids hard cutoffs)
+    },
+
+    arcade: {
+      aberration: 0.003,
+      scanlineDensity: 1.8,
+      vignette: 0.5,
+    },
+
+    // * Scene FogExp2 — Classic uses default fog on createScene(); Backrooms overrides on load.
+    fog: {
+      color: 0x0a0520, // deep blue-violet void (matches renderer clear)
+      density: 0.0065, // conservative — depth at distance without hiding gameplay
+      backrooms: {
+        color: 0x2a2418, // thick warm musty haze
+        density: 0.029,
+      },
+    },
+  },
+
+  // * Blob contact shadows — see contactShadows.js (no renderer.shadowMap; cheap quads).
+  contactShadows: {
+    enabled: true,
+    floorY: 0,
+    floorEpsilon: 0.045,
+    textureSize: 128,
+    textureSoftness: 0.92, // outer gradient radius — higher = wider soft falloff
+    cart: {
+      footprintRadiusX: 0.8, // meters — half cart width + caster margin (local X → world X at yaw 0)
+      footprintRadiusZ: 1.16, // meters — half cart length + margin (local Y → world Z at yaw 0)
+      opacity: 0.58,
+      heightFadeStart: 0.3,
+      heightFadeEnd: 4.8,
+      minAirborneScale: 0.55,
+    },
+    static: {
+      opacity: 0.44,
+    },
   },
 
   physics,
@@ -323,6 +373,7 @@ export const MSG = {
   hostRound: "host_round",
   keepalive: "keepalive",
   colorPick: "color_pick",
+  cartLook: "cart_look",
   readyToggle: "ready_toggle",
   playAgain: "play_again",
   hello: "hello",

@@ -1,6 +1,7 @@
 // frameVisuals.js — post-physics visual sync, effects, HUD, and render pass
 
 import * as Effects from "./effects.js";
+import * as ContactShadows from "./contactShadows.js";
 import { applyCartFrameGlow, cartEmissiveIntensityForHex, clamp } from "./utils.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -83,6 +84,17 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
       deps.cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
       deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now);
+      if (c.contactShadow) {
+        const bodyY = c._netTargetPos
+          ? c._netTargetPos.y
+          : c.mesh.position.y - deps.CONFIG.cart.visualOffset;
+        ContactShadows.updateCartContactShadow(c.contactShadow, {
+          x: c.mesh.position.x,
+          z: c.mesh.position.z,
+          yaw: ContactShadows.yawFromQuaternion(c.mesh.quaternion),
+          heightAboveFloor: bodyY - ContactShadows.getFloorY(),
+        });
+      }
       // eslint-disable-next-line no-continue
       continue;
     }
@@ -95,6 +107,14 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     const lv = c.body.linvel();
     deps.cartLinvelScratch.set(lv.x, lv.y, lv.z);
     deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now);
+    if (c.contactShadow) {
+      ContactShadows.updateCartContactShadow(c.contactShadow, {
+        x: c.mesh.position.x,
+        z: c.mesh.position.z,
+        yaw: ContactShadows.yawFromQuaternion(c.mesh.quaternion),
+        heightAboveFloor: p.y - ContactShadows.getFloorY(),
+      });
+    }
   }
 
   // Subtle wheel screech: short noise bursts on sharp steering, local cart only.

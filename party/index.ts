@@ -18,6 +18,8 @@ type Slot = {
   connId: string | null;
   name: string;
   color: string;
+  /** Client-synced neon frame hex (0–0xffffff); preset slot color is assignment only. */
+  lookHex?: number | null;
   isReady: boolean;
 };
 
@@ -42,6 +44,7 @@ const MSG = {
   hostEventFall: "host_event_fall",
   hostRound: "host_round",
   colorPick: "color_pick",
+  cartLook: "cart_look",
   readyToggle: "ready_toggle",
   playAgain: "play_again",
 
@@ -178,6 +181,12 @@ export default class Server implements Party.Server {
 
   #serverNowMs() {
     return Date.now();
+  }
+
+  #normalizeLookHex(raw: unknown): number | null {
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return Math.floor(n) & 0xffffff;
   }
 
   #ensureInitialized() {
@@ -331,6 +340,7 @@ export default class Server implements Party.Server {
     );
     const nextColor = PALETTE.find((c) => !usedColors.has(c)) ?? slot.color;
     slot.color = nextColor;
+    slot.lookHex = null;
   }
 
   #getAvailableColors(): string[] {
@@ -940,6 +950,8 @@ export default class Server implements Party.Server {
         if (slot) {
           const oldColor = slot.color;
           slot.color = color;
+          const lookHex = this.#normalizeLookHex(data?.lookHex);
+          if (lookHex !== null) slot.lookHex = lookHex;
 
           // Displace any NPC holding the picked color to the unused 5th color.
           const npcWithColor = this.#slots!.find(
@@ -959,6 +971,21 @@ export default class Server implements Party.Server {
           });
         }
       }
+      return;
+    }
+
+    if (type === MSG.cartLook) {
+      const slot = this.#slots?.find((s) => s.connId === conn.id);
+      if (!slot || slot.kind !== "human") return;
+      const lookHex = this.#normalizeLookHex(data?.lookHex);
+      if (lookHex === null) return;
+      slot.lookHex = lookHex;
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.slots,
+        serverNowMs: this.#serverNowMs(),
+        slots: this.#slots,
+      });
       return;
     }
 

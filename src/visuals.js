@@ -1,7 +1,7 @@
 // visuals.js — cart visual updates + misc visual helpers
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import { updateCartVisuals as _updateCartVisuals, resetCartVisualState as _resetCartVisualState } from "../cart.js";
+import * as THREE from "three";
+import { updateCartVisuals as _updateCartVisuals, resetCartVisualState as _resetCartVisualState } from "./cart.js";
 
 export { _updateCartVisuals as updateCartVisuals, _resetCartVisualState as resetCartVisualState };
 

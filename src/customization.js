@@ -1,6 +1,19 @@
 /**
  * customization.js — Player cart look preferences (localStorage).
  * Preset palette IDs match CART_COLORS / PALETTE in config.js.
+ *
+ * Customization flow (COLOR tab → in-game cart):
+ * 1. Menu (`cart-rave-menu.js`) writes preset/custom hue to localStorage on chip/slider change and DONE.
+ * 2. `loadPlayerCustomization()` normalizes stored JSON into `{ colorMode, color, customHue, hex }`.
+ * 3. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
+ *    remote humans → server-synced `slot.lookHex`; NPCs → server slot color via CART_COLORS.
+ * 4. `main.js` passes `displayColorHexForSlot` (wraps resolveCartNeonHex) into cart spawn, material
+ *    updates, per-frame frame glow, HUD score boxes (`applyHudScoreBoxGlow`), and 3D name labels.
+ * 5. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
+ * 6. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
+ *    rebroadcasts via `slots` so every client renders the same cosmetic color.
+ *
+ * Future tabs (Patterns, Wheels, Accessories) can extend the stored payload and apply in step 4.
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";
@@ -258,4 +271,91 @@ export function resolveServerColorPick() {
  */
 export function getLocalPlayerCartHex() {
   return loadPlayerCustomization().hex;
+}
+
+/**
+ * @param {{ connId?: string, kind?: string } | null | undefined} slot
+ * @param {string | null | undefined} youConnId
+ * @returns {boolean}
+ */
+export function isLocalHumanSlot(slot, youConnId) {
+  return Boolean(
+    slot
+    && slot.kind === "human"
+    && youConnId
+    && slot.connId === youConnId,
+  );
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
+export function normalizeLookHex(value) {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.floor(n) & 0xffffff;
+}
+
+/**
+ * @param {{ lookHex?: number | null, color?: string, kind?: string } | null | undefined} slot
+ * @returns {number | null}
+ */
+export function lookHexFromSlot(slot) {
+  if (!slot || slot.kind !== "human") return null;
+  return normalizeLookHex(slot.lookHex);
+}
+
+/**
+ * Neon frame hex for a cart mesh.
+ * Local human → localStorage; remote human → slot.lookHex; NPC → CART_COLORS[slot.color].
+ *
+ * @param {{ color?: string | number, kind?: string, connId?: string, lookHex?: number | null } | null | undefined} slot
+ * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
+ * @returns {number}
+ */
+export function resolveCartNeonHex(slot, ctx = {}) {
+  if (!slot) return 0x888888;
+
+  const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
+  if (isLocal) {
+    return loadPlayerCustomization().hex;
+  }
+
+  const syncedLook = lookHexFromSlot(slot);
+  if (syncedLook !== null) return syncedLook;
+
+  const c = slot.color;
+  if (typeof c === "number") return c;
+  return CART_COLORS[c]?.hex ?? 0x888888;
+}
+
+/**
+ * CSS hex for a cart slot — customization for the local human, server color for everyone else.
+ *
+ * @param {{ color?: string | number, kind?: string, connId?: string } | null | undefined} slot
+ * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
+ * @returns {string}
+ */
+export function resolveCartNeonCss(slot, ctx = {}) {
+  const hex = resolveCartNeonHex(slot, ctx);
+  return `#${hex.toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
+ *
+ * @param {HTMLElement | null | undefined} box
+ * @param {{ color?: string, kind?: string, connId?: string, lookHex?: number | null } | null | undefined} slot
+ * @param {string | null | undefined} youConnId
+ */
+export function applyHudScoreBoxGlow(box, slot, youConnId) {
+  if (!box) return;
+  if (!slot?.color) {
+    box.style.removeProperty("--hud-glow");
+    delete box.dataset.hudColor;
+    return;
+  }
+  box.style.setProperty("--hud-glow", resolveCartNeonCss(slot, { youConnId }));
+  box.dataset.hudColor = "custom";
 }

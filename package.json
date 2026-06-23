@@ -1,16 +1,24 @@
 {
   "name": "cart-rave",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "npx partykit dev",
-    "ship": "git push && npx partykit deploy"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "dev:party": "npx partykit dev",
+    "ship": "npm run build && npx partykit deploy"
   },
   "devDependencies": {
-    "partykit": "^0.0.115"
+    "lil-gui": "^0.21.0",
+    "partykit": "^0.0.115",
+    "vite": "^6.3.5"
   },
   "dependencies": {
-    "@dimforge/rapier3d": "^0.19.3",
     "@dimforge/rapier3d-compat": "^0.19.3",
-    "puppeteer": "^25.0.4"
+    "animejs": "^4.0.0",
+    "partysocket": "^1.1.16",
+    "puppeteer": "^25.0.4",
+    "three": "^0.164.1"
   }
 }

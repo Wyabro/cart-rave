@@ -1,6 +1,7 @@
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
-import * as BufferGeometryUtils from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
-import { cartEmissiveIntensityForHex } from "./src/utils.js";
+import * as THREE from "three";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
+import { cartEmissiveIntensityForHex } from "./utils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
 export const BASKET_LENGTH = 2.1;
@@ -81,18 +82,42 @@ const UNIT_CYL_GEO_8 = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
 // * Shared near-black trim: handles, wheel tires/stems, sunglasses, and smile.
 const CART_BLACK = 0x111111;
 
-const SHARED_HANDLE_MAT = new THREE.MeshStandardMaterial({
-  color: CART_BLACK,
-  roughness: 0.6,
-  metalness: 0.8,
-  emissive: 0x000000,
+// === Cart material tuning (MeshPhysicalMaterial + scene IBL) ===
+// * Chrome parts get a stronger envMap response; neon frames lean on emissive + bloom.
+const CART_CHROME_ENV_SCALE = 1.35;
+const CART_NEON_EMISSIVE_BOOST = 1.15;
+
+// * Handle + caster stems — polished chrome: metalness 0.95, roughness 0.28, clearcoat 0.55
+const SHARED_CHROME_MAT = createPhysicalMaterial({
+  color: 0x18181f,
+  metalness: 0.95,
+  roughness: 0.28,
+  clearcoat: 0.55,
+  clearcoatRoughness: 0.12,
+  envMapIntensity: getMaterialEnvMapIntensity() * CART_CHROME_ENV_SCALE,
 });
-// * Face decals sit on thin planes/tubes viewed from outside the basket front (-Z).
-const SHARED_FACE_TRIM_MAT = new THREE.MeshStandardMaterial({
+/** @deprecated alias — handle/stem chrome */
+const SHARED_HANDLE_MAT = SHARED_CHROME_MAT;
+
+// * Wheel tires — dark rubbery read with subtle sheen: metalness 0.2, roughness 0.78
+const SHARED_WHEEL_TIRE_MAT = createPhysicalMaterial({
+  color: 0x0a0a10,
+  metalness: 0.2,
+  roughness: 0.78,
+  clearcoat: 0.12,
+  clearcoatRoughness: 0.4,
+  envMapIntensity: getMaterialEnvMapIntensity() * 0.85,
+});
+
+// * Face trim (lenses, bridge, mouth) — glossy black: metalness 0.88, roughness 0.42, clearcoat 0.4
+const SHARED_FACE_TRIM_MAT = createPhysicalMaterial({
   color: CART_BLACK,
-  roughness: 0.6,
-  metalness: 0.8,
+  roughness: 0.42,
+  metalness: 0.88,
+  clearcoat: 0.4,
+  clearcoatRoughness: 0.2,
   emissive: 0x000000,
+  envMapIntensity: getMaterialEnvMapIntensity() * 1.1,
   side: THREE.DoubleSide,
 });
 
@@ -200,18 +225,24 @@ function mergeGeometriesIntoMesh(sourceGeometries, material, name, userData) {
 }
 
 /**
+ * Per-color neon basket frame + wheel hubs.
+ * Emissive drives bloom (toneMapped false); clearcoat adds tube gloss under IBL.
+ *
  * @param {THREE.Color} base
- * @returns {THREE.MeshStandardMaterial}
+ * @returns {THREE.MeshPhysicalMaterial}
  */
 function neonFrameMaterial(base) {
   const c = base.clone();
-  return new THREE.MeshStandardMaterial({
+  return createPhysicalMaterial({
     color: c,
     emissive: c.clone(),
-    emissiveIntensity: cartEmissiveIntensityForHex(c.getHex()),
-    roughness: 0.3,
-    metalness: 0.7,
+    emissiveIntensity: cartEmissiveIntensityForHex(c.getHex(), CART_NEON_EMISSIVE_BOOST),
+    metalness: 0.55,
+    roughness: 0.16,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.06,
     toneMapped: false,
+    envMapIntensity: getMaterialEnvMapIntensity() * 0.65,
   });
 }
 
@@ -475,7 +506,7 @@ function buildCastersAndWheels(root, frameMat) {
     const pitchGroup = new THREE.Group();
     yawGroup.add(pitchGroup);
 
-    const wheel = new THREE.Mesh(SHARED_WHEEL_GEO, SHARED_HANDLE_MAT);
+    const wheel = new THREE.Mesh(SHARED_WHEEL_GEO, SHARED_WHEEL_TIRE_MAT);
     wheel.rotation.z = Math.PI / 2;
     wheel.userData.isWheel = true;
     // * Marks shared geometry so cleanup utilities avoid disposing it per-instance.

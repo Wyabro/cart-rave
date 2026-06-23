@@ -4,7 +4,7 @@
 // Built per-level so a level switch can dispose the old extras and rebuild them against
 // the new arena's pitInnerRadius (the ground ring inner radius depends on it).
 
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
+import * as THREE from "three";
 import { CONFIG, CART_COLORS } from "./config.js";
 
 /**
