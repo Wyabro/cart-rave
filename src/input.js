@@ -18,6 +18,20 @@ const movementCodes = new Set([
 ]);
 
 let localNitroHeld = false;
+/** @type {boolean} One-shot hop flag consumed by the client input send loop. */
+let hopRequested = false;
+
+/** Marks a hop press for the next outgoing `client_input` packet (non-host only). */
+export function requestHop() {
+  hopRequested = true;
+}
+
+/** Returns and clears the pending hop request. */
+export function consumeHopRequest() {
+  const requested = hopRequested;
+  hopRequested = false;
+  return requested;
+}
 
 /**
  * Attaches keyboard listeners for movement, nitro, hop, mute, and Esc.
@@ -79,6 +93,7 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
   window.addEventListener("blur", () => {
     keys.clear();
     localNitroHeld = false;
+    hopRequested = false;
     resetTouchControls();
   });
 
@@ -106,11 +121,20 @@ export function getAxis() {
     turn: Math.max(-1, Math.min(1, turn)),
   };
 
+  const touch = getTouchAxis();
+
+  // * Joystick-active: per-axis max magnitude so a Bluetooth keyboard still works on tablets.
   if (isJoystickActive()) {
-    return getTouchAxis();
+    return {
+      forward: Math.abs(touch.forward) >= Math.abs(keyboard.forward)
+        ? touch.forward
+        : keyboard.forward,
+      turn: Math.abs(touch.turn) >= Math.abs(keyboard.turn)
+        ? touch.turn
+        : keyboard.turn,
+    };
   }
 
-  const touch = getTouchAxis();
   if (Math.abs(touch.forward) > 0 || Math.abs(touch.turn) > 0) {
     return touch;
   }

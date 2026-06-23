@@ -7,7 +7,7 @@
 4. WIN CONDITION: A round ends at 60 seconds, or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
 5. COLOR IMMUTABILITY: All color logic must strictly use the `CART_COLORS` object in `main.js`. Do not modify this object or the `traverse` material logic. These are the "Original Rave" source of truth.
 6. SERVER-DRIVEN START: Rounds must ONLY start via `MSG.gameStart`. Tick-level auto-starts in `update()` are strictly forbidden to prevent premature starts during the lobby phase.
-7. MENU MARKUP SOURCE OF TRUTH: `index.html` is the canonical source for menu markup. `cart-rave-menu.html` is stale (old Vibe Jam button, old Solo color key) and must NOT be used as reference. `cart-rave-menu.js` has its own internal state for color/name — game wiring overrides via localStorage and event listeners in `initMenu()`.
+7. MENU MARKUP SOURCE OF TRUTH: `index.html` is the canonical source for menu markup. `cart-rave-menu.html` was removed (stale duplicate). `cart-rave-menu.js` has its own internal state for color/name — game wiring overrides via localStorage and event listeners in `initMenu()`.
 8. NO CAMERA LERP/SLERP SMOOTHING: Do not re-introduce camera lerp or slerp smoothing. This has been intentionally removed.
 
 ## What this is
@@ -56,7 +56,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - If room is mid-`countdown` → player joins the countdown in progress, spawns on spawn booth platform.
   - If room is mid-`running` → server atomically swaps the NPC matching the picked color for the human: NPC AI control stops, human input takes over wherever the NPC currently is on the map (DO NOT attempt to respawn the cart to the booth mid-round, this breaks multiplayer sync), slot's score for the current round resets to 0.
   - If room is mid-`podium` → player spawns on spawn booth platform and waits for next countdown.
-  - Pre-color-pick connections are tracked server-side in `#pendingPickers` and do not occupy slots. Slot assignment is atomic with the color pick message.
+  - Pre-color-pick connections are tracked server-side in `#pendingPickers` and do not occupy slots until `color_pick`. Room-full rejection counts human slots only (pending pickers do not block friend joins). Slot assignment is atomic with the color pick message.
 - **Room code in URL** (e.g., cartrave.lol/?room=ABCD). Room codes are alphanumeric only, 2–16 chars (Solo rooms use format `soloXXXXXX` where X is alphanumeric, no hyphens).
   - Shared URL (`?room=ABCD`), returning visitor (username in localStorage): bypasses menu, goes straight to color picker → game. **Exception:** friend flow TODO — friends should see menu first (see Jam context).
   - Shared URL, first-time visitor (no username set): shows full menu so they get game context, then color picker → game.
@@ -72,7 +72,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## Menu & Mode Selection
 - **Menu is the landing screen.** cartrave.lol without `?room=` loads into a branded menu, not directly into game.
-- **On mobile user agents, menu renders a "desktop only" message** instead of normal content (see Controls section for full mobile handling).
+- **Mobile / touch play is supported.** `isTouchDevice()` (coarse pointer + viewport &lt; 1024px) shows in-game virtual joystick + Boost/Hop buttons (`src/touchControls.js`). Landscape orientation is recommended (`src/ui/rotatePrompt.js`). Menu remains fully usable on touch devices.
 - **Menu background**: CSS/SVG-based animated background (neon gradient, moving light rays, drifting fog — whatever reads as "club ambient"). Cheap to render; NOT a live Three.js scene. Post-jam option to upgrade to a shader-based background.
 - **Menu contents (all visible on one screen):**
   - Game title / branding + favicon
@@ -149,6 +149,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
   - Session match history (in-memory, capped at 10, retained client-side until tab closes; survives Quit-to-Menu + rejoin)
 
 ## Game structure
+- **Levels:** Classic Record (default circular vinyl arena) and Backrooms Supermarket (square carpet floor, four corner voids, center furniture pile). Selected via menu level picker / `localStorage` key `cartRaveLevel`. Classic-specific scene extras (crowd, stage, skybox) are disabled while Backrooms is active.
 - **Spawn booths**: per-color raised platforms at arena edge with no ramp. Players roll off/jump the gap onto the dancefloor. Aesthetic: DJ booth staging area. Players wait here between rounds.
 - **Main arena:** a circular neon dancefloor that rotates slowly (one rotation per ~25 seconds, visual-only). Shaped as a RING, not a disc — there is a **hole in the center** (vinyl's center hole reimagined). Hole radius is tunable in `CONFIG.record` (confirm current value in code).
 - **Two danger zones:** outer edge (rammed off into surrounding darkness; the rotation is visual-only and does not mechanically fling carts) and inner edge (fall through the center hole into a colored uplit void). Both are valid kill vectors — ram opponents outward OR toward the center.
@@ -207,18 +208,18 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Space: hop
 - M: mute toggle
 - Esc: open/close in-game overlay
-- Mouse/touch: not supported. **Desktop only.** Show "desktop only" message on mobile user agents.
+- **Touch (mobile/tablet):** on-screen joystick (move), Boost (nitro), Hop buttons — see `src/touchControls.js` and `src/input.js`
 
 ## Physics feel
 - Speed-scaled ramming (spread impulse over multiple frames to avoid jank)
 - 600ms fall-and-respawn with visible fall
 - Tank steering with drift
-- **Two fall triggers:** outer edge (cart position beyond dancefloor outer radius) and center hole (cart position within hole inner radius). Both trigger the fall-and-respawn with their respective animations.
+- **Two fall triggers (Classic Record):** outer edge (cart beyond dancefloor outer radius) and center hole (within hole inner radius). Both trigger fall-and-respawn via `CONFIG.fall.yThreshold` in `gameFlow.js`.
+- **Backrooms Supermarket level** (`src/levels/backroomsSupermarket.js`): square carpet floor with four corner voids and a surrounding pit. Fall detection is Y-threshold only (no center-hole suck; `config.record.centerHole.enabled` set false at load). Level picker in menu (`?level=backrooms` or localStorage `cartRaveLevel`).
 - Rapier deterministic config where possible (minimizes drift between host and clients).
 
 ## Netcode trade-offs
-- **No client-side prediction.** Non-host players see their own cart position as reported by the host, not predicted locally. Result: ~50-100ms of input lag for non-hosts. Acceptable for a 60-second ram game; not comparable to a twitch shooter. **Post-jam** candidate for improvement if multiplayer gameplay is the priority — requires significant netcode work (second physics sim on client, input reconciliation, rollback) that is too risky for the jam deadline.
-- **Solo and host-in-multiplayer have zero input lag.** Most players will experience the game in one of these modes. The lag only affects the non-host in a 2+ human room.
+- **Client-side prediction (multiplayer non-host only).** The local human cart runs predicted physics with host reconciliation (`shouldUseClientPrediction` in `netcode.js`). Remote carts and NPCs remain host-authoritative. Solo and host-in-multiplayer have zero input lag.
 - **Lag mitigation applied post-Step-10 (low-risk):**
   - Reduce interpolation buffer `interpBufferMs` from 150 → 100 (cuts ~50ms of remote-cart visual delay)
 - **Interpolation buffer empty-state behavior (intent):** if a non-host's buffer runs dry (network stall, host pause, tab throttling), non-host carts hold their last known position rather than extrapolating. Extrapolation without authoritative confirmation risks desync. Verify against code (Cursor audit task).
@@ -236,7 +237,7 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Cart skin variants (crab cart easter egg)
 - Bit-depth toggle, title screen polish beyond MVP
 - Supabase global leaderboard (stretch)
-- Mobile support (CUT — desktop only, permanent)
+- Full mobile polish (touch controls shipped; further UX tuning deferred)
 
 ## Deferred — do not forget
 - Equalizer-style floor pulses (emissive intensity animated to physics impacts or beat)
@@ -263,11 +264,11 @@ Tonal refs: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## Session 33 — Known bugs (pre-submission)
 
-1. **advanceGameMusicTrack broken guard**: Session 32 added `!musicEl.paused` check that prevents play() from ever firing (pause() is called earlier in the same function). Revert guard to `if (!menuVisible)`. This also likely causes music stopping entirely after several matches.
+1. ~~**advanceGameMusicTrack broken guard**~~ — fixed: guard is `if (!_getMenuVisible?.())` in `src/audio.js`.
 2. **Host cart visually frozen in friend mode**: host screen shows their cart frozen while non-host sees it moving. Suspected slot/connId mismatch — camera follows wrong cart while physics drives correct one.
 3. **Solo mode stat tracker not updating correctly in the menu.**
 4. **Record label dropped into floor**: Y offset needs raising — was previously "lowered (less wheel clipping)" but has now gone too far.
 5. **Crowd carts partially sunk into ground plane**: need Y offset adjustment.
 6. **Cart handles still not black** despite multiple prior attempts.
 7. **Ready button redundancy**: "Ready" and "Ready!" buttons are functionally redundant. Either hide/remove the redundant one or rename the first to "READY UP!".
-8. **Menu instructions missing leader glow info**: add that the leader glows white. Fix formatting to match rest of menu design.
+8. ~~**Menu instructions missing leader glow info**~~ — shipped in `index.html` cart tooltip.

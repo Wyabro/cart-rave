@@ -11,6 +11,8 @@
   }
 }
 </script>
+  <!-- Import map: bare-specifier deps (partysocket, animejs). main.js and level modules
+       import Three.js and Rapier via pinned CDN URLs directly — not through this map. -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Cart Rave — Neon shopping cart arena brawler. Play solo or with friends in this fast-paced multiplayer browser game.">
@@ -66,14 +68,14 @@
     }
     canvas { display: block; }
   </style>
-  <!-- Step 10b: Menu fonts and critical CSS -->
+  <!-- Menu fonts and critical CSS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cart-rave.wyabro.partykit.dev">
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="cart-rave-menu.css?v=11">
   <style>
-    /* Step 10d: Volume and Mute Controls */
+    /* Volume and mute range styling */
     input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
@@ -124,11 +126,6 @@
     <div class="cr-vignette"></div>
     <div class="cr-particles" id="cr-particles"></div>
     <div class="cr-scan" id="cr-scan"></div>
-
-    <div class="cr-kbm-toast" id="cr-kbm-toast" role="status" aria-live="polite" style="display:none">
-      <span class="cr-kbm-toast-text" id="cr-kbm-toast-text">Cart Rave requires a keyboard &amp; mouse</span>
-      <button class="cr-kbm-toast-close" id="cr-kbm-toast-close" type="button" aria-label="Dismiss">×</button>
-    </div>
 
     <!-- Main content -->
     <div class="cr-content">

@@ -21,10 +21,16 @@ type Slot = {
   isReady: boolean;
 };
 
+type RoundPhase = "lobby" | "countdown" | "running" | "podium";
+
 type RoundState = {
-  phase: "lobby" | "countdown" | "running" | "podium";
-  // Intentionally minimal for now; host drives transitions.
-  winnerSlotId: SlotId | "draw" | null;
+  phase: RoundPhase;
+  winnerSlotIndex: number | "draw" | null;
+  startedAtMs: number;
+  countdownStartedAtMs: number;
+  scores: Record<number, number>;
+  /** Server stamped on every broadcast round payload clients may trust for stats. */
+  validated: true;
 };
 
 const MSG = {
@@ -52,6 +58,7 @@ const MSG = {
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
+// * Keep in sync with src/npcNames.js (canonical browser-side list).
 const NPC_NAME_POOL = [
   "CartNapper",
   "WheelSnipe",
@@ -94,6 +101,15 @@ const NPC_NAME_POOL = [
   "CheckoutChamp",
   "GreaseGremlin",
 ] as const;
+
+const ROUND_DURATION_MS = 60_000;
+const MIN_RUNNING_BEFORE_PODIUM_MS = 3_000;
+const MAX_SCORE_PER_SLOT = 500;
+const PICKER_TIMEOUT_MS = 30_000;
+const RATE_LIMIT_MAX_PER_SEC = 50;
+const RATE_LIMIT_WINDOW_MS = 1_000;
+const ALLOWED_FALL_VERBS = new Set(["RAMMED", "YEETED", "BOOSTED OFF", "FELL OFF"]);
+
 // * Activity-based connection reaper thresholds. PartyKit's onClose is not
 // * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
 // * yet detected by the runtime) so we track lastSeenAtMs per connection and
@@ -109,8 +125,20 @@ export default class Server implements Party.Server {
   #hostId: string | null = null;
   #slots: Slot[] | null = null;
   #carts: (CartState | undefined)[] = [];
-  #round: RoundState = { phase: "lobby", winnerSlotId: null };
+  #round: RoundState = {
+    phase: "lobby",
+    winnerSlotIndex: null,
+    startedAtMs: 0,
+    countdownStartedAtMs: 0,
+    scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+    validated: true,
+  };
   #lastSeq: number = 0;
+  #countdownArmed = false;
+  readonly #pendingPickers = new Set<string>();
+  readonly #pendingPickerAtMs = new Map<string, number>();
+  readonly #pendingNames = new Map<string, string>();
+  readonly #rateLimitWindows = new Map<string, { count: number; windowStart: number }>();
   // * Per-connection last-activity timestamp. A missing entry is intentionally
   // * treated as epoch (0) so that connections already present at reaper-deploy
   // * time (no prior lastSeenAtMs ever set) are reap-eligible on the first pass.
@@ -314,10 +342,189 @@ export default class Server implements Party.Server {
     return PALETTE.filter((c) => !humanColors.has(c));
   }
 
-  #gameMode(): "solo" | "quickplay" | "friends" {
-    if (this.room.id.startsWith("solo")) return "solo";
-    if (this.room.id === "quickplay") return "quickplay";
-    return "friends";
+  #freshRoundLobby(): RoundState {
+    return {
+      phase: "lobby",
+      winnerSlotIndex: null,
+      startedAtMs: 0,
+      countdownStartedAtMs: 0,
+      scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      validated: true,
+    };
+  }
+
+  #broadcastRound() {
+    this.#broadcastJson({
+      v: PROTOCOL_VERSION,
+      type: MSG.round,
+      serverNowMs: this.#serverNowMs(),
+      round: this.#safeStructuredClone(this.#round),
+    });
+  }
+
+  #sanitizeScores(raw: unknown, base: Record<number, number>): Record<number, number> {
+    const scores: Record<number, number> = { ...base };
+    if (!raw || typeof raw !== "object") return scores;
+    for (let i = 0; i < 4; i += 1) {
+      const src = (raw as Record<string, unknown>)[i] ?? (raw as Record<string, unknown>)[String(i)];
+      const n = typeof src === "number" ? src : Number(src);
+      if (!Number.isFinite(n)) continue;
+      scores[i] = Math.max(0, Math.min(MAX_SCORE_PER_SLOT, Math.floor(n)));
+    }
+    return scores;
+  }
+
+  #winnerFromScores(scores: Record<number, number>): number | "draw" {
+    let max = 0;
+    for (let i = 0; i < 4; i += 1) {
+      max = Math.max(max, scores[i] ?? 0);
+    }
+    if (max === 0) return "draw";
+    for (let i = 0; i < 4; i += 1) {
+      if ((scores[i] ?? 0) === max) return i;
+    }
+    return 0;
+  }
+
+  #isAllowedPhaseTransition(from: RoundPhase, to: RoundPhase): boolean {
+    if (from === to) return true;
+    if (from === "lobby" && to === "countdown") return true;
+    if (from === "countdown" && (to === "running" || to === "lobby")) return true;
+    if (from === "running" && to === "podium") return true;
+    if (from === "podium" && to === "lobby") return true;
+    return false;
+  }
+
+  /** Validates host_round payloads; returns sanitized server round or null to reject. */
+  #validateHostRound(incoming: unknown, now: number): RoundState | null {
+    if (!incoming || typeof incoming !== "object") return null;
+    const phase = (incoming as { phase?: unknown }).phase;
+    if (phase !== "lobby" && phase !== "countdown" && phase !== "running" && phase !== "podium") {
+      return null;
+    }
+    const nextPhase = phase as RoundPhase;
+    const prev = this.#round;
+
+    if (!this.#isAllowedPhaseTransition(prev.phase, nextPhase)) {
+      return null;
+    }
+
+    const startedAtMsRaw = (incoming as { startedAtMs?: unknown }).startedAtMs;
+    const countdownStartedAtMsRaw = (incoming as { countdownStartedAtMs?: unknown }).countdownStartedAtMs;
+    const winnerRaw = (incoming as { winnerSlotIndex?: unknown }).winnerSlotIndex;
+
+    let startedAtMs = prev.startedAtMs;
+    let countdownStartedAtMs = prev.countdownStartedAtMs;
+    let scores = { ...prev.scores };
+    let winnerSlotIndex: number | "draw" | null = prev.winnerSlotIndex;
+
+    if (nextPhase === "countdown") {
+      countdownStartedAtMs =
+        typeof countdownStartedAtMsRaw === "number" && Number.isFinite(countdownStartedAtMsRaw)
+          ? countdownStartedAtMsRaw
+          : now;
+      startedAtMs = 0;
+      winnerSlotIndex = null;
+      scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    }
+
+    if (nextPhase === "running") {
+      if (prev.phase !== "countdown" && prev.phase !== "running") return null;
+      startedAtMs =
+        typeof startedAtMsRaw === "number" && Number.isFinite(startedAtMsRaw) && startedAtMsRaw > 0
+          ? startedAtMsRaw
+          : (prev.phase === "running" && prev.startedAtMs > 0 ? prev.startedAtMs : now);
+      winnerSlotIndex = null;
+      if (prev.phase !== "running") {
+        scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      }
+    }
+
+    if (nextPhase === "running" || nextPhase === "podium") {
+      scores = this.#sanitizeScores((incoming as { scores?: unknown }).scores, scores);
+      for (let i = 0; i < 4; i += 1) {
+        const prevScore = prev.scores[i] ?? 0;
+        if ((scores[i] ?? 0) < prevScore) scores[i] = prevScore;
+      }
+    }
+
+    if (nextPhase === "podium") {
+      if (prev.phase !== "running") return null;
+      if (!prev.startedAtMs || now - prev.startedAtMs < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
+      if (now - prev.startedAtMs > ROUND_DURATION_MS + 15_000) return null;
+
+      const computedWinner = this.#winnerFromScores(scores);
+      if (computedWinner === "draw") {
+        winnerSlotIndex = "draw";
+      } else if (winnerRaw === "draw") {
+        return null;
+      } else {
+        const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
+        if (!Number.isInteger(w) || w < 0 || w > 3) return null;
+        if ((scores[w] ?? 0) < Math.max(scores[0] ?? 0, scores[1] ?? 0, scores[2] ?? 0, scores[3] ?? 0)) {
+          return null;
+        }
+        winnerSlotIndex = w;
+      }
+    }
+
+    if (nextPhase === "lobby") {
+      startedAtMs = 0;
+      countdownStartedAtMs = 0;
+      winnerSlotIndex = null;
+      scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    }
+
+    return {
+      phase: nextPhase,
+      winnerSlotIndex,
+      startedAtMs,
+      countdownStartedAtMs,
+      scores,
+      validated: true,
+    };
+  }
+
+  #checkRateLimit(connId: string): boolean {
+    const now = this.#serverNowMs();
+    let bucket = this.#rateLimitWindows.get(connId);
+    if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      bucket = { count: 0, windowStart: now };
+      this.#rateLimitWindows.set(connId, bucket);
+    }
+    bucket.count += 1;
+    if (bucket.count > RATE_LIMIT_MAX_PER_SEC) {
+      return false;
+    }
+    return true;
+  }
+
+  #reapStalePendingPickers() {
+    const now = this.#serverNowMs();
+    for (const id of [...this.#pendingPickers]) {
+      const joinedAt = this.#pendingPickerAtMs.get(id) ?? 0;
+      if (now - joinedAt <= PICKER_TIMEOUT_MS) continue;
+      this.#pendingPickers.delete(id);
+      this.#pendingNames.delete(id);
+      this.#pendingPickerAtMs.delete(id);
+      const conn = this.#connections.get(id);
+      this.#connections.delete(id);
+      this.#removeFromJoinOrder(id);
+      this.#lastSeenAtMs.delete(id);
+      this.#connClientId.delete(id);
+      this.#rateLimitWindows.delete(id);
+      const ip = this.#connToIp.get(id);
+      if (ip) {
+        const count = this.#ipConnectionCounts.get(ip) ?? 1;
+        this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+        this.#connToIp.delete(id);
+      }
+      try {
+        conn?.close(4011, "Picker timeout");
+      } catch {
+        // ignore
+      }
+    }
   }
 
   // * Cancels the game-start countdown if the "all ready" condition is no
@@ -348,6 +555,7 @@ export default class Server implements Party.Server {
     if (!humanSlots.every((s) => s.isReady)) return;
 
     const startsAtMs = this.#serverNowMs() + 3000;
+    this.#countdownArmed = true;
     this.#broadcastJson({
       v: PROTOCOL_VERSION,
       type: MSG.gameStart,
@@ -389,6 +597,7 @@ export default class Server implements Party.Server {
     }
 
     this.#lastReapAtMs = now;
+    this.#reapStalePendingPickers();
     if (reapedIds.length === 0) return false;
 
     let slotsChanged = false;
@@ -402,7 +611,14 @@ export default class Server implements Party.Server {
       this.#removeFromJoinOrder(id);
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
-      this.#convertHumanSlotToNpc(id);
+      this.#rateLimitWindows.delete(id);
+      if (this.#pendingPickers.has(id)) {
+        this.#pendingPickers.delete(id);
+        this.#pendingPickerAtMs.delete(id);
+        this.#pendingNames.delete(id);
+      } else {
+        this.#convertHumanSlotToNpc(id);
+      }
       
       // Cleanup IP tracking on reap
       const ip = this.#connToIp.get(id);
@@ -449,18 +665,34 @@ export default class Server implements Party.Server {
     // --- Phase Reset: If room was completely empty of humans, nuke the state ---
     const existingHumans = this.#slots!.filter(s => s.kind === "human");
     if (existingHumans.length === 0) {
-      this.#round = { phase: "lobby", winnerSlotId: null };
+      this.#round = this.#freshRoundLobby();
       this.#carts = []; // Nuke the stale physical positions
+      this.#countdownArmed = false;
       if (this.#countdownTimerHandle) {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
       }
     }
 
-    if (!this.#assignHumanToSlot(conn.id)) {
+    const humanCount = this.#slots!.filter((s) => s.kind === "human").length;
+    if (humanCount >= 4) {
       this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
+      const ip = this.#connToIp.get(conn.id);
+      if (ip) {
+        const count = this.#ipConnectionCounts.get(ip) ?? 1;
+        this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+        this.#connToIp.delete(conn.id);
+      }
+      try {
+        conn.close(4004, "Room full");
+      } catch {
+        // ignore
+      }
       return;
     }
+
+    this.#pendingPickers.add(conn.id);
+    this.#pendingPickerAtMs.set(conn.id, this.#serverNowMs());
 
     this.#connections.set(conn.id, conn);
     this.#joinOrder.push(conn.id);
@@ -550,7 +782,14 @@ export default class Server implements Party.Server {
     this.#removeFromJoinOrder(conn.id);
     this.#lastSeenAtMs.delete(conn.id);
     this.#connClientId.delete(conn.id);
-    this.#convertHumanSlotToNpc(conn.id);
+    this.#rateLimitWindows.delete(conn.id);
+    if (this.#pendingPickers.has(conn.id)) {
+      this.#pendingPickers.delete(conn.id);
+      this.#pendingPickerAtMs.delete(conn.id);
+      this.#pendingNames.delete(conn.id);
+    } else {
+      this.#convertHumanSlotToNpc(conn.id);
+    }
     this.#cancelCountdownIfNeeded();
 
     const wasHost = this.#hostId === conn.id;
@@ -569,6 +808,13 @@ export default class Server implements Party.Server {
         hostId: this.#hostId,
       });
       // * Carts continue from last-known transforms. No re-init.
+      // * Host loss during countdown strands clients — reset to lobby so
+      // * #checkAllReady() can re-arm game_start for the surviving host.
+      if (this.#round.phase === "countdown") {
+        this.#round = this.#freshRoundLobby();
+        this.#countdownArmed = false;
+        this.#broadcastRound();
+      }
     }
 
     this.#broadcastJson({
@@ -577,12 +823,21 @@ export default class Server implements Party.Server {
       serverNowMs: this.#serverNowMs(),
       slots: this.#slots,
     });
+
+    if (wasHost) {
+      this.#checkAllReady();
+    }
   }
 
   onMessage(message: string, conn: Party.Connection) {
     // Security: Block massive payload bombs before trying to parse
     if (message.length > 4096) {
       conn.close(4009, "Payload too large");
+      return;
+    }
+
+    if (!this.#checkRateLimit(conn.id)) {
+      conn.close(4028, "Rate limit exceeded");
       return;
     }
 
@@ -606,6 +861,9 @@ export default class Server implements Party.Server {
       const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
       if (name) {
         this.#ensureInitialized();
+        if (this.#pendingPickers.has(conn.id)) {
+          this.#pendingNames.set(conn.id, name.slice(0, 24));
+        }
         const slot = this.#slots!.find((s) => s.connId === conn.id);
         if (slot) slot.name = name.slice(0, 24);
       }
@@ -621,7 +879,13 @@ export default class Server implements Party.Server {
         }
         if (ghostConnId && this.#connections.has(ghostConnId)) {
           const ghostConn = this.#connections.get(ghostConnId);
-          this.#convertHumanSlotToNpc(ghostConnId);
+          if (this.#pendingPickers.has(ghostConnId)) {
+            this.#pendingPickers.delete(ghostConnId);
+            this.#pendingPickerAtMs.delete(ghostConnId);
+            this.#pendingNames.delete(ghostConnId);
+          } else {
+            this.#convertHumanSlotToNpc(ghostConnId);
+          }
           this.#connections.delete(ghostConnId);
           this.#removeFromJoinOrder(ghostConnId);
           this.#lastSeenAtMs.delete(ghostConnId);
@@ -660,6 +924,18 @@ export default class Server implements Party.Server {
         typeof color === "string" &&
         this.#getAvailableColors().includes(color)
       ) {
+        if (this.#pendingPickers.has(conn.id)) {
+          if (!this.#assignHumanToSlot(conn.id)) return;
+          this.#pendingPickers.delete(conn.id);
+          this.#pendingPickerAtMs.delete(conn.id);
+          const pendingName = this.#pendingNames.get(conn.id);
+          if (pendingName) {
+            const assigned = this.#slots!.find((s) => s.connId === conn.id);
+            if (assigned) assigned.name = pendingName.slice(0, 24);
+          }
+          this.#pendingNames.delete(conn.id);
+        }
+
         const slot = this.#slots?.find((s) => s.connId === conn.id);
         if (slot) {
           const oldColor = slot.color;
@@ -724,7 +1000,8 @@ export default class Server implements Party.Server {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
       }
-      this.#round = { phase: "lobby", winnerSlotId: null };
+      this.#round = this.#freshRoundLobby();
+      this.#countdownArmed = false;
       this.#carts = [];
       // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
       for (const slot of this.#slots!) {
@@ -736,12 +1013,7 @@ export default class Server implements Party.Server {
         serverNowMs: this.#serverNowMs(),
         slots: this.#slots,
       });
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.round,
-        serverNowMs: this.#serverNowMs(),
-        round: this.#round,
-      });
+      this.#broadcastRound();
       this.#checkAllReady();
       return;
     }
@@ -753,6 +1025,7 @@ export default class Server implements Party.Server {
       const throttle = this.#clamp(data?.input?.throttle, -1, 1);
       const steer = this.#clamp(data?.input?.steer, -1, 1);
       const nitro = Boolean(data?.input?.nitro);
+      const hop = Boolean(data?.input?.hop);
       // Relay to host only. Do not broadcast.
       this.#sendJsonToHost({
         v: PROTOCOL_VERSION,
@@ -761,7 +1034,7 @@ export default class Server implements Party.Server {
         connId: data.connId,
         seq: typeof data?.seq === "number" ? data.seq : null,
         tClient: typeof data?.tClient === "number" ? data.tClient : null,
-        input: { throttle, steer, nitro },
+        input: { throttle, steer, nitro, hop },
       });
       return;
     }
@@ -856,18 +1129,13 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.hostRound) {
-      // Security: host-only.
+      // Security: host-only; server validates transitions and podium results.
       if (conn.id !== this.#hostId) return;
-      const round = data?.round;
-      if (round && typeof round === "object") {
-        this.#round = round as RoundState;
-      }
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.round,
-        serverNowMs: this.#serverNowMs(),
-        round: this.#round,
-      });
+      const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
+      if (!validated) return;
+      this.#round = validated;
+      if (validated.phase === "countdown") this.#countdownArmed = false;
+      this.#broadcastRound();
       return;
     }
 
@@ -886,9 +1154,10 @@ export default class Server implements Party.Server {
     }
 
     if (type === MSG.hostEventFall) {
-      // Security: host-only.
+      // Security: host-only; verb is whitelisted for kill-feed safety.
       if (conn.id !== this.#hostId) return;
-      // Placeholder: keep for diagnostics/telemetry; clients can infer via cart flags.
+      const verbRaw = typeof data?.verb === "string" ? data.verb.trim().toUpperCase() : "";
+      const verb = ALLOWED_FALL_VERBS.has(verbRaw) ? verbRaw : (verbRaw ? "RAMMED" : "FELL OFF");
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.hostEventFall,
@@ -898,8 +1167,8 @@ export default class Server implements Party.Server {
         victimSlotIndex: data?.victimSlotIndex ?? null,
         attackerSlot: data?.attackerSlot ?? null,
         attackerSlotIndex: data?.attackerSlotIndex ?? null,
-        verb: data?.verb ?? null,
-        reason: data?.reason ?? null,
+        verb,
+        reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
       });
     }
   }

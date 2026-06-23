@@ -265,7 +265,7 @@ export const CONFIG = {
   },
 
   round: {
-    durationMs: 95000, // ms — host-authoritative round length
+    durationMs: 60000, // ms — host-authoritative round length
   },
 
   postFx: {
@@ -311,6 +311,8 @@ export const CART_COLORS = {
 };
 
 export const PALETTE = Object.keys(CART_COLORS);
+
+export { NPC_NAME_POOL } from "./npcNames.js";
 
 export const MSG = {
   join: "join",

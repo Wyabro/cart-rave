@@ -203,6 +203,72 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
 }
 
 /**
+ * Disposes one cart mesh: per-cart geometries and frame materials only.
+ * Skips module-shared wheel/hub geometry ({@link cart.js} `isSharedGeometry`).
+ *
+ * @param {THREE.Object3D | null | undefined} mesh
+ * @param {ReturnType<typeof buildCartMaterialCache> | null | undefined} materialCache
+ */
+function disposeCartMeshResources(mesh, materialCache) {
+  if (!mesh) return;
+
+  mesh.traverse((child) => {
+    if (!child.isMesh || !child.geometry) return;
+    if (child.userData?.isSharedGeometry) return;
+    child.geometry.dispose();
+  });
+
+  if (materialCache?.frameMats) {
+    for (const mat of materialCache.frameMats) {
+      if (mat && typeof mat.dispose === "function") mat.dispose();
+    }
+  }
+}
+
+/**
+ * Removes all slot carts from the physics world and scene.
+ * Foundation for in-tab menu returns without a full page reload.
+ *
+ * @param {{
+ *   scene?: THREE.Scene | null,
+ *   nameLabels?: Array<{ element?: HTMLElement } | null | undefined> | null,
+ * }} [options]
+ */
+export function destroyCarts(options = {}) {
+  const scene = options.scene ?? sceneRef;
+
+  Visuals.disposeAllRamBoostStreaks(ramBoostStreaksRef, scene);
+
+  if (allCartsRef) {
+    for (const cart of allCartsRef) {
+      if (!cart) continue;
+      if (worldRef && cart.body) {
+        worldRef.removeRigidBody(cart.body);
+      }
+      if (cart.mesh && scene) {
+        scene.remove(cart.mesh);
+        disposeCartMeshResources(cart.mesh, cart._materialCache);
+      }
+    }
+  }
+
+  colliderHandleToCart.clear();
+  allCartsRef = null;
+
+  const nameLabels = options.nameLabels;
+  if (nameLabels && scene) {
+    while (nameLabels.length > 0) {
+      const label = nameLabels.pop();
+      if (!label) continue;
+      scene.remove(label);
+      if (label.element?.parentNode) {
+        label.element.parentNode.removeChild(label.element);
+      }
+    }
+  }
+}
+
+/**
  * Teleports a cart to its spawn pose and clears transient combat / boost state.
  *
  * @param {ReturnType<typeof createCart>} cart

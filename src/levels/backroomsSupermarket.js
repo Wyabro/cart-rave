@@ -26,6 +26,7 @@ import RAPIER from "https://cdn.skypack.dev/@dimforge/rapier3d-compat";
 // * outer edge, giving a wide, open arena.
 const ARENA_HALF = 34; // meters — floor half-extent (full square = 68 x 68)
 const FLOOR_TOP_Y = 0; // meters — flat playing-surface height
+const FLOOR_FRICTION = 0.55; // unitless — lower than Classic record; high friction catches trimesh seams
 const FLOOR_GRID_CELLS = 76; // count — trimesh grid resolution per axis
 const FLOOR_STEP = (ARENA_HALF * 2) / FLOOR_GRID_CELLS; // meters — grid cell size
 const CARPET_TILE_M = 3.0; // meters — carpet texture world repeat
@@ -1374,7 +1375,7 @@ export function initBackroomsSupermarket(scene, world, config) {
   const floorIndices = Uint32Array.from(floorGeo.index.array);
   const floorCollider = world.createCollider(
     RAPIER.ColliderDesc.trimesh(floorVerts, floorIndices)
-      .setFriction(config.record.friction)
+      .setFriction(FLOOR_FRICTION)
       .setRestitution(config.record.restitution),
     floorBody,
   );

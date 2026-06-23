@@ -1,13 +1,13 @@
 # Cart Rave — Todo & Roadmap
 
-**Last Updated:** June 22, 2026
+**Last Updated:** June 23, 2026
 
 ## Current Status
 
-- **Core Game**: Fully playable, host-authoritative multiplayer
+- **Core Game**: Fully playable, host-authoritative multiplayer with client-side prediction (non-host)
 - **Physics & Feel**: Version 1 driving core restored + tipping tuned
-- **Phase**: Moving into **Content & Features**
-- **Modular Structure**: Complete (main.js is now a thin orchestrator)
+- **Phase**: Content & Features — Backrooms level shipped, touch controls in progress
+- **Modular Structure**: Core systems extracted to `src/`; `main.js` remains the live entry point and game wiring hub
 
 ---
 
@@ -23,8 +23,8 @@
 - [x] Final boost/nitro balance pass
 
 ### Phase 3 — Content & Features (Next Priority)
-- [ ] New level: "Backrooms of Big Box" (supermarket arena)
-- [ ] Mobile / touch controls support
+- [x] New level: "Backrooms Supermarket" (`src/levels/backroomsSupermarket.js`)
+- [x] Mobile / touch controls support (in-game joystick + Boost/Hop; menu touch UX)
 - [ ] More cart customization options
 - [ ] Spectator mode / chaos features
 
@@ -78,7 +78,8 @@
 - Real cart crash sound sample
 
 ### Polish & Quality of Life
-- Mobile detection + blocking
+- Touch controls (in-game) + rotate prompt for mobile
+- Mobile detection (replaces old desktop-only blocking)
 - Audio system (separate music/SFX volume, procedural SFX)
 - Kill feed, score bar, HUD overhaul
 - Stats tracking + match history

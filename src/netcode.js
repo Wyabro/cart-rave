@@ -4,6 +4,7 @@ import PartySocket from "partysocket";
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import * as GameState from "./gameState.js";
 import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
+import { consumeHopRequest } from "./input.js";
 
 /** Scratch quaternions for interpolation and reconciliation slerp. */
 const _interpFromQ = new THREE.Quaternion();
@@ -50,6 +51,7 @@ let getAllCartsRefFn = null;
 let getAxisRef = null;
 let isNitroHeldRef = null;
 let triggerRamBoostRef = null;
+let triggerHopRef = null;
 let resetSimTimingRef = null;
 
 let netSlots = [];
@@ -68,6 +70,8 @@ let callbacks = {
   // Connection lifecycle
   markFirstHelloReceived: () => {},
   getOnGameStartHandler: () => null,
+  getOnHostMigratedHandler: () => null,
+  onCountdownCancelled: () => {},
   onJoinRejected: () => {},
 
   // Menu & HUD
@@ -100,7 +104,6 @@ let callbacks = {
   setPendingColorChipEl: () => {},
   getLocalColorPicked: () => false,
   setLocalColorPicked: () => {},
-  renderColorPicker: () => {},
 
   // Stats & crowd
   recordPodiumStats: () => {},
@@ -123,6 +126,8 @@ export function registerGameCallbacks(deps) {
     getInitialNpcNames: () => deps.initialNpcNames,
     markFirstHelloReceived: () => deps.markFirstHelloReceived(),
     getOnGameStartHandler: () => deps.getOnGameStartHandler(),
+    getOnHostMigratedHandler: () => deps.getOnHostMigratedHandler?.(),
+    onCountdownCancelled: () => deps.onCountdownCancelled?.(),
     onJoinRejected: () => deps.onJoinRejected?.(),
     getMenuVisible: () => deps.getMenuVisible(),
     hideMenuRef: () => deps.invokeHideMenu(),
@@ -160,7 +165,6 @@ export function registerGameCallbacks(deps) {
     setPendingColorChipEl: (val) => deps.setPendingColorChipEl(val),
     getLocalColorPicked: () => deps.getLocalColorPicked(),
     setLocalColorPicked: (val) => deps.setLocalColorPicked(val),
-    renderColorPicker: (colors) => deps.renderColorPicker(colors),
     recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
     bumpCrowd: () => deps.getCrowd()?.bump?.(),
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
@@ -184,6 +188,7 @@ export function setRefs(refs) {
   if (refs.getAxisRef !== undefined) getAxisRef = refs.getAxisRef;
   if (refs.isNitroHeldRef !== undefined) isNitroHeldRef = refs.isNitroHeldRef;
   if (refs.triggerRamBoostRef !== undefined) triggerRamBoostRef = refs.triggerRamBoostRef;
+  if (refs.triggerHopRef !== undefined) triggerHopRef = refs.triggerHopRef;
   if (refs.resetSimTimingRef !== undefined) resetSimTimingRef = refs.resetSimTimingRef;
 }
 
@@ -700,6 +705,18 @@ export function stopKeepaliveLoop() {
   keepaliveTimer = null;
 }
 
+/**
+ * Clears host/client send loops and authoritative snapshot state before a new socket session.
+ * Called when replacing an existing PartyKit connection in {@link initNetcode}.
+ */
+function resetNetcodeReconnectState() {
+  stopHostSendLoop();
+  stopInputSendLoop();
+  netStateBuffer = [];
+  hostEpoch += 1;
+  lastCartsCache = null;
+}
+
 export function startHostSendLoop() {
   stopHostSendLoop();
   if (!partySocket || !isHost || !getAllCarts()) return;
@@ -756,6 +773,7 @@ export function startInputSendLoop() {
         throttle: axis.forward,
         steer: axis.turn,
         nitro: isNitroHeldRef ? isNitroHeldRef() : false,
+        hop: consumeHopRequest(),
       },
     }));
   }, intervalMs);
@@ -785,6 +803,7 @@ export function setAuthorityMode(nextIsHost) {
 
   if (becomingHost) {
     stopInputSendLoop();
+    consumeHopRequest();
     netStateBuffer = [];
     hostSeq = 0;
     inputSeq = 0;
@@ -849,6 +868,7 @@ export function initNetcode(roomOverride) {
     stopKeepaliveLoop();
     partySocket.close();
     partySocket = null;
+    resetNetcodeReconnectState();
   }
 
   if (modeAtConnect === "solo") {
@@ -857,12 +877,11 @@ export function initNetcode(roomOverride) {
     isHost = true;
     setAuthorityMode(true);
 
-    let savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    let savedUsername = (localStorage.getItem("cartRaveUsername") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       try {
         localStorage.setItem("cartRaveUsername", savedUsername);
-        localStorage.setItem("cartRaveName", savedUsername);
       } catch {}
     }
     const savedColor = localStorage.getItem('cartRaveColor');
@@ -933,30 +952,15 @@ export function initNetcode(roomOverride) {
   });
 
   partySocket.addEventListener("open", () => {
-    let savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    let savedUsername = (localStorage.getItem("cartRaveUsername") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       localStorage.setItem("cartRaveUsername", savedUsername);
-      localStorage.setItem("cartRaveName", savedUsername);
     }
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
     
     startKeepaliveLoop();
-
-    const menuVisible = callbacks.getMenuVisible();
-    if (!didAutoReadyOnOpen && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
-      didAutoReadyOnOpen = true;
-      setTimeout(() => {
-        if (
-          partySocket &&
-          partySocket.readyState === WebSocket.OPEN &&
-          (callbacks.detectGameMode() === "quickplay" || callbacks.detectGameMode() === "solo")
-        ) {
-          partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-        }
-      }, 500);
-    }
   });
 
   // === MESSAGE HANDLING ===
@@ -1016,6 +1020,19 @@ export function initNetcode(roomOverride) {
       callbacks.updateCartMaterialsFromSlots(msg.slots);
       callbacks.updateHudColorsFromSlots(msg.slots);
       callbacks.scheduleNameLabelUpdate();
+
+      if (!didAutoReadyOnOpen && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
+        didAutoReadyOnOpen = true;
+        setTimeout(() => {
+          if (
+            partySocket &&
+            partySocket.readyState === WebSocket.OPEN &&
+            (callbacks.detectGameMode() === "quickplay" || callbacks.detectGameMode() === "solo")
+          ) {
+            partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
+          }
+        }, 400);
+      }
       return;
     }
 
@@ -1029,6 +1046,10 @@ export function initNetcode(roomOverride) {
       if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + CONFIG.net.hostMigrationFreezeMs;
       hostEpoch += 1;
       netStateBuffer = [];
+      if (nextIsHost) {
+        const hostMigratedHandler = callbacks.getOnHostMigratedHandler?.();
+        if (hostMigratedHandler) hostMigratedHandler();
+      }
       return;
     }
 
@@ -1059,7 +1080,7 @@ export function initNetcode(roomOverride) {
           .map((s) => s.color);
         const palette = callbacks.getPALETTE();
         const availableColors = palette.filter((c) => !takenColors.includes(c));
-        callbacks.renderColorPicker(availableColors);
+        void availableColors;
 
         if (callbacks.getLocalColorPicked() && youConnId) {
           const mySlot = msg.slots.find((s) => s && s.connId === youConnId) || null;
@@ -1165,6 +1186,7 @@ export function initNetcode(roomOverride) {
       const throttle = Number.isFinite(input.throttle) ? input.throttle : 0;
       const steer = Number.isFinite(input.steer) ? input.steer : 0;
       const nitro = Boolean(input.nitro);
+      const hop = Boolean(input.hop);
 
       remoteInputsByConnId.set(connId, {
         throttle: clamp(throttle, -1, 1),
@@ -1182,6 +1204,14 @@ export function initNetcode(roomOverride) {
         }
       }
       remoteNitroLatchedByConnId.set(connId, nitro);
+
+      if (hop && allCarts && triggerHopRef) {
+        const slotIndex = strictSlotIndexForConn(connId);
+        if (slotIndex >= 0) {
+          const cart = allCarts[slotIndex];
+          if (cart) triggerHopRef(cart, performance.now());
+        }
+      }
       return;
     }
 
@@ -1201,6 +1231,9 @@ export function initNetcode(roomOverride) {
 
         const prevPhase = GameState.getRoundState().phase;
         const newPhase = r.phase;
+        if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "lobby") {
+          callbacks.onCountdownCancelled?.();
+        }
         if (typeof newPhase === "string" && prevPhase === "podium" && newPhase === "lobby") {
           GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
           GameState.setRoundStartedAtMs(0);
@@ -1210,6 +1243,7 @@ export function initNetcode(roomOverride) {
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
           callbacks.setPendingMidRoundJoinRespawnConnId(null);
           if (!isHost) {
+            if (r.validated !== true) return;
             const w = r.winnerSlotIndex;
             const winnerSlotIndex =
               w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;

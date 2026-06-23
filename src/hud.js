@@ -1759,7 +1759,7 @@ function updateTimer(roundState, matchHistoryLength) {
   if (roundPhase === "running") {
     const elapsedMs = Date.now() - (roundStartedAtMs || 0);
     const totalRoundMs = roundState?.totalRoundMs
-      ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 95000);
+      ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
     const remainingMs = totalRoundMs - elapsedMs;
     const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
     const minutes = Math.floor(seconds / 60);
@@ -2365,7 +2365,6 @@ export function init(options) {
   updateMenuButtonVisibility(_options.getMenuVisible ? _options.getMenuVisible() : true);
   bindHudLayoutSync();
 
-  // Return structure matching old HUD references
   return {
     root: elements.root,
     status: elements.status,

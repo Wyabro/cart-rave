@@ -672,7 +672,7 @@ export function initArena(scene, world, config) {
   const boothNeonMeshes = [];
   const boothColliderHandles = [];
 
-  // --- Record platform (visual rotates, physics stays fixed for day 1) ---
+  // --- Record platform (visual rotates; physics ring collider stays world-fixed) ---
   const visualRecordY = config.record.y + (config.record.thickness - visualRecordThickness) / 2;
   const recordGeo = buildRecordRingGeometry({
     outerRadius: config.record.radius,
@@ -863,7 +863,7 @@ export function initArena(scene, world, config) {
     scene.add(debugMesh);
   }
 
-  // Step 15 — DJ Spawn Booths (4x, N/S/E/W)
+  // DJ spawn booths (4x, N/S/E/W)
   const boothBuild = buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles);
 
   const pitInnerRadius = (config.record.radius + 2) * 1.30 * 1.20;

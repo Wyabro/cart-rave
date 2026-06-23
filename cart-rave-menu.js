@@ -783,7 +783,7 @@
 
   function wireAllMenuPressFeedback() {
     document.querySelectorAll(
-      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-kbm-toast-close",
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back",
     ).forEach((btn) => {
       wireMenuPressFeedback(btn);
     });

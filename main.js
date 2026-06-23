@@ -39,6 +39,8 @@ import {
   getColorForSlot,
   isTouchDevice,
 } from "./src/utils.js";
+import { CONFIG, MSG, CART_COLORS, PALETTE } from "./src/config.js";
+import { NPC_NAME_POOL } from "./src/npcNames.js";
 
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
@@ -83,286 +85,7 @@ function buildCartMaterialCache(cartMesh) {
 }
 
 // === CONSTANTS & CONFIG ===
-
-// * PartyKit public host lives in netcode.js (`partyHostFromWindowLocation`).
-
-// --- PartyKit protocol constants (must match server exactly) ---
-const MSG = {
-  // Client -> server
-  join: "join",
-  hostTransform: "host_transform",
-  clientInput: "client_input",
-  hostEventCollision: "host_event_collision",
-  hostEventFall: "host_event_fall",
-  hostRound: "host_round",
-  keepalive: "keepalive",
-  colorPick: "color_pick",
-  readyToggle: "ready_toggle",
-  playAgain: "play_again",
-
-  // Server -> client
-  hello: "hello",
-  hostAssigned: "host_assigned",
-  hostMigrated: "host_migrated",
-  slots: "slots",
-  state: "state",
-  round: "round",
-  joinRejected: "join_rejected",
-  gameStart: "game_start",
-};
-
-const CART_COLORS = {
-  pink:       { hex: 0xff00ff, css: "bg-pink" },
-  blue:       { hex: 0x00ffff, css: "bg-blue" },
-  green:      { hex: 0x00ff00, css: "bg-green" },
-  yellow:     { hex: 0xffff00, css: "bg-yellow" },
-  neonOrange: { hex: 0xff6600, css: "bg-neonOrange" },
-};
-const PALETTE = Object.keys(CART_COLORS);
-
-// * Menu color picker (cart-rave-menu.js) is the only color selection UI.
-// * Color is auto-submitted on hello receipt using localStorage cartRaveColor.
-// eslint-disable-next-line no-unused-vars
-function renderColorPicker(_availableColors) {}
-
-const CONFIG = {
-  canvasId: "game",
-  backgroundColor: 0x070010,
-  debug: {
-    input: false,
-    velocity: false,
-    arenaTrimesh: false,
-  },
-  net: {
-    // * Non-host renders 100ms behind latest packet for smoothness.
-    interpBufferMs: 75,
-    // * Host sends authoritative transforms at 20Hz.
-    hostSendHz: 40,
-    // * Non-host sends client_input at 60Hz.
-    clientInputHz: 60,
-    // * Keepalive ping interval (ms). Kept well below the server-side reap
-    // * timeout (20s) so hosts idle during podium/lobby stay alive.
-    keepaliveIntervalMs: 5000,
-  },
-
-  gravity: -24,
-  fixedTimeStep: 1 / 60,
-  maxSubsteps: 4,
-
-  record: {
-    radius: 26.4,
-    innerRadius: 3.63,
-    thickness: 0.6,
-    y: -0.3,
-    rotationSpeedRadPerSec: 0.35,
-    physicsSpinRadPerSec: 0.08,
-    friction: 0.8,    // Was 1.95 — high friction catches on trimesh seams
-    restitution: 0.05,
-    color: 0x050006,
-    rimColor: 0xff2bd6,
-    surface: {
-      concentricRings: {
-        count: 96,
-        lineWidth: 0.018,
-        color: 0x2a2a32,
-        yOffset: 0.3,
-        innerRadius: 7.15,
-        outerRadius: 25.9,
-      },
-      spindleRing: {
-        enabled: true,
-        innerRadius: 3.3,
-        outerRadius: 3.7,
-        color: 0xffffff,
-        yOffset: 0.3,
-      },
-    },
-    // Physics-only hole clearance (visual mesh unchanged). Tuned to reduce center-hole
-    // sticking and random hopping while keeping a protective expanded collision hole.
-    physics: {
-      chamferWidth: 0.35,
-      holeClearance: 0.45,
-      outerBevel: 0.12,
-      segments: 72,
-    },
-    holeAssist: {
-      lowFrictionBandM: 1.5,
-      lowFriction: 0.05,
-      approachDownAccel: 5.0,
-      fallThroughAccel: 16.0,
-      unstickAccel: 32.0,
-    },
-  },
-
-  cart: {
-    size: {
-      x: 1.31,
-      y: 1.35, // y undersized vs visual by ~11%; entangled with wheel/spawn-height, deferred
-      z: 2.26,
-    },
-    // * World y for all start slots; xz come from spawnRingRadius + slot angle (see main()).
-    spawnHeight: 1.077,
-    friction: 1.1,
-    restitution: 0.3,
-    linearDamping: 0.6,
-    angularDamping: 1.2,
-    maxPitchRoll: 4.5,
-    visualOffset: 0.82,
-
-    ramBoost: {
-      enabled: true,
-      durationSec: 1.7,
-      cooldownSec: 3.1,
-      boostedMaxSpeed: 27,
-      boostedAccel: 205,
-      nitroGripFactor: 0.78,
-      launchAccelMul: 1.38,
-      launchWindowSec: 0.2,
-      nitroDriftMul: 1.12,
-      streakDurationSec: 0.4,
-      streakSpawnRatePerSec: 20,
-      streakLengthMeters: 2.3,
-      streakRadiusMeters: 0.015,
-      streakTipRadiusScale: 0.12,
-      streakGlowRadiusMul: 2.1,
-      streakGlowOpacity: 0.32,
-      streakCoreOpacity: 0.56,
-      streakSaturationMul: 1.1,
-      streakBrightnessMul: 1.06,
-      streakSecondaryChance: 0.15,
-      streakMaxActive: 80,
-      streakPulseHz: 12,
-      npc: {
-        enabled: true,
-        alignmentAngleDeg: 13.2,
-        minTargetDistance: 3.6,
-        maxTargetDistance: 19.8,
-      },
-    },
-
-    hop: {
-      impulse: 25,           // upward impulse magnitude
-      cooldownMs: 500,     // min time between hops
-    },
-
-    // NOTE: CoM tuning deferred. Baseline -0.55 is stable-but-boring.
-    // Tried y=-0.4 (tippy) and y=-0.45 with z=-0.2 rearward (caused front-flips under acceleration).
-    // Next attempt should be small, single-axis changes with angular damping co-tuned:
-    //   1. Try y=-0.5 alone, adjust angularDamping 1.5 -> 2.0-2.5 if tippy
-    //   2. If that's stable, try y=-0.475
-    //   3. Do NOT shift CoM in z until pitch stability is confirmed at target y
-    //   4. Revisit only after ram boost and other feel work lands — need full context
-    // * Rigid-body localCoM is applied in applyCartMassPropertiesOverride (not this object).
-  },
-
-  driving: {
-    maxSpeed: 17.0,
-    reverseMaxSpeed: 8.0,
-    accel: 150.0,
-    braking: 35.0,
-    steeringTorque: 110.0,
-    tankYawRate: 5.6, // rad/s at full input (in-place rotation)
-    yawResponsiveness: 22.0, // higher = snaps to desired yaw rate faster
-    lateralGrip: 16.0,
-    driftGripFactor: 0.35, // lower = more sideways slide while turning
-    driftImpulseStrength: 0.55, // sideways push while turning at speed
-    airControlFactor: 0.15,
-  },
-
-  scoring: {
-    // * Critical bonus triggers on committed rams. Threshold 11.0 is now
-    // * well below maxSpeed=17, meaning most committed driving will crit.
-    // * Intentionally generous after playtest feedback. Ram-boosted rams
-    // * (boostedMaxSpeed=27) always crit.
-    criticalVelocityThreshold: 11.0,
-    hitWindowMs: 2500,
-  },
-
-  round: {
-    durationMs: 95000,
-  },
-
-  ramming: {
-    minSpeed: 0.8,
-    strength: 2.88,
-    maxImpulse: 200.0,
-    spreadSteps: 3,
-    alignmentDotMin: 0.1,
-    boostImpulseMultiplier: 2.35,
-    nitroAccelMultiplier: 1.72,
-    fx: {
-      particleCountBase: 8,
-      particleCountPerIntensity: 16,
-      particleBoostCountBonus: 6,
-      particleMaxCount: 28,
-      shakeMinIntensity: 0.38,
-      shakeBoostMinIntensity: 0.22,
-      shakePixelScale: 5.5,
-      audioBoostGain: 1.4,
-    },
-  },
-
-  fall: {
-    yThreshold: -10,
-    respawnDelayMs: 600,
-  },
-
-  booth: {
-    // Platform
-    platformY: 4.0,            // top-surface Y of the raised booth
-    platformWidth: 7.0,        // X-extent (side to side)
-    platformDepth: 5.0,        // Z-extent (front to back, not counting ramp)
-    platformThickness: 0.6,    // slab height
-
-    // Ramp (slopes from platform front edge down toward arena)
-    rampLength: 0,             // how far the ramp extends toward the arena
-    rampWidth: 5.0,            // slightly narrower than platform
-    rampEndY: 0.1,             // bottom of ramp — almost flush with record surface, not touching
-    rampThickness: 0.3,
-
-    // Gap — distance from ramp bottom edge to arena outer rim
-    gapDistance: 1.5,
-
-    // Railings
-    railHeight: 1.8,
-    railThickness: 0.12,
-
-    // DJ gear (behind cart spawn)
-    gearEnabled: true,
-
-    // Neon color cycling
-    neonColor1: 0xff2bd6,       // fuchsia
-    neonColor2: 0x2bd6ff,       // neon blue
-    neonCycleSpeed: 0.4,        // cycles per second
-
-    // Physics
-    friction: 2.0,
-    restitution: 0.0,
-  },
-
-  camera: {
-    fov: 55,
-    minFov: 50,
-    maxFov: 75,
-    followBack: 8.36,
-    followUp: 3.894,
-    lookAhead: 5.0,
-    lookUp: 1.2,
-    positionDamping: 10.0,
-    rotationDamping: 12.0,
-    snapDistance: 80.0,
-  },
-
-  audio: {
-    musicVolume: 0.1725,
-  },
-};
-
-// Spawn ring radius: place carts on booths, which sit beyond the arena edge + gap + ramp
-// Booth center distance = record.radius + booth.gapDistance + booth.rampLength + booth.platformDepth/2
-CONFIG.cart.spawnRingRadius = CONFIG.record.radius + CONFIG.booth.gapDistance + CONFIG.booth.rampLength + CONFIG.booth.platformDepth / 2;
-// Spawn height: on top of the booth platform
-CONFIG.cart.spawnHeight = CONFIG.booth.platformY + CONFIG.booth.platformThickness / 2 + CONFIG.cart.size.y / 2 + 0.05;
+// * CONFIG, MSG, CART_COLORS, PALETTE — imported from src/config.js (single source of truth).
 
 // === NETCODE BRIDGING ===
 
@@ -394,9 +117,17 @@ function createNetcodeCallbackDeps() {
     initialNpcNames,
     markFirstHelloReceived,
     getOnGameStartHandler: () => onGameStartHandler,
+    getOnHostMigratedHandler: () => onHostMigratedHandler,
+    onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
     getMenuVisible: () => menuVisible,
     invokeHideMenu: () => { if (hideMenuRef) hideMenuRef(); },
-    onJoinRejected: () => { if (returnToMenuRef) returnToMenuRef(); },
+    // * Full page reload (same as Esc → Quit): partial in-tab teardown left orphaned carts/physics.
+    // * Future in-tab menu return should call teardownGameSessionCartsRef() instead of reloading.
+    onJoinRejected: () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("room");
+      window.location.href = url.pathname;
+    },
     updateCartMaterialsFromSlots,
     updateHudColorsFromSlots,
     updateNameLabelsRef,
@@ -415,7 +146,6 @@ function createNetcodeCallbackDeps() {
     setPendingColorChipEl: (val) => { pendingColorChipEl = val; },
     getLocalColorPicked: () => _localColorPicked,
     setLocalColorPicked: (val) => { _localColorPicked = val; },
-    renderColorPicker,
     recordPodiumStats,
     getCrowd: () => crowd,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
@@ -517,41 +247,8 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
   }
 }
 
-const CLIENT_NPC_NAME_POOL = [
-  "CartNapper",
-  "WheelSnipe",
-  "BuggyBrawler",
-  "TrolleyTerror",
-  "AisleDrifter",
-  "CartJacker",
-  "PushNPray",
-  "WobbleBot",
-  "RimRattler",
-  "BasketCase",
-  "SkidMark",
-  "BumperDumper",
-  "RollCage",
-  "HotWheelz",
-  "CurbStomp",
-  "CartBlanche",
-  "DriftWood",
-  "NitroNancy",
-  "TurboTuesday",
-  "WipeOut",
-  "SendIt",
-  "FullSend",
-  "YeetCart",
-  "NoBrakes",
-  "CartGod",
-  "Spinout",
-  "ParkingPal",
-  "LaneCrasher",
-  "CartWheel",
-  "RampRat",
-];
-
 function shuffledClientNpcNames(count) {
-  const names = [...CLIENT_NPC_NAME_POOL];
+  const names = [...NPC_NAME_POOL];
   for (let i = names.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [names[i], names[j]] = [names[j], names[i]];
@@ -581,10 +278,14 @@ function syncRoundPhase(phase) {
 }
 /** @type {((msg: object) => void) | null} */
 let onGameStartHandler = null;
-/** @type {(() => void) | null} Set by main() once hideMenu is defined; bridges module-level renderColorPicker to the inner function. */
+/** @type {(() => void) | null} */
+let onHostMigratedHandler = null;
+/** @type {(() => void) | null} */
+let onCountdownCancelledRef = null;
+/** @type {(() => void) | null} Set by main() once hideMenu is defined. */
 let hideMenuRef = null;
-/** @type {(() => void) | null} Restores menu after a failed PartyKit join. */
-let returnToMenuRef = null;
+/** @type {(() => void) | null} In-tab cart teardown; joinRejected reloads the page instead. */
+let teardownGameSessionCartsRef = null;
 /** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
 let _localColorPicked = false;
 /** @type {HTMLElement | null} */
@@ -595,7 +296,7 @@ let menuColorPickListenerWired = false;
 let menuActionListenerWired = false;
 let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
-let menuVisible = true; // Step 10b: menu visibility flag
+let menuVisible = true;
 /** @type {boolean | null} */
 let lastTouchControlsVisible = null;
 let bloomEnabled = true;
@@ -613,7 +314,7 @@ let fxPass = null;
 /** @type {number} */
 const AUDIO_VOLUME_MAX = 1.15;
 const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
-let masterGain = AUDIO_VOLUME_DEFAULT; // Step 10d: Volume control (0.0 to AUDIO_VOLUME_MAX)
+let masterGain = AUDIO_VOLUME_DEFAULT;
 /** @type {number} */
 let sfxVolume = AUDIO_VOLUME_DEFAULT;
 /** @type {null | { ensureStarted: () => void; applyAmbient: () => void; bump: () => void }} */
@@ -630,7 +331,7 @@ try {
   }
 } catch {}
 /** @type {boolean} */
-let isMuted = false; // Step 10d: Mute state
+let isMuted = false;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
@@ -766,9 +467,8 @@ async function main() {
     () => {
       if (menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      const mySlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
-      triggerHop(cart, performance.now());
+      triggerHop(localCartForConnId(), performance.now());
+      Input.requestHop();
     },
     () => {
       const cart = localCartForConnId();
@@ -781,9 +481,8 @@ async function main() {
     onHop: () => {
       if (menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      const mySlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
-      triggerHop(cart, performance.now());
+      triggerHop(localCartForConnId(), performance.now());
+      Input.requestHop();
     },
     onBoost: () => {
       const cart = localCartForConnId();
@@ -1027,7 +726,7 @@ async function main() {
     }
 
     // * Returning visitor refreshing ?room=quickplay — auto-rejoin once per page load.
-    const savedUsername = (localStorage.getItem("cartRaveUsername") || localStorage.getItem("cartRaveName") || "").trim();
+    const savedUsername = (localStorage.getItem("cartRaveUsername") || "").trim();
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
     if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
@@ -1288,7 +987,7 @@ async function main() {
     getReadyToggleMsgType: () => MSG.readyToggle,
     detectGameMode,
     getCART_COLORS: () => CART_COLORS,
-    getDefaultRoundMs: () => 95000,
+    getDefaultRoundMs: () => CONFIG.round.durationMs,
     getCountdownMs: () => 3000,
     getIsTouchDevice: isTouchDevice,
     onEscOverlayChange: (open) => {
@@ -1350,6 +1049,11 @@ async function main() {
 
   let levelRebuildInFlight = false;
 
+  /** Level dispose is unsafe once slot carts exist — menu-only, pre-join. */
+  function canSafelyRebuildLevel() {
+    return menuVisible && (!allCartsRef || allCartsRef.length === 0);
+  }
+
   /**
    * Rebuilds the arena and its space-skybox scene extras in place if the menu-selected
    * level differs from the one currently loaded. Safe to call only before a room is joined
@@ -1358,6 +1062,7 @@ async function main() {
    * stage / billboard / lasers still keep their startup placement — occluded / neutral.)
    */
   async function rebuildLevelIfNeeded() {
+    if (!canSafelyRebuildLevel()) return;
     const selected = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
     if (selected === loadedLevelId || levelRebuildInFlight) return;
     levelRebuildInFlight = true;
@@ -1401,6 +1106,7 @@ async function main() {
   }
 
   window.addEventListener("cartrave:level-changed", () => {
+    if (!canSafelyRebuildLevel()) return;
     void rebuildLevelIfNeeded();
   });
 
@@ -1414,11 +1120,10 @@ async function main() {
   Effects.setRaveExtrasVisible(wantRaveExtras);
 
   hideMenuRef = hideMenu;
-  returnToMenuRef = () => initMenu();
   initMenu();
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
-  // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
+  // * Round start/countdown handlers live here; initNetcode invokes them via callbacks.
   onGameStartHandler = (msg) => {
     if (menuVisible) hideMenu();
     showRotatePromptIfNeeded();
@@ -1712,6 +1417,18 @@ async function main() {
   updateNameLabelsRef.current = updateNameLabels;
   updateNameLabels();
 
+  /**
+   * Tears down slot carts for a future in-tab return to menu (without full reload).
+   * joinRejected uses a page reload instead; Esc → Quit also reloads.
+   */
+  function teardownGameSessionCarts() {
+    Entities.destroyCarts({ scene, nameLabels });
+    allCartsRef = null;
+    Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
+    updateNameLabelsRef.current = null;
+  }
+  teardownGameSessionCartsRef = teardownGameSessionCarts;
+
   getAxisRef = input.getAxis;
   triggerRamBoostRef = triggerRamBoost;
   Netcode.setRefs({
@@ -1719,6 +1436,7 @@ async function main() {
     getAxisRef: input.getAxis,
     isNitroHeldRef: input.isNitroHeld,
     triggerRamBoostRef: triggerRamBoost,
+    triggerHopRef: triggerHop,
     resetSimTimingRef,
   });
   // * hello can arrive before input/cart refs exist; startInputSendLoop no-ops without getAxisRef.
@@ -1855,7 +1573,7 @@ async function main() {
 
   function startCountdown(startsAtLocalMs = Date.now() + 3000) {
     if (!Netcode.getIsHost()) return;
-    if (GameState.getRoundState().phase === "countdown" || GameState.getRoundState().phase === "running") return;
+    if (GameState.getRoundState().phase === "running") return;
     clearRoundCountdownTimeout();
     syncRoundPhase("countdown");
     gameCtx.slowMo.active = false;
@@ -1869,6 +1587,35 @@ async function main() {
       if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
     }, Math.max(0, startsAtLocalMs - Date.now()));
   }
+
+  /**
+   * * Fallback when promoted to host mid-countdown (e.g. prior host disconnected).
+   * * Completes the in-flight countdown window; server reset + game_start is preferred
+   * * when deployed but this keeps older servers and message-order races un-stuck.
+   */
+  function resumeCountdownAsNewHost() {
+    if (!Netcode.getIsHost()) return;
+    const roundState = GameState.getRoundState();
+    if (roundState.phase !== "countdown") return;
+
+    clearRoundCountdownTimeout();
+    const startsAtLocalMs = (roundState.countdownStartedAtMs || Date.now()) + 3000;
+    const delayMs = Math.max(0, startsAtLocalMs - Date.now());
+
+    if (delayMs === 0) {
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(Date.now());
+      return;
+    }
+
+    Netcode.sendHostRound();
+    roundCountdownTimeoutId = setTimeout(() => {
+      roundCountdownTimeoutId = null;
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
+    }, delayMs);
+  }
+
+  onCountdownCancelledRef = clearRoundCountdownTimeout;
+  onHostMigratedHandler = resumeCountdownAsNewHost;
 
   function endRound() {
     clearRoundCountdownTimeout();
@@ -2052,6 +1799,7 @@ async function main() {
     setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
     camera,
     getPhysicsWorld: () => world,
+    getYouConnId: () => Netcode.getYouConnId(),
   };
 
   const physicsDeps = {

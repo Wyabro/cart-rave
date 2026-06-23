@@ -26,7 +26,11 @@ import * as CameraMod from "./camera.js";
  * @property {(untilMs: number) => void} setFovPunchUntil
  * @property {import("three").PerspectiveCamera} camera
  * @property {() => import("@dimforge/rapier3d-compat").World | null} getPhysicsWorld
+ * @property {() => string | null} [getYouConnId]
  */
+
+/** @type {boolean} */
+let _hostMissingCartWarned = false;
 
 /**
  * Helper to calculate score and determine if a hit qualifies for a kill.
@@ -87,7 +91,7 @@ export function updateGameFlow(deps, context) {
   if (isHost && roundState.phase === "running") {
     const netSlots = deps.getNetSlots();
     const nowMs = Date.now();
-    const roundDurationMs = deps.CONFIG.round?.durationMs ?? 95000;
+    const roundDurationMs = deps.CONFIG.round?.durationMs ?? 60000;
 
     if (roundState.startedAtMs > 0 && nowMs - roundState.startedAtMs >= roundDurationMs) {
       deps.endRound();
@@ -154,6 +158,16 @@ export function updateGameFlow(deps, context) {
   }
 
   const localCart = deps.getLocalCart();
+  if (deps.isHost() && roundState.phase === "running" && !localCart?.body) {
+    const youConnId = deps.getYouConnId?.();
+    if (youConnId && !_hostMissingCartWarned) {
+      _hostMissingCartWarned = true;
+      console.warn(
+        "[gameFlow] Host is running but local cart is missing — connId/slot mismatch?",
+        { youConnId, localSlot: deps.getLocalSlotIndex() },
+      );
+    }
+  }
   if (localCart?.body) {
     const playerPos = localCart.body.translation();
     const playerRot = localCart.body.rotation();
