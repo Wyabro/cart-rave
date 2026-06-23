@@ -39,6 +39,7 @@ import {
   getColorForSlot,
   isTouchDevice,
 } from "./src/utils.js";
+import { loadPlayerCustomization, resolveServerColorPick } from "./src/customization.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./src/config.js";
 import { NPC_NAME_POOL } from "./src/npcNames.js";
 
@@ -383,7 +384,15 @@ function updateCartMaterialsFromSlots(slots) {
     if (!slot || !cart?.mesh) continue;
 
     const colorData = CART_COLORS[slot.color];
-    const finalHex = colorData ? colorData.hex : 0x888888;
+    let finalHex = colorData ? colorData.hex : 0x888888;
+
+    const localSlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+    if (slotIndex === localSlotIdx && slot.kind === "human") {
+      const playerLook = loadPlayerCustomization();
+      if (playerLook.colorMode === "custom") {
+        finalHex = playerLook.hex;
+      }
+    }
 
     const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
 
@@ -699,16 +708,16 @@ async function main() {
     // Cosmetic: mark color chip as pending until server confirms slots.
     if (!menuColorPickListenerWired) {
       menuColorPickListenerWired = true;
-      const colorRow = document.getElementById("cr-color-row");
-      if (colorRow) {
-        colorRow.addEventListener("click", (e) => {
+      const customizeColorRow = document.getElementById("cr-customize-color-row");
+      if (customizeColorRow) {
+        customizeColorRow.addEventListener("click", (e) => {
           const chip = e.target && e.target.closest ? e.target.closest(".cr-color-chip") : null;
           if (!chip) return;
           pendingColorChipEl?.classList.remove("color-pending");
           pendingColorChipEl = chip;
           pendingColorChipEl.classList.add("color-pending");
           _localColorPicked = true;
-          const colorToSend = localStorage.getItem("cartRaveColor");
+          const colorToSend = resolveServerColorPick();
           pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
           if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
             Netcode.getPartySocket().send(JSON.stringify({ type: MSG.colorPick, color: pendingColorKey }));

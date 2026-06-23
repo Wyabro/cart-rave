@@ -73,7 +73,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cart-rave.wyabro.partykit.dev">
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="cart-rave-menu.css?v=11">
+  <link rel="stylesheet" href="cart-rave-menu.css?v=14">
   <style>
     /* Volume and mute range styling */
     input[type="range"] {
@@ -141,7 +141,7 @@
             <div class="cr-tooltip-hd">
               <span>◇ HOW TO SCORE</span>
             </div>
-            <p class="cr-tooltip-headline">Ram other carts off the spinning record! Most points wins!</p>
+            <p class="cr-tooltip-headline">Ram other carts off to score! Most points wins!</p>
             <ul class="cr-tooltip-list">
               <li><strong>Edge knockout:</strong> 1 point</li>
               <li><strong>Center hole knockout:</strong> 2 points</li>
@@ -208,6 +208,11 @@
             <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
             <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
           </button>
+          <button class="cr-btn cr-btn--customize" data-action="customize" data-colorkey="p2" type="button">
+            <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>
+            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+          </button>
         </div>
 
         <div class="cr-levels" id="cr-levels">
@@ -237,7 +242,7 @@
       <div class="cr-right">
         <div class="cr-player-card" id="cr-player-card">
           <div class="cr-player-hd">
-            <span>◇ YOUR CART</span>
+            <span>◇ YOUR NAME</span>
             <span class="cr-player-status">
               <i class="cr-pulse cr-pulse--online"></i> ONLINE
             </span>
@@ -251,27 +256,28 @@
             <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your username" />
             <button class="cr-reroll" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
           </div>
-
-          <div class="cr-color-label">CHOOSE COLOR</div>
-          <div class="cr-color-row" id="cr-color-row" role="radiogroup" aria-label="Choose cart color"></div>
         </div>
 
-        <!-- Audio widget -->
-        <div class="cr-audio" id="cr-audio">
-          <button class="cr-mute-btn" id="cr-mute-btn" title="Mute" aria-label="Toggle mute">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 5 6 9H3v6h3l5 4z"/>
-              <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-              <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
-            </svg>
-          </button>
-          <div class="cr-vol-stack">
-            <div class="cr-vol-row">
-              <span class="cr-vol-label">♫</span>
-              <div class="cr-vol-track" id="cr-music-vol-track">
-                <div class="cr-vol-fill" id="cr-music-vol-fill"></div>
+        <div class="cr-audio-panel" id="cr-audio-panel">
+          <div class="cr-audio-hd">
+            <span>◇ AUDIO</span>
+          </div>
+          <div class="cr-audio" id="cr-audio">
+            <button class="cr-mute-btn" id="cr-mute-btn" title="Mute" aria-label="Toggle mute">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5 6 9H3v6h3l5 4z"/>
+                <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+                <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+              </svg>
+            </button>
+            <div class="cr-vol-stack">
+              <div class="cr-vol-row">
+                <span class="cr-vol-label">♫</span>
+                <div class="cr-vol-track" id="cr-music-vol-track">
+                  <div class="cr-vol-fill" id="cr-music-vol-fill"></div>
+                </div>
+                <span class="cr-vol-val" id="cr-music-vol-val">25</span>
               </div>
-              <span class="cr-vol-val" id="cr-music-vol-val">25</span>
             </div>
           </div>
         </div>
@@ -308,6 +314,39 @@
       </div>
     </div>
   </div>
+  <div id="cr-customize-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-customize-panel">
+      <h2 class="cr-customize-title">YOUR CART</h2>
+      <p class="cr-customize-desc">Pick your look — more options coming soon.</p>
+
+      <div class="cr-customize-preview">
+        <div class="cr-customize-preview-shadow" id="cr-customize-cart-shadow"></div>
+        <div class="cr-customize-preview-cart" id="cr-customize-cart-holder"></div>
+      </div>
+
+      <nav class="cr-customize-tabs" role="tablist" aria-label="Cart customization categories">
+        <button type="button" class="cr-customize-tab active" role="tab" aria-selected="true" data-tab="color">COLOR</button>
+        <button type="button" class="cr-customize-tab cr-customize-tab--soon" role="tab" aria-selected="false" disabled title="Coming soon">PATTERNS</button>
+        <button type="button" class="cr-customize-tab cr-customize-tab--soon" role="tab" aria-selected="false" disabled title="Coming soon">WHEELS</button>
+        <button type="button" class="cr-customize-tab cr-customize-tab--soon" role="tab" aria-selected="false" disabled title="Coming soon">ACCESSORIES</button>
+      </nav>
+
+      <div class="cr-customize-section" data-section="color" role="tabpanel">
+        <div class="cr-color-label">CHOOSE COLOR</div>
+        <div class="cr-color-row cr-color-row--customize" id="cr-customize-color-row" role="radiogroup" aria-label="Choose cart color"></div>
+        <div class="cr-custom-hue-wrap" id="cr-custom-hue-wrap" hidden>
+          <div class="cr-color-label">CUSTOM HUE</div>
+          <div class="cr-custom-hue-row">
+            <input type="range" class="cr-custom-hue-slider" id="cr-custom-hue-slider" min="0" max="360" value="280" aria-label="Custom cart hue" />
+            <span class="cr-custom-hue-val" id="cr-custom-hue-val" aria-hidden="true">280°</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="cr-customize-done" id="cr-customize-done" type="button">DONE</button>
+      <button class="cr-customize-back" id="cr-customize-back" type="button">← BACK</button>
+    </div>
+  </div>
   <div id="cr-friends-screen" style="display:none;">
     <div class="cr-friends-panel">
       <h2 class="cr-friends-title">INVITE FRIENDS</h2>
@@ -322,6 +361,6 @@
   </div>
   <canvas id="game"></canvas>
   <script type="module" src="main.js"></script> <!-- Saved to resolve browser module loading -->
-  <script src="cart-rave-menu.js?v=6"></script>
+  <script src="cart-rave-menu.js?v=9"></script>
 </body>
 </html>

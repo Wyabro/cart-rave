@@ -177,6 +177,13 @@
   const COLOR_ARIA_LABELS = ['Pink', 'Blue', 'Green', 'Yellow', 'Neon orange'];
 
   const LEVEL_STORAGE_KEY = 'cartRaveLevel';
+  const CUSTOMIZE_STORAGE_KEY = 'cartRaveCustomization';
+  const COLOR_STORAGE_KEY = 'cartRaveColor';
+  const CUSTOM_HEX_STORAGE_KEY = 'cartRaveCustomHex';
+  const CUSTOM_COLOR_ID = 'custom';
+  const DEFAULT_CUSTOM_HUE = 280;
+  const CUSTOM_NEON_SAT = 100;
+  const CUSTOM_NEON_LIGHT = 50;
   const DEFAULT_LEVEL = 'classicRecord';
   const LEVEL_OPTIONS = {
     classicRecord: { enabled: true },
@@ -193,6 +200,8 @@
     vol: CONFIG.defaultVolume,
     beat: 0,
     tilt: 0,
+    colorMode: 'preset',
+    customHue: DEFAULT_CUSTOM_HUE,
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
@@ -211,7 +220,15 @@
   const cartHolder = $("cr-cart-holder");
   const cartShadow = $("cr-cart-shadow");
   const titleEl = $("cr-title");
-  const colorRow = $("cr-color-row");
+  const customizeColorRow = $("cr-customize-color-row");
+  const customizeScreen = $("cr-customize-screen");
+  const customizeCartHolder = $("cr-customize-cart-holder");
+  const customizeCartShadow = $("cr-customize-cart-shadow");
+  const customizeDoneBtn = $("cr-customize-done");
+  const customizeBackBtn = $("cr-customize-back");
+  const customHueWrap = $("cr-custom-hue-wrap");
+  const customHueSlider = $("cr-custom-hue-slider");
+  const customHueVal = $("cr-custom-hue-val");
   const levelRow = $("cr-level-row");
   const playerCard = $("cr-player-card");
   const nameDisplay = $("cr-name-display");
@@ -223,6 +240,8 @@
   const musicVolVal = $("cr-music-vol-val");
   const audioEl = $("cr-audio");
   let currentCartSvg = null;
+  let currentCustomizeCartSvg = null;
+  let customHueSliderWired = false;
   const spotlightPool = [];
   const particlePool = [];
   const PARTICLE_POOL_MAX = Math.round(
@@ -456,45 +475,350 @@
     });
   }
 
+  // ─── Custom color (hue-only neon; mirrors src/customization.js) ───────────
+  function normalizeHue(hue) {
+    const h = Number(hue);
+    if (!Number.isFinite(h)) return DEFAULT_CUSTOM_HUE;
+    return ((Math.round(h) % 360) + 360) % 360;
+  }
+
+  function hslToHex(h, s, l) {
+    const hue = normalizeHue(h);
+    const sat = Math.max(0, Math.min(100, s)) / 100;
+    const light = Math.max(0, Math.min(100, l)) / 100;
+    const c = (1 - Math.abs(2 * light - 1)) * sat;
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = light - c / 2;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hue < 60) { r = c; g = x; }
+    else if (hue < 120) { r = x; g = c; }
+    else if (hue < 180) { g = c; b = x; }
+    else if (hue < 240) { g = x; b = c; }
+    else if (hue < 300) { r = x; b = c; }
+    else { r = c; b = x; }
+    const ri = Math.round((r + m) * 255);
+    const gi = Math.round((g + m) * 255);
+    const bi = Math.round((b + m) * 255);
+    return (ri << 16) | (gi << 8) | bi;
+  }
+
+  function hueToNeonHex(hue) {
+    return hslToHex(hue, CUSTOM_NEON_SAT, CUSTOM_NEON_LIGHT);
+  }
+
+  function hueToNeonCss(hue) {
+    const hex = hueToNeonHex(hue);
+    return `#${hex.toString(16).padStart(6, '0')}`;
+  }
+
+  function hexToHue(hex) {
+    const r = ((hex >> 16) & 255) / 255;
+    const g = ((hex >> 8) & 255) / 255;
+    const b = (hex & 255) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const d = max - min;
+    if (d < 1e-6) return DEFAULT_CUSTOM_HUE;
+    let h = 0;
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+    return h;
+  }
+
+  function getActiveColorCss() {
+    if (state.colorMode === 'custom') return hueToNeonCss(state.customHue);
+    return state.palette.players[state.playerIdx];
+  }
+
+  // ─── Customization persistence ───────────────────────────────────────────
+  /**
+   * @returns {{ colorMode: 'preset'|'custom', color: string, customHue: number, hex: number, cssHex: string }}
+   */
+  function loadCustomization() {
+    try {
+      const raw = localStorage.getItem(CUSTOMIZE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          const colorMode = parsed.colorMode === 'custom' || parsed.color === CUSTOM_COLOR_ID
+            ? 'custom'
+            : 'preset';
+          const customHue = normalizeHue(parsed.customHue ?? DEFAULT_CUSTOM_HUE);
+          const color = colorMode === 'custom'
+            ? CUSTOM_COLOR_ID
+            : (PALETTE_GAME.includes(parsed.color) ? parsed.color : PALETTE_GAME[0]);
+          const presetIdx = colorIdxFromGameId(color);
+          const cssHex = colorMode === 'custom'
+            ? hueToNeonCss(customHue)
+            : state.palette.players[presetIdx];
+          return {
+            colorMode,
+            color,
+            customHue,
+            hex: colorMode === 'custom' ? hueToNeonHex(customHue) : 0,
+            cssHex,
+          };
+        }
+      }
+    } catch {}
+    const legacy = localStorage.getItem(COLOR_STORAGE_KEY);
+    if (legacy === CUSTOM_COLOR_ID) {
+      const legacyHex = Number(localStorage.getItem(CUSTOM_HEX_STORAGE_KEY));
+      const customHue = Number.isFinite(legacyHex)
+        ? normalizeHue(hexToHue(legacyHex))
+        : DEFAULT_CUSTOM_HUE;
+      return {
+        colorMode: 'custom',
+        color: CUSTOM_COLOR_ID,
+        customHue: normalizeHue(customHue),
+        hex: hueToNeonHex(customHue),
+        cssHex: hueToNeonCss(customHue),
+      };
+    }
+    const color = legacy && PALETTE_GAME.includes(legacy) ? legacy : PALETTE_GAME[0];
+    return {
+      colorMode: 'preset',
+      color,
+      customHue: DEFAULT_CUSTOM_HUE,
+      hex: 0,
+      cssHex: state.palette.players[PALETTE_GAME.indexOf(color)] || state.palette.players[0],
+    };
+  }
+
+  function applyCustomizationToState(saved) {
+    state.colorMode = saved.colorMode === 'custom' ? 'custom' : 'preset';
+    state.customHue = normalizeHue(saved.customHue);
+    if (state.colorMode === 'preset') {
+      state.playerIdx = colorIdxFromGameId(saved.color);
+    }
+  }
+
+  /**
+   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number }} customization
+   */
+  function saveCustomization(customization) {
+    const colorMode = customization.colorMode === 'custom' ? 'custom' : 'preset';
+    let color = customization.color;
+    let customHue = normalizeHue(customization.customHue ?? state.customHue);
+
+    if (colorMode === 'custom') {
+      color = CUSTOM_COLOR_ID;
+    } else {
+      color = color && PALETTE_GAME.includes(color)
+        ? color
+        : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
+      state.playerIdx = PALETTE_GAME.indexOf(color);
+      if (state.playerIdx < 0) state.playerIdx = 0;
+    }
+
+    const hex = colorMode === 'custom'
+      ? hueToNeonHex(customHue)
+      : 0;
+    const payload = {
+      colorMode,
+      color: colorMode === 'custom' ? CUSTOM_COLOR_ID : color,
+      customHue,
+      customHex: colorMode === 'custom' ? hex : undefined,
+    };
+    if (payload.customHex === undefined) delete payload.customHex;
+
+    localStorage.setItem(CUSTOMIZE_STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(COLOR_STORAGE_KEY, colorMode === 'custom' ? CUSTOM_COLOR_ID : color);
+    if (colorMode === 'custom') {
+      localStorage.setItem(CUSTOM_HEX_STORAGE_KEY, String(hex));
+    }
+
+    state.colorMode = colorMode;
+    state.customHue = customHue;
+
+    const detail = {
+      colorMode,
+      color: payload.color,
+      customHue,
+      hex: colorMode === 'custom' ? hex : hueToNeonHex(0),
+      cssHex: getActiveColorCss(),
+    };
+    window.dispatchEvent(new CustomEvent('cartrave:customization-changed', { detail }));
+    return detail;
+  }
+
+  function colorIdxFromGameId(colorId) {
+    const idx = PALETTE_GAME.indexOf(colorId);
+    return idx >= 0 ? idx : 0;
+  }
+
+  function updateCustomHueUi() {
+    const css = hueToNeonCss(state.customHue);
+    if (customHueWrap) customHueWrap.hidden = state.colorMode !== 'custom';
+    if (customHueSlider) {
+      customHueSlider.value = String(state.customHue);
+      customHueSlider.style.setProperty('--cr-hue-thumb', css);
+    }
+    if (customHueVal) {
+      customHueVal.textContent = `${state.customHue}°`;
+      customHueVal.style.color = css;
+      customHueVal.style.textShadow = `0 0 8px ${css}`;
+    }
+  }
+
+  function selectPresetColor(idx) {
+    if (idx < 0 || idx >= PALETTE_GAME.length) return;
+    state.colorMode = 'preset';
+    state.playerIdx = idx;
+    saveCustomization({ colorMode: 'preset', color: PALETTE_GAME[idx] });
+    buildColorChips();
+    updateCustomHueUi();
+    renderCart();
+    renderCustomizePreview();
+    applyPalette();
+  }
+
+  function selectCustomColor() {
+    if (state.colorMode === 'custom') return;
+    state.colorMode = 'custom';
+    saveCustomization({ colorMode: 'custom', customHue: state.customHue });
+    buildColorChips();
+    updateCustomHueUi();
+    renderCart();
+    renderCustomizePreview();
+    applyPalette();
+  }
+
+  function onCustomHueInput(hue) {
+    state.customHue = normalizeHue(hue);
+    saveCustomization({ colorMode: 'custom', customHue: state.customHue });
+    updateCustomHueUi();
+    const customChip = customizeColorRow?.querySelector('.cr-color-chip--custom');
+    if (customChip) {
+      const css = hueToNeonCss(state.customHue);
+      customChip.style.setProperty('--cc', css);
+    }
+    renderCart();
+    renderCustomizePreview();
+    applyPalette();
+  }
+
   // ─── Build color chips ────────────────────────────────────────────────────
   /**
    * Rebuilds the player color picker chips and wires click handlers.
    * Syncs active chip, localStorage, cart preview, and palette CSS vars.
    */
   function buildColorChips() {
-    colorRow.setAttribute('role', 'radiogroup');
-    colorRow.setAttribute('aria-label', 'Player Color Selection');
+    if (!customizeColorRow) return;
+    customizeColorRow.setAttribute('role', 'radiogroup');
+    customizeColorRow.setAttribute('aria-label', 'Player Color Selection');
     const p = state.palette;
+    const customCss = hueToNeonCss(state.customHue);
     let html = "";
     p.players.forEach((col, i) => {
-      const isActive = state.playerIdx === i;
+      const isActive = state.colorMode === 'preset' && state.playerIdx === i;
       const colorLabel = COLOR_ARIA_LABELS[i] || `Color ${i + 1}`;
-      html += `<button class="cr-color-chip ${isActive ? 'active' : ''}" data-idx="${i}" style="--cc:${col};" role="radio" aria-checked="${isActive}" aria-label="${colorLabel}">
+      html += `<button type="button" class="cr-color-chip ${isActive ? 'active' : ''}" data-kind="preset" data-idx="${i}" style="--cc:${col};" role="radio" aria-checked="${isActive}" aria-label="${colorLabel}">
         ${makeMiniCart(col)}
       </button>`;
     });
-    colorRow.innerHTML = html;
-    colorRow.querySelectorAll('.cr-color-chip').forEach(chip => {
+    const customActive = state.colorMode === 'custom';
+    html += `<button type="button" class="cr-color-chip cr-color-chip--custom ${customActive ? 'active' : ''}" data-kind="custom" style="--cc:${customCss};" role="radio" aria-checked="${customActive}" aria-label="Custom color">
+      <span class="cr-color-chip-custom-label">CUSTOM</span>
+    </button>`;
+    customizeColorRow.innerHTML = html;
+    customizeColorRow.querySelectorAll('.cr-color-chip').forEach(chip => {
       wireMenuPressFeedback(chip);
       chip.addEventListener('click', () => {
-        const idx = parseInt(chip.dataset.idx, 10);
-        if (idx === state.playerIdx) {
+        if (chip.dataset.kind === 'custom') {
+          if (state.colorMode === 'custom') {
+            loadMenuAnimations().then((Anim) => {
+              if (Anim) Anim.animateColorChipSelect(chip);
+            });
+            return;
+          }
+          selectCustomColor();
           loadMenuAnimations().then((Anim) => {
             if (Anim) Anim.animateColorChipSelect(chip);
           });
           return;
         }
-        state.playerIdx = idx;
-        localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
-        buildColorChips();
-        renderCart();
-        applyPalette();
+        const idx = parseInt(chip.dataset.idx, 10);
+        if (state.colorMode === 'preset' && idx === state.playerIdx) {
+          loadMenuAnimations().then((Anim) => {
+            if (Anim) Anim.animateColorChipSelect(chip);
+          });
+          return;
+        }
+        selectPresetColor(idx);
         loadMenuAnimations().then((Anim) => {
           if (!Anim) return;
-          const active = colorRow.querySelector('.cr-color-chip.active');
+          const active = customizeColorRow.querySelector('.cr-color-chip.active');
           if (active) Anim.animateColorChipSelect(active);
         });
       });
+    });
+  }
+
+  function wireCustomHueSlider() {
+    if (!customHueSlider || customHueSliderWired) return;
+    customHueSliderWired = true;
+    customHueSlider.addEventListener('input', () => {
+      onCustomHueInput(Number(customHueSlider.value));
+    });
+  }
+
+  function renderCustomizePreview() {
+    if (!customizeCartHolder) return;
+    const color = getActiveColorCss();
+    customizeCartHolder.innerHTML = makeCartSVG(color);
+    currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
+    if (customizeCartShadow) {
+      customizeCartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
+    }
+  }
+
+  function openCustomizeScreen() {
+    if (!customizeScreen) return;
+    wireCustomHueSlider();
+    updateCustomHueUi();
+    renderCustomizePreview();
+    buildColorChips();
+    customizeScreen.style.display = 'flex';
+    customizeScreen.setAttribute('aria-hidden', 'false');
+    customizeDoneBtn?.focus();
+    loadMenuAnimations().then((Anim) => {
+      if (Anim && customizeScreen.querySelector('.cr-customize-panel')) {
+        Anim.animateMenuReveal(customizeScreen.querySelector('.cr-customize-panel'), {
+          delay: 0,
+          duration: 320,
+          y: 14,
+        });
+      }
+    });
+  }
+
+  function closeCustomizeScreen() {
+    if (!customizeScreen) return;
+    customizeScreen.style.display = 'none';
+    customizeScreen.setAttribute('aria-hidden', 'true');
+    renderCart();
+    applyPalette();
+  }
+
+  function initCustomizeScreen() {
+    wireCustomHueSlider();
+    customizeDoneBtn?.addEventListener('click', closeCustomizeScreen);
+    customizeBackBtn?.addEventListener('click', closeCustomizeScreen);
+    document.querySelectorAll('.cr-btn[data-action="customize"]').forEach((btn) => {
+      wireMenuPressFeedback(btn);
+    });
+    wireMenuPressFeedback(customizeDoneBtn);
+    wireMenuPressFeedback(customizeBackBtn);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && customizeScreen?.style.display === 'flex') {
+        closeCustomizeScreen();
+      }
     });
   }
 
@@ -503,7 +827,7 @@
    * Renders the menu cart SVG and shadow for the currently selected player color.
    */
   function renderCart() {
-    const color = state.palette.players[state.playerIdx];
+    const color = getActiveColorCss();
     cartHolder.innerHTML = makeCartSVG(color);
     currentCartSvg = cartHolder.querySelector('svg');
     cartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
@@ -516,7 +840,7 @@
    */
   function applyPalette() {
     const p = state.palette;
-    const pc = p.players[state.playerIdx];
+    const pc = getActiveColorCss();
 
     root.style.background = `radial-gradient(ellipse at center 40%, ${p.bg} 0%, #000 90%)`;
 
@@ -627,7 +951,10 @@
   // ─── Button clicks ────────────────────────────────────────────────────────
   document.querySelectorAll('.cr-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      // Dispatch a custom event for the host app to listen to
+      if (btn.dataset.action === 'customize') {
+        openCustomizeScreen();
+        return;
+      }
       window.dispatchEvent(new CustomEvent('cartrave:menu', {
         detail: { action: btn.dataset.action }
       }));
@@ -783,7 +1110,7 @@
 
   function wireAllMenuPressFeedback() {
     document.querySelectorAll(
-      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back",
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back",
     ).forEach((btn) => {
       wireMenuPressFeedback(btn);
     });
@@ -836,7 +1163,7 @@
       Anim.animateMenuCardEnter(el, { delay: t + i * STAGGER, duration: 380, y: 18 });
     });
 
-    t += STAGGER * 3 + 36;
+    t += STAGGER * 4 + 36;
     const levelsHd = document.querySelector(".cr-levels-hd");
     if (levelsHd) Anim.animateMenuReveal(levelsHd, { delay: t, duration: 260, y: 8 });
 
@@ -854,8 +1181,8 @@
 
     if (playerCard) Anim.animateMenuReveal(playerCard, { delay: t + 20, duration: 400, y: 14 });
 
-    const audio = $("cr-audio");
-    if (audio) Anim.animateMenuReveal(audio, { delay: t + 80, duration: 320, y: 10 });
+    const audioPanel = $("cr-audio-panel");
+    if (audioPanel) Anim.animateMenuReveal(audioPanel, { delay: t + 80, duration: 320, y: 10 });
 
     const controls = $("cr-controls");
     if (controls) Anim.animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
@@ -875,22 +1202,23 @@
   }, { capture: true });
 
   // Restore the player's last chosen color, or seed localStorage with the default.
-  const _savedGameColor = localStorage.getItem('cartRaveColor');
-  const _savedColorIdx = PALETTE_GAME.indexOf(_savedGameColor);
-  if (_savedColorIdx >= 0 && _savedColorIdx < state.palette.players.length) {
-    state.playerIdx = _savedColorIdx;
-  } else {
-    state.playerIdx = 0;
-    localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
-  }
+  const savedCustomization = loadCustomization();
+  applyCustomizationToState(savedCustomization);
+  saveCustomization({
+    colorMode: state.colorMode,
+    color: state.colorMode === 'custom' ? CUSTOM_COLOR_ID : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
+    customHue: state.customHue,
+  });
 
   initSpotlights();
   initParticles();
   updateSpotlights();
   updateParticles();
   buildColorChips();
+  updateCustomHueUi();
   initLevelSelect();
   initCartTooltipTap();
+  initCustomizeScreen();
   renderCart();
   applyPalette();
   updateVolume();
@@ -921,9 +1249,11 @@
     },
     hide() {
       stopMenuLoopsAndTimers();
+      closeCustomizeScreen();
       if (root) root.style.display = 'none';
     },
     show() {
+      closeCustomizeScreen();
       if (root) {
         root.style.display = '';
         root.style.opacity = '1';
@@ -951,6 +1281,29 @@
     },
     setLevel(levelId) {
       selectLevel(levelId);
+    },
+    openCustomize() {
+      openCustomizeScreen();
+    },
+    closeCustomize() {
+      closeCustomizeScreen();
+    },
+    getCustomization() {
+      const saved = loadCustomization();
+      return {
+        colorMode: state.colorMode,
+        color: state.colorMode === 'custom' ? CUSTOM_COLOR_ID : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
+        customHue: state.customHue,
+        hex: state.colorMode === 'custom' ? hueToNeonHex(state.customHue) : null,
+        cssHex: getActiveColorCss(),
+      };
+    },
+    getColor() {
+      if (state.colorMode === 'custom') return CUSTOM_COLOR_ID;
+      return PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0];
+    },
+    getColorCss() {
+      return getActiveColorCss();
     },
   };
 })();

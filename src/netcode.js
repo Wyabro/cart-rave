@@ -4,6 +4,7 @@ import PartySocket from "partysocket";
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import * as GameState from "./gameState.js";
 import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
+import { resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 
 /** Scratch quaternions for interpolation and reconciliation slerp. */
@@ -884,9 +885,7 @@ export function initNetcode(roomOverride) {
         localStorage.setItem("cartRaveUsername", savedUsername);
       } catch {}
     }
-    const savedColor = localStorage.getItem('cartRaveColor');
-    const palette = callbacks.getPALETTE();
-    const colorToSend = (savedColor && palette.includes(savedColor)) ? savedColor : palette[0];
+    const colorToSend = resolveServerColorPick();
     const npcNames = callbacks.getInitialNpcNames();
 
     netSlots = [
@@ -1006,9 +1005,7 @@ export function initNetcode(roomOverride) {
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
 
       // * Enter game only after server hello — menu stays up while connecting.
-      const savedColor = localStorage.getItem('cartRaveColor');
-      const palette = callbacks.getPALETTE();
-      const colorToSend = (savedColor && palette.includes(savedColor)) ? savedColor : palette[0];
+      const colorToSend = resolveServerColorPick();
       if (partySocket && partySocket.readyState === WebSocket.OPEN) {
         partySocket.send(JSON.stringify({ type: MSG.colorPick, color: colorToSend }));
         if (GameState.getRoundState().phase === "running" && youConnId) {
