@@ -1,5 +1,6 @@
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import * as BufferGeometryUtils from "https://unpkg.com/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js";
+import { cartEmissiveIntensityForHex } from "./src/utils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
 export const BASKET_LENGTH = 2.1;
@@ -206,10 +207,11 @@ function neonFrameMaterial(base) {
   const c = base.clone();
   return new THREE.MeshStandardMaterial({
     color: c,
-    emissive: c,
-    emissiveIntensity: 1.0,
+    emissive: c.clone(),
+    emissiveIntensity: cartEmissiveIntensityForHex(c.getHex()),
     roughness: 0.3,
     metalness: 0.7,
+    toneMapped: false,
   });
 }
 

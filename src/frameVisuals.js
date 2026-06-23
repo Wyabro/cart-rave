@@ -1,7 +1,7 @@
 // frameVisuals.js — post-physics visual sync, effects, HUD, and render pass
 
 import * as Effects from "./effects.js";
-import { clamp } from "./utils.js";
+import { applyCartFrameGlow, cartEmissiveIntensityForHex, clamp } from "./utils.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -123,7 +123,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     }
   }
 
-  // Leader glow: pulsing inverted-color emissive on the current score leader.
+  // Leader glow: neon cart color at rest, brief white emissive flash at pulse peak.
   {
     let leaderSlot = -1;
     let leaderScore = 0;
@@ -147,7 +147,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     }
 
     const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
-    const glowIntensity = 0.5 + glowPulse * 1.5;
+    const glowIntensity = (0.375 + glowPulse * 1.125) * 0.85;
     for (let i = 0; i < allCarts.length; i += 1) {
       const cart = allCarts[i];
       if (!cart || !cart.mesh) continue;
@@ -155,19 +155,31 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       const cache = cart._materialCache || (cart._materialCache = deps.buildCartMaterialCache(cart.mesh));
       for (const mat of cache.frameGlowMats) {
         if (isLeader) {
-          mat.emissive.setRGB(1, 1, 1);
-          mat.emissiveIntensity = glowIntensity;
+          const hex = deps.colorHexForSlot(netSlotsForFrame[i]);
+          const baseIntensity = cartEmissiveIntensityForHex(hex);
+          const whiteMix = glowPulse ** 3;
+
+          if (mat.color) mat.color.setHex(hex);
+          if (mat.emissive) {
+            const r = ((hex >> 16) & 255) / 255;
+            const g = ((hex >> 8) & 255) / 255;
+            const b = (hex & 255) / 255;
+            mat.emissive.setRGB(
+              r + (1 - r) * whiteMix,
+              g + (1 - g) * whiteMix,
+              b + (1 - b) * whiteMix,
+            );
+          }
+          mat.emissiveIntensity = baseIntensity * (1 - whiteMix) + glowIntensity * whiteMix;
         } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
           const boostHex = deps.colorHexForSlot(netSlotsForFrame[i]);
-          if (mat.color) mat.color.setHex(boostHex);
-          mat.emissive.setHex(boostHex);
-          mat.emissiveIntensity = 1.2 + 0.4 * Math.sin(performance.now() * 0.02);
+          applyCartFrameGlow(
+            mat,
+            boostHex,
+            1.2 + 0.4 * Math.sin(performance.now() * 0.02),
+          );
         } else {
-          const baseHex = deps.colorHexForSlot(netSlotsForFrame[i]);
-          if (mat.color) mat.color.setHex(baseHex);
-          mat.emissive.setHex(baseHex);
-          mat.emissiveIntensity = 1.0;
-          if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = 0.15;
+          applyCartFrameGlow(mat, deps.colorHexForSlot(netSlotsForFrame[i]));
         }
       }
     }
@@ -180,6 +192,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     matchHistoryLength: deps.getMatchHistoryLength(),
     menuVisible: deps.isMenuVisible(),
   });
+  deps.updateTouchControlsVisibility?.();
   if (roundState.phase === "podium" || lastResultsOverlayPhase === "podium") {
     deps.updateResultsOverlay();
   }

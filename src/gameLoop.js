@@ -2,6 +2,27 @@
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
+/** @type {object[] | null} */
+let _npcCache = null;
+/** @type {string | null} */
+let _npcCacheKey = null;
+
+/**
+ * Returns NPC carts for the current slot layout, reusing a cache when slot kinds are unchanged.
+ *
+ * @param {Array<object>} allCarts
+ * @param {Array<{ kind?: string }>} slots
+ * @returns {object[]}
+ */
+function resolveNpcCarts(allCarts, slots) {
+  const key = slots.map((s) => s?.kind ?? "").join(",");
+  if (key === _npcCacheKey && _npcCache) return _npcCache;
+
+  _npcCache = allCarts.filter((c, idx) => c && slots[idx]?.kind === "npc");
+  _npcCacheKey = key;
+  return _npcCache;
+}
+
 /** @typedef {{ lastT: number, accumulator: number, simFrameIndex: number }} GameLoopState */
 
 /** @typedef {{ now: number, dt: number, loopState: GameLoopState }} FrameContext */
@@ -80,9 +101,7 @@ export function runPhysicsStep(loopState, deps, context) {
 
   if (deps.isHost()) {
     if (deps.getRoundState().phase === "running") {
-      const npcCartsForFrame = deps.getAllCartsRef().filter(
-        (c, idx) => netSlotsForFrame[idx] && netSlotsForFrame[idx].kind === "npc",
-      );
+      const npcCartsForFrame = resolveNpcCarts(deps.getAllCartsRef(), netSlotsForFrame);
 
       while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
         if (deps.getSkipNextPhysicsStep()) {
@@ -210,6 +229,7 @@ export function resetGameLoopTiming(loopState) {
  *   netcode, host fall detection, camera follow, etc.
  * @property {(ctx: FrameContext) => void} [onVisualUpdate] Post-physics phase: mesh sync,
  *   effects, HUD, and render. Typically delegates to {@link updateVisualsAndEffects}.
+ * @property {(err: unknown) => void} [onFatalError] Invoked when a frame throws; loop stops.
  */
 
 /**
@@ -223,7 +243,13 @@ export function resetGameLoopTiming(loopState) {
  * @param {GameLoopCallbacks} callbacks
  */
 export function runGameLoop(loopState, callbacks) {
-  const { onFrame, onVisualUpdate, shouldSkipTiming } = callbacks;
+  const { onFrame, onVisualUpdate, shouldSkipTiming, onFatalError } = callbacks;
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      resetGameLoopTiming(loopState);
+    }
+  });
 
   function step(now) {
     if (shouldSkipTiming?.()) {
@@ -231,17 +257,22 @@ export function runGameLoop(loopState, callbacks) {
       return;
     }
 
-    let dt = (now - loopState.lastT) / 1000;
-    dt = Math.min(dt, 0.05);
-    loopState.lastT = now;
-    loopState.accumulator += dt;
-    loopState.simFrameIndex += 1;
+    try {
+      let dt = (now - loopState.lastT) / 1000;
+      dt = Math.min(dt, 0.05);
+      loopState.lastT = now;
+      loopState.accumulator += dt;
+      loopState.simFrameIndex += 1;
 
-    const frameCtx = { now, dt, loopState };
-    onFrame(frameCtx);
-    onVisualUpdate?.(frameCtx);
+      const frameCtx = { now, dt, loopState };
+      onFrame(frameCtx);
+      onVisualUpdate?.(frameCtx);
 
-    requestAnimationFrame(step);
+      requestAnimationFrame(step);
+    } catch (err) {
+      console.error("[gameLoop] Fatal step error:", err);
+      onFatalError?.(err);
+    }
   }
 
   requestAnimationFrame(step);

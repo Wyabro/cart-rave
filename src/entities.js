@@ -320,9 +320,7 @@ export function initCarts({
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
     const spawn = spawnOnRingForSlot(slotIndex);
     const slot = netSlots[slotIndex];
-    const cartColorHex = slot?.connId === youConnId && CART_COLORS[localStorage.getItem("cartRaveColor")]
-      ? CART_COLORS[localStorage.getItem("cartRaveColor")].hex
-      : colorHexForSlot(slot);
+    const cartColorHex = colorHexForSlot(slot);
 
     const cart = createCart({
       scene,

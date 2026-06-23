@@ -176,10 +176,18 @@
   const PALETTE_GAME = ['pink', 'blue', 'green', 'yellow', 'neonOrange'];
   const COLOR_ARIA_LABELS = ['Pink', 'Blue', 'Green', 'Yellow', 'Neon orange'];
 
+  const LEVEL_STORAGE_KEY = 'cartRaveLevel';
+  const DEFAULT_LEVEL = 'classicRecord';
+  const LEVEL_OPTIONS = {
+    classicRecord: { enabled: true },
+    backrooms: { enabled: true },
+  };
+
   // ─── State ────────────────────────────────────────────────────────────────
   const state = {
     palette: PALETTES[CONFIG.palette] || PALETTES.classic,
     playerIdx: 0,
+    level: DEFAULT_LEVEL,
     name: localStorage.getItem("cartRaveUsername") || rollPlayerName(),
     muted: false,
     vol: CONFIG.defaultVolume,
@@ -204,6 +212,7 @@
   const cartShadow = $("cr-cart-shadow");
   const titleEl = $("cr-title");
   const colorRow = $("cr-color-row");
+  const levelRow = $("cr-level-row");
   const playerCard = $("cr-player-card");
   const nameDisplay = $("cr-name-display");
   const nameText = $("cr-name-text");
@@ -219,7 +228,7 @@
   const PARTICLE_POOL_MAX = Math.round(
     CONFIG.particleCountBase + 10 * CONFIG.particleCountPerIntensity
   );
-  // NOTE: Keyboard/mouse gating toast is driven by main.js (mobile gameplay block).
+  // NOTE: Quickplay and Friends support touch controls on mobile (see main.js updateTouchControlsVisibility).
 
   // ─── Neon cart SVG builder ────────────────────────────────────────────────
   /**
@@ -335,6 +344,118 @@
     }
   }
 
+  // ─── Level selection ──────────────────────────────────────────────────────
+  function getSavedLevel() {
+    const saved = localStorage.getItem(LEVEL_STORAGE_KEY);
+    const option = saved && LEVEL_OPTIONS[saved];
+    if (option && option.enabled) return saved;
+    return DEFAULT_LEVEL;
+  }
+
+  function persistLevel(levelId) {
+    state.level = levelId;
+    localStorage.setItem(LEVEL_STORAGE_KEY, levelId);
+    window.cartRaveLevel = levelId;
+  }
+
+  function updateLevelButtons() {
+    if (!levelRow) return;
+    levelRow.querySelectorAll('.cr-level-btn').forEach((btn) => {
+      const isActive = btn.dataset.level === state.level;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
+  function selectLevel(levelId) {
+    const option = LEVEL_OPTIONS[levelId];
+    if (!option || !option.enabled) return;
+    if (levelId === state.level) return;
+    persistLevel(levelId);
+    updateLevelButtons();
+    window.dispatchEvent(new CustomEvent("cartrave:level-changed"));
+    loadMenuAnimations().then((Anim) => {
+      if (!Anim || !levelRow) return;
+      const active = levelRow.querySelector(".cr-level-btn.active");
+      if (active) {
+        Anim.animateLevelCardSelect(getMenuPressTarget(active));
+      }
+    });
+  }
+
+  function initLevelSelect() {
+    persistLevel(getSavedLevel());
+    updateLevelButtons();
+    if (!levelRow) return;
+    levelRow.querySelectorAll('.cr-level-btn:not(.cr-level-btn--disabled)').forEach((btn) => {
+      btn.addEventListener('click', () => selectLevel(btn.dataset.level));
+    });
+  }
+
+  /**
+   * On touch devices, tap the menu cart to open scoring instructions (hover unavailable).
+   */
+  function initCartTooltipTap() {
+    const cartWrap = document.querySelector('.cr-cart-wrap');
+    const cartStage = document.querySelector('.cr-cart-stage');
+    const tooltip = $('cr-cart-tooltip');
+    if (!cartWrap || !cartStage || !tooltip) return;
+
+    const coarseMq = window.matchMedia?.('(pointer: coarse)');
+    if (!coarseMq?.matches) return;
+
+    cartStage.classList.add('cr-cart-stage--tappable');
+    cartStage.setAttribute('role', 'button');
+    cartStage.setAttribute('tabindex', '0');
+    cartStage.setAttribute('aria-label', 'Show scoring instructions');
+    cartStage.setAttribute('aria-expanded', 'false');
+    cartStage.setAttribute('aria-controls', 'cr-cart-tooltip');
+
+    let backdrop = cartWrap.querySelector('.cr-cart-tooltip-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.className = 'cr-cart-tooltip-backdrop';
+      backdrop.setAttribute('aria-hidden', 'true');
+      cartWrap.appendChild(backdrop);
+    }
+
+    const closeTooltip = () => {
+      cartWrap.classList.remove('cr-cart-wrap--tooltip-open');
+      cartStage.setAttribute('aria-expanded', 'false');
+    };
+
+    const openTooltip = () => {
+      cartWrap.classList.add('cr-cart-wrap--tooltip-open');
+      cartStage.setAttribute('aria-expanded', 'true');
+    };
+
+    const toggleTooltip = () => {
+      if (cartWrap.classList.contains('cr-cart-wrap--tooltip-open')) {
+        closeTooltip();
+      } else {
+        openTooltip();
+      }
+    };
+
+    cartStage.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleTooltip();
+    });
+
+    cartStage.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleTooltip();
+      }
+    });
+
+    backdrop.addEventListener('click', closeTooltip);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeTooltip();
+    });
+  }
+
   // ─── Build color chips ────────────────────────────────────────────────────
   /**
    * Rebuilds the player color picker chips and wires click handlers.
@@ -354,12 +475,25 @@
     });
     colorRow.innerHTML = html;
     colorRow.querySelectorAll('.cr-color-chip').forEach(chip => {
+      wireMenuPressFeedback(chip);
       chip.addEventListener('click', () => {
-        state.playerIdx = parseInt(chip.dataset.idx, 10);
+        const idx = parseInt(chip.dataset.idx, 10);
+        if (idx === state.playerIdx) {
+          loadMenuAnimations().then((Anim) => {
+            if (Anim) Anim.animateColorChipSelect(chip);
+          });
+          return;
+        }
+        state.playerIdx = idx;
         localStorage.setItem('cartRaveColor', PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
         buildColorChips();
         renderCart();
         applyPalette();
+        loadMenuAnimations().then((Anim) => {
+          if (!Anim) return;
+          const active = colorRow.querySelector('.cr-color-chip.active');
+          if (active) Anim.animateColorChipSelect(active);
+        });
       });
     });
   }
@@ -404,15 +538,22 @@
     document.getElementById('stat-played').style.color = p.secondary;
     document.getElementById('stat-pts').style.color = p.tertiary;
 
+    const resolveGlow = (key) => (
+      key === 'primary' ? p.primary
+      : key === 'secondary' ? p.secondary
+      : key === 'tertiary' ? p.tertiary
+      : key === 'p2' ? p.players[2]
+      : p.primary
+    );
+
     // Buttons
     document.querySelectorAll('.cr-btn').forEach(btn => {
-      const key = btn.dataset.colorkey;
-      const c = key === 'primary' ? p.primary
-              : key === 'secondary' ? p.secondary
-              : key === 'tertiary' ? p.tertiary
-              : key === 'p2' ? p.players[2]
-              : p.primary;
-      btn.style.setProperty('--glow', c);
+      btn.style.setProperty('--glow', resolveGlow(btn.dataset.colorkey));
+    });
+
+    // Level cards
+    document.querySelectorAll('.cr-level-btn:not(.cr-level-btn--disabled)').forEach(btn => {
+      btn.style.setProperty('--glow', resolveGlow(btn.dataset.colorkey));
     });
 
     // Audio widget
@@ -457,6 +598,9 @@
     state.name = rollHandle();
     localStorage.setItem("cartRaveUsername", state.name);
     nameText.textContent = state.name;
+    loadMenuAnimations().then((Anim) => {
+      if (Anim) Anim.animateRerollSpin(rerollBtn);
+    });
   });
 
   // ─── Mute / volume ────────────────────────────────────────────────────────
@@ -574,7 +718,155 @@
   if (!CONFIG.showFloor) floorEl.style.display = 'none';
   scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
 
+  // ─── Menu motion (Anime.js) ───────────────────────────────────────────────
+  /** @type {Promise<typeof import('./src/animations.js') | null> | null} */
+  let menuAnimLoadPromise = null;
+  let menuEntranceToken = 0;
+  /** @type {WeakSet<Element>} */
+  const menuPressWired = new WeakSet();
+
+  function loadMenuAnimations() {
+    if (!menuAnimLoadPromise) {
+      menuAnimLoadPromise = import("/src/animations.js")
+        .then((mod) => mod)
+        .catch(() => null);
+    }
+    return menuAnimLoadPromise;
+  }
+
+  function setMenuEntrancePending(pending) {
+    root?.classList.toggle("cr-menu-enter-pending", pending);
+  }
+
+  /**
+   * @param {Element} btn
+   * @returns {HTMLElement}
+   */
+  function getMenuPressTarget(btn) {
+    const inner = btn.querySelector(".cr-btn-inner, .cr-level-btn-inner");
+    return /** @type {HTMLElement} */ (inner || btn);
+  }
+
+  /**
+   * @param {Element | null | undefined} btn
+   */
+  function wireMenuPressFeedback(btn) {
+    if (!btn || menuPressWired.has(btn)) return;
+    menuPressWired.add(btn);
+
+    loadMenuAnimations().then((Anim) => {
+      if (!Anim || !btn.isConnected) return;
+
+      const target = getMenuPressTarget(btn);
+      let pressed = false;
+
+      const onPress = (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        pressed = true;
+        Anim.animateButtonPress(target, { duration: 70, scale: 0.94 });
+      };
+
+      const onRelease = () => {
+        if (!pressed) return;
+        pressed = false;
+        Anim.animateButtonRelease(target, { duration: 130 });
+      };
+
+      btn.addEventListener("pointerdown", onPress);
+      btn.addEventListener("pointerup", onRelease);
+      btn.addEventListener("pointercancel", onRelease);
+      btn.addEventListener("pointerleave", (e) => {
+        if (pressed && e.pointerType === "mouse") onRelease();
+      });
+    });
+  }
+
+  function wireAllMenuPressFeedback() {
+    document.querySelectorAll(
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-kbm-toast-close",
+    ).forEach((btn) => {
+      wireMenuPressFeedback(btn);
+    });
+  }
+
+  /**
+   * @param {Element | null | undefined} btn
+   * @param {{ delay?: number, duration?: number, y?: number }} [entranceOptions]
+   */
+  function registerMenuButton(btn, entranceOptions) {
+    if (!btn) return;
+    wireMenuPressFeedback(btn);
+    loadMenuAnimations().then((Anim) => {
+      if (!Anim || !btn.isConnected) return;
+      Anim.animateMenuCardEnter(btn, {
+        delay: entranceOptions?.delay ?? 0,
+        duration: entranceOptions?.duration ?? 360,
+        y: entranceOptions?.y ?? 18,
+        ...entranceOptions,
+      });
+    });
+  }
+
+  async function playMenuEntrance() {
+    const token = ++menuEntranceToken;
+    const Anim = await loadMenuAnimations();
+    if (!Anim || token !== menuEntranceToken || !root) return;
+
+    setMenuEntrancePending(true);
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      setMenuEntrancePending(false);
+      return;
+    }
+
+    const STAGGER = 46;
+    let t = 0;
+
+    document.querySelectorAll(".cr-tagline").forEach((el) => {
+      Anim.animateMenuReveal(el, { delay: t, duration: 300, y: 10, ease: "outExpo" });
+    });
+
+    t += 36;
+    document.querySelectorAll(".cr-title-word").forEach((el, i) => {
+      Anim.animateMenuCardEnter(el, { delay: t + i * 32, duration: 340, y: 14 });
+    });
+
+    t += 100;
+    document.querySelectorAll(".cr-buttons .cr-btn").forEach((el, i) => {
+      Anim.animateMenuCardEnter(el, { delay: t + i * STAGGER, duration: 380, y: 18 });
+    });
+
+    t += STAGGER * 3 + 36;
+    const levelsHd = document.querySelector(".cr-levels-hd");
+    if (levelsHd) Anim.animateMenuReveal(levelsHd, { delay: t, duration: 260, y: 8 });
+
+    document.querySelectorAll(".cr-level-btn:not(.cr-level-btn--disabled)").forEach((el, i) => {
+      Anim.animateMenuCardEnter(el, { delay: t + 28 + i * STAGGER, duration: 360, y: 16 });
+    });
+
+    t += STAGGER * 2 + 72;
+
+    const cartWrap = document.querySelector(".cr-cart-wrap");
+    if (cartWrap) Anim.animateMenuReveal(cartWrap, { delay: t, duration: 380, y: 12 });
+
+    const stats = $("cr-stats-local");
+    if (stats) Anim.animateMenuReveal(stats, { delay: t + 40, duration: 360, y: 12 });
+
+    if (playerCard) Anim.animateMenuReveal(playerCard, { delay: t + 20, duration: 400, y: 14 });
+
+    const audio = $("cr-audio");
+    if (audio) Anim.animateMenuReveal(audio, { delay: t + 80, duration: 320, y: 10 });
+
+    const controls = $("cr-controls");
+    if (controls) Anim.animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
+
+    window.setTimeout(() => {
+      if (token === menuEntranceToken) setMenuEntrancePending(false);
+    }, t + 110 + 420);
+  }
+
   // ─── Init ─────────────────────────────────────────────────────────────────
+  root?.classList.add("cr-menu-enter-pending");
   document.addEventListener("pointerdown", function startMenuAudio() {
     if (typeof window.__cartRaveTryStartMenuMusic === "function") {
       window.__cartRaveTryStartMenuMusic();
@@ -597,10 +889,13 @@
   updateSpotlights();
   updateParticles();
   buildColorChips();
+  initLevelSelect();
+  initCartTooltipTap();
   renderCart();
   applyPalette();
   updateVolume();
   nameText.textContent = state.name;
+  wireAllMenuPressFeedback();
 
   // ─── Public API ───────────────────────────────────────────────────────────
   window.CartRave = {
@@ -635,10 +930,27 @@
         root.style.pointerEvents = '';
         root.removeAttribute('aria-hidden');
       }
+      wireAllMenuPressFeedback();
+      playMenuEntrance();
       startMenuAnimations();
+    },
+    wireMenuButton(btn, entranceOptions) {
+      registerMenuButton(btn, entranceOptions);
+    },
+    playEntrance() {
+      playMenuEntrance();
+    },
+    refreshMenuMotion() {
+      wireAllMenuPressFeedback();
     },
     onMenu(cb) {
       window.addEventListener('cartrave:menu', (e) => cb(e.detail.action));
+    },
+    getLevel() {
+      return state.level;
+    },
+    setLevel(levelId) {
+      selectLevel(levelId);
     },
   };
 })();

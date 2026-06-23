@@ -1,4 +1,8 @@
-// sceneSetup.js — skybox, environment visuals, spotlights, ground plane
+// sceneExtras.js — reusable space-skybox environment: starfield, nebula, planets,
+// galaxies, UFOs, drifting spotlight system, ground disc/grid, and horizon fog.
+//
+// Built per-level so a level switch can dispose the old extras and rebuild them against
+// the new arena's pitInnerRadius (the ground ring inner radius depends on it).
 
 import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
 import { CONFIG, CART_COLORS } from "./config.js";
@@ -187,6 +191,7 @@ function createGalaxies(scene, ctx) {
 /**
  * @param {THREE.Scene} scene
  * @param {{ addToScene: Function, disposables: object[] }} ctx
+ * @returns {{ update: (timeMs: number) => void }}
  */
 function createUfos(scene, ctx) {
   const ufoEntries = [];
@@ -319,6 +324,7 @@ function createHorizonFog(scene, ctx) {
  * @param {THREE.Scene} scene
  * @param {{ platformTopY: number, recordSurfaceGlowY: number }} yRefs
  * @param {{ addToScene: Function, disposables: object[] }} ctx
+ * @returns {{ update: (timeMs: number) => void }}
  */
 function createSpotlightSystem(scene, yRefs, ctx) {
   const { platformTopY, recordSurfaceGlowY } = yRefs;
@@ -378,7 +384,7 @@ function createSpotlightSystem(scene, yRefs, ctx) {
         layer.sourceRadius,
         layer.floorRadius,
         height,
-        24,
+        8,
         1,
         true,
       );
@@ -485,15 +491,38 @@ function createSpotlightSystem(scene, yRefs, ctx) {
 }
 
 /**
- * Initializes skybox, UFOs, spotlights, ground plane, and horizon fog.
+ * Initializes the space-skybox environment: starfield, nebula, planets, galaxies, UFOs,
+ * drifting spotlight system, ground disc/grid, and horizon fog. Adds everything to the
+ * scene and tracks objects/disposables so the whole set can be torn down with
+ * {@link disposeSceneExtras}.
  *
  * @param {THREE.Scene} scene Root scene.
- * @param {number} pitInnerRadius Inner pit radius from arena init.
- * @returns {{ update: (timeMs: number) => void, dispose: () => void }}
+ * @param {number} pitInnerRadius Inner pit radius from the active level (ground ring start).
+ * @param {{ enabled?: boolean }} [options] When `enabled` is false (e.g. the self-contained
+ *   Backrooms level), builds nothing so the Classic space skybox, colored spotlights,
+ *   ground ring, and horizon fog do not bleed into the new environment.
+ * @returns {{
+ *   scene: THREE.Scene,
+ *   sceneRoots: THREE.Object3D[],
+ *   disposables: object[],
+ *   disposed: boolean,
+ *   update: (timeMs: number) => void,
+ * }}
  */
-export function initSceneExtras(scene, pitInnerRadius) {
+export function initSceneExtras(scene, pitInnerRadius, options = {}) {
   const disposables = [];
   const sceneRoots = [];
+
+  // * Self-contained levels opt out of the shared space environment entirely.
+  if (options.enabled === false) {
+    return {
+      scene,
+      sceneRoots,
+      disposables,
+      disposed: false,
+      update: () => {},
+    };
+  }
 
   const ctx = {
     disposables,
@@ -519,22 +548,31 @@ export function initSceneExtras(scene, pitInnerRadius) {
   createGround(scene, pitInnerRadius, ctx);
   createHorizonFog(scene, ctx);
 
-  let disposed = false;
-
   return {
+    scene,
+    sceneRoots,
+    disposables,
+    disposed: false,
     update: (timeMs) => {
       ufos.update(timeMs);
       spotlights.update(timeMs);
     },
-    dispose: () => {
-      if (disposed) return;
-      disposed = true;
-      for (const root of sceneRoots) scene.remove(root);
-      for (const item of disposables) {
-        if (item && typeof item.dispose === "function") item.dispose();
-      }
-      sceneRoots.length = 0;
-      disposables.length = 0;
-    },
   };
+}
+
+/**
+ * Removes all scene-extras objects from the scene and disposes their geometries,
+ * materials, and textures. Idempotent.
+ *
+ * @param {ReturnType<typeof initSceneExtras> | null | undefined} extras
+ */
+export function disposeSceneExtras(extras) {
+  if (!extras || extras.disposed) return;
+  extras.disposed = true;
+  for (const root of extras.sceneRoots) extras.scene.remove(root);
+  for (const item of extras.disposables) {
+    if (item && typeof item.dispose === "function") item.dispose();
+  }
+  extras.sceneRoots.length = 0;
+  extras.disposables.length = 0;
 }

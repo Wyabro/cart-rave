@@ -4,7 +4,7 @@
  */
 
 // Core game loop
-export { initGame, startGameLoop, gameStep } from "./game.js";
+export { initGame, startGameLoop, stopGameLoop, gameStep, dispose } from "./game.js";
 
 // Core systems
 export * as Config from "./config.js";
@@ -19,3 +19,39 @@ export * as Scene from "./scene.js";
 export * as Visuals from "./visuals.js";
 export * as HUD from "./hud.js";
 export * as Audio from "./audio.js";
+export * as Animations from "./animations.js";
+export {
+  animateButtonPress,
+  animateButtonRelease,
+  animateMenuCardEnter,
+  animateMenuReveal,
+  animateTouchControlPress,
+  animateTouchControlRelease,
+  animateJoystickEngage,
+  animateJoystickRelease,
+  setJoystickActivePulse,
+  cancelAnimationsIn,
+  cancelElementAnimations,
+  countUpNumber,
+  fadeIn,
+  fadeOut,
+  animateKillFeedEnter,
+  animateKillFeedExit,
+  scheduleKillFeedExit,
+  cancelKillFeedExitTimer,
+  animateCartBoostPulse,
+  animateBoostActivateFlash,
+  animateColorChipSelect,
+  animateSelectionPop,
+  animateScorePop,
+  animateVolumeTick,
+  animateMuteToggle,
+  animateRerollSpin,
+  crossfadeElement,
+  animateLevelCardSelect,
+  animateReadyStateToggle,
+  animateHoverScale,
+  animateHoverReset,
+  wireButtonPressFeedback,
+  stopTouchPulse,
+} from "./animations.js";

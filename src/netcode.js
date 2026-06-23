@@ -45,7 +45,8 @@ let hostMigrationFreezeUntilMs = 0;
 
 let skipNextPhysicsStep = false;
 
-let allCartsRef = null;
+/** @type {(() => Array<object> | null) | null} */
+let getAllCartsRefFn = null;
 let getAxisRef = null;
 let isNitroHeldRef = null;
 let triggerRamBoostRef = null;
@@ -167,8 +168,19 @@ export function registerGameCallbacks(deps) {
   });
 }
 
+/**
+ * @returns {Array<object> | null}
+ */
+function getAllCarts() {
+  return getAllCartsRefFn?.() ?? null;
+}
+
 export function setRefs(refs) {
-  if (refs.allCartsRef !== undefined) allCartsRef = refs.allCartsRef;
+  if (typeof refs.getAllCartsRef === "function") {
+    getAllCartsRefFn = refs.getAllCartsRef;
+  } else if (refs.allCartsRef !== undefined) {
+    getAllCartsRefFn = () => refs.allCartsRef;
+  }
   if (refs.getAxisRef !== undefined) getAxisRef = refs.getAxisRef;
   if (refs.isNitroHeldRef !== undefined) isNitroHeldRef = refs.isNitroHeldRef;
   if (refs.triggerRamBoostRef !== undefined) triggerRamBoostRef = refs.triggerRamBoostRef;
@@ -430,14 +442,15 @@ export function sampleAuthoritativeCartState(slotIndex, targetServerNowMs = getI
  * @param {number} localSlotIndex Slot index of the local human player (-1 when unknown).
  */
 export function updateRemoteCartNetTargets(localSlotIndex) {
-  if (!allCartsRef) return;
+  const allCarts = getAllCarts();
+  if (!allCarts) return;
   const targetServerNowMs = getInterpTargetServerNowMs();
   pruneNetStateBufferForEpoch();
   const { before, after, beforeIndex } = findSnapshotPair(targetServerNowMs);
 
   const applyRemoteTargets = (slotIndex, snap, options = {}) => {
     if (slotIndex === localSlotIndex) return;
-    const cart = allCartsRef[slotIndex];
+    const cart = allCarts[slotIndex];
     if (!cart || !snap) return;
     const p = snap.p ?? (options.extrapolateP || null);
     if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
@@ -458,9 +471,9 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   if (before && after && before.carts && after.carts) {
     const denom = (after.serverNowMs - before.serverNowMs) || 1;
     const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
-    for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
+    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
       if (slotIndex === localSlotIndex) continue;
-      const cart = allCartsRef[slotIndex];
+      const cart = allCarts[slotIndex];
       if (!cart) continue;
       const b = getCartSnap(before.carts, slotIndex);
       const a = getCartSnap(after.carts, slotIndex);
@@ -479,7 +492,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   if (before && before.carts) {
     const extrapMs = targetServerNowMs - before.serverNowMs;
     const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
-    for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
+    for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
       if (slotIndex === localSlotIndex) continue;
       const b = getCartSnap(before.carts, slotIndex);
       if (!b) continue;
@@ -487,7 +500,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
       const bq = b.q;
       const blv = b.lv;
       const bav = b.av;
-      const cart = allCartsRef[slotIndex];
+      const cart = allCarts[slotIndex];
       if (!cart) continue;
       if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
         cart._netTargetPos.set(
@@ -515,7 +528,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
 
   const carts = (after && after.carts) || lastCartsCache;
   if (!carts) return;
-  for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
+  for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
     if (slotIndex === localSlotIndex) continue;
     const snap = getCartSnap(carts, slotIndex);
     if (!snap) continue;
@@ -530,10 +543,11 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
  * @param {number} localSlotIndex Slot index of the local human player (skipped).
  */
 export function syncRemoteCartBodiesForPrediction(localSlotIndex) {
-  if (!allCartsRef) return;
-  for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
+  const allCarts = getAllCarts();
+  if (!allCarts) return;
+  for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
     if (slotIndex === localSlotIndex) continue;
-    const cart = allCartsRef[slotIndex];
+    const cart = allCarts[slotIndex];
     if (!cart?.body) continue;
     if (cart._netTargetPos) {
       const p = cart._netTargetPos;
@@ -634,9 +648,10 @@ export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
 }
 
 export function applyCartsSnapshotToBodies(carts) {
-  if (!allCartsRef) return;
-  for (let i = 0; i < allCartsRef.length; i++) {
-    const cart = allCartsRef[i];
+  const allCarts = getAllCarts();
+  if (!allCarts) return;
+  for (let i = 0; i < allCarts.length; i++) {
+    const cart = allCarts[i];
     const snap = getCartSnap(carts, i);
     if (!cart || !snap) continue;
 
@@ -687,18 +702,19 @@ export function stopKeepaliveLoop() {
 
 export function startHostSendLoop() {
   stopHostSendLoop();
-  if (!partySocket || !isHost || !allCartsRef) return;
+  if (!partySocket || !isHost || !getAllCarts()) return;
 
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
   hostSendTimer = setInterval(() => {
-    if (!partySocket || !isHost || !allCartsRef || GameState.getRoundState().phase !== "running") return;
+    const allCarts = getAllCarts();
+    if (!partySocket || !isHost || !allCarts || GameState.getRoundState().phase !== "running") return;
 
     hostSeq += 1;
     const carts = [];
     const round3 = v => Math.round(v * 1000) / 1000;
 
-    for (let i = 0; i < allCartsRef.length; i++) {
-      const c = allCartsRef[i];
+    for (let i = 0; i < allCarts.length; i++) {
+      const c = allCarts[i];
       const t = c.body.translation();
       const r = c.body.rotation();
       const lv = c.body.linvel();
@@ -779,7 +795,7 @@ export function setAuthorityMode(nextIsHost) {
     resetSimTimingRef?.current?.();
     skipNextPhysicsStep = true;
 
-    for (const cart of allCartsRef || []) cart.body?.wakeUp?.();
+    for (const cart of getAllCarts() || []) cart.body?.wakeUp?.();
     startHostSendLoop();
     return;
   }
@@ -1157,10 +1173,11 @@ export function initNetcode(roomOverride) {
       });
 
       const was = remoteNitroLatchedByConnId.get(connId) || false;
-      if (!was && nitro && allCartsRef && triggerRamBoostRef) {
+      const allCarts = getAllCarts();
+      if (!was && nitro && allCarts && triggerRamBoostRef) {
         const slotIndex = strictSlotIndexForConn(connId);
         if (slotIndex >= 0) {
-          const cart = allCartsRef[slotIndex];
+          const cart = allCarts[slotIndex];
           if (cart) triggerRamBoostRef(cart, performance.now());
         }
       }

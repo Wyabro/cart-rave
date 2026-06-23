@@ -1,7 +1,7 @@
 /**
  * config.js — Central game configuration for Cart Rave.
  *
- * Last tuned: 2026-06-19
+ * Last tuned: 2026-06-22
  *
  * Main sections:
  *   - CONFIG_VERSION     — bump when tuning values change materially (debug / diff aid)
@@ -16,7 +16,7 @@
  */
 
 /** @type {string} Bump when physics or net tuning changes materially. */
-export const CONFIG_VERSION = "2026.06.19";
+export const CONFIG_VERSION = "2026.06.22";
 
 const physics = {
   gravity: -24, // m/s² — world Y acceleration
@@ -34,6 +34,9 @@ const physics = {
     restitution: 0.05, // unitless — bounce on floor contact
     color: 0x050006,
     rimColor: 0xff2bd6,
+    // * Center-hole suck/assist toggle. Levels with a solid center (e.g. Backrooms
+    // * Supermarket) set enabled=false so carts are not pulled down at the origin.
+    centerHole: { enabled: true },
     surface: {
       concentricRings: {
         count: 96,
@@ -92,23 +95,27 @@ const physics = {
 
     ramBoost: {
       enabled: true,
-      durationSec: 1.5, // seconds — nitro active window
-      cooldownSec: 3.0, // seconds — time before nitro recharges
-      boostedMaxSpeed: 26, // m/s — speed cap while nitro active
-      boostedAccel: null, // m/s² — null uses driving.accel × multiplier in sim
-      streakDurationSec: 0.36, // seconds — short afterimage, blends with cart
-      streakSpawnRatePerSec: 16, // particles/s — nitro trail spawn rate
-      streakLengthMeters: 2.0, // meters — speed-line segment length
-      streakRadiusMeters: 0.014, // meters — thin core line width
+      durationSec: 1.7, // seconds — nitro active window (enough to close + connect)
+      cooldownSec: 3.1, // seconds — recharge; ~35% duty cycle
+      boostedMaxSpeed: 27, // m/s — +~15% over base; punchy without runaway speed
+      boostedAccel: 205, // m/s² — snappy surge; null falls back to accel × multiplier
+      nitroGripFactor: 0.78, // unitless — lateral grip while nitro + throttle forward
+      launchAccelMul: 1.38, // unitless — extra accel during opening burst
+      launchWindowSec: 0.2, // seconds — launch burst window from nitro start
+      nitroDriftMul: 1.12, // unitless — drift impulse scale while nitro active
+      streakDurationSec: 0.4, // seconds — short afterimage, blends with cart
+      streakSpawnRatePerSec: 20, // particles/s — nitro trail spawn rate
+      streakLengthMeters: 2.3, // meters — speed-line segment length
+      streakRadiusMeters: 0.015, // meters — thin core line width
       streakTipRadiusScale: 0.12, // unitless — taper to point at trailing tip
-      streakGlowRadiusMul: 2.0, // unitless — subtle outer halo vs core
-      streakGlowOpacity: 0.26, // unitless — soft halo (keeps trails cart-adjacent)
-      streakCoreOpacity: 0.52, // unitless — core line transparency
-      streakSaturationMul: 1.05, // unitless — near cart color, not hyper-neon
-      streakBrightnessMul: 1.0, // unitless — no extra lightness punch
-      streakSecondaryChance: 0.1, // unitless — rare twin streak
-      streakMaxActive: 72, // count — global streak cap (perf guard)
-      streakPulseHz: 0, // Hz — 0 disables shimmer pulse
+      streakGlowRadiusMul: 2.1, // unitless — subtle outer halo vs core
+      streakGlowOpacity: 0.32, // unitless — soft halo (keeps trails cart-adjacent)
+      streakCoreOpacity: 0.56, // unitless — core line transparency
+      streakSaturationMul: 1.1, // unitless — near cart color, slightly richer
+      streakBrightnessMul: 1.06, // unitless — mild lightness punch for readability
+      streakSecondaryChance: 0.15, // unitless — occasional twin streak
+      streakMaxActive: 80, // count — global streak cap (perf guard)
+      streakPulseHz: 12, // Hz — subtle shimmer on active streaks
       npc: {
         enabled: true,
         alignmentAngleDeg: 13.2, // degrees — aim cone toward target
@@ -147,17 +154,17 @@ const physics = {
     maxImpulse: 200.0, // N·s — per-frame impulse clamp
     spreadSteps: 3, // count — frames over which ram impulse is applied
     alignmentDotMin: 0.1, // unitless — min rammer→victim alignment dot product
-    boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale
-    nitroAccelMultiplier: 1.6, // unitless — drive accel while nitro active (when boostedAccel null)
+    boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale (intentionally unchanged)
+    nitroAccelMultiplier: 1.72, // unitless — fallback drive accel when boostedAccel is null
     fx: {
       particleCountBase: 8, // count — cart-hit burst floor
       particleCountPerIntensity: 16, // count — extra particles per unit intensity
-      particleBoostCountBonus: 5, // count — extra particles when rammer is boosting
+      particleBoostCountBonus: 6, // count — extra particles when rammer is boosting
       particleMaxCount: 28, // count — hard cap per burst (pool performance guard)
       shakeMinIntensity: 0.38, // unitless — min intensity for local ram screen shake
-      shakeBoostMinIntensity: 0.24, // unitless — lower shake threshold during nitro rams
+      shakeBoostMinIntensity: 0.22, // unitless — lower shake threshold during nitro rams
       shakePixelScale: 5.5, // px — screen shake amplitude scale
-      audioBoostGain: 1.35, // unitless — collision SFX gain multiplier when boosting
+      audioBoostGain: 1.4, // unitless — collision SFX gain multiplier when boosting
     },
   },
 

@@ -1,4 +1,15 @@
-// input.js — keyboard + input handling
+// input.js — keyboard + touch input handling
+
+import {
+  flashBoostActivate,
+  getTouchAxis,
+  isBoostHeld,
+  isJoystickActive,
+  resetTouchControls,
+  setTouchControlsVisible,
+  setupTouchControls,
+  syncTouchLayout,
+} from "./touchControls.js";
 
 const keys = new Set();
 const movementCodes = new Set([
@@ -65,16 +76,20 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
   canvas?.addEventListener("keydown", onKeyDown, { passive: false });
   canvas?.addEventListener("keyup", onKeyUp, { passive: false });
 
-  window.addEventListener("blur", () => keys.clear());
+  window.addEventListener("blur", () => {
+    keys.clear();
+    localNitroHeld = false;
+    resetTouchControls();
+  });
 
   return {
     getAxis,
-    isNitroHeld: () => localNitroHeld,
+    isNitroHeld: () => localNitroHeld || isBoostHeld(),
   };
 }
 
 /**
- * Returns normalized tank-steering axes from currently held movement keys.
+ * Returns normalized tank-steering axes from keyboard and/or touch joystick.
  * @returns {{ forward: number, turn: number }} Each axis in [-1, 1].
  */
 export function getAxis() {
@@ -86,8 +101,27 @@ export function getAxis() {
     (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
     (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
 
-  return {
+  const keyboard = {
     forward: Math.max(-1, Math.min(1, forward)),
     turn: Math.max(-1, Math.min(1, turn)),
   };
+
+  if (isJoystickActive()) {
+    return getTouchAxis();
+  }
+
+  const touch = getTouchAxis();
+  if (Math.abs(touch.forward) > 0 || Math.abs(touch.turn) > 0) {
+    return touch;
+  }
+
+  return keyboard;
 }
+
+export {
+  setupTouchControls,
+  setTouchControlsVisible,
+  resetTouchControls,
+  syncTouchLayout,
+  flashBoostActivate,
+};

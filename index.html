@@ -5,6 +5,7 @@
 {
   "imports": {
     "partysocket": "https://esm.sh/partysocket@1.1.16",
+    "animejs": "https://esm.sh/animejs@4.0.0",
     "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
     "three/": "https://unpkg.com/three@0.164.1/"
   }
@@ -21,22 +22,48 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="modulepreload" href="https://unpkg.com/three@0.164.1/build/three.module.js">
   <link rel="modulepreload" href="https://esm.sh/partysocket@1.1.16">
-  <link rel="preload" href="/sounds/menu.mp3" as="fetch" type="audio/mpeg" crossorigin>
+  <link rel="modulepreload" href="https://esm.sh/animejs@4.0.0">
   <script>
     (function() {
+      // * Preload menu music only on the plain menu landing — room/portal URLs skip the menu.
+      var params = new URLSearchParams(window.location.search || "");
+      if (!params.get("room") && params.get("portal") !== "true") {
+        var menuAudio = new Audio();
+        menuAudio.preload = "auto";
+        menuAudio.src = "/sounds/menu.mp3";
+        try { menuAudio.load(); } catch {}
+      }
+
+      // * Eruda mobile dev console — localhost / LAN only, with CDN fallback.
       var h = window.location.hostname;
       var isLocal = h === "localhost" || h === "127.0.0.1" || /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h);
-      if (isLocal) {
+      if (!isLocal) return;
+
+      var erudaSources = [
+        "https://unpkg.com/eruda",
+        "https://cdn.jsdelivr.net/npm/eruda",
+      ];
+      var erudaIdx = 0;
+      function loadEruda() {
+        if (erudaIdx >= erudaSources.length) return;
         var s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/eruda";
-        s.onload = function() { eruda.init(); };
+        s.src = erudaSources[erudaIdx++];
+        s.onload = function() { window.eruda && eruda.init(); };
+        s.onerror = loadEruda;
         document.head.appendChild(s);
       }
+      loadEruda();
     })();
   </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; }
+    body {
+      background: #000;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      height: 100%;
+    }
     canvas { display: block; }
   </style>
   <!-- Step 10b: Menu fonts and critical CSS -->
@@ -44,7 +71,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cart-rave.wyabro.partykit.dev">
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="cart-rave-menu.css?v=4">
+  <link rel="stylesheet" href="cart-rave-menu.css?v=11">
   <style>
     /* Step 10d: Volume and Mute Controls */
     input[type="range"] {
@@ -111,6 +138,7 @@
           <div class="cr-cart-stage">
             <div class="cr-cart-shadow" id="cr-cart-shadow"></div>
             <div id="cr-cart-holder"></div>
+            <span class="cr-cart-tap-hint" aria-hidden="true">?</span>
           </div>
           <div class="cr-tooltip" id="cr-cart-tooltip" role="tooltip">
             <div class="cr-tooltip-hd">
@@ -124,7 +152,8 @@
               <li><strong>Knock off the leader:</strong> +1 bonus</li>
               <li><strong>Leader glow:</strong> The leader glows <span class="cr-tooltip-white">white</span></li>
             </ul>
-            <p class="cr-tooltip-footer">Bonuses stack — one big play scores up to 4 pts.<br>WASD drive · Shift boost · Space hop</p>
+            <p class="cr-tooltip-footer cr-tooltip-footer--keyboard">Bonuses stack — one big play scores up to 4 pts.<br>WASD drive · Shift boost · Space hop</p>
+            <p class="cr-tooltip-footer cr-tooltip-footer--touch">Bonuses stack — one big play scores up to 4 pts.<br>Use the on-screen joystick and buttons</p>
           </div>
         </div>
         <div class="cr-stats" id="cr-stats-local">
@@ -183,6 +212,28 @@
             <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
           </button>
         </div>
+
+        <div class="cr-levels" id="cr-levels">
+          <div class="cr-levels-hd">◇ LEVELS</div>
+          <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose arena level">
+            <button type="button" class="cr-level-btn active" data-level="classicRecord" data-colorkey="secondary" aria-pressed="true">
+              <span class="cr-level-btn-inner">
+                <span class="cr-level-btn-label">CART RAVE</span>
+                <span class="cr-level-btn-sub">Neon vinyl arena</span>
+              </span>
+              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+            </button>
+            <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false">
+              <span class="cr-level-btn-inner">
+                <span class="cr-level-btn-label">THE STOREROOMS</span>
+                <span class="cr-level-btn-sub">Liminal Battleground</span>
+              </span>
+              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Right column -->
@@ -200,7 +251,7 @@
               <span class="cr-tag">@</span><span id="cr-name-text"></span>
               <span class="cr-edit-hint">✎</span>
             </div>
-            <input class="cr-name-input" id="cr-name-input" style="display:none" maxlength="12" aria-label="Your username" />
+            <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your username" />
             <button class="cr-reroll" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
           </div>
 
@@ -265,7 +316,7 @@
       <h2 class="cr-friends-title">INVITE FRIENDS</h2>
       <p class="cr-friends-desc">Your room link has been copied to your clipboard. Send it to your friends so they can join your game. When they open the link, they'll pick their name and color before joining your lobby.</p>
       <div class="cr-friends-link-row">
-        <input class="cr-friends-link" id="cr-friends-link" readonly />
+        <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Room invite link" />
         <button class="cr-friends-copy" id="cr-friends-copy">COPY</button>
       </div>
       <button class="cr-friends-enter" id="cr-friends-enter">ENTER GAME</button>
@@ -274,6 +325,6 @@
   </div>
   <canvas id="game"></canvas>
   <script type="module" src="main.js"></script> <!-- Saved to resolve browser module loading -->
-  <script src="cart-rave-menu.js?v=1"></script>
+  <script src="cart-rave-menu.js?v=6"></script>
 </body>
 </html>

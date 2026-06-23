@@ -27,13 +27,22 @@ const state = {
 };
 
 const refs = {
-  allCartsRef: null,
+  get allCartsRef() {
+    return state.allCarts;
+  },
   getAxisRef: null,
   triggerRamBoostRef: null,
   resetSimTimingRef: { current: null },
 };
 
 Netcode.setRefs(refs);
+
+/** @type {object[] | null} */
+let _npcCache = null;
+/** @type {string | null} */
+let _npcCacheKey = null;
+
+let visibilityListenerBound = false;
 
 /**
  * @param {Array<object> | null | undefined} allCarts
@@ -59,7 +68,12 @@ function resolveNpcs(allCarts) {
   if (!allCarts) return [];
 
   const slots = Netcode.getNetSlots?.() ?? [];
-  return allCarts.filter((cart, idx) => cart && slots[idx]?.kind === "npc");
+  const key = slots.map((s) => s?.kind ?? "").join(",");
+  if (key === _npcCacheKey && _npcCache) return _npcCache;
+
+  _npcCache = allCarts.filter((cart, idx) => cart && slots[idx]?.kind === "npc");
+  _npcCacheKey = key;
+  return _npcCache;
 }
 
 /**
@@ -72,9 +86,33 @@ function resolveCartForConn(connId) {
   return state.allCarts?.[idx] ?? null;
 }
 
+/**
+ * Merges extension callbacks; core simulation hooks always win over physicsCallbacks.
+ * @returns {object}
+ */
+function buildPhysicsCallbacks() {
+  const core = {
+    getAxis: Input.getAxis,
+    getAiAxis: state.getAiAxis,
+    resolveCartForConn,
+  };
+
+  for (const key of Object.keys(state.physicsCallbacks)) {
+    if (key in core) {
+      console.warn(`[game] physicsCallbacks.${key} conflicts with core callback — ignored`);
+    }
+  }
+
+  return { ...state.physicsCallbacks, ...core };
+}
+
 function ensureEventQueue() {
   if (!state.world) return null;
   if (!state.eventQueue) {
+    if (typeof RAPIER.EventQueue !== "function") {
+      console.error("[game] RAPIER not initialized — cannot create EventQueue");
+      return null;
+    }
     state.eventQueue = new RAPIER.EventQueue(true);
   }
   return state.eventQueue;
@@ -85,6 +123,24 @@ function resetSimTiming() {
   state.accumulator = 0;
 }
 
+function onTabVisible() {
+  if (!document.hidden && state.isRunning) {
+    resetSimTiming();
+  }
+}
+
+function bindVisibilityListener() {
+  if (visibilityListenerBound) return;
+  document.addEventListener("visibilitychange", onTabVisible);
+  visibilityListenerBound = true;
+}
+
+function unbindVisibilityListener() {
+  if (!visibilityListenerBound) return;
+  document.removeEventListener("visibilitychange", onTabVisible);
+  visibilityListenerBound = false;
+}
+
 refs.resetSimTimingRef.current = resetSimTiming;
 
 // === Initialization ===
@@ -92,15 +148,10 @@ refs.resetSimTimingRef.current = resetSimTiming;
  * @param {object} [options]
  */
 export function initGame(options = {}) {
-  if (!options || typeof options !== "object") {
-    options = {};
-  }
-
   console.log("[game] Initializing modular Cart Rave...");
 
   if (options.allCarts) {
     state.allCarts = options.allCarts;
-    refs.allCartsRef = state.allCarts;
   }
   if (options.world) {
     state.world = options.world;
@@ -132,43 +183,43 @@ export function initGame(options = {}) {
 export function gameStep(now = performance.now()) {
   if (!state.isRunning) return;
 
-  const dt = Math.min((now - state.lastT) / 1000, 0.05);
-  state.lastT = now;
-  state.accumulator += dt;
+  try {
+    const dt = Math.min((now - state.lastT) / 1000, 0.05);
+    state.lastT = now;
+    state.accumulator += dt;
 
-  const { world, allCarts } = state;
-  const isHost = Netcode.getIsHost?.() ?? false;
-  const eventQueue = ensureEventQueue();
-  const localCart = resolveLocalCart(allCarts);
-  const remoteInputs = isHost ? Netcode.getRemoteInputsByConnId?.() ?? null : null;
-  const npcs = isHost ? resolveNpcs(allCarts) : [];
+    const { world, allCarts } = state;
+    const isHost = Netcode.getIsHost?.() ?? false;
+    const eventQueue = ensureEventQueue();
+    const localCart = resolveLocalCart(allCarts);
+    const remoteInputs = isHost ? Netcode.getRemoteInputsByConnId?.() ?? null : null;
+    const npcs = isHost ? resolveNpcs(allCarts) : [];
 
-  if (world && allCarts && eventQueue) {
-    while (state.accumulator >= CONFIG.fixedTimeStep) {
-      Simulation.runFixedPhysicsStep({
-        world,
-        eventQueue,
-        allCarts,
-        localCart,
-        remoteInputs,
-        npcs,
-        dt: CONFIG.fixedTimeStep,
-        now,
-        isHost,
-        callbacks: {
-          getAxis: Input.getAxis,
-          getAiAxis: state.getAiAxis,
-          resolveCartForConn,
-          ...state.physicsCallbacks,
-        },
-      });
-      state.accumulator -= CONFIG.fixedTimeStep;
+    if (world && allCarts && eventQueue) {
+      while (state.accumulator >= CONFIG.fixedTimeStep) {
+        Simulation.runFixedPhysicsStep({
+          world,
+          eventQueue,
+          allCarts,
+          localCart,
+          remoteInputs,
+          npcs,
+          dt: CONFIG.fixedTimeStep,
+          now,
+          isHost,
+          callbacks: buildPhysicsCallbacks(),
+        });
+        state.accumulator -= CONFIG.fixedTimeStep;
+      }
     }
+
+    // Visual updates + rendering remain in main.js until full cutover.
+
+    state.rafId = requestAnimationFrame(gameStep);
+  } catch (err) {
+    console.error("[game] Fatal step error:", err);
+    stopGameLoop();
   }
-
-  // Visual updates + rendering remain in main.js until full cutover.
-
-  state.rafId = requestAnimationFrame(gameStep);
 }
 
 export function startGameLoop() {
@@ -176,6 +227,7 @@ export function startGameLoop() {
 
   state.isRunning = true;
   resetSimTiming();
+  bindVisibilityListener();
   console.log("[game] Starting game loop");
   state.rafId = requestAnimationFrame(gameStep);
 }
@@ -186,6 +238,31 @@ export function stopGameLoop() {
     cancelAnimationFrame(state.rafId);
     state.rafId = null;
   }
+}
+
+/**
+ * Tears down loop state and clears module refs so initGame can run again cleanly.
+ */
+export function dispose() {
+  stopGameLoop();
+  unbindVisibilityListener();
+
+  state.world = null;
+  state.eventQueue = null;
+  state.allCarts = null;
+  state.camera = null;
+  state.scene = null;
+  state.renderer = null;
+  state.composer = null;
+  state.hud = null;
+  state.getAiAxis = null;
+  state.physicsCallbacks = {};
+
+  _npcCache = null;
+  _npcCacheKey = null;
+
+  refs.getAxisRef = null;
+  Netcode.setRefs({ getAllCartsRef: () => null });
 }
 
 export {

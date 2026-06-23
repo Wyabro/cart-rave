@@ -15,10 +15,13 @@ import * as GameState from "./src/gameState.js";
 import * as GameAudio from "./src/audio.js";
 import * as CameraMod from "./src/camera.js";
 import * as Effects from "./src/effects.js";
-import { initArena } from "./src/arena.js";
-import { initSceneExtras } from "./src/sceneSetup.js";
+import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./src/levels/index.js";
+import { initSceneExtras, disposeSceneExtras } from "./src/sceneExtras.js";
 import { initAudioSystem } from "./src/audioSetup.js";
-import { initResultsOverlay } from "./src/ui/resultsOverlay.js";
+import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations } from "./src/ui/resultsOverlay.js";
+import { showRotatePromptIfNeeded } from "./src/ui/rotatePrompt.js";
+import { animateCartBoostPulse, crossfadeElement, animateMuteToggle, animateVolumeTick } from "./src/animations.js";
+import { flashBoostActivate } from "./src/touchControls.js";
 import {
   applySlowMoToDt,
   createGameLoopState,
@@ -30,9 +33,11 @@ import {
 import { updateGameFlow } from "./src/gameFlow.js";
 import { createGameContext } from "./src/gameContext.js";
 import {
+  applyCartFrameGlow,
   clamp,
   colorHexForSlot,
   getColorForSlot,
+  isTouchDevice,
 } from "./src/utils.js";
 
 // eslint-disable-next-line no-console
@@ -206,23 +211,27 @@ const CONFIG = {
 
     ramBoost: {
       enabled: true,
-      durationSec: 1.5,
-      cooldownSec: 3.0,
-      boostedMaxSpeed: 26,
-      boostedAccel: null,
-      streakDurationSec: 0.36,
-      streakSpawnRatePerSec: 16,
-      streakLengthMeters: 2.0,
-      streakRadiusMeters: 0.014,
+      durationSec: 1.7,
+      cooldownSec: 3.1,
+      boostedMaxSpeed: 27,
+      boostedAccel: 205,
+      nitroGripFactor: 0.78,
+      launchAccelMul: 1.38,
+      launchWindowSec: 0.2,
+      nitroDriftMul: 1.12,
+      streakDurationSec: 0.4,
+      streakSpawnRatePerSec: 20,
+      streakLengthMeters: 2.3,
+      streakRadiusMeters: 0.015,
       streakTipRadiusScale: 0.12,
-      streakGlowRadiusMul: 2.0,
-      streakGlowOpacity: 0.26,
-      streakCoreOpacity: 0.52,
-      streakSaturationMul: 1.05,
-      streakBrightnessMul: 1.0,
-      streakSecondaryChance: 0.1,
-      streakMaxActive: 72,
-      streakPulseHz: 0,
+      streakGlowRadiusMul: 2.1,
+      streakGlowOpacity: 0.32,
+      streakCoreOpacity: 0.56,
+      streakSaturationMul: 1.1,
+      streakBrightnessMul: 1.06,
+      streakSecondaryChance: 0.15,
+      streakMaxActive: 80,
+      streakPulseHz: 12,
       npc: {
         enabled: true,
         alignmentAngleDeg: 13.2,
@@ -264,7 +273,7 @@ const CONFIG = {
     // * Critical bonus triggers on committed rams. Threshold 11.0 is now
     // * well below maxSpeed=17, meaning most committed driving will crit.
     // * Intentionally generous after playtest feedback. Ram-boosted rams
-    // * (boostedMaxSpeed=26) always crit.
+    // * (boostedMaxSpeed=27) always crit.
     criticalVelocityThreshold: 11.0,
     hitWindowMs: 2500,
   },
@@ -280,16 +289,16 @@ const CONFIG = {
     spreadSteps: 3,
     alignmentDotMin: 0.1,
     boostImpulseMultiplier: 2.35,
-    nitroAccelMultiplier: 1.6,
+    nitroAccelMultiplier: 1.72,
     fx: {
       particleCountBase: 8,
       particleCountPerIntensity: 16,
-      particleBoostCountBonus: 5,
+      particleBoostCountBonus: 6,
       particleMaxCount: 28,
       shakeMinIntensity: 0.38,
-      shakeBoostMinIntensity: 0.24,
+      shakeBoostMinIntensity: 0.22,
       shakePixelScale: 5.5,
-      audioBoostGain: 1.35,
+      audioBoostGain: 1.4,
     },
   },
 
@@ -587,6 +596,8 @@ let menuActionListenerWired = false;
 let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
 let menuVisible = true; // Step 10b: menu visibility flag
+/** @type {boolean | null} */
+let lastTouchControlsVisible = null;
 let bloomEnabled = true;
 try {
   const saved = localStorage.getItem("cartRaveBloom");
@@ -677,14 +688,7 @@ function updateCartMaterialsFromSlots(slots) {
 
     // Frame: recolor and update emissive glow (always sync — hello fires before carts exist).
     for (const mat of cache.frameMats) {
-      if (mat.color) mat.color.setHex(finalHex);
-      if (mat.emissive) {
-        mat.emissive.setHex(finalHex);
-        mat.emissiveIntensity = 1.0;
-      }
-      if (typeof mat.metalness === "number") mat.metalness = 0.7;
-      if (typeof mat.roughness === "number") mat.roughness = 0.3;
-      if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = 0.15;
+      applyCartFrameGlow(mat, finalHex);
     }
 
     // Keep the cached hex in sync so respawn rebuilds use the right color
@@ -772,6 +776,33 @@ async function main() {
       triggerRamBoost(cart, performance.now());
     }
   );
+
+  Input.setupTouchControls({
+    onHop: () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
+      const mySlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      const cart = mySlot >= 0 && allCarts[mySlot] ? allCarts[mySlot] : localCartForConnId();
+      triggerHop(cart, performance.now());
+    },
+    onBoost: () => {
+      const cart = localCartForConnId();
+      if (!cart) return;
+      triggerRamBoost(cart, performance.now());
+    },
+  });
+
+  function updateTouchControlsVisibility() {
+    const roundPhase = GameState.getRoundState().phase;
+    const show =
+      isTouchDevice() &&
+      !menuVisible &&
+      roundPhase !== "podium" &&
+      !HUD.isEscOverlayVisible();
+    if (show === lastTouchControlsVisible) return;
+    lastTouchControlsVisible = show;
+    Input.setTouchControlsVisible(show);
+  }
 
   // --- Renderer & scene ---
   const renderer = createRenderer(canvas);
@@ -941,9 +972,10 @@ async function main() {
 
   function initMenu() {
     menuVisible = true;
+    updateTouchControlsVisibility();
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
-    if (hudAudio) hudAudio.style.display = "none";
+    if (hudAudio) HUD.hideAudioWidget();
     if (hud) {
       if (hud.timer) hud.timer.style.display = "none";
       if (hud.scores) hud.scores.style.display = "none";
@@ -989,6 +1021,7 @@ async function main() {
     const room = Netcode.resolvedPartyRoomFromUrl();
     if (room && room.toLowerCase().startsWith("solo")) {
       hideMenu();
+      showRotatePromptIfNeeded();
       Netcode.initNetcode();
       return;
     }
@@ -1025,6 +1058,7 @@ async function main() {
         btn.addEventListener("click", () => {
           window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
         });
+        window.CartRave?.wireMenuButton?.(btn, { delay: 0, duration: 340, y: 18 });
       }
     }
 
@@ -1038,6 +1072,7 @@ async function main() {
         if (!room) return;
         pendingInviteRoomFromUrl = null;
         document.getElementById("cr-btn-join-invite")?.remove();
+        rebuildLevelIfNeeded();
         Netcode.initNetcode(room);
         return;
       }
@@ -1048,12 +1083,14 @@ async function main() {
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
+        rebuildLevelIfNeeded();
         hideMenu();
         Netcode.initNetcode();
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
+        rebuildLevelIfNeeded();
         Netcode.initNetcode();
       } else if (action === "friends") {
         const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
@@ -1088,6 +1125,7 @@ async function main() {
         if (friendsEnter) {
           friendsEnter.onclick = () => {
             friendsScreen.style.display = "none";
+            rebuildLevelIfNeeded();
             Netcode.initNetcode();
           };
         }
@@ -1124,6 +1162,7 @@ async function main() {
     if (crMuteBtn) {
       crMuteBtn.addEventListener("click", () => {
         setAllAudioMuted(!isMuted);
+        animateMuteToggle(crMuteBtn);
         syncMenuVolume();
       });
     }
@@ -1135,6 +1174,7 @@ async function main() {
         masterGain = v;
         localStorage.setItem("cartRaveVolume", Math.round((v / AUDIO_VOLUME_MAX) * 100).toString());
         try { GameAudio.applyAudioVolume(); } catch(e) {}
+        if (crMusicVolVal) animateVolumeTick(crMusicVolVal);
         syncMenuVolume();
       });
     }
@@ -1197,8 +1237,8 @@ async function main() {
     menuVisible = false;
     try { crowd?.ensureStarted?.(); } catch {}
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
-    const hudAudio = document.querySelector(".hud-audio");
-    if (hudAudio) hudAudio.style.display = "flex";
+    HUD.showAudioWidget();
+    updateTouchControlsVisibility();
     // Crossfade: fade out menu music, fade in game music.
     GameAudio.fadeOutMenuMusic();
     GameAudio.fadeInGameMusic();
@@ -1250,10 +1290,129 @@ async function main() {
     getCART_COLORS: () => CART_COLORS,
     getDefaultRoundMs: () => 95000,
     getCountdownMs: () => 3000,
+    getIsTouchDevice: isTouchDevice,
+    onEscOverlayChange: (open) => {
+      if (open) {
+        Input.setTouchControlsVisible(false);
+      } else {
+        updateTouchControlsVisibility();
+      }
+    },
   });
   const resultsUi = initResultsOverlay({
     onMainMenuClick: () => podiumAutoContinue.clear(),
   });
+
+  // --- Arena, physics, world visuals ---
+  // * Loaded before initMenu() so rebuildLevelIfNeeded can run as soon as the menu is interactive.
+  scene.add(new THREE.AmbientLight(0x221133, 0.15));
+
+  const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
+  const eventQueue = new RAPIER.EventQueue(true);
+
+  let recordMesh;
+  let recordCollider;
+  let pitWallColliderHandle;
+  let boothColliderHandles;
+  let boothNeonMeshes;
+  let spindleLight;
+  let spindleLightColorPink;
+  let spindleLightColorCyan;
+  let pitInnerRadius;
+  let recordLabelMat;
+  let levelHazards;
+  let disposeLevel;
+  let loadedLevelId;
+  let sceneExtras;
+
+  ({
+    recordMesh,
+    recordCollider,
+    pitWallColliderHandle,
+    boothColliderHandles,
+    boothNeonMeshes,
+    spindleLight,
+    spindleLightColorPink,
+    spindleLightColorCyan,
+    pitInnerRadius,
+    recordLabelMat,
+    aiHazards: levelHazards,
+    dispose: disposeLevel,
+  } = loadLevel(undefined, scene, world, CONFIG));
+
+  loadedLevelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+  Simulation.setLevelHazards(levelHazards ?? null);
+
+  Effects.setAmbientDustStyle(
+    loadedLevelId === "backrooms" ? "backrooms" : "rainbow",
+    CART_COLORS,
+  );
+
+  let levelRebuildInFlight = false;
+
+  /**
+   * Rebuilds the arena and its space-skybox scene extras in place if the menu-selected
+   * level differs from the one currently loaded. Safe to call only before a room is joined
+   * (no carts exist yet). Scene extras are torn down and re-created against the new level's
+   * pitInnerRadius so the ground ring and horizon fit the new arena. (The Effects crowd /
+   * stage / billboard / lasers still keep their startup placement — occluded / neutral.)
+   */
+  async function rebuildLevelIfNeeded() {
+    const selected = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+    if (selected === loadedLevelId || levelRebuildInFlight) return;
+    levelRebuildInFlight = true;
+
+    try {
+      await crossfadeElement(canvas, () => {
+        if (typeof disposeLevel === "function") disposeLevel();
+        ({
+          recordMesh,
+          recordCollider,
+          pitWallColliderHandle,
+          boothColliderHandles,
+          boothNeonMeshes,
+          spindleLight,
+          spindleLightColorPink,
+          spindleLightColorCyan,
+          pitInnerRadius,
+          recordLabelMat,
+          aiHazards: levelHazards,
+          dispose: disposeLevel,
+        } = loadLevel(selected, scene, world, CONFIG));
+        loadedLevelId = selected;
+        Simulation.setLevelHazards(levelHazards ?? null);
+
+        const wantRaveExtras = selected !== "backrooms";
+        disposeSceneExtras(sceneExtras);
+        sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras });
+        Effects.setRaveExtrasVisible(wantRaveExtras);
+        Effects.setAmbientDustStyle(
+          selected === "backrooms" ? "backrooms" : "rainbow",
+          CART_COLORS,
+        );
+      });
+    } finally {
+      levelRebuildInFlight = false;
+      const stillNeeded = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+      if (stillNeeded !== loadedLevelId) {
+        void rebuildLevelIfNeeded();
+      }
+    }
+  }
+
+  window.addEventListener("cartrave:level-changed", () => {
+    void rebuildLevelIfNeeded();
+  });
+
+  const wantRaveExtras = loadedLevelId !== "backrooms";
+  sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras });
+
+  Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
+  Effects.initStage(scene, pitInnerRadius, CART_COLORS);
+  Effects.initBillboard(scene, pitInnerRadius);
+  Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
+  Effects.setRaveExtrasVisible(wantRaveExtras);
+
   hideMenuRef = hideMenu;
   returnToMenuRef = () => initMenu();
   initMenu();
@@ -1262,6 +1421,7 @@ async function main() {
   // * initNetcode() is top-level and cannot call hideMenu/startCountdown directly.
   onGameStartHandler = (msg) => {
     if (menuVisible) hideMenu();
+    showRotatePromptIfNeeded();
     const serverStartsAtMs = Number(msg?.startsAtMs);
     const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
       ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
@@ -1281,7 +1441,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, title, finalScores, history, playAgain, statsLine } = resultsUi;
+    const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
       overlay.style.display = "flex";
@@ -1317,6 +1477,8 @@ async function main() {
       }
 
       finalScores.replaceChildren();
+      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null }>} */
+      const scoreRows = [];
       for (let i = 0; i < 4; i += 1) {
         const s = scores[i] != null ? scores[i] : 0;
         const row = document.createElement("div");
@@ -1329,6 +1491,15 @@ async function main() {
         nameEl.className = "results-score-name";
         nameEl.textContent = slotDisplayName(i);
 
+        let winnerBadge = null;
+        if (isWinner) {
+          winnerBadge = document.createElement("span");
+          winnerBadge.className = "results-winner-badge";
+          winnerBadge.textContent = "\u{1F451}";
+          winnerBadge.setAttribute("aria-hidden", "true");
+          nameEl.prepend(winnerBadge);
+        }
+
         const valEl = document.createElement("span");
         valEl.className = "results-score-val";
         valEl.textContent = `${s} pts`;
@@ -1336,15 +1507,18 @@ async function main() {
         row.appendChild(nameEl);
         row.appendChild(valEl);
         finalScores.appendChild(row);
+        scoreRows.push({ row, valEl, score: s, isWinner, badge: winnerBadge });
       }
 
       history.replaceChildren();
+      const historyLimit = isTouchDevice() ? 2 : matchHistory.length;
       if (matchHistory.length === 0) {
         const emptyRow = document.createElement("div");
         emptyRow.textContent = "No prior matches this session.";
         history.appendChild(emptyRow);
       } else {
-        for (let i = matchHistory.length - 1; i >= 0; i -= 1) {
+        const startIdx = Math.max(0, matchHistory.length - historyLimit);
+        for (let i = matchHistory.length - 1; i >= startIdx; i -= 1) {
           const m = matchHistory[i];
           const row = document.createElement("div");
           row.className = "results-history-row";
@@ -1400,44 +1574,27 @@ async function main() {
         });
       }
 
+      animateResultsPodiumShow({
+        overlay,
+        panel,
+        title,
+        scoreRows,
+        statsLine,
+        history,
+        playAgain,
+        mainMenuBtn,
+      });
+
       maybeScheduleAutoContinuePodium();
     } else {
       clearAutoContinuePodiumTimeout();
       autoContinuePodiumKey = null;
       lastResultsOverlayKey = null;
+      cancelResultsAnimations(overlay);
       overlay.style.display = "none";
       overlay.style.pointerEvents = "none";
     }
   }
-
-
-  // --- Arena, physics, world visuals ---
-  // Minimal ambient + a few colored spotlights for "neon" vibe.
-  scene.add(new THREE.AmbientLight(0x221133, 0.15));
-
-  const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
-  const eventQueue = new RAPIER.EventQueue(true);
-
-  const {
-    recordMesh,
-    recordCollider,
-    pitWallColliderHandle,
-    boothColliderHandles,
-    boothNeonMeshes,
-    spindleLight,
-    spindleLightColorPink,
-    spindleLightColorCyan,
-    pitInnerRadius,
-    recordLabelMat,
-  } = initArena(scene, world, CONFIG);
-
-  const sceneExtras = initSceneExtras(scene, pitInnerRadius);
-
-  Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
-
-  Effects.initStage(scene, pitInnerRadius, CART_COLORS);
-  Effects.initBillboard(scene, pitInnerRadius);
-  Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
 
   // --- Carts, labels, gameplay helpers ---
   function scheduleRespawn(cart, now) {
@@ -1472,7 +1629,7 @@ async function main() {
 
   // Expose carts to netcode.
   allCartsRef = allCarts;
-  Netcode.setRefs({ allCartsRef: allCarts });
+  Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
   // * hello calls updateCartMaterials before carts exist; apply slot colors now.
   updateCartMaterialsFromSlots(Netcode.getNetSlots());
   if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
@@ -1558,6 +1715,7 @@ async function main() {
   getAxisRef = input.getAxis;
   triggerRamBoostRef = triggerRamBoost;
   Netcode.setRefs({
+    getAllCartsRef: () => allCartsRef,
     getAxisRef: input.getAxis,
     isNitroHeldRef: input.isNitroHeld,
     triggerRamBoostRef: triggerRamBoost,
@@ -1589,8 +1747,11 @@ async function main() {
     if (nowMs - cart.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
     cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
     cart.lastRamBoostTimeMs = nowMs;
-    if (cart === localCartForConnId()) {
+    const isLocal = cart === localCartForConnId();
+    if (isLocal) {
       sfx.playNitro();
+      if (cart.mesh) animateCartBoostPulse(cart.mesh);
+      flashBoostActivate();
     }
     cart.ramBoostStreakCarry = 0;
   }
@@ -1680,6 +1841,7 @@ async function main() {
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
     Netcode.sendHostRound();
+    updateTouchControlsVisibility();
   }
 
   let roundCountdownTimeoutId = null;
@@ -1870,6 +2032,7 @@ async function main() {
     getShakeIntensity: () => shakeIntensity,
     getFovPunchUntil: () => fovPunchUntil,
     fpsState,
+    updateTouchControlsVisibility,
   };
 
   const gameFlowDeps = {
@@ -2014,186 +2177,5 @@ async function main() {
   window.addEventListener("resize", updateViewport);
 }
 
-function isMobileGameplayBlocked() {
-  try {
-    return (
-      typeof window !== "undefined" &&
-      ("ontouchstart" in window) &&
-      (navigator.maxTouchPoints || 0) > 1 &&
-      (window.innerWidth || 0) < 1024
-    );
-  } catch {
-    return false;
-  }
-}
-
-let __kbmToastHideTimer = null;
-function showKbmRequiredToast() {
-  const el = document.getElementById("cr-kbm-toast");
-  if (!el) return;
-
-  if (__kbmToastHideTimer) {
-    clearTimeout(__kbmToastHideTimer);
-    __kbmToastHideTimer = null;
-  }
-
-  el.style.display = "inline-flex";
-  el.style.opacity = "1";
-  el.style.pointerEvents = "auto";
-
-  __kbmToastHideTimer = setTimeout(() => {
-    el.style.display = "none";
-    __kbmToastHideTimer = null;
-  }, 3000);
-}
-
-function initMobileMenuAudioOnly() {
-  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
-  const menuMusicEl = new Audio();
-  menuMusicEl.loop = true;
-  menuMusicEl.preload = "auto";
-  menuMusicEl.src = menuMusicUrl;
-  try { menuMusicEl.load(); } catch {}
-
-  const applyMenuMusicVolume = () => {
-    menuMusicEl.volume = CONFIG.audio.musicVolume * (isMuted ? 0 : masterGain);
-    menuMusicEl.muted = isMuted;
-  };
-
-  let started = false;
-  const tryStartMenuMusic = () => {
-    if (started || isMuted) return;
-    applyMenuMusicVolume();
-    void menuMusicEl.play().then(
-      () => { started = true; },
-      () => {},
-    );
-  };
-
-  tryStartMenuMusic();
-  window.addEventListener("pointerdown", tryStartMenuMusic, { passive: true });
-  window.addEventListener("keydown", tryStartMenuMusic, { once: true });
-
-  // Wire menu audio UI (mute + volume slider) without Three/WebAudio.
-  const crMuteBtn = document.getElementById("cr-mute-btn");
-  const crMusicVolTrack = document.getElementById("cr-music-vol-track");
-  const crMusicVolFill = document.getElementById("cr-music-vol-fill");
-  const crMusicVolVal = document.getElementById("cr-music-vol-val");
-
-  const syncMenuVolumeUi = () => {
-    if (crMusicVolFill) crMusicVolFill.style.setProperty("--vol-scale", String(isMuted ? 0 : masterGain / AUDIO_VOLUME_MAX));
-    if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : String(Math.round((masterGain / AUDIO_VOLUME_MAX) * 100));
-    if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
-  };
-
-  const setAllAudioMuted = (muted) => {
-    isMuted = Boolean(muted);
-    try { localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false"); } catch {}
-    applyMenuMusicVolume();
-    syncMenuVolumeUi();
-  };
-
-  const setMasterGain = (v) => {
-    masterGain = clamp(v, 0, AUDIO_VOLUME_MAX);
-    try { localStorage.setItem("cartRaveVolume", String(Math.round((masterGain / AUDIO_VOLUME_MAX) * 100))); } catch {}
-    applyMenuMusicVolume();
-    syncMenuVolumeUi();
-  };
-
-  try {
-    const savedVol = localStorage.getItem("cartRaveVolume");
-    if (savedVol !== null) {
-      const parsed = parseInt(savedVol, 10);
-      if (!Number.isNaN(parsed)) {
-        setMasterGain((parsed / 100) * AUDIO_VOLUME_MAX);
-      }
-    }
-  } catch {}
-  try {
-    const savedMute = localStorage.getItem("cartRaveMuted");
-    if (savedMute !== null) setAllAudioMuted(savedMute === "true");
-  } catch {}
-  syncMenuVolumeUi();
-
-  if (crMuteBtn) {
-    crMuteBtn.addEventListener("click", () => setAllAudioMuted(!isMuted));
-  }
-  if (crMusicVolTrack) {
-    crMusicVolTrack.addEventListener("pointerdown", (e) => {
-      const rect = crMusicVolTrack.getBoundingClientRect();
-      const x = clamp((e.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
-      setMasterGain(x * AUDIO_VOLUME_MAX);
-    });
-  }
-}
-
-function initMobileGameplayBlock() {
-  const toast = document.getElementById("cr-kbm-toast");
-  const toastClose = document.getElementById("cr-kbm-toast-close");
-  if (toast) {
-    toast.addEventListener("click", () => { toast.style.display = "none"; });
-  }
-  if (toastClose) {
-    toastClose.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toast.style.display = "none";
-    });
-  }
-
-  const friendsScreen = document.getElementById("cr-friends-screen");
-  const friendsLink = document.getElementById("cr-friends-link");
-  const friendsCopy = document.getElementById("cr-friends-copy");
-  const friendsEnter = document.getElementById("cr-friends-enter");
-  const friendsBack = document.getElementById("cr-friends-back");
-  const menuRoot = document.getElementById("cr-root");
-
-  const showFriendsScreen = () => {
-    const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
-    const cleanLink = new URL(window.location.origin + window.location.pathname);
-    cleanLink.searchParams.set("room", roomId);
-    const roomLink = cleanLink.toString();
-    if (friendsLink) friendsLink.value = roomLink;
-    window.CartRave?.stopAnimations?.();
-    if (menuRoot) menuRoot.style.display = "none";
-    if (friendsScreen) friendsScreen.style.display = "flex";
-    if (friendsCopy) friendsCopy.textContent = "COPY";
-  };
-
-  if (friendsCopy) {
-    friendsCopy.onclick = () => {
-      const value = friendsLink?.value || "";
-      navigator.clipboard.writeText(value).catch(() => {});
-      friendsCopy.textContent = "COPIED!";
-      setTimeout(() => { friendsCopy.textContent = "COPY"; }, 1500);
-    };
-  }
-  if (friendsEnter) {
-    friendsEnter.onclick = () => {
-      showKbmRequiredToast();
-    };
-  }
-  if (friendsBack) {
-    friendsBack.onclick = () => {
-      if (friendsScreen) friendsScreen.style.display = "none";
-      window.CartRave?.show?.();
-    };
-  }
-
-  window.addEventListener("cartrave:menu", (e) => {
-    const action = e?.detail?.action;
-    if (action === "friends") {
-      showFriendsScreen();
-      return;
-    }
-    showKbmRequiredToast();
-  });
-}
-
-if (isMobileGameplayBlocked()) {
-  initMobileMenuAudioOnly();
-  initMobileGameplayBlock();
-} else {
-  bootstrapNetcodeEntryFromUrl();
-  main();
-}
+bootstrapNetcodeEntryFromUrl();
+main();

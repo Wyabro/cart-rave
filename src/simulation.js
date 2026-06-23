@@ -213,6 +213,13 @@ function getCenterHoleOverhangState(cart, pos) {
 export function applyEnvironmentResponse(cart, dtFixed) {
   if (!cart?.body || cart.respawnAtMs != null || !cart.collider) return;
 
+  // * Levels without a central hole (Backrooms Supermarket) disable the origin
+  // * suck/assist so carts keep normal grip on the solid arena center.
+  if (CONFIG.record.centerHole && CONFIG.record.centerHole.enabled === false) {
+    cart.collider.setFriction(CONFIG.cart.friction);
+    return;
+  }
+
   const pos = cart.body.translation();
   const collider = cart.collider;
   const { overhanging, commit, dirX, dirZ } = getCenterHoleOverhangState(cart, pos);
@@ -269,26 +276,39 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     cart.body.wakeUp();
   }
 
-  const grip =
+  const rb = CONFIG.cart.ramBoost;
+  const nitroActive = rb.enabled && nowMs <= cart.ramBoostActiveUntilMs;
+  const nitroForward = nitroActive && axis.forward > 0;
+
+  let grip =
     axis.turn !== 0
       ? CONFIG.driving.lateralGrip * CONFIG.driving.driftGripFactor
       : CONFIG.driving.lateralGrip;
+  if (nitroForward && rb.nitroGripFactor != null) {
+    grip *= rb.nitroGripFactor;
+  }
   const dvRight = (-vRight) * grip * dtFixed;
   const gripImpulse = right.clone().multiplyScalar(mass * dvRight);
   cart.body.applyImpulse(vec3ToRapier(gripImpulse), true);
 
   if (axis.forward !== 0) {
-    const rb = CONFIG.cart.ramBoost;
-    const nitroForward =
-      rb.enabled && nowMs <= cart.ramBoostActiveUntilMs && axis.forward > 0;
     let targetSpeed =
       axis.forward > 0 ? CONFIG.driving.maxSpeed : -CONFIG.driving.reverseMaxSpeed;
     if (nitroForward) {
       targetSpeed = rb.boostedMaxSpeed ?? CONFIG.driving.maxSpeed * 1.2;
     }
-    const accelRate = nitroForward
+    let accelRate = nitroForward
       ? (rb.boostedAccel ?? CONFIG.driving.accel * (CONFIG.ramming.nitroAccelMultiplier ?? 1.6))
       : CONFIG.driving.accel;
+    if (nitroForward && rb.launchAccelMul != null && rb.launchWindowSec > 0) {
+      const nitroElapsedSec = Math.max(
+        0,
+        (rb.durationSec * 1000 - (cart.ramBoostActiveUntilMs - nowMs)) / 1000
+      );
+      if (nitroElapsedSec < rb.launchWindowSec) {
+        accelRate *= rb.launchAccelMul;
+      }
+    }
     const speedError = targetSpeed - vForward;
     const maxDeltaV = accelRate * controlFactor * dtFixed;
     const dvForward = Math.max(-maxDeltaV, Math.min(maxDeltaV, speedError));
@@ -308,9 +328,11 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     const speedForDrift = Math.abs(vForward);
     if (speedForDrift > 0.25) {
       const driftDir = right.clone().multiplyScalar(axis.turn * Math.sign(vForward || 1));
+      const driftMul = nitroActive && rb.nitroDriftMul != null ? rb.nitroDriftMul : 1;
       const driftMag =
         speedForDrift *
         CONFIG.driving.driftImpulseStrength *
+        driftMul *
         controlFactor *
         mass *
         dtFixed;
@@ -470,6 +492,94 @@ const _aiToTarget = new THREE.Vector3();
 const AI_CAUTIOUS_MS = 8000;
 
 /**
+ * Active-level hazard descriptor for NPC AI avoidance. `null` = Classic Record's circular
+ * model (center hole + outer rim), handled entirely by the annulus clamp. When set (e.g. the
+ * Backrooms level), NPCs additionally avoid the listed axis-aligned square voids.
+ *
+ * @type {{
+ *   squareHoles: { x: number, z: number }[],
+ *   half: number,
+ *   avoidMargin: number,
+ *   influenceBand: number,
+ * } | null}
+ */
+let _levelHazards = null;
+
+/**
+ * Registers the active level's NPC hazard model. Pass `null` (or a level with no special
+ * hazards) to restore the default circular Classic Record behavior.
+ *
+ * @param {typeof _levelHazards} hazards
+ */
+export function setLevelHazards(hazards) {
+  _levelHazards =
+    hazards && Array.isArray(hazards.squareHoles) && hazards.squareHoles.length > 0
+      ? hazards
+      : null;
+}
+
+/**
+ * Pushes an XZ point out of every square-void avoidance box (Chebyshev metric), nudging it
+ * along its axis of least penetration. Two passes settle points near a box corner.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @param {number} [extraMargin] Additional safety buffer (meters) added during cautious phase.
+ * @returns {{ x: number, z: number }}
+ */
+function pushPointOutOfSquareHoles(x, z, extraMargin = 0) {
+  const holes = _levelHazards.squareHoles;
+  const need = _levelHazards.half + _levelHazards.avoidMargin + extraMargin;
+  let px = x;
+  let pz = z;
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (let i = 0; i < holes.length; i += 1) {
+      const dx = px - holes[i].x;
+      const dz = pz - holes[i].z;
+      const ax = Math.abs(dx);
+      const az = Math.abs(dz);
+      if (ax < need && az < need) {
+        if (need - ax <= need - az) px = holes[i].x + (dx >= 0 ? need : -need);
+        else pz = holes[i].z + (dz >= 0 ? need : -need);
+      }
+    }
+  }
+  return { x: px, z: pz };
+}
+
+/**
+ * Blends a repulsion away from nearby square voids into an NPC's heading direction so it
+ * steers around the holes instead of driving straight in. Mutates and re-normalizes `dir`.
+ *
+ * @param {number} px Cart world X.
+ * @param {number} pz Cart world Z.
+ * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
+ */
+function applySquareHoleAvoidance(px, pz, dir) {
+  const holes = _levelHazards.squareHoles;
+  const edge = _levelHazards.half + _levelHazards.avoidMargin;
+  const band = _levelHazards.influenceBand;
+  let rx = 0;
+  let rz = 0;
+  for (let i = 0; i < holes.length; i += 1) {
+    const dx = px - holes[i].x;
+    const dz = pz - holes[i].z;
+    const cheb = Math.max(Math.abs(dx), Math.abs(dz));
+    if (cheb >= edge + band) continue;
+    const strength = clamp((edge + band - cheb) / band, 0, 2.2);
+    const len = Math.hypot(dx, dz) || 1;
+    rx += (dx / len) * strength;
+    rz += (dz / len) * strength;
+  }
+  if (rx === 0 && rz === 0) return;
+  const GAIN = 1.4;
+  dir.x += rx * GAIN;
+  dir.z += rz * GAIN;
+  if (dir.lengthSq() < 1e-6) dir.set(rx, 0, rz);
+  dir.normalize();
+}
+
+/**
  * * True during the first 8s of a round or while any human is still on a spawn booth.
  */
 function isAiCautiousPhase(nowMs, allCarts, netSlots) {
@@ -503,7 +613,15 @@ function clampAiTargetAwayFromHazards(x, z, cautious) {
     ? CONFIG.record.radius * 0.72
     : CONFIG.record.radius * 0.88;
   const r = clamp(dist, innerLimit, outerLimit);
-  return { x: Math.cos(angle) * r, z: Math.sin(angle) * r };
+  let outX = Math.cos(angle) * r;
+  let outZ = Math.sin(angle) * r;
+  // * Square-void levels (Backrooms): also keep the target clear of the corner holes.
+  if (_levelHazards) {
+    const pushed = pushPointOutOfSquareHoles(outX, outZ, cautious ? 1.0 : 0.4);
+    outX = pushed.x;
+    outZ = pushed.z;
+  }
+  return { x: outX, z: outZ };
 }
 
 function findNearestHumanTarget(fromPos, allCarts, netSlots) {
@@ -669,6 +787,11 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     return { forward: 0, turn: 0 };
   }
   toTarget.normalize();
+
+  // * Square-void levels (Backrooms): steer the heading away from nearby corner holes.
+  if (_levelHazards) {
+    applySquareHoleAvoidance(p.x, p.z, toTarget);
+  }
 
   const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
   const currentYaw = yawFromQuaternion(cart.body.rotation());

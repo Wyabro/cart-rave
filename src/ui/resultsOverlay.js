@@ -1,5 +1,180 @@
 // resultsOverlay.js — round results screen DOM + styles
 
+import {
+  animateButtonPress,
+  animateButtonRelease,
+  animateMenuCardEnter,
+  animateMenuReveal,
+  cancelAnimationsIn,
+  countUpNumber,
+  fadeIn,
+} from "../animations.js";
+
+/** @type {number} */
+let resultsEntranceToken = 0;
+
+/** @type {WeakSet<Element>} */
+const resultsPressWired = new WeakSet();
+
+/**
+ * @param {HTMLElement} btn
+ */
+function wireResultsButtonFeedback(btn) {
+  if (!btn || resultsPressWired.has(btn)) return;
+  resultsPressWired.add(btn);
+
+  let pressed = false;
+
+  const onPress = (e) => {
+    if (btn.disabled) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pressed = true;
+    animateButtonPress(btn, { duration: 70, scale: 0.96 });
+  };
+
+  const onRelease = () => {
+    if (!pressed) return;
+    pressed = false;
+    animateButtonRelease(btn, { duration: 130 });
+  };
+
+  btn.addEventListener("pointerdown", onPress);
+  btn.addEventListener("pointerup", onRelease);
+  btn.addEventListener("pointercancel", onRelease);
+  btn.addEventListener("pointerleave", (e) => {
+    if (pressed && e.pointerType === "mouse") onRelease();
+  });
+}
+
+/**
+ * @param {Element | null | undefined} root
+ */
+export function cancelResultsAnimations(root) {
+  if (root instanceof Element) cancelAnimationsIn(root);
+}
+
+/**
+ * Plays podium entrance: overlay fade, panel slide, staggered scores with count-up.
+ * @param {{
+ *   overlay: HTMLElement,
+ *   panel: HTMLElement,
+ *   title: HTMLElement,
+ *   scoreRows: Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge?: HTMLElement | null }>,
+ *   statsLine?: HTMLElement | null,
+ *   history?: HTMLElement | null,
+ *   playAgain?: HTMLElement | null,
+ *   mainMenuBtn?: HTMLElement | null,
+ * }} payload
+ */
+export function animateResultsPodiumShow(payload) {
+  const {
+    overlay,
+    panel,
+    title,
+    scoreRows,
+    statsLine,
+    history,
+    playAgain,
+    mainMenuBtn,
+  } = payload;
+
+  const token = ++resultsEntranceToken;
+  cancelResultsAnimations(overlay);
+
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  if (reduced) {
+    scoreRows.forEach(({ valEl, score }) => {
+      valEl.textContent = `${score} pts`;
+    });
+    return;
+  }
+
+  overlay.style.opacity = "0";
+  panel.style.opacity = "0";
+  title.style.opacity = "0";
+  scoreRows.forEach(({ row, valEl, badge }) => {
+    row.style.opacity = "0";
+    valEl.textContent = "0 pts";
+    if (badge) badge.style.opacity = "0";
+  });
+  if (statsLine) statsLine.style.opacity = "0";
+  if (history) history.style.opacity = "0";
+  if (playAgain) playAgain.style.opacity = "0";
+  if (mainMenuBtn) mainMenuBtn.style.opacity = "0";
+
+  fadeIn(overlay, 260, { ease: "outQuad" });
+
+  window.setTimeout(() => {
+    if (token !== resultsEntranceToken) return;
+
+    animateMenuReveal(panel, { delay: 0, duration: 340, y: 22, ease: "outExpo" });
+    animateMenuReveal(title, { delay: 60, duration: 320, y: 12, ease: "outBack(1.3)" });
+
+    const ROW_STAGGER = 55;
+    const COUNT_BASE = 220;
+    const COUNT_STAGGER = 90;
+
+    scoreRows.forEach(({ row, valEl, score, isWinner, badge }, i) => {
+      const rowDelay = 120 + i * ROW_STAGGER;
+      animateMenuCardEnter(row, {
+        delay: rowDelay,
+        duration: 360,
+        y: 16,
+        ease: isWinner ? "outBack(1.4)" : "outBack(1.2)",
+      });
+
+      if (isWinner) {
+        if (badge) {
+          animateMenuCardEnter(badge, {
+            delay: rowDelay + 70,
+            duration: 340,
+            y: 8,
+            ease: "outBack(1.6)",
+          });
+        }
+      }
+
+      countUpNumber(valEl, score, 520, {
+        delay: COUNT_BASE + i * COUNT_STAGGER,
+        ease: "outExpo",
+        formatter: (n) => `${Math.round(n)} pts`,
+      });
+    });
+
+    if (statsLine) {
+      animateMenuReveal(statsLine, {
+        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 40,
+        duration: 340,
+        y: 10,
+      });
+    }
+
+    if (history) {
+      animateMenuReveal(history, {
+        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 90,
+        duration: 320,
+        y: 8,
+      });
+    }
+
+    if (playAgain) {
+      animateMenuReveal(playAgain, {
+        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 140,
+        duration: 300,
+        y: 10,
+      });
+    }
+
+    if (mainMenuBtn) {
+      animateMenuReveal(mainMenuBtn, {
+        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 190,
+        duration: 300,
+        y: 10,
+      });
+    }
+  }, 16);
+}
+
 /**
  * Creates and mounts the round results overlay (styles + DOM).
  *
@@ -96,6 +271,16 @@ export function initResultsOverlay(hooks = {}) {
       #results-overlay .results-score-row.is-winner {
         border-color: var(--slot-glow, #2bff7a);
         box-shadow: 0 0 12px var(--slot-glow, #2bff7a), 0 0 28px color-mix(in oklab, var(--slot-glow, #2bff7a), transparent 55%);
+      }
+
+      #results-overlay .results-winner-badge {
+        display: inline-block;
+        margin-right: 6px;
+        font-size: 13px;
+        line-height: 1;
+        vertical-align: middle;
+        filter: drop-shadow(0 0 6px var(--slot-glow, #ffe53d));
+        transform-origin: center center;
       }
 
       #results-overlay .results-score-name {
@@ -228,7 +413,7 @@ export function initResultsOverlay(hooks = {}) {
         color: var(--btn-glow, #ff2bd6);
         text-shadow: 0 0 10px var(--btn-glow, #ff2bd6);
         box-shadow: 0 0 12px var(--btn-glow, #ff2bd6), 0 0 28px color-mix(in oklab, var(--btn-glow, #ff2bd6), transparent 60%);
-        transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
+        transition: box-shadow 180ms ease, background 180ms ease;
       }
 
       #results-overlay .results-btn:hover:not(:disabled) {
@@ -236,6 +421,8 @@ export function initResultsOverlay(hooks = {}) {
         background: rgba(0, 0, 0, 0.35);
         box-shadow: 0 0 20px var(--btn-glow, #ff2bd6), 0 0 44px var(--btn-glow, #ff2bd6);
       }
+
+      /* Press scale handled by Anime.js. */
 
       #results-overlay .results-btn:disabled {
         opacity: 0.5;
@@ -250,6 +437,150 @@ export function initResultsOverlay(hooks = {}) {
 
       #results-overlay .results-btn--menu {
         --btn-glow: #22e6ff;
+      }
+
+      @media (pointer: coarse) {
+        #results-overlay {
+          align-items: stretch;
+          justify-content: stretch;
+          padding: 0;
+        }
+
+        #results-overlay .results-panel {
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          min-height: 0;
+          max-height: none;
+          border-radius: 0;
+          border: none;
+          overflow: hidden;
+          padding:
+            max(8px, env(safe-area-inset-top, 0px))
+            max(10px, env(safe-area-inset-right, 0px))
+            max(8px, env(safe-area-inset-bottom, 0px))
+            max(10px, env(safe-area-inset-left, 0px));
+          display: flex;
+          flex-direction: column;
+          gap: clamp(4px, 1vh, 8px);
+          box-shadow: none;
+        }
+
+        #results-overlay .results-title {
+          margin: 0 0 clamp(4px, 1vh, 6px);
+          font-size: clamp(16px, 4.5vw, 22px);
+          flex-shrink: 0;
+          line-height: 1.1;
+        }
+
+        #results-overlay .results-body {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: clamp(4px, 1vh, 6px);
+          overflow: hidden;
+        }
+
+        #results-overlay .results-final {
+          gap: clamp(4px, 1vh, 5px);
+          margin-bottom: 0;
+          flex-shrink: 0;
+        }
+
+        #results-overlay .results-score-row {
+          padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
+          gap: 8px;
+        }
+
+        #results-overlay .results-score-name {
+          font-size: clamp(10px, 2.6vw, 11px);
+        }
+
+        #results-overlay .results-score-val {
+          font-size: clamp(14px, 3.6vw, 16px);
+        }
+
+        #results-overlay .results-stats {
+          margin: 0;
+          padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
+          flex-shrink: 0;
+        }
+
+        #results-overlay .results-stats-num {
+          font-size: clamp(16px, 4vw, 18px);
+        }
+
+        #results-overlay .results-stats-lbl {
+          font-size: 7px;
+        }
+
+        #results-overlay .results-history {
+          flex: 1 1 auto;
+          min-height: 0;
+          max-height: none;
+          overflow: hidden;
+          margin-bottom: 0;
+          padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
+          font-size: clamp(9px, 2.3vw, 10px);
+          line-height: 1.45;
+        }
+
+        #results-overlay .results-history-row {
+          margin-bottom: 4px;
+          padding-bottom: 4px;
+        }
+
+        #results-overlay .results-actions {
+          gap: clamp(6px, 1.5vw, 8px);
+          flex-shrink: 0;
+        }
+
+        #results-overlay .results-btn {
+          min-height: 42px;
+          padding: clamp(10px, 2.5vw, 12px) clamp(14px, 3.5vw, 18px);
+          font-size: clamp(13px, 3.4vw, 15px);
+          touch-action: manipulation;
+        }
+      }
+
+      @media (pointer: coarse) and (orientation: landscape) {
+        #results-overlay .results-body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: minmax(0, 1fr) auto;
+          grid-template-areas:
+            "scores history"
+            "stats actions";
+          gap: clamp(6px, 1.2vw, 10px);
+        }
+
+        #results-overlay .results-final {
+          grid-area: scores;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        #results-overlay .results-stats {
+          grid-area: stats;
+        }
+
+        #results-overlay .results-history {
+          grid-area: history;
+        }
+
+        #results-overlay .results-actions {
+          grid-area: actions;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: clamp(6px, 1.2vw, 8px);
+        }
+
+        #results-overlay .results-btn {
+          min-height: 38px;
+          padding: 8px 10px;
+          font-size: clamp(11px, 2.2vw, 13px);
+        }
       }
     `.trim();
   document.head.appendChild(style);
@@ -298,12 +629,19 @@ export function initResultsOverlay(hooks = {}) {
   statsLine.className = "results-stats";
 
   panel.appendChild(title);
-  panel.appendChild(finalScores);
-  panel.appendChild(statsLine);
-  panel.appendChild(history);
-  panel.appendChild(actions);
+
+  const resultsBody = document.createElement("div");
+  resultsBody.className = "results-body";
+  resultsBody.appendChild(finalScores);
+  resultsBody.appendChild(statsLine);
+  resultsBody.appendChild(history);
+  resultsBody.appendChild(actions);
+  panel.appendChild(resultsBody);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+
+  wireResultsButtonFeedback(playAgain);
+  wireResultsButtonFeedback(mainMenuBtn);
 
   return { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn };
 }

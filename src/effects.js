@@ -68,6 +68,27 @@ const AMBIENT_PARTICLE_COUNT = 260;
 const AMBIENT_PARTICLE_RADIUS = 35;
 const AMBIENT_PARTICLE_HEIGHT = 30;
 
+/** @typedef {"rainbow" | "backrooms"} AmbientDustStyle */
+
+/** White + warm-yellow motes for the Backrooms level. */
+const BACKROOMS_DUST_COLORS = [
+  0xffffff, 0xfffef8, 0xfff8e8, 0xfff0cc, 0xffe999, 0xffdd55, 0xf5c830,
+];
+
+/** Muted carpet-dust tones for Backrooms floor impacts (includes lighter puffs for visibility). */
+const BACKROOMS_FLOOR_DUST_COLORS = [
+  0xe0d4b8, 0xd4c8a8, 0xc4b896, 0xb8a882, 0x9c8f73, 0x8a7d62, 0xa69878,
+];
+
+/** @type {AmbientDustStyle} */
+let currentEffectStyle = "rainbow";
+
+/** @type {number} */
+let ambientParticleRadius = AMBIENT_PARTICLE_RADIUS;
+
+/** @type {number} */
+let ambientParticleHeight = AMBIENT_PARTICLE_HEIGHT;
+
 /** @type {THREE.Scene | null} */
 let sceneRef = null;
 
@@ -114,13 +135,16 @@ let crowdCarts = null;
 /** @type {THREE.MeshBasicMaterial | null} */
 let crowdGlowMat = null;
 
+/** @type {THREE.Mesh | null} */
+let crowdGlow = null;
+
 /** @type {{ target: THREE.Object3D, cone: THREE.Mesh, light: THREE.SpotLight, index: number }[]} */
 let crowdSearchlightEntries = [];
 
 /** @type {number} */
 let crowdSearchlightTargetRadius = 0;
 
-/** @type {{ light: THREE.PointLight, index: number }[]} */
+/** @type {{ light: THREE.PointLight, bulb: THREE.Mesh, index: number }[]} */
 let crowdPointLightEntries = [];
 
 const crowdAnimDummy = new THREE.Object3D();
@@ -155,35 +179,113 @@ let bbTex = null;
 /** @type {THREE.CanvasTexture | null} */
 let slTex = null;
 
+/** @type {THREE.Group | null} */
+let billboardGroup = null;
+
 let bbLastRedraw = 0;
 
+/** @type {THREE.CanvasTexture | null} */
+let ambientParticleTexture = null;
+
 /**
- * Creates drifting additive neon Points around the arena.
- * @param {THREE.Scene} scene
- * @param {CartColorMap} cartColors Palette source for vertex colors.
- * @returns {THREE.Points}
+ * Removes the active ambient dust system from the scene and frees GPU resources.
  */
-function initAmbientParticles(scene, cartColors) {
-  const ambientParticlePositions = new Float32Array(AMBIENT_PARTICLE_COUNT * 3);
-  const ambientParticleColors = new Float32Array(AMBIENT_PARTICLE_COUNT * 3);
-  ambientParticleDrift = new Float32Array(AMBIENT_PARTICLE_COUNT * 4);
-  const ambientParticlePalette = [
+function disposeAmbientParticles() {
+  if (ambientParticles && sceneRef) sceneRef.remove(ambientParticles);
+  ambientParticleGeometry?.dispose();
+  ambientParticleTexture?.dispose();
+  ambientParticles?.material?.dispose();
+  ambientParticles = null;
+  ambientParticleGeometry = null;
+  ambientParticleDrift = null;
+  ambientParticleTexture = null;
+}
+
+/**
+ * @param {AmbientDustStyle} style
+ * @param {CartColorMap} cartColors
+ * @returns {number[]}
+ */
+function getAmbientDustPalette(style, cartColors) {
+  if (style === "backrooms") return BACKROOMS_DUST_COLORS;
+  return [
     cartColors.pink.hex,
     cartColors.blue.hex,
     cartColors.green.hex,
     cartColors.yellow.hex,
     cartColors.neonOrange.hex,
   ];
+}
+
+/**
+ * @param {AmbientDustStyle} style
+ * @returns {{
+ *   radius: number,
+ *   height: number,
+ *   size: number,
+ *   opacity: number,
+ *   blending: THREE.Blending,
+ *   driftSpeedMin: number,
+ *   driftSpeedMax: number,
+ *   verticalDriftMin: number,
+ *   verticalDriftMax: number,
+ * }}
+ */
+function getAmbientDustConfig(style) {
+  if (style === "backrooms") {
+    return {
+      radius: 50,
+      height: 24,
+      size: 0.17,
+      opacity: 0.58,
+      blending: THREE.NormalBlending,
+      driftSpeedMin: 0.03,
+      driftSpeedMax: 0.06,
+      verticalDriftMin: 0.006,
+      verticalDriftMax: 0.016,
+    };
+  }
+  return {
+    radius: AMBIENT_PARTICLE_RADIUS,
+    height: AMBIENT_PARTICLE_HEIGHT,
+    size: 0.25,
+    opacity: 0.75,
+    blending: THREE.AdditiveBlending,
+    driftSpeedMin: 0.08,
+    driftSpeedMax: 0.18,
+    verticalDriftMin: 0.015,
+    verticalDriftMax: 0.05,
+  };
+}
+
+/**
+ * Creates drifting dust motes around the arena for the active level style.
+ * @param {THREE.Scene} scene
+ * @param {AmbientDustStyle} style
+ * @param {CartColorMap} cartColors Palette source for rainbow dust.
+ * @returns {THREE.Points}
+ */
+function initAmbientParticles(scene, style, cartColors) {
+  const cfg = getAmbientDustConfig(style);
+  ambientParticleRadius = cfg.radius;
+  ambientParticleHeight = cfg.height;
+
+  const ambientParticlePositions = new Float32Array(AMBIENT_PARTICLE_COUNT * 3);
+  const ambientParticleColors = new Float32Array(AMBIENT_PARTICLE_COUNT * 3);
+  ambientParticleDrift = new Float32Array(AMBIENT_PARTICLE_COUNT * 4);
+  const ambientParticlePalette = getAmbientDustPalette(style, cartColors);
   const ambientParticleColor = new THREE.Color();
+  const driftSpan = cfg.driftSpeedMax - cfg.driftSpeedMin;
+  const vertSpan = cfg.verticalDriftMax - cfg.verticalDriftMin;
 
   for (let i = 0; i < AMBIENT_PARTICLE_COUNT; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const radius = Math.sqrt(Math.random()) * AMBIENT_PARTICLE_RADIUS;
+    const radius = Math.sqrt(Math.random()) * cfg.radius;
     const p = i * 3;
     const d = i * 4;
 
     ambientParticlePositions[p] = Math.cos(angle) * radius;
-    ambientParticlePositions[p + 1] = Math.random() * AMBIENT_PARTICLE_HEIGHT;
+    ambientParticlePositions[p + 1] = Math.random() * cfg.height;
     ambientParticlePositions[p + 2] = Math.sin(angle) * radius;
 
     ambientParticleColor.setHex(
@@ -194,9 +296,9 @@ function initAmbientParticles(scene, cartColors) {
     ambientParticleColors[p + 2] = ambientParticleColor.b;
 
     const driftAngle = Math.random() * Math.PI * 2;
-    const driftSpeed = 0.08 + Math.random() * 0.1;
+    const driftSpeed = cfg.driftSpeedMin + Math.random() * driftSpan;
     ambientParticleDrift[d] = Math.cos(driftAngle) * driftSpeed;
-    ambientParticleDrift[d + 1] = 0.015 + Math.random() * 0.035;
+    ambientParticleDrift[d + 1] = cfg.verticalDriftMin + Math.random() * vertSpan;
     ambientParticleDrift[d + 2] = Math.sin(driftAngle) * driftSpeed;
     ambientParticleDrift[d + 3] = Math.random() * Math.PI * 2;
   }
@@ -227,22 +329,35 @@ function initAmbientParticles(scene, cartColors) {
   ambientParticleGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
   ambientParticleTextureCtx.fillStyle = ambientParticleGradient;
   ambientParticleTextureCtx.fillRect(0, 0, 64, 64);
-  const ambientParticleTexture = new THREE.CanvasTexture(ambientParticleTextureCanvas);
+  ambientParticleTexture = new THREE.CanvasTexture(ambientParticleTextureCanvas);
   ambientParticleTexture.needsUpdate = true;
   ambientParticles = new THREE.Points(
     ambientParticleGeometry,
     new THREE.PointsMaterial({
       map: ambientParticleTexture,
-      size: 0.25,
+      size: cfg.size,
       transparent: true,
-      opacity: 0.75,
+      opacity: cfg.opacity,
       vertexColors: true,
-      blending: THREE.AdditiveBlending,
+      blending: cfg.blending,
       depthWrite: false,
     }),
   );
   scene.add(ambientParticles);
   return ambientParticles;
+}
+
+/**
+ * Swaps ambient dust to a level-specific preset (rainbow rave vs Backrooms white/yellow).
+ * @param {AmbientDustStyle} style
+ * @param {CartColorMap} cartColors
+ * @returns {THREE.Points | null}
+ */
+export function setAmbientDustStyle(style, cartColors) {
+  currentEffectStyle = style;
+  disposeAmbientParticles();
+  if (!sceneRef || !cartColors) return null;
+  return initAmbientParticles(sceneRef, style, cartColors);
 }
 
 /**
@@ -299,7 +414,7 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     depthWrite: false,
     side: THREE.DoubleSide,
   });
-  const crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
+  crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
   crowdGlow.rotation.x = -Math.PI / 2;
   crowdGlow.position.y = -2.95;
   scene.add(crowdGlow);
@@ -376,8 +491,33 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     );
     lightBulb.position.copy(light.position);
     scene.add(lightBulb);
-    crowdPointLightEntries.push({ light, index: i });
+    crowdPointLightEntries.push({ light, bulb: lightBulb, index: i });
   }
+}
+
+/**
+ * Shows or hides the Classic-Record rave dressing (instanced crowd, glow ring, crowd
+ * searchlights + bulbs, main stage, lasers, and billboard). Used so the self-contained
+ * Backrooms level can suppress all Classic visuals without tearing down/reallocating them.
+ *
+ * @param {boolean} visible
+ */
+export function setRaveExtrasVisible(visible) {
+  if (crowdCarts) crowdCarts.visible = visible;
+  if (crowdGlow) crowdGlow.visible = visible;
+  for (const e of crowdSearchlightEntries) {
+    if (e.light) e.light.visible = visible;
+    if (e.cone) e.cone.visible = visible;
+  }
+  for (const e of crowdPointLightEntries) {
+    if (e.light) e.light.visible = visible;
+    if (e.bulb) e.bulb.visible = visible;
+  }
+  if (stageGroup) stageGroup.visible = visible;
+  for (const e of laserEntries) {
+    if (e.mesh) e.mesh.visible = visible;
+  }
+  if (billboardGroup) billboardGroup.visible = visible;
 }
 
 /**
@@ -476,8 +616,8 @@ export function initEffects(scene, options = {}) {
     trashPool.push(m);
   }
 
-  if (options.cartColors) {
-    initAmbientParticles(scene, options.cartColors);
+  if (options.cartColors && options.ambientDustStyle) {
+    setAmbientDustStyle(options.ambientDustStyle, options.cartColors);
   }
 
   return { ramBoostStreaks, ambientParticles };
@@ -494,10 +634,13 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
   const isBoosting = Boolean(opts.isBoosting);
   const clampedI = clamp(intensity, 0, 1.35);
   const fx = CONFIG.ramming?.fx ?? {};
+  const isBackroomsFloor = type === "floor" && currentEffectStyle === "backrooms";
 
   let count;
   if (type === "floor") {
-    count = Math.floor(4 + clampedI * 5);
+    count = isBackroomsFloor
+      ? Math.floor(4 + clampedI * 6)
+      : Math.floor(4 + clampedI * 5);
   } else if (type === "edge") {
     count = Math.floor(6 + clampedI * 10);
   } else {
@@ -510,9 +653,10 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
 
   const sizeMul =
     (0.85 + clampedI * 1.05) *
-    (type === "floor" ? 0.65 : 1.0) *
+    (type === "floor" ? (isBackroomsFloor ? 0.52 : 0.65) : 1.0) *
     (isBoosting && type === "cart" ? 1.22 : 1.0);
-  const velScale = (1 + clampedI * 0.45) * (isBoosting && type === "cart" ? 1.18 : 1.0);
+  const velScale = (1 + clampedI * 0.45) * (isBoosting && type === "cart" ? 1.18 : 1.0)
+    * (isBackroomsFloor ? 0.58 : 1.0);
 
   let spawned = 0;
   for (let i = 0; i < trashPool.length && spawned < count; i++) {
@@ -521,7 +665,9 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     p.position.set(position.x, position.y + (type === "floor" ? 0.05 : 0.5), position.z);
     p.scale.setScalar(sizeMul * (0.92 + Math.random() * 0.16));
     if (type === "floor") {
-      const colors = [0x551a8b, 0xff00ff, 0x333333];
+      const colors = isBackroomsFloor
+        ? BACKROOMS_FLOOR_DUST_COLORS
+        : [0x551a8b, 0xff00ff, 0x333333];
       p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
     } else if (type === "edge") {
       const colors = [0xff00ff, 0x00ffff, 0xffffff];
@@ -529,16 +675,26 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     } else {
       p.material.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
     }
-    p.material.opacity = 1;
+    p.material.opacity = isBackroomsFloor ? 0.78 : 1;
     p.visible = true;
+    p.userData.isDust = isBackroomsFloor;
     if (type === "floor") {
       const angle = Math.random() * Math.PI * 2;
-      const sp = (3 + Math.random() * 5) * clampedI * velScale;
-      p.userData.vel.set(
-        Math.cos(angle) * sp,
-        1.5 + Math.random() * 2.5,
-        Math.sin(angle) * sp,
-      );
+      if (isBackroomsFloor) {
+        const sp = (1.6 + Math.random() * 3.2) * clampedI * velScale;
+        p.userData.vel.set(
+          Math.cos(angle) * sp,
+          0.55 + Math.random() * 1.1,
+          Math.sin(angle) * sp,
+        );
+      } else {
+        const sp = (3 + Math.random() * 5) * clampedI * velScale;
+        p.userData.vel.set(
+          Math.cos(angle) * sp,
+          1.5 + Math.random() * 2.5,
+          Math.sin(angle) * sp,
+        );
+      }
     } else if (type === "edge") {
       const toCenter = new THREE.Vector3(-position.x, 0, -position.z).normalize();
       const spreadX = (Math.random() - 0.5) * 3;
@@ -557,7 +713,9 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     }
     p.userData.life = 0;
     p.userData.maxLife = type === "floor"
-      ? 0.35 + Math.random() * 0.15
+      ? (isBackroomsFloor
+        ? 0.62 + Math.random() * 0.28
+        : 0.35 + Math.random() * 0.15)
       : 0.38 + Math.random() * 0.22 + clampedI * 0.08;
     spawned++;
   }
@@ -582,9 +740,11 @@ export function updateTrashParticles(dt) {
     p.position.x += p.userData.vel.x * dt;
     p.position.y += p.userData.vel.y * dt;
     p.position.z += p.userData.vel.z * dt;
-    p.userData.vel.y -= 9.8 * dt;
-    p.scale.setScalar((1 - t) * (0.5 + 0.5));
-    p.material.opacity = 1 - t;
+    p.userData.vel.y -= (p.userData.isDust ? 2.2 : 9.8) * dt;
+    p.scale.setScalar((1 - t) * (p.userData.isDust ? 0.5 + 0.5 : 0.5 + 0.5));
+    p.material.opacity = p.userData.isDust
+      ? (0.78 * (1 - t))
+      : (1 - t);
   }
 }
 
@@ -611,13 +771,13 @@ export function updateAmbientParticles(dt, nowMs) {
     const x = positions[p];
     const z = positions[p + 2];
     const r = Math.hypot(x, z);
-    if (r > AMBIENT_PARTICLE_RADIUS) {
-      const wrapScale = -AMBIENT_PARTICLE_RADIUS / r;
+    if (r > ambientParticleRadius) {
+      const wrapScale = -ambientParticleRadius / r;
       positions[p] = x * wrapScale;
       positions[p + 2] = z * wrapScale;
     }
-    if (positions[p + 1] > AMBIENT_PARTICLE_HEIGHT) positions[p + 1] = 0;
-    if (positions[p + 1] < 0) positions[p + 1] = AMBIENT_PARTICLE_HEIGHT;
+    if (positions[p + 1] > ambientParticleHeight) positions[p + 1] = 0;
+    if (positions[p + 1] < 0) positions[p + 1] = ambientParticleHeight;
   }
 
   ambientParticleGeometry.attributes.position.needsUpdate = true;
@@ -1153,7 +1313,7 @@ export function initBillboard(scene, pitInnerRadius) {
     depthWrite: false,
   });
 
-  const billboardGroup = new THREE.Group();
+  billboardGroup = new THREE.Group();
 
   const bbScreen = new THREE.Mesh(
     new THREE.PlaneGeometry(12, 3),
