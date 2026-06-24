@@ -106,9 +106,8 @@ let callbacks = {
   getLocalColorPicked: () => false,
   setLocalColorPicked: () => {},
 
-  // Stats & crowd
+  // Stats
   recordPodiumStats: () => {},
-  bumpCrowd: () => {},
 };
 
 export function registerCallbacks(cb) {
@@ -167,7 +166,6 @@ export function registerGameCallbacks(deps) {
     getLocalColorPicked: () => deps.getLocalColorPicked(),
     setLocalColorPicked: (val) => deps.setLocalColorPicked(val),
     recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
-    bumpCrowd: () => deps.getCrowd()?.bump?.(),
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
   });
@@ -1247,17 +1245,6 @@ export function initNetcode(roomOverride) {
     if (type === MSG.round) {
       const r = msg.round;
       if (r && typeof r === "object") {
-        if (r.phase === "running" && r.scores && typeof r.scores === "object") {
-          let didScore = false;
-          const currentScores = GameState.getRoundState().scores;
-          for (let i = 0; i < 4; i += 1) {
-            const prev = Number(currentScores?.[i] ?? 0);
-            const next = Number(r.scores?.[i] ?? prev);
-            if (next > prev) { didScore = true; break; }
-          }
-          callbacks.bumpCrowd();
-        }
-
         const prevPhase = GameState.getRoundState().phase;
         const newPhase = r.phase;
         if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "lobby") {

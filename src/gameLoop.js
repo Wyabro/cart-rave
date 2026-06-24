@@ -126,6 +126,20 @@ export function runPhysicsStep(loopState, deps, context) {
         loopState.accumulator -= deps.CONFIG.fixedTimeStep;
         substeps += 1;
       }
+      const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
+      if (loopState.accumulator > maxDebt) {
+        loopState.accumulator = maxDebt;
+      }
+      if (
+        import.meta.env.DEV &&
+        substeps >= deps.CONFIG.maxSubsteps &&
+        loopState.accumulator >= deps.CONFIG.fixedTimeStep
+      ) {
+        console.warn(
+          `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
+            `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed`
+        );
+      }
       alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
     } else {
       loopState.accumulator = 0;
@@ -159,6 +173,20 @@ export function runPhysicsStep(loopState, deps, context) {
           });
           loopState.accumulator -= deps.CONFIG.fixedTimeStep;
           substeps += 1;
+        }
+        const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
+        if (loopState.accumulator > maxDebt) {
+          loopState.accumulator = maxDebt;
+        }
+        if (
+          import.meta.env.DEV &&
+          substeps >= deps.CONFIG.maxSubsteps &&
+          loopState.accumulator >= deps.CONFIG.fixedTimeStep
+        ) {
+          console.warn(
+            `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
+              `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed`
+          );
         }
         alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
       } else {

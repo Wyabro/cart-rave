@@ -1,5 +1,14 @@
 // === IMPORTS ===
 
+import {
+  ensurePlayerCustomizationPersisted,
+  resolveCartNeonCss,
+  resolveCartNeonHex,
+  resolveCartPatternForSlot,
+  resolveServerColorPick,
+  wireCustomizationStorageSync,
+} from "./customization.js";
+import { applyCartPattern } from "./cartPatterns.js";
 import "./cart-rave-menu.js";
 import "./cart-rave-menu.css";
 import * as THREE from "three";
@@ -39,11 +48,6 @@ import {
   clamp,
   isTouchDevice,
 } from "./utils.js";
-import {
-  resolveCartNeonCss,
-  resolveCartNeonHex,
-  resolveServerColorPick,
-} from "./customization.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
 
@@ -76,7 +80,12 @@ function buildCartMaterialCache(cartMesh) {
 
   cartMesh.traverse((child) => {
     if (!child.isMesh || !child.material) return;
-    if (child.userData && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel)) return;
+    if (
+      child.userData
+      && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel || child.userData.isCartPatternLayer)
+    ) {
+      return;
+    }
 
     forEachMaterial(child.material, (mat) => {
       if (seen.has(mat)) return;
@@ -172,7 +181,6 @@ function createNetcodeCallbackDeps() {
     getLocalColorPicked: () => _localColorPicked,
     setLocalColorPicked: (val) => { _localColorPicked = val; },
     recordPodiumStats,
-    getCrowd: () => crowd,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
     setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; },
   };
@@ -343,8 +351,6 @@ const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
 let masterGain = AUDIO_VOLUME_DEFAULT;
 /** @type {number} */
 let sfxVolume = AUDIO_VOLUME_DEFAULT;
-/** @type {null | { ensureStarted: () => void; applyAmbient: () => void; bump: () => void }} */
-let crowd = null;
 /** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
 let leaderHum = null;
 try {
@@ -416,6 +422,13 @@ function updateCartMaterialsFromSlots(slots) {
       applyCartFrameGlow(mat, finalHex);
     }
 
+    // Wireframe pattern mask (local human only until networked).
+    applyCartPattern(
+      cart.mesh,
+      resolveCartPatternForSlot(slot, { youConnId: Netcode.getYouConnId() }),
+      finalHex,
+    );
+
     // Keep the cached hex in sync so ram-boost streaks and respawns use the right color.
     cart.cartColor = finalHex;
   }
@@ -435,6 +448,9 @@ function localCartForConnId() {
 // === GAME LOOP ===
 
 async function main() {
+  ensurePlayerCustomizationPersisted();
+  wireCustomizationStorageSync();
+
   await RAPIER.init();
 
   let sfx = null;
@@ -578,7 +594,6 @@ async function main() {
     getIsMuted: () => isMuted,
   });
   sfx = audioSystem.sfx;
-  if (!crowd) crowd = audioSystem.crowd;
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
   ensureCartCrashBufferLoaded = audioSystem.ensureCartCrashBufferLoaded;
   playCollisionRef = sfx.playCollision;
@@ -587,7 +602,7 @@ async function main() {
     audioListener,
     getSfxVolume: () => sfxVolume,
   });
-  GameAudio.registerAudioRefs({ sfx, crowd, leaderHum });
+  GameAudio.registerAudioRefs({ sfx, leaderHum });
   GameAudio.applyAudioVolume();
   camera.add(audioListener);
 
@@ -947,7 +962,6 @@ async function main() {
       }, 300);
     }
     menuVisible = false;
-    try { crowd?.ensureStarted?.(); } catch {}
     if (labelRenderer) labelRenderer.domElement.style.display = "block";
     HUD.showAudioWidget();
     updateTouchControlsVisibility();
@@ -1565,13 +1579,13 @@ async function main() {
 
   function unlockAudio() {
     const ctx = audioListener.context;
-    if (ctx.state === "suspended") {
-      void ctx.resume().then(
-        () => { ensureCartCrashBufferLoaded(); },
-        () => {},
-      );
-    } else {
+    const onUnlocked = () => {
       ensureCartCrashBufferLoaded();
+    };
+    if (ctx.state === "suspended") {
+      void ctx.resume().then(onUnlocked, () => {});
+    } else {
+      onUnlocked();
     }
     if (!menuVisible) GameAudio.startGameMusic();
   }
@@ -1827,8 +1841,6 @@ async function main() {
     getPartySocket: () => Netcode.getPartySocket(),
     MSG,
     setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
-    camera,
-    getPhysicsWorld: () => world,
     getYouConnId: () => Netcode.getYouConnId(),
   };
 
@@ -1945,6 +1957,21 @@ async function main() {
     updateGameFlow(gameCtx.deps.gameFlow, gameCtx.makePhaseContext(dt));
 
     runPhysicsStep(gameCtx.loopState, gameCtx.deps.physics, { now, dt });
+
+    const localCart = localCartForConnId();
+    if (localCart?.body) {
+      const playerPos = localCart.body.translation();
+      const playerRot = localCart.body.rotation();
+      CameraMod.updateCamera(
+        camera,
+        localCart,
+        dt,
+        playerPos,
+        playerRot,
+        world,
+      );
+    }
+
     frameCtx.dt = dt;
     },
     onVisualUpdate(frameCtx) {

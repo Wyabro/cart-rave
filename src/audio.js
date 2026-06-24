@@ -1,13 +1,14 @@
-// audio.js — modular audio interface/delegates + HTML music playback
+// audio.js — modular audio interface/delegates + HTML music playback (Web Audio routed)
 
 import { CONFIG } from "./config.js";
 
 let _sfx = null;
-let _crowd = null;
 let _leaderHum = null;
 
 /** @type {THREE.AudioListener | null} */
 let _audioListener = null;
+/** @type {AudioContext | null} */
+let _ctx = null;
 
 /** @type {(() => number) | null} */
 let _getMasterGain = null;
@@ -23,37 +24,32 @@ let _getMenuVisible = null;
 
 /** @type {HTMLAudioElement | null} */
 let menuMusicEl = null;
+/** @type {MediaElementAudioSourceNode | null} */
+let menuMusicSource = null;
+/** @type {GainNode | null} */
+let menuMusicGain = null;
 
-/** @type {HTMLAudioElement | null} */
-let activeMusicEl = null;
+/** @type {HTMLAudioElement[]} */
+let gameMusicElements = [];
+/** @type {(MediaElementAudioSourceNode | null)[]} */
+let gameMusicSources = [];
+/** @type {(GainNode | null)[]} */
+let gameMusicGains = [];
 
-/** @type {(HTMLAudioElement | null)[] | null} */
-let gameMusicElements = null;
-
-let menuMusicStarted = false;
-let musicStarted = false;
-let musicUnavailable = false;
-let menuMusicPlayInFlight = false;
-let gameMusicPlayInFlight = false;
-let menuGestureUnlockInstalled = false;
+let activeTrackIndex = -1;
 let musicInitialized = false;
-
-/** @type {number | null} */
-let menuMusicFadeRaf = null;
-
-/** @type {number | null} */
-let gameMusicFadeInRaf = null;
-
-/** @type {number | null} */
-let gameMusicFadeOutRaf = null;
+let menuMusicStarted = false;
+let gameMusicStarted = false;
+let musicUnavailable = false;
+let webAudioWired = false;
+let gameMusicErrorSkips = 0;
+/** @type {ReturnType<typeof setTimeout>[]} */
+let gameMusicPauseTimers = [];
 
 /** @type {string[]} */
 let gameMusicUrls = [];
 
-let gameMusicIndex = 0;
-
-// * Dev-only: block music autostart on Vite full reload until the first click/keypress
-// * in this page load (in-memory — resets every refresh so HMR does not spam audio).
+// * Dev-only: block music autostart on Vite full reload until first click/keypress this page load.
 let devMusicUserEnabled = !import.meta.env.DEV;
 
 /** @returns {boolean} */
@@ -78,129 +74,103 @@ function calcVol(vol) {
   return Math.max(0, Math.min(1, vol));
 }
 
-/** @param {number | null} handle @returns {null} */
-function cancelFadeRaf(handle) {
-  if (handle !== null) cancelAnimationFrame(handle);
-  return null;
-}
-
 /** @returns {number} */
 function getMusicTargetVolume() {
   return calcVol(CONFIG.audio.musicVolume * (_getIsMuted?.() ? 0 : (_getMasterGain?.() ?? 0)));
 }
 
-/** @param {HTMLAudioElement} el @param {() => void} onStarted */
-function playWhenReady(el, onStarted) {
-  const attemptPlay = () => {
-    void el.play().then(
-      () => { onStarted(); },
-      () => {},
-    );
-  };
-  if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-    attemptPlay();
-    return;
-  }
-  const onReady = () => {
-    el.removeEventListener("canplay", onReady);
-    el.removeEventListener("error", onReady);
-    attemptPlay();
-  };
-  el.addEventListener("canplay", onReady, { once: true });
-  el.addEventListener("error", onReady, { once: true });
-  try { el.load(); } catch {}
+function getMusicOutputNode() {
+  // * Route music to the context destination — keeps menu/game music independent of SFX listener gain.
+  return _ctx?.destination ?? null;
 }
 
-/** @returns {HTMLAudioElement} */
-function ensureMenuMusicElement() {
-  if (menuMusicEl) return menuMusicEl;
-  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
-  menuMusicEl = new Audio();
-  menuMusicEl.loop = true;
-  menuMusicEl.preload = "auto";
-  menuMusicEl.src = menuMusicUrl;
-  menuMusicEl.addEventListener("error", () => {});
-  try { menuMusicEl.load(); } catch {}
-  return menuMusicEl;
-}
+/**
+ * * Routes preloaded HTMLAudio elements through Web Audio gain nodes.
+ * Called from {@link registerMusicVolumeDeps} because initMusic runs before AudioListener exists.
+ * @returns {void}
+ */
+function wireMusicToWebAudio() {
+  if (webAudioWired || !_ctx) return;
+  const dest = getMusicOutputNode();
+  if (!dest) return;
 
-/** @param {string} url @returns {HTMLAudioElement} */
-function createGameMusicElement(url) {
-  const a = new Audio();
-  a.loop = false;
-  a.preload = "auto";
-  a.src = url;
-  a.addEventListener("ended", onGameMusicEnded);
-  a.addEventListener("error", onGameMusicError);
-  try { a.load(); } catch {}
-  return a;
-}
-
-/** @param {number} index @returns {HTMLAudioElement | null} */
-function getOrCreateGameTrack(index) {
-  if (!gameMusicElements || index < 0 || index >= gameMusicUrls.length) return null;
-  if (!gameMusicElements[index]) {
-    gameMusicElements[index] = createGameMusicElement(gameMusicUrls[index]);
-  }
-  return gameMusicElements[index];
-}
-
-/** @param {number} index @returns {void} */
-function preloadGameTrackInBackground(index) {
-  if (_getMenuVisible?.()) return;
-  getOrCreateGameTrack(index);
-}
-
-/** @returns {void} */
-function installMenuGestureUnlock() {
-  if (menuGestureUnlockInstalled) return;
-  menuGestureUnlockInstalled = true;
-  const attempt = () => {
-    if (_getMenuVisible?.() && !menuMusicStarted && !menuMusicPlayInFlight) {
-      tryStartMenuMusic();
+  try {
+    if (menuMusicEl && !menuMusicSource) {
+      menuMusicEl.volume = 1;
+      menuMusicSource = _ctx.createMediaElementSource(menuMusicEl);
+      menuMusicGain = _ctx.createGain();
+      menuMusicGain.gain.value = menuMusicStarted ? getMusicTargetVolume() : 0.0001;
+      menuMusicSource.connect(menuMusicGain);
+      menuMusicGain.connect(dest);
     }
-  };
-  window.addEventListener("pointerdown", attempt, { passive: true });
-  window.addEventListener("keydown", attempt, { passive: true });
-}
 
-/** @returns {void} */
-function onGameMusicEnded() {
-  if (_getMenuVisible?.()) return;
-  advanceGameMusicTrack();
+    for (let i = 0; i < gameMusicElements.length; i += 1) {
+      const el = gameMusicElements[i];
+      if (!el || gameMusicSources[i]) continue;
+      el.volume = 1;
+      const src = _ctx.createMediaElementSource(el);
+      const gain = _ctx.createGain();
+      gain.gain.value = (gameMusicStarted && i === activeTrackIndex) ? getMusicTargetVolume() : 0.0001;
+      src.connect(gain);
+      gain.connect(dest);
+      gameMusicSources[i] = src;
+      gameMusicGains[i] = gain;
+    }
+
+    webAudioWired = true;
+  } catch {
+    // ! Fall back to HTML5 element volume if Web Audio routing fails — must not block game boot.
+    try { menuMusicSource?.disconnect(); } catch {}
+    try { menuMusicGain?.disconnect(); } catch {}
+    gameMusicSources.forEach((s) => { try { s?.disconnect(); } catch {} });
+    gameMusicGains.forEach((g) => { try { g?.disconnect(); } catch {} });
+    menuMusicSource = null;
+    menuMusicGain = null;
+    gameMusicSources = [];
+    gameMusicGains = [];
+    webAudioWired = false;
+  }
 }
 
 /** @returns {void} */
 function onGameMusicError() {
-  if (gameMusicUrls.length > 1) {
-    advanceGameMusicTrack();
+  if (gameMusicUrls.length <= 1) {
+    musicUnavailable = true;
     return;
   }
-  musicUnavailable = true;
+  gameMusicErrorSkips += 1;
+  if (gameMusicErrorSkips >= gameMusicUrls.length) {
+    musicUnavailable = true;
+    return;
+  }
+  advanceGameMusicTrack();
+}
+
+/** @returns {void} */
+function clearGameMusicPauseTimers() {
+  for (const timerId of gameMusicPauseTimers) clearTimeout(timerId);
+  gameMusicPauseTimers = [];
 }
 
 /** @returns {void} */
 export function clearAudioRefs() {
   _sfx = null;
-  _crowd = null;
   _leaderHum = null;
 }
 
 /**
  * * Wires live audio subsystems into this delegation layer.
- * @param {{ sfx?: object, crowd?: object, leaderHum?: object }} refs
+ * @param {{ sfx?: object, leaderHum?: object }} refs
  * @returns {void}
  */
 export function registerAudioRefs(refs) {
   if (refs.sfx !== undefined) _sfx = refs.sfx;
-  if (refs.crowd !== undefined) _crowd = refs.crowd;
   if (refs.leaderHum !== undefined) _leaderHum = refs.leaderHum;
 
   if (CONFIG.debug.audio) {
     // eslint-disable-next-line no-console
     console.log("[audio] registerAudioRefs", {
       sfx: Boolean(_sfx),
-      crowd: Boolean(_crowd),
       leaderHum: Boolean(_leaderHum),
     });
   }
@@ -213,7 +183,9 @@ export function registerAudioRefs(refs) {
  */
 export function registerMusicVolumeDeps(deps) {
   _audioListener = deps.audioListener;
+  _ctx = _audioListener?.context || null;
   _getSfxVolume = deps.getSfxVolume;
+  if (musicInitialized) wireMusicToWebAudio();
 }
 
 /**
@@ -226,16 +198,16 @@ export function initMusic(options) {
   musicInitialized = true;
 
   installDevMusicGate();
-
   _getMasterGain = options.getMasterGain;
   _getIsMuted = options.getIsMuted;
   _getMenuVisible = options.getMenuVisible;
 
-  ensureMenuMusicElement();
-  menuMusicEl.volume = getMusicTargetVolume();
-
-  window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
-  installMenuGestureUnlock();
+  const menuMusicUrl = new URL("sounds/menu.mp3", window.location.href).toString();
+  menuMusicEl = new Audio();
+  menuMusicEl.loop = true;
+  menuMusicEl.preload = "auto";
+  menuMusicEl.src = menuMusicUrl;
+  try { menuMusicEl.load(); } catch {}
 
   const gameMusicFiles = ["music.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
   gameMusicUrls = gameMusicFiles.map((f) =>
@@ -243,123 +215,164 @@ export function initMusic(options) {
   );
   for (let i = gameMusicUrls.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    const tmp = gameMusicUrls[i];
-    gameMusicUrls[i] = gameMusicUrls[j];
-    gameMusicUrls[j] = tmp;
+    [gameMusicUrls[i], gameMusicUrls[j]] = [gameMusicUrls[j], gameMusicUrls[i]];
   }
-  gameMusicIndex = 0;
-  gameMusicElements = new Array(gameMusicUrls.length).fill(null);
-  activeMusicEl = null;
+
+  gameMusicElements = [];
+  gameMusicSources = [];
+  gameMusicGains = [];
+
+  for (let i = 0; i < gameMusicUrls.length; i += 1) {
+    const a = new Audio();
+    a.loop = false;
+    a.preload = "auto";
+    a.src = gameMusicUrls[i];
+    a.addEventListener("error", onGameMusicError);
+    a.addEventListener("ended", () => {
+      if (_getMenuVisible?.()) return;
+      advanceGameMusicTrack();
+    });
+    try { a.load(); } catch {}
+    gameMusicElements.push(a);
+  }
+  activeTrackIndex = 0;
+
+  wireMusicToWebAudio();
+
+  window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
+  const attemptUnlock = () => {
+    if (_ctx && _ctx.state === "suspended") void _ctx.resume();
+    if (_getMenuVisible?.() && !menuMusicStarted && devAllowsAutoplayMusic()) {
+      tryStartMenuMusic();
+    }
+  };
+  window.addEventListener("pointerdown", attemptUnlock, { passive: true });
+  window.addEventListener("keydown", attemptUnlock, { passive: true });
 
   if (options.startMenuOnInit !== false && _getMenuVisible?.() && devAllowsAutoplayMusic()) {
-    try {
-      startMenuMusic();
-    } catch (e) {
-      // Menu autoplay may be blocked until gesture.
-    }
+    tryStartMenuMusic();
   }
 }
 
 /** @returns {void} */
 function advanceGameMusicTrack() {
-  if (!gameMusicUrls.length) return;
-  if (activeMusicEl) {
-    try {
-      activeMusicEl.pause();
-      activeMusicEl.currentTime = 0;
-    } catch {}
+  if (!gameMusicElements.length) return;
+
+  const oldIndex = activeTrackIndex;
+  activeTrackIndex = (activeTrackIndex + 1) % gameMusicElements.length;
+
+  if (oldIndex >= 0 && gameMusicGains[oldIndex] && _ctx) {
+    const oldGain = gameMusicGains[oldIndex].gain;
+    oldGain.cancelScheduledValues(_ctx.currentTime);
+    oldGain.setValueAtTime(oldGain.value, _ctx.currentTime);
+    oldGain.linearRampToValueAtTime(0.0001, _ctx.currentTime + 0.5);
   }
-  musicStarted = false;
-  gameMusicPlayInFlight = false;
-  gameMusicIndex = (gameMusicIndex + 1) % gameMusicUrls.length;
-  activeMusicEl = getOrCreateGameTrack(gameMusicIndex);
-  if (!_getMenuVisible?.() && activeMusicEl) {
-    activeMusicEl.volume = getMusicTargetVolume();
-    gameMusicPlayInFlight = true;
-    playWhenReady(activeMusicEl, () => {
-      gameMusicPlayInFlight = false;
-      if (!_getMenuVisible?.()) {
-        musicStarted = true;
-        preloadGameTrackInBackground((gameMusicIndex + 1) % gameMusicUrls.length);
-      } else {
-        try { activeMusicEl.pause(); } catch {}
-      }
-    });
+  if (oldIndex >= 0) {
+    try { gameMusicElements[oldIndex].pause(); } catch {}
   }
+
+  gameMusicStarted = false;
+  startGameMusic();
 }
 
 /** @returns {void} */
 export function tryStartMenuMusic() {
-  if (!menuMusicEl || menuMusicStarted || menuMusicPlayInFlight) return;
-  if (!devAllowsAutoplayMusic()) return;
+  if (!menuMusicEl || menuMusicStarted || !devAllowsAutoplayMusic()) return;
   if (_getIsMuted?.()) return;
   if (_getMenuVisible && !_getMenuVisible()) return;
 
+  if (_ctx && _ctx.state === "suspended") void _ctx.resume();
   stopGameMusic();
-  menuMusicEl.volume = getMusicTargetVolume();
-  menuMusicPlayInFlight = true;
-  playWhenReady(menuMusicEl, () => {
-    menuMusicPlayInFlight = false;
+
+  if (menuMusicGain && _ctx) {
+    menuMusicGain.gain.cancelScheduledValues(_ctx.currentTime);
+    menuMusicGain.gain.setValueAtTime(0.0001, _ctx.currentTime);
+    menuMusicGain.gain.linearRampToValueAtTime(getMusicTargetVolume(), _ctx.currentTime + 0.5);
+  } else {
+    menuMusicEl.volume = getMusicTargetVolume();
+  }
+
+  void menuMusicEl.play().then(() => {
     if (_getMenuVisible?.()) {
       menuMusicStarted = true;
+      if (menuMusicGain && _ctx) {
+        menuMusicGain.gain.cancelScheduledValues(_ctx.currentTime);
+        menuMusicGain.gain.setValueAtTime(getMusicTargetVolume(), _ctx.currentTime);
+      }
     } else {
       try { menuMusicEl.pause(); } catch {}
     }
-  });
+  }).catch(() => {});
 }
 
 /** @returns {void} */
 export function stopMenuMusic() {
   if (!menuMusicEl) return;
-  menuMusicFadeRaf = cancelFadeRaf(menuMusicFadeRaf);
-  menuMusicPlayInFlight = false;
-  menuMusicEl.pause();
-  menuMusicEl.currentTime = 0;
+  if (menuMusicGain && _ctx) {
+    menuMusicGain.gain.cancelScheduledValues(_ctx.currentTime);
+    menuMusicGain.gain.setValueAtTime(menuMusicGain.gain.value, _ctx.currentTime);
+    menuMusicGain.gain.linearRampToValueAtTime(0.0001, _ctx.currentTime + 0.3);
+  }
+  setTimeout(() => {
+    try { menuMusicEl.pause(); menuMusicEl.currentTime = 0; } catch {}
+  }, 350);
   menuMusicStarted = false;
 }
 
 /** @returns {void} */
 export function startMenuMusic() {
   if (!menuMusicEl) return;
-  if (!devAllowsAutoplayMusic()) return;
   menuMusicStarted = false;
-  menuMusicPlayInFlight = false;
-  menuMusicEl.volume = getMusicTargetVolume();
   tryStartMenuMusic();
 }
 
 /** @returns {void} */
 export function startGameMusic() {
-  if (!activeMusicEl || musicStarted || musicUnavailable || gameMusicPlayInFlight) return;
+  if (!gameMusicElements.length || gameMusicStarted || musicUnavailable) return;
   if (!devAllowsAutoplayMusic()) return;
   if (_getMenuVisible?.()) return;
+  if (activeTrackIndex < 0) activeTrackIndex = 0;
 
-  gameMusicPlayInFlight = true;
-  playWhenReady(activeMusicEl, () => {
-    gameMusicPlayInFlight = false;
+  clearGameMusicPauseTimers();
+  if (_ctx && _ctx.state === "suspended") void _ctx.resume();
+
+  const el = gameMusicElements[activeTrackIndex];
+  const gain = gameMusicGains[activeTrackIndex];
+
+  if (gain && _ctx) {
+    gain.gain.cancelScheduledValues(_ctx.currentTime);
+    gain.gain.setValueAtTime(0.0001, _ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(getMusicTargetVolume(), _ctx.currentTime + 0.5);
+  } else {
+    el.volume = getMusicTargetVolume();
+  }
+
+  void el.play().then(() => {
     if (!_getMenuVisible?.()) {
-      musicStarted = true;
-      preloadGameTrackInBackground((gameMusicIndex + 1) % gameMusicUrls.length);
+      gameMusicStarted = true;
     } else {
-      try { activeMusicEl.pause(); } catch {}
+      try { el.pause(); } catch {}
     }
-  });
+  }).catch(() => {});
 }
 
 /** @returns {void} */
 export function stopGameMusic() {
-  try {
-    gameMusicFadeInRaf = cancelFadeRaf(gameMusicFadeInRaf);
-    gameMusicFadeOutRaf = cancelFadeRaf(gameMusicFadeOutRaf);
-    gameMusicPlayInFlight = false;
-    if (activeMusicEl) {
-      activeMusicEl.pause();
-      activeMusicEl.currentTime = 0;
+  if (!gameMusicElements.length) return;
+
+  clearGameMusicPauseTimers();
+  for (let i = 0; i < gameMusicElements.length; i += 1) {
+    if (gameMusicGains[i] && _ctx) {
+      const g = gameMusicGains[i].gain;
+      g.cancelScheduledValues(_ctx.currentTime);
+      g.setValueAtTime(g.value, _ctx.currentTime);
+      g.linearRampToValueAtTime(0.0001, _ctx.currentTime + 0.3);
     }
-    musicStarted = false;
-  } catch (e) {
-    // Ignore pause errors on torn-down elements.
+    gameMusicPauseTimers.push(setTimeout((idx) => {
+      try { gameMusicElements[idx].pause(); } catch {}
+    }, 350, i));
   }
+  gameMusicStarted = false;
 }
 
 /**
@@ -367,28 +380,7 @@ export function stopGameMusic() {
  * @returns {void}
  */
 export function fadeOutMenuMusic() {
-  if (!menuMusicEl) return;
-  menuMusicFadeRaf = cancelFadeRaf(menuMusicFadeRaf);
-  menuMusicPlayInFlight = false;
-  let currentVol = menuMusicEl.volume;
-  const fadeStep = () => {
-    if (!menuMusicEl) {
-      menuMusicFadeRaf = null;
-      return;
-    }
-    currentVol += (0 - currentVol) * 0.1;
-    if (currentVol <= 0.01) {
-      menuMusicEl.volume = 0;
-      menuMusicEl.pause();
-      menuMusicEl.currentTime = 0;
-      menuMusicStarted = false;
-      menuMusicFadeRaf = null;
-      return;
-    }
-    menuMusicEl.volume = calcVol(currentVol);
-    menuMusicFadeRaf = requestAnimationFrame(fadeStep);
-  };
-  menuMusicFadeRaf = requestAnimationFrame(fadeStep);
+  stopMenuMusic();
 }
 
 /**
@@ -397,34 +389,9 @@ export function fadeOutMenuMusic() {
  */
 export function fadeInGameMusic() {
   if (!devAllowsAutoplayMusic()) return;
-  if (!gameMusicUrls.length) return;
-  activeMusicEl = getOrCreateGameTrack(gameMusicIndex);
-  if (!activeMusicEl) return;
-
-  gameMusicFadeOutRaf = cancelFadeRaf(gameMusicFadeOutRaf);
-  gameMusicFadeInRaf = cancelFadeRaf(gameMusicFadeInRaf);
-  musicStarted = false;
-  gameMusicPlayInFlight = false;
-  activeMusicEl.volume = 0;
-  activeMusicEl.muted = _getIsMuted?.() ?? false;
+  if (!gameMusicElements.length) return;
+  if (activeTrackIndex < 0) activeTrackIndex = 0;
   startGameMusic();
-  let currentVol = 0;
-  const fadeStep = () => {
-    if (!activeMusicEl) {
-      gameMusicFadeInRaf = null;
-      return;
-    }
-    const dynamicTarget = getMusicTargetVolume();
-    currentVol += (dynamicTarget - currentVol) * 0.1;
-    if (Math.abs(dynamicTarget - currentVol) <= 0.01) {
-      activeMusicEl.volume = dynamicTarget;
-      gameMusicFadeInRaf = null;
-      return;
-    }
-    activeMusicEl.volume = calcVol(currentVol);
-    gameMusicFadeInRaf = requestAnimationFrame(fadeStep);
-  };
-  gameMusicFadeInRaf = requestAnimationFrame(fadeStep);
 }
 
 /**
@@ -432,32 +399,36 @@ export function fadeInGameMusic() {
  * @returns {void}
  */
 export function destroyMusic() {
-  menuMusicFadeRaf = cancelFadeRaf(menuMusicFadeRaf);
-  gameMusicFadeInRaf = cancelFadeRaf(gameMusicFadeInRaf);
-  gameMusicFadeOutRaf = cancelFadeRaf(gameMusicFadeOutRaf);
-
+  clearGameMusicPauseTimers();
   if (menuMusicEl) {
     menuMusicEl.pause();
     menuMusicEl.src = "";
   }
-  if (gameMusicElements) {
-    gameMusicElements.forEach((a) => {
-      if (!a) return;
+  gameMusicElements.forEach((a) => {
+    if (a) {
       a.pause();
       a.src = "";
-    });
-  }
+    }
+  });
+  try { menuMusicSource?.disconnect(); } catch {}
+  try { menuMusicGain?.disconnect(); } catch {}
+  gameMusicSources.forEach((s) => { try { s?.disconnect(); } catch {} });
+  gameMusicGains.forEach((g) => { try { g?.disconnect(); } catch {} });
 
   menuMusicEl = null;
-  activeMusicEl = null;
-  gameMusicElements = null;
+  menuMusicSource = null;
+  menuMusicGain = null;
+  gameMusicElements = [];
+  gameMusicSources = [];
+  gameMusicGains = [];
   gameMusicUrls = [];
   menuMusicStarted = false;
-  musicStarted = false;
+  gameMusicStarted = false;
   musicUnavailable = false;
-  menuMusicPlayInFlight = false;
-  gameMusicPlayInFlight = false;
   musicInitialized = false;
+  webAudioWired = false;
+  gameMusicErrorSkips = 0;
+  activeTrackIndex = -1;
 }
 
 /**
@@ -473,16 +444,25 @@ export function applyAudioVolume() {
   if (_audioListener && typeof _audioListener.setMasterVolume === "function") {
     _audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
   }
-  if (activeMusicEl) {
-    activeMusicEl.volume = musicVol;
-    activeMusicEl.muted = isMuted;
-  }
-  if (menuMusicEl) {
-    menuMusicEl.volume = musicVol;
-    menuMusicEl.muted = isMuted;
+
+  if (_ctx) {
+    const now = _ctx.currentTime;
+    if (menuMusicGain && menuMusicStarted) {
+      menuMusicGain.gain.cancelScheduledValues(now);
+      menuMusicGain.gain.setValueAtTime(musicVol, now);
+    }
+    if (gameMusicGains[activeTrackIndex] && gameMusicStarted) {
+      const g = gameMusicGains[activeTrackIndex].gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(musicVol, now);
+    }
+  } else {
+    if (menuMusicEl) menuMusicEl.volume = musicVol;
+    if (activeTrackIndex >= 0 && gameMusicElements[activeTrackIndex]) {
+      gameMusicElements[activeTrackIndex].volume = musicVol;
+    }
   }
 
-  try { _crowd?.applyAmbient?.(); } catch {}
   try { _leaderHum?.resyncVolume?.(); } catch {}
 }
 
@@ -529,24 +509,6 @@ export function playFallOff() {
  */
 export function playWheelScreech(intensity) {
   _sfx?.playWheelScreech?.(intensity);
-}
-
-/** @returns {void} */
-export function playCrowdBump() {
-  _crowd?.bump?.();
-}
-
-/** @deprecated Use {@link playCrowdBump} instead. */
-export const bumpCrowd = playCrowdBump;
-
-/** @returns {void} */
-export function ensureCrowdStarted() {
-  _crowd?.ensureStarted?.();
-}
-
-/** @returns {void} */
-export function applyAmbientCrowd() {
-  _crowd?.applyAmbient?.();
 }
 
 /** @returns {void} */

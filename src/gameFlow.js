@@ -1,6 +1,4 @@
-// gameFlow.js — host-authoritative fall/scoring, respawns, round transitions, camera follow
-
-import * as CameraMod from "./camera.js";
+// gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
 /**
  * @typedef {object} GameFlowDeps
@@ -24,8 +22,6 @@ import * as CameraMod from "./camera.js";
  * @property {{ hostEventFall: string }} MSG
  * @property {(attackerSlotIndex: number, points: number) => void} addScore
  * @property {(untilMs: number) => void} setFovPunchUntil
- * @property {import("three").PerspectiveCamera} camera
- * @property {() => import("@dimforge/rapier3d-compat").World | null} getPhysicsWorld
  * @property {() => string | null} [getYouConnId]
  */
 
@@ -167,17 +163,5 @@ export function updateGameFlow(deps, context) {
         { youConnId, localSlot: deps.getLocalSlotIndex() },
       );
     }
-  }
-  if (localCart?.body) {
-    const playerPos = localCart.body.translation();
-    const playerRot = localCart.body.rotation();
-    CameraMod.updateCamera(
-      deps.camera,
-      localCart,
-      dt,
-      playerPos,
-      playerRot,
-      deps.getPhysicsWorld?.() ?? null,
-    );
   }
 }

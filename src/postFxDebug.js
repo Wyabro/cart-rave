@@ -2,6 +2,11 @@
 // * Cart materials still need further refinement — tune IBL/fog/shadows here first, then lock into config.js.
 
 import * as THREE from "three";
+import {
+  CUSTOMIZE_STORAGE_KEY,
+  invalidateCustomizationCache,
+  loadPlayerCustomization,
+} from "./customization.js";
 import GUI from "lil-gui";
 import {
   getContactShadowDebugParams,
@@ -205,6 +210,36 @@ export function initPostFxDebugGui(deps) {
 
   gui.addFolder("FXAA").add(params, "fxaaEnabled").name("enabled").onChange((v) => {
     fxaaPass.enabled = v;
+  });
+
+  const cartColorDebug = {
+    storageKey: CUSTOMIZE_STORAGE_KEY,
+    colorMode: "",
+    presetColor: "",
+    customHue: 0,
+    hex: "",
+    cssHex: "",
+    reloadFromStorage() {
+      invalidateCustomizationCache();
+      const c = loadPlayerCustomization();
+      cartColorDebug.colorMode = c.colorMode;
+      cartColorDebug.presetColor = c.color;
+      cartColorDebug.customHue = c.customHue;
+      cartColorDebug.hex = `0x${c.hex.toString(16).padStart(6, "0")}`;
+      cartColorDebug.cssHex = c.cssHex;
+    },
+  };
+  cartColorDebug.reloadFromStorage();
+  const cartColorFolder = gui.addFolder("Cart Color (localStorage)");
+  cartColorFolder.add(cartColorDebug, "storageKey").name("key").disable();
+  cartColorFolder.add(cartColorDebug, "colorMode").name("colorMode").disable();
+  cartColorFolder.add(cartColorDebug, "presetColor").name("presetId").disable();
+  cartColorFolder.add(cartColorDebug, "customHue", 0, 360, 1).name("customHue°").disable();
+  cartColorFolder.add(cartColorDebug, "hex").name("neonHex").disable();
+  cartColorFolder.add(cartColorDebug, "cssHex").name("cssHex").disable();
+  cartColorFolder.add(cartColorDebug, "reloadFromStorage").name("Reload from storage");
+  window.addEventListener("cartrave:customization-changed", () => {
+    cartColorDebug.reloadFromStorage();
   });
 
   const actions = {

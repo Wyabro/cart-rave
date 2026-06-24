@@ -1,4 +1,4 @@
-// audioSetup.js — SFX, crowd ambient, and leader chime initialization
+// audioSetup.js — SFX and leader chime initialization
 
 import * as THREE from "three";
 import * as GameState from "./gameState.js";
@@ -6,105 +6,42 @@ import * as Netcode from "./netcode.js";
 import { CONFIG } from "./config.js";
 import { clamp } from "./utils.js";
 
+/** @param {...AudioNode} nodes */
+function disconnectNodes(...nodes) {
+  for (const node of nodes) {
+    if (!node) continue;
+    try { node.disconnect(); } catch {}
+  }
+}
+
 /**
- * Creates procedural crowd ambient noise (looping filtered noise with bump bursts).
+ * Fire-and-forget procedural tone with auto-cleanup.
  *
- * @param {THREE.AudioListener} audioListener
- * @param {() => number} getSfxVolume
- * @param {() => boolean} getIsMuted
+ * @param {AudioContext} ctx
+ * @param {AudioNode} destination
+ * @param {OscillatorType} type
+ * @param {number} startFreq
+ * @param {number} endFreq
+ * @param {number} duration
+ * @param {number} peakGain
+ * @param {number} startTime
  */
-function initCrowdSfx(audioListener, getSfxVolume, getIsMuted) {
-  /** @type {null | { ctx: AudioContext; src: AudioBufferSourceNode; lp: BiquadFilterNode; bp: BiquadFilterNode; g: GainNode }} */
-  let nodes = null;
-  let started = false;
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let bumpTimeoutId = null;
-
-  const ensureNodes = () => {
-    const ctx = audioListener.context;
-    if (ctx.state !== "running") return null;
-    if (nodes) return nodes;
-
-    const len = 1.0;
-    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
-
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 900;
-    lp.Q.value = 0.4;
-
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 320;
-    bp.Q.value = 0.7;
-
-    const g = ctx.createGain();
-    g.gain.value = 0.0001;
-
-    src.connect(lp);
-    lp.connect(bp);
-    bp.connect(g);
-    g.connect(audioListener.gain);
-
-    nodes = { ctx, src, lp, bp, g };
-    return nodes;
-  };
-
-  const applyAmbient = () => {
-    const n = ensureNodes();
-    if (!n) return;
-    const { ctx, lp, bp, g } = n;
-    const now = ctx.currentTime;
-    const base = 0.012 * 1.2 * getSfxVolume();
-    const target = getIsMuted() ? 0.0001 : base;
-    g.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.25);
-    lp.frequency.setTargetAtTime(900, now, 0.25);
-    bp.frequency.setTargetAtTime(320, now, 0.25);
-    bp.Q.setTargetAtTime(0.7, now, 0.25);
-  };
-
-  const ensureStarted = () => {
-    if (started) return;
-    const n = ensureNodes();
-    if (!n) return;
-    try { n.src.start(); } catch {}
-    started = true;
-    applyAmbient();
-  };
-
-  const bump = () => {
-    ensureStarted();
-    if (getIsMuted() || getSfxVolume() <= 0) return;
-    const n = ensureNodes();
-    if (!n) return;
-    const { ctx, lp, bp, g } = n;
-    const now = ctx.currentTime;
-    const ambient = 0.012 * 1.2 * getSfxVolume();
-    const peak = 0.028 * 1.2 * getSfxVolume();
-    g.gain.cancelScheduledValues(now);
-    g.gain.setTargetAtTime(Math.max(0.0001, peak), now, 0.04);
-    lp.frequency.setTargetAtTime(1400, now, 0.05);
-    bp.frequency.setTargetAtTime(520, now, 0.05);
-    bp.Q.setTargetAtTime(1.2, now, 0.05);
-
-    if (bumpTimeoutId) clearTimeout(bumpTimeoutId);
-    bumpTimeoutId = setTimeout(() => {
-      bumpTimeoutId = null;
-      const t = ctx.currentTime;
-      g.gain.setTargetAtTime(Math.max(0.0001, ambient), t, 0.35);
-      lp.frequency.setTargetAtTime(900, t, 0.35);
-      bp.frequency.setTargetAtTime(320, t, 0.35);
-      bp.Q.setTargetAtTime(0.7, t, 0.35);
-    }, 1500);
-  };
-
-  return { ensureStarted, applyAmbient, bump };
+function spawnTone(ctx, destination, type, startFreq, endFreq, duration, peakGain, startTime) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(startFreq, startTime);
+  if (endFreq !== startFreq) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(0.0001, endFreq), startTime + duration);
+  }
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peakGain), startTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.connect(gain);
+  gain.connect(destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.05);
+  osc.onended = () => disconnectNodes(osc, gain);
 }
 
 /**
@@ -123,32 +60,9 @@ function initLeaderHumSfx(audioListener, getSfxVolume, getIsMuted) {
     const ctx = audioListener.context;
     if (ctx.state !== "running") return;
     const now = ctx.currentTime;
-
-    const out = ctx.createGain();
     const g = 0.15 * getSfxVolume();
-    out.gain.setValueAtTime(Math.max(0.0001, g), now);
-    out.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
-    out.connect(audioListener.gain);
-
-    const o1 = ctx.createOscillator();
-    o1.type = "sine";
-    o1.frequency.setValueAtTime(660, now);
-    o1.connect(out);
-    o1.start(now);
-    o1.stop(now + 0.075);
-
-    const o2 = ctx.createOscillator();
-    o2.type = "sine";
-    o2.frequency.setValueAtTime(880, now + 0.075);
-    o2.connect(out);
-    o2.start(now + 0.075);
-    o2.stop(now + 0.15);
-
-    o2.onended = () => {
-      try { o1.disconnect(); } catch {}
-      try { o2.disconnect(); } catch {}
-      try { out.disconnect(); } catch {}
-    };
+    spawnTone(ctx, audioListener.gain, "sine", 660, 660, 0.075, g, now);
+    spawnTone(ctx, audioListener.gain, "sine", 880, 880, 0.075, g, now + 0.075);
   };
 
   const setLeader = (slotIndex) => {
@@ -250,6 +164,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
       thump.type = "sine";
       thump.frequency.setValueAtTime(85 + Math.random() * 15, now);
       thump.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+      thump.detune.setValueAtTime((Math.random() * 20) - 10, now);
 
       const noiseLen = 0.18;
       const buf = ensureSharedNoiseBuffer(ctx);
@@ -284,6 +199,9 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
         noise.start(now);
         noise.stop(now + noiseLen);
       } catch {}
+
+      thump.onended = () => disconnectNodes(thump, gainThump);
+      noise.onended = () => disconnectNodes(noise, lp, gainNoise);
     },
     playEdgeImpact(intensity) {
       const i = clamp(intensity, 0, 1);
@@ -296,6 +214,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
       ring.type = "triangle";
       ring.frequency.setValueAtTime(400 + Math.random() * 100, now);
       ring.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+      ring.detune.setValueAtTime((Math.random() * 20) - 10, now);
 
       const noiseLen = 0.1;
       const buf = ensureSharedNoiseBuffer(ctx);
@@ -330,6 +249,9 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
         noise.start(now);
         noise.stop(now + noiseLen);
       } catch {}
+
+      ring.onended = () => disconnectNodes(ring, gainRing);
+      noise.onended = () => disconnectNodes(noise, hp, gainNoise);
     },
     playCollision(intensity, opts = {}) {
       const isBoosting = Boolean(opts.isBoosting);
@@ -398,6 +320,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
       punch.type = "sine";
       punch.frequency.setValueAtTime(58, now);
       punch.frequency.exponentialRampToValueAtTime(32, now + 0.09);
+      punch.detune.setValueAtTime((Math.random() * 20) - 10, now);
       const punchG = ctx.createGain();
       scheduleImpactEnvelope(punchG, ctx, now, 0.42, 0.003, 0.02, 0.07);
       punch.connect(punchG);
@@ -408,6 +331,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
       growl.type = "triangle";
       growl.frequency.setValueAtTime(72 + Math.random() * 8, now);
       growl.frequency.exponentialRampToValueAtTime(195, now + 0.38);
+      growl.detune.setValueAtTime((Math.random() * 20) - 10, now);
       const growlLp = ctx.createBiquadFilter();
       growlLp.type = "lowpass";
       growlLp.frequency.setValueAtTime(280, now);
@@ -459,6 +383,11 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
         air.start(now);
         air.stop(now + 0.18);
       } catch {}
+
+      punch.onended = () => disconnectNodes(punch, punchG);
+      growl.onended = () => disconnectNodes(growl, growlLp, growlG);
+      turb.onended = () => disconnectNodes(turb, turbBp, turbG);
+      air.onended = () => disconnectNodes(air, airHp, airG);
     },
     playHop() {
       if (getIsMuted() || getSfxVolume() <= 0) return;
@@ -484,6 +413,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
       spring.type = "sine";
       spring.frequency.setValueAtTime(210, now);
       spring.frequency.exponentialRampToValueAtTime(88, now + 0.055);
+      spring.detune.setValueAtTime((Math.random() * 20) - 10, now);
       const springG = ctx.createGain();
       scheduleImpactEnvelope(springG, ctx, now, 0.3, 0.002, 0.012, 0.05);
       spring.connect(springG);
@@ -494,6 +424,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
       thump.type = "triangle";
       thump.frequency.setValueAtTime(95, now);
       thump.frequency.exponentialRampToValueAtTime(48, now + 0.04);
+      thump.detune.setValueAtTime((Math.random() * 20) - 10, now);
       const thumpG = ctx.createGain();
       scheduleImpactEnvelope(thumpG, ctx, now, 0.18, 0.002, 0.008, 0.035);
       thump.connect(thumpG);
@@ -507,6 +438,10 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
         thump.start(now);
         thump.stop(now + 0.05);
       } catch {}
+
+      click.onended = () => disconnectNodes(click, clickBp, clickG);
+      spring.onended = () => disconnectNodes(spring, springG);
+      thump.onended = () => disconnectNodes(thump, thumpG);
     },
     playFallOff() {
       if (getIsMuted() || getSfxVolume() <= 0) return;
@@ -560,6 +495,10 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
         rush.start(now);
         rush.stop(now + fallLen);
       } catch {}
+
+      sub.onended = () => disconnectNodes(sub, subG);
+      mid.onended = () => disconnectNodes(mid, midG);
+      rush.onended = () => disconnectNodes(rush, rushBp, rushG);
     },
     playWheelScreech(intensity) {
       if (getIsMuted() || getSfxVolume() <= 0) return;
@@ -602,6 +541,8 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
         src.start(now);
         src.stop(now + len);
       } catch {}
+
+      src.onended = () => disconnectNodes(src, hp, lp, g);
     },
   };
 
@@ -609,7 +550,7 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
 }
 
 /**
- * Initializes crowd ambient, leader chime, and gameplay SFX systems.
+ * Initializes leader chime and gameplay SFX systems.
  *
  * @param {THREE.AudioListener} audioListener Three.js audio listener on the camera.
  * @param {{
@@ -617,12 +558,11 @@ function createSfxSystem(audioListener, { getSfxVolume, getIsMuted }) {
  *   getIsMuted: () => boolean,
  *   onCollisionShake?: (intensity: number) => void,
  * }} deps Volume/mute accessors and optional collision screen-shake callback.
- * @returns {{ sfx: object, crowd: object, leaderHum: object, ensureCartCrashBufferLoaded: () => void }}
+ * @returns {{ sfx: object, leaderHum: object, ensureCartCrashBufferLoaded: () => void }}
  */
 export function initAudioSystem(audioListener, deps) {
   const { getSfxVolume, getIsMuted } = deps;
-  const crowd = initCrowdSfx(audioListener, getSfxVolume, getIsMuted);
   const leaderHum = initLeaderHumSfx(audioListener, getSfxVolume, getIsMuted);
   const { sfx, ensureCartCrashBufferLoaded } = createSfxSystem(audioListener, deps);
-  return { sfx, crowd, leaderHum, ensureCartCrashBufferLoaded };
+  return { sfx, leaderHum, ensureCartCrashBufferLoaded };
 }

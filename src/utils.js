@@ -2,7 +2,7 @@
  * utils.js — Small pure helpers with no game-state or DOM dependencies.
  */
 
-import { CART_COLORS } from "./config.js";
+import { CART_COLORS, PALETTE } from "./config.js";
 import { getMaterialEnvMapIntensity } from "./scene.js";
 
 /** Reference luminance for perceptually even cart glow (pure green channel in linear sRGB). */
@@ -45,6 +45,66 @@ export function cartEmissiveIntensityForHex(hex, baseIntensity = 1) {
 }
 
 /**
+ * @param {number} hex 24-bit RGB
+ * @returns {number} hue 0–360
+ */
+export function hexToHue(hex) {
+  const r = ((hex >> 16) & 255) / 255;
+  const g = ((hex >> 8) & 255) / 255;
+  const b = (hex & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (d < 1e-6) return 0;
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h *= 60;
+  if (h < 0) h += 360;
+  return h;
+}
+
+/**
+ * @param {number} hue 0–360
+ * @returns {string}
+ */
+export function nearestPresetForHue(hue) {
+  const target = ((Math.round(hue) % 360) + 360) % 360;
+  let best = PALETTE[0];
+  let bestDist = Infinity;
+  for (const id of PALETTE) {
+    const presetHue = hexToHue(CART_COLORS[id].hex);
+    const dist = Math.min(
+      Math.abs(target - presetHue),
+      360 - Math.abs(target - presetHue),
+    );
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = id;
+    }
+  }
+  return best;
+}
+
+/**
+ * Preset hex used only for emissive-intensity / bloom balancing — keeps vivid custom
+ * RGB while matching the bloom level of the nearest palette color.
+ *
+ * @param {number} hex Display neon hex (may be a custom vivid hue)
+ * @returns {number}
+ */
+export function emissiveRefHexForNeonHex(hex) {
+  if (!Number.isFinite(hex)) return CART_COLORS[PALETTE[0]].hex;
+  for (const id of PALETTE) {
+    if (CART_COLORS[id].hex === hex) return hex;
+  }
+  if (hex === 0xff0000) return 0xff0000;
+  const presetId = nearestPresetForHue(hexToHue(hex));
+  return CART_COLORS[presetId]?.hex ?? hex;
+}
+
+/**
  * Applies cart frame albedo + emissive with luminance-balanced intensity.
  * @param {{ color?: import("three").Color, emissive?: import("three").Color, emissiveIntensity?: number, envMapIntensity?: number, metalness?: number, roughness?: number } | null | undefined} mat
  * @param {number} hex
@@ -55,7 +115,8 @@ export function applyCartFrameGlow(mat, hex, intensityMul = 1) {
   if (mat.color) mat.color.setHex(hex);
   if (mat.emissive) mat.emissive.setHex(hex);
   if (typeof mat.emissiveIntensity === "number") {
-    mat.emissiveIntensity = cartEmissiveIntensityForHex(hex, intensityMul);
+    const refHex = emissiveRefHexForNeonHex(hex);
+    mat.emissiveIntensity = cartEmissiveIntensityForHex(refHex, intensityMul);
   }
   if (typeof mat.metalness === "number") mat.metalness = 0.55;
   if (typeof mat.roughness === "number") mat.roughness = 0.16;

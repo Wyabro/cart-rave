@@ -1,4 +1,23 @@
-// Cart Rave — Main Menu (vanilla JS)
+// Cart Rave — Main Menu
+import { CART_COLORS, PALETTE } from "./config.js";
+import {
+  CUSTOM_COLOR_ID,
+  DEFAULT_CUSTOM_HUE,
+  CART_PATTERN_IDS,
+  CART_PATTERNS,
+  DEFAULT_CART_PATTERN,
+  ensurePlayerCustomizationPersisted,
+  hueToNeonCss,
+  loadPlayerCustomization,
+  normalizeHue,
+  savePlayerCustomization,
+} from "./customization.js";
+import {
+  makePatternMiniCartSvg,
+  normalizePatternId,
+  patternSvgParts,
+} from "./cartPatternConfig.js";
+
 (function () {
   'use strict';
 
@@ -172,18 +191,11 @@
     return pool[Math.floor(Math.random() * pool.length)] || "CartRaver";
   };
 
-  // * Game color IDs in slot order — must match PALETTE = Object.keys(CART_COLORS) in main.js.
-  const PALETTE_GAME = ['pink', 'blue', 'green', 'yellow', 'neonOrange'];
+  // * Game color IDs — same order as PALETTE / CART_COLORS in config.js.
+  const PALETTE_GAME = PALETTE;
   const COLOR_ARIA_LABELS = ['Pink', 'Blue', 'Green', 'Yellow', 'Neon orange'];
 
   const LEVEL_STORAGE_KEY = 'cartRaveLevel';
-  const CUSTOMIZE_STORAGE_KEY = 'cartRaveCustomization';
-  const COLOR_STORAGE_KEY = 'cartRaveColor';
-  const CUSTOM_HEX_STORAGE_KEY = 'cartRaveCustomHex';
-  const CUSTOM_COLOR_ID = 'custom';
-  const DEFAULT_CUSTOM_HUE = 280;
-  const CUSTOM_NEON_SAT = 100;
-  const CUSTOM_NEON_LIGHT = 50;
   const DEFAULT_LEVEL = 'classicRecord';
   const LEVEL_OPTIONS = {
     classicRecord: { enabled: true },
@@ -202,6 +214,7 @@
     tilt: 0,
     colorMode: 'preset',
     customHue: DEFAULT_CUSTOM_HUE,
+    pattern: DEFAULT_CART_PATTERN,
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
@@ -221,6 +234,7 @@
   const cartShadow = $("cr-cart-shadow");
   const titleEl = $("cr-title");
   const customizeColorRow = $("cr-customize-color-row");
+  const customizePatternRow = $("cr-customize-pattern-row");
   const customizeScreen = $("cr-customize-screen");
   const customizeCartHolder = $("cr-customize-cart-holder");
   const customizeCartShadow = $("cr-customize-cart-shadow");
@@ -253,10 +267,19 @@
   /**
    * Builds the large neon cart SVG shown in the menu cart stage.
    * @param {string} color Hex color for strokes, fills, and glow filter.
+   * @param {string} [patternId] Optional vinyl pattern id for basket fill preview.
    * @returns {string} SVG markup string.
    */
-  function makeCartSVG(color) {
+  function makeCartSVG(color, patternId = state.pattern) {
     const gid = 'g' + Math.random().toString(36).slice(2, 8);
+    const patUid = 'p' + Math.random().toString(36).slice(2, 8);
+    const hasPattern = normalizePatternId(patternId) !== 'classic';
+    const { defs: patternDefs, overlay: patternOverlay } = patternSvgParts(patternId, color, patUid);
+    const basketStroke = hasPattern
+      ? ''
+      : `<path d="M44 50 L200 50 L182 120 L60 120 Z" fill="none" stroke="${color}" stroke-width="7" stroke-linejoin="round" />
+  <path d="M50 72 L196 72 M54 92 L190 92" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+  <path d="M82 50 L78 120 M120 50 L120 120 M158 50 L162 120" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity="0.85" />`;
     return `
 <svg viewBox="0 0 220 180" width="280" height="${280 * (180 / 220)}"
      style="filter: drop-shadow(0 0 14px ${color}) drop-shadow(0 0 28px ${color}88);">
@@ -265,11 +288,11 @@
       <stop offset="0%" stop-color="${color}" stop-opacity="1" />
       <stop offset="100%" stop-color="${color}" stop-opacity="0.75" />
     </linearGradient>
+    ${patternDefs}
   </defs>
   <path d="M8 28 L44 28 L64 98" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M44 50 L200 50 L182 120 L60 120 Z" fill="none" stroke="${color}" stroke-width="7" stroke-linejoin="round" />
-  <path d="M50 72 L196 72 M54 92 L190 92" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity="0.85" />
-  <path d="M82 50 L78 120 M120 50 L120 120 M158 50 L162 120" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+  ${basketStroke}
+  ${patternOverlay}
   <circle cx="78" cy="148" r="18" fill="none" stroke="${color}" stroke-width="6" />
   <circle cx="78" cy="148" r="6" fill="${color}" />
   <circle cx="172" cy="148" r="18" fill="none" stroke="${color}" stroke-width="6" />
@@ -475,177 +498,33 @@
     });
   }
 
-  // ─── Custom color (hue-only neon; mirrors src/customization.js) ───────────
-  function normalizeHue(hue) {
-    const h = Number(hue);
-    if (!Number.isFinite(h)) return DEFAULT_CUSTOM_HUE;
-    return ((Math.round(h) % 360) + 360) % 360;
-  }
-
-  function hslToHex(h, s, l) {
-    const hue = normalizeHue(h);
-    const sat = Math.max(0, Math.min(100, s)) / 100;
-    const light = Math.max(0, Math.min(100, l)) / 100;
-    const c = (1 - Math.abs(2 * light - 1)) * sat;
-    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-    const m = light - c / 2;
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    if (hue < 60) { r = c; g = x; }
-    else if (hue < 120) { r = x; g = c; }
-    else if (hue < 180) { g = c; b = x; }
-    else if (hue < 240) { g = x; b = c; }
-    else if (hue < 300) { r = x; b = c; }
-    else { r = c; b = x; }
-    const ri = Math.round((r + m) * 255);
-    const gi = Math.round((g + m) * 255);
-    const bi = Math.round((b + m) * 255);
-    return (ri << 16) | (gi << 8) | bi;
-  }
-
-  function hueToNeonHex(hue) {
-    return hslToHex(hue, CUSTOM_NEON_SAT, CUSTOM_NEON_LIGHT);
-  }
-
-  function hueToNeonCss(hue) {
-    const hex = hueToNeonHex(hue);
+  // ─── Custom color (hue-only neon; persisted via customization.js) ───────
+  function getActiveColorCss() {
+    if (state.colorMode === 'custom') return hueToNeonCss(state.customHue);
+    const presetId = PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0];
+    const hex = CART_COLORS[presetId]?.hex ?? CART_COLORS[PALETTE_GAME[0]].hex;
     return `#${hex.toString(16).padStart(6, '0')}`;
   }
 
-  function hexToHue(hex) {
-    const r = ((hex >> 16) & 255) / 255;
-    const g = ((hex >> 8) & 255) / 255;
-    const b = (hex & 255) / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const d = max - min;
-    if (d < 1e-6) return DEFAULT_CUSTOM_HUE;
-    let h = 0;
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h *= 60;
-    if (h < 0) h += 360;
-    return h;
-  }
-
-  function getActiveColorCss() {
-    if (state.colorMode === 'custom') return hueToNeonCss(state.customHue);
-    return state.palette.players[state.playerIdx];
-  }
-
-  // ─── Customization persistence ───────────────────────────────────────────
-  /**
-   * @returns {{ colorMode: 'preset'|'custom', color: string, customHue: number, hex: number, cssHex: string }}
-   */
-  function loadCustomization() {
-    try {
-      const raw = localStorage.getItem(CUSTOMIZE_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          const colorMode = parsed.colorMode === 'custom' || parsed.color === CUSTOM_COLOR_ID
-            ? 'custom'
-            : 'preset';
-          const customHue = normalizeHue(parsed.customHue ?? DEFAULT_CUSTOM_HUE);
-          const color = colorMode === 'custom'
-            ? CUSTOM_COLOR_ID
-            : (PALETTE_GAME.includes(parsed.color) ? parsed.color : PALETTE_GAME[0]);
-          const presetIdx = colorIdxFromGameId(color);
-          const cssHex = colorMode === 'custom'
-            ? hueToNeonCss(customHue)
-            : state.palette.players[presetIdx];
-          return {
-            colorMode,
-            color,
-            customHue,
-            hex: colorMode === 'custom' ? hueToNeonHex(customHue) : 0,
-            cssHex,
-          };
-        }
-      }
-    } catch {}
-    const legacy = localStorage.getItem(COLOR_STORAGE_KEY);
-    if (legacy === CUSTOM_COLOR_ID) {
-      const legacyHex = Number(localStorage.getItem(CUSTOM_HEX_STORAGE_KEY));
-      const customHue = Number.isFinite(legacyHex)
-        ? normalizeHue(hexToHue(legacyHex))
-        : DEFAULT_CUSTOM_HUE;
-      return {
-        colorMode: 'custom',
-        color: CUSTOM_COLOR_ID,
-        customHue: normalizeHue(customHue),
-        hex: hueToNeonHex(customHue),
-        cssHex: hueToNeonCss(customHue),
-      };
-    }
-    const color = legacy && PALETTE_GAME.includes(legacy) ? legacy : PALETTE_GAME[0];
-    return {
-      colorMode: 'preset',
-      color,
-      customHue: DEFAULT_CUSTOM_HUE,
-      hex: 0,
-      cssHex: state.palette.players[PALETTE_GAME.indexOf(color)] || state.palette.players[0],
-    };
-  }
-
+  // ─── Customization persistence (delegates to customization.js) ──────────
   function applyCustomizationToState(saved) {
     state.colorMode = saved.colorMode === 'custom' ? 'custom' : 'preset';
     state.customHue = normalizeHue(saved.customHue);
+    state.pattern = saved.pattern || DEFAULT_CART_PATTERN;
     if (state.colorMode === 'preset') {
-      state.playerIdx = colorIdxFromGameId(saved.color);
+      const presetId = saved.color === CUSTOM_COLOR_ID ? PALETTE_GAME[0] : saved.color;
+      state.playerIdx = colorIdxFromGameId(presetId);
     }
   }
 
   /**
-   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number }} customization
+   * Saves menu customization state through the shared store and syncs local UI state.
+   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number, pattern?: string }} customization
    */
   function saveCustomization(customization) {
-    const colorMode = customization.colorMode === 'custom' ? 'custom' : 'preset';
-    let color = customization.color;
-    let customHue = normalizeHue(customization.customHue ?? state.customHue);
-
-    if (colorMode === 'custom') {
-      color = CUSTOM_COLOR_ID;
-    } else {
-      color = color && PALETTE_GAME.includes(color)
-        ? color
-        : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]);
-      state.playerIdx = PALETTE_GAME.indexOf(color);
-      if (state.playerIdx < 0) state.playerIdx = 0;
-    }
-
-    const hex = colorMode === 'custom'
-      ? hueToNeonHex(customHue)
-      : parseInt((state.palette.players[state.playerIdx] || state.palette.players[0]).replace('#', ''), 16);
-
-    const payload = {
-      colorMode,
-      color: colorMode === 'custom' ? CUSTOM_COLOR_ID : color,
-      customHue,
-      customHex: colorMode === 'custom' ? hex : undefined,
-    };
-    if (payload.customHex === undefined) delete payload.customHex;
-
-    localStorage.setItem(CUSTOMIZE_STORAGE_KEY, JSON.stringify(payload));
-    localStorage.setItem(COLOR_STORAGE_KEY, colorMode === 'custom' ? CUSTOM_COLOR_ID : color);
-    if (colorMode === 'custom') {
-      localStorage.setItem(CUSTOM_HEX_STORAGE_KEY, String(hex));
-    }
-
-    state.colorMode = colorMode;
-    state.customHue = customHue;
-
-    const detail = {
-      colorMode,
-      color: payload.color,
-      customHue,
-      hex,
-      cssHex: getActiveColorCss(),
-    };
-    window.dispatchEvent(new CustomEvent('cartrave:customization-changed', { detail }));
-    return detail;
+    const saved = savePlayerCustomization(customization);
+    applyCustomizationToState(saved);
+    return saved;
   }
 
   function colorIdxFromGameId(colorId) {
@@ -673,6 +552,7 @@
     state.playerIdx = idx;
     saveCustomization({ colorMode: 'preset', color: PALETTE_GAME[idx] });
     buildColorChips();
+    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
@@ -684,6 +564,7 @@
     state.colorMode = 'custom';
     saveCustomization({ colorMode: 'custom', customHue: state.customHue });
     buildColorChips();
+    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
@@ -701,6 +582,7 @@
     }
     renderCart();
     renderCustomizePreview();
+    buildPatternChips();
     applyPalette();
   }
 
@@ -752,12 +634,65 @@
           return;
         }
         selectPresetColor(idx);
+    buildPatternChips();
         loadMenuAnimations().then((Anim) => {
           if (!Anim) return;
           const active = customizeColorRow.querySelector('.cr-color-chip.active');
           if (active) Anim.animateColorChipSelect(active);
         });
       });
+    });
+  }
+
+  // ─── Build pattern chips (PATTERNS tab) ───────────────────────────────────
+  function buildPatternChips() {
+    if (!customizePatternRow) return;
+    customizePatternRow.setAttribute('role', 'radiogroup');
+    customizePatternRow.setAttribute('aria-label', 'Player Pattern Selection');
+    const previewColor = getActiveColorCss();
+    let html = '';
+    for (const patternId of CART_PATTERN_IDS) {
+      const meta = CART_PATTERNS[patternId];
+      const isActive = state.pattern === patternId;
+      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}" data-pattern="${patternId}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${meta.description}" style="--cc:${previewColor};">
+        ${makePatternMiniCartSvg(patternId, previewColor)}
+        <span class="cr-pattern-chip-label">${meta.label}</span>
+      </button>`;
+    }
+    customizePatternRow.innerHTML = html;
+    customizePatternRow.querySelectorAll('.cr-pattern-chip').forEach((chip) => {
+      wireMenuPressFeedback(chip);
+      chip.addEventListener('click', () => {
+        const patternId = chip.dataset.pattern;
+        if (!patternId || patternId === state.pattern) return;
+        selectPattern(patternId);
+        loadMenuAnimations().then((Anim) => {
+          if (Anim) Anim.animateColorChipSelect(chip);
+        });
+      });
+    });
+  }
+
+  function selectPattern(patternId) {
+    if (!CART_PATTERN_IDS.includes(patternId)) return;
+    state.pattern = patternId;
+    saveCustomization({ pattern: patternId });
+    buildPatternChips();
+    renderCart();
+    renderCustomizePreview();
+  }
+
+  function switchCustomizeTab(tabId) {
+    const tabs = document.querySelectorAll('.cr-customize-tab[data-tab]');
+    const sections = document.querySelectorAll('.cr-customize-section[data-section]');
+    tabs.forEach((tab) => {
+      const isActive = tab.dataset.tab === tabId;
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    sections.forEach((section) => {
+      const isActive = section.dataset.section === tabId;
+      section.hidden = !isActive;
     });
   }
 
@@ -772,7 +707,7 @@
   function renderCustomizePreview() {
     if (!customizeCartHolder) return;
     const color = getActiveColorCss();
-    customizeCartHolder.innerHTML = makeCartSVG(color);
+    customizeCartHolder.innerHTML = makeCartSVG(color, state.pattern);
     currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
     if (customizeCartShadow) {
       customizeCartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
@@ -785,6 +720,7 @@
     updateCustomHueUi();
     renderCustomizePreview();
     buildColorChips();
+    buildPatternChips();
     customizeScreen.style.display = 'flex';
     customizeScreen.setAttribute('aria-hidden', 'false');
     customizeDoneBtn?.focus();
@@ -801,13 +737,14 @@
 
   function closeCustomizeScreen() {
     if (!customizeScreen) return;
-    // * Persist final COLOR tab choice when leaving Customize (chip/slider changes also save live).
+    // * Persist final COLOR + PATTERN tab choices when leaving Customize (live saves also fire on each pick).
     saveCustomization({
       colorMode: state.colorMode,
       color: state.colorMode === 'custom'
         ? CUSTOM_COLOR_ID
         : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
       customHue: state.customHue,
+      pattern: state.pattern,
     });
     customizeScreen.style.display = 'none';
     customizeScreen.setAttribute('aria-hidden', 'true');
@@ -817,6 +754,13 @@
 
   function initCustomizeScreen() {
     wireCustomHueSlider();
+    document.querySelectorAll('.cr-customize-tab[data-tab]').forEach((tab) => {
+      wireMenuPressFeedback(tab);
+      tab.addEventListener('click', () => {
+        if (tab.disabled) return;
+        switchCustomizeTab(tab.dataset.tab || 'color');
+      });
+    });
     customizeDoneBtn?.addEventListener('click', closeCustomizeScreen);
     customizeBackBtn?.addEventListener('click', closeCustomizeScreen);
     document.querySelectorAll('.cr-btn[data-action="customize"]').forEach((btn) => {
@@ -837,7 +781,7 @@
    */
   function renderCart() {
     const color = getActiveColorCss();
-    cartHolder.innerHTML = makeCartSVG(color);
+    cartHolder.innerHTML = makeCartSVG(color, state.pattern);
     currentCartSvg = cartHolder.querySelector('svg');
     cartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
   }
@@ -1210,24 +1154,30 @@
     }
   }, { capture: true });
 
-  // Restore the player's last chosen color, or seed localStorage with the default.
-  const savedCustomization = loadCustomization();
+  // Restore saved cart color (or seed default once) — do not rewrite storage on every load.
+  const savedCustomization = ensurePlayerCustomizationPersisted();
   applyCustomizationToState(savedCustomization);
-  saveCustomization({
-    colorMode: state.colorMode,
-    color: state.colorMode === 'custom' ? CUSTOM_COLOR_ID : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
-    customHue: state.customHue,
-  });
 
   initSpotlights();
   initParticles();
   updateSpotlights();
   updateParticles();
   buildColorChips();
+  buildPatternChips();
   updateCustomHueUi();
   initLevelSelect();
   initCartTooltipTap();
   initCustomizeScreen();
+  window.addEventListener('cartrave:customization-changed', (e) => {
+    const detail = e.detail || loadPlayerCustomization();
+    applyCustomizationToState(detail);
+    buildColorChips();
+    buildPatternChips();
+    updateCustomHueUi();
+    renderCart();
+    renderCustomizePreview();
+    applyPalette();
+  });
   renderCart();
   applyPalette();
   updateVolume();
@@ -1298,14 +1248,7 @@
       closeCustomizeScreen();
     },
     getCustomization() {
-      const saved = loadCustomization();
-      return {
-        colorMode: state.colorMode,
-        color: state.colorMode === 'custom' ? CUSTOM_COLOR_ID : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
-        customHue: state.customHue,
-        hex: state.colorMode === 'custom' ? hueToNeonHex(state.customHue) : null,
-        cssHex: getActiveColorCss(),
-      };
+      return loadPlayerCustomization();
     },
     getColor() {
       if (state.colorMode === 'custom') return CUSTOM_COLOR_ID;

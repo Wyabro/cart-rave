@@ -47,7 +47,12 @@ export function buildCartMaterialCache(cartMesh) {
 
   cartMesh.traverse((child) => {
     if (!child.isMesh || !child.material) return;
-    if (child.userData && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel)) return;
+    if (
+      child.userData
+      && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel || child.userData.isCartPatternLayer)
+    ) {
+      return;
+    }
 
     forEachMaterial(child.material, (mat) => {
       if (seen.has(mat)) return;
@@ -218,8 +223,15 @@ function disposeCartMeshResources(mesh, materialCache) {
 
   mesh.traverse((child) => {
     if (!child.isMesh || !child.geometry) return;
-    if (child.userData?.isSharedGeometry) return;
+    if (child.userData?.isSharedGeometry || child.userData?.sharesCartFrameGeometry) return;
     child.geometry.dispose();
+  });
+
+  mesh.traverse((child) => {
+    if (!child.isMesh || !child.userData?.isCartPatternLayer || !child.material) return;
+    const mat = child.material;
+    if (Array.isArray(mat)) mat.forEach((m) => m?.dispose?.());
+    else mat.dispose?.();
   });
 
   if (materialCache?.frameMats) {

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
-import { cartEmissiveIntensityForHex } from "./utils.js";
+import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
 export const BASKET_LENGTH = 2.1;
@@ -20,6 +20,19 @@ export const VERTICAL_RAILS_BACK = 6;
 export const BOTTOM_GRID_ALONG_X = 5;
 export const BOTTOM_GRID_ALONG_Z = 5;
 export const BOTTOM_Z_SEGMENTS = 10;
+
+const CART_DIMS = {
+  halfW: BASKET_WIDTH * 0.5,
+  halfL: BASKET_LENGTH * 0.5,
+  frontZ: -BASKET_LENGTH * 0.5,
+  backZ: BASKET_LENGTH * 0.5,
+  yBottomFront: BASKET_RIM_TOP_Y - BASKET_HEIGHT_FRONT,
+  yBottomBack: BASKET_RIM_TOP_Y - BASKET_HEIGHT_BACK,
+  railR: BASKET_RAIL_RADIUS,
+  railSeg: BASKET_RAIL_SEGMENTS,
+  hFront: BASKET_HEIGHT_FRONT,
+  hBack: BASKET_HEIGHT_BACK,
+};
 
 // * Handle (top-back, slightly proud of rim).
 export const HANDLE_BAR_RADIUS = 0.072;
@@ -72,6 +85,13 @@ const SHARED_HUB_GEO = new THREE.CylinderGeometry(
   WHEEL_RADIUS * 0.42,
   WHEEL_WIDTH * 1.04,
   14,
+  1,
+);
+const SHARED_STEM_GEO = new THREE.CylinderGeometry(
+  WHEEL_WIDTH * 0.42,
+  WHEEL_WIDTH * 0.5,
+  CASTER_STEM_HEIGHT,
+  10,
   1,
 );
 
@@ -236,7 +256,10 @@ function neonFrameMaterial(base) {
   return createPhysicalMaterial({
     color: c,
     emissive: c.clone(),
-    emissiveIntensity: cartEmissiveIntensityForHex(c.getHex(), CART_NEON_EMISSIVE_BOOST),
+    emissiveIntensity: cartEmissiveIntensityForHex(
+      emissiveRefHexForNeonHex(c.getHex()),
+      CART_NEON_EMISSIVE_BOOST,
+    ),
     metalness: 0.55,
     roughness: 0.16,
     clearcoat: 0.25,
@@ -490,12 +513,10 @@ function buildCastersAndWheels(root, frameMat) {
     mount.position.set(x, mountY, z);
     root.add(mount);
 
-    const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(WHEEL_WIDTH * 0.42, WHEEL_WIDTH * 0.5, CASTER_STEM_HEIGHT, 10, 1),
-      SHARED_HANDLE_MAT,
-    );
+    const stem = new THREE.Mesh(SHARED_STEM_GEO, SHARED_HANDLE_MAT);
     stem.position.y = -CASTER_STEM_HEIGHT * 0.35;
     stem.userData.isWheel = true;
+    stem.userData.isSharedGeometry = true;
     mount.add(stem);
 
     const yawGroup = new THREE.Group();
@@ -597,34 +618,18 @@ function buildFace(basketGroup, frontZ, yBottomFront, hFront, halfW) {
 export function buildCart(colorHex) {
   const baseColor = new THREE.Color(colorHex);
   const frameMat = neonFrameMaterial(baseColor);
+  const hubMat = neonFrameMaterial(baseColor);
   const root = new THREE.Group();
   root.name = "CartVisual";
 
-  const halfW = BASKET_WIDTH * 0.5;
-  const halfL = BASKET_LENGTH * 0.5;
-  const frontZ = -halfL;
-  const backZ = halfL;
-  const yBottomFront = BASKET_RIM_TOP_Y - BASKET_HEIGHT_FRONT;
-  const yBottomBack = BASKET_RIM_TOP_Y - BASKET_HEIGHT_BACK;
-  const railR = BASKET_RAIL_RADIUS;
-  const railSeg = BASKET_RAIL_SEGMENTS;
-  const hFront = BASKET_HEIGHT_FRONT;
-  const hBack = BASKET_HEIGHT_BACK;
-
   /** @type {CartBuildDims} */
   const dims = {
-    halfW,
-    halfL,
-    frontZ,
-    backZ,
-    yBottomFront,
-    yBottomBack,
-    railR,
-    railSeg,
-    hFront,
-    hBack,
-    yBottom: (z) => bottomYAtZ(z, halfL, yBottomFront, yBottomBack),
-    wallHeight: (z) => BASKET_RIM_TOP_Y - bottomYAtZ(z, halfL, yBottomFront, yBottomBack),
+    ...CART_DIMS,
+    yBottom: (z) =>
+      bottomYAtZ(z, CART_DIMS.halfL, CART_DIMS.yBottomFront, CART_DIMS.yBottomBack),
+    wallHeight: (z) =>
+      BASKET_RIM_TOP_Y -
+      bottomYAtZ(z, CART_DIMS.halfL, CART_DIMS.yBottomFront, CART_DIMS.yBottomBack),
   };
 
   const frameGeometries = [];
@@ -634,8 +639,13 @@ export function buildCart(colorHex) {
   buildChassis(frameGeometries, dims);
   buildHandle(handleGeometries, dims);
 
+  // * Base wireframe body — full neon bloom. Pattern detail is a sibling overlay mesh
+  // * (CartFramePattern) applied at runtime by cartPatterns.js so masks never suppress bloom.
   const frameMesh = mergeGeometriesIntoMesh(frameGeometries, frameMat, "CartFrame");
-  if (frameMesh) root.add(frameMesh);
+  if (frameMesh) {
+    frameMesh.userData.isCartFrame = true;
+    root.add(frameMesh);
+  }
 
   const handleMesh = mergeGeometriesIntoMesh(
     handleGeometries,
@@ -646,7 +656,7 @@ export function buildCart(colorHex) {
   if (handleMesh) root.add(handleMesh);
 
   const { casterYawGroups, wheelPitchObjects, wobblePhases } =
-    buildCastersAndWheels(root, frameMat);
+    buildCastersAndWheels(root, hubMat);
 
   root.userData.cartVisual = {
     casterYawGroups,
@@ -659,7 +669,13 @@ export function buildCart(colorHex) {
   const faceGroup = new THREE.Group();
   faceGroup.name = "BasketFace";
   root.add(faceGroup);
-  buildFace(faceGroup, frontZ, yBottomFront, hFront, halfW);
+  buildFace(
+    faceGroup,
+    CART_DIMS.frontZ,
+    CART_DIMS.yBottomFront,
+    CART_DIMS.hFront,
+    CART_DIMS.halfW,
+  );
 
   return root;
 }
@@ -675,9 +691,6 @@ export function resetCartVisualState(root) {
   data.smoothedCasterYaw = 0;
   // Keep wheelRoll and wheelPitchObjects in sync in case the mesh changes.
   data.wheelRoll = new Array(data.wheelPitchObjects.length).fill(0);
-  for (let i = 0; i < data.wheelRoll.length; i += 1) {
-    data.wheelRoll[i] = 0;
-  }
   for (const yawG of data.casterYawGroups) {
     yawG.rotation.y = 0;
   }

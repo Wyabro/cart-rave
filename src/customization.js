@@ -2,40 +2,75 @@
  * customization.js — Player cart look preferences (localStorage).
  * Preset palette IDs match CART_COLORS / PALETTE in config.js.
  *
- * Customization flow (COLOR tab → in-game cart):
- * 1. Menu (`cart-rave-menu.js`) writes preset/custom hue to localStorage on chip/slider change and DONE.
- * 2. `loadPlayerCustomization()` normalizes stored JSON into `{ colorMode, color, customHue, hex }`.
- * 3. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
+ * Customization flow (COLOR + PATTERNS tabs → in-game cart):
+ * 1. Menu (`cart-rave-menu.js`) calls `savePlayerCustomization()` on chip/slider/pattern/DONE — single write path.
+ * 2. `ensurePlayerCustomizationPersisted()` seeds `cartRaveCustomization` in localStorage on first visit (default preset pink).
+ * 3. `loadPlayerCustomization()` normalizes stored JSON (with in-memory cache + legacy key fallback).
+ * 4. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
  *    remote humans → server-synced `slot.lookHex`; NPCs → server slot color via CART_COLORS.
- * 4. `main.js` passes `displayColorHexForSlot` (wraps resolveCartNeonHex) into cart spawn, material
- *    updates, per-frame frame glow, HUD score boxes (`applyHudScoreBoxGlow`), and 3D name labels.
- * 5. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
- * 6. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
+ * 5. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id (local human → saved; others → classic).
+ * 6. `main.js` passes `displayColorHexForSlot` into cart spawn/recolor, calls `applyCartFrameGlow()`
+ *    for neon color, then `applyCartPattern()` for the wireframe pattern overlay layer. Color and pattern are independent.
+ * 7. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
+ * 8. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
  *    rebroadcasts via `slots` so every client renders the same cosmetic color.
  *
- * Future tabs (Patterns, Wheels, Accessories) can extend the stored payload and apply in step 4.
+ * Future tabs (Wheels, Accessories) can extend the stored payload and apply alongside step 6.
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";
+import { DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
+
+export { CART_PATTERN_IDS, CART_PATTERNS, DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
 
 export const CUSTOMIZE_STORAGE_KEY = "cartRaveCustomization";
 export const COLOR_STORAGE_KEY = "cartRaveColor";
 export const CUSTOM_HEX_STORAGE_KEY = "cartRaveCustomHex";
 export const CUSTOM_COLOR_ID = "custom";
 
-/** Fixed neon HSL — hue slider only; saturation/lightness stay vibrant. */
+/** Fixed neon HSL — full saturation, mid lightness for intense spectral neons. */
 export const CUSTOM_NEON_SAT = 100;
 export const CUSTOM_NEON_LIGHT = 50;
+/** Pure spectral red — not in CART_COLORS but snapped for warm custom hues. */
+export const CUSTOM_NEON_RED_HEX = 0xff0000;
+/** Degrees from 0°/360° that map to CUSTOM_NEON_RED_HEX (HSL 100/50 skews orange by ~15°). */
+export const CUSTOM_RED_SNAP_DEG = 14;
+export const DEFAULT_PRESET_COLOR = PALETTE[0];
+
+/** @type {PlayerCustomization | null} In-memory cache — invalidated on save and cross-tab storage events. */
+let cachedCustomization = null;
+
+/**
+ * Clears the in-memory customization cache so the next load reads localStorage.
+ */
+export function invalidateCustomizationCache() {
+  cachedCustomization = null;
+}
+
 export const DEFAULT_CUSTOM_HUE = 280;
 
 /**
+ * Default cart look when nothing is stored yet (preset pink).
+ * @returns {PlayerCustomization}
+ */
+export function getDefaultCustomization() {
+  return normalizeCustomization({
+    colorMode: "preset",
+    color: DEFAULT_PRESET_COLOR,
+    customHue: DEFAULT_CUSTOM_HUE,
+    pattern: DEFAULT_CART_PATTERN,
+  });
+}
+
+/**
  * @typedef {"preset" | "custom"} ColorMode
- * @typedef {{ colorMode: ColorMode, color: string, customHue: number, hex: number, cssHex: string }} PlayerCustomization
+ * @typedef {import("./cartPatternConfig.js").CartPatternId} CartPatternId
+ * @typedef {{ colorMode: ColorMode, color: string, customHue: number, pattern: CartPatternId, hex: number, cssHex: string }} PlayerCustomization
  */
 
 /**
- * @param {number} hue 0–360
- * @returns {number} 0–360
+ * @param {number} hue hue in degrees
+ * @returns {number} normalized hue in degrees
  */
 export function normalizeHue(hue) {
   const h = Number(hue);
@@ -59,19 +94,12 @@ export function hslToHex(h, s, l) {
   let r = 0;
   let g = 0;
   let b = 0;
-  if (hue < 60) {
-    r = c; g = x;
-  } else if (hue < 120) {
-    r = x; g = c;
-  } else if (hue < 180) {
-    g = c; b = x;
-  } else if (hue < 240) {
-    g = x; b = c;
-  } else if (hue < 300) {
-    r = x; b = c;
-  } else {
-    r = c; b = x;
-  }
+  if (hue < 60) { r = c; g = x; b = 0; }
+  else if (hue < 120) { r = x; g = c; b = 0; }
+  else if (hue < 180) { r = 0; g = c; b = x; }
+  else if (hue < 240) { r = 0; g = x; b = c; }
+  else if (hue < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
   const ri = Math.round((r + m) * 255);
   const gi = Math.round((g + m) * 255);
   const bi = Math.round((b + m) * 255);
@@ -79,11 +107,35 @@ export function hslToHex(h, s, l) {
 }
 
 /**
+ * @param {number} hue 0–360
+ * @param {number} center 0–360
+ * @returns {number} shortest angular distance in degrees
+ */
+function hueAngularDistance(hue, center) {
+  return Math.min(Math.abs(hue - center), 360 - Math.abs(hue - center));
+}
+
+/**
+ * Converts a custom hue to vivid in-game neon hex (HSL 100%, 50%).
+ * Snaps warm hues near 0° to pure red (palette has no red preset — only neonOrange).
+ * Snaps to exact CART_COLORS when on a preset angle. Bloom is balanced separately
+ * via emissiveRefHexForNeonHex() in utils.js (nearest-preset intensity reference).
+ *
  * @param {number} hue
  * @returns {number}
  */
 export function hueToNeonHex(hue) {
-  return hslToHex(hue, CUSTOM_NEON_SAT, CUSTOM_NEON_LIGHT);
+  const h = normalizeHue(hue);
+
+  if (hueAngularDistance(h, 0) <= CUSTOM_RED_SNAP_DEG) {
+    return CUSTOM_NEON_RED_HEX;
+  }
+
+  for (const p of PRESET_HUES) {
+    if (hueAngularDistance(h, p.hue) < 0.5) return CART_COLORS[p.id].hex;
+  }
+
+  return hslToHex(h, CUSTOM_NEON_SAT, CUSTOM_NEON_LIGHT);
 }
 
 /**
@@ -116,6 +168,12 @@ export function hexToHue(hex) {
   return h;
 }
 
+/** Preset palette hues — computed once; CART_COLORS hex values are immutable at runtime. */
+const PRESET_HUES = PALETTE.map((id) => ({
+  id,
+  hue: hexToHue(CART_COLORS[id].hex),
+}));
+
 /**
  * @param {number} hue
  * @returns {string}
@@ -124,15 +182,14 @@ export function nearestPresetForHue(hue) {
   const target = normalizeHue(hue);
   let best = PALETTE[0];
   let bestDist = Infinity;
-  for (const id of PALETTE) {
-    const presetHue = hexToHue(CART_COLORS[id].hex);
+  for (const p of PRESET_HUES) {
     const dist = Math.min(
-      Math.abs(target - presetHue),
-      360 - Math.abs(target - presetHue),
+      Math.abs(target - p.hue),
+      360 - Math.abs(target - p.hue),
     );
     if (dist < bestDist) {
       bestDist = dist;
-      best = id;
+      best = p.id;
     }
   }
   return best;
@@ -147,12 +204,21 @@ export function normalizeCustomization(raw) {
   let colorMode = "preset";
   let color = fallbackPreset;
   let customHue = DEFAULT_CUSTOM_HUE;
+  let pattern = DEFAULT_CART_PATTERN;
 
+  let hasStoredCustomHue = false;
   if (raw && typeof raw === "object") {
     const obj = /** @type {Record<string, unknown>} */ (raw);
+    if (typeof obj.pattern === "string") {
+      pattern = normalizePatternId(obj.pattern);
+    }
     if (obj.colorMode === "custom") colorMode = "custom";
     if (typeof obj.customHue === "number" && Number.isFinite(obj.customHue)) {
       customHue = normalizeHue(obj.customHue);
+      hasStoredCustomHue = true;
+    } else if (typeof obj.customHue === "string" && obj.customHue.trim() !== "") {
+      customHue = normalizeHue(Number(obj.customHue));
+      hasStoredCustomHue = true;
     }
     if (typeof obj.color === "string") {
       if (obj.color === CUSTOM_COLOR_ID) {
@@ -162,7 +228,13 @@ export function normalizeCustomization(raw) {
         if (colorMode !== "custom") colorMode = "preset";
       }
     }
-    if (typeof obj.customHex === "number" && Number.isFinite(obj.customHex) && colorMode === "custom") {
+    // * customHex is a derived cache — only recover hue from it when customHue was not stored.
+    if (
+      !hasStoredCustomHue
+      && typeof obj.customHex === "number"
+      && Number.isFinite(obj.customHex)
+      && colorMode === "custom"
+    ) {
       customHue = normalizeHue(hexToHue(obj.customHex));
     }
   }
@@ -181,6 +253,7 @@ export function normalizeCustomization(raw) {
     colorMode,
     color,
     customHue,
+    pattern,
     hex,
     cssHex: `#${hex.toString(16).padStart(6, "0")}`,
   };
@@ -190,32 +263,77 @@ export function normalizeCustomization(raw) {
  * @returns {PlayerCustomization}
  */
 export function loadPlayerCustomization() {
+  if (cachedCustomization) return cachedCustomization;
+
+  let loaded = null;
   try {
     const raw = localStorage.getItem(CUSTOMIZE_STORAGE_KEY);
-    if (raw) return normalizeCustomization(JSON.parse(raw));
+    if (raw) loaded = normalizeCustomization(JSON.parse(raw));
   } catch {}
-  try {
-    const legacy = localStorage.getItem(COLOR_STORAGE_KEY);
-    if (legacy === CUSTOM_COLOR_ID) {
-      const legacyHex = Number(localStorage.getItem(CUSTOM_HEX_STORAGE_KEY));
-      if (Number.isFinite(legacyHex)) {
-        return normalizeCustomization({
-          colorMode: "custom",
-          color: CUSTOM_COLOR_ID,
-          customHue: hexToHue(legacyHex),
-        });
+  if (!loaded) {
+    try {
+      const legacy = localStorage.getItem(COLOR_STORAGE_KEY);
+      if (legacy === CUSTOM_COLOR_ID) {
+        const legacyHex = Number(localStorage.getItem(CUSTOM_HEX_STORAGE_KEY));
+        if (Number.isFinite(legacyHex)) {
+          loaded = normalizeCustomization({
+            colorMode: "custom",
+            color: CUSTOM_COLOR_ID,
+            customHue: hexToHue(legacyHex),
+          });
+        } else {
+          loaded = normalizeCustomization({ colorMode: "custom", color: CUSTOM_COLOR_ID });
+        }
+      } else if (legacy && PALETTE.includes(legacy)) {
+        loaded = normalizeCustomization({ colorMode: "preset", color: legacy });
       }
-      return normalizeCustomization({ colorMode: "custom", color: CUSTOM_COLOR_ID });
-    }
-    if (legacy && PALETTE.includes(legacy)) {
-      return normalizeCustomization({ colorMode: "preset", color: legacy });
-    }
-  } catch {}
-  return normalizeCustomization({ colorMode: "preset", color: PALETTE[0] });
+    } catch {}
+  }
+
+  cachedCustomization = loaded ?? getDefaultCustomization();
+  return cachedCustomization;
 }
 
 /**
- * @param {{ colorMode?: ColorMode, color?: string, customHue?: number }} input
+ * Seeds localStorage with the default preset on first visit; otherwise returns the saved look.
+ * @returns {PlayerCustomization}
+ */
+export function ensurePlayerCustomizationPersisted() {
+  try {
+    if (localStorage.getItem(CUSTOMIZE_STORAGE_KEY)) {
+      return loadPlayerCustomization();
+    }
+  } catch {}
+  return savePlayerCustomization({
+    colorMode: "preset",
+    color: DEFAULT_PRESET_COLOR,
+    customHue: DEFAULT_CUSTOM_HUE,
+    pattern: DEFAULT_CART_PATTERN,
+  });
+}
+
+/**
+ * Syncs customization across browser tabs via the storage event.
+ */
+export function wireCustomizationStorageSync() {
+  if (typeof window === "undefined" || window.__cartRaveCustomizationStorageSync) return;
+  window.__cartRaveCustomizationStorageSync = true;
+  window.addEventListener("storage", (e) => {
+    if (
+      e.key !== CUSTOMIZE_STORAGE_KEY
+      && e.key !== COLOR_STORAGE_KEY
+      && e.key !== CUSTOM_HEX_STORAGE_KEY
+    ) {
+      return;
+    }
+    invalidateCustomizationCache();
+    const detail = loadPlayerCustomization();
+    window.dispatchEvent(new CustomEvent("cartrave:customization-changed", { detail }));
+  });
+}
+
+/**
+ * @param {{ colorMode?: ColorMode, color?: string, customHue?: number, pattern?: string }} input
  * @returns {PlayerCustomization}
  */
 export function savePlayerCustomization(input) {
@@ -223,6 +341,7 @@ export function savePlayerCustomization(input) {
   const colorMode = input.colorMode === "custom" ? "custom" : "preset";
   let color = input.color ?? current.color;
   let customHue = input.customHue ?? current.customHue;
+  const pattern = normalizePatternId(input.pattern ?? current.pattern);
 
   if (colorMode === "custom") {
     color = CUSTOM_COLOR_ID;
@@ -231,12 +350,13 @@ export function savePlayerCustomization(input) {
     color = PALETTE[0];
   }
 
-  const normalized = normalizeCustomization({ colorMode, color, customHue });
+  const normalized = normalizeCustomization({ colorMode, color, customHue, pattern });
   const payload = {
     colorMode: normalized.colorMode,
     color: normalized.colorMode === "custom" ? CUSTOM_COLOR_ID : normalized.color,
     customHue: normalized.customHue,
     customHex: normalized.hex,
+    pattern: normalized.pattern,
   };
 
   try {
@@ -247,6 +367,8 @@ export function savePlayerCustomization(input) {
     );
     localStorage.setItem(CUSTOM_HEX_STORAGE_KEY, String(normalized.hex));
   } catch {}
+
+  cachedCustomization = normalized;
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("cartrave:customization-changed", { detail: normalized }));
@@ -263,7 +385,7 @@ export function resolveServerColorPick() {
   const custom = loadPlayerCustomization();
   if (custom.colorMode === "custom") return nearestPresetForHue(custom.customHue);
   if (PALETTE.includes(custom.color)) return custom.color;
-  return PALETTE[0];
+  return DEFAULT_PRESET_COLOR;
 }
 
 /**
@@ -271,6 +393,27 @@ export function resolveServerColorPick() {
  */
 export function getLocalPlayerCartHex() {
   return loadPlayerCustomization().hex;
+}
+
+/**
+ * Wireframe pattern id for the local player (from localStorage).
+ * @returns {CartPatternId}
+ */
+export function getLocalPlayerCartPattern() {
+  return loadPlayerCustomization().pattern;
+}
+
+/**
+ * Pattern id for a cart mesh — local human uses saved pattern; others use classic until networked.
+ *
+ * @param {{ kind?: string, connId?: string } | null | undefined} slot
+ * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
+ * @returns {CartPatternId}
+ */
+export function resolveCartPatternForSlot(slot, ctx = {}) {
+  const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
+  if (isLocal) return loadPlayerCustomization().pattern;
+  return DEFAULT_CART_PATTERN;
 }
 
 /**
@@ -351,11 +494,20 @@ export function resolveCartNeonCss(slot, ctx = {}) {
  */
 export function applyHudScoreBoxGlow(box, slot, youConnId) {
   if (!box) return;
-  if (!slot?.color) {
-    box.style.removeProperty("--hud-glow");
-    delete box.dataset.hudColor;
+
+  if (!slot?.color && !slot?.lookHex) {
+    if (box.dataset.hudColor !== "") {
+      box.style.removeProperty("--hud-glow");
+      delete box.dataset.hudColor;
+    }
     return;
   }
-  box.style.setProperty("--hud-glow", resolveCartNeonCss(slot, { youConnId }));
-  box.dataset.hudColor = "custom";
+
+  const cssHex = resolveCartNeonCss(slot, { youConnId });
+  const currentGlow = box.style.getPropertyValue("--hud-glow");
+
+  if (currentGlow !== cssHex) {
+    box.style.setProperty("--hud-glow", cssHex);
+    box.dataset.hudColor = "custom";
+  }
 }
