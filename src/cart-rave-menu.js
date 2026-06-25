@@ -3,14 +3,13 @@ import { CART_COLORS, PALETTE } from "./config.js";
 import {
   CUSTOM_COLOR_ID,
   DEFAULT_CUSTOM_HUE,
-  DEFAULT_CART_PATTERN,
-  ensurePlayerCustomizationPersisted,
   hueToNeonCss,
   loadPlayerCustomization,
   normalizeHue,
   savePlayerCustomization,
 } from "./customization.js";
 import {
+  DEFAULT_CART_PATTERN,
   normalizePatternId,
   patternSvgParts,
 } from "./cartPatternConfig.js";
@@ -1208,7 +1207,7 @@ import {
   }, { capture: true });
 
   // Restore saved cart color (or seed default once) — do not rewrite storage on every load.
-  const savedCustomization = ensurePlayerCustomizationPersisted();
+  const savedCustomization = loadPlayerCustomization();
   applyCustomizationToState(savedCustomization);
 
   initSpotlights();

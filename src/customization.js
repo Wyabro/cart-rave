@@ -4,38 +4,33 @@
  *
  * Customization flow (COLOR + PATTERNS tabs → in-game cart):
  * 1. Menu (`cart-rave-menu.js`) calls `savePlayerCustomization()` on chip/slider/pattern/DONE — single write path.
- * 2. `ensurePlayerCustomizationPersisted()` seeds `cartRaveCustomization` in localStorage on first visit (default preset pink).
- * 3. `loadPlayerCustomization()` normalizes stored JSON (with in-memory cache + legacy key fallback).
- * 4. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
+ * 2. `loadPlayerCustomization()` reads `cartRaveCustomization` and seeds defaults on first visit.
+ * 3. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
  *    remote humans → server-synced `slot.lookHex`; NPCs → server slot color via CART_COLORS.
- * 5. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id (local human → saved; others → classic).
- * 6. `main.js` passes `displayColorHexForSlot` into cart spawn/recolor, calls `applyCartFrameGlow()`
+ * 4. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id (local human → saved; others → classic).
+ * 5. `main.js` passes `displayColorHexForSlot` into cart spawn/recolor, calls `applyCartFrameGlow()`
  *    for neon color, then `applyCartPattern()` for the wireframe pattern overlay layer. Color and pattern are independent.
- * 7. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
- * 8. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
+ * 6. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
+ * 7. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
  *    rebroadcasts via `slots` so every client renders the same cosmetic color.
  *
- * Future tabs (Wheels, Accessories) can extend the stored payload and apply alongside step 6.
+ * Future tabs (Wheels, Accessories) can extend the stored payload and apply alongside step 5.
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
 
-export { CART_PATTERN_IDS, CART_PATTERNS, DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
-
 export const CUSTOMIZE_STORAGE_KEY = "cartRaveCustomization";
-export const COLOR_STORAGE_KEY = "cartRaveColor";
-export const CUSTOM_HEX_STORAGE_KEY = "cartRaveCustomHex";
 export const CUSTOM_COLOR_ID = "custom";
 
 /** Fixed neon HSL — full saturation, mid lightness for intense spectral neons. */
-export const CUSTOM_NEON_SAT = 100;
-export const CUSTOM_NEON_LIGHT = 50;
+const CUSTOM_NEON_SAT = 100;
+const CUSTOM_NEON_LIGHT = 50;
 /** Pure spectral red — not in CART_COLORS but snapped for warm custom hues. */
-export const CUSTOM_NEON_RED_HEX = 0xff0000;
+const CUSTOM_NEON_RED_HEX = 0xff0000;
 /** Degrees from 0°/360° that map to CUSTOM_NEON_RED_HEX (HSL 100/50 skews orange by ~15°). */
-export const CUSTOM_RED_SNAP_DEG = 14;
-export const DEFAULT_PRESET_COLOR = PALETTE[0];
+const CUSTOM_RED_SNAP_DEG = 14;
+const DEFAULT_PRESET_COLOR = PALETTE[0];
 
 /** @type {PlayerCustomization | null} In-memory cache — invalidated on save and cross-tab storage events. */
 let cachedCustomization = null;
@@ -53,7 +48,7 @@ export const DEFAULT_CUSTOM_HUE = 280;
  * Default cart look when nothing is stored yet (preset pink).
  * @returns {PlayerCustomization}
  */
-export function getDefaultCustomization() {
+function getDefaultCustomization() {
   return normalizeCustomization({
     colorMode: "preset",
     color: DEFAULT_PRESET_COLOR,
@@ -84,7 +79,7 @@ export function normalizeHue(hue) {
  * @param {number} l 0–100
  * @returns {number} 24-bit RGB hex
  */
-export function hslToHex(h, s, l) {
+function hslToHex(h, s, l) {
   const hue = normalizeHue(h);
   const sat = Math.max(0, Math.min(100, s)) / 100;
   const light = Math.max(0, Math.min(100, l)) / 100;
@@ -124,7 +119,7 @@ function hueAngularDistance(hue, center) {
  * @param {number} hue
  * @returns {number}
  */
-export function hueToNeonHex(hue) {
+function hueToNeonHex(hue) {
   const h = normalizeHue(hue);
 
   if (hueAngularDistance(h, 0) <= CUSTOM_RED_SNAP_DEG) {
@@ -151,7 +146,7 @@ export function hueToNeonCss(hue) {
  * @param {number} hex 24-bit RGB
  * @returns {number} hue 0–360
  */
-export function hexToHue(hex) {
+function hexToHue(hex) {
   const r = ((hex >> 16) & 255) / 255;
   const g = ((hex >> 8) & 255) / 255;
   const b = (hex & 255) / 255;
@@ -178,7 +173,7 @@ const PRESET_HUES = PALETTE.map((id) => ({
  * @param {number} hue
  * @returns {string}
  */
-export function nearestPresetForHue(hue) {
+function nearestPresetForHue(hue) {
   const target = normalizeHue(hue);
   let best = PALETTE[0];
   let bestDist = Infinity;
@@ -199,7 +194,7 @@ export function nearestPresetForHue(hue) {
  * @param {unknown} raw
  * @returns {PlayerCustomization}
  */
-export function normalizeCustomization(raw) {
+function normalizeCustomization(raw) {
   const fallbackPreset = PALETTE[0];
   let colorMode = "preset";
   let color = fallbackPreset;
@@ -260,6 +255,30 @@ export function normalizeCustomization(raw) {
 }
 
 /**
+ * @param {PlayerCustomization} normalized
+ * @returns {object}
+ */
+function buildStoragePayload(normalized) {
+  return {
+    colorMode: normalized.colorMode,
+    color: normalized.colorMode === "custom" ? CUSTOM_COLOR_ID : normalized.color,
+    customHue: normalized.customHue,
+    customHex: normalized.hex,
+    pattern: normalized.pattern,
+  };
+}
+
+/**
+ * @param {PlayerCustomization} normalized
+ * @returns {void}
+ */
+function writeCustomizationToStorage(normalized) {
+  try {
+    localStorage.setItem(CUSTOMIZE_STORAGE_KEY, JSON.stringify(buildStoragePayload(normalized)));
+  } catch {}
+}
+
+/**
  * @returns {PlayerCustomization}
  */
 export function loadPlayerCustomization() {
@@ -270,46 +289,15 @@ export function loadPlayerCustomization() {
     const raw = localStorage.getItem(CUSTOMIZE_STORAGE_KEY);
     if (raw) loaded = normalizeCustomization(JSON.parse(raw));
   } catch {}
+
   if (!loaded) {
-    try {
-      const legacy = localStorage.getItem(COLOR_STORAGE_KEY);
-      if (legacy === CUSTOM_COLOR_ID) {
-        const legacyHex = Number(localStorage.getItem(CUSTOM_HEX_STORAGE_KEY));
-        if (Number.isFinite(legacyHex)) {
-          loaded = normalizeCustomization({
-            colorMode: "custom",
-            color: CUSTOM_COLOR_ID,
-            customHue: hexToHue(legacyHex),
-          });
-        } else {
-          loaded = normalizeCustomization({ colorMode: "custom", color: CUSTOM_COLOR_ID });
-        }
-      } else if (legacy && PALETTE.includes(legacy)) {
-        loaded = normalizeCustomization({ colorMode: "preset", color: legacy });
-      }
-    } catch {}
+    // * First visit: seed canonical key so menu and game share one write path.
+    loaded = getDefaultCustomization();
+    writeCustomizationToStorage(loaded);
   }
 
-  cachedCustomization = loaded ?? getDefaultCustomization();
+  cachedCustomization = loaded;
   return cachedCustomization;
-}
-
-/**
- * Seeds localStorage with the default preset on first visit; otherwise returns the saved look.
- * @returns {PlayerCustomization}
- */
-export function ensurePlayerCustomizationPersisted() {
-  try {
-    if (localStorage.getItem(CUSTOMIZE_STORAGE_KEY)) {
-      return loadPlayerCustomization();
-    }
-  } catch {}
-  return savePlayerCustomization({
-    colorMode: "preset",
-    color: DEFAULT_PRESET_COLOR,
-    customHue: DEFAULT_CUSTOM_HUE,
-    pattern: DEFAULT_CART_PATTERN,
-  });
 }
 
 /**
@@ -319,13 +307,7 @@ export function wireCustomizationStorageSync() {
   if (typeof window === "undefined" || window.__cartRaveCustomizationStorageSync) return;
   window.__cartRaveCustomizationStorageSync = true;
   window.addEventListener("storage", (e) => {
-    if (
-      e.key !== CUSTOMIZE_STORAGE_KEY
-      && e.key !== COLOR_STORAGE_KEY
-      && e.key !== CUSTOM_HEX_STORAGE_KEY
-    ) {
-      return;
-    }
+    if (e.key !== CUSTOMIZE_STORAGE_KEY) return;
     invalidateCustomizationCache();
     const detail = loadPlayerCustomization();
     window.dispatchEvent(new CustomEvent("cartrave:customization-changed", { detail }));
@@ -351,23 +333,8 @@ export function savePlayerCustomization(input) {
   }
 
   const normalized = normalizeCustomization({ colorMode, color, customHue, pattern });
-  const payload = {
-    colorMode: normalized.colorMode,
-    color: normalized.colorMode === "custom" ? CUSTOM_COLOR_ID : normalized.color,
-    customHue: normalized.customHue,
-    customHex: normalized.hex,
-    pattern: normalized.pattern,
-  };
 
-  try {
-    localStorage.setItem(CUSTOMIZE_STORAGE_KEY, JSON.stringify(payload));
-    localStorage.setItem(
-      COLOR_STORAGE_KEY,
-      normalized.colorMode === "custom" ? CUSTOM_COLOR_ID : normalized.color,
-    );
-    localStorage.setItem(CUSTOM_HEX_STORAGE_KEY, String(normalized.hex));
-  } catch {}
-
+  writeCustomizationToStorage(normalized);
   cachedCustomization = normalized;
 
   if (typeof window !== "undefined") {
@@ -389,21 +356,6 @@ export function resolveServerColorPick() {
 }
 
 /**
- * @returns {number}
- */
-export function getLocalPlayerCartHex() {
-  return loadPlayerCustomization().hex;
-}
-
-/**
- * Wireframe pattern id for the local player (from localStorage).
- * @returns {CartPatternId}
- */
-export function getLocalPlayerCartPattern() {
-  return loadPlayerCustomization().pattern;
-}
-
-/**
  * Pattern id for a cart mesh — local human uses saved pattern; others use classic until networked.
  *
  * @param {{ kind?: string, connId?: string } | null | undefined} slot
@@ -421,7 +373,7 @@ export function resolveCartPatternForSlot(slot, ctx = {}) {
  * @param {string | null | undefined} youConnId
  * @returns {boolean}
  */
-export function isLocalHumanSlot(slot, youConnId) {
+function isLocalHumanSlot(slot, youConnId) {
   return Boolean(
     slot
     && slot.kind === "human"
@@ -434,7 +386,7 @@ export function isLocalHumanSlot(slot, youConnId) {
  * @param {unknown} value
  * @returns {number | null}
  */
-export function normalizeLookHex(value) {
+function normalizeLookHex(value) {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.floor(n) & 0xffffff;
@@ -444,7 +396,7 @@ export function normalizeLookHex(value) {
  * @param {{ lookHex?: number | null, color?: string, kind?: string } | null | undefined} slot
  * @returns {number | null}
  */
-export function lookHexFromSlot(slot) {
+function lookHexFromSlot(slot) {
   if (!slot || slot.kind !== "human") return null;
   return normalizeLookHex(slot.lookHex);
 }
@@ -483,31 +435,4 @@ export function resolveCartNeonHex(slot, ctx = {}) {
 export function resolveCartNeonCss(slot, ctx = {}) {
   const hex = resolveCartNeonHex(slot, ctx);
   return `#${hex.toString(16).padStart(6, "0")}`;
-}
-
-/**
- * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
- *
- * @param {HTMLElement | null | undefined} box
- * @param {{ color?: string, kind?: string, connId?: string, lookHex?: number | null } | null | undefined} slot
- * @param {string | null | undefined} youConnId
- */
-export function applyHudScoreBoxGlow(box, slot, youConnId) {
-  if (!box) return;
-
-  if (!slot?.color && !slot?.lookHex) {
-    if (box.dataset.hudColor !== "") {
-      box.style.removeProperty("--hud-glow");
-      delete box.dataset.hudColor;
-    }
-    return;
-  }
-
-  const cssHex = resolveCartNeonCss(slot, { youConnId });
-  const currentGlow = box.style.getPropertyValue("--hud-glow");
-
-  if (currentGlow !== cssHex) {
-    box.style.setProperty("--hud-glow", cssHex);
-    box.dataset.hudColor = "custom";
-  }
 }

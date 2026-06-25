@@ -24,7 +24,7 @@ function srgbChannelToLinear(channel) {
  * @param {number} hex
  * @returns {number}
  */
-export function cartHexRelativeLuminance(hex) {
+function cartHexRelativeLuminance(hex) {
   if (!Number.isFinite(hex)) return CART_EMISSIVE_REF_LUMA;
   const r = srgbChannelToLinear(((hex >> 16) & 255) / 255);
   const g = srgbChannelToLinear(((hex >> 8) & 255) / 255);
@@ -48,7 +48,7 @@ export function cartEmissiveIntensityForHex(hex, baseIntensity = 1) {
  * @param {number} hex 24-bit RGB
  * @returns {number} hue 0–360
  */
-export function hexToHue(hex) {
+function hexToHue(hex) {
   const r = ((hex >> 16) & 255) / 255;
   const g = ((hex >> 8) & 255) / 255;
   const b = (hex & 255) / 255;
@@ -69,7 +69,7 @@ export function hexToHue(hex) {
  * @param {number} hue 0–360
  * @returns {string}
  */
-export function nearestPresetForHue(hue) {
+function nearestPresetForHue(hue) {
   const target = ((Math.round(hue) % 360) + 360) % 360;
   let best = PALETTE[0];
   let bestDist = Infinity;
@@ -158,7 +158,7 @@ export function clamp(value, min, max) {
  * @param {number} max
  * @returns {number}
  */
-export function clampInt(value, min, max) {
+function clampInt(value, min, max) {
   const v = Math.round(value);
   if (!Number.isFinite(v)) return min;
   return Math.max(min, Math.min(max, v));
@@ -169,7 +169,7 @@ export function clampInt(value, min, max) {
  * @param {number} rgb
  * @returns {string}
  */
-export function cssHexFromRgbNumber(rgb) {
+function cssHexFromRgbNumber(rgb) {
   if (!Number.isFinite(rgb)) return "#888888";
   const hex = Math.floor(rgb).toString(16).padStart(6, "0");
   return `#${hex}`;
@@ -180,7 +180,7 @@ export function cssHexFromRgbNumber(rgb) {
  * @param {{ color?: string | number } | null | undefined} slot
  * @returns {string}
  */
-export function getColorForSlot(slot) {
+function getColorForSlot(slot) {
   if (!slot || !slot.color) return "#888888";
   return cssHexFromRgbNumber(CART_COLORS[slot.color]?.hex ?? 0x888888);
 }
@@ -190,7 +190,7 @@ export function getColorForSlot(slot) {
  * @param {{ color?: string | number } | null | undefined} slot
  * @returns {number}
  */
-export function colorHexForSlot(slot) {
+function colorHexForSlot(slot) {
   if (!slot) return 0x888888;
   const c = slot.color;
   if (typeof c === "number") return c;

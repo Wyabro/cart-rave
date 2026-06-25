@@ -47,24 +47,24 @@ function setPlanarBasisFromRotation(rot, forward, right) {
   right.crossVectors(forward, _up).normalize();
 }
 
-export function vec3ToRapier(v) {
+function vec3ToRapier(v) {
   return { x: v.x, y: v.y, z: v.z };
 }
 
-export function rapierToVec3(v) {
+function rapierToVec3(v) {
   return new THREE.Vector3(v.x, v.y, v.z);
 }
 
-export function getBodyMass(body) {
+function getBodyMass(body) {
   if (body && typeof body.mass === "function") return body.mass();
   return 1;
 }
 
-export function planarSpeed(v) {
+function planarSpeed(v) {
   return Math.hypot(v.x, v.z);
 }
 
-export function vec3PlanarDirection(v) {
+function vec3PlanarDirection(v) {
   const d = new THREE.Vector3(v.x, 0, v.z);
   const len = d.length();
   if (len <= 1e-6) return null;
@@ -89,19 +89,19 @@ export function setForwardRightFromYaw(yaw, forward, right) {
 }
 
 /** @deprecated Prefer {@link setForwardRightFromYaw} — returns module scratch vectors. */
-export function getForwardRightFromYaw(yaw) {
+function getForwardRightFromYaw(yaw) {
   setForwardRightFromYaw(yaw, _forward, _right);
   return { forward: _forward, right: _right };
 }
 
-export function wrapAngleRad(angle) {
+function wrapAngleRad(angle) {
   let a = angle;
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;
   return a;
 }
 
-export function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffset) {
+function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffset) {
   const ix0 = (mass / 12) * (4 * hy * hy + 4 * hz * hz);
   const iy0 = (mass / 12) * (4 * hx * hx + 4 * hz * hz);
   const iz0 = (mass / 12) * (4 * hx * hx + 4 * hy * hy);
@@ -231,7 +231,7 @@ function writeCenterHoleOverhangState(cart, pos, out) {
  * @param {object} cart Cart entity with Rapier body/collider.
  * @param {number} dtFixed Fixed physics timestep in seconds (drives hole assist impulses).
  */
-export function applyEnvironmentResponse(cart, dtFixed) {
+function applyEnvironmentResponse(cart, dtFixed) {
   if (!cart?.body || cart.respawnAtMs != null || !cart.collider) return;
 
   // * Levels without a central hole (Backrooms Supermarket) disable the origin
@@ -274,7 +274,7 @@ export function applyEnvironmentResponse(cart, dtFixed) {
 /**
  * @param {number} nowMs
  */
-export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
+function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   const pos = cart.body.translation();
   const rot = cart.body.rotation();
   const linvel = cart.body.linvel();
@@ -374,8 +374,98 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   }
 
   applyEnvironmentResponse(cart, dtFixed);
+  applySquareHoleLipAssist(cart, dtFixed);
+  applyGeometryUnstick(cart, dtFixed, nowMs);
 
   // * Pitch/roll angular clamp intentionally off — V1 tipping must stay free near the hole lip.
+}
+
+/**
+ * * Backrooms void lip — outward impulse so carts (especially NPCs) don't slide down chamfers.
+ *
+ * @param {object} cart
+ * @param {number} dtFixed
+ */
+function applySquareHoleLipAssist(cart, dtFixed) {
+  if (!_levelHazards?.arenaHalf || !cart?.body || cart.respawnAtMs != null || !dtFixed) return;
+
+  const pos = cart.body.translation();
+  const { cheb, hole } = nearestSquareHole(pos.x, pos.z);
+  const lip = squareHoleKeepOutRadius(0);
+  if (cheb >= lip + 1.35) return;
+
+  const dx = pos.x - hole.x;
+  const dz = pos.z - hole.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const outwardX = dx / len;
+  const outwardZ = dz / len;
+  const lv = cart.body.linvel();
+  const towardHole = -(lv.x * outwardX + lv.z * outwardZ);
+  const urgency = clamp((lip + 1.35 - cheb) / 1.35, 0, 1);
+  if (urgency <= 0) return;
+
+  const mass = getBodyMass(cart.body);
+  const baseOut = (6 + urgency * 12) * mass * dtFixed;
+  _impulse.x = outwardX * baseOut;
+  _impulse.z = outwardZ * baseOut;
+  if (towardHole > 0.2) {
+    const boost = towardHole * 16 * mass * dtFixed;
+    _impulse.x += outwardX * boost;
+    _impulse.z += outwardZ * boost;
+  }
+  _impulse.y = urgency * 3.5 * mass * dtFixed;
+  cart.body.applyImpulse(_impulse, true);
+  cart.body.wakeUp();
+}
+
+/**
+ * Applies periodic upward / jitter impulses when a cart has been wedged against static
+ * geometry for a few seconds — frees many trimesh / hull snags before the 10s idle respawn.
+ *
+ * @param {object} cart
+ * @param {number} dtFixed
+ * @param {number} nowMs
+ */
+function applyGeometryUnstick(cart, dtFixed, nowMs) {
+  if (!cart?.body || cart.respawnAtMs != null || !dtFixed || dtFixed <= 0) return;
+
+  const pos = cart.body.translation();
+  if (pos.y > CONFIG.booth.platformY - 1.0) {
+    cart.unstickStillSinceMs = 0;
+    return;
+  }
+
+  const lv = cart.body.linvel();
+  const planarSpeed = Math.hypot(lv.x, lv.z);
+  const moved = Math.hypot(pos.x - cart.idleAnchorX, pos.z - cart.idleAnchorZ);
+  const stuckCfg = CONFIG.fall?.stuck;
+  const radiusM = stuckCfg?.positionRadiusM ?? 0.45;
+
+  if (planarSpeed > 1.2 || moved > radiusM) {
+    cart.unstickStillSinceMs = 0;
+    return;
+  }
+
+  if (!cart.unstickStillSinceMs) {
+    cart.unstickStillSinceMs = nowMs;
+    return;
+  }
+
+  const stuckMs = nowMs - cart.unstickStillSinceMs;
+  const unstickAfterMs = stuckCfg?.unstickAfterMs ?? 2000;
+  if (stuckMs < unstickAfterMs || planarSpeed > (stuckCfg?.maxPlanarSpeedMps ?? 0.65)) return;
+
+  cart.body.wakeUp();
+  const mass = getBodyMass(cart.body);
+  const phase = (cart.slotIndex || 0) * 1.37;
+  const jitter = nowMs * 0.003 + phase;
+  _impulse.x = Math.cos(jitter) * 2.2 * mass * dtFixed;
+  _impulse.y = 3.0 * mass * dtFixed;
+  _impulse.z = Math.sin(jitter) * 2.2 * mass * dtFixed;
+  cart.body.applyImpulse(_impulse, true);
+  if (cart.collider?.setFriction) {
+    cart.collider.setFriction((CONFIG.cart.friction ?? 1.1) * 0.35);
+  }
 }
 
 /**
@@ -424,7 +514,7 @@ function resolveCartRamCollision(c1, c2) {
  * @param {object} callbacks Injected helpers (FX, local cart, host broadcast).
  * @param {boolean} isHost Whether this client is the room host.
  */
-export function applyRammingImpulse(rammer, victim, callbacks, isHost) {
+function applyRammingImpulse(rammer, victim, callbacks, isHost) {
   const playCollisionRef = callbacks?.playCollision;
   const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
   const rv = rammer.body.linvel();
@@ -531,8 +621,11 @@ const AI_CAUTIOUS_MS = 8000;
  * @type {{
  *   squareHoles: { x: number, z: number }[],
  *   half: number,
+ *   holeCenter?: number,
+ *   arenaHalf?: number,
  *   avoidMargin: number,
  *   influenceBand: number,
+ *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number }[],
  * } | null}
  */
 let _levelHazards = null;
@@ -580,14 +673,227 @@ function pushPointOutOfSquareHoles(x, z, extraMargin = 0) {
 }
 
 /**
+ * Chebyshev keep-out radius around each square void (hole half + AI margin).
+ *
+ * @param {number} [extraMargin]
+ * @returns {number}
+ */
+function squareHoleKeepOutRadius(extraMargin = 0) {
+  return _levelHazards.half + _levelHazards.avoidMargin + extraMargin;
+}
+
+/**
+ * @param {number} x
+ * @param {number} z
+ * @param {number} [extraMargin]
+ * @returns {boolean}
+ */
+function isInsideSquareHoleZone(x, z, extraMargin = 0) {
+  const need = squareHoleKeepOutRadius(extraMargin);
+  for (let i = 0; i < _levelHazards.squareHoles.length; i += 1) {
+    const h = _levelHazards.squareHoles[i];
+    if (Math.abs(x - h.x) < need && Math.abs(z - h.z) < need) return true;
+  }
+  return false;
+}
+
+/**
+ * @param {number} ax
+ * @param {number} az
+ * @param {number} bx
+ * @param {number} bz
+ * @param {number} minX
+ * @param {number} minZ
+ * @param {number} maxX
+ * @param {number} maxZ
+ * @returns {boolean}
+ */
+function segmentIntersectsAabb(ax, az, bx, bz, minX, minZ, maxX, maxZ) {
+  const dx = bx - ax;
+  const dz = bz - az;
+  let t0 = 0;
+  let t1 = 1;
+  const p = [-dx, dx, -dz, dz];
+  const q = [ax - minX, maxX - ax, az - minZ, maxZ - az];
+  for (let i = 0; i < 4; i += 1) {
+    if (Math.abs(p[i]) < 1e-8) {
+      if (q[i] < 0) return false;
+    } else {
+      const t = q[i] / p[i];
+      if (p[i] < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+      if (t0 > t1) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * @param {number} fx
+ * @param {number} fz
+ * @param {number} tx
+ * @param {number} tz
+ * @param {number} [extraMargin]
+ * @returns {{ x: number, z: number } | null}
+ */
+function findBlockingSquareHole(fx, fz, tx, tz, extraMargin = 0) {
+  const need = squareHoleKeepOutRadius(extraMargin);
+  for (let i = 0; i < _levelHazards.squareHoles.length; i += 1) {
+    const h = _levelHazards.squareHoles[i];
+    if (segmentIntersectsAabb(
+      fx, fz, tx, tz,
+      h.x - need, h.z - need, h.x + need, h.z + need,
+    )) {
+      return h;
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {number} px
+ * @param {number} pz
+ * @returns {{ cheb: number, hole: { x: number, z: number } }}
+ */
+function nearestSquareHole(px, pz) {
+  let bestCheb = Infinity;
+  let bestHole = _levelHazards.squareHoles[0];
+  for (let i = 0; i < _levelHazards.squareHoles.length; i += 1) {
+    const h = _levelHazards.squareHoles[i];
+    const cheb = Math.max(Math.abs(px - h.x), Math.abs(pz - h.z));
+    if (cheb < bestCheb) {
+      bestCheb = cheb;
+      bestHole = h;
+    }
+  }
+  return { cheb: bestCheb, hole: bestHole };
+}
+
+/**
+ * Gutter waypoint on the outer corner of a void's keep-out box toward the chase target.
+ *
+ * @param {{ x: number, z: number }} hole
+ * @param {number} tx
+ * @param {number} tz
+ * @param {boolean} cautious
+ * @returns {{ x: number, z: number }}
+ */
+function gutterWaypointAroundHole(hole, tx, tz, cautious) {
+  const pad = _levelHazards.avoidMargin + (cautious ? 1.0 : 0.8);
+  const gutter = (_levelHazards.holeCenter ?? 18) + _levelHazards.half + pad;
+  const sx = tx >= hole.x ? 1 : -1;
+  const sz = tz >= hole.z ? 1 : -1;
+  return { x: hole.x + sx * gutter, z: hole.z + sz * gutter };
+}
+
+/**
+ * Routes a chase target around square voids — direct line only when it misses every hole.
+ *
+ * @param {number} fx
+ * @param {number} fz
+ * @param {number} tx
+ * @param {number} tz
+ * @param {boolean} cautious
+ * @returns {{ x: number, z: number }}
+ */
+function routeBackroomsChaseTarget(fx, fz, tx, tz, cautious) {
+  const routeMargin = cautious ? 0.4 : 0.32;
+  const hole = findBlockingSquareHole(fx, fz, tx, tz, routeMargin);
+  if (!hole) {
+    return clampBackroomsAiTarget(tx, tz, cautious);
+  }
+
+  const need = squareHoleKeepOutRadius(routeMargin);
+  const outsideX = Math.abs(fx - hole.x) >= need;
+  const outsideZ = Math.abs(fz - hole.z) >= need;
+
+  // * Already past one axis of the void — finish on the safe axis toward the human.
+  if (outsideX && !outsideZ) {
+    return clampBackroomsAiTarget(tx, fz, cautious);
+  }
+  if (outsideZ && !outsideX) {
+    return clampBackroomsAiTarget(fx, tz, cautious);
+  }
+
+  const wp = gutterWaypointAroundHole(hole, tx, tz, cautious);
+  return clampBackroomsAiTarget(wp.x, wp.z, cautious);
+}
+
+/**
+ * Pushes an XZ point outside registered circular keep-out zones (e.g. center furniture).
+ *
+ * @param {number} x
+ * @param {number} z
+ * @param {number} [extraMargin]
+ * @returns {{ x: number, z: number }}
+ */
+function pushPointOutOfCircularKeepOuts(x, z, extraMargin = 0) {
+  const zones = _levelHazards?.circularKeepOuts;
+  if (!zones?.length) return { x, z };
+  let px = x;
+  let pz = z;
+  for (let i = 0; i < zones.length; i += 1) {
+    const ko = zones[i];
+    const dx = px - ko.x;
+    const dz = pz - ko.z;
+    const dist = Math.hypot(dx, dz);
+    const minDist = ko.radius + (ko.margin ?? 1.5) + extraMargin;
+    if (dist >= minDist) continue;
+    if (dist > 1e-6) {
+      const scale = minDist / dist;
+      px = ko.x + dx * scale;
+      pz = ko.z + dz * scale;
+    } else {
+      px = ko.x + minDist;
+      pz = ko.z;
+    }
+  }
+  return { x: px, z: pz };
+}
+
+/**
+ * Blends repulsion away from circular keep-out zones into a planar heading.
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {THREE.Vector3} dir
+ */
+function applyCircularKeepOutAvoidance(px, pz, dir) {
+  const zones = _levelHazards?.circularKeepOuts;
+  if (!zones?.length) return;
+  let rx = 0;
+  let rz = 0;
+  for (let i = 0; i < zones.length; i += 1) {
+    const ko = zones[i];
+    const dx = px - ko.x;
+    const dz = pz - ko.z;
+    const dist = Math.hypot(dx, dz);
+    const edge = ko.radius + (ko.margin ?? 1.5);
+    const band = ko.margin ?? 1.5;
+    if (dist >= edge + band) continue;
+    const len = dist || 1;
+    const strength = clamp((edge + band - dist) / band, 0, 2.4);
+    rx += (dx / len) * strength;
+    rz += (dz / len) * strength;
+  }
+  if (rx === 0 && rz === 0) return;
+  dir.x += rx * 1.6;
+  dir.z += rz * 1.6;
+  if (dir.lengthSq() < 1e-6) dir.set(rx, 0, rz);
+  dir.normalize();
+}
+
+/**
  * Blends a repulsion away from nearby square voids into an NPC's heading direction so it
  * steers around the holes instead of driving straight in. Mutates and re-normalizes `dir`.
  *
  * @param {number} px Cart world X.
  * @param {number} pz Cart world Z.
  * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
+ * @param {number} [targetX] Optional chase X for tangent routing around voids.
+ * @param {number} [targetZ] Optional chase Z for tangent routing around voids.
  */
-function applySquareHoleAvoidance(px, pz, dir) {
+function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
   const holes = _levelHazards.squareHoles;
   const edge = _levelHazards.half + _levelHazards.avoidMargin;
   const band = _levelHazards.influenceBand;
@@ -600,11 +906,34 @@ function applySquareHoleAvoidance(px, pz, dir) {
     if (cheb >= edge + band) continue;
     const strength = clamp((edge + band - cheb) / band, 0, 2.2);
     const len = Math.hypot(dx, dz) || 1;
-    rx += (dx / len) * strength;
-    rz += (dz / len) * strength;
+    const radialX = dx / len;
+    const radialZ = dz / len;
+    // * Gutter band: slide along the void lip toward the target, don't shove away from corners.
+    const inGutterBand = cheb >= edge;
+    const radialScale = inGutterBand ? 0.2 : 1.0;
+    rx += radialX * strength * radialScale;
+    rz += radialZ * strength * radialScale;
+
+    // * Near the lip, bias tangent toward the chase target instead of only pushing outward.
+    if (strength > 0.15 && targetX != null && targetZ != null) {
+      const tanAX = -radialZ;
+      const tanAZ = radialX;
+      const tanBX = radialZ;
+      const tanBZ = -radialX;
+      const toTx = targetX - px;
+      const toTz = targetZ - pz;
+      const pickA = toTx * tanAX + toTz * tanAZ;
+      const pickB = toTx * tanBX + toTz * tanBZ;
+      const useTan = pickA >= pickB;
+      const tanX = useTan ? tanAX : tanBX;
+      const tanZ = useTan ? tanAZ : tanBZ;
+      const tanGain = inGutterBand ? 2.6 : 1.9;
+      rx += tanX * strength * tanGain;
+      rz += tanZ * strength * tanGain;
+    }
   }
   if (rx === 0 && rz === 0) return;
-  const GAIN = 1.4;
+  const GAIN = 1.35;
   dir.x += rx * GAIN;
   dir.z += rz * GAIN;
   if (dir.lengthSq() < 1e-6) dir.set(rx, 0, rz);
@@ -633,9 +962,80 @@ function isAiCautiousPhase(nowMs, allCarts, netSlots) {
 }
 
 /**
+ * * Clamps a patrol / chase target for Backrooms — square arena bounds + void keep-out only.
+ * Does not use the Classic vinyl annulus (that capped outer reach at ~23 m).
+ */
+function clampBackroomsAiTarget(x, z, cautious, opts = {}) {
+  const arenaHalf = _levelHazards.arenaHalf ?? 34;
+  const edgeInset = cautious ? 3.8 : 2.0;
+  const maxCoord = arenaHalf - edgeInset;
+  let outX = clamp(x, -maxCoord, maxCoord);
+  let outZ = clamp(z, -maxCoord, maxCoord);
+  const holeExtra = opts.cornerPatrol
+    ? (cautious ? 0.25 : 0)
+    : (cautious ? 0.45 : 0.1);
+  const pushed = pushPointOutOfSquareHoles(outX, outZ, holeExtra);
+  outX = pushed.x;
+  outZ = pushed.z;
+  const kept = pushPointOutOfCircularKeepOuts(outX, outZ, cautious ? 0.8 : 0.3);
+  return { x: kept.x, z: kept.z };
+}
+
+/**
+ * * Patrol target in the outer corner gutter between each void and the arena perimeter.
+ *
+ * @param {boolean} cautious
+ * @param {number} [slotIndex]
+ */
+function pickBackroomsCornerPatrolTarget(cautious, slotIndex = 0) {
+  const arenaHalf = _levelHazards.arenaHalf ?? 34;
+  const holeCenter = _levelHazards.holeCenter ?? 18;
+  const holeOuter = holeCenter + _levelHazards.half;
+  const gutterMin = holeOuter + (cautious ? 0.9 : 0.35);
+  const gutterMax = arenaHalf - (cautious ? 3.0 : 1.5);
+  const corners = [
+    [1, 1], [-1, 1], [1, -1], [-1, -1],
+  ];
+  const corner = corners[(slotIndex + Math.floor(Math.random() * 2)) % corners.length];
+  const [sx, sz] = corner;
+  const patrolOpts = { cornerPatrol: true };
+
+  const roll = Math.random();
+  if (roll < 0.42) {
+    // * Deep corner pocket — sqrt bias pushes picks toward the outer hide spots.
+    const c = gutterMin + Math.sqrt(Math.random()) * Math.max(0.8, gutterMax - gutterMin);
+    const j = (Math.random() - 0.5) * 1.0;
+    return clampBackroomsAiTarget(sx * c + j, sz * c + j, cautious, patrolOpts);
+  }
+  const outer = gutterMax - Math.random() * 1.2;
+  const lane = gutterMin + Math.random() * Math.max(0.8, gutterMax - gutterMin);
+  if (roll < 0.71) {
+    // * Gutter lane along outer wall.
+    return clampBackroomsAiTarget(sx * outer, sz * lane, cautious, patrolOpts);
+  }
+  return clampBackroomsAiTarget(sx * lane, sz * outer, cautious, patrolOpts);
+}
+
+/**
+ * * Random wander anywhere on the Backrooms square floor (not the Classic annulus).
+ */
+function pickBackroomsWanderTarget(cautious) {
+  const arenaHalf = _levelHazards.arenaHalf ?? 34;
+  const inset = cautious ? 6.0 : 3.0;
+  const span = Math.max(1, (arenaHalf - inset) * 2);
+  const outX = -arenaHalf + inset + Math.random() * span;
+  const outZ = -arenaHalf + inset + Math.random() * span;
+  return clampBackroomsAiTarget(outX, outZ, cautious);
+}
+
+/**
  * * Clamps a target point into a safe annulus — tighter band during cautious phase.
  */
 function clampAiTargetAwayFromHazards(x, z, cautious) {
+  if (_levelHazards?.arenaHalf != null) {
+    return clampBackroomsAiTarget(x, z, cautious);
+  }
+
   const dist = Math.hypot(x, z);
   let angle = dist > 1e-3 ? Math.atan2(z, x) : Math.random() * Math.PI * 2;
   const innerLimit = cautious
@@ -652,6 +1052,9 @@ function clampAiTargetAwayFromHazards(x, z, cautious) {
     const pushed = pushPointOutOfSquareHoles(outX, outZ, cautious ? 1.0 : 0.4);
     outX = pushed.x;
     outZ = pushed.z;
+    const kept = pushPointOutOfCircularKeepOuts(outX, outZ, cautious ? 0.8 : 0.3);
+    outX = kept.x;
+    outZ = kept.z;
   }
   return { x: outX, z: outZ };
 }
@@ -674,14 +1077,22 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots) {
     }
   }
   if (!nearestPos) return null;
-  const jitter = 1.8;
+  const jitter = _levelHazards?.arenaHalf != null ? 0.5 : 1.8;
   return {
     x: nearestPos.x + (Math.random() - 0.5) * jitter,
     z: nearestPos.z + (Math.random() - 0.5) * jitter,
   };
 }
 
-function pickAiPatrolTarget(cautious = false) {
+function pickAiPatrolTarget(cautious = false, slotIndex = 0) {
+  if (_levelHazards?.arenaHalf != null) {
+    // * Heavy corner-gutter bias — sweep hide pockets even when not chasing a human.
+    if (Math.random() < 0.84) {
+      return pickBackroomsCornerPatrolTarget(cautious, slotIndex);
+    }
+    return pickBackroomsWanderTarget(cautious);
+  }
+
   const angle = Math.random() * Math.PI * 2;
   const r = CONFIG.record.radius * (
     cautious
@@ -691,7 +1102,20 @@ function pickAiPatrolTarget(cautious = false) {
   return clampAiTargetAwayFromHazards(Math.cos(angle) * r, Math.sin(angle) * r, cautious);
 }
 
-function pickAiRandomWanderTarget(fromPos, cautious) {
+function pickAiRandomWanderTarget(fromPos, cautious, slotIndex = 0) {
+  if (_levelHazards?.arenaHalf != null) {
+    if (cautious) {
+      if (Math.random() < 0.65) return pickBackroomsCornerPatrolTarget(true, slotIndex);
+      return pickBackroomsWanderTarget(true);
+    }
+    const dist = Math.max(Math.abs(fromPos.x), Math.abs(fromPos.z));
+    const arenaHalf = _levelHazards.arenaHalf;
+    if (dist > arenaHalf * 0.38 || Math.random() < 0.7) {
+      return pickBackroomsCornerPatrolTarget(false, slotIndex);
+    }
+    return pickBackroomsWanderTarget(false);
+  }
+
   if (cautious) {
     const minR = CONFIG.record.innerRadius * 2.5;
     const maxR = CONFIG.record.radius * 0.65;
@@ -733,24 +1157,39 @@ function ensureAiBehaviorState(cart) {
  * @param {object[]|null} allCarts All slot carts.
  * @param {object[]|null} netSlots Network slot metadata.
  * @param {number} nowMs Current time in milliseconds.
+ * @param {number} [slotIndex] Cart slot for corner-sweep variety.
  * @returns {{ x: number, z: number }}
  */
-export function pickAiTarget(fromPos, allCarts, netSlots, nowMs) {
+function pickAiTarget(fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   const cautious = isAiCautiousPhase(nowMs, allCarts, netSlots);
   const humanTarget = findNearestHumanTarget(fromPos, allCarts, netSlots);
   const roll = Math.random();
 
   // * Weighted mix: humans, outer-ring patrol, random wander.
-  const humanWeight = cautious ? 0.38 : 0.42;
-  const patrolWeight = cautious ? 0.18 : 0.30;
+  let humanWeight = cautious ? 0.38 : 0.42;
+  let patrolWeight = cautious ? 0.18 : 0.30;
+
+  // * Backrooms: patrol corners aggressively; chase when a human is up.
+  if (_levelHazards?.arenaHalf != null) {
+    if (humanTarget && !cautious) {
+      humanWeight = 0.5;
+      patrolWeight = 0.32;
+    } else if (!cautious) {
+      humanWeight = 0.1;
+      patrolWeight = 0.62;
+    }
+  }
 
   if (roll < humanWeight && humanTarget) {
+    if (_levelHazards?.arenaHalf != null) {
+      return routeBackroomsChaseTarget(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, cautious);
+    }
     return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious);
   }
   if (roll < humanWeight + patrolWeight) {
-    return pickAiPatrolTarget(cautious);
+    return pickAiPatrolTarget(cautious, slotIndex);
   }
-  return pickAiRandomWanderTarget(fromPos, cautious);
+  return pickAiRandomWanderTarget(fromPos, cautious, slotIndex);
 }
 
 /**
@@ -771,15 +1210,48 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   }
 
   const p = cart.body.translation();
+
+  // * Backrooms: re-route every frame if the current target line crosses a void.
+  if (_levelHazards?.arenaHalf != null) {
+    const { cheb, hole } = nearestSquareHole(p.x, p.z);
+    const lip = squareHoleKeepOutRadius(0);
+    const targetX = cart.aiTarget?.x ?? p.x;
+    const targetZ = cart.aiTarget?.z ?? p.z;
+
+    if (findBlockingSquareHole(p.x, p.z, targetX, targetZ, 0.28)) {
+      const routed = routeBackroomsChaseTarget(p.x, p.z, targetX, targetZ, false);
+      cart.aiTarget.x = routed.x;
+      cart.aiTarget.z = routed.z;
+    }
+
+    const lv = cart.body.linvel();
+    const speed = Math.hypot(lv.x, lv.z);
+    if (cheb < lip + 1.35 && (speed > 0.35 || cheb < lip + 0.5)) {
+      const toHoleX = hole.x - p.x;
+      const toHoleZ = hole.z - p.z;
+      const toHoleLen = Math.hypot(toHoleX, toHoleZ) || 1;
+      const towardHole = (lv.x * toHoleX + lv.z * toHoleZ) / (Math.max(speed, 0.35) * toHoleLen);
+      if (towardHole > 0.12 || isInsideSquareHoleZone(p.x, p.z, 0.05) || cheb < lip + 0.45) {
+        cart.aiReverseUntilMs = now + (750 + Math.random() * 400);
+        const escape = gutterWaypointAroundHole(hole, targetX, targetZ, false);
+        cart.aiTarget.x = escape.x;
+        cart.aiTarget.z = escape.z;
+      }
+    }
+  }
+
+  const slotIndex = cart.slotIndex || 0;
+  const onBackrooms = _levelHazards?.arenaHalf != null;
+
   if (now >= cart.aiNextDecisionMs) {
-    cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now);
-    cart.aiNextDecisionMs = now + (800 + Math.random() * 1200);
+    cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
+    cart.aiNextDecisionMs = now + (onBackrooms ? 520 + Math.random() * 520 : 800 + Math.random() * 1200);
     cart.aiSteerGain = 1.0 + Math.random() * 0.5;
     cart.aiLastProgressMs = now;
     cart.aiLastDistToTarget = Infinity;
 
     // * Random short stop to break up constant circling.
-    if (Math.random() < 0.14) {
+    if (Math.random() < (onBackrooms ? 0.07 : 0.14)) {
       cart.aiPauseUntilMs = now + (500 + Math.random() * 1000);
       return { forward: 0, turn: 0 };
     }
@@ -789,8 +1261,8 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   const distToTarget = Math.sqrt(toTarget.lengthSq());
 
   if (distToTarget < 0.5) {
-    cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now);
-    cart.aiNextDecisionMs = now + (800 + Math.random() * 1200);
+    cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
+    cart.aiNextDecisionMs = now + (onBackrooms ? 520 + Math.random() * 520 : 800 + Math.random() * 1200);
     cart.aiLastProgressMs = now;
     toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
   }
@@ -807,10 +1279,12 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   const isClose = distToTarget < 2.8;
 
   if (now >= cart.aiReverseUntilMs && (isStuck || isClose)) {
-    const reverseChance = isStuck ? 0.2 : 0.12;
+    const reverseChance = isStuck
+      ? (stuckForMs > 2500 ? 0.85 : 0.45)
+      : 0.12;
     if (Math.random() < reverseChance) {
       cart.aiReverseUntilMs = now + (450 + Math.random() * 650);
-      cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now);
+      cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
   }
@@ -822,7 +1296,8 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   // * Square-void levels (Backrooms): steer the heading away from nearby corner holes.
   if (_levelHazards) {
-    applySquareHoleAvoidance(p.x, p.z, toTarget);
+    applySquareHoleAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
+    applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
   }
 
   const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
@@ -840,8 +1315,19 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     };
   }
 
-  // * Gentle correction only — no constant hard reverse on wide headings.
-  const forward = Math.abs(yawDiff) > 2.85 ? 0.25 : 1;
+  // * Backrooms: ease off the throttle when bearing down on a void lip.
+  let forward = Math.abs(yawDiff) > 2.85 ? 0.25 : 1;
+  if (onBackrooms) {
+    const { cheb } = nearestSquareHole(p.x, p.z);
+    const lip = squareHoleKeepOutRadius(0);
+    if (cheb < lip + 1.9) {
+      const t = clamp((lip + 1.9 - cheb) / 1.9, 0, 1);
+      forward *= 1 - t * 0.88;
+    }
+    if (cheb < lip + 0.55) {
+      forward = Math.min(forward, 0.12);
+    }
+  }
   return { forward, turn };
 }
 

@@ -4,7 +4,7 @@ import { initClassicRecord } from "./classicRecord.js";
 import { initBackroomsSupermarket } from "./backroomsSupermarket.js";
 
 export const LEVEL_STORAGE_KEY = "cartRaveLevel";
-export const DEFAULT_LEVEL_ID = "classicRecord";
+const DEFAULT_LEVEL_ID = "classicRecord";
 
 const LEVEL_INIT = {
   classicRecord: initClassicRecord,

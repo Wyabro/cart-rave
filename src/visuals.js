@@ -1,9 +1,9 @@
 // visuals.js — cart visual updates + misc visual helpers
 
 import * as THREE from "three";
-import { updateCartVisuals as _updateCartVisuals, resetCartVisualState as _resetCartVisualState } from "./cart.js";
+import { resetCartVisualState as _resetCartVisualState } from "./cart.js";
 
-export { _updateCartVisuals as updateCartVisuals, _resetCartVisualState as resetCartVisualState };
+export { _resetCartVisualState as resetCartVisualState };
 
 /**
  * Removes and disposes every ram-boost streak (e.g. between-round reset).
@@ -40,7 +40,7 @@ export function disposeAllRamBoostStreaks(streaks, scene) {
 
 const _v = new THREE.Vector3();
 
-export function updateAmbientParticles(geometry, count, radius, height, drift, dt, nowMs) {
+function updateAmbientParticles(geometry, count, radius, height, drift, dt, nowMs) {
   const positions = geometry.attributes.position.array;
   const nowSec = nowMs * 0.001;
 

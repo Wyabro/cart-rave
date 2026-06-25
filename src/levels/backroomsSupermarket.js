@@ -1625,9 +1625,12 @@ export function initBackroomsSupermarket(scene, world, config) {
     aiHazards: {
       squareHoles: HOLE_CENTERS.map((h) => ({ x: h.x, z: h.z })),
       half: HOLE_HALF,
+      holeCenter: HOLE_CENTER,
       arenaHalf: ARENA_HALF,
-      avoidMargin: 2.4,
-      influenceBand: 6.5,
+      avoidMargin: 1.15, // * lip clearance only — wide margins made NPCs shun whole corners
+      influenceBand: 1.5, // * steer repulsion tight to the void lip; gutter lanes stay open
+      // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
+      circularKeepOuts: [{ x: 0, z: 0, radius: 4.0, margin: 2.0 }],
     },
     update: furnitureSpotlight.update,
     dispose,

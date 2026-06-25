@@ -16,7 +16,7 @@
  */
 
 /** @type {string} Bump when physics or net tuning changes materially. */
-export const CONFIG_VERSION = "2026.06.22";
+const CONFIG_VERSION = "2026.06.22";
 
 const physics = {
   gravity: -24, // m/s² — world Y acceleration
@@ -181,6 +181,13 @@ const physics = {
   fall: {
     yThreshold: -10, // meters — Y below arena triggers fall state
     respawnDelayMs: 600, // ms — visible fall before respawn
+    // * Host-only anti-wedge safeguard — no score / kill feed (geometry trap workaround).
+    stuck: {
+      respawnMs: 10000, // ms — idle on arena before booth respawn
+      positionRadiusM: 0.45, // meters — XZ movement that resets the idle timer
+      maxPlanarSpeedMps: 0.65, // m/s — must stay below this to count as stuck
+      unstickAfterMs: 2000, // ms — earlier physics nudge before forced respawn
+    },
   },
 
   booth: {
@@ -361,8 +368,6 @@ export const CART_COLORS = {
 };
 
 export const PALETTE = Object.keys(CART_COLORS);
-
-export { NPC_NAME_POOL } from "./npcNames.js";
 
 export const MSG = {
   join: "join",

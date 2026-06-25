@@ -12,6 +12,7 @@
  * @property {() => number} getLocalSlotIndex
  * @property {() => object | null} getLocalCart
  * @property {(cart: object, now: number) => void} scheduleRespawn
+ * @property {(cart: object) => void} scheduleStuckRespawn
  * @property {(cart: object) => void} doRespawn
  * @property {(nowMs: number, npc: object) => void} maybeTriggerNpcOpportunisticRamBoost
  * @property {() => void} endRound
@@ -68,6 +69,46 @@ function calculateFallScore(deps, slotIndex, p, nowMs) {
 
   const verb = deps.hud?.pickKillFeedVerb ? deps.hud.pickKillFeedVerb(hit) : "RAMMED";
   return { isKill: true, points, attackerSlot: hit.attackerSlotIndex, verb };
+}
+
+/**
+ * Host-only idle watchdog — respawns carts wedged in geometry with no score penalty.
+ *
+ * @param {GameFlowDeps} deps
+ * @param {number} nowMs performance.now() from the frame loop
+ * @param {object} cart
+ * @param {{ x: number, y: number, z: number }} pos body translation
+ */
+function updateCartIdleWatch(deps, nowMs, cart, pos) {
+  const stuckCfg = deps.CONFIG.fall?.stuck;
+  if (!stuckCfg) return;
+
+  // * Booth deck — players may idle before jumping; not a geometry wedge.
+  if (pos.y > deps.CONFIG.booth.platformY - 1.0) {
+    cart.idleAnchorX = pos.x;
+    cart.idleAnchorZ = pos.z;
+    cart.idleStillSinceMs = nowMs;
+    return;
+  }
+
+  const lv = cart.body.linvel();
+  const planarSpeed = Math.hypot(lv.x, lv.z);
+  const moved = Math.hypot(pos.x - cart.idleAnchorX, pos.z - cart.idleAnchorZ);
+
+  if (planarSpeed > stuckCfg.maxPlanarSpeedMps || moved > stuckCfg.positionRadiusM) {
+    cart.idleAnchorX = pos.x;
+    cart.idleAnchorZ = pos.z;
+    cart.idleStillSinceMs = nowMs;
+    return;
+  }
+
+  if (!cart.idleStillSinceMs) {
+    cart.idleStillSinceMs = nowMs;
+  }
+
+  if (nowMs - cart.idleStillSinceMs >= stuckCfg.respawnMs) {
+    deps.scheduleStuckRespawn(cart);
+  }
 }
 
 /**
@@ -144,6 +185,8 @@ export function updateGameFlow(deps, context) {
 
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
           deps.doRespawn(cart);
+        } else if (cart.respawnAtMs === null) {
+          updateCartIdleWatch(deps, now, cart, p);
         }
 
         if (slot.kind === "npc") {

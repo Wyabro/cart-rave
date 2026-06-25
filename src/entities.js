@@ -9,8 +9,8 @@ import * as Netcode from "./netcode.js";
 import { applyCartMassPropertiesOverride } from "./simulation.js";
 
 // Module-level references
-export let allCartsRef = null;
-export const colliderHandleToCart = new Map();
+let allCartsRef = null;
+const colliderHandleToCart = new Map();
 
 let sceneRef = null;
 let worldRef = null;
@@ -32,7 +32,7 @@ function quatFromYaw(yaw) {
  * @param {object | null | undefined} cart
  * @returns {void}
  */
-export function copyBodyPoseToCartPrev(cart) {
+function copyBodyPoseToCartPrev(cart) {
   if (!cart?.body || !cart.prevPosition || !cart.prevRotation) return;
   const p = cart.body.translation();
   const r = cart.body.rotation();
@@ -56,7 +56,7 @@ export function captureCartsPhysicsPrevPoses(allCarts) {
   }
 }
 
-export function buildCartMaterialCache(cartMesh) {
+function buildCartMaterialCache(cartMesh) {
   const frameMats = [];
   const frameGlowMats = [];
   const seen = new Set();
@@ -200,7 +200,7 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  * }} params
  * @returns {object}
  */
-export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) {
+function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) {
   const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
   const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color);
 
@@ -236,7 +236,25 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
     lastRamTimeMs: 0,
     aiNextDecisionMs: 0,
     aiTarget: { x: 0, z: 0 },
+    idleAnchorX: spawnFrozen.x,
+    idleAnchorZ: spawnFrozen.z,
+    idleStillSinceMs: 0,
+    unstickStillSinceMs: 0,
   };
+}
+
+/**
+ * Resets idle / geometry-unstick tracking after teleport or booth respawn.
+ *
+ * @param {ReturnType<typeof createCart> | null | undefined} cart
+ */
+export function resetCartIdleWatch(cart) {
+  if (!cart?.body) return;
+  const p = cart.body.translation();
+  cart.idleAnchorX = p.x;
+  cart.idleAnchorZ = p.z;
+  cart.idleStillSinceMs = 0;
+  cart.unstickStillSinceMs = 0;
 }
 
 /**
@@ -333,6 +351,7 @@ export function doRespawn(cart) {
   cart.pendingRam = null;
   cart.ramBoostActiveUntilMs = 0;
   cart.ramBoostStreakCarry = 0;
+  resetCartIdleWatch(cart);
   if (cart.mesh) {
     Visuals.resetCartVisualState(cart.mesh);
   }
@@ -342,7 +361,7 @@ export function doRespawn(cart) {
  * @param {number} slotIndex
  * @returns {{ x: number, y: number, z: number }}
  */
-export function spawnOnRingForSlot(slotIndex) {
+function spawnOnRingForSlot(slotIndex) {
   const ringR = CONFIG.cart.spawnRingRadius;
   const angle = (slotIndex * Math.PI) / 2;
   return {
@@ -374,6 +393,7 @@ export function rematchResetWorld() {
     cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
     cart.aiNextDecisionMs = 0;
     cart.aiTarget = { x: 0, z: 0 };
+    resetCartIdleWatch(cart);
     if (cart.mesh) {
       Visuals.resetCartVisualState(cart.mesh);
     }

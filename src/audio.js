@@ -216,12 +216,6 @@ function clearGameMusicPauseTimers() {
   gameMusicPauseTimers = [];
 }
 
-/** @returns {void} */
-export function clearAudioRefs() {
-  _sfx = null;
-  _leaderHum = null;
-}
-
 /**
  * * Wires live audio subsystems into this delegation layer.
  * @param {{ sfx?: object, leaderHum?: object }} refs
@@ -340,7 +334,7 @@ function advanceGameMusicTrack() {
 }
 
 /** @returns {void} */
-export function tryStartMenuMusic() {
+function tryStartMenuMusic() {
   if (!menuMusicEl || menuMusicStarted || !devAllowsAutoplayMusic()) return;
   if (_getIsMuted?.()) return;
   if (_getMenuVisible && !_getMenuVisible()) return;
@@ -370,7 +364,7 @@ export function tryStartMenuMusic() {
 }
 
 /** @returns {void} */
-export function stopMenuMusic() {
+function stopMenuMusic() {
   if (!menuMusicEl) return;
   if (menuMusicGain && _ctx) {
     menuMusicGain.gain.cancelScheduledValues(_ctx.currentTime);
@@ -459,44 +453,6 @@ export function fadeInGameMusic() {
   if (!gameMusicUrls.length) return;
   if (activeTrackIndex < 0) activeTrackIndex = 0;
   startGameMusic();
-}
-
-/**
- * Stops all music, cancels fade loops, and releases HTML audio elements.
- * @returns {void}
- */
-export function destroyMusic() {
-  clearGameMusicPauseTimers();
-  if (menuMusicEl) {
-    menuMusicEl.pause();
-    menuMusicEl.src = "";
-  }
-  gameMusicElements.forEach((a) => {
-    if (a) {
-      a.pause();
-      a.src = "";
-    }
-  });
-  try { menuMusicSource?.disconnect(); } catch {}
-  try { menuMusicGain?.disconnect(); } catch {}
-  gameMusicSources.forEach((s) => { try { s?.disconnect(); } catch {} });
-  gameMusicGains.forEach((g) => { try { g?.disconnect(); } catch {} });
-
-  menuMusicEl = null;
-  menuMusicSource = null;
-  menuMusicGain = null;
-  gameMusicElements = [];
-  gameMusicSources = [];
-  gameMusicGains = [];
-  gameMusicUrls = [];
-  gameMusicElementsCreated = false;
-  menuMusicStarted = false;
-  gameMusicStarted = false;
-  musicUnavailable = false;
-  musicInitialized = false;
-  webAudioWired = false;
-  gameMusicErrorSkips = 0;
-  activeTrackIndex = -1;
 }
 
 /**

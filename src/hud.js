@@ -14,7 +14,34 @@ import {
   scheduleKillFeedExit,
   wireButtonPressFeedback,
 } from "./animations.js";
-import { applyHudScoreBoxGlow } from "./customization.js";
+import { resolveCartNeonCss } from "./customization.js";
+
+/**
+ * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
+ *
+ * @param {HTMLElement | null | undefined} box
+ * @param {{ color?: string, kind?: string, connId?: string, lookHex?: number | null } | null | undefined} slot
+ * @param {string | null | undefined} youConnId
+ */
+function applyHudScoreBoxGlow(box, slot, youConnId) {
+  if (!box) return;
+
+  if (!slot?.color && !slot?.lookHex) {
+    if (box.dataset.hudColor !== "") {
+      box.style.removeProperty("--hud-glow");
+      delete box.dataset.hudColor;
+    }
+    return;
+  }
+
+  const cssHex = resolveCartNeonCss(slot, { youConnId });
+  const currentGlow = box.style.getPropertyValue("--hud-glow");
+
+  if (currentGlow !== cssHex) {
+    box.style.setProperty("--hud-glow", cssHex);
+    box.dataset.hudColor = "custom";
+  }
+}
 
 let _options = {};
 

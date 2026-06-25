@@ -142,10 +142,4 @@ export function getAxis() {
   return keyboard;
 }
 
-export {
-  setupTouchControls,
-  setTouchControlsVisible,
-  resetTouchControls,
-  syncTouchLayout,
-  flashBoostActivate,
-};
+export { setupTouchControls, setTouchControlsVisible };

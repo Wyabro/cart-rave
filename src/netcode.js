@@ -204,32 +204,23 @@ export function setRefs(refs) {
   if (refs.resetSimTimingRef !== undefined) resetSimTimingRef = refs.resetSimTimingRef;
 }
 
-export function setNetSlots(slots) {
-  netSlots = slots;
-}
-
 export function getYouConnId() { return youConnId; }
 export function getIsHost() { return isHost; }
-export function getHostId() { return hostId; }
 export function getNetSlots() { return netSlots; }
 export function getRemoteInputsByConnId() { return remoteInputsByConnId; }
 export function getHostMigrationFreezeUntilMs() { return hostMigrationFreezeUntilMs; }
 export function getServerClockOffsetMs() { return serverClockOffsetMs; }
-export function getNetStateBuffer() { return netStateBuffer; }
-export function getHostEpoch() { return hostEpoch; }
 export function getSkipNextPhysicsStep() { return skipNextPhysicsStep; }
 export function setSkipNextPhysicsStep(val) { skipNextPhysicsStep = val; }
-export function getLastCartsCache() { return lastCartsCache; }
 export function getPartySocket() { return partySocket; }
 
-// Loop timers for main.js compatibility
+// * Public integration getters — main.js / gameLoop bridge only need these timer checks.
 export function getHostSendTimer() { return hostSendTimer; }
-export function getInputSendTimer() { return inputSendTimer; }
-export function getKeepaliveTimer() { return keepaliveTimer; }
 
 // === CONNECTION & SOCKET ===
 
-export function partyHostFromWindowLocation() {
+// * Local dev vs production PartyKit host — internal to initNetcode only.
+function partyHostFromWindowLocation() {
   const hostname = window.location.hostname;
   const isLocal =
     hostname === "localhost" ||
@@ -247,7 +238,7 @@ export function resolvedPartyRoomFromUrl() {
   return /^[A-Za-z0-9]{2,16}$/.test(raw) ? raw : "quickplay";
 }
 
-export function clamp(value, min, max) {
+function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
@@ -268,7 +259,7 @@ export function shouldUseClientPrediction() {
 // === INTERPOLATION & REMOTE CARTS ===
 
 /** Server clock time used for interpolating authoritative snapshots on non-host clients. */
-export function getInterpTargetServerNowMs() {
+function getInterpTargetServerNowMs() {
   return Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
 }
 
@@ -664,7 +655,7 @@ export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
   }
 }
 
-export function applyCartsSnapshotToBodies(carts) {
+function applyCartsSnapshotToBodies(carts) {
   const allCarts = getAllCarts();
   if (!allCarts) return;
   for (let i = 0; i < allCarts.length; i++) {
@@ -689,7 +680,7 @@ export function applyCartsSnapshotToBodies(carts) {
  * @param {Array<object>|Record<string, object>} carts Per-slot transform snapshot (array preferred).
  * @param {number} epoch Host epoch (increments on host migration).
  */
-export function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
+function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
   if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
   if (!carts || typeof carts !== "object") return;
 

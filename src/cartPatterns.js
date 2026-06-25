@@ -26,7 +26,7 @@ import {
   normalizePatternId,
 } from "./cartPatternConfig.js";
 
-export { CART_PATTERN_IDS, CART_PATTERNS, DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
+export { CART_PATTERN_IDS, DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
 
 /** @typedef {import("./cartPatternConfig.js").CartPatternId} CartPatternId */
 

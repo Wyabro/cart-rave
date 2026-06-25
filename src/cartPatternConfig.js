@@ -11,7 +11,7 @@ export const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves
 export const DEFAULT_CART_PATTERN = "classic";
 
 /** @type {Record<CartPatternId, { label: string, description: string }>} */
-export const CART_PATTERNS = {
+const CART_PATTERNS = {
   classic: { label: "Classic", description: "Solid neon grid" },
   stripes: { label: "Stripes", description: "Diagonal dark stripes" },
   checker: { label: "Checker", description: "Dark checker mask" },

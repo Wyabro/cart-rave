@@ -5,7 +5,7 @@
  * @readonly
  * @enum {string}
  */
-export const RoundPhase = {
+const RoundPhase = {
   LOBBY: "lobby",
   COUNTDOWN: "countdown",
   RUNNING: "running",
@@ -55,14 +55,14 @@ export function setRoundPhase(phase) {
 }
 
 /** Begin the 60s running phase; resets scores and hit tracking. */
-export function startRunning() {
+function startRunning() {
   roundPhase = RoundPhase.RUNNING;
   roundStartedAtMs = Date.now();
   _resetRoundBase();
 }
 
 /** Begin the pre-round countdown; resets scores and hit tracking. */
-export function startCountdown() {
+function startCountdown() {
   roundPhase = RoundPhase.COUNTDOWN;
   roundCountdownStartedAtMs = Date.now();
   roundStartedAtMs = 0;
@@ -73,7 +73,7 @@ export function startCountdown() {
  * Enter podium phase with an optional winner slot index (or `"draw"`).
  * @param {number | string | null} [winnerSlotIndex]
  */
-export function endRound(winnerSlotIndex = null) {
+function endRound(winnerSlotIndex = null) {
   roundPhase = RoundPhase.PODIUM;
   roundWinnerSlotIndex = winnerSlotIndex;
 }
@@ -104,14 +104,14 @@ export function recordHit(victimSlot, attackerSlotIndex, wasCritical) {
  * @param {number} victimSlot
  * @returns {{ attackerSlotIndex: number, wasCritical: boolean, timestamp: number } | null}
  */
-export function getLastHit(victimSlot) {
+function getLastHit(victimSlot) {
   return lastHitBy.get(victimSlot) || null;
 }
 
 /**
  * @param {number} victimSlot
  */
-export function clearLastHit(victimSlot) {
+function clearLastHit(victimSlot) {
   lastHitBy.delete(victimSlot);
 }
 
@@ -167,7 +167,7 @@ export function getRoundScores() {
 }
 
 /** @returns {number} Highest-scoring slot index, or -1 if none. */
-export function getRoundLeaderSlot() {
+function getRoundLeaderSlot() {
   let leaderSlot = -1;
   let leaderScore = -Infinity;
   const scores = getRoundScores();
