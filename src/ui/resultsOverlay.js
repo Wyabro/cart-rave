@@ -617,9 +617,6 @@ export function initResultsOverlay(hooks = {}) {
   mainMenuBtn.textContent = "MAIN MENU";
   mainMenuBtn.addEventListener("click", () => {
     onMainMenuClick();
-    const url = new URL(window.location.href);
-    url.searchParams.delete("room");
-    window.location.href = url.pathname;
   });
 
   actions.appendChild(playAgain);

@@ -27,6 +27,35 @@ function quatFromYaw(yaw) {
   return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
 }
 
+/**
+ * * Copies a cart body's current pose into its reusable prevPosition / prevRotation fields.
+ * @param {object | null | undefined} cart
+ * @returns {void}
+ */
+export function copyBodyPoseToCartPrev(cart) {
+  if (!cart?.body || !cart.prevPosition || !cart.prevRotation) return;
+  const p = cart.body.translation();
+  const r = cart.body.rotation();
+  cart.prevPosition.x = p.x;
+  cart.prevPosition.y = p.y;
+  cart.prevPosition.z = p.z;
+  cart.prevRotation.x = r.x;
+  cart.prevRotation.y = r.y;
+  cart.prevRotation.z = r.z;
+  cart.prevRotation.w = r.w;
+}
+
+/**
+ * * Snapshots every cart body pose before a fixed physics substep (visual interpolation).
+ * @param {Array<object | null | undefined> | null | undefined} allCarts
+ * @returns {void}
+ */
+export function captureCartsPhysicsPrevPoses(allCarts) {
+  for (const cart of allCarts || []) {
+    copyBodyPoseToCartPrev(cart);
+  }
+}
+
 export function buildCartMaterialCache(cartMesh) {
   const frameMats = [];
   const frameGlowMats = [];
@@ -179,8 +208,7 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
   applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY });
 
-  const prevPosition = body.translation();
-  const prevRotation = body.rotation();
+  const spawnQuat = quatFromYaw(spawnYaw);
 
   return {
     mesh,
@@ -196,8 +224,8 @@ export function createCart({ scene, world, color, spawn, spawnYaw, label, slotIn
     _lastNetLinvel: { x: 0, y: 0, z: 0 },
     _netTargetPos: mesh.position.clone(),
     _netTargetQuat: mesh.quaternion.clone(),
-    prevPosition,
-    prevRotation,
+    prevPosition: { x: spawnFrozen.x, y: spawnFrozen.y, z: spawnFrozen.z },
+    prevRotation: { x: spawnQuat.x, y: spawnQuat.y, z: spawnQuat.z, w: spawnQuat.w },
     lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
     ramBoostActiveUntilMs: 0,
     ramBoostStreakCarry: 0,
@@ -300,8 +328,7 @@ export function doRespawn(cart) {
   cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
-  cart.prevPosition = cart.body.translation();
-  cart.prevRotation = cart.body.rotation();
+  copyBodyPoseToCartPrev(cart);
   cart.respawnAtMs = null;
   cart.pendingRam = null;
   cart.ramBoostActiveUntilMs = 0;
@@ -339,8 +366,7 @@ export function rematchResetWorld() {
     cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
     cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    cart.prevPosition = cart.body.translation();
-    cart.prevRotation = cart.body.rotation();
+    copyBodyPoseToCartPrev(cart);
     cart.respawnAtMs = null;
     cart.pendingRam = null;
     cart.ramBoostActiveUntilMs = 0;

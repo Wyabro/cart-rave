@@ -1090,14 +1090,17 @@ import {
   async function playMenuEntrance() {
     const token = ++menuEntranceToken;
     const Anim = await loadMenuAnimations();
-    if (!Anim || token !== menuEntranceToken || !root) return;
-
-    setMenuEntrancePending(true);
+    if (!Anim || token !== menuEntranceToken || !root) {
+      setMenuEntrancePending(false);
+      return;
+    }
 
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
       setMenuEntrancePending(false);
       return;
     }
+
+    setMenuEntrancePending(true);
 
     const STAGGER = 46;
     let t = 0;
@@ -1146,7 +1149,6 @@ import {
   }
 
   // ─── Init ─────────────────────────────────────────────────────────────────
-  root?.classList.add("cr-menu-enter-pending");
   document.addEventListener("pointerdown", function startMenuAudio() {
     if (typeof window.__cartRaveTryStartMenuMusic === "function") {
       window.__cartRaveTryStartMenuMusic();
@@ -1221,6 +1223,19 @@ import {
       }
       wireAllMenuPressFeedback();
       playMenuEntrance();
+      startMenuAnimations();
+    },
+    /** Shows menu shell without entrance animation (quit-to-menu, post-bootstrap). */
+    revealShell() {
+      if (root) {
+        root.style.display = '';
+        root.style.opacity = '1';
+        root.style.pointerEvents = '';
+        root.removeAttribute('aria-hidden');
+        root.classList.remove('cr-menu-enter-pending');
+      }
+      setMenuEntrancePending(false);
+      wireAllMenuPressFeedback();
       startMenuAnimations();
     },
     wireMenuButton(btn, entranceOptions) {

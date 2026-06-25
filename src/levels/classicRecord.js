@@ -11,6 +11,6 @@ import { initArena } from "../arena.js";
  * @param {object} config Full game CONFIG (record, booth, debug sections).
  * @returns {ReturnType<typeof initArena>}
  */
-export function initClassicRecord(scene, world, config) {
-  return initArena(scene, world, config);
+export function initClassicRecord(scene, world, config, options = {}) {
+  return initArena(scene, world, config, options);
 }

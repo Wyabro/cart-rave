@@ -1,5 +1,7 @@
 // gameLoop.js — requestAnimationFrame timing shell (fixed-timestep accumulator)
 
+import { captureCartsPhysicsPrevPoses } from "./entities.js";
+
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
 /** @type {object[] | null} */
@@ -25,7 +27,7 @@ function resolveNpcCarts(allCarts, slots) {
 
 /** @typedef {{ lastT: number, accumulator: number, simFrameIndex: number }} GameLoopState */
 
-/** @typedef {{ now: number, dt: number, loopState: GameLoopState }} FrameContext */
+/** @typedef {{ now: number, dt: number, loopState: GameLoopState, physicsAlpha?: number | null }} FrameContext */
 
 /**
  * @typedef {object} SlowMoDeps
@@ -111,6 +113,7 @@ export function runPhysicsStep(loopState, deps, context) {
           continue;
         }
 
+        captureCartsPhysicsPrevPoses(deps.getAllCartsRef());
         deps.runFixedPhysicsStep({
           world: deps.world,
           eventQueue: deps.eventQueue,
@@ -159,6 +162,7 @@ export function runPhysicsStep(loopState, deps, context) {
       // 3. Prediction: step Rapier locally with the player's input (instant feel).
       if (deps.getRoundState().phase === "running") {
         while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
+          captureCartsPhysicsPrevPoses(deps.getAllCartsRef());
           deps.runFixedPhysicsStep({
             world: deps.world,
             eventQueue: deps.eventQueue,

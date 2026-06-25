@@ -569,10 +569,14 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
 export function disposeSceneExtras(extras) {
   if (!extras || extras.disposed) return;
   extras.disposed = true;
-  for (const root of extras.sceneRoots) extras.scene.remove(root);
-  for (const item of extras.disposables) {
-    if (item && typeof item.dispose === "function") item.dispose();
+  if (Array.isArray(extras.sceneRoots) && extras.scene) {
+    for (const root of extras.sceneRoots) extras.scene.remove(root);
+    extras.sceneRoots.length = 0;
   }
-  extras.sceneRoots.length = 0;
-  extras.disposables.length = 0;
+  if (Array.isArray(extras.disposables)) {
+    for (const item of extras.disposables) {
+      if (item && typeof item.dispose === "function") item.dispose();
+    }
+    extras.disposables.length = 0;
+  }
 }

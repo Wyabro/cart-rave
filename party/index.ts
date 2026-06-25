@@ -113,6 +113,69 @@ const RATE_LIMIT_MAX_PER_SEC = 50;
 const RATE_LIMIT_WINDOW_MS = 1_000;
 const ALLOWED_FALL_VERBS = new Set(["RAMMED", "YEETED", "BOOSTED OFF", "FELL OFF"]);
 
+type CollisionFxEvent = {
+  slotA: number;
+  slotB: number;
+  intensity: number;
+  midpoint: { x: number; y: number; z: number } | null;
+  rammerSlot?: number;
+  isBoosting?: boolean;
+};
+
+/** @param {unknown} mp */
+function validateCollisionMidpoint(mp: unknown): { x: number; y: number; z: number } | null {
+  if (!mp || typeof mp !== "object") return null;
+  const x = (mp as { x?: unknown }).x;
+  const y = (mp as { y?: unknown }).y;
+  const z = (mp as { z?: unknown }).z;
+  if (typeof x !== "number" || !Number.isFinite(x) || x < -500 || x > 500) return null;
+  if (typeof y !== "number" || !Number.isFinite(y) || y < -500 || y > 501) return null;
+  if (typeof z !== "number" || !Number.isFinite(z) || z < -500 || z > 500) return null;
+  return { x, y, z };
+}
+
+/** @param {unknown} n */
+function validateCollisionSlot(n: unknown): number | null {
+  if (typeof n !== "number" || !Number.isInteger(n) || n < -3 || n > 3) return null;
+  return n;
+}
+
+/** @param {unknown} raw */
+function sanitizeCollisionBatch(raw: unknown): CollisionFxEvent[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CollisionFxEvent[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < raw.length && out.length < 12; i += 1) {
+    const ev = raw[i];
+    if (!ev || typeof ev !== "object") continue;
+    const slotA = validateCollisionSlot((ev as { slotA?: unknown }).slotA);
+    const slotB = validateCollisionSlot((ev as { slotB?: unknown }).slotB);
+    if (slotA === null || slotB === null) continue;
+    const intensity = (ev as { intensity?: unknown }).intensity;
+    if (typeof intensity !== "number" || !Number.isFinite(intensity) || intensity < 0 || intensity > 2) {
+      continue;
+    }
+    const key = `${Math.min(slotA, slotB)}|${Math.max(slotA, slotB)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const entry: CollisionFxEvent = {
+      slotA,
+      slotB,
+      intensity,
+      midpoint: validateCollisionMidpoint((ev as { midpoint?: unknown }).midpoint),
+    };
+    const rammerSlot = validateCollisionSlot((ev as { rammerSlot?: unknown }).rammerSlot);
+    if (rammerSlot !== null && rammerSlot >= 0 && rammerSlot <= 3) {
+      entry.rammerSlot = rammerSlot;
+    }
+    if ((ev as { isBoosting?: unknown }).isBoosting === true) {
+      entry.isBoosting = true;
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
 // * Activity-based connection reaper thresholds. PartyKit's onClose is not
 // * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
 // * yet detected by the runtime) so we track lastSeenAtMs per connection and
@@ -1143,6 +1206,8 @@ export default class Server implements Party.Server {
         }
       }
 
+      const sanitizedCollisions = sanitizeCollisionBatch(data?.collisions);
+
       // Relay authoritative state to all clients (including host for confirmation).
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
@@ -1151,6 +1216,7 @@ export default class Server implements Party.Server {
         seq: this.#lastSeq,
         tHost: typeof data?.tHost === "number" ? data.tHost : null,
         carts: this.#safeStructuredClone(this.#carts),
+        ...(sanitizedCollisions.length > 0 ? { collisions: sanitizedCollisions } : {}),
       });
       return;
     }
@@ -1168,14 +1234,29 @@ export default class Server implements Party.Server {
 
     if (type === MSG.hostEventCollision) {
       if (conn.id !== this.#hostId) return;
+      const slotA = validateCollisionSlot(data?.slotA);
+      const slotB = validateCollisionSlot(data?.slotB);
+      const intensity = data?.intensity;
+      if (slotA === null || slotB === null) return;
+      if (typeof intensity !== "number" || !Number.isFinite(intensity) || intensity < 0 || intensity > 2) return;
+      const payload: CollisionFxEvent = {
+        slotA,
+        slotB,
+        intensity,
+        midpoint: validateCollisionMidpoint(data?.midpoint),
+      };
+      const rammerSlot = validateCollisionSlot(data?.rammerSlot);
+      if (rammerSlot !== null && rammerSlot >= 0 && rammerSlot <= 3) {
+        payload.rammerSlot = rammerSlot;
+      }
+      if (data?.isBoosting === true) {
+        payload.isBoosting = true;
+      }
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.hostEventCollision,
         serverNowMs: this.#serverNowMs(),
-        slotA: data?.slotA ?? null,
-        slotB: data?.slotB ?? null,
-        intensity: data?.intensity ?? 0,
-        midpoint: data?.midpoint ?? null,
+        ...payload,
       });
       return;
     }

@@ -4,6 +4,7 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { CONFIG, BASELINE_CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
+import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
@@ -12,6 +13,20 @@ const _quat = new THREE.Quaternion();
 const _toVictim = new THREE.Vector3();
 const _planarDir = new THREE.Vector3();
 const _colliderMap = new Map();
+const _impulse = { x: 0, y: 0, z: 0 };
+const _torqueImpulse = { x: 0, y: 0, z: 0 };
+const _pendingRamStepImpulse = { x: 0, y: 0, z: 0 };
+const _remoteAxis = { forward: 0, turn: 0 };
+const _collisionCallbacks = { localCart: null };
+const _holeOverhangState = {
+  floorInnerR: 0,
+  overhanging: false,
+  nearestEdge: 0,
+  commit: 0,
+  dirX: 0,
+  dirZ: 0,
+};
+const _envContactPos = { x: 0, y: 0, z: 0 };
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -62,11 +77,21 @@ export function yawFromQuaternion(q) {
   return Math.atan2(siny, cosy);
 }
 
+/**
+ * * Writes planar forward/right unit vectors from a yaw angle (Y-up, -Z forward at yaw 0).
+ * @param {number} yaw
+ * @param {THREE.Vector3} forward Out — mutated in place.
+ * @param {THREE.Vector3} right Out — mutated in place.
+ */
+export function setForwardRightFromYaw(yaw, forward, right) {
+  forward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+  right.crossVectors(forward, _up).normalize();
+}
+
+/** @deprecated Prefer {@link setForwardRightFromYaw} — returns module scratch vectors. */
 export function getForwardRightFromYaw(yaw) {
-  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-  const up = new THREE.Vector3(0, 1, 0);
-  const right = new THREE.Vector3().crossVectors(forward, up).normalize();
-  return { forward, right };
+  setForwardRightFromYaw(yaw, _forward, _right);
+  return { forward: _forward, right: _right };
 }
 
 export function wrapAngleRad(angle) {
@@ -134,16 +159,9 @@ function getRecordFloorInnerR() {
  * * Overhang state for center-hole response. Uses oriented footprint projection so tipped
  * * carts (V1 pitch/roll) trigger low-friction + assist only when an edge crosses the lip.
  *
- * @returns {{
- *   floorInnerR: number,
- *   overhanging: boolean,
- *   nearestEdge: number,
- *   commit: number,
- *   dirX: number,
- *   dirZ: number,
- * }}
+ * @param {object} out Reused output object — mutated in place.
  */
-function getCenterHoleOverhangState(cart, pos) {
+function writeCenterHoleOverhangState(cart, pos, out) {
   const floorInnerR = getRecordFloorInnerR();
   const posX = pos.x;
   const posZ = pos.z;
@@ -153,29 +171,27 @@ function getCenterHoleOverhangState(cart, pos) {
   const hz = CONFIG.cart.size.z / 2;
   const maxReach = hx + hz;
 
+  out.floorInnerR = floorInnerR;
+
   if (distanceFromCenter - maxReach >= floorInnerR) {
-    return {
-      floorInnerR,
-      overhanging: false,
-      nearestEdge: distanceFromCenter - maxReach,
-      commit: 0,
-      dirX: 0,
-      dirZ: 0,
-    };
+    out.overhanging = false;
+    out.nearestEdge = distanceFromCenter - maxReach;
+    out.commit = 0;
+    out.dirX = 0;
+    out.dirZ = 0;
+    return out;
   }
 
   const assistBand = CONFIG.record.holeAssist?.lowFrictionBandM ?? 1.5;
 
   // * Dead center: fully over the open hole — full assist, no radial unstick.
   if (distanceFromCenter < 1e-3) {
-    return {
-      floorInnerR,
-      overhanging: true,
-      nearestEdge: 0,
-      commit: 1,
-      dirX: 0,
-      dirZ: 0,
-    };
+    out.overhanging = true;
+    out.nearestEdge = 0;
+    out.commit = 1;
+    out.dirX = 0;
+    out.dirZ = 0;
+    return out;
   }
 
   const dirX = posX / distanceFromCenter;
@@ -191,7 +207,12 @@ function getCenterHoleOverhangState(cart, pos) {
     ? Math.max(0, Math.min(1, (floorInnerR - nearestEdge) / Math.max(assistBand, 1e-3)))
     : 0;
 
-  return { floorInnerR, overhanging, nearestEdge, commit, dirX, dirZ };
+  out.overhanging = overhanging;
+  out.nearestEdge = nearestEdge;
+  out.commit = commit;
+  out.dirX = dirX;
+  out.dirZ = dirZ;
+  return out;
 }
 
 /**
@@ -222,7 +243,11 @@ export function applyEnvironmentResponse(cart, dtFixed) {
 
   const pos = cart.body.translation();
   const collider = cart.collider;
-  const { overhanging, commit, dirX, dirZ } = getCenterHoleOverhangState(cart, pos);
+  const { overhanging, commit, dirX, dirZ } = writeCenterHoleOverhangState(
+    cart,
+    pos,
+    _holeOverhangState,
+  );
 
   if (!overhanging) {
     collider.setFriction(CONFIG.cart.friction);
@@ -240,14 +265,10 @@ export function applyEnvironmentResponse(cart, dtFixed) {
     (CONFIG.record.holeAssist?.fallThroughAccel ?? 16.0) * commit;
   const inAccel = (CONFIG.record.holeAssist?.unstickAccel ?? 32.0) * 0.3 * commit;
 
-  cart.body.applyImpulse(
-    {
-      x: dirX ? -dirX * inAccel * mass * dtFixed : 0,
-      y: -downAccel * mass * dtFixed,
-      z: dirZ ? -dirZ * inAccel * mass * dtFixed : 0,
-    },
-    true,
-  );
+  _impulse.x = dirX ? -dirX * inAccel * mass * dtFixed : 0;
+  _impulse.y = -downAccel * mass * dtFixed;
+  _impulse.z = dirZ ? -dirZ * inAccel * mass * dtFixed : 0;
+  cart.body.applyImpulse(_impulse, true);
 }
 
 /**
@@ -266,11 +287,10 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   const controlFactor = onGround ? 1 : CONFIG.driving.airControlFactor;
 
   const yaw = yawFromQuaternion(rot);
-  const { forward, right } = getForwardRightFromYaw(yaw);
+  setForwardRightFromYaw(yaw, _forward, _right);
 
-  const v = rapierToVec3(linvel);
-  const vForward = forward.dot(v);
-  const vRight = right.dot(v);
+  const vForward = _forward.x * linvel.x + _forward.y * linvel.y + _forward.z * linvel.z;
+  const vRight = _right.x * linvel.x + _right.y * linvel.y + _right.z * linvel.z;
 
   if (axis.forward !== 0 || axis.turn !== 0) {
     cart.body.wakeUp();
@@ -288,8 +308,11 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     grip *= rb.nitroGripFactor;
   }
   const dvRight = (-vRight) * grip * dtFixed;
-  const gripImpulse = right.clone().multiplyScalar(mass * dvRight);
-  cart.body.applyImpulse(vec3ToRapier(gripImpulse), true);
+  const gripMag = mass * dvRight;
+  _impulse.x = _right.x * gripMag;
+  _impulse.y = _right.y * gripMag;
+  _impulse.z = _right.z * gripMag;
+  cart.body.applyImpulse(_impulse, true);
 
   if (axis.forward !== 0) {
     let targetSpeed =
@@ -313,8 +336,11 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     const maxDeltaV = accelRate * controlFactor * dtFixed;
     const dvForward = Math.max(-maxDeltaV, Math.min(maxDeltaV, speedError));
     if (Math.abs(dvForward) > 1e-4) {
-      const driveImpulse = forward.clone().multiplyScalar(mass * dvForward);
-      cart.body.applyImpulse(vec3ToRapier(driveImpulse), true);
+      const driveMag = mass * dvForward;
+      _impulse.x = _forward.x * driveMag;
+      _impulse.y = _forward.y * driveMag;
+      _impulse.z = _forward.z * driveMag;
+      cart.body.applyImpulse(_impulse, true);
     }
   }
 
@@ -323,11 +349,13 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     const desiredYawRate = axis.turn * CONFIG.driving.tankYawRate * controlFactor;
     const yawError = desiredYawRate - av.y;
     const torqueImpulseY = yawError * CONFIG.driving.yawResponsiveness * mass * dtFixed;
-    cart.body.applyTorqueImpulse({ x: 0, y: torqueImpulseY, z: 0 }, true);
+    _torqueImpulse.x = 0;
+    _torqueImpulse.y = torqueImpulseY;
+    _torqueImpulse.z = 0;
+    cart.body.applyTorqueImpulse(_torqueImpulse, true);
 
     const speedForDrift = Math.abs(vForward);
     if (speedForDrift > 0.25) {
-      const driftDir = right.clone().multiplyScalar(axis.turn * Math.sign(vForward || 1));
       const driftMul = nitroActive && rb.nitroDriftMul != null ? rb.nitroDriftMul : 1;
       const driftMag =
         speedForDrift *
@@ -335,8 +363,13 @@ export function applyArcadeControls(cart, axis, dtFixed, nowMs) {
         driftMul *
         controlFactor *
         mass *
-        dtFixed;
-      cart.body.applyImpulse(vec3ToRapier(driftDir.multiplyScalar(driftMag)), true);
+        dtFixed *
+        axis.turn *
+        Math.sign(vForward || 1);
+      _impulse.x = _right.x * driftMag;
+      _impulse.y = _right.y * driftMag;
+      _impulse.z = _right.z * driftMag;
+      cart.body.applyImpulse(_impulse, true);
     }
   }
 
@@ -394,7 +427,6 @@ function resolveCartRamCollision(c1, c2) {
 export function applyRammingImpulse(rammer, victim, callbacks, isHost) {
   const playCollisionRef = callbacks?.playCollision;
   const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
-  const partySocket = callbacks?.partySocket;
   const rv = rammer.body.linvel();
   const speed = planarSpeed(rv);
   if (speed < CONFIG.ramming.minSpeed) return;
@@ -470,19 +502,19 @@ export function applyRammingImpulse(rammer, victim, callbacks, isHost) {
     }
   }
 
-  // Host collision event broadcast
-  if (isHost && partySocket) {
+  // Host collision FX queued for batched send on the next host_transform tick.
+  if (isHost) {
     const slotA = rammer.slotIndex;
     const slotB = victim.slotIndex;
     if (slotA >= 0 && slotB >= 0 && slotA < slotB) {
-      partySocket.send(JSON.stringify({
-        type: "host_event_collision",
-        slotA, slotB,
+      queueHostCollisionEvent({
+        slotA,
+        slotB,
         rammerSlot: rammer.slotIndex,
         isBoosting: isRammerBoosting,
         intensity: fxIntensity,
         midpoint: { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 },
-      }));
+      });
     }
   }
 }
@@ -819,6 +851,13 @@ export function setRoundPhase(phase) {
   GameState.setRoundPhase(phase);
 }
 
+function ensurePreStepLinvel(cart) {
+  if (!cart._preStepLinvel) {
+    cart._preStepLinvel = { x: 0, y: 0, z: 0 };
+  }
+  return cart._preStepLinvel;
+}
+
 function classifyEnvironmentCollision(otherHandle, callbacks) {
   if (otherHandle === callbacks.recordColliderHandle) return "floor";
   if (otherHandle === callbacks.pitWallColliderHandle) return "edge";
@@ -828,7 +867,7 @@ function classifyEnvironmentCollision(otherHandle, callbacks) {
 
 function getEnvironmentImpact(cart, envType, impacts) {
   const lv = cart.body.linvel();
-  const pre = cart.preStepLinvel || lv;
+  const pre = cart._preStepLinvel || lv;
 
   if (envType === "floor") {
     const fallSpeed = -pre.y;
@@ -843,22 +882,23 @@ function getEnvironmentImpact(cart, envType, impacts) {
   return Math.min(1.0, (dvXZ - impacts.edgeDeltaVThreshold) / impacts.intensityRange);
 }
 
-function getEnvironmentContactPosition(cart, envType, impacts) {
+function getEnvironmentContactPosition(cart, envType, impacts, out) {
   const rp = cart.body.translation();
-  const contactPos = { x: rp.x, y: rp.y + impacts.contactYOffset, z: rp.z };
+  out.x = rp.x;
+  out.y = rp.y + impacts.contactYOffset;
+  out.z = rp.z;
 
-  if (envType !== "edge") return contactPos;
+  if (envType !== "edge") return out;
 
   const pitInnerRadius =
     (CONFIG.record.radius + impacts.pitRadiusOffset) * impacts.pitRadiusScale;
   const dist = Math.hypot(rp.x, rp.z);
-  if (dist <= 1e-3) return contactPos;
+  if (dist <= 1e-3) return out;
 
-  return {
-    x: rp.x * (pitInnerRadius / dist),
-    y: rp.y,
-    z: rp.z * (pitInnerRadius / dist),
-  };
+  const scale = pitInnerRadius / dist;
+  out.x = rp.x * scale;
+  out.z = rp.z * scale;
+  return out;
 }
 
 function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) {
@@ -890,7 +930,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
       const intensity = getEnvironmentImpact(cart, envType, impacts);
       if (intensity == null || intensity <= impacts.minIntensity) return;
 
-      const contactPos = getEnvironmentContactPosition(cart, envType, impacts);
+      const contactPos = getEnvironmentContactPosition(cart, envType, impacts, _envContactPos);
 
       if (isHost) {
         if (envType === "floor") {
@@ -902,16 +942,15 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
         }
       }
 
-      if (isHost && callbacks.partySocket) {
+      if (isHost) {
         const slotIndex = cart.slotIndex;
         if (slotIndex >= 0) {
-          callbacks.partySocket.send(JSON.stringify({
-            type: "host_event_collision",
+          queueHostCollisionEvent({
             slotA: slotIndex,
             slotB: envType === "floor" ? -1 : -2,
             intensity,
-            midpoint: contactPos,
-          }));
+            midpoint: { x: contactPos.x, y: contactPos.y, z: contactPos.z },
+          });
         }
       }
     }
@@ -952,7 +991,10 @@ export function runFixedPhysicsStep({
   for (const cart of allCarts || []) {
     if (cart && cart.body) {
       const lv = cart.body.linvel();
-      cart.preStepLinvel = { x: lv.x, y: lv.y, z: lv.z };
+      const pre = ensurePreStepLinvel(cart);
+      pre.x = lv.x;
+      pre.y = lv.y;
+      pre.z = lv.z;
     }
   }
 
@@ -969,9 +1011,11 @@ export function runFixedPhysicsStep({
     for (const [connId, input] of remoteInputs.entries()) {
       const remoteCart = callbacks.resolveCartForConn(connId);
       if (!remoteCart) continue;
+      _remoteAxis.forward = input.throttle ?? 0;
+      _remoteAxis.turn = input.steer ?? 0;
       applyArcadeControls(
         remoteCart,
-        { forward: input.throttle ?? 0, turn: input.steer ?? 0 },
+        _remoteAxis,
         dt,
         now,
       );
@@ -991,9 +1035,10 @@ export function runFixedPhysicsStep({
     if (!cart.pendingRam) continue;
     const { impulse, remainingSteps } = cart.pendingRam;
     const denom = Math.max(1, remainingSteps);
-    cart.body.applyImpulse({
-      x: impulse.x / denom, y: impulse.y / denom, z: impulse.z / denom
-    }, true);
+    _pendingRamStepImpulse.x = impulse.x / denom;
+    _pendingRamStepImpulse.y = impulse.y / denom;
+    _pendingRamStepImpulse.z = impulse.z / denom;
+    cart.body.applyImpulse(_pendingRamStepImpulse, true);
     cart.pendingRam.remainingSteps--;
     if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
   }
@@ -1001,6 +1046,8 @@ export function runFixedPhysicsStep({
   // 5. Step world
   if (world && eventQueue) {
     world.step(eventQueue);
-    processCollisionEvents(world, eventQueue, allCarts, { ...callbacks, localCart }, isHost);
+    Object.assign(_collisionCallbacks, callbacks);
+    _collisionCallbacks.localCart = localCart;
+    processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost);
   }
 }

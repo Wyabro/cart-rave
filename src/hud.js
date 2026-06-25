@@ -2362,6 +2362,10 @@ export function init(options) {
 
   elements.resumeBtn.addEventListener("click", hideEscOverlay);
   elements.quitBtn.addEventListener("click", () => {
+    if (typeof _options.onQuitToMenu === "function") {
+      _options.onQuitToMenu();
+      return;
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete("room");
     window.location.href = url.pathname;

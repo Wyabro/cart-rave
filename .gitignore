@@ -19,8 +19,11 @@ Thumbs.db
 node_modules/
 dist/
 
-# PartyKit local dev state
-.partykit/
+# PartyKit deploy staging (copied from dist/ during ship)
+party-static/
+/assets/
+/sounds/
+index.html.partykit.bak
 
 # Python
 __pycache__/

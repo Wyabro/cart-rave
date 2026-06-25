@@ -1,11 +1,40 @@
 // frameVisuals.js — post-physics visual sync, effects, HUD, and render pass
 
+import * as THREE from "three";
 import * as Effects from "./effects.js";
 import * as ContactShadows from "./contactShadows.js";
 import { applyCartFrameGlow, cartEmissiveIntensityForHex, clamp } from "./utils.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
+
+const _interpPrevQuat = new THREE.Quaternion();
+const _interpCurrQuat = new THREE.Quaternion();
+
+/**
+ * * Writes an interpolated cart mesh pose from prev snapshot → current body using physics alpha.
+ * @param {object} cart
+ * @param {number} alpha
+ * @param {number} visualOffset
+ * @returns {{ bodyY: number }}
+ */
+function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
+  const p = cart.body.translation();
+  const r = cart.body.rotation();
+  const prev = cart.prevPosition;
+  const prevRot = cart.prevRotation;
+
+  const ix = prev.x + (p.x - prev.x) * alpha;
+  const iy = prev.y + (p.y - prev.y) * alpha;
+  const iz = prev.z + (p.z - prev.z) * alpha;
+
+  cart.mesh.position.set(ix, iy + visualOffset, iz);
+  _interpPrevQuat.set(prevRot.x, prevRot.y, prevRot.z, prevRot.w);
+  _interpCurrQuat.set(r.x, r.y, r.z, r.w);
+  cart.mesh.quaternion.copy(_interpPrevQuat).slerp(_interpCurrQuat, alpha);
+
+  return { bodyY: iy };
+}
 
 /**
  * @typedef {object} FrameVisualDeps
@@ -51,10 +80,10 @@ let lastResultsOverlayPhase = null;
  * so visuals reflect the latest authoritative (or predicted) cart poses.
  *
  * @param {FrameVisualDeps} deps Wiring from main — closures keep netcode/HUD local.
- * @param {{ now: number, dt: number }} frameCtx Current frame timing from the loop.
+ * @param {{ now: number, dt: number, physicsAlpha?: number | null }} frameCtx Current frame timing from the loop.
  */
 export function updateVisualsAndEffects(deps, frameCtx) {
-  const { now, dt } = frameCtx;
+  const { now, dt, physicsAlpha } = frameCtx;
   const allCarts = deps.getAllCarts();
   const localSlotIndexThisFrame = deps.getLocalSlotIndex();
   const netSlotsForFrame = deps.getNetSlots();
@@ -66,6 +95,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   }
 
   Effects.updateRamBoostStreaks(now);
+
+  const usePhysicsInterp = physicsAlpha != null;
+  const visualOffset = deps.CONFIG.cart.visualOffset;
 
   // Sync render meshes from physics (or from net targets for remote non-host carts).
   const localSlotIndexForFrame = localSlotIndexThisFrame;
@@ -101,8 +133,13 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
     const p = c.body.translation();
     const r = c.body.rotation();
-    c.mesh.position.set(p.x, p.y + deps.CONFIG.cart.visualOffset, p.z);
-    c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+    let bodyY = p.y;
+    if (usePhysicsInterp && c.prevPosition && c.prevRotation) {
+      bodyY = syncCartMeshFromPhysics(c, physicsAlpha, visualOffset).bodyY;
+    } else {
+      c.mesh.position.set(p.x, p.y + visualOffset, p.z);
+      c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+    }
     c.mesh.updateMatrixWorld(true);
     const lv = c.body.linvel();
     deps.cartLinvelScratch.set(lv.x, lv.y, lv.z);
@@ -112,7 +149,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
         x: c.mesh.position.x,
         z: c.mesh.position.z,
         yaw: ContactShadows.yawFromQuaternion(c.mesh.quaternion),
-        heightAboveFloor: p.y - ContactShadows.getFloorY(),
+        heightAboveFloor: bodyY - ContactShadows.getFloorY(),
       });
     }
   }

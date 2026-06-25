@@ -12,34 +12,38 @@
   <link rel="manifest" href="/site.webmanifest">
   <script>
     (function() {
-      // * Preload menu music only on the plain menu landing — room/portal URLs skip the menu.
+      // * Defer menu audio preload — avoids competing with Vite module graph on first paint.
       var params = new URLSearchParams(window.location.search || "");
       if (!params.get("room") && params.get("portal") !== "true") {
-        var menuAudio = new Audio();
-        menuAudio.preload = "auto";
-        menuAudio.src = "/sounds/menu.mp3";
-        try { menuAudio.load(); } catch {}
+        window.setTimeout(function () {
+          var menuAudio = new Audio();
+          menuAudio.preload = "auto";
+          menuAudio.src = "/sounds/menu.mp3";
+          try { menuAudio.load(); } catch {}
+        }, 2500);
       }
 
-      // * Eruda mobile dev console — localhost / LAN only, with CDN fallback.
+      // * Eruda mobile dev console — localhost / LAN only; deferred so it cannot block boot.
       var h = window.location.hostname;
       var isLocal = h === "localhost" || h === "127.0.0.1" || /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h);
-      if (!isLocal) return;
-
-      var erudaSources = [
-        "https://unpkg.com/eruda",
-        "https://cdn.jsdelivr.net/npm/eruda",
-      ];
-      var erudaIdx = 0;
-      function loadEruda() {
-        if (erudaIdx >= erudaSources.length) return;
-        var s = document.createElement("script");
-        s.src = erudaSources[erudaIdx++];
-        s.onload = function() { window.eruda && eruda.init(); };
-        s.onerror = loadEruda;
-        document.head.appendChild(s);
+      if (isLocal) {
+        window.setTimeout(function () {
+          var erudaSources = [
+            "https://unpkg.com/eruda",
+            "https://cdn.jsdelivr.net/npm/eruda",
+          ];
+          var erudaIdx = 0;
+          function loadEruda() {
+            if (erudaIdx >= erudaSources.length) return;
+            var s = document.createElement("script");
+            s.src = erudaSources[erudaIdx++];
+            s.onload = function() { window.eruda && eruda.init(); };
+            s.onerror = loadEruda;
+            document.head.appendChild(s);
+          }
+          loadEruda();
+        }, 4000);
       }
-      loadEruda();
     })();
   </script>
   <style>
@@ -52,12 +56,125 @@
       height: 100%;
     }
     canvas { display: block; }
+    /* * Boot splash — inline critical CSS (no JS/CSS bundle required for first paint) */
+    #cr-boot-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: "Space Mono", ui-monospace, monospace;
+      background: radial-gradient(ellipse at center 38%, #0a0014 0%, #000 88%);
+      transition: opacity 420ms ease, visibility 420ms ease;
+    }
+    #cr-boot-splash.cr-load--hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    body.cr-boot-pending #cr-root { visibility: hidden; }
+    body.cr-boot-pending #game { opacity: 0; }
+    #cr-boot-error {
+      position: fixed;
+      inset: 0;
+      z-index: 10000000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(ellipse at center 38%, #0a0014 0%, #000 88%);
+      font-family: "Space Mono", ui-monospace, monospace;
+      color: #fff;
+      text-align: center;
+    }
+    #cr-boot-error.cr-boot-error--visible { display: flex; }
+    #cr-boot-error p { margin: 0 0 12px; line-height: 1.5; }
+    #cr-boot-error .cr-boot-error-detail { opacity: 0.75; font-size: 13px; max-width: 420px; }
+    #cr-boot-retry {
+      margin-top: 8px;
+      padding: 10px 22px;
+      border: 2px solid #ff2bd6;
+      background: transparent;
+      color: #ff2bd6;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 0 12px #ff2bd666;
+    }
+    .cr-boot-panel {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      text-align: center;
+      padding: 24px;
+    }
+    .cr-boot-tag {
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      color: rgba(255,255,255,0.45);
+    }
+    .cr-boot-title {
+      font-family: "Bungee", "Archivo Black", sans-serif;
+      font-size: clamp(2rem, 8vw, 3.2rem);
+      line-height: 0.95;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(255,43,214,0.45), 0 0 32px rgba(34,230,255,0.25);
+      animation: cr-boot-pulse 2.4s ease-in-out infinite;
+    }
+    .cr-boot-vinyl {
+      width: clamp(80px, 20vw, 112px);
+      height: clamp(80px, 20vw, 112px);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at center, #111 0%, #111 18%, transparent 19%),
+        repeating-radial-gradient(circle at center, #1a1a1a 0 2px, #0d0d0d 2px 4px);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 24px rgba(255,43,214,0.25);
+      animation: cr-boot-spin 3.2s linear infinite;
+      position: relative;
+    }
+    .cr-boot-vinyl::after {
+      content: "";
+      position: absolute;
+      inset: 38%;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ff2bd6 0%, #ff6be8 40%, #220018 100%);
+      box-shadow: 0 0 12px rgba(255,43,214,0.6);
+    }
+    .cr-boot-bar {
+      width: min(240px, 70vw);
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .cr-boot-bar-fill {
+      height: 100%;
+      width: 35%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #22e6ff, #ff2bd6);
+      animation: cr-boot-bar 1.8s ease-in-out infinite;
+    }
+    @keyframes cr-boot-spin { to { transform: rotate(360deg); } }
+    @keyframes cr-boot-pulse { 50% { filter: brightness(1.12); } }
+    @keyframes cr-boot-bar {
+      0%, 100% { transform: translateX(-30%); width: 30%; }
+      50% { transform: translateX(120%); width: 45%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cr-boot-vinyl, .cr-boot-title, .cr-boot-bar-fill { animation: none !important; }
+    }
   </style>
   <!-- Menu fonts and critical CSS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cart-rave.wyabro.partykit.dev">
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
   <style>
     /* Volume and mute range styling */
     input[type="range"] {
@@ -100,7 +217,35 @@
     }
   </style>
 </head>
-<body>
+<body class="cr-boot-pending">
+  <style>
+    /* Force custom splash to show early and cover everything */
+    #cr-boot-splash {
+      display: flex !important;
+      opacity: 1 !important;
+      z-index: 999999 !important;
+      visibility: visible !important;
+    }
+  </style>
+  <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Rave">
+    <div class="cr-boot-panel">
+      <div class="cr-boot-tag">◆ CART RAVE ◆</div>
+      <div class="cr-boot-title">CART RAVE</div>
+      <div class="cr-boot-vinyl" aria-hidden="true"></div>
+      <div class="cr-boot-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35">
+        <div class="cr-boot-bar-fill"></div>
+      </div>
+    </div>
+  </div>
+  <div id="cr-boot-error" role="alert" aria-live="assertive">
+    <div>
+      <p><strong>Could not load Cart Rave</strong></p>
+      <p class="cr-boot-error-detail" id="cr-boot-error-detail">
+        The dev server interrupted while loading (common during hot reload). Try Retry, or restart with Ctrl+C then <code>npm run dev:next-level</code>.
+      </p>
+      <button type="button" id="cr-boot-retry">RETRY</button>
+    </div>
+  </div>
   <div class="cr-root" id="cr-root">
     <!-- Background layers -->
     <div class="cr-floor" id="cr-floor">
@@ -177,17 +322,17 @@
         </h1>
 
         <div class="cr-buttons">
-          <button class="cr-btn" data-action="solo" data-colorkey="primary">
+          <button class="cr-btn" id="cr-solo" data-action="solo" data-colorkey="primary">
             <span class="cr-btn-inner"><span class="cr-btn-label">SOLO</span></span>
             <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
             <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
           </button>
-          <button class="cr-btn" data-action="quickplay" data-colorkey="secondary">
+          <button class="cr-btn" id="cr-quickplay" data-action="quickplay" data-colorkey="secondary">
             <span class="cr-btn-inner"><span class="cr-btn-label">QUICKPLAY</span></span>
             <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
             <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
           </button>
-          <button class="cr-btn" data-action="friends" data-colorkey="tertiary">
+          <button class="cr-btn" id="cr-friends" data-action="friends" data-colorkey="tertiary">
             <span class="cr-btn-inner"><span class="cr-btn-label">FRIENDS</span></span>
             <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
             <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
@@ -349,6 +494,110 @@
     </div>
   </div>
   <canvas id="game"></canvas>
+  <script>
+    (function () {
+      var root = document.getElementById("cr-root");
+      if (root) {
+        document.body.classList.remove("cr-boot-pending");
+        root.style.visibility = "visible";
+        root.style.opacity = "1";
+        root.classList.remove("cr-menu-enter-pending");
+      }
+      ["cr-solo", "cr-quickplay", "cr-friends"].forEach(function (id) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        btn.classList.add("cr-btn--boot-pending");
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+      });
+      var splash = document.getElementById("cr-boot-splash");
+      if (splash) {
+        splash.setAttribute("aria-busy", "false");
+        splash.classList.add("cr-load--exit", "cr-load--hidden");
+      }
+    })();
+  </script>
+  <script>
+    (function () {
+      function revealAppShellEarly() {
+        document.body.classList.remove("cr-boot-pending");
+        var root = document.getElementById("cr-root");
+        var game = document.getElementById("game");
+        if (root) root.style.visibility = "visible";
+        if (game) game.style.opacity = "1";
+      }
+
+      function shedBootSplash() {
+        revealAppShellEarly();
+        var el = document.getElementById("cr-boot-splash");
+        if (!el || el.classList.contains("cr-load--hidden")) return;
+        el.setAttribute("aria-busy", "false");
+        el.classList.add("cr-load--exit", "cr-load--hidden");
+        setTimeout(function () { el.remove(); }, 450);
+      }
+
+      window.__cartRaveShedBootSplash = shedBootSplash;
+
+      window.__cartRaveShowBootError = function (detail) {
+        shedBootSplash();
+        var box = document.getElementById("cr-boot-error");
+        var detailEl = document.getElementById("cr-boot-error-detail");
+        if (detailEl && detail) detailEl.textContent = detail;
+        if (box) box.classList.add("cr-boot-error--visible");
+        document.getElementById("cr-boot-retry")?.addEventListener("click", function () {
+          location.reload();
+        }, { once: true });
+      };
+
+      /** Only surface boot errors after the engine had time to finish — avoids HMR / dep-retry false positives. */
+      var bootErrorTimer = null;
+      function scheduleBootError(detail, delayMs) {
+        if (window.__cartRaveBootstrapped) return;
+        if (bootErrorTimer) clearTimeout(bootErrorTimer);
+        bootErrorTimer = setTimeout(function () {
+          if (window.__cartRaveBootstrapped) return;
+          window.__cartRaveShowBootError(detail);
+        }, delayMs || 12000);
+      }
+
+      window.__cartRaveCancelBootError = function () {
+        if (bootErrorTimer) {
+          clearTimeout(bootErrorTimer);
+          bootErrorTimer = null;
+        }
+        document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
+      };
+
+      function isGameModuleUrl(src) {
+        if (!src) return false;
+        return /\/src\/main\.js/.test(src);
+      }
+
+      window.addEventListener("error", function (ev) {
+        if (window.__cartRaveBootstrapped) return;
+        var t = ev.target;
+        if (t && t.tagName === "SCRIPT" && isGameModuleUrl(t.src)) {
+          scheduleBootError(
+            "Failed to load game module. Hard refresh (Ctrl+Shift+R) or restart: npm run dev:next-level",
+            8000
+          );
+        }
+      }, true);
+
+      window.addEventListener("unhandledrejection", function (ev) {
+        if (window.__cartRaveBootstrapped) return;
+        var msg = ev.reason && ev.reason.message ? String(ev.reason.message) : "";
+        if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg)) {
+          ev.preventDefault();
+          scheduleBootError(msg || "Module load failed. Hard refresh or restart dev server.", 8000);
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", function () {
+        window.__cartRaveShedBootSplash?.();
+      });
+    })();
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

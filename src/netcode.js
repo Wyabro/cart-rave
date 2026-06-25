@@ -6,6 +6,7 @@ import * as GameState from "./gameState.js";
 import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
+import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
 
 /** Scratch quaternions for interpolation and reconciliation slerp. */
 const _interpFromQ = new THREE.Quaternion();
@@ -108,6 +109,9 @@ let callbacks = {
 
   // Stats
   recordPodiumStats: () => {},
+
+  // Session lifecycle
+  ensureSessionReady: () => {},
 };
 
 export function registerCallbacks(cb) {
@@ -122,8 +126,10 @@ export function registerCallbacks(cb) {
 export function registerGameCallbacks(deps) {
   registerCallbacks({
     detectGameMode: () => deps.detectGameMode(),
-    getPALETTE: () => deps.palette,
-    getInitialNpcNames: () => deps.initialNpcNames,
+    getPALETTE: () => (typeof deps.getPalette === "function" ? deps.getPalette() : deps.palette) ?? [],
+    getInitialNpcNames: () => (
+      typeof deps.getInitialNpcNames === "function" ? deps.getInitialNpcNames() : deps.initialNpcNames
+    ) ?? [],
     markFirstHelloReceived: () => deps.markFirstHelloReceived(),
     getOnGameStartHandler: () => deps.getOnGameStartHandler(),
     getOnHostMigratedHandler: () => deps.getOnHostMigratedHandler?.(),
@@ -138,11 +144,17 @@ export function registerGameCallbacks(deps) {
       if (pending) cancelAnimationFrame(pending);
       deps.setNameLabelUpdatePending(requestAnimationFrame(() => {
         deps.setNameLabelUpdatePending(null);
-        if (deps.updateNameLabelsRef.current) deps.updateNameLabelsRef.current();
+        const labelRef = typeof deps.getUpdateNameLabelsRef === "function"
+          ? deps.getUpdateNameLabelsRef()
+          : deps.updateNameLabelsRef;
+        if (labelRef?.current) labelRef.current();
       }));
     },
     respawnLocalMidRoundJoinRef: () => {
-      if (deps.respawnLocalMidRoundJoinRef.current) deps.respawnLocalMidRoundJoinRef.current();
+      const joinRef = typeof deps.getRespawnLocalMidRoundJoinRef === "function"
+        ? deps.getRespawnLocalMidRoundJoinRef()
+        : deps.respawnLocalMidRoundJoinRef;
+      if (joinRef?.current) joinRef.current();
     },
     playCollisionRef: (intensity, opts) => deps.getPlayCollisionRef()?.(intensity, opts),
     playFloorImpactRef: (intensity) => deps.getSfx()?.playFloorImpact?.(intensity),
@@ -168,6 +180,7 @@ export function registerGameCallbacks(deps) {
     recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
+    ensureSessionReady: () => deps.ensureSessionReady?.(),
   });
 }
 
@@ -689,9 +702,49 @@ export function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
 
 // --- Host / client send loops ---
 
+/**
+ * Replays one host collision FX event on non-host clients.
+ *
+ * @param {object} msg Collision payload (single or batched entry).
+ * @param {object} callbacks Injected FX helpers from main.
+ * @returns {void}
+ */
+function replayHostCollisionFx(msg, callbacks) {
+  const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
+  const mp = msg.midpoint;
+  const slotB = typeof msg.slotB === "number" ? msg.slotB : 0;
+  if (!mp || typeof mp.x !== "number") return;
+
+  if (slotB === -1) {
+    callbacks.playFloorImpactRef(intensity);
+    if (GameState.getRoundState().phase === "running") {
+      callbacks.spawnTrashBurstRef(mp, intensity, "floor");
+    }
+    return;
+  }
+  if (slotB === -2 || slotB === -3) {
+    callbacks.playEdgeImpactRef(intensity);
+    if (GameState.getRoundState().phase === "running") {
+      callbacks.spawnTrashBurstRef(mp, intensity, "edge");
+    }
+    return;
+  }
+
+  const isBoosting = Boolean(msg.isBoosting);
+  callbacks.playCollisionRef(intensity, { isBoosting });
+  if (GameState.getRoundState().phase === "running") {
+    callbacks.spawnTrashBurstRef(mp, intensity, "cart", { isBoosting });
+  }
+  const localSlot = strictSlotIndexForConn(youConnId);
+  if (typeof msg.rammerSlot === "number" && msg.rammerSlot === localSlot) {
+    callbacks.triggerLocalRamShakeRef(intensity, isBoosting);
+  }
+}
+
 export function stopHostSendLoop() {
   if (hostSendTimer) clearInterval(hostSendTimer);
   hostSendTimer = null;
+  clearHostCollisionBatch();
 }
 
 export function stopInputSendLoop() {
@@ -705,12 +758,47 @@ export function stopKeepaliveLoop() {
 }
 
 /**
+ * Closes the PartyKit socket and clears authoritative networking state.
+ * Safe to call when returning to the menu in-tab or before a new room join.
+ */
+export function disconnectPartySession() {
+  stopHostSendLoop();
+  stopInputSendLoop();
+  stopKeepaliveLoop();
+  clearHostCollisionBatch();
+
+  if (partySocket) {
+    try { partySocket.close(); } catch {}
+    partySocket = null;
+  }
+
+  youConnId = null;
+  hostId = null;
+  isHost = false;
+  hostSeq = 0;
+  inputSeq = 0;
+  hostEpoch += 1;
+  serverClockOffsetMs = 0;
+  serverClockOffsetSamples = 0;
+  hostMigrationFreezeUntilMs = 0;
+  skipNextPhysicsStep = false;
+
+  netSlots = [];
+  lastSlotsJson = "";
+  netStateBuffer = [];
+  lastCartsCache = null;
+  remoteInputsByConnId = new Map();
+  remoteNitroLatchedByConnId = new Map();
+}
+
+/**
  * Clears host/client send loops and authoritative snapshot state before a new socket session.
  * Called when replacing an existing PartyKit connection in {@link initNetcode}.
  */
 function resetNetcodeReconnectState() {
   stopHostSendLoop();
   stopInputSendLoop();
+  clearHostCollisionBatch();
   netStateBuffer = [];
   hostEpoch += 1;
   lastCartsCache = null;
@@ -745,12 +833,17 @@ export function startHostSendLoop() {
     }
 
     lastCartsCache = carts;
-    partySocket.send(JSON.stringify({
+    const collisions = drainHostCollisionBatch();
+    const payload = {
       type: MSG.hostTransform,
       seq: hostSeq,
       tHost: Date.now(),
       carts,
-    }));
+    };
+    if (collisions.length > 0) {
+      payload.collisions = collisions;
+    }
+    partySocket.send(JSON.stringify(payload));
   }, intervalMs);
 }
 
@@ -921,6 +1014,7 @@ export function initNetcode(roomOverride) {
     ];
 
     callbacks.markFirstHelloReceived();
+    try { callbacks.ensureSessionReady(); } catch {}
 
     setTimeout(() => {
       const startHandler = callbacks.getOnGameStartHandler();
@@ -1021,6 +1115,7 @@ export function initNetcode(roomOverride) {
         callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
       }
       callbacks.markFirstHelloReceived();
+      try { callbacks.ensureSessionReady(); } catch {}
 
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
@@ -1153,38 +1248,18 @@ export function initNetcode(roomOverride) {
         }
         const seq = typeof msg.seq === "number" ? msg.seq : -1;
         bufferAuthoritativeState(serverNowMs, seq, msg.carts, hostEpoch);
+        if (Array.isArray(msg.collisions)) {
+          for (const ev of msg.collisions) {
+            replayHostCollisionFx(ev, callbacks);
+          }
+        }
       }
       return;
     }
 
     if (type === MSG.hostEventCollision) {
       if (isHost) return;
-      const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
-      const mp = msg.midpoint;
-      const slotB = typeof msg.slotB === "number" ? msg.slotB : 0;
-      if (mp && typeof mp.x === "number") {
-        if (slotB === -1) {
-          callbacks.playFloorImpactRef(intensity);
-          if (GameState.getRoundState().phase === "running") {
-            callbacks.spawnTrashBurstRef(mp, intensity, "floor");
-          }
-        } else if (slotB === -2 || slotB === -3) {
-          callbacks.playEdgeImpactRef(intensity);
-          if (GameState.getRoundState().phase === "running") {
-            callbacks.spawnTrashBurstRef(mp, intensity, "edge");
-          }
-        } else {
-          const isBoosting = Boolean(msg.isBoosting);
-          callbacks.playCollisionRef(intensity, { isBoosting });
-          if (GameState.getRoundState().phase === "running") {
-            callbacks.spawnTrashBurstRef(mp, intensity, "cart", { isBoosting });
-          }
-          const localSlot = strictSlotIndexForConn(youConnId);
-          if (typeof msg.rammerSlot === "number" && msg.rammerSlot === localSlot) {
-            callbacks.triggerLocalRamShakeRef(intensity, isBoosting);
-          }
-        }
-      }
+      replayHostCollisionFx(msg, callbacks);
       return;
     }
 

@@ -6,7 +6,8 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 import RAPIER from "@dimforge/rapier3d-compat";
 import { createPhysicalMaterial } from "./scene.js";
 
-const REFLECTOR_TEXTURE_SIZE = 1024;
+const REFLECTOR_TEXTURE_SIZE_FULL = 1024;
+const REFLECTOR_TEXTURE_SIZE_BOOT = 256;
 
 const VISUAL_RECORD_THICKNESS = 0.28;
 
@@ -675,7 +676,8 @@ export function buildBooths(scene, world, config, boothNeonMeshes, boothCollider
  *   dispose: () => void,
  * }}
  */
-export function initArena(scene, world, config) {
+export function initArena(scene, world, config, options = {}) {
+  const reflectorTextureSize = options.reflectorTextureSize ?? REFLECTOR_TEXTURE_SIZE_FULL;
   const visualRecordThickness = VISUAL_RECORD_THICKNESS;
   const boothNeonMeshes = [];
   const boothColliderHandles = [];
@@ -714,22 +716,40 @@ export function initArena(scene, world, config) {
   scene.add(spindleLight);
 
   const visualRecordTopY = visualRecordThickness / 2;
-  const recordReflectorGeo = new THREE.RingGeometry(
-    config.record.innerRadius,
-    config.record.radius,
-    128,
-    1,
-  );
-  const recordReflector = new Reflector(recordReflectorGeo, {
-    clipBias: 0.003,
-    textureWidth: REFLECTOR_TEXTURE_SIZE,
-    textureHeight: REFLECTOR_TEXTURE_SIZE,
-    color: 0x111111,
-  });
-  recordReflector.rotation.x = -Math.PI / 2;
-  recordReflector.position.y = visualRecordTopY + config.record.surface.concentricRings.yOffset + 0.001;
-  recordReflector.renderOrder = 0;
+  const reflectorYOffset =
+    visualRecordTopY + config.record.surface.concentricRings.yOffset + 0.001;
+
+  function createRecordReflector(textureSize) {
+    const geo = new THREE.RingGeometry(
+      config.record.innerRadius,
+      config.record.radius,
+      128,
+      1,
+    );
+    const reflector = new Reflector(geo, {
+      clipBias: 0.003,
+      textureWidth: textureSize,
+      textureHeight: textureSize,
+      color: 0x111111,
+    });
+    reflector.rotation.x = -Math.PI / 2;
+    reflector.position.y = reflectorYOffset;
+    reflector.renderOrder = 0;
+    reflector.userData._cartRaveTextureSize = textureSize;
+    return reflector;
+  }
+
+  let recordReflector = createRecordReflector(reflectorTextureSize);
   recordMesh.add(recordReflector);
+
+  function upgradeRecordReflector() {
+    if (recordReflector.userData._cartRaveTextureSize >= REFLECTOR_TEXTURE_SIZE_FULL) return;
+    if (recordReflector.renderTarget) recordReflector.renderTarget.dispose();
+    recordReflector.geometry.dispose();
+    recordMesh.remove(recordReflector);
+    recordReflector = createRecordReflector(REFLECTOR_TEXTURE_SIZE_FULL);
+    recordMesh.add(recordReflector);
+  }
 
   // --- Record center label (stars) ---
   const recordLabelCanvas = document.createElement("canvas");
@@ -952,7 +972,7 @@ export function initArena(scene, world, config) {
   }
 
   const ownedGeometries = [
-    recordGeo, recordReflectorGeo, recordLabelGeo, rimGeo, edgeRingGeo, innerRimGeo, pitWallGeo,
+    recordGeo, recordLabelGeo, rimGeo, edgeRingGeo, innerRimGeo, pitWallGeo,
     recordPhysicsGeo,
   ];
   if (grooveResult) {
@@ -1010,6 +1030,7 @@ export function initArena(scene, world, config) {
     if (recordReflector.renderTarget) {
       recordReflector.renderTarget.dispose();
     }
+    recordReflector.geometry?.dispose?.();
 
     world.removeRigidBody(recordBody);
     world.removeRigidBody(pitWallBody);
@@ -1029,6 +1050,7 @@ export function initArena(scene, world, config) {
     spindleLightColorCyan,
     pitInnerRadius,
     recordLabelMat,
+    upgradeRecordReflector,
     dispose,
   };
 }

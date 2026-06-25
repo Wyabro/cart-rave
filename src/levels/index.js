@@ -33,7 +33,7 @@ export function resolveLevelId(raw) {
  * @param {object} config Full game CONFIG passed through to the level init.
  * @returns {ReturnType<typeof initClassicRecord>}
  */
-export function loadLevel(levelId, scene, world, config) {
+export function loadLevel(levelId, scene, world, config, options = {}) {
   const stored =
     levelId ??
     (typeof localStorage !== "undefined"
@@ -41,5 +41,5 @@ export function loadLevel(levelId, scene, world, config) {
       : null);
   const resolved = resolveLevelId(stored);
   const initFn = LEVEL_INIT[resolved] ?? initClassicRecord;
-  return initFn(scene, world, config);
+  return initFn(scene, world, config, options);
 }

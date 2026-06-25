@@ -78,3 +78,21 @@ npx partykit info
 npx partykit deploy
 npx partykit tail
 ```
+
+## Preview project (`next-level` branch)
+
+For feature work on `next-level`, **local dev is the default** — no deploy needed for multiplayer testing.
+
+| Task | Command |
+|------|---------|
+| **Daily multiplayer dev** | `npm run dev:next-level` |
+| PartyKit half (2-terminal setup) | `npm run dev:party:preview` (+ `npm run dev` in another terminal) |
+| Shareable remote preview (optional) | `npm run build:party-static && npm run deploy:preview` |
+
+- Config: `partykit.preview.json` → project `cart-rave-preview`
+- Local worker: `http://127.0.0.1:1999` (client auto-targets this on localhost)
+- Deployed preview host: `https://cart-rave-preview.<account>.partykit.dev`
+
+Full write-up: [preview-dev.md](./preview-dev.md)
+
+Avoid frequent `deploy:preview` runs — the shared `partykit.dev` zone has Cloudflare Workers custom-domain limits.

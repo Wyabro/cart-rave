@@ -112,6 +112,8 @@ const ramBoostStreakAlignQuat = new THREE.Quaternion();
 const ramBoostCylinderAxisY = new THREE.Vector3(0, 1, 0);
 const ramBoostStreakScratchOrigin = new THREE.Vector3();
 const ramBoostStreakScratchPos = new THREE.Vector3();
+const ramBoostStreakScratchForward = new THREE.Vector3();
+const ramBoostStreakScratchRight = new THREE.Vector3();
 const ramBoostStreakColorScratch = new THREE.Color();
 const ramBoostStreakHslScratch = { h: 0, s: 0, l: 0 };
 
@@ -846,9 +848,9 @@ function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
 
   const rot = cart.body.rotation();
   const yaw = Simulation.yawFromQuaternion(rot);
-  const { forward, right } = Simulation.getForwardRightFromYaw(yaw);
-  const fwd = forward.clone().normalize();
-  const rgt = right.clone().normalize();
+  Simulation.setForwardRightFromYaw(yaw, ramBoostStreakScratchForward, ramBoostStreakScratchRight);
+  const fwd = ramBoostStreakScratchForward;
+  const rgt = ramBoostStreakScratchRight;
   ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
   const t = cart.body.translation();
   ramBoostStreakScratchOrigin.set(t.x, t.y, t.z);

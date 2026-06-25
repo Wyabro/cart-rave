@@ -3,5 +3,5 @@
   "name": "cart-rave",
   "main": "party/index.ts",
   "compatibilityDate": "2026-04-17",
-  "serve": "./"
+  "serve": "party-static"
 }

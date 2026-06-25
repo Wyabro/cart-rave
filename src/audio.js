@@ -49,6 +49,8 @@ let gameMusicPauseTimers = [];
 /** @type {string[]} */
 let gameMusicUrls = [];
 
+let gameMusicElementsCreated = false;
+
 // * Dev-only: block music autostart on Vite full reload until first click/keypress this page load.
 let devMusicUserEnabled = !import.meta.env.DEV;
 
@@ -90,7 +92,7 @@ function getMusicOutputNode() {
  * @returns {void}
  */
 function wireMusicToWebAudio() {
-  if (webAudioWired || !_ctx) return;
+  if (!_ctx) return;
   const dest = getMusicOutputNode();
   if (!dest) return;
 
@@ -117,7 +119,7 @@ function wireMusicToWebAudio() {
       gameMusicGains[i] = gain;
     }
 
-    webAudioWired = true;
+    webAudioWired = Boolean(menuMusicSource || gameMusicSources.some(Boolean));
   } catch {
     // ! Fall back to HTML5 element volume if Web Audio routing fails — must not block game boot.
     try { menuMusicSource?.disconnect(); } catch {}
@@ -129,6 +131,68 @@ function wireMusicToWebAudio() {
     gameMusicSources = [];
     gameMusicGains = [];
     webAudioWired = false;
+  }
+}
+
+/**
+ * * Creates game-track Audio elements on demand; idle prefetch uses metadata-only preload.
+ * @param {{ preloadActive?: boolean }} [options]
+ * @returns {void}
+ */
+function ensureGameMusicElements(options = {}) {
+  const { preloadActive = false } = options;
+  if (!gameMusicUrls.length) return;
+
+  if (!gameMusicElementsCreated) {
+    gameMusicElementsCreated = true;
+    gameMusicElements = [];
+    gameMusicSources = [];
+    gameMusicGains = [];
+
+    for (let i = 0; i < gameMusicUrls.length; i += 1) {
+      const a = new Audio();
+      a.loop = false;
+      a.preload = "metadata";
+      a.src = gameMusicUrls[i];
+      a.addEventListener("error", onGameMusicError);
+      a.addEventListener("ended", () => {
+        if (_getMenuVisible?.()) return;
+        advanceGameMusicTrack();
+      });
+      gameMusicElements.push(a);
+      gameMusicSources.push(null);
+      gameMusicGains.push(null);
+    }
+    if (activeTrackIndex < 0) activeTrackIndex = 0;
+    wireMusicToWebAudio();
+  }
+
+  if (preloadActive && activeTrackIndex >= 0) {
+    preloadGameMusicTrack(activeTrackIndex);
+  }
+}
+
+/** @param {number} index @returns {void} */
+function preloadGameMusicTrack(index) {
+  const el = gameMusicElements[index];
+  if (!el) return;
+  if (el.preload !== "auto") {
+    el.preload = "auto";
+    try { el.load(); } catch {}
+  }
+}
+
+/** @returns {void} */
+function scheduleGameMusicIdlePrefetch() {
+  if (!gameMusicUrls.length) return;
+  const run = () => {
+    if (gameMusicElementsCreated) return;
+    ensureGameMusicElements();
+  };
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(run, { timeout: 5000 });
+  } else {
+    setTimeout(run, 3000);
   }
 }
 
@@ -189,7 +253,7 @@ export function registerMusicVolumeDeps(deps) {
 }
 
 /**
- * Initializes menu + game HTMLAudio tracks, shuffled playlist, and preloads.
+ * Initializes menu music preload and shuffled game playlist (game tracks load lazily).
  *
  * @param {{ getMasterGain: () => number, getIsMuted: () => boolean, getMenuVisible: () => boolean, startMenuOnInit?: boolean }} options
  */
@@ -221,21 +285,10 @@ export function initMusic(options) {
   gameMusicElements = [];
   gameMusicSources = [];
   gameMusicGains = [];
-
-  for (let i = 0; i < gameMusicUrls.length; i += 1) {
-    const a = new Audio();
-    a.loop = false;
-    a.preload = "auto";
-    a.src = gameMusicUrls[i];
-    a.addEventListener("error", onGameMusicError);
-    a.addEventListener("ended", () => {
-      if (_getMenuVisible?.()) return;
-      advanceGameMusicTrack();
-    });
-    try { a.load(); } catch {}
-    gameMusicElements.push(a);
-  }
+  gameMusicElementsCreated = false;
   activeTrackIndex = 0;
+
+  scheduleGameMusicIdlePrefetch();
 
   wireMusicToWebAudio();
 
@@ -260,6 +313,7 @@ function advanceGameMusicTrack() {
 
   const oldIndex = activeTrackIndex;
   activeTrackIndex = (activeTrackIndex + 1) % gameMusicElements.length;
+  preloadGameMusicTrack(activeTrackIndex);
 
   if (oldIndex >= 0 && gameMusicGains[oldIndex] && _ctx) {
     const oldGain = gameMusicGains[oldIndex].gain;
@@ -328,9 +382,12 @@ export function startMenuMusic() {
 
 /** @returns {void} */
 export function startGameMusic() {
-  if (!gameMusicElements.length || gameMusicStarted || musicUnavailable) return;
+  if (!gameMusicUrls.length || gameMusicStarted || musicUnavailable) return;
   if (!devAllowsAutoplayMusic()) return;
   if (_getMenuVisible?.()) return;
+
+  ensureGameMusicElements({ preloadActive: true });
+  if (!gameMusicElements.length) return;
   if (activeTrackIndex < 0) activeTrackIndex = 0;
 
   clearGameMusicPauseTimers();
@@ -389,7 +446,7 @@ export function fadeOutMenuMusic() {
  */
 export function fadeInGameMusic() {
   if (!devAllowsAutoplayMusic()) return;
-  if (!gameMusicElements.length) return;
+  if (!gameMusicUrls.length) return;
   if (activeTrackIndex < 0) activeTrackIndex = 0;
   startGameMusic();
 }
@@ -422,6 +479,7 @@ export function destroyMusic() {
   gameMusicSources = [];
   gameMusicGains = [];
   gameMusicUrls = [];
+  gameMusicElementsCreated = false;
   menuMusicStarted = false;
   gameMusicStarted = false;
   musicUnavailable = false;

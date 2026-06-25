@@ -152,6 +152,15 @@ export function clearAllHits() {
   lastHitBy.clear();
 }
 
+/** Resets round state to lobby (session teardown or quit-to-menu). */
+export function resetRoundToLobby() {
+  roundPhase = RoundPhase.LOBBY;
+  roundStartedAtMs = 0;
+  roundCountdownStartedAtMs = 0;
+  roundWinnerSlotIndex = null;
+  _resetRoundBase();
+}
+
 /** @returns {Record<number, number>} */
 export function getRoundScores() {
   return { ...roundScores };
