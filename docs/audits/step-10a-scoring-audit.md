@@ -1,5 +1,7 @@
 # Step 10a — Scoring system audit
 
+> **Archived** (April 2026, jam era). Moved to `docs/audits/`. Current priorities: [ROADMAP.md](../ROADMAP.md)
+
 Read-only audit of `main.js` and `party/index.ts` against `.cursorrules` (Scoring & Round Structure, lines 82–92) and Step 10a prerequisite note (Execution order §10a).
 
 **Sources:** `main.js` (host-authoritative physics, fall detection, ramming, round lifecycle); `party/index.ts` (relay of `host_round` / `round`, placeholder `host_event_fall`).

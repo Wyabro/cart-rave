@@ -1,12 +1,14 @@
 # Cart Rave — Session 13 Handover
 
+> **Archived** (April 2026, jam era). Moved to `docs/handovers/`. Current state: [project-state.md](../project-state.md) · [ROADMAP.md](../ROADMAP.md)
+
 Date: April 21, 2026
 Days to deadline: ~10 days (May 1, 2026 @ 13:37 UTC)
 Production: cartrave.lol — current and working
 
 ## Starting state
 
-Session 13 opened with `docs/session-12-handover.md` on main. That doc covered:
+Session 13 opened with `docs/handovers/session-12-handover.md` on main. That doc covered:
 
 - Gemini audit fixes (security, ghost carts, host migration) — all committed and pushed before this session started
 - Step 9 (results screen) plan — implementation began mid-session-12, continued into session 13

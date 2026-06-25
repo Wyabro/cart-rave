@@ -158,15 +158,14 @@ Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 - Round starts automatically once ready-up conditions are met after color pick.
 - Behavior-changing changes require human playtest on production after deploy.
 
+## Documentation
+
+- Split: `docs/ROADMAP.md` = prioritized forward plan (Version 2, Tier 1–4); `docs/todo.md` = historical record and current status snapshot.
+- Approved library additions (`nipplejs`, `tweakpane`, `zustand`/`valtio`, `howler.js`) are intentional — priorities in `docs/ROADMAP.md`.
+
 ## What's Deferred / Post-Jam
 
-- Ragdoll cart death animation
-- Cart skin variants
-- Supabase global leaderboard
-- Server-synced dancefloor rotation + physics drag
-- In-world 3D exit portal (currently button-only on results)
-- Full mobile UX polish beyond basic touch controls
-- Mid-round Quickplay join respawn-to-booth; host migration mid-round speed-up; Quickplay refresh rejoin
+See `docs/ROADMAP.md` for current prioritized work toward Version 2 (new levels, library additions, performance, and release prep).
 
 ## How Wyatt Works
 

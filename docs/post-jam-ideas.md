@@ -1,5 +1,7 @@
 # Post-jam ideas
 
+> Many items below are now tracked in [ROADMAP.md](./ROADMAP.md). This file is kept as a lightweight idea scratchpad.
+
 ## Gameplay / VFX
 - Spilling cart contents on knockover.
 

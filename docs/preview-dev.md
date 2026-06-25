@@ -51,4 +51,4 @@ Deployed host pattern: `https://cart-rave-preview.<account>.partykit.dev`
 | Local prod config | `npm run dev` + `npm run dev:party` |
 | Ship client + worker | `npm run ship` |
 
-See also [deploy-urls.md](./deploy-urls.md) for production hostnames and verification.
+See also [deploy-urls.md](./deploy-urls.md) for production hostnames and verification. Forward-looking priorities: [ROADMAP.md](./ROADMAP.md).

@@ -1,5 +1,7 @@
 # Session 8 Handover — Multiplayer Netcode Wiring
 
+> **Archived** (April 2026, jam era). Moved to `docs/handovers/`. Current state: [project-state.md](../project-state.md) · [ROADMAP.md](../ROADMAP.md)
+
 Date: 2026-04-19
 
 ## Server (`party/index.ts`) — current state

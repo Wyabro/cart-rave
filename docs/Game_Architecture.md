@@ -2,7 +2,9 @@
 
 **Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Rave is built**, how multiplayer works, how releases are verified, and what work remains.
 
-**Source material:** This document is derived exclusively from the files in `docs/` (handover notes, audits, and operational checklists).
+**Last updated context:** June 2026 — post-jam, Phase 3 (Content & Features), working toward Version 2. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
+
+**Source material:** Derived from `docs/` (handover notes in `handovers/`, audits in `audits/`, and operational checklists).
 
 ---
 
@@ -15,16 +17,16 @@ At a high level, the architecture is:
 - **Client-rendered 3D** with real-time physics simulation
 - **Host-authoritative multiplayer**: one client simulates physics for everyone
 - **PartyKit room server** for connection management, slot assignment, and message relay
-- **Static hosting** for the game client and assets; no mandatory build pipeline for the client runtime
+- **Static hosting** for the game client and assets; **Vite** builds `dist/` for production
 
 ---
 
 ## Goals and “definition of done”
 
 - **Primary goal:** A friend can open the live site, pick a color, join a round quickly, play multiple rounds, and want to share it.
-- **Jam scope constraints (explicit cuts):**
+- **Original jam constraints (still largely true):**
   - Floor rotation is **visual-only** (no physics drag / spin forces applied to carts).
-  - Deeper optimization and advanced netcode (prediction, reconciliation) are deferred.
+- **Post-jam additions:** Backrooms level, touch controls, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts.
 
 ---
 
@@ -33,7 +35,10 @@ At a high level, the architecture is:
 - **Three.js**: rendering, scene, camera, post-processing, and visuals
 - **Rapier3D**: physics (simulation runs on the host client)
 - **PartyKit**: multiplayer rooms + WebSocket relay + lightweight server state
+- **Vite**: dev server and production build (`dist/`)
 - **Vercel**: static hosting for the client
+
+**Levels:** Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids).
 
 ---
 
@@ -184,31 +189,35 @@ The handover notes repeatedly stress process discipline for reliability:
 
 ---
 
-## Roadmap themes (what’s next / what’s deferred)
+## Roadmap themes (what's next)
 
-### Near-term (jam-focused)
+### Near-term (Tier 1 — stabilization)
 
-Notes indicate a practical ordering around:
+**Primary source:** [ROADMAP.md](./ROADMAP.md)
 
-- Stabilizing lobby/ready flows
+- Lobby / ready-up flows (including refresh races)
 - Color selection gating
-- Rounds/results polish
-- Lag mitigation tuning
-- Final QA and cleanup pass before submission
+- Rounds / results polish
+- Tie-handling and non-host lifecycle edge cases
 
-### Post-jam ideas (deferred)
+### Content and features (Tier 2 — active)
 
-Ideas explicitly listed as post-jam include:
+- Touch controls polish (in progress)
+- Level 3: Zanzibar Platform
+- Crazy Carts mode, Supabase leaderboard, spectator features
 
-- VFX: spilling cart contents on knockover
-- Online progression: persistent leaderboard (e.g., Supabase)
-- Menu/UX: a drivable main menu with portals for mode selection
-- Performance/networking: draw-call reduction through static mesh merges, stable damping formulas, client-side prediction, and interpolation tuning
+### Technical and release (Tiers 3–4)
+
+- Lag mitigation, rave area redesign, performance pass
+- Further `main.js` slimming + `levelManager.js` ownership
+- Menu overhaul, rename + new domain (Version 2 release)
+
+See also [post-jam-ideas.md](./post-jam-ideas.md).
 
 ---
 
 ## Appendix: Notes on documentation provenance
 
 - This consolidated file intentionally avoids duplicating raw session narratives, commit hashes, or code-level line references unless they communicate an architectural principle.
-- For deeper implementation-specific detail, the original per-session handovers and audits remain the canonical historical record in `docs/`.
+- For deeper implementation-specific detail, per-session handovers (`docs/handovers/`) and audits (`docs/audits/`) remain the canonical historical record.
 

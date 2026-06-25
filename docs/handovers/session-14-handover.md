@@ -1,5 +1,7 @@
 # Cart Rave — Session 14 Handover (for next Cursor agent)
 
+> **Archived** (April 2026, jam era). Moved to `docs/handovers/`. Current state: [project-state.md](../project-state.md) · [ROADMAP.md](../ROADMAP.md)
+
 Date: April 21, 2026 (end of session)
 Days to deadline: ~10 days (May 1, 2026 @ 13:37 UTC)
 Production: cartrave.lol — current and working
@@ -7,13 +9,13 @@ Production: cartrave.lol — current and working
 ## Read first
 
 1. `.cursorrules` — **this was completely rewritten this session.** Do not rely on any memory of the previous version. The rewrite reflects a menu-first vision with Solo / Quickplay / Friends modes, server-gated color picker, in-game Esc overlay, personal stats tracking, and a reorganized Execution Order (20 steps). Read it in full before acting.
-2. `docs/step-10a-scoring-audit.md` — full audit of the scoring system as it exists in code. Lists what's working, what's partial, what's missing.
+2. `docs/audits/step-10a-scoring-audit.md` — full audit of the scoring system as it exists in code. Lists what's working, what's partial, what's missing.
 
 ## State as of end of session 14
 
 **Committed and pushed to main:**
 - New `.cursorrules` (menu-first vision, replaces prior version entirely)
-- `docs/step-10a-scoring-audit.md` (scoring audit report)
+- `docs/audits/step-10a-scoring-audit.md` (scoring audit report)
 - Commit `397897a` — Bug 1 fix from the scoring audit (Critical bonus now uses `CONFIG.scoring.criticalVelocityThreshold = 13.5` instead of nitro-active window)
 
 **Verified on prod:**
@@ -34,7 +36,7 @@ Bug 1 is fixed. Bugs 2 and 3 are drafted prompts waiting to be applied.
 
 **Bug 2 — All-zero tie silently picks slot 0.** Not started.
 - Location: `main.js` ~2444-2455 (endRound)
-- Fix: If max score is 0, set `winnerSlotIndex = null`. Podium displays "No winner — nobody scored" text. Add a line to `docs/step-10a-scoring-audit.md` noting that Step 13 stats must skip rounds with null winner. **DO NOT implement Step 13 stats logic in this session.**
+- Fix: If max score is 0, set `winnerSlotIndex = null`. Podium displays "No winner — nobody scored" text. Add a line to `docs/audits/step-10a-scoring-audit.md` noting that Step 13 stats must skip rounds with null winner. **DO NOT implement Step 13 stats logic in this session.**
 - Playtest: drive in circles for 60s, no scoring, confirm podium shows "no winner" text.
 
 **Bug 3 — Early round-end on 1-cart-remaining not implemented.** Not started.
@@ -71,7 +73,7 @@ Bug 1 is fixed. Bugs 2 and 3 are drafted prompts waiting to be applied.
 ## Cursor audit tasks tracked across execution order
 
 These are embedded in specific execution steps in `.cursorrules`. Do not address them outside their step unless explicitly asked:
-- Step 10a: scoring audit (DONE, see `docs/step-10a-scoring-audit.md`)
+- Step 10a: scoring audit (DONE, see `docs/audits/step-10a-scoring-audit.md`)
 - Step 14d: interpolation buffer empty-state behavior
 - Step 16: hole radius (12-13% vs 15-20% discrepancy), spotlight count/colors, NPC hole awareness
 - Step 18: `CONFIG.record.physicsSpinRadPerSec` — confirm dead config, remove if unused

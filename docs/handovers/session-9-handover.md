@@ -1,5 +1,7 @@
 ## Session 9 handover — tonight summary
 
+> **Archived** (April 2026, jam era). Moved to `docs/handovers/`. Current state: [project-state.md](../project-state.md) · [ROADMAP.md](../ROADMAP.md)
+
 ### 1) Time check
 
 - **12 days** to the **May 1, 2026 13:37 UTC** deadline at the start of Session 9.

@@ -1,0 +1,119 @@
+# Cart Rave
+
+**Cart Rave** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around a club dancefloor ring — and try not to get yeeted through the **center hole**. Matches are **60 seconds** of physics chaos, and the cart with the **most points** takes the podium.
+
+**Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
+
+**Status (June 2026):** Post-jam. Active development on the `next-level` branch toward **Version 2** — see [ROADMAP.md](./ROADMAP.md).
+
+---
+
+## Documentation index
+
+| Doc | Purpose |
+|-----|---------|
+| [ROADMAP.md](./ROADMAP.md) | **Primary forward-looking plan** (Version 2 priorities) |
+| [todo.md](./todo.md) | Current status snapshot + shipped history |
+| [project-state.md](./project-state.md) | Architecture snapshot, known issues |
+| [Game_Architecture.md](./Game_Architecture.md) | Consolidated architecture & design reference |
+| [preview-dev.md](./preview-dev.md) | `next-level` branch local dev workflow |
+| [deploy-urls.md](./deploy-urls.md) | Production URLs and deploy verification |
+| [CREDITS.md](./CREDITS.md) | Third-party libraries, fonts, and assets |
+| [post-jam-ideas.md](./post-jam-ideas.md) | Deferred ideas (many now tracked in ROADMAP) |
+| [handovers/](./handovers/) | Session handover notes (historical) |
+| [audits/](./audits/) | Code audits (historical) |
+
+---
+
+## Tech stack
+
+- **Three.js** — rendering, camera, post-processing, UI/world visuals
+- **Rapier3D** — real-time physics (host-authoritative simulation)
+- **PartyKit** — multiplayer rooms + WebSocket relay + lightweight server state
+- **Vite** — dev server and production build (`dist/`)
+
+Client code lives in `src/`. `src/main.js` is the live entry point and wiring hub; core systems are modular (`netcode.js`, `simulation.js`, `bootstrap.js`, `levelManager.js`, etc.).
+
+---
+
+## Run locally
+
+### Prerequisites
+
+- **Node.js + npm**
+
+### Daily development (`next-level` branch)
+
+One command — Vite client + preview PartyKit worker:
+
+```bash
+npm run dev:next-level
+```
+
+Open **http://127.0.0.1:3000/**. See [preview-dev.md](./preview-dev.md) for the full preview workflow.
+
+### Production config (`main` branch)
+
+```bash
+# Terminal 1 — Vite
+npm run dev
+
+# Terminal 2 — PartyKit (port 1999)
+npm run dev:party
+```
+
+### Deploy
+
+```bash
+npm run build    # Vite → dist/
+npm run ship     # build + PartyKit deploy (production)
+```
+
+---
+
+## Player controls
+
+- **WASD / Arrow keys**: drive (tank steering)
+- **Shift**: boost / ram boost
+- **Space**: hop
+- **M**: mute audio
+- **Esc**: in-game overlay (settings + quit to menu; simulation continues)
+- **Touch** (mobile): virtual joystick + Boost/Hop buttons
+
+---
+
+## Gameplay basics
+
+- **Modes**: Solo (private room + NPCs), Quickplay (public room), Friends (share a `?room=` link)
+- **Levels**: Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids)
+- **Scoring**: knock carts off the **edge** or into **voids/holes** for points (bonuses stack for big plays)
+- **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots (with client-side prediction for the local cart)
+
+---
+
+## Useful scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Vite dev server (port 3000) |
+| `npm run dev:next-level` | Vite + preview PartyKit (recommended on `next-level`) |
+| `npm run dev:party` | PartyKit local worker (port 1999) |
+| `npm run build` | Production build to `dist/` |
+| `npm run ship` | Build + deploy PartyKit to production |
+| `npm run knip` | Unused export analysis |
+
+---
+
+## Repo layout (high level)
+
+```
+index.html          # Static shell, menu markup
+src/main.js         # Entry point + game wiring
+src/bootstrap.js    # Menu → gameplay flow
+src/levelManager.js # Level preview + swapping
+src/levels/         # Level definitions (classic, backrooms, …)
+party/index.ts      # PartyKit relay (no server-side physics)
+docs/               # All project documentation
+```
+
+Design constraints and AI guardrails: `.cursorrules` at repo root.
