@@ -4,22 +4,22 @@ import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
-export const BASKET_LENGTH = 2.1;
-export const BASKET_WIDTH = 1.35;
-export const BASKET_HEIGHT_BACK = 1.05;
-export const BASKET_HEIGHT_FRONT = 0.675;
-export const BASKET_RIM_TOP_Y = 0.51;
-export const BASKET_RAIL_RADIUS = 0.0165;
-export const BASKET_RAIL_SEGMENTS = 6;
-export const HORIZONTAL_RAILS_LONG = 4;
-export const VERTICAL_RAILS_LONG = 6;
-export const HORIZONTAL_RAILS_FRONT = 3;
-export const VERTICAL_RAILS_FRONT = 5;
-export const HORIZONTAL_RAILS_BACK = 4;
-export const VERTICAL_RAILS_BACK = 6;
-export const BOTTOM_GRID_ALONG_X = 5;
-export const BOTTOM_GRID_ALONG_Z = 5;
-export const BOTTOM_Z_SEGMENTS = 10;
+const BASKET_LENGTH = 2.1;
+const BASKET_WIDTH = 1.35;
+const BASKET_HEIGHT_BACK = 1.05;
+const BASKET_HEIGHT_FRONT = 0.675;
+const BASKET_RIM_TOP_Y = 0.51;
+const BASKET_RAIL_RADIUS = 0.0165;
+const BASKET_RAIL_SEGMENTS = 6;
+const HORIZONTAL_RAILS_LONG = 4;
+const VERTICAL_RAILS_LONG = 6;
+const HORIZONTAL_RAILS_FRONT = 3;
+const VERTICAL_RAILS_FRONT = 5;
+const HORIZONTAL_RAILS_BACK = 4;
+const VERTICAL_RAILS_BACK = 6;
+const BOTTOM_GRID_ALONG_X = 5;
+const BOTTOM_GRID_ALONG_Z = 5;
+const BOTTOM_Z_SEGMENTS = 10;
 
 const CART_DIMS = {
   halfW: BASKET_WIDTH * 0.5,
@@ -35,29 +35,29 @@ const CART_DIMS = {
 };
 
 // * Handle (top-back, slightly proud of rim).
-export const HANDLE_BAR_RADIUS = 0.072;
-export const HANDLE_SPREAD_X = 0.42;
-export const HANDLE_BAR_Y = BASKET_RIM_TOP_Y + 0.1425;
-export const HANDLE_PUSH_Z = 0.105;
+const HANDLE_BAR_RADIUS = 0.072;
+const HANDLE_SPREAD_X = 0.42;
+const HANDLE_BAR_Y = BASKET_RIM_TOP_Y + 0.1425;
+const HANDLE_PUSH_Z = 0.105;
 
 // * Open chassis under basket (rails + crossbars, no solid shelf).
-export const CHASSIS_RAIL_RADIUS = 0.024;
-export const CHASSIS_HALF_WIDTH = 0.54;
-export const CHASSIS_HALF_LENGTH = 0.93;
-export const CHASSIS_RAIL_Y = -0.48;
-export const CHASSIS_CROSSBAR_COUNT = 2;
-export const CHASSIS_CROSSBAR_Z_FRACTIONS = [-0.55, 0.55];
+const CHASSIS_RAIL_RADIUS = 0.024;
+const CHASSIS_HALF_WIDTH = 0.54;
+const CHASSIS_HALF_LENGTH = 0.93;
+const CHASSIS_RAIL_Y = -0.48;
+const CHASSIS_CROSSBAR_COUNT = 2;
+const CHASSIS_CROSSBAR_Z_FRACTIONS = [-0.55, 0.55];
 
 // * Caster / wheel (visual only). Chunky cartoon wheels.
-export const CASTER_YAW_DAMPING = 0.28;
-export const CASTER_YAW_WOBBLE_AMPLITUDE = 0.11;
-export const CASTER_YAW_MIN_SPEED = 0.35;
-export const WHEEL_RADIUS = 0.27;
-export const WHEEL_WIDTH = 0.18;
-export const WHEEL_RADIAL_SEGMENTS = 20;
-export const CASTER_STEM_HEIGHT = 0.15;
-export const CASTER_CORNER_INSET = 0.0525;
-export const CASTER_MOUNT_DROP_BELOW_CHASSIS = 0.16;
+const CASTER_YAW_DAMPING = 0.28;
+const CASTER_YAW_WOBBLE_AMPLITUDE = 0.11;
+const CASTER_YAW_MIN_SPEED = 0.35;
+const WHEEL_RADIUS = 0.27;
+const WHEEL_WIDTH = 0.18;
+const WHEEL_RADIAL_SEGMENTS = 20;
+const CASTER_STEM_HEIGHT = 0.15;
+const CASTER_CORNER_INSET = 0.0525;
+const CASTER_MOUNT_DROP_BELOW_CHASSIS = 0.16;
 
 const _v = new THREE.Vector3();
 const _localDir = new THREE.Vector3();

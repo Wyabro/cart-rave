@@ -36,7 +36,7 @@ export function normalizePatternId(value) {
  * @param {string} cssHex e.g. `#ff2bd6`
  * @returns {string}
  */
-export function getPatternSwatchBackground(patternId, cssHex) {
+function getPatternSwatchBackground(patternId, cssHex) {
   const id = normalizePatternId(patternId);
   const c = cssHex || "#ff2bd6";
   const dark = "rgba(0,0,0,0.92)";
@@ -134,7 +134,7 @@ export function patternSvgParts(patternId, colorCss, patternUid) {
  * @param {string} colorCss
  * @returns {string}
  */
-export function makePatternMiniCartSvg(patternId, colorCss) {
+function makePatternMiniCartSvg(patternId, colorCss) {
   const id = normalizePatternId(patternId);
   const c = colorCss || "#ff2bd6";
   const uid = `m${Math.random().toString(36).slice(2, 7)}`;

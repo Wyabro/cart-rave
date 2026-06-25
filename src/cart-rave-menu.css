@@ -1545,32 +1545,64 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: clamp(140px, 24vw, 180px);
+  min-height: clamp(160px, 28vw, 200px);
   margin: 4px 0;
 }
 
 .cr-customize-preview-shadow {
   position: absolute;
-  bottom: 8%;
+  bottom: 6%;
   left: 50%;
   transform: translateX(-50%);
-  width: 70%;
+  width: 72%;
   height: 28px;
   border-radius: 50%;
   pointer-events: none;
 }
 
+/* * 3D preview viewport — framed neon panel; SVG fallback uses the same shell. */
 .cr-customize-preview-cart {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  width: min(100%, 280px);
+  max-height: clamp(160px, 28vw, 200px);
+  aspect-ratio: 4 / 3;
+  margin: 0 auto;
+  padding: var(--space-sm);
+  overflow: hidden;
+  background: linear-gradient(
+    165deg,
+    rgba(14, 8, 22, 0.96) 0%,
+    rgba(8, 4, 14, 0.98) 55%,
+    rgba(6, 4, 12, 1) 100%
+  );
+  border: 1px solid var(--glow-magenta-28);
+  border-radius: var(--radius-card);
+  box-shadow:
+    inset 0 0 28px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 var(--border-white-05-inset),
+    0 0 20px var(--glow-magenta-14),
+    0 0 12px var(--glow-cyan-12);
 }
 
 .cr-customize-preview-cart svg {
-  width: clamp(180px, 42vw, 240px);
+  width: clamp(160px, 38vw, 220px);
   height: auto;
+}
+
+/* * WebGL canvas fills the holder content box (holder padding provides the frame). */
+.cr-customize-preview-cart canvas,
+.cr-customize-preview-cart .cr-cart-preview-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius-card) - var(--space-sm));
 }
 
 .cr-customize-tabs {
@@ -1611,21 +1643,21 @@ html, body {
   margin-bottom: 0;
 }
 
-.cr-pattern-row {
+.cr-theme-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-xs);
   margin-bottom: 0;
 }
 
-.cr-pattern-chip {
+.cr-theme-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   min-height: 72px;
-  padding: 8px 4px;
+  padding: 8px 6px;
   background: var(--surface-dark-55);
   border: 2px solid var(--border-white-15);
   border-radius: var(--radius-btn);
@@ -1633,30 +1665,32 @@ html, body {
   transition: transform 120ms ease, border-color 150ms ease, box-shadow 180ms ease;
 }
 
-.cr-pattern-chip svg {
+.cr-theme-chip-swatch {
   display: block;
   width: clamp(28px, 7.5vw, 36px);
-  height: auto;
-  filter: drop-shadow(0 0 4px var(--cc, #ff2bd6));
+  height: clamp(28px, 7.5vw, 36px);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tc, #ff2bd6) 0%, var(--ta, #22e6ff) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--tc, #ff2bd6) 55%, transparent);
 }
 
-.cr-pattern-chip:hover {
+.cr-theme-chip:hover {
   transform: var(--transform-hover-lift);
   border-color: var(--border-white-30);
 }
 
-.cr-pattern-chip.active {
+.cr-theme-chip.active {
   border-color: var(--color-cyan);
-  box-shadow: 0 0 10px var(--glow-cyan-30);
+  box-shadow: 0 0 12px var(--glow-cyan-30), 0 0 6px var(--glow-magenta-14);
 }
 
-.cr-pattern-chip-label {
+.cr-theme-chip-label {
   font-family: var(--mono);
-  font-size: clamp(8px, 1.1vw, 10px);
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.75);
+  font-size: clamp(7px, 1vw, 9px);
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.8);
   text-align: center;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .cr-customize-done {
@@ -1708,7 +1742,7 @@ html, body {
 .cr-btn:focus-visible,
 .cr-level-btn:focus-visible,
 .cr-color-chip:focus-visible,
-.cr-pattern-chip:focus-visible,
+.cr-theme-chip:focus-visible,
 .cr-reroll:focus-visible,
 .cr-friends-enter:focus-visible,
 .cr-customize-done:focus-visible,
@@ -1904,7 +1938,7 @@ html, body {
 
   .cr-customize-tabs { grid-template-columns: repeat(2, 1fr); }
   .cr-customize-tab { min-height: 40px; }
-  .cr-pattern-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cr-theme-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .cr-color-label { font-size: clamp(8px, 2.2vw, 10px); margin-bottom: clamp(8px, 1.6dvh, 10px); letter-spacing: 0.16em; }
   .cr-color-row { gap: clamp(6px, 1.8vw, 8px); }

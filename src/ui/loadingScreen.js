@@ -8,6 +8,8 @@ import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
 const BOOT_SPLASH_ID = "cr-boot-splash";
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
+/** Minimum time the mode-entry overlay stays up so fast paths remain visible. */
+const MIN_MODE_ENTRY_VISIBLE_MS = 720;
 
 /** @type {Record<"solo" | "classic" | "backrooms", { title: string, subtitle: string, progress: string }>} */
 const THEME_COPY = {
@@ -39,6 +41,10 @@ let progressStartedAt = 0;
 let progressTarget = 0.92;
 let modeEntryVisible = false;
 let bootDismissed = false;
+/** Nested mode-entry tasks share one overlay (level switch + play bootstrap). */
+let modeEntryDepth = 0;
+/** @type {number} */
+let modeEntryShownAt = 0;
 
 /**
  * @param {{ gameMode?: string | null, levelId?: string | null }} opts
@@ -287,19 +293,61 @@ export function dismissModeEntryLoading() {
 }
 
 /**
+ * Yields until the browser has painted (avoids microtask-before-paint jank).
+ * @returns {Promise<void>}
+ */
+export function yieldForPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+/**
+ * Holds the overlay until MIN_MODE_ENTRY_VISIBLE_MS has elapsed since show.
+ * @param {number} shownAt `performance.now()` when the overlay was shown.
+ * @returns {Promise<void>}
+ */
+async function ensureMinModeEntryVisible(shownAt) {
+  const remaining = MIN_MODE_ENTRY_VISIBLE_MS - (performance.now() - shownAt);
+  if (remaining > 0) {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, remaining);
+    });
+  }
+}
+
+/**
  * @param {() => Promise<void> | void} task
- * @param {{ gameMode?: string | null, levelId?: string | null }} opts
+ * @param {{ gameMode?: string | null, levelId?: string | null, onShown?: () => void }} opts
  * @returns {Promise<void>}
  */
 export async function withModeEntryLoading(task, opts = {}) {
-  showModeEntryLoading(opts);
+  const { gameMode, levelId, onShown } = opts;
+  const isOwner = modeEntryDepth === 0;
+  modeEntryDepth += 1;
+
+  if (isOwner) {
+    modeEntryShownAt = performance.now();
+    showModeEntryLoading({ gameMode, levelId });
+    onShown?.();
+    await yieldForPaint();
+  }
+
   try {
-    await Promise.resolve().then(() => task());
+    await task();
   } catch (err) {
     console.error("[CartRave] Mode entry bootstrap failed:", err);
+    // Re-throw so the caller knows it failed; cleanup runs in finally.
     throw err;
   } finally {
-    await dismissModeEntryLoading();
+    modeEntryDepth -= 1;
+    if (isOwner) {
+      // Even on error, wait min visible time so the UI does not flash.
+      await ensureMinModeEntryVisible(modeEntryShownAt);
+      await dismissModeEntryLoading();
+    }
   }
 }
 

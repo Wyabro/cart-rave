@@ -293,10 +293,20 @@ export function initMusic(options) {
   wireMusicToWebAudio();
 
   window.__cartRaveTryStartMenuMusic = tryStartMenuMusic;
+  let audioUnlocked = false;
   const attemptUnlock = () => {
+    if (audioUnlocked) return;
     if (_ctx && _ctx.state === "suspended") void _ctx.resume();
     if (_getMenuVisible?.() && !menuMusicStarted && devAllowsAutoplayMusic()) {
       tryStartMenuMusic();
+    }
+
+    // * Detach as soon as the AudioContext is running.
+    // * Covers fast-path join where the menu is skipped entirely.
+    if (_ctx?.state === "running") {
+      audioUnlocked = true;
+      window.removeEventListener("pointerdown", attemptUnlock, { passive: true });
+      window.removeEventListener("keydown", attemptUnlock, { passive: true });
     }
   };
   window.addEventListener("pointerdown", attemptUnlock, { passive: true });
@@ -509,14 +519,23 @@ export function applyAudioVolume() {
       menuMusicGain.gain.cancelScheduledValues(now);
       menuMusicGain.gain.setValueAtTime(musicVol, now);
     }
-    if (gameMusicGains[activeTrackIndex] && gameMusicStarted) {
+    if (
+      activeTrackIndex >= 0
+      && activeTrackIndex < gameMusicGains.length
+      && gameMusicGains[activeTrackIndex]
+      && gameMusicStarted
+    ) {
       const g = gameMusicGains[activeTrackIndex].gain;
       g.cancelScheduledValues(now);
       g.setValueAtTime(musicVol, now);
     }
   } else {
     if (menuMusicEl) menuMusicEl.volume = musicVol;
-    if (activeTrackIndex >= 0 && gameMusicElements[activeTrackIndex]) {
+    if (
+      activeTrackIndex >= 0
+      && activeTrackIndex < gameMusicElements.length
+      && gameMusicElements[activeTrackIndex]
+    ) {
       gameMusicElements[activeTrackIndex].volume = musicVol;
     }
   }
@@ -534,60 +553,4 @@ export function applyAudioVolume() {
 export function setMuted(muted, setMutedState) {
   setMutedState(Boolean(muted));
   try { applyAudioVolume(); } catch (e) {}
-}
-
-/**
- * * Plays a cart collision impact scaled by intensity (0–1).
- * @param {number} intensity
- * @returns {void}
- */
-export function playCollision(intensity) {
-  _sfx?.playCollision?.(intensity);
-}
-
-/** @returns {void} */
-export function playNitro() {
-  _sfx?.playNitro?.();
-}
-
-/** @returns {void} */
-export function playHop() {
-  _sfx?.playHop?.();
-}
-
-/** @returns {void} */
-export function playFallOff() {
-  _sfx?.playFallOff?.();
-}
-
-/**
- * * Plays wheel screech feedback scaled by intensity (0–1).
- * @param {number} intensity
- * @returns {void}
- */
-export function playWheelScreech(intensity) {
-  _sfx?.playWheelScreech?.(intensity);
-}
-
-/** @returns {void} */
-export function resyncLeaderHumVolume() {
-  _leaderHum?.resyncVolume?.();
-}
-
-/**
- * * Highlights the current round leader for positional hum audio.
- * @param {number | null | undefined} slotIndex
- * @returns {void}
- */
-export function setLeader(slotIndex) {
-  _leaderHum?.setLeader?.(slotIndex);
-}
-
-/**
- * * Updates leader-hum 3D position from a cart body.
- * @param {object | null | undefined} cart
- * @returns {void}
- */
-export function updateLeaderHumPosition(cart) {
-  _leaderHum?.updatePositionFromCart?.(cart);
 }

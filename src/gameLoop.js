@@ -9,6 +9,12 @@ let _npcCache = null;
 /** @type {string | null} */
 let _npcCacheKey = null;
 
+/** Clears cached NPC cart refs after session teardown (bodies are removed from Rapier). */
+export function clearNpcCartCache() {
+  _npcCache = null;
+  _npcCacheKey = null;
+}
+
 /**
  * Returns NPC carts for the current slot layout, reusing a cache when slot kinds are unchanged.
  *
@@ -18,7 +24,11 @@ let _npcCacheKey = null;
  */
 function resolveNpcCarts(allCarts, slots) {
   const key = slots.map((s) => s?.kind ?? "").join(",");
-  if (key === _npcCacheKey && _npcCache) return _npcCache;
+  if (key === _npcCacheKey && _npcCache) {
+    // * Quit-to-menu destroys carts but slot kinds stay the same — drop stale body refs.
+    const stillValid = _npcCache.every((c) => c && allCarts.includes(c));
+    if (stillValid) return _npcCache;
+  }
 
   _npcCache = allCarts.filter((c, idx) => c && slots[idx]?.kind === "npc");
   _npcCacheKey = key;

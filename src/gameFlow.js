@@ -71,7 +71,7 @@ function calculateFallScore(deps, slotIndex, p, nowMs) {
 }
 
 /**
- * Host fall/score handling, respawns, round timer end, and camera follow.
+ * Host fall/score handling, respawns, and round timer end.
  * Runs once per frame after ambient visuals and before physics substeps.
  *
  * @param {GameFlowDeps} deps Wiring from main — closures for mutable round/slow-mo state.

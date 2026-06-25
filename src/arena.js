@@ -201,7 +201,7 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
   return { ringMesh, ringMat, mergedGrooves };
 }
 
-export function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles) {
+function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles) {
   const B = config.booth;
   const arenaR = config.record.radius;
 

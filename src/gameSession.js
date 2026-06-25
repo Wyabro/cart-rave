@@ -77,7 +77,7 @@ export function createHelloGate() {
 /**
  * Strips `?room=` from the URL without reloading the page.
  */
-export function stripRoomFromUrl() {
+function stripRoomFromUrl() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   if (!url.searchParams.has("room")) return;

@@ -38,7 +38,7 @@ export function setContactShadowHazards(hazards) {
 /**
  * @returns {boolean}
  */
-export function contactShadowsEnabled() {
+function contactShadowsEnabled() {
   return Boolean(shadowCfg()?.enabled);
 }
 

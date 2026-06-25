@@ -19,9 +19,11 @@
     "deploy:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy",
     "ship:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy",
     "ship": "node scripts/party-deploy-guard.mjs && npm run build:party-static && npx partykit deploy",
-    "deploy:preview": "npx partykit deploy --config partykit.preview.json"
+    "deploy:preview": "npx partykit deploy --config partykit.preview.json",
+    "knip": "knip"
   },
   "devDependencies": {
+    "knip": "^6.20.0",
     "lil-gui": "^0.21.0",
     "partykit": "^0.0.115",
     "vite": "^6.3.5"
@@ -30,7 +32,6 @@
     "@dimforge/rapier3d-compat": "^0.19.3",
     "animejs": "^4.0.0",
     "partysocket": "^1.1.16",
-    "puppeteer": "^25.0.4",
     "three": "^0.164.1"
   }
 }

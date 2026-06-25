@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "index.html",
+    "party/index.ts",
+    "scripts/dev-next-level.mjs",
+    "scripts/party-deploy.mjs",
+    "scripts/party-deploy-guard.mjs"
+  ],
+  "project": ["src/**/*.{js,ts,css}", "party/**/*.{js,ts}"],
+  "ignore": ["dist/**", ".partykit/**"],
+  "ignoreDependencies": ["partykit"],
+  "vite": {
+    "config": "vite.config.js"
+  }
+}

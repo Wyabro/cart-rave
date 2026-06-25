@@ -10,7 +10,7 @@ import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
 
 /** Bloom tuning — edit CONFIG.postFx.bloom in config.js; applied in createComposer(). */
-export const BLOOM_CONFIG = CONFIG.postFx.bloom;
+const BLOOM_CONFIG = CONFIG.postFx.bloom;
 
 /**
  * Applies bloom pass settings from CONFIG.postFx.bloom (or an override object).
@@ -156,7 +156,7 @@ export function setupSceneEnvironment(renderer, scene) {
 // Adjust CONFIG.postFx.fog or use the Post FX debug GUI.
 
 /** @type {typeof CONFIG.postFx.fog} */
-export const FOG_CONFIG = CONFIG.postFx.fog;
+const FOG_CONFIG = CONFIG.postFx.fog;
 
 /** @type {number} */
 let fogColorLive = FOG_CONFIG.color;
@@ -212,7 +212,7 @@ export function setFogEnabled(scene, renderer, enabled) {
  * @param {number} [density]
  * @returns {THREE.FogExp2 | null}
  */
-export function setupSceneFog(scene, color = FOG_CONFIG.color, density = FOG_CONFIG.density) {
+function setupSceneFog(scene, color = FOG_CONFIG.color, density = FOG_CONFIG.density) {
   if (!scene) return null;
   fogColorLive = color;
   fogDensityLive = density;
@@ -329,7 +329,7 @@ export function createScene() {
  *
  * @returns {THREE.PerspectiveCamera}
  */
-export function createCamera() {
+function createCamera() {
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
   return camera;
 }
@@ -421,7 +421,7 @@ export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass)
  *
  * @param {THREE.WebGLRenderer|null|undefined} renderer WebGL renderer to dispose.
  */
-export function disposeRenderer(renderer) {
+function disposeRenderer(renderer) {
   if (!renderer) return;
   renderer.dispose();
 }
@@ -431,7 +431,7 @@ export function disposeRenderer(renderer) {
  *
  * @param {EffectComposer|null|undefined} composer Post-processing composer to dispose.
  */
-export function disposeComposer(composer) {
+function disposeComposer(composer) {
   if (!composer) return;
   composer.dispose();
 }

@@ -3,8 +3,6 @@ import { CART_COLORS, PALETTE } from "./config.js";
 import {
   CUSTOM_COLOR_ID,
   DEFAULT_CUSTOM_HUE,
-  CART_PATTERN_IDS,
-  CART_PATTERNS,
   DEFAULT_CART_PATTERN,
   ensurePlayerCustomizationPersisted,
   hueToNeonCss,
@@ -13,10 +11,15 @@ import {
   savePlayerCustomization,
 } from "./customization.js";
 import {
-  makePatternMiniCartSvg,
   normalizePatternId,
   patternSvgParts,
 } from "./cartPatternConfig.js";
+import {
+  CART_PREVIEW_THEMES,
+  CART_PREVIEW_THEME_IDS,
+  CartPreview,
+  DEFAULT_CART_PREVIEW_THEME_ID,
+} from "./ui/cartPreview.js";
 
 (function () {
   'use strict';
@@ -215,6 +218,7 @@ import {
     colorMode: 'preset',
     customHue: DEFAULT_CUSTOM_HUE,
     pattern: DEFAULT_CART_PATTERN,
+    previewThemeId: DEFAULT_CART_PREVIEW_THEME_ID,
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
@@ -234,7 +238,7 @@ import {
   const cartShadow = $("cr-cart-shadow");
   const titleEl = $("cr-title");
   const customizeColorRow = $("cr-customize-color-row");
-  const customizePatternRow = $("cr-customize-pattern-row");
+  const customizeThemeRow = $("cr-customize-theme-row");
   const customizeScreen = $("cr-customize-screen");
   const customizeCartHolder = $("cr-customize-cart-holder");
   const customizeCartShadow = $("cr-customize-cart-shadow");
@@ -255,6 +259,8 @@ import {
   const audioEl = $("cr-audio");
   let currentCartSvg = null;
   let currentCustomizeCartSvg = null;
+  /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
+  let cartPreview = null;
   let customHueSliderWired = false;
   const spotlightPool = [];
   const particlePool = [];
@@ -506,6 +512,15 @@ import {
     return `#${hex.toString(16).padStart(6, '0')}`;
   }
 
+  /** @returns {number} Active player color as a hex number for the 3D preview paint. */
+  function getActiveColorHex() {
+    if (state.colorMode === 'custom') {
+      return parseInt(hueToNeonCss(state.customHue).slice(1), 16);
+    }
+    const presetId = PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0];
+    return CART_COLORS[presetId]?.hex ?? CART_COLORS[PALETTE_GAME[0]].hex;
+  }
+
   // ─── Customization persistence (delegates to customization.js) ──────────
   function applyCustomizationToState(saved) {
     state.colorMode = saved.colorMode === 'custom' ? 'custom' : 'preset';
@@ -552,7 +567,6 @@ import {
     state.playerIdx = idx;
     saveCustomization({ colorMode: 'preset', color: PALETTE_GAME[idx] });
     buildColorChips();
-    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
@@ -564,7 +578,6 @@ import {
     state.colorMode = 'custom';
     saveCustomization({ colorMode: 'custom', customHue: state.customHue });
     buildColorChips();
-    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
@@ -582,8 +595,12 @@ import {
     }
     renderCart();
     renderCustomizePreview();
-    buildPatternChips();
     applyPalette();
+  }
+
+  /** @param {number} hex */
+  function previewHexToCss(hex) {
+    return `#${(hex >>> 0).toString(16).padStart(6, '0')}`;
   }
 
   // ─── Build color chips ────────────────────────────────────────────────────
@@ -634,7 +651,6 @@ import {
           return;
         }
         selectPresetColor(idx);
-    buildPatternChips();
         loadMenuAnimations().then((Anim) => {
           if (!Anim) return;
           const active = customizeColorRow.querySelector('.cr-color-chip.active');
@@ -644,28 +660,29 @@ import {
     });
   }
 
-  // ─── Build pattern chips (PATTERNS tab) ───────────────────────────────────
-  function buildPatternChips() {
-    if (!customizePatternRow) return;
-    customizePatternRow.setAttribute('role', 'radiogroup');
-    customizePatternRow.setAttribute('aria-label', 'Player Pattern Selection');
-    const previewColor = getActiveColorCss();
+  // ─── Build theme chips (THEMES tab) ───────────────────────────────────────
+  function buildThemeChips() {
+    if (!customizeThemeRow) return;
+    customizeThemeRow.setAttribute('role', 'radiogroup');
+    customizeThemeRow.setAttribute('aria-label', 'Cart Theme Selection');
     let html = '';
-    for (const patternId of CART_PATTERN_IDS) {
-      const meta = CART_PATTERNS[patternId];
-      const isActive = state.pattern === patternId;
-      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}" data-pattern="${patternId}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${meta.description}" style="--cc:${previewColor};">
-        ${makePatternMiniCartSvg(patternId, previewColor)}
-        <span class="cr-pattern-chip-label">${meta.label}</span>
+    for (const themeId of CART_PREVIEW_THEME_IDS) {
+      const theme = CART_PREVIEW_THEMES[themeId];
+      const isActive = state.previewThemeId === themeId;
+      const bodyCss = previewHexToCss(theme.bodyColor);
+      const accentCss = previewHexToCss(theme.accentColor ?? theme.bodyColor);
+      html += `<button type="button" class="cr-theme-chip ${isActive ? 'active' : ''}" data-theme="${themeId}" role="radio" aria-checked="${isActive}" aria-label="${theme.name}" title="${theme.name}" style="--tc:${bodyCss};--ta:${accentCss};">
+        <span class="cr-theme-chip-swatch" aria-hidden="true"></span>
+        <span class="cr-theme-chip-label">${theme.name}</span>
       </button>`;
     }
-    customizePatternRow.innerHTML = html;
-    customizePatternRow.querySelectorAll('.cr-pattern-chip').forEach((chip) => {
+    customizeThemeRow.innerHTML = html;
+    customizeThemeRow.querySelectorAll('.cr-theme-chip').forEach((chip) => {
       wireMenuPressFeedback(chip);
       chip.addEventListener('click', () => {
-        const patternId = chip.dataset.pattern;
-        if (!patternId || patternId === state.pattern) return;
-        selectPattern(patternId);
+        const themeId = chip.dataset.theme;
+        if (!themeId || themeId === state.previewThemeId) return;
+        selectTheme(themeId);
         loadMenuAnimations().then((Anim) => {
           if (Anim) Anim.animateColorChipSelect(chip);
         });
@@ -673,13 +690,11 @@ import {
     });
   }
 
-  function selectPattern(patternId) {
-    if (!CART_PATTERN_IDS.includes(patternId)) return;
-    state.pattern = patternId;
-    saveCustomization({ pattern: patternId });
-    buildPatternChips();
-    renderCart();
-    renderCustomizePreview();
+  function selectTheme(themeId) {
+    if (!CART_PREVIEW_THEME_IDS.includes(themeId)) return;
+    state.previewThemeId = themeId;
+    if (cartPreview) cartPreview.setTheme(themeId);
+    buildThemeChips();
   }
 
   function switchCustomizeTab(tabId) {
@@ -696,6 +711,35 @@ import {
     });
   }
 
+  /** Pushes the active player paint color to the 3D preview basket. */
+  function syncCartPreviewColor() {
+    if (!cartPreview) return;
+    cartPreview.setColor(getActiveColorHex());
+  }
+
+  /** Tears down the 3D preview and releases WebGL resources. */
+  function disposeCartPreview() {
+    if (!cartPreview) return;
+    cartPreview.dispose();
+    cartPreview = null;
+    currentCustomizeCartSvg = null;
+    if (customizeCartHolder) customizeCartHolder.innerHTML = '';
+  }
+
+  /**
+   * Mounts the rotating 3D cart inside `#cr-customize-cart-holder`.
+   * Disposes any existing instance first so rapid open/close cannot stack previews.
+   */
+  function mountCartPreview() {
+    if (!customizeCartHolder) return;
+    disposeCartPreview();
+    customizeCartHolder.innerHTML = '';
+    cartPreview = new CartPreview();
+    cartPreview.init(customizeCartHolder);
+    cartPreview.setTheme(state.previewThemeId);
+    syncCartPreviewColor();
+  }
+
   function wireCustomHueSlider() {
     if (!customHueSlider || customHueSliderWired) return;
     customHueSliderWired = true;
@@ -707,20 +751,26 @@ import {
   function renderCustomizePreview() {
     if (!customizeCartHolder) return;
     const color = getActiveColorCss();
-    customizeCartHolder.innerHTML = makeCartSVG(color, state.pattern);
-    currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
     if (customizeCartShadow) {
       customizeCartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
     }
+    // * 3D preview owns the holder while customize screen is open; SVG is fallback only.
+    if (cartPreview) {
+      syncCartPreviewColor();
+      return;
+    }
+    customizeCartHolder.innerHTML = makeCartSVG(color, state.pattern);
+    currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
   }
 
   function openCustomizeScreen() {
     if (!customizeScreen) return;
     wireCustomHueSlider();
     updateCustomHueUi();
+    mountCartPreview();
     renderCustomizePreview();
     buildColorChips();
-    buildPatternChips();
+    buildThemeChips();
     customizeScreen.style.display = 'flex';
     customizeScreen.setAttribute('aria-hidden', 'false');
     customizeDoneBtn?.focus();
@@ -737,7 +787,8 @@ import {
 
   function closeCustomizeScreen() {
     if (!customizeScreen) return;
-    // * Persist final COLOR + PATTERN tab choices when leaving Customize (live saves also fire on each pick).
+    disposeCartPreview();
+    // * Persist final COLOR tab choices when leaving Customize (live saves also fire on each pick).
     saveCustomization({
       colorMode: state.colorMode,
       color: state.colorMode === 'custom'
@@ -999,7 +1050,7 @@ import {
   scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
 
   // ─── Menu motion (Anime.js) ───────────────────────────────────────────────
-  /** @type {Promise<typeof import('./src/animations.js') | null> | null} */
+  /** @type {Promise<typeof import('./animations.js') | null> | null} */
   let menuAnimLoadPromise = null;
   let menuEntranceToken = 0;
   /** @type {WeakSet<Element>} */
@@ -1007,7 +1058,7 @@ import {
 
   function loadMenuAnimations() {
     if (!menuAnimLoadPromise) {
-      menuAnimLoadPromise = import("/src/animations.js")
+      menuAnimLoadPromise = import("./animations.js")
         .then((mod) => mod)
         .catch(() => null);
     }
@@ -1165,7 +1216,7 @@ import {
   updateSpotlights();
   updateParticles();
   buildColorChips();
-  buildPatternChips();
+  buildThemeChips();
   updateCustomHueUi();
   initLevelSelect();
   initCartTooltipTap();
@@ -1174,7 +1225,6 @@ import {
     const detail = e.detail || loadPlayerCustomization();
     applyCustomizationToState(detail);
     buildColorChips();
-    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();

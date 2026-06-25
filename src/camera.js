@@ -47,7 +47,7 @@ function dampFactor(lambda, dt) {
  * @param {THREE.PerspectiveCamera} camera Camera whose initial pose seeds follow state.
  * @returns {CameraFollowState}
  */
-export function createCameraFollowState(camera) {
+function createCameraFollowState(camera) {
   return {
     pos: camera.position.clone(),
     quat: camera.quaternion.clone(),

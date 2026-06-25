@@ -37,11 +37,13 @@ import {
   initLoadingScreen,
   revealGameCanvas,
   withModeEntryLoading,
+  yieldForPaint,
 } from "./ui/loadingScreen.js";
 import { animateCartBoostPulse, crossfadeElement, animateMuteToggle, animateVolumeTick } from "./animations.js";
 import { flashBoostActivate } from "./touchControls.js";
 import {
   applySlowMoToDt,
+  clearNpcCartCache,
   createGameLoopState,
   resetGameLoopTiming,
   runGameLoop,
@@ -438,13 +440,12 @@ function enableModeMenuButtons() {
 
 async function main() {
   initLoadingScreen();
-  // * Dismiss boot splash before Rapier/scene init — initMenu() may return early on ?room= URLs.
+  // * Dismiss boot splash before scene init — initMenu() may return early on ?room= URLs.
+  // * Rapier WASM init is deferred until play/arena need (see ensureRapierPhysics).
   void dismissInitialBootSplash();
   document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
   ensurePlayerCustomizationPersisted();
   wireCustomizationStorageSync();
-
-  await RAPIER.init();
 
   let sfx = null;
   let labelRenderer = null;
@@ -456,7 +457,7 @@ async function main() {
     throw new Error(`Canvas element '#${CONFIG.canvasId}' not found.`);
   }
 
-  // * Start menu music fetch immediately — before RAPIER/scene init blocks the main thread.
+  // * Start menu music fetch immediately — before scene/composer init blocks the main thread.
   GameAudio.initMusic({
     getMasterGain: () => masterGain,
     getIsMuted: () => isMuted,
@@ -689,6 +690,11 @@ async function main() {
   /** Wired after clearAutoContinuePodiumTimeout is defined in main(). */
   const podiumAutoContinue = { clear: () => {} };
 
+  function onMenuBootstrapError(mode, err) {
+    console.error(`[menu] ${mode} bootstrap failed:`, err);
+    dismissAllLoadingOverlays();
+  }
+
   function initMenu() {
     menuVisible = true;
     // * Always dismiss boot splash first — solo/quickplay paths return early below.
@@ -741,10 +747,12 @@ async function main() {
 
     const room = Netcode.resolvedPartyRoomFromUrl();
     if (room && room.toLowerCase().startsWith("solo")) {
-      void hideMenu({ gameMode: "solo" }).then(() => {
-        showRotatePromptIfNeeded();
-        Netcode.initNetcode();
-      });
+      void hideMenu({ gameMode: "solo" })
+        .then(() => {
+          showRotatePromptIfNeeded();
+          Netcode.initNetcode();
+        })
+        .catch((err) => onMenuBootstrapError("Solo", err));
       return;
     }
 
@@ -753,7 +761,9 @@ async function main() {
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
     if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
-      Netcode.initNetcode();
+      void bootstrapWorldForPlay({ gameMode: "quickplay" })
+        .then(() => Netcode.initNetcode())
+        .catch((err) => onMenuBootstrapError("Quickplay", err));
       return;
     }
 
@@ -797,8 +807,9 @@ async function main() {
         if (!room) return;
         pendingInviteRoomFromUrl = null;
         document.getElementById("cr-btn-join-invite")?.remove();
-        void rebuildLevelIfNeeded();
-        Netcode.initNetcode(room);
+        void bootstrapWorldForPlay({ gameMode: "friends" })
+          .then(() => Netcode.initNetcode(room))
+          .catch((err) => onMenuBootstrapError("Friends", err));
         return;
       }
       pendingInviteRoomFromUrl = null;
@@ -808,13 +819,16 @@ async function main() {
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
-        void hideMenu({ gameMode: "solo" }).then(() => Netcode.initNetcode());
+        void hideMenu({ gameMode: "solo" })
+          .then(() => Netcode.initNetcode())
+          .catch((err) => onMenuBootstrapError("Solo", err));
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
-        void rebuildLevelIfNeeded();
-        Netcode.initNetcode();
+        void bootstrapWorldForPlay({ gameMode: "quickplay" })
+          .then(() => Netcode.initNetcode())
+          .catch((err) => onMenuBootstrapError("Quickplay", err));
       } else if (action === "friends") {
         const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
         const url = new URL(window.location.href);
@@ -848,8 +862,9 @@ async function main() {
         if (friendsEnter) {
           friendsEnter.onclick = () => {
             friendsScreen.style.display = "none";
-            void rebuildLevelIfNeeded();
-            Netcode.initNetcode();
+            void bootstrapWorldForPlay({ gameMode: "friends" })
+              .then(() => Netcode.initNetcode())
+              .catch((err) => onMenuBootstrapError("Friends", err));
           };
         }
         if (friendsBack) {
@@ -966,22 +981,87 @@ async function main() {
   }
 
   /**
-   * Hides the menu after arena bootstrap completes. Shows a mode-aware loading overlay
-   * while deferred world init and any pending level rebuild run.
+   * Hides the menu for play. Always shows the loading overlay (min ~720ms), then bootstrap,
+   * then commits menu-hidden so the game loop does not render a half-built arena.
    *
-   * @param {{ gameMode?: string | null }} [opts]
+   * @param {{ gameMode?: string | null, skipBootstrap?: boolean }} [opts]
    * @returns {Promise<void>}
    */
   function hideMenu(opts = {}) {
     const gameMode = opts.gameMode ?? detectGameMode();
     const levelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
 
+    if (opts.skipBootstrap) {
+      commitMenuHiddenForGame();
+      return Promise.resolve();
+    }
+
+    if (menuLevelDebounceId != null) {
+      clearTimeout(menuLevelDebounceId);
+      menuLevelDebounceId = null;
+    }
+    if (menuPreviewFinalizeId != null) {
+      clearTimeout(menuPreviewFinalizeId);
+      menuPreviewFinalizeId = null;
+    }
+
+    // * Quickplay hello can arrive while bootstrapWorldForPlay is still running — piggyback.
+    if (activePlayBootstrapPromise) {
+      return activePlayBootstrapPromise.then(() => {
+        if (menuVisible) commitMenuHiddenForGame();
+      });
+    }
+
+    const arenaReady = worldBootstrapDone && levelId === loadedLevelId;
     return withModeEntryLoading(async () => {
-      await rebuildLevelIfNeeded();
-      await ensureWorldBootstrapped();
-      // * Hide menu while loading overlay still covers the screen (no menu flash).
+      if (menuLevelPreviewPromise) await menuLevelPreviewPromise;
+      if (levelRebuildPromise) await levelRebuildPromise;
+      if (!arenaReady) {
+        await rebuildLevelIfNeeded();
+        await ensureWorldBootstrapped();
+      } else if (menuPreviewNeedsFinalize) {
+        finalizeArenaForPlay();
+      }
       commitMenuHiddenForGame();
     }, { gameMode, levelId });
+  }
+
+  /**
+   * Mode-entry bootstrap for paths that keep the menu visible (Quickplay customize, Friends lobby).
+   * Always shows loading overlay; skips heavy work when idle preload already warmed the arena.
+   *
+   * @param {{ gameMode?: string | null }} [opts]
+   * @returns {Promise<void>}
+   */
+  function bootstrapWorldForPlay(opts = {}) {
+    if (activePlayBootstrapPromise) return activePlayBootstrapPromise;
+
+    if (menuLevelDebounceId != null) {
+      clearTimeout(menuLevelDebounceId);
+      menuLevelDebounceId = null;
+    }
+    if (menuPreviewFinalizeId != null) {
+      clearTimeout(menuPreviewFinalizeId);
+      menuPreviewFinalizeId = null;
+    }
+
+    const gameMode = opts.gameMode ?? detectGameMode();
+    const levelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+    const arenaReady = worldBootstrapDone && levelId === loadedLevelId;
+
+    activePlayBootstrapPromise = withModeEntryLoading(async () => {
+      if (menuLevelPreviewPromise) await menuLevelPreviewPromise;
+      if (levelRebuildPromise) await levelRebuildPromise;
+      if (!arenaReady) {
+        await rebuildLevelIfNeeded();
+        await ensureWorldBootstrapped();
+      } else if (menuPreviewNeedsFinalize) {
+        finalizeArenaForPlay();
+      }
+    }, { gameMode, levelId }).finally(() => {
+      activePlayBootstrapPromise = null;
+    });
+    return activePlayBootstrapPromise;
   }
 
   function refreshMenuStats() {
@@ -1047,13 +1127,61 @@ async function main() {
     },
   });
 
-  // --- Arena, physics — level mesh + rave dressing load deferred after menu is shown ---
+  // * Show menu before deferred Rapier/arena work — customize preview needs no physics.
+  let loadedLevelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+  let worldBootstrapDone = false;
+  let levelRebuildInFlight = false;
+  /** @type {Promise<void> | null} */
+  let levelRebuildPromise = null;
+  /** Pauses render/physics while level geometries are disposed and rebuilt. */
+  let isSwappingLevel = false;
+  /** @type {Promise<void> | null} */
+  let menuLevelPreviewPromise = null;
+  /** Heavy rave extras skipped during menu preview until idle finalize or play entry. */
+  let menuPreviewNeedsFinalize = false;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let menuPreviewFinalizeId = null;
+  /** @type {Promise<void> | null} */
+  let activePlayBootstrapPromise = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let menuLevelDebounceId = null;
+  /** @type {Promise<void> | null} */
+  let worldBootstrapPromise = null;
+  initMenu();
+
+  // --- Arena, physics — Rapier WASM + level mesh deferred until play or idle preload ---
   scene.add(new THREE.AmbientLight(0x221133, 0.15));
 
-  const world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
-  const eventQueue = new RAPIER.EventQueue(true);
+  let rapierInitDone = false;
+  /** @type {Promise<void> | null} */
+  let rapierInitPromise = null;
+  /** @type {import("@dimforge/rapier3d-compat").World | null} */
+  let world = null;
+  /** @type {import("@dimforge/rapier3d-compat").EventQueue | null} */
+  let eventQueue = null;
 
-  initMenu();
+  /**
+   * Loads Rapier WASM and creates the physics world on first need (not at menu load).
+   * @returns {Promise<void>}
+   */
+  function ensureRapierPhysics() {
+    if (rapierInitDone) return Promise.resolve();
+    if (!rapierInitPromise) {
+      rapierInitPromise = RAPIER.init()
+        .then(() => {
+          if (!world) {
+            world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
+            eventQueue = new RAPIER.EventQueue(true);
+          }
+          rapierInitDone = true;
+        })
+        .catch((err) => {
+          rapierInitPromise = null;
+          throw err;
+        });
+    }
+    return rapierInitPromise;
+  }
 
   let recordMesh = null;
   let recordCollider;
@@ -1068,7 +1196,6 @@ async function main() {
   let levelHazards;
   let disposeLevel;
   let levelUpdate;
-  let loadedLevelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
   let sceneExtras = {
     scene,
     sceneRoots: [],
@@ -1077,8 +1204,6 @@ async function main() {
     disposed: false,
   };
   let upgradeRecordReflector = null;
-  let worldBootstrapDone = false;
-  let worldBootstrapPromise = null;
   let raveVisualsInitialized = false;
   let sceneEnvironmentDispose = null;
 
@@ -1117,10 +1242,42 @@ async function main() {
     }
   }
 
-  function bootstrapWorldCore(levelIdOverride) {
-    if (!sceneEnvironmentDispose) {
-      sceneEnvironmentDispose = setupSceneEnvironment(renderer, scene);
+  function finalizeArenaForPlay() {
+    refreshSceneEnvironmentMaterials(scene);
+    initDeferredRaveVisuals();
+    scheduleReflectorUpgrade();
+    menuPreviewNeedsFinalize = false;
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[bootstrap] arena finalize (extras + materials)");
     }
+  }
+
+  function scheduleMenuPreviewFinalize() {
+    menuPreviewNeedsFinalize = true;
+    if (menuPreviewFinalizeId != null) clearTimeout(menuPreviewFinalizeId);
+    menuPreviewFinalizeId = setTimeout(() => {
+      menuPreviewFinalizeId = null;
+      if (!menuVisible || !menuPreviewNeedsFinalize) return;
+      void idleFinalizeMenuPreview();
+    }, 500);
+  }
+
+  async function idleFinalizeMenuPreview() {
+    if (!menuVisible || !worldBootstrapDone || !menuPreviewNeedsFinalize) return;
+    if (menuLevelPreviewPromise) await menuLevelPreviewPromise;
+    await yieldForPaint();
+    finalizeArenaForPlay();
+  }
+
+  /**
+   * Swaps arena geometry + colliders in place.
+   * @param {string} selected Resolved level id.
+   * @param {{ menuPreview?: boolean }} [opts]
+   */
+  function swapLoadedLevel(selected, opts = {}) {
+    const menuPreview = opts.menuPreview === true;
+    if (typeof disposeLevel === "function") disposeLevel();
     ({
       recordMesh,
       recordCollider,
@@ -1136,30 +1293,55 @@ async function main() {
       update: levelUpdate,
       dispose: disposeLevel,
       upgradeRecordReflector,
-    } = loadLevel(levelIdOverride, scene, world, CONFIG, {
-      reflectorTextureSize: 256,
+    } = loadLevel(selected, scene, world, CONFIG, {
+      reflectorTextureSize: menuPreview ? 128 : 256,
     }));
-    loadedLevelId = resolveLevelId(
-      levelIdOverride ?? localStorage.getItem(LEVEL_STORAGE_KEY),
-    );
-    refreshSceneEnvironmentMaterials(scene);
+    loadedLevelId = selected;
     applyLoadedLevelSideEffects();
-    initDeferredRaveVisuals();
-    scheduleReflectorUpgrade();
+
+    if (menuPreview) {
+      // * Menu picker: geometry + colliders only — defer PMREM refresh, crowd, skybox ring.
+      Effects.setRaveExtrasVisible(loadedLevelId !== "backrooms");
+      scheduleMenuPreviewFinalize();
+      return;
+    }
+
+    finalizeArenaForPlay();
+  }
+
+  async function bootstrapWorldCore(levelIdOverride) {
+    if (!sceneEnvironmentDispose) {
+      sceneEnvironmentDispose = setupSceneEnvironment(renderer, scene);
+      await yieldForPaint();
+    }
+    swapLoadedLevel(
+      resolveLevelId(levelIdOverride ?? localStorage.getItem(LEVEL_STORAGE_KEY)),
+    );
+    await yieldForPaint();
   }
 
   function ensureWorldBootstrapped() {
     if (worldBootstrapDone) return Promise.resolve();
     if (!worldBootstrapPromise) {
-      worldBootstrapPromise = Promise.resolve().then(() => {
-        if (!worldBootstrapDone) {
-          bootstrapWorldCore(undefined);
-          worldBootstrapDone = true;
-        }
-      }).catch((err) => {
-        worldBootstrapPromise = null;
-        throw err;
-      });
+      worldBootstrapPromise = ensureRapierPhysics()
+        .then(async () => {
+          if (!worldBootstrapDone) {
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console
+              console.log("[bootstrap] arena core load start");
+            }
+            await bootstrapWorldCore(undefined);
+            worldBootstrapDone = true;
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console
+              console.log("[bootstrap] arena core load done");
+            }
+          }
+        })
+        .catch((err) => {
+          worldBootstrapPromise = null;
+          throw err;
+        });
     }
     return worldBootstrapPromise;
   }
@@ -1173,66 +1355,106 @@ async function main() {
     }
   }
 
-  let levelRebuildInFlight = false;
-
   /** Level dispose is unsafe once slot carts exist — menu-only, pre-join. */
   function canSafelyRebuildLevel() {
     return menuVisible && (!allCartsRef || allCartsRef.length === 0);
   }
 
   /**
-   * Rebuilds the arena and its space-skybox scene extras in place if the menu-selected
-   * level differs from the one currently loaded. Safe to call only before a room is joined
-   * (no carts exist yet). Scene extras are torn down and re-created against the new level's
-   * pitInnerRadius so the ground ring and horizon fit the new arena. (The Effects crowd /
-   * stage / billboard / lasers still keep their startup placement — occluded / neutral.)
+   * Play-entry rebuild: ensures Rapier + arena match menu selection (full quality).
+   * Menu level picking uses previewMenuLevelIfNeeded() instead — no loading overlay.
    */
   async function rebuildLevelIfNeeded() {
     if (!canSafelyRebuildLevel()) return;
-    await ensureWorldBootstrapped();
-    const selected = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
-    if (selected === loadedLevelId || levelRebuildInFlight) return;
-    levelRebuildInFlight = true;
+    if (levelRebuildPromise) return levelRebuildPromise;
 
-    try {
-      await crossfadeElement(canvas, () => {
-        if (typeof disposeLevel === "function") disposeLevel();
-        ({
-          recordMesh,
-          recordCollider,
-          pitWallColliderHandle,
-          boothColliderHandles,
-          boothNeonMeshes,
-          spindleLight,
-          spindleLightColorPink,
-          spindleLightColorCyan,
-          pitInnerRadius,
-          recordLabelMat,
-          aiHazards: levelHazards,
-          update: levelUpdate,
-          dispose: disposeLevel,
-          upgradeRecordReflector,
-        } = loadLevel(selected, scene, world, CONFIG, {
-          reflectorTextureSize: 256,
-        }));
-        refreshSceneEnvironmentMaterials(scene);
-        loadedLevelId = selected;
-        applyLoadedLevelSideEffects();
-        initDeferredRaveVisuals();
-        scheduleReflectorUpgrade();
-      });
-    } finally {
-      levelRebuildInFlight = false;
-      const stillNeeded = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
-      if (stillNeeded !== loadedLevelId) {
-        void rebuildLevelIfNeeded();
+    levelRebuildPromise = (async () => {
+      await ensureWorldBootstrapped();
+      const selected = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+      if (selected !== loadedLevelId) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.log("[bootstrap] play-entry level swap", loadedLevelId, "→", selected);
+        }
+        isSwappingLevel = true;
+        await yieldForPaint();
+        await crossfadeElement(canvas, () => swapLoadedLevel(selected));
+        await yieldForPaint();
+        isSwappingLevel = false;
+      } else if (menuPreviewNeedsFinalize) {
+        finalizeArenaForPlay();
       }
-    }
+    })().catch((err) => {
+      isSwappingLevel = false;
+      throw err;
+    }).finally(() => {
+      levelRebuildPromise = null;
+    });
+
+    return levelRebuildPromise;
+  }
+
+  /**
+   * Lightweight menu level preview — no loading overlay, no Rapier cold-start.
+   * Coalesces rapid picks; chunks sync loadLevel across animation frames.
+   */
+  async function previewMenuLevelIfNeeded() {
+    if (!canSafelyRebuildLevel()) return;
+    if (menuLevelPreviewPromise) return menuLevelPreviewPromise;
+
+    menuLevelPreviewPromise = (async () => {
+      if (!worldBootstrapDone || !world) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.log("[menu-preview] skipped — arena warms on play entry");
+        }
+        return;
+      }
+
+      levelRebuildInFlight = true;
+      try {
+        while (canSafelyRebuildLevel()) {
+          const selected = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+          if (selected === loadedLevelId) break;
+
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log("[menu-preview] swap", loadedLevelId, "→", selected);
+          }
+
+          await yieldForPaint();
+          swapLoadedLevel(selected, { menuPreview: true });
+          await yieldForPaint();
+        }
+      } finally {
+        levelRebuildInFlight = false;
+      }
+    })().finally(() => {
+      menuLevelPreviewPromise = null;
+    });
+
+    return menuLevelPreviewPromise;
+  }
+
+  function scheduleMenuLevelPreview() {
+    if (!canSafelyRebuildLevel()) return;
+    if (menuLevelDebounceId != null) clearTimeout(menuLevelDebounceId);
+    menuLevelDebounceId = setTimeout(() => {
+      menuLevelDebounceId = null;
+      const levelId = resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY));
+      if (levelId === loadedLevelId) return;
+      const runPreview = () => { void previewMenuLevelIfNeeded(); };
+      // * Run geometry swap on idle so picker taps never block the menu UI thread.
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(runPreview, { timeout: 900 });
+      } else {
+        runPreview();
+      }
+    }, 120);
   }
 
   window.addEventListener("cartrave:level-changed", () => {
-    if (!canSafelyRebuildLevel()) return;
-    void rebuildLevelIfNeeded();
+    scheduleMenuLevelPreview();
   });
 
   scheduleDeferredWorldBootstrap();
@@ -1240,7 +1462,7 @@ async function main() {
   // * Bridges the server-driven game-start signal into main()'s nested functions.
   // * Round start/countdown handlers live here; initNetcode invokes them via callbacks.
   onGameStartHandler = (msg) => {
-    if (menuVisible) hideMenu();
+    if (menuVisible) hideMenu({ skipBootstrap: true });
     showRotatePromptIfNeeded();
     const serverStartsAtMs = Number(msg?.startsAtMs);
     const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
@@ -1269,12 +1491,35 @@ async function main() {
       const isHost = Netcode.getIsHost();
       const scores = GameState.getRoundScores() || {};
       const stats = getPersonalStats();
-      const renderKey = `${roundState.winnerSlotIndex}-${scores[0] ?? 0}-${scores[1] ?? 0}-${scores[2] ?? 0}-${scores[3] ?? 0}-${matchHistory.length}-${isHost}-${stats.matches}-${stats.wins}-${stats.totalPoints}-${stats.soloGames ?? 0}`;
-      if (renderKey === lastResultsOverlayKey) {
+      if (
+        lastResultsOverlayKey?.winner === roundState.winnerSlotIndex
+        && lastResultsOverlayKey?.s0 === (scores[0] ?? 0)
+        && lastResultsOverlayKey?.s1 === (scores[1] ?? 0)
+        && lastResultsOverlayKey?.s2 === (scores[2] ?? 0)
+        && lastResultsOverlayKey?.s3 === (scores[3] ?? 0)
+        && lastResultsOverlayKey?.hist === matchHistory.length
+        && lastResultsOverlayKey?.host === isHost
+        && lastResultsOverlayKey?.matches === stats.matches
+        && lastResultsOverlayKey?.wins === stats.wins
+        && lastResultsOverlayKey?.totalPoints === stats.totalPoints
+        && lastResultsOverlayKey?.solo === (stats.soloGames ?? 0)
+      ) {
         maybeScheduleAutoContinuePodium();
         return;
       }
-      lastResultsOverlayKey = renderKey;
+      lastResultsOverlayKey = {
+        winner: roundState.winnerSlotIndex,
+        s0: scores[0] ?? 0,
+        s1: scores[1] ?? 0,
+        s2: scores[2] ?? 0,
+        s3: scores[3] ?? 0,
+        hist: matchHistory.length,
+        host: isHost,
+        matches: stats.matches,
+        wins: stats.wins,
+        totalPoints: stats.totalPoints,
+        solo: stats.soloGames ?? 0,
+      };
       playAgain.disabled = !isHost;
       playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
 
@@ -1557,6 +1802,7 @@ async function main() {
         if (bootstrapGen !== helloGate.getGeneration()) return null;
         if (allCartsRef?.length) return allCartsRef;
         await ensureWorldBootstrapped();
+        await yieldForPaint();
         return bootstrapSessionCarts(bootstrapGen);
       })().finally(() => {
         if (bootstrapGen === helloGate.getGeneration()) {
@@ -1569,6 +1815,7 @@ async function main() {
 
   function destroySessionCarts() {
     Entities.destroyCarts({ scene, nameLabels });
+    clearNpcCartCache();
     allCarts = [];
     allCartsRef = null;
     sessionCartBootstrapPromise = null;
@@ -1767,7 +2014,10 @@ async function main() {
   // --- Round flow (countdown, podium, AI) ---
   GameAudio.applyAudioVolume();
 
+  let didUnlockAudio = false;
   function unlockAudio() {
+    if (didUnlockAudio) return;
+    didUnlockAudio = true;
     const ctx = audioListener.context;
     const onUnlocked = () => {
       ensureCartCrashBufferLoaded();
@@ -2054,10 +2304,33 @@ async function main() {
     getYouConnId: () => Netcode.getYouConnId(),
   };
 
+  const hostSimCallbacks = {
+    getAxis: Input.getAxis,
+    getAiAxis,
+    playCollision: playCollisionRef,
+    spawnTrashBurst: spawnTrashBurstRef,
+    onLocalRamImpact: triggerLocalRamShake,
+    get partySocket() { return Netcode.getPartySocket(); },
+    get recordColliderHandle() { return recordCollider?.handle; },
+    get pitWallColliderHandle() { return pitWallColliderHandle; },
+    get boothColliderHandles() { return boothColliderHandles; },
+    playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
+    playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+    resolveCartForConn: (connId) => {
+      const idx = Netcode.strictSlotIndexForConn(connId);
+      return idx >= 0 ? allCartsRef[idx] : null;
+    },
+  };
+
+  const clientSimCallbacks = {
+    ...hostSimCallbacks,
+    getAiAxis: null,
+  };
+
   const physicsDeps = {
     ...sharedLoopGetters,
-    world,
-    eventQueue,
+    get world() { return world; },
+    get eventQueue() { return eventQueue; },
     getAllCartsRef: () => allCartsRef,
     getLocalCart: localCartForConnId,
     shouldUseClientPrediction: () => Netcode.shouldUseClientPrediction(),
@@ -2071,35 +2344,7 @@ async function main() {
     reconcilePredictedLocalCart: (cart, idx, dt) => Netcode.reconcilePredictedLocalCart(cart, idx, dt),
     sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
     runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
-    getSimulationCallbacks: (isHost) => (isHost ? {
-      getAxis: Input.getAxis,
-      getAiAxis: getAiAxis,
-      playCollision: playCollisionRef,
-      spawnTrashBurst: spawnTrashBurstRef,
-      onLocalRamImpact: triggerLocalRamShake,
-      partySocket: Netcode.getPartySocket(),
-      recordColliderHandle: recordCollider?.handle,
-      pitWallColliderHandle: pitWallColliderHandle,
-      boothColliderHandles: boothColliderHandles,
-      playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
-      playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
-      resolveCartForConn: (connId) => {
-        const idx = Netcode.strictSlotIndexForConn(connId);
-        return idx >= 0 ? allCartsRef[idx] : null;
-      },
-    } : {
-      getAxis: Input.getAxis,
-      getAiAxis: null,
-      playCollision: playCollisionRef,
-      spawnTrashBurst: spawnTrashBurstRef,
-      onLocalRamImpact: triggerLocalRamShake,
-      partySocket: Netcode.getPartySocket(),
-      recordColliderHandle: recordCollider?.handle,
-      pitWallColliderHandle: pitWallColliderHandle,
-      boothColliderHandles: boothColliderHandles,
-      playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
-      playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
-    }),
+    getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),
   };
 
   gameCtx.attachDeps({
@@ -2114,6 +2359,11 @@ async function main() {
     gameCtx.setFrameCtx(frameCtx);
     const { now, loopState } = frameCtx;
     const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
+
+    if (isSwappingLevel) {
+      frameCtx.dt = dt;
+      return;
+    }
 
     if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
       fxPass.uniforms.uTime.value = fxClock.getElapsedTime();

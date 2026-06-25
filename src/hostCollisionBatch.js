@@ -8,7 +8,7 @@ const pendingByPair = new Map();
  * @param {number} slotB
  * @returns {string}
  */
-export function collisionPairKey(slotA, slotB) {
+function collisionPairKey(slotA, slotB) {
   const a = Math.min(slotA, slotB);
   const b = Math.max(slotA, slotB);
   return `${a}|${b}`;
