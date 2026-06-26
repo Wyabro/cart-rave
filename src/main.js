@@ -5,10 +5,17 @@ import {
   resolveCartNeonCss,
   resolveCartNeonHex,
   resolveCartPatternForSlot,
+  resolveCartThemeForSlot,
   resolveServerColorPick,
   wireCustomizationStorageSync,
 } from "./customization.js";
 import { applyCartPattern } from "./cartPatterns.js";
+import { getCartTheme } from "./cartThemeConfig.js";
+import {
+  applyThemeColorToCache,
+  applyThemeLeaderGlow,
+  buildCartThemeMaterialCache,
+} from "./cartThemes.js";
 import "./cart-rave-menu.js";
 import "./cart-rave-menu.css";
 import * as THREE from "three";
@@ -79,7 +86,6 @@ import {
   createSessionBridgeRefs,
 } from "./gameSession.js";
 import {
-  applyCartFrameGlow,
   clamp,
   isTouchDevice,
 } from "./utils.js";
@@ -96,41 +102,7 @@ console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shado
  * @param {THREE.Object3D} cartMesh
  */
 function buildCartMaterialCache(cartMesh) {
-  const frameMats = [];
-  const frameGlowMats = [];
-  const seen = new Set();
-
-  /**
-   * @param {THREE.Material | THREE.Material[] | null | undefined} material
-   * @param {(m: THREE.Material) => void} add
-   */
-  function forEachMaterial(material, add) {
-    if (!material) return;
-    if (Array.isArray(material)) {
-      material.forEach((m) => m && add(m));
-      return;
-    }
-    add(material);
-  }
-
-  cartMesh.traverse((child) => {
-    if (!child.isMesh || !child.material) return;
-    if (
-      child.userData
-      && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel || child.userData.isCartPatternLayer)
-    ) {
-      return;
-    }
-
-    forEachMaterial(child.material, (mat) => {
-      if (seen.has(mat)) return;
-      seen.add(mat);
-      frameMats.push(mat);
-      if (mat.emissive) frameGlowMats.push(mat);
-    });
-  });
-
-  return { frameMats, frameGlowMats };
+  return buildCartThemeMaterialCache(cartMesh);
 }
 
 /**
@@ -378,6 +350,7 @@ let matchHistory = [];
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let roundPodiumTimeoutId = null;
+const LAST_CART_STANDING_FLOURISH_MS = 3000;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let autoContinuePodiumTimeoutId = null;
 /** @type {string | null} */
@@ -408,27 +381,29 @@ let pendingMidRoundJoinRespawnConnId = null;
 function updateCartMaterialsFromSlots(slots) {
   if (!allCartsRef || !Array.isArray(slots)) return;
 
+  const youConnId = Netcode.getYouConnId();
+
   for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
     const slot = slots[slotIndex];
     const cart = allCartsRef[slotIndex];
     if (!slot || !cart?.mesh) continue;
 
     const finalHex = displayColorHexForSlot(slot);
+    const themeId = cart.cartThemeId
+      ?? resolveCartThemeForSlot(slot, { youConnId });
     const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
 
-    // Frame: recolor and update emissive glow (always sync — hello fires before carts exist).
-    for (const mat of cache.frameMats) {
-      applyCartFrameGlow(mat, finalHex);
+    applyThemeColorToCache(cache, themeId, finalHex);
+
+    const theme = getCartTheme(themeId);
+    if (theme.patternPolicy !== "disable") {
+      applyCartPattern(
+        cart.mesh,
+        resolveCartPatternForSlot(slot, { youConnId }),
+        finalHex,
+      );
     }
 
-    // Wireframe pattern mask (local human only until networked).
-    applyCartPattern(
-      cart.mesh,
-      resolveCartPatternForSlot(slot, { youConnId: Netcode.getYouConnId() }),
-      finalHex,
-    );
-
-    // Keep the cached hex in sync so ram-boost streaks and respawns use the right color.
     cart.cartColor = finalHex;
   }
 }
@@ -715,6 +690,14 @@ async function main() {
     dismissAllLoadingOverlays();
   }
 
+  function bootstrapNetcodeFromMenu(mode, roomOverride) {
+    try {
+      Netcode.initNetcode(roomOverride);
+    } catch (err) {
+      onMenuBootstrapError(mode, err);
+    }
+  }
+
   function initMenu() {
     menuVisible = true;
     // * Always dismiss boot splash first — solo/quickplay paths return early below.
@@ -770,7 +753,7 @@ async function main() {
       void enterPlayMode({ gameMode: "solo" })
         .then(() => {
           showRotatePromptIfNeeded();
-          Netcode.initNetcode();
+          bootstrapNetcodeFromMenu("Solo");
         })
         .catch((err) => onMenuBootstrapError("Solo", err));
       return;
@@ -782,7 +765,7 @@ async function main() {
     if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
       void enterPlayMode({ gameMode: "quickplay", commitMenuHidden: false })
-        .then(() => Netcode.initNetcode())
+        .then(() => bootstrapNetcodeFromMenu("Quickplay"))
         .catch((err) => onMenuBootstrapError("Quickplay", err));
       return;
     }
@@ -828,7 +811,7 @@ async function main() {
         pendingInviteRoomFromUrl = null;
         document.getElementById("cr-btn-join-invite")?.remove();
         void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
-          .then(() => Netcode.initNetcode(room))
+          .then(() => bootstrapNetcodeFromMenu("Friends", room))
           .catch((err) => onMenuBootstrapError("Friends", err));
         return;
       }
@@ -840,14 +823,14 @@ async function main() {
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
         void enterPlayMode({ gameMode: "solo" })
-          .then(() => Netcode.initNetcode())
+          .then(() => bootstrapNetcodeFromMenu("Solo"))
           .catch((err) => onMenuBootstrapError("Solo", err));
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
         void enterPlayMode({ gameMode: "quickplay", commitMenuHidden: false })
-          .then(() => Netcode.initNetcode())
+          .then(() => bootstrapNetcodeFromMenu("Quickplay"))
           .catch((err) => onMenuBootstrapError("Quickplay", err));
       } else if (action === "friends") {
         const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
@@ -883,7 +866,7 @@ async function main() {
           friendsEnter.onclick = () => {
             friendsScreen.style.display = "none";
             void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
-              .then(() => Netcode.initNetcode())
+              .then(() => bootstrapNetcodeFromMenu("Friends"))
               .catch((err) => onMenuBootstrapError("Friends", err));
           };
         }
@@ -1301,6 +1284,7 @@ async function main() {
         && lastResultsOverlayKey?.wins === stats.wins
         && lastResultsOverlayKey?.totalPoints === stats.totalPoints
         && lastResultsOverlayKey?.solo === (stats.soloGames ?? 0)
+        && lastResultsOverlayKey?.endReason === roundState.endReason
       ) {
         maybeScheduleAutoContinuePodium();
         return;
@@ -1317,6 +1301,7 @@ async function main() {
         wins: stats.wins,
         totalPoints: stats.totalPoints,
         solo: stats.soloGames ?? 0,
+        endReason: roundState.endReason ?? null,
       };
       playAgain.disabled = !isHost;
       playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
@@ -1331,7 +1316,21 @@ async function main() {
         const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
         if (idx != null) {
           const score = scores[idx] != null ? scores[idx] : 0;
-          title.textContent = `${slotDisplayName(idx)} wins — ${score} pts`;
+          let maxScore = 0;
+          let tiedAtTop = 0;
+          for (let ti = 0; ti < 4; ti += 1) {
+            const ts = Number(scores[ti] ?? 0);
+            if (ts > maxScore) maxScore = ts;
+          }
+          for (let ti = 0; ti < 4; ti += 1) {
+            if (Number(scores[ti] ?? 0) === maxScore) tiedAtTop += 1;
+          }
+          const tieSuffix = tiedAtTop > 1 ? " (TIEBREAK)" : "";
+          if (roundState.endReason === "lastStanding") {
+            title.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
+          } else {
+            title.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
+          }
           title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
         } else {
           title.textContent = "ROUND COMPLETE";
@@ -1570,6 +1569,7 @@ async function main() {
       youConnId: Netcode.getYouConnId(),
       CART_COLORS,
       colorHexForSlot: displayColorHexForSlot,
+      themeForSlot: (slot) => resolveCartThemeForSlot(slot, { youConnId: Netcode.getYouConnId() }),
       pendingMidRoundJoinRespawnConnId,
     });
     if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
@@ -1584,6 +1584,7 @@ async function main() {
     sessionRefs.updateNameLabelsRef.current = updateNameLabels;
     updateNameLabels();
     if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
+    if (!Netcode.getIsHost()) Netcode.startInputSendLoop();
     Netcode.setAuthorityMode(Netcode.getIsHost());
     gameCtx.registerRuntime({
       getAllCarts: () => allCarts,
@@ -1622,7 +1623,12 @@ async function main() {
     getOnHostMigratedHandler: () => onHostMigratedHandler,
     onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
     getMenuVisible: () => menuVisible,
-    invokeHideMenu: () => { void enterPlayMode({ commitMenuHidden: true }); },
+    invokeHideMenu: () => {
+      void enterPlayMode({
+        commitMenuHidden: true,
+        skipBootstrap: isWorldBootstrapped(),
+      });
+    },
     updateCartMaterialsFromSlots,
     updateHudColorsFromSlots,
     updateNameLabelsRef: sessionRefs.updateNameLabelsRef,
@@ -1642,6 +1648,13 @@ async function main() {
     getLocalColorPicked: () => _localColorPicked,
     setLocalColorPicked: (val) => { _localColorPicked = val; },
     recordPodiumStats,
+    onReturnToLobby: () => {
+      Entities.rematchResetWorld();
+      GameState.setRoundEndReason(null);
+    },
+    onEnterPodium: () => {
+      HUD.clearFeed();
+    },
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
     setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; },
     ensureSessionReady: () => ensureSessionCartsReady(),
@@ -1679,7 +1692,6 @@ async function main() {
         resetSimTimingRef: sessionRefs.resetSimTimingRef,
       });
     },
-    dismissLoadingOverlays: () => dismissAllLoadingOverlays(),
   };
 
   void flushPendingSessionBootstrap();
@@ -1816,6 +1828,8 @@ async function main() {
   });
 
   function startRunningAt(startedAtMs) {
+    cancelLastCartStandingFinish();
+    GameState.setRoundEndReason(null);
     syncRoundPhase("running");
     gameCtx.slowMo.active = false;
     GameState.setRoundStartedAtMs(startedAtMs);
@@ -1837,6 +1851,8 @@ async function main() {
   function startCountdown(startsAtLocalMs = Date.now() + 3000) {
     if (!Netcode.getIsHost()) return;
     if (GameState.getRoundState().phase === "running") return;
+    cancelLastCartStandingFinish();
+    GameState.setRoundEndReason(null);
     clearRoundCountdownTimeout();
     syncRoundPhase("countdown");
     gameCtx.slowMo.active = false;
@@ -1877,7 +1893,15 @@ async function main() {
     }, delayMs);
   }
 
-  onCountdownCancelledRef = clearRoundCountdownTimeout;
+  onCountdownCancelledRef = () => {
+    clearRoundCountdownTimeout();
+    if (GameState.getRoundState().phase === "countdown") {
+      syncRoundPhase("lobby");
+      GameState.setRoundCountdownStartedAtMs(0);
+      GameState.setRoundStartedAtMs(0);
+      if (Netcode.getIsHost()) Netcode.sendHostRound();
+    }
+  };
   onHostMigratedHandler = resumeCountdownAsNewHost;
 
   Object.assign(sessionBridgeCtx.current, {
@@ -1900,38 +1924,57 @@ async function main() {
     },
   });
 
-  function endRound() {
-    clearRoundCountdownTimeout();
+  function cancelLastCartStandingFinish() {
     if (roundPodiumTimeoutId != null) {
       clearTimeout(roundPodiumTimeoutId);
       roundPodiumTimeoutId = null;
     }
-    // * Find highest score and how many slots share it (lowest index wins on non-zero ties only).
-    let winnerSlotIndex = 0;
-    let winnerScore = -Infinity;
-    const scores = GameState.getRoundScores();
-    for (let i = 0; i < 4; i++) {
-      if ((scores[i] || 0) > winnerScore) {
-        winnerScore = scores[i] || 0;
-        winnerSlotIndex = i;
-      }
+    gameCtx.slowMo.active = false;
+  }
+
+  function abortLastCartStandingFlourish() {
+    const hadFlourish = GameState.getRoundState().endReason === "lastStanding";
+    cancelLastCartStandingFinish();
+    if (hadFlourish && Netcode.getIsHost()) {
+      GameState.setRoundEndReason(null);
+      Netcode.sendHostRound();
     }
-    let tieAtTop = 0;
-    for (let i = 0; i < 4; i++) {
-      if ((scores[i] || 0) === winnerScore) tieAtTop += 1;
-    }
-    pendingMidRoundJoinRespawnConnId = null;
-    if (winnerScore === 0 && tieAtTop >= 2) {
-      GameState.setRoundWinnerSlotIndex("draw");
-    } else {
-      GameState.setRoundWinnerSlotIndex(winnerSlotIndex);
-    }
-    recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
-    syncRoundPhase("podium");
+  }
+
+  function scheduleLastCartStandingFinish(soleSurvivorSlot) {
+    if (!Netcode.getIsHost()) return;
+    if (roundPodiumTimeoutId != null) return;
     if (!gameCtx.slowMo.active) {
       gameCtx.slowMo.active = true;
       gameCtx.slowMo.startMs = performance.now();
     }
+    if (GameState.getRoundState().endReason !== "lastStanding") {
+      GameState.setRoundEndReason("lastStanding");
+      Netcode.sendHostRound();
+    }
+    roundPodiumTimeoutId = setTimeout(() => {
+      roundPodiumTimeoutId = null;
+      if (GameState.getRoundState().phase !== "running") return;
+      endRound(soleSurvivorSlot);
+    }, LAST_CART_STANDING_FLOURISH_MS);
+  }
+
+  function endRound(lastStandingWinnerSlot = null) {
+    if (GameState.getRoundState().phase !== "running") return;
+    cancelLastCartStandingFinish();
+    clearRoundCountdownTimeout();
+    pendingMidRoundJoinRespawnConnId = null;
+    if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
+      GameState.setRoundEndReason("lastStanding");
+      GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
+    } else {
+      GameState.setRoundEndReason("timer");
+      const scores = GameState.getRoundScores();
+      GameState.setRoundWinnerSlotIndex(GameState.pickTimerWinner(scores));
+    }
+    recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
+    HUD.clearFeed();
+    syncRoundPhase("podium");
     Netcode.sendHostRound();
   }
 
@@ -1986,15 +2029,13 @@ async function main() {
 
   function onHostPlayAgainClick() {
     if (!Netcode.getIsHost()) return;
+    cancelLastCartStandingFinish();
     autoContinuePodiumKey = currentPodiumAutoContinueKey();
     clearAutoContinuePodiumTimeout();
     clearRoundCountdownTimeout();
-    if (roundPodiumTimeoutId != null) {
-      clearTimeout(roundPodiumTimeoutId);
-      roundPodiumTimeoutId = null;
-    }
     gameCtx.slowMo.active = false;
     lastResultsOverlayKey = null;
+    GameState.setRoundEndReason(null);
     Entities.rematchResetWorld();
     if (detectGameMode() === "solo") {
       startCountdown(Date.now() + 3000);
@@ -2005,6 +2046,7 @@ async function main() {
     GameState.setRoundWinnerSlotIndex(null);
     GameState.setRoundStartedAtMs(0);
     GameState.setRoundCountdownStartedAtMs(0);
+    Netcode.sendHostRound();
     Netcode.sendPlayAgain();
   }
 
@@ -2074,6 +2116,8 @@ async function main() {
     doRespawn: Entities.doRespawn,
     maybeTriggerNpcOpportunisticRamBoost,
     endRound,
+    scheduleLastCartStandingFinish,
+    abortLastCartStandingFlourish,
     addScore: GameState.addScore,
     colorHexForSlot: displayColorHexForSlot,
     hud,

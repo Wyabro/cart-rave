@@ -122,6 +122,8 @@ export function buildNetcodeGameBridge(getContext, session) {
     getLocalColorPicked: () => getContext()?.getLocalColorPicked?.() ?? false,
     setLocalColorPicked: (val) => getContext()?.setLocalColorPicked?.(val),
     recordPodiumStats: (winner, scores) => getContext()?.recordPodiumStats?.(winner, scores),
+    onReturnToLobby: () => getContext()?.onReturnToLobby?.(),
+    onEnterPodium: () => getContext()?.onEnterPodium?.(),
     getPendingMidRoundJoinRespawnConnId: () => getContext()?.getPendingMidRoundJoinRespawnConnId?.() ?? null,
     setPendingMidRoundJoinRespawnConnId: (val) => getContext()?.setPendingMidRoundJoinRespawnConnId?.(val),
     ensureSessionReady: () => getContext()?.ensureSessionReady?.(),

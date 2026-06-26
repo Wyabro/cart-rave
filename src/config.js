@@ -389,6 +389,7 @@ export const MSG = {
   round: "round",
   joinRejected: "join_rejected",
   gameStart: "game_start",
+  countdownCancel: "countdown_cancel",
 };
 
 export const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";

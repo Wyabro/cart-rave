@@ -31,6 +31,7 @@ type RoundState = {
   startedAtMs: number;
   countdownStartedAtMs: number;
   scores: Record<number, number>;
+  endReason?: "timer" | "lastStanding" | null;
   /** Server stamped on every broadcast round payload clients may trust for stats. */
   validated: true;
 };
@@ -57,6 +58,7 @@ const MSG = {
   round: "round",
   joinRejected: "join_rejected",
   gameStart: "game_start",
+  countdownCancel: "countdown_cancel",
 } as const;
 
 const PROTOCOL_VERSION = 2;
@@ -368,7 +370,7 @@ export default class Server implements Party.Server {
     }
   }
 
-  #assignHumanToSlot(connId: string): Slot | null {
+  #assignHumanToSlot(connId: string, preferredColor?: string): Slot | null {
     this.#ensureInitialized();
     const slots = this.#slots!;
 
@@ -376,12 +378,17 @@ export default class Server implements Party.Server {
     const existing = slots.find((s) => s.connId === connId);
     if (existing) return existing;
 
-    // Replace an NPC if possible.
-    const npcSlot = slots.find((s) => s.kind === "npc");
+    // Prefer the NPC holding the picked color so the human inherits booth position.
+    let npcSlot =
+      preferredColor
+        ? slots.find((s) => s.kind === "npc" && s.color === preferredColor)
+        : undefined;
+    if (!npcSlot) npcSlot = slots.find((s) => s.kind === "npc");
     if (!npcSlot) return null;
 
     npcSlot.kind = "human";
     npcSlot.connId = connId;
+    npcSlot.isReady = false;
     // Keep npcSlot.name until client sends join with a name.
     return npcSlot;
   }
@@ -485,11 +492,13 @@ export default class Server implements Party.Server {
     const startedAtMsRaw = (incoming as { startedAtMs?: unknown }).startedAtMs;
     const countdownStartedAtMsRaw = (incoming as { countdownStartedAtMs?: unknown }).countdownStartedAtMs;
     const winnerRaw = (incoming as { winnerSlotIndex?: unknown }).winnerSlotIndex;
+    const endReasonRaw = (incoming as { endReason?: unknown }).endReason;
 
     let startedAtMs = prev.startedAtMs;
     let countdownStartedAtMs = prev.countdownStartedAtMs;
     let scores = { ...prev.scores };
     let winnerSlotIndex: number | "draw" | null = prev.winnerSlotIndex;
+    let endReason: "timer" | "lastStanding" | null = prev.endReason ?? null;
 
     if (nextPhase === "countdown") {
       countdownStartedAtMs =
@@ -499,6 +508,7 @@ export default class Server implements Party.Server {
       startedAtMs = 0;
       winnerSlotIndex = null;
       scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      endReason = null;
     }
 
     if (nextPhase === "running") {
@@ -510,6 +520,13 @@ export default class Server implements Party.Server {
       winnerSlotIndex = null;
       if (prev.phase !== "running") {
         scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+        endReason = null;
+      } else if (endReasonRaw === "lastStanding") {
+        endReason = "lastStanding";
+      } else if (endReasonRaw === null || endReasonRaw === undefined) {
+        endReason = null;
+      } else if (endReasonRaw === "timer") {
+        return null;
       }
     }
 
@@ -526,18 +543,36 @@ export default class Server implements Party.Server {
       if (!prev.startedAtMs || now - prev.startedAtMs < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
       if (now - prev.startedAtMs > ROUND_DURATION_MS + 15_000) return null;
 
+      const lastStanding =
+        endReasonRaw === "lastStanding"
+        || (typeof endReasonRaw === "string" && endReasonRaw.trim() === "lastStanding");
+      if (lastStanding) {
+        endReason = "lastStanding";
+      } else if (endReasonRaw === "timer" || endReasonRaw === null || endReasonRaw === undefined) {
+        endReason = endReasonRaw === "timer" ? "timer" : null;
+      } else {
+        return null;
+      }
+
       const computedWinner = this.#winnerFromScores(scores);
       if (computedWinner === "draw") {
         winnerSlotIndex = "draw";
+        endReason = null;
       } else if (winnerRaw === "draw") {
         return null;
       } else {
         const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
         if (!Number.isInteger(w) || w < 0 || w > 3) return null;
-        if ((scores[w] ?? 0) < Math.max(scores[0] ?? 0, scores[1] ?? 0, scores[2] ?? 0, scores[3] ?? 0)) {
+        if (
+          !lastStanding
+          && (scores[w] ?? 0) < Math.max(scores[0] ?? 0, scores[1] ?? 0, scores[2] ?? 0, scores[3] ?? 0)
+        ) {
           return null;
         }
         winnerSlotIndex = w;
+        if (!lastStanding && endReason !== "timer") {
+          endReason = "timer";
+        }
       }
     }
 
@@ -546,6 +581,7 @@ export default class Server implements Party.Server {
       countdownStartedAtMs = 0;
       winnerSlotIndex = null;
       scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      endReason = null;
     }
 
     return {
@@ -554,6 +590,7 @@ export default class Server implements Party.Server {
       startedAtMs,
       countdownStartedAtMs,
       scores,
+      endReason,
       validated: true,
     };
   }
@@ -604,11 +641,66 @@ export default class Server implements Party.Server {
   // * longer satisfied. Called after any human slot reverts to NPC to
   // * prevent a countdown from firing with fewer players than intended.
   #cancelCountdownIfNeeded() {
-    if (this.#countdownTimerHandle === null) return;
+    if (this.#countdownTimerHandle === null && !this.#countdownArmed) return;
     const humanSlots = this.#slots!.filter((s) => s.kind === "human");
     if (humanSlots.every((s) => s.isReady)) return;
-    clearTimeout(this.#countdownTimerHandle);
-    this.#countdownTimerHandle = null;
+    this.#abortArmedCountdown();
+  }
+
+  // * Notifies all clients when an armed game_start countdown is invalidated.
+  #abortArmedCountdown() {
+    if (this.#countdownTimerHandle === null && !this.#countdownArmed) return;
+    if (this.#countdownTimerHandle !== null) {
+      clearTimeout(this.#countdownTimerHandle);
+      this.#countdownTimerHandle = null;
+    }
+    this.#countdownArmed = false;
+    if (this.#round.phase === "countdown") {
+      this.#round = this.#freshRoundLobby();
+      this.#broadcastRound();
+      return;
+    }
+    this.#broadcastJson({
+      v: PROTOCOL_VERSION,
+      type: MSG.countdownCancel,
+      serverNowMs: this.#serverNowMs(),
+    });
+  }
+
+  #rejectPendingConn(conn: Party.Connection, code: number, reason: string) {
+    this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
+    this.#pendingPickers.delete(conn.id);
+    this.#pendingPickerAtMs.delete(conn.id);
+    this.#pendingNames.delete(conn.id);
+    this.#connections.delete(conn.id);
+    this.#removeFromJoinOrder(conn.id);
+    this.#lastSeenAtMs.delete(conn.id);
+    this.#connClientId.delete(conn.id);
+    this.#rateLimitWindows.delete(conn.id);
+    const ip = this.#connToIp.get(conn.id);
+    if (ip) {
+      const count = this.#ipConnectionCounts.get(ip) ?? 1;
+      this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+      this.#connToIp.delete(conn.id);
+    }
+    try {
+      conn.close(code, reason);
+    } catch {
+      // ignore
+    }
+  }
+
+  #hasNpcSlotForPendingPicker(): boolean {
+    this.#ensureInitialized();
+    return this.#slots!.some((s) => s.kind === "npc");
+  }
+
+  // * Room capacity after ghost exorcism — pending pickers need a free NPC slot.
+  #rejectPendingConnIfRoomFull(conn: Party.Connection): boolean {
+    if (!this.#pendingPickers.has(conn.id)) return false;
+    if (this.#hasNpcSlotForPendingPicker()) return false;
+    this.#rejectPendingConn(conn, 4004, "Room full");
+    return true;
   }
 
   // * Checks whether every human slot has toggled ready. If so, arms a
@@ -637,6 +729,7 @@ export default class Server implements Party.Server {
     });
     this.#countdownTimerHandle = setTimeout(() => {
       this.#countdownTimerHandle = null;
+      this.#countdownArmed = false;
     }, 3000);
   }
 
@@ -645,9 +738,7 @@ export default class Server implements Party.Server {
     let changed = false;
     for (const slot of this.#slots!) {
       if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
-        slot.kind = "npc";
-        slot.connId = null;
-        slot.isReady = false;
+        this.#convertHumanSlotToNpc(slot.connId);
         changed = true;
       }
     }
@@ -745,23 +836,6 @@ export default class Server implements Party.Server {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
       }
-    }
-
-    const humanCount = this.#slots!.filter((s) => s.kind === "human").length;
-    if (humanCount >= 4) {
-      this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
-      const ip = this.#connToIp.get(conn.id);
-      if (ip) {
-        const count = this.#ipConnectionCounts.get(ip) ?? 1;
-        this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
-        this.#connToIp.delete(conn.id);
-      }
-      try {
-        conn.close(4004, "Room full");
-      } catch {
-        // ignore
-      }
-      return;
     }
 
     this.#pendingPickers.add(conn.id);
@@ -941,6 +1015,8 @@ export default class Server implements Party.Server {
         if (slot) slot.name = name.slice(0, 24);
       }
 
+      let ghostHumanExorcised = false;
+
       if (clientId) {
         // Exorcise ghost: same clientId, different connId.
         let ghostConnId: string | null = null;
@@ -958,6 +1034,7 @@ export default class Server implements Party.Server {
             this.#pendingNames.delete(ghostConnId);
           } else {
             this.#convertHumanSlotToNpc(ghostConnId);
+            ghostHumanExorcised = true;
           }
           this.#connections.delete(ghostConnId);
           this.#removeFromJoinOrder(ghostConnId);
@@ -982,58 +1059,93 @@ export default class Server implements Party.Server {
         this.#connClientId.set(conn.id, clientId);
       }
 
+      if (this.#rejectPendingConnIfRoomFull(conn)) return;
+
+      let slotsDirty = ghostHumanExorcised;
+      if (name) {
+        const assigned = this.#slots!.find((s) => s.connId === conn.id);
+        if (assigned) slotsDirty = true;
+      }
+
+      if (ghostHumanExorcised) {
+        this.#cancelCountdownIfNeeded();
+      }
+
+      if (slotsDirty) {
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.slots,
+          serverNowMs: this.#serverNowMs(),
+          slots: this.#slots,
+        });
+      }
+
+      if (ghostHumanExorcised) {
+        this.#checkAllReady();
+      }
+      return;
+    }
+
+    if (type === MSG.colorPick) {
+      const requestedColor = typeof data?.color === "string" ? data.color.trim() : "";
+
+      let assignedFromPending = false;
+      if (this.#pendingPickers.has(conn.id)) {
+        const pickColor = PALETTE.includes(requestedColor as (typeof PALETTE)[number])
+          ? requestedColor
+          : undefined;
+        if (!this.#assignHumanToSlot(conn.id, pickColor)) {
+          this.#rejectPendingConn(conn, 4004, "Room full");
+          return;
+        }
+        assignedFromPending = true;
+        this.#pendingPickers.delete(conn.id);
+        this.#pendingPickerAtMs.delete(conn.id);
+        const pendingName = this.#pendingNames.get(conn.id);
+        if (pendingName) {
+          const assigned = this.#slots!.find((s) => s.connId === conn.id);
+          if (assigned) assigned.name = pendingName.slice(0, 24);
+        }
+        this.#pendingNames.delete(conn.id);
+      }
+
+      const slot = this.#slots?.find((s) => s.connId === conn.id);
+      if (!slot) return;
+
+      let color = requestedColor;
+      if (!PALETTE.includes(color as (typeof PALETTE)[number])) {
+        color = slot.color;
+      }
+      const available = this.#getAvailableColors();
+      if (!available.includes(color)) {
+        color = available[0] ?? color;
+      }
+
+      const oldColor = slot.color;
+      slot.color = color;
+      const lookHex = this.#normalizeLookHex(data?.lookHex);
+      if (lookHex !== null) slot.lookHex = lookHex;
+
+      // Displace any NPC holding the picked color to the unused 5th color.
+      const npcWithColor = this.#slots!.find(
+        (s) => s !== slot && s.kind === "npc" && s.color === color
+      );
+      if (npcWithColor) {
+        const allUsed = new Set(this.#slots!.map((s) => s.color));
+        const unused = PALETTE.find((c) => !allUsed.has(c)) ?? oldColor;
+        npcWithColor.color = unused;
+      }
+
+      if (assignedFromPending) {
+        this.#cancelCountdownIfNeeded();
+      }
+
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.slots,
         serverNowMs: this.#serverNowMs(),
         slots: this.#slots,
       });
-      return;
-    }
-
-    if (type === MSG.colorPick) {
-      const color = data?.color;
-      if (
-        typeof color === "string" &&
-        this.#getAvailableColors().includes(color)
-      ) {
-        if (this.#pendingPickers.has(conn.id)) {
-          if (!this.#assignHumanToSlot(conn.id)) return;
-          this.#pendingPickers.delete(conn.id);
-          this.#pendingPickerAtMs.delete(conn.id);
-          const pendingName = this.#pendingNames.get(conn.id);
-          if (pendingName) {
-            const assigned = this.#slots!.find((s) => s.connId === conn.id);
-            if (assigned) assigned.name = pendingName.slice(0, 24);
-          }
-          this.#pendingNames.delete(conn.id);
-        }
-
-        const slot = this.#slots?.find((s) => s.connId === conn.id);
-        if (slot) {
-          const oldColor = slot.color;
-          slot.color = color;
-          const lookHex = this.#normalizeLookHex(data?.lookHex);
-          if (lookHex !== null) slot.lookHex = lookHex;
-
-          // Displace any NPC holding the picked color to the unused 5th color.
-          const npcWithColor = this.#slots!.find(
-            (s) => s !== slot && s.kind === "npc" && s.color === color
-          );
-          if (npcWithColor) {
-            const allUsed = new Set(this.#slots!.map((s) => s.color));
-            const unused = PALETTE.find((c) => !allUsed.has(c)) ?? oldColor;
-            npcWithColor.color = unused;
-          }
-
-          this.#broadcastJson({
-            v: PROTOCOL_VERSION,
-            type: MSG.slots,
-            serverNowMs: this.#serverNowMs(),
-            slots: this.#slots,
-          });
-        }
-      }
       return;
     }
 
@@ -1067,9 +1179,7 @@ export default class Server implements Party.Server {
         }
         for (const s of this.#slots!) {
           if (s.kind === "human" && s.connId && !liveConnIds.has(s.connId)) {
-            s.kind = "npc";
-            s.connId = null;
-            s.isReady = false;
+            this.#convertHumanSlotToNpc(s.connId);
           }
         }
 
@@ -1079,6 +1189,7 @@ export default class Server implements Party.Server {
           serverNowMs: this.#serverNowMs(),
           slots: this.#slots,
         });
+        this.#cancelCountdownIfNeeded();
         this.#checkAllReady();
       }
       return;

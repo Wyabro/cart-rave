@@ -1627,8 +1627,8 @@ export function initBackroomsSupermarket(scene, world, config) {
       half: HOLE_HALF,
       holeCenter: HOLE_CENTER,
       arenaHalf: ARENA_HALF,
-      avoidMargin: 1.15, // * lip clearance only — wide margins made NPCs shun whole corners
-      influenceBand: 1.5, // * steer repulsion tight to the void lip; gutter lanes stay open
+      avoidMargin: 0.85, // * tight lip — steering/routing use separate buffers
+      influenceBand: 0.85, // * minimal steer nudge; gutter lanes stay drivable
       // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
       circularKeepOuts: [{ x: 0, z: 0, radius: 4.0, margin: 2.0 }],
     },

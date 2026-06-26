@@ -16,7 +16,11 @@ let roundPhase = RoundPhase.LOBBY;
 let roundStartedAtMs = 0;
 let roundCountdownStartedAtMs = 0;
 let roundWinnerSlotIndex = null;
+/** @type {"timer" | "lastStanding" | null} */
+let roundEndReason = null;
 let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+/** @type {Record<number, number>} Wall-clock ms when each slot last scored (attacker). */
+let lastScoringHitAt = { 0: 0, 1: 0, 2: 0, 3: 0 };
 
 /** @type {Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} */
 let lastHitBy = new Map();
@@ -24,6 +28,8 @@ let lastHitBy = new Map();
 function _resetRoundBase() {
   roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
   roundWinnerSlotIndex = null;
+  roundEndReason = null;
+  lastScoringHitAt = { 0: 0, 1: 0, 2: 0, 3: 0 };
   lastHitBy.clear();
 }
 
@@ -34,6 +40,7 @@ function _resetRoundBase() {
  *   startedAtMs: number,
  *   countdownStartedAtMs: number,
  *   winnerSlotIndex: number | string | null,
+ *   endReason: "timer" | "lastStanding" | null,
  *   scores: Record<number, number>,
  * }}
  */
@@ -43,6 +50,7 @@ export function getRoundState() {
     startedAtMs: roundStartedAtMs,
     countdownStartedAtMs: roundCountdownStartedAtMs,
     winnerSlotIndex: roundWinnerSlotIndex,
+    endReason: roundEndReason,
     scores: { ...roundScores },
   };
 }
@@ -85,6 +93,47 @@ function endRound(winnerSlotIndex = null) {
 export function addScore(slotIndex, points) {
   if (roundScores[slotIndex] == null) roundScores[slotIndex] = 0;
   roundScores[slotIndex] += points;
+  if (points > 0) {
+    lastScoringHitAt[slotIndex] = Date.now();
+  }
+}
+
+/**
+ * Host timer-end winner: highest score; ties broken by most recent scoring hit, then lowest slot.
+ * @param {Record<number, number>} scores
+ * @returns {number | "draw"}
+ */
+export function pickTimerWinner(scores) {
+  let topScore = -Infinity;
+  for (let i = 0; i < 4; i += 1) {
+    topScore = Math.max(topScore, Number(scores[i] || 0));
+  }
+
+  const leaders = [];
+  for (let i = 0; i < 4; i += 1) {
+    if (Number(scores[i] || 0) === topScore) leaders.push(i);
+  }
+
+  if (leaders.length === 0) return 0;
+  if (topScore === 0) return "draw";
+  if (leaders.length === 1) return leaders[0];
+
+  let winner = leaders[0];
+  let bestHitAt = lastScoringHitAt[winner] || 0;
+  for (let j = 1; j < leaders.length; j += 1) {
+    const slot = leaders[j];
+    const hitAt = lastScoringHitAt[slot] || 0;
+    if (hitAt > bestHitAt) {
+      bestHitAt = hitAt;
+      winner = slot;
+    }
+  }
+
+  const atBest = leaders.filter((s) => (lastScoringHitAt[s] || 0) === bestHitAt);
+  if (atBest.length > 1) {
+    return Math.min(...atBest);
+  }
+  return winner;
 }
 
 /**
@@ -145,6 +194,13 @@ export function setRoundCountdownStartedAtMs(ms) {
  */
 export function setRoundWinnerSlotIndex(idx) {
   roundWinnerSlotIndex = idx;
+}
+
+/**
+ * @param {"timer" | "lastStanding" | null} reason
+ */
+export function setRoundEndReason(reason) {
+  roundEndReason = reason === "timer" || reason === "lastStanding" ? reason : null;
 }
 
 /** Clears all pending hit attribution (e.g. between-round rematch reset). */

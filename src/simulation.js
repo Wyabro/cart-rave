@@ -392,7 +392,8 @@ function applySquareHoleLipAssist(cart, dtFixed) {
   const pos = cart.body.translation();
   const { cheb, hole } = nearestSquareHole(pos.x, pos.z);
   const lip = squareHoleKeepOutRadius(0);
-  if (cheb >= lip + 1.35) return;
+  // * Only when hugging the lip — don't fight NPCs driving through outer gutters.
+  if (cheb >= lip + 0.45) return;
 
   const dx = pos.x - hole.x;
   const dz = pos.z - hole.z;
@@ -401,19 +402,17 @@ function applySquareHoleLipAssist(cart, dtFixed) {
   const outwardZ = dz / len;
   const lv = cart.body.linvel();
   const towardHole = -(lv.x * outwardX + lv.z * outwardZ);
-  const urgency = clamp((lip + 1.35 - cheb) / 1.35, 0, 1);
-  if (urgency <= 0) return;
+  const urgency = clamp((lip + 0.45 - cheb) / 0.45, 0, 1);
+  if (urgency <= 0 || towardHole < 0.35) return;
 
   const mass = getBodyMass(cart.body);
-  const baseOut = (6 + urgency * 12) * mass * dtFixed;
+  const baseOut = (3 + urgency * 6) * mass * dtFixed;
   _impulse.x = outwardX * baseOut;
   _impulse.z = outwardZ * baseOut;
-  if (towardHole > 0.2) {
-    const boost = towardHole * 16 * mass * dtFixed;
-    _impulse.x += outwardX * boost;
-    _impulse.z += outwardZ * boost;
-  }
-  _impulse.y = urgency * 3.5 * mass * dtFixed;
+  const boost = towardHole * 8 * mass * dtFixed;
+  _impulse.x += outwardX * boost;
+  _impulse.z += outwardZ * boost;
+  _impulse.y = urgency * 2 * mass * dtFixed;
   cart.body.applyImpulse(_impulse, true);
   cart.body.wakeUp();
 }
@@ -779,7 +778,7 @@ function nearestSquareHole(px, pz) {
  * @returns {{ x: number, z: number }}
  */
 function gutterWaypointAroundHole(hole, tx, tz, cautious) {
-  const pad = _levelHazards.avoidMargin + (cautious ? 1.0 : 0.8);
+  const pad = _levelHazards.avoidMargin + (cautious ? 0.55 : 0.35);
   const gutter = (_levelHazards.holeCenter ?? 18) + _levelHazards.half + pad;
   const sx = tx >= hole.x ? 1 : -1;
   const sz = tz >= hole.z ? 1 : -1;
@@ -797,7 +796,16 @@ function gutterWaypointAroundHole(hole, tx, tz, cautious) {
  * @returns {{ x: number, z: number }}
  */
 function routeBackroomsChaseTarget(fx, fz, tx, tz, cautious) {
-  const routeMargin = cautious ? 0.4 : 0.32;
+  const routeMargin = cautious ? 0.22 : 0.06;
+  const lip = squareHoleKeepOutRadius(0);
+
+  // * Both ends in the outer gutter — go direct unless the segment crosses the void box.
+  if (nearestSquareHole(tx, tz).cheb >= lip - 0.15
+    && nearestSquareHole(fx, fz).cheb >= lip - 0.35
+    && !findBlockingSquareHole(fx, fz, tx, tz, -0.05)) {
+    return clampBackroomsAiTarget(tx, tz, cautious);
+  }
+
   const hole = findBlockingSquareHole(fx, fz, tx, tz, routeMargin);
   if (!hole) {
     return clampBackroomsAiTarget(tx, tz, cautious);
@@ -908,14 +916,16 @@ function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
     const len = Math.hypot(dx, dz) || 1;
     const radialX = dx / len;
     const radialZ = dz / len;
-    // * Gutter band: slide along the void lip toward the target, don't shove away from corners.
+    // * Gutter band: tangent only — radial push reads as "scared of the whole corner".
     const inGutterBand = cheb >= edge;
-    const radialScale = inGutterBand ? 0.2 : 1.0;
-    rx += radialX * strength * radialScale;
-    rz += radialZ * strength * radialScale;
+    const radialScale = inGutterBand ? 0 : 0.35;
+    if (radialScale > 0) {
+      rx += radialX * strength * radialScale;
+      rz += radialZ * strength * radialScale;
+    }
 
-    // * Near the lip, bias tangent toward the chase target instead of only pushing outward.
-    if (strength > 0.15 && targetX != null && targetZ != null) {
+    // * Near the lip, bias tangent toward the chase target.
+    if (strength > 0.12 && targetX != null && targetZ != null) {
       const tanAX = -radialZ;
       const tanAZ = radialX;
       const tanBX = radialZ;
@@ -927,13 +937,13 @@ function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
       const useTan = pickA >= pickB;
       const tanX = useTan ? tanAX : tanBX;
       const tanZ = useTan ? tanAZ : tanBZ;
-      const tanGain = inGutterBand ? 2.6 : 1.9;
+      const tanGain = inGutterBand ? 1.4 : 1.1;
       rx += tanX * strength * tanGain;
       rz += tanZ * strength * tanGain;
     }
   }
   if (rx === 0 && rz === 0) return;
-  const GAIN = 1.35;
+  const GAIN = 0.82;
   dir.x += rx * GAIN;
   dir.z += rz * GAIN;
   if (dir.lengthSq() < 1e-6) dir.set(rx, 0, rz);
@@ -967,13 +977,13 @@ function isAiCautiousPhase(nowMs, allCarts, netSlots) {
  */
 function clampBackroomsAiTarget(x, z, cautious, opts = {}) {
   const arenaHalf = _levelHazards.arenaHalf ?? 34;
-  const edgeInset = cautious ? 3.8 : 2.0;
+  const edgeInset = cautious ? 3.2 : 1.2;
   const maxCoord = arenaHalf - edgeInset;
   let outX = clamp(x, -maxCoord, maxCoord);
   let outZ = clamp(z, -maxCoord, maxCoord);
   const holeExtra = opts.cornerPatrol
-    ? (cautious ? 0.25 : 0)
-    : (cautious ? 0.45 : 0.1);
+    ? (cautious ? 0.1 : -0.12)
+    : (cautious ? 0.3 : -0.05);
   const pushed = pushPointOutOfSquareHoles(outX, outZ, holeExtra);
   outX = pushed.x;
   outZ = pushed.z;
@@ -991,8 +1001,8 @@ function pickBackroomsCornerPatrolTarget(cautious, slotIndex = 0) {
   const arenaHalf = _levelHazards.arenaHalf ?? 34;
   const holeCenter = _levelHazards.holeCenter ?? 18;
   const holeOuter = holeCenter + _levelHazards.half;
-  const gutterMin = holeOuter + (cautious ? 0.9 : 0.35);
-  const gutterMax = arenaHalf - (cautious ? 3.0 : 1.5);
+  const gutterMin = holeOuter + (cautious ? 0.55 : 0.1);
+  const gutterMax = arenaHalf - (cautious ? 2.2 : 0.8);
   const corners = [
     [1, 1], [-1, 1], [1, -1], [-1, -1],
   ];
@@ -1001,13 +1011,13 @@ function pickBackroomsCornerPatrolTarget(cautious, slotIndex = 0) {
   const patrolOpts = { cornerPatrol: true };
 
   const roll = Math.random();
-  if (roll < 0.42) {
+  if (roll < 0.5) {
     // * Deep corner pocket — sqrt bias pushes picks toward the outer hide spots.
     const c = gutterMin + Math.sqrt(Math.random()) * Math.max(0.8, gutterMax - gutterMin);
-    const j = (Math.random() - 0.5) * 1.0;
+    const j = (Math.random() - 0.5) * 0.8;
     return clampBackroomsAiTarget(sx * c + j, sz * c + j, cautious, patrolOpts);
   }
-  const outer = gutterMax - Math.random() * 1.2;
+  const outer = gutterMax - Math.random() * 0.6;
   const lane = gutterMin + Math.random() * Math.max(0.8, gutterMax - gutterMin);
   if (roll < 0.71) {
     // * Gutter lane along outer wall.
@@ -1182,6 +1192,9 @@ function pickAiTarget(fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
 
   if (roll < humanWeight && humanTarget) {
     if (_levelHazards?.arenaHalf != null) {
+      if (!findBlockingSquareHole(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, 0.04)) {
+        return clampBackroomsAiTarget(humanTarget.x, humanTarget.z, cautious);
+      }
       return routeBackroomsChaseTarget(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, cautious);
     }
     return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious);
@@ -1211,14 +1224,14 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   const p = cart.body.translation();
 
-  // * Backrooms: re-route every frame if the current target line crosses a void.
+  // * Backrooms: re-route only when the path actually crosses a void (not wide safety bubbles).
   if (_levelHazards?.arenaHalf != null) {
     const { cheb, hole } = nearestSquareHole(p.x, p.z);
     const lip = squareHoleKeepOutRadius(0);
     const targetX = cart.aiTarget?.x ?? p.x;
     const targetZ = cart.aiTarget?.z ?? p.z;
 
-    if (findBlockingSquareHole(p.x, p.z, targetX, targetZ, 0.28)) {
+    if (findBlockingSquareHole(p.x, p.z, targetX, targetZ, 0.05)) {
       const routed = routeBackroomsChaseTarget(p.x, p.z, targetX, targetZ, false);
       cart.aiTarget.x = routed.x;
       cart.aiTarget.z = routed.z;
@@ -1226,13 +1239,14 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
     const lv = cart.body.linvel();
     const speed = Math.hypot(lv.x, lv.z);
-    if (cheb < lip + 1.35 && (speed > 0.35 || cheb < lip + 0.5)) {
+    // * Panic reverse only on the lip while actively sliding in — not idle in gutters.
+    if (cheb < lip + 0.22 && speed > 1.0) {
       const toHoleX = hole.x - p.x;
       const toHoleZ = hole.z - p.z;
       const toHoleLen = Math.hypot(toHoleX, toHoleZ) || 1;
-      const towardHole = (lv.x * toHoleX + lv.z * toHoleZ) / (Math.max(speed, 0.35) * toHoleLen);
-      if (towardHole > 0.12 || isInsideSquareHoleZone(p.x, p.z, 0.05) || cheb < lip + 0.45) {
-        cart.aiReverseUntilMs = now + (750 + Math.random() * 400);
+      const towardHole = (lv.x * toHoleX + lv.z * toHoleZ) / (speed * toHoleLen);
+      if (towardHole > 0.45 || isInsideSquareHoleZone(p.x, p.z, -0.08)) {
+        cart.aiReverseUntilMs = now + (420 + Math.random() * 280);
         const escape = gutterWaypointAroundHole(hole, targetX, targetZ, false);
         cart.aiTarget.x = escape.x;
         cart.aiTarget.z = escape.z;
@@ -1315,17 +1329,17 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     };
   }
 
-  // * Backrooms: ease off the throttle when bearing down on a void lip.
+  // * Light throttle trim on the lip only — keep corner commits at speed.
   let forward = Math.abs(yawDiff) > 2.85 ? 0.25 : 1;
   if (onBackrooms) {
     const { cheb } = nearestSquareHole(p.x, p.z);
     const lip = squareHoleKeepOutRadius(0);
-    if (cheb < lip + 1.9) {
-      const t = clamp((lip + 1.9 - cheb) / 1.9, 0, 1);
-      forward *= 1 - t * 0.88;
-    }
     if (cheb < lip + 0.55) {
-      forward = Math.min(forward, 0.12);
+      const t = clamp((lip + 0.55 - cheb) / 0.55, 0, 1);
+      forward *= 1 - t * 0.42;
+    }
+    if (cheb < lip + 0.12) {
+      forward = Math.min(forward, 0.55);
     }
   }
   return { forward, turn };

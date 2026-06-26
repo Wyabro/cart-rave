@@ -8,6 +8,7 @@
  * 3. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
  *    remote humans → server-synced `slot.lookHex`; NPCs → server slot color via CART_COLORS.
  * 4. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id (local human → saved; others → classic).
+ * 4b. `resolveCartThemeForSlot(slot, ctx)` picks the cart theme id (local human → saved; others → rave until networked).
  * 5. `main.js` passes `displayColorHexForSlot` into cart spawn/recolor, calls `applyCartFrameGlow()`
  *    for neon color, then `applyCartPattern()` for the wireframe pattern overlay layer. Color and pattern are independent.
  * 6. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
@@ -19,6 +20,7 @@
 
 import { CART_COLORS, PALETTE } from "./config.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
+import { DEFAULT_CART_THEME, normalizeThemeId } from "./cartThemeConfig.js";
 
 export const CUSTOMIZE_STORAGE_KEY = "cartRaveCustomization";
 export const CUSTOM_COLOR_ID = "custom";
@@ -54,13 +56,15 @@ function getDefaultCustomization() {
     color: DEFAULT_PRESET_COLOR,
     customHue: DEFAULT_CUSTOM_HUE,
     pattern: DEFAULT_CART_PATTERN,
+    theme: DEFAULT_CART_THEME,
   });
 }
 
 /**
  * @typedef {"preset" | "custom"} ColorMode
  * @typedef {import("./cartPatternConfig.js").CartPatternId} CartPatternId
- * @typedef {{ colorMode: ColorMode, color: string, customHue: number, pattern: CartPatternId, hex: number, cssHex: string }} PlayerCustomization
+ * @typedef {import("./cartThemeConfig.js").CartThemeId} CartThemeId
+ * @typedef {{ colorMode: ColorMode, color: string, customHue: number, pattern: CartPatternId, theme: CartThemeId, hex: number, cssHex: string }} PlayerCustomization
  */
 
 /**
@@ -200,12 +204,16 @@ function normalizeCustomization(raw) {
   let color = fallbackPreset;
   let customHue = DEFAULT_CUSTOM_HUE;
   let pattern = DEFAULT_CART_PATTERN;
+  let theme = DEFAULT_CART_THEME;
 
   let hasStoredCustomHue = false;
   if (raw && typeof raw === "object") {
     const obj = /** @type {Record<string, unknown>} */ (raw);
     if (typeof obj.pattern === "string") {
       pattern = normalizePatternId(obj.pattern);
+    }
+    if (typeof obj.theme === "string") {
+      theme = normalizeThemeId(obj.theme);
     }
     if (obj.colorMode === "custom") colorMode = "custom";
     if (typeof obj.customHue === "number" && Number.isFinite(obj.customHue)) {
@@ -249,6 +257,7 @@ function normalizeCustomization(raw) {
     color,
     customHue,
     pattern,
+    theme,
     hex,
     cssHex: `#${hex.toString(16).padStart(6, "0")}`,
   };
@@ -265,6 +274,7 @@ function buildStoragePayload(normalized) {
     customHue: normalized.customHue,
     customHex: normalized.hex,
     pattern: normalized.pattern,
+    theme: normalized.theme,
   };
 }
 
@@ -315,7 +325,7 @@ export function wireCustomizationStorageSync() {
 }
 
 /**
- * @param {{ colorMode?: ColorMode, color?: string, customHue?: number, pattern?: string }} input
+ * @param {{ colorMode?: ColorMode, color?: string, customHue?: number, pattern?: string, theme?: string }} input
  * @returns {PlayerCustomization}
  */
 export function savePlayerCustomization(input) {
@@ -324,6 +334,7 @@ export function savePlayerCustomization(input) {
   let color = input.color ?? current.color;
   let customHue = input.customHue ?? current.customHue;
   const pattern = normalizePatternId(input.pattern ?? current.pattern);
+  const theme = normalizeThemeId(input.theme ?? current.theme);
 
   if (colorMode === "custom") {
     color = CUSTOM_COLOR_ID;
@@ -332,7 +343,7 @@ export function savePlayerCustomization(input) {
     color = PALETTE[0];
   }
 
-  const normalized = normalizeCustomization({ colorMode, color, customHue, pattern });
+  const normalized = normalizeCustomization({ colorMode, color, customHue, pattern, theme });
 
   writeCustomizationToStorage(normalized);
   cachedCustomization = normalized;
@@ -366,6 +377,19 @@ export function resolveCartPatternForSlot(slot, ctx = {}) {
   const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
   if (isLocal) return loadPlayerCustomization().pattern;
   return DEFAULT_CART_PATTERN;
+}
+
+/**
+ * Cart theme id for a cart mesh — local human uses saved theme; others use rave until networked.
+ *
+ * @param {{ kind?: string, connId?: string } | null | undefined} slot
+ * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
+ * @returns {CartThemeId}
+ */
+export function resolveCartThemeForSlot(slot, ctx = {}) {
+  const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
+  if (isLocal) return loadPlayerCustomization().theme;
+  return DEFAULT_CART_THEME;
 }
 
 /**

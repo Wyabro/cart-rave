@@ -14,11 +14,11 @@ import {
   patternSvgParts,
 } from "./cartPatternConfig.js";
 import {
-  CART_PREVIEW_THEMES,
-  CART_PREVIEW_THEME_IDS,
-  CartPreview,
-  DEFAULT_CART_PREVIEW_THEME_ID,
-} from "./ui/cartPreview.js";
+  CART_THEMES,
+  CART_THEME_IDS,
+  DEFAULT_CART_THEME,
+} from "./cartThemeConfig.js";
+import { CartPreview } from "./ui/cartPreview.js";
 
 (function () {
   'use strict';
@@ -217,7 +217,7 @@ import {
     colorMode: 'preset',
     customHue: DEFAULT_CUSTOM_HUE,
     pattern: DEFAULT_CART_PATTERN,
-    previewThemeId: DEFAULT_CART_PREVIEW_THEME_ID,
+    previewThemeId: DEFAULT_CART_THEME,
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
@@ -525,6 +525,7 @@ import {
     state.colorMode = saved.colorMode === 'custom' ? 'custom' : 'preset';
     state.customHue = normalizeHue(saved.customHue);
     state.pattern = saved.pattern || DEFAULT_CART_PATTERN;
+    state.previewThemeId = saved.theme || DEFAULT_CART_THEME;
     if (state.colorMode === 'preset') {
       const presetId = saved.color === CUSTOM_COLOR_ID ? PALETTE_GAME[0] : saved.color;
       state.playerIdx = colorIdxFromGameId(presetId);
@@ -533,7 +534,7 @@ import {
 
   /**
    * Saves menu customization state through the shared store and syncs local UI state.
-   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number, pattern?: string }} customization
+   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number, pattern?: string, theme?: string }} customization
    */
   function saveCustomization(customization) {
     const saved = savePlayerCustomization(customization);
@@ -665,14 +666,14 @@ import {
     customizeThemeRow.setAttribute('role', 'radiogroup');
     customizeThemeRow.setAttribute('aria-label', 'Cart Theme Selection');
     let html = '';
-    for (const themeId of CART_PREVIEW_THEME_IDS) {
-      const theme = CART_PREVIEW_THEMES[themeId];
+    for (const themeId of CART_THEME_IDS) {
+      const theme = CART_THEMES[themeId];
       const isActive = state.previewThemeId === themeId;
-      const bodyCss = previewHexToCss(theme.bodyColor);
-      const accentCss = previewHexToCss(theme.accentColor ?? theme.bodyColor);
-      html += `<button type="button" class="cr-theme-chip ${isActive ? 'active' : ''}" data-theme="${themeId}" role="radio" aria-checked="${isActive}" aria-label="${theme.name}" title="${theme.name}" style="--tc:${bodyCss};--ta:${accentCss};">
+      const bodyCss = previewHexToCss(theme.baseHex);
+      const accentCss = previewHexToCss(theme.accentHex);
+      html += `<button type="button" class="cr-theme-chip ${isActive ? 'active' : ''}" data-theme="${themeId}" role="radio" aria-checked="${isActive}" aria-label="${theme.label}" title="${theme.label}" style="--tc:${bodyCss};--ta:${accentCss};">
         <span class="cr-theme-chip-swatch" aria-hidden="true"></span>
-        <span class="cr-theme-chip-label">${theme.name}</span>
+        <span class="cr-theme-chip-label">${theme.label}</span>
       </button>`;
     }
     customizeThemeRow.innerHTML = html;
@@ -690,9 +691,9 @@ import {
   }
 
   function selectTheme(themeId) {
-    if (!CART_PREVIEW_THEME_IDS.includes(themeId)) return;
-    state.previewThemeId = themeId;
-    if (cartPreview) cartPreview.setTheme(themeId);
+    if (!CART_THEME_IDS.includes(themeId)) return;
+    saveCustomization({ theme: themeId });
+    if (cartPreview) cartPreview.setTheme(state.previewThemeId);
     buildThemeChips();
   }
 
@@ -1224,9 +1225,11 @@ import {
     const detail = e.detail || loadPlayerCustomization();
     applyCustomizationToState(detail);
     buildColorChips();
+    buildThemeChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
+    if (cartPreview) cartPreview.setTheme(state.previewThemeId);
     applyPalette();
   });
   renderCart();

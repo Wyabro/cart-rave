@@ -7,6 +7,7 @@ import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
+import { clearNpcCartCache } from "./gameLoop.js";
 
 /** Scratch quaternions for interpolation and reconciliation slerp. */
 const _interpFromQ = new THREE.Quaternion();
@@ -58,6 +59,24 @@ let resetSimTimingRef = null;
 
 let netSlots = [];
 let lastSlotsJson = "";
+let lastSlotsServerMs = 0;
+
+function reconcileSlotSnapshots(prev, incoming) {
+  if (!Array.isArray(prev) || prev.length === 0) return incoming;
+  if (!Array.isArray(incoming) || incoming.length !== 4) return incoming;
+  return incoming.map((s, i) => {
+    const p = prev[i];
+    if (!p || !s) return s;
+    if (s.kind === "npc" && p.kind === "human" && p.connId) {
+      const humanStillLive = incoming.some(
+        (x) => x?.kind === "human" && x.connId === p.connId,
+      );
+      if (!humanStillLive) return p;
+    }
+    return s;
+  });
+}
+
 
 // === CALLBACK REGISTRATION ===
 // Registration of external callbacks/functions from main.js
@@ -109,6 +128,8 @@ let callbacks = {
 
   // Stats
   recordPodiumStats: () => {},
+  onReturnToLobby: () => {},
+  onEnterPodium: () => {},
 
   // Session lifecycle
   ensureSessionReady: () => {},
@@ -178,6 +199,8 @@ export function registerGameCallbacks(deps) {
     getLocalColorPicked: () => deps.getLocalColorPicked(),
     setLocalColorPicked: (val) => deps.setLocalColorPicked(val),
     recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
+    onReturnToLobby: () => deps.onReturnToLobby?.(),
+    onEnterPodium: () => deps.onEnterPodium?.(),
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
     ensureSessionReady: () => deps.ensureSessionReady?.(),
@@ -202,6 +225,9 @@ export function setRefs(refs) {
   if (refs.triggerRamBoostRef !== undefined) triggerRamBoostRef = refs.triggerRamBoostRef;
   if (refs.triggerHopRef !== undefined) triggerHopRef = refs.triggerHopRef;
   if (refs.resetSimTimingRef !== undefined) resetSimTimingRef = refs.resetSimTimingRef;
+  if (!isHost && partySocket && getAxisRef && !inputSendTimer) {
+    startInputSendLoop();
+  }
 }
 
 export function getYouConnId() { return youConnId; }
@@ -776,6 +802,7 @@ export function disconnectPartySession() {
 
   netSlots = [];
   lastSlotsJson = "";
+  lastSlotsServerMs = 0;
   netStateBuffer = [];
   lastCartsCache = null;
   remoteInputsByConnId = new Map();
@@ -1068,7 +1095,7 @@ export function initNetcode(roomOverride) {
     }
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
-    
+    sendColorPick(resolveServerColorPick());
     startKeepaliveLoop();
   });
 
@@ -1150,6 +1177,10 @@ export function initNetcode(roomOverride) {
       if (nextIsHost && lastCartsCache) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
+      if (nextIsHost) {
+        remoteInputsByConnId.clear();
+        remoteNitroLatchedByConnId.clear();
+      }
       setAuthorityMode(nextIsHost);
       if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + CONFIG.net.hostMigrationFreezeMs;
       hostEpoch += 1;
@@ -1162,20 +1193,55 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.slots) {
-      const incomingJson = JSON.stringify(msg.slots);
-      if (incomingJson === lastSlotsJson) return;
+      const serverMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : 0;
+      if (serverMs < lastSlotsServerMs) return;
+      const merged = reconcileSlotSnapshots(netSlots, msg.slots);
+      const incomingJson = JSON.stringify(merged);
+      if (serverMs === lastSlotsServerMs && incomingJson === lastSlotsJson) return;
+      lastSlotsServerMs = serverMs;
       lastSlotsJson = incomingJson;
-      if (Array.isArray(msg.slots)) {
-        const newColors = msg.slots.map((s) => (s?.color || ""));
+      if (Array.isArray(merged)) {
+        const newColors = merged.map((s) => (s?.color || ""));
         const oldColors = netSlots.map((s) => (s?.color || ""));
         const colorsChanged = newColors.some((c, i) => c !== oldColors[i]);
-        const looksChanged = msg.slots.some((s, i) => {
+        const looksChanged = merged.some((s, i) => {
           const oldLook = netSlots[i]?.lookHex ?? null;
           const newLook = s?.lookHex ?? null;
           return oldLook !== newLook;
         });
 
-        netSlots = msg.slots;
+        const kindsChanged = merged.some(
+          (s, i) => (s?.kind ?? "") !== (netSlots[i]?.kind ?? ""),
+        );
+        const namesChanged = merged.some(
+          (s, i) => (s?.name ?? "") !== (netSlots[i]?.name ?? ""),
+        );
+
+        const prevHadSlot = Boolean(
+          youConnId && netSlots.some((s) => s && s.connId === youConnId),
+        );
+
+        netSlots = merged;
+
+        const nowHasSlot = Boolean(
+          youConnId && netSlots.some((s) => s && s.connId === youConnId),
+        );
+        if (!prevHadSlot && nowHasSlot) {
+          setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
+          void Promise.resolve(callbacks.ensureSessionReady?.())
+            .then(() => {
+              if (!isHost) startInputSendLoop();
+            })
+            .catch((err) => {
+              console.error("[netcode] ensureSessionReady failed during slot sync:", err);
+              if (!isHost) startInputSendLoop();
+            });
+        }
+
+        if (kindsChanged) {
+          clearNpcCartCache();
+        }
+
         const liveConnIds = new Set(
           netSlots
             .map((s) => (s && typeof s.connId === "string" ? s.connId : null))
@@ -1188,7 +1254,7 @@ export function initNetcode(roomOverride) {
           if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
         }
         
-        const takenColors = msg.slots
+        const takenColors = merged
           .filter((s) => s && s.kind === "human" && s.connId !== youConnId)
           .map((s) => s.color);
         const palette = callbacks.getPALETTE();
@@ -1196,7 +1262,7 @@ export function initNetcode(roomOverride) {
         void availableColors;
 
         if (callbacks.getLocalColorPicked() && youConnId) {
-          const mySlot = msg.slots.find((s) => s && s.connId === youConnId) || null;
+          const mySlot = merged.find((s) => s && s.connId === youConnId) || null;
           if (mySlot && typeof mySlot.color === "string") {
             const pendingColorKey = callbacks.getPendingColorKey();
             const isConfirmed = pendingColorKey && mySlot.color === pendingColorKey;
@@ -1211,8 +1277,12 @@ export function initNetcode(roomOverride) {
           }
         }
         
-        if (colorsChanged || looksChanged) callbacks.updateCartMaterialsFromSlots(msg.slots);
-        if (colorsChanged || looksChanged) callbacks.updateHudColorsFromSlots(msg.slots);
+        if (colorsChanged || looksChanged || kindsChanged || namesChanged) {
+          callbacks.updateCartMaterialsFromSlots(merged);
+        }
+        if (colorsChanged || looksChanged || kindsChanged) {
+          callbacks.updateHudColorsFromSlots(merged);
+        }
         callbacks.scheduleNameLabelUpdate();
         callbacks.respawnLocalMidRoundJoinRef();
       }
@@ -1315,14 +1385,19 @@ export function initNetcode(roomOverride) {
         const newPhase = r.phase;
         if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "lobby") {
           callbacks.onCountdownCancelled?.();
+          GameState.setRoundCountdownStartedAtMs(0);
+          GameState.setRoundStartedAtMs(0);
         }
         if (typeof newPhase === "string" && prevPhase === "podium" && newPhase === "lobby") {
           GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
           GameState.setRoundStartedAtMs(0);
           GameState.setRoundCountdownStartedAtMs(0);
           GameState.setRoundWinnerSlotIndex(null);
+          GameState.setRoundEndReason(null);
+          callbacks.onReturnToLobby?.();
         }
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
+          callbacks.onEnterPodium?.();
           callbacks.setPendingMidRoundJoinRespawnConnId(null);
           if (!isHost) {
             if (r.validated !== true) return;
@@ -1338,7 +1413,20 @@ export function initNetcode(roomOverride) {
         GameState.setRoundStartedAtMs(r.startedAtMs ?? state.startedAtMs);
         GameState.setRoundCountdownStartedAtMs(r.countdownStartedAtMs ?? state.countdownStartedAtMs);
         GameState.setRoundWinnerSlotIndex(r.winnerSlotIndex ?? null);
+        if (r.endReason === "timer" || r.endReason === "lastStanding" || r.endReason == null) {
+          GameState.setRoundEndReason(r.endReason ?? null);
+        }
         if (r.scores && typeof r.scores === "object") GameState.setRoundScores(r.scores);
+      }
+      return;
+    }
+
+    if (type === MSG.countdownCancel) {
+      if (GameState.getRoundState().phase === "countdown") {
+        callbacks.onCountdownCancelled?.();
+        GameState.setRoundPhase("lobby");
+        GameState.setRoundCountdownStartedAtMs(0);
+        GameState.setRoundStartedAtMs(0);
       }
       return;
     }
@@ -1373,6 +1461,7 @@ export function sendHostRound() {
       startedAtMs: state.startedAtMs,
       countdownStartedAtMs: state.countdownStartedAtMs,
       winnerSlotIndex: state.winnerSlotIndex,
+      endReason: state.endReason ?? null,
       scores: state.scores,
     },
   }));

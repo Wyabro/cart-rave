@@ -1766,10 +1766,26 @@ function updateStatus(roundState) {
         { duration: 200, easing: "ease-out" },
       );
     }
+  } else if (roundPhase === "running" && roundState?.endReason === "lastStanding") {
+    setHudDisplay(elements.status, "block", "status");
+    elements.status.style.color = "#ffe53d";
+    elements.status.textContent = "LAST CART STANDING!";
+    if (_lastCountdownN !== "lastStanding") {
+      _lastCountdownN = "lastStanding";
+      elements.status.animate(
+        [
+          { transform: "translateX(-50%) scale(1)" },
+          { transform: "translateX(-50%) scale(1.15)", offset: 0.45 },
+          { transform: "translateX(-50%) scale(1)" },
+        ],
+        { duration: 280, easing: "ease-out" },
+      );
+    }
   } else if (roundPhase === "podium") {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
   } else {
+    if (_lastCountdownN === "lastStanding") _lastCountdownN = null;
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
   }

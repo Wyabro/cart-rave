@@ -2,6 +2,12 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCart } from "./cart.js";
 import { CONFIG } from "./config.js";
+import { resolveCartThemeForSlot } from "./customization.js";
+import {
+  applyCartTheme,
+  buildCartThemeMaterialCache,
+  disposeCartThemeResources,
+} from "./cartThemes.js";
 import * as ContactShadows from "./contactShadows.js";
 import * as Visuals from "./visuals.js";
 import * as GameState from "./gameState.js";
@@ -57,41 +63,7 @@ export function captureCartsPhysicsPrevPoses(allCarts) {
 }
 
 function buildCartMaterialCache(cartMesh) {
-  const frameMats = [];
-  const frameGlowMats = [];
-  const seen = new Set();
-
-  /**
-   * @param {THREE.Material | THREE.Material[] | null | undefined} material
-   * @param {(m: THREE.Material) => void} add
-   */
-  function forEachMaterial(material, add) {
-    if (!material) return;
-    if (Array.isArray(material)) {
-      material.forEach((m) => m && add(m));
-      return;
-    }
-    add(material);
-  }
-
-  cartMesh.traverse((child) => {
-    if (!child.isMesh || !child.material) return;
-    if (
-      child.userData
-      && (child.userData.isFace || child.userData.isHandle || child.userData.isWheel || child.userData.isCartPatternLayer)
-    ) {
-      return;
-    }
-
-    forEachMaterial(child.material, (mat) => {
-      if (seen.has(mat)) return;
-      seen.add(mat);
-      frameMats.push(mat);
-      if (mat.emissive) frameGlowMats.push(mat);
-    });
-  });
-
-  return { frameMats, frameGlowMats };
+  return buildCartThemeMaterialCache(cartMesh);
 }
 
 /**
@@ -157,16 +129,18 @@ function createCartCollider(world, body) {
 /**
  * @param {THREE.Scene} scene
  * @param {number} color
- * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartMaterialCache> }}
+ * @param {string} themeId
+ * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache>, themeId: string }}
  */
-function setupCartVisuals(scene, color) {
+function setupCartVisuals(scene, color, themeId) {
   const mesh = buildCart(color);
+  applyCartTheme(mesh, themeId, color);
   scene.add(mesh);
   const contactShadow = ContactShadows.createCartContactShadow();
   if (contactShadow) scene.add(contactShadow);
   mesh.updateMatrixWorld(true);
   const materialCache = buildCartMaterialCache(mesh);
-  return { mesh, materialCache, contactShadow };
+  return { mesh, materialCache, contactShadow, themeId };
 }
 
 /**
@@ -193,6 +167,7 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  *   scene: THREE.Scene,
  *   world: import("@dimforge/rapier3d-compat").World,
  *   color: number,
+ *   themeId: string,
  *   spawn: { x: number, y: number, z: number },
  *   spawnYaw: number,
  *   label: string,
@@ -200,9 +175,9 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  * }} params
  * @returns {object}
  */
-function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) {
+function createCart({ scene, world, color, themeId, spawn, spawnYaw, label, slotIndex }) {
   const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
-  const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color);
+  const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color, themeId);
 
   const body = createCartBody(world, spawnFrozen, spawnYaw);
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
@@ -220,6 +195,7 @@ function createCart({ scene, world, color, spawn, spawnYaw, label, slotIndex }) 
     slotIndex,
     label,
     cartColor: color,
+    cartThemeId: themeId,
     _materialCache: materialCache,
     _lastNetLinvel: { x: 0, y: 0, z: 0 },
     _netTargetPos: mesh.position.clone(),
@@ -266,6 +242,8 @@ export function resetCartIdleWatch(cart) {
  */
 function disposeCartMeshResources(mesh, materialCache) {
   if (!mesh) return;
+
+  disposeCartThemeResources(mesh);
 
   mesh.traverse((child) => {
     if (!child.isMesh || !child.geometry) return;
@@ -429,6 +407,7 @@ export function rematchResetWorld() {
  *   youConnId: string | null | undefined,
  *   CART_COLORS: Record<string, { hex: number }>,
  *   colorHexForSlot: (slot: object | null | undefined) => number,
+ *   themeForSlot?: (slot: object | null | undefined) => string,
  *   pendingMidRoundJoinRespawnConnId: string | null | undefined,
  * }} params
  */
@@ -440,6 +419,7 @@ export function initCarts({
   youConnId,
   CART_COLORS,
   colorHexForSlot,
+  themeForSlot,
   pendingMidRoundJoinRespawnConnId,
 }) {
   sceneRef = scene;
@@ -449,15 +429,20 @@ export function initCarts({
   const cartsBySlotId = [];
   let nextPendingMidRoundJoinRespawnConnId = pendingMidRoundJoinRespawnConnId;
 
+  const resolveTheme = themeForSlot
+    ?? ((slot) => resolveCartThemeForSlot(slot, { youConnId }));
+
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
     const spawn = spawnOnRingForSlot(slotIndex);
     const slot = netSlots[slotIndex];
     const cartColorHex = colorHexForSlot(slot);
+    const cartThemeId = resolveTheme(slot);
 
     const cart = createCart({
       scene,
       world,
       color: cartColorHex,
+      themeId: cartThemeId,
       spawn,
       spawnYaw: yawToCenter(spawn),
       label: slot?.name ?? `slot-${slotIndex}`,

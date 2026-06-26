@@ -16,6 +16,8 @@
  * @property {(cart: object) => void} doRespawn
  * @property {(nowMs: number, npc: object) => void} maybeTriggerNpcOpportunisticRamBoost
  * @property {() => void} endRound
+ * @property {(slotIndex: number) => void} [scheduleLastCartStandingFinish]
+ * @property {() => void} [abortLastCartStandingFlourish]
  * @property {(slot: object | null | undefined) => number} colorHexForSlot
  * @property {object | null | undefined} hud
  * @property {() => void} sendHostRound
@@ -192,6 +194,23 @@ export function updateGameFlow(deps, context) {
         if (slot.kind === "npc") {
           deps.maybeTriggerNpcOpportunisticRamBoost(now, cart);
         }
+      }
+
+      // * Last-cart-standing: sole cart not mid-fall/respawn wins after a flourish delay.
+      let aliveOnArena = 0;
+      let soleSurvivorSlot = -1;
+      for (let si = 0; si < allCarts.length; si += 1) {
+        const c = allCarts[si];
+        if (!c?.body || c.respawnAtMs !== null) continue;
+        const pos = c.body.translation();
+        if (pos.y < deps.CONFIG.fall.yThreshold) continue;
+        aliveOnArena += 1;
+        soleSurvivorSlot = si;
+      }
+      if (aliveOnArena === 1 && soleSurvivorSlot >= 0) {
+        deps.scheduleLastCartStandingFinish?.(soleSurvivorSlot);
+      } else {
+        deps.abortLastCartStandingFlourish?.();
       }
     }
   }

@@ -3,7 +3,8 @@
 import * as THREE from "three";
 import * as Effects from "./effects.js";
 import * as ContactShadows from "./contactShadows.js";
-import { applyCartFrameGlow, cartEmissiveIntensityForHex, clamp } from "./utils.js";
+import { clamp } from "./utils.js";
+import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -209,35 +210,21 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       const cart = allCarts[i];
       if (!cart || !cart.mesh) continue;
       const isLeader = i === leaderSlot;
+      const themeId = cart.cartThemeId ?? "rave";
+      const slotHex = deps.colorHexForSlot(netSlotsForFrame[i]);
       const cache = cart._materialCache || (cart._materialCache = deps.buildCartMaterialCache(cart.mesh));
-      for (const mat of cache.frameGlowMats) {
-        if (isLeader) {
-          const hex = deps.colorHexForSlot(netSlotsForFrame[i]);
-          const baseIntensity = cartEmissiveIntensityForHex(hex);
-          const whiteMix = glowPulse ** 3;
 
-          if (mat.color) mat.color.setHex(hex);
-          if (mat.emissive) {
-            const r = ((hex >> 16) & 255) / 255;
-            const g = ((hex >> 8) & 255) / 255;
-            const b = (hex & 255) / 255;
-            mat.emissive.setRGB(
-              r + (1 - r) * whiteMix,
-              g + (1 - g) * whiteMix,
-              b + (1 - b) * whiteMix,
-            );
-          }
-          mat.emissiveIntensity = baseIntensity * (1 - whiteMix) + glowIntensity * whiteMix;
-        } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
-          const boostHex = deps.colorHexForSlot(netSlotsForFrame[i]);
-          applyCartFrameGlow(
-            mat,
-            boostHex,
-            1.2 + 0.4 * Math.sin(performance.now() * 0.02),
-          );
-        } else {
-          applyCartFrameGlow(mat, deps.colorHexForSlot(netSlotsForFrame[i]));
-        }
+      if (isLeader) {
+        applyThemeLeaderGlow(cache, themeId, slotHex, glowPulse, glowIntensity);
+      } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
+        applyThemeColorToCache(
+          cache,
+          themeId,
+          slotHex,
+          1.2 + 0.4 * Math.sin(performance.now() * 0.02),
+        );
+      } else {
+        applyThemeColorToCache(cache, themeId, slotHex);
       }
     }
   }

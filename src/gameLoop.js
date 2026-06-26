@@ -59,7 +59,7 @@ function resolveNpcCarts(allCarts, slots) {
  */
 export function applySlowMoToDt(deps, dt) {
   let adjusted = dt;
-  if (deps.isHost() && deps.isSlowMoActive()) {
+  if (deps.isSlowMoActive()) {
     adjusted *= deps.SLOW_MO_TIME_SCALE;
     if (performance.now() - deps.getSlowMoStartMs() > deps.SLOW_MO_DURATION_MS) {
       deps.setSlowMoActive(false);
