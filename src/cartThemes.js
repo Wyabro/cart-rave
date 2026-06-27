@@ -1005,19 +1005,35 @@ function removeNamedGroup(root, name) {
 }
 
 /**
+ * @param {THREE.Material | THREE.Material[] | null | undefined} material
+ * @param {Set<THREE.Material>} disposedMats
+ */
+function disposeMaterialOnce(material, disposedMats) {
+  const mats = Array.isArray(material) ? material : [material];
+  for (const mat of mats) {
+    if (!mat || disposedMats.has(mat)) continue;
+    disposedMats.add(mat);
+    mat.dispose?.();
+  }
+}
+
+/**
  * @param {THREE.Object3D} node
  */
 function disposeThemeSubtree(node) {
+  const disposedGeos = new Set();
+  const disposedMats = new Set();
   node.traverse((child) => {
     if (!child.isMesh) return;
     if (child.userData?.isSharedGeometry) return;
-    if (child.userData?.isThemeGeometry) {
-      child.geometry?.dispose?.();
+    if (child.userData?.isThemeGeometry && child.geometry) {
+      if (!disposedGeos.has(child.geometry)) {
+        disposedGeos.add(child.geometry);
+        child.geometry.dispose?.();
+      }
     }
     if (child.userData?.isThemeProp && child.material) {
-      const mat = child.material;
-      if (Array.isArray(mat)) mat.forEach((m) => m?.dispose?.());
-      else mat.dispose?.();
+      disposeMaterialOnce(child.material, disposedMats);
     }
   });
 }
@@ -1216,12 +1232,15 @@ function removeHoverPads(root) {
   root.traverse((child) => {
     if (child.isMesh && child.userData?.isHoverPad) toRemove.push(child);
   });
+  const disposedGeos = new Set();
+  const disposedMats = new Set();
   for (const mesh of toRemove) {
     mesh.parent?.remove(mesh);
-    if (mesh.geometry && mesh.geometry.userData?.isThemeGeometry) {
+    if (mesh.geometry?.userData?.isThemeGeometry && !disposedGeos.has(mesh.geometry)) {
+      disposedGeos.add(mesh.geometry);
       mesh.geometry.dispose?.();
     }
-    if (mesh.material && !Array.isArray(mesh.material)) mesh.material.dispose?.();
+    disposeMaterialOnce(mesh.material, disposedMats);
   }
 }
 
@@ -1233,9 +1252,15 @@ function removeWhitewallRings(root) {
   root.traverse((child) => {
     if (child.isMesh && child.userData?.isWhitewallRing) toRemove.push(child);
   });
+  const disposedGeos = new Set();
+  const disposedMats = new Set();
   for (const mesh of toRemove) {
     mesh.parent?.remove(mesh);
-    mesh.geometry?.dispose?.();
+    if (mesh.geometry && !disposedGeos.has(mesh.geometry)) {
+      disposedGeos.add(mesh.geometry);
+      mesh.geometry.dispose?.();
+    }
+    disposeMaterialOnce(mesh.material, disposedMats);
   }
 }
 
@@ -1396,6 +1421,7 @@ function applyWhitewalls(root, theme) {
         hub.position.x = (params.height / 2) + 0.01;
         hub.userData.isThemeProp = true;
         hub.userData.isThemeGeometry = true;
+        hub.userData.isWhitewallRing = true;
         child.add(hub);
       }
     });
@@ -1410,10 +1436,15 @@ function removeWoodHubs(root) {
   root.traverse((child) => {
     if (child.isMesh && child.userData?.isWoodHub) toRemove.push(child);
   });
+  const disposedGeos = new Set();
+  const disposedMats = new Set();
   for (const mesh of toRemove) {
     mesh.parent?.remove(mesh);
-    mesh.geometry?.dispose?.();
-    if (mesh.material && !Array.isArray(mesh.material)) mesh.material.dispose?.();
+    if (mesh.geometry && !disposedGeos.has(mesh.geometry)) {
+      disposedGeos.add(mesh.geometry);
+      mesh.geometry.dispose?.();
+    }
+    disposeMaterialOnce(mesh.material, disposedMats);
   }
 }
 
@@ -1479,12 +1510,23 @@ function applyWoodHubs(root, theme) {
  * @param {THREE.Object3D} root
  */
 function removeConstructionTires(root) {
+  const disposedMats = new Set();
   root.traverse((child) => {
     if (!child.isMesh) return;
-    if (child.userData?.constructionWheelScaled) {
+    if (child.userData?.constructionPrevScale) {
+      child.scale.copy(child.userData.constructionPrevScale);
+      delete child.userData.constructionPrevScale;
+    } else if (child.userData?.constructionWheelScaled) {
       child.scale.set(1, 1, 1);
       delete child.userData.constructionWheelScaled;
     }
+    if (!child.userData?.isConstructionWheelOverride) return;
+    const prev = child.userData.constructionPrevMaterial;
+    const cur = child.material;
+    if (cur && cur !== prev) disposeMaterialOnce(cur, disposedMats);
+    if (prev) child.material = prev;
+    delete child.userData.constructionPrevMaterial;
+    delete child.userData.isConstructionWheelOverride;
   });
 }
 
@@ -1522,9 +1564,17 @@ function applyConstructionTires(root, theme) {
       const params = /** @type {THREE.CylinderGeometry} */ (child.geometry).parameters;
       if (!params) return;
 
+      if (!child.userData.constructionPrevMaterial) {
+        child.userData.constructionPrevMaterial = child.material;
+      }
+      child.userData.isConstructionWheelOverride = true;
+
       if (child.userData?.isWheel) {
         if ((params.radiusTop ?? 0) > 0.2) {
           child.material = tireMat.clone();
+          if (!child.userData.constructionPrevScale) {
+            child.userData.constructionPrevScale = child.scale.clone();
+          }
           child.scale.set(1.34, 1.34, 1.34);
           child.userData.constructionWheelScaled = true;
         } else {
@@ -1534,6 +1584,9 @@ function applyConstructionTires(root, theme) {
       }
 
       child.material = rimMat.clone();
+      if (!child.userData.constructionPrevScale) {
+        child.userData.constructionPrevScale = child.scale.clone();
+      }
       child.scale.set(0.9, 0.9, 0.9);
     });
   }
@@ -1749,7 +1802,9 @@ function buildThemeProps(root, group, theme, neonHex) {
         smokeGeo.userData.isThemeGeometry = true;
 
         for (let i = 0; i < 4; i++) {
-          const smoke = new THREE.Mesh(smokeGeo, smokeMat);
+          const smokePlaneGeo = smokeGeo.clone();
+          smokePlaneGeo.userData.isThemeGeometry = true;
+          const smoke = new THREE.Mesh(smokePlaneGeo, smokeMat.clone());
           const angle = (i / 4) * Math.PI * 2;
           smoke.position.set(Math.cos(angle) * 0.4, -0.3 + Math.random() * 0.2, Math.sin(angle) * 0.4);
           smoke.rotation.x = -Math.PI / 2;
@@ -2354,6 +2409,16 @@ function buildThemeProps(root, group, theme, neonHex) {
         stripMat.userData.receivesPlayerAccent = true;
         stripMat.userData.cartMatRole = "accent";
 
+        const chromeMat = createPhysicalMaterial({
+          color: theme.baseHex,
+          metalness: 0.95,
+          roughness: 0.14,
+          clearcoat: 0.6,
+          clearcoatRoughness: 0.08,
+          envMapIntensity: getMaterialEnvMapIntensity() * CHROME_ENV_SCALE,
+        });
+        chromeMat.userData.themeLocked = true;
+
         const stripGeo = new THREE.BoxGeometry(0.025, 0.025, 1.5);
         stripGeo.userData.isThemeGeometry = true;
         for (const x of [-0.52, 0.52]) {
@@ -2365,6 +2430,18 @@ function buildThemeProps(root, group, theme, neonHex) {
           strip.userData.receivesPlayerAccent = true;
           strip.userData.cartMatRole = "accent";
           group.add(strip);
+        }
+
+        const pinGeo = new THREE.BoxGeometry(1.05, 0.008, 0.008);
+        pinGeo.userData.isThemeGeometry = true;
+        for (const z of [-0.72, 0.72]) {
+          const pin = new THREE.Mesh(pinGeo, stripMat.clone());
+          pin.position.set(0, 0.28, z);
+          pin.userData.isThemeProp = true;
+          pin.userData.isThemeGeometry = true;
+          pin.userData.receivesPlayerAccent = true;
+          pin.userData.cartMatRole = "accent";
+          group.add(pin);
         }
 
         const handleStripeGeo = new THREE.BoxGeometry(0.42, 0.02, 0.02);
@@ -2400,6 +2477,26 @@ function buildThemeProps(root, group, theme, neonHex) {
         badge.userData.isThemeGeometry = true;
         group.add(badge);
 
+        const idDiscGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 16);
+        idDiscGeo.userData.isThemeGeometry = true;
+        const idDisc = new THREE.Mesh(idDiscGeo, chromeMat);
+        idDisc.position.set(0.38, 0.58, -0.82);
+        idDisc.rotation.x = Math.PI / 2;
+        idDisc.userData.isThemeProp = true;
+        idDisc.userData.isThemeGeometry = true;
+        group.add(idDisc);
+
+        const idEmblemGeo = new THREE.PlaneGeometry(0.05, 0.05);
+        idEmblemGeo.userData.isThemeGeometry = true;
+        const idEmblem = new THREE.Mesh(idEmblemGeo, stripMat.clone());
+        idEmblem.position.set(0.38, 0.58, -0.826);
+        idEmblem.rotation.y = Math.PI;
+        idEmblem.userData.isThemeProp = true;
+        idEmblem.userData.isThemeGeometry = true;
+        idEmblem.userData.receivesPlayerAccent = true;
+        idEmblem.userData.cartMatRole = "accent";
+        group.add(idEmblem);
+
         const rimGeo = new THREE.TorusGeometry(0.55, 0.012, 8, 32, Math.PI);
         rimGeo.userData.isThemeGeometry = true;
         const rim = new THREE.Mesh(rimGeo, stripMat);
@@ -2410,6 +2507,24 @@ function buildThemeProps(root, group, theme, neonHex) {
         rim.userData.receivesPlayerAccent = true;
         rim.userData.cartMatRole = "accent";
         group.add(rim);
+
+        const chromeCapGeo = new THREE.BoxGeometry(0.06, 0.06, 0.04);
+        chromeCapGeo.userData.isThemeGeometry = true;
+        for (const [x, z] of [[-0.5, -0.7], [0.5, -0.7], [-0.5, 0.7], [0.5, 0.7]]) {
+          const cap = new THREE.Mesh(chromeCapGeo, chromeMat);
+          cap.position.set(x, 0.54, z);
+          cap.userData.isThemeProp = true;
+          cap.userData.isThemeGeometry = true;
+          group.add(cap);
+        }
+
+        const skirtGeo = new THREE.BoxGeometry(1.12, 0.014, 0.02);
+        skirtGeo.userData.isThemeGeometry = true;
+        const skirt = new THREE.Mesh(skirtGeo, chromeMat);
+        skirt.position.set(0, -0.36, -0.78);
+        skirt.userData.isThemeProp = true;
+        skirt.userData.isThemeGeometry = true;
+        group.add(skirt);
 
         break;
       }
@@ -2453,6 +2568,41 @@ function buildThemeProps(root, group, theme, neonHex) {
         trim.userData.cartMatRole = "accent";
         group.add(trim);
 
+        const innerTrimGeo = new THREE.TorusGeometry(0.48, 0.01, 8, 32, Math.PI);
+        innerTrimGeo.userData.isThemeGeometry = true;
+        const innerTrim = new THREE.Mesh(innerTrimGeo, trimMat.clone());
+        innerTrim.rotation.x = Math.PI / 2;
+        innerTrim.position.set(0, 0.5, 0);
+        innerTrim.userData.isThemeProp = true;
+        innerTrim.userData.isThemeGeometry = true;
+        innerTrim.userData.receivesPlayerAccent = true;
+        innerTrim.userData.cartMatRole = "accent";
+        group.add(innerTrim);
+
+        const pinGeo = new THREE.BoxGeometry(0.006, 0.9, 0.006);
+        pinGeo.userData.isThemeGeometry = true;
+        for (const x of [-0.54, 0.54]) {
+          const pin = new THREE.Mesh(pinGeo, trimMat.clone());
+          pin.position.set(x, 0.1, 0);
+          pin.userData.isThemeProp = true;
+          pin.userData.isThemeGeometry = true;
+          pin.userData.receivesPlayerAccent = true;
+          pin.userData.cartMatRole = "accent";
+          group.add(pin);
+        }
+
+        const lipGeo = new THREE.BoxGeometry(1.08, 0.012, 0.012);
+        lipGeo.userData.isThemeGeometry = true;
+        for (const z of [-0.74, 0.74]) {
+          const lip = new THREE.Mesh(lipGeo, trimMat.clone());
+          lip.position.set(0, 0.56, z);
+          lip.userData.isThemeProp = true;
+          lip.userData.isThemeGeometry = true;
+          lip.userData.receivesPlayerAccent = true;
+          lip.userData.cartMatRole = "accent";
+          group.add(lip);
+        }
+
         const crestTex = createLuxuryCrestTexture();
         const crestMat = createPhysicalMaterial({
           map: crestTex,
@@ -2476,6 +2626,15 @@ function buildThemeProps(root, group, theme, neonHex) {
           group.add(crest);
         }
 
+        const rearCrestGeo = new THREE.PlaneGeometry(0.42, 0.42);
+        rearCrestGeo.userData.isThemeGeometry = true;
+        const rearCrest = new THREE.Mesh(rearCrestGeo, crestMat);
+        rearCrest.position.set(0, 0.42, -0.84);
+        rearCrest.rotation.y = Math.PI;
+        rearCrest.userData.isThemeProp = true;
+        rearCrest.userData.isThemeGeometry = true;
+        group.add(rearCrest);
+
         const handleCrestGeo = new THREE.PlaneGeometry(0.22, 0.22);
         handleCrestGeo.userData.isThemeGeometry = true;
         const handleCrest = new THREE.Mesh(handleCrestGeo, crestMat);
@@ -2484,6 +2643,31 @@ function buildThemeProps(root, group, theme, neonHex) {
         handleCrest.userData.isThemeProp = true;
         handleCrest.userData.isThemeGeometry = true;
         group.add(handleCrest);
+
+        const finialGeo = new THREE.SphereGeometry(0.028, 8, 8);
+        finialGeo.userData.isThemeGeometry = true;
+        for (const [x, z] of [[-0.52, -0.72], [0.52, -0.72], [-0.52, 0.72], [0.52, 0.72]]) {
+          const finial = new THREE.Mesh(finialGeo, trimMat.clone());
+          finial.position.set(x, 0.58, z);
+          finial.userData.isThemeProp = true;
+          finial.userData.isThemeGeometry = true;
+          finial.userData.receivesPlayerAccent = true;
+          finial.userData.cartMatRole = "accent";
+          group.add(finial);
+        }
+
+        const handleBandGeo = new THREE.TorusGeometry(0.05, 0.008, 6, 16);
+        handleBandGeo.userData.isThemeGeometry = true;
+        for (const z of [0.62, 0.74]) {
+          const band = new THREE.Mesh(handleBandGeo, trimMat.clone());
+          band.position.set(0, 0.72, z);
+          band.rotation.y = Math.PI / 2;
+          band.userData.isThemeProp = true;
+          band.userData.isThemeGeometry = true;
+          band.userData.receivesPlayerAccent = true;
+          band.userData.cartMatRole = "accent";
+          group.add(band);
+        }
 
         break;
       }

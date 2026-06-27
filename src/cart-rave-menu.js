@@ -19,6 +19,7 @@ import {
   DEFAULT_CART_THEME,
 } from "./cartThemeConfig.js";
 import { CartPreview } from "./ui/cartPreview.js";
+import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 
 (function () {
   'use strict';
@@ -693,7 +694,7 @@ import { CartPreview } from "./ui/cartPreview.js";
   function selectTheme(themeId) {
     if (!CART_THEME_IDS.includes(themeId)) return;
     saveCustomization({ theme: themeId });
-    if (cartPreview) cartPreview.setTheme(state.previewThemeId);
+    if (cartPreview) syncCartPreviewLook(true);
     buildThemeChips();
   }
 
@@ -711,10 +712,14 @@ import { CartPreview } from "./ui/cartPreview.js";
     });
   }
 
-  /** Pushes the active player paint color to the 3D preview basket. */
-  function syncCartPreviewColor() {
+  /** Syncs theme, neon color, and pattern to the live 3D cart preview. */
+  function syncCartPreviewLook(fullRebuild = false) {
     if (!cartPreview) return;
     cartPreview.setColor(getActiveColorHex());
+    if (fullRebuild) {
+      cartPreview.setTheme(state.previewThemeId);
+    }
+    cartPreview.setPattern(state.pattern);
   }
 
   /** Tears down the 3D preview and releases WebGL resources. */
@@ -736,8 +741,7 @@ import { CartPreview } from "./ui/cartPreview.js";
     customizeCartHolder.innerHTML = '';
     cartPreview = new CartPreview();
     cartPreview.init(customizeCartHolder);
-    cartPreview.setTheme(state.previewThemeId);
-    syncCartPreviewColor();
+    syncCartPreviewLook(true);
   }
 
   function wireCustomHueSlider() {
@@ -756,7 +760,7 @@ import { CartPreview } from "./ui/cartPreview.js";
     }
     // * 3D preview owns the holder while customize screen is open; SVG is fallback only.
     if (cartPreview) {
-      syncCartPreviewColor();
+      syncCartPreviewLook();
       return;
     }
     customizeCartHolder.innerHTML = makeCartSVG(color, state.pattern);
@@ -1229,7 +1233,7 @@ import { CartPreview } from "./ui/cartPreview.js";
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
-    if (cartPreview) cartPreview.setTheme(state.previewThemeId);
+    if (cartPreview) syncCartPreviewLook(true);
     applyPalette();
   });
   renderCart();
@@ -1325,4 +1329,7 @@ import { CartPreview } from "./ui/cartPreview.js";
       return getActiveColorCss();
     },
   };
+
+  // * Warm the preview GLTF cache while the menu is idle.
+  prefetchPreviewCartGltf().catch(() => {});
 })();

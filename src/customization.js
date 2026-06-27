@@ -15,7 +15,6 @@
  * 7. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
  *    rebroadcasts via `slots` so every client renders the same cosmetic color.
  *
- * Future tabs (Wheels, Accessories) can extend the stored payload and apply alongside step 5.
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";

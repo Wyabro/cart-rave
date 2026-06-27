@@ -1,99 +1,25 @@
 /**
- * cartPreview.js — Self-contained Three.js cart preview for the customization panel.
+ * cartPreview.js — Three.js cart preview for the customization panel.
  *
- * Intentionally independent of game bootstrap, physics, netcode, and cart.js.
- * Swap `buildPlaceholderCart()` for real models or import shared builders later.
+ * Loads an external GLTF cart (`cartPreviewGltf.js`) instead of the procedural in-game mesh.
+ * Theme/color/pattern updates reuse the same material-cache tint path as gameplay carts.
  */
 
 import * as THREE from "three";
-
-/**
- * @typedef {Object} CartPreviewTheme
- * @property {string} id — stable key for persistence and `setTheme()`
- * @property {string} name — human label for future UI selectors
- * @property {number} bodyColor — basket/body tint (hex)
- * @property {number} [accentColor] — reserved for trim, patterns, emissive rims, VFX
- */
-
-/**
- * Initial themed-cart palette for the customization preview.
- *
- * Extension path:
- * - Add per-theme `modelBuilder` fns to swap the placeholder for glTF/procedural meshes.
- * - Add `materialOverrides` for chassis/wheels/handle when a skin needs more than body color.
- * - Add `effects` hooks (particles, rim light tint) keyed by theme id in `_applyTheme()`.
- *
- * @type {Record<string, CartPreviewTheme>}
- */
-export const CART_PREVIEW_THEMES = {
-  rave: {
-    id: "rave",
-    name: "Rave",
-    bodyColor: 0xff2bd6,
-    accentColor: 0x22e6ff,
-  },
-  liminal: {
-    id: "liminal",
-    name: "Liminal",
-    bodyColor: 0xc8d86a,
-    accentColor: 0xf0ead6,
-  },
-  tropical: {
-    id: "tropical",
-    name: "Tropical",
-    bodyColor: 0xff6b4a,
-    accentColor: 0x2ee6c8,
-  },
-  "sci-fi": {
-    id: "sci-fi",
-    name: "Sci-fi",
-    bodyColor: 0x00e5ff,
-    accentColor: 0x7b61ff,
-  },
-  ghost: {
-    id: "ghost",
-    name: "Ghost",
-    bodyColor: 0xb8c9e0,
-    accentColor: 0xe8f4ff,
-  },
-  vintage: {
-    id: "vintage",
-    name: "Vintage",
-    bodyColor: 0xc9a227,
-    accentColor: 0x8b5a2b,
-  },
-};
-
-/** @type {readonly string[]} */
-export const CART_PREVIEW_THEME_IDS = Object.freeze(Object.keys(CART_PREVIEW_THEMES));
-
-export const DEFAULT_CART_PREVIEW_THEME_ID = "rave";
-
-/**
- * @param {string | null | undefined} themeId
- * @returns {CartPreviewTheme}
- */
-export function resolveCartPreviewTheme(themeId) {
-  if (themeId && CART_PREVIEW_THEMES[themeId]) {
-    return CART_PREVIEW_THEMES[themeId];
-  }
-  return CART_PREVIEW_THEMES[DEFAULT_CART_PREVIEW_THEME_ID];
-}
-
-/**
- * @param {string | null | undefined} themeId
- * @returns {CartPreviewTheme}
- */
-export function getCartPreviewTheme(themeId) {
-  return resolveCartPreviewTheme(themeId);
-}
-
-/**
- * @returns {CartPreviewTheme[]}
- */
-export function listCartPreviewThemes() {
-  return CART_PREVIEW_THEME_IDS.map((id) => CART_PREVIEW_THEMES[id]);
-}
+import { applyCartPattern } from "../cartPatterns.js";
+import { DEFAULT_CART_PATTERN, normalizePatternId } from "../cartPatternConfig.js";
+import { DEFAULT_CART_THEME, getCartTheme, normalizeThemeId } from "../cartThemeConfig.js";
+import {
+  applyThemeColorToCache,
+} from "../cartThemes.js";
+import { setupSceneEnvironment } from "../scene.js";
+import {
+  applyPreviewPlaceholderColor,
+  disposePreviewCartGltf,
+  isPreviewGltfCached,
+  loadPreviewCartGltf,
+  preparePreviewCartGltf,
+} from "./cartPreviewGltf.js";
 
 const ROTATION_SPEED_RAD_PER_SEC = 0.45;
 
@@ -117,112 +43,14 @@ const CAMERA_ELEVATION = 0.2;
 const CAMERA_AZIMUTH = 0.85;
 
 /**
- * Builds a minimal procedural cart: basket, chassis rails, and four vertical wheels.
- * Centers geometry on the group origin so the preview camera can frame it evenly.
+ * Centers the cart footprint on the origin with wheel bottoms at y = 0.
  *
- * @returns {{ root: THREE.Group, bodyMesh: THREE.Mesh }}
+ * @param {THREE.Group} root
  */
-function buildPlaceholderCart() {
-  const root = new THREE.Group();
-
-  const wheelRadius = 0.24;
-  const wheelHeight = 0.17;
-  const halfTrackW = 0.5;
-  const halfTrackL = 0.62;
-  const wheelCenterY = wheelRadius;
-
-  const defaultBodyColor = CART_PREVIEW_THEMES[DEFAULT_CART_PREVIEW_THEME_ID].bodyColor;
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: defaultBodyColor,
-    emissive: defaultBodyColor,
-    emissiveIntensity: 0.4,
-    metalness: 0.3,
-    roughness: 0.4,
-  });
-  const chassisMat = new THREE.MeshStandardMaterial({
-    color: 0x3a3a44,
-    metalness: 0.8,
-    roughness: 0.3,
-  });
-  const wheelTireMat = new THREE.MeshStandardMaterial({
-    color: 0x111114,
-    metalness: 0.2,
-    roughness: 0.8,
-  });
-  const wheelHubMat = new THREE.MeshStandardMaterial({
-    color: 0x888892,
-    metalness: 0.9,
-    roughness: 0.2,
-  });
-  const handleMat = new THREE.MeshStandardMaterial({
-    color: 0x050505,
-    metalness: 0.9,
-    roughness: 0.2,
-  });
-
-  const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelHeight, 18);
-  const hubGeo = new THREE.CylinderGeometry(
-    wheelRadius * 0.45,
-    wheelRadius * 0.45,
-    wheelHeight * 1.08,
-    12,
-  );
-
-  const wheelPositions = [
-    [-halfTrackW, wheelCenterY, -halfTrackL],
-    [halfTrackW, wheelCenterY, -halfTrackL],
-    [-halfTrackW, wheelCenterY, halfTrackL],
-    [halfTrackW, wheelCenterY, halfTrackL],
-  ];
-
-  for (const [x, y, z] of wheelPositions) {
-    const tire = new THREE.Mesh(wheelGeo, wheelTireMat);
-    tire.position.set(x, y, z);
-    root.add(tire);
-
-    const hub = new THREE.Mesh(hubGeo, wheelHubMat);
-    hub.position.set(x, y, z);
-    root.add(hub);
-  }
-
-  const chassisY = wheelRadius + wheelHeight * 0.35;
-  const railGeo = new THREE.BoxGeometry(0.07, 0.055, 1.28);
-  const leftRail = new THREE.Mesh(railGeo, chassisMat);
-  leftRail.position.set(-halfTrackW, chassisY, 0);
-  root.add(leftRail);
-
-  const rightRail = new THREE.Mesh(railGeo, chassisMat);
-  rightRail.position.set(halfTrackW, chassisY, 0);
-  root.add(rightRail);
-
-  const crossGeo = new THREE.BoxGeometry(halfTrackW * 2 + 0.07, 0.05, 0.07);
-  for (const z of [-halfTrackL * 0.85, halfTrackL * 0.85]) {
-    const cross = new THREE.Mesh(crossGeo, chassisMat);
-    cross.position.set(0, chassisY, z);
-    root.add(cross);
-  }
-
-  const basketHalfH = 0.42;
-  const basketCenterY = chassisY + 0.1 + basketHalfH;
-  const bodyGeo = new THREE.BoxGeometry(1.1, basketHalfH * 2, 1.55);
-  const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-  bodyMesh.position.y = basketCenterY;
-  root.add(bodyMesh);
-
-  const handleGeo = new THREE.BoxGeometry(0.5, 0.06, 0.06);
-  const handle = new THREE.Mesh(handleGeo, handleMat);
-  handle.position.set(0, basketCenterY + basketHalfH + 0.05, halfTrackL * 0.55);
-  root.add(handle);
-
-  // * Center once: origin at X/Z footprint center, wheel bottoms at y=0.
+function centerCartGroup(root) {
   const bounds = new THREE.Box3().setFromObject(root);
   const center = bounds.getCenter(new THREE.Vector3());
-  const offset = new THREE.Vector3(center.x, bounds.min.y, center.z);
-  for (const child of root.children) {
-    child.position.sub(offset);
-  }
-
-  return { root, bodyMesh };
+  root.position.set(-center.x, -bounds.min.y, -center.z);
 }
 
 /**
@@ -237,10 +65,8 @@ function frameCartInCamera(camera, cartGroup, viewportAspect) {
   const bounds = new THREE.Box3().setFromObject(cartGroup);
   const size = bounds.getSize(new THREE.Vector3());
 
-  // * Fixed pivot on the Y-spin axis — bbox sphere center drifts with asymmetric handle mass.
   const target = new THREE.Vector3(0, size.y * LOOK_AT_Y_RATIO, 0);
 
-  // * Y-spin envelope: use the diagonal footprint so corners never clip during rotation.
   const spinRadius = Math.hypot(size.x, size.z) * 0.5;
   const spinHalfHeight = size.y * 0.5;
   const orbitRadius = Math.hypot(spinRadius, spinHalfHeight) * FRAME_PADDING;
@@ -281,8 +107,8 @@ export class CartPreview {
     /** @type {THREE.Group | null} */
     this.cartGroup = null;
 
-    /** @type {THREE.Mesh | null} */
-    this.bodyMesh = null;
+    /** @type {import("../cartThemes.js").CartThemeMaterialCache | null} */
+    this._materialCache = null;
 
     /** @type {THREE.Group | null} */
     this._stageGroup = null;
@@ -297,16 +123,31 @@ export class CartPreview {
     this._lastFrameTime = 0;
 
     /** @type {string} */
-    this._themeId = DEFAULT_CART_PREVIEW_THEME_ID;
+    this._themeId = DEFAULT_CART_THEME;
 
-    /** @type {boolean} When true, `setColor()` owns the basket paint; `setTheme()` won't replace it. */
-    this._colorOverrideActive = false;
+    /** @type {string} */
+    this._patternId = DEFAULT_CART_PATTERN;
 
-    /** @type {number | null} */
-    this._colorOverrideHex = null;
+    /** @type {number} */
+    this._neonHex = 0xff2bd6;
+
+    /** @type {(() => void) | null} */
+    this._disposeEnvironment = null;
 
     /** @type {boolean} */
     this._disposed = false;
+
+    /** @type {number} */
+    this._loadSeq = 0;
+
+    /** @type {THREE.Group | null} */
+    this._placeholderGroup = null;
+
+    /** @type {THREE.MeshStandardMaterial | null} */
+    this._placeholderMat = null;
+
+    /** @type {boolean} */
+    this._gltfReady = false;
   }
 
   /**
@@ -324,20 +165,15 @@ export class CartPreview {
     }
 
     this._disposed = false;
-    this._colorOverrideActive = false;
-    this._colorOverrideHex = null;
     this.container = container;
 
     const { width, height } = this._getContentSize();
 
-    // * Scene graph — transparent so the CSS-framed holder provides the backdrop.
     this.scene = new THREE.Scene();
     this.scene.background = null;
 
-    // * Camera — framed to the cart's centered bounds with a little headroom.
     this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 50);
 
-    // * Lighting — hemisphere base + key/fill + magenta rim for depth and neon edge read.
     const hemi = new THREE.HemisphereLight(0x9eb8ff, 0x1a0a1e, 0.42);
     this.scene.add(hemi);
 
@@ -356,7 +192,6 @@ export class CartPreview {
     rimLight.position.set(-0.5, 2.5, -4.2);
     this.scene.add(rimLight);
 
-    // * Stage — dark ground disc + soft contact shadow so the cart feels grounded.
     this._stageGroup = new THREE.Group();
     const groundGeo = new THREE.CircleGeometry(1.85, 48);
     const groundMat = new THREE.MeshStandardMaterial({
@@ -383,19 +218,14 @@ export class CartPreview {
     this._stageGroup.add(shadowDisk);
     this.scene.add(this._stageGroup);
 
-    // * Placeholder cart — replace `buildPlaceholderCart` with real assets when ready.
-    const { root, bodyMesh } = buildPlaceholderCart();
-    this.cartGroup = root;
-    this.bodyMesh = bodyMesh;
-    this.scene.add(this.cartGroup);
-    frameCartInCamera(this.camera, this.cartGroup, width / height);
-
-    // * Renderer — alpha:true lets the menu CSS frame show through the viewport.
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this._resizeTo(width, height);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const env = setupSceneEnvironment(this.renderer, this.scene);
+    this._disposeEnvironment = env.dispose;
 
     this.renderer.domElement.classList.add("cr-cart-preview-canvas");
 
@@ -411,114 +241,237 @@ export class CartPreview {
     this._tick = this._tick.bind(this);
     this._rafId = requestAnimationFrame(this._tick);
 
-    this.setTheme(DEFAULT_CART_PREVIEW_THEME_ID);
+    this._showPlaceholder();
+    this._setLoadingState(true);
+    this._rebuildCart();
   }
 
   /**
-   * Paints the basket mesh, respecting manual color override when active.
+   * Toggles CSS loading state on the holder.
+   * @param {boolean} loading
    * @private
    */
-  _applyBodyColor() {
-    if (!this.bodyMesh?.material) return;
+  _setLoadingState(loading) {
+    this.container?.classList.toggle("cr-cart-preview-loading", loading);
+  }
 
-    const hex = this._colorOverrideActive
-      ? this._colorOverrideHex
-      : this.getCurrentTheme().bodyColor;
+  /**
+   * Instantly visible low-poly stand-in while the GLTF downloads/parses.
+   * @private
+   */
+  _showPlaceholder() {
+    this._clearPlaceholder();
 
-    if (hex != null) {
-      const mat = /** @type {THREE.MeshStandardMaterial} */ (this.bodyMesh.material);
-      mat.color.setHex(hex);
-      mat.emissive.setHex(hex);
+    const group = new THREE.Group();
+    group.name = "CartPlaceholder";
+    group.userData.isPlaceholder = true;
+
+    const geo = new THREE.BoxGeometry(1.35, 1.05, 1.85);
+    const mat = new THREE.MeshStandardMaterial({
+      color: this._neonHex,
+      emissive: this._neonHex,
+      emissiveIntensity: 1.15,
+      metalness: 0.55,
+      roughness: 0.16,
+      toneMapped: false,
+    });
+    applyPreviewPlaceholderColor(mat, this._neonHex);
+
+    const mesh = new THREE.Mesh(geo, mat);
+    group.add(mesh);
+    centerCartGroup(group);
+
+    this._placeholderGroup = group;
+    this._placeholderMat = mat;
+    this.cartGroup = group;
+    this._gltfReady = false;
+    this.scene?.add(group);
+
+    if (this.camera && this.renderer) {
+      const { width, height } = this._getContentSize();
+      frameCartInCamera(this.camera, group, width / height);
     }
   }
 
   /**
-   * Applies theme-specific visuals that are not manual paint (models, trim, effects).
-   *
-   * @param {CartPreviewTheme} theme
    * @private
    */
-  _applyTheme(theme) {
-    // * Future: accentColor → emissive trim, hub caps, ground glow, or attached props.
-    // * Future: if (theme.modelBuilder) swap `this.cartGroup` subtree and re-center in buildPlaceholderCart().
-    void theme;
+  _clearPlaceholder() {
+    if (!this._placeholderGroup) return;
 
-    if (!this._colorOverrideActive) {
-      this._applyBodyColor();
+    if (this.cartGroup === this._placeholderGroup) {
+      this.cartGroup = null;
+    }
+
+    this.scene?.remove(this._placeholderGroup);
+    this._placeholderGroup.traverse((child) => {
+      if (!child.isMesh) return;
+      child.geometry?.dispose?.();
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const m of mats) m?.dispose?.();
+    });
+
+    this._placeholderGroup = null;
+    this._placeholderMat = null;
+  }
+
+  /**
+   * Loads/replaces the GLTF preview cart for the current theme (async — stale loads are ignored).
+   * @private
+   */
+  async _rebuildCart() {
+    if (!this.scene) return;
+
+    const seq = ++this._loadSeq;
+    const themeId = this._themeId;
+    const gltfCached = isPreviewGltfCached(themeId);
+    /** @type {THREE.Group | null} */
+    let retiringCart = null;
+
+    if (this._gltfReady && this.cartGroup) {
+      if (gltfCached) {
+        retiringCart = this.cartGroup;
+        this.cartGroup = null;
+        this._materialCache = null;
+        this._gltfReady = false;
+      } else {
+        this.scene.remove(this.cartGroup);
+        disposePreviewCartGltf(this.cartGroup);
+        this.cartGroup = null;
+        this._materialCache = null;
+        this._gltfReady = false;
+      }
+    }
+
+    if (!this._placeholderGroup && !gltfCached) {
+      this._showPlaceholder();
+    }
+    this._setLoadingState(!gltfCached);
+
+    try {
+      const cart = await loadPreviewCartGltf(themeId);
+      if (
+        seq !== this._loadSeq
+        || this._disposed
+        || !this.scene
+        || this._themeId !== themeId
+      ) {
+        disposePreviewCartGltf(cart);
+        if (retiringCart) {
+          this.scene.add(retiringCart);
+          this.cartGroup = retiringCart;
+          this._gltfReady = true;
+        }
+        return;
+      }
+
+      // * Read color/pattern after await so syncCartPreviewLook() can update them while loading.
+      this._materialCache = preparePreviewCartGltf(
+        cart,
+        themeId,
+        this._neonHex,
+        this._patternId,
+      );
+      centerCartGroup(cart);
+
+      this._clearPlaceholder();
+      if (retiringCart) {
+        this.scene.remove(retiringCart);
+        disposePreviewCartGltf(retiringCart);
+      }
+      this.cartGroup = cart;
+      this._gltfReady = true;
+      this.scene.add(cart);
+      this._setLoadingState(false);
+
+      if (this.camera && this.renderer) {
+        const { width, height } = this._getContentSize();
+        frameCartInCamera(this.camera, cart, width / height);
+      }
+    } catch (err) {
+      console.warn("[CartPreview] GLTF load failed — showing placeholder:", err);
+      this._setLoadingState(false);
+      if (this._placeholderMat) {
+        applyPreviewPlaceholderColor(this._placeholderMat, this._neonHex);
+      }
     }
   }
 
   /**
-   * Switches the preview cart style/theme (unknown ids fall back to default).
-   * Does not clear an active manual color override.
+   * Applies the current neon color to the cached theme materials and pattern overlay.
+   * @private
+   */
+  _applyNeonColor() {
+    if (!this._gltfReady) {
+      if (this._placeholderMat) {
+        applyPreviewPlaceholderColor(this._placeholderMat, this._neonHex);
+      }
+      return;
+    }
+
+    if (this._materialCache) {
+      applyThemeColorToCache(this._materialCache, this._themeId, this._neonHex);
+    }
+    if (this.cartGroup) {
+      applyCartPattern(this.cartGroup, this._patternId, this._neonHex);
+    }
+  }
+
+  /**
+   * Switches the preview cart theme (unknown ids fall back to default).
    *
    * @param {string} themeId
-   * @returns {CartPreviewTheme} resolved theme that was applied
    */
   setTheme(themeId) {
-    const theme = resolveCartPreviewTheme(themeId);
-    this._themeId = theme.id;
-    this._applyTheme(theme);
+    this._themeId = normalizeThemeId(themeId);
+    this._rebuildCart();
 
     if (import.meta.env?.DEV) {
-      console.debug("[CartPreview] setTheme:", themeId, "→", theme.id);
+      console.debug("[CartPreview] setTheme:", themeId, "→", this._themeId);
     }
-
-    return theme;
   }
 
   /**
-   * Sets basket paint directly. Pass `null` to clear override and use the theme's `bodyColor`.
+   * Sets the player neon color shown on the cart.
    *
-   * @param {number | string | null} hexOrNull — e.g. `0xff2bd6`, `"#ff2bd6"`, or `null`
-   * @returns {number} hex color now on the basket
+   * @param {number | string | null} hexOrNull — e.g. `0xff2bd6`, `"#ff2bd6"`, or `null` for default pink
+   * @returns {number}
    */
   setColor(hexOrNull) {
-    if (hexOrNull === null) {
-      this._colorOverrideActive = false;
-      this._colorOverrideHex = null;
-    } else {
-      this._colorOverrideActive = true;
-      this._colorOverrideHex = parseHexColor(hexOrNull);
-    }
-
-    this._applyBodyColor();
+    this._neonHex = hexOrNull == null ? 0xff2bd6 : parseHexColor(hexOrNull);
+    this._applyNeonColor();
 
     if (import.meta.env?.DEV) {
-      const hex = this._colorOverrideActive ? this._colorOverrideHex : this.getCurrentTheme().bodyColor;
-      console.debug(
-        "[CartPreview] setColor:",
-        hexOrNull,
-        "→",
-        `0x${(hex ?? 0).toString(16)}`,
-        this._colorOverrideActive ? "(override)" : "(theme)",
-      );
+      console.debug("[CartPreview] setColor:", hexOrNull, "→", `0x${this._neonHex.toString(16)}`);
     }
 
-    return this._colorOverrideActive
-      ? /** @type {number} */ (this._colorOverrideHex)
-      : this.getCurrentTheme().bodyColor;
+    return this._neonHex;
   }
 
   /**
-   * @returns {boolean}
+   * Sets the wireframe pattern overlay id.
+   *
+   * @param {string} patternId
    */
-  hasColorOverride() {
-    return this._colorOverrideActive;
+  setPattern(patternId) {
+    this._patternId = normalizePatternId(patternId);
+    if (this._gltfReady && this.cartGroup) {
+      applyCartPattern(this.cartGroup, this._patternId, this._neonHex);
+    }
   }
 
   /**
-   * @returns {CartPreviewTheme}
+   * @returns {import("../cartThemeConfig.js").CartThemeDef}
    */
   getCurrentTheme() {
-    return resolveCartPreviewTheme(this._themeId);
+    return getCartTheme(this._themeId);
   }
 
   /**
    * @returns {string}
    */
   getCurrentThemeId() {
-    return this.getCurrentTheme().id;
+    return this._themeId;
   }
 
   /**
@@ -536,8 +489,23 @@ export class CartPreview {
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
 
-    this._disposeObjectGroup(this.cartGroup);
+    if (this._gltfReady && this.cartGroup) {
+      disposePreviewCartGltf(this.cartGroup);
+      this.scene?.remove(this.cartGroup);
+    } else {
+      this._clearPlaceholder();
+    }
+    this._loadSeq += 1;
+    this.cartGroup = null;
+    this._materialCache = null;
+    this._gltfReady = false;
+
+    this.container?.classList.remove("cr-cart-preview-loading");
+
     this._disposeObjectGroup(this._stageGroup);
+
+    this._disposeEnvironment?.();
+    this._disposeEnvironment = null;
 
     this.renderer?.dispose();
 
@@ -549,13 +517,11 @@ export class CartPreview {
     this.renderer = null;
     this.scene = null;
     this.camera = null;
-    this.cartGroup = null;
-    this.bodyMesh = null;
     this._stageGroup = null;
   }
 
   /**
-   * Releases geometries/materials for a scene subtree.
+   * Releases geometries/materials for a scene subtree (stage only).
    * @param {THREE.Object3D | null} group
    * @private
    */

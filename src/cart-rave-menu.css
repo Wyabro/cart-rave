@@ -1605,9 +1605,20 @@ html, body {
   border-radius: calc(var(--radius-card) - var(--space-sm));
 }
 
+/* * Subtle pulse while the GLTF preview is still downloading. */
+.cr-customize-preview-cart.cr-cart-preview-loading .cr-cart-preview-canvas {
+  opacity: 0.88;
+  animation: cr-cart-preview-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes cr-cart-preview-pulse {
+  0%, 100% { filter: brightness(0.92); }
+  50% { filter: brightness(1.08); }
+}
+
 .cr-customize-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-xs);
 }
 
