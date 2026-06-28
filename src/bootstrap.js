@@ -4,6 +4,7 @@
  * Level mesh loading is orchestrated by levelManager.js; Rapier warm-up stays here.
  */
 
+import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
 
@@ -122,6 +123,12 @@ export async function ensureSessionCartsReady() {
       if (bootstrapGen !== helloGate.getGeneration()) return null;
       if (d.getAllCartsRef()?.length) return d.getAllCartsRef();
       await ensureWorldBootstrapped();
+      await prefetchRaveGltf().catch((err) => {
+        console.warn(
+          "[bootstrap] Rave GLTF prefetch failed — rave carts will use procedural fallback.",
+          err,
+        );
+      });
       await yieldForPaint();
       return d.bootstrapSessionCarts(bootstrapGen);
     })().finally(() => {

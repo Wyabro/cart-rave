@@ -148,8 +148,11 @@ function setupCartVisuals(scene, color, themeId) {
     mesh = createRaveGltfCartInstance();
     materialCache = prepareRaveGltfCart(mesh, color);
   } else {
-    if (id === "rave" && import.meta.env?.DEV) {
-      console.warn("[entities] Rave GLTF not ready — using procedural cart fallback.");
+    if (id === "rave") {
+      console.warn(
+        "[entities] Rave GLTF not ready — using procedural cart fallback. " +
+          "Call prefetchRaveGltf() before spawning carts.",
+      );
     }
     mesh = buildCart(color);
     applyCartTheme(mesh, themeId, color);

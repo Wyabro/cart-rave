@@ -23,6 +23,7 @@ import { createRenderer, createScene, createComposer, setupSceneEnvironment, ref
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { updateCartVisuals } from "./cart.js";
+import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
 import * as Entities from "./entities.js";
 import * as HUD from "./hud.js";
@@ -331,6 +332,15 @@ let sfxVolume = AUDIO_VOLUME_DEFAULT;
 /** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
 let leaderHum = null;
 try {
+  const savedVol = localStorage.getItem("cartRaveVolume");
+  if (savedVol !== null) {
+    const parsedVol = parseInt(savedVol, 10);
+    masterGain = Number.isNaN(parsedVol)
+      ? AUDIO_VOLUME_DEFAULT
+      : clamp((parsedVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
+  }
+} catch {}
+try {
   const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
   if (savedSfxVol !== null) {
     const parsedSfxVol = parseInt(savedSfxVol, 10);
@@ -341,6 +351,9 @@ try {
 } catch {}
 /** @type {boolean} */
 let isMuted = false;
+try {
+  if (localStorage.getItem("cartRaveMuted") === "true") isMuted = true;
+} catch {}
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
@@ -442,6 +455,11 @@ async function main() {
   loadPlayerCustomization();
   wireCustomizationStorageSync();
 
+  // * Begin cartrave4.glb fetch immediately so rave carts are ready before first spawn.
+  void prefetchRaveGltf().catch((err) => {
+    console.warn("[cartRaveGltf] Early prefetch failed:", err);
+  });
+
   let sfx = null;
   let labelRenderer = null;
   let input = null;
@@ -478,7 +496,6 @@ async function main() {
     },
     () => {
       setAllAudioMuted(!isMuted);
-      if (hud && hud.syncAudioControls) hud.syncAudioControls();
     },
     () => {
       if (menuVisible) return;
@@ -664,6 +681,26 @@ async function main() {
   updateViewport();
 
   // --- HUD, menu, results overlay ---
+  function syncAllAudioUi() {
+    const musicPct = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
+    window.CartRave?.syncAudioUi?.({
+      muted: isMuted,
+      musicPct,
+      musicNorm: masterGain / AUDIO_VOLUME_MAX,
+    });
+    if (hud?.syncAudioControls) hud.syncAudioControls();
+    try { GameAudio.applyAudioVolume(); } catch (e) {}
+  }
+
+  function setMasterGainValue(val) {
+    masterGain = clamp(val, 0, AUDIO_VOLUME_MAX);
+    localStorage.setItem(
+      "cartRaveVolume",
+      Math.round((masterGain / AUDIO_VOLUME_MAX) * 100).toString(),
+    );
+    syncAllAudioUi();
+  }
+
   function setAllAudioMuted(muted) {
     GameAudio.setMuted(muted, (val) => {
       isMuted = val;
@@ -672,6 +709,7 @@ async function main() {
         sfx._muted = isMuted;
       }
     });
+    syncAllAudioUi();
   }
 
   function setSfxSliderVolume(v) {
@@ -680,7 +718,31 @@ async function main() {
       "cartRaveSfxVol",
       Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
     );
-    try { GameAudio.applyAudioVolume(); } catch (e) {}
+    syncAllAudioUi();
+  }
+
+  function wireMenuAudioControlsOnce() {
+    if (menuAudioControlsWired) return;
+    menuAudioControlsWired = true;
+
+    const crMuteBtn = document.getElementById("cr-mute-btn");
+    const crMusicVolTrack = document.getElementById("cr-music-vol-track");
+    const crMusicVolVal = document.getElementById("cr-music-vol-val");
+
+    if (crMuteBtn) {
+      crMuteBtn.addEventListener("click", () => {
+        setAllAudioMuted(!isMuted);
+        animateMuteToggle(crMuteBtn);
+      });
+    }
+    if (crMusicVolTrack) {
+      crMusicVolTrack.addEventListener("click", (e) => {
+        const r = crMusicVolTrack.getBoundingClientRect();
+        const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
+        setMasterGainValue(v);
+        if (crMusicVolVal) animateVolumeTick(crMusicVolVal);
+      });
+    }
   }
 
   /** Wired after clearAutoContinuePodiumTimeout is defined in main(). */
@@ -701,6 +763,7 @@ async function main() {
 
   function initMenu() {
     menuVisible = true;
+    syncAllAudioUi();
     // * Always dismiss boot splash first — solo/quickplay paths return early below.
     void dismissInitialBootSplash();
     updateTouchControlsVisibility();
@@ -888,61 +951,6 @@ async function main() {
 
     refreshMenuStats();
 
-    // Wire new menu audio controls to game audio
-    const crMuteBtn = document.getElementById("cr-mute-btn");
-    const crMusicVolTrack = document.getElementById("cr-music-vol-track");
-    const crMusicVolFill = document.getElementById("cr-music-vol-fill");
-    const crMusicVolVal = document.getElementById("cr-music-vol-val");
-
-    function syncMenuVolume() {
-      if (crMusicVolFill) crMusicVolFill.style.setProperty("--vol-scale", String(isMuted ? 0 : masterGain / AUDIO_VOLUME_MAX));
-      if (crMusicVolVal) crMusicVolVal.textContent = isMuted ? "OFF" : Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
-      if (crMuteBtn) crMuteBtn.classList.toggle("muted", isMuted);
-      if (hud && hud.syncAudioControls) hud.syncAudioControls();
-    }
-
-    if (!menuAudioControlsWired) {
-      menuAudioControlsWired = true;
-      if (crMuteBtn) {
-        crMuteBtn.addEventListener("click", () => {
-          setAllAudioMuted(!isMuted);
-          animateMuteToggle(crMuteBtn);
-          syncMenuVolume();
-        });
-      }
-      if (crMusicVolTrack) {
-        crMusicVolTrack.addEventListener("click", (e) => {
-          const r = crMusicVolTrack.getBoundingClientRect();
-          const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-          masterGain = v;
-          localStorage.setItem("cartRaveVolume", Math.round((v / AUDIO_VOLUME_MAX) * 100).toString());
-          try { GameAudio.applyAudioVolume(); } catch(e) {}
-          if (crMusicVolVal) animateVolumeTick(crMusicVolVal);
-          syncMenuVolume();
-        });
-      }
-    }
-
-    // Set initial state from saved values
-    const savedVol = localStorage.getItem("cartRaveVolume");
-    if (savedVol !== null) {
-      const parsed = parseInt(savedVol, 10);
-      masterGain = Number.isNaN(parsed)
-        ? AUDIO_VOLUME_DEFAULT
-        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-    }
-    const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
-    if (savedSfxVol !== null) {
-      const parsed = parseInt(savedSfxVol, 10);
-      sfxVolume = Number.isNaN(parsed)
-        ? AUDIO_VOLUME_DEFAULT
-        : clamp((parsed / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-    }
-    const savedMute = localStorage.getItem("cartRaveMuted");
-    if (savedMute === "true") setAllAudioMuted(true);
-    try { GameAudio.applyAudioVolume(); } catch(e) {}
-    syncMenuVolume();
-
     // Sync new menu name to localStorage for join message (once per page load).
     if (!menuNameSyncWired) {
       menuNameSyncWired = true;
@@ -1001,13 +1009,9 @@ async function main() {
     getIsMuted: () => isMuted,
     setIsMuted: (val) => { setAllAudioMuted(val); },
     getMasterGain: () => masterGain,
-    setMasterGain: (val) => {
-      masterGain = val;
-      localStorage.setItem("cartRaveVolume", Math.round((val / AUDIO_VOLUME_MAX) * 100).toString());
-      try { GameAudio.applyAudioVolume(); } catch (e) {}
-    },
+    setMasterGain: setMasterGainValue,
     getSfxVolume: () => sfxVolume,
-    setSfxVolume: (val) => { setSfxSliderVolume(val); },
+    setSfxVolume: setSfxSliderVolume,
     getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
     getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
     getBloomEnabled: () => bloomEnabled,
@@ -1081,6 +1085,8 @@ async function main() {
     bootstrapSessionCarts,
   });
 
+  wireMenuAudioControlsOnce();
+  syncAllAudioUi();
   initMenu();
 
   // --- Arena, physics — Rapier WASM + level mesh deferred until play or idle preload ---

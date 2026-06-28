@@ -211,8 +211,6 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     playerIdx: 0,
     level: DEFAULT_LEVEL,
     name: localStorage.getItem("cartRaveUsername") || rollPlayerName(),
-    muted: false,
-    vol: CONFIG.defaultVolume,
     beat: 0,
     tilt: 0,
     colorMode: 'preset',
@@ -890,7 +888,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 
     // Audio widget
     audioEl.style.setProperty('--ag', p.secondary);
-    if (!state.muted) {
+    if (!audioUiMuted) {
       muteBtn.style.setProperty('--mc', p.secondary);
       musicVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
       musicVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
@@ -935,11 +933,20 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     });
   });
 
-  // ─── Mute / volume ────────────────────────────────────────────────────────
-  function updateVolume() {
-    if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(state.muted ? 0 : state.vol));
-    if (musicVolVal) musicVolVal.textContent = state.muted ? 'OFF' : Math.round(state.vol * 100);
-    if (state.muted) {
+  let audioUiMuted = false;
+
+  // ─── Mute / volume (view only — main.js owns audio state) ─────────────────
+  /**
+   * Syncs menu mute button and music slider from main-owned audio state.
+   * @param {{ muted: boolean, musicPct: number, musicNorm?: number }} audio
+   */
+  function syncAudioUi({ muted, musicPct, musicNorm }) {
+    audioUiMuted = Boolean(muted);
+    const scale = muted ? 0 : (musicNorm ?? musicPct / 100);
+    if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(scale));
+    if (musicVolVal) musicVolVal.textContent = muted ? 'OFF' : musicPct;
+    if (!muteBtn) return;
+    if (muted) {
       muteBtn.classList.add('muted');
       muteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M11 5 6 9H3v6h3l5 4z"/>
@@ -1227,18 +1234,21 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
   initCustomizeScreen();
   window.addEventListener('cartrave:customization-changed', (e) => {
     const detail = e.detail || loadPlayerCustomization();
+    const prevTheme = state.previewThemeId;
     applyCustomizationToState(detail);
     buildColorChips();
     buildThemeChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
-    if (cartPreview) syncCartPreviewLook(true);
+    // * Color/pattern are synced in renderCustomizePreview; only rebuild mesh when theme changes.
+    if (cartPreview && prevTheme !== state.previewThemeId) {
+      syncCartPreviewLook(true);
+    }
     applyPalette();
   });
   renderCart();
   applyPalette();
-  updateVolume();
   nameText.textContent = state.name;
   wireAllMenuPressFeedback();
 
@@ -1328,6 +1338,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     getColorCss() {
       return getActiveColorCss();
     },
+    syncAudioUi,
   };
 
   // * Warm the preview GLTF cache while the menu is idle.

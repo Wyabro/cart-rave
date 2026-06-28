@@ -8,6 +8,8 @@ import {
   loadPlayerCustomization,
 } from "./customization.js";
 import GUI from "lil-gui";
+import { raveGltfTuning } from "./cartRaveGltf.js";
+import { wireRaveGltfCartDebugFolder } from "./raveGltfCartDebug.js";
 import {
   getContactShadowDebugParams,
   setContactShadowCartOpacity,
@@ -242,6 +244,8 @@ export function initPostFxDebugGui(deps) {
     cartColorDebug.reloadFromStorage();
   });
 
+  wireRaveGltfCartDebugFolder(gui, scene);
+
   const actions = {
     logAllValues() {
       const payload = {
@@ -283,6 +287,7 @@ export function initPostFxDebugGui(deps) {
             opacity: params.shadowStaticOpacity,
           },
         },
+        raveGltfTuning: { ...raveGltfTuning },
       };
       const json = JSON.stringify(payload, null, 2);
       // eslint-disable-next-line no-console

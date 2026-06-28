@@ -155,6 +155,9 @@ export class CartPreview {
 
     /** @type {boolean} */
     this._usesRaveGltf = false;
+
+    /** @type {number} Cumulative Y spin (radians) — survives cart mesh swaps. */
+    this._spinY = 0;
   }
 
   /**
@@ -294,9 +297,18 @@ export class CartPreview {
     this._gltfReady = false;
     this.scene?.add(group);
 
+    this._applySpinRotation();
+
     if (this.camera && this.renderer) {
       const { width, height } = this._getContentSize();
       frameCartInCamera(this.camera, group, width / height);
+    }
+  }
+
+  /** @private */
+  _applySpinRotation() {
+    if (this.cartGroup) {
+      this.cartGroup.rotation.y = this._spinY;
     }
   }
 
@@ -397,6 +409,7 @@ export class CartPreview {
     this._gltfReady = true;
     this._usesRaveGltf = false;
     this.scene?.add(cart);
+    this._applySpinRotation();
 
     if (this.camera && this.renderer) {
       const { width, height } = this._getContentSize();
@@ -474,6 +487,7 @@ export class CartPreview {
       this._gltfReady = true;
       this._usesRaveGltf = true;
       this.scene.add(cart);
+      this._applySpinRotation();
       this._setLoadingState(false);
 
       if (this.camera && this.renderer) {
@@ -702,9 +716,8 @@ export class CartPreview {
     const dt = Math.min((now - this._lastFrameTime) * 0.001, 0.05);
     this._lastFrameTime = now;
 
-    if (this.cartGroup) {
-      this.cartGroup.rotation.y += ROTATION_SPEED_RAD_PER_SEC * dt;
-    }
+    this._spinY += ROTATION_SPEED_RAD_PER_SEC * dt;
+    this._applySpinRotation();
 
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);

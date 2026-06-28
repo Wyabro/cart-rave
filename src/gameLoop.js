@@ -23,6 +23,12 @@ export function clearNpcCartCache() {
  * @returns {object[]}
  */
 function resolveNpcCarts(allCarts, slots) {
+  if (!Array.isArray(allCarts) || !Array.isArray(slots)) {
+    _npcCache = null;
+    _npcCacheKey = null;
+    return [];
+  }
+
   const key = slots.map((s) => s?.kind ?? "").join(",");
   if (key === _npcCacheKey && _npcCache) {
     // * Quit-to-menu destroys carts but slot kinds stay the same — drop stale body refs.
@@ -113,77 +119,30 @@ export function runPhysicsStep(loopState, deps, context) {
 
   if (deps.isHost()) {
     if (deps.getRoundState().phase === "running") {
-      const npcCartsForFrame = resolveNpcCarts(deps.getAllCartsRef(), netSlotsForFrame);
+      const allCarts = deps.getAllCartsRef();
+      if (Array.isArray(allCarts)) {
+        const npcCartsForFrame = resolveNpcCarts(allCarts, netSlotsForFrame);
 
-      while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
-        if (deps.getSkipNextPhysicsStep()) {
-          deps.setSkipNextPhysicsStep(false);
-          loopState.accumulator -= deps.CONFIG.fixedTimeStep;
-          substeps += 1;
-          continue;
-        }
-
-        captureCartsPhysicsPrevPoses(deps.getAllCartsRef());
-        deps.runFixedPhysicsStep({
-          world: deps.world,
-          eventQueue: deps.eventQueue,
-          allCarts: deps.getAllCartsRef(),
-          localCart,
-          remoteInputs: deps.getRemoteInputsByConnId(),
-          npcs: npcCartsForFrame,
-          dt: deps.CONFIG.fixedTimeStep,
-          now: performance.now(),
-          isHost: deps.isHost(),
-          callbacks: deps.getSimulationCallbacks(true),
-        });
-        loopState.accumulator -= deps.CONFIG.fixedTimeStep;
-        substeps += 1;
-      }
-      const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
-      if (loopState.accumulator > maxDebt) {
-        loopState.accumulator = maxDebt;
-      }
-      if (
-        import.meta.env.DEV &&
-        substeps >= deps.CONFIG.maxSubsteps &&
-        loopState.accumulator >= deps.CONFIG.fixedTimeStep
-      ) {
-        console.warn(
-          `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
-            `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed`
-        );
-      }
-      alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
-    } else {
-      loopState.accumulator = 0;
-    }
-  } else if (deps.shouldUseClientPrediction()) {
-    // * Multiplayer client: prediction + reconciliation (solo never enters this branch).
-    const localSlotIndex = localSlotIndexThisFrame;
-
-    if (Date.now() < deps.getHostMigrationFreezeUntilMs()) {
-      // * Hold positions until a new host's snapshots arrive after migration.
-    } else {
-      // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
-      deps.updateRemoteCartNetTargets(localSlotIndex);
-      // 2. Align remote physics bodies so prediction collides against current net poses.
-      deps.syncRemoteCartBodiesForPrediction(localSlotIndex);
-
-      // 3. Prediction: step Rapier locally with the player's input (instant feel).
-      if (deps.getRoundState().phase === "running") {
         while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
-          captureCartsPhysicsPrevPoses(deps.getAllCartsRef());
+          if (deps.getSkipNextPhysicsStep()) {
+            deps.setSkipNextPhysicsStep(false);
+            loopState.accumulator -= deps.CONFIG.fixedTimeStep;
+            substeps += 1;
+            continue;
+          }
+
+          captureCartsPhysicsPrevPoses(allCarts);
           deps.runFixedPhysicsStep({
             world: deps.world,
             eventQueue: deps.eventQueue,
-            allCarts: deps.getAllCartsRef(),
+            allCarts,
             localCart,
-            remoteInputs: null,
-            npcs: [],
+            remoteInputs: deps.getRemoteInputsByConnId(),
+            npcs: npcCartsForFrame,
             dt: deps.CONFIG.fixedTimeStep,
             now: performance.now(),
-            isHost: false,
-            callbacks: deps.getSimulationCallbacks(false),
+            isHost: deps.isHost(),
+            callbacks: deps.getSimulationCallbacks(true),
           });
           loopState.accumulator -= deps.CONFIG.fixedTimeStep;
           substeps += 1;
@@ -203,6 +162,63 @@ export function runPhysicsStep(loopState, deps, context) {
           );
         }
         alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
+      } else {
+        loopState.accumulator = 0;
+      }
+    } else {
+      loopState.accumulator = 0;
+    }
+  } else if (deps.shouldUseClientPrediction()) {
+    // * Multiplayer client: prediction + reconciliation (solo never enters this branch).
+    const localSlotIndex = localSlotIndexThisFrame;
+
+    if (Date.now() < deps.getHostMigrationFreezeUntilMs()) {
+      // * Hold positions until a new host's snapshots arrive after migration.
+    } else {
+      // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
+      deps.updateRemoteCartNetTargets(localSlotIndex);
+      // 2. Align remote physics bodies so prediction collides against current net poses.
+      deps.syncRemoteCartBodiesForPrediction(localSlotIndex);
+
+      // 3. Prediction: step Rapier locally with the player's input (instant feel).
+      if (deps.getRoundState().phase === "running") {
+        const allCarts = deps.getAllCartsRef();
+        if (Array.isArray(allCarts)) {
+          while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
+            captureCartsPhysicsPrevPoses(allCarts);
+            deps.runFixedPhysicsStep({
+              world: deps.world,
+              eventQueue: deps.eventQueue,
+              allCarts,
+              localCart,
+              remoteInputs: null,
+              npcs: [],
+              dt: deps.CONFIG.fixedTimeStep,
+              now: performance.now(),
+              isHost: false,
+              callbacks: deps.getSimulationCallbacks(false),
+            });
+            loopState.accumulator -= deps.CONFIG.fixedTimeStep;
+            substeps += 1;
+          }
+          const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
+          if (loopState.accumulator > maxDebt) {
+            loopState.accumulator = maxDebt;
+          }
+          if (
+            import.meta.env.DEV &&
+            substeps >= deps.CONFIG.maxSubsteps &&
+            loopState.accumulator >= deps.CONFIG.fixedTimeStep
+          ) {
+            console.warn(
+              `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
+                `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed`
+            );
+          }
+          alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
+        } else {
+          loopState.accumulator = 0;
+        }
       } else {
         loopState.accumulator = 0;
       }
