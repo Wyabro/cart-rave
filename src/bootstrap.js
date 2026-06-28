@@ -178,7 +178,7 @@ export async function enterPlayMode(opts = {}) {
   const levelId = levelIdOpt ?? (d.getSelectedLevelId
     ? d.getSelectedLevelId()
     : resolveSelectedLevelId(null));
-  const commitMenuHidden = commitMenuHiddenOpt ?? (gameMode === "solo");
+  const commitMenuHidden = commitMenuHiddenOpt ?? (gameMode === "solo" || gameMode === "testdrive");
 
   if (skipBootstrap) {
     d.commitMenuHiddenForGame();
@@ -204,7 +204,7 @@ export async function enterPlayMode(opts = {}) {
     const rebuildPromise = d.getLevelRebuildPromise?.();
     if (rebuildPromise) await rebuildPromise;
     if (!arenaReady) {
-      await d.rebuildLevelIfNeeded();
+      await d.rebuildLevelIfNeeded(levelId);
       await ensureWorldBootstrapped();
     } else if (d.getMenuPreviewNeedsFinalize?.()) {
       d.finalizeArenaForPlay();

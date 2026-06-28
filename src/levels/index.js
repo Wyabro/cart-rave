@@ -2,6 +2,7 @@
 
 import { initClassicRecord } from "./classicRecord.js";
 import { initBackroomsSupermarket } from "./backroomsSupermarket.js";
+import { initTestArena } from "./testArena.js";
 
 export const LEVEL_STORAGE_KEY = "cartRaveLevel";
 const DEFAULT_LEVEL_ID = "classicRecord";
@@ -9,15 +10,17 @@ const DEFAULT_LEVEL_ID = "classicRecord";
 const LEVEL_INIT = {
   classicRecord: initClassicRecord,
   backrooms: initBackroomsSupermarket,
+  testArena: initTestArena,
 };
 
 /**
  * Resolves a raw level id from storage or menu to a supported loader key.
  *
  * @param {string | null | undefined} raw
- * @returns {"classicRecord" | "backrooms"}
+ * @returns {"classicRecord" | "backrooms" | "testArena"}
  */
 export function resolveLevelId(raw) {
+  if (raw === "testArena") return "testArena";
   if (raw === "backrooms") return "backrooms";
   if (raw === "classicRecord") return "classicRecord";
   return DEFAULT_LEVEL_ID;

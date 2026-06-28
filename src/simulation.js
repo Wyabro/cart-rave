@@ -1532,7 +1532,7 @@ export function runFixedPhysicsStep({
 
   // 4. Pending ramming impulses
   for (const cart of allCarts || []) {
-    if (!cart.pendingRam) continue;
+    if (!cart?.pendingRam) continue;
     const { impulse, remainingSteps } = cart.pendingRam;
     const denom = Math.max(1, remainingSteps);
     _pendingRamStepImpulse.x = impulse.x / denom;

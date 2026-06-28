@@ -3,8 +3,8 @@
  *
  * Primary asset: `cartrave4.glb` — Tripo color segments for body / wheels / forks / trim.
  * Four composite casters swivel at the basket-side fork attachment; connector + wheel
- * hang below. Forks use car-like steering (body heading + yaw-rate offset) rather than
- * pure velocity trailing. Brackets and frame supports stay static.
+ * hang below. One steer pivot per corner (basket stance + kingpin offsets). Forks use
+ * car-like steering (body heading + yaw-rate offset) rather than pure velocity trailing. Brackets and frame supports stay static.
  *
  * cartrave4 animate vs static:
  *   body=tripo_part_0, wheels=1/2/3/4 (roll inside swivel assembly),
@@ -32,12 +32,16 @@ import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.j
  * Independent runtime state for one cartrave4 caster corner.
  * @typedef {object} RaveGltfCasterRuntime
  * @property {number} id Fork group id.
- * @property {THREE.Group} swivelPivot Y-axis swivel at the fork kingpin / basket attach.
- * @property {THREE.Group | null} rollPivot Nested wheel roll pivot (child of swivel).
- * @property {number} authoredForkYaw Rest heading (rad) from primary fork mesh local +Z in model space.
+ * @property {THREE.Group} swivelPivot Y-axis steer pivot at fork attach (basket stance + pivot offsets).
+ * @property {THREE.Group | null} [kingpinPivot] Legacy nested pivot; collapsed on next layout.
+ * @property {THREE.Group | null} rollPivot Nested wheel roll pivot (child of swivelPivot).
+ * @property {number} authoredForkYaw Rest heading (rad) in velocity-heading space (cart-local, model orientation undone).
+ * @property {"front" | "rear"} axle Coordinated steer pair — front or rear.
  * @property {number} hubLocalX Swivel anchor X in model space × scale (corner velocity kinematics).
  * @property {number} hubLocalZ Swivel anchor Z in model space × scale.
+ * @property {THREE.Vector3 | null} [baseKingpinModel] Frozen rest-pose kingpin (model space); offsets apply on top.
  * @property {number} smoothedHeading Absolute cart-local trail heading (rad); frozen when slow.
+ * @property {number} [smoothedPivotSteer] Shared axle pivot steer offset (rad) when rigid front linkage is active.
  * @property {number} wheelRoll Accumulated roll angle (rad) for this wheel.
  * @property {number} wheelRadius Roll radius (m) for this wheel.
  * @property {"x" | "y" | "z"} wheelRollAxis
@@ -66,10 +70,51 @@ export const RAVE_GLTF_FRAME_MESH = "tripo_part_0";
 export const RAVE_GLTF_ORIENTATION_Y = Math.PI / 2;
 
 /**
- * Live-tunable rave GLTF cart proportions and caster behavior (dev gui: `raveGltfCartDebug.js`).
- * Production builds read these defaults; dev sliders mutate this object in place.
+ * Default cart tuning values (source of truth for live `raveGltfTuning` + GUI reset buttons).
+ * @type {Readonly<{
+ *   scale: number,
+ *   yOffset: number,
+ *   bodyScale: number,
+ *   bodyYDrop: number,
+ *   cornerInset: number,
+ *   cornerInsetFracX: number,
+ *   cornerInsetFracZ: number,
+ *   casterOffsetX: number,
+ *   casterOffsetZ: number,
+ *   casterStanceScaleX: number,
+ *   casterStanceScaleZ: number,
+ *   swivelMaxAngleDeg: number,
+ *   swivelDamping: number,
+ *   steeringInfluence: number,
+ *   frontSteerMul: number,
+ *   rearSteerMul: number,
+ *   yawSteerBlend: number,
+ *   turnSteerDamping: number,
+ *   frontAxleRigid: boolean,
+ *   frontTurnSteerDamping: number,
+ *   frontAxleSign: number,
+ *   frontPivotYOffset: number,
+ *   frontPivotXOffset: number,
+ *   frontPivotZOffset: number,
+ *   rearSteerMinOmega: number,
+ *   rearSteerFullOmega: number,
+ *   trailBlend: number,
+ *   casterCoordinationLog: boolean,
+ *   straightYawDeadzone: number,
+ *   turnEngageOmega: number,
+ *   turnReleaseOmega: number,
+ *   straightRestEpsilon: number,
+ *   straightYawSmoothing: number,
+ *   restReturnDamping: number,
+ *   straightCruiseMinSpeed: number,
+ *   travelHeadingSmoothing: number,
+ *   casterPivotYOffset: number,
+ *   casterPivotXOffset: number,
+ *   casterPivotZOffset: number,
+ *   casterPivotCorner: Record<string, { x: number, y: number, z: number }>,
+ * }>}
  */
-export const raveGltfTuning = {
+export const RAVE_GLTF_TUNING_DEFAULTS = {
   scale: 2.25,
   yOffset: -1.24,
   bodyScale: 1.2,
@@ -83,21 +128,32 @@ export const raveGltfTuning = {
   casterStanceScaleZ: 0.99,
   swivelMaxAngleDeg: 135,
   swivelDamping: 0.28,
-  /** Radians of fork steer per rad/s cart yaw rate (before front/rear multipliers). */
-  steeringInfluence: 0.38,
-  /** Front-axle steer multiplier — primary turn response. */
-  frontSteerMul: 1.0,
-  /** Rear-axle steer multiplier — mild same-direction 4-wheel steering. */
-  rearSteerMul: 0.32,
-  /** Blend toward corner trail heading [0 = car steer only, 1 = pure velocity trail]. */
-  trailBlend: 0.18,
-  /** Min |yaw rate| (rad/s) to update swivel when hub speed is below swivel min. */
-  steeringMinOmega: 0.06,
-  /** Kingpin pivot offset from detected fork-top attach (model-local units, pre-scale). */
+  steeringInfluence: 0.72,
+  frontSteerMul: 1.25,
+  rearSteerMul: 0.12,
+  yawSteerBlend: 1.0,
+  turnSteerDamping: 0.52,
+  frontAxleRigid: true,
+  frontTurnSteerDamping: 0.62,
+  frontAxleSign: -1,
+  frontPivotYOffset: 0,
+  frontPivotXOffset: 0,
+  frontPivotZOffset: 0,
+  rearSteerMinOmega: 0.28,
+  rearSteerFullOmega: 0.5,
+  trailBlend: 0,
+  casterCoordinationLog: false,
+  straightYawDeadzone: 0.12,
+  turnEngageOmega: 0.22,
+  turnReleaseOmega: 0.08,
+  straightRestEpsilon: 0.02,
+  straightYawSmoothing: 0.9,
+  restReturnDamping: 0.1,
+  straightCruiseMinSpeed: 0.28,
+  travelHeadingSmoothing: 0.82,
   casterPivotYOffset: 0,
   casterPivotXOffset: 0,
   casterPivotZOffset: 0,
-  /** Per-corner kingpin fine-tune (added on top of global pivot offsets). */
   casterPivotCorner: {
     frontRight: { x: 0, y: 0, z: 0 },
     frontLeft: { x: 0, y: 0, z: 0 },
@@ -105,6 +161,173 @@ export const raveGltfTuning = {
     backRight: { x: 0, y: 0, z: 0 },
   },
 };
+
+/** @returns {typeof raveGltfTuning} Deep clone of {@link RAVE_GLTF_TUNING_DEFAULTS}. */
+function cloneRaveGltfTuningDefaults() {
+  return JSON.parse(JSON.stringify(RAVE_GLTF_TUNING_DEFAULTS));
+}
+
+/**
+ * Live-tunable rave GLTF cart proportions and caster behavior (dev gui: `raveGltfCartDebug.js`).
+ * Production builds read these defaults; dev sliders mutate this object in place.
+ */
+export const raveGltfTuning = cloneRaveGltfTuningDefaults();
+
+/** Keys whose changes require `reapplyRaveGltfCartTuningOnScene`. */
+export const RAVE_GLTF_TUNING_VISUAL_KEYS = new Set([
+  "scale",
+  "yOffset",
+  "bodyScale",
+  "bodyYDrop",
+  "cornerInset",
+  "cornerInsetFracX",
+  "cornerInsetFracZ",
+  "casterStanceScaleX",
+  "casterStanceScaleZ",
+  "casterOffsetX",
+  "casterOffsetZ",
+  "casterPivotYOffset",
+  "casterPivotXOffset",
+  "casterPivotZOffset",
+  "frontPivotYOffset",
+  "frontPivotXOffset",
+  "frontPivotZOffset",
+  "casterPivotCorner",
+]);
+
+/** Reset groups for lil-gui section buttons (`raveGltfCartDebug.js`). */
+export const RAVE_GLTF_TUNING_RESET_GROUPS = Object.freeze({
+  steeringAll: Object.freeze([
+    "frontSteerMul",
+    "frontTurnSteerDamping",
+    "steeringInfluence",
+    "frontAxleRigid",
+    "frontAxleSign",
+    "yawSteerBlend",
+    "rearSteerMul",
+    "turnSteerDamping",
+    "rearSteerMinOmega",
+    "rearSteerFullOmega",
+    "turnEngageOmega",
+    "turnReleaseOmega",
+    "swivelMaxAngleDeg",
+    "swivelDamping",
+  ]),
+  frontSteering: Object.freeze([
+    "frontSteerMul",
+    "frontTurnSteerDamping",
+    "steeringInfluence",
+    "frontAxleRigid",
+    "frontAxleSign",
+    "yawSteerBlend",
+  ]),
+  rearSteering: Object.freeze([
+    "rearSteerMul",
+    "turnSteerDamping",
+    "rearSteerMinOmega",
+    "rearSteerFullOmega",
+  ]),
+  turnFeel: Object.freeze([
+    "turnEngageOmega",
+    "turnReleaseOmega",
+    "swivelMaxAngleDeg",
+    "swivelDamping",
+  ]),
+  straight: Object.freeze([
+    "straightYawDeadzone",
+    "straightYawSmoothing",
+    "straightCruiseMinSpeed",
+    "straightRestEpsilon",
+    "restReturnDamping",
+  ]),
+  kingpinAll: Object.freeze([
+    "frontPivotYOffset",
+    "frontPivotXOffset",
+    "frontPivotZOffset",
+    "casterPivotYOffset",
+    "casterPivotXOffset",
+    "casterPivotZOffset",
+  ]),
+  frontKingpin: Object.freeze([
+    "frontPivotYOffset",
+    "frontPivotXOffset",
+    "frontPivotZOffset",
+  ]),
+  allKingpin: Object.freeze([
+    "casterPivotYOffset",
+    "casterPivotXOffset",
+    "casterPivotZOffset",
+  ]),
+  placement: Object.freeze([
+    "casterStanceScaleX",
+    "casterStanceScaleZ",
+    "cornerInset",
+    "cornerInsetFracX",
+    "cornerInsetFracZ",
+    "casterOffsetX",
+    "casterOffsetZ",
+  ]),
+  size: Object.freeze(["scale", "yOffset", "bodyScale", "bodyYDrop"]),
+  advanced: Object.freeze([
+    "travelHeadingSmoothing",
+    "trailBlend",
+    "casterCoordinationLog",
+    "casterPivotCorner",
+  ]),
+});
+
+/**
+ * @param {readonly string[]} keys
+ * @returns {boolean}
+ */
+export function raveGltfTuningKeysNeedVisualReapply(keys) {
+  return keys.some(
+    (key) => key === "casterPivotCorner"
+      || key.startsWith("casterPivotCorner.")
+      || RAVE_GLTF_TUNING_VISUAL_KEYS.has(key),
+  );
+}
+
+/**
+ * Copies default values back onto `raveGltfTuning` for the given keys.
+ *
+ * @param {readonly string[]} keys Top-level keys, `casterPivotCorner`, or `casterPivotCorner.<label>`.
+ */
+export function resetRaveGltfTuningKeys(keys) {
+  const defaults = RAVE_GLTF_TUNING_DEFAULTS;
+
+  for (const key of keys) {
+    if (key === "casterPivotCorner") {
+      for (const label of Object.keys(defaults.casterPivotCorner)) {
+        Object.assign(raveGltfTuning.casterPivotCorner[label], defaults.casterPivotCorner[label]);
+      }
+      continue;
+    }
+
+    if (key.startsWith("casterPivotCorner.")) {
+      const label = key.slice("casterPivotCorner.".length);
+      const cornerDefaults = defaults.casterPivotCorner[label];
+      if (cornerDefaults) {
+        Object.assign(raveGltfTuning.casterPivotCorner[label], cornerDefaults);
+      }
+      continue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(defaults, key)) {
+      raveGltfTuning[key] = defaults[key];
+    }
+  }
+}
+
+/** Resets every live tuning value to {@link RAVE_GLTF_TUNING_DEFAULTS}. */
+export function resetRaveGltfTuningAll() {
+  resetRaveGltfTuningKeys(Object.keys(RAVE_GLTF_TUNING_DEFAULTS));
+}
+
+/** Resets all kingpin pivot offsets (global, front, per-corner) to defaults. */
+export function resetRaveGltfKingpinOffsets() {
+  resetRaveGltfTuningKeys(RAVE_GLTF_TUNING_RESET_GROUPS.kingpinAll);
+}
 
 /** @returns {number} Max caster swivel deviation from rest heading (rad). */
 export function getRaveGltfSwivelMaxAngle() {
@@ -393,6 +616,9 @@ const _worldPosScratch = new THREE.Vector3();
 /** @type {THREE.Quaternion} */
 const _modelInvQuat = new THREE.Quaternion();
 
+/** @type {number} */
+let _casterCoordLogLastMs = 0;
+
 /** @type {THREE.Box3} */
 const _bodyBbox = new THREE.Box3();
 
@@ -512,6 +738,138 @@ function clampAngleToRange(heading, center, maxDeviation) {
   return center + clampedDelta;
 }
 
+/**
+ * 0 = straight (rest bias), 1 = full car-steer. Smooth ramp between deadzone and engage omega.
+ *
+ * @param {number} absOmega |scaled yaw rate| (rad/s).
+ * @returns {number}
+ */
+function computeRaveGltfTurnEngagement(absOmega) {
+  const dead = raveGltfTuning.straightYawDeadzone;
+  const engage = Math.max(raveGltfTuning.turnEngageOmega, dead + 1e-4);
+  if (absOmega <= dead) return 0;
+  if (absOmega >= engage) return 1;
+  const t = (absOmega - dead) / (engage - dead);
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Rear-axle steer scale — stays near zero on gentle turns, ramps in on hard yaw.
+ *
+ * @param {number} absOmega Filtered |scaled yaw rate| (rad/s).
+ * @returns {number} [0, 1]
+ */
+function computeRaveGltfRearSteerScale(absOmega) {
+  const min = raveGltfTuning.rearSteerMinOmega;
+  const full = Math.max(raveGltfTuning.rearSteerFullOmega, min + 1e-4);
+  if (absOmega <= min) return 0;
+  if (absOmega >= full) return 1;
+  const t = (absOmega - min) / (full - min);
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Low-pass |yaw rate| for straight/turn engagement — rejects brief physics spikes.
+ *
+ * @param {object} data `root.userData.cartVisual`
+ * @param {number} absOmega Raw |scaled yaw rate| (rad/s).
+ * @param {number} dtSec Frame delta (s).
+ * @returns {number} Filtered |yaw rate| (rad/s).
+ */
+function filterRaveGltfCasterAbsOmega(data, absOmega, dtSec) {
+  const smooth = raveGltfTuning.straightYawSmoothing;
+  if (smooth <= 0) {
+    data.casterFilteredAbsOmega = absOmega;
+    return absOmega;
+  }
+
+  const prev = data.casterFilteredAbsOmega ?? absOmega;
+  const alpha = (1 - smooth) * Math.min(240 * dtSec, 1);
+  const filtered = prev + (absOmega - prev) * alpha;
+  data.casterFilteredAbsOmega = filtered;
+  return filtered;
+}
+
+/**
+ * Mean rest heading per front/rear axle (for coordinated steer + rigid front linkage).
+ *
+ * @param {RaveGltfCasterRuntime[]} casters
+ * @returns {{ frontMeanRest: number, rearMeanRest: number }}
+ */
+function computeRaveGltfAxleMeanRests(casters) {
+  let frontRestSum = 0;
+  let frontCount = 0;
+  let rearRestSum = 0;
+  let rearCount = 0;
+
+  for (const caster of casters) {
+    const restHeading = caster.authoredForkYaw + RAVE_GLTF_CASTER_SWIVEL_REST_YAW;
+    const axle = caster.axle ?? (caster.hubLocalX > 0 ? "front" : "rear");
+    if (axle === "front") {
+      frontRestSum += restHeading;
+      frontCount += 1;
+    } else {
+      rearRestSum += restHeading;
+      rearCount += 1;
+    }
+  }
+
+  return {
+    frontMeanRest: frontCount > 0 ? frontRestSum / frontCount : 0,
+    rearMeanRest: rearCount > 0 ? rearRestSum / rearCount : 0,
+  };
+}
+
+/**
+ * Dev log: front/rear axle pivot spread (rigid front should stay at 0°).
+ *
+ * @param {RaveGltfCasterRuntime[]} casters
+ */
+function logRaveGltfCasterCoordination(casters) {
+  if (!import.meta.env?.DEV || !raveGltfTuning.casterCoordinationLog) return;
+
+  const now = performance.now();
+  if (now - _casterCoordLogLastMs < 500) return;
+  _casterCoordLogLastMs = now;
+
+  /** @type {number[]} */
+  const frontPivotYaws = [];
+  /** @type {number[]} */
+  const rearPivotYaws = [];
+  /** @type {number[]} */
+  const frontSteerOffsets = [];
+  /** @type {number[]} */
+  const rearSteerOffsets = [];
+
+  for (const caster of casters) {
+    const pivotYaw = getRaveGltfCasterSteerPivot(caster).rotation.y;
+    const steerOffset = caster.smoothedPivotSteer ?? pivotYaw - RAVE_GLTF_CASTER_SWIVEL_REST_YAW;
+    const axle = caster.axle ?? (caster.hubLocalX > 0 ? "front" : "rear");
+    if (axle === "front") {
+      frontPivotYaws.push(pivotYaw);
+      frontSteerOffsets.push(steerOffset);
+    } else {
+      rearPivotYaws.push(pivotYaw);
+      rearSteerOffsets.push(steerOffset);
+    }
+  }
+
+  const formatPair = (label, pivotYaws, steerOffsets) => {
+    if (pivotYaws.length < 2) return null;
+    const pivotSpreadDeg = (Math.abs(pivotYaws[0] - pivotYaws[1]) * 180) / Math.PI;
+    const meanSteerDeg = ((steerOffsets[0] + steerOffsets[1]) * 0.5 * 180) / Math.PI;
+    return `${label} pivotΔ=${pivotSpreadDeg.toFixed(2)}° meanSteer=${meanSteerDeg.toFixed(1)}°`;
+  };
+
+  const frontTag = formatPair("front", frontPivotYaws, frontSteerOffsets);
+  const rearTag = formatPair("rear", rearPivotYaws, rearSteerOffsets);
+  if (!frontTag && !rearTag) return;
+
+  console.debug(
+    `[cartRaveGltf] caster coordination: ${[frontTag, rearTag].filter(Boolean).join(" | ")}`,
+  );
+}
+
 /** @param {THREE.Object3D} object @param {"x" | "y" | "z"} axis @param {number} radians */
 function setObjectAxisRotation(object, axis, radians) {
   object.rotation.x = axis === "x" ? radians : 0;
@@ -537,28 +895,104 @@ function raveGltfToModelSpace(object, localPoint, modelRoot, out) {
 }
 
 /**
- * Reparents one caster part under `swivelPivot` while keeping each child's offset from
- * `authoredPivotModel`. Uses model-space transforms so body/fork scaling under
- * `RaveGltfBodyScale` does not break attach math.
+ * Snapshots a mesh transform in `RaveGltfModel` local space from the authored GLTF pose.
+ * Used so kingpin / stance re-layout is idempotent (sliders return to rest when set back to 0).
  *
  * @param {THREE.Mesh} mesh
- * @param {THREE.Vector3} authoredPivotModel Original swivel anchor in model space.
- * @param {THREE.Object3D} swivelPivot Child of `modelRoot`, placed at target attach.
  * @param {THREE.Object3D} modelRoot
  */
-function reparentRaveGltfCasterPart(mesh, authoredPivotModel, swivelPivot, modelRoot) {
+function captureRaveGltfMeshRestModelTransform(mesh, modelRoot) {
+  if (mesh.userData.raveGltfRestModelPos) return;
+
   mesh.updateWorldMatrix(true, false);
   modelRoot.updateWorldMatrix(true, false);
   _modelInvMat.copy(modelRoot.matrixWorld).invert();
   _meshLocalMat.copy(mesh.matrixWorld).premultiply(_modelInvMat);
+  _meshLocalMat.decompose(_modelLocalScratch, _scratchQuat, _scratchScale);
 
-  _hubLocalMat.compose(authoredPivotModel, _scratchQuat.identity(), _scratchScale.set(1, 1, 1));
+  mesh.userData.raveGltfRestModelPos = _modelLocalScratch.clone();
+  mesh.userData.raveGltfRestModelQuat = _scratchQuat.clone();
+  mesh.userData.raveGltfRestModelScale = _scratchScale.clone();
+}
+
+/**
+ * Reparents one caster part under `steerPivot` from the frozen rest model transform.
+ * Geometry stays relative to `baseKingpin` (detected attach, no slider offsets) so pivot
+ * sliders visibly move the fork assembly and rotation point together.
+ *
+ * @param {THREE.Mesh} mesh
+ * @param {THREE.Vector3} baseKingpinModel Frozen detected kingpin in model space.
+ * @param {THREE.Object3D} steerPivot
+ * @param {THREE.Object3D} modelRoot Fallback live reparent when rest pose was not captured.
+ * @returns {boolean} True when rest-pose reparent succeeded.
+ */
+function reparentRaveGltfCasterPartFromRest(mesh, baseKingpinModel, steerPivot, modelRoot) {
+  const restPos = mesh.userData.raveGltfRestModelPos;
+  if (!restPos) return false;
+
+  _meshLocalMat.compose(
+    restPos,
+    mesh.userData.raveGltfRestModelQuat,
+    mesh.userData.raveGltfRestModelScale,
+  );
+  _hubLocalMat.compose(baseKingpinModel, _scratchQuat.identity(), _scratchScale.set(1, 1, 1));
   _hubLocalInv.copy(_hubLocalMat).invert();
   _meshLocalMat.premultiply(_hubLocalInv);
 
   mesh.parent?.remove(mesh);
   _meshLocalMat.decompose(mesh.position, mesh.quaternion, mesh.scale);
-  swivelPivot.add(mesh);
+  steerPivot.add(mesh);
+  return true;
+}
+
+/**
+ * Reparents one caster part under `steerPivot` while keeping each child's offset from
+ * `baseKingpinModel`. Uses model-space transforms so body/fork scaling under
+ * `RaveGltfBodyScale` does not break attach math.
+ *
+ * @param {THREE.Mesh} mesh
+ * @param {THREE.Vector3} baseKingpinModel Frozen detected kingpin in model space.
+ * @param {THREE.Object3D} steerPivot Caster steer pivot on `modelRoot`.
+ * @param {THREE.Object3D} modelRoot
+ */
+function reparentRaveGltfCasterPart(mesh, baseKingpinModel, steerPivot, modelRoot) {
+  if (reparentRaveGltfCasterPartFromRest(mesh, baseKingpinModel, steerPivot, modelRoot)) {
+    return;
+  }
+
+  if (import.meta.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[cartRaveGltf] rest pose missing for ${mesh.name}; live reparent may drift when tuning pivots`,
+    );
+  }
+
+  mesh.updateWorldMatrix(true, false);
+  modelRoot.updateWorldMatrix(true, false);
+  _modelInvMat.copy(modelRoot.matrixWorld).invert();
+  _meshLocalMat.copy(mesh.matrixWorld).premultiply(_modelInvMat);
+
+  _hubLocalMat.compose(baseKingpinModel, _scratchQuat.identity(), _scratchScale.set(1, 1, 1));
+  _hubLocalInv.copy(_hubLocalMat).invert();
+  _meshLocalMat.premultiply(_hubLocalInv);
+
+  mesh.parent?.remove(mesh);
+  _meshLocalMat.decompose(mesh.position, mesh.quaternion, mesh.scale);
+  steerPivot.add(mesh);
+}
+
+/**
+ * Captures rest GLTF transforms for all meshes in one caster corner (no-op after first capture).
+ *
+ * @param {THREE.Mesh[]} forkMeshes
+ * @param {THREE.Mesh} connectorMesh
+ * @param {THREE.Mesh | null | undefined} wheelMesh
+ * @param {THREE.Object3D} modelRoot
+ */
+function captureRaveGltfCasterRestTransforms(forkMeshes, connectorMesh, wheelMesh, modelRoot) {
+  for (const mesh of forkMeshes) captureRaveGltfMeshRestModelTransform(mesh, modelRoot);
+  captureRaveGltfMeshRestModelTransform(connectorMesh, modelRoot);
+  if (wheelMesh) captureRaveGltfMeshRestModelTransform(wheelMesh, modelRoot);
 }
 
 /**
@@ -586,13 +1020,19 @@ function pickPrimaryRaveGltfForkMesh(forkMeshes) {
 }
 
 /**
- * Fork mesh local +Z projected to model XZ — rest heading for swivel offset math.
+ * Fork rest heading in the same space as runtime `targetHeading` (velocity-heading space).
+ * World +Z of the fork mesh, then undo {@link RAVE_GLTF_ORIENTATION_Y} so it matches
+ * `_localVel` / `atan2(localVelX, localVelZ)` in {@link updateRaveGltfCartVisuals}.
  *
  * @param {THREE.Mesh} forkMesh
+ * @param {THREE.Object3D} modelRoot `RaveGltfModel` (orientation correction already applied).
  * @returns {number}
  */
-function computeRaveGltfAuthoredForkYaw(forkMesh) {
-  _forkForward.set(0, 0, 1).applyQuaternion(forkMesh.quaternion);
+function computeRaveGltfAuthoredForkYaw(forkMesh, modelRoot) {
+  forkMesh.updateWorldMatrix(true, false);
+  modelRoot.updateWorldMatrix(true, false);
+  _modelInvQuat.setFromAxisAngle(_forkForward.set(0, 1, 0), -RAVE_GLTF_ORIENTATION_Y);
+  _forkForward.set(0, 0, 1).transformDirection(forkMesh.matrixWorld).applyQuaternion(_modelInvQuat);
   return Math.atan2(_forkForward.x, _forkForward.z);
 }
 
@@ -656,33 +1096,69 @@ function resolveRaveGltfCasterCornerXZ(cornerLabel, connectorModelX, connectorMo
  */
 function applyRaveGltfCasterPivotOffsets(baseKingpin, cornerLabel, out) {
   const cornerOff = raveGltfTuning.casterPivotCorner?.[cornerLabel] ?? {};
+  const isFront = cornerLabel.startsWith("front");
   return out.set(
-    baseKingpin.x + raveGltfTuning.casterPivotXOffset + (cornerOff.x ?? 0),
-    baseKingpin.y + raveGltfTuning.casterPivotYOffset + (cornerOff.y ?? 0),
-    baseKingpin.z + raveGltfTuning.casterPivotZOffset + (cornerOff.z ?? 0),
+    baseKingpin.x
+      + raveGltfTuning.casterPivotXOffset
+      + (isFront ? raveGltfTuning.frontPivotXOffset : 0)
+      + (cornerOff.x ?? 0),
+    baseKingpin.y
+      + raveGltfTuning.casterPivotYOffset
+      + (isFront ? raveGltfTuning.frontPivotYOffset : 0)
+      + (cornerOff.y ?? 0),
+    baseKingpin.z
+      + raveGltfTuning.casterPivotZOffset
+      + (isFront ? raveGltfTuning.frontPivotZOffset : 0)
+      + (cornerOff.z ?? 0),
   );
 }
 
 /**
- * Detects the fork kingpin in model space — highest fork-leg top center (basket-side swivel
- * pin), not the lower connector hub where the wheel mounts.
+ * Detects basket-side kingpin in model space — highest fork/connector attach biased toward
+ * the body center (basket-side pin), not the lower wheel-side geometry.
  *
  * @param {THREE.Mesh[]} forkMeshes
+ * @param {THREE.Mesh | null | undefined} connectorMesh
+ * @param {THREE.Mesh | null | undefined} bodyMesh
  * @param {THREE.Object3D} modelRoot
  * @param {THREE.Vector3} out
  * @returns {THREE.Vector3}
  */
-function computeRaveGltfForkKingpinModelPoint(forkMeshes, modelRoot, out) {
-  let found = false;
-  let bestY = -Infinity;
+function computeRaveGltfCasterKingpinModelPoint(
+  forkMeshes,
+  connectorMesh,
+  bodyMesh,
+  modelRoot,
+  out,
+) {
+  let bodyCenterX = 0;
+  let bodyCenterZ = 0;
+  if (bodyMesh) {
+    const bodyBbox = computeRaveGltfBodyBboxInModelSpace(bodyMesh, modelRoot);
+    bodyCenterX = (bodyBbox.min.x + bodyBbox.max.x) * 0.5;
+    bodyCenterZ = (bodyBbox.min.z + bodyBbox.max.z) * 0.5;
+  }
 
-  for (const fork of forkMeshes) {
-    fork.geometry?.computeBoundingBox();
-    const fbb = fork.geometry?.boundingBox;
-    if (!fbb) continue;
+  let found = false;
+  let bestScore = -Infinity;
+
+  const considerPoint = (modelPoint) => {
+    const distToBody = Math.hypot(modelPoint.x - bodyCenterX, modelPoint.z - bodyCenterZ);
+    const score = modelPoint.y * 1000 - distToBody;
+    if (score > bestScore) {
+      bestScore = score;
+      out.copy(modelPoint);
+      found = true;
+    }
+  };
+
+  const considerMeshTopCenter = (mesh) => {
+    mesh.geometry?.computeBoundingBox();
+    const fbb = mesh.geometry?.boundingBox;
+    if (!fbb) return;
 
     raveGltfToModelSpace(
-      fork,
+      mesh,
       _modelLocalScratch.set(
         (fbb.min.x + fbb.max.x) * 0.5,
         fbb.max.y,
@@ -691,13 +1167,11 @@ function computeRaveGltfForkKingpinModelPoint(forkMeshes, modelRoot, out) {
       modelRoot,
       _kingpinBaseScratch,
     );
+    considerPoint(_kingpinBaseScratch);
+  };
 
-    if (_kingpinBaseScratch.y >= bestY) {
-      bestY = _kingpinBaseScratch.y;
-      out.copy(_kingpinBaseScratch);
-      found = true;
-    }
-  }
+  for (const fork of forkMeshes) considerMeshTopCenter(fork);
+  if (connectorMesh) considerMeshTopCenter(connectorMesh);
 
   if (!found && forkMeshes.length > 0) {
     raveGltfToModelSpace(forkMeshes[0], _modelLocalScratch.set(0, 0, 0), modelRoot, out);
@@ -707,68 +1181,138 @@ function computeRaveGltfForkKingpinModelPoint(forkMeshes, modelRoot, out) {
 }
 
 /**
- * Authored kingpin (fork attach + pivot offsets) and basket-corner target XZ.
- * Child parts keep rigid offsets from `authored`; `swivelPivot` sits at `target` so the whole
- * caster assembly shifts outward to the scaled basket rim.
+ * Authored kingpin offsets, basket-corner stance XZ, and final steer pivot position.
+ * Fork geometry stays rigid to `baseKingpin`; `steerPivot` sits at base + offsets so
+ * sliders move the rotation point and fork assembly predictably. Stance XZ only drives
+ * corner velocity kinematics (wheel placement sliders), not the steer pivot position.
  *
  * @param {THREE.Mesh[]} forkMeshes
  * @param {THREE.Mesh | null | undefined} bodyMesh
  * @param {string} cornerLabel
  * @param {THREE.Object3D} modelRoot
- * @returns {{ authored: THREE.Vector3, target: THREE.Vector3, baseKingpin: THREE.Vector3 }}
+ * @param {THREE.Mesh | null | undefined} [connectorMesh]
+ * @param {THREE.Vector3 | null | undefined} [frozenBaseKingpin] Rest-pose kingpin; skips live re-detect.
+ * @returns {{ baseKingpin: THREE.Vector3, steerPivot: THREE.Vector3, stanceX: number, stanceZ: number, authored: THREE.Vector3 }}
  */
-function computeRaveGltfCasterAttachPoints(forkMeshes, bodyMesh, cornerLabel, modelRoot) {
-  computeRaveGltfForkKingpinModelPoint(forkMeshes, modelRoot, _kingpinBaseScratch);
-  applyRaveGltfCasterPivotOffsets(_kingpinBaseScratch, cornerLabel, _authoredAttachPoint);
-  _targetAttachPoint.copy(_authoredAttachPoint);
+function computeRaveGltfCasterSteerLayout(
+  forkMeshes,
+  bodyMesh,
+  cornerLabel,
+  modelRoot,
+  connectorMesh = null,
+  frozenBaseKingpin = null,
+) {
+  if (frozenBaseKingpin) {
+    _kingpinBaseScratch.copy(frozenBaseKingpin);
+  } else {
+    computeRaveGltfCasterKingpinModelPoint(
+      forkMeshes,
+      connectorMesh,
+      bodyMesh,
+      modelRoot,
+      _kingpinBaseScratch,
+    );
+  }
 
+  const baseKingpin = _kingpinBaseScratch;
+  applyRaveGltfCasterPivotOffsets(baseKingpin, cornerLabel, _authoredAttachPoint);
+
+  let stanceX = baseKingpin.x;
+  let stanceZ = baseKingpin.z;
   if (bodyMesh) {
     const bodyBbox = computeRaveGltfBodyBboxInModelSpace(bodyMesh, modelRoot);
     const corner = resolveRaveGltfCasterCornerXZ(
       cornerLabel,
-      _authoredAttachPoint.x,
-      _authoredAttachPoint.z,
+      baseKingpin.x,
+      baseKingpin.z,
       bodyBbox,
     );
-    _targetAttachPoint.x = corner.x;
-    _targetAttachPoint.z = corner.z;
+    stanceX = corner.x;
+    stanceZ = corner.z;
   }
 
+  _targetAttachPoint.copy(_authoredAttachPoint);
+
   return {
+    baseKingpin: baseKingpin.clone(),
+    steerPivot: _targetAttachPoint.clone(),
+    stanceX,
+    stanceZ,
     authored: _authoredAttachPoint.clone(),
-    target: _targetAttachPoint.clone(),
-    baseKingpin: _kingpinBaseScratch.clone(),
   };
 }
 
 /**
- * Repositions roll pivot under the swivel kingpin while preserving wheel mesh orientation.
+ * Repositions roll pivot under the steer pivot while preserving wheel mesh orientation.
  *
  * @param {THREE.Group} rollPivot
  * @param {THREE.Mesh} wheelMesh
- * @param {THREE.Vector3} authoredKingpin
+ * @param {THREE.Vector3} baseKingpin
  * @param {THREE.Object3D} modelRoot
  */
-function updateRaveGltfCasterRollPivot(rollPivot, wheelMesh, authoredKingpin, modelRoot) {
+function updateRaveGltfCasterRollPivot(rollPivot, wheelMesh, baseKingpin, modelRoot) {
+  const restPos = wheelMesh.userData.raveGltfRestModelPos;
+  if (restPos) {
+    _meshLocalMat.compose(
+      restPos,
+      wheelMesh.userData.raveGltfRestModelQuat,
+      wheelMesh.userData.raveGltfRestModelScale,
+    );
+    _hubLocalMat.compose(baseKingpin, _scratchQuat.identity(), _scratchScale.set(1, 1, 1));
+    _hubLocalInv.copy(_hubLocalMat).invert();
+    _meshLocalMat.premultiply(_hubLocalInv);
+    _meshLocalMat.decompose(rollPivot.position, rollPivot.quaternion, rollPivot.scale);
+    return;
+  }
+
   wheelMesh.updateWorldMatrix(true, false);
   modelRoot.updateWorldMatrix(true, false);
   _modelInvMat.copy(modelRoot.matrixWorld).invert();
   _meshLocalMat.copy(wheelMesh.matrixWorld).premultiply(_modelInvMat);
-  _hubLocalMat.compose(authoredKingpin, _scratchQuat.identity(), _scratchScale.set(1, 1, 1));
+  _hubLocalMat.compose(baseKingpin, _scratchQuat.identity(), _scratchScale.set(1, 1, 1));
   _hubLocalInv.copy(_hubLocalMat).invert();
   _meshLocalMat.premultiply(_hubLocalInv);
   _meshLocalMat.decompose(rollPivot.position, rollPivot.quaternion, rollPivot.scale);
 }
 
+/** @param {RaveGltfCasterRuntime} caster @returns {THREE.Object3D} Pivot that receives Y steer rotation. */
+function getRaveGltfCasterSteerPivot(caster) {
+  return caster.swivelPivot;
+}
+
 /**
- * Places swivel pivot at the basket-corner kingpin and re-rigid-bodies fork / hub / wheel.
+ * Removes legacy nested kingpin groups from carts built before the single-pivot layout.
+ *
+ * @param {RaveGltfCasterRuntime} caster
+ */
+function collapseRaveGltfLegacyKingpinPivot(caster) {
+  const legacy = caster.kingpinPivot
+    ?? caster.swivelPivot.getObjectByName(`RaveGltfKingpinPivot_${caster.id}`);
+  if (!legacy || legacy === caster.swivelPivot) {
+    caster.kingpinPivot = null;
+    return;
+  }
+
+  const children = [...legacy.children];
+  for (const child of children) {
+    legacy.remove(child);
+    caster.swivelPivot.add(child);
+  }
+  caster.swivelPivot.remove(legacy);
+  caster.kingpinPivot = null;
+}
+
+/**
+ * Places steer pivot at basket stance + offsets and re-rigid-bodies fork / hub / wheel.
  *
  * @param {RaveGltfCasterRuntime} caster
  * @param {THREE.Mesh} connectorMesh
  * @param {THREE.Mesh[]} forkMeshes
  * @param {THREE.Mesh | null | undefined} wheelMesh
- * @param {THREE.Vector3} authoredKingpin
- * @param {THREE.Vector3} targetKingpin
+ * @param {THREE.Vector3} baseKingpin Frozen detected kingpin (no slider offsets).
+ * @param {THREE.Vector3} steerPivot Final Y-axis rotation point in model space.
+ * @param {number} stanceX Basket-corner anchor X for corner velocity kinematics.
+ * @param {number} stanceZ Basket-corner anchor Z for corner velocity kinematics.
  * @param {THREE.Object3D} modelRoot
  */
 function layoutRaveGltfCasterAssembly(
@@ -776,21 +1320,26 @@ function layoutRaveGltfCasterAssembly(
   connectorMesh,
   forkMeshes,
   wheelMesh,
-  authoredKingpin,
-  targetKingpin,
+  baseKingpin,
+  steerPivot,
+  stanceX,
+  stanceZ,
   modelRoot,
 ) {
-  caster.swivelPivot.position.copy(targetKingpin);
-  caster.hubLocalX = targetKingpin.x * raveGltfTuning.scale;
-  caster.hubLocalZ = targetKingpin.z * raveGltfTuning.scale;
+  collapseRaveGltfLegacyKingpinPivot(caster);
+
+  caster.swivelPivot.position.copy(steerPivot);
+  caster.swivelPivot.rotation.set(0, 0, 0);
+  caster.hubLocalX = stanceX * raveGltfTuning.scale;
+  caster.hubLocalZ = stanceZ * raveGltfTuning.scale;
 
   for (const mesh of forkMeshes) {
-    reparentRaveGltfCasterPart(mesh, authoredKingpin, caster.swivelPivot, modelRoot);
+    reparentRaveGltfCasterPart(mesh, baseKingpin, caster.swivelPivot, modelRoot);
   }
-  reparentRaveGltfCasterPart(connectorMesh, authoredKingpin, caster.swivelPivot, modelRoot);
+  reparentRaveGltfCasterPart(connectorMesh, baseKingpin, caster.swivelPivot, modelRoot);
 
   if (wheelMesh && caster.rollPivot) {
-    updateRaveGltfCasterRollPivot(caster.rollPivot, wheelMesh, authoredKingpin, modelRoot);
+    updateRaveGltfCasterRollPivot(caster.rollPivot, wheelMesh, baseKingpin, modelRoot);
 
     wheelMesh.parent?.remove(wheelMesh);
     wheelMesh.position.set(0, 0, 0);
@@ -839,11 +1388,11 @@ function logRaveGltfCasterKingpinDiagnostics(
 
   cartRoot.updateMatrixWorld(true);
   modelRoot.updateMatrixWorld(true);
-  const swivelPivot = cartRoot.getObjectByName(`RaveGltfForkPivot_${casterId}`);
-  swivelPivot?.getWorldPosition(_worldPosScratch);
-  const swivelWx = _worldPosScratch.x;
-  const swivelWy = _worldPosScratch.y;
-  const swivelWz = _worldPosScratch.z;
+  const steerPivotObj = cartRoot.getObjectByName(`RaveGltfForkPivot_${casterId}`);
+  steerPivotObj?.getWorldPosition(_worldPosScratch);
+  const steerWx = _worldPosScratch.x;
+  const steerWy = _worldPosScratch.y;
+  const steerWz = _worldPosScratch.z;
 
   modelRoot.localToWorld(_kingpinBaseScratch.copy(baseKingpin));
   const baseWx = _kingpinBaseScratch.x;
@@ -855,9 +1404,9 @@ function logRaveGltfCasterKingpinDiagnostics(
     connectorMesh.getWorldPosition(_connectorHubScratch);
     connectorWorldTag =
       `connectorHubWorld=(${_connectorHubScratch.x.toFixed(3)}, ${_connectorHubScratch.y.toFixed(3)}, ${_connectorHubScratch.z.toFixed(3)}) ` +
-      `pivotToConnector=(${(swivelWx - _connectorHubScratch.x).toFixed(3)}, ` +
-      `${(swivelWy - _connectorHubScratch.y).toFixed(3)}, ` +
-      `${(swivelWz - _connectorHubScratch.z).toFixed(3)})`;
+      `pivotToConnector=(${(steerWx - _connectorHubScratch.x).toFixed(3)}, ` +
+      `${(steerWy - _connectorHubScratch.y).toFixed(3)}, ` +
+      `${(steerWz - _connectorHubScratch.z).toFixed(3)})`;
   }
 
   let forkTopWorldTag = "forkTopWorld=n/a pivotToForkTop=n/a";
@@ -878,9 +1427,9 @@ function logRaveGltfCasterKingpinDiagnostics(
       modelRoot.localToWorld(_kingpinBaseScratch);
       forkTopWorldTag =
         `forkTopWorld=(${_kingpinBaseScratch.x.toFixed(3)}, ${_kingpinBaseScratch.y.toFixed(3)}, ${_kingpinBaseScratch.z.toFixed(3)}) ` +
-        `pivotToForkTop=(${(swivelWx - _kingpinBaseScratch.x).toFixed(3)}, ` +
-        `${(swivelWy - _kingpinBaseScratch.y).toFixed(3)}, ` +
-        `${(swivelWz - _kingpinBaseScratch.z).toFixed(3)})`;
+        `pivotToForkTop=(${(steerWx - _kingpinBaseScratch.x).toFixed(3)}, ` +
+        `${(steerWy - _kingpinBaseScratch.y).toFixed(3)}, ` +
+        `${(steerWz - _kingpinBaseScratch.z).toFixed(3)})`;
     }
   }
 
@@ -888,10 +1437,9 @@ function logRaveGltfCasterKingpinDiagnostics(
     `[cartRaveGltf] ${context} caster ${casterId} (${cornerLabel}) kingpin: ` +
       `baseModel=(${baseKingpin.x.toFixed(3)}, ${baseKingpin.y.toFixed(3)}, ${baseKingpin.z.toFixed(3)}) ` +
       `baseWorld=(${baseWx.toFixed(3)}, ${baseWy.toFixed(3)}, ${baseWz.toFixed(3)}) ` +
-      `authoredModel=(${authoredKingpin.x.toFixed(3)}, ${authoredKingpin.y.toFixed(3)}, ${authoredKingpin.z.toFixed(3)}) ` +
-      `targetModel=(${targetKingpin.x.toFixed(3)}, ${targetKingpin.y.toFixed(3)}, ${targetKingpin.z.toFixed(3)}) ` +
-      `pivotOffset=(${raveGltfTuning.casterPivotXOffset}, ${raveGltfTuning.casterPivotYOffset}, ${raveGltfTuning.casterPivotZOffset}) ` +
-      `swivelWorld=(${swivelWx.toFixed(3)}, ${swivelWy.toFixed(3)}, ${swivelWz.toFixed(3)}) ` +
+      `offsetModel=(${(authoredKingpin.x - baseKingpin.x).toFixed(3)}, ${(authoredKingpin.y - baseKingpin.y).toFixed(3)}, ${(authoredKingpin.z - baseKingpin.z).toFixed(3)}) ` +
+      `steerModel=(${targetKingpin.x.toFixed(3)}, ${targetKingpin.y.toFixed(3)}, ${targetKingpin.z.toFixed(3)}) ` +
+      `steerWorld=(${steerWx.toFixed(3)}, ${steerWy.toFixed(3)}, ${steerWz.toFixed(3)}) ` +
       connectorWorldTag + " " +
       forkTopWorldTag,
   );
@@ -1213,23 +1761,36 @@ function buildRaveGltfCasterCorner(group, meshByName, cartRoot, modelRoot, bodyM
   }
   if (forkMeshes.length === 0) return null;
 
-  const { authored: authoredAttach, target: targetAttach, baseKingpin } = computeRaveGltfCasterAttachPoints(
+  const wheelMesh = meshByName.get(group.wheel);
+  captureRaveGltfCasterRestTransforms(
+    forkMeshes,
+    connectorMesh,
+    wheelMesh?.userData.raveGltfPartRole === "wheel" ? wheelMesh : undefined,
+    modelRoot,
+  );
+
+  const {
+    baseKingpin,
+    steerPivot,
+    stanceX,
+    stanceZ,
+    authored: authoredAttach,
+  } = computeRaveGltfCasterSteerLayout(
     forkMeshes,
     bodyMesh,
     group.label,
     modelRoot,
+    connectorMesh,
   );
   const primaryForkMesh = pickPrimaryRaveGltfForkMesh(forkMeshes);
   const authoredForkYaw = primaryForkMesh
-    ? computeRaveGltfAuthoredForkYaw(primaryForkMesh)
+    ? computeRaveGltfAuthoredForkYaw(primaryForkMesh, modelRoot)
     : 0;
 
   const swivelPivot = new THREE.Group();
   swivelPivot.name = `RaveGltfForkPivot_${group.id}`;
   swivelPivot.quaternion.identity();
   swivelPivot.scale.set(1, 1, 1);
-
-  const wheelMesh = meshByName.get(group.wheel);
 
   /** @type {THREE.Group | null} */
   let rollPivot = null;
@@ -1251,11 +1812,14 @@ function buildRaveGltfCasterCorner(group, meshByName, cartRoot, modelRoot, bodyM
   /** @type {RaveGltfCasterRuntime} */
   const caster = {
     id: group.id,
+    axle: group.label.startsWith("front") ? "front" : "rear",
     swivelPivot,
+    kingpinPivot: null,
     rollPivot,
     authoredForkYaw,
-    hubLocalX: targetAttach.x * raveGltfTuning.scale,
-    hubLocalZ: targetAttach.z * raveGltfTuning.scale,
+    hubLocalX: stanceX * raveGltfTuning.scale,
+    hubLocalZ: stanceZ * raveGltfTuning.scale,
+    baseKingpinModel: baseKingpin.clone(),
     smoothedHeading: authoredForkYaw,
     wheelRoll: 0,
     wheelRadius,
@@ -1267,12 +1831,18 @@ function buildRaveGltfCasterCorner(group, meshByName, cartRoot, modelRoot, bodyM
     connectorMesh,
     forkMeshes,
     wheelMesh,
-    authoredAttach,
-    targetAttach,
+    baseKingpin,
+    steerPivot,
+    stanceX,
+    stanceZ,
     modelRoot,
   );
 
-  swivelPivot.rotation.y = caster.smoothedHeading - authoredForkYaw;
+  setObjectAxisRotation(
+    getRaveGltfCasterSteerPivot(caster),
+    RAVE_GLTF_CASTER_SWIVEL_AXIS,
+    caster.smoothedHeading - authoredForkYaw,
+  );
 
   if (import.meta.env?.DEV) {
     logRaveGltfCasterKingpinDiagnostics(
@@ -1283,7 +1853,7 @@ function buildRaveGltfCasterCorner(group, meshByName, cartRoot, modelRoot, bodyM
       modelRoot,
       baseKingpin,
       authoredAttach,
-      targetAttach,
+      steerPivot,
       connectorMesh,
       primaryForkMesh,
     );
@@ -1433,22 +2003,42 @@ export function reapplyRaveGltfCartTuning(cartRoot) {
     }
     if (!connectorMesh || forkMeshes.length === 0) continue;
 
-    const { authored, target } = computeRaveGltfCasterAttachPoints(
+    const wheelMesh = meshByName.get(group.wheel);
+    captureRaveGltfCasterRestTransforms(
+      forkMeshes,
+      connectorMesh,
+      wheelMesh?.userData.raveGltfPartRole === "wheel" ? wheelMesh : undefined,
+      model,
+    );
+
+    const {
+      baseKingpin,
+      steerPivot,
+      stanceX,
+      stanceZ,
+    } = computeRaveGltfCasterSteerLayout(
       forkMeshes,
       bodyMesh,
       group.label,
       model,
+      connectorMesh,
+      caster.baseKingpinModel ?? null,
     );
+    if (!caster.baseKingpinModel) {
+      caster.baseKingpinModel = baseKingpin.clone();
+    }
 
-    const wheelMesh = caster.rollPivot?.children[0];
+    const rollWheelMesh = caster.rollPivot?.children[0];
 
     layoutRaveGltfCasterAssembly(
       caster,
       connectorMesh,
       forkMeshes,
-      wheelMesh?.isMesh ? wheelMesh : undefined,
-      authored,
-      target,
+      rollWheelMesh?.isMesh ? rollWheelMesh : wheelMesh?.isMesh ? wheelMesh : undefined,
+      baseKingpin,
+      steerPivot,
+      stanceX,
+      stanceZ,
       model,
     );
 
@@ -1494,11 +2084,12 @@ export function logRaveGltfCasterPivotsOnScene(scene) {
       }
       if (!connectorMesh || forkMeshes.length === 0) continue;
 
-      const { authored, target, baseKingpin } = computeRaveGltfCasterAttachPoints(
+      const { authored, steerPivot, baseKingpin } = computeRaveGltfCasterSteerLayout(
         forkMeshes,
         bodyMesh,
         group.label,
         model,
+        connectorMesh,
       );
 
       logRaveGltfCasterKingpinDiagnostics(
@@ -1509,7 +2100,7 @@ export function logRaveGltfCasterPivotsOnScene(scene) {
         model,
         baseKingpin,
         authored,
-        target,
+        steerPivot,
         connectorMesh,
         pickPrimaryRaveGltfForkMesh(forkMeshes),
       );
@@ -1628,7 +2219,7 @@ function bindRaveGltfCartParts(root) {
       if (!caster) continue;
 
       casters.push(caster);
-      forkPivots.push(caster.swivelPivot);
+      forkPivots.push(getRaveGltfCasterSteerPivot(caster));
       if (caster.rollPivot) wheelPivots.push(caster.rollPivot);
       wheelRadius = Math.max(caster.wheelRadius, wheelRadius);
 
@@ -1692,7 +2283,7 @@ function bindRaveGltfCartParts(root) {
       console.debug(`  wheel pivot ← ${mesh?.name || "?"} rollAxis=${axis}`);
     }
     for (const pivot of forkPivots) {
-      if (casters.some((c) => c.swivelPivot === pivot)) continue;
+      if (casters.some((c) => c.swivelPivot === pivot || c.kingpinPivot === pivot)) continue;
       console.debug(`  fork pivot ← ${pivot.name}`);
     }
   }
@@ -2051,49 +2642,191 @@ function computeRaveGltfCasterCornerLocalVel(
   return { vx, vz, speed: Math.hypot(vx, vz), omega };
 }
 
+/** @returns {number} Front rigid-axle steer sign (−1 or +1). */
+function getRaveGltfFrontAxleSign() {
+  const sign = raveGltfTuning.frontAxleSign ?? -1;
+  return sign >= 0 ? 1 : -1;
+}
+
 /**
- * Car-like caster steer target vs pure velocity trailing.
+ * Per-axle coordinated car-steer: front/rear pairs share the same steer delta from their
+ * mean rest heading so casters on an axle move together instead of lerping to different absolutes.
  *
- * Old behavior: `atan2(cornerVx, cornerVz)` — each hub trails its rigid-body corner
- * velocity (free-spinning shopping-cart casters).
- *
- * New behavior: body travel direction + explicit yaw-rate steering offset. Front casters
- * get the full offset; rear casters get a smaller same-direction offset (mild 4WS). A
- * small `trailBlend` keeps slight corner slip for motion readability at speed.
- *
- * @param {RaveGltfCasterRuntime} caster
- * @param {number} localVelX Cart-local planar body velocity X.
- * @param {number} localVelZ Cart-local planar body velocity Z.
- * @param {number} scaledOmegaY Yaw rate after {@link RAVE_GLTF_CASTER_ANGVEL_MUL}.
- * @param {number} cornerVelVx Per-hub trail velocity X (rigid-body kinematics).
- * @param {number} cornerVelVz Per-hub trail velocity Z.
- * @returns {number} Absolute cart-local target heading (rad).
+ * @param {RaveGltfCasterRuntime[]} casters
+ * @param {number} localVelX
+ * @param {number} localVelZ
+ * @param {number} bodySpeed
+ * @param {number} scaledOmegaY Signed scaled yaw rate (rad/s).
+ * @param {number} turnBlend Turn engagement [0 = rest, 1 = full steer].
+ * @param {object} data `root.userData.cartVisual`
+ * @param {number} dtSec
+ * @returns {{
+ *   frontSteerDelta: number,
+ *   rearSteerDelta: number,
+ *   frontMeanRest: number,
+ *   rearMeanRest: number,
+ * }}
  */
-function computeRaveGltfCasterSteerTargetHeading(
-  caster,
+function computeRaveGltfAxleSteerDeltas(
+  casters,
   localVelX,
   localVelZ,
+  bodySpeed,
   scaledOmegaY,
+  turnBlend,
+  absBodyOmega,
+  data,
+  dtSec,
+) {
+  const { frontMeanRest, rearMeanRest } = computeRaveGltfAxleMeanRests(casters);
+  const frontSign = getRaveGltfFrontAxleSign();
+
+  const yawBlend = Math.max(0, Math.min(1, raveGltfTuning.yawSteerBlend));
+  const frontYawDelta =
+    scaledOmegaY
+    * raveGltfTuning.steeringInfluence
+    * raveGltfTuning.frontSteerMul
+    * turnBlend
+    * frontSign;
+  const rearYawDelta =
+    scaledOmegaY
+    * raveGltfTuning.steeringInfluence
+    * raveGltfTuning.rearSteerMul
+    * computeRaveGltfRearSteerScale(absBodyOmega)
+    * turnBlend;
+
+  if (yawBlend >= 1) {
+    return {
+      frontSteerDelta: frontYawDelta,
+      rearSteerDelta: rearYawDelta,
+      frontMeanRest,
+      rearMeanRest,
+    };
+  }
+
+  let travelHeading = data.casterSmoothedTravelHeading;
+  if (bodySpeed > 1e-4) {
+    const instantTravel = Math.atan2(localVelX, localVelZ);
+    const travelSmooth = raveGltfTuning.travelHeadingSmoothing;
+    if (travelHeading == null || travelSmooth <= 0) {
+      travelHeading = instantTravel;
+    } else {
+      const travelAlpha = (1 - travelSmooth) * Math.min(240 * dtSec, 1);
+      travelHeading = lerpAngle(travelHeading, instantTravel, travelAlpha);
+    }
+    data.casterSmoothedTravelHeading = travelHeading;
+  }
+
+  const travelRef = travelHeading ?? frontMeanRest;
+  const frontSteerOffset =
+    scaledOmegaY * raveGltfTuning.steeringInfluence * raveGltfTuning.frontSteerMul * frontSign;
+  const rearSteerOffset =
+    scaledOmegaY
+    * raveGltfTuning.steeringInfluence
+    * raveGltfTuning.rearSteerMul
+    * computeRaveGltfRearSteerScale(absBodyOmega);
+  const frontTravelDelta = angleDeltaFromCenter(travelRef + frontSteerOffset, frontMeanRest) * turnBlend;
+  const rearTravelDelta = angleDeltaFromCenter(travelRef + rearSteerOffset, rearMeanRest) * turnBlend;
+
+  return {
+    frontSteerDelta: frontTravelDelta + (frontYawDelta - frontTravelDelta) * yawBlend,
+    rearSteerDelta: rearTravelDelta + (rearYawDelta - rearTravelDelta) * yawBlend,
+    frontMeanRest,
+    rearMeanRest,
+  };
+}
+
+/**
+ * Coordinated caster steer target for one corner (axle-shared delta + optional trail blend).
+ *
+ * @param {RaveGltfCasterRuntime} caster
+ * @param {number} restHeading
+ * @param {{ frontSteerDelta: number, rearSteerDelta: number }} axleSteer
+ * @param {number} cornerVelVx
+ * @param {number} cornerVelVz
+ * @returns {number}
+ */
+function computeRaveGltfCoordinatedCasterTarget(
+  caster,
+  restHeading,
+  axleSteer,
   cornerVelVx,
   cornerVelVz,
 ) {
-  const trailHeading = Math.atan2(cornerVelVx, cornerVelVz);
-  const bodySpeed = Math.hypot(localVelX, localVelZ);
-  const bodyTravelHeading = bodySpeed > 1e-4
-    ? Math.atan2(localVelX, localVelZ)
-    : caster.smoothedHeading;
+  const axle = caster.axle ?? (caster.hubLocalX > 0 ? "front" : "rear");
+  const sharedDelta = axle === "front" ? axleSteer.frontSteerDelta : axleSteer.rearSteerDelta;
+  let targetHeading = restHeading + sharedDelta;
 
-  const isFrontAxle = caster.hubLocalX > 0;
-  const axleSteerMul = isFrontAxle
-    ? raveGltfTuning.frontSteerMul
-    : raveGltfTuning.rearSteerMul;
-  const steerOffset = scaledOmegaY * raveGltfTuning.steeringInfluence * axleSteerMul;
-  const carSteerHeading = bodyTravelHeading + steerOffset;
+  const trailMix = raveGltfTuning.trailBlend;
+  if (trailMix > 0) {
+    const trailHeading = Math.atan2(cornerVelVx, cornerVelVz);
+    targetHeading = trailMix >= 1
+      ? trailHeading
+      : lerpAngle(targetHeading, trailHeading, trailMix);
+  }
 
-  const blend = raveGltfTuning.trailBlend;
-  if (blend <= 0) return carSteerHeading;
-  if (blend >= 1) return trailHeading;
-  return lerpAngle(carSteerHeading, trailHeading, blend);
+  return targetHeading;
+}
+
+/**
+ * Applies a rigid axle steer angle — identical pivot rotation on every caster on that axle.
+ *
+ * @param {RaveGltfCasterRuntime} caster
+ * @param {number} pivotSteerOffset Steer offset from rest (rad), shared across the axle.
+ * @param {number} sharedHeading Absolute heading used for wheel-roll projection.
+ */
+function applyRaveGltfRigidAxleSteer(caster, pivotSteerOffset, sharedHeading) {
+  const pivotYaw = RAVE_GLTF_CASTER_SWIVEL_REST_YAW + pivotSteerOffset;
+  caster.smoothedPivotSteer = pivotSteerOffset;
+  caster.smoothedHeading = sharedHeading;
+  setObjectAxisRotation(
+    getRaveGltfCasterSteerPivot(caster),
+    RAVE_GLTF_CASTER_SWIVEL_AXIS,
+    pivotYaw,
+  );
+}
+
+/**
+ * Updates shared front/rear axle pivot-steer state (one smoothed angle per axle).
+ *
+ * @param {object} data `root.userData.cartVisual`
+ * @param {{ frontSteerDelta: number, rearSteerDelta: number } | null} axleSteer
+ * @param {number} turnBlend
+ * @param {boolean} cartTurning
+ * @param {number} dtSec
+ */
+function updateRaveGltfAxleSteerState(data, axleSteer, turnBlend, cartTurning, dtSec) {
+  const maxSteer = getRaveGltfSwivelMaxAngle();
+  const frameAlpha = Math.min(240 * dtSec, 1);
+  const frontAlpha = 1 - (1 - raveGltfTuning.frontTurnSteerDamping) ** frameAlpha;
+  const rearAlpha = 1 - (1 - raveGltfTuning.turnSteerDamping) ** frameAlpha;
+  const returnAlpha = 1 - (1 - raveGltfTuning.restReturnDamping) ** frameAlpha;
+
+  if (turnBlend > 0 && axleSteer) {
+    const prevFront = data.frontAxleSteerSmoothed ?? 0;
+    const prevRear = data.rearAxleSteerSmoothed ?? 0;
+    const targetFront = Math.max(-maxSteer, Math.min(maxSteer, axleSteer.frontSteerDelta));
+    const targetRear = Math.max(-maxSteer, Math.min(maxSteer, axleSteer.rearSteerDelta));
+    data.frontAxleSteerSmoothed = prevFront + (targetFront - prevFront) * frontAlpha;
+    data.rearAxleSteerSmoothed = prevRear + (targetRear - prevRear) * rearAlpha;
+    return;
+  }
+
+  const prevFront = data.frontAxleSteerSmoothed ?? 0;
+  if (Math.abs(prevFront) > raveGltfTuning.straightRestEpsilon) {
+    data.frontAxleSteerSmoothed = prevFront + (0 - prevFront) * returnAlpha;
+  } else {
+    data.frontAxleSteerSmoothed = 0;
+  }
+
+  if (!cartTurning) {
+    const prevRear = data.rearAxleSteerSmoothed ?? 0;
+    if (Math.abs(prevRear) > raveGltfTuning.straightRestEpsilon) {
+      data.rearAxleSteerSmoothed = prevRear + (0 - prevRear) * returnAlpha;
+    } else {
+      data.rearAxleSteerSmoothed = 0;
+    }
+  }
 }
 
 /**
@@ -2104,8 +2837,9 @@ function computeRaveGltfCasterSteerTargetHeading(
  */
 function applyRaveGltfCasterHeading(caster, heading) {
   caster.smoothedHeading = heading;
+  caster.smoothedPivotSteer = undefined;
   setObjectAxisRotation(
-    caster.swivelPivot,
+    getRaveGltfCasterSteerPivot(caster),
     RAVE_GLTF_CASTER_SWIVEL_AXIS,
     heading - caster.authoredForkYaw,
   );
@@ -2120,11 +2854,22 @@ export function resetRaveGltfCartVisualState(root) {
   const data = root.userData.cartVisual;
   if (!data?.isRaveGltf) return;
 
+  data.casterSteerEngaged = false;
+  data.casterFilteredAbsOmega = 0;
+  data.casterSmoothedTravelHeading = undefined;
+  data.frontAxleSteerSmoothed = 0;
+  data.rearAxleSteerSmoothed = 0;
+
   const rollAxis = data.wheelRollAxis || RAVE_GLTF_WHEEL_ROLL_AXIS;
 
   for (const caster of data.casters || []) {
     caster.wheelRoll = 0;
-    applyRaveGltfCasterHeading(caster, caster.authoredForkYaw + RAVE_GLTF_CASTER_SWIVEL_REST_YAW);
+    caster.smoothedPivotSteer = 0;
+    applyRaveGltfRigidAxleSteer(
+      caster,
+      0,
+      caster.authoredForkYaw + RAVE_GLTF_CASTER_SWIVEL_REST_YAW,
+    );
 
     if (!caster.rollPivot) continue;
     setObjectAxisRotation(
@@ -2135,7 +2880,7 @@ export function resetRaveGltfCartVisualState(root) {
   }
 
   for (const pivot of data.forkPivots || []) {
-    if ((data.casters || []).some((c) => c.swivelPivot === pivot)) continue;
+    if ((data.casters || []).some((c) => c.swivelPivot === pivot || c.kingpinPivot === pivot)) continue;
     setObjectAxisRotation(pivot, RAVE_GLTF_CASTER_SWIVEL_AXIS, RAVE_GLTF_CASTER_SWIVEL_REST_YAW);
   }
 
@@ -2150,8 +2895,8 @@ export function resetRaveGltfCartVisualState(root) {
 /**
  * Per-frame independent caster swivel + wheel roll.
  *
- * Swivel: car-like body heading + yaw-rate steer (front strong, rear mild); clamped per
- * caster around `authoredForkYaw`. Wheel roll: unchanged rigid-body corner kinematics.
+ * Swivel: rest-biased on straight cruise; rigid shared front-axle pivot steer when turning;
+ * rear uses one smoothed delta per pair. Wheel roll unchanged.
  *
  * @param {THREE.Object3D} root CartVisual root
  * @param {THREE.Vector3} linvelWorld
@@ -2179,6 +2924,64 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
 
   if (casters.length === 0) return;
 
+  const rawAbsBodyOmega = Math.abs(localOmegaY * RAVE_GLTF_CASTER_ANGVEL_MUL);
+  const absBodyOmega = filterRaveGltfCasterAbsOmega(data, rawAbsBodyOmega, dtSec);
+  const bodySpeed = Math.hypot(_localVel.x, _localVel.z);
+  const straightCruise =
+    bodySpeed >= raveGltfTuning.straightCruiseMinSpeed
+    && absBodyOmega < raveGltfTuning.straightYawDeadzone;
+
+  if (data.casterSteerEngaged) {
+    if (absBodyOmega < raveGltfTuning.turnReleaseOmega) data.casterSteerEngaged = false;
+  } else if (absBodyOmega >= raveGltfTuning.turnEngageOmega) {
+    data.casterSteerEngaged = true;
+  }
+  const cartTurning = data.casterSteerEngaged === true;
+  const turnBlend = cartTurning ? computeRaveGltfTurnEngagement(absBodyOmega) : 0;
+  const scaledBodyOmega = localOmegaY * RAVE_GLTF_CASTER_ANGVEL_MUL;
+  const turnSteerAlpha = 1 - (1 - raveGltfTuning.turnSteerDamping) ** Math.min(240 * dtSec, 1);
+  const axleMeanRests = computeRaveGltfAxleMeanRests(casters);
+  const maxSteer = getRaveGltfSwivelMaxAngle();
+  const frontAxleRigid = raveGltfTuning.frontAxleRigid !== false;
+  const axleSteer = turnBlend > 0
+    ? computeRaveGltfAxleSteerDeltas(
+      casters,
+      _localVel.x,
+      _localVel.z,
+      bodySpeed,
+      scaledBodyOmega,
+      turnBlend,
+      absBodyOmega,
+      data,
+      dtSec,
+    )
+    : null;
+
+  updateRaveGltfAxleSteerState(data, axleSteer, turnBlend, cartTurning, dtSec);
+
+  const frontPivotSteer = Math.max(
+    -maxSteer,
+    Math.min(maxSteer, data.frontAxleSteerSmoothed ?? 0),
+  );
+  const rearPivotSteer = Math.max(
+    -maxSteer,
+    Math.min(maxSteer, data.rearAxleSteerSmoothed ?? 0),
+  );
+  const frontSharedHeading = axleMeanRests.frontMeanRest + frontPivotSteer;
+  const rearSharedHeading = axleMeanRests.rearMeanRest + rearPivotSteer;
+
+  /** @type {{ frontSteerDelta: number, rearSteerDelta: number, frontMeanRest: number, rearMeanRest: number } | null} */
+  const axleSteerApplied = axleSteer
+    ? {
+      frontSteerDelta: frontPivotSteer,
+      rearSteerDelta: rearPivotSteer,
+      frontMeanRest: axleMeanRests.frontMeanRest,
+      rearMeanRest: axleMeanRests.rearMeanRest,
+    }
+    : null;
+
+  const shouldLogCoordination = raveGltfTuning.casterCoordinationLog === true;
+
   for (const caster of casters) {
     const cornerVel = computeRaveGltfCasterCornerLocalVel(
       _localVel.x,
@@ -2188,42 +2991,66 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
       caster.hubLocalZ,
     );
 
-    const shouldSteer =
-      cornerVel.speed >= RAVE_GLTF_CASTER_SWIVEL_MIN_SPEED
-      || Math.abs(cornerVel.omega) >= raveGltfTuning.steeringMinOmega;
+    const restHeading = caster.authoredForkYaw + RAVE_GLTF_CASTER_SWIVEL_REST_YAW;
+    const axle = caster.axle ?? (caster.hubLocalX > 0 ? "front" : "rear");
+    const axleMeanRest = axle === "front" ? axleMeanRests.frontMeanRest : axleMeanRests.rearMeanRest;
+    const pivotSteer = axle === "front" ? frontPivotSteer : rearPivotSteer;
+    const sharedHeading = axle === "front" ? frontSharedHeading : rearSharedHeading;
+    const restDelta = Math.abs(
+      pivotSteer !== 0
+        ? pivotSteer
+        : angleDeltaFromCenter(caster.smoothedHeading, restHeading),
+    );
+    const needsRestReturn =
+      !cartTurning
+      && restDelta > raveGltfTuning.straightRestEpsilon;
+    const straightCruiseLocked = straightCruise && !needsRestReturn;
+    const shouldSteer = !straightCruiseLocked && (turnBlend > 0 || needsRestReturn);
+    const restReturn = needsRestReturn && !cartTurning;
+    const steerAlpha = restReturn
+      ? 1 - (1 - raveGltfTuning.restReturnDamping) ** Math.min(240 * dtSec, 1)
+      : (turnBlend > 0 ? turnSteerAlpha : swivelAlpha);
 
-    if (shouldSteer) {
+    if (frontAxleRigid && axle === "front") {
+      if (!straightCruiseLocked || Math.abs(frontPivotSteer) > raveGltfTuning.straightRestEpsilon) {
+        applyRaveGltfRigidAxleSteer(caster, frontPivotSteer, frontSharedHeading);
+      } else {
+        applyRaveGltfRigidAxleSteer(caster, 0, axleMeanRests.frontMeanRest);
+      }
+    } else if (shouldSteer) {
       const groupOffset = RAVE_GLTF_CASTER_SWIVEL_GROUP_OFFSETS[caster.id] ?? 0;
-      const targetHeading = computeRaveGltfCasterSteerTargetHeading(
-        caster,
-        _localVel.x,
-        _localVel.z,
-        cornerVel.omega,
-        cornerVel.vx,
-        cornerVel.vz,
-      )
+      const targetHeading = (turnBlend > 0 && axleSteerApplied
+        ? computeRaveGltfCoordinatedCasterTarget(
+          caster,
+          restHeading,
+          axleSteerApplied,
+          cornerVel.vx,
+          cornerVel.vz,
+        )
+        : restHeading)
         + RAVE_GLTF_CASTER_SWIVEL_YAW_OFFSET
         + groupOffset;
-      const restHeading = caster.authoredForkYaw;
       const clampedTarget = clampAngleToRange(
         targetHeading,
-        restHeading,
-        getRaveGltfSwivelMaxAngle(),
+        axleMeanRest,
+        maxSteer,
       );
-      const nextHeading = clampAngleToRange(
-        lerpAngle(caster.smoothedHeading, clampedTarget, swivelAlpha),
-        restHeading,
-        getRaveGltfSwivelMaxAngle(),
-      );
+      const nextHeading = turnBlend > 0
+        ? clampedTarget
+        : clampAngleToRange(
+          lerpAngle(caster.smoothedHeading, clampedTarget, steerAlpha),
+          axleMeanRest,
+          maxSteer,
+        );
       applyRaveGltfCasterHeading(caster, nextHeading);
     } else {
-      // * Hold last heading — real casters do not snap back to a shared rest angle.
+      // * Hold last heading when settled at rest on a straight cruise.
       applyRaveGltfCasterHeading(
         caster,
         clampAngleToRange(
           caster.smoothedHeading,
-          caster.authoredForkYaw,
-          getRaveGltfSwivelMaxAngle(),
+          restHeading,
+          maxSteer,
         ),
       );
     }
@@ -2231,9 +3058,11 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
     if (!rollEnabled || !caster.rollPivot) continue;
 
     if (cornerVel.speed >= RAVE_GLTF_WHEEL_ROLL_MIN_SPEED) {
-      const heading = caster.smoothedHeading;
+      const rollHeading = (frontAxleRigid && axle === "front")
+        ? frontSharedHeading
+        : caster.smoothedHeading;
       const signedSpeed =
-        cornerVel.vx * Math.sin(heading) + cornerVel.vz * Math.cos(heading);
+        cornerVel.vx * Math.sin(rollHeading) + cornerVel.vz * Math.cos(rollHeading);
       caster.wheelRoll +=
         (signedSpeed / Math.max(caster.wheelRadius, 1e-4))
         * dtSec
@@ -2245,6 +3074,10 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
       caster.wheelRollAxis,
       caster.wheelRoll + RAVE_GLTF_WHEEL_AXIS_CORRECTION,
     );
+  }
+
+  if (shouldLogCoordination) {
+    logRaveGltfCasterCoordination(casters);
   }
 }
 

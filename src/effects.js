@@ -205,6 +205,13 @@ function disposeAmbientParticles() {
 }
 
 /**
+ * Removes ambient dust (e.g. test drive — keep the floor readable).
+ */
+export function clearAmbientDust() {
+  disposeAmbientParticles();
+}
+
+/**
  * @param {AmbientDustStyle} style
  * @param {CartColorMap} cartColors
  * @returns {number[]}
@@ -915,6 +922,7 @@ export function tickRamBoostStreakSpawners(allCarts, nowMs, dtSec) {
   if (!rb || !rb.enabled || dtSec <= 0) return;
   const secondaryChance = rb.streakSecondaryChance ?? 0.55;
   for (const cart of allCarts) {
+    if (!cart) continue;
     if (nowMs > cart.ramBoostActiveUntilMs) continue;
     cart.ramBoostStreakCarry += rb.streakSpawnRatePerSec * dtSec;
     while (cart.ramBoostStreakCarry >= 1) {

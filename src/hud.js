@@ -1797,6 +1797,14 @@ function updateStatus(roundState) {
  * @param {number} matchHistoryLength
  */
 function updateTimer(roundState, matchHistoryLength) {
+  if (_options.detectGameMode?.() === "testdrive") {
+    setHudDisplay(elements.timer, "none", "timer");
+    if (elements.timerNum) elements.timerNum.textContent = "";
+    if (elements.timerRd) elements.timerRd.textContent = "";
+    if (elements.timerFill) elements.timerFill.style.width = "0%";
+    return;
+  }
+
   const roundPhase = roundState?.phase;
   const roundStartedAtMs = roundState?.startedAtMs;
 
@@ -2466,6 +2474,17 @@ export function update({
   if (menuVisible) return;
   if (!elements.root) return;
 
+  const isTestDrive = _options.detectGameMode?.() === "testdrive";
+  if (isTestDrive) {
+    setHudDisplay(elements.timer, "none", "timer");
+    setHudDisplay(elements.scores, "none", "scores");
+    setHudDisplay(elements.status, "none", "status");
+    if (elements.readyBtn) elements.readyBtn.style.display = "none";
+    if (elements.feed) elements.feed.style.display = "none";
+    scheduleHudLayoutSync();
+    return;
+  }
+
   if (suppressHud) {
     if (elements.feed) elements.feed.style.display = "none";
     return;
@@ -2576,6 +2595,10 @@ export function hideGameplayElements() {
 }
 
 export function showGameplayElements() {
+  if (_options.detectGameMode?.() === "testdrive") {
+    hideGameplayElements();
+    return;
+  }
   setHudDisplay(elements.timer, "flex", "timer");
   setHudDisplay(elements.scores, "flex", "scores");
   if (elements.readyBtn && _options.detectGameMode?.() !== "solo") {

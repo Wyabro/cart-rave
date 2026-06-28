@@ -1749,6 +1749,23 @@ html, body {
   opacity: 0.92;
 }
 
+.cr-btn--testdrive {
+  margin-top: clamp(8px, 1.4dvh, 12px);
+  max-width: clamp(140px, 22vw, 180px);
+  align-self: center;
+  font-size: clamp(9px, 1.1vw, 11px);
+  opacity: 0.78;
+  border-style: dotted;
+}
+
+.cr-btn--testdrive .cr-btn-inner {
+  padding: clamp(6px, 1dvh, 8px) clamp(10px, 1.6vw, 14px);
+}
+
+.cr-btn--testdrive .cr-btn-label {
+  letter-spacing: 0.18em;
+}
+
 /* === FOCUS (keyboard accessibility) === */
 .cr-btn:focus-visible,
 .cr-level-btn:focus-visible,

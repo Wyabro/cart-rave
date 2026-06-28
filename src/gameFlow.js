@@ -25,7 +25,7 @@
  * @property {{ hostEventFall: string }} MSG
  * @property {(attackerSlotIndex: number, points: number) => void} addScore
  * @property {(untilMs: number) => void} setFovPunchUntil
- * @property {() => string | null} [getYouConnId]
+ * @property {() => string} [detectGameMode]
  */
 
 /** @type {boolean} */
@@ -126,13 +126,18 @@ export function updateGameFlow(deps, context) {
   const localSlotIndexThisFrame = deps.getLocalSlotIndex();
   const roundState = deps.getRoundState();
   const isHost = deps.isHost();
+  const isTestDrive = deps.detectGameMode?.() === "testdrive";
 
   if (isHost && roundState.phase === "running") {
     const netSlots = deps.getNetSlots();
     const nowMs = Date.now();
     const roundDurationMs = deps.CONFIG.round?.durationMs ?? 60000;
 
-    if (roundState.startedAtMs > 0 && nowMs - roundState.startedAtMs >= roundDurationMs) {
+    if (
+      !isTestDrive
+      && roundState.startedAtMs > 0
+      && nowMs - roundState.startedAtMs >= roundDurationMs
+    ) {
       deps.endRound();
     } else {
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
@@ -143,51 +148,54 @@ export function updateGameFlow(deps, context) {
         const p = cart.body.translation();
 
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
-          const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
+          if (!isTestDrive) {
+            const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
 
-          if (scoreData.isKill) {
-            deps.addScore(scoreData.attackerSlot, scoreData.points);
-            deps.sendHostRound();
+            if (scoreData.isKill) {
+              deps.addScore(scoreData.attackerSlot, scoreData.points);
+              deps.sendHostRound();
 
-            if (scoreData.attackerSlot === localSlotIndexThisFrame) {
-              deps.setFovPunchUntil(performance.now() + 200);
+              if (scoreData.attackerSlot === localSlotIndexThisFrame) {
+                deps.setFovPunchUntil(performance.now() + 200);
+              }
+
+              const attackerSlot = netSlots[scoreData.attackerSlot];
+              const victimSlot = netSlots[slotIndex];
+              const actorName = attackerSlot?.name || `P${scoreData.attackerSlot + 1}`;
+              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+              const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
+              const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+
+              deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor);
+            } else {
+              const victimSlot = netSlots[slotIndex];
+              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+              const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+
+              deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
             }
 
-            const attackerSlot = netSlots[scoreData.attackerSlot];
-            const victimSlot = netSlots[slotIndex];
-            const actorName = attackerSlot?.name || `P${scoreData.attackerSlot + 1}`;
-            const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-            const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
-            const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+            const partySocket = deps.getPartySocket();
+            if (partySocket) {
+              partySocket.send(JSON.stringify({
+                type: deps.MSG.hostEventFall,
+                slotId: slotIndex,
+                victimSlotIndex: slotIndex,
+                attackerSlot: scoreData.attackerSlot,
+                attackerSlotIndex: scoreData.attackerSlot,
+                verb: scoreData.verb,
+              }));
+            }
 
-            deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor);
-          } else {
-            const victimSlot = netSlots[slotIndex];
-            const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-            const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
-
-            deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+            deps.getLastHitBy().delete(slotIndex);
           }
 
-          const partySocket = deps.getPartySocket();
-          if (partySocket) {
-            partySocket.send(JSON.stringify({
-              type: deps.MSG.hostEventFall,
-              slotId: slotIndex,
-              victimSlotIndex: slotIndex,
-              attackerSlot: scoreData.attackerSlot,
-              attackerSlotIndex: scoreData.attackerSlot,
-              verb: scoreData.verb,
-            }));
-          }
-
-          deps.getLastHitBy().delete(slotIndex);
           deps.scheduleRespawn(cart, now);
         }
 
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
           deps.doRespawn(cart);
-        } else if (cart.respawnAtMs === null) {
+        } else if (cart.respawnAtMs === null && !isTestDrive) {
           updateCartIdleWatch(deps, now, cart, p);
         }
 
@@ -196,21 +204,23 @@ export function updateGameFlow(deps, context) {
         }
       }
 
-      // * Last-cart-standing: sole cart not mid-fall/respawn wins after a flourish delay.
-      let aliveOnArena = 0;
-      let soleSurvivorSlot = -1;
-      for (let si = 0; si < allCarts.length; si += 1) {
-        const c = allCarts[si];
-        if (!c?.body || c.respawnAtMs !== null) continue;
-        const pos = c.body.translation();
-        if (pos.y < deps.CONFIG.fall.yThreshold) continue;
-        aliveOnArena += 1;
-        soleSurvivorSlot = si;
-      }
-      if (aliveOnArena === 1 && soleSurvivorSlot >= 0) {
-        deps.scheduleLastCartStandingFinish?.(soleSurvivorSlot);
-      } else {
-        deps.abortLastCartStandingFlourish?.();
+      if (!isTestDrive) {
+        // * Last-cart-standing: sole cart not mid-fall/respawn wins after a flourish delay.
+        let aliveOnArena = 0;
+        let soleSurvivorSlot = -1;
+        for (let si = 0; si < allCarts.length; si += 1) {
+          const c = allCarts[si];
+          if (!c?.body || c.respawnAtMs !== null) continue;
+          const pos = c.body.translation();
+          if (pos.y < deps.CONFIG.fall.yThreshold) continue;
+          aliveOnArena += 1;
+          soleSurvivorSlot = si;
+        }
+        if (aliveOnArena === 1 && soleSurvivorSlot >= 0) {
+          deps.scheduleLastCartStandingFinish?.(soleSurvivorSlot);
+        } else {
+          deps.abortLastCartStandingFlourish?.();
+        }
       }
     }
   }

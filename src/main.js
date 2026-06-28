@@ -19,7 +19,7 @@ import {
 import "./cart-rave-menu.js";
 import "./cart-rave-menu.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, updateViewport as updateSceneViewport } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, updateViewport as updateSceneViewport } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { updateCartVisuals } from "./cart.js";
@@ -34,6 +34,7 @@ import * as GameAudio from "./audio.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { TEST_ARENA_FOG_DENSITY, TEST_ARENA_SKY } from "./levels/testArena.js";
 import { setContactShadowHazards } from "./contactShadows.js";
 import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
 import { initAudioSystem } from "./audioSetup.js";
@@ -143,7 +144,7 @@ function captureInviteRoomForDeferredMenu() {
   if (!isValid) return false;
   // * Exclude well-known self-created room codes so a refresh after Quickplay or Solo
   // * does not show the JOIN ROOM button as if it were a friend invite.
-  if (raw === "quickplay" || raw.toLowerCase().startsWith("solo")) return false;
+  if (raw === "quickplay" || raw.toLowerCase().startsWith("solo") || raw.toLowerCase().startsWith("testdrive")) return false;
   pendingInviteRoomFromUrl = raw;
   return true;
 }
@@ -200,9 +201,15 @@ function savePersonalStats(stats) {
 
 function detectGameMode() {
   const room = Netcode.resolvedPartyRoomFromUrl();
+  if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
   if (room.startsWith("solo")) return "solo";
   if (room === "quickplay") return "quickplay";
   return "friends";
+}
+
+function testDriveSpawnForSlot(_slotIndex, config) {
+  const y = config.cart.size.y / 2 + (config.cart.collider?.localYOffset ?? 0.13) + 0.05;
+  return { x: 0, y, z: 0 };
 }
 
 /**
@@ -813,6 +820,16 @@ async function main() {
     }
 
     const room = Netcode.resolvedPartyRoomFromUrl();
+    if (room && room.toLowerCase().startsWith("testdrive")) {
+      void enterPlayMode({ gameMode: "testdrive", levelId: "testArena" })
+        .then(() => {
+          showRotatePromptIfNeeded();
+          bootstrapNetcodeFromMenu("Test Drive");
+        })
+        .catch((err) => onMenuBootstrapError("Test Drive", err));
+      return;
+    }
+
     if (room && room.toLowerCase().startsWith("solo")) {
       void enterPlayMode({ gameMode: "solo" })
         .then(() => {
@@ -866,7 +883,7 @@ async function main() {
       menuActionListenerWired = true;
       window.addEventListener("cartrave:menu", (e) => {
       const action = e.detail.action;
-      if (action === "solo" || action === "quickplay" || action === "friends") {
+      if (action === "solo" || action === "quickplay" || action === "friends" || action === "testdrive") {
         if (!window.__cartRaveBootstrapped) return;
       }
       if (action === "joinroom") {
@@ -889,6 +906,14 @@ async function main() {
         void enterPlayMode({ gameMode: "solo" })
           .then(() => bootstrapNetcodeFromMenu("Solo"))
           .catch((err) => onMenuBootstrapError("Solo", err));
+      } else if (action === "testdrive") {
+        const roomId = `testdrive${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        void enterPlayMode({ gameMode: "testdrive", levelId: "testArena" })
+          .then(() => bootstrapNetcodeFromMenu("Test Drive"))
+          .catch((err) => onMenuBootstrapError("Test Drive", err));
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
@@ -951,6 +976,10 @@ async function main() {
 
     refreshMenuStats();
 
+    if (getCurrentLevelId() === "testArena") {
+      scheduleMenuLevelPreview();
+    }
+
     // Sync new menu name to localStorage for join message (once per page load).
     if (!menuNameSyncWired) {
       menuNameSyncWired = true;
@@ -985,11 +1014,19 @@ async function main() {
     window.CartRave?.hide?.();
     menuVisible = false;
     revealGameCanvas();
-    if (labelRenderer) labelRenderer.domElement.style.display = "block";
+    const isTestDrive = detectGameMode() === "testdrive";
+    if (labelRenderer) {
+      labelRenderer.domElement.style.display = isTestDrive ? "none" : "block";
+    }
     HUD.showAudioWidget();
+    if (isTestDrive) {
+      HUD.hideGameplayElements();
+    }
     updateTouchControlsVisibility();
     GameAudio.fadeOutMenuMusic();
-    GameAudio.fadeInGameMusic();
+    if (!isTestDrive) {
+      GameAudio.fadeInGameMusic();
+    }
   }
 
   function refreshMenuStats() {
@@ -1059,7 +1096,7 @@ async function main() {
     ensureWorldBootstrapped,
     performLevelLoad: (selected, opts) => commitLevelLoad(selected, opts),
     onPreviewSwapComplete: (levelId) => {
-      Effects.setRaveExtrasVisible(levelId !== "backrooms");
+      Effects.setRaveExtrasVisible(levelId !== "backrooms" && levelId !== "testArena");
     },
     finalizeArenaForPlay,
     crossfadeElement,
@@ -1076,7 +1113,7 @@ async function main() {
     getMenuLevelPreviewPromise,
     getLevelRebuildPromise,
     getMenuPreviewNeedsFinalize,
-    rebuildLevelIfNeeded: () => rebuildLevelIfNeeded(),
+    rebuildLevelIfNeeded: (levelId) => rebuildLevelIfNeeded(levelId),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
@@ -1146,19 +1183,62 @@ async function main() {
   let upgradeRecordReflector = null;
   let raveVisualsInitialized = false;
   let sceneEnvironmentDispose = null;
+  /** @type {typeof CONFIG.postFx.bloom | null} Saved bloom tuning when entering test drive. */
+  let testDriveBloomSaved = null;
+
+  function applyTestDrivePostFx() {
+    if (!bloomPass || !bloomEnabled) return;
+    if (!testDriveBloomSaved) {
+      testDriveBloomSaved = { ...CONFIG.postFx.bloom };
+    }
+    applyBloomSettings(bloomPass, {
+      ...CONFIG.postFx.bloom,
+      strength: 0.28,
+      threshold: 0.94,
+    });
+  }
+
+  function restoreTestDrivePostFx() {
+    if (!testDriveBloomSaved || !bloomPass) return;
+    applyBloomSettings(bloomPass, testDriveBloomSaved);
+    testDriveBloomSaved = null;
+  }
+
+  function levelUsesRaveExtras(levelId) {
+    const id = levelId ?? getCurrentLevelId();
+    return id !== "backrooms" && id !== "testArena";
+  }
 
   function applyLoadedLevelSideEffects(levelId) {
     const resolved = levelId ?? getCurrentLevelId();
     Simulation.setLevelHazards(levelHazards ?? null);
     setContactShadowHazards(levelHazards ?? null);
-    Effects.setAmbientDustStyle(
-      resolved === "backrooms" ? "backrooms" : "rainbow",
-      CART_COLORS,
-    );
+    if (resolved === "testArena") {
+      Effects.clearAmbientDust();
+      setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
+      applyTestDrivePostFx();
+    } else {
+      restoreTestDrivePostFx();
+      Effects.setAmbientDustStyle(
+        resolved === "backrooms" ? "backrooms" : "rainbow",
+        CART_COLORS,
+      );
+      if (resolved === "backrooms") {
+        setSceneFog(scene, renderer, {
+          color: CONFIG.postFx.fog.backrooms.color,
+          density: CONFIG.postFx.fog.backrooms.density,
+        });
+      } else {
+        setSceneFog(scene, renderer, {
+          color: CONFIG.postFx.fog.color,
+          density: CONFIG.postFx.fog.density,
+        });
+      }
+    }
   }
 
   function initDeferredRaveVisuals() {
-    const wantRaveExtras = getCurrentLevelId() !== "backrooms";
+    const wantRaveExtras = levelUsesRaveExtras();
     disposeSceneExtras(sceneExtras);
     sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras });
     if (wantRaveExtras && !raveVisualsInitialized) {
@@ -1252,6 +1332,17 @@ async function main() {
   onGameStartHandler = (msg) => {
     if (menuVisible) enterPlayMode({ skipBootstrap: true });
     showRotatePromptIfNeeded();
+    if (detectGameMode() === "testdrive") {
+      if (Netcode.getIsHost()) {
+        startRunningAt(Date.now());
+      } else {
+        syncRoundPhase("running");
+        GameState.setRoundStartedAtMs(Date.now());
+        GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+        GameState.setRoundWinnerSlotIndex(null);
+      }
+      return;
+    }
     const serverStartsAtMs = Number(msg?.startsAtMs);
     const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
       ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
@@ -1578,6 +1669,12 @@ async function main() {
       colorHexForSlot: displayColorHexForSlot,
       themeForSlot: (slot) => resolveCartThemeForSlot(slot, { youConnId: Netcode.getYouConnId() }),
       pendingMidRoundJoinRespawnConnId,
+      ...(detectGameMode() === "testdrive"
+        ? {
+          spawnForSlot: () => testDriveSpawnForSlot(0, CONFIG),
+          spawnYawForSlot: () => 0,
+        }
+        : {}),
     });
     if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
       Entities.destroyCarts({ scene, nameLabels });
@@ -2117,6 +2214,7 @@ async function main() {
 
   const gameFlowDeps = {
     ...sharedLoopGetters,
+    detectGameMode,
     getLastHitBy: () => GameState.getLastHitBy(),
     getLocalCart: localCartForConnId,
     scheduleRespawn,

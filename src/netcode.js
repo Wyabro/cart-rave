@@ -279,7 +279,7 @@ function clamp(value, min, max) {
 export function shouldUseClientPrediction() {
   if (isHost) return false;
   if (!partySocket) return false;
-  return callbacks.detectGameMode() !== "solo";
+  return callbacks.detectGameMode() !== "solo" && callbacks.detectGameMode() !== "testdrive";
 }
 
 // === INTERPOLATION & REMOTE CARTS ===
@@ -1007,9 +1007,9 @@ export function initNetcode(roomOverride) {
     resetNetcodeReconnectState();
   }
 
-  if (modeAtConnect === "solo") {
-    youConnId = "local-solo-player";
-    hostId = "local-solo-player";
+  if (modeAtConnect === "solo" || modeAtConnect === "testdrive") {
+    youConnId = modeAtConnect === "testdrive" ? "local-testdrive-player" : "local-solo-player";
+    hostId = youConnId;
     isHost = true;
     setAuthorityMode(true);
 
@@ -1022,14 +1022,23 @@ export function initNetcode(roomOverride) {
     }
     const colorToSend = resolveServerColorPick();
     const lookHex = loadPlayerCustomization().hex;
-    const npcNames = callbacks.getInitialNpcNames();
 
-    netSlots = [
-      { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
-      { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: "blue" },
-      { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: "green" },
-      { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: "yellow" },
-    ];
+    if (modeAtConnect === "testdrive") {
+      netSlots = [
+        { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
+        { slotId: 1, kind: "empty", connId: null, name: "", color: "blue" },
+        { slotId: 2, kind: "empty", connId: null, name: "", color: "green" },
+        { slotId: 3, kind: "empty", connId: null, name: "", color: "yellow" },
+      ];
+    } else {
+      const npcNames = callbacks.getInitialNpcNames();
+      netSlots = [
+        { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
+        { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: "blue" },
+        { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: "green" },
+        { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: "yellow" },
+      ];
+    }
 
     callbacks.markFirstHelloReceived();
     try { callbacks.ensureSessionReady(); } catch {}

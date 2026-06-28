@@ -118,12 +118,14 @@ export function initPostFxDebugGui(deps) {
 
   const syncBloom = () => applyBloomSettings(bloomPass, bloomLive);
 
-  const gui = new GUI({ title: "Graphics Debug", width: 320 });
+  const gui = new GUI({ title: "Cart Rave Debug  (H = hide/show)", width: 340 });
   gui.domElement.style.zIndex = "99999";
 
   const urlWantsDebug = new URLSearchParams(window.location.search).has("debug");
   let guiVisible = urlWantsDebug;
   if (!guiVisible) gui.hide();
+
+  wireRaveGltfCartDebugFolder(gui, scene);
 
   const rendererFolder = gui.addFolder("Renderer");
   rendererFolder.add(params, "exposure", 0.4, 2.0, 0.01).name("toneMappingExposure").onChange((v) => {
@@ -243,8 +245,6 @@ export function initPostFxDebugGui(deps) {
   window.addEventListener("cartrave:customization-changed", () => {
     cartColorDebug.reloadFromStorage();
   });
-
-  wireRaveGltfCartDebugFolder(gui, scene);
 
   const actions = {
     logAllValues() {

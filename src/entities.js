@@ -437,6 +437,8 @@ export function rematchResetWorld() {
  *   colorHexForSlot: (slot: object | null | undefined) => number,
  *   themeForSlot?: (slot: object | null | undefined) => string,
  *   pendingMidRoundJoinRespawnConnId: string | null | undefined,
+ *   spawnForSlot?: (slotIndex: number, slot: object | null | undefined) => { x: number, y: number, z: number },
+ *   spawnYawForSlot?: (slotIndex: number, spawn: { x: number, y: number, z: number }) => number,
  * }} params
  */
 export function initCarts({
@@ -449,6 +451,8 @@ export function initCarts({
   colorHexForSlot,
   themeForSlot,
   pendingMidRoundJoinRespawnConnId,
+  spawnForSlot,
+  spawnYawForSlot,
 }) {
   sceneRef = scene;
   worldRef = world;
@@ -461,8 +465,15 @@ export function initCarts({
     ?? ((slot) => resolveCartThemeForSlot(slot, { youConnId }));
 
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
-    const spawn = spawnOnRingForSlot(slotIndex);
     const slot = netSlots[slotIndex];
+    if (slot?.kind === "empty") {
+      cartsBySlotId[slotIndex] = null;
+      continue;
+    }
+
+    const spawn = spawnForSlot
+      ? spawnForSlot(slotIndex, slot)
+      : spawnOnRingForSlot(slotIndex);
     const cartColorHex = colorHexForSlot(slot);
     const cartThemeId = resolveTheme(slot);
 
@@ -472,7 +483,7 @@ export function initCarts({
       color: cartColorHex,
       themeId: cartThemeId,
       spawn,
-      spawnYaw: yawToCenter(spawn),
+      spawnYaw: spawnYawForSlot ? spawnYawForSlot(slotIndex, spawn) : yawToCenter(spawn),
       label: slot?.name ?? `slot-${slotIndex}`,
       slotIndex,
     });
