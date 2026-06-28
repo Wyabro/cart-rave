@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { resetRaveGltfCartVisualState, updateRaveGltfCartVisuals } from "./cartRaveGltf.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
 
@@ -51,7 +52,12 @@ const CHASSIS_CROSSBAR_Z_FRACTIONS = [-0.55, 0.55];
 // * Caster / wheel (visual only). Chunky cartoon wheels.
 const CASTER_YAW_DAMPING = 0.28;
 const CASTER_YAW_WOBBLE_AMPLITUDE = 0.11;
+/** Per-caster hub speed (m/s) before that caster swivels toward its local trail heading. */
 const CASTER_YAW_MIN_SPEED = 0.35;
+/** Scales rigid-body yaw rate when computing per-corner trail velocity. */
+const CASTER_ANGVEL_MUL = 1.0;
+/** Added to each caster trail heading when tracking (radians). */
+const CASTER_YAW_OFFSET = 0;
 const WHEEL_RADIUS = 0.27;
 const WHEEL_WIDTH = 0.18;
 const WHEEL_RADIAL_SEGMENTS = 20;
@@ -61,6 +67,7 @@ const CASTER_MOUNT_DROP_BELOW_CHASSIS = 0.16;
 
 const _v = new THREE.Vector3();
 const _localDir = new THREE.Vector3();
+const _localAngvel = new THREE.Vector3();
 const _rootWorld = new THREE.Quaternion();
 const _rootInv = new THREE.Quaternion();
 const _axisY = new THREE.Vector3(0, 1, 0);
@@ -521,6 +528,9 @@ function buildCastersAndWheels(root, frameMat) {
 
     const yawGroup = new THREE.Group();
     yawGroup.position.y = -CASTER_STEM_HEIGHT * 0.85;
+    yawGroup.userData.hubLocalX = x;
+    yawGroup.userData.hubLocalZ = z;
+    yawGroup.userData.smoothedSwivelYaw = 0;
     mount.add(yawGroup);
     casterYawGroups.push(yawGroup);
 
@@ -661,7 +671,6 @@ export function buildCart(colorHex) {
   root.userData.cartVisual = {
     casterYawGroups,
     wheelPitchObjects,
-    smoothedCasterYaw: 0,
     wheelRoll: [0, 0, 0, 0],
     wobblePhases,
   };
@@ -686,12 +695,15 @@ export function buildCart(colorHex) {
  * @param {THREE.Object3D} root Cart root returned by {@link buildCart}.
  */
 export function resetCartVisualState(root) {
+  if (root?.userData?.isRaveGltf) {
+    resetRaveGltfCartVisualState(root);
+    return;
+  }
   const data = root.userData.cartVisual;
   if (!data) return;
-  data.smoothedCasterYaw = 0;
-  // Keep wheelRoll and wheelPitchObjects in sync in case the mesh changes.
   data.wheelRoll = new Array(data.wheelPitchObjects.length).fill(0);
   for (const yawG of data.casterYawGroups) {
+    yawG.userData.smoothedSwivelYaw = 0;
     yawG.rotation.y = 0;
   }
   for (const pitchG of data.wheelPitchObjects) {
@@ -700,14 +712,19 @@ export function resetCartVisualState(root) {
 }
 
 /**
- * Updates per-frame cart visuals: caster yaw aligned to planar velocity (with damping
- * and high-speed wobble) and wheel roll from signed speed along each caster heading.
+ * Updates per-frame cart visuals: independent caster swivel aligned to each hub's
+ * rigid-body trail velocity (with damping and high-speed wobble) and per-wheel roll.
  * @param {THREE.Object3D} root Cart root returned by {@link buildCart}.
  * @param {THREE.Vector3} linvelWorld World-space linear velocity of the cart body.
  * @param {number} dtSec Delta time in seconds since the last update.
  * @param {number} timeMs Absolute time in milliseconds (used for wobble phase).
+ * @param {THREE.Vector3 | null | undefined} [angvelWorld] World-space angular velocity (optional).
  */
-export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
+export function updateCartVisuals(root, linvelWorld, dtSec, timeMs, angvelWorld = null) {
+  if (root?.userData?.isRaveGltf) {
+    updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld);
+    return;
+  }
   const data = root.userData.cartVisual;
   if (!data) return;
 
@@ -719,32 +736,44 @@ export function updateCartVisuals(root, linvelWorld, dtSec, timeMs) {
   root.getWorldQuaternion(_rootWorld);
   _rootInv.copy(_rootWorld).invert();
   _v.set(vx, 0, vz);
-  if (speed >= CASTER_YAW_MIN_SPEED) {
-    _localDir.copy(_v).applyQuaternion(_rootInv);
-    const targetYaw = Math.atan2(_localDir.x, _localDir.z);
-    const alpha = 1 - (1 - CASTER_YAW_DAMPING) ** Math.min(240 * dtSec, 1);
-    data.smoothedCasterYaw = lerpAngle(data.smoothedCasterYaw, targetYaw, alpha);
-  } else if (speed > 1e-5) {
-    // * Wheel roll still needs local velocity when below caster-yaw threshold.
-    _localDir.copy(_v).applyQuaternion(_rootInv);
+  _localDir.copy(_v).applyQuaternion(_rootInv);
+
+  let localOmegaY = 0;
+  if (angvelWorld) {
+    _localAngvel.copy(angvelWorld).applyQuaternion(_rootInv);
+    localOmegaY = _localAngvel.y;
   }
 
+  const alpha = 1 - (1 - CASTER_YAW_DAMPING) ** Math.min(240 * dtSec, 1);
   const speedNorm = clamp(speed / 14, 0, 1);
   const wobbleScale = CASTER_YAW_WOBBLE_AMPLITUDE * speedNorm;
   const t = timeMs * 0.001;
-
-  const yawBase = data.smoothedCasterYaw;
   const wheelRadius = Math.max(WHEEL_RADIUS, 1e-4);
 
   for (let i = 0; i < casterYawGroups.length; i += 1) {
     if (i >= data.wheelRoll.length) break;
     const yawG = casterYawGroups[i];
+    const hubX = yawG.userData.hubLocalX ?? 0;
+    const hubZ = yawG.userData.hubLocalZ ?? 0;
+    const omega = localOmegaY * CASTER_ANGVEL_MUL;
+    const cornerVx = _localDir.x + omega * hubZ;
+    const cornerVz = _localDir.z - omega * hubX;
+    const cornerSpeed = Math.hypot(cornerVx, cornerVz);
+
+    const prevSwivel = yawG.userData.smoothedSwivelYaw ?? 0;
+    let smoothedSwivel = prevSwivel;
+    if (cornerSpeed >= CASTER_YAW_MIN_SPEED) {
+      const targetHeading = Math.atan2(cornerVx, cornerVz) + CASTER_YAW_OFFSET;
+      smoothedSwivel = lerpAngle(prevSwivel, targetHeading, alpha);
+    }
+    yawG.userData.smoothedSwivelYaw = smoothedSwivel;
+
     const wob = Math.sin(t * 14.2 + wobblePhases[i]) * wobbleScale;
-    const localYaw = yawBase + wob;
-    yawG.rotation.y = localYaw;
+    const displayYaw = smoothedSwivel + wob;
+    yawG.rotation.y = displayYaw;
 
     const localSignedSpeed =
-      _localDir.x * Math.sin(localYaw) + _localDir.z * Math.cos(localYaw);
+      cornerVx * Math.sin(displayYaw) + cornerVz * Math.cos(displayYaw);
     data.wheelRoll[i] += (localSignedSpeed / wheelRadius) * dtSec;
     wheelPitchObjects[i].rotation.x = data.wheelRoll[i];
   }

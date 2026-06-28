@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCart } from "./cart.js";
+import { normalizeThemeId } from "./cartThemeConfig.js";
+import {
+  createRaveGltfCartInstance,
+  disposeRaveGltfInstance,
+  isRaveGltfSourceReady,
+  prepareRaveGltfCart,
+} from "./cartRaveGltf.js";
 import { CONFIG } from "./config.js";
 import { resolveCartThemeForSlot } from "./customization.js";
 import {
@@ -133,13 +140,26 @@ function createCartCollider(world, body) {
  * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache>, themeId: string }}
  */
 function setupCartVisuals(scene, color, themeId) {
-  const mesh = buildCart(color);
-  applyCartTheme(mesh, themeId, color);
+  const id = normalizeThemeId(themeId);
+  let mesh;
+  let materialCache;
+
+  if (id === "rave" && isRaveGltfSourceReady()) {
+    mesh = createRaveGltfCartInstance();
+    materialCache = prepareRaveGltfCart(mesh, color);
+  } else {
+    if (id === "rave" && import.meta.env?.DEV) {
+      console.warn("[entities] Rave GLTF not ready — using procedural cart fallback.");
+    }
+    mesh = buildCart(color);
+    applyCartTheme(mesh, themeId, color);
+    materialCache = buildCartMaterialCache(mesh);
+  }
+
   scene.add(mesh);
   const contactShadow = ContactShadows.createCartContactShadow();
   if (contactShadow) scene.add(contactShadow);
   mesh.updateMatrixWorld(true);
-  const materialCache = buildCartMaterialCache(mesh);
   return { mesh, materialCache, contactShadow, themeId };
 }
 
@@ -242,6 +262,11 @@ export function resetCartIdleWatch(cart) {
  */
 function disposeCartMeshResources(mesh, materialCache) {
   if (!mesh) return;
+
+  if (mesh.userData?.isRaveGltf) {
+    disposeRaveGltfInstance(mesh);
+    return;
+  }
 
   disposeCartThemeResources(mesh);
 

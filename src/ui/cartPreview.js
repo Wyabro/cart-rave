@@ -1,16 +1,20 @@
 /**
  * cartPreview.js — Three.js cart preview for the customization panel.
  *
- * Loads an external GLTF cart (`cartPreviewGltf.js`) instead of the procedural in-game mesh.
- * Theme/color/pattern updates reuse the same material-cache tint path as gameplay carts.
+ * Rave theme uses the shared GLTF cart (`cartRaveGltf.js`); other themes use procedural
+ * `buildCart()` + `applyCartTheme()`. Color updates go through `applyThemeColorToCache`.
  */
 
 import * as THREE from "three";
+import { buildCart } from "../cart.js";
 import { applyCartPattern } from "../cartPatterns.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "../cartPatternConfig.js";
 import { DEFAULT_CART_THEME, getCartTheme, normalizeThemeId } from "../cartThemeConfig.js";
 import {
+  applyCartTheme,
   applyThemeColorToCache,
+  buildCartThemeMaterialCache,
+  disposeCartThemeResources,
 } from "../cartThemes.js";
 import { setupSceneEnvironment } from "../scene.js";
 import {
@@ -148,6 +152,9 @@ export class CartPreview {
 
     /** @type {boolean} */
     this._gltfReady = false;
+
+    /** @type {boolean} */
+    this._usesRaveGltf = false;
   }
 
   /**
@@ -316,11 +323,98 @@ export class CartPreview {
   }
 
   /**
+   * @private
+   */
+  _disposeCurrentCart() {
+    if (!this.cartGroup) return;
+
+    if (this._usesRaveGltf) {
+      disposePreviewCartGltf(this.cartGroup);
+    } else {
+      disposeCartThemeResources(this.cartGroup);
+      const disposedGeos = new Set();
+      const disposedMats = new Set();
+      this.cartGroup.traverse((child) => {
+        if (!child.isMesh) return;
+        const ud = child.userData || {};
+        if (ud.isSharedGeometry || ud.sharesCartFrameGeometry) {
+          if (ud.isCartPatternLayer && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const m of mats) {
+              if (m && !disposedMats.has(m)) {
+                disposedMats.add(m);
+                m.dispose?.();
+              }
+            }
+          }
+          return;
+        }
+        if (child.geometry && !disposedGeos.has(child.geometry)) {
+          disposedGeos.add(child.geometry);
+          child.geometry.dispose?.();
+        }
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const m of mats) {
+          if (m && !disposedMats.has(m) && !ud.isWheel) {
+            disposedMats.add(m);
+            m.dispose?.();
+          }
+        }
+      });
+    }
+
+    this.scene?.remove(this.cartGroup);
+    this.cartGroup = null;
+    this._materialCache = null;
+    this._gltfReady = false;
+    this._usesRaveGltf = false;
+  }
+
+  /**
+   * Sync rebuild for non-rave procedural themes.
+   * @private
+   */
+  _rebuildProceduralCart() {
+    this._clearPlaceholder();
+    this._setLoadingState(false);
+    this._disposeCurrentCart();
+
+    const cart = buildCart(this._neonHex);
+    applyCartTheme(cart, this._themeId, this._neonHex);
+    applyCartPattern(cart, this._patternId, this._neonHex);
+
+    const theme = getCartTheme(this._themeId);
+    if (theme.patternPolicy === "disable") {
+      const patternMesh = cart.getObjectByName("CartFramePattern");
+      if (patternMesh) patternMesh.visible = false;
+    }
+
+    centerCartGroup(cart);
+    this._materialCache = buildCartThemeMaterialCache(cart);
+    applyThemeColorToCache(this._materialCache, this._themeId, this._neonHex);
+
+    this.cartGroup = cart;
+    this._gltfReady = true;
+    this._usesRaveGltf = false;
+    this.scene?.add(cart);
+
+    if (this.camera && this.renderer) {
+      const { width, height } = this._getContentSize();
+      frameCartInCamera(this.camera, cart, width / height);
+    }
+  }
+
+  /**
    * Loads/replaces the GLTF preview cart for the current theme (async — stale loads are ignored).
    * @private
    */
   async _rebuildCart() {
     if (!this.scene) return;
+
+    if (normalizeThemeId(this._themeId) !== "rave") {
+      this._rebuildProceduralCart();
+      return;
+    }
 
     const seq = ++this._loadSeq;
     const themeId = this._themeId;
@@ -334,12 +428,9 @@ export class CartPreview {
         this.cartGroup = null;
         this._materialCache = null;
         this._gltfReady = false;
+        this._usesRaveGltf = false;
       } else {
-        this.scene.remove(this.cartGroup);
-        disposePreviewCartGltf(this.cartGroup);
-        this.cartGroup = null;
-        this._materialCache = null;
-        this._gltfReady = false;
+        this._disposeCurrentCart();
       }
     }
 
@@ -381,6 +472,7 @@ export class CartPreview {
       }
       this.cartGroup = cart;
       this._gltfReady = true;
+      this._usesRaveGltf = true;
       this.scene.add(cart);
       this._setLoadingState(false);
 
@@ -489,16 +581,18 @@ export class CartPreview {
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
 
-    if (this._gltfReady && this.cartGroup) {
+    if (this._usesRaveGltf && this.cartGroup) {
       disposePreviewCartGltf(this.cartGroup);
       this.scene?.remove(this.cartGroup);
     } else {
       this._clearPlaceholder();
+      if (this.cartGroup) this._disposeCurrentCart();
     }
     this._loadSeq += 1;
     this.cartGroup = null;
     this._materialCache = null;
     this._gltfReady = false;
+    this._usesRaveGltf = false;
 
     this.container?.classList.remove("cr-cart-preview-loading");
 

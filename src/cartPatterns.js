@@ -303,7 +303,10 @@ export function applyCartPattern(root, patternId, neonHex) {
   const frameMesh = root.getObjectByName("CartFrame");
   if (!frameMesh?.isMesh || !frameMesh.geometry) return;
 
-  clearBaseFramePatternMaps(frameMesh);
+  // * GLTF rave cart keeps authored baseColor + emissive maps for uniform PBR.
+  if (!root.userData?.isRaveGltf && !frameMesh.userData?.preserveGltfMaps) {
+    clearBaseFramePatternMaps(frameMesh);
+  }
 
   const id = normalizePatternId(patternId);
   const patternMesh = root.getObjectByName("CartFramePattern");

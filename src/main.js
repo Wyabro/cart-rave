@@ -620,6 +620,7 @@ async function main() {
   CameraMod.initCameraFollow(camera, CONFIG.camera);
 
   const cartLinvelScratch = new THREE.Vector3();
+  const cartAngvelScratch = new THREE.Vector3();
   const netTargetPosScratch = new THREE.Vector3();
   const boothNeonColor1 = new THREE.Color(CONFIG.booth.neonColor1);
   const boothNeonColor2 = new THREE.Color(CONFIG.booth.neonColor2);
@@ -2079,6 +2080,7 @@ async function main() {
     ...sharedLoopGetters,
     netTargetPosScratch,
     cartLinvelScratch,
+    cartAngvelScratch,
     updateCartVisuals,
     buildCartMaterialCache,
     colorHexForSlot: displayColorHexForSlot,

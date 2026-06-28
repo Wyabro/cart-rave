@@ -48,7 +48,8 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {object} CONFIG
  * @property {import("three").Vector3} netTargetPosScratch
  * @property {import("three").Vector3} cartLinvelScratch
- * @property {(mesh: import("three").Object3D, linvel: import("three").Vector3, dt: number, now: number) => void} updateCartVisuals
+ * @property {import("three").Vector3} cartAngvelScratch
+ * @property {(mesh: import("three").Object3D, linvel: import("three").Vector3, dt: number, now: number, angvel?: import("three").Vector3) => void} updateCartVisuals
  * @property {(mesh: import("three").Object3D) => object} buildCartMaterialCache
  * @property {(slot: object | null | undefined) => number} colorHexForSlot
  * @property {() => boolean} isMuted
@@ -116,7 +117,10 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       c.mesh.updateMatrixWorld(true);
       const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
       deps.cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
-      deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now);
+      const av = c.body?.angvel?.();
+      if (av) deps.cartAngvelScratch.set(av.x, av.y, av.z);
+      else deps.cartAngvelScratch.set(0, 0, 0);
+      deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now, deps.cartAngvelScratch);
       if (c.contactShadow) {
         const bodyY = c._netTargetPos
           ? c._netTargetPos.y
@@ -144,7 +148,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     c.mesh.updateMatrixWorld(true);
     const lv = c.body.linvel();
     deps.cartLinvelScratch.set(lv.x, lv.y, lv.z);
-    deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now);
+    const av = c.body.angvel();
+    deps.cartAngvelScratch.set(av.x, av.y, av.z);
+    deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now, deps.cartAngvelScratch);
     if (c.contactShadow) {
       ContactShadows.updateCartContactShadow(c.contactShadow, {
         x: c.mesh.position.x,

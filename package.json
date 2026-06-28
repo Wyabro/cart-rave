@@ -20,6 +20,7 @@
     "ship:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy",
     "ship": "node scripts/party-deploy-guard.mjs && npm run build:party-static && npx partykit deploy",
     "deploy:preview": "npx partykit deploy --config partykit.preview.json",
+    "compress:rave-gltf": "node scripts/compress-rave-gltf.mjs",
     "knip": "knip"
   },
   "devDependencies": {

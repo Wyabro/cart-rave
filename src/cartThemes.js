@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { getCartTheme, normalizeThemeId } from "./cartThemeConfig.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
+import { applyRaveGltfColorToCache, applyRaveGltfLeaderGlow, buildRaveGltfMaterialCache } from "./cartRaveGltf.js";
 
 /** @typedef {import("./cartThemeConfig.js").CartThemeId} CartThemeId */
 /** @typedef {import("./cartThemeConfig.js").CartThemeDef} CartThemeDef */
@@ -2709,6 +2710,10 @@ function applyPatternPolicy(root, theme) {
  * @returns {CartThemeMaterialCache}
  */
 export function buildCartThemeMaterialCache(cartMesh) {
+  if (cartMesh?.userData?.isRaveGltf) {
+    return buildRaveGltfMaterialCache(cartMesh);
+  }
+
   const frameMats = [];
   const frameBodyMats = [];
   const accentMats = [];
@@ -2744,6 +2749,12 @@ export function buildCartThemeMaterialCache(cartMesh) {
  */
 export function applyThemeColorToCache(cache, themeId, neonHex, intensityMul = 1) {
   if (!cache) return;
+
+  if (cache.isRaveGltf) {
+    applyRaveGltfColorToCache(cache, neonHex, intensityMul);
+    return;
+  }
+
   const theme = getCartTheme(themeId);
   const { colorPolicy, baseHex, accentHex } = theme;
   const bodyMul = intensityMul;
@@ -2793,6 +2804,11 @@ export function applyThemeLeaderGlow(cache, themeId, neonHex, glowPulse, glowInt
       mat.emissiveIntensity = baseIntensity * (1 - whiteMix) + glowIntensity * whiteMix;
     }
   };
+
+  if (cache.isRaveGltf) {
+    applyRaveGltfLeaderGlow(cache, neonHex, glowPulse, glowIntensity);
+    return;
+  }
 
   if (theme.colorPolicy === "neonFull") {
     for (const mat of cache.frameGlowMats) pulseMat(mat, neonHex);
