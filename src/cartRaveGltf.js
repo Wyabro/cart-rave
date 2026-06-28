@@ -116,7 +116,7 @@ export const RAVE_GLTF_ORIENTATION_Y = Math.PI / 2;
  */
 export const RAVE_GLTF_TUNING_DEFAULTS = {
   scale: 2.25,
-  yOffset: -1.24,
+  yOffset: -1.195,
   bodyScale: 1.2,
   bodyYDrop: 0.085,
   cornerInset: 0.015,
@@ -128,14 +128,14 @@ export const RAVE_GLTF_TUNING_DEFAULTS = {
   casterStanceScaleZ: 0.99,
   swivelMaxAngleDeg: 135,
   swivelDamping: 0.28,
-  steeringInfluence: 0.72,
-  frontSteerMul: 1.25,
+  steeringInfluence: 0.6,
+  frontSteerMul: 0.15,
   rearSteerMul: 0.12,
   yawSteerBlend: 1.0,
   turnSteerDamping: 0.52,
   frontAxleRigid: true,
-  frontTurnSteerDamping: 0.62,
-  frontAxleSign: -1,
+  frontTurnSteerDamping: 0.72,
+  frontAxleSign: 1,
   frontPivotYOffset: 0,
   frontPivotXOffset: 0,
   frontPivotZOffset: 0,
@@ -151,8 +151,8 @@ export const RAVE_GLTF_TUNING_DEFAULTS = {
   restReturnDamping: 0.1,
   straightCruiseMinSpeed: 0.28,
   travelHeadingSmoothing: 0.82,
-  casterPivotYOffset: 0,
-  casterPivotXOffset: 0,
+  casterPivotYOffset: -0.03,
+  casterPivotXOffset: -0.025,
   casterPivotZOffset: 0,
   casterPivotCorner: {
     frontRight: { x: 0, y: 0, z: 0 },
@@ -2982,6 +2982,30 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
 
   const shouldLogCoordination = raveGltfTuning.casterCoordinationLog === true;
 
+  /** Mean rear-wheel roll rate (rad/s) so front wheels stay visually in sync. */
+  let rearRollAngularVel = null;
+  {
+    let rearRollSum = 0;
+    let rearRollCount = 0;
+    for (const c of casters) {
+      const cAxle = c.axle ?? (c.hubLocalX > 0 ? "front" : "rear");
+      if (cAxle !== "rear" || !c.rollPivot) continue;
+      const cv = computeRaveGltfCasterCornerLocalVel(
+        _localVel.x,
+        _localVel.z,
+        localOmegaY,
+        c.hubLocalX,
+        c.hubLocalZ,
+      );
+      if (cv.speed < RAVE_GLTF_WHEEL_ROLL_MIN_SPEED) continue;
+      const ss =
+        cv.vx * Math.sin(c.smoothedHeading) + cv.vz * Math.cos(c.smoothedHeading);
+      rearRollSum += ss / Math.max(c.wheelRadius, 1e-4);
+      rearRollCount += 1;
+    }
+    if (rearRollCount > 0) rearRollAngularVel = rearRollSum / rearRollCount;
+  }
+
   for (const caster of casters) {
     const cornerVel = computeRaveGltfCasterCornerLocalVel(
       _localVel.x,
@@ -3058,15 +3082,19 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
     if (!rollEnabled || !caster.rollPivot) continue;
 
     if (cornerVel.speed >= RAVE_GLTF_WHEEL_ROLL_MIN_SPEED) {
-      const rollHeading = (frontAxleRigid && axle === "front")
-        ? frontSharedHeading
-        : caster.smoothedHeading;
-      const signedSpeed =
-        cornerVel.vx * Math.sin(rollHeading) + cornerVel.vz * Math.cos(rollHeading);
-      caster.wheelRoll +=
-        (signedSpeed / Math.max(caster.wheelRadius, 1e-4))
-        * dtSec
-        * RAVE_GLTF_WHEEL_ROLL_SPEED_MUL;
+      if (axle === "front" && rearRollAngularVel != null) {
+        caster.wheelRoll += rearRollAngularVel * dtSec * RAVE_GLTF_WHEEL_ROLL_SPEED_MUL;
+      } else {
+        const rollHeading = (frontAxleRigid && axle === "front")
+          ? frontSharedHeading
+          : caster.smoothedHeading;
+        const signedSpeed =
+          cornerVel.vx * Math.sin(rollHeading) + cornerVel.vz * Math.cos(rollHeading);
+        caster.wheelRoll +=
+          (signedSpeed / Math.max(caster.wheelRadius, 1e-4))
+          * dtSec
+          * RAVE_GLTF_WHEEL_ROLL_SPEED_MUL;
+      }
     }
 
     setObjectAxisRotation(
