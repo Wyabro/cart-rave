@@ -1,14 +1,10 @@
-// touchControls.js — virtual joystick + action buttons for mobile play
+// touchControls.js — virtual joystick (nipplejs) + action buttons for mobile play
 
-import { clamp } from "./utils.js";
+import nipplejs from "nipplejs";
 import {
   animateTouchControlPress,
   animateTouchControlRelease,
   animateBoostActivateFlash,
-  animateJoystickEngage,
-  animateJoystickRelease,
-  setJoystickActivePulse,
-  stopTouchPulse,
 } from "./animations.js";
 
 const JOY_DEADZONE = 0.12;
@@ -16,28 +12,18 @@ const HUD_CLEARANCE_GAP = 12;
 
 /** @type {HTMLElement | null} */
 let rootEl = null;
-/** @type {HTMLElement | null} */
-let joyEl = null;
-/** @type {HTMLElement | null} */
-let knobEl = null;
 
-/** @type {HTMLElement | null} */
-let joyRingEl = null;
+/** nipplejs Collection instance */
+let nippleCollection = null;
+/** nipplejs zone element */
+let joyZoneEl = null;
 
-/** Knob travel radius in px — derived from joy element size on pointer down. */
-let joyRadius = 56;
-let knobOffsetX = 0;
-let knobOffsetY = 0;
 let touchForward = 0;
 let touchTurn = 0;
 let boostHeld = false;
 let joyActive = false;
 /** @type {number | null} */
-let joyPointerId = null;
-/** @type {number | null} */
 let boostPointerId = null;
-let joyCenterX = 0;
-let joyCenterY = 0;
 
 /** @type {(() => void) | null} */
 let onHopCb = null;
@@ -63,6 +49,8 @@ function isElementVisible(el) {
   const rect = el.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
+
+// ───── HUD layout sync ─────────────────────────────────────────────────────
 
 /**
  * Measures HUD elements and sets CSS variables so controls sit above the score bar, etc.
@@ -96,6 +84,9 @@ export function syncTouchLayout() {
   const landscape = window.innerWidth > window.innerHeight && vh < 520;
   rootEl.classList.toggle("gtc-compact", shortViewport);
   rootEl.classList.toggle("gtc-landscape", landscape);
+
+  // * Let nipplejs recalculate its zone bounding box after layout changes.
+  nippleCollection?.reposition();
 }
 
 function scheduleLayoutSync() {
@@ -142,34 +133,63 @@ function bindLayoutSync() {
   window.addEventListener("orientationchange", scheduleLayoutSync, { passive: true });
 }
 
-function setKnobOffset(kx, ky) {
-  if (!knobEl) return;
-  knobOffsetX = kx;
-  knobOffsetY = ky;
-  knobEl.style.setProperty("--knob-x", `${kx.toFixed(1)}px`);
-  knobEl.style.setProperty("--knob-y", `${ky.toFixed(1)}px`);
+// ───── Nipplejs joystick ────────────────────────────────────────────────────
+
+function initNippleJoystick() {
+  if (!joyZoneEl) return;
+
+  // Destroy previous instance if re-creating (e.g. orientation change).
+  if (nippleCollection) {
+    nippleCollection.destroy();
+    nippleCollection = null;
+  }
+
+  nippleCollection = nipplejs.create({
+    zone: joyZoneEl,
+    mode: "static",
+    position: { left: "50%", top: "50%" },
+    size: 126,
+    threshold: JOY_DEADZONE,
+    color: {
+      front: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 55%, rgba(0,0,0,0.2))",
+      back: "rgba(0, 0, 0, 0.26)",
+    },
+    fadeTime: 150,
+    restOpacity: 0.55,
+  });
+
+  nippleCollection.on("start", () => {
+    joyActive = true;
+    joyZoneEl?.classList.add("is-active");
+  });
+
+  nippleCollection.on("move", (evt) => {
+    const v = evt.data.vector;
+    // * nipplejs vector: x=-1..1 (left..right), y=-1..1 (up..down in screen-space → positive=up)
+    // * Cart steering: forward=positive=forward (up), turn=positive=left
+    touchForward = v.y;
+    touchTurn = -v.x;
+  });
+
+  nippleCollection.on("end", () => {
+    joyActive = false;
+    touchForward = 0;
+    touchTurn = 0;
+    joyZoneEl?.classList.remove("is-active");
+  });
 }
 
-function resetJoystick() {
+function destroyNippleJoystick() {
+  if (nippleCollection) {
+    nippleCollection.destroy();
+    nippleCollection = null;
+  }
   joyActive = false;
-  joyPointerId = null;
   touchForward = 0;
   touchTurn = 0;
-  joyEl?.classList.remove("is-active");
-
-  stopTouchPulse(knobEl);
-  stopTouchPulse(joyRingEl);
-
-  if (knobEl) {
-    const fromX = knobOffsetX;
-    const fromY = knobOffsetY;
-    knobOffsetX = 0;
-    knobOffsetY = 0;
-    animateJoystickRelease(knobEl, fromX, fromY);
-  } else {
-    setKnobOffset(0, 0);
-  }
 }
+
+// ───── Boost / Hop button handlers ──────────────────────────────────────────
 
 function resetBoost() {
   boostHeld = false;
@@ -181,13 +201,18 @@ function resetBoost() {
 }
 
 export function resetTouchControls() {
-  resetJoystick();
+  // * Reset nipplejs to rest state (no active move to reset via API, just clear state).
+  joyActive = false;
+  touchForward = 0;
+  touchTurn = 0;
   resetBoost();
   if (hopBtnEl) {
     hopBtnEl.classList.remove("is-pressed");
     animateTouchControlRelease(hopBtnEl);
   }
 }
+
+// ───── Public axis / state helpers ──────────────────────────────────────────
 
 /**
  * Returns tank-steering axes from the virtual joystick.
@@ -211,6 +236,8 @@ export function isBoostHeld() {
   return boostHeld;
 }
 
+// ───── Visibility ───────────────────────────────────────────────────────────
+
 /**
  * @param {boolean} visible
  */
@@ -225,38 +252,54 @@ export function setTouchControlsVisible(visible) {
   scheduleLayoutSync();
 }
 
-function readJoyMetrics(joy) {
-  const rect = joy.getBoundingClientRect();
-  const size = Math.min(rect.width, rect.height);
-  joyRadius = Math.max(32, size * 0.38);
-  return {
-    centerX: rect.left + rect.width / 2,
-    centerY: rect.top + rect.height / 2,
-  };
+// ───── Boost button flash (called externally when nitro fires) ──────────────
+
+export function flashBoostActivate() {
+  if (!boostBtnEl || rootEl?.style.display === "none") return;
+  animateBoostActivateFlash(boostBtnEl);
 }
 
-function updateJoystick(clientX, clientY) {
-  const dx = clientX - joyCenterX;
-  const dy = clientY - joyCenterY;
-  const dist = Math.hypot(dx, dy);
-  const clampedDist = Math.min(dist, joyRadius);
-  const angle = dist > 1e-4 ? Math.atan2(dy, dx) : 0;
-  const kx = Math.cos(angle) * clampedDist;
-  const ky = Math.sin(angle) * clampedDist;
+// ───── Pointer handlers for Boost / Hop buttons ─────────────────────────────
 
-  setKnobOffset(kx, ky);
-
-  touchTurn = clamp(-kx / joyRadius, -1, 1);
-  touchForward = clamp(-ky / joyRadius, -1, 1);
-
-  const magnitude = Math.hypot(touchTurn, touchForward);
-  setJoystickActivePulse(
-    knobEl,
-    joyRingEl,
-    magnitude > JOY_DEADZONE,
-    magnitude,
-  );
+function onBoostPointerDown(e) {
+  if (boostPointerId != null) return;
+  e.preventDefault();
+  boostPointerId = e.pointerId;
+  boostHeld = true;
+  const btn = e.currentTarget;
+  btn.classList.add("is-held");
+  animateTouchControlPress(btn, { variant: "boost" });
+  btn.setPointerCapture(e.pointerId);
+  onBoostCb?.();
 }
+
+function onBoostPointerEnd(e) {
+  if (e.pointerId !== boostPointerId) return;
+  e.preventDefault();
+  try {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  } catch {
+    // Pointer may already be released.
+  }
+  const btn = e.currentTarget;
+  btn.classList.remove("is-held");
+  animateTouchControlRelease(btn);
+  resetBoost();
+}
+
+function onHopPointerDown(e) {
+  e.preventDefault();
+  const btn = e.currentTarget;
+  btn.classList.add("is-pressed");
+  animateTouchControlPress(btn, { variant: "hop" });
+  window.setTimeout(() => {
+    btn.classList.remove("is-pressed");
+    animateTouchControlRelease(btn);
+  }, 140);
+  onHopCb?.();
+}
+
+// ───── CSS injection ────────────────────────────────────────────────────────
 
 function injectTouchStyles() {
   if (document.getElementById("game-touch-styles")) return;
@@ -299,27 +342,33 @@ function injectTouchStyles() {
       --gtc-btn-gap: 8px;
     }
 
-    #game-touch-controls .gtc-joy {
+    /* nipplejs zone — positioned in the same spot as the old custom joystick */
+    #game-touch-controls .gtc-nipple-zone {
       position: absolute;
       left: calc(var(--gtc-edge) + var(--gtc-safe-left));
       bottom: var(--gtc-bottom-offset);
       width: var(--gtc-joy-size);
       height: var(--gtc-joy-size);
-      border-radius: 999px;
-      background: rgba(0, 0, 0, 0.26);
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    /* ── nipplejs neon theme overrides ── */
+
+    /* Outer circle (back) — matches old .gtc-joy */
+    #game-touch-controls .gtc-nipple-zone .joystick .back {
+      background: rgba(0, 0, 0, 0.26) !important;
       border: 2px solid rgba(34, 230, 255, 0.22);
       box-shadow:
         0 0 0 1px rgba(255, 43, 214, 0.08),
         0 4px 24px rgba(0, 0, 0, 0.35);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
-      pointer-events: auto;
-      touch-action: none;
-      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
     }
 
-    #game-touch-controls .gtc-joy.is-active {
-      background: rgba(0, 0, 0, 0.34);
+    /* Outer circle active — cyan glow */
+    #game-touch-controls .gtc-nipple-zone.is-active .joystick .back {
+      background: rgba(0, 0, 0, 0.34) !important;
       border-color: rgba(34, 230, 255, 0.48);
       box-shadow:
         0 0 0 2px rgba(34, 230, 255, 0.18),
@@ -327,51 +376,24 @@ function injectTouchStyles() {
         0 4px 24px rgba(0, 0, 0, 0.4);
     }
 
-    #game-touch-controls .gtc-joy-ring {
-      --ring-pulse: 1;
-      position: absolute;
-      inset: 14%;
-      border-radius: 999px;
-      border: 1px dashed rgba(255, 255, 255, 0.1);
-      pointer-events: none;
-      opacity: 0.7;
-      transform: scale(var(--ring-pulse));
-      transition: border-color 120ms ease;
-    }
-
-    #game-touch-controls .gtc-joy.is-active .gtc-joy-ring {
-      opacity: 1;
-      border-color: rgba(34, 230, 255, 0.28);
-    }
-
-    #game-touch-controls .gtc-joy-knob {
-      --knob-x: 0px;
-      --knob-y: 0px;
-      --knob-scale: 1;
-      --knob-bright: 1;
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 42%;
-      height: 42%;
-      transform: translate3d(calc(-50% + var(--knob-x)), calc(-50% + var(--knob-y)), 0) scale(var(--knob-scale));
-      filter: brightness(var(--knob-bright));
-      border-radius: 999px;
-      background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06) 55%, rgba(0, 0, 0, 0.2));
+    /* Inner thumb (front) — matches old .gtc-joy-knob */
+    #game-touch-controls .gtc-nipple-zone .joystick .front {
+      background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06) 55%, rgba(0, 0, 0, 0.2)) !important;
       border: 2px solid rgba(255, 43, 214, 0.35);
       box-shadow:
         0 2px 10px rgba(0, 0, 0, 0.45),
         0 0 16px rgba(255, 43, 214, 0.16);
-      pointer-events: none;
     }
 
-    #game-touch-controls .gtc-joy.is-active .gtc-joy-knob {
+    /* Inner thumb active — white border + cyan glow */
+    #game-touch-controls .gtc-nipple-zone.is-active .joystick .front {
       border-color: rgba(255, 255, 255, 0.55);
       box-shadow:
         0 2px 12px rgba(0, 0, 0, 0.5),
         0 0 22px rgba(34, 230, 255, 0.28);
     }
 
+    /* Boost / Hop action buttons */
     #game-touch-controls .gtc-btns {
       position: absolute;
       right: calc(var(--gtc-edge) + var(--gtc-safe-right));
@@ -453,85 +475,10 @@ function injectTouchStyles() {
   document.head.appendChild(style);
 }
 
-function onJoyPointerDown(e) {
-  if (joyActive) return;
-  e.preventDefault();
-  joyActive = true;
-  joyPointerId = e.pointerId;
-  joyEl?.classList.add("is-active");
-  animateJoystickEngage(knobEl);
-  const metrics = readJoyMetrics(e.currentTarget);
-  joyCenterX = metrics.centerX;
-  joyCenterY = metrics.centerY;
-  e.currentTarget.setPointerCapture(e.pointerId);
-  updateJoystick(e.clientX, e.clientY);
-}
-
-function onJoyPointerMove(e) {
-  if (!joyActive || e.pointerId !== joyPointerId) return;
-  e.preventDefault();
-  updateJoystick(e.clientX, e.clientY);
-}
-
-function onJoyPointerEnd(e) {
-  if (e.pointerId !== joyPointerId) return;
-  e.preventDefault();
-  try {
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  } catch {
-    // Pointer may already be released.
-  }
-  resetJoystick();
-}
-
-function onBoostPointerDown(e) {
-  if (boostPointerId != null) return;
-  e.preventDefault();
-  boostPointerId = e.pointerId;
-  boostHeld = true;
-  const btn = e.currentTarget;
-  btn.classList.add("is-held");
-  animateTouchControlPress(btn, { variant: "boost" });
-  btn.setPointerCapture(e.pointerId);
-  onBoostCb?.();
-}
-
-function onBoostPointerEnd(e) {
-  if (e.pointerId !== boostPointerId) return;
-  e.preventDefault();
-  try {
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  } catch {
-    // Pointer may already be released.
-  }
-  const btn = e.currentTarget;
-  btn.classList.remove("is-held");
-  animateTouchControlRelease(btn);
-  resetBoost();
-}
+// ───── Setup ────────────────────────────────────────────────────────────────
 
 /**
- * Plays a one-shot activation flash when nitro successfully fires (mobile Boost button).
- */
-export function flashBoostActivate() {
-  if (!boostBtnEl || rootEl?.style.display === "none") return;
-  animateBoostActivateFlash(boostBtnEl);
-}
-
-function onHopPointerDown(e) {
-  e.preventDefault();
-  const btn = e.currentTarget;
-  btn.classList.add("is-pressed");
-  animateTouchControlPress(btn, { variant: "hop" });
-  window.setTimeout(() => {
-    btn.classList.remove("is-pressed");
-    animateTouchControlRelease(btn);
-  }, 140);
-  onHopCb?.();
-}
-
-/**
- * Creates on-screen touch controls and wires pointer handlers.
+ * Creates on-screen touch controls and wires nipplejs joystick + pointer handlers.
  * @param {{ onHop?: () => void, onBoost?: () => void }} callbacks
  */
 export function setupTouchControls(callbacks = {}) {
@@ -547,24 +494,12 @@ export function setupTouchControls(callbacks = {}) {
   rootEl.setAttribute("aria-hidden", "true");
   rootEl.style.display = "none";
 
-  joyEl = document.createElement("div");
-  joyEl.className = "gtc-joy";
-  joyEl.setAttribute("aria-label", "Move cart");
+  // * nipplejs zone — replaces the old custom gtc-joy element
+  joyZoneEl = document.createElement("div");
+  joyZoneEl.className = "gtc-nipple-zone";
+  rootEl.appendChild(joyZoneEl);
 
-  const joyRing = document.createElement("div");
-  joyRing.className = "gtc-joy-ring";
-  joyRingEl = joyRing;
-  joyEl.appendChild(joyRing);
-
-  knobEl = document.createElement("div");
-  knobEl.className = "gtc-joy-knob";
-  joyEl.appendChild(knobEl);
-
-  joyEl.addEventListener("pointerdown", onJoyPointerDown, { passive: false });
-  joyEl.addEventListener("pointermove", onJoyPointerMove, { passive: false });
-  joyEl.addEventListener("pointerup", onJoyPointerEnd, { passive: false });
-  joyEl.addEventListener("pointercancel", onJoyPointerEnd, { passive: false });
-
+  // * Boost / Hop action buttons
   const btns = document.createElement("div");
   btns.className = "gtc-btns";
 
@@ -589,9 +524,11 @@ export function setupTouchControls(callbacks = {}) {
   btns.appendChild(boostBtn);
   btns.appendChild(hopBtn);
 
-  rootEl.appendChild(joyEl);
   rootEl.appendChild(btns);
   document.body.appendChild(rootEl);
+
+  // * Initialize nipplejs AFTER the zone is in the DOM.
+  initNippleJoystick();
 
   bindLayoutSync();
   window.addEventListener("blur", resetTouchControls);

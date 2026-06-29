@@ -31,6 +31,7 @@ import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
 import * as GameAudio from "./audio.js";
+import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
@@ -148,9 +149,6 @@ function captureInviteRoomForDeferredMenu() {
   pendingInviteRoomFromUrl = raw;
   return true;
 }
-
-/** @type {null | { playFloorImpact?: (intensity: number) => void, playEdgeImpact?: (intensity: number) => void }} */
-let gameSfx = null;
 
 /** @type {{ current: object | null }} Live bridge context wired from main(). */
 const sessionBridgeCtx = { current: null };
@@ -333,7 +331,7 @@ let fxPass = null;
 /** @type {number} */
 const AUDIO_VOLUME_MAX = 1.15;
 const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
-let masterGain = AUDIO_VOLUME_DEFAULT;
+let musicVolume = AUDIO_VOLUME_DEFAULT;
 /** @type {number} */
 let sfxVolume = AUDIO_VOLUME_DEFAULT;
 /** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
@@ -342,7 +340,7 @@ try {
   const savedVol = localStorage.getItem("cartRaveVolume");
   if (savedVol !== null) {
     const parsedVol = parseInt(savedVol, 10);
-    masterGain = Number.isNaN(parsedVol)
+    musicVolume = Number.isNaN(parsedVol)
       ? AUDIO_VOLUME_DEFAULT
       : clamp((parsedVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
   }
@@ -389,8 +387,6 @@ let allCartsRef = null;
 let getAxisRef = null;
 /** @type {(cart: any, nowMs: number) => void | null} */
 let triggerRamBoostRef = null;
-/** @type {((intensity: number) => void) | null} */
-let playCollisionRef = null;
 /** @type {((position: { x: number; y: number; z: number }, intensity: number) => void) | null} */
 let spawnTrashBurstRef = null;
 /** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
@@ -467,7 +463,6 @@ async function main() {
     console.warn("[cartRaveGltf] Early prefetch failed:", err);
   });
 
-  let sfx = null;
   let labelRenderer = null;
   let input = null;
 
@@ -477,13 +472,37 @@ async function main() {
     throw new Error(`Canvas element '#${CONFIG.canvasId}' not found.`);
   }
 
-  // * Start menu music fetch immediately — before scene/composer init blocks the main thread.
-  GameAudio.initMusic({
-    getMasterGain: () => masterGain,
-    getIsMuted: () => isMuted,
-    getMenuVisible: () => menuVisible,
-    startMenuOnInit: menuVisible,
+  // * Create AudioListener early so Howler can share its AudioContext before any Howl loads.
+  // * camera.add(audioListener) happens after camera creation below.
+  const audioListener = new THREE.AudioListener();
+
+  // * Start music loading immediately via Howler — before scene/composer init blocks the main thread.
+  AudioManager.initAudioManager(audioListener.context);
+
+  // * Restore saved volume state (loaded from localStorage at module scope above).
+  AudioManager.restoreVolumeState({
+    master: musicVolume / AUDIO_VOLUME_MAX,
+    sfx: sfxVolume / AUDIO_VOLUME_MAX,
+    music: musicVolume / AUDIO_VOLUME_MAX,
+    muted: isMuted,
   });
+
+  AudioManager.loadMenuMusic(
+    new URL("sounds/menu.ogg", window.location.href).toString(),
+  );
+
+  const gameMusicFiles = ["music.ogg", "song2.ogg", "song3.ogg", "song4.ogg"];
+  const _gameMusicUrls = gameMusicFiles.map((f) =>
+    new URL(`sounds/${f}`, window.location.href).toString(),
+  );
+  // Shuffle game playlist
+  for (let i = _gameMusicUrls.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [_gameMusicUrls[i], _gameMusicUrls[j]] = [_gameMusicUrls[j], _gameMusicUrls[i]];
+  }
+  AudioManager.loadGamePlaylist(_gameMusicUrls);
+
+  if (menuVisible) AudioManager.playMenuMusic();
 
   // Make canvas able to receive keyboard focus.
   canvas.tabIndex = 0;
@@ -563,14 +582,6 @@ async function main() {
   camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
 
-  const audioListener = new THREE.AudioListener();
-  const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
-  if (savedSfxVol !== null) {
-    const parsedSfxVol = parseInt(savedSfxVol, 10);
-    sfxVolume = Number.isNaN(parsedSfxVol)
-      ? AUDIO_VOLUME_DEFAULT
-      : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-  }
 
   let shakeUntil = 0;
   let shakeIntensity = 0;
@@ -600,22 +611,23 @@ async function main() {
   });
   const BASE_FOV = CONFIG.camera.fov;
 
-  let ensureCartCrashBufferLoaded = () => {};
   const audioSystem = initAudioSystem(audioListener, {
     getSfxVolume: () => sfxVolume,
     getIsMuted: () => isMuted,
   });
-  sfx = audioSystem.sfx;
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
-  ensureCartCrashBufferLoaded = audioSystem.ensureCartCrashBufferLoaded;
-  playCollisionRef = sfx.playCollision;
-  gameSfx = sfx;
-  GameAudio.registerMusicVolumeDeps({
-    audioListener,
-    getSfxVolume: () => sfxVolume,
-  });
-  GameAudio.registerAudioRefs({ sfx, leaderHum });
-  GameAudio.applyAudioVolume();
+  GameAudio.registerAudioRefs({ leaderHum });
+
+  // * Register all SFX via Howler (pooled, spatial-ready).
+  const soundsRoot = (name) => new URL(`sounds/${name}`, window.location.href).toString();
+  AudioManager.registerSfx("cartCrash", soundsRoot("cart-crash.ogg"), { pool: 4 });
+  AudioManager.registerSfx("death", soundsRoot("Death.ogg"), { pool: 3 });
+  AudioManager.registerSfx("boost", soundsRoot("Boost.ogg"), { pool: 3 });
+  AudioManager.registerSfx("hop", soundsRoot("Hop.ogg"), { pool: 3 });
+  AudioManager.registerSfx("wheel", soundsRoot("Wheel.ogg"), { pool: 3 });
+  AudioManager.registerSfx("floor", soundsRoot("Floor.ogg"), { pool: 3 });
+  AudioManager.registerSfx("chargeUp", soundsRoot("Charge_up.ogg"), { pool: 2 });
+
   camera.add(audioListener);
 
   const { composer, bloomPass, arcadePass, fxaaPass } = createComposer(renderer, scene, camera);
@@ -689,38 +701,43 @@ async function main() {
 
   // --- HUD, menu, results overlay ---
   function syncAllAudioUi() {
-    const musicPct = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
+    const musicPct = Math.round((musicVolume / AUDIO_VOLUME_MAX) * 100);
+    const sfxPct = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
     window.CartRave?.syncAudioUi?.({
       muted: isMuted,
       musicPct,
-      musicNorm: masterGain / AUDIO_VOLUME_MAX,
+      musicNorm: musicVolume / AUDIO_VOLUME_MAX,
+      sfxPct,
+      sfxNorm: sfxVolume / AUDIO_VOLUME_MAX,
     });
     if (hud?.syncAudioControls) hud.syncAudioControls();
-    try { GameAudio.applyAudioVolume(); } catch (e) {}
+    // * Keep Three.js listener gain in sync (procedural SFX uses audioListener.gain).
+    if (audioListener && typeof audioListener.setMasterVolume === "function") {
+      audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
+    }
+    try { leaderHum?.resyncVolume?.(); } catch (e) {}
   }
 
-  function setMasterGainValue(val) {
-    masterGain = clamp(val, 0, AUDIO_VOLUME_MAX);
+  function setMusicGainValue(val) {
+    musicVolume = clamp(val, 0, AUDIO_VOLUME_MAX);
+    AudioManager.setMusicVolume(musicVolume / AUDIO_VOLUME_MAX);
     localStorage.setItem(
       "cartRaveVolume",
-      Math.round((masterGain / AUDIO_VOLUME_MAX) * 100).toString(),
+      Math.round((musicVolume / AUDIO_VOLUME_MAX) * 100).toString(),
     );
     syncAllAudioUi();
   }
 
   function setAllAudioMuted(muted) {
-    GameAudio.setMuted(muted, (val) => {
-      isMuted = val;
-      localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
-      if (sfx) {
-        sfx._muted = isMuted;
-      }
-    });
+    isMuted = Boolean(muted);
+    AudioManager.setMuted(isMuted);
+    localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
     syncAllAudioUi();
   }
 
   function setSfxSliderVolume(v) {
     sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
+    AudioManager.setSfxVolume(sfxVolume / AUDIO_VOLUME_MAX);
     localStorage.setItem(
       "cartRaveSfxVol",
       Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
@@ -746,7 +763,7 @@ async function main() {
       crMusicVolTrack.addEventListener("click", (e) => {
         const r = crMusicVolTrack.getBoundingClientRect();
         const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-        setMasterGainValue(v);
+        setMusicGainValue(v);
         if (crMusicVolVal) animateVolumeTick(crMusicVolVal);
       });
     }
@@ -789,10 +806,8 @@ async function main() {
       while (feed.firstChild) feed.removeChild(feed.firstChild);
     }
     // Stop game music before menu music starts.
-    try {
-      GameAudio.stopGameMusic();
-    } catch (e) {}
-    try { GameAudio.startMenuMusic(); } catch (e) {}
+    try { AudioManager.stopGameMusic(); } catch (e) {}
+    try { AudioManager.playMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
       window.CartRave?.revealShell?.();
@@ -1023,9 +1038,9 @@ async function main() {
       HUD.hideGameplayElements();
     }
     updateTouchControlsVisibility();
-    GameAudio.fadeOutMenuMusic();
+    AudioManager.stopMenuMusic();
     if (!isTestDrive) {
-      GameAudio.fadeInGameMusic();
+      AudioManager.playGameMusic();
     }
   }
 
@@ -1045,8 +1060,8 @@ async function main() {
   hud = HUD.init({
     getIsMuted: () => isMuted,
     setIsMuted: (val) => { setAllAudioMuted(val); },
-    getMasterGain: () => masterGain,
-    setMasterGain: setMasterGainValue,
+    getMusicGain: () => musicVolume,
+    setMusicGain: setMusicGainValue,
     getSfxVolume: () => sfxVolume,
     setSfxVolume: setSfxSliderVolume,
     getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
@@ -1561,7 +1576,7 @@ async function main() {
     if (cart.respawnAtMs !== null) return;
     cart.respawnAtMs = now + CONFIG.fall.respawnDelayMs;
     if (cart === localCartForConnId()) {
-      sfx.playFallOff();
+      AudioManager.playSfx("death");
     }
   }
 
@@ -1739,8 +1754,8 @@ async function main() {
     getNameLabelUpdatePending: () => nameLabelUpdatePending,
     setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
     respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
-    getPlayCollisionRef: () => playCollisionRef,
-    getSfx: () => gameSfx,
+    getPlayCollisionRef: () => (_intensity, _opts) => AudioManager.playSfx("cartCrash"),
+    getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getHud: () => hud,
@@ -1844,7 +1859,7 @@ async function main() {
     cart.lastRamBoostTimeMs = nowMs;
     const isLocal = cart === localCartForConnId();
     if (isLocal) {
-      sfx.playNitro();
+      AudioManager.playSfx("boost");
       if (cart.mesh) animateCartBoostPulse(cart.mesh);
       flashBoostActivate();
     }
@@ -1857,7 +1872,7 @@ async function main() {
     cart.lastHopAtMs = nowMs;
     cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
     if (cart === localCartForConnId()) {
-      sfx.playHop();
+      AudioManager.playSfx("hop");
     }
   }
 
@@ -1907,22 +1922,19 @@ async function main() {
   }
 
   // --- Round flow (countdown, podium, AI) ---
-  GameAudio.applyAudioVolume();
+  if (audioListener && typeof audioListener.setMasterVolume === "function") {
+    audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
+  }
 
   let didUnlockAudio = false;
   function unlockAudio() {
     if (didUnlockAudio) return;
     didUnlockAudio = true;
     const ctx = audioListener.context;
-    const onUnlocked = () => {
-      ensureCartCrashBufferLoaded();
-    };
     if (ctx.state === "suspended") {
-      void ctx.resume().then(onUnlocked, () => {});
-    } else {
-      onUnlocked();
+      void ctx.resume();
     }
-    if (!menuVisible) GameAudio.startGameMusic();
+    if (!menuVisible) AudioManager.playGameMusic();
   }
 
   window.addEventListener("pointerdown", unlockAudio, { passive: true });
@@ -2189,7 +2201,6 @@ async function main() {
     colorHexForSlot: displayColorHexForSlot,
     isMuted: () => isMuted,
     getSfxVolume: () => sfxVolume,
-    sfx,
     isMenuVisible: () => menuVisible,
     getAxis: Input.getAxis,
     hud,
@@ -2237,15 +2248,15 @@ async function main() {
   const hostSimCallbacks = {
     getAxis: Input.getAxis,
     getAiAxis,
-    playCollision: playCollisionRef,
+    playCollision: (_intensity, _opts) => AudioManager.playSfx("cartCrash"),
     spawnTrashBurst: spawnTrashBurstRef,
     onLocalRamImpact: triggerLocalRamShake,
     get partySocket() { return Netcode.getPartySocket(); },
     get recordColliderHandle() { return recordCollider?.handle; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },
     get boothColliderHandles() { return boothColliderHandles; },
-    playFloorImpact: (intensity) => sfx?.playFloorImpact?.(intensity),
-    playEdgeImpact: (intensity) => sfx?.playEdgeImpact?.(intensity),
+    playFloorImpact: () => AudioManager.playSfx("floor"),
+    playEdgeImpact: () => AudioManager.playSfx("floor"),
     resolveCartForConn: (connId) => {
       const idx = Netcode.strictSlotIndexForConn(connId);
       return idx >= 0 ? allCartsRef[idx] : null;

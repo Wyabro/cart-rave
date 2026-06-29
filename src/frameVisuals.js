@@ -5,6 +5,7 @@ import * as Effects from "./effects.js";
 import * as ContactShadows from "./contactShadows.js";
 import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
+import * as AudioManager from "./audioManager.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -54,7 +55,6 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {(slot: object | null | undefined) => number} colorHexForSlot
  * @property {() => boolean} isMuted
  * @property {() => number} getSfxVolume
- * @property {object | null | undefined} sfx
  * @property {() => boolean} isMenuVisible
  * @property {() => { turn?: number }} getAxis
  * @property {object | null | undefined} hud
@@ -162,9 +162,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   }
 
   // Subtle wheel screech: short noise bursts on sharp steering, local cart only.
-  const sfxVolume = deps.getSfxVolume();
-  const sfx = deps.sfx;
-  if (!deps.isMuted() && sfxVolume > 0 && sfx && typeof sfx.playWheelScreech === "function") {
+  if (!deps.isMuted() && deps.getSfxVolume() > 0) {
     if (!deps.isMenuVisible() && roundState.phase === "running") {
       const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
       if (c && c.body) {
@@ -177,9 +175,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
           if (steerMag >= steerThreshold) {
             if (now - (c.lastWheelScreechAtMs || 0) >= 120) {
               c.lastWheelScreechAtMs = now;
-              const steerFactor = clamp((steerMag - steerThreshold) / (1 - steerThreshold), 0, 1);
-              const speedFactor = clamp((speed - 4.0) / 10.0, 0, 1);
-              sfx.playWheelScreech(steerFactor * speedFactor);
+              AudioManager.playSfx("wheel");
             }
           }
         }

@@ -2191,8 +2191,8 @@ export function init(options) {
   }
 
   elements.musicVol = createHudVolumeRow("♫", (v) => {
-    if (_options.setMasterGain) {
-      _options.setMasterGain(v);
+    if (_options.setMusicGain) {
+      _options.setMusicGain(v);
     }
   }, "Music volume", "hud-music-volume");
   elements.sfxVol = createHudVolumeRow("⚡", (v) => {
@@ -2289,7 +2289,7 @@ export function init(options) {
   wireButtonPressFeedback(elements.escMuteBtn, { scale: 0.92 });
 
   elements.escMusicVol = createEscVolumeRow("♫", (v) => {
-    if (_options.setMasterGain) _options.setMasterGain(v);
+    if (_options.setMusicGain) _options.setMusicGain(v);
   }, "Music volume");
   elements.escSfxVol = createEscVolumeRow("⚡", (v) => {
     if (_options.setSfxVolume) _options.setSfxVolume(v);
@@ -2687,11 +2687,11 @@ export function isEscOverlayVisible() {
 export function syncAudioControls() {
   if (!elements.muteBtn || !elements.musicVol || !elements.sfxVol) return;
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
-  const masterGain = _options.getMasterGain ? _options.getMasterGain() : 0.5;
+  const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
   const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
   const AUDIO_VOLUME_MAX = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
 
-  const musicPercent = Math.round((masterGain / AUDIO_VOLUME_MAX) * 100);
+  const musicPercent = Math.round((musicGain / AUDIO_VOLUME_MAX) * 100);
   const sfxPercent = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
   const musicPct = isMuted ? 0 : musicPercent;
   const sfxPct = isMuted ? 0 : sfxPercent;
