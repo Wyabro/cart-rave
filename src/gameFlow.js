@@ -228,7 +228,10 @@ export function updateGameFlow(deps, context) {
   const localCart = deps.getLocalCart();
   if (deps.isHost() && roundState.phase === "running" && !localCart?.body) {
     const youConnId = deps.getYouConnId?.();
-    if (youConnId && !_hostMissingCartWarned) {
+    // * Suppress warning when no carts exist yet — transient bootstrap state (solo mode, host migration).
+    const allCartsArr = deps.getAllCarts();
+    const anyCartReady = Array.isArray(allCartsArr) && allCartsArr.some((c) => c?.body);
+    if (youConnId && anyCartReady && !_hostMissingCartWarned) {
       _hostMissingCartWarned = true;
       console.warn(
         "[gameFlow] Host is running but local cart is missing — connId/slot mismatch?",

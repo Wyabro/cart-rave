@@ -1041,14 +1041,21 @@ export function initNetcode(roomOverride) {
     }
 
     callbacks.markFirstHelloReceived();
-    try { callbacks.ensureSessionReady(); } catch {}
+    const readyPromise = callbacks.ensureSessionReady();
+    const safeReady = readyPromise instanceof Promise ? readyPromise : Promise.resolve();
 
-    setTimeout(() => {
+    safeReady.then(() => {
       const startHandler = callbacks.getOnGameStartHandler();
       if (startHandler) {
         startHandler({ type: MSG.gameStart });
       }
-    }, 100);
+    }).catch(() => {
+      // * Fire game start even if cart bootstrap fails — prevents softlock.
+      const startHandler = callbacks.getOnGameStartHandler();
+      if (startHandler) {
+        startHandler({ type: MSG.gameStart });
+      }
+    });
     return;
   }
 
