@@ -503,6 +503,8 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   };
 
   if (before && after && before.carts && after.carts) {
+    // * TEMP DEBUG: confirm interpolation pair found for remote carts
+    console.log("[net] Interpolating remote carts — before seq:", before.seq, "after seq:", after.seq);
     const denom = (after.serverNowMs - before.serverNowMs) || 1;
     const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
@@ -853,9 +855,9 @@ export function startHostSendLoop() {
     lastCartsCache = carts;
     const collisions = drainHostCollisionBatch();
     const payload = {
-      type: MSG.hostTransform,
+      type: MSG.state,
       seq: hostSeq,
-      tHost: Date.now(),
+      serverNowMs: Date.now(),
       carts,
     };
     if (collisions.length > 0) {
@@ -1325,6 +1327,10 @@ export function initNetcode(roomOverride) {
         }
         const seq = typeof msg.seq === "number" ? msg.seq : -1;
         bufferAuthoritativeState(serverNowMs, seq, msg.carts, hostEpoch);
+        // * TEMP DEBUG: verify host cart snapshots are arriving on non-host clients
+        if (msg.carts) {
+          console.log("[net] Received carts snapshot, buffer size:", netStateBuffer.length);
+        }
         if (Array.isArray(msg.collisions)) {
           for (const ev of msg.collisions) {
             replayHostCollisionFx(ev, callbacks);
@@ -1460,9 +1466,9 @@ export function broadcastHostTransform(carts) {
   hostSeq += 1;
   lastCartsCache = carts;
   partySocket.send(JSON.stringify({
-    type: MSG.hostTransform,
+    type: MSG.state,
     seq: hostSeq,
-    tHost: Date.now(),
+    serverNowMs: Date.now(),
     carts: lastCartsCache,
   }));
 }
