@@ -5,20 +5,21 @@
   "scriptsMeta": {
     "_doc": "Script guide — see docs/preview-dev.md for next-level branch workflow",
     "dev:next-level": "PRIMARY on next-level: Vite + preview PartyKit locally (no deploy)",
+    "dev:party": "V2 server only (cart-rave-v2); separate from production cart-rave project",
     "dev:party:preview": "PartyKit preview worker only (port 1999); pair with npm run dev",
     "deploy:preview": "SECONDARY: public shareable preview URL only; prefer dev:next-level daily"
   },
   "scripts": {
     "dev": "vite",
     "dev:next-level": "node scripts/dev-next-level.mjs",
-    "dev:party": "npx partykit dev -p 1999",
+    "dev:party": "npx partykit dev --config partykit.v2.json -p 1999",
     "dev:party:preview": "npx partykit dev --config partykit.preview.json -p 1999",
     "build": "vite build",
     "preview": "vite preview",
     "build:party-static": "npm run build && node scripts/party-deploy.mjs",
-    "deploy:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy",
-    "ship:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy",
-    "ship": "node scripts/party-deploy-guard.mjs && npm run build:party-static && npx partykit deploy",
+    "deploy:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy --config partykit.v2.json",
+    "ship:party": "node scripts/party-deploy-guard.mjs && npx partykit deploy --config partykit.v2.json",
+    "ship": "node scripts/party-deploy-guard.mjs && npm run build:party-static && npx partykit deploy --config partykit.v2.json",
     "deploy:preview": "npx partykit deploy --config partykit.preview.json",
     "compress:rave-gltf": "node scripts/compress-rave-gltf.mjs",
     "knip": "knip"

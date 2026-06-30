@@ -404,4 +404,4 @@ export const MSG = {
   countdownCancel: "countdown_cancel",
 };
 
-export const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev";
+export const PARTYKIT_PUBLIC_HOST = "cart-rave-v2.wyabro.partykit.dev";
