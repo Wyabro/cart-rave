@@ -3,7 +3,7 @@
  *
  * Flow:
  * 1. `buildCart(colorHex)` creates the wireframe skeleton (cart.js).
- * 2. `applyCartTheme(root, themeId, neonHex)` applies theme presets, modules, and props.
+ * 2. `applyCartTheme(root, themeId, neonHex)` applies theme presets and modules.
  * 3. `buildCartThemeMaterialCache(mesh)` tags frame vs accent mats for sync.
  * 4. `applyThemeColorToCache(cache, themeId, neonHex)` re-tints without clobbering theme PBR.
  */
@@ -51,21 +51,9 @@ function getNamedChild(root, name) {
   return root.getObjectByName(name);
 }
 
-/**
- * @param {THREE.Object3D} root
- * @param {string} name
- */
-function removeNamedGroup(root, name) {
-  const existing = getNamedChild(root, name);
-  if (!existing) return;
-  disposeThemeSubtree(existing);
-  root.remove(existing);
-}
-
 const MATERIAL_TEXTURE_SLOTS = ["map", "emissiveMap", "normalMap", "roughnessMap"];
 
 /**
- * Disposes every GPU-backed texture slot on a material exactly once.
  *
  * @param {THREE.Material} mat
  * @param {Set<THREE.Texture>} [disposedTextures]
@@ -80,25 +68,6 @@ function disposeMaterialTextures(mat, disposedTextures) {
     seen.add(tex);
     tex.dispose?.();
   }
-}
-
-/**
- * Replaces a single texture slot on a material, disposing the previous texture
- * if it is about to be orphaned. Returns true when an old texture was disposed.
- *
- * @param {THREE.Material} mat
- * @param {"map" | "emissiveMap" | "normalMap" | "roughnessMap"} slot
- * @param {THREE.Texture | null | undefined} newTex
- * @returns {boolean}
- */
-function replaceMaterialMap(mat, slot, newTex) {
-  const oldTex = /** @type {any} */ (mat)[slot];
-  if (oldTex && oldTex !== newTex) {
-    oldTex.dispose?.();
-    return true;
-  }
-  /** @type {any} */ (mat)[slot] = newTex;
-  return false;
 }
 
 /**
@@ -141,9 +110,8 @@ function disposeThemeSubtree(node) {
 /**
  * @param {THREE.Material | null | undefined} mat
  * @param {import("./cartThemeConfig.js").CartFrameMaterialPreset} preset
- * @param {import("./cartThemeConfig.js").CartGhostMaterialPreset} [ghost]
  */
-function applyFrameMaterialPreset(mat, preset, ghost) {
+function applyFrameMaterialPreset(mat, preset) {
   if (!mat) return;
   mat.userData.themeLocked = true;
   if (typeof mat.metalness === "number") mat.metalness = preset.metalness;
@@ -153,15 +121,6 @@ function applyFrameMaterialPreset(mat, preset, ghost) {
   if (typeof mat.toneMapped === "boolean") mat.toneMapped = preset.toneMapped;
   if (typeof mat.envMapIntensity === "number") {
     mat.envMapIntensity = getMaterialEnvMapIntensity() * (preset.metalness > 0.7 ? CHROME_ENV_SCALE : 0.85);
-  }
-  if (ghost && "transmission" in mat) {
-    const phys = /** @type {THREE.MeshPhysicalMaterial} */ (mat);
-    phys.transparent = true;
-    phys.opacity = ghost.opacity;
-    phys.transmission = ghost.transmission;
-    phys.ior = ghost.ior;
-    phys.thickness = 0.35;
-    phys.depthWrite = false;
   }
 }
 
@@ -215,6 +174,7 @@ function tagFrameAndAccentMeshes(root) {
  * @param {CartThemeDef} theme
  */
 function applyHandleStyle(root, theme) {
+  void theme;
   const handleMesh = getNamedChild(root, "CartHandle");
   if (!handleMesh?.isMesh || !handleMesh.material) return;
 
@@ -260,17 +220,10 @@ function setCasterVisualVisibility(root, visible) {
 }
 
 /**
- * Applies the standard wheel setup. Rave carts use standard casters;
- * GLTF carts handle their own wheel visuals.
- *
  * @param {THREE.Object3D} root
- * @param {CartThemeDef} theme
- * @param {number} neonHex
  */
-function applyWheelModule(root, theme, neonHex) {
+function applyWheelModule(root) {
   setCasterVisualVisibility(root, true);
-  void theme;
-  void neonHex;
 }
 
 /**
@@ -287,40 +240,6 @@ function applyFacePolicy(root, theme) {
 
   const hideFace = theme.facePolicy === "hidden" || theme.facePolicy === "themed";
   faceGroup.visible = !hideFace;
-}
-
-/**
- * @param {THREE.Object3D} root
- * @param {THREE.Group} group
- * @param {CartThemeDef} theme
- * @param {number} neonHex
- */
-function buildThemeProps(root, group, theme, neonHex) {
-  for (const propId of theme.propIds) {
-    switch (propId) {
-      default:
-        break;
-    }
-  }
-
-  void root;
-  void group;
-  void neonHex;
-}
-
-/**
- * @param {THREE.Object3D} root
- * @param {CartThemeDef} theme
- * @param {number} neonHex
- */
-function rebuildThemeProps(root, theme, neonHex) {
-  removeNamedGroup(root, PROPS_GROUP_NAME);
-  if (!theme.propIds.length) return;
-
-  const group = new THREE.Group();
-  group.name = PROPS_GROUP_NAME;
-  buildThemeProps(root, group, theme, neonHex);
-  root.add(group);
 }
 
 /**
@@ -384,23 +303,8 @@ export function applyThemeColorToCache(cache, themeId, neonHex, intensityMul = 1
   }
 
   const theme = getCartTheme(themeId);
-  const { colorPolicy, baseHex, accentHex } = theme;
-  const bodyMul = intensityMul;
-  const accentMul = intensityMul;
-
-  if (colorPolicy === "neonFull") {
-    for (const mat of cache.frameMats) applyTintToMaterial(mat, neonHex, theme, bodyMul);
-    return;
-  }
-
-  const bodyEmMul = bodyMul * 0.3;
-  for (const mat of cache.frameBodyMats) applyTintToMaterial(mat, baseHex, theme, bodyEmMul);
-
-  if (colorPolicy === "accentTint") {
-    for (const mat of cache.accentMats) applyTintToMaterial(mat, neonHex, theme, accentMul);
-  } else if (colorPolicy === "fixedBase") {
-    for (const mat of cache.accentMats) applyTintToMaterial(mat, accentHex, theme, accentMul * 0.5);
-  }
+  const emMul = (theme.frameMaterial.emissiveMul ?? 1) * intensityMul;
+  for (const mat of cache.frameMats) applyTintToMaterial(mat, neonHex, theme, emMul);
 }
 
 /**
@@ -413,7 +317,7 @@ export function applyThemeColorToCache(cache, themeId, neonHex, intensityMul = 1
  * @param {number} glowIntensity
  */
 export function applyThemeLeaderGlow(cache, themeId, neonHex, glowPulse, glowIntensity) {
-  const theme = getCartTheme(themeId);
+  void themeId;
   const whiteMix = glowPulse ** 3;
   const baseIntensity = cartEmissiveIntensityForHex(emissiveRefHexForNeonHex(neonHex));
 
@@ -438,14 +342,7 @@ export function applyThemeLeaderGlow(cache, themeId, neonHex, glowPulse, glowInt
     return;
   }
 
-  if (theme.colorPolicy === "neonFull") {
-    for (const mat of cache.frameGlowMats) pulseMat(mat, neonHex);
-    return;
-  }
-
-  for (const mat of cache.frameBodyMats) pulseMat(mat, theme.baseHex);
-  const accentHex = theme.colorPolicy === "fixedBase" ? theme.accentHex : neonHex;
-  for (const mat of cache.accentMats) pulseMat(mat, accentHex);
+  for (const mat of cache.frameGlowMats) pulseMat(mat, neonHex);
 }
 
 /**
@@ -463,13 +360,12 @@ export function applyCartTheme(root, themeId, neonHex) {
   const frameMesh = getNamedChild(root, "CartFrame");
   if (frameMesh?.isMesh && frameMesh.material) {
     forEachMaterial(frameMesh.material, (mat) => {
-      applyFrameMaterialPreset(mat, theme.frameMaterial, theme.ghost);
+      applyFrameMaterialPreset(mat, theme.frameMaterial);
     });
   }
 
   applyHandleStyle(root, theme);
-  applyWheelModule(root, theme, neonHex);
-  rebuildThemeProps(root, theme, neonHex);
+  applyWheelModule(root);
   applyFacePolicy(root, theme);
   applyPatternPolicy(root, theme);
   tagFrameAndAccentMeshes(root);
