@@ -58,15 +58,16 @@ export function isPreviewGltfCached(themeId = DEFAULT_CART_THEME) {
 
 /**
  * @param {string} themeId
+ * @param {string | null | undefined} [sunglassesStyle] — SunglassesStyleDef id forwarded to the GLTF instance; defaults to silver mirror when omitted.
  * @returns {Promise<import("three").Group>}
  */
-export async function loadPreviewCartGltf(themeId) {
+export async function loadPreviewCartGltf(themeId, sunglassesStyle) {
   if (normalizeThemeId(themeId) !== "rave") {
     throw new Error("[CartPreviewGltf] GLTF preview is only used for the rave theme.");
   }
 
   await prefetchRaveGltf();
-  const root = createRaveGltfCartInstance();
+  const root = createRaveGltfCartInstance(sunglassesStyle);
   const def = resolvePreviewGltfDef(themeId);
 
   if (def.scale !== 1) root.scale.setScalar(def.scale);

@@ -1,6 +1,9 @@
 /**
- * cartThemeConfig.js — Cart theme id registry and material presets (no Three.js / cart mesh deps).
- * Shared by customization persistence, menu UI, and cartThemes.js (future visual application).
+ * cartThemeConfig.js — Cart theme registry + sunglasses style presets (no Three.js / cart mesh deps).
+ * Shared by customization persistence, menu UI, cartThemes.js, and cartRaveGltf.js.
+ *
+ * The themed-cart picker has been removed. "rave" is the sole permanent base configuration for
+ * the GLTF cart; the only player-selectable cosmetic is the sunglasses "Mirror Finish" style.
  */
 
 /** @typedef {typeof CART_THEME_IDS[number]} CartThemeId */
@@ -29,6 +32,20 @@
  */
 
 /**
+ * @typedef {Object} SunglassesStyleDef
+ * @property {string} id — stable programmatic key (used by resolveSunglassesStyle)
+ * @property {string} label — display name shown in the picker UI
+ * @property {number} color — lens + accent albedo hex
+ * @property {number} metalness
+ * @property {number} roughness
+ * @property {number} clearcoat
+ */
+
+/**
+ * @typedef {typeof SUNGLASSES_STYLES[number]["id"]} SunglassesStyleId
+ */
+
+/**
  * @typedef {Object} CartThemeDef
  * @property {CartThemeId} id
  * @property {string} label
@@ -45,12 +62,42 @@
  * @property {CartGhostMaterialPreset} [ghost] — Ghost theme translucent material tuning
  */
 
-/** Ordered list of selectable theme ids. */
-export const CART_THEME_IDS = ["rave", "liminal", "tropical", "sci-fi", "ghost", "vintage", "construction", "corpo", "luxury"];
+/**
+ * * Selectable theme ids. The theme picker UI has been removed — "rave" is the sole permanent
+ * * base configuration for the GLTF cart. The registry + helpers remain so cartThemes.js and
+ * * the spawn path can still resolve a CartThemeDef by id.
+ *
+ * @type {readonly ["rave"]}
+ */
+export const CART_THEME_IDS = Object.freeze(["rave"]);
 
 export const DEFAULT_CART_THEME = "rave";
 
-/** @type {Record<CartThemeId, CartThemeDef>} */
+/**
+ * * Six "Mirror Finish" sunglasses styles. Each is a metallic mirrored lens color
+ * * applied to the GLB face assembly (frame + lenses + accent) in cartRaveGltf.js.
+ * @type {ReadonlyArray<SunglassesStyleDef>}
+ */
+export const SUNGLASSES_STYLES = Object.freeze([
+  { id: "silverMirror", label: "Silver Mirror", color: 0xc8c8d0, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+  { id: "goldMirror", label: "Gold Mirror", color: 0xd4af37, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+  { id: "blueMirror", label: "Blue Mirror", color: 0x2a6cff, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+  { id: "redMirror", label: "Red Mirror", color: 0xff1f3a, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+  { id: "greenMirror", label: "Green Mirror", color: 0x19e07a, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+  { id: "purpleMirror", label: "Purple Mirror", color: 0x9b3cff, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+]);
+
+/** Stable fallback when no sunglasses style is supplied to the GLTF material pipeline. */
+export const DEFAULT_SUNGLASSES_STYLE = "silverMirror";
+
+/**
+ * * Cart theme registry. Only "rave" remains — it is the permanent base configuration for the
+ * * GLTF cart (frame material preset, color/pattern/face policies, base/accent swatch hexes).
+ * * The themed-cart picker was removed; non-rave branches in cartThemes.js are now dead code
+ * * that never executes because normalizeThemeId() always resolves to "rave".
+ *
+ * @type {Record<CartThemeId, CartThemeDef>}
+ */
 export const CART_THEMES = {
   rave: {
     id: "rave",
@@ -73,179 +120,6 @@ export const CART_THEMES = {
     baseHex: 0xff7a1a,
     accentHex: 0x22e6ff,
   },
-  liminal: {
-    id: "liminal",
-    label: "Liminal",
-    frameGeometry: "hybrid",
-    colorPolicy: "accentTint",
-    patternPolicy: "disable",
-    wheelModule: "standard",
-    handleStyle: "welded",
-    facePolicy: "default",
-    propIds: ["liminalProps"],
-    frameMaterial: {
-      metalness: 0.82,
-      roughness: 0.72,
-      clearcoat: 0.08,
-      clearcoatRoughness: 0.55,
-      emissiveMul: 0.35,
-      toneMapped: true,
-    },
-    baseHex: 0x6b5a42,
-    accentHex: 0xc8d86a,
-  },
-  tropical: {
-    id: "tropical",
-    label: "Tropical",
-    frameGeometry: "solid",
-    colorPolicy: "accentTint",
-    patternPolicy: "disable",
-    wheelModule: "woodHub",
-    handleStyle: "wood",
-    facePolicy: "default",
-    propIds: ["tropicalProps"],
-    frameMaterial: {
-      metalness: 0.12,
-      roughness: 0.68,
-      clearcoat: 0.18,
-      clearcoatRoughness: 0.35,
-      emissiveMul: 0.25,
-      toneMapped: true,
-    },
-    baseHex: 0x8b5a2b,
-    accentHex: 0xff6b4a,
-  },
-  "sci-fi": {
-    id: "sci-fi",
-    label: "Sci-fi",
-    frameGeometry: "hybrid",
-    colorPolicy: "accentTint",
-    patternPolicy: "disable",
-    wheelModule: "hoverPad",
-    handleStyle: "chrome",
-    facePolicy: "default",
-    propIds: ["cyanEdgeStrips"],
-    frameMaterial: {
-      metalness: 0.92,
-      roughness: 0.22,
-      clearcoat: 0.45,
-      clearcoatRoughness: 0.12,
-      emissiveMul: 0.85,
-      toneMapped: false,
-    },
-    baseHex: 0x1a1a22,
-    accentHex: 0x00e5ff,
-  },
-  ghost: {
-    id: "ghost",
-    label: "Ghost",
-    frameGeometry: "wireframe",
-    colorPolicy: "neonFull",
-    patternPolicy: "disable",
-    wheelModule: "standard",
-    handleStyle: "chrome",
-    facePolicy: "themed",
-    propIds: ["ghostProps"],
-    frameMaterial: {
-      metalness: 0.15,
-      roughness: 0.35,
-      clearcoat: 0.1,
-      clearcoatRoughness: 0.2,
-      emissiveMul: 0.65,
-      toneMapped: false,
-    },
-    baseHex: 0xb8c9e0,
-    accentHex: 0xe8f4ff,
-    ghost: {
-      opacity: 0.55,
-      transmission: 0.85,
-      ior: 1.45,
-    },
-  },
-  vintage: {
-    id: "vintage",
-    label: "Vintage",
-    frameGeometry: "solid",
-    colorPolicy: "accentTint",
-    patternPolicy: "allow",
-    wheelModule: "whitewall",
-    handleStyle: "brass",
-    facePolicy: "default",
-    propIds: ["atomicFins"],
-    frameMaterial: {
-      metalness: 0.88,
-      roughness: 0.28,
-      clearcoat: 0.35,
-      clearcoatRoughness: 0.18,
-      emissiveMul: 0.4,
-      toneMapped: true,
-    },
-    baseHex: 0xc9a227,
-    accentHex: 0x8b5a2b,
-  },
-  construction: {
-    id: "construction",
-    label: "Construction",
-    frameGeometry: "hybrid",
-    colorPolicy: "accentTint",
-    patternPolicy: "disable",
-    wheelModule: "constructionTires",
-    handleStyle: "welded",
-    facePolicy: "hidden",
-    propIds: ["constructionProps"],
-    frameMaterial: {
-      metalness: 0.75,
-      roughness: 0.85,
-      clearcoat: 0.05,
-      clearcoatRoughness: 0.6,
-      emissiveMul: 0.3,
-      toneMapped: true,
-    },
-    baseHex: 0x5a5248,
-    accentHex: 0xf4c430,
-  },
-  corpo: {
-    id: "corpo",
-    label: "Corpo",
-    frameGeometry: "hybrid",
-    colorPolicy: "accentTint",
-    patternPolicy: "disable",
-    wheelModule: "standard",
-    handleStyle: "chrome",
-    facePolicy: "hidden",
-    propIds: ["corpoProps"],
-    frameMaterial: {
-      metalness: 0.92,
-      roughness: 0.18,
-      clearcoat: 0.55,
-      clearcoatRoughness: 0.1,
-      emissiveMul: 0.5,
-      toneMapped: true,
-    },
-    baseHex: 0x181a1f,
-    accentHex: 0x4a90e2,
-  },
-  luxury: {
-    id: "luxury",
-    label: "Luxury",
-    frameGeometry: "solid",
-    colorPolicy: "accentTint",
-    patternPolicy: "disable",
-    wheelModule: "whitewall",
-    handleStyle: "brass",
-    facePolicy: "default",
-    propIds: ["luxuryProps"],
-    frameMaterial: {
-      metalness: 0.95,
-      roughness: 0.15,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.08,
-      emissiveMul: 0.35,
-      toneMapped: true,
-    },
-    baseHex: 0xd4af37,
-    accentHex: 0xf7e98e,
-  },
 };
 
 /**
@@ -265,6 +139,22 @@ export function normalizeThemeId(value) {
  */
 export function getCartTheme(themeId) {
   return CART_THEMES[normalizeThemeId(themeId)];
+}
+
+/**
+ * * Resolves a sunglasses style id to its {@link SunglassesStyleDef}, falling back to
+ * * {@link DEFAULT_SUNGLASSES_STYLE} when the id is missing or unknown.
+ *
+ * @param {string | null | undefined} styleId
+ * @returns {SunglassesStyleDef}
+ */
+export function resolveSunglassesStyle(styleId) {
+  const id = typeof styleId === "string"
+    ? styleId
+    : DEFAULT_SUNGLASSES_STYLE;
+  return SUNGLASSES_STYLES.find((s) => s.id === id)
+    ?? SUNGLASSES_STYLES.find((s) => s.id === DEFAULT_SUNGLASSES_STYLE)
+    ?? SUNGLASSES_STYLES[0];
 }
 
 /**

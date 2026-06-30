@@ -1,7 +1,8 @@
 /**
  * cartRaveGltf.js — Segmented rave-theme GLTF cart loader, materials, independent caster motion.
  *
- * Primary asset: `cartrave4.glb` — Tripo color segments for body / wheels / forks / trim.
+ * Primary asset: `cartrave4-draco.glb` (DRACO + WebP compressed; uncompressed `cartrave4.glb`
+ * retained as fallback tier 1) — Tripo color segments for body / wheels / forks / trim.
  * Four composite casters swivel at the basket-side fork attachment; connector + wheel
  * hang below. One steer pivot per corner (basket stance + kingpin offsets). Forks use
  * car-like steering (body heading + yaw-rate offset) rather than pure velocity trailing. Brackets and frame supports stay static.
@@ -11,19 +12,20 @@
  *   casters (forkParts swivel at basket attach; connector=swivelHub):
  *     FR {fork:14,20 hub:19 wheel:1} FL {fork:6 hub:18 wheel:3}
  *     BL {fork:5,21 hub:12 wheel:2} BR {fork:13,22 hub:17 wheel:4}
- *   face/sunglasses=8+9+11 (one static assembly), handle=10, face accent=7, static trim=15–16/23.
+ *   face/sunglasses=7+8+9+11 (one static assembly: accent 7 + frame 8 + lenses 9,11), handle=10, static trim=15–16/23.
  */
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { applyCartPattern } from "./cartPatterns.js";
-import { CART_THEMES } from "./cartThemeConfig.js";
+import { CART_THEMES, resolveSunglassesStyle } from "./cartThemeConfig.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
 import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
 
 /** @typedef {import("./cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
+/** @typedef {import("./cartThemeConfig.js").SunglassesStyleDef} SunglassesStyleDef */
 
 /** @typedef {"body" | "wheel" | "fork" | "handle" | "face" | "trim" | "unknown"} RaveGltfPartRole */
 
@@ -54,8 +56,11 @@ export const RAVE_GLTF_URL_DRACO = "/models/cart-rave-base-draco.glb";
 /** Uncompressed legacy monolithic-caster model (fallback). */
 const RAVE_GLTF_URL_LEGACY = "/models/cart-rave-base.glb";
 
-/** Primary segmented rave cart — separate fork + wheel meshes per corner. */
-export const RAVE_GLTF_URL = "/models/cartrave4.glb";
+/** Primary segmented rave cart — DRACO + WebP compressed (separate fork + wheel meshes per corner). */
+export const RAVE_GLTF_URL = "/models/cartrave4-draco.glb";
+
+/** Uncompressed cartrave4 export — fallback tier (same topology, larger payload). */
+const RAVE_GLTF_URL_V4_UNCOMPRESSED = "/models/cartrave4.glb";
 
 /** WASM/JS Draco decoder served from `public/draco/gltf/`. */
 const RAVE_GLTF_DRACO_DECODER_PATH = "/draco/gltf/";
@@ -276,10 +281,11 @@ const RAVE_GLTF_CASTER_SWIVEL_GROUP_OFFSETS = Object.freeze({
 const RAVE_GLTF_DARK_TRIM_HEX = 0x111111;
 
 /**
- * cartrave4 sunglasses — frame (8) + lens pair (9, 11); one static face assembly.
+ * cartrave4 sunglasses — frame (8), lens pair (9, 11), and accent (7); one static face assembly.
  * @type {ReadonlyArray<string>}
  */
 const RAVE_GLTF_V4_FACE_PARTS = Object.freeze([
+  "tripo_part_7",
   "tripo_part_8",
   "tripo_part_9",
   "tripo_part_11",
@@ -526,7 +532,7 @@ const RAVE_GLTF_TRIPO_PART_RE = /^tripo_part_\d+$/;
  * @returns {RaveGltfLayoutId}
  */
 function detectRaveGltfLayout(scene, loadedUrl = null) {
-  if (loadedUrl === RAVE_GLTF_URL) return "cartrave4";
+  if (loadedUrl === RAVE_GLTF_URL || loadedUrl === RAVE_GLTF_URL_V4_UNCOMPRESSED) return "cartrave4";
   if (loadedUrl === RAVE_GLTF_URL_LEGACY || loadedUrl === RAVE_GLTF_URL_DRACO) return "legacy";
 
   let hasTripoPart = false;
@@ -562,7 +568,7 @@ function logRaveGltfCasterSourceHierarchy(scene) {
         `  caster ${group.id} (${group.label}): hub=${group.swivelHub} wheel=${group.wheel} fork=[${group.forkParts.join(", ")}]`,
       );
     }
-    lines.push("  static: frame supports tripo_part_15,16 + sunglasses 8,9,11 + handle 10");
+    lines.push("  static: frame supports tripo_part_15,16 + sunglasses 7,8,9,11 + handle 10");
   } else {
     lines.push("  legacy monolithic corners: tripo_part_0,3,4,5 (swivel only)");
   }
@@ -1328,6 +1334,13 @@ function getDracoLoader() {
   if (!_dracoLoader) {
     _dracoLoader = new DRACOLoader();
     _dracoLoader.setDecoderPath(RAVE_GLTF_DRACO_DECODER_PATH);
+    // * Cap workers below hardwareConcurrency so the page stays interactive during decode.
+    _dracoLoader.setWorkerLimit(
+      Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 4) - 1)),
+    );
+    // * Preload wasm binary + worker source in parallel with GLB fetch
+    // * (avoids first-primitive stall when the GLB arrives before the worker pool is ready).
+    _dracoLoader.preload();
   }
   return _dracoLoader;
 }
@@ -1483,11 +1496,16 @@ function applyRaveGltfFramePreset(mat) {
 /**
  * Clones authored GLTF material for one instance with role-specific PBR + trim mask setup.
  *
+ * Face-role meshes (sunglasses frame + lenses + accent) are recolored as a mirrored
+ * finish using the resolved {@link SunglassesStyleDef}; the handle role keeps the
+ * static dark plastic trim.
+ *
  * @param {THREE.Material} srcMat
  * @param {RaveGltfPartRole} role
+ * @param {string | null | undefined} [sunglassesStyle] — SunglassesStyleDef id; defaults to silver mirror.
  * @returns {THREE.MeshPhysicalMaterial}
  */
-function cloneRaveGltfMaterial(srcMat, role) {
+function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
   const rolePreset = RAVE_GLTF_ROLE_MAT_PRESETS[role] || {};
 
   const mat = createPhysicalMaterial({
@@ -1519,10 +1537,22 @@ function cloneRaveGltfMaterial(srcMat, role) {
   } else if (role === "fork") {
     mat.userData.raveGltfHasEmissiveAccent = false;
     if (mat.emissive) mat.emissive.setHex(0x000000);
-  } else if (role === "handle" || role === "face") {
+  } else if (role === "handle") {
     mat.userData.raveGltfHasEmissiveAccent = false;
     mat.color.setHex(RAVE_GLTF_DARK_TRIM_HEX);
     if (mat.emissive) mat.emissive.setHex(0x000000);
+  } else if (role === "face") {
+    // * Sunglasses "Mirror Finish": override PBR with the resolved style so the lens
+    // * + frame + accent assembly reads as a metallic mirrored visor. Applied after
+    // * the frame preset so style values win over the rave frame preset defaults.
+    const style = resolveSunglassesStyle(sunglassesStyle);
+    mat.userData.raveGltfHasEmissiveAccent = false;
+    if (mat.color) mat.color.setHex(style.color);
+    mat.metalness = style.metalness;
+    mat.roughness = style.roughness;
+    mat.clearcoat = style.clearcoat;
+    if (mat.emissive) mat.emissive.setHex(0x000000);
+    mat.userData.raveGltfSunglassesStyle = style.id;
   } else {
     mat.userData.raveGltfHasEmissiveAccent = !!srcMat.emissiveMap;
     mat.emissiveMap = srcMat.emissiveMap || null;
@@ -2134,13 +2164,29 @@ async function loadRaveGltfSourceScene() {
   /** @type {Error | null} */
   let lastError = null;
 
+  // * Primary: DRACO+WebP compressed cartrave4 (~702 KB, mesh decoding runs on the worker pool).
   try {
     const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL);
     return { scene, url: RAVE_GLTF_URL };
   } catch (err) {
     lastError = err instanceof Error ? err : new Error(String(err));
     console.warn(
-      `[cartRaveGltf] Primary asset unavailable (${RAVE_GLTF_URL}), trying legacy fallback.`,
+      `[cartRaveGltf] Primary DRACO asset unavailable (${RAVE_GLTF_URL}), trying uncompressed cartrave4.`,
+      lastError.message,
+    );
+  }
+
+  // * Fallback 1: uncompressed cartrave4 (same topology, larger payload).
+  try {
+    const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL_V4_UNCOMPRESSED);
+    console.warn(
+      `[cartRaveGltf] Fell back to uncompressed cartrave4 (${RAVE_GLTF_URL_V4_UNCOMPRESSED}).`,
+    );
+    return { scene, url: RAVE_GLTF_URL_V4_UNCOMPRESSED };
+  } catch (err) {
+    lastError = err instanceof Error ? err : new Error(String(err));
+    console.warn(
+      `[cartRaveGltf] Uncompressed cartrave4 unavailable (${RAVE_GLTF_URL_V4_UNCOMPRESSED}), trying legacy.`,
       lastError.message,
     );
   }
@@ -2222,8 +2268,11 @@ function ensureRaveGltfSource() {
   return _loadPromise;
 }
 
-/** @returns {THREE.Group} */
-export function createRaveGltfCartInstance() {
+/**
+ * @param {string | null | undefined} [sunglassesStyle] — SunglassesStyleDef id; defaults to silver mirror when omitted.
+ * @returns {THREE.Group}
+ */
+export function createRaveGltfCartInstance(sunglassesStyle) {
   if (!_sourceScene) {
     throw new Error("[cartRaveGltf] Source not loaded — call prefetchRaveGltf() first.");
   }
@@ -2232,6 +2281,7 @@ export function createRaveGltfCartInstance() {
   root.name = "CartVisual";
   root.userData.isRaveGltf = true;
   root.userData.cartThemeId = "rave";
+  if (sunglassesStyle) root.userData.raveGltfSunglassesStyle = sunglassesStyle;
 
   const model = new THREE.Group();
   model.name = "RaveGltfModel";
@@ -2247,7 +2297,7 @@ export function createRaveGltfCartInstance() {
     if (src.isMesh) {
       const srcMat = Array.isArray(src.material) ? src.material[0] : src.material;
       const role = resolveRaveGltfPartRole(src);
-      const material = cloneRaveGltfMaterial(srcMat, role);
+      const material = cloneRaveGltfMaterial(srcMat, role, sunglassesStyle);
 
       const mesh = new THREE.Mesh(src.geometry, material);
       mesh.name = src.name;

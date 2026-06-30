@@ -9,7 +9,7 @@ import {
   prepareRaveGltfCart,
 } from "./cartRaveGltf.js";
 import { CONFIG } from "./config.js";
-import { resolveCartThemeForSlot } from "./customization.js";
+import { resolveCartThemeForSlot, resolveCartSunglassesStyleForSlot } from "./customization.js";
 import {
   applyCartTheme,
   buildCartThemeMaterialCache,
@@ -20,6 +20,7 @@ import * as Visuals from "./visuals.js";
 import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
 import { applyCartMassPropertiesOverride } from "./simulation.js";
+import { cleanupShatter } from "./cartShatter.js";
 
 // Module-level references
 let allCartsRef = null;
@@ -134,18 +135,21 @@ function createCartCollider(world, body) {
 }
 
 /**
- * @param {THREE.Scene} scene
+ * Builds the cart visual mesh (rave GLTF or procedural fallback) and its material cache.
+ * Does NOT add the mesh to the scene — caller is responsible for scene/root parenting.
+ *
  * @param {number} color
  * @param {string} themeId
- * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache>, themeId: string }}
+ * @param {string} [sunglassesStyle] — sunglasses style id for the rave GLTF face assembly (defaults to silver mirror when omitted)
+ * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache> }}
  */
-function setupCartVisuals(scene, color, themeId) {
+function buildCartVisualMesh(color, themeId, sunglassesStyle) {
   const id = normalizeThemeId(themeId);
   let mesh;
   let materialCache;
 
   if (id === "rave" && isRaveGltfSourceReady()) {
-    mesh = createRaveGltfCartInstance();
+    mesh = createRaveGltfCartInstance(sunglassesStyle);
     materialCache = prepareRaveGltfCart(mesh, color);
   } else {
     if (id === "rave") {
@@ -159,11 +163,64 @@ function setupCartVisuals(scene, color, themeId) {
     materialCache = buildCartMaterialCache(mesh);
   }
 
+  return { mesh, materialCache };
+}
+
+/**
+ * @param {THREE.Scene} scene
+ * @param {number} color
+ * @param {string} themeId
+ * @param {string} [sunglassesStyle] — sunglasses style id for the rave GLTF face assembly (defaults to silver mirror when omitted)
+ * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache>, contactShadow: object | null, themeId: string }}
+ */
+function setupCartVisuals(scene, color, themeId, sunglassesStyle) {
+  const { mesh, materialCache } = buildCartVisualMesh(color, themeId, sunglassesStyle);
+
   scene.add(mesh);
   const contactShadow = ContactShadows.createCartContactShadow();
   if (contactShadow) scene.add(contactShadow);
   mesh.updateMatrixWorld(true);
   return { mesh, materialCache, contactShadow, themeId };
+}
+
+/**
+ * Rebuilds cart visual meshes into an existing root after shatter cleanup detached
+ * and disposed the original children. Preserves the root reference (so physics sync,
+ * name labels, and camera tracking keep working) and refreshes the material cache.
+ *
+ * @param {object} cart Cart entity — `cart.mesh` is the empty root to repopulate.
+ * @param {THREE.Scene} scene Active scene (contact shadow re-parented here).
+ * @returns {void}
+ */
+function rebuildCartVisualsIntoRoot(cart, scene) {
+  if (!cart?.mesh || !scene) return;
+
+  // * Build a fresh mesh (rave GLTF instance or procedural cart) and move its children
+  // * into the existing root so external refs (camera, labels) stay valid.
+  const { mesh: freshMesh, materialCache } = buildCartVisualMesh(
+    cart.cartColor,
+    cart.cartThemeId,
+    cart.cartSunglassesStyle,
+  );
+
+  // * Transfer children + userdata from the freshly built mesh into the existing root.
+  const children = [...freshMesh.children];
+  for (const child of children) {
+    freshMesh.remove(child);
+    cart.mesh.add(child);
+  }
+  // * Preserve relevant userData flags (isRaveGltf, cartThemeId, cartVisual) so
+  // * updateCartVisuals / resetCartVisualState dispatch correctly after rebuild.
+  if (freshMesh.userData) {
+    cart.mesh.userData = { ...cart.mesh.userData, ...freshMesh.userData };
+  }
+  cart.mesh.visible = true;
+  cart.mesh.updateMatrixWorld(true);
+
+  // * Refresh the material cache — the old one referenced disposed materials.
+  cart._materialCache = materialCache;
+
+  // * Contact shadow persists across shatter (it was never detached); leave it as-is.
 }
 
 /**
@@ -191,6 +248,7 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  *   world: import("@dimforge/rapier3d-compat").World,
  *   color: number,
  *   themeId: string,
+ *   sunglassesStyle?: string,
  *   spawn: { x: number, y: number, z: number },
  *   spawnYaw: number,
  *   label: string,
@@ -198,9 +256,9 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  * }} params
  * @returns {object}
  */
-function createCart({ scene, world, color, themeId, spawn, spawnYaw, label, slotIndex }) {
+function createCart({ scene, world, color, themeId, sunglassesStyle, spawn, spawnYaw, label, slotIndex }) {
   const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
-  const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color, themeId);
+  const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color, themeId, sunglassesStyle);
 
   const body = createCartBody(world, spawnFrozen, spawnYaw);
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
@@ -219,6 +277,7 @@ function createCart({ scene, world, color, themeId, spawn, spawnYaw, label, slot
     label,
     cartColor: color,
     cartThemeId: themeId,
+    cartSunglassesStyle: sunglassesStyle,
     _materialCache: materialCache,
     _lastNetLinvel: { x: 0, y: 0, z: 0 },
     _netTargetPos: mesh.position.clone(),
@@ -228,6 +287,15 @@ function createCart({ scene, world, color, themeId, spawn, spawnYaw, label, slot
     lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
     ramBoostActiveUntilMs: 0,
     ramBoostStreakCarry: 0,
+    // * Auto-Charge Boost state — set by triggerRamBoost, consumed by applyArcadeControls.
+    // * isChargingBoost=true while charging; boostChargeStartedAtMs marks the press time;
+    // * boostCooldownUntilMs blocks re-charging after a released burst; chargeUpSfxId
+    // * tracks the looping charge sound so it can be stopped on release / interrupt.
+    isChargingBoost: false,
+    boostChargeStartedAtMs: 0,
+    boostCooldownUntilMs: 0,
+    boostChargeMultiplier: 1,
+    chargeUpSfxId: null,
     lastHopAtMs: 0,
     lastWheelScreechAtMs: Number.NEGATIVE_INFINITY,
     respawnAtMs: null,
@@ -310,6 +378,11 @@ export function destroyCarts(options = {}) {
   if (allCartsRef) {
     for (const cart of allCartsRef) {
       if (!cart) continue;
+      // * Tear down any active shatter VFX so detached parts + explosion are disposed
+      // * before the cart root is removed.
+      if (cart.isShattering || cart._shatterState) {
+        cleanupShatter(cart, scene);
+      }
       if (worldRef && cart.body) {
         worldRef.removeRigidBody(cart.body);
       }
@@ -348,6 +421,16 @@ export function destroyCarts(options = {}) {
 export function doRespawn(cart) {
   if (!cart?.body) return;
 
+  // * Tear down any active shatter + explosion VFX (host fall or non-host replay).
+  // * Rebuilds the cart visual mesh into the existing root so camera / labels keep
+  // * their references. No-op when the cart was not shattering.
+  if (cart.isShattering || cart._shatterState) {
+    cleanupShatter(cart, sceneRef);
+    if (cart.mesh && sceneRef) {
+      rebuildCartVisualsIntoRoot(cart, sceneRef);
+    }
+  }
+
   cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
   cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -357,6 +440,22 @@ export function doRespawn(cart) {
   cart.pendingRam = null;
   cart.ramBoostActiveUntilMs = 0;
   cart.ramBoostStreakCarry = 0;
+  // * Clear Auto-Charge Boost state so a respawned cart does not resume charging
+  // * or sit in cooldown from a pre-fall press. The looping charge SFX (if any)
+  // * is stopped by the caller via AudioManager.stopSfx using the cart's chargeUpSfxId.
+  cart.isChargingBoost = false;
+  cart.boostChargeStartedAtMs = 0;
+  cart.boostCooldownUntilMs = 0;
+  cart.boostChargeMultiplier = 1;
+  cart.chargeUpSfxId = null;
+  // * Forget AI decision state so a respawned NPC does not drive back toward its death target.
+  cart.aiNextDecisionMs = 0;
+  cart.aiTarget = { x: 0, z: 0 };
+  cart.aiPauseUntilMs = 0;
+  cart.aiReverseUntilMs = 0;
+  cart.aiSteerGain = 1.1;
+  cart.aiLastProgressMs = 0;
+  cart.aiLastDistToTarget = Infinity;
   resetCartIdleWatch(cart);
   if (cart.mesh) {
     Visuals.resetCartVisualState(cart.mesh);
@@ -387,6 +486,15 @@ export function rematchResetWorld() {
   for (const cart of allCartsRef) {
     if (!cart?.body) continue;
 
+    // * Tear down any active shatter + explosion VFX between rounds (e.g. a cart was
+    // * mid-fall when the round ended). Rebuilds the visual mesh into the existing root.
+    if (cart.isShattering || cart._shatterState) {
+      cleanupShatter(cart, sceneRef);
+      if (cart.mesh && sceneRef) {
+        rebuildCartVisualsIntoRoot(cart, sceneRef);
+      }
+    }
+
     cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
     cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
     cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -397,6 +505,12 @@ export function rematchResetWorld() {
     cart.ramBoostActiveUntilMs = 0;
     cart.ramBoostStreakCarry = 0;
     cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
+    // * Clear Auto-Charge Boost state between rounds (caller stops any looping SFX).
+    cart.isChargingBoost = false;
+    cart.boostChargeStartedAtMs = 0;
+    cart.boostCooldownUntilMs = 0;
+    cart.boostChargeMultiplier = 1;
+    cart.chargeUpSfxId = null;
     cart.aiNextDecisionMs = 0;
     cart.aiTarget = { x: 0, z: 0 };
     resetCartIdleWatch(cart);
@@ -436,6 +550,7 @@ export function rematchResetWorld() {
  *   CART_COLORS: Record<string, { hex: number }>,
  *   colorHexForSlot: (slot: object | null | undefined) => number,
  *   themeForSlot?: (slot: object | null | undefined) => string,
+ *   sunglassesStyleForSlot?: (slot: object | null | undefined) => string,
  *   pendingMidRoundJoinRespawnConnId: string | null | undefined,
  *   spawnForSlot?: (slotIndex: number, slot: object | null | undefined) => { x: number, y: number, z: number },
  *   spawnYawForSlot?: (slotIndex: number, spawn: { x: number, y: number, z: number }) => number,
@@ -450,6 +565,7 @@ export function initCarts({
   CART_COLORS,
   colorHexForSlot,
   themeForSlot,
+  sunglassesStyleForSlot,
   pendingMidRoundJoinRespawnConnId,
   spawnForSlot,
   spawnYawForSlot,
@@ -463,6 +579,8 @@ export function initCarts({
 
   const resolveTheme = themeForSlot
     ?? ((slot) => resolveCartThemeForSlot(slot, { youConnId }));
+  const resolveSunglassesStyle = sunglassesStyleForSlot
+    ?? ((slot) => resolveCartSunglassesStyleForSlot(slot, { youConnId }));
 
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
     const slot = netSlots[slotIndex];
@@ -476,12 +594,14 @@ export function initCarts({
       : spawnOnRingForSlot(slotIndex);
     const cartColorHex = colorHexForSlot(slot);
     const cartThemeId = resolveTheme(slot);
+    const cartSunglassesStyle = resolveSunglassesStyle(slot);
 
     const cart = createCart({
       scene,
       world,
       color: cartColorHex,
       themeId: cartThemeId,
+      sunglassesStyle: cartSunglassesStyle,
       spawn,
       spawnYaw: spawnYawForSlot ? spawnYawForSlot(slotIndex, spawn) : yawToCenter(spawn),
       label: slot?.name ?? `slot-${slotIndex}`,

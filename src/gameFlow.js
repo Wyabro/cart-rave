@@ -26,6 +26,8 @@
  * @property {(attackerSlotIndex: number, points: number) => void} addScore
  * @property {(untilMs: number) => void} setFovPunchUntil
  * @property {() => string} [detectGameMode]
+ * @property {() => THREE.Scene | null | undefined} [getScene]
+ * @property {(cart: object, scene: object, neonHex: number) => void} [triggerCartShatter]
  */
 
 /** @type {boolean} */
@@ -188,6 +190,13 @@ export function updateGameFlow(deps, context) {
             }
 
             deps.getLastHitBy().delete(slotIndex);
+          }
+
+          // * Trigger the shatter + explosion VFX on the host (non-host clients replay
+          // * it from the host_event_fall broadcast so everyone sees the same pop).
+          if (deps.triggerCartShatter && deps.getScene && cart.mesh) {
+            const scene = deps.getScene();
+            if (scene) deps.triggerCartShatter(cart, scene, deps.colorHexForSlot(slot));
           }
 
           deps.scheduleRespawn(cart, now);

@@ -122,6 +122,18 @@ const physics = {
         minTargetDistance: 3.6, // meters
         maxTargetDistance: 19.8, // meters
       },
+
+      // * Auto-Charge Boost — tap to charge, auto-releases at full charge.
+      // * Replaces the instant nitro for human carts (mobile-friendly one-tap flow).
+      // * NPCs keep instant boost via the instant flag on triggerRamBoost.
+      boostCharge: {
+        enabled: true, // bool — master toggle for the charge mechanic
+        boostChargeTimeMs: 1500, // ms — full charge duration before auto-release
+        boostMinMultiplier: 0.3, // unitless — burst scale at zero charge (reserved for early-release)
+        boostMaxMultiplier: 1.0, // unitless — burst scale at full charge (auto-release)
+        boostCooldownMs: 1000, // ms — lockout after a released burst before charging again
+        burstImpulse: 18.0, // N·s — instantaneous forward impulse at release (× mass × multiplier)
+      },
     },
 
     hop: {

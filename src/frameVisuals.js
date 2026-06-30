@@ -6,6 +6,7 @@ import * as ContactShadows from "./contactShadows.js";
 import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
 import * as AudioManager from "./audioManager.js";
+import { updateShatterEffect } from "./cartShatter.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -13,16 +14,57 @@ let lastResultsOverlayPhase = null;
 const _interpPrevQuat = new THREE.Quaternion();
 const _interpCurrQuat = new THREE.Quaternion();
 
+// * Per-cart physics state scratch for the visual sync loop. Rapier getters
+// * (translation/rotation/linvel/angvel) each allocate a fresh JS object at the
+// * WASM boundary; caching into these plain objects collapses 4-6 allocs/cart/frame
+// * down to 4 (one fetch), with the cached values reused by mesh sync + visuals + shadows.
+const _visPos = { x: 0, y: 0, z: 0 };
+const _visRot = { x: 0, y: 0, z: 0, w: 1 };
+const _visLinvel = { x: 0, y: 0, z: 0 };
+const _visAngvel = { x: 0, y: 0, z: 0 };
+
+/**
+ * * Fetches a cart body's translation/rotation/linvel/angvel ONCE into the module
+ * * visual-scratch cache. Called at the top of each per-cart sync iteration.
+ *
+ * @param {object} cart
+ * @returns {void}
+ */
+function readBodyStateIntoVisScratch(cart) {
+  const body = cart.body;
+  const p = body.translation();
+  _visPos.x = p.x;
+  _visPos.y = p.y;
+  _visPos.z = p.z;
+  const r = body.rotation();
+  _visRot.x = r.x;
+  _visRot.y = r.y;
+  _visRot.z = r.z;
+  _visRot.w = r.w;
+  const lv = body.linvel();
+  _visLinvel.x = lv.x;
+  _visLinvel.y = lv.y;
+  _visLinvel.z = lv.z;
+  const av = body.angvel();
+  _visAngvel.x = av.x;
+  _visAngvel.y = av.y;
+  _visAngvel.z = av.z;
+}
+
 /**
  * * Writes an interpolated cart mesh pose from prev snapshot → current body using physics alpha.
+ *
+ * Reads pos/rot from the module visual-scratch cache (populated by the caller via
+ * {@link readBodyStateIntoVisScratch}); avoids redundant Rapier getter allocations.
+ *
  * @param {object} cart
  * @param {number} alpha
  * @param {number} visualOffset
  * @returns {{ bodyY: number }}
  */
 function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
-  const p = cart.body.translation();
-  const r = cart.body.rotation();
+  const p = _visPos;
+  const r = _visRot;
   const prev = cart.prevPosition;
   const prevRot = cart.prevRotation;
 
@@ -107,19 +149,37 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     const c = allCarts[slotIndex];
     if (!c || !c.mesh) continue;
 
+    // * Shatter & Explosion death VFX: while a cart is shattering, syncCartMeshFromPhysics
+    // * is skipped so the root pose freezes (parts + explosion animate independently via
+    // * updateShatterEffect). doRespawn calls cleanupShatter to tear this down.
+    if (c.isShattering) {
+      updateShatterEffect(c, dt, now);
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
     if (!deps.isHost() && slotIndex !== localSlotIndexForFrame) {
+      // * Frame-rate independent decay: matches a 0.75 lerp at 60fps but stays
+      // * consistent across other frame rates (no snapiness at low fps, no
+      // * sluggishness at high fps).
+      const netAlpha = 1 - Math.pow(1 - 0.75, dt * 60);
       if (c._netTargetPos) {
         deps.netTargetPosScratch.copy(c._netTargetPos);
         deps.netTargetPosScratch.y += deps.CONFIG.cart.visualOffset;
-        c.mesh.position.lerp(deps.netTargetPosScratch, 0.75);
+        c.mesh.position.lerp(deps.netTargetPosScratch, netAlpha);
       }
-      if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, 0.75);
+      if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, netAlpha);
       c.mesh.updateMatrixWorld(true);
       const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
       deps.cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
-      const av = c.body?.angvel?.();
-      if (av) deps.cartAngvelScratch.set(av.x, av.y, av.z);
-      else deps.cartAngvelScratch.set(0, 0, 0);
+      // * Remote carts: angvel is the only live Rapier fetch (linvel comes from the net
+      // * snapshot). Guarded optional-call preserves the original null-body tolerance.
+      if (c.body?.angvel) {
+        const av = c.body.angvel();
+        deps.cartAngvelScratch.set(av.x, av.y, av.z);
+      } else {
+        deps.cartAngvelScratch.set(0, 0, 0);
+      }
       deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now, deps.cartAngvelScratch);
       if (c.contactShadow) {
         const bodyY = c._netTargetPos
@@ -136,20 +196,20 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       continue;
     }
 
-    const p = c.body.translation();
-    const r = c.body.rotation();
-    let bodyY = p.y;
+    // * Local / host cart: fetch all four getters ONCE into the visual scratch; the
+    // * cached values feed mesh sync, updateCartVisuals, and (for the local cart) the
+    // * wheel-screech speed check below — no redundant Rapier allocations per frame.
+    readBodyStateIntoVisScratch(c);
+    let bodyY = _visPos.y;
     if (usePhysicsInterp && c.prevPosition && c.prevRotation) {
       bodyY = syncCartMeshFromPhysics(c, physicsAlpha, visualOffset).bodyY;
     } else {
-      c.mesh.position.set(p.x, p.y + visualOffset, p.z);
-      c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+      c.mesh.position.set(_visPos.x, _visPos.y + visualOffset, _visPos.z);
+      c.mesh.quaternion.set(_visRot.x, _visRot.y, _visRot.z, _visRot.w);
     }
     c.mesh.updateMatrixWorld(true);
-    const lv = c.body.linvel();
-    deps.cartLinvelScratch.set(lv.x, lv.y, lv.z);
-    const av = c.body.angvel();
-    deps.cartAngvelScratch.set(av.x, av.y, av.z);
+    deps.cartLinvelScratch.set(_visLinvel.x, _visLinvel.y, _visLinvel.z);
+    deps.cartAngvelScratch.set(_visAngvel.x, _visAngvel.y, _visAngvel.z);
     deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now, deps.cartAngvelScratch);
     if (c.contactShadow) {
       ContactShadows.updateCartContactShadow(c.contactShadow, {
@@ -162,12 +222,13 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   }
 
   // Subtle wheel screech: short noise bursts on sharp steering, local cart only.
+  // * Reads the local cart's linvel from the visual scratch populated above (same frame,
+  // * no intervening world.step) instead of a fresh body.linvel() allocation.
   if (!deps.isMuted() && deps.getSfxVolume() > 0) {
     if (!deps.isMenuVisible() && roundState.phase === "running") {
       const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
-      if (c && c.body) {
-        const lv = c.body.linvel();
-        const speed = Math.hypot(lv.x, lv.z);
+      if (c && c.body && localSlotIndexThisFrame === localSlotIndexForFrame) {
+        const speed = Math.hypot(_visLinvel.x, _visLinvel.z);
         if (speed >= 4.0) {
           const axis = deps.getAxis();
           const steerMag = Math.abs(axis.turn || 0);

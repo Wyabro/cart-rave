@@ -9,7 +9,13 @@ import * as THREE from "three";
 import { buildCart } from "../cart.js";
 import { applyCartPattern } from "../cartPatterns.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "../cartPatternConfig.js";
-import { DEFAULT_CART_THEME, getCartTheme, normalizeThemeId } from "../cartThemeConfig.js";
+import {
+  DEFAULT_CART_THEME,
+  DEFAULT_SUNGLASSES_STYLE,
+  getCartTheme,
+  normalizeThemeId,
+  resolveSunglassesStyle,
+} from "../cartThemeConfig.js";
 import {
   applyCartTheme,
   applyThemeColorToCache,
@@ -131,6 +137,9 @@ export class CartPreview {
 
     /** @type {string} */
     this._patternId = DEFAULT_CART_PATTERN;
+
+    /** @type {string} */
+    this._sunglassesStyle = DEFAULT_SUNGLASSES_STYLE;
 
     /** @type {number} */
     this._neonHex = 0xff2bd6;
@@ -453,7 +462,7 @@ export class CartPreview {
     this._setLoadingState(!gltfCached);
 
     try {
-      const cart = await loadPreviewCartGltf(themeId);
+      const cart = await loadPreviewCartGltf(themeId, this._sunglassesStyle);
       if (
         seq !== this._loadSeq
         || this._disposed
@@ -563,6 +572,28 @@ export class CartPreview {
     this._patternId = normalizePatternId(patternId);
     if (this._gltfReady && this.cartGroup) {
       applyCartPattern(this.cartGroup, this._patternId, this._neonHex);
+    }
+  }
+
+  /**
+   * Sets the sunglasses "Mirror Finish" style applied to the rave GLTF face assembly.
+   * The style is baked into the cloned GLTF instance materials, so changing it requires
+   * a full cart rebuild. Callers that are about to trigger their own rebuild (e.g. via
+   * {@link setTheme}) can pass `{ rebuild: false }` to just update the stored field.
+   *
+   * @param {string} styleId — SunglassesStyleDef id (unknown ids fall back to silver mirror)
+   * @param {{ rebuild?: boolean }} [options]
+   */
+  setSunglassesStyle(styleId, { rebuild = true } = {}) {
+    const resolved = resolveSunglassesStyle(styleId).id;
+    const changed = resolved !== this._sunglassesStyle;
+    this._sunglassesStyle = resolved;
+    if (changed && rebuild) {
+      this._rebuildCart();
+    }
+
+    if (import.meta.env?.DEV) {
+      console.debug("[CartPreview] setSunglassesStyle:", styleId, "→", this._sunglassesStyle, "rebuild=", rebuild);
     }
   }
 

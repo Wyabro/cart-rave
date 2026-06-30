@@ -1005,15 +1005,56 @@ function removeNamedGroup(root, name) {
   root.remove(existing);
 }
 
+const MATERIAL_TEXTURE_SLOTS = ["map", "emissiveMap", "normalMap", "roughnessMap"];
+
+/**
+ * Disposes every GPU-backed texture slot on a material exactly once.
+ *
+ * @param {THREE.Material} mat
+ * @param {Set<THREE.Texture>} [disposedTextures]
+ */
+function disposeMaterialTextures(mat, disposedTextures) {
+  if (!mat) return;
+  const seen = disposedTextures ?? new Set();
+  for (const slot of MATERIAL_TEXTURE_SLOTS) {
+    /** @type {THREE.Texture | null | undefined} */
+    const tex = /** @type {any} */ (mat)[slot];
+    if (!tex || seen.has(tex)) continue;
+    seen.add(tex);
+    tex.dispose?.();
+  }
+}
+
+/**
+ * Replaces a single texture slot on a material, disposing the previous texture
+ * if it is about to be orphaned. Returns true when an old texture was disposed.
+ *
+ * @param {THREE.Material} mat
+ * @param {"map" | "emissiveMap" | "normalMap" | "roughnessMap"} slot
+ * @param {THREE.Texture | null | undefined} newTex
+ * @returns {boolean}
+ */
+function replaceMaterialMap(mat, slot, newTex) {
+  const oldTex = /** @type {any} */ (mat)[slot];
+  if (oldTex && oldTex !== newTex) {
+    oldTex.dispose?.();
+    return true;
+  }
+  /** @type {any} */ (mat)[slot] = newTex;
+  return false;
+}
+
 /**
  * @param {THREE.Material | THREE.Material[] | null | undefined} material
  * @param {Set<THREE.Material>} disposedMats
+ * @param {Set<THREE.Texture>} [disposedTextures]
  */
-function disposeMaterialOnce(material, disposedMats) {
+function disposeMaterialOnce(material, disposedMats, disposedTextures) {
   const mats = Array.isArray(material) ? material : [material];
   for (const mat of mats) {
     if (!mat || disposedMats.has(mat)) continue;
     disposedMats.add(mat);
+    disposeMaterialTextures(mat, disposedTextures);
     mat.dispose?.();
   }
 }
@@ -1024,6 +1065,7 @@ function disposeMaterialOnce(material, disposedMats) {
 function disposeThemeSubtree(node) {
   const disposedGeos = new Set();
   const disposedMats = new Set();
+  const disposedTextures = new Set();
   node.traverse((child) => {
     if (!child.isMesh) return;
     if (child.userData?.isSharedGeometry) return;
@@ -1034,7 +1076,7 @@ function disposeThemeSubtree(node) {
       }
     }
     if (child.userData?.isThemeProp && child.material) {
-      disposeMaterialOnce(child.material, disposedMats);
+      disposeMaterialOnce(child.material, disposedMats, disposedTextures);
     }
   });
 }
@@ -1220,7 +1262,11 @@ function applyHandleStyle(root, theme) {
   mat.userData.themeLocked = true;
   const oldMat = handleMesh.material;
   handleMesh.material = mat;
-  if (oldMat && !Array.isArray(oldMat) && oldMat !== mat) oldMat.dispose?.();
+  // ! Route through disposeMaterialOnce so theme-applied textures on the
+  // ! previous handle material (wood/grip/rust) are freed alongside it.
+  if (oldMat && !Array.isArray(oldMat) && oldMat !== mat) {
+    disposeMaterialOnce(oldMat, new Set(), new Set());
+  }
 }
 
 // === Wheel Modules ===
@@ -1235,13 +1281,14 @@ function removeHoverPads(root) {
   });
   const disposedGeos = new Set();
   const disposedMats = new Set();
+  const disposedTextures = new Set();
   for (const mesh of toRemove) {
     mesh.parent?.remove(mesh);
     if (mesh.geometry?.userData?.isThemeGeometry && !disposedGeos.has(mesh.geometry)) {
       disposedGeos.add(mesh.geometry);
       mesh.geometry.dispose?.();
     }
-    disposeMaterialOnce(mesh.material, disposedMats);
+    disposeMaterialOnce(mesh.material, disposedMats, disposedTextures);
   }
 }
 
@@ -1255,13 +1302,14 @@ function removeWhitewallRings(root) {
   });
   const disposedGeos = new Set();
   const disposedMats = new Set();
+  const disposedTextures = new Set();
   for (const mesh of toRemove) {
     mesh.parent?.remove(mesh);
     if (mesh.geometry && !disposedGeos.has(mesh.geometry)) {
       disposedGeos.add(mesh.geometry);
       mesh.geometry.dispose?.();
     }
-    disposeMaterialOnce(mesh.material, disposedMats);
+    disposeMaterialOnce(mesh.material, disposedMats, disposedTextures);
   }
 }
 
@@ -1427,6 +1475,13 @@ function applyWhitewalls(root, theme) {
       }
     });
   }
+
+  // ! wallMat and hubMat are templates only — every mesh took a clone that
+  // ! shares their texture references. Dispose just the orphaned template
+  // ! materials; the clones (and their shared textures) are freed later by
+  // ! removeWhitewallRings when the theme is torn down.
+  wallMat.dispose();
+  if (hubMat) hubMat.dispose();
 }
 
 /**
@@ -1439,13 +1494,14 @@ function removeWoodHubs(root) {
   });
   const disposedGeos = new Set();
   const disposedMats = new Set();
+  const disposedTextures = new Set();
   for (const mesh of toRemove) {
     mesh.parent?.remove(mesh);
     if (mesh.geometry && !disposedGeos.has(mesh.geometry)) {
       disposedGeos.add(mesh.geometry);
       mesh.geometry.dispose?.();
     }
-    disposeMaterialOnce(mesh.material, disposedMats);
+    disposeMaterialOnce(mesh.material, disposedMats, disposedTextures);
   }
 }
 
@@ -1504,6 +1560,11 @@ function applyWoodHubs(root, theme) {
     });
   }
 
+  // ! hubMat is only a template — every mesh took a clone. The clones share
+  // ! hubMat's woodTex, so the texture stays alive until removeWoodHubs frees
+  // ! the last clone. Only the template material itself leaks here.
+  hubMat.dispose();
+
   void theme;
 }
 
@@ -1512,6 +1573,7 @@ function applyWoodHubs(root, theme) {
  */
 function removeConstructionTires(root) {
   const disposedMats = new Set();
+  const disposedTextures = new Set();
   root.traverse((child) => {
     if (!child.isMesh) return;
     if (child.userData?.constructionPrevScale) {
@@ -1524,7 +1586,7 @@ function removeConstructionTires(root) {
     if (!child.userData?.isConstructionWheelOverride) return;
     const prev = child.userData.constructionPrevMaterial;
     const cur = child.material;
-    if (cur && cur !== prev) disposeMaterialOnce(cur, disposedMats);
+    if (cur && cur !== prev) disposeMaterialOnce(cur, disposedMats, disposedTextures);
     if (prev) child.material = prev;
     delete child.userData.constructionPrevMaterial;
     delete child.userData.isConstructionWheelOverride;
@@ -1592,6 +1654,13 @@ function applyConstructionTires(root, theme) {
     });
   }
 
+  // ! tireMat and rimMat are templates only — every wheel took a clone.
+  // ! tireMat's clones share the mudTex reference; removeConstructionTires
+  // ! disposes the clones (and their textures) on teardown, so only the
+  // ! orphaned template materials leak here.
+  tireMat.dispose();
+  rimMat.dispose();
+
   void theme;
 }
 
@@ -1626,7 +1695,11 @@ function applyWheelModule(root, theme, neonHex) {
  * @param {CartThemeDef} theme
  */
 function applyFacePolicy(root, theme) {
-  const faceGroup = getNamedChild(root, "BasketFace");
+  // * Rave GLTF carts parent their sunglasses assembly under "RaveGltfFaceGroup"
+  // * (see groupRaveGltfFaceAssembly in cartRaveGltf.js); procedural carts use
+  // * "BasketFace" (see cart.js). Look up both so the policy applies on either path.
+  const faceGroup = getNamedChild(root, "RaveGltfFaceGroup")
+    ?? getNamedChild(root, "BasketFace");
   if (!faceGroup) return;
 
   const hideFace = theme.facePolicy === "hidden" || theme.facePolicy === "themed";
@@ -1703,7 +1776,7 @@ function buildThemeProps(root, group, theme, neonHex) {
         if (frameMesh?.material) {
           const woodTex = createTropicalWoodTexture();
           forEachMaterial(frameMesh.material, (mat) => {
-            mat.map = woodTex;
+            replaceMaterialMap(mat, "map", woodTex);
             mat.color.setHex(0xffffff);
             mat.roughness = 0.75;
             mat.metalness = 0.05;
@@ -1818,6 +1891,11 @@ function buildThemeProps(root, group, theme, neonHex) {
           group.add(smoke);
         }
 
+        // ! smokeMat is a template only — clones took ownership of the shared
+        // ! smokeTex. Dispose just the orphaned template material; the clones
+        // ! (and smokeTex) are freed by disposeThemeSubtree on theme teardown.
+        smokeMat.dispose();
+
         const webTex = createGhostWebTexture();
         const webMat = createPhysicalMaterial({
           map: webTex,
@@ -1883,7 +1961,7 @@ function buildThemeProps(root, group, theme, neonHex) {
         const frameMesh = getNamedChild(root, "CartFrame");
         if (frameMesh?.material) {
           forEachMaterial(frameMesh.material, (mat) => {
-            mat.map = rustTex;
+            replaceMaterialMap(mat, "map", rustTex);
             mat.color.setHex(0xffffff);
             mat.needsUpdate = true;
           });
@@ -2062,7 +2140,7 @@ function buildThemeProps(root, group, theme, neonHex) {
         if (frameMesh?.material) {
           const brassTex = createVintageBrassTexture();
           forEachMaterial(frameMesh.material, (mat) => {
-            mat.map = brassTex;
+            replaceMaterialMap(mat, "map", brassTex);
             mat.color.setHex(0xffffff);
             mat.needsUpdate = true;
           });
@@ -2137,7 +2215,7 @@ function buildThemeProps(root, group, theme, neonHex) {
         const frameMesh = getNamedChild(root, "CartFrame");
         if (frameMesh?.material) {
           forEachMaterial(frameMesh.material, (mat) => {
-            mat.map = rustTex;
+            replaceMaterialMap(mat, "map", rustTex);
             mat.color.setHex(0xffffff);
             mat.roughness = 0.92;
             mat.metalness = 0.78;
@@ -2534,7 +2612,7 @@ function buildThemeProps(root, group, theme, neonHex) {
         const frameMesh = getNamedChild(root, "CartFrame");
         if (frameMesh?.material) {
           forEachMaterial(frameMesh.material, (mat) => {
-            mat.map = goldTex;
+            replaceMaterialMap(mat, "map", goldTex);
             mat.color.setHex(0xffffff);
             mat.metalness = 0.95;
             mat.roughness = 0.15;
@@ -2852,6 +2930,8 @@ export function applyCartTheme(root, themeId, neonHex) {
 
 /**
  * Disposes per-cart theme-only geometries/materials (props, pads, whitewalls).
+ * Also disposes theme-applied textures on the CartFrame body materials so the
+ * GPU memory is released when the cart is destroyed.
  * @param {THREE.Object3D | null | undefined} mesh
  */
 export function disposeCartThemeResources(mesh) {
@@ -2864,5 +2944,20 @@ export function disposeCartThemeResources(mesh) {
   if (propsGroup) {
     disposeThemeSubtree(propsGroup);
     mesh.remove(propsGroup);
+  }
+
+  // * CartFrame body materials may still hold theme-applied textures (rust,
+  // * wood, brass, gold, etc.) set via buildThemeProps. The frame materials
+  // * themselves are owned by cart.js / entities.js; only their texture slots
+  // * are theme-owned, so dispose those here before the materials go away.
+  const disposedTex = new Set();
+  const frameMesh = getNamedChild(mesh, "CartFrame");
+  if (frameMesh) {
+    frameMesh.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      forEachMaterial(child.material, (mat) => {
+        disposeMaterialTextures(mat, disposedTex);
+      });
+    });
   }
 }

@@ -26,6 +26,7 @@ import { updateCartVisuals } from "./cart.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
 import * as Entities from "./entities.js";
+import { triggerCartShatter } from "./cartShatter.js";
 import * as HUD from "./hud.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
@@ -65,6 +66,7 @@ import {
   enterPlayMode,
   ensureSessionCartsReady,
   ensureWorldBootstrapped,
+  getLastSuccessfulHelloGen,
   initBootstrap,
   isWorldBootstrapped,
   resetSessionCartBootstrap,
@@ -391,6 +393,8 @@ let triggerRamBoostRef = null;
 let spawnTrashBurstRef = null;
 /** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
 let triggerLocalRamShakeRef = null;
+/** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
+let triggerCartShatterRef = null;
 /** @type {string | null} */
 let pendingMidRoundJoinRespawnConnId = null;
 
@@ -530,6 +534,8 @@ async function main() {
       Input.requestHop();
     },
     () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
       const cart = localCartForConnId();
       if (!cart) return;
       triggerRamBoost(cart, performance.now());
@@ -544,6 +550,8 @@ async function main() {
       Input.requestHop();
     },
     onBoost: () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
       const cart = localCartForConnId();
       if (!cart) return;
       triggerRamBoost(cart, performance.now());
@@ -601,6 +609,7 @@ async function main() {
     }
   }
   triggerLocalRamShakeRef = triggerLocalRamShake;
+  triggerCartShatterRef = triggerCartShatter;
   const gameCtx = createGameContext().registerModules({
     Netcode,
     GameState,
@@ -626,7 +635,7 @@ async function main() {
   AudioManager.registerSfx("hop", soundsRoot("Hop.ogg"), { pool: 3 });
   AudioManager.registerSfx("wheel", soundsRoot("Wheel.ogg"), { pool: 3 });
   AudioManager.registerSfx("floor", soundsRoot("Floor.ogg"), { pool: 3 });
-  AudioManager.registerSfx("chargeUp", soundsRoot("Charge_up.ogg"), { pool: 2 });
+  AudioManager.registerSfx("chargeUp", soundsRoot("Charge_up.ogg"), { pool: 2, loop: true });
 
   camera.add(audioListener);
 
@@ -1355,6 +1364,7 @@ async function main() {
         GameState.setRoundStartedAtMs(Date.now());
         GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
         GameState.setRoundWinnerSlotIndex(null);
+        CameraMod.endCinematicCountdown(camera);
       }
       return;
     }
@@ -1370,6 +1380,7 @@ async function main() {
       GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
       GameState.setRoundWinnerSlotIndex(null);
       GameState.setRoundStartedAtMs(0);
+      CameraMod.beginCinematicCountdown(camera);
     }
   };
 
@@ -1572,16 +1583,34 @@ async function main() {
   }
 
   // --- Carts, labels, gameplay helpers ---
+  /**
+   * Stops the looping charge-up SFX and clears charge state for a cart. Called on
+   * fall / stuck respawn so a charging cart does not keep playing the wind-up sound
+   * through its respawn. No-op for non-local carts (only the local cart's SFX plays).
+   * @param {ReturnType<typeof createCart> | null | undefined} cart
+   */
+  function stopChargeSfxForCart(cart) {
+    if (!cart) return;
+    if (cart.chargeUpSfxId != null) {
+      AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+      cart.chargeUpSfxId = null;
+    }
+    cart.isChargingBoost = false;
+    cart.boostChargeStartedAtMs = 0;
+  }
+
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
     cart.respawnAtMs = now + CONFIG.fall.respawnDelayMs;
     if (cart === localCartForConnId()) {
+      stopChargeSfxForCart(cart);
       AudioManager.playSfx("death");
     }
   }
 
   function scheduleStuckRespawn(cart) {
     if (!cart?.body || cart.respawnAtMs !== null) return;
+    stopChargeSfxForCart(cart);
     Entities.doRespawn(cart);
     Entities.resetCartIdleWatch(cart);
   }
@@ -1671,8 +1700,20 @@ async function main() {
   }
 
   function bootstrapSessionCarts(expectedGen) {
-    if (allCartsRef?.length) return allCartsRef;
-    if (expectedGen != null && expectedGen !== helloGate.getGeneration()) return null;
+    console.log("[bootstrap] bootstrapSessionCarts started", { expectedGen });
+
+    if (allCartsRef?.length && getLastSuccessfulHelloGen() === expectedGen) {
+      console.log("[bootstrap] bootstrapSessionCarts — carts already exist for this hello gen, skipping recreate");
+      return allCartsRef;
+    }
+
+    if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
+      console.log("[bootstrap] bootstrapSessionCarts skipped — stale hello gen");
+      return null;
+    }
+
+    console.log("[bootstrap] Creating carts (destroying old ones if any)");
+    destroySessionCarts();
 
     const { allCarts: carts, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
       scene,
@@ -1709,6 +1750,7 @@ async function main() {
       getAllCarts: () => allCarts,
       getAllCartsRef: () => allCartsRef,
     });
+    console.log("[bootstrap] Carts created successfully for this hello gen");
     return carts;
   }
 
@@ -1758,6 +1800,8 @@ async function main() {
     getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
+    getTriggerCartShatterRef: () => triggerCartShatterRef,
+    getScene: () => scene,
     getHud: () => hud,
     colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
@@ -1784,6 +1828,7 @@ async function main() {
     resetRoundState: () => {
       GameState.resetRoundToLobby();
       try { Simulation.setRoundPhase("lobby"); } catch (e) {}
+      CameraMod.endCinematicCountdown(camera);
     },
     hideEscOverlay: () => HUD.hideEscOverlay(),
     resetSessionPickState: () => {
@@ -1846,14 +1891,45 @@ async function main() {
   }
 
   /**
+   * Starts an Auto-Charge Boost for a human cart, or fires an instant nitro for NPCs.
+   *
+   * Human path (default): sets `isChargingBoost` + records the start time + plays the
+   * looping charge-up SFX locally. The actual burst is auto-released by
+   * `applyArcadeControls` once `boostChargeTimeMs` elapses, which then fires
+   * `onBoostRelease` to swap the SFX and trigger the visual pulse.
+   *
+   * NPC path (`{ instant: true }`): preserves the legacy instant nitro window so bots
+   * do not freeze for 1.5s while charging in unsafe positions.
+   *
    * @param {ReturnType<typeof createCart>} cart
    * @param {number} nowMs
+   * @param {{ instant?: boolean }} [opts]
    */
-  function triggerRamBoost(cart, nowMs) {
+  function triggerRamBoost(cart, nowMs, opts = {}) {
     if (!cart?.body) return;
     const rb = CONFIG.cart.ramBoost;
     if (!rb.enabled) return;
     if (nowMs <= cart.ramBoostActiveUntilMs) return;
+    if (cart.isChargingBoost) return;
+
+    const chargeCfg = rb.boostCharge;
+    const useCharge = !opts.instant && chargeCfg?.enabled;
+
+    if (useCharge) {
+      // * Cooldown gate — block re-charging until boostCooldownMs passes after the last burst.
+      if (nowMs < cart.boostCooldownUntilMs) return;
+      cart.isChargingBoost = true;
+      cart.boostChargeStartedAtMs = nowMs;
+      cart.boostChargeMultiplier = chargeCfg.boostMaxMultiplier;
+      const isLocal = cart === localCartForConnId();
+      if (isLocal) {
+        // * Looping charge-up SFX; stopped on release / interrupt via onBoostRelease or respawn.
+        cart.chargeUpSfxId = AudioManager.playSfx("chargeUp");
+      }
+      return;
+    }
+
+    // * Instant path (NPCs, or when the charge mechanic is disabled): legacy behavior.
     if (nowMs - cart.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
     cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
     cart.lastRamBoostTimeMs = nowMs;
@@ -1864,6 +1940,26 @@ async function main() {
       flashBoostActivate();
     }
     cart.ramBoostStreakCarry = 0;
+  }
+
+  /**
+   * Auto-Charge Boost release callback — invoked by `applyArcadeControls` (via the sim
+   * callbacks) when a charging cart hits `boostChargeTimeMs`. Stops the looping charge
+   * SFX and fires the boost/nitro SFX + visual pulse for the local cart. Remote-cart
+   * releases on the host are silent here (the owning client plays its own SFX locally).
+   *
+   * @param {ReturnType<typeof createCart>} cart
+   */
+  function onBoostRelease(cart) {
+    const isLocal = cart === localCartForConnId();
+    if (!isLocal) return;
+    if (cart.chargeUpSfxId != null) {
+      AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+      cart.chargeUpSfxId = null;
+    }
+    AudioManager.playSfx("boost");
+    if (cart.mesh) animateCartBoostPulse(cart.mesh);
+    flashBoostActivate();
   }
 
   function triggerHop(cart, nowMs) {
@@ -1918,7 +2014,9 @@ async function main() {
     const angleDeg = Math.acos(dot) * (180 / Math.PI);
     if (angleDeg > ncfg.alignmentAngleDeg) return;
 
-    triggerRamBoost(npc, nowMs);
+    // * NPCs use the instant nitro path — keeps bot movement responsive and avoids
+    // * freezing in a 1.5s charge window mid-combat.
+    triggerRamBoost(npc, nowMs, { instant: true });
   }
 
   // --- Round flow (countdown, podium, AI) ---
@@ -1953,6 +2051,7 @@ async function main() {
     GameState.setRoundWinnerSlotIndex(null);
     Netcode.sendHostRound();
     updateTouchControlsVisibility();
+    CameraMod.endCinematicCountdown(camera);
   }
 
   let roundCountdownTimeoutId = null;
@@ -1981,6 +2080,7 @@ async function main() {
       roundCountdownTimeoutId = null;
       if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
     }, Math.max(0, startsAtLocalMs - Date.now()));
+    CameraMod.beginCinematicCountdown(camera);
   }
 
   /**
@@ -2015,6 +2115,7 @@ async function main() {
       syncRoundPhase("lobby");
       GameState.setRoundCountdownStartedAtMs(0);
       GameState.setRoundStartedAtMs(0);
+      CameraMod.endCinematicCountdown(camera);
       if (Netcode.getIsHost()) Netcode.sendHostRound();
     }
   };
@@ -2243,6 +2344,8 @@ async function main() {
     MSG,
     setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
     getYouConnId: () => Netcode.getYouConnId(),
+    getScene: () => scene,
+    triggerCartShatter,
   };
 
   const hostSimCallbacks = {
@@ -2251,6 +2354,7 @@ async function main() {
     playCollision: (_intensity, _opts) => AudioManager.playSfx("cartCrash"),
     spawnTrashBurst: spawnTrashBurstRef,
     onLocalRamImpact: triggerLocalRamShake,
+    onBoostRelease,
     get partySocket() { return Netcode.getPartySocket(); },
     get recordColliderHandle() { return recordCollider?.handle; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },
@@ -2364,16 +2468,21 @@ async function main() {
 
     const localCart = localCartForConnId();
     if (localCart?.body) {
-      const playerPos = localCart.body.translation();
-      const playerRot = localCart.body.rotation();
-      CameraMod.updateCamera(
-        camera,
-        localCart,
-        dt,
-        playerPos,
-        playerRot,
-        world,
-      );
+      const camMode = CameraMod.getCameraMode(camera);
+      if (camMode === CameraMod.CameraMode.CINEMATIC_COUNTDOWN) {
+        CameraMod.updateCinematicCountdown(camera, dt);
+      } else {
+        const playerPos = localCart.body.translation();
+        const playerRot = localCart.body.rotation();
+        CameraMod.updateCamera(
+          camera,
+          localCart,
+          dt,
+          playerPos,
+          playerRot,
+          world,
+        );
+      }
     }
 
     frameCtx.dt = dt;

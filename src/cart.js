@@ -761,11 +761,13 @@ export function updateCartVisuals(root, linvelWorld, dtSec, timeMs, angvelWorld 
     const cornerSpeed = Math.hypot(cornerVx, cornerVz);
 
     const prevSwivel = yawG.userData.smoothedSwivelYaw ?? 0;
-    let smoothedSwivel = prevSwivel;
-    if (cornerSpeed >= CASTER_YAW_MIN_SPEED) {
-      const targetHeading = Math.atan2(cornerVx, cornerVz) + CASTER_YAW_OFFSET;
-      smoothedSwivel = lerpAngle(prevSwivel, targetHeading, alpha);
-    }
+    // * Always update toward the target heading so direction changes don't freeze mid-rotation.
+    // * At low corner speed the heading is noisy, so scale the smoothing alpha down with speed:
+    // * full alpha above CASTER_YAW_MIN_SPEED, near-zero at standstill — slow creep instead of snap.
+    const targetHeading = Math.atan2(cornerVx, cornerVz) + CASTER_YAW_OFFSET;
+    const lowSpeedScale = clamp(cornerSpeed / CASTER_YAW_MIN_SPEED, 0, 1);
+    const effectiveAlpha = alpha * lowSpeedScale;
+    const smoothedSwivel = lerpAngle(prevSwivel, targetHeading, effectiveAlpha);
     yawG.userData.smoothedSwivelYaw = smoothedSwivel;
 
     const wob = Math.sin(t * 14.2 + wobblePhases[i]) * wobbleScale;

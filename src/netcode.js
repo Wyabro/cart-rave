@@ -49,6 +49,8 @@ let hostMigrationFreezeUntilMs = 0;
 
 let skipNextPhysicsStep = false;
 
+let _suppressRetry = false;
+
 /** @type {(() => Array<object> | null) | null} */
 let getAllCartsRefFn = null;
 let getAxisRef = null;
@@ -113,6 +115,8 @@ let callbacks = {
   triggerLocalRamShakeRef: () => {},
   playFloorImpactRef: () => {},
   playEdgeImpactRef: () => {},
+  triggerCartShatterRef: () => {},
+  getSceneRef: () => null,
 
   // Kill feed
   addKillFeedEntry: () => {},
@@ -187,6 +191,10 @@ export function registerGameCallbacks(deps) {
     triggerLocalRamShakeRef: (intensity, isBoosting) => {
       deps.getTriggerLocalRamShake?.()?.(intensity, isBoosting);
     },
+    triggerCartShatterRef: (cart, scene, neonHex) => {
+      deps.getTriggerCartShatterRef?.()?.(cart, scene, neonHex);
+    },
+    getSceneRef: () => deps.getScene?.() ?? null,
     addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor) => {
       const hud = deps.getHud();
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor);
@@ -781,6 +789,7 @@ export function stopKeepaliveLoop() {
  * Safe to call when returning to the menu in-tab or before a new room join.
  */
 export function disconnectPartySession() {
+  _suppressRetry = true;
   stopHostSendLoop();
   stopInputSendLoop();
   stopKeepaliveLoop();
@@ -985,6 +994,7 @@ export function syncLocalSlotLookHex() {
  */
 export function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
+  _suppressRetry = false;
   callbacks.setLocalColorPicked(false);
   serverClockOffsetMs = 0;
   serverClockOffsetSamples = 0;
@@ -1079,30 +1089,51 @@ export function initNetcode(roomOverride) {
   let netcodeRetryScheduled = false;
   const scheduleNetcodeRetry = () => {
     if (netcodeRetryScheduled) return;
+
+    const delay = helloReceivedThisSession
+      ? 3000 + Math.random() * 2000
+      : 400 + Math.random() * 600;
+
     netcodeRetryScheduled = true;
     setTimeout(() => {
       netcodeRetryScheduled = false;
       if (partySocket) return;
       initNetcode(roomOverride);
-    }, 400 + Math.random() * 600);
+    }, delay);
   };
 
-  partySocket.addEventListener("close", () => {
+  partySocket.addEventListener("close", (ev) => {
+    console.log("[netcode] Socket closed", {
+      didSendJoin,
+      helloReceivedThisSession,
+      code: ev?.code,
+      reason: ev?.reason,
+    });
+    if (helloReceivedThisSession) {
+      console.log("[netcode] Socket closed after successful hello (will retry with backoff)");
+    }
+    if (_suppressRetry) return;
     if (didSendJoin && !helloReceivedThisSession) {
       try { callbacks.onJoinRejected(); } catch {}
-      return;
+    } else {
+      try { scheduleNetcodeRetry(); } catch {}
     }
-    if (didSendJoin) return;
-    try { scheduleNetcodeRetry(); } catch {}
   });
 
   partySocket.addEventListener("error", () => {
+    console.log("[netcode] Socket error", {
+      didSendJoin,
+      helloReceivedThisSession,
+    });
+    if (helloReceivedThisSession) {
+      console.log("[netcode] Socket error after successful hello (will retry with backoff)");
+    }
+    if (_suppressRetry) return;
     if (didSendJoin && !helloReceivedThisSession) {
       try { callbacks.onJoinRejected(); } catch {}
-      return;
+    } else {
+      try { scheduleNetcodeRetry(); } catch {}
     }
-    if (didSendJoin) return;
-    try { scheduleNetcodeRetry(); } catch {}
   });
 
   partySocket.addEventListener("open", () => {
@@ -1111,6 +1142,7 @@ export function initNetcode(roomOverride) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       localStorage.setItem("cartRaveUsername", savedUsername);
     }
+    console.log("[netcode] Sending MSG.join", { name: savedUsername, clientId });
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
     sendColorPick(resolveServerColorPick());
@@ -1136,6 +1168,12 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.hello) {
+      console.log("[netcode] Received MSG.hello", {
+        youConnId: msg.youConnId,
+        hostId: msg.hostId,
+        slotCount: msg.slots?.length,
+        roundPhase: msg.round?.phase,
+      });
       helloReceivedThisSession = true;
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
@@ -1358,6 +1396,19 @@ export function initNetcode(roomOverride) {
         callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor);
       } else {
         callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);
+      }
+      // * Replay the shatter + explosion VFX on non-host clients so everyone sees
+      // * the same death pop. The host triggers it locally in gameFlow.js.
+      const slotIdx = typeof msg.slotId === "number" ? msg.slotId : null;
+      if (slotIdx != null) {
+        const carts = getAllCarts();
+        const victimCart = carts?.[slotIdx];
+        if (victimCart?.mesh) {
+          const scene = callbacks.getSceneRef?.();
+          if (scene) {
+            callbacks.triggerCartShatterRef(victimCart, scene, targetColor ?? 0xffffff);
+          }
+        }
       }
       return;
     }

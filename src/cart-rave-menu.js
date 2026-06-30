@@ -14,9 +14,9 @@ import {
   patternSvgParts,
 } from "./cartPatternConfig.js";
 import {
-  CART_THEMES,
-  CART_THEME_IDS,
   DEFAULT_CART_THEME,
+  DEFAULT_SUNGLASSES_STYLE,
+  SUNGLASSES_STYLES,
 } from "./cartThemeConfig.js";
 import { CartPreview } from "./ui/cartPreview.js";
 import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
@@ -216,7 +216,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     colorMode: 'preset',
     customHue: DEFAULT_CUSTOM_HUE,
     pattern: DEFAULT_CART_PATTERN,
-    previewThemeId: DEFAULT_CART_THEME,
+    sunglassesStyle: DEFAULT_SUNGLASSES_STYLE,
   };
 
   if (!localStorage.getItem("cartRaveUsername")) {
@@ -236,7 +236,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
   const cartShadow = $("cr-cart-shadow");
   const titleEl = $("cr-title");
   const customizeColorRow = $("cr-customize-color-row");
-  const customizeThemeRow = $("cr-customize-theme-row");
+  const customizeSunglassesRow = $("cr-customize-sunglasses-row");
   const customizeScreen = $("cr-customize-screen");
   const customizeCartHolder = $("cr-customize-cart-holder");
   const customizeCartShadow = $("cr-customize-cart-shadow");
@@ -524,7 +524,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     state.colorMode = saved.colorMode === 'custom' ? 'custom' : 'preset';
     state.customHue = normalizeHue(saved.customHue);
     state.pattern = saved.pattern || DEFAULT_CART_PATTERN;
-    state.previewThemeId = saved.theme || DEFAULT_CART_THEME;
+    state.sunglassesStyle = saved.sunglassesStyle || DEFAULT_SUNGLASSES_STYLE;
     if (state.colorMode === 'preset') {
       const presetId = saved.color === CUSTOM_COLOR_ID ? PALETTE_GAME[0] : saved.color;
       state.playerIdx = colorIdxFromGameId(presetId);
@@ -533,7 +533,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 
   /**
    * Saves menu customization state through the shared store and syncs local UI state.
-   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number, pattern?: string, theme?: string }} customization
+   * @param {{ colorMode?: 'preset'|'custom', color?: string, customHue?: number, pattern?: string, sunglassesStyle?: string }} customization
    */
   function saveCustomization(customization) {
     const saved = savePlayerCustomization(customization);
@@ -659,29 +659,27 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     });
   }
 
-  // ─── Build theme chips (THEMES tab) ───────────────────────────────────────
-  function buildThemeChips() {
-    if (!customizeThemeRow) return;
-    customizeThemeRow.setAttribute('role', 'radiogroup');
-    customizeThemeRow.setAttribute('aria-label', 'Cart Theme Selection');
+  // ─── Build sunglasses chips (SUNGLASSES tab) ─────────────────────────────
+  function buildSunglassesChips() {
+    if (!customizeSunglassesRow) return;
+    customizeSunglassesRow.setAttribute('role', 'radiogroup');
+    customizeSunglassesRow.setAttribute('aria-label', 'Sunglasses Mirror Finish Selection');
     let html = '';
-    for (const themeId of CART_THEME_IDS) {
-      const theme = CART_THEMES[themeId];
-      const isActive = state.previewThemeId === themeId;
-      const bodyCss = previewHexToCss(theme.baseHex);
-      const accentCss = previewHexToCss(theme.accentHex);
-      html += `<button type="button" class="cr-theme-chip ${isActive ? 'active' : ''}" data-theme="${themeId}" role="radio" aria-checked="${isActive}" aria-label="${theme.label}" title="${theme.label}" style="--tc:${bodyCss};--ta:${accentCss};">
-        <span class="cr-theme-chip-swatch" aria-hidden="true"></span>
-        <span class="cr-theme-chip-label">${theme.label}</span>
+    for (const style of SUNGLASSES_STYLES) {
+      const isActive = state.sunglassesStyle === style.id;
+      const mirrorCss = previewHexToCss(style.color);
+      html += `<button type="button" class="cr-sunglasses-chip ${isActive ? 'active' : ''}" data-sunglasses="${style.id}" role="radio" aria-checked="${isActive}" aria-label="${style.label}" title="${style.label}" style="--mc:${mirrorCss};">
+        <span class="cr-sunglasses-chip-swatch" aria-hidden="true"></span>
+        <span class="cr-sunglasses-chip-label">${style.label}</span>
       </button>`;
     }
-    customizeThemeRow.innerHTML = html;
-    customizeThemeRow.querySelectorAll('.cr-theme-chip').forEach((chip) => {
+    customizeSunglassesRow.innerHTML = html;
+    customizeSunglassesRow.querySelectorAll('.cr-sunglasses-chip').forEach((chip) => {
       wireMenuPressFeedback(chip);
       chip.addEventListener('click', () => {
-        const themeId = chip.dataset.theme;
-        if (!themeId || themeId === state.previewThemeId) return;
-        selectTheme(themeId);
+        const styleId = chip.dataset.sunglasses;
+        if (!styleId || styleId === state.sunglassesStyle) return;
+        selectSunglassesStyle(styleId);
         loadMenuAnimations().then((Anim) => {
           if (Anim) Anim.animateColorChipSelect(chip);
         });
@@ -689,11 +687,18 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     });
   }
 
-  function selectTheme(themeId) {
-    if (!CART_THEME_IDS.includes(themeId)) return;
-    saveCustomization({ theme: themeId });
+  /**
+   * Applies a sunglasses style selection: persists it and rebuilds the 3D preview
+   * (the mirror finish is baked into the cloned GLTF instance materials, so a full
+   * rebuild is required to swap lenses).
+   * @param {string} styleId
+   */
+  function selectSunglassesStyle(styleId) {
+    if (!SUNGLASSES_STYLES.some((s) => s.id === styleId)) return;
+    if (state.sunglassesStyle === styleId) return;
+    saveCustomization({ sunglassesStyle: styleId });
     if (cartPreview) syncCartPreviewLook(true);
-    buildThemeChips();
+    buildSunglassesChips();
   }
 
   function switchCustomizeTab(tabId) {
@@ -710,12 +715,16 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     });
   }
 
-  /** Syncs theme, neon color, and pattern to the live 3D cart preview. */
+  /** Syncs neon color, pattern, and sunglasses style to the live 3D cart preview. */
   function syncCartPreviewLook(fullRebuild = false) {
     if (!cartPreview) return;
     cartPreview.setColor(getActiveColorHex());
     if (fullRebuild) {
-      cartPreview.setTheme(state.previewThemeId);
+      // * Sunglasses style is baked into the cloned GLTF instance, so update the field
+      // * before setTheme triggers the single async rebuild (avoids a second rebuild).
+      // * Theme is always "rave" now — setTheme is kept solely to trigger the rebuild.
+      cartPreview.setSunglassesStyle(state.sunglassesStyle, { rebuild: false });
+      cartPreview.setTheme(DEFAULT_CART_THEME);
     }
     cartPreview.setPattern(state.pattern);
   }
@@ -772,7 +781,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     mountCartPreview();
     renderCustomizePreview();
     buildColorChips();
-    buildThemeChips();
+    buildSunglassesChips();
     customizeScreen.style.display = 'flex';
     customizeScreen.setAttribute('aria-hidden', 'false');
     customizeDoneBtn?.focus();
@@ -811,7 +820,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
       wireMenuPressFeedback(tab);
       tab.addEventListener('click', () => {
         if (tab.disabled) return;
-        switchCustomizeTab(tab.dataset.tab || 'color');
+        switchCustomizeTab(tab.dataset.tab || 'body');
       });
     });
     customizeDoneBtn?.addEventListener('click', closeCustomizeScreen);
@@ -1227,22 +1236,23 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
   updateSpotlights();
   updateParticles();
   buildColorChips();
-  buildThemeChips();
+  buildSunglassesChips();
   updateCustomHueUi();
   initLevelSelect();
   initCartTooltipTap();
   initCustomizeScreen();
   window.addEventListener('cartrave:customization-changed', (e) => {
     const detail = e.detail || loadPlayerCustomization();
-    const prevTheme = state.previewThemeId;
+    const prevSunglasses = state.sunglassesStyle;
     applyCustomizationToState(detail);
     buildColorChips();
-    buildThemeChips();
+    buildSunglassesChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
-    // * Color/pattern are synced in renderCustomizePreview; only rebuild mesh when theme changes.
-    if (cartPreview && prevTheme !== state.previewThemeId) {
+    // * Rebuild the 3D preview mesh when the baked-in sunglasses style changes.
+    // * Theme is always "rave", so only the sunglasses style can force a rebuild.
+    if (cartPreview && prevSunglasses !== state.sunglassesStyle) {
       syncCartPreviewLook(true);
     }
     applyPalette();

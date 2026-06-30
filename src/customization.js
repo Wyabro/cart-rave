@@ -2,24 +2,32 @@
  * customization.js — Player cart look preferences (localStorage).
  * Preset palette IDs match CART_COLORS / PALETTE in config.js.
  *
- * Customization flow (COLOR + PATTERNS tabs → in-game cart):
- * 1. Menu (`cart-rave-menu.js`) calls `savePlayerCustomization()` on chip/slider/pattern/DONE — single write path.
+ * Customization flow (color + pattern + sunglasses → in-game cart):
+ * 1. Menu (`cart-rave-menu.js`) calls `savePlayerCustomization()` on chip/slider/pattern/sunglasses/DONE — single write path.
  * 2. `loadPlayerCustomization()` reads `cartRaveCustomization` and seeds defaults on first visit.
  * 3. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
  *    remote humans → server-synced `slot.lookHex`; NPCs → server slot color via CART_COLORS.
  * 4. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id (local human → saved; others → classic).
- * 4b. `resolveCartThemeForSlot(slot, ctx)` picks the cart theme id (local human → saved; others → rave until networked).
+ * 4b. `resolveCartThemeForSlot(slot, ctx)` always returns "rave" — the sole permanent base theme.
+ * 4c. `resolveCartSunglassesStyleForSlot(slot, ctx)` picks the sunglasses style id (local human → saved; others → silver mirror).
  * 5. `main.js` passes `displayColorHexForSlot` into cart spawn/recolor, calls `applyCartFrameGlow()`
  *    for neon color, then `applyCartPattern()` for the wireframe pattern overlay layer. Color and pattern are independent.
  * 6. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
  * 7. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
- *    rebroadcasts via `slots` so every client renders the same cosmetic color.
+ *    rebroadcasts via `slots` so every client renders the same cosmetic color. Sunglasses style is
+ *    local-only for now (not networked) — only the local human's saved style is applied at spawn.
  *
+ * Theme selection was removed: "rave" is the only theme. Any legacy `theme` field in localStorage
+ * is silently ignored on load (never re-written), so old payloads migrate cleanly.
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
-import { DEFAULT_CART_THEME, normalizeThemeId } from "./cartThemeConfig.js";
+import {
+  DEFAULT_CART_THEME,
+  DEFAULT_SUNGLASSES_STYLE,
+  SUNGLASSES_STYLES,
+} from "./cartThemeConfig.js";
 
 export const CUSTOMIZE_STORAGE_KEY = "cartRaveCustomization";
 export const CUSTOM_COLOR_ID = "custom";
@@ -46,7 +54,7 @@ export function invalidateCustomizationCache() {
 export const DEFAULT_CUSTOM_HUE = 280;
 
 /**
- * Default cart look when nothing is stored yet (preset pink).
+ * Default cart look when nothing is stored yet (preset pink, silver mirror sunglasses).
  * @returns {PlayerCustomization}
  */
 function getDefaultCustomization() {
@@ -55,7 +63,7 @@ function getDefaultCustomization() {
     color: DEFAULT_PRESET_COLOR,
     customHue: DEFAULT_CUSTOM_HUE,
     pattern: DEFAULT_CART_PATTERN,
-    theme: DEFAULT_CART_THEME,
+    sunglassesStyle: DEFAULT_SUNGLASSES_STYLE,
   });
 }
 
@@ -63,8 +71,25 @@ function getDefaultCustomization() {
  * @typedef {"preset" | "custom"} ColorMode
  * @typedef {import("./cartPatternConfig.js").CartPatternId} CartPatternId
  * @typedef {import("./cartThemeConfig.js").CartThemeId} CartThemeId
- * @typedef {{ colorMode: ColorMode, color: string, customHue: number, pattern: CartPatternId, theme: CartThemeId, hex: number, cssHex: string }} PlayerCustomization
+ * @typedef {import("./cartThemeConfig.js").SunglassesStyleId} SunglassesStyleId
+ * @typedef {{ colorMode: ColorMode, color: string, customHue: number, pattern: CartPatternId, sunglassesStyle: SunglassesStyleId, hex: number, cssHex: string }} PlayerCustomization
  */
+
+/**
+ * * Normalizes an arbitrary value to a valid sunglasses style id from {@link SUNGLASSES_STYLES},
+ * * falling back to {@link DEFAULT_SUNGLASSES_STYLE}. Mirror-finish sunglasses are rave-only and
+ * * not networked, so unknown / missing values silently default to silver mirror.
+ *
+ * @param {unknown} value
+ * @returns {SunglassesStyleId}
+ */
+function normalizeSunglassesStyleId(value) {
+  if (typeof value === "string"
+    && SUNGLASSES_STYLES.some((s) => s.id === value)) {
+    return /** @type {SunglassesStyleId} */ (value);
+  }
+  return DEFAULT_SUNGLASSES_STYLE;
+}
 
 /**
  * @param {number} hue hue in degrees
@@ -203,7 +228,7 @@ function normalizeCustomization(raw) {
   let color = fallbackPreset;
   let customHue = DEFAULT_CUSTOM_HUE;
   let pattern = DEFAULT_CART_PATTERN;
-  let theme = DEFAULT_CART_THEME;
+  let sunglassesStyle = DEFAULT_SUNGLASSES_STYLE;
 
   let hasStoredCustomHue = false;
   if (raw && typeof raw === "object") {
@@ -211,8 +236,9 @@ function normalizeCustomization(raw) {
     if (typeof obj.pattern === "string") {
       pattern = normalizePatternId(obj.pattern);
     }
-    if (typeof obj.theme === "string") {
-      theme = normalizeThemeId(obj.theme);
+    // * Legacy `theme` field is intentionally ignored — "rave" is the sole permanent theme.
+    if (typeof obj.sunglassesStyle === "string") {
+      sunglassesStyle = normalizeSunglassesStyleId(obj.sunglassesStyle);
     }
     if (obj.colorMode === "custom") colorMode = "custom";
     if (typeof obj.customHue === "number" && Number.isFinite(obj.customHue)) {
@@ -256,7 +282,7 @@ function normalizeCustomization(raw) {
     color,
     customHue,
     pattern,
-    theme,
+    sunglassesStyle,
     hex,
     cssHex: `#${hex.toString(16).padStart(6, "0")}`,
   };
@@ -273,7 +299,7 @@ function buildStoragePayload(normalized) {
     customHue: normalized.customHue,
     customHex: normalized.hex,
     pattern: normalized.pattern,
-    theme: normalized.theme,
+    sunglassesStyle: normalized.sunglassesStyle,
   };
 }
 
@@ -324,7 +350,7 @@ export function wireCustomizationStorageSync() {
 }
 
 /**
- * @param {{ colorMode?: ColorMode, color?: string, customHue?: number, pattern?: string, theme?: string }} input
+ * @param {{ colorMode?: ColorMode, color?: string, customHue?: number, pattern?: string, sunglassesStyle?: string }} input
  * @returns {PlayerCustomization}
  */
 export function savePlayerCustomization(input) {
@@ -333,7 +359,7 @@ export function savePlayerCustomization(input) {
   let color = input.color ?? current.color;
   let customHue = input.customHue ?? current.customHue;
   const pattern = normalizePatternId(input.pattern ?? current.pattern);
-  const theme = normalizeThemeId(input.theme ?? current.theme);
+  const sunglassesStyle = normalizeSunglassesStyleId(input.sunglassesStyle ?? current.sunglassesStyle);
 
   if (colorMode === "custom") {
     color = CUSTOM_COLOR_ID;
@@ -342,7 +368,13 @@ export function savePlayerCustomization(input) {
     color = PALETTE[0];
   }
 
-  const normalized = normalizeCustomization({ colorMode, color, customHue, pattern, theme });
+  const normalized = normalizeCustomization({
+    colorMode,
+    color,
+    customHue,
+    pattern,
+    sunglassesStyle,
+  });
 
   writeCustomizationToStorage(normalized);
   cachedCustomization = normalized;
@@ -379,16 +411,32 @@ export function resolveCartPatternForSlot(slot, ctx = {}) {
 }
 
 /**
- * Cart theme id for a cart mesh — local human uses saved theme; others use rave until networked.
+ * Cart theme id for a cart mesh — always "rave". Theme selection was removed; "rave" is the
+ * sole permanent base configuration. The signature is kept so the spawn path
+ * (`main.js` / `entities.js`) and `cartThemes.js` continue to resolve a CartThemeDef by id
+ * without touching those modules.
+ *
+ * @param {{ kind?: string, connId?: string } | null | undefined} _slot — unused; kept for API stability
+ * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [_ctx] — unused; kept for API stability
+ * @returns {CartThemeId}
+ */
+export function resolveCartThemeForSlot(_slot, _ctx = {}) {
+  return DEFAULT_CART_THEME;
+}
+
+/**
+ * Sunglasses style id for a cart mesh — local human uses saved style; others use silver mirror.
+ * Style is local-only for now (not synced via PartyKit), so remote humans and NPCs fall back to
+ * the default silver mirror lens.
  *
  * @param {{ kind?: string, connId?: string } | null | undefined} slot
  * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
- * @returns {CartThemeId}
+ * @returns {SunglassesStyleId}
  */
-export function resolveCartThemeForSlot(slot, ctx = {}) {
+export function resolveCartSunglassesStyleForSlot(slot, ctx = {}) {
   const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
-  if (isLocal) return loadPlayerCustomization().theme;
-  return DEFAULT_CART_THEME;
+  if (isLocal) return loadPlayerCustomization().sunglassesStyle;
+  return DEFAULT_SUNGLASSES_STYLE;
 }
 
 /**

@@ -258,7 +258,7 @@ export function crossfadeMenuToGame(durationMs = 500) {
  * Register a pooled SFX sound (e.g. cart-crash, future sounds).
  * @param {string} key Unique identifier
  * @param {string} src URL to the audio file
- * @param {{ pool?: number, sprite?: Record<string, [number, number]> }} [options]
+ * @param {{ pool?: number, sprite?: Record<string, [number, number]>, loop?: boolean, rate?: number }} [options]
  */
 export function registerSfx(key, src, options = {}) {
   if (sfxRegistry[key]) {
@@ -269,6 +269,8 @@ export function registerSfx(key, src, options = {}) {
     volume: _isMuted ? 0 : _sfxVol,
     pool: options.pool ?? 4,
     sprite: options.sprite,
+    loop: Boolean(options.loop),
+    rate: options.rate,
     preload: true,
   });
 }
@@ -286,6 +288,23 @@ export function playSfx(key, sprite) {
     return sprite ? sound.play(sprite) : sound.play();
   } catch {
     return null;
+  }
+}
+
+/**
+ * Stop a specific playing instance of a registered SFX by its sound ID.
+ * Used to cut the charge-up loop when an Auto-Charge Boost releases early or is interrupted.
+ * @param {string} key Registry key
+ * @param {number | null | undefined} id Sound ID returned by playSfx
+ */
+export function stopSfx(key, id) {
+  if (id == null) return;
+  const sound = sfxRegistry[key];
+  if (!sound) return;
+  try {
+    sound.stop(id);
+  } catch {
+    // Sound may have already ended or been unloaded.
   }
 }
 

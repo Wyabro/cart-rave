@@ -28,6 +28,74 @@ const _holeOverhangState = {
 };
 const _envContactPos = { x: 0, y: 0, z: 0 };
 
+// * Per-cart physics state scratch — populated once at the top of each per-cart
+// * control pass in runFixedPhysicsStep, then read by every downstream helper
+// * (applyArcadeControls, applyEnvironmentResponse, AI, ramming). Rapier getters
+// * like body.translation()/.linvel()/.angvel()/.rotation() allocate a fresh JS
+// * object at the WASM boundary on every call; caching into these plain objects
+// * collapses ~14 allocs/cart/step down to 4.
+const _scratchPos = { x: 0, y: 0, z: 0 };
+const _scratchRot = { x: 0, y: 0, z: 0, w: 1 };
+const _scratchLinvel = { x: 0, y: 0, z: 0 };
+const _scratchAngvel = { x: 0, y: 0, z: 0 };
+
+// * Ramming pair state scratch — populated once per cart-cart collision pair in
+// * processCollisionEvents, shared by qualification scoring + impulse application.
+const _ramStateA = { pos: { x: 0, y: 0, z: 0 }, linvel: { x: 0, y: 0, z: 0 } };
+const _ramStateB = { pos: { x: 0, y: 0, z: 0 }, linvel: { x: 0, y: 0, z: 0 } };
+
+/**
+ * * Fetches a cart body's translation/rotation/linvel/angvel ONCE into the module
+ * * scratch cache. Must be called at the top of each per-cart control pass before
+ * * any helper reads body state. Position/rotation/angvel stay valid for the whole
+ * * pass (only world.step() mutates them); linvel is re-fetched via
+ * * {@link rereadLinvelIntoScratch} after each impulse-applying sub-helper because
+ * * Rapier applyImpulse immediately mutates the body's live linvel.
+ *
+ * @param {object | null | undefined} cart
+ * @returns {void}
+ */
+function readBodyStateIntoScratch(cart) {
+  const body = cart?.body;
+  if (!body) return;
+  const p = body.translation();
+  _scratchPos.x = p.x;
+  _scratchPos.y = p.y;
+  _scratchPos.z = p.z;
+  const r = body.rotation();
+  _scratchRot.x = r.x;
+  _scratchRot.y = r.y;
+  _scratchRot.z = r.z;
+  _scratchRot.w = r.w;
+  const lv = body.linvel();
+  _scratchLinvel.x = lv.x;
+  _scratchLinvel.y = lv.y;
+  _scratchLinvel.z = lv.z;
+  const av = body.angvel();
+  _scratchAngvel.x = av.x;
+  _scratchAngvel.y = av.y;
+  _scratchAngvel.z = av.z;
+}
+
+/**
+ * * Fetches a cart body's translation + linvel into a ramming state buffer.
+ *
+ * @param {object} cart
+ * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} out
+ * @returns {void}
+ */
+function readRamStateInto(cart, out) {
+  const body = cart.body;
+  const p = body.translation();
+  out.pos.x = p.x;
+  out.pos.y = p.y;
+  out.pos.z = p.z;
+  const lv = body.linvel();
+  out.linvel.x = lv.x;
+  out.linvel.y = lv.y;
+  out.linvel.z = lv.z;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -197,7 +265,10 @@ function writeCenterHoleOverhangState(cart, pos, out) {
   const dirX = posX / distanceFromCenter;
   const dirZ = posZ / distanceFromCenter;
 
-  setPlanarBasisFromRotation(cart.body.rotation(), _forward, _right);
+  // * Use the cached rotation from the per-cart scratch (_scratchRot) instead of a fresh
+  // * body.rotation() getter call. The caller (applyEnvironmentResponse) guarantees the
+  // * scratch is populated for this cart and that no world.step() has run since.
+  setPlanarBasisFromRotation(_scratchRot, _forward, _right);
   const radialReach =
     Math.abs(hx * (_right.x * dirX + _right.z * dirZ)) +
     Math.abs(hz * (_forward.x * dirX + _forward.z * dirZ));
@@ -216,6 +287,20 @@ function writeCenterHoleOverhangState(cart, pos, out) {
 }
 
 /**
+ * * Re-reads only linvel into the module scratch. Used between sub-helpers that apply
+ * * impulses (which mutate the body's live linvel) so the next helper sees fresh velocity.
+ *
+ * @param {object} cart
+ * @returns {void}
+ */
+function rereadLinvelIntoScratch(cart) {
+  const lv = cart.body.linvel();
+  _scratchLinvel.x = lv.x;
+  _scratchLinvel.y = lv.y;
+  _scratchLinvel.z = lv.z;
+}
+
+/**
  * Applies continuous arena contact response for one cart.
  *
  * Flat record driving uses Rapier-native linear/angular damping set at body spawn —
@@ -227,6 +312,9 @@ function writeCenterHoleOverhangState(cart, pos, out) {
  * inward + downward assist (ramped by overhang depth) helps the cart slide off the chamfer
  * and tumble through. Carts fully on the flat annulus keep normal grip and receive no assist.
  * Fall scoring still happens via `CONFIG.fall.yThreshold` in gameFlow.
+ *
+ * Reads pos/rot from the module scratch cache (populated by the caller via
+ * {@link readBodyStateIntoScratch}); avoids redundant Rapier getter allocations.
  *
  * @param {object} cart Cart entity with Rapier body/collider.
  * @param {number} dtFixed Fixed physics timestep in seconds (drives hole assist impulses).
@@ -241,11 +329,10 @@ function applyEnvironmentResponse(cart, dtFixed) {
     return;
   }
 
-  const pos = cart.body.translation();
   const collider = cart.collider;
   const { overhanging, commit, dirX, dirZ } = writeCenterHoleOverhangState(
     cart,
-    pos,
+    _scratchPos,
     _holeOverhangState,
   );
 
@@ -273,18 +360,35 @@ function applyEnvironmentResponse(cart, dtFixed) {
 
 /**
  * @param {number} nowMs
+ * @param {object} [callbacks] Injected helpers (FX, audio, local-cart identity). Optional
+ *   but required for Auto-Charge Boost auto-release FX (onBoostRelease).
+ *
+ * Caller invariant: {@link readBodyStateIntoScratch} has been called for `cart` so that
+ * `_scratchPos`, `_scratchRot`, `_scratchLinvel`, and `_scratchAngvel` hold this cart's
+ * current pose + velocities. Position/rotation/angvel stay valid for the whole pass
+ * (only world.step() mutates them); linvel is re-read after each impulse-applying
+ * sub-helper via {@link rereadLinvelIntoScratch} since applyImpulse mutates live linvel.
  */
-function applyArcadeControls(cart, axis, dtFixed, nowMs) {
-  const pos = cart.body.translation();
-  const rot = cart.body.rotation();
-  const linvel = cart.body.linvel();
+function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
+  const pos = _scratchPos;
+  const rot = _scratchRot;
+  const linvel = _scratchLinvel;
   const mass = getBodyMass(cart.body);
 
-  // Cheap ground check: if vertical velocity is near zero and the cart isn't
-  // well below the arena, treat as grounded. Works on booths and arena alike.
+  // * Ground authority blends continuously with vertical velocity. A binary
+  // * vertVel < 2.0 check caused a twitch in control authority when bouncing;
+  // * smoothstep over [1.5, 2.5] fades ground grip (1.0) into air control
+  // * (airControlFactor). The yThreshold gate still drops authority fully
+  // * once the cart is below the arena floor (fallen).
   const vertVel = Math.abs(linvel.y);
-  const onGround = vertVel < 2.0 && pos.y > CONFIG.fall.yThreshold;
-  const controlFactor = onGround ? 1 : CONFIG.driving.airControlFactor;
+  const groundBlend = pos.y > CONFIG.fall.yThreshold
+    ? THREE.MathUtils.smoothstep(vertVel, 1.5, 2.5)
+    : 1;
+  const controlFactor = THREE.MathUtils.lerp(
+    1,
+    CONFIG.driving.airControlFactor,
+    groundBlend,
+  );
 
   const yaw = yawFromQuaternion(rot);
   setForwardRightFromYaw(yaw, _forward, _right);
@@ -297,17 +401,65 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   }
 
   const rb = CONFIG.cart.ramBoost;
-  const nitroActive = rb.enabled && nowMs <= cart.ramBoostActiveUntilMs;
+  const chargeCfg = rb.boostCharge;
+
+  // * Auto-Charge Boost: while charging, standard nitro is suppressed. The cart still
+  // * drives normally (grip/yaw/drift untouched). When the charge elapsed time reaches
+  // * boostChargeTimeMs, the burst auto-releases here: nitro window opens, an
+  // * instantaneous forward burst impulse is applied, cooldown begins, and the
+  // * onBoostRelease callback fires the boost SFX + visual pulse on the owning client.
+  if (chargeCfg?.enabled && cart.isChargingBoost) {
+    const chargeElapsedMs = nowMs - cart.boostChargeStartedAtMs;
+    if (chargeElapsedMs >= chargeCfg.boostChargeTimeMs) {
+      cart.isChargingBoost = false;
+      cart.boostChargeMultiplier = chargeCfg.boostMaxMultiplier;
+      cart.boostCooldownUntilMs = nowMs + chargeCfg.boostCooldownMs;
+      cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
+      cart.lastRamBoostTimeMs = nowMs;
+      cart.ramBoostStreakCarry = 0;
+
+      // * Launch burst impulse — forward kick scaled by mass × multiplier. Separate
+      // * from the ongoing nitro accel window; gives the release a tangible punch.
+      const burstMag = chargeCfg.burstImpulse * mass * chargeCfg.boostMaxMultiplier;
+      _impulse.x = _forward.x * burstMag;
+      _impulse.y = _forward.y * burstMag;
+      _impulse.z = _forward.z * burstMag;
+      cart.body.applyImpulse(_impulse, true);
+      cart.body.wakeUp();
+
+      if (callbacks?.onBoostRelease) {
+        callbacks.onBoostRelease(cart);
+      }
+    }
+  }
+
+  // * A charging cart must not also benefit from a lingering nitro window, so treat
+  // * nitro as inactive while the charge is building. Once released above, the freshly
+  // * set ramBoostActiveUntilMs re-enables nitro for the normal drive pass this frame.
+  const nitroActive = rb.enabled
+    && !cart.isChargingBoost
+    && nowMs <= cart.ramBoostActiveUntilMs;
   const nitroForward = nitroActive && axis.forward > 0;
 
-  let grip =
-    axis.turn !== 0
-      ? CONFIG.driving.lateralGrip * CONFIG.driving.driftGripFactor
-      : CONFIG.driving.lateralGrip;
+  // * Continuous grip: full grip at zero steer, drift grip at full lock — eliminates the
+  // * step-function snap that caused violent jitter when transitioning into/out of a drift.
+  const steerMag = Math.abs(axis.turn);
+  const gripBase = THREE.MathUtils.lerp(
+    CONFIG.driving.lateralGrip,
+    CONFIG.driving.lateralGrip * CONFIG.driving.driftGripFactor,
+    steerMag,
+  );
+  let grip = gripBase;
   if (nitroForward && rb.nitroGripFactor != null) {
     grip *= rb.nitroGripFactor;
   }
-  const dvRight = (-vRight) * grip * dtFixed;
+  // * Clamp the lateral grip delta-v so it can only kill vRight, never reverse it.
+  // * Without this, a large grip * dtFixed product overshoots zero and induces jitter.
+  const dvRight = THREE.MathUtils.clamp(
+    (-vRight) * grip * dtFixed,
+    -Math.abs(vRight),
+    Math.abs(vRight),
+  );
   const gripMag = mass * dvRight;
   _impulse.x = _right.x * gripMag;
   _impulse.y = _right.y * gripMag;
@@ -345,7 +497,8 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs) {
   }
 
   if (axis.turn !== 0) {
-    const av = cart.body.angvel();
+    // * angvel is stable across linear impulses — safe to read from the cached scratch.
+    const av = _scratchAngvel;
     const desiredYawRate = axis.turn * CONFIG.driving.tankYawRate * controlFactor;
     const yawError = desiredYawRate - av.y;
     const torqueImpulseY = yawError * CONFIG.driving.yawResponsiveness * mass * dtFixed;
@@ -353,6 +506,18 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     _torqueImpulse.y = torqueImpulseY;
     _torqueImpulse.z = 0;
     cart.body.applyTorqueImpulse(_torqueImpulse, true);
+
+    // * Apply extraYawDamping as an opposing angular impulse proportional to current yaw rate.
+    // * Counter-torque scales with steer magnitude so light steering keeps authority while
+    // * full-lock turns bleed off overshoot (prevents the high-responsiveness torque from
+    // * swinging the cart past the intended heading).
+    const yawDamp = CONFIG.driving.extraYawDamping ?? 0;
+    if (yawDamp > 0) {
+      _torqueImpulse.x = 0;
+      _torqueImpulse.y = -av.y * yawDamp * steerMag * mass * dtFixed;
+      _torqueImpulse.z = 0;
+      cart.body.applyTorqueImpulse(_torqueImpulse, true);
+    }
 
     const speedForDrift = Math.abs(vForward);
     if (speedForDrift > 0.25) {
@@ -373,8 +538,15 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs) {
     }
   }
 
+  // * Re-read linvel before the sub-helpers: the impulses above mutated the body's live
+  // * linvel, and applyEnvironmentResponse/applySquareHoleLipAssist/applyGeometryUnstick
+  // * all read post-drive velocity. Position and rotation are unchanged (no world.step()
+  // * has run), so _scratchPos/_scratchRot stay valid for all sub-helpers.
+  rereadLinvelIntoScratch(cart);
   applyEnvironmentResponse(cart, dtFixed);
+  rereadLinvelIntoScratch(cart);
   applySquareHoleLipAssist(cart, dtFixed);
+  rereadLinvelIntoScratch(cart);
   applyGeometryUnstick(cart, dtFixed, nowMs);
 
   // * Pitch/roll angular clamp intentionally off — V1 tipping must stay free near the hole lip.
@@ -383,13 +555,16 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs) {
 /**
  * * Backrooms void lip — outward impulse so carts (especially NPCs) don't slide down chamfers.
  *
+ * Reads pos + linvel from the module scratch cache (populated by the caller); avoids
+ * redundant Rapier getter allocations.
+ *
  * @param {object} cart
  * @param {number} dtFixed
  */
 function applySquareHoleLipAssist(cart, dtFixed) {
   if (!_levelHazards?.arenaHalf || !cart?.body || cart.respawnAtMs != null || !dtFixed) return;
 
-  const pos = cart.body.translation();
+  const pos = _scratchPos;
   const { cheb, hole } = nearestSquareHole(pos.x, pos.z);
   const lip = squareHoleKeepOutRadius(0);
   // * Only when hugging the lip — don't fight NPCs driving through outer gutters.
@@ -400,7 +575,7 @@ function applySquareHoleLipAssist(cart, dtFixed) {
   const len = Math.hypot(dx, dz) || 1;
   const outwardX = dx / len;
   const outwardZ = dz / len;
-  const lv = cart.body.linvel();
+  const lv = _scratchLinvel;
   const towardHole = -(lv.x * outwardX + lv.z * outwardZ);
   const urgency = clamp((lip + 0.45 - cheb) / 0.45, 0, 1);
   if (urgency <= 0 || towardHole < 0.35) return;
@@ -421,6 +596,9 @@ function applySquareHoleLipAssist(cart, dtFixed) {
  * Applies periodic upward / jitter impulses when a cart has been wedged against static
  * geometry for a few seconds — frees many trimesh / hull snags before the 10s idle respawn.
  *
+ * Reads pos + linvel from the module scratch cache (populated by the caller); avoids
+ * redundant Rapier getter allocations.
+ *
  * @param {object} cart
  * @param {number} dtFixed
  * @param {number} nowMs
@@ -428,13 +606,13 @@ function applySquareHoleLipAssist(cart, dtFixed) {
 function applyGeometryUnstick(cart, dtFixed, nowMs) {
   if (!cart?.body || cart.respawnAtMs != null || !dtFixed || dtFixed <= 0) return;
 
-  const pos = cart.body.translation();
+  const pos = _scratchPos;
   if (pos.y > CONFIG.booth.platformY - 1.0) {
     cart.unstickStillSinceMs = 0;
     return;
   }
 
-  const lv = cart.body.linvel();
+  const lv = _scratchLinvel;
   const planarSpeed = Math.hypot(lv.x, lv.z);
   const moved = Math.hypot(pos.x - cart.idleAnchorX, pos.z - cart.idleAnchorZ);
   const stuckCfg = CONFIG.fall?.stuck;
@@ -469,9 +647,17 @@ function applyGeometryUnstick(cart, dtFixed, nowMs) {
 
 /**
  * * Returns a ramming qualification score for rammer → victim, or 0 if the hit does not qualify.
+ *
+ * Reads pre-fetched pos + linvel from the supplied ram state buffers instead of calling
+ * the Rapier getters again. State is fetched once per pair in {@link resolveCartRamCollision}
+ * and shared with {@link applyRammingImpulse}.
+ *
+ * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} rammerState
+ * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} victimState
+ * @returns {number}
  */
-function getRammingQualificationScore(rammer, victim) {
-  const rv = rammer.body.linvel();
+function getRammingQualificationScore(rammerState, victimState) {
+  const rv = rammerState.linvel;
   const speed = planarSpeed(rv);
   if (speed < CONFIG.ramming.minSpeed) return 0;
 
@@ -480,11 +666,11 @@ function getRammingQualificationScore(rammer, victim) {
   if (dirLen <= 1e-6) return 0;
   _planarDir.multiplyScalar(1 / dirLen);
 
-  const vv = victim.body.linvel();
+  const vv = victimState.linvel;
   const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
-  const rp = rammer.body.translation();
-  const vp = victim.body.translation();
+  const rp = rammerState.pos;
+  const vp = victimState.pos;
   _toVictim.set(vp.x - rp.x, 0, vp.z - rp.z);
   if (_toVictim.lengthSq() < 1e-6) return 0;
   _toVictim.normalize();
@@ -496,27 +682,48 @@ function getRammingQualificationScore(rammer, victim) {
 
 /**
  * * Picks the dominant rammer/victim pair for a cart-on-cart collision.
+ *
+ * Fetches each cart's pos + linvel ONCE into the module ram-state buffers, then shares
+ * them with {@link getRammingQualificationScore} (both directions) and the downstream
+ * {@link applyRammingImpulse}. Collapses ~12 Rapier getter allocs per pair down to 4.
+ *
+ * @param {object} c1
+ * @param {object} c2
+ * @returns {{ rammer: object, victim: object, rammerState: object, victimState: object } | null}
  */
 function resolveCartRamCollision(c1, c2) {
-  const score1 = getRammingQualificationScore(c1, c2);
-  const score2 = getRammingQualificationScore(c2, c1);
+  readRamStateInto(c1, _ramStateA);
+  readRamStateInto(c2, _ramStateB);
+
+  const score1 = getRammingQualificationScore(_ramStateA, _ramStateB);
+  const score2 = getRammingQualificationScore(_ramStateB, _ramStateA);
   if (score1 <= 0 && score2 <= 0) return null;
-  if (score1 >= score2) return { rammer: c1, victim: c2 };
-  return { rammer: c2, victim: c1 };
+  if (score1 >= score2) {
+    return { rammer: c1, victim: c2, rammerState: _ramStateA, victimState: _ramStateB };
+  }
+  return { rammer: c2, victim: c1, rammerState: _ramStateB, victimState: _ramStateA };
 }
 
 /**
  * Applies a spread ramming impulse from rammer to victim and triggers FX / host events.
  *
+ * Reuses the pre-fetched ram state from {@link resolveCartRamCollision} — does not call
+ * Rapier getters itself. The qualification math is recomputed here only to derive the
+ * impulse direction + magnitude (alignment was already validated upstream, but the
+ * direction vectors `_planarDir` / `_toVictim` are module scratch and may have been
+ * overwritten by the second `getRammingQualificationScore` call, so they are rebuilt).
+ *
  * @param {object} rammer Attacking cart entity.
  * @param {object} victim Target cart entity.
+ * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} rammerState
+ * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} victimState
  * @param {object} callbacks Injected helpers (FX, local cart, host broadcast).
  * @param {boolean} isHost Whether this client is the room host.
  */
-function applyRammingImpulse(rammer, victim, callbacks, isHost) {
+function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost) {
   const playCollisionRef = callbacks?.playCollision;
   const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
-  const rv = rammer.body.linvel();
+  const rv = rammerState.linvel;
   const speed = planarSpeed(rv);
   if (speed < CONFIG.ramming.minSpeed) return;
 
@@ -525,11 +732,11 @@ function applyRammingImpulse(rammer, victim, callbacks, isHost) {
   if (dirLen <= 1e-6) return;
   _planarDir.multiplyScalar(1 / dirLen);
 
-  const vv = victim.body.linvel();
+  const vv = victimState.linvel;
   const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
-  const rp = rammer.body.translation();
-  const vp = victim.body.translation();
+  const rp = rammerState.pos;
+  const vp = victimState.pos;
   _toVictim.set(vp.x - rp.x, 0, vp.z - rp.z);
   if (_toVictim.lengthSq() < 1e-6) return;
   _toVictim.normalize();
@@ -1208,6 +1415,11 @@ function pickAiTarget(fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
 /**
  * Computes tank-steer input for one NPC cart toward its current AI target.
  *
+ * Caller invariant: {@link readBodyStateIntoScratch} has been called for `cart` so that
+ * `_scratchPos`, `_scratchLinvel`, and `_scratchRot` hold this cart's current state.
+ * getAiAxis is read-only (applies no impulses), so the scratch stays valid for the
+ * immediately-following {@link applyArcadeControls} call without re-fetching.
+ *
  * @param {number} now Current time in milliseconds.
  * @param {{ body: object, aiNextDecisionMs: number, aiTarget: { x: number, z: number } }} cart
  * @param {object[]|null} allCarts All slot carts.
@@ -1222,7 +1434,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     return { forward: 0, turn: clamp(idleWobble, -0.18, 0.18) };
   }
 
-  const p = cart.body.translation();
+  const p = _scratchPos;
 
   // * Backrooms: re-route only when the path actually crosses a void (not wide safety bubbles).
   if (_levelHazards?.arenaHalf != null) {
@@ -1237,7 +1449,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       cart.aiTarget.z = routed.z;
     }
 
-    const lv = cart.body.linvel();
+    const lv = _scratchLinvel;
     const speed = Math.hypot(lv.x, lv.z);
     // * Panic reverse only on the lip while actively sliding in — not idle in gutters.
     if (cheb < lip + 0.22 && speed > 1.0) {
@@ -1281,7 +1493,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
   }
 
-  const lv = cart.body.linvel();
+  const lv = _scratchLinvel;
   const speed = Math.hypot(lv.x, lv.z);
   if (distToTarget < cart.aiLastDistToTarget - 0.35) {
     cart.aiLastProgressMs = now;
@@ -1315,7 +1527,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   }
 
   const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
-  const currentYaw = yawFromQuaternion(cart.body.rotation());
+  const currentYaw = yawFromQuaternion(_scratchRot);
   const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
 
   const slotPhase = (cart.slotIndex || 0) * 1.7;
@@ -1329,8 +1541,12 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     };
   }
 
-  // * Light throttle trim on the lip only — keep corner commits at speed.
-  let forward = Math.abs(yawDiff) > 2.85 ? 0.25 : 1;
+  // * Continuous throttle trim: ease from full (1.0) down to 0.25 as the heading
+  // * error grows across [2.0, 3.0] rad — replaces the hard > 2.85 step that
+  // * caused bots to jerk acceleration when swinging around.
+  const absYawDiff = Math.abs(yawDiff);
+  const yawThrottleBlend = THREE.MathUtils.smoothstep(absYawDiff, 2.0, 3.0);
+  let forward = THREE.MathUtils.lerp(1, 0.25, yawThrottleBlend);
   if (onBackrooms) {
     const { cheb } = nearestSquareHole(p.x, p.z);
     const lip = squareHoleKeepOutRadius(0);
@@ -1338,8 +1554,11 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       const t = clamp((lip + 0.55 - cheb) / 0.55, 0, 1);
       forward *= 1 - t * 0.42;
     }
+    // * Smoothly ease throttle down to 0.55 across the inner lip band [lip, lip+0.12]
+    // * instead of a hard Math.min clamp — prevents snap deceleration at the lip edge.
     if (cheb < lip + 0.12) {
-      forward = Math.min(forward, 0.55);
+      const lipBlend = THREE.MathUtils.smoothstep(cheb, lip, lip + 0.12);
+      forward = THREE.MathUtils.lerp(0.55, forward, lipBlend);
     }
   }
   return { forward, turn };
@@ -1365,8 +1584,8 @@ function classifyEnvironmentCollision(otherHandle, callbacks) {
   return "floor";
 }
 
-function getEnvironmentImpact(cart, envType, impacts) {
-  const lv = cart.body.linvel();
+function getEnvironmentImpact(cart, envType, impacts, state) {
+  const lv = state.linvel;
   const pre = cart._preStepLinvel || lv;
 
   if (envType === "floor") {
@@ -1382,8 +1601,8 @@ function getEnvironmentImpact(cart, envType, impacts) {
   return Math.min(1.0, (dvXZ - impacts.edgeDeltaVThreshold) / impacts.intensityRange);
 }
 
-function getEnvironmentContactPosition(cart, envType, impacts, out) {
-  const rp = cart.body.translation();
+function getEnvironmentContactPosition(envType, impacts, state, out) {
+  const rp = state.pos;
   out.x = rp.x;
   out.y = rp.y + impacts.contactYOffset;
   out.z = rp.z;
@@ -1420,17 +1639,26 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
       if (c1 !== c2) {
         const ram = resolveCartRamCollision(c1, c2);
         if (ram) {
-          applyRammingImpulse(ram.rammer, ram.victim, callbacks, isHost);
+          applyRammingImpulse(
+            ram.rammer,
+            ram.victim,
+            ram.rammerState,
+            ram.victimState,
+            callbacks,
+            isHost,
+          );
         }
       }
     } else if (c1 || c2) {
       const cart = c1 || c2;
       const otherHandle = c1 ? h2 : h1;
       const envType = classifyEnvironmentCollision(otherHandle, callbacks);
-      const intensity = getEnvironmentImpact(cart, envType, impacts);
+      // * Fetch this cart's pos + linvel ONCE; shared by impact + contact-pos math.
+      readRamStateInto(cart, _ramStateA);
+      const intensity = getEnvironmentImpact(cart, envType, impacts, _ramStateA);
       if (intensity == null || intensity <= impacts.minIntensity) return;
 
-      const contactPos = getEnvironmentContactPosition(cart, envType, impacts, _envContactPos);
+      const contactPos = getEnvironmentContactPosition(envType, impacts, _ramStateA, _envContactPos);
 
       if (isHost) {
         if (envType === "floor") {
@@ -1501,7 +1729,20 @@ export function runFixedPhysicsStep({
   // 1. Local player
   if (localCart) {
     const axis = getAxis();
-    applyArcadeControls(localCart, axis, dt, now);
+    // * Driving input is locked outside the running phase so carts cannot be
+    // * throttle/turn/nitro-driven during countdown, lobby, or podium. Hop is
+    // * gated separately in main.js input handlers. Remote inputs are only
+    // * received during running (host ignores client_input otherwise).
+    const canDrive = GameState.getRoundState().phase === "running";
+    if (!canDrive) {
+      axis.forward = 0;
+      axis.turn = 0;
+    }
+    // * Populate scratch once for this cart; applyArcadeControls + its sub-helpers all
+    // * read pos/rot/angvel from the cache (stable across the pass — no world.step() runs
+    // * between here and the next cart). linvel is re-read internally after each impulse.
+    readBodyStateIntoScratch(localCart);
+    applyArcadeControls(localCart, axis, dt, now, callbacks);
   }
 
   // 2. Remote players (host only)
@@ -1513,11 +1754,13 @@ export function runFixedPhysicsStep({
       if (!remoteCart) continue;
       _remoteAxis.forward = input.throttle ?? 0;
       _remoteAxis.turn = input.steer ?? 0;
+      readBodyStateIntoScratch(remoteCart);
       applyArcadeControls(
         remoteCart,
         _remoteAxis,
         dt,
         now,
+        callbacks,
       );
     }
   }
@@ -1525,8 +1768,13 @@ export function runFixedPhysicsStep({
   // 3. NPC AI (host only)
   if (isHost && getAiAxis && npcs.length > 0) {
     for (const npc of npcs) {
+      // * Populate scratch once; getAiAxis (read-only) and applyArcadeControls share it.
+      // * getAiAxis may call pickAiTarget → findNearestHumanTarget/isAiCautiousPhase,
+      // * which iterate OTHER carts via their own .translation() calls — those do not
+      // * touch _scratchPos, so this NPC's cached state survives the AI decision pass.
+      readBodyStateIntoScratch(npc);
       const aiAxis = getAiAxis(now, npc);
-      applyArcadeControls(npc, aiAxis, dt, now);
+      applyArcadeControls(npc, aiAxis, dt, now, callbacks);
     }
   }
 

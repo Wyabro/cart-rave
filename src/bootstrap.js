@@ -7,6 +7,7 @@
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
+import { getNetSlots } from "./netcode.js";
 
 /** @type {import("./bootstrap.js").BootstrapDeps | null} */
 let deps = null;
@@ -20,6 +21,9 @@ let worldBootstrapPromise = null;
 
 /** @type {Promise<unknown> | null} */
 let sessionCartBootstrapPromise = null;
+
+/** Tracks the last hello generation for which carts were successfully created. */
+let lastSuccessfulHelloGen = null;
 
 /**
  * @typedef {object} BootstrapDeps
@@ -111,16 +115,32 @@ export async function ensureWorldBootstrapped() {
 export async function ensureSessionCartsReady() {
   const d = requireDeps();
   const existing = d.getAllCartsRef();
-  if (existing?.length) return existing;
 
   const helloGate = d.getHelloGate();
   const bootstrapGen = helloGate.getGeneration();
+
+  console.log("[bootstrap] ensureSessionCartsReady called", {
+    helloGen: bootstrapGen,
+    hasHello: helloGate.isReceived(),
+  });
+
+  if (lastSuccessfulHelloGen === bootstrapGen && existing?.length) {
+    console.log("[bootstrap] Skipping ensureSessionCartsReady — carts already exist for current hello gen");
+    return existing;
+  }
+
+  if (existing?.length) return existing;
+
   if (!sessionCartBootstrapPromise) {
     sessionCartBootstrapPromise = (async () => {
+      console.log("[bootstrap] Starting cart bootstrap (waiting for hello)...");
       if (!helloGate.isReceived()) {
         await helloGate.getFirstPromise();
       }
-      if (bootstrapGen !== helloGate.getGeneration()) return null;
+      if (bootstrapGen !== helloGate.getGeneration()) {
+        console.log("[bootstrap] Aborting cart bootstrap — hello generation changed (race)");
+        return null;
+      }
       if (d.getAllCartsRef()?.length) return d.getAllCartsRef();
       await ensureWorldBootstrapped();
       await prefetchRaveGltf().catch((err) => {
@@ -130,7 +150,14 @@ export async function ensureSessionCartsReady() {
         );
       });
       await yieldForPaint();
-      return d.bootstrapSessionCarts(bootstrapGen);
+      console.log("[bootstrap] Hello received, creating carts from slots", {
+        slotCount: getNetSlots()?.length,
+      });
+      const created = d.bootstrapSessionCarts(bootstrapGen);
+      if (bootstrapGen === helloGate.getGeneration()) {
+        lastSuccessfulHelloGen = bootstrapGen;
+      }
+      return created;
     })().finally(() => {
       if (bootstrapGen === helloGate.getGeneration()) {
         sessionCartBootstrapPromise = null;
@@ -151,6 +178,11 @@ export function cancelBootstrap() {
 /** Clears in-flight session cart bootstrap (e.g. session teardown). */
 export function resetSessionCartBootstrap() {
   sessionCartBootstrapPromise = null;
+  lastSuccessfulHelloGen = null;
+}
+
+export function getLastSuccessfulHelloGen() {
+  return lastSuccessfulHelloGen;
 }
 
 /**
