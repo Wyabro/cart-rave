@@ -164,7 +164,7 @@ function ensureDom() {
   return rootEl;
 }
 
-export function hideRotatePrompt() {
+function hideRotatePrompt() {
   if (rootEl) rootEl.style.display = "none";
 }
 
@@ -175,8 +175,4 @@ export function showRotatePromptIfNeeded() {
   if (!isPortraitMobile() || dismissedSession) return;
   const el = ensureDom();
   el.style.display = "flex";
-}
-
-export function isRotatePromptVisible() {
-  return rootEl != null && rootEl.style.display === "flex";
 }

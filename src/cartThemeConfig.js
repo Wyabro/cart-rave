@@ -6,7 +6,7 @@
  * the GLTF cart; the only player-selectable cosmetic is the sunglasses "Mirror Finish" style.
  */
 
-/** @typedef {typeof CART_THEME_IDS[number]} CartThemeId */
+/** @typedef {"rave"} CartThemeId */
 /** @typedef {'wireframe' | 'solid' | 'hybrid'} FrameGeometry */
 /** @typedef {'neonFull' | 'accentTint' | 'fixedBase'} ColorPolicy */
 /** @typedef {'allow' | 'disable'} PatternPolicy */
@@ -69,8 +69,6 @@
  *
  * @type {readonly ["rave"]}
  */
-export const CART_THEME_IDS = Object.freeze(["rave"]);
-
 export const DEFAULT_CART_THEME = "rave";
 
 /**
@@ -127,7 +125,7 @@ export const CART_THEMES = {
  * @returns {CartThemeId}
  */
 export function normalizeThemeId(value) {
-  if (typeof value === "string" && CART_THEME_IDS.includes(value)) {
+  if (typeof value === "string" && value === DEFAULT_CART_THEME) {
     return /** @type {CartThemeId} */ (value);
   }
   return DEFAULT_CART_THEME;
@@ -155,11 +153,4 @@ export function resolveSunglassesStyle(styleId) {
   return SUNGLASSES_STYLES.find((s) => s.id === id)
     ?? SUNGLASSES_STYLES.find((s) => s.id === DEFAULT_SUNGLASSES_STYLE)
     ?? SUNGLASSES_STYLES[0];
-}
-
-/**
- * @returns {CartThemeDef[]}
- */
-export function listCartThemes() {
-  return CART_THEME_IDS.map((id) => CART_THEMES[id]);
 }

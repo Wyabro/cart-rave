@@ -1703,19 +1703,13 @@ async function main() {
   }
 
   function bootstrapSessionCarts(expectedGen) {
-    console.log("[bootstrap] bootstrapSessionCarts started", { expectedGen });
-
     if (allCartsRef?.length && getLastSuccessfulHelloGen() === expectedGen) {
-      console.log("[bootstrap] bootstrapSessionCarts — carts already exist for this hello gen, skipping recreate");
       return allCartsRef;
     }
 
     if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
-      console.log("[bootstrap] bootstrapSessionCarts skipped — stale hello gen");
       return null;
     }
-
-    console.log("[bootstrap] Creating carts (destroying old ones if any)");
     destroySessionCarts();
 
     const { allCarts: carts, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
@@ -1753,7 +1747,6 @@ async function main() {
       getAllCarts: () => allCarts,
       getAllCartsRef: () => allCartsRef,
     });
-    console.log("[bootstrap] Carts created successfully for this hello gen");
     return carts;
   }
 

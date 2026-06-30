@@ -3,12 +3,8 @@
  */
 
 import { DEFAULT_CART_THEME, normalizeThemeId } from "../cartThemeConfig.js";
-import { applyThemeColorToCache } from "../cartThemes.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "../utils.js";
 import {
-  RAVE_GLTF_URL,
-  RAVE_GLTF_URL_DRACO,
-  buildRaveGltfMaterialCache,
   createRaveGltfCartInstance,
   disposeRaveGltfInstance,
   isRaveGltfSourceReady,
@@ -18,31 +14,6 @@ import {
 
 /** @typedef {import("../cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
 
-export const PREVIEW_GLTF_DEFAULT = {
-  url: RAVE_GLTF_URL,
-  urlFallback: RAVE_GLTF_URL_DRACO,
-  scale: 1,
-  rotationY: 0,
-  frameMeshName: "tripo_part_0",
-  accentMeshNames: [],
-};
-
-/** @type {Partial<Record<string, typeof PREVIEW_GLTF_DEFAULT>>} */
-export const PREVIEW_GLTF_BY_THEME = {};
-
-/**
- * @param {string} themeId
- * @returns {typeof PREVIEW_GLTF_DEFAULT}
- */
-export function resolvePreviewGltfDef(themeId) {
-  const id = normalizeThemeId(themeId);
-  return { ...PREVIEW_GLTF_DEFAULT, ...PREVIEW_GLTF_BY_THEME[id] };
-}
-
-/**
- * @param {string} [themeId]
- * @returns {Promise<unknown>}
- */
 export function prefetchPreviewCartGltf(themeId = DEFAULT_CART_THEME) {
   if (normalizeThemeId(themeId) !== "rave") return Promise.resolve(null);
   return prefetchRaveGltf();
@@ -68,10 +39,6 @@ export async function loadPreviewCartGltf(themeId, sunglassesStyle) {
 
   await prefetchRaveGltf();
   const root = createRaveGltfCartInstance(sunglassesStyle);
-  const def = resolvePreviewGltfDef(themeId);
-
-  if (def.scale !== 1) root.scale.setScalar(def.scale);
-  if (def.rotationY) root.rotation.y = def.rotationY;
 
   return root;
 }
@@ -93,15 +60,6 @@ export function preparePreviewCartGltf(root, themeId, neonHex, patternId) {
 }
 
 /**
- * @param {import("three").Object3D} root
- * @param {typeof PREVIEW_GLTF_DEFAULT} _def
- * @returns {CartThemeMaterialCache}
- */
-export function buildPreviewGltfMaterialCache(root, _def) {
-  return buildRaveGltfMaterialCache(root);
-}
-
-/**
  * @param {THREE.MeshStandardMaterial} mat
  * @param {number} neonHex
  */
@@ -118,6 +76,3 @@ export function applyPreviewPlaceholderColor(mat, neonHex) {
 export function disposePreviewCartGltf(root) {
   disposeRaveGltfInstance(root);
 }
-
-/** Re-export for callers that tint via applyThemeColorToCache after prepare. */
-export { applyThemeColorToCache };

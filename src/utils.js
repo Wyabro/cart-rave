@@ -3,7 +3,6 @@
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";
-import { getMaterialEnvMapIntensity } from "./scene.js";
 
 /** Reference luminance for perceptually even cart glow (pure green channel in linear sRGB). */
 const CART_EMISSIVE_REF_LUMA = 0.7152;
@@ -102,25 +101,6 @@ export function emissiveRefHexForNeonHex(hex) {
   if (hex === 0xff0000) return 0xff0000;
   const presetId = nearestPresetForHue(hexToHue(hex));
   return CART_COLORS[presetId]?.hex ?? hex;
-}
-
-/**
- * Applies cart frame albedo + emissive with luminance-balanced intensity.
- * @param {{ color?: import("three").Color, emissive?: import("three").Color, emissiveIntensity?: number, envMapIntensity?: number, metalness?: number, roughness?: number } | null | undefined} mat
- * @param {number} hex
- * @param {number} [intensityMul=1]
- */
-export function applyCartFrameGlow(mat, hex, intensityMul = 1) {
-  if (!mat) return;
-  if (mat.color) mat.color.setHex(hex);
-  if (mat.emissive) mat.emissive.setHex(hex);
-  if (typeof mat.emissiveIntensity === "number") {
-    const refHex = emissiveRefHexForNeonHex(hex);
-    mat.emissiveIntensity = cartEmissiveIntensityForHex(refHex, intensityMul);
-  }
-  if (typeof mat.metalness === "number") mat.metalness = 0.55;
-  if (typeof mat.roughness === "number") mat.roughness = 0.16;
-  if (typeof mat.envMapIntensity === "number") mat.envMapIntensity = getMaterialEnvMapIntensity();
 }
 
 /**

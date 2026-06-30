@@ -127,6 +127,20 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
 
   cart.isShattering = true;
 
+  // * Safety: detach any Camera children from the cart root before the root is frozen
+  // * during shatter, preventing the camera from snapping away mid-explosion.
+  const cameraChildren = mesh.children.filter((c) => c.isCamera);
+  for (const cam of cameraChildren) {
+    cam.updateWorldMatrix(true, false);
+    _worldMat.copy(cam.matrixWorld);
+    _worldMat.decompose(_worldPos, _worldQuat, _worldScale);
+    mesh.remove(cam);
+    scene.add(cam);
+    cam.position.copy(_worldPos);
+    cam.quaternion.copy(_worldQuat);
+    cam.scale.copy(_worldScale);
+  }
+
   // * Capture cart center in world space (root position + visual offset approximated by
   // * the root's current world transform). Used as the explosion origin + outward bias point.
   mesh.updateMatrixWorld(true);

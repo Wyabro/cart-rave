@@ -86,8 +86,8 @@ function createCartBody(world, spawn, spawnYaw) {
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(spawn.x, spawn.y, spawn.z)
-      .setLinearDamping(0.6)
-      .setAngularDamping(1.2),
+      .setLinearDamping(CONFIG.cart.linearDamping)
+      .setAngularDamping(CONFIG.cart.angularDamping),
   );
   body.setRotation(quatFromYaw(spawnYaw), true);
 
@@ -214,6 +214,7 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   if (freshMesh.userData) {
     cart.mesh.userData = { ...cart.mesh.userData, ...freshMesh.userData };
   }
+  freshMesh.children.length = 0;
   cart.mesh.visible = true;
   cart.mesh.updateMatrixWorld(true);
 
@@ -320,8 +321,40 @@ export function resetCartIdleWatch(cart) {
   const p = cart.body.translation();
   cart.idleAnchorX = p.x;
   cart.idleAnchorZ = p.z;
-  cart.idleStillSinceMs = 0;
-  cart.unstickStillSinceMs = 0;
+  cart.idleStillSinceMs = Number.NEGATIVE_INFINITY;
+  cart.unstickStillSinceMs = Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * Resets transient combat, boost, and AI state fields shared by doRespawn and
+ * rematchResetWorld so the two paths do not drift apart over time.
+ *
+ * @param {ReturnType<typeof createCart> | null | undefined} cart
+ */
+function resetCartTransientState(cart) {
+  if (!cart?.body) return;
+
+  cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+  cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  cart.respawnAtMs = null;
+  cart.pendingRam = null;
+  cart.ramBoostActiveUntilMs = 0;
+  cart.ramBoostStreakCarry = 0;
+  cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
+  // * Auto-Charge Boost state reset
+  cart.isChargingBoost = false;
+  cart.boostChargeStartedAtMs = 0;
+  cart.boostCooldownUntilMs = 0;
+  cart.boostChargeMultiplier = 1;
+  cart.chargeUpSfxId = null;
+  // * AI decision state reset
+  cart.aiNextDecisionMs = 0;
+  cart.aiTarget = { x: 0, z: 0 };
+  cart.aiPauseUntilMs = 0;
+  cart.aiReverseUntilMs = 0;
+  cart.aiSteerGain = 1.1;
+  cart.aiLastProgressMs = 0;
+  cart.aiLastDistToTarget = Infinity;
 }
 
 /**
@@ -432,30 +465,9 @@ export function doRespawn(cart) {
   }
 
   cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
-  cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-  cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
   copyBodyPoseToCartPrev(cart);
-  cart.respawnAtMs = null;
-  cart.pendingRam = null;
-  cart.ramBoostActiveUntilMs = 0;
-  cart.ramBoostStreakCarry = 0;
-  // * Clear Auto-Charge Boost state so a respawned cart does not resume charging
-  // * or sit in cooldown from a pre-fall press. The looping charge SFX (if any)
-  // * is stopped by the caller via AudioManager.stopSfx using the cart's chargeUpSfxId.
-  cart.isChargingBoost = false;
-  cart.boostChargeStartedAtMs = 0;
-  cart.boostCooldownUntilMs = 0;
-  cart.boostChargeMultiplier = 1;
-  cart.chargeUpSfxId = null;
-  // * Forget AI decision state so a respawned NPC does not drive back toward its death target.
-  cart.aiNextDecisionMs = 0;
-  cart.aiTarget = { x: 0, z: 0 };
-  cart.aiPauseUntilMs = 0;
-  cart.aiReverseUntilMs = 0;
-  cart.aiSteerGain = 1.1;
-  cart.aiLastProgressMs = 0;
-  cart.aiLastDistToTarget = Infinity;
+  resetCartTransientState(cart);
   resetCartIdleWatch(cart);
   if (cart.mesh) {
     Visuals.resetCartVisualState(cart.mesh);
@@ -497,22 +509,8 @@ export function rematchResetWorld() {
 
     cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
     cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);
-    cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     copyBodyPoseToCartPrev(cart);
-    cart.respawnAtMs = null;
-    cart.pendingRam = null;
-    cart.ramBoostActiveUntilMs = 0;
-    cart.ramBoostStreakCarry = 0;
-    cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
-    // * Clear Auto-Charge Boost state between rounds (caller stops any looping SFX).
-    cart.isChargingBoost = false;
-    cart.boostChargeStartedAtMs = 0;
-    cart.boostCooldownUntilMs = 0;
-    cart.boostChargeMultiplier = 1;
-    cart.chargeUpSfxId = null;
-    cart.aiNextDecisionMs = 0;
-    cart.aiTarget = { x: 0, z: 0 };
+    resetCartTransientState(cart);
     resetCartIdleWatch(cart);
     if (cart.mesh) {
       Visuals.resetCartVisualState(cart.mesh);

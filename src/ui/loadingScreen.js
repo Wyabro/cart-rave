@@ -47,7 +47,7 @@ let modeEntryShownAt = 0;
  * @param {{ gameMode?: string | null, levelId?: string | null }} opts
  * @returns {"solo" | "classic" | "backrooms"}
  */
-export function resolveLoadingTheme({ gameMode, levelId } = {}) {
+function resolveLoadingTheme({ gameMode, levelId } = {}) {
   const resolvedLevel = resolveLevelId(
     levelId ?? (typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null),
   );
@@ -145,7 +145,7 @@ function setProgress(pct, label) {
  * @param {number} pct 0–100 progress percentage
  * @param {string} label Human-readable milestone label
  */
-export function reportProgress(pct, label) {
+function reportProgress(pct, label) {
   setProgress(pct, label);
 }
 
@@ -180,7 +180,7 @@ export function revealGameCanvas() {
 }
 
 /** @returns {Promise<void>} */
-export function revealAppShell() {
+function revealAppShell() {
   document.body.classList.remove("cr-boot-pending");
   const root = document.getElementById("cr-root");
   const canvas = document.getElementById("game");
@@ -228,7 +228,7 @@ export function dismissAllLoadingOverlays() {
 /**
  * @param {{ gameMode?: string | null, levelId?: string | null }} opts
  */
-export function showModeEntryLoading(opts = {}) {
+function showModeEntryLoading(opts = {}) {
   const theme = resolveLoadingTheme(opts);
   applyTheme(theme);
   modeEntryVisible = true;
@@ -237,12 +237,8 @@ export function showModeEntryLoading(opts = {}) {
   setProgress(0, "Starting…");
 }
 
-export function isModeEntryLoadingVisible() {
-  return modeEntryVisible;
-}
-
 /** @returns {Promise<void>} */
-export function dismissModeEntryLoading() {
+function dismissModeEntryLoading() {
   if (!modeEntryVisible) return Promise.resolve();
   ensureModeOverlay();
 

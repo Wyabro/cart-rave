@@ -7,9 +7,6 @@
  * 3. `resolveCartPatternForSlot()` picks the pattern id (local human → saved; others → classic).
  * 4. `applyCartPattern(mesh, patternId, neonHex)` keeps the base CartFrame material at full
  *    emissive bloom and adds a sibling CartFramePattern mesh with a tinted overlay material.
- *    The overlay uses an inverted mask (alphaMap) so pattern valleys read as darker neon bands
- *    on top of the bright grid without suppressing base-layer bloom.
- *    Neon hue comes from `applyCartFrameGlow()` on the base — color and pattern stay independent.
  *
  * Patterns are local-only for now (not synced over PartyKit).
  */
@@ -21,12 +18,8 @@ import {
   emissiveRefHexForNeonHex,
 } from "./utils.js";
 import {
-  CART_PATTERN_IDS,
-  DEFAULT_CART_PATTERN,
   normalizePatternId,
 } from "./cartPatternConfig.js";
-
-export { CART_PATTERN_IDS, DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
 
 /** @typedef {import("./cartPatternConfig.js").CartPatternId} CartPatternId */
 

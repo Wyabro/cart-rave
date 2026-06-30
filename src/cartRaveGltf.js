@@ -51,13 +51,13 @@ import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
  */
 
 /** DRACO-compressed legacy model (fallback). */
-export const RAVE_GLTF_URL_DRACO = "/models/cart-rave-base-draco.glb";
+const RAVE_GLTF_URL_DRACO = "/models/cart-rave-base-draco.glb";
 
 /** Uncompressed legacy monolithic-caster model (fallback). */
 const RAVE_GLTF_URL_LEGACY = "/models/cart-rave-base.glb";
 
 /** Primary segmented rave cart — DRACO + WebP compressed (separate fork + wheel meshes per corner). */
-export const RAVE_GLTF_URL = "/models/cartrave4-draco.glb";
+const RAVE_GLTF_URL = "/models/cartrave4-draco.glb";
 
 /** Uncompressed cartrave4 export — fallback tier (same topology, larger payload). */
 const RAVE_GLTF_URL_V4_UNCOMPRESSED = "/models/cartrave4.glb";
