@@ -43,7 +43,7 @@ let menuLevelDebounceId = null;
  * @property {() => boolean} isWorldBootstrapped
  * @property {() => import("@dimforge/rapier3d-compat").World | null} getWorld
  * @property {() => Promise<void>} ensureWorldBootstrapped
- * @property {(levelId: string, opts: { menuPreview: boolean, reflectorTextureSize: number }) => void} performLevelLoad
+ * @property {(levelId: string, opts: { menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }) => Promise<void>} performLevelLoad
  * @property {(levelId: string) => void} [onPreviewSwapComplete]
  * @property {() => void} finalizeArenaForPlay
  * @property {(el: HTMLElement, fn: () => void) => Promise<void>} crossfadeElement
@@ -161,7 +161,7 @@ async function idleFinalizeMenuPreview() {
 /**
  * Swaps arena geometry in place (preview or full quality).
  * @param {string | null | undefined} [levelId]
- * @param {{ menuPreview?: boolean }} [opts]
+ * @param {{ menuPreview?: boolean, onProgress?: (pct: number, label: string) => void }} [opts]
  * @returns {Promise<void>}
  */
 export async function swapLoadedLevel(levelId, opts = {}) {
@@ -170,9 +170,10 @@ export async function swapLoadedLevel(levelId, opts = {}) {
   const menuPreview = opts.menuPreview === true;
   previewMode = menuPreview;
 
-  d.performLevelLoad(selected, {
+  await d.performLevelLoad(selected, {
     menuPreview,
     reflectorTextureSize: menuPreview ? PREVIEW_REFLECTOR_SIZE : FULL_REFLECTOR_SIZE,
+    onProgress: opts.onProgress,
   });
   loadedLevelId = selected;
 
@@ -190,9 +191,10 @@ export async function swapLoadedLevel(levelId, opts = {}) {
 /**
  * Play-entry rebuild: ensures arena matches menu selection at full quality.
  * @param {string | null | undefined} [levelId]
+ * @param {(pct: number, label: string) => void} [onProgress]
  * @returns {Promise<void>}
  */
-export async function rebuildLevelIfNeeded(levelId) {
+export async function rebuildLevelIfNeeded(levelId, onProgress) {
   const d = requireDeps();
   if (!canSafelyRebuildLevel()) return;
   if (levelRebuildPromise) return levelRebuildPromise;
@@ -209,7 +211,7 @@ export async function rebuildLevelIfNeeded(levelId) {
       isSwappingLevel = true;
       await yieldForPaint();
       const canvas = d.getCanvas();
-      const runSwap = () => { void swapLoadedLevel(selected); };
+      const runSwap = () => { void swapLoadedLevel(selected, { onProgress }); };
       if (canvas) {
         await d.crossfadeElement(canvas, runSwap);
       } else {

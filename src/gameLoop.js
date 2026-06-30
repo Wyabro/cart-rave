@@ -118,7 +118,10 @@ export function runPhysicsStep(loopState, deps, context) {
   let alpha = null;
 
   if (deps.isHost()) {
-    if (deps.getRoundState().phase === "running") {
+    // * Step physics during lobby/countdown so carts settle under gravity at spawn
+    // * (prevents host cart appearing visually frozen after color pick). Driving
+    // * input and NPC AI are gated on phase==="running" inside runFixedPhysicsStep.
+    if (deps.getRoundState().phase !== "podium") {
       const allCarts = deps.getAllCartsRef();
       if (Array.isArray(allCarts)) {
         const npcCartsForFrame = resolveNpcCarts(allCarts, netSlotsForFrame);

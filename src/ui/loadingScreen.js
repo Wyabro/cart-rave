@@ -36,9 +36,6 @@ let modeProgressLabel = null;
 let modeTitleEl = null;
 let modeSubtitleEl = null;
 let modeVisualSlot = null;
-let progressRafId = null;
-let progressStartedAt = 0;
-let progressTarget = 0.92;
 let modeEntryVisible = false;
 let bootDismissed = false;
 /** Nested mode-entry tasks share one overlay (level switch + play bootstrap). */
@@ -133,13 +130,6 @@ function ensureModeOverlay() {
   return modeOverlayEl;
 }
 
-function stopProgressLoop() {
-  if (progressRafId != null) {
-    cancelAnimationFrame(progressRafId);
-    progressRafId = null;
-  }
-}
-
 function setProgress(pct, label) {
   const clamped = Math.max(0, Math.min(100, pct));
   if (modeProgressFill) modeProgressFill.style.width = `${clamped}%`;
@@ -149,24 +139,14 @@ function setProgress(pct, label) {
 }
 
 /**
- * @param {"solo" | "classic" | "backrooms"} theme
+ * Reports real loading progress to the mode-entry overlay.
+ * Called by level loading tasks at key milestones:
+ * 20% module fetched, 60% geometry built, 90% colliders ready, 100% done.
+ * @param {number} pct 0–100 progress percentage
+ * @param {string} label Human-readable milestone label
  */
-function startSemanticProgress(theme) {
-  stopProgressLoop();
-  progressStartedAt = performance.now();
-  progressTarget = theme === "solo" ? 0.88 : theme === "backrooms" ? 0.9 : 0.92;
-  const copy = THEME_COPY[theme];
-  const rampMs = theme === "solo" ? 2200 : theme === "backrooms" ? 3200 : 3800;
-
-  const tick = (now) => {
-    const t = Math.min(1, (now - progressStartedAt) / rampMs);
-    const eased = 1 - (1 - t) ** 2.2;
-    setProgress(eased * progressTarget * 100, copy.progress);
-    if (t < 1 && modeEntryVisible) {
-      progressRafId = requestAnimationFrame(tick);
-    }
-  };
-  progressRafId = requestAnimationFrame(tick);
+export function reportProgress(pct, label) {
+  setProgress(pct, label);
 }
 
 /**
@@ -241,7 +221,6 @@ export function dismissInitialBootSplash() {
 
 /** Clears boot + mode-entry overlays (quit-to-menu, failed join, teardown). */
 export function dismissAllLoadingOverlays() {
-  stopProgressLoop();
   void dismissInitialBootSplash();
   void dismissModeEntryLoading();
 }
@@ -255,8 +234,7 @@ export function showModeEntryLoading(opts = {}) {
   modeEntryVisible = true;
   modeOverlayEl.classList.remove("cr-load--hidden", "cr-load--exit");
   modeOverlayEl.setAttribute("aria-busy", "true");
-  setProgress(4, THEME_COPY[theme].progress);
-  startSemanticProgress(theme);
+  setProgress(0, "Starting…");
 }
 
 export function isModeEntryLoadingVisible() {
@@ -268,7 +246,6 @@ export function dismissModeEntryLoading() {
   if (!modeEntryVisible) return Promise.resolve();
   ensureModeOverlay();
 
-  stopProgressLoop();
   setProgress(100, "Ready");
 
   return new Promise((resolve) => {
@@ -319,7 +296,7 @@ async function ensureMinModeEntryVisible(shownAt) {
 }
 
 /**
- * @param {() => Promise<void> | void} task
+ * @param {(reportProgress: (pct: number, label: string) => void) => Promise<void> | void} task
  * @param {{ gameMode?: string | null, levelId?: string | null, onShown?: () => void }} opts
  * @returns {Promise<void>}
  */
@@ -336,7 +313,7 @@ export async function withModeEntryLoading(task, opts = {}) {
   }
 
   try {
-    await task();
+    await task(reportProgress);
   } catch (err) {
     console.error("[CartRave] Mode entry bootstrap failed:", err);
     // Re-throw so the caller knows it failed; cleanup runs in finally.

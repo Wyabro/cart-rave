@@ -135,17 +135,29 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   /** @type {{ mesh: THREE.Mesh, vel: THREE.Vector3, angVel: THREE.Vector3, sharedGeometry: boolean }[]} */
   const parts = [];
 
-  // * Detach every visual mesh, reparent to the scene at its captured world pose, and
+  // * Phase 1 — read-only traversal: collect all target meshes into a flat array.
+  // * We MUST NOT call .remove(), .add(), or .attach() inside traverse() because
+  // * modifying the children array mid-iteration shifts indices and causes Three.js
+  // * to access undefined children, crashing with "Cannot read properties of
+  // * undefined (reading 'traverse')".
+  /** @type {THREE.Mesh[]} */
+  const meshesToShatter = [];
+  mesh.traverse((child) => {
+    if (child.isMesh && child.geometry) {
+      meshesToShatter.push(child);
+    }
+  });
+
+  // * Phase 2 — reparent each mesh to the scene at its captured world pose and
   // * assign random outward + angular velocity. We do NOT dispose here — cleanupShatter
   // * handles disposal (shared-geometry-aware) when doRespawn fires.
-  mesh.traverse((child) => {
-    if (!child.isMesh || !child.geometry) return;
-
+  for (const child of meshesToShatter) {
     child.updateWorldMatrix(true, false);
     _worldMat.copy(child.matrixWorld);
     _worldMat.decompose(_worldPos, _worldQuat, _worldScale);
 
     // * Reparent to scene keeping world transform.
+    // * Safe here because we are no longer inside the traverse() callback.
     child.parent?.remove(child);
     scene.add(child);
     child.position.copy(_worldPos);
@@ -194,7 +206,7 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
         || mesh.userData?.isRaveGltf,
       ),
     });
-  });
+  }
 
   // * Hide the now-empty cart root so only the detached parts + explosion are visible.
   // * The root is preserved so doRespawn can rebuild visuals into it.

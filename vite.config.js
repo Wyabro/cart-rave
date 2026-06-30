@@ -11,8 +11,19 @@ export default defineConfig({
     // Optimize for Three.js
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ["three"],
+        manualChunks(id) {
+          if (id.includes("node_modules/three/examples/jsm/")) {
+            return "three-addons";
+          }
+          if (id.includes("node_modules/@dimforge/rapier3d-compat")) {
+            return "rapier";
+          }
+          if (id.includes("node_modules/howler")) {
+            return "howler";
+          }
+          if (id.includes("node_modules/three")) {
+            return "three";
+          }
         },
       },
     },

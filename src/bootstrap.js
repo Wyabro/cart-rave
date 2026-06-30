@@ -36,7 +36,7 @@ let lastSuccessfulHelloGen = null;
  * @property {() => Promise<void> | null | undefined} [getMenuLevelPreviewPromise]
  * @property {() => Promise<void> | null | undefined} [getLevelRebuildPromise]
  * @property {() => boolean} [getMenuPreviewNeedsFinalize]
- * @property {() => Promise<void>} rebuildLevelIfNeeded
+ * @property {(levelId?: string | null, onProgress?: (pct: number, label: string) => void) => Promise<void>} rebuildLevelIfNeeded
  * @property {() => void} finalizeArenaForPlay
  * @property {() => Promise<void>} ensureRapierPhysics
  * @property {(levelIdOverride?: string) => Promise<void>} bootstrapWorldCore
@@ -230,17 +230,21 @@ export async function enterPlayMode(opts = {}) {
 
   const arenaReady = worldBootstrapDone && levelId === d.getLoadedLevelId();
 
-  activePlayBootstrapPromise = withModeEntryLoading(async () => {
+  activePlayBootstrapPromise = withModeEntryLoading(async (reportProgress) => {
+    reportProgress(5, "Preparing…");
     const previewPromise = d.getMenuLevelPreviewPromise?.();
     if (previewPromise) await previewPromise;
     const rebuildPromise = d.getLevelRebuildPromise?.();
     if (rebuildPromise) await rebuildPromise;
     if (!arenaReady) {
-      await d.rebuildLevelIfNeeded(levelId);
+      reportProgress(15, "Building arena…");
+      await d.rebuildLevelIfNeeded(levelId, reportProgress);
+      reportProgress(95, "Warming physics…");
       await ensureWorldBootstrapped();
     } else if (d.getMenuPreviewNeedsFinalize?.()) {
       d.finalizeArenaForPlay();
     }
+    reportProgress(100, "Ready!");
     if (commitMenuHidden) {
       d.commitMenuHiddenForGame();
     }

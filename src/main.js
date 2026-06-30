@@ -36,7 +36,9 @@ import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
-import { TEST_ARENA_FOG_DENSITY, TEST_ARENA_SKY } from "./levels/testArena.js";
+// * testArena constants inlined (avoid static import of heavy level module at boot).
+const TEST_ARENA_SKY = 0x586274;
+const TEST_ARENA_FOG_DENSITY = 0.0032;
 import { setContactShadowHazards } from "./contactShadows.js";
 import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
 import { initAudioSystem } from "./audioSetup.js";
@@ -1137,7 +1139,7 @@ async function main() {
     getMenuLevelPreviewPromise,
     getLevelRebuildPromise,
     getMenuPreviewNeedsFinalize,
-    rebuildLevelIfNeeded: (levelId) => rebuildLevelIfNeeded(levelId),
+    rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
@@ -1300,9 +1302,9 @@ async function main() {
   /**
    * Loads level meshes/colliders into the live scene (called by levelManager).
    * @param {string} selected Resolved level id.
-   * @param {{ menuPreview: boolean, reflectorTextureSize: number }} opts
+   * @param {{ menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }} opts
    */
-  function commitLevelLoad(selected, opts) {
+  async function commitLevelLoad(selected, opts) {
     if (typeof disposeLevel === "function") disposeLevel();
     ({
       recordMesh,
@@ -1319,8 +1321,9 @@ async function main() {
       update: levelUpdate,
       dispose: disposeLevel,
       upgradeRecordReflector,
-    } = loadLevel(selected, scene, world, CONFIG, {
+    } = await loadLevel(selected, scene, world, CONFIG, {
       reflectorTextureSize: opts.reflectorTextureSize,
+      onProgress: opts.onProgress,
     }));
     applyLoadedLevelSideEffects(selected);
   }

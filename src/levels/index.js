@@ -1,16 +1,13 @@
-// levels/index.js — Central level loader
-
-import { initClassicRecord } from "./classicRecord.js";
-import { initBackroomsSupermarket } from "./backroomsSupermarket.js";
-import { initTestArena } from "./testArena.js";
+// levels/index.js — Central level loader (dynamic imports for code-splitting)
 
 export const LEVEL_STORAGE_KEY = "cartRaveLevel";
 const DEFAULT_LEVEL_ID = "classicRecord";
 
-const LEVEL_INIT = {
-  classicRecord: initClassicRecord,
-  backrooms: initBackroomsSupermarket,
-  testArena: initTestArena,
+/** Lazy dynamic importers — each level ships as its own Vite chunk. */
+const LEVEL_IMPORTERS = {
+  classicRecord: () => import("./classicRecord.js").then((m) => m.initClassicRecord),
+  backrooms: () => import("./backroomsSupermarket.js").then((m) => m.initBackroomsSupermarket),
+  testArena: () => import("./testArena.js").then((m) => m.initTestArena),
 };
 
 /**
@@ -34,15 +31,26 @@ export function resolveLevelId(raw) {
  * @param {THREE.Scene} scene Root Three.js scene.
  * @param {import("@dimforge/rapier3d-compat").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG passed through to the level init.
- * @returns {ReturnType<typeof initClassicRecord>}
+ * @param {{ reflectorTextureSize?: number, onProgress?: (pct: number, label: string) => void }} [options]
+ * @returns {Promise<ReturnType<import("./classicRecord.js").initClassicRecord>>}
  */
-export function loadLevel(levelId, scene, world, config, options = {}) {
+export async function loadLevel(levelId, scene, world, config, options = {}) {
   const stored =
     levelId ??
     (typeof localStorage !== "undefined"
       ? localStorage.getItem(LEVEL_STORAGE_KEY)
       : null);
   const resolved = resolveLevelId(stored);
-  const initFn = LEVEL_INIT[resolved] ?? initClassicRecord;
-  return initFn(scene, world, config, options);
+
+  const onProgress = options.onProgress;
+  onProgress?.(20, "Fetching level…");
+
+  const importer = LEVEL_IMPORTERS[resolved] ?? LEVEL_IMPORTERS[DEFAULT_LEVEL_ID];
+  const initFn = await importer();
+
+  onProgress?.(60, "Building arena geometry…");
+  const result = initFn(scene, world, config, options);
+
+  onProgress?.(90, "Physics colliders ready");
+  return result;
 }
