@@ -28,7 +28,7 @@ const colliderHandleToCart = new Map();
 
 let sceneRef = null;
 let worldRef = null;
-let ramBoostStreaksRef = null;
+export let ramBoostStreaksRef = null;
 
 function yawToCenter(spawn) {
   // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
@@ -331,7 +331,7 @@ export function resetCartIdleWatch(cart) {
  *
  * @param {ReturnType<typeof createCart> | null | undefined} cart
  */
-function resetCartTransientState(cart) {
+export function resetCartTransientState(cart) {
   if (!cart?.body) return;
 
   cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -498,6 +498,11 @@ export function rematchResetWorld() {
   for (const cart of allCartsRef) {
     if (!cart?.body) continue;
 
+    // * Clear Sudden Death spectator state on every cart between rounds.
+    cart.isSuddenDeathSpectator = false;
+    if (cart.mesh) cart.mesh.visible = true;
+    if (cart.collider) cart.collider.setEnabled(true);
+
     // * Tear down any active shatter + explosion VFX between rounds (e.g. a cart was
     // * mid-fall when the round ended). Rebuilds the visual mesh into the existing root.
     if (cart.isShattering || cart._shatterState) {
@@ -630,4 +635,32 @@ export function initCarts({
     colliderHandleToCart,
     nextPendingMidRoundJoinRespawnConnId,
   };
+}
+
+/**
+ * Recreates cart rigid bodies and colliders in a fresh Rapier world after
+ * an in-place quality rebuild. Preserves all visual refs (mesh, contactShadow,
+ * material cache) and just swaps the physics handles.
+ * @param {import("@dimforge/rapier3d-compat").World} world New Rapier world.
+ */
+export function rebuildAllCartBodiesInWorld(world) {
+  if (!world || !Array.isArray(allCartsRef)) return;
+  worldRef = world;
+  colliderHandleToCart.clear();
+
+  for (const cart of allCartsRef) {
+    if (!cart) continue;
+    // * Remove stale body/collider refs from the destroyed old world.
+    cart.body = null;
+    cart.collider = null;
+
+    const body = createCartBody(world, cart.spawn, cart.spawnYaw);
+    if (!body) continue;
+    cart.body = body;
+    const cd = createCartCollider(world, body);
+    if (cd) {
+      cart.collider = cd.collider;
+      colliderHandleToCart.set(cd.collider.handle, cart);
+    }
+  }
 }

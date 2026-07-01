@@ -21,6 +21,8 @@ dist/
 
 # PartyKit deploy staging (copied from dist/ during ship)
 party-static/
+# Wrangler local state
+.wrangler/
 /assets/
 /sounds/
 index.html.partykit.bak

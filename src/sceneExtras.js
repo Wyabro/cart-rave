@@ -513,17 +513,6 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
   const disposables = [];
   const sceneRoots = [];
 
-  // * Self-contained levels opt out of the shared space environment entirely.
-  if (options.enabled === false) {
-    return {
-      scene,
-      sceneRoots,
-      disposables,
-      disposed: false,
-      update: () => {},
-    };
-  }
-
   const ctx = {
     disposables,
     addToScene: (obj) => {
@@ -548,12 +537,20 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
   createGround(scene, pitInnerRadius, ctx);
   createHorizonFog(scene, ctx);
 
+  // * Self-contained levels (Backrooms / testArena) need the scene extras created so
+  // * quality-toggles and level swaps can show/hide them — but they start hidden.
+  const enabled = options.enabled !== false;
+  if (!enabled) {
+    for (const root of sceneRoots) root.visible = false;
+  }
+
   return {
     scene,
     sceneRoots,
     disposables,
     disposed: false,
     update: (timeMs) => {
+      if (!enabled) return;
       ufos.update(timeMs);
       spotlights.update(timeMs);
     },

@@ -327,3 +327,29 @@ export async function withModeEntryLoading(task, opts = {}) {
 export function initLoadingScreen() {
   ensureModeOverlay();
 }
+
+/**
+ * Shows the mode-entry loading overlay with quality-apply copy.
+ * Call before triggering a page reload so the user sees a brief transition.
+ * No-op if the overlay does not exist (initLoadingScreen not yet called).
+ */
+export function showQualityApplyLoading() {
+  ensureModeOverlay();
+  if (!modeOverlayEl) return;
+
+  // * Strip level-specific themes so the panel renders neutral.
+  modeOverlayEl.classList.remove(
+    "cr-load--solo",
+    "cr-load--classic",
+    "cr-load--backrooms",
+    "cr-load--hidden",
+    "cr-load--exit",
+  );
+  modeOverlayEl.classList.add("cr-load--classic");
+  modeOverlayEl.setAttribute("aria-busy", "true");
+
+  if (modeTitleEl) modeTitleEl.textContent = "QUALITY";
+  if (modeSubtitleEl) modeSubtitleEl.textContent = "Applying quality settings…";
+  setProgress(100, "Reloading…");
+  modeEntryVisible = true;
+}

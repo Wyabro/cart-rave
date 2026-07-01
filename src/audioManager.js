@@ -14,6 +14,8 @@ let _isMuted = false;
 
 /** @type {Howl | null} */
 let menuMusic = null;
+/** Whether the menu music was requested to play (set true by playMenuMusic, false by stopMenuMusic). */
+let _menuMusicShouldPlay = false;
 /** @type {Howl[]} */
 let gameMusicTracks = [];
 let currentGameTrackIdx = -1;
@@ -21,15 +23,18 @@ let gameMusicPlaying = false;
 /** @type {Record<string, Howl>} */
 const sfxRegistry = {};
 
-// * Default per-SFX volume multipliers before any dev tuning.
+// * Default per-SFX volume multipliers — all 1.0 since raw files are loudnorm-normalized.
 const _DEFAULT_SFX_VOLUMES = {
-  cartCrash: 1.25,
-  death: 0.65,
-  boost: 0.90,
-  hop: 2.00,
-  wheel: 0.80,
-  floor: 0.35,
-  chargeUp: 1.00,
+  cartCrash: 1.0,
+  death: 1.0,
+  boost: 1.0,
+  hop: 1.0,
+  floor: 1.0,
+  chargeUp: 1.0,
+  countdown_3: 1.0,
+  countdown_2: 1.0,
+  countdown_1: 1.0,
+  countdown_go: 1.0,
 };
 
 // * Per-SFX volume multipliers. Initialized from _DEFAULT_SFX_VOLUMES; dev Tweakpane overrides.
@@ -80,6 +85,14 @@ export function initAudioManager(audioContext) {
   Howler.autoUnlock = true;
   installDevMusicGate();
   applyAllVolumes();
+
+  // * Autoplay policy workaround: if menu music was requested before the AudioContext
+  // * was running (e.g. first page load), re-trigger play when the context resumes.
+  audioContext.addEventListener("statechange", () => {
+    if (audioContext.state === "running" && _menuMusicShouldPlay && menuMusic && !menuMusic.playing()) {
+      menuMusic.play();
+    }
+  });
 }
 
 // === Volume control ===
@@ -201,6 +214,7 @@ export function loadGamePlaylist(urls) {
 
 /** @returns {void} */
 export function playMenuMusic() {
+  _menuMusicShouldPlay = true;
   if (!menuMusic || _isMuted) return;
   if (!devMusicGate) return;
   if (menuMusic.playing()) return;
@@ -209,6 +223,7 @@ export function playMenuMusic() {
 
 /** @returns {void} */
 export function stopMenuMusic() {
+  _menuMusicShouldPlay = false;
   if (!menuMusic) return;
   menuMusic.stop();
 }
@@ -264,9 +279,10 @@ export function registerSfx(key, src, options = {}) {
   if (sfxRegistry[key]) {
     try { sfxRegistry[key].unload(); } catch {}
   }
+  const perVol = _sfxPerVolumes[key] ?? _DEFAULT_SFX_VOLUMES[key] ?? 1;
   sfxRegistry[key] = new Howl({
     src: [src],
-    volume: _isMuted ? 0 : _sfxVol,
+    volume: _isMuted ? 0 : _sfxVol * perVol,
     pool: options.pool ?? 4,
     sprite: options.sprite,
     loop: Boolean(options.loop),
@@ -279,16 +295,31 @@ export function registerSfx(key, src, options = {}) {
  * Play a registered SFX.
  * @param {string} key Registry key
  * @param {string} [sprite] Sprite name (if using spritesheet)
+ * @param {{ rate?: number }} [options] Per-play overrides (rate = playback speed / pitch)
  * @returns {number | null} Sound ID for further control, or null
  */
-export function playSfx(key, sprite) {
+export function playSfx(key, sprite, options = {}) {
   const sound = sfxRegistry[key];
   if (!sound || _isMuted) return null;
   try {
-    return sprite ? sound.play(sprite) : sound.play();
+    const id = sprite ? sound.play(sprite) : sound.play();
+    if (id != null && options.rate != null) {
+      sound.rate(options.rate, id);
+    }
+    return id;
   } catch {
     return null;
   }
+}
+
+/**
+ * Play a randomized cart-crash SFX. Each crash receives a unique playback rate
+ * (0.82–1.25) so rapid collisions don't sound like the exact same sample repeated.
+ * @returns {number | null} Sound ID
+ */
+export function playCartCrash() {
+  const rate = 0.82 + Math.random() * 0.43;
+  return playSfx("cartCrash", undefined, { rate });
 }
 
 /**
@@ -357,6 +388,127 @@ export function unregisterSfx(key) {
   if (sound) {
     try { sound.unload(); } catch {}
     delete sfxRegistry[key];
+  }
+}
+
+// === Wheel loop (dynamic engine sound) ===
+
+/** @type {Howl | null} */
+let wheelLoopHowl = null;
+/** @type {number | null} */
+let wheelLoopId = null;
+let wheelLoopCurrentVolume = 0;
+let wheelLoopCurrentRate = 0.7;
+let _wheelLoopVolumeScale = 1.0;
+
+/**
+ * Get the wheel loop max volume multiplier (dev Tweakpane tuning).
+ * @returns {number}
+ */
+export function getWheelLoopVolumeScale() {
+  return _wheelLoopVolumeScale;
+}
+
+/**
+ * Set the wheel loop max volume multiplier and apply immediately.
+ * @param {number} v 0–3+ range
+ */
+export function setWheelLoopVolumeScale(v) {
+  _wheelLoopVolumeScale = Math.max(0, Math.min(5, v));
+}
+
+/**
+ * Initialize the wheel loop sound as a dedicated single-instance Howl for dynamic
+ * volume/pitch control. Called once from main.js after the shared AudioContext is ready.
+ * @param {string} src URL to the wheel loop audio file
+ */
+export function initWheelLoop(src) {
+  if (wheelLoopHowl) {
+    try { wheelLoopHowl.unload(); } catch {}
+  }
+  wheelLoopHowl = new Howl({
+    src: [src],
+    loop: true,
+    volume: 0,
+    preload: true,
+  });
+}
+
+/**
+ * Start playing the wheel loop at volume 0. Subsequent updateWheelLoop() calls
+ * fade it in by raising the volume dynamically. Safe to call when already playing.
+ */
+export function startWheelLoop() {
+  if (!wheelLoopHowl) return;
+  if (wheelLoopId != null) return;
+  wheelLoopCurrentVolume = 0;
+  wheelLoopCurrentRate = 0.7;
+  try {
+    wheelLoopId = wheelLoopHowl.play();
+  } catch {
+    wheelLoopId = null;
+    return;
+  }
+  if (wheelLoopId != null) {
+    wheelLoopHowl.volume(0, wheelLoopId);
+    wheelLoopHowl.rate(0.7, wheelLoopId);
+  }
+}
+
+/**
+ * Update the wheel loop volume and pitch based on the cart's current planar speed.
+ * Auto-starts the loop on first call if not yet playing.
+ * Caller must gate: only call when speed > 0.5 m/s; stopWheelLoop() otherwise.
+ *
+ * Volume maps 0 → 0, maxSpeed → 0.8 (linear, clamped, scaled by _sfxVol and _wheelLoopVolumeScale).
+ * Pitch maps 0 → 0.8 playback rate, maxSpeed → 1.3 (linear, clamped).
+ * Both transitions use frame-rate-independent lerp for smooth analog feel.
+ *
+ * @param {number} speed Planar speed in m/s (Math.hypot(vx, vz))
+ * @param {number} maxSpeed Max forward speed cap (CONFIG.driving.maxSpeed)
+ * @param {number} dt Frame delta in seconds
+ */
+export function updateWheelLoop(speed, maxSpeed, dt) {
+  if (!wheelLoopHowl) return;
+
+  if (wheelLoopId == null) {
+    startWheelLoop();
+    if (wheelLoopId == null) return;
+  }
+
+  const t = Math.max(0, Math.min(1, speed / maxSpeed));
+  const targetVolume = _isMuted ? 0 : t * 0.8 * _sfxVol * _wheelLoopVolumeScale;
+  const targetRate = 0.8 + t * 0.5;
+
+  // * Frame-rate independent lerp: matches 0.15 factor at 60 fps.
+  const lerpFactor = 1 - Math.pow(1 - 0.15, dt * 60);
+  wheelLoopCurrentVolume += (targetVolume - wheelLoopCurrentVolume) * lerpFactor;
+  wheelLoopCurrentRate += (targetRate - wheelLoopCurrentRate) * lerpFactor;
+
+  try {
+    wheelLoopHowl.volume(wheelLoopCurrentVolume, wheelLoopId);
+    wheelLoopHowl.rate(wheelLoopCurrentRate, wheelLoopId);
+  } catch {
+    // Sound may have been unloaded between frames.
+  }
+}
+
+/**
+ * Fade the wheel loop to silence and stop playback. Call when the round ends
+ * or the local cart dies. Safe to call repeatedly (no-op after first stop).
+ */
+export function stopWheelLoop() {
+  if (!wheelLoopHowl || wheelLoopId == null) return;
+  const id = wheelLoopId;
+  wheelLoopId = null;
+  try {
+    const currentVol = wheelLoopHowl.volume(id) || wheelLoopCurrentVolume;
+    wheelLoopHowl.fade(currentVol, 0, 200, id);
+    setTimeout(() => {
+      try { wheelLoopHowl?.stop(id); } catch {}
+    }, 250);
+  } catch {
+    try { wheelLoopHowl.stop(id); } catch {}
   }
 }
 

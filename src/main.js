@@ -19,10 +19,11 @@ import {
 import "./cart-rave-menu.js";
 import "./cart-rave-menu.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, updateViewport as updateSceneViewport } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode, updateViewport as updateSceneViewport } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { updateCartVisuals } from "./cart.js";
+import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
 import * as Entities from "./entities.js";
@@ -49,6 +50,7 @@ import {
   dismissInitialBootSplash,
   initLoadingScreen,
   revealGameCanvas,
+  showQualityApplyLoading,
   yieldForPaint,
 } from "./ui/loadingScreen.js";
 import {
@@ -62,6 +64,7 @@ import {
   isLevelSwapping,
   rebuildLevelIfNeeded,
   scheduleMenuLevelPreview,
+  setLevelSwapping,
   swapLoadedLevel,
 } from "./levelManager.js";
 import {
@@ -85,6 +88,7 @@ import {
   updateVisualsAndEffects,
 } from "./gameLoop.js";
 import { updateGameFlow } from "./gameFlow.js";
+import { cleanupSuddenDeathState } from "./gameFlow.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
@@ -94,6 +98,7 @@ import {
 } from "./gameSession.js";
 import {
   clamp,
+  isLowQualityMode,
   isTouchDevice,
 } from "./utils.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
@@ -510,6 +515,22 @@ async function main() {
 
   if (menuVisible) AudioManager.playMenuMusic();
 
+  // * Autoplay policy: unlock AudioContext on the first user gesture anywhere on the page.
+  // * Registered early (before initMenu) with capture so it fires before other handlers.
+  let didUnlockAudio = false;
+  function unlockAudio() {
+    if (didUnlockAudio) return;
+    didUnlockAudio = true;
+    const ctx = audioListener.context;
+    if (ctx.state === "suspended") {
+      void ctx.resume();
+    }
+    if (menuVisible) AudioManager.playMenuMusic();
+    if (!menuVisible) AudioManager.playGameMusic();
+  }
+  window.addEventListener("pointerdown", unlockAudio, { capture: true, once: true });
+  window.addEventListener("keydown", unlockAudio, { capture: true, once: true });
+
   // Make canvas able to receive keyboard focus.
   canvas.tabIndex = 0;
   canvas.style.outline = "none";
@@ -635,9 +656,14 @@ async function main() {
   AudioManager.registerSfx("death", soundsRoot("Death.ogg"), { pool: 3 });
   AudioManager.registerSfx("boost", soundsRoot("Boost.ogg"), { pool: 3 });
   AudioManager.registerSfx("hop", soundsRoot("Hop.ogg"), { pool: 3 });
-  AudioManager.registerSfx("wheel", soundsRoot("Wheel.ogg"), { pool: 3 });
+  // * Dynamic wheel loop — continuous engine sound scaled by cart speed.
+  AudioManager.initWheelLoop(soundsRoot("Wheel_loop.ogg"));
   AudioManager.registerSfx("floor", soundsRoot("Floor.ogg"), { pool: 3 });
   AudioManager.registerSfx("chargeUp", soundsRoot("Charge_up.ogg"), { pool: 2, loop: true });
+  AudioManager.registerSfx("countdown_3", soundsRoot("countdown_3.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_2", soundsRoot("countdown_2.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_1", soundsRoot("countdown_1.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_go", soundsRoot("countdown_go.ogg"), { pool: 1 });
 
   camera.add(audioListener);
 
@@ -648,7 +674,39 @@ async function main() {
 
   if (import.meta.env.DEV) {
     import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
-      initPostFxDebugGui({ renderer, scene, bloomPass, arcadePass, fxaaPass });
+      initPostFxDebugGui({
+        renderer, scene, bloomPass, arcadePass, fxaaPass,
+        suddenDeathTest: () => {
+          if (!Netcode.getIsHost()) return;
+          // * Find player slot (human) and a different NPC slot.
+          const slots = Netcode.getNetSlots();
+          const localIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+          let npcIdx = -1;
+          for (let i = 0; i < 4; i += 1) {
+            if (i !== localIdx && slots[i]?.kind === "npc") {
+              npcIdx = i;
+              break;
+            }
+          }
+          // * Fallback: if no NPC found (e.g. 2 humans), pick any other slot.
+          if (npcIdx < 0) {
+            for (let i = 0; i < 4; i += 1) {
+              if (i !== localIdx) { npcIdx = i; break; }
+            }
+          }
+          if (localIdx < 0 || npcIdx < 0) return;
+          // * Set player and NPC to 2 points, everyone else to 0.
+          const scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+          scores[localIdx] = 2;
+          scores[npcIdx] = 2;
+          GameState.setRoundScores(scores);
+          // * Rewind round timer so only ~10s remain.
+          GameState.setRoundStartedAtMs(Date.now() - (CONFIG.round.durationMs - 10000));
+          // * Do NOT set isSuddenDeath — let the 60s round timer expire naturally
+          // * and trigger the gameFlow.js tie → Sudden Death flow.
+          Netcode.sendHostRound();
+        },
+      });
     }).catch(() => {});
   }
 
@@ -1068,6 +1126,44 @@ async function main() {
   }
 
 
+  /**
+   * Toggles visual quality settings in-place without touching the Rapier physics world.
+   * Reflector, post-processing, rave extras, and renderer pixel ratio are all toggled
+   * synchronously — no WASM world teardown / rebuild required.
+   * @returns {Promise<void>}
+   */
+  async function rebuildForQualityChange() {
+    await yieldForPaint();
+
+    const lowQuality = isLowQualityMode();
+
+    // * Physics: update substep cap to match the new quality tier.
+    CONFIG.physics.maxSubsteps = lowQuality ? 2 : 4;
+
+    // * Post-processing: toggle bloom + arcade passes and update renderer pixel ratio.
+    applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality);
+
+    // * Arena visuals: toggle the reflective floor vs. opaque solid floor.
+    if (typeof setReflectorVisible === "function") {
+      setReflectorVisible(!lowQuality);
+    }
+
+    // * Rave extras: show crowd, stage, lasers, and billboard only in high quality
+    // * on levels that support them (Classic Record; Backrooms hides them already).
+    const wantsExtras = levelUsesRaveExtras() && !lowQuality;
+    Effects.setRaveExtrasVisible(wantsExtras);
+
+    // * Crowd size: toggle GPU draw count (800 vs 5000) without re-allocating.
+    Effects.setQualityCrowdCount(lowQuality);
+
+    // * Scene extras (skybox, planets, spotlights): always created, toggled here.
+    if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+      for (const root of sceneExtras.sceneRoots) {
+        root.visible = wantsExtras;
+      }
+    }
+  }
+
   hud = HUD.init({
     getIsMuted: () => isMuted,
     setIsMuted: (val) => { setAllAudioMuted(val); },
@@ -1106,6 +1202,19 @@ async function main() {
       }
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
+    onLowQualityToggle: async (_next) => {
+      // * Close Esc overlay first so it doesn't persist across the rebuild.
+      HUD.hideEscOverlay();
+      // * Show loading overlay with quality-apply copy, then rebuild in-place.
+      showQualityApplyLoading();
+      await yieldForPaint();
+      try {
+        await rebuildForQualityChange();
+      } catch (err) {
+        console.error("[CartRave] quality rebuild failed:", err);
+      }
+      dismissAllLoadingOverlays();
+    },
   });
   const resultsUi = initResultsOverlay({
     onMainMenuClick: () => {
@@ -1207,6 +1316,7 @@ async function main() {
     disposed: false,
   };
   let upgradeRecordReflector = null;
+  let setReflectorVisible = null;
   let raveVisualsInitialized = false;
   let sceneEnvironmentDispose = null;
   /** @type {typeof CONFIG.postFx.bloom | null} Saved bloom tuning when entering test drive. */
@@ -1267,6 +1377,11 @@ async function main() {
     const wantRaveExtras = levelUsesRaveExtras();
     disposeSceneExtras(sceneExtras);
     sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras });
+    // * Scene extras (skybox/planets/spotlights) always created — hide in low quality.
+    const showSceneExtras = wantRaveExtras && !isLowQualityMode();
+    if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+      for (const root of sceneExtras.sceneRoots) root.visible = showSceneExtras;
+    }
     if (wantRaveExtras && !raveVisualsInitialized) {
       Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
       Effects.initStage(scene, pitInnerRadius, CART_COLORS);
@@ -1274,7 +1389,7 @@ async function main() {
       Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
       raveVisualsInitialized = true;
     }
-    Effects.setRaveExtrasVisible(wantRaveExtras);
+    Effects.setRaveExtrasVisible(showSceneExtras);
   }
 
   function scheduleReflectorUpgrade() {
@@ -1321,6 +1436,7 @@ async function main() {
       update: levelUpdate,
       dispose: disposeLevel,
       upgradeRecordReflector,
+      setReflectorVisible,
     } = await loadLevel(selected, scene, world, CONFIG, {
       reflectorTextureSize: opts.reflectorTextureSize,
       onProgress: opts.onProgress,
@@ -1604,7 +1720,7 @@ async function main() {
 
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
-    cart.respawnAtMs = now + CONFIG.fall.respawnDelayMs;
+    cart.respawnAtMs = now + 1000; // * respawn after shatter VFX plays out
     if (cart === localCartForConnId()) {
       stopChargeSfxForCart(cart);
       AudioManager.playSfx("death");
@@ -1792,7 +1908,7 @@ async function main() {
     getNameLabelUpdatePending: () => nameLabelUpdatePending,
     setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
     respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
-    getPlayCollisionRef: () => (_intensity, _opts) => AudioManager.playSfx("cartCrash"),
+    getPlayCollisionRef: () => (_intensity, _opts) => AudioManager.playCartCrash(),
     getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
@@ -1810,6 +1926,7 @@ async function main() {
     onReturnToLobby: () => {
       Entities.rematchResetWorld();
       GameState.setRoundEndReason(null);
+      cleanupSuddenDeathState(allCartsRef || []);
     },
     onEnterPodium: () => {
       HUD.clearFeed();
@@ -1940,9 +2057,10 @@ async function main() {
 
   /**
    * Auto-Charge Boost release callback — invoked by `applyArcadeControls` (via the sim
-   * callbacks) when a charging cart hits `boostChargeTimeMs`. Stops the looping charge
-   * SFX and fires the boost/nitro SFX + visual pulse for the local cart. Remote-cart
-   * releases on the host are silent here (the owning client plays its own SFX locally).
+   * callbacks) when a charging cart hits `boostChargeTimeMs` or early-releases after 100ms.
+   * Stops the looping charge SFX and fires the boost/nitro SFX + visual pulse for the
+   * local cart. Remote-cart releases on the host are silent here (the owning client plays
+   * its own SFX locally).
    *
    * @param {ReturnType<typeof createCart>} cart
    */
@@ -1956,6 +2074,22 @@ async function main() {
     AudioManager.playSfx("boost");
     if (cart.mesh) animateCartBoostPulse(cart.mesh);
     flashBoostActivate();
+  }
+
+  /**
+   * Auto-Charge Boost cancel callback — invoked by `applyArcadeControls` when the
+   * player releases the boost button before 100ms of charging. Stops the looping
+   * charge-up SFX silently (no boost sound, no visual pulse).
+   *
+   * @param {ReturnType<typeof createCart>} cart
+   */
+  function onBoostCancel(cart) {
+    const isLocal = cart === localCartForConnId();
+    if (!isLocal) return;
+    if (cart.chargeUpSfxId != null) {
+      AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+      cart.chargeUpSfxId = null;
+    }
   }
 
   function triggerHop(cart, nowMs) {
@@ -2020,19 +2154,6 @@ async function main() {
     audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
   }
 
-  let didUnlockAudio = false;
-  function unlockAudio() {
-    if (didUnlockAudio) return;
-    didUnlockAudio = true;
-    const ctx = audioListener.context;
-    if (ctx.state === "suspended") {
-      void ctx.resume();
-    }
-    if (!menuVisible) AudioManager.playGameMusic();
-  }
-
-  window.addEventListener("pointerdown", unlockAudio, { passive: true });
-  window.addEventListener("keydown", unlockAudio, { once: true });
   canvas.addEventListener("pointerdown", () => {
     canvas.focus();
   });
@@ -2177,7 +2298,14 @@ async function main() {
     cancelLastCartStandingFinish();
     clearRoundCountdownTimeout();
     pendingMidRoundJoinRespawnConnId = null;
-    if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
+    const suddenDeathActive = GameState.getRoundState().isSuddenDeath;
+    if (suddenDeathActive && lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
+      // * Sudden Death winner — first to score wins instantly.
+      GameState.setRoundEndReason("timer");
+      GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
+      GameState.setSuddenDeath(false);
+      cleanupSuddenDeathState(allCartsRef || []);
+    } else if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
       GameState.setRoundEndReason("lastStanding");
       GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
     } else {
@@ -2190,6 +2318,11 @@ async function main() {
     syncRoundPhase("podium");
     Netcode.sendHostRound();
   }
+
+  // * Wire Sudden Death win callback — addScore fires this on first score during SD.
+  GameState.setSuddenDeathWinCallback((scoringSlot) => {
+    endRound(scoringSlot);
+  });
 
   function clearAutoContinuePodiumTimeout() {
     if (autoContinuePodiumTimeoutId != null) {
@@ -2333,6 +2466,8 @@ async function main() {
     scheduleLastCartStandingFinish,
     abortLastCartStandingFlourish,
     addScore: GameState.addScore,
+    isScoreTied: GameState.isScoreTied,
+    setSuddenDeath: GameState.setSuddenDeath,
     colorHexForSlot: displayColorHexForSlot,
     hud,
     sendHostRound: () => Netcode.sendHostRound(),
@@ -2342,15 +2477,18 @@ async function main() {
     getYouConnId: () => Netcode.getYouConnId(),
     getScene: () => scene,
     triggerCartShatter,
+    getWorld: () => world,
+    getBoothColliderHandles: () => boothColliderHandles,
   };
 
   const hostSimCallbacks = {
     getAxis: Input.getAxis,
     getAiAxis,
-    playCollision: (_intensity, _opts) => AudioManager.playSfx("cartCrash"),
+    playCollision: (_intensity, _opts) => AudioManager.playCartCrash(),
     spawnTrashBurst: spawnTrashBurstRef,
     onLocalRamImpact: triggerLocalRamShake,
     onBoostRelease,
+    onBoostCancel,
     get partySocket() { return Netcode.getPartySocket(); },
     get recordColliderHandle() { return recordCollider?.handle; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },
@@ -2463,7 +2601,39 @@ async function main() {
     frameCtx.physicsAlpha = physicsStep.alpha;
 
     const localCart = localCartForConnId();
-    if (localCart?.body) {
+
+    // * Death camera takes priority — freeze at death position and pan toward the explosion.
+    if (localCart?.isShattering) {
+      if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.DEATH) {
+        const deathPos = localCart._shatterDeathPos;
+        if (deathPos) {
+          CameraMod.beginDeathCamera(camera, deathPos);
+        }
+      }
+      CameraMod.updateDeathCamera(camera, dt);
+    } else if (localCart?.isSuddenDeathSpectator) {
+      // * Spectator camera: local cart was knocked out during Sudden Death.
+      // * Follow a tied cart (prefer human if available) so the player can watch the 1v1.
+      if (CameraMod.getCameraMode(camera) === CameraMode.DEATH) {
+        CameraMod.endDeathCamera(camera);
+      }
+      const allCartsArr = allCartsRef || [];
+      let spectatorTarget = null;
+      for (const c of allCartsArr) {
+        if (c?.body && !c.isSuddenDeathSpectator && !c.isShattering) {
+          spectatorTarget = c;
+          break;
+        }
+      }
+      if (spectatorTarget) {
+        const playerPos = spectatorTarget.body.translation();
+        const playerRot = spectatorTarget.body.rotation();
+        CameraMod.updateCamera(camera, spectatorTarget, dt, playerPos, playerRot, world);
+      }
+    } else if (localCart?.body) {
+      if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
+        CameraMod.endDeathCamera(camera);
+      }
       const camMode = CameraMod.getCameraMode(camera);
       if (camMode === CameraMod.CameraMode.CINEMATIC_COUNTDOWN) {
         CameraMod.updateCinematicCountdown(camera, dt);
@@ -2484,6 +2654,9 @@ async function main() {
     frameCtx.dt = dt;
     },
     onVisualUpdate(frameCtx) {
+      // * Skip visual update during level swap / quality rebuild — carts are
+      // * being torn down and rebuilt; touching null bodies would crash.
+      if (isLevelSwapping()) return;
       gameCtx.setFrameCtx(frameCtx);
       updateVisualsAndEffects(gameCtx.deps.visual, gameCtx.frameCtx);
     },

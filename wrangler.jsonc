@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cart-rave",
+  "main": "party/index.ts",
+  "compatibility_date": "2026-06-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CartRaveServer",
+        "class_name": "CartRaveServer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CartRaveServer"]
+    }
+  ]
+}

@@ -221,27 +221,24 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     }
   }
 
-  // Subtle wheel screech: short noise bursts on sharp steering, local cart only.
-  // * Reads the local cart's linvel from the visual scratch populated above (same frame,
-  // * no intervening world.step) instead of a fresh body.linvel() allocation.
-  if (!deps.isMuted() && deps.getSfxVolume() > 0) {
-    if (!deps.isMenuVisible() && roundState.phase === "running") {
-      const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
-      if (c && c.body && localSlotIndexThisFrame === localSlotIndexForFrame) {
-        const speed = Math.hypot(_visLinvel.x, _visLinvel.z);
-        if (speed >= 4.0) {
-          const axis = deps.getAxis();
-          const steerMag = Math.abs(axis.turn || 0);
-          const steerThreshold = 0.55;
-          if (steerMag >= steerThreshold) {
-            if (now - (c.lastWheelScreechAtMs || 0) >= 120) {
-              c.lastWheelScreechAtMs = now;
-              AudioManager.playSfx("wheel");
-            }
-          }
-        }
+  // Dynamic wheel loop: continuous engine sound scaled by planar cart speed.
+  // * Volume maps 0 → 0.8, pitch maps 0.8 → 1.3 playback rate.
+  // * Only plays when planar speed > 0.5 m/s; fades out cleanly below threshold.
+  // * Uses _visLinvel cached by readBodyStateIntoVisScratch during the cart sync loop.
+  if (!deps.isMenuVisible() && roundState.phase === "running") {
+    const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
+    if (c && c.body) {
+      const speed = Math.hypot(_visLinvel.x, _visLinvel.z);
+      if (speed > 0.5) {
+        AudioManager.updateWheelLoop(speed, deps.CONFIG.driving.maxSpeed, dt);
+      } else {
+        AudioManager.stopWheelLoop();
       }
+    } else {
+      AudioManager.stopWheelLoop();
     }
+  } else {
+    AudioManager.stopWheelLoop();
   }
 
   // Leader glow: neon cart color at rest, brief white emissive flash at pulse peak.

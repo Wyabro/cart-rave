@@ -1484,6 +1484,7 @@ export function initNetcode(roomOverride) {
           GameState.setRoundEndReason(r.endReason ?? null);
         }
         if (r.scores && typeof r.scores === "object") GameState.setRoundScores(r.scores);
+        if (typeof r.isSuddenDeath === "boolean") GameState.setSuddenDeath(r.isSuddenDeath);
       }
       return;
     }
@@ -1530,6 +1531,7 @@ export function sendHostRound() {
       winnerSlotIndex: state.winnerSlotIndex,
       endReason: state.endReason ?? null,
       scores: state.scores,
+      isSuddenDeath: state.isSuddenDeath ?? false,
     },
   }));
 }

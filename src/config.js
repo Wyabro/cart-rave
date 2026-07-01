@@ -15,6 +15,8 @@
  * Spawn ring radius and spawn height are computed after CONFIG is defined (see bottom).
  */
 
+import { isLowQualityMode } from "./utils.js";
+
 /** @type {string} Bump when physics or net tuning changes materially. */
 const CONFIG_VERSION = "2026.06.22";
 
@@ -132,7 +134,7 @@ const physics = {
         boostMinMultiplier: 0.3, // unitless — burst scale at zero charge (reserved for early-release)
         boostMaxMultiplier: 1.0, // unitless — burst scale at full charge (auto-release)
         boostCooldownMs: 1000, // ms — lockout after a released burst before charging again
-        burstImpulse: 18.0, // N·s — instantaneous forward impulse at release (× mass × multiplier)
+        burstImpulse: 28.0, // N·s — instantaneous forward impulse at release (× mass × multiplier)
       },
     },
 
@@ -226,6 +228,12 @@ const physics = {
 // * Legacy alias — holeAssist originally lived under record.
 physics.record.holeAssist = physics.holeAssist;
 
+// * Low Quality Mode — reduces physics and VFX for mobile / slow devices.
+if (isLowQualityMode()) {
+  physics.maxSubsteps = 2;
+  physics.cart.ramBoost.streakMaxActive = 30;
+}
+
 export const CONFIG = {
   canvasId: "game",
   backgroundColor: 0x070010,
@@ -284,7 +292,7 @@ export const CONFIG = {
   },
 
   round: {
-    durationMs: 60000, // ms — host-authoritative round length
+    durationMs: 150000, // ms — host-authoritative round length (2.5 min)
   },
 
   postFx: {
@@ -404,4 +412,4 @@ export const MSG = {
   countdownCancel: "countdown_cancel",
 };
 
-export const PARTYKIT_PUBLIC_HOST = "v2.cartrave.lol";
+export const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.workers.dev";

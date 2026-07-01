@@ -15,6 +15,8 @@ import {
   wireButtonPressFeedback,
 } from "./animations.js";
 import { resolveCartNeonCss } from "./customization.js";
+import * as AudioManager from "./audioManager.js";
+import { isLowQualityMode, setLowQualityMode } from "./utils.js";
 
 /**
  * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
@@ -67,6 +69,7 @@ const elements = {
   resumeBtn: null,
   quitBtn: null,
   postFxBtn: null,
+  lowQualityBtn: null,
   muteBtn: null,
   escMuteBtn: null,
   musicVol: null,
@@ -78,6 +81,8 @@ const elements = {
 // * Cached update() state — avoids recomputing sort order and retriggering animations every frame.
 /** Timestamp until which the "GO!" flash is shown after countdown → running. */
 let _goUntilMs = 0;
+/** True after countdown_go has been played for the current transition; reset when countdown restarts. */
+let _goSoundPlayed = false;
 /** Previous round phase; used to detect countdown → running transition. */
 let _prevRoundPhase = null;
 /** Last rendered countdown digit; drives pulse animation only when the number changes. */
@@ -776,7 +781,7 @@ export const HUD_CSS = `
     #esc-overlay .esc-actions {
       grid-area: actions;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: clamp(8px, 1.5vw, 10px);
       flex-shrink: 0;
     }
@@ -1117,6 +1122,13 @@ export const HUD_CSS = `
       box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
     }
 
+    #esc-overlay .esc-btn--lq-on {
+      --btn-glow: rgba(255, 255, 255, 0.55);
+      color: rgba(255, 255, 255, 0.72);
+      text-shadow: none;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
+    }
+
     /* Touch-only in-game menu button (opens Esc overlay). */
     #hud .hud-menu-btn {
       display: none;
@@ -1267,7 +1279,7 @@ export const HUD_CSS = `
       }
 
       #esc-overlay .esc-actions {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         position: static;
         background: none;
         padding-top: 0;
@@ -1299,6 +1311,31 @@ export const HUD_CSS = `
         animation: none;
         opacity: 1;
       }
+    }
+
+    /* Sudden Death — red timer theme */
+    #hud.hud-sudden-death .hud-timer-stripe {
+      background: #ff3333;
+      box-shadow: 0 0 12px #ff3333aa;
+    }
+
+    #hud.hud-sudden-death .hud-timer-pip {
+      background: #ff3333;
+      box-shadow: 0 0 6px #ff3333;
+    }
+
+    #hud.hud-sudden-death .hud-timer-bar i {
+      background: linear-gradient(90deg, #ff3333, #ff6666);
+      box-shadow: 0 0 8px #ff333388;
+    }
+
+    #hud.hud-sudden-death .hud-timer-num {
+      text-shadow: 0 0 20px rgba(255, 51, 51, 0.6);
+    }
+
+    @keyframes suddenDeathPulse {
+      0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+      50%      { opacity: 1;    transform: translateX(-50%) scale(1.06); }
     }
   `.trim();
 
@@ -1487,7 +1524,7 @@ function resetEscOverlayAnimState(overlay) {
     section.style.transform = "translateY(10px)";
   }
 
-  for (const btn of [elements.resumeBtn, elements.quitBtn, elements.postFxBtn]) {
+  for (const btn of [elements.resumeBtn, elements.quitBtn, elements.postFxBtn, elements.lowQualityBtn]) {
     if (!btn) continue;
     btn.style.opacity = "0";
     btn.style.transform = "translateY(8px)";
@@ -1519,7 +1556,7 @@ function animateEscOverlayShow() {
       section.style.opacity = "1";
       section.style.transform = "";
     }
-    for (const btn of [elements.resumeBtn, elements.quitBtn, elements.postFxBtn]) {
+    for (const btn of [elements.resumeBtn, elements.quitBtn, elements.postFxBtn, elements.lowQualityBtn]) {
       if (!btn) continue;
       btn.style.opacity = "1";
       btn.style.transform = "";
@@ -1545,7 +1582,7 @@ function animateEscOverlayShow() {
       });
     });
 
-    [elements.resumeBtn, elements.quitBtn, elements.postFxBtn].forEach((btn, i) => {
+    [elements.resumeBtn, elements.quitBtn, elements.postFxBtn, elements.lowQualityBtn].forEach((btn, i) => {
       if (!btn) return;
       animateMenuReveal(btn, {
         delay: 210 + i * 35,
@@ -1739,6 +1776,10 @@ function updateStatus(roundState) {
   const prevPhase = _prevRoundPhase;
   if (prevPhase === "countdown" && roundPhase === "running") {
     _goUntilMs = Date.now() + 500;
+    if (!_goSoundPlayed) {
+      _goSoundPlayed = true;
+      AudioManager.playSfx("countdown_go");
+    }
   }
   _prevRoundPhase = roundPhase;
 
@@ -1747,6 +1788,10 @@ function updateStatus(roundState) {
     elements.status.style.color = "#22e6ff";
     elements.status.textContent = "GO!";
   } else if (roundPhase === "countdown") {
+    // * Reset GO sound gate when entering countdown from a non-countdown phase.
+    if (prevPhase !== "countdown") {
+      _goSoundPlayed = false;
+    }
     const countdownMs = roundState?.countdownMs
       ?? (_options.getCountdownMs ? _options.getCountdownMs() : 3000);
     const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
@@ -1757,6 +1802,7 @@ function updateStatus(roundState) {
     elements.status.textContent = `GET READY  ${n}`;
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;
+      AudioManager.playSfx(`countdown_${n}`);
       elements.status.animate(
         [
           { transform: "translateX(-50%) scale(1)" },
@@ -1766,28 +1812,22 @@ function updateStatus(roundState) {
         { duration: 200, easing: "ease-out" },
       );
     }
-  } else if (roundPhase === "running" && roundState?.endReason === "lastStanding") {
-    setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "#ffe53d";
-    elements.status.textContent = "LAST CART STANDING!";
-    if (_lastCountdownN !== "lastStanding") {
-      _lastCountdownN = "lastStanding";
-      elements.status.animate(
-        [
-          { transform: "translateX(-50%) scale(1)" },
-          { transform: "translateX(-50%) scale(1.15)", offset: 0.45 },
-          { transform: "translateX(-50%) scale(1)" },
-        ],
-        { duration: 280, easing: "ease-out" },
-      );
-    }
   } else if (roundPhase === "podium") {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
+  } else if (roundPhase === "running" && roundState?.isSuddenDeath) {
+    setHudDisplay(elements.status, "block", "status");
+    elements.status.style.color = "#ff3333";
+    elements.status.style.textShadow = "4px 4px 0 #ff000044, 0 0 24px #ff3333, 0 0 48px #ff3333";
+    elements.status.textContent = "SUDDEN DEATH";
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    if (!reduced) {
+      elements.status.style.animation = "suddenDeathPulse 0.8s ease-in-out infinite";
+    }
   } else {
-    if (_lastCountdownN === "lastStanding") _lastCountdownN = null;
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
+    elements.status.style.animation = "";
   }
 }
 
@@ -1809,10 +1849,11 @@ function updateTimer(roundState, matchHistoryLength) {
   const roundStartedAtMs = roundState?.startedAtMs;
 
   if (roundPhase === "running") {
+    const isSuddenDeath = roundState?.isSuddenDeath === true;
     const elapsedMs = Date.now() - (roundStartedAtMs || 0);
     const totalRoundMs = roundState?.totalRoundMs
       ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
-    const remainingMs = totalRoundMs - elapsedMs;
+    const remainingMs = isSuddenDeath ? 0 : totalRoundMs - elapsedMs;
     const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
     const minutes = Math.floor(seconds / 60);
     const secondsPart = seconds % 60;
@@ -1829,11 +1870,18 @@ function updateTimer(roundState, matchHistoryLength) {
       const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
       elements.timerFill.style.width = `${pct}%`;
     }
+    // * Sudden Death red theme — applied to HUD root so all timer sub-elements turn red.
+    if (elements.root) {
+      elements.root.classList.toggle("hud-sudden-death", isSuddenDeath);
+    }
   } else {
     setHudDisplay(elements.timer, "none", "timer");
     if (elements.timerNum) elements.timerNum.textContent = "";
     if (elements.timerRd) elements.timerRd.textContent = "";
     if (elements.timerFill) elements.timerFill.style.width = "0%";
+    if (elements.root) {
+      elements.root.classList.remove("hud-sudden-death");
+    }
   }
 }
 
@@ -2034,6 +2082,7 @@ export function init(options) {
   _lastCountdownN = null;
   _prevRoundPhase = null;
   _goUntilMs = 0;
+  _goSoundPlayed = false;
   _lastReadyState = null;
 
   const existing = document.getElementById("hud");
@@ -2303,6 +2352,7 @@ export function init(options) {
   escAudioRow.appendChild(escVolStack);
   audioSection.body.appendChild(escAudioRow);
 
+
   const scoringSection = createEscSection("◇ SCORING");
   scoringSection.section.classList.add("esc-section--scoring", "esc-scoring-block");
 
@@ -2379,13 +2429,32 @@ export function init(options) {
     syncPostFxButtonState(next);
   });
 
+  const syncLowQualityButtonState = (enabled) => {
+    if (!elements.lowQualityBtn) return;
+    elements.lowQualityBtn.textContent = enabled ? "LOW QUALITY: ON" : "HIGH QUALITY: ON";
+    // * Dim style when low quality is ON (undesirable state); default neon when OFF (good state).
+    elements.lowQualityBtn.classList.toggle("esc-btn--lq-on", enabled);
+  };
+  elements.lowQualityBtn = document.createElement("button");
+  elements.lowQualityBtn.type = "button";
+  elements.lowQualityBtn.className = "esc-btn";
+  syncLowQualityButtonState(isLowQualityMode());
+  elements.lowQualityBtn.addEventListener("click", () => {
+    const next = !isLowQualityMode();
+    setLowQualityMode(next);
+    syncLowQualityButtonState(next);
+    if (_options.onLowQualityToggle) _options.onLowQualityToggle(next);
+  });
+
   actions.appendChild(elements.resumeBtn);
   actions.appendChild(elements.quitBtn);
   actions.appendChild(elements.postFxBtn);
+  actions.appendChild(elements.lowQualityBtn);
 
   wireEscButtonFeedback(elements.resumeBtn);
   wireEscButtonFeedback(elements.quitBtn);
   wireEscButtonFeedback(elements.postFxBtn);
+  wireEscButtonFeedback(elements.lowQualityBtn);
 
   elements.escSections = [
     controlsSection.section,

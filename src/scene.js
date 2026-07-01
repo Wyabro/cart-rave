@@ -8,6 +8,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
+import { isLowQualityMode } from "./utils.js";
 
 /** Bloom tuning — edit CONFIG.postFx.bloom in config.js; applied in createComposer(). */
 const BLOOM_CONFIG = CONFIG.postFx.bloom;
@@ -304,7 +305,7 @@ export function createRenderer(canvas) {
     antialias: false,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(isLowQualityMode() ? 1 : Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(FOG_CONFIG.color, 1);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -335,6 +336,34 @@ function createCamera() {
 }
 
 /**
+ * Toggles post-processing passes and renderer quality for runtime quality changes
+ * without rebuilding the physics world.
+ *
+ * @param {import("three/examples/jsm/postprocessing/UnrealBloomPass.js").UnrealBloomPass | null} bloomPass
+ * @param {import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} arcadePass
+ * @param {import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} fxaaPass
+ * @param {THREE.WebGLRenderer | null} renderer
+ * @param {boolean} lowQuality
+ */
+export function applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality) {
+  if (bloomPass) bloomPass.enabled = !lowQuality;
+  if (arcadePass) arcadePass.enabled = !lowQuality;
+  if (renderer) {
+    const pixelRatio = lowQuality ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(pixelRatio);
+    // * FXAA resolution must match the new pixel ratio.
+    if (fxaaPass) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      fxaaPass.material.uniforms.resolution.value.set(
+        1 / (w * pixelRatio),
+        1 / (h * pixelRatio),
+      );
+    }
+  }
+}
+
+/**
  * Builds the post-processing pipeline (render -> bloom -> arcade fx -> fxaa).
  *
  * POST-PROCESSING — recommended starting values (lock in CONFIG.postFx after tuning):
@@ -357,6 +386,7 @@ export function createComposer(renderer, scene, camera) {
   renderPass.clearColor = new THREE.Color(getFogColor());
   composer.addPass(renderPass);
 
+  // * Always create bloom and arcade passes so enable/disable works for in-place quality toggle.
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     BLOOM_CONFIG.strength,
@@ -364,6 +394,7 @@ export function createComposer(renderer, scene, camera) {
     BLOOM_CONFIG.threshold,
   );
   applyBloomSettings(bloomPass);
+  bloomPass.enabled = !isLowQualityMode();
   composer.addPass(bloomPass);
 
   const arcadeCfg = CONFIG.postFx.arcade;
@@ -372,6 +403,7 @@ export function createComposer(renderer, scene, camera) {
   arcadePass.uniforms.uAberration.value = arcadeCfg.aberration;
   arcadePass.uniforms.uScanlineDensity.value = arcadeCfg.scanlineDensity;
   arcadePass.uniforms.uVignette.value = arcadeCfg.vignette;
+  arcadePass.enabled = !isLowQualityMode();
   composer.addPass(arcadePass);
 
   const fxaaPass = new ShaderPass(FXAAShader);

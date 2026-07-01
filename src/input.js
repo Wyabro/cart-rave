@@ -105,7 +105,7 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
 
 /**
  * Returns normalized tank-steering axes from keyboard and/or touch joystick.
- * @returns {{ forward: number, turn: number }} Each axis in [-1, 1].
+ * @returns {{ forward: number, turn: number, boostHeld: boolean }} Each axis in [-1, 1].
  */
 export function getAxis() {
   const forward =
@@ -122,6 +122,7 @@ export function getAxis() {
   };
 
   const touch = getTouchAxis();
+  const boostHeld = localNitroHeld || isBoostHeld();
 
   // * Joystick-active: per-axis max magnitude so a Bluetooth keyboard still works on tablets.
   if (isJoystickActive()) {
@@ -132,14 +133,15 @@ export function getAxis() {
       turn: Math.abs(touch.turn) >= Math.abs(keyboard.turn)
         ? touch.turn
         : keyboard.turn,
+      boostHeld,
     };
   }
 
   if (Math.abs(touch.forward) > 0 || Math.abs(touch.turn) > 0) {
-    return touch;
+    return { ...touch, boostHeld };
   }
 
-  return keyboard;
+  return { ...keyboard, boostHeld };
 }
 
 export { setupTouchControls, setTouchControlsVisible };

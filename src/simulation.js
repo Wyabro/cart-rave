@@ -404,17 +404,55 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   const chargeCfg = rb.boostCharge;
 
   // * Auto-Charge Boost: while charging, standard nitro is suppressed. The cart still
-  // * drives normally (grip/yaw/drift untouched). When the charge elapsed time reaches
-  // * boostChargeTimeMs, the burst auto-releases here: nitro window opens, an
-  // * instantaneous forward burst impulse is applied, cooldown begins, and the
-  // * onBoostRelease callback fires the boost SFX + visual pulse on the owning client.
+  // * drives normally (grip/yaw/drift untouched). Three release paths:
+  // *   1. Early release > 100ms — proportional burst (tap = small dash, hold = big boom).
+  // *   2. Early release <= 100ms — silent cancel (no boost, just stop SFX).
+  // *   3. Full charge ≥ boostChargeTimeMs — max burst auto-release (existing behavior).
   if (chargeCfg?.enabled && cart.isChargingBoost) {
     const chargeElapsedMs = nowMs - cart.boostChargeStartedAtMs;
-    if (chargeElapsedMs >= chargeCfg.boostChargeTimeMs) {
+
+    // * Early-release: player let go of the boost button before full charge.
+    if (!axis.boostHeld) {
+      if (chargeElapsedMs > 100) {
+        // Proportional burst — tap for a small dash, hold for the big boom.
+        const proportionalMultiplier = clamp(
+          chargeElapsedMs / chargeCfg.boostChargeTimeMs,
+          chargeCfg.boostMinMultiplier,
+          chargeCfg.boostMaxMultiplier,
+        );
+        cart.isChargingBoost = false;
+        cart.boostChargeMultiplier = proportionalMultiplier;
+        cart.boostCooldownUntilMs = nowMs + chargeCfg.boostCooldownMs;
+        // * Charge boost gets a longer nitro window than instant boost (1.5× duration).
+        cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1.5 * 1000;
+        cart.lastRamBoostTimeMs = nowMs;
+        cart.ramBoostStreakCarry = 0;
+
+        // * Launch burst impulse — forward kick scaled by mass × proportional multiplier.
+        const burstMag = chargeCfg.burstImpulse * mass * proportionalMultiplier;
+        _impulse.x = _forward.x * burstMag;
+        _impulse.y = _forward.y * burstMag;
+        _impulse.z = _forward.z * burstMag;
+        cart.body.applyImpulse(_impulse, true);
+        cart.body.wakeUp();
+
+        if (callbacks?.onBoostRelease) {
+          callbacks.onBoostRelease(cart);
+        }
+      } else {
+        // * Released before 100ms — cancel charge silently, no boost.
+        cart.isChargingBoost = false;
+        if (callbacks?.onBoostCancel) {
+          callbacks.onBoostCancel(cart);
+        }
+      }
+    } else if (chargeElapsedMs >= chargeCfg.boostChargeTimeMs) {
+      // * Full-charge auto-release: maximum burst.
       cart.isChargingBoost = false;
       cart.boostChargeMultiplier = chargeCfg.boostMaxMultiplier;
       cart.boostCooldownUntilMs = nowMs + chargeCfg.boostCooldownMs;
-      cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
+      // * Charge boost gets a longer nitro window than instant boost (1.5× duration).
+      cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1.5 * 1000;
       cart.lastRamBoostTimeMs = nowMs;
       cart.ramBoostStreakCarry = 0;
 
@@ -1727,7 +1765,7 @@ export function runFixedPhysicsStep({
   }
 
   // 1. Local player
-  if (localCart) {
+  if (localCart && !localCart.isSuddenDeathSpectator) {
     const axis = getAxis();
     // * Driving input is locked outside the running phase so carts cannot be
     // * throttle/turn/nitro-driven during countdown, lobby, or podium. Hop is
@@ -1747,11 +1785,11 @@ export function runFixedPhysicsStep({
 
   // 2. Remote players (host only)
   // * resolveCartForConn is injected by the caller (main.js) so this module stays
-  // * free of netSlots / connId knowledge.
+  // * free of netSlots / connId knowledge. Skip spectator carts.
   if (isHost && remoteInputs && callbacks.resolveCartForConn) {
     for (const [connId, input] of remoteInputs.entries()) {
       const remoteCart = callbacks.resolveCartForConn(connId);
-      if (!remoteCart) continue;
+      if (!remoteCart || remoteCart.isSuddenDeathSpectator) continue;
       _remoteAxis.forward = input.throttle ?? 0;
       _remoteAxis.turn = input.steer ?? 0;
       readBodyStateIntoScratch(remoteCart);
@@ -1765,9 +1803,10 @@ export function runFixedPhysicsStep({
     }
   }
 
-  // 3. NPC AI (host only)
+  // 3. NPC AI (host only) — skip spectator carts.
   if (isHost && getAiAxis && npcs.length > 0) {
     for (const npc of npcs) {
+      if (npc.isSuddenDeathSpectator) continue;
       // * Populate scratch once; getAiAxis (read-only) and applyArcadeControls share it.
       // * getAiAxis may call pickAiTarget → findNearestHumanTarget/isAiCautiousPhase,
       // * which iterate OTHER carts via their own .translation() calls — those do not
@@ -1798,4 +1837,16 @@ export function runFixedPhysicsStep({
     _collisionCallbacks.localCart = localCart;
     processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost);
   }
+}
+
+/**
+ * Resets module-level collision callback state. Call after destroying the old
+ * Rapier world (quality rebuild, host migration) so stale collider handles from
+ * the destroyed world don't leak into new-world collision classification.
+ */
+export function resetCollisionCallbacks() {
+  for (const key of Object.keys(_collisionCallbacks)) {
+    delete _collisionCallbacks[key];
+  }
+  _collisionCallbacks.localCart = null;
 }

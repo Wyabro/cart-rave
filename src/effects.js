@@ -8,10 +8,10 @@ import { buildCart } from "./cart.js";
 import * as Simulation from "./simulation.js";
 import * as GameState from "./gameState.js";
 import { CONFIG } from "./config.js";
-import { clamp } from "./utils.js";
+import { clamp, isLowQualityMode } from "./utils.js";
 import { createPhysicalMaterial } from "./scene.js";
 
-const CROWD_INSTANCE_COUNT = 5000;
+let crowdInstanceCount = 5000;
 const CROWD_SEARCHLIGHT_SPEEDS = [0.2, 0.35, 0.5, 0.25];
 const CROWD_SEARCHLIGHT_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
 
@@ -391,11 +391,15 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
   const crowdMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
   });
-  crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, CROWD_INSTANCE_COUNT);
+  // * Always allocate full capacity (5000) so the quality toggle can draw all instances.
+  // * GPU limits are controlled via crowdCarts.count — not the allocation count.
+  crowdInstanceCount = 5000;
+  crowdCarts = new THREE.InstancedMesh(mergedGeo, crowdMat, crowdInstanceCount);
+  crowdCarts.count = isLowQualityMode() ? 800 : 5000;
   const crowdPalette = Object.values(cartColors).map((entry) => entry.hex);
   const dummy = new THREE.Object3D();
 
-  for (let i = 0; i < CROWD_INSTANCE_COUNT; i += 1) {
+  for (let i = 0; i < crowdInstanceCount; i += 1) {
     const angle = Math.random() * Math.PI * 2;
     const r = pitInnerRadius + 0.5 + Math.random() * 80;
     const x = Math.cos(angle) * r;
@@ -531,6 +535,70 @@ export function setRaveExtrasVisible(visible) {
 }
 
 /**
+ * Sets the crowd InstancedMesh draw-count without reallocating GPU memory.
+ * Call during quality toggle so the full 5000-instance buffer can be drawn
+ * in High Quality, or capped to 800 in Low Quality.
+ *
+ * @param {boolean} lowQuality
+ */
+export function setQualityCrowdCount(lowQuality) {
+  if (!crowdCarts) return;
+  crowdCarts.count = lowQuality ? 800 : 5000;
+}
+
+/**
+ * Removes and disposes all rave dressing objects (crowd, stage, lasers, billboard)
+ * so they can be re-created with updated quality settings after a soft scene rebuild.
+ * @param {THREE.Scene} scene
+ */
+export function disposeRaveVisuals(scene) {
+  if (crowdCarts) {
+    disposeObject3D(crowdCarts);
+    crowdCarts = null;
+  }
+  if (crowdGlow) {
+    disposeObject3D(crowdGlow);
+    crowdGlow = null;
+  }
+  crowdGlowMat = null;
+
+  for (const entry of crowdSearchlightEntries) {
+    if (entry.light) disposeObject3D(entry.light);
+    if (entry.cone) disposeObject3D(entry.cone);
+    if (entry.target) scene.remove(entry.target);
+  }
+  crowdSearchlightEntries = [];
+
+  for (const entry of crowdPointLightEntries) {
+    if (entry.light) disposeObject3D(entry.light);
+    if (entry.bulb) disposeObject3D(entry.bulb);
+  }
+  crowdPointLightEntries = [];
+
+  if (stageGroup) {
+    disposeObject3D(stageGroup);
+    stageGroup = null;
+  }
+  for (const entry of stageLightEntries) {
+    if (entry.light) disposeObject3D(entry.light);
+    if (entry.mesh) disposeObject3D(entry.mesh);
+  }
+  stageLightEntries = [];
+  if (ledTex) { ledTex.dispose(); ledTex = null; }
+  ledCtx = null;
+
+  for (const entry of laserEntries) {
+    if (entry.mesh) disposeObject3D(entry.mesh);
+  }
+  laserEntries = [];
+
+  if (billboardGroup) {
+    disposeObject3D(billboardGroup);
+    billboardGroup = null;
+  }
+}
+
+/**
  * Animates crowd searchlights, point lights, glow ring, and instanced cart wiggle/bounce.
  * @param {number} nowMs Current time (ms).
  */
@@ -565,9 +633,9 @@ export function updateCrowd(nowMs) {
   if (crowdCarts) {
     const nowSec = nowMs * 0.001;
     const batchSize = 200;
-    const offset = Math.floor(nowSec * 4) % Math.ceil(CROWD_INSTANCE_COUNT / batchSize);
+    const offset = Math.floor(nowSec * 4) % Math.ceil(crowdInstanceCount / batchSize);
     const start = offset * batchSize;
-    const end = Math.min(start + batchSize, CROWD_INSTANCE_COUNT);
+    const end = Math.min(start + batchSize, crowdInstanceCount);
     for (let i = start; i < end; i++) {
       crowdCarts.getMatrixAt(i, crowdAnimDummy.matrix);
       crowdAnimDummy.matrix.decompose(crowdAnimDummy.position, crowdAnimDummy.quaternion, crowdAnimDummy.scale);
@@ -628,6 +696,10 @@ export function initEffects(scene, options = {}) {
 
   if (options.cartColors && options.ambientDustStyle) {
     setAmbientDustStyle(options.ambientDustStyle, options.cartColors);
+  }
+
+  if (isLowQualityMode()) {
+    setRaveExtrasVisible(false);
   }
 
   return { ramBoostStreaks, ambientParticles };
@@ -848,6 +920,7 @@ function trimRamBoostStreakPool(maxActive) {
  */
 function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
   if (!sceneRef || !ramBoostConfig || !streakCoreUnitGeo || !streakGlowUnitGeo) return;
+  if (!cart || !cart.mesh || !cart.body) return;
 
   const rb = ramBoostConfig;
   const maxActive = rb.streakMaxActive ?? 150;

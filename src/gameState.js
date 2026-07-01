@@ -25,12 +25,19 @@ let lastScoringHitAt = { 0: 0, 1: 0, 2: 0, 3: 0 };
 /** @type {Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} */
 let lastHitBy = new Map();
 
+/** @type {boolean} True when the round has entered Sudden Death (first score wins). */
+let isSuddenDeath = false;
+
+/** @type {((slotIndex: number) => void) | null} Callback fired when a score ends Sudden Death. */
+let _suddenDeathWinCallback = null;
+
 function _resetRoundBase() {
   roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
   roundWinnerSlotIndex = null;
   roundEndReason = null;
   lastScoringHitAt = { 0: 0, 1: 0, 2: 0, 3: 0 };
   lastHitBy.clear();
+  isSuddenDeath = false;
 }
 
 /**
@@ -42,6 +49,7 @@ function _resetRoundBase() {
  *   winnerSlotIndex: number | string | null,
  *   endReason: "timer" | "lastStanding" | null,
  *   scores: Record<number, number>,
+ *   isSuddenDeath: boolean,
  * }}
  */
 export function getRoundState() {
@@ -52,6 +60,7 @@ export function getRoundState() {
     winnerSlotIndex: roundWinnerSlotIndex,
     endReason: roundEndReason,
     scores: { ...roundScores },
+    isSuddenDeath,
   };
 }
 
@@ -89,13 +98,19 @@ function endRound(winnerSlotIndex = null) {
 /**
  * @param {number} slotIndex
  * @param {number} points
+ * @returns {boolean} True if this score ended Sudden Death.
  */
 export function addScore(slotIndex, points) {
   if (roundScores[slotIndex] == null) roundScores[slotIndex] = 0;
   roundScores[slotIndex] += points;
   if (points > 0) {
     lastScoringHitAt[slotIndex] = Date.now();
+    if (isSuddenDeath && _suddenDeathWinCallback) {
+      _suddenDeathWinCallback(slotIndex);
+      return true;
+    }
   }
+  return false;
 }
 
 /**
@@ -220,6 +235,39 @@ export function resetRoundToLobby() {
 /** @returns {Record<number, number>} */
 export function getRoundScores() {
   return { ...roundScores };
+}
+
+/**
+ * Checks if the top score is shared by more than one slot (ignoring lastScoringHitAt tiebreaker).
+ * @returns {boolean}
+ */
+export function isScoreTied() {
+  let topScore = -Infinity;
+  for (let i = 0; i < 4; i += 1) {
+    topScore = Math.max(topScore, Number(roundScores[i] || 0));
+  }
+  if (topScore <= 0) return false;
+  let topCount = 0;
+  for (let i = 0; i < 4; i += 1) {
+    if (Number(roundScores[i] || 0) === topScore) topCount += 1;
+  }
+  return topCount > 1;
+}
+
+/**
+ * Sets the Sudden Death flag. Cleared automatically on next round start via _resetRoundBase().
+ * @param {boolean} val
+ */
+export function setSuddenDeath(val) {
+  isSuddenDeath = Boolean(val);
+}
+
+/**
+ * Registers a callback fired when a score ends Sudden Death.
+ * @param {(slotIndex: number) => void} fn
+ */
+export function setSuddenDeathWinCallback(fn) {
+  _suddenDeathWinCallback = fn;
 }
 
 /** @returns {number} Highest-scoring slot index, or -1 if none. */

@@ -146,6 +146,9 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   mesh.updateMatrixWorld(true);
   mesh.getWorldPosition(_worldPos);
 
+  // * Stash the death world position on the cart so the death camera can pan toward it.
+  cart._shatterDeathPos = _worldPos.clone();
+
   /** @type {{ mesh: THREE.Mesh, vel: THREE.Vector3, angVel: THREE.Vector3, sharedGeometry: boolean }[]} */
   const parts = [];
 
@@ -332,6 +335,7 @@ export function cleanupShatter(cart, scene) {
 
   cart._shatterState = null;
   cart.isShattering = false;
+  cart._shatterDeathPos = null;
 
   // * Re-show the cart root + contact shadow — caller (doRespawn) rebuilds visuals
   // * into the root and frameVisuals resumes updating the contact shadow.

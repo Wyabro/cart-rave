@@ -1,5 +1,7 @@
 // gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
+import { resetCartTransientState } from "./entities.js";
+
 /**
  * @typedef {object} GameFlowDeps
  * @property {() => Array<object>} getAllCarts
@@ -23,7 +25,9 @@
  * @property {() => void} sendHostRound
  * @property {() => object | null} getPartySocket
  * @property {{ hostEventFall: string }} MSG
- * @property {(attackerSlotIndex: number, points: number) => void} addScore
+ * @property {(attackerSlotIndex: number, points: number) => boolean} addScore
+ * @property {() => boolean} isScoreTied
+ * @property {(val: boolean) => void} setSuddenDeath
  * @property {(untilMs: number) => void} setFovPunchUntil
  * @property {() => string} [detectGameMode]
  * @property {() => THREE.Scene | null | undefined} [getScene]
@@ -84,6 +88,10 @@ function calculateFallScore(deps, slotIndex, p, nowMs) {
  * @param {{ x: number, y: number, z: number }} pos body translation
  */
 function updateCartIdleWatch(deps, nowMs, cart, pos) {
+  // * Sudden Death spectators sit at y=-50 — they should never trigger a
+  // * stuck respawn because they are intentionally frozen out of the round.
+  if (cart.isSuddenDeathSpectator) return;
+
   const stuckCfg = deps.CONFIG.fall?.stuck;
   if (!stuckCfg) return;
 
@@ -137,10 +145,78 @@ export function updateGameFlow(deps, context) {
 
     if (
       !isTestDrive
+      && !roundState.isSuddenDeath
       && roundState.startedAtMs > 0
       && nowMs - roundState.startedAtMs >= roundDurationMs
     ) {
-      deps.endRound();
+      if (deps.isScoreTied()) {
+        const scores = deps.getRoundScores();
+        let topScore = -Infinity;
+        for (let i = 0; i < 4; i += 1) {
+          topScore = Math.max(topScore, Number(scores[i] || 0));
+        }
+        // * Only enter Sudden Death if at least one tied slot is a human player.
+        let hasHumanTied = false;
+        for (let i = 0; i < 4; i += 1) {
+          const slot = netSlots[i];
+          if (Number(scores[i] || 0) === topScore && slot?.kind === "human") {
+            hasHumanTied = true;
+            break;
+          }
+        }
+        if (hasHumanTied) {
+          // * One-shot guard: once Sudden Death is active, skip the teleport
+          // * setup so carts can actually drive without being yanked back every frame.
+          if (!roundState.isSuddenDeath) {
+            deps.setSuddenDeath(true);
+
+            // * Sudden Death: tied carts teleport back to their spawn platforms with a
+            // * 1m Y offset so they drop cleanly past the ramp — no geometry intersection.
+            // * Rotation is reset via spawnYaw (faces arena center). Phase is already
+            // * "running" so driving is unlocked — carts can drive/jump off immediately.
+            // * Non-tied carts are dropped far below as spectators.
+            const tiedSlots = [];
+            for (let i = 0; i < 4; i += 1) {
+              if (Number(scores[i] || 0) === topScore) tiedSlots.push(i);
+            }
+            for (let i = 0; i < allCarts.length; i += 1) {
+              const cart = allCarts[i];
+              if (!cart?.body) continue;
+              if (tiedSlots.includes(i)) {
+                cart.isSuddenDeathSpectator = false;
+                cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
+                // * Face the arena center so the cart can drive out, not into the back wall.
+                const halfYaw = cart.spawnYaw / 2;
+                cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+                cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+                cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+                cart.body.wakeUp();
+                cart.respawnAtMs = null;
+                cart.idleAnchorX = cart.spawn.x;
+                cart.idleAnchorZ = cart.spawn.z;
+                cart.idleStillSinceMs = now;
+                if (cart.mesh) cart.mesh.visible = true;
+                if (cart.collider) cart.collider.setEnabled(true);
+                // * Reset transient combat/boost state so tied carts start Sudden Death
+                // * with a clean physics slate (no stale isChargingBoost, pendingRam, etc.).
+                resetCartTransientState(cart);
+              } else {
+                cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
+                cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+                cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+                cart.isSuddenDeathSpectator = true;
+              }
+            }
+
+            deps.sendHostRound();
+          }
+        } else {
+          // * NPC-only tie — resolve normally via standard tiebreaker.
+          deps.endRound();
+        }
+      } else {
+        deps.endRound();
+      }
     } else {
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
         const slot = netSlots[slotIndex];
@@ -154,8 +230,11 @@ export function updateGameFlow(deps, context) {
             const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
 
             if (scoreData.isKill) {
-              deps.addScore(scoreData.attackerSlot, scoreData.points);
-              deps.sendHostRound();
+              const suddenDeathEnded = deps.addScore(scoreData.attackerSlot, scoreData.points);
+              if (!suddenDeathEnded) {
+                // * endRound() already sent via sudden death callback — skip duplicate.
+                deps.sendHostRound();
+              }
 
               if (scoreData.attackerSlot === localSlotIndexThisFrame) {
                 deps.setFovPunchUntil(performance.now() + 200);
@@ -170,11 +249,62 @@ export function updateGameFlow(deps, context) {
 
               deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor);
             } else {
-              const victimSlot = netSlots[slotIndex];
-              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-              const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+              const isSuddenDeath = deps.getRoundState().isSuddenDeath;
+              if (isSuddenDeath) {
+                // * Multi-way tie Sudden Death: eliminate the falling cart first,
+                // * then count survivors. Only award the win when exactly one
+                // * tied cart remains standing.
+                cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
+                cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+                cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+                cart.isSuddenDeathSpectator = true;
 
-              deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+                const scores = deps.getRoundScores();
+                let topScore = -Infinity;
+                for (let si = 0; si < 4; si += 1) {
+                  topScore = Math.max(topScore, Number(scores[si] || 0));
+                }
+
+                let survivingTied = 0;
+                let survivorSlot = -1;
+                for (let si = 0; si < 4; si += 1) {
+                  if (Number(scores[si] || 0) !== topScore) continue;
+                  const c = allCarts[si];
+                  if (!c?.body || c.isSuddenDeathSpectator) continue;
+                  const pos = c.body.translation();
+                  if (pos.y < deps.CONFIG.fall.yThreshold) continue;
+                  survivingTied += 1;
+                  survivorSlot = si;
+                }
+
+                if (survivingTied === 1 && survivorSlot >= 0) {
+                  deps.addScore(survivorSlot, 1);
+                  // * addScore fired _suddenDeathWinCallback → endRound().
+                }
+
+                const victimSlot = netSlots[slotIndex];
+                const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+                const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+
+                if (survivingTied === 1 && survivorSlot >= 0) {
+                  scoreData.attackerSlot = survivorSlot;
+                  scoreData.verb = "SUDDEN DEATH";
+                  const attackerSlot = netSlots[survivorSlot];
+                  const actorName = attackerSlot?.name || `P${survivorSlot + 1}`;
+                  const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
+                  deps.hud?.addKillFeedEntry?.(actorName, actorColor, "SUDDEN DEATH", targetName, targetColor);
+                } else {
+                  scoreData.attackerSlot = null;
+                  scoreData.verb = "SUDDEN DEATH";
+                  deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+                }
+              } else {
+                const victimSlot = netSlots[slotIndex];
+                const targetName = victimSlot?.name || `P${slotIndex + 1}`;
+                const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
+
+                deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+              }
             }
 
             const partySocket = deps.getPartySocket();
@@ -199,7 +329,11 @@ export function updateGameFlow(deps, context) {
             if (scene) deps.triggerCartShatter(cart, scene, deps.colorHexForSlot(slot));
           }
 
-          deps.scheduleRespawn(cart, now);
+          // * Block respawn during Sudden Death — the falling cart stays dead
+          // * and the round ends immediately via the other tied cart's score.
+          if (!deps.getRoundState().isSuddenDeath) {
+            deps.scheduleRespawn(cart, now);
+          }
         }
 
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
@@ -215,11 +349,12 @@ export function updateGameFlow(deps, context) {
 
       if (!isTestDrive) {
         // * Last-cart-standing: sole cart not mid-fall/respawn wins after a flourish delay.
+        // * Skip spectator carts (frozen during Sudden Death) — only tied carts count.
         let aliveOnArena = 0;
         let soleSurvivorSlot = -1;
         for (let si = 0; si < allCarts.length; si += 1) {
           const c = allCarts[si];
-          if (!c?.body || c.respawnAtMs !== null) continue;
+          if (!c?.body || c.respawnAtMs !== null || c.isSuddenDeathSpectator) continue;
           const pos = c.body.translation();
           if (pos.y < deps.CONFIG.fall.yThreshold) continue;
           aliveOnArena += 1;
@@ -247,5 +382,20 @@ export function updateGameFlow(deps, context) {
         { youConnId, localSlot: deps.getLocalSlotIndex() },
       );
     }
+  }
+}
+
+/**
+ * Clears Sudden Death spectator state on all carts.
+ * Call when Sudden Death ends or a new round begins.
+ *
+ * @param {Array<object>} allCarts
+ */
+export function cleanupSuddenDeathState(allCarts) {
+  for (const cart of allCarts || []) {
+    if (!cart) continue;
+    cart.isSuddenDeathSpectator = false;
+    if (cart.mesh) cart.mesh.visible = true;
+    if (cart.collider) cart.collider.setEnabled(true);
   }
 }

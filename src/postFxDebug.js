@@ -14,7 +14,9 @@ import {
   getDefaultSfxVolumes,
   getSfxKeys,
   getSfxPerVolume,
+  getWheelLoopVolumeScale,
   setSfxPerVolume,
+  setWheelLoopVolumeScale,
 } from "./audioManager.js";
 import {
   getContactShadowDebugParams,
@@ -138,11 +140,12 @@ function getToneMappingName(renderer) {
  *   bloomPass: import("three/examples/jsm/postprocessing/UnrealBloomPass.js").UnrealBloomPass,
  *   arcadePass: import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass,
  *   fxaaPass: import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass,
+ *   suddenDeathTest?: () => void,
  * }} deps
  * @returns {Pane | null}
  */
 export function initPostFxDebugGui(deps) {
-  const { renderer, scene, bloomPass, arcadePass, fxaaPass } = deps;
+  const { renderer, scene, bloomPass, arcadePass, fxaaPass, suddenDeathTest } = deps;
   if (!renderer || !scene || !bloomPass || !arcadePass || !fxaaPass) return null;
 
   injectStyles();
@@ -224,6 +227,8 @@ export function initPostFxDebugGui(deps) {
     for (const k of sfxKeys) {
       sfxVolTarget[k] = getSfxPerVolume(k);
     }
+    // * Wheel loop volume scale — independent from the per-SFX multiplier system.
+    sfxVolTarget.wheelLoopScale = getWheelLoopVolumeScale();
     const defaults = getDefaultSfxVolumes();
     sfxFolder.addButton({ title: "↩ Reset all SFX to defaults" }).on("click", () => {
       for (const k of sfxKeys) {
@@ -231,6 +236,8 @@ export function initPostFxDebugGui(deps) {
         sfxVolTarget[k] = dv;
         setSfxPerVolume(k, dv);
       }
+      setWheelLoopVolumeScale(1.0);
+      sfxVolTarget.wheelLoopScale = 1.0;
       pane.refresh();
     });
     for (const key of sfxKeys) {
@@ -239,6 +246,12 @@ export function initPostFxDebugGui(deps) {
           setSfxPerVolume(key, ev.value);
         });
     }
+    // * Wheel loop volume scale — independent from the per-SFX multiplier system.
+    sfxFolder.addBinding(sfxVolTarget, "wheelLoopScale", {
+      min: 0, max: 3, step: 0.05, label: "wheel_loop",
+    }).on("change", (ev) => {
+      setWheelLoopVolumeScale(ev.value);
+    });
   }
 
   // — Renderer —
@@ -380,6 +393,15 @@ export function initPostFxDebugGui(deps) {
   window.addEventListener("cartrave:customization-changed", () => {
     cartColorDebug.reloadFromStorage();
   });
+
+  // — Game State (dev testing) —
+  if (suddenDeathTest) {
+    const gameFolder = pane.addFolder({ title: "Game State", expanded: true });
+    allFolders.push(gameFolder);
+    gameFolder.addButton({ title: "Force Sudden Death ⚡" }).on("click", () => {
+      suddenDeathTest();
+    });
+  }
 
   // — Log all values —
   pane.addButton({ title: "Log all values → console" }).on("click", () => {

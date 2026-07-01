@@ -121,6 +121,26 @@ export function isTouchDevice() {
 }
 
 /**
+ * Returns true when low-quality mode is active — explicit localStorage flag or
+ * auto-detected touch device as a fallback.
+ * @returns {boolean}
+ */
+export function isLowQualityMode() {
+  const val = localStorage.getItem("cartRaveLowQuality");
+  if (val === "true") return true;
+  if (val === "false") return false;
+  return isTouchDevice();
+}
+
+/**
+ * Persists the low-quality mode preference to localStorage.
+ * @param {boolean} bool
+ */
+export function setLowQualityMode(bool) {
+  localStorage.setItem("cartRaveLowQuality", bool ? "true" : "false");
+}
+
+/**
  * Clamps a numeric value to [min, max].
  * @param {number} value
  * @param {number} min

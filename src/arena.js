@@ -5,6 +5,7 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { createPhysicalMaterial } from "./scene.js";
+import { isLowQualityMode } from "./utils.js";
 
 const REFLECTOR_TEXTURE_SIZE_FULL = 1024;
 const REFLECTOR_TEXTURE_SIZE_BOOT = 256;
@@ -618,25 +619,27 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     scene.add(boothGroup);
     boothGroups.push(boothGroup);
 
-    for (let f = 0; f < fogPuffCount; f++) {
-      const puff = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: fogPuffTex,
-        color: accentColor,
-        transparent: true,
-        opacity: 0.25 + Math.random() * 0.15,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }));
-      const spread = B.platformWidth * 1.5;
-      const puffScale = 4 + Math.random() * 4;
-      puff.scale.set(puffScale, puffScale * 0.3, 1);
-      puff.position.set(
-        cx + (Math.random() - 0.5) * spread,
-        B.platformY + 0.05 + Math.random() * 0.3,
-        cz + (Math.random() - 0.5) * spread,
-      );
-      scene.add(puff);
-      fogSprites.push(puff);
+    if (!isLowQualityMode()) {
+      for (let f = 0; f < fogPuffCount; f++) {
+        const puff = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: fogPuffTex,
+          color: accentColor,
+          transparent: true,
+          opacity: 0.25 + Math.random() * 0.15,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }));
+        const spread = B.platformWidth * 1.5;
+        const puffScale = 4 + Math.random() * 4;
+        puff.scale.set(puffScale, puffScale * 0.3, 1);
+        puff.position.set(
+          cx + (Math.random() - 0.5) * spread,
+          B.platformY + 0.05 + Math.random() * 0.3,
+          cz + (Math.random() - 0.5) * spread,
+        );
+        scene.add(puff);
+        fogSprites.push(puff);
+      }
     }
   }
 
@@ -692,17 +695,19 @@ export function initArena(scene, world, config, options = {}) {
     bevelSize: 0.04,
     curveSegments: 64,
   });
-  // * Vinyl dancefloor — Physical + clearcoat: metalness 0.35, roughness 0.68, clearcoat 0.4, opacity 0.7
+  // * Vinyl dancefloor — Physical + clearcoat: metalness 0.35, roughness 0.68, clearcoat 0.4, opacity 0.7.
+  // * Always use createPhysicalMaterial so transparency can be toggled at runtime for quality changes.
+  // * When the Reflector is visible (high quality) the record is transparent; in low quality it's opaque.
   const recordMat = createPhysicalMaterial({
     color: config.record.color,
-    roughness: 0.68,
-    metalness: 0.35,
-    clearcoat: 0.4,
+    roughness: isLowQualityMode() ? 0.9 : 0.68,
+    metalness: isLowQualityMode() ? 0 : 0.35,
+    clearcoat: isLowQualityMode() ? 0 : 0.4,
     clearcoatRoughness: 0.22,
-    transparent: true,
-    opacity: 0.7,
+    transparent: !isLowQualityMode(),
+    opacity: isLowQualityMode() ? 1.0 : 0.7,
   });
-  recordMat.depthWrite = false;
+  recordMat.depthWrite = isLowQualityMode();
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
   recordMesh.position.set(0, visualRecordY, 0);
   recordMesh.receiveShadow = false;
@@ -739,16 +744,60 @@ export function initArena(scene, world, config, options = {}) {
     return reflector;
   }
 
+  // * Reflector — always created so quality toggle can show/hide it without a world rebuild.
   let recordReflector = createRecordReflector(reflectorTextureSize);
+  recordReflector.visible = !isLowQualityMode();
   recordMesh.add(recordReflector);
 
+  // * Solid opaque floor ring for low-quality mode — covers the record surface when the Reflector is hidden.
+  const solidFloorGeo = new THREE.RingGeometry(
+    config.record.innerRadius,
+    config.record.radius,
+    128,
+    1,
+  );
+  const solidFloorMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a1e,
+    roughness: 0.9,
+    metalness: 0,
+    side: THREE.DoubleSide,
+    depthWrite: true,
+  });
+  const recordSolidFloor = new THREE.Mesh(solidFloorGeo, solidFloorMat);
+  recordSolidFloor.rotation.x = -Math.PI / 2;
+  recordSolidFloor.position.y = reflectorYOffset;
+  recordSolidFloor.visible = isLowQualityMode();
+  recordSolidFloor.renderOrder = 0;
+  recordSolidFloor.userData.isRecordSolidFloor = true;
+  recordMesh.add(recordSolidFloor);
+
   function upgradeRecordReflector() {
+    if (!recordReflector) return;
     if (recordReflector.userData._cartRaveTextureSize >= REFLECTOR_TEXTURE_SIZE_FULL) return;
     if (recordReflector.renderTarget) recordReflector.renderTarget.dispose();
     recordReflector.geometry.dispose();
     recordMesh.remove(recordReflector);
     recordReflector = createRecordReflector(REFLECTOR_TEXTURE_SIZE_FULL);
+    // * Preserve current quality-mode visibility from the solid floor state.
+    recordReflector.visible = !recordSolidFloor.visible;
     recordMesh.add(recordReflector);
+  }
+
+  /**
+   * Toggles the Reflector and solid-floor replacement for quality changes.
+   * Call with `true` to show the reflective floor, `false` for the opaque low-quality surface.
+   * @param {boolean} visible
+   */
+  function setReflectorVisible(visible) {
+    if (recordReflector) recordReflector.visible = visible;
+    if (recordSolidFloor) recordSolidFloor.visible = !visible;
+    // Toggle record material transparency to match.
+    if (recordMat) {
+      recordMat.transparent = !visible;
+      recordMat.opacity = visible ? 0.7 : 1.0;
+      recordMat.depthWrite = !visible;
+      recordMat.needsUpdate = true;
+    }
   }
 
   // --- Record center label (stars) ---
@@ -966,6 +1015,7 @@ export function initArena(scene, world, config, options = {}) {
     recordMesh, rimMesh, edgeRingMesh, innerRimMesh, pitWall, spindleLight,
     ...boothBuild.boothGroups,
     ...boothBuild.fogSprites,
+    recordSolidFloor,
   ];
   if (debugMesh) {
     sceneRoots.push(debugMesh);
@@ -973,14 +1023,14 @@ export function initArena(scene, world, config, options = {}) {
 
   const ownedGeometries = [
     recordGeo, recordLabelGeo, rimGeo, edgeRingGeo, innerRimGeo, pitWallGeo,
-    recordPhysicsGeo,
+    recordPhysicsGeo, solidFloorGeo,
   ];
   if (grooveResult) {
     ownedGeometries.push(grooveResult.mergedGrooves);
   }
 
   const ownedMaterials = [
-    recordMat, recordLabelMat, rimMat, edgeRingMat, pitWallMat,
+    recordMat, recordLabelMat, rimMat, edgeRingMat, pitWallMat, solidFloorMat,
   ];
   if (grooveResult) {
     ownedMaterials.push(grooveResult.ringMat);
@@ -1027,10 +1077,12 @@ export function initArena(scene, world, config, options = {}) {
       else disposeMaterial(item);
     });
 
-    if (recordReflector.renderTarget) {
-      recordReflector.renderTarget.dispose();
+    if (recordReflector) {
+      if (recordReflector.renderTarget) {
+        recordReflector.renderTarget.dispose();
+      }
+      recordReflector.geometry?.dispose?.();
     }
-    recordReflector.geometry?.dispose?.();
 
     world.removeRigidBody(recordBody);
     world.removeRigidBody(pitWallBody);
@@ -1051,6 +1103,7 @@ export function initArena(scene, world, config, options = {}) {
     pitInnerRadius,
     recordLabelMat,
     upgradeRecordReflector,
+    setReflectorVisible,
     dispose,
   };
 }

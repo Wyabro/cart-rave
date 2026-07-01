@@ -101,6 +101,15 @@ export function isLevelSwapping() {
   return isSwappingLevel;
 }
 
+/**
+ * Forces the level-swapping gate open/closed. Used by in-place quality rebuild
+ * so the game loop skips physics while the arena is torn down and rebuilt.
+ * @param {boolean} swapping
+ */
+export function setLevelSwapping(swapping) {
+  isSwappingLevel = swapping;
+}
+
 /** @returns {boolean} */
 export function getMenuPreviewNeedsFinalize() {
   return menuPreviewNeedsFinalize;

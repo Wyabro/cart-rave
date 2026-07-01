@@ -14,6 +14,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 export const CameraMode = {
   FOLLOW: "follow",
   CINEMATIC_COUNTDOWN: "cinematic_countdown",
+  DEATH: "death",
 };
 
 /** @typedef {{
@@ -311,6 +312,83 @@ export function endCinematicCountdown(camera) {
   }
   camera.userData.cameraMode = CameraMode.FOLLOW;
   camera.userData.cinematicState = null;
+}
+
+// === Death camera ===
+
+/**
+ * Switches the camera into death mode. The camera carries a fraction of its
+ * forward momentum, gently decelerating to a stop over ~300ms while beginning
+ * a smooth pan toward the death look target (the explosion center). Call when
+ * the local cart's `isShattering` flag becomes true.
+ *
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {{ x: number, y: number, z: number }} deathWorldPos World-space center of the explosion.
+ */
+export function beginDeathCamera(camera, deathWorldPos) {
+  if (!camera) return;
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const driftDistance = 2.5;
+  camera.userData.cameraMode = CameraMode.DEATH;
+  camera.userData.deathState = {
+    startPos: camera.position.clone(),
+    driftEndPos: camera.position.clone().addScaledVector(forward, driftDistance),
+    lookTarget: new THREE.Vector3(deathWorldPos.x, deathWorldPos.y, deathWorldPos.z),
+    startQuat: camera.quaternion.clone(),
+    startMs: performance.now(),
+    driftDurationMs: 300,
+    panDurationMs: 800,
+  };
+}
+
+/**
+ * Updates the death camera each frame. Position gently decelerates from a
+ * forward drift to a stop over ~300ms while the look direction smoothly pans
+ * from the initial orientation toward the death target over ~800ms.
+ *
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {number} dt Frame delta in seconds (unused — time-driven via startMs).
+ */
+export function updateDeathCamera(camera, dt) {
+  const state = camera.userData.deathState;
+  if (!state) return;
+
+  const elapsed = performance.now() - state.startMs;
+
+  // * Drift: ease-out from startPos to driftEndPos over driftDurationMs.
+  const driftProgress = Math.min(1, elapsed / state.driftDurationMs);
+  const driftEased = 1 - Math.pow(1 - driftProgress, 3);
+  camera.position.lerpVectors(state.startPos, state.driftEndPos, driftEased);
+
+  // * Pan: eased slerp from startQuat toward lookTarget over panDurationMs.
+  const panProgress = Math.min(1, elapsed / state.panDurationMs);
+  const panEased = 1 - Math.pow(1 - panProgress, 3);
+
+  const lookMat = new THREE.Matrix4();
+  lookMat.lookAt(camera.position, state.lookTarget, new THREE.Vector3(0, 1, 0));
+  const targetQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
+
+  camera.quaternion.copy(state.startQuat).slerp(targetQuat, panEased);
+}
+
+/**
+ * Exits death camera mode and returns to follow mode. Seeds the follow state
+ * with the current death camera pose so the damped lerp naturally blends from
+ * the drift/death position back to the standard chase position.
+ *
+ * Call when `isShattering` becomes false (doRespawn / cleanupShatter).
+ *
+ * @param {THREE.PerspectiveCamera} camera
+ */
+export function endDeathCamera(camera) {
+  if (!camera) return;
+  const followState = camera.userData.followState;
+  if (followState) {
+    followState.pos.copy(camera.position);
+    followState.quat.copy(camera.quaternion);
+  }
+  camera.userData.cameraMode = CameraMode.FOLLOW;
+  camera.userData.deathState = null;
 }
 
 /**

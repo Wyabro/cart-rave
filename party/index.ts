@@ -1,4 +1,4 @@
-import type * as Party from "partykit/server";
+import { Server, routePartykitRequest, type Connection, type ConnectionContext } from "partyserver";
 
 type SlotId = 0 | 1 | 2 | 3;
 
@@ -185,8 +185,8 @@ function sanitizeCollisionBatch(raw: unknown): CollisionFxEvent[] {
 const REAP_TIMEOUT_MS = 20_000;
 const REAP_THROTTLE_MS = 5_000;
 
-export default class Server implements Party.Server {
-  readonly #connections = new Map<string, Party.Connection>();
+export class CartRaveServer extends Server {
+  readonly #connections = new Map<string, Connection>();
   readonly #joinOrder: string[] = [];
   readonly #connClientId = new Map<string, string>();
 
@@ -219,8 +219,6 @@ export default class Server implements Party.Server {
   // Security: Rate limiting state
   readonly #ipConnectionCounts = new Map<string, number>();
   readonly #connToIp = new Map<string, string>();
-
-  constructor(readonly room: Party.Room) {}
 
   #clamp(value: unknown, min: number, max: number) {
     const n = typeof value === "number" ? value : Number(value);
@@ -308,10 +306,10 @@ export default class Server implements Party.Server {
 
   #broadcastJson(payload: unknown) {
     const msg = JSON.stringify(payload);
-    this.room.broadcast(msg);
+    this.broadcast(msg);
   }
 
-  #sendJson(conn: Party.Connection, payload: unknown) {
+  #sendJson(conn: Connection, payload: unknown) {
     conn.send(JSON.stringify(payload));
   }
 
@@ -327,7 +325,7 @@ export default class Server implements Party.Server {
     this.#ensureLiveHost();
     return {
       v: PROTOCOL_VERSION,
-      roomId: this.room.id,
+      roomId: this.name,
       serverNowMs: this.#serverNowMs(),
       hostId: this.#hostId,
       slots: this.#slots,
@@ -667,7 +665,7 @@ export default class Server implements Party.Server {
     });
   }
 
-  #rejectPendingConn(conn: Party.Connection, code: number, reason: string) {
+  #rejectPendingConn(conn: Connection, code: number, reason: string) {
     this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
     this.#pendingPickers.delete(conn.id);
     this.#pendingPickerAtMs.delete(conn.id);
@@ -696,7 +694,7 @@ export default class Server implements Party.Server {
   }
 
   // * Room capacity after ghost exorcism — pending pickers need a free NPC slot.
-  #rejectPendingConnIfRoomFull(conn: Party.Connection): boolean {
+  #rejectPendingConnIfRoomFull(conn: Connection): boolean {
     if (!this.#pendingPickers.has(conn.id)) return false;
     if (this.#hasNpcSlotForPendingPicker()) return false;
     this.#rejectPendingConn(conn, 4004, "Room full");
@@ -710,7 +708,7 @@ export default class Server implements Party.Server {
   #checkAllReady() {
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
     const liveConnIds = new Set<string>();
-    for (const c of this.room.getConnections()) {
+    for (const c of this.getConnections()) {
       liveConnIds.add(c.id);
     }
     const humanSlots = this.#slots!.filter(
@@ -805,7 +803,7 @@ export default class Server implements Party.Server {
     return slotsChanged;
   }
 
-  onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
+  onConnect(conn: Connection, ctx: ConnectionContext) {
     const ua = new URL(ctx.request.url).searchParams.get("_ua") ||
       ctx.request.headers.get("user-agent") || "";
     const mobileRe = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i;
@@ -856,7 +854,7 @@ export default class Server implements Party.Server {
     // because WebSocket close events are not guaranteed to fire (tab crash, incognito
     // close, network drop) and #connections can hold zombies.
     const liveConnIds = new Set<string>();
-    for (const c of this.room.getConnections()) {
+    for (const c of this.getConnections()) {
       liveConnIds.add(c.id);
     }
     // The new connection itself is not yet in getConnections() during onConnect, so add it.
@@ -867,7 +865,7 @@ export default class Server implements Party.Server {
 
     // Prune zombies from #connections to match platform reality.
     for (const staleId of [...this.#connections.keys()]) {
-      if (!this.room.getConnections().some((c) => c.id === staleId) && staleId !== conn.id) {
+      if (![...this.getConnections()].some((c) => c.id === staleId) && staleId !== conn.id) {
         this.#connections.delete(staleId);
       }
     }
@@ -916,7 +914,7 @@ export default class Server implements Party.Server {
     this.#checkAllReady();
   }
 
-  onClose(conn: Party.Connection) {
+  onClose(conn: Connection) {
     // Security: Cleanup IP tracking
     const ip = this.#connToIp.get(conn.id);
     if (ip) {
@@ -976,7 +974,7 @@ export default class Server implements Party.Server {
     }
   }
 
-  onMessage(message: string, conn: Party.Connection) {
+  onMessage(message: string, conn: Connection) {
     // Security: Block massive payload bombs before trying to parse
     if (message.length > 4096) {
       conn.close(4009, "Payload too large");
@@ -1174,7 +1172,7 @@ export default class Server implements Party.Server {
         // during onConnect (platform hadn't closed it yet). By the time the
         // player clicks Ready, the stale conn is gone from getConnections().
         const liveConnIds = new Set<string>();
-        for (const c of this.room.getConnections()) {
+        for (const c of this.getConnections()) {
           liveConnIds.add(c.id);
         }
         for (const s of this.#slots!) {
@@ -1393,4 +1391,8 @@ export default class Server implements Party.Server {
   }
 }
 
-Server satisfies Party.Worker;
+export default {
+  async fetch(request: Request, env: Record<string, unknown>): Promise<Response> {
+    return routePartykitRequest(request, env);
+  },
+};
