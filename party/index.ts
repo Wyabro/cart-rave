@@ -708,7 +708,7 @@ export class CartRaveServer extends Server {
   #checkAllReady() {
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
     const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) {
+    for (const c of this.getConnections().values()) {
       liveConnIds.add(c.id);
     }
     const humanSlots = this.#slots!.filter(
@@ -854,7 +854,7 @@ export class CartRaveServer extends Server {
     // because WebSocket close events are not guaranteed to fire (tab crash, incognito
     // close, network drop) and #connections can hold zombies.
     const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) {
+    for (const c of this.getConnections().values()) {
       liveConnIds.add(c.id);
     }
     // The new connection itself is not yet in getConnections() during onConnect, so add it.
@@ -865,7 +865,7 @@ export class CartRaveServer extends Server {
 
     // Prune zombies from #connections to match platform reality.
     for (const staleId of [...this.#connections.keys()]) {
-      if (![...this.getConnections()].some((c) => c.id === staleId) && staleId !== conn.id) {
+      if (![...this.getConnections().values()].some((c) => c.id === staleId) && staleId !== conn.id) {
         this.#connections.delete(staleId);
       }
     }
@@ -1172,7 +1172,7 @@ export class CartRaveServer extends Server {
         // during onConnect (platform hadn't closed it yet). By the time the
         // player clicks Ready, the stale conn is gone from getConnections().
         const liveConnIds = new Set<string>();
-        for (const c of this.getConnections()) {
+        for (const c of this.getConnections().values()) {
           liveConnIds.add(c.id);
         }
         for (const s of this.#slots!) {
