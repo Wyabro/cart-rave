@@ -204,6 +204,7 @@ export function updateGameFlow(deps, context) {
                 cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
                 cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
                 cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+                cart.body.setEnabled(false);
                 cart.isSuddenDeathSpectator = true;
               }
             }
@@ -230,9 +231,41 @@ export function updateGameFlow(deps, context) {
             const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
 
             if (scoreData.isKill) {
-              const suddenDeathEnded = deps.addScore(scoreData.attackerSlot, scoreData.points);
+              // * Sudden Death multi-way tie guard: when 3+ carts are tied and one
+              // * is ram-killed, the remaining tied survivors must stay in Sudden
+              // * Death. Only fire the win callback if exactly 1 tied cart remains.
+              let suppressSuddenDeathWin = false;
+              if (roundState.isSuddenDeath && !isTestDrive) {
+                const scores = deps.getRoundScores();
+                let topScore = -Infinity;
+                for (let si = 0; si < 4; si += 1) {
+                  topScore = Math.max(topScore, Number(scores[si] || 0));
+                }
+                // * Count tied carts still standing (not spectator, not fallen).
+                let survivingTied = 0;
+                for (let si = 0; si < allCarts.length; si += 1) {
+                  if (Number(scores[si] || 0) !== topScore) continue;
+                  const tc = allCarts[si];
+                  if (!tc?.body || tc.isSuddenDeathSpectator) continue;
+                  const tpos = tc.body.translation();
+                  if (tpos.y < deps.CONFIG.fall.yThreshold) continue;
+                  survivingTied += 1;
+                }
+                // * The falling victim (slotIndex) was one of the tied carts.
+                // * If more than 1 tied cart survives this kill, suppress the
+                // * Sudden Death win — the round continues.
+                if (survivingTied > 1) {
+                  suppressSuddenDeathWin = true;
+                  // * Remove the victim from the arena so physics can't interfere.
+                  cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
+                  cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+                  cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+                  cart.body.setEnabled(false);
+                  cart.isSuddenDeathSpectator = true;
+                }
+              }
+              const suddenDeathEnded = deps.addScore(scoreData.attackerSlot, scoreData.points, suppressSuddenDeathWin);
               if (!suddenDeathEnded) {
-                // * endRound() already sent via sudden death callback — skip duplicate.
                 deps.sendHostRound();
               }
 
@@ -257,6 +290,7 @@ export function updateGameFlow(deps, context) {
                 cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
                 cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
                 cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+                cart.body.setEnabled(false);
                 cart.isSuddenDeathSpectator = true;
 
                 const scores = deps.getRoundScores();
@@ -397,5 +431,7 @@ export function cleanupSuddenDeathState(allCarts) {
     cart.isSuddenDeathSpectator = false;
     if (cart.mesh) cart.mesh.visible = true;
     if (cart.collider) cart.collider.setEnabled(true);
+    if (cart.body) cart.body.setEnabled(true);
+    cart.respawnAtMs = null;
   }
 }

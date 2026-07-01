@@ -502,6 +502,7 @@ export function rematchResetWorld() {
     cart.isSuddenDeathSpectator = false;
     if (cart.mesh) cart.mesh.visible = true;
     if (cart.collider) cart.collider.setEnabled(true);
+    if (cart.body) cart.body.setEnabled(true);
 
     // * Tear down any active shatter + explosion VFX between rounds (e.g. a cart was
     // * mid-fall when the round ended). Rebuilds the visual mesh into the existing root.

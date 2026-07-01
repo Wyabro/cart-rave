@@ -34,6 +34,7 @@ let inputSeq = 0;
 let hostEpoch = 0;
 let serverClockOffsetMs = 0;
 let serverClockOffsetSamples = 0;
+let serverClockSamples = [];
 
 let lastCartsCache = null;
 let netStateBuffer = [];
@@ -806,6 +807,7 @@ export function disconnectPartySession() {
   hostEpoch += 1;
   serverClockOffsetMs = 0;
   serverClockOffsetSamples = 0;
+  serverClockSamples = [];
   hostMigrationFreezeUntilMs = 0;
   skipNextPhysicsStep = false;
 
@@ -878,21 +880,41 @@ export function startInputSendLoop() {
   stopInputSendLoop();
   if (!partySocket || isHost || !getAxisRef) return;
 
+  let _lastSentForward = 0;
+  let _lastSentTurn = 0;
+  let _lastSentAt = 0;
+
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.clientInputHz));
   inputSendTimer = setInterval(() => {
     if (!partySocket || isHost || !getAxisRef) return;
 
-    inputSeq += 1;
     const axis = getAxisRef();
+    const now = Date.now();
+    const forward = Number.isFinite(axis.forward) ? axis.forward : 0;
+    const turn = Number.isFinite(axis.turn) ? axis.turn : 0;
+    const nitroHeld = isNitroHeldRef ? isNitroHeldRef() : false;
+    const hopRequested = consumeHopRequest();
+
+    // * Suppress duplicate frames — only send when axis changes or 100ms heartbeat elapsed.
+    const heartbeatMs = 100;
+    const axisChanged = forward !== _lastSentForward || turn !== _lastSentTurn;
+    const heartbeatDue = now - _lastSentAt >= heartbeatMs;
+    if (!axisChanged && !heartbeatDue && !nitroHeld && !hopRequested) return;
+
+    inputSeq += 1;
+    _lastSentForward = forward;
+    _lastSentTurn = turn;
+    _lastSentAt = now;
+
     partySocket.send(JSON.stringify({
       type: MSG.clientInput,
       seq: inputSeq,
-      tClient: Date.now(),
+      tClient: now,
       input: {
-        throttle: axis.forward,
-        steer: axis.turn,
-        nitro: isNitroHeldRef ? isNitroHeldRef() : false,
-        hop: consumeHopRequest(),
+        throttle: forward,
+        steer: turn,
+        nitro: nitroHeld,
+        hop: hopRequested,
       },
     }));
   }, intervalMs);
@@ -996,6 +1018,7 @@ export function initNetcode(roomOverride) {
   callbacks.setLocalColorPicked(false);
   serverClockOffsetMs = 0;
   serverClockOffsetSamples = 0;
+  serverClockSamples = [];
   let clientId = localStorage.getItem("cartRaveClientId");
   if (!clientId) {
     try {
@@ -1351,12 +1374,19 @@ export function initNetcode(roomOverride) {
         const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
         if (typeof serverNowMs === "number") {
           const sample = Date.now() - serverNowMs;
-          const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500 && serverClockOffsetSamples > 0;
-          if (!isClockOutlier) {
+          if (serverClockOffsetSamples < 3) {
+            // * Collect the first 3 samples and use their median as the baseline.
+            // * A single bad first sample would otherwise poison the EWMA forever.
+            serverClockSamples.push(sample);
             serverClockOffsetSamples += 1;
-            if (serverClockOffsetSamples === 1) {
-              serverClockOffsetMs = sample;
-            } else {
+            if (serverClockOffsetSamples === 3) {
+              const sorted = [...serverClockSamples].sort((a, b) => a - b);
+              serverClockOffsetMs = sorted[1]; // median of 3
+              serverClockSamples = []; // release the array
+            }
+          } else {
+            const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500;
+            if (!isClockOutlier) {
               serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.1;
             }
           }

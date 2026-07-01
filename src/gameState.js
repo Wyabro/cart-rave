@@ -98,14 +98,15 @@ function endRound(winnerSlotIndex = null) {
 /**
  * @param {number} slotIndex
  * @param {number} points
+ * @param {boolean} [suppressSuddenDeathWin=false] When true, awards score without ending Sudden Death.
  * @returns {boolean} True if this score ended Sudden Death.
  */
-export function addScore(slotIndex, points) {
+export function addScore(slotIndex, points, suppressSuddenDeathWin = false) {
   if (roundScores[slotIndex] == null) roundScores[slotIndex] = 0;
   roundScores[slotIndex] += points;
   if (points > 0) {
     lastScoringHitAt[slotIndex] = Date.now();
-    if (isSuddenDeath && _suddenDeathWinCallback) {
+    if (isSuddenDeath && _suddenDeathWinCallback && !suppressSuddenDeathWin) {
       _suddenDeathWinCallback(slotIndex);
       return true;
     }
