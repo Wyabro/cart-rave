@@ -2,6 +2,7 @@
 // * Cart materials still need further refinement — tune IBL/fog/shadows here first, then lock into config.js.
 
 import * as THREE from "three";
+import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { Pane } from "tweakpane";
 import {
   CUSTOMIZE_STORAGE_KEY,
@@ -144,6 +145,106 @@ function getToneMappingName(renderer) {
  * }} deps
  * @returns {Pane | null}
  */
+// ! Debug export functions — exposed on window for Tweakpane buttons.
+window.exportArenaFloorGLB = function () {
+  const mesh = window.recordMesh;
+  if (!mesh) {
+    console.warn("[Debug] window.recordMesh is not set. Expose it from arena.js");
+    return;
+  }
+  if (!mesh.geometry) {
+    console.warn("[Debug] window.recordMesh has no geometry");
+    return;
+  }
+
+  // * GLTFExporter doesn't support ShaderMaterial — clone and swap to MeshStandardMaterial.
+  const clone = mesh.clone();
+  clone.traverse((child) => {
+    if (child.isMesh && child.material) {
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (let i = 0; i < mats.length; i++) {
+        const src = mats[i];
+        mats[i] = new THREE.MeshStandardMaterial({
+          color: src.color ?? 0xffffff,
+          map: src.map ?? null,
+          normalMap: src.normalMap ?? null,
+          roughnessMap: src.roughnessMap ?? null,
+          metalnessMap: src.metalnessMap ?? null,
+          roughness: src.roughness ?? 0.5,
+          metalness: src.metalness ?? 0,
+          envMap: src.envMap ?? null,
+          envMapIntensity: src.envMapIntensity ?? 1,
+        });
+      }
+      child.material = Array.isArray(child.material) ? mats : mats[0];
+    }
+  });
+
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    clone,
+    (gltf) => {
+      // * gltf is an ArrayBuffer when binary: true.
+      const blob = new Blob([gltf], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "arena-floor.glb";
+      a.click();
+      URL.revokeObjectURL(url);
+
+      console.log("[Debug] Exported arena-floor.glb");
+
+      // * Cleanup clone geometry and materials after async export.
+      clone.traverse((child) => {
+        if (child.isMesh) {
+          child.geometry?.dispose();
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((m) => m.dispose());
+        }
+      });
+    },
+    (err) => {
+      console.warn("[Debug] GLTFExporter error:", err);
+    },
+    { binary: true },
+  );
+};
+
+window.exportPhysicsGeometry = function () {
+  const mesh = window.recordMesh;
+  if (!mesh) {
+    console.warn("[Debug] window.recordMesh is not set. Expose it from arena.js");
+    return;
+  }
+
+  const geo = mesh.geometry;
+  if (!geo) {
+    console.warn("[Debug] recordMesh has no geometry");
+    return;
+  }
+
+  const posAttr = geo.attributes.position;
+  const verts = posAttr ? Array.from(posAttr.array) : [];
+  const indices = geo.index ? Array.from(geo.index.array) : null;
+
+  const data = {
+    vertexCount: verts.length / 3,
+    indexCount: indices ? indices.length : 0,
+    indexed: indices !== null,
+    vertices: verts,
+    indices,
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "arena-physics-geometry.json";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export function initPostFxDebugGui(deps) {
   const { renderer, scene, bloomPass, arcadePass, fxaaPass, suddenDeathTest } = deps;
   if (!renderer || !scene || !bloomPass || !arcadePass || !fxaaPass) return null;
@@ -451,6 +552,33 @@ export function initPostFxDebugGui(deps) {
     console.log("[Graphics Debug] Copy into src/config.js:\n", json);
     if (typeof navigator?.clipboard?.writeText === "function") {
       navigator.clipboard.writeText(json).catch(() => {});
+    }
+  });
+
+  // ! Debug Exports folder — temporary, for exporting arena geometry.
+  const debugFolder = pane.addFolder({
+    title: "Debug Exports",
+    expanded: false,
+  });
+  allFolders.push(debugFolder);
+
+  debugFolder.addButton({
+    title: "Export Arena Floor (.glb)",
+  }).on("click", () => {
+    if (typeof window.exportArenaFloorGLB === "function") {
+      window.exportArenaFloorGLB();
+    } else {
+      console.warn("[Debug] exportArenaFloorGLB() not found. Make sure the function is defined.");
+    }
+  });
+
+  debugFolder.addButton({
+    title: "Export Physics Geometry (.json)",
+  }).on("click", () => {
+    if (typeof window.exportPhysicsGeometry === "function") {
+      window.exportPhysicsGeometry();
+    } else {
+      console.warn("[Debug] exportPhysicsGeometry() not found. Make sure the function is defined.");
     }
   });
 

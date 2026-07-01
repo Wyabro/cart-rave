@@ -1,8 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    "index.html",
-    "party/index.ts"
+    "index.html"
   ],
   "project": ["src/**/*.{js,ts}", "party/**/*.{js,ts}"],
   "vite": {

@@ -6,7 +6,7 @@
 /** @typedef {typeof CART_PATTERN_IDS[number]} CartPatternId */
 
 /** Ordered list of selectable pattern ids (classic = no mask). */
-export const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves"];
+const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves"];
 
 export const DEFAULT_CART_PATTERN = "classic";
 

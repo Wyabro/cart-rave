@@ -129,7 +129,7 @@ export const HUD_CSS = `
 
     #hud .hud-status {
       position: absolute;
-      top: var(--hud-pad);
+      top: 20vh; /* Moved out of the top bar to prevent overlap with the scoreboard */
       left: 50%;
       transform: translateX(-50%);
       font-family: var(--hud-display);

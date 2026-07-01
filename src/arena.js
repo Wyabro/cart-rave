@@ -668,7 +668,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  * @param {object} config Full game CONFIG (record, booth, debug sections).
  * @returns {{
  *   recordMesh: THREE.Mesh,
- *   recordCollider: import("@dimforge/rapier3d-compat").Collider,
+ *   recordColliderHandles: number[],
  *   pitWallColliderHandle: number,
  *   boothColliderHandles: number[],
  *   boothNeonMeshes: THREE.Mesh[],
@@ -691,7 +691,7 @@ export function initArena(scene, world, config, options = {}) {
   const boothColliderHandles = [];
 
   // --- Record platform (visual rotates; physics ring collider stays world-fixed) ---
-  const visualRecordY = config.record.y + (config.record.thickness - visualRecordThickness) / 2;
+  const visualRecordY = -0.46;
   const recordGeo = buildRecordRingGeometry({
     outerRadius: config.record.radius,
     innerRadius: config.record.innerRadius,
@@ -717,6 +717,9 @@ export function initArena(scene, world, config, options = {}) {
   recordMesh.position.set(0, visualRecordY, 0);
   recordMesh.receiveShadow = false;
   scene.add(recordMesh);
+
+  // ! Debug export — expose record mesh for Tweakpane export buttons.
+  window.recordMesh = recordMesh;
 
   // * Spindle accent light: slowly cycles pink <-> cyan in the render loop.
   const spindleLight = new THREE.PointLight(0xff2bd6, 80, 30, 2);
@@ -914,6 +917,7 @@ export function initArena(scene, world, config, options = {}) {
     RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, config.record.y, 0),
   );
 
+  // * Build visual debug geometry (wireframe only, not used for physics since the compound ring replaces the trimesh).
   const recordPhysics = config.record.physics || {};
   const recordPhysicsGeo = buildRecordPhysicsGeometry({
     outerRadius: config.record.radius,
@@ -924,16 +928,51 @@ export function initArena(scene, world, config, options = {}) {
     outerBevel: recordPhysics.outerBevel ?? 0.12,
     segments: recordPhysics.segments ?? 72,
   });
-  const recordVerts = /** @type {Float32Array} */ (recordPhysicsGeo.attributes.position.array);
-  const recordIndices = recordPhysicsGeo.index
-    ? Uint32Array.from(recordPhysicsGeo.index.array)
-    : Uint32Array.from(
-        Array.from({ length: recordPhysicsGeo.attributes.position.count }, (_, i) => i),
-      );
-  const recordColliderDesc = RAPIER.ColliderDesc.trimesh(recordVerts, recordIndices)
-    .setFriction(config.record.friction)
-    .setRestitution(config.record.restitution);
-  const recordCollider = world.createCollider(recordColliderDesc, recordBody);
+
+  // --- PRIMITIVE RING COLLIDER (Fixes Trimesh Bounce & Overlap Tunneling) ---
+  const N_SEGMENTS = 16;
+  const R_out = config.record.radius;
+  const R_in = config.record.innerRadius;
+  const halfT = config.record.thickness / 2;
+
+  // * Exact tangent widths so segments touch edge-to-edge with zero overlap.
+  const halfAngle = Math.PI / N_SEGMENTS;
+  const zIn = R_in * Math.tan(halfAngle);
+  const zOut = R_out * Math.tan(halfAngle);
+  const topY = halfT;
+  const botY = -halfT;
+
+  // * 8 vertices of a trapezoidal prism, centered radially (no translation needed).
+  // * Vertices already encode R_in → R_out; rotation around origin places them in the ring.
+  const vertices = new Float32Array([
+    // Top face
+    R_in, topY, -zIn,
+    R_in, topY,  zIn,
+    R_out, topY, -zOut,
+    R_out, topY,  zOut,
+    // Bottom face
+    R_in, botY, -zIn,
+    R_in, botY,  zIn,
+    R_out, botY, -zOut,
+    R_out, botY,  zOut,
+  ]);
+
+  const yAxis = new THREE.Vector3(0, 1, 0);
+  /** @type {number[]} */
+  const recordColliderHandles = [];
+
+  for (let i = 0; i < N_SEGMENTS; i++) {
+    const angle = (i / N_SEGMENTS) * Math.PI * 2;
+    const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
+
+    const segmentDesc = RAPIER.ColliderDesc.convexHull(vertices)
+      .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
+      .setFriction(config.record.friction)
+      .setRestitution(config.record.restitution);
+
+    const segmentCollider = world.createCollider(segmentDesc, recordBody);
+    recordColliderHandles.push(segmentCollider.handle);
+  }
 
   let debugMesh = null;
   let debugMat = null;
@@ -1100,7 +1139,7 @@ export function initArena(scene, world, config, options = {}) {
 
   return {
     recordMesh,
-    recordCollider,
+    recordColliderHandles,
     pitWallColliderHandle,
     boothColliderHandles,
     boothNeonMeshes,

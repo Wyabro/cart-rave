@@ -547,58 +547,6 @@ export function setQualityCrowdCount(lowQuality) {
 }
 
 /**
- * Removes and disposes all rave dressing objects (crowd, stage, lasers, billboard)
- * so they can be re-created with updated quality settings after a soft scene rebuild.
- * @param {THREE.Scene} scene
- */
-export function disposeRaveVisuals(scene) {
-  if (crowdCarts) {
-    disposeObject3D(crowdCarts);
-    crowdCarts = null;
-  }
-  if (crowdGlow) {
-    disposeObject3D(crowdGlow);
-    crowdGlow = null;
-  }
-  crowdGlowMat = null;
-
-  for (const entry of crowdSearchlightEntries) {
-    if (entry.light) disposeObject3D(entry.light);
-    if (entry.cone) disposeObject3D(entry.cone);
-    if (entry.target) scene.remove(entry.target);
-  }
-  crowdSearchlightEntries = [];
-
-  for (const entry of crowdPointLightEntries) {
-    if (entry.light) disposeObject3D(entry.light);
-    if (entry.bulb) disposeObject3D(entry.bulb);
-  }
-  crowdPointLightEntries = [];
-
-  if (stageGroup) {
-    disposeObject3D(stageGroup);
-    stageGroup = null;
-  }
-  for (const entry of stageLightEntries) {
-    if (entry.light) disposeObject3D(entry.light);
-    if (entry.mesh) disposeObject3D(entry.mesh);
-  }
-  stageLightEntries = [];
-  if (ledTex) { ledTex.dispose(); ledTex = null; }
-  ledCtx = null;
-
-  for (const entry of laserEntries) {
-    if (entry.mesh) disposeObject3D(entry.mesh);
-  }
-  laserEntries = [];
-
-  if (billboardGroup) {
-    disposeObject3D(billboardGroup);
-    billboardGroup = null;
-  }
-}
-
-/**
  * Animates crowd searchlights, point lights, glow ring, and instanced cart wiggle/bounce.
  * @param {number} nowMs Current time (ms).
  */

@@ -86,14 +86,6 @@ export function getCurrentLevelId() {
 }
 
 /**
- * Whether the loaded arena is in menu-preview quality (lower reflector res, deferred extras).
- * @returns {boolean}
- */
-export function isPreviewMode() {
-  return previewMode;
-}
-
-/**
  * Whether a play-entry crossfade swap is pausing physics/render this frame.
  * @returns {boolean}
  */
@@ -141,7 +133,7 @@ export function cancelMenuPreviewTimers() {
  * Level dispose is unsafe once slot carts exist — menu-only, pre-join.
  * @returns {boolean}
  */
-export function canSafelyRebuildLevel() {
+function canSafelyRebuildLevel() {
   if (!deps) return false;
   const carts = deps.getAllCartsRef();
   return deps.getMenuVisible() && (!carts || carts.length === 0);
@@ -249,7 +241,7 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
  * @param {string | null | undefined} [levelId]
  * @returns {Promise<void>}
  */
-export async function previewMenuLevelIfNeeded(levelId) {
+async function previewMenuLevelIfNeeded(levelId) {
   const d = requireDeps();
   if (!canSafelyRebuildLevel()) return;
   if (menuLevelPreviewPromise) return menuLevelPreviewPromise;

@@ -167,14 +167,6 @@ export async function ensureSessionCartsReady() {
   return sessionCartBootstrapPromise;
 }
 
-/**
- * Clears play-entry promise tracking so a new enterPlayMode can start.
- * Does not tear down an already-bootstrapped world.
- */
-export function cancelBootstrap() {
-  activePlayBootstrapPromise = null;
-}
-
 /** Clears in-flight session cart bootstrap (e.g. session teardown). */
 export function resetSessionCartBootstrap() {
   sessionCartBootstrapPromise = null;

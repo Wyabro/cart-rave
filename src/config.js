@@ -83,7 +83,7 @@ const physics = {
     linearDamping: 0.6, // 1/s — light, agile coast
     angularDamping: 1.2, // 1/s — tippy but not endless spin
     maxPitchRoll: 4.5, // rad/s — reference limit; sim clamp disabled for V1 tipping
-    visualOffset: 0.72, // meters — mesh Y offset from body origin (moved down 0.1 from 0.82 so wheels sit flush without collider offset)
+    visualOffset: 0.82, // meters — mesh Y offset from body origin
     collider: {
       hyReduction: 0.25, // meters — subtract from half-height for physics collider
       localYOffset: 0.13, // meters — collider translation Y in body space

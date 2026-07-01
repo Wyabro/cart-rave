@@ -28,7 +28,7 @@ const colliderHandleToCart = new Map();
 
 let sceneRef = null;
 let worldRef = null;
-export let ramBoostStreaksRef = null;
+let ramBoostStreaksRef = null;
 
 function yawToCenter(spawn) {
   // Our yaw convention yields forward = (-sin(yaw), 0, -cos(yaw)).
@@ -637,32 +637,4 @@ export function initCarts({
     colliderHandleToCart,
     nextPendingMidRoundJoinRespawnConnId,
   };
-}
-
-/**
- * Recreates cart rigid bodies and colliders in a fresh Rapier world after
- * an in-place quality rebuild. Preserves all visual refs (mesh, contactShadow,
- * material cache) and just swaps the physics handles.
- * @param {import("@dimforge/rapier3d-compat").World} world New Rapier world.
- */
-export function rebuildAllCartBodiesInWorld(world) {
-  if (!world || !Array.isArray(allCartsRef)) return;
-  worldRef = world;
-  colliderHandleToCart.clear();
-
-  for (const cart of allCartsRef) {
-    if (!cart) continue;
-    // * Remove stale body/collider refs from the destroyed old world.
-    cart.body = null;
-    cart.collider = null;
-
-    const body = createCartBody(world, cart.spawn, cart.spawnYaw);
-    if (!body) continue;
-    cart.body = body;
-    const cd = createCartCollider(world, body);
-    if (cd) {
-      cart.collider = cd.collider;
-      colliderHandleToCart.set(cd.collider.handle, cart);
-    }
-  }
 }

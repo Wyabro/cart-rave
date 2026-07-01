@@ -140,7 +140,7 @@ let callbacks = {
   ensureSessionReady: () => {},
 };
 
-export function registerCallbacks(cb) {
+function registerCallbacks(cb) {
   callbacks = { ...callbacks, ...cb };
 }
 
@@ -767,18 +767,18 @@ function replayHostCollisionFx(msg, callbacks) {
   }
 }
 
-export function stopHostSendLoop() {
+function stopHostSendLoop() {
   if (hostSendTimer) clearInterval(hostSendTimer);
   hostSendTimer = null;
   clearHostCollisionBatch();
 }
 
-export function stopInputSendLoop() {
+function stopInputSendLoop() {
   if (inputSendTimer) clearInterval(inputSendTimer);
   inputSendTimer = null;
 }
 
-export function stopKeepaliveLoop() {
+function stopKeepaliveLoop() {
   if (keepaliveTimer) clearInterval(keepaliveTimer);
   keepaliveTimer = null;
 }
@@ -920,7 +920,7 @@ export function startInputSendLoop() {
   }, intervalMs);
 }
 
-export function startKeepaliveLoop() {
+function startKeepaliveLoop() {
   stopKeepaliveLoop();
   if (!partySocket) return;
 

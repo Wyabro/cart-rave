@@ -1297,6 +1297,8 @@ async function main() {
 
   let recordMesh = null;
   let recordCollider;
+  let ringHandles;
+  let recordColliderHandles = [];
   let pitWallColliderHandle;
   let boothColliderHandles = [];
   let boothNeonMeshes = [];
@@ -1424,6 +1426,7 @@ async function main() {
     ({
       recordMesh,
       recordCollider,
+      recordColliderHandles: ringHandles,
       pitWallColliderHandle,
       boothColliderHandles,
       boothNeonMeshes,
@@ -1441,6 +1444,13 @@ async function main() {
       reflectorTextureSize: opts.reflectorTextureSize,
       onProgress: opts.onProgress,
     }));
+
+    // * Normalize: arena.js returns recordColliderHandles (compound ring); other levels return a single recordCollider.
+    if (ringHandles) {
+      recordColliderHandles = ringHandles;
+    } else if (recordCollider) {
+      recordColliderHandles = [recordCollider.handle];
+    }
     applyLoadedLevelSideEffects(selected);
   }
 
@@ -2518,7 +2528,7 @@ async function main() {
     onBoostRelease,
     onBoostCancel,
     get partySocket() { return Netcode.getPartySocket(); },
-    get recordColliderHandle() { return recordCollider?.handle; },
+    get recordColliderHandles() { return recordColliderHandles; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },
     get boothColliderHandles() { return boothColliderHandles; },
     playFloorImpact: () => AudioManager.playSfx("floor"),

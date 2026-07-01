@@ -1510,17 +1510,48 @@ export function initBackroomsSupermarket(scene, world, config) {
   floorMesh.receiveShadow = false;
   scene.add(floorMesh);
 
+  // --- 9-CUBOID SLICE COLLIDER (Fixes Trimesh Bounce & Tunneling) ---
   const floorBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0),
+    // Body placed at -0.3 so top surface of 0.6-thick colliders is exactly at Y=0
+    RAPIER.RigidBodyDesc.fixed().setTranslation(0, -0.3, 0),
   );
-  const floorVerts = /** @type {Float32Array} */ (floorGeo.attributes.position.array);
-  const floorIndices = Uint32Array.from(floorGeo.index.array);
-  const floorCollider = world.createCollider(
-    RAPIER.ColliderDesc.trimesh(floorVerts, floorIndices)
+
+  const T_HALF = 0.3; // 0.6m thickness
+  const INNER = 12.70; // 18 - 4.25 - 1.05 (HOLE_CENTER - HOLE_HALF - CHAMFER)
+  const OUTER = 23.30; // 18 + 4.25 + 1.05
+  const EDGE = 32.75; // 34 - 1.25 (ARENA_HALF - OUTER_CHAMFER)
+
+  const floorColliders = [];
+
+  // Helper to create cuboids cleanly
+  const addCuboid = (hx, hz, px, pz) => {
+    const desc = RAPIER.ColliderDesc.cuboid(hx, T_HALF, hz)
+      .setTranslation(px, 0, pz) // Local Y is 0 because body is at -0.3
       .setFriction(FLOOR_FRICTION)
-      .setRestitution(config.record.restitution),
-    floorBody,
-  );
+      .setRestitution(config.record.restitution);
+    floorColliders.push(world.createCollider(desc, floorBody));
+  };
+
+  // 1. The 3 solid full-length strips (Left-Outer, Center, Right-Outer)
+  addCuboid((EDGE - OUTER) / 2, EDGE, -(OUTER + EDGE) / 2, 0); // Left-Outer
+  addCuboid((INNER * 2) / 2, EDGE, 0, 0);                      // Center
+  addCuboid((EDGE - OUTER) / 2, EDGE, (OUTER + EDGE) / 2, 0);  // Right-Outer
+
+  // 2. Left-Inner Strip (Framed around Top-Left and Bottom-Left holes)
+  const stripHX = (OUTER - INNER) / 2;
+  const stripPX = -((OUTER + INNER) / 2);
+  addCuboid(stripHX, (EDGE - OUTER) / 2, stripPX, (OUTER + EDGE) / 2); // Top
+  addCuboid(stripHX, (INNER * 2) / 2, stripPX, 0);                     // Middle
+  addCuboid(stripHX, (EDGE - OUTER) / 2, stripPX, -((OUTER + EDGE) / 2)); // Bottom
+
+  // 3. Right-Inner Strip (Framed around Top-Right and Bottom-Right holes)
+  addCuboid(stripHX, (EDGE - OUTER) / 2, -stripPX, (OUTER + EDGE) / 2); // Top
+  addCuboid(stripHX, (INNER * 2) / 2, -stripPX, 0);                     // Middle
+  addCuboid(stripHX, (EDGE - OUTER) / 2, -stripPX, -((OUTER + EDGE) / 2)); // Bottom
+
+  // Return handles array (main.js will normalize this for simulation.js)
+  const recordCollider = floorColliders[0]; // Backward compat
+  const recordColliderHandles = floorColliders.map(c => c.handle);
 
   // ===== Square voids (black shafts) =====
   const voidShaftMat = new THREE.MeshBasicMaterial({ color: 0x040406, side: THREE.BackSide });
@@ -1631,7 +1662,8 @@ export function initBackroomsSupermarket(scene, world, config) {
 
   return {
     recordMesh,
-    recordCollider: floorCollider,
+    recordCollider,
+    recordColliderHandles,
     pitWallColliderHandle,
     boothColliderHandles,
     boothNeonMeshes,

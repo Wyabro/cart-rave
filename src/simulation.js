@@ -1743,7 +1743,7 @@ function ensurePreStepLinvel(cart) {
 }
 
 function classifyEnvironmentCollision(otherHandle, callbacks) {
-  if (otherHandle === callbacks.recordColliderHandle) return "floor";
+  if (callbacks.recordColliderHandles?.includes(otherHandle)) return "floor";
   if (otherHandle === callbacks.pitWallColliderHandle) return "edge";
   if (callbacks.boothColliderHandles?.includes(otherHandle)) return "edge";
   return "floor";
@@ -1965,16 +1965,4 @@ export function runFixedPhysicsStep({
     _collisionCallbacks.localCart = localCart;
     processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost);
   }
-}
-
-/**
- * Resets module-level collision callback state. Call after destroying the old
- * Rapier world (quality rebuild, host migration) so stale collider handles from
- * the destroyed world don't leak into new-world collision classification.
- */
-export function resetCollisionCallbacks() {
-  for (const key of Object.keys(_collisionCallbacks)) {
-    delete _collisionCallbacks[key];
-  }
-  _collisionCallbacks.localCart = null;
 }

@@ -109,12 +109,6 @@ function applyAllVolumes() {
 }
 
 /** @param {number} v 0–1 range */
-export function setMasterVolume(v) {
-  _masterVol = Math.max(0, Math.min(1, v));
-  applyAllVolumes();
-}
-
-/** @param {number} v 0–1 range */
 export function setSfxVolume(v) {
   _sfxVol = Math.max(0, Math.min(1, v));
   applyAllVolumes();
@@ -132,26 +126,6 @@ export function setMuted(m) {
   applyAllVolumes();
 }
 
-/** @returns {boolean} */
-export function getIsMuted() {
-  return _isMuted;
-}
-
-/** @returns {number} 0–1 */
-export function getMasterVolume() {
-  return _isMuted ? 0 : _masterVol;
-}
-
-/** @returns {number} 0–1 */
-export function getSfxVolume() {
-  return _isMuted ? 0 : _sfxVol;
-}
-
-/** @returns {number} 0–1 */
-export function getMusicVolume() {
-  return _isMuted ? 0 : _musicVol;
-}
-
 /**
  * Bulk-restore volumes from saved values (called on boot from localStorage).
  * @param {{ master: number, sfx: number, music: number, muted: boolean }} state
@@ -162,14 +136,6 @@ export function restoreVolumeState(state) {
   _musicVol = Math.max(0, Math.min(1, state.music));
   _isMuted = Boolean(state.muted);
   applyAllVolumes();
-}
-
-/**
- * Read current state for persisting to localStorage.
- * @returns {{ master: number, sfx: number, music: number, muted: boolean }}
- */
-export function getVolumeState() {
-  return { master: _masterVol, sfx: _sfxVol, music: _musicVol, muted: _isMuted };
 }
 
 // === Music ===
@@ -215,7 +181,7 @@ export function loadGamePlaylist(urls) {
 /** @returns {void} */
 export function playMenuMusic() {
   _menuMusicShouldPlay = true;
-  if (!menuMusic || _isMuted) return;
+  if (!menuMusic) return;
   if (!devMusicGate) return;
   if (menuMusic.playing()) return;
   menuMusic.play();
@@ -230,7 +196,7 @@ export function stopMenuMusic() {
 
 /** @returns {void} */
 export function playGameMusic() {
-  if (!gameMusicTracks.length || gameMusicPlaying || _isMuted) return;
+  if (!gameMusicTracks.length || gameMusicPlaying) return;
   if (!devMusicGate) return;
   if (currentGameTrackIdx < 0) currentGameTrackIdx = 0;
   gameMusicPlaying = true;
@@ -251,20 +217,6 @@ function advanceGameTrack() {
   if (gameMusicPlaying) {
     gameMusicTracks[currentGameTrackIdx]?.play();
   }
-}
-
-/**
- * Crossfade from menu music to game music.
- * @param {number} [durationMs=500]
- */
-export function crossfadeMenuToGame(durationMs = 500) {
-  if (menuMusic?.playing()) {
-    menuMusic.fade(menuMusic.volume(), 0, durationMs);
-    setTimeout(() => {
-      try { menuMusic?.stop(); } catch {}
-    }, durationMs + 50);
-  }
-  setTimeout(() => playGameMusic(), 100);
 }
 
 // === SFX (file-based, pooled via Howler) ===
@@ -339,58 +291,6 @@ export function stopSfx(key, id) {
   }
 }
 
-/**
- * Play a registered SFX at a 3D world position (spatial audio).
- * Uses Howler's built-in stereo panning via pos().
- * @param {string} key Registry key
- * @param {number} x
- * @param {number} y
- * @param {number} z
- * @param {string} [sprite] Sprite name
- * @returns {number | null} Sound ID
- */
-export function playSpatial(key, x, y, z, sprite) {
-  const sound = sfxRegistry[key];
-  if (!sound || _isMuted) return null;
-  try {
-    const id = sprite ? sound.play(sprite) : sound.play();
-    if (id != null) {
-      // Howler orientation: listener faces (0,0,-1), up is (0,1,0).
-      // pos() sets source position relative to listener.
-      sound.pos(x, y, z, id);
-    }
-    return id;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Update the spatial position of a playing sound.
- * @param {string} key Registry key
- * @param {number} id Sound ID from playSpatial()
- * @param {number} x
- * @param {number} y
- * @param {number} z
- */
-export function updateSpatialPos(key, id, x, y, z) {
-  const sound = sfxRegistry[key];
-  if (!sound || id == null) return;
-  sound.pos(x, y, z, id);
-}
-
-/**
- * Unregister and unload a SFX.
- * @param {string} key
- */
-export function unregisterSfx(key) {
-  const sound = sfxRegistry[key];
-  if (sound) {
-    try { sound.unload(); } catch {}
-    delete sfxRegistry[key];
-  }
-}
-
 // === Wheel loop (dynamic engine sound) ===
 
 /** @type {Howl | null} */
@@ -438,7 +338,7 @@ export function initWheelLoop(src) {
  * Start playing the wheel loop at volume 0. Subsequent updateWheelLoop() calls
  * fade it in by raising the volume dynamically. Safe to call when already playing.
  */
-export function startWheelLoop() {
+function startWheelLoop() {
   if (!wheelLoopHowl) return;
   if (wheelLoopId != null) return;
   wheelLoopCurrentVolume = 0;
@@ -505,26 +405,6 @@ export function stopWheelLoop() {
     wheelLoopHowl.stop(id);
   } catch {
     // Sound may have been unloaded between frames.
-  }
-}
-
-// === Utility ===
-
-/**
- * Returns whether the AudioContext is running (unlocked by user gesture).
- * @returns {boolean}
- */
-export function isAudioUnlocked() {
-  return Howler.ctx?.state === "running";
-}
-
-/**
- * Attempt to resume the AudioContext (for autoplay policy).
- * @returns {Promise<void>}
- */
-export async function unlockAudio() {
-  if (Howler.ctx?.state === "suspended") {
-    try { await Howler.ctx.resume(); } catch {}
   }
 }
 
