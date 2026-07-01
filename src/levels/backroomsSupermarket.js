@@ -626,6 +626,10 @@ function buildWallpaperPlaneGeometry(spanW, bottomY, topY, vSegments = 24) {
 function buildCenterFurniturePile(scene, world) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
   const group = new THREE.Group();
+  // * Scale all visual pile geometry by 0.85 — tighter footprint, less snag-prone.
+  const pileVisualGroup = new THREE.Group();
+  pileVisualGroup.scale.setScalar(0.85);
+  group.add(pileVisualGroup);
 
   const parts = { wood: [], fabric: [], metal: [], cardboard: [], dark: [] };
 
@@ -781,11 +785,11 @@ function buildCenterFurniturePile(scene, world) {
 
   // ----- Physics: stacked convex-hull layers (no concave traps, tighter than one big dome) -----
   const hullRings = [
-    { y: 0.05, r: 3.9, n: 10 },
-    { y: 1.8, r: 3.4, n: 10 },
-    { y: 3.3, r: 2.6, n: 8 },
-    { y: 4.7, r: 1.6, n: 8 },
-    { y: 6.2, r: 0.7, n: 6 },
+    { y: 0.05, r: 3.315, n: 10 },
+    { y: 1.53, r: 2.89, n: 10 },
+    { y: 2.805, r: 2.21, n: 8 },
+    { y: 3.995, r: 1.36, n: 8 },
+    { y: 5.27, r: 0.595, n: 6 },
   ];
 
   const bodies = [];
@@ -818,7 +822,7 @@ function buildCenterFurniturePile(scene, world) {
 
   // * Apex cap — small hull so carts cannot clip through the pile peak.
   const apexRing = hullRings[hullRings.length - 1];
-  const apexPts = [0, 6.7, 0];
+  const apexPts = [0, 5.695, 0];
   const apexPhase = (hullRings.length - 1) * 0.35;
   for (let j = 0; j < apexRing.n; j += 1) {
     const a = apexPhase + (j / apexRing.n) * Math.PI * 2;
@@ -831,6 +835,15 @@ function buildCenterFurniturePile(scene, world) {
       body,
     );
   }
+  // * Ball cap at the very peak — ensures carts landing on the top of the pile
+  // * hit a smooth surface instead of slipping into a convex-hull gap at [0, 5.695, 0].
+  world.createCollider(
+    RAPIER.ColliderDesc.ball(0.51)
+      .setTranslation(0, 5.695, 0)
+      .setFriction(hullFriction)
+      .setRestitution(hullRestitution),
+    body,
+  );
   bodies.push(body);
 
   // ----- Materials + per-material merge -----
@@ -858,7 +871,7 @@ function buildCenterFurniturePile(scene, world) {
     bucket.forEach((g) => g.dispose());
     ownedGeometries.push(merged);
     ownedMaterials.push(mat);
-    group.add(new THREE.Mesh(merged, mat));
+    pileVisualGroup.add(new THREE.Mesh(merged, mat));
   };
 
   mergeAdd(parts.wood, woodMat);
@@ -868,10 +881,10 @@ function buildCenterFurniturePile(scene, world) {
   mergeAdd(parts.dark, darkMat);
 
   const pileShadows = createStaticContactShadowCluster([
-    { x: 0, z: 0.1, radiusX: 3.5, radiusZ: 3.1 },
-    { x: -0.8, z: -0.5, radiusX: 2.6, radiusZ: 2.3, opacity: 0.36 },
+    { x: 0, z: 0.1, radiusX: 2.975, radiusZ: 2.635 },
+    { x: -0.68, z: -0.425, radiusX: 2.21, radiusZ: 1.955, opacity: 0.36 },
   ]);
-  group.add(pileShadows.group);
+  pileVisualGroup.add(pileShadows.group);
 
   scene.add(group);
   return {
@@ -1362,7 +1375,9 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   });
 
   const platGeo = new THREE.BoxGeometry(B.platformWidth, B.platformThickness, B.platformDepth);
-  const lowRailGeo = new THREE.BoxGeometry(B.platformWidth, 0.55, 0.14);
+  // * Width extended by railThickness so the box end caps overlap the cylindrical side posts,
+  // * closing the visible corner gap where the low back rail meets the side rails.
+  const lowRailGeo = new THREE.BoxGeometry(B.platformWidth + B.railThickness, 0.55, 0.14);
   const railGeo = new THREE.CylinderGeometry(B.railThickness / 2, B.railThickness / 2, 1, 8);
   const cardboardGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
 
@@ -1545,6 +1560,7 @@ export function initBackroomsSupermarket(scene, world, config) {
   // ===== Center furniture pile (Backrooms-only obstacle) =====
   const furniturePile = buildCenterFurniturePile(scene, world);
   const furnitureSpotlight = buildFurniturePileSpotlight(scene);
+  let spotlightUpdateFn = furnitureSpotlight.update;
 
   // ===== Contract stand-ins =====
   // * spindleLight is required by main.js (it lerps its color each frame). Keep it as a
@@ -1592,6 +1608,10 @@ export function initBackroomsSupermarket(scene, world, config) {
   }
 
   function dispose() {
+    // * Neutralize the spotlight update closure so subsequent calls are no-ops,
+    // * preventing any captured material references from being resurrected.
+    spotlightUpdateFn = () => {};
+
     for (const root of sceneRoots) scene.remove(root);
 
     // Dedupe before disposing — booth/pit meshes share a small geometry/material pool.
@@ -1627,12 +1647,12 @@ export function initBackroomsSupermarket(scene, world, config) {
       half: HOLE_HALF,
       holeCenter: HOLE_CENTER,
       arenaHalf: ARENA_HALF,
-      avoidMargin: 0.85, // * tight lip — steering/routing use separate buffers
-      influenceBand: 0.85, // * minimal steer nudge; gutter lanes stay drivable
+      avoidMargin: 1.2, // * wider keep-out — gives steering more time to react at speed
+      influenceBand: 1.2, // * wider steer nudge — pushes bots away from the void lip earlier
       // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
-      circularKeepOuts: [{ x: 0, z: 0, radius: 4.0, margin: 2.0 }],
+      circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7 }],
     },
-    update: furnitureSpotlight.update,
+    update: spotlightUpdateFn,
     dispose,
   };
 }

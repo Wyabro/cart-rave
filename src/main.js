@@ -1455,20 +1455,9 @@ async function main() {
     await yieldForPaint();
   }
 
-  function scheduleDeferredWorldBootstrap() {
-    const run = () => { void ensureWorldBootstrapped(); };
-    if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(run, { timeout: 4000 });
-    } else {
-      setTimeout(run, 400);
-    }
-  }
-
   window.addEventListener("cartrave:level-changed", () => {
     scheduleMenuLevelPreview();
   });
-
-  scheduleDeferredWorldBootstrap();
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
   // * Round start/countdown handlers live here; initNetcode invokes them via callbacks.
@@ -2113,10 +2102,14 @@ async function main() {
     if (nowMs <= npc.ramBoostActiveUntilMs) return;
     if (nowMs - npc.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
 
-    let nearestOther = null;
+    // * Find nearest target (human or NPC) — humans always pass the gate; NPCs only 25%.
+    const netSlots = Netcode.getNetSlots();
+    let nearestTarget = null;
     let nearestD2 = Infinity;
+    let nearestIsHuman = false;
     const p = npc.body.translation();
-    for (const o of allCarts) {
+    for (let i = 0; i < allCarts.length; i += 1) {
+      const o = allCarts[i];
       if (o === npc) continue;
       const op = o.body.translation();
       const dx = op.x - p.x;
@@ -2124,17 +2117,52 @@ async function main() {
       const d2 = dx * dx + dz * dz;
       if (d2 < nearestD2) {
         nearestD2 = d2;
-        nearestOther = o;
+        nearestTarget = o;
+        const s = netSlots?.[i];
+        nearestIsHuman = s?.kind === "human" && !!s?.connId;
       }
     }
-    if (!nearestOther) return;
+    if (!nearestTarget) return;
+    const op = nearestTarget.body.translation();
+
+    // * NPC targets: only commit to a boost 25% of the time for chaotic variety.
+    if (!nearestIsHuman && Math.random() >= 0.25) return;
+
     const dist = Math.sqrt(nearestD2);
     if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
+
+    // * Classic Record center-hole safety gate — abort nitro if the boost line
+    // * passes too close to the hole. Prevents NPCs from nitro-suiciding across the pit.
+    if (CONFIG.record.centerHole?.enabled !== false) {
+      const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+      const safetyMargin = 1.5;
+      const minClear = holeLip + safetyMargin;
+
+      const ax = p.x;
+      const az = p.z;
+      const bx = op.x;
+      const bz = op.z;
+      const abX = bx - ax;
+      const abZ = bz - az;
+      const abLenSq = abX * abX + abZ * abZ;
+
+      if (abLenSq > 1e-8) {
+        // * Project origin onto the segment AB, clamped to [0, 1].
+        const t = clamp((-ax * abX - az * abZ) / abLenSq, 0, 1);
+        const closestX = ax + t * abX;
+        const closestZ = az + t * abZ;
+        const closestDist = Math.hypot(closestX, closestZ);
+
+        if (closestDist < minClear) return;
+      } else {
+        // * Degenerate segment — NPC and target are on the same point; check position.
+        if (Math.hypot(ax, az) < minClear) return;
+      }
+    }
 
     const rot = npc.body.rotation();
     const yaw = Simulation.yawFromQuaternion(rot);
     Simulation.setForwardRightFromYaw(yaw, ramBoostForwardXZ, ramBoostRightXZ);
-    const op = nearestOther.body.translation();
     ramBoostToTargetXZ.set(op.x - p.x, 0, op.z - p.z);
     if (ramBoostToTargetXZ.lengthSq() < 1e-8) return;
     ramBoostToTargetXZ.normalize();

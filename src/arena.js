@@ -680,6 +680,11 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  * }}
  */
 export function initArena(scene, world, config, options = {}) {
+  // * Classic Record uses a deeper void death threshold so carts fall farther
+  // * before respawning. Backrooms keeps the default -10 via its own init.
+  const prevFallYThreshold = config.fall.yThreshold;
+  config.fall.yThreshold = -30;
+
   const reflectorTextureSize = options.reflectorTextureSize ?? REFLECTOR_TEXTURE_SIZE_FULL;
   const visualRecordThickness = VISUAL_RECORD_THICKNESS;
   const boothNeonMeshes = [];
@@ -994,7 +999,7 @@ export function initArena(scene, world, config, options = {}) {
   pitWall.position.y = pitWallCenterY;
   scene.add(pitWall);
 
-  const pitWallPhysicsTopY = -12;
+  const pitWallPhysicsTopY = -32;
   const pitWallPhysicsBottomY = pitWallCenterY - pitWallDepth / 2;
   const pitWallPhysicsHalfHeight = (pitWallPhysicsTopY - pitWallPhysicsBottomY) / 2;
   const pitWallPhysicsCenterY = (pitWallPhysicsTopY + pitWallPhysicsBottomY) / 2;
@@ -1089,6 +1094,8 @@ export function initArena(scene, world, config, options = {}) {
     for (const body of boothBuild.boothBodies) {
       world.removeRigidBody(body);
     }
+
+    config.fall.yThreshold = prevFallYThreshold;
   }
 
   return {

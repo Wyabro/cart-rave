@@ -668,7 +668,7 @@ function applyGeometryUnstick(cart, dtFixed, nowMs) {
 
   const stuckMs = nowMs - cart.unstickStillSinceMs;
   const unstickAfterMs = stuckCfg?.unstickAfterMs ?? 2000;
-  if (stuckMs < unstickAfterMs || planarSpeed > (stuckCfg?.maxPlanarSpeedMps ?? 0.65)) return;
+  if (stuckMs < unstickAfterMs) return;
 
   cart.body.wakeUp();
   const mass = getBodyMass(cart.body);
@@ -1196,6 +1196,40 @@ function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
 }
 
 /**
+ * Steers an NPC's heading away from the Classic Record center hole when the cart is
+ * within the influence band of the physics lip. Radial outward push strength ramps
+ * from 0 at the outer edge of the influence band to max at the hole lip.
+ *
+ * @param {number} px Cart world X.
+ * @param {number} pz Cart world Z.
+ * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
+ */
+function applyClassicCenterHoleAvoidance(px, pz, dir) {
+  const innerR = CONFIG.record.innerRadius;
+  const holeClearance = CONFIG.record.physics?.holeClearance ?? 0.45;
+  const edge = innerR + holeClearance;
+  const band = 4.5;
+  const dist = Math.hypot(px, pz);
+
+  if (dist >= edge + band) return;
+
+  const strength = clamp((edge + band - dist) / band, 0, 1.6);
+  let rx, rz;
+  if (dist > 1e-3) {
+    rx = px / dist;
+    rz = pz / dist;
+  } else {
+    rx = 1;
+    rz = 0;
+  }
+
+  dir.x += rx * strength * 1.1;
+  dir.z += rz * strength * 1.1;
+  if (dir.lengthSq() < 1e-6) dir.set(rx, 0, rz);
+  dir.normalize();
+}
+
+/**
  * * True during the first 8s of a round or while any human is still on a spawn booth.
  */
 function isAiCautiousPhase(nowMs, allCarts, netSlots) {
@@ -1317,6 +1351,8 @@ function clampAiTargetAwayFromHazards(x, z, cautious) {
 function findNearestHumanTarget(fromPos, allCarts, netSlots) {
   let nearestPos = null;
   let nearestD2 = Infinity;
+  let nearestVel = null;
+  const LEAD_TIME_S = 0.5;
   for (let i = 0; i < (allCarts?.length ?? 0); i += 1) {
     const s = netSlots?.[i];
     if (!s || s.kind !== "human" || !s.connId) continue;
@@ -1329,13 +1365,16 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots) {
     if (d2 < nearestD2) {
       nearestD2 = d2;
       nearestPos = hp;
+      nearestVel = cart.body.linvel();
     }
   }
   if (!nearestPos) return null;
   const jitter = _levelHazards?.arenaHalf != null ? 0.5 : 1.8;
+  const leadX = nearestVel ? nearestVel.x * LEAD_TIME_S : 0;
+  const leadZ = nearestVel ? nearestVel.z * LEAD_TIME_S : 0;
   return {
-    x: nearestPos.x + (Math.random() - 0.5) * jitter,
-    z: nearestPos.z + (Math.random() - 0.5) * jitter,
+    x: nearestPos.x + leadX + (Math.random() - 0.5) * jitter,
+    z: nearestPos.z + leadZ + (Math.random() - 0.5) * jitter,
   };
 }
 
@@ -1403,6 +1442,7 @@ function ensureAiBehaviorState(cart) {
   if (cart.aiSteerGain == null) cart.aiSteerGain = 1.1;
   if (cart.aiLastProgressMs == null) cart.aiLastProgressMs = 0;
   if (cart.aiLastDistToTarget == null) cart.aiLastDistToTarget = Infinity;
+  if (cart.aiAvoidanceCommitUntilMs == null) cart.aiAvoidanceCommitUntilMs = 0;
 }
 
 /**
@@ -1421,17 +1461,17 @@ function pickAiTarget(fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   const roll = Math.random();
 
   // * Weighted mix: humans, outer-ring patrol, random wander.
-  let humanWeight = cautious ? 0.38 : 0.42;
-  let patrolWeight = cautious ? 0.18 : 0.30;
+  let humanWeight = cautious ? 0.65 : 0.80;
+  let patrolWeight = cautious ? 0.12 : 0.10;
 
   // * Backrooms: patrol corners aggressively; chase when a human is up.
   if (_levelHazards?.arenaHalf != null) {
     if (humanTarget && !cautious) {
-      humanWeight = 0.5;
-      patrolWeight = 0.32;
+      humanWeight = 0.75;
+      patrolWeight = 0.15;
     } else if (!cautious) {
-      humanWeight = 0.1;
-      patrolWeight = 0.62;
+      humanWeight = 0.35;
+      patrolWeight = 0.42;
     }
   }
 
@@ -1474,6 +1514,31 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   const p = _scratchPos;
 
+  // * Spawn platform: force bots to drive toward the arena center until they roll
+  // * off the booth and land on the main floor. Prevents beeline suicide across
+  // * corner voids (Backrooms) or the center hole (Classic) at round start / respawn.
+  const onSpawnPlatform = p.y > CONFIG.booth.platformY - 0.5;
+  if (onSpawnPlatform) {
+    cart.aiTarget = { x: 0, z: 0 };
+    cart.aiNextDecisionMs = now + 200;
+    cart.aiLastProgressMs = now;
+    cart.aiLastDistToTarget = Math.hypot(p.x, p.z);
+    if (p.y < CONFIG.booth.platformY + 0.5) {
+      // * Still on/near the booth deck — nudge forward with a gentle random swerve
+      // * so bots don't sit idle or drive in a perfect straight line off the lip.
+      const toCenterX = -p.x;
+      const toCenterZ = -p.z;
+      const toCenterLen = Math.hypot(toCenterX, toCenterZ) || 1;
+      const toTarget = _aiToTarget.set(toCenterX / toCenterLen, 0, toCenterZ / toCenterLen);
+      const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
+      const currentYaw = yawFromQuaternion(_scratchRot);
+      const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
+      const swerve = Math.sin(now * 0.0015 + (cart.slotIndex || 0) * 1.9) * 0.25;
+      return { forward: 0.85, turn: clamp(yawDiff * 0.8 + swerve, -1, 1) };
+    }
+    // * Already dropped — let the normal AI pick a real target this tick.
+  }
+
   // * Backrooms: re-route only when the path actually crosses a void (not wide safety bubbles).
   if (_levelHazards?.arenaHalf != null) {
     const { cheb, hole } = nearestSquareHole(p.x, p.z);
@@ -1509,7 +1574,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   if (now >= cart.aiNextDecisionMs) {
     cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
-    cart.aiNextDecisionMs = now + (onBackrooms ? 520 + Math.random() * 520 : 800 + Math.random() * 1200);
+    cart.aiNextDecisionMs = now + (300 + Math.random() * 500);
     cart.aiSteerGain = 1.0 + Math.random() * 0.5;
     cart.aiLastProgressMs = now;
     cart.aiLastDistToTarget = Infinity;
@@ -1526,7 +1591,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   if (distToTarget < 0.5) {
     cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
-    cart.aiNextDecisionMs = now + (onBackrooms ? 520 + Math.random() * 520 : 800 + Math.random() * 1200);
+    cart.aiNextDecisionMs = now + (300 + Math.random() * 500);
     cart.aiLastProgressMs = now;
     toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
   }
@@ -1539,15 +1604,35 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   cart.aiLastDistToTarget = distToTarget;
 
   const stuckForMs = now - cart.aiLastProgressMs;
-  const isStuck = speed < 1.4 && stuckForMs > 1100 && distToTarget > 2.0;
+  const isStuck = speed < 1.4 && stuckForMs > 1100;
   const isClose = distToTarget < 2.8;
 
   if (now >= cart.aiReverseUntilMs && (isStuck || isClose)) {
     const reverseChance = isStuck
-      ? (stuckForMs > 2500 ? 0.85 : 0.45)
-      : 0.12;
-    if (Math.random() < reverseChance) {
-      cart.aiReverseUntilMs = now + (450 + Math.random() * 650);
+      ? (stuckForMs > 2500 ? 0.90 : 0.65)
+      : 0.25;
+
+    // * Hazard proximity gate — forbid reverse when near a death edge to avoid
+    // * backing the cart into a hole / void it can't see.
+    let nearHazard = false;
+    if (_levelHazards?.arenaHalf != null) {
+      // * Backrooms: check distance to nearest square corner void.
+      const { cheb } = nearestSquareHole(p.x, p.z);
+      const keepOut = squareHoleKeepOutRadius(0);
+      nearHazard = cheb < keepOut + 3.0;
+    } else if (CONFIG.record.centerHole?.enabled !== false) {
+      // * Classic: check distance to center-hole physics lip.
+      const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+      nearHazard = Math.hypot(p.x, p.z) < holeLip + 3.0;
+    }
+
+    if (Math.random() < reverseChance && !nearHazard) {
+      cart.aiReverseUntilMs = now + (600 + Math.random() * 900);
+      // * When reversing near a hazard, drive forward/away instead of a new random target.
+      cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
+      toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+    } else if (nearHazard) {
+      // * Too close to an edge to reverse — pick a target that pulls the bot away.
       cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
@@ -1558,10 +1643,53 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   }
   toTarget.normalize();
 
-  // * Square-void levels (Backrooms): steer the heading away from nearby corner holes.
+  // * Steer the heading away from arena hazards (hole voids, center pit, furniture).
   if (_levelHazards) {
+    // * Backrooms: square-void keep-out zones + circular furniture avoidance.
     applySquareHoleAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
     applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
+  } else if (CONFIG.record.centerHole?.enabled !== false) {
+    // * Classic Record: reactive radial push away from the center hole.
+    applyClassicCenterHoleAvoidance(p.x, p.z, toTarget);
+  }
+
+  // * Avoidance commitment — when a bot is in the hazard avoidance band and its speed
+  // * drops below 2.0 m/s (oscillating), lock it onto a tangent escape vector for 1.5s
+  // * to break the loop: drive away cleanly before turning back to chase.
+  let inAvoidanceBand = false;
+  if (_levelHazards?.arenaHalf != null) {
+    const { cheb } = nearestSquareHole(p.x, p.z);
+    const edge = _levelHazards.half + _levelHazards.avoidMargin;
+    const band = _levelHazards.influenceBand;
+    inAvoidanceBand = cheb < edge + band;
+  } else if (CONFIG.record.centerHole?.enabled !== false) {
+    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+    const band = 4.5;
+    inAvoidanceBand = Math.hypot(p.x, p.z) < holeLip + band;
+  }
+
+  const lvScratch = _scratchLinvel;
+  const speedCheck = Math.hypot(lvScratch.x, lvScratch.z);
+  if (inAvoidanceBand && speedCheck < 2.0 && now >= cart.aiAvoidanceCommitUntilMs) {
+    cart.aiAvoidanceCommitUntilMs = now + 1500;
+  }
+
+  if (now < cart.aiAvoidanceCommitUntilMs) {
+    // * Lock to tangent escape — perpendicular to radial direction from nearest hazard.
+    let escapeX, escapeZ;
+    if (_levelHazards?.arenaHalf != null) {
+      const { hole } = nearestSquareHole(p.x, p.z);
+      const dx = p.x - hole.x;
+      const dz = p.z - hole.z;
+      const dist = Math.hypot(dx, dz) || 1;
+      escapeX = -dz / dist;
+      escapeZ = dx / dist;
+    } else {
+      const dist = Math.hypot(p.x, p.z) || 1;
+      escapeX = -p.z / dist;
+      escapeZ = p.x / dist;
+    }
+    toTarget.set(escapeX, 0, escapeZ);
   }
 
   const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
@@ -1579,12 +1707,11 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     };
   }
 
-  // * Continuous throttle trim: ease from full (1.0) down to 0.25 as the heading
-  // * error grows across [2.0, 3.0] rad — replaces the hard > 2.85 step that
-  // * caused bots to jerk acceleration when swinging around.
+  // * Continuous throttle trim: ease from full (1.0) down to 0.6 as the heading
+  // * error grows across [2.0, 3.0] rad — keeps bots driving while turning.
   const absYawDiff = Math.abs(yawDiff);
   const yawThrottleBlend = THREE.MathUtils.smoothstep(absYawDiff, 2.0, 3.0);
-  let forward = THREE.MathUtils.lerp(1, 0.25, yawThrottleBlend);
+  let forward = THREE.MathUtils.lerp(1, 0.6, yawThrottleBlend);
   if (onBackrooms) {
     const { cheb } = nearestSquareHole(p.x, p.z);
     const lip = squareHoleKeepOutRadius(0);
@@ -1592,11 +1719,11 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       const t = clamp((lip + 0.55 - cheb) / 0.55, 0, 1);
       forward *= 1 - t * 0.42;
     }
-    // * Smoothly ease throttle down to 0.55 across the inner lip band [lip, lip+0.12]
+    // * Smoothly ease throttle down to 0.6 across the inner lip band [lip, lip+0.12]
     // * instead of a hard Math.min clamp — prevents snap deceleration at the lip edge.
     if (cheb < lip + 0.12) {
       const lipBlend = THREE.MathUtils.smoothstep(cheb, lip, lip + 0.12);
-      forward = THREE.MathUtils.lerp(0.55, forward, lipBlend);
+      forward = THREE.MathUtils.lerp(0.6, forward, lipBlend);
     }
   }
   return { forward, turn };
@@ -1812,7 +1939,8 @@ export function runFixedPhysicsStep({
       // * which iterate OTHER carts via their own .translation() calls — those do not
       // * touch _scratchPos, so this NPC's cached state survives the AI decision pass.
       readBodyStateIntoScratch(npc);
-      const aiAxis = getAiAxis(now, npc);
+      const canDrive = GameState.getRoundState().phase === "running";
+      const aiAxis = canDrive ? getAiAxis(now, npc) : { forward: 0, turn: 0 };
       applyArcadeControls(npc, aiAxis, dt, now, callbacks);
     }
   }

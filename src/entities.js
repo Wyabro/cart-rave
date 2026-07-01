@@ -85,6 +85,7 @@ function createCartBody(world, spawn, spawnYaw) {
 
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
+      .setCcdEnabled(true)
       .setTranslation(spawn.x, spawn.y, spawn.z)
       .setLinearDamping(CONFIG.cart.linearDamping)
       .setAngularDamping(CONFIG.cart.angularDamping),

@@ -107,14 +107,30 @@ function updateCartIdleWatch(deps, nowMs, cart, pos) {
   const planarSpeed = Math.hypot(lv.x, lv.z);
   const moved = Math.hypot(pos.x - cart.idleAnchorX, pos.z - cart.idleAnchorZ);
 
-  if (planarSpeed > stuckCfg.maxPlanarSpeedMps || moved > stuckCfg.positionRadiusM) {
+  // * Reset the stuck timer only when the cart has meaningfully moved from its
+  // * anchor position (0.45 m). Instantaneous planarSpeed alone would reset the
+  // * timer on every physics micro-bounce for carts wedged against geometry.
+  if (moved > stuckCfg.positionRadiusM) {
     cart.idleAnchorX = pos.x;
     cart.idleAnchorZ = pos.z;
     cart.idleStillSinceMs = nowMs;
     return;
   }
 
-  if (!cart.idleStillSinceMs) {
+  // * Also reset if the cart clearly has sustained velocity well above the
+  // * stuck threshold — guards against the edge case where a cart barely drifts
+  // * without building enough net displacement.
+  if (planarSpeed > 2.0) {
+    cart.idleAnchorX = pos.x;
+    cart.idleAnchorZ = pos.z;
+    cart.idleStillSinceMs = nowMs;
+    return;
+  }
+
+  // * Initialize the stuck timer on the first frame when movement stops.
+  // * idleStillSinceMs starts as 0 (falsy) at cart creation and after
+  // * resetCartIdleWatch sets it to -Infinity (also falsy but checked as <= 0).
+  if (!cart.idleStillSinceMs || cart.idleStillSinceMs <= 0) {
     cart.idleStillSinceMs = nowMs;
   }
 

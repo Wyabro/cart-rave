@@ -222,14 +222,14 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   }
 
   // Dynamic wheel loop: continuous engine sound scaled by planar cart speed.
-  // * Volume maps 0 → 0.8, pitch maps 0.8 → 1.3 playback rate.
-  // * Only plays when planar speed > 0.5 m/s; fades out cleanly below threshold.
+  // * Volume maps 0 → 0.4, pitch maps 0.8 → 1.3 playback rate.
+  // * Only plays when planar speed > 1.0 m/s; cuts off instantly below threshold.
   // * Uses _visLinvel cached by readBodyStateIntoVisScratch during the cart sync loop.
   if (!deps.isMenuVisible() && roundState.phase === "running") {
     const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
     if (c && c.body) {
       const speed = Math.hypot(_visLinvel.x, _visLinvel.z);
-      if (speed > 0.5) {
+      if (speed > 1.0) {
         AudioManager.updateWheelLoop(speed, deps.CONFIG.driving.maxSpeed, dt);
       } else {
         AudioManager.stopWheelLoop();

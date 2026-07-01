@@ -458,9 +458,9 @@ export function startWheelLoop() {
 /**
  * Update the wheel loop volume and pitch based on the cart's current planar speed.
  * Auto-starts the loop on first call if not yet playing.
- * Caller must gate: only call when speed > 0.5 m/s; stopWheelLoop() otherwise.
+ * Caller must gate: only call when speed > 1.0 m/s; stopWheelLoop() otherwise.
  *
- * Volume maps 0 → 0, maxSpeed → 0.8 (linear, clamped, scaled by _sfxVol and _wheelLoopVolumeScale).
+ * Volume maps 0 → 0, maxSpeed → 0.4 (linear, clamped, scaled by _sfxVol and _wheelLoopVolumeScale).
  * Pitch maps 0 → 0.8 playback rate, maxSpeed → 1.3 (linear, clamped).
  * Both transitions use frame-rate-independent lerp for smooth analog feel.
  *
@@ -477,7 +477,7 @@ export function updateWheelLoop(speed, maxSpeed, dt) {
   }
 
   const t = Math.max(0, Math.min(1, speed / maxSpeed));
-  const targetVolume = _isMuted ? 0 : t * 0.8 * _sfxVol * _wheelLoopVolumeScale;
+  const targetVolume = _isMuted ? 0 : t * 0.4 * _sfxVol * _wheelLoopVolumeScale;
   const targetRate = 0.8 + t * 0.5;
 
   // * Frame-rate independent lerp: matches 0.15 factor at 60 fps.
@@ -494,21 +494,17 @@ export function updateWheelLoop(speed, maxSpeed, dt) {
 }
 
 /**
- * Fade the wheel loop to silence and stop playback. Call when the round ends
- * or the local cart dies. Safe to call repeatedly (no-op after first stop).
+ * Instantly cuts the wheel loop when speed drops below 1.0 m/s.
+ * Safe to call repeatedly (no-op after first stop).
  */
 export function stopWheelLoop() {
   if (!wheelLoopHowl || wheelLoopId == null) return;
   const id = wheelLoopId;
   wheelLoopId = null;
   try {
-    const currentVol = wheelLoopHowl.volume(id) || wheelLoopCurrentVolume;
-    wheelLoopHowl.fade(currentVol, 0, 200, id);
-    setTimeout(() => {
-      try { wheelLoopHowl?.stop(id); } catch {}
-    }, 250);
+    wheelLoopHowl.stop(id);
   } catch {
-    try { wheelLoopHowl.stop(id); } catch {}
+    // Sound may have been unloaded between frames.
   }
 }
 

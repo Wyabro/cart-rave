@@ -83,7 +83,7 @@ const physics = {
     linearDamping: 0.6, // 1/s — light, agile coast
     angularDamping: 1.2, // 1/s — tippy but not endless spin
     maxPitchRoll: 4.5, // rad/s — reference limit; sim clamp disabled for V1 tipping
-    visualOffset: 0.82, // meters — mesh Y offset from body origin
+    visualOffset: 0.72, // meters — mesh Y offset from body origin (moved down 0.1 from 0.82 so wheels sit flush without collider offset)
     collider: {
       hyReduction: 0.25, // meters — subtract from half-height for physics collider
       localYOffset: 0.13, // meters — collider translation Y in body space
@@ -120,9 +120,9 @@ const physics = {
       streakPulseHz: 12, // Hz — subtle shimmer on active streaks
       npc: {
         enabled: true,
-        alignmentAngleDeg: 13.2, // degrees — aim cone toward target
-        minTargetDistance: 3.6, // meters
-        maxTargetDistance: 19.8, // meters
+        alignmentAngleDeg: 40, // degrees — aim cone toward target
+        minTargetDistance: 5.0, // meters
+        maxTargetDistance: 12.0, // meters
       },
 
       // * Auto-Charge Boost — tap to charge, auto-releases at full charge.
@@ -220,7 +220,7 @@ const physics = {
     neonColor1: 0xff2bd6,
     neonColor2: 0x2bd6ff,
     neonCycleSpeed: 0.4, // cycles/s — booth neon pulse
-    friction: 2.0, // unitless
+    friction: 1.2, // unitless
     restitution: 0.0, // unitless
   },
 };
