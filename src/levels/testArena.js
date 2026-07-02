@@ -1,7 +1,7 @@
 // testArena.js — flat open floor for driving tuning (test drive mode)
 
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial } from "../scene.js";
 
 const FLOOR_HALF = 28;

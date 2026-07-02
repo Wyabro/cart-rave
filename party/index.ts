@@ -954,21 +954,20 @@ export class CartRaveServer extends Server {
     }
   }
 
-  // @ts-expect-error - parameter order swapped vs base class; PartyKit dispatches correctly at runtime
-  onMessage(message: string, conn: Connection) {
+  onMessage(connection: Connection, message: string) {
     // Security: Block massive payload bombs before trying to parse
     if (message.length > 4096) {
-      conn.close(4009, "Payload too large");
+      connection.close(4009, "Payload too large");
       return;
     }
 
-    if (!this.#checkRateLimit(conn.id)) {
-      conn.close(4028, "Rate limit exceeded");
+    if (!this.#checkRateLimit(connection.id)) {
+      connection.close(4028, "Rate limit exceeded");
       return;
     }
 
     const now = this.#serverNowMs();
-    this.#lastSeenAtMs.set(conn.id, now);
+    this.#lastSeenAtMs.set(connection.id, now);
     if (now - this.#lastReapAtMs >= REAP_THROTTLE_MS) {
       this.#reapSilentConnections();
     }
@@ -987,10 +986,10 @@ export class CartRaveServer extends Server {
       const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
       if (name) {
         this.#ensureInitialized();
-        if (this.#pendingPickers.has(conn.id)) {
-          this.#pendingNames.set(conn.id, name.slice(0, 24));
+        if (this.#pendingPickers.has(connection.id)) {
+          this.#pendingNames.set(connection.id, name.slice(0, 24));
         }
-        const slot = this.#slots!.find((s) => s.connId === conn.id);
+        const slot = this.#slots!.find((s) => s.connId === connection.id);
         if (slot) slot.name = name.slice(0, 24);
       }
 
@@ -1000,7 +999,7 @@ export class CartRaveServer extends Server {
         // Exorcise ghost: same clientId, different connId.
         let ghostConnId: string | null = null;
         for (const [id, cid] of this.#connClientId.entries()) {
-          if (id !== conn.id && cid === clientId) {
+          if (id !== connection.id && cid === clientId) {
             ghostConnId = id;
             break;
           }
@@ -1035,14 +1034,14 @@ export class CartRaveServer extends Server {
           }
         }
 
-        this.#connClientId.set(conn.id, clientId);
+        this.#connClientId.set(connection.id, clientId);
       }
 
-      if (this.#rejectPendingConnIfRoomFull(conn)) return;
+      if (this.#rejectPendingConnIfRoomFull(connection)) return;
 
       let slotsDirty = ghostHumanExorcised;
       if (name) {
-        const assigned = this.#slots!.find((s) => s.connId === conn.id);
+        const assigned = this.#slots!.find((s) => s.connId === connection.id);
         if (assigned) slotsDirty = true;
       }
 
@@ -1069,26 +1068,26 @@ export class CartRaveServer extends Server {
       const requestedColor = typeof data?.color === "string" ? data.color.trim() : "";
 
       let assignedFromPending = false;
-      if (this.#pendingPickers.has(conn.id)) {
+      if (this.#pendingPickers.has(connection.id)) {
         const pickColor = PALETTE.includes(requestedColor as (typeof PALETTE)[number])
           ? requestedColor
           : undefined;
-        if (!this.#assignHumanToSlot(conn.id, pickColor)) {
-          this.#rejectPendingConn(conn, 4004, "Room full");
+        if (!this.#assignHumanToSlot(connection.id, pickColor)) {
+          this.#rejectPendingConn(connection, 4004, "Room full");
           return;
         }
         assignedFromPending = true;
-        this.#pendingPickers.delete(conn.id);
-        this.#pendingPickerAtMs.delete(conn.id);
-        const pendingName = this.#pendingNames.get(conn.id);
+        this.#pendingPickers.delete(connection.id);
+        this.#pendingPickerAtMs.delete(connection.id);
+        const pendingName = this.#pendingNames.get(connection.id);
         if (pendingName) {
-          const assigned = this.#slots!.find((s) => s.connId === conn.id);
+          const assigned = this.#slots!.find((s) => s.connId === connection.id);
           if (assigned) assigned.name = pendingName.slice(0, 24);
         }
-        this.#pendingNames.delete(conn.id);
+        this.#pendingNames.delete(connection.id);
       }
 
-      const slot = this.#slots?.find((s) => s.connId === conn.id);
+      const slot = this.#slots?.find((s) => s.connId === connection.id);
       if (!slot) return;
 
       let color = requestedColor;
@@ -1129,7 +1128,7 @@ export class CartRaveServer extends Server {
     }
 
     if (type === MSG.cartLook) {
-      const slot = this.#slots?.find((s) => s.connId === conn.id);
+      const slot = this.#slots?.find((s) => s.connId === connection.id);
       if (!slot || slot.kind !== "human") return;
       const lookHex = this.#normalizeLookHex(data?.lookHex);
       if (lookHex === null) return;
@@ -1144,7 +1143,7 @@ export class CartRaveServer extends Server {
     }
 
     if (type === MSG.readyToggle) {
-      const slot = this.#slots?.find((s) => s.connId === conn.id);
+      const slot = this.#slots?.find((s) => s.connId === connection.id);
       if (slot && slot.kind === "human") {
         slot.isReady = !slot.isReady;
 
@@ -1175,7 +1174,7 @@ export class CartRaveServer extends Server {
     }
 
     if (type === MSG.playAgain) {
-      if (conn.id !== this.#hostId) return;
+      if (connection.id !== this.#hostId) return;
       if (this.#countdownTimerHandle !== null) {
         clearTimeout(this.#countdownTimerHandle);
         this.#countdownTimerHandle = null;
@@ -1200,7 +1199,7 @@ export class CartRaveServer extends Server {
 
     if (type === MSG.clientInput) {
       // Security: prevent connId spoofing by forcing sender id.
-      data.connId = conn.id;
+      data.connId = connection.id;
       // Clamp inputs before relaying to host.
       const throttle = this.#clamp(data?.input?.throttle, -1, 1);
       const steer = this.#clamp(data?.input?.steer, -1, 1);
@@ -1221,7 +1220,7 @@ export class CartRaveServer extends Server {
 
     if (type === MSG.hostTransform) {
       // Security: host-only.
-      if (conn.id !== this.#hostId) return;
+      if (connection.id !== this.#hostId) return;
       const seq = typeof data?.seq === "number" ? data.seq : null;
       if (seq === null) return;
       if (seq <= this.#lastSeq) return;
@@ -1271,7 +1270,7 @@ export class CartRaveServer extends Server {
           if (!c) continue;
           if (!validateCartState(c)) {
             // eslint-disable-next-line no-console
-            console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart ${i}`);
+            console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart ${i}`);
             continue;
           }
           sanitized[i] = c;
@@ -1287,7 +1286,7 @@ export class CartRaveServer extends Server {
             const c = (carts as any)[id];
             if (!validateCartState(c)) {
               // eslint-disable-next-line no-console
-              console.warn(`[cart-rave] hostTransform rejected cart payload from ${conn.id} for cart "${id}"`);
+              console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart "${id}"`);
               continue;
             }
             sanitized[slotIndex] = c;
@@ -1313,7 +1312,7 @@ export class CartRaveServer extends Server {
 
     if (type === MSG.hostRound) {
       // Security: host-only; server validates transitions and podium results.
-      if (conn.id !== this.#hostId) return;
+      if (connection.id !== this.#hostId) return;
       const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
       if (!validated) return;
       this.#round = validated;
@@ -1323,7 +1322,7 @@ export class CartRaveServer extends Server {
     }
 
     if (type === MSG.hostEventCollision) {
-      if (conn.id !== this.#hostId) return;
+      if (connection.id !== this.#hostId) return;
       const slotA = validateCollisionSlot(data?.slotA);
       const slotB = validateCollisionSlot(data?.slotB);
       const intensity = data?.intensity;
@@ -1353,7 +1352,7 @@ export class CartRaveServer extends Server {
 
     if (type === MSG.hostEventFall) {
       // Security: host-only; verb is whitelisted for kill-feed safety.
-      if (conn.id !== this.#hostId) return;
+      if (connection.id !== this.#hostId) return;
       const verbRaw = typeof data?.verb === "string" ? data.verb.trim().toUpperCase() : "";
       const verb = ALLOWED_FALL_VERBS.has(verbRaw) ? verbRaw : (verbRaw ? "RAMMED" : "FELL OFF");
       this.#broadcastJson({
@@ -1374,6 +1373,16 @@ export class CartRaveServer extends Server {
 
 export default {
   async fetch(request: Request, env: Record<string, unknown>): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname.includes("/api/log-error")) {
+      try {
+        const body = await request.json();
+        console.log("[cart-rave] client error:", JSON.stringify(body));
+      } catch {
+        // Body may be empty or malformed; ignore.
+      }
+      return new Response(null, { status: 204 });
+    }
     return routePartykitRequest(request, env);
   },
 };

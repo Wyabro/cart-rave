@@ -17,7 +17,7 @@
 
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
 

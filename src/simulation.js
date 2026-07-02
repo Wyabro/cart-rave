@@ -1,7 +1,7 @@
 // simulation.js — core physics + arcade driving simulation (extracted)
 
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER } from "./physics/rapierInstance.js";
 import { CONFIG, BASELINE_CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";

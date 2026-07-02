@@ -573,6 +573,8 @@
   </script>
   <script>
     (function () {
+      window.__cartRaveMainReady = false;
+
       function revealAppShellEarly() {
         document.body.classList.remove("cr-boot-pending");
         var root = document.getElementById("cr-root");
@@ -687,8 +689,13 @@
       document.addEventListener("DOMContentLoaded", function () {
         // * Defer splash shedding so dismissInitialBootSplash in the main JS bundle
         // * has time to enforce MIN_BOOT_MS=3000 and the bar-to-100% flourish.
-        // * If the bundle never loads, this fallback still cleans up after ~3.5 s.
+        // * If the bundle never loads, this fallback checks the ready flag before cleaning up.
         setTimeout(function () {
+          if (!window.__cartRaveMainReady) {
+            var statusEl = document.getElementById('cr-boot-msg');
+            if (statusEl) statusEl.textContent = 'Taking longer than expected...';
+            return;
+          }
           window.__cartRaveShedBootSplash?.();
         }, 3500);
       });

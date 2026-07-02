@@ -21,7 +21,7 @@ import "./cart-rave-menu.css";
 import * as THREE from "three";
 import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode, updateViewport as updateSceneViewport } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER, initRapier } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
 import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
@@ -101,6 +101,7 @@ import {
   clamp,
   isLowQualityMode,
   isTouchDevice,
+  setLowQualityMode,
 } from "./utils.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
@@ -466,7 +467,8 @@ function enableModeMenuButtons() {
 async function main() {
   initLoadingScreen();
   // * Dismiss boot splash before scene init — initMenu() may return early on ?room= URLs.
-  // * Rapier WASM init is deferred until play/arena need (see ensureRapierPhysics).
+  // * Rapier WASM is loaded lazily via dynamic import in ensureRapierPhysics, keeping
+  // * the boot critical path clean.
   void dismissInitialBootSplash();
   document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
   loadPlayerCustomization();
@@ -1170,6 +1172,21 @@ async function main() {
     }
   }
 
+  const handleLowQualityToggle = async (next) => {
+    // * Close Esc overlay first so it doesn't persist across the rebuild.
+    HUD.hideEscOverlay();
+    setLowQualityMode(next);
+    // * Show loading overlay with quality-apply copy, then rebuild in-place.
+    showQualityApplyLoading();
+    await yieldForPaint();
+    try {
+      await rebuildForQualityChange();
+    } catch (err) {
+      console.error("[CartRave] quality rebuild failed:", err);
+    }
+    dismissAllLoadingOverlays();
+  };
+
   hud = HUD.init({
     getIsMuted: () => isMuted,
     setIsMuted: (val) => { setAllAudioMuted(val); },
@@ -1208,19 +1225,7 @@ async function main() {
       }
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
-    onLowQualityToggle: async (_next) => {
-      // * Close Esc overlay first so it doesn't persist across the rebuild.
-      HUD.hideEscOverlay();
-      // * Show loading overlay with quality-apply copy, then rebuild in-place.
-      showQualityApplyLoading();
-      await yieldForPaint();
-      try {
-        await rebuildForQualityChange();
-      } catch (err) {
-        console.error("[CartRave] quality rebuild failed:", err);
-      }
-      dismissAllLoadingOverlays();
-    },
+    onLowQualityToggle: handleLowQualityToggle,
   });
   const resultsUi = initResultsOverlay({
     onMainMenuClick: () => {
@@ -1277,16 +1282,16 @@ async function main() {
 
   /**
    * Creates the Rapier physics world on first need.
-   * The standard @dimforge/rapier3d package loads WASM synchronously
-   * at module import time — no async init() required.
+   * WASM is loaded lazily via initRapier() dynamic import — defers
+   * the ~1.5 MB WASM fetch/compile off the boot critical path.
    * @returns {Promise<void>}
    */
-  function ensureRapierPhysics() {
+  async function ensureRapierPhysics() {
     if (!world) {
+      await initRapier();
       world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
       eventQueue = new RAPIER.EventQueue(true);
     }
-    return Promise.resolve();
   }
 
   let recordMesh = null;
@@ -2569,7 +2574,7 @@ async function main() {
     shouldSkipTiming: () => menuVisible,
     onFrame(frameCtx) {
     gameCtx.setFrameCtx(frameCtx);
-    const isUiActive = menuVisible || HUD.isEscOverlayVisible();
+    const isUiActive = menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium";
     setGamepadUiMode(isUiActive);
     setGamepadNavActive(isUiActive);
     const { now, loopState } = frameCtx;
@@ -2698,8 +2703,18 @@ async function main() {
     },
   });
 
+  // * Expose bridge functions for cart-rave-menu.js to toggle GFX/quality live.
+  window.__cartRave_togglePostFx = (next) => {
+    bloomEnabled = next;
+    fxPassEnabled = next;
+    try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch (e) {}
+    try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch (e) {}
+  };
+  window.__cartRave_toggleLowQuality = handleLowQualityToggle;
+
   window.addEventListener("resize", updateViewport);
   enableModeMenuButtons();
+  window.__cartRaveMainReady = true;
   window.__cartRaveBootstrapped = true;
   window.__cartRaveCancelBootError?.();
   document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");

@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER } from "./physics/rapierInstance.js";
 import { createPhysicalMaterial } from "./scene.js";
 import { isLowQualityMode } from "./utils.js";
 

@@ -676,7 +676,6 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
   } else if (type === "edge") {
     count = Math.floor(6 + clampedI * 10);
   } else {
-    // @ts-expect-error THREE duck-typing suppress
     const base = fx.particleCountBase ?? 8;
     const perI = fx.particleCountPerIntensity ?? 16;
     const boostBonus = isBoosting ? (fx.particleBoostCountBonus ?? 5) : 0;
@@ -697,7 +696,7 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     if (p.visible) continue;
     p.position.set(position.x, position.y + (type === "floor" ? 0.05 : 0.5), position.z);
     p.userData.baseScale = sizeMul * (0.92 + Math.random() * 0.16);
-    p.scale.setScalar(p.userData.baseScale);
+    p.scale.setScalar(p.userData.baseScale * (isBackroomsFloor ? 0.5 : 1.0));
     if (type === "floor") {
       const colors = isBackroomsFloor
         ? BACKROOMS_FLOOR_DUST_COLORS

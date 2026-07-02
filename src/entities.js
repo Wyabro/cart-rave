@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER } from "./physics/rapierInstance.js";
 import { buildCart } from "./cart.js";
 import { normalizeThemeId } from "./cartThemeConfig.js";
 import {

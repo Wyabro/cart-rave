@@ -4,7 +4,7 @@
  */
 
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d";
+import { RAPIER } from "./physics/rapierInstance.js";
 
 // * Single reusable ray for camera-wall avoidance — avoids per-frame GC churn.
 const _cameraRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });

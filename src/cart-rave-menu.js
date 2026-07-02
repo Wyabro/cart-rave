@@ -20,7 +20,7 @@ import {
 } from "./cartThemeConfig.js";
 import { CartPreview } from "./ui/cartPreview.js";
 import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
-import { isLowQualityMode, setLowQualityMode } from "./utils.js";
+import { isLowQualityMode } from "./utils.js";
 import { getRoundState } from "./gameState.js";
 
 (function () {
@@ -1008,6 +1008,7 @@ import { getRoundState } from "./gameState.js";
       const next = !getPostFxEnabled();
       try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch (e) {}
       try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch (e) {}
+      window.__cartRave_togglePostFx?.(next);
       syncGfxButtonStates();
     });
   }
@@ -1015,7 +1016,7 @@ import { getRoundState } from "./gameState.js";
   if (lqBtn) {
     lqBtn.addEventListener("click", () => {
       const next = !isLowQualityMode();
-      setLowQualityMode(next);
+      window.__cartRave_toggleLowQuality?.(next);
       syncGfxButtonStates();
     });
   }

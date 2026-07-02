@@ -798,6 +798,10 @@ export class CartPreview {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
+
+    if (this.cartGroup) {
+      frameCartInCamera(this.camera, this.cartGroup, w / h, this._zoomMultiplier);
+    }
   }
 
   /** @private */
