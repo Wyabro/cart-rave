@@ -2652,7 +2652,7 @@ async function main() {
     } else if (localCart?.isSuddenDeathSpectator) {
       // * Spectator camera: local cart was knocked out during Sudden Death.
       // * Follow a tied cart (prefer human if available) so the player can watch the 1v1.
-      if (CameraMod.getCameraMode(camera) === CameraMode.DEATH) {
+      if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
         CameraMod.endDeathCamera(camera);
       }
       const allCartsArr = allCartsRef || [];

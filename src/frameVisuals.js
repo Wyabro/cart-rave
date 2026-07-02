@@ -336,8 +336,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const shakeIntensity = deps.getShakeIntensity();
   if (roundState.phase === "running" && performance.now() < shakeUntil) {
     const t = (shakeUntil - performance.now()) / 250;
-    const ox = (Math.random() - 0.5) * 2 * deps.shakeIntensity * t;
-    const oy = (Math.random() - 0.5) * 2 * deps.shakeIntensity * t;
+    const ox = (Math.random() - 0.5) * 2 * shakeIntensity * t;
+    const oy = (Math.random() - 0.5) * 2 * shakeIntensity * t;
     deps.canvas.style.transform = `translate(${ox}px, ${oy}px)`;
   } else {
     deps.canvas.style.transform = "";
@@ -347,9 +347,6 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   if (roundState.phase === "running" && performance.now() < fovPunchUntil) {
     const t = (fovPunchUntil - performance.now()) / 200;
     deps.camera.fov = deps.BASE_FOV - 8 * t;
-    deps.camera.updateProjectionMatrix();
-  } else if (deps.camera.fov !== deps.BASE_FOV) {
-    deps.camera.fov = deps.BASE_FOV;
     deps.camera.updateProjectionMatrix();
   }
 

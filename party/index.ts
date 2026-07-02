@@ -32,6 +32,7 @@ type RoundState = {
   countdownStartedAtMs: number;
   scores: Record<number, number>;
   endReason?: "timer" | "lastStanding" | null;
+  isSuddenDeath?: boolean;
   /** Server stamped on every broadcast round payload clients may trust for stats. */
   validated: true;
 };
@@ -107,7 +108,7 @@ const NPC_NAME_POOL = [
   "GreaseGremlin",
 ] as const;
 
-const ROUND_DURATION_MS = 60_000;
+const ROUND_DURATION_MS = 150_000;
 const MIN_RUNNING_BEFORE_PODIUM_MS = 3_000;
 const MAX_SCORE_PER_SLOT = 500;
 const PICKER_TIMEOUT_MS = 30_000;
@@ -553,7 +554,7 @@ export class CartRaveServer extends Server {
       }
 
       const computedWinner = this.#winnerFromScores(scores);
-      if (computedWinner === "draw") {
+      if (computedWinner === "draw" && endReason !== "lastStanding") {
         winnerSlotIndex = "draw";
         endReason = null;
       } else if (winnerRaw === "draw") {
@@ -582,6 +583,11 @@ export class CartRaveServer extends Server {
       endReason = null;
     }
 
+    const isSuddenDeath =
+      typeof (incoming as { isSuddenDeath?: unknown }).isSuddenDeath === "boolean"
+        ? (incoming as { isSuddenDeath?: boolean }).isSuddenDeath
+        : prev.isSuddenDeath ?? false;
+
     return {
       phase: nextPhase,
       winnerSlotIndex,
@@ -589,6 +595,7 @@ export class CartRaveServer extends Server {
       countdownStartedAtMs,
       scores,
       endReason,
+      isSuddenDeath,
       validated: true,
     };
   }
@@ -769,6 +776,10 @@ export class CartRaveServer extends Server {
       const wasHost = id === this.#hostId;
       const slot = this.#slots?.find((s) => s.connId === id);
       if (slot && slot.kind === "human") slotsChanged = true;
+      const conn = this.#connections.get(id);
+      if (conn) {
+        try { conn.close(); } catch {}
+      }
       this.#connections.delete(id);
       this.#removeFromJoinOrder(id);
       this.#lastSeenAtMs.delete(id);
@@ -804,14 +815,6 @@ export class CartRaveServer extends Server {
   }
 
   onConnect(conn: Connection, ctx: ConnectionContext) {
-    const ua = new URL(ctx.request.url).searchParams.get("_ua") ||
-      ctx.request.headers.get("user-agent") || "";
-    const mobileRe = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i;
-    if (mobileRe.test(ua)) {
-      conn.close(4003, "Mobile not supported");
-      return;
-    }
-
     // Security: Enforce connection rate limit per IP
     const ip = ctx.request.headers.get("cf-connecting-ip") || "unknown";
     const currentConnections = this.#ipConnectionCounts.get(ip) ?? 0;

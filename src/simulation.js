@@ -16,7 +16,7 @@ const _colliderMap = new Map();
 const _impulse = { x: 0, y: 0, z: 0 };
 const _torqueImpulse = { x: 0, y: 0, z: 0 };
 const _pendingRamStepImpulse = { x: 0, y: 0, z: 0 };
-const _remoteAxis = { forward: 0, turn: 0 };
+const _remoteAxis = { forward: 0, turn: 0, boostHeld: false };
 const _collisionCallbacks = { localCart: null };
 const _holeOverhangState = {
   floorInnerR: 0,
@@ -215,12 +215,7 @@ export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, co
  * * Visual hole stays at `CONFIG.record.innerRadius`; physics adds `holeClearance`.
  */
 function getRecordFloorInnerR() {
-  const innerR = CONFIG.record.innerRadius;
-  const holeClearance =
-    CONFIG.record.physics?.holeClearance ??
-    CONFIG.record.physics?.chamferWidth ??
-    0.45;
-  return innerR + holeClearance;
+  return CONFIG.record.innerRadius;
 }
 
 /**
@@ -815,7 +810,7 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
   const steps = CONFIG.ramming.spreadSteps;
   const ramTimeMs = performance.now();
   if (!victim.pendingRam) {
-    victim.pendingRam = { impulse, remainingSteps: steps };
+    victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
   } else {
     victim.pendingRam.impulse.x += impulse.x;
     victim.pendingRam.impulse.y += impulse.y;
@@ -840,7 +835,7 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
   if (isHost) {
     const slotA = rammer.slotIndex;
     const slotB = victim.slotIndex;
-    if (slotA >= 0 && slotB >= 0 && slotA < slotB) {
+    if (slotA >= 0 && slotB >= 0) {
       queueHostCollisionEvent({
         slotA,
         slotB,
@@ -1919,6 +1914,7 @@ export function runFixedPhysicsStep({
       if (!remoteCart || remoteCart.isSuddenDeathSpectator) continue;
       _remoteAxis.forward = input.throttle ?? 0;
       _remoteAxis.turn = input.steer ?? 0;
+      _remoteAxis.boostHeld = input.nitro ?? false;
       readBodyStateIntoScratch(remoteCart);
       applyArcadeControls(
         remoteCart,
@@ -1948,8 +1944,8 @@ export function runFixedPhysicsStep({
   // 4. Pending ramming impulses
   for (const cart of allCarts || []) {
     if (!cart?.pendingRam) continue;
-    const { impulse, remainingSteps } = cart.pendingRam;
-    const denom = Math.max(1, remainingSteps);
+    const { impulse, totalSteps } = cart.pendingRam;
+    const denom = Math.max(1, totalSteps);
     _pendingRamStepImpulse.x = impulse.x / denom;
     _pendingRamStepImpulse.y = impulse.y / denom;
     _pendingRamStepImpulse.z = impulse.z / denom;

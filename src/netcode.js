@@ -70,11 +70,10 @@ function reconcileSlotSnapshots(prev, incoming) {
   return incoming.map((s, i) => {
     const p = prev[i];
     if (!p || !s) return s;
+    // * When incoming says NPC for a slot that was previously human, overwrite
+    // * the stale slot so the NPC can take over — don't keep a ghost human.
     if (s.kind === "npc" && p.kind === "human" && p.connId) {
-      const humanStillLive = incoming.some(
-        (x) => x?.kind === "human" && x.connId === p.connId,
-      );
-      if (!humanStillLive) return p;
+      return s;
     }
     return s;
   });
@@ -864,7 +863,7 @@ export function startHostSendLoop() {
     lastCartsCache = carts;
     const collisions = drainHostCollisionBatch();
     const payload = {
-      type: MSG.state,
+      type: MSG.hostTransform,
       seq: hostSeq,
       serverNowMs: Date.now(),
       carts,
@@ -1205,6 +1204,12 @@ export function initNetcode(roomOverride) {
         GameState.setRoundStartedAtMs(msg.round.startedAtMs ?? state.startedAtMs);
         GameState.setRoundCountdownStartedAtMs(msg.round.countdownStartedAtMs ?? state.countdownStartedAtMs);
         GameState.setRoundWinnerSlotIndex(msg.round.winnerSlotIndex ?? state.winnerSlotIndex);
+        if (msg.round.scores && typeof msg.round.scores === "object") {
+          GameState.setRoundScores(msg.round.scores);
+        }
+        if (msg.round.endReason === "timer" || msg.round.endReason === "lastStanding" || msg.round.endReason == null) {
+          GameState.setRoundEndReason(msg.round.endReason ?? null);
+        }
       }
       if (GameState.getRoundState().phase === "running" && youConnId) {
         callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
@@ -1542,7 +1547,7 @@ export function broadcastHostTransform(carts) {
   hostSeq += 1;
   lastCartsCache = carts;
   partySocket.send(JSON.stringify({
-    type: MSG.state,
+    type: MSG.hostTransform,
     seq: hostSeq,
     serverNowMs: Date.now(),
     carts: lastCartsCache,

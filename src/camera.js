@@ -179,7 +179,7 @@ export function updateCamera(camera, localCart, dt, playerPos, playerRot, physic
       if (hit && hit.timeOfImpact >= minValidHit) {
         const hitDist = Math.max(minValidHit, hit.timeOfImpact - 0.3);
         if (hitDist < maxDist) {
-          desiredPos.copy(playerPosition).addScaledVector(rayDir, hitDist);
+          desiredPos.copy(rayOrigin).addScaledVector(rayDir, hitDist);
         }
       }
     }

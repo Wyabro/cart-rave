@@ -31,7 +31,6 @@ const physics = {
     thickness: 0.6, // meters — collider / mesh depth
     y: -0.3, // meters — floor center height
     rotationSpeedRadPerSec: 0.35, // rad/s — visual mesh spin
-    physicsSpinRadPerSec: 0.08, // rad/s — host-applied floor tangential push
     friction: 0.8, // unitless — high values catch on trimesh seams and cause grip-hop
     restitution: 0.05, // unitless — bounce on floor contact
     color: 0x050006,

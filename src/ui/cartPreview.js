@@ -150,6 +150,12 @@ export class CartPreview {
     /** @type {boolean} */
     this._disposed = false;
 
+    /** @type {boolean} */
+    this._isBuilding = false;
+
+    /** @type {boolean} */
+    this._needsRebuild = false;
+
     /** @type {number} */
     this._loadSeq = 0;
 
@@ -433,6 +439,11 @@ export class CartPreview {
   async _rebuildCart() {
     if (!this.scene) return;
 
+    if (this._isBuilding) {
+      this._needsRebuild = true;
+      return;
+    }
+
     if (normalizeThemeId(this._themeId) !== "rave") {
       this._rebuildProceduralCart();
       return;
@@ -461,6 +472,7 @@ export class CartPreview {
     }
     this._setLoadingState(!gltfCached);
 
+    this._isBuilding = true;
     try {
       const cart = await loadPreviewCartGltf(themeId, this._sunglassesStyle);
       if (
@@ -474,6 +486,11 @@ export class CartPreview {
           this.scene.add(retiringCart);
           this.cartGroup = retiringCart;
           this._gltfReady = true;
+        }
+        this._isBuilding = false;
+        if (this._needsRebuild) {
+          this._needsRebuild = false;
+          this._rebuildCart();
         }
         return;
       }
@@ -503,11 +520,22 @@ export class CartPreview {
         const { width, height } = this._getContentSize();
         frameCartInCamera(this.camera, cart, width / height);
       }
+
+      this._isBuilding = false;
+      if (this._needsRebuild) {
+        this._needsRebuild = false;
+        this._rebuildCart();
+      }
     } catch (err) {
       console.warn("[CartPreview] GLTF load failed — showing placeholder:", err);
       this._setLoadingState(false);
       if (this._placeholderMat) {
         applyPreviewPlaceholderColor(this._placeholderMat, this._neonHex);
+      }
+      this._isBuilding = false;
+      if (this._needsRebuild) {
+        this._needsRebuild = false;
+        this._rebuildCart();
       }
     }
   }
