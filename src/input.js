@@ -17,6 +17,121 @@ const movementCodes = new Set([
   "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight",
 ]);
 
+// --- Gamepad state ---
+let gamepadIndex = null;
+let gamepadAxis = { forward: 0, turn: 0 };
+let gamepadBoostHeld = false;
+let prevBtnStates = {};
+let _onEscape = null;
+let _onHop = null;
+let _onBoost = null;
+let _isUiMode = false;
+
+/**
+ * Toggles UI mode for gamepad input. When enabled, driving inputs (axes, boost, hop)
+ * are suppressed so D-Pad/A/Start can navigate menus instead.
+ * @param {boolean} enabled
+ */
+export function setUiMode(enabled) {
+  _isUiMode = enabled;
+  if (enabled) {
+    gamepadAxis = { forward: 0, turn: 0 };
+    gamepadBoostHeld = false;
+  }
+}
+
+window.addEventListener("gamepadconnected", (e) => {
+  console.log("Gamepad connected:", e.gamepad.id);
+  gamepadIndex = e.gamepad.index;
+});
+window.addEventListener("gamepaddisconnected", (e) => {
+  if (e.gamepad.index === gamepadIndex) {
+    gamepadIndex = null;
+    gamepadAxis = { forward: 0, turn: 0 };
+    gamepadBoostHeld = false;
+  }
+});
+
+// --- Gamepad polling ---
+function pollGamepad() {
+  if (gamepadIndex === null) return;
+  const pads = navigator.getGamepads();
+  const gp = pads[gamepadIndex];
+  if (!gp) return;
+
+  const deadzone = 0.1;
+  let lx = gp.axes[0] || 0;
+  let ly = gp.axes[1] || 0;
+
+  if (Math.abs(lx) < deadzone) lx = 0;
+  if (Math.abs(ly) < deadzone) ly = 0;
+
+  let f = -ly; // Push up = forward
+  let t = lx;  // Push right = turn right
+
+  // D-Pad overrides
+  if (gp.buttons[12]?.pressed) f = 1;
+  if (gp.buttons[13]?.pressed) f = -1;
+  if (gp.buttons[14]?.pressed) t = -1;
+  if (gp.buttons[15]?.pressed) t = 1;
+
+  gamepadAxis = { forward: f, turn: t };
+
+  if (_isUiMode) {
+    gamepadAxis = { forward: 0, turn: 0 };
+    gamepadBoostHeld = false;
+    // Still update prevBtnStates so we don't double-fire when exiting UI mode
+    const currBtnStates = {};
+    const isPressed = (idx) => {
+      const btn = gp.buttons[idx];
+      return btn && (btn.value > 0.5 || btn.pressed);
+    };
+    currBtnStates.boost = isPressed(7) || isPressed(0);
+    currBtnStates.hop = isPressed(6) || isPressed(1);
+    currBtnStates.menu = isPressed(9);
+    prevBtnStates = currBtnStates;
+    return;
+  }
+
+  const currBtnStates = {};
+  const isPressed = (idx) => {
+    const btn = gp.buttons[idx];
+    return btn && (btn.value > 0.5 || btn.pressed);
+  };
+
+  // Boost
+  const boostPressed = isPressed(7) || isPressed(0);
+  if (boostPressed && !gamepadBoostHeld) {
+    gamepadBoostHeld = true;
+    _onBoost?.();
+  } else if (!boostPressed && gamepadBoostHeld) {
+    gamepadBoostHeld = false;
+  }
+  currBtnStates.boost = boostPressed;
+
+  // Hop (One-shot)
+  const hopPressed = isPressed(6) || isPressed(1);
+  if (hopPressed && !prevBtnStates.hop) {
+    _onHop?.();
+  }
+  currBtnStates.hop = hopPressed;
+
+  // Escape / Menu (One-shot)
+  const menuPressed = isPressed(9);
+  if (menuPressed && !prevBtnStates.menu) {
+    _onEscape?.();
+  }
+  currBtnStates.menu = menuPressed;
+
+  prevBtnStates = currBtnStates;
+}
+
+function gamepadLoop() {
+  pollGamepad();
+  requestAnimationFrame(gamepadLoop);
+}
+gamepadLoop(); // Start the polling loop
+
 let localNitroHeld = false;
 /** @type {boolean} One-shot hop flag consumed by the client input send loop. */
 let hopRequested = false;
@@ -43,6 +158,10 @@ export function consumeHopRequest() {
  * @returns {{ getAxis: typeof getAxis, isNitroHeld: () => boolean }}
  */
 export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
+  _onEscape = onEscape;
+  _onHop = onHop;
+  _onBoost = onBoost;
+
   function onKeyDown(e) {
     if (e.code === "Escape") {
       e.preventDefault();
@@ -122,26 +241,26 @@ export function getAxis() {
   };
 
   const touch = getTouchAxis();
-  const boostHeld = localNitroHeld || isBoostHeld();
+  const boostHeld = localNitroHeld || isBoostHeld() || gamepadBoostHeld;
 
-  // * Joystick-active: per-axis max magnitude so a Bluetooth keyboard still works on tablets.
+  // Start with keyboard
+  let finalForward = keyboard.forward;
+  let finalTurn = keyboard.turn;
+
+  // Override with gamepad if active
+  if (Math.abs(gamepadAxis.forward) > 0) finalForward = gamepadAxis.forward;
+  if (Math.abs(gamepadAxis.turn) > 0) finalTurn = gamepadAxis.turn;
+
+  // Override with touch if active
   if (isJoystickActive()) {
-    return {
-      forward: Math.abs(touch.forward) >= Math.abs(keyboard.forward)
-        ? touch.forward
-        : keyboard.forward,
-      turn: Math.abs(touch.turn) >= Math.abs(keyboard.turn)
-        ? touch.turn
-        : keyboard.turn,
-      boostHeld,
-    };
+    finalForward = Math.abs(touch.forward) >= Math.abs(finalForward) ? touch.forward : finalForward;
+    finalTurn = Math.abs(touch.turn) >= Math.abs(finalTurn) ? touch.turn : finalTurn;
+  } else if (Math.abs(touch.forward) > 0 || Math.abs(touch.turn) > 0) {
+    finalForward = touch.forward;
+    finalTurn = touch.turn;
   }
 
-  if (Math.abs(touch.forward) > 0 || Math.abs(touch.turn) > 0) {
-    return { ...touch, boostHeld };
-  }
-
-  return { ...keyboard, boostHeld };
+  return { forward: finalForward, turn: finalTurn, boostHeld };
 }
 
 export { setupTouchControls, setTouchControlsVisible };

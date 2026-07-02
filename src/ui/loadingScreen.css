@@ -256,29 +256,6 @@
   display: none;
 }
 
-.cr-load--backrooms .cr-load__fluoro {
-  position: absolute;
-  inset: 0;
-  border: 2px solid rgba(200, 216, 106, 0.35);
-  border-radius: 2px;
-  background: repeating-linear-gradient(90deg, rgba(200, 216, 106, 0.04) 0 12px, rgba(0, 0, 0, 0.08) 12px 24px);
-  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.35);
-  animation: cr-load-backrooms-flicker 3.2s steps(1) infinite;
-}
-
-.cr-load--backrooms .cr-load__fluoro::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 0, 0, 0.12) 3px 4px);
-  pointer-events: none;
-}
-
-.cr-load--backrooms .cr-load__progress-fill {
-  background: linear-gradient(90deg, var(--cr-load-backrooms-dim), var(--cr-load-backrooms));
-  box-shadow: 0 0 10px rgba(200, 216, 106, 0.35);
-}
-
 .cr-load--backrooms .cr-load__scan {
   opacity: 0.12;
 }
@@ -325,4 +302,286 @@
   .cr-load__scan {
     animation: none !important;
   }
+}
+
+/* ── Boot splash cart crash animation ── */
+
+.cr-cart {
+  position: absolute;
+  bottom: 0;
+  width: 60px;
+  height: 40px;
+}
+
+/* Cart body — wireframe basket */
+.cart-basket {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 40px;
+  height: 20px;
+  border: 2px solid var(--cart-color);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 5px,
+    var(--cart-color) 5px,
+    var(--cart-color) 6px
+  ),
+  repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 5px,
+    var(--cart-color) 5px,
+    var(--cart-color) 6px
+  );
+  box-shadow: 0 0 8px var(--cart-color), inset 0 0 4px rgba(255,43,214,0.15);
+  opacity: 0.85;
+}
+
+/* Handle */
+.cart-handle {
+  position: absolute;
+  bottom: 22px;
+  right: 8px;
+  width: 4px;
+  height: 14px;
+  background: var(--cart-color);
+  border-radius: 2px;
+  transform: rotate(12deg);
+  box-shadow: 0 0 4px var(--cart-color);
+}
+
+/* Wheels */
+.cart-wheel {
+  position: absolute;
+  bottom: 2px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--cart-color);
+  border-radius: 50%;
+  background: #111;
+  box-shadow: 0 0 4px var(--cart-color);
+}
+.cart-wheel.front { left: 8px; }
+.cart-wheel.back { left: 32px; }
+
+/* Face & Sunglasses */
+.cart-face {
+  position: absolute;
+  bottom: 18px;
+  left: 2px;
+  width: 14px;
+  height: 10px;
+  z-index: 2;
+}
+.shades-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: #111;
+  border-radius: 2px 2px 0 0;
+}
+.shades-lens {
+  position: absolute;
+  top: 5px;
+  width: 6px;
+  height: 4px;
+  background: #111;
+}
+.shades-lens.left { left: 0; border-right: 1px solid var(--cart-color); }
+.shades-lens.right { right: 0; border-left: 1px solid var(--cart-color); }
+
+/* Right Cart (Magenta) */
+.cr-cart.right {
+  left: 0;
+  --cart-color: #ff2bd6;
+  animation: crash-right 1.4s ease-in-out infinite;
+}
+
+/* Left Cart (Cyan) — mirrored via scaleX(-1) */
+.cr-cart.left {
+  right: 0;
+  --cart-color: #22e6ff;
+  transform: scaleX(-1);
+  animation: crash-left 1.4s ease-in-out infinite;
+}
+
+/* Sparks on impact */
+.cr-boot-crash .cr-sparks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  background: radial-gradient(circle, #ff2bd6, #22e6ff, transparent 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: spark-flash 1.4s ease-in-out infinite;
+}
+
+/* Animations */
+@keyframes crash-right {
+  0%, 100% { transform: translateX(0); }
+  40% { transform: translateX(40px); }
+  45% { transform: translateX(45px); } /* Impact overlap */
+  50% { transform: translateX(35px); } /* Bounce back */
+  60% { transform: translateX(40px); }
+  80% { transform: translateX(0); }
+}
+@keyframes crash-left {
+  0%, 100% { transform: translateX(0) scaleX(-1); }
+  40% { transform: translateX(-40px) scaleX(-1); }
+  45% { transform: translateX(-45px) scaleX(-1); }
+  50% { transform: translateX(-35px) scaleX(-1); }
+  60% { transform: translateX(-40px) scaleX(-1); }
+  80% { transform: translateX(0) scaleX(-1); }
+}
+@keyframes spark-flash {
+  0%, 39%, 61%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
+  55% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
+
+/* Boot splash segmented bar */
+.cr-seg {
+  flex: 1;
+  height: 100%;
+  border-radius: 1px;
+  background: rgba(255,255,255,0.08);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.cr-seg.lit {
+  background: #ff2bd6;
+  box-shadow: 0 0 4px rgba(255,43,214,0.4);
+}
+
+/* Theme-colored lit segments for mode-entry overlay */
+.cr-load--classic .cr-seg.lit {
+  background: var(--cr-load-magenta);
+  box-shadow: 0 0 8px var(--cr-load-magenta);
+}
+
+.cr-load--backrooms .cr-seg.lit {
+  background: var(--cr-load-backrooms);
+  box-shadow: 0 0 8px var(--cr-load-backrooms);
+}
+
+/* Segmented bar for mode-entry overlay */
+.cr-seg-bar {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  height: 8px;
+}
+
+/* Smooth easing for the mode-entry bar */
+.cr-load__progress-fill {
+  transition: width 450ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Boot splash rotating message label */
+.cr-boot-msg {
+  font-size: clamp(8px, 2vw, 10px);
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.42);
+  text-align: center;
+  min-height: 1.2em;
+}
+
+/* ── Backrooms furniture pile visual ── */
+
+.cr-load__furniture {
+  position: relative;
+  width: 90px;
+  height: 100px; /* Increased height so the top box doesn't clip */
+  margin: 10px 0;
+  transform: rotate(-2deg);
+}
+.furn-box {
+  position: absolute;
+  border: 2px solid #1a1a1a;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.6), inset 2px 2px 4px rgba(255,255,255,0.1);
+  border-radius: 2px;
+}
+/* Base Box - centered (60px wide, left 15px) */
+.furn-box.b1 {
+  width: 60px;
+  height: 40px;
+  bottom: 0;
+  left: 15px;
+  background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
+}
+/* Mid Box - centered (50px wide, left 20px) */
+.furn-box.b2 {
+  width: 50px;
+  height: 35px;
+  bottom: 35px;
+  left: 20px;
+  transform: rotate(8deg);
+  background: linear-gradient(135deg, #b89968 0%, #8a6a3a 100%);
+}
+/* Top Box - centered (40px wide, left 25px) */
+.furn-box.b3 {
+  width: 40px;
+  height: 28px;
+  bottom: 62px;
+  left: 25px;
+  transform: rotate(-6deg);
+  background: linear-gradient(135deg, #c4a47a 0%, #9a7a4a 100%);
+}
+.furn-chair {
+  position: absolute;
+  bottom: 0px;
+  left: 20px; /* Moved left to overlap the boxes (which span 15px to 75px) */
+  width: 35px;
+  height: 45px;
+  transform: rotate(-5deg); 
+  z-index: 2; 
+}
+.chair-back {
+  position: absolute;
+  top: 0;
+  left: 7px; /* Centered in 35px width */
+  width: 21px;
+  height: 25px;
+  background: #2a2a2a;
+  border: 2px solid #111;
+  border-radius: 3px;
+}
+.chair-seat {
+  position: absolute;
+  top: 24px;
+  left: 2px; /* Wider than the back */
+  width: 31px;
+  height: 6px;
+  background: #3a3a3a;
+  border: 2px solid #111;
+  border-radius: 2px;
+}
+.chair-leg {
+  position: absolute;
+  top: 30px;
+  width: 4px;
+  height: 14px;
+  background: #2a2a2a;
+  border-left: 1px solid #111;
+  border-right: 1px solid #111;
+}
+.chair-leg.left { left: 4px; }
+.chair-leg.right { left: 27px; }
+
+/* ── Gamepad UI navigation focus ring ── */
+
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid #22e6ff !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 12px rgba(34, 230, 255, 0.6) !important;
+  z-index: 100;
+  position: relative;
 }

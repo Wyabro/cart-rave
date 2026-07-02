@@ -103,6 +103,8 @@ import {
 } from "./utils.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
+import { setUiMode as setGamepadUiMode } from "./input.js";
+import { startGamepadUiNav } from "./ui/gamepadNav.js";
 
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
@@ -580,6 +582,8 @@ async function main() {
       triggerRamBoost(cart, performance.now());
     },
   });
+
+  startGamepadUiNav();
 
   function updateTouchControlsVisibility() {
     const roundPhase = GameState.getRoundState().phase;
@@ -2574,6 +2578,8 @@ async function main() {
     shouldSkipTiming: () => menuVisible,
     onFrame(frameCtx) {
     gameCtx.setFrameCtx(frameCtx);
+    const isUiActive = menuVisible || HUD.isEscOverlayVisible();
+    setGamepadUiMode(isUiActive);
     const { now, loopState } = frameCtx;
     const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
 

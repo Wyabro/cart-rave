@@ -1,38 +1,54 @@
 /**
- * Cart Rave loading screens — initial boot splash + mode-entry overlay.
+ * Cart Clash loading screens — initial boot splash + mode-entry overlay.
  */
 
 import "./loadingScreen.css";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
 
-const BOOT_SPLASH_ID = "cr-boot-splash";
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
 /** Minimum time the mode-entry overlay stays up so fast paths remain visible. */
 const MIN_MODE_ENTRY_VISIBLE_MS = 720;
 
-/** @type {Record<"solo" | "classic" | "backrooms", { title: string, subtitle: string, progress: string }>} */
+/** @type {Record<"classic" | "backrooms", { title: string, subtitle: string, progress: string, messages: string[] }>} */
 const THEME_COPY = {
-  solo: {
-    title: "SOLO",
-    subtitle: "Warming up your cart…",
-    progress: "Rolling out…",
-  },
   classic: {
     title: "CART RAVE",
-    subtitle: "Spinning up the vinyl arena…",
-    progress: "Loading crowd & lights…",
+    subtitle: "Spinning up the vinyl arena...",
+    progress: "Loading crowd & lights...",
+    messages: [
+      "Polishing the disco ball...",
+      "Syncing strobe lights...",
+      "Untangling audio cables...",
+      "Warming up the subwoofers...",
+      "Aligning vinyl grooves...",
+      "Charging neon tubes...",
+      "Mixing the bass drop...",
+      "Setting up the smoke machines...",
+      "Calibrating laser grids...",
+      "Finding the perfect BPM...",
+    ],
   },
   backrooms: {
     title: "THE STOREROOMS",
-    subtitle: "The fluorescent hum grows louder…",
-    progress: "Mapping the liminal aisles…",
+    subtitle: "The fluorescent hum grows louder...",
+    progress: "Mapping the liminal aisles...",
+    messages: [
+      "Mopping the linoleum...",
+      "Replacing flickering bulbs...",
+      "Avoiding eye contact...",
+      "Humming along to the buzz...",
+      "Wandering the aisles...",
+      "Stocking empty shelves...",
+      "Lost in the backrooms...",
+      "Checking expiration dates...",
+      "Wiping down glass doors...",
+      "Following the yellow line...",
+    ],
   },
 };
 
 let modeOverlayEl = null;
-let modeProgressFill = null;
-let modeProgressLabel = null;
 let modeTitleEl = null;
 let modeSubtitleEl = null;
 let modeVisualSlot = null;
@@ -42,23 +58,18 @@ let bootDismissed = false;
 let modeEntryDepth = 0;
 /** @type {number} */
 let modeEntryShownAt = 0;
-
-/**
- * @param {{ gameMode?: string | null, levelId?: string | null }} opts
- * @returns {"solo" | "classic" | "backrooms"}
- */
-function resolveLoadingTheme({ gameMode, levelId } = {}) {
-  const resolvedLevel = resolveLevelId(
-    levelId ?? (typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null),
-  );
-  if (resolvedLevel === "backrooms") return "backrooms";
-  if (gameMode === "solo") return "solo";
-  return "classic";
-}
+/** @type {number | null} */
+let modeMsgIntervalId = null;
 
 function prefersReducedMotion() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 }
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/* ── Mode-entry theme visual builders ── */
 
 function buildClassicDecor() {
   const wrap = document.createElement("div");
@@ -74,27 +85,35 @@ function buildClassicDecor() {
   return wrap;
 }
 
-function buildSoloDecor() {
-  const wrap = document.createElement("div");
-  wrap.className = "cr-load__visual";
-  wrap.innerHTML = '<div class="cr-load__vinyl" aria-hidden="true"></div>';
-  return wrap;
-}
-
 function buildBackroomsDecor() {
   const wrap = document.createElement("div");
-  wrap.className = "cr-load__visual";
-  wrap.innerHTML = '<div class="cr-load__fluoro" aria-hidden="true"></div>';
+  wrap.className = "cr-load__visual cr-load__furniture";
+  wrap.innerHTML = 
+    '<div class="furn-box b1"></div>' +
+    '<div class="furn-box b2"></div>' +
+    '<div class="furn-box b3"></div>' +
+    '<div class="furn-chair">' +
+    '  <div class="chair-back"></div>' +
+    '  <div class="chair-seat"></div>' +
+    '  <div class="chair-leg left"></div>' +
+    '  <div class="chair-leg right"></div>' +
+    '</div>';
   return wrap;
 }
 
 function buildProgressBlock() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__progress-wrap";
-  wrap.innerHTML =
-    '<div class="cr-load__progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
-    '<div class="cr-load__progress-fill"></div></div>' +
-    '<div class="cr-load__progress-label"></div>';
+  
+  const segBar = document.createElement("div");
+  segBar.className = "cr-seg-bar cr-seg-bar--theme";
+  for (let i = 0; i < 20; i++) {
+    const seg = document.createElement("div");
+    seg.className = "cr-seg";
+    segBar.appendChild(seg);
+  }
+  
+  wrap.appendChild(segBar);
   return wrap;
 }
 
@@ -123,8 +142,6 @@ function ensureModeOverlay() {
   const progressWrap = buildProgressBlock();
   panel?.appendChild(modeVisualSlot);
   panel?.appendChild(progressWrap);
-  modeProgressFill = progressWrap.querySelector(".cr-load__progress-fill");
-  modeProgressLabel = progressWrap.querySelector(".cr-load__progress-label");
 
   document.body.appendChild(modeOverlayEl);
   return modeOverlayEl;
@@ -132,10 +149,16 @@ function ensureModeOverlay() {
 
 function setProgress(pct, label) {
   const clamped = Math.max(0, Math.min(100, pct));
-  if (modeProgressFill) modeProgressFill.style.width = `${clamped}%`;
-  const track = modeProgressFill?.parentElement;
-  if (track) track.setAttribute("aria-valuenow", String(Math.round(clamped)));
-  if (modeProgressLabel && label) modeProgressLabel.textContent = label;
+  const segBar = modeOverlayEl?.querySelector(".cr-seg-bar--theme");
+  if (segBar) {
+    const segments = segBar.children;
+    const litCount = Math.round((clamped / 100) * 20);
+    for (let i = 0; i < segments.length; i++) {
+      if (i < litCount) segments[i].classList.add("lit");
+      else segments[i].classList.remove("lit");
+    }
+  }
+  // * Label is managed by the mode-entry message rotation timer — do not overwrite it here.
 }
 
 /**
@@ -149,28 +172,45 @@ function reportProgress(pct, label) {
   setProgress(pct, label);
 }
 
+/* ── Mode-entry message rotation ── */
+
+function startModeMessageRotation(messages) {
+  stopModeMessageRotation();
+  if (!messages || messages.length === 0) return;
+  if (modeSubtitleEl) modeSubtitleEl.textContent = pickRandom(messages);
+  modeMsgIntervalId = window.setInterval(() => {
+    if (modeSubtitleEl) modeSubtitleEl.textContent = pickRandom(messages);
+  }, 1800);
+}
+
+function stopModeMessageRotation() {
+  if (modeMsgIntervalId != null) {
+    window.clearInterval(modeMsgIntervalId);
+    modeMsgIntervalId = null;
+  }
+}
+
 /**
- * @param {"solo" | "classic" | "backrooms"} theme
+ * @param {"classic" | "backrooms"} theme
  */
 function applyTheme(theme) {
   ensureModeOverlay();
   modeOverlayEl.classList.remove("cr-load--solo", "cr-load--classic", "cr-load--backrooms");
   modeOverlayEl.classList.add(`cr-load--${theme}`);
 
-  const copy = THEME_COPY[theme];
+  const copy = THEME_COPY[theme] || THEME_COPY.classic;
   if (modeTitleEl) modeTitleEl.textContent = copy.title;
-  if (modeSubtitleEl) modeSubtitleEl.textContent = copy.subtitle;
 
   if (modeVisualSlot) {
     modeVisualSlot.replaceChildren();
     const decor =
       theme === "backrooms"
         ? buildBackroomsDecor()
-        : theme === "solo"
-          ? buildSoloDecor()
-          : buildClassicDecor();
+        : buildClassicDecor();
     modeVisualSlot.appendChild(decor);
   }
+
+  startModeMessageRotation(copy.messages);
 }
 
 export function revealGameCanvas() {
@@ -188,35 +228,34 @@ function revealAppShell() {
   if (canvas) canvas.style.opacity = "1";
 }
 
-/** @returns {Promise<void>} */
 export function dismissInitialBootSplash() {
-  revealAppShell();
+  const MIN_BOOT_MS = 3000;
+  const elapsed = performance.now() - (window.bootStartTime || 0);
+  const delay = Math.max(0, MIN_BOOT_MS - elapsed);
 
-  const splash = document.getElementById(BOOT_SPLASH_ID);
-  if (!splash) {
-    bootDismissed = true;
-    return Promise.resolve();
-  }
+  setTimeout(() => {
+    // 1. Stop the inline fake progress timer
+    clearInterval(window.bootTimer);
 
-  splash.setAttribute("aria-busy", "false");
-  if (!splash.classList.contains("cr-load--hidden")) {
-    splash.classList.add("cr-load--exit", "cr-load--hidden");
-  }
+    // 2. Force to 100%
+    const bar = document.getElementById('boot-seg-bar');
+    if (bar) {
+      const segments = bar.children;
+      for (let i = 0; i < segments.length; i++) {
+        segments[i].classList.add('lit');
+      }
+    }
 
-  if (splash.dataset.crBootRemoving === "1") {
-    bootDismissed = true;
-    return Promise.resolve();
-  }
-
-  splash.dataset.crBootRemoving = "1";
-  bootDismissed = true;
-
-  return new Promise((resolve) => {
-    window.setTimeout(() => {
-      document.getElementById(BOOT_SPLASH_ID)?.remove();
-      resolve();
-    }, prefersReducedMotion() ? 0 : FADE_MS);
-  });
+    // 3. Wait 200ms so the user sees it hit 100%, then fade out
+    setTimeout(() => {
+      revealAppShell();
+      const splash = document.getElementById('cr-boot-splash');
+      if (splash) {
+        splash.classList.add('cr-load--exit', 'cr-load--hidden');
+        setTimeout(() => splash.remove(), 500);
+      }
+    }, 300);
+  }, delay);
 }
 
 /** Clears boot + mode-entry overlays (quit-to-menu, failed join, teardown). */
@@ -229,16 +268,23 @@ export function dismissAllLoadingOverlays() {
  * @param {{ gameMode?: string | null, levelId?: string | null }} opts
  */
 function showModeEntryLoading(opts = {}) {
-  const theme = resolveLoadingTheme(opts);
+  // * Theme is driven by levelId only — gameMode is ignored.
+  const resolvedLevel = resolveLevelId(
+    opts.levelId ?? (typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null),
+  );
+  const theme = resolvedLevel === "backrooms" ? "backrooms" : "classic";
+
   applyTheme(theme);
   modeEntryVisible = true;
   modeOverlayEl.classList.remove("cr-load--hidden", "cr-load--exit");
   modeOverlayEl.setAttribute("aria-busy", "true");
-  setProgress(0, "Starting…");
+  setProgress(0, "Starting...");
 }
 
 /** @returns {Promise<void>} */
 function dismissModeEntryLoading() {
+  stopModeMessageRotation();
+
   if (!modeEntryVisible) return Promise.resolve();
   ensureModeOverlay();
 

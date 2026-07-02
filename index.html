@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Cart Rave — Neon shopping cart arena brawler. Play solo or with friends in this fast-paced multiplayer browser game.">
-  <title>Cart Rave</title>
+  <meta name="description" content="Cart Clash — Neon shopping cart arena brawler. Play solo or with friends in this fast-paced multiplayer browser game.">
+  <title>Cart Clash</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -126,47 +126,22 @@
       text-shadow: 0 0 18px rgba(255,43,214,0.45), 0 0 32px rgba(34,230,255,0.25);
       animation: cr-boot-pulse 2.4s ease-in-out infinite;
     }
-    .cr-boot-vinyl {
-      width: clamp(80px, 20vw, 112px);
-      height: clamp(80px, 20vw, 112px);
-      border-radius: 50%;
-      background:
-        radial-gradient(circle at center, #111 0%, #111 18%, transparent 19%),
-        repeating-radial-gradient(circle at center, #1a1a1a 0 2px, #0d0d0d 2px 4px);
-      box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 24px rgba(255,43,214,0.25);
-      animation: cr-boot-spin 3.2s linear infinite;
+    .cr-boot-crash {
       position: relative;
+      width: clamp(80px, 20vw, 130px);
+      height: clamp(60px, 16vw, 90px);
+      margin: clamp(4px, 1vh, 8px) 0;
     }
-    .cr-boot-vinyl::after {
-      content: "";
-      position: absolute;
-      inset: 38%;
-      border-radius: 50%;
-      background: radial-gradient(circle, #ff2bd6 0%, #ff6be8 40%, #220018 100%);
-      box-shadow: 0 0 12px rgba(255,43,214,0.6);
+    #boot-seg-bar {
+      display: flex;
+      gap: 3px;
+      width: min(280px, 70vw);
+      height: 8px;
     }
-    .cr-boot-bar {
-      width: min(240px, 70vw);
-      height: 3px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      overflow: hidden;
-    }
-    .cr-boot-bar-fill {
-      height: 100%;
-      width: 35%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #22e6ff, #ff2bd6);
-      animation: cr-boot-bar 1.8s ease-in-out infinite;
-    }
-    @keyframes cr-boot-spin { to { transform: rotate(360deg); } }
     @keyframes cr-boot-pulse { 50% { filter: brightness(1.12); } }
-    @keyframes cr-boot-bar {
-      0%, 100% { transform: translateX(-30%); width: 30%; }
-      50% { transform: translateX(120%); width: 45%; }
-    }
     @media (prefers-reduced-motion: reduce) {
-      .cr-boot-vinyl, .cr-boot-title, .cr-boot-bar-fill { animation: none !important; }
+      .cr-boot-title { animation: none !important; }
+      .cr-boot-crash .cr-cart { animation: none !important; }
     }
   </style>
   <!-- Menu fonts and critical CSS -->
@@ -227,19 +202,91 @@
       visibility: visible !important;
     }
   </style>
-  <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Rave">
+  <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Clash">
     <div class="cr-boot-panel">
-      <div class="cr-boot-tag">◆ CART RAVE ◆</div>
-      <div class="cr-boot-title">CART RAVE</div>
-      <div class="cr-boot-vinyl" aria-hidden="true"></div>
-      <div class="cr-boot-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35">
-        <div class="cr-boot-bar-fill"></div>
+      <div class="cr-boot-tag">◆ CART CLASH ◆</div>
+      <div class="cr-boot-title">CART CLASH</div>
+      <div class="cr-boot-crash" aria-hidden="true">
+        <div class="cr-sparks"></div>
+        <div class="cr-cart right">
+          <div class="cart-basket"></div>
+          <div class="cart-handle"></div>
+          <div class="cart-wheel front"></div>
+          <div class="cart-wheel back"></div>
+          <div class="cart-face">
+            <div class="shades-frame"></div>
+            <div class="shades-lens left"></div>
+            <div class="shades-lens right"></div>
+          </div>
+        </div>
+        <div class="cr-cart left">
+          <div class="cart-basket"></div>
+          <div class="cart-handle"></div>
+          <div class="cart-wheel front"></div>
+          <div class="cart-wheel back"></div>
+          <div class="cart-face">
+            <div class="shades-frame"></div>
+            <div class="shades-lens left"></div>
+            <div class="shades-lens right"></div>
+          </div>
+        </div>
       </div>
+      <div id="boot-seg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      </div>
+      <div class="cr-boot-msg" id="cr-boot-msg"></div>
     </div>
   </div>
+  <script>
+    (function() {
+      window.bootStartTime = performance.now();
+      const bar = document.getElementById('boot-seg-bar');
+      if (bar) {
+        for (let i = 0; i < 20; i++) {
+          const seg = document.createElement('div');
+          seg.className = 'cr-seg';
+          bar.appendChild(seg);
+        }
+      }
+      const msgEl = document.getElementById('cr-boot-msg');
+      const messages = [
+        "Strapping in...",
+        "Rolling out...",
+        "Welding cart frame...",
+        "Inflating front wheels...",
+        "Charging the boost...",
+        "Tightening loose bolts...",
+        "Unjamming the steering...",
+        "Polishing sunglasses...",
+        "Aligning front wheels...",
+        "Revving the engine..."
+      ];
+      let msgIdx = 0;
+      function updateMsg() {
+        if (msgEl) msgEl.textContent = messages[msgIdx % messages.length];
+        msgIdx++;
+      }
+      updateMsg();
+      setInterval(updateMsg, 1800);
+
+      let bootProgress = 0;
+      const segs = bar ? bar.children : [];
+      window.bootTimer = setInterval(() => {
+        bootProgress += Math.random() * 8;
+        if (bootProgress >= 90) {
+          bootProgress = 90;
+          clearInterval(window.bootTimer);
+        }
+        const litCount = Math.round((bootProgress / 100) * 20);
+        for (let i = 0; i < segs.length; i++) {
+          if (i < litCount) segs[i].classList.add('lit');
+          else segs[i].classList.remove('lit');
+        }
+      }, 200);
+    })();
+  </script>
   <div id="cr-boot-error" role="alert" aria-live="assertive">
     <div>
-      <p><strong>Could not load Cart Rave</strong></p>
+      <p><strong>Could not load Cart Clash</strong></p>
       <p class="cr-boot-error-detail" id="cr-boot-error-detail">
         The dev server interrupted while loading (common during hot reload). Try Retry, or restart with Ctrl+C then <code>npm run dev:next-level</code>.
       </p>
