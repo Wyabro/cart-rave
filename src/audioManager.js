@@ -79,6 +79,7 @@ export function initAudioManager(audioContext) {
   Howler.html5PoolSize = 40;
   for (let i = 0; i < 35; i += 1) {
     const a = new Audio();
+    // @ts-expect-error - custom property for Howler audio pool priming
     a._unlocked = true;
     Howler._html5AudioPool.push(a);
   }
@@ -288,123 +289,6 @@ export function stopSfx(key, id) {
     sound.stop(id);
   } catch {
     // Sound may have already ended or been unloaded.
-  }
-}
-
-// === Wheel loop (dynamic engine sound) ===
-
-/** @type {Howl | null} */
-let wheelLoopHowl = null;
-/** @type {number | null} */
-let wheelLoopId = null;
-let wheelLoopCurrentVolume = 0;
-let wheelLoopCurrentRate = 0.7;
-let _wheelLoopVolumeScale = 1.0;
-
-/**
- * Get the wheel loop max volume multiplier (dev Tweakpane tuning).
- * @returns {number}
- */
-export function getWheelLoopVolumeScale() {
-  return _wheelLoopVolumeScale;
-}
-
-/**
- * Set the wheel loop max volume multiplier and apply immediately.
- * @param {number} v 0–3+ range
- */
-export function setWheelLoopVolumeScale(v) {
-  _wheelLoopVolumeScale = Math.max(0, Math.min(5, v));
-}
-
-/**
- * Initialize the wheel loop sound as a dedicated single-instance Howl for dynamic
- * volume/pitch control. Called once from main.js after the shared AudioContext is ready.
- * @param {string} src URL to the wheel loop audio file
- */
-export function initWheelLoop(src) {
-  if (wheelLoopHowl) {
-    try { wheelLoopHowl.unload(); } catch {}
-  }
-  wheelLoopHowl = new Howl({
-    src: [src],
-    loop: true,
-    volume: 0,
-    preload: true,
-  });
-}
-
-/**
- * Start playing the wheel loop at volume 0. Subsequent updateWheelLoop() calls
- * fade it in by raising the volume dynamically. Safe to call when already playing.
- */
-function startWheelLoop() {
-  if (!wheelLoopHowl) return;
-  if (wheelLoopId != null) return;
-  wheelLoopCurrentVolume = 0;
-  wheelLoopCurrentRate = 0.7;
-  try {
-    wheelLoopId = wheelLoopHowl.play();
-  } catch {
-    wheelLoopId = null;
-    return;
-  }
-  if (wheelLoopId != null) {
-    wheelLoopHowl.volume(0, wheelLoopId);
-    wheelLoopHowl.rate(0.7, wheelLoopId);
-  }
-}
-
-/**
- * Update the wheel loop volume and pitch based on the cart's current planar speed.
- * Auto-starts the loop on first call if not yet playing.
- * Caller must gate: only call when speed > 1.0 m/s; stopWheelLoop() otherwise.
- *
- * Volume maps 0 → 0, maxSpeed → 0.4 (linear, clamped, scaled by _sfxVol and _wheelLoopVolumeScale).
- * Pitch maps 0 → 0.8 playback rate, maxSpeed → 1.3 (linear, clamped).
- * Both transitions use frame-rate-independent lerp for smooth analog feel.
- *
- * @param {number} speed Planar speed in m/s (Math.hypot(vx, vz))
- * @param {number} maxSpeed Max forward speed cap (CONFIG.driving.maxSpeed)
- * @param {number} dt Frame delta in seconds
- */
-export function updateWheelLoop(speed, maxSpeed, dt) {
-  if (!wheelLoopHowl) return;
-
-  if (wheelLoopId == null) {
-    startWheelLoop();
-    if (wheelLoopId == null) return;
-  }
-
-  const t = Math.max(0, Math.min(1, speed / maxSpeed));
-  const targetVolume = _isMuted ? 0 : t * 0.4 * _sfxVol * _wheelLoopVolumeScale;
-  const targetRate = 0.8 + t * 0.5;
-
-  // * Frame-rate independent lerp: matches 0.15 factor at 60 fps.
-  const lerpFactor = 1 - Math.pow(1 - 0.15, dt * 60);
-  wheelLoopCurrentVolume += (targetVolume - wheelLoopCurrentVolume) * lerpFactor;
-  wheelLoopCurrentRate += (targetRate - wheelLoopCurrentRate) * lerpFactor;
-
-  try {
-    wheelLoopHowl.volume(wheelLoopCurrentVolume, wheelLoopId);
-    wheelLoopHowl.rate(wheelLoopCurrentRate, wheelLoopId);
-  } catch {
-    // Sound may have been unloaded between frames.
-  }
-}
-
-/**
- * Instantly cuts the wheel loop when speed drops below 1.0 m/s.
- * Safe to call repeatedly (no-op after first stop).
- */
-export function stopWheelLoop() {
-  if (!wheelLoopHowl || wheelLoopId == null) return;
-  const id = wheelLoopId;
-  wheelLoopId = null;
-  try {
-    wheelLoopHowl.stop(id);
-  } catch {
-    // Sound may have been unloaded between frames.
   }
 }
 

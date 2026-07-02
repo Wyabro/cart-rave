@@ -7,7 +7,7 @@ import { initArena } from "../arena.js";
  * center pit wall, and four spawn booths.
  *
  * @param {THREE.Scene} scene Root Three.js scene.
- * @param {import("@dimforge/rapier3d-compat").World} world Active Rapier physics world.
+ * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG (record, booth, debug sections).
  * @returns {ReturnType<typeof initArena>}
  */

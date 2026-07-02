@@ -21,12 +21,13 @@ import "./cart-rave-menu.css";
 import * as THREE from "three";
 import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode, updateViewport as updateSceneViewport } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d";
 import { updateCartVisuals } from "./cart.js";
 import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
 import * as Entities from "./entities.js";
+import { createCart } from "./entities.js";
 import { triggerCartShatter } from "./cartShatter.js";
 import * as HUD from "./hud.js";
 import * as Input from "./input.js";
@@ -660,8 +661,6 @@ async function main() {
   AudioManager.registerSfx("death", soundsRoot("Death.ogg"), { pool: 3 });
   AudioManager.registerSfx("boost", soundsRoot("Boost.ogg"), { pool: 3 });
   AudioManager.registerSfx("hop", soundsRoot("Hop.ogg"), { pool: 3 });
-  // * Dynamic wheel loop — continuous engine sound scaled by cart speed.
-  AudioManager.initWheelLoop(soundsRoot("Wheel_loop.ogg"));
   AudioManager.registerSfx("floor", soundsRoot("Floor.ogg"), { pool: 3 });
   AudioManager.registerSfx("chargeUp", soundsRoot("Charge_up.ogg"), { pool: 2, loop: true });
   AudioManager.registerSfx("countdown_3", soundsRoot("countdown_3.ogg"), { pool: 1 });
@@ -861,6 +860,7 @@ async function main() {
 
   function initMenu() {
     menuVisible = true;
+    setGamepadNavActive(true);
     syncAllAudioUi();
     // * Always dismiss boot splash first — solo/quickplay paths return early below.
     void dismissInitialBootSplash();
@@ -1102,6 +1102,7 @@ async function main() {
     window.CartRave?.stopAnimations?.();
     window.CartRave?.hide?.();
     menuVisible = false;
+    setGamepadNavActive(false);
     revealGameCanvas();
     const isTestDrive = detectGameMode() === "testdrive";
     if (labelRenderer) {
@@ -1269,35 +1270,23 @@ async function main() {
   // --- Arena, physics — Rapier WASM + level mesh deferred until play or idle preload ---
   scene.add(new THREE.AmbientLight(0x221133, 0.15));
 
-  let rapierInitDone = false;
-  /** @type {Promise<void> | null} */
-  let rapierInitPromise = null;
-  /** @type {import("@dimforge/rapier3d-compat").World | null} */
+  /** @type {import("@dimforge/rapier3d").World | null} */
   let world = null;
-  /** @type {import("@dimforge/rapier3d-compat").EventQueue | null} */
+  /** @type {import("@dimforge/rapier3d").EventQueue | null} */
   let eventQueue = null;
 
   /**
-   * Loads Rapier WASM and creates the physics world on first need (not at menu load).
+   * Creates the Rapier physics world on first need.
+   * The standard @dimforge/rapier3d package loads WASM synchronously
+   * at module import time — no async init() required.
    * @returns {Promise<void>}
    */
   function ensureRapierPhysics() {
-    if (rapierInitDone) return Promise.resolve();
-    if (!rapierInitPromise) {
-      rapierInitPromise = RAPIER.init()
-        .then(() => {
-          if (!world) {
-            world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
-            eventQueue = new RAPIER.EventQueue(true);
-          }
-          rapierInitDone = true;
-        })
-        .catch((err) => {
-          rapierInitPromise = null;
-          throw err;
-        });
+    if (!world) {
+      world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
+      eventQueue = new RAPIER.EventQueue(true);
     }
-    return rapierInitPromise;
+    return Promise.resolve();
   }
 
   let recordMesh = null;
@@ -1477,6 +1466,7 @@ async function main() {
   // * Bridges the server-driven game-start signal into main()'s nested functions.
   // * Round start/countdown handlers live here; initNetcode invokes them via callbacks.
   onGameStartHandler = (msg) => {
+    window.dispatchEvent(new CustomEvent("cartrave:round-started"));
     if (menuVisible) enterPlayMode({ skipBootstrap: true });
     showRotatePromptIfNeeded();
     if (detectGameMode() === "testdrive") {

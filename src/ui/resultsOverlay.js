@@ -26,6 +26,7 @@ function wireResultsButtonFeedback(btn) {
   let pressed = false;
 
   const onPress = (e) => {
+    // @ts-expect-error - 'disabled' is on HTMLButtonElement, querySelector returns HTMLElement
     if (btn.disabled) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
     pressed = true;

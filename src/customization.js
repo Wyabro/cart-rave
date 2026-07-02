@@ -417,7 +417,7 @@ export function resolveCartPatternForSlot(slot, ctx = {}) {
  * without touching those modules.
  *
  * @param {{ kind?: string, connId?: string } | null | undefined} _slot — unused; kept for API stability
- * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [_ctx] — unused; kept for API stability
+ * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [_ctx] - unused; kept for API stability
  * @returns {CartThemeId}
  */
 export function resolveCartThemeForSlot(_slot, _ctx = {}) {

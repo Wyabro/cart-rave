@@ -5,7 +5,6 @@ import * as Effects from "./effects.js";
 import * as ContactShadows from "./contactShadows.js";
 import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
-import * as AudioManager from "./audioManager.js";
 import { updateShatterEffect } from "./cartShatter.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -197,8 +196,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     }
 
     // * Local / host cart: fetch all four getters ONCE into the visual scratch; the
-    // * cached values feed mesh sync, updateCartVisuals, and (for the local cart) the
-    // * wheel-screech speed check below — no redundant Rapier allocations per frame.
+    // * cached values feed mesh sync and updateCartVisuals — no redundant Rapier allocations per frame.
     readBodyStateIntoVisScratch(c);
     let bodyY = _visPos.y;
     if (usePhysicsInterp && c.prevPosition && c.prevRotation) {
@@ -219,26 +217,6 @@ export function updateVisualsAndEffects(deps, frameCtx) {
         heightAboveFloor: bodyY - ContactShadows.getFloorY(),
       });
     }
-  }
-
-  // Dynamic wheel loop: continuous engine sound scaled by planar cart speed.
-  // * Volume maps 0 → 0.4, pitch maps 0.8 → 1.3 playback rate.
-  // * Only plays when planar speed > 1.0 m/s; cuts off instantly below threshold.
-  // * Uses _visLinvel cached by readBodyStateIntoVisScratch during the cart sync loop.
-  if (!deps.isMenuVisible() && roundState.phase === "running") {
-    const c = localSlotIndexThisFrame >= 0 ? allCarts[localSlotIndexThisFrame] : null;
-    if (c && c.body) {
-      const speed = Math.hypot(_visLinvel.x, _visLinvel.z);
-      if (speed > 1.0) {
-        AudioManager.updateWheelLoop(speed, deps.CONFIG.driving.maxSpeed, dt);
-      } else {
-        AudioManager.stopWheelLoop();
-      }
-    } else {
-      AudioManager.stopWheelLoop();
-    }
-  } else {
-    AudioManager.stopWheelLoop();
   }
 
   // Leader glow: neon cart color at rest, brief white emissive flash at pulse peak.

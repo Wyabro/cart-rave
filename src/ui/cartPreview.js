@@ -69,9 +69,10 @@ function centerCartGroup(root) {
  * @param {THREE.PerspectiveCamera} camera
  * @param {THREE.Group} cartGroup
  * @param {number} viewportAspect
+ * @param {number} [zoomMultiplier=1] - >1 moves camera closer (divides distance)
  * @returns {THREE.Vector3} look-at target used for this frame
  */
-function frameCartInCamera(camera, cartGroup, viewportAspect) {
+function frameCartInCamera(camera, cartGroup, viewportAspect, zoomMultiplier = 1) {
   const bounds = new THREE.Box3().setFromObject(cartGroup);
   const size = bounds.getSize(new THREE.Vector3());
 
@@ -84,7 +85,7 @@ function frameCartInCamera(camera, cartGroup, viewportAspect) {
   const fovRad = THREE.MathUtils.degToRad(camera.fov);
   const fitHeightDistance = orbitRadius / Math.tan(fovRad * 0.5);
   const fitWidthDistance = orbitRadius / (Math.tan(fovRad * 0.5) * Math.max(viewportAspect, 0.01));
-  const distance = Math.max(fitHeightDistance, fitWidthDistance);
+  const distance = Math.max(fitHeightDistance, fitWidthDistance) / Math.max(zoomMultiplier, 0.01);
 
   const cosElev = Math.cos(CAMERA_ELEVATION);
   camera.position.set(
@@ -173,6 +174,12 @@ export class CartPreview {
 
     /** @type {number} Cumulative Y spin (radians) — survives cart mesh swaps. */
     this._spinY = 0;
+
+    /** @type {boolean} Whether the cart auto-rotates in the tick loop. */
+    this._autoRotate = true;
+
+    /** @type {number} Camera distance divisor (1.0 = default, 1.35 = 35% closer). */
+    this._zoomMultiplier = 1;
   }
 
   /**
@@ -316,7 +323,7 @@ export class CartPreview {
 
     if (this.camera && this.renderer) {
       const { width, height } = this._getContentSize();
-      frameCartInCamera(this.camera, group, width / height);
+      frameCartInCamera(this.camera, group, width / height, this._zoomMultiplier);
     }
   }
 
@@ -324,6 +331,34 @@ export class CartPreview {
   _applySpinRotation() {
     if (this.cartGroup) {
       this.cartGroup.rotation.y = this._spinY;
+    }
+  }
+
+  /**
+   * Enables or disables auto-rotation of the cart preview.
+   * When disabled, the cart resets to face forward.
+   *
+   * @param {boolean} isEnabled
+   */
+  setAutoRotate(isEnabled) {
+    this._autoRotate = Boolean(isEnabled);
+    if (!this._autoRotate) {
+      this._spinY = Math.PI + 0.37;
+      this._applySpinRotation();
+    }
+  }
+
+  /**
+   * Zooms the cart by adjusting camera distance. 1.0 = default, >1 = tighter.
+   * Triggers an immediate camera re-frame when a cart mesh is mounted.
+   *
+   * @param {number} multiplier
+   */
+  setZoom(multiplier) {
+    this._zoomMultiplier = multiplier;
+    if (this.cartGroup && this.camera && this.renderer) {
+      const { width, height } = this._getContentSize();
+      frameCartInCamera(this.camera, this.cartGroup, width / height, multiplier);
     }
   }
 
@@ -428,7 +463,7 @@ export class CartPreview {
 
     if (this.camera && this.renderer) {
       const { width, height } = this._getContentSize();
-      frameCartInCamera(this.camera, cart, width / height);
+      frameCartInCamera(this.camera, cart, width / height, this._zoomMultiplier);
     }
   }
 
@@ -514,11 +549,12 @@ export class CartPreview {
       this._usesRaveGltf = true;
       this.scene.add(cart);
       this._applySpinRotation();
+      this._applyNeonColor();
       this._setLoadingState(false);
 
       if (this.camera && this.renderer) {
         const { width, height } = this._getContentSize();
-        frameCartInCamera(this.camera, cart, width / height);
+        frameCartInCamera(this.camera, cart, width / height, this._zoomMultiplier);
       }
 
       this._isBuilding = false;
@@ -762,10 +798,6 @@ export class CartPreview {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
-
-    if (this.cartGroup) {
-      frameCartInCamera(this.camera, this.cartGroup, w / h);
-    }
   }
 
   /** @private */
@@ -775,8 +807,10 @@ export class CartPreview {
     const dt = Math.min((now - this._lastFrameTime) * 0.001, 0.05);
     this._lastFrameTime = now;
 
-    this._spinY += ROTATION_SPEED_RAD_PER_SEC * dt;
-    this._applySpinRotation();
+    if (this._autoRotate) {
+      this._spinY += ROTATION_SPEED_RAD_PER_SEC * dt;
+      this._applySpinRotation();
+    }
 
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);

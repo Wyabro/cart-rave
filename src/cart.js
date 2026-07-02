@@ -123,6 +123,7 @@ const SHARED_CHROME_MAT = createPhysicalMaterial({
   clearcoatRoughness: 0.12,
   envMapIntensity: getMaterialEnvMapIntensity() * CART_CHROME_ENV_SCALE,
 });
+SHARED_CHROME_MAT.userData = { isSharedMaterial: true };
 /** @deprecated alias — handle/stem chrome */
 const SHARED_HANDLE_MAT = SHARED_CHROME_MAT;
 
@@ -135,6 +136,7 @@ const SHARED_WHEEL_TIRE_MAT = createPhysicalMaterial({
   clearcoatRoughness: 0.4,
   envMapIntensity: getMaterialEnvMapIntensity() * 0.85,
 });
+SHARED_WHEEL_TIRE_MAT.userData = { isSharedMaterial: true };
 
 // * Face trim (lenses, bridge, mouth) — glossy black: metalness 0.88, roughness 0.42, clearcoat 0.4
 const SHARED_FACE_TRIM_MAT = createPhysicalMaterial({
@@ -147,6 +149,7 @@ const SHARED_FACE_TRIM_MAT = createPhysicalMaterial({
   envMapIntensity: getMaterialEnvMapIntensity() * 1.1,
   side: THREE.DoubleSide,
 });
+SHARED_FACE_TRIM_MAT.userData = { isSharedMaterial: true };
 
 /**
  * @param {number} value

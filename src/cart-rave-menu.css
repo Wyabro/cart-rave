@@ -1072,7 +1072,8 @@ html, body {
 }
 
 .cr-color-row--customize {
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .cr-color-chip--custom {
@@ -1089,9 +1090,14 @@ html, body {
 }
 
 .cr-custom-hue-wrap {
-  margin-top: var(--space-sm);
-  padding-top: var(--space-sm);
+  margin: 4px 0 0;
+  padding-top: 4px;
   border-top: 1px solid var(--border-white-10);
+}
+
+.cr-custom-hue-wrap .cr-color-label {
+  margin-bottom: 2px;
+  font-size: clamp(7px, 1vw, 8px);
 }
 
 .cr-custom-hue-wrap[hidden] {
@@ -1101,16 +1107,17 @@ html, body {
 .cr-custom-hue-row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 4px;
+  height: 26px;
 }
 
 .cr-custom-hue-slider {
   flex: 1;
   min-width: 0;
-  height: 8px;
+  height: 6px;
   -webkit-appearance: none;
   appearance: none;
-  border-radius: 4px;
+  border-radius: 3px;
   background: linear-gradient(
     90deg,
     #ff0000 0%,
@@ -1127,8 +1134,8 @@ html, body {
 .cr-custom-hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid #fff;
   background: var(--cr-hue-thumb, var(--color-cyan));
@@ -1137,8 +1144,8 @@ html, body {
 }
 
 .cr-custom-hue-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid #fff;
   background: var(--cr-hue-thumb, var(--color-cyan));
@@ -1147,23 +1154,23 @@ html, body {
 }
 
 .cr-custom-hue-slider::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 6px;
+  border-radius: 3px;
 }
 
 .cr-custom-hue-slider::-moz-range-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 6px;
+  border-radius: 3px;
   background: transparent;
 }
 
 .cr-custom-hue-val {
   font-family: var(--mono);
-  font-size: clamp(9px, 1.1vw, 11px);
+  font-size: clamp(8px, 1vw, 10px);
   letter-spacing: 0.08em;
   color: var(--cr-hue-thumb, var(--color-cyan));
   text-shadow: 0 0 8px var(--cr-hue-thumb, var(--color-cyan));
-  min-width: 36px;
+  min-width: 32px;
   text-align: right;
   flex-shrink: 0;
 }
@@ -1172,6 +1179,8 @@ html, body {
   position: relative;
   display: flex; align-items: center; justify-content: center;
   height: clamp(36px, 5vw, 44px);
+  min-height: 36px;
+  padding: 2px 4px;
   border-radius: var(--radius-chip);
   background: var(--surface-dark-40);
   border: 2px solid color-mix(in oklab, var(--cc), transparent 75%);
@@ -1366,6 +1375,49 @@ html, body {
   text-align: right;
 }
 
+/* === GRAPHICS TOGGLES === */
+.cr-graphics {
+  position: relative; z-index: 5;
+  display: flex; flex-direction: column; gap: var(--gap-buttons);
+  padding: var(--pad-panel);
+  background: linear-gradient(180deg, var(--surface-panel-top), var(--surface-panel-bottom));
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-panel);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  width: 100%;
+}
+
+.cr-graphics-hd {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.1vw, 10px);
+  letter-spacing: 0.22em;
+  color: rgba(255,255,255,0.5);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px dashed var(--border-white-10);
+  margin-bottom: 2px;
+}
+
+.cr-graphics-btns {
+  display: flex; gap: var(--gap-buttons);
+}
+
+.cr-btn--graphics {
+  flex: 1;
+  font-size: clamp(9px, 1.1vw, 11px);
+  opacity: 0.88;
+}
+
+.cr-btn--gfx-off .cr-btn-label,
+.cr-btn--lq-on .cr-btn-label {
+  color: rgba(255,255,255,0.45);
+}
+
+.cr-btn--lq-on {
+  border-color: rgba(255, 80, 80, 0.4);
+  opacity: 0.78;
+}
+
 /* === FRIENDS SCREEN === */
 #cr-friends-screen {
   position: fixed;
@@ -1506,12 +1558,12 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--gap-section);
+  gap: clamp(10px, 1.5vw, 16px);
   max-width: 520px;
   width: 92%;
   max-height: min(92dvh, 720px);
   overflow-y: auto;
-  padding: clamp(20px, 3.5vw, 36px) clamp(18px, 3vw, 32px);
+  padding: clamp(14px, 2.5vw, 24px) clamp(14px, 2.5vw, 24px);
   background: var(--surface-dark-60);
   border: 1px solid var(--border-white-12);
   border-radius: var(--radius-card);
@@ -1545,7 +1597,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: clamp(160px, 28vw, 200px);
+  min-height: clamp(120px, 22vw, 160px);
   margin: 4px 0;
 }
 
@@ -1569,7 +1621,7 @@ html, body {
   justify-content: center;
   box-sizing: border-box;
   width: min(100%, 280px);
-  max-height: clamp(160px, 28vw, 200px);
+  max-height: clamp(120px, 22vw, 160px);
   aspect-ratio: 4 / 3;
   margin: 0 auto;
   padding: var(--space-sm);
@@ -1658,7 +1710,7 @@ html, body {
 .cr-sunglasses-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-xs);
+  gap: 4px;
   margin-bottom: 0;
 }
 
@@ -1667,9 +1719,9 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 72px;
-  padding: 8px 6px;
+  gap: 2px;
+  min-height: 36px;
+  padding: 2px 4px;
   background: var(--surface-dark-55);
   border: 2px solid var(--border-white-15);
   border-radius: var(--radius-btn);
@@ -1681,8 +1733,8 @@ html, body {
  * * polished mirror finish. --mc is the style's albedo hex, set inline per chip. */
 .cr-sunglasses-chip-swatch {
   display: block;
-  width: clamp(28px, 7.5vw, 36px);
-  height: clamp(28px, 7.5vw, 36px);
+  width: clamp(18px, 4.5vw, 26px);
+  height: clamp(18px, 4.5vw, 26px);
   border-radius: 50%;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.15) 22%, transparent 45%),
@@ -1704,7 +1756,7 @@ html, body {
 
 .cr-sunglasses-chip-label {
   font-family: var(--mono);
-  font-size: clamp(7px, 1vw, 9px);
+  font-size: clamp(6px, 0.9vw, 8px);
   letter-spacing: 0.05em;
   color: rgba(255, 255, 255, 0.8);
   text-align: center;
@@ -1977,8 +2029,8 @@ html, body {
 
   .cr-color-label { font-size: clamp(8px, 2.2vw, 10px); margin-bottom: clamp(8px, 1.6dvh, 10px); letter-spacing: 0.16em; }
   .cr-color-row { gap: clamp(6px, 1.8vw, 8px); }
-  .cr-color-row--customize { grid-template-columns: repeat(3, 1fr); }
-  .cr-color-chip { min-height: 44px; height: clamp(42px, 11vw, 50px); }
+  .cr-color-row--customize { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .cr-color-chip { min-height: 36px; height: clamp(32px, 9vw, 40px); }
   .cr-color-chip svg { width: clamp(28px, 7.5vw, 36px) !important; height: auto !important; }
 
   .cr-audio-panel { padding: clamp(10px, 2.6vw, 12px) clamp(12px, 3.2vw, 14px); flex-shrink: 0; }

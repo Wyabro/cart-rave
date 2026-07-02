@@ -17,7 +17,7 @@
 
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
 
@@ -615,7 +615,7 @@ function buildWallpaperPlaneGeometry(spanW, bottomY, topY, vSegments = 24) {
  * the V-shaped gaps that per-piece angled cuboids created.
  *
  * @param {THREE.Scene} scene
- * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d").World} world
  * @returns {{
  *   group: THREE.Group,
  *   bodies: object[],
@@ -1004,7 +1004,7 @@ function buildFurniturePileSpotlight(scene) {
  * geometry is merged per-material; thin tall cuboid colliders back the inner face.
  *
  * @param {THREE.Scene} scene
- * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d").World} world
  * @param {THREE.Texture} wallpaperTex
  * @returns {{
  *   group: THREE.Group,
@@ -1212,7 +1212,7 @@ function buildWalls(scene, world, wallpaperTex) {
  * (aimed at the floor) so active fluorescents actually wash the arena below.
  *
  * @param {THREE.Scene} scene
- * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d").World} world
  * @param {THREE.Texture} ceilingTex
  * @returns {{
  *   group: THREE.Group,
@@ -1345,7 +1345,7 @@ function buildCeiling(scene, world, ceilingTex) {
  * `boothColliderHandles`.
  *
  * @param {THREE.Scene} scene
- * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d").World} world
  * @param {object} config Full game CONFIG.
  * @param {number[]} boothColliderHandles Out param — platform collider handles.
  * @returns {{
@@ -1463,11 +1463,11 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
  * Returns the standard level contract.
  *
  * @param {THREE.Scene} scene Root Three.js scene.
- * @param {import("@dimforge/rapier3d-compat").World} world Active Rapier physics world.
+ * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG.
  * @returns {{
  *   recordMesh: THREE.Object3D,
- *   recordCollider: import("@dimforge/rapier3d-compat").Collider,
+ *   recordCollider: import("@dimforge/rapier3d").Collider,
  *   pitWallColliderHandle: number,
  *   boothColliderHandles: number[],
  *   boothNeonMeshes: THREE.Mesh[],

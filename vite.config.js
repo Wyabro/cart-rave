@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
+import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
+  plugins: [wasm()],
+
   // Base public path when served in production
   base: "./",
 
@@ -15,7 +18,7 @@ export default defineConfig({
           if (id.includes("node_modules/three/examples/jsm/")) {
             return "three-addons";
           }
-          if (id.includes("node_modules/@dimforge/rapier3d-compat")) {
+          if (id.includes("node_modules/@dimforge/rapier3d")) {
             return "rapier";
           }
           if (id.includes("node_modules/howler")) {
@@ -50,7 +53,6 @@ export default defineConfig({
   optimizeDeps: {
     include: [
       "three",
-      "@dimforge/rapier3d-compat",
       "three/examples/jsm/renderers/CSS2DRenderer.js",
       "three/examples/jsm/postprocessing/EffectComposer.js",
       "three/examples/jsm/postprocessing/RenderPass.js",

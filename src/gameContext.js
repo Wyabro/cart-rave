@@ -7,7 +7,7 @@
  * attaches per-phase dependency bundles (`visual`, `gameFlow`, `physics`).
  * Each tick updates `frameCtx`; phase helpers read deps via `ctx.deps.*`.
  *
- * @returns {GameContext}
+ * @returns {import('./gameContext.js').GameContext}
  */
 export function createGameContext() {
   const state = {

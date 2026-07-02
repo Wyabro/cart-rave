@@ -41,7 +41,7 @@ let menuLevelDebounceId = null;
  * @property {() => boolean} getMenuVisible
  * @property {() => Array<unknown> | null | undefined} getAllCartsRef
  * @property {() => boolean} isWorldBootstrapped
- * @property {() => import("@dimforge/rapier3d-compat").World | null} getWorld
+ * @property {() => import("@dimforge/rapier3d").World | null} getWorld
  * @property {() => Promise<void>} ensureWorldBootstrapped
  * @property {(levelId: string, opts: { menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }) => Promise<void>} performLevelLoad
  * @property {(levelId: string) => void} [onPreviewSwapComplete]

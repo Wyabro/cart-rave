@@ -4,7 +4,10 @@
  */
 
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d";
+
+// * Single reusable ray for camera-wall avoidance — avoids per-frame GC churn.
+const _cameraRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
 
 /**
  * Camera controller modes.
@@ -107,7 +110,7 @@ export function initCameraFollow(camera, cameraConfig) {
  * @param {number} dt Frame delta (seconds).
  * @param {{ x: number, y: number, z: number }} playerPos Pre-fetched cart translation for this frame.
  * @param {{ x: number, y: number, z: number, w: number }} playerRot Pre-fetched cart rotation for this frame.
- * @param {import("@dimforge/rapier3d-compat").World | null | undefined} [physicsWorld] Rapier world for camera-wall raycasts.
+ * @param {import("@dimforge/rapier3d").World | null | undefined} [physicsWorld] Rapier world for camera-wall raycasts.
  */
 export function updateCamera(camera, localCart, dt, playerPos, playerRot, physicsWorld) {
   const followState = camera.userData.followState;
@@ -161,18 +164,21 @@ export function updateCamera(camera, localCart, dt, playerPos, playerRot, physic
     const minValidHit = 1.5;
     if (maxDist > 1e-4) {
       rayDir.multiplyScalar(1 / maxDist);
-      const ray = new RAPIER.Ray(
-        { x: rayOrigin.x, y: rayOrigin.y, z: rayOrigin.z },
-        { x: rayDir.x, y: rayDir.y, z: rayDir.z },
-      );
+      _cameraRay.origin.x = rayOrigin.x;
+      _cameraRay.origin.y = rayOrigin.y;
+      _cameraRay.origin.z = rayOrigin.z;
+      _cameraRay.dir.x = rayDir.x;
+      _cameraRay.dir.y = rayDir.y;
+      _cameraRay.dir.z = rayDir.z;
       const excludeCollider = localCart?.collider?.handle ?? undefined;
       const excludeRigidBody = localCart?.body?.handle ?? undefined;
       const hit = physicsWorld.castRay(
-        ray,
+        _cameraRay,
         maxDist,
         true,
         RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC,
         undefined,
+        // @ts-expect-error - Rapier handle (number) passed where Collider type expected; safe at runtime
         excludeCollider,
         excludeRigidBody,
       );

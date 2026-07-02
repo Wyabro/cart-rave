@@ -29,7 +29,7 @@ export function isPreviewGltfCached(themeId = DEFAULT_CART_THEME) {
 
 /**
  * @param {string} themeId
- * @param {string | null | undefined} [sunglassesStyle] — SunglassesStyleDef id forwarded to the GLTF instance; defaults to silver mirror when omitted.
+ * @param {string | null | undefined} [sunglassesStyle] - SunglassesStyleDef id forwarded to the GLTF instance; defaults to silver mirror when omitted.
  * @returns {Promise<import("three").Group>}
  */
 export async function loadPreviewCartGltf(themeId, sunglassesStyle) {

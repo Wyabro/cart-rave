@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d";
 import { createPhysicalMaterial } from "./scene.js";
 import { isLowQualityMode } from "./utils.js";
 
@@ -664,7 +664,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  * Adds all meshes to the scene and registers Rapier colliders on the supplied world.
  *
  * @param {THREE.Scene} scene Root Three.js scene.
- * @param {import("@dimforge/rapier3d-compat").World} world Active Rapier physics world.
+ * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG (record, booth, debug sections).
  * @returns {{
  *   recordMesh: THREE.Mesh,
@@ -782,6 +782,7 @@ export function initArena(scene, world, config, options = {}) {
   function upgradeRecordReflector() {
     if (!recordReflector) return;
     if (recordReflector.userData._cartRaveTextureSize >= REFLECTOR_TEXTURE_SIZE_FULL) return;
+    // @ts-expect-error THREE duck-typing suppress
     if (recordReflector.renderTarget) recordReflector.renderTarget.dispose();
     recordReflector.geometry.dispose();
     recordMesh.remove(recordReflector);
@@ -1062,6 +1063,7 @@ export function initArena(scene, world, config, options = {}) {
     recordSolidFloor,
   ];
   if (debugMesh) {
+    // @ts-expect-error THREE duck-typing suppress
     sceneRoots.push(debugMesh);
   }
 
@@ -1117,11 +1119,13 @@ export function initArena(scene, world, config, options = {}) {
     recordLabelTex.dispose();
     boothBuild.sharedGeometries.forEach((geo) => geo.dispose());
     boothBuild.sharedMaterials.forEach((item) => {
+      // @ts-expect-error THREE duck-typing suppress
       if (item && item.isTexture) item.dispose();
       else disposeMaterial(item);
     });
 
     if (recordReflector) {
+      // @ts-expect-error THREE duck-typing suppress
       if (recordReflector.renderTarget) {
         recordReflector.renderTarget.dispose();
       }
@@ -1147,6 +1151,7 @@ export function initArena(scene, world, config, options = {}) {
     spindleLightColorPink,
     spindleLightColorCyan,
     pitInnerRadius,
+    // @ts-expect-error THREE duck-typing suppress
     recordLabelMat,
     upgradeRecordReflector,
     setReflectorVisible,

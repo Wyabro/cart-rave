@@ -317,7 +317,10 @@ export function cleanupShatter(cart, scene) {
     if (mat) {
       const mats = Array.isArray(mat) ? mat : [mat];
       for (const m of mats) {
-        if (!m || disposedMats.has(m)) continue;
+        // * Skip shared module-level materials (cart.js SHARED_CHROME_MAT,
+        // * SHARED_WHEEL_TIRE_MAT, SHARED_FACE_TRIM_MAT) — disposing them would
+        // * deallocate GPU resources still used by other cart meshes.
+        if (!m || disposedMats.has(m) || m.userData?.isSharedMaterial) continue;
         disposedMats.add(m);
         m.dispose?.();
       }

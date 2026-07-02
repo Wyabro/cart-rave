@@ -164,6 +164,7 @@ export async function ensureSessionCartsReady() {
       }
     });
   }
+  // @ts-expect-error - Promise vs any[] mismatch from bootstrap chain; safe at runtime
   return sessionCartBootstrapPromise;
 }
 

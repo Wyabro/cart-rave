@@ -484,6 +484,23 @@
             <span class="cr-ctl-lbl">Open Menu</span>
           </div>
         </div>
+
+        <!-- Graphics settings -->
+        <div class="cr-graphics" id="cr-graphics">
+          <div class="cr-graphics-hd">◇ GRAPHICS</div>
+          <div class="cr-graphics-btns">
+            <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
+              <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>
+              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+            </button>
+            <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
+              <span class="cr-btn-inner"><span class="cr-btn-label">HIGH QUALITY: ON</span></span>
+              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -610,10 +627,44 @@
         return /\/src\/main\.js/.test(src);
       }
 
+      /**
+       * Inline error forwarder — mirrors sendErrorLog from src/utils/errorReporter.js
+       * so boot-phase errors (before the module graph loads) are also reported.
+       */
+      function forwardBootError(msg, stack, context) {
+        try {
+          var payload = {
+            message: String(msg || ""),
+            stack: String(stack || ""),
+            context: context || {},
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent.slice(0, 256),
+            url: location.href.slice(0, 512),
+          };
+          var body = JSON.stringify(payload);
+          if (navigator.sendBeacon) {
+            var blob = new Blob([body], { type: "application/json" });
+            navigator.sendBeacon("/api/log-error", blob);
+          } else {
+            fetch("/api/log-error", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: body,
+              keepalive: true,
+            }).catch(function () {});
+          }
+        } catch (_) {}
+      }
+
       window.addEventListener("error", function (ev) {
         if (window.__cartRaveBootstrapped) return;
         var t = ev.target;
         if (t && t.tagName === "SCRIPT" && isGameModuleUrl(t.src)) {
+          forwardBootError(
+            ev.error ? ev.error.message : "Failed to load game module",
+            ev.error ? ev.error.stack : "",
+            { context: "bootScriptError", src: t.src || "" }
+          );
           scheduleBootError(
             "Failed to load game module. Hard refresh (Ctrl+Shift+R) or restart: npm run dev:next-level",
             8000
@@ -625,13 +676,21 @@
         if (window.__cartRaveBootstrapped) return;
         var msg = ev.reason && ev.reason.message ? String(ev.reason.message) : "";
         if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg)) {
+          forwardBootError(msg, ev.reason && ev.reason.stack ? ev.reason.stack : "", {
+            context: "bootDynamicImportError",
+          });
           ev.preventDefault();
           scheduleBootError(msg || "Module load failed. Hard refresh or restart dev server.", 8000);
         }
       });
 
       document.addEventListener("DOMContentLoaded", function () {
-        window.__cartRaveShedBootSplash?.();
+        // * Defer splash shedding so dismissInitialBootSplash in the main JS bundle
+        // * has time to enforce MIN_BOOT_MS=3000 and the bar-to-100% flourish.
+        // * If the bundle never loads, this fallback still cleans up after ~3.5 s.
+        setTimeout(function () {
+          window.__cartRaveShedBootSplash?.();
+        }, 3500);
       });
     })();
   </script>

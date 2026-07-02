@@ -388,27 +388,6 @@ export const CART_COLORS = {
 
 export const PALETTE = Object.keys(CART_COLORS);
 
-export const MSG = {
-  join: "join",
-  hostTransform: "host_transform",
-  clientInput: "client_input",
-  hostEventCollision: "host_event_collision",
-  hostEventFall: "host_event_fall",
-  hostRound: "host_round",
-  keepalive: "keepalive",
-  colorPick: "color_pick",
-  cartLook: "cart_look",
-  readyToggle: "ready_toggle",
-  playAgain: "play_again",
-  hello: "hello",
-  hostAssigned: "host_assigned",
-  hostMigrated: "host_migrated",
-  slots: "slots",
-  state: "state",
-  round: "round",
-  joinRejected: "join_rejected",
-  gameStart: "game_start",
-  countdownCancel: "countdown_cancel",
-};
+export { MSG } from '../shared/protocol.js';
 
 export const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.workers.dev";

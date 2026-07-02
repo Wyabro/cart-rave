@@ -298,6 +298,7 @@ export function updateCartContactShadow(shadowMesh, pose) {
   shadowMesh.position.set(pose.x, floorY, pose.z);
   shadowMesh.rotation.y = pose.yaw;
   shadowMesh.scale.set(rx, rz, 1);
+  // @ts-expect-error THREE duck-typing suppress
   shadowMesh.material.opacity = cart.opacity * fade * solidFrac;
 }
 
@@ -333,6 +334,7 @@ export function createStaticContactShadowCluster(placements) {
     const rx = p.radiusX ?? base;
     const rz = p.radiusZ ?? base;
     mesh.scale.set(rx, rz, 1);
+    // @ts-expect-error THREE duck-typing suppress
     mesh.material.opacity = p.opacity ?? staticOpacity;
     group.add(mesh);
     ownedGeometries.push(mesh.geometry);
@@ -348,5 +350,6 @@ export function createStaticContactShadowCluster(placements) {
 export function disposeContactShadow(shadowMesh) {
   if (!shadowMesh) return;
   shadowMesh.geometry?.dispose?.();
+  // @ts-expect-error THREE duck-typing suppress
   shadowMesh.material?.dispose?.();
 }

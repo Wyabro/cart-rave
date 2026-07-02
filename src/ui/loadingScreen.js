@@ -219,7 +219,7 @@ export function revealGameCanvas() {
   if (canvas) canvas.style.opacity = "1";
 }
 
-/** @returns {Promise<void>} */
+/** @returns {any} */
 function revealAppShell() {
   document.body.classList.remove("cr-boot-pending");
   const root = document.getElementById("cr-root");

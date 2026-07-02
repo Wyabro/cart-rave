@@ -1,5 +1,6 @@
 // raveGltfCartTweakpane.js — Tweakpane replacement for cart debug folder (dev-only, tree-shaken in prod).
 
+// @ts-ignore - tweakpane v4 exports Pane as type, used as constructor
 import { Pane } from "tweakpane";
 import {
   logRaveGltfCasterPivotsOnScene,
@@ -18,7 +19,7 @@ import { raveGltfTuning } from "./stores/cartTuningStore.js";
  * @param {string} key
  * @param {{ min: number, max: number, step?: number, label?: string }} opts
  * @param {(() => void) | undefined} [onChange]
- * @returns {import("tweakpane").BindingApi}
+ * @returns {any} tweakpane v4 removed BindingApi; use any
  */
 function addSlider(folder, obj, key, opts, onChange) {
   const b = folder.addBinding(obj, key, {

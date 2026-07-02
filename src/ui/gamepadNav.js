@@ -1,11 +1,12 @@
 // gamepadNav.js — D-Pad + A-button UI navigation for gamepad / Steam Deck
 
-let _navActive = false;
+let _navActive = true;
 let navIndex = 0;
 let prevDpad = { up: false, down: false, left: false, right: false, a: false };
 
 function getFocusables() {
   const elements = Array.from(document.querySelectorAll('button, a, [role="button"]'));
+  // @ts-expect-error - querySelectorAll returns Element[], HTMLElement props accessed via duck-typing
   return elements.filter(el => el.offsetParent !== null && !el.disabled);
 }
 
@@ -45,6 +46,7 @@ function updateNav() {
     if (right && !prevDpad.right) moveNext(1);
 
     if (a && !prevDpad.a) {
+      // @ts-expect-error - activeElement is Element, .click() is on HTMLElement
       if (document.activeElement && typeof document.activeElement.click === 'function') {
         document.activeElement.click();
       }

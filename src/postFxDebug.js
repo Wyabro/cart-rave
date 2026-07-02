@@ -3,6 +3,7 @@
 
 import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+// @ts-ignore - tweakpane v4 exports Pane as type but we use it as constructor
 import { Pane } from "tweakpane";
 import {
   CUSTOMIZE_STORAGE_KEY,
@@ -15,9 +16,7 @@ import {
   getDefaultSfxVolumes,
   getSfxKeys,
   getSfxPerVolume,
-  getWheelLoopVolumeScale,
   setSfxPerVolume,
-  setWheelLoopVolumeScale,
 } from "./audioManager.js";
 import {
   getContactShadowDebugParams,
@@ -119,6 +118,7 @@ function injectStyles() {
 function isTypingTarget(e) {
   const el = e.target;
   if (!el || typeof el !== "object") return false;
+  // @ts-expect-error THREE duck-typing suppress
   const tag = el.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
 }
@@ -185,6 +185,7 @@ window.exportArenaFloorGLB = function () {
     clone,
     (gltf) => {
       // * gltf is an ArrayBuffer when binary: true.
+      // @ts-expect-error THREE duck-typing suppress
       const blob = new Blob([gltf], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -306,7 +307,7 @@ export function initPostFxDebugGui(deps) {
   container.classList.toggle("tp-hidden", !paneVisible);
 
   // — Collapse / Expand All —
-  /** @type {import("tweakpane").FolderApi[]} */
+  /** @type {any[]} tweakpane v4 removed FolderApi */
   const allFolders = [];
   pane.addButton({ title: "Collapse All" }).on("click", () => {
     for (const f of allFolders) f.expanded = false;
@@ -328,8 +329,6 @@ export function initPostFxDebugGui(deps) {
     for (const k of sfxKeys) {
       sfxVolTarget[k] = getSfxPerVolume(k);
     }
-    // * Wheel loop volume scale — independent from the per-SFX multiplier system.
-    sfxVolTarget.wheelLoopScale = getWheelLoopVolumeScale();
     const defaults = getDefaultSfxVolumes();
     sfxFolder.addButton({ title: "↩ Reset all SFX to defaults" }).on("click", () => {
       for (const k of sfxKeys) {
@@ -337,8 +336,6 @@ export function initPostFxDebugGui(deps) {
         sfxVolTarget[k] = dv;
         setSfxPerVolume(k, dv);
       }
-      setWheelLoopVolumeScale(1.0);
-      sfxVolTarget.wheelLoopScale = 1.0;
       pane.refresh();
     });
     for (const key of sfxKeys) {
@@ -347,12 +344,6 @@ export function initPostFxDebugGui(deps) {
           setSfxPerVolume(key, ev.value);
         });
     }
-    // * Wheel loop volume scale — independent from the per-SFX multiplier system.
-    sfxFolder.addBinding(sfxVolTarget, "wheelLoopScale", {
-      min: 0, max: 3, step: 0.05, label: "wheel_loop",
-    }).on("change", (ev) => {
-      setWheelLoopVolumeScale(ev.value);
-    });
   }
 
   // — Renderer —

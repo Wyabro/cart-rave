@@ -39,6 +39,7 @@
  * @property {number} metalness
  * @property {number} roughness
  * @property {number} clearcoat
+ * @property {number} envMapIntensity — environment map reflectivity multiplier for mirror finish
  */
 
 /**
@@ -57,17 +58,15 @@
  * @property {FacePolicy} facePolicy
  * @property {readonly string[]} propIds
  * @property {CartFrameMaterialPreset} frameMaterial
- * @property {number} baseHex — fixed body tint or menu swatch base
- * @property {number} accentHex — trim / emissive accent or menu swatch highlight
- * @property {CartGhostMaterialPreset} [ghost] — Ghost theme translucent material tuning
+ * @property {number} baseHex - fixed body tint or menu swatch base
+ * @property {number} accentHex - trim / emissive accent or menu swatch highlight
+ * @property {CartGhostMaterialPreset} [ghost] - Ghost theme translucent material tuning
  */
 
 /**
  * * Selectable theme ids. The theme picker UI has been removed — "rave" is the sole permanent
  * * base configuration for the GLTF cart. The registry + helpers remain so cartThemes.js and
  * * the spawn path can still resolve a CartThemeDef by id.
- *
- * @type {readonly ["rave"]}
  */
 export const DEFAULT_CART_THEME = "rave";
 
@@ -77,12 +76,12 @@ export const DEFAULT_CART_THEME = "rave";
  * @type {ReadonlyArray<SunglassesStyleDef>}
  */
 export const SUNGLASSES_STYLES = Object.freeze([
-  { id: "silverMirror", label: "Silver Mirror", color: 0xc8c8d0, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
-  { id: "goldMirror", label: "Gold Mirror", color: 0xd4af37, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
-  { id: "blueMirror", label: "Blue Mirror", color: 0x2a6cff, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
-  { id: "redMirror", label: "Red Mirror", color: 0xff1f3a, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
-  { id: "greenMirror", label: "Green Mirror", color: 0x19e07a, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
-  { id: "purpleMirror", label: "Purple Mirror", color: 0x9b3cff, metalness: 1.0, roughness: 0.05, clearcoat: 1.0 },
+  { id: "silverMirror", label: "Silver Mirror", color: 0xc8c8d0, metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "goldMirror", label: "Gold Mirror", color: 0xd4af37, metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "blueMirror", label: "Blue Mirror", color: 0x2a6cff, metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "redMirror", label: "Red Mirror", color: 0xff1f3a, metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "greenMirror", label: "Green Mirror", color: 0x19e07a, metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "purpleMirror", label: "Purple Mirror", color: 0x9b3cff, metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
 ]);
 
 /** Stable fallback when no sunglasses style is supplied to the GLTF material pipeline. */

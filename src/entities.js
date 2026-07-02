@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d";
 import { buildCart } from "./cart.js";
 import { normalizeThemeId } from "./cartThemeConfig.js";
 import {
@@ -75,10 +75,10 @@ function buildCartMaterialCache(cartMesh) {
 }
 
 /**
- * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d").World} world
  * @param {{ x: number, y: number, z: number }} spawn
  * @param {number} spawnYaw
- * @returns {import("@dimforge/rapier3d-compat").RigidBody | null}
+ * @returns {import("@dimforge/rapier3d").RigidBody | null}
  */
 function createCartBody(world, spawn, spawnYaw) {
   if (!world || !spawn) return null;
@@ -93,6 +93,7 @@ function createCartBody(world, spawn, spawnYaw) {
   body.setRotation(quatFromYaw(spawnYaw), true);
 
   const { canSleep } = CONFIG.cart.rigidBody;
+  // @ts-expect-error THREE duck-typing suppress
   if (typeof body.setCanSleep === "function") {
     body.setCanSleep(canSleep);
   }
@@ -103,10 +104,10 @@ function createCartBody(world, spawn, spawnYaw) {
 }
 
 /**
- * @param {import("@dimforge/rapier3d-compat").World} world
- * @param {import("@dimforge/rapier3d-compat").RigidBody} body
+ * @param {import("@dimforge/rapier3d").World} world
+ * @param {import("@dimforge/rapier3d").RigidBody} body
  * @returns {{
- *   collider: import("@dimforge/rapier3d-compat").Collider,
+ *   collider: import("@dimforge/rapier3d").Collider,
  *   hx: number,
  *   hyPhys: number,
  *   hz: number,
@@ -141,7 +142,7 @@ function createCartCollider(world, body) {
  *
  * @param {number} color
  * @param {string} themeId
- * @param {string} [sunglassesStyle] — sunglasses style id for the rave GLTF face assembly (defaults to silver mirror when omitted)
+ * @param {string} [sunglassesStyle] - sunglasses style id for the rave GLTF face assembly (defaults to silver mirror when omitted)
  * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache> }}
  */
 function buildCartVisualMesh(color, themeId, sunglassesStyle) {
@@ -164,6 +165,9 @@ function buildCartVisualMesh(color, themeId, sunglassesStyle) {
     materialCache = buildCartMaterialCache(mesh);
   }
 
+  // * Store the true base scale so boost pulses never ratchet from interrupted animations.
+  mesh.userData.baseScale = mesh.scale.x;
+
   return { mesh, materialCache };
 }
 
@@ -171,7 +175,7 @@ function buildCartVisualMesh(color, themeId, sunglassesStyle) {
  * @param {THREE.Scene} scene
  * @param {number} color
  * @param {string} themeId
- * @param {string} [sunglassesStyle] — sunglasses style id for the rave GLTF face assembly (defaults to silver mirror when omitted)
+ * @param {string} [sunglassesStyle] - sunglasses style id for the rave GLTF face assembly (defaults to silver mirror when omitted)
  * @returns {{ mesh: THREE.Object3D, materialCache: ReturnType<typeof buildCartThemeMaterialCache>, contactShadow: object | null, themeId: string }}
  */
 function setupCartVisuals(scene, color, themeId, sunglassesStyle) {
@@ -219,6 +223,10 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   cart.mesh.visible = true;
   cart.mesh.updateMatrixWorld(true);
 
+  // * Preserve the stable base scale for boost pulse animations — reading
+  // * from mesh.scale.x mid-pulse would ratchet the scale upward on interruption.
+  cart.mesh.userData.baseScale = cart.mesh.scale.x;
+
   // * Refresh the material cache — the old one referenced disposed materials.
   cart._materialCache = materialCache;
 
@@ -226,8 +234,8 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
 }
 
 /**
- * @param {import("@dimforge/rapier3d-compat").RigidBody} body
- * @param {import("@dimforge/rapier3d-compat").Collider} collider
+ * @param {import("@dimforge/rapier3d").RigidBody} body
+ * @param {import("@dimforge/rapier3d").Collider} collider
  * @param {{ label?: string, hx: number, hyPhys: number, hz: number, colliderLocalY: number }} dims
  */
 function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY }) {
@@ -247,7 +255,7 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  *
  * @param {{
  *   scene: THREE.Scene,
- *   world: import("@dimforge/rapier3d-compat").World,
+ *   world: import("@dimforge/rapier3d").World,
  *   color: number,
  *   themeId: string,
  *   sunglassesStyle?: string,
@@ -258,7 +266,7 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  * }} params
  * @returns {object}
  */
-function createCart({ scene, world, color, themeId, sunglassesStyle, spawn, spawnYaw, label, slotIndex }) {
+export function createCart({ scene, world, color, themeId, sunglassesStyle, spawn, spawnYaw, label, slotIndex }) {
   const spawnFrozen = { x: spawn.x, y: spawn.y, z: spawn.z };
   const { mesh, materialCache, contactShadow } = setupCartVisuals(scene, color, themeId, sunglassesStyle);
 
@@ -299,7 +307,6 @@ function createCart({ scene, world, color, themeId, sunglassesStyle, spawn, spaw
     boostChargeMultiplier: 1,
     chargeUpSfxId: null,
     lastHopAtMs: 0,
-    lastWheelScreechAtMs: Number.NEGATIVE_INFINITY,
     respawnAtMs: null,
     pendingRam: null,
     lastRamTimeMs: 0,
@@ -548,7 +555,7 @@ export function rematchResetWorld() {
  *
  * @param {{
  *   scene: THREE.Scene,
- *   world: import("@dimforge/rapier3d-compat").World,
+ *   world: import("@dimforge/rapier3d").World,
  *   ramBoostStreaks: Array<object>,
  *   netSlots: Array<object | null | undefined>,
  *   youConnId: string | null | undefined,

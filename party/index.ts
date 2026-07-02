@@ -37,30 +37,7 @@ type RoundState = {
   validated: true;
 };
 
-const MSG = {
-  // Client -> server
-  join: "join",
-  hostTransform: "host_transform",
-  clientInput: "client_input",
-  hostEventCollision: "host_event_collision",
-  hostEventFall: "host_event_fall",
-  hostRound: "host_round",
-  colorPick: "color_pick",
-  cartLook: "cart_look",
-  readyToggle: "ready_toggle",
-  playAgain: "play_again",
-
-  // Server -> client
-  hello: "hello",
-  hostAssigned: "host_assigned",
-  hostMigrated: "host_migrated",
-  slots: "slots",
-  state: "state",
-  round: "round",
-  joinRejected: "join_rejected",
-  gameStart: "game_start",
-  countdownCancel: "countdown_cancel",
-} as const;
+import { MSG } from '../shared/protocol.js';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
@@ -715,7 +692,7 @@ export class CartRaveServer extends Server {
   #checkAllReady() {
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
     const liveConnIds = new Set<string>();
-    for (const c of this.getConnections().values()) {
+    for (const c of this.getConnections()) {
       liveConnIds.add(c.id);
     }
     const humanSlots = this.#slots!.filter(
@@ -857,7 +834,7 @@ export class CartRaveServer extends Server {
     // because WebSocket close events are not guaranteed to fire (tab crash, incognito
     // close, network drop) and #connections can hold zombies.
     const liveConnIds = new Set<string>();
-    for (const c of this.getConnections().values()) {
+    for (const c of this.getConnections()) {
       liveConnIds.add(c.id);
     }
     // The new connection itself is not yet in getConnections() during onConnect, so add it.
@@ -868,7 +845,7 @@ export class CartRaveServer extends Server {
 
     // Prune zombies from #connections to match platform reality.
     for (const staleId of [...this.#connections.keys()]) {
-      if (![...this.getConnections().values()].some((c) => c.id === staleId) && staleId !== conn.id) {
+      if (![...this.getConnections()].some((c) => c.id === staleId) && staleId !== conn.id) {
         this.#connections.delete(staleId);
       }
     }
@@ -977,6 +954,7 @@ export class CartRaveServer extends Server {
     }
   }
 
+  // @ts-expect-error - parameter order swapped vs base class; PartyKit dispatches correctly at runtime
   onMessage(message: string, conn: Connection) {
     // Security: Block massive payload bombs before trying to parse
     if (message.length > 4096) {
@@ -1175,7 +1153,7 @@ export class CartRaveServer extends Server {
         // during onConnect (platform hadn't closed it yet). By the time the
         // player clicks Ready, the stale conn is gone from getConnections().
         const liveConnIds = new Set<string>();
-        for (const c of this.getConnections().values()) {
+        for (const c of this.getConnections()) {
           liveConnIds.add(c.id);
         }
         for (const s of this.#slots!) {

@@ -1,7 +1,7 @@
 // testArena.js — flat open floor for driving tuning (test drive mode)
 
 import * as THREE from "three";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d";
 import { createPhysicalMaterial } from "../scene.js";
 
 const FLOOR_HALF = 28;
@@ -16,7 +16,7 @@ export const TEST_ARENA_FOG_DENSITY = 0.0032;
  * Minimal flat arena: soft daylight, grid floor, low boundary walls.
  *
  * @param {THREE.Scene} scene
- * @param {import("@dimforge/rapier3d-compat").World} world
+ * @param {import("@dimforge/rapier3d").World} world
  * @param {object} config
  */
 export function initTestArena(scene, world, config) {

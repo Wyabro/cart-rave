@@ -197,6 +197,7 @@ function disposeAmbientParticles() {
   if (ambientParticles && sceneRef) sceneRef.remove(ambientParticles);
   ambientParticleGeometry?.dispose();
   ambientParticleTexture?.dispose();
+  // @ts-expect-error THREE duck-typing suppress
   ambientParticles?.material?.dispose();
   ambientParticles = null;
   ambientParticleGeometry = null;
@@ -642,6 +643,7 @@ export function initEffects(scene, options = {}) {
     trashPool.push(m);
   }
 
+  // @ts-expect-error THREE duck-typing suppress
   if (options.cartColors && options.ambientDustStyle) {
     setAmbientDustStyle(options.ambientDustStyle, options.cartColors);
   }
@@ -674,6 +676,7 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
   } else if (type === "edge") {
     count = Math.floor(6 + clampedI * 10);
   } else {
+    // @ts-expect-error THREE duck-typing suppress
     const base = fx.particleCountBase ?? 8;
     const perI = fx.particleCountPerIntensity ?? 16;
     const boostBonus = isBoosting ? (fx.particleBoostCountBonus ?? 5) : 0;
@@ -693,11 +696,13 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     const p = trashPool[i];
     if (p.visible) continue;
     p.position.set(position.x, position.y + (type === "floor" ? 0.05 : 0.5), position.z);
-    p.scale.setScalar(sizeMul * (0.92 + Math.random() * 0.16));
+    p.userData.baseScale = sizeMul * (0.92 + Math.random() * 0.16);
+    p.scale.setScalar(p.userData.baseScale);
     if (type === "floor") {
       const colors = isBackroomsFloor
         ? BACKROOMS_FLOOR_DUST_COLORS
         : [0x551a8b, 0xff00ff, 0x333333];
+      // @ts-expect-error THREE duck-typing suppress
       p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
     } else if (type === "edge") {
       const colors = [0xff00ff, 0x00ffff, 0xffffff];
@@ -756,12 +761,18 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
  * @param {number} dt Frame delta (seconds).
  */
 export function updateTrashParticles(dt) {
-  if (GameState.getRoundState().phase !== "running") return;
+  const isRunning = GameState.getRoundState().phase === "running";
 
+  // * During podium / lobby, accelerate cleanup so particles don't freeze mid-air.
+  const fadeSpeed = isRunning ? 1 : 3;
+
+  let anyVisible = false;
   for (let i = 0; i < trashPool.length; i++) {
     const p = trashPool[i];
     if (!p.visible) continue;
-    p.userData.life += dt;
+    anyVisible = true;
+
+    p.userData.life += dt * fadeSpeed;
     if (p.userData.life >= p.userData.maxLife) {
       p.visible = false;
       continue;
@@ -771,11 +782,16 @@ export function updateTrashParticles(dt) {
     p.position.y += p.userData.vel.y * dt;
     p.position.z += p.userData.vel.z * dt;
     p.userData.vel.y -= (p.userData.isDust ? 2.2 : 9.8) * dt;
-    p.scale.setScalar((1 - t) * (p.userData.isDust ? 0.5 + 0.5 : 0.5 + 0.5));
+    const dustScale = p.userData.isDust ? 0.5 : 1.0;
+    p.scale.setScalar(p.userData.baseScale * (1 - t) * dustScale);
+    // @ts-expect-error THREE duck-typing suppress
     p.material.opacity = p.userData.isDust
       ? (0.78 * (1 - t))
       : (1 - t);
   }
+
+  // * Early return only if no particles are visible at all.
+  if (!anyVisible && !isRunning) return;
 }
 
 /**
@@ -855,6 +871,7 @@ function trimRamBoostStreakPool(maxActive) {
   while (ramBoostStreaks.length >= maxActive) {
     const oldest = ramBoostStreaks.shift();
     if (!oldest) break;
+    // @ts-expect-error THREE duck-typing suppress
     sceneRef?.remove(oldest.group);
     oldest.coreMat.dispose();
     oldest.glowMat.dispose();

@@ -238,6 +238,7 @@ function updatePatternOverlayMaterial(mat, patternId, neonHex) {
 function clearBaseFramePatternMaps(frameMesh) {
   const mat = frameMesh.material;
   if (!mat || Array.isArray(mat)) return;
+  // @ts-expect-error THREE duck-typing suppress
   if (mat.emissiveMap || mat.map) {
     mat.emissiveMap = null;
     mat.map = null;
@@ -254,6 +255,7 @@ function removeLegacyPatternOverlays(root) {
   if (!legacy) return;
 
   legacy.traverse((child) => {
+    // @ts-expect-error THREE duck-typing suppress
     if (!child.isMesh) return;
     child.geometry?.dispose();
     const mat = child.material;
@@ -269,6 +271,7 @@ function removeLegacyPatternOverlays(root) {
  */
 function ensurePatternOverlayMesh(root, frameMesh) {
   let patternMesh = root.getObjectByName("CartFramePattern");
+  // @ts-expect-error THREE duck-typing suppress
   if (patternMesh?.isMesh) return patternMesh;
 
   patternMesh = new THREE.Mesh(frameMesh.geometry, createPatternOverlayMaterial());
@@ -277,6 +280,7 @@ function ensurePatternOverlayMesh(root, frameMesh) {
   patternMesh.userData.sharesCartFrameGeometry = true;
   patternMesh.renderOrder = (frameMesh.renderOrder || 0) + 1;
   root.add(patternMesh);
+  // @ts-expect-error THREE duck-typing suppress
   return patternMesh;
 }
 
@@ -294,10 +298,12 @@ export function applyCartPattern(root, patternId, neonHex) {
   removeLegacyPatternOverlays(root);
 
   const frameMesh = root.getObjectByName("CartFrame");
+  // @ts-expect-error THREE duck-typing suppress
   if (!frameMesh?.isMesh || !frameMesh.geometry) return;
 
   // * GLTF rave cart keeps authored baseColor + emissive maps for uniform PBR.
   if (!root.userData?.isRaveGltf && !frameMesh.userData?.preserveGltfMaps) {
+    // @ts-expect-error THREE duck-typing suppress
     clearBaseFramePatternMaps(frameMesh);
   }
 
@@ -309,10 +315,12 @@ export function applyCartPattern(root, patternId, neonHex) {
     return;
   }
 
+  // @ts-expect-error THREE duck-typing suppress
   const overlayMesh = ensurePatternOverlayMesh(root, frameMesh);
   const mat = overlayMesh.material;
   if (!mat || Array.isArray(mat)) return;
 
+  // @ts-expect-error THREE duck-typing suppress
   updatePatternOverlayMaterial(mat, id, neonHex ?? 0xffffff);
   overlayMesh.visible = true;
 }

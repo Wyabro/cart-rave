@@ -20,6 +20,8 @@ import {
 } from "./cartThemeConfig.js";
 import { CartPreview } from "./ui/cartPreview.js";
 import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
+import { isLowQualityMode, setLowQualityMode } from "./utils.js";
+import { getRoundState } from "./gameState.js";
 
 (function () {
   'use strict';
@@ -255,6 +257,8 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
   const musicVolFill = $("cr-music-vol-fill");
   const musicVolVal = $("cr-music-vol-val");
   const audioEl = $("cr-audio");
+  const gfxBtn = $("cr-gfx-btn");
+  const lqBtn = $("cr-lq-btn");
   let currentCartSvg = null;
   let currentCustomizeCartSvg = null;
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
@@ -713,6 +717,11 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
       const isActive = section.dataset.section === tabId;
       section.hidden = !isActive;
     });
+    // * Freeze auto-rotation on the Sunglasses tab so the mirror finish is readable.
+    if (cartPreview) {
+      cartPreview.setAutoRotate(tabId !== 'sunglasses');
+      cartPreview.setZoom(tabId === 'sunglasses' ? 1.35 : 1.0);
+    }
   }
 
   /** Syncs neon color, pattern, and sunglasses style to the live 3D cart preview. */
@@ -776,6 +785,8 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 
   function openCustomizeScreen() {
     if (!customizeScreen) return;
+    const phase = getRoundState().phase;
+    if (phase === "running" || phase === "countdown") return;
     wireCustomHueSlider();
     updateCustomHueUi();
     mountCartPreview();
@@ -972,6 +983,45 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
     }
   }
 
+  // ─── Graphics toggles ──────────────────────────────────────────────────────
+
+  function getPostFxEnabled() {
+    const bloom = localStorage.getItem("cartRaveBloom");
+    const fx = localStorage.getItem("cartRaveFx");
+    const bloomOn = bloom !== "off";
+    const fxOn = fx !== "off";
+    return bloomOn && fxOn;
+  }
+
+  function syncGfxButtonStates() {
+    if (!gfxBtn || !lqBtn) return;
+    const postFxOn = getPostFxEnabled();
+    gfxBtn.querySelector(".cr-btn-label").textContent = postFxOn ? "POST-FX: ON" : "POST-FX: OFF";
+    gfxBtn.classList.toggle("cr-btn--gfx-off", !postFxOn);
+    const lowQ = isLowQualityMode();
+    lqBtn.querySelector(".cr-btn-label").textContent = lowQ ? "LOW QUALITY: ON" : "HIGH QUALITY: ON";
+    lqBtn.classList.toggle("cr-btn--lq-on", lowQ);
+  }
+
+  if (gfxBtn) {
+    gfxBtn.addEventListener("click", () => {
+      const next = !getPostFxEnabled();
+      try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch (e) {}
+      try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch (e) {}
+      syncGfxButtonStates();
+    });
+  }
+
+  if (lqBtn) {
+    lqBtn.addEventListener("click", () => {
+      const next = !isLowQualityMode();
+      setLowQualityMode(next);
+      syncGfxButtonStates();
+    });
+  }
+
+  syncGfxButtonStates();
+
   // ─── Button clicks ────────────────────────────────────────────────────────
   document.querySelectorAll('.cr-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -979,6 +1029,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
         openCustomizeScreen();
         return;
       }
+      if (btn.dataset.action === 'toggle-postfx' || btn.dataset.action === 'toggle-lowquality') return;
       window.dispatchEvent(new CustomEvent('cartrave:menu', {
         detail: { action: btn.dataset.action }
       }));
@@ -1243,19 +1294,16 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
   initCustomizeScreen();
   window.addEventListener('cartrave:customization-changed', (e) => {
     const detail = e.detail || loadPlayerCustomization();
-    const prevSunglasses = state.sunglassesStyle;
     applyCustomizationToState(detail);
     buildColorChips();
     buildSunglassesChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
-    // * Rebuild the 3D preview mesh when the baked-in sunglasses style changes.
-    // * Theme is always "rave", so only the sunglasses style can force a rebuild.
-    if (cartPreview && prevSunglasses !== state.sunglassesStyle) {
-      syncCartPreviewLook(true);
-    }
     applyPalette();
+  });
+  window.addEventListener('cartrave:round-started', () => {
+    closeCustomizeScreen();
   });
   renderCart();
   applyPalette();

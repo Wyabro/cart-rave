@@ -15,15 +15,21 @@
     "preview": "vite preview",
     "ship": "npm run build && npx wrangler deploy",
     "compress:rave-gltf": "node scripts/compress-rave-gltf.mjs",
-    "knip": "knip"
+    "knip": "knip",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/three": "^0.185.0",
     "knip": "^6.20.0",
+    "typescript": "^6.0.3",
     "vite": "^6.3.5",
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^4.1.9",
     "wrangler": "^4.106.0"
   },
   "dependencies": {
-    "@dimforge/rapier3d-compat": "^0.19.3",
+    "@dimforge/rapier3d": "^0.19.3",
     "animejs": "^4.0.0",
     "howler": "^2.2.4",
     "nipplejs": "^1.0.4",

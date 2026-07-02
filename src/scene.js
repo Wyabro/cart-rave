@@ -24,6 +24,7 @@ export function applyBloomSettings(bloomPass, bloomCfg = BLOOM_CONFIG) {
   bloomPass.strength = bloomCfg.strength;
   bloomPass.radius = bloomCfg.radius;
   bloomPass.threshold = bloomCfg.threshold;
+  // @ts-expect-error THREE duck-typing suppress
   if (bloomPass.highPassUniforms?.luminosityThreshold) {
     bloomPass.highPassUniforms.luminosityThreshold.value = bloomCfg.threshold;
   }

@@ -17,6 +17,7 @@ import {
 import { resolveCartNeonCss } from "./customization.js";
 import * as AudioManager from "./audioManager.js";
 import { isLowQualityMode, setLowQualityMode } from "./utils.js";
+import { getServerClockOffsetMs } from "./netcode.js";
 
 /**
  * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
@@ -47,7 +48,7 @@ function applyHudScoreBoxGlow(box, slot, youConnId) {
 
 let _options = {};
 
-/** @type {Record<string, HTMLElement | null | Array<object>>} */
+/** @type {Record<string, any>} */
 const elements = {
   root: null,
   status: null,
@@ -1350,6 +1351,11 @@ function clampInt(value, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+/** Returns the client's local clock adjusted to approximate the host's wall clock. */
+function adjustedNow() {
+  return Date.now() - getServerClockOffsetMs();
+}
+
 /**
  * Builds a pointer-friendly volume slider row for the Esc overlay.
  * @param {string} labelText
@@ -1794,7 +1800,7 @@ function updateStatus(roundState) {
     }
     const countdownMs = roundState?.countdownMs
       ?? (_options.getCountdownMs ? _options.getCountdownMs() : 3000);
-    const elapsedMs = Date.now() - (roundCountdownStartedAtMs || 0);
+    const elapsedMs = adjustedNow() - (roundCountdownStartedAtMs || 0);
     const remainingMs = countdownMs - elapsedMs;
     const n = clampInt(Math.ceil(remainingMs / 1000), 1, Math.ceil(countdownMs / 1000));
     setHudDisplay(elements.status, "block", "status");
@@ -1850,7 +1856,7 @@ function updateTimer(roundState, matchHistoryLength) {
 
   if (roundPhase === "running") {
     const isSuddenDeath = roundState?.isSuddenDeath === true;
-    const elapsedMs = Date.now() - (roundStartedAtMs || 0);
+    const elapsedMs = adjustedNow() - (roundStartedAtMs || 0);
     const totalRoundMs = roundState?.totalRoundMs
       ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
     const remainingMs = isSuddenDeath ? 0 : totalRoundMs - elapsedMs;

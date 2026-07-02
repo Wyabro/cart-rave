@@ -842,7 +842,7 @@ export function animateCartBoostPulse(mesh, options = {}) {
     cartPulseByMesh.delete(mesh);
   }
 
-  const base = mesh.scale.x;
+  const base = mesh.userData.baseScale ?? mesh.scale.x;
   const peak = base * scalePeak;
 
   const animation = animate(mesh.scale, {
@@ -1215,6 +1215,7 @@ export function wireButtonPressFeedback(btn, options = {}) {
   let pressed = false;
 
   const onPress = (e) => {
+    // @ts-expect-error - 'disabled' is on HTMLButtonElement, querySelector returns HTMLElement
     if (btn.disabled) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
     pressed = true;

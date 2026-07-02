@@ -1,6 +1,7 @@
 // gameLoop.js — requestAnimationFrame timing shell (fixed-timestep accumulator)
 
 import { captureCartsPhysicsPrevPoses } from "./entities.js";
+import { sendErrorLog } from "./utils/errorReporter.js";
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
@@ -332,6 +333,7 @@ export function runGameLoop(loopState, callbacks) {
       requestAnimationFrame(step);
     } catch (err) {
       console.error("[gameLoop] Fatal step error:", err);
+      sendErrorLog(err, { context: "gameLoop" });
       onFatalError?.(err);
       requestAnimationFrame(step);
     }
