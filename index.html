@@ -193,15 +193,6 @@
   </style>
 </head>
 <body class="cr-boot-pending">
-  <style>
-    /* Force custom splash to show early and cover everything */
-    #cr-boot-splash {
-      display: flex !important;
-      opacity: 1 !important;
-      z-index: 999999 !important;
-      visibility: visible !important;
-    }
-  </style>
   <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Clash">
     <div class="cr-boot-panel">
       <div class="cr-boot-tag">◆ CART CLASH ◆</div>
@@ -561,11 +552,6 @@
         btn.disabled = true;
         btn.setAttribute("aria-disabled", "true");
       });
-      var splash = document.getElementById("cr-boot-splash");
-      if (splash) {
-        splash.setAttribute("aria-busy", "false");
-        splash.classList.add("cr-load--exit", "cr-load--hidden");
-      }
     })();
   </script>
   <script>

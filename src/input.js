@@ -67,37 +67,39 @@ function pollGamepad() {
   if (Math.abs(ly) < deadzone) ly = 0;
 
   let f = -ly; // Push up = forward
-  let t = lx;  // Push right = turn right
+  let t = -lx; // Push right = negative turn
 
   // D-Pad overrides
   if (gp.buttons[12]?.pressed) f = 1;
   if (gp.buttons[13]?.pressed) f = -1;
-  if (gp.buttons[14]?.pressed) t = -1;
-  if (gp.buttons[15]?.pressed) t = 1;
+  if (gp.buttons[14]?.pressed) t = 1;
+  if (gp.buttons[15]?.pressed) t = -1;
 
   gamepadAxis = { forward: f, turn: t };
+
+  const isPressed = (idx) => {
+    const btn = gp.buttons[idx];
+    return btn && (btn.value > 0.5 || btn.pressed);
+  };
+
+  const menuPressed = isPressed(9);
+  if (menuPressed && !prevBtnStates.menu) {
+    _onEscape?.();
+  }
 
   if (_isUiMode) {
     gamepadAxis = { forward: 0, turn: 0 };
     gamepadBoostHeld = false;
     // Still update prevBtnStates so we don't double-fire when exiting UI mode
     const currBtnStates = {};
-    const isPressed = (idx) => {
-      const btn = gp.buttons[idx];
-      return btn && (btn.value > 0.5 || btn.pressed);
-    };
     currBtnStates.boost = isPressed(7) || isPressed(0);
     currBtnStates.hop = isPressed(6) || isPressed(1);
-    currBtnStates.menu = isPressed(9);
+    currBtnStates.menu = menuPressed;
     prevBtnStates = currBtnStates;
     return;
   }
 
   const currBtnStates = {};
-  const isPressed = (idx) => {
-    const btn = gp.buttons[idx];
-    return btn && (btn.value > 0.5 || btn.pressed);
-  };
 
   // Boost
   const boostPressed = isPressed(7) || isPressed(0);
@@ -116,11 +118,6 @@ function pollGamepad() {
   }
   currBtnStates.hop = hopPressed;
 
-  // Escape / Menu (One-shot)
-  const menuPressed = isPressed(9);
-  if (menuPressed && !prevBtnStates.menu) {
-    _onEscape?.();
-  }
   currBtnStates.menu = menuPressed;
 
   prevBtnStates = currBtnStates;

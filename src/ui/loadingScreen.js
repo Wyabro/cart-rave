@@ -381,6 +381,7 @@ export function initLoadingScreen() {
  */
 export function showQualityApplyLoading() {
   ensureModeOverlay();
+  stopModeMessageRotation();
   if (!modeOverlayEl) return;
 
   // * Strip level-specific themes so the panel renders neutral.

@@ -540,7 +540,7 @@ export class CartRaveServer extends Server {
     if (nextPhase === "podium") {
       if (prev.phase !== "running") return null;
       if (!prev.startedAtMs || now - prev.startedAtMs < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
-      if (now - prev.startedAtMs > ROUND_DURATION_MS + 15_000) return null;
+      if (!prev.isSuddenDeath && now - prev.startedAtMs > ROUND_DURATION_MS + 15_000) return null;
 
       const lastStanding =
         endReasonRaw === "lastStanding"

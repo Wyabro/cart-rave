@@ -49,7 +49,7 @@ function buildRecordRingGeometry({
  * * inner hole. Visual hole stays at innerRadius; physics flat surface ends at
  * * playInnerR (= innerRadius + holeClearance), then chamferWidth slopes inward to
  * * chamferInnerR before the open void. Must stay aligned with getRecordFloorInnerR()
- * * in simulation.js (floorInnerR = innerRadius + holeClearance).
+ * * in simulation.js (floorInnerR = innerRadius).
  */
 function buildRecordPhysicsGeometry({
   outerRadius,

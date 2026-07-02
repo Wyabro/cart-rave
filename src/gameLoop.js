@@ -333,6 +333,7 @@ export function runGameLoop(loopState, callbacks) {
     } catch (err) {
       console.error("[gameLoop] Fatal step error:", err);
       onFatalError?.(err);
+      requestAnimationFrame(step);
     }
   }
 

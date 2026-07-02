@@ -346,7 +346,11 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const fovPunchUntil = deps.getFovPunchUntil();
   if (roundState.phase === "running" && performance.now() < fovPunchUntil) {
     const t = (fovPunchUntil - performance.now()) / 200;
-    deps.camera.fov = deps.BASE_FOV - 8 * t;
+    const targetFov = (deps.camera.userData.baseFov || 55) - (8 * t);
+    if (deps.camera.fov !== targetFov) deps.camera.fov = targetFov;
+    deps.camera.updateProjectionMatrix();
+  } else {
+    deps.camera.fov = deps.camera.userData.baseFov || 55;
     deps.camera.updateProjectionMatrix();
   }
 

@@ -212,7 +212,7 @@ export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, co
 
 /**
  * * Inner radius of the flat physics playing surface (matches arena `playInnerR`).
- * * Visual hole stays at `CONFIG.record.innerRadius`; physics adds `holeClearance`.
+ * * Returns `CONFIG.record.innerRadius` directly; no longer adds `holeClearance`.
  */
 function getRecordFloorInnerR() {
   return CONFIG.record.innerRadius;
@@ -812,10 +812,12 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
   if (!victim.pendingRam) {
     victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
   } else {
-    victim.pendingRam.impulse.x += impulse.x;
-    victim.pendingRam.impulse.y += impulse.y;
-    victim.pendingRam.impulse.z += impulse.z;
+    const appliedFraction = 1 - (victim.pendingRam.remainingSteps / victim.pendingRam.totalSteps);
+    victim.pendingRam.impulse.x = (victim.pendingRam.impulse.x * (1 - appliedFraction)) + impulse.x;
+    victim.pendingRam.impulse.y = (victim.pendingRam.impulse.y * (1 - appliedFraction)) + impulse.y;
+    victim.pendingRam.impulse.z = (victim.pendingRam.impulse.z * (1 - appliedFraction)) + impulse.z;
     victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
+    victim.pendingRam.totalSteps = Math.max(victim.pendingRam.totalSteps, steps);
   }
   victim.lastRamTimeMs = ramTimeMs;
   rammer.lastRamTimeMs = ramTimeMs;
