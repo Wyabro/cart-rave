@@ -4,6 +4,8 @@ Neon-soaked **4-player shopping-cart physics brawler** — live at [cartrave.lol
 
 Post-jam development continues on the **`next-level`** branch toward **Version 2** (new content, performance, rename + new domain).
 
+**Recent (July 2026):** Major physics stability overhaul — trimesh colliders on both Record and Backrooms levels replaced with precise convexHull + primitive colliders. Floor bounce, wheel clipping, and tunneling issues resolved. Mobile performance significantly improved.
+
 ## Documentation
 
 All project docs live in [`docs/`](./docs/):
@@ -16,5 +18,6 @@ All project docs live in [`docs/`](./docs/):
 | [docs/project-state.md](./docs/project-state.md) | Architecture snapshot, known issues |
 | [docs/preview-dev.md](./docs/preview-dev.md) | `next-level` branch local dev workflow |
 | [docs/Game_Architecture.md](./docs/Game_Architecture.md) | Consolidated architecture reference |
+| [docs/CREDITS.md](./docs/CREDITS.md) | Third-party libraries, fonts, and assets |
 
 Start with [docs/README.md](./docs/README.md) for setup and [docs/ROADMAP.md](./docs/ROADMAP.md) for what we're building next.

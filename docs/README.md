@@ -1,10 +1,10 @@
 # Cart Rave
 
-**Cart Rave** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around a club dancefloor ring — and try not to get yeeted through the **center hole**. Matches are **60 seconds** of physics chaos, and the cart with the **most points** takes the podium.
+**Cart Rave** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around a club dancefloor ring — and try not to get yeeted through the **center hole**. Matches are **2.5 minutes** of physics chaos (with Sudden Death on ties), and the cart with the **most points** takes the podium.
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (June 2026):** Post-jam. Active development on the `next-level` branch toward **Version 2** — see [ROADMAP.md](./ROADMAP.md).
+**Status (July 2026):** Post-jam. Active development on the `next-level` branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record and Backrooms levels). See [ROADMAP.md](./ROADMAP.md) for current priorities.
 
 ---
 
@@ -28,8 +28,8 @@
 ## Tech stack
 
 - **Three.js** — rendering, camera, post-processing, UI/world visuals
-- **Rapier3D** — real-time physics (host-authoritative simulation)
-- **PartyKit** — multiplayer rooms + WebSocket relay + lightweight server state
+- **Rapier3D** — real-time physics (host-authoritative simulation). Heavy use of `convexHull` and primitive colliders after July 2026 refactor for stability and performance.
+- **PartyKit / partyserver** — multiplayer rooms + WebSocket relay + lightweight server state (migrated July 2026)
 - **Vite** — dev server and production build (`dist/`)
 
 Client code lives in `src/`. `src/main.js` is the live entry point and wiring hub; core systems are modular (`netcode.js`, `simulation.js`, `bootstrap.js`, `levelManager.js`, etc.).
@@ -85,9 +85,12 @@ npm run ship     # build + PartyKit deploy (production)
 ## Gameplay basics
 
 - **Modes**: Solo (private room + NPCs), Quickplay (public room), Friends (share a `?room=` link)
-- **Levels**: Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids)
+- **Levels**: 
+  - Classic Record (vinyl ring + center hole) — major physics stability pass July 2026
+  - Backrooms Supermarket (square floor + corner voids) — major physics stability pass July 2026
 - **Scoring**: knock carts off the **edge** or into **voids/holes** for points (bonuses stack for big plays)
 - **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots (with client-side prediction for the local cart)
+- **Round length**: 2.5 minutes standard + Sudden Death on ties
 
 ---
 
@@ -117,3 +120,7 @@ docs/               # All project documentation
 ```
 
 Design constraints and AI guardrails: `.cursorrules` at repo root.
+
+---
+
+**Last Updated:** July 1, 2026

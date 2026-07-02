@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** June 25, 2026
+**Last Updated:** July 1, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -10,9 +10,9 @@
 ## Current Status
 
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
-- **Physics & Feel**: Version 1 driving core restored + tipping tuned. Ramming, boost, and collision feedback in good shape.
+- **Physics & Feel**: Major stability overhaul complete (July 1). Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on both Record and Backrooms levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 3 — Content & Features (Backrooms level shipped, touch controls in progress)
-- **Recent Technical Work**: Major cleanup + extraction of `bootstrap.js` and `levelManager.js` (menu → game flow and level handling now better separated from `main.js`)
+- **Recent Technical Work**: Major physics refactor (trimesh → convexHull/primitive colliders) + UI/audio polish + Knip cleanup pass
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -71,6 +71,87 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 1, 2026 – Physics Overhaul + Polish
+- Full replacement of problematic trimesh colliders on Record level (72-segment ring → 16 edge-to-edge convexHull colliders using precise `tan(halfAngle)` math)
+- Full replacement of heavy trimesh on Backrooms level (5,776 polygons → 9 clean primitive cuboids)
+- Wheel clipping bug fixed globally by restoring correct `visualOffset` + visual mesh tuning
+- HUD overlap fix (moved `.hud-status` to 20vh)
+- Audio mute state persistence fix (removed early `_isMuted` return guards in music playback functions)
+- Major dead code removal via Knip (27 unused exports cleaned across 8 files)
+- Successful zero-warning Vite build + Cloudflare production deploy
+
+### June 30, 2026
+**Infrastructure & Deployment**
+- Migrated from PartyKit to raw partyserver on Cloudflare free tier
+- V2 deployed live at https://cart-rave.wyabro.workers.dev
+
+**Match Pacing & Sudden Death**
+- Standard round length set to 2.5 minutes
+- Sudden Death implemented (first to score wins on tie)
+- Multi-way tie support + spectator mode
+
+**Death & Respawn Polish**
+- Cinematic death camera with momentum carry + pan to explosion
+- Respawn delay tuned to 1000ms
+
+**Audio Tightening Pass**
+- Dynamic wheel audio (volume + pitch based on speed)
+- Charge-up SFX now scales with hold time
+- Countdown SFX wired correctly
+- Menu music autoplay race condition fixed
+
+**Mobile Performance & Low Quality Mode**
+- Auto low-quality mode with visual + post-FX scaling
+- WASM crash fix (avoided destroying Rapier world mid-match)
+- Dynamic physics substeps based on quality mode
+
+**Phase 2 Completed Work**
+- Match Pacing & Sudden Death
+- Death & Respawn Polish
+- Audio Tightening Pass
+- Mobile Performance (Cart Rave level)
+- Stabilize lobby / ready-up flows
+- Non-host lifecycle edge cases
+- Client prediction improvements
+- Caster/fork system visual polish (partial)
+- Lag mitigation tuning
+
+**NPC AI Behavior Overhaul**
+- Aggression increased to 80% hunting cycles
+- Predictive ramming (velocity lead targeting)
+- Improved nitro logic + suicide prevention
+- Spawn lock during countdown + Backrooms pathing fixes
+
+**Physics & Collision Fixes**
+- CCD properly enabled on RigidBodyDesc (fixed tunneling)
+- Spawn booth friction lowered (no more snagging)
+- Deeper void on Classic Record (-30 threshold)
+- Stuck cart respawn fixed (position-based tracking instead of speed)
+
+**Other Polish**
+- Charge Boost early release + increased burst power
+- FFmpeg loudness normalization across all SFX
+- Various entity and state cleanup fixes
+
+### June 29, 2026
+**Engine & Performance**
+- WebGL memory leaks patched
+- GC micro-stutter eliminated (Rapier scratch cache)
+- Arcade feel improvements
+
+**V2 Architecture**
+- GLB cart heavily compressed (Draco + WebP)
+- Themed carts fully removed
+- New Sunglasses + Mirror Finish customization system
+
+**Gameplay Features**
+- Auto-Charge Boost
+- Cinematic Countdown Camera
+- Cart Shatter + Explosion Death VFX
+
+**Bug Fixes**
+- NPC respawn suicide loop fixed
 
 ### Core Multiplayer & Foundation
 - Full modular refactor (`main.js` as thin orchestrator + `src/` modules)
@@ -132,3 +213,7 @@ Tracked in [ROADMAP.md](./ROADMAP.md) and [post-jam-ideas.md](./post-jam-ideas.m
 - Session handovers archived under [handovers/](./handovers/).
 - For the current prioritized roadmap and next steps, use **[ROADMAP.md](./ROADMAP.md)**.
 - This file is maintained as a historical record and status snapshot.
+
+---
+
+**Last Updated:** July 1, 2026

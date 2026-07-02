@@ -13,7 +13,7 @@ Runtime dependencies come from `package.json` and are bundled by Vite unless not
 | Rendering | Three.js | Client (`src/`, Vite-bundled) | `^0.164.1` | MIT | `https://github.com/mrdoob/three.js` |
 | Physics | Rapier (Rapier3D) | Client — host-authoritative physics (`src/simulation.js`, etc.) | `^0.19.3` | Apache-2.0 | `https://github.com/dimforge/rapier` |
 | Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.0.0` | MIT | `https://github.com/juliangarnier/anime` |
-| Multiplayer | PartyKit | Server worker + local dev CLI (`party/index.ts`) | `0.0.115` | MIT | `https://github.com/partykit/partykit` |
+| Multiplayer | PartyKit | Server worker + local dev CLI (`party/index.ts`) | 0.0.115 | MIT | `https://github.com/partykit/partykit` |
 | Networking | `partysocket` | Client WebSocket (`src/netcode.js`) | `^1.1.16` | MIT | `https://www.npmjs.com/package/partysocket` |
 | Build | Vite | Dev server + production build (`dist/`) | `^6.3.5` | MIT | `https://github.com/vitejs/vite` |
 | Debug UI (dev-only) | lil-gui | Post-processing debug panel (`src/postFxDebug.js`; tree-shaken in prod) | `^0.21.0` | MIT | `https://github.com/georgealways/lil-gui` |
@@ -69,6 +69,8 @@ Most in-game SFX are **procedural** (Web Audio API oscillators in `src/audio.js`
 
 **No third-party 3D models.** All cart and scene geometry is **procedurally generated in code** (`src/cart.js`, `src/arena.js`, `src/levels/`, `src/visuals.js`, etc.) using Three.js primitives and custom mesh builders.
 
+> **Note (July 2026):** Arena floor colliders were refactored from `Rapier.ColliderDesc.trimesh` to `convexHull` + primitive colliders (cuboids) for significantly better stability and performance. Visual geometry remains fully procedural.
+
 ---
 
 ## Textures / images
@@ -77,3 +79,7 @@ Most in-game SFX are **procedural** (Web Audio API oscillators in `src/audio.js`
 |---|---|---|
 | `public/favicon.ico`, `favicon-*.png`, `apple-touch-icon.png`, `android-chrome-*.png` | Project / generated | App icons |
 | In-game textures | Procedural or code-generated | No external texture packs documented |
+
+---
+
+**Last Updated:** July 1, 2026

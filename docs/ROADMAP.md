@@ -1,96 +1,195 @@
-# Cart Rave — Roadmap & Future Plan (Version 2)
+# Cart Rave — Roadmap (Updated July 1, 2026)
 
-**Last Updated:** June 25, 2026  
-**Goal:** Ship Version 2 — Polished game with new content, better performance, new name, and new domain.
-
-> **Status snapshot & shipped history:** [todo.md](./todo.md)  
-> This file is the single source of truth for **prioritized next steps**.
+**Current Philosophy:**  
+Focus on building and polishing a strong **solo experience** first. Multiplayer and netcode work is intentionally deprioritized until the core game is more complete and stable.
 
 ---
 
-## Current Status (June 2026)
+## Phase 1 – Core Stability & Polish (Current Focus)
 
-- **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
-- **Physics & Feel**: Version 1 driving core restored + tipping tuned. Ramming, boost, and collision feedback in good shape.
-- **Phase**: Content & Features — Backrooms level shipped, touch controls in progress
-- **Recent Technical Work**: Major cleanup pass + extraction of `bootstrap.js` and `levelManager.js`
-- **Modular Structure**: Core systems extracted to `src/`; `main.js` remains the live entry point
+### High Priority
 
----
+| Task | Status | Notes |
+|------|--------|-------|
+| Collision fixes (Cart Rave level) | ✅ Done | Replaced 72-segment trimesh with 16 zero-overlap convex hulls using precise `tan(halfAngle)` trapezoidal math. Eliminated bounce and tunneling. |
+| Collision fixes (Backrooms level) | ✅ Done | Replaced 5,776-poly trimesh with 9 primitive cuboid slices. Massive performance win on mobile. |
+| Stuck cart respawn | ✅ Done | Fixed via position-based tracking (June 30). |
+| Mobile performance (Backrooms level) | ✅ Done | Drastically improved by switching from trimesh to primitive colliders. |
+| Defer Rapier WASM Loading | ✅ Done | Deferred (June 30). |
 
-## Recent Progress (June 25 Session)
+### Medium Priority
 
-- Major unused export cleanup via Knip (98 → 19)
-- Slimmed `customization.js` and cleaned up `netcode.js`
-- Extracted `src/bootstrap.js` (menu → gameplay flow)
-- Extracted `src/levelManager.js` (level preview + swapping)
-- `main.js` significantly reduced in size
-
----
-
-## Prioritized Roadmap (Ordered by Difficulty / Time)
-
-### Tier 1 — Quick Wins & Stabilization (Do These First)
-
-| Priority | Task | Effort | Notes |
-|----------|------|--------|-------|
-| 1 | Stabilize lobby / ready-up flows (including refresh race conditions) | Low | High impact on reliability |
-| 2 | Color selection gating improvements | Low | Prevents bad states |
-| 3 | Rounds / results polish | Low-Medium | Better player experience |
-| 4 | Tie-handling correctness (all-zero outcomes, deterministic bias) | Low-Medium | Important for fairness |
-| 5 | Non-host lifecycle edge cases (respawn, fall handling) | Low-Medium | Fixes edge case bugs |
-| 6 | Add `nipplejs` for virtual joystick / touch controls | Low | Battle-tested mobile joystick; replaces custom DOM joystick in `touchControls.js` |
-| 7 | Add `tweakpane` to replace `lil-gui` | Low | Modern dev/debug UI for post-FX and graphics tuning (`postFxDebug.js`) |
-| 8 | Add `zustand` or `valtio` for lightweight state management | Low-Medium | Centralize `menuVisible`, level/preview mode, and other globals; unlocks `main.js` slimming |
-| 9 | More cart customization options | Medium | Expand beyond current system |
-| 10 | Spilling cart contents on knockover | Medium | Fun VFX polish |
-
-### Tier 2 — Content & New Features
-
-| Priority | Task | Effort | Notes |
-|----------|------|--------|-------|
-| 11 | Mobile / touch controls support | Medium | Already in progress; pair with `nipplejs` adoption (Tier 1) |
-| 12 | Level 3: Zanzibar Platform | High | Tropical beach sci-fi level. Platform out in the ocean (Halo Zanzibar inspired) |
-| 13 | Crazy Carts mode (solo 8 NPCs) | Medium-High | New single-player mode |
-| 14 | Persistent leaderboard using Supabase | High | Online progression feature |
-| 15 | Spectator mode / chaos features | High | Stretch content |
-
-### Tier 3 — Technical Polish & Performance
-
-| Priority | Task | Effort | Notes |
-|----------|------|--------|-------|
-| 16 | Lag mitigation tuning (interpolation buffer, non-host feel) | Medium | Improves perceived smoothness |
-| 17 | Client prediction improvements (if needed) | Medium | Evaluate after playtesting |
-| 18 | Redesign Cart Rave "rave" area (stage, crowd, lasers, billboard) | High | Much better looking + significantly more performance friendly |
-| 19 | Further slim `main.js` (Phase 3 of refactor) | Medium | Reduce `menuVisible` coupling; pairs with state-management adoption (Tier 1) |
-| 20 | Move low-level `loadLevel()` fully into `levelManager.js` | Medium | Completes level ownership |
-| 21 | Performance optimization pass | High | Especially level swapping + rapid menu preview |
-| 22 | Better lag compensation | Medium-High | — |
-| 23 | Add `howler.js` for audio system upgrade | Medium | Spatial audio, sound pooling, and cleaner volume/group management vs. current Web Audio glue |
-
-### Tier 4 — Release Prep (Version 2)
-
-| Priority | Task | Effort | Notes |
-|----------|------|--------|-------|
-| 24 | Menu overhaul + new name/domain | High | Rename game to something sexier/more marketable + new domain (abandon cartrave.lol) |
-| 25 | Subtle in-game monetization / ads | Medium | — |
-| 26 | Pre-submission checklist | Medium | Final QA, logs, polish |
-| 27 | Explore server-authoritative options | High | Long-term technical direction |
-| 28 | Final QA and cleanup pass before submission | Medium | — |
+| Task | Status | Notes |
+|------|--------|-------|
+| UI / HUD Polish Pass | Partial | Countdown/Sudden Death moved to 20vh to fix scoreboard overlap. More work remains. |
+| Audio state bugs | ✅ Done | Removed `_isMuted` early-return guards in `playGameMusic`/`playMenuMusic`. Music now initializes correctly when muted. |
+| Quality / Post FX toggle on Main Menu | Todo | Currently only in Esc menu. |
+| Gamepad / Steam Deck support | Todo | Clean handheld support |
+| Loading Screen Improvements | Todo | Better progress bar + silly messages |
+| Sunglasses & Customization Polish | Todo | Fix model doubling, improve mirror colors, cart facing player |
+| Customization code audit | Todo | Double-check all customization logic |
+| Color selection gating improvements | Todo | Prevent bad states mid-round |
 
 ---
 
-## Notes
+## Phase 2 – Solo Gameplay Polish
 
-- Items are ordered roughly by **estimated effort + dependencies**.
-- Tier 1 items should give the biggest stability and polish wins with relatively low effort.
-- **Library adoption** (`nipplejs`, `tweakpane`, `zustand`/`valtio`, `howler.js`) is intentional stack modernization toward Version 2 — not drive-by deps.
-- Level 3 (Zanzibar) and the rave area redesign are the two biggest visual/content efforts.
-- Rename + new domain is treated as a core part of the Version 2 release.
-- User will review and adjust priorities as needed.
+### Remaining Work
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Spilling cart contents on knockover | Todo | Fun VFX when carts tip over |
+| Rounds / results polish | Todo | Better player experience |
+| Tie-handling correctness | Todo | Important for fairness |
 
 ---
 
-**Next Review Date:** After touch controls + first few Tier 1 items
+## Phase 3 – Content & Major Polish
 
-See also [todo.md](./todo.md) for phase history and the completed/shipped record.
+### Top Priority
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Evaluate WebGPU Compute Shaders | Todo | Start with targeted use (e.g. shatter VFX, particles). Avoid full custom physics engine rewrite. Re-evaluate after mobile performance is solid. |
+| Level 3: Zanzibar Platform | Todo | Major new level |
+| Menu overhaul + new name/domain | Todo | Rename + new domain |
+| Performance optimization pass | Todo | Especially level swapping + menu |
+| V2 Shipping Checklist + Final QA | Todo | Create when closer to release |
+| Subtle in-game monetization / ads | Todo | — |
+
+---
+
+## Phase 4 – Multiplayer & Infrastructure (Deferred)
+
+**Multiplayer work is intentionally moved late.**
+
+### Top Priority in Phase 4
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Evaluate + implement Partywork | Todo | Higher-level state sync framework on top of PartyKit |
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Full netcode audit + major fixes | Todo | Current host/client desync issues |
+| Proper state synchronization & interpolation | Todo | Make remote carts feel responsive |
+| Revisit server-authoritative options | Todo | Evaluate deeper authoritative logic |
+| Spectator mode / chaos features | Todo | Stretch content |
+| Persistent leaderboard (Supabase) | Todo | Online progression |
+
+**Known Deployment Blocker (Resolved)**
+- Successfully migrated to raw `partyserver` on Cloudflare free tier. V2 is now live.
+
+---
+
+## Future Modernization (Deferred)
+
+| Task | Effort | Notes |
+|------|--------|-------|
+| Evaluate moving to **React + React Three Fiber (R3F)** + `drei` | High | Big architectural change. Reassess much later |
+| Consider `shadcn/ui` (if going React) | Medium | High-quality UI components |
+
+---
+
+## Dropped Items
+
+- Crazy Carts mode (solo 8 NPCs)
+- General pre-submission checklist
+
+---
+
+## Completed Work
+
+### July 1, 2026 – Physics Overhaul + Polish Session
+
+**Physics Engine Overhaul**
+- Record level: Full replacement of trimesh ring with 16 mathematically perfect convex hull colliders (zero overlap, zero gaps).
+- Backrooms level: Full replacement of heavy trimesh with 9 clean cuboid primitives.
+- Wheel clipping fixed globally by restoring `visualOffset` to 0.82 and tuning `visualRecordY` to -0.42.
+
+**UI & Audio Fixes**
+- Fixed HUD overlap by moving `.hud-status` to `20vh`.
+- Fixed music mute state persistence by removing early `_isMuted` return guards.
+
+**Codebase Hygiene**
+- Removed 27 unused exports via Knip across 8 files.
+- Clean zero-warning Vite build + successful Cloudflare deploy.
+
+### June 30, 2026
+
+**Infrastructure & Deployment**
+- Migrated from PartyKit to raw partyserver on Cloudflare free tier
+- V2 deployed live at https://cart-rave.wyabro.workers.dev
+
+**Match Pacing & Sudden Death**
+- Standard round length set to 2.5 minutes
+- Sudden Death implemented (first to score wins on tie)
+- Multi-way tie support + spectator mode
+
+**Death & Respawn Polish**
+- Cinematic death camera with momentum carry + pan to explosion
+- Respawn delay tuned to 1000ms
+
+**Audio Tightening Pass**
+- Dynamic wheel audio (volume + pitch based on speed)
+- Charge-up SFX now scales with hold time
+- Countdown SFX wired correctly
+- Menu music autoplay race condition fixed
+
+**Mobile Performance & Low Quality Mode**
+- Auto low-quality mode with visual + post-FX scaling
+- WASM crash fix (avoided destroying Rapier world mid-match)
+- Dynamic physics substeps based on quality mode
+
+**Phase 2 Completed Work**
+- Match Pacing & Sudden Death
+- Death & Respawn Polish
+- Audio Tightening Pass
+- Mobile Performance (Cart Rave level)
+- Stabilize lobby / ready-up flows
+- Non-host lifecycle edge cases
+- Client prediction improvements
+- Caster/fork system visual polish (partial)
+- Lag mitigation tuning
+
+**NPC AI Behavior Overhaul**
+- Aggression increased to 80% hunting cycles
+- Predictive ramming (velocity lead targeting)
+- Improved nitro logic + suicide prevention
+- Spawn lock during countdown + Backrooms pathing fixes
+
+**Physics & Collision Fixes**
+- CCD properly enabled on RigidBodyDesc (fixed tunneling)
+- Spawn booth friction lowered (no more snagging)
+- Deeper void on Classic Record (-30 threshold)
+- Stuck cart respawn fixed (position-based tracking instead of speed)
+
+**Other Polish**
+- Charge Boost early release + increased burst power
+- FFmpeg loudness normalization across all SFX
+- Various entity and state cleanup fixes
+
+### June 29, 2026
+
+**Engine & Performance**
+- WebGL memory leaks patched
+- GC micro-stutter eliminated (Rapier scratch cache)
+- Arcade feel improvements
+
+**V2 Architecture**
+- GLB cart heavily compressed (Draco + WebP)
+- Themed carts fully removed
+- New Sunglasses + Mirror Finish customization system
+
+**Gameplay Features**
+- Auto-Charge Boost
+- Cinematic Countdown Camera
+- Cart Shatter + Explosion Death VFX
+
+**Bug Fixes**
+- NPC respawn suicide loop fixed
+
+---
+
+**Last Updated:** July 1, 2026  
+**Next Focus:** Finish remaining Medium Priority items in Phase 1 (Customization audit, Color gating, Post FX toggle placement). Then move into Phase 2 solo gameplay polish.
