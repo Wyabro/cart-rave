@@ -1368,6 +1368,24 @@ export class CartRaveServer extends Server {
         reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
       });
     }
+
+    if (type === MSG.spill) {
+      // Security: host-only relay for grocery-spill VFX.
+      if (connection.id !== this.#hostId) return;
+      if (typeof data?.slotId !== "number" || data.slotId < 0 || data.slotId > 3) return;
+      if (!data?.pos || typeof data.pos !== "object") return;
+      if (!data?.quat || typeof data.quat !== "object") return;
+      if (!data?.vel || typeof data.vel !== "object") return;
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.spill,
+        serverNowMs: this.#serverNowMs(),
+        slotId: data.slotId,
+        pos: data.pos,
+        quat: data.quat,
+        vel: data.vel,
+      });
+    }
   }
 }
 

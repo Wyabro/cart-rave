@@ -15,7 +15,9 @@ import { resetCartTransientState } from "./entities.js";
  * @property {() => object | null} getLocalCart
  * @property {(cart: object, now: number) => void} scheduleRespawn
  * @property {(cart: object) => void} scheduleStuckRespawn
- * @property {(cart: object) => void} doRespawn
+ * @property {(cart: object, callbacks?: object) => void} doRespawn
+ * @property {(slotIndex: number, pos: object, quat: object, vel: object, cargoBay: object | null) => void} [onSpill]
+ * @property {(slotIndex: number) => void} [onCartRespawn]
  * @property {(nowMs: number, npc: object) => void} maybeTriggerNpcOpportunisticRamBoost
  * @property {() => void} endRound
  * @property {(slotIndex: number) => void} [scheduleLastCartStandingFinish]
@@ -243,6 +245,16 @@ export function updateGameFlow(deps, context) {
         const p = cart.body.translation();
 
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
+          // * Spilling Cart VFX — capture pose at fall moment for debris/particle trigger.
+          if (!cart.hasSpilled) {
+            const spillPos = cart.body.translation();
+            spillPos.y += deps.CONFIG.cart.visualOffset + 0.1;
+            const spillQuat = cart.body.rotation();
+            const spillVel = cart.body.linvel();
+            deps.onSpill?.(cart.slotIndex, spillPos, spillQuat, spillVel, cart.cargoBay);
+            cart.hasSpilled = true;
+          }
+
           if (!isTestDrive) {
             const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
 
@@ -387,7 +399,7 @@ export function updateGameFlow(deps, context) {
         }
 
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
-          deps.doRespawn(cart);
+          deps.doRespawn(cart, deps);
         } else if (cart.respawnAtMs === null && !isTestDrive) {
           updateCartIdleWatch(deps, now, cart, p);
         }

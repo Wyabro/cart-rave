@@ -37,6 +37,7 @@ import * as GameAudio from "./audio.js";
 import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
+import * as GroceryPool from "./effects/groceryPool.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 // * testArena constants inlined (avoid static import of heavy level module at boot).
 const TEST_ARENA_SKY = 0x586274;
@@ -640,6 +641,21 @@ async function main() {
   }
   triggerLocalRamShakeRef = triggerLocalRamShake;
   triggerCartShatterRef = triggerCartShatter;
+
+  function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay) {
+    if (!Netcode.getIsHost()) return;
+    const socket = Netcode.getPartySocket();
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({
+      type: MSG.spill,
+      slotId: slotIndex,
+      pos,
+      quat,
+      vel,
+      cargoBay: !!cargoBay,
+    }));
+  }
+
   const gameCtx = createGameContext().registerModules({
     Netcode,
     GameState,
@@ -1422,6 +1438,7 @@ async function main() {
    */
   async function commitLevelLoad(selected, opts) {
     if (typeof disposeLevel === "function") disposeLevel();
+    if (world) GroceryPool.dispose(scene, world);
     ({
       recordMesh,
       recordCollider,
@@ -1450,6 +1467,7 @@ async function main() {
     } else if (recordCollider) {
       recordColliderHandles = [recordCollider.handle];
     }
+    await GroceryPool.init(scene, world);
     applyLoadedLevelSideEffects(selected);
   }
 
@@ -2515,6 +2533,14 @@ async function main() {
     getYouConnId: () => Netcode.getYouConnId(),
     getScene: () => scene,
     triggerCartShatter,
+    onSpill: (slotIndex, pos, quat, vel, cargoBay) => {
+      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, 6);
+      if (cargoBay) cargoBay.visible = false;
+      triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay);
+    },
+    onCartRespawn: (slotIndex) => {
+      GroceryPool.releaseByCartId(String(slotIndex));
+    },
     getWorld: () => world,
     getBoothColliderHandles: () => boothColliderHandles,
   };
@@ -2527,6 +2553,15 @@ async function main() {
     onLocalRamImpact: triggerLocalRamShake,
     onBoostRelease,
     onBoostCancel,
+    onSpill: (cart) => {
+      const pos = cart.body.translation();
+      const quat = cart.body.rotation();
+      const vel = cart.body.linvel();
+      const cargoBay = cart.cargoBay;
+      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, 6);
+      if (cargoBay) cargoBay.visible = false;
+      triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay);
+    },
     get partySocket() { return Netcode.getPartySocket(); },
     get recordColliderHandles() { return recordColliderHandles; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },

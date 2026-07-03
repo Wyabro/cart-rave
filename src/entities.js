@@ -21,6 +21,7 @@ import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
 import { applyCartMassPropertiesOverride } from "./simulation.js";
 import { cleanupShatter } from "./cartShatter.js";
+import * as GroceryPool from "./effects/groceryPool.js";
 
 // Module-level references
 let allCartsRef = null;
@@ -274,6 +275,12 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
   applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY });
 
+  const cargoBay = GroceryPool.createCargoBay();
+  if (cargoBay) {
+    cargoBay.position.set(0, CONFIG.cart.visualOffset + 0.1, 0);
+    mesh.add(cargoBay);
+  }
+
   const spawnQuat = quatFromYaw(spawnYaw);
 
   return {
@@ -316,6 +323,9 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     idleAnchorZ: spawnFrozen.z,
     idleStillSinceMs: 0,
     unstickStillSinceMs: 0,
+    hasSpilled: false,
+    tipOverStartMs: null,
+    cargoBay,
   };
 }
 
@@ -363,6 +373,9 @@ export function resetCartTransientState(cart) {
   cart.aiSteerGain = 1.1;
   cart.aiLastProgressMs = 0;
   cart.aiLastDistToTarget = Infinity;
+  cart.hasSpilled = false;
+  cart.tipOverStartMs = null;
+  if (cart.cargoBay) cart.cargoBay.visible = true;
 }
 
 /**
@@ -459,7 +472,7 @@ export function destroyCarts(options = {}) {
  *
  * @param {ReturnType<typeof createCart>} cart
  */
-export function doRespawn(cart) {
+export function doRespawn(cart, callbacks) {
   if (!cart?.body) return;
 
   // * Tear down any active shatter + explosion VFX (host fall or non-host replay).
@@ -471,6 +484,8 @@ export function doRespawn(cart) {
       rebuildCartVisualsIntoRoot(cart, sceneRef);
     }
   }
+
+  callbacks?.onCartRespawn?.(cart.slotIndex);
 
   cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y, z: cart.spawn.z }, true);
   cart.body.setRotation(quatFromYaw(cart.spawnYaw), true);

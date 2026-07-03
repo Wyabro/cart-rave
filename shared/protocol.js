@@ -29,4 +29,5 @@ export const MSG = {
   joinRejected: "join_rejected",
   gameStart: "game_start",
   countdownCancel: "countdown_cancel",
+  spill: "spill",
 };

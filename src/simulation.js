@@ -10,6 +10,8 @@ const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
 const _quat = new THREE.Quaternion();
+const _upVecScratch = new THREE.Vector3(0, 1, 0);
+const _tipQuatScratch = new THREE.Quaternion();
 const _toVictim = new THREE.Vector3();
 const _planarDir = new THREE.Vector3();
 const _colliderMap = new Map();
@@ -583,6 +585,24 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   applyGeometryUnstick(cart, dtFixed, nowMs);
 
   // * Pitch/roll angular clamp intentionally off — V1 tipping must stay free near the hole lip.
+
+  // * Spilling Cart VFX trigger — fires after 0.5s of continuous tipping past 0.3 up-dot.
+  {
+    _tipQuatScratch.set(rot.x, rot.y, rot.z, rot.w);
+    _upVecScratch.set(0, 1, 0).applyQuaternion(_tipQuatScratch);
+    const upDot = _upVecScratch.y;
+    if (upDot < 0.3 && !cart.hasSpilled) {
+      if (!cart.tipOverStartMs) {
+        cart.tipOverStartMs = nowMs;
+      } else if (nowMs - cart.tipOverStartMs > 500) {
+        callbacks?.onSpill?.(cart);
+        cart.hasSpilled = true;
+        cart.tipOverStartMs = null;
+      }
+    } else {
+      cart.tipOverStartMs = null;
+    }
+  }
 }
 
 /**
@@ -1953,6 +1973,14 @@ export function runFixedPhysicsStep({
     _pendingRamStepImpulse.z = impulse.z / denom;
     cart.body.applyImpulse(_pendingRamStepImpulse, true);
     cart.pendingRam.remainingSteps--;
+    // * Massive hit spills groceries even if the cart stays upright.
+    if (
+      !cart.hasSpilled &&
+      Math.hypot(impulse.x, impulse.y, impulse.z) > 50
+    ) {
+      callbacks?.onSpill?.(cart);
+      cart.hasSpilled = true;
+    }
     if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
   }
 

@@ -8,6 +8,7 @@ import { loadPlayerCustomization, resolveServerColorPick } from "./customization
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
 import { clearNpcCartCache } from "./gameLoop.js";
+import * as GroceryPool from "./effects/groceryPool.js";
 
 /** Scratch quaternions for interpolation and reconciliation slerp. */
 const _interpFromQ = new THREE.Quaternion();
@@ -1531,6 +1532,22 @@ export function initNetcode(roomOverride) {
         GameState.setRoundCountdownStartedAtMs(0);
         GameState.setRoundStartedAtMs(0);
       }
+      return;
+    }
+
+    if (type === MSG.spill) {
+      if (msg.cargoBay) {
+        const carts = getAllCarts();
+        const cart = carts?.[msg.slotId];
+        if (cart?.cargoBay) cart.cargoBay.visible = false;
+      }
+      GroceryPool.triggerSpill(
+        String(msg.slotId),
+        msg.pos,
+        msg.quat,
+        msg.vel,
+        6,
+      );
       return;
     }
 

@@ -6,6 +6,7 @@ import * as ContactShadows from "./contactShadows.js";
 import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
 import { updateShatterEffect } from "./cartShatter.js";
+import * as GroceryPool from "./effects/groceryPool.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -138,6 +139,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   }
 
   Effects.updateRamBoostStreaks(now);
+
+  GroceryPool.update(dt, now);
 
   const usePhysicsInterp = physicsAlpha != null;
   const visualOffset = deps.CONFIG.cart.visualOffset;
