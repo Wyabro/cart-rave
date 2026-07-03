@@ -247,10 +247,11 @@ export function updateGameFlow(deps, context) {
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
           // * Spilling Cart VFX — capture pose at fall moment for debris/particle trigger.
           if (!cart.hasSpilled) {
-            const spillPos = cart.body.translation();
-            spillPos.y += deps.CONFIG.cart.visualOffset + 0.1;
+            const fallPos = cart.body.translation();
+            // Spawn debris at floor level using the cart's X/Z, preventing VFX from spawning in the void.
+            const spillPos = { x: fallPos.x, y: 0.5, z: fallPos.z };
             const spillQuat = cart.body.rotation();
-            const spillVel = cart.body.linvel();
+            const spillVel = { ...cart.body.linvel(), y: 0 };
             deps.onSpill?.(cart.slotIndex, spillPos, spillQuat, spillVel, cart.cargoBay);
             cart.hasSpilled = true;
           }

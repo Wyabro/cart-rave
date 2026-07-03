@@ -115,6 +115,9 @@ function createCartBody(world, spawn, spawnYaw) {
  *   colliderLocalY: number,
  * } | null}
  */
+/** * Cart collision groups — group 1 membership, filter collides with everything except group 2 (groceries). */
+const CART_COLLISION_GROUPS = (0x0001 << 16) | 0xFFFFFFFD;
+
 function createCartCollider(world, body) {
   if (!world || !body) return null;
 
@@ -128,7 +131,8 @@ function createCartCollider(world, body) {
   const colliderDesc = RAPIER.ColliderDesc.roundCuboid(hx, hyPhys, hz, 0.08)
     .setTranslation(0, colliderLocalY, 0)
     .setFriction(CONFIG.cart.friction)
-    .setRestitution(CONFIG.cart.restitution);
+    .setRestitution(CONFIG.cart.restitution)
+    .setCollisionGroups(CART_COLLISION_GROUPS);
   if (typeof colliderDesc.setActiveEvents === "function") {
     colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
   }
@@ -375,6 +379,7 @@ export function resetCartTransientState(cart) {
   cart.aiLastDistToTarget = Infinity;
   cart.hasSpilled = false;
   cart.tipOverStartMs = null;
+  // * Restore cargoBay mesh visibility on respawn (hidden during spill VFX).
   if (cart.cargoBay) cart.cargoBay.visible = true;
 }
 

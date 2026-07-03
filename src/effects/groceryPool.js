@@ -18,7 +18,7 @@ import { RAPIER } from "../physics/rapierInstance.js";
 // ---------------------------------------------------------------------------
 
 /** @type {number} Raw Rapier collision groups bitmask — group 2 membership, filter collides with everything except group 1 (carts). */
-const GROCERY_COLLISION_GROUPS = (0x0002 << 16) | 0xFFFD;
+const GROCERY_COLLISION_GROUPS = (0x0002 << 16) | 0xFFFFFFFE;
 
 /** @type {number} Instances per grocery model (6 models × 11 = 66 total). */
 const PER_MODEL_POOL = 11;
@@ -42,68 +42,22 @@ const COLLIDER_RESTITUTION = 0.15;
 const DRACO_DECODER_PATH = "/draco/gltf/";
 
 /**
- * * Grocery model definitions — each maps to a GLTF file and a typed Rapier collider.
+ * * Grocery model definitions — each maps to a GLTF file and a collider shape type.
+ * * Actual collider half-extents are computed dynamically from the normalized
+ * * geometry bounding box in init().
  * @type {Array<{
  *   name: string,
  *   path: string,
- *   createCollider: (interactionGroups: number) => import("@dimforge/rapier3d").ColliderDesc,
+ *   type: "cuboid" | "cylinder" | "ball",
  * }>}
  */
 const MODEL_DEFS = [
-  {
-    name: "milk",
-    path: "/models/groceries/milk.glb",
-    createCollider: (ig) =>
-      RAPIER.ColliderDesc.cuboid(0.2, 0.25, 0.2)
-        .setFriction(COLLIDER_FRICTION)
-        .setRestitution(COLLIDER_RESTITUTION)
-        .setCollisionGroups(ig),
-  },
-  {
-    name: "cereal",
-    path: "/models/groceries/cereal.glb",
-    createCollider: (ig) =>
-      RAPIER.ColliderDesc.cuboid(0.2, 0.25, 0.2)
-        .setFriction(COLLIDER_FRICTION)
-        .setRestitution(COLLIDER_RESTITUTION)
-        .setCollisionGroups(ig),
-  },
-  {
-    name: "soda",
-    path: "/models/groceries/soda.glb",
-    createCollider: (ig) =>
-      RAPIER.ColliderDesc.cylinder(0.2, 0.15)
-        .setFriction(COLLIDER_FRICTION)
-        .setRestitution(COLLIDER_RESTITUTION)
-        .setCollisionGroups(ig),
-  },
-  {
-    name: "soup",
-    path: "/models/groceries/soup.glb",
-    createCollider: (ig) =>
-      RAPIER.ColliderDesc.cylinder(0.2, 0.15)
-        .setFriction(COLLIDER_FRICTION)
-        .setRestitution(COLLIDER_RESTITUTION)
-        .setCollisionGroups(ig),
-  },
-  {
-    name: "orange",
-    path: "/models/groceries/orange.glb",
-    createCollider: (ig) =>
-      RAPIER.ColliderDesc.ball(0.2)
-        .setFriction(COLLIDER_FRICTION)
-        .setRestitution(COLLIDER_RESTITUTION)
-        .setCollisionGroups(ig),
-  },
-  {
-    name: "baguette",
-    path: "/models/groceries/baguette.glb",
-    createCollider: (ig) =>
-      RAPIER.ColliderDesc.cuboid(0.3, 0.15, 0.15)
-        .setFriction(COLLIDER_FRICTION)
-        .setRestitution(COLLIDER_RESTITUTION)
-        .setCollisionGroups(ig),
-  },
+  { name: "milk", path: "/models/groceries/milk.glb", type: "cuboid" },
+  { name: "cereal", path: "/models/groceries/cereal.glb", type: "cuboid" },
+  { name: "soda", path: "/models/groceries/soda.glb", type: "cylinder" },
+  { name: "soup", path: "/models/groceries/soup.glb", type: "cylinder" },
+  { name: "orange", path: "/models/groceries/orange.glb", type: "ball" },
+  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid" },
 ];
 
 /**
@@ -261,11 +215,39 @@ export async function init(scene, world) {
       if (Number.isFinite(scaleFactor) && scaleFactor !== 1) {
         geometry.scale(scaleFactor, scaleFactor, scaleFactor);
       }
+      // Recompute bounding box AFTER scale to get the correct center
+      geometry.computeBoundingBox();
       const center = new THREE.Vector3();
-      bb.getCenter(center);
+      geometry.boundingBox.getCenter(center);
       geometry.translate(-center.x, -center.y, -center.z);
       geometry.computeBoundingBox();
     }
+
+    // * Compute collider half-extents from the normalized geometry bounding box
+    // * so primitive colliders perfectly match the visual mesh.
+    const bbFinal = geometry.boundingBox;
+    const hx = (bbFinal.max.x - bbFinal.min.x) / 2;
+    const hy = (bbFinal.max.y - bbFinal.min.y) / 2;
+    const hz = (bbFinal.max.z - bbFinal.min.z) / 2;
+
+    let colliderDesc;
+    switch (def.type) {
+      case "cuboid":
+        colliderDesc = RAPIER.ColliderDesc.cuboid(hx, hy, hz);
+        break;
+      case "cylinder":
+        colliderDesc = RAPIER.ColliderDesc.cylinder(Math.max(hx, hz), hy);
+        break;
+      case "ball":
+        colliderDesc = RAPIER.ColliderDesc.ball(Math.max(hx, hy, hz));
+        break;
+      default:
+        colliderDesc = RAPIER.ColliderDesc.cuboid(hx, hy, hz);
+    }
+    colliderDesc
+      .setFriction(COLLIDER_FRICTION)
+      .setRestitution(COLLIDER_RESTITUTION)
+      .setCollisionGroups(interactionGroups);
 
     // * Store normalized geometry & material for cargo bay visual.
     loadedGeometries.push(geometry.clone());
@@ -286,7 +268,6 @@ export async function init(scene, world) {
         .setCanSleep(true);
       const body = world.createRigidBody(bodyDesc);
 
-      const colliderDesc = def.createCollider(interactionGroups);
       world.createCollider(colliderDesc, body);
 
       // * Start disabled — will be enabled on triggerSpill and disabled on fade-out.
@@ -585,7 +566,15 @@ export function dispose(scene, world) {
   pool = [];
 
   for (const geo of loadedGeometries) geo?.dispose();
-  for (const mat of loadedMaterials) mat?.dispose();
+  for (const mat of loadedMaterials) {
+    // Dispose textures to prevent VRAM leaks on level swap
+    for (const key in mat) {
+      if (mat[key] && mat[key].isTexture) {
+        mat[key].dispose();
+      }
+    }
+    mat.dispose();
+  }
   loadedGeometries = [];
   loadedMaterials = [];
 

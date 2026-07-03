@@ -282,9 +282,9 @@ export class CartRaveServer extends Server {
     return NPC_NAME_POOL.find((name) => !unavailableNames.has(name)) ?? "CartGoblin";
   }
 
-  #broadcastJson(payload: unknown) {
+  #broadcastJson(payload: unknown, without?: Connection | Connection[]) {
     const msg = JSON.stringify(payload);
-    this.broadcast(msg);
+    this.broadcast(msg, without);
   }
 
   #sendJson(conn: Connection, payload: unknown) {
@@ -1384,7 +1384,8 @@ export class CartRaveServer extends Server {
         pos: data.pos,
         quat: data.quat,
         vel: data.vel,
-      });
+        cargoBay: data.cargoBay,
+      }, connection);
     }
   }
 }

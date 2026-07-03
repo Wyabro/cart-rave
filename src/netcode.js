@@ -1536,6 +1536,11 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.spill) {
+      // * Skip echo of own predicted spill — local simulation already triggered VFX
+      // * and hid the cargoBay before the host relay arrived.
+      const localSlot = strictSlotIndexForConn(youConnId);
+      if (msg.slotId === localSlot) return;
+
       if (msg.cargoBay) {
         const carts = getAllCarts();
         const cart = carts?.[msg.slotId];
