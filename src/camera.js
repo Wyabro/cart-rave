@@ -6,8 +6,8 @@
 import * as THREE from "three";
 import { RAPIER } from "./physics/rapierInstance.js";
 
-// * Single reusable ray for camera-wall avoidance — avoids per-frame GC churn.
-const _cameraRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
+// * Single reusable ray for camera-wall avoidance — lazily created once RAPIER is ready.
+let _cameraRay = null;
 
 /**
  * Camera controller modes.
@@ -164,6 +164,7 @@ export function updateCamera(camera, localCart, dt, playerPos, playerRot, physic
     const minValidHit = 1.5;
     if (maxDist > 1e-4) {
       rayDir.multiplyScalar(1 / maxDist);
+      if (!_cameraRay) _cameraRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
       _cameraRay.origin.x = rayOrigin.x;
       _cameraRay.origin.y = rayOrigin.y;
       _cameraRay.origin.z = rayOrigin.z;

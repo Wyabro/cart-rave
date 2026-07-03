@@ -23,6 +23,8 @@ dist/
 party-static/
 # Wrangler local state
 .wrangler/
+# PartyKit local state
+.partykit/
 /assets/
 /sounds/
 index.html.partykit.bak

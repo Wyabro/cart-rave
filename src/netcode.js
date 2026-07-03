@@ -262,7 +262,7 @@ function partyHostFromWindowLocation() {
     /^192\.168\./.test(hostname) ||
     /^10\./.test(hostname) ||
     /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
-  return isLocal ? `${hostname}:1999` : PARTYKIT_PUBLIC_HOST;
+  return isLocal ? `${hostname}:8787` : PARTYKIT_PUBLIC_HOST;
 }
 
 export function resolvedPartyRoomFromUrl() {
@@ -1100,7 +1100,7 @@ export function initNetcode(roomOverride) {
   }
   partySocket = new PartySocket({
     host: partyHostFromWindowLocation(),
-    party: "main",
+    party: "cart-rave-server",
     room: resolvedRoom,
   });
 
