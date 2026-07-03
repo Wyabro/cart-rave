@@ -1536,16 +1536,15 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.spill) {
-      // * Skip echo of own predicted spill — local simulation already triggered VFX
-      // * and hid the cargoBay before the host relay arrived.
-      const localSlot = strictSlotIndexForConn(youConnId);
-      if (msg.slotId === localSlot) return;
+      const carts = getAllCarts();
+      const cart = carts?.[msg.slotId];
 
-      if (msg.cargoBay) {
-        const carts = getAllCarts();
-        const cart = carts?.[msg.slotId];
-        if (cart?.cargoBay) cart.cargoBay.visible = false;
-      }
+      // * Skip duplicate relay if local simulation already triggered VFX for this cart cycle.
+      if (cart?.hasSpilled) return;
+
+      if (cart) cart.hasSpilled = true;
+      if (cart?.cargoBay && msg.cargoBay) cart.cargoBay.visible = false;
+
       GroceryPool.triggerSpill(
         String(msg.slotId),
         msg.pos,

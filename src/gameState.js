@@ -1,44 +1,7 @@
-// gameState.js — round phases, scoring, podium, and match state
+// gameState.js — round phases, scoring, podium, and match state backed by gameStore (Zustand)
+import { gameStore, RoundPhase } from "./stores/gameStore.js";
 
-/**
- * Round lifecycle phases.
- * @readonly
- * @enum {string}
- */
-const RoundPhase = {
-  LOBBY: "lobby",
-  COUNTDOWN: "countdown",
-  RUNNING: "running",
-  PODIUM: "podium",
-};
-
-let roundPhase = RoundPhase.LOBBY;
-let roundStartedAtMs = 0;
-let roundCountdownStartedAtMs = 0;
-let roundWinnerSlotIndex = null;
-/** @type {"timer" | "lastStanding" | null} */
-let roundEndReason = null;
-let roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-/** @type {Record<number, number>} Wall-clock ms when each slot last scored (attacker). */
-let lastScoringHitAt = { 0: 0, 1: 0, 2: 0, 3: 0 };
-
-/** @type {Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} */
-let lastHitBy = new Map();
-
-/** @type {boolean} True when the round has entered Sudden Death (first score wins). */
-let isSuddenDeath = false;
-
-/** @type {((slotIndex: number) => void) | null} Callback fired when a score ends Sudden Death. */
-let _suddenDeathWinCallback = null;
-
-function _resetRoundBase() {
-  roundScores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-  roundWinnerSlotIndex = null;
-  roundEndReason = null;
-  lastScoringHitAt = { 0: 0, 1: 0, 2: 0, 3: 0 };
-  lastHitBy.clear();
-  isSuddenDeath = false;
-}
+export { RoundPhase };
 
 /**
  * Snapshot of current round state (scores are copied).
@@ -53,46 +16,32 @@ function _resetRoundBase() {
  * }}
  */
 export function getRoundState() {
-  return {
-    phase: roundPhase,
-    startedAtMs: roundStartedAtMs,
-    countdownStartedAtMs: roundCountdownStartedAtMs,
-    winnerSlotIndex: roundWinnerSlotIndex,
-    endReason: roundEndReason,
-    scores: { ...roundScores },
-    isSuddenDeath,
-  };
+  return gameStore.getState().getRoundState();
 }
 
 /**
  * @param {string} phase
  */
 export function setRoundPhase(phase) {
-  roundPhase = phase;
+  gameStore.getState().setRoundPhase(phase);
 }
 
 /** Begin the 60s running phase; resets scores and hit tracking. */
-function startRunning() {
-  roundPhase = RoundPhase.RUNNING;
-  roundStartedAtMs = Date.now();
-  _resetRoundBase();
+export function startRunning() {
+  gameStore.getState().startRunning();
 }
 
 /** Begin the pre-round countdown; resets scores and hit tracking. */
-function startCountdown() {
-  roundPhase = RoundPhase.COUNTDOWN;
-  roundCountdownStartedAtMs = Date.now();
-  roundStartedAtMs = 0;
-  _resetRoundBase();
+export function startCountdown() {
+  gameStore.getState().startCountdown();
 }
 
 /**
  * Enter podium phase with an optional winner slot index (or `"draw"`).
  * @param {number | string | null} [winnerSlotIndex]
  */
-function endRound(winnerSlotIndex = null) {
-  roundPhase = RoundPhase.PODIUM;
-  roundWinnerSlotIndex = winnerSlotIndex;
+export function endRound(winnerSlotIndex = null) {
+  gameStore.getState().endRound(winnerSlotIndex);
 }
 
 /**
@@ -102,16 +51,7 @@ function endRound(winnerSlotIndex = null) {
  * @returns {boolean} True if this score ended Sudden Death.
  */
 export function addScore(slotIndex, points, suppressSuddenDeathWin = false) {
-  if (roundScores[slotIndex] == null) roundScores[slotIndex] = 0;
-  roundScores[slotIndex] += points;
-  if (points > 0) {
-    lastScoringHitAt[slotIndex] = Date.now();
-    if (isSuddenDeath && _suddenDeathWinCallback && !suppressSuddenDeathWin) {
-      _suddenDeathWinCallback(slotIndex);
-      return true;
-    }
-  }
-  return false;
+  return gameStore.getState().addScore(slotIndex, points, suppressSuddenDeathWin);
 }
 
 /**
@@ -120,6 +60,7 @@ export function addScore(slotIndex, points, suppressSuddenDeathWin = false) {
  * @returns {number | "draw"}
  */
 export function pickTimerWinner(scores) {
+  const lastScoringHitAt = gameStore.getState().lastScoringHitAt;
   let topScore = -Infinity;
   for (let i = 0; i < 4; i += 1) {
     topScore = Math.max(topScore, Number(scores[i] || 0));
@@ -158,26 +99,7 @@ export function pickTimerWinner(scores) {
  * @param {boolean} wasCritical
  */
 export function recordHit(victimSlot, attackerSlotIndex, wasCritical) {
-  lastHitBy.set(victimSlot, {
-    attackerSlotIndex,
-    wasCritical,
-    timestamp: Date.now(),
-  });
-}
-
-/**
- * @param {number} victimSlot
- * @returns {{ attackerSlotIndex: number, wasCritical: boolean, timestamp: number } | null}
- */
-function getLastHit(victimSlot) {
-  return lastHitBy.get(victimSlot) || null;
-}
-
-/**
- * @param {number} victimSlot
- */
-function clearLastHit(victimSlot) {
-  lastHitBy.delete(victimSlot);
+  gameStore.getState().recordHit(victimSlot, attackerSlotIndex, wasCritical);
 }
 
 /**
@@ -185,7 +107,7 @@ function clearLastHit(victimSlot) {
  * @param {Record<number, number>} scores
  */
 export function setRoundScores(scores) {
-  roundScores = { ...scores };
+  gameStore.getState().setRoundScores(scores);
 }
 
 /**
@@ -193,7 +115,7 @@ export function setRoundScores(scores) {
  * @internal Used by netcode / host round sync — prefer startRunning() for new rounds.
  */
 export function setRoundStartedAtMs(ms) {
-  roundStartedAtMs = ms;
+  gameStore.getState().setRoundStartedAtMs(ms);
 }
 
 /**
@@ -201,7 +123,7 @@ export function setRoundStartedAtMs(ms) {
  * @internal Used by netcode / host round sync — prefer startCountdown() for new countdowns.
  */
 export function setRoundCountdownStartedAtMs(ms) {
-  roundCountdownStartedAtMs = ms;
+  gameStore.getState().setRoundCountdownStartedAtMs(ms);
 }
 
 /**
@@ -209,33 +131,29 @@ export function setRoundCountdownStartedAtMs(ms) {
  * @internal Used by netcode / host round sync — prefer endRound() at round end.
  */
 export function setRoundWinnerSlotIndex(idx) {
-  roundWinnerSlotIndex = idx;
+  gameStore.getState().setRoundWinnerSlotIndex(idx);
 }
 
 /**
  * @param {"timer" | "lastStanding" | null} reason
  */
 export function setRoundEndReason(reason) {
-  roundEndReason = reason === "timer" || reason === "lastStanding" ? reason : null;
+  gameStore.getState().setRoundEndReason(reason);
 }
 
 /** Clears all pending hit attribution (e.g. between-round rematch reset). */
 export function clearAllHits() {
-  lastHitBy.clear();
+  gameStore.getState().clearAllHits();
 }
 
 /** Resets round state to lobby (session teardown or quit-to-menu). */
 export function resetRoundToLobby() {
-  roundPhase = RoundPhase.LOBBY;
-  roundStartedAtMs = 0;
-  roundCountdownStartedAtMs = 0;
-  roundWinnerSlotIndex = null;
-  _resetRoundBase();
+  gameStore.getState().resetRoundToLobby();
 }
 
 /** @returns {Record<number, number>} */
 export function getRoundScores() {
-  return { ...roundScores };
+  return { ...gameStore.getState().roundScores };
 }
 
 /**
@@ -243,6 +161,7 @@ export function getRoundScores() {
  * @returns {boolean}
  */
 export function isScoreTied() {
+  const roundScores = gameStore.getState().roundScores;
   let topScore = -Infinity;
   for (let i = 0; i < 4; i += 1) {
     topScore = Math.max(topScore, Number(roundScores[i] || 0));
@@ -260,7 +179,7 @@ export function isScoreTied() {
  * @param {boolean} val
  */
 export function setSuddenDeath(val) {
-  isSuddenDeath = Boolean(val);
+  gameStore.getState().setSuddenDeath(val);
 }
 
 /**
@@ -268,25 +187,10 @@ export function setSuddenDeath(val) {
  * @param {(slotIndex: number) => void} fn
  */
 export function setSuddenDeathWinCallback(fn) {
-  _suddenDeathWinCallback = fn;
-}
-
-/** @returns {number} Highest-scoring slot index, or -1 if none. */
-function getRoundLeaderSlot() {
-  let leaderSlot = -1;
-  let leaderScore = -Infinity;
-  const scores = getRoundScores();
-  for (let i = 0; i < 4; i++) {
-    const s = Number(scores[i] || 0);
-    if (s > leaderScore) {
-      leaderScore = s;
-      leaderSlot = i;
-    }
-  }
-  return leaderSlot;
+  gameStore.getState().setSuddenDeathWinCallback(fn);
 }
 
 /** @returns {Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} */
 export function getLastHitBy() {
-  return lastHitBy;
+  return gameStore.getState().lastHitBy;
 }

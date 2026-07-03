@@ -5,10 +5,22 @@ import { Howl, Howler } from "howler";
 
 // === Volume state (single source of truth for main.js + procedural SFX) ===
 
-let _masterVol = 0.575; // AUDIO_VOLUME_MAX default from main.js (~0.5 * 1.15)
-let _sfxVol = 0.575;
-let _musicVol = 0.575;
-let _isMuted = false;
+import { audioStore } from "./stores/audioStore.js";
+
+// Sync initial values from audioStore
+const _initialAudio = audioStore.getState();
+let _masterVol = 0.575;
+let _sfxVol = _initialAudio.sfxVolume;
+let _musicVol = _initialAudio.musicVolume;
+let _isMuted = _initialAudio.isMuted;
+
+// Subscribe to store updates for reactive volume adjustments
+audioStore.subscribe((state) => {
+  _musicVol = state.musicVolume;
+  _sfxVol = state.sfxVolume;
+  _isMuted = state.isMuted;
+  applyAllVolumes();
+});
 
 // === Howler instances ===
 
@@ -111,20 +123,17 @@ function applyAllVolumes() {
 
 /** @param {number} v 0–1 range */
 export function setSfxVolume(v) {
-  _sfxVol = Math.max(0, Math.min(1, v));
-  applyAllVolumes();
+  audioStore.getState().setSfxVolume(v);
 }
 
 /** @param {number} v 0–1 range */
 export function setMusicVolume(v) {
-  _musicVol = Math.max(0, Math.min(1, v));
-  applyAllVolumes();
+  audioStore.getState().setMusicVolume(v);
 }
 
 /** @param {boolean} m */
 export function setMuted(m) {
-  _isMuted = Boolean(m);
-  applyAllVolumes();
+  audioStore.getState().setMuted(m);
 }
 
 /**
@@ -133,10 +142,9 @@ export function setMuted(m) {
  */
 export function restoreVolumeState(state) {
   _masterVol = Math.max(0, Math.min(1, state.master));
-  _sfxVol = Math.max(0, Math.min(1, state.sfx));
-  _musicVol = Math.max(0, Math.min(1, state.music));
-  _isMuted = Boolean(state.muted);
-  applyAllVolumes();
+  audioStore.getState().setSfxVolume(state.sfx);
+  audioStore.getState().setMusicVolume(state.music);
+  audioStore.getState().setMuted(state.muted);
 }
 
 // === Music ===

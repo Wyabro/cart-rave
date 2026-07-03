@@ -143,11 +143,12 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
 
   // * Capture cart center in world space (root position + visual offset approximated by
   // * the root's current world transform). Used as the explosion origin + outward bias point.
+  const cartCenterWorld = new THREE.Vector3();
   mesh.updateMatrixWorld(true);
-  mesh.getWorldPosition(_worldPos);
+  mesh.getWorldPosition(cartCenterWorld);
 
   // * Stash the death world position on the cart so the death camera can pan toward it.
-  cart._shatterDeathPos = _worldPos.clone();
+  cart._shatterDeathPos = cartCenterWorld.clone();
 
   /** @type {{ mesh: THREE.Mesh, vel: THREE.Vector3, angVel: THREE.Vector3, sharedGeometry: boolean }[]} */
   const parts = [];
@@ -184,9 +185,9 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
 
     // * Outward direction from cart center + random spread + upward bias.
     _outwardDir.set(
-      _worldPos.x - (mesh.position.x),
+      _worldPos.x - cartCenterWorld.x,
       0,
-      _worldPos.z - (mesh.position.z),
+      _worldPos.z - cartCenterWorld.z,
     );
     if (_outwardDir.lengthSq() < 1e-6) {
       // * Part sits at cart center — pick a random horizontal direction.
@@ -233,7 +234,7 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   // * frameVisuals.js stops updating once isShattering is true. Restored on cleanup.
   if (cart.contactShadow) cart.contactShadow.visible = false;
 
-  const explosion = spawnExplosion(scene, mesh.position, neonHex);
+  const explosion = spawnExplosion(scene, cartCenterWorld, neonHex);
 
   cart._shatterState = { parts, explosion };
 }

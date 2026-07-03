@@ -330,49 +330,18 @@ let quickplayAutoRejoinAttempted = false;
 let menuVisible = true;
 /** @type {boolean | null} */
 let lastTouchControlsVisible = null;
-let bloomEnabled = true;
-try {
-  const saved = localStorage.getItem("cartRaveBloom");
-  if (saved === "off") bloomEnabled = false;
-} catch {}
-let fxPassEnabled = true;
-try {
-  const s = localStorage.getItem("cartRaveFx");
-  if (s === "off") fxPassEnabled = false;
-} catch {}
+import { audioStore, AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
+import { settingsStore } from "./stores/settingsStore.js";
+
+let bloomEnabled = settingsStore.getState().bloomEnabled;
+let fxPassEnabled = settingsStore.getState().fxPassEnabled;
 /** @type {ShaderPass | null} */
 let fxPass = null;
-/** @type {number} */
-const AUDIO_VOLUME_MAX = 1.15;
-const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
-let musicVolume = AUDIO_VOLUME_DEFAULT;
-/** @type {number} */
-let sfxVolume = AUDIO_VOLUME_DEFAULT;
+let musicVolume = audioStore.getState().musicVolume;
+let sfxVolume = audioStore.getState().sfxVolume;
 /** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
 let leaderHum = null;
-try {
-  const savedVol = localStorage.getItem("cartRaveVolume");
-  if (savedVol !== null) {
-    const parsedVol = parseInt(savedVol, 10);
-    musicVolume = Number.isNaN(parsedVol)
-      ? AUDIO_VOLUME_DEFAULT
-      : clamp((parsedVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-  }
-} catch {}
-try {
-  const savedSfxVol = localStorage.getItem("cartRaveSfxVol");
-  if (savedSfxVol !== null) {
-    const parsedSfxVol = parseInt(savedSfxVol, 10);
-    sfxVolume = Number.isNaN(parsedSfxVol)
-      ? AUDIO_VOLUME_DEFAULT
-      : clamp((parsedSfxVol / 100) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-  }
-} catch {}
-/** @type {boolean} */
-let isMuted = false;
-try {
-  if (localStorage.getItem("cartRaveMuted") === "true") isMuted = true;
-} catch {}
+let isMuted = audioStore.getState().isMuted;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
@@ -811,28 +780,19 @@ async function main() {
 
   function setMusicGainValue(val) {
     musicVolume = clamp(val, 0, AUDIO_VOLUME_MAX);
-    AudioManager.setMusicVolume(musicVolume / AUDIO_VOLUME_MAX);
-    localStorage.setItem(
-      "cartRaveVolume",
-      Math.round((musicVolume / AUDIO_VOLUME_MAX) * 100).toString(),
-    );
+    audioStore.getState().setMusicVolume(musicVolume);
     syncAllAudioUi();
   }
 
   function setAllAudioMuted(muted) {
     isMuted = Boolean(muted);
-    AudioManager.setMuted(isMuted);
-    localStorage.setItem("cartRaveMuted", isMuted ? "true" : "false");
+    audioStore.getState().setMuted(isMuted);
     syncAllAudioUi();
   }
 
   function setSfxSliderVolume(v) {
     sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
-    AudioManager.setSfxVolume(sfxVolume / AUDIO_VOLUME_MAX);
-    localStorage.setItem(
-      "cartRaveSfxVol",
-      Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100).toString(),
-    );
+    audioStore.getState().setSfxVolume(sfxVolume);
     syncAllAudioUi();
   }
 
@@ -1215,12 +1175,12 @@ async function main() {
     getBloomEnabled: () => bloomEnabled,
     setBloomEnabled: (val) => {
       bloomEnabled = val;
-      try { localStorage.setItem("cartRaveBloom", val ? "on" : "off"); } catch (e) {}
+      settingsStore.getState().setBloomEnabled(val);
     },
     getFxPassEnabled: () => fxPassEnabled,
     setFxPassEnabled: (val) => {
       fxPassEnabled = val;
-      try { localStorage.setItem("cartRaveFx", val ? "on" : "off"); } catch (e) {}
+      settingsStore.getState().setFxPassEnabled(val);
     },
     getBloomPass: () => bloomPass,
     getFxPass: () => fxPass,
@@ -2577,6 +2537,13 @@ async function main() {
   const clientSimCallbacks = {
     ...hostSimCallbacks,
     getAiAxis: null,
+    onSpill: (cart) => {
+      const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      // * Non-host client only predicts tip-over spills for own local cart;
+      // * remote cart & NPC spills are driven authoritatively by host MSG.spill broadcast.
+      if (cart?.slotIndex !== localSlot) return;
+      hostSimCallbacks.onSpill(cart);
+    },
   };
 
   const physicsDeps = {
@@ -2742,8 +2709,8 @@ async function main() {
   window.__cartRave_togglePostFx = (next) => {
     bloomEnabled = next;
     fxPassEnabled = next;
-    try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch (e) {}
-    try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch (e) {}
+    settingsStore.getState().setBloomEnabled(next);
+    settingsStore.getState().setFxPassEnabled(next);
   };
   window.__cartRave_toggleLowQuality = handleLowQualityToggle;
 

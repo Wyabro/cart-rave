@@ -1102,7 +1102,8 @@ function buildWalls(scene, world, wallpaperTex) {
         const boxY = boardY + boardThickness / 2 + boxH / 2;
         for (let a = -WALL_SPAN / 2 + 7; a <= WALL_SPAN / 2 - 7; a += SHELF_BOX_SPACING) {
           // Leave gaps so shelves read as half-empty / abandoned.
-          if (Math.random() < 0.3) continue;
+          // Deterministic hash so all clients render the same layout.
+          if (((lvl * 7 + Math.round(a) * 13 + side * 41) % 10) < 3) continue;
           const [sx, sz] = wDim(1.1, 0.95);
           const [px, py, pz] = toWorld(a, boxY, shelfCenterOut + 0.15);
           const pick = (lvl + Math.round(a)) % 3;
@@ -1468,6 +1469,7 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
  * @returns {{
  *   recordMesh: THREE.Object3D,
  *   recordCollider: import("@dimforge/rapier3d").Collider,
+ *   recordColliderHandles: number[],
  *   pitWallColliderHandle: number,
  *   boothColliderHandles: number[],
  *   boothNeonMeshes: THREE.Mesh[],
@@ -1476,6 +1478,8 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
  *   spindleLightColorCyan: THREE.Color,
  *   pitInnerRadius: number,
  *   recordLabelMat: null,
+ *   aiHazards: object,
+ *   update: (timeMs: number) => void,
  *   dispose: () => void,
  * }}
  */
@@ -1684,7 +1688,7 @@ export function initBackroomsSupermarket(scene, world, config) {
       // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
       circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7 }],
     },
-    update: spotlightUpdateFn,
+    update: (timeMs) => spotlightUpdateFn(timeMs),
     dispose,
   };
 }

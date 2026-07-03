@@ -7,7 +7,7 @@ import { resetCartTransientState } from "./entities.js";
  * @property {() => Array<object>} getAllCarts
  * @property {() => Array<object>} getNetSlots
  * @property {() => boolean} isHost
- * @property {() => { phase: string, startedAtMs: number }} getRoundState
+ * @property {() => { phase: string, startedAtMs: number, countdownStartedAtMs: number, winnerSlotIndex: number | string | null, endReason: "timer" | "lastStanding" | null, scores: Record<number, number>, isSuddenDeath: boolean }} getRoundState
  * @property {() => number[]} getRoundScores
  * @property {() => Map<number, object>} getLastHitBy
  * @property {object} CONFIG
@@ -27,13 +27,14 @@ import { resetCartTransientState } from "./entities.js";
  * @property {() => void} sendHostRound
  * @property {() => object | null} getPartySocket
  * @property {{ hostEventFall: string }} MSG
- * @property {(attackerSlotIndex: number, points: number) => boolean} addScore
+ * @property {(attackerSlotIndex: number, points: number, suppressSuddenDeathWin?: boolean) => boolean} addScore
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
  * @property {(untilMs: number) => void} setFovPunchUntil
  * @property {() => string} [detectGameMode]
  * @property {() => THREE.Scene | null | undefined} [getScene]
  * @property {(cart: object, scene: object, neonHex: number) => void} [triggerCartShatter]
+ * @property {() => string | null} [getYouConnId]
  */
 
 /** @type {boolean} */

@@ -115,34 +115,44 @@ function cloneDefaults() {
   return JSON.parse(JSON.stringify(TUNING_DEFAULTS));
 }
 
-// --- Store ---
+// --- Store & Mutable Proxy Sync ---
 
 /**
- * Vanilla Zustand store (unfrozen state so Tweakpane can bind directly).
+ * Mutable live tuning object initialized with defaults.
+ * Tweakpane bindings mutate this object directly via `addBinding()`.
+ * High-frequency per-frame animation reads access this object directly for max performance.
  */
-export const cartTuningStore = createStore((set, get) => ({
-  ...cloneDefaults(),
+export const raveGltfTuning = cloneDefaults();
 
-  /** Resets every tuning key to its default value. */
+/**
+ * Vanilla Zustand store synchronized with `raveGltfTuning`.
+ */
+export const cartTuningStore = createStore((set) => ({
+  ...raveGltfTuning,
+
+  /** Resets every tuning key to its default value in-place and in store. */
   resetAll: () => {
-    set(cloneDefaults());
+    const defaults = cloneDefaults();
+    // 1. Mutate live object in-place so Tweakpane & runtime references stay valid
+    Object.assign(raveGltfTuning, defaults);
+    // 2. Synchronize Zustand store state
+    set(defaults);
   },
 
   /**
-   * Resets the given top-level keys to defaults (handles `casterPivotCorner` and
-   * `casterPivotCorner.<label>` as special nested cases).
+   * Resets the given top-level keys to defaults in a single batched pass.
+   * Handles `casterPivotCorner` and `casterPivotCorner.<label>` nested cases.
    *
    * @param {readonly string[]} keys
    */
   resetKeys: (keys) => {
     const defaults = cloneDefaults();
-    const current = get();
+    const updates = {};
 
     for (const key of keys) {
       if (key === "casterPivotCorner") {
-        set({
-          casterPivotCorner: cloneDefaults().casterPivotCorner,
-        });
+        raveGltfTuning.casterPivotCorner = cloneDefaults().casterPivotCorner;
+        updates.casterPivotCorner = raveGltfTuning.casterPivotCorner;
         continue;
       }
 
@@ -150,32 +160,40 @@ export const cartTuningStore = createStore((set, get) => ({
         const label = key.slice("casterPivotCorner.".length);
         const cornerDefaults = defaults.casterPivotCorner[label];
         if (cornerDefaults) {
-          set({
-            casterPivotCorner: {
-              ...current.casterPivotCorner,
-              [label]: { ...cornerDefaults },
-            },
-          });
+          if (!raveGltfTuning.casterPivotCorner) {
+            raveGltfTuning.casterPivotCorner = cloneDefaults().casterPivotCorner;
+          }
+          raveGltfTuning.casterPivotCorner[label] = { ...cornerDefaults };
+          updates.casterPivotCorner = {
+            ...raveGltfTuning.casterPivotCorner,
+          };
         }
         continue;
       }
 
       // Top-level scalar
       if (key in defaults) {
-        set({ [key]: defaults[key] });
+        raveGltfTuning[key] = defaults[key];
+        updates[key] = defaults[key];
       }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      set(updates);
     }
   },
 
-  /** Returns a shallow snapshot of the current state (for logging). */
-  getRaw: () => ({ ...get() }),
+  /**
+   * Programmatic setter for a single key to keep live snapshot and store in sync.
+   * @param {string} key
+   * @param {any} val
+   */
+  syncKey: (key, val) => {
+    raveGltfTuning[key] = val;
+    set({ [key]: val });
+  },
+
+  /** Returns a deep snapshot of the current live tuning state (for logging/export). */
+  getRaw: () => JSON.parse(JSON.stringify(raveGltfTuning)),
 }));
 
-// --- Backward-compat mutable reference ---
-
-/**
- * Mutable reference to the live store state.
- * Tweakpane bindings mutate this object directly via `addBinding()`.
- * Programmatic mutations should use `cartTuningStore.setState()` to notify subscribers.
- */
-export const raveGltfTuning = cartTuningStore.getState();

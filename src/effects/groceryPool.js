@@ -250,8 +250,12 @@ export async function init(scene, world) {
       .setCollisionGroups(interactionGroups);
 
     // * Store normalized geometry & material for cargo bay visual.
+    // * Mark as isSharedMaterial so cartShatter cleanup does not dispose GPU resources.
+    material.userData = { ...material.userData, isSharedMaterial: true };
+    const cargoMat = material.clone();
+    cargoMat.userData = { ...cargoMat.userData, isSharedMaterial: true };
     loadedGeometries.push(geometry.clone());
-    loadedMaterials.push(material.clone());
+    loadedMaterials.push(cargoMat);
 
     const im = new THREE.InstancedMesh(geometry, material, PER_MODEL_POOL);
     im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

@@ -235,6 +235,14 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   // * Refresh the material cache — the old one referenced disposed materials.
   cart._materialCache = materialCache;
 
+  // * Recreate cargoBay visual inside the basket and update cart.cargoBay ref.
+  const cargoBay = GroceryPool.createCargoBay();
+  if (cargoBay) {
+    cargoBay.position.set(0, CONFIG.cart.visualOffset + 0.1, 0);
+    cart.mesh.add(cargoBay);
+    cart.cargoBay = cargoBay;
+  }
+
   // * Contact shadow persists across shatter (it was never detached); leave it as-is.
 }
 

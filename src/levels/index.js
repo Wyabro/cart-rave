@@ -32,7 +32,24 @@ export function resolveLevelId(raw) {
  * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG passed through to the level init.
  * @param {{ reflectorTextureSize?: number, onProgress?: (pct: number, label: string) => void }} [options]
- * @returns {Promise<ReturnType<import("./classicRecord.js").initClassicRecord>>}
+ * @returns {Promise<{
+ *   recordMesh: import("three").Object3D,
+ *   recordCollider?: import("@dimforge/rapier3d").Collider,
+ *   recordColliderHandles?: number[],
+ *   pitWallColliderHandle: number | null,
+ *   boothColliderHandles: number[],
+ *   boothNeonMeshes: import("three").Mesh[],
+ *   spindleLight: import("three").PointLight | null,
+ *   spindleLightColorPink: import("three").Color | null,
+ *   spindleLightColorCyan: import("three").Color | null,
+ *   pitInnerRadius: number,
+ *   recordLabelMat: import("three").Material | null,
+ *   aiHazards?: object | null,
+ *   update?: (timeMs: number) => void,
+ *   upgradeRecordReflector?: ((size: number) => void) | null,
+ *   setReflectorVisible?: ((visible: boolean) => void) | null,
+ *   dispose: () => void,
+ * }>}
  */
 export async function loadLevel(levelId, scene, world, config, options = {}) {
   const stored =

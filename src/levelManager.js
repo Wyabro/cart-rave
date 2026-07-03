@@ -14,6 +14,7 @@ const FULL_REFLECTOR_SIZE = 256;
 /** @type {import("./levelManager.js").LevelManagerDeps | null} */
 let deps = null;
 
+/** @type {"classicRecord" | "backrooms" | "testArena"} */
 let loadedLevelId = resolveLevelId(
   typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null,
 );
@@ -65,15 +66,17 @@ function requireDeps() {
   return deps;
 }
 
+import { settingsStore } from "./stores/settingsStore.js";
+
 /**
  * @param {string | null | undefined} [levelId]
  * @returns {string}
  */
 function resolveTargetLevelId(levelId) {
   if (levelId != null) return resolveLevelId(levelId);
-  const stored = typeof localStorage !== "undefined"
-    ? localStorage.getItem(LEVEL_STORAGE_KEY)
-    : null;
+  const stored = settingsStore.getState().selectedLevelId || (
+    typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null
+  );
   return resolveLevelId(stored);
 }
 

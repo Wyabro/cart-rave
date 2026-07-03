@@ -116,6 +116,7 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {() => number} getShakeIntensity
  * @property {() => number} getFovPunchUntil
  * @property {{ frames: number, last: number, canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null }} fpsState
+ * @property {() => void} [updateTouchControlsVisibility]
  */
 
 /**
