@@ -2447,7 +2447,6 @@ export function init(options) {
   syncLowQualityButtonState(isLowQualityMode());
   elements.lowQualityBtn.addEventListener("click", () => {
     const next = !isLowQualityMode();
-    setLowQualityMode(next);
     syncLowQualityButtonState(next);
     if (_options.onLowQualityToggle) _options.onLowQualityToggle(next);
   });

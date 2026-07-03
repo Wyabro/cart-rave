@@ -1,15 +1,18 @@
-/**
- * animations.js — Reusable Anime.js helpers for UI and touch feedback.
- */
-
-import { animate } from "animejs";
+import { animate, createTimeline, spring, stagger } from "animejs";
+import "animejs/adapters/three";
 import { isTouchDevice } from "./utils.js";
+
+export { animate, createTimeline, spring, stagger };
+
+/** Native spring physics generator presets for tactile micro-interactions */
+export const SPRING_BOUNCE = spring({ stiffness: 220, damping: 16, mass: 1 });
+export const SPRING_SNAP = spring({ stiffness: 260, damping: 20, mass: 0.8 });
 
 /** @typedef {import('animejs').JSAnimation} JSAnimation */
 
 /** @typedef {Object} AnimationOptions
  * @property {number} [duration]
- * @property {string} [ease]
+ * @property {string | import('animejs').EasingFunction} [ease]
  * @property {boolean} [force] Skip reduced-motion / touch-only guards.
  * @property {boolean} [touchOnly] No-op on non-touch devices.
  * @property {'boost' | 'hop' | 'default'} [variant] Touch button glow preset.
@@ -42,9 +45,6 @@ const activeByElement = new WeakMap();
 /** @type {WeakMap<Element, JSAnimation>} */
 const pulseByElement = new WeakMap();
 
-/** @type {Set<Element>} */
-const trackedElements = new Set();
-
 /** @type {WeakMap<import('three').Object3D, JSAnimation>} */
 const cartPulseByMesh = new WeakMap();
 
@@ -53,6 +53,9 @@ const killFeedExitTimers = new WeakMap();
 
 /** @type {WeakSet<Element>} */
 const buttonPressWired = new WeakSet();
+
+/** @type {WeakSet<Element>} */
+const hoverWired = new WeakSet();
 
 let removalObserverStarted = false;
 
@@ -119,13 +122,11 @@ function trackAnimation(element, animation) {
   }
 
   bucket.add(animation);
-  trackedElements.add(element);
 
   const untrack = () => {
     bucket?.delete(animation);
     if (bucket && bucket.size === 0) {
       activeByElement.delete(element);
-      trackedElements.delete(element);
     }
   };
 
@@ -134,7 +135,7 @@ function trackAnimation(element, animation) {
 }
 
 /**
- * Cancels all tracked Anime.js instances for an element.
+ * Cancels all tracked Anime.js instances for an element and reverts properties.
  * @param {Element | null | undefined} element
  */
 export function cancelElementAnimations(element) {
@@ -147,15 +148,18 @@ export function cancelElementAnimations(element) {
 
   for (const animation of bucket) {
     try {
-      animation.cancel();
+      animation.revert();
     } catch {
-      // Animation may already be finished or reverted.
+      try {
+        animation.cancel();
+      } catch {
+        // Animation may already be finished or reverted.
+      }
     }
   }
 
   bucket.clear();
   activeByElement.delete(element);
-  trackedElements.delete(element);
 }
 
 /**
@@ -392,27 +396,16 @@ export function animateTouchControlPress(element, options = {}) {
 
   cancelElementAnimations(element);
 
-  const pressAnim = runTouchAnimation(
+  return runTouchAnimation(
     element,
     {
       scale,
-      duration,
+      filter: ["brightness(1)", glow.flashFilter, glow.heldFilter],
+      duration: Math.max(duration, 110),
       ease,
     },
     { force: true },
   );
-
-  runTouchAnimation(
-    element,
-    {
-      filter: ["brightness(1)", glow.flashFilter, glow.heldFilter],
-      duration: 110,
-      ease: "outQuad",
-    },
-    { force: true },
-  );
-
-  return pressAnim;
 }
 
 /**
@@ -1235,5 +1228,30 @@ export function wireButtonPressFeedback(btn, options = {}) {
   btn.addEventListener("pointercancel", onRelease);
   btn.addEventListener("pointerleave", (e) => {
     if (pressed && e.pointerType === "mouse") onRelease();
+  });
+}
+
+/**
+ * Wires smooth hover scale feedback on desktop pointer elements.
+ * @param {HTMLElement | null | undefined} btn
+ * @param {AnimationOptions & { scale?: number, getTarget?: (btn: HTMLElement) => HTMLElement | null }} [options]
+ */
+export function wireHoverFeedback(btn, options = {}) {
+  if (!(btn instanceof HTMLElement) || hoverWired.has(btn) || isTouchDevice()) return;
+  hoverWired.add(btn);
+
+  const getTarget = options.getTarget ?? ((el) => el);
+  const hoverScale = options.scale ?? 1.03;
+
+  btn.addEventListener("pointerenter", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const target = getTarget(btn);
+    if (target) animateHoverScale(target, { scale: hoverScale, duration: 150 });
+  });
+
+  btn.addEventListener("pointerleave", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const target = getTarget(btn);
+    if (target) animateHoverReset(target, { duration: 120 });
   });
 }

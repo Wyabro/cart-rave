@@ -550,7 +550,7 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
     disposables,
     disposed: false,
     update: (timeMs) => {
-      if (!enabled) return;
+      if (!sceneRoots[0]?.visible) return;
       ufos.update(timeMs);
       spotlights.update(timeMs);
     },

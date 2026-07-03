@@ -5,7 +5,7 @@ import { RAPIER } from "./physics/rapierInstance.js";
 import { CONFIG, BASELINE_CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
-
+import { getNpcPersonality } from "./npcNames.js";
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
@@ -997,7 +997,8 @@ function segmentIntersectsAabb(ax, az, bx, bz, minX, minZ, maxX, maxZ) {
  * @param {number} [extraMargin]
  * @returns {{ x: number, z: number } | null}
  */
-function findBlockingSquareHole(fx, fz, tx, tz, extraMargin = 0) {
+export function findBlockingSquareHole(fx, fz, tx, tz, extraMargin = 0) {
+  if (!_levelHazards?.squareHoles) return null;
   const need = squareHoleKeepOutRadius(extraMargin);
   for (let i = 0; i < _levelHazards.squareHoles.length; i += 1) {
     const h = _levelHazards.squareHoles[i];
@@ -1342,6 +1343,12 @@ function clampAiTargetAwayFromHazards(x, z, cautious) {
     return clampBackroomsAiTarget(x, z, cautious);
   }
 
+  // * Flat square arenas (e.g. Test Arena): clamp to safe inner square bounds.
+  if (CONFIG.record.centerHole?.enabled === false) {
+    const maxCoord = cautious ? 20 : 24;
+    return { x: clamp(x, -maxCoord, maxCoord), z: clamp(z, -maxCoord, maxCoord) };
+  }
+
   const dist = Math.hypot(x, z);
   let angle = dist > 1e-3 ? Math.atan2(z, x) : Math.random() * Math.PI * 2;
   const innerLimit = cautious
@@ -1365,33 +1372,90 @@ function clampAiTargetAwayFromHazards(x, z, cautious) {
   return { x: outX, z: outZ };
 }
 
-function findNearestHumanTarget(fromPos, allCarts, netSlots) {
+function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
   let nearestPos = null;
-  let nearestD2 = Infinity;
+  let nearestWeightedD2 = Infinity;
   let nearestVel = null;
   const LEAD_TIME_S = 0.5;
+  const fallYThreshold = CONFIG.fall?.yThreshold ?? -1.0;
+
+  // * Rubberbanding: fetch current round scores to prioritize match leader
+  const roundState = GameState.getRoundState();
+  const roundScores = roundState.scores || {};
+  let topScore = -Infinity;
+  let minScore = Infinity;
+  let activeHumans = 0;
+
+  for (let i = 0; i < (netSlots?.length ?? 0); i += 1) {
+    const s = netSlots?.[i];
+    if (s?.kind === "human" && s.connId) {
+      activeHumans += 1;
+      const sc = Number(roundScores[i] || 0);
+      topScore = Math.max(topScore, sc);
+      minScore = Math.min(minScore, sc);
+    }
+  }
+
   for (let i = 0; i < (allCarts?.length ?? 0); i += 1) {
     const s = netSlots?.[i];
     if (!s || s.kind !== "human" || !s.connId) continue;
     const cart = allCarts[i];
-    if (!cart?.body) continue;
+    if (!cart?.body || cart.respawnAtMs != null || cart.isSuddenDeathSpectator) continue;
     const hp = cart.body.translation();
+    if (hp.y < fallYThreshold) continue;
     const dx = hp.x - fromPos.x;
     const dz = hp.z - fromPos.z;
-    const d2 = dx * dx + dz * dz;
-    if (d2 < nearestD2) {
-      nearestD2 = d2;
+    let d2 = dx * dx + dz * dz;
+
+    // * Score Rubberbanding: prioritize leader by scaling effective distance down; handicap trailing player
+    const sc = Number(roundScores[i] || 0);
+    if (activeHumans > 1 && topScore > 0) {
+      if (sc === topScore) {
+        d2 *= 0.65; // Appears 35% closer → higher chase priority against leader
+      } else if (sc === minScore && sc < topScore) {
+        d2 *= 1.30; // Appears 30% farther → lower priority against trailing player
+      }
+    }
+
+    if (d2 < nearestWeightedD2) {
+      nearestWeightedD2 = d2;
       nearestPos = hp;
       nearestVel = cart.body.linvel();
     }
   }
   if (!nearestPos) return null;
+
   const jitter = _levelHazards?.arenaHalf != null ? 0.5 : 1.8;
-  const leadX = nearestVel ? nearestVel.x * LEAD_TIME_S : 0;
-  const leadZ = nearestVel ? nearestVel.z * LEAD_TIME_S : 0;
+  let targetX = nearestPos.x + (nearestVel ? nearestVel.x * LEAD_TIME_S : 0);
+  let targetZ = nearestPos.z + (nearestVel ? nearestVel.z * LEAD_TIME_S : 0);
+
+  // * Sudden Death Tactics: Flanking / Pincer angles & Edge push bias
+  if (roundState.isSuddenDeath) {
+    // 1. Pincer offset based on NPC slotIndex
+    const pincerSign = (slotIndex % 2 === 0) ? 1 : -1;
+    const speed = nearestVel ? Math.hypot(nearestVel.x, nearestVel.z) : 0;
+    if (speed > 0.5) {
+      const vx = nearestVel.x / speed;
+      const vz = nearestVel.z / speed;
+      // Perpendicular flank vector
+      targetX += -vz * pincerSign * 2.5;
+      targetZ += vx * pincerSign * 2.5;
+    }
+
+    // 2. Outward edge push: if target is near an edge/void and NPC is inside, push target point toward edge
+    const distToCenter = Math.hypot(nearestPos.x, nearestPos.z);
+    const npcDistToCenter = Math.hypot(fromPos.x, fromPos.z);
+    if (npcDistToCenter < distToCenter) {
+      const outDirX = nearestPos.x / (distToCenter || 1);
+      const outDirZ = nearestPos.z / (distToCenter || 1);
+      targetX += outDirX * 2.0;
+      targetZ += outDirZ * 2.0;
+    }
+  }
+
   return {
-    x: nearestPos.x + leadX + (Math.random() - 0.5) * jitter,
-    z: nearestPos.z + leadZ + (Math.random() - 0.5) * jitter,
+    x: targetX + (Math.random() - 0.5) * jitter,
+    z: targetZ + (Math.random() - 0.5) * jitter,
   };
 }
 
@@ -1460,6 +1524,9 @@ function ensureAiBehaviorState(cart) {
   if (cart.aiLastProgressMs == null) cart.aiLastProgressMs = 0;
   if (cart.aiLastDistToTarget == null) cart.aiLastDistToTarget = Infinity;
   if (cart.aiAvoidanceCommitUntilMs == null) cart.aiAvoidanceCommitUntilMs = 0;
+  if (!cart.aiPersonality) {
+    cart.aiPersonality = getNpcPersonality(cart.name ?? cart.slotIndex);
+  }
 }
 
 /**
@@ -1472,23 +1539,38 @@ function ensureAiBehaviorState(cart) {
  * @param {number} [slotIndex] Cart slot for corner-sweep variety.
  * @returns {{ x: number, z: number }}
  */
-function pickAiTarget(fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
+function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
+  ensureAiBehaviorState(cart);
+  const personality = cart.aiPersonality;
   const cautious = isAiCautiousPhase(nowMs, allCarts, netSlots);
-  const humanTarget = findNearestHumanTarget(fromPos, allCarts, netSlots);
+  const humanTarget = findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex);
   const roll = Math.random();
 
-  // * Weighted mix: humans, outer-ring patrol, random wander.
-  let humanWeight = cautious ? 0.65 : 0.80;
-  let patrolWeight = cautious ? 0.12 : 0.10;
+  const roundState = GameState.getRoundState();
+  const isSuddenDeath = roundState.isSuddenDeath;
+  const roundScores = roundState.scores || {};
+  let topScore = 0;
+  for (let key in roundScores) topScore = Math.max(topScore, Number(roundScores[key] || 0));
 
-  // * Backrooms: patrol corners aggressively; chase when a human is up.
-  if (_levelHazards?.arenaHalf != null) {
+  let humanWeight = cautious ? personality.humanWeight * 0.85 : personality.humanWeight;
+  let patrolWeight = personality.patrolWeight;
+
+  // 1. Sudden Death Bloodhound Override: boost human chase weight across ALL personalities
+  if (isSuddenDeath) {
+    humanWeight = Math.max(humanWeight, 0.88);
+    patrolWeight = 0.05;
+  } else if (topScore >= 2) {
+    // 2. Match Point Leader Pressure: boost chase weight by 1.25x when a player is on Match Point
+    humanWeight = Math.min(0.95, humanWeight * 1.25);
+  }
+
+  if (_levelHazards?.arenaHalf != null && !isSuddenDeath) {
     if (humanTarget && !cautious) {
-      humanWeight = 0.75;
+      humanWeight = Math.max(humanWeight, 0.70);
       patrolWeight = 0.15;
     } else if (!cautious) {
-      humanWeight = 0.35;
-      patrolWeight = 0.42;
+      humanWeight = 0.30;
+      patrolWeight = 0.40;
     }
   }
 
@@ -1501,6 +1583,7 @@ function pickAiTarget(fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
     }
     return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious);
   }
+
   if (roll < humanWeight + patrolWeight) {
     return pickAiPatrolTarget(cautious, slotIndex);
   }
@@ -1525,6 +1608,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   ensureAiBehaviorState(cart);
 
   if (now < cart.aiPauseUntilMs) {
+    cart.aiLastProgressMs = now;
     const idleWobble = Math.sin(now * 0.002 + (cart.slotIndex || 0)) * 0.12;
     return { forward: 0, turn: clamp(idleWobble, -0.18, 0.18) };
   }
@@ -1537,6 +1621,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   const onSpawnPlatform = p.y > CONFIG.booth.platformY - 0.5;
   if (onSpawnPlatform) {
     cart.aiTarget = { x: 0, z: 0 };
+    cart._aiWorkingTarget = null;
     cart.aiNextDecisionMs = now + 200;
     cart.aiLastProgressMs = now;
     cart.aiLastDistToTarget = Math.hypot(p.x, p.z);
@@ -1564,9 +1649,9 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     const targetZ = cart.aiTarget?.z ?? p.z;
 
     if (findBlockingSquareHole(p.x, p.z, targetX, targetZ, 0.05)) {
-      const routed = routeBackroomsChaseTarget(p.x, p.z, targetX, targetZ, false);
-      cart.aiTarget.x = routed.x;
-      cart.aiTarget.z = routed.z;
+      cart._aiWorkingTarget = routeBackroomsChaseTarget(p.x, p.z, targetX, targetZ, false);
+    } else {
+      cart._aiWorkingTarget = null;
     }
 
     const lv = _scratchLinvel;
@@ -1582,6 +1667,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
         const escape = gutterWaypointAroundHole(hole, targetX, targetZ, false);
         cart.aiTarget.x = escape.x;
         cart.aiTarget.z = escape.z;
+        cart._aiWorkingTarget = null;
       }
     }
   }
@@ -1590,27 +1676,40 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   const onBackrooms = _levelHazards?.arenaHalf != null;
 
   if (now >= cart.aiNextDecisionMs) {
-    cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
-    cart.aiNextDecisionMs = now + (300 + Math.random() * 500);
-    cart.aiSteerGain = 1.0 + Math.random() * 0.5;
+    cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
+    cart._aiWorkingTarget = null;
+    const pcfg = cart.aiPersonality;
+    const minI = pcfg?.decisionIntervalMin ?? 300;
+    const maxI = pcfg?.decisionIntervalMax ?? 800;
+    cart.aiNextDecisionMs = now + (minI + Math.random() * (maxI - minI));
+    const minG = pcfg?.steerGainMin ?? 1.0;
+    const maxG = pcfg?.steerGainMax ?? 1.5;
+    cart.aiSteerGain = minG + Math.random() * (maxG - minG);
     cart.aiLastProgressMs = now;
     cart.aiLastDistToTarget = Infinity;
 
     // * Random short stop to break up constant circling.
     if (Math.random() < (onBackrooms ? 0.07 : 0.14)) {
       cart.aiPauseUntilMs = now + (500 + Math.random() * 1000);
+      cart.aiLastProgressMs = now;
       return { forward: 0, turn: 0 };
     }
   }
 
-  const toTarget = _aiToTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+  const activeTarget = cart._aiWorkingTarget || cart.aiTarget;
+  const toTarget = _aiToTarget.set(activeTarget.x - p.x, 0, activeTarget.z - p.z);
   const distToTarget = Math.sqrt(toTarget.lengthSq());
 
   if (distToTarget < 0.5) {
-    cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
-    cart.aiNextDecisionMs = now + (300 + Math.random() * 500);
+    cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
+    cart._aiWorkingTarget = null;
+    const pcfg = cart.aiPersonality;
+    const minI = pcfg?.decisionIntervalMin ?? 300;
+    const maxI = pcfg?.decisionIntervalMax ?? 800;
+    cart.aiNextDecisionMs = now + (minI + Math.random() * (maxI - minI));
     cart.aiLastProgressMs = now;
-    toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+    const newTarget = cart.aiTarget;
+    toTarget.set(newTarget.x - p.x, 0, newTarget.z - p.z);
   }
 
   const lv = _scratchLinvel;
@@ -1637,6 +1736,16 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       const { cheb } = nearestSquareHole(p.x, p.z);
       const keepOut = squareHoleKeepOutRadius(0);
       nearHazard = cheb < keepOut + 3.0;
+      if (!nearHazard && _levelHazards.circularKeepOuts?.length > 0) {
+        for (let i = 0; i < _levelHazards.circularKeepOuts.length; i += 1) {
+          const ko = _levelHazards.circularKeepOuts[i];
+          const distKo = Math.hypot(p.x - ko.x, p.z - ko.z);
+          if (distKo < ko.radius + (ko.margin ?? 1.5) + 2.5) {
+            nearHazard = true;
+            break;
+          }
+        }
+      }
     } else if (CONFIG.record.centerHole?.enabled !== false) {
       // * Classic: check distance to center-hole physics lip.
       const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
@@ -1646,11 +1755,11 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     if (Math.random() < reverseChance && !nearHazard) {
       cart.aiReverseUntilMs = now + (600 + Math.random() * 900);
       // * When reversing near a hazard, drive forward/away instead of a new random target.
-      cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
+      cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     } else if (nearHazard) {
       // * Too close to an edge to reverse — pick a target that pulls the bot away.
-      cart.aiTarget = pickAiTarget(p, allCarts, netSlots, now, slotIndex);
+      cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     }
   }

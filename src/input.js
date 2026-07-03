@@ -23,9 +23,145 @@ let gamepadAxis = { forward: 0, turn: 0 };
 let gamepadBoostHeld = false;
 let prevBtnStates = {};
 let _onEscape = null;
+let _onMute = null;
 let _onHop = null;
 let _onBoost = null;
 let _isUiMode = false;
+
+let currentInputMode = "keyboard";
+
+/**
+ * Returns the active input mode ('keyboard' | 'gamepad' | 'touch').
+ * @returns {'keyboard'|'gamepad'|'touch'}
+ */
+export function getInputMode() {
+  return currentInputMode;
+}
+
+/**
+ * Updates active input mode and refreshes the main menu controls panel UI if visible.
+ * @param {'keyboard'|'gamepad'|'touch'} mode
+ */
+export function setInputMode(mode) {
+  if (currentInputMode === mode) return;
+  currentInputMode = mode;
+  updateControlsPanelUI(mode);
+}
+
+/**
+ * Renders the controls guide panel in the main menu corresponding to the active input mode.
+ * @param {'keyboard'|'gamepad'|'touch'} [mode]
+ * @param {Record<string, any>} [palette]
+ */
+export function updateControlsPanelUI(mode = currentInputMode, palette = null) {
+  const panel = document.getElementById("cr-controls");
+  if (!panel) return;
+
+  const cMove = palette?.secondary || "#22e6ff";
+  const cBoost = palette?.tertiary || "#ffe53d";
+  const cHop = palette?.primary || "#ff2bd6";
+  const cMute = palette?.players?.[2] || "#2bff7a";
+  const cMenu = palette?.players?.[4] || "#ff7a1a";
+
+  if (mode === "gamepad") {
+    panel.innerHTML = `
+      <div class="cr-controls-hd">
+        <span>◇ CONTROLS</span>
+        <span class="cr-ctl-badge" style="color: ${cMove}; text-shadow: 0 0 8px ${cMove};">CONTROLLER</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-wasd" style="--kc: ${cMove}"><kbd class="wide">L-STICK</kbd><kbd>D-PAD</kbd></span>
+        <span class="cr-ctl-lbl">Steer / Nav</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd>A</kbd><kbd>LT</kbd></span>
+        <span class="cr-ctl-lbl">Boost Cart</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd>B</kbd><kbd>RT</kbd></span>
+        <span class="cr-ctl-lbl">Hop</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-m" style="--kc: ${cMute}"><kbd class="wide">SELECT</kbd></span>
+        <span class="cr-ctl-lbl">Mute Audio</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-esc" style="--kc: ${cMenu}"><kbd class="wide">START</kbd></span>
+        <span class="cr-ctl-lbl">Open Menu</span>
+      </div>
+    `;
+  } else if (mode === "touch") {
+    panel.innerHTML = `
+      <div class="cr-controls-hd">
+        <span>◇ CONTROLS</span>
+        <span class="cr-ctl-badge" style="color: ${cBoost}; text-shadow: 0 0 8px ${cBoost};">TOUCH</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-wasd" style="--kc: ${cMove}"><kbd class="wide">JOYSTICK</kbd></span>
+        <span class="cr-ctl-lbl">Steer Cart</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd class="wide">BOOST</kbd></span>
+        <span class="cr-ctl-lbl">Boost Cart</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd class="wide">HOP</kbd></span>
+        <span class="cr-ctl-lbl">Hop</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-esc" style="--kc: ${cMenu}"><kbd class="wide">TAP MENU</kbd></span>
+        <span class="cr-ctl-lbl">Open Menu</span>
+      </div>
+    `;
+  } else {
+    panel.innerHTML = `
+      <div class="cr-controls-hd">
+        <span>◇ CONTROLS</span>
+        <span class="cr-ctl-badge" style="opacity:.6">KEYBOARD</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-wasd" style="--kc: ${cMove}">
+          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+        </span>
+        <span class="cr-ctl-lbl">Move Cart</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd class="wide">SHIFT</kbd></span>
+        <span class="cr-ctl-lbl">Boost Cart</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd class="wide">SPACE</kbd></span>
+        <span class="cr-ctl-lbl">Hop</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-m" style="--kc: ${cMute}"><kbd>M</kbd></span>
+        <span class="cr-ctl-lbl">Mute Audio</span>
+      </div>
+      <div class="cr-ctl-row">
+        <span class="cr-ctl-keys" id="ctl-esc" style="--kc: ${cMenu}"><kbd>ESC</kbd></span>
+        <span class="cr-ctl-lbl">Open Menu</span>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Returns the currently active Gamepad object, auto-detecting pre-connected pads if needed.
+ * @returns {Gamepad|null}
+ */
+export function getActiveGamepad() {
+  const pads = typeof navigator.getGamepads === "function" ? navigator.getGamepads() : [];
+  if (gamepadIndex !== null && pads[gamepadIndex]) {
+    return pads[gamepadIndex];
+  }
+  for (let i = 0; i < pads.length; i++) {
+    if (pads[i]) {
+      gamepadIndex = i;
+      return pads[i];
+    }
+  }
+  return null;
+}
 
 /**
  * Toggles UI mode for gamepad input. When enabled, driving inputs (axes, boost, hop)
@@ -33,10 +169,34 @@ let _isUiMode = false;
  * @param {boolean} enabled
  */
 export function setUiMode(enabled) {
+  const transitioningFromUi = _isUiMode && !enabled;
   _isUiMode = enabled;
   if (enabled) {
     gamepadAxis = { forward: 0, turn: 0 };
     gamepadBoostHeld = false;
+  } else if (transitioningFromUi) {
+    gamepadAxis = { forward: 0, turn: 0 };
+    gamepadBoostHeld = false;
+    // Pre-populate prevBtnStates on UI exit so buttons held during UI clicks (e.g. A button)
+    // don't trigger rising-edge callbacks (nitro boost / hop) on the first frame of gameplay.
+    const gp = getActiveGamepad();
+    if (gp) {
+      const isPressed = (idx) => {
+        const btn = gp.buttons[idx];
+        return btn && (btn.value > 0.5 || btn.pressed);
+      };
+      const boostPressed = isPressed(6) || isPressed(0);
+      const hopPressed = isPressed(7) || isPressed(1);
+      prevBtnStates = {
+        boost: boostPressed,
+        hop: hopPressed,
+        menu: isPressed(9),
+        mute: isPressed(8) || isPressed(11),
+      };
+      if (boostPressed) {
+        gamepadBoostHeld = true;
+      }
+    }
   }
 }
 
@@ -54,17 +214,33 @@ window.addEventListener("gamepaddisconnected", (e) => {
 
 // --- Gamepad polling ---
 function pollGamepad() {
-  if (gamepadIndex === null) return;
-  const pads = navigator.getGamepads();
-  const gp = pads[gamepadIndex];
-  if (!gp) return;
+  const gp = getActiveGamepad();
+  if (!gp) {
+    gamepadAxis = { forward: 0, turn: 0 };
+    gamepadBoostHeld = false;
+    return;
+  }
 
-  const deadzone = 0.1;
   let lx = gp.axes[0] || 0;
   let ly = gp.axes[1] || 0;
 
-  if (Math.abs(lx) < deadzone) lx = 0;
-  if (Math.abs(ly) < deadzone) ly = 0;
+  // Smooth radial deadzone calculation
+  const deadzone = 0.15;
+  const mag = Math.sqrt(lx * lx + ly * ly);
+  if (mag < deadzone) {
+    lx = 0;
+    ly = 0;
+  } else {
+    // Re-scale magnitude from [deadzone, 1] to [0, 1]
+    const normalizedMag = Math.min(1, (mag - deadzone) / (1 - deadzone));
+    lx = (lx / mag) * normalizedMag;
+    ly = (ly / mag) * normalizedMag;
+  }
+
+  const anyBtn = gp.buttons.some((b) => b && (b.pressed || b.value > 0.3));
+  if (mag > 0.2 || anyBtn) {
+    setInputMode("gamepad");
+  }
 
   let f = -ly; // Push up = forward
   let t = -lx; // Push right = negative turn
@@ -87,22 +263,28 @@ function pollGamepad() {
     _onEscape?.();
   }
 
+  const mutePressed = isPressed(8) || isPressed(11);
+  if (mutePressed && !prevBtnStates.mute) {
+    _onMute?.();
+  }
+
   if (_isUiMode) {
     gamepadAxis = { forward: 0, turn: 0 };
     gamepadBoostHeld = false;
     // Still update prevBtnStates so we don't double-fire when exiting UI mode
     const currBtnStates = {};
-    currBtnStates.boost = isPressed(7) || isPressed(0);
-    currBtnStates.hop = isPressed(6) || isPressed(1);
+    currBtnStates.boost = isPressed(6) || isPressed(0);
+    currBtnStates.hop = isPressed(7) || isPressed(1);
     currBtnStates.menu = menuPressed;
+    currBtnStates.mute = mutePressed;
     prevBtnStates = currBtnStates;
     return;
   }
 
   const currBtnStates = {};
 
-  // Boost
-  const boostPressed = isPressed(7) || isPressed(0);
+  // Boost (LT or A)
+  const boostPressed = isPressed(6) || isPressed(0);
   if (boostPressed && !gamepadBoostHeld) {
     gamepadBoostHeld = true;
     _onBoost?.();
@@ -111,14 +293,15 @@ function pollGamepad() {
   }
   currBtnStates.boost = boostPressed;
 
-  // Hop (One-shot)
-  const hopPressed = isPressed(6) || isPressed(1);
+  // Hop (RT or B - One-shot)
+  const hopPressed = isPressed(7) || isPressed(1);
   if (hopPressed && !prevBtnStates.hop) {
     _onHop?.();
   }
   currBtnStates.hop = hopPressed;
 
   currBtnStates.menu = menuPressed;
+  currBtnStates.mute = mutePressed;
 
   prevBtnStates = currBtnStates;
 }
@@ -156,10 +339,12 @@ export function consumeHopRequest() {
  */
 export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
   _onEscape = onEscape;
+  _onMute = onMute;
   _onHop = onHop;
   _onBoost = onBoost;
 
   function onKeyDown(e) {
+    setInputMode("keyboard");
     if (e.code === "Escape") {
       e.preventDefault();
       e.stopImmediatePropagation();

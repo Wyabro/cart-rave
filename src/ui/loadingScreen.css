@@ -11,7 +11,7 @@
   --cr-load-fade-ms: 420ms;
   position: fixed;
   inset: 0;
-  z-index: 999990;
+  z-index: 999999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -304,149 +304,6 @@
   }
 }
 
-/* ── Boot splash cart crash animation ── */
-
-.cr-cart {
-  position: absolute;
-  bottom: 0;
-  width: 60px;
-  height: 40px;
-}
-
-/* Cart body — wireframe basket */
-.cart-basket {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  width: 40px;
-  height: 20px;
-  border: 2px solid var(--cart-color);
-  border-radius: 2px;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 5px,
-    var(--cart-color) 5px,
-    var(--cart-color) 6px
-  ),
-  repeating-linear-gradient(
-    0deg,
-    transparent 0px,
-    transparent 5px,
-    var(--cart-color) 5px,
-    var(--cart-color) 6px
-  );
-  box-shadow: 0 0 8px var(--cart-color), inset 0 0 4px rgba(255,43,214,0.15);
-  opacity: 0.85;
-}
-
-/* Handle */
-.cart-handle {
-  position: absolute;
-  bottom: 22px;
-  right: 8px;
-  width: 4px;
-  height: 14px;
-  background: var(--cart-color);
-  border-radius: 2px;
-  transform: rotate(12deg);
-  box-shadow: 0 0 4px var(--cart-color);
-}
-
-/* Wheels */
-.cart-wheel {
-  position: absolute;
-  bottom: 2px;
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--cart-color);
-  border-radius: 50%;
-  background: #111;
-  box-shadow: 0 0 4px var(--cart-color);
-}
-.cart-wheel.front { left: 8px; }
-.cart-wheel.back { left: 32px; }
-
-/* Face & Sunglasses */
-.cart-face {
-  position: absolute;
-  bottom: 18px;
-  left: 2px;
-  width: 14px;
-  height: 10px;
-  z-index: 2;
-}
-.shades-frame {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 5px;
-  background: #111;
-  border-radius: 2px 2px 0 0;
-}
-.shades-lens {
-  position: absolute;
-  top: 5px;
-  width: 6px;
-  height: 4px;
-  background: #111;
-}
-.shades-lens.left { left: 0; border-right: 1px solid var(--cart-color); }
-.shades-lens.right { right: 0; border-left: 1px solid var(--cart-color); }
-
-/* Right Cart (Magenta) */
-.cr-cart.right {
-  left: 0;
-  --cart-color: #ff2bd6;
-  animation: crash-right 1.4s ease-in-out infinite;
-}
-
-/* Left Cart (Cyan) — mirrored via scaleX(-1) */
-.cr-cart.left {
-  right: 0;
-  --cart-color: #22e6ff;
-  transform: scaleX(-1);
-  animation: crash-left 1.4s ease-in-out infinite;
-}
-
-/* Sparks on impact */
-.cr-boot-crash .cr-sparks {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 30px;
-  height: 30px;
-  background: radial-gradient(circle, #ff2bd6, #22e6ff, transparent 70%);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  animation: spark-flash 1.4s ease-in-out infinite;
-}
-
-/* Animations */
-@keyframes crash-right {
-  0%, 100% { transform: translateX(0); }
-  40% { transform: translateX(40px); }
-  45% { transform: translateX(45px); } /* Impact overlap */
-  50% { transform: translateX(35px); } /* Bounce back */
-  60% { transform: translateX(40px); }
-  80% { transform: translateX(0); }
-}
-@keyframes crash-left {
-  0%, 100% { transform: translateX(0) scaleX(-1); }
-  40% { transform: translateX(-40px) scaleX(-1); }
-  45% { transform: translateX(-45px) scaleX(-1); }
-  50% { transform: translateX(-35px) scaleX(-1); }
-  60% { transform: translateX(-40px) scaleX(-1); }
-  80% { transform: translateX(0) scaleX(-1); }
-}
-@keyframes spark-flash {
-  0%, 39%, 61%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
-  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
-  55% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-}
-
 /* Boot splash segmented bar */
 .cr-seg {
   flex: 1;
@@ -483,15 +340,6 @@
 /* Smooth easing for the mode-entry bar */
 .cr-load__progress-fill {
   transition: width 450ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Boot splash rotating message label */
-.cr-boot-msg {
-  font-size: clamp(8px, 2vw, 10px);
-  letter-spacing: 0.18em;
-  color: rgba(255,255,255,0.42);
-  text-align: center;
-  min-height: 1.2em;
 }
 
 /* ── Backrooms furniture pile visual ── */
@@ -578,10 +426,21 @@
 
 /* ── Gamepad UI navigation focus ring ── */
 
-button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible,
+button.gamepad-focused, a.gamepad-focused, [role="button"].gamepad-focused, input.gamepad-focused, select.gamepad-focused {
   outline: 2px solid #22e6ff !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 12px rgba(34, 230, 255, 0.6) !important;
   z-index: 100;
   position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-load__vinyl,
+  .cr-load__title,
+  .cr-load__scan,
+  .cr-load__laser,
+  .cr-load__crowd span {
+    animation: none !important;
+  }
 }

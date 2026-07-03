@@ -107,6 +107,11 @@ function buildProgressBlock() {
   
   const segBar = document.createElement("div");
   segBar.className = "cr-seg-bar cr-seg-bar--theme";
+  segBar.setAttribute("role", "progressbar");
+  segBar.setAttribute("aria-valuemin", "0");
+  segBar.setAttribute("aria-valuemax", "100");
+  segBar.setAttribute("aria-valuenow", "0");
+
   for (let i = 0; i < 20; i++) {
     const seg = document.createElement("div");
     seg.className = "cr-seg";
@@ -151,6 +156,7 @@ function setProgress(pct, label) {
   const clamped = Math.max(0, Math.min(100, pct));
   const segBar = modeOverlayEl?.querySelector(".cr-seg-bar--theme");
   if (segBar) {
+    segBar.setAttribute("aria-valuenow", Math.round(clamped).toString());
     const segments = segBar.children;
     const litCount = Math.round((clamped / 100) * 20);
     for (let i = 0; i < segments.length; i++) {
@@ -158,7 +164,9 @@ function setProgress(pct, label) {
       else segments[i].classList.remove("lit");
     }
   }
-  // * Label is managed by the mode-entry message rotation timer — do not overwrite it here.
+  if (label && modeSubtitleEl) {
+    modeSubtitleEl.textContent = label;
+  }
 }
 
 /**
@@ -229,32 +237,41 @@ function revealAppShell() {
 }
 
 export function dismissInitialBootSplash() {
+  if (bootDismissed) return;
+  bootDismissed = true;
+
   const MIN_BOOT_MS = 3000;
   const elapsed = performance.now() - (window.bootStartTime || 0);
   const delay = Math.max(0, MIN_BOOT_MS - elapsed);
 
   setTimeout(() => {
-    // 1. Stop the inline fake progress timer
-    clearInterval(window.bootTimer);
+    // 1. Stop the inline fake progress & msg timers
+    if (window.bootTimer) { clearInterval(window.bootTimer); window.bootTimer = null; }
+    if (window.bootMsgTimer) { clearInterval(window.bootMsgTimer); window.bootMsgTimer = null; }
 
     // 2. Force to 100%
     const bar = document.getElementById('boot-seg-bar');
     if (bar) {
+      bar.setAttribute('aria-valuenow', '100');
       const segments = bar.children;
       for (let i = 0; i < segments.length; i++) {
         segments[i].classList.add('lit');
       }
     }
 
-    // 3. Wait 200ms so the user sees it hit 100%, then fade out
+    // 3. Wait 200ms so the user sees it hit 100%, then fade out cleanly
     setTimeout(() => {
-      revealAppShell();
       const splash = document.getElementById('cr-boot-splash');
       if (splash) {
+        splash.setAttribute('aria-busy', 'false');
         splash.classList.add('cr-load--exit', 'cr-load--hidden');
-        setTimeout(() => splash.remove(), 500);
       }
-    }, 300);
+      setTimeout(() => {
+        revealAppShell();
+        window.CartRave?.show?.();
+        if (splash) splash.remove();
+      }, 420);
+    }, 200);
   }, delay);
 }
 
@@ -358,12 +375,10 @@ export async function withModeEntryLoading(task, opts = {}) {
     await task(reportProgress);
   } catch (err) {
     console.error("[CartRave] Mode entry bootstrap failed:", err);
-    // Re-throw so the caller knows it failed; cleanup runs in finally.
     throw err;
   } finally {
     modeEntryDepth -= 1;
     if (isOwner) {
-      // Even on error, wait min visible time so the UI does not flash.
       await ensureMinModeEntryVisible(modeEntryShownAt);
       await dismissModeEntryLoading();
     }
@@ -395,8 +410,13 @@ export function showQualityApplyLoading() {
   modeOverlayEl.classList.add("cr-load--classic");
   modeOverlayEl.setAttribute("aria-busy", "true");
 
+  if (modeVisualSlot) {
+    modeVisualSlot.replaceChildren();
+  }
+
   if (modeTitleEl) modeTitleEl.textContent = "QUALITY";
   if (modeSubtitleEl) modeSubtitleEl.textContent = "Applying quality settings…";
-  setProgress(100, "Reloading…");
+  setProgress(100, "Applying…");
+  modeEntryShownAt = performance.now();
   modeEntryVisible = true;
 }

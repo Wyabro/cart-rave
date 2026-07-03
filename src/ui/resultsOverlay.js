@@ -7,7 +7,9 @@ import {
   animateMenuReveal,
   cancelAnimationsIn,
   countUpNumber,
+  createTimeline,
   fadeIn,
+  stagger,
 } from "../animations.js";
 
 /** @type {number} */
@@ -103,77 +105,93 @@ export function animateResultsPodiumShow(payload) {
   if (playAgain) playAgain.style.opacity = "0";
   if (mainMenuBtn) mainMenuBtn.style.opacity = "0";
 
-  fadeIn(overlay, 260, { ease: "outQuad" });
+  const tl = createTimeline();
 
-  window.setTimeout(() => {
-    if (token !== resultsEntranceToken) return;
+  tl.add(overlay, {
+    opacity: [0, 1],
+    duration: 260,
+    ease: "outQuad",
+  })
+  .add(panel, {
+    opacity: [0, 1],
+    translateY: [22, 0],
+    duration: 340,
+    ease: "outExpo",
+  }, 100)
+  .add(title, {
+    opacity: [0, 1],
+    translateY: [12, 0],
+    duration: 320,
+    ease: "outBack(1.3)",
+  }, 160);
 
-    animateMenuReveal(panel, { delay: 0, duration: 340, y: 22, ease: "outExpo" });
-    animateMenuReveal(title, { delay: 60, duration: 320, y: 12, ease: "outBack(1.3)" });
+  const rowEls = scoreRows.map((sr) => sr.row).filter(Boolean);
+  if (rowEls.length > 0) {
+    tl.add(rowEls, {
+      opacity: [0, 1],
+      translateY: [16, 0],
+      scale: [0.94, 1],
+      duration: 360,
+      ease: "outBack(1.3)",
+      delay: stagger(55),
+    }, 220);
+  }
 
-    const ROW_STAGGER = 55;
-    const COUNT_BASE = 220;
-    const COUNT_STAGGER = 90;
-
-    scoreRows.forEach(({ row, valEl, score, isWinner, badge }, i) => {
-      const rowDelay = 120 + i * ROW_STAGGER;
-      animateMenuCardEnter(row, {
-        delay: rowDelay,
-        duration: 360,
-        y: 16,
-        ease: isWinner ? "outBack(1.4)" : "outBack(1.2)",
-      });
-
-      if (isWinner) {
-        if (badge) {
-          animateMenuCardEnter(badge, {
-            delay: rowDelay + 70,
-            duration: 340,
-            y: 8,
-            ease: "outBack(1.6)",
-          });
-        }
-      }
-
-      countUpNumber(valEl, score, 520, {
-        delay: COUNT_BASE + i * COUNT_STAGGER,
-        ease: "outExpo",
-        formatter: (n) => `${Math.round(n)} pts`,
-      });
-    });
-
-    if (statsLine) {
-      animateMenuReveal(statsLine, {
-        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 40,
+  scoreRows.forEach(({ valEl, score, isWinner, badge }, i) => {
+    if (isWinner && badge) {
+      tl.add(badge, {
+        opacity: [0, 1],
+        translateY: [8, 0],
+        scale: [0.9, 1],
         duration: 340,
-        y: 10,
-      });
+        ease: "outBack(1.6)",
+      }, 220 + i * 55 + 70);
     }
 
-    if (history) {
-      animateMenuReveal(history, {
-        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 90,
-        duration: 320,
-        y: 8,
-      });
-    }
+    countUpNumber(valEl, score, 520, {
+      delay: 220 + i * 90,
+      ease: "outExpo",
+      formatter: (n) => `${Math.round(n)} pts`,
+    });
+  });
 
-    if (playAgain) {
-      animateMenuReveal(playAgain, {
-        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 140,
-        duration: 300,
-        y: 10,
-      });
-    }
+  const endBase = 220 + scoreRows.length * 90;
 
-    if (mainMenuBtn) {
-      animateMenuReveal(mainMenuBtn, {
-        delay: COUNT_BASE + scoreRows.length * COUNT_STAGGER + 190,
-        duration: 300,
-        y: 10,
-      });
-    }
-  }, 16);
+  if (statsLine) {
+    tl.add(statsLine, {
+      opacity: [0, 1],
+      translateY: [10, 0],
+      duration: 340,
+      ease: "outQuad",
+    }, endBase + 40);
+  }
+
+  if (history) {
+    tl.add(history, {
+      opacity: [0, 1],
+      translateY: [8, 0],
+      duration: 320,
+      ease: "outQuad",
+    }, endBase + 90);
+  }
+
+  if (playAgain) {
+    tl.add(playAgain, {
+      opacity: [0, 1],
+      translateY: [10, 0],
+      duration: 300,
+      ease: "outQuad",
+    }, endBase + 140);
+  }
+
+  if (mainMenuBtn) {
+    tl.add(mainMenuBtn, {
+      opacity: [0, 1],
+      translateY: [10, 0],
+      duration: 300,
+      ease: "outQuad",
+    }, endBase + 190);
+  }
 }
 
 /**

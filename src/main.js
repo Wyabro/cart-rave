@@ -862,7 +862,7 @@ async function main() {
     try { AudioManager.playMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
-      window.CartRave?.revealShell?.();
+      window.CartRave?.show?.();
     }
 
     // Cosmetic: mark color chip as pending until server confirms slots.
@@ -1117,15 +1117,13 @@ async function main() {
    * @returns {Promise<void>}
    */
   async function rebuildForQualityChange() {
-    await yieldForPaint();
-
     const lowQuality = isLowQualityMode();
 
     // * Physics: update substep cap to match the new quality tier.
     CONFIG.physics.maxSubsteps = lowQuality ? 2 : 4;
 
-    // * Post-processing: toggle bloom + arcade passes and update renderer pixel ratio.
-    applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality);
+    // * Post-processing: toggle bloom + arcade passes and update renderer pixel ratio + FBO size.
+    applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality, composer);
 
     // * Arena visuals: toggle the reflective floor vs. opaque solid floor.
     if (typeof setReflectorVisible === "function") {
@@ -1148,7 +1146,10 @@ async function main() {
     }
   }
 
+  let qualityRebuildInProgress = false;
   const handleLowQualityToggle = async (next) => {
+    if (qualityRebuildInProgress) return;
+    qualityRebuildInProgress = true;
     // * Close Esc overlay first so it doesn't persist across the rebuild.
     HUD.hideEscOverlay();
     setLowQualityMode(next);
@@ -1159,8 +1160,10 @@ async function main() {
       await rebuildForQualityChange();
     } catch (err) {
       console.error("[CartRave] quality rebuild failed:", err);
+    } finally {
+      qualityRebuildInProgress = false;
+      dismissAllLoadingOverlays();
     }
-    dismissAllLoadingOverlays();
   };
 
   hud = HUD.init({
@@ -2088,7 +2091,9 @@ async function main() {
     const ncfg = rb.npc;
     if (!rb.enabled || !ncfg.enabled) return;
     if (nowMs <= npc.ramBoostActiveUntilMs) return;
-    if (nowMs - npc.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
+    const roundState = GameState.getRoundState();
+    const cooldownMs = roundState?.isSuddenDeath ? (rb.cooldownSec * 500) : (rb.cooldownSec * 1000);
+    if (nowMs - npc.lastRamBoostTimeMs < cooldownMs) return;
 
     // * Find nearest target (human or NPC) — humans always pass the gate; NPCs only 25%.
     const netSlots = Netcode.getNetSlots();
@@ -2096,10 +2101,13 @@ async function main() {
     let nearestD2 = Infinity;
     let nearestIsHuman = false;
     const p = npc.body.translation();
+    const fallYThreshold = CONFIG.fall?.yThreshold ?? -1.0;
     for (let i = 0; i < allCarts.length; i += 1) {
       const o = allCarts[i];
       if (o === npc) continue;
+      if (!o?.body || o.respawnAtMs != null || o.isSuddenDeathSpectator) continue;
       const op = o.body.translation();
+      if (op.y < fallYThreshold) continue;
       const dx = op.x - p.x;
       const dz = op.z - p.z;
       const d2 = dx * dx + dz * dz;
@@ -2113,11 +2121,17 @@ async function main() {
     if (!nearestTarget) return;
     const op = nearestTarget.body.translation();
 
-    // * NPC targets: only commit to a boost 25% of the time for chaotic variety.
-    if (!nearestIsHuman && Math.random() >= 0.25) return;
+    // * NPC targets: commit chance based on personality profile (50% aggressor, 35% chaotic, 25% lurker/scavenger)
+    const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
+    if (!nearestIsHuman && Math.random() >= commitChance) return;
 
     const dist = Math.sqrt(nearestD2);
     if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
+
+    // * Backrooms corner-void safety gate — abort boost if the line crosses a square hole.
+    if (Simulation.findBlockingSquareHole(p.x, p.z, op.x, op.z, 0.4)) {
+      return;
+    }
 
     // * Classic Record center-hole safety gate — abort nitro if the boost line
     // * passes too close to the hole. Prevents NPCs from nitro-suiciding across the pit.
@@ -2711,6 +2725,9 @@ async function main() {
     fxPassEnabled = next;
     settingsStore.getState().setBloomEnabled(next);
     settingsStore.getState().setFxPassEnabled(next);
+    if (bloomPass) bloomPass.enabled = next;
+    if (arcadePass) arcadePass.enabled = next;
+    if (fxPass) fxPass.enabled = next;
   };
   window.__cartRave_toggleLowQuality = handleLowQualityToggle;
 

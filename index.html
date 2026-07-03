@@ -56,8 +56,20 @@
       height: 100%;
     }
     canvas { display: block; }
-    /* * Boot splash — inline critical CSS (no JS/CSS bundle required for first paint) */
+    /* * Boot splash — inline critical CSS (no JS/CSS bundle required for first paint).
+       * All visuals for the splash live HERE, not in loadingScreen.css, so the
+       * animation is complete on first paint even before the bundle CSS arrives.
+       * Single master timeline: every animated element uses var(--boot-loop) so the
+       * charge / impact / recoil phases stay in sync and the loop is seamless.
+       * Timeline map (percent of --boot-loop):
+       *   0–8    anticipation (lean back, creep backward, wheels reverse)
+       *   8–36   charge (accelerate to center, lean in, stretch, speed lines)
+       *   36–46  impact (squash, flash, shockwave, sparks, shades pop, shake)
+       *   46–74  recoil (decelerate back out, landing hop)
+       *   74–100 roll home + settle                                            */
     #cr-boot-splash {
+      --boot-loop: 2800ms;
+      --cart-w: clamp(72px, 18vw, 130px);
       position: fixed;
       inset: 0;
       z-index: 999999;
@@ -109,9 +121,17 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 18px;
+      gap: 16px;
       text-align: center;
-      padding: 24px;
+      padding: 20px;
+      width: 100%;
+      max-width: 580px;
+      transform: scale(1);
+      transition: transform 420ms ease, opacity 420ms ease;
+    }
+    #cr-boot-splash.cr-load--exit .cr-boot-panel {
+      transform: scale(1.04);
+      opacity: 0;
     }
     .cr-boot-tag {
       font-size: 10px;
@@ -126,11 +146,95 @@
       text-shadow: 0 0 18px rgba(255,43,214,0.45), 0 0 32px rgba(34,230,255,0.25);
       animation: cr-boot-pulse 2.4s ease-in-out infinite;
     }
-    .cr-boot-crash {
+    /* ── Crash stage: full-width band, carts are the focal point ── */
+    .cr-boot-stage {
       position: relative;
-      width: clamp(80px, 20vw, 130px);
-      height: clamp(60px, 16vw, 90px);
-      margin: clamp(4px, 1vh, 8px) 0;
+      container-type: inline-size;
+      width: min(92vw, 540px);
+      height: clamp(90px, 18vh, 150px);
+      margin: clamp(6px, 2vh, 16px) 0;
+      animation: bootShake var(--boot-loop) linear infinite;
+    }
+    .cr-boot-ground {
+      position: absolute;
+      left: 0; right: 0; bottom: 6%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 2%, rgba(255,43,214,0.35) 30%, rgba(34,230,255,0.35) 70%, transparent 98%);
+      box-shadow: 0 0 14px rgba(255,43,214,0.25);
+    }
+    /* Wrapper anchors + mirrors; inner mover carries the shared travel keyframes,
+       so one set of keyframes drives both carts (mirror flips +x for the right cart). */
+    .cr-bcart {
+      position: absolute;
+      bottom: 6%;
+      left: 0;
+      width: var(--cart-w);
+      height: calc(var(--cart-w) * 150 / 210);
+    }
+    .cr-bcart--pink { --c: #ff2bd6; --c-dark: #a5117f; --c-glow: rgba(255,43,214,0.5); }
+    .cr-bcart--cyan { --c: #22e6ff; --c-dark: #0d8ba5; --c-glow: rgba(34,230,255,0.5); }
+    .cr-bcart--right { left: auto; right: 0; transform: scaleX(-1); }
+    .cr-bcart__mover {
+      position: absolute;
+      inset: 0;
+      will-change: transform;
+      animation: bootTravel var(--boot-loop) linear infinite;
+    }
+    .cr-bcart__body {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 88%;
+      animation: bootBody var(--boot-loop) linear infinite;
+    }
+    .cr-bcart__body svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 10px var(--c-glow)); }
+    .cr-bcart__shadow {
+      position: absolute;
+      left: 12%; right: 12%; bottom: -4%;
+      height: 10%;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.7) 0%, transparent 70%);
+      transform-origin: center;
+      animation: bootCartShadow var(--boot-loop) linear infinite;
+    }
+    /* Speed lines trail behind during the charge (behind = left of a right-facing cart) */
+    .cr-bspeed {
+      position: absolute;
+      right: 92%;
+      width: 60%;
+      top: 30%;
+      height: 40%;
+      opacity: 0;
+      background:
+        linear-gradient(90deg, transparent, var(--c)) 0 10%   / 100% 2px no-repeat,
+        linear-gradient(90deg, transparent, var(--c)) 0 55%   / 78%  2px no-repeat,
+        linear-gradient(90deg, transparent, var(--c)) 0 95%   / 55%  2px no-repeat;
+      animation: bootSpeed var(--boot-loop) linear infinite;
+    }
+    /* Wheel + shades sub-animations (synced to the same loop) */
+    .cr-bwheel { transform-box: fill-box; transform-origin: center; animation: bootWheel var(--boot-loop) linear infinite; }
+    .cr-bshades { transform-box: fill-box; transform-origin: center; animation: bootShades var(--boot-loop) linear infinite; }
+    /* ── Impact FX at stage center ── */
+    .cr-bfx { position: absolute; left: 50%; bottom: 34%; width: 0; height: 0; z-index: 3; }
+    .cr-bflash {
+      position: absolute; left: -70px; top: -70px; width: 140px; height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 0%, rgba(255,43,214,0.85) 30%, rgba(34,230,255,0.5) 55%, transparent 72%);
+      opacity: 0;
+      animation: bootFlash var(--boot-loop) linear infinite;
+    }
+    .cr-bring {
+      position: absolute; left: -60px; top: -60px; width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.9);
+      box-shadow: 0 0 18px rgba(255,43,214,0.8), inset 0 0 12px rgba(34,230,255,0.6);
+      opacity: 0;
+      animation: bootRing var(--boot-loop) linear infinite;
+    }
+    .cr-bspark {
+      position: absolute; left: -4px; top: -2px; width: 12px; height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #fff, var(--sc, #ff2bd6));
+      opacity: 0;
+      animation: bootSpark var(--boot-loop) linear infinite;
     }
     #boot-seg-bar {
       display: flex;
@@ -138,16 +242,101 @@
       width: min(280px, 70vw);
       height: 8px;
     }
+    /* Inline copies so the bar/message render before bundle CSS (dev first paint) */
+    #boot-seg-bar .cr-seg { flex: 1; height: 100%; border-radius: 1px; background: rgba(255,255,255,0.08); transition: background-color 120ms ease, box-shadow 120ms ease; }
+    #boot-seg-bar .cr-seg.lit { background: #ff2bd6; box-shadow: 0 0 4px rgba(255,43,214,0.4); }
+    #cr-boot-splash .cr-boot-msg { font-size: clamp(8px, 2vw, 10px); letter-spacing: 0.18em; color: rgba(255,255,255,0.42); text-align: center; min-height: 1.2em; }
+    /* ── Master timeline keyframes ── */
+    @keyframes bootTravel {
+      0%       { transform: translateX(3cqw); }
+      3.5%     { transform: translateX(1.2cqw); }                      /* anticipation creep-back */
+      8%       { transform: translateX(1.5cqw); animation-timing-function: cubic-bezier(0.62, 0.02, 0.92, 0.44); }
+      36%      { transform: translateX(calc(50cqw - var(--cart-w))); animation-timing-function: linear; }  /* impact nose-to-nose at center */
+      42%      { transform: translateX(calc(47cqw - var(--cart-w))); animation-timing-function: cubic-bezier(0.05, 0.55, 0.25, 1); }
+      74%      { transform: translateX(10cqw); animation-timing-function: ease-in-out; }
+      96%,100% { transform: translateX(3cqw); }
+    }
+    @keyframes bootBody {
+      0%   { transform: rotate(0deg) scale(1, 1); }
+      4%   { transform: rotate(-5deg) scale(0.99, 1.01); }   /* lean back */
+      12%  { transform: rotate(3deg) scale(1.02, 0.99); }    /* dig in */
+      30%  { transform: rotate(4deg) scale(1.08, 0.94); }    /* full-speed stretch */
+      36%  { transform: rotate(-2deg) scale(0.84, 1.14); }   /* SQUASH */
+      40%  { transform: rotate(-7deg) scale(0.9, 1.08); }    /* nose pops up */
+      48%  { transform: rotate(-4deg) scale(1.04, 0.97); }
+      56%  { transform: rotate(-2deg) translateY(-5%) scale(1, 1); }   /* recoil hop */
+      63%  { transform: rotate(0deg) translateY(0) scale(1.03, 0.97); } /* land */
+      70%  { transform: rotate(1deg) scale(0.99, 1.01); }
+      82%, 100% { transform: rotate(0deg) scale(1, 1); }
+    }
+    @keyframes bootWheel {
+      0%   { transform: rotate(0deg); }
+      6%   { transform: rotate(-25deg); }     /* reverse creep */
+      8%   { transform: rotate(-25deg); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.5); }
+      36%  { transform: rotate(880deg); }     /* flat-out spin to impact */
+      44%  { transform: rotate(890deg); animation-timing-function: cubic-bezier(0.1, 0.5, 0.3, 1); }
+      74%  { transform: rotate(470deg); }     /* rolling backward */
+      96%, 100% { transform: rotate(360deg); }/* 360 ≡ 0 → seamless loop */
+    }
+    @keyframes bootShades {
+      0%, 34% { transform: translate(0, 0) rotate(0deg); }
+      38%     { transform: translate(-2px, -5px) rotate(-4deg); }  /* shades jump on impact */
+      41%     { transform: translate(-1px, -6px) rotate(-3deg); }
+      50%, 100% { transform: translate(0, 0) rotate(0deg); }
+    }
+    @keyframes bootSpeed {
+      0%, 12%  { opacity: 0; transform: translateX(2vw) scaleX(0.4); }
+      24%      { opacity: 0.9; transform: translateX(0) scaleX(1); }
+      36%      { opacity: 0.7; transform: translateX(-1vw) scaleX(1.15); }
+      40%, 100%{ opacity: 0; transform: translateX(-2vw) scaleX(0.6); }
+    }
+    @keyframes bootCartShadow {
+      0%   { transform: scale(1, 1); opacity: 0.8; }
+      30%  { transform: scale(1.15, 0.9); opacity: 0.65; }  /* stretched at speed */
+      36%  { transform: scale(0.85, 1.1); opacity: 1; }     /* squash */
+      56%  { transform: scale(0.7, 0.7); opacity: 0.4; }    /* hop — shadow shrinks */
+      63%  { transform: scale(1.1, 1); opacity: 0.9; }      /* land */
+      80%, 100% { transform: scale(1, 1); opacity: 0.8; }
+    }
+    @keyframes bootFlash {
+      0%, 35.5% { opacity: 0; transform: scale(0.3); }
+      37%       { opacity: 1; transform: scale(1); }
+      44%, 100% { opacity: 0; transform: scale(1.6); }
+    }
+    @keyframes bootRing {
+      0%, 36% { opacity: 0; transform: scale(0.15); }
+      38%     { opacity: 0.95; transform: scale(0.4); }
+      52%, 100% { opacity: 0; transform: scale(2.6); }
+    }
+    @keyframes bootSpark {
+      0%, 35.5% { opacity: 0; transform: translate(0, 0) rotate(var(--rot, 0deg)) scale(0.2); }
+      38%       { opacity: 1; transform: translate(calc(var(--dx) * 0.25), calc(var(--dy) * 0.25)) rotate(var(--rot, 0deg)) scale(1.1); }
+      54%, 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0deg)) scale(0.5); }
+    }
+    @keyframes bootShake {
+      0%, 35.5%, 47%, 100% { transform: translate(0, 0); }
+      37%  { transform: translate(-6px, 3px); }
+      38.5%{ transform: translate(6px, -4px); }
+      40%  { transform: translate(-5px, -2px); }
+      42%  { transform: translate(4px, 3px); }
+      44.5%{ transform: translate(-2px, 1px); }
+    }
     @keyframes cr-boot-pulse { 50% { filter: brightness(1.12); } }
     @media (prefers-reduced-motion: reduce) {
       .cr-boot-title { animation: none !important; }
-      .cr-boot-crash .cr-cart { animation: none !important; }
+      .cr-boot-stage,
+      .cr-bcart__mover, .cr-bcart__body, .cr-bcart__shadow,
+      .cr-bwheel, .cr-bshades, .cr-bspeed { animation: none !important; }
+      .cr-bflash, .cr-bring, .cr-bspark, .cr-bspeed { display: none; }
+      /* Static tableau: carts parked facing each other near center */
+      .cr-bcart--pink .cr-bcart__mover { transform: translateX(calc(50cqw - var(--cart-w) - 12px)); }
+      .cr-bcart--cyan .cr-bcart__mover { transform: translateX(calc(50cqw - var(--cart-w) - 12px)); }
     }
   </style>
   <!-- Menu fonts and critical CSS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cart-rave.wyabro.partykit.dev">
+  <link rel="preconnect" href="https://cart-rave.wyabro.workers.dev">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bungee&family=Bungee+Shade&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
   <style>
@@ -197,29 +386,119 @@
     <div class="cr-boot-panel">
       <div class="cr-boot-tag">◆ CART CLASH ◆</div>
       <div class="cr-boot-title">CART CLASH</div>
-      <div class="cr-boot-crash" aria-hidden="true">
-        <div class="cr-sparks"></div>
-        <div class="cr-cart right">
-          <div class="cart-basket"></div>
-          <div class="cart-handle"></div>
-          <div class="cart-wheel front"></div>
-          <div class="cart-wheel back"></div>
-          <div class="cart-face">
-            <div class="shades-frame"></div>
-            <div class="shades-lens left"></div>
-            <div class="shades-lens right"></div>
+      <div class="cr-boot-stage" aria-hidden="true">
+        <div class="cr-boot-ground"></div>
+        <!-- Cart SVG is drawn FACING RIGHT (handle at back-left, shades over the
+             front edge). The right cart reuses identical markup; its wrapper is
+             mirrored with scaleX(-1) so both share the same travel keyframes. -->
+        <div class="cr-bcart cr-bcart--pink">
+          <div class="cr-bcart__shadow"></div>
+          <div class="cr-bcart__mover">
+            <div class="cr-bspeed"></div>
+            <div class="cr-bcart__body">
+              <svg viewBox="0 0 210 150" xmlns="http://www.w3.org/2000/svg">
+                <!-- handle (back, dark with grip) -->
+                <path d="M40 34 L14 12" stroke="#1c1c24" stroke-width="7" stroke-linecap="round"/>
+                <path d="M18 15 L9 8"  stroke="#3a3a46" stroke-width="9" stroke-linecap="round"/>
+                <!-- chassis struts -->
+                <path d="M46 88 L58 116 M138 92 L146 116" stroke="#15151d" stroke-width="6" stroke-linecap="round"/>
+                <!-- basket: raked trapezoid, front lower-right -->
+                <path d="M38 30 L168 44 L156 94 L32 84 Z" fill="var(--c)" stroke="var(--c-dark)" stroke-width="3" stroke-linejoin="round"/>
+                <!-- top rim -->
+                <path d="M38 30 L168 44" stroke="var(--c-dark)" stroke-width="6" stroke-linecap="round"/>
+                <!-- vent slots -->
+                <g fill="var(--c-dark)" opacity="0.55">
+                  <rect x="52"  y="44" width="9" height="30" rx="4" transform="rotate(4 56 59)"/>
+                  <rect x="78"  y="47" width="9" height="30" rx="4" transform="rotate(4 82 62)"/>
+                  <rect x="104" y="50" width="9" height="30" rx="4" transform="rotate(4 108 65)"/>
+                </g>
+                <!-- smirk on the front face -->
+                <path d="M150 80 q9 7 17 1" stroke="#141419" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <!-- oversized shades hanging over the front edge -->
+                <g class="cr-bshades" transform="rotate(5 158 46) translate(0 6)">
+                  <rect x="118" y="32" width="80" height="9" rx="4" fill="#101014"/>
+                  <rect x="122" y="39" width="32" height="22" rx="7" fill="#101014"/>
+                  <rect x="160" y="41" width="32" height="22" rx="7" fill="#101014"/>
+                  <rect x="152" y="42" width="10" height="6"  rx="3" fill="#101014"/>
+                  <path d="M128 44 l10 4" stroke="rgba(255,255,255,0.55)" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M166 46 l10 4" stroke="rgba(255,255,255,0.55)" stroke-width="3" stroke-linecap="round"/>
+                </g>
+                <!-- wheels: knobby tire, colored hub, spokes (rotation must read) -->
+                <g class="cr-bwheel">
+                  <circle cx="58" cy="122" r="21" fill="none" stroke="#14141c" stroke-width="6" stroke-dasharray="4 6"/>
+                  <circle cx="58" cy="122" r="17" fill="#1b1b24" stroke="#000" stroke-width="2"/>
+                  <path d="M58 108 V136 M44 122 H72" stroke="#0c0c12" stroke-width="4"/>
+                  <circle cx="58" cy="122" r="7" fill="var(--c)"/>
+                  <circle cx="61" cy="118" r="2" fill="#fff" opacity="0.8"/>
+                </g>
+                <g class="cr-bwheel">
+                  <circle cx="146" cy="122" r="21" fill="none" stroke="#14141c" stroke-width="6" stroke-dasharray="4 6"/>
+                  <circle cx="146" cy="122" r="17" fill="#1b1b24" stroke="#000" stroke-width="2"/>
+                  <path d="M146 108 V136 M132 122 H160" stroke="#0c0c12" stroke-width="4"/>
+                  <circle cx="146" cy="122" r="7" fill="var(--c)"/>
+                  <circle cx="149" cy="118" r="2" fill="#fff" opacity="0.8"/>
+                </g>
+              </svg>
+            </div>
           </div>
         </div>
-        <div class="cr-cart left">
-          <div class="cart-basket"></div>
-          <div class="cart-handle"></div>
-          <div class="cart-wheel front"></div>
-          <div class="cart-wheel back"></div>
-          <div class="cart-face">
-            <div class="shades-frame"></div>
-            <div class="shades-lens left"></div>
-            <div class="shades-lens right"></div>
+        <div class="cr-bcart cr-bcart--cyan cr-bcart--right">
+          <div class="cr-bcart__shadow"></div>
+          <div class="cr-bcart__mover">
+            <div class="cr-bspeed"></div>
+            <div class="cr-bcart__body">
+              <svg viewBox="0 0 210 150" xmlns="http://www.w3.org/2000/svg">
+                <path d="M40 34 L14 12" stroke="#1c1c24" stroke-width="7" stroke-linecap="round"/>
+                <path d="M18 15 L9 8"  stroke="#3a3a46" stroke-width="9" stroke-linecap="round"/>
+                <path d="M46 88 L58 116 M138 92 L146 116" stroke="#15151d" stroke-width="6" stroke-linecap="round"/>
+                <path d="M38 30 L168 44 L156 94 L32 84 Z" fill="var(--c)" stroke="var(--c-dark)" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M38 30 L168 44" stroke="var(--c-dark)" stroke-width="6" stroke-linecap="round"/>
+                <g fill="var(--c-dark)" opacity="0.55">
+                  <rect x="52"  y="44" width="9" height="30" rx="4" transform="rotate(4 56 59)"/>
+                  <rect x="78"  y="47" width="9" height="30" rx="4" transform="rotate(4 82 62)"/>
+                  <rect x="104" y="50" width="9" height="30" rx="4" transform="rotate(4 108 65)"/>
+                </g>
+                <path d="M150 80 q9 7 17 1" stroke="#141419" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <g class="cr-bshades" transform="rotate(5 158 46) translate(0 6)">
+                  <rect x="118" y="32" width="80" height="9" rx="4" fill="#101014"/>
+                  <rect x="122" y="39" width="32" height="22" rx="7" fill="#101014"/>
+                  <rect x="160" y="41" width="32" height="22" rx="7" fill="#101014"/>
+                  <rect x="152" y="42" width="10" height="6"  rx="3" fill="#101014"/>
+                  <path d="M128 44 l10 4" stroke="rgba(255,255,255,0.55)" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M166 46 l10 4" stroke="rgba(255,255,255,0.55)" stroke-width="3" stroke-linecap="round"/>
+                </g>
+                <g class="cr-bwheel">
+                  <circle cx="58" cy="122" r="21" fill="none" stroke="#14141c" stroke-width="6" stroke-dasharray="4 6"/>
+                  <circle cx="58" cy="122" r="17" fill="#1b1b24" stroke="#000" stroke-width="2"/>
+                  <path d="M58 108 V136 M44 122 H72" stroke="#0c0c12" stroke-width="4"/>
+                  <circle cx="58" cy="122" r="7" fill="var(--c)"/>
+                  <circle cx="61" cy="118" r="2" fill="#fff" opacity="0.8"/>
+                </g>
+                <g class="cr-bwheel">
+                  <circle cx="146" cy="122" r="21" fill="none" stroke="#14141c" stroke-width="6" stroke-dasharray="4 6"/>
+                  <circle cx="146" cy="122" r="17" fill="#1b1b24" stroke="#000" stroke-width="2"/>
+                  <path d="M146 108 V136 M132 122 H160" stroke="#0c0c12" stroke-width="4"/>
+                  <circle cx="146" cy="122" r="7" fill="var(--c)"/>
+                  <circle cx="149" cy="118" r="2" fill="#fff" opacity="0.8"/>
+                </g>
+              </svg>
+            </div>
           </div>
+        </div>
+        <!-- Impact FX at screen center -->
+        <div class="cr-bfx">
+          <div class="cr-bflash"></div>
+          <div class="cr-bring"></div>
+          <div class="cr-bspark" style="--dx: 70px;  --dy: -46px; --rot: -33deg; --sc: #ff2bd6;"></div>
+          <div class="cr-bspark" style="--dx: 88px;  --dy: -8px;  --rot: -5deg;  --sc: #22e6ff;"></div>
+          <div class="cr-bspark" style="--dx: 62px;  --dy: 34px;  --rot: 28deg;  --sc: #fff;"></div>
+          <div class="cr-bspark" style="--dx: -74px; --dy: -42px; --rot: 210deg; --sc: #22e6ff;"></div>
+          <div class="cr-bspark" style="--dx: -90px; --dy: -4px;  --rot: 183deg; --sc: #ff2bd6;"></div>
+          <div class="cr-bspark" style="--dx: -60px; --dy: 38px;  --rot: 152deg; --sc: #fff;"></div>
+          <div class="cr-bspark" style="--dx: 26px;  --dy: -66px; --rot: -68deg; --sc: #ff2bd6;"></div>
+          <div class="cr-bspark" style="--dx: -22px; --dy: -70px; --rot: 250deg; --sc: #22e6ff;"></div>
+          <div class="cr-bspark" style="--dx: 14px;  --dy: 52px;  --rot: 75deg;  --sc: #fff;"></div>
+          <div class="cr-bspark" style="--dx: -16px; --dy: 48px;  --rot: 108deg; --sc: #ff2bd6;"></div>
         </div>
       </div>
       <div id="boot-seg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -257,7 +536,7 @@
         msgIdx++;
       }
       updateMsg();
-      setInterval(updateMsg, 1800);
+      window.bootMsgTimer = setInterval(updateMsg, 1800);
 
       let bootProgress = 0;
       const segs = bar ? bar.children : [];
@@ -266,7 +545,9 @@
         if (bootProgress >= 90) {
           bootProgress = 90;
           clearInterval(window.bootTimer);
+          window.bootTimer = null;
         }
+        if (bar) bar.setAttribute('aria-valuenow', Math.round(bootProgress).toString());
         const litCount = Math.round((bootProgress / 100) * 20);
         for (let i = 0; i < segs.length; i++) {
           if (i < litCount) segs[i].classList.add('lit');
@@ -584,6 +865,8 @@
       }
 
       function shedBootSplash() {
+        if (window.bootTimer) { clearInterval(window.bootTimer); window.bootTimer = null; }
+        if (window.bootMsgTimer) { clearInterval(window.bootMsgTimer); window.bootMsgTimer = null; }
         revealAppShellEarly();
         var el = document.getElementById("cr-boot-splash");
         if (!el || el.classList.contains("cr-load--hidden")) return;

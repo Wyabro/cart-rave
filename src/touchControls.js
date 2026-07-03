@@ -1,6 +1,5 @@
-// touchControls.js — virtual joystick (nipplejs) + action buttons for mobile play
-
 import nipplejs from "nipplejs";
+import { setInputMode } from "./input.js";
 import {
   animateTouchControlPress,
   animateTouchControlRelease,
@@ -262,6 +261,7 @@ export function flashBoostActivate() {
 // ───── Pointer handlers for Boost / Hop buttons ─────────────────────────────
 
 function onBoostPointerDown(e) {
+  setInputMode("touch");
   if (boostPointerId != null) return;
   e.preventDefault();
   boostPointerId = e.pointerId;
@@ -288,6 +288,7 @@ function onBoostPointerEnd(e) {
 }
 
 function onHopPointerDown(e) {
+  setInputMode("touch");
   e.preventDefault();
   const btn = e.currentTarget;
   btn.classList.add("is-pressed");
@@ -531,5 +532,6 @@ export function setupTouchControls(callbacks = {}) {
   initNippleJoystick();
 
   bindLayoutSync();
+  window.addEventListener("touchstart", () => setInputMode("touch"), { passive: true });
   window.addEventListener("blur", resetTouchControls);
 }

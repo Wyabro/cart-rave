@@ -345,13 +345,17 @@ function createCamera() {
  * @param {import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} fxaaPass
  * @param {THREE.WebGLRenderer | null} renderer
  * @param {boolean} lowQuality
+ * @param {EffectComposer | null} [composer]
  */
-export function applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality) {
+export function applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality, composer = null) {
   if (bloomPass) bloomPass.enabled = !lowQuality;
   if (arcadePass) arcadePass.enabled = !lowQuality;
   if (renderer) {
     const pixelRatio = lowQuality ? 1 : Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(pixelRatio);
+    if (composer) {
+      composer.setSize(window.innerWidth, window.innerHeight);
+    }
     // * FXAA resolution must match the new pixel ratio.
     if (fxaaPass) {
       const w = window.innerWidth;

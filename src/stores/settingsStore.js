@@ -6,6 +6,19 @@ const STORAGE_KEY_FX = "cartRaveFx";
 const STORAGE_KEY_LOW_QUALITY = "cartRaveLowQuality";
 const STORAGE_KEY_LEVEL = "cartRaveLevel";
 
+function detectDefaultLowQuality() {
+  if (typeof window === "undefined") return false;
+  try {
+    const hasTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
+    const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? hasTouch;
+    const isTouch = hasTouch && coarsePointer && (window.innerWidth || 0) < 1024;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    return isTouch || reducedMotion;
+  } catch {
+    return false;
+  }
+}
+
 function loadInitialSettings() {
   let bloomEnabled = true;
   let fxPassEnabled = true;
@@ -27,9 +40,8 @@ function loadInitialSettings() {
         lowQuality = true;
       } else if (val === "false") {
         lowQuality = false;
-      } else if (typeof window !== "undefined" && window.matchMedia) {
-        // Fall back to prefers-reduced-motion heuristic if unset
-        lowQuality = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      } else {
+        lowQuality = detectDefaultLowQuality();
       }
     } catch {}
 

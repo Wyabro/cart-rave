@@ -20,8 +20,22 @@ import {
 } from "./cartThemeConfig.js";
 import { CartPreview } from "./ui/cartPreview.js";
 import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
-import { isLowQualityMode } from "./utils.js";
+import { isLowQualityMode, isTouchDevice } from "./utils.js";
+import { settingsStore } from "./stores/settingsStore.js";
 import { getRoundState } from "./gameState.js";
+import { setInputMode, updateControlsPanelUI } from "./input.js";
+import {
+  animateButtonPress,
+  animateButtonRelease,
+  animateColorChipSelect,
+  animateLevelCardSelect,
+  animateMenuCardEnter,
+  animateMenuReveal,
+  animateRerollSpin,
+  stagger,
+  wireButtonPressFeedback,
+  wireHoverFeedback,
+} from "./animations.js";
 
 (function () {
   'use strict';
@@ -424,13 +438,12 @@ import { getRoundState } from "./gameState.js";
     persistLevel(levelId);
     updateLevelButtons();
     window.dispatchEvent(new CustomEvent("cartrave:level-changed"));
-    loadMenuAnimations().then((Anim) => {
-      if (!Anim || !levelRow) return;
+    if (levelRow) {
       const active = levelRow.querySelector(".cr-level-btn.active");
       if (active) {
-        Anim.animateLevelCardSelect(getMenuPressTarget(active));
+        animateLevelCardSelect(getMenuPressTarget(active));
       }
-    });
+    }
   }
 
   function initLevelSelect() {
@@ -635,30 +648,21 @@ import { getRoundState } from "./gameState.js";
       chip.addEventListener('click', () => {
         if (chip.dataset.kind === 'custom') {
           if (state.colorMode === 'custom') {
-            loadMenuAnimations().then((Anim) => {
-              if (Anim) Anim.animateColorChipSelect(chip);
-            });
+            animateColorChipSelect(chip);
             return;
           }
           selectCustomColor();
-          loadMenuAnimations().then((Anim) => {
-            if (Anim) Anim.animateColorChipSelect(chip);
-          });
+          animateColorChipSelect(chip);
           return;
         }
         const idx = parseInt(chip.dataset.idx, 10);
         if (state.colorMode === 'preset' && idx === state.playerIdx) {
-          loadMenuAnimations().then((Anim) => {
-            if (Anim) Anim.animateColorChipSelect(chip);
-          });
+          animateColorChipSelect(chip);
           return;
         }
         selectPresetColor(idx);
-        loadMenuAnimations().then((Anim) => {
-          if (!Anim) return;
-          const active = customizeColorRow.querySelector('.cr-color-chip.active');
-          if (active) Anim.animateColorChipSelect(active);
-        });
+        const active = customizeColorRow.querySelector('.cr-color-chip.active');
+        if (active) animateColorChipSelect(active);
       });
     });
   }
@@ -684,9 +688,7 @@ import { getRoundState } from "./gameState.js";
         const styleId = chip.dataset.sunglasses;
         if (!styleId || styleId === state.sunglassesStyle) return;
         selectSunglassesStyle(styleId);
-        loadMenuAnimations().then((Anim) => {
-          if (Anim) Anim.animateColorChipSelect(chip);
-        });
+        animateColorChipSelect(chip);
       });
     });
   }
@@ -796,15 +798,14 @@ import { getRoundState } from "./gameState.js";
     customizeScreen.style.display = 'flex';
     customizeScreen.setAttribute('aria-hidden', 'false');
     customizeDoneBtn?.focus();
-    loadMenuAnimations().then((Anim) => {
-      if (Anim && customizeScreen.querySelector('.cr-customize-panel')) {
-        Anim.animateMenuReveal(customizeScreen.querySelector('.cr-customize-panel'), {
-          delay: 0,
-          duration: 320,
-          y: 14,
-        });
-      }
-    });
+    const panel = customizeScreen.querySelector('.cr-customize-panel');
+    if (panel instanceof HTMLElement) {
+      animateMenuReveal(panel, {
+        delay: 0,
+        duration: 320,
+        y: 14,
+      });
+    }
   }
 
   function closeCustomizeScreen() {
@@ -915,11 +916,7 @@ import { getRoundState } from "./gameState.js";
     }
 
     // Controls kbd colors
-    document.getElementById('ctl-wasd').style.setProperty('--kc', p.secondary);
-    document.getElementById('ctl-shift').style.setProperty('--kc', p.tertiary);
-    document.getElementById('ctl-space').style.setProperty('--kc', p.primary);
-    document.getElementById('ctl-m').style.setProperty('--kc', p.players[2]);
-    document.getElementById('ctl-esc').style.setProperty('--kc', p.players[4]);
+    updateControlsPanelUI(undefined, p);
   }
 
   // ─── Name editing ─────────────────────────────────────────────────────────
@@ -948,9 +945,7 @@ import { getRoundState } from "./gameState.js";
     state.name = rollHandle();
     localStorage.setItem("cartRaveUsername", state.name);
     nameText.textContent = state.name;
-    loadMenuAnimations().then((Anim) => {
-      if (Anim) Anim.animateRerollSpin(rerollBtn);
-    });
+    animateRerollSpin(rerollBtn);
   });
 
   let audioUiMuted = false;
@@ -986,11 +981,8 @@ import { getRoundState } from "./gameState.js";
   // ─── Graphics toggles ──────────────────────────────────────────────────────
 
   function getPostFxEnabled() {
-    const bloom = localStorage.getItem("cartRaveBloom");
-    const fx = localStorage.getItem("cartRaveFx");
-    const bloomOn = bloom !== "off";
-    const fxOn = fx !== "off";
-    return bloomOn && fxOn;
+    const state = settingsStore.getState();
+    return Boolean(state.bloomEnabled && state.fxPassEnabled);
   }
 
   function syncGfxButtonStates() {
@@ -1122,20 +1114,9 @@ import { getRoundState } from "./gameState.js";
   scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
 
   // ─── Menu motion (Anime.js) ───────────────────────────────────────────────
-  /** @type {Promise<typeof import('./animations.js') | null> | null} */
-  let menuAnimLoadPromise = null;
   let menuEntranceToken = 0;
   /** @type {WeakSet<Element>} */
   const menuPressWired = new WeakSet();
-
-  function loadMenuAnimations() {
-    if (!menuAnimLoadPromise) {
-      menuAnimLoadPromise = import("./animations.js")
-        .then((mod) => mod)
-        .catch(() => null);
-    }
-    return menuAnimLoadPromise;
-  }
 
   function setMenuEntrancePending(pending) {
     root?.classList.toggle("cr-menu-enter-pending", pending);
@@ -1157,31 +1138,29 @@ import { getRoundState } from "./gameState.js";
     if (!btn || menuPressWired.has(btn)) return;
     menuPressWired.add(btn);
 
-    loadMenuAnimations().then((Anim) => {
-      if (!Anim || !btn.isConnected) return;
+    const target = getMenuPressTarget(btn);
+    let pressed = false;
 
-      const target = getMenuPressTarget(btn);
-      let pressed = false;
+    const onPress = (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      pressed = true;
+      animateButtonPress(target, { duration: 70, scale: 0.94 });
+    };
 
-      const onPress = (e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
-        pressed = true;
-        Anim.animateButtonPress(target, { duration: 70, scale: 0.94 });
-      };
+    const onRelease = () => {
+      if (!pressed) return;
+      pressed = false;
+      animateButtonRelease(target, { duration: 130 });
+    };
 
-      const onRelease = () => {
-        if (!pressed) return;
-        pressed = false;
-        Anim.animateButtonRelease(target, { duration: 130 });
-      };
-
-      btn.addEventListener("pointerdown", onPress);
-      btn.addEventListener("pointerup", onRelease);
-      btn.addEventListener("pointercancel", onRelease);
-      btn.addEventListener("pointerleave", (e) => {
-        if (pressed && e.pointerType === "mouse") onRelease();
-      });
+    btn.addEventListener("pointerdown", onPress);
+    btn.addEventListener("pointerup", onRelease);
+    btn.addEventListener("pointercancel", onRelease);
+    btn.addEventListener("pointerleave", (e) => {
+      if (pressed && e.pointerType === "mouse") onRelease();
     });
+
+    wireHoverFeedback(btn, { getTarget: getMenuPressTarget });
   }
 
   function wireAllMenuPressFeedback() {
@@ -1197,23 +1176,19 @@ import { getRoundState } from "./gameState.js";
    * @param {{ delay?: number, duration?: number, y?: number }} [entranceOptions]
    */
   function registerMenuButton(btn, entranceOptions) {
-    if (!btn) return;
+    if (!(btn instanceof HTMLElement)) return;
     wireMenuPressFeedback(btn);
-    loadMenuAnimations().then((Anim) => {
-      if (!Anim || !btn.isConnected) return;
-      Anim.animateMenuCardEnter(btn, {
-        delay: entranceOptions?.delay ?? 0,
-        duration: entranceOptions?.duration ?? 360,
-        y: entranceOptions?.y ?? 18,
-        ...entranceOptions,
-      });
+    animateMenuCardEnter(btn, {
+      delay: entranceOptions?.delay ?? 0,
+      duration: entranceOptions?.duration ?? 360,
+      y: entranceOptions?.y ?? 18,
+      ...entranceOptions,
     });
   }
 
-  async function playMenuEntrance() {
+  function playMenuEntrance() {
     const token = ++menuEntranceToken;
-    const Anim = await loadMenuAnimations();
-    if (!Anim || token !== menuEntranceToken || !root) {
+    if (!root) {
       setMenuEntrancePending(false);
       return;
     }
@@ -1229,42 +1204,45 @@ import { getRoundState } from "./gameState.js";
     let t = 0;
 
     document.querySelectorAll(".cr-tagline").forEach((el) => {
-      Anim.animateMenuReveal(el, { delay: t, duration: 300, y: 10, ease: "outExpo" });
+      if (el instanceof HTMLElement) animateMenuReveal(el, { delay: t, duration: 300, y: 10, ease: "outExpo" });
     });
 
     t += 36;
-    document.querySelectorAll(".cr-title-word").forEach((el, i) => {
-      Anim.animateMenuCardEnter(el, { delay: t + i * 32, duration: 340, y: 14 });
-    });
+    const titleWords = Array.from(document.querySelectorAll(".cr-title-word")).filter((el) => el instanceof HTMLElement);
+    if (titleWords.length > 0) {
+      animateMenuCardEnter(titleWords, { delay: stagger(32, { start: t }), duration: 340, y: 14 });
+    }
 
     t += 100;
-    document.querySelectorAll(".cr-buttons .cr-btn").forEach((el, i) => {
-      Anim.animateMenuCardEnter(el, { delay: t + i * STAGGER, duration: 380, y: 18 });
-    });
+    const menuButtons = Array.from(document.querySelectorAll(".cr-buttons .cr-btn")).filter((el) => el instanceof HTMLElement);
+    if (menuButtons.length > 0) {
+      animateMenuCardEnter(menuButtons, { delay: stagger(STAGGER, { start: t }), duration: 380, y: 18 });
+    }
 
     t += STAGGER * 4 + 36;
     const levelsHd = document.querySelector(".cr-levels-hd");
-    if (levelsHd) Anim.animateMenuReveal(levelsHd, { delay: t, duration: 260, y: 8 });
+    if (levelsHd instanceof HTMLElement) animateMenuReveal(levelsHd, { delay: t, duration: 260, y: 8 });
 
-    document.querySelectorAll(".cr-level-btn:not(.cr-level-btn--disabled)").forEach((el, i) => {
-      Anim.animateMenuCardEnter(el, { delay: t + 28 + i * STAGGER, duration: 360, y: 16 });
-    });
+    const levelCards = Array.from(document.querySelectorAll(".cr-level-btn:not(.cr-level-btn--disabled)")).filter((el) => el instanceof HTMLElement);
+    if (levelCards.length > 0) {
+      animateMenuCardEnter(levelCards, { delay: stagger(STAGGER, { start: t + 28 }), duration: 360, y: 16 });
+    }
 
     t += STAGGER * 2 + 72;
 
     const cartWrap = document.querySelector(".cr-cart-wrap");
-    if (cartWrap) Anim.animateMenuReveal(cartWrap, { delay: t, duration: 380, y: 12 });
+    if (cartWrap instanceof HTMLElement) animateMenuReveal(cartWrap, { delay: t, duration: 380, y: 12 });
 
     const stats = $("cr-stats-local");
-    if (stats) Anim.animateMenuReveal(stats, { delay: t + 40, duration: 360, y: 12 });
+    if (stats instanceof HTMLElement) animateMenuReveal(stats, { delay: t + 40, duration: 360, y: 12 });
 
-    if (playerCard) Anim.animateMenuReveal(playerCard, { delay: t + 20, duration: 400, y: 14 });
+    if (playerCard instanceof HTMLElement) animateMenuReveal(playerCard, { delay: t + 20, duration: 400, y: 14 });
 
     const audioPanel = $("cr-audio-panel");
-    if (audioPanel) Anim.animateMenuReveal(audioPanel, { delay: t + 80, duration: 320, y: 10 });
+    if (audioPanel instanceof HTMLElement) animateMenuReveal(audioPanel, { delay: t + 80, duration: 320, y: 10 });
 
     const controls = $("cr-controls");
-    if (controls) Anim.animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
+    if (controls instanceof HTMLElement) animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
 
     window.setTimeout(() => {
       if (token === menuEntranceToken) setMenuEntrancePending(false);
@@ -1293,6 +1271,11 @@ import { getRoundState } from "./gameState.js";
   initLevelSelect();
   initCartTooltipTap();
   initCustomizeScreen();
+  if (isTouchDevice()) {
+    setInputMode("touch");
+  } else {
+    updateControlsPanelUI();
+  }
   window.addEventListener('cartrave:customization-changed', (e) => {
     const detail = e.detail || loadPlayerCustomization();
     applyCustomizationToState(detail);

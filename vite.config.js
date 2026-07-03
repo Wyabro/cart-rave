@@ -24,6 +24,9 @@ export default defineConfig({
           if (id.includes("node_modules/howler")) {
             return "howler";
           }
+          if (id.includes("node_modules/animejs")) {
+            return "animejs";
+          }
           if (id.includes("node_modules/three")) {
             return "three";
           }

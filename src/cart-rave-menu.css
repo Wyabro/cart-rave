@@ -461,7 +461,6 @@ html, body {
 
 @media (pointer: coarse) {
   .cr-touch { display: none; }
-  #cr-controls { display: none !important; }
   .cr-tooltip-footer--keyboard { display: none; }
   .cr-tooltip-footer--touch { display: block; }
 }
