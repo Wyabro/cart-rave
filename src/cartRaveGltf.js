@@ -1365,11 +1365,10 @@ function getLoader() {
  * @returns {RaveGltfMeshBounds | null}
  */
 function computeRaveGltfMeshBounds(object) {
-  // @ts-expect-error THREE duck-typing suppress
-  if (!object.isMesh?.geometry) return null;
+  const obj = /** @type {any} */ (object);
+  if (!obj.isMesh?.geometry) return null;
 
-  // @ts-expect-error THREE duck-typing suppress
-  const geometry = object.geometry;
+  const geometry = obj.geometry;
   geometry.computeBoundingBox();
   if (!geometry.boundingBox) return null;
 
@@ -1419,10 +1418,9 @@ function resolveRaveGltfPartRole(object) {
   let hintedRole = roles[meshName];
 
   if (!hintedRole) {
-    // @ts-expect-error THREE duck-typing suppress
-    const mat = object.isMesh
-      // @ts-expect-error THREE duck-typing suppress
-      ? (Array.isArray(object.material) ? object.material[0] : object.material)
+    const obj = /** @type {any} */ (object);
+    const mat = obj.isMesh
+      ? (Array.isArray(obj.material) ? obj.material[0] : obj.material)
       : null;
     const matName = mat?.name || "";
     const match = /tripo_part_(\d+)/.exec(meshName) || /tripo_part_(\d+)/.exec(matName);
@@ -1453,8 +1451,8 @@ function logRaveGltfPartRoleAssignments(model) {
   const lines = [`[cartRaveGltf] Part roles (layout=${_sourceLayout}):`];
 
   model.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
     const role = child.userData.raveGltfPartRole || resolveRaveGltfPartRole(child);
     const bounds = computeRaveGltfMeshBounds(child);
     const boundsTag = bounds
@@ -1816,14 +1814,12 @@ function applyRaveGltfBodyScale(model) {
   const bodyMeshes = [];
 
   model.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
-    const role = child.userData.raveGltfPartRole || resolveRaveGltfPartRole(child);
-    // @ts-expect-error THREE duck-typing suppress
-    if (role === "wheel") wheelMeshes.push(child);
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
+    const role = c.userData.raveGltfPartRole || resolveRaveGltfPartRole(c);
+    if (role === "wheel") wheelMeshes.push(c);
     else if (role === "body" || role === "handle" || role === "face" || role === "trim") {
-      // @ts-expect-error THREE duck-typing suppress
-      bodyMeshes.push(child);
+      bodyMeshes.push(c);
     }
   });
 
@@ -1998,12 +1994,11 @@ function bindRaveGltfCartParts(root) {
   const meshByName = new Map();
 
   model.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
-    const role = resolveRaveGltfPartRole(child);
-    child.userData.raveGltfPartRole = role;
-    // @ts-expect-error THREE duck-typing suppress
-    if (child.name) meshByName.set(child.name, child);
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
+    const role = resolveRaveGltfPartRole(c);
+    c.userData.raveGltfPartRole = role;
+    if (c.name) meshByName.set(c.name, c);
 
     if (role === "body") {
       child.name = "CartFrame";
@@ -2281,8 +2276,8 @@ function ensureRaveGltfSource() {
       if (import.meta.env?.DEV) {
         const names = [];
         scene.traverse((child) => {
-          // @ts-expect-error THREE duck-typing suppress
-          if (child.isMesh) names.push(child.name || "(unnamed mesh)");
+          const c = /** @type {any} */ (child);
+          if (c.isMesh) names.push(c.name || "(unnamed mesh)");
         });
         console.debug(
           `[cartRaveGltf] Loaded ${url} layout=${_sourceLayout} — meshes: ${names.join(", ") || "(none)"}`,
@@ -2328,15 +2323,13 @@ export function createRaveGltfCartInstance(sunglassesStyle) {
    * @param {THREE.Object3D} parent
    */
   const cloneHierarchy = (src, parent) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (src.isMesh) {
-      // @ts-expect-error THREE duck-typing suppress
-      const srcMat = Array.isArray(src.material) ? src.material[0] : src.material;
-      const role = resolveRaveGltfPartRole(src);
+    const s = /** @type {any} */ (src);
+    if (s.isMesh) {
+      const srcMat = Array.isArray(s.material) ? s.material[0] : s.material;
+      const role = resolveRaveGltfPartRole(s);
       const material = cloneRaveGltfMaterial(srcMat, role, sunglassesStyle);
 
-      // @ts-expect-error THREE duck-typing suppress
-      const mesh = new THREE.Mesh(src.geometry, material);
+      const mesh = new THREE.Mesh(s.geometry, material);
       mesh.name = src.name;
       mesh.position.copy(src.position);
       mesh.quaternion.copy(src.quaternion);
@@ -2375,12 +2368,11 @@ export function buildRaveGltfMaterialCache(root) {
   const seen = new Set();
 
   root.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh || !child.material) return;
-    if (child.userData?.isCartPatternLayer) return;
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh || !c.material) return;
+    if (c.userData?.isCartPatternLayer) return;
 
-    // @ts-expect-error THREE duck-typing suppress
-    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
     for (const mat of mats) {
       if (!mat || seen.has(mat)) continue;
       seen.add(mat);
@@ -3012,20 +3004,17 @@ export function disposeRaveGltfInstance(root) {
 
   const disposedMats = new Set();
   root.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
-    const ud = child.userData || {};
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
+    const ud = c.userData || {};
 
     if (ud.sharesCartFrameGeometry) {
-      // @ts-expect-error THREE duck-typing suppress
-      if (ud.isCartPatternLayer && child.material) {
-        // @ts-expect-error THREE duck-typing suppress
-        disposeMaterialOnce(child.material, disposedMats);
+      if (ud.isCartPatternLayer && c.material) {
+        disposeMaterialOnce(c.material, disposedMats);
       }
       return;
     }
 
-    // @ts-expect-error THREE duck-typing suppress
-    disposeMaterialOnce(child.material, disposedMats);
+    disposeMaterialOnce(c.material, disposedMats);
   });
 }

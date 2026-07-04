@@ -94,7 +94,6 @@ function createCartBody(world, spawn, spawnYaw) {
   body.setRotation(quatFromYaw(spawnYaw), true);
 
   const { canSleep } = CONFIG.cart.rigidBody;
-  // @ts-expect-error THREE duck-typing suppress
   if (typeof body.setCanSleep === "function") {
     body.setCanSleep(canSleep);
   }
@@ -116,7 +115,7 @@ function createCartBody(world, spawn, spawnYaw) {
  * } | null}
  */
 /** * Cart collision groups — group 1 membership, filter collides with everything except group 2 (groceries). */
-const CART_COLLISION_GROUPS = (0x0001 << 16) | 0xFFFFFFFD;
+const CART_COLLISION_GROUPS = (0x0001 << 16) | 0xFFFD;
 
 function createCartCollider(world, body) {
   if (!world || !body) return null;

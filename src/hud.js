@@ -2370,8 +2370,8 @@ export function init(options) {
     val.className = "hud-vol-val";
     input.addEventListener("input", (e) => {
       const valueMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
-      const pct = Number(e.target.value);
-      e.target.style.setProperty("--vol-pct", `${pct}%`);
+      const pct = Number(input.value);
+      input.style.setProperty("--vol-pct", `${pct}%`);
       onChange(clamp((pct / 100) * valueMax, 0, valueMax));
       animateVolumeTick(val);
       syncAudioControls();
@@ -2441,22 +2441,26 @@ export function init(options) {
   controlsList.className = "esc-ctl-list";
 
   if (touchDevice) {
-    [
+    /** @type {Array<[string[], string]>} */
+    const touchControls = [
       [["Stick"], "Drive"],
       [["Boost"], "Nitro (hold)"],
       [["Hop"], "Hop"],
       [["Menu"], "Open / close"],
-    ].forEach(([keys, labelText]) => {
+    ];
+    touchControls.forEach(([keys, labelText]) => {
       controlsList.appendChild(createEscControlRow(keys, labelText));
     });
   } else {
     controlsList.appendChild(createEscControlRow(["WASD / Arrows"], "Drive", true));
-    [
+    /** @type {Array<[string[], string, boolean?]>} */
+    const kbControls = [
       [["Shift"], "Nitro", true],
       [["Space"], "Hop", true],
       [["M"], "Mute"],
       [["Esc"], "Close menu"],
-    ].forEach(([keys, labelText, wide]) => {
+    ];
+    kbControls.forEach(([keys, labelText, wide]) => {
       controlsList.appendChild(createEscControlRow(keys, labelText, wide));
     });
   }
@@ -2525,7 +2529,7 @@ export function init(options) {
 
     item.appendChild(nameEl);
     item.appendChild(ptsEl);
-    scoreList.appendChild(item);
+    scoreList.appendChild(/** @type {any} */ (item));
   });
   scoringSection.body.appendChild(scoreList);
 

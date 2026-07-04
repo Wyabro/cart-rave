@@ -131,7 +131,7 @@ function createPlanets(scene, ctx) {
   for (const p of planetConfigs) {
     const mat = new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.5 });
     const planet = new THREE.Mesh(sharedGeo, mat);
-    planet.position.set(...p.pos);
+    planet.position.set(p.pos[0], p.pos[1], p.pos[2]);
     planet.scale.setScalar(p.radius);
     ctx.addToScene(planet);
     ctx.disposables.push(mat);
@@ -147,7 +147,7 @@ function createPlanets(scene, ctx) {
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = Math.PI * 0.35;
-      ring.position.set(...p.pos);
+      ring.position.set(p.pos[0], p.pos[1], p.pos[2]);
       ctx.addToScene(ring);
       ctx.disposables.push(ringGeo, ringMat);
     }
@@ -182,7 +182,7 @@ function createGalaxies(scene, ctx) {
     });
     const galaxy = new THREE.Sprite(mat);
     galaxy.scale.set(g.size, g.size * 0.5, 1);
-    galaxy.position.set(...g.pos);
+    galaxy.position.set(g.pos[0], g.pos[1], g.pos[2]);
     ctx.addToScene(galaxy);
     ctx.disposables.push(mat);
   }

@@ -128,7 +128,7 @@ let callbacks = {
   getInitialNpcNames: () => [],
 
   // Connection lifecycle
-  markFirstHelloReceived: () => {},
+  markFirstHelloReceived: (slots) => {},
   getOnGameStartHandler: () => null,
   getOnHostMigratedHandler: () => null,
   onCountdownCancelled: () => {},
@@ -137,38 +137,38 @@ let callbacks = {
   // Menu & HUD
   getMenuVisible: () => true,
   hideMenuRef: () => {},
-  updateCartMaterialsFromSlots: () => {},
-  updateHudColorsFromSlots: () => {},
+  updateCartMaterialsFromSlots: (slots) => {},
+  updateHudColorsFromSlots: (slots) => {},
   scheduleNameLabelUpdate: () => {},
 
   // Mid-round join
   respawnLocalMidRoundJoinRef: () => {},
   getPendingMidRoundJoinRespawnConnId: () => null,
-  setPendingMidRoundJoinRespawnConnId: () => {},
+  setPendingMidRoundJoinRespawnConnId: (connId) => {},
 
   // Audio & VFX
-  playCollisionRef: () => {},
-  spawnTrashBurstRef: () => {},
-  triggerLocalRamShakeRef: () => {},
-  playFloorImpactRef: () => {},
-  playEdgeImpactRef: () => {},
-  triggerCartShatterRef: () => {},
+  playCollisionRef: (midpoint, intensity) => {},
+  spawnTrashBurstRef: (pos, vel, count) => {},
+  triggerLocalRamShakeRef: (intensity) => {},
+  playFloorImpactRef: (intensity) => {},
+  playEdgeImpactRef: (intensity) => {},
+  triggerCartShatterRef: (cart, scene, hex) => {},
   getSceneRef: () => null,
 
   // Kill feed
-  addKillFeedEntry: () => {},
-  colorHexForSlot: () => 0x888888,
+  addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {},
+  colorHexForSlot: (slot) => 0x888888,
 
   // Color picker
   getPendingColorKey: () => null,
   getPendingColorChipEl: () => null,
-  setPendingColorKey: () => {},
-  setPendingColorChipEl: () => {},
+  setPendingColorKey: (key) => {},
+  setPendingColorChipEl: (el) => {},
   getLocalColorPicked: () => false,
-  setLocalColorPicked: () => {},
+  setLocalColorPicked: (picked, syncMenuUI) => {},
 
   // Stats
-  recordPodiumStats: () => {},
+  recordPodiumStats: (winnerSlotIndex, scores) => {},
   onReturnToLobby: () => {},
   onEnterPodium: () => {},
 
@@ -1199,7 +1199,7 @@ export function initNetcode(roomOverride) {
 
     callbacks.markFirstHelloReceived();
     const readyPromise = callbacks.ensureSessionReady();
-    const safeReady = readyPromise instanceof Promise ? readyPromise : Promise.resolve();
+    const safeReady = (/** @type {any} */ (readyPromise)) instanceof Promise ? readyPromise : Promise.resolve();
 
     safeReady.then(() => {
       const startHandler = callbacks.getOnGameStartHandler();

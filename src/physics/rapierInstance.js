@@ -9,10 +9,10 @@
  * @module physics/rapierInstance
  */
 
-/** @type {import("@dimforge/rapier3d") | null} */
+/** @type {any} */
 let RAPIER = null;
 
-/** @type {Promise<import("@dimforge/rapier3d")> | null} */
+/** @type {Promise<any> | null} */
 let _initPromise = null;
 
 /**

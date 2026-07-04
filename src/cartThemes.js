@@ -93,23 +93,17 @@ function disposeThemeSubtree(node) {
   const disposedMats = new Set();
   const disposedTextures = new Set();
   node.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
-    if (child.userData?.isSharedGeometry) return;
-    // @ts-expect-error THREE duck-typing suppress
-    if (child.userData?.isThemeGeometry && child.geometry) {
-      // @ts-expect-error THREE duck-typing suppress
-      if (!disposedGeos.has(child.geometry)) {
-        // @ts-expect-error THREE duck-typing suppress
-        disposedGeos.add(child.geometry);
-        // @ts-expect-error THREE duck-typing suppress
-        child.geometry.dispose?.();
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
+    if (c.userData?.isSharedGeometry) return;
+    if (c.userData?.isThemeGeometry && c.geometry) {
+      if (!disposedGeos.has(c.geometry)) {
+        disposedGeos.add(c.geometry);
+        c.geometry.dispose?.();
       }
     }
-    // @ts-expect-error THREE duck-typing suppress
-    if (child.userData?.isThemeProp && child.material) {
-      // @ts-expect-error THREE duck-typing suppress
-      disposeMaterialOnce(child.material, disposedMats, disposedTextures);
+    if (c.userData?.isThemeProp && c.material) {
+      disposeMaterialOnce(c.material, disposedMats, disposedTextures);
     }
   });
 }
@@ -165,8 +159,8 @@ function tagFrameAndAccentMeshes(root) {
   const frameMesh = getNamedChild(root, "CartFrame");
   if (frameMesh) {
     frameMesh.traverse((child) => {
-      // @ts-expect-error THREE duck-typing suppress
-      if (child.isMesh) child.userData.cartMatRole = "frame";
+      const c = /** @type {any} */ (child);
+      if (c.isMesh) c.userData.cartMatRole = "frame";
     });
   }
 
@@ -180,8 +174,8 @@ function tagFrameAndAccentMeshes(root) {
   }
 
   root.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
     if (child.userData?.receivesPlayerAccent || child.userData?.cartMatRole === "accent") {
       child.userData.cartMatRole = "accent";
     }
@@ -195,8 +189,8 @@ function tagFrameAndAccentMeshes(root) {
 function applyHandleStyle(root, theme) {
   void theme;
   const handleMesh = getNamedChild(root, "CartHandle");
-  // @ts-expect-error THREE duck-typing suppress
-  if (!handleMesh?.isMesh || !handleMesh.material) return;
+  const hm = /** @type {any} */ (handleMesh);
+  if (!hm?.isMesh || !hm.material) return;
 
   /** @type {THREE.MeshPhysicalMaterial} */
   const mat = createPhysicalMaterial({
@@ -208,10 +202,8 @@ function applyHandleStyle(root, theme) {
     envMapIntensity: getMaterialEnvMapIntensity() * CHROME_ENV_SCALE,
   });
   mat.userData.themeLocked = true;
-  // @ts-expect-error THREE duck-typing suppress
-  const oldMat = handleMesh.material;
-  // @ts-expect-error THREE duck-typing suppress
-  handleMesh.material = mat;
+  const oldMat = hm.material;
+  hm.material = mat;
   // ! Route through disposeMaterialOnce so theme-applied textures on the
   // ! previous handle material (wood/grip/rust) are freed alongside it.
   if (oldMat && !Array.isArray(oldMat) && oldMat !== mat) {
@@ -227,8 +219,8 @@ function applyHandleStyle(root, theme) {
  */
 function setCasterVisualVisibility(root, visible) {
   root.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh) return;
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh) return;
     if (child.userData?.isWheel) child.visible = visible;
   });
 
@@ -291,21 +283,20 @@ export function buildCartThemeMaterialCache(cartMesh) {
   const seen = new Set();
 
   cartMesh.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
-    if (!child.isMesh || !child.material) return;
-    const ud = child.userData || {};
+    const c = /** @type {any} */ (child);
+    if (!c.isMesh || !c.material) return;
+    const ud = c.userData || {};
     if (ud.isFace || ud.isHandle || ud.isWheel || ud.isCartPatternLayer) return;
     if (ud.isThemeProp && ud.cartMatRole !== "accent" && !ud.receivesPlayerAccent) return;
 
-    // @ts-expect-error THREE duck-typing suppress
-    forEachMaterial(child.material, (mat) => {
+    forEachMaterial(c.material, (mat) => {
       if (seen.has(mat)) return;
       seen.add(mat);
       if (ud.cartMatRole === "accent") accentMats.push(mat);
       else frameBodyMats.push(mat);
       frameMats.push(mat);
-      // @ts-expect-error THREE duck-typing suppress
-      if (mat.emissive) frameGlowMats.push(mat);
+      const m = /** @type {any} */ (mat);
+      if (m.emissive) frameGlowMats.push(mat);
     });
   });
 
@@ -323,8 +314,8 @@ export function buildCartThemeMaterialCache(cartMesh) {
 export function applyThemeColorToCache(cache, themeId, neonHex, intensityMul = 1) {
   if (!cache) return;
 
-  // @ts-expect-error THREE duck-typing suppress
-  if (cache.isRaveGltf) {
+  const c = /** @type {any} */ (cache);
+  if (c.isRaveGltf) {
     applyRaveGltfColorToCache(cache, neonHex, intensityMul);
     return;
   }
@@ -364,8 +355,8 @@ export function applyThemeLeaderGlow(cache, themeId, neonHex, glowPulse, glowInt
     }
   };
 
-  // @ts-expect-error THREE duck-typing suppress
-  if (cache.isRaveGltf) {
+  const c = /** @type {any} */ (cache);
+  if (c.isRaveGltf) {
     applyRaveGltfLeaderGlow(cache, neonHex, glowPulse, glowIntensity);
     return;
   }
@@ -386,10 +377,9 @@ export function applyCartTheme(root, themeId, neonHex) {
   root.userData.cartThemeId = id;
 
   const frameMesh = getNamedChild(root, "CartFrame");
-  // @ts-expect-error THREE duck-typing suppress
-  if (frameMesh?.isMesh && frameMesh.material) {
-    // @ts-expect-error THREE duck-typing suppress
-    forEachMaterial(frameMesh.material, (mat) => {
+  const fm = /** @type {any} */ (frameMesh);
+  if (fm?.isMesh && fm.material) {
+    forEachMaterial(fm.material, (mat) => {
       applyFrameMaterialPreset(mat, theme.frameMaterial);
     });
   }
@@ -422,10 +412,9 @@ export function disposeCartThemeResources(mesh) {
   const frameMesh = getNamedChild(mesh, "CartFrame");
   if (frameMesh) {
     frameMesh.traverse((child) => {
-      // @ts-expect-error THREE duck-typing suppress
-      if (!child.isMesh || !child.material) return;
-      // @ts-expect-error THREE duck-typing suppress
-      forEachMaterial(child.material, (mat) => {
+      const c = /** @type {any} */ (child);
+      if (!c.isMesh || !c.material) return;
+      forEachMaterial(c.material, (mat) => {
         disposeMaterialTextures(mat, disposedTex);
       });
     });

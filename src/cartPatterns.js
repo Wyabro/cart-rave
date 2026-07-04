@@ -236,9 +236,8 @@ function updatePatternOverlayMaterial(mat, patternId, neonHex) {
  * @param {THREE.Mesh} frameMesh
  */
 function clearBaseFramePatternMaps(frameMesh) {
-  const mat = frameMesh.material;
+  const mat = /** @type {THREE.MeshStandardMaterial} */ (frameMesh.material);
   if (!mat || Array.isArray(mat)) return;
-  // @ts-expect-error THREE duck-typing suppress
   if (mat.emissiveMap || mat.map) {
     mat.emissiveMap = null;
     mat.map = null;
@@ -255,7 +254,6 @@ function removeLegacyPatternOverlays(root) {
   if (!legacy) return;
 
   legacy.traverse((child) => {
-    // @ts-expect-error THREE duck-typing suppress
     if (!child.isMesh) return;
     child.geometry?.dispose();
     const mat = child.material;
@@ -298,7 +296,6 @@ export function applyCartPattern(root, patternId, neonHex) {
   removeLegacyPatternOverlays(root);
 
   const frameMesh = root.getObjectByName("CartFrame");
-  // @ts-expect-error THREE duck-typing suppress
   if (!frameMesh?.isMesh || !frameMesh.geometry) return;
 
   // * GLTF rave cart keeps authored baseColor + emissive maps for uniform PBR.

@@ -231,7 +231,8 @@ const DEFAULT_CINEMATIC_CONFIG = {
  *   desiredPos: THREE.Vector3,
  *   lookMat: THREE.Matrix4,
  *   desiredQuat: THREE.Quaternion,
- * }}
+ *   podiumTargetPos?: THREE.Vector3,
+ * } | null}
  */
 function createCinematicState(camera, config) {
   // ! Without a valid follow state, the cinematic-to-follow handoff cannot seed
@@ -244,6 +245,7 @@ function createCinematicState(camera, config) {
     desiredPos: new THREE.Vector3(),
     lookMat: new THREE.Matrix4(),
     desiredQuat: new THREE.Quaternion(),
+    podiumTargetPos: /** @type {THREE.Vector3 | undefined} */ (undefined),
   };
 }
 

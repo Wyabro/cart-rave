@@ -187,6 +187,11 @@ function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffset) {
   };
 }
 
+/**
+ * @param {any} body
+ * @param {any} collider
+ * @param {{ label?: string, hx: number, hy: number, hz: number, colliderLocalY: number }} dims
+ */
 export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, colliderLocalY }) {
   let baseMass = collider?.mass?.() ?? body?.mass?.() ?? 1;
   if (!Number.isFinite(baseMass) || baseMass <= 0) baseMass = 1;

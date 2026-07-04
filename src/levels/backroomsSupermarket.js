@@ -1039,8 +1039,8 @@ function buildWalls(scene, world, wallpaperTex) {
   const drywallGeo = buildWallpaperPlaneGeometry(WALL_SPAN, WALL_BOTTOM_Y, WALL_HEIGHT);
   ownedGeometries.push(drywallGeo);
 
-  const pillarBaseRgb = [0.56, 0.54, 0.48];
-  const shelfMetalBaseRgb = [0.42, 0.4, 0.35];
+  const pillarBaseRgb = /** @type {[number, number, number]} */ ([0.56, 0.54, 0.48]);
+  const shelfMetalBaseRgb = /** @type {[number, number, number]} */ ([0.42, 0.4, 0.35]);
 
   // Sides that carry aged store shelving (mixed with plain drywall walls).
   const SHELVED_SIDES = new Set([0, 2]);

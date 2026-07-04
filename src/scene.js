@@ -24,12 +24,12 @@ export function applyBloomSettings(bloomPass, bloomCfg = BLOOM_CONFIG) {
   bloomPass.strength = bloomCfg.strength;
   bloomPass.radius = bloomCfg.radius;
   bloomPass.threshold = bloomCfg.threshold;
-  // @ts-expect-error THREE duck-typing suppress
-  if (bloomPass.highPassUniforms?.luminosityThreshold) {
-    bloomPass.highPassUniforms.luminosityThreshold.value = bloomCfg.threshold;
+  const bp = /** @type {any} */ (bloomPass);
+  if (bp.highPassUniforms?.luminosityThreshold) {
+    bp.highPassUniforms.luminosityThreshold.value = bloomCfg.threshold;
   }
-  if (bloomPass.highPassUniforms?.smoothWidth) {
-    bloomPass.highPassUniforms.smoothWidth.value = bloomCfg.smoothWidth;
+  if (bp.highPassUniforms?.smoothWidth) {
+    bp.highPassUniforms.smoothWidth.value = bloomCfg.smoothWidth;
   }
 }
 
@@ -137,7 +137,7 @@ export function setupSceneEnvironment(renderer, scene) {
   pmremGenerator.compileEquirectangularShader();
 
   // * Pass renderer so RoomEnvironment uses physical light intensities in the bake.
-  const roomEnvironment = new RoomEnvironment(renderer);
+  const roomEnvironment = new (/** @type {any} */ (RoomEnvironment))(renderer);
   const envTexture = pmremGenerator.fromScene(roomEnvironment).texture;
   pmremGenerator.dispose();
 
@@ -476,8 +476,9 @@ export function disposeComposer(composer) {
   if (!composer) return;
   if (Array.isArray(composer.passes)) {
     for (const pass of composer.passes) {
-      if (pass.material) pass.material.dispose?.();
-      if (pass.dispose) pass.dispose();
+      const p = /** @type {any} */ (pass);
+      if (p.material) p.material.dispose?.();
+      if (p.dispose) p.dispose();
     }
   }
   composer.renderTarget1?.dispose();

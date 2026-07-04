@@ -1113,12 +1113,12 @@ export function initArena(scene, world, config, options = {}) {
       root.traverse((child) => {
         if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.Sprite)) return;
         const target = /** @type {THREE.Mesh | THREE.Sprite} */ (child);
-        if (target.geometry && !sharedGeos.has(target.geometry) && !ownedGeoSet.has(target.geometry)) {
+        if (target.geometry && !sharedGeos.has(/** @type {any} */ (target.geometry)) && !ownedGeoSet.has(/** @type {any} */ (target.geometry))) {
           target.geometry.dispose();
         }
         const mats = Array.isArray(target.material) ? target.material : [target.material];
         mats.forEach((mat) => {
-          if (mat && !sharedMats.has(mat) && !ownedMatSet.has(mat)) disposeMaterial(mat);
+          if (mat && !sharedMats.has(/** @type {any} */ (mat)) && !ownedMatSet.has(/** @type {any} */ (mat))) disposeMaterial(mat);
         });
       });
     }

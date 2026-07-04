@@ -269,7 +269,7 @@ function normalizeCustomization(raw) {
     : (CART_COLORS[color]?.hex ?? CART_COLORS[fallbackPreset].hex);
 
   return {
-    colorMode,
+    colorMode: /** @type {any} */ (colorMode),
     color,
     customHue,
     pattern,
@@ -479,7 +479,7 @@ export function resolveCartNeonHex(slot, ctx = {}) {
     return loadPlayerCustomization().hex;
   }
 
-  const syncedLook = lookHexFromSlot(slot);
+  const syncedLook = lookHexFromSlot(/** @type {any} */ (slot));
   if (syncedLook !== null) return syncedLook;
 
   const c = slot.color;

@@ -18,7 +18,7 @@ import { RAPIER } from "../physics/rapierInstance.js";
 // ---------------------------------------------------------------------------
 
 /** @type {number} Raw Rapier collision groups bitmask — group 2 membership, filter collides with everything except group 1 (carts). */
-const GROCERY_COLLISION_GROUPS = (0x0002 << 16) | 0xFFFFFFFE;
+const GROCERY_COLLISION_GROUPS = (0x0002 << 16) | 0xFFFE;
 
 /** @type {number} Instances per grocery model (6 models × 11 = 66 total). */
 const PER_MODEL_POOL = 11;
@@ -203,7 +203,7 @@ export async function init(scene, world) {
     }
 
     const geometry = sourceMesh.geometry.clone();
-    const material = sourceMesh.material.clone();
+    const material = /** @type {THREE.Material} */ (sourceMesh.material).clone();
 
     // * Normalize geometry: text-to-3D models may have arbitrary scale and off-center pivots.
     // * Bake a uniform scale so the model fits within ~0.5 world units, then recenter the origin.
@@ -352,9 +352,9 @@ export function createCargoBay() {
  * * randomly selected; if a model's pool is full, another is picked.
  *
  * @param {string} cartId Unique identifier of the owning cart.
- * @param {{ x: number, y: number, z: number }} cartPos World-space cart position.
- * @param {{ x: number, y: number, z: number, w: number }} cartQuat Rapier quaternion.
- * @param {{ x: number, y: number, z: number }} cartLinvel Cart's current linear velocity.
+ * @param {{ x: number, y: number, z: number }} cartPosParam World-space cart position.
+ * @param {{ x: number, y: number, z: number, w: number }} cartQuatParam Rapier quaternion.
+ * @param {{ x: number, y: number, z: number }} cartLinvelParam Cart's current linear velocity.
  * @param {number} [count=6] Number of grocery items to spawn (clamped to available slots).
  * @param {THREE.Object3D} [cargoBay=null] Optional cargo bay group to hide on spill.
  */
@@ -415,7 +415,11 @@ export function triggerSpill(cartId, cartPosParam, cartQuatParam, cartLinvelPara
       }
     }
 
-    if (!slot) break; // * All pools exhausted.
+    if (!slot) {
+      // eslint-disable-next-line no-console
+      console.warn(`[groceryPool] All ${POOL_SIZE} pre-allocated grocery slots exhausted; spawning fewer items.`);
+      break;
+    }
 
     const spawnedIdx = spawned;
     const offset =

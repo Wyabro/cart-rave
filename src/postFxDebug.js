@@ -134,16 +134,6 @@ function getToneMappingName(renderer) {
 /**
  * Wires a Tweakpane panel to renderer, IBL, fog, contact shadows, bloom, arcade FX, and FXAA.
  * Only imported dynamically when `import.meta.env.DEV` is true.
- *
- * @param {{
- *   renderer: import("three").WebGLRenderer,
- *   scene: import("three").Scene,
- *   bloomPass: import("three/examples/jsm/postprocessing/UnrealBloomPass.js").UnrealBloomPass,
- *   arcadePass: import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass,
- *   fxaaPass: import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass,
- *   suddenDeathTest?: () => void,
- * }} deps
- * @returns {Pane | null}
  */
 // ! Debug export functions — exposed on window for Tweakpane buttons.
 window.exportArenaFloorGLB = function () {

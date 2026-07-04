@@ -285,7 +285,8 @@ export class CartRaveServer extends Server {
 
   #broadcastJson(payload: unknown, without?: Connection | Connection[]) {
     const msg = JSON.stringify(payload);
-    this.broadcast(msg, without);
+    const withoutIds = without ? (Array.isArray(without) ? without.map((c) => c.id) : [without.id]) : undefined;
+    this.broadcast(msg, withoutIds);
   }
 
   #sendJson(conn: Connection, payload: unknown) {

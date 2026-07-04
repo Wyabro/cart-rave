@@ -43,7 +43,13 @@ function loadPersistedState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.dailyChallenges) && Array.isArray(parsed.weeklyChallenges)) {
-        return parsed;
+        // Ensure all loaded challenge IDs are valid members of the current CHALLENGE_POOL
+        const allValid = [...parsed.dailyChallenges, ...parsed.weeklyChallenges].every(
+          (c) => c && CHALLENGE_POOL.some((p) => p.id === c.id)
+        );
+        if (allValid) {
+          return parsed;
+        }
       }
     }
   } catch (err) {

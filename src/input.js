@@ -28,6 +28,7 @@ let _onHop = null;
 let _onBoost = null;
 let _isUiMode = false;
 
+/** @type {'keyboard'|'gamepad'|'touch'} */
 let currentInputMode = "keyboard";
 
 /**

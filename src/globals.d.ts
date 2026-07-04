@@ -60,7 +60,69 @@ declare global {
     type LoopOnce = typeof Three.LoopOnce;
     type LoopRepeat = typeof Three.LoopRepeat;
   }
+  interface EventTarget {
+    closest?(selector: string): HTMLElement | null;
+    value?: string;
+    disabled?: boolean;
+    isContentEditable?: boolean;
+    style?: CSSStyleDeclaration;
+  }
+  interface Event {
+    detail?: any;
+  }
+  interface HTMLElement {
+    disabled?: boolean;
+  }
+
+  // Re-export THREE types as a global namespace for JSDoc annotations
+  namespace THREE {
+    type Scene = Three.Scene;
+    type Object3D = Three.Object3D;
+    type PerspectiveCamera = Three.PerspectiveCamera;
+    type WebGLRenderer = Three.WebGLRenderer;
+    type Vector3 = Three.Vector3;
+    type Vector2 = Three.Vector2;
+    type Color = Three.Color;
+    type Euler = Three.Euler;
+    type Quaternion = Three.Quaternion;
+    type Mesh = Three.Mesh;
+    type MeshStandardMaterial = Three.MeshStandardMaterial;
+    type Material = Three.Material;
+    type Group = Three.Group;
+    type Raycaster = Three.Raycaster;
+    type AudioListener = Three.AudioListener;
+    type Audio = Three.Audio;
+    type PositionalAudio = Three.PositionalAudio;
+    type AnimationMixer = Three.AnimationMixer;
+    type AnimationClip = Three.AnimationClip;
+    type LoopOnce = typeof Three.LoopOnce;
+    type LoopRepeat = typeof Three.LoopRepeat;
+    type ShaderPass = any;
+  }
 }
+
+declare module 'three' {
+  interface Object3D {
+    isMesh?: boolean;
+    isGroup?: boolean;
+    isLight?: boolean;
+    material?: any;
+    geometry?: any;
+    _labelText?: string;
+    _labelColor?: string;
+    _labelBadgeKey?: string;
+  }
+  interface Pass {
+    material?: any;
+  }
+}
+
+declare module '@dimforge/rapier3d' {
+  interface RigidBody {
+    setCanSleep?: (canSleep: boolean) => void;
+  }
+}
+
 
 // Augment tweakpane v4 types with v3-era API methods still in use
 declare module 'tweakpane' {
@@ -71,3 +133,18 @@ declare module 'tweakpane' {
     refresh(): void;
   }
 }
+
+declare module 'three/examples/jsm/environments/RoomEnvironment.js' {
+  import * as Three from 'three';
+  export class RoomEnvironment extends Three.Scene {
+    constructor(renderer?: Three.WebGLRenderer);
+  }
+}
+
+declare module 'three/examples/jsm/postprocessing/UnrealBloomPass.js' {
+  interface UnrealBloomPass {
+    highPassUniforms?: Record<string, any>;
+  }
+}
+
+

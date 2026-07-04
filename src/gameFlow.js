@@ -36,6 +36,7 @@ import { ChallengeTracker } from "./stores/challengeStore.js";
  * @property {() => THREE.Scene | null | undefined} [getScene]
  * @property {(cart: object, scene: object, neonHex: number) => void} [triggerCartShatter]
  * @property {() => string | null} [getYouConnId]
+ * @property {(tier: number, multiplier: number) => void} [setLocalCombo]
  */
 
 /** @type {boolean} */

@@ -315,14 +315,24 @@ export function animateMenuCardEnter(element, options = {}) {
   const y = options.y ?? 22;
   const fromOpacity = options.fromOpacity ?? 0;
 
+  const target = /** @type {any} */ (element);
   if (!shouldAnimate(options)) {
-    element.style.opacity = String(1);
-    element.style.transform = "translateY(0) scale(1)";
+    if (target.style) {
+      target.style.opacity = String(1);
+      target.style.transform = "translateY(0) scale(1)";
+    } else if (target.length) {
+      for (const el of target) {
+        if (el.style) {
+          el.style.opacity = String(1);
+          el.style.transform = "translateY(0) scale(1)";
+        }
+      }
+    }
     return null;
   }
 
   return runAnimation(
-    element,
+    target,
     {
       opacity: [fromOpacity, 1],
       y: [y, 0],
@@ -1204,7 +1214,6 @@ export function wireButtonPressFeedback(btn, options = {}) {
   let pressed = false;
 
   const onPress = (e) => {
-    // @ts-expect-error - 'disabled' is on HTMLButtonElement, querySelector returns HTMLElement
     if (btn.disabled) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
     pressed = true;

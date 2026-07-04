@@ -220,6 +220,7 @@ function savePersonalStats(stats) {
   }
 }
 
+/** @returns {"quickplay" | "solo" | "testdrive" | "friends"} */
 function detectGameMode() {
   const room = Netcode.resolvedPartyRoomFromUrl();
   if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
@@ -235,6 +236,8 @@ function testDriveSpawnForSlot(_slotIndex, config) {
 
 let isNewPersonalBest = false;
 
+
+
 /**
  * Records end-of-round match history and local personal stats at the moment a round transitions into podium.
  * @param {number | "draw" | null} winnerSlotIndex
@@ -249,9 +252,9 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
 
   matchHistory.push({
     endedAtMs: Date.now(),
-    winnerSlotIndex: winnerSlotIndex === "draw" ? "draw" : Number.isFinite(winnerSlotIndex) ? winnerSlotIndex : 0,
+    winnerSlotIndex: winnerSlotIndex === "draw" ? "draw" : (typeof winnerSlotIndex === "number" && Number.isFinite(winnerSlotIndex) ? winnerSlotIndex : 0),
     scores,
-    mode: detectGameMode(),
+    mode: /** @type {any} */ (detectGameMode()),
   });
   while (matchHistory.length > 10) matchHistory.shift();
 
@@ -359,7 +362,7 @@ import { settingsStore } from "./stores/settingsStore.js";
 
 let bloomEnabled = settingsStore.getState().bloomEnabled;
 let fxPassEnabled = settingsStore.getState().fxPassEnabled;
-/** @type {ShaderPass | null} */
+/** @type {any} */
 let fxPass = null;
 let musicVolume = audioStore.getState().musicVolume;
 let sfxVolume = audioStore.getState().sfxVolume;
@@ -369,7 +372,7 @@ let isMuted = audioStore.getState().isMuted;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
- * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number>, mode?: "solo" | "quickplay" | "friends" }[]}
+ * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number>, mode?: "solo" | "quickplay" | "testdrive" | "friends" }[]}
  */
 let matchHistory = [];
 
@@ -619,7 +622,7 @@ async function main() {
   let shakeIntensity = 0;
   let fovPunchUntil = 0;
   function triggerLocalRamShake(intensity, isBoosting = false) {
-    const fx = CONFIG.ramming?.fx ?? {};
+    const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
     const minI = isBoosting
       ? (fx.shakeBoostMinIntensity ?? 0.24)
       : (fx.shakeMinIntensity ?? 0.38);
@@ -1127,10 +1130,10 @@ async function main() {
     const playedEl = document.getElementById("stat-played");
     const ptsEl = document.getElementById("stat-pts");
     const soloEl = document.getElementById("stat-solo");
-    if (winsEl) winsEl.textContent = ps.wins;
-    if (playedEl) playedEl.textContent = ps.matches;
+    if (winsEl) winsEl.textContent = String(ps.wins);
+    if (playedEl) playedEl.textContent = String(ps.matches);
     if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
-    if (soloEl) soloEl.textContent = ps.soloGames;
+    if (soloEl) soloEl.textContent = String(ps.soloGames);
   }
 
 
@@ -1266,7 +1269,7 @@ async function main() {
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
-    getHelloGate: () => helloGate,
+    getHelloGate: () => /** @type {any} */ (helloGate),
     getAllCartsRef: () => allCartsRef,
     bootstrapSessionCarts,
   });
@@ -1382,10 +1385,21 @@ async function main() {
     }
   }
 
+  function disposeSceneExtras(extras) {
+    if (!extras) return;
+    try {
+      if (extras.disposables && Array.isArray(extras.disposables)) {
+        for (const d of extras.disposables) {
+          d?.dispose?.();
+        }
+      }
+    } catch {}
+  }
+
   function initDeferredRaveVisuals() {
     const wantRaveExtras = levelUsesRaveExtras();
     disposeSceneExtras(sceneExtras);
-    sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras });
+    sceneExtras = /** @type {any} */ (initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras }));
     // * Scene extras (skybox/planets/spotlights) always created — hide in low quality.
     const showSceneExtras = wantRaveExtras && !isLowQualityMode();
     if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
@@ -2423,7 +2437,7 @@ async function main() {
       const scores = GameState.getRoundScores();
       GameState.setRoundWinnerSlotIndex(GameState.pickTimerWinner(scores));
     }
-    recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
+    recordPodiumStats(/** @type {any} */ (GameState.getRoundState().winnerSlotIndex), GameState.getRoundScores());
     HUD.clearFeed();
     syncRoundPhase("podium");
     const winnerIdx = GameState.getRoundState().winnerSlotIndex;
@@ -2710,7 +2724,7 @@ async function main() {
       recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
     }
 
-    sceneExtras?.update?.(now);
+    /** @type {any} */ (sceneExtras)?.update?.(now);
     levelUpdate?.(now);
 
     if (raveVisualsInitialized) {

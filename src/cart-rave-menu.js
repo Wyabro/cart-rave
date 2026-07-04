@@ -885,7 +885,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
     floorGrid.style.setProperty('--c1', p.primary);
     floorGrid.style.setProperty('--c2', p.secondary);
-    floorEl.style.opacity = CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity;
+    floorEl.style.opacity = String(CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity);
 
     titleEl.style.setProperty('--t1', p.primary);
     titleEl.style.setProperty('--t2', p.secondary);
@@ -1133,7 +1133,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   // ─── FX toggles via CONFIG ────────────────────────────────────────────────
   if (!CONFIG.showFloor) floorEl.style.display = 'none';
-  scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
+  scanEl.style.opacity = String(CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity);
 
   // ─── Menu motion (Anime.js) ───────────────────────────────────────────────
   let menuEntranceToken = 0;
@@ -1184,7 +1184,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       if (pressed && pe.pointerType === "mouse") onRelease();
     });
 
-    wireHoverFeedback(btn, { getTarget: getMenuPressTarget });
+    wireHoverFeedback(/** @type {HTMLElement} */ (btn), { getTarget: getMenuPressTarget });
   }
 
   function wireAllMenuPressFeedback() {
@@ -1401,8 +1401,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       CONFIG.intensity = Math.max(0, Math.min(10, n));
       updateSpotlights();
       updateParticles();
-      scanEl.style.opacity = CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity;
-      floorEl.style.opacity = CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity;
+      scanEl.style.opacity = String(CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity);
+      floorEl.style.opacity = String(CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity);
     },
     stopAnimations() {
       stopMenuLoopsAndTimers();

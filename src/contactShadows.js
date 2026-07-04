@@ -74,8 +74,9 @@ function isOnSolidPlaySurface(x, z) {
     return true;
   }
 
-  if (shadowHazards?.isOctagon) {
-    const apothem = shadowHazards.arenaHalf ?? CONFIG.record.radius;
+  const haz = /** @type {Record<string, any>} */ (shadowHazards);
+  if (haz?.isOctagon) {
+    const apothem = haz.arenaHalf ?? CONFIG.record.radius;
     const cos22 = 0.9238795;
     const sin22 = 0.3826834;
     const absX = Math.abs(x);
@@ -349,7 +350,7 @@ export function createStaticContactShadowCluster(placements) {
     mesh.material.opacity = p.opacity ?? staticOpacity;
     group.add(mesh);
     ownedGeometries.push(mesh.geometry);
-    ownedMaterials.push(mesh.material);
+    ownedMaterials.push(/** @type {THREE.Material} */ (mesh.material));
   }
 
   return { group, ownedGeometries, ownedMaterials };

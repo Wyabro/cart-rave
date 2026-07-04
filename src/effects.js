@@ -107,7 +107,7 @@ let trashGeo = null;
 /** @type {THREE.MeshBasicMaterial | null} */
 let trashMat = null;
 
-/** @type {Array<{ mesh: THREE.Mesh, material: THREE.Material, birthMs: number, durationMs: number, cart: object }>} */
+/** @type {Array<{ group: THREE.Group, coreMat: THREE.Material, glowMat: THREE.Material, birthMs: number, durationMs: number, cart: any, baseRadius: number, length: number }>} */
 let ramBoostStreaks = [];
 
 /** @type {RamBoostVisualConfig | null} */
@@ -397,7 +397,7 @@ export function setAmbientDustStyle(style, cartColors) {
  * @param {number} pitInnerRadius Inner pit radius used for crowd placement rings.
  */
 export function initCrowd(scene, cartColors, pitInnerRadius) {
-  const crowdSourceCart = buildCart("white");
+  const crowdSourceCart = buildCart(0xffffff);
   crowdSourceCart.updateMatrixWorld(true);
   const crowdCartParts = [];
   crowdSourceCart.traverse((child) => {
@@ -662,9 +662,9 @@ export function initEffects(scene, options = {}) {
     trashPool.push(m);
   }
 
-  // @ts-expect-error THREE duck-typing suppress
-  if (options.cartColors && options.ambientDustStyle) {
-    setAmbientDustStyle(options.ambientDustStyle, options.cartColors);
+  const opt = /** @type {Record<string, any>} */ (options);
+  if (opt.cartColors && opt.ambientDustStyle) {
+    setAmbientDustStyle(opt.ambientDustStyle, opt.cartColors);
   }
 
   if (isLowQualityMode()) {
@@ -684,7 +684,7 @@ export function initEffects(scene, options = {}) {
 export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
   const isBoosting = Boolean(opts.isBoosting);
   const clampedI = clamp(intensity, 0, 1.35);
-  const fx = CONFIG.ramming?.fx ?? {};
+  const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
   const isBackroomsFloor = type === "floor" && currentEffectStyle === "backrooms";
 
   let count;
@@ -720,15 +720,18 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
       const colors = isBackroomsFloor
         ? BACKROOMS_FLOOR_DUST_COLORS
         : [0x551a8b, 0xff00ff, 0x333333];
-      // @ts-expect-error THREE duck-typing suppress
-      p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+      const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
+      mat.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
     } else if (type === "edge") {
       const colors = [0xff00ff, 0x00ffff, 0xffffff];
-      p.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+      const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
+      mat.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
     } else {
-      p.material.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
+      const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
+      mat.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
     }
-    p.material.opacity = isBackroomsFloor ? 0.78 : 1;
+    const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
+    mat.opacity = isBackroomsFloor ? 0.78 : 1;
     p.visible = true;
     p.userData.isDust = isBackroomsFloor;
     if (type === "floor") {
@@ -889,7 +892,6 @@ function trimRamBoostStreakPool(maxActive) {
   while (ramBoostStreaks.length >= maxActive) {
     const oldest = ramBoostStreaks.shift();
     if (!oldest) break;
-    // @ts-expect-error THREE duck-typing suppress
     sceneRef?.remove(oldest.group);
     oldest.coreMat.dispose();
     oldest.glowMat.dispose();
