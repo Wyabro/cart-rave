@@ -174,6 +174,7 @@ let callbacks = {
 
   // Session lifecycle
   ensureSessionReady: () => {},
+  endCinematicCountdown: () => {},
 };
 
 function registerCallbacks(cb) {
@@ -232,9 +233,9 @@ export function registerGameCallbacks(deps) {
       deps.getTriggerCartShatterRef?.()?.(cart, scene, neonHex);
     },
     getSceneRef: () => deps.getScene?.() ?? null,
-    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor) => {
+    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {
       const hud = deps.getHud();
-      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor);
+      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
     },
     colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
     getPendingColorKey: () => deps.getPendingColorKey(),
@@ -249,6 +250,7 @@ export function registerGameCallbacks(deps) {
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
     ensureSessionReady: () => deps.ensureSessionReady?.(),
+    endCinematicCountdown: () => deps.endCinematicCountdown?.(),
   });
 }
 
@@ -550,6 +552,16 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     if (Array.isArray(aav) && aav.length === 3) {
       cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
     }
+
+    if (snap.b && !cart._prevRemoteBoosting) {
+      if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now());
+    }
+    cart._prevRemoteBoosting = Boolean(snap.b);
+
+    if (snap.h && !cart._prevRemoteHopping) {
+      if (triggerHopRef) triggerHopRef(cart, performance.now());
+    }
+    cart._prevRemoteHopping = Boolean(snap.h);
   };
 
   if (before && after && before.carts && after.carts) {
@@ -947,12 +959,16 @@ export function startHostSendLoop() {
       const r = c.body.rotation();
       const lv = c.body.linvel();
       const av = c.body.angvel();
+      const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
+      const isHopping = Boolean(c.isHopping || c._isHopping);
 
       carts[i] = {
         p: [round3(t.x), round3(t.y), round3(t.z)],
         q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
         lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
         av: [round3(av.x), round3(av.y), round3(av.z)],
+        b: isBoosting,
+        h: isHopping,
       };
     }
 
@@ -1643,11 +1659,15 @@ export function initNetcode(roomOverride) {
       if (cart) cart.hasSpilled = true;
       if (cart?.cargoBay && msg.cargoBay) cart.cargoBay.visible = false;
 
+      const pos = (msg.pos && typeof msg.pos === "object") ? msg.pos : { x: 0, y: 0, z: 0 };
+      const quat = (msg.quat && typeof msg.quat === "object") ? msg.quat : { x: 0, y: 0, z: 0, w: 1 };
+      const vel = (msg.vel && typeof msg.vel === "object") ? msg.vel : { x: 0, y: 0, z: 0 };
+
       GroceryPool.triggerSpill(
         String(msg.slotId),
-        msg.pos,
-        msg.quat,
-        msg.vel,
+        pos,
+        quat,
+        vel,
         6,
       );
       return;

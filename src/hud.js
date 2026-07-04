@@ -20,6 +20,7 @@ import { isLowQualityMode, setLowQualityMode } from "./utils.js";
 import { getServerClockOffsetMs } from "./netcode.js";
 import { gameStore } from "./stores/gameStore.js";
 import { getNpcPersonality } from "./npcNames.js";
+import { isWorldBootstrapped } from "./bootstrap.js";
 
 const PERSONALITY_BADGES = {
   aggressor: { letter: "[A]", color: "#ff4d4d" },
@@ -2682,6 +2683,7 @@ export function update({
   setHudSuppressed(suppressHud);
 
   if (menuVisible) return;
+  if (!isWorldBootstrapped()) return;
   if (!elements.root) return;
 
   const isTestDrive = _options.detectGameMode?.() === "testdrive";

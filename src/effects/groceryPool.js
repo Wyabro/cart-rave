@@ -358,17 +358,21 @@ export function createCargoBay() {
  * @param {number} [count=6] Number of grocery items to spawn (clamped to available slots).
  * @param {THREE.Object3D} [cargoBay=null] Optional cargo bay group to hide on spill.
  */
-export function triggerSpill(cartId, cartPos, cartQuat, cartLinvel, count = 6, cargoBay = null) {
+export function triggerSpill(cartId, cartPosParam, cartQuatParam, cartLinvelParam, count = 6, cargoBay = null) {
   if (instancedMeshes.length === 0 || !worldRef) return;
+
+  const cartPos = (cartPosParam && typeof cartPosParam === "object") ? cartPosParam : { x: 0, y: 0, z: 0 };
+  const cartQuat = (cartQuatParam && typeof cartQuatParam === "object") ? cartQuatParam : { x: 0, y: 0, z: 0, w: 1 };
+  const cartLinvel = (cartLinvelParam && typeof cartLinvelParam === "object") ? cartLinvelParam : { x: 0, y: 0, z: 0 };
 
   // * Hide the cargo bay visual immediately when spill happens.
   if (cargoBay) cargoBay.visible = false;
 
   const cartThreeQuat = _scratchQuat.set(
-    cartQuat.x,
-    cartQuat.y,
-    cartQuat.z,
-    cartQuat.w,
+    typeof cartQuat.x === "number" ? cartQuat.x : 0,
+    typeof cartQuat.y === "number" ? cartQuat.y : 0,
+    typeof cartQuat.z === "number" ? cartQuat.z : 0,
+    typeof cartQuat.w === "number" ? cartQuat.w : 1,
   );
   const now = performance.now();
   let spawned = 0;

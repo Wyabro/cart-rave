@@ -127,6 +127,7 @@ export function buildNetcodeGameBridge(getContext, session) {
     getPendingMidRoundJoinRespawnConnId: () => getContext()?.getPendingMidRoundJoinRespawnConnId?.() ?? null,
     setPendingMidRoundJoinRespawnConnId: (val) => getContext()?.setPendingMidRoundJoinRespawnConnId?.(val),
     ensureSessionReady: () => getContext()?.ensureSessionReady?.(),
+    endCinematicCountdown: () => getContext()?.endCinematicCountdown?.(),
   };
 }
 

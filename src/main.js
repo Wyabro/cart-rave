@@ -1952,6 +1952,7 @@ async function main() {
     getOnGameStartHandler: () => onGameStartHandler,
     getOnHostMigratedHandler: () => onHostMigratedHandler,
     onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
+    endCinematicCountdown: () => { CameraMod.endCinematicCountdown(camera); },
     getMenuVisible: () => menuVisible,
     invokeHideMenu: () => {
       void enterPlayMode({
