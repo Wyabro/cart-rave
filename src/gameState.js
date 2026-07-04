@@ -190,6 +190,15 @@ export function setSuddenDeathWinCallback(fn) {
   gameStore.getState().setSuddenDeathWinCallback(fn);
 }
 
+/**
+ * Updates the local player combo tier and expiry timestamp in gameStore.
+ * @param {number} tier
+ * @param {number} expiryMs
+ */
+export function setLocalCombo(tier, expiryMs) {
+  gameStore.getState().setLocalCombo(tier, expiryMs);
+}
+
 /** @returns {Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} */
 export function getLastHitBy() {
   return gameStore.getState().lastHitBy;

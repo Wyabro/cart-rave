@@ -36,6 +36,7 @@ import {
   wireButtonPressFeedback,
   wireHoverFeedback,
 } from "./animations.js";
+import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
 (function () {
   'use strict';
@@ -273,6 +274,7 @@ import {
   const audioEl = $("cr-audio");
   const gfxBtn = $("cr-gfx-btn");
   const lqBtn = $("cr-lq-btn");
+  const challengesListEl = $("cr-challenges-list");
   let currentCartSvg = null;
   let currentCustomizeCartSvg = null;
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
@@ -578,6 +580,7 @@ import {
   }
 
   function selectPresetColor(idx) {
+    if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
     if (idx < 0 || idx >= PALETTE_GAME.length) return;
     state.colorMode = 'preset';
     state.playerIdx = idx;
@@ -590,6 +593,7 @@ import {
   }
 
   function selectCustomColor() {
+    if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
     if (state.colorMode === 'custom') return;
     state.colorMode = 'custom';
     saveCustomization({ colorMode: 'custom', customHue: state.customHue });
@@ -601,6 +605,7 @@ import {
   }
 
   function onCustomHueInput(hue) {
+    if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
     state.customHue = normalizeHue(hue);
     saveCustomization({ colorMode: 'custom', customHue: state.customHue });
     updateCustomHueUi();
@@ -646,6 +651,7 @@ import {
     customizeColorRow.querySelectorAll('.cr-color-chip').forEach(chip => {
       wireMenuPressFeedback(chip);
       chip.addEventListener('click', () => {
+        if (getRoundState().phase === "countdown") return;
         if (chip.dataset.kind === 'custom') {
           if (state.colorMode === 'custom') {
             animateColorChipSelect(chip);
@@ -1292,6 +1298,71 @@ import {
   renderCart();
   applyPalette();
   nameText.textContent = state.name;
+
+  function renderChallengesPanel() {
+    if (!challengesListEl) return;
+    challengesListEl.innerHTML = "";
+
+    const cState = challengeStore.getState();
+    const active = [
+      ...cState.dailyChallenges,
+      ...cState.weeklyChallenges,
+    ];
+
+    active.forEach((item) => {
+      const meta = CHALLENGE_POOL.find((c) => c.id === item.id);
+      if (!meta) return;
+
+      const row = document.createElement("div");
+      row.className = `challenge-row${item.isComplete ? " is-complete" : ""}`;
+
+      const header = document.createElement("div");
+      header.className = "challenge-header";
+
+      const name = document.createElement("span");
+      name.className = "challenge-name";
+      name.textContent = meta.title;
+
+      const badge = document.createElement("span");
+      badge.className = `challenge-badge type-${meta.type}`;
+      badge.textContent = item.isComplete ? "✓ DONE" : meta.type;
+
+      header.appendChild(name);
+      header.appendChild(badge);
+
+      const desc = document.createElement("div");
+      desc.className = "challenge-desc";
+      desc.textContent = meta.description;
+
+      const footer = document.createElement("div");
+      footer.className = "challenge-footer";
+
+      const barWrap = document.createElement("div");
+      barWrap.className = "challenge-bar-wrap";
+
+      const barFill = document.createElement("div");
+      barFill.className = "challenge-bar-fill";
+      const pct = Math.min(100, Math.round((item.progress / meta.goal) * 100));
+      barFill.style.width = `${pct}%`;
+      barWrap.appendChild(barFill);
+
+      const progressText = document.createElement("span");
+      progressText.className = "challenge-progress-text";
+      progressText.textContent = `${item.progress}/${meta.goal}`;
+
+      footer.appendChild(barWrap);
+      footer.appendChild(progressText);
+
+      row.appendChild(header);
+      row.appendChild(desc);
+      row.appendChild(footer);
+
+      challengesListEl.appendChild(row);
+    });
+  }
+
+  renderChallengesPanel();
+  challengeStore.subscribe(renderChallengesPanel);
   wireAllMenuPressFeedback();
 
   // ─── Public API ───────────────────────────────────────────────────────────

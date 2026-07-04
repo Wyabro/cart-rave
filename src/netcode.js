@@ -3,7 +3,7 @@
 import PartySocket from "partysocket";
 import * as THREE from "three";
 import * as GameState from "./gameState.js";
-import { CONFIG, MSG, PARTYKIT_PUBLIC_HOST } from "./config.js";
+import { CART_COLORS, CONFIG, MSG, PALETTE, PARTYKIT_PUBLIC_HOST } from "./config.js";
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
@@ -78,6 +78,47 @@ function reconcileSlotSnapshots(prev, incoming) {
     }
     return s;
   });
+}
+
+/**
+ * Ensures NPC slot colors do not clash with human players in the lobby/match.
+ * Re-rolls NPC colors from the available palette if a collision occurs.
+ * @param {Array<Object>} slots
+ * @returns {Array<Object>}
+ */
+export function declashNpcSlotColors(slots) {
+  if (!Array.isArray(slots) || slots.length === 0) return slots;
+  const palette = PALETTE || ["pink", "blue", "green", "yellow", "neonOrange"];
+  const humanPresetColors = new Set();
+  const humanLookHexes = new Set();
+
+  for (const s of slots) {
+    if (s && s.kind === "human") {
+      if (s.color) humanPresetColors.add(s.color);
+      if (typeof s.lookHex === "number") humanLookHexes.add(s.lookHex & 0xffffff);
+    }
+  }
+
+  const availableColors = palette.filter((c) => {
+    if (humanPresetColors.has(c)) return false;
+    const hex = CART_COLORS[c]?.hex;
+    if (hex != null && humanLookHexes.has(hex & 0xffffff)) return false;
+    return true;
+  });
+
+  let availIdx = 0;
+  for (const s of slots) {
+    if (s && s.kind === "npc") {
+      const npcHex = typeof s.lookHex === "number" ? (s.lookHex & 0xffffff) : (CART_COLORS[s.color]?.hex & 0xffffff);
+      const isClashing = humanPresetColors.has(s.color) || (npcHex != null && humanLookHexes.has(npcHex));
+      if (isClashing && availableColors.length > 0) {
+        s.color = availableColors[availIdx % availableColors.length];
+        delete s.lookHex;
+        availIdx++;
+      }
+    }
+  }
+  return slots;
 }
 
 
@@ -1057,20 +1098,20 @@ export function initNetcode(roomOverride) {
     const lookHex = loadPlayerCustomization().hex;
 
     if (modeAtConnect === "testdrive") {
-      netSlots = [
+      netSlots = declashNpcSlotColors([
         { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
         { slotId: 1, kind: "empty", connId: null, name: "", color: "blue" },
         { slotId: 2, kind: "empty", connId: null, name: "", color: "green" },
         { slotId: 3, kind: "empty", connId: null, name: "", color: "yellow" },
-      ];
+      ]);
     } else {
       const npcNames = callbacks.getInitialNpcNames();
-      netSlots = [
+      netSlots = declashNpcSlotColors([
         { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
         { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: "blue" },
         { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: "green" },
         { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: "yellow" },
-      ];
+      ]);
     }
 
     callbacks.markFirstHelloReceived();
@@ -1278,7 +1319,7 @@ export function initNetcode(roomOverride) {
     if (type === MSG.slots) {
       const serverMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : 0;
       if (serverMs < lastSlotsServerMs) return;
-      const merged = reconcileSlotSnapshots(netSlots, msg.slots);
+      const merged = declashNpcSlotColors(reconcileSlotSnapshots(netSlots, msg.slots));
       const incomingJson = JSON.stringify(merged);
       if (serverMs === lastSlotsServerMs && incomingJson === lastSlotsJson) return;
       lastSlotsServerMs = serverMs;
@@ -1423,7 +1464,12 @@ export function initNetcode(roomOverride) {
         const attackerSlot = netSlots[msg.attackerSlot];
         const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
         const actorColor = callbacks.colorHexForSlot(attackerSlot);
-        callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor);
+        callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor, msg.comboTier, msg.comboMultiplier);
+
+        const localSlotIdx = strictSlotIndexForConn(youConnId);
+        if (msg.attackerSlot === localSlotIdx && msg.comboTier != null) {
+          GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
+        }
       } else {
         callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);
       }

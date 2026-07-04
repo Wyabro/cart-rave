@@ -33,6 +33,15 @@ import * as HUD from "./hud.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
+import { getNpcPersonality } from "./npcNames.js";
+import { ChallengeTracker } from "./stores/challengeStore.js";
+
+const PERSONALITY_BADGES = {
+  aggressor: { letter: "[A]", color: "#ff4d4d" },
+  lurker: { letter: "[L]", color: "#b366ff" },
+  scavenger: { letter: "[S]", color: "#4dff88" },
+  chaotic: { letter: "[C]", color: "#ffaa33" },
+};
 import * as GameAudio from "./audio.js";
 import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
@@ -224,6 +233,8 @@ function testDriveSpawnForSlot(_slotIndex, config) {
   return { x: 0, y, z: 0 };
 }
 
+let isNewPersonalBest = false;
+
 /**
  * Records end-of-round match history and local personal stats at the moment a round transitions into podium.
  * @param {number | "draw" | null} winnerSlotIndex
@@ -263,10 +274,23 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
     const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
     if (mySlotIdx >= 0) {
       const stats = getPersonalStats();
+      const myScore = Number(scores[mySlotIdx] ?? 0);
       stats.matches += 1;
-      stats.totalPoints += scores[mySlotIdx] || 0;
+      stats.totalPoints += myScore;
       if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
       savePersonalStats(stats);
+
+      let storedBest = 0;
+      try {
+        storedBest = Number(localStorage.getItem("cartRaveBestScore") || 0);
+      } catch {}
+
+      if (myScore > storedBest) {
+        isNewPersonalBest = true;
+        try {
+          localStorage.setItem("cartRaveBestScore", String(myScore));
+        } catch {}
+      }
     }
   }
 }
@@ -1487,7 +1511,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
+    const { overlay, panel, title, finalScores, history, playAgain, nextLevelBtn, statsLine, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
       overlay.style.display = "flex";
@@ -1526,8 +1550,28 @@ async function main() {
         solo: stats.soloGames ?? 0,
         endReason: roundState.endReason ?? null,
       };
+
+      const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      const isLocalWinner = mySlotIdx >= 0 && roundState.winnerSlotIndex === mySlotIdx;
+      if (isLocalWinner) {
+        if (roundState.endReason === "lastStanding") {
+          ChallengeTracker.record("last_standing");
+        }
+        if (roundState.isSuddenDeath) {
+          ChallengeTracker.record("sd_win");
+        }
+        const localCart = localCartForConnId();
+        if (localCart && !localCart.hasSpilled) {
+          ChallengeTracker.record("untouchable");
+        }
+      }
+
       playAgain.disabled = !isHost;
-      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
+      playAgain.textContent = isHost ? "REMATCH" : "WAITING FOR HOST…";
+      if (nextLevelBtn) {
+        nextLevelBtn.disabled = !isHost;
+        nextLevelBtn.textContent = isHost ? "NEXT LEVEL" : "WAITING FOR HOST…";
+      }
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
@@ -1575,6 +1619,14 @@ async function main() {
         const nameEl = document.createElement("span");
         nameEl.className = "results-score-name";
         nameEl.textContent = slotDisplayName(i);
+
+        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+        if (i === mySlotIdx && isNewPersonalBest) {
+          const pbBadge = document.createElement("span");
+          pbBadge.className = "pb-badge";
+          pbBadge.textContent = "NEW PB!";
+          nameEl.appendChild(pbBadge);
+        }
 
         let winnerBadge = null;
         if (isWinner) {
@@ -1724,17 +1776,22 @@ async function main() {
 
   // --- Floating name labels above carts ---
   const nameLabels = [];
-  function makeNameLabel(text, color) {
+  function makeNameLabel(text, color, badgeInfo) {
     const el = document.createElement("div");
-    el.textContent = text;
+    if (badgeInfo) {
+      el.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${text}`;
+    } else {
+      el.textContent = text;
+    }
     el.style.padding = "6px 14px";
     el.style.borderRadius = "4px";
     el.style.background = "rgba(0, 0, 0, 0.7)";
     el.style.color = "#fff";
-    el.style.fontFamily = "'Bungee', cursive";
+    el.style.fontFamily = '"Michroma", sans-serif';
     el.style.fontSize = "24px";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
+    el.style.textTransform = "uppercase";
     el.style.whiteSpace = "nowrap";
     el.style.border = `2px solid ${color}`;
     el.style.boxShadow = `0 0 9px ${color}66, inset 0 0 8px ${color}26`;
@@ -1757,19 +1814,33 @@ async function main() {
       const name = slot.name || `P${i + 1}`;
       const colorCSS = displayCssColorForSlot(slot);
 
+      const personality = cart.aiPersonality || (slot.kind === "npc" ? getNpcPersonality(name) : null);
+      const badgeInfo = personality ? (PERSONALITY_BADGES[personality.name] || null) : null;
+      const badgeKey = badgeInfo ? badgeInfo.letter : "";
+
       if (nameLabels[i]) {
-        if (nameLabels[i]._labelText !== name || nameLabels[i]._labelColor !== colorCSS) {
-          nameLabels[i].element.textContent = name;
+        if (
+          nameLabels[i]._labelText !== name ||
+          nameLabels[i]._labelColor !== colorCSS ||
+          nameLabels[i]._labelBadgeKey !== badgeKey
+        ) {
+          if (badgeInfo) {
+            nameLabels[i].element.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${name}`;
+          } else {
+            nameLabels[i].element.textContent = name;
+          }
           nameLabels[i].element.style.borderColor = colorCSS;
           nameLabels[i].element.style.boxShadow = `0 0 12px ${colorCSS}66, inset 0 0 8px ${colorCSS}26`;
           nameLabels[i].element.style.textShadow = `0 0 6px ${colorCSS}`;
           nameLabels[i]._labelText = name;
           nameLabels[i]._labelColor = colorCSS;
+          nameLabels[i]._labelBadgeKey = badgeKey;
         }
       } else {
-        const label = makeNameLabel(name, colorCSS);
+        const label = makeNameLabel(name, colorCSS, badgeInfo);
         label._labelText = name;
         label._labelColor = colorCSS;
+        label._labelBadgeKey = badgeKey;
         scene.add(label);
         nameLabels[i] = label;
       }
@@ -1833,6 +1904,7 @@ async function main() {
     allCarts = carts;
     allCartsRef = carts;
     Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
+    Netcode.declashNpcSlotColors(Netcode.getNetSlots());
     updateCartMaterialsFromSlots(Netcode.getNetSlots());
     sessionRefs.updateNameLabelsRef.current = updateNameLabels;
     updateNameLabels();
@@ -2189,6 +2261,7 @@ async function main() {
   });
 
   function startRunningAt(startedAtMs) {
+    isNewPersonalBest = false;
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
     syncRoundPhase("running");
@@ -2213,6 +2286,7 @@ async function main() {
   function startCountdown(startsAtLocalMs = Date.now() + 3000) {
     if (!Netcode.getIsHost()) return;
     if (GameState.getRoundState().phase === "running") return;
+    isNewPersonalBest = false;
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
     clearRoundCountdownTimeout();
@@ -2346,6 +2420,10 @@ async function main() {
     recordPodiumStats(GameState.getRoundState().winnerSlotIndex, GameState.getRoundScores());
     HUD.clearFeed();
     syncRoundPhase("podium");
+    const winnerIdx = GameState.getRoundState().winnerSlotIndex;
+    const winnerCart = Number.isFinite(winnerIdx) ? allCartsRef?.[winnerIdx] : null;
+    const winnerPos = winnerCart?.body ? winnerCart.body.translation() : { x: 0, y: 0, z: 0 };
+    CameraMod.beginCinematicPodium(camera, winnerPos);
     Netcode.sendHostRound();
   }
 
@@ -2427,6 +2505,15 @@ async function main() {
   }
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
+  if (resultsUi.nextLevelBtn) {
+    resultsUi.nextLevelBtn.addEventListener("click", () => {
+      if (!Netcode.getIsHost()) return;
+      const curLevel = settingsStore.getState().selectedLevelId || "classicRecord";
+      const nextLevel = curLevel === "backrooms" ? "classicRecord" : "backrooms";
+      settingsStore.getState().setSelectedLevelId(nextLevel);
+      onHostPlayAgainClick();
+    });
+  }
 
 
 
@@ -2498,6 +2585,7 @@ async function main() {
     addScore: GameState.addScore,
     isScoreTied: GameState.isScoreTied,
     setSuddenDeath: GameState.setSuddenDeath,
+    setLocalCombo: GameState.setLocalCombo,
     colorHexForSlot: displayColorHexForSlot,
     hud,
     sendHostRound: () => Netcode.sendHostRound(),
@@ -2659,8 +2747,10 @@ async function main() {
 
     const localCart = localCartForConnId();
 
-    // * Death camera takes priority — freeze at death position and pan toward the explosion.
-    if (localCart?.isShattering) {
+    const camMode = CameraMod.getCameraMode(camera);
+    if (camMode === CameraMod.CameraMode.CINEMATIC_PODIUM) {
+      CameraMod.updateCinematicPodium(camera, dt);
+    } else if (localCart?.isShattering) {
       if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.DEATH) {
         const deathPos = localCart._shatterDeathPos;
         if (deathPos) {

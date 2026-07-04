@@ -1,6 +1,7 @@
 // gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
 import { resetCartTransientState } from "./entities.js";
+import { ChallengeTracker } from "./stores/challengeStore.js";
 
 /**
  * @typedef {object} GameFlowDeps
@@ -40,6 +41,15 @@ import { resetCartTransientState } from "./entities.js";
 /** @type {boolean} */
 let _hostMissingCartWarned = false;
 
+function getComboMultiplier(tier) {
+  switch (tier) {
+    case 1: return 1.5;
+    case 2: return 2.0;
+    case 3: return 3.0;
+    default: return 1.0;
+  }
+}
+
 /**
  * Helper to calculate score and determine if a hit qualifies for a kill.
  * Extracted to keep the main loop clean.
@@ -49,14 +59,14 @@ function calculateFallScore(deps, slotIndex, p, nowMs) {
   const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 2500;
 
   if (!hit || (nowMs - hit.timestamp > hitWindowMs)) {
-    return { isKill: false, points: 0, attackerSlot: null, verb: "FELL OFF" };
+    return { isKill: false, points: 0, attackerSlot: null, verb: "FELL OFF", comboTier: 0, comboMultiplier: 1.0 };
   }
 
   const distOriginXZ = Math.hypot(p.x, p.z);
   const isCenterHole = distOriginXZ < deps.CONFIG.record.innerRadius + 2;
-  let points = isCenterHole ? 2 : 1;
+  let basePoints = isCenterHole ? 2 : 1;
 
-  if (hit.wasCritical) points += 1;
+  if (hit.wasCritical) basePoints += 1;
 
   const scores = deps.getRoundScores();
   let leaderSlotIndex = -1;
@@ -75,11 +85,27 @@ function calculateFallScore(deps, slotIndex, p, nowMs) {
   }
 
   if (!leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex) {
-    points += 1;
+    basePoints += 1;
   }
 
+  // Multiplier math from attacker's combo tier
+  const allCarts = deps.getAllCarts();
+  const attackerCart = allCarts?.[hit.attackerSlotIndex];
+  const comboTier = attackerCart?.comboTier || 0;
+  const comboMultiplier = getComboMultiplier(comboTier);
+
+  // Refresh attacker combo expiry timer on kill
+  if (attackerCart) {
+    const decayMs = deps.CONFIG.combo?.decayMs ?? 5000;
+    attackerCart.comboExpiryMs = performance.now() + decayMs;
+    if (hit.attackerSlotIndex === deps.getLocalSlotIndex()) {
+      deps.setLocalCombo?.(attackerCart.comboTier, attackerCart.comboExpiryMs);
+    }
+  }
+
+  const points = Math.round(basePoints * comboMultiplier);
   const verb = deps.hud?.pickKillFeedVerb ? deps.hud.pickKillFeedVerb(hit) : "RAMMED";
-  return { isKill: true, points, attackerSlot: hit.attackerSlotIndex, verb };
+  return { isKill: true, points, attackerSlot: hit.attackerSlotIndex, verb, comboTier, comboMultiplier };
 }
 
 /**
@@ -246,6 +272,13 @@ export function updateGameFlow(deps, context) {
         const p = cart.body.translation();
 
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
+          // * Reset combo tier instantly when falling
+          cart.comboTier = 0;
+          cart.comboExpiryMs = 0;
+          if (slotIndex === localSlotIndexThisFrame) {
+            deps.setLocalCombo?.(0, 0);
+          }
+
           // * Spilling Cart VFX — capture pose at fall moment for debris/particle trigger.
           if (!cart.hasSpilled) {
             const fallPos = cart.body.translation();
@@ -301,6 +334,15 @@ export function updateGameFlow(deps, context) {
 
               if (scoreData.attackerSlot === localSlotIndexThisFrame) {
                 deps.setFovPunchUntil(performance.now() + 200);
+                ChallengeTracker.record("ko_void");
+                const victimSlot = netSlots[slotIndex];
+                if (victimSlot?.kind === "npc") {
+                  ChallengeTracker.record("ko_npc");
+                }
+                const victimCart = allCarts[slotIndex];
+                if (victimCart?.aiPersonality?.name === "aggressor") {
+                  ChallengeTracker.record("ko_aggressor");
+                }
               }
 
               const attackerSlot = netSlots[scoreData.attackerSlot];
@@ -310,7 +352,7 @@ export function updateGameFlow(deps, context) {
               const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
               const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
 
-              deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor);
+              deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor, scoreData.comboTier, scoreData.comboMultiplier);
             } else {
               const isSuddenDeath = deps.getRoundState().isSuddenDeath;
               if (isSuddenDeath) {
@@ -380,6 +422,8 @@ export function updateGameFlow(deps, context) {
                 attackerSlot: scoreData.attackerSlot,
                 attackerSlotIndex: scoreData.attackerSlot,
                 verb: scoreData.verb,
+                comboTier: scoreData.comboTier ?? 0,
+                comboMultiplier: scoreData.comboMultiplier ?? 1.0,
               }));
             }
 
@@ -397,6 +441,15 @@ export function updateGameFlow(deps, context) {
           // * and the round ends immediately via the other tied cart's score.
           if (!deps.getRoundState().isSuddenDeath) {
             deps.scheduleRespawn(cart, now);
+          }
+        }
+
+        // * Rampage Combo decay check — resets tier to 0 if 5 seconds elapse without a hit
+        if (cart.comboTier > 0 && now >= cart.comboExpiryMs) {
+          cart.comboTier = 0;
+          cart.comboExpiryMs = 0;
+          if (slotIndex === localSlotIndexThisFrame) {
+            deps.setLocalCombo?.(0, 0);
           }
         }
 

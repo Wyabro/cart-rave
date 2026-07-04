@@ -6,8 +6,9 @@
   --cr-load-yellow: #ffe53d;
   --cr-load-backrooms: #c8d86a;
   --cr-load-backrooms-dim: #8a9a4a;
-  --cr-load-mono: "Space Mono", ui-monospace, monospace;
-  --cr-load-display: "Bungee", "Archivo Black", sans-serif;
+  --cr-load-ui: "Russo One", sans-serif;
+  --cr-load-mono: "Goldman", ui-monospace, monospace;
+  --cr-load-display: "Road Rage", "Goldman", sans-serif;
   --cr-load-fade-ms: 420ms;
   position: fixed;
   inset: 0;
@@ -87,7 +88,7 @@
 
 .cr-load__title {
   font-family: var(--cr-load-display);
-  font-size: clamp(2rem, 8vw, 3.4rem);
+  font-size: clamp(3rem, 12vw, 5.1rem);
   line-height: 0.95;
   letter-spacing: 0.04em;
   color: #fff;

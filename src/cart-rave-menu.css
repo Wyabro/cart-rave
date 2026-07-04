@@ -4,9 +4,10 @@
 /* === DESIGN TOKENS === */
 :root {
   /* Typography */
-  --mono: "Space Mono", ui-monospace, monospace;
-  --display: "Bungee", "Archivo Black", sans-serif;
-  --shade: "Bungee Shade", "Bungee", sans-serif;
+  --ui: "Russo One", sans-serif;
+  --mono: "Goldman", ui-monospace, monospace;
+  --display: "Road Rage", "Goldman", sans-serif;
+  --shade: "Road Rage", "Goldman", sans-serif;
 
   /* Brand colors */
   --color-magenta: #ff2bd6;
@@ -625,6 +626,7 @@ html, body {
 }
 
 .cr-tooltip-hd {
+  font-family: var(--ui);
   font-size: clamp(8px, 1vw, 9px);
   letter-spacing: 0.22em;
   color: rgba(255, 255, 255, 0.5);
@@ -742,11 +744,11 @@ html, body {
 
 .cr-title {
   font-family: var(--display);
-  font-size: clamp(48px, 8vw, 112px);
+  font-size: clamp(69px, 11.5vw, 161px);
   line-height: 0.9;
   margin: 4px 0 var(--space-xl);
   text-align: center;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.05em;
   transition: transform 90ms linear;
   text-wrap: balance;
 }
@@ -755,7 +757,9 @@ html, body {
 
 .cr-title-stack {
   display: flex; flex-direction: column; gap: 0;
-  font-size: clamp(56px, 9vw, 140px);
+  font-size: clamp(80.5px, 12.94vw, 201px);
+  line-height: 0.81;
+  letter-spacing: 0.05em;
 }
 
 .cr-title-stack .cr-title-word { margin: 0; }
@@ -768,7 +772,7 @@ html, body {
 .cr-title-stack .cr-title-word:nth-child(2) {
   color: var(--t3, var(--color-yellow));
   text-shadow: -4px 4px 0 var(--t1, var(--color-magenta)), 0 0 24px var(--t3, var(--color-yellow));
-  margin-top: -8px;
+  margin-top: -0.1em;
 }
 
 /* === BUTTONS === */
@@ -784,7 +788,7 @@ html, body {
   border: 2px solid var(--glow);
   border-radius: var(--radius-btn);
   color: #fff;
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(14px, 2vw, 18px);
   letter-spacing: 0.06em;
   cursor: pointer;
@@ -820,7 +824,8 @@ html, body {
 /* Press scale handled by Anime.js on .cr-btn-inner — keep outer hover lift only. */
 
 .cr-btn-inner {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2xl);
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2xl);
+  text-align: center;
   transform-origin: center center;
 }
 
@@ -877,20 +882,21 @@ html, body {
   border: 2px solid var(--glow, var(--color-cyan));
   border-radius: var(--radius-btn);
   color: #fff;
-  font-family: var(--display);
+  font-family: var(--ui);
   cursor: pointer;
   transition: var(--transition-btn);
   box-shadow:
     0 0 0 1px var(--border-white-05-inset) inset,
     0 0 10px var(--glow, var(--color-cyan)),
     0 0 22px color-mix(in oklab, var(--glow, var(--color-cyan)), transparent 65%);
-  text-align: left;
+  text-align: center;
   overflow: hidden;
 }
 
 .cr-level-btn-inner {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   position: relative;
   z-index: 1;
@@ -973,9 +979,9 @@ html, body {
   width: 100%;
 }
 
-.cr-player-hd {
+.cr-player-hd, .cr-audio-hd, .cr-controls-hd, .cr-graphics-hd, .cr-levels-hd {
   display: flex; justify-content: space-between; align-items: center;
-  font-family: var(--mono);
+  font-family: var(--ui);
   font-size: clamp(9px, 1.1vw, 10px);
   letter-spacing: 0.2em;
   color: rgba(255,255,255,0.6);
@@ -1008,7 +1014,7 @@ html, body {
 
 .cr-name-display {
   flex: 1;
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(16px, 2.5vw, 22px);
   letter-spacing: 0.02em;
   cursor: text;
@@ -1034,7 +1040,7 @@ html, body {
   border: 1px solid;
   border-radius: var(--radius-btn);
   padding: var(--space-xs) var(--space-md);
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(16px, 2.5vw, 22px);
   letter-spacing: 0.02em;
   outline: none;
@@ -1049,6 +1055,7 @@ html, body {
   background: var(--surface-white-06);
   border: 1px solid var(--border-white-15);
   color: #fff;
+  font-family: var(--ui);
   font-size: clamp(14px, 2vw, 18px);
   cursor: pointer;
   transition: transform 200ms ease, background 150ms;
@@ -1445,7 +1452,7 @@ html, body {
 }
 
 .cr-friends-title {
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(24px, 4vw, 32px);
   color: var(--color-yellow);
   text-shadow: 0 0 var(--gap-controls) var(--color-yellow), 0 0 28px rgba(255, 229, 61, 0.4);
@@ -1489,7 +1496,7 @@ html, body {
   border: 1px solid var(--color-cyan);
   border-radius: var(--radius-sm);
   color: var(--color-cyan);
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(11px, 1.5vw, 13px);
   cursor: pointer;
   letter-spacing: 0.08em;
@@ -1510,7 +1517,7 @@ html, body {
   border: 2px solid var(--color-portal);
   border-radius: var(--radius-btn);
   color: var(--color-portal);
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(14px, 2vw, 18px);
   letter-spacing: 0.06em;
   cursor: pointer;
@@ -1572,7 +1579,7 @@ html, body {
 }
 
 .cr-customize-title {
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(22px, 4vw, 30px);
   color: var(--color-magenta);
   text-shadow: 0 0 var(--gap-controls) var(--color-magenta), 0 0 24px rgba(255, 43, 214, 0.35);
@@ -1754,7 +1761,7 @@ html, body {
 }
 
 .cr-sunglasses-chip-label {
-  font-family: var(--mono);
+  font-family: var(--ui);
   font-size: clamp(6px, 0.9vw, 8px);
   letter-spacing: 0.05em;
   color: rgba(255, 255, 255, 0.8);
@@ -1769,7 +1776,7 @@ html, body {
   border: 2px solid var(--color-portal);
   border-radius: var(--radius-btn);
   color: var(--color-portal);
-  font-family: var(--display);
+  font-family: var(--ui);
   font-size: clamp(14px, 2vw, 18px);
   letter-spacing: 0.06em;
   cursor: pointer;
@@ -1881,7 +1888,7 @@ html, body {
   }
 
   .cr-stat-div { height: clamp(18px, 2.5vw, 24px); }
-  .cr-title-stack { font-size: clamp(44px, 7.5vw, 96px); }
+  .cr-title-stack { font-size: clamp(63.25px, 10.78vw, 138px); }
   .cr-buttons, .cr-levels { max-width: 100%; }
 }
 
@@ -1942,10 +1949,10 @@ html, body {
   .cr-title { margin: 0 0 clamp(2px, 0.6dvh, 6px); }
 
   .cr-title-stack {
-    font-size: clamp(28px, 7.2dvh, 52px);
-    line-height: 0.92;
+    font-size: clamp(40.25px, 10.35dvh, 74.75px);
+    line-height: 0.82;
   }
-  .cr-title-stack .cr-title-word:nth-child(2) { margin-top: -3px; }
+  .cr-title-stack .cr-title-word:nth-child(2) { margin-top: -0.08em; }
 
   .cr-buttons, .cr-levels {
     width: 100%;
@@ -2075,7 +2082,7 @@ html, body {
   .cr-center { grid-column: 2; grid-row: 1; gap: clamp(5px, 1dvh, 8px); justify-content: center; min-width: 0; }
   .cr-right { grid-column: 3; grid-row: 1; gap: clamp(6px, 1.2dvh, 10px); justify-content: center; min-width: 0; }
 
-  .cr-title-stack { font-size: clamp(18px, 4.8dvh, 28px); line-height: 0.9; margin: 0; }
+  .cr-title-stack { font-size: clamp(25.875px, 6.9dvh, 40.25px); line-height: 0.81; margin: 0; }
   .cr-tagline { font-size: clamp(6px, 1.6dvh, 8px); letter-spacing: 0.12em; }
 
   .cr-buttons { flex-direction: row; flex-wrap: nowrap; width: 100%; gap: clamp(6px, 1.2dvh, 8px); }
@@ -2126,3 +2133,140 @@ html, body {
     padding-bottom: max(clamp(10px, 2vh, 18px), env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* === CHALLENGES PANEL === */
+.cr-challenges-panel {
+  width: 100%;
+  padding: var(--pad-panel);
+  background: var(--surface-panel-bg);
+  border: 1px solid var(--border-cyan);
+  border-radius: var(--radius-panel);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 20px rgba(34, 230, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.cr-challenges-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--ui);
+  font-size: clamp(9px, 1.1vw, 10px);
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cr-challenges-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vw, 8px);
+}
+
+.challenge-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 10px);
+  border-radius: var(--radius-card);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 150ms ease;
+}
+
+.challenge-row.is-complete {
+  border-color: rgba(43, 255, 122, 0.45);
+  background: rgba(43, 255, 122, 0.06);
+}
+
+.challenge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.challenge-name {
+  font-family: var(--ui);
+  font-size: clamp(10px, 1.1vw, 12px);
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
+.challenge-badge {
+  font-family: var(--mono);
+  font-size: clamp(8px, 0.9vw, 9px);
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.challenge-badge.type-daily {
+  background: rgba(34, 230, 255, 0.15);
+  color: var(--color-cyan);
+  border: 1px solid rgba(34, 230, 255, 0.35);
+}
+
+.challenge-badge.type-weekly {
+  background: rgba(255, 43, 214, 0.15);
+  color: var(--color-magenta);
+  border: 1px solid rgba(255, 43, 214, 0.35);
+}
+
+.challenge-row.is-complete .challenge-badge {
+  background: rgba(43, 255, 122, 0.2);
+  color: var(--color-portal);
+  border: 1px solid rgba(43, 255, 122, 0.5);
+}
+
+.challenge-desc {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 10px);
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.2;
+}
+
+.challenge-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.challenge-bar-wrap {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.challenge-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--color-cyan), var(--color-magenta));
+  border-radius: 3px;
+  transition: width 250ms ease;
+  box-shadow: 0 0 6px rgba(34, 230, 255, 0.4);
+}
+
+.challenge-row.is-complete .challenge-bar-fill {
+  background: linear-gradient(90deg, var(--color-portal), #2bffc4);
+  box-shadow: 0 0 6px rgba(43, 255, 122, 0.6);
+}
+
+.challenge-progress-text {
+  font-family: var(--mono);
+  font-size: clamp(9px, 0.95vw, 10px);
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+

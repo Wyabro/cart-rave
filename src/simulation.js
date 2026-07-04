@@ -6,6 +6,7 @@ import { CONFIG, BASELINE_CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 import { getNpcPersonality } from "./npcNames.js";
+import { ChallengeTracker } from "./stores/challengeStore.js";
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
@@ -842,14 +843,29 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
   victim.lastRamTimeMs = ramTimeMs;
   rammer.lastRamTimeMs = ramTimeMs;
 
-  // Stage A: record last hit for scoring attribution (host only).
-  if (isHost) {
-    const attackerSlotIndex = rammer.slotIndex;
-    const victimSlotIndex = victim.slotIndex;
-    if (attackerSlotIndex >= 0 && victimSlotIndex >= 0) {
-      const nowPerf = performance.now();
-      const wasCritical = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
-      GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical);
+  // Stage A: record last hit for scoring attribution (host only) and update combo tier.
+  const nowPerf = performance.now();
+  const attackerSlotIndex = rammer.slotIndex ?? -1;
+  const victimSlotIndex = victim.slotIndex ?? -1;
+  if (isHost && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
+    const wasCritical = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
+    GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical);
+  }
+
+  // Update combo tier for attacker and refresh local store if rammer is local player
+  if ((isHost || callbacks?.localCart === rammer) && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
+    const maxTier = CONFIG.combo?.maxTier ?? 3;
+    const decayMs = CONFIG.combo?.decayMs ?? 5000;
+    rammer.comboTier = Math.min((rammer.comboTier || 0) + 1, maxTier);
+    rammer.comboExpiryMs = nowPerf + decayMs;
+
+    if (callbacks?.localCart === rammer) {
+      GameState.setLocalCombo(rammer.comboTier, rammer.comboExpiryMs);
+      if (rammer.comboTier === 2) ChallengeTracker.record('combo_t2');
+      if (rammer.comboTier === 3) ChallengeTracker.record('combo_t3');
+      if (!victim.hasSpilled) {
+        ChallengeTracker.record('spill');
+      }
     }
   }
 

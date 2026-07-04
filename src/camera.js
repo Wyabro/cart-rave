@@ -17,6 +17,7 @@ let _cameraRay = null;
 export const CameraMode = {
   FOLLOW: "follow",
   CINEMATIC_COUNTDOWN: "cinematic_countdown",
+  CINEMATIC_PODIUM: "cinematic_podium",
   DEATH: "death",
 };
 
@@ -319,6 +320,64 @@ export function endCinematicCountdown(camera) {
   }
   camera.userData.cameraMode = CameraMode.FOLLOW;
   camera.userData.cinematicState = null;
+}
+
+const DEFAULT_PODIUM_CONFIG = {
+  radius: 6.0,
+  height: 1.8,
+  startAngle: 0,
+  angularSpeed: 0.18,
+  lookTargetY: 0.8,
+};
+
+/**
+ * Switches camera into cinematic victory-lap podium mode orbiting the winning cart (or arena center).
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {{ x: number, y: number, z: number }} [targetPos]
+ * @param {Partial<CinematicCountdownConfig>} [configOverrides]
+ */
+export function beginCinematicPodium(camera, targetPos, configOverrides) {
+  if (!camera) return;
+  const config = { ...DEFAULT_PODIUM_CONFIG, ...configOverrides };
+  const state = createCinematicState(camera, config);
+  if (!state) return;
+
+  const cur = camera.position;
+  const tx = targetPos?.x ?? 0;
+  const ty = targetPos?.y ?? 0;
+  const tz = targetPos?.z ?? 0;
+  state.angle = Math.atan2(cur.z - tz, cur.x - tx) || config.startAngle;
+  state.podiumTargetPos = new THREE.Vector3(tx, ty, tz);
+
+  camera.userData.cameraMode = CameraMode.CINEMATIC_PODIUM;
+  camera.userData.cinematicState = state;
+}
+
+/**
+ * Updates the low-angle cinematic podium orbit around the winning cart.
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {number} dt Frame delta (seconds).
+ */
+export function updateCinematicPodium(camera, dt) {
+  const state = camera.userData.cinematicState;
+  if (!state) return;
+  const { config, lookTarget, desiredPos, lookMat, desiredQuat, podiumTargetPos } = state;
+  const center = podiumTargetPos || lookTarget;
+
+  state.angle += config.angularSpeed * dt;
+
+  desiredPos.set(
+    center.x + Math.cos(state.angle) * config.radius,
+    center.y + config.height,
+    center.z + Math.sin(state.angle) * config.radius,
+  );
+
+  const aimTarget = new THREE.Vector3(center.x, center.y + config.lookTargetY, center.z);
+  lookMat.lookAt(desiredPos, aimTarget, new THREE.Vector3(0, 1, 0));
+  desiredQuat.setFromRotationMatrix(lookMat);
+
+  camera.position.copy(desiredPos);
+  camera.quaternion.copy(desiredQuat);
 }
 
 // === Death camera ===

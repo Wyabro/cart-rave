@@ -22,6 +22,14 @@ export const gameStore = createStore((set, get) => ({
   lastHitBy: new Map(),
   isSuddenDeath: false,
   suddenDeathWinCallback: null,
+  localComboTier: 0,
+  localComboExpiryMs: 0,
+  localComboMultiplier: 1.0,
+
+  setLocalCombo: (tier, expiryMs) => {
+    const mult = tier === 1 ? 1.5 : tier === 2 ? 2.0 : tier === 3 ? 3.0 : 1.0;
+    set({ localComboTier: tier, localComboExpiryMs: expiryMs, localComboMultiplier: mult });
+  },
 
   setRoundPhase: (phase) => set({ roundPhase: phase }),
 
@@ -36,6 +44,9 @@ export const gameStore = createStore((set, get) => ({
       roundEndReason: null,
       lastHitBy: new Map(),
       isSuddenDeath: false,
+      localComboTier: 0,
+      localComboExpiryMs: 0,
+      localComboMultiplier: 1.0,
     });
   },
 
@@ -51,6 +62,9 @@ export const gameStore = createStore((set, get) => ({
       roundEndReason: null,
       lastHitBy: new Map(),
       isSuddenDeath: false,
+      localComboTier: 0,
+      localComboExpiryMs: 0,
+      localComboMultiplier: 1.0,
     });
   },
 
@@ -121,6 +135,9 @@ export const gameStore = createStore((set, get) => ({
       lastScoringHitAt: { 0: 0, 1: 0, 2: 0, 3: 0 },
       lastHitBy: new Map(),
       isSuddenDeath: false,
+      localComboTier: 0,
+      localComboExpiryMs: 0,
+      localComboMultiplier: 1.0,
     });
   },
 

@@ -337,6 +337,8 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     unstickStillSinceMs: 0,
     hasSpilled: false,
     tipOverStartMs: null,
+    comboTier: 0,
+    comboExpiryMs: 0,
     cargoBay,
   };
 }
@@ -377,6 +379,9 @@ export function resetCartTransientState(cart) {
   cart.boostCooldownUntilMs = 0;
   cart.boostChargeMultiplier = 1;
   cart.chargeUpSfxId = null;
+  // * Rampage Combo state reset
+  cart.comboTier = 0;
+  cart.comboExpiryMs = 0;
   // * AI decision state reset
   cart.aiNextDecisionMs = 0;
   cart.aiTarget = { x: 0, z: 0 };

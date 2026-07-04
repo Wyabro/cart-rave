@@ -290,6 +290,17 @@ export const CONFIG = {
     hitWindowMs: 2500, // ms — max time after a hit to credit a fall kill
   },
 
+  combo: {
+    decayMs: 5000, // ms — time before combo tier resets to 0
+    maxTier: 3, // count — maximum combo tier cap
+    tiers: {
+      0: { multiplier: 1.0, name: "" },
+      1: { multiplier: 1.5, name: "RAMPAGE" },
+      2: { multiplier: 2.0, name: "SAVAGE" },
+      3: { multiplier: 3.0, name: "CARNAGE" },
+    },
+  },
+
   round: {
     durationMs: 150000, // ms — host-authoritative round length (2.5 min)
   },

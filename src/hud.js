@@ -18,6 +18,15 @@ import { resolveCartNeonCss } from "./customization.js";
 import * as AudioManager from "./audioManager.js";
 import { isLowQualityMode, setLowQualityMode } from "./utils.js";
 import { getServerClockOffsetMs } from "./netcode.js";
+import { gameStore } from "./stores/gameStore.js";
+import { getNpcPersonality } from "./npcNames.js";
+
+const PERSONALITY_BADGES = {
+  aggressor: { letter: "[A]", color: "#ff4d4d" },
+  lurker: { letter: "[L]", color: "#b366ff" },
+  scavenger: { letter: "[S]", color: "#4dff88" },
+  chaotic: { letter: "[C]", color: "#ffaa33" },
+};
 
 /**
  * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
@@ -62,6 +71,10 @@ const elements = {
   readyBtn: null,
   menuBtn: null,
   audio: null,
+  comboBadge: null,
+  comboMultiplier: null,
+  comboTier: null,
+  comboBarFill: null,
   escOverlay: null,
   escBackdrop: null,
   escPanel: null,
@@ -108,8 +121,9 @@ let escEntranceToken = 0;
 
 export const HUD_CSS = `
     #hud {
-      --hud-display: "Bungee", "Archivo Black", cursive, sans-serif;
-      --hud-mono: "Space Mono", ui-monospace, monospace;
+      --hud-ui: "Russo One", sans-serif;
+      --hud-display: "Road Rage", "Goldman", sans-serif;
+      --hud-mono: "Goldman", ui-monospace, monospace;
       --hud-glow: #22e6ff;
       --hud-pad: clamp(8px, 1.5vw, 18px);
       --hud-radius: clamp(4px, 0.8vw, 6px);
@@ -133,8 +147,8 @@ export const HUD_CSS = `
       top: 20vh; /* Moved out of the top bar to prevent overlap with the scoreboard */
       left: 50%;
       transform: translateX(-50%);
-      font-family: var(--hud-display);
-      font-size: clamp(1.4rem, 4vw, 2.4rem);
+      font-family: var(--hud-ui);
+      font-size: clamp(3.15rem, 9vw, 5.4rem);
       font-weight: 900;
       letter-spacing: 0.06em;
       padding: clamp(4px, 1vw, 10px) clamp(8px, 1.5vw, 14px);
@@ -143,6 +157,85 @@ export const HUD_CSS = `
       display: none;
       white-space: nowrap;
       z-index: 10;
+    }
+
+    /* Rampage Combo HUD Badge */
+    #hud .hud-combo-badge {
+      position: absolute;
+      bottom: clamp(60px, 10vh, 100px);
+      left: 50%;
+      transform: translateX(-50%) scale(0.8);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(6px, 1vw, 10px) clamp(16px, 2.5vw, 24px);
+      background: var(--hud-panel-bg);
+      border: var(--hud-border);
+      border-radius: var(--hud-radius);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: none;
+      z-index: 15;
+      opacity: 0;
+      transition: opacity 180ms ease, transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #hud .hud-combo-badge.active {
+      display: flex;
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+    #hud .hud-combo-content {
+      display: flex;
+      align-items: baseline;
+      gap: clamp(6px, 1vw, 10px);
+    }
+    #hud .hud-combo-multiplier {
+      font-family: var(--hud-display);
+      font-size: clamp(24px, 4vw, 42px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 1px;
+      color: #ffaa00;
+      text-shadow: 0 0 16px #ffaa0088;
+    }
+    #hud .hud-combo-tier {
+      font-family: var(--hud-mono);
+      font-size: clamp(12px, 1.8vw, 18px);
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    #hud .hud-combo-bar-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    #hud .hud-combo-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: #ffaa00;
+      box-shadow: 0 0 8px #ffaa00;
+      transform-origin: left center;
+      transition: width 60ms linear;
+    }
+    /* Tier specific themes */
+    #hud .hud-combo-badge.tier-1 .hud-combo-multiplier { color: #ffaa00; text-shadow: 0 0 16px #ffaa00aa; }
+    #hud .hud-combo-badge.tier-1 .hud-combo-bar-fill { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
+    #hud .hud-combo-badge.tier-2 .hud-combo-multiplier { color: #ff3366; text-shadow: 0 0 20px #ff3366cc; }
+    #hud .hud-combo-badge.tier-2 .hud-combo-tier { color: #ff99bb; }
+    #hud .hud-combo-badge.tier-2 .hud-combo-bar-fill { background: #ff3366; box-shadow: 0 0 10px #ff3366; }
+    #hud .hud-combo-badge.tier-3 .hud-combo-multiplier { color: #00f3ff; text-shadow: 0 0 24px #00f3ff, 0 0 40px #ff0077; animation: comboPulse 0.5s ease-in-out infinite alternate; }
+    #hud .hud-combo-badge.tier-3 .hud-combo-tier { color: #ff0077; text-shadow: 0 0 12px #ff0077; }
+    #hud .hud-combo-badge.tier-3 .hud-combo-bar-fill { background: linear-gradient(90deg, #00f3ff, #ff0077); box-shadow: 0 0 12px #00f3ff; }
+
+    @keyframes comboPulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.06); }
     }
 
     #hud .hud-timer {
@@ -181,7 +274,7 @@ export const HUD_CSS = `
       display: flex;
       align-items: center;
       gap: clamp(4px, 0.8vw, 8px);
-      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-family: "Space Grotesk", ui-monospace, monospace;
       font-size: clamp(10px, 1.2vw, 13px);
       letter-spacing: 2px;
       color: rgba(255,255,255,0.6);
@@ -206,7 +299,7 @@ export const HUD_CSS = `
     }
 
     #hud .hud-timer-num {
-      font-family: "Bungee", cursive, system-ui, sans-serif;
+      font-family: "Michroma", sans-serif;
       font-size: clamp(28px, 5.5vw, 54px);
       line-height: 1;
       letter-spacing: 4px;
@@ -283,9 +376,10 @@ export const HUD_CSS = `
     }
 
     #hud .hud-scoreLabel {
-      font-family: "Bungee", cursive, system-ui, sans-serif;
+      font-family: "Michroma", sans-serif;
       font-size: clamp(11px, 1.2vw, 14px);
       letter-spacing: 1px;
+      text-transform: uppercase;
       flex: 0 1 auto;
       min-width: 0;
       overflow: hidden;
@@ -344,7 +438,7 @@ export const HUD_CSS = `
     }
 
     #hud .hud-feed-actor {
-      font-family: "Bungee", cursive, system-ui, sans-serif;
+      font-family: "Michroma", sans-serif;
       font-size: clamp(11px, 1.3vw, 14px);
       color: var(--c);
       text-shadow: 0 0 8px var(--c);
@@ -352,7 +446,7 @@ export const HUD_CSS = `
     }
 
     #hud .hud-feed-verb {
-      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-family: "Michroma", sans-serif;
       font-size: clamp(10px, 1.1vw, 12px);
       color: rgba(255,255,255,0.45);
       letter-spacing: 2px;
@@ -360,7 +454,7 @@ export const HUD_CSS = `
     }
 
     #hud .hud-feed-target {
-      font-family: "Bungee", cursive, system-ui, sans-serif;
+      font-family: "Michroma", sans-serif;
       font-size: clamp(11px, 1.3vw, 14px);
       color: var(--c2);
       text-shadow: 0 0 8px var(--c2);
@@ -688,8 +782,9 @@ export const HUD_CSS = `
     }
 
     #esc-overlay {
-      --esc-display: "Bungee", "Archivo Black", sans-serif;
-      --esc-mono: "Space Mono", ui-monospace, monospace;
+      --esc-ui: "Russo One", sans-serif;
+      --esc-display: "Road Rage", "Goldman", sans-serif;
+      --esc-mono: "Goldman", ui-monospace, monospace;
       --esc-cyan: #22e6ff;
       --esc-magenta: #ff2bd6;
       --esc-surface: rgba(0, 0, 0, 0.52);
@@ -740,7 +835,7 @@ export const HUD_CSS = `
     }
 
     #esc-overlay .esc-title {
-      font-family: var(--esc-display);
+      font-family: var(--esc-ui);
       font-size: clamp(18px, 3.6vw, 26px);
       font-weight: 400;
       letter-spacing: 0.08em;
@@ -866,7 +961,7 @@ export const HUD_CSS = `
       border-radius: 5px;
       background: rgba(0, 0, 0, 0.55);
       border: 1.5px solid rgba(34, 230, 255, 0.35);
-      font-family: var(--esc-display);
+      font-family: var(--esc-ui);
       font-size: clamp(9px, 1.8vw, 10px);
       letter-spacing: 0.04em;
       color: var(--esc-cyan);
@@ -1027,7 +1122,7 @@ export const HUD_CSS = `
       align-items: center;
       gap: 5px;
       flex-shrink: 0;
-      font-family: var(--esc-display);
+      font-family: var(--esc-ui);
       font-size: clamp(11px, 2.2vw, 13px);
       letter-spacing: 0.06em;
       color: var(--esc-cyan);
@@ -1089,7 +1184,7 @@ export const HUD_CSS = `
       min-height: 44px;
       padding: clamp(10px, 2vw, 12px) clamp(10px, 2vw, 14px);
       border-radius: 8px;
-      font-family: var(--esc-display);
+      font-family: var(--esc-ui);
       font-size: clamp(12px, 2.4vw, 14px);
       letter-spacing: 0.06em;
       cursor: pointer;
@@ -1995,6 +2090,21 @@ function updateScores(roundState, netSlots, youConnId) {
         entry.rank.textContent = String(ranks.get(row.slotIndex) ?? pos + 1);
         entry.label.textContent = row.slotName;
 
+        const slot = netSlots?.[row.slotIndex];
+        if (slot && slot.kind === "npc") {
+          const p = getNpcPersonality(slot.name);
+          const info = p ? PERSONALITY_BADGES[p.name] : null;
+          if (info) {
+            entry.badge.textContent = info.letter;
+            entry.badge.style.color = info.color;
+            entry.badge.style.display = "inline-block";
+          } else {
+            entry.badge.style.display = "none";
+          }
+        } else {
+          entry.badge.style.display = "none";
+        }
+
         const isLocal = row.slotIndex === localIdx;
         if (dataChanged && prevScoresBySlot) {
           const oldScore = Number(prevScoresBySlot[row.slotIndex] ?? 0);
@@ -2007,7 +2117,6 @@ function updateScores(roundState, netSlots, youConnId) {
         }
         entry.value.textContent = String(row.score);
 
-        const slot = netSlots?.[row.slotIndex];
         if (slot) {
           if (!entry.box.classList.contains("hud-scoreBox")) {
             entry.box.classList.add("hud-scoreBox");
@@ -2158,6 +2267,12 @@ export function init(options) {
     rank.className = "hud-scoreRank";
     rank.textContent = String(i + 1);
 
+    const badge = document.createElement("span");
+    badge.className = "hud-scoreBadge";
+    badge.style.display = "none";
+    badge.style.marginRight = "4px";
+    badge.style.fontWeight = "700";
+
     const label = document.createElement("div");
     label.className = "hud-scoreLabel";
     label.textContent = `P${i + 1}`;
@@ -2171,11 +2286,12 @@ export function init(options) {
     value.textContent = "0";
 
     box.appendChild(rank);
+    box.appendChild(badge);
     box.appendChild(label);
     box.appendChild(you);
     box.appendChild(value);
     elements.scores.appendChild(box);
-    elements.scoreBoxes.push({ root: elements.root, box, rank, label, you, value });
+    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, you, value });
   }
 
   elements.readyBtn = document.createElement("button");
@@ -2196,6 +2312,26 @@ export function init(options) {
   elements.root.appendChild(elements.scores);
   elements.root.appendChild(elements.feed);
   elements.root.appendChild(elements.readyBtn);
+
+  // Rampage Combo HUD Badge
+  elements.comboBadge = document.createElement("div");
+  elements.comboBadge.className = "hud-combo-badge";
+  const comboContent = document.createElement("div");
+  comboContent.className = "hud-combo-content";
+  elements.comboMultiplier = document.createElement("span");
+  elements.comboMultiplier.className = "hud-combo-multiplier";
+  elements.comboTier = document.createElement("span");
+  elements.comboTier.className = "hud-combo-tier";
+  comboContent.appendChild(elements.comboMultiplier);
+  comboContent.appendChild(elements.comboTier);
+  const comboTrack = document.createElement("div");
+  comboTrack.className = "hud-combo-bar-track";
+  elements.comboBarFill = document.createElement("div");
+  elements.comboBarFill.className = "hud-combo-bar-fill";
+  comboTrack.appendChild(elements.comboBarFill);
+  elements.comboBadge.appendChild(comboContent);
+  elements.comboBadge.appendChild(comboTrack);
+  elements.root.appendChild(elements.comboBadge);
 
   // In-game audio widget
   elements.audio = document.createElement("div");
@@ -2570,7 +2706,58 @@ export function update({
   updateTimer(roundState, matchHistoryLength);
   updateScores(roundState, netSlots, youConnId);
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
+  updateComboWidget();
   scheduleHudLayoutSync();
+}
+
+let _prevComboTier = 0;
+
+/**
+ * Updates the local player Rampage Combo badge widget and decay bar.
+ */
+function updateComboWidget() {
+  if (!elements.comboBadge) return;
+  const state = gameStore.getState();
+  const tier = state.localComboTier || 0;
+  const expiryMs = state.localComboExpiryMs || 0;
+  const multiplier = state.localComboMultiplier || 1.0;
+  const now = performance.now();
+
+  if (tier <= 0 || now >= expiryMs) {
+    if (elements.comboBadge.classList.contains("active")) {
+      elements.comboBadge.classList.remove("active", "tier-1", "tier-2", "tier-3");
+    }
+    _prevComboTier = 0;
+    return;
+  }
+
+  const remainingMs = Math.max(0, expiryMs - now);
+  const decayPct = (remainingMs / 5000) * 100;
+
+  const tierNames = { 1: "RAMPAGE", 2: "SAVAGE", 3: "CARNAGE" };
+  const tierName = tierNames[tier] || "COMBO";
+
+  if (elements.comboMultiplier) elements.comboMultiplier.textContent = `${multiplier.toFixed(1)}x`;
+  if (elements.comboTier) elements.comboTier.textContent = tierName;
+  if (elements.comboBarFill) elements.comboBarFill.style.width = `${decayPct}%`;
+
+  if (!elements.comboBadge.classList.contains("active")) {
+    elements.comboBadge.classList.add("active");
+  }
+  elements.comboBadge.classList.remove("tier-1", "tier-2", "tier-3");
+  elements.comboBadge.classList.add(`tier-${tier}`);
+
+  if (tier > _prevComboTier) {
+    elements.comboBadge.animate(
+      [
+        { transform: "translateX(-50%) scale(1)" },
+        { transform: "translateX(-50%) scale(1.35)" },
+        { transform: "translateX(-50%) scale(1)" },
+      ],
+      { duration: 250, easing: "cubic-bezier(0.175, 0.885, 0.32, 1.275)" }
+    );
+  }
+  _prevComboTier = tier;
 }
 
 export function refreshScoreBoxGlows(slots, youConnId) {
@@ -2612,13 +2799,21 @@ export function syncColors(slots) {
  * @param {string} verb
  * @param {string} targetName
  * @param {string|null} targetColor
+ * @param {number} [comboTier=0]
+ * @param {number} [comboMultiplier=1.0]
  */
-export function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor) {
+export function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier = 0, comboMultiplier = 1.0) {
   if (!elements.feed) return;
   const row = document.createElement("div");
   row.className = "hud-feed-row";
   row.style.setProperty("--c", actorColor || "rgba(255,255,255,0.9)");
   row.style.setProperty("--c2", targetColor || "rgba(255,255,255,0.9)");
+
+  let displayVerb = verb;
+  if (comboTier > 0 && comboMultiplier > 1.0) {
+    const tierName = comboTier === 1 ? "RAMPAGE" : comboTier === 2 ? "SAVAGE" : "CARNAGE";
+    displayVerb = `${verb} [${comboMultiplier.toFixed(1)}x ${tierName}]`;
+  }
 
   if (actorName) {
     const actor = document.createElement("span");
@@ -2626,7 +2821,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     actor.textContent = actorName;
     const v = document.createElement("span");
     v.className = "hud-feed-verb";
-    v.textContent = verb;
+    v.textContent = displayVerb;
     const target = document.createElement("span");
     target.className = "hud-feed-target";
     target.textContent = targetName;
@@ -2639,7 +2834,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     target.textContent = targetName;
     const v = document.createElement("span");
     v.className = "hud-feed-verb";
-    v.textContent = verb;
+    v.textContent = displayVerb;
     row.appendChild(target);
     row.appendChild(v);
   }

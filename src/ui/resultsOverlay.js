@@ -220,11 +220,12 @@ export function initResultsOverlay(hooks = {}) {
   const style = document.createElement("style");
   style.id = "results-overlay-style";
   style.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Road+Rage&family=Russo+One&family=Goldman:wght@400;700&family=Michroma&family=Space+Grotesk:wght@400;500;700&display=swap');
 
       #results-overlay {
-        --results-mono: "Space Mono", ui-monospace, monospace;
-        --results-display: "Bungee", "Archivo Black", sans-serif;
+        --results-ui: "Russo One", sans-serif;
+        --results-mono: "Goldman", ui-monospace, monospace;
+        --results-display: "Road Rage", "Goldman", sans-serif;
         position: fixed;
         inset: 0;
         z-index: 25000;
@@ -257,9 +258,10 @@ export function initResultsOverlay(hooks = {}) {
 
       #results-overlay .results-title {
         font-family: var(--results-display);
-        font-size: clamp(22px, 5vw, 32px);
+        font-size: clamp(24.2px, 5.5vw, 35.2px);
         font-weight: 400;
         letter-spacing: 0.06em;
+        text-transform: uppercase;
         margin: 0 0 18px;
         min-height: 1.2em;
         text-align: center;
@@ -312,10 +314,33 @@ export function initResultsOverlay(hooks = {}) {
         white-space: nowrap;
         min-width: 0;
         flex: 1;
+        display: flex;
+        align-items: center;
+      }
+
+      #results-overlay .pb-badge {
+        font-family: var(--results-mono);
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: #39ff14;
+        color: #000000;
+        box-shadow: 0 0 10px #39ff1488;
+        margin-left: 8px;
+        animation: pbPulse 1s ease-in-out infinite alternate;
+        display: inline-block;
+        flex-shrink: 0;
+      }
+
+      @keyframes pbPulse {
+        0% { transform: scale(1); box-shadow: 0 0 8px #39ff14; }
+        100% { transform: scale(1.08); box-shadow: 0 0 16px #39ff14; }
       }
 
       #results-overlay .results-score-val {
-        font-family: var(--results-display);
+        font-family: var(--results-ui);
         font-size: 18px;
         letter-spacing: 0.04em;
         color: var(--slot-glow, #22e6ff);
@@ -358,7 +383,7 @@ export function initResultsOverlay(hooks = {}) {
       }
 
       #results-overlay .results-stats-num {
-        font-family: var(--results-display);
+        font-family: var(--results-ui);
         font-size: 22px;
         line-height: 1;
         color: #ff2bd6;
@@ -420,7 +445,7 @@ export function initResultsOverlay(hooks = {}) {
         width: 100%;
         padding: 14px 22px;
         border-radius: 6px;
-        font-family: var(--results-display);
+        font-family: var(--results-ui);
         font-size: 16px;
         letter-spacing: 0.06em;
         cursor: pointer;
@@ -487,7 +512,7 @@ export function initResultsOverlay(hooks = {}) {
 
         #results-overlay .results-title {
           margin: 0 0 clamp(4px, 1vh, 6px);
-          font-size: clamp(16px, 4.5vw, 22px);
+          font-size: clamp(17.6px, 4.95vw, 24.2px);
           flex-shrink: 0;
           line-height: 1.1;
         }
@@ -627,18 +652,28 @@ export function initResultsOverlay(hooks = {}) {
   const playAgain = document.createElement("button");
   playAgain.type = "button";
   playAgain.className = "results-btn results-btn--play";
-  playAgain.textContent = "PLAY AGAIN";
+  playAgain.textContent = "REMATCH";
+  playAgain.setAttribute("data-gamepad-focusable", "true");
   playAgain.disabled = false;
+
+  const nextLevelBtn = document.createElement("button");
+  nextLevelBtn.type = "button";
+  nextLevelBtn.className = "results-btn results-btn--next";
+  nextLevelBtn.textContent = "NEXT LEVEL";
+  nextLevelBtn.setAttribute("data-gamepad-focusable", "true");
+  nextLevelBtn.disabled = false;
 
   const mainMenuBtn = document.createElement("button");
   mainMenuBtn.type = "button";
   mainMenuBtn.className = "results-btn results-btn--menu";
   mainMenuBtn.textContent = "MAIN MENU";
+  mainMenuBtn.setAttribute("data-gamepad-focusable", "true");
   mainMenuBtn.addEventListener("click", () => {
     onMainMenuClick();
   });
 
   actions.appendChild(playAgain);
+  actions.appendChild(nextLevelBtn);
   actions.appendChild(mainMenuBtn);
 
   const statsLine = document.createElement("div");
@@ -657,7 +692,8 @@ export function initResultsOverlay(hooks = {}) {
   document.body.appendChild(overlay);
 
   wireResultsButtonFeedback(playAgain);
+  wireResultsButtonFeedback(nextLevelBtn);
   wireResultsButtonFeedback(mainMenuBtn);
 
-  return { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn };
+  return { overlay, panel, title, finalScores, history, playAgain, nextLevelBtn, statsLine, mainMenuBtn };
 }
