@@ -348,7 +348,8 @@ export class CartRaveServer extends Server {
 
   #assignHumanToSlot(connId: string, preferredColor?: string): Slot | null {
     this.#ensureInitialized();
-    const slots = this.#slots!;
+    if (!this.#slots) return null;
+    const slots = this.#slots;
 
     // Already assigned?
     const existing = slots.find((s) => s.connId === connId);
@@ -371,7 +372,8 @@ export class CartRaveServer extends Server {
 
   #convertHumanSlotToNpc(connId: string) {
     this.#ensureInitialized();
-    const slots = this.#slots!;
+    if (!this.#slots) return;
+    const slots = this.#slots;
     const slot = slots.find((s) => s.connId === connId);
     if (!slot) return;
     slot.kind = "npc";
@@ -624,7 +626,8 @@ export class CartRaveServer extends Server {
   // * prevent a countdown from firing with fewer players than intended.
   #cancelCountdownIfNeeded() {
     if (this.#countdownTimerHandle === null && !this.#countdownArmed) return;
-    const humanSlots = this.#slots!.filter((s) => s.kind === "human");
+    if (!this.#slots) return;
+    const humanSlots = this.#slots.filter((s) => s.kind === "human");
     if (humanSlots.every((s) => s.isReady)) return;
     this.#abortArmedCountdown();
   }
@@ -674,7 +677,7 @@ export class CartRaveServer extends Server {
 
   #hasNpcSlotForPendingPicker(): boolean {
     this.#ensureInitialized();
-    return this.#slots!.some((s) => s.kind === "npc");
+    return Boolean(this.#slots?.some((s) => s.kind === "npc"));
   }
 
   // * Room capacity after ghost exorcism — pending pickers need a free NPC slot.
@@ -691,11 +694,12 @@ export class CartRaveServer extends Server {
   // * until the timer fires and clears the handle.
   #checkAllReady() {
     if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
+    if (!this.#slots) return;
     const liveConnIds = new Set<string>();
     for (const c of this.getConnections()) {
       liveConnIds.add(c.id);
     }
-    const humanSlots = this.#slots!.filter(
+    const humanSlots = this.#slots.filter(
       (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId)
     );
     // INVARIANT: the length check below is load-bearing, not defensive style —
@@ -720,8 +724,9 @@ export class CartRaveServer extends Server {
 
   #reconcileOrphanSlots(liveConnIds: Set<string>) {
     this.#ensureInitialized();
+    if (!this.#slots) return false;
     let changed = false;
-    for (const slot of this.#slots!) {
+    for (const slot of this.#slots) {
       if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
         this.#convertHumanSlotToNpc(slot.connId);
         changed = true;
@@ -739,7 +744,8 @@ export class CartRaveServer extends Server {
     const reapedIds: string[] = [];
 
     for (const id of this.#connections.keys()) {
-      const lastSeen = this.#lastSeenAtMs.get(id) ?? 0;
+      if (this.#pendingPickers.has(id)) continue;
+      const lastSeen = this.#lastSeenAtMs.get(id) ?? now;
       if (now - lastSeen > REAP_TIMEOUT_MS) {
         reapedIds.push(id);
       }
@@ -808,7 +814,7 @@ export class CartRaveServer extends Server {
     this.#ensureInitialized();
 
     // --- Phase Reset: If room was completely empty of humans, nuke the state ---
-    const existingHumans = this.#slots!.filter(s => s.kind === "human");
+    const existingHumans = (this.#slots ?? []).filter(s => s.kind === "human");
     if (existingHumans.length === 0) {
       this.#round = this.#freshRoundLobby();
       this.#carts = []; // Nuke the stale physical positions
@@ -982,172 +988,174 @@ export class CartRaveServer extends Server {
       return;
     }
 
-    const type = data?.type;
-    if (type === MSG.join) {
-      // Optional client metadata; server already assigned a slot on connect.
-      const name = typeof data?.name === "string" ? data.name.trim() : "";
-      const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
-      if (name) {
-        this.#ensureInitialized();
+    try {
+      const type = data?.type;
+      if (type === MSG.join) {
+        // Optional client metadata; server already assigned a slot on connect.
+        const name = typeof data?.name === "string" ? data.name.trim() : "";
+        const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
+        if (name) {
+          this.#ensureInitialized();
+          if (this.#pendingPickers.has(connection.id)) {
+            this.#pendingNames.set(connection.id, name.slice(0, 24));
+          }
+          const slot = this.#slots?.find((s) => s.connId === connection.id);
+          if (slot) slot.name = name.slice(0, 24);
+        }
+
+        let ghostHumanExorcised = false;
+
+        if (clientId) {
+          // Exorcise ghost: same clientId, different connId.
+          let ghostConnId: string | null = null;
+          for (const [id, cid] of this.#connClientId.entries()) {
+            if (id !== connection.id && cid === clientId) {
+              ghostConnId = id;
+              break;
+            }
+          }
+          if (ghostConnId && this.#connections.has(ghostConnId)) {
+            const ghostConn = this.#connections.get(ghostConnId);
+            if (this.#pendingPickers.has(ghostConnId)) {
+              this.#pendingPickers.delete(ghostConnId);
+              this.#pendingPickerAtMs.delete(ghostConnId);
+              this.#pendingNames.delete(ghostConnId);
+            } else {
+              this.#convertHumanSlotToNpc(ghostConnId);
+              ghostHumanExorcised = true;
+            }
+            this.#connections.delete(ghostConnId);
+            this.#removeFromJoinOrder(ghostConnId);
+            this.#lastSeenAtMs.delete(ghostConnId);
+            this.#connClientId.delete(ghostConnId);
+
+            // Cleanup IP tracking on ghost exorcism
+            const ip = this.#connToIp.get(ghostConnId);
+            if (ip) {
+              const count = this.#ipConnectionCounts.get(ip) ?? 1;
+              this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+              this.#connToIp.delete(ghostConnId);
+            }
+
+            try {
+              ghostConn?.close(4010, "Replaced by new session");
+            } catch {
+              // ignore
+            }
+          }
+
+          this.#connClientId.set(connection.id, clientId);
+        }
+
+        if (this.#rejectPendingConnIfRoomFull(connection)) return;
+
+        let slotsDirty = ghostHumanExorcised;
+        if (name) {
+          const assigned = this.#slots?.find((s) => s.connId === connection.id);
+          if (assigned) slotsDirty = true;
+        }
+
+        if (ghostHumanExorcised) {
+          this.#cancelCountdownIfNeeded();
+        }
+
+        if (slotsDirty) {
+          this.#broadcastJson({
+            v: PROTOCOL_VERSION,
+            type: MSG.slots,
+            serverNowMs: this.#serverNowMs(),
+            slots: this.#slots,
+          });
+        }
+
+        if (ghostHumanExorcised) {
+          this.#checkAllReady();
+        }
+        return;
+      }
+
+      if (type === MSG.colorPick) {
+        const requestedColor = typeof data?.color === "string" ? data.color.trim() : "";
+
+        let assignedFromPending = false;
         if (this.#pendingPickers.has(connection.id)) {
-          this.#pendingNames.set(connection.id, name.slice(0, 24));
-        }
-        const slot = this.#slots!.find((s) => s.connId === connection.id);
-        if (slot) slot.name = name.slice(0, 24);
-      }
-
-      let ghostHumanExorcised = false;
-
-      if (clientId) {
-        // Exorcise ghost: same clientId, different connId.
-        let ghostConnId: string | null = null;
-        for (const [id, cid] of this.#connClientId.entries()) {
-          if (id !== connection.id && cid === clientId) {
-            ghostConnId = id;
-            break;
+          const pickColor = PALETTE.includes(requestedColor as (typeof PALETTE)[number])
+            ? requestedColor
+            : undefined;
+          if (!this.#assignHumanToSlot(connection.id, pickColor)) {
+            this.#rejectPendingConn(connection, 4004, "Room full");
+            return;
           }
-        }
-        if (ghostConnId && this.#connections.has(ghostConnId)) {
-          const ghostConn = this.#connections.get(ghostConnId);
-          if (this.#pendingPickers.has(ghostConnId)) {
-            this.#pendingPickers.delete(ghostConnId);
-            this.#pendingPickerAtMs.delete(ghostConnId);
-            this.#pendingNames.delete(ghostConnId);
-          } else {
-            this.#convertHumanSlotToNpc(ghostConnId);
-            ghostHumanExorcised = true;
+          assignedFromPending = true;
+          this.#pendingPickers.delete(connection.id);
+          this.#pendingPickerAtMs.delete(connection.id);
+          const pendingName = this.#pendingNames.get(connection.id);
+          if (pendingName) {
+            const assigned = this.#slots?.find((s) => s.connId === connection.id);
+            if (assigned) assigned.name = pendingName.slice(0, 24);
           }
-          this.#connections.delete(ghostConnId);
-          this.#removeFromJoinOrder(ghostConnId);
-          this.#lastSeenAtMs.delete(ghostConnId);
-          this.#connClientId.delete(ghostConnId);
-
-          // Cleanup IP tracking on ghost exorcism
-          const ip = this.#connToIp.get(ghostConnId);
-          if (ip) {
-            const count = this.#ipConnectionCounts.get(ip) ?? 1;
-            this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
-            this.#connToIp.delete(ghostConnId);
-          }
-
-          try {
-            ghostConn?.close(4010, "Replaced by new session");
-          } catch {
-            // ignore
-          }
+          this.#pendingNames.delete(connection.id);
         }
 
-        this.#connClientId.set(connection.id, clientId);
-      }
+        const slot = this.#slots?.find((s) => s.connId === connection.id);
+        if (!slot) return;
 
-      if (this.#rejectPendingConnIfRoomFull(connection)) return;
+        let color = requestedColor;
+        if (!PALETTE.includes(color as (typeof PALETTE)[number])) {
+          color = slot.color;
+        }
+        const available = this.#getAvailableColors();
+        if (!available.includes(color)) {
+          color = available[0] ?? color;
+        }
 
-      let slotsDirty = ghostHumanExorcised;
-      if (name) {
-        const assigned = this.#slots!.find((s) => s.connId === connection.id);
-        if (assigned) slotsDirty = true;
-      }
+        const oldColor = slot.color;
+        slot.color = color;
+        const lookHex = this.#normalizeLookHex(data?.lookHex);
+        if (lookHex !== null) slot.lookHex = lookHex;
 
-      if (ghostHumanExorcised) {
-        this.#cancelCountdownIfNeeded();
-      }
+        // Displace any NPC holding the picked color to the unused 5th color.
+        const npcWithColor = this.#slots?.find(
+          (s) => s !== slot && s.kind === "npc" && s.color === color
+        );
+        if (npcWithColor) {
+          const allUsed = new Set((this.#slots ?? []).map((s) => s.color));
+          const unused = PALETTE.find((c) => !allUsed.has(c)) ?? oldColor;
+          npcWithColor.color = unused;
+        }
 
-      if (slotsDirty) {
+        if (assignedFromPending) {
+          this.#cancelCountdownIfNeeded();
+        }
+
         this.#broadcastJson({
           v: PROTOCOL_VERSION,
           type: MSG.slots,
           serverNowMs: this.#serverNowMs(),
           slots: this.#slots,
         });
+        return;
       }
 
-      if (ghostHumanExorcised) {
-        this.#checkAllReady();
-      }
-      return;
-    }
-
-    if (type === MSG.colorPick) {
-      const requestedColor = typeof data?.color === "string" ? data.color.trim() : "";
-
-      let assignedFromPending = false;
-      if (this.#pendingPickers.has(connection.id)) {
-        const pickColor = PALETTE.includes(requestedColor as (typeof PALETTE)[number])
-          ? requestedColor
-          : undefined;
-        if (!this.#assignHumanToSlot(connection.id, pickColor)) {
-          this.#rejectPendingConn(connection, 4004, "Room full");
-          return;
-        }
-        assignedFromPending = true;
-        this.#pendingPickers.delete(connection.id);
-        this.#pendingPickerAtMs.delete(connection.id);
-        const pendingName = this.#pendingNames.get(connection.id);
-        if (pendingName) {
-          const assigned = this.#slots!.find((s) => s.connId === connection.id);
-          if (assigned) assigned.name = pendingName.slice(0, 24);
-        }
-        this.#pendingNames.delete(connection.id);
+      if (type === MSG.cartLook) {
+        const slot = this.#slots?.find((s) => s.connId === connection.id);
+        if (!slot || slot.kind !== "human") return;
+        const lookHex = this.#normalizeLookHex(data?.lookHex);
+        if (lookHex === null) return;
+        slot.lookHex = lookHex;
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.slots,
+          serverNowMs: this.#serverNowMs(),
+          slots: this.#slots,
+        });
+        return;
       }
 
-      const slot = this.#slots?.find((s) => s.connId === connection.id);
-      if (!slot) return;
+      if (type === MSG.readyToggle) {
+        const slot = this.#slots?.find((s) => s.connId === connection.id);
+        if (!slot || slot.kind !== "human") return;
 
-      let color = requestedColor;
-      if (!PALETTE.includes(color as (typeof PALETTE)[number])) {
-        color = slot.color;
-      }
-      const available = this.#getAvailableColors();
-      if (!available.includes(color)) {
-        color = available[0] ?? color;
-      }
-
-      const oldColor = slot.color;
-      slot.color = color;
-      const lookHex = this.#normalizeLookHex(data?.lookHex);
-      if (lookHex !== null) slot.lookHex = lookHex;
-
-      // Displace any NPC holding the picked color to the unused 5th color.
-      const npcWithColor = this.#slots!.find(
-        (s) => s !== slot && s.kind === "npc" && s.color === color
-      );
-      if (npcWithColor) {
-        const allUsed = new Set(this.#slots!.map((s) => s.color));
-        const unused = PALETTE.find((c) => !allUsed.has(c)) ?? oldColor;
-        npcWithColor.color = unused;
-      }
-
-      if (assignedFromPending) {
-        this.#cancelCountdownIfNeeded();
-      }
-
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.slots,
-        serverNowMs: this.#serverNowMs(),
-        slots: this.#slots,
-      });
-      return;
-    }
-
-    if (type === MSG.cartLook) {
-      const slot = this.#slots?.find((s) => s.connId === connection.id);
-      if (!slot || slot.kind !== "human") return;
-      const lookHex = this.#normalizeLookHex(data?.lookHex);
-      if (lookHex === null) return;
-      slot.lookHex = lookHex;
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.slots,
-        serverNowMs: this.#serverNowMs(),
-        slots: this.#slots,
-      });
-      return;
-    }
-
-    if (type === MSG.readyToggle) {
-      const slot = this.#slots?.find((s) => s.connId === connection.id);
-      if (slot && slot.kind === "human") {
         slot.isReady = !slot.isReady;
 
         // Reconcile orphan human slots before checking ready state.
@@ -1158,7 +1166,7 @@ export class CartRaveServer extends Server {
         for (const c of this.getConnections()) {
           liveConnIds.add(c.id);
         }
-        for (const s of this.#slots!) {
+        for (const s of (this.#slots ?? [])) {
           if (s.kind === "human" && s.connId && !liveConnIds.has(s.connId)) {
             this.#convertHumanSlotToNpc(s.connId);
           }
@@ -1172,241 +1180,246 @@ export class CartRaveServer extends Server {
         });
         this.#cancelCountdownIfNeeded();
         this.#checkAllReady();
+        return;
       }
-      return;
-    }
 
-    if (type === MSG.playAgain) {
-      if (connection.id !== this.#hostId) return;
-      if (this.#countdownTimerHandle !== null) {
-        clearTimeout(this.#countdownTimerHandle);
-        this.#countdownTimerHandle = null;
-      }
-      this.#round = this.#freshRoundLobby();
-      this.#countdownArmed = false;
-      this.#carts = [];
-      // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
-      for (const slot of this.#slots!) {
-        if (slot.kind === "human") slot.isReady = true;
-      }
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.slots,
-        serverNowMs: this.#serverNowMs(),
-        slots: this.#slots,
-      });
-      this.#broadcastRound();
-      this.#checkAllReady();
-      return;
-    }
-
-    if (type === MSG.clientInput) {
-      // Security: prevent connId spoofing by forcing sender id.
-      data.connId = connection.id;
-      // Clamp inputs before relaying to host.
-      const throttle = this.#clamp(data?.input?.throttle, -1, 1);
-      const steer = this.#clamp(data?.input?.steer, -1, 1);
-      const nitro = Boolean(data?.input?.nitro);
-      const hop = Boolean(data?.input?.hop);
-      // Relay to host only. Do not broadcast.
-      this.#sendJsonToHost({
-        v: PROTOCOL_VERSION,
-        type: MSG.clientInput,
-        serverNowMs: this.#serverNowMs(),
-        connId: data.connId,
-        seq: typeof data?.seq === "number" ? data.seq : null,
-        tClient: typeof data?.tClient === "number" ? data.tClient : null,
-        input: { throttle, steer, nitro, hop },
-      });
-      return;
-    }
-
-    if (type === MSG.hostTransform) {
-      // Security: host-only.
-      if (connection.id !== this.#hostId) return;
-      const seq = typeof data?.seq === "number" ? data.seq : null;
-      if (seq === null) return;
-      if (seq <= this.#lastSeq) return;
-      this.#lastSeq = seq;
-
-      // Security: Validate the host isn't flooding us with fake physics objects
-      const carts = data?.carts;
-      /**
-       * @param {unknown} arr
-       * @param {number} len
-       * @param {number} min
-       * @param {number} max
-       */
-      const validateNumberArray = (arr: unknown, len: number, min: number, max: number) => {
-        if (!Array.isArray(arr) || arr.length !== len) return false;
-        for (let i = 0; i < len; i += 1) {
-          const n = arr[i];
-          if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) return false;
+      if (type === MSG.playAgain) {
+        if (connection.id !== this.#hostId) return;
+        if (this.#countdownTimerHandle !== null) {
+          clearTimeout(this.#countdownTimerHandle);
+          this.#countdownTimerHandle = null;
         }
-        return true;
-      };
+        this.#round = this.#freshRoundLobby();
+        this.#countdownArmed = false;
+        this.#carts = [];
+        // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
+        for (const slot of (this.#slots ?? [])) {
+          if (slot.kind === "human") slot.isReady = true;
+        }
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.slots,
+          serverNowMs: this.#serverNowMs(),
+          slots: this.#slots,
+        });
+        this.#broadcastRound();
+        this.#checkAllReady();
+        return;
+      }
 
-      /** @param {unknown} c */
-      const validateCartState = (c: unknown): c is CartState => {
-        const p = (c as any)?.p;
-        const isPositionValid =
-          Array.isArray(p) &&
-          p.length === 3 &&
-          typeof p[0] === "number" && Number.isFinite(p[0]) && p[0] >= -500 && p[0] <= 500 &&
-          typeof p[1] === "number" && Number.isFinite(p[1]) && p[1] >= -500 && p[1] <= 501.0 &&
-          typeof p[2] === "number" && Number.isFinite(p[2]) && p[2] >= -500 && p[2] <= 500;
+      if (type === MSG.clientInput) {
+        const slot = this.#slots?.find((s) => s.connId === connection.id);
+        if (!slot || slot.kind !== "human") return;
 
-        return Boolean(
-          c &&
-          typeof c === "object" &&
-          isPositionValid &&
-          validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
-          validateNumberArray((c as any).lv, 3, -200, 200) &&
-          validateNumberArray((c as any).av, 3, -200, 200),
-        );
-      };
+        // Security: prevent connId spoofing by forcing sender id.
+        data.connId = connection.id;
+        // Clamp inputs before relaying to host.
+        const throttle = this.#clamp(data?.input?.throttle, -1, 1);
+        const steer = this.#clamp(data?.input?.steer, -1, 1);
+        const nitro = Boolean(data?.input?.nitro);
+        const hop = Boolean(data?.input?.hop);
+        // Relay to host only. Do not broadcast.
+        this.#sendJsonToHost({
+          v: PROTOCOL_VERSION,
+          type: MSG.clientInput,
+          serverNowMs: this.#serverNowMs(),
+          connId: data.connId,
+          seq: typeof data?.seq === "number" ? data.seq : null,
+          tClient: typeof data?.tClient === "number" ? data.tClient : null,
+          input: { throttle, steer, nitro, hop },
+        });
+        return;
+      }
 
-      if (Array.isArray(carts) && carts.length <= 4) {
-        const sanitized: (CartState | undefined)[] = [...this.#carts];
-        for (let i = 0; i < carts.length; i += 1) {
-          const c = carts[i];
-          if (!c) continue;
-          if (!validateCartState(c)) {
-            // eslint-disable-next-line no-console
-            console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart ${i}`);
-            continue;
+      if (type === MSG.hostTransform) {
+        // Security: host-only.
+        if (connection.id !== this.#hostId) return;
+        const seq = typeof data?.seq === "number" ? data.seq : null;
+        if (seq === null) return;
+        if (seq <= this.#lastSeq) return;
+        this.#lastSeq = seq;
+
+        // Security: Validate the host isn't flooding us with fake physics objects
+        const carts = data?.carts;
+        /**
+         * @param {unknown} arr
+         * @param {number} len
+         * @param {number} min
+         * @param {number} max
+         */
+        const validateNumberArray = (arr: unknown, len: number, min: number, max: number) => {
+          if (!Array.isArray(arr) || arr.length !== len) return false;
+          for (let i = 0; i < len; i += 1) {
+            const n = arr[i];
+            if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) return false;
           }
-          sanitized[i] = c;
-        }
-        this.#carts = sanitized;
-      } else if (carts && typeof carts === "object" && !Array.isArray(carts)) {
-        const keys = Object.keys(carts);
-        if (keys.length <= 4) {
+          return true;
+        };
+
+        /** @param {unknown} c */
+        const validateCartState = (c: unknown): c is CartState => {
+          const p = (c as any)?.p;
+          const isPositionValid =
+            Array.isArray(p) &&
+            p.length === 3 &&
+            typeof p[0] === "number" && Number.isFinite(p[0]) && p[0] >= -500 && p[0] <= 500 &&
+            typeof p[1] === "number" && Number.isFinite(p[1]) && p[1] >= -500 && p[1] <= 501.0 &&
+            typeof p[2] === "number" && Number.isFinite(p[2]) && p[2] >= -500 && p[2] <= 500;
+
+          return Boolean(
+            c &&
+            typeof c === "object" &&
+            isPositionValid &&
+            validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
+            validateNumberArray((c as any).lv, 3, -200, 200) &&
+            validateNumberArray((c as any).av, 3, -200, 200),
+          );
+        };
+
+        if (Array.isArray(carts) && carts.length <= 4) {
           const sanitized: (CartState | undefined)[] = [...this.#carts];
-          for (const id of keys) {
-            const slotIndex = Number(id);
-            if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) continue;
-            const c = (carts as any)[id];
+          for (let i = 0; i < carts.length; i += 1) {
+            const c = carts[i];
+            if (!c) continue;
             if (!validateCartState(c)) {
               // eslint-disable-next-line no-console
-              console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart "${id}"`);
+              console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart ${i}`);
               continue;
             }
-            sanitized[slotIndex] = c;
+            sanitized[i] = c;
           }
           this.#carts = sanitized;
+        } else if (carts && typeof carts === "object" && !Array.isArray(carts)) {
+          const keys = Object.keys(carts);
+          if (keys.length <= 4) {
+            const sanitized: (CartState | undefined)[] = [...this.#carts];
+            for (const id of keys) {
+              const slotIndex = Number(id);
+              if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) continue;
+              const c = (carts as any)[id];
+              if (!validateCartState(c)) {
+                // eslint-disable-next-line no-console
+                console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart "${id}"`);
+                continue;
+              }
+              sanitized[slotIndex] = c;
+            }
+            this.#carts = sanitized;
+          }
         }
+
+        const sanitizedCollisions = sanitizeCollisionBatch(data?.collisions);
+
+        // Relay authoritative state to all clients (including host for confirmation).
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.state,
+          serverNowMs: this.#serverNowMs(),
+          seq: this.#lastSeq,
+          tHost: typeof data?.tHost === "number" ? data.tHost : null,
+          carts: this.#safeStructuredClone(this.#carts),
+          ...(sanitizedCollisions.length > 0 ? { collisions: sanitizedCollisions } : {}),
+        });
+        return;
       }
 
-      const sanitizedCollisions = sanitizeCollisionBatch(data?.collisions);
-
-      // Relay authoritative state to all clients (including host for confirmation).
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.state,
-        serverNowMs: this.#serverNowMs(),
-        seq: this.#lastSeq,
-        tHost: typeof data?.tHost === "number" ? data.tHost : null,
-        carts: this.#safeStructuredClone(this.#carts),
-        ...(sanitizedCollisions.length > 0 ? { collisions: sanitizedCollisions } : {}),
-      });
-      return;
-    }
-
-    if (type === MSG.hostRound) {
-      // Security: host-only; server validates transitions and podium results.
-      if (connection.id !== this.#hostId) return;
-      const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
-      if (!validated) return;
-      this.#round = validated;
-      if (validated.phase === "countdown") this.#countdownArmed = false;
-      this.#broadcastRound();
-      return;
-    }
-
-    if (type === MSG.hostEventCollision) {
-      if (connection.id !== this.#hostId) return;
-      const slotA = validateCollisionSlot(data?.slotA);
-      const slotB = validateCollisionSlot(data?.slotB);
-      const intensity = data?.intensity;
-      if (slotA === null || slotB === null) return;
-      if (typeof intensity !== "number" || !Number.isFinite(intensity) || intensity < 0 || intensity > 2) return;
-      const payload: CollisionFxEvent = {
-        slotA,
-        slotB,
-        intensity,
-        midpoint: validateCollisionMidpoint(data?.midpoint),
-      };
-      const rammerSlot = validateCollisionSlot(data?.rammerSlot);
-      if (rammerSlot !== null && rammerSlot >= 0 && rammerSlot <= 3) {
-        payload.rammerSlot = rammerSlot;
+      if (type === MSG.hostRound) {
+        // Security: host-only; server validates transitions and podium results.
+        if (connection.id !== this.#hostId) return;
+        const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
+        if (!validated) return;
+        this.#round = validated;
+        if (validated.phase === "countdown") this.#countdownArmed = false;
+        this.#broadcastRound();
+        return;
       }
-      if (data?.isBoosting === true) {
-        payload.isBoosting = true;
+
+      if (type === MSG.hostEventCollision) {
+        if (connection.id !== this.#hostId) return;
+        const slotA = validateCollisionSlot(data?.slotA);
+        const slotB = validateCollisionSlot(data?.slotB);
+        const intensity = data?.intensity;
+        if (slotA === null || slotB === null) return;
+        if (typeof intensity !== "number" || !Number.isFinite(intensity) || intensity < 0 || intensity > 2) return;
+        const payload: CollisionFxEvent = {
+          slotA,
+          slotB,
+          intensity,
+          midpoint: validateCollisionMidpoint(data?.midpoint),
+        };
+        const rammerSlot = validateCollisionSlot(data?.rammerSlot);
+        if (rammerSlot !== null && rammerSlot >= 0 && rammerSlot <= 3) {
+          payload.rammerSlot = rammerSlot;
+        }
+        if (data?.isBoosting === true) {
+          payload.isBoosting = true;
+        }
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.hostEventCollision,
+          serverNowMs: this.#serverNowMs(),
+          ...payload,
+        });
+        return;
       }
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.hostEventCollision,
-        serverNowMs: this.#serverNowMs(),
-        ...payload,
-      });
-      return;
-    }
 
-    if (type === MSG.hostEventFall) {
-      // Security: host-only; verb is whitelisted for kill-feed safety; slot fields are
-      // validated as integers in range so clients never index netSlots with junk.
-      if (connection.id !== this.#hostId) return;
-      const asSlot = (v: unknown): number | null =>
-        typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 3 ? v : null;
-      const slotId = asSlot(data?.slotId);
-      if (slotId === null) return; // a fall event without a valid victim is meaningless
-      const attackerSlot = asSlot(data?.attackerSlot);
-      const verbRaw = typeof data?.verb === "string" ? data.verb.trim().toUpperCase() : "";
-      const verb = ALLOWED_FALL_VERBS.has(verbRaw) ? verbRaw : (verbRaw ? "RAMMED" : "FELL OFF");
-      // Combo metadata drives the non-host kill-feed badge and the attacker's local
-      // combo HUD (netcode.js hostEventFall handler); relay it sanitized.
-      const comboTier =
-        typeof data?.comboTier === "number" && Number.isInteger(data.comboTier)
-          ? Math.max(0, Math.min(16, data.comboTier))
-          : null;
-      const comboMultiplier =
-        typeof data?.comboMultiplier === "number" && Number.isFinite(data.comboMultiplier)
-          ? Math.max(0, Math.min(99, data.comboMultiplier))
-          : null;
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.hostEventFall,
-        serverNowMs: this.#serverNowMs(),
-        tHost: typeof data?.tHost === "number" ? data.tHost : null,
-        slotId,
-        victimSlotIndex: slotId,
-        attackerSlot,
-        attackerSlotIndex: attackerSlot,
-        verb,
-        ...(comboTier !== null ? { comboTier } : {}),
-        ...(comboMultiplier !== null ? { comboMultiplier } : {}),
-        reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
-      });
-    }
+      if (type === MSG.hostEventFall) {
+        // Security: host-only; verb is whitelisted for kill-feed safety; slot fields are
+        // validated as integers in range so clients never index netSlots with junk.
+        if (connection.id !== this.#hostId) return;
+        const asSlot = (v: unknown): number | null =>
+          typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 3 ? v : null;
+        const slotId = asSlot(data?.slotId);
+        if (slotId === null) return; // a fall event without a valid victim is meaningless
+        const attackerSlot = asSlot(data?.attackerSlot);
+        const verbRaw = typeof data?.verb === "string" ? data.verb.trim().toUpperCase() : "";
+        const verb = ALLOWED_FALL_VERBS.has(verbRaw) ? verbRaw : (verbRaw ? "RAMMED" : "FELL OFF");
+        // Combo metadata drives the non-host kill-feed badge and the attacker's local
+        // combo HUD (netcode.js hostEventFall handler); relay it sanitized.
+        const comboTier =
+          typeof data?.comboTier === "number" && Number.isInteger(data.comboTier)
+            ? Math.max(0, Math.min(16, data.comboTier))
+            : null;
+        const comboMultiplier =
+          typeof data?.comboMultiplier === "number" && Number.isFinite(data.comboMultiplier)
+            ? Math.max(0, Math.min(99, data.comboMultiplier))
+            : null;
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.hostEventFall,
+          serverNowMs: this.#serverNowMs(),
+          tHost: typeof data?.tHost === "number" ? data.tHost : null,
+          slotId,
+          victimSlotIndex: slotId,
+          attackerSlot,
+          attackerSlotIndex: attackerSlot,
+          verb,
+          ...(comboTier !== null ? { comboTier } : {}),
+          ...(comboMultiplier !== null ? { comboMultiplier } : {}),
+          reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
+        });
+      }
 
-    if (type === MSG.spill) {
-      // Security: host-only relay for grocery-spill VFX.
-      if (connection.id !== this.#hostId) return;
-      if (typeof data?.slotId !== "number" || data.slotId < 0 || data.slotId > 3) return;
-      if (!data?.pos || typeof data.pos !== "object") return;
-      if (!data?.quat || typeof data.quat !== "object") return;
-      if (!data?.vel || typeof data.vel !== "object") return;
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.spill,
-        serverNowMs: this.#serverNowMs(),
-        slotId: data.slotId,
-        pos: data.pos,
-        quat: data.quat,
-        vel: data.vel,
-        cargoBay: data.cargoBay,
-      }, connection);
+      if (type === MSG.spill) {
+        // Security: host-only relay for grocery-spill VFX.
+        if (connection.id !== this.#hostId) return;
+        if (typeof data?.slotId !== "number" || data.slotId < 0 || data.slotId > 3) return;
+        if (!data?.pos || typeof data.pos !== "object") return;
+        if (!data?.quat || typeof data.quat !== "object") return;
+        if (!data?.vel || typeof data.vel !== "object") return;
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.spill,
+          serverNowMs: this.#serverNowMs(),
+          slotId: data.slotId,
+          pos: data.pos,
+          quat: data.quat,
+          vel: data.vel,
+          cargoBay: data.cargoBay,
+        }, connection);
+      }
+    } catch (err) {
+      console.error("[cart-rave] onMessage error:", err);
     }
   }
 }
