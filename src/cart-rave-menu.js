@@ -261,13 +261,13 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const customizeDoneBtn = $("cr-customize-done");
   const customizeBackBtn = $("cr-customize-back");
   const customHueWrap = $("cr-custom-hue-wrap");
-  const customHueSlider = $("cr-custom-hue-slider");
+  const customHueSlider = /** @type {HTMLInputElement | null} */ ($("cr-custom-hue-slider"));
   const customHueVal = $("cr-custom-hue-val");
   const levelRow = $("cr-level-row");
   const playerCard = $("cr-player-card");
   const nameDisplay = $("cr-name-display");
   const nameText = $("cr-name-text");
-  const nameInput = $("cr-name-input");
+  const nameInput = /** @type {HTMLInputElement | null} */ ($("cr-name-input"));
   const rerollBtn = $("cr-reroll");
   const muteBtn = $("cr-mute-btn");
   const musicVolFill = $("cr-music-vol-fill");
@@ -820,7 +820,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     disposeCartPreview();
     // * Persist final COLOR tab choices when leaving Customize (live saves also fire on each pick).
     saveCustomization({
-      colorMode: state.colorMode,
+      colorMode: state.colorMode === 'custom' ? 'custom' : 'preset',
       color: state.colorMode === 'custom'
         ? CUSTOM_COLOR_ID
         : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
@@ -838,7 +838,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     document.querySelectorAll('.cr-customize-tab[data-tab]').forEach((tab) => {
       wireMenuPressFeedback(tab);
       tab.addEventListener('click', () => {
-        if (tab.disabled) return;
+        if (tab instanceof HTMLButtonElement && tab.disabled) return;
         switchCustomizeTab(tab.dataset.tab || 'body');
       });
     });
@@ -906,12 +906,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
     // Buttons
     document.querySelectorAll('.cr-btn').forEach(btn => {
-      btn.style.setProperty('--glow', resolveGlow(btn.dataset.colorkey));
+      btn.style.setProperty('--glow', String(resolveGlow(btn.dataset.colorkey)));
     });
 
     // Level cards
     document.querySelectorAll('.cr-level-btn:not(.cr-level-btn--disabled)').forEach(btn => {
-      btn.style.setProperty('--glow', resolveGlow(btn.dataset.colorkey));
+      btn.style.setProperty('--glow', String(resolveGlow(btn.dataset.colorkey)));
     });
 
     // Audio widget
@@ -966,7 +966,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     audioUiMuted = Boolean(muted);
     const scale = muted ? 0 : (musicNorm ?? musicPct / 100);
     if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(scale));
-    if (musicVolVal) musicVolVal.textContent = muted ? 'OFF' : musicPct;
+    if (musicVolVal) musicVolVal.textContent = String(muted ? 'OFF' : musicPct);
     if (!muteBtn) return;
     if (muted) {
       muteBtn.classList.add('muted');
@@ -1086,6 +1086,15 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   animFrameId = requestAnimationFrame(animLoop);
 
   let menuHidden = false;
+  let menuEntranceTimeoutId = null;
+
+  const clearMenuEntranceTimeout = () => {
+    if (menuEntranceTimeoutId != null) {
+      clearTimeout(menuEntranceTimeoutId);
+      menuEntranceTimeoutId = null;
+    }
+  };
+
   const stopMenuLoops = () => {
     if (menuHidden) return;
     menuHidden = true;
@@ -1102,6 +1111,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       clearInterval(statsIntervalId);
       statsIntervalId = null;
     }
+    clearMenuEntranceTimeout();
   };
   const stopMenuLoopsAndTimers = () => {
     stopMenuTimers();
@@ -1149,7 +1159,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     let pressed = false;
 
     const onPress = (e) => {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
+      const pe = /** @type {PointerEvent} */ (e);
+      if (pe.pointerType === "mouse" && pe.button !== 0) return;
       pressed = true;
       animateButtonPress(target, { duration: 70, scale: 0.94 });
     };
@@ -1164,7 +1175,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     btn.addEventListener("pointerup", onRelease);
     btn.addEventListener("pointercancel", onRelease);
     btn.addEventListener("pointerleave", (e) => {
-      if (pressed && e.pointerType === "mouse") onRelease();
+      const pe = /** @type {PointerEvent} */ (e);
+      if (pressed && pe.pointerType === "mouse") onRelease();
     });
 
     wireHoverFeedback(btn, { getTarget: getMenuPressTarget });
@@ -1251,7 +1263,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const controls = $("cr-controls");
     if (controls instanceof HTMLElement) animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
 
-    window.setTimeout(() => {
+    clearMenuEntranceTimeout();
+    menuEntranceTimeoutId = window.setTimeout(() => {
+      menuEntranceTimeoutId = null;
       if (token === menuEntranceToken) setMenuEntrancePending(false);
     }, t + 110 + 420);
   }
@@ -1428,7 +1442,10 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       wireAllMenuPressFeedback();
     },
     onMenu(cb) {
-      window.addEventListener('cartrave:menu', (e) => cb(e.detail.action));
+      window.addEventListener('cartrave:menu', (e) => {
+        const ce = /** @type {CustomEvent} */ (e);
+        cb(ce.detail.action);
+      });
     },
     getLevel() {
       return state.level;

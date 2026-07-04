@@ -374,7 +374,7 @@ export class CartPreview {
 
     this.scene?.remove(this._placeholderGroup);
     this._placeholderGroup.traverse((child) => {
-      if (!child.isMesh) return;
+      if (!(child instanceof THREE.Mesh)) return;
       child.geometry?.dispose?.();
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       for (const m of mats) m?.dispose?.();
@@ -397,7 +397,7 @@ export class CartPreview {
       const disposedGeos = new Set();
       const disposedMats = new Set();
       this.cartGroup.traverse((child) => {
-        if (!child.isMesh) return;
+        if (!(child instanceof THREE.Mesh)) return;
         const ud = child.userData || {};
         if (ud.isSharedGeometry || ud.sharesCartFrameGeometry) {
           if (ud.isCartPatternLayer && child.material) {

@@ -252,6 +252,7 @@ export const CONFIG = {
     stateBufferMaxSize: 64, // count — max authoritative snapshots retained client-side
     extrapolationCapMs: 50, // ms — max velocity extrapolation when buffer has no "after" snapshot
     hostMigrationFreezeMs: 300, // ms — non-host input freeze after host_migrated
+    clockResyncIntervalMs: 30000, // ms — periodic 3-sample median re-sync (arrests slow clock drift)
 
     // * Client-side prediction (multiplayer non-host only). Host remains authoritative.
     prediction: {
@@ -265,6 +266,9 @@ export const CONFIG = {
       maxCorrectionM: 4.0,
       // * Ignore correction below this error (m). Prevents micro-jitter on well-predicted bodies.
       minErrorM: 0.12,
+      // * Reconcile heading only; local physics keeps pitch/roll (no popping on axes the
+      // * player never steered). Falls back to full slerp when flip state disagrees.
+      yawOnlyReconcile: true,
     },
   },
 

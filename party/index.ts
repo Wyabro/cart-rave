@@ -698,6 +698,9 @@ export class CartRaveServer extends Server {
     const humanSlots = this.#slots!.filter(
       (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId)
     );
+    // INVARIANT: the length check below is load-bearing, not defensive style —
+    // Array.prototype.every() on an empty array returns TRUE, so removing it would
+    // arm the countdown for a room with zero live humans.
     if (humanSlots.length === 0) return;
     if (!humanSlots.every((s) => s.isReady)) return;
 
@@ -1351,20 +1354,38 @@ export class CartRaveServer extends Server {
     }
 
     if (type === MSG.hostEventFall) {
-      // Security: host-only; verb is whitelisted for kill-feed safety.
+      // Security: host-only; verb is whitelisted for kill-feed safety; slot fields are
+      // validated as integers in range so clients never index netSlots with junk.
       if (connection.id !== this.#hostId) return;
+      const asSlot = (v: unknown): number | null =>
+        typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 3 ? v : null;
+      const slotId = asSlot(data?.slotId);
+      if (slotId === null) return; // a fall event without a valid victim is meaningless
+      const attackerSlot = asSlot(data?.attackerSlot);
       const verbRaw = typeof data?.verb === "string" ? data.verb.trim().toUpperCase() : "";
       const verb = ALLOWED_FALL_VERBS.has(verbRaw) ? verbRaw : (verbRaw ? "RAMMED" : "FELL OFF");
+      // Combo metadata drives the non-host kill-feed badge and the attacker's local
+      // combo HUD (netcode.js hostEventFall handler); relay it sanitized.
+      const comboTier =
+        typeof data?.comboTier === "number" && Number.isInteger(data.comboTier)
+          ? Math.max(0, Math.min(16, data.comboTier))
+          : null;
+      const comboMultiplier =
+        typeof data?.comboMultiplier === "number" && Number.isFinite(data.comboMultiplier)
+          ? Math.max(0, Math.min(99, data.comboMultiplier))
+          : null;
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.hostEventFall,
         serverNowMs: this.#serverNowMs(),
         tHost: typeof data?.tHost === "number" ? data.tHost : null,
-        slotId: data?.slotId ?? null,
-        victimSlotIndex: data?.victimSlotIndex ?? null,
-        attackerSlot: data?.attackerSlot ?? null,
-        attackerSlotIndex: data?.attackerSlotIndex ?? null,
+        slotId,
+        victimSlotIndex: slotId,
+        attackerSlot,
+        attackerSlotIndex: attackerSlot,
         verb,
+        ...(comboTier !== null ? { comboTier } : {}),
+        ...(comboMultiplier !== null ? { comboMultiplier } : {}),
         reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
       });
     }

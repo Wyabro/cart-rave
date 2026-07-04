@@ -4,6 +4,14 @@ import wasm from "vite-plugin-wasm";
 export default defineConfig({
   plugins: [wasm()],
 
+  // * Vitest-only: stub the Rapier wasm package so vite's import-analysis doesn't try
+  // * to resolve the wasm-pack entry during unit tests (rapierInstance never initializes there).
+  test: {
+    alias: {
+      "@dimforge/rapier3d": new URL("./tests/stubs/rapier3d.js", import.meta.url).pathname,
+    },
+  },
+
   // Base public path when served in production
   base: "./",
 

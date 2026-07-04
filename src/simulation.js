@@ -1615,7 +1615,7 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
  * immediately-following {@link applyArcadeControls} call without re-fetching.
  *
  * @param {number} now Current time in milliseconds.
- * @param {{ body: object, aiNextDecisionMs: number, aiTarget: { x: number, z: number } }} cart
+ * @param {any} cart Active cart object.
  * @param {object[]|null} allCarts All slot carts.
  * @param {object[]|null} netSlots Network slot metadata.
  * @returns {{ forward: number, turn: number }}

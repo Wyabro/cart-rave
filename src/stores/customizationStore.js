@@ -14,8 +14,9 @@ export const customizationStore = createStore((set) => {
   if (typeof window !== "undefined") {
     wireCustomizationStorageSync();
     window.addEventListener("cartrave:customization-changed", (e) => {
-      if (e.detail) {
-        set(e.detail);
+      const customEvent = /** @type {CustomEvent} */ (e);
+      if (customEvent.detail) {
+        set(customEvent.detail);
       }
     });
   }
@@ -27,7 +28,7 @@ export const customizationStore = createStore((set) => {
 
     /**
      * Updates cart customization state, persists to localStorage, and updates store.
-     * @param {{ colorMode?: string, color?: string, customHue?: number, pattern?: string, sunglassesStyle?: string }} input
+     * @param {{ colorMode?: 'preset' | 'custom', color?: string, customHue?: number, pattern?: string, sunglassesStyle?: string }} input
      */
     save: (input) => {
       const updated = savePlayerCustomization(input);

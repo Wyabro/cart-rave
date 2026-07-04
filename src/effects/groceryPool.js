@@ -188,9 +188,10 @@ export async function init(scene, world) {
     const gltfScene = gltfs[modelIdx];
 
     // * Find the first mesh in the loaded scene to extract geometry and material.
+    /** @type {THREE.Mesh | null} */
     let sourceMesh = null;
     gltfScene.traverse((child) => {
-      if (!sourceMesh && child.isMesh) {
+      if (!sourceMesh && child instanceof THREE.Mesh) {
         sourceMesh = child;
       }
     });

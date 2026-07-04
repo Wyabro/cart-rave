@@ -163,7 +163,7 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
     outer = Math.min(outer, rMax - 0.001);
     if (outer - inner < 0.002) continue;
 
-    const ringGeo = new THREE.RingGeometry(inner, outer, 32);
+    const ringGeo = new THREE.RingGeometry(inner, outer, 64);
     ringGeo.rotateX(-Math.PI / 2);
 
     const ringColor = i % 2 === 0 ? ringColorA : ringColorB;
@@ -784,6 +784,7 @@ export function initArena(scene, world, config, options = {}) {
     if (recordReflector.userData._cartRaveTextureSize >= REFLECTOR_TEXTURE_SIZE_FULL) return;
     // @ts-expect-error THREE duck-typing suppress
     if (recordReflector.renderTarget) recordReflector.renderTarget.dispose();
+    if (recordReflector.material) disposeMaterial(recordReflector.material);
     recordReflector.geometry.dispose();
     recordMesh.remove(recordReflector);
     recordReflector = createRecordReflector(REFLECTOR_TEXTURE_SIZE_FULL);
@@ -903,7 +904,7 @@ export function initArena(scene, world, config, options = {}) {
   const edgeRingGeo = new THREE.TorusGeometry(config.record.radius * 1.015, 0.05, 10, 96);
   const edgeRingMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
   const edgeRingMesh = new THREE.Mesh(edgeRingGeo, edgeRingMat);
-  edgeRingMesh.position.set(0, config.record.y + config.record.thickness / 2 + 0.02, 0);
+  edgeRingMesh.position.set(0, config.record.y + config.record.thickness / 2 + 0.021, 0);
   edgeRingMesh.rotation.x = Math.PI / 2;
   scene.add(edgeRingMesh);
 
@@ -918,17 +919,20 @@ export function initArena(scene, world, config, options = {}) {
     RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, config.record.y, 0),
   );
 
-  // * Build visual debug geometry (wireframe only, not used for physics since the compound ring replaces the trimesh).
+  // * Build visual debug geometry (wireframe only, lazy allocated if debug enabled).
   const recordPhysics = config.record.physics || {};
-  const recordPhysicsGeo = buildRecordPhysicsGeometry({
-    outerRadius: config.record.radius,
-    innerRadius: config.record.innerRadius,
-    thickness: config.record.thickness,
-    chamferWidth: recordPhysics.chamferWidth ?? 0.35,
-    holeClearance: recordPhysics.holeClearance ?? 0.45,
-    outerBevel: recordPhysics.outerBevel ?? 0.12,
-    segments: recordPhysics.segments ?? 72,
-  });
+  let recordPhysicsGeo = null;
+  if (config.debug.arenaTrimesh) {
+    recordPhysicsGeo = buildRecordPhysicsGeometry({
+      outerRadius: config.record.radius,
+      innerRadius: config.record.innerRadius,
+      thickness: config.record.thickness,
+      chamferWidth: recordPhysics.chamferWidth ?? 0.35,
+      holeClearance: recordPhysics.holeClearance ?? 0.45,
+      outerBevel: recordPhysics.outerBevel ?? 0.12,
+      segments: recordPhysics.segments ?? 72,
+    });
+  }
 
   // --- PRIMITIVE RING COLLIDER (Fixes Trimesh Bounce & Overlap Tunneling) ---
   const N_SEGMENTS = 16;
@@ -977,7 +981,7 @@ export function initArena(scene, world, config, options = {}) {
 
   let debugMesh = null;
   let debugMat = null;
-  if (config.debug.arenaTrimesh) {
+  if (config.debug.arenaTrimesh && recordPhysicsGeo) {
     debugMat = new THREE.MeshBasicMaterial({
       color: 0x00ff88,
       wireframe: true,
@@ -1067,10 +1071,14 @@ export function initArena(scene, world, config, options = {}) {
     sceneRoots.push(debugMesh);
   }
 
+  /** @type {THREE.BufferGeometry[]} */
   const ownedGeometries = [
     recordGeo, recordLabelGeo, rimGeo, edgeRingGeo, innerRimGeo, pitWallGeo,
-    recordPhysicsGeo, solidFloorGeo,
+    solidFloorGeo,
   ];
+  if (recordPhysicsGeo) {
+    ownedGeometries.push(recordPhysicsGeo);
+  }
   if (grooveResult) {
     ownedGeometries.push(grooveResult.mergedGrooves);
   }
@@ -1103,11 +1111,12 @@ export function initArena(scene, world, config, options = {}) {
     for (const root of sceneRoots) {
       scene.remove(root);
       root.traverse((child) => {
-        if (!child.isMesh && !child.isSprite) return;
-        if (child.geometry && !sharedGeos.has(child.geometry) && !ownedGeoSet.has(child.geometry)) {
-          child.geometry.dispose();
+        if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.Sprite)) return;
+        const target = /** @type {THREE.Mesh | THREE.Sprite} */ (child);
+        if (target.geometry && !sharedGeos.has(target.geometry) && !ownedGeoSet.has(target.geometry)) {
+          target.geometry.dispose();
         }
-        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        const mats = Array.isArray(target.material) ? target.material : [target.material];
         mats.forEach((mat) => {
           if (mat && !sharedMats.has(mat) && !ownedMatSet.has(mat)) disposeMaterial(mat);
         });
@@ -1127,9 +1136,17 @@ export function initArena(scene, world, config, options = {}) {
     if (recordReflector) {
       // @ts-expect-error THREE duck-typing suppress
       if (recordReflector.renderTarget) {
+        // @ts-expect-error THREE duck-typing suppress
         recordReflector.renderTarget.dispose();
       }
+      if (recordReflector.material) {
+        disposeMaterial(recordReflector.material);
+      }
       recordReflector.geometry?.dispose?.();
+    }
+
+    if (window.recordMesh === recordMesh) {
+      window.recordMesh = undefined;
     }
 
     world.removeRigidBody(recordBody);

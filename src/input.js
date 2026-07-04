@@ -200,17 +200,20 @@ export function setUiMode(enabled) {
   }
 }
 
-window.addEventListener("gamepadconnected", (e) => {
-  console.log("Gamepad connected:", e.gamepad.id);
-  gamepadIndex = e.gamepad.index;
-});
-window.addEventListener("gamepaddisconnected", (e) => {
-  if (e.gamepad.index === gamepadIndex) {
-    gamepadIndex = null;
-    gamepadAxis = { forward: 0, turn: 0 };
-    gamepadBoostHeld = false;
-  }
-});
+// * Guarded for non-browser contexts (vitest imports this module transitively via netcode.js).
+if (typeof window !== "undefined") {
+  window.addEventListener("gamepadconnected", (e) => {
+    console.log("Gamepad connected:", e.gamepad.id);
+    gamepadIndex = e.gamepad.index;
+  });
+  window.addEventListener("gamepaddisconnected", (e) => {
+    if (e.gamepad.index === gamepadIndex) {
+      gamepadIndex = null;
+      gamepadAxis = { forward: 0, turn: 0 };
+      gamepadBoostHeld = false;
+    }
+  });
+}
 
 // --- Gamepad polling ---
 function pollGamepad() {

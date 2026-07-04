@@ -5,7 +5,7 @@
 1. **VITE BUILD**: Use Vite for development and building. Run `npm run dev` for local development and `npm run ship` for deployment (`npm run build` then `npx partykit deploy`). Use `npm run dev:party` alongside Vite when testing multiplayer locally.
 2. **NO SERVER-SIDE PHYSICS**: The PartyKit server (`party/index.ts`) is strictly a message relay. The host client runs all Rapier3D physics. Never move collision logic to the server.
 3. **TARGETED EDITS ONLY**: `src/main.js` is the live entry point and wiring hub; core systems live alongside it in `src/`. Never rewrite or output entire files. Only read and edit the specific namespaced sections requested.
-4. **WIN CONDITION**: A round ends at 60 seconds, or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
+4. **WIN CONDITION**: A round ends at 150 seconds (2.5 min, CONFIG.round.durationMs — must match ROUND_DURATION_MS in party/index.ts), or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
 5. **COLOR IMMUTABILITY**: All color logic must strictly use the `CART_COLORS` object in `src/config.js`. Do not modify this object or the `traverse` material logic. These are the "Original Rave" source of truth.
 6. **SERVER-DRIVEN START**: Rounds must ONLY start via `MSG.gameStart`. Tick-level auto-starts in `update()` are forbidden.
 7. **MENU MARKUP SOURCE OF TRUTH**: `index.html` is the canonical source for menu markup. `cart-rave-menu.html` has been deleted (stale duplicate). `src/cart-rave-menu.js` has its own internal state for color/name — game wiring overrides via localStorage and event listeners in `initMenu()`.
@@ -13,7 +13,7 @@
 
 ## What this is
 
-Cart Rave is a browser-based 4-player physics sumo game. Shopping carts battle on a slowly rotating neon arena. The cart with the most points at the end of 60 seconds wins.
+Cart Rave is a browser-based 4-player physics sumo game. Shopping carts battle on a slowly rotating neon arena. The cart with the most points at the end of the 2.5-minute round wins.
 
 Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
@@ -62,7 +62,7 @@ Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
 
 ## Scoring & Round Structure
 
-- Round length: 60 seconds (host-authoritative).
+- Round length: 150 seconds / 2.5 minutes (host-authoritative; client CONFIG.round.durationMs and server ROUND_DURATION_MS must agree).
 - Win condition: Highest score when timer expires; early end if only one cart remains. Tiebreaker is most recent scoring hit.
 - All-zero rounds (no one scored) do not count toward personal stats.
 - **Leader visual**: white pulsing emissive on the highest-scoring cart.

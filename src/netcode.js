@@ -10,11 +10,17 @@ import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisio
 import { clearNpcCartCache } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 
-/** Scratch quaternions for interpolation and reconciliation slerp. */
+/** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
 const _interpToQ = new THREE.Quaternion();
 const _reconcilePredQ = new THREE.Quaternion();
 const _reconcileAuthQ = new THREE.Quaternion();
+const _reconcileYawQ = new THREE.Quaternion();
+const _reconcileYAxis = new THREE.Vector3(0, 1, 0);
+const _reconcileUpPred = new THREE.Vector3();
+const _reconcileUpAuth = new THREE.Vector3();
+const _reconcileFwdPred = new THREE.Vector3();
+const _reconcileFwdAuth = new THREE.Vector3();
 
 /** Reads a per-slot cart snapshot from array or legacy string-keyed object payloads. */
 function getCartSnap(carts, slotIndex) {
@@ -36,6 +42,8 @@ let hostEpoch = 0;
 let serverClockOffsetMs = 0;
 let serverClockOffsetSamples = 0;
 let serverClockSamples = [];
+let clockResyncDueAtMs = 0;
+let clockResyncSamples = [];
 
 let lastCartsCache = null;
 let netStateBuffer = [];
@@ -65,20 +73,7 @@ let netSlots = [];
 let lastSlotsJson = "";
 let lastSlotsServerMs = 0;
 
-function reconcileSlotSnapshots(prev, incoming) {
-  if (!Array.isArray(prev) || prev.length === 0) return incoming;
-  if (!Array.isArray(incoming) || incoming.length !== 4) return incoming;
-  return incoming.map((s, i) => {
-    const p = prev[i];
-    if (!p || !s) return s;
-    // * When incoming says NPC for a slot that was previously human, overwrite
-    // * the stale slot so the NPC can take over — don't keep a ghost human.
-    if (s.kind === "npc" && p.kind === "human" && p.connId) {
-      return s;
-    }
-    return s;
-  });
-}
+
 
 /**
  * Ensures NPC slot colors do not clash with human players in the lobby/match.
@@ -346,6 +341,11 @@ function pruneNetStateBufferForEpoch() {
   }
 }
 
+/** Drops buffer entries older than the consumed `before` snapshot (keeps `before` itself). */
+function pruneConsumedSnapshots(beforeIndex) {
+  if (beforeIndex > 0) netStateBuffer.splice(0, beforeIndex);
+}
+
 function findSnapshotPair(targetServerNowMs) {
   let afterIndex = -1;
   for (let i = 0; i < netStateBuffer.length; i += 1) {
@@ -568,8 +568,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
         if (snap) applyRemoteTargets(slotIndex, snap);
       }
     }
-    const pruneIdx = beforeIndex >= 0 ? beforeIndex : -1;
-    if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
+    pruneConsumedSnapshots(beforeIndex);
     return;
   }
 
@@ -605,8 +604,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
         cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
       }
     }
-    const pruneIdx = beforeIndex >= 0 ? beforeIndex : -1;
-    if (pruneIdx > 0) netStateBuffer.splice(0, pruneIdx);
+    pruneConsumedSnapshots(beforeIndex);
     return;
   }
 
@@ -704,13 +702,51 @@ export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
     _reconcilePredQ.set(predR.x, predR.y, predR.z, predR.w);
     _reconcileAuthQ.set(auth.q[0], auth.q[1], auth.q[2], auth.q[3]);
     const rotAlpha = 1 - Math.exp(-cfg.reconcileRotRate * dtSec);
-    _reconcilePredQ.slerp(_reconcileAuthQ, rotAlpha);
-    cart.body.setRotation({
-      x: _reconcilePredQ.x,
-      y: _reconcilePredQ.y,
-      z: _reconcilePredQ.z,
-      w: _reconcilePredQ.w,
-    }, true);
+
+    // * Yaw-only reconciliation: client and host physics produce slightly different
+    // * pitch/roll (suspension, friction accumulation), so slerping the full quaternion
+    // * visibly pops the cart on axes the player never steered. Correct only heading and
+    // * let the local physics own pitch/roll — UNLESS the two orientations genuinely
+    // * disagree about which way is up (host says flipped, we say upright); then fall
+    // * back to the full slerp so the flip state converges.
+    let usedYawOnly = false;
+    if (cfg.yawOnlyReconcile) {
+      _reconcileUpPred.set(0, 1, 0).applyQuaternion(_reconcilePredQ);
+      _reconcileUpAuth.set(0, 1, 0).applyQuaternion(_reconcileAuthQ);
+      if (_reconcileUpPred.dot(_reconcileUpAuth) >= 0.6) {
+        _reconcileFwdPred.set(0, 0, -1).applyQuaternion(_reconcilePredQ);
+        _reconcileFwdAuth.set(0, 0, -1).applyQuaternion(_reconcileAuthQ);
+        _reconcileFwdPred.y = 0;
+        _reconcileFwdAuth.y = 0;
+        // * Skip heading correction while either nose points near-vertical — the XZ
+        // * projection degenerates and the yaw angle becomes noise.
+        if (_reconcileFwdPred.lengthSq() > 1e-6 && _reconcileFwdAuth.lengthSq() > 1e-6) {
+          _reconcileFwdPred.normalize();
+          _reconcileFwdAuth.normalize();
+          const cross = _reconcileFwdPred.x * _reconcileFwdAuth.z - _reconcileFwdPred.z * _reconcileFwdAuth.x;
+          const dot = _reconcileFwdPred.dot(_reconcileFwdAuth);
+          const yawErr = Math.atan2(-cross, dot); // signed heading error about +Y
+          _reconcileYawQ.setFromAxisAngle(_reconcileYAxis, yawErr * rotAlpha);
+          _reconcilePredQ.premultiply(_reconcileYawQ);
+          cart.body.setRotation({
+            x: _reconcilePredQ.x,
+            y: _reconcilePredQ.y,
+            z: _reconcilePredQ.z,
+            w: _reconcilePredQ.w,
+          }, true);
+          usedYawOnly = true;
+        }
+      }
+    }
+    if (!usedYawOnly) {
+      _reconcilePredQ.slerp(_reconcileAuthQ, rotAlpha);
+      cart.body.setRotation({
+        x: _reconcilePredQ.x,
+        y: _reconcilePredQ.y,
+        z: _reconcilePredQ.z,
+        w: _reconcilePredQ.w,
+      }, true);
+    }
   }
 
   if (Array.isArray(auth.lv) && auth.lv.length === 3) {
@@ -744,6 +780,17 @@ function applyCartsSnapshotToBodies(carts) {
     if (Array.isArray(q)) cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
     if (Array.isArray(lv)) cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
     if (Array.isArray(av)) cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
+
+    // * Keep the interpolation/prediction targets in lockstep with the snap. Otherwise
+    // * the first syncRemoteCartBodiesForPrediction after a hello/host-migration snap
+    // * would yank the body back to stale pre-snap targets and inject a stale linvel.
+    if (Array.isArray(p) && cart._netTargetPos) cart._netTargetPos.set(p[0], p[1], p[2]);
+    if (Array.isArray(q) && cart._netTargetQuat) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+    if (Array.isArray(lv) && cart._lastNetLinvel) {
+      cart._lastNetLinvel.x = lv[0];
+      cart._lastNetLinvel.y = lv[1];
+      cart._lastNetLinvel.z = lv[2];
+    }
   }
 }
 
@@ -757,6 +804,11 @@ function applyCartsSnapshotToBodies(carts) {
  * @param {number} epoch Host epoch (increments on host migration).
  */
 function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
+  // * No epoch guard on append: MSG.state and MSG.hostMigrated share one WebSocket, so
+  // * TCP ordering guarantees no pre-migration snapshot can arrive after host_migrated
+  // * (which clears this buffer and bumps hostEpoch). The stored epoch exists for
+  // * pruneNetStateBufferForEpoch, which sweeps entries after locally-driven epoch bumps
+  // * (disconnect/reconnect) where ordering guarantees don't apply.
   if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
   if (!carts || typeof carts !== "object") return;
 
@@ -849,6 +901,8 @@ export function disconnectPartySession() {
   serverClockOffsetMs = 0;
   serverClockOffsetSamples = 0;
   serverClockSamples = [];
+  clockResyncDueAtMs = 0;
+  clockResyncSamples = [];
   hostMigrationFreezeUntilMs = 0;
   skipNextPhysicsStep = false;
 
@@ -907,7 +961,9 @@ export function startHostSendLoop() {
     const payload = {
       type: MSG.hostTransform,
       seq: hostSeq,
-      serverNowMs: Date.now(),
+      // * Host wall-clock stamp. The server ignores any client-supplied serverNowMs and
+      // * stamps its own on the MSG.state rebroadcast; tHost is relayed for diagnostics.
+      tHost: Date.now(),
       carts,
     };
     if (collisions.length > 0) {
@@ -923,6 +979,7 @@ export function startInputSendLoop() {
 
   let _lastSentForward = 0;
   let _lastSentTurn = 0;
+  let _lastSentNitro = false;
   let _lastSentAt = 0;
 
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.clientInputHz));
@@ -936,14 +993,20 @@ export function startInputSendLoop() {
     const nitroHeld = isNitroHeldRef ? isNitroHeldRef() : false;
     const hopRequested = consumeHopRequest();
 
-    // * Suppress duplicate frames — only send when axis changes or 100ms heartbeat elapsed.
+    // * Suppress duplicate frames — send on axis change, nitro EDGE (press or release),
+    // * hop, or the 100ms heartbeat. Nitro release must go out immediately: the host's
+    // * charge-boost burst is proportional to hold time, so a heartbeat-delayed release
+    // * would add up to 100ms of phantom charge. While held with nothing else changing,
+    // * the heartbeat is enough — the host latches nitro from the last received input.
     const heartbeatMs = 100;
     const axisChanged = forward !== _lastSentForward || turn !== _lastSentTurn;
+    const nitroChanged = nitroHeld !== _lastSentNitro;
     const heartbeatDue = now - _lastSentAt >= heartbeatMs;
-    if (!axisChanged && !heartbeatDue && !nitroHeld && !hopRequested) return;
+    if (!axisChanged && !nitroChanged && !heartbeatDue && !hopRequested) return;
 
     inputSeq += 1;
     _lastSentForward = forward;
+    _lastSentNitro = nitroHeld;
     _lastSentTurn = turn;
     _lastSentAt = now;
 
@@ -1060,6 +1123,8 @@ export function initNetcode(roomOverride) {
   serverClockOffsetMs = 0;
   serverClockOffsetSamples = 0;
   serverClockSamples = [];
+  clockResyncDueAtMs = 0;
+  clockResyncSamples = [];
   let clientId = localStorage.getItem("cartRaveClientId");
   if (!clientId) {
     try {
@@ -1319,7 +1384,9 @@ export function initNetcode(roomOverride) {
     if (type === MSG.slots) {
       const serverMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : 0;
       if (serverMs < lastSlotsServerMs) return;
-      const merged = declashNpcSlotColors(reconcileSlotSnapshots(netSlots, msg.slots));
+      // * Server slots are authoritative — accepted verbatim (a ghost-human guard once
+      // * lived here; it was a no-op and slot takeover is handled server-side).
+      const merged = declashNpcSlotColors(msg.slots);
       const incomingJson = JSON.stringify(merged);
       if (serverMs === lastSlotsServerMs && incomingJson === lastSlotsJson) return;
       lastSlotsServerMs = serverMs;
@@ -1377,13 +1444,6 @@ export function initNetcode(roomOverride) {
         for (const id of remoteNitroLatchedByConnId.keys()) {
           if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
         }
-        
-        const takenColors = merged
-          .filter((s) => s && s.kind === "human" && s.connId !== youConnId)
-          .map((s) => s.color);
-        const palette = callbacks.getPALETTE();
-        const availableColors = palette.filter((c) => !takenColors.includes(c));
-        void availableColors;
 
         if (callbacks.getLocalColorPicked() && youConnId) {
           const mySlot = merged.find((s) => s && s.connId === youConnId) || null;
@@ -1430,6 +1490,19 @@ export function initNetcode(roomOverride) {
               const sorted = [...serverClockSamples].sort((a, b) => a - b);
               serverClockOffsetMs = sorted[1]; // median of 3
               serverClockSamples = []; // release the array
+              clockResyncDueAtMs = Date.now() + CONFIG.net.clockResyncIntervalMs;
+            }
+          } else if (clockResyncDueAtMs > 0 && Date.now() >= clockResyncDueAtMs) {
+            // * Periodic re-bootstrap: the EWMA below rejects >500ms outliers, so a slowly
+            // * drifting client clock can pull the offset unbounded over a long session.
+            // * Every resync interval, take a fresh 3-sample median and blend it 20% into
+            // * the running estimate — enough to arrest drift without a visible timer jump.
+            clockResyncSamples.push(sample);
+            if (clockResyncSamples.length >= 3) {
+              const sorted = [...clockResyncSamples].sort((a, b) => a - b);
+              serverClockOffsetMs = serverClockOffsetMs * 0.8 + sorted[1] * 0.2;
+              clockResyncSamples = [];
+              clockResyncDueAtMs = Date.now() + CONFIG.net.clockResyncIntervalMs;
             }
           } else {
             const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500;
@@ -1609,6 +1682,11 @@ export function initNetcode(roomOverride) {
   });
 }
 
+/**
+ * One-shot host transform broadcast outside the 40Hz loop.
+ * Used by the rematch reset (entities.js) to push spawn poses to clients immediately,
+ * before the running-phase send loop resumes. Skips collision draining on purpose.
+ */
 export function broadcastHostTransform(carts) {
   if (!partySocket || !isHost) return;
   hostSeq += 1;
@@ -1616,7 +1694,7 @@ export function broadcastHostTransform(carts) {
   partySocket.send(JSON.stringify({
     type: MSG.hostTransform,
     seq: hostSeq,
-    serverNowMs: Date.now(),
+    tHost: Date.now(),
     carts: lastCartsCache,
   }));
 }
@@ -1643,3 +1721,25 @@ export function sendPlayAgain() {
     partySocket.send(JSON.stringify({ type: MSG.playAgain }));
   }
 }
+
+// === TEST HOOKS ===
+
+/**
+ * Internal seams for unit tests only — never imported by game code.
+ * Exposes the private interpolation buffer so buffer/interp/reconcile math is testable
+ * without a live socket. Kept minimal on purpose; do not reach for this in gameplay code.
+ */
+export const __netcodeTestHooks = {
+  bufferState: (serverNowMs, seq, carts) => bufferAuthoritativeState(serverNowMs, seq, carts, hostEpoch),
+  resetNetState: () => {
+    netStateBuffer = [];
+    lastCartsCache = null;
+    serverClockOffsetMs = 0;
+    serverClockOffsetSamples = 0;
+    serverClockSamples = [];
+    clockResyncDueAtMs = 0;
+    clockResyncSamples = [];
+  },
+  getBufferLength: () => netStateBuffer.length,
+  findSnapshotPair: (t) => findSnapshotPair(t),
+};

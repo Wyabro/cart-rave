@@ -306,8 +306,8 @@ export function animateButtonRelease(element, options = {}) {
 
 /**
  * Stagger-friendly card entrance for menu panels and overlays.
- * @param {HTMLElement | null | undefined} element
- * @param {AnimationOptions & { delay?: number, y?: number, fromOpacity?: number }} [options]
+ * @param {HTMLElement | HTMLElement[] | NodeListOf<HTMLElement>} element
+ * @param {AnimationOptions & { delay?: any, y?: number, fromOpacity?: number }} [options]
  * @returns {JSAnimation | null}
  */
 export function animateMenuCardEnter(element, options = {}) {
