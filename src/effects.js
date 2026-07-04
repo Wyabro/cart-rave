@@ -69,11 +69,16 @@ const AMBIENT_PARTICLE_COUNT = 260;
 const AMBIENT_PARTICLE_RADIUS = 35;
 const AMBIENT_PARTICLE_HEIGHT = 30;
 
-/** @typedef {"rainbow" | "backrooms"} AmbientDustStyle */
+/** @typedef {"rainbow" | "backrooms" | "sunset"} AmbientDustStyle */
 
 /** White + warm-yellow motes for the Backrooms level. */
 const BACKROOMS_DUST_COLORS = [
   0xffffff, 0xfffef8, 0xfff8e8, 0xfff0cc, 0xffe999, 0xffdd55, 0xf5c830,
+];
+
+/** Sunset ember & dusk motes for the Zanzibar Platform level. */
+const SUNSET_DUST_COLORS = [
+  0xff8c4a, 0xffb257, 0xe8683f, 0xffd9a0, 0xff5e3a, 0xffa04e,
 ];
 
 /** Muted carpet-dust tones for Backrooms floor impacts (includes lighter puffs for visibility). */
@@ -219,6 +224,7 @@ export function clearAmbientDust() {
  */
 function getAmbientDustPalette(style, cartColors) {
   if (style === "backrooms") return BACKROOMS_DUST_COLORS;
+  if (style === "sunset") return SUNSET_DUST_COLORS;
   return [
     cartColors.pink.hex,
     cartColors.blue.hex,
@@ -254,6 +260,19 @@ function getAmbientDustConfig(style) {
       driftSpeedMax: 0.06,
       verticalDriftMin: 0.006,
       verticalDriftMax: 0.016,
+    };
+  }
+  if (style === "sunset") {
+    return {
+      radius: 45,
+      height: 26,
+      size: 0.22,
+      opacity: 0.68,
+      blending: THREE.AdditiveBlending,
+      driftSpeedMin: 0.05,
+      driftSpeedMax: 0.09,
+      verticalDriftMin: 0.008,
+      verticalDriftMax: 0.02,
     };
   }
   return {

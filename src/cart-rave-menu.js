@@ -220,6 +220,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const LEVEL_OPTIONS = {
     classicRecord: { enabled: true },
     backrooms: { enabled: true },
+    zanzibar: { enabled: true },
   };
 
   // ─── State ────────────────────────────────────────────────────────────────

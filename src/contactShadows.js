@@ -74,6 +74,17 @@ function isOnSolidPlaySurface(x, z) {
     return true;
   }
 
+  if (shadowHazards?.isOctagon) {
+    const apothem = shadowHazards.arenaHalf ?? CONFIG.record.radius;
+    const cos22 = 0.9238795;
+    const sin22 = 0.3826834;
+    const absX = Math.abs(x);
+    const absZ = Math.abs(z);
+    const proj1 = absX * cos22 + absZ * sin22;
+    const proj2 = absX * sin22 + absZ * cos22;
+    return Math.max(proj1, proj2) <= apothem + 0.2;
+  }
+
   const r = Math.hypot(x, z);
   if (CONFIG.record.centerHole?.enabled !== false && r < CONFIG.record.innerRadius) {
     return false;

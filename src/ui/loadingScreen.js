@@ -10,7 +10,7 @@ const FADE_MS = 420;
 /** Minimum time the mode-entry overlay stays up so fast paths remain visible. */
 const MIN_MODE_ENTRY_VISIBLE_MS = 720;
 
-/** @type {Record<"classic" | "backrooms", { title: string, subtitle: string, progress: string, messages: string[] }>} */
+/** @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, subtitle: string, progress: string, messages: string[] }>} */
 const THEME_COPY = {
   classic: {
     title: "CART RAVE",
@@ -44,6 +44,23 @@ const THEME_COPY = {
       "Checking expiration dates...",
       "Wiping down glass doors...",
       "Following the yellow line...",
+    ],
+  },
+  zanzibar: {
+    title: "ZANZIBAR PLATFORM",
+    subtitle: "The tide carries the bassline in...",
+    progress: "Anchoring the sundeck...",
+    messages: [
+      "Waxing the sundeck...",
+      "Bolting down the bollards...",
+      "Chasing gulls off the podium...",
+      "Watching the sun refuse to set...",
+      "Salting the guard rails...",
+      "Untangling the horizon...",
+      "Warming up the water glints...",
+      "Checking the tide tables...",
+      "Polishing the kill edges...",
+      "Aiming the deck at the sunset...",
     ],
   },
 };
@@ -98,6 +115,16 @@ function buildBackroomsDecor() {
     '  <div class="chair-leg left"></div>' +
     '  <div class="chair-leg right"></div>' +
     '</div>';
+  return wrap;
+}
+
+function buildZanzibarDecor() {
+  const wrap = document.createElement("div");
+  wrap.className = "cr-load__visual cr-load__seaside";
+  wrap.innerHTML =
+    '<div class="sea-sun" aria-hidden="true"></div>' +
+    '<div class="sea-water" aria-hidden="true"><span></span><span></span><span></span></div>' +
+    '<div class="sea-deck" aria-hidden="true"></div>';
   return wrap;
 }
 
@@ -199,11 +226,11 @@ function stopModeMessageRotation() {
 }
 
 /**
- * @param {"classic" | "backrooms"} theme
+ * @param {"classic" | "backrooms" | "zanzibar"} theme
  */
 function applyTheme(theme) {
   ensureModeOverlay();
-  modeOverlayEl.classList.remove("cr-load--solo", "cr-load--classic", "cr-load--backrooms");
+  modeOverlayEl.classList.remove("cr-load--solo", "cr-load--classic", "cr-load--backrooms", "cr-load--zanzibar");
   modeOverlayEl.classList.add(`cr-load--${theme}`);
 
   const copy = THEME_COPY[theme] || THEME_COPY.classic;
@@ -214,7 +241,9 @@ function applyTheme(theme) {
     const decor =
       theme === "backrooms"
         ? buildBackroomsDecor()
-        : buildClassicDecor();
+        : theme === "zanzibar"
+          ? buildZanzibarDecor()
+          : buildClassicDecor();
     modeVisualSlot.appendChild(decor);
   }
 
@@ -246,7 +275,9 @@ export function dismissInitialBootSplash() {
 
   setTimeout(() => {
     // 1. Stop the inline fake progress & msg timers
+    // @ts-ignore
     if (window.bootTimer) { clearInterval(window.bootTimer); window.bootTimer = null; }
+    // @ts-ignore
     if (window.bootMsgTimer) { clearInterval(window.bootMsgTimer); window.bootMsgTimer = null; }
 
     // 2. Force to 100%
@@ -289,7 +320,10 @@ function showModeEntryLoading(opts = {}) {
   const resolvedLevel = resolveLevelId(
     opts.levelId ?? (typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null),
   );
-  const theme = resolvedLevel === "backrooms" ? "backrooms" : "classic";
+  const theme =
+    resolvedLevel === "backrooms" ? "backrooms"
+    : resolvedLevel === "zanzibar" ? "zanzibar"
+    : "classic";
 
   applyTheme(theme);
   modeEntryVisible = true;
@@ -404,6 +438,7 @@ export function showQualityApplyLoading() {
     "cr-load--solo",
     "cr-load--classic",
     "cr-load--backrooms",
+    "cr-load--zanzibar",
     "cr-load--hidden",
     "cr-load--exit",
   );

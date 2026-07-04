@@ -205,6 +205,7 @@ export function animateResultsPodiumShow(payload) {
  *   finalScores: HTMLDivElement,
  *   history: HTMLDivElement,
  *   playAgain: HTMLButtonElement,
+ *   nextLevelBtn: HTMLButtonElement,
  *   statsLine: HTMLDivElement,
  *   mainMenuBtn: HTMLButtonElement,
  * }}

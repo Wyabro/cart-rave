@@ -6,6 +6,8 @@
   --cr-load-yellow: #ffe53d;
   --cr-load-backrooms: #c8d86a;
   --cr-load-backrooms-dim: #8a9a4a;
+  --cr-load-sunset: #ff9a4a;
+  --cr-load-sunset-deep: #ff5e3a;
   --cr-load-ui: "Russo One", sans-serif;
   --cr-load-mono: "Goldman", ui-monospace, monospace;
   --cr-load-display: "Road Rage", "Goldman", sans-serif;
@@ -261,6 +263,86 @@
   opacity: 0.12;
 }
 
+/* ── Zanzibar Platform theme: sunset over water ── */
+.cr-load--zanzibar .cr-load__bg {
+  background:
+    radial-gradient(ellipse at center 78%, rgba(255, 120, 60, 0.28) 0%, transparent 55%),
+    linear-gradient(180deg, #120826 0%, #3a1548 45%, #8a2d5e 68%, #241030 100%);
+}
+
+.cr-load--zanzibar .cr-load__title {
+  color: #ffd9a0;
+  text-shadow: 0 0 10px rgba(255, 154, 74, 0.5), 0 0 26px rgba(255, 94, 58, 0.3);
+}
+
+.cr-load--zanzibar .cr-load__subtitle {
+  color: rgba(255, 190, 130, 0.6);
+}
+
+.cr-load--zanzibar .cr-load__vinyl {
+  display: none;
+}
+
+.cr-load--zanzibar .cr-load__scan {
+  opacity: 0.1;
+}
+
+.cr-load__seaside {
+  position: relative;
+  width: clamp(110px, 26vw, 160px);
+  height: clamp(72px, 18vw, 96px);
+  overflow: hidden;
+}
+
+.cr-load__seaside .sea-sun {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: clamp(26px, 7vw, 40px);
+  height: clamp(26px, 7vw, 40px);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe0a8 0%, var(--cr-load-sunset) 55%, var(--cr-load-sunset-deep) 100%);
+  box-shadow: 0 0 18px rgba(255, 154, 74, 0.7), 0 0 44px rgba(255, 94, 58, 0.35);
+  animation: cr-load-sun-bob 5s ease-in-out infinite;
+}
+
+.cr-load__seaside .sea-water {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(255, 120, 60, 0.35) 0%, #0d3546 30%, #071e2c 100%);
+}
+
+.cr-load__seaside .sea-water span {
+  position: absolute;
+  left: 50%;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255, 178, 106, 0.75);
+  transform: translateX(-50%);
+  animation: cr-load-glint 2.6s ease-in-out infinite;
+}
+
+.cr-load__seaside .sea-water span:nth-child(1) { top: 18%; width: 34%; }
+.cr-load__seaside .sea-water span:nth-child(2) { top: 44%; width: 52%; animation-delay: 0.6s; }
+.cr-load__seaside .sea-water span:nth-child(3) { top: 72%; width: 24%; animation-delay: 1.3s; }
+
+.cr-load__seaside .sea-deck {
+  position: absolute;
+  left: 50%;
+  bottom: 26%;
+  width: 58%;
+  height: 9px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #2c313a 0%, #14161c 100%);
+  clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
+  border-top: 2px solid var(--cr-load-magenta);
+  box-shadow: 0 0 10px rgba(255, 43, 214, 0.45);
+}
+
 @keyframes cr-load-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -286,6 +368,16 @@
   50% { transform: scaleY(1.15); opacity: 1; }
 }
 
+@keyframes cr-load-sun-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(3px); }
+}
+
+@keyframes cr-load-glint {
+  0%, 100% { opacity: 0.35; transform: translateX(-50%) scaleX(0.85); }
+  50% { opacity: 0.95; transform: translateX(-50%) scaleX(1.1); }
+}
+
 @keyframes cr-load-backrooms-flicker {
   0%, 92%, 100% { opacity: 1; }
   93% { opacity: 0.72; }
@@ -295,6 +387,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cr-load__seaside .sea-sun,
+  .cr-load__seaside .sea-water span,
   .cr-load__vinyl,
   .cr-load__title,
   .cr-load__laser,
@@ -328,6 +422,11 @@
 .cr-load--backrooms .cr-seg.lit {
   background: var(--cr-load-backrooms);
   box-shadow: 0 0 8px var(--cr-load-backrooms);
+}
+
+.cr-load--zanzibar .cr-seg.lit {
+  background: var(--cr-load-sunset);
+  box-shadow: 0 0 8px var(--cr-load-sunset);
 }
 
 /* Segmented bar for mode-entry overlay */

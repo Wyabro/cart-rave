@@ -1346,7 +1346,7 @@ async function main() {
 
   function levelUsesRaveExtras(levelId) {
     const id = levelId ?? getCurrentLevelId();
-    return id !== "backrooms" && id !== "testArena";
+    return id === "classicRecord";
   }
 
   function applyLoadedLevelSideEffects(levelId) {
@@ -1360,13 +1360,18 @@ async function main() {
     } else {
       restoreTestDrivePostFx();
       Effects.setAmbientDustStyle(
-        resolved === "backrooms" ? "backrooms" : "rainbow",
+        resolved === "backrooms" ? "backrooms" : resolved === "zanzibar" ? "sunset" : "rainbow",
         CART_COLORS,
       );
       if (resolved === "backrooms") {
         setSceneFog(scene, renderer, {
           color: CONFIG.postFx.fog.backrooms.color,
           density: CONFIG.postFx.fog.backrooms.density,
+        });
+      } else if (resolved === "zanzibar") {
+        setSceneFog(scene, renderer, {
+          color: CONFIG.postFx.fog.zanzibar.color,
+          density: CONFIG.postFx.fog.zanzibar.density,
         });
       } else {
         setSceneFog(scene, renderer, {
@@ -2509,7 +2514,9 @@ async function main() {
     resultsUi.nextLevelBtn.addEventListener("click", () => {
       if (!Netcode.getIsHost()) return;
       const curLevel = settingsStore.getState().selectedLevelId || "classicRecord";
-      const nextLevel = curLevel === "backrooms" ? "classicRecord" : "backrooms";
+      const levels = ["classicRecord", "backrooms", "zanzibar"];
+      const curIdx = levels.indexOf(curLevel);
+      const nextLevel = levels[(curIdx + 1) % levels.length] || "classicRecord";
       settingsStore.getState().setSelectedLevelId(nextLevel);
       onHostPlayAgainClick();
     });

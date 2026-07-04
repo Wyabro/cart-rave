@@ -7,6 +7,7 @@ const DEFAULT_LEVEL_ID = "classicRecord";
 const LEVEL_IMPORTERS = {
   classicRecord: () => import("./classicRecord.js").then((m) => m.initClassicRecord),
   backrooms: () => import("./backroomsSupermarket.js").then((m) => m.initBackroomsSupermarket),
+  zanzibar: () => import("./zanzibarPlatform.js").then((m) => m.initZanzibarPlatform),
   testArena: () => import("./testArena.js").then((m) => m.initTestArena),
 };
 
@@ -14,10 +15,11 @@ const LEVEL_IMPORTERS = {
  * Resolves a raw level id from storage or menu to a supported loader key.
  *
  * @param {string | null | undefined} raw
- * @returns {"classicRecord" | "backrooms" | "testArena"}
+ * @returns {"classicRecord" | "backrooms" | "zanzibar" | "testArena"}
  */
 export function resolveLevelId(raw) {
   if (raw === "testArena") return "testArena";
+  if (raw === "zanzibar") return "zanzibar";
   if (raw === "backrooms") return "backrooms";
   if (raw === "classicRecord") return "classicRecord";
   return DEFAULT_LEVEL_ID;
