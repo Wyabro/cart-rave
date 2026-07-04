@@ -169,6 +169,7 @@ export class CartRaveServer extends Server {
   readonly #connClientId = new Map<string, string>();
 
   #hostId: string | null = null;
+  #currentLevelId: string = "classicRecord";
   #slots: Slot[] | null = null;
   #carts: (CartState | undefined)[] = [];
   #round: RoundState = {
@@ -304,6 +305,7 @@ export class CartRaveServer extends Server {
     return {
       v: PROTOCOL_VERSION,
       roomId: this.name,
+      levelId: this.#currentLevelId,
       serverNowMs: this.#serverNowMs(),
       hostId: this.#hostId,
       slots: this.#slots,
@@ -1234,6 +1236,9 @@ export class CartRaveServer extends Server {
       if (type === MSG.hostTransform) {
         // Security: host-only.
         if (connection.id !== this.#hostId) return;
+        if (typeof data?.levelId === "string" && data.levelId.trim() !== "") {
+          this.#currentLevelId = data.levelId.trim();
+        }
         const seq = typeof data?.seq === "number" ? data.seq : null;
         if (seq === null) return;
         if (seq <= this.#lastSeq) return;
@@ -1326,6 +1331,10 @@ export class CartRaveServer extends Server {
       if (type === MSG.hostRound) {
         // Security: host-only; server validates transitions and podium results.
         if (connection.id !== this.#hostId) return;
+        const levelId = typeof data?.levelId === "string" ? data.levelId.trim() : typeof data?.round?.levelId === "string" ? data.round.levelId.trim() : "";
+        if (levelId) {
+          this.#currentLevelId = levelId;
+        }
         const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
         if (!validated) return;
         this.#round = validated;

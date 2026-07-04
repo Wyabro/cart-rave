@@ -205,8 +205,13 @@ export async function enterPlayMode(opts = {}) {
     : resolveSelectedLevelId(null));
   const commitMenuHidden = commitMenuHiddenOpt ?? (gameMode === "solo" || gameMode === "testdrive");
 
-  if (skipBootstrap) {
+  // * Immediately hide main menu HTML overlay if requested (prevent UI overlap while loading screen warms up)
+  if (commitMenuHidden && d.getMenuVisible()) {
     d.commitMenuHiddenForGame();
+  }
+
+  if (skipBootstrap) {
+    if (d.getMenuVisible()) d.commitMenuHiddenForGame();
     return;
   }
 

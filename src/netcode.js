@@ -958,9 +958,11 @@ export function startHostSendLoop() {
 
     lastCartsCache = carts;
     const collisions = drainHostCollisionBatch();
+    const currentLevelId = (typeof localStorage !== "undefined" ? localStorage.getItem("cartRaveLevel") : null) || "classicRecord";
     const payload = {
       type: MSG.hostTransform,
       seq: hostSeq,
+      levelId: currentLevelId,
       // * Host wall-clock stamp. The server ignores any client-supplied serverNowMs and
       // * stamps its own on the MSG.state rebroadcast; tHost is relayed for diagnostics.
       tHost: Date.now(),
@@ -1298,9 +1300,15 @@ export function initNetcode(roomOverride) {
       console.log("[netcode] Received MSG.hello", {
         youConnId: msg.youConnId,
         hostId: msg.hostId,
+        levelId: msg.levelId,
         slotCount: msg.slots?.length,
         roundPhase: msg.round?.phase,
       });
+      if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
+        try {
+          localStorage.setItem("cartRaveLevel", msg.levelId.trim());
+        } catch {}
+      }
       helloReceivedThisSession = true;
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
@@ -1673,8 +1681,10 @@ export function broadcastHostTransform(carts) {
 export function sendHostRound() {
   if (!partySocket || !isHost) return;
   const state = GameState.getRoundState();
+  const currentLevelId = (typeof localStorage !== "undefined" ? localStorage.getItem("cartRaveLevel") : null) || "classicRecord";
   partySocket.send(JSON.stringify({
     type: MSG.hostRound,
+    levelId: currentLevelId,
     round: {
       phase: state.phase,
       startedAtMs: state.startedAtMs,
