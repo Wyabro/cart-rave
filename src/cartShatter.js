@@ -33,10 +33,13 @@ const _outwardDir = new THREE.Vector3();
 const _angVelAxis = new THREE.Vector3();
 const _deltaQuat = new THREE.Quaternion();
 
+// * Static geometry singletons — reused across all cart shatter explosions to avoid garbage creation.
+const _sharedCoreGeo = new THREE.SphereGeometry(0.5, 16, 12);
+const _sharedRingGeo = new THREE.RingGeometry(0.5, 0.85, 32);
+
 /**
  * * Spawns the explosion VFX (additive glowing sphere + horizontal shockwave ring)
- * * at the given world position. Geometries + materials are created here and disposed
- * * by {@link cleanupShatter}.
+ * * at the given world position. Materials are created here and disposed by cleanupShatter.
  *
  * @param {THREE.Scene} scene
  * @param {{ x: number, y: number, z: number }} origin World position.
@@ -48,7 +51,6 @@ function spawnExplosion(scene, origin, neonHex) {
   group.position.set(origin.x, origin.y, origin.z);
 
   // * Core: additive glowing sphere that scales up + fades out.
-  const coreGeo = new THREE.SphereGeometry(0.5, 16, 12);
   const coreMat = new THREE.MeshBasicMaterial({
     color: neonHex,
     blending: THREE.AdditiveBlending,
@@ -56,12 +58,11 @@ function spawnExplosion(scene, origin, neonHex) {
     opacity: 1.0,
     depthWrite: false,
   });
-  const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+  const coreMesh = new THREE.Mesh(_sharedCoreGeo, coreMat);
   coreMesh.scale.setScalar(EXPLOSION_CORE_START_SCALE);
   group.add(coreMesh);
 
   // * Ring: flat horizontal shockwave that expands outward + fades out.
-  const ringGeo = new THREE.RingGeometry(0.5, 0.85, 32);
   const ringMat = new THREE.MeshBasicMaterial({
     color: neonHex,
     blending: THREE.AdditiveBlending,
@@ -70,7 +71,7 @@ function spawnExplosion(scene, origin, neonHex) {
     side: THREE.DoubleSide,
     depthWrite: false,
   });
-  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+  const ringMesh = new THREE.Mesh(_sharedRingGeo, ringMat);
   // * Orient horizontally (RingGeometry lives in XY plane; rotate -π/2 about X to lie flat).
   ringMesh.rotation.x = -Math.PI / 2;
   ringMesh.scale.setScalar(EXPLOSION_RING_START_SCALE);
@@ -328,13 +329,11 @@ export function cleanupShatter(cart, scene) {
     }
   }
 
-  // * Dispose + remove explosion meshes/materials.
+  // * Dispose + remove explosion meshes/materials (shared geometries are kept).
   if (scene && state.explosion?.group) {
     scene.remove(state.explosion.group);
   }
-  state.explosion?.coreMesh?.geometry?.dispose();
   state.explosion?.coreMat?.dispose();
-  state.explosion?.ringMesh?.geometry?.dispose();
   state.explosion?.ringMat?.dispose();
 
   cart._shatterState = null;

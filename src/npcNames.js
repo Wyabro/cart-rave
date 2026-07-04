@@ -42,7 +42,7 @@ export const NPC_NAME_POOL = [
   "GreaseGremlin",
 ];
 
-export const PERSONALITY_PROFILES = {
+const PERSONALITY_PROFILES = {
   aggressor: {
     name: "aggressor",
     humanWeight: 0.917,

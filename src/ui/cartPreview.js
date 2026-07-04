@@ -30,6 +30,7 @@ import {
   loadPreviewCartGltf,
   preparePreviewCartGltf,
 } from "./cartPreviewGltf.js";
+import { gameStore, RoundPhase } from "../stores/gameStore.js";
 
 const ROTATION_SPEED_RAD_PER_SEC = 0.45;
 
@@ -804,9 +805,48 @@ export class CartPreview {
     }
   }
 
+  /**
+   * Pauses the preview rendering loop when UI is hidden.
+   */
+  pause() {
+    this._paused = true;
+    if (this._rafId != null) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+  }
+
+  /**
+   * Resumes the preview rendering loop when UI is shown.
+   */
+  resume() {
+    if (!this._paused || this._disposed) return;
+    this._paused = false;
+    this._lastFrameTime = performance.now();
+    if (this._rafId == null) {
+      this._rafId = requestAnimationFrame(this._tick);
+    }
+  }
+
   /** @private */
   _tick(now) {
-    if (this._disposed) return;
+    if (this._disposed || this._paused) return;
+
+    // * Skip rendering when match is running or container is hidden/detached from DOM.
+    const currentPhase = gameStore.getState().roundPhase;
+    if (currentPhase !== RoundPhase.LOBBY) {
+      this._rafId = requestAnimationFrame(this._tick);
+      return;
+    }
+
+    if (this.container) {
+      const isDetached = !document.body.contains(this.container);
+      const isZeroBox = this.container.offsetWidth === 0 && this.container.offsetHeight === 0;
+      if (isDetached || isZeroBox) {
+        this._rafId = requestAnimationFrame(this._tick);
+        return;
+      }
+    }
 
     const dt = Math.min((now - this._lastFrameTime) * 0.001, 0.05);
     this._lastFrameTime = now;

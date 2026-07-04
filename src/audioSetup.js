@@ -91,6 +91,17 @@ function initLeaderHumSfx(audioListener, getSfxVolume, getIsMuted) {
  */
 export function initAudioSystem(audioListener, deps) {
   const { getSfxVolume, getIsMuted } = deps;
+
+  // * Resume AudioContext on first user gesture to unlock audio play permissions.
+  const resumeContext = () => {
+    const ctx = audioListener?.context;
+    if (ctx && ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+  };
+  window.addEventListener("pointerdown", resumeContext, { once: true, capture: true });
+  window.addEventListener("keydown", resumeContext, { once: true, capture: true });
+
   const leaderHum = initLeaderHumSfx(audioListener, getSfxVolume, getIsMuted);
   return { leaderHum };
 }

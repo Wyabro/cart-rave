@@ -191,3 +191,97 @@ describe("declashNpcSlotColors", () => {
     expect(out[2].color).toBe("blue");
   });
 });
+
+describe("Massive Lag Spike / Buffer Flood", () => {
+  it("bounds buffer size, discards old entries without throwing, and updates interpolation targets cleanly", () => {
+    // Simulate receiving a burst of 15 out-of-order snapshots at once (wildly jumping timestamps & out-of-order seq numbers)
+    const snapshots = [
+      { t: 1000, seq: 1, pos: 10 },
+      { t: 1050, seq: 3, pos: 30 },
+      { t: 1025, seq: 2, pos: 20 }, // out-of-order sequence -> discarded by bufferState
+      { t: 1100, seq: 4, pos: 40 },
+      { t: 1150, seq: 5, pos: 50 },
+      { t: 1200, seq: 6, pos: 60 },
+      { t: 1250, seq: 7, pos: 70 },
+      { t: 1300, seq: 8, pos: 80 },
+      { t: 1350, seq: 9, pos: 90 },
+      { t: 1400, seq: 10, pos: 100 },
+      { t: 1450, seq: 11, pos: 110 },
+      { t: 1425, seq: 10, pos: 100 }, // duplicate sequence -> discarded
+      { t: 1500, seq: 12, pos: 120 },
+      { t: 1550, seq: 13, pos: 130 },
+      { t: 1600, seq: 14, pos: 140 },
+    ];
+
+    // Inject all 15 snapshots via the test hook without throwing
+    for (const s of snapshots) {
+      expect(() => {
+        hooks.bufferState(s.t, s.seq, snap(s.pos, 0, 0));
+      }).not.toThrow();
+    }
+
+    // Discarding old entries check with pruneConsumedSnapshots without throwing
+    const lenBefore = hooks.getBufferLength();
+    expect(() => {
+      hooks.pruneConsumedSnapshots(2);
+    }).not.toThrow();
+    expect(hooks.getBufferLength()).toBe(lenBefore - 2);
+
+    // Flood buffer beyond stateBufferMaxSize (64) to verify buffer capping logic
+    const max = CONFIG.net.stateBufferMaxSize;
+    for (let i = 100; i < 100 + max + 20; i++) {
+      hooks.bufferState(2000 + i * 25, i, snap(i, 0, 0));
+    }
+    expect(hooks.getBufferLength()).toBe(max);
+
+    // Interpolation target check: bracket target between snapshots
+    const targetServerNowMs = 2000 + (100 + max + 18) * 25 - 10;
+    const { before, after } = hooks.findSnapshotPair(targetServerNowMs);
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+
+    const dt = after.serverNowMs - before.serverNowMs;
+    expect(dt).toBeGreaterThan(0);
+    expect(Number.isNaN(dt)).toBe(false);
+
+    // Sample state at target timestamp and verify position lerp matches target without negative or NaN
+    const sampled = sampleAuthoritativeCartState(0, targetServerNowMs);
+    expect(sampled).not.toBeNull();
+    expect(Number.isNaN(sampled.p[0])).toBe(false);
+    expect(sampled.p[0]).toBeGreaterThan(0);
+  });
+});
+
+describe("Clock Drift Resync", () => {
+  it("adjusts running clock offset by exactly 20% towards new median during 30s resync", () => {
+    // Baseline setup: Provide 3 initial samples to establish baseline offset.
+    // Local time = 1000, host timestamps arrive 100ms ahead (serverNowMs = 1100 => sample = -100ms).
+    hooks.updateServerClockOffset(1100, 1000);
+    hooks.updateServerClockOffset(1100, 1000);
+    hooks.updateServerClockOffset(1100, 1000);
+
+    const baselineOffset = hooks.getServerClockOffset();
+    expect(baselineOffset).toBe(-100);
+
+    // Advance local clock past the 30-second resync interval (e.g. now = 32000 ms, due at 31000 ms)
+    const resyncNowMs = 32000;
+    expect(resyncNowMs).toBeGreaterThanOrEqual(hooks.getClockResyncDueAtMs());
+
+    // Host clock has drifted: host timestamps arrive 500ms ahead of local time.
+    // Provide 3 mock ping/offset samples with median -500ms (e.g., samples -520, -500, -480)
+    hooks.updateServerClockOffset(resyncNowMs + 520, resyncNowMs); // sample = -520
+    hooks.updateServerClockOffset(resyncNowMs + 500, resyncNowMs); // sample = -500
+    hooks.updateServerClockOffset(resyncNowMs + 480, resyncNowMs); // sample = -480
+
+    // Calculating new median: sorted[-520, -500, -480] => -500.
+    // New offset formula: baselineOffset * 0.8 + newMedian * 0.2
+    // = (-100 * 0.8) + (-500 * 0.2) = -80 + -100 = -180.
+    const newOffset = hooks.getServerClockOffset();
+    expect(newOffset).toBeCloseTo(-180, 5);
+
+    // Verify clock offset adjusted by exactly 20% (80ms out of 400ms delta) towards new median
+    const expectedOffset = baselineOffset * 0.8 + (-500) * 0.2;
+    expect(newOffset).toBe(expectedOffset);
+  });
+});
+

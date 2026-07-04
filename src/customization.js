@@ -256,15 +256,6 @@ function normalizeCustomization(raw) {
         if (colorMode !== "custom") colorMode = "preset";
       }
     }
-    // * customHex is a derived cache — only recover hue from it when customHue was not stored.
-    if (
-      !hasStoredCustomHue
-      && typeof obj.customHex === "number"
-      && Number.isFinite(obj.customHex)
-      && colorMode === "custom"
-    ) {
-      customHue = normalizeHue(hexToHue(obj.customHex));
-    }
   }
 
   if (colorMode === "custom") {

@@ -493,11 +493,13 @@ export function update(_dt, now) {
 
     // * Fade-out: scale ramps from 1 → 0 over FADE_DURATION_MS.
     if (now > slot.fadeStartMs) {
+      if (slot.body.isEnabled()) {
+        slot.body.setEnabled(false);
+      }
       const fadeProgress =
         (now - slot.fadeStartMs) / FADE_DURATION_MS;
       if (fadeProgress >= 1) {
-        // * Fully faded — disable body and recycle slot.
-        slot.body.setEnabled(false);
+        // * Fully faded — recycle slot.
         slot.active = false;
         slot.cartId = null;
 

@@ -1366,10 +1366,10 @@ export function initNetcode(roomOverride) {
       if (nextIsHost && lastCartsCache) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
-      if (nextIsHost) {
-        remoteInputsByConnId.clear();
-        remoteNitroLatchedByConnId.clear();
-      }
+      clearHostCollisionBatch();
+      remoteInputsByConnId.clear();
+      remoteNitroLatchedByConnId.clear();
+      inputSeq = 0;
       setAuthorityMode(nextIsHost);
       if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + CONFIG.net.hostMigrationFreezeMs;
       hostEpoch += 1;
@@ -1480,36 +1480,7 @@ export function initNetcode(roomOverride) {
       if (!isHost) {
         const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
         if (typeof serverNowMs === "number") {
-          const sample = Date.now() - serverNowMs;
-          if (serverClockOffsetSamples < 3) {
-            // * Collect the first 3 samples and use their median as the baseline.
-            // * A single bad first sample would otherwise poison the EWMA forever.
-            serverClockSamples.push(sample);
-            serverClockOffsetSamples += 1;
-            if (serverClockOffsetSamples === 3) {
-              const sorted = [...serverClockSamples].sort((a, b) => a - b);
-              serverClockOffsetMs = sorted[1]; // median of 3
-              serverClockSamples = []; // release the array
-              clockResyncDueAtMs = Date.now() + CONFIG.net.clockResyncIntervalMs;
-            }
-          } else if (clockResyncDueAtMs > 0 && Date.now() >= clockResyncDueAtMs) {
-            // * Periodic re-bootstrap: the EWMA below rejects >500ms outliers, so a slowly
-            // * drifting client clock can pull the offset unbounded over a long session.
-            // * Every resync interval, take a fresh 3-sample median and blend it 20% into
-            // * the running estimate — enough to arrest drift without a visible timer jump.
-            clockResyncSamples.push(sample);
-            if (clockResyncSamples.length >= 3) {
-              const sorted = [...clockResyncSamples].sort((a, b) => a - b);
-              serverClockOffsetMs = serverClockOffsetMs * 0.8 + sorted[1] * 0.2;
-              clockResyncSamples = [];
-              clockResyncDueAtMs = Date.now() + CONFIG.net.clockResyncIntervalMs;
-            }
-          } else {
-            const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500;
-            if (!isClockOutlier) {
-              serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.1;
-            }
-          }
+          updateServerClockOffset(serverNowMs);
         }
         const seq = typeof msg.seq === "number" ? msg.seq : -1;
         bufferAuthoritativeState(serverNowMs, seq, msg.carts, hostEpoch);
@@ -1722,6 +1693,40 @@ export function sendPlayAgain() {
   }
 }
 
+function updateServerClockOffset(serverNowMs, nowMs = Date.now()) {
+  if (typeof serverNowMs !== "number") return;
+  const sample = nowMs - serverNowMs;
+  if (serverClockOffsetSamples < 3) {
+    // * Collect the first 3 samples and use their median as the baseline.
+    // * A single bad first sample would otherwise poison the EWMA forever.
+    serverClockSamples.push(sample);
+    serverClockOffsetSamples += 1;
+    if (serverClockOffsetSamples === 3) {
+      const sorted = [...serverClockSamples].sort((a, b) => a - b);
+      serverClockOffsetMs = sorted[1]; // median of 3
+      serverClockSamples = []; // release the array
+      clockResyncDueAtMs = nowMs + CONFIG.net.clockResyncIntervalMs;
+    }
+  } else if (clockResyncDueAtMs > 0 && nowMs >= clockResyncDueAtMs) {
+    // * Periodic re-bootstrap: the EWMA below rejects >500ms outliers, so a slowly
+    // * drifting client clock can pull the offset unbounded over a long session.
+    // * Every resync interval, take a fresh 3-sample median and blend it 20% into
+    // * the running estimate — enough to arrest drift without a visible timer jump.
+    clockResyncSamples.push(sample);
+    if (clockResyncSamples.length >= 3) {
+      const sorted = [...clockResyncSamples].sort((a, b) => a - b);
+      serverClockOffsetMs = serverClockOffsetMs * 0.8 + sorted[1] * 0.2;
+      clockResyncSamples = [];
+      clockResyncDueAtMs = nowMs + CONFIG.net.clockResyncIntervalMs;
+    }
+  } else {
+    const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500;
+    if (!isClockOutlier) {
+      serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.1;
+    }
+  }
+}
+
 // === TEST HOOKS ===
 
 /**
@@ -1742,4 +1747,8 @@ export const __netcodeTestHooks = {
   },
   getBufferLength: () => netStateBuffer.length,
   findSnapshotPair: (t) => findSnapshotPair(t),
+  pruneConsumedSnapshots: (beforeIndex) => pruneConsumedSnapshots(beforeIndex),
+  updateServerClockOffset: (serverNowMs, nowMs) => updateServerClockOffset(serverNowMs, nowMs),
+  getServerClockOffset: () => serverClockOffsetMs,
+  getClockResyncDueAtMs: () => clockResyncDueAtMs,
 };

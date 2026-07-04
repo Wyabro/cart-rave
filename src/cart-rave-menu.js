@@ -605,10 +605,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     applyPalette();
   }
 
-  function onCustomHueInput(hue) {
+  function onCustomHueInput(hue, shouldSave = false) {
     if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
     state.customHue = normalizeHue(hue);
-    saveCustomization({ colorMode: 'custom', customHue: state.customHue });
+    if (shouldSave) {
+      saveCustomization({ colorMode: 'custom', customHue: state.customHue });
+    }
     updateCustomHueUi();
     const customChip = customizeColorRow?.querySelector('.cr-color-chip--custom');
     if (customChip) {
@@ -711,7 +713,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (state.sunglassesStyle === styleId) return;
     saveCustomization({ sunglassesStyle: styleId });
     if (cartPreview) syncCartPreviewLook(true);
-    buildSunglassesChips();
   }
 
   function switchCustomizeTab(tabId) {
@@ -773,7 +774,10 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (!customHueSlider || customHueSliderWired) return;
     customHueSliderWired = true;
     customHueSlider.addEventListener('input', () => {
-      onCustomHueInput(Number(customHueSlider.value));
+      onCustomHueInput(Number(customHueSlider.value), false);
+    });
+    customHueSlider.addEventListener('change', () => {
+      onCustomHueInput(Number(customHueSlider.value), true);
     });
   }
 
@@ -818,7 +822,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   function closeCustomizeScreen() {
     if (!customizeScreen) return;
     disposeCartPreview();
-    // * Persist final COLOR tab choices when leaving Customize (live saves also fire on each pick).
+    // * Persist final customization state when leaving Customize.
     saveCustomization({
       colorMode: state.colorMode === 'custom' ? 'custom' : 'preset',
       color: state.colorMode === 'custom'
@@ -826,6 +830,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
         : (PALETTE_GAME[state.playerIdx] || PALETTE_GAME[0]),
       customHue: state.customHue,
       pattern: state.pattern,
+      sunglassesStyle: state.sunglassesStyle,
     });
     customizeScreen.style.display = 'none';
     customizeScreen.setAttribute('aria-hidden', 'true');

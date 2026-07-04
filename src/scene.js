@@ -464,11 +464,23 @@ function disposeRenderer(renderer) {
 }
 
 /**
+ * ! REQUIRED VRAM cleanup utility — intentionally retained for future use.
+ *   Not currently called in any codepath, but must be available when
+ *   post-processing teardown (quality toggles, scene disposal) is wired up.
+ *
  * Disposes render targets and passes owned by the effect composer.
  *
  * @param {EffectComposer|null|undefined} composer Post-processing composer to dispose.
  */
-function disposeComposer(composer) {
+export function disposeComposer(composer) {
   if (!composer) return;
+  if (Array.isArray(composer.passes)) {
+    for (const pass of composer.passes) {
+      if (pass.material) pass.material.dispose?.();
+      if (pass.dispose) pass.dispose();
+    }
+  }
+  composer.renderTarget1?.dispose();
+  composer.renderTarget2?.dispose();
   composer.dispose();
 }

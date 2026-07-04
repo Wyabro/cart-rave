@@ -1,12 +1,8 @@
-import { animate, createTimeline, spring, stagger } from "animejs";
+import { animate, createTimeline, stagger } from "animejs";
 import "animejs/adapters/three";
 import { isTouchDevice } from "./utils.js";
 
-export { animate, createTimeline, spring, stagger };
-
-/** Native spring physics generator presets for tactile micro-interactions */
-export const SPRING_BOUNCE = spring({ stiffness: 220, damping: 16, mass: 1 });
-export const SPRING_SNAP = spring({ stiffness: 260, damping: 20, mass: 0.8 });
+export { createTimeline, stagger };
 
 /** @typedef {import('animejs').JSAnimation} JSAnimation */
 
@@ -166,7 +162,7 @@ export function cancelElementAnimations(element) {
  * Stops a looping touch pulse on an element.
  * @param {Element | null | undefined} element
  */
-export function stopTouchPulse(element) {
+function stopTouchPulse(element) {
   if (!(element instanceof Element)) return;
 
   const pulse = pulseByElement.get(element);
@@ -449,7 +445,7 @@ export function animateTouchControlRelease(element, options = {}) {
  * @param {AnimationOptions} [options]
  * @returns {JSAnimation | null}
  */
-export function animateJoystickEngage(knobEl, options = {}) {
+function animateJoystickEngage(knobEl, options = {}) {
   if (!knobEl) return null;
 
   const duration = options.duration ?? 80;
@@ -482,7 +478,7 @@ export function animateJoystickEngage(knobEl, options = {}) {
  * @param {AnimationOptions} [options]
  * @returns {JSAnimation | null}
  */
-export function animateJoystickRelease(knobEl, fromX, fromY, options = {}) {
+function animateJoystickRelease(knobEl, fromX, fromY, options = {}) {
   if (!knobEl) return null;
 
   const duration = options.duration ?? 140;
@@ -528,7 +524,7 @@ export function animateJoystickRelease(knobEl, fromX, fromY, options = {}) {
  * @param {boolean} active Whether the stick is deflected past the deadzone.
  * @param {number} [intensity=0] Input magnitude 0–1 for pulse strength.
  */
-export function setJoystickActivePulse(knobEl, ringEl, active, intensity = 0) {
+function setJoystickActivePulse(knobEl, ringEl, active, intensity = 0) {
   if (!knobEl && !ringEl) return;
 
   const mag = clampPulseIntensity(intensity);
@@ -671,7 +667,7 @@ export function fadeIn(element, duration = 220, options = {}) {
  * @param {AnimationOptions & { from?: number, to?: number, removePointerEvents?: boolean }} [options]
  * @returns {JSAnimation | null}
  */
-export function fadeOut(element, duration = 180, options = {}) {
+function fadeOut(element, duration = 180, options = {}) {
   if (!element) return null;
 
   const ease = options.ease ?? DEFAULT_EASE_FADE;
@@ -1059,7 +1055,7 @@ export function crossfadeElement(element, midway, options = {}) {
  * @param {AnimationOptions & { scalePeak?: number }} [options]
  * @returns {JSAnimation | null}
  */
-export function animateSelectionPop(element, options = {}) {
+function animateSelectionPop(element, options = {}) {
   if (!element) return null;
 
   const duration = options.duration ?? 260;
@@ -1139,7 +1135,7 @@ export function animateReadyStateToggle(element, isReady, options = {}) {
  * @param {AnimationOptions & { scale?: number }} [options]
  * @returns {JSAnimation | null}
  */
-export function animateHoverScale(element, options = {}) {
+function animateHoverScale(element, options = {}) {
   if (!element) return null;
 
   const duration = options.duration ?? 150;
@@ -1167,7 +1163,7 @@ export function animateHoverScale(element, options = {}) {
  * @param {AnimationOptions} [options]
  * @returns {JSAnimation | null}
  */
-export function animateHoverReset(element, options = {}) {
+function animateHoverReset(element, options = {}) {
   if (!element) return null;
 
   const duration = options.duration ?? 120;
