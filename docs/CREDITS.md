@@ -13,12 +13,16 @@ Runtime dependencies come from `package.json` and are bundled by Vite unless not
 | Rendering | Three.js | Client (`src/`, Vite-bundled) | `^0.164.1` | MIT | `https://github.com/mrdoob/three.js` |
 | Physics | Rapier (Rapier3D) | Client — host-authoritative physics (`src/simulation.js`, etc.) | `^0.19.3` | Apache-2.0 | `https://github.com/dimforge/rapier` |
 | Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.0.0` | MIT | `https://github.com/juliangarnier/anime` |
-| Multiplayer | PartyKit | Server worker + local dev CLI (`party/index.ts`) | 0.0.115 | MIT | `https://github.com/partykit/partykit` |
+| Multiplayer | `partyserver` | Cloudflare Worker DO backend (`party/index.ts`) | `^0.5.8` | MIT | `https://github.com/threepointone/partyserver` |
 | Networking | `partysocket` | Client WebSocket (`src/netcode.js`) | `^1.1.16` | MIT | `https://www.npmjs.com/package/partysocket` |
+| Build / Deploy | Wrangler | Worker bundle & asset uploader CLI | `^3.0.0` | MIT | `https://github.com/cloudflare/workers-sdk` |
 | Build | Vite | Dev server + production build (`dist/`) | `^6.3.5` | MIT | `https://github.com/vitejs/vite` |
-| Debug UI (dev-only) | lil-gui | Post-processing debug panel (`src/postFxDebug.js`; tree-shaken in prod) | `^0.21.0` | MIT | `https://github.com/georgealways/lil-gui` |
-| Dead-code analysis (dev-only) | Knip | `npm run knip` | `^6.20.0` | ISC | `https://github.com/webpro/knip` |
-| Debug console (dev-only) | Eruda | Loaded from CDN on localhost / LAN only (`index.html`) | Not pinned | MIT | `https://github.com/liriliri/eruda` |
+| Touch Controls | `nipplejs` | Mobile virtual analog joystick (`src/touchControls.js`) | `^1.0.4` | MIT | `https://github.com/yoannmoinet/nipplejs` |
+| State Management | Zustand | UI & settings state store (`src/stores/`) | `^5.0.14` | MIT | `https://github.com/pmndrs/zustand` |
+| Sound Engine | Howler.js | Audio playback, pooling, and spatial groups (`src/audio.js`) | `^2.2.4` | MIT | `https://github.com/goldfire/howler.js` |
+| Debug UI | Tweakpane | Neon debug & settings pane (`src/postFxDebug.js`, etc.) | `^4.0.5` | MIT | `https://github.com/cocopon/tweakpane` |
+| Dead-code analysis | Knip | Unused export audit tool (`knip.json`) | `^6.20.0` | ISC | `https://github.com/webpro/knip` |
+| Debug console | Eruda | Loaded from CDN on localhost / LAN only (`index.html`) | Not pinned | MIT | `https://github.com/liriliri/eruda` |
 
 **Three.js examples** (same MIT license as Three.js): `CSS2DRenderer`, `EffectComposer`, `RenderPass`, `ShaderPass`, `UnrealBloomPass`, `FXAAShader`, `RoomEnvironment`, `Reflector`, `BufferGeometryUtils` — imported from `three/examples/jsm/` in `src/`.
 
@@ -42,8 +46,7 @@ Loaded via Google Fonts in `index.html`.
 
 | Name | Purpose | Link |
 |---|---|---|
-| PartyKit / Cloudflare Workers | Multiplayer hosting for the party server | `https://www.partykit.io/` |
-| Vercel | Static hosting for the game client | `https://vercel.com/` |
+| Cloudflare Workers | Serverless host for assets + partyserver Durable Objects | `https://workers.cloudflare.com/` |
 | Google Fonts | Web font delivery | `https://fonts.google.com/` |
 | unpkg | CDN fallback for Eruda (local/LAN dev only) | `https://unpkg.com/` |
 | jsDelivr | CDN fallback for Eruda (local/LAN dev only) | `https://www.jsdelivr.com/` |
@@ -82,4 +85,4 @@ Most in-game SFX are **procedural** (Web Audio API oscillators in `src/audio.js`
 
 ---
 
-**Last Updated:** July 1, 2026
+**Last Updated:** July 4, 2026

@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** July 1, 2026
+**Last Updated:** July 4, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -10,9 +10,9 @@
 ## Current Status
 
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
-- **Physics & Feel**: Major stability overhaul complete (July 1). Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on both Record and Backrooms levels. Mobile performance significantly improved.
-- **Current Phase**: Phase 3 — Content & Features (Backrooms level shipped, touch controls in progress)
-- **Recent Technical Work**: Major physics refactor (trimesh → convexHull/primitive colliders) + UI/audio polish + Knip cleanup pass
+- **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
+- **Current Phase**: Phase 3 — Content & Features (Complete, preparing for V2 release)
+- **Recent Technical Work**: 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -22,9 +22,7 @@
 Prioritized Phase 3 and Version 2 work is maintained in **[ROADMAP.md](./ROADMAP.md)** (Tier 1 through Tier 4).
 
 **Quick snapshot of open Phase 3 items:**
-- Touch controls polish (in progress)
 - More cart customization options
-- Level 3: Zanzibar Platform (tropical beach sci-fi, platform out in ocean)
 - Spectator mode / chaos features (stretch)
 
 ---
@@ -37,7 +35,7 @@ Intentional stack improvements — full priorities and effort estimates in [ROAD
 |---------|------|---------|
 | `nipplejs` | 1 | Virtual joystick for touch/mobile controls |
 | `tweakpane` | 1 | Modern replacement for `lil-gui` |
-| `zustand` or `valtio` | 1 | Lightweight state management (reduce global state coupling) |
+| `zustand` | 1 | Lightweight state management (reduce global state coupling) |
 | `howler.js` | 3 | Spatial audio, pooling, and volume/group management |
 
 ---
@@ -52,12 +50,13 @@ Intentional stack improvements — full priorities and effort estimates in [ROAD
 - Hole rim behavior (smooth tipping/sliding)
 - Final boost/nitro balance pass
 
-### Phase 3 — Content & Features (Active)
+### Phase 3 — Content & Features ✅ Completed
 - ✅ Backrooms Supermarket level shipped
-- Touch controls support (base implementation done, polish ongoing)
-- More cart customization options *(open)*
-- Level 3: Zanzibar Platform *(planned)*
-- Spectator mode / chaos features *(stretch)*
+- ✅ Touch controls support (joystick + Boost/Hop via nipplejs)
+- ✅ Daily/Weekly Challenges system shipped
+- ✅ Level 3: Zanzibar Platform (sunset ocean arena) shipped
+- More cart customization options *(Planned)*
+- Spectator mode / chaos features *(Stretch)*
 
 ### Phase 4 — Netcode & Technical Polish
 See [ROADMAP.md](./ROADMAP.md) Tier 3 for current priorities (client prediction, lag mitigation, rave area redesign, audio upgrade, etc.).
@@ -71,6 +70,13 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 4, 2026 – TypeScript Audit & 100% Typecheck Compliance
+- Systematic pass achieved **0 errors under `npx tsc --noEmit`** with `checkJs: true` enabled.
+- Augmented global module declarations in `src/globals.d.ts` for DOM, THREE, and Rapier3D.
+- Standardized JSDoc type signatures and eliminated all 30+ stale `@ts-expect-error` directives.
+- Hardened server-to-client broadcast connection mapping in `party/index.ts`.
+- Validated with 21/21 passing Vitest unit tests and 1.63s clean production build.
 
 ### July 1, 2026 – Physics Overhaul + Polish
 - Full replacement of problematic trimesh colliders on Record level (72-segment ring → 16 edge-to-edge convexHull colliders using precise `tan(halfAngle)` math)

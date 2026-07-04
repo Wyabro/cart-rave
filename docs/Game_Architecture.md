@@ -16,7 +16,7 @@ At a high level, the architecture is:
 
 - **Client-rendered 3D** with real-time physics simulation
 - **Host-authoritative multiplayer**: one client simulates physics for everyone
-- **PartyKit room server** for connection management, slot assignment, and message relay
+- **partyserver** room server on Cloudflare Workers for connection management, slot assignment, and message relay
 - **Static hosting** for the game client and assets; **Vite** builds `dist/` for production
 
 ---
@@ -26,7 +26,7 @@ At a high level, the architecture is:
 - **Primary goal:** A friend can open the live site, pick a color, join a round quickly, play multiple rounds, and want to share it.
 - **Original jam constraints (still largely true):**
   - Floor rotation is **visual-only** (no physics drag / spin forces applied to carts).
-- **Post-jam additions:** Backrooms level, touch controls, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts.
+- **Post-jam additions:** Backrooms and Zanzibar levels, touch controls, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts.
 
 ---
 
@@ -34,11 +34,11 @@ At a high level, the architecture is:
 
 - **Three.js**: rendering, scene, camera, post-processing, and visuals
 - **Rapier3D**: physics (simulation runs on the host client)
-- **PartyKit**: multiplayer rooms + WebSocket relay + lightweight server state
+- **partyserver**: Durable Object rooms + WebSocket relay + lightweight server state on Cloudflare Workers
 - **Vite**: dev server and production build (`dist/`)
 - **Vercel**: static hosting for the client
 
-**Levels:** Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids).
+**Levels:** Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids), Zanzibar Platform (floating octagonal sundeck in sunset seascape).
 
 ---
 
@@ -64,7 +64,7 @@ At a high level, the architecture is:
 
 ---
 
-## Multiplayer message flow (PartyKit ↔ clients)
+## Multiplayer message flow (partyserver ↔ clients)
 
 ### Core behaviors (documented)
 
@@ -122,29 +122,30 @@ The audit notes also emphasize:
 
 ### Production endpoints (documented)
 
-- **Static site:** `https://www.cartrave.lol/`
-- **PartyKit host pattern:** `https://<project-name>.<account-slug>.partykit.dev`
-  - Example referenced in docs: `https://cart-rave.wyabro.partykit.dev`
+- **Static site:** `https://cart-rave.wyabro.workers.dev/` (Worker hosts assets + DO)
+- **partyserver host pattern:** `https://<project-name>.<account-slug>.workers.dev`
+  - Example: `https://cart-rave.wyabro.workers.dev`
 
 ### WebSocket canonical shape
 
-The PartyKit realtime URL shape is:
+The partyserver realtime URL shape is:
 
 - `wss://<host>/parties/<party>/<room>`
+- For example: `wss://cart-rave.wyabro.workers.dev/parties/main/quickplay`
 
 ### Verification guidance (documented practice)
 
 The docs emphasize that verification should avoid false confidence from local state:
 
-- **Client verification:** Confirm shipped client changes against the deployed `main.js` (using cache-busting / no-cache techniques to avoid CDN masking updates).
-- **Server verification:** PartyKit deploy state may not match GitHub `main` unless explicitly deployed; verify via PartyKit runtime tooling and live tailing where applicable.
+- **Client verification:** Confirm shipped client changes against the deployed static asset (using cache-busting / no-cache techniques to avoid CDN masking updates).
+- **Server/DO verification:** Deploy state may not match GitHub `main` unless explicitly deployed; verify via wrangler runtime tailing where applicable (`npx wrangler tail`).
 
 ### Important platform characteristic: persistent server state
 
-PartyKit/Durable Object state is described as **persisting across deploys**. This informs operational expectations:
+Cloudflare Durable Object state is described as **persisting across deploys**. This informs operational expectations:
 
-- Deploying does **not** inherently reset in-memory server fields such as host id, slot mapping, or sequence counters.
-- Production may retain “ghost” state until an explicit liveness mechanism clears it.
+- Deploying does **not** inherently reset in-memory Durable Object state (such as active lobby states or room state storage) unless we force eviction or manually wipe state.
+- Production may retain state until all connections close and the DO evicts from memory.
 
 ---
 

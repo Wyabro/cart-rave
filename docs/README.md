@@ -4,7 +4,7 @@
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (July 2026):** Post-jam. Active development on the `next-level` branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record and Backrooms levels). See [ROADMAP.md](./ROADMAP.md) for current priorities.
+**Status (July 2026):** Post-jam. Active development on the `next-level` branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record, Backrooms, and Zanzibar levels). See [ROADMAP.md](./ROADMAP.md) for current priorities.
 
 ---
 
@@ -29,7 +29,7 @@
 
 - **Three.js** — rendering, camera, post-processing, UI/world visuals
 - **Rapier3D** — real-time physics (host-authoritative simulation). Heavy use of `convexHull` and primitive colliders after July 2026 refactor for stability and performance.
-- **PartyKit / partyserver** — multiplayer rooms + WebSocket relay + lightweight server state (migrated July 2026)
+- **partyserver** — multiplayer rooms + WebSocket Durable Object relay + server state running on Cloudflare Workers (migrated from PartyKit July 2026)
 - **Vite** — dev server and production build (`dist/`)
 
 Client code lives in `src/`. `src/main.js` is the live entry point and wiring hub; core systems are modular (`netcode.js`, `simulation.js`, `bootstrap.js`, `levelManager.js`, etc.).
@@ -44,7 +44,7 @@ Client code lives in `src/`. `src/main.js` is the live entry point and wiring hu
 
 ### Daily development (`next-level` branch)
 
-One command — Vite client + preview PartyKit worker:
+One command — Vite client + preview partyserver worker via Wrangler:
 
 ```bash
 npm run dev:next-level
@@ -58,7 +58,7 @@ Open **http://127.0.0.1:3000/**. See [preview-dev.md](./preview-dev.md) for the 
 # Terminal 1 — Vite
 npm run dev
 
-# Terminal 2 — PartyKit (port 1999)
+# Terminal 2 — partyserver via Wrangler (port 8787/1999)
 npm run dev:party
 ```
 
@@ -66,7 +66,7 @@ npm run dev:party
 
 ```bash
 npm run build    # Vite → dist/
-npm run ship     # build + PartyKit deploy (production)
+npm run ship     # build + wrangler deploy (production)
 ```
 
 ---
@@ -78,7 +78,7 @@ npm run ship     # build + PartyKit deploy (production)
 - **Space**: hop
 - **M**: mute audio
 - **Esc**: in-game overlay (settings + quit to menu; simulation continues)
-- **Touch** (mobile): virtual joystick + Boost/Hop buttons
+- **Touch** (mobile): virtual joystick + Boost/Hop buttons via `nipplejs`
 
 ---
 
@@ -88,6 +88,7 @@ npm run ship     # build + PartyKit deploy (production)
 - **Levels**: 
   - Classic Record (vinyl ring + center hole) — major physics stability pass July 2026
   - Backrooms Supermarket (square floor + corner voids) — major physics stability pass July 2026
+  - Zanzibar Platform (floating sundeck + sunset seascape) — added July 2026
 - **Scoring**: knock carts off the **edge** or into **voids/holes** for points (bonuses stack for big plays)
 - **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots (with client-side prediction for the local cart)
 - **Round length**: 2.5 minutes standard + Sudden Death on ties
@@ -99,11 +100,13 @@ npm run ship     # build + PartyKit deploy (production)
 | Script | Purpose |
 |--------|---------|
 | `npm run dev` | Vite dev server (port 3000) |
-| `npm run dev:next-level` | Vite + preview PartyKit (recommended on `next-level`) |
-| `npm run dev:party` | PartyKit local worker (port 1999) |
+| `npm run dev:next-level` | Vite + local Wrangler wrangler dev server |
+| `npm run dev:party` | Local wrangler worker (Durable Object) |
 | `npm run build` | Production build to `dist/` |
-| `npm run ship` | Build + deploy PartyKit to production |
+| `npm run ship` | Build + deploy worker to Cloudflare |
 | `npm run knip` | Unused export analysis |
+| `npm run typecheck` | Typecheck codebase with tsc |
+| `npm test` | Run Vitest unit tests |
 
 ---
 
@@ -114,8 +117,8 @@ index.html          # Static shell, menu markup
 src/main.js         # Entry point + game wiring
 src/bootstrap.js    # Menu → gameplay flow
 src/levelManager.js # Level preview + swapping
-src/levels/         # Level definitions (classic, backrooms, …)
-party/index.ts      # PartyKit relay (no server-side physics)
+src/levels/         # Level definitions (classic, backrooms, zanzibar)
+party/index.ts      # partyserver Durable Object class
 docs/               # All project documentation
 ```
 
@@ -123,4 +126,4 @@ Design constraints and AI guardrails: `.cursorrules` at repo root.
 
 ---
 
-**Last Updated:** July 1, 2026
+**Last Updated:** July 4, 2026

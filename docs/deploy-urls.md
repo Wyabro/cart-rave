@@ -1,98 +1,56 @@
-# Cart Rave — production URLs and PartyKit verification
+# Cart Rave — Production Deployment & Verification
 
-Quick reference so agents do not have to rediscover hosts from `partykit.json`, the CLI, and `main.js`.
+Quick reference to track deployment targets, live URLs, and verification commands.
 
-## Static game (Vercel)
+## Unified Cloudflare Deployment
 
-| Resource | URL |
-|----------|-----|
-| Production site | `https://www.cartrave.lol/` |
-| Game entry (ESM) | `https://www.cartrave.lol/main.js` |
+In the raw **partyserver** setup, a single Cloudflare Worker hosts both the static client assets and the WebSocket Durable Object rooms. Vercel is no longer used for static hosting.
 
-When checking a fresh deploy, send cache-busting headers (for example `Cache-Control: no-cache`) — CDN caching has masked updates before.
+| Resource | URL | Role |
+|----------|-----|------|
+| **Production Game URL** | `https://cart-rave.wyabro.workers.dev/` | Serves client assets (HTML/JS/CSS/SFX) and acts as the WebSocket endpoint |
+| **Durable Object Room** | `wss://cart-rave.wyabro.workers.dev/parties/main/<room>` | Real-time game room socket (`main` Durable Object class) |
+| **Error Log Endpoint** | `https://cart-rave.wyabro.workers.dev/api/log-error` | Receives client-side exception forwarder payloads |
 
-## PartyKit (multiplayer server)
+---
 
-| Source | Value |
-|--------|--------|
-| `partykit.json` → `name` | `cart-rave` |
-| Deployed base URL (`npx partykit list` / `npx partykit info`) | `https://cart-rave.wyabro.partykit.dev` |
+## Client Wiring (`src/netcode.js`)
 
-Hostname pattern on the managed platform:
+The client automatically detects its hosting context:
+- On `localhost` / `127.0.0.1`, it points to `localhost:1999` using `ws://`.
+- In production, it connects to `wss://cart-rave.wyabro.workers.dev/parties/main/<room>` (`?room=` value from URL query, defaulting to `quickplay`).
 
-`https://<partykit.json name>.<PartyKit account slug>.partykit.dev`
+---
 
-The account slug (`wyabro` here) is **not** in `partykit.json`; it comes from the PartyKit account used when running `partykit deploy`.
+## Deploying Updates
 
-### Client wiring (`main.js`)
-
-- `PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.partykit.dev"` (no scheme; see below).
-- `PartySocket` is constructed with `party: "main"` and `room` from `resolvedPartyRoomFromUrl()` (`?room=` when valid, else `quickplay`).
-
-### WebSocket URL (canonical for realtime)
-
-`partysocket` builds the socket URL as:
-
-`wss://<host>/parties/<party>/<room>`
-
-So for production:
-
-`wss://cart-rave.wyabro.partykit.dev/parties/main/<room>`
-
-Example default room:
-
-`wss://cart-rave.wyabro.partykit.dev/parties/main/quickplay`
-
-Local dev uses `partyHostFromWindowLocation()` (for example `127.0.0.1:1999`) with the same `/parties/main/<room>` path shape and `ws://` where appropriate.
-
-### HTTP GET and “worker bundle” checks
-
-Plain HTTP GET to the deploy host root returns **404**. GET to a party path (for example `https://cart-rave.wyabro.partykit.dev/parties/main/quickplay`) returns **500** with a short body such as `No onRequest handler` — this project’s server does not implement `onRequest`; the edge worker is driven by WebSocket upgrades and PartyKit routing, **not** by serving a public `.js` artifact you can download and `Select-String` like `main.js`.
-
-So **there is no canonical “worker bundle” URL** on `*.partykit.dev` for grep-based production verification of minified server code.
-
-## How to verify Party **server** changes match `main`
-
-1. **Source at the deployed commit** (repo contract), after `git fetch`:
-
-   ```powershell
-   git show origin/main:party/index.ts | Select-String -Pattern 'data\.connId = conn\.id','conn\.id !== this\.#hostId'
-   ```
-
-   For a specific fix commit (example security commit `b270200`):
-
-   ```powershell
-   git merge-base --is-ancestor b270200 origin/main
-   git show b270200:party/index.ts | Select-String -Pattern 'data\.connId = conn\.id','conn\.id !== this\.#hostId'
-   ```
-
-2. **Deploy**: Run `npx partykit deploy` from repo root after merging (or confirm your pipeline does), so the edge worker matches `main`.
-
-3. **Runtime**: `npx partykit tail` while joining a room and sending traffic.
-
-## Related commands
+To deploy changes to the live site:
 
 ```bash
-npx partykit list
-npx partykit info
-npx partykit deploy
-npx partykit tail
+npm run ship
+```
+This builds client assets to `dist/` and runs `npx wrangler deploy` to push them alongside the Durable Object worker class.
+
+---
+
+## Verification Commands
+
+To check on active connections, debug issues, or tail live production server console logs, use the Wrangler CLI:
+
+### 1. Tail Production Server Logs
+```bash
+npx wrangler tail
 ```
 
-## Preview project (`next-level` branch)
+### 2. Inspect Deployed Source (GitHub vs. Cloudflare)
+Compare your local or main branch with the deployed worker script schema:
+```bash
+git show origin/main:party/index.ts | grep -E 'broadcast|onMessage|DurableObject'
+```
 
-For feature work on `next-level`, **local dev is the default** — no deploy needed for multiplayer testing.
+### 3. Check for Runtime Errors
+Join a room, trigger actions (e.g., collisions, custom colors, level switches), and monitor `npx wrangler tail` to verify that no unhandled server-side exceptions occur.
+- Non-host connections correctly map to the new broadcast sequence.
+- Late-joining clients receive the correct `#currentLevelId` authority from the Durable Object.
 
-| Task | Command |
-|------|---------|
-| **Daily multiplayer dev** | `npm run dev:next-level` |
-| PartyKit half (2-terminal setup) | `npm run dev:party:preview` (+ `npm run dev` in another terminal) |
-| Shareable remote preview (optional) | `npm run build:party-static && npm run deploy:preview` |
-
-- Config: `partykit.preview.json` → project `cart-rave-preview`
-- Local worker: `http://127.0.0.1:1999` (client auto-targets this on localhost)
-- Deployed preview host: `https://cart-rave-preview.<account>.partykit.dev`
-
-Full write-up: [preview-dev.md](./preview-dev.md)
-
-Avoid frequent `deploy:preview` runs — the shared `partykit.dev` zone has Cloudflare Workers custom-domain limits.
+For the active V2 feature progression, see [ROADMAP.md](./ROADMAP.md).

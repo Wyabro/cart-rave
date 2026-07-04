@@ -1,10 +1,16 @@
 # Cart Rave
 
-Neon-soaked **4-player shopping-cart physics brawler** — live at [cartrave.lol](https://www.cartrave.lol/).
+Neon-soaked **4-player shopping-cart physics brawler** — live at [cart-rave.wyabro.workers.dev](https://cart-rave.wyabro.workers.dev/).
 
 Post-jam development continues on the **`next-level`** branch toward **Version 2** (new content, performance, rename + new domain).
 
-**Recent (July 2026):** Major physics stability overhaul — trimesh colliders on both Record and Backrooms levels replaced with precise convexHull + primitive colliders. Floor bounce, wheel clipping, and tunneling issues resolved. Mobile performance significantly improved.
+**Recent (July 2026):**
+- **Core Stability**: Replaced problematic trimesh colliders on Record, Backrooms, and Zanzibar levels with precise convexHull + primitive colliders for stable physics and zero clipping.
+- **Level 3 (Zanzibar Platform)**: Floating sundeck arena set in a dynamic sunset seascape with customized AI hazards and enhanced contact shadows.
+- **Touch Controls**: Integrated virtual analog joysticks and touch buttons via `nipplejs` for portrait/landscape mobile play.
+- **Progression**: Implemented daily/weekly challenges, personal best tracking, and local stat storage.
+- **Tech Stack**: Migrated the multiplayer backend from PartyKit to raw **partyserver** running on Cloudflare Workers / Wrangler.
+- **TypeScript Resolution**: Codebase is fully typechecked with 0 errors via `npx tsc --noEmit`.
 
 ## Documentation
 
