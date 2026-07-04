@@ -9,6 +9,7 @@ import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
 import { clearNpcCartCache } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
+import { settingsStore } from "./stores/settingsStore.js";
 
 /** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
@@ -1625,6 +1626,22 @@ export function initNetcode(roomOverride) {
             callbacks.recordPodiumStats(winnerSlotIndex, src);
           }
         }
+        // * Non-host clients receive MSG.round to learn the countdown→running transition.
+        // * The host calls endCinematicCountdown() directly in startRunningAt() (main.js),
+        // * so this guard is the mirror for all other clients to exit cinematic camera mode.
+        if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "running") {
+          callbacks.endCinematicCountdown?.();
+        }
+        // * Server now broadcasts levelId on every MSG.round. Non-host clients apply it
+        // * so level selection stays in sync without needing a fresh MSG.hello on rematch.
+        if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
+          const incoming = msg.levelId.trim();
+          const stored = settingsStore.getState().selectedLevelId;
+          if (incoming !== stored) {
+            settingsStore.getState().setSelectedLevelId(incoming);
+            callbacks.onLevelIdChanged?.(incoming);
+          }
+        }
         const state = GameState.getRoundState();
         GameState.setRoundPhase(r.phase ?? state.phase);
         GameState.setRoundStartedAtMs(r.startedAtMs ?? state.startedAtMs);
@@ -1701,7 +1718,7 @@ export function broadcastHostTransform(carts) {
 export function sendHostRound() {
   if (!partySocket || !isHost) return;
   const state = GameState.getRoundState();
-  const currentLevelId = (typeof localStorage !== "undefined" ? localStorage.getItem("cartRaveLevel") : null) || "classicRecord";
+  const currentLevelId = settingsStore.getState().selectedLevelId || "classicRecord";
   partySocket.send(JSON.stringify({
     type: MSG.hostRound,
     levelId: currentLevelId,

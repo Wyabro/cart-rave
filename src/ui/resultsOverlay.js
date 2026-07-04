@@ -204,7 +204,6 @@ export function animateResultsPodiumShow(payload) {
  *   finalScores: HTMLDivElement,
  *   history: HTMLDivElement,
  *   playAgain: HTMLButtonElement,
- *   nextLevelBtn: HTMLButtonElement,
  *   statsLine: HTMLDivElement,
  *   mainMenuBtn: HTMLButtonElement,
  * }}
@@ -652,16 +651,9 @@ export function initResultsOverlay(hooks = {}) {
   const playAgain = document.createElement("button");
   playAgain.type = "button";
   playAgain.className = "results-btn results-btn--play";
-  playAgain.textContent = "REMATCH";
+  playAgain.textContent = "PLAY AGAIN";
   playAgain.setAttribute("data-gamepad-focusable", "true");
   playAgain.disabled = false;
-
-  const nextLevelBtn = document.createElement("button");
-  nextLevelBtn.type = "button";
-  nextLevelBtn.className = "results-btn results-btn--next";
-  nextLevelBtn.textContent = "NEXT LEVEL";
-  nextLevelBtn.setAttribute("data-gamepad-focusable", "true");
-  nextLevelBtn.disabled = false;
 
   const mainMenuBtn = document.createElement("button");
   mainMenuBtn.type = "button";
@@ -673,7 +665,6 @@ export function initResultsOverlay(hooks = {}) {
   });
 
   actions.appendChild(playAgain);
-  actions.appendChild(nextLevelBtn);
   actions.appendChild(mainMenuBtn);
 
   const statsLine = document.createElement("div");
@@ -692,8 +683,7 @@ export function initResultsOverlay(hooks = {}) {
   document.body.appendChild(overlay);
 
   wireResultsButtonFeedback(playAgain);
-  wireResultsButtonFeedback(nextLevelBtn);
   wireResultsButtonFeedback(mainMenuBtn);
 
-  return { overlay, panel, title, finalScores, history, playAgain, nextLevelBtn, statsLine, mainMenuBtn };
+  return { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn };
 }

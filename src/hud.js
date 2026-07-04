@@ -2045,7 +2045,7 @@ function updateScores(roundState, netSlots, youConnId) {
     for (let i = 0; i < 4; i += 1) {
       const score = Number(roundScores?.[i] ?? 0);
       const slot = netSlots?.[i];
-      const meta = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind || "npc"}:${slot?.connId || ""}`;
+      const meta = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}`;
       if (_lastScores[i] !== score || _lastSlotMeta[i] !== meta) {
         dataChanged = true;
       }
@@ -2058,7 +2058,7 @@ function updateScores(roundState, netSlots, youConnId) {
       for (let i = 0; i < 4; i += 1) {
         const slot = netSlots?.[i];
         _lastScores[i] = Number(roundScores?.[i] ?? 0);
-        _lastSlotMeta[i] = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind || "npc"}:${slot?.connId || ""}`;
+        _lastSlotMeta[i] = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}`;
       }
     }
 
@@ -2071,7 +2071,7 @@ function updateScores(roundState, netSlots, youConnId) {
           score: Number(roundScores?.[i] ?? 0),
           slotName: slot?.name || `P${i + 1}`,
           slotColor: slot?.color || null,
-          kind: slot?.kind || "npc",
+          kind: slot?.kind ?? "",
           connId: slot?.connId || null,
         });
       }

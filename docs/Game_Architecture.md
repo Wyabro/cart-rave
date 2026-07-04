@@ -2,7 +2,7 @@
 
 **Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Rave is built**, how multiplayer works, how releases are verified, and what work remains.
 
-**Last updated context:** June 2026 — post-jam, Phase 3 (Content & Features), working toward Version 2. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
+**Last updated context:** July 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
 
 **Source material:** Derived from `docs/` (handover notes in `handovers/`, audits in `audits/`, and operational checklists).
 
@@ -10,7 +10,7 @@
 
 ## Executive summary
 
-**Cart Rave** is a browser-based **4‑player physics sumo** game. Players drive neon shopping carts on a club dancefloor shaped like a vinyl record (a ring with a center hole). Players score by knocking opponents off the edge or into the hole. Rounds are designed to run **60 seconds**, and the highest score wins.
+**Cart Rave** is a browser-based **4‑player physics sumo** game. Players drive neon shopping carts on a club dancefloor shaped like a vinyl record (a ring with a center hole). Players score by knocking opponents off the edge or into the hole. Rounds are designed to run **150 seconds** (2.5 minutes), and the highest score wins.
 
 At a high level, the architecture is:
 
@@ -26,7 +26,7 @@ At a high level, the architecture is:
 - **Primary goal:** A friend can open the live site, pick a color, join a round quickly, play multiple rounds, and want to share it.
 - **Original jam constraints (still largely true):**
   - Floor rotation is **visual-only** (no physics drag / spin forces applied to carts).
-- **Post-jam additions:** Backrooms and Zanzibar levels, touch controls, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts.
+- **Post-jam additions:** Backrooms and Zanzibar levels, touch controls, rampage combo system, grocery spill VFX, Zustand store architecture, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts. Server-authoritative level sync via `MSG.round`. Combo decay runs in a dedicated second pass to prevent scoring race conditions.
 
 ---
 
@@ -36,7 +36,7 @@ At a high level, the architecture is:
 - **Rapier3D**: physics (simulation runs on the host client)
 - **partyserver**: Durable Object rooms + WebSocket relay + lightweight server state on Cloudflare Workers
 - **Vite**: dev server and production build (`dist/`)
-- **Vercel**: static hosting for the client
+- **Cloudflare Workers**: static hosting for the client + Durable Object hosting for multiplayer relay
 
 **Levels:** Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids), Zanzibar Platform (floating octagonal sundeck in sunset seascape).
 
@@ -77,7 +77,7 @@ At a high level, the architecture is:
 ### Smoothing and latency handling
 
 - Clients use an **interpolation buffer** to render behind the latest snapshot to trade latency for stability.
-- A documented tuning value exists for this buffer (noted in docs as ~150 ms with intent to reduce).
+- A documented tuning value exists for this buffer (~100 ms with intent to reduce).
 
 ---
 
@@ -95,9 +95,9 @@ Notes describe a phase progression along the lines of:
 HUD and results work shipped over time to support:
 
 - Countdown messaging
-- Running timer
+- Running timer (150s / 2.5 min)
 - Score display per slot (P1–P4)
-- Results/podium overlay with final scores, rematch, and outbound portal link
+- Results/podium overlay with final scores, "PLAY AGAIN" (host only), and Main Menu
 
 ---
 
@@ -108,7 +108,8 @@ The scoring system was reviewed against the design intent in a dedicated audit n
 - **Fall-based scoring:** A knockout is detected when a cart falls below a configured vertical threshold during the running phase on the host.
 - **Attribution:** Recent collisions/ram events are used to attribute the knockout to an attacker within a time window.
 - **Center-hole vs edge:** Planar distance from origin is used to classify center-hole knockouts versus non-center falls.
-- **Bonuses and stacking:** Bonus conditions can stack on top of base points (with details and exact behavior evolving across sessions).
+- **Bonuses and stacking:** Bonus conditions can stack on top of base points (critical + target + combo multiplier).
+- **Rampage combo system:** A host-authoritative combo multiplier (1.5x RAMPAGE, 2.0x SAVAGE, 3.0x CARNAGE) with 5-second decay timer running in a dedicated second pass to prevent order-of-operations race conditions with fall scoring.
 
 The audit notes also emphasize:
 
@@ -167,11 +168,10 @@ This is treated as a core resiliency feature for real-world multiplayer behavior
 
 The docs capture a mix of blocking issues, non-blocking issues, and “must verify” items. Highlights include:
 
-- **Ready-up / refresh race conditions** (intermittent blockers depending on connection liveness behavior).
-- **Non-host lifecycle edge cases** (e.g., respawn behavior and fall handling).
-- **Tie-handling correctness** (especially all-zero outcomes and deterministic tie bias).
+- **Multiplayer runtime smoke test pending** (two-browser integration not yet verified).
+- **Persistent Durable Object state** across deploys may retain stale room state.
 - **Smoothing/latency tuning** (interpolation buffer and perceived non-host lag).
-- **Pre-submission cleanup** items (diagnostic logs, dead variables, and remaining polish tasks).
+- **Smoothing/latency tuning** (interpolation buffer and perceived non-host lag).
 
 ---
 
@@ -192,26 +192,28 @@ The handover notes repeatedly stress process discipline for reliability:
 
 ## Roadmap themes (what's next)
 
-### Near-term (Tier 1 — stabilization)
+### Near-term (Phase 4 — active)
 
 **Primary source:** [ROADMAP.md](./ROADMAP.md)
 
-- Lobby / ready-up flows (including refresh races)
-- Color selection gating
-- Rounds / results polish
-- Tie-handling and non-host lifecycle edge cases
+- Multiplayer runtime smoke test (two browsers, one room)
+- Host migration hardening
+- Netcode math hardening (buffer flood, clock drift)
+- Server-authoritative options evaluation
 
-### Content and features (Tier 2 — active)
+### Content and features (Phase 3 — complete)
 
-- Touch controls polish (in progress)
-- Level 3: Zanzibar Platform
-- Crazy Carts mode, Supabase leaderboard, spectator features
+- Touch controls (shipped)
+- Level 3: Zanzibar Platform (shipped)
+- Daily/Weekly challenges (shipped)
+- Rampage combo system (shipped)
+- Grocery spill VFX (shipped)
 
-### Technical and release (Tiers 3–4)
+### Technical and release (Phase 5 — deferred)
 
-- Lag mitigation, rave area redesign, performance pass
-- Further `main.js` slimming + `levelManager.js` ownership
+- Lag mitigation, performance pass
 - Menu overhaul, rename + new domain (Version 2 release)
+- `structuredClone` performance optimization for DO broadcasts
 
 See also [post-jam-ideas.md](./post-jam-ideas.md).
 

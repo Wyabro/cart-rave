@@ -100,6 +100,29 @@ Replace `structuredClone` with a manual, pre-allocated flat-array serializer tha
 ## Completed Work
 Historical record preserved. Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
 
+### July 4, 2026 – Runtime Bug Fixes: Combo Decay, Grocery Queue, Level Sync, Results Cleanup
+
+**1. Combo Decay Order-of-Operations Race Fix (gameFlow.js)** — Verified.
+- Combo decay (5s expiry wiping `comboTier` to 0) was running inline during the per-cart loop, before higher-indexed victims' falls were scored on the same frame. A lower-indexed attacker's combo could zero out before its own KO registered.
+- Moved decay to a **dedicated second pass** that runs after all fall-detection and scoring for the frame, eliminating the race condition.
+
+**2. Grocery Spill Pending Queue (effects/groceryPool.js)** — Verified.
+- `triggerSpill()` bailed out if `init()` hadn't finished loading GLTF models yet (`instancedMeshes.length === 0`). Spills arriving during the async load window were silently dropped.
+- Added a `pendingSpills` queue. Early calls are queued and replayed verbatim once `init()` resolves, ensuring no VFX is lost during async model loading.
+
+**3. Server-Authoritative Level Sync via MSG.round (party/index.ts, netcode.js)** — Verified.
+- Server now broadcasts `levelId` in every `MSG.round`. Non-host clients detect the authoritative level ID and update their `settingsStore`, keeping level selection in sync across rematches without requiring a fresh `MSG.hello`.
+- `sendHostRound()` switched from raw `localStorage` to Zustand `settingsStore` for level reads.
+- Non-host cinematic camera now released on `MSG.round` countdown→running transition via `endCinematicCountdown()`.
+
+**4. Results UI Cleanup (main.js, ui/resultsOverlay.js)** — Verified.
+- Removed "NEXT LEVEL" button and all related wiring (creation, DOM append, click handler, `wireResultsButtonFeedback`). The level-cycling button was removed as part of streamlining the end-screen to a single "PLAY AGAIN" action; level changes happen at the menu instead.
+- "REMATCH" button renamed to "PLAY AGAIN".
+
+**5. Slot Kind Fallback Fix (hud.js)** — Verified.
+- Scoreboard meta string used `slot?.kind || "npc"`, which treated falsy `""` (explicit empty string on human slots) as missing and incorrectly labeled humans as NPCs.
+- Changed to `slot?.kind ?? ""` (nullish coalescing) so only `null`/`undefined` falls back, preserving explicit empty strings.
+
 ### July 4, 2026 – Repository-Wide TypeScript Audit & 100% Type Resolution
 **1. Direct Code Audit via `qwythos:latest` Model** — Verified.
 - Ran direct code audit using local model `qwythos:latest` via Ollama to cross-examine Phase 3–4 roadmap claims against live source code.

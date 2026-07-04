@@ -445,15 +445,6 @@ export function updateGameFlow(deps, context) {
           }
         }
 
-        // * Rampage Combo decay check — resets tier to 0 if 5 seconds elapse without a hit
-        if (cart.comboTier > 0 && now >= cart.comboExpiryMs) {
-          cart.comboTier = 0;
-          cart.comboExpiryMs = 0;
-          if (slotIndex === localSlotIndexThisFrame) {
-            deps.setLocalCombo?.(0, 0);
-          }
-        }
-
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
           deps.doRespawn(cart, deps);
         } else if (cart.respawnAtMs === null && !isTestDrive) {
@@ -462,6 +453,22 @@ export function updateGameFlow(deps, context) {
 
         if (slot.kind === "npc") {
           deps.maybeTriggerNpcOpportunisticRamBoost(now, cart);
+        }
+      }
+
+      // * Rampage Combo decay — runs in a dedicated second pass AFTER all fall-detection
+      // * and scoring has been processed for this frame. This prevents a lower-indexed
+      // * attacker slot from having its comboTier zeroed before a higher-indexed victim's
+      // * fall is scored on the same frame (order-of-operations race condition).
+      for (let si = 0; si < allCarts.length; si += 1) {
+        const c = allCarts[si];
+        if (!c?.body) continue;
+        if (c.comboTier > 0 && now >= c.comboExpiryMs) {
+          c.comboTier = 0;
+          c.comboExpiryMs = 0;
+          if (si === localSlotIndexThisFrame) {
+            deps.setLocalCombo?.(0, 0);
+          }
         }
       }
 

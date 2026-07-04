@@ -1530,7 +1530,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, panel, title, finalScores, history, playAgain, nextLevelBtn, statsLine, mainMenuBtn } = resultsUi;
+    const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
       overlay.style.display = "flex";
@@ -1586,11 +1586,7 @@ async function main() {
       }
 
       playAgain.disabled = !isHost;
-      playAgain.textContent = isHost ? "REMATCH" : "WAITING FOR HOST…";
-      if (nextLevelBtn) {
-        nextLevelBtn.disabled = !isHost;
-        nextLevelBtn.textContent = isHost ? "NEXT LEVEL" : "WAITING FOR HOST…";
-      }
+      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
@@ -2525,18 +2521,6 @@ async function main() {
   }
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
-  if (resultsUi.nextLevelBtn) {
-    resultsUi.nextLevelBtn.addEventListener("click", () => {
-      if (!Netcode.getIsHost()) return;
-      const curLevel = settingsStore.getState().selectedLevelId || "classicRecord";
-      const levels = ["classicRecord", "backrooms", "zanzibar"];
-      const curIdx = levels.indexOf(curLevel);
-      const nextLevel = levels[(curIdx + 1) % levels.length] || "classicRecord";
-      settingsStore.getState().setSelectedLevelId(nextLevel);
-      onHostPlayAgainClick();
-    });
-  }
-
 
 
   // --- Simulation loop (fixed timestep) ---

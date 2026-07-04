@@ -1,7 +1,7 @@
 # Cart Rave — Project State
 
-**Last updated:** July 4, 2026  
-**Phase:** 3 — Content & Features (post-jam, working toward Version 2)  
+**Last updated:** July 5, 2026  
+**Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
 **Branch:** `next-level` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
 **Repo:** https://github.com/Wyabro/cart-rave
@@ -69,7 +69,7 @@ Full architecture reference: [Game_Architecture.md](./Game_Architecture.md).
 
 NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behavior, nitro balance.
 
-### Phase 3 — Content & Features (active)
+### Phase 3 — Content & Features ✅ Complete
 
 | Item | Status |
 |------|--------|
@@ -80,6 +80,19 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Cosmetic Progression / Unlock Path | ⬜ Planned |
 | Evaluate WebGPU Compute Shaders | ⬜ Planned |
 | Spectator / chaos features | ⬜ Stretch |
+
+### Phase 4 — Multiplayer & Infrastructure (active)
+
+| Item | Status |
+|------|--------|
+| Combo decay order-of-operations race fix | ✅ Fixed |
+| Grocery spill pending queue (async load window) | ✅ Fixed |
+| Server-authoritative level sync via MSG.round | ✅ Fixed |
+| Slot kind nullish coalescing fix (human vs NPC label) | ✅ Fixed |
+| Results UI cleanup (NEXT LEVEL removal, PLAY AGAIN rename) | ✅ Fixed |
+| 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
+| Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
+| Persistent leaderboard (Supabase) | ⬜ Planned |
 
 ### Version 2 prep (see ROADMAP Tier 3–4)
 

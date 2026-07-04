@@ -419,6 +419,7 @@ export class CartRaveServer extends Server {
       v: PROTOCOL_VERSION,
       type: MSG.round,
       serverNowMs: this.#serverNowMs(),
+      levelId: this.#currentLevelId,
       round: this.#safeStructuredClone(this.#round),
     });
   }

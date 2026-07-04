@@ -100,6 +100,13 @@ let worldRef = null;
  * }>} */
 let pool = [];
 
+/**
+ * * Spill calls that arrive before init() resolves are queued here and replayed
+ * * once instancedMeshes and pool are fully populated.
+ * @type {Array<[string, object, object, object, number, THREE.Object3D | null]>}
+ */
+let pendingSpills = [];
+
 /** @type {THREE.BufferGeometry[]} */
 let loadedGeometries = [];
 
@@ -299,6 +306,15 @@ export async function init(scene, world) {
 
     im.instanceMatrix.needsUpdate = true;
   }
+
+  // * Replay any spill calls that arrived while GLTF models were still loading.
+  if (pendingSpills.length > 0) {
+    const queued = pendingSpills.slice();
+    pendingSpills.length = 0;
+    for (const args of queued) {
+      triggerSpill(...args);
+    }
+  }
 }
 
 /**
@@ -359,7 +375,12 @@ export function createCargoBay() {
  * @param {THREE.Object3D} [cargoBay=null] Optional cargo bay group to hide on spill.
  */
 export function triggerSpill(cartId, cartPosParam, cartQuatParam, cartLinvelParam, count = 6, cargoBay = null) {
-  if (instancedMeshes.length === 0 || !worldRef) return;
+  if (instancedMeshes.length === 0 || !worldRef) {
+    // * Queue the call — init() hasn't finished loading GLTF models yet.
+    // * The args are replayed verbatim once init() resolves.
+    pendingSpills.push([cartId, cartPosParam, cartQuatParam, cartLinvelParam, count, cargoBay]);
+    return;
+  }
 
   const cartPos = (cartPosParam && typeof cartPosParam === "object") ? cartPosParam : { x: 0, y: 0, z: 0 };
   const cartQuat = (cartQuatParam && typeof cartQuatParam === "object") ? cartQuatParam : { x: 0, y: 0, z: 0, w: 1 };

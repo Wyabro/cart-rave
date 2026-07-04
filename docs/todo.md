@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** July 4, 2026
+**Last Updated:** July 5, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -11,8 +11,8 @@
 
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
-- **Current Phase**: Phase 3 — Content & Features (Complete, preparing for V2 release)
-- **Recent Technical Work**: 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation
+- **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
+- **Recent Technical Work**: Runtime bug fixes (combo decay race, grocery spill queue, server level sync, slot kind fix, results UI cleanup) + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,13 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 4, 2026 – Runtime Bug Fixes
+- **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.
+- **Grocery spill pending queue** (`src/effects/groceryPool.js`): Spills that arrive before GLTF models finish loading are now queued and replayed once `init()` resolves, preventing silently dropped VFX.
+- **Server-authoritative level sync** (`party/index.ts`, `src/netcode.js`): `MSG.round` now broadcasts the server's `levelId`. Non-host clients sync their `settingsStore` on receipt. `sendHostRound()` reads from `settingsStore` instead of raw `localStorage`.
+- **Results UI cleanup** (`src/main.js`, `src/ui/resultsOverlay.js`): Removed "NEXT LEVEL" button and all related wiring. "REMATCH" renamed to "PLAY AGAIN".
+- **Slot kind fallback fix** (`src/hud.js`): Changed `slot?.kind || "npc"` to `slot?.kind ?? ""` (nullish coalescing) so explicit empty strings on human slots are not incorrectly labeled as NPC.
 
 ### July 4, 2026 – TypeScript Audit & 100% Typecheck Compliance
 - Systematic pass achieved **0 errors under `npx tsc --noEmit`** with `checkJs: true` enabled.
@@ -215,11 +222,11 @@ Tracked in [ROADMAP.md](./ROADMAP.md) and [post-jam-ideas.md](./post-jam-ideas.m
 
 ## Notes
 
-- Phase 2 is complete. Phase 3 is active.
+- Phase 2 is complete. Phase 3 is complete. Phase 4 is active.
 - Session handovers archived under [handovers/](./handovers/).
 - For the current prioritized roadmap and next steps, use **[ROADMAP.md](./ROADMAP.md)**.
 - This file is maintained as a historical record and status snapshot.
 
 ---
 
-**Last Updated:** July 1, 2026
+**Last Updated:** July 5, 2026
