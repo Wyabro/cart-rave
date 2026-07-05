@@ -117,6 +117,8 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Boost state force-sync from wire (isRamBoosting/isBoosting) | ✅ Fixed |
 | Slot 1 debug logging (send/receive state monitor) | ✅ Added |
 | Self-contained shatter VFX lifecycle (isShatterAnimating + doRespawnRef) | ✅ Fixed |
+| Audio controls extraction (audioControls.js, ~90 lines from main.js) | ✅ Fixed |
+| Graphics toggles extraction (graphicsToggles.js, remove window globals) | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |

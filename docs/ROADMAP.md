@@ -164,7 +164,13 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - `triggerCartShatter` no longer sets `hasSpilled` — the network flag is purely informational; the animation clock owns the VFX window.
 - All debug/trace console logs removed (`slotIndex` param, `[CLIENT RECV RAW]`, `[CLIENT UPDATE LOOP]`, `[HOST SEND]`). Net reduction: 2 lines with substantial architectural improvement.
 
-**12. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
+**12. Audio Controls & Graphics Toggles Extraction (audioControls.js, graphicsToggles.js, main.js, cart-rave-menu.js, globals.d.ts)** — Verified.
+- Extracted audio volume/mute state management (~90 lines: `syncAllAudioUi`, `setMusicGainValue`, `setAllAudioMuted`, `setSfxSliderVolume`, `wireMenuAudioControlsOnce`) from `main.js` into new `src/ui/audioControls.js`. Injects HUD/AudioListener/leaderHum references lazily via `initAudioControls()` getters so they resolve after `main()` creates them.
+- Extracted live GFX toggle bridge (~20 lines: post-FX and low-quality toggle handlers) from `main.js` into new `src/ui/graphicsToggles.js`. Replaced `window.__cartRave_togglePostFx` / `window.__cartRave_toggleLowQuality` global optional-calls with proper module imports — `cart-rave-menu.js` now imports `togglePostFx`/`toggleLowQuality` directly.
+- Removed stale `window.__cartRave_toggle*` declarations from `src/globals.d.ts`. Removed `menuAudioControlsWired` flag and module-level `musicVolume`/`sfxVolume`/`isMuted` variables from `main.js` — all now live in `audioControls.js`.
+- Net: 5 files, +202/-94 (2 new modules, ~140 lines pulled out of `main.js`).
+
+**13. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
 - Extracted Esc overlay UI (~550 lines: scoring section, Post-FX/LQ buttons, ESC button handlers, section layout, entrance/exit animations) from `hud.js` into new `src/ui/pauseOverlay.js`. `hud.js` now delegates show/hide/sync through thin wrapper functions.
 - Removed remaining ~20 `@ts-expect-error` suppressions from `cartRaveGltf.js` and `cartRaveGltf.js`, replacing them with proper `THREE.Mesh`, `THREE.MeshStandardMaterial` JSDoc type casts.
 - Refined `CartThemeMaterialCache` JSDoc typedef: `THREE.Material[]` → `THREE.MeshStandardMaterial[]`, added missing `isRaveGltf` property.
