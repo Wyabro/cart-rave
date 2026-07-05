@@ -1996,6 +1996,7 @@ async function main() {
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getTriggerCartShatterRef: () => triggerCartShatterRef,
     getScene: () => scene,
+    getSceneRef: () => scene,
     getHud: () => hud,
     colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,

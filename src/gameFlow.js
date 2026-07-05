@@ -446,6 +446,8 @@ export function updateGameFlow(deps, context) {
         }
 
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
+          cart.hasSpilled = false;
+          if (cart.cargoBay) cart.cargoBay.visible = true;
           deps.doRespawn(cart, deps);
         } else if (cart.respawnAtMs === null && !isTestDrive) {
           updateCartIdleWatch(deps, now, cart, p);

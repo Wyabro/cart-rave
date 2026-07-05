@@ -359,6 +359,7 @@ export function createCargoBay() {
     group.add(mesh);
   }
 
+  group.name = "cargoBay";
   return group;
 }
 

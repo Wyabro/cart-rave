@@ -237,9 +237,20 @@ export function rebuildCartVisualsIntoRoot(cart, scene) {
   // * Recreate cargoBay visual inside the basket and update cart.cargoBay ref.
   const cargoBay = GroceryPool.createCargoBay();
   if (cargoBay) {
+    cargoBay.name = "cargoBay";
     cargoBay.position.set(0, CONFIG.cart.visualOffset + 0.1, 0);
     cart.mesh.add(cargoBay);
-    cart.cargoBay = cargoBay;
+  }
+
+  const foundCargo = cart.mesh.getObjectByName("cargoBay")
+    || cart.mesh.children.find((c) => c.name === "cargoBay");
+
+  if (foundCargo) {
+    cart.cargoBay = foundCargo;
+    cart.cargoBay.visible = true;
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn("[entities] rebuildCartVisualsIntoRoot: cargoBay object not found in cart mesh");
   }
 
   // * Contact shadow persists across shatter (it was never detached); leave it as-is.

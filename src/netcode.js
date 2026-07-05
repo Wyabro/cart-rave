@@ -237,7 +237,7 @@ export function registerGameCallbacks(deps) {
     triggerCartShatterRef: (cart, scene, neonHex) => {
       deps.getTriggerCartShatterRef?.()?.(cart, scene, neonHex);
     },
-    getSceneRef: () => deps.getScene?.() ?? null,
+    getSceneRef: () => deps.getSceneRef?.() ?? deps.getScene?.() ?? null,
     addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {
       const hud = deps.getHud();
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
@@ -1611,8 +1611,14 @@ export function initNetcode(roomOverride) {
           const scene = callbacks.getSceneRef?.();
           if (scene) {
             const shatterFn = triggerCartShatterRef || callbacks.triggerCartShatterRef;
-            const numericHex = typeof targetColorHex === "number" ? targetColorHex : (typeof targetColorHex === "string" ? parseInt(targetColorHex.replace("#", ""), 16) : 0xffffff);
-            shatterFn?.(victimCart, scene, Number.isNaN(numericHex) ? 0xffffff : numericHex);
+            let numericHex = 0xffffff;
+            if (typeof targetColorHex === "number" && !Number.isNaN(targetColorHex)) {
+              numericHex = targetColorHex & 0xffffff;
+            } else if (typeof targetColorHex === "string") {
+              const parsed = parseInt(targetColorHex.replace(/^#/, ""), 16);
+              if (!Number.isNaN(parsed)) numericHex = parsed & 0xffffff;
+            }
+            shatterFn?.(victimCart, scene, numericHex);
           }
         }
       }
