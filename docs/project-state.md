@@ -116,6 +116,9 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Null cart guard in updateRemoteCartNetTargets | ✅ Fixed |
 | Boost state force-sync from wire (isRamBoosting/isBoosting) | ✅ Fixed |
 | Slot 1 debug logging (send/receive state monitor) | ✅ Added |
+| applyCartState explicit slotIndex param (was undefined) | ✅ Fixed |
+| Stuck-shatter guard in frameVisuals (isShattering & !hasSpilled) | ✅ Fixed |
+| Host respawn force-clears shatter + cleanupShatter | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |

@@ -97,6 +97,9 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **Null cart guard in updateRemoteCartNetTargets** (`src/netcode.js`): Added `if (!cart) continue;` before `applyCartState` to prevent null dereference during slot transitions.
 - **Boost state force-sync from wire** (`src/netcode.js`): `applyCartState` now writes `snap.b` to `cart.isRamBoosting` and `cart.isBoosting`, so non-host clients maintain correct boost visual state (ram streaks, wheel rate) between host transform updates instead of only on edge detection.
 - **Slot 1 debug logging** (`src/netcode.js`): Temporary console logs in `applyCartState` (receive) and `serializeCartToWire` (send) to monitor hasSpilled, cargoBay, boost, and position sync at runtime.
+- **applyCartState explicit slotIndex param** (`src/netcode.js`): Changed from `cart.slotIndex` (undefined on remote carts) to explicit `slotIndex = -1` parameter threaded through all 7 call sites. Debug log updated accordingly.
+- **Stuck-shatter guard in frameVisuals** (`src/frameVisuals.js`): `isShattering` guard split into two conditions — `isShattering && hasSpilled` freezes mesh (valid shatter), `isShattering && !hasSpilled` force-clears stuck flag so mesh can lerp from death position to spawn booth.
+- **Host respawn force-clears shatter** (`src/gameFlow.js`): Host-side respawn now clears `isShattering`/`_shatterState`/`_shatterDeathPos`, restores all visibility flags, and calls `cleanupShatter()` (imported from `cartShatter.js`) before `doRespawn`.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.

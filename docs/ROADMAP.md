@@ -149,7 +149,12 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - `applyCartState` now writes `snap.b` to both `cart.isRamBoosting` and `cart.isBoosting` so non-host clients correctly maintain in-flight boost visual state (ram streak VFX, wheel rotation rate, etc.) between host transform updates, rather than only detecting edges.
 - Added temporary slot 1 debug logging in both `applyCartState` (receive) and `serializeCartToWire` (send) to monitor `hasSpilled`, `cargoBay.visible`, boost state, and position Y across host→client sync at runtime.
 
-**9. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
+**9. SlotIndex Param + Stuck-Shatter Guard + Host Respawn Cleanup (netcode.js, frameVisuals.js, gameFlow.js)** — Verified.
+- `applyCartState` used `cart.slotIndex` which is `undefined` on remote carts (slot index lives in the allCarts array, not on the entity). Changed to accept an explicit `slotIndex = -1` parameter threaded through all 7 call sites (`writeInterpolatedRemoteTargets`, `updateRemoteCartNetTargets` ×3, `applyCartsSnapshotToBodies`). Debug log updated from `cart.slotIndex` to `slotIndex`.
+- `frameVisuals.js` shatter guard split: `isShattering && hasSpilled` freezes the mesh (valid shatter), but `isShattering && !hasSpilled` force-clears the stuck flag (host says respawned, local flag stuck from edge-case) and falls through to normal position lerp from death position to spawn booth.
+- Host respawn in `gameFlow.js` now force-clears `isShattering`, `_shatterState`, `_shatterDeathPos`, restores `mesh`/`contactShadow`/`cargoBay` visibility, and calls `cleanupShatter()` (imported from `cartShatter.js`) before `doRespawn`, ensuring host-side debris is torn down.
+
+**10. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
 - Extracted Esc overlay UI (~550 lines: scoring section, Post-FX/LQ buttons, ESC button handlers, section layout, entrance/exit animations) from `hud.js` into new `src/ui/pauseOverlay.js`. `hud.js` now delegates show/hide/sync through thin wrapper functions.
 - Removed remaining ~20 `@ts-expect-error` suppressions from `cartRaveGltf.js` and `cartRaveGltf.js`, replacing them with proper `THREE.Mesh`, `THREE.MeshStandardMaterial` JSDoc type casts.
 - Refined `CartThemeMaterialCache` JSDoc typedef: `THREE.Material[]` → `THREE.MeshStandardMaterial[]`, added missing `isRaveGltf` property.
