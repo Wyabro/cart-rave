@@ -176,6 +176,7 @@ let callbacks = {
   // Session lifecycle
   ensureSessionReady: () => {},
   endCinematicCountdown: () => {},
+  teleportCartToSpawn: (slotIndex) => {},
 };
 
 function registerCallbacks(cb) {
@@ -252,6 +253,7 @@ export function registerGameCallbacks(deps) {
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
     ensureSessionReady: () => deps.ensureSessionReady?.(),
     endCinematicCountdown: () => deps.endCinematicCountdown?.(),
+    teleportCartToSpawn: (slotIndex) => deps.teleportCartToSpawn?.(slotIndex),
   });
 }
 
@@ -1432,6 +1434,16 @@ export function initNetcode(roomOverride) {
         const namesChanged = merged.some(
           (s, i) => (s?.name ?? "") !== (netSlots[i]?.name ?? ""),
         );
+
+        if (isHost && Array.isArray(netSlots) && netSlots.length > 0) {
+          for (let i = 0; i < merged.length; i += 1) {
+            const wasNpc = netSlots[i]?.kind === "npc";
+            const isHumanNow = merged[i]?.kind === "human";
+            if (wasNpc && isHumanNow) {
+              callbacks.teleportCartToSpawn?.(i);
+            }
+          }
+        }
 
         const prevHadSlot = Boolean(
           youConnId && netSlots.some((s) => s && s.connId === youConnId),

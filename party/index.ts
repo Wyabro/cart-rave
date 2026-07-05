@@ -974,9 +974,21 @@ export class CartRaveServer extends Server {
       return;
     }
 
-    if (!this.#checkRateLimit(connection.id)) {
-      connection.close(4028, "Rate limit exceeded");
+    let data: any;
+    try {
+      data = JSON.parse(message);
+    } catch {
       return;
+    }
+
+    const type = data?.type;
+
+    // High-frequency telemetry/input messages (clientInput and hostTransform) are exempt from rate limiting
+    if (type !== MSG.clientInput && type !== MSG.hostTransform) {
+      if (!this.#checkRateLimit(connection.id)) {
+        connection.close(4028, "Rate limit exceeded");
+        return;
+      }
     }
 
     const now = this.#serverNowMs();
@@ -985,15 +997,7 @@ export class CartRaveServer extends Server {
       this.#reapSilentConnections();
     }
 
-    let data: any;
     try {
-      data = JSON.parse(message);
-    } catch {
-      return;
-    }
-
-    try {
-      const type = data?.type;
       if (type === MSG.join) {
         // Optional client metadata; server already assigned a slot on connect.
         const name = typeof data?.name === "string" ? data.name.trim() : "";

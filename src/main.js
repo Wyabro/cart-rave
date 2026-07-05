@@ -406,6 +406,20 @@ let triggerCartShatterRef = null;
 /** @type {string | null} */
 let pendingMidRoundJoinRespawnConnId = null;
 
+function teleportCartToSpawn(slotIndex) {
+  if (!allCartsRef || typeof slotIndex !== "number") return;
+  const cart = allCartsRef[slotIndex];
+  if (!cart?.body || !cart.spawn) return;
+  cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
+  cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+  cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  if (typeof cart.spawnYaw === "number") {
+    const halfYaw = cart.spawnYaw / 2;
+    cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+  }
+  cart.body.wakeUp();
+}
+
 function updateCartMaterialsFromSlots(slots) {
   if (!allCartsRef || !Array.isArray(slots)) return;
 
@@ -1999,6 +2013,7 @@ async function main() {
     onEnterPodium: () => {
       HUD.clearFeed();
     },
+    teleportCartToSpawn,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
     setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; },
     ensureSessionReady: () => ensureSessionCartsReady(),
