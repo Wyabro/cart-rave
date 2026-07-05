@@ -956,14 +956,6 @@ async function main() {
         void enterPlayMode({ gameMode: "solo" })
           .then(() => bootstrapNetcodeFromMenu("Solo"))
           .catch((err) => onMenuBootstrapError("Solo", err));
-      } else if (action === "testdrive") {
-        const roomId = `testdrive${Math.random().toString(36).substring(2, 8)}`;
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", roomId);
-        history.pushState({}, "", url);
-        void enterPlayMode({ gameMode: "testdrive", levelId: "testArena" })
-          .then(() => bootstrapNetcodeFromMenu("Test Drive"))
-          .catch((err) => onMenuBootstrapError("Test Drive", err));
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");

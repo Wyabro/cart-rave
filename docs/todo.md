@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js`
+- **Recent Technical Work**: Mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js`
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -71,8 +71,9 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 
 ## Completed / Shipped (Historical Record)
 
-### July 5, 2026 – Camera Framing Extraction
+### July 5, 2026 – Camera Framing & Menu Stats Extraction
 - **Camera framing & viewport extraction** (`src/ui/cameraFraming.js`, `src/main.js`): Extracted `updateCameraFraming()` (FOV math: portrait/wide boost) and `updateViewport()` (pixel ratio, composer size, label renderer, FPS canvas positioning) from `main.js` into new module. Exposed via `createCameraFraming()` factory receiving camera, renderer, composer, passes, and FPS canvas getter. Removed `updateSceneViewport` import from `main.js`.
+- **Menu stats extraction** (`src/ui/menuStats.js`, `src/main.js`): Extracted `refreshMenuStats()` (~10 lines: DOM writes for wins, matches, points, solo stats) from `main.js` into new module. Exposed via `createMenuStats({ getPersonalStats })` factory returning `{ refreshMenuStats }`.
 
 ### July 4, 2026 – Multiplayer Visual Sync & Mid-Round Join Polish
 - **CargoBay visibility sync** (`src/netcode.js`): `hostTransform` payload extended with `c` (cargoBay visible) boolean. Non-host clients now sync `cargoBay.visible` on both interpolated remote carts and direct snapshot applies.
