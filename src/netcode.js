@@ -434,97 +434,114 @@ function sampleCartSnapshotFromPair(before, after, alpha, slotIndex) {
 function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
   const bp = b.p;
   const ap = a.p;
+  let p = a.p ?? b.p;
   if (Array.isArray(bp) && bp.length === 3 && Array.isArray(ap) && ap.length === 3) {
-    cart._netTargetPos.set(
+    p = [
       bp[0] + (ap[0] - bp[0]) * alpha,
       bp[1] + (ap[1] - bp[1]) * alpha,
       bp[2] + (ap[2] - bp[2]) * alpha,
-    );
-  } else if (Array.isArray(bp) && bp.length === 3) {
-    cart._netTargetPos.set(bp[0], bp[1], bp[2]);
+    ];
   }
 
   const bq = b.q;
   const aq = a.q;
+  let q = a.q ?? b.q;
   if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
     _interpFromQ.set(bq[0], bq[1], bq[2], bq[3]);
     _interpToQ.set(aq[0], aq[1], aq[2], aq[3]);
-    cart._netTargetQuat.copy(_interpFromQ).slerp(_interpToQ, alpha);
-  } else if (Array.isArray(bq) && bq.length === 4) {
-    cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
+    _interpFromQ.slerp(_interpToQ, alpha);
+    q = [_interpFromQ.x, _interpFromQ.y, _interpFromQ.z, _interpFromQ.w];
   }
 
-  const alv = a.lv;
-  if (Array.isArray(alv) && alv.length === 3) {
-    cart._lastNetLinvel.x = alv[0];
-    cart._lastNetLinvel.y = alv[1];
-    cart._lastNetLinvel.z = alv[2];
-  }
-  const aav = a.av;
-  if (Array.isArray(aav) && aav.length === 3) {
-    cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
-  }
+  const interpSnap = {
+    p,
+    q,
+    lv: a.lv ?? b.lv,
+    av: a.av ?? b.av,
+    b: a.b ?? b.b,
+    h: a.h ?? b.h,
+    c: a.c ?? b.c,
+    s: a.s ?? b.s,
+  };
+
+  applyCartState(cart, interpSnap, { interpolate: true });
 }
 
 /**
- * Samples the host-authoritative cart state for a slot at the interpolation delay.
- * Interpolates between buffered snapshots, extrapolates briefly from velocity, or falls back to cache.
+ * Applies authoritative cart snapshot state (transforms, velocities, VFX flags).
+ * Shared by both interpolated updates (updateRemoteCartNetTargets) and direct snaps (applyCartsSnapshotToBodies).
  *
- * @param {number} slotIndex Cart slot index (0–3).
- * @param {number} [targetServerNowMs] Server timestamp to sample at; defaults to interp-delayed now.
- * @returns {{ p: number[]|null, q: number[]|null, lv: number[]|null, av: number[]|null }|null}
- *   Snapshot fields or null when no data exists for the slot.
+ * @param {object} cart Target cart entity.
+ * @param {object} snap Cart transform snapshot payload from host.
+ * @param {{ interpolate?: boolean }} [options] Options object; `interpolate: true` updates target vectors, `false` snaps Rapier body.
  */
-export function sampleAuthoritativeCartState(slotIndex, targetServerNowMs = getInterpTargetServerNowMs()) {
-  if (slotIndex < 0) return null;
-  pruneNetStateBufferForEpoch();
-  const { before, after } = findSnapshotPair(targetServerNowMs);
-  if (before && after && before.carts && after.carts) {
-    const denom = (after.serverNowMs - before.serverNowMs) || 1;
-    const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
-    return sampleCartSnapshotFromPair(before, after, alpha, slotIndex);
-  }
-  if (before?.carts) {
-    const snap = getCartSnap(before.carts, slotIndex);
-    if (!snap) return null;
-    const extrapMs = targetServerNowMs - before.serverNowMs;
-    const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
-    const bp = snap.p;
-    const blv = snap.lv;
-    if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
-      return {
-        p: [bp[0] + blv[0] * extrapS, bp[1] + blv[1] * extrapS, bp[2] + blv[2] * extrapS],
-        q: Array.isArray(snap.q) ? snap.q.slice() : null,
-        lv: blv.slice(),
-        av: Array.isArray(snap.av) ? snap.av.slice() : null,
-      };
+export function applyCartState(cart, snap, options = {}) {
+  if (!cart || !snap) return;
+  const { interpolate = true } = options;
+
+  const { p, q, lv, av } = snap;
+
+  if (interpolate) {
+    if (Array.isArray(p) && p.length === 3 && cart._netTargetPos) {
+      cart._netTargetPos.set(p[0], p[1], p[2]);
     }
-    return {
-      p: Array.isArray(bp) ? bp.slice() : null,
-      q: Array.isArray(snap.q) ? snap.q.slice() : null,
-      lv: Array.isArray(blv) ? blv.slice() : null,
-      av: Array.isArray(snap.av) ? snap.av.slice() : null,
-    };
+    if (Array.isArray(q) && q.length === 4 && cart._netTargetQuat) {
+      cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+    }
+  } else {
+    if (cart.body) {
+      if (Array.isArray(p) && p.length === 3) {
+        cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
+      }
+      if (Array.isArray(q) && q.length === 4) {
+        cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
+      }
+      if (Array.isArray(lv) && lv.length === 3) {
+        cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
+      }
+    }
+    // * Keep interpolation targets in lockstep with direct body snaps.
+    if (Array.isArray(p) && p.length === 3 && cart._netTargetPos) {
+      cart._netTargetPos.set(p[0], p[1], p[2]);
+    }
+    if (Array.isArray(q) && q.length === 4 && cart._netTargetQuat) {
+      cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
+    }
   }
-  if (after?.carts) {
-    const snap = getCartSnap(after.carts, slotIndex);
-    if (!snap) return null;
-    return {
-      p: Array.isArray(snap.p) ? snap.p.slice() : null,
-      q: Array.isArray(snap.q) ? snap.q.slice() : null,
-      lv: Array.isArray(snap.lv) ? snap.lv.slice() : null,
-      av: Array.isArray(snap.av) ? snap.av.slice() : null,
-    };
+
+  if (Array.isArray(lv) && lv.length === 3 && cart._lastNetLinvel) {
+    cart._lastNetLinvel.x = lv[0];
+    cart._lastNetLinvel.y = lv[1];
+    cart._lastNetLinvel.z = lv[2];
   }
-  const cache = lastCartsCache;
-  const snap = getCartSnap(cache, slotIndex);
-  if (!snap) return null;
-  return {
-    p: Array.isArray(snap.p) ? snap.p.slice() : null,
-    q: Array.isArray(snap.q) ? snap.q.slice() : null,
-    lv: Array.isArray(snap.lv) ? snap.lv.slice() : null,
-    av: Array.isArray(snap.av) ? snap.av.slice() : null,
-  };
+  if (Array.isArray(av) && av.length === 3 && cart.body) {
+    cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
+  }
+
+  if (snap.b && !cart._prevRemoteBoosting) {
+    if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now(), { instant: true });
+  }
+  cart._prevRemoteBoosting = Boolean(snap.b);
+
+  if (snap.h && !cart._prevRemoteHopping) {
+    if (triggerHopRef) triggerHopRef(cart, performance.now());
+  }
+  cart._prevRemoteHopping = Boolean(snap.h);
+
+  if (typeof snap.c === "boolean" && cart.cargoBay) {
+    cart.cargoBay.visible = snap.c;
+  }
+
+  if (typeof snap.s === "boolean") {
+    const wasSpilled = cart.hasSpilled;
+    cart.hasSpilled = snap.s;
+    if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
+      const scene = callbacks.getSceneRef?.();
+      cleanupShatter(cart, scene);
+      if (cart.cargoBay) cart.cargoBay.visible = true;
+      if (cart.mesh) cart.mesh.visible = true;
+    }
+  }
 }
 
 /**
@@ -540,50 +557,6 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   pruneNetStateBufferForEpoch();
   const { before, after, beforeIndex } = findSnapshotPair(targetServerNowMs);
 
-  const applyRemoteTargets = (slotIndex, snap, options = {}) => {
-    if (slotIndex === localSlotIndex) return;
-    const cart = allCarts[slotIndex];
-    if (!cart || !snap) return;
-    const p = snap.p ?? (options.extrapolateP || null);
-    if (Array.isArray(p) && p.length === 3) cart._netTargetPos.set(p[0], p[1], p[2]);
-    const q = snap.q;
-    if (Array.isArray(q) && q.length === 4) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
-    const lv = snap.lv;
-    if (Array.isArray(lv) && lv.length === 3) {
-      cart._lastNetLinvel.x = lv[0];
-      cart._lastNetLinvel.y = lv[1];
-      cart._lastNetLinvel.z = lv[2];
-    }
-    const aav = snap.av;
-    if (Array.isArray(aav) && aav.length === 3) {
-      cart.body.setAngvel({ x: aav[0], y: aav[1], z: aav[2] }, true);
-    }
-
-    if (snap.b && !cart._prevRemoteBoosting) {
-      if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now(), { instant: true });
-    }
-    cart._prevRemoteBoosting = Boolean(snap.b);
-
-    if (snap.h && !cart._prevRemoteHopping) {
-      if (triggerHopRef) triggerHopRef(cart, performance.now());
-    }
-    cart._prevRemoteHopping = Boolean(snap.h);
-
-    if (typeof snap.c === "boolean" && cart.cargoBay) {
-      cart.cargoBay.visible = snap.c;
-    }
-    if (typeof snap.s === "boolean") {
-      const wasSpilled = cart.hasSpilled;
-      cart.hasSpilled = snap.s;
-      if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
-        const scene = callbacks.getSceneRef?.();
-        cleanupShatter(cart, scene);
-        if (cart.cargoBay) cart.cargoBay.visible = true;
-        if (cart.mesh) cart.mesh.visible = true;
-      }
-    }
-  };
-
   if (before && after && before.carts && after.carts) {
     const denom = (after.serverNowMs - before.serverNowMs) || 1;
     const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
@@ -597,7 +570,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
         writeInterpolatedRemoteTargets(cart, b, a, alpha);
       } else {
         const snap = b || a;
-        if (snap) applyRemoteTargets(slotIndex, snap);
+        if (snap) applyCartState(cart, snap, { interpolate: true });
       }
     }
     pruneConsumedSnapshots(beforeIndex);
@@ -612,29 +585,19 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
       const b = getCartSnap(before.carts, slotIndex);
       if (!b) continue;
       const bp = b.p;
-      const bq = b.q;
       const blv = b.lv;
-      const bav = b.av;
       const cart = allCarts[slotIndex];
       if (!cart) continue;
+
+      const snap = { ...b };
       if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
-        cart._netTargetPos.set(
+        snap.p = [
           bp[0] + blv[0] * extrapS,
           bp[1] + blv[1] * extrapS,
           bp[2] + blv[2] * extrapS,
-        );
-      } else if (Array.isArray(bp) && bp.length === 3) {
-        cart._netTargetPos.set(bp[0], bp[1], bp[2]);
+        ];
       }
-      if (Array.isArray(bq) && bq.length === 4) cart._netTargetQuat.set(bq[0], bq[1], bq[2], bq[3]);
-      if (Array.isArray(blv) && blv.length === 3) {
-        cart._lastNetLinvel.x = blv[0];
-        cart._lastNetLinvel.y = blv[1];
-        cart._lastNetLinvel.z = blv[2];
-      }
-      if (Array.isArray(bav) && bav.length === 3) {
-        cart.body.setAngvel({ x: bav[0], y: bav[1], z: bav[2] }, true);
-      }
+      applyCartState(cart, snap, { interpolate: true });
     }
     pruneConsumedSnapshots(beforeIndex);
     return;
@@ -646,7 +609,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     if (slotIndex === localSlotIndex) continue;
     const snap = getCartSnap(carts, slotIndex);
     if (!snap) continue;
-    applyRemoteTargets(slotIndex, snap);
+    applyCartState(cart, snap, { interpolate: true });
   }
 }
 
@@ -806,37 +769,7 @@ function applyCartsSnapshotToBodies(carts) {
     const cart = allCarts[i];
     const snap = getCartSnap(carts, i);
     if (!cart || !snap) continue;
-
-    const { p, q, lv, av } = snap;
-    if (Array.isArray(p)) cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
-    if (Array.isArray(q)) cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
-    if (Array.isArray(lv)) cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
-    if (Array.isArray(av)) cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
-
-    if (typeof snap.c === "boolean" && cart.cargoBay) {
-      cart.cargoBay.visible = snap.c;
-    }
-    if (typeof snap.s === "boolean") {
-      const wasSpilled = cart.hasSpilled;
-      cart.hasSpilled = snap.s;
-      if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
-        const scene = callbacks.getSceneRef?.();
-        cleanupShatter(cart, scene);
-        if (cart.cargoBay) cart.cargoBay.visible = true;
-        if (cart.mesh) cart.mesh.visible = true;
-      }
-    }
-
-    // * Keep the interpolation/prediction targets in lockstep with the snap. Otherwise
-    // * the first syncRemoteCartBodiesForPrediction after a hello/host-migration snap
-    // * would yank the body back to stale pre-snap targets and inject a stale linvel.
-    if (Array.isArray(p) && cart._netTargetPos) cart._netTargetPos.set(p[0], p[1], p[2]);
-    if (Array.isArray(q) && cart._netTargetQuat) cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
-    if (Array.isArray(lv) && cart._lastNetLinvel) {
-      cart._lastNetLinvel.x = lv[0];
-      cart._lastNetLinvel.y = lv[1];
-      cart._lastNetLinvel.z = lv[2];
-    }
+    applyCartState(cart, snap, { interpolate: false });
   }
 }
 
@@ -974,6 +907,34 @@ function resetNetcodeReconnectState() {
   lastCartsCache = null;
 }
 
+/**
+ * Assembles host-authoritative cart state into the 40Hz wire snapshot format.
+ *
+ * @param {object} c Cart entity.
+ * @returns {object|null}
+ */
+export function serializeCartToWire(c) {
+  if (!c?.body) return null;
+  const round3 = (v) => Math.round(v * 1000) / 1000;
+  const t = c.body.translation();
+  const r = c.body.rotation();
+  const lv = c.body.linvel();
+  const av = c.body.angvel();
+  const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
+  const isHopping = Boolean(c.isHopping || c._isHopping);
+
+  return {
+    p: [round3(t.x), round3(t.y), round3(t.z)],
+    q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
+    lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
+    av: [round3(av.x), round3(av.y), round3(av.z)],
+    b: isBoosting,
+    h: isHopping,
+    c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
+    s: Boolean(c.hasSpilled),
+  };
+}
+
 export function startHostSendLoop() {
   stopHostSendLoop();
   if (!partySocket || !isHost || !getAllCarts()) return;
@@ -985,27 +946,10 @@ export function startHostSendLoop() {
 
     hostSeq += 1;
     const carts = [];
-    const round3 = v => Math.round(v * 1000) / 1000;
 
     for (let i = 0; i < allCarts.length; i++) {
       const c = allCarts[i];
-      const t = c.body.translation();
-      const r = c.body.rotation();
-      const lv = c.body.linvel();
-      const av = c.body.angvel();
-      const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
-      const isHopping = Boolean(c.isHopping || c._isHopping);
-
-      carts[i] = {
-        p: [round3(t.x), round3(t.y), round3(t.z)],
-        q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
-        lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
-        av: [round3(av.x), round3(av.y), round3(av.z)],
-        b: isBoosting,
-        h: isHopping,
-        c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
-        s: Boolean(c.hasSpilled),
-      };
+      if (c) carts[i] = serializeCartToWire(c);
     }
 
     lastCartsCache = carts;

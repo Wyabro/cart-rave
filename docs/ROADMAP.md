@@ -133,6 +133,7 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - `getTriggerCartShatterRef`, `getSceneRef`, and `getScene` bridge functions added to `gameSession.js` netcode bridge and wired in `main.js` context, ensuring non-host kill-feed shatter calls can resolve the scene.
 - Non-host `getSceneRef` callback now falls through a chain: `getSceneRef` → `getScene` → `null`, making it resilient to partial context wiring.
 - Death shatter hex parsing further hardened with `& 0xffffff` bitmask to clamp any oversized color values before passing to the shatter function.
+- Respawn cleanup simplified: removed the `rebuildCartVisualsIntoRoot` import from `netcode.js`. Both `updateRemoteCartNetTargets` and `applyCartsSnapshotToBodies` now use a single `cleanupShatter()` call. The trigger condition was broadened to `!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)` so lingering shatter states are caught even when `hasSpilled` transitions weren't visible.
 
 ### July 4, 2026 – Runtime Bug Fixes: Combo Decay, Grocery Queue, Level Sync, Results Cleanup
 

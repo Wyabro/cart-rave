@@ -87,6 +87,7 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **Host respawn state** (`src/gameFlow.js`): Host now resets `cart.hasSpilled = false` and `cart.cargoBay.visible = true` at respawn, keeping host-side state consistent with non-host sync.
 - **cargoBay lookup by name** (`src/effects/groceryPool.js`, `src/entities.js`): `createCargoBay()` tags the group with `name = "cargoBay"`. `rebuildCartVisualsIntoRoot()` retrieves it via `getObjectByName()` with a console.warn fallback.
 - **Scene bridge wiring** (`src/gameSession.js`, `src/main.js`, `src/netcode.js`): `getTriggerCartShatterRef`, `getSceneRef`, and `getScene` added to context bridge. Non-host `getSceneRef` now falls through `getSceneRef` → `getScene` → `null`. Shatter hex values clamped with `& 0xffffff` mask.
+- **Respawn cleanup simplified** (`src/netcode.js`): Removed `rebuildCartVisualsIntoRoot` import. Both remote cart and snapshot apply paths now use a single `cleanupShatter()` call. Trigger condition broadened to `!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)`.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.

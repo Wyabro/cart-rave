@@ -101,6 +101,7 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Kill feed color CSS hex conversion | ✅ Fixed |
 | Shatter ref dual-path resolution (module + callback) | ✅ Fixed |
 | Respawn visual cleanup (shatter debris + mesh rebuild) | ✅ Fixed |
+| Respawn cleanup simplified to single cleanupShatter call | ✅ Fixed |
 | Death shatter color hex parsing hardened | ✅ Fixed |
 | Host respawn resets hasSpilled + cargoBay state | ✅ Fixed |
 | cargoBay lookup by name (resilient getObjectByName) | ✅ Fixed |
