@@ -525,6 +525,7 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
  */
 export function applyCartState(cart, snap, options = {}) {
   if (!cart || !snap) return;
+  if (cart.slotIndex === 1) console.log(`[CLIENT RECV] snap.s:${snap.s} snap.b:${snap.b} isShattering:${cart.isShattering} meshVis:${cart.mesh?.visible} pos_y:${cart._netTargetPos?.y.toFixed(2)}`);
   const { interpolate = true } = options;
 
   const { p, q, lv, av } = snap;
@@ -569,6 +570,8 @@ export function applyCartState(cart, snap, options = {}) {
   if (snap.b && !cart._prevRemoteBoosting) {
     if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now(), { instant: true });
   }
+  cart.isRamBoosting = snap.b;
+  cart.isBoosting = snap.b;
   cart._prevRemoteBoosting = Boolean(snap.b);
 
   if (snap.h && !cart._prevRemoteHopping) {
@@ -979,6 +982,8 @@ export function serializeCartToWire(c) {
   const av = c.body.angvel();
   const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
   const isHopping = Boolean(c.isHopping || c._isHopping);
+
+  if (c.slotIndex === 1) console.log(`[HOST SEND] s:${c.hasSpilled} c:${c.cargoBay?.visible} b:${isBoosting} pos_y:${t.y.toFixed(2)}`);
 
   return {
     p: [round3(t.x), round3(t.y), round3(t.z)],
