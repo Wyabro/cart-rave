@@ -102,6 +102,10 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Shatter ref dual-path resolution (module + callback) | ✅ Fixed |
 | Respawn visual cleanup (shatter debris + mesh rebuild) | ✅ Fixed |
 | Death shatter color hex parsing hardened | ✅ Fixed |
+| Host respawn resets hasSpilled + cargoBay state | ✅ Fixed |
+| cargoBay lookup by name (resilient getObjectByName) | ✅ Fixed |
+| Scene bridge wiring (getSceneRef/getScene/getShatterRef) | ✅ Fixed |
+| Shatter hex & 0xffffff bitmask clamping | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |

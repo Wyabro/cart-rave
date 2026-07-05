@@ -84,6 +84,9 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **Shatter ref dual-path resolution** (`src/main.js`, `src/netcode.js`): `triggerCartShatterRef` now wired through both `setRefs()` module-level ref and callback bridge fallback, eliminating null-ref silent failures on non-host.
 - **Respawn visual cleanup** (`src/entities.js`, `src/netcode.js`): When `hasSpilled` transitions `true`→`false` (cart respawn), non-host clients now cleanup lingering shatter debris and rebuild cart visuals via `cleanupShatter()` + `rebuildCartVisualsIntoRoot()` (newly exported). Applied on both interpolated remote carts and direct snapshot applies.
 - **Death shatter hex parsing** (`src/netcode.js`): Color parsing hardened to accept raw numbers, CSS hex strings (`#RRGGBB`), or fall back to `0xffffff`.
+- **Host respawn state** (`src/gameFlow.js`): Host now resets `cart.hasSpilled = false` and `cart.cargoBay.visible = true` at respawn, keeping host-side state consistent with non-host sync.
+- **cargoBay lookup by name** (`src/effects/groceryPool.js`, `src/entities.js`): `createCargoBay()` tags the group with `name = "cargoBay"`. `rebuildCartVisualsIntoRoot()` retrieves it via `getObjectByName()` with a console.warn fallback.
+- **Scene bridge wiring** (`src/gameSession.js`, `src/main.js`, `src/netcode.js`): `getTriggerCartShatterRef`, `getSceneRef`, and `getScene` added to context bridge. Non-host `getSceneRef` now falls through `getSceneRef` → `getScene` → `null`. Shatter hex values clamped with `& 0xffffff` mask.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.

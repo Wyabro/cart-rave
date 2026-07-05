@@ -127,6 +127,13 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
   - Applied on both interpolated remote carts (`updateRemoteCartNetTargets`) and direct snapshot applies (`applyCartsSnapshotToBodies`).
 - Death shatter color parsing hardened: accepts raw number, CSS hex string (`#RRGGBB`), or falls back to `0xffffff`.
 
+**5. Host Respawn State & Scene Bridge Wiring (gameFlow.js, entities.js, gameSession.js, main.js, netcode.js)** — Verified.
+- Host now resets `cart.hasSpilled = false` and `cart.cargoBay.visible = true` at the moment of respawn, ensuring host-side state stays consistent with what non-host clients receive via `hostTransform` sync.
+- `cargoBay` lookup hardened: `rebuildCartVisualsIntoRoot()` now tags the cargoBay group with `name = "cargoBay"` and retrieves it via `getObjectByName()` with a fallback console warning if not found.
+- `getTriggerCartShatterRef`, `getSceneRef`, and `getScene` bridge functions added to `gameSession.js` netcode bridge and wired in `main.js` context, ensuring non-host kill-feed shatter calls can resolve the scene.
+- Non-host `getSceneRef` callback now falls through a chain: `getSceneRef` → `getScene` → `null`, making it resilient to partial context wiring.
+- Death shatter hex parsing further hardened with `& 0xffffff` bitmask to clamp any oversized color values before passing to the shatter function.
+
 ### July 4, 2026 – Runtime Bug Fixes: Combo Decay, Grocery Queue, Level Sync, Results Cleanup
 
 **1. Combo Decay Order-of-Operations Race Fix (gameFlow.js)** — Verified.

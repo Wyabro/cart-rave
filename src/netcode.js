@@ -11,7 +11,6 @@ import { clearNpcCartCache } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { cleanupShatter } from "./cartShatter.js";
-import { rebuildCartVisualsIntoRoot } from "./entities.js";
 
 /** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
@@ -576,14 +575,9 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     if (typeof snap.s === "boolean") {
       const wasSpilled = cart.hasSpilled;
       cart.hasSpilled = snap.s;
-      if (wasSpilled && !snap.s) {
+      if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
         const scene = callbacks.getSceneRef?.();
-        if (cart.isShattering || cart._shatterState) {
-          cleanupShatter(cart, scene);
-        }
-        if (cart.mesh && scene) {
-          rebuildCartVisualsIntoRoot(cart, scene);
-        }
+        cleanupShatter(cart, scene);
         if (cart.cargoBay) cart.cargoBay.visible = true;
         if (cart.mesh) cart.mesh.visible = true;
       }
@@ -825,14 +819,9 @@ function applyCartsSnapshotToBodies(carts) {
     if (typeof snap.s === "boolean") {
       const wasSpilled = cart.hasSpilled;
       cart.hasSpilled = snap.s;
-      if (wasSpilled && !snap.s) {
+      if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
         const scene = callbacks.getSceneRef?.();
-        if (cart.isShattering || cart._shatterState) {
-          cleanupShatter(cart, scene);
-        }
-        if (cart.mesh && scene) {
-          rebuildCartVisualsIntoRoot(cart, scene);
-        }
+        cleanupShatter(cart, scene);
         if (cart.cargoBay) cart.cargoBay.visible = true;
         if (cart.mesh) cart.mesh.visible = true;
       }
