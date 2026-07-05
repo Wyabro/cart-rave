@@ -154,11 +154,17 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - `frameVisuals.js` shatter guard split: `isShattering && hasSpilled` freezes the mesh (valid shatter), but `isShattering && !hasSpilled` force-clears the stuck flag (host says respawned, local flag stuck from edge-case) and falls through to normal position lerp from death position to spawn booth.
 - Host respawn in `gameFlow.js` now force-clears `isShattering`, `_shatterState`, `_shatterDeathPos`, restores `mesh`/`contactShadow`/`cargoBay` visibility, and calls `cleanupShatter()` (imported from `cartShatter.js`) before `doRespawn`, ensuring host-side debris is torn down.
 
-**10. Spilled-Flag Reconciliation + Slot 1 Trace Logs (netcode.js)** — Verified.
-- `reconcilePredictedLocalCart` now extracts `auth.s` from the host snapshot and respects it: `s: true` returns immediately (host says dead, no position-fighting into the pit). `s: false` sets `cart.hasSpilled = false`, then checks `wasSpilled || isShattering || _shatterState` — force-snaps the body once on the respawn transition frame to break out of the pit and clears all shatter flags, then returns early. On all subsequent frames (normal driving), falls through to standard smooth reconciliation (yaw-only rotation, velocity blending, soft position nudging).
-- Added temporary slot 1 trace logs: raw host transform data at `MSG.state` parse time, and loop-entry logs in all three `updateRemoteCartNetTargets` branches to confirm slot-1 data reaches the interpolation path.
+**10. Spilled-Flag Reconciliation + Slot 1 Trace Logs (netcode.js)** — Superseded by the self-contained shatter VFX lifecycle refactor below.
 
-**11. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
+**11. Self-Contained Shatter VFX Lifecycle (cartShatter.js, frameVisuals.js, gameFlow.js, main.js, netcode.js)** — Verified.
+- Introduced `isShatterAnimating(cart, now)` in `cartShatter.js` — a pure animation-clock check (`now - explosion.startMs < durationMs`) that replaces the brittle network-synced flags (`isShattering`, `hasSpilled`) as the single source of truth for whether the death VFX is still playing.
+- `frameVisuals.js` now gates mesh freeze on `isShatterAnimating(c, now)` instead of `isShattering && hasSpilled`. Stuck-flag guard removed — the animation's own duration clock handles the lifecycle.
+- `applyCartState` and `reconcilePredictedLocalCart` both consult `isShatterAnimating()` before acting on an `s: false` snapshot — stale pre-death transforms lag behind the immediate `host_event_fall`, so we ignore `s: false` while the VFX is still playing. Once the animation ends, `doRespawnRef` (wired from `main.js` → `netcode.js`) drives a single unified respawn path on ALL clients: `cleanupShatter` + visual rebuild + transient state reset.
+- `gameFlow.js` host respawn block simplified — delegates everything to `doRespawn`.
+- `triggerCartShatter` no longer sets `hasSpilled` — the network flag is purely informational; the animation clock owns the VFX window.
+- All debug/trace console logs removed (`slotIndex` param, `[CLIENT RECV RAW]`, `[CLIENT UPDATE LOOP]`, `[HOST SEND]`). Net reduction: 2 lines with substantial architectural improvement.
+
+**12. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
 - Extracted Esc overlay UI (~550 lines: scoring section, Post-FX/LQ buttons, ESC button handlers, section layout, entrance/exit animations) from `hud.js` into new `src/ui/pauseOverlay.js`. `hud.js` now delegates show/hide/sync through thin wrapper functions.
 - Removed remaining ~20 `@ts-expect-error` suppressions from `cartRaveGltf.js` and `cartRaveGltf.js`, replacing them with proper `THREE.Mesh`, `THREE.MeshStandardMaterial` JSDoc type casts.
 - Refined `CartThemeMaterialCache` JSDoc typedef: `THREE.Material[]` → `THREE.MeshStandardMaterial[]`, added missing `isRaveGltf` property.
