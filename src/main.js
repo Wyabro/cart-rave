@@ -2069,6 +2069,7 @@ async function main() {
     isNitroHeldRef: input.isNitroHeld,
     triggerRamBoostRef: triggerRamBoost,
     triggerHopRef: triggerHop,
+    triggerCartShatterRef: triggerCartShatter,
     resetSimTimingRef: sessionRefs.resetSimTimingRef,
   });
   // * hello can arrive before input/cart refs exist; startInputSendLoop no-ops without getAxisRef.

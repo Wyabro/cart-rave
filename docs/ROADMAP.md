@@ -100,6 +100,18 @@ Replace `structuredClone` with a manual, pre-allocated flat-array serializer tha
 ## Completed Work
 Historical record preserved. Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
 
+### July 4, 2026 – Multiplayer Visual Sync & Mid-Round Join Polish
+
+**1. CargoBay Visibility & Death Shatter Sync (netcode.js, main.js)** — Verified.
+- `hostTransform` payload extended with `c` (cargoBay visibility boolean). Non-host clients now sync `cart.cargoBay.visible` on both interpolated remote carts and direct snapshot applies, so grocery cargo meshes correctly appear/hide across all clients.
+- Non-host `triggerCartShatterRef` was initialized to `null` and never wired, so death shatter VFX silently failed on non-host clients. Now defaults to the actual `triggerCartShatter` function.
+- All 4 carts are now snapped to their spawn booths (`teleportCartToSpawn(i)`) before the round countdown begins, ensuring a clean visual reset between rounds.
+
+**2. Mid-Round Join Cart Teleport (netcode.js, gameSession.js, main.js)** — Verified.
+- When a human replaces an NPC mid-round, the host detects `kind: "npc"` → `"human"` transitions in `MSG.roomState` and teleports the cart to its spawn booth via `teleportCartToSpawn()`. Physics body is reset (position +1Y, zero velocity, spawn yaw, `wakeUp()`).
+- `teleportCartToSpawn` wired through `gameSession.js` netcode bridge and registered as a callback in `netcode.js`.
+- Rate limiter in `party/index.ts` now exempts `MSG.clientInput` and `MSG.hostTransform` (high-frequency telemetry), preventing connection kills during normal gameplay. JSON parse moved before rate limit check so malformed messages are discarded without consuming the rate budget.
+
 ### July 4, 2026 – Runtime Bug Fixes: Combo Decay, Grocery Queue, Level Sync, Results Cleanup
 
 **1. Combo Decay Order-of-Operations Race Fix (gameFlow.js)** — Verified.

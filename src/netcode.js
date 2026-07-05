@@ -68,6 +68,7 @@ let getAxisRef = null;
 let isNitroHeldRef = null;
 let triggerRamBoostRef = null;
 let triggerHopRef = null;
+let triggerCartShatterRef = null;
 let resetSimTimingRef = null;
 
 let netSlots = [];
@@ -274,6 +275,7 @@ export function setRefs(refs) {
   if (refs.isNitroHeldRef !== undefined) isNitroHeldRef = refs.isNitroHeldRef;
   if (refs.triggerRamBoostRef !== undefined) triggerRamBoostRef = refs.triggerRamBoostRef;
   if (refs.triggerHopRef !== undefined) triggerHopRef = refs.triggerHopRef;
+  if (refs.triggerCartShatterRef !== undefined) triggerCartShatterRef = refs.triggerCartShatterRef;
   if (refs.resetSimTimingRef !== undefined) resetSimTimingRef = refs.resetSimTimingRef;
   if (!isHost && partySocket && getAxisRef && !inputSendTimer) {
     startInputSendLoop();
@@ -557,7 +559,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     }
 
     if (snap.b && !cart._prevRemoteBoosting) {
-      if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now());
+      if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now(), { instant: true });
     }
     cart._prevRemoteBoosting = Boolean(snap.b);
 
@@ -568,6 +570,9 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
 
     if (typeof snap.c === "boolean" && cart.cargoBay) {
       cart.cargoBay.visible = snap.c;
+    }
+    if (typeof snap.s === "boolean") {
+      cart.hasSpilled = snap.s;
     }
   };
 
@@ -803,6 +808,9 @@ function applyCartsSnapshotToBodies(carts) {
     if (typeof snap.c === "boolean" && cart.cargoBay) {
       cart.cargoBay.visible = snap.c;
     }
+    if (typeof snap.s === "boolean") {
+      cart.hasSpilled = snap.s;
+    }
 
     // * Keep the interpolation/prediction targets in lockstep with the snap. Otherwise
     // * the first syncRemoteCartBodiesForPrediction after a hello/host-migration snap
@@ -981,6 +989,7 @@ export function startHostSendLoop() {
         b: isBoosting,
         h: isHopping,
         c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
+        s: Boolean(c.hasSpilled),
       };
     }
 
@@ -1547,13 +1556,16 @@ export function initNetcode(roomOverride) {
 
     if (type === MSG.hostEventFall) {
       if (isHost) return;
+      const toCssHex = (n) => typeof n === "number" ? '#' + n.toString(16).padStart(6, '0') : (n ?? null);
       const victimSlot = netSlots[msg.slotId];
       const targetName = victimSlot?.name || `P${(msg.slotId ?? 0) + 1}`;
-      const targetColor = callbacks.colorHexForSlot(victimSlot);
+      const targetColorHex = callbacks.colorHexForSlot(victimSlot);
+      const targetColor = toCssHex(targetColorHex);
       if (msg.attackerSlot != null) {
         const attackerSlot = netSlots[msg.attackerSlot];
         const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
-        const actorColor = callbacks.colorHexForSlot(attackerSlot);
+        const actorColorHex = callbacks.colorHexForSlot(attackerSlot);
+        const actorColor = toCssHex(actorColorHex);
         callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor, msg.comboTier, msg.comboMultiplier);
 
         const localSlotIdx = strictSlotIndexForConn(youConnId);
@@ -1572,7 +1584,8 @@ export function initNetcode(roomOverride) {
         if (victimCart?.mesh) {
           const scene = callbacks.getSceneRef?.();
           if (scene) {
-            callbacks.triggerCartShatterRef(victimCart, scene, targetColor ?? 0xffffff);
+            const shatterFn = triggerCartShatterRef || callbacks.triggerCartShatterRef;
+            shatterFn?.(victimCart, scene, targetColorHex ?? 0xffffff);
           }
         }
       }

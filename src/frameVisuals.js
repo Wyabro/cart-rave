@@ -134,8 +134,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const netSlotsForFrame = deps.getNetSlots();
   const roundState = deps.getRoundState();
 
-  // Host-only streak spawners (visual; reads cart velocity after game-logic pass).
-  if (deps.isHost() && roundState.phase === "running") {
+  if (roundState.phase === "running") {
     Effects.tickRamBoostStreakSpawners(allCarts, now, dt);
   }
 

@@ -90,6 +90,11 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Server-authoritative level sync via MSG.round | ✅ Fixed |
 | Slot kind nullish coalescing fix (human vs NPC label) | ✅ Fixed |
 | Results UI cleanup (NEXT LEVEL removal, PLAY AGAIN rename) | ✅ Fixed |
+| CargoBay visibility sync via hostTransform | ✅ Fixed |
+| Non-host death shatter VFX wiring | ✅ Fixed |
+| Booth snap at countdown (clean round reset) | ✅ Fixed |
+| Mid-round join cart teleport (NPC→human) | ✅ Fixed |
+| Rate limit exemption for high-freq messages | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
