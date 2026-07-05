@@ -112,6 +112,21 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - `teleportCartToSpawn` wired through `gameSession.js` netcode bridge and registered as a callback in `netcode.js`.
 - Rate limiter in `party/index.ts` now exempts `MSG.clientInput` and `MSG.hostTransform` (high-frequency telemetry), preventing connection kills during normal gameplay. JSON parse moved before rate limit check so malformed messages are discarded without consuming the rate budget.
 
+**3. Ram Streak, hasSpilled, Remote Boost & Kill Feed Sync (frameVisuals.js, main.js, netcode.js)** — Verified.
+- Ram boost streak spawners (`tickRamBoostStreakSpawners`) were gated behind `isHost()`, so non-host clients never saw speed-streak VFX. Now runs on all clients during the `running` phase.
+- `hasSpilled` state (`s`) added to `hostTransform` payload and synced on both interpolated remote carts and direct snapshot applies, so cargoBay hide/show logic stays consistent across clients.
+- Remote boost edge-detection now passes `{ instant: true }` so non-host clients see the full-strength nitro VFX spike immediately on the first frame, matching the host's visual timing.
+- Kill feed colors now properly converted from raw hex numbers to CSS hex strings (`#RRGGBB`) before rendering.
+- `triggerCartShatterRef` resolved via both direct module-level ref (`setRefs`) and callback bridge fallback on non-host, eliminating null-ref silent failures.
+
+**4. Respawn Visual Cleanup & Shatter Hex Parsing (entities.js, netcode.js)** — Verified.
+- When `hasSpilled` transitions `true`→`false` (cart respawn), non-host clients now detect the edge and:
+  - Call `cleanupShatter()` if the cart is in a shattering state, removing lingering debris meshes.
+  - Call `rebuildCartVisualsIntoRoot()` (newly exported from `entities.js`) to restore a clean mesh.
+  - Restore `cargoBay.visible = true` and `mesh.visible = true`.
+  - Applied on both interpolated remote carts (`updateRemoteCartNetTargets`) and direct snapshot applies (`applyCartsSnapshotToBodies`).
+- Death shatter color parsing hardened: accepts raw number, CSS hex string (`#RRGGBB`), or falls back to `0xffffff`.
+
 ### July 4, 2026 – Runtime Bug Fixes: Combo Decay, Grocery Queue, Level Sync, Results Cleanup
 
 **1. Combo Decay Order-of-Operations Race Fix (gameFlow.js)** — Verified.

@@ -95,6 +95,13 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Booth snap at countdown (clean round reset) | ✅ Fixed |
 | Mid-round join cart teleport (NPC→human) | ✅ Fixed |
 | Rate limit exemption for high-freq messages | ✅ Fixed |
+| Ram streak VFX on non-host clients | ✅ Fixed |
+| hasSpilled state sync via hostTransform | ✅ Fixed |
+| Remote boost instant VFX on non-host | ✅ Fixed |
+| Kill feed color CSS hex conversion | ✅ Fixed |
+| Shatter ref dual-path resolution (module + callback) | ✅ Fixed |
+| Respawn visual cleanup (shatter debris + mesh rebuild) | ✅ Fixed |
+| Death shatter color hex parsing hardened | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |

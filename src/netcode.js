@@ -10,6 +10,8 @@ import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisio
 import { clearNpcCartCache } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
+import { cleanupShatter } from "./cartShatter.js";
+import { rebuildCartVisualsIntoRoot } from "./entities.js";
 
 /** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
@@ -572,7 +574,19 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
       cart.cargoBay.visible = snap.c;
     }
     if (typeof snap.s === "boolean") {
+      const wasSpilled = cart.hasSpilled;
       cart.hasSpilled = snap.s;
+      if (wasSpilled && !snap.s) {
+        const scene = callbacks.getSceneRef?.();
+        if (cart.isShattering || cart._shatterState) {
+          cleanupShatter(cart, scene);
+        }
+        if (cart.mesh && scene) {
+          rebuildCartVisualsIntoRoot(cart, scene);
+        }
+        if (cart.cargoBay) cart.cargoBay.visible = true;
+        if (cart.mesh) cart.mesh.visible = true;
+      }
     }
   };
 
@@ -809,7 +823,19 @@ function applyCartsSnapshotToBodies(carts) {
       cart.cargoBay.visible = snap.c;
     }
     if (typeof snap.s === "boolean") {
+      const wasSpilled = cart.hasSpilled;
       cart.hasSpilled = snap.s;
+      if (wasSpilled && !snap.s) {
+        const scene = callbacks.getSceneRef?.();
+        if (cart.isShattering || cart._shatterState) {
+          cleanupShatter(cart, scene);
+        }
+        if (cart.mesh && scene) {
+          rebuildCartVisualsIntoRoot(cart, scene);
+        }
+        if (cart.cargoBay) cart.cargoBay.visible = true;
+        if (cart.mesh) cart.mesh.visible = true;
+      }
     }
 
     // * Keep the interpolation/prediction targets in lockstep with the snap. Otherwise
@@ -1585,7 +1611,8 @@ export function initNetcode(roomOverride) {
           const scene = callbacks.getSceneRef?.();
           if (scene) {
             const shatterFn = triggerCartShatterRef || callbacks.triggerCartShatterRef;
-            shatterFn?.(victimCart, scene, targetColorHex ?? 0xffffff);
+            const numericHex = typeof targetColorHex === "number" ? targetColorHex : (typeof targetColorHex === "string" ? parseInt(targetColorHex.replace("#", ""), 16) : 0xffffff);
+            shatterFn?.(victimCart, scene, Number.isNaN(numericHex) ? 0xffffff : numericHex);
           }
         }
       }

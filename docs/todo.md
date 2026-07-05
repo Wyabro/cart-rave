@@ -77,6 +77,13 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **Booth snap at countdown** (`src/main.js`): All 4 carts are now teleported to their spawn booths before the round countdown begins, ensuring a clean visual reset between rounds.
 - **Mid-round join cart teleport** (`src/netcode.js`, `src/gameSession.js`, `src/main.js`): Host detects NPC→human slot transitions and teleports the cart to its spawn booth, resetting position, velocity, and yaw.
 - **Rate limit exemption** (`party/index.ts`): `MSG.clientInput` and `MSG.hostTransform` now bypass rate limiting (they're high-frequency telemetry). JSON parse moved before rate check so malformed messages don't consume budget.
+- **Ram streak VFX on non-host** (`src/frameVisuals.js`): `tickRamBoostStreakSpawners` was gated behind `isHost()`, so non-host clients never saw speed-streak VFX. Now runs on all clients during the `running` phase.
+- **hasSpilled state sync** (`src/netcode.js`): `hostTransform` payload extended with `s` (hasSpilled) boolean. Non-host clients sync `cart.hasSpilled` on both interpolated remote carts and direct snapshot applies.
+- **Remote boost instant flag** (`src/netcode.js`): Remote boost edge-detection now passes `{ instant: true }` so non-host clients see the full-strength nitro VFX spike immediately, matching host timing.
+- **Kill feed color hex fix** (`src/netcode.js`): Raw hex numbers now properly converted to CSS hex strings (`#RRGGBB`) before rendering kill feed entries.
+- **Shatter ref dual-path resolution** (`src/main.js`, `src/netcode.js`): `triggerCartShatterRef` now wired through both `setRefs()` module-level ref and callback bridge fallback, eliminating null-ref silent failures on non-host.
+- **Respawn visual cleanup** (`src/entities.js`, `src/netcode.js`): When `hasSpilled` transitions `true`→`false` (cart respawn), non-host clients now cleanup lingering shatter debris and rebuild cart visuals via `cleanupShatter()` + `rebuildCartVisualsIntoRoot()` (newly exported). Applied on both interpolated remote carts and direct snapshot applies.
+- **Death shatter hex parsing** (`src/netcode.js`): Color parsing hardened to accept raw numbers, CSS hex strings (`#RRGGBB`), or fall back to `0xffffff`.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.

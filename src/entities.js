@@ -201,7 +201,7 @@ function setupCartVisuals(scene, color, themeId, sunglassesStyle) {
  * @param {THREE.Scene} scene Active scene (contact shadow re-parented here).
  * @returns {void}
  */
-function rebuildCartVisualsIntoRoot(cart, scene) {
+export function rebuildCartVisualsIntoRoot(cart, scene) {
   if (!cart?.mesh || !scene) return;
 
   // * Build a fresh mesh (rave GLTF instance or procedural cart) and move its children
