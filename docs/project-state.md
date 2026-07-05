@@ -112,6 +112,8 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | @ts-expect-error cleanup (cartRaveGltf, cartThemes) | ✅ Fixed |
 | Level select Zustand sync (menu + levelManager) | ✅ Fixed |
 | Force-clear shatter state on respawn | ✅ Fixed |
+| hud getter to avoid stale ref in context injection | ✅ Fixed |
+| Null cart guard in updateRemoteCartNetTargets | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |

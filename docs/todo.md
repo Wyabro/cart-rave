@@ -93,6 +93,8 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **@ts-expect-error cleanup** (`src/cartRaveGltf.js`, `src/cartThemes.js`): Removed remaining ~20 stale suppressions, replaced with proper `THREE.Mesh`/`THREE.MeshStandardMaterial` type casts. Refined JSDoc typedefs.
 - **Level select Zustand sync** (`src/cart-rave-menu.js`, `src/levelManager.js`): Level picker now updates `settingsStore` Zustand state. Level resolution checks `localStorage` first, then falls back to store.
 - **Force-clear shatter state on respawn** (`src/netcode.js`): Respawn now force-clears `isShattering`, `_shatterState`, `_shatterDeathPos`, and restores `contactShadow.visible`.
+- **hud getter to avoid stale ref** (`src/main.js`): Two `hud` references in context object changed to getter syntax so they always resolve at access time rather than capture-time (could be `undefined` during initialization).
+- **Null cart guard in updateRemoteCartNetTargets** (`src/netcode.js`): Added `if (!cart) continue;` before `applyCartState` to prevent null dereference during slot transitions.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.
