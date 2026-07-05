@@ -119,6 +119,8 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | applyCartState explicit slotIndex param (was undefined) | ✅ Fixed |
 | Stuck-shatter guard in frameVisuals (isShattering & !hasSpilled) | ✅ Fixed |
 | Host respawn force-clears shatter + cleanupShatter | ✅ Fixed |
+| Spilled-flag reconciliation (s:true dead skip, s:false respawn snap) | ✅ Fixed |
+| Slot 1 trace logs (MSG.state + updateRemoteCartNetTargets loops) | ✅ Added |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |

@@ -100,6 +100,8 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **applyCartState explicit slotIndex param** (`src/netcode.js`): Changed from `cart.slotIndex` (undefined on remote carts) to explicit `slotIndex = -1` parameter threaded through all 7 call sites. Debug log updated accordingly.
 - **Stuck-shatter guard in frameVisuals** (`src/frameVisuals.js`): `isShattering` guard split into two conditions — `isShattering && hasSpilled` freezes mesh (valid shatter), `isShattering && !hasSpilled` force-clears stuck flag so mesh can lerp from death position to spawn booth.
 - **Host respawn force-clears shatter** (`src/gameFlow.js`): Host-side respawn now clears `isShattering`/`_shatterState`/`_shatterDeathPos`, restores all visibility flags, and calls `cleanupShatter()` (imported from `cartShatter.js`) before `doRespawn`.
+- **Spilled-flag reconciliation** (`src/netcode.js`): `reconcilePredictedLocalCart` extracts `auth.s` and respects it — `s: true` returns early (host says dead, no pit-dragging). `s: false` force-snaps once on respawn transition (`wasSpilled || isShattering`), clears all shatter flags, then falls through to normal smooth reconciliation on subsequent frames.
+- **Slot 1 trace logs** (`src/netcode.js`): Temporary console logs at `MSG.state` parse and in all three `updateRemoteCartNetTargets` loop branches to verify slot-1 data reaches the interpolation path.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.
