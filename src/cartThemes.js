@@ -22,10 +22,11 @@ const PROPS_GROUP_NAME = "CartThemeProps";
 const CHROME_ENV_SCALE = 1.35;
 /**
  * @typedef {Object} CartThemeMaterialCache
- * @property {THREE.Material[]} frameMats — all tintable body/accent materials
- * @property {THREE.Material[]} frameBodyMats — basket/chassis frame
- * @property {THREE.Material[]} accentMats — hubs, pads, emissive trim
- * @property {THREE.Material[]} frameGlowMats — materials with emissive (leader/boost loop)
+ * @property {boolean} [isRaveGltf] - true for GLTF cart material caches
+ * @property {THREE.MeshStandardMaterial[]} frameMats - all tintable body/accent materials
+ * @property {THREE.MeshStandardMaterial[]} frameBodyMats - basket/chassis frame
+ * @property {THREE.MeshStandardMaterial[]} accentMats - hubs, pads, emissive trim
+ * @property {THREE.MeshStandardMaterial[]} frameGlowMats - materials with emissive (leader/boost loop)
  */
 
 /**

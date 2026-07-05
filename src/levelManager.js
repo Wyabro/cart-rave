@@ -74,9 +74,9 @@ import { settingsStore } from "./stores/settingsStore.js";
  */
 function resolveTargetLevelId(levelId) {
   if (levelId != null) return resolveLevelId(levelId);
-  const stored = settingsStore.getState().selectedLevelId || (
+  const stored = (
     typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null
-  );
+  ) || settingsStore.getState().selectedLevelId;
   return resolveLevelId(stored);
 }
 

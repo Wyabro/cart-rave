@@ -1502,8 +1502,14 @@ function applyRaveGltfFramePreset(mat) {
  * Face-role meshes (sunglasses frame + lenses + accent) are recolored as a mirrored
  * finish using the resolved {@link SunglassesStyleDef}; the handle role keeps the
  * static dark plastic trim.
+/**
+ * Clones authored GLTF material for one instance with role-specific PBR + trim mask setup.
  *
- * @param {THREE.Material} srcMat
+ * Face-role meshes (sunglasses frame + lenses + accent) are recolored as a mirrored
+ * finish using the resolved {@link SunglassesStyleDef}; the handle role keeps the
+ * static dark plastic trim.
+ *
+ * @param {THREE.MeshStandardMaterial} srcMat
  * @param {RaveGltfPartRole} role
  * @param {string | null | undefined} [sunglassesStyle] - SunglassesStyleDef id; defaults to silver mirror.
  * @returns {THREE.MeshPhysicalMaterial}
@@ -1513,13 +1519,9 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
 
   const mat = createPhysicalMaterial({
     name: srcMat.name,
-    // @ts-expect-error THREE duck-typing suppress
     map: srcMat.map,
-    // @ts-expect-error THREE duck-typing suppress
     normalMap: srcMat.normalMap,
-    // @ts-expect-error THREE duck-typing suppress
     color: srcMat.color?.clone(),
-    // @ts-expect-error THREE duck-typing suppress
     emissive: srcMat.emissive?.clone() ?? new THREE.Color(0x000000),
     emissiveIntensity: 0,
     ...rolePreset,
@@ -1535,7 +1537,6 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
 
   if (role === "body") {
     // * Wireframe trim lives in the albedo map — reuse as emissive mask for neon bloom.
-    // @ts-expect-error THREE duck-typing suppress
     mat.emissiveMap = srcMat.emissiveMap || srcMat.map || null;
     mat.userData.raveGltfHasEmissiveAccent = !!mat.emissiveMap;
     if (mat.color) mat.userData.raveGltfAuthoredColor = mat.color.clone();
@@ -1563,14 +1564,10 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
     if (mat.emissive) mat.emissive.setHex(0x000000);
     mat.userData.raveGltfSunglassesStyle = style.id;
   } else {
-    // @ts-expect-error THREE duck-typing suppress
     mat.userData.raveGltfHasEmissiveAccent = !!srcMat.emissiveMap;
-    // @ts-expect-error THREE duck-typing suppress
     mat.emissiveMap = srcMat.emissiveMap || null;
-    // @ts-expect-error THREE duck-typing suppress
     if (role === "trim" && srcMat.map) {
       // * Small neon wire segments share the body albedo map as a bloom mask.
-      // @ts-expect-error THREE duck-typing suppress
       mat.emissiveMap = srcMat.map;
       mat.userData.raveGltfHasEmissiveAccent = true;
     } else if (role === "trim") {
@@ -1885,8 +1882,8 @@ export function logRaveGltfCasterPivotsOnScene(scene) {
     /** @type {Map<string, THREE.Mesh>} */
     const meshByName = new Map();
     model.traverse((child) => {
-      // @ts-expect-error THREE duck-typing suppress
-      if (child.isMesh && child.name) meshByName.set(child.name, child);
+      const mesh = /** @type {THREE.Mesh} */ (child);
+      if (mesh.isMesh && mesh.name) meshByName.set(mesh.name, mesh);
     });
 
     for (const caster of data.casters) {
@@ -1904,8 +1901,7 @@ export function logRaveGltfCasterPivotsOnScene(scene) {
 
       const { authored, steerPivot, baseKingpin } = computeRaveGltfCasterSteerLayout(
         forkMeshes,
-        // @ts-expect-error THREE duck-typing suppress
-        bodyMesh,
+        /** @type {THREE.Mesh} */ (bodyMesh),
         group.label,
         model,
         connectorMesh,
@@ -1949,8 +1945,7 @@ function groupRaveGltfFaceAssembly(model) {
   /** @type {THREE.Mesh[]} */
   const meshes = [];
   for (const partName of RAVE_GLTF_V4_FACE_PARTS) {
-    const mesh = model.getObjectByName(partName);
-    // @ts-expect-error THREE duck-typing suppress
+    const mesh = /** @type {THREE.Mesh | undefined} */ (model.getObjectByName(partName));
     if (mesh?.isMesh) meshes.push(mesh);
   }
   if (meshes.length < 2) return;
@@ -2004,15 +1999,13 @@ function bindRaveGltfCartParts(root) {
       child.name = "CartFrame";
       child.userData.isCartFrame = true;
       child.userData.preserveGltfMaps = true;
-      // @ts-expect-error THREE duck-typing suppress
-      meshByName.set("CartFrame", child);
+      meshByName.set("CartFrame", /** @type {THREE.Mesh} */ (child));
     } else if (role === "handle") {
       child.userData.isHandle = true;
     } else if (role === "face") {
       child.userData.isFace = true;
     } else if (role === "wheel" || role === "fork") {
-      // @ts-expect-error THREE duck-typing suppress
-      animMeshes.push(child);
+      animMeshes.push(/** @type {THREE.Mesh} */ (child));
     }
   });
 
@@ -2042,8 +2035,7 @@ function bindRaveGltfCartParts(root) {
       if (!caster) continue;
 
       casters.push(caster);
-      // @ts-expect-error THREE duck-typing suppress
-      forkPivots.push(getRaveGltfCasterSteerPivot(caster));
+      forkPivots.push(/** @type {THREE.Group} */ (getRaveGltfCasterSteerPivot(caster)));
       if (caster.rollPivot) wheelPivots.push(caster.rollPivot);
       wheelRadius = Math.max(caster.wheelRadius, wheelRadius);
 
@@ -2120,27 +2112,21 @@ function getRaveGltfTrimEmissiveIntensity(neonHex, intensityMul = 1) {
   return cartEmissiveIntensityForHex(refHex, emMul);
 }
 
-/** @param {THREE.Material} mat @param {number} neonHex @param {number} intensityMul */
+/** @param {THREE.MeshStandardMaterial} mat @param {number} neonHex @param {number} intensityMul */
 function applyRaveGltfTrimEmissive(mat, neonHex, intensityMul = 1) {
-  // @ts-expect-error THREE duck-typing suppress
   if (mat.emissive) {
-    // @ts-expect-error THREE duck-typing suppress
     mat.emissive.setHex(neonHex);
   }
-  // @ts-expect-error THREE duck-typing suppress
   if (typeof mat.emissiveIntensity === "number") {
-    // @ts-expect-error THREE duck-typing suppress
     mat.emissiveIntensity = getRaveGltfTrimEmissiveIntensity(neonHex, intensityMul);
   }
 }
 
-/** @param {THREE.Material} mat @param {number} neonHex @param {number} strength */
+/** @param {THREE.MeshStandardMaterial} mat @param {number} neonHex @param {number} strength */
 function applyRaveGltfBodyTint(mat, neonHex, strength) {
-  // @ts-expect-error THREE duck-typing suppress
   if (!mat?.color || strength <= 0) return;
 
   if (strength >= 1) {
-    // @ts-expect-error THREE duck-typing suppress
     mat.color.setHex(neonHex);
     mat.needsUpdate = true;
     return;
@@ -2151,7 +2137,6 @@ function applyRaveGltfBodyTint(mat, neonHex, strength) {
   else _bodyTintScratch.setRGB(1, 1, 1);
 
   _bodyTintNeon.setHex(neonHex);
-  // @ts-expect-error THREE duck-typing suppress
   mat.color.copy(_bodyTintScratch).lerp(_bodyTintNeon, strength);
   mat.needsUpdate = true;
 }
@@ -2395,7 +2380,6 @@ export function buildRaveGltfMaterialCache(root) {
   }
 
   return {
-    // @ts-expect-error THREE duck-typing suppress
     isRaveGltf: true,
     frameMats,
     frameBodyMats,
@@ -2441,37 +2425,28 @@ export function applyRaveGltfLeaderGlow(
   const b = (neonHex & 255) / 255;
 
   for (const mat of cache.frameBodyMats || []) {
-    // @ts-expect-error THREE duck-typing suppress
     if (!mat.color) continue;
     applyRaveGltfBodyTint(mat, neonHex, bodyTintStrength);
-    // @ts-expect-error THREE duck-typing suppress
     mat.color.setRGB(
-      // @ts-expect-error THREE duck-typing suppress
       mat.color.r + (1 - mat.color.r) * whiteMix,
-      // @ts-expect-error THREE duck-typing suppress
       mat.color.g + (1 - mat.color.g) * whiteMix,
-      // @ts-expect-error THREE duck-typing suppress
       mat.color.b + (1 - mat.color.b) * whiteMix,
     );
     mat.needsUpdate = true;
   }
 
   for (const mat of cache.accentMats || []) {
-    // @ts-expect-error THREE duck-typing suppress
     if (!mat.emissive) {
       mat.needsUpdate = true;
       continue;
     }
 
-    // @ts-expect-error THREE duck-typing suppress
     mat.emissive.setRGB(
       r + (1 - r) * whiteMix,
       g + (1 - g) * whiteMix,
       b + (1 - b) * whiteMix,
     );
-    // @ts-expect-error THREE duck-typing suppress
     if (typeof mat.emissiveIntensity === "number") {
-      // @ts-expect-error THREE duck-typing suppress
       mat.emissiveIntensity = baseIntensity * (1 - whiteMix) + glowIntensity * whiteMix;
     }
     mat.needsUpdate = true;

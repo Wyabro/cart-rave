@@ -538,8 +538,15 @@ export function applyCartState(cart, snap, options = {}) {
     if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
       const scene = callbacks.getSceneRef?.();
       cleanupShatter(cart, scene);
-      if (cart.cargoBay) cart.cargoBay.visible = true;
+
+      // FORCE CLEAR: Ensure frameVisuals.js resumes position lerping even if cleanupShatter bailed out.
+      cart.isShattering = false;
+      cart._shatterState = null;
+      cart._shatterDeathPos = null;
+
       if (cart.mesh) cart.mesh.visible = true;
+      if (cart.contactShadow) cart.contactShadow.visible = true;
+      if (cart.cargoBay) cart.cargoBay.visible = true;
     }
   }
 }

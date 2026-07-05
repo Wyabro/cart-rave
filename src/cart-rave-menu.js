@@ -423,6 +423,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     state.level = levelId;
     localStorage.setItem(LEVEL_STORAGE_KEY, levelId);
     window.cartRaveLevel = levelId;
+    settingsStore.getState().setSelectedLevelId(levelId);
   }
 
   function updateLevelButtons() {
