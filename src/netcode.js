@@ -565,6 +565,10 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
       if (triggerHopRef) triggerHopRef(cart, performance.now());
     }
     cart._prevRemoteHopping = Boolean(snap.h);
+
+    if (typeof snap.c === "boolean" && cart.cargoBay) {
+      cart.cargoBay.visible = snap.c;
+    }
   };
 
   if (before && after && before.carts && after.carts) {
@@ -796,6 +800,10 @@ function applyCartsSnapshotToBodies(carts) {
     if (Array.isArray(lv)) cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
     if (Array.isArray(av)) cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
 
+    if (typeof snap.c === "boolean" && cart.cargoBay) {
+      cart.cargoBay.visible = snap.c;
+    }
+
     // * Keep the interpolation/prediction targets in lockstep with the snap. Otherwise
     // * the first syncRemoteCartBodiesForPrediction after a hello/host-migration snap
     // * would yank the body back to stale pre-snap targets and inject a stale linvel.
@@ -972,6 +980,7 @@ export function startHostSendLoop() {
         av: [round3(av.x), round3(av.y), round3(av.z)],
         b: isBoosting,
         h: isHopping,
+        c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
       };
     }
 

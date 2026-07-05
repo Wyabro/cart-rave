@@ -402,7 +402,7 @@ let spawnTrashBurstRef = null;
 /** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
 let triggerLocalRamShakeRef = null;
 /** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
-let triggerCartShatterRef = null;
+let triggerCartShatterRef = triggerCartShatter;
 /** @type {string | null} */
 let pendingMidRoundJoinRespawnConnId = null;
 
@@ -2327,6 +2327,13 @@ async function main() {
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
     GameState.setRoundStartedAtMs(0);
+
+    if (Array.isArray(allCartsRef)) {
+      for (let i = 0; i < allCartsRef.length; i += 1) {
+        teleportCartToSpawn(i);
+      }
+    }
+
     Netcode.sendHostRound();
     roundCountdownTimeoutId = setTimeout(() => {
       roundCountdownTimeoutId = null;
