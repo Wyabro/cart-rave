@@ -101,6 +101,7 @@ import {
 } from "./ui/audioControls.js";
 import { registerGraphicsToggleHandlers } from "./ui/graphicsToggles.js";
 import { createCameraFraming } from "./ui/cameraFraming.js";
+import { createMenuStats } from "./ui/menuStats.js";
 import { flashBoostActivate } from "./touchControls.js";
 import {
   applySlowMoToDt,
@@ -1079,17 +1080,7 @@ async function main() {
     }
   }
 
-  function refreshMenuStats() {
-    const ps = getPersonalStats();
-    const winsEl = document.getElementById("stat-wins");
-    const playedEl = document.getElementById("stat-played");
-    const ptsEl = document.getElementById("stat-pts");
-    const soloEl = document.getElementById("stat-solo");
-    if (winsEl) winsEl.textContent = String(ps.wins);
-    if (playedEl) playedEl.textContent = String(ps.matches);
-    if (ptsEl) ptsEl.textContent = ps.totalPoints.toLocaleString();
-    if (soloEl) soloEl.textContent = String(ps.soloGames);
-  }
+  const { refreshMenuStats } = createMenuStats({ getPersonalStats });
 
 
   /**

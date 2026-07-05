@@ -100,6 +100,13 @@ Replace `structuredClone` with a manual, pre-allocated flat-array serializer tha
 ## Completed Work
 Historical record preserved. Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
 
+### July 5, 2026 – Camera Framing Extraction
+**1. Camera Framing & Viewport Extraction (cameraFraming.js, main.js)** — Verified.
+- Extracted `updateCameraFraming()` (~15 lines: aspect-ratio FOV math with portrait/wide boost clamping) and `updateViewport()` (~15 lines: pixel ratio, composer/resize, label renderer, FPS canvas positioning) from `main.js` into new `src/ui/cameraFraming.js` module.
+- Module exposes `createCameraFraming({ camera, renderer, composer, arcadePass, fxaaPass, labelRenderer, getFpsCanvas })` factory returning `{ updateViewport }`, which internally calls extracted helpers.
+- Removed `updateSceneViewport` import from `main.js` — all viewport responsibility now lives in the new module.
+- Net: 2 files, +1 new module, ~30 lines extracted from `main.js`.
+
 ### July 4, 2026 – Multiplayer Visual Sync & Mid-Round Join Polish
 
 **1. CargoBay Visibility & Death Shatter Sync (netcode.js, main.js)** — Verified.
