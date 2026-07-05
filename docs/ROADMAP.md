@@ -145,7 +145,11 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - Two `hud` references in the `main()` context object were direct property captures, which could be `undefined` at injection time since `hud` initializes after physics bootstrap. Changed to getter syntax (`get hud() { return hud; }`) so the resolved value is always read at access time.
 - `updateRemoteCartNetTargets` could dereference a null cart slot (e.g., during player join/leave transitions where slots momentarily have no cart). Added `if (!cart) continue;` guard before `applyCartState`.
 
-**8. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
+**8. Boost State Sync & Slot 1 Debug Logging (netcode.js)** — Verified.
+- `applyCartState` now writes `snap.b` to both `cart.isRamBoosting` and `cart.isBoosting` so non-host clients correctly maintain in-flight boost visual state (ram streak VFX, wheel rotation rate, etc.) between host transform updates, rather than only detecting edges.
+- Added temporary slot 1 debug logging in both `applyCartState` (receive) and `serializeCartToWire` (send) to monitor `hasSpilled`, `cargoBay.visible`, boost state, and position Y across host→client sync at runtime.
+
+**9. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
 - Extracted Esc overlay UI (~550 lines: scoring section, Post-FX/LQ buttons, ESC button handlers, section layout, entrance/exit animations) from `hud.js` into new `src/ui/pauseOverlay.js`. `hud.js` now delegates show/hide/sync through thin wrapper functions.
 - Removed remaining ~20 `@ts-expect-error` suppressions from `cartRaveGltf.js` and `cartRaveGltf.js`, replacing them with proper `THREE.Mesh`, `THREE.MeshStandardMaterial` JSDoc type casts.
 - Refined `CartThemeMaterialCache` JSDoc typedef: `THREE.Material[]` → `THREE.MeshStandardMaterial[]`, added missing `isRaveGltf` property.

@@ -95,6 +95,8 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **Force-clear shatter state on respawn** (`src/netcode.js`): Respawn now force-clears `isShattering`, `_shatterState`, `_shatterDeathPos`, and restores `contactShadow.visible`.
 - **hud getter to avoid stale ref** (`src/main.js`): Two `hud` references in context object changed to getter syntax so they always resolve at access time rather than capture-time (could be `undefined` during initialization).
 - **Null cart guard in updateRemoteCartNetTargets** (`src/netcode.js`): Added `if (!cart) continue;` before `applyCartState` to prevent null dereference during slot transitions.
+- **Boost state force-sync from wire** (`src/netcode.js`): `applyCartState` now writes `snap.b` to `cart.isRamBoosting` and `cart.isBoosting`, so non-host clients maintain correct boost visual state (ram streaks, wheel rate) between host transform updates instead of only on edge detection.
+- **Slot 1 debug logging** (`src/netcode.js`): Temporary console logs in `applyCartState` (receive) and `serializeCartToWire` (send) to monitor hasSpilled, cargoBay, boost, and position sync at runtime.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.
