@@ -619,6 +619,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     const denom = (after.serverNowMs - before.serverNowMs) || 1;
     const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+      if (slotIndex === 1) console.log(`[CLIENT UPDATE LOOP] slot:1 reached. localSlotIndex:${localSlotIndex}`);
       if (slotIndex === localSlotIndex) continue;
       const cart = allCarts[slotIndex];
       if (!cart) continue;
@@ -639,6 +640,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     const extrapMs = targetServerNowMs - before.serverNowMs;
     const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+      if (slotIndex === 1) console.log(`[CLIENT UPDATE LOOP] slot:1 reached. localSlotIndex:${localSlotIndex}`);
       if (slotIndex === localSlotIndex) continue;
       const b = getCartSnap(before.carts, slotIndex);
       if (!b) continue;
@@ -664,6 +666,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   const carts = (after && after.carts) || lastCartsCache;
   if (!carts) return;
   for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+    if (slotIndex === 1) console.log(`[CLIENT UPDATE LOOP] slot:1 reached. localSlotIndex:${localSlotIndex}`);
     if (slotIndex === localSlotIndex) continue;
     const snap = getCartSnap(carts, slotIndex);
     if (!snap) continue;
@@ -725,9 +728,38 @@ export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
         q: latestCartSnap.q,
         lv: latestCartSnap.lv,
         av: latestCartSnap.av,
+        s: latestCartSnap.s,
       }
     : sampleAuthoritativeCartState(localSlotIndex);
   if (!auth || !Array.isArray(auth.p) || auth.p.length !== 3) return;
+
+  // * Respect host-authoritative spilled state. If host says cart is dead (s: true),
+  // * skip reconciliation entirely — local prediction and gameFlow handle the death
+  // * and local respawn timer without the host dragging the cart back into the pit.
+  if (auth.s === true) {
+    // Host says cart is dead. Skip reconciliation entirely — let local gameFlow handle the death.
+    return;
+  }
+
+  // Host says cart is alive (s: false).
+  const wasSpilled = cart.hasSpilled;
+  cart.hasSpilled = false;
+
+  if (wasSpilled || cart.isShattering || cart._shatterState) {
+    // * RESPAWN TRANSITION: Force-snap to host position exactly once to break out of the death pit,
+    // * then clear all shatter flags so frameVisuals resumes rendering.
+    applySnapshotToCartBody(cart, auth);
+    cart.isShattering = false;
+    cart._shatterState = null;
+    cart._shatterDeathPos = null;
+    if (cart.mesh) cart.mesh.visible = true;
+    if (cart.contactShadow) cart.contactShadow.visible = true;
+    if (cart.cargoBay) cart.cargoBay.visible = true;
+    // Return early on this specific frame so we don't immediately lerp away from the spawn point.
+    return;
+  }
+
+  // Normal smooth reconciliation (yaw-only, velocity blending) falls through here.
 
   const cfg = CONFIG.net.prediction;
   const predT = cart.body.translation();
@@ -1552,6 +1584,7 @@ export function initNetcode(roomOverride) {
     if (type === MSG.state) {
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
+        if (msg.carts[1]) console.log(`[CLIENT RECV RAW] slot:1 s:${msg.carts[1].s} p:${msg.carts[1].p}`);
       }
       if (!isHost) {
         const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
