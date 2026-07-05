@@ -135,6 +135,20 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - Death shatter hex parsing further hardened with `& 0xffffff` bitmask to clamp any oversized color values before passing to the shatter function.
 - Respawn cleanup simplified: removed the `rebuildCartVisualsIntoRoot` import from `netcode.js`. Both `updateRemoteCartNetTargets` and `applyCartsSnapshotToBodies` now use a single `cleanupShatter()` call. The trigger condition was broadened to `!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)` so lingering shatter states are caught even when `hasSpilled` transitions weren't visible.
 
+**6. Netcode DRY Refactor: applyCartState + serializeCartToWire (netcode.js, gameSession.js)** — Verified.
+- Extracted `applyCartState(cart, snap, options)` — shared function handling position/quaternion/velocity writes, boost/hop edge detection, cargoBay visibility, and hasSpilled cleanup. Used by both `updateRemoteCartNetTargets` (interpolate: true) and `applyCartsSnapshotToBodies` (interpolate: false), eliminating ~50 lines of duplicated logic.
+- Extracted `serializeCartToWire(cart)` from `startHostSendLoop()` for reusable 40Hz wire snapshot assembly.
+- Removed redundant `getScene` bridge from `gameSession.js` (only `getSceneRef` needed since `main.js` wires both to `scene`).
+- Net reduction: 54 fewer lines of code.
+
+**7. Pause/Esc Overlay Extraction & @ts-expect-error Cleanup (hud.js, pauseOverlay.js, cartRaveGltf.js, cartThemes.js, cart-rave-menu.js, levelManager.js)** — Verified.
+- Extracted Esc overlay UI (~550 lines: scoring section, Post-FX/LQ buttons, ESC button handlers, section layout, entrance/exit animations) from `hud.js` into new `src/ui/pauseOverlay.js`. `hud.js` now delegates show/hide/sync through thin wrapper functions.
+- Removed remaining ~20 `@ts-expect-error` suppressions from `cartRaveGltf.js` and `cartRaveGltf.js`, replacing them with proper `THREE.Mesh`, `THREE.MeshStandardMaterial` JSDoc type casts.
+- Refined `CartThemeMaterialCache` JSDoc typedef: `THREE.Material[]` → `THREE.MeshStandardMaterial[]`, added missing `isRaveGltf` property.
+- Level selection in `cart-rave-menu.js` now also updates `settingsStore.getState().setSelectedLevelId()`, keeping Zustand store in sync.
+- `levelManager.js` level resolution now checks `localStorage` first, then falls back to `settingsStore`.
+- Respawn force-clears `cart.isShattering`, `cart._shatterState`, `cart._shatterDeathPos` and restores `cart.contactShadow.visible` in addition to `cargoBay` and `mesh` visibility.
+
 ### July 4, 2026 – Runtime Bug Fixes: Combo Decay, Grocery Queue, Level Sync, Results Cleanup
 
 **1. Combo Decay Order-of-Operations Race Fix (gameFlow.js)** — Verified.

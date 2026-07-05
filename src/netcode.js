@@ -236,7 +236,7 @@ export function registerGameCallbacks(deps) {
     triggerCartShatterRef: (cart, scene, neonHex) => {
       deps.getTriggerCartShatterRef?.()?.(cart, scene, neonHex);
     },
-    getSceneRef: () => deps.getSceneRef?.() ?? deps.getScene?.() ?? null,
+    getSceneRef: () => deps.getSceneRef?.() ?? null,
     addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {
       const hud = deps.getHud();
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
@@ -428,6 +428,54 @@ function sampleCartSnapshotFromPair(before, after, alpha, slotIndex) {
     lv: Array.isArray(snap.lv) ? [snap.lv[0], snap.lv[1], snap.lv[2]] : null,
     av: Array.isArray(snap.av) ? [snap.av[0], snap.av[1], snap.av[2]] : null,
   };
+}
+
+/**
+ * Samples host-authoritative cart state from the snapshot buffer for a slot index.
+ *
+ * @param {number} slotIndex
+ * @param {number} [customTargetServerNowMs]
+ * @returns {object|null}
+ */
+export function sampleAuthoritativeCartState(slotIndex, customTargetServerNowMs) {
+  const targetServerNowMs = customTargetServerNowMs ?? getInterpTargetServerNowMs();
+  const { before, after } = findSnapshotPair(targetServerNowMs);
+
+  if (before && after) {
+    const denom = (after.serverNowMs - before.serverNowMs) || 1;
+    const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
+    return sampleCartSnapshotFromPair(before, after, alpha, slotIndex);
+  }
+
+  if (before && before.carts) {
+    const b = getCartSnap(before.carts, slotIndex);
+    if (!b) return null;
+    const bp = b.p;
+    const blv = b.lv;
+    const extrapMs = targetServerNowMs - before.serverNowMs;
+    const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
+
+    const snap = { ...b };
+    if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
+      snap.p = [
+        bp[0] + blv[0] * extrapS,
+        bp[1] + blv[1] * extrapS,
+        bp[2] + blv[2] * extrapS,
+      ];
+    }
+    return snap;
+  }
+
+  if (after && after.carts) {
+    const a = getCartSnap(after.carts, slotIndex);
+    return a ? { ...a } : null;
+  }
+
+  if (lastCartsCache && lastCartsCache[slotIndex]) {
+    return { ...lastCartsCache[slotIndex] };
+  }
+
+  return null;
 }
 
 /** Writes interpolated snapshot fields directly onto cart net targets (zero per-frame allocations). */

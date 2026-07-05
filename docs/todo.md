@@ -88,6 +88,11 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **cargoBay lookup by name** (`src/effects/groceryPool.js`, `src/entities.js`): `createCargoBay()` tags the group with `name = "cargoBay"`. `rebuildCartVisualsIntoRoot()` retrieves it via `getObjectByName()` with a console.warn fallback.
 - **Scene bridge wiring** (`src/gameSession.js`, `src/main.js`, `src/netcode.js`): `getTriggerCartShatterRef`, `getSceneRef`, and `getScene` added to context bridge. Non-host `getSceneRef` now falls through `getSceneRef` → `getScene` → `null`. Shatter hex values clamped with `& 0xffffff` mask.
 - **Respawn cleanup simplified** (`src/netcode.js`): Removed `rebuildCartVisualsIntoRoot` import. Both remote cart and snapshot apply paths now use a single `cleanupShatter()` call. Trigger condition broadened to `!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)`.
+- **Netcode DRY refactor** (`src/netcode.js`, `src/gameSession.js`): Extracted `applyCartState()` and `serializeCartToWire()` shared functions, eliminating duplicated VFX/cargoBay/hasSpilled logic across interpolated and direct snap paths. Net reduction: 54 lines.
+- **Pause/Esc overlay extraction** (`src/hud.js`, `src/ui/pauseOverlay.js`): Extracted ~550 lines of Esc overlay UI into new `pauseOverlay.js`. `hud.js` now delegates through thin wrapper functions.
+- **@ts-expect-error cleanup** (`src/cartRaveGltf.js`, `src/cartThemes.js`): Removed remaining ~20 stale suppressions, replaced with proper `THREE.Mesh`/`THREE.MeshStandardMaterial` type casts. Refined JSDoc typedefs.
+- **Level select Zustand sync** (`src/cart-rave-menu.js`, `src/levelManager.js`): Level picker now updates `settingsStore` Zustand state. Level resolution checks `localStorage` first, then falls back to store.
+- **Force-clear shatter state on respawn** (`src/netcode.js`): Respawn now force-clears `isShattering`, `_shatterState`, `_shatterDeathPos`, and restores `contactShadow.visible`.
 
 ### July 4, 2026 – Runtime Bug Fixes
 - **Combo decay race fix** (`src/gameFlow.js`): Moved rampage combo decay to a dedicated second pass after all fall-detection scoring, preventing a low-indexed attacker's combo from expiring before a higher-indexed victim's KO was scored on the same frame.

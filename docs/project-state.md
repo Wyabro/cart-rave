@@ -107,6 +107,11 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | cargoBay lookup by name (resilient getObjectByName) | ✅ Fixed |
 | Scene bridge wiring (getSceneRef/getScene/getShatterRef) | ✅ Fixed |
 | Shatter hex & 0xffffff bitmask clamping | ✅ Fixed |
+| Netcode DRY refactor (applyCartState + serializeCartToWire) | ✅ Fixed |
+| Pause/Esc overlay extracted to pauseOverlay.js | ✅ Fixed |
+| @ts-expect-error cleanup (cartRaveGltf, cartThemes) | ✅ Fixed |
+| Level select Zustand sync (menu + levelManager) | ✅ Fixed |
+| Force-clear shatter state on respawn | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
