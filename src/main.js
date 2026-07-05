@@ -2072,6 +2072,7 @@ async function main() {
     triggerHopRef: triggerHop,
     triggerCartShatterRef: triggerCartShatter,
     resetSimTimingRef: sessionRefs.resetSimTimingRef,
+    doRespawnRef: Entities.doRespawn,
   });
   // * hello can arrive before input/cart refs exist; startInputSendLoop no-ops without getAxisRef.
   Netcode.setAuthorityMode(Netcode.getIsHost());

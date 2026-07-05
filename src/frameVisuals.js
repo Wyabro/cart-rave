@@ -5,7 +5,7 @@ import * as Effects from "./effects.js";
 import * as ContactShadows from "./contactShadows.js";
 import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
-import { updateShatterEffect } from "./cartShatter.js";
+import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -151,19 +151,16 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     const c = allCarts[slotIndex];
     if (!c || !c.mesh) continue;
 
-    // * Shatter & Explosion death VFX: while a cart is shattering, syncCartMeshFromPhysics
-    // * is skipped so the root pose freezes (parts + explosion animate independently via
-    // * updateShatterEffect). doRespawn calls cleanupShatter to tear this down.
-    if (c.isShattering && c.hasSpilled) {
+    // * Shatter & Explosion death VFX: while the shatter animation plays, mesh sync
+    // * is skipped so the root pose freezes (parts + explosion animate independently
+    // * via updateShatterEffect). The lifecycle is self-contained: it ends when its
+    // * own animation completes or when respawn calls cleanupShatter — network-synced
+    // * state (hasSpilled) never gates it. The root stays hidden until cleanup, so
+    // * falling through after completion resumes pose sync invisibly.
+    if (isShatterAnimating(c, now)) {
       updateShatterEffect(c, dt, now);
       // eslint-disable-next-line no-continue
       continue;
-    }
-    if (c.isShattering && !c.hasSpilled) {
-      // * Host says we respawned, but local shatter flag is stuck. Force clear it.
-      c.isShattering = false;
-      c._shatterState = null;
-      if (c.mesh) c.mesh.visible = true;
     }
 
     if (!deps.isHost() && slotIndex !== localSlotIndexForFrame) {

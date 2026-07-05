@@ -10,7 +10,7 @@ import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisio
 import { clearNpcCartCache } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
-import { cleanupShatter } from "./cartShatter.js";
+import { isShatterAnimating } from "./cartShatter.js";
 
 /** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
@@ -71,6 +71,8 @@ let triggerRamBoostRef = null;
 let triggerHopRef = null;
 let triggerCartShatterRef = null;
 let resetSimTimingRef = null;
+/** @type {((cart: object) => void) | null} Entities.doRespawn — local respawn (shatter teardown + visual rebuild + transient reset). */
+let doRespawnRef = null;
 
 let netSlots = [];
 let lastSlotsJson = "";
@@ -278,6 +280,7 @@ export function setRefs(refs) {
   if (refs.triggerHopRef !== undefined) triggerHopRef = refs.triggerHopRef;
   if (refs.triggerCartShatterRef !== undefined) triggerCartShatterRef = refs.triggerCartShatterRef;
   if (refs.resetSimTimingRef !== undefined) resetSimTimingRef = refs.resetSimTimingRef;
+  if (refs.doRespawnRef !== undefined) doRespawnRef = refs.doRespawnRef;
   if (!isHost && partySocket && getAxisRef && !inputSendTimer) {
     startInputSendLoop();
   }
@@ -479,7 +482,7 @@ export function sampleAuthoritativeCartState(slotIndex, customTargetServerNowMs)
 }
 
 /** Writes interpolated snapshot fields directly onto cart net targets (zero per-frame allocations). */
-function writeInterpolatedRemoteTargets(cart, b, a, alpha, slotIndex) {
+function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
   const bp = b.p;
   const ap = a.p;
   let p = a.p ?? b.p;
@@ -512,7 +515,7 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha, slotIndex) {
     s: a.s ?? b.s,
   };
 
-  applyCartState(cart, interpSnap, { interpolate: true }, slotIndex);
+  applyCartState(cart, interpSnap, { interpolate: true });
 }
 
 /**
@@ -523,9 +526,8 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha, slotIndex) {
  * @param {object} snap Cart transform snapshot payload from host.
  * @param {{ interpolate?: boolean }} [options] Options object; `interpolate: true` updates target vectors, `false` snaps Rapier body.
  */
-export function applyCartState(cart, snap, options = {}, slotIndex = -1) {
+export function applyCartState(cart, snap, options = {}) {
   if (!cart || !snap) return;
-  if (slotIndex === 1) console.log(`[CLIENT RECV] idx:${slotIndex} snap.s:${snap.s} snap.b:${snap.b} isShattering:${cart.isShattering} meshVis:${cart.mesh?.visible} pos_y:${cart._netTargetPos?.y.toFixed(2)}`);
   const { interpolate = true } = options;
 
   const { p, q, lv, av } = snap;
@@ -584,20 +586,15 @@ export function applyCartState(cart, snap, options = {}, slotIndex = -1) {
   }
 
   if (typeof snap.s === "boolean") {
-    const wasSpilled = cart.hasSpilled;
     cart.hasSpilled = snap.s;
-    if (!snap.s && (wasSpilled || cart.isShattering || cart._shatterState)) {
-      const scene = callbacks.getSceneRef?.();
-      cleanupShatter(cart, scene);
-
-      // FORCE CLEAR: Ensure frameVisuals.js resumes position lerping even if cleanupShatter bailed out.
-      cart.isShattering = false;
-      cart._shatterState = null;
-      cart._shatterDeathPos = null;
-
-      if (cart.mesh) cart.mesh.visible = true;
-      if (cart.contactShadow) cart.contactShadow.visible = true;
-      if (cart.cargoBay) cart.cargoBay.visible = true;
+    // * Respawn teardown: the host says the cart is alive again and the death VFX has
+    // * run its course — run the same local respawn as the host (cleanupShatter +
+    // * visual rebuild + transient reset). While the animation is still playing, an
+    // * s:false snapshot is stale pre-death state (host_event_fall applies immediately
+    // * while transforms drain through the interp buffer); the shatter's own lifetime,
+    // * not this network flag, decides when the VFX ends.
+    if (!snap.s && cart._shatterState && !isShatterAnimating(cart, performance.now())) {
+      doRespawnRef?.(cart);
     }
   }
 }
@@ -619,17 +616,16 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     const denom = (after.serverNowMs - before.serverNowMs) || 1;
     const alpha = clamp((targetServerNowMs - before.serverNowMs) / denom, 0, 1);
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-      if (slotIndex === 1) console.log(`[CLIENT UPDATE LOOP] slot:1 reached. localSlotIndex:${localSlotIndex}`);
       if (slotIndex === localSlotIndex) continue;
       const cart = allCarts[slotIndex];
       if (!cart) continue;
       const b = getCartSnap(before.carts, slotIndex);
       const a = getCartSnap(after.carts, slotIndex);
       if (b && a) {
-        writeInterpolatedRemoteTargets(cart, b, a, alpha, slotIndex);
+        writeInterpolatedRemoteTargets(cart, b, a, alpha);
       } else {
         const snap = b || a;
-        if (snap) applyCartState(cart, snap, { interpolate: true }, slotIndex);
+        if (snap) applyCartState(cart, snap, { interpolate: true });
       }
     }
     pruneConsumedSnapshots(beforeIndex);
@@ -640,7 +636,6 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     const extrapMs = targetServerNowMs - before.serverNowMs;
     const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
     for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-      if (slotIndex === 1) console.log(`[CLIENT UPDATE LOOP] slot:1 reached. localSlotIndex:${localSlotIndex}`);
       if (slotIndex === localSlotIndex) continue;
       const b = getCartSnap(before.carts, slotIndex);
       if (!b) continue;
@@ -657,7 +652,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
           bp[2] + blv[2] * extrapS,
         ];
       }
-      applyCartState(cart, snap, { interpolate: true }, slotIndex);
+      applyCartState(cart, snap, { interpolate: true });
     }
     pruneConsumedSnapshots(beforeIndex);
     return;
@@ -666,13 +661,12 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
   const carts = (after && after.carts) || lastCartsCache;
   if (!carts) return;
   for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
-    if (slotIndex === 1) console.log(`[CLIENT UPDATE LOOP] slot:1 reached. localSlotIndex:${localSlotIndex}`);
     if (slotIndex === localSlotIndex) continue;
     const snap = getCartSnap(carts, slotIndex);
     if (!snap) continue;
     const cart = allCarts[slotIndex];
     if (!cart) continue;
-    applyCartState(cart, snap, { interpolate: true }, slotIndex);
+    applyCartState(cart, snap, { interpolate: true });
   }
 }
 
@@ -741,22 +735,28 @@ export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
     return;
   }
 
+  // * While the local death VFX is still playing, an s:false sample is a stale
+  // * pre-death snapshot (host_event_fall applies immediately, transforms lag one
+  // * network hop) — not a respawn. Treat it like the dead window above.
+  if (isShatterAnimating(cart, performance.now())) return;
+
   // Host says cart is alive (s: false).
   const wasSpilled = cart.hasSpilled;
   cart.hasSpilled = false;
 
-  if (wasSpilled || cart.isShattering || cart._shatterState) {
-    // * RESPAWN TRANSITION: Force-snap to host position exactly once to break out of the death pit,
-    // * then clear all shatter flags so frameVisuals resumes rendering.
+  if (cart._shatterState) {
+    // * RESPAWN TRANSITION: the host revived the cart after the death VFX finished.
+    // * Run the same local respawn as the host (cleanupShatter + visual rebuild +
+    // * transient reset), then snap to the host transform to break out of the pit.
+    doRespawnRef?.(cart);
     applySnapshotToCartBody(cart, auth);
-    cart.isShattering = false;
-    cart._shatterState = null;
-    cart._shatterDeathPos = null;
-    if (cart.mesh) cart.mesh.visible = true;
-    if (cart.contactShadow) cart.contactShadow.visible = true;
-    if (cart.cargoBay) cart.cargoBay.visible = true;
     // Return early on this specific frame so we don't immediately lerp away from the spawn point.
     return;
+  }
+  if (wasSpilled && cart.cargoBay) {
+    // * Spilled-but-never-shattered respawn (e.g. stuck-respawn of a tipped cart):
+    // * restore the cargo bay hidden by the spill VFX; position converges below.
+    cart.cargoBay.visible = true;
   }
 
   // Normal smooth reconciliation (yaw-only, velocity blending) falls through here.
@@ -861,7 +861,7 @@ function applyCartsSnapshotToBodies(carts) {
     const cart = allCarts[i];
     const snap = getCartSnap(carts, i);
     if (!cart || !snap) continue;
-    applyCartState(cart, snap, { interpolate: false }, i);
+    applyCartState(cart, snap, { interpolate: false });
   }
 }
 
@@ -1014,8 +1014,6 @@ export function serializeCartToWire(c) {
   const av = c.body.angvel();
   const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
   const isHopping = Boolean(c.isHopping || c._isHopping);
-
-  if (c.slotIndex === 1) console.log(`[HOST SEND] s:${c.hasSpilled} c:${c.cargoBay?.visible} b:${isBoosting} pos_y:${t.y.toFixed(2)}`);
 
   return {
     p: [round3(t.x), round3(t.y), round3(t.z)],
@@ -1584,7 +1582,6 @@ export function initNetcode(roomOverride) {
     if (type === MSG.state) {
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
-        if (msg.carts[1]) console.log(`[CLIENT RECV RAW] slot:1 s:${msg.carts[1].s} p:${msg.carts[1].p}`);
       }
       if (!isHost) {
         const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();

@@ -126,7 +126,6 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   // * Guard against double-trigger (host scheduleRespawn + late host_event_fall echo).
   if (cart.isShattering) return;
 
-  cart.hasSpilled = true;
   cart.isShattering = true;
 
   // * Safety: detach any Camera children from the cart root before the root is frozen
@@ -242,9 +241,24 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
 }
 
 /**
+ * * True while a cart's shatter animation is still playing (elapsed < duration).
+ * * The VFX lifecycle is self-contained: this — not any network-synced flag —
+ * * decides whether the death animation is running. Once it returns false the
+ * * effect holds its final (faded) state until cleanupShatter tears it down.
+ *
+ * @param {object} cart Cart entity.
+ * @param {number} now Current time in milliseconds (performance.now() clock).
+ * @returns {boolean}
+ */
+export function isShatterAnimating(cart, now) {
+  const explosion = cart?._shatterState?.explosion;
+  return Boolean(explosion) && now - explosion.startMs < explosion.durationMs;
+}
+
+/**
  * * Per-frame shatter animation: integrates part positions (Euler + gravity) and
  * * updates the explosion scale/opacity. Called from {@link updateVisualsAndEffects}
- * * for any cart with `isShattering === true`.
+ * * for any cart while {@link isShatterAnimating} is true.
  *
  * * Cleanup is NOT triggered here — {@link doRespawn} calls {@link cleanupShatter}
  * * when the cart teleports back to spawn. Explosion progress is clamped at 1 so
