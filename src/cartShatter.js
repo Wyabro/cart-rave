@@ -126,6 +126,7 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   // * Guard against double-trigger (host scheduleRespawn + late host_event_fall echo).
   if (cart.isShattering) return;
 
+  cart.hasSpilled = true;
   cart.isShattering = true;
 
   // * Safety: detach any Camera children from the cart root before the root is frozen
