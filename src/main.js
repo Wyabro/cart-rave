@@ -19,7 +19,7 @@ import {
 import "./cart-rave-menu.js";
 import "./cart-rave-menu.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode, updateViewport as updateSceneViewport } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER, initRapier } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
@@ -100,6 +100,7 @@ import {
   wireMenuAudioControlsOnce,
 } from "./ui/audioControls.js";
 import { registerGraphicsToggleHandlers } from "./ui/graphicsToggles.js";
+import { createCameraFraming } from "./ui/cameraFraming.js";
 import { flashBoostActivate } from "./touchControls.js";
 import {
   applySlowMoToDt,
@@ -786,33 +787,15 @@ async function main() {
     set ctx(v) { fpsCtx2d = v; },
   };
 
-  function updateCameraFraming() {
-    const aspect = window.innerWidth / window.innerHeight;
-    const portraitBoost = (1 / Math.max(0.5, aspect)) - 1;
-    const wideBoost = Math.max(0, aspect - 1.8);
-    const fov =
-      CONFIG.camera.fov +
-      portraitBoost * 18 +
-      wideBoost * 7;
-    camera.fov = clamp(fov, CONFIG.camera.minFov, CONFIG.camera.maxFov);
-    camera.userData.baseFov = camera.fov;
-  }
-
-  function updateViewport() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setPixelRatio(pixelRatio);
-    composer.setPixelRatio(pixelRatio);
-    updateSceneViewport(renderer, camera, composer, arcadePass, fxaaPass);
-    labelRenderer.setSize(w, h);
-    updateCameraFraming();
-    if (fpsCanvas2d) {
-      fpsCanvas2d.style.position = "fixed";
-      fpsCanvas2d.style.bottom = "8px";
-      fpsCanvas2d.style.left = "10px";
-    }
-  }
+  const { updateViewport } = createCameraFraming({
+    camera,
+    renderer,
+    composer,
+    arcadePass,
+    fxaaPass,
+    labelRenderer,
+    getFpsCanvas: () => fpsCanvas2d,
+  });
 
   updateViewport();
 
