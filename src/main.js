@@ -87,7 +87,19 @@ import {
   isWorldBootstrapped,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
-import { animateCartBoostPulse, crossfadeElement, animateMuteToggle, animateVolumeTick } from "./animations.js";
+import { animateCartBoostPulse, crossfadeElement } from "./animations.js";
+import {
+  getIsMuted,
+  getMusicVolume,
+  getSfxVolume,
+  initAudioControls,
+  setAllAudioMuted,
+  setMusicGainValue,
+  setSfxSliderVolume,
+  syncAllAudioUi,
+  wireMenuAudioControlsOnce,
+} from "./ui/audioControls.js";
+import { registerGraphicsToggleHandlers } from "./ui/graphicsToggles.js";
 import { flashBoostActivate } from "./touchControls.js";
 import {
   applySlowMoToDt,
@@ -350,25 +362,21 @@ let pendingColorKey = null;
 let menuColorPickListenerWired = false;
 let customizationChangeListenerWired = false;
 let menuActionListenerWired = false;
-let menuAudioControlsWired = false;
 let menuNameSyncWired = false;
 let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
 let menuVisible = true;
 /** @type {boolean | null} */
 let lastTouchControlsVisible = null;
-import { audioStore, AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
+import { AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
 import { settingsStore } from "./stores/settingsStore.js";
 
 let bloomEnabled = settingsStore.getState().bloomEnabled;
 let fxPassEnabled = settingsStore.getState().fxPassEnabled;
 /** @type {any} */
 let fxPass = null;
-let musicVolume = audioStore.getState().musicVolume;
-let sfxVolume = audioStore.getState().sfxVolume;
 /** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
 let leaderHum = null;
-let isMuted = audioStore.getState().isMuted;
 
 /**
  * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
@@ -503,15 +511,23 @@ async function main() {
   // * camera.add(audioListener) happens after camera creation below.
   const audioListener = new THREE.AudioListener();
 
+  // * Audio UI pushes volume/mute changes into main()-owned objects; hud/leaderHum
+  // * are assigned later in main(), so getters resolve lazily (null until then).
+  initAudioControls({
+    getHud: () => hud,
+    getAudioListener: () => audioListener,
+    getLeaderHum: () => leaderHum,
+  });
+
   // * Start music loading immediately via Howler — before scene/composer init blocks the main thread.
   AudioManager.initAudioManager(audioListener.context);
 
-  // * Restore saved volume state (loaded from localStorage at module scope above).
+  // * Restore saved volume state (loaded from localStorage by audioControls at module scope).
   AudioManager.restoreVolumeState({
-    master: musicVolume / AUDIO_VOLUME_MAX,
-    sfx: sfxVolume / AUDIO_VOLUME_MAX,
-    music: musicVolume / AUDIO_VOLUME_MAX,
-    muted: isMuted,
+    master: getMusicVolume() / AUDIO_VOLUME_MAX,
+    sfx: getSfxVolume() / AUDIO_VOLUME_MAX,
+    music: getMusicVolume() / AUDIO_VOLUME_MAX,
+    muted: getIsMuted(),
   });
 
   AudioManager.loadMenuMusic(
@@ -564,7 +580,7 @@ async function main() {
       }
     },
     () => {
-      setAllAudioMuted(!isMuted);
+      setAllAudioMuted(!getIsMuted());
     },
     () => {
       if (menuVisible) return;
@@ -677,8 +693,8 @@ async function main() {
   const BASE_FOV = CONFIG.camera.fov;
 
   const audioSystem = initAudioSystem(audioListener, {
-    getSfxVolume: () => sfxVolume,
-    getIsMuted: () => isMuted,
+    getSfxVolume,
+    getIsMuted,
   });
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
   GameAudio.registerAudioRefs({ leaderHum });
@@ -801,65 +817,7 @@ async function main() {
   updateViewport();
 
   // --- HUD, menu, results overlay ---
-  function syncAllAudioUi() {
-    const musicPct = Math.round((musicVolume / AUDIO_VOLUME_MAX) * 100);
-    const sfxPct = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
-    window.CartRave?.syncAudioUi?.({
-      muted: isMuted,
-      musicPct,
-      musicNorm: musicVolume / AUDIO_VOLUME_MAX,
-      sfxPct,
-      sfxNorm: sfxVolume / AUDIO_VOLUME_MAX,
-    });
-    if (hud?.syncAudioControls) hud.syncAudioControls();
-    // * Keep Three.js listener gain in sync (procedural SFX uses audioListener.gain).
-    if (audioListener && typeof audioListener.setMasterVolume === "function") {
-      audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
-    }
-    try { leaderHum?.resyncVolume?.(); } catch (e) {}
-  }
-
-  function setMusicGainValue(val) {
-    musicVolume = clamp(val, 0, AUDIO_VOLUME_MAX);
-    audioStore.getState().setMusicVolume(musicVolume);
-    syncAllAudioUi();
-  }
-
-  function setAllAudioMuted(muted) {
-    isMuted = Boolean(muted);
-    audioStore.getState().setMuted(isMuted);
-    syncAllAudioUi();
-  }
-
-  function setSfxSliderVolume(v) {
-    sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
-    audioStore.getState().setSfxVolume(sfxVolume);
-    syncAllAudioUi();
-  }
-
-  function wireMenuAudioControlsOnce() {
-    if (menuAudioControlsWired) return;
-    menuAudioControlsWired = true;
-
-    const crMuteBtn = document.getElementById("cr-mute-btn");
-    const crMusicVolTrack = document.getElementById("cr-music-vol-track");
-    const crMusicVolVal = document.getElementById("cr-music-vol-val");
-
-    if (crMuteBtn) {
-      crMuteBtn.addEventListener("click", () => {
-        setAllAudioMuted(!isMuted);
-        animateMuteToggle(crMuteBtn);
-      });
-    }
-    if (crMusicVolTrack) {
-      crMusicVolTrack.addEventListener("click", (e) => {
-        const r = crMusicVolTrack.getBoundingClientRect();
-        const v = clamp(((e.clientX - r.left) / r.width) * AUDIO_VOLUME_MAX, 0, AUDIO_VOLUME_MAX);
-        setMusicGainValue(v);
-        if (crMusicVolVal) animateVolumeTick(crMusicVolVal);
-      });
-    }
-  }
+  // * Audio state + menu audio wiring live in ui/audioControls.js (initAudioControls above).
 
   /** Wired after clearAutoContinuePodiumTimeout is defined in main(). */
   const podiumAutoContinue = { clear: () => {} };
@@ -1208,11 +1166,11 @@ async function main() {
   };
 
   hud = HUD.init({
-    getIsMuted: () => isMuted,
+    getIsMuted,
     setIsMuted: (val) => { setAllAudioMuted(val); },
-    getMusicGain: () => musicVolume,
+    getMusicGain: getMusicVolume,
     setMusicGain: setMusicGainValue,
-    getSfxVolume: () => sfxVolume,
+    getSfxVolume,
     setSfxVolume: setSfxSliderVolume,
     getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
     getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
@@ -2287,7 +2245,7 @@ async function main() {
 
   // --- Round flow (countdown, podium, AI) ---
   if (audioListener && typeof audioListener.setMasterVolume === "function") {
-    audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
+    audioListener.setMasterVolume(getIsMuted() ? 0 : getSfxVolume());
   }
 
   canvas.addEventListener("pointerdown", () => {
@@ -2577,8 +2535,8 @@ async function main() {
     updateCartVisuals,
     buildCartMaterialCache,
     colorHexForSlot: displayColorHexForSlot,
-    isMuted: () => isMuted,
-    getSfxVolume: () => sfxVolume,
+    isMuted: getIsMuted,
+    getSfxVolume,
     isMenuVisible: () => menuVisible,
     getAxis: Input.getAxis,
     get hud() { return hud; },
@@ -2840,17 +2798,19 @@ async function main() {
     },
   });
 
-  // * Expose bridge functions for cart-rave-menu.js to toggle GFX/quality live.
-  window.__cartRave_togglePostFx = (next) => {
-    bloomEnabled = next;
-    fxPassEnabled = next;
-    settingsStore.getState().setBloomEnabled(next);
-    settingsStore.getState().setFxPassEnabled(next);
-    if (bloomPass) bloomPass.enabled = next;
-    if (arcadePass) arcadePass.enabled = next;
-    if (fxPass) fxPass.enabled = next;
-  };
-  window.__cartRave_toggleLowQuality = handleLowQualityToggle;
+  // * Register bridge functions for cart-rave-menu.js to toggle GFX/quality live.
+  registerGraphicsToggleHandlers({
+    togglePostFx: (next) => {
+      bloomEnabled = next;
+      fxPassEnabled = next;
+      settingsStore.getState().setBloomEnabled(next);
+      settingsStore.getState().setFxPassEnabled(next);
+      if (bloomPass) bloomPass.enabled = next;
+      if (arcadePass) arcadePass.enabled = next;
+      if (fxPass) fxPass.enabled = next;
+    },
+    toggleLowQuality: handleLowQualityToggle,
+  });
 
   window.addEventListener("resize", updateViewport);
   enableModeMenuButtons();

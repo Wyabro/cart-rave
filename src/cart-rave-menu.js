@@ -22,6 +22,7 @@ import { CartPreview } from "./ui/cartPreview.js";
 import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 import { isLowQualityMode, isTouchDevice } from "./utils.js";
 import { settingsStore } from "./stores/settingsStore.js";
+import { togglePostFx, toggleLowQuality } from "./ui/graphicsToggles.js";
 import { getRoundState } from "./gameState.js";
 import { setInputMode, updateControlsPanelUI } from "./input.js";
 import {
@@ -1013,7 +1014,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       const next = !getPostFxEnabled();
       try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch (e) {}
       try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch (e) {}
-      window.__cartRave_togglePostFx?.(next);
+      togglePostFx(next);
       syncGfxButtonStates();
     });
   }
@@ -1021,7 +1022,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   if (lqBtn) {
     lqBtn.addEventListener("click", () => {
       const next = !isLowQualityMode();
-      window.__cartRave_toggleLowQuality?.(next);
+      toggleLowQuality(next);
       syncGfxButtonStates();
     });
   }

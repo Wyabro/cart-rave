@@ -24,8 +24,6 @@ declare global {
     __cartRaveTryStartMenuMusic?: () => void;
     __cartRaveCustomizationStorageSync?: boolean;
     __cartRaveSendErrorLog?: (error: Error) => void;
-    __cartRave_togglePostFx?: (enabled: boolean) => void;
-    __cartRave_toggleLowQuality?: (enabled: boolean) => void;
     __cartRaveMainReady?: boolean;
     CartRave?: any;
     recordMesh?: Three.Mesh;
