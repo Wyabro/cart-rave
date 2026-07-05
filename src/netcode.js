@@ -162,6 +162,11 @@ let callbacks = {
 
   // Kill feed
   addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {},
+  /**
+   * * Wired implementations may return either a numeric hex (0xff00ff) or a CSS
+   * * hex string ("#ff00ff") — the host_event_fall handler narrows on typeof.
+   * @type {(slot: object | null | undefined) => number | string}
+   */
   colorHexForSlot: (slot) => 0x888888,
 
   // Color picker
