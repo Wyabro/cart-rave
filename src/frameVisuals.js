@@ -154,10 +154,16 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     // * Shatter & Explosion death VFX: while a cart is shattering, syncCartMeshFromPhysics
     // * is skipped so the root pose freezes (parts + explosion animate independently via
     // * updateShatterEffect). doRespawn calls cleanupShatter to tear this down.
-    if (c.isShattering) {
+    if (c.isShattering && c.hasSpilled) {
       updateShatterEffect(c, dt, now);
       // eslint-disable-next-line no-continue
       continue;
+    }
+    if (c.isShattering && !c.hasSpilled) {
+      // * Host says we respawned, but local shatter flag is stuck. Force clear it.
+      c.isShattering = false;
+      c._shatterState = null;
+      if (c.mesh) c.mesh.visible = true;
     }
 
     if (!deps.isHost() && slotIndex !== localSlotIndexForFrame) {

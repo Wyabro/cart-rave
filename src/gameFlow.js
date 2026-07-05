@@ -1,6 +1,7 @@
 // gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
 import { resetCartTransientState } from "./entities.js";
+import { cleanupShatter } from "./cartShatter.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 
 /**
@@ -447,7 +448,13 @@ export function updateGameFlow(deps, context) {
 
         if (cart.respawnAtMs !== null && now >= cart.respawnAtMs) {
           cart.hasSpilled = false;
+          cart.isShattering = false;
+          cart._shatterState = null;
+          cart._shatterDeathPos = null;
+          if (cart.mesh) cart.mesh.visible = true;
+          if (cart.contactShadow) cart.contactShadow.visible = true;
           if (cart.cargoBay) cart.cargoBay.visible = true;
+          cleanupShatter(cart, deps.getScene?.());
           deps.doRespawn(cart, deps);
         } else if (cart.respawnAtMs === null && !isTestDrive) {
           updateCartIdleWatch(deps, now, cart, p);

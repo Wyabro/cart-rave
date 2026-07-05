@@ -479,7 +479,7 @@ export function sampleAuthoritativeCartState(slotIndex, customTargetServerNowMs)
 }
 
 /** Writes interpolated snapshot fields directly onto cart net targets (zero per-frame allocations). */
-function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
+function writeInterpolatedRemoteTargets(cart, b, a, alpha, slotIndex) {
   const bp = b.p;
   const ap = a.p;
   let p = a.p ?? b.p;
@@ -512,7 +512,7 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
     s: a.s ?? b.s,
   };
 
-  applyCartState(cart, interpSnap, { interpolate: true });
+  applyCartState(cart, interpSnap, { interpolate: true }, slotIndex);
 }
 
 /**
@@ -523,9 +523,9 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
  * @param {object} snap Cart transform snapshot payload from host.
  * @param {{ interpolate?: boolean }} [options] Options object; `interpolate: true` updates target vectors, `false` snaps Rapier body.
  */
-export function applyCartState(cart, snap, options = {}) {
+export function applyCartState(cart, snap, options = {}, slotIndex = -1) {
   if (!cart || !snap) return;
-  if (cart.slotIndex === 1) console.log(`[CLIENT RECV] snap.s:${snap.s} snap.b:${snap.b} isShattering:${cart.isShattering} meshVis:${cart.mesh?.visible} pos_y:${cart._netTargetPos?.y.toFixed(2)}`);
+  if (slotIndex === 1) console.log(`[CLIENT RECV] idx:${slotIndex} snap.s:${snap.s} snap.b:${snap.b} isShattering:${cart.isShattering} meshVis:${cart.mesh?.visible} pos_y:${cart._netTargetPos?.y.toFixed(2)}`);
   const { interpolate = true } = options;
 
   const { p, q, lv, av } = snap;
@@ -625,10 +625,10 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
       const b = getCartSnap(before.carts, slotIndex);
       const a = getCartSnap(after.carts, slotIndex);
       if (b && a) {
-        writeInterpolatedRemoteTargets(cart, b, a, alpha);
+        writeInterpolatedRemoteTargets(cart, b, a, alpha, slotIndex);
       } else {
         const snap = b || a;
-        if (snap) applyCartState(cart, snap, { interpolate: true });
+        if (snap) applyCartState(cart, snap, { interpolate: true }, slotIndex);
       }
     }
     pruneConsumedSnapshots(beforeIndex);
@@ -655,7 +655,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
           bp[2] + blv[2] * extrapS,
         ];
       }
-      applyCartState(cart, snap, { interpolate: true });
+      applyCartState(cart, snap, { interpolate: true }, slotIndex);
     }
     pruneConsumedSnapshots(beforeIndex);
     return;
@@ -669,7 +669,7 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     if (!snap) continue;
     const cart = allCarts[slotIndex];
     if (!cart) continue;
-    applyCartState(cart, snap, { interpolate: true });
+    applyCartState(cart, snap, { interpolate: true }, slotIndex);
   }
 }
 
@@ -829,7 +829,7 @@ function applyCartsSnapshotToBodies(carts) {
     const cart = allCarts[i];
     const snap = getCartSnap(carts, i);
     if (!cart || !snap) continue;
-    applyCartState(cart, snap, { interpolate: false });
+    applyCartState(cart, snap, { interpolate: false }, i);
   }
 }
 
