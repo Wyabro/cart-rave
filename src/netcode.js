@@ -664,6 +664,8 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     if (slotIndex === localSlotIndex) continue;
     const snap = getCartSnap(carts, slotIndex);
     if (!snap) continue;
+    const cart = allCarts[slotIndex];
+    if (!cart) continue;
     applyCartState(cart, snap, { interpolate: true });
   }
 }
