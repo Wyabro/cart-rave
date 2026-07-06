@@ -118,6 +118,24 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 **4. TEST DRIVE Button Removal (index.html, cart-rave-menu.css, main.js)** — Verified.
 - Removed unused TEST DRIVE button from menu markup (`<button class="cr-btn cr-btn--testdrive">` in `index.html`), CSS (`.cr-btn--testdrive` block in `cart-rave-menu.css`), and JS click handler (`action === "testdrive"` branch in `main.js`).
 
+### July 5, 2026 – Mobile Responsive CSS Fixes
+Diagnosed and fixed 7 mobile layout issues from phone screenshots (~390×844 portrait, ~844×390 landscape).
+
+**Portrait fixes:**
+**1. Results history box empty void (resultsOverlay.js).** — Verified.
+- Touch portrait query added: `flex: 0 1 auto; max-height: 30vh` on `.results-history`, capping the flex-grow expansion that consumed ~60% of screen height when only one line of history existed. Desktop keeps the existing `max-height: 160px`.
+
+**2. FPS counter z-index overlap (frameVisuals.js).** — Verified.
+- FPS canvas `z-index` reduced from `99999` to `100`, fixing visual overlap over the results overlay (z-index 25000) MAIN MENU button and personal stats row in bottom-left corner.
+
+**3. Level card text overflow (cart-rave-menu.css).** — Verified.
+- At ≤480px portrait: level card grid switches from 3 columns to 2 columns, giving each card enough width for "THE STOREROOMS" and "ZANZIBAR PLATFORM" to fit without mid-word wrapping.
+- `overflow-wrap: anywhere` → `break-word` for more natural word breaks when wrapping is unavoidable.
+
+**4. Challenges panel top-edge clip (cart-rave-menu.css).** — Verified.
+- Added `scroll-padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px))` to `.cr-content` mobile scroll container.
+- Added `scroll-margin-top: 12px` to `.cr-challenges-panel` so the first challenge row's progress bar has breathing room at the top edge on scroll.
+
 ### July 5, 2026 – Camera Framing & Menu Stats Extraction
 **1. Camera Framing & Viewport Extraction (cameraFraming.js, main.js)** — Verified.
 - Extracted `updateCameraFraming()` (~15 lines: aspect-ratio FOV math with portrait/wide boost clamping) and `updateViewport()` (~15 lines: pixel ratio, composer/resize, label renderer, FPS canvas positioning) from `main.js` into new `src/ui/cameraFraming.js` module.

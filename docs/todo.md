@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal
+- **Recent Technical Work**: Mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal + mobile responsive CSS fixes (results history void, level card overflow, challenges clip, FPS z-index overlap, pause menu collision)
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -76,6 +76,15 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 - **Self-death verb variety** (`src/hud.js`, `src/gameFlow.js`, `party/index.ts`): `pickSelfDeathVerb()` exports randomized verbs ("ATE PAVEMENT", "TAPPED OUT", "SELF-DESTRUCTED", "NOPED OUT", "RAGE QUIT") replacing uniform "FELL OFF" for self-death kill feed messages. Server `ALLOWED_FALL_VERBS` updated to match. Wired through `gameFlow.js` fall-detection code paths.
 - **Results overlay responsive sizing** (`src/ui/resultsOverlay.js`): Score name and value fonts now use `clamp()`-based responsive sizing. Match history section overflow changed from `hidden` to `auto` to allow scrolling.
 - **TEST DRIVE removal** (`index.html`, `src/cart-rave-menu.css`, `src/main.js`): Removed unused TEST DRIVE button from menu markup, styles, and JS click handler.
+
+### July 5, 2026 – Mobile Responsive CSS Fixes
+Diagnosed and fixed 7 mobile layout issues from phone screenshots (~390×844 portrait, ~844×390 landscape).
+- **Results history void** (`src/ui/resultsOverlay.js`): Touch portrait query caps `.results-history` at `flex: 0 1 auto; max-height: 30vh`, fixing the ~60% blank space when only one history entry exists.
+- **FPS z-index overlap** (`src/frameVisuals.js`): FPS canvas `z-index` lowered from `99999` to `100`, fixing visual overlap over results overlay buttons and stats.
+- **Level card overflow** (`src/cart-rave-menu.css`): Level card grid switches to 2 columns at ≤480px portrait, giving "THE STOREROOMS" and "ZANZIBAR PLATFORM" enough width. `overflow-wrap: anywhere` → `break-word`.
+- **Challenges panel top clip** (`src/cart-rave-menu.css`): Added `scroll-padding-top` to `.cr-content` and `scroll-margin-top` to `.cr-challenges-panel`.
+- **Kill feed landscape overlap** — diagnosed but not yet fixed: feed rows at ≤900px get near-full-width `max-width` with `flex-shrink: 0` on all children, causing self-death callouts to render as stacked full-width text. The `pickSelfDeathVerb` addition did not affect layout — same DOM path as all kill feed entries.
+- **Pause menu landscape collision** — diagnosed but not yet fixed: AUDIO section overlaps CONTROLS in landscape because both sections have `min-height: 0` + default `flex-shrink: 1` in a 164px column budget vs ~348px content need.
 
 ### July 5, 2026 – Camera Framing & Menu Stats Extraction
 - **Camera framing & viewport extraction** (`src/ui/cameraFraming.js`, `src/main.js`): Extracted `updateCameraFraming()` (FOV math: portrait/wide boost) and `updateViewport()` (pixel ratio, composer size, label renderer, FPS canvas positioning) from `main.js` into new module. Exposed via `createCameraFraming()` factory receiving camera, renderer, composer, passes, and FPS canvas getter. Removed `updateSceneViewport` import from `main.js`.
