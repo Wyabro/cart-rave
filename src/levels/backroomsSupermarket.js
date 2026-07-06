@@ -1529,10 +1529,9 @@ export function initBackroomsSupermarket(scene, world, config) {
 
   // Helper to create cuboids cleanly
   const addCuboid = (hx, hz, px, pz) => {
-    // * FIX: Use roundCuboid to bevel the vertical edges.
-    // * This prevents the cart's roundCuboid from catching on sharp 90-degree lips 
-    // * when hopping over the 10.6m corner voids, which was dragging carts into the pit.
-    const desc = RAPIER.ColliderDesc.roundCuboid(hx, T_HALF, hz, 0.15)
+    // * REVERTED: roundCuboid shrunk the flat top surface by 0.15m, creating gaps 
+    // * between the 9 floor pieces and causing carts to snag on seams.
+    const desc = RAPIER.ColliderDesc.cuboid(hx, T_HALF, hz)
       .setTranslation(px, 0, pz) // Local Y is 0 because body is at -0.3
       .setFriction(FLOOR_FRICTION)
       .setRestitution(config.record.restitution);

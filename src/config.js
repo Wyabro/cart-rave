@@ -9,8 +9,8 @@
  *   - CONFIG.physics     — grouped physics / arena / cart tuning (flat aliases on CONFIG.*)
  *   - BASELINE_CONFIG    — snapshot of core driving feel for A/B comparisons
  *   - CART_COLORS / PALETTE — immutable cart color palette ("Original Rave")
- *   - MSG                — PartyKit wire-protocol message type strings
- *   - PARTYKIT_PUBLIC_HOST — deployed PartyKit host
+ *   - MSG                — wire-protocol message type strings
+ *   - WORKER_PUBLIC_HOST — deployed Cloudflare Worker host
  *
  * Spawn ring radius and spawn height are computed after CONFIG is defined (see bottom).
  */
@@ -409,4 +409,4 @@ export const PALETTE = Object.keys(CART_COLORS);
 
 export { MSG } from '../shared/protocol.js';
 
-export const PARTYKIT_PUBLIC_HOST = "cart-rave.wyabro.workers.dev";
+export const WORKER_PUBLIC_HOST = "cart-rave.wyabro.workers.dev";

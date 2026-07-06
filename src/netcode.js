@@ -1,9 +1,9 @@
-// netcode.js — PartyKit networking, interpolation, host/client authority (extracted)
+// netcode.js — partyserver + WebRTC networking, interpolation, host/client authority (extracted)
 
 import PartySocket from "partysocket";
 import * as THREE from "three";
 import * as GameState from "./gameState.js";
-import { CART_COLORS, CONFIG, MSG, PALETTE, PARTYKIT_PUBLIC_HOST } from "./config.js";
+import { CART_COLORS, CONFIG, MSG, PALETTE, WORKER_PUBLIC_HOST } from "./config.js";
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
@@ -307,7 +307,7 @@ export function getHostSendTimer() { return hostSendTimer; }
 
 // === CONNECTION & SOCKET ===
 
-// * Local dev vs production PartyKit host — internal to initNetcode only.
+// * Local dev vs production Worker host — internal to initNetcode only.
 function partyHostFromWindowLocation() {
   const hostname = window.location.hostname;
   const isLocal =
@@ -316,7 +316,7 @@ function partyHostFromWindowLocation() {
     /^192\.168\./.test(hostname) ||
     /^10\./.test(hostname) ||
     /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
-  return isLocal ? `${hostname}:8787` : PARTYKIT_PUBLIC_HOST;
+  return isLocal ? `${hostname}:8787` : WORKER_PUBLIC_HOST;
 }
 
 export function resolvedPartyRoomFromUrl() {
