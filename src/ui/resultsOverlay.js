@@ -562,7 +562,7 @@ export function initResultsOverlay(hooks = {}) {
           flex: 1 1 auto;
           min-height: 0;
           max-height: none;
-          overflow: hidden;
+          overflow: auto;
           margin-bottom: 0;
           padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
           font-size: clamp(9px, 2.3vw, 10px);
