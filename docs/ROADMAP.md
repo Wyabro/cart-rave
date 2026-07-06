@@ -136,6 +136,13 @@ Diagnosed and fixed 7 mobile layout issues from phone screenshots (~390×844 por
 - Added `scroll-padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px))` to `.cr-content` mobile scroll container.
 - Added `scroll-margin-top: 12px` to `.cr-challenges-panel` so the first challenge row's progress bar has breathing room at the top edge on scroll.
 
+**Portrait additions (July 5 follow-up):**
+**5. Level button padding & font (cart-rave-menu.css).** — Verified.
+- Added tighter padding (`10px 8px`) and `clamp()`-based font-size + letter-spacing for `.cr-level-btn-label` and `.cr-level-btn-sub` inside the ≤480px portrait media query, preventing text overlap on narrow screens.
+
+**6. Results history font-size/line-height (resultsOverlay.js).** — Verified.
+- Added `clamp(12px, 3.4vw, 14px)` font-size and `line-height: 1.55` to `.results-history` in the touch portrait media query for improved readability on small screens.
+
 ### July 5, 2026 – Camera Framing & Menu Stats Extraction
 **1. Camera Framing & Viewport Extraction (cameraFraming.js, main.js)** — Verified.
 - Extracted `updateCameraFraming()` (~15 lines: aspect-ratio FOV math with portrait/wide boost clamping) and `updateViewport()` (~15 lines: pixel ratio, composer/resize, label renderer, FPS canvas positioning) from `main.js` into new `src/ui/cameraFraming.js` module.
