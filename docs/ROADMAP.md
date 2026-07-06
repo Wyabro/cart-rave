@@ -100,6 +100,52 @@ Replace `structuredClone` with a manual, pre-allocated flat-array serializer tha
 ## Completed Work
 Historical record preserved. Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
 
+### July 5, 2026 – WebRTC P2P DataChannel Migration
+**Major architectural change** that moves real-time game data off the server WebSocket relay and onto direct peer-to-peer WebRTC DataChannels. The PartyKit/partyserver server is now a lightweight signaling relay + lobby manager.
+
+**1. New P2P Module (`src/netcode/p2p.js`)** — Verified.
+- Manages RTCPeerConnection lifecycle, DataChannel setup, ICE/TURN negotiation, and SDP offer/answer exchange via the server signaling relay.
+- Host creates a DataChannel per non-host peer (`"physics"` label, `binaryType: "arraybuffer"`).
+- Non-host clients receive DataChannels via `ondatachannel` and route incoming messages.
+- Client input sent P2P to host; host broadcasts state (hostTransform) and spill events to all non-host peers.
+- Input buffering: if DataChannel is not yet open, the latest input frame is queued and flushed on `onopen` to prevent input drop during connection setup or host migration.
+- `closeAllConnections()` tears down all peers cleanly on host migration.
+
+**2. Server Reduced to Signaling Relay (`party/index.ts`)** — Verified.
+- Removed hostTransform relay, clientInput relay, spill relay, and MSG.state broadcast — all now P2P.
+- Server retains: lobby management, color picking, ready-up, round lifecycle, host migration, kill feed relay (hostEventFall/collision), and connection reaping.
+- Added Cloudflare Calls TURN credential minting via `requestTurnCredentials`: server fetches from `https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/calls/turn_keys/{CF_CALLS_KEY_ID}/tokens` with env bindings (`CF_ACCOUNT_ID`, `CF_CALLS_KEY_ID`, `CF_API_TOKEN`). 2-hour TTL.
+- Added SDP offer/answer/ICE candidate relay between peers via new `MSG.sdpOffer`, `MSG.sdpAnswer`, `MSG.iceCandidate` message types.
+- `onMessage` made `async` (required for TURN API fetch).
+- Rate limiting re-enabled for all messages (exemption removed — high-freq messages now bypass server entirely).
+- Added constructor to capture `env` bindings from Cloudflare Worker context.
+
+**3. Protocol Expansion (`shared/protocol.js`)** — Verified.
+- 5 new message types: `requestTurnCredentials`, `turnCredentials`, `sdpOffer`, `sdpAnswer`, `iceCandidate`.
+
+**4. Netcode Rewiring (`src/netcode.js`)** — Verified.
+- `MSG.hello` handler: inits P2P (`P2P.initP2P`), requests TURN credentials, initiates P2P connection to host (if non-host).
+- `MSG.hostMigrated` handler: tears down all P2P connections, re-inits P2P, requests fresh TURN credentials, reconnects to new host.
+- Client input send loop: switched from `partySocket.send(JSON.stringify({ type: MSG.clientInput, ... }))` → `P2P.sendToPeer(hostId, { type: MSG.clientInput, ... })`.
+- `MSG.state` handler removed (now received via P2P DataChannel → `handleRemoteP2PMessage`).
+- `MSG.clientInput` handler removed (now received via P2P DataChannel → `handleRemoteP2PMessage`).
+- `MSG.spill` handler extracted to standalone `handleRemoteSpill()` — early-return removed so VFX always plays even if `hasSpilled` was already synced.
+- New helper functions: `handleRemoteClientInput()` (host-side input processing), `handleRemoteP2PMessage()` (routes hostTransform/spill from DataChannel), `handleRemoteSpill()` (VFX trigger), `handleRemoteHostState()` (state buffer + collision replay).
+- Exported `sendP2PEvent()` for spill broadcasting.
+
+**5. Spill Netcode Switch (`src/main.js`)** — Verified.
+- `triggerSpillNetcode()` now calls `Netcode.sendP2PEvent()` instead of `partySocket.send()`, broadcasting spill events over WebRTC DataChannels instead of the server WebSocket.
+
+**6. Defensive Null Guards (All Level Files + Arena + Cart GLTF)** — Verified.
+- `src/arena.js`: `if (scene) scene.remove(root)` guards, `if (scene && spindleLight)` guard, `if (scene && boothNeonMeshes)` guard, `if (world && recordBody)` guards on all `world.removeRigidBody` calls.
+- `src/levels/backroomsSupermarket.js`: Same pattern applied to scene remove, spindle light, booth meshes, fog, and all rigid body removal.
+- `src/levels/testArena.js`: Same pattern applied to scene remove/fog/background and all rigid body removal.
+- `src/levels/zanzibarPlatform.js`: Same pattern applied to scene remove, spindle light, booth meshes, fog, and deck/booth rigid body removal.
+- `src/cartRaveGltf.js`: `disposeRaveGltfInstance()` now removes root from parent before traversal.
+
+**7. Backrooms Physics Fix (`src/levels/backroomsSupermarket.js`)** — Verified.
+- Changed floor colliders from `RAPIER.ColliderDesc.cuboid(hx, T_HALF, hz)` → `RAPIER.ColliderDesc.roundCuboid(hx, T_HALF, hz, 0.15)` with 0.15 border radius. This prevents carts from catching on sharp 90-degree lips when hopping over the corner voids (cart roundCuboid vs floor sharp cuboid edge snagging).
+
 ### July 5, 2026 – Web Fonts, Kill Feed Variety & UI Polish
 **1. Web Font Fix (index.html)** — Verified.
 - Bungee and Space Mono were referenced in CSS `font-family` declarations (boot splash title, HUD score/rank/value elements, ready button, volume readout, FPS canvas, rotate prompt) but were not present in the Google Fonts `<link>`, causing fallback to system fonts (Comic Sans / Courier on Windows).
