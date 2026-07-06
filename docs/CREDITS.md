@@ -15,7 +15,7 @@ Runtime dependencies come from `package.json` and are bundled by Vite unless not
 | Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.0.0` | MIT | `https://github.com/juliangarnier/anime` |
 | Multiplayer | `partyserver` | Cloudflare Worker DO backend (`party/index.ts`) | `^0.5.8` | MIT | `https://github.com/threepointone/partyserver` |
 | Networking | `partysocket` | Client WebSocket (`src/netcode.js`) | `^1.1.16` | MIT | `https://www.npmjs.com/package/partysocket` |
-| Build / Deploy | Wrangler | Worker bundle & asset uploader CLI | `^3.0.0` | MIT | `https://github.com/cloudflare/workers-sdk` |
+| Build / Deploy | Wrangler | Worker bundle & asset uploader CLI | `^4.106.0` | MIT | `https://github.com/cloudflare/workers-sdk` |
 | Build | Vite | Dev server + production build (`dist/`) | `^6.3.5` | MIT | `https://github.com/vitejs/vite` |
 | Touch Controls | `nipplejs` | Mobile virtual analog joystick (`src/touchControls.js`) | `^1.0.4` | MIT | `https://github.com/yoannmoinet/nipplejs` |
 | State Management | Zustand | UI & settings state store (`src/stores/`) | `^5.0.14` | MIT | `https://github.com/pmndrs/zustand` |
@@ -30,15 +30,18 @@ Runtime dependencies come from `package.json` and are bundled by Vite unless not
 
 ## Fonts
 
-Loaded via Google Fonts in `index.html`.
+Loaded via Google Fonts in `index.html` (all seven families are in the single primary
+`<link>` and the `<noscript>` fallback). All are under the SIL Open Font License 1.1 (OFL-1.1).
 
-| Font | License | Link |
+| Font | Role | Link |
 |---|---|---|
-| Bungee | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Bungee` |
-| Bungee Shade | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Bungee+Shade` |
-| Space Mono | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Space+Mono` |
-| Archivo Black | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Archivo+Black` |
-| Share Tech Mono | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Share+Tech+Mono` |
+| Road Rage | Mega-titles / announcer | `https://fonts.google.com/specimen/Road+Rage` |
+| Russo One | UI headers / buttons | `https://fonts.google.com/specimen/Russo+One` |
+| Goldman | Mono / body | `https://fonts.google.com/specimen/Goldman` |
+| Michroma | HUD clock / timer | `https://fonts.google.com/specimen/Michroma` |
+| Space Grotesk | Labels | `https://fonts.google.com/specimen/Space+Grotesk` |
+| Bungee | Accent (boot splash, HUD) | `https://fonts.google.com/specimen/Bungee` |
+| Space Mono | Mono readouts | `https://fonts.google.com/specimen/Space+Mono` |
 
 ---
 
@@ -47,6 +50,7 @@ Loaded via Google Fonts in `index.html`.
 | Name | Purpose | Link |
 |---|---|---|
 | Cloudflare Workers | Serverless host for assets + partyserver Durable Objects | `https://workers.cloudflare.com/` |
+| Cloudflare Calls (TURN) | WebRTC TURN relay for peer-to-peer DataChannels (credentials minted server-side in `party/index.ts`) | `https://developers.cloudflare.com/calls/turn/` |
 | Google Fonts | Web font delivery | `https://fonts.google.com/` |
 | unpkg | CDN fallback for Eruda (local/LAN dev only) | `https://unpkg.com/` |
 | jsDelivr | CDN fallback for Eruda (local/LAN dev only) | `https://www.jsdelivr.com/` |
@@ -85,4 +89,4 @@ Most in-game SFX are **procedural** (Web Audio API oscillators in `src/audio.js`
 
 ---
 
-**Last Updated:** July 4, 2026
+**Last Updated:** July 6, 2026

@@ -30,12 +30,13 @@ npm run dev:party
 
 | Component | Technology / Config | Role |
 |-----------|---------------------|------|
-| **Multiplayer backend** | [partyserver](https://github.com/threepointone/partyserver) | Durable Object WebSocket relay and room coordinator |
+| **Multiplayer backend** | [partyserver](https://github.com/threepointone/partyserver) | Durable Object room coordinator + WebSocket control plane (lobby, round, WebRTC signaling, kill feed) |
+| **Real-time transport** | WebRTC DataChannels (`src/netcode/p2p.js`) | Peer-to-peer host transforms, client input, and spill events (bypass the server) |
 | **Local worker runner** | [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) | Simulates Cloudflare Workers and Durable Objects locally |
 | **Build & Dev server** | Vite | Bundles client code (`src/`) and serves static assets |
 | **Config definition** | `wrangler.jsonc` | Declares Durable Object bindings, assets directory, and DO migrations |
 
-The server (`party/index.ts`) has **no physics engine**. The client chosen as the **host** calculates and broadcasts physics transforms for all slots.
+The server (`party/index.ts`) has **no physics engine**. The client chosen as the **host** calculates physics for all slots and broadcasts transforms **peer-to-peer over WebRTC DataChannels** — not through the server.
 
 ---
 

@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** July 5, 2026
+**Last Updated:** July 6, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -13,7 +13,7 @@
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
 - **Recent Technical Work**: WebRTC P2P DataChannel migration (physics state, input, and spill events bypass server relay via `src/netcode/p2p.js`) + Cloudflare Calls TURN credential minting + server reduced to signaling relay + defensive null guards on scene/world across all level dispose paths + Backrooms `roundCuboid` fix (0.15 border radius prevents cart catching on corner void edges) + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal + mobile responsive CSS fixes (results history void, level card overflow, challenges clip, FPS z-index overlap, pause menu collision, level button padding/font, results history font-size/line-height)
-- **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
+- **Modular Structure**: Core systems live in `src/`; `main.js` is still the central wiring hub (~2,500 lines) with an ongoing extraction effort (bootstrap, levelManager, audioControls, graphicsToggles, cameraFraming, menuStats, pauseOverlay pulled out) — not yet "thin"
 
 ---
 
@@ -223,7 +223,7 @@ Diagnosed and fixed 7 mobile layout issues from phone screenshots (~390×844 por
 - NPC respawn suicide loop fixed
 
 ### Core Multiplayer & Foundation
-- Full modular refactor (`main.js` as thin orchestrator + `src/` modules)
+- Full modular refactor (`main.js` as orchestrator + `src/` modules)
 - PartyKit server + client handshake + host migration
 - Multiplayer sync for human carts (host-authoritative)
 - NPC fill for empty slots + slot sync
@@ -285,4 +285,4 @@ Tracked in [ROADMAP.md](./ROADMAP.md) and [post-jam-ideas.md](./post-jam-ideas.m
 
 ---
 
-**Last Updated:** July 5, 2026
+**Last Updated:** July 6, 2026

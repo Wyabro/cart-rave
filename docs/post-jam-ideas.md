@@ -3,7 +3,7 @@
 > Many items below are now tracked in [ROADMAP.md](./ROADMAP.md). This file is kept as a lightweight idea scratchpad.
 
 ## Gameplay / VFX
-- Spilling cart contents on knockover.
+- ~~Spilling cart contents on knockover.~~ ✅ **Shipped** (July 2026 — grocery spill VFX, `src/effects/groceryPool.js`).
 
 ## Online / Progression
 - Persistent leaderboard (Supabase).

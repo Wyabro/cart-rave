@@ -1,4 +1,4 @@
-# Cart Clash — Roadmap (Updated July 2, 2026, post Phase 1 closure)
+# Cart Clash — Roadmap (Updated July 5, 2026 — Phase 4 active)
 
 **Current Philosophy:**  
 Focus on building and polishing a strong **solo experience** first. Multiplayer and netcode work is intentionally deprioritized until the core game is more complete and stable.
@@ -88,6 +88,8 @@ Server currently uses `structuredClone` before every broadcast. At 40 Hz with 4�
 
 **Recommended Future Fix (Phase 5):**  
 Replace `structuredClone` with a manual, pre-allocated flat-array serializer that copies primitive numbers directly into a `Uint8Array` (or a compact JSON string). This bypasses V8 deep-clone overhead while preserving safety. Do not implement until after the multiplayer smoke test is complete and performance profiling data exists.
+
+**[Corrected July 6, 2026]:** The July 5 WebRTC P2P DataChannel migration moved the 40 Hz host-transform broadcast off the server entirely — host state now flows peer-to-peer via `src/netcode/p2p.js`, and the server no longer clones/broadcasts transforms at 40 Hz. This specific `structuredClone`-at-40 Hz hot path is therefore largely obviated. Any residual `structuredClone` usage on the remaining low-frequency server broadcasts (lobby/round/kill-feed) is not a comparable bottleneck. Re-scope this item against the current `party/index.ts` before acting on it.
 
 ---
 

@@ -12,10 +12,11 @@
 
 | Doc | Purpose |
 |-----|---------|
+| [../AGENTS.md](../AGENTS.md) | **Canonical rules file** — stack facts, invariants, workflow (repo root) |
+| [architecture.md](./architecture.md) | **How the stack works** — single architecture source of truth |
 | [ROADMAP.md](./ROADMAP.md) | **Primary forward-looking plan** (Version 2 priorities) |
 | [todo.md](./todo.md) | Current status snapshot + shipped history |
 | [project-state.md](./project-state.md) | Architecture snapshot, known issues |
-| [Game_Architecture.md](./Game_Architecture.md) | Consolidated architecture & design reference |
 | [preview-dev.md](./preview-dev.md) | `next-level` branch local dev workflow |
 | [deploy-urls.md](./deploy-urls.md) | Production URLs and deploy verification |
 | [CREDITS.md](./CREDITS.md) | Third-party libraries, fonts, and assets |
@@ -28,11 +29,12 @@
 ## Tech stack
 
 - **Three.js** — rendering, camera, post-processing, UI/world visuals
-- **Rapier3D** — real-time physics (host-authoritative simulation). Heavy use of `convexHull` and primitive colliders after July 2026 refactor for stability and performance.
-- **partyserver** — multiplayer rooms + WebSocket Durable Object relay + server state running on Cloudflare Workers (migrated from PartyKit July 2026)
+- **Rapier3D** — real-time physics (host-authoritative, host-client only). Heavy use of `convexHull` and primitive colliders after July 2026 refactor for stability and performance.
+- **partyserver** — Durable Object rooms + WebSocket lifecycle on Cloudflare Workers, for lobby, round state, WebRTC signaling, and the kill feed (migrated from PartyKit June 2026). Client uses `partysocket`.
+- **WebRTC** — real-time host transforms, client input, and spill events travel peer-to-peer over DataChannels (`src/netcode/p2p.js`), bypassing the server. Cloudflare Calls provides TURN.
 - **Vite** — dev server and production build (`dist/`)
 
-Client code lives in `src/`. `src/main.js` is the live entry point and wiring hub; core systems are modular (`netcode.js`, `simulation.js`, `bootstrap.js`, `levelManager.js`, etc.).
+Client code lives in `src/`. `src/main.js` is the entry point and central wiring hub (~2,500 lines; an extraction effort is ongoing); core systems are modular (`netcode.js`, `netcode/p2p.js`, `simulation.js`, `bootstrap.js`, `levelManager.js`, etc.). Full detail: [architecture.md](./architecture.md).
 
 ---
 
@@ -90,7 +92,7 @@ npm run ship     # build + wrangler deploy (production)
   - Backrooms Supermarket (square floor + corner voids) — major physics stability pass July 2026
   - Zanzibar Platform (floating sundeck + sunset seascape) — added July 2026
 - **Scoring**: knock carts off the **edge** or into **voids/holes** for points (bonuses stack for big plays)
-- **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots (with client-side prediction for the local cart)
+- **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots over WebRTC peer-to-peer DataChannels (with client-side prediction for the local cart)
 - **Round length**: 2.5 minutes standard + Sudden Death on ties
 
 ---
@@ -118,7 +120,9 @@ src/main.js         # Entry point + game wiring
 src/bootstrap.js    # Menu → gameplay flow
 src/levelManager.js # Level preview + swapping
 src/levels/         # Level definitions (classic, backrooms, zanzibar)
-party/index.ts      # partyserver Durable Object class
+src/netcode.js      # Multiplayer, prediction, interpolation, clock sync
+src/netcode/p2p.js  # WebRTC peer-to-peer DataChannel transport
+party/index.ts      # partyserver Durable Object class (signaling + lobby + kill feed)
 docs/               # All project documentation
 ```
 
@@ -126,4 +130,4 @@ Design constraints and AI guardrails: `.cursorrules` at repo root.
 
 ---
 
-**Last Updated:** July 4, 2026
+**Last Updated:** July 6, 2026

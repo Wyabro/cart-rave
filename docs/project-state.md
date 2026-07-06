@@ -1,6 +1,6 @@
 # Cart Rave — Project State
 
-**Last updated:** July 5, 2026  
+**Last updated:** July 6, 2026  
 **Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
 **Branch:** `next-level` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
@@ -22,17 +22,22 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 |-------|------------|
 | Rendering | Three.js (`src/`, Vite-bundled) |
 | Physics | Rapier3D (host-authoritative, client-side only) |
-| Multiplayer | partyserver Durable Object (`party/index.ts`) |
+| Control plane | partyserver Durable Object (`party/index.ts`) via `partysocket` |
+| Data plane | WebRTC peer-to-peer DataChannels (`src/netcode/p2p.js`) |
 | Build | Vite → `dist/` |
 | Hosting | Cloudflare Workers (assets + Durable Object via Wrangler) |
 
-**No server-side physics.** The Durable Object relays messages only.
+**No server-side physics.** The Durable Object handles lobby, WebRTC signaling, round
+lifecycle, and the kill feed only. Real-time host transforms, client input, and spill events
+travel peer-to-peer over WebRTC DataChannels, bypassing the server. See
+[architecture.md](./architecture.md).
 
 ---
 
 ## 3. Architecture snapshot
 
 - **Host-authoritative multiplayer** with client-side prediction for the local human cart (non-host).
+- **WebRTC P2P transport**: host transforms (40Hz), client input (60Hz), and spill events go peer-to-peer over DataChannels (`src/netcode/p2p.js`); the server relays signaling/lobby/kill-feed only.
 - **4 cart slots** per room; empty slots filled by NPCs. Humans swap in by color pick.
 - **Ready-up gate**: server broadcasts `gameStart` only when all humans are ready.
 - **Levels**: `classicRecord` (default), `backrooms`, `zanzibar` — selected in menu, persisted in `localStorage` (`cartRaveLevel`).
@@ -44,7 +49,7 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 - `src/levelManager.js` — level preview + swapping extracted from `main.js`
 - Knip cleanup: unused exports reduced and codebase hardened
 - 100% Type safety achieved under `npx tsc --noEmit`
-- `main.js` remains the thin orchestrator and wiring hub
+- `main.js` is still the central wiring hub (~2,500 lines); extraction is ongoing (`audioControls.js`, `graphicsToggles.js`, `cameraFraming.js`, `menuStats.js`, `pauseOverlay.js` pulled out) but not yet "thin"
 
 ### Key files
 
@@ -53,13 +58,14 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 | `src/main.js` | Entry point, render loop, system wiring |
 | `src/bootstrap.js` | Menu/gameplay transition |
 | `src/levelManager.js` | Level preview and hot-swap |
-| `src/netcode.js` | Multiplayer, prediction, interpolation |
+| `src/netcode.js` | Multiplayer, prediction, interpolation, clock sync |
+| `src/netcode/p2p.js` | WebRTC peer-to-peer DataChannel transport |
 | `src/simulation.js` | Rapier physics (host) |
 | `src/levels/` | Level definitions (classic, backrooms, zanzibar) |
-| `party/index.ts` | partyserver Durable Object (relay + room state) |
-| `.cursorrules` | Design spec and AI guardrails |
+| `party/index.ts` | partyserver Durable Object (signaling + lobby + kill feed) |
+| `AGENTS.md` | Canonical rules file (repo root) |
 
-Full architecture reference: [Game_Architecture.md](./Game_Architecture.md).
+Full architecture reference: [architecture.md](./architecture.md).
 
 ---
 
