@@ -1393,7 +1393,7 @@ export class CartRaveServer extends Server {
 }
 
 export default {
-  async fetch(request: Request, env: Record<string, unknown>): Promise<Response> {
+  async fetch(request: Request, env: Record<string, any>): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.includes("/api/log-error")) {
       try {
@@ -1404,6 +1404,23 @@ export default {
       }
       return new Response(null, { status: 204 });
     }
+
+    const isParty =
+      url.pathname.startsWith("/parties/") ||
+      url.pathname.startsWith("/party/") ||
+      request.headers.get("Upgrade")?.toLowerCase() === "websocket";
+
+    if (!isParty && env.ASSETS) {
+      try {
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status !== 404) {
+          return assetResponse;
+        }
+      } catch (err) {
+        console.error("[cart-rave] ASSETS fetch error:", err);
+      }
+    }
+
     return routePartykitRequest(request, env);
   },
 };

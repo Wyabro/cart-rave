@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Binary decode/apply NaN/Infinity guards (corrupt float32 values replaced with 0 across binary decoder and `applyCartState` body/net-target writes) + binary serialization for host state snapshots (hybrid ArrayBuffer + JSON tail, 52 bytes/cart) + input sampling moved from setInterval to physics loop (zero-latency client prediction) + server reaper fix + server spill relay removed (fully P2P) + deterministic physics timestamps + client-side prediction rewrite (rewind-and-replay) + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer with ackSeq pruning + WebRTC DataChannel `ordered: false, maxRetransmits: 0` + WebRTC P2P DataChannel migration + Cloudflare Calls TURN + server reduced to signaling relay + defensive null guards + Backrooms `roundCuboid` fix + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass + raw partyserver / Wrangler migration + Zanzibar sunset seascape + camera framing & viewport extraction + menu stats extraction + web font fix + self-death verb variety + results overlay responsive sizing + TEST DRIVE removal + mobile responsive CSS fixes
+- **Recent Technical Work**: Worker ASSETS fallback (single Worker serves Durable Object + static assets for zero-origin deployment) + `world.getRigidBody(handle)` guards on all level/arena dispose paths (prevents Rapier double-free panics on cleanup) + binary decode/apply NaN/Infinity guards + binary serialization for host state snapshots + input sampling moved to physics loop + server reaper fix + server spill relay removed + deterministic physics timestamps + client-side prediction rewrite + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer with ackSeq pruning + WebRTC DataChannel `ordered: false, maxRetransmits: 0` + WebRTC P2P DataChannel migration + Cloudflare Calls TURN + server reduced to signaling relay + defensive null guards + Backrooms `roundCuboid` fix + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass + raw partyserver / Wrangler migration + Zanzibar sunset seascape + camera framing & viewport extraction + menu stats extraction + web font fix + self-death verb variety + results overlay responsive sizing + TEST DRIVE removal + mobile responsive CSS fixes
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,17 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 6, 2026 – Worker ASSETS Fallback & Rigid Body Double-Free Guards
+
+**1. Worker ASSETS Fallback (`party/index.ts`)** — Verified.
+- The Worker's `fetch` handler now falls through to `env.ASSETS.fetch(request)` for non-PartyKit URLs. This allows a single Cloudflare Worker to serve both Durable Object traffic (game server) and static assets (Vite `dist/` output), eliminating the need for a separate CDN origin.
+- Detection logic: `url.pathname.startsWith("/parties/")`, `"/party/"`, or `Upgrade: websocket` header → route to PartyKit. Otherwise, try ASSETS first, return if 404 is not hit.
+- `env` type broadened from `Record<string, unknown>` to `Record<string, any>` to satisfy the ASSETS binding type.
+
+**2. Rigid Body Double-Free Guards (`src/arena.js`, `src/levels/backroomsSupermarket.js`, `src/levels/testArena.js`, `src/levels/zanzibarPlatform.js`)** — Verified.
+- All `world.removeRigidBody(body)` calls across 4 level files now guarded with `world.getRigidBody(body.handle)` before removal. This prevents Rapier panics when `dispose()` is called on a world where bodies were already cleaned up (e.g., rapid level swap or quit-to-menu during physics cleanup).
+- Guard pattern applied to: recordBody, pitWallBody, boothBodies (arena.js), floorBody, wallBodies, ceiling.body, booth bodies, furniturePile.bodies (backrooms), floorBody, wallBodies (testArena), deck.body, booth bodies (zanzibar).
 
 ### July 6, 2026 – NaN/Infinity Guards for Binary Serialization & applyCartState
 

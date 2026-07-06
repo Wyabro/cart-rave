@@ -784,9 +784,11 @@ export function initZanzibarPlatform(scene, world, config) {
     for (const mat of new Set(ownedMaterials)) disposeMaterial(mat);
     for (const tex of new Set(ownedTextures)) tex.dispose();
 
-    if (world && deck.body) world.removeRigidBody(deck.body);
+    if (world && deck.body && world.getRigidBody(deck.body.handle)) world.removeRigidBody(deck.body);
     if (world && booths.bodies) {
-      for (const body of booths.bodies) world.removeRigidBody(body);
+      for (const body of booths.bodies) {
+        if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
+      }
     }
 
     if (scene) scene.fog = prevFog;

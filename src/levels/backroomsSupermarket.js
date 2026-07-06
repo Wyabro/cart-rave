@@ -1666,16 +1666,22 @@ export function initBackroomsSupermarket(scene, world, config) {
     for (const mat of new Set(ownedMaterials)) disposeMaterial(mat);
     for (const tex of ownedTextures) tex.dispose();
 
-    if (world && floorBody) world.removeRigidBody(floorBody);
+    if (world && floorBody && world.getRigidBody(floorBody.handle)) world.removeRigidBody(floorBody);
     if (world && walls.wallBodies) {
-      for (const body of walls.wallBodies) world.removeRigidBody(body);
+      for (const body of walls.wallBodies) {
+        if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
+      }
     }
-    if (world && ceiling.body) world.removeRigidBody(ceiling.body);
+    if (world && ceiling.body && world.getRigidBody(ceiling.body.handle)) world.removeRigidBody(ceiling.body);
     if (world && booths.bodies) {
-      for (const body of booths.bodies) world.removeRigidBody(body);
+      for (const body of booths.bodies) {
+        if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
+      }
     }
     if (world && furniturePile.bodies) {
-      for (const body of furniturePile.bodies) world.removeRigidBody(body);
+      for (const body of furniturePile.bodies) {
+        if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
+      }
     }
 
     if (scene) scene.fog = prevFog;

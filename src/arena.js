@@ -1157,11 +1157,13 @@ export function initArena(scene, world, config, options = {}) {
       window.recordMesh = undefined;
     }
 
-    if (world && recordBody) world.removeRigidBody(recordBody);
-    if (world && pitWallBody) world.removeRigidBody(pitWallBody);
+    if (world && recordBody && world.getRigidBody(recordBody.handle)) world.removeRigidBody(recordBody);
+    if (world && pitWallBody && world.getRigidBody(pitWallBody.handle)) world.removeRigidBody(pitWallBody);
     if (world && boothBuild.boothBodies) {
       for (const body of boothBuild.boothBodies) {
-        world.removeRigidBody(body);
+        if (world.getRigidBody(body.handle)) {
+          world.removeRigidBody(body);
+        }
       }
     }
 

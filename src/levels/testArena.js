@@ -118,10 +118,12 @@ export function initTestArena(scene, world, config) {
 
     ownedGeometries.forEach((geo) => geo.dispose());
     ownedMaterials.forEach((mat) => disposeMaterial(mat));
-    if (world && floorBody) world.removeRigidBody(floorBody);
+    if (world && floorBody && world.getRigidBody(floorBody.handle)) world.removeRigidBody(floorBody);
     if (world && wallBodies) {
       for (const body of wallBodies) {
-        world.removeRigidBody(body);
+        if (world.getRigidBody(body.handle)) {
+          world.removeRigidBody(body);
+        }
       }
     }
   }
