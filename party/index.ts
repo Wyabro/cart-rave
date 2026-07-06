@@ -91,7 +91,17 @@ const MAX_SCORE_PER_SLOT = 500;
 const PICKER_TIMEOUT_MS = 30_000;
 const RATE_LIMIT_MAX_PER_SEC = 100;
 const RATE_LIMIT_WINDOW_MS = 1_000;
-const ALLOWED_FALL_VERBS = new Set(["RAMMED", "YEETED", "BOOSTED OFF", "FELL OFF"]);
+const ALLOWED_FALL_VERBS = new Set([
+  "RAMMED",
+  "YEETED",
+  "BOOSTED OFF",
+  "FELL OFF",
+  "ATE PAVEMENT",
+  "TAPPED OUT",
+  "SELF-DESTRUCTED",
+  "NOPED OUT",
+  "RAGE QUIT",
+]);
 
 type CollisionFxEvent = {
   slotA: number;

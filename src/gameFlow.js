@@ -2,6 +2,7 @@
 
 import { resetCartTransientState } from "./entities.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
+import { pickSelfDeathVerb } from "./hud.js";
 
 /**
  * @typedef {object} GameFlowDeps
@@ -60,7 +61,8 @@ function calculateFallScore(deps, slotIndex, p, nowMs) {
   const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 2500;
 
   if (!hit || (nowMs - hit.timestamp > hitWindowMs)) {
-    return { isKill: false, points: 0, attackerSlot: null, verb: "FELL OFF", comboTier: 0, comboMultiplier: 1.0 };
+    const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : pickSelfDeathVerb();
+    return { isKill: false, points: 0, attackerSlot: null, verb, comboTier: 0, comboMultiplier: 1.0 };
   }
 
   const distOriginXZ = Math.hypot(p.x, p.z);
@@ -403,14 +405,16 @@ export function updateGameFlow(deps, context) {
                 } else {
                   scoreData.attackerSlot = null;
                   scoreData.verb = "SUDDEN DEATH";
-                  deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+                  const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : pickSelfDeathVerb();
+                  deps.hud?.addKillFeedEntry?.(null, null, verb, targetName, targetColor);
                 }
               } else {
                 const victimSlot = netSlots[slotIndex];
                 const targetName = victimSlot?.name || `P${slotIndex + 1}`;
                 const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
 
-                deps.hud?.addKillFeedEntry?.(null, null, "FELL OFF", targetName, targetColor);
+                const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : pickSelfDeathVerb();
+                deps.hud?.addKillFeedEntry?.(null, null, verb, targetName, targetColor);
               }
             }
 

@@ -305,7 +305,7 @@ export function initResultsOverlay(hooks = {}) {
 
       #results-overlay .results-score-name {
         font-family: var(--results-mono);
-        font-size: 13px;
+        font-size: clamp(11px, 2.4vw, 13px);
         letter-spacing: 0.04em;
         color: rgba(255, 255, 255, 0.88);
         overflow: hidden;
@@ -340,7 +340,7 @@ export function initResultsOverlay(hooks = {}) {
 
       #results-overlay .results-score-val {
         font-family: var(--results-ui);
-        font-size: 18px;
+        font-size: clamp(14px, 3.4vw, 18px);
         letter-spacing: 0.04em;
         color: var(--slot-glow, #22e6ff);
         text-shadow: 0 0 10px var(--slot-glow, #22e6ff);

@@ -1630,6 +1630,23 @@ export function pickKillFeedVerb(hit) {
   return verbs[Math.floor(Math.random() * verbs.length)];
 }
 
+/**
+ * Picks a random self-death verb for fall/suicide kill feed messages.
+ * @returns {string}
+ */
+export function pickSelfDeathVerb() {
+  const verbs = [
+    "FELL OFF",
+    "ATE PAVEMENT",
+    "TAPPED OUT",
+    "SELF-DESTRUCTED",
+    "NOPED OUT",
+    "RAGE QUIT",
+  ];
+  return verbs[Math.floor(Math.random() * verbs.length)];
+}
+
+
 
 /**
  * Updates the center status line (GO!, countdown).
@@ -2205,6 +2222,7 @@ export function init(options) {
     readyBtn: elements.readyBtn,
     addKillFeedEntry,
     pickKillFeedVerb: pickKillFeedVerb,
+    pickSelfDeathVerb: pickSelfDeathVerb,
     colorHexToCss: colorHexToCss,
     escOverlay: elements.escOverlay,
     syncAudioControls,
