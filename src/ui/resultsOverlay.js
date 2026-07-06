@@ -591,6 +591,8 @@ export function initResultsOverlay(hooks = {}) {
         #results-overlay .results-history {
           flex: 0 1 auto;
           max-height: 30vh;
+          font-size: clamp(12px, 3.4vw, 14px);
+          line-height: 1.55;
         }
       }
 
