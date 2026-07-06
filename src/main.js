@@ -440,6 +440,17 @@ function updateCartMaterialsFromSlots(slots) {
     const cart = allCartsRef[slotIndex];
     if (!slot || !cart?.mesh) continue;
 
+    if (slot.kind === "empty") {
+      cart.mesh.visible = false;
+      if (cart.body) cart.body.setEnabled(false);
+      continue;
+    }
+
+    if (slot.kind === "human" || slot.kind === "npc") {
+      cart.mesh.visible = true;
+      if (cart.body) cart.body.setEnabled(true);
+    }
+
     const finalHex = displayColorHexForSlot(slot);
     const themeId = cart.cartThemeId
       ?? resolveCartThemeForSlot(slot, { youConnId });
@@ -2663,20 +2674,23 @@ async function main() {
       recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
     }
 
-    /** @type {any} */ (sceneExtras)?.update?.(now);
-    levelUpdate?.(now);
+    const offset = Netcode.getServerClockOffsetMs();
+    const syncedNow = (offset && !Number.isNaN(offset)) ? (now - offset) : now;
+
+    /** @type {any} */ (sceneExtras)?.update?.(syncedNow);
+    levelUpdate?.(syncedNow);
 
     if (raveVisualsInitialized) {
-      Effects.updateStageLights(now);
-      Effects.updateLasers(now);
-      Effects.updateCrowd(now);
-      Effects.updateStageLed(now);
-      Effects.updateBillboard(now);
+      Effects.updateStageLights(syncedNow);
+      Effects.updateLasers(syncedNow);
+      Effects.updateCrowd(syncedNow);
+      Effects.updateStageLed(syncedNow);
+      Effects.updateBillboard(syncedNow);
     }
 
     if (spindleLight && spindleLightColorPink && spindleLightColorCyan) {
       // * Spindle PointLight cycle: pink <-> cyan, ~8s full cycle.
-      const t = (Math.sin(now * 0.001 * Math.PI * 2 / 8) + 1) / 2;
+      const t = (Math.sin(syncedNow * 0.001 * Math.PI * 2 / 8) + 1) / 2;
       spindleLight.color.copy(spindleLightColorPink).lerp(spindleLightColorCyan, t);
     }
 
@@ -2693,7 +2707,7 @@ async function main() {
 
     // Booth neon RGB cycle (fuchsia <-> neon blue)
     if (boothNeonMeshes && boothNeonMeshes.length > 0) {
-      const t = (Math.sin(performance.now() * 0.001 * Math.PI * 2 * CONFIG.booth.neonCycleSpeed) + 1) / 2;
+      const t = (Math.sin(syncedNow * 0.001 * Math.PI * 2 * CONFIG.booth.neonCycleSpeed) + 1) / 2;
       boothNeonMixed.copy(boothNeonColor1).lerp(boothNeonColor2, t);
       for (const m of boothNeonMeshes) {
         m.material.color.copy(boothNeonMixed);

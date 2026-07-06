@@ -639,10 +639,6 @@ export function initCarts({
 
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
     const slot = netSlots[slotIndex];
-    if (slot?.kind === "empty") {
-      cartsBySlotId[slotIndex] = null;
-      continue;
-    }
 
     const spawn = spawnForSlot
       ? spawnForSlot(slotIndex, slot)
@@ -663,6 +659,11 @@ export function initCarts({
       slotIndex,
     });
     cartsBySlotId[slotIndex] = cart;
+
+    if (!slot || slot.kind === "empty") {
+      if (cart.mesh) cart.mesh.visible = false;
+      if (cart.body) cart.body.setEnabled(false);
+    }
 
     if (
       pendingMidRoundJoinRespawnConnId === youConnId &&
