@@ -1109,7 +1109,7 @@ export function initArena(scene, world, config, options = {}) {
     const ownedMatSet = new Set(ownedMaterials);
 
     for (const root of sceneRoots) {
-      scene.remove(root);
+      if (scene) scene.remove(root);
       root.traverse((child) => {
         if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.Sprite)) return;
         const target = /** @type {THREE.Mesh | THREE.Sprite} */ (child);
@@ -1121,6 +1121,14 @@ export function initArena(scene, world, config, options = {}) {
           if (mat && !sharedMats.has(/** @type {any} */ (mat)) && !ownedMatSet.has(/** @type {any} */ (mat))) disposeMaterial(mat);
         });
       });
+    }
+
+    if (scene && spindleLight) scene.remove(spindleLight);
+    if (scene && boothNeonMeshes) {
+      for (const mesh of boothNeonMeshes) {
+        if (scene) scene.remove(mesh);
+        if (mesh.parent) mesh.parent.remove(mesh);
+      }
     }
 
     ownedGeometries.forEach((geo) => geo.dispose());
@@ -1149,10 +1157,12 @@ export function initArena(scene, world, config, options = {}) {
       window.recordMesh = undefined;
     }
 
-    world.removeRigidBody(recordBody);
-    world.removeRigidBody(pitWallBody);
-    for (const body of boothBuild.boothBodies) {
-      world.removeRigidBody(body);
+    if (world && recordBody) world.removeRigidBody(recordBody);
+    if (world && pitWallBody) world.removeRigidBody(pitWallBody);
+    if (world && boothBuild.boothBodies) {
+      for (const body of boothBuild.boothBodies) {
+        world.removeRigidBody(body);
+      }
     }
 
     config.fall.yThreshold = prevFallYThreshold;

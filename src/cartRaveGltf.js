@@ -2977,6 +2977,10 @@ export function prepareRaveGltfCart(
 export function disposeRaveGltfInstance(root) {
   if (!root) return;
 
+  if (root.parent) {
+    root.parent.remove(root);
+  }
+
   const disposedMats = new Set();
   root.traverse((child) => {
     const c = /** @type {any} */ (child);

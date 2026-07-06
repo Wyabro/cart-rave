@@ -1529,7 +1529,10 @@ export function initBackroomsSupermarket(scene, world, config) {
 
   // Helper to create cuboids cleanly
   const addCuboid = (hx, hz, px, pz) => {
-    const desc = RAPIER.ColliderDesc.cuboid(hx, T_HALF, hz)
+    // * FIX: Use roundCuboid to bevel the vertical edges.
+    // * This prevents the cart's roundCuboid from catching on sharp 90-degree lips 
+    // * when hopping over the 10.6m corner voids, which was dragging carts into the pit.
+    const desc = RAPIER.ColliderDesc.roundCuboid(hx, T_HALF, hz, 0.15)
       .setTranslation(px, 0, pz) // Local Y is 0 because body is at -0.3
       .setFriction(FLOOR_FRICTION)
       .setRestitution(config.record.restitution);
@@ -1647,20 +1650,36 @@ export function initBackroomsSupermarket(scene, world, config) {
     // * preventing any captured material references from being resurrected.
     spotlightUpdateFn = () => {};
 
-    for (const root of sceneRoots) scene.remove(root);
+    for (const root of sceneRoots) {
+      if (scene) scene.remove(root);
+    }
+
+    if (scene && spindleLight) scene.remove(spindleLight);
+    if (scene && boothNeonMeshes) {
+      for (const mesh of boothNeonMeshes) {
+        if (scene) scene.remove(mesh);
+        if (mesh.parent) mesh.parent.remove(mesh);
+      }
+    }
 
     // Dedupe before disposing — booth/pit meshes share a small geometry/material pool.
     for (const geo of new Set(ownedGeometries)) geo.dispose();
     for (const mat of new Set(ownedMaterials)) disposeMaterial(mat);
     for (const tex of ownedTextures) tex.dispose();
 
-    world.removeRigidBody(floorBody);
-    for (const body of walls.wallBodies) world.removeRigidBody(body);
-    world.removeRigidBody(ceiling.body);
-    for (const body of booths.bodies) world.removeRigidBody(body);
-    for (const body of furniturePile.bodies) world.removeRigidBody(body);
+    if (world && floorBody) world.removeRigidBody(floorBody);
+    if (world && walls.wallBodies) {
+      for (const body of walls.wallBodies) world.removeRigidBody(body);
+    }
+    if (world && ceiling.body) world.removeRigidBody(ceiling.body);
+    if (world && booths.bodies) {
+      for (const body of booths.bodies) world.removeRigidBody(body);
+    }
+    if (world && furniturePile.bodies) {
+      for (const body of furniturePile.bodies) world.removeRigidBody(body);
+    }
 
-    scene.fog = prevFog;
+    if (scene) scene.fog = prevFog;
     config.record.centerHole = prevCenterHole;
   }
 

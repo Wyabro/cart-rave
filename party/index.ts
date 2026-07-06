@@ -209,6 +209,12 @@ export class CartRaveServer extends Server {
   readonly #ipConnectionCounts = new Map<string, number>();
   readonly #connToIp = new Map<string, string>();
 
+  env: Record<string, any>;
+  constructor(state: any, env: any) {
+    super(state, env);
+    this.env = env;
+  }
+
   #clamp(value: unknown, min: number, max: number) {
     const n = typeof value === "number" ? value : Number(value);
     if (!Number.isFinite(n)) return min;
@@ -977,7 +983,7 @@ export class CartRaveServer extends Server {
     }
   }
 
-  onMessage(connection: Connection, message: string) {
+  async onMessage(connection: Connection, message: string) {
     // Security: Block massive payload bombs before trying to parse
     if (message.length > 4096) {
       connection.close(4009, "Payload too large");
@@ -993,12 +999,9 @@ export class CartRaveServer extends Server {
 
     const type = data?.type;
 
-    // High-frequency telemetry/input messages (clientInput and hostTransform) are exempt from rate limiting
-    if (type !== MSG.clientInput && type !== MSG.hostTransform) {
-      if (!this.#checkRateLimit(connection.id)) {
-        connection.close(4028, "Rate limit exceeded");
-        return;
-      }
+    if (!this.#checkRateLimit(connection.id)) {
+      connection.close(4028, "Rate limit exceeded");
+      return;
     }
 
     const now = this.#serverNowMs();
@@ -1225,122 +1228,79 @@ export class CartRaveServer extends Server {
         return;
       }
 
-      if (type === MSG.clientInput) {
-        const slot = this.#slots?.find((s) => s.connId === connection.id);
-        if (!slot || slot.kind !== "human") return;
-
-        // Security: prevent connId spoofing by forcing sender id.
-        data.connId = connection.id;
-        // Clamp inputs before relaying to host.
-        const throttle = this.#clamp(data?.input?.throttle, -1, 1);
-        const steer = this.#clamp(data?.input?.steer, -1, 1);
-        const nitro = Boolean(data?.input?.nitro);
-        const hop = Boolean(data?.input?.hop);
-        // Relay to host only. Do not broadcast.
-        this.#sendJsonToHost({
-          v: PROTOCOL_VERSION,
-          type: MSG.clientInput,
-          serverNowMs: this.#serverNowMs(),
-          connId: data.connId,
-          seq: typeof data?.seq === "number" ? data.seq : null,
-          tClient: typeof data?.tClient === "number" ? data.tClient : null,
-          input: { throttle, steer, nitro, hop },
-        });
+      if (type === MSG.requestTurnCredentials) {
+        const env = this.env;
+        if (!env?.CF_ACCOUNT_ID || !env?.CF_CALLS_KEY_ID || !env?.CF_API_TOKEN) {
+          console.error('[cart-rave] Missing Cloudflare credentials in environment bindings.');
+          return;
+        }
+        const callsApiUrl = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/calls/turn_keys/${env.CF_CALLS_KEY_ID}/tokens`;
+        try {
+          const response = await fetch(callsApiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ttl: 7200 }) // 2 hours
+          });
+          const resBody: any = await response.json();
+          this.#sendJson(connection, {
+            v: PROTOCOL_VERSION,
+            type: MSG.turnCredentials,
+            servers: resBody?.servers || []
+          });
+        } catch (e) {
+          console.error('[cart-rave] TURN minting failed:', e);
+        }
         return;
       }
 
-      if (type === MSG.hostTransform) {
-        // Security: host-only.
-        if (connection.id !== this.#hostId) return;
-        if (typeof data?.levelId === "string" && data.levelId.trim() !== "") {
-          this.#currentLevelId = data.levelId.trim();
-        }
-        const seq = typeof data?.seq === "number" ? data.seq : null;
-        if (seq === null) return;
-        if (seq <= this.#lastSeq) return;
-        this.#lastSeq = seq;
-
-        // Security: Validate the host isn't flooding us with fake physics objects
-        const carts = data?.carts;
-        /**
-         * @param {unknown} arr
-         * @param {number} len
-         * @param {number} min
-         * @param {number} max
-         */
-        const validateNumberArray = (arr: unknown, len: number, min: number, max: number) => {
-          if (!Array.isArray(arr) || arr.length !== len) return false;
-          for (let i = 0; i < len; i += 1) {
-            const n = arr[i];
-            if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) return false;
-          }
-          return true;
-        };
-
-        /** @param {unknown} c */
-        const validateCartState = (c: unknown): c is CartState => {
-          const p = (c as any)?.p;
-          const isPositionValid =
-            Array.isArray(p) &&
-            p.length === 3 &&
-            typeof p[0] === "number" && Number.isFinite(p[0]) && p[0] >= -500 && p[0] <= 500 &&
-            typeof p[1] === "number" && Number.isFinite(p[1]) && p[1] >= -500 && p[1] <= 501.0 &&
-            typeof p[2] === "number" && Number.isFinite(p[2]) && p[2] >= -500 && p[2] <= 500;
-
-          return Boolean(
-            c &&
-            typeof c === "object" &&
-            isPositionValid &&
-            validateNumberArray((c as any).q, 4, -1.5, 1.5) &&
-            validateNumberArray((c as any).lv, 3, -200, 200) &&
-            validateNumberArray((c as any).av, 3, -200, 200),
-          );
-        };
-
-        if (Array.isArray(carts) && carts.length <= 4) {
-          const sanitized: (CartState | undefined)[] = [...this.#carts];
-          for (let i = 0; i < carts.length; i += 1) {
-            const c = carts[i];
-            if (!c) continue;
-            if (!validateCartState(c)) {
-              // eslint-disable-next-line no-console
-              console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart ${i}`);
-              continue;
-            }
-            sanitized[i] = c;
-          }
-          this.#carts = sanitized;
-        } else if (carts && typeof carts === "object" && !Array.isArray(carts)) {
-          const keys = Object.keys(carts);
-          if (keys.length <= 4) {
-            const sanitized: (CartState | undefined)[] = [...this.#carts];
-            for (const id of keys) {
-              const slotIndex = Number(id);
-              if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) continue;
-              const c = (carts as any)[id];
-              if (!validateCartState(c)) {
-                // eslint-disable-next-line no-console
-                console.warn(`[cart-rave] hostTransform rejected cart payload from ${connection.id} for cart "${id}"`);
-                continue;
-              }
-              sanitized[slotIndex] = c;
-            }
-            this.#carts = sanitized;
+      if (type === MSG.sdpOffer) {
+        const targetConnId = data?.targetConnId;
+        if (typeof targetConnId === 'string') {
+          const targetConn = this.#connections.get(targetConnId);
+          if (targetConn) {
+            this.#sendJson(targetConn, {
+              v: PROTOCOL_VERSION,
+              type: MSG.sdpOffer,
+              fromConnId: connection.id,
+              sdp: data.sdp
+            });
           }
         }
+        return;
+      }
 
-        const sanitizedCollisions = sanitizeCollisionBatch(data?.collisions);
+      if (type === MSG.sdpAnswer) {
+        const targetConnId = data?.targetConnId;
+        if (typeof targetConnId === 'string') {
+          const targetConn = this.#connections.get(targetConnId);
+          if (targetConn) {
+            this.#sendJson(targetConn, {
+              v: PROTOCOL_VERSION,
+              type: MSG.sdpAnswer,
+              fromConnId: connection.id,
+              sdp: data.sdp
+            });
+          }
+        }
+        return;
+      }
 
-        // Relay authoritative state to all clients (including host for confirmation).
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.state,
-          serverNowMs: this.#serverNowMs(),
-          seq: this.#lastSeq,
-          tHost: typeof data?.tHost === "number" ? data.tHost : null,
-          carts: this.#safeStructuredClone(this.#carts),
-          ...(sanitizedCollisions.length > 0 ? { collisions: sanitizedCollisions } : {}),
-        });
+      if (type === MSG.iceCandidate) {
+        const targetConnId = data?.targetConnId;
+        if (typeof targetConnId === 'string') {
+          const targetConn = this.#connections.get(targetConnId);
+          if (targetConn) {
+            this.#sendJson(targetConn, {
+              v: PROTOCOL_VERSION,
+              type: MSG.iceCandidate,
+              fromConnId: connection.id,
+              candidate: data.candidate
+            });
+          }
+        }
         return;
       }
 

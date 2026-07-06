@@ -96,11 +96,13 @@ export function initTestArena(scene, world, config) {
 
   function dispose() {
     config.record.centerHole = prevCenterHole;
-    scene.fog = prevFog;
-    scene.background = prevBackground;
+    if (scene) {
+      scene.fog = prevFog;
+      scene.background = prevBackground;
+    }
 
     for (const root of sceneRoots) {
-      scene.remove(root);
+      if (scene) scene.remove(root);
       root.traverse((child) => {
         if (!child.isMesh) return;
         if (child.geometry && !ownedGeometries.includes(child.geometry)) {
@@ -112,11 +114,15 @@ export function initTestArena(scene, world, config) {
         });
       });
     }
+
+
     ownedGeometries.forEach((geo) => geo.dispose());
     ownedMaterials.forEach((mat) => disposeMaterial(mat));
-    world.removeRigidBody(floorBody);
-    for (const body of wallBodies) {
-      world.removeRigidBody(body);
+    if (world && floorBody) world.removeRigidBody(floorBody);
+    if (world && wallBodies) {
+      for (const body of wallBodies) {
+        world.removeRigidBody(body);
+      }
     }
   }
 

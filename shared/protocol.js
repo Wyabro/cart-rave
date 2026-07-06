@@ -30,4 +30,11 @@ export const MSG = {
   gameStart: "game_start",
   countdownCancel: "countdown_cancel",
   spill: "spill",
+
+  // WebRTC Signaling (Client <-> Server)
+  requestTurnCredentials: "request_turn_credentials",
+  turnCredentials: "turn_credentials",
+  sdpOffer: "sdp_offer",
+  sdpAnswer: "sdp_answer",
+  iceCandidate: "ice_candidate",
 };

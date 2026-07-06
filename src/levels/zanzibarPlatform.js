@@ -768,16 +768,28 @@ export function initZanzibarPlatform(scene, world, config) {
   }
 
   function dispose() {
-    for (const root of sceneRoots) scene.remove(root);
+    for (const root of sceneRoots) {
+      if (scene) scene.remove(root);
+    }
+
+    if (scene && spindleLight) scene.remove(spindleLight);
+    if (scene && boothNeonMeshes) {
+      for (const mesh of boothNeonMeshes) {
+        if (scene) scene.remove(mesh);
+        if (mesh.parent) mesh.parent.remove(mesh);
+      }
+    }
 
     for (const geo of new Set(ownedGeometries)) geo.dispose();
     for (const mat of new Set(ownedMaterials)) disposeMaterial(mat);
     for (const tex of new Set(ownedTextures)) tex.dispose();
 
-    world.removeRigidBody(deck.body);
-    for (const body of booths.bodies) world.removeRigidBody(body);
+    if (world && deck.body) world.removeRigidBody(deck.body);
+    if (world && booths.bodies) {
+      for (const body of booths.bodies) world.removeRigidBody(body);
+    }
 
-    scene.fog = prevFog;
+    if (scene) scene.fog = prevFog;
     config.record.centerHole = prevCenterHole;
   }
 

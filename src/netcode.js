@@ -11,6 +11,7 @@ import { clearNpcCartCache } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { isShatterAnimating } from "./cartShatter.js";
+import * as P2P from "./netcode/p2p.js";
 
 /** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
@@ -574,8 +575,10 @@ export function applyCartState(cart, snap, options = {}) {
     cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
   }
 
-  if (snap.b && !cart._prevRemoteBoosting) {
-    if (triggerRamBoostRef) triggerRamBoostRef(cart, performance.now(), { instant: true });
+  if (snap.b) {
+    // * Continuously extend the timer while the host holds the nitro button.
+    // * This prevents the VFX from cutting out if the host holds it longer than durationSec.
+    cart.ramBoostActiveUntilMs = performance.now() + 150;
   }
   cart.isRamBoosting = snap.b;
   cart.isBoosting = snap.b;
@@ -587,7 +590,15 @@ export function applyCartState(cart, snap, options = {}) {
   cart._prevRemoteHopping = Boolean(snap.h);
 
   if (typeof snap.c === "boolean" && cart.cargoBay) {
-    cart.cargoBay.visible = snap.c;
+    // Only update visibility if the cart has NOT spilled locally.
+    // Once spilled, the local VFX manages visibility until respawn.
+    if (!cart.hasSpilled) {
+      cart.cargoBay.visible = snap.c;
+    } else if (snap.s === false) {
+      // Host says cart respawned (s: false), sync visibility back to true
+      cart.hasSpilled = false;
+      cart.cargoBay.visible = true;
+    }
   }
 
   if (typeof snap.s === "boolean") {
@@ -1064,7 +1075,7 @@ export function startHostSendLoop() {
     if (collisions.length > 0) {
       payload.collisions = collisions;
     }
-    partySocket.send(JSON.stringify(payload));
+    P2P.sendToAll(payload);
   }, intervalMs);
 }
 
@@ -1105,17 +1116,19 @@ export function startInputSendLoop() {
     _lastSentTurn = turn;
     _lastSentAt = now;
 
-    partySocket.send(JSON.stringify({
-      type: MSG.clientInput,
-      seq: inputSeq,
-      tClient: now,
-      input: {
-        throttle: forward,
-        steer: turn,
-        nitro: nitroHeld,
-        hop: hopRequested,
-      },
-    }));
+    if (hostId) {
+      P2P.sendToPeer(hostId, {
+        type: MSG.clientInput,
+        seq: inputSeq,
+        tClient: now,
+        input: {
+          throttle: forward,
+          steer: turn,
+          nitro: nitroHeld,
+          hop: hopRequested,
+        },
+      });
+    }
   }, intervalMs);
 }
 
@@ -1384,6 +1397,15 @@ export function initNetcode(roomOverride) {
     const type = msg.type;
     const menuVisible = callbacks.getMenuVisible();
 
+    if (type === MSG.turnCredentials) {
+      P2P.setTurnServers(msg.servers);
+      return;
+    }
+    if (type === MSG.sdpOffer || type === MSG.sdpAnswer || type === MSG.iceCandidate) {
+      P2P.handleSignalingMessage(msg);
+      return;
+    }
+
     if (type === MSG.joinRejected) {
       try { callbacks.onJoinRejected(); } catch {}
       return;
@@ -1405,6 +1427,28 @@ export function initNetcode(roomOverride) {
       helloReceivedThisSession = true;
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
+
+      if (youConnId) {
+        P2P.initP2P({
+          localId: youConnId,
+          host: Boolean(hostId && youConnId && hostId === youConnId),
+          sendSignal: (m) => {
+            if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+              partySocket.send(JSON.stringify(m));
+            }
+          },
+          onInput: handleRemoteClientInput,
+          onState: handleRemoteP2PMessage
+        });
+        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+          partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
+        }
+
+        if (hostId && youConnId !== hostId) {
+          P2P.initiateP2PConnection(hostId);
+        }
+      }
+
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
       if (msg.round && typeof msg.round === "object") {
         const state = GameState.getRoundState();
@@ -1464,6 +1508,28 @@ export function initNetcode(roomOverride) {
     if (type === MSG.hostMigrated) {
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
       const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
+
+      P2P.closeAllConnections();
+      if (youConnId) {
+        P2P.initP2P({
+          localId: youConnId,
+          host: nextIsHost,
+          sendSignal: (m) => {
+            if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+              partySocket.send(JSON.stringify(m));
+            }
+          },
+          onInput: handleRemoteClientInput,
+          onState: handleRemoteP2PMessage
+        });
+        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+          partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
+        }
+        if (hostId && !nextIsHost) {
+          P2P.initiateP2PConnection(hostId);
+        }
+      }
+
       if (nextIsHost && lastCartsCache) {
         applyCartsSnapshotToBodies(lastCartsCache);
       }
@@ -1584,25 +1650,7 @@ export function initNetcode(roomOverride) {
       return;
     }
 
-    if (type === MSG.state) {
-      if (msg.carts && typeof msg.carts === "object") {
-        lastCartsCache = msg.carts;
-      }
-      if (!isHost) {
-        const serverNowMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : Date.now();
-        if (typeof serverNowMs === "number") {
-          updateServerClockOffset(serverNowMs);
-        }
-        const seq = typeof msg.seq === "number" ? msg.seq : -1;
-        bufferAuthoritativeState(serverNowMs, seq, msg.carts, hostEpoch);
-        if (Array.isArray(msg.collisions)) {
-          for (const ev of msg.collisions) {
-            replayHostCollisionFx(ev, callbacks);
-          }
-        }
-      }
-      return;
-    }
+
 
     if (type === MSG.hostEventCollision) {
       if (isHost) return;
@@ -1655,43 +1703,7 @@ export function initNetcode(roomOverride) {
       return;
     }
 
-    if (type === MSG.clientInput) {
-      if (!isHost) return;
-      const connId = typeof msg.connId === "string" ? msg.connId : null;
-      const input = msg.input;
-      if (!connId || !input || typeof input !== "object") return;
 
-      const throttle = Number.isFinite(input.throttle) ? input.throttle : 0;
-      const steer = Number.isFinite(input.steer) ? input.steer : 0;
-      const nitro = Boolean(input.nitro);
-      const hop = Boolean(input.hop);
-
-      remoteInputsByConnId.set(connId, {
-        throttle: clamp(throttle, -1, 1),
-        steer: clamp(steer, -1, 1),
-        nitro,
-      });
-
-      const was = remoteNitroLatchedByConnId.get(connId) || false;
-      const allCarts = getAllCarts();
-      if (!was && nitro && allCarts && triggerRamBoostRef) {
-        const slotIndex = strictSlotIndexForConn(connId);
-        if (slotIndex >= 0) {
-          const cart = allCarts[slotIndex];
-          if (cart) triggerRamBoostRef(cart, performance.now());
-        }
-      }
-      remoteNitroLatchedByConnId.set(connId, nitro);
-
-      if (hop && allCarts && triggerHopRef) {
-        const slotIndex = strictSlotIndexForConn(connId);
-        if (slotIndex >= 0) {
-          const cart = allCarts[slotIndex];
-          if (cart) triggerHopRef(cart, performance.now());
-        }
-      }
-      return;
-    }
 
     if (type === MSG.round) {
       const r = msg.round;
@@ -1763,29 +1775,7 @@ export function initNetcode(roomOverride) {
       return;
     }
 
-    if (type === MSG.spill) {
-      const carts = getAllCarts();
-      const cart = carts?.[msg.slotId];
 
-      // * Skip duplicate relay if local simulation already triggered VFX for this cart cycle.
-      if (cart?.hasSpilled) return;
-
-      if (cart) cart.hasSpilled = true;
-      if (cart?.cargoBay && msg.cargoBay) cart.cargoBay.visible = false;
-
-      const pos = (msg.pos && typeof msg.pos === "object") ? msg.pos : { x: 0, y: 0, z: 0 };
-      const quat = (msg.quat && typeof msg.quat === "object") ? msg.quat : { x: 0, y: 0, z: 0, w: 1 };
-      const vel = (msg.vel && typeof msg.vel === "object") ? msg.vel : { x: 0, y: 0, z: 0 };
-
-      GroceryPool.triggerSpill(
-        String(msg.slotId),
-        pos,
-        quat,
-        vel,
-        6,
-      );
-      return;
-    }
 
     if (type === MSG.gameStart) {
       const startHandler = callbacks.getOnGameStartHandler();
@@ -1835,6 +1825,10 @@ export function sendPlayAgain() {
   if (partySocket && partySocket.readyState === 1) {
     partySocket.send(JSON.stringify({ type: MSG.playAgain }));
   }
+}
+
+export function sendP2PEvent(payload) {
+  P2P.sendToAll(payload);
 }
 
 function updateServerClockOffset(serverNowMs, nowMs = Date.now()) {
@@ -1896,3 +1890,81 @@ export const __netcodeTestHooks = {
   getServerClockOffset: () => serverClockOffsetMs,
   getClockResyncDueAtMs: () => clockResyncDueAtMs,
 };
+
+function handleRemoteClientInput(input, fromConnId) {
+  if (!isHost) return;
+  if (!fromConnId || !input || typeof input !== "object") return;
+
+  const throttle = Math.max(-1, Math.min(1, Number.isFinite(input.throttle) ? input.throttle : 0));
+  const steer = Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? input.steer : 0));
+  const nitro = Boolean(input.nitro);
+  const hop = Boolean(input.hop);
+
+  remoteInputsByConnId.set(fromConnId, {
+    throttle,
+    steer,
+    nitro,
+  });
+
+  const was = remoteNitroLatchedByConnId.get(fromConnId) || false;
+  const allCarts = getAllCarts();
+  if (!was && nitro && allCarts && triggerRamBoostRef) {
+    const slotIndex = strictSlotIndexForConn(fromConnId);
+    if (slotIndex >= 0) {
+      const cart = allCarts[slotIndex];
+      if (cart) triggerRamBoostRef(cart, performance.now());
+    }
+  }
+  remoteNitroLatchedByConnId.set(fromConnId, nitro);
+
+  if (hop && allCarts && triggerHopRef) {
+    const slotIndex = strictSlotIndexForConn(fromConnId);
+    if (slotIndex >= 0) {
+      const cart = allCarts[slotIndex];
+      if (cart) triggerHopRef(cart, performance.now());
+    }
+  }
+}
+
+function handleRemoteP2PMessage(data) {
+  if (data.type === MSG.hostTransform) {
+    handleRemoteHostState(data);
+  } else if (data.type === MSG.spill) {
+    handleRemoteSpill(data);
+  }
+}
+
+function handleRemoteSpill(msg) {
+  const carts = getAllCarts();
+  const cart = carts?.[msg.slotId];
+  // * Do NOT early return if cart.hasSpilled is true. 
+  // * The host sends this exactly once. If snap.s arrived first, we still need the VFX.
+  // * We only set hasSpilled if it wasn't already, to avoid stepping on respawn logic.
+  if (cart && !cart.hasSpilled) cart.hasSpilled = true;
+  if (cart?.cargoBay && msg.cargoBay) cart.cargoBay.visible = false;
+  
+  GroceryPool.triggerSpill(
+    String(msg.slotId),
+    msg.pos,
+    msg.quat,
+    msg.vel,
+    6,
+  );
+}
+
+function handleRemoteHostState(state) {
+  if (state.carts && typeof state.carts === "object") {
+    lastCartsCache = state.carts;
+  }
+  if (!isHost) {
+    const hostTime = typeof state.tHost === "number" ? state.tHost : (typeof state.serverNowMs === "number" ? state.serverNowMs : Date.now());
+    updateServerClockOffset(hostTime);
+    const seq = typeof state.seq === "number" ? state.seq : -1;
+    bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
+    if (Array.isArray(state.collisions)) {
+      for (const ev of state.collisions) {
+        replayHostCollisionFx(ev, callbacks);
+      }
+    }
+  }
+}

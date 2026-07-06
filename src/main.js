@@ -672,16 +672,16 @@ async function main() {
 
   function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay) {
     if (!Netcode.getIsHost()) return;
-    const socket = Netcode.getPartySocket();
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({
+    // Send over WebRTC DataChannel instead of WebSocket
+    // The host broadcasts this to all non-host peers
+    Netcode.sendP2PEvent({
       type: MSG.spill,
       slotId: slotIndex,
       pos,
       quat,
       vel,
       cargoBay: !!cargoBay,
-    }));
+    });
   }
 
   const gameCtx = createGameContext().registerModules({
