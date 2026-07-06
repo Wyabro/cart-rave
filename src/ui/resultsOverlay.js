@@ -587,6 +587,13 @@ export function initResultsOverlay(hooks = {}) {
         }
       }
 
+      @media (pointer: coarse) and (orientation: portrait) {
+        #results-overlay .results-history {
+          flex: 0 1 auto;
+          max-height: 30vh;
+        }
+      }
+
       @media (pointer: coarse) and (orientation: landscape) {
         #results-overlay .results-body {
           display: grid;

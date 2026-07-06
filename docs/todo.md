@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js`
+- **Recent Technical Work**: Mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,12 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 5, 2026 – Web Fonts, Kill Feed Variety & UI Polish
+- **Web font fix** (`index.html`): Added Bungee and Space Mono to the Google Fonts `<link>` (both primary `media="print" onload` pattern and `<noscript>` fallback). These fonts were referenced in CSS but not loaded, causing fallback to Comic Sans / Courier on the boot splash title, HUD score/rank elements, ready button, volume readout, FPS canvas, and rotate prompt.
+- **Self-death verb variety** (`src/hud.js`, `src/gameFlow.js`, `party/index.ts`): `pickSelfDeathVerb()` exports randomized verbs ("ATE PAVEMENT", "TAPPED OUT", "SELF-DESTRUCTED", "NOPED OUT", "RAGE QUIT") replacing uniform "FELL OFF" for self-death kill feed messages. Server `ALLOWED_FALL_VERBS` updated to match. Wired through `gameFlow.js` fall-detection code paths.
+- **Results overlay responsive sizing** (`src/ui/resultsOverlay.js`): Score name and value fonts now use `clamp()`-based responsive sizing. Match history section overflow changed from `hidden` to `auto` to allow scrolling.
+- **TEST DRIVE removal** (`index.html`, `src/cart-rave-menu.css`, `src/main.js`): Removed unused TEST DRIVE button from menu markup, styles, and JS click handler.
 
 ### July 5, 2026 – Camera Framing & Menu Stats Extraction
 - **Camera framing & viewport extraction** (`src/ui/cameraFraming.js`, `src/main.js`): Extracted `updateCameraFraming()` (FOV math: portrait/wide boost) and `updateViewport()` (pixel ratio, composer size, label renderer, FPS canvas positioning) from `main.js` into new module. Exposed via `createCameraFraming()` factory receiving camera, renderer, composer, passes, and FPS canvas getter. Removed `updateSceneViewport` import from `main.js`.

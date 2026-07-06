@@ -100,6 +100,24 @@ Replace `structuredClone` with a manual, pre-allocated flat-array serializer tha
 ## Completed Work
 Historical record preserved. Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
 
+### July 5, 2026 – Web Fonts, Kill Feed Variety & UI Polish
+**1. Web Font Fix (index.html)** — Verified.
+- Bungee and Space Mono were referenced in CSS `font-family` declarations (boot splash title, HUD score/rank/value elements, ready button, volume readout, FPS canvas, rotate prompt) but were not present in the Google Fonts `<link>`, causing fallback to system fonts (Comic Sans / Courier on Windows).
+- Added `family=Bungee` and `family=Space+Mono:wght@400;700` to the primary `<link>` (line 340, `media="print" onload` pattern) and the `<noscript>` fallback `<link>` (line 341). Combined URL resolves and returns valid `@font-face` blocks for all 7 families (Road Rage, Russo One, Goldman, Michroma, Space Grotesk, Bungee, Space Mono).
+
+**2. Self-Death Verb Variety (hud.js, gameFlow.js, party/index.ts)** — Verified.
+- `pickSelfDeathVerb()` added to `src/hud.js` with 6 randomized verbs ("FELL OFF", "ATE PAVEMENT", "TAPPED OUT", "SELF-DESTRUCTED", "NOPED OUT", "RAGE QUIT").
+- `gameFlow.js` fall-detection code paths now call `pickSelfDeathVerb()` for self-deaths instead of hardcoded "FELL OFF". Wired through `deps.hud` when available, with direct import fallback.
+- Server `ALLOWED_FALL_VERBS` set in `party/index.ts` updated to match the 9 valid verbs (original 4 + new 5).
+
+**3. Results Overlay Responsive Sizing (resultsOverlay.js)** — Verified.
+- Score name font-size: `13px` → `clamp(11px, 2.4vw, 13px)`.
+- Score value font-size: `18px` → `clamp(14px, 3.4vw, 18px)`.
+- Match history section overflow: `hidden` → `auto` (allows scrolling when history exceeds container).
+
+**4. TEST DRIVE Button Removal (index.html, cart-rave-menu.css, main.js)** — Verified.
+- Removed unused TEST DRIVE button from menu markup (`<button class="cr-btn cr-btn--testdrive">` in `index.html`), CSS (`.cr-btn--testdrive` block in `cart-rave-menu.css`), and JS click handler (`action === "testdrive"` branch in `main.js`).
+
 ### July 5, 2026 – Camera Framing & Menu Stats Extraction
 **1. Camera Framing & Viewport Extraction (cameraFraming.js, main.js)** — Verified.
 - Extracted `updateCameraFraming()` (~15 lines: aspect-ratio FOV math with portrait/wide boost clamping) and `updateViewport()` (~15 lines: pixel ratio, composer/resize, label renderer, FPS canvas positioning) from `main.js` into new `src/ui/cameraFraming.js` module.

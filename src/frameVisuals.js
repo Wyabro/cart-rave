@@ -301,7 +301,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       fpsState.canvas = document.createElement("canvas");
       fpsState.canvas.width = 90;
       fpsState.canvas.height = 24;
-      fpsState.canvas.style.cssText = "position:fixed;bottom:8px;left:10px;z-index:99999;pointer-events:none;";
+      fpsState.canvas.style.cssText = "position:fixed;bottom:8px;left:10px;z-index:100;pointer-events:none;";
       document.body.appendChild(fpsState.canvas);
       fpsState.ctx = fpsState.canvas.getContext("2d");
     }
