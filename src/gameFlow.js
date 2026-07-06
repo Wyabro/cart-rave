@@ -38,6 +38,7 @@ import { pickSelfDeathVerb } from "./hud.js";
  * @property {(cart: object, scene: object, neonHex: number) => void} [triggerCartShatter]
  * @property {() => string | null} [getYouConnId]
  * @property {(tier: number, multiplier: number) => void} [setLocalCombo]
+ * @property {(eventData: object) => void} [queueHostFallEvent]
  */
 
 /** @type {boolean} */
@@ -418,9 +419,8 @@ export function updateGameFlow(deps, context) {
               }
             }
 
-            const partySocket = deps.getPartySocket();
-            if (partySocket) {
-              partySocket.send(JSON.stringify({
+            if (typeof deps.queueHostFallEvent === "function") {
+              deps.queueHostFallEvent({
                 type: deps.MSG.hostEventFall,
                 slotId: slotIndex,
                 victimSlotIndex: slotIndex,
@@ -429,7 +429,7 @@ export function updateGameFlow(deps, context) {
                 verb: scoreData.verb,
                 comboTier: scoreData.comboTier ?? 0,
                 comboMultiplier: scoreData.comboMultiplier ?? 1.0,
-              }));
+              });
             }
 
             deps.getLastHitBy().delete(slotIndex);

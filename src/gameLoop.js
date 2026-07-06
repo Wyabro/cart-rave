@@ -9,11 +9,14 @@ export { updateVisualsAndEffects } from "./frameVisuals.js";
 let _npcCache = null;
 /** @type {string | null} */
 let _npcCacheKey = null;
+/** @type {number} */
+let lastReconciledSnapSeq = -1;
 
 /** Clears cached NPC cart refs after session teardown (bodies are removed from Rapier). */
 export function clearNpcCartCache() {
   _npcCache = null;
   _npcCacheKey = null;
+  lastReconciledSnapSeq = -1;
 }
 
 /**
@@ -98,6 +101,11 @@ export function applySlowMoToDt(deps, dt) {
  * @property {(slotIndex: number) => object | null} sampleAuthoritativeCartState
  * @property {(isHost: boolean) => object} getSimulationCallbacks
  * @property {(args: object) => void} runFixedPhysicsStep
+ * @property {() => Array<object>} [getPendingInputs]
+ * @property {(ackSeq: number) => void} [prunePendingInputs]
+ * @property {() => object | null} [getLatestSnap]
+ * @property {(cart: object, snap: object) => void} [applySnapshotToCartBody]
+ * @property {(cart: object) => void} [doRespawn]
  */
 
 /**
@@ -227,8 +235,66 @@ export function runPhysicsStep(loopState, deps, context) {
         loopState.accumulator = 0;
       }
 
-      // 4. Reconciliation: softly correct predicted pose toward host authority.
-      deps.reconcilePredictedLocalCart(localCart, localSlotIndex, dt);
+      // 4. Reconciliation: client-side rewind and replay prediction.
+      const latestSnap = deps.getLatestSnap ? deps.getLatestSnap() : null;
+      if (latestSnap && latestSnap.seq > lastReconciledSnapSeq) {
+        lastReconciledSnapSeq = latestSnap.seq;
+        const cartSnap = (latestSnap.carts && localSlotIndex >= 0) ? latestSnap.carts[localSlotIndex] : null;
+        if (cartSnap && Array.isArray(cartSnap.p) && cartSnap.p.length === 3) {
+          if (localCart._shatterState && deps.doRespawn) {
+            deps.doRespawn(localCart);
+            deps.applySnapshotToCartBody(localCart, cartSnap);
+            const ackSeq = cartSnap.ackSeq || 0;
+            deps.prunePendingInputs(ackSeq);
+            deps.prunePendingInputs(99999999); // Clear all inputs on respawn
+          } else if (cartSnap.s === true) {
+            const ackSeq = cartSnap.ackSeq || 0;
+            deps.prunePendingInputs(ackSeq);
+          } else {
+            const ackSeq = cartSnap.ackSeq || 0;
+            deps.prunePendingInputs(ackSeq);
+
+            // Hard-snap local cart body to host authoritative state
+            deps.applySnapshotToCartBody(localCart, cartSnap);
+
+            // Replay outstanding inputs in sequence
+            const pendingInputs = deps.getPendingInputs ? deps.getPendingInputs() : [];
+            const allCarts = deps.getAllCartsRef();
+            const replayCallbacks = {
+              ...deps.getSimulationCallbacks(false),
+              playCollision: null,
+              spawnTrashBurst: null,
+              onLocalRamImpact: null,
+              onBoostRelease: null,
+              onBoostCancel: null,
+              onSpill: null,
+              triggerHopRef: (cart, nowMs) => {
+                if (!cart?.body) return;
+                if (nowMs - cart.lastHopAtMs < deps.CONFIG.cart.hop.cooldownMs) return;
+                cart.lastHopAtMs = nowMs;
+                cart.body.applyImpulse({ x: 0, y: deps.CONFIG.cart.hop.impulse, z: 0 }, true);
+              },
+            };
+
+            for (let i = 0; i < pendingInputs.length; i++) {
+              const input = pendingInputs[i];
+              deps.runFixedPhysicsStep({
+                world: deps.world,
+                eventQueue: deps.eventQueue,
+                allCarts,
+                localCart,
+                remoteInputs: null,
+                npcs: [],
+                dt: deps.CONFIG.fixedTimeStep,
+                now: performance.now(),
+                isHost: false,
+                callbacks: replayCallbacks,
+                localInputOverride: input.input,
+              });
+            }
+          }
+        }
+      }
     }
   } else {
     // Non-host without prediction (defensive fallback): interpolate all carts from buffer.
@@ -281,6 +347,7 @@ export function createGameLoopState() {
 export function resetGameLoopTiming(loopState) {
   loopState.lastT = performance.now();
   loopState.accumulator = 0;
+  lastReconciledSnapSeq = -1;
 }
 
 /**

@@ -1,5 +1,7 @@
 import { Server, routePartykitRequest, type Connection, type ConnectionContext } from "partyserver";
 
+function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
+
 type SlotId = 0 | 1 | 2 | 3;
 
 type CartState = {
@@ -238,7 +240,7 @@ export class CartRaveServer extends Server {
   }
 
   #serverNowMs() {
-    return Date.now();
+    return getMonotonicNow();
   }
 
   #normalizeLookHex(raw: unknown): number | null {

@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** July 5, 2026
+**Last Updated:** July 6, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -9,10 +9,10 @@
 
 ## Current Status
 
-- **Core Game**: Fully playable host-authoritative multiplayer with client-side prediction
+- **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: WebRTC P2P DataChannel migration (physics state, input, and spill events bypass server relay via `src/netcode/p2p.js`) + Cloudflare Calls TURN credential minting + server reduced to signaling relay + defensive null guards on scene/world across all level dispose paths + Backrooms `roundCuboid` fix (0.15 border radius prevents cart catching on corner void edges) + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal + mobile responsive CSS fixes (results history void, level card overflow, challenges clip, FPS z-index overlap, pause menu collision, level button padding/font, results history font-size/line-height)
+- **Recent Technical Work**: Client-side prediction rewrite (rewind-and-replay replacing soft reconciliation) + monotonic clock adoption (`performance.timeOrigin + performance.now()` replacing `Date.now()` across server and netcode) + host fall event batching + pending input buffer with ackSeq pruning + host ackSeq tracking per connection + WebRTC DataChannel `ordered: false, maxRetransmits: 0` for lower latency + `sendToAll` pre-stringification + simulation `localInputOverride` for prediction replay + WebRTC P2P DataChannel migration (physics state, input, and spill events bypass server relay via `src/netcode/p2p.js`) + Cloudflare Calls TURN credential minting + server reduced to signaling relay + defensive null guards on scene/world across all level dispose paths + Backrooms `roundCuboid` fix (0.15 border radius prevents cart catching on corner void edges) + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal + mobile responsive CSS fixes (results history void, level card overflow, challenges clip, FPS z-index overlap, pause menu collision, level button padding/font, results history font-size/line-height)
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,30 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 6, 2026 – Client Prediction Rewrite & Monotonic Clock
+
+**1. Client-Side Prediction Rewrite: Rewind & Replay (`src/gameLoop.js`, `src/netcode.js`, `src/simulation.js`)** — Verified.
+- Replaced the old `reconcilePredictedLocalCart` (soft lerp correction toward host authority) with a full rewind-and-replay prediction model in `runPhysicsStep()`.
+- On each new authoritative snapshot: hard-snap local cart body to host state → replay all pending inputs through `runFixedPhysicsStep` with disabled side effects (no collision FX, trash bursts, ram impact) → cart ends at locally predicted position, eliminating the soft-correction pop.
+- Shatter/respawn edge case handled: if cart is dead (`_shatterState`), forces `doRespawn` + applies snapshot + clears all pending inputs. If `s: true` (host says dead), only prunes ack'd inputs without replay.
+- Pending input buffer (`pendingInputs[]`) introduced in `src/netcode.js` with `getPendingInputs()`, `prunePendingInputs(ackSeq)`, and `getLatestSnap()` exports. Inputs accumulate in `startInputSendLoop` and are pruned when the host acknowledges them in the snapshot's `ackSeq`.
+- `runFixedPhysicsStep` now accepts an optional `localInputOverride` for replay — feeds pending input data directly bypassing the normal `getAxis()` path. Hop is triggered via `triggerHopRef` callback for replay fidelity.
+- Host tracks `hostLastProcessedInputSeq` per connection and includes `ackSeq` in per-cart snapshots, enabling client-side input pruning.
+- Old prediction tests in `tests/netcode.test.js` skipped (`describe.skip`) and replaced with new pending input buffer tests.
+
+**2. Monotonic Clock Adoption (`party/index.ts`, `src/netcode.js`)** — Verified.
+- Replaced `Date.now()` with `getMonotonicNow()` (`performance.timeOrigin + performance.now()`) in the server and all netcode timekeeping paths: `#serverNowMs()`, `broadcastHostTransform`, `handleRemoteHostState`, `updateServerClockOffset`, `getInterpTargetServerNowMs`.
+- `Date.now()` can drift backward with NTP corrections; `performance.now()` is monotonic and ensures server clock offset math stays stable across re-sync cycles.
+
+**3. Host Fall Event Batching (`src/gameFlow.js`, `src/netcode.js`)** — Verified.
+- Fall events previously sent individually via `partySocket.send()` in the hot physics loop. Now queued via `queueHostFallEvent()` and drained in batch with the next `hostTransform` broadcast.
+- Further reduces server load after the P2P migration — `MSG.hostEventFall` now travels over WebRTC DataChannel inside the `hostTransform` payload's `falls[]` array, completely bypassing the server relay.
+
+**4. WebRTC P2P Latency Improvements (`src/netcode/p2p.js`)** — Verified.
+- DataChannel now created with `{ ordered: false, maxRetransmits: 0 }` for lowest-latency unordered delivery of real-time game state (dropped packets are acceptable for 20Hz transform streams).
+- `sendToAll()` handles pre-stringified payloads (`typeof data === "string"` check) to avoid double serialization when forwarding host state.
+- Input handler now receives sequence number (`data.seq`) for ack tracking on the host side.
 
 ### July 5, 2026 – Web Fonts, Kill Feed Variety & UI Polish
 - **Web font fix** (`index.html`): Added Bungee and Space Mono to the Google Fonts `<link>` (both primary `media="print" onload` pattern and `<noscript>` fallback). These fonts were referenced in CSS but not loaded, causing fallback to Comic Sans / Courier on the boot splash title, HUD score/rank elements, ready button, volume readout, FPS canvas, and rotate prompt.
@@ -285,4 +309,4 @@ Tracked in [ROADMAP.md](./ROADMAP.md) and [post-jam-ideas.md](./post-jam-ideas.m
 
 ---
 
-**Last Updated:** July 5, 2026
+**Last Updated:** July 6, 2026

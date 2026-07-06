@@ -2011,6 +2011,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
  * @param {number} params.now Current time in milliseconds.
  * @param {boolean} params.isHost Whether this client runs authoritative physics.
  * @param {object} [params.callbacks] Injected helpers (getAxis, FX, collider handles, etc.).
+ * @param {object|null} [params.localInputOverride] Optional input override for client-side prediction replay.
  */
 export function runFixedPhysicsStep({
   world,
@@ -2023,6 +2024,7 @@ export function runFixedPhysicsStep({
   now,
   isHost,
   callbacks = {},
+  localInputOverride = null,
 }) {
   const getAxis = callbacks.getAxis || (() => ({ forward: 0, turn: 0 }));
   const getAiAxis = callbacks.getAiAxis || null;
@@ -2040,15 +2042,27 @@ export function runFixedPhysicsStep({
 
   // 1. Local player
   if (localCart && !localCart.isSuddenDeathSpectator) {
-    const axis = getAxis();
-    // * Driving input is locked outside the running phase so carts cannot be
-    // * throttle/turn/nitro-driven during countdown, lobby, or podium. Hop is
-    // * gated separately in main.js input handlers. Remote inputs are only
-    // * received during running (host ignores client_input otherwise).
-    const canDrive = GameState.getRoundState().phase === "running";
-    if (!canDrive) {
-      axis.forward = 0;
-      axis.turn = 0;
+    let axis;
+    if (localInputOverride) {
+      axis = {
+        forward: localInputOverride.throttle ?? 0,
+        turn: localInputOverride.steer ?? 0,
+        boostHeld: localInputOverride.nitro ?? false,
+      };
+      if (localInputOverride.hop && callbacks.triggerHopRef) {
+        callbacks.triggerHopRef(localCart, now);
+      }
+    } else {
+      axis = getAxis();
+      // * Driving input is locked outside the running phase so carts cannot be
+      // * throttle/turn/nitro-driven during countdown, lobby, or podium. Hop is
+      // * gated separately in main.js input handlers. Remote inputs are only
+      // * received during running (host ignores client_input otherwise).
+      const canDrive = GameState.getRoundState().phase === "running";
+      if (!canDrive) {
+        axis.forward = 0;
+        axis.turn = 0;
+      }
     }
     // * Populate scratch once for this cart; applyArcadeControls + its sub-helpers all
     // * read pos/rot/angvel from the cache (stable across the pass — no world.step() runs

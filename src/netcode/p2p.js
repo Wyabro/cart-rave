@@ -135,7 +135,7 @@ export async function initiateP2PConnection(connId) {
   if (peerConnections.has(connId)) return;
 
   const pc = createPeerConnection(connId);
-  const dc = pc.createDataChannel("physics");
+  const dc = pc.createDataChannel("physics", { ordered: false, maxRetransmits: 0 });
   setupDataChannel(dc, connId);
 
   const offer = await pc.createOffer();
@@ -224,7 +224,7 @@ function setupDataChannel(dc, connId) {
     try {
       const data = JSON.parse(event.data);
       if (isHost && data.type === MSG.clientInput && onInputCallback) {
-        onInputCallback(data.input, connId);
+        onInputCallback(data.input, connId, data.seq);
       } else if (!isHost && data.type === MSG.hostTransform && onStateCallback) {
         onStateCallback(data);
       }
@@ -259,7 +259,7 @@ export function sendToPeer(targetConnId, data) {
  * @param {object} data
  */
 export function sendToAll(data) {
-  const payload = JSON.stringify(data);
+  const payload = typeof data === "string" ? data : JSON.stringify(data);
   for (const dc of dataChannels.values()) {
     if (dc.readyState === "open") {
       dc.send(payload);

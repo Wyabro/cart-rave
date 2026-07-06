@@ -2546,6 +2546,7 @@ async function main() {
     sendHostRound: () => Netcode.sendHostRound(),
     getPartySocket: () => Netcode.getPartySocket(),
     MSG,
+    queueHostFallEvent: Netcode.queueHostFallEvent,
     setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
     getYouConnId: () => Netcode.getYouConnId(),
     getScene: () => scene,
@@ -2621,6 +2622,11 @@ async function main() {
     sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
     runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
     getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),
+    getPendingInputs: () => Netcode.getPendingInputs(),
+    prunePendingInputs: (ackSeq) => Netcode.prunePendingInputs(ackSeq),
+    getLatestSnap: () => Netcode.getLatestSnap(),
+    applySnapshotToCartBody: (cart, snap) => Netcode.applySnapshotToCartBody(cart, snap),
+    doRespawn: Entities.doRespawn,
   };
 
   gameCtx.attachDeps({

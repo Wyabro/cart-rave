@@ -13,6 +13,8 @@ import { settingsStore } from "./stores/settingsStore.js";
 import { isShatterAnimating } from "./cartShatter.js";
 import * as P2P from "./netcode/p2p.js";
 
+function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
+
 /** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
 const _interpToQ = new THREE.Quaternion();
@@ -53,6 +55,8 @@ let netStateBuffer = [];
 
 let remoteInputsByConnId = new Map();
 let remoteNitroLatchedByConnId = new Map();
+let hostLastProcessedInputSeq = new Map();
+export let pendingInputs = [];
 
 let hostSendTimer = null;
 let inputSendTimer = null;
@@ -78,6 +82,19 @@ let doRespawnRef = null;
 let netSlots = [];
 let lastSlotsJson = "";
 let lastSlotsServerMs = 0;
+
+let pendingHostFallEvents = [];
+
+export function queueHostFallEvent(eventData) {
+  pendingHostFallEvents.push(eventData);
+}
+
+function drainHostFallBatch() {
+  const batch = pendingHostFallEvents;
+  pendingHostFallEvents = [];
+  return batch;
+}
+
 
 
 
@@ -348,7 +365,7 @@ export function shouldUseClientPrediction() {
 
 /** Server clock time used for interpolating authoritative snapshots on non-host clients. */
 function getInterpTargetServerNowMs() {
-  return Date.now() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
+  return getMonotonicNow() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
 }
 
 function pruneNetStateBufferForEpoch() {
@@ -380,7 +397,7 @@ function findSnapshotPair(targetServerNowMs) {
   };
 }
 
-function applySnapshotToCartBody(cart, snap) {
+export function applySnapshotToCartBody(cart, snap) {
   if (!cart?.body || !snap) return;
   const { p, q, lv, av } = snap;
   if (Array.isArray(p) && p.length === 3) {
@@ -726,148 +743,7 @@ export function syncRemoteCartBodiesForPrediction(localSlotIndex) {
  * @param {number} dtSec Frame delta time in seconds.
  */
 export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
-  if (!cart?.body || localSlotIndex < 0) return;
-  // * Sample the most recent snapshot regardless of interp delay.
-  const latestSnap = netStateBuffer.length > 0
-    ? netStateBuffer[netStateBuffer.length - 1]
-    : null;
-  const latestCartSnap = latestSnap ? getCartSnap(latestSnap.carts, localSlotIndex) : null;
-  const auth = latestCartSnap
-    ? {
-        p: latestCartSnap.p,
-        q: latestCartSnap.q,
-        lv: latestCartSnap.lv,
-        av: latestCartSnap.av,
-        s: latestCartSnap.s,
-      }
-    : sampleAuthoritativeCartState(localSlotIndex);
-  if (!auth || !Array.isArray(auth.p) || auth.p.length !== 3) return;
-
-  // * Respect host-authoritative spilled state. If host says cart is dead (s: true),
-  // * skip reconciliation entirely — local prediction and gameFlow handle the death
-  // * and local respawn timer without the host dragging the cart back into the pit.
-  if (auth.s === true) {
-    // Host says cart is dead. Skip reconciliation entirely — let local gameFlow handle the death.
-    return;
-  }
-
-  // * While the local death VFX is still playing, an s:false sample is a stale
-  // * pre-death snapshot (host_event_fall applies immediately, transforms lag one
-  // * network hop) — not a respawn. Treat it like the dead window above.
-  if (isShatterAnimating(cart, performance.now())) return;
-
-  // Host says cart is alive (s: false).
-  const wasSpilled = cart.hasSpilled;
-  cart.hasSpilled = false;
-
-  if (cart._shatterState) {
-    // * RESPAWN TRANSITION: the host revived the cart after the death VFX finished.
-    // * Run the same local respawn as the host (cleanupShatter + visual rebuild +
-    // * transient reset), then snap to the host transform to break out of the pit.
-    doRespawnRef?.(cart);
-    applySnapshotToCartBody(cart, auth);
-    // Return early on this specific frame so we don't immediately lerp away from the spawn point.
-    return;
-  }
-  if (wasSpilled && cart.cargoBay) {
-    // * Spilled-but-never-shattered respawn (e.g. stuck-respawn of a tipped cart):
-    // * restore the cargo bay hidden by the spill VFX; position converges below.
-    cart.cargoBay.visible = true;
-  }
-
-  // Normal smooth reconciliation (yaw-only, velocity blending) falls through here.
-
-  const cfg = CONFIG.net.prediction;
-  const predT = cart.body.translation();
-  const predR = cart.body.rotation();
-  const predLv = cart.body.linvel();
-  const predAv = cart.body.angvel();
-
-  const dx = auth.p[0] - predT.x;
-  const dy = auth.p[1] - predT.y;
-  const dz = auth.p[2] - predT.z;
-  const errMag = Math.hypot(dx, dy, dz);
-
-  if (errMag > cfg.maxCorrectionM) {
-    applySnapshotToCartBody(cart, auth);
-    return;
-  }
-  if (errMag < cfg.minErrorM) return;
-
-  const posAlpha = 1 - Math.exp(-cfg.reconcilePosRate * dtSec);
-  cart.body.setTranslation({
-    x: predT.x + dx * posAlpha,
-    y: predT.y + dy * posAlpha,
-    z: predT.z + dz * posAlpha,
-  }, true);
-
-  if (Array.isArray(auth.q) && auth.q.length === 4) {
-    _reconcilePredQ.set(predR.x, predR.y, predR.z, predR.w);
-    _reconcileAuthQ.set(auth.q[0], auth.q[1], auth.q[2], auth.q[3]);
-    const rotAlpha = 1 - Math.exp(-cfg.reconcileRotRate * dtSec);
-
-    // * Yaw-only reconciliation: client and host physics produce slightly different
-    // * pitch/roll (suspension, friction accumulation), so slerping the full quaternion
-    // * visibly pops the cart on axes the player never steered. Correct only heading and
-    // * let the local physics own pitch/roll — UNLESS the two orientations genuinely
-    // * disagree about which way is up (host says flipped, we say upright); then fall
-    // * back to the full slerp so the flip state converges.
-    let usedYawOnly = false;
-    if (cfg.yawOnlyReconcile) {
-      _reconcileUpPred.set(0, 1, 0).applyQuaternion(_reconcilePredQ);
-      _reconcileUpAuth.set(0, 1, 0).applyQuaternion(_reconcileAuthQ);
-      if (_reconcileUpPred.dot(_reconcileUpAuth) >= 0.6) {
-        _reconcileFwdPred.set(0, 0, -1).applyQuaternion(_reconcilePredQ);
-        _reconcileFwdAuth.set(0, 0, -1).applyQuaternion(_reconcileAuthQ);
-        _reconcileFwdPred.y = 0;
-        _reconcileFwdAuth.y = 0;
-        // * Skip heading correction while either nose points near-vertical — the XZ
-        // * projection degenerates and the yaw angle becomes noise.
-        if (_reconcileFwdPred.lengthSq() > 1e-6 && _reconcileFwdAuth.lengthSq() > 1e-6) {
-          _reconcileFwdPred.normalize();
-          _reconcileFwdAuth.normalize();
-          const cross = _reconcileFwdPred.x * _reconcileFwdAuth.z - _reconcileFwdPred.z * _reconcileFwdAuth.x;
-          const dot = _reconcileFwdPred.dot(_reconcileFwdAuth);
-          const yawErr = Math.atan2(-cross, dot); // signed heading error about +Y
-          _reconcileYawQ.setFromAxisAngle(_reconcileYAxis, yawErr * rotAlpha);
-          _reconcilePredQ.premultiply(_reconcileYawQ);
-          cart.body.setRotation({
-            x: _reconcilePredQ.x,
-            y: _reconcilePredQ.y,
-            z: _reconcilePredQ.z,
-            w: _reconcilePredQ.w,
-          }, true);
-          usedYawOnly = true;
-        }
-      }
-    }
-    if (!usedYawOnly) {
-      _reconcilePredQ.slerp(_reconcileAuthQ, rotAlpha);
-      cart.body.setRotation({
-        x: _reconcilePredQ.x,
-        y: _reconcilePredQ.y,
-        z: _reconcilePredQ.z,
-        w: _reconcilePredQ.w,
-      }, true);
-    }
-  }
-
-  if (Array.isArray(auth.lv) && auth.lv.length === 3) {
-    const velAlpha = 1 - Math.exp(-cfg.reconcileVelRate * dtSec);
-    cart.body.setLinvel({
-      x: predLv.x + (auth.lv[0] - predLv.x) * velAlpha,
-      y: predLv.y + (auth.lv[1] - predLv.y) * velAlpha,
-      z: predLv.z + (auth.lv[2] - predLv.z) * velAlpha,
-    }, true);
-  }
-  if (Array.isArray(auth.av) && auth.av.length === 3) {
-    const velAlpha = 1 - Math.exp(-cfg.reconcileVelRate * dtSec);
-    cart.body.setAngvel({
-      x: predAv.x + (auth.av[0] - predAv.x) * velAlpha,
-      y: predAv.y + (auth.av[1] - predAv.y) * velAlpha,
-      z: predAv.z + (auth.av[2] - predAv.z) * velAlpha,
-    }, true);
-  }
+  // Deprecated: client-side prediction reconciliation is now handled via inline rewind-and-replay in gameLoop.js
 }
 
 function applyCartsSnapshotToBodies(carts) {
@@ -947,6 +823,50 @@ function replayHostCollisionFx(msg, callbacks) {
   }
 }
 
+function processHostFallEvent(msg) {
+  if (isHost) return;
+  const toCssHex = (n) => typeof n === "number" ? '#' + n.toString(16).padStart(6, '0') : (n ?? null);
+  const victimSlot = netSlots[msg.slotId];
+  const targetName = victimSlot?.name || `P${(msg.slotId ?? 0) + 1}`;
+  const targetColorHex = callbacks.colorHexForSlot(victimSlot);
+  const targetColor = toCssHex(targetColorHex);
+  if (msg.attackerSlot != null) {
+    const attackerSlot = netSlots[msg.attackerSlot];
+    const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
+    const actorColorHex = callbacks.colorHexForSlot(attackerSlot);
+    const actorColor = toCssHex(actorColorHex);
+    callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor, msg.comboTier, msg.comboMultiplier);
+
+    const localSlotIdx = strictSlotIndexForConn(youConnId);
+    if (msg.attackerSlot === localSlotIdx && msg.comboTier != null) {
+      GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
+    }
+  } else {
+    callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);
+  }
+  // * Replay the shatter + explosion VFX on non-host clients so everyone sees
+  // * the same death pop. The host triggers it locally in gameFlow.js.
+  const slotIdx = typeof msg.slotId === "number" ? msg.slotId : null;
+  if (slotIdx != null) {
+    const carts = getAllCarts();
+    const victimCart = carts?.[slotIdx];
+    if (victimCart?.mesh) {
+      const scene = callbacks.getSceneRef?.();
+      if (scene) {
+        const shatterFn = triggerCartShatterRef || callbacks.triggerCartShatterRef;
+        let numericHex = 0xffffff;
+        if (typeof targetColorHex === "number" && !Number.isNaN(targetColorHex)) {
+          numericHex = targetColorHex & 0xffffff;
+        } else if (typeof targetColorHex === "string") {
+          const parsed = parseInt(targetColorHex.replace(/^#/, ""), 16);
+          if (!Number.isNaN(parsed)) numericHex = parsed & 0xffffff;
+        }
+        shatterFn?.(victimCart, scene, numericHex);
+      }
+    }
+  }
+}
+
 function stopHostSendLoop() {
   if (hostSendTimer) clearInterval(hostSendTimer);
   hostSendTimer = null;
@@ -1000,6 +920,8 @@ export function disconnectPartySession() {
   lastCartsCache = null;
   remoteInputsByConnId = new Map();
   remoteNitroLatchedByConnId = new Map();
+  hostLastProcessedInputSeq = new Map();
+  pendingInputs = [];
 }
 
 /**
@@ -1057,11 +979,20 @@ export function startHostSendLoop() {
 
     for (let i = 0; i < allCarts.length; i++) {
       const c = allCarts[i];
-      if (c) carts[i] = serializeCartToWire(c);
+      if (c) {
+        const serialized = serializeCartToWire(c);
+        if (serialized) {
+          const slot = netSlots[i];
+          const connId = slot?.connId;
+          serialized.ackSeq = connId ? (hostLastProcessedInputSeq.get(connId) || 0) : 0;
+          carts[i] = serialized;
+        }
+      }
     }
 
     lastCartsCache = carts;
     const collisions = drainHostCollisionBatch();
+    const falls = drainHostFallBatch();
     const currentLevelId = (typeof localStorage !== "undefined" ? localStorage.getItem("cartRaveLevel") : null) || "classicRecord";
     const payload = {
       type: MSG.hostTransform,
@@ -1069,13 +1000,17 @@ export function startHostSendLoop() {
       levelId: currentLevelId,
       // * Host wall-clock stamp. The server ignores any client-supplied serverNowMs and
       // * stamps its own on the MSG.state rebroadcast; tHost is relayed for diagnostics.
-      tHost: Date.now(),
+      tHost: getMonotonicNow(),
       carts,
     };
     if (collisions.length > 0) {
       payload.collisions = collisions;
     }
-    P2P.sendToAll(payload);
+    if (falls.length > 0) {
+      payload.falls = falls;
+    }
+    const payloadStr = JSON.stringify(payload);
+    P2P.sendToAll(payloadStr);
   }, intervalMs);
 }
 
@@ -1093,7 +1028,7 @@ export function startInputSendLoop() {
     if (!partySocket || isHost || !getAxisRef) return;
 
     const axis = getAxisRef();
-    const now = Date.now();
+    const now = getMonotonicNow();
     const forward = Number.isFinite(axis.forward) ? axis.forward : 0;
     const turn = Number.isFinite(axis.turn) ? axis.turn : 0;
     const nitroHeld = isNitroHeldRef ? isNitroHeldRef() : false;
@@ -1116,17 +1051,24 @@ export function startInputSendLoop() {
     _lastSentTurn = turn;
     _lastSentAt = now;
 
+    const inputFrame = {
+      throttle: forward,
+      steer: turn,
+      nitro: nitroHeld,
+      hop: hopRequested,
+    };
+
+    pendingInputs.push({
+      seq: inputSeq,
+      input: inputFrame,
+    });
+
     if (hostId) {
       P2P.sendToPeer(hostId, {
         type: MSG.clientInput,
         seq: inputSeq,
         tClient: now,
-        input: {
-          throttle: forward,
-          steer: turn,
-          nitro: nitroHeld,
-          hop: hopRequested,
-        },
+        input: inputFrame,
       });
     }
   }, intervalMs);
@@ -1162,6 +1104,8 @@ export function setAuthorityMode(nextIsHost) {
     inputSeq = 0;
     remoteInputsByConnId.clear();
     remoteNitroLatchedByConnId.clear();
+    hostLastProcessedInputSeq.clear();
+    pendingInputs = [];
 
     if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
     resetSimTimingRef?.current?.();
@@ -1536,6 +1480,8 @@ export function initNetcode(roomOverride) {
       clearHostCollisionBatch();
       remoteInputsByConnId.clear();
       remoteNitroLatchedByConnId.clear();
+      hostLastProcessedInputSeq.clear();
+      pendingInputs = [];
       inputSeq = 0;
       setAuthorityMode(nextIsHost);
       if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + CONFIG.net.hostMigrationFreezeMs;
@@ -1659,47 +1605,7 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.hostEventFall) {
-      if (isHost) return;
-      const toCssHex = (n) => typeof n === "number" ? '#' + n.toString(16).padStart(6, '0') : (n ?? null);
-      const victimSlot = netSlots[msg.slotId];
-      const targetName = victimSlot?.name || `P${(msg.slotId ?? 0) + 1}`;
-      const targetColorHex = callbacks.colorHexForSlot(victimSlot);
-      const targetColor = toCssHex(targetColorHex);
-      if (msg.attackerSlot != null) {
-        const attackerSlot = netSlots[msg.attackerSlot];
-        const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
-        const actorColorHex = callbacks.colorHexForSlot(attackerSlot);
-        const actorColor = toCssHex(actorColorHex);
-        callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor, msg.comboTier, msg.comboMultiplier);
-
-        const localSlotIdx = strictSlotIndexForConn(youConnId);
-        if (msg.attackerSlot === localSlotIdx && msg.comboTier != null) {
-          GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
-        }
-      } else {
-        callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);
-      }
-      // * Replay the shatter + explosion VFX on non-host clients so everyone sees
-      // * the same death pop. The host triggers it locally in gameFlow.js.
-      const slotIdx = typeof msg.slotId === "number" ? msg.slotId : null;
-      if (slotIdx != null) {
-        const carts = getAllCarts();
-        const victimCart = carts?.[slotIdx];
-        if (victimCart?.mesh) {
-          const scene = callbacks.getSceneRef?.();
-          if (scene) {
-            const shatterFn = triggerCartShatterRef || callbacks.triggerCartShatterRef;
-            let numericHex = 0xffffff;
-            if (typeof targetColorHex === "number" && !Number.isNaN(targetColorHex)) {
-              numericHex = targetColorHex & 0xffffff;
-            } else if (typeof targetColorHex === "string") {
-              const parsed = parseInt(targetColorHex.replace(/^#/, ""), 16);
-              if (!Number.isNaN(parsed)) numericHex = parsed & 0xffffff;
-            }
-            shatterFn?.(victimCart, scene, numericHex);
-          }
-        }
-      }
+      processHostFallEvent(msg);
       return;
     }
 
@@ -1797,7 +1703,7 @@ export function broadcastHostTransform(carts) {
   partySocket.send(JSON.stringify({
     type: MSG.hostTransform,
     seq: hostSeq,
-    tHost: Date.now(),
+    tHost: getMonotonicNow(),
     carts: lastCartsCache,
   }));
 }
@@ -1831,7 +1737,7 @@ export function sendP2PEvent(payload) {
   P2P.sendToAll(payload);
 }
 
-function updateServerClockOffset(serverNowMs, nowMs = Date.now()) {
+function updateServerClockOffset(serverNowMs, nowMs = getMonotonicNow()) {
   if (typeof serverNowMs !== "number") return;
   const sample = nowMs - serverNowMs;
   if (serverClockOffsetSamples < 3) {
@@ -1891,7 +1797,7 @@ export const __netcodeTestHooks = {
   getClockResyncDueAtMs: () => clockResyncDueAtMs,
 };
 
-function handleRemoteClientInput(input, fromConnId) {
+function handleRemoteClientInput(input, fromConnId, seq) {
   if (!isHost) return;
   if (!fromConnId || !input || typeof input !== "object") return;
 
@@ -1899,6 +1805,11 @@ function handleRemoteClientInput(input, fromConnId) {
   const steer = Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? input.steer : 0));
   const nitro = Boolean(input.nitro);
   const hop = Boolean(input.hop);
+
+  if (typeof seq === "number") {
+    const existingSeq = hostLastProcessedInputSeq.get(fromConnId) || 0;
+    hostLastProcessedInputSeq.set(fromConnId, Math.max(existingSeq, seq));
+  }
 
   remoteInputsByConnId.set(fromConnId, {
     throttle,
@@ -1957,7 +1868,7 @@ function handleRemoteHostState(state) {
     lastCartsCache = state.carts;
   }
   if (!isHost) {
-    const hostTime = typeof state.tHost === "number" ? state.tHost : (typeof state.serverNowMs === "number" ? state.serverNowMs : Date.now());
+    const hostTime = typeof state.tHost === "number" ? state.tHost : (typeof state.serverNowMs === "number" ? state.serverNowMs : getMonotonicNow());
     updateServerClockOffset(hostTime);
     const seq = typeof state.seq === "number" ? state.seq : -1;
     bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
@@ -1966,5 +1877,22 @@ function handleRemoteHostState(state) {
         replayHostCollisionFx(ev, callbacks);
       }
     }
+    if (Array.isArray(state.falls)) {
+      for (const ev of state.falls) {
+        processHostFallEvent(ev);
+      }
+    }
   }
+}
+
+export function getPendingInputs() {
+  return pendingInputs;
+}
+
+export function prunePendingInputs(ackSeq) {
+  pendingInputs = pendingInputs.filter(item => item.seq > ackSeq);
+}
+
+export function getLatestSnap() {
+  return netStateBuffer.length > 0 ? netStateBuffer[netStateBuffer.length - 1] : null;
 }
