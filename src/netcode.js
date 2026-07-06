@@ -12,6 +12,7 @@ import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { isShatterAnimating } from "./cartShatter.js";
 import * as P2P from "./netcode/p2p.js";
+import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/binary.js";
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
@@ -1009,69 +1010,50 @@ export function startHostSendLoop() {
     if (falls.length > 0) {
       payload.falls = falls;
     }
-    const payloadStr = JSON.stringify(payload);
-    P2P.sendToAll(payloadStr);
+    const binaryPayload = encodeHostStateSnapshot(payload);
+    P2P.sendToAll(binaryPayload);
   }, intervalMs);
 }
 
 export function startInputSendLoop() {
-  stopInputSendLoop();
-  if (!partySocket || isHost || !getAxisRef) return;
+  // No-op: input sampling is now handled directly by the 60Hz physics loop via sampleLocalInputForTick.
+}
 
-  let _lastSentForward = 0;
-  let _lastSentTurn = 0;
-  let _lastSentNitro = false;
-  let _lastSentAt = 0;
+export function sampleLocalInputForTick() {
+  if (!partySocket || isHost || !getAxisRef) return null;
 
-  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.clientInputHz));
-  inputSendTimer = setInterval(() => {
-    if (!partySocket || isHost || !getAxisRef) return;
+  const axis = getAxisRef();
+  const forward = Number.isFinite(axis.forward) ? axis.forward : 0;
+  const turn = Number.isFinite(axis.turn) ? axis.turn : 0;
+  const nitroHeld = isNitroHeldRef ? isNitroHeldRef() : false;
+  const hopRequested = consumeHopRequest();
 
-    const axis = getAxisRef();
-    const now = getMonotonicNow();
-    const forward = Number.isFinite(axis.forward) ? axis.forward : 0;
-    const turn = Number.isFinite(axis.turn) ? axis.turn : 0;
-    const nitroHeld = isNitroHeldRef ? isNitroHeldRef() : false;
-    const hopRequested = consumeHopRequest();
+  inputSeq += 1;
 
-    // * Suppress duplicate frames — send on axis change, nitro EDGE (press or release),
-    // * hop, or the 100ms heartbeat. Nitro release must go out immediately: the host's
-    // * charge-boost burst is proportional to hold time, so a heartbeat-delayed release
-    // * would add up to 100ms of phantom charge. While held with nothing else changing,
-    // * the heartbeat is enough — the host latches nitro from the last received input.
-    const heartbeatMs = 100;
-    const axisChanged = forward !== _lastSentForward || turn !== _lastSentTurn;
-    const nitroChanged = nitroHeld !== _lastSentNitro;
-    const heartbeatDue = now - _lastSentAt >= heartbeatMs;
-    if (!axisChanged && !nitroChanged && !heartbeatDue && !hopRequested) return;
+  const inputFrame = {
+    throttle: forward,
+    steer: turn,
+    nitro: nitroHeld,
+    hop: hopRequested,
+  };
 
-    inputSeq += 1;
-    _lastSentForward = forward;
-    _lastSentNitro = nitroHeld;
-    _lastSentTurn = turn;
-    _lastSentAt = now;
+  const nowMs = performance.now();
+  pendingInputs.push({
+    seq: inputSeq,
+    input: inputFrame,
+    tClient: nowMs,
+  });
 
-    const inputFrame = {
-      throttle: forward,
-      steer: turn,
-      nitro: nitroHeld,
-      hop: hopRequested,
-    };
-
-    pendingInputs.push({
+  if (hostId) {
+    P2P.sendToPeer(hostId, {
+      type: MSG.clientInput,
       seq: inputSeq,
+      tClient: nowMs,
       input: inputFrame,
     });
+  }
 
-    if (hostId) {
-      P2P.sendToPeer(hostId, {
-        type: MSG.clientInput,
-        seq: inputSeq,
-        tClient: now,
-        input: inputFrame,
-      });
-    }
-  }, intervalMs);
+  return inputFrame;
 }
 
 function startKeepaliveLoop() {
@@ -1382,7 +1364,7 @@ export function initNetcode(roomOverride) {
             }
           },
           onInput: handleRemoteClientInput,
-          onState: handleRemoteP2PMessage
+          onState: handleP2PMessage
         });
         if (partySocket && partySocket.readyState === WebSocket.OPEN) {
           partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
@@ -1464,7 +1446,7 @@ export function initNetcode(roomOverride) {
             }
           },
           onInput: handleRemoteClientInput,
-          onState: handleRemoteP2PMessage
+          onState: handleP2PMessage
         });
         if (partySocket && partySocket.readyState === WebSocket.OPEN) {
           partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
@@ -1700,12 +1682,12 @@ export function broadcastHostTransform(carts) {
   if (!partySocket || !isHost) return;
   hostSeq += 1;
   lastCartsCache = carts;
-  partySocket.send(JSON.stringify({
+  P2P.sendToAll({
     type: MSG.hostTransform,
     seq: hostSeq,
     tHost: getMonotonicNow(),
     carts: lastCartsCache,
-  }));
+  });
 }
 
 export function sendHostRound() {
@@ -1834,6 +1816,17 @@ function handleRemoteClientInput(input, fromConnId, seq) {
       const cart = allCarts[slotIndex];
       if (cart) triggerHopRef(cart, performance.now());
     }
+  }
+}
+
+function handleP2PMessage(data) {
+  if (data instanceof ArrayBuffer) {
+    const decoded = decodeHostStateSnapshot(data);
+    if (decoded) {
+      handleRemoteP2PMessage(decoded);
+    }
+  } else {
+    handleRemoteP2PMessage(data);
   }
 }
 

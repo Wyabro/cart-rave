@@ -14,6 +14,7 @@ import {
   getLatestSnap,
 } from "../src/netcode.js";
 import { CONFIG } from "../src/config.js";
+import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "../src/netcode/binary.js";
 
 /** Builds a per-slot snapshot array with one cart at the given pose. */
 function snap(x, y, z, extra = {}) {
@@ -304,6 +305,87 @@ describe("Clock Drift Resync", () => {
     // Verify clock offset adjusted by exactly 20% (80ms out of 400ms delta) towards new median
     const expectedOffset = baselineOffset * 0.8 + (-500) * 0.2;
     expect(newOffset).toBe(expectedOffset);
+  });
+});
+
+describe("Binary snapshot serialization", () => {
+  it("successfully round-trips a host state snapshot through encode/decode", () => {
+    const original = {
+      seq: 12345,
+      tHost: 123456.75,
+      carts: [
+        {
+          p: [1.23, -4.56, 7.89],
+          q: [0.1, 0.2, 0.3, 0.9],
+          lv: [-1.1, 2.2, -3.3],
+          av: [0.5, 0, 0],
+          ackSeq: 42,
+          b: true,
+          h: false,
+          c: true,
+          s: false,
+        },
+        {
+          p: [10.11, 12.13, 14.15],
+          q: [0.5, 0.5, 0.5, 0.5],
+          lv: [1.1, 2.2, 3.3],
+          av: [-0.8, 0, 0],
+          ackSeq: 99,
+          b: false,
+          h: true,
+          c: false,
+          s: true,
+        }
+      ],
+      collisions: [
+        { intensity: 0.8, midpoint: { x: 1, y: 2, z: 3 }, slotB: 2 }
+      ],
+      falls: [
+        { slotId: 1, respawnAtMs: 1234567 }
+      ]
+    };
+
+    const buffer = encodeHostStateSnapshot(original);
+    expect(buffer).toBeInstanceOf(ArrayBuffer);
+
+    const decoded = decodeHostStateSnapshot(buffer);
+    expect(decoded.type).toBe("hostTransform");
+    expect(decoded.seq).toBe(original.seq);
+    expect(decoded.tHost).toBeCloseTo(original.tHost, 2);
+    expect(decoded.carts).toHaveLength(2);
+
+    // Cart 0 assertions
+    expect(decoded.carts[0].p[0]).toBeCloseTo(original.carts[0].p[0], 3);
+    expect(decoded.carts[0].p[1]).toBeCloseTo(original.carts[0].p[1], 3);
+    expect(decoded.carts[0].p[2]).toBeCloseTo(original.carts[0].p[2], 3);
+    expect(decoded.carts[0].q[0]).toBeCloseTo(original.carts[0].q[0], 3);
+    expect(decoded.carts[0].q[1]).toBeCloseTo(original.carts[0].q[1], 3);
+    expect(decoded.carts[0].q[2]).toBeCloseTo(original.carts[0].q[2], 3);
+    expect(decoded.carts[0].q[3]).toBeCloseTo(original.carts[0].q[3], 3);
+    expect(decoded.carts[0].lv[0]).toBeCloseTo(original.carts[0].lv[0], 3);
+    expect(decoded.carts[0].lv[1]).toBeCloseTo(original.carts[0].lv[1], 3);
+    expect(decoded.carts[0].lv[2]).toBeCloseTo(original.carts[0].lv[2], 3);
+    expect(decoded.carts[0].av[0]).toBeCloseTo(original.carts[0].av[0], 3);
+    expect(decoded.carts[0].ackSeq).toBe(original.carts[0].ackSeq);
+    expect(decoded.carts[0].b).toBe(true);
+    expect(decoded.carts[0].h).toBe(false);
+    expect(decoded.carts[0].c).toBe(true);
+    expect(decoded.carts[0].s).toBe(false);
+
+    // Cart 1 assertions
+    expect(decoded.carts[1].p[0]).toBeCloseTo(original.carts[1].p[0], 3);
+    expect(decoded.carts[1].q[0]).toBeCloseTo(original.carts[1].q[0], 3);
+    expect(decoded.carts[1].lv[0]).toBeCloseTo(original.carts[1].lv[0], 3);
+    expect(decoded.carts[1].av[0]).toBeCloseTo(original.carts[1].av[0], 3);
+    expect(decoded.carts[1].ackSeq).toBe(original.carts[1].ackSeq);
+    expect(decoded.carts[1].b).toBe(false);
+    expect(decoded.carts[1].h).toBe(true);
+    expect(decoded.carts[1].c).toBe(false);
+    expect(decoded.carts[1].s).toBe(true);
+
+    // JSON tail assertions
+    expect(decoded.collisions).toEqual(original.collisions);
+    expect(decoded.falls).toEqual(original.falls);
   });
 });
 

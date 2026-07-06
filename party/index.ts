@@ -767,7 +767,7 @@ export class CartRaveServer extends Server {
 
     for (const id of this.#connections.keys()) {
       if (this.#pendingPickers.has(id)) continue;
-      const lastSeen = this.#lastSeenAtMs.get(id) ?? now;
+      const lastSeen = this.#lastSeenAtMs.get(id) ?? 0;
       if (now - lastSeen > REAP_TIMEOUT_MS) {
         reapedIds.push(id);
       }
@@ -893,7 +893,7 @@ export class CartRaveServer extends Server {
       this.#hostId = conn.id;
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
-        type: MSG.hostAssigned,
+        type: MSG.hostMigrated,
         serverNowMs: this.#serverNowMs(),
         hostId: this.#hostId,
       });
@@ -1385,25 +1385,6 @@ export class CartRaveServer extends Server {
           ...(comboMultiplier !== null ? { comboMultiplier } : {}),
           reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
         });
-      }
-
-      if (type === MSG.spill) {
-        // Security: host-only relay for grocery-spill VFX.
-        if (connection.id !== this.#hostId) return;
-        if (typeof data?.slotId !== "number" || data.slotId < 0 || data.slotId > 3) return;
-        if (!data?.pos || typeof data.pos !== "object") return;
-        if (!data?.quat || typeof data.quat !== "object") return;
-        if (!data?.vel || typeof data.vel !== "object") return;
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.spill,
-          serverNowMs: this.#serverNowMs(),
-          slotId: data.slotId,
-          pos: data.pos,
-          quat: data.quat,
-          vel: data.vel,
-          cargoBay: data.cargoBay,
-        }, connection);
       }
     } catch (err) {
       console.error("[cart-rave] onMessage error:", err);

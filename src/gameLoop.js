@@ -106,6 +106,7 @@ export function applySlowMoToDt(deps, dt) {
  * @property {() => object | null} [getLatestSnap]
  * @property {(cart: object, snap: object) => void} [applySnapshotToCartBody]
  * @property {(cart: object) => void} [doRespawn]
+ * @property {object} netcode Netcode module.
  */
 
 /**
@@ -135,11 +136,13 @@ export function runPhysicsStep(loopState, deps, context) {
       if (Array.isArray(allCarts)) {
         const npcCartsForFrame = resolveNpcCarts(allCarts, netSlotsForFrame);
 
+        let stepNow = performance.now();
         while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
           if (deps.getSkipNextPhysicsStep()) {
             deps.setSkipNextPhysicsStep(false);
             loopState.accumulator -= deps.CONFIG.fixedTimeStep;
             substeps += 1;
+            stepNow += deps.CONFIG.fixedTimeStep * 1000;
             continue;
           }
 
@@ -152,12 +155,13 @@ export function runPhysicsStep(loopState, deps, context) {
             remoteInputs: deps.getRemoteInputsByConnId(),
             npcs: npcCartsForFrame,
             dt: deps.CONFIG.fixedTimeStep,
-            now: performance.now(),
+            now: stepNow,
             isHost: deps.isHost(),
             callbacks: deps.getSimulationCallbacks(true),
           });
           loopState.accumulator -= deps.CONFIG.fixedTimeStep;
           substeps += 1;
+          stepNow += deps.CONFIG.fixedTimeStep * 1000;
         }
         const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
         if (loopState.accumulator > maxDebt) {
@@ -196,8 +200,10 @@ export function runPhysicsStep(loopState, deps, context) {
       if (deps.getRoundState().phase === "running") {
         const allCarts = deps.getAllCartsRef();
         if (Array.isArray(allCarts)) {
+          let stepNow = performance.now();
           while (loopState.accumulator >= deps.CONFIG.fixedTimeStep && substeps < deps.CONFIG.maxSubsteps) {
             captureCartsPhysicsPrevPoses(allCarts);
+            const currentInput = deps.netcode.sampleLocalInputForTick();
             deps.runFixedPhysicsStep({
               world: deps.world,
               eventQueue: deps.eventQueue,
@@ -206,12 +212,14 @@ export function runPhysicsStep(loopState, deps, context) {
               remoteInputs: null,
               npcs: [],
               dt: deps.CONFIG.fixedTimeStep,
-              now: performance.now(),
+              now: stepNow,
               isHost: false,
               callbacks: deps.getSimulationCallbacks(false),
+              localInputOverride: currentInput,
             });
             loopState.accumulator -= deps.CONFIG.fixedTimeStep;
             substeps += 1;
+            stepNow += deps.CONFIG.fixedTimeStep * 1000;
           }
           const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
           if (loopState.accumulator > maxDebt) {
@@ -286,7 +294,7 @@ export function runPhysicsStep(loopState, deps, context) {
                 remoteInputs: null,
                 npcs: [],
                 dt: deps.CONFIG.fixedTimeStep,
-                now: performance.now(),
+                now: input.tClient,
                 isHost: false,
                 callbacks: replayCallbacks,
                 localInputOverride: input.input,

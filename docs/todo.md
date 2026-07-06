@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Client-side prediction rewrite (rewind-and-replay replacing soft reconciliation) + empty slot cart body fix (all 4 slots always exist in Rapier, hidden/disabled for empty) + scene update clock sync (stage lights, lasers, crowd, LED, billboard, spindle, booth neon now use server-clock-corrected time for visual synchronization across all clients) + monotonic clock adoption (`performance.timeOrigin + performance.now()` replacing `Date.now()` across server and netcode) + host fall event batching + pending input buffer with ackSeq pruning + host ackSeq tracking per connection + WebRTC DataChannel `ordered: false, maxRetransmits: 0` for lower latency + `sendToAll` pre-stringification + simulation `localInputOverride` for prediction replay + WebRTC P2P DataChannel migration (physics state, input, and spill events bypass server relay via `src/netcode/p2p.js`) + Cloudflare Calls TURN credential minting + server reduced to signaling relay + defensive null guards on scene/world across all level dispose paths + Backrooms `roundCuboid` fix (0.15 border radius prevents cart catching on corner void edges) + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption for high-freq messages + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass (`npx tsc --noEmit` returns 0 errors) + raw partyserver / Wrangler migration + Zanzibar sunset seascape implementation + camera framing & viewport extraction to `src/ui/cameraFraming.js` + menu stats extraction to `src/ui/menuStats.js` + web font fix (Bungee + Space Mono) + self-death verb variety + results overlay responsive sizing + TEST DRIVE button removal + mobile responsive CSS fixes (results history void, level card overflow, challenges clip, FPS z-index overlap, pause menu collision, level button padding/font, results history font-size/line-height)
+- **Recent Technical Work**: Binary serialization for host state snapshots (hybrid ArrayBuffer + JSON tail, 52 bytes/cart replacing full JSON) + input sampling moved from setInterval to physics loop (zero-latency client prediction input capture) + server reaper fix (new connections no longer instantly reaped) + server spill relay removed (now fully P2P) + determinisic physics timestamps (all substeps share the same `now` preventing ram check drift) + client-side prediction rewrite (rewind-and-replay replacing soft reconciliation) + empty slot cart body fix (all 4 slots always exist in Rapier, hidden/disabled for empty) + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer with ackSeq pruning + WebRTC DataChannel `ordered: false, maxRetransmits: 0` + WebRTC P2P DataChannel migration + Cloudflare Calls TURN credential minting + server reduced to signaling relay + defensive null guards + Backrooms `roundCuboid` fix + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass + raw partyserver / Wrangler migration + Zanzibar sunset seascape + camera framing & viewport extraction + menu stats extraction + web font fix + self-death verb variety + results overlay responsive sizing + TEST DRIVE removal + mobile responsive CSS fixes
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,37 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 6, 2026 – Binary Host State Serialization, Input Loop Refactor & Server Fixes
+
+**1. Binary Host State Serialization (`src/netcode/binary.js` — new module)** — Verified.
+- Introduced hybrid binary encoding for the `hostTransform` payload, the highest-frequency message in the game (~20Hz × 4 carts).
+- Per-cart data packed into a fixed 52-byte layout: position (3×float32), quaternion (4×float32), linear velocity (3×float32), angular velocity X + ackSeq (2×float32), and 1 byte of bit-packed flags (boost, hop, cargoBay, hasSpilled) with 3 bytes padding.
+- 12-byte header: `[unused, numCarts, padding×2, seq:uint32, tHost:float32]`.
+- JSON tail appended for sparse data (collisions array, falls array) — decoded separately and merged into the final state object.
+- `decodeHostStateSnapshot` reconstructs the exact same object shape (`{ type, seq, tHost, carts, collisions, falls }`) that the JSON path previously produced, making this a drop-in replacement. Host send loop now calls `encodeHostStateSnapshot` and sends the raw `ArrayBuffer`.
+- Round-trip test added to `tests/netcode.test.js` with 2 carts, collisions, and falls verifying float32 precision and flag bitmask correctness.
+- **Bandwidth reduction**: A typical 4-cart snapshot drops from ~600–800 bytes of JSON to ~220 bytes (header + 4×52 + JSON tail), and skips JSON parse/stringify overhead on both sides.
+
+**2. Input Sampling Moved to Physics Loop (`src/netcode.js`, `src/gameLoop.js`, `src/main.js`)** — Verified.
+- `startInputSendLoop()` (setInterval-based, 60Hz) is now a no-op. Input capture moved to synchronous `sampleLocalInputForTick()`.
+- On each physics substep, the non-host client calls `sampleLocalInputForTick()` which captures the current axis state, assigns an `inputSeq`, timestamps with `tClient`, pushes to `pendingInputs`, sends to the host via P2P, and returns the input frame to the physics loop for immediate client prediction.
+- This eliminates the ~50ms average latency of the old setInterval approach (timer fires independently of physics timing). Client-side prediction now uses the exact input that was active during the substep, not a stale buffer.
+- `main()` now passes `netcode: Netcode` through the game loop deps so `runPhysicsStep` can call `sampleLocalInputForTick()` directly.
+- All substep `now` values incremented deterministically (`stepNow += fixedTimeStep * 1000`) instead of calling `performance.now()` per substep.
+- Reconciliation replay now uses `input.tClient` (the recording timestamp) for `now` instead of the wall-clock `performance.now()`, preserving temporal fidelity.
+
+**3. Server Fixes (`party/index.ts`)** — Verified.
+- **Reaper `lastSeen` default**: Changed `#lastSeenAtMs.get(id) ?? now` to `?? 0`. New connections whose timestamp write hadn't yet propagated to `#lastSeenAtMs` were defaulting to `now`, causing them to be instantly reaped on the first reaper tick.
+- **Host migration message type**: `MSG.hostAssigned` → `MSG.hostMigrated` on the migration broadcast so clients use the correct handler (tears down P2P, reconnects to new host).
+- **Spill relay removed**: `MSG.spill` handler deleted from server — spills are now fully P2P via `sendP2PEvent()`. Removed ~20 lines of validation + broadcast.
+
+**4. Deterministic Physics Timestamps (`src/simulation.js`)** — Verified.
+- `applyRammingImpulse` and `processCollisionEvents` now receive `nowMs` from the physics step's deterministic clock instead of calling `performance.now()` inline. This prevents drift between the `isRamBoosting` check and the `lastRamTimeMs` stamp when substeps run back-to-back.
+
+**5. P2P ArrayBuffer Routing (`src/netcode/p2p.js`)** — Verified.
+- `setupDataChannel` `onmessage` now detects `ArrayBuffer` and routes to `onStateCallback` directly (hostTransform binary blobs), bypassing JSON parse. JSON clientInput messages routed as before.
+- `sendToPeer` and `sendToAll` detect `ArrayBuffer` and send raw, skipping `JSON.stringify`.
 
 ### July 6, 2026 – Empty Slot Cart Body Fix & Visual Sync Clock
 

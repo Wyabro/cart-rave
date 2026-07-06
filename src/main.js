@@ -2638,6 +2638,7 @@ async function main() {
     getLatestSnap: () => Netcode.getLatestSnap(),
     applySnapshotToCartBody: (cart, snap) => Netcode.applySnapshotToCartBody(cart, snap),
     doRespawn: Entities.doRespawn,
+    netcode: Netcode,
   };
 
   gameCtx.attachDeps({

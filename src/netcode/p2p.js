@@ -219,14 +219,20 @@ function setupDataChannel(dc, connId) {
   dc.onclose = () => console.log(`[p2p] DataChannel closed with ${connId}`);
   
   dc.onmessage = (event) => {
-    // Parse incoming data
-    // For now, assume JSON. Binary serialization is a V2 optimization.
     try {
-      const data = JSON.parse(event.data);
-      if (isHost && data.type === MSG.clientInput && onInputCallback) {
-        onInputCallback(data.input, connId, data.seq);
-      } else if (!isHost && data.type === MSG.hostTransform && onStateCallback) {
-        onStateCallback(data);
+      let data;
+      if (event.data instanceof ArrayBuffer) {
+        data = event.data;
+        if (!isHost && onStateCallback) {
+          onStateCallback(data);
+        }
+      } else {
+        data = JSON.parse(event.data);
+        if (isHost && data.type === MSG.clientInput && onInputCallback) {
+          onInputCallback(data.input, connId, data.seq);
+        } else if (!isHost && data.type === MSG.hostTransform && onStateCallback) {
+          onStateCallback(data);
+        }
       }
     } catch (e) {
       console.error('[p2p] DataChannel parse error', e);
@@ -242,13 +248,12 @@ function setupDataChannel(dc, connId) {
 export function sendToPeer(targetConnId, data) {
   const dc = dataChannels.get(targetConnId);
   if (dc && dc.readyState === "open") {
-    dc.send(JSON.stringify(data));
+    const payload = data instanceof ArrayBuffer ? data : JSON.stringify(data);
+    dc.send(payload);
     pendingInputPayload = null;
     pendingInputTarget = null;
   } else {
     // Buffer the latest input. We only care about the most recent frame.
-    // If the channel is down (e.g., during host migration), we hold this 
-    // and fire it the instant the connection opens.
     pendingInputPayload = data;
     pendingInputTarget = targetConnId;
   }
@@ -259,7 +264,7 @@ export function sendToPeer(targetConnId, data) {
  * @param {object} data
  */
 export function sendToAll(data) {
-  const payload = typeof data === "string" ? data : JSON.stringify(data);
+  const payload = data instanceof ArrayBuffer ? data : (typeof data === "string" ? data : JSON.stringify(data));
   for (const dc of dataChannels.values()) {
     if (dc.readyState === "open") {
       dc.send(payload);

@@ -779,7 +779,7 @@ function resolveCartRamCollision(c1, c2) {
  * @param {object} callbacks Injected helpers (FX, local cart, host broadcast).
  * @param {boolean} isHost Whether this client is the room host.
  */
-function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost) {
+function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
   const playCollisionRef = callbacks?.playCollision;
   const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
   const rv = rammerState.linvel;
@@ -809,7 +809,7 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
       CONFIG.ramming.maxImpulse
     )
   );
-  const isRammerBoosting = performance.now() <= (rammer.ramBoostActiveUntilMs || 0);
+  const isRammerBoosting = nowMs <= (rammer.ramBoostActiveUntilMs || 0);
   const boostMul = CONFIG.ramming.boostImpulseMultiplier ?? 2;
   const impulseMag = isRammerBoosting ? impulseMagBase * boostMul : impulseMagBase;
   const fxIntensity = Math.min(impulseMag / CONFIG.ramming.maxImpulse, 1.35);
@@ -834,7 +834,7 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
 
   // Spread impulse
   const steps = CONFIG.ramming.spreadSteps;
-  const ramTimeMs = performance.now();
+  const ramTimeMs = nowMs;
   if (!victim.pendingRam) {
     victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
   } else {
@@ -849,7 +849,7 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
   rammer.lastRamTimeMs = ramTimeMs;
 
   // Stage A: record last hit for scoring attribution (host only) and update combo tier.
-  const nowPerf = performance.now();
+  const nowPerf = nowMs;
   const attackerSlotIndex = rammer.slotIndex ?? -1;
   const victimSlotIndex = victim.slotIndex ?? -1;
   if (isHost && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
@@ -1932,7 +1932,7 @@ function getEnvironmentContactPosition(envType, impacts, state, out) {
   return out;
 }
 
-function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) {
+function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, nowMs) {
   _colliderMap.clear();
   for (const c of allCarts || []) {
     if (c && c.collider) {
@@ -1958,6 +1958,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost) 
             ram.victimState,
             callbacks,
             isHost,
+            nowMs,
           );
         }
       }
@@ -2133,6 +2134,6 @@ export function runFixedPhysicsStep({
     world.step(eventQueue);
     Object.assign(_collisionCallbacks, callbacks);
     _collisionCallbacks.localCart = localCart;
-    processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost);
+    processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost, now);
   }
 }
