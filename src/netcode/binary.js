@@ -74,6 +74,12 @@ export function encodeHostStateSnapshot(state) {
   return buffer;
 }
 
+// Add this helper function above decodeHostStateSnapshot
+function getSafeFloat32(view, offset, littleEndian) {
+  const val = view.getFloat32(offset, littleEndian);
+  return Number.isFinite(val) ? val : 0;
+}
+
 /**
  * Decodes a hybrid binary payload back into a host state snapshot object.
  * @param {ArrayBuffer} buffer
@@ -83,26 +89,26 @@ export function decodeHostStateSnapshot(buffer) {
   const view = new DataView(buffer);
   const numCarts = view.getUint8(1);
   const seq = view.getUint32(4, true);
-  const tHost = view.getFloat32(8, true);
+  const tHost = getSafeFloat32(view, 8, true);
   
   const carts = [];
   let offset = HEADER_BYTES;
   for (let i = 0; i < numCarts; i++) {
-    const pX = view.getFloat32(offset, true); offset += 4;
-    const pY = view.getFloat32(offset, true); offset += 4;
-    const pZ = view.getFloat32(offset, true); offset += 4;
+    const pX = getSafeFloat32(view, offset, true); offset += 4;
+    const pY = getSafeFloat32(view, offset, true); offset += 4;
+    const pZ = getSafeFloat32(view, offset, true); offset += 4;
     
-    const qX = view.getFloat32(offset, true); offset += 4;
-    const qY = view.getFloat32(offset, true); offset += 4;
-    const qZ = view.getFloat32(offset, true); offset += 4;
-    const qW = view.getFloat32(offset, true); offset += 4;
+    const qX = getSafeFloat32(view, offset, true); offset += 4;
+    const qY = getSafeFloat32(view, offset, true); offset += 4;
+    const qZ = getSafeFloat32(view, offset, true); offset += 4;
+    const qW = getSafeFloat32(view, offset, true); offset += 4;
     
-    const lvX = view.getFloat32(offset, true); offset += 4;
-    const lvY = view.getFloat32(offset, true); offset += 4;
-    const lvZ = view.getFloat32(offset, true); offset += 4;
+    const lvX = getSafeFloat32(view, offset, true); offset += 4;
+    const lvY = getSafeFloat32(view, offset, true); offset += 4;
+    const lvZ = getSafeFloat32(view, offset, true); offset += 4;
     
-    const avX = view.getFloat32(offset, true); offset += 4;
-    const ackSeq = view.getFloat32(offset, true); offset += 4;
+    const avX = getSafeFloat32(view, offset, true); offset += 4;
+    const ackSeq = getSafeFloat32(view, offset, true); offset += 4;
     
     const flags = view.getUint8(offset); offset += 1;
     offset += 3; // padding

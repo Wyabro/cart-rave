@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Binary serialization for host state snapshots (hybrid ArrayBuffer + JSON tail, 52 bytes/cart replacing full JSON) + input sampling moved from setInterval to physics loop (zero-latency client prediction input capture) + server reaper fix (new connections no longer instantly reaped) + server spill relay removed (now fully P2P) + determinisic physics timestamps (all substeps share the same `now` preventing ram check drift) + client-side prediction rewrite (rewind-and-replay replacing soft reconciliation) + empty slot cart body fix (all 4 slots always exist in Rapier, hidden/disabled for empty) + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer with ackSeq pruning + WebRTC DataChannel `ordered: false, maxRetransmits: 0` + WebRTC P2P DataChannel migration + Cloudflare Calls TURN credential minting + server reduced to signaling relay + defensive null guards + Backrooms `roundCuboid` fix + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass + raw partyserver / Wrangler migration + Zanzibar sunset seascape + camera framing & viewport extraction + menu stats extraction + web font fix + self-death verb variety + results overlay responsive sizing + TEST DRIVE removal + mobile responsive CSS fixes
+- **Recent Technical Work**: Binary decode/apply NaN/Infinity guards (corrupt float32 values replaced with 0 across binary decoder and `applyCartState` body/net-target writes) + binary serialization for host state snapshots (hybrid ArrayBuffer + JSON tail, 52 bytes/cart) + input sampling moved from setInterval to physics loop (zero-latency client prediction) + server reaper fix + server spill relay removed (fully P2P) + deterministic physics timestamps + client-side prediction rewrite (rewind-and-replay) + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer with ackSeq pruning + WebRTC DataChannel `ordered: false, maxRetransmits: 0` + WebRTC P2P DataChannel migration + Cloudflare Calls TURN + server reduced to signaling relay + defensive null guards + Backrooms `roundCuboid` fix + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass + raw partyserver / Wrangler migration + Zanzibar sunset seascape + camera framing & viewport extraction + menu stats extraction + web font fix + self-death verb variety + results overlay responsive sizing + TEST DRIVE removal + mobile responsive CSS fixes
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,18 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 6, 2026 – NaN/Infinity Guards for Binary Serialization & applyCartState
+
+**1. Binary Decode Safety (`src/netcode/binary.js`)** — Verified.
+- Added `getSafeFloat32(view, offset, littleEndian)` helper that returns `val` if `Number.isFinite(val)`, otherwise `0`.
+- All 14 `view.getFloat32()` calls in `decodeHostStateSnapshot` (tHost, 3× position, 4× quaternion, 3× linear velocity, avX, ackSeq) now use `getSafeFloat32`, preventing NaN/Infinity from corrupt binary data propagating into the physics engine.
+- Test added: non-finite values (NaN, Infinity, -Infinity) injected into a valid binary buffer at key offsets. Decoder correctly replaces them with 0 while preserving adjacent valid values.
+
+**2. `applyCartState` Bounds Validation (`src/netcode.js`)** — Verified.
+- All body writes (`setTranslation`, `setRotation`, `setLinvel`, `setAngvel`) and net-target writes (`_netTargetPos`, `_netTargetQuat`, `_lastNetLinvel`) now gate on `Number.isFinite()` for every float component.
+- A corrupt snapshot with NaN/Infinity values leaves the Rapier body and interpolation targets completely untouched — the cart stays at its last-known-good state rather than teleporting to infinity.
+- Test added: mock cart with known-good body state receives a `snap` full of NaN/Infinity — body translation, rotation, linvel, angvel all remain unchanged. Follow-up with a fully valid snap confirms normal updates still work.
 
 ### July 6, 2026 – Binary Host State Serialization, Input Loop Refactor & Server Fixes
 

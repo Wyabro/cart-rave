@@ -565,31 +565,31 @@ export function applyCartState(cart, snap, options = {}) {
     }
   } else {
     if (cart.body) {
-      if (Array.isArray(p) && p.length === 3) {
+      if (Array.isArray(p) && p.length === 3 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2])) {
         cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
       }
-      if (Array.isArray(q) && q.length === 4) {
+      if (Array.isArray(q) && q.length === 4 && Number.isFinite(q[0]) && Number.isFinite(q[1]) && Number.isFinite(q[2]) && Number.isFinite(q[3])) {
         cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
       }
-      if (Array.isArray(lv) && lv.length === 3) {
+      if (Array.isArray(lv) && lv.length === 3 && Number.isFinite(lv[0]) && Number.isFinite(lv[1]) && Number.isFinite(lv[2])) {
         cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
       }
     }
     // * Keep interpolation targets in lockstep with direct body snaps.
-    if (Array.isArray(p) && p.length === 3 && cart._netTargetPos) {
+    if (Array.isArray(p) && p.length === 3 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2]) && cart._netTargetPos) {
       cart._netTargetPos.set(p[0], p[1], p[2]);
     }
-    if (Array.isArray(q) && q.length === 4 && cart._netTargetQuat) {
+    if (Array.isArray(q) && q.length === 4 && Number.isFinite(q[0]) && Number.isFinite(q[1]) && Number.isFinite(q[2]) && Number.isFinite(q[3]) && cart._netTargetQuat) {
       cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
     }
   }
 
-  if (Array.isArray(lv) && lv.length === 3 && cart._lastNetLinvel) {
+  if (Array.isArray(lv) && lv.length === 3 && Number.isFinite(lv[0]) && Number.isFinite(lv[1]) && Number.isFinite(lv[2]) && cart._lastNetLinvel) {
     cart._lastNetLinvel.x = lv[0];
     cart._lastNetLinvel.y = lv[1];
     cart._lastNetLinvel.z = lv[2];
   }
-  if (Array.isArray(av) && av.length === 3 && cart.body) {
+  if (Array.isArray(av) && av.length === 3 && Number.isFinite(av[0]) && Number.isFinite(av[1]) && Number.isFinite(av[2]) && cart.body) {
     cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
   }
 

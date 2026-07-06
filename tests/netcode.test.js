@@ -12,6 +12,7 @@ import {
   getPendingInputs,
   prunePendingInputs,
   getLatestSnap,
+  applyCartState,
 } from "../src/netcode.js";
 import { CONFIG } from "../src/config.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "../src/netcode/binary.js";
@@ -387,5 +388,115 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.collisions).toEqual(original.collisions);
     expect(decoded.falls).toEqual(original.falls);
   });
+
+  it("replaces non-finite float32 values with 0 on decode", () => {
+    const original = {
+      seq: 12345,
+      tHost: 100.0,
+      carts: [
+        {
+          p: [1.0, 2.0, 3.0],
+          q: [0.0, 0.0, 0.0, 1.0],
+          lv: [4.0, 5.0, 6.0],
+          av: [7.0, 0, 0],
+          ackSeq: 42,
+          b: false,
+          h: false,
+          c: false,
+          s: false,
+        }
+      ],
+      collisions: [],
+      falls: []
+    };
+
+    const buffer = encodeHostStateSnapshot(original);
+    const view = new DataView(buffer);
+
+    // Modify tHost to NaN (tHost is at offset 8)
+    view.setFloat32(8, NaN, true);
+
+    // Modify cart 0: p[0] to Infinity, q[0] to NaN, lv[0] to -Infinity, av[0] to NaN
+    // Offset for cart 0 starts at HEADER_BYTES (12)
+    view.setFloat32(12, Infinity, true); // p[0]
+    view.setFloat32(24, NaN, true); // q[0]
+    view.setFloat32(40, -Infinity, true); // lv[0]
+    view.setFloat32(52, NaN, true); // av[0]
+
+    const decoded = decodeHostStateSnapshot(buffer);
+
+    expect(decoded.tHost).toBe(0);
+    expect(decoded.carts[0].p[0]).toBe(0);
+    expect(decoded.carts[0].q[0]).toBe(0);
+    expect(decoded.carts[0].lv[0]).toBe(0);
+    expect(decoded.carts[0].av[0]).toBe(0);
+
+    // Unmodified values should remain as original
+    expect(decoded.carts[0].p[1]).toBeCloseTo(2.0, 3);
+    expect(decoded.carts[0].q[3]).toBeCloseTo(1.0, 3);
+  });
 });
+
+describe("applyCartState bounds validation", () => {
+  it("rejects non-finite values from updating physics body and net targets", () => {
+    const cart = mockCart({
+      t: { x: 10, y: 11, z: 12 },
+      r: { x: 0, y: 0, z: 0, w: 1 },
+      lv: { x: 1, y: 2, z: 3 },
+      av: { x: 4, y: 5, z: 6 }
+    });
+    cart._netTargetPos = { set: (x, y, z) => { cart.netPos = [x, y, z]; } };
+    cart._netTargetQuat = { set: (x, y, z, w) => { cart.netQuat = [x, y, z, w]; } };
+    cart._lastNetLinvel = { x: 100, y: 200, z: 300 };
+
+    // Snap with NaN and Infinity
+    const snap = {
+      p: [NaN, 1, 2],
+      q: [0, Infinity, 0, 1],
+      lv: [0, 0, -Infinity],
+      av: [NaN, 0, 0],
+      b: false,
+      h: false,
+      c: false,
+      s: false
+    };
+
+    applyCartState(cart, snap, { interpolate: false });
+
+    // Physics body values should NOT change (should keep original values)
+    expect(cart.body.translation()).toEqual({ x: 10, y: 11, z: 12 });
+    expect(cart.body.rotation()).toEqual({ x: 0, y: 0, z: 0, w: 1 });
+    expect(cart.body.linvel()).toEqual({ x: 1, y: 2, z: 3 });
+    expect(cart.body.angvel()).toEqual({ x: 4, y: 5, z: 6 });
+
+    // Net targets and last net linvel should NOT change (should be undefined/original)
+    expect(cart.netPos).toBeUndefined();
+    expect(cart.netQuat).toBeUndefined();
+    expect(cart._lastNetLinvel).toEqual({ x: 100, y: 200, z: 300 });
+
+    // Try a completely valid snap to ensure it does update
+    const validSnap = {
+      p: [20, 21, 22],
+      q: [0, 1, 0, 0],
+      lv: [7, 8, 9],
+      av: [10, 11, 12],
+      b: false,
+      h: false,
+      c: false,
+      s: false
+    };
+
+    applyCartState(cart, validSnap, { interpolate: false });
+
+    expect(cart.body.translation()).toEqual({ x: 20, y: 21, z: 22 });
+    expect(cart.body.rotation()).toEqual({ x: 0, y: 1, z: 0, w: 0 });
+    expect(cart.body.linvel()).toEqual({ x: 7, y: 8, z: 9 });
+    expect(cart.body.angvel()).toEqual({ x: 10, y: 11, z: 12 });
+
+    expect(cart.netPos).toEqual([20, 21, 22]);
+    expect(cart.netQuat).toEqual([0, 1, 0, 0]);
+    expect(cart._lastNetLinvel).toEqual({ x: 7, y: 8, z: 9 });
+  });
+});
+
 
