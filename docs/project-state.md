@@ -46,7 +46,7 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 - 100% Type safety achieved under `npx tsc --noEmit`
 - CSS extraction: ~2600 lines of inline CSS moved from `hud.js`, `pauseOverlay.js`, `resultsOverlay.js` to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css)
 - `.cursorrules` cleaned up (~200 lines removed, simplified guardrails)
-- `tests/p2p-signaling.test.js` added for WebRTC signaling test coverage
+- **WebRTC signaling root-cause fix**: host now creates the DataChannel offer to each peer (`ensureHostPeerConnections()` in the `MSG.slots` handler) — previously `createOffer` was unreachable (only non-host no-op callers), so no channel ever opened and P2P gameplay sync was fully inert. `tests/p2p-signaling.test.js` covers the full handshake.
 - `main.js` remains the thin orchestrator and wiring hub
 
 ### Key files
@@ -126,8 +126,10 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Graphics toggles extraction (graphicsToggles.js, remove window globals) | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
 | CSS extraction refactor (inline CSS → `src/ui/styles/`) | ✅ Fixed |
+| WebRTC signaling: host initiates DataChannel offer (`ensureHostPeerConnections`) — restores P2P sync | ✅ Fixed |
 | P2P signaling test coverage (`tests/p2p-signaling.test.js`) | ✅ Added |
-| Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
+| Signaling runtime validation (host→peer: DataChannel OPEN + 426 binary snapshots streamed) | ✅ Verified |
+| Multiplayer runtime smoke test (two full browser clients, carts visibly syncing) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
 
 ### Version 2 prep (see ROADMAP Tier 3–4)

@@ -113,7 +113,7 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 
 **2. Server Reduced to Signaling Relay (`party/index.ts`)** — Verified.
 - Removed hostTransform relay, clientInput relay, spill relay, and MSG.state broadcast — all now P2P.
-- Server retains: lobby management, color picking, ready-up, round lifecycle, host migration, kill feed relay (hostEventFall/collision), and connection reaping.
+- Server retains: lobby management, color picking, ready-up, round lifecycle, host migration, and connection reaping. **[Corrected July 6]** The `hostEventFall`/`hostEventCollision` kill-feed relays were later removed — collision/fall events now travel in the host's binary snapshot JSON tail, never touching the server.
 - Added Cloudflare Calls TURN credential minting via `requestTurnCredentials`: server fetches from `https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/calls/turn_keys/{CF_CALLS_KEY_ID}/tokens` with env bindings (`CF_ACCOUNT_ID`, `CF_CALLS_KEY_ID`, `CF_API_TOKEN`). 2-hour TTL.
 - Added SDP offer/answer/ICE candidate relay between peers via new `MSG.sdpOffer`, `MSG.sdpAnswer`, `MSG.iceCandidate` message types.
 - `onMessage` made `async` (required for TURN API fetch).
@@ -124,7 +124,7 @@ Historical record preserved. Where a later audit contradicted a claim, the origi
 - 5 new message types: `requestTurnCredentials`, `turnCredentials`, `sdpOffer`, `sdpAnswer`, `iceCandidate`.
 
 **4. Netcode Rewiring (`src/netcode.js`)** — Verified.
-- `MSG.hello` handler: inits P2P (`P2P.initP2P`), requests TURN credentials, initiates P2P connection to host (if non-host).
+- `MSG.hello` handler: inits P2P (`P2P.initP2P`), requests TURN credentials. **[Corrected July 7]** The original design had the non-host call `initiateP2PConnection(hostId)` here, but that function is host-gated (`if (!isHost) return`), so the call was a no-op and **no offer was ever created — the DataChannel never opened**. The host is the offerer: it now initiates a DataChannel to each human peer via `ensureHostPeerConnections()` in the `MSG.slots` handler (fires on join and post-migration). See the July 7 entry in `todo.md`.
 - `MSG.hostMigrated` handler: tears down all P2P connections, re-inits P2P, requests fresh TURN credentials, reconnects to new host.
 - Client input send loop: switched from `partySocket.send(JSON.stringify({ type: MSG.clientInput, ... }))` → `P2P.sendToPeer(hostId, { type: MSG.clientInput, ... })`.
 - `MSG.state` handler removed (now received via P2P DataChannel → `handleRemoteP2PMessage`).
