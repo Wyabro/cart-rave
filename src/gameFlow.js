@@ -28,7 +28,6 @@ import { pickSelfDeathVerb } from "./hud.js";
  * @property {object | null | undefined} hud
  * @property {() => void} sendHostRound
  * @property {() => object | null} getPartySocket
- * @property {{ hostEventFall: string }} MSG
  * @property {(attackerSlotIndex: number, points: number, suppressSuddenDeathWin?: boolean) => boolean} addScore
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
@@ -420,8 +419,9 @@ export function updateGameFlow(deps, context) {
             }
 
             if (typeof deps.queueHostFallEvent === "function") {
+              // * Queued into the host snapshot's binary falls[] tail — no wire `type` tag;
+              // * the receiver dispatches falls positionally, not by message type.
               deps.queueHostFallEvent({
-                type: deps.MSG.hostEventFall,
                 slotId: slotIndex,
                 victimSlotIndex: slotIndex,
                 attackerSlot: scoreData.attackerSlot,

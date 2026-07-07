@@ -97,7 +97,6 @@ export function applySlowMoToDt(deps, dt) {
  * @property {() => number} getHostMigrationFreezeUntilMs
  * @property {(localSlotIndex: number) => void} updateRemoteCartNetTargets
  * @property {(localSlotIndex: number) => void} syncRemoteCartBodiesForPrediction
- * @property {(localCart: object, localSlotIndex: number, dt: number) => void} reconcilePredictedLocalCart
  * @property {(slotIndex: number) => object | null} sampleAuthoritativeCartState
  * @property {(isHost: boolean) => object} getSimulationCallbacks
  * @property {(args: object) => void} runFixedPhysicsStep
@@ -188,8 +187,9 @@ export function runPhysicsStep(loopState, deps, context) {
     // * Multiplayer client: prediction + reconciliation (solo never enters this branch).
     const localSlotIndex = localSlotIndexThisFrame;
 
-    if (Date.now() < deps.getHostMigrationFreezeUntilMs()) {
+    if (performance.timeOrigin + performance.now() < deps.getHostMigrationFreezeUntilMs()) {
       // * Hold positions until a new host's snapshots arrive after migration.
+      // * Monotonic clock (matches netcode's getMonotonicNow that sets the freeze deadline).
     } else {
       // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
       deps.updateRemoteCartNetTargets(localSlotIndex);
@@ -306,8 +306,8 @@ export function runPhysicsStep(loopState, deps, context) {
     }
   } else {
     // Non-host without prediction (defensive fallback): interpolate all carts from buffer.
-    if (Date.now() < deps.getHostMigrationFreezeUntilMs()) {
-      // hold
+    if (performance.timeOrigin + performance.now() < deps.getHostMigrationFreezeUntilMs()) {
+      // hold (monotonic clock — matches netcode's freeze deadline)
     } else {
       const localSlotIndex = localSlotIndexThisFrame;
       deps.updateRemoteCartNetTargets(-1);

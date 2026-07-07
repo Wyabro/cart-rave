@@ -1,46 +1,6 @@
-/** @type {readonly string[]} Canonical NPC name pool — keep in sync with party/index.ts */
-export const NPC_NAME_POOL = [
-  "CartNapper",
-  "WheelSnipe",
-  "BuggyBrawler",
-  "TrolleyTerror",
-  "AisleDrifter",
-  "CartJacker",
-  "PushNPray",
-  "WobbleBot",
-  "RimRattler",
-  "BasketCase",
-  "SkidMark",
-  "BumperDumper",
-  "RollCage",
-  "HotWheelz",
-  "CurbStomp",
-  "CartBlanche",
-  "DriftWood",
-  "NitroNancy",
-  "TurboTuesday",
-  "WipeOut",
-  "SendIt",
-  "FullSend",
-  "YeetCart",
-  "NoBrakes",
-  "CartGod",
-  "Spinout",
-  "ParkingPal",
-  "LaneCrasher",
-  "CartWheel",
-  "RampRat",
-  "AisleGoblin",
-  "CouponCrusher",
-  "BagRattler",
-  "DentedDolly",
-  "WobblesMcGee",
-  "ReceiptReaper",
-  "ShelfShark",
-  "SnackBandit",
-  "CheckoutChamp",
-  "GreaseGremlin",
-];
+// * Canonical NPC name pool lives in shared/ (single source of truth for client + server).
+// * Re-exported here so existing `./npcNames.js` importers keep working unchanged.
+export { NPC_NAME_POOL } from "../shared/npcNames.js";
 
 const PERSONALITY_PROFILES = {
   aggressor: {

@@ -14,26 +14,7 @@ let pendingInputPayload = null;
 let pendingInputTarget = null;
 
 /**
- * Configure P2P settings.
- * @param {object} params
- * @param {boolean} params.isHostVal
- * @param {any[]} [params.iceServersVal]
- * @param {function} params.signalingSendVal
- * @param {function} params.onInputVal
- * @param {function} params.onStateVal
- */
-export function configureP2P({ isHostVal, iceServersVal, signalingSendVal, onInputVal, onStateVal }) {
-  isHost = isHostVal;
-  if (iceServersVal && iceServersVal.length > 0) {
-    iceServers = iceServersVal;
-  }
-  signalingSend = signalingSendVal;
-  onInputCallback = onInputVal;
-  onStateCallback = onStateVal;
-}
-
-/**
- * Initialize P2P settings (compat wrapper).
+ * Initialize P2P settings.
  * @param {object} params
  * @param {string} [params.localId]
  * @param {boolean} params.host
@@ -42,46 +23,20 @@ export function configureP2P({ isHostVal, iceServersVal, signalingSendVal, onInp
  * @param {function} params.onState
  */
 export function initP2P({ localId, host, sendSignal, onInput, onState }) {
-  configureP2P({
-    isHostVal: host,
-    signalingSendVal: sendSignal,
-    onInputVal: onInput,
-    onStateVal: onState
-  });
+  isHost = host;
+  signalingSend = sendSignal;
+  onInputCallback = onInput;
+  onStateCallback = onState;
 }
 
 /**
  * Set the ICE/TURN servers.
  * @param {any[]} servers
  */
-export function setIceServers(servers) {
+export function setTurnServers(servers) {
   if (servers && servers.length > 0) {
     iceServers = servers;
   }
-}
-
-/**
- * Set the ICE/TURN servers (alias).
- * @param {any[]} servers
- */
-export function setTurnServers(servers) {
-  setIceServers(servers);
-}
-
-/**
- * Get active peer connections.
- * @returns {Map<string, RTCPeerConnection>}
- */
-export function getPeerConnections() {
-  return peerConnections;
-}
-
-/**
- * Get active data channels.
- * @returns {Map<string, RTCDataChannel>}
- */
-export function getDataChannels() {
-  return dataChannels;
 }
 
 /**
@@ -220,18 +175,23 @@ function setupDataChannel(dc, connId) {
   
   dc.onmessage = (event) => {
     try {
-      let data;
       if (event.data instanceof ArrayBuffer) {
-        data = event.data;
+        // * Binary payloads are always host->client transform snapshots.
         if (!isHost && onStateCallback) {
-          onStateCallback(data);
+          onStateCallback(event.data, connId);
         }
       } else {
-        data = JSON.parse(event.data);
-        if (isHost && data.type === MSG.clientInput && onInputCallback) {
-          onInputCallback(data.input, connId, data.seq);
-        } else if (!isHost && data.type === MSG.hostTransform && onStateCallback) {
-          onStateCallback(data);
+        const data = JSON.parse(event.data);
+        if (isHost) {
+          // * Host only consumes client input; everything else is host-authored.
+          if (data.type === MSG.clientInput && onInputCallback) {
+            onInputCallback(data.input, connId, data.seq);
+          }
+        } else if (onStateCallback) {
+          // * Forward every host-authored JSON event (hostTransform, spill, …) to the
+          // * netcode dispatcher, which routes by data.type. Filtering here previously
+          // * dropped MSG.spill; the dispatcher is the single point that decides handling.
+          onStateCallback(data, connId);
         }
       }
     } catch (e) {

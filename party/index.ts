@@ -40,52 +40,10 @@ type RoundState = {
 };
 
 import { MSG } from '../shared/protocol.js';
+import { NPC_NAME_POOL } from '../shared/npcNames.js';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
-// * Keep in sync with src/npcNames.js (canonical browser-side list).
-const NPC_NAME_POOL = [
-  "CartNapper",
-  "WheelSnipe",
-  "BuggyBrawler",
-  "TrolleyTerror",
-  "AisleDrifter",
-  "CartJacker",
-  "PushNPray",
-  "WobbleBot",
-  "RimRattler",
-  "BasketCase",
-  "SkidMark",
-  "BumperDumper",
-  "RollCage",
-  "HotWheelz",
-  "CurbStomp",
-  "CartBlanche",
-  "DriftWood",
-  "NitroNancy",
-  "TurboTuesday",
-  "WipeOut",
-  "SendIt",
-  "FullSend",
-  "YeetCart",
-  "NoBrakes",
-  "CartGod",
-  "Spinout",
-  "ParkingPal",
-  "LaneCrasher",
-  "CartWheel",
-  "RampRat",
-  "AisleGoblin",
-  "CouponCrusher",
-  "BagRattler",
-  "DentedDolly",
-  "WobblesMcGee",
-  "ReceiptReaper",
-  "ShelfShark",
-  "SnackBandit",
-  "CheckoutChamp",
-  "GreaseGremlin",
-] as const;
 
 const ROUND_DURATION_MS = 150_000;
 const MIN_RUNNING_BEFORE_PODIUM_MS = 3_000;
@@ -93,80 +51,9 @@ const MAX_SCORE_PER_SLOT = 500;
 const PICKER_TIMEOUT_MS = 30_000;
 const RATE_LIMIT_MAX_PER_SEC = 100;
 const RATE_LIMIT_WINDOW_MS = 1_000;
-const ALLOWED_FALL_VERBS = new Set([
-  "RAMMED",
-  "YEETED",
-  "BOOSTED OFF",
-  "FELL OFF",
-  "ATE PAVEMENT",
-  "TAPPED OUT",
-  "SELF-DESTRUCTED",
-  "NOPED OUT",
-  "RAGE QUIT",
-]);
-
-type CollisionFxEvent = {
-  slotA: number;
-  slotB: number;
-  intensity: number;
-  midpoint: { x: number; y: number; z: number } | null;
-  rammerSlot?: number;
-  isBoosting?: boolean;
-};
-
-/** @param {unknown} mp */
-function validateCollisionMidpoint(mp: unknown): { x: number; y: number; z: number } | null {
-  if (!mp || typeof mp !== "object") return null;
-  const x = (mp as { x?: unknown }).x;
-  const y = (mp as { y?: unknown }).y;
-  const z = (mp as { z?: unknown }).z;
-  if (typeof x !== "number" || !Number.isFinite(x) || x < -500 || x > 500) return null;
-  if (typeof y !== "number" || !Number.isFinite(y) || y < -500 || y > 501) return null;
-  if (typeof z !== "number" || !Number.isFinite(z) || z < -500 || z > 500) return null;
-  return { x, y, z };
-}
-
-/** @param {unknown} n */
-function validateCollisionSlot(n: unknown): number | null {
-  if (typeof n !== "number" || !Number.isInteger(n) || n < -3 || n > 3) return null;
-  return n;
-}
-
-/** @param {unknown} raw */
-function sanitizeCollisionBatch(raw: unknown): CollisionFxEvent[] {
-  if (!Array.isArray(raw)) return [];
-  const out: CollisionFxEvent[] = [];
-  const seen = new Set<string>();
-  for (let i = 0; i < raw.length && out.length < 12; i += 1) {
-    const ev = raw[i];
-    if (!ev || typeof ev !== "object") continue;
-    const slotA = validateCollisionSlot((ev as { slotA?: unknown }).slotA);
-    const slotB = validateCollisionSlot((ev as { slotB?: unknown }).slotB);
-    if (slotA === null || slotB === null) continue;
-    const intensity = (ev as { intensity?: unknown }).intensity;
-    if (typeof intensity !== "number" || !Number.isFinite(intensity) || intensity < 0 || intensity > 2) {
-      continue;
-    }
-    const key = `${Math.min(slotA, slotB)}|${Math.max(slotA, slotB)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const entry: CollisionFxEvent = {
-      slotA,
-      slotB,
-      intensity,
-      midpoint: validateCollisionMidpoint((ev as { midpoint?: unknown }).midpoint),
-    };
-    const rammerSlot = validateCollisionSlot((ev as { rammerSlot?: unknown }).rammerSlot);
-    if (rammerSlot !== null && rammerSlot >= 0 && rammerSlot <= 3) {
-      entry.rammerSlot = rammerSlot;
-    }
-    if ((ev as { isBoosting?: unknown }).isBoosting === true) {
-      entry.isBoosting = true;
-    }
-    out.push(entry);
-  }
-  return out;
-}
+// * Host collision/fall events travel in the WebRTC binary snapshot's collisions[]/falls[]
+// * JSON tail (host-authored, client-replayed) — there is no server relay for them, so the
+// * server-side validators/whitelist that once guarded those relays have been removed.
 
 // * Activity-based connection reaper thresholds. PartyKit's onClose is not
 // * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
@@ -1321,71 +1208,6 @@ export class CartRaveServer extends Server {
         return;
       }
 
-      if (type === MSG.hostEventCollision) {
-        if (connection.id !== this.#hostId) return;
-        const slotA = validateCollisionSlot(data?.slotA);
-        const slotB = validateCollisionSlot(data?.slotB);
-        const intensity = data?.intensity;
-        if (slotA === null || slotB === null) return;
-        if (typeof intensity !== "number" || !Number.isFinite(intensity) || intensity < 0 || intensity > 2) return;
-        const payload: CollisionFxEvent = {
-          slotA,
-          slotB,
-          intensity,
-          midpoint: validateCollisionMidpoint(data?.midpoint),
-        };
-        const rammerSlot = validateCollisionSlot(data?.rammerSlot);
-        if (rammerSlot !== null && rammerSlot >= 0 && rammerSlot <= 3) {
-          payload.rammerSlot = rammerSlot;
-        }
-        if (data?.isBoosting === true) {
-          payload.isBoosting = true;
-        }
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.hostEventCollision,
-          serverNowMs: this.#serverNowMs(),
-          ...payload,
-        });
-        return;
-      }
-
-      if (type === MSG.hostEventFall) {
-        // Security: host-only; verb is whitelisted for kill-feed safety; slot fields are
-        // validated as integers in range so clients never index netSlots with junk.
-        if (connection.id !== this.#hostId) return;
-        const asSlot = (v: unknown): number | null =>
-          typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 3 ? v : null;
-        const slotId = asSlot(data?.slotId);
-        if (slotId === null) return; // a fall event without a valid victim is meaningless
-        const attackerSlot = asSlot(data?.attackerSlot);
-        const verbRaw = typeof data?.verb === "string" ? data.verb.trim().toUpperCase() : "";
-        const verb = ALLOWED_FALL_VERBS.has(verbRaw) ? verbRaw : (verbRaw ? "RAMMED" : "FELL OFF");
-        // Combo metadata drives the non-host kill-feed badge and the attacker's local
-        // combo HUD (netcode.js hostEventFall handler); relay it sanitized.
-        const comboTier =
-          typeof data?.comboTier === "number" && Number.isInteger(data.comboTier)
-            ? Math.max(0, Math.min(16, data.comboTier))
-            : null;
-        const comboMultiplier =
-          typeof data?.comboMultiplier === "number" && Number.isFinite(data.comboMultiplier)
-            ? Math.max(0, Math.min(99, data.comboMultiplier))
-            : null;
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.hostEventFall,
-          serverNowMs: this.#serverNowMs(),
-          tHost: typeof data?.tHost === "number" ? data.tHost : null,
-          slotId,
-          victimSlotIndex: slotId,
-          attackerSlot,
-          attackerSlotIndex: attackerSlot,
-          verb,
-          ...(comboTier !== null ? { comboTier } : {}),
-          ...(comboMultiplier !== null ? { comboMultiplier } : {}),
-          reason: typeof data?.reason === "string" ? data.reason.slice(0, 32) : null,
-        });
-      }
     } catch (err) {
       console.error("[cart-rave] onMessage error:", err);
     }

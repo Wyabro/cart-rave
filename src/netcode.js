@@ -16,17 +16,9 @@ import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/bina
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
-/** Scratch quaternions/vectors for interpolation and reconciliation (zero per-frame allocs). */
+/** Scratch quaternions for snapshot-pair slerp interpolation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
 const _interpToQ = new THREE.Quaternion();
-const _reconcilePredQ = new THREE.Quaternion();
-const _reconcileAuthQ = new THREE.Quaternion();
-const _reconcileYawQ = new THREE.Quaternion();
-const _reconcileYAxis = new THREE.Vector3(0, 1, 0);
-const _reconcileUpPred = new THREE.Vector3();
-const _reconcileUpAuth = new THREE.Vector3();
-const _reconcileFwdPred = new THREE.Vector3();
-const _reconcileFwdAuth = new THREE.Vector3();
 
 /** Reads a per-slot cart snapshot from array or legacy string-keyed object payloads. */
 function getCartSnap(carts, slotIndex) {
@@ -60,7 +52,6 @@ let hostLastProcessedInputSeq = new Map();
 export let pendingInputs = [];
 
 let hostSendTimer = null;
-let inputSendTimer = null;
 let keepaliveTimer = null;
 
 let hostMigrationFreezeUntilMs = 0;
@@ -305,9 +296,6 @@ export function setRefs(refs) {
   if (refs.triggerCartShatterRef !== undefined) triggerCartShatterRef = refs.triggerCartShatterRef;
   if (refs.resetSimTimingRef !== undefined) resetSimTimingRef = refs.resetSimTimingRef;
   if (refs.doRespawnRef !== undefined) doRespawnRef = refs.doRespawnRef;
-  if (!isHost && partySocket && getAxisRef && !inputSendTimer) {
-    startInputSendLoop();
-  }
 }
 
 export function getYouConnId() { return youConnId; }
@@ -415,37 +403,47 @@ export function applySnapshotToCartBody(cart, snap) {
   }
 }
 
+/**
+ * Lerps two vec3 snapshot arrays at alpha. Returns null unless BOTH are length-3 arrays,
+ * so each caller keeps its own single-endpoint fallback rule.
+ */
+function lerpVec3Pair(b, a, alpha) {
+  if (Array.isArray(b) && b.length === 3 && Array.isArray(a) && a.length === 3) {
+    return [
+      b[0] + (a[0] - b[0]) * alpha,
+      b[1] + (a[1] - b[1]) * alpha,
+      b[2] + (a[2] - b[2]) * alpha,
+    ];
+  }
+  return null;
+}
+
+/**
+ * Slerps two quaternion snapshot arrays at alpha via the module scratch quaternions.
+ * Returns null unless BOTH are length-4 arrays (callers own the single-endpoint fallback).
+ */
+function slerpQuatPair(b, a, alpha) {
+  if (Array.isArray(b) && b.length === 4 && Array.isArray(a) && a.length === 4) {
+    _interpFromQ.set(b[0], b[1], b[2], b[3]);
+    _interpToQ.set(a[0], a[1], a[2], a[3]);
+    _interpFromQ.slerp(_interpToQ, alpha);
+    return [_interpFromQ.x, _interpFromQ.y, _interpFromQ.z, _interpFromQ.w];
+  }
+  return null;
+}
+
 function sampleCartSnapshotFromPair(before, after, alpha, slotIndex) {
   const b = getCartSnap(before?.carts, slotIndex);
   const a = getCartSnap(after?.carts, slotIndex);
   if (!b && !a) return null;
   if (b && a) {
-    const bp = b.p;
-    const ap = a.p;
-    const bq = b.q;
-    const aq = a.q;
-    const alv = a.lv;
-    const aav = a.av;
     const out = { p: null, q: null, lv: null, av: null };
-    if (Array.isArray(bp) && bp.length === 3 && Array.isArray(ap) && ap.length === 3) {
-      out.p = [
-        bp[0] + (ap[0] - bp[0]) * alpha,
-        bp[1] + (ap[1] - bp[1]) * alpha,
-        bp[2] + (ap[2] - bp[2]) * alpha,
-      ];
-    } else if (Array.isArray(bp) && bp.length === 3) {
-      out.p = [bp[0], bp[1], bp[2]];
-    }
-    if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
-      _interpFromQ.set(bq[0], bq[1], bq[2], bq[3]);
-      _interpToQ.set(aq[0], aq[1], aq[2], aq[3]);
-      _interpFromQ.slerp(_interpToQ, alpha);
-      out.q = [_interpFromQ.x, _interpFromQ.y, _interpFromQ.z, _interpFromQ.w];
-    } else if (Array.isArray(bq) && bq.length === 4) {
-      out.q = [bq[0], bq[1], bq[2], bq[3]];
-    }
-    if (Array.isArray(alv) && alv.length === 3) out.lv = [alv[0], alv[1], alv[2]];
-    if (Array.isArray(aav) && aav.length === 3) out.av = [aav[0], aav[1], aav[2]];
+    out.p = lerpVec3Pair(b.p, a.p, alpha)
+      ?? (Array.isArray(b.p) && b.p.length === 3 ? [b.p[0], b.p[1], b.p[2]] : null);
+    out.q = slerpQuatPair(b.q, a.q, alpha)
+      ?? (Array.isArray(b.q) && b.q.length === 4 ? [b.q[0], b.q[1], b.q[2], b.q[3]] : null);
+    if (Array.isArray(a.lv) && a.lv.length === 3) out.lv = [a.lv[0], a.lv[1], a.lv[2]];
+    if (Array.isArray(a.av) && a.av.length === 3) out.av = [a.av[0], a.av[1], a.av[2]];
     return out;
   }
   const snap = b || a;
@@ -505,28 +503,10 @@ export function sampleAuthoritativeCartState(slotIndex, customTargetServerNowMs)
   return null;
 }
 
-/** Writes interpolated snapshot fields directly onto cart net targets (zero per-frame allocations). */
+/** Writes interpolated snapshot fields directly onto cart net targets (shared pair lerp/slerp). */
 function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
-  const bp = b.p;
-  const ap = a.p;
-  let p = a.p ?? b.p;
-  if (Array.isArray(bp) && bp.length === 3 && Array.isArray(ap) && ap.length === 3) {
-    p = [
-      bp[0] + (ap[0] - bp[0]) * alpha,
-      bp[1] + (ap[1] - bp[1]) * alpha,
-      bp[2] + (ap[2] - bp[2]) * alpha,
-    ];
-  }
-
-  const bq = b.q;
-  const aq = a.q;
-  let q = a.q ?? b.q;
-  if (Array.isArray(bq) && bq.length === 4 && Array.isArray(aq) && aq.length === 4) {
-    _interpFromQ.set(bq[0], bq[1], bq[2], bq[3]);
-    _interpToQ.set(aq[0], aq[1], aq[2], aq[3]);
-    _interpFromQ.slerp(_interpToQ, alpha);
-    q = [_interpFromQ.x, _interpFromQ.y, _interpFromQ.z, _interpFromQ.w];
-  }
+  const p = lerpVec3Pair(b.p, a.p, alpha) ?? a.p ?? b.p;
+  const q = slerpQuatPair(b.q, a.q, alpha) ?? a.q ?? b.q;
 
   const interpSnap = {
     p,
@@ -733,20 +713,15 @@ export function syncRemoteCartBodiesForPrediction(localSlotIndex) {
 }
 
 // === RECONCILIATION ===
+// * Client-side reconciliation now lives inline in gameLoop.js (rewind-and-replay against the
+// * latest binary host snapshot). netcode exposes the snapshot buffer helpers it consumes.
 
 /**
- * Nudges the predicted local cart body toward the host-authoritative snapshot.
- * Uses exponential smoothing (`1 - exp(-rate * dt)`) for soft corrections; teleports on large error.
- * Prefers the latest buffered snapshot over the interp-delayed sample to avoid fighting prediction.
+ * Hard-applies each host-authoritative cart snapshot to its Rapier body (no interpolation).
+ * Used on host promotion to seed bodies from the last cached snapshot.
  *
- * @param {object} cart Local cart entity with a Rapier body.
- * @param {number} localSlotIndex Slot index of the local human player.
- * @param {number} dtSec Frame delta time in seconds.
+ * @param {Array<object>|Record<string, object>} carts Per-slot transform snapshot.
  */
-export function reconcilePredictedLocalCart(cart, localSlotIndex, dtSec) {
-  // Deprecated: client-side prediction reconciliation is now handled via inline rewind-and-replay in gameLoop.js
-}
-
 function applyCartsSnapshotToBodies(carts) {
   const allCarts = getAllCarts();
   if (!allCarts) return;
@@ -768,11 +743,11 @@ function applyCartsSnapshotToBodies(carts) {
  * @param {number} epoch Host epoch (increments on host migration).
  */
 function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
-  // * No epoch guard on append: MSG.state and MSG.hostMigrated share one WebSocket, so
-  // * TCP ordering guarantees no pre-migration snapshot can arrive after host_migrated
-  // * (which clears this buffer and bumps hostEpoch). The stored epoch exists for
-  // * pruneNetStateBufferForEpoch, which sweeps entries after locally-driven epoch bumps
-  // * (disconnect/reconnect) where ordering guarantees don't apply.
+  // * Host snapshots now travel over unordered/unreliable WebRTC while MSG.hostMigrated
+  // * travels over the WebSocket — there is no cross-transport ordering guarantee. A
+  // * stale pre-migration snapshot is instead rejected at the source in handleP2PMessage
+  // * (fromConnId !== hostId), so it never reaches this append. The stored epoch backs
+  // * pruneNetStateBufferForEpoch for locally-driven epoch bumps (disconnect/reconnect).
   if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
   if (!carts || typeof carts !== "object") return;
 
@@ -874,11 +849,6 @@ function stopHostSendLoop() {
   clearHostCollisionBatch();
 }
 
-function stopInputSendLoop() {
-  if (inputSendTimer) clearInterval(inputSendTimer);
-  inputSendTimer = null;
-}
-
 function stopKeepaliveLoop() {
   if (keepaliveTimer) clearInterval(keepaliveTimer);
   keepaliveTimer = null;
@@ -891,7 +861,6 @@ function stopKeepaliveLoop() {
 export function disconnectPartySession() {
   _suppressRetry = true;
   stopHostSendLoop();
-  stopInputSendLoop();
   stopKeepaliveLoop();
   clearHostCollisionBatch();
 
@@ -931,7 +900,6 @@ export function disconnectPartySession() {
  */
 function resetNetcodeReconnectState() {
   stopHostSendLoop();
-  stopInputSendLoop();
   clearHostCollisionBatch();
   netStateBuffer = [];
   hostEpoch += 1;
@@ -999,8 +967,8 @@ export function startHostSendLoop() {
       type: MSG.hostTransform,
       seq: hostSeq,
       levelId: currentLevelId,
-      // * Host wall-clock stamp. The server ignores any client-supplied serverNowMs and
-      // * stamps its own on the MSG.state rebroadcast; tHost is relayed for diagnostics.
+      // * Host monotonic clock stamp; non-host clients use it to drive snapshot
+      // * interpolation and estimate the host<->client clock offset.
       tHost: getMonotonicNow(),
       carts,
     };
@@ -1013,10 +981,6 @@ export function startHostSendLoop() {
     const binaryPayload = encodeHostStateSnapshot(payload);
     P2P.sendToAll(binaryPayload);
   }, intervalMs);
-}
-
-export function startInputSendLoop() {
-  // No-op: input sampling is now handled directly by the 60Hz physics loop via sampleLocalInputForTick.
 }
 
 export function sampleLocalInputForTick() {
@@ -1062,24 +1026,24 @@ function startKeepaliveLoop() {
 
   keepaliveTimer = setInterval(() => {
     if (partySocket) {
-      partySocket.send(JSON.stringify({ type: MSG.keepalive, tClient: Date.now() }));
+      partySocket.send(JSON.stringify({ type: MSG.keepalive, tClient: getMonotonicNow() }));
     }
   }, CONFIG.net.keepaliveIntervalMs);
 }
 
 /**
  * Switches between host and client networking roles.
- * Starts/stops send loops, clears buffers on host promotion, and applies cached snapshots.
+ * Starts/stops the host send loop, clears buffers on host promotion, and applies cached
+ * snapshots. Non-host input is sampled inline by the physics loop (sampleLocalInputForTick),
+ * so there is no separate client send loop to manage here.
  *
  * @param {boolean} nextIsHost True when this client becomes (or remains) the room host.
  */
 export function setAuthorityMode(nextIsHost) {
   const becomingHost = nextIsHost && !isHost;
-  const becomingClient = !nextIsHost && isHost;
   isHost = Boolean(nextIsHost);
 
   if (becomingHost) {
-    stopInputSendLoop();
     consumeHopRequest();
     netStateBuffer = [];
     hostSeq = 0;
@@ -1098,18 +1062,10 @@ export function setAuthorityMode(nextIsHost) {
     return;
   }
 
-  if (becomingClient) {
-    stopHostSendLoop();
-    startInputSendLoop();
-    return;
-  }
-
   if (isHost) {
-    stopInputSendLoop();
     if (!hostSendTimer) startHostSendLoop();
   } else {
     stopHostSendLoop();
-    if (!inputSendTimer) startInputSendLoop();
   }
 }
 
@@ -1466,7 +1422,7 @@ export function initNetcode(roomOverride) {
       pendingInputs = [];
       inputSeq = 0;
       setAuthorityMode(nextIsHost);
-      if (!nextIsHost) hostMigrationFreezeUntilMs = Date.now() + CONFIG.net.hostMigrationFreezeMs;
+      if (!nextIsHost) hostMigrationFreezeUntilMs = getMonotonicNow() + CONFIG.net.hostMigrationFreezeMs;
       hostEpoch += 1;
       netStateBuffer = [];
       if (nextIsHost) {
@@ -1479,9 +1435,12 @@ export function initNetcode(roomOverride) {
     if (type === MSG.slots) {
       const serverMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : 0;
       if (serverMs < lastSlotsServerMs) return;
-      // * Server slots are authoritative — accepted verbatim (a ghost-human guard once
-      // * lived here; it was a no-op and slot takeover is handled server-side).
-      const merged = declashNpcSlotColors(msg.slots);
+      // * Server owns slot colors: it guarantees every slot holds a distinct preset
+      // * color (displacing NPCs on human color-pick), so clients accept slots verbatim
+      // * instead of re-deriving colors locally. This matches the MSG.hello path and
+      // * keeps a single authority for slot state. (declashNpcSlotColors is retained only
+      // * for solo/testdrive, where the client itself is the slot authority.)
+      const merged = msg.slots;
       const incomingJson = JSON.stringify(merged);
       if (serverMs === lastSlotsServerMs && incomingJson === lastSlotsJson) return;
       lastSlotsServerMs = serverMs;
@@ -1525,12 +1484,8 @@ export function initNetcode(roomOverride) {
         if (!prevHadSlot && nowHasSlot) {
           setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
           void Promise.resolve(callbacks.ensureSessionReady?.())
-            .then(() => {
-              if (!isHost) startInputSendLoop();
-            })
             .catch((err) => {
               console.error("[netcode] ensureSessionReady failed during slot sync:", err);
-              if (!isHost) startInputSendLoop();
             });
         }
 
@@ -1575,19 +1530,6 @@ export function initNetcode(roomOverride) {
         callbacks.scheduleNameLabelUpdate();
         callbacks.respawnLocalMidRoundJoinRef();
       }
-      return;
-    }
-
-
-
-    if (type === MSG.hostEventCollision) {
-      if (isHost) return;
-      replayHostCollisionFx(msg, callbacks);
-      return;
-    }
-
-    if (type === MSG.hostEventFall) {
-      processHostFallEvent(msg);
       return;
     }
 
@@ -1676,18 +1618,21 @@ export function initNetcode(roomOverride) {
 /**
  * One-shot host transform broadcast outside the 40Hz loop.
  * Used by the rematch reset (entities.js) to push spawn poses to clients immediately,
- * before the running-phase send loop resumes. Skips collision draining on purpose.
+ * before the running-phase send loop resumes. Skips collision/fall draining on purpose.
+ *
+ * Uses the same binary encoder as startHostSendLoop so there is exactly one host-transform
+ * wire format; the collision/fall tails are simply empty for this one-shot.
  */
 export function broadcastHostTransform(carts) {
   if (!partySocket || !isHost) return;
   hostSeq += 1;
   lastCartsCache = carts;
-  P2P.sendToAll({
-    type: MSG.hostTransform,
+  const payload = {
     seq: hostSeq,
     tHost: getMonotonicNow(),
-    carts: lastCartsCache,
-  });
+    carts,
+  };
+  P2P.sendToAll(encodeHostStateSnapshot(payload));
 }
 
 export function sendHostRound() {
@@ -1765,6 +1710,8 @@ export const __netcodeTestHooks = {
   resetNetState: () => {
     netStateBuffer = [];
     lastCartsCache = null;
+    isHost = false;
+    hostId = null;
     serverClockOffsetMs = 0;
     serverClockOffsetSamples = 0;
     serverClockSamples = [];
@@ -1777,6 +1724,10 @@ export const __netcodeTestHooks = {
   updateServerClockOffset: (serverNowMs, nowMs) => updateServerClockOffset(serverNowMs, nowMs),
   getServerClockOffset: () => serverClockOffsetMs,
   getClockResyncDueAtMs: () => clockResyncDueAtMs,
+  // * Drives the exact function wired as P2P onState — proves raw binary/JSON
+  // * frames flow through decode → dispatch → buffer without a live DataChannel.
+  dispatchP2P: (data, fromConnId) => handleP2PMessage(data, fromConnId),
+  setHostIdForTest: (id) => { hostId = id; },
 };
 
 function handleRemoteClientInput(input, fromConnId, seq) {
@@ -1819,7 +1770,13 @@ function handleRemoteClientInput(input, fromConnId, seq) {
   }
 }
 
-function handleP2PMessage(data) {
+function handleP2PMessage(data, fromConnId) {
+  // * Only the current host is authoritative for snapshots/events. WebRTC is
+  // * unordered/unreliable and the WS host_migrated arrives on a separate transport,
+  // * so a pre-migration packet can still fire on the event loop after we've bumped
+  // * the epoch and cleared the buffer. Reject by source connId — the stale old-host
+  // * channel no longer matches hostId — so it can't poison the freshly-cleared buffer.
+  if (fromConnId && hostId && fromConnId !== hostId) return;
   if (data instanceof ArrayBuffer) {
     const decoded = decodeHostStateSnapshot(data);
     if (decoded) {

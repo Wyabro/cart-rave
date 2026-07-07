@@ -6,12 +6,8 @@
  */
 
 export const MSG = {
-  // Client -> server
+  // Client -> server (WebSocket control plane)
   join: "join",
-  hostTransform: "host_transform",
-  clientInput: "client_input",
-  hostEventCollision: "host_event_collision",
-  hostEventFall: "host_event_fall",
   hostRound: "host_round",
   keepalive: "keepalive",
   colorPick: "color_pick",
@@ -19,17 +15,22 @@ export const MSG = {
   readyToggle: "ready_toggle",
   playAgain: "play_again",
 
-  // Server -> client
+  // Host <-> client (WebRTC DataChannel gameplay plane)
+  // hostTransform: 40Hz binary host snapshot (transforms + collision/fall tails).
+  // clientInput: non-host input sent to the host at physics rate.
+  // spill: one-shot host->client grocery-spill VFX event.
+  hostTransform: "host_transform",
+  clientInput: "client_input",
+  spill: "spill",
+
+  // Server -> client (WebSocket control plane)
   hello: "hello",
-  hostAssigned: "host_assigned",
   hostMigrated: "host_migrated",
   slots: "slots",
-  state: "state",
   round: "round",
   joinRejected: "join_rejected",
   gameStart: "game_start",
   countdownCancel: "countdown_cancel",
-  spill: "spill",
 
   // WebRTC Signaling (Client <-> Server)
   requestTurnCredentials: "request_turn_credentials",

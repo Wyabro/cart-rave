@@ -1,3 +1,5 @@
+import { MSG } from "../../shared/protocol.js";
+
 const HEADER_BYTES = 12;
 const CART_BYTES = 52;
 
@@ -143,7 +145,9 @@ export function decodeHostStateSnapshot(buffer) {
   }
   
   return {
-    type: "hostTransform", // Ensure this matches MSG.hostTransform
+    // * Must equal the shared protocol constant so the receiver's dispatcher
+    // * (handleRemoteP2PMessage) routes decoded binary snapshots to handleRemoteHostState.
+    type: MSG.hostTransform,
     seq,
     tHost,
     carts,

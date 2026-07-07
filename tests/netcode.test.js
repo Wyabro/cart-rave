@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   __netcodeTestHooks as hooks,
   declashNpcSlotColors,
-  reconcilePredictedLocalCart,
   sampleAuthoritativeCartState,
   getPendingInputs,
   prunePendingInputs,
@@ -15,6 +14,7 @@ import {
   applyCartState,
 } from "../src/netcode.js";
 import { CONFIG } from "../src/config.js";
+import { MSG } from "../shared/protocol.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "../src/netcode/binary.js";
 
 /** Builds a per-slot snapshot array with one cart at the given pose. */
@@ -136,59 +136,12 @@ describe("sampleAuthoritativeCartState", () => {
   });
 });
 
-describe.skip("reconcilePredictedLocalCart", () => {
-  it("skips corrections inside the dead zone", () => {
-    hooks.bufferState(1000, 1, snap(0.05, 0, 0));
-    const cart = mockCart();
-    reconcilePredictedLocalCart(cart, 0, 1 / 60);
-    expect(cart.state.t.x).toBe(0); // err 0.05 < minErrorM 0.12 → untouched
-  });
-
-  it("teleports past maxCorrectionM", () => {
-    hooks.bufferState(1000, 1, snap(50, 0, 0));
-    const cart = mockCart();
-    reconcilePredictedLocalCart(cart, 0, 1 / 60);
-    expect(cart.state.t.x).toBe(50); // err 50 > 4.0 → snap
-  });
-
-  it("moves a fraction of the error toward authority in the smooth band", () => {
-    hooks.bufferState(1000, 1, snap(1, 0, 0));
-    const cart = mockCart();
-    reconcilePredictedLocalCart(cart, 0, 1 / 60);
-    const expectedAlpha = 1 - Math.exp(-CONFIG.net.prediction.reconcilePosRate / 60);
-    expect(cart.state.t.x).toBeCloseTo(expectedAlpha, 6);
-    expect(cart.state.t.x).toBeGreaterThan(0);
-    expect(cart.state.t.x).toBeLessThan(1);
-  });
-
-  it("yaw-only: corrects heading without touching an upright cart's pitch/roll", () => {
-    // Authority: cart rotated 90° about Y, 1m away (inside smooth band).
-    hooks.bufferState(1000, 1, snap(1, 0, 0, { q: [0, Math.SQRT1_2, 0, Math.SQRT1_2] }));
-    const cart = mockCart();
-    reconcilePredictedLocalCart(cart, 0, 1 / 60);
-    const r = cart.state.r;
-    // Rotation applied about Y only: x and z stay ~0.
-    expect(Math.abs(r.x)).toBeLessThan(1e-9);
-    expect(Math.abs(r.z)).toBeLessThan(1e-9);
-    expect(Math.abs(r.y)).toBeGreaterThan(0); // heading moved toward authority
-  });
-
-  it("falls back to full slerp when flip state disagrees", () => {
-    // Authority: cart flipped 180° about Z (upside down).
-    hooks.bufferState(1000, 1, snap(1, 0, 0, { q: [0, 0, 1, 0] }));
-    const cart = mockCart();
-    reconcilePredictedLocalCart(cart, 0, 1 / 60);
-    // Full slerp path engages roll: z component must move off zero.
-    expect(Math.abs(cart.state.r.z)).toBeGreaterThan(0);
-  });
-});
-
 describe("rewind and replay input buffering", () => {
   beforeEach(() => {
     hooks.resetNetState();
   });
 
-  it("buffers inputs in startInputSendLoop and prunes them correctly", () => {
+  it("buffers and prunes pending inputs by acknowledged seq", () => {
     prunePendingInputs(0); // Reset buffer
     getPendingInputs().push({ seq: 1, input: { throttle: 1, steer: 0 } });
     getPendingInputs().push({ seq: 2, input: { throttle: 1, steer: 0 } });
@@ -350,7 +303,8 @@ describe("Binary snapshot serialization", () => {
     expect(buffer).toBeInstanceOf(ArrayBuffer);
 
     const decoded = decodeHostStateSnapshot(buffer);
-    expect(decoded.type).toBe("hostTransform");
+    // Must equal the shared protocol constant so the receiver's dispatcher routes it.
+    expect(decoded.type).toBe(MSG.hostTransform);
     expect(decoded.seq).toBe(original.seq);
     expect(decoded.tHost).toBeCloseTo(original.tHost, 2);
     expect(decoded.carts).toHaveLength(2);
@@ -434,6 +388,49 @@ describe("Binary snapshot serialization", () => {
     // Unmodified values should remain as original
     expect(decoded.carts[0].p[1]).toBeCloseTo(2.0, 3);
     expect(decoded.carts[0].q[3]).toBeCloseTo(1.0, 3);
+  });
+});
+
+describe("binary snapshot dispatch (end-to-end into the buffer)", () => {
+  beforeEach(() => hooks.resetNetState());
+
+  it("fills netStateBuffer from a raw binary host snapshot via the real dispatch", () => {
+    // Exact runtime path: ArrayBuffer -> decodeHostStateSnapshot -> handleRemoteP2PMessage
+    // -> handleRemoteHostState -> bufferAuthoritativeState. No live DataChannel needed.
+    const buf = encodeHostStateSnapshot({ seq: 7, tHost: 1000, carts: snap(1, 2, 3) });
+    expect(buf).toBeInstanceOf(ArrayBuffer);
+    hooks.dispatchP2P(buf, null);
+    expect(hooks.getBufferLength()).toBe(1);
+    // And the newest snapshot is what reconciliation reads via getLatestSnap().
+    expect(getLatestSnap().seq).toBe(7);
+  });
+
+  it("accumulates monotonically increasing sequences across ticks", () => {
+    for (let i = 1; i <= 5; i += 1) {
+      hooks.dispatchP2P(encodeHostStateSnapshot({ seq: i, tHost: 1000 + i * 25, carts: snap(i, 0, 0) }), null);
+    }
+    expect(hooks.getBufferLength()).toBe(5);
+    expect(getLatestSnap().seq).toBe(5);
+  });
+
+  it("REGRESSION #1: the old literal type string would never buffer", () => {
+    // Pre-fix, the decoder stamped the literal "hostTransform", which does not equal
+    // MSG.hostTransform ("host_transform"), so the dispatcher dropped every snapshot.
+    hooks.dispatchP2P({ type: "hostTransform", seq: 7, tHost: 1000, carts: snap(1, 2, 3) }, null);
+    expect(hooks.getBufferLength()).toBe(0);
+    // The shared constant routes correctly.
+    hooks.dispatchP2P({ type: MSG.hostTransform, seq: 7, tHost: 1000, carts: snap(1, 2, 3) }, null);
+    expect(hooks.getBufferLength()).toBe(1);
+  });
+
+  it("REGRESSION #3: rejects a snapshot from a non-host source connId", () => {
+    hooks.setHostIdForTest("host-A");
+    // Straggler from the pre-migration host is dropped by source.
+    hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 9, tHost: 1000, carts: snap(1, 0, 0) }), "host-OLD");
+    expect(hooks.getBufferLength()).toBe(0);
+    // The current host's snapshot is accepted.
+    hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 9, tHost: 1000, carts: snap(1, 0, 0) }), "host-A");
+    expect(hooks.getBufferLength()).toBe(1);
   });
 });
 

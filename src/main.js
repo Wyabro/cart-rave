@@ -1868,12 +1868,12 @@ async function main() {
     allCarts = carts;
     allCartsRef = carts;
     Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
-    Netcode.declashNpcSlotColors(Netcode.getNetSlots());
+    // * Slot colors are authoritative: server-provided in multiplayer (accepted verbatim),
+    // * and declashed once at init for solo/testdrive. No re-derivation here.
     updateCartMaterialsFromSlots(Netcode.getNetSlots());
     sessionRefs.updateNameLabelsRef.current = updateNameLabels;
     updateNameLabels();
     if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
-    if (!Netcode.getIsHost()) Netcode.startInputSendLoop();
     Netcode.setAuthorityMode(Netcode.getIsHost());
     gameCtx.registerRuntime({
       getAllCarts: () => allCarts,
@@ -2009,7 +2009,8 @@ async function main() {
     resetSimTimingRef: sessionRefs.resetSimTimingRef,
     doRespawnRef: Entities.doRespawn,
   });
-  // * hello can arrive before input/cart refs exist; startInputSendLoop no-ops without getAxisRef.
+  // * hello can arrive before input/cart refs exist; non-host input is sampled inline by the
+  // * physics loop (sampleLocalInputForTick), which no-ops safely until getAxisRef is wired.
   Netcode.setAuthorityMode(Netcode.getIsHost());
 
   const ramBoostForwardXZ = new THREE.Vector3();
@@ -2556,7 +2557,6 @@ async function main() {
     get hud() { return hud; },
     sendHostRound: () => Netcode.sendHostRound(),
     getPartySocket: () => Netcode.getPartySocket(),
-    MSG,
     queueHostFallEvent: Netcode.queueHostFallEvent,
     setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
     getYouConnId: () => Netcode.getYouConnId(),
@@ -2629,7 +2629,6 @@ async function main() {
     getHostMigrationFreezeUntilMs: () => Netcode.getHostMigrationFreezeUntilMs(),
     updateRemoteCartNetTargets: (idx) => Netcode.updateRemoteCartNetTargets(idx),
     syncRemoteCartBodiesForPrediction: (idx) => Netcode.syncRemoteCartBodiesForPrediction(idx),
-    reconcilePredictedLocalCart: (cart, idx, dt) => Netcode.reconcilePredictedLocalCart(cart, idx, dt),
     sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
     runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
     getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),

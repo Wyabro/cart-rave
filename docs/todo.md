@@ -12,7 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
-- **Recent Technical Work**: Worker ASSETS fallback (single Worker serves Durable Object + static assets for zero-origin deployment) + `world.getRigidBody(handle)` guards on all level/arena dispose paths (prevents Rapier double-free panics on cleanup) + binary decode/apply NaN/Infinity guards + binary serialization for host state snapshots + input sampling moved to physics loop + server reaper fix + server spill relay removed + deterministic physics timestamps + client-side prediction rewrite + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer with ackSeq pruning + WebRTC DataChannel `ordered: false, maxRetransmits: 0` + WebRTC P2P DataChannel migration + Cloudflare Calls TURN + server reduced to signaling relay + defensive null guards + Backrooms `roundCuboid` fix + mid-round join cart teleport + cargoBay visibility sync + booth snap at countdown + non-host death shatter fix + rate limit exemption + combo decay race fix + grocery spill queue + server level sync + slot kind fix + results UI cleanup + 100% typecheck compliance pass + raw partyserver / Wrangler migration + Zanzibar sunset seascape + camera framing & viewport extraction + menu stats extraction + web font fix + self-death verb variety + results overlay responsive sizing + TEST DRIVE removal + mobile responsive CSS fixes
+- **Recent Technical Work**: Major dead code removal & protocol cleanup (~250 lines deleted: server-side collision/fall validators, `reconcilePredictedLocalCart`, `inputSendTimer`/`startInputSendLoop`, `configureP2P`/`getPeerConnections`/`getDataChannels`) + shared NPC name pool (`shared/npcNames.js`, single source of truth for client + server) + protocol MSG reorganized into WebSocket control plane vs WebRTC gameplay plane + `handleP2PMessage` rejects stale host snapshots by `fromConnId !== hostId` (cross-transport guard since WebRTC is unordered but host_migrated is WebSocket) + slots accepted verbatim from server (no local `declashNpcSlotColors` on MSG.slots, server owns slot colors) + binary decoder now uses `MSG.hostTransform` shared constant (was hardcoded literal "hostTransform" that never matched `"host_transform"`) + interpolation helpers extracted (`lerpVec3Pair`, `slerpQuatPair`) + `broadcastHostTransform` now uses binary encoder + non-host P2P dispatches all JSON types to `onStateCallback` (was filtering to hostTransform only, dropping MSG.spill) + host migration freeze now uses monotonic clock + `dispatchP2P`/`setHostIdForTest` test hooks for e2e binary-to-buffer dispatch tests + Worker ASSETS fallback + rigid body double-free guards on all levels + NaN/Infinity guards in binary decode + binary serialization + input sampling moved to physics loop + server reaper fix + server spill relay removed + deterministic physics timestamps + client-side prediction rewrite + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer + WebRTC P2P DataChannel migration + server reduced to signaling relay + all prior work
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
 ---
@@ -70,6 +70,51 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 6, 2026 – Dead Code Removal, Protocol Cleanup & Cross-Transport Safety
+
+**1. Major Dead Code Removal (~250 lines)** — Verified.
+- **Server validators** (`party/index.ts`): Removed `COLLISION_FX_VALIDATORS` (collision slot/intensity/midpoint/rammer/boosting validation, ~70 lines) and `ALLOWED_FALL_VERBS` fall whitelist (~60 lines). These guarded relays that have been bypassed since the P2P migration — collisions and falls now travel in the binary snapshot's JSON tail, authored by the host and replayed on non-host clients, never touching the server.
+- **`reconcilePredictedLocalCart`** (`src/netcode.js`): Full removal of the old soft-lerp reconciliation function, its 7 scratch quaternions/vectors, JSDoc, and the 6 test cases in `tests/netcode.test.js`. Reconciliation is now fully rewind-and-replay inline in `gameLoop.js`.
+- **`inputSendTimer` / `startInputSendLoop` / `stopInputSendLoop`** (`src/netcode.js`): Removed the setInterval-based input send loop and all its start/stop call sites across 6 locations. Non-host input is now sampled synchronously in the physics loop via `sampleLocalInputForTick()`.
+- **`configureP2P` / `getPeerConnections` / `getDataChannels`** (`src/netcode/p2p.js`): Removed unused re-exports and the `configureP2P` intermediate.
+
+**2. Shared NPC Name Pool (`shared/npcNames.js` — new module)** — Verified.
+- Extracted the 40-name NPC list from both `party/index.ts` and `src/npcNames.js` into `shared/npcNames.js` — single source of truth imported by both client and server.
+- `src/npcNames.js` now re-exports `{ NPC_NAME_POOL }` for backward compatibility with all existing importers.
+
+**3. Protocol MSG Reorganization (`shared/protocol.js`)** — Verified.
+- Message constants reorganized into three labeled sections: Client→Server (WebSocket control plane), Host↔Client (WebRTC DataChannel gameplay plane), Server→Client (WebSocket control plane).
+- `hostTransform`, `clientInput`, and `spill` moved from server-relay to the P2P section. `hostAssigned` and `state` removed (now always `hostMigrated`, and `state` is P2P). `spill` removed from server→client — spills travel fully peer-to-peer.
+
+**4. Cross-Transport Stale-Host Packet Guard (`src/netcode.js`, `src/netcode/p2p.js`)** — Verified.
+- `handleP2PMessage` now accepts a `fromConnId` parameter and rejects snapshots where `fromConnId !== hostId`. WebRTC DataChannels are unordered/unreliable, while `MSG.hostMigrated` arrives on the ordered WebSocket — a pre-migration snapshot can fire on the event loop after the epoch/epoch buffer clear has already happened. Rejecting by source connId prevents this race from poisoning the freshly-cleared snapshot buffer.
+- `P2P.onStateCallback` now passes the connId through to `handleP2PMessage` for both binary and JSON frames.
+- Test: stale-host rejection + current-host acceptance verified in `tests/netcode.test.js`.
+
+**5. Slots Accepted Verbatim from Server (`src/netcode.js`, `src/main.js`)** — Verified.
+- Server owns slot colors (displaces NPCs on human color-pick, guaranteeing distinct preset colors for every slot). Clients now accept `MSG.slots` verbatim instead of calling `declashNpcSlotColors` locally. The declash function is retained for solo/testdrive only (where the client is its own slot authority).
+- `initCarts()` no longer calls `declashNpcSlotColors` — inline comment explains the authoritative server ownership.
+
+**6. Binary Decoder Protocol Constant Fix (`src/netcode/binary.js`)** — Verified.
+- `decodeHostStateSnapshot` was stamping the hardcoded string `"hostTransform"`, which does not equal `MSG.hostTransform` (`"host_transform"`). The dispatcher in `handleRemoteP2PMessage` checks `data.type === MSG.hostTransform`, so **every binary snapshot was silently dropped** — the `netStateBuffer` never received a single frame from the binary path since it was introduced. Now imports and stamps `MSG.hostTransform` from the shared protocol.
+- Test: explicit regression test verifies that the string literal `"hostTransform"` is rejected while `MSG.hostTransform` routes correctly.
+
+**7. Interpolation Helper Extraction (`src/netcode.js`)** — Verified.
+- Extracted `lerpVec3Pair(b, a, alpha)` and `slerpQuatPair(b, a, alpha)` from the inline lerp/slerp blocks in `sampleCartSnapshotFromPair` and `writeInterpolatedRemoteTargets`. Both helpers return `null` unless both arrays are valid, giving callers a single-signal null check for the fallback path. Eliminates ~40 lines of duplicated lerp/slerp logic.
+
+**8. `broadcastHostTransform` Binary Encoding (`src/netcode.js`)** — Verified.
+- `broadcastHostTransform` (one-shot broadcast used during rematch reset) now uses `encodeHostStateSnapshot` instead of `JSON.stringify` → `P2P.sendToAll`. Matches the 40Hz send loop's wire format. Collision/fall tails are empty for this one-shot, which is correct (no combat during rematch reset).
+
+**9. Non-Host JSON Dispatch Fix (`src/netcode/p2p.js`)** — Verified.
+- Non-host `onmessage` was filtering JSON frames to `MSG.hostTransform` only, silently dropping `MSG.spill` events (grocery spills). Now forwards every host-authored JSON event to `onStateCallback` and lets the netcode dispatcher route by `data.type`. The dispatcher is the single point that decides handling.
+
+**10. Monotonic Clock Consistency (`src/netcode.js`, `src/gameLoop.js`)** — Verified.
+- Host migration freeze deadline now uses `getMonotonicNow()` instead of `Date.now()`. Keepalive `tClient` now uses `getMonotonicNow()`. `gameLoop.js` freeze check reads `performance.timeOrigin + performance.now()` to match.
+
+**11. End-to-End Binary Dispatch Tests (`tests/netcode.test.js`)** — Verified.
+- New test hook `dispatchP2P(data, fromConnId)` drives the exact runtime path: `ArrayBuffer → decodeHostStateSnapshot → handleRemoteP2PMessage → handleRemoteHostState → bufferAuthoritativeState`. No live DataChannel needed.
+- Tests: single snapshot buffer fill, monotonic sequence accumulation, stale-host rejection, and the literal `"hostTransform"` regression. `setHostIdForTest` hook added.
 
 ### July 6, 2026 – Worker ASSETS Fallback & Rigid Body Double-Free Guards
 
