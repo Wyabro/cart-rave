@@ -1,5 +1,6 @@
 // challengeStore.js — Vanilla Zustand store for Local Challenge System
 import { createStore } from "zustand/vanilla";
+import { STORAGE_KEYS, storageGetJson, storageSetJson } from "../utils/storage.js";
 
 export const CHALLENGE_POOL = [
   { id: 'spill_15', type: 'daily', title: 'Spill Master', description: 'Cause 15 opponent spills', goal: 15, event: 'spill' },
@@ -14,7 +15,6 @@ export const CHALLENGE_POOL = [
   { id: 'ko_aggressor_5', type: 'weekly', title: 'Aggressor Hunter', description: 'Knockout 5 Aggressor NPCs', goal: 5, event: 'ko_aggressor' },
 ];
 
-const STORAGE_KEY = 'cartRaveChallenges';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
@@ -38,38 +38,26 @@ function selectRandomChallenges(type, count) {
 }
 
 function loadPersistedState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.dailyChallenges) && Array.isArray(parsed.weeklyChallenges)) {
-        // Ensure all loaded challenge IDs are valid members of the current CHALLENGE_POOL
-        const allValid = [...parsed.dailyChallenges, ...parsed.weeklyChallenges].every(
-          (c) => c && CHALLENGE_POOL.some((p) => p.id === c.id)
-        );
-        if (allValid) {
-          return parsed;
-        }
-      }
+  const parsed = storageGetJson(STORAGE_KEYS.challenges, null);
+  if (parsed && Array.isArray(parsed.dailyChallenges) && Array.isArray(parsed.weeklyChallenges)) {
+    // Ensure all loaded challenge IDs are valid members of the current CHALLENGE_POOL
+    const allValid = [...parsed.dailyChallenges, ...parsed.weeklyChallenges].every(
+      (c) => c && CHALLENGE_POOL.some((p) => p.id === c.id)
+    );
+    if (allValid) {
+      return parsed;
     }
-  } catch (err) {
-    console.warn('[challengeStore] Failed to load persisted challenges:', err);
   }
   return null;
 }
 
 function saveState(state) {
-  try {
-    const dataToSave = {
-      dailyChallenges: state.dailyChallenges,
-      weeklyChallenges: state.weeklyChallenges,
-      lastDailyReset: state.lastDailyReset,
-      lastWeeklyReset: state.lastWeeklyReset,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-  } catch (err) {
-    console.warn('[challengeStore] Failed to save challenges:', err);
-  }
+  storageSetJson(STORAGE_KEYS.challenges, {
+    dailyChallenges: state.dailyChallenges,
+    weeklyChallenges: state.weeklyChallenges,
+    lastDailyReset: state.lastDailyReset,
+    lastWeeklyReset: state.lastWeeklyReset,
+  });
 }
 
 const initialPersisted = loadPersistedState();

@@ -103,21 +103,14 @@ export function emissiveRefHexForNeonHex(hex) {
   return CART_COLORS[presetId]?.hex ?? hex;
 }
 
+import { isTouchLikeDevice } from "./utils/device.js";
+
 /**
  * Detects touch-first mobile/tablet devices (coarse pointer, narrow viewport).
  * @returns {boolean}
  */
 export function isTouchDevice() {
-  try {
-    if (typeof window === "undefined") return false;
-    const hasTouch =
-      ("ontouchstart" in window) ||
-      (navigator.maxTouchPoints || 0) > 0;
-    const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? hasTouch;
-    return hasTouch && coarsePointer && (window.innerWidth || 0) < 1024;
-  } catch {
-    return false;
-  }
+  return isTouchLikeDevice();
 }
 
 import { settingsStore } from "./stores/settingsStore.js";

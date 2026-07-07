@@ -470,6 +470,7 @@ function disposeRenderer(renderer) {
  *
  * Disposes render targets and passes owned by the effect composer.
  *
+ * @public Excluded from knip's unused-export report (see comment above).
  * @param {EffectComposer|null|undefined} composer Post-processing composer to dispose.
  */
 export function disposeComposer(composer) {

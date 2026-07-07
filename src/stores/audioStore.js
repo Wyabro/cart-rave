@@ -1,47 +1,30 @@
 // audioStore.js — Vanilla Zustand store for game audio volume and mute settings.
 import { createStore } from "zustand/vanilla";
-
-const STORAGE_KEY_MUSIC_VOL = "cartRaveVolume";
-const STORAGE_KEY_SFX_VOL = "cartRaveSfxVol";
-const STORAGE_KEY_MUTED = "cartRaveMuted";
+import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 
 export const AUDIO_VOLUME_MAX = 1.15;
 export const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
 
+/** Volumes persist as integer percentages (0–100) of AUDIO_VOLUME_MAX. */
+function loadVolumePct(key) {
+  const saved = storageGet(key);
+  if (saved === null) return null;
+  const parsed = parseInt(saved, 10);
+  if (Number.isNaN(parsed)) return null;
+  return Math.min(Math.max((parsed / 100) * AUDIO_VOLUME_MAX, 0), AUDIO_VOLUME_MAX);
+}
+
 function loadInitialAudioState() {
-  let musicVolume = AUDIO_VOLUME_DEFAULT;
-  let sfxVolume = AUDIO_VOLUME_DEFAULT;
-  let isMuted = false;
+  return {
+    musicVolume: loadVolumePct(STORAGE_KEYS.musicVolume) ?? AUDIO_VOLUME_DEFAULT,
+    sfxVolume: loadVolumePct(STORAGE_KEYS.sfxVolume) ?? AUDIO_VOLUME_DEFAULT,
+    isMuted: storageGet(STORAGE_KEYS.muted) === "true",
+  };
+}
 
-  if (typeof localStorage !== "undefined") {
-    try {
-      const savedVol = localStorage.getItem(STORAGE_KEY_MUSIC_VOL);
-      if (savedVol !== null) {
-        const parsed = parseInt(savedVol, 10);
-        if (!Number.isNaN(parsed)) {
-          musicVolume = Math.min(Math.max((parsed / 100) * AUDIO_VOLUME_MAX, 0), AUDIO_VOLUME_MAX);
-        }
-      }
-    } catch {}
-
-    try {
-      const savedSfxVol = localStorage.getItem(STORAGE_KEY_SFX_VOL);
-      if (savedSfxVol !== null) {
-        const parsed = parseInt(savedSfxVol, 10);
-        if (!Number.isNaN(parsed)) {
-          sfxVolume = Math.min(Math.max((parsed / 100) * AUDIO_VOLUME_MAX, 0), AUDIO_VOLUME_MAX);
-        }
-      }
-    } catch {}
-
-    try {
-      if (localStorage.getItem(STORAGE_KEY_MUTED) === "true") {
-        isMuted = true;
-      }
-    } catch {}
-  }
-
-  return { musicVolume, sfxVolume, isMuted };
+function saveVolumePct(key, clamped) {
+  const pct = Math.round((clamped / AUDIO_VOLUME_MAX) * 100);
+  storageSet(key, String(pct));
 }
 
 const initialState = loadInitialAudioState();
@@ -52,33 +35,19 @@ export const audioStore = createStore((set, get) => ({
   setMusicVolume: (volume) => {
     const clamped = Math.min(Math.max(volume, 0), AUDIO_VOLUME_MAX);
     set({ musicVolume: clamped });
-    if (typeof localStorage !== "undefined") {
-      try {
-        const pct = Math.round((clamped / AUDIO_VOLUME_MAX) * 100);
-        localStorage.setItem(STORAGE_KEY_MUSIC_VOL, String(pct));
-      } catch {}
-    }
+    saveVolumePct(STORAGE_KEYS.musicVolume, clamped);
   },
 
   setSfxVolume: (volume) => {
     const clamped = Math.min(Math.max(volume, 0), AUDIO_VOLUME_MAX);
     set({ sfxVolume: clamped });
-    if (typeof localStorage !== "undefined") {
-      try {
-        const pct = Math.round((clamped / AUDIO_VOLUME_MAX) * 100);
-        localStorage.setItem(STORAGE_KEY_SFX_VOL, String(pct));
-      } catch {}
-    }
+    saveVolumePct(STORAGE_KEYS.sfxVolume, clamped);
   },
 
   setMuted: (muted) => {
     const val = Boolean(muted);
     set({ isMuted: val });
-    if (typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY_MUTED, val ? "true" : "false");
-      } catch {}
-    }
+    storageSet(STORAGE_KEYS.muted, val ? "true" : "false");
   },
 
   toggleMuted: () => {

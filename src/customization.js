@@ -29,7 +29,10 @@ import {
   SUNGLASSES_STYLES,
 } from "./cartThemeConfig.js";
 
-export const CUSTOMIZE_STORAGE_KEY = "cartRaveCustomization";
+import { STORAGE_KEYS, storageGetJson, storageSetJson } from "./utils/storage.js";
+
+/** Re-exported for existing importers — the key itself lives in utils/storage.js. */
+export const CUSTOMIZE_STORAGE_KEY = STORAGE_KEYS.customization;
 export const CUSTOM_COLOR_ID = "custom";
 
 /** Fixed neon HSL — full saturation, mid lightness for intense spectral neons. */
@@ -299,9 +302,7 @@ function buildStoragePayload(normalized) {
  * @returns {void}
  */
 function writeCustomizationToStorage(normalized) {
-  try {
-    localStorage.setItem(CUSTOMIZE_STORAGE_KEY, JSON.stringify(buildStoragePayload(normalized)));
-  } catch {}
+  storageSetJson(CUSTOMIZE_STORAGE_KEY, buildStoragePayload(normalized));
 }
 
 /**
@@ -311,10 +312,12 @@ export function loadPlayerCustomization() {
   if (cachedCustomization) return cachedCustomization;
 
   let loaded = null;
-  try {
-    const raw = localStorage.getItem(CUSTOMIZE_STORAGE_KEY);
-    if (raw) loaded = normalizeCustomization(JSON.parse(raw));
-  } catch {}
+  const raw = storageGetJson(CUSTOMIZE_STORAGE_KEY, null);
+  if (raw) {
+    try {
+      loaded = normalizeCustomization(raw);
+    } catch {}
+  }
 
   if (!loaded) {
     // * First visit: seed canonical key so menu and game share one write path.

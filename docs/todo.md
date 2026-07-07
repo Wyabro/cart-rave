@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** July 6, 2026
+**Last Updated:** July 7, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -12,6 +12,7 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
+- **Production-Readiness Pass (July 7, 2026)**: Full-codebase audit with 50 ranked improvements ([docs/audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md)); top 10 shipped — Safari/iOS `.mp3` audio fallbacks (game had **zero audio on Safari**), Open Graph/Twitter link previews, fixed PWA manifest + `theme-color`, runtime error reporting with rate-limiting, centralized `localStorage` in `src/utils/storage.js`, shared touch detection in `src/utils/device.js`, all 10 knip dead exports removed, ~25 MB of dead assets/config purged. New `npm run check` gate (typecheck + tests + knip) is green.
 - **Recent Technical Work**: **WebRTC signaling root-cause fix — multiplayer restored** (host now initiates the DataChannel offer to each peer via `ensureHostPeerConnections()` in the `MSG.slots` handler; previously `createOffer` was unreachable because the only callers were non-host no-ops, so no DataChannel ever opened) + Major dead code removal & protocol cleanup (~250 lines deleted: server-side collision/fall validators, `reconcilePredictedLocalCart`, `inputSendTimer`/`startInputSendLoop`, `configureP2P`/`getPeerConnections`/`getDataChannels`) + shared NPC name pool (`shared/npcNames.js`, single source of truth for client + server) + protocol MSG reorganized into WebSocket control plane vs WebRTC gameplay plane + `handleP2PMessage` rejects stale host snapshots by `fromConnId !== hostId` (cross-transport guard since WebRTC is unordered but host_migrated is WebSocket) + slots accepted verbatim from server (no local `declashNpcSlotColors` on MSG.slots, server owns slot colors) + binary decoder now uses `MSG.hostTransform` shared constant (was hardcoded literal "hostTransform" that never matched `"host_transform"`) + interpolation helpers extracted (`lerpVec3Pair`, `slerpQuatPair`) + `broadcastHostTransform` now uses binary encoder + non-host P2P dispatches all JSON types to `onStateCallback` (was filtering to hostTransform only, dropping MSG.spill) + host migration freeze now uses monotonic clock + `dispatchP2P`/`setHostIdForTest` test hooks for e2e binary-to-buffer dispatch tests + Worker ASSETS fallback + rigid body double-free guards on all levels + NaN/Infinity guards in binary decode + binary serialization + input sampling moved to physics loop + server reaper fix + server spill relay removed + deterministic physics timestamps + client-side prediction rewrite + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer + WebRTC P2P DataChannel migration + server reduced to signaling relay + all prior work
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
 
@@ -86,6 +87,23 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 **Validation** — Verified.
 - **Runtime (real app):** with the app running as host, a peer joined the room → the app created and sent an `sdp_offer` → ICE `connected` → `[p2p] DataChannel open with <peer>` → the host streamed **426 binary snapshots (248 bytes each, ≈40 Hz)** to the peer. Also confirmed a full host-offers handshake end-to-end through the real party server (DataChannel OPEN both sides, binary round-trip).
 - **Tests (`tests/p2p-signaling.test.js`, mock `RTCPeerConnection`):** host reaches `createOffer` + emits `sdp_offer`; non-host answers with `sdp_answer` + wires `ondatachannel`; DataChannel open → binary `onmessage` → dispatch → `netStateBuffer`; and `ensureHostPeerConnections` offers to exactly the non-self human peers (idempotently). New `setHostStateForTest` / `ensureHostPeerConnections` test-hook seams.
+
+### July 7, 2026 – Production-Readiness Audit & Top-10 Fixes
+
+Full-codebase audit; report with all 50 ranked improvements lives in [docs/audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md). Constraint: no gameplay/physics/scoring changes and no networking (`netcode*`, `shared/protocol.js`, `party/index.ts`) touched. The 10 highest-impact, safe items were implemented:
+
+1. **Safari/iOS audio fix (highest player impact)** — every sound loaded as `.ogg` only, which Safari cannot decode, so the game was **silent on all Safari/iOS devices**. `audioManager.js` `loadMenuMusic` / `loadGamePlaylist` / `registerSfx` now accept `[ogg, mp3]` arrays and Howler picks the first decodable format. Generated `.mp3` fallbacks for the 10 referenced SFX via ffmpeg (~385 KB); the 5 music `.mp3`s already existed but were unused. `index.html` menu preload now feature-detects Ogg support.
+2. **Dead audio purged (~6 MB)** — removed `.wav` masters (Death.wav alone was 3.8 MB) and the unreferenced `Wheel.ogg` / `Wheel.wav` / `Wheel_loop.ogg` trio. `public/sounds/` 32 MB → 26 MB.
+3. **TypeScript baseline restored** — 2 `Element.blur` errors in `cart-rave-menu.js` fixed (README's "0 errors" claim is true again).
+4. **PWA manifest fixed** — `site.webmanifest` had empty `name`/`short_name` and white theme colors; now "Cart Clash" with the dark neon palette. Added `<meta name="theme-color">`.
+5. **Social link previews** — invite links (the core share loop) unfurled blank; added Open Graph + Twitter Card tags to `index.html`.
+6. **Runtime error reporting** — the inline `index.html` handlers bailed once boot finished, so post-boot errors were invisible. `errorReporter.js` now installs global `error` / `unhandledrejection` handlers with per-message dedupe and a 20-report session cap; wired via `installGlobalErrorReporting()` in `main()`. Verified end-to-end (synthetic throw → `POST /api/log-error` beacon).
+7. **Centralized storage** — new `src/utils/storage.js` with a `STORAGE_KEYS` registry (all 14 `cartRave*` keys) and safe get/set/JSON helpers. Migrated `main.js`, all three stores, `customization.js`, `cart-rave-menu.js`, `levels/index.js`, `bootstrap.js`, `levelManager.js`, `loadingScreen.js`. (`netcode.js` left untouched per constraint.) `"cartRaveLevel"` had been independently redefined in three files.
+8. **Dead exports removed** — all 10 knip-flagged unused exports across `audioManager.js`, `gameState.js`, `entities.js`, `input.js` unexported/removed. knip is now fully clean.
+9. **Shared device detection** — new `src/utils/device.js` (`isTouchLikeDevice`) removes the copy-pasted touch check that `settingsStore.js` duplicated from `utils.js` due to an import cycle.
+10. **Repo hygiene + tooling** — removed stale `vercel.json`, `dev-server.py`, `partykit*.json` (pre-partyserver), git-tracked `.tmp-gltf-imgs/`, and root-level icon duplicates (Vite serves `public/`). Added `npm run check` (typecheck + test + knip). `dist/` 59 MB → 53 MB.
+
+**Validation** — `npm run check` green (0 TS errors, 32/32 tests, 0 knip findings); production build succeeds; booted in-browser with zero console errors and confirmed the new storage/audio/meta paths live.
 
 ### July 6, 2026 – Dead Code Removal, Protocol Cleanup & Cross-Transport Safety
 
@@ -435,4 +453,4 @@ Tracked in [ROADMAP.md](./ROADMAP.md) and [post-jam-ideas.md](./post-jam-ideas.m
 
 ---
 
-**Last Updated:** July 6, 2026
+**Last Updated:** July 7, 2026

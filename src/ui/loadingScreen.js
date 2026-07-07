@@ -4,6 +4,7 @@
 
 import "./loadingScreen.css";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
+import { storageGet } from "../utils/storage.js";
 
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
@@ -318,7 +319,7 @@ export function dismissAllLoadingOverlays() {
 function showModeEntryLoading(opts = {}) {
   // * Theme is driven by levelId only — gameMode is ignored.
   const resolvedLevel = resolveLevelId(
-    opts.levelId ?? (typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null),
+    opts.levelId ?? (storageGet(LEVEL_STORAGE_KEY)),
   );
   const theme =
     resolvedLevel === "backrooms" ? "backrooms"

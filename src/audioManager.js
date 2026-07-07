@@ -121,21 +121,6 @@ function applyAllVolumes() {
   applySfxVolumes();
 }
 
-/** @param {number} v 0–1 range */
-export function setSfxVolume(v) {
-  audioStore.getState().setSfxVolume(v);
-}
-
-/** @param {number} v 0–1 range */
-export function setMusicVolume(v) {
-  audioStore.getState().setMusicVolume(v);
-}
-
-/** @param {boolean} m */
-export function setMuted(m) {
-  audioStore.getState().setMuted(m);
-}
-
 /**
  * Bulk-restore volumes from saved values (called on boot from localStorage).
  * @param {{ master: number, sfx: number, music: number, muted: boolean }} state
@@ -151,12 +136,13 @@ export function restoreVolumeState(state) {
 
 /**
  * Load the looping menu music track.
- * @param {string} src URL to the audio file
+ * @param {string | string[]} src URL(s) to the audio file — Howler picks the first
+ *   format the browser can decode (Safari cannot play .ogg, so pass [ogg, mp3]).
  */
 export function loadMenuMusic(src) {
   if (menuMusic) menuMusic.unload();
   menuMusic = new Howl({
-    src: [src],
+    src: Array.isArray(src) ? src : [src],
     loop: true,
     volume: _isMuted ? 0 : _musicVol,
     preload: true,
@@ -166,7 +152,8 @@ export function loadMenuMusic(src) {
 
 /**
  * Load the shuffled game music playlist.
- * @param {string[]} urls
+ * @param {(string | string[])[]} urls One entry per track; each entry may be a
+ *   format-fallback array (see {@link loadMenuMusic}).
  */
 export function loadGamePlaylist(urls) {
   // Unload previous
@@ -174,7 +161,7 @@ export function loadGamePlaylist(urls) {
     try { t.unload(); } catch {}
   }
   gameMusicTracks = urls.map((url) => new Howl({
-    src: [url],
+    src: Array.isArray(url) ? url : [url],
     volume: _isMuted ? 0 : _musicVol,
     preload: true,
     html5: true,
@@ -233,7 +220,8 @@ function advanceGameTrack() {
 /**
  * Register a pooled SFX sound (e.g. cart-crash, future sounds).
  * @param {string} key Unique identifier
- * @param {string} src URL to the audio file
+ * @param {string | string[]} src URL(s) to the audio file — pass [ogg, mp3] so
+ *   Safari (no Ogg Vorbis support) falls back to the mp3 encode.
  * @param {{ pool?: number, sprite?: Record<string, [number, number]>, loop?: boolean, rate?: number }} [options]
  */
 export function registerSfx(key, src, options = {}) {
@@ -242,7 +230,7 @@ export function registerSfx(key, src, options = {}) {
   }
   const perVol = _sfxPerVolumes[key] ?? _DEFAULT_SFX_VOLUMES[key] ?? 1;
   sfxRegistry[key] = new Howl({
-    src: [src],
+    src: Array.isArray(src) ? src : [src],
     volume: _isMuted ? 0 : _sfxVol * perVol,
     pool: options.pool ?? 4,
     sprite: options.sprite,

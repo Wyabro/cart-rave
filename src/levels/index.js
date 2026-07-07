@@ -1,6 +1,9 @@
 // levels/index.js — Central level loader (dynamic imports for code-splitting)
 
-export const LEVEL_STORAGE_KEY = "cartRaveLevel";
+import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
+
+/** Re-exported for existing importers — the key itself lives in utils/storage.js. */
+export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
 const DEFAULT_LEVEL_ID = "classicRecord";
 
 /** Lazy dynamic importers — each level ships as its own Vite chunk. */
@@ -54,11 +57,7 @@ export function resolveLevelId(raw) {
  * }>}
  */
 export async function loadLevel(levelId, scene, world, config, options = {}) {
-  const stored =
-    levelId ??
-    (typeof localStorage !== "undefined"
-      ? localStorage.getItem(LEVEL_STORAGE_KEY)
-      : null);
+  const stored = levelId ?? storageGet(LEVEL_STORAGE_KEY);
   const resolved = resolveLevelId(stored);
 
   const onProgress = options.onProgress;

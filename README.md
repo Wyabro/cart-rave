@@ -5,6 +5,7 @@ Neon-soaked **4-player shopping-cart physics brawler** — live at [cart-rave.wy
 Post-jam development continues on the **`next-level`** branch toward **Version 2** (new content, performance, rename + new domain).
 
 **Recent (July 2026):**
+- **Production-Readiness Audit**: Full-codebase audit with 50 ranked improvements ([docs/audits/production-readiness-audit-2026-07.md](./docs/audits/production-readiness-audit-2026-07.md)); top 10 implemented — Safari audio fallbacks, social link previews, PWA manifest fix, runtime error reporting, centralized storage, ~25 MB of dead assets/config removed. Baseline gate: `npm run check` (typecheck + tests + knip).
 - **Core Stability**: Replaced problematic trimesh colliders on Record, Backrooms, and Zanzibar levels with precise convexHull + primitive colliders for stable physics and zero clipping.
 - **Level 3 (Zanzibar Platform)**: Floating sundeck arena set in a dynamic sunset seascape with customized AI hazards and enhanced contact shadows.
 - **Touch Controls**: Integrated virtual analog joysticks and touch buttons via `nipplejs` for portrait/landscape mobile play.

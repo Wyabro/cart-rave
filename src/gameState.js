@@ -1,7 +1,5 @@
 // gameState.js — round phases, scoring, podium, and match state backed by gameStore (Zustand)
-import { gameStore, RoundPhase } from "./stores/gameStore.js";
-
-export { RoundPhase };
+import { gameStore } from "./stores/gameStore.js";
 
 /**
  * Snapshot of current round state (scores are copied).
@@ -24,24 +22,6 @@ export function getRoundState() {
  */
 export function setRoundPhase(phase) {
   gameStore.getState().setRoundPhase(phase);
-}
-
-/** Begin the 60s running phase; resets scores and hit tracking. */
-export function startRunning() {
-  gameStore.getState().startRunning();
-}
-
-/** Begin the pre-round countdown; resets scores and hit tracking. */
-export function startCountdown() {
-  gameStore.getState().startCountdown();
-}
-
-/**
- * Enter podium phase with an optional winner slot index (or `"draw"`).
- * @param {number | string | null} [winnerSlotIndex]
- */
-export function endRound(winnerSlotIndex = null) {
-  gameStore.getState().endRound(winnerSlotIndex);
 }
 
 /**

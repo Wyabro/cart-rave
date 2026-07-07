@@ -1,54 +1,33 @@
 // settingsStore.js — Vanilla Zustand store for graphics, post-processing, and level preferences.
 import { createStore } from "zustand/vanilla";
-
-const STORAGE_KEY_BLOOM = "cartRaveBloom";
-const STORAGE_KEY_FX = "cartRaveFx";
-const STORAGE_KEY_LOW_QUALITY = "cartRaveLowQuality";
-const STORAGE_KEY_LEVEL = "cartRaveLevel";
+import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
+import { isTouchLikeDevice } from "../utils/device.js";
 
 function detectDefaultLowQuality() {
   if (typeof window === "undefined") return false;
   try {
-    const hasTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
-    const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? hasTouch;
-    const isTouch = hasTouch && coarsePointer && (window.innerWidth || 0) < 1024;
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    return isTouch || reducedMotion;
+    return isTouchLikeDevice() || reducedMotion;
   } catch {
     return false;
   }
 }
 
 function loadInitialSettings() {
-  let bloomEnabled = true;
-  let fxPassEnabled = true;
-  let lowQuality = false;
-  let selectedLevelId = null;
+  const bloomEnabled = storageGet(STORAGE_KEYS.bloom) !== "off";
+  const fxPassEnabled = storageGet(STORAGE_KEYS.fxPass) !== "off";
 
-  if (typeof localStorage !== "undefined") {
-    try {
-      if (localStorage.getItem(STORAGE_KEY_BLOOM) === "off") bloomEnabled = false;
-    } catch {}
-
-    try {
-      if (localStorage.getItem(STORAGE_KEY_FX) === "off") fxPassEnabled = false;
-    } catch {}
-
-    try {
-      const val = localStorage.getItem(STORAGE_KEY_LOW_QUALITY);
-      if (val === "true") {
-        lowQuality = true;
-      } else if (val === "false") {
-        lowQuality = false;
-      } else {
-        lowQuality = detectDefaultLowQuality();
-      }
-    } catch {}
-
-    try {
-      selectedLevelId = localStorage.getItem(STORAGE_KEY_LEVEL);
-    } catch {}
+  let lowQuality;
+  const val = storageGet(STORAGE_KEYS.lowQuality);
+  if (val === "true") {
+    lowQuality = true;
+  } else if (val === "false") {
+    lowQuality = false;
+  } else {
+    lowQuality = detectDefaultLowQuality();
   }
+
+  const selectedLevelId = storageGet(STORAGE_KEYS.level);
 
   return { bloomEnabled, fxPassEnabled, lowQuality, selectedLevelId };
 }
@@ -61,39 +40,23 @@ export const settingsStore = createStore((set) => ({
   setBloomEnabled: (enabled) => {
     const val = Boolean(enabled);
     set({ bloomEnabled: val });
-    if (typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY_BLOOM, val ? "on" : "off");
-      } catch {}
-    }
+    storageSet(STORAGE_KEYS.bloom, val ? "on" : "off");
   },
 
   setFxPassEnabled: (enabled) => {
     const val = Boolean(enabled);
     set({ fxPassEnabled: val });
-    if (typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY_FX, val ? "on" : "off");
-      } catch {}
-    }
+    storageSet(STORAGE_KEYS.fxPass, val ? "on" : "off");
   },
 
   setLowQuality: (enabled) => {
     const val = Boolean(enabled);
     set({ lowQuality: val });
-    if (typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY_LOW_QUALITY, val ? "true" : "false");
-      } catch {}
-    }
+    storageSet(STORAGE_KEYS.lowQuality, val ? "true" : "false");
   },
 
   setSelectedLevelId: (levelId) => {
     set({ selectedLevelId: levelId });
-    if (typeof localStorage !== "undefined" && levelId) {
-      try {
-        localStorage.setItem(STORAGE_KEY_LEVEL, levelId);
-      } catch {}
-    }
+    if (levelId) storageSet(STORAGE_KEYS.level, levelId);
   },
 }));

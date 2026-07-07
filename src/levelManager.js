@@ -5,6 +5,7 @@
  */
 
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { storageGet } from "./utils/storage.js";
 import { yieldForPaint } from "./ui/loadingScreen.js";
 
 /** Preview reflector resolution — full play uses 256 in main's load path. */
@@ -16,7 +17,7 @@ let deps = null;
 
 /** @type {"classicRecord" | "backrooms" | "zanzibar" | "testArena"} */
 let loadedLevelId = resolveLevelId(
-  typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null,
+  storageGet(LEVEL_STORAGE_KEY),
 );
 
 /** True while the arena is in lightweight menu-preview quality. */
@@ -75,7 +76,7 @@ import { settingsStore } from "./stores/settingsStore.js";
 function resolveTargetLevelId(levelId) {
   if (levelId != null) return resolveLevelId(levelId);
   const stored = (
-    typeof localStorage !== "undefined" ? localStorage.getItem(LEVEL_STORAGE_KEY) : null
+    storageGet(LEVEL_STORAGE_KEY)
   ) || settingsStore.getState().selectedLevelId;
   return resolveLevelId(stored);
 }

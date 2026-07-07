@@ -32,14 +32,6 @@ let _isUiMode = false;
 let currentInputMode = "keyboard";
 
 /**
- * Returns the active input mode ('keyboard' | 'gamepad' | 'touch').
- * @returns {'keyboard'|'gamepad'|'touch'}
- */
-export function getInputMode() {
-  return currentInputMode;
-}
-
-/**
  * Updates active input mode and refreshes the main menu controls panel UI if visible.
  * @param {'keyboard'|'gamepad'|'touch'} mode
  */

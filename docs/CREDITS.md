@@ -62,9 +62,9 @@ Loaded via Google Fonts in `index.html`.
 | `song2.mp3` | Music | Created with Suno | Licensed to project author via Suno |
 | `song3.mp3` | Music | Created with Suno | Licensed to project author via Suno |
 | `song4.mp3` | Music | Created with Suno | Licensed to project author via Suno |
-| `cart-crash.wav` | SFX | Unknown | Source not recorded in repo |
+| `cart-crash`, `Boost`, `Death`, `Hop`, `Floor`, `Charge_up`, `countdown_*` | SFX | Project / recorded | Shipped as `.ogg` with `.mp3` fallbacks (Safari has no Ogg Vorbis support); source not individually recorded in repo |
 
-Most in-game SFX are **procedural** (Web Audio API oscillators in `src/audio.js` / `src/audioSetup.js`). `cart-crash.wav` is the only bundled collision sample.
+Bundled SFX ship in both `.ogg` (primary) and `.mp3` (Safari/iOS fallback) formats under `public/sounds/`. Some additional in-game feedback is **procedural** (Web Audio API oscillators in `src/audio.js` / `src/audioSetup.js`). Raw `.wav` masters and unused loops were removed during the July 2026 production-readiness pass.
 
 ---
 

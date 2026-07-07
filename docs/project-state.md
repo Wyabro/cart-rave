@@ -48,6 +48,7 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 - `.cursorrules` cleaned up (~200 lines removed, simplified guardrails)
 - **WebRTC signaling root-cause fix**: host now creates the DataChannel offer to each peer (`ensureHostPeerConnections()` in the `MSG.slots` handler) — previously `createOffer` was unreachable (only non-host no-op callers), so no channel ever opened and P2P gameplay sync was fully inert. `tests/p2p-signaling.test.js` covers the full handshake.
 - `main.js` remains the thin orchestrator and wiring hub
+- **Production-readiness pass (July 7)** — see [audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md): Safari mp3 audio fallbacks, OG/Twitter meta + fixed PWA manifest, runtime error reporting (`installGlobalErrorReporting`), `src/utils/storage.js` key registry, `src/utils/device.js` shared touch detection, dead assets/config removed (~25 MB), `npm run check` baseline gate
 
 ### Key files
 

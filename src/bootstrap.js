@@ -6,6 +6,7 @@
 
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { storageGet } from "./utils/storage.js";
 import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
 import { getNetSlots } from "./netcode.js";
 
@@ -63,10 +64,7 @@ function requireDeps() {
 
 function resolveSelectedLevelId(levelId) {
   if (levelId != null) return resolveLevelId(levelId);
-  const stored = typeof localStorage !== "undefined"
-    ? localStorage.getItem(LEVEL_STORAGE_KEY)
-    : null;
-  return resolveLevelId(stored);
+  return resolveLevelId(storageGet(LEVEL_STORAGE_KEY));
 }
 
 /**

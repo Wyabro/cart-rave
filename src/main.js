@@ -128,6 +128,8 @@ import {
   isTouchDevice,
   setLowQualityMode,
 } from "./utils.js";
+import { installGlobalErrorReporting } from "./utils/errorReporter.js";
+import { STORAGE_KEYS, storageGet, storageSet, storageGetJson, storageSetJson } from "./utils/storage.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
 import { setUiMode as setGamepadUiMode } from "./input.js";
@@ -212,27 +214,17 @@ function bootstrapNetcodeEntryFromUrl() {
 
 // --- Personal Stats (localStorage) ---
 function getPersonalStats() {
-  try {
-    const raw = localStorage.getItem("cartRaveStats");
-    if (!raw) return { wins: 0, matches: 0, totalPoints: 0, soloGames: 0 };
-    const parsed = JSON.parse(raw);
-    return {
-      wins: Number(parsed.wins) || 0,
-      matches: Number(parsed.matches) || 0,
-      totalPoints: Number(parsed.totalPoints) || 0,
-      soloGames: Number(parsed.soloGames) || 0,
-    };
-  } catch {
-    return { wins: 0, matches: 0, totalPoints: 0, soloGames: 0 };
-  }
+  const parsed = storageGetJson(STORAGE_KEYS.stats, /** @type {Record<string, unknown>} */ ({}));
+  return {
+    wins: Number(parsed.wins) || 0,
+    matches: Number(parsed.matches) || 0,
+    totalPoints: Number(parsed.totalPoints) || 0,
+    soloGames: Number(parsed.soloGames) || 0,
+  };
 }
 
 function savePersonalStats(stats) {
-  try {
-    localStorage.setItem("cartRaveStats", JSON.stringify(stats));
-  } catch {
-    // localStorage full or unavailable — silently fail
-  }
+  storageSetJson(STORAGE_KEYS.stats, stats);
 }
 
 /** @returns {"quickplay" | "solo" | "testdrive" | "friends"} */
@@ -298,16 +290,11 @@ function recordPodiumStats(winnerSlotIndex, scoresSrc) {
       if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
       savePersonalStats(stats);
 
-      let storedBest = 0;
-      try {
-        storedBest = Number(localStorage.getItem("cartRaveBestScore") || 0);
-      } catch {}
+      const storedBest = Number(storageGet(STORAGE_KEYS.bestScore, "0")) || 0;
 
       if (myScore > storedBest) {
         isNewPersonalBest = true;
-        try {
-          localStorage.setItem("cartRaveBestScore", String(myScore));
-        } catch {}
+        storageSet(STORAGE_KEYS.bestScore, String(myScore));
       }
     }
   }
@@ -498,6 +485,7 @@ function enableModeMenuButtons() {
 // === GAME LOOP ===
 
 async function main() {
+  installGlobalErrorReporting();
   initLoadingScreen();
   // * Dismiss boot splash before scene init — initMenu() may return early on ?room= URLs.
   // * Rapier WASM is loaded lazily via dynamic import in ensureRapierPhysics, keeping
@@ -544,14 +532,17 @@ async function main() {
     muted: getIsMuted(),
   });
 
-  AudioManager.loadMenuMusic(
-    new URL("sounds/menu.ogg", window.location.href).toString(),
-  );
+  // * Each track is [ogg, mp3] — Safari has no Ogg Vorbis support, Howler picks
+  // * the first decodable format per browser.
+  const soundUrlWithFallback = (oggName) => [
+    new URL(`sounds/${oggName}`, window.location.href).toString(),
+    new URL(`sounds/${oggName.replace(/\.ogg$/, ".mp3")}`, window.location.href).toString(),
+  ];
+
+  AudioManager.loadMenuMusic(soundUrlWithFallback("menu.ogg"));
 
   const gameMusicFiles = ["music.ogg", "song2.ogg", "song3.ogg", "song4.ogg"];
-  const _gameMusicUrls = gameMusicFiles.map((f) =>
-    new URL(`sounds/${f}`, window.location.href).toString(),
-  );
+  const _gameMusicUrls = gameMusicFiles.map(soundUrlWithFallback);
   // Shuffle game playlist
   for (let i = _gameMusicUrls.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -713,18 +704,18 @@ async function main() {
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
   GameAudio.registerAudioRefs({ leaderHum });
 
-  // * Register all SFX via Howler (pooled, spatial-ready).
-  const soundsRoot = (name) => new URL(`sounds/${name}`, window.location.href).toString();
-  AudioManager.registerSfx("cartCrash", soundsRoot("cart-crash.ogg"), { pool: 4 });
-  AudioManager.registerSfx("death", soundsRoot("Death.ogg"), { pool: 3 });
-  AudioManager.registerSfx("boost", soundsRoot("Boost.ogg"), { pool: 3 });
-  AudioManager.registerSfx("hop", soundsRoot("Hop.ogg"), { pool: 3 });
-  AudioManager.registerSfx("floor", soundsRoot("Floor.ogg"), { pool: 3 });
-  AudioManager.registerSfx("chargeUp", soundsRoot("Charge_up.ogg"), { pool: 2, loop: true });
-  AudioManager.registerSfx("countdown_3", soundsRoot("countdown_3.ogg"), { pool: 1 });
-  AudioManager.registerSfx("countdown_2", soundsRoot("countdown_2.ogg"), { pool: 1 });
-  AudioManager.registerSfx("countdown_1", soundsRoot("countdown_1.ogg"), { pool: 1 });
-  AudioManager.registerSfx("countdown_go", soundsRoot("countdown_go.ogg"), { pool: 1 });
+  // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
+  // * mp3 fallback for Safari (see soundUrlWithFallback above).
+  AudioManager.registerSfx("cartCrash", soundUrlWithFallback("cart-crash.ogg"), { pool: 4 });
+  AudioManager.registerSfx("death", soundUrlWithFallback("Death.ogg"), { pool: 3 });
+  AudioManager.registerSfx("boost", soundUrlWithFallback("Boost.ogg"), { pool: 3 });
+  AudioManager.registerSfx("hop", soundUrlWithFallback("Hop.ogg"), { pool: 3 });
+  AudioManager.registerSfx("floor", soundUrlWithFallback("Floor.ogg"), { pool: 3 });
+  AudioManager.registerSfx("chargeUp", soundUrlWithFallback("Charge_up.ogg"), { pool: 2, loop: true });
+  AudioManager.registerSfx("countdown_3", soundUrlWithFallback("countdown_3.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_2", soundUrlWithFallback("countdown_2.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_1", soundUrlWithFallback("countdown_1.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_go", soundUrlWithFallback("countdown_go.ogg"), { pool: 1 });
 
   camera.add(audioListener);
 
@@ -903,7 +894,7 @@ async function main() {
     }
 
     // * Returning visitor refreshing ?room=quickplay — auto-rejoin once per page load.
-    const savedUsername = (localStorage.getItem("cartRaveUsername") || "").trim();
+    const savedUsername = (storageGet(STORAGE_KEYS.username) || "").trim();
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
     if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
@@ -1039,12 +1030,12 @@ async function main() {
       menuNameSyncWired = true;
       const crNameText = document.getElementById("cr-name-text");
       if (crNameText) {
-        const saved = localStorage.getItem("cartRaveUsername");
+        const saved = storageGet(STORAGE_KEYS.username);
         if (saved) crNameText.textContent = saved;
 
         const nameObs = new MutationObserver(() => {
           const name = crNameText.textContent.trim();
-          if (name) localStorage.setItem("cartRaveUsername", name);
+          if (name) storageSet(STORAGE_KEYS.username, name);
         });
         nameObs.observe(crNameText, { childList: true, characterData: true, subtree: true });
       }
@@ -1053,7 +1044,7 @@ async function main() {
       if (crNameInput) {
         crNameInput.addEventListener("blur", () => {
           const name = crNameInput.value.trim();
-          if (name) localStorage.setItem("cartRaveUsername", name);
+          if (name) storageSet(STORAGE_KEYS.username, name);
         });
       }
     }
@@ -1210,7 +1201,7 @@ async function main() {
     getMenuVisible: () => menuVisible,
     commitMenuHiddenForGame,
     getLoadedLevelId: getCurrentLevelId,
-    getSelectedLevelId: () => resolveLevelId(localStorage.getItem(LEVEL_STORAGE_KEY)),
+    getSelectedLevelId: () => resolveLevelId(storageGet(LEVEL_STORAGE_KEY)),
     cancelMenuPreviewTimers,
     getMenuLevelPreviewPromise,
     getLevelRebuildPromise,
@@ -1433,7 +1424,7 @@ async function main() {
       await yieldForPaint();
     }
     await swapLoadedLevel(
-      resolveLevelId(levelIdOverride ?? localStorage.getItem(LEVEL_STORAGE_KEY)),
+      resolveLevelId(levelIdOverride ?? storageGet(LEVEL_STORAGE_KEY)),
     );
     await yieldForPaint();
   }

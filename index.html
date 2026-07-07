@@ -4,7 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Cart Clash — Neon shopping cart arena brawler. Play solo or with friends in this fast-paced multiplayer browser game.">
+  <meta name="theme-color" content="#0a0014">
   <title>Cart Clash</title>
+
+  <!-- Social link previews (invite links are the core sharing loop) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Cart Clash">
+  <meta property="og:title" content="Cart Clash — Neon Cart Arena Brawler">
+  <meta property="og:description" content="Ram your friends off the arena in glowing shopping carts. 4-player physics brawler, free in your browser — no install.">
+  <meta property="og:url" content="https://cart-rave.wyabro.workers.dev/">
+  <meta property="og:image" content="https://cart-rave.wyabro.workers.dev/android-chrome-512x512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Cart Clash — Neon Cart Arena Brawler">
+  <meta name="twitter:description" content="Ram your friends off the arena in glowing shopping carts. 4-player physics brawler, free in your browser — no install.">
+  <meta name="twitter:image" content="https://cart-rave.wyabro.workers.dev/android-chrome-512x512.png">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -18,7 +33,9 @@
         window.setTimeout(function () {
           var menuAudio = new Audio();
           menuAudio.preload = "auto";
-          menuAudio.src = "/sounds/menu.ogg";
+          // * Safari cannot decode Ogg Vorbis — preload the same format Howler will pick.
+          var canOgg = menuAudio.canPlayType && menuAudio.canPlayType('audio/ogg; codecs="vorbis"');
+          menuAudio.src = canOgg ? "/sounds/menu.ogg" : "/sounds/menu.mp3";
           try { menuAudio.load(); } catch {}
         }, 2500);
       }

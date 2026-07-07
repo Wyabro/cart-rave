@@ -1,5 +1,6 @@
 // Cart Rave — Main Menu
 import { CART_COLORS, PALETTE } from "./config.js";
+import { STORAGE_KEYS, storageGet, storageSet } from "./utils/storage.js";
 import {
   CUSTOM_COLOR_ID,
   DEFAULT_CUSTOM_HUE,
@@ -216,7 +217,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const PALETTE_GAME = PALETTE;
   const COLOR_ARIA_LABELS = ['Pink', 'Blue', 'Green', 'Yellow', 'Neon orange'];
 
-  const LEVEL_STORAGE_KEY = 'cartRaveLevel';
+  const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
   const DEFAULT_LEVEL = 'classicRecord';
   const LEVEL_OPTIONS = {
     classicRecord: { enabled: true },
@@ -229,7 +230,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     palette: PALETTES[CONFIG.palette] || PALETTES.classic,
     playerIdx: 0,
     level: DEFAULT_LEVEL,
-    name: localStorage.getItem("cartRaveUsername") || rollPlayerName(),
+    name: storageGet(STORAGE_KEYS.username) || rollPlayerName(),
     beat: 0,
     tilt: 0,
     colorMode: 'preset',
@@ -238,9 +239,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     sunglassesStyle: DEFAULT_SUNGLASSES_STYLE,
   };
 
-  if (!localStorage.getItem("cartRaveUsername")) {
+  if (!storageGet(STORAGE_KEYS.username)) {
     state.name = rollPlayerName();
-    localStorage.setItem("cartRaveUsername", state.name);
+    storageSet(STORAGE_KEYS.username, state.name);
   }
 
   // ─── DOM refs ─────────────────────────────────────────────────────────────
@@ -414,7 +415,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   // ─── Level selection ──────────────────────────────────────────────────────
   function getSavedLevel() {
-    const saved = localStorage.getItem(LEVEL_STORAGE_KEY);
+    const saved = storageGet(LEVEL_STORAGE_KEY);
     const option = saved && LEVEL_OPTIONS[saved];
     if (option && option.enabled) return saved;
     return DEFAULT_LEVEL;
@@ -422,7 +423,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function persistLevel(levelId) {
     state.level = levelId;
-    localStorage.setItem(LEVEL_STORAGE_KEY, levelId);
+    storageSet(LEVEL_STORAGE_KEY, levelId);
     window.cartRaveLevel = levelId;
     settingsStore.getState().setSelectedLevelId(levelId);
   }
@@ -826,7 +827,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
     // * Blur the focused element before hiding the panel to prevent
     // * "Blocked aria-hidden" accessibility warnings.
-    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
 
@@ -951,7 +952,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function finishNameEdit() {
     state.name = (nameInput.value || '').trim().slice(0, CONFIG.nameMaxLength) || state.name;
-    localStorage.setItem("cartRaveUsername", state.name);
+    storageSet(STORAGE_KEYS.username, state.name);
     nameText.textContent = state.name;
     nameInput.style.display = 'none';
     nameDisplay.style.display = '';
@@ -964,7 +965,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   });
   rerollBtn.addEventListener('click', () => {
     state.name = rollHandle();
-    localStorage.setItem("cartRaveUsername", state.name);
+    storageSet(STORAGE_KEYS.username, state.name);
     nameText.textContent = state.name;
     animateRerollSpin(rerollBtn);
   });
@@ -1019,8 +1020,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   if (gfxBtn) {
     gfxBtn.addEventListener("click", () => {
       const next = !getPostFxEnabled();
-      try { localStorage.setItem("cartRaveBloom", next ? "on" : "off"); } catch (e) {}
-      try { localStorage.setItem("cartRaveFx", next ? "on" : "off"); } catch (e) {}
+      storageSet(STORAGE_KEYS.bloom, next ? "on" : "off");
+      storageSet(STORAGE_KEYS.fxPass, next ? "on" : "off");
       togglePostFx(next);
       syncGfxButtonStates();
     });
