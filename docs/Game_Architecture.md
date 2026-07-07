@@ -2,7 +2,7 @@
 
 **Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Rave is built**, how multiplayer works, how releases are verified, and what work remains.
 
-**Last updated context:** July 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
+**Last updated context:** July 7, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. CSS extraction refactor complete. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
 
 **Source material:** Derived from `docs/` (handover notes in `handovers/`, audits in `audits/`, and operational checklists).
 
@@ -26,7 +26,7 @@ At a high level, the architecture is:
 - **Primary goal:** A friend can open the live site, pick a color, join a round quickly, play multiple rounds, and want to share it.
 - **Original jam constraints (still largely true):**
   - Floor rotation is **visual-only** (no physics drag / spin forces applied to carts).
-- **Post-jam additions:** Backrooms and Zanzibar levels, touch controls, rampage combo system, grocery spill VFX, Zustand store architecture, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts. Server-authoritative level sync via `MSG.round`. Combo decay runs in a dedicated second pass to prevent scoring race conditions.
+- **Post-jam additions:** Backrooms and Zanzibar levels, touch controls, rampage combo system, grocery spill VFX, Zustand store architecture, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts. Server-authoritative level sync via `MSG.round`. Combo decay runs in a dedicated second pass to prevent scoring race conditions. UI CSS extracted from JS files to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css). WebRTC signaling tests added (`tests/p2p-signaling.test.js`).
 
 ---
 

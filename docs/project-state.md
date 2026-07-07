@@ -1,6 +1,6 @@
 # Cart Rave — Project State
 
-**Last updated:** July 5, 2026  
+**Last updated:** July 7, 2026  
 **Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
 **Branch:** `next-level` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
@@ -44,6 +44,9 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 - `src/levelManager.js` — level preview + swapping extracted from `main.js`
 - Knip cleanup: unused exports reduced and codebase hardened
 - 100% Type safety achieved under `npx tsc --noEmit`
+- CSS extraction: ~2600 lines of inline CSS moved from `hud.js`, `pauseOverlay.js`, `resultsOverlay.js` to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css)
+- `.cursorrules` cleaned up (~200 lines removed, simplified guardrails)
+- `tests/p2p-signaling.test.js` added for WebRTC signaling test coverage
 - `main.js` remains the thin orchestrator and wiring hub
 
 ### Key files
@@ -56,7 +59,9 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 | `src/netcode.js` | Multiplayer, prediction, interpolation |
 | `src/simulation.js` | Rapier physics (host) |
 | `src/levels/` | Level definitions (classic, backrooms, zanzibar) |
+| `src/ui/styles/` | Extracted UI stylesheets (hud, pause, results, global) |
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
+| `tests/` | Test files (Vitest) |
 | `.cursorrules` | Design spec and AI guardrails |
 
 Full architecture reference: [Game_Architecture.md](./Game_Architecture.md).
@@ -120,6 +125,8 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 | Audio controls extraction (audioControls.js, ~90 lines from main.js) | ✅ Fixed |
 | Graphics toggles extraction (graphicsToggles.js, remove window globals) | ✅ Fixed |
 | 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
+| CSS extraction refactor (inline CSS → `src/ui/styles/`) | ✅ Fixed |
+| P2P signaling test coverage (`tests/p2p-signaling.test.js`) | ✅ Added |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
 

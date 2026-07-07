@@ -823,6 +823,13 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function closeCustomizeScreen() {
     if (!customizeScreen) return;
+
+    // * Blur the focused element before hiding the panel to prevent
+    // * "Blocked aria-hidden" accessibility warnings.
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+
     disposeCartPreview();
     // * Persist final customization state when leaving Customize.
     saveCustomization({

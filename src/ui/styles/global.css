@@ -1,0 +1,39 @@
+/* Volume and mute range styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: #444;
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-moz-range-track {
+  background: #444;
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2bd6ff;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  margin-top: -6px;
+  box-shadow: 0 0 5px #2bd6ff;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: #2bd6ff;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 0 5px #2bd6ff;
+}

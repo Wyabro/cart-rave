@@ -1,189 +1,38 @@
-# Cart Rave — .cursorrules
-
-## STRICT AI GUARDRAILS (CRITICAL)
-
-1. **VITE BUILD**: Use Vite for development and building. Run `npm run dev` for local development and `npm run ship` for deployment (`npm run build` then `npx partykit deploy`). Use `npm run dev:party` alongside Vite when testing multiplayer locally.
-2. **NO SERVER-SIDE PHYSICS**: The PartyKit server (`party/index.ts`) is strictly a message relay. The host client runs all Rapier3D physics. Never move collision logic to the server.
-3. **TARGETED EDITS ONLY**: `src/main.js` is the live entry point and wiring hub; core systems live alongside it in `src/`. Never rewrite or output entire files. Only read and edit the specific namespaced sections requested.
-4. **WIN CONDITION**: A round ends at 150 seconds (2.5 min, CONFIG.round.durationMs — must match ROUND_DURATION_MS in party/index.ts), or via "Last-cart-standing" where a sole surviving cart wins after a 3-second flourish.
-5. **COLOR IMMUTABILITY**: All color logic must strictly use the `CART_COLORS` object in `src/config.js`. Do not modify this object or the `traverse` material logic. These are the "Original Rave" source of truth.
-6. **SERVER-DRIVEN START**: Rounds must ONLY start via `MSG.gameStart`. Tick-level auto-starts in `update()` are forbidden.
-7. **MENU MARKUP SOURCE OF TRUTH**: `index.html` is the canonical source for menu markup. `cart-rave-menu.html` has been deleted (stale duplicate). `src/cart-rave-menu.js` has its own internal state for color/name — game wiring overrides via localStorage and event listeners in `initMenu()`.
-8. **NO CAMERA LERP/SLERP SMOOTHING**: Do not re-introduce camera lerp or slerp smoothing. It has been intentionally removed.
-
-## What this is
-
-Cart Rave is a browser-based 4-player physics sumo game. Shopping carts battle on a slowly rotating neon arena. The cart with the most points at the end of the 2.5-minute round wins.
-
-Tonal references: Halo Sumo + Gorillaz Final Drive + Crab Rave.
-
 ## Stack
 
-- Three.js (rendering), Rapier3D (client-side physics), PartyKit (message relay on Cloudflare Workers)
-- Vite (dev server + production build); static hosting on Vercel (`dist/` output)
-- `src/main.js` orchestrates; gameplay systems in `src/` (netcode, hud, levels, input, etc.)
-- localStorage: username, volume/mute, personal stats, level choice (`cartRaveLevel`)
+- **Runtime**: Cloudflare Workers with Durable Objects (NOT PartyKit — migrated July 2026)
+- **Server library**: `partyserver` (`^0.5.8`) — open-source `Server` base class + `routePartykitRequest`
+- **Client WebSocket**: `partysocket` (`^1.1.16`) — browser WebSocket client on the same protocol
+- **Deployment**: Wrangler (`^4.106.0`) — `npx wrangler dev` for local, `npx wrangler deploy` for prod
+- **Build**: Vite (`^6.3.5`) — `npm run dev` for client, `npm run dev:party` for server
+- **3D**: Three.js (`^0.164.1`), **Physics**: Rapier3D (`@dimforge/rapier3d`), **State**: Zustand (`^5.0.14`)
+- **Server entry**: `party/index.ts` (deployed as a Worker via `wrangler.jsonc`)
+- **Static assets**: `dist/` directory served via `ASSETS` binding in the Worker
 
-## Current Architecture
+## Dev commands
 
-- **Host-authoritative multiplayer**. The first player in a room becomes host and runs all Rapier3D physics, NPC AI, collisions, and fall detection. The host broadcasts cart transforms at ~20Hz. Non-host clients send input at 60Hz and interpolate remote carts.
-- **Client-side prediction** is active for the local human cart on non-host clients (`shouldUseClientPrediction` in `src/netcode.js`), with host reconciliation. Solo and host-in-multiplayer have zero input lag.
-- **4 cart slots per room**. Empty slots are filled by NPCs. When a human joins, they pick a color and the NPC holding that color is swapped out. When a human leaves, their slot reverts to an NPC.
-- **Ready-up system**: Humans start `isReady: false`; NPCs are always ready. Server `#checkAllReady()` broadcasts `MSG.gameStart` only when all humans are ready. Countdown cancels if a human leaves during the 3s window.
-- **Pending pickers**: Connections are tracked in `#pendingPickers` before color pick. Slots are only claimed on valid `color_pick`. Room-full rejection counts human slots only (pending pickers do not block friend joins).
-- **Empty-room handling**: When the last human leaves, the current round finishes cleanly; no new rounds start until a human rejoins.
-- **Host migration**: If the host disconnects, the server promotes the oldest surviving connection. The new host receives the last cached snapshot and resumes NPC control. **Invariants:** `#lastSeq` resets to -1 on the server; receiving client clears its `netStateBuffer`.
-- **`updateNameLabelsRef` pattern**: `initNetcode` sets `updateNameLabelsRef.current` from `main()` so slot-change handlers can refresh 3D name labels without tight coupling. Do not refactor without understanding both sides.
-- **Solo play** reuses the multiplayer code path (private `soloXXXXXX` room with 3 NPCs).
-- **Drop-in/drop-out**: Players can join mid-round. Mid-running joins swap the matching NPC for the human without respawning the cart; slot score resets to 0.
-- **Activity reaper**: Server reaps connections silent for >20s. Clients send keepalive every 5s. Idle pickers (>30s without `color_pick`) are also reaped.
-- **Null cart guard**: All code paths accessing carts must guard against null.
+```
+npm run dev            # Vite dev server (client only)
+npm run dev:party      # Wrangler dev server (Worker + Durable Objects)
+npm run build          # Vite production build → dist/
+npm run ship           # Build + wrangler deploy
+npm run test           # Vitest
+```
 
-## Menu & Mode Selection
+## Architecture invariants
 
-- Menu is the primary landing screen (`cartrave.lol` without `?room=`).
-- Three modes: **Solo** (private room with 3 NPCs), **Quickplay** (public room), **Friends** (private room with shareable URL).
-- Level picker in menu; persisted as `cartRaveLevel` (`classicRecord` or `backrooms`). Classic rave extras (crowd, stage, skybox) are disabled while Backrooms is active.
-- Color picker appears after mode selection. Single click picks color and enters game.
-- Shared URL (`?room=ABCD`):
-  - Returning visitor (username in localStorage): bypasses menu → color picker → game.
-  - First-time visitor: shows full menu.
-  - Invalid/malformed `?room=` lands on menu with param discarded.
-- **Mobile/touch** is supported: `isTouchDevice()` shows virtual joystick + Boost/Hop (`src/touchControls.js`, `src/input.js`). Landscape recommended (`src/ui/rotatePrompt.js`). Menu is fully usable on touch.
-- In-memory match history persists until tab close (survives Quit-to-Menu within session).
-- Menu music (`public/sounds/menu.mp3`) with 2-second crossfade to/from game music.
+1. **NO SERVER-SIDE PHYSICS**: The server (`party/index.ts`) never simulates physics. It is a signaling relay + lobby manager. The host client runs all Rapier3D physics.
+2. **WebRTC DataChannels**: Real-time host transforms, client input, and spill events go peer-to-peer over WebRTC DataChannels (`src/netcode/p2p.js`), not through the WebSocket relay.
+3. **HOST-AUTHORITATIVE**: The first player in a room is the physics host. Client-side prediction is active for the local human cart on non-host clients.
+4. **COLOR IMMUTABILITY**: All color logic uses `CART_COLORS` in `src/config.js`. Do not modify that object or the traverse material logic.
+5. **TARGETED EDITS ONLY**: Do not rewrite entire files. Make targeted, namespaced edits and show the diff before applying.
+6. **MENU MARKUP**: `index.html` is the canonical menu markup. `cart-rave-menu.html` has been deleted — do not recreate it.
+7. **NO CAMERA LERP/SLERP**: Camera smoothing has been intentionally removed. Do not re-introduce it.
 
-## In-game Esc Overlay
+## Cursor notes
 
-- Opens with `Esc`. Contains controls reminder, volume slider, mute toggle, Resume, and Quit to Menu.
-- Does **not** pause the game (host-authoritative physics cannot safely pause).
-- Volume/mute edits the same localStorage values as menu and HUD.
-- **Quit to Menu** navigates to plain pathname (strips `?room=`) for a clean session reset. Esc during color picker cancels back to menu (conn stays in `#pendingPickers`, no slot claimed).
-
-## Scoring & Round Structure
-
-- Round length: 150 seconds / 2.5 minutes (host-authoritative; client CONFIG.round.durationMs and server ROUND_DURATION_MS must agree).
-- Win condition: Highest score when timer expires; early end if only one cart remains. Tiebreaker is most recent scoring hit.
-- All-zero rounds (no one scored) do not count toward personal stats.
-- **Leader visual**: white pulsing emissive on the highest-scoring cart.
-- Scoring:
-  - Outer edge knock: +1
-  - Center hole / void knock: +2
-  - Critical bonus (+1 at high speed)
-  - Target bonus (+1 if victim is current leader)
-  - Jackpot: Critical + Target = +2 bonus
-
-## Color Picker
-
-- 5 colors: pink, blue, green, yellow, neonOrange (`CART_COLORS` in `src/config.js`).
-- Server-gated based on colors held by human slots (NPCs do not block picks; 5 colors − 4 slots = always ≥1 available).
-- Single click to pick and enter game. First-come-first-served via server message order.
-- Slot assignment is atomic with color pick (NPC holding color → human; displaced NPC recolored to unused 5th color).
-
-## Username System
-
-- Saved to localStorage and synced via MutationObserver.
-- Sent with `join` message.
-- 3D floating name labels appear above all carts (players + NPCs).
-- HUD score boxes and results screen show names (not P1/P2/P3/P4).
-
-## Spawn Booths
-
-- Per-color raised platforms at the arena edge.
-- Players and NPCs spawn here between rounds and on join.
-- No ramp — players roll/jump the gap onto the arena.
-
-## Results Screen
-
-- Host enters `podium` phase; physics substep and `host_transform` broadcast pause.
-- Shows final scores, winner highlight, Play Again (host only), Main Menu, personal stats, session match history (last 10, in-memory until tab close).
-
-## Game Structure & Levels
-
-- **Two levels**:
-  - **Classic Record** (default): Circular vinyl arena with center hole and outer edge. Dancefloor is a RING collider (not a solid disc) so carts fall through the center hole via physics.
-  - **Backrooms Supermarket** (`src/levels/backroomsSupermarket.js`): Square carpet floor with four corner voids and central furniture pile.
-- Level selected in menu and persisted in localStorage (`cartRaveLevel`).
-- Visual-only dancefloor rotation (~25s per revolution on Classic); physics ring collider stays fixed (server-synced rotation is post-jam).
-- Round loop: Lobby → Countdown (3s, all humans ready) → Running (60s) → Podium → Return to booths.
-
-## NPCs
-
-- Fill empty slots automatically. Always 4 carts in a room when 1+ humans are present.
-- Run on the host alongside physics; frozen during non-`running` phases.
-- Comedy-coded names from shared pool; names persist across color changes.
-- Slot handoff: human color pick swaps the matching NPC slot; displaced NPC is recolored (not renamed).
-- Classic: edge-bias + center-hole fear. Backrooms: square-hole avoidance (`src/levels/backroomsSupermarket.js`).
-
-## Visuals
-
-- Procedural cart models built from Three.js primitives.
-- Four wheels with pitch (velocity-based) and yaw (velocity direction, not cart forward) rotation.
-- Emissive materials via `mesh.traverse()`.
-- Two distinct death visuals: outer edge tumble vs center/void drop.
-
-## Audio
-
-- Positional 3D audio. Game music starts on first input (autoplay policy).
-- Menu music with 2-second crossfade to/from game music.
-- Master volume (0–100 → gain 0.0–1.0, default 25%) and mute state persisted to localStorage and synced across HUD, Esc overlay, and menu.
-- Mute toggle via HUD, `M` key, menu, and Esc overlay.
-
-## Controls
-
-- **Keyboard**: WASD/Arrows (tank steering), Shift (nitro), Space (hop), M (mute), Esc (overlay).
-- **Touch**: Virtual joystick + Boost + Hop buttons.
-- Hop and nitro are networked (one-shot rising-edge for hop).
-
-## Physics Feel
-
-- Speed-scaled ramming (spread impulse over multiple frames).
-- 600ms fall-and-respawn with visible fall animation.
-- Tank steering with drift.
-- **Classic**: outer edge and center hole fall triggers.
-- **Backrooms**: Y-threshold fall detection with square corner voids (`config.record.centerHole.enabled` false at load).
-
-## Netcode
-
-- Host-authoritative with client-side prediction for the local human cart (non-host only).
-- Remote carts and NPCs are host-authoritative and interpolated (`interpBufferMs` ~100ms).
-- If interpolation buffer runs dry, carts hold last known state (no extrapolation).
-- Host migration supported with snapshot handoff.
-
-## UX Rules (Hard)
-
-- Menu is the primary entry point (shared `?room=` fast-path for returning visitors).
-- No login required. Username is localStorage only.
-- No blocking loading states between menu and game (<1s in common case).
-- Round starts automatically once ready-up conditions are met after color pick.
-- Behavior-changing changes require human playtest on production after deploy.
-
-## Documentation
-
-- Split: `docs/ROADMAP.md` = prioritized forward plan (Version 2, Tier 1–4); `docs/todo.md` = historical record and current status snapshot.
-- Approved library additions (`nipplejs`, `tweakpane`, `zustand`/`valtio`, `howler.js`) are intentional — priorities in `docs/ROADMAP.md`.
-
-## What's Deferred / Post-Jam
-
-See `docs/ROADMAP.md` for current prioritized work toward Version 2 (new levels, library additions, performance, and release prep).
-
-## How Wyatt Works
-
-- Directs Cursor via prompts; does not hand-edit code directly.
-- Commits frequently and reverts on broken state.
-- Prefers pushback over validation. Starts new agents if Cursor loops.
-- Uses screenshots for visual review.
-- **Deploy rule**: Run `npm run build` then `npm run ship` (or `git push` separately) for protocol changes so edge and client stay in sync. PartyKit DO state persists across deploys.
-- **Production verification**: post-push, fetch production `index.html` (or the hashed bundle under `dist/assets/`) and `Select-String` for new code. Local grep alone has produced false positives.
-- PowerShell env: `Select-String` not `grep`; single-line commit messages with `-m "..."`.
+- Cursor is used primarily for cross-file refactors.
+- Durable Object state persists across `wrangler deploy` — deploys do NOT reset in-memory server state.
+- Use PowerShell for commands (`Select-String`, not `grep`; single-line commit messages with `-m "..."`).
+- Behavior-changing diffs require human playtest on production before proceeding.
 - `room.getConnections()` returns an Iterator — use spread or `for...of`, never `.map().join()`.
-- Behavior-changing diffs require human playtest on prod before proceeding.
-- Diff-before-apply is mandatory. Unified diff format, wait for ack, then apply.
-
-## Known Issues (Current)
-
-1. **Host cart visually frozen** on host screen after color pick or host migration (suspected slot/connId mismatch — camera follows wrong cart while physics drives correct one).
-2. **Solo mode stat tracking** in menu needs verification.
-3. **Record label and crowd cart Y-offsets** may need adjustment.
-4. **Cart handle color** is still not reliably black.
-5. **Ready button redundancy**: "Ready" and "Ready!" buttons are functionally redundant — hide/remove one or rename to "READY UP!".

@@ -1,0 +1,574 @@
+#esc-overlay {
+  --esc-ui: "Russo One", sans-serif;
+  --esc-display: "Road Rage", "Goldman", sans-serif;
+  --esc-mono: "Goldman", ui-monospace, monospace;
+  --esc-cyan: #22e6ff;
+  --esc-magenta: #ff2bd6;
+  --esc-surface: rgba(0, 0, 0, 0.52);
+  --esc-border: rgba(255, 255, 255, 0.1);
+  --esc-section-gap: clamp(10px, 2vw, 14px);
+  position: fixed;
+  inset: 0;
+  z-index: 26000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 24px);
+  pointer-events: auto;
+  font-family: var(--esc-mono);
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#esc-overlay .esc-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 20, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+#esc-overlay .esc-panel {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  width: min(680px, 96vw);
+  max-height: min(92vh, 720px);
+  padding: clamp(14px, 2.5vw, 20px);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(12, 8, 28, 0.92) 0%, rgba(4, 4, 16, 0.88) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 48px rgba(34, 230, 255, 0.07),
+    0 0 80px rgba(255, 43, 214, 0.05),
+    0 20px 56px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2vw, 14px);
+  overflow: hidden;
+}
+
+#esc-overlay .esc-title {
+  font-family: var(--esc-ui);
+  font-size: clamp(18px, 3.6vw, 26px);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-align: center;
+  line-height: 1.1;
+  color: var(--esc-cyan);
+  text-shadow: 0 0 12px var(--esc-cyan), 0 0 28px color-mix(in oklab, var(--esc-cyan), transparent 50%);
+  flex-shrink: 0;
+}
+
+#esc-overlay .esc-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "primary scoring"
+    "actions actions";
+  gap: var(--esc-section-gap);
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+#esc-overlay .esc-col-primary {
+  grid-area: primary;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esc-section-gap);
+  min-height: 0;
+  min-width: 0;
+}
+
+#esc-overlay .esc-scoring-block {
+  grid-area: scoring;
+  min-height: 0;
+  min-width: 0;
+}
+
+#esc-overlay .esc-actions {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(8px, 1.5vw, 10px);
+  flex-shrink: 0;
+  margin-top: clamp(8px, 2vw, 12px);
+}
+
+#esc-overlay .esc-section {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.5vw, 10px);
+  padding: clamp(12px, 2.5vw, 16px);
+  border-radius: 12px;
+  background: var(--esc-surface);
+  border: 1px solid var(--esc-border);
+  min-height: 0;
+  min-width: 0;
+}
+
+#esc-overlay .esc-section-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: clamp(4px, 1vw, 6px);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+#esc-overlay .esc-section-label {
+  font-family: var(--esc-mono);
+  font-size: clamp(9px, 1.8vw, 10px);
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+}
+
+#esc-overlay .esc-section-tag {
+  font-family: var(--esc-mono);
+  font-size: clamp(8px, 1.6vw, 9px);
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+}
+
+#esc-overlay .esc-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1vw, 6px);
+  min-height: 0;
+}
+
+#esc-overlay .esc-section--scoring .esc-section-body {
+  flex: 1 1 auto;
+}
+
+#esc-overlay .esc-ctl-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1vw, 6px);
+}
+
+#esc-overlay .esc-ctl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  width: 100%;
+}
+
+#esc-overlay .esc-ctl-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+#esc-overlay .esc-ctl-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(26px, 6vw, 30px);
+  height: clamp(24px, 5.5vw, 28px);
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1.5px solid rgba(34, 230, 255, 0.35);
+  font-family: var(--esc-ui);
+  font-size: clamp(9px, 1.8vw, 10px);
+  letter-spacing: 0.04em;
+  color: var(--esc-cyan);
+  text-shadow: 0 0 8px var(--esc-cyan);
+  box-shadow: 0 0 8px rgba(34, 230, 255, 0.12);
+}
+
+#esc-overlay .esc-ctl-keys kbd.wide {
+  min-width: clamp(48px, 12vw, 58px);
+  font-size: clamp(8px, 1.6vw, 9px);
+  letter-spacing: 0.1em;
+}
+
+#esc-overlay .esc-ctl-lbl {
+  font-family: var(--esc-mono);
+  font-size: clamp(9px, 1.8vw, 10px);
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.72);
+  text-transform: uppercase;
+  text-align: right;
+}
+
+#esc-overlay .esc-audio-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#esc-overlay .esc-mute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(42px, 10vw, 46px);
+  height: clamp(42px, 10vw, 46px);
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  font-size: clamp(14px, 3.5vw, 16px);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 80ms ease, background 80ms ease;
+}
+
+#esc-overlay .esc-mute-btn.muted {
+  color: #888;
+  border-color: rgba(255, 80, 80, 0.35);
+}
+
+#esc-overlay .esc-vol-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1.4vw, 8px);
+  flex: 1;
+  min-width: 0;
+}
+
+#esc-overlay .esc-vol-row {
+  display: grid;
+  grid-template-columns: clamp(18px, 4vw, 22px) 1fr clamp(28px, 7vw, 36px);
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 8px);
+}
+
+#esc-overlay .esc-vol-label {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: clamp(11px, 2.6vw, 12px);
+}
+
+#esc-overlay .esc-vol-track-wrap {
+  position: relative;
+  height: clamp(34px, 8vw, 40px);
+  display: flex;
+  align-items: center;
+  touch-action: none;
+  cursor: pointer;
+}
+
+#esc-overlay .esc-vol-track {
+  position: relative;
+  width: 100%;
+  height: clamp(8px, 2vw, 10px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: visible;
+}
+
+#esc-overlay .esc-vol-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--esc-magenta), var(--esc-cyan));
+  box-shadow: 0 0 10px rgba(34, 230, 255, 0.35);
+  pointer-events: none;
+}
+
+#esc-overlay .esc-vol-track-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: var(--esc-vol-thumb, 0%);
+  width: clamp(18px, 4.5vw, 22px);
+  height: clamp(18px, 4.5vw, 22px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
+#esc-overlay .esc-vol-val {
+  font-family: var(--esc-mono);
+  font-size: clamp(10px, 2.2vw, 11px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: right;
+  letter-spacing: 0.04em;
+}
+
+#esc-overlay .esc-score-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1vw, 6px);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#esc-overlay .esc-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(6px, 1.5vw, 10px);
+  padding: clamp(5px, 1.2vw, 7px) clamp(8px, 1.8vw, 10px);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#esc-overlay .esc-score-name {
+  font-family: var(--esc-mono);
+  font-size: clamp(9px, 1.8vw, 10px);
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.78);
+  text-transform: uppercase;
+  line-height: 1.25;
+}
+
+#esc-overlay .esc-score-pts {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-family: var(--esc-ui);
+  font-size: clamp(11px, 2.2vw, 13px);
+  letter-spacing: 0.06em;
+  color: var(--esc-cyan);
+  text-shadow: 0 0 8px var(--esc-cyan);
+}
+
+#esc-overlay .esc-score-icon {
+  font-size: 0.85em;
+  opacity: 0.85;
+  letter-spacing: -0.08em;
+}
+
+#esc-overlay .esc-score-footnote {
+  margin: clamp(4px, 1vw, 6px) 0 0;
+  font-family: var(--esc-mono);
+  font-size: clamp(8px, 1.6vw, 9px);
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.42);
+  text-align: center;
+  line-height: 1.35;
+  flex-shrink: 0;
+}
+
+#esc-overlay .esc-leader-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: clamp(6px, 1.2vw, 8px) 0 0;
+  padding: clamp(6px, 1.2vw, 8px) clamp(8px, 1.8vw, 10px);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--esc-mono);
+  font-size: clamp(9px, 1.8vw, 10px);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.72);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+#esc-overlay .esc-leader-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px #fff, 0 0 18px rgba(255, 255, 255, 0.65);
+  flex-shrink: 0;
+  animation: esc-leader-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes esc-leader-pulse {
+  0%, 100% { opacity: 0.75; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+#esc-overlay .esc-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: clamp(10px, 2vw, 12px) clamp(10px, 2vw, 14px);
+  border-radius: 8px;
+  font-family: var(--esc-ui);
+  font-size: clamp(12px, 2.4vw, 14px);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--btn-glow, var(--esc-magenta));
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--btn-glow, var(--esc-magenta));
+  text-shadow: 0 0 10px var(--btn-glow, var(--esc-magenta));
+  box-shadow: 0 0 12px var(--btn-glow, var(--esc-magenta)), 0 0 28px color-mix(in oklab, var(--btn-glow, var(--esc-magenta)), transparent 60%);
+  touch-action: manipulation;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+#esc-overlay .esc-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 20px var(--btn-glow, var(--esc-magenta)), 0 0 44px var(--btn-glow, var(--esc-magenta));
+}
+
+#esc-overlay .esc-btn--quit {
+  --btn-glow: var(--esc-cyan);
+}
+
+#esc-overlay .esc-btn--fx-off {
+  --btn-glow: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: none;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
+}
+
+#esc-overlay .esc-btn--lq-on {
+  --btn-glow: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: none;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
+}
+
+@media (pointer: coarse) {
+  #esc-overlay {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  #esc-overlay .esc-backdrop {
+    background: rgba(5, 5, 20, 0.92);
+  }
+
+  #esc-overlay .esc-panel {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding:
+      max(10px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(10px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+    gap: clamp(8px, 1.5vh, 12px);
+  }
+
+  #esc-overlay .esc-title {
+    font-size: clamp(16px, 4.5vw, 20px);
+  }
+
+  #esc-overlay .esc-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "primary"
+      "scoring"
+      "actions";
+    gap: clamp(8px, 1.5vh, 10px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #esc-overlay .esc-section {
+    padding: clamp(10px, 2.5vw, 12px);
+  }
+
+  #esc-overlay .esc-mute-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  #esc-overlay .esc-vol-track-wrap {
+    height: 40px;
+  }
+
+  #esc-overlay .esc-actions {
+    grid-template-columns: 1fr;
+    gap: clamp(8px, 1.8vw, 10px);
+    position: sticky;
+    bottom: 0;
+    padding-top: 4px;
+    background: linear-gradient(180deg, transparent 0%, rgba(4, 4, 16, 0.92) 24%);
+  }
+
+  #esc-overlay .esc-btn {
+    min-height: 48px;
+    font-size: clamp(13px, 3.4vw, 15px);
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  #esc-overlay .esc-body {
+    grid-template-columns: 1.05fr 0.95fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "primary scoring"
+      "actions actions";
+    overflow: hidden;
+  }
+
+  #esc-overlay .esc-col-primary {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #esc-overlay .esc-scoring-block {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #esc-overlay .esc-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    position: static;
+    background: none;
+    padding-top: 0;
+  }
+
+  #esc-overlay .esc-btn {
+    min-height: 42px;
+    font-size: clamp(11px, 2.2vw, 13px);
+  }
+}
+
+@media (max-width: 620px) {
+  #esc-overlay .esc-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "primary"
+      "scoring"
+      "actions";
+  }
+
+  #esc-overlay .esc-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #esc-overlay .esc-leader-dot {
+    animation: none;
+    opacity: 1;
+  }
+}

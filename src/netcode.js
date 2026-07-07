@@ -1075,6 +1075,28 @@ export function strictSlotIndexForConn(connId) {
 }
 
 /**
+ * Host-only: opens a WebRTC offer to every other human peer we aren't yet connected to.
+ *
+ * The P2P design makes the host the offerer ("Host creates a DataChannel per non-host peer" —
+ * docs/ROADMAP.md); `initiateP2PConnection` is host-gated and the non-host answers via
+ * `handleSignalingMessage`. Previously the only callers were on the non-host side, where the
+ * host guard made them no-ops, so no offer was ever created and the DataChannel never opened.
+ *
+ * The server rebroadcasts MSG.slots on every join and on host departure, so calling this from
+ * the slots handler establishes connections to new peers and, after migration, from the new
+ * host to all surviving peers. `initiateP2PConnection` is idempotent (skips existing peers),
+ * so repeated calls are safe. Non-hosts return early.
+ */
+function ensureHostPeerConnections() {
+  if (!isHost || !youConnId) return;
+  for (const slot of netSlots) {
+    if (slot && slot.kind === "human" && slot.connId && slot.connId !== youConnId) {
+      P2P.initiateP2PConnection(slot.connId);
+    }
+  }
+}
+
+/**
  * Sends multiplayer color pick with the player's cosmetic neon hex.
  * @param {string} color Preset palette id for slot assignment.
  */
@@ -1489,6 +1511,10 @@ export function initNetcode(roomOverride) {
             });
         }
 
+        // * Host is the WebRTC offerer: open a DataChannel to every (new) human peer.
+        // * Runs on join and post-migration (server rebroadcasts slots for both); no-op for non-hosts.
+        ensureHostPeerConnections();
+
         if (kindsChanged) {
           clearNpcCartCache();
         }
@@ -1728,6 +1754,14 @@ export const __netcodeTestHooks = {
   // * frames flow through decode → dispatch → buffer without a live DataChannel.
   dispatchP2P: (data, fromConnId) => handleP2PMessage(data, fromConnId),
   setHostIdForTest: (id) => { hostId = id; },
+  // * Signaling-flow validation: set host authority state, then call the exact helper
+  // * the slots handler uses so tests can assert the host opens offers to the right peers.
+  setHostStateForTest: ({ isHost: h, youConnId: y, netSlots: s }) => {
+    if (h !== undefined) isHost = h;
+    if (y !== undefined) youConnId = y;
+    if (s !== undefined) netSlots = s;
+  },
+  ensureHostPeerConnections: () => ensureHostPeerConnections(),
 };
 
 function handleRemoteClientInput(input, fromConnId, seq) {

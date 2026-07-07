@@ -18,6 +18,7 @@ import {
 } from "./cartThemes.js";
 import "./cart-rave-menu.js";
 import "./cart-rave-menu.css";
+import "./ui/styles/global.css";
 import * as THREE from "three";
 import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
@@ -1742,6 +1743,7 @@ async function main() {
   const nameLabels = [];
   function makeNameLabel(text, color, badgeInfo) {
     const el = document.createElement("div");
+    el.className = "cart-nametag";
     if (badgeInfo) {
       el.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${text}`;
     } else {
@@ -1752,7 +1754,7 @@ async function main() {
     el.style.background = "rgba(0, 0, 0, 0.7)";
     el.style.color = "#fff";
     el.style.fontFamily = '"Michroma", sans-serif';
-    el.style.fontSize = "24px";
+    el.style.fontSize = "";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
     el.style.textTransform = "uppercase";

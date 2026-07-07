@@ -164,13 +164,13 @@ html, body {
   position: absolute; inset: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 1fr 1.1fr 1fr;
+  grid-template-columns: 1fr 1.2fr 1fr; /* Slightly wider center for ultrawide cohesion */
   align-items: center;
   justify-items: center;
   padding: var(--pad-content);
-  gap: clamp(16px, 3vw, 32px);
+  gap: clamp(16px, 2.5vw, 32px); /* Tighter gap on smaller screens, wider on ultrawide */
   width: 100%;
-  max-width: 1600px;
+  max-width: 1500px; /* Slightly tighter cap to prevent extreme stretching */
   margin: 0 auto;
 }
 
@@ -481,8 +481,9 @@ html, body {
 
 .cr-cart-stage {
   position: relative;
-  width: clamp(220px, 30vw, 320px);
-  height: clamp(200px, 25vw, 280px);
+  width: clamp(200px, 28vw, 300px); /* Slightly adjusted lower bound for small screens */
+  aspect-ratio: 1 / 1; /* Replaces fixed height for perfect scaling */
+  height: auto; /* Overrides old clamp height */
   display: flex; align-items: center; justify-content: center;
   cursor: help;
 }
@@ -1892,36 +1893,19 @@ html, body {
   }
 
   .cr-content {
-    position: absolute;
-    inset: 0;
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: clamp(16px, 4vw, 24px);
+    padding: clamp(16px, 4vw, 24px) var(--pad-content);
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-    scroll-padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
-    scroll-padding-bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px));
-    grid-template-columns: unset;
-    padding:
-      max(1.2dvh, env(safe-area-inset-top, 0px))
-      clamp(16px, 4.5vw, 22px)
-      max(2.4dvh, calc(env(safe-area-inset-bottom, 0px) + 20px));
-    gap: clamp(12px, 2.2dvh, 18px);
   }
 
-  .cr-center, .cr-left, .cr-right {
-    width: 100%;
-    max-width: min(100%, 440px);
-    margin-inline: auto;
-    flex-shrink: 0;
-    min-height: 0;
-  }
-
-  .cr-center { order: 1; display: flex; flex-direction: column; gap: clamp(10px, 1.8dvh, 14px); }
-  .cr-right { order: 2; display: flex; flex-direction: column; gap: clamp(10px, 1.6dvh, 14px); }
-  .cr-left { order: 3; display: flex; flex-direction: column; align-items: stretch; gap: clamp(10px, 1.8dvh, 14px); }
-
-  .cr-cart-wrap { align-self: center; width: auto; }
+  /* Prioritize Title/Play buttons at the top for mobile */
+  .cr-center { order: 1; }
+  .cr-left { order: 2; }
+  .cr-right { order: 3; }
 
   .cr-tagline {
     font-size: clamp(8px, 2.2vw, 10px);
@@ -2001,7 +1985,9 @@ html, body {
   .cr-level-btn-label { font-size: clamp(11px, 3.2vw, 13px); overflow-wrap: break-word; }
   .cr-level-btn-sub { font-size: clamp(9px, 2.5vw, 11px); overflow-wrap: break-word; }
 
-  .cr-cart-stage { width: clamp(72px, 20vw, 104px); height: clamp(64px, 18vw, 92px); }
+  .cr-cart-stage {
+    width: clamp(180px, 50vw, 240px); /* Scale up gracefully on phones */
+  }
   .cr-cart-shadow { width: clamp(60px, 17vw, 88px); height: clamp(14px, 3.8vw, 18px); bottom: -5px; }
   .cr-cart-tap-hint { width: clamp(20px, 5.5vw, 24px); height: clamp(20px, 5.5vw, 24px); font-size: clamp(10px, 2.8vw, 12px); }
 
@@ -2049,14 +2035,26 @@ html, body {
   .cr-vol-val { font-size: clamp(10px, 2.6vw, 12px); min-width: 28px; }
 }
 
+/* Tiny phone safety net */
+@media (max-width: 380px) {
+  .cr-content {
+    padding: 12px;
+    gap: 12px;
+  }
+  .cr-cart-stage {
+    width: 160px;
+  }
+}
+
 /* ==========================================
    MOBILE LANDSCAPE
    ========================================== */
 @media (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
   .cr-content {
     display: grid;
-    grid-template-columns: minmax(76px, 17vw) minmax(0, 1fr) minmax(148px, 28vw);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: 1fr 1.5fr 1fr; /* Wider center for landscape phones */
+    grid-template-rows: 1fr;
+    overflow: hidden; /* Prevent scroll */
     align-items: center;
     align-content: center;
     justify-content: stretch;
@@ -2072,7 +2070,7 @@ html, body {
   }
 
   .cr-left { grid-column: 1; grid-row: 1; flex-direction: column; justify-content: center; gap: clamp(6px, 1.2dvh, 8px); min-width: 0; }
-  .cr-cart-stage { width: clamp(56px, 12vh, 76px); height: clamp(48px, 10vh, 66px); }
+  .cr-cart-stage { width: clamp(120px, 20vw, 180px); } /* Shrink cart to fit landscape height */
   .cr-cart-shadow { width: clamp(48px, 10vh, 64px); height: clamp(10px, 2.2vh, 14px); }
 
   .cr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: clamp(12px, 2.6vh, 16px) clamp(6px, 1.6vw, 8px) clamp(8px, 1.8vh, 10px); gap: clamp(6px, 1.4vh, 8px); }
