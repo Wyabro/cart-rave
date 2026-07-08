@@ -269,20 +269,8 @@ export function updateGameFlow(deps, context) {
               if (!suddenDeathEnded) {
                 deps.sendHostRound();
               }
-
-              if (koEvent.attackerSlotIndex === localSlotIndexThisFrame) {
-                ChallengeTracker.record("ko_void");
-                const victimSlot = netSlots[slotIndex];
-                if (victimSlot?.kind === "npc") {
-                  ChallengeTracker.record("ko_npc");
-                }
-                const victimCart = allCarts[slotIndex];
-                if (victimCart?.aiPersonality?.name === "aggressor") {
-                  ChallengeTracker.record("ko_aggressor");
-                }
-              }
-              // * Kill feed + local kill-confirm + announcer are dispatched from the KO Event in
-              // * the common tail below (dispatchKOEvent) once koEvent is finalized.
+              // * Challenges + kill feed + local kill-confirm + announcer are all dispatched from
+              // * the KO Event in the common tail below (dispatchKOEvent) once koEvent is finalized.
             } else if (deps.getRoundState().isSuddenDeath) {
               // * Multi-way tie Sudden Death: eliminate the falling cart first, then count
               // * survivors. Only award the win (and finalize the KO Event's attacker to the
@@ -347,6 +335,7 @@ export function updateGameFlow(deps, context) {
               pickSelfDeathVerb,
               onAnnouncerFall: deps.onAnnouncerFall,
               onLocalKillConfirm: deps.onLocalKillConfirm,
+              recordChallenge: ChallengeTracker.record,
             });
 
             deps.getLastHitBy().delete(slotIndex);

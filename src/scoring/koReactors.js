@@ -16,6 +16,7 @@
  * @property {() => string} pickSelfDeathVerb Fallback self-death verb when the HUD has none.
  * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
  * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
+ * @property {(eventId: string, amount?: number) => void} [recordChallenge] Bumps a local challenge counter.
  */
 
 /**
@@ -77,8 +78,28 @@ export function announcerReactor(koEvent, ctx) {
   });
 }
 
-/** Default host-side reactor order: local confirm → kill feed → announcer. */
-export const DEFAULT_KO_REACTORS = [localKillConfirmReactor, killFeedReactor, announcerReactor];
+/**
+ * Progresses local challenge counters for the LOCAL player's kills. Reads the KO Event's victim
+ * classification rather than re-scanning slots/carts. Only the machine whose player scored the KO
+ * records — so a device counts its own kills once (host-only today; every client once the replay
+ * path dispatches too).
+ * @param {import('./koEvent.js').KOEvent} koEvent
+ * @param {KOReactorCtx} ctx
+ */
+export function challengeReactor(koEvent, ctx) {
+  if (!koEvent.isKill || koEvent.attackerSlotIndex !== ctx.localSlotIndex) return;
+  ctx.recordChallenge?.("ko_void");
+  if (koEvent.victimKind === "npc") ctx.recordChallenge?.("ko_npc");
+  if (koEvent.victimAiName === "aggressor") ctx.recordChallenge?.("ko_aggressor");
+}
+
+/** Default host-side reactor order: challenges → local confirm → kill feed → announcer. */
+export const DEFAULT_KO_REACTORS = [
+  challengeReactor,
+  localKillConfirmReactor,
+  killFeedReactor,
+  announcerReactor,
+];
 
 /**
  * Fans a finalized KO Event out to each reactor in order.

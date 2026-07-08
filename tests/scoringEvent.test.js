@@ -8,12 +8,21 @@ function makeDeps(overrides = {}) {
     getRoundScores: () => ({ 0: 0, 1: 0, 2: 0, 3: 0 }),
     getLastHitBy: () => new Map(),
     getAllCarts: () => [{}, {}, {}, {}],
+    getNetSlots: () => [{ kind: "human" }, { kind: "human" }, { kind: "human" }, { kind: "human" }],
     getLocalSlotIndex: () => -1,
     setLocalCombo: () => {},
     CONFIG: {
       scoring: { hitWindowMs: 2500 },
       record: { innerRadius: 5 },
-      combo: { decayMs: 5000 },
+      combo: {
+        decayMs: 5000,
+        tiers: {
+          0: { multiplier: 1.0 },
+          1: { multiplier: 1.5 },
+          2: { multiplier: 2.0 },
+          3: { multiplier: 3.0 },
+        },
+      },
     },
     hud: {
       pickSelfDeathVerb: () => "FELL OFF",
@@ -124,6 +133,27 @@ describe("buildKOEvent", () => {
     expect(e.isKill).toBe(false);
     expect(e.victimWasLeader).toBe(true);
     expect(e.reward.leader).toBe(0); // no points on a self fall
+  });
+
+  it("classifies the victim (kind + AI personality) from slots and carts", () => {
+    const deps = makeDeps({
+      getNetSlots: () => [{ kind: "human" }, { kind: "human" }, { kind: "npc" }, { kind: "human" }],
+      getAllCarts: () => [{}, {}, { aiPersonality: { name: "aggressor" } }, {}],
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, OUTER, NOW);
+    expect(e.victimKind).toBe("npc");
+    expect(e.victimAiName).toBe("aggressor");
+  });
+
+  it("leaves victim classification null when slot/cart data is absent", () => {
+    const deps = makeDeps({
+      getNetSlots: () => [],
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, OUTER, NOW);
+    expect(e.victimKind).toBe(null);
+    expect(e.victimAiName).toBe(null);
   });
 
   it("carries round context (roundTimeMs, isSuddenDeath) onto the event", () => {

@@ -10,20 +10,6 @@
 const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
 
 /**
- * Score multiplier implied by an attacker's combo streak tier.
- * @param {number} tier
- * @returns {number}
- */
-function getComboMultiplier(tier) {
-  switch (tier) {
-    case 1: return 1.5;
-    case 2: return 2.0;
-    case 3: return 3.0;
-    default: return 1.0;
-  }
-}
-
-/**
  * The subset of GameFlowDeps that buildKOEvent reads. Kept minimal so the leaf module has no
  * dependency on the full gameFlow wiring.
  *
@@ -32,6 +18,7 @@ function getComboMultiplier(tier) {
  * @property {() => Record<number, number>} getRoundScores
  * @property {() => Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} getLastHitBy
  * @property {() => Array<object>} getAllCarts
+ * @property {() => Array<object>} [getNetSlots]
  * @property {() => number} getLocalSlotIndex
  * @property {object} CONFIG
  * @property {object | null | undefined} [hud]
@@ -54,6 +41,10 @@ function getComboMultiplier(tier) {
  *   velocity threshold once `impactSpeed` is captured.
  * @property {boolean} victimWasLeader Victim held the sole score lead at fall time (drives the
  *   leader reward and lets announcer/VFX react without re-scanning scores).
+ * @property {string | null} victimKind Victim's slot kind ("human" | "npc"), or null if unknown.
+ *   Derived per-machine (recomputed on clients); challenges/stats read it instead of re-scanning slots.
+ * @property {string | null} victimAiName Victim's AI personality name (e.g. "aggressor"), or null
+ *   for humans / unknown. Derived per-machine.
  * @property {number} impactSpeed m/s of the crediting ram. Not captured yet (decision D2) — 0.
  * @property {number} comboTier Attacker's combo streak tier at the kill (0–3).
  * @property {number} comboMultiplier Score multiplier implied by `comboTier`.
@@ -102,6 +93,14 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
   }
   const victimWasLeader = !leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex;
 
+  // * Victim classification — read-only, computed for every fall (self or kill) so challenge/stats
+  // * reactors read plain event fields instead of re-scanning slots/carts. Kind comes from the
+  // * slot table; the AI personality (if any) from the cart.
+  const allCarts = deps.getAllCarts();
+  const netSlots = deps.getNetSlots?.() ?? [];
+  const victimKind = netSlots[slotIndex]?.kind ?? null;
+  const victimAiName = allCarts?.[slotIndex]?.aiPersonality?.name ?? null;
+
   const hit = deps.getLastHitBy().get(slotIndex);
   const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 2500;
 
@@ -115,6 +114,8 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
       cause: "self",
       wasCritical: false,
       victimWasLeader,
+      victimKind,
+      victimAiName,
       impactSpeed: 0,
       comboTier: 0,
       comboMultiplier: 1.0,
@@ -133,11 +134,11 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
   const rewardCritical = hit.wasCritical ? 1 : 0;
   const rewardLeader = victimWasLeader ? 1 : 0;
 
-  // * Combo multiplier comes from the attacker's current streak tier.
-  const allCarts = deps.getAllCarts();
+  // * Combo multiplier comes from the attacker's current streak tier. CONFIG.combo.tiers is the
+  // * single source of truth for tier → multiplier (tier 0 falls back to 1.0).
   const attackerCart = allCarts?.[hit.attackerSlotIndex];
   const comboTier = attackerCart?.comboTier || 0;
-  const comboMultiplier = getComboMultiplier(comboTier);
+  const comboMultiplier = deps.CONFIG.combo?.tiers?.[comboTier]?.multiplier ?? 1.0;
 
   // * Refresh the attacker's combo-decay timer on a confirmed kill (side effect preserved from
   // * calculateFallScore; a later migration step moves this into the score reactor).
@@ -159,6 +160,8 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
     cause: isCenterHole ? "center_hole" : "outer_edge",
     wasCritical: Boolean(hit.wasCritical),
     victimWasLeader,
+    victimKind,
+    victimAiName,
     impactSpeed: 0,
     comboTier,
     comboMultiplier,

@@ -4,11 +4,12 @@ import {
   killFeedReactor,
   localKillConfirmReactor,
   announcerReactor,
+  challengeReactor,
   DEFAULT_KO_REACTORS,
 } from "../src/scoring/koReactors.js";
 
 function makeCtx(overrides = {}) {
-  const calls = { killFeed: [], announcer: [], localConfirm: [] };
+  const calls = { killFeed: [], announcer: [], localConfirm: [], challenge: [] };
   const ctx = {
     netSlots: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }],
     localSlotIndex: 1,
@@ -21,6 +22,7 @@ function makeCtx(overrides = {}) {
     },
     onAnnouncerFall: (fall) => calls.announcer.push(fall),
     onLocalKillConfirm: (victim, tier) => calls.localConfirm.push([victim, tier]),
+    recordChallenge: (id) => calls.challenge.push(id),
     ...overrides,
   };
   return { ctx, calls };
@@ -33,6 +35,8 @@ const KILL = {
   verb: "RAMMED",
   comboTier: 2,
   comboMultiplier: 2.0,
+  victimKind: "human",
+  victimAiName: null,
 };
 
 const SELF = {
@@ -42,6 +46,8 @@ const SELF = {
   verb: "SUDDEN DEATH", // wire verb; the kill feed picks a fresh self verb instead
   comboTier: 0,
   comboMultiplier: 1.0,
+  victimKind: "human",
+  victimAiName: null,
 };
 
 describe("localKillConfirmReactor", () => {
@@ -100,10 +106,38 @@ describe("announcerReactor", () => {
   });
 });
 
+describe("challengeReactor", () => {
+  it("records ko_void for the local player's kill", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
+    challengeReactor(KILL, ctx);
+    expect(calls.challenge).toEqual(["ko_void"]);
+  });
+
+  it("also records ko_npc and ko_aggressor from the victim classification", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
+    challengeReactor({ ...KILL, victimKind: "npc", victimAiName: "aggressor" }, ctx);
+    expect(calls.challenge).toEqual(["ko_void", "ko_npc", "ko_aggressor"]);
+  });
+
+  it("does not record for another player's kill", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 0 });
+    challengeReactor(KILL, ctx);
+    expect(calls.challenge).toEqual([]);
+  });
+
+  it("does not record on a self/environmental fall", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
+    // attacker reassigned to local (as Sudden Death does) but isKill still false
+    challengeReactor({ ...SELF, attackerSlotIndex: 1 }, ctx);
+    expect(calls.challenge).toEqual([]);
+  });
+});
+
 describe("dispatchKOEvent", () => {
-  it("runs the default reactors in order for a kill", () => {
+  it("runs the default reactors for a kill", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
     dispatchKOEvent(KILL, ctx);
+    expect(calls.challenge).toEqual(["ko_void"]);
     expect(calls.localConfirm).toEqual([[3, 2]]);
     expect(calls.killFeed).toHaveLength(1);
     expect(calls.announcer).toHaveLength(1);
@@ -118,6 +152,7 @@ describe("dispatchKOEvent", () => {
 
   it("exposes the default reactor order", () => {
     expect(DEFAULT_KO_REACTORS).toEqual([
+      challengeReactor,
       localKillConfirmReactor,
       killFeedReactor,
       announcerReactor,
