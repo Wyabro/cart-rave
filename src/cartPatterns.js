@@ -122,6 +122,28 @@ function renderPatternMaskCanvas(patternId) {
       }
       break;
     }
+    case "bolt": {
+      // * Electric lightning zigzag: bold VERTICAL bands that jag left/right via a sharp
+      // * triangle-wave offset — descending bolts, perpendicular to waves' horizontal ripples.
+      // * bandW period 32 & vPeriod 64 both divide 128, so the tile is seamless in both axes.
+      ctx.fillStyle = dark;
+      const period = 32;
+      const bandW = 15;
+      const amp = 14;
+      const vPeriod = 64;
+      // * triangle wave in [-amp, amp], period vPeriod (troughs at y=0/vPeriod → seam matches).
+      const tri = (y) => {
+        const t = y / vPeriod;
+        return amp * (2 * Math.abs(2 * (t - Math.floor(t + 0.5))) - 1);
+      };
+      for (let y = 0; y < size; y += 1) {
+        const off = tri(y);
+        for (let k = -1; k * period + off < size + period; k += 1) {
+          ctx.fillRect(k * period + off, y, bandW, 1);
+        }
+      }
+      break;
+    }
     default:
       break;
   }

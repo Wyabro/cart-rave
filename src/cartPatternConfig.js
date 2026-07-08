@@ -6,7 +6,7 @@
 /** @typedef {typeof CART_PATTERN_IDS[number]} CartPatternId */
 
 /** Ordered list of selectable pattern ids (classic = no mask). */
-export const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves"];
+export const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves", "bolt"];
 
 export const DEFAULT_CART_PATTERN = "classic";
 
@@ -17,6 +17,7 @@ export const CART_PATTERNS = {
   checker: { label: "Checker", description: "Dark checker mask" },
   dots: { label: "Dots", description: "Polka voids" },
   waves: { label: "Waves", description: "Ripple bands" },
+  bolt: { label: "Bolt", description: "Electric chevron zigzag" },
 };
 
 /**
@@ -61,6 +62,11 @@ function patternMaskTileSvg(patternId, patternUid) {
       return `<pattern id="${uid}-tile" width="24" height="16" patternUnits="userSpaceOnUse">
         <rect width="24" height="16" fill="white"/>
         <path d="M0 4 Q6 0 12 4 T24 4 L24 12 Q18 8 12 12 T0 12 Z" fill="black"/>
+      </pattern>`;
+    case "bolt":
+      return `<pattern id="${uid}-tile" width="16" height="16" patternUnits="userSpaceOnUse">
+        <rect width="16" height="16" fill="white"/>
+        <path d="M6 0 L2 4 L6 8 L2 12 L6 16 L12 16 L8 12 L12 8 L8 4 L12 0 Z" fill="black"/>
       </pattern>`;
     default:
       return "";
