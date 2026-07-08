@@ -282,7 +282,7 @@ export function initPostFxDebugGui(deps) {
   const syncBloom = () => applyBloomSettings(bloomPass, bloomLive);
 
   const pane = new Pane({
-    title: "Cart Rave Debug  (H = hide/show)",
+    title: "Cart Clash Debug  (H = hide/show)",
     expanded: true,
   });
 

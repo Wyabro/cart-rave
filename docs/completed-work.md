@@ -1,4 +1,6 @@
-# Cart Rave — Completed Work (Historical Record)
+# Cart Clash — Completed Work (Historical Record)
+
+> Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](./brand.md).
 
 **Last Updated:** July 8, 2026
 

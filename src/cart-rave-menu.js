@@ -1,4 +1,4 @@
-// Cart Rave — Main Menu
+// Cart Clash — Main Menu
 import { CART_COLORS, PALETTE } from "./config.js";
 import { STORAGE_KEYS, storageGet, storageSet } from "./utils/storage.js";
 import {
@@ -81,7 +81,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     },
   };
 
-  // Change this key to switch palette, or call window.CartRave.setPalette(key).
+  // Change this key to switch palette, or call window.CartClash.setPalette(key) (alias: CartRave).
   const CONFIG = {
     palette: "classic",
     intensity: 7,
@@ -212,7 +212,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   const rollPlayerName = () => {
     const pool = PLAYER_NAME_POOL.filter((n) => !CLIENT_NPC_NAME_SET.has(n));
-    return pool[Math.floor(Math.random() * pool.length)] || "CartRaver";
+    return pool[Math.floor(Math.random() * pool.length)] || "CartClasher";
   };
 
   // * Game color IDs — same order as PALETTE / CART_COLORS in config.js.
@@ -1868,6 +1868,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   // ─── Public API ───────────────────────────────────────────────────────────
   window.CartRave = {
+    // * CartClash is the product API; CartRave kept as legacy alias (see docs/brand.md).
     setPalette(key) {
       if (!PALETTES[key]) return;
       state.palette = PALETTES[key];
@@ -1987,6 +1988,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       return closeActiveOverlay();
     },
   };
+  // * Preferred product API; CartRave remains for existing call sites (docs/brand.md).
+  window.CartClash = window.CartRave;
 
   // * Warm the preview GLTF cache while the menu is idle.
   prefetchPreviewCartGltf().catch(() => {});

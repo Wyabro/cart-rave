@@ -1,6 +1,6 @@
-# Cart Rave — Game Architecture & Design Notes (Consolidated)
+# Cart Clash — Game Architecture & Design Notes (Consolidated)
 
-**Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Rave is built**, how multiplayer works, how releases are verified, and what work remains.
+**Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Clash is built**, how multiplayer works, how releases are verified, and what work remains. Product naming freeze: [brand.md](./brand.md).
 
 **Last updated context:** July 7, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. CSS extraction refactor complete. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
 
@@ -10,7 +10,7 @@
 
 ## Executive summary
 
-**Cart Rave** is a browser-based **4‑player physics sumo** game. Players drive neon shopping carts on a club dancefloor shaped like a vinyl record (a ring with a center hole). Players score by knocking opponents off the edge or into the hole. Rounds are designed to run **150 seconds** (2.5 minutes), and the highest score wins.
+**Cart Clash** is a browser-based **4‑player physics sumo** game. Players drive neon shopping carts on a club dancefloor shaped like a vinyl record (a ring with a center hole). Players score by knocking opponents off the edge or into the hole. Rounds are designed to run **150 seconds** (2.5 minutes), and the highest score wins.
 
 At a high level, the architecture is:
 

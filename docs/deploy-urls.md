@@ -1,4 +1,6 @@
-# Cart Rave — Production Deployment & Verification
+# Cart Clash — Production Deployment & Verification
+
+Product name is **Cart Clash**. Cloudflare Worker / host still use the **`cart-rave`** slug until domain cutover — see [brand.md](./brand.md).
 
 Quick reference to track deployment targets, live URLs, and verification commands.
 

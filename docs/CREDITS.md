@@ -1,6 +1,6 @@
 # Credits (Third‑Party)
 
-This document lists third‑party libraries, services, and assets used by **Cart Rave**.
+This document lists third‑party libraries, services, and assets used by **Cart Clash**.
 
 Runtime dependencies come from `package.json` and are bundled by Vite unless noted otherwise.
 

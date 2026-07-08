@@ -1,5 +1,5 @@
 /**
- * Canonical NPC name pool for Cart Rave.
+ * Canonical NPC name pool for Cart Clash.
  * Single source of truth shared by the server (party/) and client (src/).
  *
  * The server assigns NPC names from this pool and broadcasts them in slot payloads;

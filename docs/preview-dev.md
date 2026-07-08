@@ -2,13 +2,17 @@
 
 Use **local Wrangler dev** for day-to-day multiplayer and physics testing. Deploy to Cloudflare only when you need a public shareable URL.
 
+Active branch: **`cart-clash`**. Naming rules: [brand.md](./brand.md).
+
 ## Daily Development (recommended)
 
 Run the unified dev script which starts the Vite client dev server and the Wrangler local worker dev server:
 
 ```bash
-npm run dev:next-level
+npm run dev:local
 ```
+
+Aliases: `npm run dev:cart-clash` · `npm run dev:next-level` (deprecated name, same script).
 
 Then open **http://127.0.0.1:3000/** to play. The client automatically connects to the local worker running on **port 1999** (see local environment detection in `src/netcode.js`).
 
@@ -49,7 +53,7 @@ npm run ship
 
 This runs `npm run build` (bundling Vite into `dist/`) followed by `npx wrangler deploy`.
 
-- **Deployed URL:** `https://cart-rave.wyabro.workers.dev/`
+- **Deployed URL:** `https://cart-rave.wyabro.workers.dev/` (Worker name remains `cart-rave` until domain cutover — see [brand.md](./brand.md))
 - **Real-time Tail logs:** To watch production server console logs in real time, run:
 
 ```bash

@@ -1,4 +1,4 @@
-# Cart Rave — Todo & Status Snapshot
+# Cart Clash — Todo & Status Snapshot
 
 **Last Updated:** July 8, 2026
 

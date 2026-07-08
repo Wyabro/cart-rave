@@ -15,7 +15,8 @@ declare global {
     getElementById(elementId: string): HTMLElement | null;
   }
 
-  // Extend the Window interface with custom Cart Rave globals
+  // Extend Window with boot/menu bridge globals.
+  // Product name is Cart Clash; __cartRave* / CartRave remain for compatibility (docs/brand.md).
   interface Window {
     __cartRaveBootstrapped?: boolean;
     __cartRaveCancelBootError?: () => void;
@@ -26,6 +27,8 @@ declare global {
     __cartRaveSendErrorLog?: (error: Error) => void;
     __cartRaveMainReady?: boolean;
     CartRave?: any;
+    /** Preferred product API alias of CartRave. */
+    CartClash?: any;
     recordMesh?: Three.Mesh;
     exportArenaFloorGLB?: () => void;
     exportPhysicsGeometry?: () => void;

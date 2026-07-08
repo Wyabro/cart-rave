@@ -536,7 +536,7 @@
     <div>
       <p><strong>Could not load Cart Clash</strong></p>
       <p class="cr-boot-error-detail" id="cr-boot-error-detail">
-        The dev server interrupted while loading (common during hot reload). Try Retry, or restart with Ctrl+C then <code>npm run dev:next-level</code>.
+        The dev server interrupted while loading (common during hot reload). Try Retry, or restart with Ctrl+C then <code>npm run dev:local</code>.
       </p>
       <button type="button" id="cr-boot-retry">RETRY</button>
     </div>
@@ -1006,7 +1006,7 @@
             { context: "bootScriptError", src: t.src || "" }
           );
           scheduleBootError(
-            "Failed to load game module. Hard refresh (Ctrl+Shift+R) or restart: npm run dev:next-level",
+            "Failed to load game module. Hard refresh (Ctrl+Shift+R) or restart: npm run dev:local",
             8000
           );
         }

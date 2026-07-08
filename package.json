@@ -1,14 +1,17 @@
 {
-  "name": "cart-rave",
+  "name": "cart-clash",
   "private": true,
   "type": "module",
   "scriptsMeta": {
-    "_doc": "Script guide",
+    "_doc": "Script guide — see docs/brand.md for naming. Worker host remains cart-rave until domain cutover.",
+    "dev:local": "Vite + Wrangler local multiplayer (preferred)",
     "dev:party": "PartyServer local dev with wrangler"
   },
   "scripts": {
     "dev": "vite",
-    "dev:next-level": "node scripts/dev-next-level.mjs",
+    "dev:local": "node scripts/dev-local.mjs",
+    "dev:cart-clash": "node scripts/dev-local.mjs",
+    "dev:next-level": "node scripts/dev-local.mjs",
     "dev:party": "npx wrangler dev",
     "dev:party:preview": "npx wrangler dev",
     "build": "vite build",

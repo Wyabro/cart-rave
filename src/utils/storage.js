@@ -5,6 +5,8 @@
  * place (and a future rename/migration can remap them together). Helpers never
  * throw: privacy modes and full quotas degrade to the fallback value.
  *
+ * Key *strings* stay `cartRave*` until a deliberate migration (see docs/brand.md).
+ *
  * No imports — safe to use from any module without cycle risk.
  */
 

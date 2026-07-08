@@ -1,6 +1,6 @@
 # Announcer System — "The Store PA"
 
-Cart Rave's announcer is the supermarket tannoy hijacked by the rave's MC. It celebrates
+Cart Clash's announcer is the supermarket tannoy hijacked by the rave's MC. It celebrates
 big moments with retail-flavored barks ("FIRST SPILL!", "CLEAN-UP ON AISLE 3!", "REFUND!")
 instead of arena-shooter clichés. The system is fully data-driven and ships today with
 procedural stings + visual callouts; professionally recorded voice lines drop in later

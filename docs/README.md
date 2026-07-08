@@ -1,10 +1,10 @@
-# Cart Rave
+# Cart Clash
 
-**Cart Rave** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around a club dancefloor ring — and try not to get yeeted through the **center hole**. Matches are **2.5 minutes** of physics chaos (with Sudden Death on ties), and the cart with the **most points** takes the podium.
+**Cart Clash** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around arena floors — and try not to get yeeted off the edge or through a void. Matches are **2.5 minutes** of physics chaos (with Sudden Death on ties), and the cart with the **most points** takes the podium.
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (July 2026):** Post-jam. Active development on the `next-level` branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record, Backrooms, and Zanzibar levels). See [ROADMAP.md](./ROADMAP.md) for current priorities.
+**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record, Backrooms, and Zanzibar levels). See [ROADMAP.md](./ROADMAP.md) for current priorities and [brand.md](./brand.md) for the naming freeze.
 
 ---
 
@@ -12,12 +12,13 @@
 
 | Doc | Purpose |
 |-----|---------|
+| [brand.md](./brand.md) | **Naming freeze** — Cart Clash vs legacy cart-rave IDs |
 | [ROADMAP.md](./ROADMAP.md) | **Primary forward-looking plan** (Version 2 priorities) |
 | [todo.md](./todo.md) | Current status snapshot + shipped history |
 | [project-state.md](./project-state.md) | Architecture snapshot, known issues |
 | [Game_Architecture.md](./Game_Architecture.md) | Consolidated architecture & design reference |
 | [announcer.md](./announcer.md) | "The Store PA" announcer system + voice asset pipeline |
-| [preview-dev.md](./preview-dev.md) | `next-level` branch local dev workflow |
+| [preview-dev.md](./preview-dev.md) | Local multiplayer dev workflow |
 | [deploy-urls.md](./deploy-urls.md) | Production URLs and deploy verification |
 | [CREDITS.md](./CREDITS.md) | Third-party libraries, fonts, and assets |
 | [post-jam-ideas.md](./post-jam-ideas.md) | Deferred ideas (many now tracked in ROADMAP) |
@@ -43,23 +44,25 @@ Client code lives in `src/`. `src/main.js` is the live entry point and wiring hu
 
 - **Node.js + npm**
 
-### Daily development (`next-level` branch)
+### Daily development (`cart-clash` branch)
 
-One command — Vite client + preview partyserver worker via Wrangler:
+One command — Vite client + local partyserver worker via Wrangler:
 
 ```bash
-npm run dev:next-level
+npm run dev:local
 ```
+
+(`dev:cart-clash` and legacy `dev:next-level` are aliases.)
 
 Open **http://127.0.0.1:3000/**. See [preview-dev.md](./preview-dev.md) for the full preview workflow.
 
-### Production config (`main` branch)
+### Two-terminal alternative
 
 ```bash
 # Terminal 1 — Vite
 npm run dev
 
-# Terminal 2 — partyserver via Wrangler (port 8787/1999)
+# Terminal 2 — partyserver via Wrangler
 npm run dev:party
 ```
 
@@ -87,8 +90,8 @@ npm run ship     # build + wrangler deploy (production)
 
 - **Modes**: Solo (private room + NPCs), Quickplay (public room), Friends (share a `?room=` link)
 - **Levels**: 
-  - Classic Record (vinyl ring + center hole) — major physics stability pass July 2026
-  - Backrooms Supermarket (square floor + corner voids) — major physics stability pass July 2026
+  - Cart Rave / Classic Record (vinyl ring + center hole; jam tribute name) — major physics stability pass July 2026
+  - Backrooms Supermarket / The Storerooms (square floor + corner voids) — major physics stability pass July 2026
   - Zanzibar Platform (floating sundeck + sunset seascape) — added July 2026
 - **Scoring**: knock carts off the **edge** or into **voids/holes** for points (bonuses stack for big plays)
 - **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots (with client-side prediction for the local cart)
@@ -101,7 +104,7 @@ npm run ship     # build + wrangler deploy (production)
 | Script | Purpose |
 |--------|---------|
 | `npm run dev` | Vite dev server (port 3000) |
-| `npm run dev:next-level` | Vite + local Wrangler wrangler dev server |
+| `npm run dev:local` | Vite + local Wrangler worker (preferred daily) |
 | `npm run dev:party` | Local wrangler worker (Durable Object) |
 | `npm run build` | Production build to `dist/` |
 | `npm run ship` | Build + deploy worker to Cloudflare |
@@ -118,13 +121,12 @@ index.html          # Static shell, menu markup
 src/main.js         # Entry point + game wiring
 src/bootstrap.js    # Menu → gameplay flow
 src/levelManager.js # Level preview + swapping
-src/levels/         # Level definitions (classic, backrooms, zanzibar)
-party/index.ts      # partyserver Durable Object class
-docs/               # All project documentation
+src/netcode.js      # Multiplayer + prediction
+src/simulation.js   # Host Rapier physics
+src/scoring/        # KO / scoring event system
+party/index.ts      # partyserver Durable Object
+docs/               # Project docs (start here)
+docs/brand.md       # Naming freeze
 ```
 
-Design constraints and AI guardrails: `.cursorrules` at repo root.
-
----
-
-**Last Updated:** July 4, 2026
+For architecture detail, see [Game_Architecture.md](./Game_Architecture.md). For naming rules, see [brand.md](./brand.md).

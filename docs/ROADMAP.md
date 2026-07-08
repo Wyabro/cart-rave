@@ -1,5 +1,7 @@
 # Cart Clash — Roadmap (Updated July 2, 2026, post Phase 1 closure)
 
+**Branch:** `cart-clash` · **Naming freeze:** [brand.md](./brand.md)
+
 **Current Philosophy:**  
 Focus on building and polishing a strong **solo experience** first. Multiplayer and netcode work is intentionally deprioritized until the core game is more complete and stable.
 
@@ -49,7 +51,7 @@ All High Priority items completed. Remaining Medium items:
 | Cosmetic Progression & Unlock Path | Todo | Unlock cart variants through play milestones. Builds on stabilized customization system. |
 | Evaluate WebGPU Compute Shaders | Todo | Targeted use first (shatter VFX, particles). No physics rewrite. Re-evaluate after mobile perf is solid. |
 | Level 3: Zanzibar Platform | ✅ Verified | Fully floating octagonal steel sundeck arena. Strict convex hulls only (no trimeshes). Custom aiHazards model with octagonal bounds + circular keep-outs. Dynamic sunset seascape (sky dome, water, animated sun glint, islands). Enhanced contact shadows for octagonal bounds. Zanzibar level select + animated sunset loading screen. |
-| Menu overhaul + new name/domain | Todo | Rebrand to "CART CLASH" live. Typography hierarchy implemented: Road Rage (titles), Russo One (UI), Goldman (mono), Michroma (timer). |
+| Menu overhaul + domain cutover | In progress | Product UI says **Cart Clash**. Legacy `cart-rave` Worker/host/storage IDs frozen until cutover — see [brand.md](./brand.md). Typography: Road Rage (titles), Russo One (UI), Goldman (mono), Michroma (timer). |
 | Performance optimization pass | Todo | Especially level swapping + menu. |
 | V2 Shipping Checklist + Final QA | Todo | Create when closer to release. |
 | Subtle in-game monetization / ads | Todo | Cosmetic unlocks can support a light monetization path later. |

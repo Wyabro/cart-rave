@@ -1,5 +1,5 @@
 /**
- * config.js — Central game configuration for Cart Rave.
+ * config.js — Central game configuration for Cart Clash.
  *
  * Last tuned: 2026-06-22
  *

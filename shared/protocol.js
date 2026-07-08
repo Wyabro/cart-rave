@@ -1,5 +1,5 @@
 /**
- * Shared MSG protocol constants for Cart Rave.
+ * Shared MSG protocol constants for Cart Clash.
  * Single source of truth for message types used by both client (src/) and server (party/).
  *
  * Keep in sync when adding new message types — update here only.

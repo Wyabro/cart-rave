@@ -1,18 +1,19 @@
-# Cart Rave — Project State
+# Cart Clash — Project State
 
 **Last updated:** July 8, 2026  
 **Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
-**Branch:** `next-level` (active development) · `main` (production)  
+**Branch:** `cart-clash` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
-**Repo:** https://github.com/Wyabro/cart-rave
+**Repo:** https://github.com/Wyabro/cart-rave  
+**Naming:** Product is **Cart Clash**; Worker/host/storage IDs may still say `cart-rave` — see [brand.md](./brand.md).
 
 ---
 
 ## 1. Overview
 
-Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon shopping carts on arena floors — a vinyl record ring (Classic), a Backrooms supermarket (Backrooms), or a floating sundeck (Zanzibar Platform). Ram opponents off edges or into voids to score. Rounds last **150 seconds** (2.5 minutes).
+Cart Clash is a browser-based **4-player physics sumo** game. Players drive neon shopping carts on arena floors — a vinyl record ring (**Cart Rave**, jam tribute), a Backrooms supermarket (The Storerooms), or a floating sundeck (Zanzibar Platform). Ram opponents off edges or into voids to score. Rounds last **150 seconds** (2.5 minutes).
 
-**Version 2 goal:** Polished release with new content (including Zanzibar Platform level), better performance, touch controls, daily/weekly challenges, and a **new name + domain**. See [ROADMAP.md](./ROADMAP.md) for prioritized work.
+**Version 2 goal:** Polished release with new content (including Zanzibar Platform level), better performance, touch controls, daily/weekly challenges, and a **domain cutover** after the naming freeze in [brand.md](./brand.md). See [ROADMAP.md](./ROADMAP.md) for prioritized work.
 
 > **Historical/completed work lives in [completed-work.md](./completed-work.md).** When a task in this file ships, move its writeup there.
 
@@ -114,7 +115,7 @@ Current validation is focused on:
 
 | Context | Command | Doc |
 |---------|---------|-----|
-| `next-level` daily dev | `npm run dev:next-level` | [preview-dev.md](./preview-dev.md) |
+| `cart-clash` daily dev | `npm run dev:local` | [preview-dev.md](./preview-dev.md) |
 | Production local | `npm run dev` + `npm run dev:party` | [README.md](./README.md) |
 | Deploy production | `npm run ship` | [deploy-urls.md](./deploy-urls.md) |
 
@@ -122,7 +123,7 @@ Current validation is focused on:
 
 ## 7. Historical context
 
-This project shipped for **Cursor Vibe Jam 2026** (May 2026). Post-jam work continues on `next-level`.
+This project shipped for **Cursor Vibe Jam 2026** (May 2026) as **Cart Rave**. Post-jam work continues on **`cart-clash`** under the product name **Cart Clash**.
 
 - Session handovers: [handovers/](./handovers/)
 - Shipped feature log: [completed-work.md](./completed-work.md) (historical record)

@@ -409,7 +409,7 @@ export async function withModeEntryLoading(task, opts = {}) {
   try {
     await task(reportProgress);
   } catch (err) {
-    console.error("[CartRave] Mode entry bootstrap failed:", err);
+    console.error("[CartClash] Mode entry bootstrap failed:", err);
     throw err;
   } finally {
     modeEntryDepth -= 1;

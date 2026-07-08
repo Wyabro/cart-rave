@@ -1,22 +1,36 @@
+## Brand (read first)
+
+- **Product name:** Cart Clash
+- **Active branch:** `cart-clash`
+- **Naming freeze:** `docs/brand.md` — product vs legacy `cart-rave` infra IDs
+- Do **not** rename Worker host, DO class `CartRaveServer`, PartySocket party id, or `cartRave*` localStorage keys without a cutover plan
+- Do **not** use "Cart Rave" or `next-level` in new user-facing copy or living docs
+- Classic level display name: **CART RAVE** (jam tribute; product is still Cart Clash)
+
 ## Stack
 
 - **Runtime**: Cloudflare Workers with Durable Objects (NOT PartyKit — migrated July 2026)
 - **Server library**: `partyserver` (`^0.5.8`) — open-source `Server` base class + `routePartykitRequest`
 - **Client WebSocket**: `partysocket` (`^1.1.16`) — browser WebSocket client on the same protocol
-- **Deployment**: Wrangler (`^4.106.0`) — `npx wrangler dev` for local, `npx wrangler deploy` for prod
-- **Build**: Vite (`^6.3.5`) — `npm run dev` for client, `npm run dev:party` for server
-- **3D**: Three.js (`^0.164.1`), **Physics**: Rapier3D (`@dimforge/rapier3d`), **State**: Zustand (`^5.0.14`)
+- **Deployment**: Wrangler (`^4.107.x`) — `npx wrangler dev` for local, `npx wrangler deploy` for prod
+- **Build**: Vite (`^8.x`) — `npm run dev` for client, `npm run dev:party` for server
+- **3D**: Three.js (`^0.185.x`), **Physics**: Rapier3D (`@dimforge/rapier3d`), **State**: Zustand (`^5.0.14`)
 - **Server entry**: `party/index.ts` (deployed as a Worker via `wrangler.jsonc`)
 - **Static assets**: `dist/` directory served via `ASSETS` binding in the Worker
+- **Worker name** (legacy until domain cutover): `cart-rave` → `https://cart-rave.wyabro.workers.dev/`
 
 ## Dev commands
 
 ```
 npm run dev            # Vite dev server (client only)
+npm run dev:local      # Vite + Wrangler local multiplayer (preferred)
+npm run dev:cart-clash # alias of dev:local
+npm run dev:next-level # deprecated alias of dev:local
 npm run dev:party      # Wrangler dev server (Worker + Durable Objects)
 npm run build          # Vite production build → dist/
 npm run ship           # Build + wrangler deploy
 npm run test           # Vitest
+npm run check          # typecheck + test + knip
 ```
 
 ## Architecture invariants
