@@ -3,6 +3,8 @@
 import { resetCartTransientState } from "./entities.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { pickSelfDeathVerb } from "./hud.js";
+import { buildKOEvent } from "./scoring/koEvent.js";
+import { dispatchKOEvent } from "./scoring/koReactors.js";
 
 /**
  * @typedef {object} GameFlowDeps
@@ -43,74 +45,6 @@ import { pickSelfDeathVerb } from "./hud.js";
 
 /** @type {boolean} */
 let _hostMissingCartWarned = false;
-
-function getComboMultiplier(tier) {
-  switch (tier) {
-    case 1: return 1.5;
-    case 2: return 2.0;
-    case 3: return 3.0;
-    default: return 1.0;
-  }
-}
-
-/**
- * Helper to calculate score and determine if a hit qualifies for a kill.
- * Extracted to keep the main loop clean.
- */
-function calculateFallScore(deps, slotIndex, p, nowMs) {
-  const hit = deps.getLastHitBy().get(slotIndex);
-  const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 2500;
-
-  if (!hit || (nowMs - hit.timestamp > hitWindowMs)) {
-    const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : pickSelfDeathVerb();
-    return { isKill: false, points: 0, attackerSlot: null, verb, comboTier: 0, comboMultiplier: 1.0 };
-  }
-
-  const distOriginXZ = Math.hypot(p.x, p.z);
-  const isCenterHole = distOriginXZ < deps.CONFIG.record.innerRadius + 2;
-  let basePoints = isCenterHole ? 2 : 1;
-
-  if (hit.wasCritical) basePoints += 1;
-
-  const scores = deps.getRoundScores();
-  let leaderSlotIndex = -1;
-  let leaderScore = 0;
-  let leaderTied = false;
-
-  for (let i = 0; i < 4; i += 1) {
-    const s = Number(scores[i] || 0);
-    if (s > leaderScore) {
-      leaderScore = s;
-      leaderSlotIndex = i;
-      leaderTied = false;
-    } else if (s === leaderScore && s > 0) {
-      leaderTied = true;
-    }
-  }
-
-  if (!leaderTied && leaderSlotIndex >= 0 && slotIndex === leaderSlotIndex) {
-    basePoints += 1;
-  }
-
-  // Multiplier math from attacker's combo tier
-  const allCarts = deps.getAllCarts();
-  const attackerCart = allCarts?.[hit.attackerSlotIndex];
-  const comboTier = attackerCart?.comboTier || 0;
-  const comboMultiplier = getComboMultiplier(comboTier);
-
-  // Refresh attacker combo expiry timer on kill
-  if (attackerCart) {
-    const decayMs = deps.CONFIG.combo?.decayMs ?? 5000;
-    attackerCart.comboExpiryMs = performance.now() + decayMs;
-    if (hit.attackerSlotIndex === deps.getLocalSlotIndex()) {
-      deps.setLocalCombo?.(attackerCart.comboTier, attackerCart.comboExpiryMs);
-    }
-  }
-
-  const points = Math.round(basePoints * comboMultiplier);
-  const verb = deps.hud?.pickKillFeedVerb ? deps.hud.pickKillFeedVerb(hit) : "RAMMED";
-  return { isKill: true, points, attackerSlot: hit.attackerSlotIndex, verb, comboTier, comboMultiplier };
-}
 
 /**
  * Host-only idle watchdog — respawns carts wedged in geometry with no score penalty.
@@ -295,9 +229,9 @@ export function updateGameFlow(deps, context) {
           }
 
           if (!isTestDrive) {
-            const scoreData = calculateFallScore(deps, slotIndex, p, nowMs);
+            const koEvent = buildKOEvent(deps, slotIndex, p, nowMs);
 
-            if (scoreData.isKill) {
+            if (koEvent.isKill) {
               // * Sudden Death multi-way tie guard: when 3+ carts are tied and one
               // * is ram-killed, the remaining tied survivors must stay in Sudden
               // * Death. Only fire the win callback if exactly 1 tied cart remains.
@@ -331,13 +265,12 @@ export function updateGameFlow(deps, context) {
                   cart.isSuddenDeathSpectator = true;
                 }
               }
-              const suddenDeathEnded = deps.addScore(scoreData.attackerSlot, scoreData.points, suppressSuddenDeathWin);
+              const suddenDeathEnded = deps.addScore(koEvent.attackerSlotIndex, koEvent.reward.total, suppressSuddenDeathWin);
               if (!suddenDeathEnded) {
                 deps.sendHostRound();
               }
 
-              if (scoreData.attackerSlot === localSlotIndexThisFrame) {
-                deps.onLocalKillConfirm?.(slotIndex, scoreData.comboTier ?? 0);
+              if (koEvent.attackerSlotIndex === localSlotIndexThisFrame) {
                 ChallengeTracker.record("ko_void");
                 const victimSlot = netSlots[slotIndex];
                 if (victimSlot?.kind === "npc") {
@@ -348,75 +281,45 @@ export function updateGameFlow(deps, context) {
                   ChallengeTracker.record("ko_aggressor");
                 }
               }
+              // * Kill feed + local kill-confirm + announcer are dispatched from the KO Event in
+              // * the common tail below (dispatchKOEvent) once koEvent is finalized.
+            } else if (deps.getRoundState().isSuddenDeath) {
+              // * Multi-way tie Sudden Death: eliminate the falling cart first, then count
+              // * survivors. Only award the win (and finalize the KO Event's attacker to the
+              // * survivor) when exactly one tied cart remains standing. The kill feed / announcer
+              // * are rendered from koEvent in the common tail below.
+              cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
+              cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+              cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+              cart.body.setEnabled(false);
+              cart.isSuddenDeathSpectator = true;
 
-              const attackerSlot = netSlots[scoreData.attackerSlot];
-              const victimSlot = netSlots[slotIndex];
-              const actorName = attackerSlot?.name || `P${scoreData.attackerSlot + 1}`;
-              const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-              const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
-              const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
-
-              deps.hud?.addKillFeedEntry?.(actorName, actorColor, scoreData.verb, targetName, targetColor, scoreData.comboTier, scoreData.comboMultiplier);
-            } else {
-              const isSuddenDeath = deps.getRoundState().isSuddenDeath;
-              if (isSuddenDeath) {
-                // * Multi-way tie Sudden Death: eliminate the falling cart first,
-                // * then count survivors. Only award the win when exactly one
-                // * tied cart remains standing.
-                cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
-                cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-                cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-                cart.body.setEnabled(false);
-                cart.isSuddenDeathSpectator = true;
-
-                const scores = deps.getRoundScores();
-                let topScore = -Infinity;
-                for (let si = 0; si < 4; si += 1) {
-                  topScore = Math.max(topScore, Number(scores[si] || 0));
-                }
-
-                let survivingTied = 0;
-                let survivorSlot = -1;
-                for (let si = 0; si < 4; si += 1) {
-                  if (Number(scores[si] || 0) !== topScore) continue;
-                  const c = allCarts[si];
-                  if (!c?.body || c.isSuddenDeathSpectator) continue;
-                  const pos = c.body.translation();
-                  if (pos.y < deps.CONFIG.fall.yThreshold) continue;
-                  survivingTied += 1;
-                  survivorSlot = si;
-                }
-
-                if (survivingTied === 1 && survivorSlot >= 0) {
-                  deps.addScore(survivorSlot, 1);
-                  // * addScore fired _suddenDeathWinCallback → endRound().
-                }
-
-                const victimSlot = netSlots[slotIndex];
-                const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-                const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
-
-                if (survivingTied === 1 && survivorSlot >= 0) {
-                  scoreData.attackerSlot = survivorSlot;
-                  scoreData.verb = "SUDDEN DEATH";
-                  const attackerSlot = netSlots[survivorSlot];
-                  const actorName = attackerSlot?.name || `P${survivorSlot + 1}`;
-                  const actorColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(attackerSlot)) : null;
-                  deps.hud?.addKillFeedEntry?.(actorName, actorColor, "SUDDEN DEATH", targetName, targetColor);
-                } else {
-                  scoreData.attackerSlot = null;
-                  scoreData.verb = "SUDDEN DEATH";
-                  const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : pickSelfDeathVerb();
-                  deps.hud?.addKillFeedEntry?.(null, null, verb, targetName, targetColor);
-                }
-              } else {
-                const victimSlot = netSlots[slotIndex];
-                const targetName = victimSlot?.name || `P${slotIndex + 1}`;
-                const targetColor = deps.hud?.colorHexToCss ? deps.hud.colorHexToCss(deps.colorHexForSlot(victimSlot)) : null;
-
-                const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : pickSelfDeathVerb();
-                deps.hud?.addKillFeedEntry?.(null, null, verb, targetName, targetColor);
+              const scores = deps.getRoundScores();
+              let topScore = -Infinity;
+              for (let si = 0; si < 4; si += 1) {
+                topScore = Math.max(topScore, Number(scores[si] || 0));
               }
+
+              let survivingTied = 0;
+              let survivorSlot = -1;
+              for (let si = 0; si < 4; si += 1) {
+                if (Number(scores[si] || 0) !== topScore) continue;
+                const c = allCarts[si];
+                if (!c?.body || c.isSuddenDeathSpectator) continue;
+                const pos = c.body.translation();
+                if (pos.y < deps.CONFIG.fall.yThreshold) continue;
+                survivingTied += 1;
+                survivorSlot = si;
+              }
+
+              if (survivingTied === 1 && survivorSlot >= 0) {
+                deps.addScore(survivorSlot, 1);
+                // * addScore fired _suddenDeathWinCallback → endRound().
+                koEvent.attackerSlotIndex = survivorSlot;
+              } else {
+                koEvent.attackerSlotIndex = null;
+              }
+              koEvent.verb = "SUDDEN DEATH";
             }
 
             if (typeof deps.queueHostFallEvent === "function") {
@@ -425,20 +328,25 @@ export function updateGameFlow(deps, context) {
               deps.queueHostFallEvent({
                 slotId: slotIndex,
                 victimSlotIndex: slotIndex,
-                attackerSlot: scoreData.attackerSlot,
-                attackerSlotIndex: scoreData.attackerSlot,
-                verb: scoreData.verb,
-                comboTier: scoreData.comboTier ?? 0,
-                comboMultiplier: scoreData.comboMultiplier ?? 1.0,
+                attackerSlot: koEvent.attackerSlotIndex,
+                attackerSlotIndex: koEvent.attackerSlotIndex,
+                verb: koEvent.verb,
+                comboTier: koEvent.comboTier ?? 0,
+                comboMultiplier: koEvent.comboMultiplier ?? 1.0,
               });
             }
 
-            // * Presentation-only observer hook for the announcer director — host fires it
-            // * directly; non-host clients fire the equivalent from the falls[] replay path.
-            deps.onAnnouncerFall?.({
-              victimSlotIndex: slotIndex,
-              attackerSlotIndex: scoreData.attackerSlot,
-              comboTier: scoreData.comboTier ?? 0,
+            // * Fan the finalized KO Event out to the presentation reactors — local kill-confirm,
+            // * kill feed, and the announcer director. Host runs this directly; non-host clients
+            // * will run the same dispatch from the falls[] replay path in a later migration step.
+            dispatchKOEvent(koEvent, {
+              netSlots,
+              localSlotIndex: localSlotIndexThisFrame,
+              hud: deps.hud,
+              colorHexForSlot: deps.colorHexForSlot,
+              pickSelfDeathVerb,
+              onAnnouncerFall: deps.onAnnouncerFall,
+              onLocalKillConfirm: deps.onLocalKillConfirm,
             });
 
             deps.getLastHitBy().delete(slotIndex);

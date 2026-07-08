@@ -1,6 +1,13 @@
 # Step 10a — Scoring system audit
 
 > **Archived** (April 2026, jam era). Moved to `docs/audits/`. Current priorities: [ROADMAP.md](../ROADMAP.md)
+>
+> **Superseded** (2026-07-08) by [`../scoring-event-system.md`](../scoring-event-system.md).
+> Scoring is now one output of a richer **KO Event** consumed by the announcer, challenges,
+> combos, Sudden Death, VFX, and the kill feed. This audit reviewed a much smaller game; read
+> it for the original jam-era spec intent, not the current architecture. Note: its §8 all-zero
+> tie gap is now fixed (`pickTimerWinner` returns `"draw"`); its §3 critical-velocity gap is
+> still open (tracked as Q1 in the new doc).
 
 Read-only audit of `main.js` and `party/index.ts` against `.cursorrules` (Scoring & Round Structure, lines 82–92) and Step 10a prerequisite note (Execution order §10a).
 

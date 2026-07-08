@@ -14,6 +14,8 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 
 **Version 2 goal:** Polished release with new content (including Zanzibar Platform level), better performance, touch controls, daily/weekly challenges, and a **new name + domain**. See [ROADMAP.md](./ROADMAP.md) for prioritized work.
 
+> **Historical/completed work lives in [completed-work.md](./completed-work.md).** When a task in this file ships, move its writeup there.
+
 ---
 
 ## 2. Stack & build
@@ -40,18 +42,7 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 
 ### Recent refactor (June/July 2026)
 
-- `src/bootstrap.js` — menu → gameplay flow extracted from `main.js`
-- `src/levelManager.js` — level preview + swapping extracted from `main.js`
-- Knip cleanup: unused exports reduced and codebase hardened
-- 100% Type safety achieved under `npx tsc --noEmit`
-- CSS extraction: ~2600 lines of inline CSS moved from `hud.js`, `pauseOverlay.js`, `resultsOverlay.js` to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css)
-- `.cursorrules` cleaned up (~200 lines removed, simplified guardrails)
-- **WebRTC signaling root-cause fix**: host now creates the DataChannel offer to each peer (`ensureHostPeerConnections()` in the `MSG.slots` handler) — previously `createOffer` was unreachable (only non-host no-op callers), so no channel ever opened and P2P gameplay sync was fully inert. `tests/p2p-signaling.test.js` covers the full handshake.
-- `main.js` remains the thin orchestrator and wiring hub
-- **Production-readiness pass (July 7)** — see [audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md): Safari mp3 audio fallbacks, OG/Twitter meta + fixed PWA manifest, runtime error reporting (`installGlobalErrorReporting`), `src/utils/storage.js` key registry, `src/utils/device.js` shared touch detection, dead assets/config removed (~25 MB), `npm run check` baseline gate
-- **Production value pass (July 7)** — see [audits/production-value-pass-2026-07.md](./audits/production-value-pass-2026-07.md): 100-item ranked player-experience review; top 10 shipped — kill-confirm feedback (sting + hitmarker + FOV punch, now fires for non-host attackers too), victory fanfare/defeat sting + podium confetti, final-10-seconds timer urgency, Sudden Death entry sting, boost charge meter (keyboard/gamepad HUD), damage-taken post-FX impact pulse, first-run HOW TO PLAY overlay, mobile landscape fixes (kill feed / pause overlay overlaps), honest Challenges copy + completion toast + menu badge. New `src/sfxSynth.js` procedural sting module (no audio assets added).
-- **Announcer system — "The Store PA" (July 8)** — see [announcer.md](./announcer.md): production-ready, data-driven announcer framework in `src/announcer/` (arbitration manager, event table, director, procedural stings) + `src/ui/announcerDisplay.js` (neon callout banner + `aria-live` region). Retail-flavored events (FIRST SPILL, REFUND, CLEAN-UP ON AISLE) replace generic arena-shooter callouts; single-channel arbitration with priority interrupts, a 2-slot TTL queue, a 450ms kill-burst merge, and per-event cooldowns keep it from spamming. Voice recordings drop in later via `registerAnnouncerVoicePack` with zero code changes — until then, procedural stings + visual callouts carry the moment. Settings toggles (ANNOUNCER / CALLOUTS) added to the pause overlay. Victory fanfare/defeat sting/Sudden Death sting migrated from `sfxSynth.js` into the announcer's ownership. Zero gameplay/netcode changes — kill events replicate through the existing `falls[]` snapshot tail.
-- **Visual polish pass (July 8)** — see [visual-audit.md](./visual-audit.md): targeted AAA-style rendering pass preserving the dark-arena + punchy-neon identity (exposure retuned to 0.40, bloom strength 0.34 / threshold 0.76 after two "too bright" rounds). Kill-confirm now layers a softened FOV punch + center-weighted white flash (new `uFlash` uniform on the Arcade FX shader) + aberration pulse; blob shadows get a subliminal Zanzibar sun-direction bias; Backrooms gets one grazing steel-blue rim light for cool/warm contrast; Classic pit wall gained eased vertex-color gradient + additive depth rings + violet horizon glow band; Zanzibar sky bottom/sun halo realigned to the retuned fog hex, islands now take scene fog for atmospheric perspective; grocery cargo placement now respects each item's bounding-sphere radius (was clipping through basket floor/sides); pattern overlay migrated from coplanar duplicate mesh to in-material `onBeforeCompile` shader mask on the CartFrame material (uniform swap between patterns, no shader recompile); GLTF cart body's `emissiveMap` is now a generated grayscale wire mask (channel-max smoothstep 0.45→0.7, cached per source-texture uuid) so wire glow tunes independent of albedo. Full customization contract preserved.
+Detailed refactor timeline lives in [completed-work.md](./completed-work.md). Highlights: `bootstrap.js` / `levelManager.js` / `pauseOverlay.js` extracted from `main.js`; ~2600 lines of inline CSS moved to `src/ui/styles/`; 100% typecheck compliance under `npx tsc --noEmit`; the WebRTC signaling root-cause fix restoring P2P multiplayer; production-readiness + production-value + visual-polish + announcer-system passes shipped July 7–8. `main.js` remains the thin orchestrator and wiring hub.
 
 ### Key files
 
@@ -94,47 +85,12 @@ NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behav
 
 ### Phase 4 — Multiplayer & Infrastructure (active)
 
+Completed Phase 4 fixes (netcode DRY refactor, P2P DataChannel migration, WebRTC signaling root-cause fix, `hostTransform` payload sync, respawn/shatter cleanup, extraction refactors, etc.) are catalogued in [completed-work.md](./completed-work.md#phase-4-bug-fix-ledger).
+
+**Open Phase 4 items:**
+
 | Item | Status |
 |------|--------|
-| Combo decay order-of-operations race fix | ✅ Fixed |
-| Grocery spill pending queue (async load window) | ✅ Fixed |
-| Server-authoritative level sync via MSG.round | ✅ Fixed |
-| Slot kind nullish coalescing fix (human vs NPC label) | ✅ Fixed |
-| Results UI cleanup (NEXT LEVEL removal, PLAY AGAIN rename) | ✅ Fixed |
-| CargoBay visibility sync via hostTransform | ✅ Fixed |
-| Non-host death shatter VFX wiring | ✅ Fixed |
-| Booth snap at countdown (clean round reset) | ✅ Fixed |
-| Mid-round join cart teleport (NPC→human) | ✅ Fixed |
-| Rate limit exemption for high-freq messages | ✅ Fixed |
-| Ram streak VFX on non-host clients | ✅ Fixed |
-| hasSpilled state sync via hostTransform | ✅ Fixed |
-| Remote boost instant VFX on non-host | ✅ Fixed |
-| Kill feed color CSS hex conversion | ✅ Fixed |
-| Shatter ref dual-path resolution (module + callback) | ✅ Fixed |
-| Respawn visual cleanup (shatter debris + mesh rebuild) | ✅ Fixed |
-| Respawn cleanup simplified to single cleanupShatter call | ✅ Fixed |
-| Death shatter color hex parsing hardened | ✅ Fixed |
-| Host respawn resets hasSpilled + cargoBay state | ✅ Fixed |
-| cargoBay lookup by name (resilient getObjectByName) | ✅ Fixed |
-| Scene bridge wiring (getSceneRef/getScene/getShatterRef) | ✅ Fixed |
-| Shatter hex & 0xffffff bitmask clamping | ✅ Fixed |
-| Netcode DRY refactor (applyCartState + serializeCartToWire) | ✅ Fixed |
-| Pause/Esc overlay extracted to pauseOverlay.js | ✅ Fixed |
-| @ts-expect-error cleanup (cartRaveGltf, cartThemes) | ✅ Fixed |
-| Level select Zustand sync (menu + levelManager) | ✅ Fixed |
-| Force-clear shatter state on respawn | ✅ Fixed |
-| hud getter to avoid stale ref in context injection | ✅ Fixed |
-| Null cart guard in updateRemoteCartNetTargets | ✅ Fixed |
-| Boost state force-sync from wire (isRamBoosting/isBoosting) | ✅ Fixed |
-| Slot 1 debug logging (send/receive state monitor) | ✅ Added |
-| Self-contained shatter VFX lifecycle (isShatterAnimating + doRespawnRef) | ✅ Fixed |
-| Audio controls extraction (audioControls.js, ~90 lines from main.js) | ✅ Fixed |
-| Graphics toggles extraction (graphicsToggles.js, remove window globals) | ✅ Fixed |
-| 100% typecheck compliance (0 errors under `npx tsc --noEmit`) | ✅ Verified |
-| CSS extraction refactor (inline CSS → `src/ui/styles/`) | ✅ Fixed |
-| WebRTC signaling: host initiates DataChannel offer (`ensureHostPeerConnections`) — restores P2P sync | ✅ Fixed |
-| P2P signaling test coverage (`tests/p2p-signaling.test.js`) | ✅ Added |
-| Signaling runtime validation (host→peer: DataChannel OPEN + 426 binary snapshots streamed) | ✅ Verified |
 | Multiplayer runtime smoke test (two full browser clients, carts visibly syncing) | ⬜ Pending |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
 
@@ -169,6 +125,6 @@ Current validation is focused on:
 This project shipped for **Cursor Vibe Jam 2026** (May 2026). Post-jam work continues on `next-level`.
 
 - Session handovers: [handovers/](./handovers/)
-- Shipped feature log: [todo.md](./todo.md) (historical record)
+- Shipped feature log: [completed-work.md](./completed-work.md) (historical record)
 
 **Note:** `project-state.md` previously tracked jam deadline tasks and blocking bugs from April 2026. Those items are resolved or superseded by the Version 2 roadmap.
