@@ -80,11 +80,4 @@ export default defineConfig({
       "partysocket",
     ],
   },
-
-  // Enable top-level await (useful for Rapier)
-  esbuild: {
-    supported: {
-      "top-level-await": true,
-    },
-  },
 });
