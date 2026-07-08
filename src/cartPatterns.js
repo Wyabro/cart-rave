@@ -29,6 +29,16 @@ const maskTextureCache = new Map();
 const MASK_SIZE = 128;
 const MASK_REPEAT = 3;
 
+// * Per-pattern tiling override. Geometric patterns want a dense repeat; "bolt" is a hero motif
+// * (one dramatic forking strike), so it tiles far fewer times — big and few, not small and many.
+/** @type {Partial<Record<string, number>>} */
+const PATTERN_REPEAT = { bolt: 1.35 };
+
+/** @param {string} id @returns {number} */
+function repeatForPattern(id) {
+  return PATTERN_REPEAT[id] ?? MASK_REPEAT;
+}
+
 // * Overlay tuning — pattern valleys read as darker tinted neon; wire bloom stays full.
 // * Reproduces the retired coplanar-overlay material in-shader: valley fragments blend
 // * `uPatternStrength` of the way toward a `TINT_SCALE` diffuse tint + an emissive whose
@@ -45,6 +55,23 @@ const PATTERN_CACHE_KEY_OFF = "cartPattern:0";
 
 /** @type {THREE.Color} */
 const _patternColor = new THREE.Color();
+
+/**
+ * Small deterministic PRNG (mulberry32) so the procedural "bolt" mask is stable and cacheable
+ * (never Math.random — the texture is generated once per id and reused across every cart).
+ * @param {number} seed
+ * @returns {() => number} next float in [0, 1)
+ */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 /**
  * Grayscale mask: white = full neon glow, black = pattern valley (tinted darker region).
@@ -123,25 +150,71 @@ function renderPatternMaskCanvas(patternId) {
       break;
     }
     case "bolt": {
-      // * Electric lightning zigzag: bold VERTICAL bands that jag left/right via a sharp
-      // * triangle-wave offset — descending bolts, perpendicular to waves' horizontal ripples.
-      // * bandW period 32 & vPeriod 64 both divide 128, so the tile is seamless in both axes.
-      ctx.fillStyle = dark;
-      const period = 32;
-      const bandW = 15;
-      const amp = 14;
-      const vPeriod = 64;
-      // * triangle wave in [-amp, amp], period vPeriod (troughs at y=0/vPeriod → seam matches).
-      const tri = (y) => {
-        const t = y / vPeriod;
-        return amp * (2 * Math.abs(2 * (t - Math.floor(t + 0.5))) - 1);
+      // * Procedural forking lightning that GLOWS. A jagged main channel (endpoints pinned to the
+      // * tile's vertical centerline → seamless top/bottom) plus tapering side-forks kept inside
+      // * the horizontal margins → seamless left/right. Drawn bright on a darkened field so the
+      // * body reads like a bolt is arcing across it (white = full glow, so the field dims and the
+      // * bolt stays lit). Deterministic (seeded midpoint displacement) → stable + cacheable.
+      const cx = size / 2;
+      const margin = 16;
+      const rand = mulberry32(0x9e3779b1);
+      const clampX = (x) => Math.max(margin, Math.min(size - margin, x));
+
+      // * Dark moody field so the glowing bolt pops (near-black — keeps a whisper of neon).
+      ctx.fillStyle = "#181818";
+      ctx.fillRect(0, 0, size, size);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      /** Midpoint-displacement jagged polyline; endpoints stay fixed (seam-safe). */
+      const jagged = (x1, y1, x2, y2, rough, iters) => {
+        let pts = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+        for (let it = 0; it < iters; it += 1) {
+          const np = [];
+          for (let i = 0; i < pts.length - 1; i += 1) {
+            const a = pts[i];
+            const b = pts[i + 1];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const d = (rand() * 2 - 1) * rough * len;
+            np.push(a, { x: clampX((a.x + b.x) / 2 + (-dy / len) * d), y: (a.y + b.y) / 2 + (dx / len) * d });
+          }
+          np.push(pts[pts.length - 1]);
+          pts = np;
+        }
+        return pts;
       };
-      for (let y = 0; y < size; y += 1) {
-        const off = tri(y);
-        for (let k = -1; k * period + off < size + period; k += 1) {
-          ctx.fillRect(k * period + off, y, bandW, 1);
+      const trace = (pts, width, color) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+      };
+
+      const main = jagged(cx, 0, cx, size, 0.34, 6);
+      /** @type {Array<Array<{x:number,y:number}>>} */
+      const forks = [];
+      for (let i = 3; i < main.length - 3; i += 1) {
+        if (rand() < 0.22) {
+          const p = main[i];
+          const side = rand() < 0.5 ? -1 : 1;
+          forks.push(jagged(p.x, p.y, clampX(p.x + side * (22 + rand() * 26)), p.y + (18 + rand() * 26), 0.4, 4));
         }
       }
+
+      // * Three tiers for a glowing falloff (wide faint outer → mid halo → bright core), which the
+      // * scene bloom then blooms further. Forks under the main channel so junctions read cleanly.
+      const outer = "#3a3a3a";
+      const halo = "#858585";
+      for (const f of forks) trace(f, 12, outer);
+      trace(main, 22, outer);
+      for (const f of forks) trace(f, 7, halo);
+      trace(main, 13, halo);
+      for (const f of forks) trace(f, 3, glow);
+      trace(main, 6, glow);
       break;
     }
     default:
@@ -166,7 +239,8 @@ function getPatternMaskTexture(patternId) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(MASK_REPEAT, MASK_REPEAT);
+  const rep = repeatForPattern(id);
+  tex.repeat.set(rep, rep);
   tex.colorSpace = THREE.NoColorSpace;
   maskTextureCache.set(id, tex);
   return tex;
@@ -295,6 +369,7 @@ function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
 
   if (enabled) {
     uniforms.uPatternMask.value = getPatternMaskTexture(id);
+    uniforms.uPatternRepeat.value = repeatForPattern(id);
     uniforms.uPatternStrength.value = PATTERN_OVERLAY_OPACITY;
 
     // * Linear-space neon; diffuse tint + emissive radiance mirror the retired overlay material.

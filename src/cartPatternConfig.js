@@ -64,9 +64,12 @@ function patternMaskTileSvg(patternId, patternUid) {
         <path d="M0 4 Q6 0 12 4 T24 4 L24 12 Q18 8 12 12 T0 12 Z" fill="black"/>
       </pattern>`;
     case "bolt":
-      return `<pattern id="${uid}-tile" width="16" height="16" patternUnits="userSpaceOnUse">
-        <rect width="16" height="16" fill="white"/>
-        <path d="M6 0 L2 4 L6 8 L2 12 L6 16 L12 16 L8 12 L12 8 L8 4 L12 0 Z" fill="black"/>
+      // * Compact jagged forked bolt sized to the basket band so the chip/menu-cart preview
+      // * matches the other patterns' scale (the live 3D cart uses the richer procedural mask).
+      return `<pattern id="${uid}-tile" width="16" height="14" patternUnits="userSpaceOnUse">
+        <rect width="16" height="14" fill="white"/>
+        <path d="M9 0 L5 6 L10 7 L7 14" fill="none" stroke="black" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 7 L14 10" fill="none" stroke="black" stroke-width="1.6" stroke-linecap="round"/>
       </pattern>`;
     default:
       return "";
