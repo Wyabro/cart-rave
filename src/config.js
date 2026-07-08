@@ -290,7 +290,7 @@ export const CONFIG = {
   },
 
   scoring: {
-    criticalVelocityThreshold: 11.0, // m/s — speed for critical hit bonus
+    criticalVelocityThreshold: 16.0, // m/s — speed for critical hit bonus (~68% of top speed; ~60% of committed hits)
     hitWindowMs: 2500, // ms — max time after a hit to credit a fall kill
   },
 

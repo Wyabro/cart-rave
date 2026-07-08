@@ -77,9 +77,10 @@ export function pickTimerWinner(scores) {
  * @param {number} victimSlot
  * @param {number} attackerSlotIndex
  * @param {boolean} wasCritical
+ * @param {number} [impactSpeed] Planar speed (m/s) of the crediting ram at contact.
  */
-export function recordHit(victimSlot, attackerSlotIndex, wasCritical) {
-  gameStore.getState().recordHit(victimSlot, attackerSlotIndex, wasCritical);
+export function recordHit(victimSlot, attackerSlotIndex, wasCritical, impactSpeed = 0) {
+  gameStore.getState().recordHit(victimSlot, attackerSlotIndex, wasCritical, impactSpeed);
 }
 
 /**
@@ -179,7 +180,7 @@ export function setLocalCombo(tier, expiryMs) {
   gameStore.getState().setLocalCombo(tier, expiryMs);
 }
 
-/** @returns {Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} */
+/** @returns {Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, timestamp: number }>} */
 export function getLastHitBy() {
   return gameStore.getState().lastHitBy;
 }

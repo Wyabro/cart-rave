@@ -16,7 +16,7 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  * @typedef {object} KOEventDeps
  * @property {() => { startedAtMs: number, isSuddenDeath: boolean }} getRoundState
  * @property {() => Record<number, number>} getRoundScores
- * @property {() => Map<number, { attackerSlotIndex: number, wasCritical: boolean, timestamp: number }>} getLastHitBy
+ * @property {() => Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, timestamp: number }>} getLastHitBy
  * @property {() => Array<object>} getAllCarts
  * @property {() => Array<object>} [getNetSlots]
  * @property {() => number} getLocalSlotIndex
@@ -36,16 +36,16 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  *   self/environmental fall (no qualifying recent ram).
  * @property {boolean} isKill Convenience flag — true iff `attackerSlotIndex != null`.
  * @property {"center_hole" | "outer_edge" | "self" | "sudden_death"} cause How the KO happened.
- * @property {boolean} wasCritical Crediting ram counted as critical. NOTE: still the ram-boost
- *   window flag recorded at hit time — migration step 5 (decision D1) switches this to a
- *   velocity threshold once `impactSpeed` is captured.
+ * @property {boolean} wasCritical Crediting ram counted as critical — a fast ram, i.e.
+ *   `impactSpeed >= CONFIG.scoring.criticalVelocityThreshold` (decision D1, set at hit time).
  * @property {boolean} victimWasLeader Victim held the sole score lead at fall time (drives the
  *   leader reward and lets announcer/VFX react without re-scanning scores).
  * @property {string | null} victimKind Victim's slot kind ("human" | "npc"), or null if unknown.
  *   Derived per-machine (recomputed on clients); challenges/stats read it instead of re-scanning slots.
  * @property {string | null} victimAiName Victim's AI personality name (e.g. "aggressor"), or null
  *   for humans / unknown. Derived per-machine.
- * @property {number} impactSpeed m/s of the crediting ram. Not captured yet (decision D2) — 0.
+ * @property {number} impactSpeed Planar speed (m/s) of the crediting ram at contact; 0 for a
+ *   self/environmental fall. Feeds the critical check and intensity-scaled VFX/stats.
  * @property {number} comboTier Attacker's combo streak tier at the kill (0–3).
  * @property {number} comboMultiplier Score multiplier implied by `comboTier`.
  * @property {boolean} isSuddenDeath Round was in Sudden Death when the KO landed.
@@ -162,7 +162,7 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
     victimWasLeader,
     victimKind,
     victimAiName,
-    impactSpeed: 0,
+    impactSpeed: hit.impactSpeed ?? 0,
     comboTier,
     comboMultiplier,
     isSuddenDeath,

@@ -164,8 +164,23 @@ describe("buildKOEvent", () => {
     const e = buildKOEvent(deps, 2, OUTER, NOW);
     expect(e.roundTimeMs).toBe(NOW - 1000);
     expect(e.isSuddenDeath).toBe(true);
-    expect(e.impactSpeed).toBe(0); // not captured until step 5
+    expect(e.impactSpeed).toBe(0); // hit carried no impactSpeed
     expect(e.isFinalBlow).toBe(false);
+  });
+
+  it("carries the crediting ram's impactSpeed from the hit record onto the event", () => {
+    const deps = makeDeps({
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: true, impactSpeed: 28.6, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, OUTER, NOW);
+    expect(e.impactSpeed).toBe(28.6);
+    expect(e.wasCritical).toBe(true);
+  });
+
+  it("leaves impactSpeed at 0 for a self/environmental fall", () => {
+    const e = buildKOEvent(makeDeps(), 2, OUTER, NOW);
+    expect(e.isKill).toBe(false);
+    expect(e.impactSpeed).toBe(0);
   });
 });
 

@@ -853,8 +853,12 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
   const attackerSlotIndex = rammer.slotIndex ?? -1;
   const victimSlotIndex = victim.slotIndex ?? -1;
   if (isHost && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
-    const wasCritical = nowPerf <= (rammer.ramBoostActiveUntilMs || 0);
-    GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical);
+    // * Critical hit is velocity-based (decision D1): a fast ram, not a nitro-boosted one.
+    // * `speed` is the rammer's planar speed at contact (m/s); the KO Event carries it as
+    // * impactSpeed and derives the critical bonus from the tunable CONFIG threshold.
+    const impactSpeed = speed;
+    const wasCritical = impactSpeed >= (CONFIG.scoring?.criticalVelocityThreshold ?? Infinity);
+    GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical, impactSpeed);
   }
 
   // Update combo tier for attacker and refresh local store if rammer is local player
