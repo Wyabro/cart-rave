@@ -1,6 +1,6 @@
 # Cart Rave — Session 11 Handover
 
-> **Archived** (April 2026, jam era). Moved to `docs/handovers/`. Current state: [project-state.md](../project-state.md) · [ROADMAP.md](../ROADMAP.md)
+> **Archived** (April 2026, jam era). Moved to `docs/archive/handovers/`. Current state: [project-state.md](../../planning/project-state.md) · [ROADMAP.md](../../planning/ROADMAP.md)
 
 Date: End of Session 10 (April 20, 2026)
 Days to deadline: 10 days, 22 hours (May 1, 2026 @ 13:37 UTC)

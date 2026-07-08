@@ -1,10 +1,10 @@
 # Cart Clash — Game Architecture & Design Notes (Consolidated)
 
-**Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Clash is built**, how multiplayer works, how releases are verified, and what work remains. Product naming freeze: [brand.md](./brand.md).
+**Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Clash is built**, how multiplayer works, how releases are verified, and what work remains. Product naming freeze: [brand.md](../brand.md).
 
-**Last updated context:** July 7, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. CSS extraction refactor complete. See [ROADMAP.md](./ROADMAP.md) for current priorities and [project-state.md](./project-state.md) for the live snapshot.
+**Last updated context:** July 7, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. CSS extraction refactor complete. See [ROADMAP.md](../planning/ROADMAP.md) for current priorities and [project-state.md](../planning/project-state.md) for the live snapshot.
 
-**Source material:** Derived from `docs/` (handover notes in `handovers/`, audits in `audits/`, and operational checklists).
+**Source material:** Derived from `docs/` (handover notes in `archive/handovers/`, audits in `archive/audits/`, and operational checklists).
 
 ---
 
@@ -195,7 +195,7 @@ The handover notes repeatedly stress process discipline for reliability:
 
 ### Near-term (Phase 4 — active)
 
-**Primary source:** [ROADMAP.md](./ROADMAP.md)
+**Primary source:** [ROADMAP.md](../planning/ROADMAP.md)
 
 - Multiplayer runtime smoke test (two browsers, one room)
 - Host migration hardening
@@ -217,7 +217,7 @@ The handover notes repeatedly stress process discipline for reliability:
 - Menu overhaul, rename + new domain (Version 2 release)
 - `structuredClone` performance optimization for DO broadcasts
 
-See also [post-jam-ideas.md](./post-jam-ideas.md).
+See also [post-jam-ideas.md](../planning/post-jam-ideas.md).
 
 ---
 

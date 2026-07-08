@@ -5,7 +5,7 @@
 **Branch:** `cart-clash` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
 **Repo:** https://github.com/Wyabro/cart-rave  
-**Naming:** Product is **Cart Clash**; Worker/host/storage IDs may still say `cart-rave` — see [brand.md](./brand.md).
+**Naming:** Product is **Cart Clash**; Worker/host/storage IDs may still say `cart-rave` — see [brand.md](../brand.md).
 
 ---
 
@@ -13,9 +13,11 @@
 
 Cart Clash is a browser-based **4-player physics sumo** game. Players drive neon shopping carts on arena floors — a vinyl record ring (**Cart Rave**, jam tribute), a Backrooms supermarket (The Storerooms), or a floating sundeck (Zanzibar Platform). Ram opponents off edges or into voids to score. Rounds last **150 seconds** (2.5 minutes).
 
-**Version 2 goal:** Polished release with new content (including Zanzibar Platform level), better performance, touch controls, daily/weekly challenges, and a **domain cutover** after the naming freeze in [brand.md](./brand.md). See [ROADMAP.md](./ROADMAP.md) for prioritized work.
+**Version 2 goal:** Polished release with new content (including Zanzibar Platform level), better performance, touch controls, daily/weekly challenges, and a **domain cutover** after the naming freeze in [brand.md](../brand.md). See [ROADMAP.md](./ROADMAP.md) for prioritized work.
 
-> **Historical/completed work lives in [completed-work.md](./completed-work.md).** When a task in this file ships, move its writeup there.
+> **This doc = the present** — what's built and works today. Forward plans live in
+> [ROADMAP.md](./ROADMAP.md); the shipped log lives in [completed-work.md](./completed-work.md).
+> When a task here ships, move its writeup to completed-work.md.
 
 ---
 
@@ -62,42 +64,28 @@ Detailed refactor timeline lives in [completed-work.md](./completed-work.md). Hi
 | `tests/` | Test files (Vitest) |
 | `.cursorrules` | Design spec and AI guardrails |
 
-Full architecture reference: [Game_Architecture.md](./Game_Architecture.md).
+Full architecture reference: [Game_Architecture.md](../reference/Game_Architecture.md).
 
 ---
 
-## 4. Current phase progress
+## 4. Current status
 
-### Phase 2 — Polish & Balance ✅ Complete
+**Phases 1–3 complete; Phase 4 (Multiplayer & Infrastructure) is active.** What works today:
 
-NPC AI, ramming, collision feedback, boost streaks, audio polish, hole rim behavior, nitro balance.
+- **Core game** — fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction; solo mode (private `soloXXXXXX` room + NPCs) runs the same path.
+- **Physics & feel** — major stability overhaul complete: convex-hull + primitive colliders across all three arenas; mobile performance significantly improved.
+- **Content** — three arenas (Classic Record, Backrooms, Zanzibar), touch controls (joystick + Boost/Hop), daily/weekly challenges, personal-best tracking.
+- **Presentation** — "The Store PA" announcer, visual-polish pass, and production-value pass all shipped (July 7–8, 2026).
 
-### Phase 3 — Content & Features ✅ Complete
-
-| Item | Status |
-|------|--------|
-| Backrooms Supermarket level | ✅ Shipped |
-| Touch controls (joystick + Boost/Hop) | ✅ Shipped |
-| Daily/Weekly Challenges | ✅ Shipped |
-| Level 3: Zanzibar Platform | ✅ Shipped |
-| Cosmetic Progression / Unlock Path | ⬜ Planned |
-| Evaluate WebGPU Compute Shaders | ⬜ Planned |
-| Spectator / chaos features | ⬜ Stretch |
-
-### Phase 4 — Multiplayer & Infrastructure (active)
-
-Completed Phase 4 fixes (netcode DRY refactor, P2P DataChannel migration, WebRTC signaling root-cause fix, `hostTransform` payload sync, respawn/shatter cleanup, extraction refactors, etc.) are catalogued in [completed-work.md](./completed-work.md#phase-4-bug-fix-ledger).
-
-**Open Phase 4 items:**
+**Next / open** (full plan and priorities in [ROADMAP.md](./ROADMAP.md)):
 
 | Item | Status |
 |------|--------|
-| Multiplayer runtime smoke test (two full browser clients, carts visibly syncing) | ⬜ Pending |
+| Multiplayer runtime smoke test (two browsers, one room; carts visibly syncing) | ⬜ Pending |
+| Menu overhaul + domain cutover | 🔧 In progress |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
 
-### Version 2 prep (see ROADMAP Tier 3–4)
-
-Performance pass, codebase type resolution, `main.js` further slimming, menu overhaul + rename/domain.
+The full shipped log — including the Phase 4 bug-fix ledger (netcode DRY refactor, P2P DataChannel migration, WebRTC signaling root-cause fix, `hostTransform` payload sync, respawn/shatter cleanup, extraction refactors, etc.) — lives in [completed-work.md](./completed-work.md#phase-4-bug-fix-ledger).
 
 ---
 
@@ -115,9 +103,9 @@ Current validation is focused on:
 
 | Context | Command | Doc |
 |---------|---------|-----|
-| `cart-clash` daily dev | `npm run dev:local` | [preview-dev.md](./preview-dev.md) |
-| Production local | `npm run dev` + `npm run dev:party` | [README.md](./README.md) |
-| Deploy production | `npm run ship` | [deploy-urls.md](./deploy-urls.md) |
+| `cart-clash` daily dev | `npm run dev:local` | [preview-dev.md](../guides/preview-dev.md) |
+| Production local | `npm run dev` + `npm run dev:party` | [README.md](../README.md) |
+| Deploy production | `npm run ship` | [deploy-urls.md](../guides/deploy-urls.md) |
 
 ---
 
@@ -125,7 +113,7 @@ Current validation is focused on:
 
 This project shipped for **Cursor Vibe Jam 2026** (May 2026) as **Cart Rave**. Post-jam work continues on **`cart-clash`** under the product name **Cart Clash**.
 
-- Session handovers: [handovers/](./handovers/)
+- Session handovers: [handovers/](../archive/handovers/)
 - Shipped feature log: [completed-work.md](./completed-work.md) (historical record)
 
 **Note:** `project-state.md` previously tracked jam deadline tasks and blocking bugs from April 2026. Those items are resolved or superseded by the Version 2 roadmap.

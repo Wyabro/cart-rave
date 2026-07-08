@@ -4,26 +4,48 @@
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record, Backrooms, and Zanzibar levels). See [ROADMAP.md](./ROADMAP.md) for current priorities and [brand.md](./brand.md) for the naming freeze.
+**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record, Backrooms, and Zanzibar levels). See [ROADMAP.md](./planning/ROADMAP.md) for current priorities and [brand.md](./brand.md) for the naming freeze.
 
 ---
 
 ## Documentation index
 
+Docs are grouped by kind. Two entry points live at the `docs/` root: this index and
+[brand.md](./brand.md) (the canonical naming freeze — prefer it when docs disagree).
+
+### `planning/` — status & forward-looking
+
+Three docs split cleanly by time — **past / present / future**:
+
 | Doc | Purpose |
 |-----|---------|
-| [brand.md](./brand.md) | **Naming freeze** — Cart Clash vs legacy cart-rave IDs |
-| [ROADMAP.md](./ROADMAP.md) | **Primary forward-looking plan** (Version 2 priorities) |
-| [todo.md](./todo.md) | Current status snapshot + shipped history |
-| [project-state.md](./project-state.md) | Architecture snapshot, known issues |
-| [Game_Architecture.md](./Game_Architecture.md) | Consolidated architecture & design reference |
-| [announcer.md](./announcer.md) | "The Store PA" announcer system + voice asset pipeline |
-| [preview-dev.md](./preview-dev.md) | Local multiplayer dev workflow |
-| [deploy-urls.md](./deploy-urls.md) | Production URLs and deploy verification |
-| [CREDITS.md](./CREDITS.md) | Third-party libraries, fonts, and assets |
-| [post-jam-ideas.md](./post-jam-ideas.md) | Deferred ideas (many now tracked in ROADMAP) |
-| [handovers/](./handovers/) | Session handover notes (historical) |
-| [audits/](./audits/) | Code audits (historical) |
+| [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
+| [planning/project-state.md](./planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
+| [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
+| [planning/post-jam-ideas.md](./planning/post-jam-ideas.md) | Deferred ideas (many now tracked in ROADMAP) |
+
+### `reference/` — how it's built
+
+| Doc | Purpose |
+|-----|---------|
+| [reference/Game_Architecture.md](./reference/Game_Architecture.md) | Consolidated architecture & design reference |
+| [reference/scoring-event-system.md](./reference/scoring-event-system.md) | Scoring & event system (as-built) |
+| [reference/announcer.md](./reference/announcer.md) | "The Store PA" announcer system + voice asset pipeline |
+| [reference/CREDITS.md](./reference/CREDITS.md) | Third-party libraries, fonts, and assets |
+
+### `guides/` — operational workflow
+
+| Doc | Purpose |
+|-----|---------|
+| [guides/preview-dev.md](./guides/preview-dev.md) | Local multiplayer dev workflow |
+| [guides/deploy-urls.md](./guides/deploy-urls.md) | Production URLs and deploy verification |
+
+### `archive/` — frozen historical
+
+| Doc | Purpose |
+|-----|---------|
+| [archive/handovers/](./archive/handovers/) | Session handover notes (jam-era) |
+| [archive/audits/](./archive/audits/) | Code audits (jam-era & July 2026 passes) |
 
 ---
 
@@ -54,7 +76,7 @@ npm run dev:local
 
 (`dev:cart-clash` and legacy `dev:next-level` are aliases.)
 
-Open **http://127.0.0.1:3000/**. See [preview-dev.md](./preview-dev.md) for the full preview workflow.
+Open **http://127.0.0.1:3000/**. See [preview-dev.md](./guides/preview-dev.md) for the full preview workflow.
 
 ### Two-terminal alternative
 
@@ -129,4 +151,4 @@ docs/               # Project docs (start here)
 docs/brand.md       # Naming freeze
 ```
 
-For architecture detail, see [Game_Architecture.md](./Game_Architecture.md). For naming rules, see [brand.md](./brand.md).
+For architecture detail, see [Game_Architecture.md](./reference/Game_Architecture.md). For naming rules, see [brand.md](./brand.md).

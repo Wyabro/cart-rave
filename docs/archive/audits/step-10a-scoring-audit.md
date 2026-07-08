@@ -1,8 +1,8 @@
 # Step 10a — Scoring system audit
 
-> **Archived** (April 2026, jam era). Moved to `docs/audits/`. Current priorities: [ROADMAP.md](../ROADMAP.md)
+> **Archived** (April 2026, jam era). Moved to `docs/archive/audits/`. Current priorities: [ROADMAP.md](../../planning/ROADMAP.md)
 >
-> **Superseded** (2026-07-08) by [`../scoring-event-system.md`](../scoring-event-system.md).
+> **Superseded** (2026-07-08) by [`scoring-event-system.md`](../../reference/scoring-event-system.md).
 > Scoring is now one output of a richer **KO Event** consumed by the announcer, challenges,
 > combos, Sudden Death, VFX, and the kill feed. This audit reviewed a much smaller game; read
 > it for the original jam-era spec intent, not the current architecture. Note: its §8 all-zero

@@ -1,12 +1,15 @@
 # Cart Clash — Completed Work (Historical Record)
 
-> Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](./brand.md).
+> Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
 **Last Updated:** July 8, 2026
 
-Chronological record of shipped work, newest first. This file is the single home for historical/completed items — see [project-state.md](./project-state.md), [ROADMAP.md](./ROADMAP.md), and [todo.md](./todo.md) for current status and forward-looking work.
+> **This doc = the past** — the single home for historical/completed items. For what works
+> *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
 
-> **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / todo.md / project-state.md).
+Chronological record of shipped work, newest first.
+
+> **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
 
@@ -22,10 +25,10 @@ Narrative snapshot of the major refactors that shaped the current module structu
 - `.cursorrules` cleaned up (~200 lines removed, simplified guardrails)
 - **WebRTC signaling root-cause fix**: host now creates the DataChannel offer to each peer (`ensureHostPeerConnections()` in the `MSG.slots` handler) — previously `createOffer` was unreachable (only non-host no-op callers), so no channel ever opened and P2P gameplay sync was fully inert. `tests/p2p-signaling.test.js` covers the full handshake.
 - `main.js` remains the thin orchestrator and wiring hub
-- **Production-readiness pass (July 7)** — see [audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md): Safari mp3 audio fallbacks, OG/Twitter meta + fixed PWA manifest, runtime error reporting (`installGlobalErrorReporting`), `src/utils/storage.js` key registry, `src/utils/device.js` shared touch detection, dead assets/config removed (~25 MB), `npm run check` baseline gate
-- **Production value pass (July 7)** — see [audits/production-value-pass-2026-07.md](./audits/production-value-pass-2026-07.md): 100-item ranked player-experience review; top 10 shipped
-- **Announcer system — "The Store PA" (July 8)** — see [announcer.md](./announcer.md): production-ready, data-driven announcer framework
-- **Visual polish pass (July 8)** — see [audits/visual-audit.md](./audits/visual-audit.md): targeted AAA-style rendering pass preserving the dark-arena + punchy-neon identity
+- **Production-readiness pass (July 7)** — see [audits/production-readiness-audit-2026-07.md](../archive/audits/production-readiness-audit-2026-07.md): Safari mp3 audio fallbacks, OG/Twitter meta + fixed PWA manifest, runtime error reporting (`installGlobalErrorReporting`), `src/utils/storage.js` key registry, `src/utils/device.js` shared touch detection, dead assets/config removed (~25 MB), `npm run check` baseline gate
+- **Production value pass (July 7)** — see [audits/production-value-pass-2026-07.md](../archive/audits/production-value-pass-2026-07.md): 100-item ranked player-experience review; top 10 shipped
+- **Announcer system — "The Store PA" (July 8)** — see [announcer.md](../reference/announcer.md): production-ready, data-driven announcer framework
+- **Visual polish pass (July 8)** — see [audits/visual-audit.md](../archive/audits/visual-audit.md): targeted AAA-style rendering pass preserving the dark-arena + punchy-neon identity
 
 ---
 
@@ -81,7 +84,7 @@ Compact record of Phase 4 fixes that were tracked as one-line items. Deeper writ
 
 ### July 8, 2026 – Visual Polish Pass (Three.js Rendering)
 
-Targeted AAA-style rendering pass on the existing Cart Rave presentation — no gameplay changes, no arena redesign, full customization contract preserved. Full audit + round-by-round record in [docs/audits/visual-audit.md](./audits/visual-audit.md). Owner steered the pass through three feedback rounds; final look is deliberately dark with restrained bloom (dark arena + punchy neon is the identity, not a "bright arcade" brief).
+Targeted AAA-style rendering pass on the existing Cart Rave presentation — no gameplay changes, no arena redesign, full customization contract preserved. Full audit + round-by-round record in [docs/archive/audits/visual-audit.md](../archive/audits/visual-audit.md). Owner steered the pass through three feedback rounds; final look is deliberately dark with restrained bloom (dark arena + punchy neon is the identity, not a "bright arcade" brief).
 
 **Global rendering**
 - Exposure retuned 0.88 → 0.62 → 0.46 → **0.40** across three "still too bright" rounds; bloom strength 0.67 → **0.34**, threshold 0.86 → **0.76**, `smoothWidth` widened to 0.14 (also fixed a latent Rec.709-luma bug where magenta neon at luma 0.29 never crossed the old 0.86 cutoff while cyan at 0.79 did).
@@ -126,13 +129,13 @@ Production-ready announcer framework designed and built for the Steam demo push.
 - Pause overlay gained an ◇ ANNOUNCER section (ANNOUNCER + CALLOUTS toggles, gamepad-navigable), persisted via `settingsStore`.
 - `sfxSynth.js`'s victory fanfare / defeat sting / Sudden Death sting were retired in favor of announcer-owned equivalents.
 
-**Voice pipeline** (documented in [docs/announcer.md](./announcer.md)) — drop `public/sounds/announcer/<locale>/<eventId>_<NN>.ogg|.mp3`, register with Howler, call `registerAnnouncerVoicePack`. Fallback chain: voice variant → sting → silent-with-subtitle.
+**Voice pipeline** (documented in [docs/reference/announcer.md](../reference/announcer.md)) — drop `public/sounds/announcer/<locale>/<eventId>_<NN>.ogg|.mp3`, register with Howler, call `registerAnnouncerVoicePack`. Fallback chain: voice variant → sting → silent-with-subtitle.
 
 **Validation** — `npm run check` green (0 TS errors, 61/61 tests including 29 new arbitration tests, 0 knip findings). Verified end-to-end in-browser against the live initialized singletons.
 
 ### July 7, 2026 – Production Value Pass (Top-10 Player-Experience Improvements)
 
-Creative-direction review of every player-facing surface; full 100-item ranked report in [docs/audits/production-value-pass-2026-07.md](./audits/production-value-pass-2026-07.md). Constraint: no multiplayer-architecture or core-gameplay changes. The 10 highest-impact items shipped:
+Creative-direction review of every player-facing surface; full 100-item ranked report in [docs/archive/audits/production-value-pass-2026-07.md](../archive/audits/production-value-pass-2026-07.md). Constraint: no multiplayer-architecture or core-gameplay changes. The 10 highest-impact items shipped:
 
 1. **Attacker kill-confirm feedback** — procedural confirm sting + center-screen hitmarker + FOV punch on every KO, via a new presentation-only `onLocalKillConfirm` callback fired from `gameFlow.js` (host) and the `falls[]` replay path in `netcode.js` (non-host).
 2. **Victory presentation** — procedural victory fanfare (local winner) / defeat sting (everyone else) + winner-colored canvas confetti burst at the podium.
@@ -164,7 +167,7 @@ New module `src/sfxSynth.js` (procedural sting synthesizer). **Validation:** `np
 
 ### July 7, 2026 – Production-Readiness Audit & Top-10 Fixes
 
-Full-codebase audit; report with all 50 ranked improvements in [docs/audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md). The 10 highest-impact, safe items were implemented:
+Full-codebase audit; report with all 50 ranked improvements in [docs/archive/audits/production-readiness-audit-2026-07.md](../archive/audits/production-readiness-audit-2026-07.md). The 10 highest-impact, safe items were implemented:
 
 1. **Safari/iOS audio fix (highest player impact)** — every sound loaded as `.ogg` only, so the game was **silent on all Safari/iOS devices**. `audioManager.js` `loadMenuMusic` / `loadGamePlaylist` / `registerSfx` now accept `[ogg, mp3]` arrays. Generated `.mp3` fallbacks for the 10 referenced SFX (~385 KB). `index.html` menu preload now feature-detects Ogg support.
 2. **Dead audio purged (~6 MB)** — removed `.wav` masters (Death.wav alone was 3.8 MB) and unreferenced `Wheel.*` trio.

@@ -2,7 +2,7 @@
 
 Use **local Wrangler dev** for day-to-day multiplayer and physics testing. Deploy to Cloudflare only when you need a public shareable URL.
 
-Active branch: **`cart-clash`**. Naming rules: [brand.md](./brand.md).
+Active branch: **`cart-clash`**. Naming rules: [brand.md](../brand.md).
 
 ## Daily Development (recommended)
 
@@ -53,7 +53,7 @@ npm run ship
 
 This runs `npm run build` (bundling Vite into `dist/`) followed by `npx wrangler deploy`.
 
-- **Deployed URL:** `https://cart-rave.wyabro.workers.dev/` (Worker name remains `cart-rave` until domain cutover — see [brand.md](./brand.md))
+- **Deployed URL:** `https://cart-rave.wyabro.workers.dev/` (Worker name remains `cart-rave` until domain cutover — see [brand.md](../brand.md))
 - **Real-time Tail logs:** To watch production server console logs in real time, run:
 
 ```bash
@@ -68,4 +68,4 @@ Since the migration to Cloudflare Workers, we use a single unified deployment ta
 - For local testing, Wrangler isolates SQLite / Durable Object storage to your local `.wrangler/` cache directory.
 - Deploys to Cloudflare publish to the production worker (`cart-rave`). Avoid deploying untested worker code to prevent interrupting active matches.
 
-For the latest release priorities, see [ROADMAP.md](./ROADMAP.md).
+For the latest release priorities, see [ROADMAP.md](../planning/ROADMAP.md).

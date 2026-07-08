@@ -1,6 +1,6 @@
 # Cart Clash — Production Deployment & Verification
 
-Product name is **Cart Clash**. Cloudflare Worker / host still use the **`cart-rave`** slug until domain cutover — see [brand.md](./brand.md).
+Product name is **Cart Clash**. Cloudflare Worker / host still use the **`cart-rave`** slug until domain cutover — see [brand.md](../brand.md).
 
 Quick reference to track deployment targets, live URLs, and verification commands.
 
@@ -55,4 +55,4 @@ Join a room, trigger actions (e.g., collisions, custom colors, level switches), 
 - Non-host connections correctly map to the new broadcast sequence.
 - Late-joining clients receive the correct `#currentLevelId` authority from the Durable Object.
 
-For the active V2 feature progression, see [ROADMAP.md](./ROADMAP.md).
+For the active V2 feature progression, see [ROADMAP.md](../planning/ROADMAP.md).

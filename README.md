@@ -7,7 +7,7 @@ Post-jam development continues on the **`cart-clash`** branch toward **Version 2
 **Naming:** Product is **Cart Clash**. Deploy host, Worker name, and some code IDs still say `cart-rave` until a deliberate cutover — see [docs/brand.md](./docs/brand.md).
 
 **Recent (July 2026):**
-- **Production-Readiness Audit**: Full-codebase audit with 50 ranked improvements ([docs/audits/production-readiness-audit-2026-07.md](./docs/audits/production-readiness-audit-2026-07.md)); top 10 implemented — Safari audio fallbacks, social link previews, PWA manifest fix, runtime error reporting, centralized storage, ~25 MB of dead assets/config removed. Baseline gate: `npm run check` (typecheck + tests + knip).
+- **Production-Readiness Audit**: Full-codebase audit with 50 ranked improvements ([docs/archive/audits/production-readiness-audit-2026-07.md](./docs/archive/audits/production-readiness-audit-2026-07.md)); top 10 implemented — Safari audio fallbacks, social link previews, PWA manifest fix, runtime error reporting, centralized storage, ~25 MB of dead assets/config removed. Baseline gate: `npm run check` (typecheck + tests + knip).
 - **Core Stability**: Replaced problematic trimesh colliders on Record, Backrooms, and Zanzibar levels with precise convexHull + primitive colliders for stable physics and zero clipping.
 - **Level 3 (Zanzibar Platform)**: Floating sundeck arena set in a dynamic sunset seascape with customized AI hazards and enhanced contact shadows.
 - **Touch Controls**: Integrated virtual analog joysticks and touch buttons via `nipplejs` for portrait/landscape mobile play.
@@ -23,11 +23,11 @@ All project docs live in [`docs/`](./docs/):
 |-----|---------|
 | [docs/README.md](./docs/README.md) | Project overview, setup, controls, full doc index |
 | [docs/brand.md](./docs/brand.md) | **Naming freeze** (Cart Clash vs legacy cart-rave IDs) |
-| [docs/ROADMAP.md](./docs/ROADMAP.md) | **Primary forward-looking plan** (Version 2 priorities) |
-| [docs/todo.md](./docs/todo.md) | Current status + shipped history |
-| [docs/project-state.md](./docs/project-state.md) | Architecture snapshot, known issues |
-| [docs/preview-dev.md](./docs/preview-dev.md) | Local multiplayer dev workflow |
-| [docs/Game_Architecture.md](./docs/Game_Architecture.md) | Consolidated architecture reference |
-| [docs/CREDITS.md](./docs/CREDITS.md) | Third-party libraries, fonts, and assets |
+| [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
+| [docs/planning/project-state.md](./docs/planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
+| [docs/planning/completed-work.md](./docs/planning/completed-work.md) | **Past** — historical log of shipped work |
+| [docs/guides/preview-dev.md](./docs/guides/preview-dev.md) | Local multiplayer dev workflow |
+| [docs/reference/Game_Architecture.md](./docs/reference/Game_Architecture.md) | Consolidated architecture reference |
+| [docs/reference/CREDITS.md](./docs/reference/CREDITS.md) | Third-party libraries, fonts, and assets |
 
-Start with [docs/README.md](./docs/README.md) for setup and [docs/ROADMAP.md](./docs/ROADMAP.md) for what we're building next.
+Start with [docs/README.md](./docs/README.md) for setup and [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) for what we're building next.

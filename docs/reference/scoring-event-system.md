@@ -2,7 +2,7 @@
 
 > **Status:** implemented (2026-07-08) — migration steps 1–5 complete and committed.
 > This is now an **as-built reference**, not a proposal. Supersedes the jam-era audit
-> [`audits/step-10a-scoring-audit.md`](audits/step-10a-scoring-audit.md), which reviewed a much
+> [`archive/audits/step-10a-scoring-audit.md`](../archive/audits/step-10a-scoring-audit.md), which reviewed a much
 > smaller game. Sibling system docs: [`announcer.md`](announcer.md),
 > [`Game_Architecture.md`](Game_Architecture.md).
 
@@ -37,17 +37,17 @@ verb:              "STEAMROLLED"
 
 Each reactor reads fields and pokes one subsystem — it never re-inspects physics or scores to
 guess what happened. This generalizes the pattern the announcer already used
-([`announcerDirector.js`](../src/announcer/announcerDirector.js) is a read-only observer fed one
+([`announcerDirector.js`](../../src/announcer/announcerDirector.js) is a read-only observer fed one
 `fall` object) to every consumer.
 
 **Where it lives:**
 
 | Piece | File |
 |---|---|
-| `buildKOEvent` (host) + `rebuildKOEvent` (client replay) + `KOEvent` typedef | [`src/scoring/koEvent.js`](../src/scoring/koEvent.js) |
-| `dispatchKOEvent` + the reactors | [`src/scoring/koReactors.js`](../src/scoring/koReactors.js) |
-| Host fall loop that builds + dispatches | [`src/gameFlow.js`](../src/gameFlow.js) |
-| Non-host replay that rebuilds + dispatches | [`src/netcode.js`](../src/netcode.js) `processHostFallEvent` |
+| `buildKOEvent` (host) + `rebuildKOEvent` (client replay) + `KOEvent` typedef | [`src/scoring/koEvent.js`](../../src/scoring/koEvent.js) |
+| `dispatchKOEvent` + the reactors | [`src/scoring/koReactors.js`](../../src/scoring/koReactors.js) |
+| Host fall loop that builds + dispatches | [`src/gameFlow.js`](../../src/gameFlow.js) |
+| Non-host replay that rebuilds + dispatches | [`src/netcode.js`](../../src/netcode.js) `processHostFallEvent` |
 
 ## Dataflow
 
@@ -78,7 +78,7 @@ buildKOEvent()                                     ┌────────�
   `dispatchKOEvent`. Authoritative scores arrive via the existing host round message; clients
   never apply `reward.total`. The event drives presentation + local bookkeeping only.
 
-`falls[]` is a **JSON tail** ([`binary.js`](../src/netcode/binary.js)), so widening the wire is
+`falls[]` is a **JSON tail** ([`binary.js`](../../src/netcode/binary.js)), so widening the wire is
 cheap when it's needed (see [Deferred](#deferred--known-gaps)).
 
 ## KO Event schema
@@ -152,7 +152,7 @@ as new functions reading existing fields, with no change to the fall detector.
   gap and wires up the previously-dead config value. Threshold **tuned to 16.0 m/s** (~68% of the
   23.5 top speed; ~60% of committed hits) via solo playtest.
 - **D2 — `impactSpeed` captured.** The crediting ram's planar speed is stored on the `lastHitBy`
-  record at ram time ([`simulation.js`](../src/simulation.js)) and carried onto the event — feeds
+  record at ram time ([`simulation.js`](../../src/simulation.js)) and carried onto the event — feeds
   D1 and future intensity-scaled VFX/stats.
 - **D3 — `victimWasLeader` is its own field**, so announcer/VFX can react to a leader KO without
   re-scanning scores (the leader bonus still flows into `reward`).
