@@ -10,8 +10,8 @@
     {
       "name": "vite",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3010"],
-      "port": 3010
+      "runtimeArgs": ["run", "dev", "--", "--no-open"],
+      "autoPort": true
     }
   ]
 }

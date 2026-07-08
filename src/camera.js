@@ -9,6 +9,9 @@ import { RAPIER } from "./physics/rapierInstance.js";
 // * Single reusable ray for camera-wall avoidance — lazily created once RAPIER is ready.
 let _cameraRay = null;
 
+// * Scratch look matrix for the death camera pan — reused every updateDeathCamera() call.
+const _deathCamLookMat = new THREE.Matrix4();
+
 /**
  * Camera controller modes.
  * @readonly
@@ -432,7 +435,7 @@ export function updateDeathCamera(camera, dt) {
   const panProgress = Math.min(1, elapsed / state.panDurationMs);
   const panEased = 1 - Math.pow(1 - panProgress, 3);
 
-  const lookMat = new THREE.Matrix4();
+  const lookMat = _deathCamLookMat;
   lookMat.lookAt(camera.position, state.lookTarget, new THREE.Vector3(0, 1, 0));
   const targetQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
 

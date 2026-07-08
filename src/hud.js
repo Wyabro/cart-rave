@@ -12,9 +12,9 @@ import {
   wireButtonPressFeedback,
 } from "./animations.js";
 import { resolveCartNeonCss } from "./customization.js";
-import * as AudioManager from "./audioManager.js";
-import { playTimerTick, playSuddenDeathSting } from "./sfxSynth.js";
+import { playTimerTick } from "./sfxSynth.js";
 import { getServerClockOffsetMs } from "./netcode.js";
+import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
 import { getNpcPersonality } from "./npcNames.js";
 import { isWorldBootstrapped } from "./bootstrap.js";
@@ -339,7 +339,7 @@ function updateStatus(roundState) {
     _goUntilMs = Date.now() + 500;
     if (!_goSoundPlayed) {
       _goSoundPlayed = true;
-      AudioManager.playSfx("countdown_go");
+      announce("go");
     }
   }
   _prevRoundPhase = roundPhase;
@@ -363,7 +363,7 @@ function updateStatus(roundState) {
     elements.status.textContent = `GET READY  ${n}`;
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;
-      AudioManager.playSfx(`countdown_${n}`);
+      if (n >= 1 && n <= 3) announce(`countdown_${n}`);
       elements.status.animate(
         [
           { transform: "translateX(-50%) scale(1)" },
@@ -436,7 +436,7 @@ function updateTimer(roundState, matchHistoryLength) {
       elements.root.classList.toggle("hud-sudden-death", isSuddenDeath);
     }
     // * Sudden Death entry sting — rising edge only, on every client.
-    if (isSuddenDeath && !_wasSuddenDeath) playSuddenDeathSting();
+    if (isSuddenDeath && !_wasSuddenDeath) announce("sudden_death");
     _wasSuddenDeath = isSuddenDeath;
 
     // * Final-10-seconds urgency — red pulse + one tick per remaining second.
@@ -447,6 +447,7 @@ function updateTimer(roundState, matchHistoryLength) {
       if (_lastUrgentTickSecond !== seconds) {
         _lastUrgentTickSecond = seconds;
         playTimerTick(seconds);
+        if (seconds === 10) announce("last_call");
         elements.timerNum?.animate?.(
           [
             { transform: "scale(1.12)" },

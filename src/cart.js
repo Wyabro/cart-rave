@@ -652,8 +652,8 @@ export function buildCart(colorHex) {
   buildChassis(frameGeometries, dims);
   buildHandle(handleGeometries, dims);
 
-  // * Base wireframe body — full neon bloom. Pattern detail is a sibling overlay mesh
-  // * (CartFramePattern) applied at runtime by cartPatterns.js so masks never suppress bloom.
+  // * Base wireframe body — full neon bloom. Pattern detail is a shader mask injected
+  // * into this material at runtime by cartPatterns.js (applyCartPattern).
   const frameMesh = mergeGeometriesIntoMesh(frameGeometries, frameMat, "CartFrame");
   if (frameMesh) {
     frameMesh.userData.isCartFrame = true;

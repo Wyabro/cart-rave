@@ -33,6 +33,9 @@ export const STORAGE_KEYS = {
   musicVolume: "cartRaveVolume",
   sfxVolume: "cartRaveSfxVol",
   muted: "cartRaveMuted",
+  /** Announcer toggles ("on"/"off"). */
+  announcerVoice: "cartRaveAnnouncerVoice",
+  announcerCallouts: "cartRaveAnnouncerCallouts",
 };
 
 /**

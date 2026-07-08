@@ -51,6 +51,14 @@ function createStarfield(scene, ctx) {
       const b = 0.8 + Math.random() * 0.2;
       starColors.set([b, b, b], i * 3);
     }
+
+    // * Depth tiers — PointsMaterial can't vary size per star, so fake the near/far
+    // * layering through brightness: stars at the far shell dim to ~40%, giving the
+    // * field visible depth instead of a uniform speckle.
+    const depthDim = 1.05 - ((r - 150) / 80) * 0.65;
+    starColors[i * 3] *= depthDim;
+    starColors[i * 3 + 1] *= depthDim;
+    starColors[i * 3 + 2] *= depthDim;
   }
 
   starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
@@ -297,7 +305,8 @@ function createHorizonFog(scene, ctx) {
     transparent: true,
     depthWrite: false,
     side: THREE.BackSide,
-    uniforms: { uColor: { value: new THREE.Color(0x0a0520) } },
+    // * Must match CONFIG.postFx.fog.color (renderer clear) or the horizon seams.
+    uniforms: { uColor: { value: new THREE.Color(CONFIG.postFx.fog.color) } },
     vertexShader: `
       varying float vY;
       void main() {
@@ -318,6 +327,23 @@ function createHorizonFog(scene, ctx) {
   horizonFog.position.y = -3;
   ctx.addToScene(horizonFog);
   ctx.disposables.push(geo, mat);
+
+  // * Faint cool glow band hugging the horizon line — separates the ground plane from
+  // * the star void with a whisper of violet. Additive, very low opacity, no fog.
+  const glowGeo = new THREE.CylinderGeometry(148, 148, 7, 64, 1, true);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0x4a2a99,
+    transparent: true,
+    opacity: 0.055,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+  });
+  const glowBand = new THREE.Mesh(glowGeo, glowMat);
+  glowBand.position.y = 3.5;
+  ctx.addToScene(glowBand);
+  ctx.disposables.push(glowGeo, glowMat);
 }
 
 /**
@@ -498,9 +524,12 @@ function createSpotlightSystem(scene, yRefs, ctx) {
  *
  * @param {THREE.Scene} scene Root scene.
  * @param {number} pitInnerRadius Inner pit radius from the active level (ground ring start).
- * @param {{ enabled?: boolean }} [options] When `enabled` is false (e.g. the self-contained
- *   Backrooms level), builds nothing so the Classic space skybox, colored spotlights,
- *   ground ring, and horizon fog do not bleed into the new environment.
+ * @param {{ enabled?: boolean }} [options] When `enabled` is false (e.g. Backrooms, Zanzibar,
+ *   testArena), the rig is never built at all — not just hidden — so the per-level-load cost
+ *   of the 4000-point starfield, nebula spheres, planets, UFOs, spotlight system, and horizon
+ *   fog cylinder is skipped entirely for levels that would immediately hide it. The returned
+ *   object still matches the enabled shape (empty `sceneRoots`/`disposables`, a no-op
+ *   `update`) so callers can update/dispose it unconditionally.
  * @returns {{
  *   scene: THREE.Scene,
  *   sceneRoots: THREE.Object3D[],
@@ -510,6 +539,11 @@ function createSpotlightSystem(scene, yRefs, ctx) {
  * }}
  */
 export function initSceneExtras(scene, pitInnerRadius, options = {}) {
+  const enabled = options.enabled !== false;
+  if (!enabled) {
+    return { scene, sceneRoots: [], disposables: [], disposed: false, update: () => {} };
+  }
+
   const disposables = [];
   const sceneRoots = [];
 
@@ -536,13 +570,6 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
   const spotlights = createSpotlightSystem(scene, { platformTopY, recordSurfaceGlowY }, ctx);
   createGround(scene, pitInnerRadius, ctx);
   createHorizonFog(scene, ctx);
-
-  // * Self-contained levels (Backrooms / testArena) need the scene extras created so
-  // * quality-toggles and level swaps can show/hide them — but they start hidden.
-  const enabled = options.enabled !== false;
-  if (!enabled) {
-    for (const root of sceneRoots) root.visible = false;
-  }
 
   return {
     scene,

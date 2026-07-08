@@ -6,6 +6,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
 import { isLowQualityMode } from "./utils.js";
@@ -133,6 +134,24 @@ export function setEnvironmentIntensity(scene, intensity) {
  * @returns {{ envTexture: THREE.Texture, dispose: () => void }}
  */
 export function setupSceneEnvironment(renderer, scene) {
+  // * Suppress ANGLE/HLSL X4122 precision warnings from the PMREM convolution shader.
+  // * These are harmless float-to-double warnings on Windows/DirectX (Three.js issue #32692).
+  // * The patch filters only X4122; real shader compile/link errors are still logged.
+  const gl = /** @type {(WebGLRenderingContext | WebGL2RenderingContext) & { _x4122Suppressed?: boolean }} */ (renderer.getContext());
+  if (gl && !gl._x4122Suppressed) {
+    const origGetProgramInfoLog = gl.getProgramInfoLog.bind(gl);
+    gl.getProgramInfoLog = function (program) {
+      const log = origGetProgramInfoLog(program);
+      if (!log || !log.includes('warning X4122')) return log;
+      return log
+        .split('\n')
+        .filter((l) => !l.includes('warning X4122'))
+        .join('\n')
+        .trim();
+    };
+    gl._x4122Suppressed = true;
+  }
+
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
   pmremGenerator.compileEquirectangularShader();
 
@@ -253,6 +272,7 @@ const ArcadeFxShader = {
     uAberration: { value: 0.0045 },
     uScanlineDensity: { value: 1.5 },
     uVignette: { value: 1.2 },
+    uFlash: { value: 0.0 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -268,6 +288,7 @@ const ArcadeFxShader = {
     uniform float uAberration;
     uniform float uScanlineDensity;
     uniform float uVignette;
+    uniform float uFlash;
     varying vec2 vUv;
 
     void main() {
@@ -288,10 +309,26 @@ const ArcadeFxShader = {
       float vig = smoothstep(0.8, 0.5 * uVignette, dist * (uVignette * 0.5 + 0.5));
       color.rgb *= vig;
 
+      // Kill-confirm flash — brief lift toward white, strongest at screen center.
+      float flashFalloff = 1.0 - smoothstep(0.15, 0.75, dist);
+      color.rgb = mix(color.rgb, vec3(1.0), uFlash * 0.2 * flashFalloff);
+
       gl_FragColor = color;
     }
   `,
 };
+
+/**
+ * Applies the game's tone mapping + exposure to a renderer. Single source of truth so
+ * the in-game composer (via OutputPass, which reads renderer.toneMapping) and the
+ * customization cart preview (direct render) grade colors identically.
+ *
+ * @param {THREE.WebGLRenderer} renderer
+ */
+export function applyRendererColorGrading(renderer) {
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = CONFIG.postFx.toneMappingExposure ?? 1.0;
+}
 
 /**
  * Creates the WebGL renderer bound to the game canvas.
@@ -308,8 +345,7 @@ export function createRenderer(canvas) {
   renderer.setPixelRatio(isLowQualityMode() ? 1 : Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(FOG_CONFIG.color, 1);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = CONFIG.postFx.toneMappingExposure ?? 1.0;
+  applyRendererColorGrading(renderer);
   // * Contact grounding uses blob quads (contactShadows.js), not shadowMap — keeps GPU cost flat.
   return renderer;
 }
@@ -400,6 +436,15 @@ export function createComposer(renderer, scene, camera) {
   applyBloomSettings(bloomPass);
   bloomPass.enabled = !isLowQualityMode();
   composer.addPass(bloomPass);
+
+  // * OutputPass performs tone mapping + sRGB encoding. Without it the composer wrote
+  // * linear working-space values straight to the canvas: renderer.toneMapping and
+  // * toneMappingExposure were silent no-ops (three skips both when rendering into a
+  // * render target), and mid-tones displayed darker/more saturated than authored.
+  // * Order: bloom thresholds linear HDR, then tone-map+encode, then the CRT-style
+  // * arcade FX and FXAA operate on the final display-referred LDR image.
+  const outputPass = new OutputPass();
+  composer.addPass(outputPass);
 
   const arcadeCfg = CONFIG.postFx.arcade;
   const arcadePass = new ShaderPass(ArcadeFxShader);

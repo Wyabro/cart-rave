@@ -107,8 +107,25 @@ let trashGeo = null;
 /** @type {THREE.MeshBasicMaterial | null} */
 let trashMat = null;
 
-/** @type {Array<{ group: THREE.Group, coreMat: THREE.Material, glowMat: THREE.Material, birthMs: number, durationMs: number, cart: any, baseRadius: number, length: number }>} */
+/** @typedef {{
+ *   group: THREE.Group,
+ *   coreMesh: THREE.Mesh,
+ *   glowMesh: THREE.Mesh,
+ *   coreMat: THREE.MeshBasicMaterial,
+ *   glowMat: THREE.MeshBasicMaterial,
+ *   birthMs: number,
+ *   durationMs: number,
+ *   cart: any,
+ *   baseRadius: number,
+ *   length: number,
+ * }} RamBoostStreakEntry */
+
+/** @type {RamBoostStreakEntry[]} */
 let ramBoostStreaks = [];
+
+/** * Free-list of built-but-inactive streak entries — reused instead of allocating. */
+/** @type {RamBoostStreakEntry[]} */
+let ramBoostStreakFreeList = [];
 
 /** @type {RamBoostVisualConfig | null} */
 let ramBoostConfig = null;
@@ -646,6 +663,7 @@ export function initEffects(scene, options = {}) {
   sceneRef = scene;
   ramBoostConfig = options.ramBoost ?? null;
   ramBoostStreaks = [];
+  ramBoostStreakFreeList = [];
   if (ramBoostConfig) ensureStreakGeometries(ramBoostConfig);
 
   trashPool = [];
@@ -656,6 +674,7 @@ export function initEffects(scene, options = {}) {
     const m = new THREE.Mesh(trashGeo, trashMat.clone());
     m.visible = false;
     m.userData.vel = new THREE.Vector3();
+    m.userData.angVel = new THREE.Vector3();
     m.userData.life = 0;
     m.userData.maxLife = 0;
     scene.add(m);
@@ -767,6 +786,13 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
         (Math.random() - 0.5) * 10 * clampedI * velScale,
       );
     }
+    p.rotation.set(0, 0, 0);
+    // * Subtle random tumble — full rotation cycle roughly 0.5-1.5s per axis.
+    p.userData.angVel.set(
+      (Math.random() - 0.5) * (Math.PI * 2 / (0.5 + Math.random())),
+      (Math.random() - 0.5) * (Math.PI * 2 / (0.5 + Math.random())),
+      (Math.random() - 0.5) * (Math.PI * 2 / (0.5 + Math.random())),
+    );
     p.userData.life = 0;
     p.userData.maxLife = type === "floor"
       ? (isBackroomsFloor
@@ -803,6 +829,9 @@ export function updateTrashParticles(dt) {
     p.position.y += p.userData.vel.y * dt;
     p.position.z += p.userData.vel.z * dt;
     p.userData.vel.y -= (p.userData.isDust ? 2.2 : 9.8) * dt;
+    p.rotation.x += p.userData.angVel.x * dt;
+    p.rotation.y += p.userData.angVel.y * dt;
+    p.rotation.z += p.userData.angVel.z * dt;
     const dustScale = p.userData.isDust ? 0.5 : 1.0;
     p.scale.setScalar(p.userData.baseScale * (1 - t) * dustScale);
     // @ts-expect-error THREE duck-typing suppress
@@ -885,17 +914,66 @@ function getAnimeStreakColor(hex, rb) {
 }
 
 /**
- * Drops oldest streaks when the global pool is full.
- * @param {number} maxActive
+ * Builds a fresh (inactive) streak pool entry — shared unit geometries, own materials.
+ * @returns {RamBoostStreakEntry}
  */
-function trimRamBoostStreakPool(maxActive) {
-  while (ramBoostStreaks.length >= maxActive) {
-    const oldest = ramBoostStreaks.shift();
-    if (!oldest) break;
-    sceneRef?.remove(oldest.group);
-    oldest.coreMat.dispose();
-    oldest.glowMat.dispose();
+function buildStreakEntry() {
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const coreMesh = new THREE.Mesh(streakCoreUnitGeo, coreMat);
+  const glowMesh = new THREE.Mesh(streakGlowUnitGeo, glowMat);
+  const group = new THREE.Group();
+  group.add(glowMesh);
+  group.add(coreMesh);
+  return {
+    group,
+    coreMesh,
+    glowMesh,
+    coreMat,
+    glowMat,
+    birthMs: 0,
+    durationMs: 0,
+    cart: null,
+    baseRadius: 0,
+    length: 0,
+  };
+}
+
+/**
+ * Gets a streak entry to (re)activate: reuse a freed entry, lazily build up to
+ * `maxActive`, or — once the pool is fully built and active — recycle the
+ * oldest active streak (matching the legacy trim-oldest behavior).
+ * @param {number} maxActive
+ * @returns {RamBoostStreakEntry}
+ */
+function acquireStreakEntry(maxActive) {
+  const freed = ramBoostStreakFreeList.pop();
+  if (freed) {
+    sceneRef.add(freed.group);
+    return freed;
   }
+  if (ramBoostStreaks.length < maxActive) {
+    const built = buildStreakEntry();
+    sceneRef.add(built.group);
+    return built;
+  }
+  // * Pool is fully built and fully active — recycle the oldest active streak in place.
+  const oldest = ramBoostStreaks.shift();
+  if (oldest) return oldest;
+  // * Should be unreachable (maxActive > 0 guarantees the pool is non-empty), but stay safe.
+  const fallback = buildStreakEntry();
+  sceneRef.add(fallback.group);
+  return fallback;
 }
 
 /**
@@ -909,7 +987,6 @@ function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
 
   const rb = ramBoostConfig;
   const maxActive = rb.streakMaxActive ?? 150;
-  trimRamBoostStreakPool(maxActive);
 
   const rot = cart.body.rotation();
   const yaw = Simulation.yawFromQuaternion(rot);
@@ -931,42 +1008,25 @@ function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
   const streakLength = rb.streakLengthMeters * lengthMul;
   const streakColor = getAnimeStreakColor(cart.cartColor, rb);
   const coreOpacity = rb.streakCoreOpacity ?? 0.52;
+  const glowOpacity = rb.streakGlowOpacity ?? 0.62;
 
-  const coreMat = new THREE.MeshBasicMaterial({
-    color: streakColor,
-    transparent: true,
-    opacity: coreOpacity,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-  const glowMat = new THREE.MeshBasicMaterial({
-    color: streakColor,
-    transparent: true,
-    opacity: rb.streakGlowOpacity ?? 0.62,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
+  const entry = acquireStreakEntry(maxActive);
+  entry.coreMat.color.set(streakColor);
+  entry.coreMat.opacity = coreOpacity;
+  entry.glowMat.color.set(streakColor);
+  entry.glowMat.opacity = glowOpacity;
 
-  const group = new THREE.Group();
-  const coreMesh = new THREE.Mesh(streakCoreUnitGeo, coreMat);
-  const glowMesh = new THREE.Mesh(streakGlowUnitGeo, glowMat);
-  group.add(glowMesh);
-  group.add(coreMesh);
-  group.position.copy(ramBoostStreakScratchPos);
-  group.quaternion.copy(ramBoostStreakAlignQuat);
-  group.scale.set(baseRadius, streakLength, baseRadius);
-  sceneRef.add(group);
+  entry.group.position.copy(ramBoostStreakScratchPos);
+  entry.group.quaternion.copy(ramBoostStreakAlignQuat);
+  entry.group.scale.set(baseRadius, streakLength, baseRadius);
 
-  ramBoostStreaks.push({
-    group,
-    coreMat,
-    glowMat,
-    birthMs,
-    durationMs: rb.streakDurationSec * 1000,
-    cart,
-    baseRadius,
-    length: streakLength,
-  });
+  entry.birthMs = birthMs;
+  entry.durationMs = rb.streakDurationSec * 1000;
+  entry.cart = cart;
+  entry.baseRadius = baseRadius;
+  entry.length = streakLength;
+
+  ramBoostStreaks.push(entry);
 }
 
 /**
@@ -1011,9 +1071,8 @@ export function updateRamBoostStreaks(nowMs) {
     const t = (nowMs - s.birthMs) / s.durationMs;
     if (t >= 1) {
       sceneRef.remove(s.group);
-      s.coreMat.dispose();
-      s.glowMat.dispose();
       ramBoostStreaks.splice(i, 1);
+      ramBoostStreakFreeList.push(s);
       continue;
     }
 

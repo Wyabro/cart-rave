@@ -13,6 +13,7 @@ import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { getCartTheme, normalizeThemeId } from "./cartThemeConfig.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
 import { applyRaveGltfColorToCache, applyRaveGltfLeaderGlow, buildRaveGltfMaterialCache } from "./cartRaveGltf.js";
+import { applyCartPattern } from "./cartPatterns.js";
 
 /** @typedef {import("./cartThemeConfig.js").CartThemeId} CartThemeId */
 /** @typedef {import("./cartThemeConfig.js").CartThemeDef} CartThemeDef */
@@ -264,8 +265,8 @@ function applyFacePolicy(root, theme) {
  */
 function applyPatternPolicy(root, theme) {
   if (theme.patternPolicy !== "disable") return;
-  const patternMesh = getNamedChild(root, "CartFramePattern");
-  if (patternMesh) patternMesh.visible = false;
+  // * Pattern lives in the CartFrame body material now — disable it by clearing to "classic".
+  applyCartPattern(root, "classic");
 }
 
 /**
@@ -287,7 +288,7 @@ export function buildCartThemeMaterialCache(cartMesh) {
     const c = /** @type {any} */ (child);
     if (!c.isMesh || !c.material) return;
     const ud = c.userData || {};
-    if (ud.isFace || ud.isHandle || ud.isWheel || ud.isCartPatternLayer) return;
+    if (ud.isFace || ud.isHandle || ud.isWheel) return;
     if (ud.isThemeProp && ud.cartMatRole !== "accent" && !ud.receivesPlayerAccent) return;
 
     forEachMaterial(c.material, (mat) => {

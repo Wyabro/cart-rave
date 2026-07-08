@@ -38,6 +38,10 @@ const COLLIDER_FRICTION = 0.4;
 /** @type {number} Restitution (bounciness) for grocery colliders. */
 const COLLIDER_RESTITUTION = 0.15;
 
+/** @type {number} Minimum world-units for the shortest dimension after geometry normalization.
+ * * Prevents extreme-aspect-ratio models (baguette) from being paper-thin. */
+const MIN_GROCERY_DIM = 0.06;
+
 /** @type {string} Draco decoder WASM/JS path (mirrors cartRaveGltf.js). */
 const DRACO_DECODER_PATH = "/draco/gltf/";
 
@@ -45,10 +49,13 @@ const DRACO_DECODER_PATH = "/draco/gltf/";
  * * Grocery model definitions — each maps to a GLTF file and a collider shape type.
  * * Actual collider half-extents are computed dynamically from the normalized
  * * geometry bounding box in init().
+ * * cargoScaleMul is an additional per-model scale multiplier applied on top of
+ * * the cargoBay cargoScale (defaults to 1.0 when omitted).
  * @type {Array<{
  *   name: string,
  *   path: string,
  *   type: "cuboid" | "cylinder" | "ball",
+ *   cargoScaleMul?: number,
  * }>}
  */
 const MODEL_DEFS = [
@@ -57,7 +64,7 @@ const MODEL_DEFS = [
   { name: "soda", path: "/models/groceries/soda.glb", type: "cylinder" },
   { name: "soup", path: "/models/groceries/soup.glb", type: "cylinder" },
   { name: "orange", path: "/models/groceries/orange.glb", type: "ball" },
-  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid" },
+  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid", cargoScaleMul: 2.0 },
 ];
 
 /**
@@ -123,6 +130,10 @@ const _scratchScale = new THREE.Vector3();
 const _scratchMatrix = new THREE.Matrix4();
 const _zeroScale = new THREE.Vector3(0, 0, 0);
 const _oneScale = new THREE.Vector3(1, 1, 1);
+
+/** * Reused across update() calls so idle frames don't allocate a Map. */
+/** @type {Map<THREE.InstancedMesh, boolean>} */
+const _dirtyMeshes = new Map();
 
 // ---------------------------------------------------------------------------
 // DRACO / GLTF loader (lazy singleton, mirrors cartRaveGltf.js pattern)
@@ -213,13 +224,20 @@ export async function init(scene, world) {
     const material = /** @type {THREE.Material} */ (sourceMesh.material).clone();
 
     // * Normalize geometry: text-to-3D models may have arbitrary scale and off-center pivots.
-    // * Bake a uniform scale so the model fits within ~0.5 world units, then recenter the origin.
+    // * Bake a uniform scale so the model's longest axis fits within ~0.5 world units,
+    // * then recenter the origin. Clamp the shortest dimension to MIN_GROCERY_DIM
+    // * so extreme-aspect-ratio models (baguette) aren't paper-thin.
     geometry.computeBoundingBox();
     const bb = geometry.boundingBox;
     if (bb) {
       const size = new THREE.Vector3();
       bb.getSize(size);
-      const scaleFactor = 0.5 / Math.max(size.x, size.y, size.z);
+      const longestDim = Math.max(size.x, size.y, size.z);
+      const shortestDim = Math.min(size.x, size.y, size.z);
+      let scaleFactor = 0.5 / longestDim;
+      if (shortestDim * scaleFactor < MIN_GROCERY_DIM) {
+        scaleFactor = MIN_GROCERY_DIM / shortestDim;
+      }
       if (Number.isFinite(scaleFactor) && scaleFactor !== 1) {
         geometry.scale(scaleFactor, scaleFactor, scaleFactor);
       }
@@ -268,8 +286,6 @@ export async function init(scene, world) {
     const im = new THREE.InstancedMesh(geometry, material, PER_MODEL_POOL);
     im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     im.frustumCulled = false; // * Prevent culling when camera looks away from scattered groceries.
-    im.castShadow = true;
-    im.receiveShadow = true;
     scene.add(im);
     instancedMeshes.push(im);
 
@@ -321,9 +337,11 @@ export async function init(scene, world) {
  * * Creates a pre-spill visual cargo bay: a THREE.Group with 6 randomly selected
  * * grocery meshes arranged in a loose pile, scaled down to fit inside the cart basket.
  *
+ * @param {number} [hw] Basket half-width in mesh-local space (defaults to 0.2 for compat).
+ * @param {number} [hl] Basket half-length in mesh-local space (defaults to 0.2 for compat).
  * @returns {THREE.Group} The cargo bay group (empty if models haven't loaded yet).
  */
-export function createCargoBay() {
+export function createCargoBay(hw, hl) {
   const group = new THREE.Group();
   if (loadedGeometries.length === 0) return group;
 
@@ -340,22 +358,37 @@ export function createCargoBay() {
   // * Scale down to fit inside the cart basket.
   const cargoScale = 0.7;
 
+  // * Placement accounts for each item's own bounding radius — items were previously
+  // * positioned by center point only, so bottoms sank through the basket floor and
+  // * edge items poked through the side walls. The bounding sphere is conservative for
+  // * the random tumble rotations; ×0.8 on Y lets irregular shapes settle slightly
+  // * (reads as resting, not floating) without visibly re-clipping the floor.
+  const margin = 0.04; // 4cm from basket walls
+  const halfW = hw != null ? Math.max(0.12, hw - margin) : 0.24;
+  const halfL = hl != null ? Math.max(0.12, hl - margin) : 0.24;
+
   for (let i = 0; i < 6; i += 1) {
     const idx = indices[i % indices.length];
-    const mesh = new THREE.Mesh(loadedGeometries[idx], loadedMaterials[idx]);
-    mesh.scale.setScalar(cargoScale);
+    const def = MODEL_DEFS[idx];
+    const scaleMul = def.cargoScaleMul ?? 1.0;
+    const geo = loadedGeometries[idx];
+    if (!geo.boundingSphere) geo.computeBoundingSphere();
+    const itemRadius = (geo.boundingSphere?.radius ?? 0.2) * cargoScale * scaleMul;
+
+    const mesh = new THREE.Mesh(geo, loadedMaterials[idx]);
+    mesh.scale.setScalar(cargoScale * scaleMul);
+    const reachX = Math.max(0.02, halfW - itemRadius);
+    const reachZ = Math.max(0.02, halfL - itemRadius);
     mesh.position.set(
-      (Math.random() - 0.5) * 0.4,  // X: [-0.2, 0.2]
-      Math.random() * 0.15,         // Y: [0, 0.15]
-      (Math.random() - 0.5) * 0.4,  // Z: [-0.2, 0.2]
+      (Math.random() - 0.5) * 2 * reachX,
+      itemRadius * 0.92 + Math.random() * 0.06,
+      (Math.random() - 0.5) * 2 * reachZ,
     );
     mesh.rotation.set(
       Math.random() * Math.PI * 2,
       Math.random() * Math.PI * 2,
       Math.random() * Math.PI * 2,
     );
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
     group.add(mesh);
   }
 
@@ -513,8 +546,8 @@ export function releaseByCartId(cartId) {
 export function update(_dt, now) {
   if (instancedMeshes.length === 0 || !worldRef) return;
 
-  /** @type {Map<THREE.InstancedMesh, boolean>} */
-  const dirtyMeshes = new Map();
+  const dirtyMeshes = _dirtyMeshes;
+  dirtyMeshes.clear();
 
   for (let i = 0; i < pool.length; i += 1) {
     const slot = pool[i];

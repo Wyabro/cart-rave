@@ -41,7 +41,9 @@ import {
 
 /** @type {Record<string, number>} */
 const TONE_MAPPING_BY_NAME = {
+  Neutral: THREE.NeutralToneMapping,
   ACESFilmic: THREE.ACESFilmicToneMapping,
+  AgX: THREE.AgXToneMapping,
   Reinhard: THREE.ReinhardToneMapping,
   Cineon: THREE.CineonToneMapping,
   Linear: THREE.LinearToneMapping,

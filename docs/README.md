@@ -16,6 +16,7 @@
 | [todo.md](./todo.md) | Current status snapshot + shipped history |
 | [project-state.md](./project-state.md) | Architecture snapshot, known issues |
 | [Game_Architecture.md](./Game_Architecture.md) | Consolidated architecture & design reference |
+| [announcer.md](./announcer.md) | "The Store PA" announcer system + voice asset pipeline |
 | [preview-dev.md](./preview-dev.md) | `next-level` branch local dev workflow |
 | [deploy-urls.md](./deploy-urls.md) | Production URLs and deploy verification |
 | [CREDITS.md](./CREDITS.md) | Third-party libraries, fonts, and assets |

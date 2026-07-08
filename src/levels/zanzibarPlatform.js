@@ -42,9 +42,16 @@ const SKY_RADIUS = 480; // meters
 const SUN_DISTANCE = 430; // meters
 const SUN_AZIMUTH = Math.PI * 0.78; // radians — between two booth lanes, never behind a booth
 const SUN_HEIGHT = 14; // meters — low over the water
+const SUN_DRIFT_AMPLITUDE_RAD = 0.015; // radians (~0.9°) — barely-perceptible sunset wobble
+const SUN_DRIFT_SPEED = 0.00006; // rad/ms — full drift cycle ≈ 105 s
 
 /** Matches the Storerooms convention: nominal FX radius for anything pit-scaled. */
 const PIT_INNER_RADIUS = 66;
+
+const ISLAND_HAZE_DIST_OFFSET = 35; // meters — a ridge's haze layer sits this much farther out
+// meters — keeps every island (incl. its haze layer) well inside the WATER_SIZE ocean plane's
+// edge, so fog swallows the plane's true edge before any silhouette appears to float past it.
+const ISLAND_MAX_DIST = WATER_SIZE / 2 - 50;
 
 // ===== Canvas texture builders =====
 
@@ -161,9 +168,11 @@ function buildSkyTexture() {
   grad.addColorStop(0.0, "#0b0620"); // zenith — deep blue-violet
   grad.addColorStop(0.42, "#3a1548");
   grad.addColorStop(0.62, "#8a2d5e");
-  grad.addColorStop(0.78, "#e8683f");
-  grad.addColorStop(0.88, "#ffb257"); // ember band at the horizon
-  grad.addColorStop(1.0, "#ff8c4a"); // horizon melt color matching fog
+  grad.addColorStop(0.78, "#d95a35");
+  grad.addColorStop(0.88, "#f57a3c"); // ember band at the horizon
+  // * Must track CONFIG.postFx.fog.zanzibar.color — the ocean fogs to that hex at
+  // * distance, so a mismatched sky bottom shows as a seam at the waterline.
+  grad.addColorStop(1.0, "#ff5a22"); // horizon melt color matching fog
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 4, 256);
   const tex = new THREE.CanvasTexture(canvas);
@@ -258,7 +267,8 @@ function buildOctHullVertices(circumR, yTop, yBottom, topCircumR = circumR) {
  *
  * @param {THREE.Scene} scene
  * @returns {{ group: THREE.Group, glintMat: THREE.MeshBasicMaterial | null,
- *   glintTex: THREE.CanvasTexture | null, ownedGeometries: THREE.BufferGeometry[],
+ *   glintTex: THREE.CanvasTexture | null, sunDir: THREE.Vector3,
+ *   updateSun: (timeMs: number) => void, ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }}
  */
 function buildSeascape(scene) {
@@ -310,7 +320,7 @@ function buildSeascape(scene) {
 
   const haloGeo = new THREE.CircleGeometry(58, 40);
   const haloMat = new THREE.MeshBasicMaterial({
-    color: 0xff8c4a,
+    color: 0xff6a30,
     transparent: true,
     opacity: 0.35,
     fog: false,
@@ -349,35 +359,94 @@ function buildSeascape(scene) {
     ownedTextures.push(glintTex);
   }
 
-  // Island silhouettes — flat dark basics.
-  const islandMat = new THREE.MeshBasicMaterial({ color: 0x180c1e });
-  ownedMaterials.push(islandMat);
+  // Island silhouettes — each is two atmospheric-perspective layers (a darker, larger
+  // foreground ridge + a lighter, hazier background ridge set further back) instead of a
+  // single flat cutout. Colors are hand-picked steps down from the sky gradient's
+  // magenta/ember horizon band (buildSkyTexture above) so the far layers sit just darker
+  // than the dusk behind them and the near layers read as true silhouette.
+  // * Islands take scene fog (unlike the sky) so they inherit the exact same ember haze
+  // * the ocean fades into — at 300-365m that's a 60-75% fog mix, which does the
+  // * atmospheric-perspective blending for us. Base colors are therefore much darker
+  // * than the final on-screen tones; the fog lift lands them just under the horizon.
+  const islandNearMat = new THREE.MeshBasicMaterial({ color: 0x140a10 }); // closest ridge — near-black plum
+  const islandMidMat = new THREE.MeshBasicMaterial({ color: 0x231018 }); // mid-distance ridge / near haze
+  const islandFarMat = new THREE.MeshBasicMaterial({ color: 0x321823 }); // far ridge — dusty mauve
+  const islandFarHazeMat = new THREE.MeshBasicMaterial({ color: 0x40202c }); // farthest haze — near-merges with the horizon glow
+  ownedMaterials.push(islandNearMat, islandMidMat, islandFarMat, islandFarHazeMat);
   const coneGeo = new THREE.ConeGeometry(1, 1, 7);
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
   ownedGeometries.push(coneGeo, boxGeo);
 
-  /** @param {number} azimuth @param {number} dist @param {Array<[number, number, number]>} parts cone/box [radiusOrWidth, height, kind 0=cone 1=box] */
-  const addIsland = (azimuth, dist, parts) => {
+  /**
+   * One ridge layer: a chain of cone/box primitives whose profile reads as a jagged
+   * skyline rather than a single flat cutout.
+   * @param {number} azimuth @param {number} dist @param {Array<[number, number, number]>} parts
+   *   cone/box [radiusOrWidth, height, kind 0=cone 1=box] @param {THREE.Material} mat
+   * @param {number} [yLift] Extra Y so a hazier, farther ridge's base sits above the
+   *   waterline, as if its foot were lost in the haze.
+   */
+  const addRidge = (azimuth, dist, parts, mat, yLift = 0) => {
     const island = new THREE.Group();
-    island.position.set(Math.cos(azimuth) * dist, WATER_Y, Math.sin(azimuth) * dist);
+    island.position.set(Math.cos(azimuth) * dist, WATER_Y + yLift, Math.sin(azimuth) * dist);
     let offset = 0;
     for (const [w, h, kind] of parts) {
-      const m = new THREE.Mesh(kind === 0 ? coneGeo : boxGeo, islandMat);
+      const m = new THREE.Mesh(kind === 0 ? coneGeo : boxGeo, mat);
       m.scale.set(w, h, w);
       m.position.set(offset, h / 2, offset * 0.4);
       island.add(m);
       offset += w * 0.7;
     }
-    island.lookAt(0, WATER_Y, 0);
+    island.lookAt(0, WATER_Y + yLift, 0);
     group.add(island);
   };
 
-  addIsland(SUN_AZIMUTH + 0.55, 400, [[70, 34, 0], [46, 22, 0], [58, 26, 0]]);
-  addIsland(SUN_AZIMUTH - 0.5, 415, [[10, 58, 1], [7, 84, 1], [12, 46, 1], [8, 66, 1]]);
-  addIsland(SUN_AZIMUTH + 1.6, 430, [[26, 18, 0], [14, 30, 0]]);
+  /**
+   * Foreground ridge plus an optional smaller, lighter haze ridge set further back (clamped
+   * to ISLAND_MAX_DIST) so the pair reads as one island with depth.
+   * @param {number} azimuth @param {number} dist @param {Array<[number, number, number]>} nearParts
+   * @param {THREE.Material} nearMat @param {Array<[number, number, number]>} [hazeParts]
+   * @param {THREE.Material} [hazeMat]
+   */
+  const addIsland = (azimuth, dist, nearParts, nearMat, hazeParts, hazeMat) => {
+    addRidge(azimuth, dist, nearParts, nearMat);
+    if (hazeParts) {
+      addRidge(azimuth, Math.min(dist + ISLAND_HAZE_DIST_OFFSET, ISLAND_MAX_DIST), hazeParts, hazeMat, 1.5);
+    }
+  };
+
+  // Closest cluster — darkest tier, largest silhouette.
+  addIsland(
+    SUN_AZIMUTH + 0.55, 300,
+    [[76, 37, 0], [50, 24, 0], [64, 29, 0]], islandNearMat,
+    [[40, 20, 0], [30, 15, 0]], islandMidMat,
+  );
+  // Mid cluster — jagged rock spires, tier fading toward the far cluster's tone.
+  addIsland(
+    SUN_AZIMUTH - 0.5, 335,
+    [[11, 60, 1], [8, 88, 1], [13, 48, 1], [9, 68, 1]], islandMidMat,
+    [[6, 40, 1], [5, 55, 1]], islandFarMat,
+  );
+  // Farthest cluster — smallest, hazy silhouette that nearly merges with the horizon glow.
+  addIsland(
+    SUN_AZIMUTH + 1.6, 365,
+    [[28, 19, 0], [16, 32, 0]], islandFarMat,
+    [[18, 12, 0]], islandFarHazeMat,
+  );
+
+  // Sun drift: a slow, barely-perceptible azimuth wobble so the sunset doesn't feel frozen.
+  // Mutates sunDir/sun/halo in place each call — zero per-frame allocations. initZanzibarPlatform
+  // reads the updated sunDir afterward to keep the sunLight pointed the same direction.
+  function updateSun(timeMs) {
+    const azimuth = SUN_AZIMUTH + Math.sin(timeMs * SUN_DRIFT_SPEED) * SUN_DRIFT_AMPLITUDE_RAD;
+    sunDir.set(Math.cos(azimuth), 0, Math.sin(azimuth));
+    sun.position.set(sunDir.x * SUN_DISTANCE, SUN_HEIGHT, sunDir.z * SUN_DISTANCE);
+    sun.lookAt(0, SUN_HEIGHT, 0);
+    halo.position.set(sun.position.x + sunDir.x * 2, SUN_HEIGHT, sun.position.z + sunDir.z * 2);
+    halo.lookAt(0, SUN_HEIGHT, 0);
+  }
 
   scene.add(group);
-  return { group, glintMat, glintTex, ownedGeometries, ownedMaterials, ownedTextures };
+  return { group, glintMat, glintTex, sunDir, updateSun, ownedGeometries, ownedMaterials, ownedTextures };
 }
 
 /**
@@ -713,9 +782,10 @@ export function initZanzibarPlatform(scene, world, config) {
   const seascape = buildSeascape(scene);
   const deck = buildDeck(scene, world, config, circumR);
 
-  const sunDir = new THREE.Vector3(Math.cos(SUN_AZIMUTH), 0, Math.sin(SUN_AZIMUTH));
+  // Sun light tracks the seascape's sun disc direction (see buildSeascape's updateSun) so
+  // the lighting stays coherent with the drifting sunset visual each frame.
   const sunLight = new THREE.DirectionalLight(0xffa04e, 2.1);
-  sunLight.position.copy(sunDir.clone().multiplyScalar(80)).setY(16);
+  sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(16);
   scene.add(sunLight);
   const hemiLight = new THREE.HemisphereLight(0xff9a5c, 0x0a1e34, 0.85);
   scene.add(hemiLight);
@@ -740,6 +810,8 @@ export function initZanzibarPlatform(scene, world, config) {
   const glintTex = seascape.glintTex;
   const glintMat = seascape.glintMat;
   function update(timeMs) {
+    seascape.updateSun(timeMs);
+    sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(16);
     if (glintTex) {
       glintTex.offset.y = (timeMs * 0.00004) % 1;
       if (glintMat) glintMat.opacity = 0.45 + Math.sin(timeMs * 0.0011) * 0.12;

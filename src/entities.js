@@ -235,10 +235,11 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   cart._materialCache = materialCache;
 
   // * Recreate cargoBay visual inside the basket and update cart.cargoBay ref.
-  const cargoBay = GroceryPool.createCargoBay();
+  const cargoParams = getBasketCargoParams(cart.mesh);
+  const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
   if (cargoBay) {
     cargoBay.name = "cargoBay";
-    cargoBay.position.set(0, CONFIG.cart.visualOffset + 0.1, 0);
+    cargoBay.position.set(0, cargoParams.floorY + 0.05, 0);
     cart.mesh.add(cargoBay);
   }
 
@@ -274,7 +275,42 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
 }
 
 /**
- * Creates a cart rigid body, collider, and mesh wired for netcode and gameplay state.
+ * * Computes basket floor Y and half-extents in mesh-local space for the given cart mesh.
+ * * The procedural cart has known hardcoded basket dimensions; the rave GLTF cart
+ * * computes them dynamically from the body mesh (tripo_part_0) bounding box.
+ *
+ * @param {THREE.Object3D} mesh
+ * @returns {{ floorY: number, hw: number, hl: number }}
+ */
+function getBasketCargoParams(mesh) {
+  if (!mesh?.userData?.isRaveGltf) {
+    // * Procedural cart: basket floor at Y = -0.54, halfWidth = 0.675, halfLength = 1.05
+    // * (matches CART_DIMS in cart.js).
+    return { floorY: -0.54, hw: 0.675, hl: 1.05 };
+  }
+
+  // * Rave GLTF cart: compute body bounds from tripo_part_0 in mesh-local space.
+  // * At creation time mesh.worldMatrix is identity, so child world-space = mesh-local.
+  const box = new THREE.Box3();
+  mesh.traverse((child) => {
+    if (child.name === "tripo_part_0" && child.isMesh && child.geometry) {
+      child.geometry.computeBoundingBox();
+      box.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    }
+  });
+
+  if (box.isEmpty()) {
+    return { floorY: -0.54, hw: 0.675, hl: 1.05 };
+  }
+
+  return {
+    floorY: box.min.y,
+    hw: (box.max.x - box.min.x) * 0.5,
+    hl: (box.max.z - box.min.z) * 0.5,
+  };
+}
+
+/**
  *
  * @param {{
  *   scene: THREE.Scene,
@@ -297,9 +333,10 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
   applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY });
 
-  const cargoBay = GroceryPool.createCargoBay();
+  const cargoParams = getBasketCargoParams(mesh);
+  const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
   if (cargoBay) {
-    cargoBay.position.set(0, CONFIG.cart.visualOffset + 0.1, 0);
+    cargoBay.position.set(0, cargoParams.floorY + 0.05, 0);
     mesh.add(cargoBay);
   }
 
@@ -425,15 +462,8 @@ function disposeCartMeshResources(mesh, materialCache) {
 
   mesh.traverse((child) => {
     if (!child.isMesh || !child.geometry) return;
-    if (child.userData?.isSharedGeometry || child.userData?.sharesCartFrameGeometry) return;
+    if (child.userData?.isSharedGeometry) return;
     child.geometry.dispose();
-  });
-
-  mesh.traverse((child) => {
-    if (!child.isMesh || !child.userData?.isCartPatternLayer || !child.material) return;
-    const mat = child.material;
-    if (Array.isArray(mat)) mat.forEach((m) => m?.dispose?.());
-    else mat.dispose?.();
   });
 
   if (materialCache?.frameMats) {

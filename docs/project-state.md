@@ -1,6 +1,6 @@
 # Cart Rave — Project State
 
-**Last updated:** July 7, 2026  
+**Last updated:** July 8, 2026  
 **Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
 **Branch:** `next-level` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
@@ -50,6 +50,8 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 - `main.js` remains the thin orchestrator and wiring hub
 - **Production-readiness pass (July 7)** — see [audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md): Safari mp3 audio fallbacks, OG/Twitter meta + fixed PWA manifest, runtime error reporting (`installGlobalErrorReporting`), `src/utils/storage.js` key registry, `src/utils/device.js` shared touch detection, dead assets/config removed (~25 MB), `npm run check` baseline gate
 - **Production value pass (July 7)** — see [audits/production-value-pass-2026-07.md](./audits/production-value-pass-2026-07.md): 100-item ranked player-experience review; top 10 shipped — kill-confirm feedback (sting + hitmarker + FOV punch, now fires for non-host attackers too), victory fanfare/defeat sting + podium confetti, final-10-seconds timer urgency, Sudden Death entry sting, boost charge meter (keyboard/gamepad HUD), damage-taken post-FX impact pulse, first-run HOW TO PLAY overlay, mobile landscape fixes (kill feed / pause overlay overlaps), honest Challenges copy + completion toast + menu badge. New `src/sfxSynth.js` procedural sting module (no audio assets added).
+- **Announcer system — "The Store PA" (July 8)** — see [announcer.md](./announcer.md): production-ready, data-driven announcer framework in `src/announcer/` (arbitration manager, event table, director, procedural stings) + `src/ui/announcerDisplay.js` (neon callout banner + `aria-live` region). Retail-flavored events (FIRST SPILL, REFUND, CLEAN-UP ON AISLE) replace generic arena-shooter callouts; single-channel arbitration with priority interrupts, a 2-slot TTL queue, a 450ms kill-burst merge, and per-event cooldowns keep it from spamming. Voice recordings drop in later via `registerAnnouncerVoicePack` with zero code changes — until then, procedural stings + visual callouts carry the moment. Settings toggles (ANNOUNCER / CALLOUTS) added to the pause overlay. Victory fanfare/defeat sting/Sudden Death sting migrated from `sfxSynth.js` into the announcer's ownership. Zero gameplay/netcode changes — kill events replicate through the existing `falls[]` snapshot tail.
+- **Visual polish pass (July 8)** — see [visual-audit.md](./visual-audit.md): targeted AAA-style rendering pass preserving the dark-arena + punchy-neon identity (exposure retuned to 0.40, bloom strength 0.34 / threshold 0.76 after two "too bright" rounds). Kill-confirm now layers a softened FOV punch + center-weighted white flash (new `uFlash` uniform on the Arcade FX shader) + aberration pulse; blob shadows get a subliminal Zanzibar sun-direction bias; Backrooms gets one grazing steel-blue rim light for cool/warm contrast; Classic pit wall gained eased vertex-color gradient + additive depth rings + violet horizon glow band; Zanzibar sky bottom/sun halo realigned to the retuned fog hex, islands now take scene fog for atmospheric perspective; grocery cargo placement now respects each item's bounding-sphere radius (was clipping through basket floor/sides); pattern overlay migrated from coplanar duplicate mesh to in-material `onBeforeCompile` shader mask on the CartFrame material (uniform swap between patterns, no shader recompile); GLTF cart body's `emissiveMap` is now a generated grayscale wire mask (channel-max smoothstep 0.45→0.7, cached per source-texture uuid) so wire glow tunes independent of albedo. Full customization contract preserved.
 
 ### Key files
 
@@ -61,7 +63,9 @@ Cart Rave is a browser-based **4-player physics sumo** game. Players drive neon 
 | `src/netcode.js` | Multiplayer, prediction, interpolation |
 | `src/simulation.js` | Rapier physics (host) |
 | `src/levels/` | Level definitions (classic, backrooms, zanzibar) |
-| `src/ui/styles/` | Extracted UI stylesheets (hud, pause, results, global) |
+| `src/announcer/` | "The Store PA" announcer — arbitration manager, event table, director, procedural stings |
+| `src/ui/announcerDisplay.js` | Announcer callout banner + `aria-live` region |
+| `src/ui/styles/` | Extracted UI stylesheets (hud, pause, results, global, announcer) |
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
 | `tests/` | Test files (Vitest) |
 | `.cursorrules` | Design spec and AI guardrails |

@@ -422,6 +422,22 @@ const RAVE_GLTF_EMISSIVE_MUL = RAVE_GLTF_FRAME_PRESET.emissiveMul ?? 1.15;
 /** Wireframe trim uses an emissive map (partial coverage); kept at 1.0 to match procedural bloom balance. */
 const RAVE_GLTF_TRIM_MASK_BOOST = 1.0;
 
+// * Body emissive wire mask — soft luminance ramp isolating the bright neon wire strokes from
+// * the darker body so wire glow (emissiveIntensity) tunes independently of surface albedo.
+// * Brightness = per-pixel max(r,g,b) (captures saturated neon of any hue, not just high-luma).
+// * Below LOW → fully masked out (0); above HIGH → full wire (1); smoothstep between.
+const RAVE_GLTF_WIRE_MASK_BRIGHTNESS_LOW = 0.45;
+const RAVE_GLTF_WIRE_MASK_BRIGHTNESS_HIGH = 0.7;
+
+/**
+ * Generated emissive wire masks keyed by source albedo `texture.uuid`. Module-level and shared
+ * across every cart instance (all bodies clone the same GLB albedo), so these are never disposed
+ * per-cart — their lifetime matches `_sourceScene` (which itself is never torn down; see
+ * {@link disposeRaveGltfInstance}). `null` = generation bailed (undecodable image) → albedo reuse.
+ * @type {Map<string, THREE.CanvasTexture | null>}
+ */
+const _wireEmissiveMaskCache = new Map();
+
 const LOAD_TIMEOUT_MS = 90_000;
 
 /** @type {THREE.Color} */
@@ -1497,6 +1513,107 @@ function applyRaveGltfFramePreset(mat) {
 }
 
 /**
+ * Reads a source texture's decoded image dimensions when it can be drawn to a 2D canvas.
+ * Handles both `ImageBitmap` (three r185 Draco/WebP path) and `HTMLImageElement`/`HTMLCanvasElement`.
+ * Returns null for compressed (KTX2) or not-yet-decoded images that `drawImage` cannot accept.
+ *
+ * @param {THREE.Texture | null | undefined} texture
+ * @returns {{ image: CanvasImageSource, width: number, height: number } | null}
+ */
+function getDrawableTextureImage(texture) {
+  if (!texture || /** @type {any} */ (texture).isCompressedTexture) return null;
+  const image = /** @type {any} */ (texture).image;
+  if (!image) return null;
+
+  if (typeof ImageBitmap !== "undefined" && image instanceof ImageBitmap) {
+    return { image, width: image.width, height: image.height };
+  }
+  if (typeof HTMLCanvasElement !== "undefined" && image instanceof HTMLCanvasElement) {
+    return { image, width: image.width, height: image.height };
+  }
+  if (typeof HTMLImageElement !== "undefined" && image instanceof HTMLImageElement) {
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    if (width > 0 && height > 0 && image.complete) return { image, width, height };
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Builds (and caches) a grayscale emissive wire mask from a source albedo texture. The mask
+ * keeps only the bright neon wire strokes (soft luminance ramp) so wire glow can be tuned
+ * without brightening the whole body surface. Cached by `texture.uuid`; shared across carts.
+ *
+ * @param {THREE.Texture | null | undefined} srcAlbedo
+ * @returns {THREE.CanvasTexture | null} Wire mask, or null when the image cannot be decoded.
+ */
+function buildRaveGltfWireEmissiveMask(srcAlbedo) {
+  if (!srcAlbedo) return null;
+
+  const cached = _wireEmissiveMaskCache.get(srcAlbedo.uuid);
+  if (cached !== undefined) return cached;
+
+  const drawable = getDrawableTextureImage(srcAlbedo);
+  if (!drawable) {
+    _wireEmissiveMaskCache.set(srcAlbedo.uuid, null);
+    return null;
+  }
+
+  /** @type {THREE.CanvasTexture | null} */
+  let mask = null;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = drawable.width;
+    canvas.height = drawable.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (ctx) {
+      ctx.drawImage(drawable.image, 0, 0, drawable.width, drawable.height);
+      const pixels = ctx.getImageData(0, 0, drawable.width, drawable.height);
+      const { data } = pixels;
+      const low = RAVE_GLTF_WIRE_MASK_BRIGHTNESS_LOW;
+      const high = RAVE_GLTF_WIRE_MASK_BRIGHTNESS_HIGH;
+      const span = Math.max(high - low, 1e-4);
+
+      for (let i = 0; i < data.length; i += 4) {
+        const brightness = Math.max(data[i], data[i + 1], data[i + 2]) / 255;
+        let t = (brightness - low) / span;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const value = Math.round(t * t * (3 - 2 * t) * 255);
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+        data[i + 3] = 255;
+      }
+      ctx.putImageData(pixels, 0, 0);
+
+      mask = new THREE.CanvasTexture(canvas);
+      // * Mask is data (intensity), not colour — no sRGB decode. Copy UV settings so it lines
+      // * up with the albedo's UVs on the body geometry.
+      mask.colorSpace = THREE.NoColorSpace;
+      mask.wrapS = srcAlbedo.wrapS;
+      mask.wrapT = srcAlbedo.wrapT;
+      mask.repeat.copy(srcAlbedo.repeat);
+      mask.offset.copy(srcAlbedo.offset);
+      mask.center.copy(srcAlbedo.center);
+      mask.rotation = srcAlbedo.rotation;
+      mask.flipY = srcAlbedo.flipY;
+      mask.channel = srcAlbedo.channel;
+      mask.needsUpdate = true;
+    }
+  } catch (err) {
+    if (import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn("[cartRaveGltf] wire mask generation failed; reusing albedo as emissive map", err);
+    }
+    mask = null;
+  }
+
+  _wireEmissiveMaskCache.set(srcAlbedo.uuid, mask);
+  return mask;
+}
+
+/**
  * Clones authored GLTF material for one instance with role-specific PBR + trim mask setup.
  *
  * Face-role meshes (sunglasses frame + lenses + accent) are recolored as a mirrored
@@ -1536,8 +1653,11 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
   mat.userData.raveGltfPartRole = role;
 
   if (role === "body") {
-    // * Wireframe trim lives in the albedo map — reuse as emissive mask for neon bloom.
-    mat.emissiveMap = srcMat.emissiveMap || srcMat.map || null;
+    // * Wireframe trim lives in the albedo map. Generate a dedicated emissive wire mask from
+    // * it so glow intensity tunes independently of surface colour; fall back to reusing the
+    // * albedo as the emissive mask when the image can't be decoded (compressed / not ready).
+    const wireMask = buildRaveGltfWireEmissiveMask(srcMat.map);
+    mat.emissiveMap = wireMask || srcMat.emissiveMap || srcMat.map || null;
     mat.userData.raveGltfHasEmissiveAccent = !!mat.emissiveMap;
     if (mat.color) mat.userData.raveGltfAuthoredColor = mat.color.clone();
   } else if (role === "wheel") {
@@ -2303,6 +2423,13 @@ export function createRaveGltfCartInstance(sunglassesStyle) {
   model.scale.setScalar(raveGltfTuning.scale);
   model.position.y = raveGltfTuning.yOffset;
 
+  // * Intra-cart material dedup: parts whose clone inputs are identical (role + maps +
+  // * authored color) share one material instance — e.g. the 4 wheels, paired lenses.
+  // * Body is excluded (carries per-material raveGltfAuthoredColor for tint lerps).
+  // * Scoped per cart instance; carts never share materials across instances.
+  /** @type {Map<string, THREE.MeshPhysicalMaterial>} */
+  const materialMemo = new Map();
+
   /**
    * @param {THREE.Object3D} src
    * @param {THREE.Object3D} parent
@@ -2312,7 +2439,23 @@ export function createRaveGltfCartInstance(sunglassesStyle) {
     if (s.isMesh) {
       const srcMat = Array.isArray(s.material) ? s.material[0] : s.material;
       const role = resolveRaveGltfPartRole(s);
-      const material = cloneRaveGltfMaterial(srcMat, role, sunglassesStyle);
+      let material;
+      if (role === "body") {
+        material = cloneRaveGltfMaterial(srcMat, role, sunglassesStyle);
+      } else {
+        const memoKey = [
+          role,
+          srcMat.map?.uuid ?? "-",
+          srcMat.normalMap?.uuid ?? "-",
+          srcMat.emissiveMap?.uuid ?? "-",
+          srcMat.color ? srcMat.color.getHex() : "-",
+        ].join("|");
+        material = materialMemo.get(memoKey);
+        if (!material) {
+          material = cloneRaveGltfMaterial(srcMat, role, sunglassesStyle);
+          materialMemo.set(memoKey, material);
+        }
+      }
 
       const mesh = new THREE.Mesh(s.geometry, material);
       mesh.name = src.name;
@@ -2355,7 +2498,6 @@ export function buildRaveGltfMaterialCache(root) {
   root.traverse((child) => {
     const c = /** @type {any} */ (child);
     if (!c.isMesh || !c.material) return;
-    if (c.userData?.isCartPatternLayer) return;
 
     const mats = Array.isArray(c.material) ? c.material : [c.material];
     for (const mat of mats) {
@@ -2981,19 +3123,13 @@ export function disposeRaveGltfInstance(root) {
     root.parent.remove(root);
   }
 
+  // * The pattern mask now lives inside the CartFrame body material (no separate overlay mesh),
+  // * so every mesh material is per-instance and safe to dispose here. Generated wire-emissive
+  // * masks are module-cached + shared across carts; Material.dispose() leaves textures alone.
   const disposedMats = new Set();
   root.traverse((child) => {
     const c = /** @type {any} */ (child);
     if (!c.isMesh) return;
-    const ud = c.userData || {};
-
-    if (ud.sharesCartFrameGeometry) {
-      if (ud.isCartPatternLayer && c.material) {
-        disposeMaterialOnce(c.material, disposedMats);
-      }
-      return;
-    }
-
     disposeMaterialOnce(c.material, disposedMats);
   });
 }

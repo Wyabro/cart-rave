@@ -22,7 +22,7 @@ import {
   buildCartThemeMaterialCache,
   disposeCartThemeResources,
 } from "../cartThemes.js";
-import { setupSceneEnvironment } from "../scene.js";
+import { applyRendererColorGrading, setupSceneEnvironment } from "../scene.js";
 import {
   applyPreviewPlaceholderColor,
   disposePreviewCartGltf,
@@ -256,6 +256,9 @@ export class CartPreview {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this._resizeTo(width, height);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // * Match in-game grading (scene.js OutputPass path) so carts look identical in
+    // * the customize preview and gameplay.
+    applyRendererColorGrading(this.renderer);
 
     const env = setupSceneEnvironment(this.renderer, this.scene);
     this._disposeEnvironment = env.dispose;
@@ -400,18 +403,7 @@ export class CartPreview {
       this.cartGroup.traverse((child) => {
         if (!(child instanceof THREE.Mesh)) return;
         const ud = child.userData || {};
-        if (ud.isSharedGeometry || ud.sharesCartFrameGeometry) {
-          if (ud.isCartPatternLayer && child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            for (const m of mats) {
-              if (m && !disposedMats.has(m)) {
-                disposedMats.add(m);
-                m.dispose?.();
-              }
-            }
-          }
-          return;
-        }
+        if (ud.isSharedGeometry) return;
         if (child.geometry && !disposedGeos.has(child.geometry)) {
           disposedGeos.add(child.geometry);
           child.geometry.dispose?.();
@@ -448,8 +440,8 @@ export class CartPreview {
 
     const theme = getCartTheme(this._themeId);
     if (theme.patternPolicy === "disable") {
-      const patternMesh = cart.getObjectByName("CartFramePattern");
-      if (patternMesh) patternMesh.visible = false;
+      // * Pattern is baked into the CartFrame material — clear to "classic" to disable it.
+      applyCartPattern(cart, "classic", this._neonHex);
     }
 
     centerCartGroup(cart);

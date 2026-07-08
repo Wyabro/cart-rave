@@ -9,6 +9,7 @@ import {
   wireButtonPressFeedback,
 } from "../animations.js";
 import { isLowQualityMode } from "../utils.js";
+import { settingsStore } from "../stores/settingsStore.js";
 
 
 /** Cancels in-flight Esc overlay entrance animations when reopening or closing. */
@@ -33,6 +34,8 @@ const elements = {
   escMuteBtn: null,
   escMusicVol: null,
   escSfxVol: null,
+  announcerVoiceBtn: null,
+  announcerCalloutsBtn: null,
 };
 
 function clamp(value, min, max) {
@@ -513,6 +516,51 @@ export function init(options = {}, hudContext = {}) {
   escAudioRow.appendChild(escVolStack);
   audioSection.body.appendChild(escAudioRow);
 
+  // * Store PA announcer toggles — own compact section rather than crowding
+  // * AUDIO further; ANNOUNCER gates all announcer audio (voice + stings),
+  // * CALLOUTS gates only the on-screen banner (announcerDisplay.js).
+  const announcerSection = createEscSection("◇ ANNOUNCER");
+  announcerSection.section.classList.add("esc-section--announcer");
+  const announcerRow = document.createElement("div");
+  announcerRow.className = "esc-announcer-row";
+
+  const syncAnnouncerVoiceButtonState = (enabled) => {
+    if (!elements.announcerVoiceBtn) return;
+    elements.announcerVoiceBtn.textContent = enabled ? "ANNOUNCER: ON" : "ANNOUNCER: OFF";
+    elements.announcerVoiceBtn.classList.toggle("esc-btn--off", !enabled);
+  };
+  elements.announcerVoiceBtn = document.createElement("button");
+  elements.announcerVoiceBtn.type = "button";
+  elements.announcerVoiceBtn.className = "esc-btn";
+  syncAnnouncerVoiceButtonState(settingsStore.getState().announcerVoiceEnabled);
+  elements.announcerVoiceBtn.addEventListener("click", () => {
+    const next = !settingsStore.getState().announcerVoiceEnabled;
+    settingsStore.getState().setAnnouncerVoiceEnabled(next);
+    syncAnnouncerVoiceButtonState(next);
+  });
+
+  const syncAnnouncerCalloutsButtonState = (enabled) => {
+    if (!elements.announcerCalloutsBtn) return;
+    elements.announcerCalloutsBtn.textContent = enabled ? "CALLOUTS: ON" : "CALLOUTS: OFF";
+    elements.announcerCalloutsBtn.classList.toggle("esc-btn--off", !enabled);
+  };
+  elements.announcerCalloutsBtn = document.createElement("button");
+  elements.announcerCalloutsBtn.type = "button";
+  elements.announcerCalloutsBtn.className = "esc-btn";
+  syncAnnouncerCalloutsButtonState(settingsStore.getState().announcerCalloutsEnabled);
+  elements.announcerCalloutsBtn.addEventListener("click", () => {
+    const next = !settingsStore.getState().announcerCalloutsEnabled;
+    settingsStore.getState().setAnnouncerCalloutsEnabled(next);
+    syncAnnouncerCalloutsButtonState(next);
+  });
+
+  wireEscButtonFeedback(elements.announcerVoiceBtn);
+  wireEscButtonFeedback(elements.announcerCalloutsBtn);
+
+  announcerRow.appendChild(elements.announcerVoiceBtn);
+  announcerRow.appendChild(elements.announcerCalloutsBtn);
+  announcerSection.body.appendChild(announcerRow);
+
   const scoringSection = createEscSection("◇ SCORING");
   scoringSection.section.classList.add("esc-section--scoring", "esc-scoring-block");
 
@@ -617,6 +665,7 @@ export function init(options = {}, hudContext = {}) {
   elements.escSections = [
     controlsSection.section,
     audioSection.section,
+    announcerSection.section,
     scoringSection.section,
   ];
 
@@ -629,6 +678,7 @@ export function init(options = {}, hudContext = {}) {
   escColPrimary.className = "esc-col-primary";
   escColPrimary.appendChild(controlsSection.section);
   escColPrimary.appendChild(audioSection.section);
+  escColPrimary.appendChild(announcerSection.section);
 
   escBody.appendChild(escColPrimary);
   escBody.appendChild(scoringSection.section);
@@ -668,5 +718,7 @@ export function init(options = {}, hudContext = {}) {
     escMuteBtn: elements.escMuteBtn,
     escMusicVol: elements.escMusicVol,
     escSfxVol: elements.escSfxVol,
+    announcerVoiceBtn: elements.announcerVoiceBtn,
+    announcerCalloutsBtn: elements.announcerCalloutsBtn,
   };
 }

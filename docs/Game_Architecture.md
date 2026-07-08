@@ -98,6 +98,7 @@ HUD and results work shipped over time to support:
 - Running timer (150s / 2.5 min)
 - Score display per slot (P1–P4)
 - Results/podium overlay with final scores, "PLAY AGAIN" (host only), and Main Menu
+- Announcer callouts ("The Store PA") — data-driven event system layered on top of the phase model; see [announcer.md](./announcer.md)
 
 ---
 
@@ -208,6 +209,7 @@ The handover notes repeatedly stress process discipline for reliability:
 - Daily/Weekly challenges (shipped)
 - Rampage combo system (shipped)
 - Grocery spill VFX (shipped)
+- Announcer system ("The Store PA") — arbitration engine, event director, callout UI, voice-asset pipeline (shipped)
 
 ### Technical and release (Phase 5 — deferred)
 

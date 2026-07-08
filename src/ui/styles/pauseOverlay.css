@@ -446,6 +446,29 @@
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
 }
 
+/* Generic dim/neutral "toggled off" state — shared by any esc-btn toggle
+   (currently the ANNOUNCER / CALLOUTS toggles). */
+#esc-overlay .esc-btn--off {
+  --btn-glow: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: none;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
+}
+
+/* ANNOUNCER section — two compact toggles side by side instead of the
+   full-width esc-btn treatment used in the bottom actions bar. */
+#esc-overlay .esc-announcer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(8px, 1.6vw, 10px);
+}
+
+#esc-overlay .esc-announcer-row .esc-btn {
+  flex: 1 1 140px;
+  width: auto;
+  min-height: 40px;
+}
+
 @media (pointer: coarse) {
   #esc-overlay {
     align-items: stretch;

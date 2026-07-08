@@ -1,0 +1,338 @@
+// announcerEvents.js — data-driven event table for "The Store PA" announcer.
+// Pure data: no imports, no side effects. announcerManager.js reads this table to
+// arbitrate which events get voiced/stung/called-out and when.
+
+/**
+ * @typedef {"sequence" | "critical" | "high" | "medium" | "low" | "ambient"} AnnouncerEventClass
+ */
+
+/**
+ * @typedef {object} AnnouncerCalloutDef
+ * @property {string} kicker Short uppercase label shown above the main line (e.g. "FIRST BLOOD").
+ * @property {string} accent CSS color for the callout's accent glow/border.
+ * @property {number} holdMs How long the callout stays visible once shown.
+ */
+
+/**
+ * @typedef {object} AnnouncerVoiceDef
+ * @property {string} key Voice asset lookup key (matches the event id unless noted).
+ * @property {number} variants Number of recorded variants available (01..NN).
+ */
+
+/**
+ * Fallback sting definition: "sfxKey" plays an already-registered Howler SFX by key;
+ * "proc" plays a named procedural sting from announcerStings.js.
+ * @typedef {{ type: "sfxKey", key: string } | { type: "proc", name: string }} AnnouncerStingDef
+ */
+
+/**
+ * @typedef {object} AnnouncerEventDef
+ * @property {string} id Unique event id — also the default table key.
+ * @property {number} priority Higher wins arbitration (interrupt/queue ordering).
+ * @property {AnnouncerEventClass} cls Arbitration class — see announcerManager.js rules.
+ * @property {number} cooldownMs Minimum time between two firings of this same event.
+ * @property {boolean} oncePerRound Fires at most once per round regardless of cooldown.
+ * @property {number} maxPerRound Hard cap on firings per round (0 = unlimited).
+ * @property {number} chance Probability gate in [0, 1]; 1 = always eligible.
+ * @property {number} ttlMs How long a queued instance of this event stays valid before expiring.
+ * @property {boolean} interruptible Whether a higher-priority event may cut this one off mid-play.
+ * @property {number} durationMs Estimated announcement audio length, used to reserve the channel.
+ * @property {AnnouncerCalloutDef | null} callout Visual callout payload, or null for audio-only events.
+ * @property {AnnouncerVoiceDef} voice Voice asset lookup definition.
+ * @property {AnnouncerStingDef | null} sting Fallback sting definition, or null for events with no audio.
+ */
+
+// * Voice assets resolve from `public/sounds/announcer/<locale>/<key>_<NN>.ogg|.mp3`
+// * — see docs/announcer.md for the recording/drop-in pipeline.
+
+/**
+ * Frozen event table keyed by event id. See AnnouncerEventDef for field semantics.
+ * @type {Readonly<Record<string, AnnouncerEventDef>>}
+ */
+export const ANNOUNCER_EVENTS = Object.freeze({
+  countdown_3: Object.freeze({
+    id: "countdown_3",
+    priority: 90,
+    cls: "sequence",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 800,
+    interruptible: false,
+    durationMs: 700,
+    callout: null,
+    voice: Object.freeze({ key: "countdown_3", variants: 1 }),
+    sting: Object.freeze({ type: "sfxKey", key: "countdown_3" }),
+  }),
+  countdown_2: Object.freeze({
+    id: "countdown_2",
+    priority: 90,
+    cls: "sequence",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 800,
+    interruptible: false,
+    durationMs: 700,
+    callout: null,
+    voice: Object.freeze({ key: "countdown_2", variants: 1 }),
+    sting: Object.freeze({ type: "sfxKey", key: "countdown_2" }),
+  }),
+  countdown_1: Object.freeze({
+    id: "countdown_1",
+    priority: 90,
+    cls: "sequence",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 800,
+    interruptible: false,
+    durationMs: 700,
+    callout: null,
+    voice: Object.freeze({ key: "countdown_1", variants: 1 }),
+    sting: Object.freeze({ type: "sfxKey", key: "countdown_1" }),
+  }),
+  go: Object.freeze({
+    id: "go",
+    priority: 90,
+    cls: "sequence",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 800,
+    interruptible: false,
+    durationMs: 800,
+    callout: null,
+    voice: Object.freeze({ key: "go", variants: 1 }),
+    sting: Object.freeze({ type: "sfxKey", key: "countdown_go" }),
+  }),
+  first_spill: Object.freeze({
+    id: "first_spill",
+    priority: 70,
+    cls: "high",
+    cooldownMs: 0,
+    oncePerRound: true,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 3000,
+    interruptible: false,
+    durationMs: 1200,
+    callout: Object.freeze({ kicker: "FIRST BLOOD", accent: "#ff2bd6", holdMs: 1600 }),
+    voice: Object.freeze({ key: "first_spill", variants: 3 }),
+    sting: Object.freeze({ type: "proc", name: "firstSpill" }),
+  }),
+  double_spill: Object.freeze({
+    id: "double_spill",
+    priority: 62,
+    cls: "high",
+    cooldownMs: 6000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2000,
+    interruptible: false,
+    durationMs: 1100,
+    callout: Object.freeze({ kicker: "TWO DOWN", accent: "#22e6ff", holdMs: 1500 }),
+    voice: Object.freeze({ key: "double_spill", variants: 3 }),
+    sting: Object.freeze({ type: "proc", name: "doubleSpill" }),
+  }),
+  aisle_wipeout: Object.freeze({
+    id: "aisle_wipeout",
+    priority: 68,
+    cls: "high",
+    cooldownMs: 10000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2500,
+    interruptible: false,
+    durationMs: 1400,
+    callout: Object.freeze({ kicker: "EVERYBODY DOWN", accent: "#ffe53d", holdMs: 1800 }),
+    voice: Object.freeze({ key: "aisle_wipeout", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "wipeout" }),
+  }),
+  rampage: Object.freeze({
+    id: "rampage",
+    priority: 50,
+    cls: "medium",
+    cooldownMs: 8000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2500,
+    interruptible: true,
+    durationMs: 1100,
+    callout: Object.freeze({ kicker: "KILL STREAK", accent: "#ff8a3d", holdMs: 1500 }),
+    voice: Object.freeze({ key: "rampage", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "tierUp1" }),
+  }),
+  savage: Object.freeze({
+    id: "savage",
+    priority: 55,
+    cls: "medium",
+    cooldownMs: 8000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2500,
+    interruptible: true,
+    durationMs: 1100,
+    callout: Object.freeze({ kicker: "KILL STREAK", accent: "#ff5e3d", holdMs: 1500 }),
+    voice: Object.freeze({ key: "savage", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "tierUp2" }),
+  }),
+  carnage: Object.freeze({
+    id: "carnage",
+    priority: 60,
+    cls: "high",
+    cooldownMs: 8000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2500,
+    interruptible: false,
+    durationMs: 1300,
+    callout: Object.freeze({ kicker: "KILL STREAK", accent: "#ff3333", holdMs: 1700 }),
+    voice: Object.freeze({ key: "carnage", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "tierUp3" }),
+  }),
+  refund: Object.freeze({
+    id: "refund",
+    priority: 45,
+    cls: "medium",
+    cooldownMs: 10000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2500,
+    interruptible: true,
+    durationMs: 1100,
+    callout: Object.freeze({ kicker: "REVENGE", accent: "#b366ff", holdMs: 1500 }),
+    voice: Object.freeze({ key: "refund", variants: 3 }),
+    sting: Object.freeze({ type: "proc", name: "refund" }),
+  }),
+  new_leader: Object.freeze({
+    id: "new_leader",
+    priority: 35,
+    cls: "low",
+    cooldownMs: 12000,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 2500,
+    interruptible: true,
+    durationMs: 1000,
+    callout: Object.freeze({ kicker: "SCOREBOARD", accent: "#22e6ff", holdMs: 1400 }),
+    voice: Object.freeze({ key: "new_leader", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
+  }),
+  comeback: Object.freeze({
+    id: "comeback",
+    priority: 48,
+    cls: "medium",
+    cooldownMs: 0,
+    oncePerRound: true,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 3000,
+    interruptible: true,
+    durationMs: 1200,
+    callout: Object.freeze({ kicker: "SCOREBOARD", accent: "#4dff88", holdMs: 1600 }),
+    voice: Object.freeze({ key: "comeback", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "comeback" }),
+  }),
+  cleanup_aisle: Object.freeze({
+    id: "cleanup_aisle",
+    priority: 20,
+    cls: "low",
+    cooldownMs: 18000,
+    oncePerRound: false,
+    maxPerRound: 2,
+    chance: 0.4,
+    ttlMs: 2000,
+    interruptible: true,
+    durationMs: 1200,
+    callout: Object.freeze({ kicker: "SELF CHECKOUT", accent: "#ffaa33", holdMs: 1500 }),
+    voice: Object.freeze({ key: "cleanup_aisle", variants: 3 }),
+    sting: Object.freeze({ type: "proc", name: "cleanup" }),
+  }),
+  close_call: Object.freeze({
+    id: "close_call",
+    priority: 10,
+    cls: "ambient",
+    cooldownMs: 25000,
+    oncePerRound: false,
+    maxPerRound: 2,
+    chance: 1,
+    ttlMs: 1000,
+    interruptible: true,
+    durationMs: 700,
+    callout: Object.freeze({ kicker: "SURVIVED", accent: "#4dff88", holdMs: 1100 }),
+    voice: Object.freeze({ key: "close_call", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "closeCall" }),
+  }),
+  last_call: Object.freeze({
+    id: "last_call",
+    priority: 40,
+    cls: "low",
+    cooldownMs: 0,
+    oncePerRound: true,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 1500,
+    interruptible: true,
+    durationMs: 1000,
+    callout: Object.freeze({ kicker: "10 SECONDS", accent: "#ff3333", holdMs: 1500 }),
+    voice: Object.freeze({ key: "last_call", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "lastCall" }),
+  }),
+  sudden_death: Object.freeze({
+    id: "sudden_death",
+    priority: 95,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: true,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 4000,
+    interruptible: false,
+    durationMs: 1400,
+    callout: null,
+    voice: Object.freeze({ key: "sudden_death", variants: 1 }),
+    sting: Object.freeze({ type: "proc", name: "suddenDeath" }),
+  }),
+  victory: Object.freeze({
+    id: "victory",
+    priority: 100,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: true,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 5000,
+    interruptible: false,
+    durationMs: 1600,
+    callout: null,
+    voice: Object.freeze({ key: "victory", variants: 1 }),
+    sting: Object.freeze({ type: "proc", name: "victory" }),
+  }),
+  defeat: Object.freeze({
+    id: "defeat",
+    priority: 100,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: true,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 5000,
+    interruptible: false,
+    durationMs: 1400,
+    callout: null,
+    voice: Object.freeze({ key: "defeat", variants: 1 }),
+    sting: Object.freeze({ type: "proc", name: "defeat" }),
+  }),
+});

@@ -1,6 +1,6 @@
 # Cart Rave — Todo & Historical Record
 
-**Last Updated:** July 7, 2026
+**Last Updated:** July 8, 2026
 
 > **Forward-looking work** is tracked in [ROADMAP.md](./ROADMAP.md).  
 > This file preserves phase history, shipped features, and current status.
@@ -12,6 +12,8 @@
 - **Core Game**: Fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction
 - **Physics & Feel**: Major stability overhaul complete. Floor bounciness and wheel clipping on trimesh colliders fully resolved by switching to mathematically precise convex hull + primitive colliders on Record, Backrooms, and Zanzibar levels. Mobile performance significantly improved.
 - **Current Phase**: Phase 4 — Multiplayer & Infrastructure (active); Phase 3 content is complete
+- **Announcer System (July 8, 2026)**: Production-ready "The Store PA" announcer framework shipped — data-driven event table, single-channel arbitration engine (priority interrupts, TTL queue, kill-burst merge, cooldowns), game-state director, neon callout UI with accessibility support, and a voice-asset pipeline that drops in recordings with zero code changes. Full writeup and event catalog in [docs/announcer.md](./announcer.md).
+- **Visual Polish Pass (July 8, 2026)**: Targeted AAA-style rendering pass preserving the dark-arena + punchy-neon identity — full writeup in [docs/visual-audit.md](./visual-audit.md). Global look retuned (exposure 0.40, bloom 0.34 @ 0.76); kill-confirm gains a layered FOV punch + white flash + aberration pulse via a new `uFlash` uniform on the Arcade FX shader; Zanzibar cart blob shadows nudge subliminally away from the sun; Backrooms gets one grazing steel-blue rim light; Classic pit-wall gradient eased with additive depth rings + violet horizon glow band + distance-tiered starfield; Zanzibar sky/sun-halo realigned to the retuned fog hex and islands rebuilt as fog-inheriting atmospheric silhouettes; grocery cargo now sits in the basket instead of clipping through it. Cart material system rewired: patterns moved from a coplanar duplicate `CartFramePattern` mesh to an `onBeforeCompile` shader mask on the frame material (uniform swap between patterns, no shader recompile), and the GLTF cart body `emissiveMap` is now a generated grayscale wire mask cached per source-texture uuid so wire glow tunes independent of albedo. Full customization contract (recolor caches, userData keys, respawn rebuild path) preserved.
 - **Production-Readiness Pass (July 7, 2026)**: Full-codebase audit with 50 ranked improvements ([docs/audits/production-readiness-audit-2026-07.md](./audits/production-readiness-audit-2026-07.md)); top 10 shipped — Safari/iOS `.mp3` audio fallbacks (game had **zero audio on Safari**), Open Graph/Twitter link previews, fixed PWA manifest + `theme-color`, runtime error reporting with rate-limiting, centralized `localStorage` in `src/utils/storage.js`, shared touch detection in `src/utils/device.js`, all 10 knip dead exports removed, ~25 MB of dead assets/config purged. New `npm run check` gate (typecheck + tests + knip) is green.
 - **Recent Technical Work**: **WebRTC signaling root-cause fix — multiplayer restored** (host now initiates the DataChannel offer to each peer via `ensureHostPeerConnections()` in the `MSG.slots` handler; previously `createOffer` was unreachable because the only callers were non-host no-ops, so no DataChannel ever opened) + Major dead code removal & protocol cleanup (~250 lines deleted: server-side collision/fall validators, `reconcilePredictedLocalCart`, `inputSendTimer`/`startInputSendLoop`, `configureP2P`/`getPeerConnections`/`getDataChannels`) + shared NPC name pool (`shared/npcNames.js`, single source of truth for client + server) + protocol MSG reorganized into WebSocket control plane vs WebRTC gameplay plane + `handleP2PMessage` rejects stale host snapshots by `fromConnId !== hostId` (cross-transport guard since WebRTC is unordered but host_migrated is WebSocket) + slots accepted verbatim from server (no local `declashNpcSlotColors` on MSG.slots, server owns slot colors) + binary decoder now uses `MSG.hostTransform` shared constant (was hardcoded literal "hostTransform" that never matched `"host_transform"`) + interpolation helpers extracted (`lerpVec3Pair`, `slerpQuatPair`) + `broadcastHostTransform` now uses binary encoder + non-host P2P dispatches all JSON types to `onStateCallback` (was filtering to hostTransform only, dropping MSG.spill) + host migration freeze now uses monotonic clock + `dispatchP2P`/`setHostIdForTest` test hooks for e2e binary-to-buffer dispatch tests + Worker ASSETS fallback + rigid body double-free guards on all levels + NaN/Infinity guards in binary decode + binary serialization + input sampling moved to physics loop + server reaper fix + server spill relay removed + deterministic physics timestamps + client-side prediction rewrite + empty slot cart body fix + scene update clock sync + monotonic clock adoption + host fall event batching + pending input buffer + WebRTC P2P DataChannel migration + server reduced to signaling relay + all prior work
 - **Modular Structure**: Core systems live in `src/`; `main.js` remains the thin orchestrator
@@ -71,6 +73,61 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 ---
 
 ## Completed / Shipped (Historical Record)
+
+### July 8, 2026 – Visual Polish Pass (Three.js Rendering)
+
+Targeted AAA-style rendering pass on the existing Cart Rave presentation — no gameplay changes, no arena redesign, full customization contract preserved. Full audit + round-by-round record in [docs/visual-audit.md](./visual-audit.md). Owner steered the pass through three feedback rounds; final look is deliberately dark with restrained bloom (dark arena + punchy neon is the identity, not a "bright arcade" brief).
+
+**Global rendering**
+- Exposure retuned 0.88 → 0.62 → 0.46 → **0.40** across three "still too bright" rounds; bloom strength 0.67 → **0.34**, threshold 0.86 → **0.76**, `smoothWidth` widened to 0.14 (also fixed a latent Rec.709-luma bug where magenta neon at luma 0.29 never crossed the old 0.86 cutoff while cyan at 0.79 did).
+- Fog hexes retuned in the corrected pipeline (colors now display as authored — previously rendered darker via the missing sRGB encode).
+
+**M-tier arena/effect work**
+- **Kill-confirm layered feedback (M3)**: softened FOV punch (9°/180ms; ram hits stay 8°/100ms via a `Math.max` `armFovPunch` helper so overlaps never truncate) + center-weighted white flash via a **new `uFlash` uniform on the Arcade FX shader pass** + aberration/vignette pulse. All decays run on cheap uniform writes each frame.
+- **Zanzibar directional blob-shadow bias (M4)**: `CONFIG.contactShadows.directionalBias.zanzibar = { x: 0.27, z: -0.22 }` offsets cart blobs away from the sun; overhead-lit arenas keep centered blobs; footprint sampling still uses the true cart position. Level identified via the existing octagon-hazards flag (no new level-tracking path).
+- **Backrooms cart-contrast rim light (M5)**: one steel-blue (`0x7a8fc0`) `DirectionalLight` @ 0.2 raking near-grazing across the play space — carts and the furniture pile pick up a faint cool edge without lifting the carpet (the initial 0.35 at a steeper angle read as "glowing carpet" per owner feedback, retuned).
+- **Classic pit + backdrop dressing (M6)**: pit-wall vertex-color gradient eased `t^2.6` on 24 height segments with a violet rim band + **5 additive depth rings** at decreasing brightness down the shaft; horizon-fog cylinder color now reads from `CONFIG.postFx.fog.color` (was hardcoded to the stale pre-retune hex, would have seamed against the retuned clear color); starfield gained distance-based brightness tiers; faint violet horizon glow band added.
+- **Zanzibar horizon + islands (M7)**: sky-gradient bottom stops and sun-halo color realigned to the retuned `0xff5a22` fog hex (sky and ocean now melt seamlessly instead of showing a hard waterline seam). Islands rebuilt from three flat cutouts into **two-layer atmospheric-perspective silhouettes** (3 clusters, 2 layers each, 4 hand-picked tones) that now take scene fog and inherit the exact same ember haze the ocean fades into — reads as depth in the atmosphere, not cardboard.
+
+**Cart material system (R-tier, full customization contract preserved)**
+- **R2 — pattern overlay → in-material shader mask (`src/cartPatterns.js`)**: replaced the coplanar `CartFramePattern` duplicate mesh (polygonOffset hack, doubled draw of the heaviest cart mesh) with an `onBeforeCompile` mask injection on the CartFrame's own `MeshPhysicalMaterial`. Uniforms: `uPatternMask`, `uPatternRepeat`, `uPatternStrength`, `uPatternTint`, `uPatternEmissive`. `material.customProgramCacheKey = "cartPattern:0|1"` — switching between two non-classic patterns swaps a texture uniform without a shader recompile; only classic↔patterned flips recompile. Injected chunks modulate (never replace) the standard color/emissive pipeline, so per-frame recolor / leader-glow / boost-pulse still work. Works for both cart pipelines (GLTF body with albedo map, procedural fallback CartFrame without).
+- **R3 — dedicated emissive wire mask (`src/cartRaveGltf.js`)**: body role no longer reuses its own albedo as `emissiveMap` — a grayscale wire mask is now generated once per source-texture uuid (`buildRaveGltfWireEmissiveMask`, cached in `_wireEmissiveMaskCache`) by threshold-ramping the albedo's channel-max brightness (smoothstep 0.45 → 0.7, deliberately picked over Rec.709 luma so saturated magenta/blue wires aren't missed). Fallback to the previous albedo-reuse behavior on unsupported texture types (compressed / non-drawable / undecodable). Wire glow intensity is finally tunable independent of body albedo detail.
+- **Preservation guarantees held**: `frameMats`/`frameBodyMats`/`accentMats`/`frameGlowMats` cache arrays, every `userData` gate (`isCartFrame`/`isRaveGltf`/`raveGltfPartRole`/`raveGltfAuthoredColor`/`raveGltfHasEmissiveAccent`/`preserveGltfMaps`/`isSharedGeometry`), and the `rebuildCartVisualsIntoRoot` shatter-rebuild path all still work.
+- R1 (wheel decimation) and R4 (theme variety) declined by owner.
+
+**Grocery cargo clipping fix (`src/effects/groceryPool.js`)**
+- `createCargoBay` was placing items by center point only — bottoms sank through the basket floor and edge items poked through the sides. Each item now measures its bounding-sphere radius, insets the XZ spread from the walls, and sets its rest height off the floor. Fully backward-compatible when `hw`/`hl` are omitted.
+
+**Verification**
+- `npm run check` green (0 TS errors, 61/61 tests, 0 knip findings) after every stage.
+- Verified in-browser on all three arenas via preview screenshots; when the hidden-tab rAF freeze prevented a live screenshot of the new shader-mask material, drove the modules directly against the live singletons (spawned a patterned cart, confirmed zero `CartFramePattern` meshes, mask uniforms present, cache key `cartPattern:1`, `emissiveMap !== map`) and rendered offscreen to confirm 3 programs compiled without diagnostics and zero GL errors.
+
+**Delegation note:** four parallel subagents handled the initial audit + level dressing (arenas/carts/effects audits, Backrooms rim light, Zanzibar islands, R2/R3 material rewrite), with global tuning, kill-confirm shader work, blob-shadow bias, Classic pit dressing, and the grocery fix reserved for the orchestrating session. Two subagents were killed mid-flight by an API rate limit early on — those tasks (M4, M6) were finished inline rather than respawned.
+
+### July 8, 2026 – Announcer System ("The Store PA")
+
+Production-ready announcer framework designed and built for the Steam demo push. Creative direction: a supermarket tannoy hijacked by the rave's MC — retail-flavored callouts (FIRST SPILL, REFUND, CLEAN-UP ON AISLE, BUY ONE GET ONE) instead of generic arena-shooter vocabulary, deliberately built to avoid Halo/Rocket League/UT tropes. No AI voice clips or placeholder dialogue — polished procedural stings + visual callouts stand in until real recordings land, via a fully data-driven voice pipeline.
+
+**Architecture** (`src/announcer/`):
+- `announcerManager.js` — the single arbitration entry point (`announce(eventId, data)`). Owns every rule about whether/when an announcement plays: single channel with a 1.2s minimum gap; `sequence`-class events (countdown/GO) bypass the gap and are never queued; `critical`-class events (Sudden Death, victory/defeat) interrupt and flush the queue; other interrupts require priority ≥ active+20 on an interruptible event; a 2-slot priority queue with per-event TTL, dedupe, and eviction; `ambient`-class events (close_call) only play into silence; a 450ms kill-burst merge collapses pile-ups into one line (a wipeout swallows its double-spill and rampage); `comeback` swallows a simultaneous `new_leader`.
+- `announcerEvents.js` — frozen data table (priority, cooldown, once/max-per-round, chance, callout config, voice-asset manifest) for 19 events. No engine changes needed to add an event.
+- `announcerLines.js` — localization-ready subtitle lines with `{attacker}`/`{victim}`/`{leader}`/`{aisle}` token substitution, no-repeat-in-a-row variant picking, and automatic filtering of variants whose tokens aren't satisfiable by the given data.
+- `announcerStings.js` — 15 procedural WebAudio stings in the existing `sfxSynth.js` `spawnTone` idiom (standalone, no dependency on it).
+- `announcerDirector.js` — pure game-state observer. Subscribes to `gameStore` for round-phase transitions and score changes; derives first_spill, double/triple-KO bursts, revenge (refund), combo tier-ups (rampage/savage/carnage), self/environmental KOs (cleanup_aisle), close calls, and leader/comeback detection (with deficit tracking) — then calls `announce()`. Runs identically on host and non-host: kill events reach every client through the existing `falls[]` snapshot tail, so zero netcode changes were needed.
+- `src/ui/announcerDisplay.js` + `src/ui/styles/announcer.css` — neon callout banner (kicker + skewed uppercase main line, accent-glow text-shadow) positioned below the HUD status line; punchy scale-in/fade-out entrance, `prefers-reduced-motion` fallback, and a visually-hidden `aria-live="polite"` region so every announcement reaches screen readers even with callouts or audio disabled.
+
+**Integration** — every hook is a purely additive observer; no gameplay, scoring, or protocol changes:
+- Host fall hook in `gameFlow.js`; non-host mirror in the `falls[]` replay path in `netcode.js`; both converge on `announcerDirectorOnFall`.
+- `hud.js` countdown/GO/Sudden-Death/final-10s ticks now route through `announce()` instead of calling `AudioManager.playSfx`/`sfxSynth` stings directly.
+- `main.js` wires init, the presenter (`setAnnouncerPresenter(initAnnouncerDisplay())`), the local big-hit → close_call hook, and victory/defeat at the podium.
+- Pause overlay gained an ◇ ANNOUNCER section (ANNOUNCER + CALLOUTS toggles, gamepad-navigable), persisted via `settingsStore` (`cartRaveAnnouncerVoice` / `cartRaveAnnouncerCallouts`).
+- `sfxSynth.js`'s victory fanfare / defeat sting / Sudden Death sting were retired in favor of announcer-owned equivalents (same musical recipes, now reimplemented in `announcerStings.js`).
+
+**Voice pipeline** (documented in [docs/announcer.md](./announcer.md)) — drop `public/sounds/announcer/<locale>/<eventId>_<NN>.ogg|.mp3`, register with Howler as `announcer_<eventId>_<NN>`, call `registerAnnouncerVoicePack({ locale, availableKeys })`. Fallback chain: voice variant → sting → silent-with-subtitle. Partial packs are fine.
+
+**Validation** — `npm run check` green (0 TS errors, 61/61 tests including 29 new arbitration tests, 0 knip findings). Verified end-to-end in-browser by driving the live initialized singletons (the preview tab's hidden `visibilityState` freezes `requestAnimationFrame`, so a full physics playtest was not possible in-session): first_spill, double/triple-KO merge, rampage/savage/carnage, refund, cleanup_aisle, new_leader, comeback, the critical Sudden Death interrupt, victory, and lobby teardown all produced correct callouts, subtitle text, accent colors, and `aria-live` announcements, with cooldowns correctly suppressing repeat spam.
+
+**Delegation note:** implemented via three parallel Sonnet subagent workstreams (core arbitration engine + tests, gameplay/director wiring, callout UI + settings), with creative direction, priority tuning, and integration review reserved for the orchestrating session — per the session's explicit orchestration request.
 
 ### July 7, 2026 – Production Value Pass (Top-10 Player-Experience Improvements)
 
@@ -470,4 +527,4 @@ Tracked in [ROADMAP.md](./ROADMAP.md) and [post-jam-ideas.md](./post-jam-ideas.m
 
 ---
 
-**Last Updated:** July 7, 2026
+**Last Updated:** July 8, 2026

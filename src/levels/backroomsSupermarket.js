@@ -1261,9 +1261,25 @@ function buildCeiling(scene, world, ceilingTex) {
   });
   ownedMaterials.push(frameMat, litMat, dimMat, deadMat);
 
+  // Fixtures never move, so bake every frame rail and panel into merged static meshes:
+  // one draw call for the shared frame material, plus one per panel state bucket
+  // (lit/dim/dead). The panel states differ by material props (emissive color/intensity,
+  // base color, roughness) that an InstancedMesh can't vary per-instance, so a per-state
+  // merge reproduces their exact appearance. This collapses ~125 individual fixture meshes
+  // to 4 draw calls with zero visual change — same geometry (transforms baked into
+  // vertices), same materials, same deterministic dead/dim pattern.
   const frameRailGeo = new THREE.BoxGeometry(4.8, 0.07, 0.14);
   const panelGeo = new THREE.BoxGeometry(4.5, 0.1, 1.85);
-  ownedGeometries.push(frameRailGeo, panelGeo);
+
+  /** @type {THREE.BufferGeometry[]} */
+  const railParts = [];
+  /** @type {Record<"lit" | "dim" | "dead", THREE.BufferGeometry[]>} */
+  const panelParts = { lit: [], dim: [], dead: [] };
+  const railPos = new THREE.Vector3();
+  const railEuler = new THREE.Euler();
+  const railQuat = new THREE.Quaternion();
+  const railScale = new THREE.Vector3(1, 1, 1);
+  const railMatrix = new THREE.Matrix4();
 
   const grid = 5;
   const span = ARENA_HALF * 1.75;
@@ -1283,7 +1299,6 @@ function buildCeiling(scene, world, ceilingTex) {
       // Deterministic state: ~1 in 5 dead, ~1 in 4 dimmed, rest lit.
       const h = (gx * 7 + gz * 13) % 20;
       const state = h < 4 ? "dead" : h < 9 ? "dim" : "lit";
-      const panelMat = state === "dead" ? deadMat : state === "dim" ? dimMat : litMat;
 
       const railOffsets = [
         { x: 0, z: 0.98, ry: 0 },
@@ -1292,15 +1307,18 @@ function buildCeiling(scene, world, ceilingTex) {
         { x: -2.4, z: 0, ry: Math.PI / 2 },
       ];
       for (const r of railOffsets) {
-        const rail = new THREE.Mesh(frameRailGeo, frameMat);
-        rail.position.set(px + r.x, fixtureY + 0.04, pz + r.z);
-        rail.rotation.y = r.ry;
-        group.add(rail);
+        railPos.set(px + r.x, fixtureY + 0.04, pz + r.z);
+        railEuler.set(0, r.ry, 0);
+        railQuat.setFromEuler(railEuler);
+        railMatrix.compose(railPos, railQuat, railScale);
+        const g = frameRailGeo.clone();
+        g.applyMatrix4(railMatrix);
+        railParts.push(g);
       }
 
-      const panel = new THREE.Mesh(panelGeo, panelMat);
-      panel.position.set(px, fixtureY - 0.06, pz);
-      group.add(panel);
+      const pg = panelGeo.clone();
+      pg.translate(px, fixtureY - 0.06, pz);
+      panelParts[state].push(pg);
 
       if (state === "lit") {
         const spot = new THREE.SpotLight(
@@ -1318,6 +1336,24 @@ function buildCeiling(scene, world, ceilingTex) {
       }
     }
   }
+
+  // Bake the collected fixture geometry into merged static meshes (1 rail bucket + up to 3
+  // panel buckets). Each merged buffer is tracked for the level dispose() path exactly like
+  // the geometry it replaces; the per-cell clones and the two template geometries are
+  // consumed/disposed here so nothing leaks.
+  const mergeCeilingParts = (parts, mat) => {
+    if (parts.length === 0) return;
+    const merged = BufferGeometryUtils.mergeGeometries(parts, false);
+    parts.forEach((g) => g.dispose());
+    ownedGeometries.push(merged);
+    group.add(new THREE.Mesh(merged, mat));
+  };
+  mergeCeilingParts(railParts, frameMat);
+  mergeCeilingParts(panelParts.lit, litMat);
+  mergeCeilingParts(panelParts.dim, dimMat);
+  mergeCeilingParts(panelParts.dead, deadMat);
+  frameRailGeo.dispose();
+  panelGeo.dispose();
 
   // * Thin overhead slab — carts that hop high enough hit the acoustic tiles and bounce back.
   const ceilHalf = ceilSpan / 2;
@@ -1589,6 +1625,22 @@ export function initBackroomsSupermarket(scene, world, config) {
   const ambient = new THREE.AmbientLight(0x7a7358, 0.74);
   scene.add(ambient);
 
+  // * Steel-blue rim/fill light — the arena is intentionally warm (yellowed wallpaper,
+  // * beige carpet, warm fluorescents), which lets warm-neon carts (yellow/orange) blend
+  // * into the backdrop. A single low-intensity cool DirectionalLight angled across the
+  // * play space gives carts and the furniture pile a faint cool edge without lifting
+  // * overall brightness or diluting the warm/liminal mood (kept clearly warm-dominant
+  // * versus the 1.42 hemi + 0.74 ambient above). Not a key light — no shadows, no fog/
+  // * material changes.
+  // * Near-grazing angle (low height, lifted target) keeps the rim on vertical cart
+  // * surfaces while the carpet's up-normal barely sees it — a steeper angle at 0.35
+  // * intensity washed the whole carpet with a blue sheen that read as glowing.
+  const coolRimLight = new THREE.DirectionalLight(0x7a8fc0, 0.2);
+  coolRimLight.position.set(-ARENA_HALF * 0.6, 7, ARENA_HALF * 0.5);
+  coolRimLight.target.position.set(ARENA_HALF * 0.3, 1.2, -ARENA_HALF * 0.2);
+  scene.add(coolRimLight);
+  scene.add(coolRimLight.target);
+
   // ===== Spawn booths (liminal office re-skin) =====
   const boothNeonMeshes = []; // * Intentionally empty — no rave neon to color-cycle.
   const boothColliderHandles = [];
@@ -1620,7 +1672,7 @@ export function initBackroomsSupermarket(scene, world, config) {
     floorMesh, voidGroup, pit.group, walls.group, ceiling.group, booths.group,
     furniturePile.group,
     furnitureSpotlight.spot, furnitureSpotlight.spot.target, furnitureSpotlight.fixture,
-    hemiLight, ambient, spindleLight,
+    hemiLight, ambient, coolRimLight, coolRimLight.target, spindleLight,
   ];
 
   const ownedGeometries = [

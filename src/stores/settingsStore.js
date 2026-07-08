@@ -16,6 +16,8 @@ function detectDefaultLowQuality() {
 function loadInitialSettings() {
   const bloomEnabled = storageGet(STORAGE_KEYS.bloom) !== "off";
   const fxPassEnabled = storageGet(STORAGE_KEYS.fxPass) !== "off";
+  const announcerVoiceEnabled = storageGet(STORAGE_KEYS.announcerVoice) !== "off";
+  const announcerCalloutsEnabled = storageGet(STORAGE_KEYS.announcerCallouts) !== "off";
 
   let lowQuality;
   const val = storageGet(STORAGE_KEYS.lowQuality);
@@ -29,7 +31,7 @@ function loadInitialSettings() {
 
   const selectedLevelId = storageGet(STORAGE_KEYS.level);
 
-  return { bloomEnabled, fxPassEnabled, lowQuality, selectedLevelId };
+  return { bloomEnabled, fxPassEnabled, lowQuality, selectedLevelId, announcerVoiceEnabled, announcerCalloutsEnabled };
 }
 
 const initialState = loadInitialSettings();
@@ -58,5 +60,17 @@ export const settingsStore = createStore((set) => ({
   setSelectedLevelId: (levelId) => {
     set({ selectedLevelId: levelId });
     if (levelId) storageSet(STORAGE_KEYS.level, levelId);
+  },
+
+  setAnnouncerVoiceEnabled: (enabled) => {
+    const val = Boolean(enabled);
+    set({ announcerVoiceEnabled: val });
+    storageSet(STORAGE_KEYS.announcerVoice, val ? "on" : "off");
+  },
+
+  setAnnouncerCalloutsEnabled: (enabled) => {
+    const val = Boolean(enabled);
+    set({ announcerCalloutsEnabled: val });
+    storageSet(STORAGE_KEYS.announcerCallouts, val ? "on" : "off");
   },
 }));

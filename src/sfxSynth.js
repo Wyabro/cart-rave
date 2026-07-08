@@ -94,57 +94,8 @@ export function playKillConfirm() {
   spawnTone(ctx, dest, "square", 660, 660, 0.07, g * 0.5, now + 0.055);
 }
 
-/**
- * Rising major arpeggio C5→E5→G5→C6 (~1.1s) with a supporting sawtooth layer an
- * octave down; the final C6 is held longer with a gentle second strike for shimmer.
- */
-export function playVictoryFanfare() {
-  const p = resolvePlayback();
-  if (!p) return;
-  const { ctx, dest, vol, now } = p;
-  const g = 0.18 * vol;
-  const notes = [523.25, 659.25, 784, 1046.5];
-  for (let i = 0; i < notes.length; i++) {
-    const t = now + i * 0.12;
-    const isFinal = i === notes.length - 1;
-    const dur = isFinal ? 0.5 : 0.32;
-    spawnTone(ctx, dest, "triangle", notes[i], notes[i], dur, g, t);
-    // * Supporting sawtooth one octave down at 0.35x gain fills out the low end.
-    spawnTone(ctx, dest, "sawtooth", notes[i] / 2, notes[i] / 2, dur, g * 0.35, t);
-  }
-  // * Gentle second strike of the top note during its hold for shimmer.
-  spawnTone(ctx, dest, "triangle", 1046.5, 1046.5, 0.5, g * 0.5, now + 0.55);
-}
-
-/**
- * Descending soft minor line A4→F4→D4 (~0.9s), sine, subdued.
- * Sad but dignified — not mocking.
- */
-export function playDefeatSting() {
-  const p = resolvePlayback();
-  if (!p) return;
-  const { ctx, dest, vol, now } = p;
-  const g = 0.12 * vol;
-  const notes = [440, 349.23, 293.66];
-  for (let i = 0; i < notes.length; i++) {
-    spawnTone(ctx, dest, "sine", notes[i], notes[i], 0.38, g, now + i * 0.18);
-  }
-}
-
-/**
- * Tension hit (~0.9s): low sawtooth drone swelling underneath two dissonant
- * minor-second square stabs. Everything is on the line.
- */
-export function playSuddenDeathSting() {
-  const p = resolvePlayback();
-  if (!p) return;
-  const { ctx, dest, vol, now } = p;
-  // * Drone: A2 swelling over 500ms, then decaying through the stabs' tail.
-  spawnTone(ctx, dest, "sawtooth", 110, 110, 0.9, 0.1 * vol, now, 0.5);
-  // * Stabs: D#5 then E5 (minor 2nd apart) — grinding, unresolved.
-  spawnTone(ctx, dest, "square", 622.25, 622.25, 0.14, 0.14 * vol, now);
-  spawnTone(ctx, dest, "square", 659.25, 659.25, 0.14, 0.14 * vol, now + 0.16);
-}
+// * Victory fanfare, defeat sting, and Sudden Death tension hit moved to
+// * src/announcer/announcerStings.js — those moments are announcer-owned now.
 
 /**
  * Single short metronomic countdown tick (30ms square). Pitch and level rise

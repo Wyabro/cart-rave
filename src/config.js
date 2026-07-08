@@ -311,7 +311,10 @@ export const CONFIG = {
 
   postFx: {
     // * Renderer exposure — lower keeps diffuse surfaces subdued while emissive neon blooms.
-    toneMappingExposure: 0.88,
+    // * Retuned for the corrected pipeline (OutputPass tone-map + sRGB encode): the old
+    // * 0.88 was authored when exposure was silently ignored; values now display brighter.
+    // * Kept deliberately low — the game's identity is dark arena + punchy neon.
+    toneMappingExposure: 0.4,
 
     // * IBL (Image-Based Lighting) — RoomEnvironment PMREM on scene.environment.
     // * intensity scales all MeshStandardMaterial envMapIntensity; tune in postFxDebug (H / ?debug).
@@ -322,10 +325,13 @@ export const CONFIG = {
 
     // * UnrealBloomPass tuning — see applyBloomSettings() in scene.js.
     bloom: {
-      strength: 0.67, // unitless — bloom composite intensity
+      strength: 0.34, // unitless — bloom composite intensity
       radius: 0.34, // unitless — halo tightness (lower = crisper neon, higher = hazier)
-      threshold: 0.86, // unitless — luminance cutoff (higher = emissive-only bloom)
-      smoothWidth: 0.055, // unitless — soft knee on the high-pass (avoids hard cutoffs)
+      // * Lower threshold + wide knee: Rec.709 luma under-weights red/blue, so magenta
+      // * neon (luma 0.29) never crossed the old 0.86 cutoff while cyan (0.79) did.
+      // * The wide knee lets low-luma hues glow softly instead of not at all.
+      threshold: 0.76, // unitless — luminance cutoff (higher = emissive-only bloom)
+      smoothWidth: 0.14, // unitless — soft knee on the high-pass (avoids hard cutoffs)
     },
 
     arcade: {
@@ -335,15 +341,18 @@ export const CONFIG = {
     },
 
     // * Scene FogExp2 — Classic uses default fog on createScene(); Backrooms overrides on load.
+    // * Fog hexes retuned for the corrected pipeline: colors now display as authored
+    // * (previously they rendered darker via the missing sRGB encode), so each hex was
+    // * shifted toward its old *perceived* value to keep the arena identities.
     fog: {
-      color: 0x0a0520, // deep blue-violet void (matches renderer clear)
+      color: 0x040112, // deep blue-violet void (matches renderer clear)
       density: 0.0065, // conservative — depth at distance without hiding gameplay
       backrooms: {
-        color: 0x2a2418, // thick warm musty haze
+        color: 0x1a1510, // thick warm musty haze
         density: 0.029,
       },
       zanzibar: {
-        color: 0xff8c4a, // sunset ember — melts ocean seamlessly into sunset horizon
+        color: 0xff5a22, // sunset ember — melts ocean seamlessly into sunset horizon
         density: 0.0032,
       },
     },
@@ -356,6 +365,13 @@ export const CONFIG = {
     floorEpsilon: 0.045,
     textureSize: 128,
     textureSoftness: 0.92, // outer gradient radius — higher = wider soft falloff
+    // * Visual-only directional bias (meters at ground level) — nudges cart blobs away
+    // * from the arena's key light for a subliminal depth cue. Only Zanzibar has a
+    // * strong directional sun (SUN_AZIMUTH = π·0.78 → sunDir ≈ (-0.77, 0.64)); the
+    // * overhead-lit arenas keep centered blobs. Scaled by the airborne fade factor.
+    directionalBias: {
+      zanzibar: { x: 0.27, z: -0.22 },
+    },
     cart: {
       footprintRadiusX: 0.8, // meters — half cart width + caster margin (local X → world X at yaw 0)
       footprintRadiusZ: 1.16, // meters — half cart length + margin (local Y → world Z at yaw 0)

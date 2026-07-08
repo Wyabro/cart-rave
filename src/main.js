@@ -56,6 +56,10 @@ import { setContactShadowHazards } from "./contactShadows.js";
 import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
 import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
+import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/announcerManager.js";
+import { initAnnouncerStings } from "./announcer/announcerStings.js";
+import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorOnLocalBigHit } from "./announcer/announcerDirector.js";
+import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
 import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
@@ -511,7 +515,7 @@ async function main() {
   }
 
   // * Create AudioListener early so Howler can share its AudioContext before any Howl loads.
-  // * camera.add(audioListener) happens after camera creation below.
+  // * Attached to scene (not camera) to prevent Reflector from cloning it every frame.
   const audioListener = new THREE.AudioListener();
 
   // * Audio UI pushes volume/mute changes into main()-owned objects; hud/leaderHum
@@ -657,6 +661,10 @@ async function main() {
   let shakeUntil = 0;
   let shakeIntensity = 0;
   let fovPunchUntil = 0;
+  // * Punch amplitude in degrees — ram hits use the base 8°, kill confirms hit harder.
+  let fovPunchDeg = 8;
+  // * Kill-confirm white flash on the arcade pass (uFlash uniform) — short and sharp.
+  const killFlash = { until: 0, durationMs: 110, strength: 0 };
   // * Post-FX impact pulse — vignette/aberration kick when the local cart takes a big hit.
   // * Baselines are captured from the live uniforms at trigger time so the pulse never
   // * fights the dev Tweakpane or config changes; frameVisuals decays and restores them.
@@ -672,6 +680,13 @@ async function main() {
     impactPulse.strength = Math.min(strength, 1.2);
     impactPulse.until = now + impactPulse.durationMs;
   }
+  // * max-of on both duration and amplitude — overlapping punches never truncate or
+  // * soften each other (a ram punch landing mid kill-punch keeps the kill's 12°).
+  function armFovPunch(deg, durationMs) {
+    const now = performance.now();
+    fovPunchDeg = now < fovPunchUntil ? Math.max(fovPunchDeg, deg) : deg;
+    fovPunchUntil = Math.max(fovPunchUntil, now + durationMs);
+  }
   function triggerLocalRamShake(intensity, isBoosting = false) {
     const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
     const minI = isBoosting
@@ -679,18 +694,23 @@ async function main() {
       : (fx.shakeMinIntensity ?? 0.38);
     if (intensity < minI) return;
     const clampedI = Math.min(intensity, 1.2);
+    announcerDirectorOnLocalBigHit(clampedI);
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
     shakeUntil = performance.now() + 150 + clampedI * 100;
     triggerImpactPulse(clampedI);
     if (clampedI >= 0.45 && isBoosting) {
-      fovPunchUntil = performance.now() + 100;
+      armFovPunch(8, 100);
     }
   }
-  // * Attacker-side KO payoff — confirm sting + hitmarker + FOV punch. Fired by
-  // * gameFlow on the host and by the falls[] replay path on non-host clients.
+  // * Attacker-side KO payoff — confirm sting + hitmarker + harder FOV punch + white
+  // * flash + aberration kick. Fired by gameFlow on the host and by the falls[] replay
+  // * path on non-host clients. Purely presentational — never touches physics dt.
   function onLocalKillConfirm(_victimSlotIndex, _comboTier) {
-    fovPunchUntil = performance.now() + 200;
+    armFovPunch(9, 180);
+    killFlash.strength = 0.6;
+    killFlash.until = performance.now() + killFlash.durationMs;
+    triggerImpactPulse(0.55);
     SfxSynth.playKillConfirm();
     hud?.showKillConfirm?.();
   }
@@ -731,6 +751,29 @@ async function main() {
   // * challenge complete) share the leader-chime WebAudio path and volume gates.
   SfxSynth.initSfxSynth(audioListener, { getSfxVolume, getIsMuted });
 
+  // * "The Store PA" announcer — voice/sting playback core, then the presentation-only
+  // * game-state observer that decides what to announce and when.
+  initAnnouncerStings(audioListener, { getSfxVolume, getIsMuted });
+  initAnnouncer({
+    getSfxVolume,
+    getIsMuted,
+    playSfx: (key) => AudioManager.playSfx(key),
+    isVoiceEnabled: () => settingsStore.getState().announcerVoiceEnabled !== false,
+    isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
+  });
+  initAnnouncerDirector({
+    announce,
+    getNetSlots: () => Netcode.getNetSlots(),
+    getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+    getRemainingRoundMs: () => {
+      const rs = GameState.getRoundState();
+      if (rs.phase !== "running" || rs.isSuddenDeath || !rs.startedAtMs) return null;
+      return (CONFIG.round?.durationMs ?? 60000) - (Date.now() - Netcode.getServerClockOffsetMs() - rs.startedAtMs);
+    },
+  });
+  // * Visual callout banner + aria-live region for announcer subtitles.
+  setAnnouncerPresenter(initAnnouncerDisplay());
+
   // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
   // * mp3 fallback for Safari (see soundUrlWithFallback above).
   AudioManager.registerSfx("cartCrash", soundUrlWithFallback("cart-crash.ogg"), { pool: 4 });
@@ -744,7 +787,7 @@ async function main() {
   AudioManager.registerSfx("countdown_1", soundUrlWithFallback("countdown_1.ogg"), { pool: 1 });
   AudioManager.registerSfx("countdown_go", soundUrlWithFallback("countdown_go.ogg"), { pool: 1 });
 
-  camera.add(audioListener);
+  scene.add(audioListener);
 
   const { composer, bloomPass, arcadePass, fxaaPass } = createComposer(renderer, scene, camera);
   fxPass = arcadePass;
@@ -789,7 +832,7 @@ async function main() {
     }).catch(() => {});
   }
 
-  const fxClock = new THREE.Clock();
+  const fxTimer = new THREE.Timer();
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -1133,7 +1176,8 @@ async function main() {
     // * Crowd size: toggle GPU draw count (800 vs 5000) without re-allocating.
     Effects.setQualityCrowdCount(lowQuality);
 
-    // * Scene extras (skybox, planets, spotlights): always created, toggled here.
+    // * Scene extras (skybox, planets, spotlights): only exist on levels that build them
+    // * (Classic Record); sceneRoots is empty elsewhere, so this loop is a no-op there.
     if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
       for (const root of sceneExtras.sceneRoots) {
         root.visible = wantsExtras;
@@ -1378,21 +1422,27 @@ async function main() {
   }
 
   function disposeSceneExtras(extras) {
-    if (!extras) return;
+    if (!extras || extras.disposed) return;
     try {
+      if (Array.isArray(extras.sceneRoots) && extras.scene) {
+        for (const root of extras.sceneRoots) extras.scene.remove(root);
+      }
       if (extras.disposables && Array.isArray(extras.disposables)) {
         for (const d of extras.disposables) {
           d?.dispose?.();
         }
       }
-    } catch {}
+    } catch {} finally {
+      extras.disposed = true;
+    }
   }
 
   function initDeferredRaveVisuals() {
     const wantRaveExtras = levelUsesRaveExtras();
     disposeSceneExtras(sceneExtras);
     sceneExtras = /** @type {any} */ (initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras }));
-    // * Scene extras (skybox/planets/spotlights) always created — hide in low quality.
+    // * Scene extras (skybox/planets/spotlights) only built on levels that use them
+    // * (Classic Record); still hidden in low quality even when built.
     const showSceneExtras = wantRaveExtras && !isLowQualityMode();
     if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
       for (const root of sceneExtras.sceneRoots) root.visible = showSceneExtras;
@@ -1586,9 +1636,9 @@ async function main() {
         const celebrationWinner = roundState.winnerSlotIndex;
         if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
           if (isLocalWinner) {
-            SfxSynth.playVictoryFanfare();
+            announce("victory");
           } else {
-            SfxSynth.playDefeatSting();
+            announce("defeat");
           }
           const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
           spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
@@ -1996,6 +2046,7 @@ async function main() {
     getSceneRef: () => scene,
     getHud: () => hud,
     onLocalKillConfirm,
+    onAnnouncerFall: announcerDirectorOnFall,
     colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
     getPendingColorChipEl: () => pendingColorChipEl,
@@ -2596,6 +2647,8 @@ async function main() {
     getShakeUntil: () => shakeUntil,
     getShakeIntensity: () => shakeIntensity,
     getFovPunchUntil: () => fovPunchUntil,
+    getFovPunchDeg: () => fovPunchDeg,
+    getKillFlash: () => killFlash,
     getImpactPulse: () => impactPulse,
     getArcadePass: () => fxPass,
     fpsState,
@@ -2624,6 +2677,7 @@ async function main() {
     getPartySocket: () => Netcode.getPartySocket(),
     queueHostFallEvent: Netcode.queueHostFallEvent,
     onLocalKillConfirm,
+    onAnnouncerFall: announcerDirectorOnFall,
     getYouConnId: () => Netcode.getYouConnId(),
     getScene: () => scene,
     triggerCartShatter,
@@ -2727,7 +2781,7 @@ async function main() {
     }
 
     if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
-      fxPass.uniforms.uTime.value = fxClock.getElapsedTime();
+      fxPass.uniforms.uTime.value = fxTimer.getElapsed();
     }
 
     if (loopState.simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {

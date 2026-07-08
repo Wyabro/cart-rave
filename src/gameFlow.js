@@ -38,6 +38,7 @@ import { pickSelfDeathVerb } from "./hud.js";
  * @property {() => string | null} [getYouConnId]
  * @property {(tier: number, multiplier: number) => void} [setLocalCombo]
  * @property {(eventData: object) => void} [queueHostFallEvent]
+ * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
  */
 
 /** @type {boolean} */
@@ -431,6 +432,14 @@ export function updateGameFlow(deps, context) {
                 comboMultiplier: scoreData.comboMultiplier ?? 1.0,
               });
             }
+
+            // * Presentation-only observer hook for the announcer director — host fires it
+            // * directly; non-host clients fire the equivalent from the falls[] replay path.
+            deps.onAnnouncerFall?.({
+              victimSlotIndex: slotIndex,
+              attackerSlotIndex: scoreData.attackerSlot,
+              comboTier: scoreData.comboTier ?? 0,
+            });
 
             deps.getLastHitBy().delete(slotIndex);
           }

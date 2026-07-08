@@ -100,6 +100,26 @@ Replace `structuredClone` with a manual, pre-allocated flat-array serializer tha
 ## Completed Work
 Historical record preserved. Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
 
+### July 8, 2026 – Visual Polish Pass (Three.js Rendering)
+Targeted AAA-style rendering pass — full writeup in [visual-audit.md](./visual-audit.md). Verified.
+- **Look retuned to preserve the dark identity** across two "still too bright" rounds: exposure 0.88→0.40, bloom strength 0.67→0.34, bloom threshold 0.86→0.76 (also solved a magenta-luma bug where low-Rec.709-luma hues never bloomed).
+- **Kill-confirm layered feedback**: softened FOV punch (9°/180ms) + center-weighted white flash via a new `uFlash` uniform on the Arcade FX pass + aberration/vignette pulse. Ram hits use 8°/100ms and stack with `Math.max` so overlaps never truncate.
+- **Contact-shadow directional bias**: Zanzibar cart blobs nudge ~0.35m away from the sun (visual-only offset; footprint sampling still uses the true cart position). Overhead-lit arenas stay centered.
+- **Per-arena lighting/dressing**: Backrooms gets one grazing steel-blue rim light (0.2) for warm-vs-cool cart contrast without lifting the carpet. Classic pit-wall gradient eased to black with a violet rim band + 5 additive depth rings + violet horizon glow band; starfield gained distance-based brightness tiers; horizon-fog color synced to the retuned fog hex (was leaving a seam). Zanzibar islands rebuilt as two-layer atmospheric-perspective silhouettes that take scene fog and inherit the ember haze; sky gradient bottom + sun halo realigned to the new fog hex to fix the sky/ocean seam.
+- **Cart materials — full customization contract preserved**:
+  - Pattern overlay migrated from a coplanar duplicate `CartFramePattern` mesh (polygonOffset hack, doubled draws) to an in-material `onBeforeCompile` shader mask on the CartFrame's own `MeshPhysicalMaterial`. Uniforms `uPatternMask/uPatternRepeat/uPatternStrength/uPatternTint/uPatternEmissive`; `customProgramCacheKey` distinguishes only patterned-vs-classic, so switching between non-classic patterns swaps the mask texture uniform without a shader recompile. Recolor / leader-glow / boost-pulse still work because the injection modulates (never replaces) the standard color/emissive pipeline.
+  - GLTF cart body `emissiveMap` is now a generated grayscale wire mask (channel-max brightness smoothstep 0.45→0.7, cached per source-texture uuid, `NoColorSpace`, ImageBitmap-aware with fallback to the previous albedo-reuse if the source can't be drawn) — wire glow finally tunes independent of body albedo.
+- **Grocery cargo placement** now respects each item's bounding-sphere radius, so bottoms/sides stay inside the basket (was placing by center point only).
+- `npm run check` green (0 TS errors, 61/61 tests, 0 knip findings); verified end-to-end in-browser (screenshots on all three arenas + direct offscreen render smoke test on the new shader-mask material to confirm zero GL errors and correct program compilation).
+
+### July 8, 2026 – Announcer System ("The Store PA")
+Production-ready, data-driven announcer framework — full writeup in [todo.md](./todo.md#july-8-2026--announcer-system-the-store-pa) and [announcer.md](./announcer.md). Verified.
+- New `src/announcer/` module: arbitration manager (single channel, priority interrupts, TTL queue, kill-burst merge, cooldowns), event table, localized subtitle lines, procedural stings, and a game-state director that derives events (first blood, revenge, combo tier-ups, leader/comeback, close calls) purely by observing `gameStore` and the existing `falls[]` netcode replay — zero gameplay or protocol changes.
+- New `src/ui/announcerDisplay.js` — neon callout banner + `aria-live` accessibility region.
+- Voice-asset pipeline is fully data-driven (`registerAnnouncerVoicePack`) so recorded lines drop in later with no code changes; procedural stings + visual callouts carry the presentation until then.
+- Settings: ANNOUNCER / CALLOUTS toggles added to the pause overlay, persisted via `settingsStore`.
+- `npm run check` green (0 TS errors, 61/61 tests, 0 knip findings); verified end-to-end in-browser against the live initialized singletons.
+
 ### July 5, 2026 – WebRTC P2P DataChannel Migration
 **Major architectural change** that moves real-time game data off the server WebSocket relay and onto direct peer-to-peer WebRTC DataChannels. The PartyKit/partyserver server is now a lightweight signaling relay + lobby manager.
 

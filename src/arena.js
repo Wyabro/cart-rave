@@ -1002,12 +1002,14 @@ export function initArena(scene, world, config, options = {}) {
   const pitWallDepth = 600;
   const pitWallTopY = -3;
   const pitWallCenterY = pitWallTopY - pitWallDepth / 2;
+  // * 24 height segments so the vertex gradient can ease non-linearly down the shaft
+  // * (heightSegments=1 forced a flat linear lerp over 600m). Still only ~1.6k verts.
   const pitWallGeo = new THREE.CylinderGeometry(
     pitInnerRadius,
     pitInnerRadius,
     pitWallDepth,
     64,
-    1,
+    24,
     true,
   );
   {
@@ -1025,10 +1027,14 @@ export function initArena(scene, world, config, options = {}) {
       const t = yMax > yMin
         ? Math.max(0, Math.min(1, (y - yMin) / (yMax - yMin)))
         : 0;
-      // * Bottom: black. Top: purple in linear components (0.25, 0.03, 0.41).
-      pitWallColorArray[i * 3] = 0.25 * t;
-      pitWallColorArray[i * 3 + 1] = 0.03 * t;
-      pitWallColorArray[i * 3 + 2] = 0.41 * t;
+      // * Bottom: black. Top: purple in linear components (0.25, 0.03, 0.41), eased
+      // * t^2.6 so the shaft plunges to black quickly below the rim — reads as depth,
+      // * not a fogged tube. A narrow violet band hugs the rim as an edge highlight.
+      const eased = Math.pow(t, 2.6);
+      const band = Math.max(0, 1 - Math.abs(t - 0.965) / 0.035);
+      pitWallColorArray[i * 3] = 0.25 * eased + 0.10 * band;
+      pitWallColorArray[i * 3 + 1] = 0.03 * eased + 0.015 * band;
+      pitWallColorArray[i * 3 + 2] = 0.41 * eased + 0.17 * band;
     }
     pitWallGeo.setAttribute("color", new THREE.BufferAttribute(pitWallColorArray, 3));
   }
@@ -1042,6 +1048,41 @@ export function initArena(scene, world, config, options = {}) {
   const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
   pitWall.position.y = pitWallCenterY;
   scene.add(pitWall);
+
+  // * Depth rings — faint additive neon bands down the shaft at decreasing brightness,
+  // * so looking into the pit reads as falling into deep space. Children of pitWall:
+  // * the dispose() sceneRoots traversal cleans their unique geometry/materials.
+  {
+    const ringDefs = [
+      { worldY: -8, opacity: 0.2 },
+      { worldY: -20, opacity: 0.13 },
+      { worldY: -42, opacity: 0.08 },
+      { worldY: -80, opacity: 0.05 },
+      { worldY: -140, opacity: 0.03 },
+    ];
+    for (const def of ringDefs) {
+      const ringGeo = new THREE.CylinderGeometry(
+        pitInnerRadius - 0.15,
+        pitInnerRadius - 0.15,
+        0.55,
+        64,
+        1,
+        true,
+      );
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xa229e6,
+        transparent: true,
+        opacity: def.opacity,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.y = def.worldY - pitWallCenterY;
+      pitWall.add(ring);
+    }
+  }
 
   const pitWallPhysicsTopY = -32;
   const pitWallPhysicsBottomY = pitWallCenterY - pitWallDepth / 2;

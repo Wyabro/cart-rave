@@ -307,7 +307,20 @@ export function updateCartContactShadow(shadowMesh, pose) {
   shadowMesh.visible = fade > 0.03 && solidFrac > 0.12;
   if (!shadowMesh.visible) return;
 
-  shadowMesh.position.set(pose.x, floorY, pose.z);
+  // * Directional bias (Zanzibar sun only — octagon hazards identify the level). Visual
+  // * offset only: solidFrac above samples the cart's true position, and the bias shrinks
+  // * with the airborne fade so lifted shadows never look detached.
+  let biasX = 0;
+  let biasZ = 0;
+  if (/** @type {Record<string, any>} */ (shadowHazards)?.isOctagon) {
+    const bias = cfg.directionalBias?.zanzibar;
+    if (bias) {
+      biasX = bias.x * fade;
+      biasZ = bias.z * fade;
+    }
+  }
+
+  shadowMesh.position.set(pose.x + biasX, floorY, pose.z + biasZ);
   shadowMesh.rotation.y = pose.yaw;
   shadowMesh.scale.set(rx, rz, 1);
   // @ts-expect-error THREE duck-typing suppress

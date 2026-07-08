@@ -14,6 +14,14 @@ let lastResultsOverlayPhase = null;
 const _interpPrevQuat = new THREE.Quaternion();
 const _interpCurrQuat = new THREE.Quaternion();
 
+// * Camera-space shake state. Applied as a render-only rotational offset and reverted
+// * after render so follow-cam damping never sees the jitter. Disabled entirely for
+// * prefers-reduced-motion users — the vignette impact pulse still communicates hits.
+const _reducedMotionQuery = typeof window !== "undefined" && window.matchMedia
+  ? window.matchMedia("(prefers-reduced-motion: reduce)")
+  : null;
+const _preShakeQuat = new THREE.Quaternion();
+
 // * Per-cart physics state scratch for the visual sync loop. Rapier getters
 // * (translation/rotation/linvel/angvel) each allocate a fresh JS object at the
 // * WASM boundary; caching into these plain objects collapses 4-6 allocs/cart/frame
@@ -115,6 +123,8 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {() => number} getShakeUntil
  * @property {() => number} getShakeIntensity
  * @property {() => number} getFovPunchUntil
+ * @property {() => number} [getFovPunchDeg]
+ * @property {() => { until: number, durationMs: number, strength: number }} [getKillFlash]
  * @property {() => { until: number, durationMs: number, strength: number, baseVignette: number | null, baseAberration: number | null }} [getImpactPulse]
  * @property {() => import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} [getArcadePass]
  * @property {{ frames: number, last: number, canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null }} fpsState
@@ -291,8 +301,26 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
   Effects.updateAmbientParticles(dt, now);
 
+  // * Shake amplitudes are tuned in px (CONFIG.ramming.fx.shakePixelScale); convert to
+  // * radians against viewport height so perceived amplitude matches the old DOM shake.
+  const shakeUntil = deps.getShakeUntil();
+  const shakeIntensity = deps.getShakeIntensity();
+  let shakeApplied = false;
+  if (!_reducedMotionQuery?.matches && roundState.phase === "running" && performance.now() < shakeUntil) {
+    const t = (shakeUntil - performance.now()) / 250;
+    const px = (Math.random() - 0.5) * 2 * shakeIntensity * t;
+    const py = (Math.random() - 0.5) * 2 * shakeIntensity * t;
+    const fovRad = (deps.camera.fov * Math.PI) / 180;
+    const pxToRad = fovRad / Math.max(1, deps.canvas.clientHeight || window.innerHeight);
+    _preShakeQuat.copy(deps.camera.quaternion);
+    deps.camera.rotateX(py * pxToRad);
+    deps.camera.rotateY(px * pxToRad);
+    shakeApplied = true;
+  }
+
   deps.composer.render();
   deps.labelRenderer.render(deps.scene, deps.camera);
+  if (shakeApplied) deps.camera.quaternion.copy(_preShakeQuat);
 
   const fpsState = deps.fpsState;
   fpsState.frames += 1;
@@ -318,26 +346,29 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     fpsState.last = fpsNow;
   }
 
-  const shakeUntil = deps.getShakeUntil();
-  const shakeIntensity = deps.getShakeIntensity();
-  if (roundState.phase === "running" && performance.now() < shakeUntil) {
-    const t = (shakeUntil - performance.now()) / 250;
-    const ox = (Math.random() - 0.5) * 2 * shakeIntensity * t;
-    const oy = (Math.random() - 0.5) * 2 * shakeIntensity * t;
-    deps.canvas.style.transform = `translate(${ox}px, ${oy}px)`;
-  } else {
-    deps.canvas.style.transform = "";
-  }
+  if (deps.canvas.style.transform) deps.canvas.style.transform = "";
 
   const fovPunchUntil = deps.getFovPunchUntil();
   if (roundState.phase === "running" && performance.now() < fovPunchUntil) {
     const t = (fovPunchUntil - performance.now()) / 200;
-    const targetFov = (deps.camera.userData.baseFov || 55) - (8 * t);
+    const punchDeg = deps.getFovPunchDeg?.() ?? 8;
+    const targetFov = (deps.camera.userData.baseFov || 55) - (punchDeg * t);
     if (deps.camera.fov !== targetFov) deps.camera.fov = targetFov;
     deps.camera.updateProjectionMatrix();
   } else {
     deps.camera.fov = deps.camera.userData.baseFov || 55;
     deps.camera.updateProjectionMatrix();
+  }
+
+  // * Kill-confirm flash — linear decay on the arcade pass' uFlash; cheap uniform write.
+  const killFlash = deps.getKillFlash?.();
+  const flashPass = deps.getArcadePass?.();
+  if (killFlash && flashPass?.uniforms?.uFlash) {
+    const flashNow = performance.now();
+    const active = flashPass.enabled && roundState.phase === "running" && flashNow < killFlash.until;
+    flashPass.uniforms.uFlash.value = active
+      ? killFlash.strength * ((killFlash.until - flashNow) / killFlash.durationMs)
+      : 0;
   }
 
   // * Impact pulse — brief vignette/aberration kick on hard local hits. Baselines were

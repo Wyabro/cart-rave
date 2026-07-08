@@ -175,6 +175,9 @@ let callbacks = {
   // * Presentation-only hook — fired when the LOCAL player's ram sent a victim into
   // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
   onLocalKillConfirm: (victimSlotIndex, comboTier) => {},
+  // * Presentation-only observer hook for the announcer director — fired for EVERY fall
+  // * (host fires it from gameFlow; non-host from this falls[] replay path).
+  onAnnouncerFall: (fall) => {},
   /**
    * * Wired implementations may return either a numeric hex (0xff00ff) or a CSS
    * * hex string ("#ff00ff") — the host_event_fall handler narrows on typeof.
@@ -262,6 +265,7 @@ export function registerGameCallbacks(deps) {
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
     },
     onLocalKillConfirm: (victimSlotIndex, comboTier) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier),
+    onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
     colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
     getPendingColorKey: () => deps.getPendingColorKey(),
     getPendingColorChipEl: () => deps.getPendingColorChipEl(),
@@ -828,6 +832,13 @@ function processHostFallEvent(msg) {
   } else {
     callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);
   }
+  // * Presentation-only observer hook for the announcer director — the host fires the
+  // * equivalent directly from gameFlow.js; this is the non-host mirror of that call.
+  callbacks.onAnnouncerFall?.({
+    victimSlotIndex: msg.slotId,
+    attackerSlotIndex: msg.attackerSlot ?? null,
+    comboTier: msg.comboTier ?? 0,
+  });
   // * Replay the shatter + explosion VFX on non-host clients so everyone sees
   // * the same death pop. The host triggers it locally in gameFlow.js.
   const slotIdx = typeof msg.slotId === "number" ? msg.slotId : null;
