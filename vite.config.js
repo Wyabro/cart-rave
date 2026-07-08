@@ -19,8 +19,11 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     sourcemap: true,
+    // * Vendor libs (three, animejs, rapier) are deliberately kept as whole chunks below,
+    // * so the default 500 kB warning is just noise — raise it above the largest vendor chunk.
+    chunkSizeWarningLimit: 700,
     // Optimize for Three.js
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/three/examples/jsm/")) {
