@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildKOEvent } from "../src/scoring/koEvent.js";
+import { buildKOEvent, rebuildKOEvent } from "../src/scoring/koEvent.js";
 
 // Minimal GameFlowDeps stub. Overrides let each test set scores / hit / carts.
 function makeDeps(overrides = {}) {
@@ -166,5 +166,40 @@ describe("buildKOEvent", () => {
     expect(e.isSuddenDeath).toBe(true);
     expect(e.impactSpeed).toBe(0); // not captured until step 5
     expect(e.isFinalBlow).toBe(false);
+  });
+});
+
+describe("rebuildKOEvent (non-host replay)", () => {
+  const clientDeps = {
+    getNetSlots: () => [{ kind: "human" }, { kind: "human" }, { kind: "npc" }, { kind: "human" }],
+    getAllCarts: () => [{}, {}, { aiPersonality: { name: "aggressor" } }, {}],
+  };
+
+  it("rebuilds an attributed kill from a wire fall record", () => {
+    const msg = { slotId: 2, attackerSlot: 1, verb: "YEETED", comboTier: 2, comboMultiplier: 2.0 };
+    const e = rebuildKOEvent(msg, clientDeps);
+    expect(e.isKill).toBe(true);
+    expect(e.attackerSlotIndex).toBe(1);
+    expect(e.victimSlotIndex).toBe(2);
+    expect(e.verb).toBe("YEETED");
+    expect(e.comboTier).toBe(2);
+    expect(e.comboMultiplier).toBe(2.0);
+    // victim classification recomputed from this client's own slots/carts
+    expect(e.victimKind).toBe("npc");
+    expect(e.victimAiName).toBe("aggressor");
+  });
+
+  it("rebuilds a self fall (null attacker) and keeps the wire verb", () => {
+    const msg = { slotId: 0, attackerSlot: null, verb: "SUDDEN DEATH" };
+    const e = rebuildKOEvent(msg, clientDeps);
+    expect(e.isKill).toBe(false);
+    expect(e.attackerSlotIndex).toBe(null);
+    expect(e.cause).toBe("self");
+    expect(e.verb).toBe("SUDDEN DEATH");
+  });
+
+  it("defaults the verb when the wire record omits it", () => {
+    expect(rebuildKOEvent({ slotId: 0, attackerSlot: 1 }, clientDeps).verb).toBe("RAMMED");
+    expect(rebuildKOEvent({ slotId: 0, attackerSlot: null }, clientDeps).verb).toBe("FELL OFF");
   });
 });

@@ -13,6 +13,9 @@ import { settingsStore } from "./stores/settingsStore.js";
 import { isShatterAnimating } from "./cartShatter.js";
 import * as P2P from "./netcode/p2p.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/binary.js";
+import { rebuildKOEvent } from "./scoring/koEvent.js";
+import { dispatchKOEvent } from "./scoring/koReactors.js";
+import { ChallengeTracker } from "./stores/challengeStore.js";
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
@@ -810,37 +813,34 @@ function replayHostCollisionFx(msg, callbacks) {
 function processHostFallEvent(msg) {
   if (isHost) return;
   const toCssHex = (n) => typeof n === "number" ? '#' + n.toString(16).padStart(6, '0') : (n ?? null);
-  const victimSlot = netSlots[msg.slotId];
-  const targetName = victimSlot?.name || `P${(msg.slotId ?? 0) + 1}`;
-  const targetColorHex = callbacks.colorHexForSlot(victimSlot);
-  const targetColor = toCssHex(targetColorHex);
-  if (msg.attackerSlot != null) {
-    const attackerSlot = netSlots[msg.attackerSlot];
-    const actorName = attackerSlot?.name || `P${msg.attackerSlot + 1}`;
-    const actorColorHex = callbacks.colorHexForSlot(attackerSlot);
-    const actorColor = toCssHex(actorColorHex);
-    callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor, msg.comboTier, msg.comboMultiplier);
 
-    const localSlotIdx = strictSlotIndexForConn(youConnId);
-    if (msg.attackerSlot === localSlotIdx) {
-      if (msg.comboTier != null) {
-        GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
-      }
-      // * Attacker-side KO feedback (sting + hitmarker + FOV punch) on non-host clients.
-      callbacks.onLocalKillConfirm(msg.slotId, msg.comboTier ?? 0);
-    }
-  } else {
-    callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);
+  // * Non-hosts don't run buildKOEvent — rebuild the KO Event from the wire fall record and run
+  // * the SAME reactors the host runs in gameFlow (kill feed, announcer, local kill-confirm, local
+  // * challenges). Victim classification is recomputed from this client's own slots/carts.
+  const koEvent = rebuildKOEvent(msg, { getNetSlots: () => netSlots, getAllCarts });
+  const localSlotIdx = strictSlotIndexForConn(youConnId);
+
+  // * Client-side combo UI pulse for the local attacker (the host sets this inside buildKOEvent;
+  // * non-hosts mirror it here from the wire combo tier). Kept out of the reactors — it's a
+  // * client-only store poke, not part of the shared fan-out.
+  if (koEvent.isKill && koEvent.attackerSlotIndex === localSlotIdx && msg.comboTier != null) {
+    GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
   }
-  // * Presentation-only observer hook for the announcer director — the host fires the
-  // * equivalent directly from gameFlow.js; this is the non-host mirror of that call.
-  callbacks.onAnnouncerFall?.({
-    victimSlotIndex: msg.slotId,
-    attackerSlotIndex: msg.attackerSlot ?? null,
-    comboTier: msg.comboTier ?? 0,
+
+  // * challengeReactor now records the LOCAL player's own kills on non-hosts too (each device
+  // * counts only kills where attacker === its local slot, so no double-counting with the host).
+  dispatchKOEvent(koEvent, {
+    netSlots,
+    localSlotIndex: localSlotIdx,
+    hud: { addKillFeedEntry: callbacks.addKillFeedEntry, colorHexToCss: toCssHex },
+    colorHexForSlot: callbacks.colorHexForSlot,
+    onAnnouncerFall: callbacks.onAnnouncerFall,
+    onLocalKillConfirm: callbacks.onLocalKillConfirm,
+    recordChallenge: ChallengeTracker.record,
   });
-  // * Replay the shatter + explosion VFX on non-host clients so everyone sees
-  // * the same death pop. The host triggers it locally in gameFlow.js.
+
+  // * Replay the shatter + explosion VFX on non-host clients so everyone sees the same death pop.
+  // * The host triggers it locally in gameFlow.js; kept out of the reactors (client-only VFX).
   const slotIdx = typeof msg.slotId === "number" ? msg.slotId : null;
   if (slotIdx != null) {
     const carts = getAllCarts();
@@ -849,6 +849,7 @@ function processHostFallEvent(msg) {
       const scene = callbacks.getSceneRef?.();
       if (scene) {
         const shatterFn = triggerCartShatterRef || callbacks.triggerCartShatterRef;
+        const targetColorHex = callbacks.colorHexForSlot(netSlots[slotIdx]);
         let numericHex = 0xffffff;
         if (typeof targetColorHex === "number" && !Number.isNaN(targetColorHex)) {
           numericHex = targetColorHex & 0xffffff;

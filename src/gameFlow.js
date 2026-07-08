@@ -2,7 +2,6 @@
 
 import { resetCartTransientState } from "./entities.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
-import { pickSelfDeathVerb } from "./hud.js";
 import { buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 
@@ -332,7 +331,6 @@ export function updateGameFlow(deps, context) {
               localSlotIndex: localSlotIndexThisFrame,
               hud: deps.hud,
               colorHexForSlot: deps.colorHexForSlot,
-              pickSelfDeathVerb,
               onAnnouncerFall: deps.onAnnouncerFall,
               onLocalKillConfirm: deps.onLocalKillConfirm,
               recordChallenge: ChallengeTracker.record,

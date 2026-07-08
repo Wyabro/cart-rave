@@ -11,9 +11,9 @@
  * @typedef {object} KOReactorCtx
  * @property {Array<object>} netSlots Slot table (name/kind/color) indexed by slot.
  * @property {number} localSlotIndex Local player's slot this frame.
- * @property {object | null | undefined} hud HUD facade (addKillFeedEntry, colorHexToCss, verbs).
- * @property {(slot: object | null | undefined) => number} colorHexForSlot Resolves a slot color.
- * @property {() => string} pickSelfDeathVerb Fallback self-death verb when the HUD has none.
+ * @property {object | null | undefined} hud HUD facade (addKillFeedEntry, colorHexToCss).
+ * @property {(slot: object | null | undefined) => number | string} colorHexForSlot Resolves a slot
+ *   color (host returns a hex number; the client facade may return a css string — colorHexToCss handles both).
  * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
  * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
  * @property {(eventId: string, amount?: number) => void} [recordChallenge] Bumps a local challenge counter.
@@ -41,7 +41,8 @@ export function localKillConfirmReactor(koEvent, ctx) {
 
 /**
  * Renders one kill-feed row. Attributed kills show attacker + combo badge; self/environmental
- * falls (null attacker) show a fresh self-death verb with no actor.
+ * falls (null attacker) show the event's verb with no actor. The verb is the KO Event's single
+ * source of truth, so host and every client render the same word.
  * @param {import('./koEvent.js').KOEvent} koEvent
  * @param {KOReactorCtx} ctx
  */
@@ -60,8 +61,7 @@ export function killFeedReactor(koEvent, ctx) {
       koEvent.comboTier, koEvent.comboMultiplier,
     );
   } else {
-    const verb = ctx.hud?.pickSelfDeathVerb ? ctx.hud.pickSelfDeathVerb() : ctx.pickSelfDeathVerb();
-    ctx.hud.addKillFeedEntry(null, null, verb, targetName, targetColor);
+    ctx.hud.addKillFeedEntry(null, null, koEvent.verb || "FELL OFF", targetName, targetColor);
   }
 }
 

@@ -78,11 +78,17 @@ describe("killFeedReactor", () => {
     expect(calls.killFeed[0]).toEqual(["B", "#ff00ff", "RAMMED", "D", "#ff00ff", 2, 2.0]);
   });
 
-  it("renders a self fall with a fresh self-death verb and no actor", () => {
+  it("renders a self fall using the event's verb and no actor", () => {
     const { ctx, calls } = makeCtx();
-    killFeedReactor(SELF, ctx);
+    killFeedReactor(SELF, ctx); // SELF.verb === "SUDDEN DEATH"
     expect(calls.killFeed).toHaveLength(1);
-    expect(calls.killFeed[0]).toEqual([null, null, "WIPED OUT", "D", "#ff00ff"]);
+    expect(calls.killFeed[0]).toEqual([null, null, "SUDDEN DEATH", "D", "#ff00ff"]);
+  });
+
+  it("falls back to FELL OFF when a self fall has no verb", () => {
+    const { ctx, calls } = makeCtx();
+    killFeedReactor({ ...SELF, verb: undefined }, ctx);
+    expect(calls.killFeed[0]).toEqual([null, null, "FELL OFF", "D", "#ff00ff"]);
   });
 
   it("falls back to P-labels when a slot has no name", () => {

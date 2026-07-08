@@ -178,3 +178,48 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
     verb,
   };
 }
+
+/**
+ * Reconstructs a KO Event on a non-host client from a wire fall record (the host snapshot's
+ * falls[] tail). Non-hosts don't run buildKOEvent — they replay this so the *same* reactors
+ * (kill feed, announcer, local kill-confirm, local challenges) fire identically to the host.
+ *
+ * Authoritative fields the host doesn't serialize (cause, wasCritical, victimWasLeader, reward,
+ * round context) default to neutral values — no client reactor reads them today, and scores
+ * arrive via the round sync, not `reward.total`. Derived fields (victim classification) are
+ * recomputed from this client's own slot/cart state.
+ *
+ * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number }} msg
+ * @param {{ getNetSlots?: () => Array<object>, getAllCarts?: () => Array<object> }} deps
+ * @returns {KOEvent}
+ */
+export function rebuildKOEvent(msg, deps) {
+  const victimSlotIndex = typeof msg.slotId === "number"
+    ? msg.slotId
+    : (typeof msg.victimSlotIndex === "number" ? msg.victimSlotIndex : 0);
+  const attackerSlotIndex = msg.attackerSlot ?? msg.attackerSlotIndex ?? null;
+  const isKill = attackerSlotIndex != null;
+  const comboMultiplier = msg.comboMultiplier ?? 1.0;
+
+  const netSlots = deps.getNetSlots?.() ?? [];
+  const allCarts = deps.getAllCarts?.() ?? [];
+
+  return {
+    victimSlotIndex,
+    attackerSlotIndex,
+    isKill,
+    cause: isKill ? "outer_edge" : "self",
+    wasCritical: false,
+    victimWasLeader: false,
+    victimKind: netSlots[victimSlotIndex]?.kind ?? null,
+    victimAiName: allCarts?.[victimSlotIndex]?.aiPersonality?.name ?? null,
+    impactSpeed: 0,
+    comboTier: msg.comboTier ?? 0,
+    comboMultiplier,
+    isSuddenDeath: false,
+    isFinalBlow: false,
+    roundTimeMs: 0,
+    reward: { base: 0, critical: 0, leader: 0, multiplier: comboMultiplier, total: 0 },
+    verb: msg.verb || (isKill ? "RAMMED" : "FELL OFF"),
+  };
+}
