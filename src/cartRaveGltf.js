@@ -1,8 +1,9 @@
 /**
  * cartRaveGltf.js — Segmented rave-theme GLTF cart loader, materials, independent caster motion.
  *
- * Primary asset: `cartrave4-draco.glb` (DRACO + WebP compressed; uncompressed `cartrave4.glb`
- * retained as fallback tier 1) — Tripo color segments for body / wheels / forks / trim.
+ * Primary asset: `cartrave4-draco.glb` (DRACO + WebP compressed). Fallback order prefers
+ * small DRACO tiers before multi‑MB uncompressed masters — Tripo color segments for body /
+ * wheels / forks / trim.
  * Four composite casters swivel at the basket-side fork attachment; connector + wheel
  * hang below. One steer pivot per corner (basket stance + kingpin offsets). Forks use
  * car-like steering (body heading + yaw-rate offset) rather than pure velocity trailing. Brackets and frame supports stay static.
@@ -53,14 +54,11 @@ import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
 /** DRACO-compressed legacy model (fallback). */
 const RAVE_GLTF_URL_DRACO = "/models/cart-rave-base-draco.glb";
 
-/** Uncompressed legacy monolithic-caster model (fallback). */
-const RAVE_GLTF_URL_LEGACY = "/models/cart-rave-base.glb";
-
 /** Primary segmented rave cart — DRACO + WebP compressed (separate fork + wheel meshes per corner). */
 const RAVE_GLTF_URL = "/models/cartrave4-draco.glb";
 
-/** Uncompressed cartrave4 export — fallback tier (same topology, larger payload). */
-const RAVE_GLTF_URL_V4_UNCOMPRESSED = "/models/cartrave4.glb";
+// * Uncompressed masters live under art/models/ for authoring + npm run compress:rave-gltf.
+// * They are not shipped in public/ (saves ~14 MB per deploy).
 
 /** WASM/JS Draco decoder served from `public/draco/gltf/`. */
 const RAVE_GLTF_DRACO_DECODER_PATH = "/draco/gltf/";
@@ -541,15 +539,15 @@ const RAVE_GLTF_TRIPO_PART_RE = /^tripo_part_\d+$/;
 
 /**
  * Detects cartrave4 vs legacy layout from loaded URL + authored mesh names.
- * Primary `cartrave4.glb` always uses cartrave4 roles; legacy Draco URLs stay legacy.
+ * Primary cartrave4-draco always uses cartrave4 roles; legacy Draco URLs stay legacy.
  *
  * @param {THREE.Object3D} scene
  * @param {string | null | undefined} [loadedUrl]
  * @returns {RaveGltfLayoutId}
  */
 function detectRaveGltfLayout(scene, loadedUrl = null) {
-  if (loadedUrl === RAVE_GLTF_URL || loadedUrl === RAVE_GLTF_URL_V4_UNCOMPRESSED) return "cartrave4";
-  if (loadedUrl === RAVE_GLTF_URL_LEGACY || loadedUrl === RAVE_GLTF_URL_DRACO) return "legacy";
+  if (loadedUrl === RAVE_GLTF_URL) return "cartrave4";
+  if (loadedUrl === RAVE_GLTF_URL_DRACO) return "legacy";
 
   let hasTripoPart = false;
   scene.traverse((child) => {
@@ -2297,43 +2295,14 @@ async function loadRaveGltfSourceScene() {
   /** @type {Error | null} */
   let lastError = null;
 
-  // * Primary: DRACO+WebP compressed cartrave4 (~702 KB, mesh decoding runs on the worker pool).
+  // * Runtime ships DRACO only (~1.1 MB combined). Uncompressed masters stay in art/models/.
   try {
     const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL);
     return { scene, url: RAVE_GLTF_URL };
   } catch (err) {
     lastError = err instanceof Error ? err : new Error(String(err));
     console.warn(
-      `[cartRaveGltf] Primary DRACO asset unavailable (${RAVE_GLTF_URL}), trying uncompressed cartrave4.`,
-      lastError.message,
-    );
-  }
-
-  // * Fallback 1: uncompressed cartrave4 (same topology, larger payload).
-  try {
-    const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL_V4_UNCOMPRESSED);
-    console.warn(
-      `[cartRaveGltf] Fell back to uncompressed cartrave4 (${RAVE_GLTF_URL_V4_UNCOMPRESSED}).`,
-    );
-    return { scene, url: RAVE_GLTF_URL_V4_UNCOMPRESSED };
-  } catch (err) {
-    lastError = err instanceof Error ? err : new Error(String(err));
-    console.warn(
-      `[cartRaveGltf] Uncompressed cartrave4 unavailable (${RAVE_GLTF_URL_V4_UNCOMPRESSED}), trying legacy.`,
-      lastError.message,
-    );
-  }
-
-  try {
-    const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL_LEGACY);
-    console.warn(
-      `[cartRaveGltf] Fell back to legacy monolithic GLTF (${RAVE_GLTF_URL_LEGACY}) — ${RAVE_GLTF_URL} failed to load.`,
-    );
-    return { scene, url: RAVE_GLTF_URL_LEGACY };
-  } catch (err) {
-    lastError = err instanceof Error ? err : new Error(String(err));
-    console.warn(
-      `[cartRaveGltf] Legacy asset unavailable (${RAVE_GLTF_URL_LEGACY}), trying Draco fallback.`,
+      `[cartRaveGltf] Primary DRACO unavailable (${RAVE_GLTF_URL}), trying legacy DRACO.`,
       lastError.message,
     );
   }
@@ -2341,14 +2310,14 @@ async function loadRaveGltfSourceScene() {
   try {
     const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL_DRACO);
     console.warn(
-      `[cartRaveGltf] Fell back to Draco-compressed legacy GLTF (${RAVE_GLTF_URL_DRACO}) — cartrave4 is not loaded.`,
+      `[cartRaveGltf] Fell back to Draco-compressed legacy GLTF (${RAVE_GLTF_URL_DRACO}).`,
     );
     return { scene, url: RAVE_GLTF_URL_DRACO };
   } catch (err) {
     lastError = err instanceof Error ? err : new Error(String(err));
   }
 
-  throw lastError ?? new Error("[cartRaveGltf] Failed to load rave GLTF.");
+  throw lastError ?? new Error("[cartRaveGltf] Failed to load rave GLTF (DRACO tiers only).");
 }
 
 /** @returns {boolean} */

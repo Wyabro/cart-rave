@@ -29,8 +29,13 @@ import { createStaticContactShadowCluster } from "../contactShadows.js";
 const ARENA_HALF = 34; // meters — floor half-extent (full square = 68 x 68)
 const FLOOR_TOP_Y = 0; // meters — flat playing-surface height
 const FLOOR_FRICTION = 0.55; // unitless — lower than Classic record; high friction catches trimesh seams
-const FLOOR_GRID_CELLS = 76; // count — trimesh grid resolution per axis
-const FLOOR_STEP = (ARENA_HALF * 2) / FLOOR_GRID_CELLS; // meters — grid cell size
+/** Play-quality floor visual grid (vertices ≈ cells+1 per axis). */
+const FLOOR_GRID_CELLS_PLAY = 76;
+/**
+ * Menu-preview floor grid — ~½ the cells → ~¼ the vertices/faces. Physics uses
+ * fixed cuboid slices (not this grid), so preview LOD only affects visuals.
+ */
+const FLOOR_GRID_CELLS_PREVIEW = 40;
 const CARPET_TILE_M = 3.0; // meters — carpet texture world repeat
 
 // * Four square corner voids (interior fall hazards), inset from each corner.
@@ -307,17 +312,16 @@ function getChamferDarkenFactor(x, z) {
 }
 
 /**
- * Builds the square floor as one indexed trimesh shared by the visual mesh and the Rapier
- * collider. Square corner voids have inward-sloping chamfer lips; the perimeter has an
- * outward-sloping drop-off. Open void vertices are omitted so carts fall through
- * (drop below CONFIG.fall.yThreshold → respawn).
+ * Builds the square floor visual mesh (physics uses separate cuboid slices).
+ * Square corner voids have inward-sloping chamfer lips; the perimeter has an
+ * outward-sloping drop-off. Open void vertices are omitted so the mesh matches kill zones.
  *
+ * @param {number} [cells=FLOOR_GRID_CELLS_PLAY] Grid resolution per axis.
  * @returns {THREE.BufferGeometry}
  */
-function buildFloorGeometry() {
-  const cells = FLOOR_GRID_CELLS;
+function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
   const verts = cells + 1;
-  const step = FLOOR_STEP;
+  const step = (ARENA_HALF * 2) / cells;
 
   const positions = new Float32Array(verts * verts * 3);
   const uvs = new Float32Array(verts * verts * 2);
@@ -388,7 +392,9 @@ function buildSquareVoid(cx, cz, shaftMat) {
   const geometries = [];
 
   // Shaft slightly larger than the ragged opening so no side gap shows through.
-  const shaftOuter = HOLE_SIZE + FLOOR_STEP * 2 + 0.6;
+  // * Use play grid step so preview LOD does not shrink/expand void shafts.
+  const floorStepPlay = (ARENA_HALF * 2) / FLOOR_GRID_CELLS_PLAY;
+  const shaftOuter = HOLE_SIZE + floorStepPlay * 2 + 0.6;
   const shaftGeo = new THREE.BoxGeometry(shaftOuter, HOLE_DEPTH, shaftOuter);
   geometries.push(shaftGeo);
   const shaft = new THREE.Mesh(shaftGeo, shaftMat);
@@ -1518,8 +1524,12 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
  *   update: (timeMs: number) => void,
  *   dispose: () => void,
  * }}
+ * @param {{ menuPreview?: boolean, reflectorTextureSize?: number }} [options]
  */
-export function initBackroomsSupermarket(scene, world, config) {
+export function initBackroomsSupermarket(scene, world, config, options = {}) {
+  const menuPreview = options.menuPreview === true;
+  const floorCells = menuPreview ? FLOOR_GRID_CELLS_PREVIEW : FLOOR_GRID_CELLS_PLAY;
+
   // * Disable the Classic Record center-hole suck — this arena is solid at the origin.
   const prevCenterHole = config.record.centerHole;
   config.record.centerHole = { enabled: false };
@@ -1529,8 +1539,8 @@ export function initBackroomsSupermarket(scene, world, config) {
   // * Thick, musty warm fog — oppressive haze that swallows far walls and pit depth.
   scene.fog = new THREE.FogExp2(backroomsFog.color, backroomsFog.density);
 
-  // ===== Floor (visual + physics share one trimesh) =====
-  const floorGeo = buildFloorGeometry();
+  // ===== Floor visual (grid LOD) + cuboid physics (always full precision) =====
+  const floorGeo = buildFloorGeometry(floorCells);
   const carpetTex = buildCarpetTexture();
   carpetTex.repeat.set(1, 1); // UVs already scaled in geometry by CARPET_TILE_M
   // * Matte worn carpet — roughness 0.98, no sheen, minimal IBL (envMapIntensityScale 0.08)

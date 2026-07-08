@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Compress a cart GLB for web delivery: public/models/<model>.glb → <model>-draco.glb
+ * Compress a cart GLB for web delivery: art/models/<model>.glb → public/models/<model>-draco.glb
  *
  * Runs DISCRETE, non-destructive gltf-transform passes (resize → webp → draco). We deliberately
  * DO NOT use `gltf-transform optimize`: its default pipeline also runs `simplify` (mesh
@@ -20,8 +20,8 @@
  *   npm run compress:rave-gltf -- cart-rave-base --texture-size 1024
  *
  * Args:
- *   model            Base name under public/models/ (default: "cartrave4"). Reads <model>.glb,
- *                    writes <model>-draco.glb.
+ *   model            Base name (default: "cartrave4"). Reads art/models/<model>.glb,
+ *                    writes public/models/<model>-draco.glb (runtime ships Draco only).
  *   --texture-size N Max texture dimension (default 2048). Applied as an upper bound; textures
  *                    already smaller are left untouched (resize never upscales).
  *   --no-webp        Skip WebP texture re-encoding (keeps source PNG/JPEG).
@@ -63,11 +63,18 @@ for (let i = 0; i < argv.length; i += 1) {
   }
 }
 
-const input = path.join(root, "public", "models", `${model}.glb`);
+const inputArt = path.join(root, "art", "models", `${model}.glb`);
+const inputPublicLegacy = path.join(root, "public", "models", `${model}.glb`);
+const input = existsSync(inputArt)
+  ? inputArt
+  : inputPublicLegacy; // * legacy path if someone still drops a master under public/
 const output = path.join(root, "public", "models", `${model}-draco.glb`);
 
 if (!existsSync(input)) {
-  console.error(`[compress-rave-gltf] Missing input: ${input}`);
+  console.error(
+    `[compress-rave-gltf] Missing input: ${inputArt}\n` +
+      `  Place the uncompressed master at art/models/${model}.glb (not under public/).`,
+  );
   process.exit(1);
 }
 

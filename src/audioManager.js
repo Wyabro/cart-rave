@@ -30,6 +30,12 @@ let menuMusic = null;
 let _menuMusicShouldPlay = false;
 /** @type {Howl[]} */
 let gameMusicTracks = [];
+/**
+ * Game playlist URLs registered at boot. Howls are not created until the first
+ * {@link playGameMusic} so menu music can fetch without competing for bandwidth.
+ * @type {(string | string[])[] | null}
+ */
+let pendingGamePlaylistUrls = null;
 let currentGameTrackIdx = -1;
 let gameMusicPlaying = false;
 /** @type {Record<string, Howl>} */
@@ -86,8 +92,8 @@ export function initAudioManager(audioContext) {
   Howler.masterGain = audioContext.createGain();
   Howler.masterGain.gain.setValueAtTime(Howler._volume, audioContext.currentTime);
   Howler.masterGain.connect(audioContext.destination);
-  // * 6 music tracks × pool=5 + 7 SFX with various pools = ~30 HTML5 audio elements.
-  // * Howler's default 10-slot pool only fills as objects are released, so pre-populate it.
+  // * Menu music + up to 4 game tracks + SFX share Howler's HTML5 pool.
+  // * Default 10-slot pool only fills as objects are released, so pre-populate it.
   Howler.html5PoolSize = 40;
   for (let i = 0; i < 35; i += 1) {
     const a = new Audio();
@@ -135,7 +141,8 @@ export function restoreVolumeState(state) {
 // === Music ===
 
 /**
- * Load the looping menu music track.
+ * Load the looping menu music track (eager — menu should hear this as soon as
+ * the shell is up; do not defer this for boot bandwidth savings).
  * @param {string | string[]} src URL(s) to the audio file — Howler picks the first
  *   format the browser can decode (Safari cannot play .ogg, so pass [ogg, mp3]).
  */
@@ -147,23 +154,51 @@ export function loadMenuMusic(src) {
     volume: _isMuted ? 0 : _musicVol,
     preload: true,
     html5: true, // stream long tracks with HTML5 to save memory
+    onload: () => {
+      // * If play was requested before decode finished, start immediately.
+      if (_menuMusicShouldPlay && devMusicGate && menuMusic && !menuMusic.playing()) {
+        menuMusic.play();
+      }
+    },
   });
 }
 
 /**
- * Load the shuffled game music playlist.
+ * Register the in-game playlist without fetching. Materializes on first
+ * {@link playGameMusic} so menu music keeps the network to itself during boot.
+ * @param {(string | string[])[]} urls One entry per track; each entry may be a
+ *   format-fallback array (see {@link loadMenuMusic}).
+ */
+export function setGamePlaylist(urls) {
+  pendingGamePlaylistUrls = Array.isArray(urls) ? urls.slice() : [];
+  if (gameMusicTracks.length > 0) {
+    materializeGamePlaylist(pendingGamePlaylistUrls);
+  }
+}
+
+/**
+ * Load the shuffled game music playlist immediately (tests / force-eager).
+ * Production boot should use {@link setGamePlaylist} instead.
  * @param {(string | string[])[]} urls One entry per track; each entry may be a
  *   format-fallback array (see {@link loadMenuMusic}).
  */
 export function loadGamePlaylist(urls) {
-  // Unload previous
+  materializeGamePlaylist(Array.isArray(urls) ? urls : []);
+}
+
+/**
+ * @param {(string | string[])[]} urls
+ */
+function materializeGamePlaylist(urls) {
   for (const t of gameMusicTracks) {
     try { t.unload(); } catch {}
   }
-  gameMusicTracks = urls.map((url) => new Howl({
+  gameMusicTracks = urls.map((url, i) => new Howl({
     src: Array.isArray(url) ? url : [url],
     volume: _isMuted ? 0 : _musicVol,
-    preload: true,
+    // * Only the first track preloads when the playlist materializes (enter play).
+    // * Later tracks load when Howler starts them (html5 stream).
+    preload: i === 0,
     html5: true,
     onend: function onGameTrackEnd() {
       if (!gameMusicPlaying) return;
@@ -172,6 +207,7 @@ export function loadGamePlaylist(urls) {
   }));
   currentGameTrackIdx = -1;
   gameMusicPlaying = false;
+  pendingGamePlaylistUrls = null;
 }
 
 /** @returns {void} */
@@ -192,6 +228,9 @@ export function stopMenuMusic() {
 
 /** @returns {void} */
 export function playGameMusic() {
+  if (pendingGamePlaylistUrls?.length && gameMusicTracks.length === 0) {
+    materializeGamePlaylist(pendingGamePlaylistUrls);
+  }
   if (!gameMusicTracks.length || gameMusicPlaying) return;
   if (!devMusicGate) return;
   if (currentGameTrackIdx < 0) currentGameTrackIdx = 0;

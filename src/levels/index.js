@@ -36,7 +36,7 @@ export function resolveLevelId(raw) {
  * @param {THREE.Scene} scene Root Three.js scene.
  * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG passed through to the level init.
- * @param {{ reflectorTextureSize?: number, onProgress?: (pct: number, label: string) => void }} [options]
+ * @param {{ menuPreview?: boolean, reflectorTextureSize?: number, onProgress?: (pct: number, label: string) => void }} [options]
  * @returns {Promise<{
  *   recordMesh: import("three").Object3D,
  *   recordCollider?: import("@dimforge/rapier3d").Collider,

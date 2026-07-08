@@ -500,7 +500,7 @@ async function main() {
   loadPlayerCustomization();
   wireCustomizationStorageSync();
 
-  // * Begin cartrave4.glb fetch immediately so rave carts are ready before first spawn.
+  // * Begin cartrave4-draco.glb fetch immediately so rave carts are ready before first spawn.
   void prefetchRaveGltf().catch((err) => {
     console.warn("[cartRaveGltf] Early prefetch failed:", err);
   });
@@ -544,18 +544,18 @@ async function main() {
     new URL(`sounds/${oggName.replace(/\.ogg$/, ".mp3")}`, window.location.href).toString(),
   ];
 
+  // * Menu music is eager (preload + play request) so it can start as soon as the menu is up.
+  // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.ogg.
   AudioManager.loadMenuMusic(soundUrlWithFallback("menu.ogg"));
+  if (menuVisible) AudioManager.playMenuMusic();
 
   const gameMusicFiles = ["music.ogg", "song2.ogg", "song3.ogg", "song4.ogg"];
   const _gameMusicUrls = gameMusicFiles.map(soundUrlWithFallback);
-  // Shuffle game playlist
   for (let i = _gameMusicUrls.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [_gameMusicUrls[i], _gameMusicUrls[j]] = [_gameMusicUrls[j], _gameMusicUrls[i]];
   }
-  AudioManager.loadGamePlaylist(_gameMusicUrls);
-
-  if (menuVisible) AudioManager.playMenuMusic();
+  AudioManager.setGamePlaylist(_gameMusicUrls);
 
   // * Autoplay policy: unlock AudioContext on the first user gesture anywhere on the page.
   // * Registered early (before initMenu) with capture so it fires before other handlers.
@@ -1486,7 +1486,8 @@ async function main() {
    */
   async function commitLevelLoad(selected, opts) {
     if (typeof disposeLevel === "function") disposeLevel();
-    if (world) GroceryPool.dispose(scene, world);
+    // * Grocery pool stays warm across level swaps — init() clears active spills only
+    // * after the first load (no re-fetch of ~2.9 MB grocery GLBs per arena change).
     ({
       recordMesh,
       recordCollider,
@@ -1505,6 +1506,7 @@ async function main() {
       upgradeRecordReflector,
       setReflectorVisible,
     } = await loadLevel(selected, scene, world, CONFIG, {
+      menuPreview: opts.menuPreview === true,
       reflectorTextureSize: opts.reflectorTextureSize,
       onProgress: opts.onProgress,
     }));
@@ -2923,6 +2925,60 @@ async function main() {
   window.__cartRaveBootstrapped = true;
   window.__cartRaveCancelBootError?.();
   document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
+
+  // * Idle warm: after menu is up, load Rapier + selected level in the background so
+  // * first Solo/Quickplay skips the cold arena stack. Idempotent with enterPlayMode.
+  // * Delay so menu music + cart Draco keep first dibs on bandwidth; skip when tab hidden.
+  scheduleIdleWorldWarm();
+}
+
+/**
+ * Preheats physics + default arena while the player sits on the main menu.
+ * No-ops if play already started, world is warm, or the tab is backgrounded.
+ */
+function scheduleIdleWorldWarm() {
+  /** @type {number} ms — let menu music / first paint settle before WASM + arena work. */
+  const IDLE_WARM_DELAY_MS = 1800;
+
+  const runWarm = () => {
+    if (!menuVisible) return;
+    if (isWorldBootstrapped()) return;
+    void ensureWorldBootstrapped()
+      .then(() => {
+        if (import.meta.env.DEV && menuVisible) {
+          // eslint-disable-next-line no-console
+          console.log("[bootstrap] idle world warm done (menu still open)");
+        }
+        // * Level previews only run once the world exists — nudge picker if needed.
+        if (menuVisible) scheduleMenuLevelPreview();
+      })
+      .catch((err) => {
+        console.warn("[bootstrap] idle world warm failed:", err);
+      });
+  };
+
+  const kick = () => {
+    if (document.hidden) {
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (!document.hidden) scheduleIdleWorldWarm();
+        },
+        { once: true },
+      );
+      return;
+    }
+    const start = () => {
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(runWarm, { timeout: 4000 });
+      } else {
+        setTimeout(runWarm, 0);
+      }
+    };
+    setTimeout(start, IDLE_WARM_DELAY_MS);
+  };
+
+  kick();
 }
 
 bootstrapNetcodeEntryFromUrl();

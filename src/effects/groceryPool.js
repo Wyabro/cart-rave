@@ -1,11 +1,13 @@
 /**
  * groceryPool.js — Pre-allocated cosmetic grocery-spill rigidbodies + InstancedMesh pool.
  *
- * Loads 6 GLTF grocery models (milk, cereal, soda, soup, orange, baguette) and creates
- * one InstancedMesh per model type. Each model gets ~11 pre-allocated Rapier dynamic
- * rigidbodies. Grocery items spawn when a cart takes a hit (triggerSpill) and fade out
- * after 8.5 s or when the owning cart respawns (releaseByCartId). Collision groups
- * isolate groceries from carts (group 1) so they never push player physics.
+ * Loads 6 GLTF grocery models (milk, cereal, soda, soup, orange, baguette) once per
+ * session and creates one InstancedMesh per model type. Each model gets ~11 pre-allocated
+ * Rapier dynamic rigidbodies. Level swaps call init() again, which only clears active
+ * spills — it does not re-download GLBs. Grocery items spawn when a cart takes a hit
+ * (triggerSpill) and fade out after 8.5 s or when the owning cart respawns
+ * (releaseByCartId). Collision groups isolate groceries from carts (group 1) so they
+ * never push player physics.
  */
 
 import * as THREE from "three";
@@ -120,6 +122,13 @@ let loadedGeometries = [];
 /** @type {THREE.Material[]} */
 let loadedMaterials = [];
 
+/** True after the first successful init (GLBs + pool live for the session). */
+let ready = false;
+
+/** Coalesces concurrent init() calls (e.g. rapid level swaps during first load). */
+/** @type {Promise<void> | null} */
+let initInFlight = null;
+
 // ---------------------------------------------------------------------------
 // Scratch objects (reused each frame / spawn to avoid GC pressure)
 // ---------------------------------------------------------------------------
@@ -172,22 +181,64 @@ function getLoader() {
 // ---------------------------------------------------------------------------
 
 /**
- * * Loads all 6 GLTF grocery models and creates one InstancedMesh per model type
- * * with 11 pre-allocated Rapier dynamic rigidbodies each (66 total). All instances
- * * start inactive (scale 0). Grocery items use collision group 2 and filter out
- * * group 1 (carts).
- *
- * @param {THREE.Scene} scene Active Three.js scene.
- * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
- * @returns {Promise<void>}
+ * Parks every active grocery (disabled body, invisible instance). Does not free
+ * GLBs, InstancedMeshes, or Rapier allocations — use on level swap.
  */
-export async function init(scene, world) {
-  sceneRef = scene;
-  worldRef = world;
+function clearActiveSlots() {
+  pendingSpills.length = 0;
+  if (pool.length === 0) return;
 
+  for (let i = 0; i < pool.length; i += 1) {
+    const slot = pool[i];
+    slot.active = false;
+    slot.cartId = null;
+    slot.spawnTimeMs = 0;
+    slot.fadeStartMs = Number.POSITIVE_INFINITY;
+    if (slot.body) {
+      try {
+        slot.body.setEnabled(false);
+        slot.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        slot.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        slot.body.setTranslation({ x: 0, y: -999, z: 0 }, true);
+      } catch {
+        // Body may already be removed if world was torn down.
+      }
+    }
+    if (slot.meshRef) {
+      _scratchMatrix.compose(
+        _scratchPosition.set(0, -999, 0),
+        _scratchQuat.identity(),
+        _zeroScale,
+      );
+      slot.meshRef.setMatrixAt(slot.meshIndex, _scratchMatrix);
+    }
+  }
+  for (const im of instancedMeshes) {
+    im.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/**
+ * @param {THREE.Scene} scene
+ */
+function ensureMeshesInScene(scene) {
+  for (const im of instancedMeshes) {
+    if (im.parent !== scene) {
+      if (im.parent) im.parent.remove(im);
+      scene.add(im);
+    }
+  }
+}
+
+/**
+ * First-time (or post-dispose) build: load GLTFs once and allocate the pool.
+ * @param {THREE.Scene} scene
+ * @param {import("@dimforge/rapier3d").World} world
+ */
+async function buildPool(scene, world) {
   const loader = getLoader();
 
-  // * Load all 6 GLTF models in parallel.
+  // * Load all 6 GLTF models in parallel (session once — not per level swap).
   /** @type {THREE.Object3D[]} */
   const gltfs = await Promise.all(
     MODEL_DEFS.map((def) =>
@@ -195,17 +246,17 @@ export async function init(scene, world) {
     ),
   );
 
-  // * Build InstancedMeshes and Rapier rigidbodies for each model type.
   const interactionGroups = GROCERY_COLLISION_GROUPS;
 
   instancedMeshes = [];
   pool = [];
+  loadedGeometries = [];
+  loadedMaterials = [];
 
   for (let modelIdx = 0; modelIdx < MODEL_DEFS.length; modelIdx += 1) {
     const def = MODEL_DEFS[modelIdx];
     const gltfScene = gltfs[modelIdx];
 
-    // * Find the first mesh in the loaded scene to extract geometry and material.
     /** @type {THREE.Mesh | null} */
     let sourceMesh = null;
     gltfScene.traverse((child) => {
@@ -224,9 +275,6 @@ export async function init(scene, world) {
     const material = /** @type {THREE.Material} */ (sourceMesh.material).clone();
 
     // * Normalize geometry: text-to-3D models may have arbitrary scale and off-center pivots.
-    // * Bake a uniform scale so the model's longest axis fits within ~0.5 world units,
-    // * then recenter the origin. Clamp the shortest dimension to MIN_GROCERY_DIM
-    // * so extreme-aspect-ratio models (baguette) aren't paper-thin.
     geometry.computeBoundingBox();
     const bb = geometry.boundingBox;
     if (bb) {
@@ -241,7 +289,6 @@ export async function init(scene, world) {
       if (Number.isFinite(scaleFactor) && scaleFactor !== 1) {
         geometry.scale(scaleFactor, scaleFactor, scaleFactor);
       }
-      // Recompute bounding box AFTER scale to get the correct center
       geometry.computeBoundingBox();
       const center = new THREE.Vector3();
       geometry.boundingBox.getCenter(center);
@@ -249,8 +296,6 @@ export async function init(scene, world) {
       geometry.computeBoundingBox();
     }
 
-    // * Compute collider half-extents from the normalized geometry bounding box
-    // * so primitive colliders perfectly match the visual mesh.
     const bbFinal = geometry.boundingBox;
     const hx = (bbFinal.max.x - bbFinal.min.x) / 2;
     const hy = (bbFinal.max.y - bbFinal.min.y) / 2;
@@ -275,8 +320,6 @@ export async function init(scene, world) {
       .setRestitution(COLLIDER_RESTITUTION)
       .setCollisionGroups(interactionGroups);
 
-    // * Store normalized geometry & material for cargo bay visual.
-    // * Mark as isSharedMaterial so cartShatter cleanup does not dispose GPU resources.
     material.userData = { ...material.userData, isSharedMaterial: true };
     const cargoMat = material.clone();
     cargoMat.userData = { ...cargoMat.userData, isSharedMaterial: true };
@@ -285,23 +328,19 @@ export async function init(scene, world) {
 
     const im = new THREE.InstancedMesh(geometry, material, PER_MODEL_POOL);
     im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    im.frustumCulled = false; // * Prevent culling when camera looks away from scattered groceries.
+    im.frustumCulled = false;
     scene.add(im);
     instancedMeshes.push(im);
 
-    // * Pre-allocate Rapier rigidbodies for this model.
     for (let i = 0; i < PER_MODEL_POOL; i += 1) {
       const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0, -999, 0) // * Off-screen while inactive.
+        .setTranslation(0, -999, 0)
         .setCanSleep(true);
       const body = world.createRigidBody(bodyDesc);
 
       world.createCollider(colliderDesc, body);
-
-      // * Start disabled — will be enabled on triggerSpill and disabled on fade-out.
       body.setEnabled(false);
 
-      // * Set initial instance matrix to scale 0 (invisible).
       _scratchMatrix.compose(
         _scratchPosition.set(0, -999, 0),
         _scratchQuat.identity(),
@@ -323,13 +362,70 @@ export async function init(scene, world) {
     im.instanceMatrix.needsUpdate = true;
   }
 
-  // * Replay any spill calls that arrived while GLTF models were still loading.
+  ready = true;
+
   if (pendingSpills.length > 0) {
     const queued = pendingSpills.slice();
     pendingSpills.length = 0;
     for (const args of queued) {
       triggerSpill(...args);
     }
+  }
+}
+
+/**
+ * Ensures the grocery pool is ready for the live scene/world.
+ *
+ * - **First call:** loads 6 GLTFs and allocates InstancedMeshes + 66 bodies.
+ * - **Later level swaps (same Rapier world):** clears active spills only — no re-fetch.
+ *
+ * Call after each arena load; safe to await every time.
+ *
+ * @param {THREE.Scene} scene Active Three.js scene.
+ * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
+ * @returns {Promise<void>}
+ */
+export async function init(scene, world) {
+  // * Coalesce concurrent first-load inits (menu preview spam while GLBs load).
+  if (initInFlight) {
+    await initInFlight;
+    sceneRef = scene;
+    if (ready && worldRef === world) {
+      ensureMeshesInScene(scene);
+      clearActiveSlots();
+    } else if (ready && worldRef !== world) {
+      // * Rare: physics world replaced — full rebuild for the new world.
+      dispose(sceneRef ?? scene, worldRef);
+      sceneRef = scene;
+      worldRef = world;
+      initInFlight = buildPool(scene, world);
+      try {
+        await initInFlight;
+      } finally {
+        initInFlight = null;
+      }
+    }
+    return;
+  }
+
+  if (ready && worldRef === world && pool.length > 0) {
+    sceneRef = scene;
+    ensureMeshesInScene(scene);
+    clearActiveSlots();
+    return;
+  }
+
+  if (ready && worldRef !== world) {
+    dispose(sceneRef ?? scene, worldRef);
+  }
+
+  sceneRef = scene;
+  worldRef = world;
+  initInFlight = buildPool(scene, world);
+  try {
+    await initInFlight;
+  } finally {
+    initInFlight = null;
   }
 }
 
@@ -608,13 +704,15 @@ export function update(_dt, now) {
 }
 
 /**
- * * Removes all grocery rigidbodies from the Rapier world and disposes all
- * * InstancedMeshes and their resources from the scene.
+ * Full teardown (bodies, meshes, GPU resources). Prefer level-swap path via
+ * {@link init} re-entry, which only clears active slots and keeps GLBs warm.
  *
- * @param {THREE.Scene} scene Active Three.js scene.
- * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
+ * @param {THREE.Scene | null | undefined} scene Active Three.js scene.
+ * @param {import("@dimforge/rapier3d").World | null | undefined} world Active Rapier physics world.
  */
 export function dispose(scene, world) {
+  pendingSpills.length = 0;
+
   for (const im of instancedMeshes) {
     if (scene) scene.remove(im);
     im.geometry?.dispose();
@@ -626,10 +724,15 @@ export function dispose(scene, world) {
   }
   instancedMeshes = [];
 
+  const bodyWorld = world ?? worldRef;
   for (let i = 0; i < pool.length; i += 1) {
     const slot = pool[i];
-    if (slot.body && world) {
-      world.removeRigidBody(slot.body);
+    if (slot.body && bodyWorld) {
+      try {
+        bodyWorld.removeRigidBody(slot.body);
+      } catch {
+        // World may already be gone.
+      }
     }
   }
 
@@ -637,7 +740,6 @@ export function dispose(scene, world) {
 
   for (const geo of loadedGeometries) geo?.dispose();
   for (const mat of loadedMaterials) {
-    // Dispose textures to prevent VRAM leaks on level swap
     for (const key in mat) {
       if (mat[key] && mat[key].isTexture) {
         mat[key].dispose();
@@ -648,6 +750,8 @@ export function dispose(scene, world) {
   loadedGeometries = [];
   loadedMaterials = [];
 
+  ready = false;
+  initInFlight = null;
   sceneRef = null;
   worldRef = null;
 }

@@ -9,8 +9,8 @@ albedo or the derived neon wire-glow that live on `TEXCOORD_0`.
 
 ## Why
 
-The pattern mask is a repeating texture sampled in UV space (`src/cartPatterns.js`). The active
-model `public/models/cartrave4.glb` is a Tripo auto-export whose body mesh `tripo_part_0`
+The pattern mask is a repeating texture sampled in UV space (`src/cartPatterns.js`). The
+uncompressed master `art/models/cartrave4.glb` is a Tripo auto-export whose body mesh `tripo_part_0`
 (renamed `CartFrame` at load) has a **fragmented, arbitrarily-oriented** unwrap on `TEXCOORD_0`.
 Oriented patterns shatter into noise across island seams; only `dots` survives. But that same
 `TEXCOORD_0` also carries:
@@ -31,7 +31,7 @@ the other 23 `tripo_part_*` meshes untouched.
 
 ## Blender steps
 
-1. **Import** `public/models/cartrave4.glb` (File → Import → glTF 2.0). Keep materials/textures.
+1. **Import** `art/models/cartrave4.glb` (File → Import → glTF 2.0). Keep materials/textures.
 2. Select **`tripo_part_0`** (the basket body; ~6980 verts, world bbox ≈ 0.77 × 0.52 × 0.61).
 3. Open **UV Editing**. In the mesh's **Object Data Properties → UV Maps**, note the existing
    map (call it `UVMap`, = `TEXCOORD_0`). **Do not edit it.**
@@ -45,7 +45,7 @@ the other 23 `tripo_part_*` meshes untouched.
      old procedural cart had and what makes oriented patterns tile cleanly.
 6. **Sanity-check** with a UV grid / checker texture in the viewport: the checker should look
    even and unrotated across the basket panels.
-7. **Export** glTF 2.0 back to `public/models/cartrave4.glb`:
+7. **Export** glTF 2.0 back to `art/models/cartrave4.glb`:
    - Format **glTF Binary (.glb)**.
    - Geometry: enable **UVs** and **Normals**. Ensure **both** UV maps export (Blender exports
      all UV layers by default → `TEXCOORD_0`, `TEXCOORD_1`).
@@ -85,7 +85,7 @@ The Draco decoder is served from `public/draco/gltf/` — no change needed.
    ```bash
    node -e '
    const fs=require("fs");
-   for (const p of ["public/models/cartrave4.glb","public/models/cartrave4-draco.glb"]){
+   for (const p of ["art/models/cartrave4.glb","public/models/cartrave4-draco.glb"]){
      const b=fs.readFileSync(p);let o=12,j=null,L=b.readUInt32LE(8);
      while(o<L){const cl=b.readUInt32LE(o),ct=b.readUInt32LE(o+4),cs=o+8;
        if(ct===0x4E4F534A)j=JSON.parse(b.slice(cs,cs+cl));o=cs+cl;}
