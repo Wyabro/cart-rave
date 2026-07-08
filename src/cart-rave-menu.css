@@ -1657,7 +1657,7 @@ html, body {
 
 .cr-customize-tabs {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-xs);
 }
 
@@ -1742,6 +1742,52 @@ html, body {
 }
 
 .cr-sunglasses-chip-label {
+  font-family: var(--ui);
+  font-size: clamp(6px, 0.9vw, 8px);
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  line-height: 1.15;
+}
+
+/* ─── Pattern tab (wireframe pattern chips) ──────────────────────────────── */
+.cr-pattern-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 0;
+}
+
+.cr-pattern-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 4px;
+  background: var(--surface-dark-55);
+  border: 2px solid var(--border-white-15);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 150ms ease, box-shadow 180ms ease;
+}
+
+.cr-pattern-chip svg {
+  display: block;
+}
+
+.cr-pattern-chip:hover {
+  transform: var(--transform-hover-lift);
+  border-color: var(--border-white-30);
+}
+
+.cr-pattern-chip.active {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 12px var(--glow-cyan-30), 0 0 6px var(--glow-magenta-14);
+}
+
+.cr-pattern-chip-label {
   font-family: var(--ui);
   font-size: clamp(6px, 0.9vw, 8px);
   letter-spacing: 0.05em;
@@ -2115,6 +2161,7 @@ html, body {
 .cr-level-btn:focus-visible,
 .cr-color-chip:focus-visible,
 .cr-sunglasses-chip:focus-visible,
+.cr-pattern-chip:focus-visible,
 .cr-reroll:focus-visible,
 .cr-friends-enter:focus-visible,
 .cr-customize-done:focus-visible,
@@ -2313,9 +2360,10 @@ html, body {
   .cr-name-display, .cr-name-input { font-size: clamp(15px, 4.2vw, 19px); line-height: 1.25; }
   .cr-reroll { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: clamp(14px, 3.6vw, 16px); }
 
-  .cr-customize-tabs { grid-template-columns: repeat(2, 1fr); }
+  .cr-customize-tabs { grid-template-columns: repeat(3, 1fr); }
   .cr-customize-tab { min-height: 40px; }
   .cr-sunglasses-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cr-pattern-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
   .cr-color-label { font-size: clamp(8px, 2.2vw, 10px); margin-bottom: clamp(8px, 1.6dvh, 10px); letter-spacing: 0.16em; }
   .cr-color-row { gap: clamp(6px, 1.8vw, 8px); }

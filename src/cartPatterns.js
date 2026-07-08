@@ -33,9 +33,9 @@ const MASK_REPEAT = 3;
 // * Reproduces the retired coplanar-overlay material in-shader: valley fragments blend
 // * `uPatternStrength` of the way toward a `TINT_SCALE` diffuse tint + an emissive whose
 // * radiance matches the old overlay (tint colour × `EMISSIVE_BOOST` intensity curve).
-const PATTERN_OVERLAY_TINT_SCALE = 0.32;
-const PATTERN_OVERLAY_EMISSIVE_BOOST = 0.48;
-const PATTERN_OVERLAY_OPACITY = 0.9;
+const PATTERN_OVERLAY_TINT_SCALE = 0.15;
+const PATTERN_OVERLAY_EMISSIVE_BOOST = 0.22;
+const PATTERN_OVERLAY_OPACITY = 0.95;
 
 // * customProgramCacheKey values — patterned (enabled) vs unpatterned (classic) get distinct
 // * programs so three never reuses one for the other. Two non-classic patterns share the ON
@@ -66,13 +66,18 @@ function renderPatternMaskCanvas(patternId) {
   ctx.fillRect(0, 0, size, size);
 
   switch (patternId) {
+    // * All masks target checker's readability: chunky ~50% coverage at a ~16px feature scale,
+    // * and seamless tiling (128 = 8×16) so no edge seam reads differently across the body.
     case "stripes": {
+      // * Bold diagonal bands. step 32 divides 128 (seamless at 45°); ~14px band ≈ 50/50.
       ctx.fillStyle = dark;
-      for (let i = -size; i < size * 2; i += 14) {
+      const step = 32;
+      const band = 15;
+      for (let i = -size; i < size * 2; i += step) {
         ctx.save();
         ctx.translate(i, 0);
         ctx.rotate(Math.PI / 4);
-        ctx.fillRect(0, 0, 7, size * 2);
+        ctx.fillRect(0, -size, band, size * 3);
         ctx.restore();
       }
       break;
@@ -89,40 +94,31 @@ function renderPatternMaskCanvas(patternId) {
       break;
     }
     case "dots": {
+      // * Big bold dots on a 16px grid (128 = 8×16 → seamless). r7 ≈ 60% coverage.
       ctx.fillStyle = dark;
-      const step = 20;
+      const step = 16;
+      const r = 7;
       for (let y = step / 2; y < size; y += step) {
         for (let x = step / 2; x < size; x += step) {
           ctx.beginPath();
-          ctx.arc(x, y, 6, 0, Math.PI * 2);
+          ctx.arc(x, y, r, 0, Math.PI * 2);
           ctx.fill();
         }
       }
       break;
     }
     case "waves": {
-      ctx.strokeStyle = dark;
-      ctx.lineWidth = 6;
-      for (let row = 0; row < 5; row += 1) {
-        const y = 10 + row * 24;
-        ctx.beginPath();
-        for (let x = 0; x <= size; x += 3) {
-          const wy = y + Math.sin((x / size) * Math.PI * 4) * 7;
-          if (x === 0) ctx.moveTo(x, wy);
-          else ctx.lineTo(x, wy);
+      // * Thick wavy ribbons (not thin lines). period 32 divides 128 (seamless vertically);
+      // * 2 horizontal cycles across the tile keep the left/right seam continuous.
+      ctx.fillStyle = dark;
+      const period = 32;
+      const bandH = 16;
+      const amp = 8;
+      for (let x = 0; x < size; x += 1) {
+        const off = Math.sin((x / size) * Math.PI * 4) * amp;
+        for (let k = -1; k * period + off < size + period; k += 1) {
+          ctx.fillRect(x, k * period + off, 1, bandH);
         }
-        ctx.stroke();
-      }
-      ctx.lineWidth = 4;
-      for (let row = 0; row < 4; row += 1) {
-        const y = 22 + row * 24;
-        ctx.beginPath();
-        for (let x = 0; x <= size; x += 3) {
-          const wy = y + Math.sin((x / size) * Math.PI * 3 + 0.8) * 5;
-          if (x === 0) ctx.moveTo(x, wy);
-          else ctx.lineTo(x, wy);
-        }
-        ctx.stroke();
       }
       break;
     }
@@ -162,10 +158,16 @@ function getPatternMaskTexture(patternId) {
  * `diffuseColor` or `totalEmissiveRadiance` wholesale), so per-frame recolor / leader-glow /
  * boost-pulse mutations of `material.color` / `material.emissive` keep flowing through.
  *
+ * `useUv1` selects the second UV channel (`TEXCOORD_1` → three attribute `uv1`) for mask
+ * sampling. The cartrave4 body's `TEXCOORD_0` carries a fragmented Tripo unwrap (plus the baked
+ * albedo + wire-emissive), which shreds oriented patterns; a clean box-unwrapped `uv1` reads
+ * correctly. Meshes without a second channel (procedural CartFrame) fall back to `uv`.
+ *
  * @param {THREE.Material} mat
+ * @param {boolean} [useUv1] Sample the mask from `uv1` (clean channel) instead of `uv`.
  * @returns {Record<string, THREE.IUniform>}
  */
-function ensureFramePatternInjection(mat) {
+function ensureFramePatternInjection(mat, useUv1 = false) {
   const ud = /** @type {any} */ (mat.userData);
   if (ud.cartPatternUniforms) return ud.cartPatternUniforms;
 
@@ -179,6 +181,7 @@ function ensureFramePatternInjection(mat) {
   };
   ud.cartPatternUniforms = uniforms;
   ud.cartPatternEnabled = false;
+  ud.cartPatternUv1 = !!useUv1;
 
   const prevOnBeforeCompile = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
@@ -190,16 +193,19 @@ function ensureFramePatternInjection(mat) {
     shader.uniforms.uPatternTint = uniforms.uPatternTint;
     shader.uniforms.uPatternEmissive = uniforms.uPatternEmissive;
 
-    // * `uv` is always declared in three's vertex prefix, so a dedicated varying works for
-    // * both the mapped GLTF body and the map-less procedural CartFrame.
+    // * Route mask sampling through the chosen UV channel. `uv` is declared in three's vertex
+    // * prefix; the second channel (`uv1`) is NOT declared unless a map uses it (our body maps
+    // * only use `uv`), so we declare `attribute vec2 uv1;` ourselves — three rewrites it to
+    // * `in vec2 uv1;` for GLSL3. The geometry must carry a `uv1` attribute (TEXCOORD_1).
+    const patternUvAttr = useUv1 ? "uv1" : "uv";
+    const vertexCommon = useUv1
+      ? "#include <common>\nattribute vec2 uv1;\nvarying vec2 vCartPatternUv;"
+      : "#include <common>\nvarying vec2 vCartPatternUv;";
     shader.vertexShader = shader.vertexShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nvarying vec2 vCartPatternUv;",
-      )
+      .replace("#include <common>", vertexCommon)
       .replace(
         "#include <uv_vertex>",
-        "#include <uv_vertex>\n\tvCartPatternUv = uv;",
+        `#include <uv_vertex>\n\tvCartPatternUv = ${patternUvAttr};`,
       );
 
     shader.fragmentShader = shader.fragmentShader
@@ -235,9 +241,13 @@ function ensureFramePatternInjection(mat) {
       );
   };
 
-  // * Enabled state gates the program cache so patterned/unpatterned bodies never collide.
-  mat.customProgramCacheKey = () =>
-    (/** @type {any} */ (mat.userData).cartPatternEnabled ? PATTERN_CACHE_KEY_ON : PATTERN_CACHE_KEY_OFF);
+  // * Enabled state + UV channel gate the program cache: patterned/unpatterned never collide,
+  // * and a `uv`-compiled program is never reused for a `uv1` body (distinct vertex shaders).
+  mat.customProgramCacheKey = () => {
+    const u = /** @type {any} */ (mat.userData);
+    const base = u.cartPatternEnabled ? PATTERN_CACHE_KEY_ON : PATTERN_CACHE_KEY_OFF;
+    return `${base}:${u.cartPatternUv1 ? "uv1" : "uv"}`;
+  };
 
   // * First injection on an already-compiled material must trigger a recompile.
   mat.needsUpdate = true;
@@ -252,9 +262,10 @@ function ensureFramePatternInjection(mat) {
  * @param {THREE.Material} mat
  * @param {CartPatternId} patternId
  * @param {number} neonHex
+ * @param {boolean} [useUv1] Sample the mask from the clean `uv1` channel (see injection docs).
  */
-function applyPatternToFrameMaterial(mat, patternId, neonHex) {
-  const uniforms = ensureFramePatternInjection(mat);
+function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
+  const uniforms = ensureFramePatternInjection(mat, useUv1);
   const id = normalizePatternId(patternId);
   const enabled = id !== "classic";
   const hex = Number.isFinite(neonHex) ? neonHex : 0xffffff;
@@ -326,5 +337,9 @@ export function applyCartPattern(root, patternId, neonHex) {
   const mat = /** @type {THREE.Mesh} */ (frameMesh).material;
   if (!mat || Array.isArray(mat)) return;
 
-  applyPatternToFrameMaterial(mat, normalizePatternId(patternId), neonHex ?? 0xffffff);
+  // * Prefer the clean second UV channel when the body carries one (re-UV'd cartrave4 export);
+  // * meshes with only TEXCOORD_0 (procedural CartFrame, current GLB) fall back to `uv`.
+  const useUv1 = !!(/** @type {THREE.Mesh} */ (frameMesh).geometry?.getAttribute?.("uv1"));
+
+  applyPatternToFrameMaterial(mat, normalizePatternId(patternId), neonHex ?? 0xffffff, useUv1);
 }

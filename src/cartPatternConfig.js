@@ -6,12 +6,12 @@
 /** @typedef {typeof CART_PATTERN_IDS[number]} CartPatternId */
 
 /** Ordered list of selectable pattern ids (classic = no mask). */
-const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves"];
+export const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves"];
 
 export const DEFAULT_CART_PATTERN = "classic";
 
 /** @type {Record<CartPatternId, { label: string, description: string }>} */
-const CART_PATTERNS = {
+export const CART_PATTERNS = {
   classic: { label: "Classic", description: "Solid neon grid" },
   stripes: { label: "Stripes", description: "Diagonal dark stripes" },
   checker: { label: "Checker", description: "Dark checker mask" },
@@ -31,30 +31,6 @@ export function normalizePatternId(value) {
 }
 
 /**
- * CSS `background` for menu pattern swatches — neon base with dark mask preview.
- * @param {CartPatternId} patternId
- * @param {string} cssHex e.g. `#ff2bd6`
- * @returns {string}
- */
-function getPatternSwatchBackground(patternId, cssHex) {
-  const id = normalizePatternId(patternId);
-  const c = cssHex || "#ff2bd6";
-  const dark = "rgba(0,0,0,0.92)";
-  switch (id) {
-    case "stripes":
-      return `repeating-linear-gradient(135deg, ${c} 0 5px, ${dark} 5px 12px)`;
-    case "checker":
-      return `conic-gradient(${c} 90deg, ${dark} 90deg 180deg, ${c} 180deg 270deg, ${dark} 270deg)`;
-    case "dots":
-      return `radial-gradient(circle, ${dark} 24%, ${c} 26%)`;
-    case "waves":
-      return `repeating-linear-gradient(0deg, ${c} 0 3px, ${dark} 3px 9px, ${c}88 9px 12px)`;
-    default:
-      return `linear-gradient(145deg, ${c}, ${c}cc)`;
-  }
-}
-
-/**
  * SVG mask tile for wireframe stroke previews (menu cart + mini chips).
  * @param {CartPatternId} patternId
  * @param {string} patternUid unique id prefix for SVG defs
@@ -64,10 +40,11 @@ function patternMaskTileSvg(patternId, patternUid) {
   const id = normalizePatternId(patternId);
   const uid = patternUid || "pat";
   switch (id) {
+    // * Bolder ~50%-coverage tiles that mirror the in-shader masks (cartPatterns.js).
     case "stripes":
       return `<pattern id="${uid}-tile" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="12" height="12" fill="white"/>
-        <rect width="5" height="12" fill="black"/>
+        <rect width="6" height="12" fill="black"/>
       </pattern>`;
     case "checker":
       return `<pattern id="${uid}-tile" width="14" height="14" patternUnits="userSpaceOnUse">
@@ -78,13 +55,12 @@ function patternMaskTileSvg(patternId, patternUid) {
     case "dots":
       return `<pattern id="${uid}-tile" width="16" height="16" patternUnits="userSpaceOnUse">
         <rect width="16" height="16" fill="white"/>
-        <circle cx="8" cy="8" r="5" fill="black"/>
+        <circle cx="8" cy="8" r="6.5" fill="black"/>
       </pattern>`;
     case "waves":
-      return `<pattern id="${uid}-tile" width="20" height="12" patternUnits="userSpaceOnUse">
-        <rect width="20" height="12" fill="white"/>
-        <path d="M0 6 Q5 0 10 6 T20 6" fill="none" stroke="black" stroke-width="4"/>
-        <path d="M0 12 Q5 6 10 12 T20 12" fill="none" stroke="black" stroke-width="3"/>
+      return `<pattern id="${uid}-tile" width="24" height="16" patternUnits="userSpaceOnUse">
+        <rect width="24" height="16" fill="white"/>
+        <path d="M0 4 Q6 0 12 4 T24 4 L24 12 Q18 8 12 12 T0 12 Z" fill="black"/>
       </pattern>`;
     default:
       return "";
@@ -134,7 +110,7 @@ export function patternSvgParts(patternId, colorCss, patternUid) {
  * @param {string} colorCss
  * @returns {string}
  */
-function makePatternMiniCartSvg(patternId, colorCss) {
+export function makePatternMiniCartSvg(patternId, colorCss) {
   const id = normalizePatternId(patternId);
   const c = colorCss || "#ff2bd6";
   const uid = `m${Math.random().toString(36).slice(2, 7)}`;

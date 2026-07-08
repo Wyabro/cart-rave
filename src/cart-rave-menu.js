@@ -10,7 +10,10 @@ import {
   savePlayerCustomization,
 } from "./customization.js";
 import {
+  CART_PATTERN_IDS,
+  CART_PATTERNS,
   DEFAULT_CART_PATTERN,
+  makePatternMiniCartSvg,
   normalizePatternId,
   patternSvgParts,
 } from "./cartPatternConfig.js";
@@ -259,6 +262,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const titleEl = $("cr-title");
   const customizeColorRow = $("cr-customize-color-row");
   const customizeSunglassesRow = $("cr-customize-sunglasses-row");
+  const customizePatternRow = $("cr-customize-pattern-row");
   const customizeScreen = $("cr-customize-screen");
   const customizeCartHolder = $("cr-customize-cart-holder");
   const customizeCartShadow = $("cr-customize-cart-shadow");
@@ -605,6 +609,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     state.playerIdx = idx;
     saveCustomization({ colorMode: 'preset', color: PALETTE_GAME[idx] });
     buildColorChips();
+    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
@@ -617,6 +622,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     state.colorMode = 'custom';
     saveCustomization({ colorMode: 'custom', customHue: state.customHue });
     buildColorChips();
+    buildPatternChips();
     updateCustomHueUi();
     renderCart();
     renderCustomizePreview();
@@ -635,6 +641,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       const css = hueToNeonCss(state.customHue);
       customChip.style.setProperty('--cc', css);
     }
+    // * Recolor pattern mini-carts only on release (shouldSave) — avoid per-frame SVG rebuilds.
+    if (shouldSave) buildPatternChips();
     renderCart();
     renderCustomizePreview();
     applyPalette();
@@ -733,6 +741,52 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (cartPreview) syncCartPreviewLook(true);
   }
 
+  // ─── Build pattern chips (PATTERN tab) ───────────────────────────────────
+  /**
+   * Rebuilds the wireframe-pattern picker chips. Each chip shows a mini cart drawn in the
+   * active neon color so the pattern preview matches the current body color.
+   */
+  function buildPatternChips() {
+    if (!customizePatternRow) return;
+    customizePatternRow.setAttribute('role', 'radiogroup');
+    customizePatternRow.setAttribute('aria-label', 'Cart Pattern Selection');
+    const colorCss = getActiveColorCss();
+    let html = '';
+    for (const id of CART_PATTERN_IDS) {
+      const isActive = state.pattern === id;
+      const meta = CART_PATTERNS[id] || { label: id, description: id };
+      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}" data-pattern="${id}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${meta.description}">
+        ${makePatternMiniCartSvg(id, colorCss)}
+        <span class="cr-pattern-chip-label">${meta.label}</span>
+      </button>`;
+    }
+    customizePatternRow.innerHTML = html;
+    customizePatternRow.querySelectorAll('.cr-pattern-chip').forEach((chip) => {
+      wireMenuPressFeedback(chip);
+      chip.addEventListener('click', () => {
+        const id = chip.dataset.pattern;
+        if (!id || id === state.pattern) return;
+        selectPattern(id);
+        animateColorChipSelect(chip);
+      });
+    });
+  }
+
+  /**
+   * Applies a pattern selection: persists it and refreshes the menu cart + 3D preview.
+   * Pattern swaps are a uniform change on the CartFrame material, so no rebuild is needed.
+   * @param {string} patternId
+   */
+  function selectPattern(patternId) {
+    if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
+    const id = normalizePatternId(patternId);
+    if (id === state.pattern) return;
+    saveCustomization({ pattern: id });
+    buildPatternChips();
+    renderCart();
+    renderCustomizePreview();
+  }
+
   function switchCustomizeTab(tabId) {
     const tabs = document.querySelectorAll('.cr-customize-tab[data-tab]');
     const sections = document.querySelectorAll('.cr-customize-section[data-section]');
@@ -823,6 +877,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     mountCartPreview();
     renderCustomizePreview();
     buildColorChips();
+    buildPatternChips();
     buildSunglassesChips();
     customizeScreen.style.display = 'flex';
     customizeScreen.setAttribute('aria-hidden', 'false');
@@ -1760,6 +1815,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   updateSpotlights();
   updateParticles();
   buildColorChips();
+  buildPatternChips();
   buildSunglassesChips();
   updateCustomHueUi();
   initLevelSelect();
@@ -1777,6 +1833,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const detail = e.detail || loadPlayerCustomization();
     applyCustomizationToState(detail);
     buildColorChips();
+    buildPatternChips();
     buildSunglassesChips();
     updateCustomHueUi();
     renderCart();
