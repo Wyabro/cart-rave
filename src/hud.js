@@ -303,7 +303,9 @@ export function colorHexToCss(hex) {
 }
 
 export function pickKillFeedVerb(hit) {
-  if (hit?.wasCritical) return "BOOSTED OFF";
+  // * Critical is now a high-SPEED ram (not a nitro boost), so it gets its own distinctive
+  // * speed-flavored verb rather than the boost-flavored "BOOSTED OFF".
+  if (hit?.wasCritical) return "STEAMROLLED";
   const verbs = ["YEETED", "RAMMED", "BOOSTED OFF"];
   return verbs[Math.floor(Math.random() * verbs.length)];
 }
