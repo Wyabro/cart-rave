@@ -691,13 +691,6 @@
           </div>
         </div>
 
-        <div class="cr-challenges-panel" id="cr-challenges-panel">
-          <div class="cr-challenges-hd">
-            <span>◇ CHALLENGES</span>
-          </div>
-          <div class="cr-challenges-list" id="cr-challenges-list"></div>
-        </div>
-
         <div class="cr-audio-panel" id="cr-audio-panel">
           <div class="cr-audio-hd">
             <span>◇ AUDIO</span>
@@ -752,21 +745,23 @@
           </div>
         </div>
 
-        <!-- Graphics settings -->
-        <div class="cr-graphics" id="cr-graphics">
-          <div class="cr-graphics-hd">◇ GRAPHICS</div>
-          <div class="cr-graphics-btns">
-            <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
-              <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>
-              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-            </button>
-            <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
-              <span class="cr-btn-inner"><span class="cr-btn-label">HIGH QUALITY: ON</span></span>
-              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-            </button>
-          </div>
+        <!-- Settings / Challenges access -->
+        <div class="cr-menu-extras">
+          <button type="button" class="cr-btn cr-btn--extra" data-action="howto" data-colorkey="tertiary">
+            <span class="cr-btn-inner"><span class="cr-btn-label">HOW TO PLAY</span></span>
+            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+          </button>
+          <button type="button" class="cr-btn cr-btn--extra" data-action="challenges" data-colorkey="secondary">
+            <span class="cr-btn-inner"><span class="cr-btn-label">CHALLENGES</span></span>
+            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+          </button>
+          <button type="button" class="cr-btn cr-btn--extra" data-action="settings" data-colorkey="primary">
+            <span class="cr-btn-inner"><span class="cr-btn-label">SETTINGS</span></span>
+            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+          </button>
         </div>
       </div>
     </div>
@@ -805,6 +800,80 @@
 
       <button class="cr-customize-done" id="cr-customize-done" type="button">DONE</button>
       <button class="cr-customize-back" id="cr-customize-back" type="button">← BACK</button>
+    </div>
+  </div>
+  <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-overlay-panel cr-overlay-panel--howto">
+      <h2 class="cr-overlay-title">HOW TO PLAY</h2>
+      <p class="cr-overlay-desc">Ram rivals off the edge. Last cart rolling takes the round.</p>
+      <div class="cr-howto-list" id="cr-howto-list"></div>
+      <div class="cr-howto-scoring">
+        <span class="cr-howto-scoring-hd">◇ SCORING</span>
+        <span class="cr-howto-scoring-line">KO = 1 PT · CENTER PIT = 2 PTS · KO THE LEADER = +1 · COMBOS MULTIPLY</span>
+      </div>
+      <button class="cr-overlay-done" id="cr-howto-done" type="button">LET'S ROLL</button>
+      <button class="cr-overlay-back" id="cr-howto-back" type="button">← BACK</button>
+    </div>
+  </div>
+  <div id="cr-challenges-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-overlay-panel">
+      <h2 class="cr-overlay-title">CHALLENGES</h2>
+      <p class="cr-overlay-desc">Daily &amp; weekly objectives — fresh goals every rotation.</p>
+      <div class="cr-challenges-list" id="cr-challenges-list"></div>
+      <button class="cr-overlay-done" id="cr-challenges-done" type="button">DONE</button>
+      <button class="cr-overlay-back" id="cr-challenges-back" type="button">← BACK</button>
+    </div>
+  </div>
+  <div id="cr-settings-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-overlay-panel cr-overlay-panel--settings">
+      <h2 class="cr-overlay-title">SETTINGS</h2>
+
+      <div class="cr-settings-section">
+        <div class="cr-settings-section-hd">◇ AUDIO</div>
+        <div class="cr-settings-audio" id="cr-settings-audio">
+          <button class="cr-mute-btn" id="cr-settings-mute-btn" title="Mute" aria-label="Toggle mute">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 5 6 9H3v6h3l5 4z"/>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+              <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+            </svg>
+          </button>
+          <div class="cr-vol-stack">
+            <div class="cr-vol-row">
+              <span class="cr-vol-label">♫</span>
+              <div class="cr-vol-track" id="cr-settings-vol-track">
+                <div class="cr-vol-fill" id="cr-settings-vol-fill"></div>
+              </div>
+              <span class="cr-vol-val" id="cr-settings-vol-val">25</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cr-settings-section">
+        <div class="cr-settings-section-hd">◇ GRAPHICS</div>
+        <div class="cr-graphics-btns">
+          <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
+            <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>
+            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+          </button>
+          <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
+            <span class="cr-btn-inner"><span class="cr-btn-label">HIGH QUALITY: ON</span></span>
+            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
+            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cr-settings-section">
+        <div class="cr-settings-section-hd" id="cr-settings-ctl-hd">◇ CONTROLS</div>
+        <div class="cr-settings-controls" id="cr-settings-controls"></div>
+        <p class="cr-settings-ctl-note">Key remapping not supported yet.</p>
+      </div>
+
+      <button class="cr-overlay-done" id="cr-settings-done" type="button">DONE</button>
+      <button class="cr-overlay-back" id="cr-settings-back" type="button">← BACK</button>
     </div>
   </div>
   <div id="cr-friends-screen" style="display:none;">

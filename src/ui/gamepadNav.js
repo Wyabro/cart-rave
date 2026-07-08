@@ -148,7 +148,7 @@ function updateNav() {
     }
 
     if (b && !prevDpad.b) {
-      const activeClose = /** @type {HTMLElement|null} */ (document.querySelector('.cr-customize-back, .cr-esc-resume, [data-action="back"]'));
+      const activeClose = /** @type {HTMLElement|null} */ (document.querySelector('.cr-customize-back, .cr-overlay-back, .cr-esc-resume, [data-action="back"]'));
       if (activeClose) {
         activeClose.click();
       } else {

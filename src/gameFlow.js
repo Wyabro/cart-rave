@@ -31,7 +31,7 @@ import { pickSelfDeathVerb } from "./hud.js";
  * @property {(attackerSlotIndex: number, points: number, suppressSuddenDeathWin?: boolean) => boolean} addScore
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
- * @property {(untilMs: number) => void} setFovPunchUntil
+ * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
  * @property {() => string} [detectGameMode]
  * @property {() => THREE.Scene | null | undefined} [getScene]
  * @property {(cart: object, scene: object, neonHex: number) => void} [triggerCartShatter]
@@ -336,7 +336,7 @@ export function updateGameFlow(deps, context) {
               }
 
               if (scoreData.attackerSlot === localSlotIndexThisFrame) {
-                deps.setFovPunchUntil(performance.now() + 200);
+                deps.onLocalKillConfirm?.(slotIndex, scoreData.comboTier ?? 0);
                 ChallengeTracker.record("ko_void");
                 const victimSlot = netSlots[slotIndex];
                 if (victimSlot?.kind === "npc") {

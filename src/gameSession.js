@@ -116,6 +116,7 @@ export function buildNetcodeGameBridge(getContext, session) {
     getTriggerCartShatterRef: () => getContext()?.getTriggerCartShatterRef?.() ?? null,
     getSceneRef: () => getContext()?.getSceneRef?.() ?? null,
     getHud: () => getContext()?.getHud?.() ?? null,
+    onLocalKillConfirm: (victimSlotIndex, comboTier) => getContext()?.onLocalKillConfirm?.(victimSlotIndex, comboTier),
     colorHexForSlot: (slot) => getContext()?.colorHexForSlot?.(slot) ?? 0x888888,
     getPendingColorKey: () => getContext()?.getPendingColorKey?.() ?? null,
     getPendingColorChipEl: () => getContext()?.getPendingColorChipEl?.() ?? null,

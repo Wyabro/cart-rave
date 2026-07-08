@@ -172,6 +172,9 @@ let callbacks = {
 
   // Kill feed
   addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {},
+  // * Presentation-only hook — fired when the LOCAL player's ram sent a victim into
+  // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
+  onLocalKillConfirm: (victimSlotIndex, comboTier) => {},
   /**
    * * Wired implementations may return either a numeric hex (0xff00ff) or a CSS
    * * hex string ("#ff00ff") — the host_event_fall handler narrows on typeof.
@@ -258,6 +261,7 @@ export function registerGameCallbacks(deps) {
       const hud = deps.getHud();
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
     },
+    onLocalKillConfirm: (victimSlotIndex, comboTier) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier),
     colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
     getPendingColorKey: () => deps.getPendingColorKey(),
     getPendingColorChipEl: () => deps.getPendingColorChipEl(),
@@ -814,8 +818,12 @@ function processHostFallEvent(msg) {
     callbacks.addKillFeedEntry(actorName, actorColor, msg.verb || "RAMMED", targetName, targetColor, msg.comboTier, msg.comboMultiplier);
 
     const localSlotIdx = strictSlotIndexForConn(youConnId);
-    if (msg.attackerSlot === localSlotIdx && msg.comboTier != null) {
-      GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
+    if (msg.attackerSlot === localSlotIdx) {
+      if (msg.comboTier != null) {
+        GameState.setLocalCombo(msg.comboTier, performance.now() + 5000);
+      }
+      // * Attacker-side KO feedback (sting + hitmarker + FOV punch) on non-host clients.
+      callbacks.onLocalKillConfirm(msg.slotId, msg.comboTier ?? 0);
     }
   } else {
     callbacks.addKillFeedEntry(null, null, msg.verb || "FELL OFF", targetName, targetColor);

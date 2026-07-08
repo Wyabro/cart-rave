@@ -72,6 +72,23 @@ See [ROADMAP.md](./ROADMAP.md) Tier 4 for release priorities, including:
 
 ## Completed / Shipped (Historical Record)
 
+### July 7, 2026 – Production Value Pass (Top-10 Player-Experience Improvements)
+
+Creative-direction review of every player-facing surface; full 100-item ranked report in [docs/audits/production-value-pass-2026-07.md](./audits/production-value-pass-2026-07.md). Constraint: no multiplayer-architecture or core-gameplay changes. The 10 highest-impact items shipped:
+
+1. **Attacker kill-confirm feedback** — procedural confirm sting + center-screen hitmarker + FOV punch on every KO, via a new presentation-only `onLocalKillConfirm` callback fired from `gameFlow.js` (host) and the `falls[]` replay path in `netcode.js` (non-host — which previously got *no* attacker feedback at all, not even the FOV punch).
+2. **Victory presentation** — procedural victory fanfare (local winner) / defeat sting (everyone else) + winner-colored canvas confetti burst at the podium (`spawnResultsConfetti` in `resultsOverlay.js`), one celebration per match.
+3. **Final-10-seconds urgency** — timer turns red and pulses with a per-second procedural tick (pitch rises in the last 3s); suppressed during Sudden Death.
+4. **Sudden Death entry sting** — dissonant drone+stab cue on the rising edge, on all clients.
+5. **Boost charge meter** — bottom-center HUD bar for keyboard/gamepad (touch keeps its button flash): charging (yellow) → charged (white pulse) → cooldown (dim magenta) → ready (cyan), driven by the locally simulated cart each frame.
+6. **Damage-taken impact pulse** — vignette + chromatic-aberration kick on hard local hits via the arcade post-FX pass; baselines captured at trigger time so it never fights the dev Tweakpane.
+7. **First-run HOW TO PLAY overlay** — auto-opens once (storage-gated, skipped when joining via invite link), input-mode-aware controls copy, accurate scoring strip, plus a permanent HOW TO PLAY menu button.
+8. **Brand cohesion** — rotate prompt no longer calls the game "Cart Rave" (the classic arena keeps CART RAVE as its diegetic venue name; loading-screen level titles and in-world stage billboards are intentional).
+9. **Mobile landscape fixes** — kill feed no longer collides with the audio panel (repositioned + ellipsized rows under short-landscape media query); pause overlay AUDIO/CONTROLS sections now scroll instead of overlapping.
+10. **Challenges feedback loop** — overlay copy no longer promises nonexistent XP; in-match "CHALLENGE COMPLETE" HUD toast + sparkle sting on goal completion; "✓N" completed-count chip on the menu CHALLENGES button. Plus: Settings/Challenges bottom buttons renamed DONE (matches Customize), gamepad B-button now targets `.cr-overlay-back` directly, dead menu CSS removed.
+
+New module `src/sfxSynth.js` (procedural sting synthesizer in the `spawnTone` idiom — no audio assets added). **Validation:** `npm run check` green (0 TS errors, 32/32 tests, knip clean); production build passes; full runtime loop verified in-browser (boot → first-run overlay → solo → boost charge/cooldown meter live → last-10s urgency at :01 → Sudden Death theme+sting → podium with confetti → PLAY AGAIN → second full round) with zero console errors. Note for automated testing: mode entry awaits `requestAnimationFrame`, which never fires in hidden tabs — verification requires a visible tab or an rAF shim.
+
 ### July 7, 2026 – WebRTC Signaling Root-Cause Fix (Multiplayer Restored)
 
 **Root cause of "multiplayer broken after the WebRTC migration"** — Verified (runtime + tests).

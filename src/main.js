@@ -35,7 +35,7 @@ import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
 import { getNpcPersonality } from "./npcNames.js";
-import { ChallengeTracker } from "./stores/challengeStore.js";
+import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
 const PERSONALITY_BADGES = {
   aggressor: { letter: "[A]", color: "#ff4d4d" },
@@ -55,7 +55,8 @@ const TEST_ARENA_FOG_DENSITY = 0.0032;
 import { setContactShadowHazards } from "./contactShadows.js";
 import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
 import { initAudioSystem } from "./audioSetup.js";
-import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations } from "./ui/resultsOverlay.js";
+import * as SfxSynth from "./sfxSynth.js";
+import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
@@ -656,6 +657,21 @@ async function main() {
   let shakeUntil = 0;
   let shakeIntensity = 0;
   let fovPunchUntil = 0;
+  // * Post-FX impact pulse — vignette/aberration kick when the local cart takes a big hit.
+  // * Baselines are captured from the live uniforms at trigger time so the pulse never
+  // * fights the dev Tweakpane or config changes; frameVisuals decays and restores them.
+  const impactPulse = { until: 0, durationMs: 240, strength: 0, baseVignette: null, baseAberration: null };
+  function triggerImpactPulse(strength) {
+    const pass = fxPass;
+    if (!pass?.enabled || !pass.uniforms) return;
+    const now = performance.now();
+    if (now >= impactPulse.until) {
+      impactPulse.baseVignette = pass.uniforms.uVignette.value;
+      impactPulse.baseAberration = pass.uniforms.uAberration.value;
+    }
+    impactPulse.strength = Math.min(strength, 1.2);
+    impactPulse.until = now + impactPulse.durationMs;
+  }
   function triggerLocalRamShake(intensity, isBoosting = false) {
     const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
     const minI = isBoosting
@@ -666,9 +682,17 @@ async function main() {
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
     shakeUntil = performance.now() + 150 + clampedI * 100;
+    triggerImpactPulse(clampedI);
     if (clampedI >= 0.45 && isBoosting) {
       fovPunchUntil = performance.now() + 100;
     }
+  }
+  // * Attacker-side KO payoff — confirm sting + hitmarker + FOV punch. Fired by
+  // * gameFlow on the host and by the falls[] replay path on non-host clients.
+  function onLocalKillConfirm(_victimSlotIndex, _comboTier) {
+    fovPunchUntil = performance.now() + 200;
+    SfxSynth.playKillConfirm();
+    hud?.showKillConfirm?.();
   }
   triggerLocalRamShakeRef = triggerLocalRamShake;
   triggerCartShatterRef = triggerCartShatter;
@@ -703,6 +727,9 @@ async function main() {
   });
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
   GameAudio.registerAudioRefs({ leaderHum });
+  // * Procedural stings (kill confirm, victory/defeat, sudden death, timer ticks,
+  // * challenge complete) share the leader-chime WebAudio path and volume gates.
+  SfxSynth.initSfxSynth(audioListener, { getSfxVolume, getIsMuted });
 
   // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
   // * mp3 fallback for Safari (see soundUrlWithFallback above).
@@ -1164,6 +1191,8 @@ async function main() {
     getDefaultRoundMs: () => CONFIG.round.durationMs,
     getCountdownMs: () => 3000,
     getIsTouchDevice: isTouchDevice,
+    getLocalCart: localCartForConnId,
+    getBoostChargeCfg: () => CONFIG.cart.ramBoost.boostCharge,
     onEscOverlayChange: (open) => {
       if (open) {
         Input.setTouchControlsVisible(false);
@@ -1179,6 +1208,28 @@ async function main() {
       podiumAutoContinue.clear();
       gameSession.returnToMenu({ reason: "results" });
     },
+  });
+
+  // * Challenge-complete feedback — toast + sparkle the moment a challenge crosses
+  // * its goal. Detects rising isComplete edges across daily + weekly lists.
+  const collectCompletedChallengeIds = (state) => {
+    const ids = new Set();
+    for (const ch of [...(state.dailyChallenges || []), ...(state.weeklyChallenges || [])]) {
+      if (ch?.isComplete) ids.add(ch.id);
+    }
+    return ids;
+  };
+  let prevCompletedChallengeIds = collectCompletedChallengeIds(challengeStore.getState());
+  challengeStore.subscribe((state) => {
+    const completed = collectCompletedChallengeIds(state);
+    for (const id of completed) {
+      if (!prevCompletedChallengeIds.has(id)) {
+        const meta = CHALLENGE_POOL.find((c) => c.id === id);
+        hud?.showChallengeToast?.(meta?.title ?? "CHALLENGE");
+        SfxSynth.playChallengeComplete();
+      }
+    }
+    prevCompletedChallengeIds = completed;
   });
 
   initLevelManager({
@@ -1468,6 +1519,8 @@ async function main() {
   };
 
   let lastResultsOverlayKey = null;
+  /** Round startedAtMs of the last podium celebration — one sting/confetti per match. */
+  let lastPodiumCelebratedRound = null;
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
@@ -1523,6 +1576,22 @@ async function main() {
         const localCart = localCartForConnId();
         if (localCart && !localCart.hasSpilled) {
           ChallengeTracker.record("untouchable");
+        }
+      }
+
+      // * Victory presentation — one celebration per match: fanfare for the local
+      // * winner, a soft defeat sting otherwise, and winner-colored confetti for all.
+      if (lastPodiumCelebratedRound !== roundState.startedAtMs) {
+        lastPodiumCelebratedRound = roundState.startedAtMs;
+        const celebrationWinner = roundState.winnerSlotIndex;
+        if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
+          if (isLocalWinner) {
+            SfxSynth.playVictoryFanfare();
+          } else {
+            SfxSynth.playDefeatSting();
+          }
+          const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
+          spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
         }
       }
 
@@ -1926,6 +1995,7 @@ async function main() {
     getScene: () => scene,
     getSceneRef: () => scene,
     getHud: () => hud,
+    onLocalKillConfirm,
     colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
     getPendingColorChipEl: () => pendingColorChipEl,
@@ -2526,6 +2596,8 @@ async function main() {
     getShakeUntil: () => shakeUntil,
     getShakeIntensity: () => shakeIntensity,
     getFovPunchUntil: () => fovPunchUntil,
+    getImpactPulse: () => impactPulse,
+    getArcadePass: () => fxPass,
     fpsState,
     updateTouchControlsVisibility,
   };
@@ -2551,7 +2623,7 @@ async function main() {
     sendHostRound: () => Netcode.sendHostRound(),
     getPartySocket: () => Netcode.getPartySocket(),
     queueHostFallEvent: Netcode.queueHostFallEvent,
-    setFovPunchUntil: (untilMs) => { fovPunchUntil = untilMs; },
+    onLocalKillConfirm,
     getYouConnId: () => Netcode.getYouConnId(),
     getScene: () => scene,
     triggerCartShatter,

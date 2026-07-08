@@ -13,6 +13,7 @@ import {
 } from "./animations.js";
 import { resolveCartNeonCss } from "./customization.js";
 import * as AudioManager from "./audioManager.js";
+import { playTimerTick, playSuddenDeathSting } from "./sfxSynth.js";
 import { getServerClockOffsetMs } from "./netcode.js";
 import { gameStore } from "./stores/gameStore.js";
 import { getNpcPersonality } from "./npcNames.js";
@@ -94,6 +95,11 @@ const elements = {
   sfxVol: null,
   escMusicVol: null,
   escSfxVol: null,
+  hitmarker: null,
+  boost: null,
+  boostFill: null,
+  toast: null,
+  toastTitle: null,
 };
 
 // * Cached update() state — avoids recomputing sort order and retriggering animations every frame.
@@ -117,6 +123,12 @@ let _lastSlotMeta = ["", "", "", ""];
 let _statusDisplay = null;
 let _timerDisplay = null;
 let _scoresDisplay = null;
+/** Last final-10-seconds value a tick was played for; null outside urgency. */
+let _lastUrgentTickSecond = null;
+/** Previous Sudden Death display state — plays the entry sting on the rising edge. */
+let _wasSuddenDeath = false;
+/** Auto-hide timeout for the challenge-complete toast. */
+let _toastTimeoutId = null;
 /** Previous local ready state — drives ready-button toggle animation. */
 let _lastReadyState = null;
 
@@ -423,6 +435,29 @@ function updateTimer(roundState, matchHistoryLength) {
     if (elements.root) {
       elements.root.classList.toggle("hud-sudden-death", isSuddenDeath);
     }
+    // * Sudden Death entry sting — rising edge only, on every client.
+    if (isSuddenDeath && !_wasSuddenDeath) playSuddenDeathSting();
+    _wasSuddenDeath = isSuddenDeath;
+
+    // * Final-10-seconds urgency — red pulse + one tick per remaining second.
+    // * Skipped during Sudden Death (remaining time is pinned to zero there).
+    const urgent = !isSuddenDeath && remainingMs > 0 && seconds <= 10 && seconds >= 1;
+    if (elements.timer) elements.timer.classList.toggle("hud-timer-urgent", urgent);
+    if (urgent) {
+      if (_lastUrgentTickSecond !== seconds) {
+        _lastUrgentTickSecond = seconds;
+        playTimerTick(seconds);
+        elements.timerNum?.animate?.(
+          [
+            { transform: "scale(1.12)" },
+            { transform: "scale(1)" },
+          ],
+          { duration: 220, easing: "ease-out" },
+        );
+      }
+    } else {
+      _lastUrgentTickSecond = null;
+    }
   } else {
     setHudDisplay(elements.timer, "none", "timer");
     if (elements.timerNum) elements.timerNum.textContent = "";
@@ -431,6 +466,9 @@ function updateTimer(roundState, matchHistoryLength) {
     if (elements.root) {
       elements.root.classList.remove("hud-sudden-death");
     }
+    if (elements.timer) elements.timer.classList.remove("hud-timer-urgent");
+    _lastUrgentTickSecond = null;
+    _wasSuddenDeath = false;
   }
 }
 
@@ -647,6 +685,13 @@ export function init(options) {
   _goUntilMs = 0;
   _goSoundPlayed = false;
   _lastReadyState = null;
+  _lastUrgentTickSecond = null;
+  _wasSuddenDeath = false;
+  _boostDisplay = null;
+  if (_toastTimeoutId) {
+    clearTimeout(_toastTimeoutId);
+    _toastTimeoutId = null;
+  }
 
   const existing = document.getElementById("hud");
   if (existing) existing.remove();
@@ -774,6 +819,42 @@ export function init(options) {
   elements.comboBadge.appendChild(comboTrack);
   elements.root.appendChild(elements.comboBadge);
 
+  // * Kill-confirm hitmarker — flashes at screen center when the local player scores a KO.
+  elements.hitmarker = document.createElement("div");
+  elements.hitmarker.className = "hud-hitmarker";
+  elements.hitmarker.setAttribute("aria-hidden", "true");
+  elements.root.appendChild(elements.hitmarker);
+
+  // * Boost charge meter — keyboard/gamepad only; the touch BOOST button has its own flash.
+  if (!touchDevice) {
+    elements.boost = document.createElement("div");
+    elements.boost.className = "hud-boost";
+    elements.boost.style.display = "none";
+    const boostLabel = document.createElement("span");
+    boostLabel.className = "hud-boost-label";
+    boostLabel.textContent = "BOOST";
+    const boostTrack = document.createElement("div");
+    boostTrack.className = "hud-boost-track";
+    elements.boostFill = document.createElement("i");
+    elements.boostFill.className = "hud-boost-fill";
+    boostTrack.appendChild(elements.boostFill);
+    elements.boost.appendChild(boostLabel);
+    elements.boost.appendChild(boostTrack);
+    elements.root.appendChild(elements.boost);
+  }
+
+  // * Challenge-complete toast (top center, auto-hides).
+  elements.toast = document.createElement("div");
+  elements.toast.className = "hud-toast";
+  const toastKicker = document.createElement("span");
+  toastKicker.className = "hud-toast-kicker";
+  toastKicker.textContent = "◆ CHALLENGE COMPLETE";
+  elements.toastTitle = document.createElement("span");
+  elements.toastTitle.className = "hud-toast-title";
+  elements.toast.appendChild(toastKicker);
+  elements.toast.appendChild(elements.toastTitle);
+  elements.root.appendChild(elements.toast);
+
   // In-game audio widget
   elements.audio = document.createElement("div");
   elements.audio.className = "hud-audio";
@@ -883,6 +964,8 @@ export function init(options) {
     pickKillFeedVerb: pickKillFeedVerb,
     pickSelfDeathVerb: pickSelfDeathVerb,
     colorHexToCss: colorHexToCss,
+    showKillConfirm,
+    showChallengeToast,
     escOverlay: elements.escOverlay,
     syncAudioControls,
     showEscOverlay,
@@ -941,7 +1024,74 @@ export function update({
   updateScores(roundState, netSlots, youConnId);
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
   updateComboWidget();
+  updateBoostWidget(roundState);
   scheduleHudLayoutSync();
+}
+
+/** Cached boost meter display value — avoids redundant style writes per frame. */
+let _boostDisplay = null;
+
+/**
+ * Updates the local player's boost charge/cooldown meter (keyboard/gamepad HUD).
+ * Reads the locally simulated cart's charge state each frame — valid on host and
+ * non-host alike because client prediction simulates the local cart's boost fields.
+ *
+ * @param {object} roundState
+ */
+function updateBoostWidget(roundState) {
+  if (!elements.boost || !elements.boostFill) return;
+  const cfg = _options.getBoostChargeCfg ? _options.getBoostChargeCfg() : null;
+  const cart = _options.getLocalCart ? _options.getLocalCart() : null;
+  const show = roundState?.phase === "running" && !!cart && cfg?.enabled === true;
+  const displayVal = show ? "flex" : "none";
+  if (_boostDisplay !== displayVal) {
+    elements.boost.style.display = displayVal;
+    _boostDisplay = displayVal;
+  }
+  if (!show) return;
+
+  const now = performance.now();
+  let fillPct = 100;
+  let state = "ready";
+  if (cart.isChargingBoost) {
+    const chargeMs = cfg.boostChargeTimeMs || 1500;
+    const t = clamp((now - (cart.boostChargeStartedAtMs || now)) / chargeMs, 0, 1);
+    fillPct = t * 100;
+    state = t >= 1 ? "charged" : "charging";
+  } else if (cart.boostCooldownUntilMs && now < cart.boostCooldownUntilMs) {
+    const cooldownMs = cfg.boostCooldownMs || 1000;
+    fillPct = clamp(1 - (cart.boostCooldownUntilMs - now) / cooldownMs, 0, 1) * 100;
+    state = "cooldown";
+  }
+  elements.boostFill.style.width = `${fillPct}%`;
+  if (elements.boost.dataset.state !== state) elements.boost.dataset.state = state;
+}
+
+/**
+ * Flashes the center-screen hitmarker — call when the local player confirms a KO.
+ */
+export function showKillConfirm() {
+  const el = elements.hitmarker;
+  if (!el) return;
+  el.classList.remove("hit");
+  // * Force reflow so re-adding the class restarts the CSS animation.
+  void el.offsetWidth;
+  el.classList.add("hit");
+}
+
+/**
+ * Shows the challenge-complete toast with the given challenge title.
+ * @param {string} title
+ */
+export function showChallengeToast(title) {
+  if (!elements.toast || !elements.toastTitle) return;
+  elements.toastTitle.textContent = title;
+  elements.toast.classList.add("active");
+  if (_toastTimeoutId) clearTimeout(_toastTimeoutId);
+  _toastTimeoutId = setTimeout(() => {
+    elements.toast?.classList.remove("active");
+    _toastTimeoutId = null;
+  }, 3200);
 }
 
 let _prevComboTier = 0;

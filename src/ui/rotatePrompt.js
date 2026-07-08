@@ -144,7 +144,7 @@ function ensureDom() {
     <div class="rp-panel">
       <div class="rp-icon-wrap"><div class="rp-phone" aria-hidden="true"></div></div>
       <h2 class="rp-title">ROTATE DEVICE</h2>
-      <p class="rp-text">Cart Rave plays best in landscape.<br>Turn your phone sideways for the full arena view.</p>
+      <p class="rp-text">Cart Clash plays best in landscape.<br>Turn your phone sideways for the full arena view.</p>
       <button type="button" class="rp-btn" id="rotate-prompt-dismiss">PLAY IN PORTRAIT</button>
     </div>
   `;

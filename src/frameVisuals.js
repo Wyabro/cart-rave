@@ -115,6 +115,8 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {() => number} getShakeUntil
  * @property {() => number} getShakeIntensity
  * @property {() => number} getFovPunchUntil
+ * @property {() => { until: number, durationMs: number, strength: number, baseVignette: number | null, baseAberration: number | null }} [getImpactPulse]
+ * @property {() => import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} [getArcadePass]
  * @property {{ frames: number, last: number, canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null }} fpsState
  * @property {() => void} [updateTouchControlsVisibility]
  */
@@ -336,6 +338,26 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   } else {
     deps.camera.fov = deps.camera.userData.baseFov || 55;
     deps.camera.updateProjectionMatrix();
+  }
+
+  // * Impact pulse — brief vignette/aberration kick on hard local hits. Baselines were
+  // * captured at trigger time (main.js triggerImpactPulse); decay back and restore
+  // * exactly so live Tweakpane/config tweaks are never overwritten between pulses.
+  const pulse = deps.getImpactPulse?.();
+  const arcadePass = deps.getArcadePass?.();
+  if (pulse && arcadePass?.enabled && arcadePass.uniforms
+    && pulse.baseVignette != null && pulse.baseAberration != null) {
+    if (roundState.phase === "running" && performance.now() < pulse.until) {
+      const t = (pulse.until - performance.now()) / pulse.durationMs;
+      arcadePass.uniforms.uVignette.value = pulse.baseVignette + pulse.strength * 0.55 * t;
+      arcadePass.uniforms.uAberration.value = pulse.baseAberration + pulse.strength * 0.011 * t;
+    } else {
+      arcadePass.uniforms.uVignette.value = pulse.baseVignette;
+      arcadePass.uniforms.uAberration.value = pulse.baseAberration;
+      // * One-shot restore — null the baselines so the next Tweakpane change sticks.
+      pulse.baseVignette = null;
+      pulse.baseAberration = null;
+    }
   }
 
   Effects.updateTrashParticles(dt);

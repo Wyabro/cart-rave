@@ -24,8 +24,10 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 import { isLowQualityMode, isTouchDevice } from "./utils.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { togglePostFx, toggleLowQuality } from "./ui/graphicsToggles.js";
+import { setAllAudioMuted, setMusicGainValue } from "./ui/audioControls.js";
+import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
-import { setInputMode, updateControlsPanelUI } from "./input.js";
+import { setInputMode, updateControlsPanelUI, getInputMode } from "./input.js";
 import {
   animateButtonPress,
   animateButtonRelease,
@@ -278,6 +280,19 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const gfxBtn = $("cr-gfx-btn");
   const lqBtn = $("cr-lq-btn");
   const challengesListEl = $("cr-challenges-list");
+  const challengesScreen = $("cr-challenges-screen");
+  const challengesDoneBtn = $("cr-challenges-done");
+  const challengesBackBtn = $("cr-challenges-back");
+  const settingsScreen = $("cr-settings-screen");
+  const settingsDoneBtn = $("cr-settings-done");
+  const settingsBackBtn = $("cr-settings-back");
+  const howtoScreen = $("cr-howto-screen");
+  const howtoDoneBtn = $("cr-howto-done");
+  const howtoBackBtn = $("cr-howto-back");
+  const howtoListEl = $("cr-howto-list");
+  const settingsMuteBtn = $("cr-settings-mute-btn");
+  const settingsVolFill = $("cr-settings-vol-fill");
+  const settingsVolVal = $("cr-settings-vol-val");
   let currentCartSvg = null;
   let currentCustomizeCartSvg = null;
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
@@ -864,11 +879,432 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     });
     wireMenuPressFeedback(customizeDoneBtn);
     wireMenuPressFeedback(customizeBackBtn);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && customizeScreen?.style.display === 'flex') {
-        closeCustomizeScreen();
-      }
+  }
+
+  /**
+   * Closes whichever overlay screen is currently visible.
+   * Priority: How To Play → Challenges → Settings → Customize.
+   * @returns {boolean} True if an overlay was closed.
+   */
+  function closeActiveOverlay() {
+    if (howtoScreen?.style.display === 'flex') {
+      closeHowToScreen({ userDismissed: true });
+      return true;
+    }
+    if (challengesScreen?.style.display === 'flex') {
+      closeChallengesScreen();
+      return true;
+    }
+    if (settingsScreen?.style.display === 'flex') {
+      closeSettingsScreen();
+      return true;
+    }
+    if (customizeScreen?.style.display === 'flex') {
+      closeCustomizeScreen();
+      return true;
+    }
+    return false;
+  }
+
+  // ─── How To Play overlay screen ────────────────────────────────────────────
+
+  /**
+   * Renders the control rows inside the HOW TO PLAY overlay.
+   * Key labels swap to touch equivalents on touch-first devices.
+   */
+  function renderHowToRows() {
+    if (!howtoListEl) return;
+    const p = state.palette;
+    const touch = isTouchDevice();
+    const rows = [
+      {
+        action: "MOVE",
+        keys: touch ? "LEFT STICK (JOYSTICK)" : "WASD / ARROWS",
+        color: p.secondary || "#22e6ff",
+      },
+      {
+        action: "BOOST",
+        keys: touch ? "HOLD BOOST — RELEASE TO LAUNCH" : "HOLD SHIFT — RELEASE TO LAUNCH",
+        color: p.tertiary || "#ffe53d",
+      },
+      {
+        action: "HOP",
+        keys: touch ? "TAP HOP" : "SPACE",
+        color: p.primary || "#ff2bd6",
+      },
+    ];
+    howtoListEl.innerHTML = "";
+    rows.forEach((row) => {
+      const el = document.createElement("div");
+      el.className = "cr-howto-row";
+      el.style.setProperty("--ac", row.color);
+      const action = document.createElement("span");
+      action.className = "cr-howto-action";
+      action.textContent = row.action;
+      const keys = document.createElement("span");
+      keys.className = "cr-howto-keys";
+      keys.textContent = row.keys;
+      el.appendChild(action);
+      el.appendChild(keys);
+      howtoListEl.appendChild(el);
     });
+  }
+
+  function openHowToScreen() {
+    if (!howtoScreen) return;
+    const phase = getRoundState().phase;
+    if (phase === "running" || phase === "countdown") return;
+    renderHowToRows();
+    howtoScreen.style.display = 'flex';
+    howtoScreen.setAttribute('aria-hidden', 'false');
+    howtoDoneBtn?.focus();
+    const panel = howtoScreen.querySelector('.cr-overlay-panel');
+    if (panel instanceof HTMLElement) {
+      animateMenuReveal(panel, {
+        delay: 0,
+        duration: 320,
+        y: 14,
+      });
+    }
+  }
+
+  /**
+   * @param {{ userDismissed?: boolean }} [opts] Pass `userDismissed: true` for
+   *   explicit closes (DONE/BACK/Escape/round start) so the first-run auto-open
+   *   stands down; internal closes from show() keep it armed (boot calls show()
+   *   twice: initMenu, then the boot-splash dismiss in loadingScreen.js).
+   */
+  function closeHowToScreen(opts) {
+    if (opts?.userDismissed) howtoAutoOpenArmed = false;
+    if (!howtoScreen) return;
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    howtoScreen.style.display = 'none';
+    howtoScreen.setAttribute('aria-hidden', 'true');
+  }
+
+  function initHowToScreen() {
+    howtoDoneBtn?.addEventListener('click', () => closeHowToScreen({ userDismissed: true }));
+    howtoBackBtn?.addEventListener('click', () => closeHowToScreen({ userDismissed: true }));
+    wireMenuPressFeedback(howtoDoneBtn);
+    wireMenuPressFeedback(howtoBackBtn);
+  }
+
+  /** @type {number|null} Pending first-run HOW TO PLAY auto-open timeout. */
+  let howtoAutoOpenTimeoutId = null;
+  /** True while the first-run auto-open should (re)fire on menu shows. */
+  let howtoAutoOpenArmed = false;
+  let firstMenuShowHandled = false;
+
+  /**
+   * First-run onboarding: auto-opens the HOW TO PLAY overlay once, ever.
+   * Arms on the first menu show after boot — never on ?room= URLs
+   * (invite/rejoin flows), so lobby joins are not blocked by the overlay.
+   * Boot calls show() more than once (initMenu, then the boot-splash dismiss),
+   * so while armed each show() re-schedules the open; entering a match
+   * (hide()) or an explicit user dismissal disarms it for good.
+   */
+  function maybeAutoOpenHowTo() {
+    if (!firstMenuShowHandled) {
+      firstMenuShowHandled = true;
+      if (storageGet(STORAGE_KEYS.howtoSeen)) return;
+      const roomParam = new URLSearchParams(window.location.search || "").get("room");
+      if (roomParam) return;
+      storageSet(STORAGE_KEYS.howtoSeen, "1");
+      howtoAutoOpenArmed = true;
+    }
+    if (!howtoAutoOpenArmed) return;
+    // * Let the menu entrance settle before layering the overlay on top.
+    clearHowToAutoOpenTimeout();
+    howtoAutoOpenTimeoutId = window.setTimeout(() => {
+      howtoAutoOpenTimeoutId = null;
+      if (!howtoAutoOpenArmed) return;
+      if (menuHidden || root?.style.display === 'none') return;
+      openHowToScreen();
+    }, 600);
+  }
+
+  function disarmHowToAutoOpen() {
+    howtoAutoOpenArmed = false;
+    clearHowToAutoOpenTimeout();
+  }
+
+  function clearHowToAutoOpenTimeout() {
+    if (howtoAutoOpenTimeoutId != null) {
+      clearTimeout(howtoAutoOpenTimeoutId);
+      howtoAutoOpenTimeoutId = null;
+    }
+  }
+
+  // ─── Challenges overlay screen ─────────────────────────────────────────────
+
+  /**
+   * Shows a "✓N" chip on the CHALLENGES menu button when N ≥ 1 challenges
+   * are complete; removes it when none are.
+   */
+  function updateChallengesBadge() {
+    const btn = document.querySelector('.cr-btn[data-action="challenges"]');
+    if (!(btn instanceof HTMLElement)) return;
+    const cState = challengeStore.getState();
+    const completed = [
+      ...cState.dailyChallenges,
+      ...cState.weeklyChallenges,
+    ].filter((c) => c.isComplete).length;
+    let chip = btn.querySelector('.cr-challenges-chip');
+    if (completed < 1) {
+      chip?.remove();
+      return;
+    }
+    if (!chip) {
+      chip = document.createElement('span');
+      chip.className = 'cr-challenges-chip';
+      chip.setAttribute('aria-hidden', 'true');
+      btn.appendChild(chip);
+    }
+    chip.textContent = `✓${completed}`;
+  }
+
+  function openChallengesScreen() {
+    if (!challengesScreen) return;
+    const phase = getRoundState().phase;
+    if (phase === "running" || phase === "countdown") return;
+    renderChallengesPanel();
+    challengesScreen.style.display = 'flex';
+    challengesScreen.setAttribute('aria-hidden', 'false');
+    challengesDoneBtn?.focus();
+    const panel = challengesScreen.querySelector('.cr-overlay-panel');
+    if (panel instanceof HTMLElement) {
+      animateMenuReveal(panel, {
+        delay: 0,
+        duration: 320,
+        y: 14,
+      });
+    }
+  }
+
+  function closeChallengesScreen() {
+    if (!challengesScreen) return;
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    challengesScreen.style.display = 'none';
+    challengesScreen.setAttribute('aria-hidden', 'true');
+    updateChallengesBadge();
+  }
+
+  function initChallengesScreen() {
+    challengesDoneBtn?.addEventListener('click', closeChallengesScreen);
+    challengesBackBtn?.addEventListener('click', closeChallengesScreen);
+    wireMenuPressFeedback(challengesDoneBtn);
+    wireMenuPressFeedback(challengesBackBtn);
+  }
+
+  // ─── Settings overlay screen ───────────────────────────────────────────────
+
+  function openSettingsScreen() {
+    if (!settingsScreen) return;
+    const phase = getRoundState().phase;
+    if (phase === "running" || phase === "countdown") return;
+    syncSettingsAudioUi();
+    updateSettingsControlsUI();
+    // * Start polling for input-mode changes while Settings is visible.
+    if (settingsInputPollId != null) clearInterval(settingsInputPollId);
+    let lastMode = getInputMode();
+    settingsInputPollId = setInterval(() => {
+      const currentMode = getInputMode();
+      if (currentMode !== lastMode) {
+        lastMode = currentMode;
+        updateSettingsControlsUI();
+      }
+    }, 300);
+    settingsScreen.style.display = 'flex';
+    settingsScreen.setAttribute('aria-hidden', 'false');
+    settingsDoneBtn?.focus();
+    const panel = settingsScreen.querySelector('.cr-overlay-panel');
+    if (panel instanceof HTMLElement) {
+      animateMenuReveal(panel, {
+        delay: 0,
+        duration: 320,
+        y: 14,
+      });
+    }
+  }
+
+  function closeSettingsScreen() {
+    if (!settingsScreen) return;
+    if (settingsInputPollId != null) {
+      clearInterval(settingsInputPollId);
+      settingsInputPollId = null;
+    }
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    settingsScreen.style.display = 'none';
+    settingsScreen.setAttribute('aria-hidden', 'true');
+  }
+
+  let settingsAudioUiMuted = false;
+  /**
+   * Cached audio state from the last {@link syncAudioUi} call.
+   * Used as fallback when syncSettingsAudioUi runs without params (e.g. on Settings open).
+   * @type {{ muted: boolean, musicPct: number, musicNorm?: number } | null}
+   */
+  let _lastSettingsAudioSync = null;
+  /** @type {number|null} Interval ID for Settings input-mode polling. */
+  let settingsInputPollId = null;
+
+  /**
+   * Syncs Settings overlay mute button and volume display from main-owned audio state.
+   * @param {{ muted: boolean, musicPct: number, musicNorm?: number }} [audio]
+   */
+  function syncSettingsAudioUi(audio) {
+    // * Cache the last explicit sync so openSettingsScreen() can reuse it.
+    if (audio) _lastSettingsAudioSync = audio;
+    const src = audio || _lastSettingsAudioSync;
+    const muted = src ? src.muted : audioUiMuted;
+    const pct = src ? src.musicPct : 25;
+    const norm = src ? (src.musicNorm ?? (src.muted ? 0 : src.musicPct / 100)) : 0.25;
+    settingsAudioUiMuted = muted;
+    if (settingsVolFill) {
+      settingsVolFill.style.setProperty('--vol-scale', String(muted ? 0 : norm));
+      // * Apply neon gradient + glow matching the main-menu volume fill (see applyPalette).
+      const p = state.palette;
+      settingsVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
+      settingsVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
+    }
+    if (settingsVolVal) settingsVolVal.textContent = String(muted ? 'OFF' : pct);
+    if (!settingsMuteBtn) return;
+    if (muted) {
+      settingsMuteBtn.classList.add('muted');
+      settingsMuteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5 6 9H3v6h3l5 4z"/>
+        <line x1="22" y1="9" x2="16" y2="15"/>
+        <line x1="16" y1="9" x2="22" y2="15"/>
+      </svg>`;
+    } else {
+      settingsMuteBtn.classList.remove('muted');
+      settingsMuteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5 6 9H3v6h3l5 4z"/>
+        <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+        <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+      </svg>`;
+    }
+  }
+
+  /**
+   * Renders the controls table inside the Settings overlay based on current input mode.
+   * Mirrors the main-menu updateControlsPanelUI but targets #cr-settings-controls.
+   */
+  function updateSettingsControlsUI() {
+    const panel = document.getElementById("cr-settings-controls");
+    const header = document.getElementById("cr-settings-ctl-hd");
+    if (!panel) return;
+
+    const mode = getInputMode();
+    const p = state.palette;
+    const cMove = p.secondary || "#22e6ff";
+    const cBoost = p.tertiary || "#ffe53d";
+    const cHop = p.primary || "#ff2bd6";
+    const cMute = p.players?.[2] || "#2bff7a";
+    const cMenu = p.players?.[4] || "#ff7a1a";
+
+    if (header) {
+      const badge = mode === "gamepad" ? "GAMEPAD" : mode === "touch" ? "TOUCH" : "KEYBOARD";
+      header.innerHTML = `&#9671; CONTROLS <span class="cr-settings-ctl-badge">${badge}</span>`;
+    }
+
+    if (mode === "gamepad") {
+      panel.innerHTML = `
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMove}"><kbd class="wide">L-STICK</kbd><kbd>D-PAD</kbd></span>
+          <span class="cr-settings-ctl-lbl">Steer</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cBoost}"><kbd>A</kbd><kbd>LT</kbd></span>
+          <span class="cr-settings-ctl-lbl">Boost</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cHop}"><kbd>B</kbd><kbd>RT</kbd></span>
+          <span class="cr-settings-ctl-lbl">Hop</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMute}"><kbd class="wide">SELECT</kbd></span>
+          <span class="cr-settings-ctl-lbl">Mute</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMenu}"><kbd class="wide">START</kbd></span>
+          <span class="cr-settings-ctl-lbl">Menu</span>
+        </div>
+      `;
+    } else if (mode === "touch") {
+      panel.innerHTML = `
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMove}"><kbd class="wide">JOYSTICK</kbd></span>
+          <span class="cr-settings-ctl-lbl">Steer</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cBoost}"><kbd class="wide">BOOST</kbd></span>
+          <span class="cr-settings-ctl-lbl">Boost</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cHop}"><kbd class="wide">HOP</kbd></span>
+          <span class="cr-settings-ctl-lbl">Hop</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMenu}"><kbd class="wide">MENU</kbd></span>
+          <span class="cr-settings-ctl-lbl">Menu</span>
+        </div>
+      `;
+    } else {
+      panel.innerHTML = `
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMove}"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>
+          <span class="cr-settings-ctl-lbl">Move</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cBoost}"><kbd class="wide">SHIFT</kbd></span>
+          <span class="cr-settings-ctl-lbl">Boost</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cHop}"><kbd class="wide">SPACE</kbd></span>
+          <span class="cr-settings-ctl-lbl">Hop</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMute}"><kbd>M</kbd></span>
+          <span class="cr-settings-ctl-lbl">Mute</span>
+        </div>
+        <div class="cr-settings-ctl-row">
+          <span class="cr-settings-ctl-key" style="--kc:${cMenu}"><kbd>ESC</kbd></span>
+          <span class="cr-settings-ctl-lbl">Menu</span>
+        </div>
+      `;
+    }
+  }
+
+  function initSettingsScreen() {
+    settingsDoneBtn?.addEventListener('click', closeSettingsScreen);
+    settingsBackBtn?.addEventListener('click', closeSettingsScreen);
+    wireMenuPressFeedback(settingsDoneBtn);
+    wireMenuPressFeedback(settingsBackBtn);
+    if (settingsMuteBtn) {
+      settingsMuteBtn.addEventListener('click', () => {
+        // * Toggle mute via the shared audio controls module.
+        const mainMuteBtn = document.getElementById('cr-mute-btn');
+        if (mainMuteBtn) {
+          mainMuteBtn.click();
+        }
+      });
+    }
+    // * Proxy the volume track click so the position calculation works on its rect.
+    const settingsVolTrack = document.getElementById('cr-settings-vol-track');
+    if (settingsVolTrack) {
+      settingsVolTrack.addEventListener('click', (e) => {
+        const rect = settingsVolTrack.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        setMusicGainValue(Math.round(ratio * AUDIO_VOLUME_MAX * 100) / 100);
+      });
+    }
   }
 
   // ─── Render cart ──────────────────────────────────────────────────────────
@@ -936,6 +1372,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       musicVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
       musicVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
     }
+    // * Also refresh the Settings overlay fill gradient so it stays in palette sync.
+    if (settingsVolFill) {
+      settingsVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
+      settingsVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
+    }
 
     // Controls kbd colors
     updateControlsPanelUI(undefined, p);
@@ -982,6 +1423,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const scale = muted ? 0 : (musicNorm ?? musicPct / 100);
     if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(scale));
     if (musicVolVal) musicVolVal.textContent = String(muted ? 'OFF' : musicPct);
+    // * Always sync the Settings overlay, even if the main-menu muteBtn is missing.
+    syncSettingsAudioUi({ muted, musicPct, musicNorm });
     if (!muteBtn) return;
     if (muted) {
       muteBtn.classList.add('muted');
@@ -1042,6 +1485,18 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     btn.addEventListener('click', () => {
       if (btn.dataset.action === 'customize') {
         openCustomizeScreen();
+        return;
+      }
+      if (btn.dataset.action === 'howto') {
+        openHowToScreen();
+        return;
+      }
+      if (btn.dataset.action === 'challenges') {
+        openChallengesScreen();
+        return;
+      }
+      if (btn.dataset.action === 'settings') {
+        openSettingsScreen();
         return;
       }
       if (btn.dataset.action === 'toggle-postfx' || btn.dataset.action === 'toggle-lowquality') return;
@@ -1199,7 +1654,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function wireAllMenuPressFeedback() {
     document.querySelectorAll(
-      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back",
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
     ).forEach((btn) => {
       wireMenuPressFeedback(btn);
     });
@@ -1278,11 +1733,14 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const controls = $("cr-controls");
     if (controls instanceof HTMLElement) animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
 
+    const menuExtras = document.querySelector(".cr-menu-extras");
+    if (menuExtras instanceof HTMLElement) animateMenuReveal(menuExtras, { delay: t + 140, duration: 300, y: 8 });
+
     clearMenuEntranceTimeout();
     menuEntranceTimeoutId = window.setTimeout(() => {
       menuEntranceTimeoutId = null;
       if (token === menuEntranceToken) setMenuEntrancePending(false);
-    }, t + 110 + 420);
+    }, t + 140 + 400);
   }
 
   // ─── Init ─────────────────────────────────────────────────────────────────
@@ -1307,6 +1765,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   initLevelSelect();
   initCartTooltipTap();
   initCustomizeScreen();
+  initHowToScreen();
+  initChallengesScreen();
+  initSettingsScreen();
   if (isTouchDevice()) {
     setInputMode("touch");
   } else {
@@ -1324,6 +1785,15 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   });
   window.addEventListener('cartrave:round-started', () => {
     closeCustomizeScreen();
+    closeHowToScreen({ userDismissed: true });
+    closeChallengesScreen();
+    closeSettingsScreen();
+  });
+  // * Global Escape key — closes whichever overlay is open.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeActiveOverlay();
+    }
   });
   renderCart();
   applyPalette();
@@ -1392,6 +1862,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   }
 
   renderChallengesPanel();
+  updateChallengesBadge();
   challengeStore.subscribe(renderChallengesPanel);
   wireAllMenuPressFeedback();
 
@@ -1419,20 +1890,29 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     },
     hide() {
       stopMenuLoopsAndTimers();
+      disarmHowToAutoOpen();
       closeCustomizeScreen();
+      closeHowToScreen();
+      closeChallengesScreen();
+      closeSettingsScreen();
       if (root) root.style.display = 'none';
     },
     show() {
       closeCustomizeScreen();
+      closeHowToScreen();
+      closeChallengesScreen();
+      closeSettingsScreen();
       if (root) {
         root.style.display = '';
         root.style.opacity = '1';
         root.style.pointerEvents = '';
         root.removeAttribute('aria-hidden');
       }
+      updateChallengesBadge();
       wireAllMenuPressFeedback();
       playMenuEntrance();
       startMenuAnimations();
+      maybeAutoOpenHowTo();
     },
     /** Shows menu shell without entrance animation (quit-to-menu, post-bootstrap). */
     revealShell() {
@@ -1485,6 +1965,27 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       return getActiveColorCss();
     },
     syncAudioUi,
+    openHowTo() {
+      openHowToScreen();
+    },
+    closeHowTo() {
+      closeHowToScreen();
+    },
+    openChallenges() {
+      openChallengesScreen();
+    },
+    closeChallenges() {
+      closeChallengesScreen();
+    },
+    openSettings() {
+      openSettingsScreen();
+    },
+    closeSettings() {
+      closeSettingsScreen();
+    },
+    closeActiveOverlay() {
+      return closeActiveOverlay();
+    },
   };
 
   // * Warm the preview GLTF cache while the menu is idle.

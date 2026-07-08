@@ -533,9 +533,24 @@
     overscroll-behavior: contain;
   }
 
+  /* CONTROLS + AUDIO keep their natural height so the column actually scrolls;
+     without this the sections flex-shrink (min-height: 0) into each other and
+     visually overlap in the short landscape column budget */
+  #esc-overlay .esc-col-primary > .esc-section {
+    flex-shrink: 0;
+    min-height: auto;
+  }
+
   #esc-overlay .esc-scoring-block {
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  /* Same for score rows — keep natural height and let the block scroll */
+  #esc-overlay .esc-scoring-block .esc-section-body,
+  #esc-overlay .esc-scoring-block .esc-score-list {
+    flex-shrink: 0;
+    min-height: auto;
   }
 
   #esc-overlay .esc-actions {

@@ -136,8 +136,7 @@ export function setupSceneEnvironment(renderer, scene) {
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
   pmremGenerator.compileEquirectangularShader();
 
-  // * Pass renderer so RoomEnvironment uses physical light intensities in the bake.
-  const roomEnvironment = new (/** @type {any} */ (RoomEnvironment))(renderer);
+  const roomEnvironment = new RoomEnvironment();
   const envTexture = pmremGenerator.fromScene(roomEnvironment).texture;
   pmremGenerator.dispose();
 

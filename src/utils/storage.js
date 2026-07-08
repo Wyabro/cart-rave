@@ -23,6 +23,8 @@ export const STORAGE_KEYS = {
   customization: "cartRaveCustomization",
   /** Daily/weekly challenge progress JSON. */
   challenges: "cartRaveChallenges",
+  /** "1" once the first-run HOW TO PLAY overlay has been shown. */
+  howtoSeen: "cartRaveHowToSeen",
   /** Graphics toggles ("on"/"off", "true"/"false"). */
   bloom: "cartRaveBloom",
   fxPass: "cartRaveFx",

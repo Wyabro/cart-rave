@@ -37,7 +37,7 @@
     "nipplejs": "^1.0.4",
     "partyserver": "^0.5.8",
     "partysocket": "^1.1.16",
-    "three": "^0.164.1",
+    "three": "^0.185.1",
     "tweakpane": "^4.0.5",
     "zustand": "^5.0.14"
   }

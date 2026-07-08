@@ -663,6 +663,30 @@
   }
 }
 
+/* Short landscape viewports (rotated phones) — drop the kill feed below the
+   audio panel / menu button (both sit top-right, z-index 20001/20002) and keep
+   each feed row on a single ellipsized line instead of near-full-width text */
+@media (orientation: landscape) and (max-height: 480px) {
+  #hud {
+    --hud-feed-top: clamp(88px, 24vh, 112px);
+  }
+  #hud .hud-feed {
+    max-width: min(60vw, 420px);
+  }
+  #hud .hud-feed-row {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  #hud .hud-feed-actor,
+  #hud .hud-feed-target {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* Sudden Death — red timer theme */
 #hud.hud-sudden-death .hud-timer-stripe {
   background: #ff3333;
@@ -766,5 +790,165 @@
   .cart-nametag {
     font-size: 10px;
     padding: 1px 4px;
+  }
+}
+
+/* ── Final-10-seconds urgency — red timer pulse ─────────────────────────── */
+#hud .hud-timer.hud-timer-urgent .hud-timer-num {
+  color: #ff3333;
+  text-shadow: 0 0 20px rgba(255, 51, 51, 0.6);
+  animation: hudTimerUrgent 1s ease-in-out infinite;
+}
+#hud .hud-timer.hud-timer-urgent .hud-timer-stripe {
+  background: #ff3333;
+  box-shadow: 0 0 12px #ff3333aa;
+}
+#hud .hud-timer.hud-timer-urgent .hud-timer-pip {
+  background: #ff3333;
+  box-shadow: 0 0 6px #ff3333;
+}
+#hud .hud-timer.hud-timer-urgent .hud-timer-bar i {
+  background: linear-gradient(90deg, #ff3333, #ff6666);
+  box-shadow: 0 0 8px #ff333388;
+}
+@keyframes hudTimerUrgent {
+  50% { filter: brightness(1.35); }
+}
+
+/* ── Kill-confirm hitmarker — center-screen X flash on local KO ─────────── */
+#hud .hud-hitmarker {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: clamp(36px, 5vw, 52px);
+  height: clamp(36px, 5vw, 52px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 20040;
+}
+#hud .hud-hitmarker::before,
+#hud .hud-hitmarker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  /* * Gap in the middle turns each bar into two ticks — classic 4-tick marker. */
+  background: linear-gradient(180deg,
+    #ffffff 0%, #ffffff 30%,
+    transparent 30%, transparent 70%,
+    #ffffff 70%, #ffffff 100%);
+  filter: drop-shadow(0 0 6px rgba(255, 43, 214, 0.9));
+}
+#hud .hud-hitmarker::before { transform: rotate(45deg); }
+#hud .hud-hitmarker::after { transform: rotate(-45deg); }
+#hud .hud-hitmarker.hit {
+  animation: hudHitmark 280ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+@keyframes hudHitmark {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1.55); }
+  55%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+}
+
+/* ── Boost charge meter (keyboard/gamepad) — bottom center, under combo ─── */
+#hud .hud-boost {
+  position: absolute;
+  bottom: calc(clamp(18px, 3.5vh, 36px) + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 14;
+}
+#hud .hud-boost-label {
+  font-family: var(--hud-ui);
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 0 8px rgba(34, 230, 255, 0.35);
+}
+#hud .hud-boost-track {
+  width: clamp(120px, 14vw, 170px);
+  height: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(34, 230, 255, 0.35);
+  border-radius: 3px;
+  overflow: hidden;
+}
+#hud .hud-boost-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: #22e6ff;
+  box-shadow: 0 0 8px rgba(34, 230, 255, 0.8);
+  transition: width 60ms linear;
+}
+#hud .hud-boost[data-state="charging"] .hud-boost-fill {
+  background: #ffe53d;
+  box-shadow: 0 0 8px rgba(255, 229, 61, 0.85);
+}
+#hud .hud-boost[data-state="charged"] .hud-boost-fill {
+  background: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.95);
+  animation: hudBoostCharged 380ms ease-in-out infinite alternate;
+}
+#hud .hud-boost[data-state="cooldown"] .hud-boost-fill {
+  background: rgba(255, 43, 214, 0.5);
+  box-shadow: none;
+}
+@keyframes hudBoostCharged {
+  from { filter: brightness(1); }
+  to   { filter: brightness(1.7); }
+}
+
+/* ── Challenge-complete toast — top center ──────────────────────────────── */
+#hud .hud-toast {
+  position: absolute;
+  top: clamp(64px, 9vh, 104px);
+  left: 50%;
+  transform: translate(-50%, -14px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 18px;
+  background: var(--hud-panel-bg);
+  border: 1px solid rgba(43, 255, 122, 0.6);
+  border-radius: var(--hud-radius);
+  box-shadow: 0 0 18px rgba(43, 255, 122, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  z-index: 20030;
+}
+#hud .hud-toast.active {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+#hud .hud-toast-kicker {
+  font-family: var(--hud-ui);
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.2em;
+  color: #2bff7a;
+  text-shadow: 0 0 10px rgba(43, 255, 122, 0.7);
+}
+#hud .hud-toast-title {
+  font-family: var(--hud-mono);
+  font-size: clamp(12px, 1.4vw, 15px);
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hud .hud-timer.hud-timer-urgent .hud-timer-num,
+  #hud .hud-boost[data-state="charged"] .hud-boost-fill {
+    animation: none;
   }
 }

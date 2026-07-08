@@ -41,6 +41,11 @@ export function setInputMode(mode) {
   updateControlsPanelUI(mode);
 }
 
+/** @returns {'keyboard'|'gamepad'|'touch'} */
+export function getInputMode() {
+  return currentInputMode;
+}
+
 /**
  * Renders the controls guide panel in the main menu corresponding to the active input mode.
  * @param {'keyboard'|'gamepad'|'touch'} [mode]
