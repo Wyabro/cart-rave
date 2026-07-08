@@ -323,9 +323,9 @@ export function updateGameFlow(deps, context) {
               });
             }
 
-            // * Fan the finalized KO Event out to the presentation reactors — local kill-confirm,
-            // * kill feed, and the announcer director. Host runs this directly; non-host clients
-            // * will run the same dispatch from the falls[] replay path in a later migration step.
+            // * Fan the finalized KO Event out to the presentation reactors — challenges, local
+            // * kill-confirm, kill feed, and the announcer director. Host runs this directly;
+            // * non-host clients run the same dispatch from the falls[] replay path (netcode.js).
             dispatchKOEvent(koEvent, {
               netSlots,
               localSlotIndex: localSlotIndexThisFrame,

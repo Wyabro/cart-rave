@@ -81,6 +81,21 @@ describe("buildKOEvent", () => {
     expect(e.reward.total).toBe(2);
   });
 
+  it("does NOT score center-hole on a solid-floor level (centerHole.enabled = false)", () => {
+    const deps = makeDeps({
+      CONFIG: {
+        scoring: { hitWindowMs: 2500 },
+        record: { innerRadius: 5, centerHole: { enabled: false } },
+        combo: { decayMs: 5000, tiers: { 0: { multiplier: 1.0 } } },
+      },
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, CENTER, NOW); // near origin, but no hole here
+    expect(e.cause).toBe("outer_edge");
+    expect(e.reward.base).toBe(1);
+    expect(e.reward.total).toBe(1);
+  });
+
   it("adds the critical bonus when the hit was critical", () => {
     const deps = makeDeps({
       getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: true, timestamp: NOW }),

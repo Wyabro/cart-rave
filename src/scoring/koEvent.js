@@ -127,8 +127,12 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
     };
   }
 
+  // * Center-hole bonus only applies on levels that actually have a hole. Solid-floor levels
+  // * (Backrooms, Zanzibar, Test Arena) set centerHole.enabled = false — without this gate a
+  // * near-origin edge fall on a small platform would wrongly score the +2 center bonus.
   const distOriginXZ = Math.hypot(p.x, p.z);
-  const isCenterHole = distOriginXZ < deps.CONFIG.record.innerRadius + 2;
+  const holeEnabled = deps.CONFIG.record?.centerHole?.enabled !== false;
+  const isCenterHole = holeEnabled && distOriginXZ < deps.CONFIG.record.innerRadius + 2;
 
   const rewardBase = isCenterHole ? 2 : 1;
   const rewardCritical = hit.wasCritical ? 1 : 0;
