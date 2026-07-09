@@ -18,7 +18,7 @@
 import { isLowQualityMode } from "./utils.js";
 
 /** @type {string} Bump when physics or net tuning changes materially. */
-const CONFIG_VERSION = "2026.06.22";
+const CONFIG_VERSION = "2026.07.09";
 
 const physics = {
   gravity: -24, // m/s² — world Y acceleration
@@ -27,6 +27,11 @@ const physics = {
 
   record: {
     radius: 26.4, // meters — outer dancefloor ring
+    // * Per-level arena radius overrides — applied (and restored) by loadLevel() in
+    // * levels/index.js before a level builds. Levels read record.radius live at build
+    // * time, so deck, booths, spawn ring, and AI bounds all follow automatically.
+    // * Sundial Station is +20% so it stops shadowing Classic Record's footprint.
+    radiusByLevel: { zanzibar: 31.7 },
     innerRadius: 3.63, // meters — center hole
     thickness: 0.6, // meters — collider / mesh depth
     y: -0.3, // meters — floor center height
@@ -401,12 +406,25 @@ export const CONFIG = {
   ...physics,
 };
 
+/**
+ * Spawn-ring radius from the current arena radius — the single source of truth for the
+ * booth/spawn distance formula. Re-invoked by loadLevel() after a per-level radius
+ * override so spawns land on the (possibly resized) booth ring.
+ *
+ * @param {typeof CONFIG} config
+ * @returns {number}
+ */
+export function computeSpawnRingRadius(config) {
+  return (
+    config.record.radius +
+    config.booth.gapDistance +
+    config.booth.rampLength +
+    config.booth.platformDepth / 2
+  );
+}
+
 // Spawn ring radius calculation (same as original)
-CONFIG.cart.spawnRingRadius =
-  CONFIG.record.radius +
-  CONFIG.booth.gapDistance +
-  CONFIG.booth.rampLength +
-  CONFIG.booth.platformDepth / 2;
+CONFIG.cart.spawnRingRadius = computeSpawnRingRadius(CONFIG);
 
 CONFIG.cart.spawnHeight =
   CONFIG.booth.platformY +

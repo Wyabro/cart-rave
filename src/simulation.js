@@ -917,14 +917,31 @@ const AI_CAUTIOUS_MS = 8000;
 let _levelHazards = null;
 
 /**
+ * Open-octagon hazard descriptor (e.g. Sundial Station): every edge is a kill zone, plus
+ * optional circular keep-outs (center podium). Kept separate from `_levelHazards` because
+ * the square-void machinery above assumes `squareHoles` exists on every code path.
+ *
+ * @type {{
+ *   arenaHalf?: number,
+ *   circumRadius?: number,
+ *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number }[],
+ * } | null}
+ */
+let _octagonHazards = null;
+
+/**
  * Registers the active level's NPC hazard model. Pass `null` (or a level with no special
  * hazards) to restore the default circular Classic Record behavior.
  *
- * @param {typeof _levelHazards} hazards
+ * @param {typeof _levelHazards & { isOctagon?: boolean }} hazards
  */
 export function setLevelHazards(hazards) {
   _levelHazards =
     hazards && Array.isArray(hazards.squareHoles) && hazards.squareHoles.length > 0
+      ? hazards
+      : null;
+  _octagonHazards =
+    hazards && hazards.isOctagon === true && hazards.arenaHalf != null && !_levelHazards
       ? hazards
       : null;
 }
@@ -1124,7 +1141,7 @@ function routeBackroomsChaseTarget(fx, fz, tx, tz, cautious) {
  * @returns {{ x: number, z: number }}
  */
 function pushPointOutOfCircularKeepOuts(x, z, extraMargin = 0) {
-  const zones = _levelHazards?.circularKeepOuts;
+  const zones = (_levelHazards ?? _octagonHazards)?.circularKeepOuts;
   if (!zones?.length) return { x, z };
   let px = x;
   let pz = z;
@@ -1155,7 +1172,7 @@ function pushPointOutOfCircularKeepOuts(x, z, extraMargin = 0) {
  * @param {THREE.Vector3} dir
  */
 function applyCircularKeepOutAvoidance(px, pz, dir) {
-  const zones = _levelHazards?.circularKeepOuts;
+  const zones = (_levelHazards ?? _octagonHazards)?.circularKeepOuts;
   if (!zones?.length) return;
   let rx = 0;
   let rz = 0;
@@ -1361,9 +1378,42 @@ function pickBackroomsWanderTarget(cautious) {
 }
 
 /**
+ * * Regular-octagon edge metric (flats normal to the k·45° directions, matching the
+ * * Sundial Station deck): a point is on the deck iff this distance ≤ the apothem.
+ */
+function octagonEdgeDistance(x, z) {
+  const ax = Math.abs(x);
+  const az = Math.abs(z);
+  return Math.max(ax, az, (ax + az) * Math.SQRT1_2);
+}
+
+/**
+ * * Open-octagon arenas: clamp a target inside the deck apothem (every edge is a kill
+ * * zone, so the inset is wider than Backrooms' walled clamp) + circular keep-outs.
+ */
+function clampOctagonAiTarget(x, z, cautious) {
+  const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
+  const edgeInset = cautious ? 4.5 : 2.5;
+  const maxCoord = Math.max(1, apothem - edgeInset);
+  let outX = clamp(x, -maxCoord, maxCoord);
+  let outZ = clamp(z, -maxCoord, maxCoord);
+  const diag = (Math.abs(outX) + Math.abs(outZ)) * Math.SQRT1_2;
+  if (diag > maxCoord) {
+    const s = maxCoord / diag;
+    outX *= s;
+    outZ *= s;
+  }
+  const kept = pushPointOutOfCircularKeepOuts(outX, outZ, cautious ? 0.8 : 0.3);
+  return { x: kept.x, z: kept.z };
+}
+
+/**
  * * Clamps a target point into a safe annulus — tighter band during cautious phase.
  */
 function clampAiTargetAwayFromHazards(x, z, cautious) {
+  if (_octagonHazards) {
+    return clampOctagonAiTarget(x, z, cautious);
+  }
   if (_levelHazards?.arenaHalf != null) {
     return clampBackroomsAiTarget(x, z, cautious);
   }
@@ -1771,6 +1821,18 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
           }
         }
       }
+    } else if (_octagonHazards) {
+      // * Open octagon: the outer rim is the death edge — never reverse near it.
+      nearHazard = octagonEdgeDistance(p.x, p.z) > _octagonHazards.arenaHalf - 3.5;
+      if (!nearHazard && _octagonHazards.circularKeepOuts?.length > 0) {
+        for (let i = 0; i < _octagonHazards.circularKeepOuts.length; i += 1) {
+          const ko = _octagonHazards.circularKeepOuts[i];
+          if (Math.hypot(p.x - ko.x, p.z - ko.z) < ko.radius + (ko.margin ?? 1.5) + 2.5) {
+            nearHazard = true;
+            break;
+          }
+        }
+      }
     } else if (CONFIG.record.centerHole?.enabled !== false) {
       // * Classic: check distance to center-hole physics lip.
       const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
@@ -1798,6 +1860,9 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   if (_levelHazards) {
     // * Backrooms: square-void keep-out zones + circular furniture avoidance.
     applySquareHoleAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
+    applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
+  } else if (_octagonHazards) {
+    // * Open octagon: steer around the center podium keep-out.
     applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
   } else if (CONFIG.record.centerHole?.enabled !== false) {
     // * Classic Record: reactive radial push away from the center hole.

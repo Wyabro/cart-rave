@@ -1,17 +1,32 @@
-// zanzibarPlatform.js — Zanzibar Platform: offshore octagonal sundeck arena at sunset.
+// zanzibarPlatform.js — SUNDIAL STATION (level id: "zanzibar"): offshore octagonal
+// research/sport platform at permanent golden hour. The deck is the dial plate, the
+// center podium its gnomon, and the low drifting sun sweeps long shadows across it.
 //
 // Design intent (third arena — fills the slot the first two don't):
 //   Classic Record  = circular, TWO kill directions (center pit + outer void), rave extras.
 //   The Storerooms  = walled box, four corner holes, center obstacle, no outer fall.
-//   Zanzibar        = OPEN octagon — no walls, no holes. Every one of the eight edges is a
+//   Sundial Station = OPEN octagon — no walls, no holes. Every one of the eight edges is a
 //                     kill zone, and a low drivable center podium adds verticality.
 //
 // Physics philosophy (July 1 collider overhaul rules): primitives only, no trimesh.
-//   Deck   = ONE convex hull (octagonal prism — convex, zero seams, zero tunneling).
-//   Podium = ONE convex hull (octagonal frustum, 15.5° drivable ramp all around).
+//   Deck   = FOUR overlapping cuboids whose union is exactly the regular octagon (each
+//            rotated 45° from the last, half-length = apothem, half-width = apothem·tan 22.5°).
+//            NOT a convex hull: resting carts (roundCuboid) visibly jitter on large
+//            convex-hull faces while sitting rock-solid on the cuboid spawn booths —
+//            observed directly in the 2026-07-09 feedback round. All four tops are
+//            coplanar at y=0 with identical +y normals, so their manifolds agree.
+//   Podium = four thin rotated cuboid CAPS (flat, stable top surface) over ONE convex
+//            hull for the drivable ramp ring. The hull crest is tucked below the cap
+//            plane and its base below the deck plane (PODIUM_CREST_TUCK / PODIUM_TUCK) —
+//            hulls sharing an exact coplanar plane with another collider cause
+//            contact-manifold flip-flop; same class of bug The Storerooms avoids with
+//            CHAMFER_TUCK.
 //   Corner bollards = 8 cylinder colliders. Booths = 4 cuboids.
+//   Floor colliders use RestitutionCombineRule.Min so the deck's tuned 0.05 restitution
+//   wins over the cart's 0.3 (Rapier's default Average produced a phantom ~0.175 bounce).
 
 import * as THREE from "three";
+import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { isLowQualityMode } from "../utils.js";
@@ -27,9 +42,18 @@ const VERTEX_OFFSET = HALF_ANGLE;
 const DECK_THICKNESS = 0.6; // meters — matches Classic + Storerooms floor thickness
 const DECK_FRICTION = 0.62; // unitless — grippy steel; between Classic vinyl and carpet
 
-const PODIUM_BASE_R = 6.0; // meters — circumradius of frustum base
-const PODIUM_TOP_R = 4.2; // meters — circumradius of frustum top
-const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 1.8 run ≈ 15.5°, fully drivable
+const PODIUM_BASE_R = 7.2; // meters — circumradius of frustum base (+20% with the deck)
+const PODIUM_TOP_R = 5.0; // meters — circumradius of frustum top
+const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 2.2 run ≈ 13°, fully drivable
+// * Collider-only recess of the ramp hull's base below the deck top plane. A hull face
+// * exactly coplanar with another collider makes Rapier's narrow-phase flip contact
+// * ownership frame-to-frame — visible as resting-cart jitter. Mirrors CHAMFER_TUCK.
+const PODIUM_TUCK = 0.02;
+// * The ramp hull's crest sits this far below the flat cap cuboids' top plane, so carts
+// * parked on the podium rest on stable cuboid faces, never on the hull. The 2 cm step
+// * at the crest is far below the cart's 8 cm roundCuboid radius (never catches).
+const PODIUM_CREST_TUCK = 0.02;
+const PODIUM_CAP_THICKNESS = 0.12; // meters — thin flat cuboid caps on the podium crown
 
 const BOLLARD_RADIUS = 0.55; // meters
 const BOLLARD_HEIGHT = 1.6; // meters
@@ -53,11 +77,22 @@ const ISLAND_HAZE_DIST_OFFSET = 35; // meters — a ridge's haze layer sits this
 // edge, so fog swallows the plane's true edge before any silhouette appears to float past it.
 const ISLAND_MAX_DIST = WATER_SIZE / 2 - 50;
 
+// * Sunset IBL — replaces the neutral RoomEnvironment on scene.environment while this
+// * level is loaded, so metals reflect ember/teal instead of a gray room. Revert switch:
+// * flip to false to restore the startup environment untouched (kept trivially revertible
+// * while the post-FX black-frame investigation is open — this is the only new
+// * render-target-adjacent usage this level adds, and it is a one-time bake at load).
+const USE_SUNSET_ENV = true;
+
+// * Shared scratch for instanced-matrix building (construction + per-frame gull updates).
+const _dummy = new THREE.Object3D();
+
 // ===== Canvas texture builders =====
 
 /**
- * Steel deck top: plate seams, bolt rings, hazard-yellow perimeter band traced as a
- * true octagon (aligned to the collider flats), and helipad-style podium markings.
+ * Steel deck top: plate seams, bolt rings, wear scuffs, rust streaks, cyan energy-conduit
+ * traces, hazard-yellow perimeter band traced as a true octagon (aligned to the collider
+ * flats), and helipad-style podium markings.
  *
  * @param {number} circumR Deck circumradius in meters.
  * @returns {THREE.CanvasTexture}
@@ -70,6 +105,7 @@ function buildDeckTexture(circumR) {
   const ctx = canvas.getContext("2d");
   const c = size / 2;
   const pxPerM = c / circumR;
+  const apothem = circumR * COS_HALF;
 
   // Base steel.
   ctx.fillStyle = "#262a31";
@@ -82,6 +118,17 @@ function buildDeckTexture(circumR) {
     ctx.beginPath();
     ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Traffic wear — pale scuff arcs in the main driving band between podium and rim.
+  for (let i = 0; i < 46; i += 1) {
+    const rM = PODIUM_BASE_R + 2.5 + Math.random() * (apothem - PODIUM_BASE_R - 7);
+    const a0 = Math.random() * Math.PI * 2;
+    ctx.strokeStyle = `rgba(196, 202, 214, ${0.03 + Math.random() * 0.05})`;
+    ctx.lineWidth = (0.12 + Math.random() * 0.24) * pxPerM;
+    ctx.beginPath();
+    ctx.arc(c, c, rM * pxPerM, a0, a0 + 0.15 + Math.random() * 0.5);
+    ctx.stroke();
   }
 
   /** Trace the deck octagon path at a given radius (meters). */
@@ -98,9 +145,11 @@ function buildDeckTexture(circumR) {
   };
 
   // Plate seams: concentric octagon rings + radial spokes to each vertex.
+  // Ring list adapts to the deck size so plate density stays even after the +20% pass.
+  const seamRings = [8.5, 14.5, 20.5, 26.5].filter((rM) => rM < apothem - 2.5);
   ctx.strokeStyle = "rgba(0,0,0,0.42)";
   ctx.lineWidth = Math.max(2, size * 0.004);
-  for (const rM of [8.5, 14.5, 20.5]) {
+  for (const rM of seamRings) {
     octPath(rM);
     ctx.stroke();
   }
@@ -112,17 +161,73 @@ function buildDeckTexture(circumR) {
     ctx.stroke();
   }
 
-  // Bolt dots along the middle seam ring.
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  for (let i = 0; i < 48; i += 1) {
-    const a = (i / 48) * Math.PI * 2;
+  // Bolt dots + rust streaks along the two mid seam rings.
+  const boltRings = seamRings.filter((rM) => rM > 10 && rM < apothem - 4);
+  for (const boltR of boltRings) {
+    for (let i = 0; i < 48; i += 1) {
+      const a = (i / 48) * Math.PI * 2;
+      const bx = c + Math.cos(a) * boltR * pxPerM;
+      const by = c + Math.sin(a) * boltR * pxPerM;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.beginPath();
+      ctx.arc(bx, by, size * 0.0035, 0, Math.PI * 2);
+      ctx.fill();
+      // Occasional rust bleed running radially outward from a bolt.
+      if (Math.random() < 0.3) {
+        const len = (0.35 + Math.random() * 0.6) * pxPerM;
+        ctx.strokeStyle = "rgba(112, 58, 30, 0.22)";
+        ctx.lineWidth = size * 0.0026;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + Math.cos(a) * len, by + Math.sin(a) * len);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Energy-conduit traces: cyan service lines along the eight flat-mid lanes, drawn as a
+  // soft glow pass under a crisp core line, ending on square junction pads.
+  const conduitInner = PODIUM_BASE_R + 2.0;
+  const conduitOuter = apothem - 4.2;
+  for (let i = 0; i < OCT_SIDES; i += 1) {
+    const a = i * (Math.PI / 4);
+    const x0 = c + Math.cos(a) * conduitInner * pxPerM;
+    const y0 = c + Math.sin(a) * conduitInner * pxPerM;
+    const x1 = c + Math.cos(a) * conduitOuter * pxPerM;
+    const y1 = c + Math.sin(a) * conduitOuter * pxPerM;
+    ctx.strokeStyle = "rgba(255, 178, 44, 0.10)";
+    ctx.lineWidth = 0.42 * pxPerM;
     ctx.beginPath();
-    ctx.arc(c + Math.cos(a) * 14.5 * pxPerM, c + Math.sin(a) * 14.5 * pxPerM, size * 0.0035, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255, 178, 44, 0.28)";
+    ctx.lineWidth = 0.14 * pxPerM;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    for (const [px, py] of [[x0, y0], [x1, y1]]) {
+      ctx.fillStyle = "rgba(255, 178, 44, 0.30)";
+      const pad = 0.5 * pxPerM;
+      ctx.fillRect(px - pad / 2, py - pad / 2, pad, pad);
+    }
+  }
+
+  // Station name decals on two opposite flats, inside the hazard band (helipad read).
+  ctx.fillStyle = "rgba(235, 220, 200, 0.30)";
+  ctx.font = `600 ${Math.round(1.05 * pxPerM)}px monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const flatAngle of [Math.PI / 2, (3 * Math.PI) / 2]) {
+    ctx.save();
+    ctx.translate(c + Math.cos(flatAngle) * (apothem - 3.6) * pxPerM, c + Math.sin(flatAngle) * (apothem - 3.6) * pxPerM);
+    ctx.rotate(flatAngle - Math.PI / 2);
+    ctx.fillText("SUNDIAL STATION", 0, 0);
+    ctx.restore();
   }
 
   // Hazard-yellow edge band (readability: the rim IS the kill zone).
-  const apothem = circumR * COS_HALF;
   ctx.strokeStyle = "#d9a614";
   ctx.lineWidth = 1.5 * pxPerM;
   octPath(apothem - 1.7);
@@ -135,8 +240,8 @@ function buildDeckTexture(circumR) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Podium apron markings: thin cyan ring + tick marks (helipad read).
-  ctx.strokeStyle = "rgba(43,214,255,0.55)";
+  // Podium apron markings: thin amber ring + tick marks (helipad read).
+  ctx.strokeStyle = "rgba(255,178,44,0.5)";
   ctx.lineWidth = Math.max(2, 0.22 * pxPerM);
   ctx.beginPath();
   ctx.arc(c, c, (PODIUM_BASE_R + 1.1) * pxPerM, 0, Math.PI * 2);
@@ -156,12 +261,164 @@ function buildDeckTexture(circumR) {
 }
 
 /**
- * Sunset gradient for the sky dome: deep indigo zenith → dusk magenta → ember horizon.
+ * Grayscale roughness variation for the deck top (linear space — roughnessMap multiplies
+ * material.roughness, so the material sets roughness=1 and this map carries the value):
+ * base brushed steel ≈0.58 with directional strokes, a smoother polished traffic band
+ * where carts circulate, and rougher plate seams.
+ *
+ * @param {number} circumR Deck circumradius in meters.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildDeckRoughnessTexture(circumR) {
+  const size = isLowQualityMode() ? 256 : 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const c = size / 2;
+  const pxPerM = c / circumR;
+  const apothem = circumR * COS_HALF;
+
+  // Base roughness ≈ 0.58.
+  ctx.fillStyle = "rgb(148,148,148)";
+  ctx.fillRect(0, 0, size, size);
+
+  // Brushed-metal strokes — fine value noise in one dominant direction.
+  for (let i = 0; i < 900; i += 1) {
+    const v = 128 + Math.floor(Math.random() * 56);
+    ctx.strokeStyle = `rgba(${v},${v},${v},0.30)`;
+    ctx.lineWidth = 1;
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const len = 6 + Math.random() * 30;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + len, y + (Math.random() - 0.5) * 3);
+    ctx.stroke();
+  }
+
+  // Polished traffic band — carts burnish the main driving annulus smoother (darker).
+  const bandInner = (PODIUM_BASE_R + 2.5) * pxPerM;
+  const bandOuter = (apothem - 4) * pxPerM;
+  const grad = ctx.createRadialGradient(c, c, bandInner, c, c, bandOuter);
+  grad.addColorStop(0.0, "rgba(96,96,96,0.0)");
+  grad.addColorStop(0.35, "rgba(96,96,96,0.38)");
+  grad.addColorStop(0.7, "rgba(96,96,96,0.30)");
+  grad.addColorStop(1.0, "rgba(96,96,96,0.0)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(c, c, bandOuter, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rough weathered speckle.
+  for (let i = 0; i < 320; i += 1) {
+    const v = 175 + Math.floor(Math.random() * 60);
+    ctx.fillStyle = `rgba(${v},${v},${v},0.35)`;
+    const r = 1 + Math.random() * 3;
+    ctx.beginPath();
+    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/**
+ * Tileable dark steel panel texture (beveled plate grid, rivets, value noise) shared by
+ * booth slabs, pillars, and pylons — replaces the flat plastic-looking colors.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildPanelTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#272b33";
+  ctx.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < 120; i += 1) {
+    const v = 26 + Math.floor(Math.random() * 26);
+    ctx.fillStyle = `rgba(${v},${v + 3},${v + 8},0.35)`;
+    ctx.beginPath();
+    ctx.arc(Math.random() * size, Math.random() * size, 4 + Math.random() * 18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 2×2 beveled panel grid with highlight/shadow edges and corner rivets.
+  const cell = size / 2;
+  for (let gx = 0; gx < 2; gx += 1) {
+    for (let gy = 0; gy < 2; gy += 1) {
+      const x = gx * cell;
+      const y = gy * cell;
+      ctx.strokeStyle = "rgba(0,0,0,0.55)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4);
+      ctx.strokeStyle = "rgba(160,170,185,0.14)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 4, y + 4, cell - 8, cell - 8);
+      ctx.fillStyle = "rgba(8,9,12,0.8)";
+      for (const [rx, ry] of [[10, 10], [cell - 10, 10], [10, cell - 10], [cell - 10, cell - 10]]) {
+        ctx.beginPath();
+        ctx.arc(x + rx, y + ry, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/**
+ * Vent-grille strip for the podium side wall: dark slats with a faint cyan energy line
+ * glowing behind them — the gnomon reads as a powered machine, not a concrete step.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildGrilleTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#23262d";
+  ctx.fillRect(0, 0, 256, 64);
+  // Glow line low on the wall.
+  const grad = ctx.createLinearGradient(0, 40, 0, 58);
+  grad.addColorStop(0, "rgba(255,178,44,0)");
+  grad.addColorStop(0.55, "rgba(255,178,44,0.32)");
+  grad.addColorStop(1, "rgba(255,178,44,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 40, 256, 18);
+  // Vertical slats.
+  ctx.fillStyle = "rgba(8,9,12,0.75)";
+  for (let x = 4; x < 256; x += 12) {
+    ctx.fillRect(x, 6, 5, 52);
+  }
+  // Top rail highlight.
+  ctx.fillStyle = "rgba(170,180,195,0.16)";
+  ctx.fillRect(0, 2, 256, 2);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.repeat.set(10, 1);
+  return tex;
+}
+
+/**
+ * Sunset gradient for the sky dome — deep indigo zenith → dusk magenta → ember horizon —
+ * plus faint horizon haze bands, sparse high stars, and one fading jet contrail.
  * @returns {THREE.CanvasTexture}
  */
 function buildSkyTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 4;
+  canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
   const grad = ctx.createLinearGradient(0, 0, 0, 256);
@@ -174,8 +431,80 @@ function buildSkyTexture() {
   // * distance, so a mismatched sky bottom shows as a seam at the waterline.
   grad.addColorStop(1.0, "#ff5a22"); // horizon melt color matching fog
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 4, 256);
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Faint stratified haze bands just above the ember zone.
+  for (const [y, alpha] of [[172, 0.10], [188, 0.14], [201, 0.08]]) {
+    const band = ctx.createLinearGradient(0, y - 4, 0, y + 4);
+    band.addColorStop(0, "rgba(40,12,40,0)");
+    band.addColorStop(0.5, `rgba(40,12,40,${alpha})`);
+    band.addColorStop(1, "rgba(40,12,40,0)");
+    ctx.fillStyle = band;
+    ctx.fillRect(0, y - 4, 256, 8);
+  }
+
+  // Sparse early stars near the zenith.
+  for (let i = 0; i < 26; i += 1) {
+    ctx.fillStyle = `rgba(230, 224, 255, ${0.12 + Math.random() * 0.2})`;
+    ctx.fillRect(Math.random() * 256, Math.random() * 70, 1, 1);
+  }
+
+  // One old contrail catching the light, faded at both ends (avoids the UV wrap seam).
+  const trail = ctx.createLinearGradient(50, 74, 208, 96);
+  trail.addColorStop(0, "rgba(255,190,150,0)");
+  trail.addColorStop(0.45, "rgba(255,190,150,0.20)");
+  trail.addColorStop(0.6, "rgba(255,190,150,0.14)");
+  trail.addColorStop(1, "rgba(255,190,150,0)");
+  ctx.strokeStyle = trail;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(50, 74);
+  ctx.lineTo(208, 96);
+  ctx.stroke();
+
   const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Small equirect sunset environment texture for scene.environment while this level is
+ * loaded: ember horizon over dark teal water under an indigo sky, with a hot blob at the
+ * sun azimuth. Three.js PMREMs equirect environment textures internally — this is a
+ * one-time bake at load, entirely outside the composer pipeline.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildSunsetEnvTexture() {
+  const w = 128;
+  const h = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0.0, "#140a2a"); // zenith
+  grad.addColorStop(0.34, "#4a1c4e");
+  grad.addColorStop(0.46, "#a03a52");
+  grad.addColorStop(0.5, "#ff7a36"); // horizon line
+  grad.addColorStop(0.56, "#7a3a30"); // near water catching ember
+  grad.addColorStop(0.75, "#123240"); // teal water
+  grad.addColorStop(1.0, "#081a22"); // nadir
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Hot sun blob on the horizon at the sun azimuth (u = azimuth / 2π; equirect u starts
+  // at +x and wraps westward — exact phase is irrelevant for reflections, warmth is).
+  const sunU = (SUN_AZIMUTH / (Math.PI * 2)) * w;
+  const blob = ctx.createRadialGradient(sunU, h / 2, 0, sunU, h / 2, 14);
+  blob.addColorStop(0, "rgba(255, 226, 170, 0.95)");
+  blob.addColorStop(0.35, "rgba(255, 150, 70, 0.55)");
+  blob.addColorStop(1, "rgba(255, 110, 50, 0)");
+  ctx.fillStyle = blob;
+  ctx.fillRect(0, 0, w, h);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -204,7 +533,96 @@ function buildGlintTexture() {
 }
 
 /**
- * Diagonal hazard stripes for corner bollards.
+ * Tileable water normal map derived from layered radial-bump height noise via a Sobel
+ * pass with wrap-around sampling (keeps the tile seamless). Drifted in update() for slow
+ * wave motion — no vertex animation, no extra draw calls.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildWaterNormalTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+
+  // Height field: mid-gray base + soft radial bumps (drawn wrapped at the borders).
+  ctx.fillStyle = "rgb(128,128,128)";
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < 110; i += 1) {
+    const bx = Math.random() * size;
+    const by = Math.random() * size;
+    const r = 10 + Math.random() * 34;
+    const up = Math.random() < 0.5;
+    for (const [ox, oy] of [[0, 0], [-size, 0], [size, 0], [0, -size], [0, size]]) {
+      const g = ctx.createRadialGradient(bx + ox, by + oy, 0, bx + ox, by + oy, r);
+      g.addColorStop(0, up ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)");
+      g.addColorStop(1, "rgba(128,128,128,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(bx + ox, by + oy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Sobel height→normal conversion with wrap-around sampling.
+  const src = ctx.getImageData(0, 0, size, size);
+  const out = ctx.createImageData(size, size);
+  const hAt = (x, y) => src.data[(((y + size) % size) * size + ((x + size) % size)) * 4];
+  const strength = 2.2;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = (hAt(x + 1, y) - hAt(x - 1, y)) / 255;
+      const dy = (hAt(x, y + 1) - hAt(x, y - 1)) / 255;
+      const nx = -dx * strength;
+      const ny = -dy * strength;
+      const nz = 1;
+      const inv = 1 / Math.hypot(nx, ny, nz);
+      const idx = (y * size + x) * 4;
+      out.data[idx + 0] = Math.round((nx * inv * 0.5 + 0.5) * 255);
+      out.data[idx + 1] = Math.round((ny * inv * 0.5 + 0.5) * 255);
+      out.data[idx + 2] = Math.round((nz * inv * 0.5 + 0.5) * 255);
+      out.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(26, 26);
+  return tex;
+}
+
+/**
+ * Soft annular foam band where the station structure disturbs the water.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildFoamTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+  const c = size / 2;
+  for (let i = 0; i < 420; i += 1) {
+    const a = Math.random() * Math.PI * 2;
+    // Band roughly matching the RingGeometry's inner/outer proportion.
+    const rFrac = 0.46 + Math.random() * 0.28;
+    const r = rFrac * c;
+    const blob = 1.5 + Math.random() * 4.5;
+    const fade = 1 - Math.abs(rFrac - 0.58) / 0.16;
+    ctx.fillStyle = `rgba(255, 236, 220, ${Math.max(0, fade) * (0.05 + Math.random() * 0.10)})`;
+    ctx.beginPath();
+    ctx.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, blob, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+/**
+ * Diagonal hazard stripes for corner bollards, with worn scratches.
  * @returns {THREE.CanvasTexture}
  */
 function buildHazardStripeTexture() {
@@ -222,11 +640,59 @@ function buildHazardStripeTexture() {
     ctx.lineTo(x + 70, 0);
     ctx.stroke();
   }
+  // Wear: chipped scratches through the paint.
+  for (let i = 0; i < 14; i += 1) {
+    const v = Math.random() < 0.5 ? "rgba(230,230,235,0.35)" : "rgba(20,20,26,0.4)";
+    ctx.strokeStyle = v;
+    ctx.lineWidth = 0.8 + Math.random();
+    const x = Math.random() * 64;
+    const y = Math.random() * 64;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random() - 0.5) * 14, y + (Math.random() - 0.5) * 14);
+    ctx.stroke();
+  }
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(2, 1);
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Holographic glyph band wrapped around the podium hologram cylinder: segmented ticks,
+ * data blocks, and a scanline — drawn transparent for additive blending.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildHologlyphTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 256, 64);
+  ctx.strokeStyle = "rgba(255,194,94,0.7)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, 8);
+  ctx.lineTo(256, 8);
+  ctx.moveTo(0, 56);
+  ctx.lineTo(256, 56);
+  ctx.stroke();
+  for (let x = 2; x < 256; x += 8) {
+    if (Math.random() < 0.62) {
+      const bh = 4 + Math.random() * 34;
+      ctx.fillStyle = `rgba(255,178,44,${0.25 + Math.random() * 0.45})`;
+      ctx.fillRect(x, 50 - bh, 5, bh);
+    }
+  }
+  for (let i = 0; i < 12; i += 1) {
+    ctx.fillStyle = "rgba(255,236,190,0.6)";
+    ctx.fillRect(Math.random() * 250, 12 + Math.random() * 8, 3 + Math.random() * 6, 2);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
   return tex;
 }
 
@@ -260,31 +726,80 @@ function buildOctHullVertices(circumR, yTop, yBottom, topCircumR = circumR) {
   return verts;
 }
 
+/**
+ * Full floor-collider layout for a given deck circumradius. Exported for the floor
+ * regression test (tests/zanzibarFloor.test.js).
+ *
+ * Deck + podium caps: a regular octagon with apothem A (flats normal to the k·45°
+ * directions) is EXACTLY the union of four rectangles rotated 45° apart, each with
+ * half-length A and half-width A·tan(22.5°) — so four overlapping cuboids give a
+ * jitter-free all-cuboid floor whose union matches the visual octagon with zero gaps
+ * and zero overhang. The podium ramp stays a convex hull, tucked below both planes it
+ * meets (see PODIUM_TUCK / PODIUM_CREST_TUCK).
+ *
+ * @param {number} circumR Deck circumradius in meters.
+ * @returns {{
+ *   deckRects: { yaw: number, halfLength: number, halfWidth: number, halfHeight: number, centerY: number }[],
+ *   podiumCaps: { yaw: number, halfLength: number, halfWidth: number, halfHeight: number, centerY: number }[],
+ *   podiumHull: Float32Array,
+ * }}
+ */
+export function getZanzibarFloorColliderSpec(circumR) {
+  const tanHalf = Math.tan(HALF_ANGLE);
+  /** Four rotated rectangles whose union is the octagon of the given apothem. */
+  const octRects = (apothem, topY, halfHeight) =>
+    [0, 1, 2, 3].map((k) => ({
+      yaw: k * (Math.PI / 4),
+      halfLength: apothem,
+      halfWidth: apothem * tanHalf,
+      halfHeight,
+      centerY: topY - halfHeight,
+    }));
+  return {
+    deckRects: octRects(circumR * COS_HALF, 0, DECK_THICKNESS / 2),
+    podiumCaps: octRects(PODIUM_TOP_R * COS_HALF, PODIUM_HEIGHT, PODIUM_CAP_THICKNESS / 2),
+    podiumHull: buildOctHullVertices(
+      PODIUM_BASE_R, PODIUM_HEIGHT - PODIUM_CREST_TUCK, -PODIUM_TUCK, PODIUM_TOP_R,
+    ),
+  };
+}
+
 // ===== Sub-builders =====
 
 /**
- * Ocean, sun-path glint strip, sun disc + halo, sky dome, and island silhouettes.
+ * Ocean (with drifting ripple normals), sun-path glint strips, sun disc + halo, sky dome,
+ * island silhouettes with settlement lights, distant wind turbines, gulls, and the foam
+ * ring around the station's waterline.
  *
  * @param {THREE.Scene} scene
- * @returns {{ group: THREE.Group, glintMat: THREE.MeshBasicMaterial | null,
- *   glintTex: THREE.CanvasTexture | null, sunDir: THREE.Vector3,
- *   updateSun: (timeMs: number) => void, ownedGeometries: THREE.BufferGeometry[],
+ * @param {number} circumR Deck circumradius (sizes the foam ring).
+ * @returns {{ group: THREE.Group, sunDir: THREE.Vector3,
+ *   update: (timeMs: number) => void, ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }}
  */
-function buildSeascape(scene) {
+function buildSeascape(scene, circumR) {
   const lowQ = isLowQualityMode();
   const group = new THREE.Group();
+  /** @type {THREE.BufferGeometry[]} */
   const ownedGeometries = [];
+  /** @type {THREE.Material[]} */
   const ownedMaterials = [];
+  /** @type {THREE.Texture[]} */
   const ownedTextures = [];
 
-  // Ocean plane.
+  // Ocean plane — ripple normals drift in update() (skipped in Low Quality).
   const waterGeo = new THREE.PlaneGeometry(WATER_SIZE, WATER_SIZE, 1, 1);
+  let waterNormalTex = null;
+  if (!lowQ) {
+    waterNormalTex = buildWaterNormalTexture();
+    ownedTextures.push(waterNormalTex);
+  }
   const waterMat = createPhysicalMaterial({
     color: 0x0d3546,
     roughness: 0.24,
     metalness: 0.85,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.5,
+    ...(waterNormalTex ? { normalMap: waterNormalTex, normalScale: new THREE.Vector2(0.28, 0.28) } : {}),
   });
   waterMat.userData.envMapIntensityScale = 0.5;
   const water = new THREE.Mesh(waterGeo, waterMat);
@@ -334,9 +849,12 @@ function buildSeascape(scene) {
   ownedGeometries.push(haloGeo);
   ownedMaterials.push(haloMat);
 
-  // Animated sun-path glint strip (skipped in Low Quality).
+  // Animated sun-path glint strips (skipped in Low Quality): core strip + a wider, fainter
+  // counter-scrolling layer for parallax shimmer.
   let glintMat = null;
   let glintTex = null;
+  let glintMat2 = null;
+  let glintTex2 = null;
   if (!lowQ) {
     glintTex = buildGlintTexture();
     glintMat = new THREE.MeshBasicMaterial({
@@ -357,6 +875,26 @@ function buildSeascape(scene) {
     ownedGeometries.push(glintGeo);
     ownedMaterials.push(glintMat);
     ownedTextures.push(glintTex);
+
+    glintTex2 = buildGlintTexture();
+    glintMat2 = new THREE.MeshBasicMaterial({
+      map: glintTex2,
+      color: 0xff8a4a,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const glintGeo2 = new THREE.PlaneGeometry(30, 300, 1, 1);
+    const glint2 = new THREE.Mesh(glintGeo2, glintMat2);
+    glint2.rotation.x = -Math.PI / 2;
+    glint2.rotation.z = -SUN_AZIMUTH + Math.PI / 2;
+    glint2.position.copy(sunDir.clone().multiplyScalar(185));
+    glint2.position.y = WATER_Y + 0.12;
+    group.add(glint2);
+    ownedGeometries.push(glintGeo2);
+    ownedMaterials.push(glintMat2);
+    ownedTextures.push(glintTex2);
   }
 
   // Island silhouettes — each is two atmospheric-perspective layers (a darker, larger
@@ -433,25 +971,433 @@ function buildSeascape(scene) {
     [[18, 12, 0]], islandFarHazeMat,
   );
 
-  // Sun drift: a slow, barely-perceptible azimuth wobble so the sunset doesn't feel frozen.
-  // Mutates sunDir/sun/halo in place each call — zero per-frame allocations. initZanzibarPlatform
-  // reads the updated sunDir afterward to keep the sunLight pointed the same direction.
-  function updateSun(timeMs) {
+  // Settlement lights on the closest island — a handful of warm pixel dots that read as a
+  // far-off harbor town (constant pixel size; unfogged so they punch through the haze).
+  {
+    const lightPositions = [];
+    const baseAz = SUN_AZIMUTH + 0.55;
+    for (let i = 0; i < 7; i += 1) {
+      const az = baseAz + (Math.random() - 0.5) * 0.10;
+      const d = 296 + Math.random() * 10;
+      lightPositions.push(
+        Math.cos(az) * d,
+        WATER_Y + 1.5 + Math.random() * 5,
+        Math.sin(az) * d,
+      );
+    }
+    const dotsGeo = new THREE.BufferGeometry();
+    dotsGeo.setAttribute("position", new THREE.Float32BufferAttribute(lightPositions, 3));
+    const dotsMat = new THREE.PointsMaterial({
+      color: 0xffc27a,
+      size: 2.4,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.85,
+      fog: false,
+      depthWrite: false,
+    });
+    const dots = new THREE.Points(dotsGeo, dotsMat);
+    group.add(dots);
+    ownedGeometries.push(dotsGeo);
+    ownedMaterials.push(dotsMat);
+  }
+
+  // Offshore wind farm — three distant turbines, fogged like the islands so they sit in
+  // the same haze tier. Slow rotor motion sells the "working facility" horizon.
+  const turbineMat = new THREE.MeshBasicMaterial({ color: 0x2a141d });
+  ownedMaterials.push(turbineMat);
+  const towerGeo = new THREE.CylinderGeometry(0.6, 1.3, 26, 6);
+  const rotorGeo = new THREE.BoxGeometry(0.9, 24, 0.3);
+  ownedGeometries.push(towerGeo, rotorGeo);
+  const rotors = [];
+  const turbineSpecs = [
+    { az: SUN_AZIMUTH - 1.05, dist: 290, spin: 0.00042 },
+    { az: SUN_AZIMUTH + 1.15, dist: 325, spin: 0.00034 },
+    { az: SUN_AZIMUTH + 2.55, dist: 350, spin: 0.00048 },
+  ];
+  const towers = new THREE.InstancedMesh(towerGeo, turbineMat, turbineSpecs.length);
+  for (let i = 0; i < turbineSpecs.length; i += 1) {
+    const t = turbineSpecs[i];
+    const x = Math.cos(t.az) * Math.min(t.dist, ISLAND_MAX_DIST);
+    const z = Math.sin(t.az) * Math.min(t.dist, ISLAND_MAX_DIST);
+    _dummy.position.set(x, WATER_Y + 13, z);
+    _dummy.rotation.set(0, 0, 0);
+    _dummy.scale.set(1, 1, 1);
+    _dummy.updateMatrix();
+    towers.setMatrixAt(i, _dummy.matrix);
+
+    const rotor = new THREE.Mesh(rotorGeo, turbineMat);
+    rotor.position.set(x, WATER_Y + 26, z);
+    rotor.lookAt(0, WATER_Y + 26, 0);
+    rotor.userData.spin = t.spin;
+    rotor.userData.phase = i * 1.7;
+    group.add(rotor);
+    rotors.push(rotor);
+  }
+  towers.instanceMatrix.needsUpdate = true;
+  group.add(towers);
+
+  // Orbital gate — a colossal half-submerged ring on the horizon, plane facing the
+  // arena, with a sparse arc of slowly-pulsing guidance lights. Fogged like the islands
+  // so it reads as a distant silhouette, not a prop.
+  let gateDotsMat = null;
+  {
+    const gateGroup = new THREE.Group();
+    const gateAz = SUN_AZIMUTH - 2.0;
+    const gateDist = Math.min(370, ISLAND_MAX_DIST);
+    gateGroup.position.set(Math.cos(gateAz) * gateDist, WATER_Y + 10, Math.sin(gateAz) * gateDist);
+    gateGroup.lookAt(0, WATER_Y + 10, 0);
+
+    const gateGeo = new THREE.TorusGeometry(48, 3, 8, 28);
+    const gateMat = new THREE.MeshBasicMaterial({ color: 0x241019 });
+    ownedGeometries.push(gateGeo);
+    ownedMaterials.push(gateMat);
+    gateGroup.add(new THREE.Mesh(gateGeo, gateMat));
+
+    const dotPositions = [];
+    for (let i = 0; i < 7; i += 1) {
+      const a = Math.PI * (0.15 + (i / 6) * 0.7); // upper arc only
+      dotPositions.push(Math.cos(a) * 48, Math.sin(a) * 48, 3.2);
+    }
+    const gateDotsGeo = new THREE.BufferGeometry();
+    gateDotsGeo.setAttribute("position", new THREE.Float32BufferAttribute(dotPositions, 3));
+    gateDotsMat = new THREE.PointsMaterial({
+      color: 0x8fd9ff,
+      size: 2.6,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.55,
+      fog: false,
+      depthWrite: false,
+    });
+    ownedGeometries.push(gateDotsGeo);
+    ownedMaterials.push(gateDotsMat);
+    gateGroup.add(new THREE.Points(gateDotsGeo, gateDotsMat));
+    group.add(gateGroup);
+  }
+
+  // Alien city skyline — slab skyscrapers with grids of lit floors, connected by a sky
+  // bridge, opposite the sun so they hold as dark shapes against the dusk. Boxes (not
+  // cones — the cone version read as "messed up mountains"), varied yaws and setbacks,
+  // one needle antenna on the tallest.
+  {
+    const cityMat = new THREE.MeshBasicMaterial({ color: 0x1d0f1a });
+    ownedMaterials.push(cityMat);
+    const cityGeo = new THREE.BoxGeometry(1, 1, 1);
+    ownedGeometries.push(cityGeo);
+    const cityAz = SUN_AZIMUTH + 3.05;
+    const cityDist = Math.min(380, ISLAND_MAX_DIST);
+    const cx = Math.cos(cityAz) * cityDist;
+    const cz = Math.sin(cityAz) * cityDist;
+    const lateralX = -Math.sin(cityAz);
+    const lateralZ = Math.cos(cityAz);
+
+    // { off: lateral offset, w/d: footprint, h: height, yaw: twist } — the two-part
+    // entries stack a setback tower on a wider base (classic arcology silhouette).
+    const towerSpecs = [
+      { off: -44, w: 13, d: 9, h: 62, yaw: 0.3 },
+      { off: -26, w: 10, d: 10, h: 96, yaw: -0.2 },
+      { off: -26, w: 16, d: 14, h: 40, yaw: -0.2 }, // base block under the 96m tower
+      { off: -2, w: 12, d: 8, h: 128, yaw: 0.15 }, // the landmark
+      { off: -2, w: 1.6, d: 1.6, h: 26, yaw: 0, yLift: 128 }, // its needle antenna
+      { off: 20, w: 9, d: 9, h: 74, yaw: 0.5 },
+      { off: 38, w: 14, d: 10, h: 52, yaw: -0.35 },
+      // Sky bridge between the 96m and 128m towers, high up.
+      { off: -14, w: 26, d: 2.2, h: 2.6, yaw: 0.02, yLift: 66 },
+    ];
+    const city = new THREE.InstancedMesh(cityGeo, cityMat, towerSpecs.length);
+    const windowPositions = [];
+    for (let i = 0; i < towerSpecs.length; i += 1) {
+      const t = towerSpecs[i];
+      const bx = cx + lateralX * t.off;
+      const bz = cz + lateralZ * t.off;
+      const baseY = WATER_Y + (t.yLift ?? 0);
+      _dummy.position.set(bx, baseY + t.h / 2, bz);
+      _dummy.rotation.set(0, cityAz + t.yaw, 0);
+      _dummy.scale.set(t.w, t.h, t.d);
+      _dummy.updateMatrix();
+      city.setMatrixAt(i, _dummy.matrix);
+      // Lit-floor dots up the arena-facing face of the real towers (skip bridge/needle).
+      if (t.h > 30) {
+        const floors = Math.floor(t.h / 11);
+        for (let f = 1; f <= floors; f += 1) {
+          if (Math.random() < 0.35) continue; // dark floors keep it organic
+          const across = (Math.random() - 0.5) * t.w * 0.55;
+          windowPositions.push(
+            bx + lateralX * across - Math.cos(cityAz) * (t.d / 2 + 0.5),
+            baseY + f * 11 - 4,
+            bz + lateralZ * across - Math.sin(cityAz) * (t.d / 2 + 0.5),
+          );
+        }
+      }
+    }
+    city.instanceMatrix.needsUpdate = true;
+    group.add(city);
+
+    const winGeo = new THREE.BufferGeometry();
+    winGeo.setAttribute("position", new THREE.Float32BufferAttribute(windowPositions, 3));
+    const winMat = new THREE.PointsMaterial({
+      color: 0x9fe8ff,
+      size: 1.7,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.45,
+      fog: false,
+      depthWrite: false,
+    });
+    ownedGeometries.push(winGeo);
+    ownedMaterials.push(winMat);
+    group.add(new THREE.Points(winGeo, winMat));
+  }
+
+  // Ringed planet + companion moon — the unmistakable "not on Earth" signal, hung high
+  // in the dusk sky away from the sun. Unlit, unfogged, translucent so it sits IN the
+  // sky gradient instead of on top of it (same treatment as the sun disc).
+  {
+    const planetGroup = new THREE.Group();
+    const planetAz = SUN_AZIMUTH - 2.4;
+    const planetDistH = 350;
+    // * Elevation ~22° — the chase camera sees up to ~27° above horizontal, so any
+    // * higher and the planet lives permanently above the top of the frame.
+    planetGroup.position.set(
+      Math.cos(planetAz) * planetDistH, 140, Math.sin(planetAz) * planetDistH,
+    );
+    planetGroup.lookAt(0, 0, 0);
+
+    // Banded disc — tiny canvas keeps the gas-giant read without a real texture asset.
+    const bandCanvas = document.createElement("canvas");
+    bandCanvas.width = 64;
+    bandCanvas.height = 64;
+    const bctx = bandCanvas.getContext("2d");
+    bctx.fillStyle = "#d9b3cf";
+    bctx.fillRect(0, 0, 64, 64);
+    const bands = [
+      { y: 10, h: 6, c: "rgba(168,118,158,0.7)" },
+      { y: 24, h: 4, c: "rgba(190,138,150,0.55)" },
+      { y: 34, h: 8, c: "rgba(158,108,148,0.65)" },
+      { y: 50, h: 5, c: "rgba(184,132,164,0.5)" },
+    ];
+    for (const band of bands) {
+      bctx.fillStyle = band.c;
+      bctx.fillRect(0, band.y, 64, band.h);
+    }
+    const bandTex = new THREE.CanvasTexture(bandCanvas);
+    bandTex.colorSpace = THREE.SRGBColorSpace;
+    ownedTextures.push(bandTex);
+
+    const planetGeo = new THREE.CircleGeometry(34, 40);
+    const planetMat = new THREE.MeshBasicMaterial({
+      map: bandTex,
+      transparent: true,
+      opacity: 0.5,
+      fog: false,
+      depthWrite: false,
+    });
+    ownedGeometries.push(planetGeo);
+    ownedMaterials.push(planetMat);
+    planetGroup.add(new THREE.Mesh(planetGeo, planetMat));
+
+    const ringGeo = new THREE.RingGeometry(42, 60, 48);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xd9c0d4,
+      transparent: true,
+      opacity: 0.28,
+      fog: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    ownedGeometries.push(ringGeo);
+    ownedMaterials.push(ringMat);
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = 1.25; // tilt the ring plane out of the disc plane
+    planetGroup.add(ring);
+
+    const moonGeo = new THREE.CircleGeometry(6.5, 24);
+    const moonMat = new THREE.MeshBasicMaterial({
+      color: 0xd8ccd8,
+      transparent: true,
+      opacity: 0.45,
+      fog: false,
+      depthWrite: false,
+    });
+    ownedGeometries.push(moonGeo);
+    ownedMaterials.push(moonMat);
+    const moon = new THREE.Mesh(moonGeo, moonMat);
+    moon.position.set(64, -30, 0);
+    planetGroup.add(moon);
+
+    group.add(planetGroup);
+  }
+
+  // Spaceships — three distant craft on slow orbits around the station, each trailing a
+  // cool engine glow (skipped in Low Quality; matrices rebuilt per frame, no allocations).
+  let ships = null;
+  let shipGlowGeo = null;
+  const shipStates = [];
+  if (!lowQ) {
+    const shipGeo = new THREE.BoxGeometry(7, 0.7, 2.4);
+    const shipMat = new THREE.MeshBasicMaterial({ color: 0x1c0f16 });
+    ownedGeometries.push(shipGeo);
+    ownedMaterials.push(shipMat);
+    ships = new THREE.InstancedMesh(shipGeo, shipMat, 3);
+    for (let i = 0; i < 3; i += 1) {
+      shipStates.push({
+        radius: 255 + i * 38,
+        height: 52 + i * 17,
+        speed: (0.000020 + i * 0.000007) * (i === 1 ? -1 : 1),
+        phase: i * 2.3,
+      });
+    }
+    group.add(ships);
+
+    shipGlowGeo = new THREE.BufferGeometry();
+    shipGlowGeo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(9), 3));
+    const shipGlowMat = new THREE.PointsMaterial({
+      color: 0x7ad9ff,
+      size: 3.0,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.75,
+      fog: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    ownedGeometries.push(shipGlowGeo);
+    ownedMaterials.push(shipGlowMat);
+    group.add(new THREE.Points(shipGlowGeo, shipGlowMat));
+  }
+
+  // Gulls — a handful of dark silhouettes circling the station (skipped in Low Quality).
+  let gulls = null;
+  const gullStates = [];
+  if (!lowQ) {
+    const gullGeo = new THREE.PlaneGeometry(1.7, 0.5);
+    const gullMat = new THREE.MeshBasicMaterial({ color: 0x1c0f16, side: THREE.DoubleSide });
+    ownedGeometries.push(gullGeo);
+    ownedMaterials.push(gullMat);
+    gulls = new THREE.InstancedMesh(gullGeo, gullMat, 5);
+    for (let i = 0; i < 5; i += 1) {
+      gullStates.push({
+        radius: 52 + Math.random() * 34,
+        height: 13 + Math.random() * 9,
+        speed: (0.00009 + Math.random() * 0.00005) * (Math.random() < 0.5 ? 1 : -1),
+        phase: Math.random() * Math.PI * 2,
+        flapPhase: Math.random() * Math.PI * 2,
+      });
+    }
+    group.add(gulls);
+  }
+
+  // Foam ring at the station waterline (skipped in Low Quality) — sells scale + contact.
+  let foamMat = null;
+  let foam = null;
+  if (!lowQ) {
+    const foamTex = buildFoamTexture();
+    foamMat = new THREE.MeshBasicMaterial({
+      map: foamTex,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+    });
+    const foamGeo = new THREE.RingGeometry(circumR * 0.7, circumR * 1.6, 40);
+    foam = new THREE.Mesh(foamGeo, foamMat);
+    foam.rotation.x = -Math.PI / 2;
+    foam.position.y = WATER_Y + 0.08;
+    group.add(foam);
+    ownedGeometries.push(foamGeo);
+    ownedMaterials.push(foamMat);
+    ownedTextures.push(foamTex);
+  }
+
+  // Per-frame seascape animation — sun drift (mutates sunDir/sun/halo in place, zero
+  // allocations; initZanzibarPlatform reads sunDir afterward to keep sunLight coherent),
+  // glint scroll, ripple-normal drift, rotor spin, gull orbits, foam breathing.
+  function update(timeMs) {
     const azimuth = SUN_AZIMUTH + Math.sin(timeMs * SUN_DRIFT_SPEED) * SUN_DRIFT_AMPLITUDE_RAD;
     sunDir.set(Math.cos(azimuth), 0, Math.sin(azimuth));
     sun.position.set(sunDir.x * SUN_DISTANCE, SUN_HEIGHT, sunDir.z * SUN_DISTANCE);
     sun.lookAt(0, SUN_HEIGHT, 0);
     halo.position.set(sun.position.x + sunDir.x * 2, SUN_HEIGHT, sun.position.z + sunDir.z * 2);
     halo.lookAt(0, SUN_HEIGHT, 0);
+
+    if (glintTex) {
+      glintTex.offset.y = (timeMs * 0.00004) % 1;
+      if (glintMat) glintMat.opacity = 0.45 + Math.sin(timeMs * 0.0011) * 0.12;
+    }
+    if (glintTex2) {
+      glintTex2.offset.y = (-timeMs * 0.000023) % 1;
+      if (glintMat2) glintMat2.opacity = 0.16 + Math.sin(timeMs * 0.0007 + 1.4) * 0.06;
+    }
+    if (waterNormalTex) {
+      waterNormalTex.offset.x = (timeMs * 0.0000045) % 1;
+      waterNormalTex.offset.y = (timeMs * 0.0000031) % 1;
+    }
+    for (let i = 0; i < rotors.length; i += 1) {
+      const rotor = rotors[i];
+      rotor.rotation.z = rotor.userData.phase + timeMs * rotor.userData.spin;
+    }
+    if (gateDotsMat) {
+      gateDotsMat.opacity = 0.45 + Math.sin(timeMs * 0.0009) * 0.2;
+    }
+    if (ships && shipGlowGeo) {
+      const glowPos = shipGlowGeo.attributes.position;
+      for (let i = 0; i < shipStates.length; i += 1) {
+        const s = shipStates[i];
+        const a = s.phase + timeMs * s.speed;
+        const x = Math.cos(a) * s.radius;
+        const z = Math.sin(a) * s.radius;
+        const y = s.height + Math.sin(timeMs * 0.0002 + s.phase) * 3;
+        _dummy.position.set(x, y, z);
+        // Nose along the orbit tangent; slight bank into the turn.
+        _dummy.rotation.set(0, -a - Math.sign(s.speed) * (Math.PI / 2), Math.sign(s.speed) * 0.12);
+        _dummy.scale.set(1, 1, 1);
+        _dummy.updateMatrix();
+        ships.setMatrixAt(i, _dummy.matrix);
+        // Engine glow trails just behind the hull along the tangent.
+        const tx = -Math.sin(a) * Math.sign(s.speed);
+        const tz = Math.cos(a) * Math.sign(s.speed);
+        glowPos.setXYZ(i, x - tx * 4.2, y, z - tz * 4.2);
+      }
+      ships.instanceMatrix.needsUpdate = true;
+      glowPos.needsUpdate = true;
+    }
+    if (gulls) {
+      for (let i = 0; i < gullStates.length; i += 1) {
+        const g = gullStates[i];
+        const a = g.phase + timeMs * g.speed;
+        _dummy.position.set(
+          Math.cos(a) * g.radius,
+          g.height + Math.sin(timeMs * 0.0004 + g.phase) * 1.2,
+          Math.sin(a) * g.radius,
+        );
+        _dummy.rotation.set(
+          -Math.PI / 2,
+          0,
+          -a + (g.speed > 0 ? 0 : Math.PI),
+        );
+        // Wing flap — quick roll oscillation around the flight axis.
+        _dummy.rotation.y = Math.sin(timeMs * 0.009 + g.flapPhase) * 0.45;
+        _dummy.scale.set(1, 1, 1);
+        _dummy.updateMatrix();
+        gulls.setMatrixAt(i, _dummy.matrix);
+      }
+      gulls.instanceMatrix.needsUpdate = true;
+    }
+    if (foamMat) {
+      foamMat.opacity = 0.13 + Math.sin(timeMs * 0.00055) * 0.045;
+      if (foam) foam.rotation.z = timeMs * 0.000012;
+    }
   }
 
   scene.add(group);
-  return { group, glintMat, glintTex, sunDir, updateSun, ownedGeometries, ownedMaterials, ownedTextures };
+  return { group, sunDir, update, ownedGeometries, ownedMaterials, ownedTextures };
 }
 
 /**
- * The octagonal deck: visual cylinder (8 segments), under-skirt, support pillars,
- * deck + podium convex-hull colliders, and eight corner bollards.
+ * The octagonal deck: visual slab, fascia trim, under-skirt, perimeter truss ring, corner
+ * pylons down to the water, support pillars, podium (grille walls, cap plate, hologram,
+ * guide lights), beacon masts, deck + podium convex-hull colliders, and eight corner
+ * bollards.
  *
  * @param {THREE.Scene} scene
  * @param {import("@dimforge/rapier3d").World} world
@@ -459,23 +1405,32 @@ function buildSeascape(scene) {
  * @param {number} circumR
  * @returns {{ group: THREE.Group, body: import("@dimforge/rapier3d").RigidBody,
  *   floorColliderHandles: number[], deckTex: THREE.CanvasTexture,
- *   neonStripMeshes: THREE.Mesh[], neonMat: THREE.Material,
+ *   neonStripMeshes: THREE.Mesh[],
+ *   neonYellowMat: THREE.Material, panelTex: THREE.CanvasTexture, blinkMat: THREE.Material,
+ *   update: (timeMs: number) => void,
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }}
  */
 function buildDeck(scene, world, config, circumR) {
+  const lowQ = isLowQualityMode();
   const group = new THREE.Group();
+  /** @type {THREE.BufferGeometry[]} */
   const ownedGeometries = [];
+  /** @type {THREE.Material[]} */
   const ownedMaterials = [];
+  /** @type {THREE.Texture[]} */
   const ownedTextures = [];
+  const apothem = circumR * COS_HALF;
 
   // --- Visual: deck slab ---
   const deckTex = buildDeckTexture(circumR);
-  ownedTextures.push(deckTex);
+  const deckRoughTex = buildDeckRoughnessTexture(circumR);
+  ownedTextures.push(deckTex, deckRoughTex);
   const deckTopMat = createPhysicalMaterial({
     map: deckTex,
     color: 0xffffff,
-    roughness: 0.58,
+    roughness: 1.0, // roughnessMap carries the value (base ≈ 0.58 + variation)
+    roughnessMap: deckRoughTex,
     metalness: 0.62,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.45,
   });
@@ -498,6 +1453,29 @@ function buildDeck(scene, world, config, circumR) {
   deckMesh.position.y = -DECK_THICKNESS / 2;
   group.add(deckMesh);
 
+  // Shared engineered-panel texture (booth slabs, pillars, pylons, podium bottom trim).
+  const panelTex = buildPanelTexture();
+  ownedTextures.push(panelTex);
+
+  // Fascia trim — a slightly proud dark-metal band at the deck's top edge, so the neon
+  // rim strips read as mounted hardware instead of floating paint.
+  const fasciaGeo = new THREE.CylinderGeometry(
+    circumR + 0.09, circumR + 0.09, 0.34, OCT_SIDES, 1, true, VERTEX_OFFSET,
+  );
+  ownedGeometries.push(fasciaGeo);
+  const fasciaMat = createPhysicalMaterial({
+    color: 0x2e333d,
+    roughness: 0.38,
+    metalness: 0.85,
+    envMapIntensity: getMaterialEnvMapIntensity() * 0.6,
+    side: THREE.DoubleSide,
+  });
+  fasciaMat.userData.envMapIntensityScale = 0.6;
+  ownedMaterials.push(fasciaMat);
+  const fascia = new THREE.Mesh(fasciaGeo, fasciaMat);
+  fascia.position.y = -0.13;
+  group.add(fascia);
+
   // Under-skirt.
   const skirtGeo = new THREE.CylinderGeometry(
     circumR - 0.25, circumR - 1.4, 2.2, OCT_SIDES, 1, true, VERTEX_OFFSET,
@@ -507,10 +1485,89 @@ function buildDeck(scene, world, config, circumR) {
   skirt.position.y = -DECK_THICKNESS - 1.1;
   group.add(skirt);
 
-  // Support pillars.
+  // Perimeter truss ring — instanced diagonal struts between the deck rim and the skirt
+  // base, one X-brace pair per half-edge. Reads as engineered offshore construction.
+  const structMat = createPhysicalMaterial({
+    color: 0x30353f,
+    roughness: 0.55,
+    metalness: 0.75,
+    envMapIntensity: getMaterialEnvMapIntensity() * 0.4,
+  });
+  structMat.userData.envMapIntensityScale = 0.4;
+  ownedMaterials.push(structMat);
+  {
+    const strutLen = 2.6;
+    const strutGeo = new THREE.BoxGeometry(0.16, strutLen, 0.16);
+    ownedGeometries.push(strutGeo);
+    const strutCount = OCT_SIDES * 4;
+    const truss = new THREE.InstancedMesh(strutGeo, structMat, strutCount);
+    const edgeLen = 2 * circumR * Math.sin(HALF_ANGLE);
+    let idx = 0;
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const mid = i * (Math.PI / 4);
+      const yaw = -mid + Math.PI / 2;
+      for (let s = 0; s < 4; s += 1) {
+        // Along-edge offset: four struts alternating lean (X-brace pattern).
+        const t = (s + 0.5) / 4 - 0.5;
+        const along = t * (edgeLen - 2.2);
+        const lean = (s % 2 === 0 ? 1 : -1) * 0.62;
+        _dummy.position.set(
+          Math.cos(mid) * (apothem - 0.75) - Math.sin(mid) * along,
+          -DECK_THICKNESS - 1.15,
+          Math.sin(mid) * (apothem - 0.75) + Math.cos(mid) * along,
+        );
+        _dummy.rotation.set(0, yaw, lean);
+        _dummy.scale.set(1, 1, 1);
+        _dummy.updateMatrix();
+        truss.setMatrixAt(idx, _dummy.matrix);
+        idx += 1;
+      }
+    }
+    truss.instanceMatrix.needsUpdate = true;
+    group.add(truss);
+  }
+
+  // Corner pylons — one at each octagon vertex, dropping from the skirt to below the
+  // waterline so the platform visibly stands on legs instead of floating.
+  {
+    const pylonH = 6.8;
+    const pylonGeo = new THREE.BoxGeometry(1.5, pylonH, 1.5);
+    ownedGeometries.push(pylonGeo);
+    const pylonMat = createPhysicalMaterial({
+      map: panelTex,
+      color: 0x9aa0ab,
+      roughness: 0.68,
+      metalness: 0.6,
+      envMapIntensity: getMaterialEnvMapIntensity() * 0.35,
+    });
+    pylonMat.userData.envMapIntensityScale = 0.35;
+    ownedMaterials.push(pylonMat);
+    const pylons = new THREE.InstancedMesh(pylonGeo, pylonMat, OCT_SIDES);
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const a = VERTEX_OFFSET + i * (Math.PI / 4);
+      _dummy.position.set(
+        Math.cos(a) * (circumR - 1.8),
+        -DECK_THICKNESS - 0.4 - pylonH / 2,
+        Math.sin(a) * (circumR - 1.8),
+      );
+      _dummy.rotation.set(0, -a, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+      pylons.setMatrixAt(i, _dummy.matrix);
+    }
+    pylons.instanceMatrix.needsUpdate = true;
+    group.add(pylons);
+  }
+
+  // Support pillars (center cluster, under the podium load path).
   const pillarGeo = new THREE.BoxGeometry(5.2, 7.5, 5.2);
   ownedGeometries.push(pillarGeo);
-  const pillarMat = createPhysicalMaterial({ color: 0x23262e, roughness: 0.7, metalness: 0.5 });
+  const pillarMat = createPhysicalMaterial({
+    map: panelTex,
+    color: 0x8f959f,
+    roughness: 0.7,
+    metalness: 0.5,
+  });
   pillarMat.userData.envMapIntensityScale = 1;
   ownedMaterials.push(pillarMat);
   for (let i = 0; i < 4; i += 1) {
@@ -520,40 +1577,69 @@ function buildDeck(scene, world, config, circumR) {
     group.add(pillar);
   }
 
-  // Center podium.
-  const podiumGeo = new THREE.CylinderGeometry(
-    PODIUM_TOP_R, PODIUM_BASE_R, PODIUM_HEIGHT, OCT_SIDES, 1, false, VERTEX_OFFSET,
-  );
-  ownedGeometries.push(podiumGeo);
-  const podiumMat = createPhysicalMaterial({
+  // Center podium — the station's gnomon. Grille side walls, brushed top, polished cap.
+  const grilleTex = buildGrilleTexture();
+  ownedTextures.push(grilleTex);
+  const podiumSideMat = createPhysicalMaterial({
+    map: grilleTex,
+    color: 0xffffff,
+    roughness: 0.45,
+    metalness: 0.8,
+    envMapIntensity: getMaterialEnvMapIntensity() * 0.55,
+  });
+  podiumSideMat.userData.envMapIntensityScale = 0.55;
+  const podiumTopMat = createPhysicalMaterial({
     color: 0x2c313a,
     roughness: 0.5,
     metalness: 0.7,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.5,
   });
-  podiumMat.userData.envMapIntensityScale = 0.5;
-  ownedMaterials.push(podiumMat);
-  const podium = new THREE.Mesh(podiumGeo, podiumMat);
+  podiumTopMat.userData.envMapIntensityScale = 0.5;
+  ownedMaterials.push(podiumSideMat, podiumTopMat);
+  const podiumGeo = new THREE.CylinderGeometry(
+    PODIUM_TOP_R, PODIUM_BASE_R, PODIUM_HEIGHT, OCT_SIDES, 1, false, VERTEX_OFFSET,
+  );
+  ownedGeometries.push(podiumGeo);
+  const podium = new THREE.Mesh(podiumGeo, [podiumSideMat, podiumTopMat, deckBottomMat]);
   podium.position.y = PODIUM_HEIGHT / 2;
   group.add(podium);
 
-  // Neon rim strips & crown.
-  const neonMat = new THREE.MeshStandardMaterial({
-    color: config.booth.neonColor1,
-    emissive: config.booth.neonColor1,
-    emissiveIntensity: 2.2,
+  // Polished cap plate on the podium crown — a contrasting glossier disc.
+  const capPlateGeo = new THREE.CircleGeometry(PODIUM_TOP_R - 0.45, 32);
+  ownedGeometries.push(capPlateGeo);
+  const capPlateMat = createPhysicalMaterial({
+    color: 0x1d2027,
+    roughness: 0.22,
+    metalness: 0.9,
+    envMapIntensity: getMaterialEnvMapIntensity() * 0.8,
+  });
+  capPlateMat.userData.envMapIntensityScale = 0.8;
+  ownedMaterials.push(capPlateMat);
+  const capPlate = new THREE.Mesh(capPlateGeo, capPlateMat);
+  capPlate.rotation.x = -Math.PI / 2;
+  capPlate.position.y = PODIUM_HEIGHT + 0.012;
+  group.add(capPlate);
+
+  // * Unified caution-yellow/amber light scheme (2026-07-09 feedback rounds): the whole
+  // * arena — perimeter strips, booth rails, bollard caps, podium crown, guide lights —
+  // * glows in one warm hazard family. Intensity kept moderate (the first yellow pass
+  // * was "too emissive"); yellow's high luma crosses the bloom threshold easily.
+  const neonYellowMat = new THREE.MeshStandardMaterial({
+    color: 0xffb400,
+    emissive: 0xffb400,
+    emissiveIntensity: 1.15,
     roughness: 0.4,
     metalness: 0.1,
   });
-  ownedMaterials.push(neonMat);
-  const apothem = circumR * COS_HALF;
+  neonYellowMat.userData.baseEmissiveIntensity = 1.15;
+  ownedMaterials.push(neonYellowMat);
   const edgeLen = 2 * circumR * Math.sin(HALF_ANGLE);
   const stripGeo = new THREE.BoxGeometry(edgeLen - 1.6, 0.14, 0.22);
   ownedGeometries.push(stripGeo);
   const neonStripMeshes = [];
   for (let i = 0; i < OCT_SIDES; i += 1) {
     const mid = i * (Math.PI / 4);
-    const strip = new THREE.Mesh(stripGeo, neonMat);
+    const strip = new THREE.Mesh(stripGeo, neonYellowMat);
     strip.position.set(Math.cos(mid) * (apothem - 0.45), 0.08, Math.sin(mid) * (apothem - 0.45));
     strip.rotation.y = -mid + Math.PI / 2;
     group.add(strip);
@@ -561,11 +1647,108 @@ function buildDeck(scene, world, config, circumR) {
   }
   const crownGeo = new THREE.TorusGeometry(PODIUM_TOP_R - 0.18, 0.09, 8, 32);
   ownedGeometries.push(crownGeo);
-  const crown = new THREE.Mesh(crownGeo, neonMat);
+  const crown = new THREE.Mesh(crownGeo, neonYellowMat);
   crown.rotation.x = Math.PI / 2;
   crown.position.y = PODIUM_HEIGHT + 0.05;
   group.add(crown);
   neonStripMeshes.push(crown);
+
+  // Podium base guide lights — small emissive blocks at the frustum's base vertices,
+  // matching the arena's warm scheme.
+  {
+    const guideGeo = new THREE.BoxGeometry(0.4, 0.16, 0.2);
+    ownedGeometries.push(guideGeo);
+    const guides = new THREE.InstancedMesh(guideGeo, neonYellowMat, OCT_SIDES);
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const a = VERTEX_OFFSET + i * (Math.PI / 4);
+      _dummy.position.set(Math.cos(a) * (PODIUM_BASE_R - 0.25), 0.1, Math.sin(a) * (PODIUM_BASE_R - 0.25));
+      _dummy.rotation.set(0, -a + Math.PI / 2, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+      guides.setMatrixAt(i, _dummy.matrix);
+    }
+    guides.instanceMatrix.needsUpdate = true;
+    group.add(guides);
+  }
+
+  // Podium hologram — the station core: a slowly counter-rotating octagonal ring +
+  // glyph-band cylinder floating above the gnomon (skipped in Low Quality).
+  let holoRing = null;
+  let holoBand = null;
+  let holoBandMat = null;
+  let holoGroup = null;
+  if (!lowQ) {
+    holoGroup = new THREE.Group();
+    holoGroup.position.y = PODIUM_HEIGHT + 2.7;
+
+    const holoRingGeo = new THREE.TorusGeometry(2.6, 0.045, 6, OCT_SIDES);
+    ownedGeometries.push(holoRingGeo);
+    const holoRingMat = new THREE.MeshBasicMaterial({
+      color: 0xffc25e,
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    ownedMaterials.push(holoRingMat);
+    holoRing = new THREE.Mesh(holoRingGeo, holoRingMat);
+    holoRing.rotation.x = Math.PI / 2;
+    holoGroup.add(holoRing);
+
+    const glyphTex = buildHologlyphTexture();
+    ownedTextures.push(glyphTex);
+    holoBandMat = new THREE.MeshBasicMaterial({
+      map: glyphTex,
+      transparent: true,
+      opacity: 0.62,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    ownedMaterials.push(holoBandMat);
+    const holoBandGeo = new THREE.CylinderGeometry(2.15, 2.15, 0.8, 24, 1, true);
+    ownedGeometries.push(holoBandGeo);
+    holoBand = new THREE.Mesh(holoBandGeo, holoBandMat);
+    holoGroup.add(holoBand);
+
+    group.add(holoGroup);
+  }
+
+  // Beacon masts — slim aviation-light masts on the fascia at the four flat midpoints
+  // between booth lanes; shared blinking emissive material (also used by booth antennas).
+  const blinkMat = new THREE.MeshStandardMaterial({
+    color: 0xffb347,
+    emissive: 0xffb347,
+    emissiveIntensity: 1.6,
+    roughness: 0.4,
+    metalness: 0.1,
+  });
+  ownedMaterials.push(blinkMat);
+  {
+    const mastGeo = new THREE.CylinderGeometry(0.07, 0.13, 5.2, 6);
+    const beaconGeo = new THREE.SphereGeometry(0.17, 8, 6);
+    ownedGeometries.push(mastGeo, beaconGeo);
+    const mastAngles = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4];
+    const masts = new THREE.InstancedMesh(mastGeo, structMat, mastAngles.length);
+    const beacons = new THREE.InstancedMesh(beaconGeo, blinkMat, mastAngles.length);
+    for (let i = 0; i < mastAngles.length; i += 1) {
+      const a = mastAngles[i];
+      const mx = Math.cos(a) * (apothem + 0.28);
+      const mz = Math.sin(a) * (apothem + 0.28);
+      _dummy.position.set(mx, 2.35, mz);
+      _dummy.rotation.set(0, 0, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+      masts.setMatrixAt(i, _dummy.matrix);
+      _dummy.position.set(mx, 5.05, mz);
+      _dummy.updateMatrix();
+      beacons.setMatrixAt(i, _dummy.matrix);
+    }
+    masts.instanceMatrix.needsUpdate = true;
+    beacons.instanceMatrix.needsUpdate = true;
+    group.add(masts);
+    group.add(beacons);
+  }
 
   // Corner bollards.
   const stripeTex = buildHazardStripeTexture();
@@ -585,7 +1768,7 @@ function buildDeck(scene, world, config, circumR) {
     const bollard = new THREE.Mesh(bollardGeo, bollardMat);
     bollard.position.set(x, BOLLARD_HEIGHT / 2, z);
     group.add(bollard);
-    const cap = new THREE.Mesh(capGeo, neonMat);
+    const cap = new THREE.Mesh(capGeo, neonYellowMat);
     cap.position.set(x, BOLLARD_HEIGHT + 0.06, z);
     group.add(cap);
     neonStripMeshes.push(cap);
@@ -597,20 +1780,35 @@ function buildDeck(scene, world, config, circumR) {
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
   const floorColliderHandles = [];
 
-  const deckHull = buildOctHullVertices(circumR, 0, -DECK_THICKNESS);
-  const deckCollider = world.createCollider(
-    RAPIER.ColliderDesc.convexHull(deckHull)
-      .setFriction(DECK_FRICTION)
-      .setRestitution(config.record.restitution),
-    body,
-  );
-  floorColliderHandles.push(deckCollider.handle);
+  // * All-cuboid flat surfaces (see header): resting carts jitter on convex-hull faces
+  // * but are rock-stable on cuboids (the spawn booths proved it), so the deck and the
+  // * podium crown are rotated cuboids whose union is the exact visual octagon.
+  // * RestitutionCombineRule.Min keeps the deck's tuned 0.05 restitution over the
+  // * cart's 0.3 (default Average yielded an unintended ~0.175 bounce).
+  const spec = getZanzibarFloorColliderSpec(circumR);
+  const addRectCollider = (rect) => {
+    const half = rect.yaw / 2;
+    const collider = world.createCollider(
+      RAPIER.ColliderDesc.cuboid(rect.halfLength, rect.halfHeight, rect.halfWidth)
+        .setTranslation(0, rect.centerY, 0)
+        .setRotation({ x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) })
+        .setFriction(DECK_FRICTION)
+        .setRestitution(config.record.restitution)
+        .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min),
+      body,
+    );
+    floorColliderHandles.push(collider.handle);
+  };
+  spec.deckRects.forEach(addRectCollider);
+  spec.podiumCaps.forEach(addRectCollider);
 
-  const podiumHull = buildOctHullVertices(PODIUM_BASE_R, PODIUM_HEIGHT, 0, PODIUM_TOP_R);
+  // * Drivable ramp ring — the one remaining hull, tucked below the cap plane at its
+  // * crest and below the deck plane at its base so it is never coplanar with a cuboid.
   const podiumCollider = world.createCollider(
-    RAPIER.ColliderDesc.convexHull(podiumHull)
+    RAPIER.ColliderDesc.convexHull(spec.podiumHull)
       .setFriction(DECK_FRICTION)
-      .setRestitution(config.record.restitution),
+      .setRestitution(config.record.restitution)
+      .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min),
     body,
   );
   floorColliderHandles.push(podiumCollider.handle);
@@ -625,25 +1823,45 @@ function buildDeck(scene, world, config, circumR) {
     );
   }
 
+  // Per-frame deck animation: hologram counter-rotation + bob, beacon double-blink.
+  function update(timeMs) {
+    if (holoGroup) {
+      holoGroup.position.y = PODIUM_HEIGHT + 2.7 + Math.sin(timeMs * 0.0012) * 0.14;
+      if (holoRing) holoRing.rotation.z = timeMs * 0.0005;
+      if (holoBand) holoBand.rotation.y = -timeMs * 0.00032;
+      if (holoBandMat) holoBandMat.opacity = 0.52 + Math.sin(timeMs * 0.0021) * 0.12;
+    }
+    // Sharp aviation-style blink: short hot pulse, long dim tail.
+    const blink = Math.pow(Math.max(0, Math.sin(timeMs * 0.0035)), 14);
+    blinkMat.emissiveIntensity = 0.5 + blink * 3.2;
+  }
+
   return {
-    group, body, floorColliderHandles, deckTex, neonStripMeshes, neonMat,
-    ownedGeometries, ownedMaterials, ownedTextures,
+    group, body, floorColliderHandles, deckTex, neonStripMeshes,
+    neonYellowMat, panelTex, blinkMat, update, ownedGeometries, ownedMaterials, ownedTextures,
   };
 }
 
 /**
- * Spawn booths.
+ * Spawn booths — engineered launch bays: paneled slabs, canopy roofs with antenna masts,
+ * holographic banners, and pink/cyan rail neon alternating per booth.
  *
  * @param {THREE.Scene} scene
  * @param {import("@dimforge/rapier3d").World} world
  * @param {object} config
  * @param {number[]} boothColliderHandles
  * @param {THREE.Mesh[]} boothNeonMeshes
- * @param {THREE.Material} neonMat
+ * @param {THREE.Material} railNeonMat Caution-yellow rail material (shared with the deck).
+ * @param {THREE.Texture} panelTex
+ * @param {THREE.Material} blinkTipMat Shared blinking beacon material (deck masts).
  * @returns {{ group: THREE.Group, bodies: import("@dimforge/rapier3d").RigidBody[],
- *   ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[] }}
+ *   ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[],
+ *   ownedTextures: THREE.Texture[] }}
  */
-function buildZanzibarBooths(scene, world, config, boothColliderHandles, boothNeonMeshes, neonMat) {
+function buildZanzibarBooths(
+  scene, world, config, boothColliderHandles, boothNeonMeshes, railNeonMat,
+  panelTex, blinkTipMat,
+) {
   const B = config.booth;
   const arenaR = config.record.radius;
   const boothCenterDist = arenaR + B.gapDistance + B.rampLength + B.platformDepth / 2;
@@ -652,7 +1870,12 @@ function buildZanzibarBooths(scene, world, config, boothColliderHandles, boothNe
   const group = new THREE.Group();
   const bodies = [];
 
-  const slabMat = createPhysicalMaterial({ color: 0x262a31, roughness: 0.55, metalness: 0.65 });
+  const slabMat = createPhysicalMaterial({
+    map: panelTex,
+    color: 0xa7adb8,
+    roughness: 0.55,
+    metalness: 0.65,
+  });
   slabMat.userData.envMapIntensityScale = 1;
   const legMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.75, metalness: 0.4 });
   const trimMat = new THREE.MeshStandardMaterial({ color: 0xd9a614, roughness: 0.6, metalness: 0.25 });
@@ -663,11 +1886,28 @@ function buildZanzibarBooths(scene, world, config, boothColliderHandles, boothNe
   const braceGeo = new THREE.BoxGeometry(0.28, 0.28, B.platformDepth - 0.6);
   const railGeo = new THREE.CylinderGeometry(B.railThickness / 2, B.railThickness / 2, 1, 8);
 
+  /** @type {THREE.BufferGeometry[]} */
   const ownedGeometries = [platGeo, trimGeo, legGeo, braceGeo, railGeo];
+  /** @type {THREE.Material[]} */
   const ownedMaterials = [slabMat, legMat, trimMat];
+  /** @type {THREE.Texture[]} */
+  const ownedTextures = [];
 
   const pw = B.platformWidth / 2;
   const pd = B.platformDepth / 2;
+  const canopyY = B.platformY + B.platformThickness / 2 + 3.0;
+
+  // Instanced canopy hardware shared across the four booths.
+  const canopyGeo = new THREE.BoxGeometry(B.platformWidth * 0.94, 0.12, B.platformDepth * 0.72);
+  const canopyPostGeo = new THREE.BoxGeometry(0.14, 3.0, 0.14);
+  const antennaGeo = new THREE.CylinderGeometry(0.04, 0.07, 2.4, 6);
+  const antennaTipGeo = new THREE.SphereGeometry(0.11, 8, 6);
+  ownedGeometries.push(canopyGeo, canopyPostGeo, antennaGeo, antennaTipGeo);
+
+  const canopies = new THREE.InstancedMesh(canopyGeo, slabMat, 4);
+  const canopyPosts = new THREE.InstancedMesh(canopyPostGeo, legMat, 8);
+  const antennas = new THREE.InstancedMesh(antennaGeo, legMat, 4);
+  const antennaTips = new THREE.InstancedMesh(antennaTipGeo, blinkTipMat, 4);
 
   for (let i = 0; i < 4; i += 1) {
     const angle = angles[i];
@@ -716,7 +1956,7 @@ function buildZanzibarBooths(scene, world, config, boothColliderHandles, boothNe
     }
 
     for (const sx of [-pw + 0.1, pw - 0.1]) {
-      const rail = new THREE.Mesh(railGeo, neonMat);
+      const rail = new THREE.Mesh(railGeo, railNeonMat);
       rail.scale.set(1, B.platformDepth - 0.4, 1);
       rail.rotation.x = Math.PI / 2;
       rail.position.set(sx, deckTopY + B.railHeight, 0);
@@ -730,7 +1970,7 @@ function buildZanzibarBooths(scene, world, config, boothColliderHandles, boothNe
         boothGroup.add(post);
       }
     }
-    const backRail = new THREE.Mesh(railGeo, neonMat);
+    const backRail = new THREE.Mesh(railGeo, railNeonMat);
     backRail.scale.set(1, B.platformWidth - 0.2, 1);
     backRail.rotation.z = Math.PI / 2;
     backRail.position.set(0, deckTopY + B.railHeight, pd - 0.2);
@@ -738,16 +1978,51 @@ function buildZanzibarBooths(scene, world, config, boothColliderHandles, boothNe
     boothNeonMeshes.push(backRail);
 
     group.add(boothGroup);
+
+    // Instanced canopy hardware in world space (matches boothGroup transform).
+    const cosY = Math.cos(yaw);
+    const sinY = Math.sin(yaw);
+    /** Local booth-space → world for the instanced pieces. */
+    const place = (lx, ly, lz) => {
+      _dummy.position.set(
+        cx + lx * cosY + lz * sinY,
+        ly,
+        cz - lx * sinY + lz * cosY,
+      );
+      _dummy.rotation.set(0, yaw, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+    };
+
+    place(0, canopyY, 0.35);
+    canopies.setMatrixAt(i, _dummy.matrix);
+    place(-pw + 0.35, canopyY - 1.55, pd - 0.35);
+    canopyPosts.setMatrixAt(i * 2, _dummy.matrix);
+    place(pw - 0.35, canopyY - 1.55, pd - 0.35);
+    canopyPosts.setMatrixAt(i * 2 + 1, _dummy.matrix);
+    place(pw - 0.7, canopyY + 1.26, pd - 0.7);
+    antennas.setMatrixAt(i, _dummy.matrix);
+    place(pw - 0.7, canopyY + 2.52, pd - 0.7);
+    antennaTips.setMatrixAt(i, _dummy.matrix);
   }
 
+  canopies.instanceMatrix.needsUpdate = true;
+  canopyPosts.instanceMatrix.needsUpdate = true;
+  antennas.instanceMatrix.needsUpdate = true;
+  antennaTips.instanceMatrix.needsUpdate = true;
+  group.add(canopies);
+  group.add(canopyPosts);
+  group.add(antennas);
+  group.add(antennaTips);
+
   scene.add(group);
-  return { group, bodies, ownedGeometries, ownedMaterials };
+  return { group, bodies, ownedGeometries, ownedMaterials, ownedTextures };
 }
 
 // ===== Level entry point =====
 
 /**
- * Builds the Zanzibar Platform arena.
+ * Builds the Sundial Station arena (level id "zanzibar").
  *
  * @param {THREE.Scene} scene Root Three.js scene.
  * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
@@ -779,10 +2054,23 @@ export function initZanzibarPlatform(scene, world, config) {
 
   const circumR = config.record.radius / COS_HALF;
 
-  const seascape = buildSeascape(scene);
+  // Sunset IBL — swap the neutral startup RoomEnvironment for a warm equirect bake while
+  // this level is loaded (restored in dispose). See USE_SUNSET_ENV for the revert switch.
+  const prevEnvironment = scene.environment;
+  let sunsetEnvTex = null;
+  if (USE_SUNSET_ENV) {
+    sunsetEnvTex = buildSunsetEnvTexture();
+    scene.environment = sunsetEnvTex;
+  }
+
+  const seascape = buildSeascape(scene, circumR);
   const deck = buildDeck(scene, world, config, circumR);
 
-  // Sun light tracks the seascape's sun disc direction (see buildSeascape's updateSun) so
+  // Water-death FX: entry splashes + surface-clamped underwater detonations (see
+  // effects/waterDeathFx.js). Cleared in dispose.
+  setWaterDeathEnvironment({ scene, waterY: WATER_Y });
+
+  // Sun light tracks the seascape's sun disc direction (see buildSeascape's update) so
   // the lighting stays coherent with the drifting sunset visual each frame.
   const sunLight = new THREE.DirectionalLight(0xffa04e, 2.1);
   sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(16);
@@ -794,28 +2082,29 @@ export function initZanzibarPlatform(scene, world, config) {
 
   const boothNeonMeshes = [...deck.neonStripMeshes];
   const boothColliderHandles = [];
+  // blinkMat shared with the deck's beacon masts so all aviation lights blink together;
+  // rails share the deck's caution-yellow perimeter material.
   const booths = buildZanzibarBooths(
-    scene, world, config, boothColliderHandles, boothNeonMeshes, deck.neonMat,
+    scene, world, config, boothColliderHandles, boothNeonMeshes,
+    deck.neonYellowMat, deck.panelTex, deck.blinkMat,
   );
 
-  const spindleLight = new THREE.PointLight(config.booth.neonColor1, 38, 55, 2);
-  const spindleLightColorPink = new THREE.Color(config.booth.neonColor1);
-  const spindleLightColorCyan = new THREE.Color(config.booth.neonColor2);
+  // * Center light matches the arena's warm amber scheme (2026-07-09 feedback: the old
+  // * pink/cyan center clashed with the caution-yellow perimeter). The two returned
+  // * colors still feed main.js's spindle color cycle — now a subtle amber↔gold breath.
+  const spindleLight = new THREE.PointLight(0xffb400, 38, 55, 2);
+  const spindleLightColorPink = new THREE.Color(0xffc14e);
+  const spindleLightColorCyan = new THREE.Color(0xff9226);
   spindleLight.position.set(0, 7, 0);
   scene.add(spindleLight);
 
   const recordMesh = new THREE.Group();
   const pitWallColliderHandle = -1;
 
-  const glintTex = seascape.glintTex;
-  const glintMat = seascape.glintMat;
   function update(timeMs) {
-    seascape.updateSun(timeMs);
+    seascape.update(timeMs);
     sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(16);
-    if (glintTex) {
-      glintTex.offset.y = (timeMs * 0.00004) % 1;
-      if (glintMat) glintMat.opacity = 0.45 + Math.sin(timeMs * 0.0011) * 0.12;
-    }
+    deck.update(timeMs);
   }
 
   const sceneRoots = [
@@ -828,7 +2117,9 @@ export function initZanzibarPlatform(scene, world, config) {
   const ownedMaterials = [
     ...seascape.ownedMaterials, ...deck.ownedMaterials, ...booths.ownedMaterials,
   ];
-  const ownedTextures = [...seascape.ownedTextures, ...deck.ownedTextures];
+  const ownedTextures = [
+    ...seascape.ownedTextures, ...deck.ownedTextures, ...booths.ownedTextures,
+  ];
 
   function disposeMaterial(material) {
     if (!material) return;
@@ -863,7 +2154,12 @@ export function initZanzibarPlatform(scene, world, config) {
       }
     }
 
-    if (scene) scene.fog = prevFog;
+    setWaterDeathEnvironment(null);
+    if (scene) {
+      scene.fog = prevFog;
+      if (USE_SUNSET_ENV) scene.environment = prevEnvironment;
+    }
+    if (sunsetEnvTex) sunsetEnvTex.dispose();
     config.record.centerHole = prevCenterHole;
   }
 

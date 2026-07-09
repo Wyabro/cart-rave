@@ -1,5 +1,6 @@
 // levels/index.js — Central level loader (dynamic imports for code-splitting)
 
+import { computeSpawnRingRadius } from "../config.js";
 import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
@@ -66,8 +67,37 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   const importer = LEVEL_IMPORTERS[resolved] ?? LEVEL_IMPORTERS[DEFAULT_LEVEL_ID];
   const initFn = await importer();
 
+  // * Per-level arena radius override (config.record.radiusByLevel). Applied before the
+  // * level builds — levels read record.radius live — and restored on dispose so the next
+  // * level always starts from the base value. Spawn ring is the one cached derived value.
+  const overrideRadius = config.record.radiusByLevel?.[resolved];
+  const prevRadius = config.record.radius;
+  const prevSpawnRing = config.cart.spawnRingRadius;
+  if (overrideRadius != null) {
+    config.record.radius = overrideRadius;
+    config.cart.spawnRingRadius = computeSpawnRingRadius(config);
+  }
+
   onProgress?.(60, "Building arena geometry…");
-  const result = initFn(scene, world, config, options);
+  let result;
+  try {
+    result = initFn(scene, world, config, options);
+  } catch (err) {
+    if (overrideRadius != null) {
+      config.record.radius = prevRadius;
+      config.cart.spawnRingRadius = prevSpawnRing;
+    }
+    throw err;
+  }
+
+  if (overrideRadius != null) {
+    const levelDispose = result.dispose;
+    result.dispose = () => {
+      levelDispose();
+      config.record.radius = prevRadius;
+      config.cart.spawnRingRadius = prevSpawnRing;
+    };
+  }
 
   onProgress?.(90, "Physics colliders ready");
   return result;

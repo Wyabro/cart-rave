@@ -35,7 +35,7 @@ This freezes product naming so "Cart Rave" / `next-level` thrash stops mid-V2. I
 |----------|----------------|
 | `classicRecord` | **CART RAVE** (neon vinyl arena — jam tribute) |
 | `backrooms` | **THE STOREROOMS** |
-| `zanzibar` | **ZANZIBAR PLATFORM** |
+| `zanzibar` | **SUNDIAL STATION** (working name "Zanzibar Platform" retired 2026-07-09; level id stays `zanzibar`) |
 
 - Boot chrome, meta, menu shell, PWA: **Cart Clash** (product)
 - Classic level card, classic mode-entry loader, classic arena billboards: **CART RAVE** (level tribute)

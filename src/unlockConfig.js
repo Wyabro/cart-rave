@@ -82,7 +82,7 @@ export const LEVEL_UNLOCKS = {
   zanzibar: {
     killsOnLevel: "backrooms",
     goal: UNLOCK_ZANZIBAR_KILLS,
-    label: "Zanzibar Platform",
+    label: "Sundial Station",
     hint: `${UNLOCK_ZANZIBAR_KILLS} KOs on The Storerooms`,
   },
   testArena: { free: true, label: "Test Arena", hint: "Dev" },

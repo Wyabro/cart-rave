@@ -40,6 +40,15 @@ declare global {
       clear: () => void;
       help: () => void;
     };
+    /**
+     * Agent-facing water-death FX debug handle (Sundial Station).
+     * See `src/effects/waterDeathFx.js`.
+     */
+    CartClashWaterFx?: {
+      getActiveWaterFxCount: () => number;
+      getWaterDeathSurfaceY: () => number | null;
+      spawnWaterDeathBurst: (x: number, z: number, neonHex: number) => void;
+    };
     recordMesh?: Three.Mesh;
     exportArenaFloorGLB?: () => void;
     exportPhysicsGeometry?: () => void;

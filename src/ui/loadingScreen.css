@@ -263,7 +263,7 @@
   opacity: 0.12;
 }
 
-/* ── Zanzibar Platform theme: sunset over water ── */
+/* ── Sundial Station theme (level id "zanzibar"): sunset over water ── */
 .cr-load--zanzibar .cr-load__bg {
   background:
     radial-gradient(ellipse at center 78%, rgba(255, 120, 60, 0.28) 0%, transparent 55%),

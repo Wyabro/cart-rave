@@ -7,6 +7,7 @@ import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
 import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
+import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { setArenaReactiveLeaderHex } from "./arenaReactiveLights.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -237,6 +238,10 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       });
     }
   }
+
+  // * Water-death FX (Sundial Station): entry splashes on waterline crossings + live
+  // * splash/detonation animations. Instant no-op on levels without a water plane.
+  updateWaterDeathFx(allCarts, now, dt);
 
   // Leader glow: neon cart color at rest, brief white emissive flash at pulse peak.
   {

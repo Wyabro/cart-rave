@@ -48,9 +48,9 @@ const THEME_COPY = {
     ],
   },
   zanzibar: {
-    title: "ZANZIBAR PLATFORM",
+    title: "SUNDIAL STATION",
     subtitle: "The tide carries the bassline in...",
-    progress: "Anchoring the sundeck...",
+    progress: "Aligning the gnomon...",
     messages: [
       "Waxing the sundeck...",
       "Bolting down the bollards...",

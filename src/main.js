@@ -1417,6 +1417,21 @@ async function main() {
     return id === "classicRecord";
   }
 
+  /**
+   * Pre-round camera fly-over, sized to the active arena. The default 28 m orbit was
+   * authored for the 26.4 m Classic deck; Sundial Station's enlarged octagon (deck
+   * circumradius ≈ radius / cos 22.5°) needs a wider, slightly higher orbit or the
+   * camera would sweep inside the deck edge.
+   */
+  function beginRoundFlyover() {
+    let overrides;
+    if (getCurrentLevelId() === "zanzibar") {
+      const circumR = CONFIG.record.radius / Math.cos(Math.PI / 8);
+      overrides = { radius: circumR + 4, height: 16 };
+    }
+    CameraMod.beginCinematicCountdown(camera, overrides);
+  }
+
   function applyLoadedLevelSideEffects(levelId) {
     const resolved = levelId ?? getCurrentLevelId();
     Simulation.setLevelHazards(levelHazards ?? null);
@@ -1602,7 +1617,7 @@ async function main() {
       GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
       GameState.setRoundWinnerSlotIndex(null);
       GameState.setRoundStartedAtMs(0);
-      CameraMod.beginCinematicCountdown(camera);
+      beginRoundFlyover();
     }
   };
 
@@ -2513,7 +2528,7 @@ async function main() {
       roundCountdownTimeoutId = null;
       if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
     }, Math.max(0, startsAtLocalMs - Date.now()));
-    CameraMod.beginCinematicCountdown(camera);
+    beginRoundFlyover();
   }
 
   /**
@@ -2536,7 +2551,7 @@ async function main() {
     }
 
     // * Re-arm pregame fly-over if host migration interrupted the prior client's cam.
-    CameraMod.beginCinematicCountdown(camera);
+    beginRoundFlyover();
     Netcode.sendHostRound();
     roundCountdownTimeoutId = setTimeout(() => {
       roundCountdownTimeoutId = null;

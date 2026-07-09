@@ -11,6 +11,8 @@
 
 import * as THREE from "three";
 
+import { getWaterDeathSurfaceY, spawnWaterDeathBurst } from "./effects/waterDeathFx.js";
+
 // * Tuning — kept lightweight for 60fps with 4 carts potentially shattering at once.
 const SHATTER_GRAVITY = 14.0; // m/s^2 — slightly stronger than world gravity for a "juicy" fall
 const SHATTER_LINEAR_SPEED_MIN = 2.5; // m/s — min outward burst speed per part
@@ -256,7 +258,17 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   // * frameVisuals.js stops updating once isShattering is true. Restored on cleanup.
   if (cart.contactShadow) cart.contactShadow.visible = false;
 
-  const explosion = spawnExplosion(scene, cartCenterWorld, neonHex);
+  // * Underwater deaths (Sundial Station): the ocean plane is opaque, so an explosion
+  // * at depth is invisible. Clamp the core/ring explosion to the waterline — the
+  // * horizontal shockwave ring reads as the water shock — and layer the water-death
+  // * dressing (light bloom through the surface, foam boil, bubbles) on top.
+  const waterY = getWaterDeathSurfaceY();
+  let explosionOrigin = cartCenterWorld;
+  if (waterY != null && cartCenterWorld.y < waterY) {
+    explosionOrigin = new THREE.Vector3(cartCenterWorld.x, waterY + 0.08, cartCenterWorld.z);
+    spawnWaterDeathBurst(cartCenterWorld.x, cartCenterWorld.z, neonHex);
+  }
+  const explosion = spawnExplosion(scene, explosionOrigin, neonHex);
 
   cart._shatterState = { parts, explosion };
 }
