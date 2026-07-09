@@ -1,0 +1,3154 @@
+// === IMPORTS ===
+
+import {
+  loadPlayerCustomization,
+  resolveCartNeonCss,
+  resolveCartNeonHex,
+  resolveCartPatternForSlot,
+  resolveCartThemeForSlot,
+  resolveServerColorPick,
+  wireCustomizationStorageSync,
+} from "./customization.js";
+import { applyCartPattern } from "./cartPatterns.js";
+import { getCartTheme } from "./cartThemeConfig.js";
+import {
+  applyThemeColorToCache,
+  applyThemeLeaderGlow,
+  buildCartThemeMaterialCache,
+} from "./cartThemes.js";
+import "./cart-rave-menu.js";
+import "./cart-rave-menu.css";
+import "./ui/styles/global.css";
+import * as THREE from "three";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode, prepareComposerFrame, isolationAllowsBloom } from "./scene.js";
+import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import { RAPIER, initRapier } from "./physics/rapierInstance.js";
+import { updateCartVisuals } from "./cart.js";
+import * as Visuals from "./visuals.js";
+import { prefetchRaveGltf } from "./cartRaveGltf.js";
+import * as Simulation from "./simulation.js";
+import * as Entities from "./entities.js";
+import { createCart } from "./entities.js";
+import { triggerCartShatter } from "./cartShatter.js";
+import * as HUD from "./hud.js";
+import * as Input from "./input.js";
+import * as Netcode from "./netcode.js";
+import * as GameState from "./gameState.js";
+import { getNpcPersonality } from "./npcNames.js";
+import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
+
+const PERSONALITY_BADGES = {
+  aggressor: { letter: "[A]", color: "#ff4d4d" },
+  lurker: { letter: "[L]", color: "#b366ff" },
+  scavenger: { letter: "[S]", color: "#4dff88" },
+  chaotic: { letter: "[C]", color: "#ffaa33" },
+};
+import * as GameAudio from "./audio.js";
+import * as AudioManager from "./audioManager.js";
+import * as CameraMod from "./camera.js";
+import * as Effects from "./effects.js";
+import * as GroceryPool from "./effects/groceryPool.js";
+import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+// * testArena constants inlined (avoid static import of heavy level module at boot).
+const TEST_ARENA_SKY = 0x586274;
+const TEST_ARENA_FOG_DENSITY = 0.0032;
+import { setContactShadowHazards } from "./contactShadows.js";
+import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
+import {
+  sampleArenaReactive,
+  triggerArenaKoFlash,
+  resetArenaReactiveLights,
+} from "./arenaReactiveLights.js";
+import { initAudioSystem } from "./audioSetup.js";
+import * as SfxSynth from "./sfxSynth.js";
+import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/announcerManager.js";
+import { initAnnouncerStings } from "./announcer/announcerStings.js";
+import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorOnLocalBigHit } from "./announcer/announcerDirector.js";
+import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
+import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
+import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
+import {
+  dismissAllLoadingOverlays,
+  dismissInitialBootSplash,
+  initLoadingScreen,
+  revealGameCanvas,
+  showQualityApplyLoading,
+  yieldForPaint,
+} from "./ui/loadingScreen.js";
+import {
+  cancelMenuPreviewTimers,
+  finalizeArenaForPlayEntry,
+  getCurrentLevelId,
+  getLevelRebuildPromise,
+  getMenuLevelPreviewPromise,
+  getMenuPreviewNeedsFinalize,
+  initLevelManager,
+  isLevelSwapping,
+  rebuildLevelIfNeeded,
+  scheduleMenuLevelPreview,
+  setLevelSwapping,
+  swapLoadedLevel,
+} from "./levelManager.js";
+import {
+  enterPlayMode,
+  ensureSessionCartsReady,
+  ensureWorldBootstrapped,
+  getLastSuccessfulHelloGen,
+  initBootstrap,
+  isWorldBootstrapped,
+  resetSessionCartBootstrap,
+} from "./bootstrap.js";
+import { animateCartBoostPulse, crossfadeElement } from "./animations.js";
+import {
+  getIsMuted,
+  getMusicVolume,
+  getSfxVolume,
+  initAudioControls,
+  setAllAudioMuted,
+  setMusicGainValue,
+  setSfxSliderVolume,
+  syncAllAudioUi,
+  wireMenuAudioControlsOnce,
+} from "./ui/audioControls.js";
+import { registerGraphicsToggleHandlers } from "./ui/graphicsToggles.js";
+import { createCameraFraming } from "./ui/cameraFraming.js";
+import { createMenuStats } from "./ui/menuStats.js";
+import { flashBoostActivate } from "./touchControls.js";
+import {
+  applySlowMoToDt,
+  clearNpcCartCache,
+  createGameLoopState,
+  resetGameLoopTiming,
+  runGameLoop,
+  runPhysicsStep,
+  updateVisualsAndEffects,
+} from "./gameLoop.js";
+import { updateGameFlow } from "./gameFlow.js";
+import { cleanupSuddenDeathState } from "./gameFlow.js";
+import { createGameContext } from "./gameContext.js";
+import {
+  buildNetcodeGameBridge,
+  createGameSessionController,
+  createHelloGate,
+  createSessionBridgeRefs,
+} from "./gameSession.js";
+import {
+  clamp,
+  isLowQualityMode,
+  isTouchDevice,
+  setLowQualityMode,
+} from "./utils.js";
+import { installGlobalErrorReporting } from "./utils/errorReporter.js";
+import { STORAGE_KEYS, storageGet, storageSet, storageGetJson, storageSetJson } from "./utils/storage.js";
+import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
+import { NPC_NAME_POOL } from "./npcNames.js";
+import { setUiMode as setGamepadUiMode } from "./input.js";
+import { startGamepadUiNav, setGamepadNavActive } from "./ui/gamepadNav.js";
+
+// eslint-disable-next-line no-console
+console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
+
+// === UTILITY HELPERS ===
+
+/**
+ * Caches per-cart materials so recoloring doesn't traverse the mesh every update.
+ * @param {THREE.Object3D} cartMesh
+ */
+function buildCartMaterialCache(cartMesh) {
+  return buildCartThemeMaterialCache(cartMesh);
+}
+
+/**
+ * Neon frame color for rendering — local human uses Customize menu; others use server slot color.
+ * Wired into cart spawn, slot sync, and per-frame frame glow (see customization.js).
+ *
+ * @param {{ color?: string | number, kind?: string, connId?: string } | null | undefined} slot
+ * @returns {number}
+ */
+function displayColorHexForSlot(slot) {
+  return resolveCartNeonHex(slot, { youConnId: Netcode.getYouConnId() });
+}
+
+/**
+ * CSS hex for HUD, name labels, and results — same rules as displayColorHexForSlot.
+ * @param {{ color?: string | number, kind?: string, connId?: string } | null | undefined} slot
+ * @returns {string}
+ */
+function displayCssColorForSlot(slot) {
+  return resolveCartNeonCss(slot, { youConnId: Netcode.getYouConnId() });
+}
+
+// === CONSTANTS & CONFIG ===
+// * CONFIG, MSG, CART_COLORS, PALETTE — imported from src/config.js (single source of truth).
+
+// === NETCODE BRIDGING ===
+
+/** Valid ?room= on first paint: show menu before PartyKit connect (friend links). */
+let pendingInviteRoomFromUrl = null;
+
+function captureInviteRoomForDeferredMenu() {
+  pendingInviteRoomFromUrl = null;
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search || "");
+  const raw = (params.get("room") || "").trim();
+  const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
+  if (!isValid) return false;
+  // * Exclude well-known self-created room codes so a refresh after Quickplay or Solo
+  // * does not show the JOIN ROOM button as if it were a friend invite.
+  if (raw === "quickplay" || raw.toLowerCase().startsWith("solo") || raw.toLowerCase().startsWith("testdrive")) return false;
+  pendingInviteRoomFromUrl = raw;
+  return true;
+}
+
+/** @type {{ current: object | null }} Live bridge context wired from main(). */
+const sessionBridgeCtx = { current: null };
+const sessionRefs = createSessionBridgeRefs();
+const helloGate = createHelloGate();
+
+const gameSession = createGameSessionController(() => sessionBridgeCtx.current);
+
+function bootstrapNetcodeEntryFromUrl() {
+  if (typeof window === "undefined") return;
+
+  Netcode.registerGameCallbacks(buildNetcodeGameBridge(() => sessionBridgeCtx.current, gameSession));
+
+  if (captureInviteRoomForDeferredMenu()) {
+    return;
+  }
+}
+
+// === STATE & REFS ===
+
+// --- Module-scope netcode state ---
+// Replaced by Netcode.getPartySocket(), Netcode.getYouConnId(), Netcode.getIsHost()
+
+// --- Personal Stats (localStorage) ---
+function getPersonalStats() {
+  const parsed = storageGetJson(STORAGE_KEYS.stats, /** @type {Record<string, unknown>} */ ({}));
+  return {
+    wins: Number(parsed.wins) || 0,
+    matches: Number(parsed.matches) || 0,
+    totalPoints: Number(parsed.totalPoints) || 0,
+    soloGames: Number(parsed.soloGames) || 0,
+  };
+}
+
+function savePersonalStats(stats) {
+  storageSetJson(STORAGE_KEYS.stats, stats);
+}
+
+/** @returns {"quickplay" | "solo" | "testdrive" | "friends"} */
+function detectGameMode() {
+  const room = Netcode.resolvedPartyRoomFromUrl();
+  if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
+  if (room.startsWith("solo")) return "solo";
+  if (room === "quickplay") return "quickplay";
+  return "friends";
+}
+
+function testDriveSpawnForSlot(_slotIndex, config) {
+  const y = config.cart.size.y / 2 + (config.cart.collider?.localYOffset ?? 0.13) + 0.05;
+  return { x: 0, y, z: 0 };
+}
+
+let isNewPersonalBest = false;
+
+
+
+/**
+ * Records end-of-round match history and local personal stats at the moment a round transitions into podium.
+ * @param {number | "draw" | null} winnerSlotIndex
+ * @param {Record<number, number> | null | undefined} scoresSrc
+ */
+function recordPodiumStats(winnerSlotIndex, scoresSrc) {
+  /** @type {Record<number, number>} */
+  const scores = {};
+  for (let i = 0; i < 4; i += 1) {
+    scores[i] = Number(scoresSrc?.[i] ?? 0);
+  }
+
+  matchHistory.push({
+    endedAtMs: Date.now(),
+    winnerSlotIndex: winnerSlotIndex === "draw" ? "draw" : (typeof winnerSlotIndex === "number" && Number.isFinite(winnerSlotIndex) ? winnerSlotIndex : 0),
+    scores,
+    mode: /** @type {any} */ (detectGameMode()),
+  });
+  while (matchHistory.length > 10) matchHistory.shift();
+
+  // Update solo games counter only for rounds that count as matches.
+  if (winnerSlotIndex !== "draw" && detectGameMode() === "solo") {
+    let humanCount = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const s = Netcode.getNetSlots()[i];
+      if (s && s.kind === "human" && s.connId != null) humanCount += 1;
+    }
+    if (humanCount === 1) {
+      const stats = getPersonalStats();
+      stats.soloGames += 1;
+      savePersonalStats(stats);
+    }
+  }
+
+  // Update personal stats — only if this round had scoring (not an all-zero draw)
+  if (winnerSlotIndex !== "draw") {
+    const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+    if (mySlotIdx >= 0) {
+      const stats = getPersonalStats();
+      const myScore = Number(scores[mySlotIdx] ?? 0);
+      stats.matches += 1;
+      stats.totalPoints += myScore;
+      if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
+      savePersonalStats(stats);
+
+      const storedBest = Number(storageGet(STORAGE_KEYS.bestScore, "0")) || 0;
+
+      if (myScore > storedBest) {
+        isNewPersonalBest = true;
+        storageSet(STORAGE_KEYS.bestScore, String(myScore));
+      }
+    }
+  }
+}
+
+function shuffledClientNpcNames(count) {
+  const names = [...NPC_NAME_POOL];
+  for (let i = names.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [names[i], names[j]] = [names[j], names[i]];
+  }
+  return names.slice(0, count);
+}
+
+const initialNpcNames = shuffledClientNpcNames(4);
+
+function markFirstHelloReceived() {
+  helloGate.markReceived(Netcode.getNetSlots());
+  void flushPendingSessionBootstrap();
+}
+
+/** Retries cart bootstrap once session bridge handlers are wired. */
+async function flushPendingSessionBootstrap() {
+  if (!helloGate.hasPendingBootstrap() && !helloGate.isReceived()) return;
+  if (!helloGate.isReceived()) return;
+  const ensureReady = sessionBridgeCtx.current?.ensureSessionReady;
+  if (!ensureReady) return;
+  try {
+    await ensureReady();
+  } catch (err) {
+    console.warn("[session] cart bootstrap flush failed", err);
+  } finally {
+    helloGate.clearPendingBootstrap();
+  }
+}
+
+function syncRoundPhase(phase) {
+  GameState.setRoundPhase(phase);
+  try {
+    Simulation.setRoundPhase(phase);
+  } catch (e) {}
+}
+/** @type {((msg: object) => void) | null} */
+let onGameStartHandler = null;
+/** @type {(() => void) | null} */
+let onHostMigratedHandler = null;
+/** @type {(() => void) | null} */
+let onCountdownCancelledRef = null;
+/** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
+let _localColorPicked = false;
+/** @type {HTMLElement | null} */
+let pendingColorChipEl = null;
+/** @type {string | null} */
+let pendingColorKey = null;
+let menuColorPickListenerWired = false;
+let customizationChangeListenerWired = false;
+let menuActionListenerWired = false;
+let menuNameSyncWired = false;
+let quickplayAutoRejoinAttempted = false;
+/** @type {boolean} */
+let menuVisible = true;
+/** @type {boolean | null} */
+let lastTouchControlsVisible = null;
+import { AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
+import { settingsStore } from "./stores/settingsStore.js";
+
+let bloomEnabled = settingsStore.getState().bloomEnabled;
+let fxPassEnabled = settingsStore.getState().fxPassEnabled;
+/** @type {any} */
+let fxPass = null;
+/** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
+let leaderHum = null;
+
+/**
+ * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
+ * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number>, mode?: "solo" | "quickplay" | "testdrive" | "friends" }[]}
+ */
+let matchHistory = [];
+
+/** @type {ReturnType<typeof setTimeout> | null} */
+let roundPodiumTimeoutId = null;
+const LAST_CART_STANDING_FLOURISH_MS = 3000;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let autoContinuePodiumTimeoutId = null;
+/** @type {string | null} */
+let autoContinuePodiumKey = null;
+/** Key for the active podium camera presentation (`startedAtMs:winner`). */
+let podiumCameraKey = null;
+/** performance.now() when the current podium camera presentation started. */
+let podiumPhaseEnteredAtMs = 0;
+
+let nameLabelUpdatePending = null;
+
+// These are assigned once main() constructs the scene / HUD / physics world.
+/** @type {ReturnType<typeof HUD.init> | null} */
+let hud = null;
+let fpsCanvas2d = null;
+let fpsCtx2d = null;
+/** @type {any[] | null} */
+let allCartsRef = null;
+/** @type {(() => { forward: number; turn: number }) | null} */
+let getAxisRef = null;
+/** @type {(cart: any, nowMs: number) => void | null} */
+let triggerRamBoostRef = null;
+/** @type {((position: { x: number; y: number; z: number }, intensity: number) => void) | null} */
+let spawnTrashBurstRef = null;
+/** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
+let triggerLocalRamShakeRef = null;
+/** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
+let triggerCartShatterRef = triggerCartShatter;
+/** @type {string | null} */
+let pendingMidRoundJoinRespawnConnId = null;
+
+function teleportCartToSpawn(slotIndex) {
+  if (!allCartsRef || typeof slotIndex !== "number") return;
+  const cart = allCartsRef[slotIndex];
+  if (!cart?.body || !cart.spawn) return;
+  cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
+  cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+  cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  if (typeof cart.spawnYaw === "number") {
+    const halfYaw = cart.spawnYaw / 2;
+    cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+  }
+  cart.body.wakeUp();
+}
+
+function updateCartMaterialsFromSlots(slots) {
+  if (!allCartsRef || !Array.isArray(slots)) return;
+
+  const youConnId = Netcode.getYouConnId();
+
+  for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+    const slot = slots[slotIndex];
+    const cart = allCartsRef[slotIndex];
+    if (!slot || !cart?.mesh) continue;
+
+    if (slot.kind === "empty") {
+      cart.mesh.visible = false;
+      if (cart.body) cart.body.setEnabled(false);
+      continue;
+    }
+
+    if (slot.kind === "human" || slot.kind === "npc") {
+      cart.mesh.visible = true;
+      if (cart.body) cart.body.setEnabled(true);
+    }
+
+    const finalHex = displayColorHexForSlot(slot);
+    const themeId = cart.cartThemeId
+      ?? resolveCartThemeForSlot(slot, { youConnId });
+    const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
+
+    applyThemeColorToCache(cache, themeId, finalHex);
+
+    const theme = getCartTheme(themeId);
+    if (theme.patternPolicy !== "disable") {
+      applyCartPattern(
+        cart.mesh,
+        resolveCartPatternForSlot(slot, { youConnId }),
+        finalHex,
+      );
+    }
+
+    cart.cartColor = finalHex;
+  }
+}
+
+function updateHudColorsFromSlots(slots) {
+  HUD.refreshScoreBoxGlows(slots, Netcode.getYouConnId());
+}
+
+function localCartForConnId() {
+  const carts = allCartsRef || [];
+  const idx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+  if (idx < 0) return null;
+  return carts[idx] || null;
+}
+
+const MODE_MENU_BUTTON_IDS = ["cr-solo", "cr-quickplay", "cr-friends"];
+
+function enableModeMenuButtons() {
+  for (const id of MODE_MENU_BUTTON_IDS) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.classList.remove("cr-btn--boot-pending");
+    btn.disabled = false;
+    btn.removeAttribute("aria-disabled");
+  }
+}
+
+// === GAME LOOP ===
+
+async function main() {
+  installGlobalErrorReporting();
+  initLoadingScreen();
+  // * Dismiss boot splash before scene init — initMenu() may return early on ?room= URLs.
+  // * Rapier WASM is loaded lazily via dynamic import in ensureRapierPhysics, keeping
+  // * the boot critical path clean.
+  void dismissInitialBootSplash();
+  document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
+  loadPlayerCustomization();
+  wireCustomizationStorageSync();
+
+  // * Begin cartrave4-draco.glb fetch immediately so rave carts are ready before first spawn.
+  void prefetchRaveGltf().catch((err) => {
+    console.warn("[cartRaveGltf] Early prefetch failed:", err);
+  });
+
+  let labelRenderer = null;
+  let input = null;
+
+  // --- Canvas & input ---
+  const canvas = document.getElementById(CONFIG.canvasId);
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    throw new Error(`Canvas element '#${CONFIG.canvasId}' not found.`);
+  }
+
+  // * Create AudioListener early so Howler can share its AudioContext before any Howl loads.
+  // * Attached to scene (not camera) to prevent Reflector from cloning it every frame.
+  const audioListener = new THREE.AudioListener();
+
+  // * Audio UI pushes volume/mute changes into main()-owned objects; hud/leaderHum
+  // * are assigned later in main(), so getters resolve lazily (null until then).
+  initAudioControls({
+    getHud: () => hud,
+    getAudioListener: () => audioListener,
+    getLeaderHum: () => leaderHum,
+  });
+
+  // * Start music loading immediately via Howler — before scene/composer init blocks the main thread.
+  // * Page-visibility guard pauses/silences audio in background tabs (user mute unchanged).
+  AudioManager.initAudioManager(audioListener.context, {
+    getAudioListener: () => audioListener,
+  });
+
+  // * Restore saved volume state (loaded from localStorage by audioControls at module scope).
+  AudioManager.restoreVolumeState({
+    master: getMusicVolume() / AUDIO_VOLUME_MAX,
+    sfx: getSfxVolume() / AUDIO_VOLUME_MAX,
+    music: getMusicVolume() / AUDIO_VOLUME_MAX,
+    muted: getIsMuted(),
+  });
+
+  // * Each track is [ogg, mp3] — Safari has no Ogg Vorbis support, Howler picks
+  // * the first decodable format per browser.
+  const soundUrlWithFallback = (oggName) => [
+    new URL(`sounds/${oggName}`, window.location.href).toString(),
+    new URL(`sounds/${oggName.replace(/\.ogg$/, ".mp3")}`, window.location.href).toString(),
+  ];
+
+  // * Menu music is eager (preload + play request) so it can start as soon as the menu is up.
+  // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.ogg.
+  AudioManager.loadMenuMusic(soundUrlWithFallback("menu.ogg"));
+  if (menuVisible) AudioManager.playMenuMusic();
+
+  const gameMusicFiles = ["music.ogg", "song2.ogg", "song3.ogg", "song4.ogg"];
+  const _gameMusicUrls = gameMusicFiles.map(soundUrlWithFallback);
+  for (let i = _gameMusicUrls.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [_gameMusicUrls[i], _gameMusicUrls[j]] = [_gameMusicUrls[j], _gameMusicUrls[i]];
+  }
+  AudioManager.setGamePlaylist(_gameMusicUrls);
+
+  // * Autoplay policy: unlock AudioContext on the first user gesture anywhere on the page.
+  // * Registered early (before initMenu) with capture so it fires before other handlers.
+  let didUnlockAudio = false;
+  function unlockAudio() {
+    if (didUnlockAudio) return;
+    didUnlockAudio = true;
+    const ctx = audioListener.context;
+    if (ctx.state === "suspended") {
+      void ctx.resume();
+    }
+    if (menuVisible) AudioManager.playMenuMusic();
+    if (!menuVisible) AudioManager.playGameMusic();
+  }
+  window.addEventListener("pointerdown", unlockAudio, { capture: true, once: true });
+  window.addEventListener("keydown", unlockAudio, { capture: true, once: true });
+
+  // Make canvas able to receive keyboard focus.
+  canvas.tabIndex = 0;
+  canvas.style.outline = "none";
+  // Try to focus immediately on load (some browsers require a user gesture;
+  // pointerdown above covers that).
+  setTimeout(() => canvas.focus(), 0);
+
+  input = Input.setupInput(
+    canvas,
+    () => {
+      if (HUD.isEscOverlayVisible()) {
+        HUD.hideEscOverlay();
+      } else {
+        HUD.showEscOverlay();
+      }
+    },
+    () => {
+      setAllAudioMuted(!getIsMuted());
+    },
+    () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
+      triggerHop(localCartForConnId(), performance.now());
+      Input.requestHop();
+    },
+    () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
+      const cart = localCartForConnId();
+      if (!cart) return;
+      triggerRamBoost(cart, performance.now());
+    }
+  );
+
+  Input.setupTouchControls({
+    onHop: () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
+      triggerHop(localCartForConnId(), performance.now());
+      Input.requestHop();
+    },
+    onBoost: () => {
+      if (menuVisible) return;
+      if (GameState.getRoundState().phase !== "running") return;
+      const cart = localCartForConnId();
+      if (!cart) return;
+      triggerRamBoost(cart, performance.now());
+    },
+  });
+
+  startGamepadUiNav();
+
+  function updateTouchControlsVisibility() {
+    const roundPhase = GameState.getRoundState().phase;
+    const show =
+      isTouchDevice() &&
+      !menuVisible &&
+      roundPhase !== "podium" &&
+      !HUD.isEscOverlayVisible();
+    if (show === lastTouchControlsVisible) return;
+    lastTouchControlsVisible = show;
+    Input.setTouchControlsVisible(show);
+  }
+
+  // --- Renderer & scene ---
+  const renderer = createRenderer(canvas);
+
+  const scene = createScene();
+
+  const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
+  spawnTrashBurstRef = Effects.spawnTrashBurst;
+
+  // * IBL PMREM bake deferred until after the menu is shown (see bootstrapWorldCore).
+
+  // --- Camera, audio, post-processing ---
+  const camera = new THREE.PerspectiveCamera(
+    CONFIG.camera.fov,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    600,
+  );
+  camera.position.set(0, 6, 10);
+  camera.lookAt(0, 0, 0);
+
+
+  let shakeUntil = 0;
+  let shakeIntensity = 0;
+  let fovPunchUntil = 0;
+  // * Punch amplitude in degrees — ram hits use the base 8°, kill confirms hit harder.
+  let fovPunchDeg = 8;
+  // * Kill-confirm white flash on the arcade pass (uFlash uniform) — short and sharp.
+  const killFlash = { until: 0, durationMs: 110, strength: 0 };
+  // * Post-FX impact pulse — vignette/aberration kick when the local cart takes a big hit.
+  // * Baselines are captured from the live uniforms at trigger time so the pulse never
+  // * fights the dev Tweakpane or config changes; frameVisuals decays and restores them.
+  const impactPulse = { until: 0, durationMs: 240, strength: 0, baseVignette: null, baseAberration: null };
+  function triggerImpactPulse(strength) {
+    const pass = fxPass;
+    if (!pass?.enabled || !pass.uniforms) return;
+    const now = performance.now();
+    if (now >= impactPulse.until) {
+      impactPulse.baseVignette = pass.uniforms.uVignette.value;
+      impactPulse.baseAberration = pass.uniforms.uAberration.value;
+    }
+    impactPulse.strength = Math.min(strength, 1.2);
+    impactPulse.until = now + impactPulse.durationMs;
+  }
+  // * max-of on both duration and amplitude — overlapping punches never truncate or
+  // * soften each other (a ram punch landing mid kill-punch keeps the kill's 12°).
+  function armFovPunch(deg, durationMs) {
+    const now = performance.now();
+    fovPunchDeg = now < fovPunchUntil ? Math.max(fovPunchDeg, deg) : deg;
+    fovPunchUntil = Math.max(fovPunchUntil, now + durationMs);
+  }
+  function triggerLocalRamShake(intensity, isBoosting = false) {
+    const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
+    const minI = isBoosting
+      ? (fx.shakeBoostMinIntensity ?? 0.24)
+      : (fx.shakeMinIntensity ?? 0.38);
+    if (intensity < minI) return;
+    const clampedI = Math.min(intensity, 1.2);
+    announcerDirectorOnLocalBigHit(clampedI);
+    const boostMul = isBoosting ? 1.3 : 1.0;
+    shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
+    shakeUntil = performance.now() + 150 + clampedI * 100;
+    triggerImpactPulse(clampedI);
+    if (clampedI >= 0.45 && isBoosting) {
+      armFovPunch(8, 100);
+    }
+  }
+  // * Attacker-side KO payoff — confirm sting + hitmarker + harder FOV punch + white
+  // * flash + aberration kick. Fired by gameFlow on the host and by the falls[] replay
+  // * path on non-host clients. Purely presentational — never touches physics dt.
+  function onLocalKillConfirm(_victimSlotIndex, _comboTier) {
+    armFovPunch(9, 180);
+    killFlash.strength = 0.6;
+    killFlash.until = performance.now() + killFlash.durationMs;
+    triggerImpactPulse(0.55);
+    SfxSynth.playKillConfirm();
+    hud?.showKillConfirm?.();
+  }
+
+  /**
+   * Arena-wide KO light flash — every peer sees the club react (not just the scorer).
+   * @param {import("./scoring/koEvent.js").KOEvent} koEvent
+   */
+  function onArenaKoFlash(koEvent) {
+    const slots = Netcode.getNetSlots();
+    const colorSlotIndex = koEvent.attackerSlotIndex != null
+      ? koEvent.attackerSlotIndex
+      : koEvent.victimSlotIndex;
+    const slot = slots?.[colorSlotIndex];
+    const hex = displayColorHexForSlot(slot);
+    triggerArenaKoFlash(hex, {
+      strength: koEvent.isKill ? 0.9 : 0.5,
+      durationMs: koEvent.isKill ? 380 : 260,
+    });
+  }
+  triggerLocalRamShakeRef = triggerLocalRamShake;
+  triggerCartShatterRef = triggerCartShatter;
+
+  function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay) {
+    if (!Netcode.getIsHost()) return;
+    // Send over WebRTC DataChannel instead of WebSocket
+    // The host broadcasts this to all non-host peers
+    Netcode.sendP2PEvent({
+      type: MSG.spill,
+      slotId: slotIndex,
+      pos,
+      quat,
+      vel,
+      cargoBay: !!cargoBay,
+    });
+  }
+
+  const gameCtx = createGameContext().registerModules({
+    Netcode,
+    GameState,
+    Simulation,
+    Entities,
+    Input,
+    HUD,
+  });
+  const BASE_FOV = CONFIG.camera.fov;
+
+  const audioSystem = initAudioSystem(audioListener, {
+    getSfxVolume,
+    getIsMuted,
+  });
+  if (!leaderHum) leaderHum = audioSystem.leaderHum;
+  GameAudio.registerAudioRefs({ leaderHum });
+  // * Procedural stings (kill confirm, victory/defeat, sudden death, timer ticks,
+  // * challenge complete) share the leader-chime WebAudio path and volume gates.
+  SfxSynth.initSfxSynth(audioListener, { getSfxVolume, getIsMuted });
+
+  // * "The Store PA" announcer — voice/sting playback core, then the presentation-only
+  // * game-state observer that decides what to announce and when.
+  initAnnouncerStings(audioListener, { getSfxVolume, getIsMuted });
+  initAnnouncer({
+    getSfxVolume,
+    getIsMuted,
+    playSfx: (key) => AudioManager.playSfx(key),
+    isVoiceEnabled: () => settingsStore.getState().announcerVoiceEnabled !== false,
+    isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
+  });
+  initAnnouncerDirector({
+    announce,
+    getNetSlots: () => Netcode.getNetSlots(),
+    getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+    getRemainingRoundMs: () => {
+      const rs = GameState.getRoundState();
+      if (rs.phase !== "running" || rs.isSuddenDeath || !rs.startedAtMs) return null;
+      return (CONFIG.round?.durationMs ?? 60000) - (Date.now() - Netcode.getServerClockOffsetMs() - rs.startedAtMs);
+    },
+  });
+  // * Visual callout banner + aria-live region for announcer subtitles.
+  setAnnouncerPresenter(initAnnouncerDisplay());
+
+  // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
+  // * mp3 fallback for Safari (see soundUrlWithFallback above).
+  AudioManager.registerSfx("cartCrash", soundUrlWithFallback("cart-crash.ogg"), { pool: 4 });
+  AudioManager.registerSfx("death", soundUrlWithFallback("Death.ogg"), { pool: 3 });
+  AudioManager.registerSfx("boost", soundUrlWithFallback("Boost.ogg"), { pool: 3 });
+  AudioManager.registerSfx("hop", soundUrlWithFallback("Hop.ogg"), { pool: 3 });
+  AudioManager.registerSfx("floor", soundUrlWithFallback("Floor.ogg"), { pool: 3 });
+  AudioManager.registerSfx("chargeUp", soundUrlWithFallback("Charge_up.ogg"), { pool: 2, loop: true });
+  AudioManager.registerSfx("countdown_3", soundUrlWithFallback("countdown_3.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_2", soundUrlWithFallback("countdown_2.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_1", soundUrlWithFallback("countdown_1.ogg"), { pool: 1 });
+  AudioManager.registerSfx("countdown_go", soundUrlWithFallback("countdown_go.ogg"), { pool: 1 });
+
+  scene.add(audioListener);
+
+  const { composer, bloomPass, arcadePass, fxaaPass } = createComposer(renderer, scene, camera);
+  fxPass = arcadePass;
+  // * Settings off or isolation A/C → force bloom off (createComposer already set isolation).
+  if (bloomPass && (!bloomEnabled || !isolationAllowsBloom())) bloomPass.enabled = false;
+  if (!fxPassEnabled && fxPass) fxPass.enabled = false;
+
+  if (import.meta.env.DEV) {
+    import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
+      initPostFxDebugGui({
+        renderer, scene, bloomPass, arcadePass, fxaaPass,
+        suddenDeathTest: () => {
+          if (!Netcode.getIsHost()) return;
+          // * Find player slot (human) and a different NPC slot.
+          const slots = Netcode.getNetSlots();
+          const localIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+          let npcIdx = -1;
+          for (let i = 0; i < 4; i += 1) {
+            if (i !== localIdx && slots[i]?.kind === "npc") {
+              npcIdx = i;
+              break;
+            }
+          }
+          // * Fallback: if no NPC found (e.g. 2 humans), pick any other slot.
+          if (npcIdx < 0) {
+            for (let i = 0; i < 4; i += 1) {
+              if (i !== localIdx) { npcIdx = i; break; }
+            }
+          }
+          if (localIdx < 0 || npcIdx < 0) return;
+          // * Set player and NPC to 2 points, everyone else to 0.
+          const scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
+          scores[localIdx] = 2;
+          scores[npcIdx] = 2;
+          GameState.setRoundScores(scores);
+          // * Rewind round timer so only ~10s remain.
+          GameState.setRoundStartedAtMs(Date.now() - (CONFIG.round.durationMs - 10000));
+          // * Do NOT set isSuddenDeath — let the 60s round timer expire naturally
+          // * and trigger the gameFlow.js tie → Sudden Death flow.
+          Netcode.sendHostRound();
+        },
+      });
+    }).catch(() => {});
+  }
+
+  const fxTimer = new THREE.Timer();
+
+  labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.domElement.style.position = "fixed";
+  labelRenderer.domElement.style.top = "0";
+  labelRenderer.domElement.style.left = "0";
+  labelRenderer.domElement.style.pointerEvents = "none";
+  labelRenderer.domElement.style.zIndex = "20020";
+  labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
+  document.body.appendChild(labelRenderer.domElement);
+
+  CameraMod.initCameraFollow(camera, CONFIG.camera);
+
+  const cartLinvelScratch = new THREE.Vector3();
+  const cartAngvelScratch = new THREE.Vector3();
+  const netTargetPosScratch = new THREE.Vector3();
+  // * Booth neon mats keep authored per-booth hues; pulse reuses this Set so each
+  // * shared material is intensity-updated once per frame (not once per tube mesh).
+  const boothNeonMatsSeen = new Set();
+  const fpsState = {
+    frames: 0,
+    last: performance.now(),
+    get canvas() { return fpsCanvas2d; },
+    set canvas(v) { fpsCanvas2d = v; },
+    get ctx() { return fpsCtx2d; },
+    set ctx(v) { fpsCtx2d = v; },
+  };
+
+  const { updateViewport } = createCameraFraming({
+    camera,
+    renderer,
+    composer,
+    arcadePass,
+    fxaaPass,
+    labelRenderer,
+    getFpsCanvas: () => fpsCanvas2d,
+  });
+
+  updateViewport();
+
+  // --- HUD, menu, results overlay ---
+  // * Audio state + menu audio wiring live in ui/audioControls.js (initAudioControls above).
+
+  /** Wired after clearAutoContinuePodiumTimeout is defined in main(). */
+  const podiumAutoContinue = { clear: () => {} };
+
+  function onMenuBootstrapError(mode, err) {
+    console.error(`[menu] ${mode} bootstrap failed:`, err);
+    dismissAllLoadingOverlays();
+  }
+
+  function bootstrapNetcodeFromMenu(mode, roomOverride) {
+    try {
+      Netcode.initNetcode(roomOverride);
+    } catch (err) {
+      onMenuBootstrapError(mode, err);
+    }
+  }
+
+  function initMenu() {
+    menuVisible = true;
+    setGamepadNavActive(true);
+    syncAllAudioUi();
+    // * Always dismiss boot splash first — solo/quickplay paths return early below.
+    void dismissInitialBootSplash();
+    updateTouchControlsVisibility();
+    if (labelRenderer) labelRenderer.domElement.style.display = "none";
+    const hudAudio = document.querySelector(".hud-audio");
+    if (hudAudio) HUD.hideAudioWidget();
+    if (hud) {
+      if (hud.timer) hud.timer.style.display = "none";
+      if (hud.scores) hud.scores.style.display = "none";
+      if (hud.readyBtn) hud.readyBtn.style.display = "none";
+      if (hud.status) hud.status.style.display = "none";
+    }
+    const feed = (hud && hud.feed) || document.querySelector(".hud-feed");
+    if (feed) {
+      feed.style.display = "none";
+      while (feed.firstChild) feed.removeChild(feed.firstChild);
+    }
+    // Stop game music before menu music starts.
+    try { AudioManager.stopGameMusic(); } catch (e) {}
+    try { AudioManager.playMenuMusic(); } catch (e) {}
+    const wrap = document.getElementById("cr-root");
+    if (wrap) {
+      window.CartRave?.show?.();
+    }
+
+    // Cosmetic: mark color chip as pending until server confirms slots.
+    if (!menuColorPickListenerWired) {
+      menuColorPickListenerWired = true;
+      const customizeColorRow = document.getElementById("cr-customize-color-row");
+      if (customizeColorRow) {
+        customizeColorRow.addEventListener("click", (e) => {
+          const chip = e.target && e.target.closest ? e.target.closest(".cr-color-chip") : null;
+          if (!chip) return;
+          pendingColorChipEl?.classList.remove("color-pending");
+          pendingColorChipEl = chip;
+          pendingColorChipEl.classList.add("color-pending");
+          _localColorPicked = true;
+          const colorToSend = resolveServerColorPick();
+          pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
+          if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
+            Netcode.sendColorPick(pendingColorKey);
+          }
+        });
+      }
+    }
+
+    const room = Netcode.resolvedPartyRoomFromUrl();
+    if (room && room.toLowerCase().startsWith("testdrive")) {
+      void enterPlayMode({ gameMode: "testdrive", levelId: "testArena" })
+        .then(() => {
+          showRotatePromptIfNeeded();
+          bootstrapNetcodeFromMenu("Test Drive");
+        })
+        .catch((err) => onMenuBootstrapError("Test Drive", err));
+      return;
+    }
+
+    if (room && room.toLowerCase().startsWith("solo")) {
+      void enterPlayMode({ gameMode: "solo" })
+        .then(() => {
+          showRotatePromptIfNeeded();
+          bootstrapNetcodeFromMenu("Solo");
+        })
+        .catch((err) => onMenuBootstrapError("Solo", err));
+      return;
+    }
+
+    // * Returning visitor refreshing ?room=quickplay — auto-rejoin once per page load.
+    const savedUsername = (storageGet(STORAGE_KEYS.username) || "").trim();
+    const roomParam = new URLSearchParams(window.location.search || "").get("room");
+    if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
+      quickplayAutoRejoinAttempted = true;
+      void enterPlayMode({ gameMode: "quickplay", commitMenuHidden: false })
+        .then(() => bootstrapNetcodeFromMenu("Quickplay"))
+        .catch((err) => onMenuBootstrapError("Quickplay", err));
+      return;
+    }
+
+    document.getElementById("cr-btn-join-invite")?.remove();
+    if (pendingInviteRoomFromUrl) {
+      const btnRow = document.querySelector(".cr-buttons");
+      if (btnRow) {
+        const btn = document.createElement("button");
+        btn.id = "cr-btn-join-invite";
+        btn.type = "button";
+        btn.className = "cr-btn";
+        btn.dataset.action = "joinroom";
+        btn.dataset.colorkey = "secondary";
+        btn.innerHTML =
+          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>' +
+          '<span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>' +
+          '<span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>';
+        btnRow.insertBefore(btn, btnRow.firstChild);
+        const refGlow = btnRow.querySelector('.cr-btn[data-action="quickplay"]');
+        if (refGlow) {
+          const g = getComputedStyle(refGlow).getPropertyValue("--glow").trim();
+          if (g) btn.style.setProperty("--glow", g);
+        }
+        btn.addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
+        });
+        window.CartRave?.wireMenuButton?.(btn, { delay: 0, duration: 340, y: 18 });
+      }
+    }
+
+    // Wire new menu button events (once — initMenu may run again after failed joins).
+    if (!menuActionListenerWired) {
+      menuActionListenerWired = true;
+      window.addEventListener("cartrave:menu", (e) => {
+      const action = e.detail.action;
+      if (action === "solo" || action === "quickplay" || action === "friends" || action === "testdrive") {
+        if (!window.__cartRaveBootstrapped) return;
+      }
+      if (action === "joinroom") {
+        const room = pendingInviteRoomFromUrl;
+        if (!room) return;
+        pendingInviteRoomFromUrl = null;
+        document.getElementById("cr-btn-join-invite")?.remove();
+        void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
+          .then(() => bootstrapNetcodeFromMenu("Friends", room))
+          .catch((err) => onMenuBootstrapError("Friends", err));
+        return;
+      }
+      pendingInviteRoomFromUrl = null;
+      document.getElementById("cr-btn-join-invite")?.remove();
+      if (action === "solo") {
+        const roomId = `solo${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        void enterPlayMode({ gameMode: "solo" })
+          .then(() => bootstrapNetcodeFromMenu("Solo"))
+          .catch((err) => onMenuBootstrapError("Solo", err));
+      } else if (action === "quickplay") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", "quickplay");
+        history.pushState({}, "", url);
+        void enterPlayMode({ gameMode: "quickplay", commitMenuHidden: false })
+          .then(() => bootstrapNetcodeFromMenu("Quickplay"))
+          .catch((err) => onMenuBootstrapError("Quickplay", err));
+      } else if (action === "friends") {
+        const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", roomId);
+        history.pushState({}, "", url);
+        const cleanLink = new URL(window.location.origin + window.location.pathname);
+        cleanLink.searchParams.set("room", roomId);
+        const roomLink = cleanLink.toString();
+        navigator.clipboard.writeText(roomLink).catch(() => {});
+
+        // Show friends screen
+        const friendsScreen = document.getElementById("cr-friends-screen");
+        const friendsLink = document.getElementById("cr-friends-link");
+        const friendsCopy = document.getElementById("cr-friends-copy");
+        const friendsEnter = document.getElementById("cr-friends-enter");
+        const friendsBack = document.getElementById("cr-friends-back");
+        const menuRoot = document.getElementById("cr-root");
+
+        if (friendsLink) friendsLink.value = roomLink;
+        window.CartRave?.stopAnimations?.();
+        if (menuRoot) menuRoot.style.display = "none";
+        if (friendsScreen) friendsScreen.style.display = "flex";
+
+        if (friendsCopy) {
+          friendsCopy.onclick = () => {
+            navigator.clipboard.writeText(roomLink).catch(() => {});
+            friendsCopy.textContent = "COPIED!";
+            setTimeout(() => { friendsCopy.textContent = "COPY"; }, 1500);
+          };
+        }
+        if (friendsEnter) {
+          friendsEnter.onclick = () => {
+            friendsScreen.style.display = "none";
+            void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
+              .then(() => bootstrapNetcodeFromMenu("Friends"))
+              .catch((err) => onMenuBootstrapError("Friends", err));
+          };
+        }
+        if (friendsBack) {
+          friendsBack.onclick = () => {
+            friendsScreen.style.display = "none";
+            window.CartRave?.show?.();
+            refreshMenuStats();
+            // Clear the room param
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete("room");
+            history.pushState({}, "", cleanUrl);
+          };
+        }
+      }
+    });
+    }
+
+    refreshMenuStats();
+
+    if (getCurrentLevelId() === "testArena") {
+      scheduleMenuLevelPreview();
+    }
+
+    // Sync new menu name to localStorage for join message (once per page load).
+    if (!menuNameSyncWired) {
+      menuNameSyncWired = true;
+      const crNameText = document.getElementById("cr-name-text");
+      if (crNameText) {
+        const saved = storageGet(STORAGE_KEYS.username);
+        if (saved) crNameText.textContent = saved;
+
+        const nameObs = new MutationObserver(() => {
+          const name = crNameText.textContent.trim();
+          if (name) storageSet(STORAGE_KEYS.username, name);
+        });
+        nameObs.observe(crNameText, { childList: true, characterData: true, subtree: true });
+      }
+
+      const crNameInput = document.getElementById("cr-name-input");
+      if (crNameInput) {
+        crNameInput.addEventListener("blur", () => {
+          const name = crNameInput.value.trim();
+          if (name) storageSet(STORAGE_KEYS.username, name);
+        });
+      }
+    }
+
+    if (window.__cartRaveBootstrapped) {
+      enableModeMenuButtons();
+    }
+  }
+
+  function commitMenuHiddenForGame() {
+    window.CartRave?.stopAnimations?.();
+    window.CartRave?.hide?.();
+    menuVisible = false;
+    setGamepadNavActive(false);
+    revealGameCanvas();
+    const isTestDrive = detectGameMode() === "testdrive";
+    if (labelRenderer) {
+      labelRenderer.domElement.style.display = isTestDrive ? "none" : "block";
+    }
+    HUD.showAudioWidget();
+    if (isTestDrive) {
+      HUD.hideGameplayElements();
+    }
+    updateTouchControlsVisibility();
+    AudioManager.stopMenuMusic();
+    if (!isTestDrive) {
+      AudioManager.playGameMusic();
+    }
+  }
+
+  const { refreshMenuStats } = createMenuStats({ getPersonalStats });
+
+
+  /**
+   * Toggles visual quality settings in-place without touching the Rapier physics world.
+   * Reflector, post-processing, rave extras, and renderer pixel ratio are all toggled
+   * synchronously — no WASM world teardown / rebuild required.
+   * @returns {Promise<void>}
+   */
+  async function rebuildForQualityChange() {
+    const lowQuality = isLowQualityMode();
+
+    // * Physics: update substep cap to match the new quality tier.
+    CONFIG.physics.maxSubsteps = lowQuality ? 2 : 4;
+
+    // * Post-processing: toggle bloom + arcade passes and update renderer pixel ratio + FBO size.
+    applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality, composer);
+
+    // * Arena visuals: toggle the reflective floor vs. opaque solid floor.
+    if (typeof setReflectorVisible === "function") {
+      setReflectorVisible(!lowQuality);
+    }
+
+    // * Rave extras: show crowd, stage, lasers, and billboard only in high quality
+    // * on levels that support them (Classic Record; Backrooms hides them already).
+    const wantsExtras = levelUsesRaveExtras() && !lowQuality;
+    Effects.setRaveExtrasVisible(wantsExtras);
+
+    // * Crowd size: toggle GPU draw count (800 vs 5000) without re-allocating.
+    Effects.setQualityCrowdCount(lowQuality);
+
+    // * Scene extras (skybox, planets, spotlights): only exist on levels that build them
+    // * (Classic Record); sceneRoots is empty elsewhere, so this loop is a no-op there.
+    if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+      for (const root of sceneExtras.sceneRoots) {
+        root.visible = wantsExtras;
+      }
+    }
+  }
+
+  let qualityRebuildInProgress = false;
+  const handleLowQualityToggle = async (next) => {
+    if (qualityRebuildInProgress) return;
+    qualityRebuildInProgress = true;
+    // * Close Esc overlay first so it doesn't persist across the rebuild.
+    HUD.hideEscOverlay();
+    setLowQualityMode(next);
+    // * Show loading overlay with quality-apply copy, then rebuild in-place.
+    showQualityApplyLoading();
+    await yieldForPaint();
+    try {
+      await rebuildForQualityChange();
+    } catch (err) {
+      console.error("[CartRave] quality rebuild failed:", err);
+    } finally {
+      qualityRebuildInProgress = false;
+      dismissAllLoadingOverlays();
+    }
+  };
+
+  hud = HUD.init({
+    getIsMuted,
+    setIsMuted: (val) => { setAllAudioMuted(val); },
+    getMusicGain: getMusicVolume,
+    setMusicGain: setMusicGainValue,
+    getSfxVolume,
+    setSfxVolume: setSfxSliderVolume,
+    getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
+    getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
+    getBloomEnabled: () => bloomEnabled,
+    setBloomEnabled: (val) => {
+      bloomEnabled = val;
+      settingsStore.getState().setBloomEnabled(val);
+    },
+    getFxPassEnabled: () => fxPassEnabled,
+    setFxPassEnabled: (val) => {
+      fxPassEnabled = val;
+      settingsStore.getState().setFxPassEnabled(val);
+    },
+    getBloomPass: () => bloomPass,
+    getFxPass: () => fxPass,
+    getLabelRenderer: () => labelRenderer,
+    getMenuVisible: () => menuVisible,
+    getPartySocket: () => Netcode.getPartySocket(),
+    getReadyToggleMsgType: () => MSG.readyToggle,
+    detectGameMode,
+    getCART_COLORS: () => CART_COLORS,
+    getDefaultRoundMs: () => CONFIG.round.durationMs,
+    getCountdownMs: () => 3000,
+    getIsTouchDevice: isTouchDevice,
+    getLocalCart: localCartForConnId,
+    getBoostChargeCfg: () => CONFIG.cart.ramBoost.boostCharge,
+    onEscOverlayChange: (open) => {
+      if (open) {
+        Input.setTouchControlsVisible(false);
+      } else {
+        updateTouchControlsVisibility();
+      }
+    },
+    onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
+    onLowQualityToggle: handleLowQualityToggle,
+  });
+  const resultsUi = initResultsOverlay({
+    onMainMenuClick: () => {
+      podiumAutoContinue.clear();
+      gameSession.returnToMenu({ reason: "results" });
+    },
+  });
+
+  // * Challenge-complete feedback — toast + sparkle the moment a challenge crosses
+  // * its goal. Detects rising isComplete edges across daily + weekly lists.
+  const collectCompletedChallengeIds = (state) => {
+    const ids = new Set();
+    for (const ch of [...(state.dailyChallenges || []), ...(state.weeklyChallenges || [])]) {
+      if (ch?.isComplete) ids.add(ch.id);
+    }
+    return ids;
+  };
+  let prevCompletedChallengeIds = collectCompletedChallengeIds(challengeStore.getState());
+  challengeStore.subscribe((state) => {
+    const completed = collectCompletedChallengeIds(state);
+    for (const id of completed) {
+      if (!prevCompletedChallengeIds.has(id)) {
+        const meta = CHALLENGE_POOL.find((c) => c.id === id);
+        hud?.showChallengeToast?.(meta?.title ?? "CHALLENGE");
+        SfxSynth.playChallengeComplete();
+      }
+    }
+    prevCompletedChallengeIds = completed;
+  });
+
+  initLevelManager({
+    getMenuVisible: () => menuVisible,
+    getAllCartsRef: () => allCartsRef,
+    isWorldBootstrapped,
+    getWorld: () => world,
+    ensureWorldBootstrapped,
+    performLevelLoad: (selected, opts) => commitLevelLoad(selected, opts),
+    onPreviewSwapComplete: (levelId) => {
+      Effects.setRaveExtrasVisible(levelId !== "backrooms" && levelId !== "testArena");
+    },
+    finalizeArenaForPlay,
+    crossfadeElement,
+    getCanvas: () => canvas,
+  });
+
+  initBootstrap({
+    detectGameMode,
+    getMenuVisible: () => menuVisible,
+    commitMenuHiddenForGame,
+    getLoadedLevelId: getCurrentLevelId,
+    getSelectedLevelId: () => resolveLevelId(storageGet(LEVEL_STORAGE_KEY)),
+    cancelMenuPreviewTimers,
+    getMenuLevelPreviewPromise,
+    getLevelRebuildPromise,
+    getMenuPreviewNeedsFinalize,
+    rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
+    finalizeArenaForPlay: finalizeArenaForPlayEntry,
+    ensureRapierPhysics: () => ensureRapierPhysics(),
+    bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
+    getHelloGate: () => /** @type {any} */ (helloGate),
+    getAllCartsRef: () => allCartsRef,
+    bootstrapSessionCarts,
+  });
+
+  wireMenuAudioControlsOnce();
+  syncAllAudioUi();
+  initMenu();
+
+  // --- Arena, physics — Rapier WASM + level mesh deferred until play or idle preload ---
+  scene.add(new THREE.AmbientLight(0x221133, 0.15));
+
+  /** @type {import("@dimforge/rapier3d").World | null} */
+  let world = null;
+  /** @type {import("@dimforge/rapier3d").EventQueue | null} */
+  let eventQueue = null;
+
+  /**
+   * Creates the Rapier physics world on first need.
+   * WASM is loaded lazily via initRapier() dynamic import — defers
+   * the ~1.5 MB WASM fetch/compile off the boot critical path.
+   * @returns {Promise<void>}
+   */
+  async function ensureRapierPhysics() {
+    if (!world) {
+      await initRapier();
+      world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
+      eventQueue = new RAPIER.EventQueue(true);
+    }
+  }
+
+  let recordMesh = null;
+  let recordCollider;
+  let ringHandles;
+  let recordColliderHandles = [];
+  let pitWallColliderHandle;
+  let boothColliderHandles = [];
+  let boothNeonMeshes = [];
+  let spindleLight = null;
+  let spindleLightColorPink;
+  let spindleLightColorCyan;
+  let pitInnerRadius = CONFIG.record.innerRadius;
+  let recordLabelMat = null;
+  let levelHazards;
+  let disposeLevel;
+  let levelUpdate;
+  let sceneExtras = {
+    scene,
+    sceneRoots: [],
+    disposables: [],
+    update: () => {},
+    disposed: false,
+  };
+  let upgradeRecordReflector = null;
+  let setReflectorVisible = null;
+  let raveVisualsInitialized = false;
+  let sceneEnvironmentDispose = null;
+  /** @type {typeof CONFIG.postFx.bloom | null} Saved bloom tuning when entering test drive. */
+  let testDriveBloomSaved = null;
+
+  function applyTestDrivePostFx() {
+    if (!bloomPass || !bloomEnabled) return;
+    if (!testDriveBloomSaved) {
+      testDriveBloomSaved = { ...CONFIG.postFx.bloom };
+    }
+    applyBloomSettings(bloomPass, {
+      ...CONFIG.postFx.bloom,
+      strength: 0.28,
+      threshold: 0.94,
+    });
+  }
+
+  function restoreTestDrivePostFx() {
+    if (!testDriveBloomSaved || !bloomPass) return;
+    applyBloomSettings(bloomPass, testDriveBloomSaved);
+    testDriveBloomSaved = null;
+  }
+
+  function levelUsesRaveExtras(levelId) {
+    const id = levelId ?? getCurrentLevelId();
+    return id === "classicRecord";
+  }
+
+  function applyLoadedLevelSideEffects(levelId) {
+    const resolved = levelId ?? getCurrentLevelId();
+    Simulation.setLevelHazards(levelHazards ?? null);
+    setContactShadowHazards(levelHazards ?? null);
+    // * VHS/security-cam layer rides the arcade pass; only The Storerooms turns it on.
+    if (fxPass?.uniforms?.uVhsAmount) {
+      const vhsCfg = CONFIG.postFx.vhs;
+      fxPass.uniforms.uVhsAmount.value = resolved === "backrooms" ? vhsCfg.amount : 0;
+      fxPass.uniforms.uVhsNoise.value = vhsCfg.noise;
+      fxPass.uniforms.uVhsTrackPeriod.value = vhsCfg.trackPeriodSec;
+    }
+    if (resolved === "testArena") {
+      Effects.clearAmbientDust();
+      setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
+      applyTestDrivePostFx();
+    } else {
+      restoreTestDrivePostFx();
+      Effects.setAmbientDustStyle(
+        resolved === "backrooms" ? "backrooms" : resolved === "zanzibar" ? "sunset" : "rainbow",
+        CART_COLORS,
+      );
+      if (resolved === "backrooms") {
+        setSceneFog(scene, renderer, {
+          color: CONFIG.postFx.fog.backrooms.color,
+          density: CONFIG.postFx.fog.backrooms.density,
+        });
+      } else if (resolved === "zanzibar") {
+        setSceneFog(scene, renderer, {
+          color: CONFIG.postFx.fog.zanzibar.color,
+          density: CONFIG.postFx.fog.zanzibar.density,
+        });
+      } else {
+        setSceneFog(scene, renderer, {
+          color: CONFIG.postFx.fog.color,
+          density: CONFIG.postFx.fog.density,
+        });
+      }
+    }
+  }
+
+  function disposeSceneExtras(extras) {
+    if (!extras || extras.disposed) return;
+    try {
+      if (Array.isArray(extras.sceneRoots) && extras.scene) {
+        for (const root of extras.sceneRoots) extras.scene.remove(root);
+      }
+      if (extras.disposables && Array.isArray(extras.disposables)) {
+        for (const d of extras.disposables) {
+          d?.dispose?.();
+        }
+      }
+    } catch {} finally {
+      extras.disposed = true;
+    }
+  }
+
+  function initDeferredRaveVisuals() {
+    const wantRaveExtras = levelUsesRaveExtras();
+    disposeSceneExtras(sceneExtras);
+    sceneExtras = /** @type {any} */ (initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras }));
+    // * Scene extras (skybox/planets/spotlights) only built on levels that use them
+    // * (Classic Record); still hidden in low quality even when built.
+    const showSceneExtras = wantRaveExtras && !isLowQualityMode();
+    if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+      for (const root of sceneExtras.sceneRoots) root.visible = showSceneExtras;
+    }
+    if (wantRaveExtras && !raveVisualsInitialized) {
+      Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
+      Effects.initStage(scene, pitInnerRadius, CART_COLORS);
+      Effects.initBillboard(scene, pitInnerRadius);
+      Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
+      raveVisualsInitialized = true;
+    }
+    Effects.setRaveExtrasVisible(showSceneExtras);
+  }
+
+  function scheduleReflectorUpgrade() {
+    if (!upgradeRecordReflector) return;
+    const run = () => {
+      try { upgradeRecordReflector(); } catch (e) {}
+    };
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(run, { timeout: 8000 });
+    } else {
+      setTimeout(run, 2000);
+    }
+  }
+
+  function finalizeArenaForPlay() {
+    refreshSceneEnvironmentMaterials(scene);
+    initDeferredRaveVisuals();
+    scheduleReflectorUpgrade();
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[bootstrap] arena finalize (extras + materials)");
+    }
+  }
+
+  /**
+   * Loads level meshes/colliders into the live scene (called by levelManager).
+   * @param {string} selected Resolved level id.
+   * @param {{ menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }} opts
+   */
+  async function commitLevelLoad(selected, opts) {
+    if (typeof disposeLevel === "function") disposeLevel();
+    // * Grocery pool stays warm across level swaps — init() clears active spills only
+    // * after the first load (no re-fetch of ~2.9 MB grocery GLBs per arena change).
+    ({
+      recordMesh,
+      recordCollider,
+      recordColliderHandles: ringHandles,
+      pitWallColliderHandle,
+      boothColliderHandles,
+      boothNeonMeshes,
+      spindleLight,
+      spindleLightColorPink,
+      spindleLightColorCyan,
+      pitInnerRadius,
+      recordLabelMat,
+      aiHazards: levelHazards,
+      update: levelUpdate,
+      dispose: disposeLevel,
+      upgradeRecordReflector,
+      setReflectorVisible,
+    } = await loadLevel(selected, scene, world, CONFIG, {
+      menuPreview: opts.menuPreview === true,
+      reflectorTextureSize: opts.reflectorTextureSize,
+      onProgress: opts.onProgress,
+    }));
+
+    // * Normalize: arena.js returns recordColliderHandles (compound ring); other levels return a single recordCollider.
+    if (ringHandles) {
+      recordColliderHandles = ringHandles;
+    } else if (recordCollider) {
+      recordColliderHandles = [recordCollider.handle];
+    }
+    await GroceryPool.init(scene, world);
+    applyLoadedLevelSideEffects(selected);
+  }
+
+  async function bootstrapWorldCore(levelIdOverride) {
+    if (!sceneEnvironmentDispose) {
+      sceneEnvironmentDispose = setupSceneEnvironment(renderer, scene);
+      await yieldForPaint();
+    }
+    await swapLoadedLevel(
+      resolveLevelId(levelIdOverride ?? storageGet(LEVEL_STORAGE_KEY)),
+    );
+    await yieldForPaint();
+  }
+
+  window.addEventListener("cartrave:level-changed", () => {
+    scheduleMenuLevelPreview();
+  });
+
+  // * Bridges the server-driven game-start signal into main()'s nested functions.
+  // * Round start/countdown handlers live here; initNetcode invokes them via callbacks.
+  onGameStartHandler = (msg) => {
+    window.dispatchEvent(new CustomEvent("cartrave:round-started"));
+    if (menuVisible) enterPlayMode({ skipBootstrap: true });
+    showRotatePromptIfNeeded();
+    if (detectGameMode() === "testdrive") {
+      if (Netcode.getIsHost()) {
+        startRunningAt(Date.now());
+      } else {
+        syncRoundPhase("running");
+        GameState.setRoundStartedAtMs(Date.now());
+        GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+        GameState.setRoundWinnerSlotIndex(null);
+        CameraMod.endCinematicCountdown(camera);
+      }
+      return;
+    }
+    const serverStartsAtMs = Number(msg?.startsAtMs);
+    const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
+      ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
+      : Date.now() + 3000;
+    if (Netcode.getIsHost()) {
+      startCountdown(startsAtLocalMs);
+    } else if (GameState.getRoundState().phase !== "running") {
+      syncRoundPhase("countdown");
+      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
+      GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+      GameState.setRoundWinnerSlotIndex(null);
+      GameState.setRoundStartedAtMs(0);
+      CameraMod.beginCinematicCountdown(camera);
+    }
+  };
+
+  let lastResultsOverlayKey = null;
+  /** Round startedAtMs of the last podium celebration — one sting/confetti per match. */
+  let lastPodiumCelebratedRound = null;
+  /** True after confetti has fired for the current podium presentation. */
+  let podiumConfettiFiredKey = null;
+
+  /**
+   * World position of the winning cart (arena center fallback for draws / missing bodies).
+   * @returns {{ x: number, y: number, z: number }}
+   */
+  function getWinnerWorldPos() {
+    const winnerIdx = GameState.getRoundState().winnerSlotIndex;
+    if (winnerIdx === "draw" || !Number.isFinite(winnerIdx)) return { x: 0, y: 0, z: 0 };
+    const winnerCart = allCartsRef?.[winnerIdx];
+    if (winnerCart?.body) {
+      const t = winnerCart.body.translation();
+      return { x: t.x, y: t.y, z: t.z };
+    }
+    if (winnerCart?.mesh) {
+      const p = winnerCart.mesh.position;
+      return { x: p.x, y: p.y, z: p.z };
+    }
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  /**
+   * Starts the post-game winner camera once per match and fires victory/defeat VO.
+   * Idempotent for a given `startedAtMs:winner` key.
+   */
+  function beginPodiumPresentation() {
+    const rs = GameState.getRoundState();
+    const key = `${rs.startedAtMs}:${rs.winnerSlotIndex}`;
+    if (podiumCameraKey === key) {
+      // * Mode may have been cleared — re-arm without resetting the 5s timer.
+      if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.CINEMATIC_PODIUM) {
+        CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
+      } else {
+        CameraMod.setCinematicPodiumTarget(camera, getWinnerWorldPos());
+      }
+      return;
+    }
+    podiumCameraKey = key;
+    podiumPhaseEnteredAtMs = performance.now();
+    podiumConfettiFiredKey = null;
+    CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
+
+    // * Voice plays over the pure winner cam; confetti waits for the results panel.
+    if (lastPodiumCelebratedRound !== rs.startedAtMs) {
+      lastPodiumCelebratedRound = rs.startedAtMs;
+      const celebrationWinner = rs.winnerSlotIndex;
+      if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
+        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+        const isLocalWinner = mySlotIdx >= 0 && celebrationWinner === mySlotIdx;
+        if (isLocalWinner) {
+          announce("victory");
+        } else {
+          announce("defeat");
+        }
+      }
+    }
+  }
+
+  function clearPodiumPresentation() {
+    podiumCameraKey = null;
+    podiumPhaseEnteredAtMs = 0;
+    podiumConfettiFiredKey = null;
+    if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.CINEMATIC_PODIUM) {
+      CameraMod.endCinematicCountdown(camera);
+    }
+  }
+
+  function updateResultsOverlay() {
+    if (!resultsUi) return;
+    const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
+    const roundState = GameState.getRoundState();
+    if (roundState.phase === "podium") {
+      // * Ensure host + all clients share the same winner-cam presentation path.
+      beginPodiumPresentation();
+
+      // * Hold the opaque results UI until the pure winner camera shot finishes.
+      const camElapsed = podiumPhaseEnteredAtMs > 0
+        ? performance.now() - podiumPhaseEnteredAtMs
+        : 0;
+      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS) {
+        if (overlay.style.display !== "none") {
+          cancelResultsAnimations(overlay);
+          overlay.style.display = "none";
+          overlay.style.pointerEvents = "none";
+        }
+        return;
+      }
+
+      overlay.style.display = "flex";
+      overlay.style.pointerEvents = "auto";
+      const isHost = Netcode.getIsHost();
+      const scores = GameState.getRoundScores() || {};
+      const stats = getPersonalStats();
+      if (
+        lastResultsOverlayKey?.winner === roundState.winnerSlotIndex
+        && lastResultsOverlayKey?.s0 === (scores[0] ?? 0)
+        && lastResultsOverlayKey?.s1 === (scores[1] ?? 0)
+        && lastResultsOverlayKey?.s2 === (scores[2] ?? 0)
+        && lastResultsOverlayKey?.s3 === (scores[3] ?? 0)
+        && lastResultsOverlayKey?.hist === matchHistory.length
+        && lastResultsOverlayKey?.host === isHost
+        && lastResultsOverlayKey?.matches === stats.matches
+        && lastResultsOverlayKey?.wins === stats.wins
+        && lastResultsOverlayKey?.totalPoints === stats.totalPoints
+        && lastResultsOverlayKey?.solo === (stats.soloGames ?? 0)
+        && lastResultsOverlayKey?.endReason === roundState.endReason
+      ) {
+        maybeScheduleAutoContinuePodium();
+        return;
+      }
+      lastResultsOverlayKey = {
+        winner: roundState.winnerSlotIndex,
+        s0: scores[0] ?? 0,
+        s1: scores[1] ?? 0,
+        s2: scores[2] ?? 0,
+        s3: scores[3] ?? 0,
+        hist: matchHistory.length,
+        host: isHost,
+        matches: stats.matches,
+        wins: stats.wins,
+        totalPoints: stats.totalPoints,
+        solo: stats.soloGames ?? 0,
+        endReason: roundState.endReason ?? null,
+      };
+
+      const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      const isLocalWinner = mySlotIdx >= 0 && roundState.winnerSlotIndex === mySlotIdx;
+      if (isLocalWinner) {
+        if (roundState.endReason === "lastStanding") {
+          ChallengeTracker.record("last_standing");
+        }
+        if (roundState.isSuddenDeath) {
+          ChallengeTracker.record("sd_win");
+        }
+        const localCart = localCartForConnId();
+        if (localCart && !localCart.hasSpilled) {
+          ChallengeTracker.record("untouchable");
+        }
+      }
+
+      // * Confetti once per podium presentation, when the results panel actually appears.
+      const confettiKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
+      if (podiumConfettiFiredKey !== confettiKey) {
+        podiumConfettiFiredKey = confettiKey;
+        const celebrationWinner = roundState.winnerSlotIndex;
+        if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
+          const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
+          spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
+        }
+      }
+
+      playAgain.disabled = !isHost;
+      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
+
+      const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
+
+      const winnerIdx = roundState.winnerSlotIndex;
+      if (winnerIdx === "draw") {
+        title.textContent = "DRAW";
+        title.style.setProperty("--title-glow", "#ffe53d");
+      } else {
+        const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
+        if (idx != null) {
+          const score = scores[idx] != null ? scores[idx] : 0;
+          let maxScore = 0;
+          let tiedAtTop = 0;
+          for (let ti = 0; ti < 4; ti += 1) {
+            const ts = Number(scores[ti] ?? 0);
+            if (ts > maxScore) maxScore = ts;
+          }
+          for (let ti = 0; ti < 4; ti += 1) {
+            if (Number(scores[ti] ?? 0) === maxScore) tiedAtTop += 1;
+          }
+          const tieSuffix = tiedAtTop > 1 ? " (TIEBREAK)" : "";
+          if (roundState.endReason === "lastStanding") {
+            title.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
+          } else {
+            title.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
+          }
+          title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
+        } else {
+          title.textContent = "ROUND COMPLETE";
+          title.style.setProperty("--title-glow", "#ffffff");
+        }
+      }
+
+      finalScores.replaceChildren();
+      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null }>} */
+      const scoreRows = [];
+      for (let i = 0; i < 4; i += 1) {
+        const s = scores[i] != null ? scores[i] : 0;
+        const row = document.createElement("div");
+        row.className = "results-score-row";
+        const isWinner = winnerIdx !== "draw" && winnerIdx === i;
+        if (isWinner) row.classList.add("is-winner");
+        row.style.setProperty("--slot-glow", displayCssColorForSlot(Netcode.getNetSlots()[i]));
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "results-score-name";
+        nameEl.textContent = slotDisplayName(i);
+
+        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+        if (i === mySlotIdx && isNewPersonalBest) {
+          const pbBadge = document.createElement("span");
+          pbBadge.className = "pb-badge";
+          pbBadge.textContent = "NEW PB!";
+          nameEl.appendChild(pbBadge);
+        }
+
+        let winnerBadge = null;
+        if (isWinner) {
+          winnerBadge = document.createElement("span");
+          winnerBadge.className = "results-winner-badge";
+          winnerBadge.textContent = "\u{1F451}";
+          winnerBadge.setAttribute("aria-hidden", "true");
+          nameEl.prepend(winnerBadge);
+        }
+
+        const valEl = document.createElement("span");
+        valEl.className = "results-score-val";
+        valEl.textContent = `${s} pts`;
+
+        row.appendChild(nameEl);
+        row.appendChild(valEl);
+        finalScores.appendChild(row);
+        scoreRows.push({ row, valEl, score: s, isWinner, badge: winnerBadge });
+      }
+
+      history.replaceChildren();
+      const historyLimit = isTouchDevice() ? 2 : matchHistory.length;
+      if (matchHistory.length === 0) {
+        const emptyRow = document.createElement("div");
+        emptyRow.textContent = "No prior matches this session.";
+        history.appendChild(emptyRow);
+      } else {
+        const startIdx = Math.max(0, matchHistory.length - historyLimit);
+        for (let i = matchHistory.length - 1; i >= startIdx; i -= 1) {
+          const m = matchHistory[i];
+          const row = document.createElement("div");
+          row.className = "results-history-row";
+          const parts = [0, 1, 2, 3]
+            .map((j) => `${slotDisplayName(j)} ${m.scores[j] ?? 0}`)
+            .join(" · ");
+          row.textContent =
+            m.winnerSlotIndex === "draw"
+              ? `DRAW — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`
+              : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
+          history.appendChild(row);
+        }
+      }
+
+      // Update personal stats display
+      if (statsLine) {
+        const ps = getPersonalStats();
+        statsLine.replaceChildren();
+
+        const tag = document.createElement("div");
+        tag.className = "results-stats-tag";
+        const pulse = document.createElement("i");
+        pulse.style.cssText =
+          "display:inline-block;width:5px;height:5px;border-radius:50%;" +
+          "background:#ff00ff;box-shadow:0 0 4px #ff00ff;flex-shrink:0";
+        tag.appendChild(pulse);
+        tag.appendChild(document.createTextNode("\u00a0YOUR STATS"));
+        statsLine.appendChild(tag);
+
+        const statDefs = [
+          { num: String(ps.wins), lbl: "WINS" },
+          { num: String(ps.matches), lbl: "PLAYED" },
+          { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
+          { num: String(ps.soloGames || 0), lbl: "SOLO" },
+        ];
+        statDefs.forEach((def, idx) => {
+          if (idx > 0) {
+            const sep = document.createElement("div");
+            sep.className = "results-stats-div";
+            statsLine.appendChild(sep);
+          }
+          const item = document.createElement("div");
+          item.className = "results-stats-item";
+          const numEl = document.createElement("span");
+          numEl.className = "results-stats-num";
+          numEl.textContent = def.num;
+          const lblEl = document.createElement("span");
+          lblEl.className = "results-stats-lbl";
+          lblEl.textContent = def.lbl;
+          item.appendChild(numEl);
+          item.appendChild(lblEl);
+          statsLine.appendChild(item);
+        });
+      }
+
+      animateResultsPodiumShow({
+        overlay,
+        panel,
+        title,
+        scoreRows,
+        statsLine,
+        history,
+        playAgain,
+        mainMenuBtn,
+      });
+
+      maybeScheduleAutoContinuePodium();
+    } else {
+      clearAutoContinuePodiumTimeout();
+      autoContinuePodiumKey = null;
+      lastResultsOverlayKey = null;
+      clearPodiumPresentation();
+      cancelResultsAnimations(overlay);
+      overlay.style.display = "none";
+      overlay.style.pointerEvents = "none";
+    }
+  }
+
+  // --- Carts, labels, gameplay helpers ---
+  /**
+   * Stops the looping charge-up SFX and clears charge state for a cart. Called on
+   * fall / stuck respawn so a charging cart does not keep playing the wind-up sound
+   * through its respawn. No-op for non-local carts (only the local cart's SFX plays).
+   * @param {ReturnType<typeof createCart> | null | undefined} cart
+   */
+  function stopChargeSfxForCart(cart) {
+    if (!cart) return;
+    if (cart.chargeUpSfxId != null) {
+      AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+      cart.chargeUpSfxId = null;
+    }
+    cart.isChargingBoost = false;
+    cart.boostChargeStartedAtMs = 0;
+  }
+
+  function scheduleRespawn(cart, now) {
+    if (cart.respawnAtMs !== null) return;
+    cart.respawnAtMs = now + 1000; // * respawn after shatter VFX plays out
+    if (cart === localCartForConnId()) {
+      stopChargeSfxForCart(cart);
+      AudioManager.playSfx("death");
+    }
+  }
+
+  function scheduleStuckRespawn(cart) {
+    if (!cart?.body || cart.respawnAtMs !== null) return;
+    stopChargeSfxForCart(cart);
+    Entities.doRespawn(cart);
+    Entities.resetCartIdleWatch(cart);
+  }
+
+  sessionRefs.respawnLocalMidRoundJoinRef.current = () => {
+    const localConnId = Netcode.getYouConnId();
+    if (!localConnId || pendingMidRoundJoinRespawnConnId !== localConnId) return;
+    if (GameState.getRoundState().phase !== "running") return;
+    // * Mid-round joins take over NPC in place. DO NOT call doRespawn().
+    pendingMidRoundJoinRespawnConnId = null;
+  };
+
+  // --- Floating name labels above carts ---
+  const nameLabels = [];
+  function makeNameLabel(text, color, badgeInfo) {
+    const el = document.createElement("div");
+    el.className = "cart-nametag";
+    if (badgeInfo) {
+      el.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${text}`;
+    } else {
+      el.textContent = text;
+    }
+    el.style.padding = "6px 14px";
+    el.style.borderRadius = "4px";
+    el.style.background = "rgba(0, 0, 0, 0.7)";
+    el.style.color = "#fff";
+    el.style.fontFamily = '"Michroma", sans-serif';
+    el.style.fontSize = "";
+    el.style.fontWeight = "700";
+    el.style.lineHeight = "1";
+    el.style.textTransform = "uppercase";
+    el.style.whiteSpace = "nowrap";
+    el.style.border = `2px solid ${color}`;
+    el.style.boxShadow = `0 0 9px ${color}66, inset 0 0 8px ${color}26`;
+    el.style.textShadow = `0 0 6px ${color}`;
+    el.style.transform = "translate(-50%, 0)";
+
+    const label = new CSS2DObject(el);
+    label.center.set(0.5, 0);
+    return label;
+  }
+
+  let allCarts = [];
+
+  function updateNameLabels() {
+    for (let i = 0; i < allCarts.length; i++) {
+      const slot = Netcode.getNetSlots()[i];
+      const cart = allCarts[i];
+      if (!slot || !cart || !cart.mesh) continue;
+
+      const name = slot.name || `P${i + 1}`;
+      const colorCSS = displayCssColorForSlot(slot);
+
+      const personality = cart.aiPersonality || (slot.kind === "npc" ? getNpcPersonality(name) : null);
+      const badgeInfo = personality ? (PERSONALITY_BADGES[personality.name] || null) : null;
+      const badgeKey = badgeInfo ? badgeInfo.letter : "";
+
+      if (nameLabels[i]) {
+        if (
+          nameLabels[i]._labelText !== name ||
+          nameLabels[i]._labelColor !== colorCSS ||
+          nameLabels[i]._labelBadgeKey !== badgeKey
+        ) {
+          if (badgeInfo) {
+            nameLabels[i].element.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${name}`;
+          } else {
+            nameLabels[i].element.textContent = name;
+          }
+          nameLabels[i].element.style.borderColor = colorCSS;
+          nameLabels[i].element.style.boxShadow = `0 0 12px ${colorCSS}66, inset 0 0 8px ${colorCSS}26`;
+          nameLabels[i].element.style.textShadow = `0 0 6px ${colorCSS}`;
+          nameLabels[i]._labelText = name;
+          nameLabels[i]._labelColor = colorCSS;
+          nameLabels[i]._labelBadgeKey = badgeKey;
+        }
+      } else {
+        const label = makeNameLabel(name, colorCSS, badgeInfo);
+        label._labelText = name;
+        label._labelColor = colorCSS;
+        label._labelBadgeKey = badgeKey;
+        scene.add(label);
+        nameLabels[i] = label;
+      }
+    }
+    while (nameLabels.length > allCarts.length) {
+      const removedLabel = nameLabels.pop();
+      if (!removedLabel) continue;
+      scene.remove(removedLabel);
+      if (removedLabel.element?.parentNode) {
+        removedLabel.element.parentNode.removeChild(removedLabel.element);
+      }
+    }
+  }
+
+  // Position name labels each frame (called in game loop)
+  function positionNameLabels() {
+    for (let i = 0; i < nameLabels.length; i++) {
+      const label = nameLabels[i];
+      const cart = allCarts[i];
+      if (!label || !cart || !cart.body) continue;
+      const pos = cart.mesh.position;
+      label.position.set(pos.x, pos.y + 3.0, pos.z);
+      const distance = Math.max(0.001, camera.position.distanceTo(label.position));
+      const scale = clamp(18 / distance, 0.65, 1.2);
+      label.element.style.transform = `translate(-50%, 0) scale(${scale})`;
+    }
+  }
+
+  function bootstrapSessionCarts(expectedGen) {
+    if (allCartsRef?.length && getLastSuccessfulHelloGen() === expectedGen) {
+      return allCartsRef;
+    }
+
+    if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
+      return null;
+    }
+    destroySessionCarts();
+
+    const { allCarts: carts, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
+      scene,
+      world,
+      ramBoostStreaks,
+      netSlots: Netcode.getNetSlots(),
+      youConnId: Netcode.getYouConnId(),
+      CART_COLORS,
+      colorHexForSlot: displayColorHexForSlot,
+      themeForSlot: (slot) => resolveCartThemeForSlot(slot, { youConnId: Netcode.getYouConnId() }),
+      pendingMidRoundJoinRespawnConnId,
+      ...(detectGameMode() === "testdrive"
+        ? {
+          spawnForSlot: () => testDriveSpawnForSlot(0, CONFIG),
+          spawnYawForSlot: () => 0,
+        }
+        : {}),
+    });
+    if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
+      Entities.destroyCarts({ scene, nameLabels });
+      return null;
+    }
+    pendingMidRoundJoinRespawnConnId = nextPendingMidRoundJoinRespawnConnId;
+    allCarts = carts;
+    allCartsRef = carts;
+    Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
+    // * Slot colors are authoritative: server-provided in multiplayer (accepted verbatim),
+    // * and declashed once at init for solo/testdrive. No re-derivation here.
+    updateCartMaterialsFromSlots(Netcode.getNetSlots());
+    sessionRefs.updateNameLabelsRef.current = updateNameLabels;
+    updateNameLabels();
+    if (Netcode.getIsHost() && !Netcode.getHostSendTimer()) Netcode.startHostSendLoop();
+    Netcode.setAuthorityMode(Netcode.getIsHost());
+    gameCtx.registerRuntime({
+      getAllCarts: () => allCarts,
+      getAllCartsRef: () => allCartsRef,
+    });
+    return carts;
+  }
+
+  function destroySessionCarts() {
+    Entities.destroyCarts({ scene, nameLabels });
+    clearNpcCartCache();
+    allCarts = [];
+    allCartsRef = null;
+    resetSessionCartBootstrap();
+    sessionRefs.clearSessionCallbackRefs();
+  }
+
+  if (!customizationChangeListenerWired) {
+    customizationChangeListenerWired = true;
+    window.addEventListener("cartrave:customization-changed", () => {
+      const slots = Netcode.getNetSlots();
+      Netcode.syncLocalSlotLookHex();
+      Netcode.syncCartLookToServer();
+      updateCartMaterialsFromSlots(slots);
+      updateHudColorsFromSlots(slots);
+      sessionRefs.updateNameLabelsRef.current?.();
+    });
+  }
+
+  sessionBridgeCtx.current = {
+    palette: PALETTE,
+    initialNpcNames,
+    detectGameMode,
+    markFirstHelloReceived,
+    getOnGameStartHandler: () => onGameStartHandler,
+    getOnHostMigratedHandler: () => onHostMigratedHandler,
+    onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
+    endCinematicCountdown: () => { CameraMod.endCinematicCountdown(camera); },
+    getMenuVisible: () => menuVisible,
+    invokeHideMenu: () => {
+      void enterPlayMode({
+        commitMenuHidden: true,
+        skipBootstrap: isWorldBootstrapped(),
+      });
+    },
+    updateCartMaterialsFromSlots,
+    updateHudColorsFromSlots,
+    updateNameLabelsRef: sessionRefs.updateNameLabelsRef,
+    getNameLabelUpdatePending: () => nameLabelUpdatePending,
+    setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
+    respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
+    getPlayCollisionRef: () => (_intensity, _opts) => AudioManager.playCartCrash(),
+    getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
+    getSpawnTrashBurstRef: () => spawnTrashBurstRef,
+    getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
+    getTriggerCartShatterRef: () => triggerCartShatterRef,
+    getScene: () => scene,
+    getSceneRef: () => scene,
+    getHud: () => hud,
+    onLocalKillConfirm,
+    onArenaKoFlash,
+    onAnnouncerFall: announcerDirectorOnFall,
+    colorHexForSlot: displayColorHexForSlot,
+    getPendingColorKey: () => pendingColorKey,
+    getPendingColorChipEl: () => pendingColorChipEl,
+    setPendingColorKey: (val) => { pendingColorKey = val; },
+    setPendingColorChipEl: (val) => { pendingColorChipEl = val; },
+    getLocalColorPicked: () => _localColorPicked,
+    setLocalColorPicked: (val) => { _localColorPicked = val; },
+    recordPodiumStats,
+    onReturnToLobby: () => {
+      clearPodiumPresentation();
+      Entities.rematchResetWorld();
+      GameState.setRoundEndReason(null);
+      cleanupSuddenDeathState(allCartsRef || []);
+    },
+    onEnterPodium: () => {
+      HUD.clearFeed();
+      beginPodiumPresentation();
+    },
+    teleportCartToSpawn,
+    getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
+    setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; },
+    ensureSessionReady: () => ensureSessionCartsReady(),
+    destroySessionCarts,
+    disconnectNetcode: () => Netcode.disconnectPartySession(),
+    dismissLoadingOverlays: () => dismissAllLoadingOverlays(),
+    initMenu,
+    resetRoundState: () => {
+      GameState.resetRoundToLobby();
+      try { Simulation.setRoundPhase("lobby"); } catch (e) {}
+      clearPodiumPresentation();
+      CameraMod.endCinematicCountdown(camera);
+    },
+    hideEscOverlay: () => HUD.hideEscOverlay(),
+    resetSessionPickState: () => {
+      _localColorPicked = false;
+      pendingColorKey = null;
+      pendingColorChipEl?.classList.remove("color-pending");
+      pendingColorChipEl = null;
+      pendingMidRoundJoinRespawnConnId = null;
+    },
+    resetSessionHelloGate: () => helloGate.reset(),
+    resetNameLabelBridge: () => sessionRefs.clearSessionCallbackRefs(),
+    cancelNameLabelUpdatePending: () => {
+      if (nameLabelUpdatePending != null) {
+        cancelAnimationFrame(nameLabelUpdatePending);
+        nameLabelUpdatePending = null;
+      }
+    },
+    clearNetcodeRuntimeRefs: () => {
+      getAxisRef = null;
+      Netcode.setRefs({
+        getAllCartsRef: () => allCartsRef,
+        getAxisRef: null,
+        triggerRamBoostRef: null,
+        triggerHopRef: null,
+        resetSimTimingRef: sessionRefs.resetSimTimingRef,
+      });
+    },
+  };
+
+  void flushPendingSessionBootstrap();
+
+  // * Non-blocking — game loop must start even before first hello (menu landing).
+  void ensureSessionCartsReady().catch((err) => {
+    console.warn("[session] cart bootstrap failed", err);
+  });
+
+  getAxisRef = input.getAxis;
+  triggerRamBoostRef = triggerRamBoost;
+  Netcode.setRefs({
+    getAllCartsRef: () => allCartsRef,
+    getAxisRef: input.getAxis,
+    isNitroHeldRef: input.isNitroHeld,
+    triggerRamBoostRef: triggerRamBoost,
+    triggerHopRef: triggerHop,
+    triggerCartShatterRef: triggerCartShatter,
+    resetSimTimingRef: sessionRefs.resetSimTimingRef,
+    doRespawnRef: Entities.doRespawn,
+  });
+  // * hello can arrive before input/cart refs exist; non-host input is sampled inline by the
+  // * physics loop (sampleLocalInputForTick), which no-ops safely until getAxisRef is wired.
+  Netcode.setAuthorityMode(Netcode.getIsHost());
+
+  const ramBoostForwardXZ = new THREE.Vector3();
+  const ramBoostToTargetXZ = new THREE.Vector3();
+  const ramBoostRightXZ = new THREE.Vector3();
+
+  /**
+   * @param {number} now
+   * @param {ReturnType<typeof createCart>} cart
+   */
+  function getAiAxis(now, cart) {
+    return Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
+  }
+
+  /**
+   * Starts an Auto-Charge Boost for a human cart, or fires an instant nitro for NPCs.
+   *
+   * Human path (default): sets `isChargingBoost` + records the start time + plays the
+   * looping charge-up SFX locally. The actual burst is auto-released by
+   * `applyArcadeControls` once `boostChargeTimeMs` elapses, which then fires
+   * `onBoostRelease` to swap the SFX and trigger the visual pulse.
+   *
+   * NPC path (`{ instant: true }`): preserves the legacy instant nitro window so bots
+   * do not freeze for 1.5s while charging in unsafe positions.
+   *
+   * @param {ReturnType<typeof createCart>} cart
+   * @param {number} nowMs
+   * @param {{ instant?: boolean }} [opts]
+   */
+  function triggerRamBoost(cart, nowMs, opts = {}) {
+    if (!cart?.body) return;
+    const rb = CONFIG.cart.ramBoost;
+    if (!rb.enabled) return;
+    if (nowMs <= cart.ramBoostActiveUntilMs) return;
+    if (cart.isChargingBoost) return;
+
+    const chargeCfg = rb.boostCharge;
+    const useCharge = !opts.instant && chargeCfg?.enabled;
+
+    if (useCharge) {
+      // * Cooldown gate — block re-charging until boostCooldownMs passes after the last burst.
+      if (nowMs < cart.boostCooldownUntilMs) return;
+      cart.isChargingBoost = true;
+      cart.boostChargeStartedAtMs = nowMs;
+      cart.boostChargeMultiplier = chargeCfg.boostMaxMultiplier;
+      const isLocal = cart === localCartForConnId();
+      if (isLocal) {
+        // * Looping charge-up SFX; stopped on release / interrupt via onBoostRelease or respawn.
+        cart.chargeUpSfxId = AudioManager.playSfx("chargeUp");
+      }
+      return;
+    }
+
+    // * Instant path (NPCs, or when the charge mechanic is disabled): legacy behavior.
+    if (nowMs - cart.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
+    cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
+    cart.lastRamBoostTimeMs = nowMs;
+    const isLocal = cart === localCartForConnId();
+    if (isLocal) {
+      AudioManager.playSfx("boost");
+      if (cart.mesh) animateCartBoostPulse(cart.mesh);
+      flashBoostActivate();
+    }
+    cart.ramBoostStreakCarry = 0;
+  }
+
+  /**
+   * Auto-Charge Boost release callback — invoked by `applyArcadeControls` (via the sim
+   * callbacks) when a charging cart hits `boostChargeTimeMs` or early-releases after 100ms.
+   * Stops the looping charge SFX and fires the boost/nitro SFX + visual pulse for the
+   * local cart. Remote-cart releases on the host are silent here (the owning client plays
+   * its own SFX locally).
+   *
+   * @param {ReturnType<typeof createCart>} cart
+   */
+  function onBoostRelease(cart) {
+    const isLocal = cart === localCartForConnId();
+    if (!isLocal) return;
+    if (cart.chargeUpSfxId != null) {
+      AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+      cart.chargeUpSfxId = null;
+    }
+    AudioManager.playSfx("boost");
+    if (cart.mesh) animateCartBoostPulse(cart.mesh);
+    flashBoostActivate();
+  }
+
+  /**
+   * Auto-Charge Boost cancel callback — invoked by `applyArcadeControls` when the
+   * player releases the boost button before 100ms of charging. Stops the looping
+   * charge-up SFX silently (no boost sound, no visual pulse).
+   *
+   * @param {ReturnType<typeof createCart>} cart
+   */
+  function onBoostCancel(cart) {
+    const isLocal = cart === localCartForConnId();
+    if (!isLocal) return;
+    if (cart.chargeUpSfxId != null) {
+      AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+      cart.chargeUpSfxId = null;
+    }
+  }
+
+  function triggerHop(cart, nowMs) {
+    if (!cart?.body) return;
+    if (nowMs - cart.lastHopAtMs < CONFIG.cart.hop.cooldownMs) return;
+    cart.lastHopAtMs = nowMs;
+    cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
+    if (cart === localCartForConnId()) {
+      AudioManager.playSfx("hop");
+    }
+  }
+
+  /**
+   * @param {number} nowMs
+   * @param {ReturnType<typeof createCart>} npc
+   */
+  function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
+    const rb = CONFIG.cart.ramBoost;
+    const ncfg = rb.npc;
+    if (!rb.enabled || !ncfg.enabled) return;
+    if (nowMs <= npc.ramBoostActiveUntilMs) return;
+    const roundState = GameState.getRoundState();
+    const cooldownMs = roundState?.isSuddenDeath ? (rb.cooldownSec * 500) : (rb.cooldownSec * 1000);
+    if (nowMs - npc.lastRamBoostTimeMs < cooldownMs) return;
+
+    // * Find nearest target (human or NPC) — humans always pass the gate; NPCs only 25%.
+    const netSlots = Netcode.getNetSlots();
+    let nearestTarget = null;
+    let nearestD2 = Infinity;
+    let nearestIsHuman = false;
+    const p = npc.body.translation();
+    const fallYThreshold = CONFIG.fall?.yThreshold ?? -1.0;
+    for (let i = 0; i < allCarts.length; i += 1) {
+      const o = allCarts[i];
+      if (o === npc) continue;
+      if (!o?.body || o.respawnAtMs != null || o.isSuddenDeathSpectator) continue;
+      const op = o.body.translation();
+      if (op.y < fallYThreshold) continue;
+      const dx = op.x - p.x;
+      const dz = op.z - p.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < nearestD2) {
+        nearestD2 = d2;
+        nearestTarget = o;
+        const s = netSlots?.[i];
+        nearestIsHuman = s?.kind === "human" && !!s?.connId;
+      }
+    }
+    if (!nearestTarget) return;
+    const op = nearestTarget.body.translation();
+
+    // * NPC targets: commit chance based on personality profile (50% aggressor, 35% chaotic, 25% lurker/scavenger)
+    const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
+    if (!nearestIsHuman && Math.random() >= commitChance) return;
+
+    const dist = Math.sqrt(nearestD2);
+    if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
+
+    // * Backrooms corner-void safety gate — abort boost if the line crosses a square hole.
+    if (Simulation.findBlockingSquareHole(p.x, p.z, op.x, op.z, 0.4)) {
+      return;
+    }
+
+    // * Classic Record center-hole safety gate — abort nitro if the boost line
+    // * passes too close to the hole. Prevents NPCs from nitro-suiciding across the pit.
+    if (CONFIG.record.centerHole?.enabled !== false) {
+      const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+      const safetyMargin = 1.5;
+      const minClear = holeLip + safetyMargin;
+
+      const ax = p.x;
+      const az = p.z;
+      const bx = op.x;
+      const bz = op.z;
+      const abX = bx - ax;
+      const abZ = bz - az;
+      const abLenSq = abX * abX + abZ * abZ;
+
+      if (abLenSq > 1e-8) {
+        // * Project origin onto the segment AB, clamped to [0, 1].
+        const t = clamp((-ax * abX - az * abZ) / abLenSq, 0, 1);
+        const closestX = ax + t * abX;
+        const closestZ = az + t * abZ;
+        const closestDist = Math.hypot(closestX, closestZ);
+
+        if (closestDist < minClear) return;
+      } else {
+        // * Degenerate segment — NPC and target are on the same point; check position.
+        if (Math.hypot(ax, az) < minClear) return;
+      }
+    }
+
+    const rot = npc.body.rotation();
+    const yaw = Simulation.yawFromQuaternion(rot);
+    Simulation.setForwardRightFromYaw(yaw, ramBoostForwardXZ, ramBoostRightXZ);
+    ramBoostToTargetXZ.set(op.x - p.x, 0, op.z - p.z);
+    if (ramBoostToTargetXZ.lengthSq() < 1e-8) return;
+    ramBoostToTargetXZ.normalize();
+    if (ramBoostForwardXZ.lengthSq() < 1e-8) return;
+    ramBoostForwardXZ.normalize();
+    const dot = clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1);
+    const angleDeg = Math.acos(dot) * (180 / Math.PI);
+    if (angleDeg > ncfg.alignmentAngleDeg) return;
+
+    // * NPCs use the instant nitro path — keeps bot movement responsive and avoids
+    // * freezing in a 1.5s charge window mid-combat.
+    triggerRamBoost(npc, nowMs, { instant: true });
+  }
+
+  // --- Round flow (countdown, podium, AI) ---
+  if (audioListener && typeof audioListener.setMasterVolume === "function") {
+    audioListener.setMasterVolume(getIsMuted() ? 0 : getSfxVolume());
+  }
+
+  canvas.addEventListener("pointerdown", () => {
+    canvas.focus();
+  });
+
+  function startRunningAt(startedAtMs) {
+    isNewPersonalBest = false;
+    cancelLastCartStandingFinish();
+    GameState.setRoundEndReason(null);
+    syncRoundPhase("running");
+    gameCtx.slowMo.active = false;
+    GameState.setRoundStartedAtMs(startedAtMs);
+    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    GameState.setRoundWinnerSlotIndex(null);
+    Netcode.sendHostRound();
+    updateTouchControlsVisibility();
+    CameraMod.endCinematicCountdown(camera);
+  }
+
+  let roundCountdownTimeoutId = null;
+
+  function clearRoundCountdownTimeout() {
+    if (roundCountdownTimeoutId != null) {
+      clearTimeout(roundCountdownTimeoutId);
+      roundCountdownTimeoutId = null;
+    }
+  }
+
+  function startCountdown(startsAtLocalMs = Date.now() + 3000) {
+    if (!Netcode.getIsHost()) return;
+    if (GameState.getRoundState().phase === "running") return;
+    isNewPersonalBest = false;
+    cancelLastCartStandingFinish();
+    GameState.setRoundEndReason(null);
+    clearRoundCountdownTimeout();
+    syncRoundPhase("countdown");
+    gameCtx.slowMo.active = false;
+    GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
+    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    GameState.setRoundWinnerSlotIndex(null);
+    GameState.setRoundStartedAtMs(0);
+
+    if (Array.isArray(allCartsRef)) {
+      for (let i = 0; i < allCartsRef.length; i += 1) {
+        teleportCartToSpawn(i);
+      }
+    }
+
+    Netcode.sendHostRound();
+    roundCountdownTimeoutId = setTimeout(() => {
+      roundCountdownTimeoutId = null;
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
+    }, Math.max(0, startsAtLocalMs - Date.now()));
+    CameraMod.beginCinematicCountdown(camera);
+  }
+
+  /**
+   * * Fallback when promoted to host mid-countdown (e.g. prior host disconnected).
+   * * Completes the in-flight countdown window; server reset + game_start is preferred
+   * * when deployed but this keeps older servers and message-order races un-stuck.
+   */
+  function resumeCountdownAsNewHost() {
+    if (!Netcode.getIsHost()) return;
+    const roundState = GameState.getRoundState();
+    if (roundState.phase !== "countdown") return;
+
+    clearRoundCountdownTimeout();
+    const startsAtLocalMs = (roundState.countdownStartedAtMs || Date.now()) + 3000;
+    const delayMs = Math.max(0, startsAtLocalMs - Date.now());
+
+    if (delayMs === 0) {
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(Date.now());
+      return;
+    }
+
+    // * Re-arm pregame fly-over if host migration interrupted the prior client's cam.
+    CameraMod.beginCinematicCountdown(camera);
+    Netcode.sendHostRound();
+    roundCountdownTimeoutId = setTimeout(() => {
+      roundCountdownTimeoutId = null;
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
+    }, delayMs);
+  }
+
+  onCountdownCancelledRef = () => {
+    clearRoundCountdownTimeout();
+    if (GameState.getRoundState().phase === "countdown") {
+      syncRoundPhase("lobby");
+      GameState.setRoundCountdownStartedAtMs(0);
+      GameState.setRoundStartedAtMs(0);
+      CameraMod.endCinematicCountdown(camera);
+      if (Netcode.getIsHost()) Netcode.sendHostRound();
+    }
+  };
+  onHostMigratedHandler = resumeCountdownAsNewHost;
+
+  Object.assign(sessionBridgeCtx.current, {
+    clearRoundCountdownTimeout,
+    clearAutoContinuePodiumTimeout,
+    clearPodiumRoundTimeout: () => {
+      if (roundPodiumTimeoutId != null) {
+        clearTimeout(roundPodiumTimeoutId);
+        roundPodiumTimeoutId = null;
+      }
+    },
+    resetSlowMo: () => { gameCtx.slowMo.active = false; },
+    resetSimTiming: () => sessionRefs.resetSimTimingRef.current?.(),
+    hideResultsOverlay: () => updateResultsOverlay(),
+    resetLeaderHum: () => leaderHum?.setLeader?.(null),
+    resetResultsOverlayKey: () => { lastResultsOverlayKey = null; },
+    resetPodiumSessionState: () => {
+      autoContinuePodiumKey = null;
+      lastResultsOverlayKey = null;
+      clearPodiumPresentation();
+    },
+  });
+
+  function cancelLastCartStandingFinish() {
+    if (roundPodiumTimeoutId != null) {
+      clearTimeout(roundPodiumTimeoutId);
+      roundPodiumTimeoutId = null;
+    }
+    gameCtx.slowMo.active = false;
+  }
+
+  function abortLastCartStandingFlourish() {
+    const hadFlourish = GameState.getRoundState().endReason === "lastStanding";
+    cancelLastCartStandingFinish();
+    if (hadFlourish && Netcode.getIsHost()) {
+      GameState.setRoundEndReason(null);
+      Netcode.sendHostRound();
+    }
+  }
+
+  function scheduleLastCartStandingFinish(soleSurvivorSlot) {
+    if (!Netcode.getIsHost()) return;
+    if (roundPodiumTimeoutId != null) return;
+    if (!gameCtx.slowMo.active) {
+      gameCtx.slowMo.active = true;
+      gameCtx.slowMo.startMs = performance.now();
+    }
+    if (GameState.getRoundState().endReason !== "lastStanding") {
+      GameState.setRoundEndReason("lastStanding");
+      Netcode.sendHostRound();
+    }
+    roundPodiumTimeoutId = setTimeout(() => {
+      roundPodiumTimeoutId = null;
+      if (GameState.getRoundState().phase !== "running") return;
+      endRound(soleSurvivorSlot);
+    }, LAST_CART_STANDING_FLOURISH_MS);
+  }
+
+  function endRound(lastStandingWinnerSlot = null) {
+    if (GameState.getRoundState().phase !== "running") return;
+    cancelLastCartStandingFinish();
+    clearRoundCountdownTimeout();
+    pendingMidRoundJoinRespawnConnId = null;
+    resetArenaReactiveLights();
+    const suddenDeathActive = GameState.getRoundState().isSuddenDeath;
+    if (suddenDeathActive && lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
+      // * Sudden Death winner — first to score wins instantly.
+      GameState.setRoundEndReason("timer");
+      GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
+      GameState.setSuddenDeath(false);
+      cleanupSuddenDeathState(allCartsRef || []);
+    } else if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
+      GameState.setRoundEndReason("lastStanding");
+      GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
+    } else {
+      GameState.setRoundEndReason("timer");
+      const scores = GameState.getRoundScores();
+      GameState.setRoundWinnerSlotIndex(GameState.pickTimerWinner(scores));
+    }
+    recordPodiumStats(/** @type {any} */ (GameState.getRoundState().winnerSlotIndex), GameState.getRoundScores());
+    HUD.clearFeed();
+    syncRoundPhase("podium");
+    beginPodiumPresentation();
+    Netcode.sendHostRound();
+  }
+
+  // * Wire Sudden Death win callback — addScore fires this on first score during SD.
+  GameState.setSuddenDeathWinCallback((scoringSlot) => {
+    endRound(scoringSlot);
+  });
+
+  function clearAutoContinuePodiumTimeout() {
+    if (autoContinuePodiumTimeoutId != null) {
+      clearTimeout(autoContinuePodiumTimeoutId);
+      autoContinuePodiumTimeoutId = null;
+    }
+  }
+  podiumAutoContinue.clear = clearAutoContinuePodiumTimeout;
+
+  function currentPodiumAutoContinueKey() {
+    return `${GameState.getRoundState().startedAtMs}:${GameState.getRoundState().winnerSlotIndex}:${matchHistory.length}`;
+  }
+
+  function maybeScheduleAutoContinuePodium() {
+    if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
+    const mode = detectGameMode();
+    if (mode !== "quickplay") return;
+
+    const key = currentPodiumAutoContinueKey();
+    if (autoContinuePodiumTimeoutId != null || autoContinuePodiumKey === key) return;
+
+    autoContinuePodiumKey = key;
+    autoContinuePodiumTimeoutId = setTimeout(() => {
+      autoContinuePodiumTimeoutId = null;
+      if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
+      if (detectGameMode() !== "quickplay") return;
+      onHostPlayAgainClick();
+    }, 5000);
+  }
+
+  function currentCartSnapshot() {
+    const carts = [];
+    const round3 = (v) => Math.round(v * 1000) / 1000;
+    for (let i = 0; i < allCarts.length; i += 1) {
+      const c = allCarts[i];
+      if (!c?.body) continue;
+      const t = c.body.translation();
+      const r = c.body.rotation();
+      const lv = c.body.linvel();
+      const av = c.body.angvel();
+      carts[i] = {
+        p: [round3(t.x), round3(t.y), round3(t.z)],
+        q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
+        lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
+        av: [round3(av.x), round3(av.y), round3(av.z)],
+      };
+    }
+    return carts;
+  }
+
+  function onHostPlayAgainClick() {
+    if (!Netcode.getIsHost()) return;
+    cancelLastCartStandingFinish();
+    autoContinuePodiumKey = currentPodiumAutoContinueKey();
+    clearAutoContinuePodiumTimeout();
+    clearRoundCountdownTimeout();
+    gameCtx.slowMo.active = false;
+    lastResultsOverlayKey = null;
+    clearPodiumPresentation();
+    GameState.setRoundEndReason(null);
+    Entities.rematchResetWorld();
+    if (detectGameMode() === "solo") {
+      startCountdown(Date.now() + 3000);
+      return;
+    }
+    syncRoundPhase("lobby");
+    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    GameState.setRoundWinnerSlotIndex(null);
+    GameState.setRoundStartedAtMs(0);
+    GameState.setRoundCountdownStartedAtMs(0);
+    Netcode.sendHostRound();
+    Netcode.sendPlayAgain();
+  }
+
+  resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
+
+
+  // --- Simulation loop (fixed timestep) ---
+  const loopState = createGameLoopState();
+  gameCtx.setLoopState(loopState);
+  gameCtx.registerRuntime({
+    getAllCarts: () => allCarts,
+    getAllCartsRef: () => allCartsRef,
+    CONFIG,
+  });
+
+  let recordVersusPlayerFrame30Logged = false;
+  const recordLabelCycleColors = [
+    new THREE.Color(CART_COLORS.pink.hex),
+    new THREE.Color(CART_COLORS.blue.hex),
+    new THREE.Color(CART_COLORS.green.hex),
+    new THREE.Color(CART_COLORS.yellow.hex),
+    new THREE.Color(CART_COLORS.neonOrange.hex),
+  ];
+  sessionRefs.resetSimTimingRef.current = () => resetGameLoopTiming(gameCtx.loopState);
+
+  const sharedLoopGetters = gameCtx.createSharedGetters();
+
+  const visualDeps = {
+    ...sharedLoopGetters,
+    netTargetPosScratch,
+    cartLinvelScratch,
+    cartAngvelScratch,
+    updateCartVisuals,
+    buildCartMaterialCache,
+    colorHexForSlot: displayColorHexForSlot,
+    isMuted: getIsMuted,
+    getSfxVolume,
+    isMenuVisible: () => menuVisible,
+    getAxis: Input.getAxis,
+    get hud() { return hud; },
+    leaderHum,
+    HUD,
+    getYouConnId: () => Netcode.getYouConnId(),
+    getMatchHistoryLength: () => (matchHistory ? matchHistory.length : 0),
+    updateResultsOverlay,
+    positionNameLabels,
+    composer,
+    scene,
+    camera,
+    renderer,
+    labelRenderer,
+    canvas,
+    BASE_FOV,
+    getShakeUntil: () => shakeUntil,
+    getShakeIntensity: () => shakeIntensity,
+    getFovPunchUntil: () => fovPunchUntil,
+    getFovPunchDeg: () => fovPunchDeg,
+    getKillFlash: () => killFlash,
+    getImpactPulse: () => impactPulse,
+    getArcadePass: () => fxPass,
+    prepareComposerFrame,
+    fpsState,
+    updateTouchControlsVisibility,
+  };
+
+  const gameFlowDeps = {
+    ...sharedLoopGetters,
+    detectGameMode,
+    getLastHitBy: () => GameState.getLastHitBy(),
+    getLocalCart: localCartForConnId,
+    scheduleRespawn,
+    scheduleStuckRespawn,
+    doRespawn: Entities.doRespawn,
+    maybeTriggerNpcOpportunisticRamBoost,
+    endRound,
+    scheduleLastCartStandingFinish,
+    abortLastCartStandingFlourish,
+    addScore: GameState.addScore,
+    isScoreTied: GameState.isScoreTied,
+    setSuddenDeath: GameState.setSuddenDeath,
+    setLocalCombo: GameState.setLocalCombo,
+    colorHexForSlot: displayColorHexForSlot,
+    get hud() { return hud; },
+    sendHostRound: () => Netcode.sendHostRound(),
+    getPartySocket: () => Netcode.getPartySocket(),
+    queueHostFallEvent: Netcode.queueHostFallEvent,
+    onLocalKillConfirm,
+    onArenaKoFlash,
+    onAnnouncerFall: announcerDirectorOnFall,
+    getYouConnId: () => Netcode.getYouConnId(),
+    getScene: () => scene,
+    triggerCartShatter,
+    onSpill: (slotIndex, pos, quat, vel, cargoBay) => {
+      const cart = allCartsRef?.[slotIndex];
+      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, 6, cargoBay || cart?.cargoBay || null);
+      // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
+      GroceryPool.hideCargoBay(cart || cargoBay);
+      triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay);
+    },
+    onCartRespawn: (slotIndex) => {
+      GroceryPool.releaseByCartId(String(slotIndex));
+    },
+    getWorld: () => world,
+    getBoothColliderHandles: () => boothColliderHandles,
+  };
+
+  const hostSimCallbacks = {
+    getAxis: Input.getAxis,
+    getAiAxis,
+    playCollision: (_intensity, _opts) => AudioManager.playCartCrash(),
+    spawnTrashBurst: spawnTrashBurstRef,
+    onLocalRamImpact: triggerLocalRamShake,
+    onBoostRelease,
+    onBoostCancel,
+    onSpill: (cart) => {
+      const pos = cart.body.translation();
+      const quat = cart.body.rotation();
+      const vel = cart.body.linvel();
+      const cargoBay = cart.cargoBay;
+      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, 6, cargoBay);
+      GroceryPool.hideCargoBay(cart);
+      triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay);
+    },
+    get partySocket() { return Netcode.getPartySocket(); },
+    get recordColliderHandles() { return recordColliderHandles; },
+    get pitWallColliderHandle() { return pitWallColliderHandle; },
+    get boothColliderHandles() { return boothColliderHandles; },
+    playFloorImpact: () => AudioManager.playSfx("floor"),
+    playEdgeImpact: () => AudioManager.playSfx("floor"),
+    resolveCartForConn: (connId) => {
+      const idx = Netcode.strictSlotIndexForConn(connId);
+      return idx >= 0 ? allCartsRef[idx] : null;
+    },
+  };
+
+  const clientSimCallbacks = {
+    ...hostSimCallbacks,
+    getAiAxis: null,
+    onSpill: (cart) => {
+      const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      // * Non-host client only predicts tip-over spills for own local cart;
+      // * remote cart & NPC spills are driven authoritatively by host MSG.spill broadcast.
+      if (cart?.slotIndex !== localSlot) return;
+      hostSimCallbacks.onSpill(cart);
+    },
+  };
+
+  const physicsDeps = {
+    ...sharedLoopGetters,
+    get world() { return world; },
+    get eventQueue() { return eventQueue; },
+    getAllCartsRef: () => allCartsRef,
+    getLocalCart: localCartForConnId,
+    shouldUseClientPrediction: () => Netcode.shouldUseClientPrediction(),
+    ...gameCtx.getSlowMoDeps(),
+    getSkipNextPhysicsStep: () => Netcode.getSkipNextPhysicsStep(),
+    setSkipNextPhysicsStep: (skip) => Netcode.setSkipNextPhysicsStep(skip),
+    getRemoteInputsByConnId: () => Netcode.getRemoteInputsByConnId(),
+    getHostMigrationFreezeUntilMs: () => Netcode.getHostMigrationFreezeUntilMs(),
+    updateRemoteCartNetTargets: (idx) => Netcode.updateRemoteCartNetTargets(idx),
+    syncRemoteCartBodiesForPrediction: (idx) => Netcode.syncRemoteCartBodiesForPrediction(idx),
+    sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
+    runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
+    getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),
+    getPendingInputs: () => Netcode.getPendingInputs(),
+    prunePendingInputs: (ackSeq) => Netcode.prunePendingInputs(ackSeq),
+    getLatestSnap: () => Netcode.getLatestSnap(),
+    applySnapshotToCartBody: (cart, snap) => Netcode.applySnapshotToCartBody(cart, snap),
+    doRespawn: Entities.doRespawn,
+    netcode: Netcode,
+  };
+
+  gameCtx.attachDeps({
+    visual: visualDeps,
+    gameFlow: gameFlowDeps,
+    physics: physicsDeps,
+  });
+
+  runGameLoop(gameCtx.loopState, {
+    shouldSkipTiming: () => menuVisible,
+    onFrame(frameCtx) {
+    gameCtx.setFrameCtx(frameCtx);
+    const isUiActive = menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium";
+    setGamepadUiMode(isUiActive);
+    setGamepadNavActive(isUiActive);
+    const { now, loopState } = frameCtx;
+    const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
+
+    if (isLevelSwapping()) {
+      frameCtx.dt = dt;
+      return;
+    }
+
+    if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
+      fxPass.uniforms.uTime.value = fxTimer.getElapsed();
+    }
+
+    if (loopState.simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
+      recordVersusPlayerFrame30Logged = true;
+    }
+
+    // Visual-only record rotation.
+    if (recordMesh) {
+      recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
+    }
+
+    const offset = Netcode.getServerClockOffsetMs();
+    const syncedNow = (offset && !Number.isNaN(offset)) ? (now - offset) : now;
+
+    /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);
+    levelUpdate?.(syncedNow);
+
+    if (raveVisualsInitialized) {
+      Effects.updateStageLights(syncedNow);
+      Effects.updateLasers(syncedNow);
+      Effects.updateCrowd(syncedNow);
+      Effects.updateStageLed(syncedNow);
+      Effects.updateBillboard(syncedNow);
+    }
+
+    // * Spindle/rims driven by arenaReactiveLights inside Classic Record levelUpdate.
+
+    // Record label color cycle (5 colors, ~2s each, ~10s full loop).
+    // * Sole leader leans the vinyl label toward their color (crown-jewel read).
+    if (recordLabelMat) {
+      const segMs = 2000;
+      const idx = Math.floor(now / segMs) % recordLabelCycleColors.length;
+      const nextIdx = (idx + 1) % recordLabelCycleColors.length;
+      const f = (now % segMs) / segMs;
+      recordLabelMat.color
+        .copy(recordLabelCycleColors[idx])
+        .lerp(recordLabelCycleColors[nextIdx], f);
+      const reactive = sampleArenaReactive(syncedNow);
+      if (reactive.hasLeader || reactive.koT > 0) {
+        recordLabelMat.color.lerp(reactive.accentColor, reactive.hasLeader ? 0.55 : 0.35 * reactive.koT);
+      }
+    }
+
+    // * Booth neon pulse — intensity only. Hue stays on the per-booth materials so
+    // * pink/green/cyan/orange spawn corners stay readable as four distinct booths.
+    if (boothNeonMeshes && boothNeonMeshes.length > 0) {
+      boothNeonMatsSeen.clear();
+      const pulseHz = CONFIG.booth.neonCycleSpeed;
+      const nowSec = syncedNow * 0.001;
+      for (const mesh of boothNeonMeshes) {
+        const mat = mesh.material;
+        if (!mat || boothNeonMatsSeen.has(mat)) continue;
+        boothNeonMatsSeen.add(mat);
+        const base = typeof mat.userData?.baseEmissiveIntensity === "number"
+          ? mat.userData.baseEmissiveIntensity
+          : (typeof mat.emissiveIntensity === "number" ? mat.emissiveIntensity : 1.5);
+        const phase = typeof mat.userData?.neonPulsePhase === "number"
+          ? mat.userData.neonPulsePhase
+          : 0;
+        // * ~0.72× → 1.28× of base — readable breathe without washing the floor.
+        const wave = Math.sin(nowSec * Math.PI * 2 * pulseHz + phase);
+        if (typeof mat.emissiveIntensity === "number") {
+          mat.emissiveIntensity = base * (1 + 0.28 * wave);
+        }
+      }
+    }
+
+    updateGameFlow(gameCtx.deps.gameFlow, gameCtx.makePhaseContext(dt));
+
+    const physicsStep = runPhysicsStep(gameCtx.loopState, gameCtx.deps.physics, { now, dt });
+    frameCtx.physicsAlpha = physicsStep.alpha;
+
+    const localCart = localCartForConnId();
+
+    // * Cinematic modes always win over death/follow. Countdown used to be nested
+    // * under `localCart?.body`, so pregame fly-overs silently failed when the local
+    // * cart was missing or still mid-shatter. Podium is the same exclusivity rule.
+    const camMode = CameraMod.getCameraMode(camera);
+    if (camMode === CameraMod.CameraMode.CINEMATIC_PODIUM) {
+      CameraMod.setCinematicPodiumTarget(camera, getWinnerWorldPos());
+      CameraMod.updateCinematicPodium(camera, dt);
+    } else if (camMode === CameraMod.CameraMode.CINEMATIC_COUNTDOWN) {
+      CameraMod.updateCinematicCountdown(camera, dt);
+    } else if (localCart?.isShattering) {
+      if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.DEATH) {
+        const deathPos = localCart._shatterDeathPos;
+        if (deathPos) {
+          CameraMod.beginDeathCamera(camera, deathPos);
+        }
+      }
+      CameraMod.updateDeathCamera(camera, dt);
+    } else if (localCart?.isSuddenDeathSpectator) {
+      // * Spectator camera: local cart was knocked out during Sudden Death.
+      // * Follow a tied cart (prefer human if available) so the player can watch the 1v1.
+      if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
+        CameraMod.endDeathCamera(camera);
+      }
+      const allCartsArr = allCartsRef || [];
+      let spectatorTarget = null;
+      for (const c of allCartsArr) {
+        if (c?.body && !c.isSuddenDeathSpectator && !c.isShattering) {
+          spectatorTarget = c;
+          break;
+        }
+      }
+      if (spectatorTarget) {
+        const playerPos = spectatorTarget.body.translation();
+        const playerRot = spectatorTarget.body.rotation();
+        CameraMod.updateCamera(camera, spectatorTarget, dt, playerPos, playerRot, world);
+      }
+    } else if (localCart?.body) {
+      if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
+        CameraMod.endDeathCamera(camera);
+      }
+      const playerPos = localCart.body.translation();
+      const playerRot = localCart.body.rotation();
+      CameraMod.updateCamera(
+        camera,
+        localCart,
+        dt,
+        playerPos,
+        playerRot,
+        world,
+      );
+    }
+
+    frameCtx.dt = dt;
+    },
+    onVisualUpdate(frameCtx) {
+      // * Skip visual update during level swap / quality rebuild — carts are
+      // * being torn down and rebuilt; touching null bodies would crash.
+      if (isLevelSwapping()) return;
+      gameCtx.setFrameCtx(frameCtx);
+      updateVisualsAndEffects(gameCtx.deps.visual, gameCtx.frameCtx);
+    },
+  });
+
+  // * Register bridge functions for cart-rave-menu.js to toggle GFX/quality live.
+  registerGraphicsToggleHandlers({
+    togglePostFx: (next) => {
+      bloomEnabled = next;
+      fxPassEnabled = next;
+      settingsStore.getState().setBloomEnabled(next);
+      settingsStore.getState().setFxPassEnabled(next);
+      // * Isolation A/C keep bloom forced off regardless of menu toggle.
+      if (bloomPass) bloomPass.enabled = next && isolationAllowsBloom();
+      if (arcadePass) arcadePass.enabled = next;
+      if (fxPass) fxPass.enabled = next;
+    },
+    toggleLowQuality: handleLowQualityToggle,
+  });
+
+  window.addEventListener("resize", updateViewport);
+  // * DPR / multi-monitor moves don't always fire resize — keep composer RT in sync.
+  window.addEventListener("orientationchange", updateViewport);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateViewport);
+  }
+  // * Recover from GPU resets that leave the composer painting pure black.
+  canvas.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+  });
+  canvas.addEventListener("webglcontextrestored", () => {
+    try {
+      updateViewport();
+    } catch (err) {
+      console.warn("[webgl] context restored but viewport rebuild failed:", err);
+    }
+  });
+  enableModeMenuButtons();
+  window.__cartRaveMainReady = true;
+  window.__cartRaveBootstrapped = true;
+  window.__cartRaveCancelBootError?.();
+  document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
+
+  // * Idle warm: after menu is up, load Rapier + selected level in the background so
+  // * first Solo/Quickplay skips the cold arena stack. Idempotent with enterPlayMode.
+  // * Delay so menu music + cart Draco keep first dibs on bandwidth; skip when tab hidden.
+  scheduleIdleWorldWarm();
+}
+
+/**
+ * Preheats physics + default arena while the player sits on the main menu.
+ * No-ops if play already started, world is warm, or the tab is backgrounded.
+ */
+function scheduleIdleWorldWarm() {
+  /** @type {number} ms — let menu music / first paint settle before WASM + arena work. */
+  const IDLE_WARM_DELAY_MS = 1800;
+
+  const runWarm = () => {
+    if (!menuVisible) return;
+    if (isWorldBootstrapped()) return;
+    void ensureWorldBootstrapped()
+      .then(() => {
+        if (import.meta.env.DEV && menuVisible) {
+          // eslint-disable-next-line no-console
+          console.log("[bootstrap] idle world warm done (menu still open)");
+        }
+        // * Level previews only run once the world exists — nudge picker if needed.
+        if (menuVisible) scheduleMenuLevelPreview();
+      })
+      .catch((err) => {
+        console.warn("[bootstrap] idle world warm failed:", err);
+      });
+  };
+
+  const kick = () => {
+    if (document.hidden) {
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (!document.hidden) scheduleIdleWorldWarm();
+        },
+        { once: true },
+      );
+      return;
+    }
+    const start = () => {
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(runWarm, { timeout: 4000 });
+      } else {
+        setTimeout(runWarm, 0);
+      }
+    };
+    setTimeout(start, IDLE_WARM_DELAY_MS);
+  };
+
+  kick();
+}
+
+bootstrapNetcodeEntryFromUrl();
+main().catch((err) => {
+  console.error("[CartRave] bootstrap failed:", err);
+  dismissAllLoadingOverlays();
+  if (typeof window.__cartRaveShowBootError === "function") {
+    window.__cartRaveCancelBootError?.();
+    window.__cartRaveShowBootError(
+      err && err.message ? err.message : "Game bootstrap failed. Hard refresh or restart dev server.",
+    );
+  }
+});
