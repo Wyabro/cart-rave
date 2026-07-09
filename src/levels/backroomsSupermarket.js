@@ -156,7 +156,9 @@ function buildCarpetTexture() {
       const lightTile = (tx + ty) % 2 === 0;
 
       // Quarter-turn checkerboard: ±4% lightness between neighbouring tiles.
-      ctx.fillStyle = lightTile ? "#a09367" : "#94885c";
+      // * Kept deliberately dark — the ceiling spots + bloom made brighter tiles read
+      // * as a glowing floor at close range.
+      ctx.fillStyle = lightTile ? "#8f8459" : "#847955";
       ctx.fillRect(x0, y0, tile, tile);
 
       // Directional fiber combing — short dashes along the tile's pile direction
@@ -176,8 +178,8 @@ function buildCarpetTexture() {
         x0, y0,
         lightTile ? x0 + tile : x0, lightTile ? y0 : y0 + tile,
       );
-      grad.addColorStop(0, "rgba(35,30,18,0.05)");
-      grad.addColorStop(1, "rgba(255,250,230,0.03)");
+      grad.addColorStop(0, "rgba(35,30,18,0.06)");
+      grad.addColorStop(1, "rgba(255,250,230,0.015)");
       ctx.fillStyle = grad;
       ctx.fillRect(x0, y0, tile, tile);
     }
@@ -209,7 +211,7 @@ function buildCarpetTexture() {
     ctx.fillStyle = "rgba(40,34,22,0.4)";
     ctx.fillRect(p === size - 1 ? size - 2 : p, 0, 1.5, size);
     ctx.fillRect(0, p === size - 1 ? size - 2 : p, size, 1.5);
-    ctx.fillStyle = "rgba(235,225,190,0.10)";
+    ctx.fillStyle = "rgba(235,225,190,0.05)";
     ctx.fillRect((p === size - 1 ? size - 2 : p) + 1.5, 0, 1, size);
     ctx.fillRect(0, (p === size - 1 ? size - 2 : p) + 1.5, size, 1);
   }
@@ -670,12 +672,21 @@ export function getFloorSurfaceY(x, z) {
 function getChamferDarkenFactor(x, z) {
   let darken = 0;
 
+  // Soft worn-dark approach rings widen the hazard read beyond the sharp chamfer band —
+  // voids and the floor edge announce themselves from a distance instead of appearing
+  // as an abrupt line.
+  const HOLE_APPROACH_W = 2.6; // meters — from the void lip
+  const EDGE_APPROACH_W = 3.4; // meters — from the floor edge
+
   for (const h of HOLE_CENTERS) {
     const d = distToSquareHole(x, z, h.x, h.z);
     if (d <= HOLE_HALF) return 1;
     if (d < HOLE_HALF + HOLE_CHAMFER_W) {
       const t = 1 - (d - HOLE_HALF) / HOLE_CHAMFER_W;
       darken = Math.max(darken, t);
+    } else if (d < HOLE_HALF + HOLE_APPROACH_W) {
+      const t = 1 - (d - HOLE_HALF - HOLE_CHAMFER_W) / (HOLE_APPROACH_W - HOLE_CHAMFER_W);
+      darken = Math.max(darken, 0.28 * smooth01(t));
     }
   }
 
@@ -683,6 +694,9 @@ function getChamferDarkenFactor(x, z) {
   if (edgeDist < OUTER_CHAMFER_W) {
     const t = 1 - Math.max(0, edgeDist) / OUTER_CHAMFER_W;
     darken = Math.max(darken, t);
+  } else if (edgeDist < EDGE_APPROACH_W) {
+    const t = 1 - (edgeDist - OUTER_CHAMFER_W) / (EDGE_APPROACH_W - OUTER_CHAMFER_W);
+    darken = Math.max(darken, 0.3 * smooth01(t));
   }
 
   return darken;
@@ -798,18 +812,33 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
   const colors = new Float32Array(verts * verts * 3);
   const inVoid = new Uint8Array(verts * verts);
 
-  // Warm carpet tint lerped toward worn concrete at hazard lips.
-  const baseR = 0.96;
-  const baseG = 0.91;
-  const baseB = 0.78;
+  // Warm carpet tint lerped toward worn concrete at hazard lips. Kept below 0.9 so the
+  // lit floor stays clearly dimmer than cart neon (no "glowing carpet" at close range).
+  const baseR = 0.88;
+  const baseG = 0.83;
+  const baseB = 0.70;
   const lipR = 0.22;
   const lipG = 0.19;
   const lipB = 0.14;
 
   for (let j = 0; j <= cells; j += 1) {
-    const z = -ARENA_HALF + j * step;
+    const gz = -ARENA_HALF + j * step;
     for (let i = 0; i <= cells; i += 1) {
-      const x = -ARENA_HALF + i * step;
+      const gx = -ARENA_HALF + i * step;
+      // * Snap vertices near a void boundary onto the exact hole edge (uniform Chebyshev
+      // * scaling maps a point onto the square) so the opening is a crisp 8.5m square
+      // * instead of a ragged grid-step outline with black bleeding past it.
+      let x = gx;
+      let z = gz;
+      for (const h of HOLE_CENTERS) {
+        const d = distToSquareHole(gx, gz, h.x, h.z);
+        if (d > 0.001 && Math.abs(d - HOLE_HALF) < step * 0.75) {
+          const k = (HOLE_HALF + 0.001) / d;
+          x = h.x + (gx - h.x) * k;
+          z = h.z + (gz - h.z) * k;
+          break;
+        }
+      }
       const idx = j * verts + i;
       const surfaceY = getFloorSurfaceY(x, z);
       inVoid[idx] = surfaceY === null ? 1 : 0;
@@ -1018,7 +1047,9 @@ function buildFallContainment(world) {
   const wallTopY = -1.0; // below the chamfer lip bottom
   const wallHalfY = (wallTopY - PIT_FLOOR_Y) / 2;
   const wallMidY = (wallTopY + PIT_FLOOR_Y) / 2;
-  const shaftHalf = HOLE_HALF + 0.75;
+  // * Inner faces flush with the true hole edge — the visual shaft now hugs the opening
+  // * (half ≈ 4.3), so ricochets must stay inside it or falling carts clip the walls.
+  const shaftHalf = HOLE_HALF;
   const t = 0.3;
   for (const h of HOLE_CENTERS) {
     const faces = [
@@ -1063,14 +1094,15 @@ function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
   const group = new THREE.Group();
   const geometries = [];
 
-  // Shaft slightly larger than the ragged opening so no side gap shows through.
-  // * Use play grid step so preview LOD does not shrink/expand void shafts.
-  const floorStepPlay = (ARENA_HALF * 2) / FLOOR_GRID_CELLS_PLAY;
-  const shaftOuter = HOLE_SIZE + floorStepPlay * 2 + 0.6;
+  // Shaft hugs the opening: floor vertices snap onto the exact hole square (see
+  // buildFloorGeometry), so the shaft only needs a small margin — and its top tucks
+  // below the chamfer lip so black never bleeds over the carpet at grazing angles.
+  const shaftOuter = HOLE_SIZE + 0.1;
+  const shaftTopY = FLOOR_BOTTOM_Y + 0.01;
   const shaftGeo = new THREE.BoxGeometry(shaftOuter, HOLE_DEPTH, shaftOuter);
   geometries.push(shaftGeo);
   const shaft = new THREE.Mesh(shaftGeo, shaftMat);
-  shaft.position.set(cx, FLOOR_TOP_Y - HOLE_DEPTH / 2 + 0.05, cz);
+  shaft.position.set(cx, shaftTopY - HOLE_DEPTH / 2, cz);
   group.add(shaft);
 
   // --- The room below: dim carpet, one failing fluorescent, dark shapes. Identical in
@@ -1152,7 +1184,9 @@ function buildPit() {
 
   // Vertical inner cliff below the carpet chamfer lip + outer skirt at the perimeter wall.
   // Slopes are rendered by the floor trimesh; only the drop below the lip is duplicated here.
-  const cliffTop = FLOOR_BOTTOM_Y - 0.08;
+  // * Flush with the lip bottom — the old 0.08 gap showed a sliver of pit floor
+  // * through the seam at grazing angles.
+  const cliffTop = FLOOR_BOTTOM_Y;
   const cliffHeight = cliffTop - PIT_FLOOR_Y;
   const cliffMidY = (cliffTop + PIT_FLOOR_Y) / 2;
   const cliffGeo = new THREE.BoxGeometry(1, cliffHeight, skirtThickness);
@@ -1995,49 +2029,72 @@ function buildWalls(scene, world, wallpaperTex) {
 // ===== Pit-ring dressing (the store continues, abandoned) =====
 
 /**
- * Fills the fog-readable band of the surrounding pit (just past the floor edge) with
- * abandoned-storage silhouettes: repeating shelf-gondola rows receding into the fog,
- * shrink-wrapped pallet clumps, and exactly one dead checkout lane in one corner — the
- * 90/10 rule: machine-repeated dressing with a single human anomaly. Everything is
- * non-colliding (carts KO in the pit long before reaching it), vertex-color faded to
- * black below the lip via pushFadeBox, and merged into ONE draw call.
+ * Fills the fog-readable band of the surrounding pit (just past the floor edge) with a
+ * sparse set of abandoned-storage silhouettes: one shelf-gondola row per side receding
+ * into the fog, two shrink-wrapped pallet clumps, and exactly one dead checkout lane —
+ * the 90/10 rule: machine-repeated dressing with a single human anomaly. Every
+ * silhouette is backed by a cuboid collider (launched carts hit them instead of
+ * ghosting through), vertex-color faded to black below the lip via pushFadeBox, and
+ * merged into ONE draw call.
  *
  * @param {THREE.Scene} scene
- * @returns {{ group: THREE.Group, ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[] }}
+ * @param {import("@dimforge/rapier3d").World} world
+ * @returns {{
+ *   group: THREE.Group,
+ *   bodies: object[],
+ *   ownedGeometries: THREE.BufferGeometry[],
+ *   ownedMaterials: THREE.Material[],
+ * }}
  */
-function buildPitRingDressing(scene) {
+function buildPitRingDressing(scene, world) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
   const group = new THREE.Group();
   /** @type {THREE.BufferGeometry[]} */
   const parts = [];
 
-  const OUT = 43; // meters — band center: past the floor edge (38), well inside the walls (56)
+  const OUT = 45.5; // meters — band center: pushed back from the floor edge (38), inside the walls (56)
   const BOTTOM = -16; // meters — silhouettes fade to near-black by here, melting into the pit
-  const gondolaRgb = /** @type {[number, number, number]} */ ([0.30, 0.29, 0.26]);
-  const palletRgb = /** @type {[number, number, number]} */ ([0.30, 0.33, 0.38]);
-  const checkoutRgb = /** @type {[number, number, number]} */ ([0.24, 0.23, 0.21]);
-  const registerRgb = /** @type {[number, number, number]} */ ([0.55, 0.50, 0.40]);
+  // True silhouettes — dark enough that they read as shapes in the fog, not lit walls.
+  const gondolaRgb = /** @type {[number, number, number]} */ ([0.17, 0.165, 0.15]);
+  const palletRgb = /** @type {[number, number, number]} */ ([0.20, 0.22, 0.26]);
+  const checkoutRgb = /** @type {[number, number, number]} */ ([0.15, 0.145, 0.135]);
+  const registerRgb = /** @type {[number, number, number]} */ ([0.40, 0.36, 0.29]);
+
+  // Colliders for every silhouette — a launched cart hits them instead of ghosting
+  // through. One fixed body; cuboids reach down to the pit so nothing can slip under.
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
+  const addCollider = (hx, topY, hz, px, pz) => {
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(hx, (topY - PIT_FLOOR_Y) / 2, hz)
+        .setTranslation(px, (topY + PIT_FLOOR_Y) / 2, pz)
+        .setFriction(0.4)
+        .setRestitution(0.3),
+      body,
+    );
+  };
 
   for (let side = 0; side < 4; side += 1) {
     const { toWorld, alongIsX } = wallFrame(side);
     const o = OUT - WALL_HALF; // negative — toward the room center
     const dim = (along, radial) => (alongIsX ? [along, radial] : [radial, along]);
 
-    // Shelf-gondola rows, long axis radial (receding into the fog), evenly repeated.
-    for (const a of [-26, -4, 18]) {
+    // One shelf-gondola row per side, long axis radial (receding into the fog).
+    {
       const [sx, sz] = dim(1.15, 9);
-      const topY = 2.4;
-      const [px, , pz] = toWorld(a, 0, o);
+      const topY = 2.0;
+      const [px, , pz] = toWorld(-4, 0, o);
       pushFadeBox(parts, sx, topY - BOTTOM, sz, px, (topY + BOTTOM) / 2, pz, unitBox, gondolaRgb);
+      addCollider(sx / 2, topY, sz / 2, px, pz);
     }
 
-    // Pallet clump (skipped on side 1 — the checkout lane takes its spot).
-    if (side !== 1) {
+    // Pallet clumps on two sides only; the checkout lane owns side 1.
+    if (side === 0 || side === 2) {
       const [px, , pz] = toWorld(30, 0, o);
       const [s1x, s1z] = dim(1.25, 1.25);
       pushFadeBox(parts, s1x, 1.3 - BOTTOM, s1z, px, (1.3 + BOTTOM) / 2, pz, unitBox, palletRgb);
       const [s2x, s2z] = dim(1.1, 1.1);
       pushFadeBox(parts, s2x, 1.1, s2z, px, 1.3 + 0.55, pz, unitBox, palletRgb);
+      addCollider(s1x / 2, 2.4, s1z / 2, px, pz);
     }
   }
 
@@ -2050,13 +2107,14 @@ function buildPitRingDressing(scene) {
     pushFadeBox(parts, 3.2, 0.95 - BOTTOM, 0.8, cx, (0.95 + BOTTOM) / 2, cz, unitBox, checkoutRgb);
     // Register on one end of the belt.
     pushFadeBox(parts, 0.6, 0.55, 0.6, cx - 1.2, 0.95 + 0.28, cz, unitBox, registerRgb);
+    addCollider(1.6, 1.5, 0.4, cx, cz);
     // Slumped queue stanchion leaning against the conveyor.
     const stanchion = unitBox.clone();
     stanchion.scale(0.08, 1.1, 0.08);
     stanchion.rotateZ(0.55);
     stanchion.translate(cx + 1.9, 0.45, cz + 0.3);
     const stanchionColors = new Float32Array(stanchion.attributes.position.count * 3);
-    stanchionColors.fill(0.25);
+    stanchionColors.fill(0.18);
     stanchion.setAttribute("color", new THREE.BufferAttribute(stanchionColors, 3));
     parts.push(stanchion);
   }
@@ -2071,7 +2129,7 @@ function buildPitRingDressing(scene) {
   group.add(new THREE.Mesh(merged, mat));
 
   scene.add(group);
-  return { group, ownedGeometries: [merged], ownedMaterials: [mat] };
+  return { group, bodies: [body], ownedGeometries: [merged], ownedMaterials: [mat] };
 }
 
 // ===== Quiet uncanny details (EXIT to nowhere, stopped clock, painted arrows) =====
@@ -2839,7 +2897,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     // * Same canvas reused as a bump map — fiber dashes/seams catch the ceiling
     // * spotlights so the pile reads as texture, not paint. Near-free.
     bumpMap: carpetTex,
-    bumpScale: 0.02,
+    bumpScale: 0.015,
     color: 0xffffff,
     roughness: 0.98,
     metalness: 0.0,
@@ -2920,7 +2978,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const ceiling = buildCeiling(scene, world, ceilingTex);
 
   // ===== Atmosphere dressing (all non-colliding, merged, zero new dynamic lights) =====
-  const pitDressing = buildPitRingDressing(scene);
+  const pitDressing = buildPitRingDressing(scene, world);
   const uncanny = buildUncannyDetails(scene, world);
   const doorways = buildDoorways(scene, wallpaperTex);
 
@@ -3058,6 +3116,11 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     }
     if (world && uncanny.bodies) {
       for (const body of uncanny.bodies) {
+        if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
+      }
+    }
+    if (world && pitDressing.bodies) {
+      for (const body of pitDressing.bodies) {
         if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
       }
     }
