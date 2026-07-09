@@ -2,6 +2,8 @@
 
 import { resetCartTransientState } from "./entities.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
+import { UnlockTracker } from "./stores/unlockStore.js";
+import { getCurrentLevelId } from "./levelManager.js";
 import { buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 
@@ -334,6 +336,8 @@ export function updateGameFlow(deps, context) {
               onAnnouncerFall: deps.onAnnouncerFall,
               onLocalKillConfirm: deps.onLocalKillConfirm,
               recordChallenge: ChallengeTracker.record,
+              getLevelId: () => getCurrentLevelId(),
+              recordKillOnLevel: UnlockTracker.recordKillOnLevel,
             });
 
             deps.getLastHitBy().delete(slotIndex);

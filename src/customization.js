@@ -30,6 +30,7 @@ import {
 } from "./cartThemeConfig.js";
 
 import { STORAGE_KEYS, storageGetJson, storageSetJson } from "./utils/storage.js";
+import { clampCustomizationToUnlocks } from "./stores/unlockStore.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const CUSTOMIZE_STORAGE_KEY = STORAGE_KEYS.customization;
@@ -315,7 +316,7 @@ export function loadPlayerCustomization() {
   const raw = storageGetJson(CUSTOMIZE_STORAGE_KEY, null);
   if (raw) {
     try {
-      loaded = normalizeCustomization(raw);
+      loaded = normalizeCustomization(clampCustomizationToUnlocks(raw));
     } catch {}
   }
 
@@ -323,6 +324,9 @@ export function loadPlayerCustomization() {
     // * First visit: seed canonical key so menu and game share one write path.
     loaded = getDefaultCustomization();
     writeCustomizationToStorage(loaded);
+  } else {
+    // * Re-normalize after unlock clamp so hex/css stay consistent.
+    loaded = normalizeCustomization(clampCustomizationToUnlocks(loaded));
   }
 
   cachedCustomization = loaded;
@@ -349,11 +353,17 @@ export function wireCustomizationStorageSync() {
  */
 export function savePlayerCustomization(input) {
   const current = loadPlayerCustomization();
-  const colorMode = input.colorMode === "custom" ? "custom" : "preset";
+  let colorMode = input.colorMode === "custom" ? "custom" : "preset";
   let color = input.color ?? current.color;
   let customHue = input.customHue ?? current.customHue;
-  const pattern = normalizePatternId(input.pattern ?? current.pattern);
-  const sunglassesStyle = normalizeSunglassesStyleId(input.sunglassesStyle ?? current.sunglassesStyle);
+  let pattern = normalizePatternId(input.pattern ?? current.pattern);
+  let sunglassesStyle = normalizeSunglassesStyleId(input.sunglassesStyle ?? current.sunglassesStyle);
+
+  // * Reject locked cosmetics (menu should not offer them; belt-and-suspenders).
+  const clamped = clampCustomizationToUnlocks({ colorMode, pattern, sunglassesStyle });
+  colorMode = clamped.colorMode === "custom" ? "custom" : "preset";
+  pattern = normalizePatternId(clamped.pattern);
+  sunglassesStyle = normalizeSunglassesStyleId(clamped.sunglassesStyle);
 
   if (colorMode === "custom") {
     color = CUSTOM_COLOR_ID;

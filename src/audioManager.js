@@ -38,6 +38,15 @@ let gameMusicTracks = [];
 let pendingGamePlaylistUrls = null;
 let currentGameTrackIdx = -1;
 let gameMusicPlaying = false;
+/** True while document is hidden — music paused, Howler + THREE listener silenced. */
+let _tabHidden = typeof document !== "undefined" ? document.hidden : false;
+/** Resume menu music on focus if it was playing (or requested) when we hid. */
+let _resumeMenuOnVisible = false;
+/** Resume game music on focus if a track was playing when we hid. */
+let _resumeGameOnVisible = false;
+/** Optional THREE.AudioListener for procedural SFX mute while tabbed away. */
+/** @type {(() => { setMasterVolume?: (v: number) => void } | null) | null} */
+let _getAudioListener = null;
 /** @type {Record<string, Howl>} */
 const sfxRegistry = {};
 
@@ -84,8 +93,9 @@ function installDevMusicGate() {
  * Sets the shared AudioContext for Howler and applies initial volume.
  * Must be called after THREE.AudioListener is created (before any Howl instantiation).
  * @param {AudioContext} audioContext
+ * @param {{ getAudioListener?: () => { setMasterVolume?: (v: number) => void } | null }} [opts]
  */
-export function initAudioManager(audioContext) {
+export function initAudioManager(audioContext, opts = {}) {
   Howler.ctx = audioContext;
   // * Manually wire masterGain — Howler's setupAudioContext() only fires
   // * when !Howler.ctx, but we pre-seed ctx to share THREE's AudioContext.
@@ -103,21 +113,88 @@ export function initAudioManager(audioContext) {
   }
   Howler.autoUnlock = true;
   installDevMusicGate();
+  if (opts.getAudioListener) _getAudioListener = opts.getAudioListener;
+  installPageVisibilityAudioGuard();
   applyAllVolumes();
 
   // * Autoplay policy workaround: if menu music was requested before the AudioContext
   // * was running (e.g. first page load), re-trigger play when the context resumes.
   audioContext.addEventListener("statechange", () => {
-    if (audioContext.state === "running" && _menuMusicShouldPlay && menuMusic && !menuMusic.playing()) {
+    if (
+      audioContext.state === "running"
+      && !_tabHidden
+      && _menuMusicShouldPlay
+      && menuMusic
+      && !menuMusic.playing()
+    ) {
       menuMusic.play();
     }
   });
+}
+
+/**
+ * Pause/silence audio while the tab is hidden; resume on focus without touching user mute.
+ * Does not write localStorage — user mute preference is separate.
+ */
+function installPageVisibilityAudioGuard() {
+  if (typeof document === "undefined") return;
+
+  const applyTabAudioState = () => {
+    _tabHidden = document.hidden;
+
+    if (_tabHidden) {
+      // * Remember intent even if decode hadn't started playing yet.
+      _resumeMenuOnVisible = Boolean(_menuMusicShouldPlay && menuMusic);
+      if (menuMusic?.playing()) {
+        try { menuMusic.pause(); } catch { /* ignore */ }
+      }
+
+      const track = gameMusicTracks[currentGameTrackIdx];
+      _resumeGameOnVisible = Boolean(gameMusicPlaying && track);
+      if (track?.playing()) {
+        try { track.pause(); } catch { /* ignore */ }
+      }
+
+      // * Mute all Howler output (SFX pools included) without changing per-sound user volumes.
+      try { Howler.mute(true); } catch { /* ignore */ }
+      try {
+        _getAudioListener?.()?.setMasterVolume?.(0);
+      } catch { /* ignore */ }
+      return;
+    }
+
+    // * Visible again — restore user mute/volume intent.
+    try { Howler.mute(false); } catch { /* ignore */ }
+    applyAllVolumes();
+    try {
+      const listener = _getAudioListener?.();
+      listener?.setMasterVolume?.(_isMuted ? 0 : _sfxVol);
+    } catch { /* ignore */ }
+
+    if (_resumeMenuOnVisible && _menuMusicShouldPlay && menuMusic && devMusicGate && !menuMusic.playing()) {
+      try { menuMusic.play(); } catch { /* ignore */ }
+    }
+    _resumeMenuOnVisible = false;
+
+    if (_resumeGameOnVisible && gameMusicPlaying && devMusicGate) {
+      const track = gameMusicTracks[currentGameTrackIdx];
+      if (track && !track.playing()) {
+        try { track.play(); } catch { /* ignore */ }
+      }
+    }
+    _resumeGameOnVisible = false;
+  };
+
+  document.addEventListener("visibilitychange", applyTabAudioState);
+  // * Sync once in case we boot while backgrounded (rare).
+  applyTabAudioState();
 }
 
 // === Volume control ===
 
 function applyAllVolumes() {
   // * Always keep Howler global at 1.0 — music and SFX have independent per-category volumes.
+  // * Tab hide uses Howler.mute(true) separately so we don't fight that here.
   Howler.volume(1);
 
   if (menuMusic) menuMusic.volume(_isMuted ? 0 : _musicVol);
@@ -215,6 +292,10 @@ export function playMenuMusic() {
   _menuMusicShouldPlay = true;
   if (!menuMusic) return;
   if (!devMusicGate) return;
+  if (_tabHidden) {
+    _resumeMenuOnVisible = true;
+    return;
+  }
   if (menuMusic.playing()) return;
   menuMusic.play();
 }
@@ -235,6 +316,10 @@ export function playGameMusic() {
   if (!devMusicGate) return;
   if (currentGameTrackIdx < 0) currentGameTrackIdx = 0;
   gameMusicPlaying = true;
+  if (_tabHidden) {
+    _resumeGameOnVisible = true;
+    return;
+  }
   gameMusicTracks[currentGameTrackIdx]?.play();
 }
 

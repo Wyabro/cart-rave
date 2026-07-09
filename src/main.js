@@ -527,7 +527,10 @@ async function main() {
   });
 
   // * Start music loading immediately via Howler — before scene/composer init blocks the main thread.
-  AudioManager.initAudioManager(audioListener.context);
+  // * Page-visibility guard pauses/silences audio in background tabs (user mute unchanged).
+  AudioManager.initAudioManager(audioListener.context, {
+    getAudioListener: () => audioListener,
+  });
 
   // * Restore saved volume state (loaded from localStorage by audioControls at module scope).
   AudioManager.restoreVolumeState({

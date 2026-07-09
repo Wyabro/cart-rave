@@ -43,6 +43,20 @@ import {
   wireButtonPressFeedback,
   wireHoverFeedback,
 } from "./animations.js";
+import {
+  isCustomColorUnlocked,
+  isLevelUnlocked,
+  isPatternUnlocked,
+  isSunglassesUnlocked,
+  getCustomColorUnlockStatus,
+  getLevelUnlockStatus,
+  getPatternUnlockStatus,
+  getSunglassesUnlockStatus,
+  clampLevelIdToUnlocks,
+  onUnlockGranted,
+  unlockStore,
+} from "./stores/unlockStore.js";
+import { LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
 (function () {
@@ -436,29 +450,55 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   function getSavedLevel() {
     const saved = storageGet(LEVEL_STORAGE_KEY);
     const option = saved && LEVEL_OPTIONS[saved];
-    if (option && option.enabled) return saved;
-    return DEFAULT_LEVEL;
+    if (option && option.enabled && isLevelUnlocked(saved)) return saved;
+    return clampLevelIdToUnlocks(DEFAULT_LEVEL);
   }
 
   function persistLevel(levelId) {
-    state.level = levelId;
-    storageSet(LEVEL_STORAGE_KEY, levelId);
-    window.cartRaveLevel = levelId;
-    settingsStore.getState().setSelectedLevelId(levelId);
+    const safe = clampLevelIdToUnlocks(levelId);
+    state.level = safe;
+    storageSet(LEVEL_STORAGE_KEY, safe);
+    window.cartRaveLevel = safe;
+    settingsStore.getState().setSelectedLevelId(safe);
   }
 
   function updateLevelButtons() {
     if (!levelRow) return;
     levelRow.querySelectorAll('.cr-level-btn').forEach((btn) => {
-      const isActive = btn.dataset.level === state.level;
+      const levelId = btn.dataset.level || "";
+      const unlocked = isLevelUnlocked(levelId);
+      const status = getLevelUnlockStatus(levelId);
+      const isActive = levelId === state.level;
       btn.classList.toggle('active', isActive);
+      btn.classList.toggle('cr-level-btn--locked', !unlocked);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
+      if (!unlocked) {
+        btn.title = `${status.hint} (${status.progress}/${status.goal})`;
+        let lock = btn.querySelector('.cr-unlock-lock');
+        if (!lock) {
+          lock = document.createElement('span');
+          lock.className = 'cr-unlock-lock';
+          lock.setAttribute('aria-hidden', 'true');
+          btn.appendChild(lock);
+        }
+        lock.textContent = `🔒 ${status.progress}/${status.goal}`;
+      } else {
+        btn.querySelector('.cr-unlock-lock')?.remove();
+        const meta = LEVEL_UNLOCKS[levelId];
+        btn.title = meta?.label || levelId;
+      }
     });
   }
 
   function selectLevel(levelId) {
     const option = LEVEL_OPTIONS[levelId];
     if (!option || !option.enabled) return;
+    if (!isLevelUnlocked(levelId)) {
+      const status = getLevelUnlockStatus(levelId);
+      showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+      return;
+    }
     if (levelId === state.level) return;
     persistLevel(levelId);
     updateLevelButtons();
@@ -475,9 +515,28 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     persistLevel(getSavedLevel());
     updateLevelButtons();
     if (!levelRow) return;
-    levelRow.querySelectorAll('.cr-level-btn:not(.cr-level-btn--disabled)').forEach((btn) => {
+    levelRow.querySelectorAll('.cr-level-btn').forEach((btn) => {
       btn.addEventListener('click', () => selectLevel(btn.dataset.level));
     });
+  }
+
+  /** Lightweight toast for lock feedback + unlock grants. */
+  function showUnlockToast(message) {
+    let el = document.getElementById('cr-unlock-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cr-unlock-toast';
+      el.className = 'cr-unlock-toast';
+      el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add('cr-unlock-toast--show');
+    const prev = /** @type {HTMLElement & { _hideTimer?: number }} */ (el);
+    window.clearTimeout(prev._hideTimer);
+    prev._hideTimer = window.setTimeout(() => {
+      el.classList.remove('cr-unlock-toast--show');
+    }, 3200);
   }
 
   /**
@@ -590,16 +649,30 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function updateCustomHueUi() {
     const css = hueToNeonCss(state.customHue);
-    if (customHueWrap) customHueWrap.hidden = state.colorMode !== 'custom';
+    const customUnlocked = isCustomColorUnlocked();
+    // * Slider only when custom is selected and unlocked.
+    if (customHueWrap) {
+      customHueWrap.hidden = state.colorMode !== 'custom' || !customUnlocked;
+    }
     if (customHueSlider) {
       customHueSlider.value = String(state.customHue);
       customHueSlider.style.setProperty('--cr-hue-thumb', css);
+      customHueSlider.disabled = !customUnlocked;
     }
     if (customHueVal) {
       customHueVal.textContent = `${state.customHue}°`;
       customHueVal.style.color = css;
       customHueVal.style.textShadow = `0 0 8px ${css}`;
     }
+  }
+
+  /** Refresh lock chrome after unlock progress / grants. */
+  function refreshUnlockUi() {
+    updateLevelButtons();
+    buildColorChips();
+    buildPatternChips();
+    buildSunglassesChips();
+    updateCustomHueUi();
   }
 
   function selectPresetColor(idx) {
@@ -618,6 +691,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function selectCustomColor() {
     if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
+    if (!isCustomColorUnlocked()) {
+      const status = getCustomColorUnlockStatus();
+      showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+      return;
+    }
     if (state.colorMode === 'custom') return;
     state.colorMode = 'custom';
     saveCustomization({ colorMode: 'custom', customHue: state.customHue });
@@ -673,8 +751,14 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       </button>`;
     });
     const customActive = state.colorMode === 'custom';
-    html += `<button type="button" class="cr-color-chip cr-color-chip--custom ${customActive ? 'active' : ''}" data-kind="custom" style="--cc:${customCss};" role="radio" aria-checked="${customActive}" aria-label="Custom color">
-      <span class="cr-color-chip-custom-label">CUSTOM</span>
+    const customUnlocked = isCustomColorUnlocked();
+    const customStatus = getCustomColorUnlockStatus();
+    const customLockCls = customUnlocked ? '' : ' cr-chip--locked';
+    const customTitle = customUnlocked
+      ? 'Custom color'
+      : `Locked — ${customStatus.hint} (${customStatus.progress}/${customStatus.goal})`;
+    html += `<button type="button" class="cr-color-chip cr-color-chip--custom ${customActive ? 'active' : ''}${customLockCls}" data-kind="custom" style="--cc:${customCss};" role="radio" aria-checked="${customActive}" aria-label="${customTitle}" title="${customTitle}">
+      <span class="cr-color-chip-custom-label">${customUnlocked ? 'CUSTOM' : '🔒'}</span>
     </button>`;
     customizeColorRow.innerHTML = html;
     customizeColorRow.querySelectorAll('.cr-color-chip').forEach(chip => {
@@ -710,10 +794,15 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     let html = '';
     for (const style of SUNGLASSES_STYLES) {
       const isActive = state.sunglassesStyle === style.id;
+      const unlocked = isSunglassesUnlocked(style.id);
+      const status = getSunglassesUnlockStatus(style.id);
       const mirrorCss = previewHexToCss(style.color);
-      html += `<button type="button" class="cr-sunglasses-chip ${isActive ? 'active' : ''}" data-sunglasses="${style.id}" role="radio" aria-checked="${isActive}" aria-label="${style.label}" title="${style.label}" style="--mc:${mirrorCss};">
+      const title = unlocked
+        ? style.label
+        : `Locked — ${status.hint} (${status.progress}/${status.goal})`;
+      html += `<button type="button" class="cr-sunglasses-chip ${isActive ? 'active' : ''}${unlocked ? '' : ' cr-chip--locked'}" data-sunglasses="${style.id}" role="radio" aria-checked="${isActive}" aria-label="${title}" title="${title}" style="--mc:${mirrorCss};">
         <span class="cr-sunglasses-chip-swatch" aria-hidden="true"></span>
-        <span class="cr-sunglasses-chip-label">${style.label}</span>
+        <span class="cr-sunglasses-chip-label">${unlocked ? style.label : `🔒 ${style.label}`}</span>
       </button>`;
     }
     customizeSunglassesRow.innerHTML = html;
@@ -736,6 +825,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
    */
   function selectSunglassesStyle(styleId) {
     if (!SUNGLASSES_STYLES.some((s) => s.id === styleId)) return;
+    if (!isSunglassesUnlocked(styleId)) {
+      const status = getSunglassesUnlockStatus(styleId);
+      showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+      return;
+    }
     if (state.sunglassesStyle === styleId) return;
     saveCustomization({ sunglassesStyle: styleId });
     if (cartPreview) syncCartPreviewLook(true);
@@ -754,10 +848,15 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     let html = '';
     for (const id of CART_PATTERN_IDS) {
       const isActive = state.pattern === id;
+      const unlocked = isPatternUnlocked(id);
+      const status = getPatternUnlockStatus(id);
       const meta = CART_PATTERNS[id] || { label: id, description: id };
-      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}" data-pattern="${id}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${meta.description}">
+      const title = unlocked
+        ? meta.description
+        : `Locked — ${status.hint} (${status.progress}/${status.goal})`;
+      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}${unlocked ? '' : ' cr-chip--locked'}" data-pattern="${id}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${title}">
         ${makePatternMiniCartSvg(id, colorCss)}
-        <span class="cr-pattern-chip-label">${meta.label}</span>
+        <span class="cr-pattern-chip-label">${unlocked ? meta.label : `🔒 ${meta.label}`}</span>
       </button>`;
     }
     customizePatternRow.innerHTML = html;
@@ -780,6 +879,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   function selectPattern(patternId) {
     if (getRoundState().phase === "countdown" || getRoundState().phase === "running") return;
     const id = normalizePatternId(patternId);
+    if (!isPatternUnlocked(id)) {
+      const status = getPatternUnlockStatus(id);
+      showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+      return;
+    }
     if (id === state.pattern) return;
     saveCustomization({ pattern: id });
     buildPatternChips();
@@ -1824,6 +1928,14 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   initHowToScreen();
   initChallengesScreen();
   initSettingsScreen();
+  onUnlockGranted((msg) => {
+    showUnlockToast(msg);
+    refreshUnlockUi();
+  });
+  unlockStore.subscribe(() => {
+    // * Progress labels on locked chips (no toast spam).
+    refreshUnlockUi();
+  });
   if (isTouchDevice()) {
     setInputMode("touch");
   } else {

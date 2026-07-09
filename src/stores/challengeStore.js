@@ -1,6 +1,7 @@
 // challengeStore.js — Vanilla Zustand store for Local Challenge System
 import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGetJson, storageSetJson } from "../utils/storage.js";
+import { UnlockTracker } from "./unlockStore.js";
 
 export const CHALLENGE_POOL = [
   { id: 'spill_15', type: 'daily', title: 'Spill Master', description: 'Cause 15 opponent spills', goal: 15, event: 'spill' },
@@ -130,6 +131,10 @@ export const challengeStore = createStore((set, get) => ({
 challengeStore.getState().checkRotations();
 
 export const ChallengeTracker = {
-  record: (event, amount = 1) => challengeStore.getState().record(event, amount),
+  record: (event, amount = 1) => {
+    challengeStore.getState().record(event, amount);
+    // * Lifetime cosmetic unlocks share the same event ids (permanent goals).
+    UnlockTracker.recordEvent(event, amount);
+  },
   checkRotations: () => challengeStore.getState().checkRotations(),
 };

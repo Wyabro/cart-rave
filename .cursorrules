@@ -7,6 +7,15 @@
 - Do **not** use "Cart Rave" or `next-level` in new user-facing copy or living docs
 - Classic level display name: **CART RAVE** (jam tribute; product is still Cart Clash)
 
+## Progression unlocks (dev)
+
+- **Vite dev unlocks everything by default** (levels, patterns, sunglasses, custom color) so agents are not blocked by gates.
+- Source: `src/stores/unlockStore.js` → `isDevUnlockAll()` · config docs: `src/unlockConfig.js` header.
+- **Test real gates in dev:** `localStorage.cartRaveDevUnlocks = "off"` or `?devUnlocks=off`, then hard refresh. Console: `CartClashDevUnlocks.enableGates()`.
+- **Force unlock:** `CartClashDevUnlocks.enableAll()` or `?devUnlocks=all`.
+- Production never auto-unlocks; do not rely on gates being open in prod builds.
+- Lifetime progress still accumulates under `cartRaveUnlocks` while dev-unlock is on.
+
 ## Stack
 
 - **Runtime**: Cloudflare Workers with Durable Objects (NOT PartyKit — migrated July 2026)

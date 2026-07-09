@@ -16,6 +16,8 @@ import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/bina
 import { rebuildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
+import { UnlockTracker } from "./stores/unlockStore.js";
+import { getCurrentLevelId } from "./levelManager.js";
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
@@ -837,6 +839,8 @@ function processHostFallEvent(msg) {
     onAnnouncerFall: callbacks.onAnnouncerFall,
     onLocalKillConfirm: callbacks.onLocalKillConfirm,
     recordChallenge: ChallengeTracker.record,
+    getLevelId: () => getCurrentLevelId(),
+    recordKillOnLevel: UnlockTracker.recordKillOnLevel,
   });
 
   // * Replay the shatter + explosion VFX on non-host clients so everyone sees the same death pop.

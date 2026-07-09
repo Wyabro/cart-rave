@@ -17,6 +17,8 @@
  * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
  * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
  * @property {(eventId: string, amount?: number) => void} [recordChallenge] Bumps a local challenge counter.
+ * @property {() => string | null | undefined} [getLevelId] Current arena id for level-unlock KO tracking.
+ * @property {(levelId: string, amount?: number) => void} [recordKillOnLevel] Lifetime KOs per level.
  */
 
 /**
@@ -91,6 +93,11 @@ export function challengeReactor(koEvent, ctx) {
   ctx.recordChallenge?.("ko_void");
   if (koEvent.victimKind === "npc") ctx.recordChallenge?.("ko_npc");
   if (koEvent.victimAiName === "aggressor") ctx.recordChallenge?.("ko_aggressor");
+  // * Level-gated unlocks: lifetime KOs credited on the arena where the kill happened.
+  if (typeof ctx.recordKillOnLevel === "function") {
+    const levelId = ctx.getLevelId?.() || null;
+    if (levelId) ctx.recordKillOnLevel(levelId);
+  }
 }
 
 /** Default host-side reactor order: challenges → local confirm → kill feed → announcer. */

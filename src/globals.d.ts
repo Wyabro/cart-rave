@@ -29,6 +29,17 @@ declare global {
     CartRave?: any;
     /** Preferred product API alias of CartRave. */
     CartClash?: any;
+    /**
+     * Dev progression override (unlock all cosmetics/levels).
+     * See `src/unlockConfig.js` and `isDevUnlockAll()` in unlockStore.
+     */
+    CartClashDevUnlocks?: {
+      isActive: () => boolean;
+      enableAll: () => void;
+      enableGates: () => void;
+      clear: () => void;
+      help: () => void;
+    };
     recordMesh?: Three.Mesh;
     exportArenaFloorGLB?: () => void;
     exportPhysicsGeometry?: () => void;
