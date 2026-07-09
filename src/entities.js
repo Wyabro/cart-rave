@@ -234,22 +234,25 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   // * Refresh the material cache — the old one referenced disposed materials.
   cart._materialCache = materialCache;
 
+  // * Drop any pre-shatter cargo bays first — leaving them caused double piles and
+  // * spill hide only clearing the stale ref while groceries stayed visible.
+  GroceryPool.removeCargoBaysFromMesh(cart.mesh);
+
   // * Recreate cargoBay visual inside the basket and update cart.cargoBay ref.
   const cargoParams = getBasketCargoParams(cart.mesh);
   const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
   if (cargoBay) {
     cargoBay.name = "cargoBay";
-    cargoBay.position.set(0, cargoParams.floorY + 0.05, 0);
+    cargoBay.position.set(
+      cargoParams.centerX ?? 0,
+      cargoParams.floorY + 0.02,
+      cargoParams.centerZ ?? 0,
+    );
     cart.mesh.add(cargoBay);
-  }
-
-  const foundCargo = cart.mesh.getObjectByName("cargoBay")
-    || cart.mesh.children.find((c) => c.name === "cargoBay");
-
-  if (foundCargo) {
-    cart.cargoBay = foundCargo;
+    cart.cargoBay = cargoBay;
     cart.cargoBay.visible = true;
   } else {
+    cart.cargoBay = null;
     // eslint-disable-next-line no-console
     console.warn("[entities] rebuildCartVisualsIntoRoot: cargoBay object not found in cart mesh");
   }
@@ -275,39 +278,54 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
 }
 
 /**
- * * Computes basket floor Y and half-extents in mesh-local space for the given cart mesh.
- * * The procedural cart has known hardcoded basket dimensions; the rave GLTF cart
- * * computes them dynamically from the body mesh (tripo_part_0) bounding box.
+ * * Computes the *interior cargo cavity* (not the outer body hull) for cargo placement.
+ * * Procedural carts use known basket dims; rave GLTF derives from tripo_part_0 then
+ * * insets heavily — outer AABB includes thick walls/handle shelf, so using it raw
+ * * puts groceries through the rear of the basket.
  *
  * @param {THREE.Object3D} mesh
- * @returns {{ floorY: number, hw: number, hl: number }}
+ * @returns {{ floorY: number, hw: number, hl: number, centerX: number, centerZ: number }}
  */
 function getBasketCargoParams(mesh) {
   if (!mesh?.userData?.isRaveGltf) {
     // * Procedural cart: basket floor at Y = -0.54, halfWidth = 0.675, halfLength = 1.05
-    // * (matches CART_DIMS in cart.js).
-    return { floorY: -0.54, hw: 0.675, hl: 1.05 };
+    // * (matches CART_DIMS in cart.js). Slightly inset so pile clears the wire walls.
+    return { floorY: -0.54, hw: 0.55, hl: 0.72, centerX: 0, centerZ: -0.05 };
   }
 
-  // * Rave GLTF cart: compute body bounds from tripo_part_0 in mesh-local space.
-  // * At creation time mesh.worldMatrix is identity, so child world-space = mesh-local.
+  // * Rave GLTF: body bounds in cart-mesh local space (handles RaveGltfModel orient + bodyScale).
+  mesh.updateMatrixWorld(true);
   const box = new THREE.Box3();
+  let found = false;
   mesh.traverse((child) => {
-    if (child.name === "tripo_part_0" && child.isMesh && child.geometry) {
-      child.geometry.computeBoundingBox();
-      box.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    if (found) return;
+    if (child.name === "tripo_part_0" && /** @type {any} */ (child).isMesh) {
+      const worldBox = new THREE.Box3().setFromObject(child);
+      const inv = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+      worldBox.applyMatrix4(inv);
+      box.copy(worldBox);
+      found = true;
     }
   });
 
-  if (box.isEmpty()) {
-    return { floorY: -0.54, hw: 0.675, hl: 1.05 };
+  if (!found || box.isEmpty()) {
+    // * Conservative rave-cart cavity fallback (meters, cart-local).
+    return { floorY: -0.12, hw: 0.38, hl: 0.48, centerX: 0, centerZ: 0 };
   }
 
-  return {
-    floorY: box.min.y,
-    hw: (box.max.x - box.min.x) * 0.5,
-    hl: (box.max.z - box.min.z) * 0.5,
-  };
+  const outerHw = (box.max.x - box.min.x) * 0.5;
+  const outerHl = (box.max.z - box.min.z) * 0.5;
+  const bodyH = box.max.y - box.min.y;
+  const centerX = (box.max.x + box.min.x) * 0.5;
+  // * Nudge cargo slightly toward the basket front (−Z in cart space) away from the handle shelf.
+  const centerZ = (box.max.z + box.min.z) * 0.5 - outerHl * 0.08;
+  // * Interior cavity ≪ outer hull (walls + rim consume a lot of the AABB).
+  const hw = Math.max(0.18, outerHw * 0.48);
+  const hl = Math.max(0.2, outerHl * 0.42);
+  // * Basket floor sits above the chassis bottom of the body mesh.
+  const floorY = box.min.y + bodyH * 0.28;
+
+  return { floorY, hw, hl, centerX, centerZ };
 }
 
 /**
@@ -336,7 +354,11 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
   const cargoParams = getBasketCargoParams(mesh);
   const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
   if (cargoBay) {
-    cargoBay.position.set(0, cargoParams.floorY + 0.05, 0);
+    cargoBay.position.set(
+      cargoParams.centerX ?? 0,
+      cargoParams.floorY + 0.02,
+      cargoParams.centerZ ?? 0,
+    );
     mesh.add(cargoBay);
   }
 
@@ -440,7 +462,12 @@ export function resetCartTransientState(cart) {
   cart.hasSpilled = false;
   cart.tipOverStartMs = null;
   // * Restore cargoBay mesh visibility on respawn (hidden during spill VFX).
-  if (cart.cargoBay) cart.cargoBay.visible = true;
+  // * Prefer the live child on the mesh so a stale ref can't leave groceries gone.
+  const liveBay = cart.mesh?.getObjectByName?.("cargoBay") || cart.cargoBay;
+  if (liveBay) {
+    cart.cargoBay = liveBay;
+    cart.cargoBay.visible = true;
+  }
 }
 
 /**

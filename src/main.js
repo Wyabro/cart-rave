@@ -54,6 +54,11 @@ const TEST_ARENA_SKY = 0x586274;
 const TEST_ARENA_FOG_DENSITY = 0.0032;
 import { setContactShadowHazards } from "./contactShadows.js";
 import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
+import {
+  sampleArenaReactive,
+  triggerArenaKoFlash,
+  resetArenaReactiveLights,
+} from "./arenaReactiveLights.js";
 import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
 import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/announcerManager.js";
@@ -717,6 +722,23 @@ async function main() {
     SfxSynth.playKillConfirm();
     hud?.showKillConfirm?.();
   }
+
+  /**
+   * Arena-wide KO light flash — every peer sees the club react (not just the scorer).
+   * @param {import("./scoring/koEvent.js").KOEvent} koEvent
+   */
+  function onArenaKoFlash(koEvent) {
+    const slots = Netcode.getNetSlots();
+    const colorSlotIndex = koEvent.attackerSlotIndex != null
+      ? koEvent.attackerSlotIndex
+      : koEvent.victimSlotIndex;
+    const slot = slots?.[colorSlotIndex];
+    const hex = displayColorHexForSlot(slot);
+    triggerArenaKoFlash(hex, {
+      strength: koEvent.isKill ? 0.9 : 0.5,
+      durationMs: koEvent.isKill ? 380 : 260,
+    });
+  }
   triggerLocalRamShakeRef = triggerLocalRamShake;
   triggerCartShatterRef = triggerCartShatter;
 
@@ -852,9 +874,9 @@ async function main() {
   const cartLinvelScratch = new THREE.Vector3();
   const cartAngvelScratch = new THREE.Vector3();
   const netTargetPosScratch = new THREE.Vector3();
-  const boothNeonColor1 = new THREE.Color(CONFIG.booth.neonColor1);
-  const boothNeonColor2 = new THREE.Color(CONFIG.booth.neonColor2);
-  const boothNeonMixed = new THREE.Color();
+  // * Booth neon mats keep authored per-booth hues; pulse reuses this Set so each
+  // * shared material is intensity-updated once per frame (not once per tube mesh).
+  const boothNeonMatsSeen = new Set();
   const fpsState = {
     frames: 0,
     last: performance.now(),
@@ -2051,6 +2073,7 @@ async function main() {
     getSceneRef: () => scene,
     getHud: () => hud,
     onLocalKillConfirm,
+    onArenaKoFlash,
     onAnnouncerFall: announcerDirectorOnFall,
     colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
@@ -2498,6 +2521,7 @@ async function main() {
     cancelLastCartStandingFinish();
     clearRoundCountdownTimeout();
     pendingMidRoundJoinRespawnConnId = null;
+    resetArenaReactiveLights();
     const suddenDeathActive = GameState.getRoundState().isSuddenDeath;
     if (suddenDeathActive && lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
       // * Sudden Death winner — first to score wins instantly.
@@ -2682,13 +2706,16 @@ async function main() {
     getPartySocket: () => Netcode.getPartySocket(),
     queueHostFallEvent: Netcode.queueHostFallEvent,
     onLocalKillConfirm,
+    onArenaKoFlash,
     onAnnouncerFall: announcerDirectorOnFall,
     getYouConnId: () => Netcode.getYouConnId(),
     getScene: () => scene,
     triggerCartShatter,
     onSpill: (slotIndex, pos, quat, vel, cargoBay) => {
-      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, 6);
-      if (cargoBay) cargoBay.visible = false;
+      const cart = allCartsRef?.[slotIndex];
+      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, 6, cargoBay || cart?.cargoBay || null);
+      // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
+      GroceryPool.hideCargoBay(cart || cargoBay);
       triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay);
     },
     onCartRespawn: (slotIndex) => {
@@ -2711,8 +2738,8 @@ async function main() {
       const quat = cart.body.rotation();
       const vel = cart.body.linvel();
       const cargoBay = cart.cargoBay;
-      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, 6);
-      if (cargoBay) cargoBay.visible = false;
+      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, 6, cargoBay);
+      GroceryPool.hideCargoBay(cart);
       triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay);
     },
     get partySocket() { return Netcode.getPartySocket(); },
@@ -2801,7 +2828,7 @@ async function main() {
     const offset = Netcode.getServerClockOffsetMs();
     const syncedNow = (offset && !Number.isNaN(offset)) ? (now - offset) : now;
 
-    /** @type {any} */ (sceneExtras)?.update?.(syncedNow);
+    /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);
     levelUpdate?.(syncedNow);
 
     if (raveVisualsInitialized) {
@@ -2812,13 +2839,10 @@ async function main() {
       Effects.updateBillboard(syncedNow);
     }
 
-    if (spindleLight && spindleLightColorPink && spindleLightColorCyan) {
-      // * Spindle PointLight cycle: pink <-> cyan, ~8s full cycle.
-      const t = (Math.sin(syncedNow * 0.001 * Math.PI * 2 / 8) + 1) / 2;
-      spindleLight.color.copy(spindleLightColorPink).lerp(spindleLightColorCyan, t);
-    }
+    // * Spindle/rims driven by arenaReactiveLights inside Classic Record levelUpdate.
 
     // Record label color cycle (5 colors, ~2s each, ~10s full loop).
+    // * Sole leader leans the vinyl label toward their color (crown-jewel read).
     if (recordLabelMat) {
       const segMs = 2000;
       const idx = Math.floor(now / segMs) % recordLabelCycleColors.length;
@@ -2827,15 +2851,33 @@ async function main() {
       recordLabelMat.color
         .copy(recordLabelCycleColors[idx])
         .lerp(recordLabelCycleColors[nextIdx], f);
+      const reactive = sampleArenaReactive(syncedNow);
+      if (reactive.hasLeader || reactive.koT > 0) {
+        recordLabelMat.color.lerp(reactive.accentColor, reactive.hasLeader ? 0.55 : 0.35 * reactive.koT);
+      }
     }
 
-    // Booth neon RGB cycle (fuchsia <-> neon blue)
+    // * Booth neon pulse — intensity only. Hue stays on the per-booth materials so
+    // * pink/green/cyan/orange spawn corners stay readable as four distinct booths.
     if (boothNeonMeshes && boothNeonMeshes.length > 0) {
-      const t = (Math.sin(syncedNow * 0.001 * Math.PI * 2 * CONFIG.booth.neonCycleSpeed) + 1) / 2;
-      boothNeonMixed.copy(boothNeonColor1).lerp(boothNeonColor2, t);
-      for (const m of boothNeonMeshes) {
-        m.material.color.copy(boothNeonMixed);
-        m.material.emissive.copy(boothNeonMixed);
+      boothNeonMatsSeen.clear();
+      const pulseHz = CONFIG.booth.neonCycleSpeed;
+      const nowSec = syncedNow * 0.001;
+      for (const mesh of boothNeonMeshes) {
+        const mat = mesh.material;
+        if (!mat || boothNeonMatsSeen.has(mat)) continue;
+        boothNeonMatsSeen.add(mat);
+        const base = typeof mat.userData?.baseEmissiveIntensity === "number"
+          ? mat.userData.baseEmissiveIntensity
+          : (typeof mat.emissiveIntensity === "number" ? mat.emissiveIntensity : 1.5);
+        const phase = typeof mat.userData?.neonPulsePhase === "number"
+          ? mat.userData.neonPulsePhase
+          : 0;
+        // * ~0.72× → 1.28× of base — readable breathe without washing the floor.
+        const wave = Math.sin(nowSec * Math.PI * 2 * pulseHz + phase);
+        if (typeof mat.emissiveIntensity === "number") {
+          mat.emissiveIntensity = base * (1 + 0.28 * wave);
+        }
       }
     }
 

@@ -3,13 +3,14 @@ import {
   dispatchKOEvent,
   killFeedReactor,
   localKillConfirmReactor,
+  arenaVfxReactor,
   announcerReactor,
   challengeReactor,
   DEFAULT_KO_REACTORS,
 } from "../src/scoring/koReactors.js";
 
 function makeCtx(overrides = {}) {
-  const calls = { killFeed: [], announcer: [], localConfirm: [], challenge: [] };
+  const calls = { killFeed: [], announcer: [], localConfirm: [], challenge: [], arenaFlash: [] };
   const ctx = {
     netSlots: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }],
     localSlotIndex: 1,
@@ -22,6 +23,7 @@ function makeCtx(overrides = {}) {
     },
     onAnnouncerFall: (fall) => calls.announcer.push(fall),
     onLocalKillConfirm: (victim, tier) => calls.localConfirm.push([victim, tier]),
+    onArenaKoFlash: (ev) => calls.arenaFlash.push(ev),
     recordChallenge: (id) => calls.challenge.push(id),
     ...overrides,
   };
@@ -112,6 +114,15 @@ describe("announcerReactor", () => {
   });
 });
 
+describe("arenaVfxReactor", () => {
+  it("forwards every KO (kill or self-fall) to the arena flash hook", () => {
+    const { ctx, calls } = makeCtx();
+    arenaVfxReactor(KILL, ctx);
+    arenaVfxReactor(SELF, ctx);
+    expect(calls.arenaFlash).toEqual([KILL, SELF]);
+  });
+});
+
 describe("challengeReactor", () => {
   it("records ko_void for the local player's kill", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
@@ -160,8 +171,15 @@ describe("dispatchKOEvent", () => {
     expect(DEFAULT_KO_REACTORS).toEqual([
       challengeReactor,
       localKillConfirmReactor,
+      arenaVfxReactor,
       killFeedReactor,
       announcerReactor,
     ]);
+  });
+
+  it("fires arena flash on default dispatch for any fall", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 0 });
+    dispatchKOEvent(SELF, ctx);
+    expect(calls.arenaFlash).toHaveLength(1);
   });
 });

@@ -16,6 +16,7 @@
  *   color (host returns a hex number; the client facade may return a css string — colorHexToCss handles both).
  * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
  * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
+ * @property {(koEvent: import('./koEvent.js').KOEvent) => void} [onArenaKoFlash] Arena light flash for any fall.
  * @property {(eventId: string, amount?: number) => void} [recordChallenge] Bumps a local challenge counter.
  * @property {() => string | null | undefined} [getLevelId] Current arena id for level-unlock KO tracking.
  * @property {(levelId: string, amount?: number) => void} [recordKillOnLevel] Lifetime KOs per level.
@@ -81,6 +82,15 @@ export function announcerReactor(koEvent, ctx) {
 }
 
 /**
+ * Arena lighting spectacle — spindle/spots/lasers flash on every KO (all peers).
+ * @param {import('./koEvent.js').KOEvent} koEvent
+ * @param {KOReactorCtx} ctx
+ */
+export function arenaVfxReactor(koEvent, ctx) {
+  ctx.onArenaKoFlash?.(koEvent);
+}
+
+/**
  * Progresses local challenge counters for the LOCAL player's kills. Reads the KO Event's victim
  * classification rather than re-scanning slots/carts. Only the machine whose player scored the KO
  * records — so a device counts its own kills once (host-only today; every client once the replay
@@ -100,10 +110,11 @@ export function challengeReactor(koEvent, ctx) {
   }
 }
 
-/** Default host-side reactor order: challenges → local confirm → kill feed → announcer. */
+/** Default host-side reactor order: challenges → local confirm → arena VFX → kill feed → announcer. */
 export const DEFAULT_KO_REACTORS = [
   challengeReactor,
   localKillConfirmReactor,
+  arenaVfxReactor,
   killFeedReactor,
   announcerReactor,
 ];

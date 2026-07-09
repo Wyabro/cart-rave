@@ -35,6 +35,7 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
  * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
+ * @property {(koEvent: import("./scoring/koEvent.js").KOEvent) => void} [onArenaKoFlash]
  * @property {() => string} [detectGameMode]
  * @property {() => THREE.Scene | null | undefined} [getScene]
  * @property {(cart: object, scene: object, neonHex: number) => void} [triggerCartShatter]
@@ -335,6 +336,7 @@ export function updateGameFlow(deps, context) {
               colorHexForSlot: deps.colorHexForSlot,
               onAnnouncerFall: deps.onAnnouncerFall,
               onLocalKillConfirm: deps.onLocalKillConfirm,
+              onArenaKoFlash: deps.onArenaKoFlash,
               recordChallenge: ChallengeTracker.record,
               getLevelId: () => getCurrentLevelId(),
               recordKillOnLevel: UnlockTracker.recordKillOnLevel,

@@ -4,8 +4,10 @@ import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RAPIER } from "./physics/rapierInstance.js";
+import { setShatterEnvironment } from "./cartShatter.js";
 import { createPhysicalMaterial } from "./scene.js";
 import { isLowQualityMode } from "./utils.js";
+import { sampleArenaReactive } from "./arenaReactiveLights.js";
 
 const REFLECTOR_TEXTURE_SIZE_FULL = 1024;
 const REFLECTOR_TEXTURE_SIZE_BOOT = 256;
@@ -256,16 +258,26 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   const sidePanelGeo = new THREE.PlaneGeometry(B.platformDepth * 0.8, 1.0);
   const platGeo = new THREE.BoxGeometry(B.platformWidth, B.platformThickness, B.platformDepth);
   const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
-  const UNIT_CYL = new THREE.CylinderGeometry(1, 1, 1, 6);
+  // * 12 radial segments — 6-sided tubes faceted badly under bloom; shared geo so cost is free.
+  const UNIT_CYL = new THREE.CylinderGeometry(1, 1, 1, 12);
 
-  const neonMats = boothColors.map((color) => createPhysicalMaterial({
-    color,
-    emissive: color,
-    emissiveIntensity: 1.5,
-    roughness: 0.25,
-    metalness: 0.85,
-    toneMapped: false,
-  }));
+  // * Per-booth neon hue is sticky: the frame loop pulses emissiveIntensity only
+  // * (see main.js). Overwriting color/emissive every frame used to collapse all
+  // * four spawn corners into one pink↔cyan wash.
+  const neonMats = boothColors.map((color, boothIndex) => {
+    const mat = createPhysicalMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.5,
+      roughness: 0.25,
+      metalness: 0.85,
+      toneMapped: false,
+    });
+    mat.userData.baseEmissiveIntensity = 1.5;
+    // * 90° phase offsets so adjacent booths breathe out of sync.
+    mat.userData.neonPulsePhase = boothIndex * (Math.PI / 2);
+    return mat;
+  });
   const trussLightMats = boothColors.map((color) => createPhysicalMaterial({
     color,
     emissive: color,
@@ -324,54 +336,51 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     return mesh;
   }
 
-  function makeTruss(height, baseY, lightMat) {
-    const trussGroup = new THREE.Group();
-    const legW = 0.12;
-    const trussW = 0.45;
+  // * Truss towers — InstancedMesh legs/braces across all 16 towers (4 booths × 4
+  // * corners). Was ~320 individual Mesh draws of the same unit box.
+  const TRUSS_HEIGHT = 6;
+  const TRUSS_LEG_W = 0.12;
+  const TRUSS_W = 0.45;
+  const TRUSS_BRACE_H = 0.08;
+  const TRUSS_BRACE_LEVELS = Math.floor(TRUSS_HEIGHT / 2) + 1;
+  const TRUSS_LEG_OFFSETS = [
+    [-TRUSS_W / 2, -TRUSS_W / 2],
+    [TRUSS_W / 2, -TRUSS_W / 2],
+    [-TRUSS_W / 2, TRUSS_W / 2],
+    [TRUSS_W / 2, TRUSS_W / 2],
+  ];
+  const TRUSSES_PER_BOOTH = 4;
+  const BOOTH_COUNT = 4;
+  const totalTrusses = BOOTH_COUNT * TRUSSES_PER_BOOTH;
+  const totalLegs = totalTrusses * TRUSS_LEG_OFFSETS.length;
+  const totalBraces = totalTrusses * TRUSS_BRACE_LEVELS * 4;
+  const trussLegMesh = new THREE.InstancedMesh(UNIT_BOX, trussLegMat, totalLegs);
+  const trussBraceMesh = new THREE.InstancedMesh(UNIT_BOX, trussCrossMat, totalBraces);
+  trussLegMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  trussBraceMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  trussLegMesh.frustumCulled = true;
+  trussBraceMesh.frustumCulled = true;
+  let trussLegIdx = 0;
+  let trussBraceIdx = 0;
+  const trussDummy = new THREE.Object3D();
+  const trussYAxis = new THREE.Vector3(0, 1, 0);
 
-    const offsets = [
-      [-trussW / 2, -trussW / 2],
-      [trussW / 2, -trussW / 2],
-      [-trussW / 2, trussW / 2],
-      [trussW / 2, trussW / 2],
-    ];
-    for (const [ox, oz] of offsets) {
-      const leg = new THREE.Mesh(UNIT_BOX, trussLegMat);
-      leg.scale.set(legW, height, legW);
-      leg.position.set(ox, baseY + height / 2, oz);
-      trussGroup.add(leg);
-    }
-
-    const braceH = 0.08;
-    const braceCount = Math.floor(height / 2);
-    for (let b = 0; b <= braceCount; b += 1) {
-      const by = baseY + b * 2;
-      const xf = new THREE.Mesh(UNIT_BOX, trussCrossMat);
-      xf.scale.set(trussW, braceH, braceH);
-      xf.position.set(0, by, -trussW / 2);
-      trussGroup.add(xf);
-      const xb = new THREE.Mesh(UNIT_BOX, trussCrossMat);
-      xb.scale.set(trussW, braceH, braceH);
-      xb.position.set(0, by, trussW / 2);
-      trussGroup.add(xb);
-      const zl = new THREE.Mesh(UNIT_BOX, trussCrossMat);
-      zl.scale.set(braceH, braceH, trussW);
-      zl.position.set(-trussW / 2, by, 0);
-      trussGroup.add(zl);
-      const zr = new THREE.Mesh(UNIT_BOX, trussCrossMat);
-      zr.scale.set(braceH, braceH, trussW);
-      zr.position.set(trussW / 2, by, 0);
-      trussGroup.add(zr);
-    }
-
-    const light = new THREE.Mesh(trussLightGeo, lightMat);
-    light.position.set(0, baseY + height + 0.2, 0);
-    trussGroup.add(light);
-
-    return trussGroup;
+  /**
+   * Places one truss box instance in world space from booth-local coordinates.
+   * Booth yaw matches THREE.Object3D rotation.y (cos/sin on XZ).
+   */
+  function setTrussInstance(mesh, index, lx, ly, lz, sx, sy, sz, cx, cz, yaw) {
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    trussDummy.position.set(cx + lx * cos + lz * sin, ly, cz - lx * sin + lz * cos);
+    trussDummy.quaternion.setFromAxisAngle(trussYAxis, yaw);
+    trussDummy.scale.set(sx, sy, sz);
+    trussDummy.updateMatrix();
+    mesh.setMatrixAt(index, trussDummy.matrix);
   }
 
-  // Spawn platform fog particles
+  // * Spawn-platform fog — one shared SpriteMaterial per booth color (was 160 unique
+  // * materials). Opacity breathes on the shared mats; sprites drift/scale individually.
   const fogPuffCount = 40;
   const fogPuffCanvas = document.createElement("canvas");
   fogPuffCanvas.width = 64;
@@ -384,13 +393,25 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   fogPuffCtx.fillStyle = fogPuffGrad;
   fogPuffCtx.fillRect(0, 0, 64, 64);
   const fogPuffTex = new THREE.CanvasTexture(fogPuffCanvas);
+  const fogPuffMats = boothColors.map((color, boothIndex) => {
+    const mat = new THREE.SpriteMaterial({
+      map: fogPuffTex,
+      color,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    mat.userData.baseOpacity = 0.3;
+    mat.userData.fogPulsePhase = boothIndex * (Math.PI / 2);
+    return mat;
+  });
   const boothGroups = [];
   const fogSprites = [];
   const boothBodies = [];
 
   for (let i = 0; i < 4; i += 1) {
     const angle = angles[i];
-    const accentColor = boothColors[i];
     const neonMat = neonMats[i];
 
     const cx = boothCenterDist * Math.cos(angle);
@@ -492,8 +513,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     boothGroup.add(rtop);
     boothNeonMeshes.push(rtop);
 
-    // ===== TRUSS TOWERS (4 corners of platform) =====
-    const trussHeight = 6;
+    // ===== TRUSS TOWERS (4 corners — instanced legs/braces, local light mesh) =====
     const trussBaseY = railBaseY;
     const trussOffsets = [
       [-pw + 0.5, -pd + 0.5],
@@ -502,9 +522,50 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
       [pw - 0.5, pd - 0.5],
     ];
     for (const [tx, tz] of trussOffsets) {
-      const truss = makeTruss(trussHeight, trussBaseY, trussLightMats[i]);
-      truss.position.set(tx, 0, tz);
-      boothGroup.add(truss);
+      for (const [ox, oz] of TRUSS_LEG_OFFSETS) {
+        setTrussInstance(
+          trussLegMesh, trussLegIdx,
+          tx + ox, trussBaseY + TRUSS_HEIGHT / 2, tz + oz,
+          TRUSS_LEG_W, TRUSS_HEIGHT, TRUSS_LEG_W,
+          cx, cz, yaw,
+        );
+        trussLegIdx += 1;
+      }
+      for (let b = 0; b < TRUSS_BRACE_LEVELS; b += 1) {
+        const by = trussBaseY + b * 2;
+        setTrussInstance(
+          trussBraceMesh, trussBraceIdx,
+          tx, by, tz - TRUSS_W / 2,
+          TRUSS_W, TRUSS_BRACE_H, TRUSS_BRACE_H,
+          cx, cz, yaw,
+        );
+        trussBraceIdx += 1;
+        setTrussInstance(
+          trussBraceMesh, trussBraceIdx,
+          tx, by, tz + TRUSS_W / 2,
+          TRUSS_W, TRUSS_BRACE_H, TRUSS_BRACE_H,
+          cx, cz, yaw,
+        );
+        trussBraceIdx += 1;
+        setTrussInstance(
+          trussBraceMesh, trussBraceIdx,
+          tx - TRUSS_W / 2, by, tz,
+          TRUSS_BRACE_H, TRUSS_BRACE_H, TRUSS_W,
+          cx, cz, yaw,
+        );
+        trussBraceIdx += 1;
+        setTrussInstance(
+          trussBraceMesh, trussBraceIdx,
+          tx + TRUSS_W / 2, by, tz,
+          TRUSS_BRACE_H, TRUSS_BRACE_H, TRUSS_W,
+          cx, cz, yaw,
+        );
+        trussBraceIdx += 1;
+      }
+      // * Beacon tip stays a regular mesh so per-booth emissive mats stay simple.
+      const trussLight = new THREE.Mesh(trussLightGeo, trussLightMats[i]);
+      trussLight.position.set(tx, trussBaseY + TRUSS_HEIGHT + 0.2, tz);
+      boothGroup.add(trussLight);
     }
 
     // ===== DECORATIVE SIDE PANELS =====
@@ -620,26 +681,64 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     boothGroups.push(boothGroup);
 
     if (!isLowQualityMode()) {
-      for (let f = 0; f < fogPuffCount; f++) {
-        const puff = new THREE.Sprite(new THREE.SpriteMaterial({
-          map: fogPuffTex,
-          color: accentColor,
-          transparent: true,
-          opacity: 0.25 + Math.random() * 0.15,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }));
+      const fogMat = fogPuffMats[i];
+      for (let f = 0; f < fogPuffCount; f += 1) {
+        const puff = new THREE.Sprite(fogMat);
         const spread = B.platformWidth * 1.5;
         const puffScale = 4 + Math.random() * 4;
+        const baseX = cx + (Math.random() - 0.5) * spread;
+        const baseY = B.platformY + 0.05 + Math.random() * 0.3;
+        const baseZ = cz + (Math.random() - 0.5) * spread;
         puff.scale.set(puffScale, puffScale * 0.3, 1);
-        puff.position.set(
-          cx + (Math.random() - 0.5) * spread,
-          B.platformY + 0.05 + Math.random() * 0.3,
-          cz + (Math.random() - 0.5) * spread,
-        );
+        puff.position.set(baseX, baseY, baseZ);
+        puff.userData.fogAnim = {
+          baseX,
+          baseY,
+          baseZ,
+          baseScaleX: puffScale,
+          baseScaleY: puffScale * 0.3,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.35 + Math.random() * 0.45,
+          driftX: 0.18 + Math.random() * 0.35,
+          driftZ: 0.18 + Math.random() * 0.35,
+          bob: 0.06 + Math.random() * 0.12,
+        };
         scene.add(puff);
         fogSprites.push(puff);
       }
+    }
+  }
+
+  trussLegMesh.instanceMatrix.needsUpdate = true;
+  trussBraceMesh.instanceMatrix.needsUpdate = true;
+  trussLegMesh.count = trussLegIdx;
+  trussBraceMesh.count = trussBraceIdx;
+  scene.add(trussLegMesh);
+  scene.add(trussBraceMesh);
+
+  /**
+   * Drifts booth fog sprites and breathes shared fog material opacity.
+   * @param {number} timeMs
+   */
+  function updateFog(timeMs) {
+    if (fogSprites.length === 0) return;
+    const t = timeMs * 0.001;
+    for (let m = 0; m < fogPuffMats.length; m += 1) {
+      const mat = fogPuffMats[m];
+      const base = mat.userData.baseOpacity ?? 0.3;
+      const phase = mat.userData.fogPulsePhase ?? 0;
+      mat.opacity = base * (0.78 + 0.28 * Math.sin(t * 0.85 + phase));
+    }
+    for (let s = 0; s < fogSprites.length; s += 1) {
+      const puff = fogSprites[s];
+      const a = puff.userData.fogAnim;
+      if (!a) continue;
+      const w = t * a.speed + a.phase;
+      puff.position.x = a.baseX + Math.sin(w) * a.driftX;
+      puff.position.z = a.baseZ + Math.cos(w * 0.85) * a.driftZ;
+      puff.position.y = a.baseY + Math.sin(w * 1.3) * a.bob;
+      const breathe = 1 + 0.14 * Math.sin(w * 1.1);
+      puff.scale.set(a.baseScaleX * breathe, a.baseScaleY * breathe, 1);
     }
   }
 
@@ -647,13 +746,15 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     boothGroups,
     fogSprites,
     boothBodies,
+    trussMeshes: [trussLegMesh, trussBraceMesh],
+    updateFog,
     sharedGeometries: [
       UNIT_BOX, UNIT_CYL, trussLightGeo, platGeo, sidePanelGeo, diamondGeo, dotGeo,
       mixerGeo, mixerPanelGeo, deckGeo, spkGeo, coneGeo, wooferGeo, platterGeo, knobGeo,
     ],
     sharedMaterials: [
       trussLegMat, trussCrossMat, mixerMat, deckMat, spkMat, coneMat, platterMat, knobMat,
-      fogPuffTex, ...neonMats, ...trussLightMats, ...platMats, ...sidePanelMats,
+      fogPuffTex, ...fogPuffMats, ...neonMats, ...trussLightMats, ...platMats, ...sidePanelMats,
       ...diamondMats, ...panelMats, ...dotMats,
     ],
   };
@@ -680,8 +781,12 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  * }}
  */
 export function initArena(scene, world, config, options = {}) {
-  // * Classic Record uses a deeper void death threshold so carts fall farther
-  // * before respawning. Backrooms keeps the default -10 via its own init.
+  // * Classic Record uses a deep death threshold: the knockout shaft is a straight
+  // * vertical drop (walls give a live cart nothing to rest or drive on), so carts
+  // * fall long and dramatic — ricocheting off the shaft walls — before the KO
+  // * fires. Free-fall from platform level to -30 is ~1.6s, safely inside the 2.5s
+  // * kill-attribution window (wall bounces only redirect laterally, they don't
+  // * slow the vertical fall).
   const prevFallYThreshold = config.fall.yThreshold;
   config.fall.yThreshold = -30;
 
@@ -810,7 +915,7 @@ export function initArena(scene, world, config, options = {}) {
     }
   }
 
-  // --- Record center label (stars) ---
+  // --- Record center label (branded vinyl label; material.color cycles tint) ---
   const recordLabelCanvas = document.createElement("canvas");
   recordLabelCanvas.width = 512;
   recordLabelCanvas.height = 512;
@@ -820,12 +925,44 @@ export function initArena(scene, world, config, options = {}) {
   const labelCx = 256;
   const labelCy = 256;
   const labelR = 256;
+  const holeR = labelR * 0.27;
 
-  // Label background disc (white; tint comes from material.color)
-  recordLabelCtx.fillStyle = "#ffffff";
+  // * Soft radial body (white → transparent edge) so the tinted mesh reads as a
+  // * paper label, not a hard disc cutout.
+  const labelBodyGrad = recordLabelCtx.createRadialGradient(
+    labelCx, labelCy, holeR * 0.9,
+    labelCx, labelCy, labelR,
+  );
+  labelBodyGrad.addColorStop(0, "rgba(255,255,255,0.95)");
+  labelBodyGrad.addColorStop(0.72, "rgba(255,255,255,0.88)");
+  labelBodyGrad.addColorStop(0.92, "rgba(255,255,255,0.45)");
+  labelBodyGrad.addColorStop(1, "rgba(255,255,255,0)");
+  recordLabelCtx.fillStyle = labelBodyGrad;
   recordLabelCtx.beginPath();
   recordLabelCtx.arc(labelCx, labelCy, labelR, 0, Math.PI * 2);
   recordLabelCtx.fill();
+
+  // * Fine runout grooves — concentric hairlines between hole and outer edge.
+  recordLabelCtx.strokeStyle = "rgba(0,0,0,0.18)";
+  recordLabelCtx.lineWidth = 1.2;
+  for (let g = 0; g < 7; g += 1) {
+    const gr = holeR + 18 + g * ((labelR - holeR - 28) / 7);
+    recordLabelCtx.beginPath();
+    recordLabelCtx.arc(labelCx, labelCy, gr, 0, Math.PI * 2);
+    recordLabelCtx.stroke();
+  }
+
+  // * Outer pinstripe ring (classic vinyl label edge).
+  recordLabelCtx.strokeStyle = "rgba(0,0,0,0.28)";
+  recordLabelCtx.lineWidth = 3;
+  recordLabelCtx.beginPath();
+  recordLabelCtx.arc(labelCx, labelCy, labelR * 0.9, 0, Math.PI * 2);
+  recordLabelCtx.stroke();
+  recordLabelCtx.strokeStyle = "rgba(255,255,255,0.55)";
+  recordLabelCtx.lineWidth = 1.5;
+  recordLabelCtx.beginPath();
+  recordLabelCtx.arc(labelCx, labelCy, labelR * 0.86, 0, Math.PI * 2);
+  recordLabelCtx.stroke();
 
   // 5-point star path helper.
   const drawStar = (cx, cy, outerR, innerR, rotationRad) => {
@@ -842,11 +979,11 @@ export function initArena(scene, world, config, options = {}) {
     recordLabelCtx.fill();
   };
 
-  // Three stars, 120° apart.
-  recordLabelCtx.fillStyle = "#ffffff";
-  const starOrbit = labelR * 0.6;
-  const starOuter = labelR * 0.32;
-  const starInner = starOuter * 0.45;
+  // * Three smaller stars around the hole — less "blob", more badge.
+  recordLabelCtx.fillStyle = "rgba(0,0,0,0.35)";
+  const starOrbit = labelR * 0.52;
+  const starOuter = labelR * 0.11;
+  const starInner = starOuter * 0.42;
   for (let i = 0; i < 3; i += 1) {
     const a = (i * Math.PI * 2) / 3 - Math.PI / 2;
     const sx = labelCx + Math.cos(a) * starOrbit;
@@ -854,21 +991,52 @@ export function initArena(scene, world, config, options = {}) {
     drawStar(sx, sy, starOuter, starInner, a);
   }
 
-  // Transparent center hole.
+  // * Brand wordmark — white fill with dark stroke so color-cycle tint still hits.
+  recordLabelCtx.save();
+  recordLabelCtx.translate(labelCx, labelCy);
+  recordLabelCtx.textAlign = "center";
+  recordLabelCtx.textBaseline = "middle";
+  recordLabelCtx.font = "bold 54px system-ui, Segoe UI, sans-serif";
+  recordLabelCtx.lineWidth = 6;
+  recordLabelCtx.strokeStyle = "rgba(0,0,0,0.45)";
+  recordLabelCtx.fillStyle = "rgba(255,255,255,0.95)";
+  recordLabelCtx.strokeText("CART", 0, -28);
+  recordLabelCtx.fillText("CART", 0, -28);
+  recordLabelCtx.font = "bold 50px system-ui, Segoe UI, sans-serif";
+  recordLabelCtx.strokeText("RAVE", 0, 32);
+  recordLabelCtx.fillText("RAVE", 0, 32);
+  // * Thin divider between the two words.
+  recordLabelCtx.strokeStyle = "rgba(0,0,0,0.3)";
+  recordLabelCtx.lineWidth = 2;
+  recordLabelCtx.beginPath();
+  recordLabelCtx.moveTo(-70, 2);
+  recordLabelCtx.lineTo(70, 2);
+  recordLabelCtx.stroke();
+  recordLabelCtx.restore();
+
+  // Transparent center hole (spindle clear).
   recordLabelCtx.globalCompositeOperation = "destination-out";
   recordLabelCtx.beginPath();
-  recordLabelCtx.arc(labelCx, labelCy, labelR * 0.27, 0, Math.PI * 2);
+  recordLabelCtx.arc(labelCx, labelCy, holeR, 0, Math.PI * 2);
   recordLabelCtx.fill();
   recordLabelCtx.globalCompositeOperation = "source-over";
 
+  // * Soft hole lip highlight drawn after the cut so it frames the spindle.
+  recordLabelCtx.strokeStyle = "rgba(255,255,255,0.7)";
+  recordLabelCtx.lineWidth = 4;
+  recordLabelCtx.beginPath();
+  recordLabelCtx.arc(labelCx, labelCy, holeR + 3, 0, Math.PI * 2);
+  recordLabelCtx.stroke();
+
   const recordLabelTex = new THREE.CanvasTexture(recordLabelCanvas);
   recordLabelTex.needsUpdate = true;
+  recordLabelTex.colorSpace = THREE.SRGBColorSpace;
   const recordLabelGeo = new THREE.RingGeometry(3.7, 7.0, 96);
   const recordLabelMat = new THREE.MeshBasicMaterial({
     map: recordLabelTex,
     transparent: true,
     depthWrite: false,
-    opacity: 0.495,
+    opacity: 0.72,
     blending: THREE.NormalBlending,
     color: 0xffffff,
     side: THREE.DoubleSide,
@@ -879,6 +1047,34 @@ export function initArena(scene, world, config, options = {}) {
   recordLabelMesh.position.y = visualRecordTopY + config.record.surface.concentricRings.yOffset + 0.012;
   recordLabelMesh.renderOrder = -1;
   recordMesh.add(recordLabelMesh);
+
+  // * Spindle ring — bright lip at the hole edge (config.surface.spindleRing; was dead).
+  /** @type {THREE.Mesh | null} */
+  let spindleRingMesh = null;
+  /** @type {THREE.BufferGeometry | null} */
+  let spindleRingGeo = null;
+  /** @type {THREE.MeshPhysicalMaterial | null} */
+  let spindleRingMat = null;
+  const spindleCfg = config.record.surface?.spindleRing;
+  if (spindleCfg?.enabled !== false) {
+    const sInner = spindleCfg?.innerRadius ?? config.record.innerRadius * 0.91;
+    const sOuter = spindleCfg?.outerRadius ?? 3.7;
+    spindleRingGeo = new THREE.RingGeometry(sInner, sOuter, 64);
+    spindleRingMat = createPhysicalMaterial({
+      color: spindleCfg?.color ?? 0xffffff,
+      emissive: spindleCfg?.color ?? 0xffffff,
+      emissiveIntensity: 1.35,
+      roughness: 0.35,
+      metalness: 0.55,
+      toneMapped: false,
+    });
+    spindleRingMesh = new THREE.Mesh(spindleRingGeo, spindleRingMat);
+    spindleRingMesh.rotation.x = -Math.PI / 2;
+    spindleRingMesh.position.y =
+      visualRecordTopY + (spindleCfg?.yOffset ?? config.record.surface.concentricRings.yOffset) + 0.014;
+    spindleRingMesh.renderOrder = 0;
+    recordMesh.add(spindleRingMesh);
+  }
 
   const grooveResult = buildRecordSurfaceGrooves(recordMesh, config, visualRecordThickness);
 
@@ -1084,15 +1280,18 @@ export function initArena(scene, world, config, options = {}) {
     }
   }
 
-  const pitWallPhysicsTopY = -32;
+  // * Top cap sits below the drain throat (-61.5) so the solid cylinder never
+  // * overlaps the funnel interior; it's the final bounce for corpses that fall
+  // * through the throat.
+  const pitWallPhysicsTopY = -64;
   const pitWallPhysicsBottomY = pitWallCenterY - pitWallDepth / 2;
   const pitWallPhysicsHalfHeight = (pitWallPhysicsTopY - pitWallPhysicsBottomY) / 2;
   const pitWallPhysicsCenterY = (pitWallPhysicsTopY + pitWallPhysicsBottomY) / 2;
   const pitWallBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.fixed().setTranslation(0, pitWallPhysicsCenterY, 0),
   );
-  // * Native cylinder collider — smooth wall, no tri-seam jitter. Top cap sits below fall
-  // * respawn (yThreshold) so the open record hole stays unobstructed (unlike open trimesh).
+  // * Native cylinder collider — smooth wall, no tri-seam jitter. Solid, so the top
+  // * cap doubles as the shaft floor for anything that clears the drain throat.
   const pitWallCollider = world.createCollider(
     RAPIER.ColliderDesc.cylinder(pitWallPhysicsHalfHeight, pitInnerRadius)
       .setFriction(0.2)
@@ -1101,10 +1300,101 @@ export function initArena(scene, world, config, options = {}) {
   );
   const pitWallColliderHandle = pitWallCollider.handle;
 
+  // --- Shaft walls — the knockout space is a straight drop (the mushroom stem) ---
+  // * 18 tangent-fit convex-hull wall staves (Rapier has no hollow-cylinder
+  // * primitive and trimesh is banned) line the inside of the visual shaft from
+  // * just below the rim down to the solid backstop cap. Vertical walls give a
+  // * live cart nothing to rest or drive on, they ricochet fallers around the
+  // * shaft on the way down, and carts knocked outward below the containment lip
+  // * bounce back inside instead of escaping under the stands. The existing pit
+  // * wall gradient + depth rings are the visual — no extra geometry needed.
+  const shaftWallTopY = -4; // meets the containment lip base
+  const shaftWallBottomY = -64; // meets the solid pit-wall backstop cap
+  const SHAFT_SEGMENTS = 18;
+  const shaftBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  {
+    const shaftHalfAngle = Math.PI / SHAFT_SEGMENTS;
+    const wallThickness = 1.5;
+    const zInner = pitInnerRadius * Math.tan(shaftHalfAngle);
+    const zOuter = (pitInnerRadius + wallThickness) * Math.tan(shaftHalfAngle);
+    const wallVertices = new Float32Array([
+      // Inner face — flush with the visual shaft wall.
+      pitInnerRadius, shaftWallTopY, -zInner,
+      pitInnerRadius, shaftWallTopY, zInner,
+      pitInnerRadius, shaftWallBottomY, -zInner,
+      pitInnerRadius, shaftWallBottomY, zInner,
+      // Outer face — radial extrusion away from the shaft.
+      pitInnerRadius + wallThickness, shaftWallTopY, -zOuter,
+      pitInnerRadius + wallThickness, shaftWallTopY, zOuter,
+      pitInnerRadius + wallThickness, shaftWallBottomY, -zOuter,
+      pitInnerRadius + wallThickness, shaftWallBottomY, zOuter,
+    ]);
+    for (let i = 0; i < SHAFT_SEGMENTS; i++) {
+      const angle = (i / SHAFT_SEGMENTS) * Math.PI * 2;
+      const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
+      const wallDesc = RAPIER.ColliderDesc.convexHull(wallVertices)
+        .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
+        .setFriction(0.05)
+        .setRestitution(0.6);
+      const wallCollider = world.createCollider(wallDesc, shaftBody);
+      // * Registered as "edge" so impacts get the wall-clang FX/audio classification.
+      boothColliderHandles.push(wallCollider.handle);
+    }
+  }
+
+  // * Containment lip — an invisible wall above the pit rim that keeps boosted rams
+  // * (~27 m/s) from sailing carts out over the stands. Same tangent-fit hull
+  // * recipe, on the same fixed body as the shaft walls.
+  // * It OVERHANGS the shaft mouth (top edge leans inward, skate-bowl over-vert):
+  // * where it meets the shaft wall top at (44.3, -4) both contact normals point
+  // * inward, so there is no resting equilibrium in the crease — an outward-leaning
+  // * wall forms a V-gutter carts can sit in and grind (the "drive on the upper pit
+  // * edge" bug). Base meets the wall top exactly; any gap leaves a wedge slot.
+  {
+    const LIP_SEGMENTS = 16;
+    const lipBaseR = pitInnerRadius; // 44.3 — meets the shaft wall top exactly
+    const lipBaseY = -4;
+    const lipTopR = pitInnerRadius - 1.5; // leans inward over the shaft
+    const lipTopY = 9;
+    const lipThickness = 1.5; // radial extrusion outward (thick enough for CCD)
+    const lipHalfAngle = Math.PI / LIP_SEGMENTS;
+    const zBase = lipBaseR * Math.tan(lipHalfAngle);
+    const zTop = lipTopR * Math.tan(lipHalfAngle);
+    const lipVertices = new Float32Array([
+      // Inner face — the deflecting overhang, pit rim up/inward over the shaft.
+      lipBaseR, lipBaseY, -zBase,
+      lipBaseR, lipBaseY, zBase,
+      lipTopR, lipTopY, -zTop,
+      lipTopR, lipTopY, zTop,
+      // Outer face — thick at the base for CCD, tapering to a near-knife edge 2m
+      // above the inner top so the hull has no flat top ledge a cart could park on.
+      lipBaseR + lipThickness, lipBaseY, -zBase,
+      lipBaseR + lipThickness, lipBaseY, zBase,
+      lipTopR + 0.2, lipTopY + 2, -zTop,
+      lipTopR + 0.2, lipTopY + 2, zTop,
+    ]);
+    for (let i = 0; i < LIP_SEGMENTS; i++) {
+      const angle = (i / LIP_SEGMENTS) * Math.PI * 2;
+      const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
+      const lipDesc = RAPIER.ColliderDesc.convexHull(lipVertices)
+        .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
+        .setFriction(0.02)
+        .setRestitution(0.5);
+      const lipCollider = world.createCollider(lipDesc, shaftBody);
+      boothColliderHandles.push(lipCollider.handle);
+    }
+  }
+
+  // * Shatter debris ricochets off the inside of the shaft wall (analytic,
+  // * client-local) so explosion parts rain down the shaft instead of flying
+  // * out through the visual wall.
+  setShatterEnvironment({ wallR: pitInnerRadius, topY: shaftWallTopY });
+
   const sceneRoots = [
     recordMesh, rimMesh, edgeRingMesh, innerRimMesh, pitWall, spindleLight,
     ...boothBuild.boothGroups,
     ...boothBuild.fogSprites,
+    ...(boothBuild.trussMeshes || []),
     recordSolidFloor,
   ];
   if (debugMesh) {
@@ -1123,12 +1413,18 @@ export function initArena(scene, world, config, options = {}) {
   if (grooveResult) {
     ownedGeometries.push(grooveResult.mergedGrooves);
   }
+  if (spindleRingGeo) {
+    ownedGeometries.push(spindleRingGeo);
+  }
 
   const ownedMaterials = [
     recordMat, recordLabelMat, rimMat, edgeRingMat, pitWallMat, solidFloorMat,
   ];
   if (grooveResult) {
     ownedMaterials.push(grooveResult.ringMat);
+  }
+  if (spindleRingMat) {
+    ownedMaterials.push(spindleRingMat);
   }
   if (debugMat) {
     ownedMaterials.push(debugMat);
@@ -1200,6 +1496,8 @@ export function initArena(scene, world, config, options = {}) {
 
     if (world && recordBody && world.getRigidBody(recordBody.handle)) world.removeRigidBody(recordBody);
     if (world && pitWallBody && world.getRigidBody(pitWallBody.handle)) world.removeRigidBody(pitWallBody);
+    if (world && shaftBody && world.getRigidBody(shaftBody.handle)) world.removeRigidBody(shaftBody);
+    setShatterEnvironment(null);
     if (world && boothBuild.boothBodies) {
       for (const body of boothBuild.boothBodies) {
         if (world.getRigidBody(body.handle)) {
@@ -1209,6 +1507,38 @@ export function initArena(scene, world, config, options = {}) {
     }
 
     config.fall.yThreshold = prevFallYThreshold;
+  }
+
+  const SPINDLE_LIGHT_BASE_INTENSITY = 80;
+  const RIM_BASE_EMISSIVE = 2.2;
+  const SPINDLE_RING_BASE_EMISSIVE = 1.35;
+
+  /**
+   * Per-frame Classic Record visual tick (booth fog, leader/KO rim + spindle).
+   * @param {number} timeMs
+   */
+  function update(timeMs) {
+    boothBuild.updateFog?.(timeMs);
+
+    // * Leader/KO reactive: neon rims + spindle light follow the shared accent sample.
+    const reactive = sampleArenaReactive(timeMs);
+    if (spindleLight) {
+      spindleLight.color.copy(reactive.accentColor);
+      spindleLight.intensity = SPINDLE_LIGHT_BASE_INTENSITY * reactive.intensityMul;
+    }
+    if (rimMat && typeof rimMat.emissiveIntensity === "number") {
+      rimMat.emissive.copy(reactive.accentColor);
+      rimMat.color.copy(reactive.accentColor);
+      rimMat.emissiveIntensity = RIM_BASE_EMISSIVE * reactive.intensityMul;
+    }
+    if (edgeRingMat && edgeRingMat.color) {
+      edgeRingMat.color.copy(reactive.accentColor);
+    }
+    if (spindleRingMat && typeof spindleRingMat.emissiveIntensity === "number") {
+      spindleRingMat.emissive.copy(reactive.accentColor);
+      spindleRingMat.color.copy(reactive.accentColor);
+      spindleRingMat.emissiveIntensity = SPINDLE_RING_BASE_EMISSIVE * (0.85 + reactive.koT * 0.9);
+    }
   }
 
   return {
@@ -1225,6 +1555,7 @@ export function initArena(scene, world, config, options = {}) {
     recordLabelMat,
     upgradeRecordReflector,
     setReflectorVisible,
+    update,
     dispose,
   };
 }

@@ -216,9 +216,10 @@ const physics = {
     railHeight: 1.8, // meters
     railThickness: 0.12, // meters
     gearEnabled: true,
-    neonColor1: 0xff2bd6,
-    neonColor2: 0x2bd6ff,
-    neonCycleSpeed: 0.4, // cycles/s — booth neon pulse
+    neonColor1: 0xff2bd6, // shared pink accent (Zanzibar spindle / legacy)
+    neonColor2: 0x2bd6ff, // shared cyan accent (Zanzibar spindle / legacy)
+    // * Classic Record booth neon: intensity pulse rate only (per-booth hue is sticky).
+    neonCycleSpeed: 0.4, // cycles/s — booth neon emissive pulse
     friction: 1.2, // unitless
     restitution: 0.0, // unitless
   },

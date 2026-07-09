@@ -66,7 +66,9 @@ const MODEL_DEFS = [
   { name: "soda", path: "/models/groceries/soda.glb", type: "cylinder" },
   { name: "soup", path: "/models/groceries/soup.glb", type: "cylinder" },
   { name: "orange", path: "/models/groceries/orange.glb", type: "ball" },
-  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid", cargoScaleMul: 2.0 },
+  // * cargoScaleMul kept near 1 — 2× baguettes were longer than the basket cavity and
+  // * punched through the rear wall even after radius insets.
+  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid", cargoScaleMul: 1.05 },
 ];
 
 /**
@@ -430,8 +432,59 @@ export async function init(scene, world) {
 }
 
 /**
+ * * Hides every cargo bay under a cart mesh (or a single bay group). Spill paths must
+ * * clear ALL bays — rebuild can leave a stale sibling, and a single `cart.cargoBay`
+ * * ref may point at the wrong one.
+ *
+ * @param {THREE.Object3D | { mesh?: THREE.Object3D, cargoBay?: THREE.Object3D } | null | undefined} cartOrBay
+ */
+export function hideCargoBay(cartOrBay) {
+  if (!cartOrBay) return;
+  if (/** @type {any} */ (cartOrBay).isObject3D) {
+    const obj = /** @type {THREE.Object3D} */ (cartOrBay);
+    if (obj.name === "cargoBay") {
+      obj.visible = false;
+      return;
+    }
+    obj.traverse((child) => {
+      if (child.name === "cargoBay") child.visible = false;
+    });
+    return;
+  }
+  const cart = /** @type {{ mesh?: THREE.Object3D, cargoBay?: THREE.Object3D }} */ (cartOrBay);
+  if (cart.cargoBay) cart.cargoBay.visible = false;
+  if (cart.mesh) {
+    cart.mesh.traverse((child) => {
+      if (child.name === "cargoBay") child.visible = false;
+    });
+  }
+}
+
+/**
+ * * Removes every existing cargoBay child from a cart mesh (shatter rebuild hygiene).
+ * @param {THREE.Object3D | null | undefined} mesh
+ */
+export function removeCargoBaysFromMesh(mesh) {
+  if (!mesh) return;
+  /** @type {THREE.Object3D[]} */
+  const doomed = [];
+  mesh.traverse((child) => {
+    if (child !== mesh && child.name === "cargoBay") doomed.push(child);
+  });
+  for (const bay of doomed) {
+    bay.parent?.remove(bay);
+    // * Geometries/materials are shared pool assets — only dispose the group tree structure.
+    bay.traverse((c) => {
+      if (/** @type {any} */ (c).isMesh) {
+        // * Leave shared geo/mat alone.
+      }
+    });
+  }
+}
+
+/**
  * * Creates a pre-spill visual cargo bay: a THREE.Group with 6 randomly selected
- * * grocery meshes arranged in a loose pile, scaled down to fit inside the cart basket.
+ * * grocery meshes packed into the basket cavity (not the outer body hull).
  *
  * @param {number} [hw] Basket half-width in mesh-local space (defaults to 0.2 for compat).
  * @param {number} [hl] Basket half-length in mesh-local space (defaults to 0.2 for compat).
@@ -439,6 +492,7 @@ export async function init(scene, world) {
  */
 export function createCargoBay(hw, hl) {
   const group = new THREE.Group();
+  group.name = "cargoBay";
   if (loadedGeometries.length === 0) return group;
 
   // * Shuffle indices so we get a good random mix of the 6 model types.
@@ -451,44 +505,60 @@ export function createCargoBay(hw, hl) {
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
 
-  // * Scale down to fit inside the cart basket.
-  const cargoScale = 0.7;
+  // * Compact pile — large enough to read, small enough to stay inside the wire cavity.
+  const cargoScale = 0.52;
+  const wallPad = 0.03;
+  const halfW = hw != null ? Math.max(0.1, hw - wallPad) : 0.22;
+  const halfL = hl != null ? Math.max(0.1, hl - wallPad) : 0.22;
 
-  // * Placement accounts for each item's own bounding radius — items were previously
-  // * positioned by center point only, so bottoms sank through the basket floor and
-  // * edge items poked through the side walls. The bounding sphere is conservative for
-  // * the random tumble rotations; ×0.8 on Y lets irregular shapes settle slightly
-  // * (reads as resting, not floating) without visibly re-clipping the floor.
-  const margin = 0.04; // 4cm from basket walls
-  const halfW = hw != null ? Math.max(0.12, hw - margin) : 0.24;
-  const halfL = hl != null ? Math.max(0.12, hl - margin) : 0.24;
+  // * Fixed 2×3 grid (plus one top-center) keeps items off the rear wall better than
+  // * pure random scatter. Fractions are of the *usable* half-extent after item size.
+  const GRID = [
+    { u: -0.55, v: -0.4, layer: 0 },
+    { u: 0.55, v: -0.4, layer: 0 },
+    { u: -0.55, v: 0.35, layer: 0 },
+    { u: 0.55, v: 0.35, layer: 0 },
+    { u: 0.0, v: -0.05, layer: 0 },
+    { u: 0.0, v: 0.05, layer: 1 },
+  ];
 
   for (let i = 0; i < 6; i += 1) {
     const idx = indices[i % indices.length];
     const def = MODEL_DEFS[idx];
     const scaleMul = def.cargoScaleMul ?? 1.0;
     const geo = loadedGeometries[idx];
+    if (!geo.boundingBox) geo.computeBoundingBox();
     if (!geo.boundingSphere) geo.computeBoundingSphere();
-    const itemRadius = (geo.boundingSphere?.radius ?? 0.2) * cargoScale * scaleMul;
+    const s = cargoScale * scaleMul;
+    const bb = geo.boundingBox;
+    // * Axis-aligned footprint after mild yaw-only tumble (full random spin made long
+    // * items clip the basket walls regardless of sphere insets).
+    const halfX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x)) * s;
+    const halfY = Math.max(Math.abs(bb.min.y), Math.abs(bb.max.y)) * s;
+    const halfZ = Math.max(Math.abs(bb.min.z), Math.abs(bb.max.z)) * s;
+    const horiz = Math.max(halfX, halfZ);
 
     const mesh = new THREE.Mesh(geo, loadedMaterials[idx]);
-    mesh.scale.setScalar(cargoScale * scaleMul);
-    const reachX = Math.max(0.02, halfW - itemRadius);
-    const reachZ = Math.max(0.02, halfL - itemRadius);
-    mesh.position.set(
-      (Math.random() - 0.5) * 2 * reachX,
-      itemRadius * 0.92 + Math.random() * 0.06,
-      (Math.random() - 0.5) * 2 * reachZ,
-    );
+    mesh.scale.setScalar(s);
+    // * Yaw free, pitch/roll tiny — reads as "tossed in" without wall-clipping diagonals.
     mesh.rotation.set(
+      (Math.random() - 0.5) * 0.4,
       Math.random() * Math.PI * 2,
-      Math.random() * Math.PI * 2,
-      Math.random() * Math.PI * 2,
+      (Math.random() - 0.5) * 0.3,
+    );
+
+    const slot = GRID[i];
+    const reachX = Math.max(0.015, halfW - horiz);
+    const reachZ = Math.max(0.015, halfL - horiz);
+    const layerLift = slot.layer * (halfY * 1.7 + 0.02);
+    mesh.position.set(
+      slot.u * reachX + (Math.random() - 0.5) * 0.03,
+      halfY * 0.95 + layerLift + Math.random() * 0.015,
+      slot.v * reachZ + (Math.random() - 0.5) * 0.03,
     );
     group.add(mesh);
   }
 
-  group.name = "cargoBay";
   return group;
 }
 
@@ -516,8 +586,11 @@ export function triggerSpill(cartId, cartPosParam, cartQuatParam, cartLinvelPara
   const cartQuat = (cartQuatParam && typeof cartQuatParam === "object") ? cartQuatParam : { x: 0, y: 0, z: 0, w: 1 };
   const cartLinvel = (cartLinvelParam && typeof cartLinvelParam === "object") ? cartLinvelParam : { x: 0, y: 0, z: 0 };
 
-  // * Hide the cargo bay visual immediately when spill happens.
-  if (cargoBay) cargoBay.visible = false;
+  // * Despawn in-basket groceries the moment physics groceries fly (all bays under parent).
+  if (cargoBay) {
+    hideCargoBay(cargoBay);
+    if (cargoBay.parent) hideCargoBay(cargoBay.parent);
+  }
 
   const cartThreeQuat = _scratchQuat.set(
     typeof cartQuat.x === "number" ? cartQuat.x : 0,

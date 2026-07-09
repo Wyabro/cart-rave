@@ -117,6 +117,7 @@ export function buildNetcodeGameBridge(getContext, session) {
     getSceneRef: () => getContext()?.getSceneRef?.() ?? null,
     getHud: () => getContext()?.getHud?.() ?? null,
     onLocalKillConfirm: (victimSlotIndex, comboTier) => getContext()?.onLocalKillConfirm?.(victimSlotIndex, comboTier),
+    onArenaKoFlash: (koEvent) => getContext()?.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => getContext()?.onAnnouncerFall?.(fall),
     colorHexForSlot: (slot) => getContext()?.colorHexForSlot?.(slot) ?? 0x888888,
     getPendingColorKey: () => getContext()?.getPendingColorKey?.() ?? null,

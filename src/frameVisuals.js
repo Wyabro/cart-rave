@@ -7,6 +7,7 @@ import { clamp } from "./utils.js";
 import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
 import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
+import { setArenaReactiveLeaderHex } from "./arenaReactiveLights.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -250,6 +251,13 @@ export function updateVisualsAndEffects(deps, frameCtx) {
         else if (s === leaderScore && s > 0) { isTied = true; }
       }
       if (isTied) leaderSlot = -1;
+    }
+
+    // * Arena fixtures (spindle/spots/lasers) pick up the sole leader's cart color.
+    if (leaderSlot >= 0) {
+      setArenaReactiveLeaderHex(deps.colorHexForSlot(netSlotsForFrame[leaderSlot]));
+    } else {
+      setArenaReactiveLeaderHex(null);
     }
 
     const leaderHum = deps.leaderHum;

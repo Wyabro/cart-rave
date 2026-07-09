@@ -180,6 +180,8 @@ let callbacks = {
   // * Presentation-only hook — fired when the LOCAL player's ram sent a victim into
   // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
   onLocalKillConfirm: (victimSlotIndex, comboTier) => {},
+  // * Arena light flash — every fall on every peer (club reacts to the KO).
+  onArenaKoFlash: (koEvent) => {},
   // * Presentation-only observer hook for the announcer director — fired for EVERY fall
   // * (host fires it from gameFlow; non-host from this falls[] replay path).
   onAnnouncerFall: (fall) => {},
@@ -270,6 +272,7 @@ export function registerGameCallbacks(deps) {
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
     },
     onLocalKillConfirm: (victimSlotIndex, comboTier) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier),
+    onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
     colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
     getPendingColorKey: () => deps.getPendingColorKey(),
@@ -614,6 +617,9 @@ export function applyCartState(cart, snap, options = {}) {
 
   if (typeof snap.s === "boolean") {
     cart.hasSpilled = snap.s;
+    // * Host-authoritative spill flag: if the cart has spilled, basket cargo must go.
+    if (snap.s) GroceryPool.hideCargoBay(cart);
+    else if (cart.cargoBay) cart.cargoBay.visible = true;
     // * Respawn teardown: the host says the cart is alive again and the death VFX has
     // * run its course — run the same local respawn as the host (cleanupShatter +
     // * visual rebuild + transient reset). While the animation is still playing, an
@@ -838,6 +844,7 @@ function processHostFallEvent(msg) {
     colorHexForSlot: callbacks.colorHexForSlot,
     onAnnouncerFall: callbacks.onAnnouncerFall,
     onLocalKillConfirm: callbacks.onLocalKillConfirm,
+    onArenaKoFlash: callbacks.onArenaKoFlash,
     recordChallenge: ChallengeTracker.record,
     getLevelId: () => getCurrentLevelId(),
     recordKillOnLevel: UnlockTracker.recordKillOnLevel,
@@ -1860,14 +1867,16 @@ function handleRemoteSpill(msg) {
   // * The host sends this exactly once. If snap.s arrived first, we still need the VFX.
   // * We only set hasSpilled if it wasn't already, to avoid stepping on respawn logic.
   if (cart && !cart.hasSpilled) cart.hasSpilled = true;
-  if (cart?.cargoBay && msg.cargoBay) cart.cargoBay.visible = false;
-  
+  // * Always despawn basket cargo on the wire spill (hide every bay under the cart).
+  if (cart) GroceryPool.hideCargoBay(cart);
+
   GroceryPool.triggerSpill(
     String(msg.slotId),
     msg.pos,
     msg.quat,
     msg.vel,
     6,
+    cart?.cargoBay ?? null,
   );
 }
 

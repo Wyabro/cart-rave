@@ -6,6 +6,12 @@
 
 import * as THREE from "three";
 import { CONFIG, CART_COLORS } from "./config.js";
+import { sampleArenaReactive } from "./arenaReactiveLights.js";
+
+/** Slow sky yaw (rad/s) — full turn ~7 min; reads as living void without spinning hard. */
+const SKY_YAW_RAD_PER_SEC = 0.015;
+/** Camera XZ parallax factor — sky lags slightly so the void has depth. */
+const SKY_PARALLAX = 0.028;
 
 /**
  * @param {Array<[number, string]>} stops
@@ -26,11 +32,11 @@ function createRadialTexture(stops, ctx) {
 }
 
 /**
- * @param {THREE.Scene} scene
- * @param {{ addToScene: Function, disposables: object[], createRadialTexture: Function }} ctx
+ * @param {{ addToSky: Function, disposables: object[], createRadialTexture: Function }} ctx
  */
-function createStarfield(scene, ctx) {
-  const starCount = 4000;
+function createStarfield(ctx) {
+  // * Slightly leaner than 4k — parallax + yaw sell depth better than raw point count.
+  const starCount = 3200;
   const starGeo = new THREE.BufferGeometry();
   const starPositions = new Float32Array(starCount * 3);
   const starColors = new Float32Array(starCount * 3);
@@ -82,81 +88,86 @@ function createStarfield(scene, ctx) {
     sizeAttenuation: true,
   });
 
-  ctx.addToScene(new THREE.Points(starGeo, starMat));
+  ctx.addToSky(new THREE.Points(starGeo, starMat));
   ctx.disposables.push(starGeo, starMat);
 }
 
 /**
- * @param {THREE.Scene} scene
- * @param {{ addToScene: Function, disposables: object[] }} ctx
+ * Fewer, stronger nebulae beat a wall of faint spheres.
+ * @param {{ addToSky: Function, disposables: object[] }} ctx
  */
-function createNebulaClouds(scene, ctx) {
-  const nebulaColors = [0x6600aa, 0xaa0066, 0x003366, 0x220044, 0x660033];
+function createNebulaClouds(ctx) {
+  const nebulaColors = [0x6600aa, 0xaa0066, 0x003366, 0x440066];
   const sharedGeo = new THREE.SphereGeometry(1, 16, 16);
+  const count = 4;
 
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < count; i++) {
     const mat = new THREE.MeshBasicMaterial({
       color: nebulaColors[i % nebulaColors.length],
       transparent: true,
-      opacity: 0.06 + Math.random() * 0.06,
+      opacity: 0.09 + Math.random() * 0.06,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.BackSide,
     });
 
     const mesh = new THREE.Mesh(sharedGeo, mat);
-    const scale = 20 + Math.random() * 30;
-    mesh.scale.set(scale, scale, scale);
+    const scale = 28 + Math.random() * 34;
+    mesh.scale.set(scale, scale * (0.7 + Math.random() * 0.5), scale);
 
-    const theta = Math.random() * Math.PI * 2;
-    const phi = 0.3 + Math.random() * 1.0;
-    const r = 120 + Math.random() * 50;
+    const theta = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+    const phi = 0.35 + Math.random() * 0.75;
+    const r = 125 + Math.random() * 40;
     mesh.position.set(
       r * Math.sin(phi) * Math.cos(theta),
       r * Math.cos(phi),
       r * Math.sin(phi) * Math.sin(theta),
     );
 
-    ctx.addToScene(mesh);
+    ctx.addToSky(mesh);
     ctx.disposables.push(mat);
   }
   ctx.disposables.push(sharedGeo);
 }
 
 /**
- * @param {THREE.Scene} scene
- * @param {{ addToScene: Function, disposables: object[] }} ctx
+ * One hero ringed planet + one distant moon — less wallpaper clutter.
+ * @param {{ addToSky: Function, disposables: object[] }} ctx
  */
-function createPlanets(scene, ctx) {
+function createPlanets(ctx) {
   const planetConfigs = [
-    { radius: 8, color: 0x993366, pos: [100, 70, -80], ring: true, ringColor: 0xcc6699 },
-    { radius: 5, color: 0x334488, pos: [-120, 55, -60], ring: false },
-    { radius: 3, color: 0x886633, pos: [60, 90, 100], ring: false },
+    { radius: 10, color: 0x993366, pos: [110, 68, -85], ring: true, ringColor: 0xcc6699, opacity: 0.55 },
+    { radius: 3.5, color: 0x445588, pos: [-105, 50, 70], ring: false, opacity: 0.4 },
   ];
 
   const sharedGeo = new THREE.SphereGeometry(1, 24, 24);
 
   for (const p of planetConfigs) {
-    const mat = new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.5 });
+    const mat = new THREE.MeshBasicMaterial({
+      color: p.color,
+      transparent: true,
+      opacity: p.opacity,
+    });
     const planet = new THREE.Mesh(sharedGeo, mat);
     planet.position.set(p.pos[0], p.pos[1], p.pos[2]);
     planet.scale.setScalar(p.radius);
-    ctx.addToScene(planet);
+    ctx.addToSky(planet);
     ctx.disposables.push(mat);
 
     if (p.ring) {
-      const ringGeo = new THREE.TorusGeometry(p.radius * 1.6, 0.4, 8, 48);
+      const ringGeo = new THREE.TorusGeometry(p.radius * 1.65, 0.35, 8, 48);
       const ringMat = new THREE.MeshBasicMaterial({
         color: p.ringColor,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.38,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = Math.PI * 0.35;
+      ring.rotation.z = 0.2;
       ring.position.set(p.pos[0], p.pos[1], p.pos[2]);
-      ctx.addToScene(ring);
+      ctx.addToSky(ring);
       ctx.disposables.push(ringGeo, ringMat);
     }
   }
@@ -164,18 +175,17 @@ function createPlanets(scene, ctx) {
 }
 
 /**
- * @param {THREE.Scene} scene
- * @param {{ addToScene: Function, disposables: object[], createRadialTexture: Function }} ctx
+ * @param {{ addToSky: Function, disposables: object[], createRadialTexture: Function }} ctx
  */
-function createGalaxies(scene, ctx) {
+function createGalaxies(ctx) {
+  // * Single larger galaxy blob — second one was barely readable at distance.
   const galaxyConfigs = [
-    { pos: [-80, 100, -130], color: 0x6644aa, size: 12 },
-    { pos: [130, 85, -100], color: 0xaa4466, size: 8 },
+    { pos: [-90, 95, -120], color: 0x7755bb, size: 16 },
   ];
 
   const sharedTex = createRadialTexture([
-    [0, "rgba(255,255,255,0.6)"],
-    [0.3, "rgba(180,120,220,0.3)"],
+    [0, "rgba(255,255,255,0.65)"],
+    [0.3, "rgba(180,120,220,0.32)"],
     [1, "rgba(0,0,0,0)"],
   ], ctx);
 
@@ -184,31 +194,31 @@ function createGalaxies(scene, ctx) {
       map: sharedTex,
       color: g.color,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const galaxy = new THREE.Sprite(mat);
-    galaxy.scale.set(g.size, g.size * 0.5, 1);
+    galaxy.scale.set(g.size, g.size * 0.45, 1);
     galaxy.position.set(g.pos[0], g.pos[1], g.pos[2]);
-    ctx.addToScene(galaxy);
+    ctx.addToSky(galaxy);
     ctx.disposables.push(mat);
   }
 }
 
 /**
- * @param {THREE.Scene} scene
- * @param {{ addToScene: Function, disposables: object[] }} ctx
+ * @param {{ addToSky: Function, disposables: object[] }} ctx
  * @returns {{ update: (timeMs: number) => void }}
  */
-function createUfos(scene, ctx) {
+function createUfos(ctx) {
   const ufoEntries = [];
   const sharedBodyGeo = new THREE.SphereGeometry(1.5, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5);
   const sharedDomeGeo = new THREE.SphereGeometry(0.7, 8, 6);
   const sharedRingGeo = new THREE.TorusGeometry(1.5, 0.15, 8, 24);
-  const ringColors = [0x00ff88, 0xff00ff, 0x00ffff];
+  const ringColors = [0x00ff88, 0xff00ff];
 
-  for (let i = 0; i < 3; i++) {
+  // * Two UFOs — enough motion without a flying-saucer parking lot.
+  for (let i = 0; i < 2; i++) {
     const ufoGroup = new THREE.Group();
 
     const bodyMat = new THREE.MeshBasicMaterial({ color: 0x888888 });
@@ -231,14 +241,14 @@ function createUfos(scene, ctx) {
     ufoGroup.add(ring);
 
     ufoGroup.scale.set(2, 2, 2);
-    ctx.addToScene(ufoGroup);
+    ctx.addToSky(ufoGroup);
 
     ufoEntries.push({
       group: ufoGroup,
-      orbitRadius: 100 + i * 20,
-      orbitSpeed: 0.03 + i * 0.01,
-      orbitHeight: 15 + i * 8,
-      phaseOffset: i * Math.PI * 0.66,
+      orbitRadius: 105 + i * 28,
+      orbitSpeed: 0.028 + i * 0.012,
+      orbitHeight: 18 + i * 10,
+      phaseOffset: i * Math.PI * 0.9,
     });
 
     ctx.disposables.push(bodyMat, domeMat, ringMat);
@@ -262,11 +272,10 @@ function createUfos(scene, ctx) {
 }
 
 /**
- * @param {THREE.Scene} scene
  * @param {number} pitInnerRadius
  * @param {{ addToScene: Function, disposables: object[] }} ctx
  */
-function createGround(scene, pitInnerRadius, ctx) {
+function createGround(pitInnerRadius, ctx) {
   const sharedGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
 
   const discMat = new THREE.MeshStandardMaterial({
@@ -296,10 +305,9 @@ function createGround(scene, pitInnerRadius, ctx) {
 }
 
 /**
- * @param {THREE.Scene} scene
  * @param {{ addToScene: Function, disposables: object[] }} ctx
  */
-function createHorizonFog(scene, ctx) {
+function createHorizonFog(ctx) {
   const geo = new THREE.CylinderGeometry(150, 150, 40, 64, 8, true);
   const mat = new THREE.ShaderMaterial({
     transparent: true,
@@ -347,12 +355,16 @@ function createHorizonFog(scene, ctx) {
 }
 
 /**
- * @param {THREE.Scene} scene
  * @param {{ platformTopY: number, recordSurfaceGlowY: number }} yRefs
  * @param {{ addToScene: Function, disposables: object[] }} ctx
- * @returns {{ update: (timeMs: number) => void }}
+ * @returns {{
+ *   update: (
+ *     timeMs: number,
+ *     reactive?: { accentColor: THREE.Color, intensityMul: number, koT: number, hasLeader: boolean } | null,
+ *   ) => void,
+ * }}
  */
-function createSpotlightSystem(scene, yRefs, ctx) {
+function createSpotlightSystem(yRefs, ctx) {
   const { platformTopY, recordSurfaceGlowY } = yRefs;
   const spotlightBeamAxisY = new THREE.Vector3(0, 1, 0);
   const spotlightBeamMid = new THREE.Vector3();
@@ -390,6 +402,7 @@ function createSpotlightSystem(scene, yRefs, ctx) {
   }
 
   function addSpotlightWithBeam({ color, position, intensity, target }) {
+    const baseColor = new THREE.Color(color);
     const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 8.75, 0.2, 1.1);
     light.position.copy(position);
     light.target.position.set(target.x, platformTopY, target.z);
@@ -404,6 +417,8 @@ function createSpotlightSystem(scene, yRefs, ctx) {
       { sourceRadius: 0.65, floorRadius: 1.8, opacity: 0.055 },
       { sourceRadius: 0.9, floorRadius: 2.6, opacity: 0.025 },
     ];
+    /** @type {THREE.MeshBasicMaterial[]} */
+    const beamMats = [];
 
     for (const layer of beamLayers) {
       const beamGeo = new THREE.CylinderGeometry(
@@ -415,14 +430,16 @@ function createSpotlightSystem(scene, yRefs, ctx) {
         true,
       );
       const beamMat = new THREE.MeshBasicMaterial({
-        color,
+        color: baseColor.clone(),
         transparent: true,
         opacity: layer.opacity,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false,
       });
+      beamMat.userData.baseOpacity = layer.opacity;
       beamGroup.add(new THREE.Mesh(beamGeo, beamMat));
+      beamMats.push(beamMat);
       ctx.disposables.push(beamGeo, beamMat);
     }
 
@@ -432,13 +449,14 @@ function createSpotlightSystem(scene, yRefs, ctx) {
     const glowGeo = new THREE.CircleGeometry(5.25, 48);
     const glowMat = new THREE.MeshBasicMaterial({
       map: spotlightPoolTexture,
-      color,
+      color: baseColor.clone(),
       transparent: true,
       opacity: 0.3,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
+    glowMat.userData.baseOpacity = 0.3;
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     glowMesh.rotation.x = -Math.PI / 2;
     glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
@@ -446,7 +464,15 @@ function createSpotlightSystem(scene, yRefs, ctx) {
     ctx.addToScene(glowMesh);
     ctx.disposables.push(glowGeo, glowMat);
 
-    return { light, beamGroup, glowMesh };
+    return {
+      light,
+      beamGroup,
+      glowMesh,
+      glowMat,
+      beamMats,
+      baseColor,
+      baseIntensity: intensity,
+    };
   }
 
   const spotlightEntries = [];
@@ -484,9 +510,19 @@ function createSpotlightSystem(scene, yRefs, ctx) {
     });
   }
 
+  const _spotReactiveColor = new THREE.Color();
+
   return {
-    update: (timeMs) => {
+    /**
+     * @param {number} timeMs
+     * @param {{ accentColor: THREE.Color, intensityMul: number, koT: number, hasLeader: boolean } | null} [reactive]
+     */
+    update: (timeMs, reactive = null) => {
       const nowSec = timeMs * 0.001;
+      const leaderMix = reactive?.hasLeader ? 0.42 : 0;
+      const koT = reactive?.koT ?? 0;
+      const intensityMul = reactive?.intensityMul ?? 1;
+
       for (const entry of spotlightEntries) {
         const drift =
           Math.sin(nowSec * entry.driftSpeed * Math.PI * 2 + entry.phase) *
@@ -511,6 +547,21 @@ function createSpotlightSystem(scene, yRefs, ctx) {
           recordSurfaceGlowY,
           spotlightTargetScratch.z,
         );
+
+        // * Leader tints the club wash; KO punches intensity + leans color toward flash.
+        if (reactive) {
+          _spotReactiveColor.copy(entry.baseColor).lerp(reactive.accentColor, leaderMix + koT * 0.5);
+          entry.light.color.copy(_spotReactiveColor);
+          entry.light.intensity = entry.baseIntensity * intensityMul;
+          for (const mat of entry.beamMats) {
+            mat.color.copy(_spotReactiveColor);
+            mat.opacity = (mat.userData.baseOpacity ?? 0.05) * (1 + koT * 0.85);
+          }
+          if (entry.glowMat) {
+            entry.glowMat.color.copy(_spotReactiveColor);
+            entry.glowMat.opacity = (entry.glowMat.userData.baseOpacity ?? 0.3) * (1 + koT * 0.7);
+          }
+        }
       }
     },
   };
@@ -522,11 +573,14 @@ function createSpotlightSystem(scene, yRefs, ctx) {
  * scene and tracks objects/disposables so the whole set can be torn down with
  * {@link disposeSceneExtras}.
  *
+ * Sky dressing (stars/nebulae/planets/UFOs) lives under a single `skyRoot` that slowly
+ * yaws and parallax-lags the camera for depth. Spotlights/ground/horizon stay world-fixed.
+ *
  * @param {THREE.Scene} scene Root scene.
  * @param {number} pitInnerRadius Inner pit radius from the active level (ground ring start).
  * @param {{ enabled?: boolean }} [options] When `enabled` is false (e.g. Backrooms, Zanzibar,
  *   testArena), the rig is never built at all — not just hidden — so the per-level-load cost
- *   of the 4000-point starfield, nebula spheres, planets, UFOs, spotlight system, and horizon
+ *   of the starfield, nebula spheres, planets, UFOs, spotlight system, and horizon
  *   fog cylinder is skipped entirely for levels that would immediately hide it. The returned
  *   object still matches the enabled shape (empty `sceneRoots`/`disposables`, a no-op
  *   `update`) so callers can update/dispose it unconditionally.
@@ -535,17 +589,29 @@ function createSpotlightSystem(scene, yRefs, ctx) {
  *   sceneRoots: THREE.Object3D[],
  *   disposables: object[],
  *   disposed: boolean,
- *   update: (timeMs: number) => void,
+ *   update: (timeMs: number, camera?: THREE.Camera | null) => void,
  * }}
  */
 export function initSceneExtras(scene, pitInnerRadius, options = {}) {
   const enabled = options.enabled !== false;
   if (!enabled) {
-    return { scene, sceneRoots: [], disposables: [], disposed: false, update: () => {} };
+    return {
+      scene,
+      sceneRoots: [],
+      disposables: [],
+      disposed: false,
+      update: () => {},
+    };
   }
 
   const disposables = [];
   const sceneRoots = [];
+
+  // * Parallax/yaw group for distant sky only — floor lights must stay world-locked.
+  const skyRoot = new THREE.Group();
+  skyRoot.name = "classicSkyRoot";
+  scene.add(skyRoot);
+  sceneRoots.push(skyRoot);
 
   const ctx = {
     disposables,
@@ -554,32 +620,52 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
       sceneRoots.push(obj);
       return obj;
     },
+    addToSky: (obj) => {
+      skyRoot.add(obj);
+      return obj;
+    },
     createRadialTexture: (stops) => createRadialTexture(stops, ctx),
   };
 
-  createStarfield(scene, ctx);
-  createNebulaClouds(scene, ctx);
-  createPlanets(scene, ctx);
-  createGalaxies(scene, ctx);
-  const ufos = createUfos(scene, ctx);
+  createStarfield(ctx);
+  createNebulaClouds(ctx);
+  createPlanets(ctx);
+  createGalaxies(ctx);
+  const ufos = createUfos(ctx);
 
   const platformTopY = CONFIG.record.y + CONFIG.record.thickness / 2;
   const recordSurfaceGlowY =
     platformTopY + CONFIG.record.surface.concentricRings.yOffset + 0.018;
 
-  const spotlights = createSpotlightSystem(scene, { platformTopY, recordSurfaceGlowY }, ctx);
-  createGround(scene, pitInnerRadius, ctx);
-  createHorizonFog(scene, ctx);
+  const spotlights = createSpotlightSystem({ platformTopY, recordSurfaceGlowY }, ctx);
+  createGround(pitInnerRadius, ctx);
+  createHorizonFog(ctx);
 
   return {
     scene,
     sceneRoots,
     disposables,
     disposed: false,
-    update: (timeMs) => {
-      if (!sceneRoots[0]?.visible) return;
+    /**
+     * @param {number} timeMs
+     * @param {THREE.Camera | null | undefined} [camera]
+     */
+    update: (timeMs, camera) => {
+      if (!skyRoot.visible) {
+        // * Spotlights may still be visible when sky is on (same roots visibility flag
+        // * in practice); only skip if the first root was hidden by quality/level.
+        return;
+      }
+      const t = timeMs * 0.001;
+      skyRoot.rotation.y = t * SKY_YAW_RAD_PER_SEC;
+      if (camera) {
+        skyRoot.position.x = -camera.position.x * SKY_PARALLAX;
+        skyRoot.position.z = -camera.position.z * SKY_PARALLAX;
+      }
       ufos.update(timeMs);
-      spotlights.update(timeMs);
+      // * Leader/KO sample drives floor spot colors/intensity (club reacts to play).
+      const reactive = sampleArenaReactive(timeMs);
+      spotlights.update(timeMs, reactive);
     },
   };
 }
