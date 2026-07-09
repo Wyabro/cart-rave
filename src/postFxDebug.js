@@ -276,6 +276,9 @@ export function initPostFxDebugGui(deps) {
     scanlineDensity: arcadePass.uniforms.uScanlineDensity.value,
     vignette: arcadePass.uniforms.uVignette.value,
     arcadeEnabled: arcadePass.enabled,
+    vhsAmount: arcadePass.uniforms.uVhsAmount?.value ?? 0,
+    vhsNoise: arcadePass.uniforms.uVhsNoise?.value ?? 0.028,
+    vhsTrackPeriod: arcadePass.uniforms.uVhsTrackPeriod?.value ?? 26,
     fxaaEnabled: fxaaPass.enabled,
   };
 
@@ -434,6 +437,19 @@ export function initPostFxDebugGui(deps) {
   });
   arcadeFolder.addBinding(params, "vignette", { min: 0.0, max: 2.5, step: 0.05 }).on("change", (ev) => {
     arcadePass.uniforms.uVignette.value = ev.value;
+  });
+
+  // — VHS / CCTV (Storerooms-only layer on the arcade pass) —
+  const vhsFolder = pane.addFolder({ title: "VHS / CCTV (Storerooms)" });
+  allFolders.push(vhsFolder);
+  vhsFolder.addBinding(params, "vhsAmount", { min: 0.0, max: 1.0, step: 0.05, label: "amount" }).on("change", (ev) => {
+    if (arcadePass.uniforms.uVhsAmount) arcadePass.uniforms.uVhsAmount.value = ev.value;
+  });
+  vhsFolder.addBinding(params, "vhsNoise", { min: 0.0, max: 0.1, step: 0.002, label: "noise" }).on("change", (ev) => {
+    if (arcadePass.uniforms.uVhsNoise) arcadePass.uniforms.uVhsNoise.value = ev.value;
+  });
+  vhsFolder.addBinding(params, "vhsTrackPeriod", { min: 4, max: 60, step: 1, label: "track period s" }).on("change", (ev) => {
+    if (arcadePass.uniforms.uVhsTrackPeriod) arcadePass.uniforms.uVhsTrackPeriod.value = ev.value;
   });
 
   // — FXAA —

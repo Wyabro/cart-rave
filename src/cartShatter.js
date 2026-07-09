@@ -37,6 +37,27 @@ const _deltaQuat = new THREE.Quaternion();
 const _sharedCoreGeo = new THREE.SphereGeometry(0.5, 16, 12);
 const _sharedRingGeo = new THREE.RingGeometry(0.5, 0.85, 32);
 
+const SHATTER_WALL_RESTITUTION = 0.5; // energy kept by debris bouncing off the shaft wall
+const SHATTER_WALL_MAX_PENETRATION = 2.5; // m — deeper than this means the part is outside the shaft, leave it
+
+// * Optional knockout-shaft wall (Classic Record) that detached shatter parts
+// * ricochet off, so explosion debris rains down inside the shaft instead of
+// * flying out through the visual wall. Registered by the level init and cleared
+// * on level dispose; null = no shaft (other levels). Purely visual, client-local.
+/** @type {{ wallR: number, topY: number } | null} */
+let shatterShaft = null;
+
+/**
+ * * Registers (or clears) the level's knockout-shaft wall: a vertical cylinder of
+ * * radius `wallR` whose interior debris bounces around in, below `topY`.
+ *
+ * @param {{ wallR: number, topY: number } | null} params
+ * @returns {void}
+ */
+export function setShatterEnvironment(params) {
+  shatterShaft = params ?? null;
+}
+
 /**
  * * Spawns the explosion VFX (additive glowing sphere + horizontal shockwave ring)
  * * at the given world position. Materials are created here and disposed by cleanupShatter.
@@ -279,6 +300,32 @@ export function updateShatterEffect(cart, dt, now) {
     part.mesh.position.x += part.vel.x * dt;
     part.mesh.position.y += part.vel.y * dt;
     part.mesh.position.z += part.vel.z * dt;
+
+    // * Shaft-wall ricochet: reflect the radial velocity of debris that crosses the
+    // * inside of the knockout shaft's wall, so explosion parts scatter and rain
+    // * down the shaft instead of flying out through the visual wall.
+    if (shatterShaft && part.mesh.position.y < shatterShaft.topY) {
+      const px = part.mesh.position.x;
+      const pz = part.mesh.position.z;
+      const r = Math.hypot(px, pz);
+      const pen = r - shatterShaft.wallR;
+      // * Only act on fresh penetration — parts far outside the wall never entered
+      // * the shaft (e.g. KO'd out over the stands); leave those falling.
+      if (pen > 0 && pen < SHATTER_WALL_MAX_PENETRATION) {
+        const ux = px / r;
+        const uz = pz / r;
+        const vRad = part.vel.x * ux + part.vel.z * uz;
+        if (vRad > 0) {
+          const j = (1 + SHATTER_WALL_RESTITUTION) * vRad;
+          part.vel.x -= j * ux;
+          part.vel.z -= j * uz;
+          part.angVel.multiplyScalar(0.85);
+        }
+        const snapR = shatterShaft.wallR - 0.05;
+        part.mesh.position.x = ux * snapR;
+        part.mesh.position.z = uz * snapR;
+      }
+    }
 
     // * Apply angular velocity as a small delta quaternion each frame.
     _angVelAxis.copy(part.angVel);

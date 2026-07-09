@@ -262,7 +262,13 @@ export function setSceneFog(scene, renderer, options = {}) {
 }
 
 /**
- * Custom Arcade FX Shader: Combines Chromatic Aberration, Scanlines, and Vignette.
+ * Custom Arcade FX Shader: Combines Chromatic Aberration, Scanlines, and Vignette,
+ * plus an optional VHS/security-camera layer (uVhsAmount, level-gated — currently only
+ * The Storerooms enables it via applyLoadedLevelSideEffects in main.js). The VHS feel is
+ * "cheap always-on CCTV feed", not glitch-horror: per-line micro-jitter, a faint
+ * luminance-only tape-noise floor, a slow chroma-aberration wobble, and a soft tracking
+ * band that sweeps the frame once every uVhsTrackPeriod seconds. Amplitudes are kept
+ * small so competitive readability is untouched.
  */
 const ArcadeFxShader = {
   uniforms: {
@@ -273,6 +279,9 @@ const ArcadeFxShader = {
     uScanlineDensity: { value: 1.5 },
     uVignette: { value: 1.2 },
     uFlash: { value: 0.0 },
+    uVhsAmount: { value: 0.0 },
+    uVhsNoise: { value: 0.028 },
+    uVhsTrackPeriod: { value: 26.0 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -289,7 +298,14 @@ const ArcadeFxShader = {
     uniform float uScanlineDensity;
     uniform float uVignette;
     uniform float uFlash;
+    uniform float uVhsAmount;
+    uniform float uVhsNoise;
+    uniform float uVhsTrackPeriod;
     varying vec2 vUv;
+
+    float hash(float n) {
+      return fract(sin(n) * 43758.5453);
+    }
 
     void main() {
       vec2 uv = vUv;
@@ -297,7 +313,24 @@ const ArcadeFxShader = {
       vec2 dir = uv - center;
       float dist = length(dir);
 
-      vec2 offset = normalize(dir) * dist * uAberration;
+      // VHS: per-scanline micro-jitter + rare tracking band (displaces the sample).
+      float trackBand = 0.0;
+      if (uVhsAmount > 0.001) {
+        float line = floor(vUv.y * uResolution.y);
+        float lineNoise = hash(line * 0.137 + floor(uTime * 47.0) * 3.117);
+        uv.x += (lineNoise - 0.5) * (1.4 / uResolution.x) * uVhsAmount;
+
+        float phase = mod(uTime, uVhsTrackPeriod);
+        if (phase < 1.1) {
+          float bandY = 1.0 - phase / 1.1;
+          trackBand = (1.0 - smoothstep(0.0, 0.035, abs(vUv.y - bandY))) * uVhsAmount;
+          uv.x += trackBand * (7.0 / uResolution.x);
+        }
+      }
+
+      // VHS: slow chroma wobble rides the aberration strength (~±35% on a ~6s cycle).
+      float aberration = uAberration * (1.0 + uVhsAmount * 0.35 * sin(uTime * 1.05));
+      vec2 offset = normalize(dir) * dist * aberration;
       float r = texture2D(tDiffuse, uv + offset).r;
       float g = texture2D(tDiffuse, uv).g;
       float b = texture2D(tDiffuse, uv - offset).b;
@@ -305,6 +338,13 @@ const ArcadeFxShader = {
 
       float scanline = sin(gl_FragCoord.y * uScanlineDensity) * 0.018;
       color.rgb -= scanline;
+
+      // VHS: faint luminance-only tape-noise floor + a soft lift inside the tracking band.
+      if (uVhsAmount > 0.001) {
+        float n = hash(dot(vUv * uResolution, vec2(0.129898, 0.78233)) + uTime * 60.0);
+        color.rgb += (n - 0.5) * uVhsNoise * uVhsAmount;
+        color.rgb += trackBand * 0.06;
+      }
 
       float vig = smoothstep(0.8, 0.5 * uVignette, dist * (uVignette * 0.5 + 0.5));
       color.rgb *= vig;

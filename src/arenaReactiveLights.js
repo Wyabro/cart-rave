@@ -1,8 +1,14 @@
-// arenaReactiveLights.js — shared leader/KO accent state for Classic Record lights.
-// Pure presentation: carts already have leader glow; this drives arena fixtures so the
-// whole club reacts when someone takes the lead or a cart goes into the void.
+// arenaReactiveLights.js — shared ambient accent state for Classic Record lights.
+// Ambient pink↔cyan spindle/rim cycle stays; leader/KO whole-arena flash is opt-in.
 
 import * as THREE from "three";
+
+/**
+ * When true, sole-leader tint + KO flash drive arena fixtures (spots, searchlights,
+ * lasers, spindle, rims). Turned off — cart leader glow already sells the moment, and
+ * the arena-wide recolor was too aggressive.
+ */
+export const ARENA_REACTIVE_PLAY_EVENTS = false;
 
 const DEFAULT_A = new THREE.Color(0xff2bd6);
 const DEFAULT_B = new THREE.Color(0x2bd6ff);
@@ -26,9 +32,14 @@ let koStrength = 0;
 
 /**
  * Sole scoreboard leader cart color, or null when tied / no leader / not running.
+ * No-op when {@link ARENA_REACTIVE_PLAY_EVENTS} is false.
  * @param {number | null | undefined} hex
  */
 export function setArenaReactiveLeaderHex(hex) {
+  if (!ARENA_REACTIVE_PLAY_EVENTS) {
+    hasLeader = false;
+    return;
+  }
   if (hex == null || Number.isNaN(Number(hex))) {
     hasLeader = false;
     return;
@@ -39,10 +50,12 @@ export function setArenaReactiveLeaderHex(hex) {
 
 /**
  * Brief arena-wide color/intensity flash (KO into the pit).
+ * No-op when {@link ARENA_REACTIVE_PLAY_EVENTS} is false.
  * @param {number | null | undefined} hex Attacker (or victim) accent hex.
  * @param {{ durationMs?: number, strength?: number }} [opts]
  */
 export function triggerArenaKoFlash(hex, opts = {}) {
+  if (!ARENA_REACTIVE_PLAY_EVENTS) return;
   const now = typeof performance !== "undefined" ? performance.now() : 0;
   koDurationMs = opts.durationMs ?? 320;
   koStrength = opts.strength ?? 0.85;
@@ -65,6 +78,7 @@ export function resetArenaReactiveLights() {
 
 /**
  * Samples current arena accent for the frame.
+ * Ambient pink↔cyan cycle always; leader/KO only when {@link ARENA_REACTIVE_PLAY_EVENTS}.
  * @param {number} timeMs Synced game clock (ms) — drives ambient pink↔cyan when no leader.
  * @param {number} [nowPerformance] performance.now() for KO decay (defaults to performance.now()).
  * @returns {{
@@ -78,7 +92,9 @@ export function sampleArenaReactive(timeMs, nowPerformance) {
   const nowPerf =
     nowPerformance ?? (typeof performance !== "undefined" ? performance.now() : 0);
 
-  if (hasLeader) {
+  const usePlayEvents = ARENA_REACTIVE_PLAY_EVENTS;
+
+  if (usePlayEvents && hasLeader) {
     _out.copy(_leader);
   } else {
     // * Same ~8s pink↔cyan cycle the spindle used before reactive lighting.
@@ -88,7 +104,7 @@ export function sampleArenaReactive(timeMs, nowPerformance) {
 
   let koT = 0;
   let intensityMul = 1;
-  if (nowPerf < koUntil && koDurationMs > 0) {
+  if (usePlayEvents && nowPerf < koUntil && koDurationMs > 0) {
     koT = Math.max(0, Math.min(1, (koUntil - nowPerf) / koDurationMs));
     // * Flash leans toward attacker color, then white-hot at peak.
     _out.lerp(_koColor, koT * 0.55);
@@ -100,6 +116,6 @@ export function sampleArenaReactive(timeMs, nowPerformance) {
     accentColor: _out,
     intensityMul,
     koT,
-    hasLeader,
+    hasLeader: usePlayEvents && hasLeader,
   };
 }

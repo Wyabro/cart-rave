@@ -391,6 +391,10 @@ const LAST_CART_STANDING_FLOURISH_MS = 3000;
 let autoContinuePodiumTimeoutId = null;
 /** @type {string | null} */
 let autoContinuePodiumKey = null;
+/** Key for the active podium camera presentation (`startedAtMs:winner`). */
+let podiumCameraKey = null;
+/** performance.now() when the current podium camera presentation started. */
+let podiumPhaseEnteredAtMs = 0;
 
 let nameLabelUpdatePending = null;
 
@@ -1417,6 +1421,13 @@ async function main() {
     const resolved = levelId ?? getCurrentLevelId();
     Simulation.setLevelHazards(levelHazards ?? null);
     setContactShadowHazards(levelHazards ?? null);
+    // * VHS/security-cam layer rides the arcade pass; only The Storerooms turns it on.
+    if (fxPass?.uniforms?.uVhsAmount) {
+      const vhsCfg = CONFIG.postFx.vhs;
+      fxPass.uniforms.uVhsAmount.value = resolved === "backrooms" ? vhsCfg.amount : 0;
+      fxPass.uniforms.uVhsNoise.value = vhsCfg.noise;
+      fxPass.uniforms.uVhsTrackPeriod.value = vhsCfg.trackPeriodSec;
+    }
     if (resolved === "testArena") {
       Effects.clearAmbientDust();
       setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
@@ -1598,12 +1609,95 @@ async function main() {
   let lastResultsOverlayKey = null;
   /** Round startedAtMs of the last podium celebration — one sting/confetti per match. */
   let lastPodiumCelebratedRound = null;
+  /** True after confetti has fired for the current podium presentation. */
+  let podiumConfettiFiredKey = null;
+
+  /**
+   * World position of the winning cart (arena center fallback for draws / missing bodies).
+   * @returns {{ x: number, y: number, z: number }}
+   */
+  function getWinnerWorldPos() {
+    const winnerIdx = GameState.getRoundState().winnerSlotIndex;
+    if (winnerIdx === "draw" || !Number.isFinite(winnerIdx)) return { x: 0, y: 0, z: 0 };
+    const winnerCart = allCartsRef?.[winnerIdx];
+    if (winnerCart?.body) {
+      const t = winnerCart.body.translation();
+      return { x: t.x, y: t.y, z: t.z };
+    }
+    if (winnerCart?.mesh) {
+      const p = winnerCart.mesh.position;
+      return { x: p.x, y: p.y, z: p.z };
+    }
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  /**
+   * Starts the post-game winner camera once per match and fires victory/defeat VO.
+   * Idempotent for a given `startedAtMs:winner` key.
+   */
+  function beginPodiumPresentation() {
+    const rs = GameState.getRoundState();
+    const key = `${rs.startedAtMs}:${rs.winnerSlotIndex}`;
+    if (podiumCameraKey === key) {
+      // * Mode may have been cleared — re-arm without resetting the 5s timer.
+      if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.CINEMATIC_PODIUM) {
+        CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
+      } else {
+        CameraMod.setCinematicPodiumTarget(camera, getWinnerWorldPos());
+      }
+      return;
+    }
+    podiumCameraKey = key;
+    podiumPhaseEnteredAtMs = performance.now();
+    podiumConfettiFiredKey = null;
+    CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
+
+    // * Voice plays over the pure winner cam; confetti waits for the results panel.
+    if (lastPodiumCelebratedRound !== rs.startedAtMs) {
+      lastPodiumCelebratedRound = rs.startedAtMs;
+      const celebrationWinner = rs.winnerSlotIndex;
+      if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
+        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+        const isLocalWinner = mySlotIdx >= 0 && celebrationWinner === mySlotIdx;
+        if (isLocalWinner) {
+          announce("victory");
+        } else {
+          announce("defeat");
+        }
+      }
+    }
+  }
+
+  function clearPodiumPresentation() {
+    podiumCameraKey = null;
+    podiumPhaseEnteredAtMs = 0;
+    podiumConfettiFiredKey = null;
+    if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.CINEMATIC_PODIUM) {
+      CameraMod.endCinematicCountdown(camera);
+    }
+  }
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
     const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
+      // * Ensure host + all clients share the same winner-cam presentation path.
+      beginPodiumPresentation();
+
+      // * Hold the opaque results UI until the pure winner camera shot finishes.
+      const camElapsed = podiumPhaseEnteredAtMs > 0
+        ? performance.now() - podiumPhaseEnteredAtMs
+        : 0;
+      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS) {
+        if (overlay.style.display !== "none") {
+          cancelResultsAnimations(overlay);
+          overlay.style.display = "none";
+          overlay.style.pointerEvents = "none";
+        }
+        return;
+      }
+
       overlay.style.display = "flex";
       overlay.style.pointerEvents = "auto";
       const isHost = Netcode.getIsHost();
@@ -1656,17 +1750,12 @@ async function main() {
         }
       }
 
-      // * Victory presentation — one celebration per match: fanfare for the local
-      // * winner, a soft defeat sting otherwise, and winner-colored confetti for all.
-      if (lastPodiumCelebratedRound !== roundState.startedAtMs) {
-        lastPodiumCelebratedRound = roundState.startedAtMs;
+      // * Confetti once per podium presentation, when the results panel actually appears.
+      const confettiKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
+      if (podiumConfettiFiredKey !== confettiKey) {
+        podiumConfettiFiredKey = confettiKey;
         const celebrationWinner = roundState.winnerSlotIndex;
         if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
-          if (isLocalWinner) {
-            announce("victory");
-          } else {
-            announce("defeat");
-          }
           const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
           spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
         }
@@ -1829,6 +1918,7 @@ async function main() {
       clearAutoContinuePodiumTimeout();
       autoContinuePodiumKey = null;
       lastResultsOverlayKey = null;
+      clearPodiumPresentation();
       cancelResultsAnimations(overlay);
       overlay.style.display = "none";
       overlay.style.pointerEvents = "none";
@@ -2084,12 +2174,14 @@ async function main() {
     setLocalColorPicked: (val) => { _localColorPicked = val; },
     recordPodiumStats,
     onReturnToLobby: () => {
+      clearPodiumPresentation();
       Entities.rematchResetWorld();
       GameState.setRoundEndReason(null);
       cleanupSuddenDeathState(allCartsRef || []);
     },
     onEnterPodium: () => {
       HUD.clearFeed();
+      beginPodiumPresentation();
     },
     teleportCartToSpawn,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
@@ -2102,6 +2194,7 @@ async function main() {
     resetRoundState: () => {
       GameState.resetRoundToLobby();
       try { Simulation.setRoundPhase("lobby"); } catch (e) {}
+      clearPodiumPresentation();
       CameraMod.endCinematicCountdown(camera);
     },
     hideEscOverlay: () => HUD.hideEscOverlay(),
@@ -2442,6 +2535,8 @@ async function main() {
       return;
     }
 
+    // * Re-arm pregame fly-over if host migration interrupted the prior client's cam.
+    CameraMod.beginCinematicCountdown(camera);
     Netcode.sendHostRound();
     roundCountdownTimeoutId = setTimeout(() => {
       roundCountdownTimeoutId = null;
@@ -2478,6 +2573,7 @@ async function main() {
     resetPodiumSessionState: () => {
       autoContinuePodiumKey = null;
       lastResultsOverlayKey = null;
+      clearPodiumPresentation();
     },
   });
 
@@ -2540,10 +2636,7 @@ async function main() {
     recordPodiumStats(/** @type {any} */ (GameState.getRoundState().winnerSlotIndex), GameState.getRoundScores());
     HUD.clearFeed();
     syncRoundPhase("podium");
-    const winnerIdx = GameState.getRoundState().winnerSlotIndex;
-    const winnerCart = Number.isFinite(winnerIdx) ? allCartsRef?.[winnerIdx] : null;
-    const winnerPos = winnerCart?.body ? winnerCart.body.translation() : { x: 0, y: 0, z: 0 };
-    CameraMod.beginCinematicPodium(camera, winnerPos);
+    beginPodiumPresentation();
     Netcode.sendHostRound();
   }
 
@@ -2609,6 +2702,7 @@ async function main() {
     clearRoundCountdownTimeout();
     gameCtx.slowMo.active = false;
     lastResultsOverlayKey = null;
+    clearPodiumPresentation();
     GameState.setRoundEndReason(null);
     Entities.rematchResetWorld();
     if (detectGameMode() === "solo") {
@@ -2888,9 +2982,15 @@ async function main() {
 
     const localCart = localCartForConnId();
 
+    // * Cinematic modes always win over death/follow. Countdown used to be nested
+    // * under `localCart?.body`, so pregame fly-overs silently failed when the local
+    // * cart was missing or still mid-shatter. Podium is the same exclusivity rule.
     const camMode = CameraMod.getCameraMode(camera);
     if (camMode === CameraMod.CameraMode.CINEMATIC_PODIUM) {
+      CameraMod.setCinematicPodiumTarget(camera, getWinnerWorldPos());
       CameraMod.updateCinematicPodium(camera, dt);
+    } else if (camMode === CameraMod.CameraMode.CINEMATIC_COUNTDOWN) {
+      CameraMod.updateCinematicCountdown(camera, dt);
     } else if (localCart?.isShattering) {
       if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.DEATH) {
         const deathPos = localCart._shatterDeathPos;
@@ -2922,21 +3022,16 @@ async function main() {
       if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
         CameraMod.endDeathCamera(camera);
       }
-      const camMode = CameraMod.getCameraMode(camera);
-      if (camMode === CameraMod.CameraMode.CINEMATIC_COUNTDOWN) {
-        CameraMod.updateCinematicCountdown(camera, dt);
-      } else {
-        const playerPos = localCart.body.translation();
-        const playerRot = localCart.body.rotation();
-        CameraMod.updateCamera(
-          camera,
-          localCart,
-          dt,
-          playerPos,
-          playerRot,
-          world,
-        );
-      }
+      const playerPos = localCart.body.translation();
+      const playerRot = localCart.body.rotation();
+      CameraMod.updateCamera(
+        camera,
+        localCart,
+        dt,
+        playerPos,
+        playerRot,
+        world,
+      );
     }
 
     frameCtx.dt = dt;

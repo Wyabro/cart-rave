@@ -272,11 +272,19 @@ function createUfos(ctx) {
 }
 
 /**
+ * Outer void floor beyond the coliseum bowl. Must NOT overlap the stadium shell /
+ * moat (those live at y≈-3 from the pit rim out through the seating) — coplanar
+ * RingGeometry + shell lathe was z-fighting into a shimmering purple band.
+ *
  * @param {number} pitInnerRadius
  * @param {{ addToScene: Function, disposables: object[] }} ctx
  */
 function createGround(pitInnerRadius, ctx) {
-  const sharedGeo = new THREE.RingGeometry(pitInnerRadius, 150, 64);
+  // * Upper deck outer ≈ pit+79.7; start past the bowl so the moat/shell own the
+  // * pit→crowd band alone (see initCrowd stadium lathe).
+  const groundInnerR = pitInnerRadius + 84;
+  const groundOuterR = 150;
+  const sharedGeo = new THREE.RingGeometry(groundInnerR, groundOuterR, 64);
 
   const discMat = new THREE.MeshStandardMaterial({
     color: 0x1e1e3a,
@@ -286,7 +294,8 @@ function createGround(pitInnerRadius, ctx) {
   });
   const groundDisc = new THREE.Mesh(sharedGeo, discMat);
   groundDisc.rotation.x = -Math.PI / 2;
-  groundDisc.position.y = -3;
+  // * Slightly below stadium shell so any remaining overlap can't z-fight.
+  groundDisc.position.y = -3.08;
   ctx.addToScene(groundDisc);
 
   const gridMat = new THREE.MeshBasicMaterial({
@@ -295,10 +304,11 @@ function createGround(pitInnerRadius, ctx) {
     opacity: 0.25,
     transparent: true,
     blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
   const groundGrid = new THREE.Mesh(sharedGeo, gridMat);
   groundGrid.rotation.x = -Math.PI / 2;
-  groundGrid.position.y = -2.99;
+  groundGrid.position.y = -3.06;
   ctx.addToScene(groundGrid);
 
   ctx.disposables.push(sharedGeo, discMat, gridMat);
@@ -413,9 +423,9 @@ function createSpotlightSystem(yRefs, ctx) {
     const height = Math.max(0.01, position.y - platformTopY);
     const beamGroup = new THREE.Group();
     const beamLayers = [
-      { sourceRadius: 0.45, floorRadius: 1.2, opacity: 0.1 },
-      { sourceRadius: 0.65, floorRadius: 1.8, opacity: 0.055 },
-      { sourceRadius: 0.9, floorRadius: 2.6, opacity: 0.025 },
+      { sourceRadius: 0.45, floorRadius: 1.2, opacity: 0.12 },
+      { sourceRadius: 0.65, floorRadius: 1.8, opacity: 0.07 },
+      { sourceRadius: 0.9, floorRadius: 2.6, opacity: 0.035 },
     ];
     /** @type {THREE.MeshBasicMaterial[]} */
     const beamMats = [];
@@ -436,6 +446,9 @@ function createSpotlightSystem(yRefs, ctx) {
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false,
+        // * Bypass NeutralToneMapping @ exposure 0.4 so neon beams stay saturated
+        // * (same treatment lasers got in the visual polish pass).
+        toneMapped: false,
       });
       beamMat.userData.baseOpacity = layer.opacity;
       beamGroup.add(new THREE.Mesh(beamGeo, beamMat));
@@ -451,12 +464,13 @@ function createSpotlightSystem(yRefs, ctx) {
       map: spotlightPoolTexture,
       color: baseColor.clone(),
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.38,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
+      toneMapped: false,
     });
-    glowMat.userData.baseOpacity = 0.3;
+    glowMat.userData.baseOpacity = 0.38;
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     glowMesh.rotation.x = -Math.PI / 2;
     glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
@@ -478,7 +492,8 @@ function createSpotlightSystem(yRefs, ctx) {
   const spotlightEntries = [];
   const spotlightPositionRadius = CONFIG.record.radius * 0.7;
   const spotlightHeight = 25;
-  const spotlightIntensity = 12;
+  // * Authored under exposure 0.4 + OutputPass; 12 read as a dull grey wash on the vinyl.
+  const spotlightIntensity = 22;
   const spotlightDriftAmplitudeRad = (18 * Math.PI) / 180;
   const spotlightConfigs = [
     { color: CART_COLORS.pink.hex, angleDeg: -90, driftSpeed: 0.056, phase: 0.0 },
@@ -519,9 +534,12 @@ function createSpotlightSystem(yRefs, ctx) {
      */
     update: (timeMs, reactive = null) => {
       const nowSec = timeMs * 0.001;
-      const leaderMix = reactive?.hasLeader ? 0.42 : 0;
+      // * Keep leader tint subtle — 0.42 was washing every booth-color spot into one
+      // * muddy accent and killed the multi-color rave wash over the dancefloor.
+      const leaderMix = reactive?.hasLeader ? 0.16 : 0;
       const koT = reactive?.koT ?? 0;
       const intensityMul = reactive?.intensityMul ?? 1;
+      const wantsReactiveTint = leaderMix > 0 || koT > 0;
 
       for (const entry of spotlightEntries) {
         const drift =
@@ -548,11 +566,16 @@ function createSpotlightSystem(yRefs, ctx) {
           spotlightTargetScratch.z,
         );
 
-        // * Leader tints the club wash; KO punches intensity + leans color toward flash.
-        if (reactive) {
-          _spotReactiveColor.copy(entry.baseColor).lerp(reactive.accentColor, leaderMix + koT * 0.5);
+        // * Soft intensity breathe (pre-reactive behaviour) so idle spots stay alive.
+        const wobble = 0.88 + 0.12 * Math.sin(nowSec * 1.05 + entry.phase);
+        entry.light.intensity = entry.baseIntensity * wobble * intensityMul;
+
+        if (wantsReactiveTint && reactive) {
+          // * KO / sole-leader only — otherwise leave pure cart-palette colors alone.
+          _spotReactiveColor
+            .copy(entry.baseColor)
+            .lerp(reactive.accentColor, leaderMix + koT * 0.45);
           entry.light.color.copy(_spotReactiveColor);
-          entry.light.intensity = entry.baseIntensity * intensityMul;
           for (const mat of entry.beamMats) {
             mat.color.copy(_spotReactiveColor);
             mat.opacity = (mat.userData.baseOpacity ?? 0.05) * (1 + koT * 0.85);
@@ -560,6 +583,17 @@ function createSpotlightSystem(yRefs, ctx) {
           if (entry.glowMat) {
             entry.glowMat.color.copy(_spotReactiveColor);
             entry.glowMat.opacity = (entry.glowMat.userData.baseOpacity ?? 0.3) * (1 + koT * 0.7);
+          }
+        } else {
+          // * Restore palette identity after a KO flash or when leader drops to a tie.
+          entry.light.color.copy(entry.baseColor);
+          for (const mat of entry.beamMats) {
+            mat.color.copy(entry.baseColor);
+            mat.opacity = mat.userData.baseOpacity ?? 0.05;
+          }
+          if (entry.glowMat) {
+            entry.glowMat.color.copy(entry.baseColor);
+            entry.glowMat.opacity = entry.glowMat.userData.baseOpacity ?? 0.3;
           }
         }
       }

@@ -23,26 +23,29 @@ import { createStaticContactShadowCluster } from "../contactShadows.js";
 
 // ===== Tunable layout constants =====
 
-// * Floor: large worn-carpet play surface centered on the origin. Sized so the spawn
-// * booths (fixed at CONFIG-derived radius ≈ 30.4m) sit comfortably ON the floor near its
-// * outer edge, giving a wide, open arena.
-const ARENA_HALF = 34; // meters — floor half-extent (full square = 68 x 68)
+// * Floor: large worn-carpet play surface centered on the origin. The spawn booths
+// * (fixed at CONFIG-derived radius ≈ 30.4m) sit ~7.6m inboard of the floor edge, leaving
+// * a landing apron behind each booth instead of a blind drop.
+const ARENA_HALF = 38; // meters — floor half-extent (full square = 76 x 76)
 const FLOOR_TOP_Y = 0; // meters — flat playing-surface height
 const FLOOR_FRICTION = 0.55; // unitless — lower than Classic record; high friction catches trimesh seams
-/** Play-quality floor visual grid (vertices ≈ cells+1 per axis). */
-const FLOOR_GRID_CELLS_PLAY = 76;
+/** Play-quality floor visual grid (vertices ≈ cells+1 per axis, ~0.9m step). */
+const FLOOR_GRID_CELLS_PLAY = 84;
 /**
  * Menu-preview floor grid — ~½ the cells → ~¼ the vertices/faces. Physics uses
  * fixed cuboid slices (not this grid), so preview LOD only affects visuals.
  */
-const FLOOR_GRID_CELLS_PREVIEW = 40;
-const CARPET_TILE_M = 3.0; // meters — carpet texture world repeat
+const FLOOR_GRID_CELLS_PREVIEW = 44;
+const CARPET_TILE_M = 3.0; // meters — carpet texture world repeat (2×2 carpet tiles per repeat)
 
 // * Four square corner voids (interior fall hazards), inset from each corner.
 const HOLE_SIZE = 8.5; // meters — square void side length
 const HOLE_HALF = HOLE_SIZE / 2;
-const HOLE_CENTER = 18; // meters — |x| and |z| of each void center
-const HOLE_DEPTH = 32; // meters — black shaft depth (well past fall.yThreshold = -10)
+const HOLE_CENTER = 20; // meters — |x| and |z| of each void center
+const HOLE_DEPTH = 26; // meters — shaft depth; bottoms out exactly at the PIT_FLOOR_Y backstop
+// * Per-level fall KO depth (restored on dispose). Deep enough for a dramatic ~1.2s drop
+// * down a shaft, still well inside scoring's 2.5s kill-attribution window.
+const FALL_Y_THRESHOLD = -18;
 
 const HOLE_CENTERS = [
   { x: HOLE_CENTER, z: HOLE_CENTER },
@@ -51,7 +54,8 @@ const HOLE_CENTERS = [
   { x: -HOLE_CENTER, z: -HOLE_CENTER },
 ];
 
-// * Chamfered hazard lips — physics trimesh slopes carts inward (holes) or outward (perimeter).
+// * Chamfered hazard lips — sloped convex-hull prisms (buildChamferColliders) slope carts
+// * inward (holes) or outward (perimeter); the visual mesh renders the same surface.
 const CHAMFER_DEPTH = 0.55; // meters — vertical drop across each lip band
 const HOLE_CHAMFER_W = 1.05; // meters — inward ramp width around each square void
 const OUTER_CHAMFER_W = 1.25; // meters — outward ramp width at the arena perimeter
@@ -77,41 +81,86 @@ const PIT_INNER_RADIUS = 66; // meters
 // ===== Procedural textures =====
 
 /**
- * Worn industrial-carpet texture: muddy yellow-beige base, fiber speckle, wear stains,
- * and faint carpet-tile seams.
+ * Worn commercial carpet-TILE texture: a 2×2 block of 1.5m carpet tiles per repeat with
+ * quarter-turn pile direction (alternating tiles subtly lighter/darker with fiber combing
+ * rotated 90° — the classic office carpet-tile checkerboard), tight fiber speckle, tile
+ * seams, and sparse coffee/water stains. Mid-tone and low-contrast on purpose: gameplay
+ * readability comes first, the tile grid just gives the floor scale and motion cues.
  *
  * @returns {THREE.CanvasTexture}
  */
 function buildCarpetTexture() {
-  const size = 256;
+  const size = 512;
+  const tile = size / 2; // 2×2 carpet tiles per canvas (1.5m each at CARPET_TILE_M = 3)
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#9c8f63";
-  ctx.fillRect(0, 0, size, size);
+  for (let ty = 0; ty < 2; ty += 1) {
+    for (let tx = 0; tx < 2; tx += 1) {
+      const x0 = tx * tile;
+      const y0 = ty * tile;
+      const lightTile = (tx + ty) % 2 === 0;
 
-  // Dense fiber speckle so the floor reads as carpet, not flat paint.
-  for (let i = 0; i < 4200; i += 1) {
-    const shade = Math.random() < 0.5 ? 0 : 255;
-    ctx.fillStyle = `rgba(${shade},${shade},${shade},${0.015 + Math.random() * 0.03})`;
-    ctx.fillRect(Math.random() * size, Math.random() * size, 1.5, 1.5);
+      // Quarter-turn checkerboard: ±4% lightness between neighbouring tiles.
+      ctx.fillStyle = lightTile ? "#a09367" : "#94885c";
+      ctx.fillRect(x0, y0, tile, tile);
+
+      // Directional fiber combing — short dashes along the tile's pile direction
+      // (horizontal on light tiles, vertical on dark: the 90° quarter-turn cue).
+      for (let i = 0; i < 1100; i += 1) {
+        const px = x0 + Math.random() * tile;
+        const py = y0 + Math.random() * tile;
+        const len = 2.5 + Math.random() * 4;
+        const shade = Math.random() < 0.55 ? 0 : 255;
+        ctx.fillStyle = `rgba(${shade},${shade},${shade},${0.015 + Math.random() * 0.03})`;
+        if (lightTile) ctx.fillRect(px, py, len, 1.2);
+        else ctx.fillRect(px, py, 1.2, len);
+      }
+
+      // Soft per-tile shading toward one corner (pile catching light unevenly).
+      const grad = ctx.createLinearGradient(
+        x0, y0,
+        lightTile ? x0 + tile : x0, lightTile ? y0 : y0 + tile,
+      );
+      grad.addColorStop(0, "rgba(35,30,18,0.05)");
+      grad.addColorStop(1, "rgba(255,250,230,0.03)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(x0, y0, tile, tile);
+    }
   }
 
-  // Broad wear / stain patches.
-  for (let i = 0; i < 60; i += 1) {
-    const r = 8 + Math.random() * 34;
-    ctx.fillStyle = `rgba(45,38,24,${0.03 + Math.random() * 0.07})`;
+  // Sparse stains: a couple of water blotches and one faint coffee ring per repeat.
+  for (let i = 0; i < 14; i += 1) {
+    const r = 10 + Math.random() * 30;
+    const sx = Math.random() * size;
+    const sy = Math.random() * size;
+    const grad = ctx.createRadialGradient(sx, sy, r * 0.2, sx, sy, r);
+    grad.addColorStop(0, "rgba(48,40,24,0.06)");
+    grad.addColorStop(1, "rgba(48,40,24,0)");
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2);
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
     ctx.fill();
   }
+  for (let i = 0; i < 2; i += 1) {
+    ctx.strokeStyle = "rgba(58,44,22,0.14)";
+    ctx.lineWidth = 2 + Math.random() * 2;
+    ctx.beginPath();
+    ctx.arc(Math.random() * size, Math.random() * size, 7 + Math.random() * 8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
-  // Carpet-tile seams along the canvas border (one tile per repeat).
-  ctx.strokeStyle = "rgba(40,34,22,0.4)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, size - 2, size - 2);
+  // Tile seams: dark line + light bevel hint on the far side, on every 1.5m boundary.
+  for (const p of [0, tile, size - 1]) {
+    ctx.fillStyle = "rgba(40,34,22,0.4)";
+    ctx.fillRect(p === size - 1 ? size - 2 : p, 0, 1.5, size);
+    ctx.fillRect(0, p === size - 1 ? size - 2 : p, size, 1.5);
+    ctx.fillStyle = "rgba(235,225,190,0.10)";
+    ctx.fillRect((p === size - 1 ? size - 2 : p) + 1.5, 0, 1, size);
+    ctx.fillRect(0, (p === size - 1 ? size - 2 : p) + 1.5, size, 1);
+  }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
@@ -256,12 +305,13 @@ function distToArenaEdge(x, z) {
 /**
  * Computes the physics/visual floor height at (x, z), including chamfered hazard lips.
  * Returns null inside an open void where no collider surface exists.
+ * Exported for tests (floor physics/visual lockstep invariant).
  *
  * @param {number} x World X.
  * @param {number} z World Z.
  * @returns {number|null}
  */
-function getFloorSurfaceY(x, z) {
+export function getFloorSurfaceY(x, z) {
   if (isInSquareHole(x, z)) return null;
 
   let y = FLOOR_TOP_Y;
@@ -311,6 +361,38 @@ function getChamferDarkenFactor(x, z) {
   return darken;
 }
 
+/** Clamped smoothstep 0→1. */
+function smooth01(t) {
+  const c = Math.max(0, Math.min(1, t));
+  return c * c * (3 - 2 * c);
+}
+
+/**
+ * Returns 0–1 traffic-wear factor at (x, z): worn walking lanes from each spawn booth
+ * toward the center and a scuffed ring around the furniture-pile base — foot traffic
+ * that no longer happens. Deterministic (baked into vertex colors on all clients).
+ *
+ * @param {number} x World X.
+ * @param {number} z World Z.
+ * @returns {number}
+ */
+function getTrafficWearFactor(x, z) {
+  // Booth approach lanes run along both axes (booths sit on ±X/±Z at ~30.4m).
+  const lane = (along, across) => {
+    if (along < 7 || along > 31.5) return 0;
+    const width = 1 - smooth01((across - 1.1) / 1.5);
+    const ends = Math.min(smooth01((along - 7) / 3), smooth01((31.5 - along) / 3));
+    return width * ends;
+  };
+  let wear = Math.max(lane(Math.abs(x), Math.abs(z)), lane(Math.abs(z), Math.abs(x)));
+
+  // Scuffed ring where the pile gets circled.
+  const r = Math.hypot(x, z);
+  wear = Math.max(wear, 1 - Math.min(1, Math.abs(r - 5.5) / 1.4));
+
+  return wear;
+}
+
 /**
  * Builds the square floor visual mesh (physics uses separate cuboid slices).
  * Square corner voids have inward-sloping chamfer lips; the perimeter has an
@@ -349,9 +431,11 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
       uvs[idx * 2] = x / CARPET_TILE_M;
       uvs[idx * 2 + 1] = z / CARPET_TILE_M;
       const darken = getChamferDarkenFactor(x, z);
-      colors[idx * 3] = baseR * (1 - darken) + lipR * darken;
-      colors[idx * 3 + 1] = baseG * (1 - darken) + lipG * darken;
-      colors[idx * 3 + 2] = baseB * (1 - darken) + lipB * darken;
+      // Faint baked traffic wear (×0.90 at full strength) under the hazard-lip darkening.
+      const wearMul = 1 - 0.1 * getTrafficWearFactor(x, z);
+      colors[idx * 3] = (baseR * wearMul) * (1 - darken) + lipR * darken;
+      colors[idx * 3 + 1] = (baseG * wearMul) * (1 - darken) + lipG * darken;
+      colors[idx * 3 + 2] = (baseB * wearMul) * (1 - darken) + lipB * darken;
     }
   }
 
@@ -378,16 +462,205 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
   return geo;
 }
 
+// ===== Floor physics layout (shared by collider construction and tests) =====
+
+// * Hull tops meet the flat floor slices this far below their top faces — a step small
+// * enough to never catch a cart, large enough to avoid coplanar-face contact jitter.
+const CHAMFER_TUCK = 0.02;
+
 /**
- * Builds the dressing for one square void: a black shaft dropping into darkness. Sloped
- * hazard lips live on the shared carpet floor trimesh — no duplicate overlay geometry.
+ * The 9 flat floor slices as axis-aligned rects (half-extents + centers). The flat floor
+ * stops where the sloped chamfer lips begin; the lips are covered by the convex-hull
+ * prisms from buildChamferColliders(). Derived from the SAME constants the visual mesh
+ * uses (single source of truth) — the original bug here was hand-written INNER/OUTER/EDGE
+ * numbers that excluded the chamfer bands entirely, leaving visually-solid sloped carpet
+ * with no collider.
+ *
+ * @returns {Array<{ hx: number, hz: number, px: number, pz: number }>}
+ */
+function computeFloorSliceRects() {
+  const INNER = HOLE_CENTER - HOLE_HALF - HOLE_CHAMFER_W;
+  const OUTER = HOLE_CENTER + HOLE_HALF + HOLE_CHAMFER_W;
+  const EDGE = ARENA_HALF - OUTER_CHAMFER_W;
+  const stripHX = (OUTER - INNER) / 2;
+  const stripPX = -((OUTER + INNER) / 2);
+  return [
+    // 3 solid full-length strips (Left-Outer, Center, Right-Outer).
+    { hx: (EDGE - OUTER) / 2, hz: EDGE, px: -(OUTER + EDGE) / 2, pz: 0 },
+    { hx: INNER, hz: EDGE, px: 0, pz: 0 },
+    { hx: (EDGE - OUTER) / 2, hz: EDGE, px: (OUTER + EDGE) / 2, pz: 0 },
+    // Left-inner strip framed around the two -X holes.
+    { hx: stripHX, hz: (EDGE - OUTER) / 2, px: stripPX, pz: (OUTER + EDGE) / 2 },
+    { hx: stripHX, hz: INNER, px: stripPX, pz: 0 },
+    { hx: stripHX, hz: (EDGE - OUTER) / 2, px: stripPX, pz: -((OUTER + EDGE) / 2) },
+    // Right-inner strip framed around the two +X holes.
+    { hx: stripHX, hz: (EDGE - OUTER) / 2, px: -stripPX, pz: (OUTER + EDGE) / 2 },
+    { hx: stripHX, hz: INNER, px: -stripPX, pz: 0 },
+    { hx: stripHX, hz: (EDGE - OUTER) / 2, px: -stripPX, pz: -((OUTER + EDGE) / 2) },
+  ];
+}
+
+/**
+ * Pure physics-floor support height at (x, z): the surface a cart stands on, combining
+ * the flat slice rects with the sloped chamfer-prism tops. Exported for tests, which
+ * assert this stays in lockstep with getFloorSurfaceY() everywhere — physics must cover
+ * exactly what the carpet shows (within CHAMFER_TUCK).
+ *
+ * @param {number} x World X.
+ * @param {number} z World Z.
+ * @returns {number|null} Support height, or null where a cart falls (voids, past edge).
+ */
+export function computeFloorPhysicsY(x, z) {
+  // Chamfer prism tops around each void (Chebyshev band, sloping into the shaft).
+  for (const h of HOLE_CENTERS) {
+    const d = distToSquareHole(x, z, h.x, h.z);
+    if (d <= HOLE_HALF) return null; // open void
+    if (d < HOLE_HALF + HOLE_CHAMFER_W) {
+      const t = (d - HOLE_HALF) / HOLE_CHAMFER_W;
+      return FLOOR_BOTTOM_Y + t * (FLOOR_TOP_Y - CHAMFER_TUCK - FLOOR_BOTTOM_Y);
+    }
+  }
+  // Perimeter chamfer prisms (sloping toward the pit).
+  const edgeDist = distToArenaEdge(x, z);
+  if (edgeDist < 0) return null; // past the floor edge
+  if (edgeDist < OUTER_CHAMFER_W) {
+    const t = edgeDist / OUTER_CHAMFER_W;
+    return FLOOR_BOTTOM_Y + t * (FLOOR_TOP_Y - CHAMFER_TUCK - FLOOR_BOTTOM_Y);
+  }
+  // Flat slices — coverage comes from the real collider rect list, so tiling gaps fail tests.
+  for (const r of computeFloorSliceRects()) {
+    if (Math.abs(x - r.px) <= r.hx && Math.abs(z - r.pz) <= r.hz) return FLOOR_TOP_Y;
+  }
+  return null;
+}
+
+// ===== Chamfer lip colliders (sloped lips are real ground, not empty air) =====
+
+/**
+ * Registers convex-hull prisms backing every sloped chamfer lip, so the sloped carpet the
+ * floor mesh renders is driveable ground: one mitered trapezoid prism per side of each
+ * square void (sloping down into the shaft) and per arena edge (sloping down toward the
+ * pit). The 45° mitered ends tile exactly with their neighbours (same tangent-fit-hull
+ * idea as the Classic Record ring collider), and the up-slope edge meets the flat floor
+ * cuboids 2cm below their tops — a step small enough to never catch a cart, avoiding both
+ * historical failure modes here (trimesh internal-edge bounce, roundCuboid shrink gaps).
+ *
+ * @param {import("@dimforge/rapier3d").World} world
+ * @param {number} friction Matches the flat floor slices.
+ * @param {number} restitution Matches the flat floor slices.
+ * @returns {object[]} Rigid bodies to remove on dispose.
+ */
+function buildChamferColliders(world, friction, restitution) {
+  const TUCK = CHAMFER_TUCK; // meters — hull top sits this far below the flat cuboid tops
+  const PRISM_H = 0.5; // meters — prism thickness, extruded straight down
+
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
+
+  // Maps the canonical "+Z side" prism onto each side of an axis-aligned square.
+  const sideTransforms = [
+    (x, z) => [x, z], // +Z
+    (x, z) => [x, -z], // -Z
+    (x, z) => [z, x], // +X
+    (x, z) => [-z, x], // -X
+  ];
+
+  // Canonical prism: trapezoid band between Chebyshev distances dNear→dFar (half-widths
+  // equal the distances → exact 45° miters), top sloping yNear→yFar, extruded down.
+  const pushPrism = (toWorld, dNear, yNear, dFar, yFar, ox, oz) => {
+    const pts = [];
+    for (const [d, y] of [[dNear, yNear], [dFar, yFar]]) {
+      for (const sx of [-1, 1]) {
+        const [wx, wz] = toWorld(sx * d, d);
+        pts.push(ox + wx, y, oz + wz);
+        pts.push(ox + wx, y - PRISM_H, oz + wz);
+      }
+    }
+    const desc = RAPIER.ColliderDesc.convexHull(new Float32Array(pts));
+    if (desc) {
+      world.createCollider(desc.setFriction(friction).setRestitution(restitution), body);
+    }
+  };
+
+  for (const toWorld of sideTransforms) {
+    // Void lips: floor level at the outer edge, void-lip depth at the opening.
+    for (const h of HOLE_CENTERS) {
+      pushPrism(toWorld, HOLE_HALF, FLOOR_BOTTOM_Y, HOLE_HALF + HOLE_CHAMFER_W, -TUCK, h.x, h.z);
+    }
+    // Perimeter lip: floor level on the inside, drop-off depth at the true floor edge.
+    pushPrism(toWorld, ARENA_HALF - OUTER_CHAMFER_W, -TUCK, ARENA_HALF, FLOOR_BOTTOM_Y, 0, 0);
+  }
+
+  return [body];
+}
+
+// ===== Fall containment (Cart Rave-style shaft treatment) =====
+
+/**
+ * Adds the physical under-floor the Classic Record pit has and this level lacked:
+ * a springy backstop cap at the pit floor (the "final bounce" a KO'd cart lands on)
+ * and low-friction vertical ricochet walls lining each corner-void shaft so falling
+ * carts carom down the shaft with nothing to rest on. Everything sits below
+ * FALL_Y_THRESHOLD gameplay-wise — this is presentation for the fall, not play space.
+ *
+ * @param {import("@dimforge/rapier3d").World} world
+ * @returns {object[]} Rigid bodies to remove on dispose.
+ */
+function buildFallContainment(world) {
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
+
+  // Backstop cap spanning the whole room footprint; top face flush with the visual pit floor.
+  const capHalfY = 0.5;
+  world.createCollider(
+    RAPIER.ColliderDesc.cuboid(WALL_HALF, capHalfY, WALL_HALF)
+      .setTranslation(0, PIT_FLOOR_Y - capHalfY, 0)
+      .setFriction(0.2)
+      .setRestitution(0.8),
+    body,
+  );
+
+  // Void shaft ricochet walls — inner faces just outside the visual opening, overlapped
+  // at the corners so there are no seams to slip through.
+  const wallTopY = -1.0; // below the chamfer lip bottom
+  const wallHalfY = (wallTopY - PIT_FLOOR_Y) / 2;
+  const wallMidY = (wallTopY + PIT_FLOOR_Y) / 2;
+  const shaftHalf = HOLE_HALF + 0.75;
+  const t = 0.3;
+  for (const h of HOLE_CENTERS) {
+    const faces = [
+      [0, shaftHalf + t, shaftHalf + 2 * t, t],
+      [0, -(shaftHalf + t), shaftHalf + 2 * t, t],
+      [shaftHalf + t, 0, t, shaftHalf + 2 * t],
+      [-(shaftHalf + t), 0, t, shaftHalf + 2 * t],
+    ];
+    for (const [ox, oz, hx, hz] of faces) {
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(hx, wallHalfY, hz)
+          .setTranslation(h.x + ox, wallMidY, h.z + oz)
+          .setFriction(0.05)
+          .setRestitution(0.6),
+        body,
+      );
+    }
+  }
+
+  return [body];
+}
+
+/**
+ * Builds the dressing for one square void: a black shaft dropping into darkness, with a
+ * dim, identical "second floor" room at the very bottom — the strongest Backrooms cue
+ * (architecture repeats where it should end). The sub-room floor sits flush with the
+ * fall-containment backstop, so KO'd carts visibly land on another layer of the same
+ * building. Sloped hazard lips live on the shared carpet floor trimesh.
  *
  * @param {number} cx Void center X.
  * @param {number} cz Void center Z.
  * @param {THREE.Material} shaftMat Shared black shaft material.
+ * @param {{ floor: THREE.Material, glow: THREE.Material, silhouette: THREE.Material }} subRoomMats
+ *   Shared sub-room materials (dim carpet, dead-fluorescent glow quad, dark furniture).
  * @returns {{ group: THREE.Group, geometries: THREE.BufferGeometry[] }}
  */
-function buildSquareVoid(cx, cz, shaftMat) {
+function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
   const group = new THREE.Group();
   const geometries = [];
 
@@ -400,6 +673,37 @@ function buildSquareVoid(cx, cz, shaftMat) {
   const shaft = new THREE.Mesh(shaftGeo, shaftMat);
   shaft.position.set(cx, FLOOR_TOP_Y - HOLE_DEPTH / 2 + 0.05, cz);
   group.add(shaft);
+
+  // --- The room below: dim carpet, one failing fluorescent, dark shapes. Identical in
+  // --- every shaft on purpose — repetition IS the unease.
+  const bottomY = FLOOR_TOP_Y - HOLE_DEPTH; // flush with the backstop cap top
+  const inner = shaftOuter - 0.12;
+
+  const subFloorGeo = new THREE.PlaneGeometry(inner, inner);
+  geometries.push(subFloorGeo);
+  const subFloor = new THREE.Mesh(subFloorGeo, subRoomMats.floor);
+  subFloor.rotation.x = -Math.PI / 2;
+  subFloor.position.set(cx, bottomY + 0.06, cz);
+  group.add(subFloor);
+
+  // A single dim fluorescent bar on one shaft wall, ~3.4m above the sub-floor.
+  const glowGeo = new THREE.PlaneGeometry(2.4, 0.16);
+  geometries.push(glowGeo);
+  const glow = new THREE.Mesh(glowGeo, subRoomMats.glow);
+  glow.position.set(cx, bottomY + 3.4, cz - inner / 2 + 0.1);
+  group.add(glow);
+
+  // Two dark silhouettes standing on the sub-floor: a shelf unit and a pillar stub.
+  const shelfGeo = new THREE.BoxGeometry(1.0, 2.1, 0.5);
+  const stubGeo = new THREE.BoxGeometry(0.8, 3.2, 0.8);
+  geometries.push(shelfGeo, stubGeo);
+  const shelf = new THREE.Mesh(shelfGeo, subRoomMats.silhouette);
+  shelf.position.set(cx - 1.6, bottomY + 1.05, cz + 1.2);
+  shelf.rotation.y = 0.35;
+  group.add(shelf);
+  const stub = new THREE.Mesh(stubGeo, subRoomMats.silhouette);
+  stub.position.set(cx + 1.7, bottomY + 1.6, cz - 1.4);
+  group.add(stub);
 
   return { group, geometries };
 }
@@ -1210,6 +1514,343 @@ function buildWalls(scene, world, wallpaperTex) {
   return { group, wallBodies, wallColliderHandles, ownedGeometries, ownedMaterials };
 }
 
+// ===== Pit-ring dressing (the store continues, abandoned) =====
+
+/**
+ * Fills the fog-readable band of the surrounding pit (just past the floor edge) with
+ * abandoned-storage silhouettes: repeating shelf-gondola rows receding into the fog,
+ * shrink-wrapped pallet clumps, and exactly one dead checkout lane in one corner — the
+ * 90/10 rule: machine-repeated dressing with a single human anomaly. Everything is
+ * non-colliding (carts KO in the pit long before reaching it), vertex-color faded to
+ * black below the lip via pushFadeBox, and merged into ONE draw call.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {{ group: THREE.Group, ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[] }}
+ */
+function buildPitRingDressing(scene) {
+  const unitBox = new THREE.BoxGeometry(1, 1, 1);
+  const group = new THREE.Group();
+  /** @type {THREE.BufferGeometry[]} */
+  const parts = [];
+
+  const OUT = 43; // meters — band center: past the floor edge (38), well inside the walls (56)
+  const BOTTOM = -16; // meters — silhouettes fade to near-black by here, melting into the pit
+  const gondolaRgb = /** @type {[number, number, number]} */ ([0.30, 0.29, 0.26]);
+  const palletRgb = /** @type {[number, number, number]} */ ([0.30, 0.33, 0.38]);
+  const checkoutRgb = /** @type {[number, number, number]} */ ([0.24, 0.23, 0.21]);
+  const registerRgb = /** @type {[number, number, number]} */ ([0.55, 0.50, 0.40]);
+
+  for (let side = 0; side < 4; side += 1) {
+    const { toWorld, alongIsX } = wallFrame(side);
+    const o = OUT - WALL_HALF; // negative — toward the room center
+    const dim = (along, radial) => (alongIsX ? [along, radial] : [radial, along]);
+
+    // Shelf-gondola rows, long axis radial (receding into the fog), evenly repeated.
+    for (const a of [-26, -4, 18]) {
+      const [sx, sz] = dim(1.15, 9);
+      const topY = 2.4;
+      const [px, , pz] = toWorld(a, 0, o);
+      pushFadeBox(parts, sx, topY - BOTTOM, sz, px, (topY + BOTTOM) / 2, pz, unitBox, gondolaRgb);
+    }
+
+    // Pallet clump (skipped on side 1 — the checkout lane takes its spot).
+    if (side !== 1) {
+      const [px, , pz] = toWorld(30, 0, o);
+      const [s1x, s1z] = dim(1.25, 1.25);
+      pushFadeBox(parts, s1x, 1.3 - BOTTOM, s1z, px, (1.3 + BOTTOM) / 2, pz, unitBox, palletRgb);
+      const [s2x, s2z] = dim(1.1, 1.1);
+      pushFadeBox(parts, s2x, 1.1, s2z, px, 1.3 + 0.55, pz, unitBox, palletRgb);
+    }
+  }
+
+  // The one dead checkout lane (side 1, -Z): conveyor, register, slumped stanchion.
+  {
+    const { toWorld } = wallFrame(1);
+    const o = OUT - WALL_HALF;
+    const [cx, , cz] = toWorld(30, 0, o);
+    // Conveyor bed.
+    pushFadeBox(parts, 3.2, 0.95 - BOTTOM, 0.8, cx, (0.95 + BOTTOM) / 2, cz, unitBox, checkoutRgb);
+    // Register on one end of the belt.
+    pushFadeBox(parts, 0.6, 0.55, 0.6, cx - 1.2, 0.95 + 0.28, cz, unitBox, registerRgb);
+    // Slumped queue stanchion leaning against the conveyor.
+    const stanchion = unitBox.clone();
+    stanchion.scale(0.08, 1.1, 0.08);
+    stanchion.rotateZ(0.55);
+    stanchion.translate(cx + 1.9, 0.45, cz + 0.3);
+    const stanchionColors = new Float32Array(stanchion.attributes.position.count * 3);
+    stanchionColors.fill(0.25);
+    stanchion.setAttribute("color", new THREE.BufferAttribute(stanchionColors, 3));
+    parts.push(stanchion);
+  }
+
+  unitBox.dispose();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, roughness: 0.92, metalness: 0.05, vertexColors: true,
+  });
+  const merged = BufferGeometryUtils.mergeGeometries(parts, false);
+  parts.forEach((g) => g.dispose());
+  group.add(new THREE.Mesh(merged, mat));
+
+  scene.add(group);
+  return { group, ownedGeometries: [merged], ownedMaterials: [mat] };
+}
+
+// ===== Quiet uncanny details (EXIT to nowhere, stopped clock, painted arrows) =====
+
+/**
+ * Three small, quiet wrongnesses — deliberately capped at three so they stay uncanny
+ * instead of cluttered: a failing EXIT sign pointing at blank wallpaper, a wall clock
+ * stopped at 3:47 in the dead-lighting quadrant, and faded painted arrows on the carpet
+ * edge band pointing at walls and voids. All emissive-map based, zero dynamic lights.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {{
+ *   group: THREE.Group,
+ *   ownedGeometries: THREE.BufferGeometry[],
+ *   ownedMaterials: THREE.Material[],
+ *   ownedTextures: THREE.Texture[],
+ * }}
+ */
+function buildUncannyDetails(scene) {
+  const group = new THREE.Group();
+  const ownedGeometries = [];
+  const ownedMaterials = [];
+  const ownedTextures = [];
+
+  // --- Failing EXIT sign (west wall) whose arrow points along the blank wall.
+  const exitCanvas = document.createElement("canvas");
+  exitCanvas.width = 256;
+  exitCanvas.height = 96;
+  {
+    const ctx = exitCanvas.getContext("2d");
+    ctx.fillStyle = "#0c0d0a";
+    ctx.fillRect(0, 0, 256, 96);
+    ctx.fillStyle = "#3f8f55";
+    ctx.font = "bold 58px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("EXIT", 148, 52);
+    // Arrow triangle pointing left — at nothing.
+    ctx.beginPath();
+    ctx.moveTo(18, 48);
+    ctx.lineTo(52, 26);
+    ctx.lineTo(52, 70);
+    ctx.closePath();
+    ctx.fill();
+    // Failing half: darken one end unevenly.
+    const grad = ctx.createLinearGradient(120, 0, 256, 0);
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(120, 0, 136, 96);
+  }
+  const exitTex = new THREE.CanvasTexture(exitCanvas);
+  ownedTextures.push(exitTex);
+  const exitGeo = new THREE.BoxGeometry(1.5, 0.55, 0.1);
+  const exitMat = new THREE.MeshStandardMaterial({
+    color: 0x161613,
+    emissiveMap: exitTex,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.45,
+    roughness: 0.7,
+  });
+  ownedGeometries.push(exitGeo);
+  ownedMaterials.push(exitMat);
+  const exitSign = new THREE.Mesh(exitGeo, exitMat);
+  exitSign.position.set(-(WALL_HALF - 0.4), 3.5, 9);
+  exitSign.rotation.y = Math.PI / 2;
+  group.add(exitSign);
+
+  // --- Wall clock stopped at 3:47, hung in the dead-lighting quadrant (-X/+Z).
+  const clockCanvas = document.createElement("canvas");
+  clockCanvas.width = 128;
+  clockCanvas.height = 128;
+  {
+    const ctx = clockCanvas.getContext("2d");
+    ctx.fillStyle = "#26241e";
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = "#c9c2ac";
+    ctx.beginPath();
+    ctx.arc(64, 64, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#3a372e";
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(64 + Math.cos(a) * 48, 64 + Math.sin(a) * 48);
+      ctx.lineTo(64 + Math.cos(a) * 54, 64 + Math.sin(a) * 54);
+      ctx.stroke();
+    }
+    const drawHand = (angleRad, len, w) => {
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(64, 64);
+      ctx.lineTo(64 + Math.cos(angleRad) * len, 64 + Math.sin(angleRad) * len);
+      ctx.stroke();
+    };
+    // 3:47 — angles measured from 12 o'clock, canvas Y is down.
+    const minuteA = (47 / 60) * Math.PI * 2 - Math.PI / 2;
+    const hourA = ((3 + 47 / 60) / 12) * Math.PI * 2 - Math.PI / 2;
+    drawHand(hourA, 28, 5);
+    drawHand(minuteA, 42, 3);
+  }
+  const clockTex = new THREE.CanvasTexture(clockCanvas);
+  ownedTextures.push(clockTex);
+  const clockGeo = new THREE.CircleGeometry(0.38, 24);
+  const clockMat = new THREE.MeshStandardMaterial({
+    color: 0x8f8a7a,
+    map: clockTex,
+    emissiveMap: clockTex,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.1,
+    roughness: 0.8,
+  });
+  ownedGeometries.push(clockGeo);
+  ownedMaterials.push(clockMat);
+  const clock = new THREE.Mesh(clockGeo, clockMat);
+  clock.position.set(-(WALL_HALF - 0.3), 4.6, 20);
+  clock.rotation.y = Math.PI / 2;
+  group.add(clock);
+
+  // --- Faded painted directional arrows on the carpet edge band, pointing at nothing
+  // --- useful (a wall, a void). Decals: transparent, no depth write, tiny y-offset.
+  const arrowCanvas = document.createElement("canvas");
+  arrowCanvas.width = 128;
+  arrowCanvas.height = 128;
+  {
+    const ctx = arrowCanvas.getContext("2d");
+    ctx.clearRect(0, 0, 128, 128);
+    ctx.fillStyle = "rgba(232,228,214,0.85)";
+    // Chevron arrow pointing "up" (−Y canvas), worn edges punched out below.
+    ctx.beginPath();
+    ctx.moveTo(64, 14);
+    ctx.lineTo(104, 62);
+    ctx.lineTo(82, 62);
+    ctx.lineTo(82, 112);
+    ctx.lineTo(46, 112);
+    ctx.lineTo(46, 62);
+    ctx.lineTo(24, 62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalCompositeOperation = "destination-out";
+    for (let i = 0; i < 46; i += 1) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+  const arrowTex = new THREE.CanvasTexture(arrowCanvas);
+  ownedTextures.push(arrowTex);
+  const arrowGeo = new THREE.PlaneGeometry(1.3, 1.3);
+  const arrowMat = new THREE.MeshStandardMaterial({
+    map: arrowTex,
+    transparent: true,
+    opacity: 0.26,
+    depthWrite: false,
+    roughness: 0.95,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+  });
+  ownedGeometries.push(arrowGeo);
+  ownedMaterials.push(arrowMat);
+
+  // [x, z, yaw] — yaw 0 points +Z after the flat rotation; one aims at the (+20,+20) void.
+  const arrowSpots = [
+    [33.5, 6, Math.PI / 2], // → +X wall
+    [-8, 33.5, 0], // → +Z wall
+    [27, 27, Math.PI + Math.PI / 4], // → the (20, 20) void, diagonally inward
+  ];
+  for (const [ax, az, yaw] of arrowSpots) {
+    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+    arrow.rotation.x = -Math.PI / 2;
+    arrow.rotation.z = yaw;
+    arrow.position.set(ax, 0.02, az);
+    group.add(arrow);
+  }
+
+  scene.add(group);
+  return { group, ownedGeometries, ownedMaterials, ownedTextures };
+}
+
+// ===== Doorways to nowhere =====
+
+/**
+ * Shallow fake doorways on the plain (unshelved) walls: two dark openings — one with a
+ * single dim hallway light strip receding inside — and one that has been wallpapered
+ * over with only the frame left. Implies the maze continues and this room is one cell
+ * of many. Pure visuals on the far side of the pit; nothing collides.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {{ group: THREE.Group, ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[] }}
+ */
+function buildDoorways(scene) {
+  const group = new THREE.Group();
+
+  const openingGeo = new THREE.PlaneGeometry(1.15, 2.3);
+  const stripGeo = new THREE.PlaneGeometry(0.07, 2.05);
+  const jambGeo = new THREE.BoxGeometry(0.12, 2.45, 0.08);
+  const headerGeo = new THREE.BoxGeometry(1.42, 0.12, 0.08);
+
+  const openingMat = new THREE.MeshBasicMaterial({ color: 0x050506 });
+  const sealedMat = new THREE.MeshStandardMaterial({ color: 0xb2a04e, roughness: 0.96 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.85 });
+  const stripMat = new THREE.MeshBasicMaterial({ color: 0x8a7a55 });
+
+  const ownedGeometries = [openingGeo, stripGeo, jambGeo, headerGeo];
+  const ownedMaterials = [openingMat, sealedMat, frameMat, stripMat];
+
+  // [side, along, variant] — sides 1 (-Z) and 3 (-X) are the plain drywall walls.
+  /** @type {Array<[number, number, "lit" | "sealed" | "dark"]>} */
+  const doors = [
+    [3, 6, "lit"], // dark opening with a dim hallway strip inside
+    [1, -18, "sealed"], // wallpapered over, frame left behind
+    [1, 26, "dark"], // plain dark opening
+  ];
+
+  for (const [side, along, variant] of doors) {
+    const { toWorld } = wallFrame(side);
+    const faceYaw = side === 1 ? 0 : Math.PI / 2; // plane normal toward the room
+    const doorGroup = new THREE.Group();
+
+    // * Offsets sit proud of the protruding baseboard strip (0.3m) so the doorway
+    // * cuts through it visually instead of being half-buried behind it.
+    const opening = new THREE.Mesh(openingGeo, variant === "sealed" ? sealedMat : openingMat);
+    const [ox, , oz] = toWorld(along, 0, -0.34);
+    opening.position.set(ox, 1.15, oz);
+    opening.rotation.y = faceYaw;
+    doorGroup.add(opening);
+
+    if (variant === "lit") {
+      const strip = new THREE.Mesh(stripGeo, stripMat);
+      const [sx, , sz] = toWorld(along + 0.38, 0, -0.36);
+      strip.position.set(sx, 1.15, sz);
+      strip.rotation.y = faceYaw;
+      doorGroup.add(strip);
+    }
+
+    for (const jambOff of [-0.66, 0.66]) {
+      const jamb = new THREE.Mesh(jambGeo, frameMat);
+      const [jx, , jz] = toWorld(along + jambOff, 0, -0.38);
+      jamb.position.set(jx, 1.22, jz);
+      jamb.rotation.y = faceYaw;
+      doorGroup.add(jamb);
+    }
+    const header = new THREE.Mesh(headerGeo, frameMat);
+    const [hx, , hz] = toWorld(along, 0, -0.38);
+    header.position.set(hx, 2.42, hz);
+    header.rotation.y = faceYaw;
+    doorGroup.add(header);
+
+    group.add(doorGroup);
+  }
+
+  scene.add(group);
+  return { group, ownedGeometries, ownedMaterials };
+}
+
 // ===== Dropped ceiling + fluorescent panels =====
 
 /**
@@ -1226,6 +1867,7 @@ function buildWalls(scene, world, wallpaperTex) {
  *   body: object,
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[],
+ *   update: (timeMs: number) => void,
  * }}
  */
 function buildCeiling(scene, world, ceilingTex) {
@@ -1257,15 +1899,18 @@ function buildCeiling(scene, world, ceilingTex) {
     color: 0xfff6e0, emissive: 0xfff2d6, emissiveIntensity: 1.42,
     roughness: 0.5, metalness: 0.0,
   });
-  const dimMat = new THREE.MeshStandardMaterial({
+  // * Two dim buckets with independent arrhythmic flicker (driven from update()) — the
+  // * building's fixtures failing out of sync with each other, at zero light cost.
+  const dimMatA = new THREE.MeshStandardMaterial({
     color: 0xb7ad8e, emissive: 0xb7a87a, emissiveIntensity: 0.41,
     roughness: 0.6, metalness: 0.0,
   });
+  const dimMatB = dimMatA.clone();
   const deadMat = new THREE.MeshStandardMaterial({
     color: 0x5d584a, emissive: 0x000000, emissiveIntensity: 0.0,
     roughness: 0.8, metalness: 0.0,
   });
-  ownedMaterials.push(frameMat, litMat, dimMat, deadMat);
+  ownedMaterials.push(frameMat, litMat, dimMatA, dimMatB, deadMat);
 
   // Fixtures never move, so bake every frame rail and panel into merged static meshes:
   // one draw call for the shared frame material, plus one per panel state bucket
@@ -1279,8 +1924,8 @@ function buildCeiling(scene, world, ceilingTex) {
 
   /** @type {THREE.BufferGeometry[]} */
   const railParts = [];
-  /** @type {Record<"lit" | "dim" | "dead", THREE.BufferGeometry[]>} */
-  const panelParts = { lit: [], dim: [], dead: [] };
+  /** @type {Record<"lit" | "dimA" | "dimB" | "dead", THREE.BufferGeometry[]>} */
+  const panelParts = { lit: [], dimA: [], dimB: [], dead: [] };
   const railPos = new THREE.Vector3();
   const railEuler = new THREE.Euler();
   const railQuat = new THREE.Quaternion();
@@ -1302,9 +1947,14 @@ function buildCeiling(scene, world, ceilingTex) {
       const px = -span / 2 + (gx + 0.5) * (span / grid);
       const pz = -span / 2 + (gz + 0.5) * (span / grid);
 
-      // Deterministic state: ~1 in 5 dead, ~1 in 4 dimmed, rest lit.
+      // Deterministic state: ~1 in 5 dead, ~1 in 4 dimmed, rest lit — EXCEPT one fully
+      // dead 2×2 corner quadrant (removes 3 SpotLights vs the hash: uniform dimness reads
+      // as "a look"; a genuinely dark corner reads as "something is wrong here").
       const h = (gx * 7 + gz * 13) % 20;
-      const state = h < 4 ? "dead" : h < 9 ? "dim" : "lit";
+      const inDeadQuadrant = gx <= 1 && gz >= 3;
+      const state = inDeadQuadrant
+        ? "dead"
+        : h < 4 ? "dead" : h < 9 ? (h % 2 === 0 ? "dimA" : "dimB") : "lit";
 
       const railOffsets = [
         { x: 0, z: 0.98, ry: 0 },
@@ -1354,12 +2004,105 @@ function buildCeiling(scene, world, ceilingTex) {
     ownedGeometries.push(merged);
     group.add(new THREE.Mesh(merged, mat));
   };
+  // ----- Decay dressing: missing tiles (black gaps into the plenum), sagging tiles,
+  // ----- and hanging cables. All merged; biased toward the dead quadrant (-X/+Z).
+  const gapMat = new THREE.MeshBasicMaterial({ color: 0x08070a });
+  const sagMat = new THREE.MeshStandardMaterial({
+    color: 0x8a7f66, roughness: 0.95, metalness: 0.0,
+  });
+  ownedMaterials.push(gapMat, sagMat);
+
+  /** @type {THREE.BufferGeometry[]} */
+  const gapParts = [];
+  /** @type {THREE.BufferGeometry[]} */
+  const sagParts = [];
+
+  // [x, z] tile-gap positions; the first one hosts the exhaust fan.
+  const gapSpots = [
+    [-15, 24], [-24, 17], [-20, 9], [-6, 20], [10, -22], [26, -6], [4, 27.5],
+  ];
+  const gapQuad = new THREE.PlaneGeometry(1.9, 1.9);
+  const cableGeo = new THREE.BoxGeometry(0.05, 1, 0.05);
+  for (let i = 0; i < gapSpots.length; i += 1) {
+    const [gx2, gz2] = gapSpots[i];
+    const gq = gapQuad.clone();
+    gq.rotateX(Math.PI / 2); // face down
+    gq.translate(gx2, CEILING_Y - 0.02, gz2);
+    gapParts.push(gq);
+    // Exposed grid rim around the opening (reads as the tile having been removed).
+    const rimOffsets = [
+      [0, 1.02, 2.1, 0.1], [0, -1.02, 2.1, 0.1], [1.02, 0, 0.1, 2.1], [-1.02, 0, 0.1, 2.1],
+    ];
+    for (const [ox, oz, sx, sz] of rimOffsets) {
+      const rim = new THREE.BoxGeometry(sx, 0.06, sz);
+      rim.translate(gx2 + ox, CEILING_Y - 0.03, gz2 + oz);
+      railParts.push(rim);
+    }
+    // A cable drooping out of some gaps (deterministic alternation, none where the fan goes).
+    if (i > 0 && i % 2 === 1) {
+      const len = 0.9 + (i % 3) * 0.35;
+      const cable = cableGeo.clone();
+      cable.scale(1, len, 1);
+      cable.rotateZ(0.08 * (i % 2 === 0 ? 1 : -1));
+      cable.translate(gx2 + 0.7, CEILING_Y - len / 2, gz2 - 0.6);
+      railParts.push(cable);
+    }
+  }
+  gapQuad.dispose();
+  cableGeo.dispose();
+
+  // Sagging, water-stained tiles: 2×2 planes with the center vertex bowed down.
+  for (const [sx2, sz2, sag] of [[-18, 13, 0.22], [8, 19, 0.16]]) {
+    const sagGeo = new THREE.PlaneGeometry(2, 2, 2, 2);
+    const pos = sagGeo.attributes.position;
+    pos.setZ(4, sag); // center vertex of the 3×3 grid, along +Z (down after rotateX)
+    sagGeo.rotateX(Math.PI / 2);
+    sagGeo.translate(sx2, CEILING_Y - 0.04, sz2);
+    sagGeo.computeVertexNormals();
+    sagParts.push(sagGeo);
+  }
+
   mergeCeilingParts(railParts, frameMat);
   mergeCeilingParts(panelParts.lit, litMat);
-  mergeCeilingParts(panelParts.dim, dimMat);
+  mergeCeilingParts(panelParts.dimA, dimMatA);
+  mergeCeilingParts(panelParts.dimB, dimMatB);
   mergeCeilingParts(panelParts.dead, deadMat);
+  mergeCeilingParts(gapParts, gapMat);
+  mergeCeilingParts(sagParts, sagMat);
   frameRailGeo.dispose();
   panelGeo.dispose();
+
+  // ----- Slow exhaust fan in the first ceiling gap — one quiet moving silhouette so time
+  // ----- visibly passes. Backlit by the black opening; no light, two draw calls.
+  const fanMat = new THREE.MeshStandardMaterial({
+    color: 0x1c1a16, roughness: 0.85, metalness: 0.2,
+  });
+  ownedMaterials.push(fanMat);
+  const fanHubGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.22, 8);
+  const fanBladeGeo = new THREE.BoxGeometry(1.62, 0.03, 0.2);
+  ownedGeometries.push(fanHubGeo, fanBladeGeo);
+  const fanGroup = new THREE.Group();
+  const [fanX, fanZ] = gapSpots[0];
+  fanGroup.position.set(fanX, CEILING_Y - 0.14, fanZ);
+  fanGroup.add(new THREE.Mesh(fanHubGeo, fanMat));
+  for (const rot of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(fanBladeGeo, fanMat);
+    blade.rotation.y = rot;
+    fanGroup.add(blade);
+  }
+  group.add(fanGroup);
+
+  // ----- Per-frame ceiling life: fan rotation + out-of-sync dim-panel flicker.
+  const FAN_RAD_PER_SEC = (Math.PI * 2) / 5.2;
+  function update(timeMs) {
+    const t = timeMs * 0.001;
+    fanGroup.rotation.y = t * FAN_RAD_PER_SEC;
+    // Arrhythmic slow LFOs (incommensurate frequencies) with rare near-dropouts.
+    const a = 0.82 + 0.18 * Math.sin(t * 0.9) * Math.sin(t * 0.53 + 1.7);
+    const b = 0.85 + 0.15 * Math.sin(t * 0.71 + 4.2) * Math.sin(t * 0.41);
+    dimMatA.emissiveIntensity = 0.41 * (Math.sin(t * 0.161) > 0.997 ? 0.12 : a);
+    dimMatB.emissiveIntensity = 0.41 * (Math.sin(t * 0.127 + 2.1) > 0.997 ? 0.12 : b);
+  }
 
   // * Thin overhead slab — carts that hop high enough hit the acoustic tiles and bounce back.
   const ceilHalf = ceilSpan / 2;
@@ -1375,7 +2118,7 @@ function buildCeiling(scene, world, ceilingTex) {
   );
 
   scene.add(group);
-  return { group, body: ceilingBody, ownedGeometries, ownedMaterials };
+  return { group, body: ceilingBody, ownedGeometries, ownedMaterials, update };
 }
 
 // ===== Liminal / office spawn booths (replace neon DJ booths) =====
@@ -1424,11 +2167,28 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const railGeo = new THREE.CylinderGeometry(B.railThickness / 2, B.railThickness / 2, 1, 8);
   const cardboardGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
 
-  const ownedGeometries = [platGeo, lowRailGeo, railGeo, cardboardGeo];
   const ownedMaterials = [slabMat, railMat, boxMat];
 
   const pw = B.platformWidth / 2;
   const pd = B.platformDepth / 2;
+
+  // * Booths never move — bake all 4 booths' parts into 3 merged static meshes (one per
+  // * material), same pattern as the walls/ceiling/furniture pile. ~36 draws → 3.
+  /** @type {Record<"slab" | "rail" | "box", THREE.BufferGeometry[]>} */
+  const parts = { slab: [], rail: [], box: [] };
+  const boothMatrix = new THREE.Matrix4();
+  const localMatrix = new THREE.Matrix4();
+  const scratchPos = new THREE.Vector3();
+  const scratchQuat = new THREE.Quaternion();
+  const scratchEuler = new THREE.Euler();
+  const scratchScale = new THREE.Vector3();
+  const pushPart = (bucket, template, px, py, pz, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
+    scratchPos.set(px, py, pz);
+    scratchQuat.setFromEuler(scratchEuler.set(rx, ry, rz));
+    scratchScale.set(sx, sy, sz);
+    localMatrix.compose(scratchPos, scratchQuat, scratchScale);
+    parts[bucket].push(template.clone().applyMatrix4(localMatrix.premultiply(boothMatrix)));
+  };
 
   for (let i = 0; i < 4; i += 1) {
     const angle = angles[i];
@@ -1437,14 +2197,13 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     const topY = B.platformY;
     const yaw = Math.PI / 2 - angle;
 
-    const boothGroup = new THREE.Group();
-    boothGroup.position.set(cx, 0, cz);
-    boothGroup.rotation.y = yaw;
+    scratchPos.set(cx, 0, cz);
+    scratchQuat.setFromEuler(scratchEuler.set(0, yaw, 0));
+    scratchScale.set(1, 1, 1);
+    boothMatrix.compose(scratchPos, scratchQuat, scratchScale);
 
     // Platform slab.
-    const slab = new THREE.Mesh(platGeo, slabMat);
-    slab.position.set(0, topY, 0);
-    boothGroup.add(slab);
+    pushPart("slab", platGeo, 0, topY, 0);
 
     // Platform collider (world space, matches buildBooths exactly).
     const platBody = world.createRigidBody(
@@ -1464,34 +2223,35 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     const deckTopY = topY + B.platformThickness / 2;
 
     // Low back rail (local +Z = away from arena) — keeps a rear barrier without blocking the cart.
-    const backRail = new THREE.Mesh(lowRailGeo, railMat);
-    backRail.position.set(0, deckTopY + 0.275, pd - 0.08);
-    boothGroup.add(backRail);
+    pushPart("rail", lowRailGeo, 0, deckTopY + 0.275, pd - 0.08);
 
     // Dull metal side rails (no neon).
     for (const sx of [-pw + 0.1, pw - 0.1]) {
-      const rail = new THREE.Mesh(railGeo, railMat);
-      rail.scale.set(1, B.platformDepth - 0.4, 1);
-      rail.rotation.x = Math.PI / 2;
-      rail.position.set(sx, deckTopY + B.railHeight, 0);
-      boothGroup.add(rail);
-
+      pushPart("rail", railGeo, sx, deckTopY + B.railHeight, 0, Math.PI / 2, 0, 0, 1, B.platformDepth - 0.4, 1);
       for (const rz of [-pd + 0.2, pd - 0.2]) {
-        const post = new THREE.Mesh(railGeo, railMat);
-        post.scale.set(1, B.railHeight, 1);
-        post.position.set(sx, deckTopY + B.railHeight / 2, rz);
-        boothGroup.add(post);
+        pushPart("rail", railGeo, sx, deckTopY + B.railHeight / 2, rz, 0, 0, 0, 1, B.railHeight, 1);
       }
     }
 
     // Worn cardboard-box prop in the back corner.
-    const box = new THREE.Mesh(cardboardGeo, boxMat);
-    box.position.set(pw - 1.0, deckTopY + 0.55, pd - 1.0);
-    box.rotation.y = 0.3;
-    boothGroup.add(box);
-
-    group.add(boothGroup);
+    pushPart("box", cardboardGeo, pw - 1.0, deckTopY + 0.55, pd - 1.0, 0, 0.3, 0);
   }
+
+  const ownedGeometries = [];
+  const mergeAdd = (bucket, mat) => {
+    if (bucket.length === 0) return;
+    const merged = BufferGeometryUtils.mergeGeometries(bucket, false);
+    bucket.forEach((g) => g.dispose());
+    ownedGeometries.push(merged);
+    group.add(new THREE.Mesh(merged, mat));
+  };
+  mergeAdd(parts.slab, slabMat);
+  mergeAdd(parts.rail, railMat);
+  mergeAdd(parts.box, boxMat);
+  platGeo.dispose();
+  lowRailGeo.dispose();
+  railGeo.dispose();
+  cardboardGeo.dispose();
 
   scene.add(group);
   return { group, bodies, ownedGeometries, ownedMaterials };
@@ -1534,6 +2294,12 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const prevCenterHole = config.record.centerHole;
   config.record.centerHole = { enabled: false };
 
+  // * Deepen the fall KO threshold while this level is loaded (same save/restore pattern
+  // * as centerHole above; Classic Record does the same with -30 in arena.js). Falls now
+  // * ricochet down a shaft before the KO fires instead of cutting off almost immediately.
+  const prevFallYThreshold = config.fall.yThreshold;
+  config.fall.yThreshold = FALL_Y_THRESHOLD;
+
   const prevFog = scene.fog;
   const backroomsFog = config.postFx.fog.backrooms;
   // * Thick, musty warm fog — oppressive haze that swallows far walls and pit depth.
@@ -1547,6 +2313,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const carpetEnvScale = 0.08;
   const floorMat = createPhysicalMaterial({
     map: carpetTex,
+    // * Same canvas reused as a bump map — fiber dashes/seams catch the ceiling
+    // * spotlights so the pile reads as texture, not paint. Near-free.
+    bumpMap: carpetTex,
+    bumpScale: 0.02,
     color: 0xffffff,
     roughness: 0.98,
     metalness: 0.0,
@@ -1567,50 +2337,45 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   );
 
   const T_HALF = 0.3; // 0.6m thickness
-  const INNER = 12.70; // 18 - 4.25 - 1.05 (HOLE_CENTER - HOLE_HALF - CHAMFER)
-  const OUTER = 23.30; // 18 + 4.25 + 1.05
-  const EDGE = 32.75; // 34 - 1.25 (ARENA_HALF - OUTER_CHAMFER)
-
   const floorColliders = [];
 
-  // Helper to create cuboids cleanly
-  const addCuboid = (hx, hz, px, pz) => {
-    // * REVERTED: roundCuboid shrunk the flat top surface by 0.15m, creating gaps 
-    // * between the 9 floor pieces and causing carts to snag on seams.
-    const desc = RAPIER.ColliderDesc.cuboid(hx, T_HALF, hz)
-      .setTranslation(px, 0, pz) // Local Y is 0 because body is at -0.3
+  // * Slice layout lives in computeFloorSliceRects() (shared with tests); the sloped
+  // * chamfer bands the slices stop short of are covered by buildChamferColliders().
+  // * REVERTED long ago: roundCuboid shrunk the flat top surface by 0.15m, creating gaps
+  // * between the floor pieces and causing carts to snag on seams — keep plain cuboids.
+  for (const r of computeFloorSliceRects()) {
+    const desc = RAPIER.ColliderDesc.cuboid(r.hx, T_HALF, r.hz)
+      .setTranslation(r.px, 0, r.pz) // Local Y is 0 because body is at -0.3
       .setFriction(FLOOR_FRICTION)
       .setRestitution(config.record.restitution);
     floorColliders.push(world.createCollider(desc, floorBody));
-  };
-
-  // 1. The 3 solid full-length strips (Left-Outer, Center, Right-Outer)
-  addCuboid((EDGE - OUTER) / 2, EDGE, -(OUTER + EDGE) / 2, 0); // Left-Outer
-  addCuboid((INNER * 2) / 2, EDGE, 0, 0);                      // Center
-  addCuboid((EDGE - OUTER) / 2, EDGE, (OUTER + EDGE) / 2, 0);  // Right-Outer
-
-  // 2. Left-Inner Strip (Framed around Top-Left and Bottom-Left holes)
-  const stripHX = (OUTER - INNER) / 2;
-  const stripPX = -((OUTER + INNER) / 2);
-  addCuboid(stripHX, (EDGE - OUTER) / 2, stripPX, (OUTER + EDGE) / 2); // Top
-  addCuboid(stripHX, (INNER * 2) / 2, stripPX, 0);                     // Middle
-  addCuboid(stripHX, (EDGE - OUTER) / 2, stripPX, -((OUTER + EDGE) / 2)); // Bottom
-
-  // 3. Right-Inner Strip (Framed around Top-Right and Bottom-Right holes)
-  addCuboid(stripHX, (EDGE - OUTER) / 2, -stripPX, (OUTER + EDGE) / 2); // Top
-  addCuboid(stripHX, (INNER * 2) / 2, -stripPX, 0);                     // Middle
-  addCuboid(stripHX, (EDGE - OUTER) / 2, -stripPX, -((OUTER + EDGE) / 2)); // Bottom
+  }
 
   // Return handles array (main.js will normalize this for simulation.js)
   const recordCollider = floorColliders[0]; // Backward compat
   const recordColliderHandles = floorColliders.map(c => c.handle);
 
-  // ===== Square voids (black shafts) =====
+  // Sloped chamfer-lip colliders (the bands the flat slices deliberately stop short of)
+  // + Cart Rave-style fall containment (shaft ricochet walls, pit backstop cap).
+  const chamferBodies = buildChamferColliders(world, FLOOR_FRICTION, config.record.restitution);
+  const containmentBodies = buildFallContainment(world);
+
+  // ===== Square voids (black shafts w/ dim repeating sub-rooms at the bottom) =====
   const voidShaftMat = new THREE.MeshBasicMaterial({ color: 0x040406, side: THREE.BackSide });
+  // Dim copy of the carpet — ~18% brightness so the room below reads, but stays a hint.
+  // Cloned texture: the sub-floor planes use 0–1 UVs, so tiling lives on the texture.
+  const subCarpetTex = carpetTex.clone();
+  subCarpetTex.repeat.set(3.6, 3.6);
+  subCarpetTex.needsUpdate = true;
+  const subRoomMats = {
+    floor: new THREE.MeshBasicMaterial({ map: subCarpetTex, color: 0x2e2a20 }),
+    glow: new THREE.MeshBasicMaterial({ color: 0x5c5544, side: THREE.DoubleSide }),
+    silhouette: new THREE.MeshBasicMaterial({ color: 0x0b0a09 }),
+  };
   const voidGroup = new THREE.Group();
   const voidGeometries = [];
   for (const h of HOLE_CENTERS) {
-    const v = buildSquareVoid(h.x, h.z, voidShaftMat);
+    const v = buildSquareVoid(h.x, h.z, voidShaftMat, subRoomMats);
     voidGroup.add(v.group);
     voidGeometries.push(...v.geometries);
   }
@@ -1628,6 +2393,11 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   // ===== Dropped ceiling + fluorescent panels =====
   const ceilingTex = buildCeilingTexture();
   const ceiling = buildCeiling(scene, world, ceilingTex);
+
+  // ===== Atmosphere dressing (all non-colliding, merged, zero new dynamic lights) =====
+  const pitDressing = buildPitRingDressing(scene);
+  const uncanny = buildUncannyDetails(scene);
+  const doorways = buildDoorways(scene);
 
   // ===== Ambient fill lighting (warm; compensates for thick fog while staying dim/liminal) =====
   const hemiLight = new THREE.HemisphereLight(0xd6c9a0, 0x33301f, 1.42);
@@ -1660,6 +2430,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const furniturePile = buildCenterFurniturePile(scene, world);
   const furnitureSpotlight = buildFurniturePileSpotlight(scene);
   let spotlightUpdateFn = furnitureSpotlight.update;
+  let ceilingUpdateFn = ceiling.update;
 
   // ===== Contract stand-ins =====
   // * spindleLight is required by main.js (it lerps its color each frame). Keep it as a
@@ -1680,6 +2451,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
 
   const sceneRoots = [
     floorMesh, voidGroup, pit.group, walls.group, ceiling.group, booths.group,
+    pitDressing.group, uncanny.group, doorways.group,
     furniturePile.group,
     furnitureSpotlight.spot, furnitureSpotlight.spot.target, furnitureSpotlight.fixture,
     hemiLight, ambient, coolRimLight, coolRimLight.target, spindleLight,
@@ -1688,14 +2460,19 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const ownedGeometries = [
     floorGeo, ...voidGeometries, ...pit.geometries,
     ...walls.ownedGeometries, ...ceiling.ownedGeometries, ...booths.ownedGeometries,
+    ...pitDressing.ownedGeometries, ...uncanny.ownedGeometries, ...doorways.ownedGeometries,
     ...furniturePile.ownedGeometries, ...furnitureSpotlight.ownedGeometries,
   ];
   const ownedMaterials = [
-    floorMat, voidShaftMat, ...pit.materials,
+    floorMat, voidShaftMat, subRoomMats.floor, subRoomMats.glow, subRoomMats.silhouette,
+    ...pit.materials,
     ...walls.ownedMaterials, ...ceiling.ownedMaterials, ...booths.ownedMaterials,
+    ...pitDressing.ownedMaterials, ...uncanny.ownedMaterials, ...doorways.ownedMaterials,
     ...furniturePile.ownedMaterials, ...furnitureSpotlight.ownedMaterials,
   ];
-  const ownedTextures = [carpetTex, wallpaperTex, ceilingTex];
+  const ownedTextures = [
+    carpetTex, subCarpetTex, wallpaperTex, ceilingTex, ...uncanny.ownedTextures,
+  ];
 
   function disposeMaterial(material) {
     if (!material) return;
@@ -1707,9 +2484,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   }
 
   function dispose() {
-    // * Neutralize the spotlight update closure so subsequent calls are no-ops,
+    // * Neutralize the update closures so subsequent calls are no-ops,
     // * preventing any captured material references from being resurrected.
     spotlightUpdateFn = () => {};
+    ceilingUpdateFn = () => {};
 
     for (const root of sceneRoots) {
       if (scene) scene.remove(root);
@@ -1729,6 +2507,9 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     for (const tex of ownedTextures) tex.dispose();
 
     if (world && floorBody && world.getRigidBody(floorBody.handle)) world.removeRigidBody(floorBody);
+    for (const body of [...chamferBodies, ...containmentBodies]) {
+      if (world && world.getRigidBody(body.handle)) world.removeRigidBody(body);
+    }
     if (world && walls.wallBodies) {
       for (const body of walls.wallBodies) {
         if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
@@ -1748,6 +2529,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
 
     if (scene) scene.fog = prevFog;
     config.record.centerHole = prevCenterHole;
+    config.fall.yThreshold = prevFallYThreshold;
   }
 
   return {
@@ -1774,7 +2556,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
       // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
       circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7 }],
     },
-    update: (timeMs) => spotlightUpdateFn(timeMs),
+    update: (timeMs) => {
+      spotlightUpdateFn(timeMs);
+      ceilingUpdateFn(timeMs);
+    },
     dispose,
   };
 }

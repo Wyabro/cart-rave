@@ -516,6 +516,10 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
   capacities[0] += crowdInstanceCount - capacities.reduce((a, b) => a + b, 0);
 
   const variantGeos = [cartGeo, personGeo, glowstickGeo];
+  // * Needed for seat-lift math so cart wheels / feet rest on the deck, not through it.
+  for (const geo of variantGeos) {
+    if (geo && !geo.boundingBox) geo.computeBoundingBox();
+  }
   // * Scale bias — people are taller unit-mesh than the cart merge, glowsticks taller still.
   const variantScaleMul = [1.0, 1.15, 1.25];
   const crowdPalette = Object.values(cartColors).map((entry) => entry.hex);
@@ -542,15 +546,34 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
   // * annulus. Radii derive from pitInnerRadius (≈44.3): a 3m "moat" at the pit rim,
   // * then lower bowl / mid deck / upper deck at rake 0.4 with 5m fascia gaps.
   const CROWD_RAKE = 0.4;
+  // * Keep instances off deck lips / fascia risers so wheels don't bury into shell edges.
+  const DECK_EDGE_INSET = 1.35;
+  // * Seat mesh sits shellSurfaceY under the nominal deck y0; cushion rises ~this much.
+  const SHELL_SURFACE_Y = -0.1;
+  const SEAT_CUSHION_H = 0.1;
+  // * Hairline clearance above the cushion top so wheels/feet don't z-fight the seat mesh.
+  // * (Was 0.28 — floated the whole crowd.) Foot lift uses full AABB min.y so origins
+  // * that already sit above the mesh bottom (people/glowsticks) sink correctly.
+  const SEAT_SURFACE_PAD = 0.05;
   const decks = [
     { r0: pitInnerRadius + 2.7, r1: pitInnerRadius + 28.7, y0: -2.9 },
     { r0: pitInnerRadius + 33.7, r1: pitInnerRadius + 55.7, y0: 12 },
     { r0: pitInnerRadius + 59.7, r1: pitInnerRadius + 79.7, y0: 25 },
   ];
-  const deckWeights = decks.map((d) => d.r1 * d.r1 - d.r0 * d.r0);
+  const deckWeights = decks.map((d) => {
+    const r0 = d.r0 + DECK_EDGE_INSET;
+    const r1 = d.r1 - DECK_EDGE_INSET;
+    return Math.max(0, r1 * r1 - r0 * r0);
+  });
   const deckWeightSum = deckWeights.reduce((sum, w) => sum + w, 0);
-  const stageWedgeHalf = Math.PI * 0.1; // ±18° of the lower bowl belongs to the stage
+  // * Stage footprint (must match initStage): 24m wide × 10m deep at pit+15.
+  // * Wedge half-angle from half-width + margin so shell cut clears towers/speakers.
+  const STAGE_CENTER_R = pitInnerRadius + 15;
+  const STAGE_HALF_WIDTH = 12.0;
+  const STAGE_HALF_DEPTH = 5.0;
+  const stageWedgeHalf = Math.atan2(STAGE_HALF_WIDTH + 1.8, STAGE_CENTER_R);
   const crowdTilt = Math.atan(CROWD_RAKE);
+  const sinTilt = Math.sin(crowdTilt);
   const tiltQuat = new THREE.Quaternion();
   const tiltAxis = new THREE.Vector3();
   const layerWriteIdx = capacities.map(() => 0);
@@ -561,27 +584,54 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     weightPrefix.push(wAcc);
   }
 
-  for (let i = 0; i < crowdInstanceCount; i += 1) {
-    // * Deck picked by annulus area so density stays uniform across the bowl.
-    let pick = Math.random() * deckWeightSum;
-    let deckIndex = 0;
-    while (deckIndex < decks.length - 1 && pick > deckWeights[deckIndex]) {
-      pick -= deckWeights[deckIndex];
-      deckIndex += 1;
-    }
-    const deck = decks[deckIndex];
-    // * Lower bowl skips the stage wedge at angle 0 — the stage owns that
-    // * grandstand end; mid/upper decks rise behind it like end-stand seating.
-    const angle = deckIndex === 0
-      ? stageWedgeHalf + Math.random() * (Math.PI * 2 - stageWedgeHalf * 2)
-      : Math.random() * Math.PI * 2;
-    // * sqrt-lerp of r² keeps per-area density uniform within the deck.
-    const r = Math.sqrt(deck.r0 * deck.r0 + Math.random() * (deck.r1 * deck.r1 - deck.r0 * deck.r0));
-    const y = deck.y0 + (r - deck.r0) * CROWD_RAKE;
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
+  // * Per-variant seat lift so mesh bottoms rest ON the deck (cart origin is mid-body;
+  // * person/glowstick origins sit nearer the feet — min.y can be ≥ 0, so footLift may
+  // * be negative). Bank tilt digs the downhill edge in — pad by a fraction of
+  // * half-length × sin(rake).
+  /** @type {{ footLift: number, bankPad: number }[]} */
+  const variantSeat = variantGeos.map((geo) => {
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const box = geo.boundingBox;
+    if (!box) return { footLift: 0.55, bankPad: 0.1 };
+    const footLift = -box.min.y;
+    const halfLen = 0.5 * Math.max(box.max.x - box.min.x, box.max.z - box.min.z, 0.2);
+    return { footLift, bankPad: halfLen * sinTilt * 0.55 };
+  });
 
-    // * Weighted variant pick; spill into first layer if a bucket is full.
+  // * Hard keep-outs for stage, opposite billboard, and searchlight masts so crowd
+  // * instances don't spawn inside arena props that sit in the same radial band.
+  const bbRadius = pitInnerRadius + 25;
+  /** @type {{ x: number, z: number, radius: number }[]} */
+  const crowdKeepOuts = [
+    { x: STAGE_CENTER_R, z: 0, radius: 17 }, // main stage platform + truss towers
+    { x: -bbRadius, z: 0, radius: 11 }, // CART RAVE billboard spine
+  ];
+  for (let mi = 0; mi < 4; mi += 1) {
+    const a = mi * Math.PI * 0.5;
+    crowdKeepOuts.push({
+      x: Math.cos(a) * (pitInnerRadius + 30),
+      z: Math.sin(a) * (pitInnerRadius + 30),
+      radius: 3.5,
+    });
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} z
+   * @returns {boolean}
+   */
+  function isInCrowdKeepOut(x, z) {
+    for (let k = 0; k < crowdKeepOuts.length; k += 1) {
+      const ko = crowdKeepOuts[k];
+      const dx = x - ko.x;
+      const dz = z - ko.z;
+      if (dx * dx + dz * dz < ko.radius * ko.radius) return true;
+    }
+    return false;
+  }
+
+  for (let i = 0; i < crowdInstanceCount; i += 1) {
+    // * Weighted variant pick first so seat lift matches the mesh we place.
     const roll = Math.random();
     let variant = 0;
     while (variant < weightPrefix.length - 1 && roll >= weightPrefix[variant]) variant += 1;
@@ -589,11 +639,59 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       variant = layerWriteIdx.findIndex((n, vi) => n < capacities[vi]);
       if (variant < 0) continue;
     }
+
+    // * Retry samples that land inside stage / billboard / mast volumes.
+    let placed = false;
+    let x = 0;
+    let y = 0;
+    let z = 0;
+    let angle = 0;
+    let scale = 0.3;
+    for (let attempt = 0; attempt < 12 && !placed; attempt += 1) {
+      // * Deck picked by annulus area so density stays uniform across the bowl.
+      let pick = Math.random() * deckWeightSum;
+      let deckIndex = 0;
+      while (deckIndex < decks.length - 1 && pick > deckWeights[deckIndex]) {
+        pick -= deckWeights[deckIndex];
+        deckIndex += 1;
+      }
+      const deck = decks[deckIndex];
+      const r0 = deck.r0 + DECK_EDGE_INSET;
+      const r1 = deck.r1 - DECK_EDGE_INSET;
+      if (r1 <= r0) continue;
+
+      // * Lower bowl skips the stage wedge at angle 0 — the stage owns that
+      // * grandstand end; mid/upper decks rise behind it like end-stand seating.
+      // * Mid deck still carves a narrower wedge so the stage LED/truss clear the first
+      // * rows that would otherwise poke through the back wall.
+      const wedge = deckIndex === 0
+        ? stageWedgeHalf
+        : (deckIndex === 1 ? stageWedgeHalf * 0.45 : 0);
+      angle = wedge > 0
+        ? wedge + Math.random() * (Math.PI * 2 - wedge * 2)
+        : Math.random() * Math.PI * 2;
+
+      // * sqrt-lerp of r² keeps per-area density uniform within the deck.
+      const r = Math.sqrt(r0 * r0 + Math.random() * (r1 * r1 - r0 * r0));
+      // * Match seat lathe baseline (shellSurfaceY + cushion) so figures sit ON seats.
+      const surfaceY =
+        deck.y0 + SHELL_SURFACE_Y + (r - deck.r0) * CROWD_RAKE + SEAT_CUSHION_H;
+      x = Math.cos(angle) * r;
+      z = Math.sin(angle) * r;
+      if (isInCrowdKeepOut(x, z)) continue;
+
+      scale = (0.25 + Math.random() * 0.2) * variantScaleMul[variant];
+      const seat = variantSeat[variant];
+      // * Foot clearance + bank-tilt pad so wheels/feet don't bury into seats/shell.
+      y = surfaceY + SEAT_SURFACE_PAD + (seat.footLift + seat.bankPad) * scale;
+      placed = true;
+    }
+    if (!placed) continue;
+
     const layer = crowdLayers[variant];
     const li = layerWriteIdx[variant];
     layerWriteIdx[variant] += 1;
 
-    const scale = (0.25 + Math.random() * 0.2) * variantScaleMul[variant];
     dummy.position.set(x, y, z);
     dummy.scale.set(scale, scale, scale);
     // * Same inward-facing yaw as before; the tilt quaternion then leans the figure
@@ -606,9 +704,9 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     layer.mesh.setMatrixAt(li, dummy.matrix);
     layer.baseY[li] = y;
     const baseColor = new THREE.Color(crowdPalette[Math.floor(Math.random() * crowdPalette.length)]);
-    // * Glowstick layer biases brighter (they are the "sparkle" props); others mostly dim.
-    const glowChance = variant === 2 ? 0.55 : 0.1;
-    baseColor.multiplyScalar(Math.random() < glowChance ? 1.75 : 0.62);
+    // * Readable but not neon-blasted — slightly above the old dark silhouettes.
+    const glowChance = variant === 2 ? 0.45 : 0.12;
+    baseColor.multiplyScalar(Math.random() < glowChance ? 1.45 : 0.88 + Math.random() * 0.22);
     layer.mesh.setColorAt(li, baseColor);
   }
 
@@ -625,77 +723,443 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     scene.add(layer.mesh);
   }
 
-  // * Glow ring shrunk from the old 80m crowd carpet to the 3m moat between pit rim
-  // * and the lower bowl — reads as the glowing field boundary of the stadium.
-  const crowdGlowGeo = new THREE.RingGeometry(pitInnerRadius, decks[0].r0, 64);
-  crowdGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xff00ff,
-    transparent: true,
-    opacity: 0.08,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
-  crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
-  crowdGlow.rotation.x = -Math.PI / 2;
-  crowdGlow.position.y = -2.95;
-  scene.add(crowdGlow);
-
-  // * Seating shell — one lathed bowl surface under the crowd instances so the tiers
-  // * read as risers instead of floating carts: moat floor, three raked decks with
-  // * diagonal riser faces between them, and a short parapet at the top rim.
+  // * Seating shell — modest stepped rows + muted club-plastic seats (readable
+  // * grandstand, not a rainbow lathe). Crowd Y is keyed to SHELL_SURFACE_Y + cushion.
   stadiumGroup = new THREE.Group();
   {
-    const shellSurfaceY = -0.1; // shell sits just under the carts' wheel baseline
+    const shellSurfaceY = SHELL_SURFACE_Y;
     const topDeck = decks[decks.length - 1];
     const parapetY = topDeck.y0 + (topDeck.r1 - topDeck.r0) * CROWD_RAKE + 2.5;
+    // * Moat floor height — dedicated band between pit rim and lower-deck front.
+    // * Kept off y=-3 so it never coplanar-fights the outer void ground disc.
+    const moatFloorY = -2.92;
     const shellMat = new THREE.MeshStandardMaterial({
-      color: 0x14121f,
-      metalness: 0.4,
-      roughness: 0.8,
+      color: 0x1a1630,
+      metalness: 0.35,
+      roughness: 0.75,
+      side: THREE.DoubleSide,
+    });
+    const moatMat = new THREE.MeshStandardMaterial({
+      color: 0x181428,
+      metalness: 0.55,
+      roughness: 0.62,
       side: THREE.DoubleSide,
     });
 
-    // * The shell is two lathes so only the lower bowl opens a ±18° stage bay while
-    // * the mid/upper decks run as full rings behind and above the stage (matching
-    // * the crowd, which is only wedge-carved on the lower deck). Lathe phi=0 points
-    // * at +Z and the stage sits at +X (angle 0 in cos/sin convention) — hence the
-    // * π/2 offset on the carved lathe.
-    const lowerPoints = [
-      new THREE.Vector2(pitInnerRadius, -3),
-      new THREE.Vector2(decks[0].r0, decks[0].y0 + shellSurfaceY),
-      new THREE.Vector2(
-        decks[0].r1,
-        decks[0].y0 + shellSurfaceY + (decks[0].r1 - decks[0].r0) * CROWD_RAKE,
-      ),
-    ];
-    const lowerShellGeo = new THREE.LatheGeometry(
-      lowerPoints, 96,
-      Math.PI / 2 + stageWedgeHalf,
-      Math.PI * 2 - stageWedgeHalf * 2,
-    );
-    stadiumGroup.add(new THREE.Mesh(lowerShellGeo, shellMat));
-
-    // * Full ring: rises from the ground as the stage bay's back wall (visible in
-    // * the wedge behind the stage), then carries the mid/upper decks and parapet.
-    const upperPoints = [new THREE.Vector2(decks[1].r0, -3)];
-    for (const deck of decks.slice(1)) {
-      upperPoints.push(new THREE.Vector2(deck.r0, deck.y0 + shellSurfaceY));
-      upperPoints.push(new THREE.Vector2(
-        deck.r1,
-        deck.y0 + shellSurfaceY + (deck.r1 - deck.r0) * CROWD_RAKE,
-      ));
+    // * Muted stadium plastic — warm charcoal + soft violet wash, subtle aisles.
+    // * (Not a rainbow block pattern — that read as a cartoon LED wall.)
+    const seatCanvas = document.createElement("canvas");
+    seatCanvas.width = 256;
+    seatCanvas.height = 128;
+    const sctx = seatCanvas.getContext("2d");
+    if (sctx) {
+      const seatsAcross = 8;
+      const seatW = 256 / seatsAcross;
+      // * Base: lifted purple-gray so seats aren't a black hole under neon.
+      sctx.fillStyle = "#2a2438";
+      sctx.fillRect(0, 0, 256, 128);
+      for (let i = 0; i < seatsAcross; i += 1) {
+        const x = i * seatW;
+        if (i % 4 === 3) {
+          // * Aisle — slightly darker, not neon.
+          sctx.fillStyle = "#1c1828";
+          sctx.fillRect(x, 0, seatW, 128);
+          continue;
+        }
+        // * Alternate two close tones for seat blocks (cohesive, not rainbow).
+        const warm = i % 2 === 0;
+        sctx.fillStyle = warm ? "#3d3450" : "#342c48";
+        sctx.fillRect(x + 2, 44, seatW - 4, 78);
+        // * Soft backrest band — hint of club magenta, very low chroma.
+        sctx.fillStyle = warm ? "#4a3a5c" : "#403454";
+        sctx.fillRect(x + 3, 6, seatW - 6, 40);
+        // * Thin frame.
+        sctx.strokeStyle = "rgba(0,0,0,0.35)";
+        sctx.lineWidth = 1.5;
+        sctx.strokeRect(x + 2, 6, seatW - 4, 116);
+      }
+      // * Row divider — soft highlight, not a glow stick.
+      sctx.fillStyle = "rgba(180,140,220,0.14)";
+      sctx.fillRect(0, 46, 256, 2);
     }
-    upperPoints.push(new THREE.Vector2(topDeck.r1, parapetY));
-    const upperShellGeo = new THREE.LatheGeometry(upperPoints, 96);
-    stadiumGroup.add(new THREE.Mesh(upperShellGeo, shellMat));
+    const seatTex = new THREE.CanvasTexture(seatCanvas);
+    seatTex.wrapS = seatTex.wrapT = THREE.RepeatWrapping;
+    seatTex.colorSpace = THREE.SRGBColorSpace;
+    seatTex.anisotropy = 4;
+    seatTex.repeat.set(40, 5);
+    const seatMat = new THREE.MeshStandardMaterial({
+      map: seatTex,
+      color: 0xe8e0f0,
+      metalness: 0.12,
+      roughness: 0.62,
+      emissive: 0x1a1028,
+      emissiveIntensity: 0.06,
+      side: THREE.DoubleSide,
+    });
+
+    /**
+     * Low stepped seat profile — tread + shallow cushion + short back + riser.
+     * Kept low so crowd instances (keyed to SEAT_CUSHION_H) don't clip backrests.
+     * @param {{ r0: number, r1: number, y0: number }} deck
+     * @param {number} rows
+     * @returns {THREE.Vector2[]}
+     */
+    function buildSeatRowProfile(deck, rows) {
+      const pts = [];
+      const span = deck.r1 - deck.r0;
+      for (let i = 0; i < rows; i += 1) {
+        const t0 = i / rows;
+        const t1 = (i + 1) / rows;
+        const rA = deck.r0 + span * t0;
+        const rB = deck.r0 + span * t1;
+        const yA = deck.y0 + shellSurfaceY + (rA - deck.r0) * CROWD_RAKE;
+        const yB = deck.y0 + shellSurfaceY + (rB - deck.r0) * CROWD_RAKE;
+        const rowW = rB - rA;
+        // * Floor tread.
+        pts.push(new THREE.Vector2(rA, yA));
+        // * Shallow cushion (matches SEAT_CUSHION_H).
+        pts.push(new THREE.Vector2(rA + rowW * 0.15, yA + SEAT_CUSHION_H * 0.55));
+        pts.push(new THREE.Vector2(rA + rowW * 0.58, yA + SEAT_CUSHION_H));
+        // * Short backrest — readable seat shape without stabbing into the crowd.
+        pts.push(new THREE.Vector2(rA + rowW * 0.68, yA + SEAT_CUSHION_H + 0.16));
+        pts.push(new THREE.Vector2(rA + rowW * 0.78, yA + SEAT_CUSHION_H + 0.18));
+        // * Riser to next row.
+        pts.push(new THREE.Vector2(rB, yB));
+      }
+      return pts;
+    }
+
+    // * --- Moat apron (pit rim → lower deck front) ---
+    {
+      const moatInner = pitInnerRadius;
+      const moatOuter = decks[0].r0;
+      const moatProfile = [
+        new THREE.Vector2(moatInner, -3.0),
+        new THREE.Vector2(moatInner + 0.18, moatFloorY),
+        new THREE.Vector2(moatOuter - 0.55, moatFloorY),
+        new THREE.Vector2(moatOuter - 0.1, decks[0].y0 + shellSurfaceY),
+        new THREE.Vector2(moatOuter, decks[0].y0 + shellSurfaceY),
+      ];
+      const moatGeo = new THREE.LatheGeometry(moatProfile, 128);
+      stadiumGroup.add(new THREE.Mesh(moatGeo, moatMat));
+
+      const glowInner = moatInner + 0.35;
+      const glowOuter = moatOuter - 0.45;
+      if (glowOuter > glowInner) {
+        const crowdGlowGeo = new THREE.RingGeometry(glowInner, glowOuter, 96);
+        crowdGlowMat = new THREE.MeshBasicMaterial({
+          color: 0xff00ff,
+          transparent: true,
+          opacity: 0.07,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        });
+        crowdGlow = new THREE.Mesh(crowdGlowGeo, crowdGlowMat);
+        crowdGlow.rotation.x = -Math.PI / 2;
+        crowdGlow.position.y = moatFloorY + 0.04;
+        stadiumGroup.add(crowdGlow);
+      }
+    }
+
+    // * All three decks share the same stepped seat profile (tread + cushion +
+    // * short back + riser). Lower bowl carves the stage bay; mid/upper are full rings
+    // * so they read as continuous grandstand bands matching the lower bowl.
+    // * Row count scales with deck span so step size stays ~consistent (~2.6m/row).
+    for (let d = 0; d < decks.length; d += 1) {
+      const deck = decks[d];
+      const span = deck.r1 - deck.r0;
+      const rows = Math.max(7, Math.round(span / 2.6));
+      const seatPts = buildSeatRowProfile(deck, rows);
+      /** @type {THREE.MeshStandardMaterial} */
+      let deckSeatMat = seatMat;
+      if (d > 0) {
+        deckSeatMat = seatMat.clone();
+        if (deckSeatMat.map) {
+          deckSeatMat.map = seatTex.clone();
+          // * Circumference grows with radius — keep seat blocks roughly same screen size.
+          deckSeatMat.map.repeat.set(40 + d * 8, 5);
+          deckSeatMat.map.needsUpdate = true;
+        }
+        deckSeatMat.emissiveIntensity = 0.06;
+      }
+      const seatGeo = d === 0
+        ? new THREE.LatheGeometry(
+          seatPts,
+          96,
+          Math.PI / 2 + stageWedgeHalf,
+          Math.PI * 2 - stageWedgeHalf * 2,
+        )
+        : new THREE.LatheGeometry(seatPts, 96);
+      stadiumGroup.add(new THREE.Mesh(seatGeo, deckSeatMat));
+    }
+
+    // * Deck-break risers + thin under-seat backers — NOT a single diagonal spine.
+    // * A spine from mid.r0 → top.r1 sat *inward* of the seat rake (slope ~0.51 vs
+    // * 0.4) and fully occluded mid/upper seating from the field. Each break is a
+    // * short fascia face; each deck gets a shell slightly *outside/below* seats.
+    {
+      // * Vertical face under mid-deck front (stage bay back wall + bowl continuity).
+      const midFrontWall = [
+        new THREE.Vector2(decks[1].r0, -3),
+        new THREE.Vector2(decks[1].r0, decks[1].y0 + shellSurfaceY),
+        new THREE.Vector2(decks[1].r0 + 0.2, decks[1].y0 + shellSurfaceY),
+        new THREE.Vector2(decks[1].r0 + 0.2, -3),
+      ];
+      stadiumGroup.add(new THREE.Mesh(new THREE.LatheGeometry(midFrontWall, 64), shellMat));
+
+      // * Riser faces in the 5m radial gaps between decks (lower→mid, mid→upper).
+      for (let d = 0; d < decks.length - 1; d += 1) {
+        const lower = decks[d];
+        const upper = decks[d + 1];
+        const lowerTopY =
+          lower.y0 + shellSurfaceY + (lower.r1 - lower.r0) * CROWD_RAKE;
+        const upperFrontY = upper.y0 + shellSurfaceY;
+        const riserPts = [
+          new THREE.Vector2(lower.r1, lowerTopY),
+          new THREE.Vector2(lower.r1 + 0.35, lowerTopY + 0.15),
+          new THREE.Vector2(upper.r0 - 0.35, upperFrontY - 0.1),
+          new THREE.Vector2(upper.r0, upperFrontY),
+        ];
+        stadiumGroup.add(new THREE.Mesh(new THREE.LatheGeometry(riserPts, 64), shellMat));
+      }
+
+      // * Thin under-seat backer per mid/upper deck — same rake as seats, offset
+      // * slightly *below* the tread so it never covers the seat mesh from the field.
+      const underOffset = 0.55;
+      for (let d = 1; d < decks.length; d += 1) {
+        const deck = decks[d];
+        const underPts = [
+          new THREE.Vector2(deck.r0, deck.y0 + shellSurfaceY - underOffset),
+          new THREE.Vector2(
+            deck.r1,
+            deck.y0 + shellSurfaceY + (deck.r1 - deck.r0) * CROWD_RAKE - underOffset,
+          ),
+        ];
+        stadiumGroup.add(new THREE.Mesh(new THREE.LatheGeometry(underPts, 64), shellMat));
+      }
+
+      // * Outer parapet wall only at the top rim (skyline) — never cuts through seats.
+      const topSeatY =
+        topDeck.y0 + shellSurfaceY + (topDeck.r1 - topDeck.r0) * CROWD_RAKE;
+      const parapetPts = [
+        new THREE.Vector2(topDeck.r1, topSeatY),
+        new THREE.Vector2(topDeck.r1, parapetY),
+        new THREE.Vector2(topDeck.r1 + 0.9, parapetY + 0.5),
+        new THREE.Vector2(topDeck.r1 + 0.9, topSeatY - 1.2),
+      ];
+      stadiumGroup.add(new THREE.Mesh(new THREE.LatheGeometry(parapetPts, 64), shellMat));
+    }
+
+    // * Deck-break floors — radial gaps between tiers used to be covered by the
+    // * full-arena ground disc. Now that the disc starts outside the bowl, fill
+    // * those annuli so you don't look into empty void between risers.
+    {
+      const voidFloorY = -3.02;
+      const breakPairs = [
+        [decks[0].r1 + 0.15, decks[1].r0 - 0.15],
+        [decks[1].r1 + 0.15, decks[2].r0 - 0.15],
+      ];
+      for (const [r0, r1] of breakPairs) {
+        if (r1 <= r0 + 0.2) continue;
+        const breakGeo = new THREE.LatheGeometry(
+          [new THREE.Vector2(r0, voidFloorY), new THREE.Vector2(r1, voidFloorY)],
+          64,
+        );
+        stadiumGroup.add(new THREE.Mesh(breakGeo, shellMat));
+      }
+    }
+
+    // * Fascia + bay neon pulse mats (reset once per stadium rebuild).
+    stadiumPulseMats = [];
+
+    // =====================================================================
+    // * Stage bay filler — the lower shell is deliberately open in the stage
+    // * wedge, but that left a void around the floating stage box. Fill floor,
+    // * plinth, rear connector, and cheek walls so the stage reads as built into
+    // * the bowl instead of hovering in a hole.
+    // =====================================================================
+    {
+      const bayPhiStart = Math.PI / 2 - stageWedgeHalf;
+      const bayPhiLength = stageWedgeHalf * 2;
+      const bayFloorY = -2.98;
+      const stageFrontR = STAGE_CENTER_R - STAGE_HALF_DEPTH;
+      const stageBackR = STAGE_CENTER_R + STAGE_HALF_DEPTH;
+      // * Matches initStage: base top = stageY(-3) + 1.5 = -1.5.
+      const stageDeckY = -1.5;
+      const midDeckR0 = decks[1].r0;
+      const midDeckFrontY = decks[1].y0 + shellSurfaceY;
+
+      // * Slightly darker apron so the stage pad reads as intentional architecture.
+      const bayMat = new THREE.MeshStandardMaterial({
+        color: 0x10101c,
+        metalness: 0.45,
+        roughness: 0.72,
+        side: THREE.DoubleSide,
+      });
+      const bayAccentMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1428,
+        metalness: 0.55,
+        roughness: 0.55,
+        side: THREE.DoubleSide,
+      });
+
+      // * Continuous bay profile (radius, height): pit floor → front riser → stage
+      // * deck → rear steps climbing into the mid-deck back wall.
+      const bayProfile = [
+        new THREE.Vector2(pitInnerRadius, bayFloorY),
+        new THREE.Vector2(Math.max(pitInnerRadius + 0.5, stageFrontR - 2.2), bayFloorY),
+        new THREE.Vector2(stageFrontR - 0.35, stageDeckY),
+        new THREE.Vector2(stageBackR + 0.6, stageDeckY),
+        new THREE.Vector2(stageBackR + 3.5, stageDeckY + (midDeckFrontY - stageDeckY) * 0.28),
+        new THREE.Vector2(midDeckR0 - 0.4, midDeckFrontY),
+        new THREE.Vector2(midDeckR0 + 0.05, midDeckFrontY),
+      ];
+      const bayDeckGeo = new THREE.LatheGeometry(bayProfile, 48, bayPhiStart, bayPhiLength);
+      stadiumGroup.add(new THREE.Mesh(bayDeckGeo, bayMat));
+
+      // * Front lip strip — thin neon-adjacent ledge at stage apron edge (reads as
+      // * the stage joining the moat, not a random box floating over void).
+      const lipGeo = new THREE.LatheGeometry(
+        [
+          new THREE.Vector2(stageFrontR - 0.55, stageDeckY - 0.02),
+          new THREE.Vector2(stageFrontR + 0.15, stageDeckY - 0.02),
+          new THREE.Vector2(stageFrontR + 0.15, stageDeckY + 0.12),
+          new THREE.Vector2(stageFrontR - 0.55, stageDeckY + 0.12),
+        ],
+        32,
+        bayPhiStart,
+        bayPhiLength,
+      );
+      stadiumGroup.add(new THREE.Mesh(lipGeo, bayAccentMat));
+
+      // * Cheek walls — section cut of the lower bowl (not full-height rectangles).
+      // * Top edge follows the seating rake so the crowd beyond stays visible; bottom
+      // * sits on the bay floor. A tall box here used to wall off the grandstand.
+      /** @type {{ r: number, y: number }[]} */
+      const cheekTopProfile = [
+        { r: pitInnerRadius, y: bayFloorY + 0.35 },
+        { r: decks[0].r0, y: decks[0].y0 + shellSurfaceY },
+        {
+          r: decks[0].r0 + (decks[0].r1 - decks[0].r0) * 0.45,
+          y: decks[0].y0 + shellSurfaceY + (decks[0].r1 - decks[0].r0) * 0.45 * CROWD_RAKE,
+        },
+        // * Outer end eases down toward bay floor so the cut reads as a wedge / ramp
+        // * into the stands rather than a vertical slab at the back of the bay.
+        { r: decks[0].r1 * 0.92 + decks[0].r0 * 0.08, y: bayFloorY + 1.1 },
+        { r: decks[0].r1, y: bayFloorY + 0.25 },
+      ];
+      const cheekThickness = 0.55;
+
+      /**
+       * Builds one cheek as an extruded (r, y) profile, then maps into the radial
+       * cut plane at lathe angle `phi`.
+       * @param {number} phi
+       * @returns {THREE.BufferGeometry}
+       */
+      function buildAngledCheekGeometry(phi) {
+        const shape = new THREE.Shape();
+        const first = cheekTopProfile[0];
+        shape.moveTo(first.r, bayFloorY);
+        for (let i = 0; i < cheekTopProfile.length; i += 1) {
+          shape.lineTo(cheekTopProfile[i].r, cheekTopProfile[i].y);
+        }
+        const last = cheekTopProfile[cheekTopProfile.length - 1];
+        shape.lineTo(last.r, bayFloorY);
+        shape.lineTo(first.r, bayFloorY);
+
+        const geo = new THREE.ExtrudeGeometry(shape, {
+          depth: cheekThickness,
+          bevelEnabled: false,
+          steps: 1,
+        });
+        // * Extrude: X=r, Y=height, Z=0..thickness. Map into world cut plane.
+        const pos = geo.attributes.position;
+        const sin = Math.sin(phi);
+        const cos = Math.cos(phi);
+        // * Thickness axis = angular tangent (cos φ, 0, -sin φ).
+        const halfT = cheekThickness * 0.5;
+        for (let i = 0; i < pos.count; i += 1) {
+          const r = pos.getX(i);
+          const y = pos.getY(i);
+          const t = pos.getZ(i) - halfT;
+          pos.setXYZ(
+            i,
+            r * sin + t * cos,
+            y,
+            r * cos - t * sin,
+          );
+        }
+        pos.needsUpdate = true;
+        geo.computeVertexNormals();
+        return geo;
+      }
+
+      for (const sign of [-1, 1]) {
+        const phi = Math.PI / 2 + sign * stageWedgeHalf;
+        stadiumGroup.add(new THREE.Mesh(buildAngledCheekGeometry(phi), shellMat));
+      }
+
+      // * Low side wings at stage deck only — bridge platform to cheek without
+      // * raising a wall in front of the crowd.
+      const wingDepth = STAGE_HALF_DEPTH * 2 + 0.8;
+      const wingMidR = STAGE_CENTER_R;
+      for (const sign of [-1, 1]) {
+        const phi = Math.PI / 2 + sign * stageWedgeHalf * 0.92;
+        const wing = new THREE.Mesh(
+          new THREE.BoxGeometry(0.4, 0.85, wingDepth),
+          bayAccentMat,
+        );
+        wing.position.set(
+          wingMidR * Math.sin(phi),
+          stageDeckY - 0.35,
+          wingMidR * Math.cos(phi),
+        );
+        wing.rotation.y = phi;
+        stadiumGroup.add(wing);
+      }
+
+      // * Magenta edge neon along the cheek *rake* (top of the cut), not a flat bar.
+      const bayNeonMat = new THREE.MeshBasicMaterial({
+        color: 0xff2bd6,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      bayNeonMat.userData.baseOpacity = 0.55;
+      stadiumPulseMats.push(bayNeonMat);
+      for (const sign of [-1, 1]) {
+        const phi = Math.PI / 2 + sign * stageWedgeHalf;
+        const sin = Math.sin(phi);
+        const cos = Math.cos(phi);
+        for (let i = 0; i < cheekTopProfile.length - 1; i += 1) {
+          const a = cheekTopProfile[i];
+          const b = cheekTopProfile[i + 1];
+          const midR = (a.r + b.r) * 0.5;
+          const midY = (a.y + b.y) * 0.5 + 0.06;
+          const segLen = Math.hypot(b.r - a.r, b.y - a.y);
+          const neon = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.12, segLen * 0.95),
+            bayNeonMat,
+          );
+          neon.position.set(midR * sin, midY, midR * cos);
+          // * Aim segment along the profile chord in the radial-height plane.
+          const radialPitch = Math.atan2(b.y - a.y, b.r - a.r);
+          neon.rotation.order = "YXZ";
+          neon.rotation.y = phi;
+          neon.rotation.x = -radialPitch;
+          stadiumGroup.add(neon);
+        }
+      }
+    }
 
     // * Fascia neon — one additive band riding each deck-break riser (magenta then
     // * cyan), the "deck edge" read of a televised arena bowl. No lights, bloom does
     // * the lifting. The lower band carves the stage wedge like the shell (it would
     // * cut across the stage otherwise); the upper band passes above the truss and
     // * stays a full ring. All bands pulse via stadiumPulseMats in updateCrowd.
-    stadiumPulseMats = [];
     const bandThetaStart = Math.PI / 2 + stageWedgeHalf;
     const bandThetaLength = Math.PI * 2 - stageWedgeHalf * 2;
     const fasciaDefs = [
@@ -808,6 +1272,297 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     }
     stadiumGroup.add(masts);
     stadiumGroup.add(mastTips);
+
+    // =====================================================================
+    // * Outer-bowl facelift (above the pit, outside the dancefloor) — rave
+    // * coliseum cladding, moat party rings, vertical neon ribs, crown lights.
+    // * This is what you see looking UP/OUT from the vinyl, not the pit shaft.
+    // =====================================================================
+    {
+      const RAVE_NEON = [0xff2bd6, 0x22e6ff, 0xffe53d, 0x39ff14, 0xff6600];
+
+      // * Procedural panel texture for exterior cladding (cheap canvas, tiled).
+      const panelCanvas = document.createElement("canvas");
+      panelCanvas.width = panelCanvas.height = 256;
+      const pctx = panelCanvas.getContext("2d");
+      if (pctx) {
+        pctx.fillStyle = "#16122a";
+        pctx.fillRect(0, 0, 256, 256);
+        pctx.strokeStyle = "rgba(255,43,214,0.22)";
+        pctx.lineWidth = 2;
+        for (let i = 0; i <= 4; i += 1) {
+          pctx.beginPath();
+          pctx.moveTo((i / 4) * 256, 0);
+          pctx.lineTo((i / 4) * 256, 256);
+          pctx.stroke();
+          pctx.beginPath();
+          pctx.moveTo(0, (i / 4) * 256);
+          pctx.lineTo(256, (i / 4) * 256);
+          pctx.stroke();
+        }
+        pctx.fillStyle = "rgba(34,230,255,0.08)";
+        for (let u = 0; u < 4; u += 1) {
+          for (let v = 0; v < 4; v += 1) {
+            if ((u + v) % 2 === 0) {
+              pctx.fillRect(u * 64 + 6, v * 64 + 6, 52, 52);
+            }
+          }
+        }
+        // * Tiny cart silhouettes as a repeating motif.
+        pctx.fillStyle = "rgba(255,229,61,0.12)";
+        for (let i = 0; i < 8; i += 1) {
+          const x = 20 + (i % 4) * 60;
+          const y = 30 + Math.floor(i / 4) * 120;
+          pctx.fillRect(x, y, 28, 14);
+          pctx.fillRect(x + 4, y - 10, 20, 10);
+        }
+      }
+      const panelTex = new THREE.CanvasTexture(panelCanvas);
+      panelTex.wrapS = panelTex.wrapT = THREE.RepeatWrapping;
+      panelTex.colorSpace = THREE.SRGBColorSpace;
+      panelTex.repeat.set(24, 3);
+      panelTex.anisotropy = 4;
+
+      const cladMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: panelTex,
+        metalness: 0.55,
+        roughness: 0.45,
+        side: THREE.DoubleSide,
+      });
+
+      // * Exterior cladding cylinders — slightly proud of each deck outer radius so
+      // * the bowl reads as a built coliseum wall from the field, not a thin lathe.
+      for (let d = 0; d < decks.length; d += 1) {
+        const deck = decks[d];
+        const deckTopY = deck.y0 + shellSurfaceY + (deck.r1 - deck.r0) * CROWD_RAKE;
+        const deckBotY = deck.y0 + shellSurfaceY;
+        const wallH = Math.max(2.5, deckTopY - deckBotY + 1.8);
+        const wallY = (deckTopY + deckBotY) * 0.5 + 0.4;
+        const cladR = deck.r1 + 0.55;
+        const cladGeo = d === 0
+          ? new THREE.CylinderGeometry(
+            cladR, cladR, wallH, 96, 1, true,
+            bandThetaStart, bandThetaLength,
+          )
+          : new THREE.CylinderGeometry(cladR, cladR, wallH, 96, 1, true);
+        const clad = new THREE.Mesh(cladGeo, cladMat);
+        clad.position.y = wallY;
+        stadiumGroup.add(clad);
+
+        // * Outer glow seam under each clad band (club LED skirting).
+        const seamMat = new THREE.MeshBasicMaterial({
+          color: RAVE_NEON[d % RAVE_NEON.length],
+          transparent: true,
+          opacity: 0.55,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          toneMapped: false,
+        });
+        seamMat.userData.baseOpacity = 0.55;
+        stadiumPulseMats.push(seamMat);
+        const seamGeo = d === 0
+          ? new THREE.CylinderGeometry(
+            cladR + 0.08, cladR + 0.08, 0.28, 96, 1, true,
+            bandThetaStart, bandThetaLength,
+          )
+          : new THREE.CylinderGeometry(cladR + 0.08, cladR + 0.08, 0.28, 96, 1, true);
+        const seam = new THREE.Mesh(seamGeo, seamMat);
+        seam.position.y = deckBotY + 0.2;
+        stadiumGroup.add(seam);
+      }
+
+      // * Vertical neon ribs around the mid + upper exterior (party columns).
+      const RIB_COUNT = 24;
+      const ribGeo = new THREE.BoxGeometry(0.35, 1, 0.22);
+      const ribMatPink = new THREE.MeshBasicMaterial({
+        color: 0xff2bd6,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      });
+      const ribMatCyan = new THREE.MeshBasicMaterial({
+        color: 0x22e6ff,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      });
+      ribMatPink.userData.baseOpacity = 0.65;
+      ribMatCyan.userData.baseOpacity = 0.65;
+      stadiumPulseMats.push(ribMatPink, ribMatCyan);
+      for (let d = 1; d < decks.length; d += 1) {
+        const deck = decks[d];
+        const deckTopY = deck.y0 + shellSurfaceY + (deck.r1 - deck.r0) * CROWD_RAKE;
+        const deckBotY = deck.y0 + shellSurfaceY;
+        const ribH = Math.max(3, deckTopY - deckBotY + 1.2);
+        const ribY = (deckTopY + deckBotY) * 0.5;
+        const ribR = deck.r1 + 0.72;
+        for (let i = 0; i < RIB_COUNT; i += 1) {
+          // * Skip stage-facing wedge on mid deck only lightly; upper full ring.
+          const a = (i / RIB_COUNT) * Math.PI * 2;
+          if (d === 1) {
+            // * Normalize angle near +X stage bay
+            let ang = a;
+            while (ang > Math.PI) ang -= Math.PI * 2;
+            while (ang < -Math.PI) ang += Math.PI * 2;
+            // * Stage is at world angle 0 (cos/sin); skip ±stageWedgeHalf.
+            // * World angle θ: x=r cos θ, z=r sin θ. Our a is the same.
+            if (Math.abs(ang) < stageWedgeHalf * 0.85) continue;
+          }
+          const mat = i % 2 === 0 ? ribMatPink : ribMatCyan;
+          const rib = new THREE.Mesh(ribGeo, mat);
+          rib.scale.y = ribH;
+          rib.position.set(Math.cos(a) * ribR, ribY, Math.sin(a) * ribR);
+          rib.rotation.y = -a;
+          stadiumGroup.add(rib);
+        }
+      }
+
+      // * Moat party detail — concentric dashed rings + radial spokes on the apron
+      // * between pit lip and lower bowl (the "above the pit / outside play" band).
+      {
+        const moatInner = pitInnerRadius + 0.5;
+        const moatOuter = decks[0].r0 - 0.4;
+        const moatMid = (moatInner + moatOuter) * 0.5;
+        const moatRingDefs = [
+          { r: moatInner + 0.4, color: 0xff2bd6, tube: 0.05 },
+          { r: moatMid, color: 0x22e6ff, tube: 0.04 },
+          { r: moatOuter - 0.35, color: 0xffe53d, tube: 0.05 },
+        ];
+        for (let i = 0; i < moatRingDefs.length; i += 1) {
+          const def = moatRingDefs[i];
+          const mat = new THREE.MeshBasicMaterial({
+            color: def.color,
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false,
+          });
+          mat.userData.baseOpacity = 0.5;
+          stadiumPulseMats.push(mat);
+          const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(def.r, def.tube, 6, 96),
+            mat,
+          );
+          ring.rotation.x = Math.PI / 2;
+          ring.position.y = moatFloorY + 0.06 + i * 0.01;
+          stadiumGroup.add(ring);
+        }
+
+        // * Radial LED spokes across the moat (skip stage wedge).
+        const spokeCount = 32;
+        const spokeLen = moatOuter - moatInner;
+        const spokeGeo = new THREE.BoxGeometry(0.1, 0.05, spokeLen);
+        for (let i = 0; i < spokeCount; i += 1) {
+          const a = (i / spokeCount) * Math.PI * 2;
+          let ang = a;
+          while (ang > Math.PI) ang -= Math.PI * 2;
+          while (ang < -Math.PI) ang += Math.PI * 2;
+          if (Math.abs(ang) < stageWedgeHalf * 1.05) continue;
+          if (i % 2 === 0) continue; // dashed feel
+          const mat = new THREE.MeshBasicMaterial({
+            color: RAVE_NEON[i % RAVE_NEON.length],
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false,
+          });
+          mat.userData.baseOpacity = 0.4;
+          stadiumPulseMats.push(mat);
+          const spoke = new THREE.Mesh(spokeGeo, mat);
+          spoke.position.set(Math.cos(a) * moatMid, moatFloorY + 0.07, Math.sin(a) * moatMid);
+          spoke.rotation.y = -a;
+          stadiumGroup.add(spoke);
+        }
+      }
+
+      // * Dual-color parapet crown (magenta + cyan) so the skyline pops.
+      {
+        const crownOuter = new THREE.Mesh(
+          new THREE.CylinderGeometry(topDeck.r1 + 0.85, topDeck.r1 + 0.85, 0.35, 96, 1, true),
+          (() => {
+            const m = new THREE.MeshBasicMaterial({
+              color: 0x22e6ff,
+              transparent: true,
+              opacity: 0.5,
+              blending: THREE.AdditiveBlending,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+              toneMapped: false,
+            });
+            m.userData.baseOpacity = 0.5;
+            stadiumPulseMats.push(m);
+            return m;
+          })(),
+        );
+        crownOuter.position.y = parapetY + 0.35;
+        stadiumGroup.add(crownOuter);
+
+        // * Beacon posts around the parapet (party skyline teeth).
+        const BEACON_COUNT = 20;
+        const beaconGeo = new THREE.BoxGeometry(0.4, 2.2, 0.4);
+        const beaconTipGeo = new THREE.BoxGeometry(0.55, 0.55, 0.55);
+        for (let i = 0; i < BEACON_COUNT; i += 1) {
+          const a = (i / BEACON_COUNT) * Math.PI * 2;
+          const br = topDeck.r1 + 0.55;
+          const col = RAVE_NEON[i % RAVE_NEON.length];
+          const postMat = new THREE.MeshStandardMaterial({
+            color: 0x1a1528,
+            metalness: 0.7,
+            roughness: 0.4,
+          });
+          const post = new THREE.Mesh(beaconGeo, postMat);
+          post.position.set(Math.cos(a) * br, parapetY + 1.0, Math.sin(a) * br);
+          stadiumGroup.add(post);
+          const tipMat = new THREE.MeshBasicMaterial({
+            color: col,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false,
+          });
+          tipMat.userData.baseOpacity = 0.85;
+          stadiumPulseMats.push(tipMat);
+          const tip = new THREE.Mesh(beaconTipGeo, tipMat);
+          tip.position.set(Math.cos(a) * br, parapetY + 2.25, Math.sin(a) * br);
+          stadiumGroup.add(tip);
+        }
+      }
+
+      // * Secondary fascia band in gold under the magenta lower fascia.
+      {
+        const lowerTopY = decks[0].y0 + shellSurfaceY + (decks[0].r1 - decks[0].r0) * CROWD_RAKE;
+        const goldMat = new THREE.MeshBasicMaterial({
+          color: 0xffe53d,
+          transparent: true,
+          opacity: 0.45,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          toneMapped: false,
+        });
+        goldMat.userData.baseOpacity = 0.45;
+        stadiumPulseMats.push(goldMat);
+        const goldBand = new THREE.Mesh(
+          new THREE.CylinderGeometry(
+            decks[0].r1 + 0.55, decks[0].r1 + 0.55, 0.28, 96, 1, true,
+            bandThetaStart, bandThetaLength,
+          ),
+          goldMat,
+        );
+        goldBand.position.y = lowerTopY + 0.35;
+        stadiumGroup.add(goldBand);
+      }
+    }
+
     scene.add(stadiumGroup);
   }
 
@@ -825,9 +1580,10 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     scene.add(target);
 
     const baseColor = new THREE.Color(CROWD_SEARCHLIGHT_COLORS[i]);
+    // * Intensity tuned for exposure 0.4 — old authored peak (~35) under NeutralToneMapping.
     const searchlight = new THREE.SpotLight(
       CROWD_SEARCHLIGHT_COLORS[i],
-      30,
+      36,
       200,
       Math.PI * 0.35,
       0.8,
@@ -844,12 +1600,13 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     const coneMat = new THREE.MeshBasicMaterial({
       color: baseColor.clone(),
       transparent: true,
-      opacity: 0.06,
+      opacity: 0.09,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
+      toneMapped: false,
     });
-    coneMat.userData.baseOpacity = 0.06;
+    coneMat.userData.baseOpacity = 0.09;
     const cone = new THREE.Mesh(
       new THREE.ConeGeometry(12, 30, 16, 1, true),
       coneMat,
@@ -865,7 +1622,7 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       light: searchlight,
       index: i,
       baseColor,
-      baseIntensity: 30,
+      baseIntensity: 36,
     });
   }
 
@@ -971,11 +1728,13 @@ const _crowdReactiveColor = new THREE.Color();
  */
 export function updateCrowd(nowMs) {
   const reactive = sampleArenaReactive(nowMs);
-  const leaderMix = reactive.hasLeader ? 0.38 : 0;
   const koT = reactive.koT;
 
   if (crowdSearchlightEntries.length > 0) {
     const nowSec = nowMs * 0.001;
+    // * Soft leader lean only — hard 0.38 mix turned magenta/cyan/yellow/green into one wash.
+    const searchLeaderMix = reactive.hasLeader ? 0.14 : 0;
+    const wantsSearchTint = searchLeaderMix > 0 || koT > 0;
     for (const entry of crowdSearchlightEntries) {
       const speed = CROWD_SEARCHLIGHT_SPEEDS[entry.index % CROWD_SEARCHLIGHT_SPEEDS.length] || 0.3;
       const angle = nowSec * speed + entry.index * Math.PI * 0.5;
@@ -985,15 +1744,27 @@ export function updateCrowd(nowMs) {
       entry.target.updateMatrix();
       entry.cone.lookAt(entry.target.position);
       entry.cone.rotateX(-Math.PI / 2);
-      const baseI = entry.baseIntensity ?? 30;
-      const wobble = 0.65 + 0.35 * Math.sin(nowSec * 1.1 + entry.index);
+      // * Restore pre-reactive range: ~20 ± 15 peak wobble, scaled by KO intensity.
+      const baseI = entry.baseIntensity ?? 36;
+      const wobble = 0.55 + 0.45 * Math.sin(nowSec * 1.1 + entry.index);
       entry.light.intensity = baseI * wobble * reactive.intensityMul;
       if (entry.baseColor) {
-        _crowdReactiveColor.copy(entry.baseColor).lerp(reactive.accentColor, leaderMix + koT * 0.55);
-        entry.light.color.copy(_crowdReactiveColor);
-        if (entry.coneMat) {
-          entry.coneMat.color.copy(_crowdReactiveColor);
-          entry.coneMat.opacity = (entry.coneMat.userData.baseOpacity ?? 0.06) * (1 + koT * 1.2);
+        if (wantsSearchTint) {
+          _crowdReactiveColor
+            .copy(entry.baseColor)
+            .lerp(reactive.accentColor, searchLeaderMix + koT * 0.5);
+          entry.light.color.copy(_crowdReactiveColor);
+          if (entry.coneMat) {
+            entry.coneMat.color.copy(_crowdReactiveColor);
+            entry.coneMat.opacity =
+              (entry.coneMat.userData.baseOpacity ?? 0.09) * (1 + koT * 1.2);
+          }
+        } else {
+          entry.light.color.copy(entry.baseColor);
+          if (entry.coneMat) {
+            entry.coneMat.color.copy(entry.baseColor);
+            entry.coneMat.opacity = entry.coneMat.userData.baseOpacity ?? 0.09;
+          }
         }
       }
     }
@@ -1064,7 +1835,8 @@ export function updateCrowd(nowMs) {
           bounce = Math.abs(Math.sin(nowSec * baseFreq * 1.5 + i * 0.7)) * (baseAmp * 1.8);
           wiggleYaw = Math.sin(nowSec * 6.0 + i * 0.9) * (0.18 * ((energy - 0.7) / 0.3));
         } else if (energy < 0.3) {
-          bounce = Math.sin(nowSec * baseFreq * 0.5 + i * 0.45) * (baseAmp * 0.12);
+          // * Always ≥ 0 — a signed sin bounce drove feet/wheels into the shell.
+          bounce = Math.abs(Math.sin(nowSec * baseFreq * 0.5 + i * 0.45)) * (baseAmp * 0.12);
           wiggleYaw = Math.sin(nowSec * 0.8 + i * 0.6) * 0.04;
         } else {
           bounce = Math.abs(Math.sin(nowSec * baseFreq + i * 0.7)) * baseAmp;
@@ -1633,9 +2405,12 @@ function addLaserBeam(scene, {
  */
 export function initStage(scene, pitInnerRadius, cartColors) {
   const stageAngle = 0;
+  // * Keep in lockstep with stadium bay filler in initCrowd (STAGE_CENTER_R / depths).
   const stageRadius = pitInnerRadius + 15;
   const stageX = Math.cos(stageAngle) * stageRadius;
   const stageZ = Math.sin(stageAngle) * stageRadius;
+  // * Group origin stays at bay floor height; deck top is local y=1.5 (world -1.5)
+  // * so truss/LED/speaker local offsets keep working.
   const stageY = -3;
   stageGroup = new THREE.Group();
 
@@ -1666,9 +2441,13 @@ export function initStage(scene, pitInnerRadius, cartColors) {
 
   stageGroup.clear();
 
-  const stageBase = new THREE.Mesh(new THREE.BoxGeometry(24, 1.5, 10), stageBaseMat);
-  stageBase.position.y = 0.75;
+  // * Performance deck on the bay apron + skirt down into the filled plinth.
+  const stageBase = new THREE.Mesh(new THREE.BoxGeometry(24, 0.4, 10.4), stageBaseMat);
+  stageBase.position.y = 1.35; // * top ≈ local 1.55 → world ≈ -1.45 (flush with bay deck)
   stageGroup.add(stageBase);
+  const stageSkirt = new THREE.Mesh(new THREE.BoxGeometry(23.6, 1.25, 10.0), stageBaseMat);
+  stageSkirt.position.y = 0.55;
+  stageGroup.add(stageSkirt);
 
   const towerXs = [-11, 11];
   for (const towerX of towerXs) {
@@ -2083,20 +2862,27 @@ export function updateLasers(nowMs) {
   if (laserEntries.length === 0) return;
   const nowSec = nowMs * 0.001;
   const reactive = sampleArenaReactive(nowMs);
-  const leaderMix = reactive.hasLeader ? 0.28 : 0;
+  // * Subtle leader lean; KO still gets a stronger flash. Idle keeps pure palette colors.
+  const leaderMix = reactive.hasLeader ? 0.12 : 0;
   const koT = reactive.koT;
+  const wantsLaserTint = leaderMix > 0 || koT > 0;
   for (const entry of laserEntries) {
     entry.mesh.rotation.z =
       entry.baseZ +
       Math.sin(nowSec * entry.speed + entry.index * entry.phaseStep) *
         entry.amplitude * (1 + koT * 0.35);
     if (entry.sheathMat?.userData?.baseColor) {
-      _laserReactiveColor
-        .copy(entry.sheathMat.userData.baseColor)
-        .lerp(reactive.accentColor, leaderMix + koT * 0.6);
-      entry.sheathMat.color.copy(_laserReactiveColor);
-      entry.sheathMat.opacity =
-        (entry.sheathMat.userData.baseOpacity ?? 0.5) * (1 + koT * 0.75);
+      if (wantsLaserTint) {
+        _laserReactiveColor
+          .copy(entry.sheathMat.userData.baseColor)
+          .lerp(reactive.accentColor, leaderMix + koT * 0.55);
+        entry.sheathMat.color.copy(_laserReactiveColor);
+        entry.sheathMat.opacity =
+          (entry.sheathMat.userData.baseOpacity ?? 0.5) * (1 + koT * 0.75);
+      } else {
+        entry.sheathMat.color.copy(entry.sheathMat.userData.baseColor);
+        entry.sheathMat.opacity = entry.sheathMat.userData.baseOpacity ?? 0.5;
+      }
     }
     if (entry.coreMat) {
       entry.coreMat.opacity =

@@ -1611,6 +1611,18 @@ export function initNetcode(roomOverride) {
           callbacks.onReturnToLobby?.();
         }
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
+          // * Apply winner/scores before onEnterPodium so clients can aim the
+          // * victory camera at the correct cart (state write below is idempotent).
+          if (r.winnerSlotIndex !== undefined) {
+            const w = r.winnerSlotIndex;
+            GameState.setRoundWinnerSlotIndex(
+              w === "draw" ? "draw" : Number.isFinite(w) ? w : null,
+            );
+          }
+          if (r.scores && typeof r.scores === "object") GameState.setRoundScores(r.scores);
+          if (r.endReason === "timer" || r.endReason === "lastStanding" || r.endReason == null) {
+            GameState.setRoundEndReason(r.endReason ?? null);
+          }
           callbacks.onEnterPodium?.();
           callbacks.setPendingMidRoundJoinRespawnConnId(null);
           if (!isHost) {

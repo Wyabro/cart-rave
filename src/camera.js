@@ -270,9 +270,16 @@ export function beginCinematicCountdown(camera, configOverrides) {
   const cur = camera.position;
   state.angle = Math.atan2(cur.z, cur.x) || config.startAngle;
 
+  // * Cinematics take exclusive control — drop any death-cam residue so the
+  // * frame loop cannot fall back to DEATH while mode is countdown.
+  camera.userData.deathState = null;
   camera.userData.cameraMode = CameraMode.CINEMATIC_COUNTDOWN;
   camera.userData.cinematicState = state;
 }
+
+// * Shared world-up / aim scratch for cinematic look matrices — avoid per-frame alloc.
+const _cinematicUp = new THREE.Vector3(0, 1, 0);
+const _cinematicAim = new THREE.Vector3();
 
 /**
  * Updates the cinematic fly-over. Orbits the arena center on a fixed-radius
@@ -294,7 +301,7 @@ export function updateCinematicCountdown(camera, dt) {
     Math.sin(state.angle) * config.radius,
   );
 
-  lookMat.lookAt(desiredPos, lookTarget, new THREE.Vector3(0, 1, 0));
+  lookMat.lookAt(desiredPos, lookTarget, _cinematicUp);
   desiredQuat.setFromRotationMatrix(lookMat);
 
   // * Direct copy (no damping) — the slow orbit rate keeps motion smooth, and
@@ -325,13 +332,21 @@ export function endCinematicCountdown(camera) {
   }
   camera.userData.cameraMode = CameraMode.FOLLOW;
   camera.userData.cinematicState = null;
+  camera.userData.deathState = null;
 }
+
+/**
+ * Pure winner-cam duration before the results UI is allowed to cover the shot.
+ * Kept on the camera module so UI + round flow share one source of truth.
+ */
+export const PODIUM_WINNER_CAM_MS = 5000;
 
 const DEFAULT_PODIUM_CONFIG = {
   radius: 6.0,
   height: 1.8,
   startAngle: 0,
-  angularSpeed: 0.18,
+  // * ~0.4 rad/s ≈ 115° over PODIUM_WINNER_CAM_MS — readable victory orbit.
+  angularSpeed: 0.4,
   lookTargetY: 0.8,
 };
 
@@ -354,8 +369,24 @@ export function beginCinematicPodium(camera, targetPos, configOverrides) {
   state.angle = Math.atan2(cur.z - tz, cur.x - tx) || config.startAngle;
   state.podiumTargetPos = new THREE.Vector3(tx, ty, tz);
 
+  // * Same exclusive-control rule as countdown — death residue cannot steal the shot.
+  camera.userData.deathState = null;
   camera.userData.cameraMode = CameraMode.CINEMATIC_PODIUM;
   camera.userData.cinematicState = state;
+}
+
+/**
+ * Re-aims the podium orbit center (e.g. when the winner slot resolves late on clients).
+ * No-op when not in podium mode.
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {{ x: number, y: number, z: number }} targetPos
+ */
+export function setCinematicPodiumTarget(camera, targetPos) {
+  const state = camera?.userData?.cinematicState;
+  if (!state || camera.userData.cameraMode !== CameraMode.CINEMATIC_PODIUM) return;
+  if (!targetPos) return;
+  if (!state.podiumTargetPos) state.podiumTargetPos = new THREE.Vector3();
+  state.podiumTargetPos.set(targetPos.x ?? 0, targetPos.y ?? 0, targetPos.z ?? 0);
 }
 
 /**
@@ -377,8 +408,8 @@ export function updateCinematicPodium(camera, dt) {
     center.z + Math.sin(state.angle) * config.radius,
   );
 
-  const aimTarget = new THREE.Vector3(center.x, center.y + config.lookTargetY, center.z);
-  lookMat.lookAt(desiredPos, aimTarget, new THREE.Vector3(0, 1, 0));
+  _cinematicAim.set(center.x, center.y + config.lookTargetY, center.z);
+  lookMat.lookAt(desiredPos, _cinematicAim, _cinematicUp);
   desiredQuat.setFromRotationMatrix(lookMat);
 
   camera.position.copy(desiredPos);
