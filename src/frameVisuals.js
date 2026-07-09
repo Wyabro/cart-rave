@@ -4,11 +4,17 @@ import * as THREE from "three";
 import * as Effects from "./effects.js";
 import * as ContactShadows from "./contactShadows.js";
 import { clamp } from "./utils.js";
-import { applyThemeColorToCache, applyThemeLeaderGlow } from "./cartThemes.js";
+import {
+  applyThemeColorToCache,
+  applyThemeLeaderGlow,
+  applyThemeChargeGlow,
+  boostChargeProgress01,
+} from "./cartThemes.js";
 import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { setArenaReactiveLeaderHex } from "./arenaReactiveLights.js";
+import { tickAutoQuality } from "./utils/autoQuality.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
@@ -148,6 +154,11 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const netSlotsForFrame = deps.getNetSlots();
   const roundState = deps.getRoundState();
 
+  // * Session auto-quality: one-shot step-down on sustained bad frame times (no localStorage).
+  if (!deps.isMenuVisible?.()) {
+    tickAutoQuality(dt, now);
+  }
+
   if (roundState.phase === "running") {
     Effects.tickRamBoostStreakSpawners(allCarts, now, dt);
   }
@@ -275,6 +286,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
     const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
     const glowIntensity = (0.375 + glowPulse * 1.125) * 0.85;
+    const chargeCfg = deps.CONFIG?.cart?.ramBoost?.boostCharge;
+    const chargeTimeMs = chargeCfg?.boostChargeTimeMs || 1500;
+    const chargeEnabled = chargeCfg?.enabled !== false;
     for (let i = 0; i < allCarts.length; i += 1) {
       const cart = allCarts[i];
       if (!cart || !cart.mesh) continue;
@@ -283,15 +297,29 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       const slotHex = deps.colorHexForSlot(netSlotsForFrame[i]);
       const cache = cart._materialCache || (cart._materialCache = deps.buildCartMaterialCache(cart.mesh));
 
+      // * Priority: leader pulse > active nitro burst > charge buildup > idle tint.
+      // * Charge telegraph is host-visible for any cart with isChargingBoost (solo = all humans).
       if (isLeader) {
         applyThemeLeaderGlow(cache, themeId, slotHex, glowPulse, glowIntensity);
-      } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > performance.now()) {
+      } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > now) {
         applyThemeColorToCache(
           cache,
           themeId,
           slotHex,
-          1.2 + 0.4 * Math.sin(performance.now() * 0.02),
+          1.2 + 0.4 * Math.sin(now * 0.02),
         );
+      } else if (
+        chargeEnabled
+        && roundState.phase === "running"
+        && cart.isChargingBoost
+      ) {
+        const charge01 = boostChargeProgress01(
+          true,
+          cart.boostChargeStartedAtMs || now,
+          now,
+          chargeTimeMs,
+        );
+        applyThemeChargeGlow(cache, themeId, slotHex, charge01, now, chargeCfg);
       } else {
         applyThemeColorToCache(cache, themeId, slotHex);
       }

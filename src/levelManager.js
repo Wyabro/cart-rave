@@ -23,6 +23,12 @@ let loadedLevelId = resolveLevelId(
 /** True while the arena is in lightweight menu-preview quality. */
 let previewMode = false;
 
+/**
+ * True when the currently loaded arena was built with menu-preview LOD and still needs
+ * a full-quality rebuild before play (Backrooms dressing skip, lowQ visual gates, etc.).
+ */
+let previewNeedsFullRebuild = false;
+
 /** Heavy rave extras deferred until idle finalize or play entry. */
 let menuPreviewNeedsFinalize = false;
 
@@ -111,6 +117,11 @@ export function getMenuPreviewNeedsFinalize() {
   return menuPreviewNeedsFinalize;
 }
 
+/** @returns {boolean} */
+export function getPreviewNeedsFullRebuild() {
+  return previewNeedsFullRebuild;
+}
+
 /** @returns {Promise<void> | null} */
 export function getMenuLevelPreviewPromise() {
   return menuLevelPreviewPromise;
@@ -134,13 +145,17 @@ export function cancelMenuPreviewTimers() {
 }
 
 /**
- * Level dispose is unsafe once slot carts exist — menu-only, pre-join.
+ * Level dispose is unsafe once slot carts exist — menu or pre-join play entry only.
+ * Play entry may hide the menu before rebuild; allow that when a preview LOD rebuild
+ * is pending (or preview mode is still active) as long as no carts exist yet.
  * @returns {boolean}
  */
 function canSafelyRebuildLevel() {
   if (!deps) return false;
   const carts = deps.getAllCartsRef();
-  return deps.getMenuVisible() && (!carts || carts.length === 0);
+  if (carts && carts.length > 0) return false;
+  if (deps.getMenuVisible()) return true;
+  return previewNeedsFullRebuild || previewMode;
 }
 
 function scheduleMenuPreviewFinalize() {
@@ -175,6 +190,7 @@ export async function swapLoadedLevel(levelId, opts = {}) {
   const menuPreview = opts.menuPreview === true;
   previewMode = menuPreview;
 
+  const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   await d.performLevelLoad(selected, {
     menuPreview,
     reflectorTextureSize: menuPreview ? PREVIEW_REFLECTOR_SIZE : FULL_REFLECTOR_SIZE,
@@ -182,13 +198,22 @@ export async function swapLoadedLevel(levelId, opts = {}) {
   });
   loadedLevelId = selected;
 
+  if (import.meta.env.DEV && typeof location !== "undefined"
+    && /(?:^|[?&])perf=1(?:&|$)/.test(location.search || "")) {
+    const ms = (typeof performance !== "undefined" ? performance.now() : t0) - t0;
+    // eslint-disable-next-line no-console
+    console.log(`[perf] swapLoadedLevel ${selected} menuPreview=${menuPreview} ${ms.toFixed(1)}ms`);
+  }
+
   if (menuPreview) {
+    previewNeedsFullRebuild = true;
     d.onPreviewSwapComplete?.(selected);
     scheduleMenuPreviewFinalize();
     return;
   }
 
   previewMode = false;
+  previewNeedsFullRebuild = false;
   menuPreviewNeedsFinalize = false;
   d.finalizeArenaForPlay();
 }
@@ -208,20 +233,33 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
 
   levelRebuildPromise = (async () => {
     await d.ensureWorldBootstrapped();
-    if (selected !== loadedLevelId) {
+    const needsFullSwap = selected !== loadedLevelId || previewNeedsFullRebuild || previewMode;
+    if (needsFullSwap) {
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
-        console.log("[bootstrap] play-entry level swap", loadedLevelId, "→", selected);
+        console.log(
+          "[bootstrap] play-entry level rebuild",
+          loadedLevelId,
+          "→",
+          selected,
+          previewNeedsFullRebuild ? "(from preview LOD)" : "",
+        );
       }
       isSwappingLevel = true;
       await yieldForPaint();
       const canvas = d.getCanvas();
-      const runSwap = () => { void swapLoadedLevel(selected, { onProgress }); };
+      /** @type {Promise<void>} */
+      let swapPromise = Promise.resolve();
+      const runSwap = () => {
+        // * crossfade midway is sync — capture the async load so we can await it after fade.
+        swapPromise = swapLoadedLevel(selected, { onProgress });
+      };
       if (canvas) {
         await d.crossfadeElement(canvas, runSwap);
       } else {
         runSwap();
       }
+      await swapPromise;
       await yieldForPaint();
       isSwappingLevel = false;
     } else if (menuPreviewNeedsFinalize) {

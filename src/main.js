@@ -36,6 +36,12 @@ import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
 import { getNpcPersonality } from "./npcNames.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
+import {
+  matchSuperlatives,
+  resetMatchStats,
+  setMatchStatsLocalSlot,
+  snapshotMatchStats,
+} from "./scoring/matchStats.js";
 
 const PERSONALITY_BADGES = {
   aggressor: { letter: "[A]", color: "#ff4d4d" },
@@ -82,6 +88,7 @@ import {
   getLevelRebuildPromise,
   getMenuLevelPreviewPromise,
   getMenuPreviewNeedsFinalize,
+  getPreviewNeedsFullRebuild,
   initLevelManager,
   isLevelSwapping,
   rebuildLevelIfNeeded,
@@ -1330,6 +1337,7 @@ async function main() {
     getMenuLevelPreviewPromise,
     getLevelRebuildPromise,
     getMenuPreviewNeedsFinalize,
+    getPreviewNeedsFullRebuild,
     rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
     ensureRapierPhysics: () => ensureRapierPhysics(),
@@ -1612,6 +1620,8 @@ async function main() {
     if (Netcode.getIsHost()) {
       startCountdown(startsAtLocalMs);
     } else if (GameState.getRoundState().phase !== "running") {
+      resetMatchStats();
+      setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
       syncRoundPhase("countdown");
       GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
       GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
@@ -1915,6 +1925,25 @@ async function main() {
           item.appendChild(lblEl);
           statsLine.appendChild(item);
         });
+
+        // * This-match superlatives (matchStats spine) — local-focused solo retention beat.
+        const matchSnap = snapshotMatchStats();
+        const supers = matchSuperlatives(matchSnap);
+        if (supers.length > 0) {
+          let superLine = statsLine.parentElement?.querySelector?.(".results-superlatives") ?? null;
+          if (!superLine) {
+            superLine = document.createElement("div");
+            superLine.className = "results-superlatives";
+            statsLine.insertAdjacentElement("afterend", superLine);
+          }
+          superLine.replaceChildren();
+          for (const line of supers) {
+            const chip = document.createElement("span");
+            chip.className = "results-superlative";
+            chip.textContent = line;
+            superLine.appendChild(chip);
+          }
+        }
       }
 
       animateResultsPodiumShow({
@@ -2510,6 +2539,9 @@ async function main() {
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
     clearRoundCountdownTimeout();
+    // * Fresh match-stat spine for superlatives / challenges this round.
+    resetMatchStats();
+    setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
     syncRoundPhase("countdown");
     gameCtx.slowMo.active = false;
     GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);

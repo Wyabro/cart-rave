@@ -2,6 +2,7 @@
 
 import { computeSpawnRingRadius } from "../config.js";
 import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
+import { setMenuPreviewVisualLod } from "../utils/qualityMode.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
@@ -80,6 +81,11 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
 
   onProgress?.(60, "Building arena geometry…");
   let result;
+  const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+  // * Menu preview: force visual LOD gates (isLowQualityMode) for the init only —
+  // * does not touch the user's stored quality preference.
+  const menuPreview = options.menuPreview === true;
+  if (menuPreview) setMenuPreviewVisualLod(true);
   try {
     result = initFn(scene, world, config, options);
   } catch (err) {
@@ -88,6 +94,16 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
       config.cart.spawnRingRadius = prevSpawnRing;
     }
     throw err;
+  } finally {
+    if (menuPreview) setMenuPreviewVisualLod(false);
+  }
+  if (import.meta.env.DEV && typeof location !== "undefined"
+    && /(?:^|[?&])perf=1(?:&|$)/.test(location.search || "")) {
+    const ms = (typeof performance !== "undefined" ? performance.now() : t0) - t0;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[perf] loadLevel ${resolved} menuPreview=${menuPreview} build=${ms.toFixed(1)}ms`,
+    );
   }
 
   if (overrideRadius != null) {

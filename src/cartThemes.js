@@ -367,6 +367,93 @@ export function applyThemeLeaderGlow(cache, themeId, neonHex, glowPulse, glowInt
 }
 
 /**
+ * Charge-boost 3D telegraph: ramps frame emissive with charge 0..1 (smoothstep).
+ * Near full charge, a low white-mix pulse signals "ready" without matching leader glow.
+ *
+ * @param {CartThemeMaterialCache | null | undefined} cache
+ * @param {CartThemeId | string} themeId
+ * @param {number} neonHex
+ * @param {number} charge01 0..1 charge progress
+ * @param {number} [nowMs=0] performance.now() for ready pulse
+ * @param {{
+ *   glowPeakIntensityMul?: number,
+ *   glowReadyThreshold?: number,
+ *   glowReadyWhiteMixMin?: number,
+ *   glowReadyWhiteMixMax?: number,
+ *   glowReadyPulseHz?: number,
+ * }} [glowCfg]
+ * @returns {void}
+ */
+export function applyThemeChargeGlow(
+  cache,
+  themeId,
+  neonHex,
+  charge01,
+  nowMs = 0,
+  glowCfg = {},
+) {
+  if (!cache) return;
+
+  const t = Math.min(Math.max(Number(charge01) || 0, 0), 1);
+  // * Smoothstep so early charge is subtle and the last third ramps hard.
+  const s = t * t * (3 - 2 * t);
+  if (s <= 0.001) {
+    applyThemeColorToCache(cache, themeId, neonHex, 1);
+    return;
+  }
+
+  const peakMul = Number(glowCfg.glowPeakIntensityMul) > 0
+    ? Number(glowCfg.glowPeakIntensityMul)
+    : 1.95;
+  const readyThreshold = Number.isFinite(glowCfg.glowReadyThreshold)
+    ? /** @type {number} */ (glowCfg.glowReadyThreshold)
+    : 0.92;
+  const whiteMin = Number.isFinite(glowCfg.glowReadyWhiteMixMin)
+    ? /** @type {number} */ (glowCfg.glowReadyWhiteMixMin)
+    : 0.08;
+  const whiteMax = Number.isFinite(glowCfg.glowReadyWhiteMixMax)
+    ? /** @type {number} */ (glowCfg.glowReadyWhiteMixMax)
+    : 0.26;
+  const pulseHz = Number(glowCfg.glowReadyPulseHz) > 0
+    ? Number(glowCfg.glowReadyPulseHz)
+    : 6;
+
+  const intensityMul = 1 + s * (peakMul - 1);
+
+  if (s >= readyThreshold && nowMs > 0) {
+    const readyWave = (Math.sin(nowMs * 0.001 * Math.PI * 2 * pulseHz) + 1) / 2;
+    const whiteMix = whiteMin + (whiteMax - whiteMin) * readyWave;
+    // * Leader glow uses whiteMix = glowPulse ** 3 — invert so we control mix directly.
+    const glowPulse = Math.cbrt(Math.min(Math.max(whiteMix, 0), 1));
+    const baseIntensity = cartEmissiveIntensityForHex(emissiveRefHexForNeonHex(neonHex));
+    const glowIntensity = baseIntensity * intensityMul;
+    applyThemeLeaderGlow(cache, themeId, neonHex, glowPulse, glowIntensity);
+    return;
+  }
+
+  applyThemeColorToCache(cache, themeId, neonHex, intensityMul);
+}
+
+/**
+ * Normalized charge progress for a cart currently holding boost charge.
+ *
+ * @param {boolean} isCharging
+ * @param {number} startedAtMs
+ * @param {number} nowMs
+ * @param {number} chargeTimeMs
+ * @returns {number} 0..1
+ */
+export function boostChargeProgress01(isCharging, startedAtMs, nowMs, chargeTimeMs) {
+  if (!isCharging) return 0;
+  const dur = chargeTimeMs > 0 ? chargeTimeMs : 1500;
+  // * Use nullish so startedAtMs === 0 is a valid timestamp (|| would treat 0 as missing).
+  const start = startedAtMs ?? nowMs;
+  const elapsed = nowMs - start;
+  if (!(elapsed > 0)) return 0;
+  return Math.min(elapsed / dur, 1);
+}
+
+/**
  * @param {THREE.Object3D | null | undefined} root
  * @param {CartThemeId | string} themeId
  * @param {number} neonHex

@@ -15,7 +15,7 @@
  * Spawn ring radius and spawn height are computed after CONFIG is defined (see bottom).
  */
 
-import { isLowQualityMode } from "./utils.js";
+import { isLowQualityMode } from "./utils/qualityMode.js";
 
 /** @type {string} Bump when physics or net tuning changes materially. */
 const CONFIG_VERSION = "2026.07.09";
@@ -139,6 +139,12 @@ const physics = {
         boostMaxMultiplier: 1.0, // unitless — burst scale at full charge (auto-release)
         boostCooldownMs: 1000, // ms — lockout after a released burst before charging again
         burstImpulse: 28.0, // N·s — instantaneous forward impulse at release (× mass × multiplier)
+        // * 3D charge telegraph — frame emissive ramps while holding charge (HUD bar is local-only).
+        glowPeakIntensityMul: 1.95, // unitless — emissive intensity at full charge vs idle
+        glowReadyThreshold: 0.92, // unitless — charge01 above this gets a ready white-pulse
+        glowReadyWhiteMixMin: 0.08, // unitless — white mix floor when ready
+        glowReadyWhiteMixMax: 0.26, // unitless — white mix peak of ready pulse
+        glowReadyPulseHz: 6, // Hz — ready-state shimmer rate
       },
     },
 

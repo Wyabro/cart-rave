@@ -6,6 +6,7 @@ import {
   arenaVfxReactor,
   announcerReactor,
   challengeReactor,
+  matchStatsReactor,
   DEFAULT_KO_REACTORS,
 } from "../src/scoring/koReactors.js";
 
@@ -169,6 +170,7 @@ describe("dispatchKOEvent", () => {
 
   it("exposes the default reactor order", () => {
     expect(DEFAULT_KO_REACTORS).toEqual([
+      matchStatsReactor,
       challengeReactor,
       localKillConfirmReactor,
       arenaVfxReactor,

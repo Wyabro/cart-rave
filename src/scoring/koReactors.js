@@ -3,9 +3,11 @@
 // subsystem (see docs/scoring-event-system.md). No reactor mutates score/physics — Score stays
 // at the call site until a later migration step.
 //
-// Leaf module by design: all app wiring arrives via the ctx object (no direct imports), so the
+// Leaf module by design: most app wiring arrives via the ctx object (no direct imports), so the
 // fan-out stays unit-testable and reusable from both the host (gameFlow) and non-host (netcode)
-// paths once the wire shape is unified.
+// paths once the wire shape is unified. Match stats are the exception — a pure counter module.
+
+import { recordKoForMatchStats } from "./matchStats.js";
 
 /**
  * @typedef {object} KOReactorCtx
@@ -110,8 +112,19 @@ export function challengeReactor(koEvent, ctx) {
   }
 }
 
-/** Default host-side reactor order: challenges → local confirm → arena VFX → kill feed → announcer. */
+/**
+ * Per-match stat accumulator (kos/deaths/combo) for results superlatives + future goals.
+ * Runs on host and non-host for every KO event (one count per dispatch).
+ * @param {import('./koEvent.js').KOEvent} koEvent
+ * @param {KOReactorCtx} ctx
+ */
+export function matchStatsReactor(koEvent, ctx) {
+  recordKoForMatchStats(koEvent, ctx.localSlotIndex);
+}
+
+/** Default host-side reactor order: match stats → challenges → confirm → arena VFX → feed → PA. */
 export const DEFAULT_KO_REACTORS = [
+  matchStatsReactor,
   challengeReactor,
   localKillConfirmReactor,
   arenaVfxReactor,

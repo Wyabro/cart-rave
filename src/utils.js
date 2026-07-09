@@ -3,6 +3,9 @@
  */
 
 import { CART_COLORS, PALETTE } from "./config.js";
+// * Quality mode lives in utils/qualityMode.js (config imports it directly to avoid cycles).
+// * Re-export only the symbols existing call sites import from `utils.js`.
+export { isLowQualityMode, setLowQualityMode } from "./utils/qualityMode.js";
 
 /** Reference luminance for perceptually even cart glow (pure green channel in linear sRGB). */
 const CART_EMISSIVE_REF_LUMA = 0.7152;
@@ -111,27 +114,6 @@ import { isTouchLikeDevice } from "./utils/device.js";
  */
 export function isTouchDevice() {
   return isTouchLikeDevice();
-}
-
-import { settingsStore } from "./stores/settingsStore.js";
-
-/**
- * Returns true when low-quality mode is active — explicit settingsStore flag or
- * auto-detected touch device as a fallback.
- * @returns {boolean}
- */
-export function isLowQualityMode() {
-  const lowQuality = settingsStore.getState().lowQuality;
-  if (lowQuality !== undefined && lowQuality !== null) return lowQuality;
-  return isTouchDevice();
-}
-
-/**
- * Persists the low-quality mode preference to settingsStore.
- * @param {boolean} bool
- */
-export function setLowQualityMode(bool) {
-  settingsStore.getState().setLowQuality(bool);
 }
 
 /**

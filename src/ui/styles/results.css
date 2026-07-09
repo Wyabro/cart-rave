@@ -136,6 +136,26 @@
   position: relative;
 }
 
+#results-overlay .results-superlatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  justify-content: center;
+  margin: 6px 0 4px;
+}
+
+#results-overlay .results-superlative {
+  font-family: var(--results-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #ff9de8;
+  text-shadow: 0 0 8px rgba(255, 0, 255, 0.45);
+  border: 1px solid rgba(255, 0, 255, 0.35);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: rgba(40, 0, 50, 0.55);
+}
+
 #results-overlay .results-stats-tag {
   position: absolute;
   top: -8px; left: 14px;

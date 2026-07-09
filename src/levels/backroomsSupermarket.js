@@ -2977,10 +2977,24 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const ceilingTex = buildCeilingTexture();
   const ceiling = buildCeiling(scene, world, ceilingTex);
 
-  // ===== Atmosphere dressing (all non-colliding, merged, zero new dynamic lights) =====
-  const pitDressing = buildPitRingDressing(scene, world);
-  const uncanny = buildUncannyDetails(scene, world);
-  const doorways = buildDoorways(scene, wallpaperTex);
+  // ===== Atmosphere dressing (pit silhouettes, uncanny props, doorways) =====
+  // * Menu preview skips these — they allocate merged geos + fixed colliders and dominate
+  // * menu level-flip hitch. Play entry force-rebuilds full quality (previewNeedsFullRebuild).
+  /** @returns {{ group: THREE.Group, bodies: object[], ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }} */
+  const emptyDressing = () => {
+    const group = new THREE.Group();
+    scene.add(group);
+    return {
+      group,
+      bodies: [],
+      ownedGeometries: [],
+      ownedMaterials: [],
+      ownedTextures: [],
+    };
+  };
+  const pitDressing = menuPreview ? emptyDressing() : buildPitRingDressing(scene, world);
+  const uncanny = menuPreview ? emptyDressing() : buildUncannyDetails(scene, world);
+  const doorways = menuPreview ? emptyDressing() : buildDoorways(scene, wallpaperTex);
 
   // ===== Ambient fill lighting (warm; compensates for thick fog while staying dim/liminal) =====
   const hemiLight = new THREE.HemisphereLight(0xd6c9a0, 0x33301f, 1.42);

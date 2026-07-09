@@ -37,6 +37,7 @@ let lastSuccessfulHelloGen = null;
  * @property {() => Promise<void> | null | undefined} [getMenuLevelPreviewPromise]
  * @property {() => Promise<void> | null | undefined} [getLevelRebuildPromise]
  * @property {() => boolean} [getMenuPreviewNeedsFinalize]
+ * @property {() => boolean} [getPreviewNeedsFullRebuild]
  * @property {(levelId?: string | null, onProgress?: (pct: number, label: string) => void) => Promise<void>} rebuildLevelIfNeeded
  * @property {() => void} finalizeArenaForPlay
  * @property {() => Promise<void>} ensureRapierPhysics
@@ -224,7 +225,8 @@ export async function enterPlayMode(opts = {}) {
 
   d.cancelMenuPreviewTimers?.();
 
-  const arenaReady = worldBootstrapDone && levelId === d.getLoadedLevelId();
+  const sameLevelWarm = worldBootstrapDone && levelId === d.getLoadedLevelId();
+  const needsFullRebuild = !sameLevelWarm || d.getPreviewNeedsFullRebuild?.() === true;
 
   activePlayBootstrapPromise = withModeEntryLoading(async (reportProgress) => {
     reportProgress(5, "Preparing…");
@@ -232,7 +234,7 @@ export async function enterPlayMode(opts = {}) {
     if (previewPromise) await previewPromise;
     const rebuildPromise = d.getLevelRebuildPromise?.();
     if (rebuildPromise) await rebuildPromise;
-    if (!arenaReady) {
+    if (needsFullRebuild) {
       reportProgress(15, "Building arena…");
       await d.rebuildLevelIfNeeded(levelId, reportProgress);
       reportProgress(95, "Warming physics…");
