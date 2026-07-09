@@ -350,12 +350,12 @@
       .cr-bcart--cyan .cr-bcart__mover { transform: translateX(calc(50cqw - var(--cart-w) - 12px)); }
     }
   </style>
-  <!-- Menu fonts and critical CSS -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Self-hosted UI fonts (public/fonts/) — no Google CDN on the critical path -->
   <link rel="preconnect" href="https://cart-rave.wyabro.workers.dev">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Road+Rage&family=Russo+One&family=Goldman:wght@400;700&family=Michroma&family=Space+Grotesk:wght@400;500;700&family=Bungee&family=Space+Mono:wght@400;700&display=swap" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Road+Rage&family=Russo+One&family=Goldman:wght@400;700&family=Michroma&family=Space+Grotesk:wght@400;500;700&family=Bungee&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" href="/fonts/roadrage-6NUU8F2fKAOBKjjr4ekfs8wB.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/bungee-N0bU2SZBIuF2PU_0DXR1.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/spacemono-i7dPIFZifjKcF5UAWdDRYEF8RQ.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/fonts/fonts.css">
 </head>
 <body class="cr-boot-pending">
   <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Clash">

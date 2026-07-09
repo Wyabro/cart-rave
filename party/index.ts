@@ -1229,7 +1229,7 @@ function withAssetCacheHeaders(request: Request, response: Response): Response {
   if (/^\/assets\/[^/]+\.[a-fA-F0-9_-]{6,}\.(js|css|mjs|map|wasm)$/i.test(path)) {
     cacheControl = "public, max-age=31536000, immutable";
   } else if (
-    /^\/(models|sounds|draco)\//i.test(path) ||
+    /^\/(models|sounds|draco|fonts)\//i.test(path) ||
     /\.(glb|wasm|ogg|mp3|png|ico|webmanifest|woff2?)$/i.test(path)
   ) {
     cacheControl = "public, max-age=604800, stale-while-revalidate=86400";

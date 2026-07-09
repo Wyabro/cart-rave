@@ -228,7 +228,7 @@ Safe vs cart customization work: **1–4 and grocery/level items do not require 
 | 5 | Move `.blend` / drop fat GLBs from ship path | **Done** | `art/` masters; runtime Draco only |
 | 6 | Optional idle warm default level | **Done** — `scheduleIdleWorldWarm` in `main.js` (~1.8s + idle) |
 | 7 | Backrooms preview LOD / grid | **Done** — preview 40 cells / play 76; physics cuboids unchanged |
-| 8 | Font subset/self-host | M | FOUT | `index.html`, `public/fonts/` |
+| 8 | Font subset/self-host | **Done** — `public/fonts/` latin woff2 + `fonts:fetch`; no Google CDN |
 
 ---
 

@@ -30,15 +30,19 @@ Runtime dependencies come from `package.json` and are bundled by Vite unless not
 
 ## Fonts
 
-Loaded via Google Fonts in `index.html`.
+Self-hosted under `public/fonts/` (`fonts.css` + latin woff2). Refresh with `npm run fonts:fetch`.
 
-| Font | License | Link |
-|---|---|---|
-| Bungee | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Bungee` |
-| Bungee Shade | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Bungee+Shade` |
-| Space Mono | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Space+Mono` |
-| Archivo Black | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Archivo+Black` |
-| Share Tech Mono | SIL Open Font License 1.1 (OFL-1.1) | `https://fonts.google.com/specimen/Share+Tech+Mono` |
+| Font | Role | License | Link |
+|---|---|---|---|
+| Road Rage | Display / titles | SIL OFL-1.1 | `https://fonts.google.com/specimen/Road+Rage` |
+| Russo One | UI headers | SIL OFL-1.1 | `https://fonts.google.com/specimen/Russo+One` |
+| Goldman | Mono / body UI (400, 700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Goldman` |
+| Michroma | HUD timer | SIL OFL-1.1 | `https://fonts.google.com/specimen/Michroma` |
+| Space Grotesk | HUD labels (400–700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Space+Grotesk` |
+| Bungee | Boot splash / kill feed | SIL OFL-1.1 | `https://fonts.google.com/specimen/Bungee` |
+| Space Mono | Boot mono / debug (400, 700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Space+Mono` |
+
+Fallbacks only (not shipped): system-ui, Archivo Black (CSS fallback for Bungee).
 
 ---
 
@@ -47,7 +51,6 @@ Loaded via Google Fonts in `index.html`.
 | Name | Purpose | Link |
 |---|---|---|
 | Cloudflare Workers | Serverless host for assets + partyserver Durable Objects | `https://workers.cloudflare.com/` |
-| Google Fonts | Web font delivery | `https://fonts.google.com/` |
 | unpkg | CDN fallback for Eruda (local/LAN dev only) | `https://unpkg.com/` |
 | jsDelivr | CDN fallback for Eruda (local/LAN dev only) | `https://www.jsdelivr.com/` |
 
