@@ -20,14 +20,20 @@ import { resetAnnouncerRound, stopAnnouncer } from "./announcerManager.js";
  * @property {number} victimSlotIndex
  * @property {number | null} attackerSlotIndex
  * @property {number} comboTier
+ * @property {boolean} [wasCritical] Crediting ram was a critical (fast) hit.
+ * @property {boolean} [victimWasLeader] Victim held the sole score lead at fall time.
  */
 
 /** Rolling window (ms) used to chain falls into double_spill / aisle_wipeout. */
 const FALL_BURST_WINDOW_MS = 1400;
-/** Local-player big-hit intensity threshold that arms the close_call timer. */
-const CLOSE_CALL_INTENSITY_THRESHOLD = 0.85;
-/** Delay before a close_call announcement fires, assuming the local player survives it. */
-const CLOSE_CALL_DELAY_MS = 2500;
+/** Near-miss: a boosting opponent must pass within this XZ distance (meters). */
+const NEAR_MISS_DIST_M = 2.6;
+/** Near-miss: the passing opponent's planar speed floor (m/s) — slow drifts don't count. */
+const NEAR_MISS_SPEED_MPS = 9;
+/** A ram on either cart within this window voids the dodge (it was a hit, not a miss). */
+const NEAR_MISS_RECENT_RAM_MS = 400;
+/** Confirmation delay before close_call fires — the pass must end without contact. */
+const CLOSE_CALL_DELAY_MS = 350;
 /** Deficit (in kills/points) that upgrades a leader change from new_leader to comeback. */
 const COMEBACK_DEFICIT_THRESHOLD = 3;
 /** The finale (last_call) owns the final ten seconds — new_leader (not comeback) is suppressed then. */
@@ -173,6 +179,16 @@ export function announcerDirectorOnFall(fall) {
     }
     trackComboTierUp(attackerSlotIndex, comboTier ?? 0);
     trackRefund(attackerSlotIndex, victimSlotIndex);
+    // * Bonus-flavored callouts — the manager's priority queue + kill-burst merge
+    // * arbitrate against the streak/revenge events fired above.
+    if (fall.victimWasLeader) {
+      _deps.announce("leader_down", {
+        attacker: nameForSlot(attackerSlotIndex),
+        victim: nameForSlot(victimSlotIndex),
+      });
+    } else if (fall.wasCritical) {
+      _deps.announce("critical_ko", { attacker: nameForSlot(attackerSlotIndex) });
+    }
   } else {
     _deps.announce("cleanup_aisle", {
       victim: nameForSlot(victimSlotIndex),
@@ -185,19 +201,64 @@ export function announcerDirectorOnFall(fall) {
 }
 
 /**
- * Reports a local camera-shake-worthy hit. Arms a close_call announcement if the hit was
- * big enough and the local player survives the next couple seconds.
- * @param {number} intensity Clamped ram-shake intensity (see main.js triggerLocalRamShake).
+ * True near-miss detection: per-frame proximity scan of the local cart against every
+ * opponent. A boosting opponent passing within NEAR_MISS_DIST_M at speed — without a
+ * ram registering on either cart around the pass — arms a short confirmation timer,
+ * then fires close_call ("you dodged that"). Edge-detected per opponent so one pass
+ * fires at most once; the close_call event's own cooldown/maxPerRound caps spam.
+ *
+ * @param {Array<object>} allCarts Slot carts (entries may be null).
+ * @param {number} localSlotIndex Local player's slot, or -1.
+ * @param {number} nowMs performance.now().
  * @returns {void}
  */
-export function announcerDirectorOnLocalBigHit(intensity) {
+export function announcerDirectorNearMissScan(allCarts, localSlotIndex, nowMs) {
   if (!_deps || !isRoundRunning()) return;
-  if (intensity < CLOSE_CALL_INTENSITY_THRESHOLD) return;
-  if (_closeCallTimer !== null) return;
+  if (localSlotIndex < 0) return;
+  const local = allCarts?.[localSlotIndex];
+  if (!local?.body || local.respawnAtMs != null || local.isShattering) return;
+  // * Recently rammed → that pass connected; not a dodge.
+  if (nowMs - (local.lastRamTimeMs || 0) < NEAR_MISS_RECENT_RAM_MS) return;
 
+  const lp = local.body.translation();
+  for (let i = 0; i < allCarts.length; i += 1) {
+    if (i === localSlotIndex) continue;
+    const c = allCarts[i];
+    if (!c?.body) continue;
+    const boosting = Boolean(c.isRamBoosting) || (c.ramBoostActiveUntilMs || 0) > nowMs;
+    if (!boosting) {
+      c._nearMissClose = false;
+      continue;
+    }
+    const p = c.body.translation();
+    const dx = p.x - lp.x;
+    const dz = p.z - lp.z;
+    if (dx * dx + dz * dz > NEAR_MISS_DIST_M * NEAR_MISS_DIST_M) {
+      c._nearMissClose = false;
+      continue;
+    }
+    if (nowMs - (c.lastRamTimeMs || 0) < NEAR_MISS_RECENT_RAM_MS) continue;
+    const v = c.body.linvel();
+    if (Math.hypot(v.x, v.z) < NEAR_MISS_SPEED_MPS) continue;
+    if (!c._nearMissClose) {
+      c._nearMissClose = true;
+      armCloseCall(local);
+    }
+  }
+}
+
+/**
+ * Confirmation timer: the dodge only counts if no ram lands on the local cart
+ * before it expires.
+ * @param {object} localCart
+ */
+function armCloseCall(localCart) {
+  if (_closeCallTimer !== null) return;
+  const armedAtMs = performance.now();
   _closeCallTimer = setTimeout(() => {
     _closeCallTimer = null;
     if (!_deps || !isRoundRunning()) return;
+    if ((localCart.lastRamTimeMs || 0) > armedAtMs - NEAR_MISS_RECENT_RAM_MS) return;
     _deps.announce("close_call");
   }, CLOSE_CALL_DELAY_MS);
 }

@@ -113,10 +113,17 @@ export function buildNetcodeGameBridge(getContext, session) {
     getSfx: () => getContext()?.getSfx?.() ?? null,
     getSpawnTrashBurstRef: () => getContext()?.getSpawnTrashBurstRef?.() ?? null,
     getTriggerLocalRamShake: () => getContext()?.getTriggerLocalRamShake?.() ?? null,
+    getTriggerLocalHitTaken: () => getContext()?.getTriggerLocalHitTaken?.() ?? null,
+    onRemoteBoostStart: (cart) => getContext()?.onRemoteBoostStart?.(cart),
+    onCartImpactSquash: (rammerCart, victimCart, intensity) => {
+      getContext()?.onCartImpactSquash?.(rammerCart, victimCart, intensity);
+    },
     getTriggerCartShatterRef: () => getContext()?.getTriggerCartShatterRef?.() ?? null,
     getSceneRef: () => getContext()?.getSceneRef?.() ?? null,
     getHud: () => getContext()?.getHud?.() ?? null,
-    onLocalKillConfirm: (victimSlotIndex, comboTier) => getContext()?.onLocalKillConfirm?.(victimSlotIndex, comboTier),
+    onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => {
+      getContext()?.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent);
+    },
     onArenaKoFlash: (koEvent) => getContext()?.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => getContext()?.onAnnouncerFall?.(fall),
     colorHexForSlot: (slot) => getContext()?.colorHexForSlot?.(slot) ?? 0x888888,

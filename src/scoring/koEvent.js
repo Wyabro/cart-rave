@@ -16,13 +16,15 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  * @typedef {object} KOEventDeps
  * @property {() => { startedAtMs: number, isSuddenDeath: boolean }} getRoundState
  * @property {() => Record<number, number>} getRoundScores
- * @property {() => Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, timestamp: number }>} getLastHitBy
+ * @property {() => Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, fromPodium?: boolean, timestamp: number }>} getLastHitBy
  * @property {() => Array<object>} getAllCarts
  * @property {() => Array<object>} [getNetSlots]
  * @property {() => number} getLocalSlotIndex
  * @property {object} CONFIG
  * @property {object | null | undefined} [hud]
  * @property {(tier: number, expiryMs: number) => void} [setLocalCombo]
+ * @property {(p: { x: number, y: number, z: number }) => string | null} [classifyKillZone]
+ *   Active-level kill-zone classifier ("corner_void" on Storerooms void footprints).
  */
 
 /**
@@ -35,7 +37,7 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  * @property {number | null} attackerSlotIndex Crediting attacker slot, or null for a
  *   self/environmental fall (no qualifying recent ram).
  * @property {boolean} isKill Convenience flag — true iff `attackerSlotIndex != null`.
- * @property {"center_hole" | "outer_edge" | "self" | "sudden_death"} cause How the KO happened.
+ * @property {"center_hole" | "corner_void" | "outer_edge" | "self" | "sudden_death"} cause How the KO happened.
  * @property {boolean} wasCritical Crediting ram counted as critical — a fast ram, i.e.
  *   `impactSpeed >= CONFIG.scoring.criticalVelocityThreshold` (decision D1, set at hit time).
  * @property {boolean} victimWasLeader Victim held the sole score lead at fall time (drives the
@@ -52,8 +54,8 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  * @property {boolean} isFinalBlow This KO ended the round. Populated by the caller in a later
  *   step when a reactor consumes it; the factory always returns false.
  * @property {number} roundTimeMs Milliseconds elapsed since round start.
- * @property {{ base: number, critical: number, leader: number, multiplier: number, total: number }} reward
- *   Reward breakdown. `total` (= round((base+critical+leader)*multiplier)) is what Score adds.
+ * @property {{ base: number, critical: number, leader: number, highGround?: number, multiplier: number, total: number }} reward
+ *   Reward breakdown. `total` (= round((base+critical+leader+highGround)*multiplier)) is what Score adds.
  * @property {string} verb Kill-feed verb (host-picked so every client renders the same word).
  */
 
@@ -134,9 +136,15 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
   const holeEnabled = deps.CONFIG.record?.centerHole?.enabled !== false;
   const isCenterHole = holeEnabled && distOriginXZ < deps.CONFIG.record.innerRadius + 2;
 
-  const rewardBase = isCenterHole ? 2 : 1;
+  // * Per-arena signature kill zone (Storerooms corner voids) — same 2× template as the
+  // * Classic center hole, classified by the active level's hazard data.
+  const isCornerVoid = !isCenterHole && deps.classifyKillZone?.(p) === "corner_void";
+
+  const rewardBase = isCenterHole || isCornerVoid ? 2 : 1;
   const rewardCritical = hit.wasCritical ? 1 : 0;
   const rewardLeader = victimWasLeader ? 1 : 0;
+  // * Sundial high ground: the crediting ram was delivered from the podium.
+  const rewardHighGround = hit.fromPodium ? 1 : 0;
 
   // * Combo multiplier comes from the attacker's current streak tier. CONFIG.combo.tiers is the
   // * single source of truth for tier → multiplier (tier 0 falls back to 1.0).
@@ -154,14 +162,16 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
     }
   }
 
-  const rewardTotal = Math.round((rewardBase + rewardCritical + rewardLeader) * comboMultiplier);
+  const rewardTotal = Math.round(
+    (rewardBase + rewardCritical + rewardLeader + rewardHighGround) * comboMultiplier,
+  );
   const verb = deps.hud?.pickKillFeedVerb ? deps.hud.pickKillFeedVerb(hit) : "RAMMED";
 
   return {
     victimSlotIndex: slotIndex,
     attackerSlotIndex: hit.attackerSlotIndex,
     isKill: true,
-    cause: isCenterHole ? "center_hole" : "outer_edge",
+    cause: isCenterHole ? "center_hole" : (isCornerVoid ? "corner_void" : "outer_edge"),
     wasCritical: Boolean(hit.wasCritical),
     victimWasLeader,
     victimKind,
@@ -176,6 +186,7 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
       base: rewardBase,
       critical: rewardCritical,
       leader: rewardLeader,
+      highGround: rewardHighGround,
       multiplier: comboMultiplier,
       total: rewardTotal,
     },
@@ -188,12 +199,13 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
  * falls[] tail). Non-hosts don't run buildKOEvent — they replay this so the *same* reactors
  * (kill feed, announcer, local kill-confirm, local challenges) fire identically to the host.
  *
- * Authoritative fields the host doesn't serialize (cause, wasCritical, victimWasLeader, reward,
- * round context) default to neutral values — no client reactor reads them today, and scores
- * arrive via the round sync, not `reward.total`. Derived fields (victim classification) are
- * recomputed from this client's own slot/cart state.
+ * Presentation context the host serializes into the falls[] JSON tail (cause, wasCritical,
+ * victimWasLeader, reward) is consumed when present so non-host reactors (score float,
+ * announcer callouts) match the host; older hosts omit it, so every field has a neutral
+ * default. Scores still arrive via the round sync, not `reward.total`. Derived fields
+ * (victim classification) are recomputed from this client's own slot/cart state.
  *
- * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number }} msg
+ * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number, cause?: string, wasCritical?: boolean, victimWasLeader?: boolean, isFinalBlow?: boolean, reward?: { base: number, critical: number, leader: number, multiplier: number, total: number } }} msg
  * @param {{ getNetSlots?: () => Array<object>, getAllCarts?: () => Array<object> }} deps
  * @returns {KOEvent}
  */
@@ -208,22 +220,28 @@ export function rebuildKOEvent(msg, deps) {
   const netSlots = deps.getNetSlots?.() ?? [];
   const allCarts = deps.getAllCarts?.() ?? [];
 
+  const wireCause = typeof msg.cause === "string" ? msg.cause : null;
+  const cause = /** @type {KOEvent["cause"]} */ (
+    wireCause ?? (isKill ? "outer_edge" : "self")
+  );
+  const wireReward = msg.reward && typeof msg.reward.total === "number" ? msg.reward : null;
+
   return {
     victimSlotIndex,
     attackerSlotIndex,
     isKill,
-    cause: isKill ? "outer_edge" : "self",
-    wasCritical: false,
-    victimWasLeader: false,
+    cause,
+    wasCritical: Boolean(msg.wasCritical),
+    victimWasLeader: Boolean(msg.victimWasLeader),
     victimKind: netSlots[victimSlotIndex]?.kind ?? null,
     victimAiName: allCarts?.[victimSlotIndex]?.aiPersonality?.name ?? null,
     impactSpeed: 0,
     comboTier: msg.comboTier ?? 0,
     comboMultiplier,
     isSuddenDeath: false,
-    isFinalBlow: false,
+    isFinalBlow: Boolean(msg.isFinalBlow),
     roundTimeMs: 0,
-    reward: { base: 0, critical: 0, leader: 0, multiplier: comboMultiplier, total: 0 },
+    reward: wireReward ?? { base: 0, critical: 0, leader: 0, multiplier: comboMultiplier, total: 0 },
     verb: msg.verb || (isKill ? "RAMMED" : "FELL OFF"),
   };
 }

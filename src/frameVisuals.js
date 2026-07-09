@@ -13,7 +13,7 @@ import {
 import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
-import { setArenaReactiveLeaderHex } from "./arenaReactiveLights.js";
+import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -38,6 +38,11 @@ const _visPos = { x: 0, y: 0, z: 0 };
 const _visRot = { x: 0, y: 0, z: 0, w: 1 };
 const _visLinvel = { x: 0, y: 0, z: 0 };
 const _visAngvel = { x: 0, y: 0, z: 0 };
+
+// * KO hit-stop blend scratch: frozen pose captured before the sync write, lerped
+// * toward the fresh physics pose during the post-stop blend window.
+const _hitStopPos = new THREE.Vector3();
+const _hitStopQuat = new THREE.Quaternion();
 
 /**
  * * Fetches a cart body's translation/rotation/linvel/angvel ONCE into the module
@@ -102,7 +107,7 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {() => number} getLocalSlotIndex
  * @property {() => Array<object>} getNetSlots
  * @property {() => boolean} isHost
- * @property {() => { phase: string }} getRoundState
+ * @property {() => { phase: string, isSuddenDeath?: boolean }} getRoundState
  * @property {() => number[]} getRoundScores
  * @property {object} CONFIG
  * @property {import("three").Vector3} netTargetPosScratch
@@ -134,6 +139,7 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {() => number} [getFovPunchDeg]
  * @property {() => { until: number, durationMs: number, strength: number }} [getKillFlash]
  * @property {() => { until: number, durationMs: number, strength: number, baseVignette: number | null, baseAberration: number | null }} [getImpactPulse]
+ * @property {() => { until: number, blendUntil: number }} [getHitStop] KO hit-stop window (presentation-only pose freeze).
  * @property {() => import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} [getArcadePass]
  * @property {{ frames: number, last: number, canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null }} fpsState
  * @property {() => void} [updateTouchControlsVisibility]
@@ -170,6 +176,18 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const usePhysicsInterp = physicsAlpha != null;
   const visualOffset = deps.CONFIG.cart.visualOffset;
 
+  // * KO hit-stop: while active, every cart's rendered pose holds exactly where it is
+  // * (physics, prediction, and reconciliation continue untouched underneath). Shatter
+  // * VFX still animates — the victim exploding mid-freeze is the payoff. After the
+  // * stop, local/host meshes blend back to the live physics pose over ~120ms; remote
+  // * meshes self-recover through their existing per-frame lerp.
+  const hitStop = deps.getHitStop ? deps.getHitStop() : null;
+  const inRunningPhase = roundState.phase === "running";
+  const hitStopActive = Boolean(hitStop && inRunningPhase && now < hitStop.until);
+  const hitStopBlending = Boolean(
+    hitStop && inRunningPhase && !hitStopActive && now < hitStop.blendUntil,
+  );
+
   // Sync render meshes from physics (or from net targets for remote non-host carts).
   const localSlotIndexForFrame = localSlotIndexThisFrame;
   for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
@@ -184,6 +202,12 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     // * falling through after completion resumes pose sync invisibly.
     if (isShatterAnimating(c, now)) {
       updateShatterEffect(c, dt, now);
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    // * Hit-stop freeze: skip every pose write (and dependent visuals) for this cart.
+    if (hitStopActive) {
       // eslint-disable-next-line no-continue
       continue;
     }
@@ -229,12 +253,26 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     // * Local / host cart: fetch all four getters ONCE into the visual scratch; the
     // * cached values feed mesh sync and updateCartVisuals — no redundant Rapier allocations per frame.
     readBodyStateIntoVisScratch(c);
+    if (hitStopBlending) {
+      _hitStopPos.copy(c.mesh.position);
+      _hitStopQuat.copy(c.mesh.quaternion);
+    }
     let bodyY = _visPos.y;
     if (usePhysicsInterp && c.prevPosition && c.prevRotation) {
       bodyY = syncCartMeshFromPhysics(c, physicsAlpha, visualOffset).bodyY;
     } else {
       c.mesh.position.set(_visPos.x, _visPos.y + visualOffset, _visPos.z);
       c.mesh.quaternion.set(_visRot.x, _visRot.y, _visRot.z, _visRot.w);
+    }
+    if (hitStopBlending) {
+      // * Post-stop recovery: exponential blend from the frozen pose to the live
+      // * physics pose (same frame-rate-independent alpha the remote lerp uses),
+      // * hiding the ~80ms of physics the freeze skipped.
+      const blendAlpha = 1 - Math.pow(1 - 0.75, dt * 60);
+      _hitStopPos.lerp(c.mesh.position, blendAlpha);
+      c.mesh.position.copy(_hitStopPos);
+      _hitStopQuat.slerp(c.mesh.quaternion, blendAlpha);
+      c.mesh.quaternion.copy(_hitStopQuat);
     }
     c.mesh.updateMatrixWorld(true);
     deps.cartLinvelScratch.set(_visLinvel.x, _visLinvel.y, _visLinvel.z);
@@ -275,6 +313,10 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     } else {
       setArenaReactiveLeaderHex(null);
     }
+
+    // * Sudden Death world reaction — ambient fixture cycle hue-shifts red while the
+    // * 1v1 plays out (broadcast SD state, so every client's arena reacts together).
+    setArenaSuddenDeathMode(roundState.phase === "running" && roundState.isSuddenDeath === true);
 
     const leaderHum = deps.leaderHum;
     if (!deps.isMenuVisible() && roundState.phase === "running" && leaderSlot >= 0 && allCarts[leaderSlot]) {

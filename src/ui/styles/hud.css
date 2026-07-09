@@ -37,6 +37,28 @@
   z-index: 10;
 }
 
+/* Arena name card — sits under the GET READY line during the countdown, fades on GO. */
+#hud .hud-arena-splash {
+  position: absolute;
+  top: calc(20vh + clamp(4.2rem, 11vw, 6.8rem));
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--hud-ui);
+  font-size: clamp(1.1rem, 3vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: 0.32em;
+  color: #22e6ff;
+  text-shadow: 2px 2px 0 #ff2bd644, 0 0 18px #22e6ff;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: 10;
+}
+
+#hud .hud-arena-splash-visible {
+  opacity: 1;
+}
+
 /* Rampage Combo HUD Badge */
 #hud .hud-combo-badge {
   position: absolute;
@@ -793,6 +815,24 @@
   }
 }
 
+/* ── Last-30-seconds warning — amber timer tint (red urgency owns the last 10) ── */
+#hud .hud-timer.hud-timer-warn .hud-timer-num {
+  color: #ffe53d;
+  text-shadow: 0 0 16px rgba(255, 229, 61, 0.5);
+}
+#hud .hud-timer.hud-timer-warn .hud-timer-stripe {
+  background: #ffe53d;
+  box-shadow: 0 0 10px #ffe53d88;
+}
+#hud .hud-timer.hud-timer-warn .hud-timer-pip {
+  background: #ffe53d;
+  box-shadow: 0 0 6px #ffe53d;
+}
+#hud .hud-timer.hud-timer-warn .hud-timer-bar i {
+  background: linear-gradient(90deg, #ffe53d, #ffd24d);
+  box-shadow: 0 0 8px #ffe53d66;
+}
+
 /* ── Final-10-seconds urgency — red timer pulse ─────────────────────────── */
 #hud .hud-timer.hud-timer-urgent .hud-timer-num {
   color: #ff3333;
@@ -813,6 +853,61 @@
 }
 @keyframes hudTimerUrgent {
   50% { filter: brightness(1.35); }
+}
+
+/* ── In-match leader crown + rampage pips on the scoreboard ─────────────── */
+#hud .hud-scoreCrown {
+  font-size: 0.85em;
+  margin-right: 3px;
+  filter: drop-shadow(0 0 6px #ffe53daa);
+}
+#hud .hud-scorePip {
+  font-family: var(--hud-mono, ui-monospace, monospace);
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #0a0a0a;
+  background: #ff8a3d;
+  box-shadow: 0 0 8px #ff8a3d88;
+}
+#hud .hud-scorePip[data-tier="2"] {
+  background: #ff5e3d;
+  box-shadow: 0 0 8px #ff5e3d88;
+}
+#hud .hud-scorePip[data-tier="3"] {
+  background: #ff3333;
+  box-shadow: 0 0 10px #ff3333aa;
+}
+
+/* ── Score-breakdown float — "+8 · 2.0× SAVAGE · CRIT" rises on local KO ── */
+#hud .hud-score-float {
+  position: absolute;
+  top: 34vh;
+  left: 50%;
+  transform: translate(-50%, 0);
+  text-align: center;
+  pointer-events: none;
+  z-index: 12;
+}
+#hud .hud-score-float-amt {
+  font-family: var(--hud-ui);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #ffe53d;
+  text-shadow: 3px 3px 0 #ff2bd644, 0 0 22px #ffe53d;
+}
+#hud .hud-score-float-sub {
+  font-family: var(--hud-mono, ui-monospace, monospace);
+  font-size: clamp(0.75rem, 1.6vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #22e6ff;
+  text-shadow: 0 0 12px #22e6ffaa;
+  margin-top: 2px;
 }
 
 /* ── Kill-confirm hitmarker — center-screen X flash on local KO ─────────── */

@@ -108,10 +108,23 @@ describe("killFeedReactor", () => {
 });
 
 describe("announcerReactor", () => {
-  it("forwards the fall to the announcer with the three observed fields", () => {
+  it("forwards the fall to the announcer with the observed fields", () => {
     const { ctx, calls } = makeCtx();
     announcerReactor(KILL, ctx);
-    expect(calls.announcer).toEqual([{ victimSlotIndex: 3, attackerSlotIndex: 1, comboTier: 2 }]);
+    expect(calls.announcer).toEqual([{
+      victimSlotIndex: 3,
+      attackerSlotIndex: 1,
+      comboTier: 2,
+      wasCritical: false,
+      victimWasLeader: false,
+    }]);
+  });
+
+  it("forwards critical and leader-down context when present on the event", () => {
+    const { ctx, calls } = makeCtx();
+    announcerReactor({ ...KILL, wasCritical: true, victimWasLeader: true }, ctx);
+    expect(calls.announcer[0].wasCritical).toBe(true);
+    expect(calls.announcer[0].victimWasLeader).toBe(true);
   });
 });
 

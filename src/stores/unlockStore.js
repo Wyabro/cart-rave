@@ -196,6 +196,17 @@ function notifyUnlock(msg) {
 }
 
 /**
+ * "goldMirror" → "Gold Mirror" — grant messages are player-facing (HUD + menu toasts).
+ * @param {string} id
+ * @returns {string}
+ */
+function humanizeUnlockId(id) {
+  return id
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (c) => c.toUpperCase());
+}
+
+/**
  * Recompute permanent grants from lifetime counters (idempotent).
  * @param {UnlockState} state
  * @returns {{ state: UnlockState, granted: string[] }}
@@ -215,7 +226,7 @@ function evaluateGrants(state) {
     if (def.free || next.patterns[id]) continue;
     if (def.event && (next.events[def.event] || 0) >= (def.goal || 0)) {
       next.patterns[id] = true;
-      granted.push(`Pattern unlocked: ${id}`);
+      granted.push(`${humanizeUnlockId(id)} pattern unlocked!`);
     }
   }
 
@@ -223,7 +234,7 @@ function evaluateGrants(state) {
     if (def.free || next.sunglasses[id]) continue;
     if (def.event && (next.events[def.event] || 0) >= (def.goal || 0)) {
       next.sunglasses[id] = true;
-      granted.push(`Sunglasses unlocked: ${id}`);
+      granted.push(`${humanizeUnlockId(id)} shades unlocked!`);
     }
   }
 
@@ -231,7 +242,7 @@ function evaluateGrants(state) {
     const ev = CUSTOM_COLOR_UNLOCK.event;
     if ((next.events[ev] || 0) >= CUSTOM_COLOR_UNLOCK.goal) {
       next.customColor = true;
-      granted.push("Custom color unlocked");
+      granted.push("Custom color unlocked!");
     }
   }
 
@@ -241,7 +252,7 @@ function evaluateGrants(state) {
       const n = next.killsByLevel[def.killsOnLevel] || 0;
       if (n >= (def.goal || 0)) {
         next.levels[levelId] = true;
-        granted.push(`${def.label} unlocked`);
+        granted.push(`${def.label} unlocked!`);
       }
     }
   }

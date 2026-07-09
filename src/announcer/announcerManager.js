@@ -26,6 +26,8 @@ import { playAnnouncerSting } from "./announcerStings.js";
  * @property {() => boolean} isVoiceEnabled Gates ALL announcer audio (voice + stings) except "sequence" events.
  * @property {() => boolean} isCalloutsEnabled
  * @property {() => string} [getLocale]
+ * @property {(def: AnnouncerEventDef) => void} [onAnnouncementPlays] Mix hook fired the
+ *   moment an event actually plays (main ducks music under big announcements).
  */
 
 /**
@@ -564,6 +566,9 @@ function attemptDrain() {
 function playAnnouncement(def, data) {
   const locale = _deps.getLocale ? _deps.getLocale() : "en";
   const line = getAnnouncerLine(def.id, data, locale);
+
+  // * Optional mix hook — main ducks music under big announcements (by event class).
+  _deps.onAnnouncementPlays?.(def);
 
   if (def.cls === "sequence") {
     // * Core countdown beeps always play via their sfxKey — not gated by the announcer toggle.

@@ -273,6 +273,8 @@ export function runPhysicsStep(loopState, deps, context) {
               playCollision: null,
               spawnTrashBurst: null,
               onLocalRamImpact: null,
+              onLocalHitTaken: null,
+              onCartImpactSquash: null,
               onBoostRelease: null,
               onBoostCancel: null,
               onSpill: null,

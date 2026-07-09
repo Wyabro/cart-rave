@@ -66,6 +66,7 @@ let _options = {};
 const elements = {
   root: null,
   status: null,
+  arenaSplash: null,
   timer: null,
   timerNum: null,
   timerRd: null,
@@ -125,6 +126,8 @@ let _timerDisplay = null;
 let _scoresDisplay = null;
 /** Last final-10-seconds value a tick was played for; null outside urgency. */
 let _lastUrgentTickSecond = null;
+/** Last whole second a mid-round time beat was evaluated for; null outside running. */
+let _lastTimeBeatSecond = null;
 /** Previous Sudden Death display state — plays the entry sting on the rising edge. */
 let _wasSuddenDeath = false;
 /** Auto-hide timeout for the challenge-complete toast. */
@@ -328,6 +331,54 @@ export function pickSelfDeathVerb() {
 
 
 
+// * Player-facing arena names (must match the menu level cards in index.html).
+const ARENA_SPLASH_NAMES = {
+  classicRecord: "CART RAVE",
+  backrooms: "THE STOREROOMS",
+  zanzibar: "SUNDIAL STATION",
+  testArena: "TEST ARENA",
+};
+
+/** Shows/hides the countdown arena name card (CSS opacity handles the fade). */
+function setArenaSplashVisible(visible) {
+  if (!elements.arenaSplash) return;
+  if (visible) {
+    const levelId = _options.getLevelId?.();
+    elements.arenaSplash.textContent = ARENA_SPLASH_NAMES[levelId] ?? "";
+  }
+  elements.arenaSplash.classList.toggle("hud-arena-splash-visible", visible);
+}
+
+/**
+ * Match point: rounds are timer-decided (no target score), so the tension case is the
+ * final 15 seconds with the top two scores within one KO of each other — any fall can
+ * flip the result. Sudden Death has its own banner and wins over this.
+ * @param {object} roundState
+ * @returns {boolean}
+ */
+function isMatchPointState(roundState) {
+  if (!roundState || roundState.isSuddenDeath) return false;
+  const startedAtMs = roundState.startedAtMs || 0;
+  if (!startedAtMs) return false;
+  const totalRoundMs = roundState.totalRoundMs
+    ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
+  const remainingMs = totalRoundMs - (adjustedNow() - startedAtMs);
+  if (remainingMs > 15000 || remainingMs <= 0) return false;
+  const scores = roundState.scores || {};
+  let top = 0;
+  let second = 0;
+  for (let i = 0; i < 4; i += 1) {
+    const s = Number(scores[i] || 0);
+    if (s > top) {
+      second = top;
+      top = s;
+    } else if (s > second) {
+      second = s;
+    }
+  }
+  return top > 0 && top - second <= 1;
+}
+
 /**
  * Updates the center status line (GO!, countdown).
  * @param {object} roundState
@@ -342,6 +393,8 @@ function updateStatus(roundState) {
     if (!_goSoundPlayed) {
       _goSoundPlayed = true;
       announce("go");
+      // * Round-start kick — camera punch-in + whoosh live in main (they own the FOV rig).
+      _options.onGoMoment?.();
     }
   }
   _prevRoundPhase = roundPhase;
@@ -363,6 +416,7 @@ function updateStatus(roundState) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "#ff2bd6";
     elements.status.textContent = `GET READY  ${n}`;
+    setArenaSplashVisible(true);
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;
       if (n >= 1 && n <= 3) announce(`countdown_${n}`);
@@ -387,11 +441,18 @@ function updateStatus(roundState) {
     if (!reduced) {
       elements.status.style.animation = "suddenDeathPulse 0.8s ease-in-out infinite";
     }
+  } else if (roundPhase === "running" && isMatchPointState(roundState)) {
+    // * Final seconds + top two within one KO: the next fall can decide the round.
+    setHudDisplay(elements.status, "block", "status");
+    elements.status.style.color = "#ffe53d";
+    elements.status.style.textShadow = "3px 3px 0 #ff2bd644, 0 0 22px #ffe53d";
+    elements.status.textContent = "MATCH POINT";
   } else {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
     elements.status.style.animation = "";
   }
+  if (roundPhase !== "countdown") setArenaSplashVisible(false);
 }
 
 /**
@@ -441,6 +502,31 @@ function updateTimer(roundState, matchHistoryLength) {
     if (isSuddenDeath && !_wasSuddenDeath) announce("sudden_death");
     _wasSuddenDeath = isSuddenDeath;
 
+    // * Mid-round tension beats — 60s and 30s time checks so the round gains a curve
+    // * before the final-10s cliff. Edge-gated per second; oncePerRound in the
+    // * announcer table absorbs any duplicates (e.g. host migration mid-round).
+    if (!isSuddenDeath && remainingMs > 0 && _lastTimeBeatSecond !== seconds) {
+      _lastTimeBeatSecond = seconds;
+      if (seconds === 60) announce("one_minute");
+      else if (seconds === 30) announce("thirty_seconds");
+      if (seconds === 60 || seconds === 30) {
+        elements.timerNum?.animate?.(
+          [
+            { transform: "scale(1.18)" },
+            { transform: "scale(1)" },
+          ],
+          { duration: 300, easing: "ease-out" },
+        );
+      }
+    }
+    // * Amber warning tier for the last 30 seconds (red urgency owns the last 10).
+    if (elements.timer) {
+      elements.timer.classList.toggle(
+        "hud-timer-warn",
+        !isSuddenDeath && remainingMs > 0 && seconds <= 30 && seconds > 10,
+      );
+    }
+
     // * Final-10-seconds urgency — red pulse + one tick per remaining second.
     // * Skipped during Sudden Death (remaining time is pinned to zero there).
     const urgent = !isSuddenDeath && remainingMs > 0 && seconds <= 10 && seconds >= 1;
@@ -469,8 +555,12 @@ function updateTimer(roundState, matchHistoryLength) {
     if (elements.root) {
       elements.root.classList.remove("hud-sudden-death");
     }
-    if (elements.timer) elements.timer.classList.remove("hud-timer-urgent");
+    if (elements.timer) {
+      elements.timer.classList.remove("hud-timer-urgent");
+      elements.timer.classList.remove("hud-timer-warn");
+    }
     _lastUrgentTickSecond = null;
+    _lastTimeBeatSecond = null;
     _wasSuddenDeath = false;
   }
 }
@@ -513,6 +603,69 @@ function scoreRanksBySlot(rows) {
     .sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex))
     .forEach((row, i) => ranks.set(row.slotIndex, i + 1));
   return ranks;
+}
+
+/**
+ * Per-slot rampage pip state (last-known combo streak from KO events, 5s decay).
+ * @type {Array<{ tier: number, multiplier: number, expiryMs: number }>}
+ */
+let _comboPipBySlot = [
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+];
+
+/**
+ * Records a player's combo streak for the scoreboard rampage pip. Fed from KO events
+ * (which reach every client), so opponents' streaks are visible cross-client without
+ * new wire fields. Pass tier 0 to clear (e.g. the streak owner just fell).
+ *
+ * @param {number} slotIndex
+ * @param {number} tier
+ * @param {number} [multiplier]
+ */
+export function noteComboPip(slotIndex, tier, multiplier = 1) {
+  const pip = _comboPipBySlot[slotIndex];
+  if (!pip) return;
+  pip.tier = tier;
+  pip.multiplier = multiplier;
+  pip.expiryMs = tier > 0 ? performance.now() + 5000 : 0;
+}
+
+/** Applies crown + rampage pip state to one rendered score row (runs per frame). */
+function syncRowIndicators(entry, isLeader) {
+  if (entry.crown) {
+    const display = isLeader ? "inline-block" : "none";
+    if (entry.crown.style.display !== display) entry.crown.style.display = display;
+  }
+  if (!entry.pip) return;
+  const slotIndex = entry.slotIndex ?? -1;
+  let tier = 0;
+  let multiplier = 1;
+  if (slotIndex >= 0) {
+    if (slotIndex === _lastLocalIdx) {
+      const state = gameStore.getState();
+      if ((state.localComboTier || 0) > 0 && performance.now() < (state.localComboExpiryMs || 0)) {
+        tier = state.localComboTier;
+        multiplier = state.localComboMultiplier || 1;
+      }
+    } else {
+      const pip = _comboPipBySlot[slotIndex];
+      if (pip && pip.tier > 0 && performance.now() < pip.expiryMs) {
+        tier = pip.tier;
+        multiplier = pip.multiplier;
+      }
+    }
+  }
+  const display = tier > 0 ? "inline-block" : "none";
+  if (entry.pip.style.display !== display) entry.pip.style.display = display;
+  if (tier > 0) {
+    const text = `${multiplier.toFixed(1)}×`;
+    if (entry.pip.textContent !== text) entry.pip.textContent = text;
+    const tierAttr = String(tier);
+    if (entry.pip.dataset.tier !== tierAttr) entry.pip.dataset.tier = tierAttr;
+  }
 }
 
 /**
@@ -620,6 +773,28 @@ function updateScores(roundState, netSlots, youConnId) {
         entry.you.style.display = isLocal ? "inline-block" : "none";
       }
     }
+
+    // * Crown + rampage pips refresh every frame — pips decay on a timer (not on score
+    // * changes), and the crown derives from the same rows the boxes already show.
+    const rowsNow = _sortedScoreRows || [];
+    let topScore = 0;
+    let topCount = 0;
+    for (const r of rowsNow) {
+      if (r.score > topScore) {
+        topScore = r.score;
+        topCount = 1;
+      } else if (r.score === topScore && r.score > 0) {
+        topCount += 1;
+      }
+    }
+    for (let pos = 0; pos < 4; pos += 1) {
+      const entry = elements.scoreBoxes[pos];
+      const row = rowsNow[pos];
+      if (!entry) continue;
+      entry.slotIndex = row ? row.slotIndex : -1;
+      const isLeader = Boolean(row && topScore > 0 && topCount === 1 && row.score === topScore);
+      syncRowIndicators(entry, isLeader);
+    }
   } else {
     setHudDisplay(elements.scores, "none", "scores");
     _lastScores = [0, 0, 0, 0];
@@ -633,6 +808,14 @@ function updateScores(roundState, netSlots, youConnId) {
         entry.value.textContent = "";
         entry.rank.textContent = String(i + 1);
         entry.you.style.display = "none";
+        if (entry.crown) entry.crown.style.display = "none";
+        if (entry.pip) entry.pip.style.display = "none";
+        entry.slotIndex = -1;
+      }
+      const pip = _comboPipBySlot[i];
+      if (pip) {
+        pip.tier = 0;
+        pip.expiryMs = 0;
       }
     }
   }
@@ -689,6 +872,7 @@ export function init(options) {
   _goSoundPlayed = false;
   _lastReadyState = null;
   _lastUrgentTickSecond = null;
+  _lastTimeBeatSecond = null;
   _wasSuddenDeath = false;
   _boostDisplay = null;
   if (_toastTimeoutId) {
@@ -706,6 +890,10 @@ export function init(options) {
 
   elements.status = document.createElement("div");
   elements.status.className = "hud-status";
+
+  // * Arena name card — fills the countdown's dead visual space, fades out on GO.
+  elements.arenaSplash = document.createElement("div");
+  elements.arenaSplash.className = "hud-arena-splash";
 
   elements.timer = document.createElement("div");
   elements.timer.className = "hud-timer";
@@ -774,13 +962,28 @@ export function init(options) {
     value.className = "hud-scoreValue";
     value.textContent = "0";
 
+    // * In-match leader crown — mirrors the results-screen crown so "who's winning"
+    // * is glanceable mid-round, not just at the podium.
+    const crown = document.createElement("span");
+    crown.className = "hud-scoreCrown";
+    crown.textContent = "👑";
+    crown.style.display = "none";
+
+    // * Rampage pip — shows any player's active combo streak (×1.5/×2/×3), so
+    // * opponents can finally see who is hot.
+    const pip = document.createElement("span");
+    pip.className = "hud-scorePip";
+    pip.style.display = "none";
+
     box.appendChild(rank);
+    box.appendChild(crown);
     box.appendChild(badge);
     box.appendChild(label);
     box.appendChild(you);
+    box.appendChild(pip);
     box.appendChild(value);
     elements.scores.appendChild(box);
-    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, you, value });
+    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, you, value, crown, pip, slotIndex: -1 });
   }
 
   elements.readyBtn = document.createElement("button");
@@ -797,6 +1000,7 @@ export function init(options) {
   wireButtonPressFeedback(elements.readyBtn, { scale: 0.96 });
 
   elements.root.appendChild(elements.status);
+  elements.root.appendChild(elements.arenaSplash);
   elements.root.appendChild(elements.timer);
   elements.root.appendChild(elements.scores);
   elements.root.appendChild(elements.feed);
@@ -846,12 +1050,13 @@ export function init(options) {
     elements.root.appendChild(elements.boost);
   }
 
-  // * Challenge-complete toast (top center, auto-hides).
+  // * Challenge-complete / unlock toast (top center, auto-hides).
   elements.toast = document.createElement("div");
   elements.toast.className = "hud-toast";
   const toastKicker = document.createElement("span");
   toastKicker.className = "hud-toast-kicker";
   toastKicker.textContent = "◆ CHALLENGE COMPLETE";
+  elements.toastKicker = toastKicker;
   elements.toastTitle = document.createElement("span");
   elements.toastTitle.className = "hud-toast-title";
   elements.toast.appendChild(toastKicker);
@@ -969,6 +1174,8 @@ export function init(options) {
     colorHexToCss: colorHexToCss,
     showKillConfirm,
     showChallengeToast,
+    showScoreFloat,
+    noteComboPip,
     escOverlay: elements.escOverlay,
     syncAudioControls,
     showEscOverlay,
@@ -1083,11 +1290,65 @@ export function showKillConfirm() {
 }
 
 /**
- * Shows the challenge-complete toast with the given challenge title.
- * @param {string} title
+ * Floats the reward breakdown for a local KO — "+8" with the bonus labels that built
+ * it ("2.0× SAVAGE · CRIT · LEADER DOWN"). The invisible half of the scoring system
+ * (koEvent.reward) finally reaches the player at the moment it happens.
+ *
+ * @param {{ base: number, critical: number, leader: number, highGround?: number, multiplier: number, total: number }} reward
+ * @param {string} [cause] KO cause ("center_hole"/"corner_void" add zone labels).
  */
-export function showChallengeToast(title) {
+export function showScoreFloat(reward, cause) {
+  if (!elements.root || !reward || !(reward.total > 0)) return;
+
+  const el = document.createElement("div");
+  el.className = "hud-score-float";
+
+  const amount = document.createElement("div");
+  amount.className = "hud-score-float-amt";
+  amount.textContent = `+${reward.total}`;
+  el.appendChild(amount);
+
+  const labels = [];
+  if (cause === "center_hole") labels.push("HOLE SHOT");
+  if (cause === "corner_void") labels.push("VOID DROP");
+  if (reward.critical > 0) labels.push("CRIT");
+  if (reward.leader > 0) labels.push("LEADER DOWN");
+  if ((reward.highGround ?? 0) > 0) labels.push("HIGH GROUND");
+  if (reward.multiplier > 1) labels.push(`${reward.multiplier.toFixed(1)}×`);
+  if (labels.length > 0) {
+    const sub = document.createElement("div");
+    sub.className = "hud-score-float-sub";
+    sub.textContent = labels.join(" · ");
+    el.appendChild(sub);
+  }
+
+  elements.root.appendChild(el);
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  if (reduced || typeof el.animate !== "function") {
+    setTimeout(() => el.remove(), 1200);
+    return;
+  }
+  const anim = el.animate(
+    [
+      { transform: "translate(-50%, 0) scale(0.8)", opacity: 0 },
+      { transform: "translate(-50%, -14px) scale(1.08)", opacity: 1, offset: 0.18 },
+      { transform: "translate(-50%, -26px) scale(1)", opacity: 1, offset: 0.7 },
+      { transform: "translate(-50%, -52px) scale(0.96)", opacity: 0 },
+    ],
+    { duration: 1300, easing: "ease-out" },
+  );
+  anim.onfinish = () => el.remove();
+}
+
+/**
+ * Shows the top-center toast with the given title (challenge completions and, with a
+ * custom kicker, mid-match unlocks).
+ * @param {string} title
+ * @param {string} [kicker] Kicker label above the title.
+ */
+export function showChallengeToast(title, kicker = "◆ CHALLENGE COMPLETE") {
   if (!elements.toast || !elements.toastTitle) return;
+  if (elements.toastKicker) elements.toastKicker.textContent = kicker;
   elements.toastTitle.textContent = title;
   elements.toast.classList.add("active");
   if (_toastTimeoutId) clearTimeout(_toastTimeoutId);

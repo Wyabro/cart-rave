@@ -98,12 +98,13 @@ export const gameStore = createStore((set, get) => ({
     return endedSuddenDeath;
   },
 
-  recordHit: (victimSlot, attackerSlotIndex, wasCritical, impactSpeed = 0) => {
+  recordHit: (victimSlot, attackerSlotIndex, wasCritical, impactSpeed = 0, fromPodium = false) => {
     const map = new Map(get().lastHitBy);
     map.set(victimSlot, {
       attackerSlotIndex,
       wasCritical,
       impactSpeed,
+      fromPodium,
       timestamp: Date.now(),
     });
     set({ lastHitBy: map });

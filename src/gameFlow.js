@@ -32,9 +32,10 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
  * @property {() => void} sendHostRound
  * @property {() => object | null} getPartySocket
  * @property {(attackerSlotIndex: number, points: number, suppressSuddenDeathWin?: boolean) => boolean} addScore
+ * @property {(p: { x: number, y: number, z: number }) => string | null} [classifyKillZone]
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
- * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
+ * @property {(victimSlotIndex: number, comboTier: number, koEvent?: import("./scoring/koEvent.js").KOEvent) => void} [onLocalKillConfirm]
  * @property {(koEvent: import("./scoring/koEvent.js").KOEvent) => void} [onArenaKoFlash]
  * @property {() => string} [detectGameMode]
  * @property {() => THREE.Scene | null | undefined} [getScene]
@@ -42,7 +43,7 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
  * @property {() => string | null} [getYouConnId]
  * @property {(tier: number, multiplier: number) => void} [setLocalCombo]
  * @property {(eventData: object) => void} [queueHostFallEvent]
- * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
+ * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number, wasCritical?: boolean, victimWasLeader?: boolean }) => void} [onAnnouncerFall]
  */
 
 /** @type {boolean} */
@@ -268,7 +269,9 @@ export function updateGameFlow(deps, context) {
                 }
               }
               const suddenDeathEnded = deps.addScore(koEvent.attackerSlotIndex, koEvent.reward.total, suppressSuddenDeathWin);
-              if (!suddenDeathEnded) {
+              if (suddenDeathEnded) {
+                koEvent.isFinalBlow = true;
+              } else {
                 deps.sendHostRound();
               }
               // * Challenges + kill feed + local kill-confirm + announcer are all dispatched from
@@ -306,6 +309,7 @@ export function updateGameFlow(deps, context) {
                 deps.addScore(survivorSlot, 1);
                 // * addScore fired _suddenDeathWinCallback → endRound().
                 koEvent.attackerSlotIndex = survivorSlot;
+                koEvent.isFinalBlow = true;
               } else {
                 koEvent.attackerSlotIndex = null;
               }
@@ -323,6 +327,14 @@ export function updateGameFlow(deps, context) {
                 verb: koEvent.verb,
                 comboTier: koEvent.comboTier ?? 0,
                 comboMultiplier: koEvent.comboMultiplier ?? 1.0,
+                // * Presentation context (JSON falls[] tail — no binary format change):
+                // * lets non-hosts render the same score-breakdown float + announcer
+                // * callouts as the host. Scores still arrive via the round sync only.
+                cause: koEvent.cause,
+                wasCritical: koEvent.wasCritical,
+                victimWasLeader: koEvent.victimWasLeader,
+                reward: koEvent.reward,
+                isFinalBlow: koEvent.isFinalBlow,
               });
             }
 

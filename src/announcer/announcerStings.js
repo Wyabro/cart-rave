@@ -123,6 +123,22 @@ function stingTierUp({ ctx, dest, vol, now }, stepIndex) {
   }
 }
 
+function stingCriticalKo({ ctx, dest, vol, now }) {
+  const g = 0.15 * vol;
+  // * Sharp high double-stab with a quick pitch snap — reads as "that hit HARD".
+  spawnTone(ctx, dest, "square", 1174.66, 1568, 0.07, g, now);
+  spawnTone(ctx, dest, "square", 1568, 1174.66, 0.1, g, now + 0.08);
+  spawnTone(ctx, dest, "sawtooth", 146.83, 110, 0.22, g * 0.5, now, 0.02);
+}
+
+function stingLeaderDown({ ctx, dest, vol, now }) {
+  const g = 0.15 * vol;
+  // * Regal-then-toppled: a bright hit that falls a fifth and lands low.
+  spawnTone(ctx, dest, "triangle", 880, 880, 0.1, g, now);
+  spawnTone(ctx, dest, "triangle", 587.33, 587.33, 0.12, g, now + 0.11);
+  spawnTone(ctx, dest, "square", 293.66, 220, 0.2, g * 0.6, now + 0.22, 0.02);
+}
+
 function stingRefund({ ctx, dest, vol, now }) {
   const g = 0.15 * vol;
   // * "Cha-ching"-like triangle pair: quick dip then a bright ring up top.
@@ -157,6 +173,13 @@ function stingCloseCall({ ctx, dest, vol, now }) {
   // * Quick breath-like high blip pair.
   spawnTone(ctx, dest, "sine", 1568, 1760, 0.05, g, now);
   spawnTone(ctx, dest, "sine", 1760, 1976, 0.05, g, now + 0.08);
+}
+
+function stingTimeCheck({ ctx, dest, vol, now }) {
+  const g = 0.12 * vol;
+  // * Single soft PA chime — a time check, not an alarm (lastCall owns urgency).
+  spawnTone(ctx, dest, "triangle", 987.77, 987.77, 0.12, g, now);
+  spawnTone(ctx, dest, "triangle", 659.25, 659.25, 0.16, g * 0.6, now + 0.1);
 }
 
 function stingLastCall({ ctx, dest, vol, now }) {
@@ -205,10 +228,13 @@ const STING_RECIPES = {
   tierUp2: (p) => stingTierUp(p, 1),
   tierUp3: (p) => stingTierUp(p, 2),
   refund: stingRefund,
+  criticalKo: stingCriticalKo,
+  leaderDown: stingLeaderDown,
   newLeader: stingNewLeader,
   comeback: stingComeback,
   cleanup: stingCleanup,
   closeCall: stingCloseCall,
+  timeCheck: stingTimeCheck,
   lastCall: stingLastCall,
   suddenDeath: stingSuddenDeath,
   victory: stingVictory,

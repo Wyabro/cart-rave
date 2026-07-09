@@ -829,6 +829,11 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
     }
     if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
       callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
+    } else if (callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
+      callbacks.onLocalHitTaken(fxIntensity, isRammerBoosting);
+    }
+    if (callbacks?.onCartImpactSquash) {
+      callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
     }
   }
 
@@ -858,7 +863,10 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
     // * impactSpeed and derives the critical bonus from the tunable CONFIG threshold.
     const impactSpeed = speed;
     const wasCritical = impactSpeed >= (CONFIG.scoring?.criticalVelocityThreshold ?? Infinity);
-    GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical, impactSpeed);
+    // * High-ground credit (Sundial podium): captured at contact time — the attacker
+    // * may roll off the podium before the victim actually splashes down.
+    const fromPodium = isOnPodiumHighGround(rp.x, rp.z);
+    GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical, impactSpeed, fromPodium);
   }
 
   // Update combo tier for attacker and refresh local store if rammer is local player
@@ -928,6 +936,47 @@ let _levelHazards = null;
  * } | null}
  */
 let _octagonHazards = null;
+
+/**
+ * Classifies a fall position against the active level's high-value scoring kill zones.
+ * "corner_void": inside a Storerooms square-void footprint (small skirt past the lip so
+ * carts nudged over the chamfer still count). Levels without square voids return null.
+ *
+ * @param {{ x: number, y: number, z: number }} p Victim body translation at the fall.
+ * @returns {"corner_void" | null}
+ */
+export function classifyLevelKillZone(p) {
+  const holes = _levelHazards?.squareHoles;
+  if (holes && _levelHazards.half != null) {
+    const need = _levelHazards.half + 1;
+    for (let i = 0; i < holes.length; i += 1) {
+      if (Math.abs(p.x - holes[i].x) < need && Math.abs(p.z - holes[i].z) < need) {
+        return "corner_void";
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * True when an XZ position sits on the podium high ground (Sundial's center keep-out
+ * zone). Used at ram time to credit the HIGH GROUND scoring bonus.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {boolean}
+ */
+function isOnPodiumHighGround(x, z) {
+  const zones = _octagonHazards?.circularKeepOuts;
+  if (!zones || zones.length === 0) return false;
+  for (let i = 0; i < zones.length; i += 1) {
+    const dx = x - zones[i].x;
+    const dz = z - zones[i].z;
+    const r = zones[i].radius + 0.5;
+    if (dx * dx + dz * dz <= r * r) return true;
+  }
+  return false;
+}
 
 /**
  * Registers the active level's NPC hazard model. Pass `null` (or a level with no special
@@ -2049,6 +2098,9 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
         } else {
           if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
           if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
+        }
+        if (callbacks.onCartImpactSquash) {
+          callbacks.onCartImpactSquash(null, cart, intensity);
         }
       }
 

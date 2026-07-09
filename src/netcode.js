@@ -170,6 +170,11 @@ let callbacks = {
   playCollisionRef: (midpoint, intensity) => {},
   spawnTrashBurstRef: (pos, vel, count) => {},
   triggerLocalRamShakeRef: (intensity) => {},
+  triggerLocalHitTakenRef: (intensity) => {},
+  // * Remote-cart boost start (rising edge from host snapshots) — attenuated SFX + pulse.
+  onRemoteBoostStart: (cart) => {},
+  // * Impact squash replay — (rammerCart|null, victimCart, intensity) per collision event.
+  onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {},
   playFloorImpactRef: (intensity) => {},
   playEdgeImpactRef: (intensity) => {},
   triggerCartShatterRef: (cart, scene, hex) => {},
@@ -179,7 +184,8 @@ let callbacks = {
   addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {},
   // * Presentation-only hook — fired when the LOCAL player's ram sent a victim into
   // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
-  onLocalKillConfirm: (victimSlotIndex, comboTier) => {},
+  // * The optional third arg is the full KO Event (reward breakdown for the score float).
+  onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => {},
   // * Arena light flash — every fall on every peer (club reacts to the KO).
   onArenaKoFlash: (koEvent) => {},
   // * Presentation-only observer hook for the announcer director — fired for EVERY fall
@@ -263,6 +269,13 @@ export function registerGameCallbacks(deps) {
     triggerLocalRamShakeRef: (intensity, isBoosting) => {
       deps.getTriggerLocalRamShake?.()?.(intensity, isBoosting);
     },
+    triggerLocalHitTakenRef: (intensity, isBoosting) => {
+      deps.getTriggerLocalHitTaken?.()?.(intensity, isBoosting);
+    },
+    onRemoteBoostStart: (cart) => deps.onRemoteBoostStart?.(cart),
+    onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {
+      deps.onCartImpactSquash?.(rammerCart, victimCart, intensity);
+    },
     triggerCartShatterRef: (cart, scene, neonHex) => {
       deps.getTriggerCartShatterRef?.()?.(cart, scene, neonHex);
     },
@@ -271,7 +284,7 @@ export function registerGameCallbacks(deps) {
       const hud = deps.getHud();
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
     },
-    onLocalKillConfirm: (victimSlotIndex, comboTier) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier),
+    onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent),
     onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
     colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
@@ -594,6 +607,14 @@ export function applyCartState(cart, snap, options = {}) {
     // * This prevents the VFX from cutting out if the host holds it longer than durationSec.
     cart.ramBoostActiveUntilMs = performance.now() + 150;
   }
+  // * Rising-edge boost FX for remote carts (non-host clients only reach this path).
+  // * Guarded to running phase so migration/hello snapshot replays stay silent, and to
+  // * non-local slots so a stale self-snapshot can't double the owner's own boost FX.
+  if (snap.b && !cart._prevRemoteBoosting
+    && GameState.getRoundState().phase === "running"
+    && cart.slotIndex !== strictSlotIndexForConn(youConnId)) {
+    callbacks.onRemoteBoostStart(cart);
+  }
   cart.isRamBoosting = snap.b;
   cart.isBoosting = snap.b;
   cart._prevRemoteBoosting = Boolean(snap.b);
@@ -792,10 +813,14 @@ function replayHostCollisionFx(msg, callbacks) {
   const slotB = typeof msg.slotB === "number" ? msg.slotB : 0;
   if (!mp || typeof mp.x !== "number") return;
 
+  const carts = getAllCarts();
+
   if (slotB === -1) {
     callbacks.playFloorImpactRef(intensity);
     if (GameState.getRoundState().phase === "running") {
       callbacks.spawnTrashBurstRef(mp, intensity, "floor");
+      const floorCart = typeof msg.slotA === "number" ? carts?.[msg.slotA] : null;
+      if (floorCart) callbacks.onCartImpactSquashRef(null, floorCart, intensity);
     }
     return;
   }
@@ -803,6 +828,8 @@ function replayHostCollisionFx(msg, callbacks) {
     callbacks.playEdgeImpactRef(intensity);
     if (GameState.getRoundState().phase === "running") {
       callbacks.spawnTrashBurstRef(mp, intensity, "edge");
+      const edgeCart = typeof msg.slotA === "number" ? carts?.[msg.slotA] : null;
+      if (edgeCart) callbacks.onCartImpactSquashRef(null, edgeCart, intensity);
     }
     return;
   }
@@ -811,10 +838,16 @@ function replayHostCollisionFx(msg, callbacks) {
   callbacks.playCollisionRef(intensity, { isBoosting });
   if (GameState.getRoundState().phase === "running") {
     callbacks.spawnTrashBurstRef(mp, intensity, "cart", { isBoosting });
+    // * slotB is always the victim slot (simulation queues slotA=rammer, slotB=victim).
+    const rammerCart = typeof msg.rammerSlot === "number" ? carts?.[msg.rammerSlot] : null;
+    const victimCart = carts?.[slotB] ?? null;
+    if (rammerCart || victimCart) callbacks.onCartImpactSquashRef(rammerCart, victimCart, intensity);
   }
   const localSlot = strictSlotIndexForConn(youConnId);
   if (typeof msg.rammerSlot === "number" && msg.rammerSlot === localSlot) {
     callbacks.triggerLocalRamShakeRef(intensity, isBoosting);
+  } else if (localSlot >= 0 && slotB === localSlot) {
+    callbacks.triggerLocalHitTakenRef(intensity, isBoosting);
   }
 }
 
@@ -951,7 +984,9 @@ export function serializeCartToWire(c) {
   const lv = c.body.linvel();
   const av = c.body.angvel();
   const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
-  const isHopping = Boolean(c.isHopping || c._isHopping);
+  // * Hop has no persistent flag — derive from trigger-time freshness (triggerHop stamps
+  // * lastHopAtMs) so snapshots can't miss the rising edge; same window trick as snap.b.
+  const isHopping = performance.now() - (c.lastHopAtMs || 0) < 150;
 
   return {
     p: [round3(t.x), round3(t.y), round3(t.z)],

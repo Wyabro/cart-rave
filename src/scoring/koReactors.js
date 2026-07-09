@@ -16,8 +16,8 @@ import { recordKoForMatchStats } from "./matchStats.js";
  * @property {object | null | undefined} hud HUD facade (addKillFeedEntry, colorHexToCss).
  * @property {(slot: object | null | undefined) => number | string} colorHexForSlot Resolves a slot
  *   color (host returns a hex number; the client facade may return a css string — colorHexToCss handles both).
- * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number }) => void} [onAnnouncerFall]
- * @property {(victimSlotIndex: number, comboTier: number) => void} [onLocalKillConfirm]
+ * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number, wasCritical?: boolean, victimWasLeader?: boolean }) => void} [onAnnouncerFall]
+ * @property {(victimSlotIndex: number, comboTier: number, koEvent?: import('./koEvent.js').KOEvent) => void} [onLocalKillConfirm]
  * @property {(koEvent: import('./koEvent.js').KOEvent) => void} [onArenaKoFlash] Arena light flash for any fall.
  * @property {(eventId: string, amount?: number) => void} [recordChallenge] Bumps a local challenge counter.
  * @property {() => string | null | undefined} [getLevelId] Current arena id for level-unlock KO tracking.
@@ -40,7 +40,8 @@ function colorForSlot(ctx, slot) {
  */
 export function localKillConfirmReactor(koEvent, ctx) {
   if (koEvent.isKill && koEvent.attackerSlotIndex === ctx.localSlotIndex) {
-    ctx.onLocalKillConfirm?.(koEvent.victimSlotIndex, koEvent.comboTier ?? 0);
+    // * Full event rides along so the confirm can show the reward breakdown float.
+    ctx.onLocalKillConfirm?.(koEvent.victimSlotIndex, koEvent.comboTier ?? 0, koEvent);
   }
 }
 
@@ -80,6 +81,8 @@ export function announcerReactor(koEvent, ctx) {
     victimSlotIndex: koEvent.victimSlotIndex,
     attackerSlotIndex: koEvent.attackerSlotIndex,
     comboTier: koEvent.comboTier ?? 0,
+    wasCritical: Boolean(koEvent.wasCritical),
+    victimWasLeader: Boolean(koEvent.victimWasLeader),
   });
 }
 

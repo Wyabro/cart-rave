@@ -215,6 +215,49 @@ export function restoreVolumeState(state) {
   audioStore.getState().setMuted(state.muted);
 }
 
+// === Music ducking ===
+
+/** Pending duck-release timer (null when music is at full level). */
+let _duckTimer = null;
+
+/** Currently playing music Howls (menu + active game track). */
+function activeMusicHowls() {
+  const list = [];
+  if (menuMusic) list.push(menuMusic);
+  const track = gameMusicTracks[currentGameTrackIdx];
+  if (track) list.push(track);
+  return list;
+}
+
+/**
+ * Ducks music under a big moment (KO confirm, sudden death, victory, countdown) and
+ * releases it automatically. Music plays via html5-streamed Howls (outside the WebAudio
+ * graph), so the duck is a Howl volume fade, not a GainNode. Overlapping ducks extend
+ * the hold; the deepest concurrent depth wins until release.
+ *
+ * @param {number} [depth] 0..1 multiplier on the music volume while ducked (0.4 = -8dB-ish).
+ * @param {number} [holdMs] How long to hold the duck before fading back up.
+ * @returns {void}
+ */
+export function duckMusic(depth = 0.4, holdMs = 800) {
+  if (_isMuted) return;
+  const target = Math.max(0, Math.min(1, depth)) * _musicVol;
+  for (const h of activeMusicHowls()) {
+    try {
+      const current = /** @type {number} */ (h.volume());
+      if (current > target) h.fade(current, target, 120);
+    } catch { /* track may be mid-load */ }
+  }
+  if (_duckTimer) clearTimeout(_duckTimer);
+  _duckTimer = setTimeout(() => {
+    _duckTimer = null;
+    const full = _isMuted ? 0 : _musicVol;
+    for (const h of activeMusicHowls()) {
+      try { h.fade(/** @type {number} */ (h.volume()), full, 450); } catch { /* ignore */ }
+    }
+  }, holdMs);
+}
+
 // === Music ===
 
 /**
@@ -368,7 +411,9 @@ export function registerSfx(key, src, options = {}) {
  * Play a registered SFX.
  * @param {string} key Registry key
  * @param {string} [sprite] Sprite name (if using spritesheet)
- * @param {{ rate?: number }} [options] Per-play overrides (rate = playback speed / pitch)
+ * @param {{ rate?: number, volume?: number }} [options] Per-play overrides
+ *   (rate = playback speed / pitch; volume = 0..1 attenuation relative to the
+ *   sound's registered volume — used for remote-cart FX).
  * @returns {number | null} Sound ID for further control, or null
  */
 export function playSfx(key, sprite, options = {}) {
@@ -378,6 +423,9 @@ export function playSfx(key, sprite, options = {}) {
     const id = sprite ? sound.play(sprite) : sound.play();
     if (id != null && options.rate != null) {
       sound.rate(options.rate, id);
+    }
+    if (id != null && options.volume != null) {
+      sound.volume(sound.volume() * Math.max(0, Math.min(1, options.volume)), id);
     }
     return id;
   } catch {

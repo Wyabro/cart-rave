@@ -1,5 +1,6 @@
-// waterDeathFx.js — splash + underwater-detonation VFX for arenas with a water plane
-// (Sundial Station). Client-local, no physics, no network traffic.
+// waterDeathFx.js — splash + underwater-detonation VFX (plus procedural splash/boom
+// audio via sfxSynth) for arenas with a water plane (Sundial Station).
+// Client-local, no physics, no network traffic.
 //
 // The ocean plane is OPAQUE, so nothing can literally render below it — every
 // "underwater" read is faked just above the surface, which is also how a detonation
@@ -21,6 +22,7 @@
 
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
+import { playWaterSplash, playWaterDeathBoom } from "../sfxSynth.js";
 
 const MAX_ACTIVE_EFFECTS = 8; // hard cap — 4 carts can die nearly simultaneously
 const TELEPORT_JUMP_M = 8; // per-frame Y jump larger than this is a respawn, not a fall
@@ -112,6 +114,7 @@ function spawnSplash(x, z, intensity) {
   if (!env) return;
   const { scene, waterY } = env;
   const startMs = performance.now();
+  playWaterSplash(intensity);
 
   const group = new THREE.Group();
   group.position.set(x, waterY + 0.06, z);
@@ -223,6 +226,7 @@ export function spawnWaterDeathBurst(x, z, neonHex) {
   if (!env) return;
   const { scene, waterY } = env;
   const startMs = performance.now();
+  playWaterDeathBoom();
 
   const group = new THREE.Group();
   group.position.set(x, waterY + 0.05, z);

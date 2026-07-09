@@ -8,6 +8,7 @@
  * @property {string} [victim] Name of the falling/eliminated player/NPC.
  * @property {string} [leader] Name of the current/new scoreboard leader.
  * @property {string | number} [aisle] Aisle number for cleanup-flavored lines.
+ * @property {string} [title] Challenge title for challenge_complete lines.
  */
 
 /** @type {Record<string, Record<string, string[]>>} */
@@ -47,6 +48,20 @@ const LINES = {
       "TOTAL CARNAGE!",
       "{attacker} IS RUNNING THE WHOLE STORE!",
     ],
+    critical_ko: [
+      "CRITICAL HIT!",
+      "{attacker} BROUGHT THE FULL-SPEED SPECIAL!",
+      "STEAMROLLED AT SPEED!",
+    ],
+    leader_down: [
+      "THE LEADER IS DOWN!",
+      "{attacker} TOPPLES THE TOP OF THE RECEIPT!",
+      "{victim} JUST LOST THE LEAD — THE HARD WAY!",
+    ],
+    challenge_complete: [
+      "{title} — COMPLETE!",
+      "DAILY SPECIAL CLAIMED: {title}!",
+    ],
     refund: [
       "REFUND! {attacker} GETS PAYBACK!",
       "REVENGE SERVED COLD!",
@@ -70,6 +85,14 @@ const LINES = {
     close_call: [
       "CLOSE ONE!",
       "THAT WAS CLOSE!",
+    ],
+    one_minute: [
+      "ONE MINUTE ON THE CLOCK!",
+      "SIXTY SECONDS OF SHOPPING LEFT!",
+    ],
+    thirty_seconds: [
+      "THIRTY SECONDS!",
+      "HALF A MINUTE! MAKE IT COUNT!",
     ],
     last_call: [
       "LAST CALL!",

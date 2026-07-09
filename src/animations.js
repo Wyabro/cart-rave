@@ -861,6 +861,56 @@ export function animateCartBoostPulse(mesh, options = {}) {
 }
 
 /**
+ * Impact squash-and-stretch on a cart mesh: vertical squash + lateral bulge, then a
+ * small overshoot back to base. Shares the boost-pulse animation slot (last-wins) so
+ * the two scale tweens never fight over mesh.scale.
+ *
+ * @param {import('three').Object3D | null | undefined} mesh
+ * @param {number} [intensity] 0..1.2 — scales squash depth.
+ * @param {AnimationOptions} [options]
+ * @returns {JSAnimation | null}
+ */
+export function animateCartImpactSquash(mesh, intensity = 0.5, options = {}) {
+  if (!mesh?.isObject3D) return null;
+
+  const duration = options.duration ?? 200;
+  const ease = options.ease ?? DEFAULT_EASE_BOUNCE;
+
+  if (!shouldAnimate(options)) return null;
+
+  const existing = cartPulseByMesh.get(mesh);
+  if (existing) {
+    try {
+      existing.cancel();
+    } catch {
+      // Animation may already be finished.
+    }
+    cartPulseByMesh.delete(mesh);
+  }
+
+  const base = mesh.userData.baseScale ?? mesh.scale.x;
+  const i = Math.min(Math.max(intensity, 0), 1.2);
+  const squash = base * (1 - 0.16 * i);
+  const bulge = base * (1 + 0.1 * i);
+  const overshoot = base * (1 + 0.05 * i);
+
+  const animation = animate(mesh.scale, {
+    x: [base, bulge, base],
+    y: [base, squash, overshoot, base],
+    z: [base, bulge, base],
+    duration,
+    ease,
+    onComplete: () => {
+      mesh.scale.setScalar(base);
+      cartPulseByMesh.delete(mesh);
+    },
+  });
+
+  cartPulseByMesh.set(mesh, animation);
+  return animation;
+}
+
+/**
  * One-shot boost activation flash on the touch Boost button (mobile only).
  * @param {HTMLElement | null | undefined} element
  * @param {AnimationOptions} [options]

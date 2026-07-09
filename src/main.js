@@ -36,6 +36,7 @@ import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
 import { getNpcPersonality } from "./npcNames.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
+import { onUnlockGranted } from "./stores/unlockStore.js";
 import {
   matchSuperlatives,
   resetMatchStats,
@@ -67,9 +68,10 @@ import {
 } from "./arenaReactiveLights.js";
 import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
+import { hapticPulse } from "./haptics.js";
 import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/announcerManager.js";
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
-import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorOnLocalBigHit } from "./announcer/announcerDirector.js";
+import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
 import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
@@ -105,7 +107,7 @@ import {
   isWorldBootstrapped,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
-import { animateCartBoostPulse, crossfadeElement } from "./animations.js";
+import { animateCartBoostPulse, animateCartImpactSquash, crossfadeElement } from "./animations.js";
 import {
   getIsMuted,
   getMusicVolume,
@@ -396,6 +398,8 @@ let roundPodiumTimeoutId = null;
 const LAST_CART_STANDING_FLOURISH_MS = 3000;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let autoContinuePodiumTimeoutId = null;
+/** performance.now() deadline of the pending podium auto-continue (drives the button label). */
+let autoContinuePodiumDeadlineMs = 0;
 /** @type {string | null} */
 let autoContinuePodiumKey = null;
 /** Key for the active podium camera presentation (`startedAtMs:winner`). */
@@ -420,6 +424,8 @@ let triggerRamBoostRef = null;
 let spawnTrashBurstRef = null;
 /** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
 let triggerLocalRamShakeRef = null;
+/** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
+let triggerLocalHitTakenRef = null;
 /** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
 let triggerCartShatterRef = triggerCartShatter;
 /** @type {string | null} */
@@ -684,6 +690,10 @@ async function main() {
   let fovPunchDeg = 8;
   // * Kill-confirm white flash on the arcade pass (uFlash uniform) — short and sharp.
   const killFlash = { until: 0, durationMs: 110, strength: 0 };
+  // * KO hit-stop — presentation-only: rendered cart poses + the follow camera hold for
+  // * ~80ms while physics/prediction/reconciliation run untouched, then blend back over
+  // * ~120ms (frameVisuals consumes this). Never touches dt or the physics accumulator.
+  const hitStop = { until: 0, blendUntil: 0 };
   // * Post-FX impact pulse — vignette/aberration kick when the local cart takes a big hit.
   // * Baselines are captured from the live uniforms at trigger time so the pulse never
   // * fights the dev Tweakpane or config changes; frameVisuals decays and restores them.
@@ -713,25 +723,61 @@ async function main() {
       : (fx.shakeMinIntensity ?? 0.38);
     if (intensity < minI) return;
     const clampedI = Math.min(intensity, 1.2);
-    announcerDirectorOnLocalBigHit(clampedI);
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
     shakeUntil = performance.now() + 150 + clampedI * 100;
     triggerImpactPulse(clampedI);
+    hapticPulse(clampedI * 0.7, clampedI * 0.4, 60 + clampedI * 60);
     if (clampedI >= 0.45 && isBoosting) {
       armFovPunch(8, 100);
     }
   }
+  // * Victim-side ram feedback — getting hit hard must read through the body, not just
+  // * the eyes. Shake + vignette/aberration kick only: no FOV punch (that's the attacker's
+  // * reward) and no announcer big-hit arming (close_call is rammer-flavored).
+  function triggerLocalHitTaken(intensity, isBoosting = false) {
+    const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
+    const minI = isBoosting
+      ? (fx.shakeBoostMinIntensity ?? 0.24)
+      : (fx.shakeMinIntensity ?? 0.38);
+    if (intensity < minI) return;
+    const clampedI = Math.min(intensity, 1.2);
+    const boostMul = isBoosting ? 1.3 : 1.0;
+    shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
+    shakeUntil = performance.now() + 150 + clampedI * 100;
+    // * Slightly harder pulse than the attacker's — receiving a hit should feel heavier
+    // * than dealing one.
+    triggerImpactPulse(Math.min(clampedI * 1.15, 1.2));
+    hapticPulse(clampedI * 0.85, clampedI * 0.5, 70 + clampedI * 70);
+  }
+  // * Squash-and-stretch on impact — the victim compresses hard, the rammer flexes
+  // * lightly. Fired for every collision on the host and replayed for non-hosts, so
+  // * hits read as physical on every cart, not just the local one.
+  function squashCartsOnImpact(rammerCart, victimCart, intensity) {
+    if (victimCart?.mesh) animateCartImpactSquash(victimCart.mesh, Math.min(intensity * 1.1, 1.2));
+    if (rammerCart?.mesh) animateCartImpactSquash(rammerCart.mesh, intensity * 0.6);
+  }
   // * Attacker-side KO payoff — confirm sting + hitmarker + harder FOV punch + white
-  // * flash + aberration kick. Fired by gameFlow on the host and by the falls[] replay
-  // * path on non-host clients. Purely presentational — never touches physics dt.
-  function onLocalKillConfirm(_victimSlotIndex, _comboTier) {
+  // * flash + aberration kick + reward-breakdown float. Fired by gameFlow on the host
+  // * and by the falls[] replay path on non-host clients (the wire fall record carries
+  // * the reward context). Purely presentational — never touches physics dt.
+  function onLocalKillConfirm(_victimSlotIndex, _comboTier, koEvent) {
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    if (!reducedMotion) {
+      // * max-of on chained KOs so a double-kill can't truncate the first stop.
+      const nowMs = performance.now();
+      hitStop.until = Math.max(hitStop.until, nowMs + 80);
+      hitStop.blendUntil = hitStop.until + 120;
+    }
     armFovPunch(9, 180);
     killFlash.strength = 0.6;
     killFlash.until = performance.now() + killFlash.durationMs;
     triggerImpactPulse(0.55);
+    hapticPulse(0.9, 0.6, 120);
+    AudioManager.duckMusic(0.45, 600);
     SfxSynth.playKillConfirm();
     hud?.showKillConfirm?.();
+    if (koEvent?.reward) hud?.showScoreFloat?.(koEvent.reward, koEvent.cause);
   }
 
   /**
@@ -745,12 +791,25 @@ async function main() {
       : koEvent.victimSlotIndex;
     const slot = slots?.[colorSlotIndex];
     const hex = displayColorHexForSlot(slot);
+    // * Reduced strengths vs the original reactive mode — a punch accent, not a recolor.
     triggerArenaKoFlash(hex, {
-      strength: koEvent.isKill ? 0.9 : 0.5,
-      durationMs: koEvent.isKill ? 380 : 260,
+      strength: koEvent.isKill ? 0.6 : 0.35,
+      durationMs: koEvent.isKill ? 340 : 240,
     });
+    // * Scoreboard rampage pips ride this reactor because it fires for every fall on
+    // * every client: refresh the attacker's streak, clear the fallen victim's.
+    if (koEvent.attackerSlotIndex != null && (koEvent.comboTier ?? 0) > 0) {
+      hud?.noteComboPip?.(koEvent.attackerSlotIndex, koEvent.comboTier, koEvent.comboMultiplier ?? 1);
+    }
+    hud?.noteComboPip?.(koEvent.victimSlotIndex, 0);
+    // * Crowd cheer on kills — Classic Record only (the one arena with a visible crowd;
+    // * a cheering audience in the Storerooms would break the liminal theme).
+    if (koEvent.isKill && getCurrentLevelId() === "classicRecord") {
+      SfxSynth.playCrowdCheer(0.55 + Math.min(koEvent.comboTier ?? 0, 3) * 0.12);
+    }
   }
   triggerLocalRamShakeRef = triggerLocalRamShake;
+  triggerLocalHitTakenRef = triggerLocalHitTaken;
   triggerCartShatterRef = triggerCartShatter;
 
   function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay) {
@@ -796,6 +855,14 @@ async function main() {
     playSfx: (key) => AudioManager.playSfx(key),
     isVoiceEnabled: () => settingsStore.getState().announcerVoiceEnabled !== false,
     isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
+    // * Mix: music dips under big PA moments so stings/voice cut through cleanly.
+    onAnnouncementPlays: (def) => {
+      if (def.cls === "critical") {
+        AudioManager.duckMusic(0.3, def.durationMs + 500);
+      } else if (def.cls === "high" || def.cls === "sequence") {
+        AudioManager.duckMusic(0.55, def.durationMs + 200);
+      }
+    },
   });
   initAnnouncerDirector({
     announce,
@@ -1270,6 +1337,12 @@ async function main() {
     getCART_COLORS: () => CART_COLORS,
     getDefaultRoundMs: () => CONFIG.round.durationMs,
     getCountdownMs: () => 3000,
+    // * GO! moment — camera punch-in + whoosh as the countdown orbit hands back to follow.
+    onGoMoment: () => {
+      armFovPunch(10, 220);
+      SfxSynth.playGoWhoosh();
+    },
+    getLevelId: () => getCurrentLevelId(),
     getIsTouchDevice: isTouchDevice,
     getLocalCart: localCartForConnId,
     getBoostChargeCfg: () => CONFIG.cart.ramBoost.boostCharge,
@@ -1299,14 +1372,25 @@ async function main() {
     }
     return ids;
   };
+  // * Mid-match unlock acknowledgment — the menu already toasts unlocks, but grants
+  // * fire during play (via the KO challenge reactor) where the menu toast is
+  // * invisible. Route them through the in-game HUD toast too.
+  onUnlockGranted((msg) => {
+    if (!menuVisible) hud?.showChallengeToast?.(msg, "◆ UNLOCKED");
+  });
+
   let prevCompletedChallengeIds = collectCompletedChallengeIds(challengeStore.getState());
   challengeStore.subscribe((state) => {
     const completed = collectCompletedChallengeIds(state);
     for (const id of completed) {
       if (!prevCompletedChallengeIds.has(id)) {
         const meta = CHALLENGE_POOL.find((c) => c.id === id);
-        hud?.showChallengeToast?.(meta?.title ?? "CHALLENGE");
+        const title = meta?.title ?? "CHALLENGE";
+        hud?.showChallengeToast?.(title);
         SfxSynth.playChallengeComplete();
+        // * The Store PA shouts it out too (callout + future voice line; no sting —
+        // * the sparkle above is the completion audio).
+        announce("challenge_complete", { title });
       }
     }
     prevCompletedChallengeIds = completed;
@@ -1677,7 +1761,8 @@ async function main() {
     podiumConfettiFiredKey = null;
     CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
 
-    // * Voice plays over the pure winner cam; confetti waits for the results panel.
+    // * Voice + a first confetti burst play over the pure winner cam, so the orbit frames
+    // * a celebrated cart; a second burst fires when the results panel lands.
     if (lastPodiumCelebratedRound !== rs.startedAtMs) {
       lastPodiumCelebratedRound = rs.startedAtMs;
       const celebrationWinner = rs.winnerSlotIndex;
@@ -1688,6 +1773,14 @@ async function main() {
           announce("victory");
         } else {
           announce("defeat");
+        }
+        if (hud?.root) {
+          const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
+          spawnResultsConfetti(hud.root, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
+        }
+        // * The rave crowd roars for the winner (Classic only — see onArenaKoFlash).
+        if (getCurrentLevelId() === "classicRecord") {
+          SfxSynth.playCrowdCheer(1);
         }
       }
     }
@@ -1743,6 +1836,7 @@ async function main() {
         && lastResultsOverlayKey?.endReason === roundState.endReason
       ) {
         maybeScheduleAutoContinuePodium();
+        updatePlayAgainCountdownLabel(playAgain);
         return;
       }
       lastResultsOverlayKey = {
@@ -1943,6 +2037,35 @@ async function main() {
             chip.textContent = line;
             superLine.appendChild(chip);
           }
+        }
+
+        // * Challenge progress — the results screen is the reward moment, so daily/
+        // * weekly progress earned this match finally shows up right here.
+        let challengesLine = statsLine.parentElement?.querySelector?.(".results-challenges") ?? null;
+        if (!challengesLine) {
+          challengesLine = document.createElement("div");
+          challengesLine.className = "results-challenges";
+          statsLine.insertAdjacentElement("afterend", challengesLine);
+        }
+        challengesLine.replaceChildren();
+        const chState = challengeStore.getState();
+        const challengeRows = [...(chState.dailyChallenges || []), ...(chState.weeklyChallenges || [])];
+        for (const ch of challengeRows) {
+          const meta = CHALLENGE_POOL.find((c) => c.id === ch.id);
+          if (!meta) continue;
+          const row = document.createElement("div");
+          row.className = `results-challenge-row${ch.isComplete ? " complete" : ""}`;
+          const nameEl2 = document.createElement("span");
+          nameEl2.className = "results-challenge-name";
+          nameEl2.textContent = meta.title;
+          const progEl = document.createElement("span");
+          progEl.className = "results-challenge-prog";
+          progEl.textContent = ch.isComplete
+            ? "✓ DONE"
+            : `${Math.min(ch.progress ?? 0, meta.goal)}/${meta.goal}`;
+          row.appendChild(nameEl2);
+          row.appendChild(progEl);
+          challengesLine.appendChild(row);
         }
       }
 
@@ -2202,6 +2325,12 @@ async function main() {
     getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
+    getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,
+    onRemoteBoostStart: (cart) => {
+      AudioManager.playSfx("boost", undefined, { volume: 0.45 });
+      if (cart?.mesh) animateCartBoostPulse(cart.mesh);
+    },
+    onCartImpactSquash: squashCartsOnImpact,
     getTriggerCartShatterRef: () => triggerCartShatterRef,
     getScene: () => scene,
     getSceneRef: () => scene,
@@ -2352,6 +2481,11 @@ async function main() {
       AudioManager.playSfx("boost");
       if (cart.mesh) animateCartBoostPulse(cart.mesh);
       flashBoostActivate();
+    } else {
+      // * NPC / remote-human boosts are audible + pulsed for everyone (attenuated;
+      // * the screen flash stays owner-only).
+      AudioManager.playSfx("boost", undefined, { volume: 0.45 });
+      if (cart.mesh) animateCartBoostPulse(cart.mesh);
     }
     cart.ramBoostStreakCarry = 0;
   }
@@ -2367,14 +2501,20 @@ async function main() {
    */
   function onBoostRelease(cart) {
     const isLocal = cart === localCartForConnId();
-    if (!isLocal) return;
     if (cart.chargeUpSfxId != null) {
       AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
       cart.chargeUpSfxId = null;
     }
-    AudioManager.playSfx("boost");
-    if (cart.mesh) animateCartBoostPulse(cart.mesh);
-    flashBoostActivate();
+    if (isLocal) {
+      AudioManager.playSfx("boost");
+      if (cart.mesh) animateCartBoostPulse(cart.mesh);
+      flashBoostActivate();
+      hapticPulse(0.4, 0.7, 60);
+    } else {
+      // * Host-side releases for remote humans: audible + pulsed, no screen flash.
+      AudioManager.playSfx("boost", undefined, { volume: 0.45 });
+      if (cart.mesh) animateCartBoostPulse(cart.mesh);
+    }
   }
 
   /**
@@ -2400,6 +2540,10 @@ async function main() {
     cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
     if (cart === localCartForConnId()) {
       AudioManager.playSfx("hop");
+    } else {
+      // * Remote humans and NPCs hop audibly too (covers host-side sim hops AND the
+      // * non-host snap.h replay, which routes through this same function).
+      AudioManager.playSfx("hop", undefined, { volume: 0.45 });
     }
   }
 
@@ -2707,18 +2851,32 @@ async function main() {
   function maybeScheduleAutoContinuePodium() {
     if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
     const mode = detectGameMode();
-    if (mode !== "quickplay") return;
+    // * Friends parties get the auto-advance too (longer window — the host can still
+    // * bail to the menu or change arenas before it fires). Kills post-match limbo.
+    if (mode !== "quickplay" && mode !== "friends") return;
+    const delayMs = mode === "friends" ? 10000 : 5000;
 
     const key = currentPodiumAutoContinueKey();
     if (autoContinuePodiumTimeoutId != null || autoContinuePodiumKey === key) return;
 
     autoContinuePodiumKey = key;
+    autoContinuePodiumDeadlineMs = performance.now() + delayMs;
     autoContinuePodiumTimeoutId = setTimeout(() => {
       autoContinuePodiumTimeoutId = null;
       if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
-      if (detectGameMode() !== "quickplay") return;
+      const modeNow = detectGameMode();
+      if (modeNow !== "quickplay" && modeNow !== "friends") return;
       onHostPlayAgainClick();
-    }, 5000);
+    }, delayMs);
+  }
+
+  /** Ticks the host's PLAY AGAIN label ("PLAY AGAIN (7)") while an auto-continue is armed. */
+  function updatePlayAgainCountdownLabel(playAgain) {
+    if (!playAgain || !Netcode.getIsHost()) return;
+    if (autoContinuePodiumTimeoutId == null || !autoContinuePodiumDeadlineMs) return;
+    const secs = Math.max(0, Math.ceil((autoContinuePodiumDeadlineMs - performance.now()) / 1000));
+    const next = `PLAY AGAIN (${secs})`;
+    if (playAgain.textContent !== next) playAgain.textContent = next;
   }
 
   function currentCartSnapshot() {
@@ -2820,6 +2978,7 @@ async function main() {
     getFovPunchDeg: () => fovPunchDeg,
     getKillFlash: () => killFlash,
     getImpactPulse: () => impactPulse,
+    getHitStop: () => hitStop,
     getArcadePass: () => fxPass,
     fpsState,
     updateTouchControlsVisibility,
@@ -2829,6 +2988,8 @@ async function main() {
     ...sharedLoopGetters,
     detectGameMode,
     getLastHitBy: () => GameState.getLastHitBy(),
+    // * Per-arena kill-zone classifier for buildKOEvent (Storerooms corner voids → 2×).
+    classifyKillZone: Simulation.classifyLevelKillZone,
     getLocalCart: localCartForConnId,
     scheduleRespawn,
     scheduleStuckRespawn,
@@ -2872,6 +3033,8 @@ async function main() {
     playCollision: (_intensity, _opts) => AudioManager.playCartCrash(),
     spawnTrashBurst: spawnTrashBurstRef,
     onLocalRamImpact: triggerLocalRamShake,
+    onLocalHitTaken: triggerLocalHitTaken,
+    onCartImpactSquash: squashCartsOnImpact,
     onBoostRelease,
     onBoostCancel,
     onSpill: (cart) => {
@@ -3029,6 +3192,14 @@ async function main() {
 
     const localCart = localCartForConnId();
 
+    // * True near-miss detection — a boosting opponent whooshing past without contact
+    // * earns the local player a close_call. Cheap: three distance checks per frame.
+    announcerDirectorNearMissScan(
+      allCartsRef || [],
+      Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+      performance.now(),
+    );
+
     // * Cinematic modes always win over death/follow. Countdown used to be nested
     // * under `localCart?.body`, so pregame fly-overs silently failed when the local
     // * cart was missing or still mid-shatter. Podium is the same exclusivity rule.
@@ -3069,16 +3240,22 @@ async function main() {
       if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
         CameraMod.endDeathCamera(camera);
       }
-      const playerPos = localCart.body.translation();
-      const playerRot = localCart.body.rotation();
-      CameraMod.updateCamera(
-        camera,
-        localCart,
-        dt,
-        playerPos,
-        playerRot,
-        world,
-      );
+      // * KO hit-stop: hold the follow camera exactly where it is for the stop window
+      // * (frameVisuals holds the cart poses; a moving camera would betray the freeze).
+      const inHitStop = performance.now() < hitStop.until
+        && GameState.getRoundState().phase === "running";
+      if (!inHitStop) {
+        const playerPos = localCart.body.translation();
+        const playerRot = localCart.body.rotation();
+        CameraMod.updateCamera(
+          camera,
+          localCart,
+          dt,
+          playerPos,
+          playerRot,
+          world,
+        );
+      }
     }
 
     frameCtx.dt = dt;

@@ -140,6 +140,57 @@ describe("buildKOEvent", () => {
     expect(e.reward.total).toBe(6);
   });
 
+  it("scores a Storerooms corner-void kill as +2 via the level classifier", () => {
+    const deps = makeDeps({
+      CONFIG: {
+        scoring: { hitWindowMs: 2500 },
+        record: { innerRadius: 5, centerHole: { enabled: false } },
+        combo: { decayMs: 5000, tiers: { 0: { multiplier: 1.0 } } },
+      },
+      classifyKillZone: (p) => (Math.abs(p.x) > 15 && Math.abs(p.z) > 15 ? "corner_void" : null),
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: NOW }),
+    });
+    const inVoid = buildKOEvent(deps, 2, { x: 20, y: -20, z: -20 }, NOW);
+    expect(inVoid.cause).toBe("corner_void");
+    expect(inVoid.reward.base).toBe(2);
+    expect(inVoid.reward.total).toBe(2);
+
+    const offVoid = buildKOEvent(deps, 2, OUTER, NOW);
+    expect(offVoid.cause).toBe("outer_edge");
+    expect(offVoid.reward.base).toBe(1);
+  });
+
+  it("center hole wins classification over the level kill-zone classifier", () => {
+    const deps = makeDeps({
+      classifyKillZone: () => "corner_void",
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, CENTER, NOW);
+    expect(e.cause).toBe("center_hole");
+    expect(e.reward.base).toBe(2);
+  });
+
+  it("adds the high-ground bonus when the crediting ram came from the podium", () => {
+    const deps = makeDeps({
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, fromPodium: true, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, OUTER, NOW);
+    expect(e.reward.highGround).toBe(1);
+    expect(e.reward.total).toBe(2); // base 1 + high ground 1
+  });
+
+  it("stacks high ground with critical/leader under the combo multiplier", () => {
+    const carts = [{}, { comboTier: 2 }, {}, {}]; // attacker at x2.0
+    const deps = makeDeps({
+      getAllCarts: () => carts,
+      getRoundScores: () => ({ 0: 0, 1: 0, 2: 3, 3: 0 }), // victim leads
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: true, fromPodium: true, timestamp: NOW }),
+    });
+    const e = buildKOEvent(deps, 2, OUTER, NOW);
+    // (base 1 + critical 1 + leader 1 + high ground 1) * 2.0 = 8
+    expect(e.reward.total).toBe(8);
+  });
+
   it("reports victimWasLeader even on a self fall (no attribution)", () => {
     const deps = makeDeps({
       getRoundScores: () => ({ 0: 0, 1: 0, 2: 4, 3: 0 }),
@@ -231,5 +282,35 @@ describe("rebuildKOEvent (non-host replay)", () => {
   it("defaults the verb when the wire record omits it", () => {
     expect(rebuildKOEvent({ slotId: 0, attackerSlot: 1 }, clientDeps).verb).toBe("RAMMED");
     expect(rebuildKOEvent({ slotId: 0, attackerSlot: null }, clientDeps).verb).toBe("FELL OFF");
+  });
+
+  it("consumes presentation context (cause, flags, reward) from the wire when present", () => {
+    const msg = {
+      slotId: 2,
+      attackerSlot: 1,
+      comboTier: 2,
+      comboMultiplier: 2.0,
+      cause: "corner_void",
+      wasCritical: true,
+      victimWasLeader: true,
+      isFinalBlow: true,
+      reward: { base: 2, critical: 1, leader: 1, highGround: 0, multiplier: 2.0, total: 8 },
+    };
+    const e = rebuildKOEvent(msg, clientDeps);
+    expect(e.cause).toBe("corner_void");
+    expect(e.wasCritical).toBe(true);
+    expect(e.victimWasLeader).toBe(true);
+    expect(e.isFinalBlow).toBe(true);
+    expect(e.reward.total).toBe(8);
+  });
+
+  it("defaults presentation context to neutral for older wire records", () => {
+    const e = rebuildKOEvent({ slotId: 2, attackerSlot: 1, comboMultiplier: 1.5 }, clientDeps);
+    expect(e.cause).toBe("outer_edge");
+    expect(e.wasCritical).toBe(false);
+    expect(e.victimWasLeader).toBe(false);
+    expect(e.isFinalBlow).toBe(false);
+    expect(e.reward.total).toBe(0);
+    expect(e.reward.multiplier).toBe(1.5);
   });
 });
