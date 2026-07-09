@@ -345,9 +345,9 @@ export const CONFIG = {
     // * see applyLoadedLevelSideEffects in main.js). "Cheap always-on CCTV feed", subtle
     // * by design: gameplay readability wins over the effect.
     vhs: {
-      amount: 1.0, // unitless — master 0..1 applied while The Storerooms is loaded
-      noise: 0.028, // unitless — luminance-only tape-noise floor amplitude
-      trackPeriodSec: 26, // seconds — interval between tracking-band sweeps
+      amount: 0.3, // unitless — master 0..1 applied while The Storerooms is loaded
+      noise: 0.1, // unitless — luminance-only tape-noise floor amplitude (scaled by amount)
+      trackPeriodSec: 22, // seconds — interval between tracking-band sweeps
     },
 
     // * Scene FogExp2 — Classic uses default fog on createScene(); Backrooms overrides on load.

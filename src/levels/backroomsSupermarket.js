@@ -78,6 +78,58 @@ const WALL_DECOR_INSET = 0.1; // meters — shelves/pillars sit inside the inner
 // * disabled for this level, but the value still feeds any startup-time placement).
 const PIT_INNER_RADIUS = 66; // meters
 
+// * Ceiling fixture grid — shared by buildCeiling() and floor light-pool baking.
+const CEILING_FIXTURE_GRID = 5;
+const CEILING_FIXTURE_SPAN = ARENA_HALF * 1.75; // meters
+// * Missing-tile openings (world XZ). Floor drip stains bake under every entry.
+const CEILING_GAP_SPOTS = [
+  [-15, 24], [-24, 17], [-20, 9], [-6, 20], [10, -22], [26, -6], [4, 27.5],
+];
+const CEILING_SAG_SPOTS = [[-18, 13, 0.22], [8, 19, 0.16]];
+
+// ===== Deterministic helpers =====
+
+/**
+ * Mulberry32-style seeded RNG so procedural textures match across clients / reloads.
+ * @param {number} seed
+ * @returns {() => number}
+ */
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/**
+ * Deterministic fluorescent state for grid cell (gx, gz). Matches buildCeiling().
+ * @param {number} gx
+ * @param {number} gz
+ * @returns {"lit" | "dimA" | "dimB" | "dead"}
+ */
+function getFixtureState(gx, gz) {
+  const h = (gx * 7 + gz * 13) % 20;
+  if (gx <= 1 && gz >= 3) return "dead";
+  if (h < 4) return "dead";
+  if (h < 9) return h % 2 === 0 ? "dimA" : "dimB";
+  return "lit";
+}
+
+/**
+ * @param {number} gx
+ * @param {number} gz
+ * @returns {{ x: number, z: number }}
+ */
+function fixtureWorldXZ(gx, gz) {
+  const span = CEILING_FIXTURE_SPAN;
+  const grid = CEILING_FIXTURE_GRID;
+  return {
+    x: -span / 2 + (gx + 0.5) * (span / grid),
+    z: -span / 2 + (gz + 0.5) * (span / grid),
+  };
+}
+
 // ===== Procedural textures =====
 
 /**
@@ -171,51 +223,84 @@ function buildCarpetTexture() {
 }
 
 /**
- * Classic Backrooms yellowed-wallpaper texture: mono-yellow base, vertical seam stripes,
- * and brown water-stain blotches.
+ * Classic Backrooms yellowed-wallpaper: mono-yellow base, soft damask dots, roll seams,
+ * horizontal banding, and localized brown water-stain blotches (seeded, single-center).
  *
  * @returns {THREE.CanvasTexture}
  */
 function buildWallpaperTexture() {
-  const size = 256;
+  const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
+  const rng = makeRng(0xb4c4a001);
 
   ctx.fillStyle = "#bfa94e";
   ctx.fillRect(0, 0, size, size);
 
-  // Subtle vertical wallpaper seams.
-  ctx.strokeStyle = "rgba(120,100,40,0.25)";
-  ctx.lineWidth = 1;
-  for (let x = 0; x <= size; x += 32) {
+  // Low-frequency damask / floral-ish dots.
+  for (let y = 8; y < size; y += 16) {
+    for (let x = 8; x < size; x += 16) {
+      const ox = (Math.floor(y / 16) % 2) * 8;
+      const px = x + ox;
+      const pulse = 0.5 + 0.5 * Math.sin(px * 0.09) * Math.cos(y * 0.07);
+      ctx.fillStyle = `rgba(105,88,32,${0.04 + pulse * 0.07})`;
+      ctx.beginPath();
+      ctx.ellipse(px, y, 2.2 + pulse, 3.4 + pulse * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(175,155,70,${0.03 + pulse * 0.04})`;
+      ctx.fillRect(px - 1, y - 4, 2, 8);
+    }
+  }
+
+  // Vertical roll seams (~every 1–1.5m at tileM = 6).
+  for (let x = 0; x <= size; x += 64) {
+    ctx.strokeStyle = "rgba(95,78,28,0.28)";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, size);
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, size);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(210,190,100,0.08)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 2.5, 0);
+    ctx.lineTo(x + 2.5, size);
     ctx.stroke();
   }
 
-  // Faint horizontal patterned banding.
-  ctx.strokeStyle = "rgba(150,130,70,0.12)";
+  ctx.strokeStyle = "rgba(150,130,70,0.1)";
+  ctx.lineWidth = 1;
   for (let y = 0; y <= size; y += 16) {
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(size, y);
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(size, y + 0.5);
     ctx.stroke();
   }
 
-  // Brown water stains.
-  for (let i = 0; i < 26; i += 1) {
-    const r = 6 + Math.random() * 26;
-    const grad = ctx.createRadialGradient(
-      Math.random() * size, Math.random() * size, 0,
-      Math.random() * size, Math.random() * size, r,
-    );
-    grad.addColorStop(0, "rgba(70,50,20,0.16)");
+  // Localized stains (single-center radials — not whole-canvas mud).
+  for (let i = 0; i < 28; i += 1) {
+    const r = 8 + rng() * 32;
+    const sx = rng() * size;
+    const sy = rng() * size;
+    const grad = ctx.createRadialGradient(sx, sy, r * 0.12, sx, sy, r);
+    grad.addColorStop(0, "rgba(70,50,20,0.2)");
+    grad.addColorStop(0.45, "rgba(70,50,20,0.08)");
     grad.addColorStop(1, "rgba(70,50,20,0)");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 6; i += 1) {
+    const sx = rng() * size;
+    const len = 40 + rng() * 90;
+    const grad = ctx.createLinearGradient(sx, 0, sx, len);
+    grad.addColorStop(0, "rgba(55,42,18,0.18)");
+    grad.addColorStop(1, "rgba(55,42,18,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - 3 - rng() * 4, 0, 6 + rng() * 5, len);
   }
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -227,8 +312,7 @@ function buildWallpaperTexture() {
 }
 
 /**
- * Dropped-ceiling acoustic-tile texture: off-white tiles with a darker grout grid and
- * a light pinhole speckle.
+ * Dropped-ceiling acoustic-tile texture with grout, pinhole speckle, and water rings.
  *
  * @returns {THREE.CanvasTexture}
  */
@@ -238,13 +322,33 @@ function buildCeilingTexture() {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
+  const rng = makeRng(0xce11a001);
 
   ctx.fillStyle = "#cdc6ad";
   ctx.fillRect(0, 0, size, size);
 
   for (let i = 0; i < 1800; i += 1) {
-    ctx.fillStyle = `rgba(60,55,40,${0.04 + Math.random() * 0.05})`;
-    ctx.fillRect(Math.random() * size, Math.random() * size, 1.5, 1.5);
+    ctx.fillStyle = `rgba(60,55,40,${0.04 + rng() * 0.05})`;
+    ctx.fillRect(rng() * size, rng() * size, 1.5, 1.5);
+  }
+
+  for (let i = 0; i < 8; i += 1) {
+    const sx = rng() * size;
+    const sy = rng() * size;
+    const r = 10 + rng() * 28;
+    const grad = ctx.createRadialGradient(sx, sy, r * 0.15, sx, sy, r);
+    grad.addColorStop(0, "rgba(90,72,40,0.14)");
+    grad.addColorStop(0.5, "rgba(90,72,40,0.06)");
+    grad.addColorStop(1, "rgba(90,72,40,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70,55,30,0.12)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r * 0.55, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   ctx.strokeStyle = "rgba(70,64,48,0.6)";
@@ -256,6 +360,229 @@ function buildCeilingTexture() {
   ctx.moveTo(0, size / 2);
   ctx.lineTo(size, size / 2);
   ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Cheap cardboard / carton face for crates and shelf boxes.
+ * @param {"cardboard" | "carton"} kind
+ * @returns {THREE.CanvasTexture}
+ */
+function buildPropSurfaceTexture(kind) {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const rng = makeRng(kind === "cardboard" ? 0xca2db0a5 : 0xca27001);
+
+  if (kind === "cardboard") {
+    ctx.fillStyle = "#c4a06a";
+    ctx.fillRect(0, 0, size, size);
+    for (let x = 0; x < size; x += 3) {
+      ctx.fillStyle = `rgba(80,55,25,${0.04 + rng() * 0.05})`;
+      ctx.fillRect(x, 0, 1, size);
+    }
+    ctx.strokeStyle = "rgba(220,205,160,0.55)";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(12, 12);
+    ctx.lineTo(size - 12, size - 12);
+    ctx.moveTo(size - 12, 12);
+    ctx.lineTo(12, size - 12);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(40,30,15,0.12)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(6, 6, size - 12, size - 12);
+  } else {
+    ctx.fillStyle = "#d8d0b8";
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = "rgba(40,45,55,0.14)";
+    ctx.fillRect(14, 18, size - 28, size - 44);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(20, 26, size - 40, 14);
+    for (let i = 0; i < 18; i += 1) {
+      const w = 1 + (rng() > 0.6 ? 2 : 0);
+      ctx.fillStyle = "rgba(20,20,22,0.35)";
+      ctx.fillRect(22 + i * 5, size - 36, w, 16);
+    }
+    for (let i = 0; i < 40; i += 1) {
+      ctx.fillStyle = `rgba(50,40,25,${0.05 + rng() * 0.08})`;
+      ctx.fillRect(rng() * size, rng() < 0.5 ? 0 : size - 3, 3 + rng() * 6, 3);
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Furniture surface maps — wood grain, fabric weave, painted metal, dark plastic.
+ * Keeps the pile from reading as flat Lego bricks under the spotlight.
+ *
+ * @param {"wood" | "fabric" | "metal" | "plastic"} kind
+ * @returns {THREE.CanvasTexture}
+ */
+function buildFurnitureTexture(kind) {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const rng = makeRng(
+    kind === "wood" ? 0xf00d0001
+      : kind === "fabric" ? 0xfab70001
+        : kind === "metal" ? 0x7e7a1001
+          : 0xda700001,
+  );
+
+  if (kind === "wood") {
+    ctx.fillStyle = "#7a5c38";
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 48; i += 1) {
+      const y = rng() * size;
+      const wobble = 4 + rng() * 10;
+      ctx.strokeStyle = `rgba(${40 + rng() * 30},${28 + rng() * 20},${12},${0.08 + rng() * 0.12})`;
+      ctx.lineWidth = 1 + rng() * 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x <= size; x += 16) {
+        ctx.lineTo(x, y + Math.sin(x * 0.04 + i) * wobble * 0.15);
+      }
+      ctx.stroke();
+    }
+    // Knots
+    for (let i = 0; i < 5; i += 1) {
+      const sx = rng() * size;
+      const sy = rng() * size;
+      const r = 4 + rng() * 8;
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+      g.addColorStop(0, "rgba(50,32,14,0.35)");
+      g.addColorStop(1, "rgba(50,32,14,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (kind === "fabric") {
+    ctx.fillStyle = "#5a5048";
+    ctx.fillRect(0, 0, size, size);
+    // Weave grid
+    for (let y = 0; y < size; y += 3) {
+      ctx.fillStyle = `rgba(20,18,14,${0.06 + (y % 6 === 0 ? 0.05 : 0)})`;
+      ctx.fillRect(0, y, size, 1);
+    }
+    for (let x = 0; x < size; x += 3) {
+      ctx.fillStyle = `rgba(30,26,20,${0.05 + (x % 6 === 0 ? 0.04 : 0)})`;
+      ctx.fillRect(x, 0, 1, size);
+    }
+    // Pilling / wear flecks
+    for (let i = 0; i < 900; i += 1) {
+      const v = 40 + Math.floor(rng() * 80);
+      ctx.fillStyle = `rgba(${v},${v - 4},${v - 10},${0.04 + rng() * 0.06})`;
+      ctx.fillRect(rng() * size, rng() * size, 1 + rng() * 2, 1 + rng() * 2);
+    }
+    // Soft edge wear bands
+    const band = ctx.createLinearGradient(0, 0, 0, size);
+    band.addColorStop(0, "rgba(30,26,20,0.18)");
+    band.addColorStop(0.15, "rgba(30,26,20,0)");
+    band.addColorStop(0.85, "rgba(30,26,20,0)");
+    band.addColorStop(1, "rgba(30,26,20,0.22)");
+    ctx.fillStyle = band;
+    ctx.fillRect(0, 0, size, size);
+  } else if (kind === "metal") {
+    ctx.fillStyle = "#6e726c";
+    ctx.fillRect(0, 0, size, size);
+    for (let y = 0; y < size; y += 1) {
+      const a = 0.03 + rng() * 0.05;
+      ctx.fillStyle = rng() < 0.5 ? `rgba(255,255,250,${a})` : `rgba(20,22,18,${a})`;
+      ctx.fillRect(0, y, size, 1);
+    }
+    // Panel seam
+    ctx.strokeStyle = "rgba(20,20,18,0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, size - 16, size - 16);
+    ctx.strokeStyle = "rgba(200,200,190,0.08)";
+    ctx.strokeRect(10, 10, size - 20, size - 20);
+    // Rivets
+    for (const [rx, ry] of [[18, 18], [size - 18, 18], [18, size - 18], [size - 18, size - 18]]) {
+      ctx.fillStyle = "rgba(40,42,38,0.4)";
+      ctx.beginPath();
+      ctx.arc(rx, ry, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Dark plastic / monitor bezel
+    ctx.fillStyle = "#2a2826";
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 600; i += 1) {
+      ctx.fillStyle = `rgba(255,255,255,${0.01 + rng() * 0.03})`;
+      ctx.fillRect(rng() * size, rng() * size, 1, 1);
+    }
+    const edge = ctx.createLinearGradient(0, 0, size, size);
+    edge.addColorStop(0, "rgba(255,255,255,0.06)");
+    edge.addColorStop(0.5, "rgba(0,0,0,0)");
+    edge.addColorStop(1, "rgba(0,0,0,0.2)");
+    ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1, 1, size - 2, size - 2);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Concrete pillar face: dusty base + faint pour seams + pore noise.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildConcreteTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const rng = makeRng(0xc0ec2e7e);
+
+  ctx.fillStyle = "#9a9488";
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < 2200; i += 1) {
+    const v = 70 + Math.floor(rng() * 50);
+    ctx.fillStyle = `rgba(${v},${v - 4},${v - 10},${0.04 + rng() * 0.06})`;
+    ctx.fillRect(rng() * size, rng() * size, 1 + rng() * 2, 1 + rng() * 2);
+  }
+  for (let y = 40; y < size; y += 48 + Math.floor(rng() * 12)) {
+    ctx.strokeStyle = "rgba(40,36,28,0.14)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(size, y + (rng() - 0.5) * 4);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(230,220,200,0.06)";
+    ctx.beginPath();
+    ctx.moveTo(0, y + 2);
+    ctx.lineTo(size, y + 2);
+    ctx.stroke();
+  }
+  const dust = ctx.createLinearGradient(0, size * 0.55, 0, size);
+  dust.addColorStop(0, "rgba(40,35,25,0)");
+  dust.addColorStop(1, "rgba(40,35,25,0.22)");
+  ctx.fillStyle = dust;
+  ctx.fillRect(0, 0, size, size);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
@@ -394,6 +721,67 @@ function getTrafficWearFactor(x, z) {
 }
 
 /**
+ * Ceiling-gap drip stains on the carpet (0–1). Continues the water-damage story from
+ * missing acoustic tiles down onto the play surface.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+function getCeilingDripFactor(x, z) {
+  let best = 0;
+  for (const [gx, gz] of CEILING_GAP_SPOTS) {
+    const d = Math.hypot(x - gx, z - gz);
+    // Soft blotch ~1.8m radius + faint elongated trail toward +X (gravity smear).
+    const blotch = 1 - smooth01(d / 1.85);
+    const trail = 1 - smooth01(Math.hypot(x - gx - 0.9, z - gz) / 2.4);
+    best = Math.max(best, blotch, trail * 0.55);
+  }
+  for (const [sx, sz] of CEILING_SAG_SPOTS) {
+    const d = Math.hypot(x - sx, z - sz);
+    best = Math.max(best, (1 - smooth01(d / 1.4)) * 0.65);
+  }
+  return best;
+}
+
+/**
+ * Soft fluorescent wash under lit/dim ceiling fixtures (0–1 brighten).
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+function getLightPoolFactor(x, z) {
+  let best = 0;
+  for (let gx = 0; gx < CEILING_FIXTURE_GRID; gx += 1) {
+    for (let gz = 0; gz < CEILING_FIXTURE_GRID; gz += 1) {
+      const state = getFixtureState(gx, gz);
+      if (state === "dead") continue;
+      const { x: fx, z: fz } = fixtureWorldXZ(gx, gz);
+      const d = Math.hypot(x - fx, z - fz);
+      const radius = state === "lit" ? 5.8 : 4.2;
+      const strength = state === "lit" ? 1 : 0.45;
+      best = Math.max(best, (1 - smooth01(d / radius)) * strength);
+    }
+  }
+  return best;
+}
+
+/**
+ * Extra darkening under the dead fluorescent quadrant (−X / +Z).
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number} 0–1
+ */
+function getDeadZoneDarken(x, z) {
+  // Approximate footprint of gx≤1, gz≥3 cells on the fixture grid.
+  const nx = smooth01((-x - 4) / 18); // stronger toward −X
+  const pz = smooth01((z - 4) / 18); // stronger toward +Z
+  return nx * pz;
+}
+
+/**
  * Builds the square floor visual mesh (physics uses separate cuboid slices).
  * Square corner voids have inward-sloping chamfer lips; the perimeter has an
  * outward-sloping drop-off. Open void vertices are omitted so the mesh matches kill zones.
@@ -431,11 +819,18 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
       uvs[idx * 2] = x / CARPET_TILE_M;
       uvs[idx * 2 + 1] = z / CARPET_TILE_M;
       const darken = getChamferDarkenFactor(x, z);
-      // Faint baked traffic wear (×0.90 at full strength) under the hazard-lip darkening.
+      // Traffic wear + ceiling drip + dead-zone murk, then soft light-pool lift.
       const wearMul = 1 - 0.1 * getTrafficWearFactor(x, z);
-      colors[idx * 3] = (baseR * wearMul) * (1 - darken) + lipR * darken;
-      colors[idx * 3 + 1] = (baseG * wearMul) * (1 - darken) + lipG * darken;
-      colors[idx * 3 + 2] = (baseB * wearMul) * (1 - darken) + lipB * darken;
+      const drip = getCeilingDripFactor(x, z);
+      const dead = getDeadZoneDarken(x, z);
+      const pool = getLightPoolFactor(x, z);
+      const dripMul = 1 - 0.22 * drip;
+      const deadMul = 1 - 0.12 * dead;
+      const poolMul = 1 + 0.1 * pool;
+      const mul = wearMul * dripMul * deadMul * poolMul;
+      colors[idx * 3] = (baseR * mul) * (1 - darken) + lipR * darken;
+      colors[idx * 3 + 1] = (baseG * mul) * (1 - darken) + lipG * darken;
+      colors[idx * 3 + 2] = (baseB * mul * (1 - 0.04 * pool)) * (1 - darken) + lipB * darken;
     }
   }
 
@@ -656,8 +1051,12 @@ function buildFallContainment(world) {
  * @param {number} cx Void center X.
  * @param {number} cz Void center Z.
  * @param {THREE.Material} shaftMat Shared black shaft material.
- * @param {{ floor: THREE.Material, glow: THREE.Material, silhouette: THREE.Material }} subRoomMats
- *   Shared sub-room materials (dim carpet, dead-fluorescent glow quad, dark furniture).
+ * @param {{
+ *   floor: THREE.Material,
+ *   glow: THREE.Material,
+ *   silhouette: THREE.Material,
+ *   nearSilhouette: THREE.Material,
+ * }} subRoomMats Shared sub-room materials (dim carpet, glow, deep + near silhouettes).
  * @returns {{ group: THREE.Group, geometries: THREE.BufferGeometry[] }}
  */
 function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
@@ -704,6 +1103,20 @@ function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
   const stub = new THREE.Mesh(stubGeo, subRoomMats.silhouette);
   stub.position.set(cx + 1.7, bottomY + 1.6, cz - 1.4);
   group.add(stub);
+
+  // Near-lip silhouettes — faint second-layer shapes when looking *down* a hole from
+  // play level (not only during the KO fall). Kept dark and simple.
+  const nearY = FLOOR_TOP_Y - 2.4;
+  const nearShelfGeo = new THREE.BoxGeometry(1.15, 1.4, 0.45);
+  const nearStubGeo = new THREE.BoxGeometry(0.55, 1.9, 0.55);
+  geometries.push(nearShelfGeo, nearStubGeo);
+  const nearShelf = new THREE.Mesh(nearShelfGeo, subRoomMats.nearSilhouette);
+  nearShelf.position.set(cx + 1.4, nearY, cz - 1.1);
+  nearShelf.rotation.y = -0.4;
+  group.add(nearShelf);
+  const nearStub = new THREE.Mesh(nearStubGeo, subRoomMats.nearSilhouette);
+  nearStub.position.set(cx - 1.5, nearY - 0.2, cz + 1.3);
+  group.add(nearStub);
 
   return { group, geometries };
 }
@@ -931,17 +1344,24 @@ function buildWallpaperPlaneGeometry(spanW, bottomY, topY, vSegments = 24) {
  *   bodies: object[],
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[],
+ *   ownedTextures: THREE.Texture[],
  * }}
  */
 function buildCenterFurniturePile(scene, world) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
   const group = new THREE.Group();
-  // * Scale all visual pile geometry by 0.85 — tighter footprint, less snag-prone.
+  // * Visual mound only — physics hull is fixed below. Scale furniture up for cart-relative
+  // * size, pack placement inward so the obstacle silhouette stays about the same.
   const pileVisualGroup = new THREE.Group();
-  pileVisualGroup.scale.setScalar(0.85);
+  pileVisualGroup.scale.setScalar(1);
   group.add(pileVisualGroup);
 
-  const parts = { wood: [], fabric: [], metal: [], cardboard: [], dark: [] };
+  // ~50% larger pieces than the old 0.85-group layout (1.5 / 0.85 ≈ 1.76× that look).
+  // PACK pulls origins inward so pieces nest/overlap instead of floating in a sparse lattice.
+  const PIECE_SCALE = 1.5;
+  const PACK = 0.68;
+
+  const parts = { wood: [], fabric: [], metal: [], dark: [] };
 
   // Emit one box into a material bucket, placed in a piece's local frame then transformed
   // into world space by that piece's matrix.
@@ -954,12 +1374,12 @@ function buildCenterFurniturePile(scene, world) {
     bucket.push(unitBox.clone().applyMatrix4(parent.clone().multiply(local)));
   };
 
-  // Piece-local → world transform (position + yaw + tilt + roll).
+  // Piece-local → world transform (packed position + yaw/tilt/roll + uniform piece scale).
   const piece = (px, py, pz, yaw = 0, tilt = 0, roll = 0) =>
     new THREE.Matrix4().compose(
-      new THREE.Vector3(px, py, pz),
+      new THREE.Vector3(px * PACK, py * PACK, pz * PACK),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt, yaw, roll, "YXZ")),
-      new THREE.Vector3(1, 1, 1),
+      new THREE.Vector3(PIECE_SCALE, PIECE_SCALE, PIECE_SCALE),
     );
 
   // ----- Recognizable furniture builders (local origin at the floor footprint) -----
@@ -1016,12 +1436,8 @@ function buildCenterFurniturePile(scene, world) {
     addBox(parts.dark, m, 0.2, 0.3, 0.2, 0, 0.15, 0);
   };
 
-  const crate = (m, s = 0.9) => {
-    addBox(parts.cardboard, m, s, s, s, 0, s / 2, 0);
-  };
-
   // ----- Messy stacked layout (chaotic, dense, ~6.5m tall) -----
-  // Pieces overlap and ride on the ones below so the pile reads as solid junk, not floats.
+  // Furniture only — no cardboard fill cubes (they read as bright Lego under the spot).
 
   // Base ring (y≈0) — packed full around the footprint.
   couch(piece(-1.9, 0.0, 1.4, 0.5, 0.02, 0.0));
@@ -1033,10 +1449,11 @@ function buildCenterFurniturePile(scene, world) {
   cabinet(piece(0.4, 0.0, 2.7, -0.3), 1.4);
   cabinet(piece(2.5, 0.0, -2.0, 0.9), 1.5);
   cabinet(piece(-2.9, 0.0, -1.4, 2.2), 1.3);
-  crate(piece(3.2, 0.0, -0.4, 0.3), 1.0);
-  crate(piece(0.1, 0.0, -2.6, -0.2), 0.95);
   chair(piece(-0.4, 0.0, 0.2, 0.5));
   chair(piece(1.0, 0.0, 0.0, -0.6));
+  // Extra base furniture where crates used to bulk the footprint.
+  chair(piece(3.0, 0.0, -0.3, 0.4));
+  desk(piece(0.1, 0.0, -2.5, -0.2), 1.5, 0.9);
 
   // Mid layer (~0.8–1.8m) — resting on base tops, filling the gaps.
   couch(piece(0.6, 1.15, -0.5, 2.2, 0.14, 0.08), 2.4);
@@ -1046,10 +1463,10 @@ function buildCenterFurniturePile(scene, world) {
   cabinet(piece(-1.9, 1.0, -1.1, 0.5, 0.12, 0.0), 1.2);
   chair(piece(-2.2, 0.85, -0.6, 0.6, 0.1, 0.2));
   chair(piece(2.3, 0.9, 0.2, 1.6, 0.08, 0.15));
-  crate(piece(2.0, 1.2, -1.3, 0.5), 0.85);
-  crate(piece(-0.4, 1.2, 2.0, -0.4), 0.95);
-  crate(piece(0.7, 1.3, 1.2, 0.2), 0.8);
-  crate(piece(-1.0, 1.25, -2.0, 0.7), 0.85);
+  chair(piece(2.0, 1.15, -1.2, 0.5, 0.12, 0.1));
+  desk(piece(-0.4, 1.15, 1.9, -0.4, 0.08, 0), 1.4, 0.85);
+  cabinet(piece(0.7, 1.2, 1.1, 0.2, 0.1, 0), 1.0);
+  chair(piece(-1.0, 1.2, -1.9, 0.7, 0.1, 0.15));
 
   // Upper layer (~1.9–3.4m).
   couch(piece(-0.7, 2.5, -0.5, 1.0, 0.18, 0.1), 2.0);
@@ -1059,37 +1476,21 @@ function buildCenterFurniturePile(scene, world) {
   chair(piece(1.2, 2.7, -0.5, 2.0, 0.28, 0.22));
   chair(piece(-1.0, 2.9, -0.2, -0.5, -0.18, 0.28));
   chair(piece(0.9, 2.6, 1.2, 0.9, 0.2, -0.2));
-  crate(piece(-0.2, 3.0, -1.1, 0.2), 0.8);
-  crate(piece(0.0, 2.7, 0.0, 0.4), 0.9);
-  crate(piece(-1.4, 2.7, -0.9, -0.3), 0.75);
+  desk(piece(-0.2, 2.9, -1.0, 0.2, 0.15, 0.1), 1.3, 0.8);
+  chair(piece(0.0, 2.75, 0.1, 0.4, 0.2, 0.15));
 
   // Top layer (~3.5–5.0m).
   desk(piece(-0.2, 3.7, 0.2, 0.6, 0.24, 0.14), 1.6, 0.9);
   chair(piece(0.4, 4.1, 0.1, 0.7, 0.36, 0.28));
   chair(piece(-0.7, 4.0, -0.5, 1.8, -0.24, 0.3));
   cabinet(piece(0.7, 3.8, -0.6, 1.3, 0.4, 0.0), 1.0);
-  crate(piece(-0.6, 4.3, -0.2, 0.5), 0.75);
-  crate(piece(0.8, 4.4, -0.1, -0.3), 0.7);
-  crate(piece(0.1, 4.0, 0.8, 0.2), 0.8);
+  chair(piece(-0.5, 4.2, -0.15, 0.5, 0.2, 0.1));
+  monitor(piece(0.15, 4.0, 0.7, 0.3, 0.15, 0));
 
   // Peak (~5.0–6.5m).
   monitor(piece(0.1, 5.0, 0.2, 0.4, 0.18, 0.0));
   chair(piece(-0.3, 5.3, 0.1, 1.2, 0.45, 0.38));
-  crate(piece(0.4, 5.4, -0.2, 0.6), 0.7);
-  crate(piece(-0.2, 5.8, 0.0, -0.4), 0.6);
-
-  // Crate-fill pass — plugs the remaining interior voids so no gaps show between pieces.
-  // Radius tapers with height to stay inside the mound; deterministic so the pile is stable.
-  const fillCrates = [
-    [1.4, 0.4, 0.6, 0.3, 0.7], [-1.0, 0.5, 1.1, -0.5, 0.75], [0.2, 0.6, -1.5, 0.8, 0.65],
-    [-2.0, 0.4, 1.6, 0.2, 0.7], [2.2, 0.5, 0.9, -0.4, 0.7], [-0.6, 1.7, 0.4, 0.5, 0.7],
-    [1.1, 1.8, 0.3, -0.3, 0.65], [-1.5, 1.9, 1.0, 0.6, 0.6], [0.5, 2.0, -1.0, 0.2, 0.7],
-    [-0.2, 3.3, 0.5, 0.4, 0.6], [0.9, 3.4, 0.4, -0.5, 0.6], [-0.9, 3.5, 0.3, 0.7, 0.55],
-    [0.3, 4.6, 0.3, 0.3, 0.55], [-0.4, 4.8, -0.3, -0.4, 0.5],
-  ];
-  for (const [fx, fy, fz, fyaw, fs] of fillCrates) {
-    crate(piece(fx, fy, fz, fyaw, fyaw * 0.3, 0), fs);
-  }
+  chair(piece(0.35, 5.35, -0.15, 0.6, 0.3, 0.2));
 
   unitBox.dispose();
 
@@ -1157,28 +1558,72 @@ function buildCenterFurniturePile(scene, world) {
   bodies.push(body);
 
   // ----- Materials + per-material merge -----
+  const woodTex = buildFurnitureTexture("wood");
+  woodTex.repeat.set(1.4, 1.4);
+  const fabricTex = buildFurnitureTexture("fabric");
+  fabricTex.repeat.set(2.2, 2.2);
+  const metalTex = buildFurnitureTexture("metal");
+  metalTex.repeat.set(1.1, 1.1);
+  const plasticTex = buildFurnitureTexture("plastic");
+  plasticTex.repeat.set(1.0, 1.0);
+
   const woodMat = new THREE.MeshStandardMaterial({
-    color: 0x6f5434, roughness: 0.82, metalness: 0.02,
+    map: woodTex,
+    color: 0xc4a06a,
+    roughness: 0.88,
+    metalness: 0.02,
+    vertexColors: true,
   });
   const fabricMat = new THREE.MeshStandardMaterial({
-    color: 0x5f5247, roughness: 0.96, metalness: 0.0,
+    map: fabricTex,
+    color: 0x9a9084,
+    roughness: 0.97,
+    metalness: 0.0,
+    vertexColors: true,
   });
   const metalMat = new THREE.MeshStandardMaterial({
-    color: 0x777870, roughness: 0.68, metalness: 0.45,
-  });
-  const cardboardMat = new THREE.MeshStandardMaterial({
-    color: 0xa88455, roughness: 0.9, metalness: 0.0,
+    map: metalTex,
+    color: 0xa8aca4,
+    roughness: 0.72,
+    metalness: 0.42,
+    vertexColors: true,
   });
   const darkMat = new THREE.MeshStandardMaterial({
-    color: 0x292724, roughness: 0.88, metalness: 0.08,
+    map: plasticTex,
+    color: 0x6a6660,
+    roughness: 0.9,
+    metalness: 0.06,
+    vertexColors: true,
   });
+
+  /**
+   * Bake height-based dirt into vertex colors so lower pile pieces read grimier.
+   * Kept conservative at the top so the spotlight doesn't blow materials to white.
+   * @param {THREE.BufferGeometry} geo
+   */
+  const bakePileWear = (geo) => {
+    const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i += 1) {
+      const y = pos.getY(i);
+      const t = Math.max(0, Math.min(1, y / 5.5));
+      // 0.55 floor dirt → 0.88 peak (never full white under bloom).
+      const dirt = 0.55 + 0.33 * t;
+      colors[i * 3] = dirt * 0.96;
+      colors[i * 3 + 1] = dirt * 0.92;
+      colors[i * 3 + 2] = dirt * 0.86;
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  };
 
   const ownedGeometries = [];
   const ownedMaterials = [];
+  const ownedTextures = [woodTex, fabricTex, metalTex, plasticTex];
   const mergeAdd = (bucket, mat) => {
     if (bucket.length === 0) return;
     const merged = BufferGeometryUtils.mergeGeometries(bucket, false);
     bucket.forEach((g) => g.dispose());
+    bakePileWear(merged);
     ownedGeometries.push(merged);
     ownedMaterials.push(mat);
     pileVisualGroup.add(new THREE.Mesh(merged, mat));
@@ -1187,7 +1632,6 @@ function buildCenterFurniturePile(scene, world) {
   mergeAdd(parts.wood, woodMat);
   mergeAdd(parts.fabric, fabricMat);
   mergeAdd(parts.metal, metalMat);
-  mergeAdd(parts.cardboard, cardboardMat);
   mergeAdd(parts.dark, darkMat);
 
   const pileShadows = createStaticContactShadowCluster([
@@ -1202,6 +1646,7 @@ function buildCenterFurniturePile(scene, world) {
     bodies,
     ownedGeometries: [...ownedGeometries, ...pileShadows.ownedGeometries],
     ownedMaterials: [...ownedMaterials, ...pileShadows.ownedMaterials],
+    ownedTextures,
   };
 }
 
@@ -1322,12 +1767,14 @@ function buildFurniturePileSpotlight(scene) {
  *   wallColliderHandles: number[],
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[],
+ *   ownedTextures: THREE.Texture[],
  * }}
  */
 function buildWalls(scene, world, wallpaperTex) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
 
   const baseboardParts = [];
+  const voidLipParts = [];
   const pillarParts = [];
   const shelfMetalParts = [];
   const shelfBoxRedParts = [];
@@ -1336,24 +1783,37 @@ function buildWalls(scene, world, wallpaperTex) {
 
   const group = new THREE.Group();
   const ownedGeometries = [];
+  const ownedTextures = [];
   const wallBodies = [];
   const wallColliderHandles = [];
 
   // Drywall faces use the wallpaper texture directly (not merged, so UVs tile cleanly).
+  // Dead-adjacent walls (−X / +Z) get a slightly murkier tint — local decay.
   const drywallMat = new THREE.MeshStandardMaterial({
     map: wallpaperTex, color: 0xffffff, roughness: 0.96, metalness: 0.0,
     vertexColors: true, side: THREE.DoubleSide,
   });
+  const drywallMatDead = drywallMat.clone();
+  drywallMatDead.color.setHex(0xc8b888);
   const wallCenterY = (WALL_HEIGHT + WALL_BOTTOM_Y) / 2;
   const wallFullHeight = WALL_HEIGHT - WALL_BOTTOM_Y;
   const drywallGeo = buildWallpaperPlaneGeometry(WALL_SPAN, WALL_BOTTOM_Y, WALL_HEIGHT);
   ownedGeometries.push(drywallGeo);
+
+  const concreteTex = buildConcreteTexture();
+  concreteTex.repeat.set(1, 4);
+  ownedTextures.push(concreteTex);
+  const cartonTex = buildPropSurfaceTexture("carton");
+  cartonTex.repeat.set(1, 1);
+  ownedTextures.push(cartonTex);
 
   const pillarBaseRgb = /** @type {[number, number, number]} */ ([0.56, 0.54, 0.48]);
   const shelfMetalBaseRgb = /** @type {[number, number, number]} */ ([0.42, 0.4, 0.35]);
 
   // Sides that carry aged store shelving (mixed with plain drywall walls).
   const SHELVED_SIDES = new Set([0, 2]);
+  // +Z (0) and −X (3) face the dead fluorescent quadrant.
+  const DEAD_SIDES = new Set([0, 3]);
   const SHELF_LEVELS = 5;
   const SHELF_DEPTH = 2.0;
   const boardThickness = 0.12;
@@ -1367,7 +1827,8 @@ function buildWalls(scene, world, wallpaperTex) {
 
     // Drywall face (textured plane on the inner side, facing the room).
     {
-      const wall = new THREE.Mesh(drywallGeo, drywallMat);
+      const mat = DEAD_SIDES.has(side) ? drywallMatDead : drywallMat;
+      const wall = new THREE.Mesh(drywallGeo, mat);
       const [px, , pz] = toWorld(0, wallCenterY, -0.04);
       wall.position.set(px, wallCenterY, pz);
       // Plane normal must face the room center (inward).
@@ -1383,6 +1844,13 @@ function buildWalls(scene, world, wallpaperTex) {
       const [sx, sz] = wDim(WALL_SPAN, 0.4);
       const [px, py, pz] = toWorld(0, 0.4, -(0.4 / 2 + WALL_DECOR_INSET));
       pushBox(baseboardParts, sx, 0.8, sz, px, py, pz, unitBox);
+    }
+    // Thicker void-lip band under the baseboard — reinforces the walls dropping into black.
+    {
+      const [sx, sz] = wDim(WALL_SPAN, 0.55);
+      const lipH = 1.6;
+      const [px, , pz] = toWorld(0, -lipH / 2, -(0.55 / 2 + WALL_DECOR_INSET));
+      pushBox(voidLipParts, sx, lipH, sz, px, -lipH / 2, pz, unitBox);
     }
 
     // Concrete support pillars — full wall height, fading into the void at the pit floor.
@@ -1474,24 +1942,31 @@ function buildWalls(scene, world, wallpaperTex) {
   const baseboardMat = new THREE.MeshStandardMaterial({
     color: 0x2c2820, roughness: 0.85, metalness: 0.05,
   });
+  const voidLipMat = new THREE.MeshStandardMaterial({
+    color: 0x12110f, roughness: 0.95, metalness: 0.0,
+  });
   const pillarMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.92, metalness: 0.0, vertexColors: true,
+    map: concreteTex,
+    color: 0xffffff,
+    roughness: 0.94,
+    metalness: 0.0,
+    vertexColors: true,
   });
   const shelfMetalMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.78, metalness: 0.4, vertexColors: true,
   });
   const shelfRedMat = new THREE.MeshStandardMaterial({
-    color: 0x8a4f44, roughness: 0.85, metalness: 0.05,
+    map: cartonTex, color: 0xb56a5c, roughness: 0.88, metalness: 0.05,
   });
   const shelfBlueMat = new THREE.MeshStandardMaterial({
-    color: 0x556272, roughness: 0.85, metalness: 0.05,
+    map: cartonTex, color: 0x6a7a90, roughness: 0.88, metalness: 0.05,
   });
   const shelfBeigeMat = new THREE.MeshStandardMaterial({
-    color: 0xa89f80, roughness: 0.88, metalness: 0.03,
+    map: cartonTex, color: 0xc4b998, roughness: 0.9, metalness: 0.03,
   });
 
   const ownedMaterials = [
-    drywallMat, baseboardMat, pillarMat,
+    drywallMat, drywallMatDead, baseboardMat, voidLipMat, pillarMat,
     shelfMetalMat, shelfRedMat, shelfBlueMat, shelfBeigeMat,
   ];
 
@@ -1504,6 +1979,7 @@ function buildWalls(scene, world, wallpaperTex) {
   };
 
   mergeAdd(baseboardParts, baseboardMat);
+  mergeAdd(voidLipParts, voidLipMat);
   mergeAdd(pillarParts, pillarMat);
   mergeAdd(shelfMetalParts, shelfMetalMat);
   mergeAdd(shelfBoxRedParts, shelfRedMat);
@@ -1511,7 +1987,9 @@ function buildWalls(scene, world, wallpaperTex) {
   mergeAdd(shelfBoxBeigeParts, shelfBeigeMat);
 
   scene.add(group);
-  return { group, wallBodies, wallColliderHandles, ownedGeometries, ownedMaterials };
+  return {
+    group, wallBodies, wallColliderHandles, ownedGeometries, ownedMaterials, ownedTextures,
+  };
 }
 
 // ===== Pit-ring dressing (the store continues, abandoned) =====
@@ -1599,26 +2077,28 @@ function buildPitRingDressing(scene) {
 // ===== Quiet uncanny details (EXIT to nowhere, stopped clock, painted arrows) =====
 
 /**
- * Three small, quiet wrongnesses — deliberately capped at three so they stay uncanny
- * instead of cluttered: a failing EXIT sign pointing at blank wallpaper, a wall clock
- * stopped at 3:47 in the dead-lighting quadrant, and faded painted arrows on the carpet
- * edge band pointing at walls and voids. All emissive-map based, zero dynamic lights.
+ * Quiet wrongnesses: a failing EXIT on a freestanding post (readable in match) plus a
+ * few faded carpet arrows at the edge band. Keeps the hole-side set clean.
  *
  * @param {THREE.Scene} scene
+ * @param {import("@dimforge/rapier3d").World} world
  * @returns {{
  *   group: THREE.Group,
+ *   bodies: object[],
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[],
  *   ownedTextures: THREE.Texture[],
  * }}
  */
-function buildUncannyDetails(scene) {
+function buildUncannyDetails(scene, world) {
   const group = new THREE.Group();
+  const bodies = [];
   const ownedGeometries = [];
   const ownedMaterials = [];
   const ownedTextures = [];
+  const arrowRng = makeRng(0xa2207001);
 
-  // --- Failing EXIT sign (west wall) whose arrow points along the blank wall.
+  // Blocky EXIT glyph (no system fonts — always a fixture, never desktop text).
   const exitCanvas = document.createElement("canvas");
   exitCanvas.width = 256;
   exitCanvas.height = 96;
@@ -1627,18 +2107,25 @@ function buildUncannyDetails(scene) {
     ctx.fillStyle = "#0c0d0a";
     ctx.fillRect(0, 0, 256, 96);
     ctx.fillStyle = "#3f8f55";
-    ctx.font = "bold 58px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("EXIT", 148, 52);
-    // Arrow triangle pointing left — at nothing.
     ctx.beginPath();
-    ctx.moveTo(18, 48);
-    ctx.lineTo(52, 26);
-    ctx.lineTo(52, 70);
+    ctx.moveTo(14, 48);
+    ctx.lineTo(48, 22);
+    ctx.lineTo(48, 74);
     ctx.closePath();
     ctx.fill();
-    // Failing half: darken one end unevenly.
+    const glyph = (ox, bits) => {
+      for (let row = 0; row < 7; row += 1) {
+        for (let col = 0; col < 5; col += 1) {
+          if (bits[row] & (1 << (4 - col))) {
+            ctx.fillRect(ox + col * 7, 22 + row * 8, 6, 7);
+          }
+        }
+      }
+    };
+    glyph(64, [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f]);
+    glyph(104, [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11]);
+    glyph(144, [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x1f]);
+    glyph(184, [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04]);
     const grad = ctx.createLinearGradient(120, 0, 256, 0);
     grad.addColorStop(0, "rgba(0,0,0,0)");
     grad.addColorStop(1, "rgba(0,0,0,0.55)");
@@ -1647,83 +2134,50 @@ function buildUncannyDetails(scene) {
   }
   const exitTex = new THREE.CanvasTexture(exitCanvas);
   ownedTextures.push(exitTex);
-  const exitGeo = new THREE.BoxGeometry(1.5, 0.55, 0.1);
+  const exitGeo = new THREE.BoxGeometry(1.55, 0.58, 0.1);
   const exitMat = new THREE.MeshStandardMaterial({
     color: 0x161613,
     emissiveMap: exitTex,
     emissive: 0xffffff,
-    emissiveIntensity: 0.45,
+    emissiveIntensity: 0.85,
     roughness: 0.7,
   });
-  ownedGeometries.push(exitGeo);
-  ownedMaterials.push(exitMat);
+  const postMat = new THREE.MeshStandardMaterial({
+    color: 0x3a3830, roughness: 0.85, metalness: 0.15,
+  });
+  const postGeo = new THREE.BoxGeometry(0.14, 3.2, 0.14);
+  ownedGeometries.push(exitGeo, postGeo);
+  ownedMaterials.push(exitMat, postMat);
+
+  // Freestanding post near the dead quadrant — only prop kept at the hole.
+  const exitPost = new THREE.Mesh(postGeo, postMat);
+  exitPost.position.set(-27.5, 1.6, 22.5);
+  group.add(exitPost);
+  {
+    const body = world.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed().setTranslation(-27.5, 1.6, 22.5),
+    );
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(0.1, 1.6, 0.1)
+        .setFriction(0.4)
+        .setRestitution(0.25),
+      body,
+    );
+    bodies.push(body);
+  }
   const exitSign = new THREE.Mesh(exitGeo, exitMat);
-  exitSign.position.set(-(WALL_HALF - 0.4), 3.5, 9);
-  exitSign.rotation.y = Math.PI / 2;
+  exitSign.position.set(-27.5, 3.35, 22.5);
+  exitSign.rotation.y = Math.PI * 0.35;
   group.add(exitSign);
 
-  // --- Wall clock stopped at 3:47, hung in the dead-lighting quadrant (-X/+Z).
-  const clockCanvas = document.createElement("canvas");
-  clockCanvas.width = 128;
-  clockCanvas.height = 128;
-  {
-    const ctx = clockCanvas.getContext("2d");
-    ctx.fillStyle = "#26241e";
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.fillStyle = "#c9c2ac";
-    ctx.beginPath();
-    ctx.arc(64, 64, 58, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#3a372e";
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 12; i += 1) {
-      const a = (i / 12) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(64 + Math.cos(a) * 48, 64 + Math.sin(a) * 48);
-      ctx.lineTo(64 + Math.cos(a) * 54, 64 + Math.sin(a) * 54);
-      ctx.stroke();
-    }
-    const drawHand = (angleRad, len, w) => {
-      ctx.lineWidth = w;
-      ctx.beginPath();
-      ctx.moveTo(64, 64);
-      ctx.lineTo(64 + Math.cos(angleRad) * len, 64 + Math.sin(angleRad) * len);
-      ctx.stroke();
-    };
-    // 3:47 — angles measured from 12 o'clock, canvas Y is down.
-    const minuteA = (47 / 60) * Math.PI * 2 - Math.PI / 2;
-    const hourA = ((3 + 47 / 60) / 12) * Math.PI * 2 - Math.PI / 2;
-    drawHand(hourA, 28, 5);
-    drawHand(minuteA, 42, 3);
-  }
-  const clockTex = new THREE.CanvasTexture(clockCanvas);
-  ownedTextures.push(clockTex);
-  const clockGeo = new THREE.CircleGeometry(0.38, 24);
-  const clockMat = new THREE.MeshStandardMaterial({
-    color: 0x8f8a7a,
-    map: clockTex,
-    emissiveMap: clockTex,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.1,
-    roughness: 0.8,
-  });
-  ownedGeometries.push(clockGeo);
-  ownedMaterials.push(clockMat);
-  const clock = new THREE.Mesh(clockGeo, clockMat);
-  clock.position.set(-(WALL_HALF - 0.3), 4.6, 20);
-  clock.rotation.y = Math.PI / 2;
-  group.add(clock);
-
-  // --- Faded painted directional arrows on the carpet edge band, pointing at nothing
-  // --- useful (a wall, a void). Decals: transparent, no depth write, tiny y-offset.
+  // Faded painted arrows on the carpet edge band (away from the EXIT hole).
   const arrowCanvas = document.createElement("canvas");
   arrowCanvas.width = 128;
   arrowCanvas.height = 128;
   {
     const ctx = arrowCanvas.getContext("2d");
     ctx.clearRect(0, 0, 128, 128);
-    ctx.fillStyle = "rgba(232,228,214,0.85)";
-    // Chevron arrow pointing "up" (−Y canvas), worn edges punched out below.
+    ctx.fillStyle = "rgba(232,228,214,0.9)";
     ctx.beginPath();
     ctx.moveTo(64, 14);
     ctx.lineTo(104, 62);
@@ -1737,18 +2191,18 @@ function buildUncannyDetails(scene) {
     ctx.globalCompositeOperation = "destination-out";
     for (let i = 0; i < 46; i += 1) {
       ctx.beginPath();
-      ctx.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 5, 0, Math.PI * 2);
+      ctx.arc(arrowRng() * 128, arrowRng() * 128, 2 + arrowRng() * 5, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalCompositeOperation = "source-over";
   }
   const arrowTex = new THREE.CanvasTexture(arrowCanvas);
   ownedTextures.push(arrowTex);
-  const arrowGeo = new THREE.PlaneGeometry(1.3, 1.3);
+  const arrowGeo = new THREE.PlaneGeometry(1.45, 1.45);
   const arrowMat = new THREE.MeshStandardMaterial({
     map: arrowTex,
     transparent: true,
-    opacity: 0.26,
+    opacity: 0.42,
     depthWrite: false,
     roughness: 0.95,
     polygonOffset: true,
@@ -1757,11 +2211,10 @@ function buildUncannyDetails(scene) {
   ownedGeometries.push(arrowGeo);
   ownedMaterials.push(arrowMat);
 
-  // [x, z, yaw] — yaw 0 points +Z after the flat rotation; one aims at the (+20,+20) void.
   const arrowSpots = [
-    [33.5, 6, Math.PI / 2], // → +X wall
-    [-8, 33.5, 0], // → +Z wall
-    [27, 27, Math.PI + Math.PI / 4], // → the (20, 20) void, diagonally inward
+    [33.5, 6, Math.PI / 2],
+    [-8, 33.5, 0],
+    [27, 27, Math.PI + Math.PI / 4],
   ];
   for (const [ax, az, yaw] of arrowSpots) {
     const arrow = new THREE.Mesh(arrowGeo, arrowMat);
@@ -1772,7 +2225,7 @@ function buildUncannyDetails(scene) {
   }
 
   scene.add(group);
-  return { group, ownedGeometries, ownedMaterials, ownedTextures };
+  return { group, bodies, ownedGeometries, ownedMaterials, ownedTextures };
 }
 
 // ===== Doorways to nowhere =====
@@ -1784,20 +2237,36 @@ function buildUncannyDetails(scene) {
  * of many. Pure visuals on the far side of the pit; nothing collides.
  *
  * @param {THREE.Scene} scene
+ * @param {THREE.Texture} wallpaperTex Shared wallpaper map for the sealed door fill.
  * @returns {{ group: THREE.Group, ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[] }}
  */
-function buildDoorways(scene) {
+function buildDoorways(scene, wallpaperTex) {
   const group = new THREE.Group();
 
-  const openingGeo = new THREE.PlaneGeometry(1.15, 2.3);
-  const stripGeo = new THREE.PlaneGeometry(0.07, 2.05);
-  const jambGeo = new THREE.BoxGeometry(0.12, 2.45, 0.08);
-  const headerGeo = new THREE.BoxGeometry(1.42, 0.12, 0.08);
+  // Human-scale openings (~2× previous) — commercial door proportions at distance.
+  const openW = 2.3;
+  const openH = 4.4;
+  const jambT = 0.18;
+  const headerH = 0.2;
+  const frameDepth = 0.12;
+  const jambHalf = openW / 2 + jambT * 0.35;
+
+  const openingGeo = new THREE.PlaneGeometry(openW, openH);
+  const stripGeo = new THREE.PlaneGeometry(0.12, openH * 0.88);
+  const jambGeo = new THREE.BoxGeometry(jambT, openH + headerH * 0.5, frameDepth);
+  const headerGeo = new THREE.BoxGeometry(openW + jambT * 2.2, headerH, frameDepth);
 
   const openingMat = new THREE.MeshBasicMaterial({ color: 0x050506 });
-  const sealedMat = new THREE.MeshStandardMaterial({ color: 0xb2a04e, roughness: 0.96 });
+  // Sealed fill uses the real wallpaper so it doesn't read as a different material.
+  const sealedMat = new THREE.MeshStandardMaterial({
+    map: wallpaperTex,
+    color: 0xd4c48a,
+    roughness: 0.96,
+    metalness: 0.0,
+  });
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.85 });
-  const stripMat = new THREE.MeshBasicMaterial({ color: 0x8a7a55 });
+  // Warm fluorescent strip — MeshBasic so it punches through fog as a "hallway continues".
+  const stripMat = new THREE.MeshBasicMaterial({ color: 0xffe9b0 });
 
   const ownedGeometries = [openingGeo, stripGeo, jambGeo, headerGeo];
   const ownedMaterials = [openingMat, sealedMat, frameMat, stripMat];
@@ -1810,37 +2279,38 @@ function buildDoorways(scene) {
     [1, 26, "dark"], // plain dark opening
   ];
 
+  const midY = openH / 2;
   for (const [side, along, variant] of doors) {
     const { toWorld } = wallFrame(side);
     const faceYaw = side === 1 ? 0 : Math.PI / 2; // plane normal toward the room
     const doorGroup = new THREE.Group();
 
-    // * Offsets sit proud of the protruding baseboard strip (0.3m) so the doorway
+    // * Offsets sit proud of the protruding baseboard strip so the doorway
     // * cuts through it visually instead of being half-buried behind it.
     const opening = new THREE.Mesh(openingGeo, variant === "sealed" ? sealedMat : openingMat);
     const [ox, , oz] = toWorld(along, 0, -0.34);
-    opening.position.set(ox, 1.15, oz);
+    opening.position.set(ox, midY, oz);
     opening.rotation.y = faceYaw;
     doorGroup.add(opening);
 
     if (variant === "lit") {
       const strip = new THREE.Mesh(stripGeo, stripMat);
-      const [sx, , sz] = toWorld(along + 0.38, 0, -0.36);
-      strip.position.set(sx, 1.15, sz);
+      const [sx, , sz] = toWorld(along + openW * 0.32, 0, -0.36);
+      strip.position.set(sx, midY, sz);
       strip.rotation.y = faceYaw;
       doorGroup.add(strip);
     }
 
-    for (const jambOff of [-0.66, 0.66]) {
+    for (const jambOff of [-jambHalf, jambHalf]) {
       const jamb = new THREE.Mesh(jambGeo, frameMat);
       const [jx, , jz] = toWorld(along + jambOff, 0, -0.38);
-      jamb.position.set(jx, 1.22, jz);
+      jamb.position.set(jx, midY + headerH * 0.15, jz);
       jamb.rotation.y = faceYaw;
       doorGroup.add(jamb);
     }
     const header = new THREE.Mesh(headerGeo, frameMat);
     const [hx, , hz] = toWorld(along, 0, -0.38);
-    header.position.set(hx, 2.42, hz);
+    header.position.set(hx, openH + headerH * 0.35, hz);
     header.rotation.y = faceYaw;
     doorGroup.add(header);
 
@@ -1932,29 +2402,23 @@ function buildCeiling(scene, world, ceilingTex) {
   const railScale = new THREE.Vector3(1, 1, 1);
   const railMatrix = new THREE.Matrix4();
 
-  const grid = 5;
-  const span = ARENA_HALF * 1.75;
+  const grid = CEILING_FIXTURE_GRID;
+  const span = CEILING_FIXTURE_SPAN;
   const fixtureY = CEILING_Y - 0.22;
-  // * Tight cones aimed above the floor — wash mid-air, not hot carpet pools.
-  const spotIntensity = 12;
-  const spotDistance = 32;
-  const spotAngle = Math.PI / 5.4;
-  const spotPenumbra = 0.74;
-  const spotDecay = 2.35;
-  const spotTargetY = 4.2;
+  // * Soft cones aimed lower so faint elliptical pools land on carpet without hotspots.
+  const spotIntensity = 11;
+  const spotDistance = 34;
+  const spotAngle = Math.PI / 4.8;
+  const spotPenumbra = 0.82;
+  const spotDecay = 2.25;
+  const spotTargetY = 1.6;
   for (let gx = 0; gx < grid; gx += 1) {
     for (let gz = 0; gz < grid; gz += 1) {
-      const px = -span / 2 + (gx + 0.5) * (span / grid);
-      const pz = -span / 2 + (gz + 0.5) * (span / grid);
+      const { x: px, z: pz } = fixtureWorldXZ(gx, gz);
 
       // Deterministic state: ~1 in 5 dead, ~1 in 4 dimmed, rest lit — EXCEPT one fully
-      // dead 2×2 corner quadrant (removes 3 SpotLights vs the hash: uniform dimness reads
-      // as "a look"; a genuinely dark corner reads as "something is wrong here").
-      const h = (gx * 7 + gz * 13) % 20;
-      const inDeadQuadrant = gx <= 1 && gz >= 3;
-      const state = inDeadQuadrant
-        ? "dead"
-        : h < 4 ? "dead" : h < 9 ? (h % 2 === 0 ? "dimA" : "dimB") : "lit";
+      // dead 2×2 corner quadrant (see getFixtureState).
+      const state = getFixtureState(gx, gz);
 
       const railOffsets = [
         { x: 0, z: 0.98, ry: 0 },
@@ -2007,8 +2471,9 @@ function buildCeiling(scene, world, ceilingTex) {
   // ----- Decay dressing: missing tiles (black gaps into the plenum), sagging tiles,
   // ----- and hanging cables. All merged; biased toward the dead quadrant (-X/+Z).
   const gapMat = new THREE.MeshBasicMaterial({ color: 0x08070a });
+  // Water-stained sag tiles — tea-brown, matches ceiling texture rings.
   const sagMat = new THREE.MeshStandardMaterial({
-    color: 0x8a7f66, roughness: 0.95, metalness: 0.0,
+    color: 0x7a6a48, roughness: 0.96, metalness: 0.0,
   });
   ownedMaterials.push(gapMat, sagMat);
 
@@ -2017,17 +2482,16 @@ function buildCeiling(scene, world, ceilingTex) {
   /** @type {THREE.BufferGeometry[]} */
   const sagParts = [];
 
-  // [x, z] tile-gap positions; the first one hosts the exhaust fan.
-  const gapSpots = [
-    [-15, 24], [-24, 17], [-20, 9], [-6, 20], [10, -22], [26, -6], [4, 27.5],
-  ];
+  // Tile-gap positions (shared with floor drip baking); first hosts the exhaust fan.
+  const gapSpots = CEILING_GAP_SPOTS;
   const gapQuad = new THREE.PlaneGeometry(1.9, 1.9);
   const cableGeo = new THREE.BoxGeometry(0.05, 1, 0.05);
   for (let i = 0; i < gapSpots.length; i += 1) {
     const [gx2, gz2] = gapSpots[i];
     const gq = gapQuad.clone();
     gq.rotateX(Math.PI / 2); // face down
-    gq.translate(gx2, CEILING_Y - 0.02, gz2);
+    // Sit clearly below the acoustic plane — coplanar black quads z-fought and flashed.
+    gq.translate(gx2, CEILING_Y - 0.08, gz2);
     gapParts.push(gq);
     // Exposed grid rim around the opening (reads as the tile having been removed).
     const rimOffsets = [
@@ -2035,7 +2499,7 @@ function buildCeiling(scene, world, ceilingTex) {
     ];
     for (const [ox, oz, sx, sz] of rimOffsets) {
       const rim = new THREE.BoxGeometry(sx, 0.06, sz);
-      rim.translate(gx2 + ox, CEILING_Y - 0.03, gz2 + oz);
+      rim.translate(gx2 + ox, CEILING_Y - 0.06, gz2 + oz);
       railParts.push(rim);
     }
     // A cable drooping out of some gaps (deterministic alternation, none where the fan goes).
@@ -2052,7 +2516,8 @@ function buildCeiling(scene, world, ceilingTex) {
   cableGeo.dispose();
 
   // Sagging, water-stained tiles: 2×2 planes with the center vertex bowed down.
-  for (const [sx2, sz2, sag] of [[-18, 13, 0.22], [8, 19, 0.16]]) {
+  // Material tint matches ceiling texture water rings (same leak story).
+  for (const [sx2, sz2, sag] of CEILING_SAG_SPOTS) {
     const sagGeo = new THREE.PlaneGeometry(2, 2, 2, 2);
     const pos = sagGeo.attributes.position;
     pos.setZ(4, sag); // center vertex of the 3×3 grid, along +Z (down after rotateX)
@@ -2139,6 +2604,7 @@ function buildCeiling(scene, world, ceilingTex) {
  *   bodies: object[],
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[],
+ *   ownedTextures: THREE.Texture[],
  * }}
  */
 function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
@@ -2150,6 +2616,7 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const group = new THREE.Group();
   const bodies = [];
 
+  const cardboardTex = buildPropSurfaceTexture("cardboard");
   const slabMat = new THREE.MeshStandardMaterial({
     color: 0x7c766a, roughness: 0.9, metalness: 0.05,
   });
@@ -2157,7 +2624,11 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     color: 0x6c6a62, roughness: 0.45, metalness: 0.7,
   });
   const boxMat = new THREE.MeshStandardMaterial({
-    color: 0xa68a5c, roughness: 0.9, metalness: 0.0,
+    map: cardboardTex, color: 0xffffff, roughness: 0.92, metalness: 0.0,
+  });
+  // Short cubicle divider panels (per-booth height variation).
+  const dividerMat = new THREE.MeshStandardMaterial({
+    color: 0x8a8474, roughness: 0.9, metalness: 0.02,
   });
 
   const platGeo = new THREE.BoxGeometry(B.platformWidth, B.platformThickness, B.platformDepth);
@@ -2166,16 +2637,17 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const lowRailGeo = new THREE.BoxGeometry(B.platformWidth + B.railThickness, 0.55, 0.14);
   const railGeo = new THREE.CylinderGeometry(B.railThickness / 2, B.railThickness / 2, 1, 8);
   const cardboardGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+  const dividerGeo = new THREE.BoxGeometry(0.08, 1, B.platformDepth * 0.55);
 
-  const ownedMaterials = [slabMat, railMat, boxMat];
+  const ownedMaterials = [slabMat, railMat, boxMat, dividerMat];
+  const ownedTextures = [cardboardTex];
 
   const pw = B.platformWidth / 2;
   const pd = B.platformDepth / 2;
 
-  // * Booths never move — bake all 4 booths' parts into 3 merged static meshes (one per
-  // * material), same pattern as the walls/ceiling/furniture pile. ~36 draws → 3.
-  /** @type {Record<"slab" | "rail" | "box", THREE.BufferGeometry[]>} */
-  const parts = { slab: [], rail: [], box: [] };
+  // * Booths never move — bake parts into merged static meshes (one per material).
+  /** @type {Record<"slab" | "rail" | "box" | "divider", THREE.BufferGeometry[]>} */
+  const parts = { slab: [], rail: [], box: [], divider: [] };
   const boothMatrix = new THREE.Matrix4();
   const localMatrix = new THREE.Matrix4();
   const scratchPos = new THREE.Vector3();
@@ -2190,12 +2662,24 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     parts[bucket].push(template.clone().applyMatrix4(localMatrix.premultiply(boothMatrix)));
   };
 
+  /** @type {Array<{ x: number, z: number, radiusX: number, radiusZ: number, opacity?: number }>} */
+  const shadowPlacements = [];
+
+  // Per-booth micro variation (deterministic): crate count, divider height, missing rail.
+  const boothVariants = [
+    { crates: 1, dividerH: 1.15, skipRail: false, crateYaw: 0.3 },
+    { crates: 2, dividerH: 1.45, skipRail: false, crateYaw: -0.45 },
+    { crates: 1, dividerH: 0.95, skipRail: true, crateYaw: 0.55 }, // missing one post
+    { crates: 3, dividerH: 1.3, skipRail: false, crateYaw: 0.15 },
+  ];
+
   for (let i = 0; i < 4; i += 1) {
     const angle = angles[i];
     const cx = boothCenterDist * Math.cos(angle);
     const cz = boothCenterDist * Math.sin(angle);
     const topY = B.platformY;
     const yaw = Math.PI / 2 - angle;
+    const v = boothVariants[i];
 
     scratchPos.set(cx, 0, cz);
     scratchQuat.setFromEuler(scratchEuler.set(0, yaw, 0));
@@ -2222,19 +2706,47 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
 
     const deckTopY = topY + B.platformThickness / 2;
 
-    // Low back rail (local +Z = away from arena) — keeps a rear barrier without blocking the cart.
+    // Low back rail (local +Z = away from arena).
     pushPart("rail", lowRailGeo, 0, deckTopY + 0.275, pd - 0.08);
 
-    // Dull metal side rails (no neon).
+    // Dull metal side rails — one booth skips a rear post (abandoned staging).
     for (const sx of [-pw + 0.1, pw - 0.1]) {
       pushPart("rail", railGeo, sx, deckTopY + B.railHeight, 0, Math.PI / 2, 0, 0, 1, B.platformDepth - 0.4, 1);
       for (const rz of [-pd + 0.2, pd - 0.2]) {
+        if (v.skipRail && sx > 0 && rz > 0) continue;
         pushPart("rail", railGeo, sx, deckTopY + B.railHeight / 2, rz, 0, 0, 0, 1, B.railHeight, 1);
       }
     }
 
-    // Worn cardboard-box prop in the back corner.
-    pushPart("box", cardboardGeo, pw - 1.0, deckTopY + 0.55, pd - 1.0, 0, 0.3, 0);
+    // Cubicle divider — height varies per booth.
+    pushPart(
+      "divider",
+      dividerGeo,
+      -pw + 0.35,
+      deckTopY + v.dividerH / 2,
+      0.15,
+      0, 0, 0,
+      1, v.dividerH, 1,
+    );
+
+    // Worn cardboard crates — count/placement varies.
+    const crateLayouts = [
+      [pw - 1.0, pd - 1.0, v.crateYaw, 1],
+      [pw - 2.15, pd - 0.85, v.crateYaw + 0.7, 0.92],
+      [-pw + 1.1, pd - 1.15, -v.crateYaw, 0.85],
+    ];
+    for (let c = 0; c < v.crates; c += 1) {
+      const [bx, bz, byaw, scale] = crateLayouts[c];
+      pushPart("box", cardboardGeo, bx, deckTopY + 0.55 * scale, bz, 0, byaw, 0, scale, scale, scale);
+    }
+
+    shadowPlacements.push({
+      x: cx,
+      z: cz,
+      radiusX: B.platformWidth * 0.48,
+      radiusZ: B.platformDepth * 0.48,
+      opacity: 0.34,
+    });
   }
 
   const ownedGeometries = [];
@@ -2248,13 +2760,24 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   mergeAdd(parts.slab, slabMat);
   mergeAdd(parts.rail, railMat);
   mergeAdd(parts.box, boxMat);
+  mergeAdd(parts.divider, dividerMat);
   platGeo.dispose();
   lowRailGeo.dispose();
   railGeo.dispose();
   cardboardGeo.dispose();
+  dividerGeo.dispose();
+
+  const boothShadows = createStaticContactShadowCluster(shadowPlacements);
+  group.add(boothShadows.group);
 
   scene.add(group);
-  return { group, bodies, ownedGeometries, ownedMaterials };
+  return {
+    group,
+    bodies,
+    ownedGeometries: [...ownedGeometries, ...boothShadows.ownedGeometries],
+    ownedMaterials: [...ownedMaterials, ...boothShadows.ownedMaterials],
+    ownedTextures,
+  };
 }
 
 // ===== Level entry point =====
@@ -2371,6 +2894,8 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     floor: new THREE.MeshBasicMaterial({ map: subCarpetTex, color: 0x2e2a20 }),
     glow: new THREE.MeshBasicMaterial({ color: 0x5c5544, side: THREE.DoubleSide }),
     silhouette: new THREE.MeshBasicMaterial({ color: 0x0b0a09 }),
+    // Slightly lighter than deep silhouettes so looking-down hints read before a KO fall.
+    nearSilhouette: new THREE.MeshBasicMaterial({ color: 0x12110f }),
   };
   const voidGroup = new THREE.Group();
   const voidGeometries = [];
@@ -2396,8 +2921,8 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
 
   // ===== Atmosphere dressing (all non-colliding, merged, zero new dynamic lights) =====
   const pitDressing = buildPitRingDressing(scene);
-  const uncanny = buildUncannyDetails(scene);
-  const doorways = buildDoorways(scene);
+  const uncanny = buildUncannyDetails(scene, world);
+  const doorways = buildDoorways(scene, wallpaperTex);
 
   // ===== Ambient fill lighting (warm; compensates for thick fog while staying dim/liminal) =====
   const hemiLight = new THREE.HemisphereLight(0xd6c9a0, 0x33301f, 1.42);
@@ -2465,13 +2990,18 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   ];
   const ownedMaterials = [
     floorMat, voidShaftMat, subRoomMats.floor, subRoomMats.glow, subRoomMats.silhouette,
+    subRoomMats.nearSilhouette,
     ...pit.materials,
     ...walls.ownedMaterials, ...ceiling.ownedMaterials, ...booths.ownedMaterials,
     ...pitDressing.ownedMaterials, ...uncanny.ownedMaterials, ...doorways.ownedMaterials,
     ...furniturePile.ownedMaterials, ...furnitureSpotlight.ownedMaterials,
   ];
   const ownedTextures = [
-    carpetTex, subCarpetTex, wallpaperTex, ceilingTex, ...uncanny.ownedTextures,
+    carpetTex, subCarpetTex, wallpaperTex, ceilingTex,
+    ...uncanny.ownedTextures,
+    ...(walls.ownedTextures ?? []),
+    ...(booths.ownedTextures ?? []),
+    ...(furniturePile.ownedTextures ?? []),
   ];
 
   function disposeMaterial(material) {
@@ -2523,6 +3053,11 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     }
     if (world && furniturePile.bodies) {
       for (const body of furniturePile.bodies) {
+        if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
+      }
+    }
+    if (world && uncanny.bodies) {
+      for (const body of uncanny.bodies) {
         if (world.getRigidBody(body.handle)) world.removeRigidBody(body);
       }
     }
