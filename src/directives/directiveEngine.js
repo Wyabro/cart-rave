@@ -17,10 +17,17 @@
  *   - Host migration: engine state is local; a new host simply starts a fresh schedule.
  *     Directives are ≤20s, so at worst one window is cut short.
  *
+ * Scheduling: a fixed per-round slot list (CONFIG.directives.fireAtMs, default three
+ * slots evenly spaced across the first two minutes) with ± jitter re-rolled each round.
+ * Slot times are anchored to round-elapsed time (Date.now − roundStartedAtMs), so a
+ * migrated host derives the same remaining slots; stale slots (missed by more than a
+ * window, e.g. across a migration) are skipped, never fired late.
+ *
  * Safety rails:
  *   - Directives never fire during Sudden Death (an addScore there would end the round);
  *     entering SD or leaving the running phase restores overrides immediately.
- *   - No new directive starts if the round clock can't fit the window plus a beat.
+ *   - No window may run inside the round's quiet finale (CONFIG.directives.quietFinaleMs)
+ *     — the last 30 seconds belong to the endgame.
  *   - One directive active at a time; back-to-back repeats are avoided.
  */
 
@@ -47,8 +54,11 @@ let active = null;
 /** @type {Array<{ obj: object, key: string, old: number }>} Saved values for restore. */
 let savedValues = [];
 
-/** performance.now() deadline for the next host fire (0 = derive on next running tick). */
-let nextFireAtMs = 0;
+/** @type {number[]} This round's jittered fire times, in round-elapsed ms. */
+let fireSchedule = [];
+
+/** Index of the next unfired slot in {@link fireSchedule}. */
+let scheduleIdx = 0;
 
 /** Avoid firing the same directive twice in a row. */
 let lastDirectiveId = null;
@@ -87,7 +97,7 @@ function resolveConfigTarget(path) {
  * @param {number} durationMs
  */
 function applyDirective(def, nowMs, durationMs) {
-  if (active) restoreActive({ silent: true });
+  if (active) restoreActive();
 
   savedValues = [];
   for (const ov of def.overrides ?? []) {
@@ -107,20 +117,16 @@ function applyDirective(def, nowMs, durationMs) {
 }
 
 /**
- * Restores every override of the active directive and clears it.
- * @param {{ silent?: boolean }} [opts] silent — skip the PA end line (round ended, SD).
+ * Restores every override of the active directive and clears it. Deliberately silent —
+ * the HUD chip draining to zero is the end signal; a PA sign-off read as noise.
  */
-function restoreActive(opts = {}) {
+function restoreActive() {
   if (!active) return;
   for (const s of savedValues) {
     s.obj[s.key] = s.old;
   }
   savedValues = [];
-  const endedDef = active.def;
   active = null;
-  if (!opts.silent) {
-    deps?.announce("directive_end", { title: endedDef.title });
-  }
 }
 
 /** Weighted random pick from DIRECTIVES, avoiding a back-to-back repeat. */
@@ -138,16 +144,19 @@ function pickDirective() {
   return defs[defs.length - 1] ?? null;
 }
 
-/** @returns {number} Random interval between directive windows (ms). */
-function randInterval() {
+/** Builds this round's jittered slot list from CONFIG.directives.fireAtMs. */
+function buildFireSchedule() {
   const cfg = CONFIG.directives;
-  const min = cfg?.minIntervalMs ?? 25000;
-  const max = Math.max(min, cfg?.maxIntervalMs ?? 40000);
-  return min + Math.random() * (max - min);
+  const jitter = cfg?.jitterMs ?? 0;
+  fireSchedule = (cfg?.fireAtMs ?? []).map(
+    (t) => Math.max(0, t + (Math.random() * 2 - 1) * jitter),
+  );
+  scheduleIdx = 0;
 }
 
 /**
- * Per-frame tick (all peers). Hosts schedule + fire; everyone ticks expiry locally.
+ * Per-frame tick (all peers). Hosts fire the per-round slot schedule; everyone ticks
+ * expiry locally.
  * @param {number} nowMs performance.now()
  */
 export function updateDirectiveEngine(nowMs) {
@@ -160,42 +169,48 @@ export function updateDirectiveEngine(nowMs) {
   // * Leaving the running phase or entering Sudden Death restores base rules at once.
   // * (An addScore during SD ends the round instantly — directives stay out of SD.)
   if (!running || state.isSuddenDeath) {
-    if (active) restoreActive({ silent: true });
-    nextFireAtMs = 0;
+    if (active) restoreActive();
     return;
   }
 
-  // * New round — fresh schedule anchored to the first-fire delay.
+  // * New round — restore leftovers and re-roll the slot jitter.
   if (state.roundStartedAtMs !== _lastRoundStartedAtMs) {
     _lastRoundStartedAtMs = state.roundStartedAtMs;
-    if (active) restoreActive({ silent: true });
-    nextFireAtMs = 0;
+    if (active) restoreActive();
+    buildFireSchedule();
     lastDirectiveId = null;
-  }
-  if (nextFireAtMs === 0) {
-    nextFireAtMs = nowMs + (cfg.firstDelayMs ?? 25000);
   }
 
   if (active && nowMs >= active.untilMs) {
     restoreActive();
   }
 
-  if (!deps.getIsHost() || active || nowMs < nextFireAtMs) return;
+  if (!deps.getIsHost() || active || scheduleIdx >= fireSchedule.length) return;
 
-  // * Don't start a window the round clock can't fit (roundStartedAtMs is Date.now-based).
   const durationMs = cfg.durationMs ?? 18000;
+  const slotAtMs = fireSchedule[scheduleIdx];
   const roundElapsed = Date.now() - state.roundStartedAtMs;
-  const roundRemaining = (CONFIG.round?.durationMs ?? 150000) - roundElapsed;
-  if (roundRemaining < durationMs + (cfg.minRoundRemainingMs ?? 8000)) {
-    nextFireAtMs = Number.POSITIVE_INFINITY; // no more directives this round
+  if (roundElapsed < slotAtMs) return;
+
+  // * Stale slot — missed by more than a window (host migration, frozen tab). Skip it;
+  // * firing late would push the window toward the finale and bunch up the next slot.
+  if (roundElapsed > slotAtMs + durationMs) {
+    scheduleIdx += 1;
+    return;
+  }
+
+  // * Quiet finale — the window must fully clear the protected round tail.
+  const roundDurationMs = CONFIG.round?.durationMs ?? 150000;
+  if (roundElapsed + durationMs > roundDurationMs - (cfg.quietFinaleMs ?? 30000)) {
+    scheduleIdx = fireSchedule.length;
     return;
   }
 
   const def = pickDirective();
   if (!def) return;
+  scheduleIdx += 1;
   const windowMs = def.durationMs ?? durationMs;
   applyDirective(def, nowMs, windowMs);
-  nextFireAtMs = nowMs + windowMs + randInterval();
   deps.sendP2PEvent({ type: MSG.directive, id: def.id, durationMs: windowMs });
 }
 

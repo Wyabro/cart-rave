@@ -100,10 +100,8 @@ const LINES = {
     directive_spill_bonus: [
       "SPILL A RIVAL'S GROCERIES +1 POINT",
     ],
-    directive_end: [
-      "BACK TO REGULAR PRICES.",
-      "PROMOTION'S OVER — KEEP SHOPPING.",
-      "THE STORE THANKS YOU FOR YOUR CHAOS.",
+    directive_rush_hour: [
+      "EVERYONE DRIVES FASTER",
     ],
     cart_overflow: [
       "{name}'S CART IS OVERFLOWING!",

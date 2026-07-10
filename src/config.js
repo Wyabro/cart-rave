@@ -224,16 +224,17 @@ const physics = {
   },
 
   // * The Living Store — the Store PA issues short mini-mutator "directives" mid-round
-  // * (Flash Sale, Double Bag, Express Lane, Spill Bonus). Scheduling knobs live here;
-  // * the directive content table is src/directives/directives.js. Host-authored,
-  // * broadcast one-shot over the DataChannel; never fires during Sudden Death.
+  // * (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour). Scheduling knobs
+  // * live here; the directive content table is src/directives/directives.js.
+  // * Host-authored, broadcast one-shot over the DataChannel; never fires in Sudden Death.
   directives: {
     enabled: true,
-    firstDelayMs: 25000, // ms after round start before the first directive can fire
-    minIntervalMs: 25000, // ms — min gap between one window's end and the next start
-    maxIntervalMs: 40000, // ms — max gap (uniform random in [min, max])
-    durationMs: 18000, // ms — default directive window length
-    minRoundRemainingMs: 8000, // ms — beat required AFTER a window fits in the round clock
+    // * Three per round, evenly spaced across the first two minutes (round is 2.5 min);
+    // * every window fully clears the endgame — the last 30s belong to the round climax.
+    fireAtMs: [20000, 55000, 90000], // ms into the round — one directive per slot
+    jitterMs: 5000, // ms — ± wiggle applied per slot each round
+    durationMs: 18000, // ms — directive window length
+    quietFinaleMs: 30000, // ms — no directive may run inside this tail of the round clock
   },
 
   environmentImpacts: {

@@ -403,21 +403,23 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     voice: Object.freeze({ key: "directive_spill_bonus", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),
-  // * Directive window lapsed — a dry PA sign-off, deliberately missable.
-  directive_end: Object.freeze({
-    id: "directive_end",
-    priority: 8,
-    cls: "ambient",
+  directive_rush_hour: Object.freeze({
+    id: "directive_rush_hour",
+    priority: 66,
+    cls: "critical",
     cooldownMs: 0,
     oncePerRound: false,
     maxPerRound: 0,
-    chance: 0.7,
-    ttlMs: 2000,
-    interruptible: true,
-    durationMs: 800,
-    callout: Object.freeze({ kicker: "STORE UPDATE", accent: "#9aa0b4", holdMs: 1100 }),
-    voice: Object.freeze({ key: "directive_end", variants: 3 }),
-    sting: null,
+    chance: 1,
+    ttlMs: 4000,
+    interruptible: false,
+    // * Feature moment: channel + focus window reserved for the whole on-screen hold
+    // * so no other callout replaces or crowds the rule change while players read it.
+    durationMs: 5200,
+    focus: true,
+    callout: Object.freeze({ kicker: "RUSH HOUR", accent: "#ff6600", holdMs: 5200 }),
+    voice: Object.freeze({ key: "directive_rush_hour", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),
   // * Living Cargo — a cart's bay just hit "overflowing" (round score reached
   // * CONFIG.cargo.fullScore). Fired once per slot per round from cargoLoad.js.

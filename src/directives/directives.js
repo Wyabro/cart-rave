@@ -67,4 +67,18 @@ export const DIRECTIVES = Object.freeze({
     weight: 1,
     spillBonusPoints: 1,
   }),
+  // * The tempo axis the other four don't touch: everyone's base driving speeds up.
+  // * maxSpeed ×1.12 stays under nitro's 27 m/s; boostedMaxSpeed lifts ×1.08 so nitro
+  // * keeps meaningful headroom above the raised base for the whole window.
+  rush_hour: Object.freeze({
+    id: "rush_hour",
+    title: "RUSH HOUR",
+    announceEvent: "directive_rush_hour",
+    weight: 1,
+    overrides: Object.freeze([
+      Object.freeze({ path: "driving.maxSpeed", mul: 1.12 }),
+      Object.freeze({ path: "driving.accel", mul: 1.25 }),
+      Object.freeze({ path: "cart.ramBoost.boostedMaxSpeed", mul: 1.08 }),
+    ]),
+  }),
 });
