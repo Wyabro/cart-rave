@@ -26,7 +26,8 @@ const GLYPHS = {
   // Menu (hamburger, rounded).
   menu: '<rect x="4" y="6" width="16" height="2.6" rx="1.3" fill="currentColor"/><rect x="4" y="10.7" width="16" height="2.6" rx="1.3" fill="currentColor"/><rect x="4" y="15.4" width="16" height="2.6" rx="1.3" fill="currentColor"/>',
   // Host — steering wheel: "the driver of the cart", never "the server".
-  host: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 14.6 V20.5 M9.9 10.7 L4.4 7.5 M14.1 10.7 L19.6 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  // Fat strokes so it survives ~10px kill-feed scale without mushing.
+  host: '<circle cx="12" cy="12" r="8.3" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 14.6 V20 M9.8 10.6 L4.8 7.6 M14.2 10.6 L19.2 7.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
 
   // ── Personality emblems — collectible sticker set ──────────────────────
   // Aggressor: red impact burst ("SMASH"), white star punch.

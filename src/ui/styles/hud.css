@@ -111,6 +111,15 @@
   z-index: 10;
 }
 
+/* Celebration lettering — yellow pigment, magenta extrude, ONE glow layer.
+   Applied only while GO! (and future victory beats) is on screen. */
+#hud .hud-status.is-celebration {
+  text-shadow:
+    0.06em 0.06em 0 var(--color-magenta),
+    0.12em 0.12em 0 var(--color-ink-deep),
+    0 0 0.5em rgba(255, 43, 214, 0.45);
+}
+
 /* Sudden Death earns hazard ribbons above and below the wordmark. */
 #hud.hud-sudden-death .hud-status::before,
 #hud.hud-sudden-death .hud-status::after {
@@ -319,7 +328,7 @@
 
 #hud .hud-timer-rd {
   margin-left: auto;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.55);
   font-size: clamp(10px, 1.1vw, 12px);
   letter-spacing: 1px;
 }
@@ -908,7 +917,8 @@
   background: linear-gradient(90deg, var(--color-yellow), #ffd24d);
 }
 
-/* ── Final-10-seconds urgency — red hazard stripes + alarm thump ────────── */
+/* ── Final-10-seconds urgency — red hazard stripes (tighter pitch than warn,
+      so the two states differ in geometry as well as hue) + alarm thump ──── */
 #hud .hud-timer.hud-timer-urgent .hud-timer-num {
   color: var(--color-alert);
   animation: hudTimerUrgent 1s cubic-bezier(0.7, 0, 0.3, 1) infinite;
@@ -916,8 +926,8 @@
 #hud .hud-timer.hud-timer-urgent .hud-timer-stripe {
   background: repeating-linear-gradient(
     -45deg,
-    var(--color-alert) 0 8px,
-    var(--color-ink-deep) 8px 16px
+    var(--color-alert) 0 5px,
+    var(--color-ink-deep) 5px 10px
   );
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-pip {
@@ -979,7 +989,7 @@
   animation: hudConnPulse 1.2s ease-in-out infinite;
 }
 @keyframes hudConnPulse {
-  50% { opacity: 0.55; }
+  50% { opacity: 0.7; }
 }
 
 /* ── In-match leader crown + rampage pips on the scoreboard ─────────────── */
@@ -1166,10 +1176,9 @@
 }
 #hud .hud-toast-kicker {
   font-family: var(--hud-ui);
-  font-size: clamp(9px, 1vw, 11px);
+  font-size: clamp(10px, 1.1vw, 11px);
   letter-spacing: 0.2em;
   color: var(--color-portal);
-  text-shadow: 0 0 10px rgba(43, 255, 122, 0.7);
 }
 #hud .hud-toast-title {
   font-family: var(--hud-mono);
@@ -1188,12 +1197,24 @@
 
 /* Timer — compact top-left pill: number + tier color + thin bar. The kill
    feed slots in directly beneath it; the right side belongs to the chip strip
-   so the two never collide on narrow phones. */
+   so the two never collide on narrow phones. The price-tag silhouette is
+   desktop-only: on touch the clip is dropped and the sticker shadow moves
+   back to a plain box-shadow. */
 #hud.hud-touch .hud-region-match {
   top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
   left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
+  filter: none;
 }
 #hud.hud-touch .hud-timer {
+  clip-path: none;
+  border-radius: var(--radius-pill);
+  padding: 2.5px;
+  box-shadow: 3px 3px 0 var(--color-ink-deep);
+}
+#hud.hud-touch .hud-timer::after {
+  display: none;
+}
+#hud.hud-touch .hud-timer-body {
   border-radius: var(--radius-pill);
 }
 #hud.hud-touch .hud-timer-stripe {
@@ -1208,15 +1229,36 @@
 #hud.hud-touch .hud-timer-meta {
   justify-content: center;
 }
-#hud.hud-touch .hud-timer-meta-label {
-  display: none;
-}
 #hud.hud-touch .hud-timer-num {
   font-size: clamp(20px, 6vw, 30px);
   text-align: center;
 }
 #hud.hud-touch .hud-timer-bar {
   width: 100%;
+}
+/* The desktop tag point is hidden on touch, so the hazard SHAPE channel moves
+   to the bar track — warn/urgent must never be hue-only (colorblind red-line). */
+#hud.hud-touch .hud-timer.hud-timer-warn .hud-timer-bar {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 229, 61, 0.55) 0 6px,
+    rgba(8, 5, 15, 0.9) 6px 12px
+  );
+}
+#hud.hud-touch .hud-timer.hud-timer-urgent .hud-timer-bar,
+#hud.hud-touch.hud-sudden-death .hud-timer-bar {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 51, 51, 0.55) 0 4px,
+    rgba(8, 5, 15, 0.9) 4px 8px
+  );
+}
+
+/* Touch targets: the mute sticker grows to the 44px interaction floor. */
+#hud.hud-touch .hud-mute-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 19px;
 }
 
 /* Standings — ultra-compact chip strip (rank + score), top-right beside the
@@ -1301,5 +1343,25 @@
   #hud .hud-combo-badge.tier-3 .hud-combo-multiplier,
   #hud .hud-ready-btn {
     animation: none;
+  }
+  /* Kill-confirm keeps its feedback but loses the stamp motion. */
+  #hud .hud-hitmarker.hit {
+    animation: hudHitmarkReduced 300ms ease-out forwards;
+  }
+}
+@keyframes hudHitmarkReduced {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
+  70%  { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
+}
+
+/* Engines without paint-order on HTML text paint the full centered stroke OVER
+   the fill — thin it so lettering degrades to "chunky", never to mud. */
+@supports not (paint-order: stroke fill) {
+  #hud .hud-status,
+  #hud .hud-timer-num,
+  #hud .hud-score-float-amt,
+  #hud .hud-combo-multiplier {
+    -webkit-text-stroke-width: 0.03em;
   }
 }

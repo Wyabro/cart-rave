@@ -257,8 +257,9 @@ function applyInstantStyles(element, values) {
 export function animateButtonPress(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 80;
-  const scale = options.scale ?? 0.94;
+  // * Press is anticipation for the release gag: deeper and near-instant.
+  const duration = options.duration ?? 60;
+  const scale = options.scale ?? 0.92;
   const ease = options.ease ?? DEFAULT_EASE_SNAP;
 
   if (!shouldAnimate(options)) {
@@ -283,9 +284,10 @@ export function animateButtonPress(element, options = {}) {
 export function animateButtonRelease(element, options = {}) {
   if (!element) return null;
 
+  // * Same time, fatter rebound — the button boings back.
   const duration = options.duration ?? 120;
   const scale = options.scale ?? 1;
-  const ease = options.ease ?? DEFAULT_EASE_BOUNCE;
+  const ease = options.ease ?? "outBack(1.9)";
 
   if (!shouldAnimate(options)) {
     applyInstantStyles(element, { scale });
@@ -423,9 +425,9 @@ export function animateTouchControlPress(element, options = {}) {
 export function animateTouchControlRelease(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 150;
+  const duration = options.duration ?? 140;
   const scale = options.scale ?? 1;
-  const ease = options.ease ?? DEFAULT_EASE_SPRING;
+  const ease = options.ease ?? "outBack(1.9)";
 
   if (!shouldAnimate({ touchOnly: true, ...options })) {
     clearInlineAnimStyles(element);
@@ -491,8 +493,9 @@ function animateJoystickEngage(knobEl, options = {}) {
 function animateJoystickRelease(knobEl, fromX, fromY, options = {}) {
   if (!knobEl) return null;
 
+  // * Rubber-band recenter snap.
   const duration = options.duration ?? 140;
-  const ease = options.ease ?? DEFAULT_EASE_BOUNCE;
+  const ease = options.ease ?? "outBack(1.7)";
 
   stopTouchPulse(knobEl);
 
@@ -712,10 +715,12 @@ function fadeOut(element, duration = 180, options = {}) {
 export function animateKillFeedEnter(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 280;
-  const ease = options.ease ?? "outBack(1.25)";
+  // * Longer travel + shorter time = actual velocity; the fat back-ease makes
+  // * each row overshoot left and snap back — rows ARRIVE, they don't queue in.
+  const duration = options.duration ?? 220;
+  const ease = options.ease ?? "outBack(1.9)";
   const delay = options.delay ?? 0;
-  const x = options.x ?? 16;
+  const x = options.x ?? 30;
   const fromOpacity = options.fromOpacity ?? 0;
 
   if (!shouldAnimate(options)) {
@@ -731,7 +736,7 @@ export function animateKillFeedEnter(element, options = {}) {
     {
       opacity: [fromOpacity, 0.9],
       x: [x, 0],
-      scale: [0.94, 1],
+      scale: [0.9, 1],
       duration,
       ease,
       delay,
@@ -749,8 +754,10 @@ export function animateKillFeedEnter(element, options = {}) {
 export function animateKillFeedExit(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 380;
-  const ease = options.ease ?? DEFAULT_EASE_FADE;
+  // * inBack = anticipation exit: the row pulls left a few px, then flings off
+  // * right — the classic Road Runner leave-frame, inside the same tween.
+  const duration = options.duration ?? 240;
+  const ease = options.ease ?? "inBack(1.4)";
   const onComplete = options.onComplete;
 
   if (!shouldAnimate(options)) {
@@ -765,8 +772,8 @@ export function animateKillFeedExit(element, options = {}) {
     element,
     {
       opacity: [0.9, 0],
-      x: [0, 18],
-      scale: [1, 0.92],
+      x: [0, 34],
+      scale: [1, 0.9],
       duration,
       ease,
       onComplete: () => {
@@ -930,7 +937,7 @@ export function animateBoostActivateFlash(element, options = {}) {
   return runTouchAnimation(
     element,
     {
-      scale: [1, 1.08, 1],
+      scale: [1, 1.12, 1],
       filter: ["brightness(1)", glow.flashFilter, glow.heldFilter],
       duration,
       ease,
@@ -986,10 +993,12 @@ export function animateColorChipSelect(chip, options = {}) {
 export function animateScorePop(element, options = {}) {
   if (!element) return null;
 
+  // * Chunkier at chip scale: bigger peak + fatter settle at the same duration.
+  // * The local/remote gap widens so YOUR points visibly hit harder.
   const isLocal = Boolean(options.isLocal);
   const duration = options.duration ?? (isLocal ? 260 : 200);
-  const ease = options.ease ?? "outBack(1.4)";
-  const scalePeak = options.scalePeak ?? (isLocal ? 1.16 : 1.11);
+  const ease = options.ease ?? "outBack(2.0)";
+  const scalePeak = options.scalePeak ?? (isLocal ? 1.22 : 1.13);
 
   if (!shouldAnimate(options)) return null;
 
@@ -999,7 +1008,7 @@ export function animateScorePop(element, options = {}) {
     element,
     {
       scale: [1, scalePeak, 1],
-      filter: ["brightness(1)", "brightness(1.32)", "brightness(1)"],
+      filter: ["brightness(1)", isLocal ? "brightness(1.45)" : "brightness(1.32)", "brightness(1)"],
       duration,
       ease,
       onComplete: () => {
@@ -1034,7 +1043,8 @@ export function animateVolumeTick(element, options = {}) {
 export function animateMuteToggle(element, options = {}) {
   return animateSelectionPop(element, {
     duration: 160,
-    scalePeak: 1.1,
+    scalePeak: 1.14,
+    ease: "outBack(1.7)",
     ...options,
   });
 }
@@ -1048,8 +1058,9 @@ export function animateMuteToggle(element, options = {}) {
 export function animateRerollSpin(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 320;
-  const ease = options.ease ?? DEFAULT_EASE_SNAP;
+  // * outBack over-rotates past 180° and settles back — dice-tumble character.
+  const duration = options.duration ?? 280;
+  const ease = options.ease ?? "outBack(1.6)";
 
   if (!shouldAnimate(options)) return null;
 
@@ -1165,8 +1176,9 @@ export function animateLevelCardSelect(element, options = {}) {
 export function animateReadyStateToggle(element, isReady, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 300;
-  const ease = options.ease ?? "outBack(1.35)";
+  // * Punching a clock-in card, not settling into a seat.
+  const duration = options.duration ?? 240;
+  const ease = options.ease ?? "outBack(1.8)";
 
   if (!shouldAnimate(options)) return null;
 
@@ -1175,7 +1187,7 @@ export function animateReadyStateToggle(element, isReady, options = {}) {
   return runAnimation(
     element,
     {
-      scale: isReady ? [1, 1.08, 1] : [1, 0.96, 1],
+      scale: isReady ? [1, 1.12, 1] : [1, 0.94, 1],
       filter: isReady
         ? ["brightness(1)", "brightness(1.22)", "brightness(1)"]
         : ["brightness(1)", "brightness(0.9)", "brightness(1)"],

@@ -1,7 +1,8 @@
 /* announcer.css — "The Store PA" callout overlay.
-   Kin to the HUD's GO!/SUDDEN DEATH treatment (hud.css .hud-status): big, glowy,
-   uppercase neon text, no panel chrome. Sits below the HUD status line and well
-   clear of the bottom-center combo badge / touch controls. Non-interactive. */
+   Kin to the HUD's status lettering (hud.css .hud-status): pigment fill + ink
+   outline + hard extrude, stamped in with a skew. The accent color lives on the
+   KICKER — a tilted solid sticker tag — not on glowing text. Sits below the HUD
+   status line and clear of the combo badge / touch controls. Non-interactive. */
 
 #announcer-display {
   --announcer-ui: "Russo One", sans-serif;
@@ -49,16 +50,22 @@
   will-change: opacity, transform;
 }
 
+/* Kicker — a small solid sticker tag in the event's accent color, tilted like
+   it was slapped on over the headline. Ink text on pigment, zero glow. */
 #announcer-display .announcer-kicker {
   font-family: var(--announcer-ui);
   font-size: clamp(0.72rem, 1.8vw, 1rem);
   font-weight: 700;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--callout-accent);
-  text-shadow:
-    0 0 10px var(--callout-accent),
-    0 0 22px color-mix(in oklab, var(--callout-accent), transparent 45%);
+  color: var(--color-ink-deep, #08050f);
+  background: var(--callout-accent);
+  padding: 2px 12px;
+  border-radius: 5px;
+  box-shadow:
+    0 0 0 1.5px var(--color-sticker-white, #f2ede4),
+    2px 2px 0 1.5px var(--color-ink-deep, #08050f);
+  transform: rotate(-2deg);
   white-space: nowrap;
 }
 
@@ -70,13 +77,13 @@
   letter-spacing: 0.02em;
   line-height: 1.08;
   text-transform: uppercase;
-  color: #ffffff;
+  color: var(--color-sticker-white, #f2ede4);
   transform: skewX(-8deg);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.09em var(--color-ink-deep, #08050f);
   text-shadow:
-    3px 3px 0 rgba(0, 0, 0, 0.55),
-    0 0 18px var(--callout-accent),
-    0 0 36px var(--callout-accent),
-    0 0 64px color-mix(in oklab, var(--callout-accent), transparent 40%);
+    0.05em 0.05em 0 var(--color-ink-deep, #08050f),
+    0.1em 0.1em 0 var(--color-ink-deep, #08050f);
   overflow-wrap: break-word;
   word-break: break-word;
 }
@@ -91,9 +98,6 @@
   #announcer-display .announcer-callout {
     top: 24vh;
     max-width: 94vw;
-  }
-  #announcer-display .announcer-kicker {
-    letter-spacing: 0.22em;
   }
   #announcer-display .announcer-text {
     font-size: clamp(1.35rem, 6.5vw, 2.2rem);
@@ -114,5 +118,13 @@
 @media (prefers-reduced-motion: reduce) {
   #announcer-display .announcer-callout-inner {
     transition: opacity 160ms ease;
+  }
+}
+
+/* Engines without paint-order on HTML text: thin the stroke so it degrades to
+   "chunky" instead of eating the fill. */
+@supports not (paint-order: stroke fill) {
+  #announcer-display .announcer-text {
+    -webkit-text-stroke-width: 0.03em;
   }
 }

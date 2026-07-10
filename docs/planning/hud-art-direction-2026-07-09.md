@@ -86,7 +86,24 @@ Core vocabulary (full specs live in the CSS):
 
 ## 5. Status
 
-Implemented in this session (uncommitted, on top of the redesign). Verification: gates +
-solo preview + forced-touch mobile screenshots + an independent gameplay-UX readability
-review of the diff. Pending human checks unchanged from the redesign doc (two-browser MP,
-real phone, taste).
+Implemented (uncommitted, on top of the redesign). Gates green (tsc, 129 vitest, knip
+unchanged from HEAD, build). An independent gameplay-UX review of the diff rated desktop a
+net readability GAIN (all fixed-palette text 5.5–16:1) and found three regressions, all
+fixed in-session:
+- Dark custom cart hues (200–290°, e.g. #0000ff at 2.2:1 on ink) → the existing
+  `clampAccentLuminance` now floors chip glow (`applyHudScoreBoxGlow`) and feed row
+  colors (`addKillFeedEntry`).
+- Touch lost the hazard SHAPE channel (stripe hidden on the pill) → warn/urgent hazard
+  gradients now paint the touch timer-bar track.
+- Stale `letter-spacing: 0.22em` mobile override on the (now solid-tag) announcer kicker → removed.
+Also applied from the review: urgent stripes at tighter pitch than warn (geometry channel),
+RD meta 0.45→0.55 alpha, conn pulse floor 0.55→0.7, hitmarker reduced-motion fade variant,
+Safari `@supports not (paint-order)` thin-stroke fallback, fatter host-wheel strokes,
+44px mute floor on touch, toast kicker 10px floor, reduced-motion guards on the timer
+numeral pulses (pre-existing gap).
+
+Verified in-browser via computed styles (die-cut stacks, price-tag clip, ink surfaces,
+stroke lettering, kicker tag, hazard gradients, touch overrides) — the Browser pane's
+rAF was frozen (hidden-tab quirk) so no pixel screenshots this session; first live look
+is on the human. Pending human checks: everything from the redesign doc (two-browser MP,
+real phone incl. Safari paint-order confirmation, taste pass on the new material).

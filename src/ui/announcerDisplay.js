@@ -24,10 +24,10 @@ import { claimStage } from "./centerStage.js";
 
 const ROOT_ID = "announcer-display";
 
-/** Entrance animation duration (ms) — quick punchy scale-in with overshoot. */
-const ENTER_MS = 180;
-/** Exit animation duration (ms) — fast fade/slide-out. */
-const EXIT_MS = 220;
+/** Entrance duration (ms) — slapped on from camera: shrink-to-fit, hard stop. */
+const ENTER_MS = 160;
+/** Exit duration (ms) — yanked off, not sighed away. */
+const EXIT_MS = 160;
 /** Fallback hold duration when a payload omits/malforms holdMs. */
 const DEFAULT_HOLD_MS = 1400;
 /** Delay before writing the live region so identical back-to-back callouts still get announced. */
@@ -113,13 +113,15 @@ function playEnter(el, reduced) {
     el.style.opacity = "1";
     return null;
   }
+  // * From camera, not from floor: arrive big, land on an undershoot squash,
+  // * settle. Overshoot is authored in the keyframes, so the curve hard-stops.
   return el.animate(
     [
-      { opacity: 0, transform: "scale(0.7)" },
-      { opacity: 1, transform: "scale(1.08)", offset: 0.55 },
+      { opacity: 0, transform: "scale(1.45)" },
+      { opacity: 1, transform: "scale(0.96)", offset: 0.5 },
       { opacity: 1, transform: "scale(1)" },
     ],
-    { duration: ENTER_MS, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.3)", fill: "forwards" },
+    { duration: ENTER_MS, easing: "cubic-bezier(0.1, 0.9, 0.2, 1)", fill: "forwards" },
   );
 }
 
@@ -139,9 +141,9 @@ function playExit(el, reduced, onDone) {
   const anim = el.animate(
     [
       { opacity: 1, transform: "scale(1) translateY(0)" },
-      { opacity: 0, transform: "scale(0.96) translateY(-8px)" },
+      { opacity: 0, transform: "scale(0.9) translateY(-16px)" },
     ],
-    { duration: EXIT_MS, easing: "ease-in", fill: "forwards" },
+    { duration: EXIT_MS, easing: "cubic-bezier(0.55, 0, 1, 0.45)", fill: "forwards" },
   );
   anim.onfinish = () => onDone();
   return anim;
@@ -198,12 +200,14 @@ function presentCallout(payload) {
   const enterAnim = playEnter(elements.inner, reduced);
   if (enterAnim) _activeAnimations.push(enterAnim);
 
-  // * Critical-class events get a one-flick chromatic edge on entry.
+  // * Critical-class events get a one-flick chromatic edge on entry. Animated
+  // * as a container filter — the kicker/text children declare their own
+  // * text-shadows, which would override an inherited textShadow keyframe.
   if (!reduced && payload?.cls === "critical" && typeof elements.inner.animate === "function") {
     _activeAnimations.push(elements.inner.animate(
       [
-        { textShadow: "-3px 0 #22e6ff, 3px 0 #ff2bd6" },
-        { textShadow: "0 0 0 rgba(0,0,0,0)" },
+        { filter: "drop-shadow(-3px 0 0 #22e6ff) drop-shadow(3px 0 0 #ff2bd6)" },
+        { filter: "none" },
       ],
       { duration: 140, easing: "steps(2, end)" },
     ));

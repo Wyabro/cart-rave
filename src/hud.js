@@ -67,7 +67,9 @@ function applyHudScoreBoxGlow(box, slot, youConnId) {
     return;
   }
 
-  const cssHex = resolveCartNeonCss(slot, { youConnId });
+  // * Luminance-floored for the opaque ink plates: custom hues around 200–290°
+  // * (e.g. #0000ff) land at ~2.2:1 on ink and become illegible unclamped.
+  const cssHex = clampAccentLuminance(resolveCartNeonCss(slot, { youConnId }));
   const currentGlow = box.style.getPropertyValue("--hud-glow");
 
   if (currentGlow !== cssHex) {
@@ -385,9 +387,11 @@ function updateStatus(roundState) {
   }
   _prevRoundPhase = roundPhase;
 
+  // * GO! is the round's celebration beat — the only status that earns glow.
+  elements.status?.classList.toggle("is-celebration", Date.now() < _goUntilMs);
   if (Date.now() < _goUntilMs) {
     setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "var(--color-cyan)";
+    elements.status.style.color = "var(--color-yellow)";
     elements.status.textContent = "GO!";
   } else if (roundPhase === "countdown") {
     // * Reset GO sound gate when entering countdown from a non-countdown phase.
@@ -409,14 +413,27 @@ function updateStatus(roundState) {
       if (n >= 1 && n <= 3) announce(`countdown_${n}`);
       const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
       if (!reduced) {
-        // * Stamp: oversized slap-down with a squash settle.
+        // * Rubber stamp: airborne (shadow far below) → squash contact (shadow
+        // * slammed flat) → settle. The shadow catching up sells the weight.
         elements.status.animate(
           [
-            { transform: "scale(1.4)", opacity: 0.5 },
-            { transform: "scale(0.95)", opacity: 1, offset: 0.6 },
-            { transform: "scale(1)" },
+            {
+              transform: "rotate(-1.5deg) scale(1.9)",
+              opacity: 0,
+              textShadow: "0.16em 0.16em 0 var(--color-ink-deep), 0.28em 0.28em 0 var(--color-ink-deep)",
+            },
+            {
+              transform: "rotate(-1.5deg) scale(0.92)",
+              opacity: 1,
+              offset: 0.45,
+              textShadow: "0.02em 0.02em 0 var(--color-ink-deep), 0.05em 0.05em 0 var(--color-ink-deep)",
+            },
+            {
+              transform: "rotate(-1.5deg) scale(1)",
+              textShadow: "0.05em 0.05em 0 var(--color-ink-deep), 0.1em 0.1em 0 var(--color-ink-deep)",
+            },
           ],
-          { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" },
+          { duration: 200, easing: "cubic-bezier(0.1, 0.9, 0.2, 1)" },
         );
       }
     }
@@ -426,7 +443,6 @@ function updateStatus(roundState) {
   } else if (roundPhase === "running" && roundState?.isSuddenDeath) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-alert)";
-    elements.status.style.textShadow = "4px 4px 0 #ff000044, 0 0 24px #ff3333, 0 0 48px #ff3333";
     elements.status.textContent = "SUDDEN DEATH";
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
     if (!reduced) {
@@ -436,7 +452,6 @@ function updateStatus(roundState) {
     // * Final seconds + top two within one KO: the next fall can decide the round.
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-yellow)";
-    elements.status.style.textShadow = "3px 3px 0 #ff2bd644, 0 0 22px #ffe53d";
     elements.status.textContent = "MATCH POINT";
   } else {
     setHudDisplay(elements.status, "none", "status");
@@ -500,7 +515,10 @@ function updateTimer(roundState, matchHistoryLength) {
       _lastTimeBeatSecond = seconds;
       if (seconds === 60) announce("one_minute");
       else if (seconds === 30) announce("thirty_seconds");
-      if (seconds === 60 || seconds === 30) {
+      if (
+        (seconds === 60 || seconds === 30) &&
+        !(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false)
+      ) {
         elements.timerNum?.animate?.(
           [
             { transform: "scale(1.18)" },
@@ -527,13 +545,15 @@ function updateTimer(roundState, matchHistoryLength) {
         _lastUrgentTickSecond = seconds;
         playTimerTick(seconds);
         if (seconds === 10) announce("last_call");
-        elements.timerNum?.animate?.(
-          [
-            { transform: "scale(1.12)" },
-            { transform: "scale(1)" },
-          ],
-          { duration: 220, easing: "ease-out" },
-        );
+        if (!(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false)) {
+          elements.timerNum?.animate?.(
+            [
+              { transform: "scale(1.12)" },
+              { transform: "scale(1)" },
+            ],
+            { duration: 220, easing: "ease-out" },
+          );
+        }
       }
     } else {
       _lastUrgentTickSecond = null;
@@ -789,17 +809,18 @@ function updateScores(roundState, netSlots, youConnId) {
       if (!entry) continue;
       const prevSlotIndex = entry.slotIndex;
       entry.slotIndex = row ? row.slotIndex : -1;
-      // * Rank-swap pulse — a chip's occupant changed (players traded places).
+      // * Rank-swap: the new occupant is slapped onto the slot from above — a
+      // * drop with a 2px ground-contact squash, not a fade-up.
       if (prevSlotIndex !== -1 && entry.slotIndex !== -1 && prevSlotIndex !== entry.slotIndex) {
         const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
         if (!reduced && typeof entry.box.animate === "function") {
           entry.box.animate(
             [
-              { transform: "translateY(6px) scale(0.96)", opacity: 0.6 },
-              { transform: "translateY(-2px) scale(1.03)", opacity: 1, offset: 0.7 },
+              { transform: "translateY(-10px) scale(1.08)", opacity: 0.7 },
+              { transform: "translateY(2px) scale(0.97)", opacity: 1, offset: 0.55 },
               { transform: "translateY(0) scale(1)", opacity: 1 },
             ],
-            { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" },
+            { duration: 180, easing: "cubic-bezier(0.1, 0.9, 0.2, 1)" },
           );
         }
       }
@@ -939,14 +960,12 @@ export function init(options) {
   timerMeta.className = "hud-timer-meta";
   const timerPip = document.createElement("span");
   timerPip.className = "hud-timer-pip";
-  const timerMetaText = document.createElement("span");
-  timerMetaText.className = "hud-timer-meta-label";
-  timerMetaText.textContent = "TIME LEFT";
+  // * No "TIME LEFT" caption — a giant ticking number captions itself (art
+  // * direction: the tracked micro-caps meta layer is the esports tell).
   elements.timerRd = document.createElement("span");
   elements.timerRd.className = "hud-timer-rd";
   elements.timerRd.textContent = "";
   timerMeta.appendChild(timerPip);
-  timerMeta.appendChild(timerMetaText);
   timerMeta.appendChild(elements.timerRd);
 
   elements.timerNum = document.createElement("div");
@@ -1074,10 +1093,11 @@ export function init(options) {
   elements.comboBadge.appendChild(comboTrack);
   regions.pod.insertBefore(elements.comboBadge, elements.readyBtn);
 
-  // * Kill-confirm hitmarker — flashes at screen center when the local player scores a KO.
+  // * Kill-confirm — the cartoon KO burst stamps at screen center on a local KO.
   elements.hitmarker = document.createElement("div");
   elements.hitmarker.className = "hud-hitmarker";
   elements.hitmarker.setAttribute("aria-hidden", "true");
+  elements.hitmarker.innerHTML = svgIcon("burst", { size: "100%" });
   elements.root.appendChild(elements.hitmarker);
 
   // * Boost charge meter — keyboard/gamepad only; the touch BOOST button has its own flash.
@@ -1087,7 +1107,7 @@ export function init(options) {
     elements.boost.style.display = "none";
     const boostLabel = document.createElement("span");
     boostLabel.className = "hud-boost-label";
-    boostLabel.textContent = "BOOST";
+    boostLabel.innerHTML = svgIcon("bolt", { label: "Boost" });
     const boostTrack = document.createElement("div");
     boostTrack.className = "hud-boost-track";
     elements.boostFill = document.createElement("i");
@@ -1333,10 +1353,12 @@ export function noteChipKO(slotIndex) {
 
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
   if (!reduced && typeof entry.box.animate === "function") {
+    // * Getting KO'd is instant: hit the gray by ~110ms, then a long "coming
+    // * to" recovery (the dazed state pairs with the 1s dizzy stars).
     entry.box.animate(
       [
         { filter: "saturate(1) brightness(1)" },
-        { filter: "saturate(0.25) brightness(0.75)", offset: 0.3 },
+        { filter: "saturate(0.1) brightness(0.65)", offset: 0.12 },
         { filter: "saturate(1) brightness(1)" },
       ],
       { duration: 900, easing: "ease-out" },
@@ -1395,14 +1417,17 @@ export function showScoreFloat(reward, cause) {
     setTimeout(() => el.remove(), 1200);
     return;
   }
+  // * SLAM in by ~130ms (big, from camera, shadow catching up), hold nearly
+  // * still for the read, then leave. Keyframes carry the base rotate(-4deg)
+  // * so the tilt survives the WAAPI transform override.
   const anim = el.animate(
     [
-      { transform: "translate(-50%, 0) scale(0.8)", opacity: 0 },
-      { transform: "translate(-50%, -14px) scale(1.08)", opacity: 1, offset: 0.18 },
-      { transform: "translate(-50%, -26px) scale(1)", opacity: 1, offset: 0.7 },
-      { transform: "translate(-50%, -52px) scale(0.96)", opacity: 0 },
+      { transform: "translate(-50%, 4px) rotate(-4deg) scale(1.3)", opacity: 0 },
+      { transform: "translate(-50%, -18px) rotate(-4deg) scale(0.98)", opacity: 1, offset: 0.12 },
+      { transform: "translate(-50%, -22px) rotate(-4deg) scale(1)", opacity: 1, offset: 0.75 },
+      { transform: "translate(-50%, -48px) rotate(-4deg) scale(0.94)", opacity: 0 },
     ],
-    { duration: 1300, easing: "ease-out" },
+    { duration: 1100, easing: "ease-out" },
   );
   anim.onfinish = () => el.remove();
 }
@@ -1481,13 +1506,15 @@ function updateComboWidget() {
   elements.comboBadge.classList.add(`tier-${tier}`);
 
   if (tier > _prevComboTier) {
+    // * Punch: peak at 30% of the timeline, then a long recoil settle — a hit,
+    // * not a balloon inflating. (Badge rests at rotate(-2deg); keep it.)
     elements.comboBadge.animate(
       [
-        { transform: "scale(1)" },
-        { transform: "scale(1.35)" },
-        { transform: "scale(1)" },
+        { transform: "scale(1) rotate(-2deg)" },
+        { transform: "scale(1.42) rotate(-2deg)", offset: 0.3 },
+        { transform: "scale(1) rotate(-2deg)" },
       ],
-      { duration: 250, easing: "cubic-bezier(0.175, 0.885, 0.32, 1.275)" }
+      { duration: 220, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
     );
   }
   _prevComboTier = tier;
@@ -1539,8 +1566,10 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   if (!elements.feed) return;
   const row = document.createElement("div");
   row.className = "hud-feed-row";
-  row.style.setProperty("--c", actorColor || "rgba(255,255,255,0.9)");
-  row.style.setProperty("--c2", targetColor || "rgba(255,255,255,0.9)");
+  // * Same luminance floor as the chips — dark custom cart colors must stay
+  // * readable on the opaque ink plate (clamp is a no-op for non-hex strings).
+  row.style.setProperty("--c", clampAccentLuminance(actorColor || "rgba(255,255,255,0.9)"));
+  row.style.setProperty("--c2", clampAccentLuminance(targetColor || "rgba(255,255,255,0.9)"));
 
   let displayVerb = verb;
   if (comboTier > 0 && comboMultiplier > 1.0) {

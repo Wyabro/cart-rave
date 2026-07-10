@@ -969,7 +969,10 @@ async function main() {
   labelRenderer.domElement.style.top = "0";
   labelRenderer.domElement.style.left = "0";
   labelRenderer.domElement.style.pointerEvents = "none";
-  labelRenderer.domElement.style.zIndex = "20020";
+  // * World-anchored labels sit UNDER all screen UI: below touch controls
+  // * (19990) and the HUD (20000) — countdown/SUDDEN DEATH banners, chips, and
+  // * feed plates must never draw behind a nametag.
+  labelRenderer.domElement.style.zIndex = "19985";
   labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
   document.body.appendChild(labelRenderer.domElement);
 
@@ -2169,19 +2172,20 @@ async function main() {
     const el = document.createElement("div");
     el.className = "cart-nametag";
     el.innerHTML = contentHtml;
+    // * Sticker nametag: opaque ink plate, cart-color die-cut edge, hard shadow.
     el.style.padding = "6px 14px";
-    el.style.borderRadius = "4px";
-    el.style.background = "rgba(0, 0, 0, 0.7)";
-    el.style.color = "#fff";
+    el.style.borderRadius = "8px";
+    el.style.background = "var(--color-ink, #14101e)";
+    el.style.color = "var(--color-sticker-white, #f2ede4)";
     el.style.fontFamily = '"Russo One", sans-serif';
     el.style.fontSize = "";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
     el.style.textTransform = "uppercase";
     el.style.whiteSpace = "nowrap";
-    el.style.border = `2px solid ${color}`;
-    el.style.boxShadow = `0 0 9px ${color}66, inset 0 0 8px ${color}26`;
-    el.style.textShadow = `0 0 6px ${color}`;
+    el.style.border = `2.5px solid ${color}`;
+    el.style.boxShadow = "3px 3px 0 var(--color-ink-deep, #08050f)";
+    el.style.textShadow = "0 1.5px 0 var(--color-ink-deep, #08050f)";
     el.style.transform = "translate(-50%, 0)";
 
     const label = new CSS2DObject(el);
@@ -2216,8 +2220,6 @@ async function main() {
         ) {
           nameLabels[i].element.innerHTML = contentHtml;
           nameLabels[i].element.style.borderColor = colorCSS;
-          nameLabels[i].element.style.boxShadow = `0 0 12px ${colorCSS}66, inset 0 0 8px ${colorCSS}26`;
-          nameLabels[i].element.style.textShadow = `0 0 6px ${colorCSS}`;
           nameLabels[i]._labelHtml = contentHtml;
           nameLabels[i]._labelColor = colorCSS;
         }
