@@ -169,7 +169,7 @@ New module `src/sfxSynth.js` (procedural sting synthesizer). **Validation:** `np
 
 Full-codebase audit; report with all 50 ranked improvements in [docs/archive/audits/production-readiness-audit-2026-07.md](../archive/audits/production-readiness-audit-2026-07.md). The 10 highest-impact, safe items were implemented:
 
-1. **Safari/iOS audio fix (highest player impact)** — every sound loaded as `.ogg` only, so the game was **silent on all Safari/iOS devices**. `audioManager.js` `loadMenuMusic` / `loadGamePlaylist` / `registerSfx` now accept `[ogg, mp3]` arrays. Generated `.mp3` fallbacks for the 10 referenced SFX (~385 KB). `index.html` menu preload now feature-detects Ogg support.
+1. **Safari/iOS audio fix (highest player impact)** — every sound loaded as `.ogg` only, so the game was **silent on all Safari/iOS devices**. `audioManager.js` `loadMenuMusic` / `setGamePlaylist` / `registerSfx` now accept `[ogg, mp3]` arrays. Generated `.mp3` fallbacks for the 10 referenced SFX (~385 KB). `index.html` menu preload now feature-detects Ogg support.
 2. **Dead audio purged (~6 MB)** — removed `.wav` masters (Death.wav alone was 3.8 MB) and unreferenced `Wheel.*` trio.
 3. **TypeScript baseline restored** — 2 `Element.blur` errors in `cart-rave-menu.js` fixed.
 4. **PWA manifest fixed** — `site.webmanifest` had empty `name`/`short_name` and white theme colors; now "Cart Clash" with the dark neon palette.

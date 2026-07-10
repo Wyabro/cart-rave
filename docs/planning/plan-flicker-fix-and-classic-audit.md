@@ -73,9 +73,9 @@ missing; its A/B table is otherwise sound.)
 |---|---|---|
 | A | bloom disabled (HalfFloat kept) | float RTs vs bloom internals |
 | B | arcade/VHS pass disabled | rules VHS in/out for good |
-| C | composer RTs → UnsignedByte (reference impl exists in `scripts/_recovered_uncommitted/src/scene.js`) | known-stable baseline |
+| C | composer RTs → UnsignedByte (snippet in [Appendix A](#appendix-a--byte-path-reference-snippets)) | known-stable baseline |
 | D | composer RTs → FloatType (32F) | 16F-specific vs all-float |
-| E | bloom mips only → byte (`stabilizeBloomTargets` pattern from same backup) | composer vs bloom-mip allocation |
+| E | bloom mips only → byte (`stabilizeBloomTargets` in Appendix A) | composer vs bloom-mip allocation |
 
 ### Phase 3 — Fix path (pick by evidence)
 - **H1/H2 confirmed (environment):** ship a runtime fallback, not a look downgrade —
@@ -93,7 +93,89 @@ no milk. Wyatt signs off. Test all three levels.
 
 ### Cleanup (after fix lands)
 - Guard the `normalize(dir)` NaN.
-- Delete `scripts/_emergency_bak_20260709_003542/`, `scripts/_recovered_uncommitted/`,
-  `scripts/_recover_*.py`, `scripts/_boot_check.mjs` (their only remaining value is the two
-  reference implementations noted in Phase 2).
 - Fold the outcome into `handover-postfx-black-frames.md` or delete it if fully resolved.
+
+**Done (debt pass):** temporary recovery trees (`scripts/_emergency_bak_*`,
+`_recovered_uncommitted/`, `_recover_*.py`, `_boot_check.mjs`) removed. Byte-path recipes
+live in Appendix A below so Phase 2 isolation does not need the bak trees.
+
+---
+
+## Appendix A — byte-path reference snippets
+
+Extracted from the deleted Grok-session recovery trees. Live production `src/scene.js`
+still uses the stock HalfFloat EffectComposer path. Use these only for isolation A/B.
+
+### Composer RT as UnsignedByte (Phase 2 test C)
+
+```js
+const size = renderer.getSize(new THREE.Vector2());
+const rt = new THREE.WebGLRenderTarget(
+  Math.max(1, Math.floor(size.x)),
+  Math.max(1, Math.floor(size.y)),
+  {
+    type: THREE.UnsignedByteType, // or HalfFloatType / FloatType for other tests
+    format: THREE.RGBAFormat,
+    depthBuffer: true,
+    stencilBuffer: false,
+  },
+);
+const composer = new EffectComposer(renderer, rt);
+composer.setPixelRatio(renderer.getPixelRatio());
+composer.setSize(size.x, size.y);
+```
+
+### Byte bloom mips (`stabilizeBloomTargets`, Phase 2 test E)
+
+UnrealBloomPass hardcodes HalfFloat mips. After construction / resize, rebuild mips as byte:
+
+```js
+const STABLE_RT = {
+  type: THREE.UnsignedByteType,
+  format: THREE.RGBAFormat,
+  depthBuffer: false,
+  stencilBuffer: false,
+};
+
+function stabilizeBloomTargets(bloomPass) {
+  const bp = bloomPass;
+  if (!bp?.renderTargetBright) return;
+  const swap = (rt, name) => {
+    if (!rt || rt.texture?.type === THREE.UnsignedByteType) return rt;
+    const next = new THREE.WebGLRenderTarget(rt.width, rt.height, STABLE_RT);
+    next.texture.name = name || rt.texture?.name || "UnrealBloomPass.byte";
+    next.texture.generateMipmaps = false;
+    rt.dispose();
+    return next;
+  };
+  bp.renderTargetBright = swap(bp.renderTargetBright, "UnrealBloomPass.bright");
+  for (let i = 0; i < (bp.nMips ?? 0); i += 1) {
+    bp.renderTargetsHorizontal[i] = swap(bp.renderTargetsHorizontal[i], `UnrealBloomPass.h${i}`);
+    bp.renderTargetsVertical[i] = swap(bp.renderTargetsVertical[i], `UnrealBloomPass.v${i}`);
+  }
+}
+
+// Hook resize so mips stay byte after UnrealBloomPass.setSize reallocates:
+const bloomSetSize = bloomPass.setSize.bind(bloomPass);
+bloomPass.setSize = (w, h) => {
+  bloomSetSize(w, h);
+  stabilizeBloomTargets(bloomPass);
+};
+stabilizeBloomTargets(bloomPass);
+```
+
+### Optional: cap composer long edge (ultrawide HalfFloat stress)
+
+Full-frame HalfFloat at ultrawide×DPR was a suspect for half-screen black slabs. Cap the
+composer long edge (~2K) while the canvas keeps full DPR:
+
+```js
+function computeComposerPixelRatio(renderer, cssW, cssH) {
+  const base = Math.min(window.devicePixelRatio || 1, 2);
+  const maxLongEdge = 2048;
+  const longEdge = Math.max(cssW, cssH) * base;
+  if (longEdge <= maxLongEdge) return base;
+  return Math.max(0.5, base * (maxLongEdge / longEdge));
+}
+// composer.setPixelRatio(computeComposerPixelRatio(renderer, w, h));
+```

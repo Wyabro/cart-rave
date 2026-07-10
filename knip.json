@@ -6,5 +6,8 @@
   "project": ["src/**/*.{js,ts}", "party/**/*.{js,ts}"],
   "vite": {
     "config": "vite.config.js"
+  },
+  "ignoreIssues": {
+    "src/effects/groceryPool.js": ["exports"]
   }
 }

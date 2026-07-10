@@ -42,7 +42,7 @@ if (typeof window !== "undefined") {
  *
  * @returns {boolean}
  */
-export function isDevUnlockAll() {
+function isDevUnlockAll() {
   const flag = storageGet(DEV_UNLOCKS_STORAGE_KEY, null);
   if (flag === "all") return true;
   if (flag === "off") return false;

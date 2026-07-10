@@ -22,8 +22,6 @@ Three docs split cleanly by time — **past / present / future**:
 | [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
 | [planning/project-state.md](./planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
-| [planning/post-jam-ideas.md](./planning/post-jam-ideas.md) | Deferred ideas (many now tracked in ROADMAP) |
-
 ### `reference/` — how it's built
 
 | Doc | Purpose |
@@ -46,6 +44,7 @@ Three docs split cleanly by time — **past / present / future**:
 |-----|---------|
 | [archive/handovers/](./archive/handovers/) | Session handover notes (jam-era) |
 | [archive/audits/](./archive/audits/) | Code audits (jam-era & July 2026 passes) |
+| [archive/session-notes/](./archive/session-notes/) | Shipped July 2026 session plans (HUD, Zanzibar, production-value, etc.) |
 
 ---
 

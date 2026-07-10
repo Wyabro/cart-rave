@@ -297,16 +297,6 @@ export function setGamePlaylist(urls) {
 }
 
 /**
- * Load the shuffled game music playlist immediately (tests / force-eager).
- * Production boot should use {@link setGamePlaylist} instead.
- * @param {(string | string[])[]} urls One entry per track; each entry may be a
- *   format-fallback array (see {@link loadMenuMusic}).
- */
-export function loadGamePlaylist(urls) {
-  materializeGamePlaylist(Array.isArray(urls) ? urls : []);
-}
-
-/**
  * @param {(string | string[])[]} urls
  */
 function materializeGamePlaylist(urls) {

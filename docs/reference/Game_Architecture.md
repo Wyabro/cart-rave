@@ -217,7 +217,7 @@ The handover notes repeatedly stress process discipline for reliability:
 - Menu overhaul, rename + new domain (Version 2 release)
 - `structuredClone` performance optimization for DO broadcasts
 
-See also [post-jam-ideas.md](../planning/post-jam-ideas.md).
+See also [ROADMAP.md](../planning/ROADMAP.md) for open post-jam priorities.
 
 ---
 

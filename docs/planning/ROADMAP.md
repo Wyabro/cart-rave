@@ -7,15 +7,11 @@
 > [completed-work.md](./completed-work.md). **When a roadmap item ships, move its writeup
 > into completed-work.md** rather than leaving it here.
 
-**Status:** Phases 1–3 complete; **Phase 4 (Multiplayer & Infrastructure) active.**
-
 **Current philosophy:** Polish a strong **solo experience** first. Multiplayer/netcode is
 intentionally deprioritized until the core game is more complete and stable.
 
-**Multiplayer status (honest):** Inbound client messages process correctly since the July 2
-`onMessage` parameter fix (`party/index.ts`); all July 1–2 netcode fixes are live and reachable.
-The two-browser runtime smoke test is intentionally deferred within Phase 4. The server→client
-path has worked since migration.
+**Multiplayer status (honest):** Mostly working, but needs polish and fixes before it is
+production-ready. The two-browser runtime smoke test remains the Phase 4 gate.
 
 ---
 
@@ -32,32 +28,26 @@ path has worked since migration.
 
 ---
 
-## Phase 4 — Multiplayer & Infrastructure (active)
-
-**Sequence:** all July 1–2 netcode fixes are live; the runtime smoke test is the next gate. Only
-after it passes do the code-complete items below graduate from "pending" to "working".
+## Phase 4 — Multiplayer & Infrastructure
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Multiplayer runtime smoke test | Todo | Two browsers, one room: join, color pick, ready, full round, SD round >15s overtime, podium, play again, disconnect/rejoin. Also verifies tie-handling (Sudden Death `lastStanding` draw override, currently code-complete but runtime-unverified). |
-| Netcode audit follow-through | Code-complete, pending smoke test | Host transform message type, round duration (150s both sides), SD server timeout, remote boost, slot resurrection, ram FX dedup, `isSuddenDeath` propagation, clock-offset timer correction. All statically verified. |
-| Evaluate partyworks | Todo | github.com/Partywork/partyworks — potential source of netcode patterns; not yet used. Caution: PartyKit-ecosystem origin of the original `onMessage` signature bug. Verify every ported pattern against the partyserver API. |
-| Revisit server-authoritative options | Todo | Evaluate deeper authoritative logic. |
-| Spectator mode / chaos features | Todo | Stretch content. |
+| Multiplayer runtime smoke test | Todo | Two browsers, one room: join, color pick, ready, full round, SD overtime, podium, play again, disconnect/rejoin. |
+| Netcode audit follow-through | Code-complete, pending smoke | Host transform, round duration, SD timeout, remote boost, slot resurrection, ram FX dedup, `isSuddenDeath`, clock-offset timer — statically verified. |
+| Deeper server-authoritative logic | Todo | Evaluate where host trust is a problem (final scores, match outcome). |
 | Persistent leaderboard (Supabase) | Todo | **Security:** a host can fabricate final scores — treat host-asserted scores as untrusted input; the Worker must validate or hold server-side truth. |
 
 ---
 
-## Future Modernization (deferred)
+## Future Modernization
 
 | Task | Effort | Notes |
 |------|--------|-------|
-| Audio upgrade via `howler.js` | Medium | Spatial audio, pooling, and volume/group management. (The other Version-2 libraries — `nipplejs`, `tweakpane`, `zustand` — have already shipped.) |
-| Consider `shadcn/ui` (only if a React path is ever taken) | Medium | React/R3F is formally removed; the imperative Three.js structure (pools, scratch buffers, direct matrix writes) is retained as a core asset for 60 fps physics. |
+| Improve audio via `howler.js` | Medium | Spatial audio, pooling, and volume/group management. (Howler is already in-tree for music/SFX; this is the deeper upgrade.) |
 
 ---
 
-## Phase 5 — Optimization Candidates (deferred)
+## Phase 5 — Optimization Candidates
 
 **`structuredClone` performance risk (`party/index.ts`)** — the server deep-clones state before
 every broadcast. At 40 Hz with 4–8 carts (each carrying position, quaternion, and velocity
@@ -69,10 +59,3 @@ loop is reading it.
 copies primitive numbers directly into a `Uint8Array` (or a compact JSON string), bypassing V8
 deep-clone overhead while preserving safety. Do not implement until after the multiplayer smoke
 test is complete and performance profiling data exists.
-
----
-
-## Dropped
-
-- Crazy Carts mode (solo 8 NPCs)
-- General pre-submission checklist
