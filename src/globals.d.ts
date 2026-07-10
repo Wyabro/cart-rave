@@ -129,9 +129,8 @@ declare module 'three' {
     isLight?: boolean;
     material?: any;
     geometry?: any;
-    _labelText?: string;
+    _labelHtml?: string;
     _labelColor?: string;
-    _labelBadgeKey?: string;
   }
   interface Pass {
     material?: any;

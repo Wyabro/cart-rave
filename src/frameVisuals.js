@@ -405,10 +405,13 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   deps.labelRenderer.render(deps.scene, deps.camera);
   if (shakeApplied) deps.camera.quaternion.copy(_preShakeQuat);
 
-  const fpsState = deps.fpsState;
-  fpsState.frames += 1;
+  // * FPS meter is a dev-only overlay — production players never see it.
+  const fpsState = import.meta.env.DEV ? deps.fpsState : null;
+  if (fpsState) {
+    fpsState.frames += 1;
+  }
   const fpsNow = performance.now();
-  if (fpsNow - fpsState.last >= 500) {
+  if (fpsState && fpsNow - fpsState.last >= 500) {
     const fpsVal = Math.round((fpsState.frames * 1000) / (fpsNow - fpsState.last));
     if (!fpsState.canvas) {
       fpsState.canvas = document.createElement("canvas");

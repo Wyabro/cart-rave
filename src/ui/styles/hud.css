@@ -1,37 +1,89 @@
+/* Design tokens (tokens.css) are loaded via JS import in hud.js — see the
+   note in cart-rave-menu.css about rolldown-vite CSS @import resolution. */
+
 #hud {
-  --hud-ui: "Russo One", sans-serif;
-  --hud-display: "Road Rage", "Goldman", sans-serif;
-  --hud-mono: "Goldman", ui-monospace, monospace;
-  --hud-glow: #22e6ff;
+  --hud-ui: var(--ui);
+  --hud-display: "Bungee", "Goldman", sans-serif;
+  --hud-mono: var(--mono);
+  --hud-glow: var(--color-cyan);
+  /* Local player's cart color — synced from JS at spawn; drives everything that means "you". */
+  --hud-player-accent: var(--color-cyan);
   --hud-pad: clamp(8px, 1.5vw, 18px);
-  --hud-radius: clamp(4px, 0.8vw, 6px);
+  --hud-radius: var(--radius-panel);
   --hud-panel-bg: rgba(0,0,0,0.75);
-  --hud-border: 2px solid rgba(255,255,255,0.15);
+  --hud-border: 2px solid var(--border-white-15);
   --hud-timer-reserve: clamp(128px, 15vw, 208px);
-  --hud-audio-reserve: clamp(150px, 20vw, 240px);
-  --hud-menu-reserve: 0px;
+  --hud-audio-reserve: clamp(48px, 6vw, 108px);
   --hud-feed-top: clamp(96px, 12vh, 120px);
   position: fixed;
   inset: 0;
   z-index: 20000;
   pointer-events: none;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: var(--hud-mono);
   color: #ffffff;
   text-shadow: 0 2px 12px rgba(0,0,0,0.85);
 }
 
-#hud .hud-status {
+/* ── Screen regions — each zone owns position + stacking; children stay static ── */
+#hud .hud-region {
   position: absolute;
-  top: 20vh;
+  pointer-events: none;
+}
+#hud .hud-region-match {
+  top: var(--hud-pad);
+  left: var(--hud-pad);
+}
+#hud .hud-region-standings {
+  top: var(--hud-pad);
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  max-width: calc(100% - (var(--hud-pad) * 2) - var(--hud-timer-reserve) - var(--hud-audio-reserve));
+}
+#hud .hud-region-events {
+  top: var(--hud-feed-top);
+  right: var(--hud-pad);
+  max-width: calc(100% - var(--hud-pad) - var(--hud-audio-reserve));
+}
+#hud .hud-region-stage {
+  top: 18vh;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 2vh, 18px);
+  max-width: 92vw;
+  z-index: 12;
+}
+#hud .hud-region-pod {
+  bottom: calc(clamp(18px, 3.5vh, 36px) + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.4vh, 12px);
+  z-index: 14;
+}
+#hud .hud-region-utility {
+  top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
+  right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  z-index: 16;
+}
+
+#hud .hud-status {
   font-family: var(--hud-ui);
   font-size: clamp(3.15rem, 9vw, 5.4rem);
   font-weight: 900;
   letter-spacing: 0.06em;
   padding: clamp(4px, 1vw, 10px) clamp(8px, 1.5vw, 14px);
-  color: #ff2bd6;
-  text-shadow: 4px 4px 0 #22e6ff, 0 0 24px #ff2bd6, 0 0 42px #ff2bd6;
+  color: var(--color-magenta);
+  text-shadow: 4px 4px 0 var(--color-cyan), 0 0 24px var(--color-magenta), 0 0 42px var(--color-magenta);
   display: none;
   white-space: nowrap;
   z-index: 10;
@@ -39,16 +91,12 @@
 
 /* Arena name card — sits under the GET READY line during the countdown, fades on GO. */
 #hud .hud-arena-splash {
-  position: absolute;
-  top: calc(20vh + clamp(4.2rem, 11vw, 6.8rem));
-  left: 50%;
-  transform: translateX(-50%);
   font-family: var(--hud-ui);
   font-size: clamp(1.1rem, 3vw, 1.8rem);
   font-weight: 900;
   letter-spacing: 0.32em;
-  color: #22e6ff;
-  text-shadow: 2px 2px 0 #ff2bd644, 0 0 18px #22e6ff;
+  color: var(--color-cyan);
+  text-shadow: 2px 2px 0 var(--glow-magenta-28), 0 0 18px var(--color-cyan);
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.35s ease;
@@ -61,10 +109,7 @@
 
 /* Rampage Combo HUD Badge */
 #hud .hud-combo-badge {
-  position: absolute;
-  bottom: clamp(60px, 10vh, 100px);
-  left: 50%;
-  transform: translateX(-50%) scale(0.8);
+  transform: scale(0.8);
   display: none;
   flex-direction: column;
   align-items: center;
@@ -83,7 +128,7 @@
 #hud .hud-combo-badge.active {
   display: flex;
   opacity: 1;
-  transform: translateX(-50%) scale(1);
+  transform: scale(1);
 }
 #hud .hud-combo-content {
   display: flex;
@@ -96,7 +141,7 @@
   font-weight: 900;
   line-height: 1;
   letter-spacing: 1px;
-  color: #ffaa00;
+  color: var(--color-combo-t1);
   text-shadow: 0 0 16px #ffaa0088;
 }
 #hud .hud-combo-tier {
@@ -118,20 +163,20 @@
 #hud .hud-combo-bar-fill {
   height: 100%;
   width: 100%;
-  background: #ffaa00;
-  box-shadow: 0 0 8px #ffaa00;
+  background: var(--color-combo-t1);
+  box-shadow: 0 0 8px var(--color-combo-t1);
   transform-origin: left center;
   transition: width 60ms linear;
 }
-/* Tier specific themes */
-#hud .hud-combo-badge.tier-1 .hud-combo-multiplier { color: #ffaa00; text-shadow: 0 0 16px #ffaa00aa; }
-#hud .hud-combo-badge.tier-1 .hud-combo-bar-fill { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
-#hud .hud-combo-badge.tier-2 .hud-combo-multiplier { color: #ff3366; text-shadow: 0 0 20px #ff3366cc; }
+/* Tier specific themes — tier 3 rides the brand magenta/cyan (energy event). */
+#hud .hud-combo-badge.tier-1 .hud-combo-multiplier { color: var(--color-combo-t1); text-shadow: 0 0 16px #ffaa00aa; }
+#hud .hud-combo-badge.tier-1 .hud-combo-bar-fill { background: var(--color-combo-t1); box-shadow: 0 0 8px var(--color-combo-t1); }
+#hud .hud-combo-badge.tier-2 .hud-combo-multiplier { color: var(--color-combo-t2); text-shadow: 0 0 20px #ff3366cc; }
 #hud .hud-combo-badge.tier-2 .hud-combo-tier { color: #ff99bb; }
-#hud .hud-combo-badge.tier-2 .hud-combo-bar-fill { background: #ff3366; box-shadow: 0 0 10px #ff3366; }
-#hud .hud-combo-badge.tier-3 .hud-combo-multiplier { color: #00f3ff; text-shadow: 0 0 24px #00f3ff, 0 0 40px #ff0077; animation: comboPulse 0.5s ease-in-out infinite alternate; }
-#hud .hud-combo-badge.tier-3 .hud-combo-tier { color: #ff0077; text-shadow: 0 0 12px #ff0077; }
-#hud .hud-combo-badge.tier-3 .hud-combo-bar-fill { background: linear-gradient(90deg, #00f3ff, #ff0077); box-shadow: 0 0 12px #00f3ff; }
+#hud .hud-combo-badge.tier-2 .hud-combo-bar-fill { background: var(--color-combo-t2); box-shadow: 0 0 10px var(--color-combo-t2); }
+#hud .hud-combo-badge.tier-3 .hud-combo-multiplier { color: var(--color-cyan); text-shadow: 0 0 24px var(--color-cyan), 0 0 40px var(--color-magenta); animation: comboPulse 0.5s ease-in-out infinite alternate; }
+#hud .hud-combo-badge.tier-3 .hud-combo-tier { color: var(--color-magenta); text-shadow: 0 0 12px var(--color-magenta); }
+#hud .hud-combo-badge.tier-3 .hud-combo-bar-fill { background: linear-gradient(90deg, var(--color-cyan), var(--color-magenta)); box-shadow: 0 0 12px var(--color-cyan); }
 
 @keyframes comboPulse {
   0% { transform: scale(1); }
@@ -139,9 +184,6 @@
 }
 
 #hud .hud-timer {
-  position: absolute;
-  top: var(--hud-pad);
-  left: var(--hud-pad);
   display: none;
   align-items: stretch;
   justify-content: flex-start;
@@ -161,7 +203,7 @@
 
 #hud .hud-timer-stripe {
   width: clamp(4px, 0.8vw, 8px);
-  background: #39ff14;
+  background: var(--color-timer-ok);
   box-shadow: 0 0 12px #39ff14aa;
   flex: 0 0 auto;
 }
@@ -178,7 +220,7 @@
   display: flex;
   align-items: center;
   gap: clamp(4px, 0.8vw, 8px);
-  font-family: "Space Grotesk", ui-monospace, monospace;
+  font-family: var(--hud-mono);
   font-size: clamp(10px, 1.2vw, 13px);
   letter-spacing: 2px;
   color: rgba(255,255,255,0.6);
@@ -190,8 +232,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #39ff14;
-  box-shadow: 0 0 6px #39ff14;
+  background: var(--color-timer-ok);
+  box-shadow: 0 0 6px var(--color-timer-ok);
   flex: 0 0 auto;
 }
 
@@ -203,18 +245,18 @@
 }
 
 #hud .hud-timer-num {
-  font-family: "Michroma", sans-serif;
+  font-family: var(--hud-display);
   font-size: clamp(28px, 5.5vw, 54px);
   line-height: 1;
-  letter-spacing: 4px;
+  letter-spacing: 1px;
   color: #ffffff;
   text-shadow: 0 0 20px rgba(57,255,20,0.4);
 }
 
 #hud .hud-timer-bar {
-  height: clamp(4px, 0.8vw, 5px);
+  height: clamp(5px, 1vw, 6px);
   background: rgba(255,255,255,0.1);
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
@@ -222,65 +264,84 @@
   display: block;
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #39ff14, #22e6ff);
-  border-radius: 3px;
+  background: linear-gradient(90deg, var(--color-timer-ok), var(--color-cyan));
+  border-radius: var(--radius-pill);
   box-shadow: 0 0 8px #39ff1488;
 }
 
+/* Standings — separate "sticker chips" with a cart-color edge stripe. Only the
+   leader and YOU glow; everyone else stays a flat dark panel (kills the old
+   four-way neon shout-off). Per-chip --hud-glow is set inline from the cart
+   color (applyHudScoreBoxGlow). */
 #hud .hud-scores {
-  position: absolute;
-  top: var(--hud-pad);
-  left: 50%;
-  transform: translateX(-50%);
   display: none;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 0;
+  gap: clamp(6px, 0.8vw, 10px);
   align-items: center;
   justify-content: center;
-  background: var(--hud-panel-bg);
-  border: var(--hud-border);
-  border-radius: var(--hud-radius);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  overflow: hidden;
   width: max-content;
-  max-width: calc(100% - (var(--hud-pad) * 2) - var(--hud-timer-reserve) - var(--hud-audio-reserve));
+  max-width: 100%;
 }
 
 #hud .hud-scoreBox {
-  --hud-glow: #22e6ff;
+  --hud-glow: var(--color-cyan);
+  position: relative;
   flex: 0 1 auto;
   min-width: 0;
-  padding: clamp(6px, 1.2vw, 14px) clamp(8px, 1.5vw, 18px);
+  padding: clamp(6px, 1.2vw, 12px) clamp(10px, 1.5vw, 16px) clamp(6px, 1.2vw, 12px) clamp(14px, 1.9vw, 22px);
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: clamp(4px, 0.8vw, 8px);
-  border-right: 1px solid rgba(255,255,255,0.08);
+  background:
+    linear-gradient(180deg, var(--surface-panel-top), var(--surface-panel-bottom)),
+    var(--hud-panel-bg);
+  border: 2px solid var(--border-white-15);
+  border-radius: var(--radius-panel);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  overflow: hidden;
 }
 
-#hud .hud-scoreBox:last-child {
-  border-right: none;
+/* Cart-color edge stripe — the chip's identity mark. */
+#hud .hud-scoreBox::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--hud-glow);
 }
 
-#hud .hud-scoreBox[data-hud-color="pink"] { --hud-glow: #ff00ff; }
-#hud .hud-scoreBox[data-hud-color="blue"] { --hud-glow: #00ffff; }
-#hud .hud-scoreBox[data-hud-color="green"] { --hud-glow: #00ff00; }
-#hud .hud-scoreBox[data-hud-color="yellow"] { --hud-glow: #ffff00; }
-#hud .hud-scoreBox[data-hud-color="neonOrange"] { --hud-glow: #ff6600; }
+/* Glow is earned: only YOU and the current leader light up. */
+#hud .hud-scoreBox.isLocal,
+#hud .hud-scoreBox.isLeader {
+  border-color: color-mix(in oklab, var(--hud-glow), transparent 45%);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--hud-glow), transparent 70%);
+}
+#hud .hud-scoreBox.isLocal .hud-scoreRank,
+#hud .hud-scoreBox.isLeader .hud-scoreRank,
+#hud .hud-scoreBox.isLocal .hud-scoreValue,
+#hud .hud-scoreBox.isLeader .hud-scoreValue {
+  text-shadow: 0 0 8px var(--hud-glow);
+}
+/* YOU reads ~15% larger than the field. */
+#hud .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(14px, 1.6vw, 18px); }
+#hud .hud-scoreBox.isLocal .hud-scoreLabel { font-size: clamp(12px, 1.4vw, 16px); }
+#hud .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(15px, 1.8vw, 21px); }
 
 #hud .hud-scoreRank {
-  font-family: "Bungee", cursive, system-ui, sans-serif;
+  font-family: var(--hud-display);
   font-size: clamp(12px, 1.4vw, 16px);
   color: var(--hud-glow);
-  text-shadow: 0 0 8px var(--hud-glow);
   min-width: 16px;
   flex-shrink: 0;
 }
 
 #hud .hud-scoreLabel {
-  font-family: "Michroma", sans-serif;
+  font-family: var(--hud-ui);
   font-size: clamp(11px, 1.2vw, 14px);
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -294,18 +355,17 @@
 }
 
 #hud .hud-scoreValue {
-  font-family: "Bungee", cursive, system-ui, sans-serif;
+  font-family: var(--hud-display);
   font-size: clamp(13px, 1.5vw, 18px);
   color: var(--hud-glow);
-  text-shadow: 0 0 10px var(--hud-glow);
   min-width: 1.5em;
   flex-shrink: 0;
   text-align: right;
 }
 
 #hud .hud-scoreYou {
-  font-family: "Bungee", cursive, system-ui, sans-serif;
-  font-size: 9px;
+  font-family: var(--hud-display);
+  font-size: 10px;
   background: var(--hud-glow);
   color: #000000;
   padding: 2px 5px;
@@ -317,14 +377,10 @@
 }
 
 #hud .hud-feed {
-  position: absolute;
-  top: var(--hud-feed-top);
-  right: var(--hud-pad);
-  max-width: calc(100% - var(--hud-pad) - var(--hud-audio-reserve));
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: clamp(4px, 0.8vw, 8px);
-  z-index: 20000;
   text-align: right;
   pointer-events: none;
 }
@@ -341,8 +397,16 @@
   will-change: transform, opacity;
 }
 
+#hud .hud-feed-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: clamp(12px, 1.4vw, 15px);
+  filter: drop-shadow(0 0 4px currentColor);
+  flex-shrink: 0;
+}
+
 #hud .hud-feed-actor {
-  font-family: "Michroma", sans-serif;
+  font-family: var(--hud-ui);
   font-size: clamp(11px, 1.3vw, 14px);
   color: var(--c);
   text-shadow: 0 0 8px var(--c);
@@ -350,7 +414,7 @@
 }
 
 #hud .hud-feed-verb {
-  font-family: "Michroma", sans-serif;
+  font-family: var(--hud-ui);
   font-size: clamp(10px, 1.1vw, 12px);
   color: rgba(255,255,255,0.45);
   letter-spacing: 2px;
@@ -358,7 +422,7 @@
 }
 
 #hud .hud-feed-target {
-  font-family: "Michroma", sans-serif;
+  font-family: var(--hud-ui);
   font-size: clamp(11px, 1.3vw, 14px);
   color: var(--c2);
   text-shadow: 0 0 8px var(--c2);
@@ -378,12 +442,10 @@
 }
 
 #hud .hud-ready-btn {
-  --btn-glow: #22e6ff;
-  position: absolute;
-  bottom: clamp(40px, 10vh, 80px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Bungee', cursive, system-ui, sans-serif;
+  --btn-glow: var(--hud-player-accent);
+  /* Lift within the pod so the button sits where players expect a lobby CTA. */
+  margin-bottom: clamp(16px, 5vh, 44px);
+  font-family: var(--hud-display);
   font-size: clamp(1.1rem, 3vw, 1.6rem);
   letter-spacing: 0.1em;
   padding: clamp(8px, 1.5vw, 14px) clamp(20px, 4vw, 40px);
@@ -403,13 +465,13 @@
 }
 
 #hud .hud-ready-btn:hover {
-  transform: translateX(-50%) translateY(-2px) scale(1.02);
+  transform: translateY(-2px) scale(1.02);
   background: rgba(0, 0, 0, 0.65);
   box-shadow: 0 0 20px var(--btn-glow), 0 0 44px var(--btn-glow);
 }
 
 #hud .hud-ready-btn.is-ready {
-  --btn-glow: #8dff2b;
+  --btn-glow: var(--color-portal);
   animation: readyPulse 1.2s ease-in-out infinite;
 }
 
@@ -418,21 +480,17 @@
   50%       { box-shadow: 0 0 20px var(--btn-glow, #22e6ff), 0 0 44px var(--btn-glow, #22e6ff); }
 }
 
+/* Mute-only audio widget — volume sliders live in the esc overlay. */
 #hud .hud-audio {
-  position: absolute;
-  top: var(--hud-pad);
-  right: calc(max(var(--hud-pad), env(safe-area-inset-right, 0px)) + var(--hud-menu-reserve));
   display: flex;
   align-items: center;
-  gap: clamp(4px, 0.8vw, 8px);
-  padding: clamp(4px, 1vw, 8px) clamp(8px, 1.5vw, 14px);
+  padding: clamp(4px, 1vw, 8px);
   background: var(--hud-panel-bg);
   border: var(--hud-border);
   border-radius: var(--hud-radius);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   pointer-events: auto;
-  z-index: 20001;
 }
 
 #hud .hud-mute-btn {
@@ -457,91 +515,11 @@
   color: #888;
   border-color: rgba(255, 80, 80, 0.3);
 }
-#hud .hud-vol-stack {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(4px, 0.8vw, 6px);
-}
-#hud .hud-vol-row {
-  display: flex;
-  align-items: center;
-  gap: clamp(4px, 0.8vw, 6px);
-}
-#hud .hud-vol-label {
-  width: clamp(12px, 1.5vw, 14px);
-  text-align: center;
-  color: rgba(255,255,255,0.6);
-  font-size: clamp(10px, 1.2vw, 12px);
-}
-#hud .hud-vol-track {
-  -webkit-appearance: none;
-  appearance: none;
-  width: clamp(60px, 8vw, 80px);
-  height: 16px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  flex: 0 0 auto;
-  pointer-events: auto;
-  --vol-pct: 50%;
-}
-#hud .hud-vol-track::-webkit-slider-runnable-track {
-  height: 5px;
-  border-radius: 3px;
-  background: linear-gradient(
-    to right,
-    #ffffff var(--vol-pct),
-    rgba(255, 255, 255, 0.1) var(--vol-pct)
-  );
-}
-#hud .hud-vol-track::-moz-range-track {
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
-}
-#hud .hud-vol-track::-moz-range-progress {
-  height: 5px;
-  border-radius: 3px;
-  background: #ffffff;
-}
-#hud .hud-vol-track::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 10px;
-  height: 10px;
-  margin-top: -2.5px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-}
-#hud .hud-vol-track::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
-  border: none;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-}
-#hud .hud-vol-track:focus-visible {
-  outline: 2px solid #22e6ff;
-  outline-offset: 2px;
-}
-#hud .hud-vol-val {
-  font-family: 'Space Mono', monospace;
-  font-size: clamp(9px, 1.1vw, 10px);
-  font-weight: 700;
-  color: rgba(255,255,255,0.5);
-  min-width: clamp(18px, 2vw, 22px);
-  text-align: right;
-  letter-spacing: 0.05em;
-}
 
 /* Large desktops — grow to full names; ellipsize only when bar hits timer/audio bounds */
 @media (min-width: 1201px) {
   #hud {
     --hud-timer-reserve: clamp(148px, 11vw, 200px);
-    --hud-audio-reserve: clamp(168px, 13vw, 228px);
   }
   #hud .hud-scores {
     width: fit-content;
@@ -562,7 +540,6 @@
 @media (max-width: 1200px) {
   #hud {
     --hud-timer-reserve: clamp(112px, 14vw, 180px);
-    --hud-audio-reserve: clamp(136px, 18vw, 210px);
     --hud-feed-top: clamp(104px, 13vh, 128px);
   }
   #hud .hud-scoreBox {
@@ -587,7 +564,6 @@
 @media (max-width: 1024px) and (min-width: 901px) {
   #hud {
     --hud-timer-reserve: clamp(100px, 13vw, 160px);
-    --hud-audio-reserve: clamp(120px, 16vw, 180px);
     --hud-feed-top: clamp(112px, 15vh, 136px);
   }
   #hud .hud-scoreBox {
@@ -600,24 +576,30 @@
   }
 }
 
-/* Dock score bar to bottom on narrow viewports */
+/* Dock score bar to bottom on narrow NON-TOUCH viewports (small desktop
+   windows). Touch devices get the dedicated mobile layout further below. */
 @media (max-width: 900px) {
   #hud {
-    --hud-audio-reserve: clamp(56px, 14vw, 72px);
     --hud-feed-top: clamp(120px, 17vh, 148px);
   }
-  #hud .hud-scores {
+  #hud:not(.hud-touch) .hud-region-standings {
     top: auto;
     bottom: max(var(--hud-pad), env(safe-area-inset-bottom, 0px));
     left: var(--hud-pad);
     right: var(--hud-pad);
     transform: none;
-    width: auto;
     max-width: none;
-    border-radius: var(--hud-radius);
-    border: var(--hud-border);
   }
-  #hud .hud-scoreBox {
+  /* Lift the player pod clear of the docked score bar. */
+  #hud:not(.hud-touch) .hud-region-pod {
+    bottom: calc(clamp(96px, 20vh, 132px) + env(safe-area-inset-bottom, 0px));
+  }
+  #hud:not(.hud-touch) .hud-scores {
+    width: 100%;
+    max-width: none;
+    gap: clamp(4px, 1vw, 8px);
+  }
+  #hud:not(.hud-touch) .hud-scoreBox {
     flex: 1 1 0;
     flex-direction: column;
     align-items: center;
@@ -626,18 +608,18 @@
     padding: clamp(4px, 1.2vw, 6px) clamp(2px, 0.8vw, 4px);
     min-width: 0;
   }
-  #hud .hud-scoreRank {
+  #hud:not(.hud-touch) .hud-scoreRank {
     font-size: clamp(9px, 2.2vw, 11px);
     min-width: 0;
   }
-  #hud .hud-scoreLabel {
+  #hud:not(.hud-touch) .hud-scoreLabel {
     display: block;
     font-size: clamp(8px, 2vw, 9px);
     letter-spacing: 0;
     text-align: center;
     width: 100%;
   }
-  #hud .hud-scoreValue {
+  #hud:not(.hud-touch) .hud-scoreValue {
     font-size: clamp(11px, 2.8vw, 13px);
     min-width: 0;
   }
@@ -658,14 +640,6 @@
 @media (max-width: 480px) {
   #hud {
     --hud-feed-top: clamp(116px, 17vh, 140px);
-  }
-  #hud .hud-audio {
-    flex-direction: column;
-    gap: 4px;
-    padding: 4px 8px;
-  }
-  #hud .hud-vol-stack {
-    display: none;
   }
   #hud .hud-timer-body {
     min-width: clamp(96px, 28vw, 120px);
@@ -692,7 +666,7 @@
   #hud {
     --hud-feed-top: clamp(88px, 24vh, 112px);
   }
-  #hud .hud-feed {
+  #hud .hud-region-events {
     max-width: min(60vw, 420px);
   }
   #hud .hud-feed-row {
@@ -711,17 +685,17 @@
 
 /* Sudden Death — red timer theme */
 #hud.hud-sudden-death .hud-timer-stripe {
-  background: #ff3333;
+  background: var(--color-alert);
   box-shadow: 0 0 12px #ff3333aa;
 }
 
 #hud.hud-sudden-death .hud-timer-pip {
-  background: #ff3333;
-  box-shadow: 0 0 6px #ff3333;
+  background: var(--color-alert);
+  box-shadow: 0 0 6px var(--color-alert);
 }
 
 #hud.hud-sudden-death .hud-timer-bar i {
-  background: linear-gradient(90deg, #ff3333, #ff6666);
+  background: linear-gradient(90deg, var(--color-alert), #ff6666);
   box-shadow: 0 0 8px #ff333388;
 }
 
@@ -730,17 +704,13 @@
 }
 
 @keyframes suddenDeathPulse {
-  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-  50%      { opacity: 1;    transform: translateX(-50%) scale(1.06); }
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
 }
 
 /* Touch-only in-game menu button (opens Esc overlay). */
 #hud .hud-menu-btn {
   display: none;
-  position: absolute;
-  top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
-  right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
-  z-index: 20002;
   align-items: center;
   justify-content: center;
   width: clamp(44px, 11vmin, 52px);
@@ -767,14 +737,6 @@
   display: flex;
 }
 
-#hud.hud-hide-audio .hud-audio {
-  display: none !important;
-}
-
-#hud.hud-hide-audio {
-  --hud-audio-reserve: 0px;
-}
-
 #hud .hud-menu-btn:active {
   transform: scale(0.94);
   border-color: rgba(34, 230, 255, 0.55);
@@ -788,6 +750,7 @@
 #hud.hud-suppressed .hud-ready-btn,
 #hud.hud-suppressed .hud-audio,
 #hud.hud-suppressed .hud-menu-btn,
+#hud.hud-suppressed .hud-conn,
 #hud.hud-suppressed .hud-feed {
   display: none !important;
 }
@@ -817,49 +780,95 @@
 
 /* ── Last-30-seconds warning — amber timer tint (red urgency owns the last 10) ── */
 #hud .hud-timer.hud-timer-warn .hud-timer-num {
-  color: #ffe53d;
+  color: var(--color-yellow);
   text-shadow: 0 0 16px rgba(255, 229, 61, 0.5);
 }
 #hud .hud-timer.hud-timer-warn .hud-timer-stripe {
-  background: #ffe53d;
+  background: var(--color-yellow);
   box-shadow: 0 0 10px #ffe53d88;
 }
 #hud .hud-timer.hud-timer-warn .hud-timer-pip {
-  background: #ffe53d;
-  box-shadow: 0 0 6px #ffe53d;
+  background: var(--color-yellow);
+  box-shadow: 0 0 6px var(--color-yellow);
 }
 #hud .hud-timer.hud-timer-warn .hud-timer-bar i {
-  background: linear-gradient(90deg, #ffe53d, #ffd24d);
+  background: linear-gradient(90deg, var(--color-yellow), #ffd24d);
   box-shadow: 0 0 8px #ffe53d66;
 }
 
 /* ── Final-10-seconds urgency — red timer pulse ─────────────────────────── */
 #hud .hud-timer.hud-timer-urgent .hud-timer-num {
-  color: #ff3333;
+  color: var(--color-alert);
   text-shadow: 0 0 20px rgba(255, 51, 51, 0.6);
   animation: hudTimerUrgent 1s ease-in-out infinite;
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-stripe {
-  background: #ff3333;
+  background: var(--color-alert);
   box-shadow: 0 0 12px #ff3333aa;
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-pip {
-  background: #ff3333;
-  box-shadow: 0 0 6px #ff3333;
+  background: var(--color-alert);
+  box-shadow: 0 0 6px var(--color-alert);
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-bar i {
-  background: linear-gradient(90deg, #ff3333, #ff6666);
+  background: linear-gradient(90deg, var(--color-alert), #ff6666);
   box-shadow: 0 0 8px #ff333388;
 }
 @keyframes hudTimerUrgent {
   50% { filter: brightness(1.35); }
 }
 
+/* ── Personality badge + host glyphs (scoreboard / kill feed) ───────────── */
+#hud .hud-scoreBadge {
+  display: none;
+  align-items: center;
+  font-size: 0.95em;
+  filter: drop-shadow(0 0 4px currentColor);
+  flex-shrink: 0;
+}
+#hud .hud-scoreHost {
+  display: none;
+  align-items: center;
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
+}
+#hud .hud-feed-host {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+}
+
+/* ── Connection pill — Secondary tier: visible only while reconnecting ──── */
+#hud .hud-conn {
+  display: none;
+  align-items: center;
+  padding: clamp(4px, 1vw, 8px) clamp(8px, 1.5vw, 12px);
+  background: var(--hud-panel-bg);
+  border: 1px solid color-mix(in oklab, var(--color-alert), transparent 40%);
+  border-radius: var(--radius-pill);
+  font-family: var(--hud-mono);
+  font-size: clamp(9px, 1.1vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-alert);
+  white-space: nowrap;
+  animation: hudConnPulse 1.2s ease-in-out infinite;
+}
+@keyframes hudConnPulse {
+  50% { opacity: 0.55; }
+}
+
 /* ── In-match leader crown + rampage pips on the scoreboard ─────────────── */
 #hud .hud-scoreCrown {
-  font-size: 0.85em;
+  font-size: 0.95em;
   margin-right: 3px;
+  color: var(--color-yellow);
   filter: drop-shadow(0 0 6px #ffe53daa);
+  display: inline-flex;
+  align-items: center;
 }
 #hud .hud-scorePip {
   font-family: var(--hud-mono, ui-monospace, monospace);
@@ -882,10 +891,29 @@
   box-shadow: 0 0 10px #ff3333aa;
 }
 
-/* ── Score-breakdown float — "+8 · 2.0× SAVAGE · CRIT" rises on local KO ── */
+/* Dizzy stars — cartoon "knocked silly" overlay during the chip's KO dip. */
+#hud .hud-scoreDizzy {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  display: none;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-yellow);
+  filter: drop-shadow(0 0 4px #ffe53daa);
+  animation: hudDizzyWobble 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes hudDizzyWobble {
+  from { transform: rotate(-14deg) scale(1); }
+  to   { transform: rotate(14deg) scale(1.15); }
+}
+
+/* ── Score-breakdown float — rises from screen center beside the hitmarker,
+      out of the Center Stage band so it never overlaps announcer callouts ── */
 #hud .hud-score-float {
   position: absolute;
-  top: 34vh;
+  top: calc(50% + clamp(36px, 6vh, 60px));
   left: 50%;
   transform: translate(-50%, 0);
   text-align: center;
@@ -893,19 +921,19 @@
   z-index: 12;
 }
 #hud .hud-score-float-amt {
-  font-family: var(--hud-ui);
+  font-family: var(--hud-display);
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: #ffe53d;
-  text-shadow: 3px 3px 0 #ff2bd644, 0 0 22px #ffe53d;
+  color: var(--hud-player-accent);
+  text-shadow: 3px 3px 0 var(--glow-magenta-28), 0 0 22px var(--hud-player-accent);
 }
 #hud .hud-score-float-sub {
   font-family: var(--hud-mono, ui-monospace, monospace);
   font-size: clamp(0.75rem, 1.6vw, 1rem);
   font-weight: 700;
   letter-spacing: 0.18em;
-  color: #22e6ff;
+  color: var(--color-cyan);
   text-shadow: 0 0 12px #22e6ffaa;
   margin-top: 2px;
 }
@@ -937,7 +965,7 @@
     #ffffff 0%, #ffffff 30%,
     transparent 30%, transparent 70%,
     #ffffff 70%, #ffffff 100%);
-  filter: drop-shadow(0 0 6px rgba(255, 43, 214, 0.9));
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--hud-player-accent), transparent 10%));
 }
 #hud .hud-hitmarker::before { transform: rotate(45deg); }
 #hud .hud-hitmarker::after { transform: rotate(-45deg); }
@@ -950,17 +978,12 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
 }
 
-/* ── Boost charge meter (keyboard/gamepad) — bottom center, under combo ─── */
+/* ── Boost charge meter (keyboard/gamepad) — player pod, under combo ────── */
 #hud .hud-boost {
-  position: absolute;
-  bottom: calc(clamp(18px, 3.5vh, 36px) + env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
   display: none;
   align-items: center;
   gap: 8px;
   pointer-events: none;
-  z-index: 14;
 }
 #hud .hud-boost-label {
   font-family: var(--hud-ui);
@@ -981,12 +1004,12 @@
   display: block;
   height: 100%;
   width: 100%;
-  background: #22e6ff;
+  background: var(--color-cyan);
   box-shadow: 0 0 8px rgba(34, 230, 255, 0.8);
   transition: width 60ms linear;
 }
 #hud .hud-boost[data-state="charging"] .hud-boost-fill {
-  background: #ffe53d;
+  background: var(--color-yellow);
   box-shadow: 0 0 8px rgba(255, 229, 61, 0.85);
 }
 #hud .hud-boost[data-state="charged"] .hud-boost-fill {
@@ -1003,12 +1026,9 @@
   to   { filter: brightness(1.7); }
 }
 
-/* ── Challenge-complete toast — top center ──────────────────────────────── */
+/* ── Challenge-complete toast — Center Stage event slot ─────────────────── */
 #hud .hud-toast {
-  position: absolute;
-  top: clamp(64px, 9vh, 104px);
-  left: 50%;
-  transform: translate(-50%, -14px);
+  transform: translateY(-14px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1021,17 +1041,16 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 260ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1);
-  z-index: 20030;
 }
 #hud .hud-toast.active {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
 }
 #hud .hud-toast-kicker {
   font-family: var(--hud-ui);
   font-size: clamp(9px, 1vw, 11px);
   letter-spacing: 0.2em;
-  color: #2bff7a;
+  color: var(--color-portal);
   text-shadow: 0 0 10px rgba(43, 255, 122, 0.7);
 }
 #hud .hud-toast-title {
@@ -1041,9 +1060,128 @@
   color: #ffffff;
 }
 
+/* ── Dedicated mobile HUD (touch devices) — not a scaled desktop layout ────
+   Thumb zones (bottom corners) stay HUD-free: timer becomes a top-center pill,
+   standings a compact top-right chip strip beside the utility corner, kill feed
+   two icon-forward rows top-left. Boost state lives on the BOOST button. */
+#hud.hud-touch {
+  --hud-feed-top: clamp(58px, 13vh, 88px);
+}
+
+/* Timer — compact top-left pill: number + tier color + thin bar. The kill
+   feed slots in directly beneath it; the right side belongs to the chip strip
+   so the two never collide on narrow phones. */
+#hud.hud-touch .hud-region-match {
+  top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
+  left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
+}
+#hud.hud-touch .hud-timer {
+  border-radius: var(--radius-pill);
+}
+#hud.hud-touch .hud-timer-stripe {
+  display: none;
+}
+#hud.hud-touch .hud-timer-body {
+  min-width: clamp(84px, 20vw, 124px);
+  padding: 4px 14px 7px;
+  gap: 3px;
+  align-items: center;
+}
+#hud.hud-touch .hud-timer-meta {
+  justify-content: center;
+}
+#hud.hud-touch .hud-timer-meta-label {
+  display: none;
+}
+#hud.hud-touch .hud-timer-num {
+  font-size: clamp(20px, 6vw, 30px);
+  text-align: center;
+}
+#hud.hud-touch .hud-timer-bar {
+  width: 100%;
+}
+
+/* Standings — ultra-compact chip strip (rank + score), top-right beside the
+   utility corner. Personality reads from nametags on mobile, not the strip. */
+#hud.hud-touch .hud-region-standings {
+  top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
+  bottom: auto;
+  left: auto;
+  right: calc(max(var(--hud-pad), env(safe-area-inset-right, 0px)) + clamp(84px, 20vw, 104px));
+  transform: none;
+  max-width: 52vw;
+}
+#hud.hud-touch .hud-scores {
+  gap: clamp(3px, 0.8vw, 6px);
+}
+#hud.hud-touch .hud-scoreBox {
+  padding: clamp(4px, 1vw, 6px) clamp(6px, 1.4vw, 9px) clamp(4px, 1vw, 6px) clamp(9px, 1.8vw, 12px);
+  gap: clamp(3px, 0.6vw, 5px);
+}
+#hud.hud-touch .hud-scoreLabel,
+#hud.hud-touch .hud-scoreBadge {
+  display: none !important;
+}
+#hud.hud-touch .hud-scoreRank {
+  font-size: clamp(10px, 2.4vw, 12px);
+  min-width: 0;
+}
+#hud.hud-touch .hud-scoreValue {
+  font-size: clamp(12px, 2.8vw, 15px);
+}
+#hud.hud-touch .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(11px, 2.7vw, 14px); }
+#hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(14px, 3.2vw, 17px); }
+
+/* Kill feed — two icon-forward rows, top-left, reading left-to-right. */
+#hud.hud-touch .hud-region-events {
+  top: var(--hud-feed-top);
+  left: var(--hud-pad);
+  right: auto;
+  max-width: min(56vw, 360px);
+}
+#hud.hud-touch .hud-feed {
+  align-items: flex-start;
+  text-align: left;
+}
+#hud.hud-touch .hud-feed-row {
+  justify-content: flex-start;
+}
+#hud.hud-touch .hud-feed-row:nth-child(n + 3) {
+  display: none;
+}
+#hud.hud-touch .hud-feed-actor,
+#hud.hud-touch .hud-feed-target {
+  font-size: clamp(12px, 3vw, 14px);
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Center Stage — same queue, ~60% scale so banners never dwarf the arena. */
+#hud.hud-touch .hud-region-stage {
+  top: 21vh;
+}
+#hud.hud-touch .hud-status {
+  font-size: clamp(2rem, 8vw, 3.4rem);
+}
+#hud.hud-touch .hud-arena-splash {
+  font-size: clamp(0.9rem, 2.6vw, 1.3rem);
+}
+
+/* Score float docks tight to the hitmarker on small screens. */
+#hud.hud-touch .hud-score-float-amt {
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+}
+
 @media (prefers-reduced-motion: reduce) {
   #hud .hud-timer.hud-timer-urgent .hud-timer-num,
-  #hud .hud-boost[data-state="charged"] .hud-boost-fill {
+  #hud .hud-boost[data-state="charged"] .hud-boost-fill,
+  #hud .hud-conn,
+  #hud .hud-scoreDizzy,
+  #hud .hud-combo-badge.tier-3 .hud-combo-multiplier,
+  #hud .hud-ready-btn {
     animation: none;
   }
 }

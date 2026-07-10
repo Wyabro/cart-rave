@@ -9,6 +9,7 @@
  * @property {string} [leader] Name of the current/new scoreboard leader.
  * @property {string | number} [aisle] Aisle number for cleanup-flavored lines.
  * @property {string} [title] Challenge title for challenge_complete lines.
+ * @property {string} [name] Player name for new_host lines.
  */
 
 /** @type {Record<string, Record<string, string[]>>} */
@@ -71,6 +72,9 @@ const LINES = {
       "{leader} TAKES THE LEAD!",
       "NEW LEADER: {leader}!",
       "{leader} IS TOP OF THE RECEIPT!",
+    ],
+    new_host: [
+      "{name} HAS THE WHEEL!",
     ],
     comeback: [
       "WHAT A COMEBACK!",

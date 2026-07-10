@@ -58,6 +58,9 @@ export function killFeedReactor(koEvent, ctx) {
   const targetName = victimSlot?.name || `P${koEvent.victimSlotIndex + 1}`;
   const targetColor = colorForSlot(ctx, victimSlot);
 
+  // * Cartoon dizzy-stars dip on the victim's score chip (every client).
+  ctx.hud.noteChipKO?.(koEvent.victimSlotIndex);
+
   if (koEvent.attackerSlotIndex != null) {
     const attackerSlot = ctx.netSlots[koEvent.attackerSlotIndex];
     const actorName = attackerSlot?.name || `P${koEvent.attackerSlotIndex + 1}`;

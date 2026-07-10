@@ -1,0 +1,129 @@
+/* Cart Clash — Shared design tokens (single source of truth).
+   Lifted from cart-rave-menu.css so the HUD and overlays draw from the same
+   palette as the menu. Imported by cart-rave-menu.css and hud.css; :root vars
+   are global once either loads. */
+
+:root {
+  /* Typography */
+  --ui: "Russo One", sans-serif;
+  --mono: "Goldman", ui-monospace, monospace;
+  --display: "Road Rage", "Goldman", sans-serif;
+  --shade: "Road Rage", "Goldman", sans-serif;
+
+  /* Brand colors */
+  --color-magenta: #ff2bd6;
+  --color-cyan: #22e6ff;
+  --color-yellow: #ffe53d;
+  --color-portal: #2bff7a;
+  --color-bg-deep: #0a0014;
+  --color-bg-black: #000;
+
+  /* Glow / shadow RGBA (magenta) */
+  --glow-magenta-10: rgba(255, 43, 214, 0.10);
+  --glow-magenta-14: rgba(255, 43, 214, 0.14);
+  --glow-magenta-16: rgba(255, 43, 214, 0.16);
+  --glow-magenta-20: rgba(255, 43, 214, 0.20);
+  --glow-magenta-22: rgba(255, 43, 214, 0.22);
+  --glow-magenta-24: rgba(255, 43, 214, 0.24);
+  --glow-magenta-28: rgba(255, 43, 214, 0.28);
+  --glow-magenta-40: rgba(255, 43, 214, 0.40);
+
+  /* Glow / shadow RGBA (cyan) */
+  --glow-cyan-12: rgba(34, 230, 255, 0.12);
+  --glow-cyan-14: rgba(34, 230, 255, 0.14);
+  --glow-cyan-18: rgba(34, 230, 255, 0.18);
+  --glow-cyan-24: rgba(34, 230, 255, 0.24);
+  --glow-cyan-28: rgba(34, 230, 255, 0.28);
+  --glow-cyan-30: rgba(34, 230, 255, 0.30);
+  --glow-cyan-50: rgba(34, 230, 255, 0.50);
+
+  /* Glow / shadow RGBA (portal green) */
+  --glow-portal-10: rgba(43, 255, 122, 0.10);
+  --glow-portal-25: rgba(43, 255, 122, 0.25);
+  --glow-portal-40: rgba(43, 255, 122, 0.40);
+  --glow-portal-50: rgba(43, 255, 122, 0.50);
+
+  /* Composite glow shadows */
+  --shadow-glow-magenta-sm: 0 0 16px var(--glow-magenta-14);
+  --shadow-glow-magenta-md: 0 0 18px var(--glow-magenta-16);
+  --shadow-glow-cyan-sm: 0 0 16px var(--glow-cyan-14);
+  --shadow-glow-dual-soft: 0 0 18px var(--glow-cyan-14), 0 0 12px var(--glow-magenta-10);
+  --shadow-glow-dual-knob: 0 0 16px var(--glow-magenta-22), 0 0 10px var(--glow-cyan-14);
+  --shadow-glow-toast: 0 0 18px var(--glow-magenta-16), 0 0 10px var(--glow-cyan-12);
+
+  /* Backdrop blur */
+  --blur-sm: 6px;
+  --blur-md: 8px;
+  --blur-lg: 10px;
+
+  /* Border colors & opacities */
+  --border-white-10: rgba(255, 255, 255, 0.10);
+  --border-white-12: rgba(255, 255, 255, 0.12);
+  --border-white-14: rgba(255, 255, 255, 0.14);
+  --border-white-15: rgba(255, 255, 255, 0.15);
+  --border-white-20: rgba(255, 255, 255, 0.20);
+  --border-white-05-inset: rgba(255, 255, 255, 0.05);
+
+  /* Surface backgrounds */
+  --surface-dark-30: rgba(0, 0, 0, 0.30);
+  --surface-dark-40: rgba(0, 0, 0, 0.40);
+  --surface-dark-55: rgba(0, 0, 0, 0.55);
+  --surface-dark-60: rgba(0, 0, 0, 0.60);
+  --surface-dark-70: rgba(0, 0, 0, 0.70);
+  --surface-white-06: rgba(255, 255, 255, 0.06);
+  --surface-white-12: rgba(255, 255, 255, 0.12);
+  --surface-panel-top: rgba(255, 255, 255, 0.03);
+  --surface-panel-bottom: rgba(0, 0, 0, 0.50);
+
+  /* Transforms & transitions */
+  --transform-hover-lift: translateY(-2px) scale(1.02);
+  --transform-hover-lift-sm: translateY(-2px);
+  --transform-active-press: translateY(1px);
+  --transform-active-btn: translateY(0) scale(0.99);
+  --transition-btn: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
+  --transition-btn-shimmer: 550ms ease;
+  --transition-interactive: all 150ms ease;
+  --transition-scale-hover: transform 150ms, background 150ms, border-color 150ms;
+
+  /* Fluid Spacing */
+  --space-xs: clamp(4px, 0.8vw, 6px);
+  --space-sm: clamp(6px, 1vw, 8px);
+  --space-md: clamp(8px, 1.2vw, 10px);
+  --space-lg: clamp(10px, 1.5vw, 12px);
+  --space-xl: clamp(12px, 1.8vw, 14px);
+  --space-2xl: clamp(14px, 2vw, 16px);
+  --space-3xl: clamp(16px, 2.5vw, 18px);
+  --space-4xl: clamp(20px, 3vw, 24px);
+  --gap-section: clamp(16px, 2.5vw, 24px);
+  --gap-controls: clamp(10px, 1.5vw, 14px);
+  --gap-buttons: clamp(8px, 1.2vw, 12px);
+
+  /* Fluid Padding */
+  --pad-btn: clamp(10px, 1.5vw, 14px) clamp(16px, 3vw, 24px);
+  --pad-card: clamp(14px, 2vw, 18px) clamp(14px, 2vw, 18px) clamp(12px, 1.5vw, 16px);
+  --pad-panel: clamp(12px, 1.5vw, 14px) clamp(14px, 2vw, 16px) clamp(14px, 2vw, 16px);
+  --pad-audio: clamp(8px, 1vw, 10px) clamp(12px, 1.5vw, 14px);
+  --pad-copy-btn: clamp(8px, 1vw, 10px) clamp(14px, 2vw, 18px);
+  --pad-content: clamp(20px, 4vw, 48px) clamp(24px, 5vw, 56px);
+
+  /* Radii */
+  --radius-pill: 999px;
+  --radius-sm: 8px;
+  --radius-panel: 10px;
+  --radius-chip: 10px;
+  --radius-lg: 14px;
+  --radius-card: 16px;
+  --radius-btn: 6px;
+
+  /* HUD semantic colors (match-state grammar) */
+  --color-timer-ok: #39ff14;
+  --color-alert: #ff3333;
+  --color-combo-t1: #ffaa00;
+  --color-combo-t2: #ff3366;
+
+  /* NPC personality accents */
+  --personality-aggressor: #ff4d4d;
+  --personality-lurker: #b366ff;
+  --personality-scavenger: #4dff88;
+  --personality-chaotic: #ffaa33;
+}

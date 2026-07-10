@@ -2,6 +2,18 @@
 // * Re-exported here so existing `./npcNames.js` importers keep working unchanged.
 export { NPC_NAME_POOL } from "../shared/npcNames.js";
 
+/**
+ * Player-facing presentation for each personality — one source for the HUD
+ * scoreboard chips and the 3D nametags (replaces the old duplicated
+ * PERSONALITY_BADGES letter maps). `icon` is a glyph name in src/ui/icons.js.
+ */
+export const PERSONALITY_META = Object.freeze({
+  aggressor: Object.freeze({ icon: "aggressor", color: "#ff4d4d", label: "AGGRESSOR" }),
+  lurker: Object.freeze({ icon: "lurker", color: "#b366ff", label: "LURKER" }),
+  scavenger: Object.freeze({ icon: "scavenger", color: "#4dff88", label: "SCAVENGER" }),
+  chaotic: Object.freeze({ icon: "chaotic", color: "#ffaa33", label: "CHAOTIC" }),
+});
+
 const PERSONALITY_PROFILES = {
   aggressor: {
     name: "aggressor",

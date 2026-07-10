@@ -18,6 +18,7 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
+import { announce } from "./announcer/announcerManager.js";
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
@@ -37,6 +38,8 @@ function getCartSnap(carts, slotIndex) {
 let partySocket = null;
 let youConnId = null;
 let hostId = null;
+/** @type {"ok" | "reconnecting"} Coarse socket health surfaced to the HUD. */
+let connectionState = "ok";
 let isHost = false;
 
 let hostSeq = 0;
@@ -329,7 +332,10 @@ export function setRefs(refs) {
 
 export function getYouConnId() { return youConnId; }
 export function getIsHost() { return isHost; }
+export function getHostId() { return hostId; }
 export function getNetSlots() { return netSlots; }
+/** Coarse socket health for the HUD: "ok" | "reconnecting". */
+export function getConnectionState() { return connectionState; }
 export function getRemoteInputsByConnId() { return remoteInputsByConnId; }
 export function getHostMigrationFreezeUntilMs() { return hostMigrationFreezeUntilMs; }
 export function getServerClockOffsetMs() { return serverClockOffsetMs; }
@@ -1316,6 +1322,7 @@ export function initNetcode(roomOverride) {
     });
     if (helloReceivedThisSession) {
       console.log("[netcode] Socket closed after successful hello (will retry with backoff)");
+      connectionState = "reconnecting";
     }
     if (_suppressRetry) return;
     if (didSendJoin && !helloReceivedThisSession) {
@@ -1332,6 +1339,7 @@ export function initNetcode(roomOverride) {
     });
     if (helloReceivedThisSession) {
       console.log("[netcode] Socket error after successful hello (will retry with backoff)");
+      connectionState = "reconnecting";
     }
     if (_suppressRetry) return;
     if (didSendJoin && !helloReceivedThisSession) {
@@ -1342,6 +1350,7 @@ export function initNetcode(roomOverride) {
   });
 
   partySocket.addEventListener("open", () => {
+    connectionState = "ok";
     let savedUsername = (localStorage.getItem("cartRaveUsername") || "").trim();
     if (!savedUsername) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
@@ -1513,6 +1522,14 @@ export function initNetcode(roomOverride) {
       if (!nextIsHost) hostMigrationFreezeUntilMs = getMonotonicNow() + CONFIG.net.hostMigrationFreezeMs;
       hostEpoch += 1;
       netStateBuffer = [];
+      // * Host migration is no longer silent — every client gets the PA callout
+      // * and the HUD host glyph moves to the new host's chip on the next frame.
+      const newHostSlot = Array.isArray(netSlots)
+        ? netSlots.find((s) => s && s.connId === hostId)
+        : null;
+      if (newHostSlot?.name) {
+        announce("new_host", { name: newHostSlot.name });
+      }
       if (nextIsHost) {
         const hostMigratedHandler = callbacks.getOnHostMigratedHandler?.();
         if (hostMigratedHandler) hostMigratedHandler();

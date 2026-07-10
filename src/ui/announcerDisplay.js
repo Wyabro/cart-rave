@@ -1,14 +1,16 @@
 // announcerDisplay.js — visual presenter for "The Store PA" announcer callouts.
 // Module-singleton pattern (mirrors hud.js / pauseOverlay.js): initAnnouncerDisplay()
 // builds the DOM once (idempotent) and returns a presenter object matching the
-// AnnouncerPresenter contract from announcerManager.js. Pass it to
-// setAnnouncerPresenter(presenter) at integration time — this module does not
-// wire itself into the announcer engine.
+// AnnouncerPresenter contract from announcerManager.js. Wired up in main.js via
+// setAnnouncerPresenter(initAnnouncerDisplay()).
 //
-// Not consumed by anything yet; the lead wires setAnnouncerPresenter(initAnnouncerDisplay())
-// during integration.
+// Callouts claim the HUD's Center Stage event slot (centerStage.js) so they
+// never stack on top of challenge/unlock toasts — announcer wins (priority 3),
+// preempting any active toast; announcer-vs-announcer arbitration stays in
+// announcerManager.js (replaceSameKind).
 
 import "./styles/announcer.css";
+import { claimStage } from "./centerStage.js";
 
 /**
  * @typedef {object} AnnouncerCalloutPayload
@@ -146,12 +148,32 @@ function playExit(el, reduced, onDone) {
 }
 
 /**
- * Replaces any current callout immediately (no queueing — the announcer
- * manager arbitrates that) and plays the full entrance -> hold -> exit cycle.
+ * Claims the Center Stage event slot, then plays the full
+ * entrance -> hold -> exit cycle. Same-kind requests replace the current
+ * callout immediately (the announcer manager already arbitrated them).
  * @param {AnnouncerCalloutPayload} payload
  * @returns {void}
  */
 function showCallout(payload) {
+  if (!elements.root || !elements.inner || !elements.kicker || !elements.text) return;
+  const claimHoldMs = Number.isFinite(payload?.holdMs) ? Math.max(0, payload.holdMs) : DEFAULT_HOLD_MS;
+  claimStage({
+    kind: "announcer",
+    priority: 3,
+    durationMs: claimHoldMs,
+    replaceSameKind: true,
+    show: () => presentCallout(payload),
+    hide: hideCallout,
+  });
+}
+
+/**
+ * Renders the callout DOM and runs its animation cycle — only ever called by
+ * the Center Stage grant.
+ * @param {AnnouncerCalloutPayload} payload
+ * @returns {void}
+ */
+function presentCallout(payload) {
   if (!elements.root || !elements.inner || !elements.kicker || !elements.text) return;
   clearScheduled();
 
@@ -175,6 +197,17 @@ function showCallout(payload) {
 
   const enterAnim = playEnter(elements.inner, reduced);
   if (enterAnim) _activeAnimations.push(enterAnim);
+
+  // * Critical-class events get a one-flick chromatic edge on entry.
+  if (!reduced && payload?.cls === "critical" && typeof elements.inner.animate === "function") {
+    _activeAnimations.push(elements.inner.animate(
+      [
+        { textShadow: "-3px 0 #22e6ff, 3px 0 #ff2bd6" },
+        { textShadow: "0 0 0 rgba(0,0,0,0)" },
+      ],
+      { duration: 140, easing: "steps(2, end)" },
+    ));
+  }
 
   const holdMs = Number.isFinite(payload?.holdMs) ? Math.max(0, payload.holdMs) : DEFAULT_HOLD_MS;
   const exitDelay = Math.max(0, holdMs - EXIT_MS);

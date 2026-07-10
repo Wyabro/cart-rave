@@ -96,6 +96,24 @@ function scheduleLayoutSync() {
   });
 }
 
+/**
+ * Renders the local boost charge state onto the BOOST button (mobile HUD —
+ * replaces the desktop boost meter). Pass a null fillPct to reset to idle.
+ *
+ * @param {number | null} fillPct 0..100 charge/cooldown fill.
+ * @param {"ready" | "charging" | "charged" | "cooldown"} [state]
+ */
+export function updateBoostRing(fillPct, state = "ready") {
+  if (!boostBtnEl) return;
+  if (fillPct == null) {
+    if (boostBtnEl.dataset.boostState) delete boostBtnEl.dataset.boostState;
+    boostBtnEl.style.removeProperty("--gtc-boost-pct");
+    return;
+  }
+  boostBtnEl.style.setProperty("--gtc-boost-pct", String(Math.round(fillPct)));
+  if (boostBtnEl.dataset.boostState !== state) boostBtnEl.dataset.boostState = state;
+}
+
 function ensureHudObservers() {
   if (hudObserversBound) return;
   const hud = document.getElementById("hud");
@@ -427,10 +445,44 @@ function injectTouchStyles() {
     }
 
     #game-touch-controls .gtc-btn--boost {
+      position: relative;
+      overflow: hidden;
       border-color: rgba(34, 230, 255, 0.34);
       box-shadow:
         0 4px 18px rgba(0, 0, 0, 0.35),
         0 0 14px rgba(34, 230, 255, 0.14);
+    }
+
+    /* Boost charge fill — the desktop meter's state grammar rendered where the
+       thumb already rests: cyan=ready, amber=charging, white pulse=charged,
+       faded magenta=cooldown. Driven by updateBoostRing(). */
+    #game-touch-controls .gtc-btn--boost::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: calc(var(--gtc-boost-pct, 100) * 1%);
+      background: var(--gtc-boost-color, rgba(34, 230, 255, 0.26));
+      transition: width 60ms linear;
+      pointer-events: none;
+    }
+    #game-touch-controls .gtc-btn--boost[data-boost-state="charging"] {
+      --gtc-boost-color: rgba(255, 229, 61, 0.30);
+    }
+    #game-touch-controls .gtc-btn--boost[data-boost-state="charged"] {
+      --gtc-boost-color: rgba(255, 255, 255, 0.38);
+      animation: gtcBoostCharged 380ms ease-in-out infinite alternate;
+    }
+    #game-touch-controls .gtc-btn--boost[data-boost-state="cooldown"] {
+      --gtc-boost-color: rgba(255, 43, 214, 0.18);
+    }
+    @keyframes gtcBoostCharged {
+      from { filter: brightness(1); }
+      to   { filter: brightness(1.55); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #game-touch-controls .gtc-btn--boost[data-boost-state="charged"] {
+        animation: none;
+      }
     }
 
     #game-touch-controls .gtc-btn--hop {

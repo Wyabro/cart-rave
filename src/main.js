@@ -17,6 +17,7 @@ import {
   buildCartThemeMaterialCache,
 } from "./cartThemes.js";
 import "./cart-rave-menu.js";
+import "./ui/styles/tokens.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
@@ -34,7 +35,8 @@ import * as HUD from "./hud.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
-import { getNpcPersonality } from "./npcNames.js";
+import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
+import { svgIcon } from "./ui/icons.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 import { onUnlockGranted } from "./stores/unlockStore.js";
 import {
@@ -44,12 +46,36 @@ import {
   snapshotMatchStats,
 } from "./scoring/matchStats.js";
 
-const PERSONALITY_BADGES = {
-  aggressor: { letter: "[A]", color: "#ff4d4d" },
-  lurker: { letter: "[L]", color: "#b366ff" },
-  scavenger: { letter: "[S]", color: "#4dff88" },
-  chaotic: { letter: "[C]", color: "#ffaa33" },
-};
+/** Escapes player-provided text for the innerHTML-based nametag markup. */
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (ch) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+  ));
+}
+
+/**
+ * Builds nametag inner markup: personality icon for NPCs (expands to the
+ * personality word during the countdown intro moment), host antenna for the
+ * hosting human. Personality meta comes from PERSONALITY_META (npcNames.js).
+ *
+ * @param {string} name
+ * @param {{ icon: string, color: string, label: string } | null} meta
+ * @param {"intro" | "normal"} mode
+ * @param {boolean} isHost
+ * @returns {string}
+ */
+function nametagHtml(name, meta, mode, isHost) {
+  const hostGlyph = isHost
+    ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("antenna", { label: "Host" })}</span>`
+    : "";
+  if (!meta) return `${hostGlyph}${escapeHtml(name)}`;
+  const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
+  if (mode === "intro") {
+    // * Countdown teach-moment: icon + personality word, collapses to icon-only at GO.
+    return `${icon}<span style="color:${meta.color};">${meta.label}</span>`;
+  }
+  return `${icon}${escapeHtml(name)}`;
+}
 import * as GameAudio from "./audio.js";
 import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
@@ -1881,7 +1907,11 @@ async function main() {
       }
 
       playAgain.disabled = !isHost;
-      playAgain.textContent = isHost ? "PLAY AGAIN" : "WAITING FOR HOST…";
+      if (isHost) {
+        playAgain.textContent = "PLAY AGAIN";
+      } else {
+        playAgain.innerHTML = `<span style="opacity:.8;margin-right:6px;">${svgIcon("antenna", { label: "Host" })}</span>WAITING FOR HOST…`;
+      }
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
@@ -2135,19 +2165,15 @@ async function main() {
 
   // --- Floating name labels above carts ---
   const nameLabels = [];
-  function makeNameLabel(text, color, badgeInfo) {
+  function makeNameLabel(contentHtml, color) {
     const el = document.createElement("div");
     el.className = "cart-nametag";
-    if (badgeInfo) {
-      el.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${text}`;
-    } else {
-      el.textContent = text;
-    }
+    el.innerHTML = contentHtml;
     el.style.padding = "6px 14px";
     el.style.borderRadius = "4px";
     el.style.background = "rgba(0, 0, 0, 0.7)";
     el.style.color = "#fff";
-    el.style.fontFamily = '"Michroma", sans-serif';
+    el.style.fontFamily = '"Russo One", sans-serif';
     el.style.fontSize = "";
     el.style.fontWeight = "700";
     el.style.lineHeight = "1";
@@ -2175,32 +2201,30 @@ async function main() {
       const colorCSS = displayCssColorForSlot(slot);
 
       const personality = cart.aiPersonality || (slot.kind === "npc" ? getNpcPersonality(name) : null);
-      const badgeInfo = personality ? (PERSONALITY_BADGES[personality.name] || null) : null;
-      const badgeKey = badgeInfo ? badgeInfo.letter : "";
+      const meta = personality ? (PERSONALITY_META[personality.name] || null) : null;
+      const introMode = meta && GameState.getRoundState().phase === "countdown" ? "intro" : "normal";
+      // * Host glyph only means something online — solo/testdrive is always "host".
+      const mode = detectGameMode();
+      const hostGlyphEligible = mode !== "solo" && mode !== "testdrive";
+      const isHostSlot = hostGlyphEligible && Boolean(slot.connId && slot.connId === Netcode.getHostId());
+      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot);
 
       if (nameLabels[i]) {
         if (
-          nameLabels[i]._labelText !== name ||
-          nameLabels[i]._labelColor !== colorCSS ||
-          nameLabels[i]._labelBadgeKey !== badgeKey
+          nameLabels[i]._labelHtml !== contentHtml ||
+          nameLabels[i]._labelColor !== colorCSS
         ) {
-          if (badgeInfo) {
-            nameLabels[i].element.innerHTML = `<span style="color:${badgeInfo.color};font-weight:700;margin-right:6px;">${badgeInfo.letter}</span>${name}`;
-          } else {
-            nameLabels[i].element.textContent = name;
-          }
+          nameLabels[i].element.innerHTML = contentHtml;
           nameLabels[i].element.style.borderColor = colorCSS;
           nameLabels[i].element.style.boxShadow = `0 0 12px ${colorCSS}66, inset 0 0 8px ${colorCSS}26`;
           nameLabels[i].element.style.textShadow = `0 0 6px ${colorCSS}`;
-          nameLabels[i]._labelText = name;
+          nameLabels[i]._labelHtml = contentHtml;
           nameLabels[i]._labelColor = colorCSS;
-          nameLabels[i]._labelBadgeKey = badgeKey;
         }
       } else {
-        const label = makeNameLabel(name, colorCSS, badgeInfo);
-        label._labelText = name;
+        const label = makeNameLabel(contentHtml, colorCSS);
+        label._labelHtml = contentHtml;
         label._labelColor = colorCSS;
-        label._labelBadgeKey = badgeKey;
         scene.add(label);
         nameLabels[i] = label;
       }
@@ -2217,6 +2241,10 @@ async function main() {
 
   // Position name labels each frame (called in game loop)
   function positionNameLabels() {
+    // * Content refresh is diff-gated (innerHTML only on change), so running it per
+    // * frame is cheap and keeps phase-driven states live (countdown personality
+    // * intro collapsing at GO, host glyph moving on migration).
+    updateNameLabels();
     for (let i = 0; i < nameLabels.length; i++) {
       const label = nameLabels[i];
       const cart = allCarts[i];

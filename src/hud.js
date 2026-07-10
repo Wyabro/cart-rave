@@ -1,3 +1,4 @@
+import "./ui/styles/tokens.css";
 import "./ui/styles/hud.css";
 import {
   animateKillFeedEnter,
@@ -5,18 +6,20 @@ import {
   animateReadyStateToggle,
   animateScorePop,
   animateMuteToggle,
-  animateVolumeTick,
   cancelElementAnimations,
   cancelKillFeedExitTimer,
   scheduleKillFeedExit,
   wireButtonPressFeedback,
 } from "./animations.js";
+import { claimStage, resetStage } from "./ui/centerStage.js";
+import { svgIcon } from "./ui/icons.js";
+import { updateBoostRing } from "./touchControls.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
-import { getServerClockOffsetMs } from "./netcode.js";
+import { getConnectionState, getHostId, getNetSlots, getServerClockOffsetMs } from "./netcode.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
-import { getNpcPersonality } from "./npcNames.js";
+import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
 import { isWorldBootstrapped } from "./bootstrap.js";
 import {
   show as showPauseOverlay,
@@ -26,12 +29,25 @@ import {
   init as initPauseOverlay,
 } from "./ui/pauseOverlay.js";
 
-const PERSONALITY_BADGES = {
-  aggressor: { letter: "[A]", color: "#ff4d4d" },
-  lurker: { letter: "[L]", color: "#b366ff" },
-  scavenger: { letter: "[S]", color: "#4dff88" },
-  chaotic: { letter: "[C]", color: "#ffaa33" },
-};
+/**
+ * True when the given display name belongs to the current host's slot — used to
+ * pin the host antenna glyph onto kill-feed rows without new wire fields.
+ * @param {string | null | undefined} name
+ */
+function isHostPlayerName(name) {
+  if (!name || !hostGlyphEligible()) return false;
+  const hostId = getHostId();
+  if (!hostId) return false;
+  const slots = getNetSlots();
+  const hostSlot = Array.isArray(slots) ? slots.find((s) => s && s.connId === hostId) : null;
+  return Boolean(hostSlot && hostSlot.name === name);
+}
+
+/** Host glyphs only mean something online — solo/testdrive is always "host". */
+function hostGlyphEligible() {
+  const mode = _options.detectGameMode?.();
+  return mode !== "solo" && mode !== "testdrive";
+}
 
 /**
  * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
@@ -57,6 +73,49 @@ function applyHudScoreBoxGlow(box, slot, youConnId) {
   if (currentGlow !== cssHex) {
     box.style.setProperty("--hud-glow", cssHex);
     box.dataset.hudColor = "custom";
+  }
+}
+
+/** Last accent written to --hud-player-accent — skip style writes on unchanged frames. */
+let _playerAccentCss = "";
+
+/**
+ * Lifts dark cart colors to a minimum luminance so the "you" accent stays
+ * readable against the HUD's dark panels (custom hue slider allows dark picks).
+ *
+ * @param {string} cssHex
+ * @returns {string}
+ */
+function clampAccentLuminance(cssHex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(cssHex || "");
+  if (!m) return cssHex;
+  const n = parseInt(m[1], 16);
+  let r = (n >> 16) & 255;
+  let g = (n >> 8) & 255;
+  let b = n & 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const MIN_LUM = 140;
+  if (lum >= MIN_LUM) return cssHex;
+  const t = (MIN_LUM - lum) / (255 - lum);
+  r = Math.round(r + (255 - r) * t);
+  g = Math.round(g + (255 - g) * t);
+  b = Math.round(b + (255 - b) * t);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Syncs --hud-player-accent on the HUD root from the local cart's neon color.
+ * Everything that means "you" (ready button, score float, hitmarker tint) reads it.
+ *
+ * @param {{ color?: string | number, kind?: string, connId?: string, lookHex?: number | null }} slot
+ * @param {string | null | undefined} youConnId
+ */
+function syncPlayerAccent(slot, youConnId) {
+  if (!elements.root) return;
+  const accent = clampAccentLuminance(resolveCartNeonCss(slot, { youConnId }));
+  if (accent !== _playerAccentCss) {
+    _playerAccentCss = accent;
+    elements.root.style.setProperty("--hud-player-accent", accent);
   }
 }
 
@@ -92,8 +151,6 @@ const elements = {
   lowQualityBtn: null,
   muteBtn: null,
   escMuteBtn: null,
-  musicVol: null,
-  sfxVol: null,
   escMusicVol: null,
   escSfxVol: null,
   hitmarker: null,
@@ -162,61 +219,9 @@ let hudLayoutRaf = null;
 let hudLayoutBound = false;
 
 /**
- * Returns true when two visible HUD rects overlap (with optional gap).
- * @param {DOMRect} a
- * @param {DOMRect} b
- * @param {number} gap
- */
-function hudRectsOverlap(a, b, gap = 6) {
-  if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) return false;
-  return (
-    a.left < b.right + gap &&
-    a.right > b.left - gap &&
-    a.top < b.bottom + gap &&
-    a.bottom > b.top - gap
-  );
-}
-
-/**
- * True when the in-game audio widget cannot fit beside the menu button and other HUD chrome.
- */
-function detectTightHudSpace() {
-  const audio = elements.audio;
-  const menu = elements.menuBtn;
-  if (!audio || !menu || menu.style.display === "none") return false;
-
-  const audioRect = audio.getBoundingClientRect();
-  const menuRect = menu.getBoundingClientRect();
-  if (audioRect.width <= 0 || menuRect.width <= 0) return false;
-
-  if (audioRect.right > menuRect.left - 4) return true;
-
-  const timerRect = elements.timer?.getBoundingClientRect();
-  if (timerRect && timerRect.width > 0 && hudRectsOverlap(audioRect, timerRect, 8)) {
-    return true;
-  }
-
-  const scoresRect = elements.scores?.getBoundingClientRect();
-  if (scoresRect && scoresRect.height > 0 && scoresRect.top < window.innerHeight * 0.35) {
-    if (hudRectsOverlap(audioRect, scoresRect, 8)) return true;
-  }
-
-  return false;
-}
-
-function applyHudLayoutState(showMenuBtn, hideAudio) {
-  if (!elements.root) return;
-  elements.root.classList.toggle("hud-has-menu-btn", showMenuBtn);
-  elements.root.classList.toggle("hud-hide-audio", hideAudio);
-  if (hideAudio) {
-    elements.root.style.setProperty("--hud-audio-reserve", "0px");
-  } else {
-    elements.root.style.removeProperty("--hud-audio-reserve");
-  }
-}
-
-/**
- * Positions the audio widget beside the menu button when possible; hides it when space is tight.
+ * Syncs root-level layout classes. The utility region (flex) now owns the
+ * mute/menu corner, so the old rect-overlap "tight space" probing is gone —
+ * the mute-only audio widget always fits beside the menu button.
  */
 export function syncHudLayout() {
   if (!elements.root) return;
@@ -224,32 +229,7 @@ export function syncHudLayout() {
   const menuVisible = _options.getMenuVisible ? _options.getMenuVisible() : false;
   const touch = _options.getIsTouchDevice ? _options.getIsTouchDevice() : false;
   const escOpen = isEscOverlayVisible();
-  const showMenuBtn = touch && !menuVisible && !escOpen;
-
-  if (!showMenuBtn) {
-    elements.root.style.setProperty("--hud-menu-reserve", "0px");
-    applyHudLayoutState(false, false);
-    if (elements.audio && !menuVisible && !escOpen) {
-      elements.audio.style.display = "flex";
-    }
-    return;
-  }
-
-  if (elements.menuBtn) {
-    elements.menuBtn.style.display = "flex";
-  }
-  if (elements.audio) {
-    elements.audio.style.display = "flex";
-  }
-
-  const menuW = elements.menuBtn?.offsetWidth ?? 48;
-  elements.root.style.setProperty("--hud-menu-reserve", `${menuW + 8}px`);
-
-  const tight = detectTightHudSpace();
-  applyHudLayoutState(true, tight);
-  if (elements.audio) {
-    elements.audio.style.display = tight ? "none" : "flex";
-  }
+  elements.root.classList.toggle("hud-has-menu-btn", touch && !menuVisible && !escOpen);
 }
 
 function scheduleHudLayoutSync() {
@@ -307,9 +287,12 @@ export function colorHexToCss(hex) {
 
 export function pickKillFeedVerb(hit) {
   // * Critical is now a high-SPEED ram (not a nitro boost), so it gets its own distinctive
-  // * speed-flavored verb rather than the boost-flavored "BOOSTED OFF".
-  if (hit?.wasCritical) return "STEAMROLLED";
-  const verbs = ["YEETED", "RAMMED", "BOOSTED OFF"];
+  // * speed-flavored verb pool rather than the boost-flavored "BOOSTED OFF".
+  if (hit?.wasCritical) {
+    const critVerbs = ["STEAMROLLED", "OBLITERATED", "FLATTENED"];
+    return critVerbs[Math.floor(Math.random() * critVerbs.length)];
+  }
+  const verbs = ["YEETED", "RAMMED", "BOOSTED OFF", "LAUNCHED", "BODIED", "PUNTED"];
   return verbs[Math.floor(Math.random() * verbs.length)];
 }
 
@@ -325,6 +308,9 @@ export function pickSelfDeathVerb() {
     "SELF-DESTRUCTED",
     "NOPED OUT",
     "RAGE QUIT",
+    "FORGOT THE BRAKES",
+    "TOOK A SHORTCUT",
+    "LEFT THE CHAT",
   ];
   return verbs[Math.floor(Math.random() * verbs.length)];
 }
@@ -401,7 +387,7 @@ function updateStatus(roundState) {
 
   if (Date.now() < _goUntilMs) {
     setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "#22e6ff";
+    elements.status.style.color = "var(--color-cyan)";
     elements.status.textContent = "GO!";
   } else if (roundPhase === "countdown") {
     // * Reset GO sound gate when entering countdown from a non-countdown phase.
@@ -414,27 +400,32 @@ function updateStatus(roundState) {
     const remainingMs = countdownMs - elapsedMs;
     const n = clampInt(Math.ceil(remainingMs / 1000), 1, Math.ceil(countdownMs / 1000));
     setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "#ff2bd6";
+    // * Digits alternate the brand magenta/cyan accents as they stamp in.
+    elements.status.style.color = n % 2 === 0 ? "var(--color-cyan)" : "var(--color-magenta)";
     elements.status.textContent = `GET READY  ${n}`;
     setArenaSplashVisible(true);
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;
       if (n >= 1 && n <= 3) announce(`countdown_${n}`);
-      elements.status.animate(
-        [
-          { transform: "translateX(-50%) scale(1)" },
-          { transform: "translateX(-50%) scale(1.3)", offset: 0.4 },
-          { transform: "translateX(-50%) scale(1)" },
-        ],
-        { duration: 200, easing: "ease-out" },
-      );
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+      if (!reduced) {
+        // * Stamp: oversized slap-down with a squash settle.
+        elements.status.animate(
+          [
+            { transform: "scale(1.4)", opacity: 0.5 },
+            { transform: "scale(0.95)", opacity: 1, offset: 0.6 },
+            { transform: "scale(1)" },
+          ],
+          { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" },
+        );
+      }
     }
   } else if (roundPhase === "podium") {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
   } else if (roundPhase === "running" && roundState?.isSuddenDeath) {
     setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "#ff3333";
+    elements.status.style.color = "var(--color-alert)";
     elements.status.style.textShadow = "4px 4px 0 #ff000044, 0 0 24px #ff3333, 0 0 48px #ff3333";
     elements.status.textContent = "SUDDEN DEATH";
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
@@ -444,7 +435,7 @@ function updateStatus(roundState) {
   } else if (roundPhase === "running" && isMatchPointState(roundState)) {
     // * Final seconds + top two within one KO: the next fall can decide the round.
     setHudDisplay(elements.status, "block", "status");
-    elements.status.style.color = "#ffe53d";
+    elements.status.style.color = "var(--color-yellow)";
     elements.status.style.textShadow = "3px 3px 0 #ff2bd644, 0 0 22px #ffe53d";
     elements.status.textContent = "MATCH POINT";
   } else {
@@ -735,11 +726,15 @@ function updateScores(roundState, netSlots, youConnId) {
         const slot = netSlots?.[row.slotIndex];
         if (slot && slot.kind === "npc") {
           const p = getNpcPersonality(slot.name);
-          const info = p ? PERSONALITY_BADGES[p.name] : null;
+          const info = p ? PERSONALITY_META[p.name] : null;
           if (info) {
-            entry.badge.textContent = info.letter;
+            if (entry.badge.dataset.icon !== info.icon) {
+              entry.badge.dataset.icon = info.icon;
+              entry.badge.innerHTML = svgIcon(info.icon, { label: info.label });
+              entry.badge.title = info.label;
+            }
             entry.badge.style.color = info.color;
-            entry.badge.style.display = "inline-block";
+            entry.badge.style.display = "inline-flex";
           } else {
             entry.badge.style.display = "none";
           }
@@ -771,6 +766,7 @@ function updateScores(roundState, netSlots, youConnId) {
 
         entry.box.classList.toggle("isLocal", isLocal);
         entry.you.style.display = isLocal ? "inline-block" : "none";
+        if (isLocal && slot) syncPlayerAccent(slot, youConnId);
       }
     }
 
@@ -791,8 +787,32 @@ function updateScores(roundState, netSlots, youConnId) {
       const entry = elements.scoreBoxes[pos];
       const row = rowsNow[pos];
       if (!entry) continue;
+      const prevSlotIndex = entry.slotIndex;
       entry.slotIndex = row ? row.slotIndex : -1;
+      // * Rank-swap pulse — a chip's occupant changed (players traded places).
+      if (prevSlotIndex !== -1 && entry.slotIndex !== -1 && prevSlotIndex !== entry.slotIndex) {
+        const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+        if (!reduced && typeof entry.box.animate === "function") {
+          entry.box.animate(
+            [
+              { transform: "translateY(6px) scale(0.96)", opacity: 0.6 },
+              { transform: "translateY(-2px) scale(1.03)", opacity: 1, offset: 0.7 },
+              { transform: "translateY(0) scale(1)", opacity: 1 },
+            ],
+            { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" },
+          );
+        }
+      }
       const isLeader = Boolean(row && topScore > 0 && topCount === 1 && row.score === topScore);
+      entry.box.classList.toggle("isLeader", isLeader);
+      // * Host glyph follows the host slot every frame so migration moves it immediately.
+      if (entry.host) {
+        const hostId = hostGlyphEligible() ? getHostId() : null;
+        const slot = row ? netSlots?.[row.slotIndex] : null;
+        const showHost = Boolean(hostId && slot?.connId === hostId);
+        const display = showHost ? "inline-flex" : "none";
+        if (entry.host.style.display !== display) entry.host.style.display = display;
+      }
       syncRowIndicators(entry, isLeader);
     }
   } else {
@@ -879,6 +899,7 @@ export function init(options) {
     clearTimeout(_toastTimeoutId);
     _toastTimeoutId = null;
   }
+  resetStage();
 
   const existing = document.getElementById("hud");
   if (existing) existing.remove();
@@ -887,6 +908,19 @@ export function init(options) {
   elements.root.id = "hud";
   const touchDevice = _options.getIsTouchDevice ? _options.getIsTouchDevice() : false;
   if (touchDevice) elements.root.classList.add("hud-touch");
+
+  // * Screen regions — every HUD element mounts into a named zone with one job:
+  // * MATCH (top-left), STANDINGS (top-center), EVENTS (top-right feed),
+  // * STAGE (upper-center moments), POD (bottom-center player state),
+  // * UTILITY (corner non-gameplay). Regions own position; children stay static.
+  const regions = {};
+  for (const name of ["match", "standings", "events", "stage", "pod", "utility"]) {
+    const region = document.createElement("div");
+    region.className = `hud-region hud-region-${name}`;
+    elements.root.appendChild(region);
+    regions[name] = region;
+  }
+  elements.regions = regions;
 
   elements.status = document.createElement("div");
   elements.status.className = "hud-status";
@@ -906,6 +940,7 @@ export function init(options) {
   const timerPip = document.createElement("span");
   timerPip.className = "hud-timer-pip";
   const timerMetaText = document.createElement("span");
+  timerMetaText.className = "hud-timer-meta-label";
   timerMetaText.textContent = "TIME LEFT";
   elements.timerRd = document.createElement("span");
   elements.timerRd.className = "hud-timer-rd";
@@ -947,12 +982,17 @@ export function init(options) {
     const badge = document.createElement("span");
     badge.className = "hud-scoreBadge";
     badge.style.display = "none";
-    badge.style.marginRight = "4px";
-    badge.style.fontWeight = "700";
 
     const label = document.createElement("div");
     label.className = "hud-scoreLabel";
     label.textContent = `P${i + 1}`;
+
+    // * Host antenna — quiet neutral mark, "this player's machine runs the match".
+    const host = document.createElement("span");
+    host.className = "hud-scoreHost";
+    host.innerHTML = svgIcon("antenna", { label: "Host" });
+    host.title = "HOST — runs this match";
+    host.style.display = "none";
 
     const you = document.createElement("span");
     you.className = "hud-scoreYou";
@@ -966,7 +1006,7 @@ export function init(options) {
     // * is glanceable mid-round, not just at the podium.
     const crown = document.createElement("span");
     crown.className = "hud-scoreCrown";
-    crown.textContent = "👑";
+    crown.innerHTML = svgIcon("crown");
     crown.style.display = "none";
 
     // * Rampage pip — shows any player's active combo streak (×1.5/×2/×3), so
@@ -975,15 +1015,23 @@ export function init(options) {
     pip.className = "hud-scorePip";
     pip.style.display = "none";
 
+    // * Dizzy stars — cartoon "knocked silly" overlay while the chip dips on a KO.
+    const dizzy = document.createElement("span");
+    dizzy.className = "hud-scoreDizzy";
+    dizzy.innerHTML = svgIcon("dizzy");
+    dizzy.style.display = "none";
+    box.appendChild(dizzy);
+
     box.appendChild(rank);
     box.appendChild(crown);
     box.appendChild(badge);
     box.appendChild(label);
+    box.appendChild(host);
     box.appendChild(you);
     box.appendChild(pip);
     box.appendChild(value);
     elements.scores.appendChild(box);
-    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, you, value, crown, pip, slotIndex: -1 });
+    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, host, you, value, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
   }
 
   elements.readyBtn = document.createElement("button");
@@ -999,12 +1047,12 @@ export function init(options) {
   });
   wireButtonPressFeedback(elements.readyBtn, { scale: 0.96 });
 
-  elements.root.appendChild(elements.status);
-  elements.root.appendChild(elements.arenaSplash);
-  elements.root.appendChild(elements.timer);
-  elements.root.appendChild(elements.scores);
-  elements.root.appendChild(elements.feed);
-  elements.root.appendChild(elements.readyBtn);
+  regions.stage.appendChild(elements.status);
+  regions.stage.appendChild(elements.arenaSplash);
+  regions.match.appendChild(elements.timer);
+  regions.standings.appendChild(elements.scores);
+  regions.events.appendChild(elements.feed);
+  regions.pod.appendChild(elements.readyBtn);
 
   // Rampage Combo HUD Badge
   elements.comboBadge = document.createElement("div");
@@ -1024,7 +1072,7 @@ export function init(options) {
   comboTrack.appendChild(elements.comboBarFill);
   elements.comboBadge.appendChild(comboContent);
   elements.comboBadge.appendChild(comboTrack);
-  elements.root.appendChild(elements.comboBadge);
+  regions.pod.insertBefore(elements.comboBadge, elements.readyBtn);
 
   // * Kill-confirm hitmarker — flashes at screen center when the local player scores a KO.
   elements.hitmarker = document.createElement("div");
@@ -1047,7 +1095,7 @@ export function init(options) {
     boostTrack.appendChild(elements.boostFill);
     elements.boost.appendChild(boostLabel);
     elements.boost.appendChild(boostTrack);
-    elements.root.appendChild(elements.boost);
+    regions.pod.insertBefore(elements.boost, elements.readyBtn);
   }
 
   // * Challenge-complete / unlock toast (top center, auto-hides).
@@ -1061,7 +1109,7 @@ export function init(options) {
   elements.toastTitle.className = "hud-toast-title";
   elements.toast.appendChild(toastKicker);
   elements.toast.appendChild(elements.toastTitle);
-  elements.root.appendChild(elements.toast);
+  regions.stage.appendChild(elements.toast);
 
   // In-game audio widget
   elements.audio = document.createElement("div");
@@ -1070,7 +1118,8 @@ export function init(options) {
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
   elements.muteBtn = document.createElement("button");
   elements.muteBtn.className = "hud-mute-btn";
-  elements.muteBtn.innerHTML = isMuted ? "✕" : "♪";
+  elements.muteBtn.setAttribute("aria-label", "Toggle mute");
+  elements.muteBtn.innerHTML = svgIcon(isMuted ? "speakerMuted" : "speaker");
   if (isMuted) elements.muteBtn.classList.add("muted");
   elements.muteBtn.addEventListener("click", () => {
     if (_options.setIsMuted) {
@@ -1081,67 +1130,30 @@ export function init(options) {
   });
   wireButtonPressFeedback(elements.muteBtn, { scale: 0.92 });
 
-  function createHudVolumeRow(labelText, onChange, ariaLabel, fieldName) {
-    const row = document.createElement("div");
-    row.className = "hud-vol-row";
-    const label = document.createElement("span");
-    label.className = "hud-vol-label";
-    label.textContent = labelText;
-    const input = document.createElement("input");
-    input.type = "range";
-    input.min = "0";
-    input.max = "100";
-    input.id = fieldName;
-    input.name = fieldName;
-    input.className = "hud-vol-track";
-    input.setAttribute("aria-label", ariaLabel);
-    const val = document.createElement("span");
-    val.className = "hud-vol-val";
-    input.addEventListener("input", (e) => {
-      const valueMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
-      const pct = Number(input.value);
-      input.style.setProperty("--vol-pct", `${pct}%`);
-      onChange(clamp((pct / 100) * valueMax, 0, valueMax));
-      animateVolumeTick(val);
-      syncAudioControls();
-    });
-    row.appendChild(label);
-    row.appendChild(input);
-    row.appendChild(val);
-    return { row, input, val };
-  }
-
-  elements.musicVol = createHudVolumeRow("♫", (v) => {
-    if (_options.setMusicGain) {
-      _options.setMusicGain(v);
-    }
-  }, "Music volume", "hud-music-volume");
-  elements.sfxVol = createHudVolumeRow("⚡", (v) => {
-    if (_options.setSfxVolume) {
-      _options.setSfxVolume(v);
-    }
-  }, "SFX volume", "hud-sfx-volume");
-  const hudVolStack = document.createElement("div");
-  hudVolStack.className = "hud-vol-stack";
-  hudVolStack.appendChild(elements.musicVol.row);
-  hudVolStack.appendChild(elements.sfxVol.row);
-
+  // * Mute toggle only — volume sliders are settings UI and live in the esc
+  // * overlay, not over live gameplay (HUD redesign: audio widget demoted).
   elements.audio.appendChild(elements.muteBtn);
-  elements.audio.appendChild(hudVolStack);
-  elements.root.appendChild(elements.audio);
+  regions.utility.appendChild(elements.audio);
+
+  // * Connection pill — hidden while healthy; only mid-session socket loss shows it.
+  elements.conn = document.createElement("div");
+  elements.conn.className = "hud-conn";
+  elements.conn.textContent = "RECONNECTING…";
+  elements.conn.style.display = "none";
+  regions.utility.insertBefore(elements.conn, elements.audio);
 
   elements.menuBtn = document.createElement("button");
   elements.menuBtn.type = "button";
   elements.menuBtn.className = "hud-menu-btn";
   elements.menuBtn.setAttribute("aria-label", "Open menu");
-  elements.menuBtn.textContent = "☰";
+  elements.menuBtn.innerHTML = svgIcon("menu");
   elements.menuBtn.style.display = "none";
   elements.menuBtn.addEventListener("click", () => {
     if (isEscOverlayVisible()) hideEscOverlay();
     else showEscOverlay();
   });
   wireButtonPressFeedback(elements.menuBtn, { scale: 0.94 });
-  elements.root.appendChild(elements.menuBtn);
+  regions.utility.appendChild(elements.menuBtn);
 
   document.body.appendChild(elements.root);
 
@@ -1176,6 +1188,7 @@ export function init(options) {
     showChallengeToast,
     showScoreFloat,
     noteComboPip,
+    noteChipKO,
     escOverlay: elements.escOverlay,
     syncAudioControls,
     showEscOverlay,
@@ -1235,7 +1248,18 @@ export function update({
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
   updateComboWidget();
   updateBoostWidget(roundState);
+  updateConnectionPill();
   scheduleHudLayoutSync();
+}
+
+/** Shows the RECONNECTING pill only for mid-session socket loss in online modes. */
+function updateConnectionPill() {
+  if (!elements.conn) return;
+  const mode = _options.detectGameMode?.();
+  const online = mode !== "solo" && mode !== "testdrive";
+  const show = online && getConnectionState() === "reconnecting";
+  const display = show ? "flex" : "none";
+  if (elements.conn.style.display !== display) elements.conn.style.display = display;
 }
 
 /** Cached boost meter display value — avoids redundant style writes per frame. */
@@ -1249,32 +1273,75 @@ let _boostDisplay = null;
  * @param {object} roundState
  */
 function updateBoostWidget(roundState) {
-  if (!elements.boost || !elements.boostFill) return;
   const cfg = _options.getBoostChargeCfg ? _options.getBoostChargeCfg() : null;
   const cart = _options.getLocalCart ? _options.getLocalCart() : null;
   const show = roundState?.phase === "running" && !!cart && cfg?.enabled === true;
+
+  let fillPct = 100;
+  /** @type {"ready" | "charging" | "charged" | "cooldown"} */
+  let state = "ready";
+  if (show) {
+    const now = performance.now();
+    if (cart.isChargingBoost) {
+      const chargeMs = cfg.boostChargeTimeMs || 1500;
+      const t = clamp((now - (cart.boostChargeStartedAtMs || now)) / chargeMs, 0, 1);
+      fillPct = t * 100;
+      state = t >= 1 ? "charged" : "charging";
+    } else if (cart.boostCooldownUntilMs && now < cart.boostCooldownUntilMs) {
+      const cooldownMs = cfg.boostCooldownMs || 1000;
+      fillPct = clamp(1 - (cart.boostCooldownUntilMs - now) / cooldownMs, 0, 1) * 100;
+      state = "cooldown";
+    }
+  }
+
+  // * Mobile: the charge state paints the BOOST touch button itself (no meter).
+  if (_options.getIsTouchDevice?.()) {
+    updateBoostRing(show ? fillPct : null, state);
+    return;
+  }
+
+  if (!elements.boost || !elements.boostFill) return;
   const displayVal = show ? "flex" : "none";
   if (_boostDisplay !== displayVal) {
     elements.boost.style.display = displayVal;
     _boostDisplay = displayVal;
   }
   if (!show) return;
-
-  const now = performance.now();
-  let fillPct = 100;
-  let state = "ready";
-  if (cart.isChargingBoost) {
-    const chargeMs = cfg.boostChargeTimeMs || 1500;
-    const t = clamp((now - (cart.boostChargeStartedAtMs || now)) / chargeMs, 0, 1);
-    fillPct = t * 100;
-    state = t >= 1 ? "charged" : "charging";
-  } else if (cart.boostCooldownUntilMs && now < cart.boostCooldownUntilMs) {
-    const cooldownMs = cfg.boostCooldownMs || 1000;
-    fillPct = clamp(1 - (cart.boostCooldownUntilMs - now) / cooldownMs, 0, 1) * 100;
-    state = "cooldown";
-  }
   elements.boostFill.style.width = `${fillPct}%`;
   if (elements.boost.dataset.state !== state) elements.boost.dataset.state = state;
+}
+
+/**
+ * Cartoon KO reaction on the victim's score chip: a brief desaturate-dip with
+ * dizzy stars over the rank numeral (~1s). Fired from the kill-feed reactor so
+ * every client sees it for every KO.
+ *
+ * @param {number} slotIndex
+ */
+export function noteChipKO(slotIndex) {
+  const entry = elements.scoreBoxes?.find((e) => e.slotIndex === slotIndex);
+  if (!entry?.box) return;
+
+  if (entry.dizzy) {
+    entry.dizzy.style.display = "inline-flex";
+    if (entry.dizzyTimeoutId) clearTimeout(entry.dizzyTimeoutId);
+    entry.dizzyTimeoutId = setTimeout(() => {
+      entry.dizzyTimeoutId = null;
+      if (entry.dizzy) entry.dizzy.style.display = "none";
+    }, 1000);
+  }
+
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  if (!reduced && typeof entry.box.animate === "function") {
+    entry.box.animate(
+      [
+        { filter: "saturate(1) brightness(1)" },
+        { filter: "saturate(0.25) brightness(0.75)", offset: 0.3 },
+        { filter: "saturate(1) brightness(1)" },
+      ],
+      { duration: 900, easing: "ease-out" },
+    );
+  }
 }
 
 /**
@@ -1348,14 +1415,32 @@ export function showScoreFloat(reward, cause) {
  */
 export function showChallengeToast(title, kicker = "◆ CHALLENGE COMPLETE") {
   if (!elements.toast || !elements.toastTitle) return;
-  if (elements.toastKicker) elements.toastKicker.textContent = kicker;
-  elements.toastTitle.textContent = title;
-  elements.toast.classList.add("active");
-  if (_toastTimeoutId) clearTimeout(_toastTimeoutId);
-  _toastTimeoutId = setTimeout(() => {
-    elements.toast?.classList.remove("active");
-    _toastTimeoutId = null;
-  }, 3200);
+  const TOAST_MS = 3200;
+  // * Center Stage routing — toasts queue behind announcer callouts (priority 3 > 2)
+  // * so the stage band shows one moment at a time; overflow beyond 2 queued drops.
+  claimStage({
+    kind: "toast",
+    priority: 2,
+    durationMs: TOAST_MS,
+    show: () => {
+      if (!elements.toast || !elements.toastTitle) return;
+      if (elements.toastKicker) elements.toastKicker.textContent = kicker;
+      elements.toastTitle.textContent = title;
+      elements.toast.classList.add("active");
+      if (_toastTimeoutId) clearTimeout(_toastTimeoutId);
+      _toastTimeoutId = setTimeout(() => {
+        elements.toast?.classList.remove("active");
+        _toastTimeoutId = null;
+      }, TOAST_MS);
+    },
+    hide: () => {
+      if (_toastTimeoutId) {
+        clearTimeout(_toastTimeoutId);
+        _toastTimeoutId = null;
+      }
+      elements.toast?.classList.remove("active");
+    },
+  });
 }
 
 let _prevComboTier = 0;
@@ -1398,9 +1483,9 @@ function updateComboWidget() {
   if (tier > _prevComboTier) {
     elements.comboBadge.animate(
       [
-        { transform: "translateX(-50%) scale(1)" },
-        { transform: "translateX(-50%) scale(1.35)" },
-        { transform: "translateX(-50%) scale(1)" },
+        { transform: "scale(1)" },
+        { transform: "scale(1.35)" },
+        { transform: "scale(1)" },
       ],
       { duration: 250, easing: "cubic-bezier(0.175, 0.885, 0.32, 1.275)" }
     );
@@ -1463,6 +1548,21 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     displayVerb = `${verb} [${comboMultiplier.toFixed(1)}x ${tierName}]`;
   }
 
+  // * Cartoon KO marker — impact burst for attributed kills (attacker color),
+  // * dizzy stars for self-inflicted spills (victim color).
+  const icon = document.createElement("span");
+  icon.className = "hud-feed-icon";
+  icon.innerHTML = svgIcon(actorName ? "burst" : "dizzy");
+  icon.style.color = actorName ? "var(--c)" : "var(--c2)";
+
+  // * Inline host antenna before the host's name — no "HOST" label, zero extra width.
+  const makeHostGlyph = () => {
+    const glyph = document.createElement("span");
+    glyph.className = "hud-feed-host";
+    glyph.innerHTML = svgIcon("antenna", { label: "Host" });
+    return glyph;
+  };
+
   if (actorName) {
     const actor = document.createElement("span");
     actor.className = "hud-feed-actor";
@@ -1473,8 +1573,11 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     const target = document.createElement("span");
     target.className = "hud-feed-target";
     target.textContent = targetName;
+    row.appendChild(icon);
+    if (isHostPlayerName(actorName)) row.appendChild(makeHostGlyph());
     row.appendChild(actor);
     row.appendChild(v);
+    if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
   } else {
     const target = document.createElement("span");
@@ -1483,6 +1586,8 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     const v = document.createElement("span");
     v.className = "hud-feed-verb";
     v.textContent = displayVerb;
+    row.appendChild(icon);
+    if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
     row.appendChild(v);
   }
@@ -1491,7 +1596,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   animateKillFeedEnter(row);
 
   // * Trim overflow synchronously — animated exit is only for timed auto-dismiss.
-  while (elements.feed.children.length > 5) {
+  while (elements.feed.children.length > 4) {
     const last = elements.feed.lastElementChild;
     if (!last) break;
     if (last instanceof HTMLElement) {
@@ -1570,24 +1675,14 @@ export function isEscOverlayVisible() {
  * Syncs HUD mute button and volume sliders with persisted audio settings.
  */
 export function syncAudioControls() {
-  if (!elements.muteBtn || !elements.musicVol || !elements.sfxVol) return;
+  if (!elements.muteBtn) return;
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
   const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
   const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
   const AUDIO_VOLUME_MAX = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
 
-  const musicPercent = Math.round((musicGain / AUDIO_VOLUME_MAX) * 100);
-  const sfxPercent = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
-  const musicPct = isMuted ? 0 : musicPercent;
-  const sfxPct = isMuted ? 0 : sfxPercent;
-  elements.muteBtn.innerHTML = isMuted ? "✕" : "♪";
+  elements.muteBtn.innerHTML = svgIcon(isMuted ? "speakerMuted" : "speaker");
   elements.muteBtn.classList.toggle("muted", isMuted);
-  elements.musicVol.input.value = String(musicPct);
-  elements.musicVol.input.style.setProperty("--vol-pct", `${musicPct}%`);
-  elements.musicVol.val.textContent = isMuted ? "OFF" : musicPercent;
-  elements.sfxVol.input.value = String(sfxPct);
-  elements.sfxVol.input.style.setProperty("--vol-pct", `${sfxPct}%`);
-  elements.sfxVol.val.textContent = isMuted ? "OFF" : sfxPercent;
 
   updatePauseOverlayAudioState(isMuted, musicGain, sfxVolume, AUDIO_VOLUME_MAX);
 }
