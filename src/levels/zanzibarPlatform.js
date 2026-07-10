@@ -1571,7 +1571,15 @@ function buildSeascape(scene, circumR) {
   }
 
   scene.add(group);
-  return { group, sunDir, update, ownedGeometries, ownedMaterials, ownedTextures };
+  return {
+    group,
+    sunDir,
+    update,
+    waterMat,
+    ownedGeometries,
+    ownedMaterials,
+    ownedTextures,
+  };
 }
 
 /**
@@ -2526,9 +2534,13 @@ export function initZanzibarPlatform(scene, world, config) {
   const seascape = buildSeascape(scene, circumR);
   const deck = buildDeck(scene, world, config, circumR);
 
-  // Water-death FX: entry splashes + surface-clamped underwater detonations (see
-  // effects/waterDeathFx.js). Cleared in dispose.
-  setWaterDeathEnvironment({ scene, waterY: WATER_Y });
+  // Water-death FX: entry splashes + surface-clamped underwater detonations + ocean
+  // plane ripple distortion (see effects/waterDeathFx.js). Cleared in dispose.
+  setWaterDeathEnvironment({
+    scene,
+    waterY: WATER_Y,
+    waterMat: seascape.waterMat ?? null,
+  });
 
   // Sun light tracks the seascape's sun disc direction (see buildSeascape's update) so
   // the lighting stays coherent with the drifting sunset visual each frame.

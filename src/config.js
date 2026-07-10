@@ -374,7 +374,8 @@ export const CONFIG = {
       },
       zanzibar: {
         color: 0xff5a22, // sunset ember — melts ocean seamlessly into sunset horizon
-        density: 0.00355, // slightly denser — Sundial golden-hour haze
+        // * Slightly denser than Classic — Sundial is the mood arena (golden-hour haze).
+        density: 0.00355,
       },
     },
   },

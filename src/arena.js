@@ -817,31 +817,54 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   // * 16 radial segments — smoother neon tubes under bloom; shared geo so cost is free.
   const UNIT_CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
 
+  /**
+   * Caps emissive intensity for high-luma booth hues. Rec.709 (and UnrealBloom's
+   * luma high-pass) weight green ~3.4× red, so the green spawn booth's
+   * toneMapped:false beacons used to bloom into a pure-white floor sheet while
+   * pink/orange booths looked fine. Low-luma hues keep full base intensity.
+   * @param {number} hex
+   * @param {number} baseIntensity
+   * @param {number} [refLuma=0.42] ~ pink booth 0xff2bd6
+   * @returns {number}
+   */
+  function boothEmissiveIntensity(hex, baseIntensity, refLuma = 0.42) {
+    const r = ((hex >> 16) & 255) / 255;
+    const g = ((hex >> 8) & 255) / 255;
+    const b = (hex & 255) / 255;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    if (luma <= refLuma) return baseIntensity;
+    return baseIntensity * (refLuma / luma);
+  }
+
   // * Per-booth neon hue is sticky: the frame loop pulses emissiveIntensity only
   // * (see main.js). Overwriting color/emissive every frame used to collapse all
   // * four spawn corners into one pink↔cyan wash.
   const neonMats = boothColors.map((color, boothIndex) => {
+    const ei = boothEmissiveIntensity(color, 1.5);
     const mat = createPhysicalMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 1.5,
+      emissiveIntensity: ei,
       roughness: 0.25,
       metalness: 0.85,
       toneMapped: false,
     });
-    mat.userData.baseEmissiveIntensity = 1.5;
+    mat.userData.baseEmissiveIntensity = ei;
     // * 90° phase offsets so adjacent booths breathe out of sync.
     mat.userData.neonPulsePhase = boothIndex * (Math.PI / 2);
     return mat;
   });
-  const trussLightMats = boothColors.map((color) => createPhysicalMaterial({
-    color,
-    emissive: color,
-    emissiveIntensity: 2.0,
-    roughness: 0.2,
-    metalness: 0.7,
-    toneMapped: false,
-  }));
+  const trussLightMats = boothColors.map((color) => {
+    const ei = boothEmissiveIntensity(color, 2.0);
+    return createPhysicalMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: ei,
+      roughness: 0.2,
+      metalness: 0.7,
+      toneMapped: false,
+    });
+  });
   const platMats = boothColors.map((color) => {
     const mat = createPhysicalMaterial({
       map: boothMetalTex,
@@ -849,7 +872,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
       roughness: 0.48,
       metalness: 0.55,
       emissive: color,
-      emissiveIntensity: 0.18,
+      emissiveIntensity: boothEmissiveIntensity(color, 0.18),
     });
     return mat;
   });
@@ -875,7 +898,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     roughness: 0.38,
     metalness: 0.7,
     emissive: color,
-    emissiveIntensity: 0.2,
+    emissiveIntensity: boothEmissiveIntensity(color, 0.2),
   }));
   const dotMats = boothColors.map((color) => new THREE.MeshBasicMaterial({ color }));
 

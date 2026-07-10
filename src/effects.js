@@ -198,6 +198,8 @@ let crowdSearchlightEntries = [];
 
 /** @type {number} */
 let crowdSearchlightTargetRadius = 0;
+/** Source mast radius (crowd ring) — set in initCrowd. */
+let crowdSearchlightSourceRadius = 0;
 
 /** @type {{ light: THREE.PointLight | null, bulb: THREE.Mesh, index: number, baseOpacity: number }[]} */
 let crowdPointLightEntries = [];
@@ -1268,7 +1270,12 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       dummy.position.y = def.topY + 0.45;
       dummy.updateMatrix();
       mastTips.setMatrixAt(i, dummy.matrix);
-      mastTips.setColorAt(i, tipColor.setHex(i % 2 === 0 ? 0xff2bd6 : 0x2bd6ff));
+      // * Index 1 = green-booth azimuth — keep tip dimmer so the stand lamp doesn't
+      // * add another white flare on top of the SpotLight rake.
+      const tipHex = i === 1
+        ? 0x1a8a9a
+        : (i % 2 === 0 ? 0xff2bd6 : 0x2bd6ff);
+      mastTips.setColorAt(i, tipColor.setHex(tipHex));
     }
     stadiumGroup.add(masts);
     stadiumGroup.add(mastTips);
@@ -1567,26 +1574,39 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
   }
 
   crowdSearchlightEntries = [];
-  const crowdSearchlightSourceRadius = pitInnerRadius + 30;
+  // * Sources sit in the crowd ring BEYOND the spawn booths (pitInnerRadius+30).
+  // * Green booth is world angle π/2 → searchlight index 1 is the lamp behind it.
+  // * Its SpotLight raked the vinyl from that fixed heading; the additive cone mesh
+  // * (toneMapped:false) also wrote HDR white into the Reflector.
+  crowdSearchlightSourceRadius = pitInnerRadius + 30;
   crowdSearchlightTargetRadius = pitInnerRadius + 35;
+  /** Fixed lamp behind the green spawn booth (angles[1] === π/2). */
+  const GREEN_BOOTH_SEARCHLIGHT_INDEX = 1;
+  // * Distance to outer vinyl edge from a stand mast ≈ |sourceR − recordR|.
+  // * Cap range so stand lamps light the crowd only — never the dancefloor.
+  const standOnlyRange = Math.max(12, crowdSearchlightSourceRadius - 40);
   for (let i = 0; i < 4; i += 1) {
     const angle = i * Math.PI * 0.5;
     const target = new THREE.Object3D();
+    // * Aim into the stands (outward), not across the vinyl toward the center.
     target.position.set(
-      Math.cos(angle) * crowdSearchlightTargetRadius,
-      -3,
-      Math.sin(angle) * crowdSearchlightTargetRadius,
+      Math.cos(angle) * (crowdSearchlightSourceRadius + 8),
+      4,
+      Math.sin(angle) * (crowdSearchlightSourceRadius + 8),
     );
     scene.add(target);
 
     const baseColor = new THREE.Color(CROWD_SEARCHLIGHT_COLORS[i]);
-    // * Intensity tuned for exposure 0.4 — old authored peak (~35) under NeutralToneMapping.
+    const isGreenBoothMast = i === GREEN_BOOTH_SEARCHLIGHT_INDEX;
+    // * Green-booth unit fully off (was the directional white sheet). Others keep
+    // * stand punch but no longer reach the record surface.
+    const searchlightBaseIntensity = isGreenBoothMast ? 0 : 28;
     const searchlight = new THREE.SpotLight(
       CROWD_SEARCHLIGHT_COLORS[i],
-      36,
-      200,
-      Math.PI * 0.35,
-      0.8,
+      searchlightBaseIntensity,
+      standOnlyRange,
+      Math.PI * 0.28,
+      0.85,
       1.5,
     );
     searchlight.position.set(
@@ -1595,25 +1615,30 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       Math.sin(angle) * crowdSearchlightSourceRadius,
     );
     searchlight.target = target;
+    // * Green-booth lamp stays in the scene graph but never contributes light.
+    searchlight.visible = !isGreenBoothMast;
     scene.add(searchlight);
 
+    // * Visual beam cones: hidden entirely — toneMapped:false additive + Reflector
+    // * HalfFloat was a pure-white reflection bomb when looking toward a mast.
     const coneMat = new THREE.MeshBasicMaterial({
       color: baseColor.clone(),
       transparent: true,
-      opacity: 0.09,
+      opacity: 0,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false,
     });
-    coneMat.userData.baseOpacity = 0.09;
+    coneMat.userData.baseOpacity = 0;
     const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(12, 30, 16, 1, true),
+      new THREE.ConeGeometry(10, 24, 16, 1, true),
       coneMat,
     );
     cone.position.copy(searchlight.position);
     cone.lookAt(target.position);
     cone.rotateX(-Math.PI / 2);
+    cone.visible = false;
     scene.add(cone);
     crowdSearchlightEntries.push({
       target,
@@ -1622,7 +1647,9 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       light: searchlight,
       index: i,
       baseColor,
-      baseIntensity: 36,
+      baseIntensity: searchlightBaseIntensity,
+      /** When true, updateCrowd must not re-enable this lamp. */
+      forceOff: isGreenBoothMast,
     });
   }
 
@@ -1736,16 +1763,24 @@ export function updateCrowd(nowMs) {
     const searchLeaderMix = reactive.hasLeader ? 0.14 : 0;
     const wantsSearchTint = searchLeaderMix > 0 || koT > 0;
     for (const entry of crowdSearchlightEntries) {
+      if (entry.forceOff) {
+        entry.light.intensity = 0;
+        entry.light.visible = false;
+        if (entry.cone) entry.cone.visible = false;
+        continue;
+      }
+      // * Targets stay in the stands (outward), not sweeping across the vinyl.
       const speed = CROWD_SEARCHLIGHT_SPEEDS[entry.index % CROWD_SEARCHLIGHT_SPEEDS.length] || 0.3;
       const angle = nowSec * speed + entry.index * Math.PI * 0.5;
-      entry.target.position.x = Math.cos(angle) * crowdSearchlightTargetRadius;
-      entry.target.position.y = -3;
-      entry.target.position.z = Math.sin(angle) * crowdSearchlightTargetRadius;
+      const aimR = crowdSearchlightSourceRadius + 8;
+      entry.target.position.x = Math.cos(angle) * aimR;
+      entry.target.position.y = 4;
+      entry.target.position.z = Math.sin(angle) * aimR;
       entry.target.updateMatrix();
-      entry.cone.lookAt(entry.target.position);
-      entry.cone.rotateX(-Math.PI / 2);
-      // * Restore pre-reactive range: ~20 ± 15 peak wobble, scaled by KO intensity.
-      const baseI = entry.baseIntensity ?? 36;
+      if (entry.cone) {
+        entry.cone.visible = false;
+      }
+      const baseI = entry.baseIntensity ?? 28;
       const wobble = 0.55 + 0.45 * Math.sin(nowSec * 1.1 + entry.index);
       entry.light.intensity = baseI * wobble * reactive.intensityMul;
       if (entry.baseColor) {
@@ -1754,17 +1789,8 @@ export function updateCrowd(nowMs) {
             .copy(entry.baseColor)
             .lerp(reactive.accentColor, searchLeaderMix + koT * 0.5);
           entry.light.color.copy(_crowdReactiveColor);
-          if (entry.coneMat) {
-            entry.coneMat.color.copy(_crowdReactiveColor);
-            entry.coneMat.opacity =
-              (entry.coneMat.userData.baseOpacity ?? 0.09) * (1 + koT * 1.2);
-          }
         } else {
           entry.light.color.copy(entry.baseColor);
-          if (entry.coneMat) {
-            entry.coneMat.color.copy(entry.baseColor);
-            entry.coneMat.opacity = entry.coneMat.userData.baseOpacity ?? 0.09;
-          }
         }
       }
     }
