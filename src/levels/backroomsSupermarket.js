@@ -156,9 +156,9 @@ function buildCarpetTexture() {
       const lightTile = (tx + ty) % 2 === 0;
 
       // Quarter-turn checkerboard: ±4% lightness between neighbouring tiles.
-      // * Kept deliberately dark — the ceiling spots + bloom made brighter tiles read
-      // * as a glowing floor at close range.
-      ctx.fillStyle = lightTile ? "#8f8459" : "#847955";
+      // * Cooler olive-khaki (less mustard) so cart neon pops against the carpet.
+      // * Still dark enough that ceiling spots don't read as a glowing floor.
+      ctx.fillStyle = lightTile ? "#7a7860" : "#6f6d57";
       ctx.fillRect(x0, y0, tile, tile);
 
       // Directional fiber combing — short dashes along the tile's pile direction
@@ -238,7 +238,8 @@ function buildWallpaperTexture() {
   const ctx = canvas.getContext("2d");
   const rng = makeRng(0xb4c4a001);
 
-  ctx.fillStyle = "#bfa94e";
+  // * Slightly desaturated yellow — less competing with yellow/orange cart neon at wall height.
+  ctx.fillStyle = "#a89a52";
   ctx.fillRect(0, 0, size, size);
 
   // Low-frequency damask / floral-ish dots.
@@ -796,6 +797,25 @@ function getDeadZoneDarken(x, z) {
 }
 
 /**
+ * Dark scuff rings approaching each corner void (0–1) — visual hazard telegraph + floor story.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+function getHoleApproachScuff(x, z) {
+  let best = 0;
+  for (const h of HOLE_CENTERS) {
+    const d = Math.hypot(x - h.x, z - h.z);
+    // Soft annulus just outside the hole lip.
+    const ring = 1 - smooth01(Math.abs(d - (HOLE_HALF + 2.2)) / 1.6);
+    const near = 1 - smooth01((d - HOLE_HALF) / 3.5);
+    best = Math.max(best, ring * 0.85, near * 0.35);
+  }
+  return best;
+}
+
+/**
  * Builds the square floor visual mesh (physics uses separate cuboid slices).
  * Square corner voids have inward-sloping chamfer lips; the perimeter has an
  * outward-sloping drop-off. Open void vertices are omitted so the mesh matches kill zones.
@@ -812,14 +832,14 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
   const colors = new Float32Array(verts * verts * 3);
   const inVoid = new Uint8Array(verts * verts);
 
-  // Warm carpet tint lerped toward worn concrete at hazard lips. Kept below 0.9 so the
-  // lit floor stays clearly dimmer than cart neon (no "glowing carpet" at close range).
-  const baseR = 0.88;
-  const baseG = 0.83;
-  const baseB = 0.70;
-  const lipR = 0.22;
+  // Cooler khaki carpet tint (cart neon contrast) lerped toward worn concrete at hazard lips.
+  // Kept dim so ceiling spots don't read as a glowing floor at close range.
+  const baseR = 0.76;
+  const baseG = 0.74;
+  const baseB = 0.64;
+  const lipR = 0.2;
   const lipG = 0.19;
-  const lipB = 0.14;
+  const lipB = 0.16;
 
   for (let j = 0; j <= cells; j += 1) {
     const gz = -ARENA_HALF + j * step;
@@ -848,18 +868,21 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
       uvs[idx * 2] = x / CARPET_TILE_M;
       uvs[idx * 2 + 1] = z / CARPET_TILE_M;
       const darken = getChamferDarkenFactor(x, z);
-      // Traffic wear + ceiling drip + dead-zone murk, then soft light-pool lift.
-      const wearMul = 1 - 0.1 * getTrafficWearFactor(x, z);
+      // Traffic wear + ceiling drip + dead-zone murk + hole-approach scuffs, then light-pool lift.
+      const wearMul = 1 - 0.14 * getTrafficWearFactor(x, z);
       const drip = getCeilingDripFactor(x, z);
       const dead = getDeadZoneDarken(x, z);
       const pool = getLightPoolFactor(x, z);
-      const dripMul = 1 - 0.22 * drip;
-      const deadMul = 1 - 0.12 * dead;
-      const poolMul = 1 + 0.1 * pool;
-      const mul = wearMul * dripMul * deadMul * poolMul;
-      colors[idx * 3] = (baseR * mul) * (1 - darken) + lipR * darken;
+      const holeApproach = getHoleApproachScuff(x, z);
+      const dripMul = 1 - 0.28 * drip;
+      const deadMul = 1 - 0.14 * dead;
+      const scuffMul = 1 - 0.12 * holeApproach;
+      const poolMul = 1 + 0.09 * pool;
+      const mul = wearMul * dripMul * deadMul * scuffMul * poolMul;
+      // * Slight cool bias in light pools so warm carts get a cooler ground plate under them.
+      colors[idx * 3] = (baseR * mul * (1 - 0.03 * pool)) * (1 - darken) + lipR * darken;
       colors[idx * 3 + 1] = (baseG * mul) * (1 - darken) + lipG * darken;
-      colors[idx * 3 + 2] = (baseB * mul * (1 - 0.04 * pool)) * (1 - darken) + lipB * darken;
+      colors[idx * 3 + 2] = (baseB * mul * (1 + 0.04 * pool)) * (1 - darken) + lipB * darken;
     }
   }
 
@@ -1073,11 +1096,14 @@ function buildFallContainment(world) {
 }
 
 /**
- * Builds the dressing for one square void: a black shaft dropping into darkness, with a
- * dim, identical "second floor" room at the very bottom — the strongest Backrooms cue
- * (architecture repeats where it should end). The sub-room floor sits flush with the
- * fall-containment backstop, so KO'd carts visibly land on another layer of the same
- * building. Sloped hazard lips live on the shared carpet floor trimesh.
+ * Builds one square corner void: black shaft + unique sub-room beat per hole.
+ * Looking down (and falling in) should feel wrong in four different ways.
+ *
+ * Variants (by hole index):
+ *   0 — shelf unit + pillar (classic liminal)
+ *   1 — endless shelf corridor receding into black
+ *   2 — floating dead cart silhouette (comedy horror)
+ *   3 — broken escalator steps + lonely bright tube
  *
  * @param {number} cx Void center X.
  * @param {number} cz Void center Z.
@@ -1085,14 +1111,17 @@ function buildFallContainment(world) {
  * @param {{
  *   floor: THREE.Material,
  *   glow: THREE.Material,
+ *   glowHot: THREE.Material,
  *   silhouette: THREE.Material,
  *   nearSilhouette: THREE.Material,
- * }} subRoomMats Shared sub-room materials (dim carpet, glow, deep + near silhouettes).
+ * }} subRoomMats Shared sub-room materials.
+ * @param {number} [variant=0] 0–3
  * @returns {{ group: THREE.Group, geometries: THREE.BufferGeometry[] }}
  */
-function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
+function buildSquareVoid(cx, cz, shaftMat, subRoomMats, variant = 0) {
   const group = new THREE.Group();
   const geometries = [];
+  const v = ((variant % 4) + 4) % 4;
 
   // Shaft hugs the opening: floor vertices snap onto the exact hole square (see
   // buildFloorGeometry), so the shaft only needs a small margin — and its top tucks
@@ -1105,9 +1134,7 @@ function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
   shaft.position.set(cx, shaftTopY - HOLE_DEPTH / 2, cz);
   group.add(shaft);
 
-  // --- The room below: dim carpet, one failing fluorescent, dark shapes. Identical in
-  // --- every shaft on purpose — repetition IS the unease.
-  const bottomY = FLOOR_TOP_Y - HOLE_DEPTH; // flush with the backstop cap top
+  const bottomY = FLOOR_TOP_Y - HOLE_DEPTH;
   const inner = shaftOuter - 0.12;
 
   const subFloorGeo = new THREE.PlaneGeometry(inner, inner);
@@ -1117,38 +1144,124 @@ function buildSquareVoid(cx, cz, shaftMat, subRoomMats) {
   subFloor.position.set(cx, bottomY + 0.06, cz);
   group.add(subFloor);
 
-  // A single dim fluorescent bar on one shaft wall, ~3.4m above the sub-floor.
-  const glowGeo = new THREE.PlaneGeometry(2.4, 0.16);
-  geometries.push(glowGeo);
-  const glow = new THREE.Mesh(glowGeo, subRoomMats.glow);
-  glow.position.set(cx, bottomY + 3.4, cz - inner / 2 + 0.1);
-  group.add(glow);
+  // --- Deep sub-room beats (visible during KO fall) ---
+  if (v === 0) {
+    const glowGeo = new THREE.PlaneGeometry(2.4, 0.16);
+    geometries.push(glowGeo);
+    const glow = new THREE.Mesh(glowGeo, subRoomMats.glow);
+    glow.position.set(cx, bottomY + 3.4, cz - inner / 2 + 0.1);
+    group.add(glow);
 
-  // Two dark silhouettes standing on the sub-floor: a shelf unit and a pillar stub.
-  const shelfGeo = new THREE.BoxGeometry(1.0, 2.1, 0.5);
-  const stubGeo = new THREE.BoxGeometry(0.8, 3.2, 0.8);
-  geometries.push(shelfGeo, stubGeo);
-  const shelf = new THREE.Mesh(shelfGeo, subRoomMats.silhouette);
-  shelf.position.set(cx - 1.6, bottomY + 1.05, cz + 1.2);
-  shelf.rotation.y = 0.35;
-  group.add(shelf);
-  const stub = new THREE.Mesh(stubGeo, subRoomMats.silhouette);
-  stub.position.set(cx + 1.7, bottomY + 1.6, cz - 1.4);
-  group.add(stub);
+    const shelfGeo = new THREE.BoxGeometry(1.0, 2.1, 0.5);
+    const stubGeo = new THREE.BoxGeometry(0.8, 3.2, 0.8);
+    geometries.push(shelfGeo, stubGeo);
+    const shelf = new THREE.Mesh(shelfGeo, subRoomMats.silhouette);
+    shelf.position.set(cx - 1.6, bottomY + 1.05, cz + 1.2);
+    shelf.rotation.y = 0.35;
+    group.add(shelf);
+    const stub = new THREE.Mesh(stubGeo, subRoomMats.silhouette);
+    stub.position.set(cx + 1.7, bottomY + 1.6, cz - 1.4);
+    group.add(stub);
+  } else if (v === 1) {
+    // Endless aisle: stacked shelves receding toward −Z of the shaft.
+    const shelfGeo = new THREE.BoxGeometry(2.8, 2.4, 0.45);
+    geometries.push(shelfGeo);
+    for (let i = 0; i < 5; i += 1) {
+      const s = new THREE.Mesh(shelfGeo, subRoomMats.silhouette);
+      const depth = -inner * 0.15 - i * 0.85;
+      s.position.set(cx - 1.5 + (i % 2) * 3.0, bottomY + 1.2, cz + depth);
+      s.scale.set(1, 1, 1 - i * 0.08);
+      group.add(s);
+    }
+    const glowGeo = new THREE.PlaneGeometry(1.6, 0.12);
+    geometries.push(glowGeo);
+    const glow = new THREE.Mesh(glowGeo, subRoomMats.glow);
+    glow.position.set(cx, bottomY + 4.2, cz - inner / 2 + 0.08);
+    group.add(glow);
+  } else if (v === 2) {
+    // Floating dead cart — basket silhouette mid-shaft.
+    const bodyGeo = new THREE.BoxGeometry(1.4, 0.85, 1.9);
+    const basketGeo = new THREE.BoxGeometry(1.15, 0.55, 1.5);
+    const wheelGeo = new THREE.BoxGeometry(0.22, 0.22, 0.08);
+    geometries.push(bodyGeo, basketGeo, wheelGeo);
+    const floatY = bottomY + 8.5;
+    const body = new THREE.Mesh(bodyGeo, subRoomMats.silhouette);
+    body.position.set(cx + 0.3, floatY, cz - 0.2);
+    body.rotation.set(0.35, 0.6, 0.15);
+    group.add(body);
+    const basket = new THREE.Mesh(basketGeo, subRoomMats.nearSilhouette);
+    basket.position.set(cx + 0.3, floatY + 0.35, cz - 0.2);
+    basket.rotation.copy(body.rotation);
+    group.add(basket);
+    for (const [ox, oz] of [[-0.5, -0.7], [0.5, -0.7], [-0.5, 0.7], [0.5, 0.7]]) {
+      const w = new THREE.Mesh(wheelGeo, subRoomMats.silhouette);
+      w.position.set(cx + 0.3 + ox, floatY - 0.5, cz - 0.2 + oz);
+      group.add(w);
+    }
+    const glowGeo = new THREE.PlaneGeometry(2.0, 0.14);
+    geometries.push(glowGeo);
+    const glow = new THREE.Mesh(glowGeo, subRoomMats.glow);
+    glow.position.set(cx - inner / 2 + 0.1, floatY + 1.2, cz);
+    glow.rotation.y = Math.PI / 2;
+    group.add(glow);
+  } else {
+    // Broken escalator: staggered steps + one hot lonely tube.
+    const stepGeo = new THREE.BoxGeometry(2.6, 0.22, 0.55);
+    geometries.push(stepGeo);
+    for (let i = 0; i < 7; i += 1) {
+      const step = new THREE.Mesh(stepGeo, subRoomMats.silhouette);
+      step.position.set(
+        cx - 0.4,
+        bottomY + 0.4 + i * 0.55,
+        cz + 1.6 - i * 0.7,
+      );
+      step.rotation.x = -0.12;
+      group.add(step);
+    }
+    const glowGeo = new THREE.PlaneGeometry(3.2, 0.22);
+    geometries.push(glowGeo);
+    const glow = new THREE.Mesh(glowGeo, subRoomMats.glowHot);
+    glow.position.set(cx, bottomY + 5.5, cz - inner / 2 + 0.1);
+    group.add(glow);
+  }
 
-  // Near-lip silhouettes — faint second-layer shapes when looking *down* a hole from
-  // play level (not only during the KO fall). Kept dark and simple.
+  // Near-lip silhouettes — variant-tinted so looking *down* from play level previews the beat.
   const nearY = FLOOR_TOP_Y - 2.4;
-  const nearShelfGeo = new THREE.BoxGeometry(1.15, 1.4, 0.45);
-  const nearStubGeo = new THREE.BoxGeometry(0.55, 1.9, 0.55);
-  geometries.push(nearShelfGeo, nearStubGeo);
-  const nearShelf = new THREE.Mesh(nearShelfGeo, subRoomMats.nearSilhouette);
-  nearShelf.position.set(cx + 1.4, nearY, cz - 1.1);
-  nearShelf.rotation.y = -0.4;
-  group.add(nearShelf);
-  const nearStub = new THREE.Mesh(nearStubGeo, subRoomMats.nearSilhouette);
-  nearStub.position.set(cx - 1.5, nearY - 0.2, cz + 1.3);
-  group.add(nearStub);
+  if (v === 0) {
+    const nearShelfGeo = new THREE.BoxGeometry(1.15, 1.4, 0.45);
+    const nearStubGeo = new THREE.BoxGeometry(0.55, 1.9, 0.55);
+    geometries.push(nearShelfGeo, nearStubGeo);
+    const nearShelf = new THREE.Mesh(nearShelfGeo, subRoomMats.nearSilhouette);
+    nearShelf.position.set(cx + 1.4, nearY, cz - 1.1);
+    nearShelf.rotation.y = -0.4;
+    group.add(nearShelf);
+    const nearStub = new THREE.Mesh(nearStubGeo, subRoomMats.nearSilhouette);
+    nearStub.position.set(cx - 1.5, nearY - 0.2, cz + 1.3);
+    group.add(nearStub);
+  } else if (v === 1) {
+    const nearShelfGeo = new THREE.BoxGeometry(1.3, 1.5, 0.4);
+    geometries.push(nearShelfGeo);
+    for (let i = 0; i < 3; i += 1) {
+      const s = new THREE.Mesh(nearShelfGeo, subRoomMats.nearSilhouette);
+      s.position.set(cx - 1.2 + i * 1.2, nearY - 0.1, cz - 0.8 - i * 0.35);
+      group.add(s);
+    }
+  } else if (v === 2) {
+    const cartGeo = new THREE.BoxGeometry(0.9, 0.55, 1.1);
+    geometries.push(cartGeo);
+    const cart = new THREE.Mesh(cartGeo, subRoomMats.nearSilhouette);
+    cart.position.set(cx, nearY - 0.3, cz);
+    cart.rotation.set(0.4, 0.5, 0.2);
+    group.add(cart);
+  } else {
+    const stepGeo = new THREE.BoxGeometry(1.4, 0.18, 0.45);
+    geometries.push(stepGeo);
+    for (let i = 0; i < 3; i += 1) {
+      const step = new THREE.Mesh(stepGeo, subRoomMats.nearSilhouette);
+      step.position.set(cx, nearY - 0.5 - i * 0.35, cz + 0.6 - i * 0.4);
+      group.add(step);
+    }
+  }
 
   return { group, geometries };
 }
@@ -1824,11 +1937,11 @@ function buildWalls(scene, world, wallpaperTex) {
   // Drywall faces use the wallpaper texture directly (not merged, so UVs tile cleanly).
   // Dead-adjacent walls (−X / +Z) get a slightly murkier tint — local decay.
   const drywallMat = new THREE.MeshStandardMaterial({
-    map: wallpaperTex, color: 0xffffff, roughness: 0.96, metalness: 0.0,
+    map: wallpaperTex, color: 0xe8e2c8, roughness: 0.96, metalness: 0.0,
     vertexColors: true, side: THREE.DoubleSide,
   });
   const drywallMatDead = drywallMat.clone();
-  drywallMatDead.color.setHex(0xc8b888);
+  drywallMatDead.color.setHex(0xb8b090);
   const wallCenterY = (WALL_HEIGHT + WALL_BOTTOM_Y) / 2;
   const wallFullHeight = WALL_HEIGHT - WALL_BOTTOM_Y;
   const drywallGeo = buildWallpaperPlaneGeometry(WALL_SPAN, WALL_BOTTOM_Y, WALL_HEIGHT);
@@ -1844,15 +1957,18 @@ function buildWalls(scene, world, wallpaperTex) {
   const pillarBaseRgb = /** @type {[number, number, number]} */ ([0.56, 0.54, 0.48]);
   const shelfMetalBaseRgb = /** @type {[number, number, number]} */ ([0.42, 0.4, 0.35]);
 
-  // Sides that carry aged store shelving (mixed with plain drywall walls).
-  const SHELVED_SIDES = new Set([0, 2]);
+  // All four walls get shelf language; sides 0/2 are full bays, 1/3 are sparse/broken.
+  const FULL_SHELF_SIDES = new Set([0, 2]);
+  const SPARSE_SHELF_SIDES = new Set([1, 3]);
   // +Z (0) and −X (3) face the dead fluorescent quadrant.
   const DEAD_SIDES = new Set([0, 3]);
-  const SHELF_LEVELS = 5;
+  const SHELF_LEVELS_FULL = 5;
+  const SHELF_LEVELS_SPARSE = 3;
   const SHELF_DEPTH = 2.0;
   const boardThickness = 0.12;
   const boxH = 0.9;
-  const levelGap = (WALL_HEIGHT * 0.62 - 1.0) / SHELF_LEVELS;
+  const levelGapFull = (WALL_HEIGHT * 0.62 - 1.0) / SHELF_LEVELS_FULL;
+  const levelGapSparse = (WALL_HEIGHT * 0.45 - 1.0) / SHELF_LEVELS_SPARSE;
   const SHELF_BOX_SPACING = 1.7;
 
   for (let side = 0; side < 4; side += 1) {
@@ -1894,29 +2010,36 @@ function buildWalls(scene, world, wallpaperTex) {
       pushFadeBox(pillarParts, sx, wallFullHeight, sz, px, py, pz, unitBox, pillarBaseRgb);
     }
 
-    // Aged store-shelf bays on selected sides only.
-    if (SHELVED_SIDES.has(side)) {
-      const shelfCenterOut = -(SHELF_DEPTH / 2 + WALL_DECOR_INSET);
+    // Aged store-shelf bays — full density on two walls, sparse/broken on the other two.
+    const fullBay = FULL_SHELF_SIDES.has(side);
+    const sparseBay = SPARSE_SHELF_SIDES.has(side);
+    if (fullBay || sparseBay) {
+      const shelfLevels = fullBay ? SHELF_LEVELS_FULL : SHELF_LEVELS_SPARSE;
+      const levelGap = fullBay ? levelGapFull : levelGapSparse;
+      const shelfDepth = fullBay ? SHELF_DEPTH : SHELF_DEPTH * 0.75;
+      const shelfCenterOut = -(shelfDepth / 2 + WALL_DECOR_INSET);
+      const uprightStep = fullBay ? SHELF_BOX_SPACING * 3 : SHELF_BOX_SPACING * 4.5;
+      const skipThreshold = fullBay ? 3 : 6; // sparse: more empty slots
+
       // Vertical uprights — full height, void fade at bottom.
-      for (let a = -WALL_SPAN / 2 + 6; a <= WALL_SPAN / 2 - 6; a += SHELF_BOX_SPACING * 3) {
-        const [sx, sz] = wDim(0.16, SHELF_DEPTH);
+      for (let a = -WALL_SPAN / 2 + 6; a <= WALL_SPAN / 2 - 6; a += uprightStep) {
+        const [sx, sz] = wDim(0.16, shelfDepth);
         const [px, py, pz] = toWorld(a, wallCenterY, shelfCenterOut);
         pushFadeBox(shelfMetalParts, sx, wallFullHeight, sz, px, py, pz, unitBox, shelfMetalBaseRgb);
       }
 
       // Horizontal boards + faded product boxes per level.
-      for (let lvl = 0; lvl < SHELF_LEVELS; lvl += 1) {
+      for (let lvl = 0; lvl < shelfLevels; lvl += 1) {
         const boardY = 1.0 + lvl * levelGap;
-        const [bsx, bsz] = wDim(WALL_SPAN - 10, SHELF_DEPTH);
+        const [bsx, bsz] = wDim(WALL_SPAN - 10, shelfDepth);
         const [bpx, bpy, bpz] = toWorld(0, boardY, shelfCenterOut);
         pushFadeBox(shelfMetalParts, bsx, boardThickness, bsz, bpx, bpy, bpz, unitBox, shelfMetalBaseRgb);
 
         const boxY = boardY + boardThickness / 2 + boxH / 2;
         for (let a = -WALL_SPAN / 2 + 7; a <= WALL_SPAN / 2 - 7; a += SHELF_BOX_SPACING) {
           // Leave gaps so shelves read as half-empty / abandoned.
-          // Deterministic hash so all clients render the same layout.
-          if (((lvl * 7 + Math.round(a) * 13 + side * 41) % 10) < 3) continue;
-          const [sx, sz] = wDim(1.1, 0.95);
+          if (((lvl * 7 + Math.round(a) * 13 + side * 41) % 10) < skipThreshold) continue;
+          const [sx, sz] = wDim(1.1, fullBay ? 0.95 : 0.7);
           const [px, py, pz] = toWorld(a, boxY, shelfCenterOut + 0.15);
           const pick = (lvl + Math.round(a)) % 3;
           const list = pick === 0
@@ -1924,6 +2047,16 @@ function buildWalls(scene, world, wallpaperTex) {
             : pick === 1 ? shelfBoxBlueParts : shelfBoxBeigeParts;
           pushBox(list, sx, boxH, sz, px, py, pz, unitBox);
         }
+      }
+
+      // Sparse walls: one slumped endcap as a human anomaly (must use pushFadeBox so
+      // shelfMetalParts keep matching vertex-color attributes for merge).
+      if (sparseBay) {
+        const tipA = side === 1 ? -18 : 14;
+        const [tsx, tsz] = wDim(0.95, shelfDepth * 0.9);
+        const [tpx, , tpz] = toWorld(tipA, 1.1, shelfCenterOut + 0.4);
+        pushFadeBox(shelfMetalParts, tsx, 0.14, tsz, tpx, 1.1, tpz, unitBox, shelfMetalBaseRgb);
+        pushBox(shelfBoxBeigeParts, 0.9, 0.7, 0.7, tpx, 0.55, tpz + (alongIsX ? 0.3 : 0), unitBox);
       }
     }
 
@@ -2286,10 +2419,161 @@ function buildUncannyDetails(scene, world) {
   return { group, bodies, ownedGeometries, ownedMaterials, ownedTextures };
 }
 
+// ===== Floor storytelling decals (play surface only) =====
+
+/**
+ * World-space carpet decals: wet patches under ceiling gaps, caster tracks toward voids,
+ * and faded hazard tape near hole lips. Pure visual, no physics.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {{
+ *   group: THREE.Group,
+ *   ownedGeometries: THREE.BufferGeometry[],
+ *   ownedMaterials: THREE.Material[],
+ *   ownedTextures: THREE.Texture[],
+ * }}
+ */
+function buildFloorStoryDecals(scene) {
+  const group = new THREE.Group();
+  const ownedGeometries = [];
+  const ownedMaterials = [];
+  const ownedTextures = [];
+
+  // --- Wet blotch texture (soft dark stain) ---
+  const wetCanvas = document.createElement("canvas");
+  wetCanvas.width = wetCanvas.height = 128;
+  {
+    const ctx = wetCanvas.getContext("2d");
+    const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
+    g.addColorStop(0, "rgba(28, 32, 40, 0.55)");
+    g.addColorStop(0.45, "rgba(35, 40, 48, 0.28)");
+    g.addColorStop(1, "rgba(35, 40, 48, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+  }
+  const wetTex = new THREE.CanvasTexture(wetCanvas);
+  ownedTextures.push(wetTex);
+  const wetMat = new THREE.MeshBasicMaterial({
+    map: wetTex,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+  });
+  ownedMaterials.push(wetMat);
+  const wetGeo = new THREE.PlaneGeometry(3.2, 3.2);
+  ownedGeometries.push(wetGeo);
+
+  for (const [gx, gz] of CEILING_GAP_SPOTS) {
+    // Only stains on the play floor (inside arena half).
+    if (Math.abs(gx) > ARENA_HALF - 2 || Math.abs(gz) > ARENA_HALF - 2) continue;
+    if (getFloorSurfaceY(gx, gz) === null) continue;
+    const m = new THREE.Mesh(wetGeo, wetMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(gx, 0.018, gz);
+    m.scale.set(0.85 + (Math.abs(gx) % 3) * 0.08, 1, 0.9 + (Math.abs(gz) % 2) * 0.1);
+    group.add(m);
+  }
+
+  // --- Caster wheel tracks (thin dark strips between center and holes) ---
+  const trackMat = new THREE.MeshBasicMaterial({
+    color: 0x1a1814,
+    transparent: true,
+    opacity: 0.22,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+  });
+  ownedMaterials.push(trackMat);
+  const trackGeo = new THREE.PlaneGeometry(1, 1);
+  ownedGeometries.push(trackGeo);
+
+  const trackPaths = [
+    { x0: 0, z0: 6, x1: HOLE_CENTER - 5, z1: HOLE_CENTER - 5 },
+    { x0: 0, z0: -6, x1: -HOLE_CENTER + 5, z1: -HOLE_CENTER + 5 },
+    { x0: 8, z0: 0, x1: HOLE_CENTER - 5, z1: -HOLE_CENTER + 5 },
+    { x0: -8, z0: 0, x1: -HOLE_CENTER + 5, z1: HOLE_CENTER - 5 },
+  ];
+  for (const p of trackPaths) {
+    const mx = (p.x0 + p.x1) / 2;
+    const mz = (p.z0 + p.z1) / 2;
+    const dx = p.x1 - p.x0;
+    const dz = p.z1 - p.z0;
+    const len = Math.hypot(dx, dz);
+    const yaw = Math.atan2(dx, dz);
+    // Twin wheel ruts.
+    for (const side of [-0.35, 0.35]) {
+      const m = new THREE.Mesh(trackGeo, trackMat);
+      m.rotation.x = -Math.PI / 2;
+      m.rotation.z = yaw;
+      m.position.set(mx + Math.cos(yaw) * side, 0.015, mz - Math.sin(yaw) * side);
+      m.scale.set(0.14, 1, len);
+      group.add(m);
+    }
+  }
+
+  // --- Hazard tape chevrons near each hole lip (yellow/black stripe plane) ---
+  const tapeCanvas = document.createElement("canvas");
+  tapeCanvas.width = 128;
+  tapeCanvas.height = 32;
+  {
+    const ctx = tapeCanvas.getContext("2d");
+    for (let i = 0; i < 8; i += 1) {
+      ctx.fillStyle = i % 2 === 0 ? "#c9a010" : "#1a1810";
+      ctx.fillRect(i * 16, 0, 16, 32);
+    }
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, 128, 32);
+  }
+  const tapeTex = new THREE.CanvasTexture(tapeCanvas);
+  tapeTex.wrapS = THREE.RepeatWrapping;
+  tapeTex.repeat.set(2, 1);
+  ownedTextures.push(tapeTex);
+  const tapeMat = new THREE.MeshBasicMaterial({
+    map: tapeTex,
+    transparent: true,
+    opacity: 0.38,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+  });
+  ownedMaterials.push(tapeMat);
+  const tapeGeo = new THREE.PlaneGeometry(2.4, 0.35);
+  ownedGeometries.push(tapeGeo);
+
+  // * Square voids: a circular offset from the hole center still lands INSIDE the square
+  // * (Chebyshev edge is HOLE_HALF·√2 along the diagonal). Step axis-aligned past the
+  // * hole half-extent + chamfer lip onto flat carpet, on the two faces toward center.
+  const tapeClear = HOLE_HALF + HOLE_CHAMFER_W + 0.45;
+  for (const h of HOLE_CENTERS) {
+    const sx = Math.sign(h.x) || 1;
+    const sz = Math.sign(h.z) || 1;
+    // West/east inward face (strip runs along Z) + south/north inward face (along X).
+    const faces = [
+      { tx: h.x - sx * tapeClear, tz: h.z, yaw: Math.PI / 2 },
+      { tx: h.x, tz: h.z - sz * tapeClear, yaw: 0 },
+    ];
+    for (const f of faces) {
+      const surfaceY = getFloorSurfaceY(f.tx, f.tz);
+      if (surfaceY === null) continue; // still in a void — skip
+      const m = new THREE.Mesh(tapeGeo, tapeMat);
+      m.rotation.x = -Math.PI / 2;
+      m.rotation.z = f.yaw;
+      m.position.set(f.tx, surfaceY + 0.02, f.tz);
+      group.add(m);
+    }
+  }
+
+  scene.add(group);
+  return { group, ownedGeometries, ownedMaterials, ownedTextures };
+}
+
 // ===== Doorways to nowhere =====
 
 /**
- * Shallow fake doorways on the plain (unshelved) walls: two dark openings — one with a
+ * Shallow fake doorways on the walls: two dark openings — one with a
  * single dim hallway light strip receding inside — and one that has been wallpapered
  * over with only the frame left. Implies the maze continues and this room is one cell
  * of many. Pure visuals on the far side of the pit; nothing collides.
@@ -2615,7 +2899,24 @@ function buildCeiling(scene, world, ceilingTex) {
   }
   group.add(fanGroup);
 
-  // ----- Per-frame ceiling life: fan rotation + out-of-sync dim-panel flicker.
+  // ----- Hero light moments (2–3 fixtures with personality beyond the even grid wash) -----
+  // * Cool leak under a ceiling gap — cart-edge highlight + wet-stain story.
+  const [heroGapX, heroGapZ] = gapSpots[2] ?? [-20, 9];
+  const heroCool = new THREE.PointLight(0x9eb8d8, 9, 16, 2);
+  heroCool.position.set(heroGapX, CEILING_Y - 0.6, heroGapZ);
+  group.add(heroCool);
+
+  // * Sick buzzing tube near dead quadrant — irregular flicker in update().
+  const heroBuzz = new THREE.PointLight(0xffe2a8, 16, 20, 2);
+  heroBuzz.position.set(-12, fixtureY - 0.2, 18);
+  group.add(heroBuzz);
+
+  // * Lone green-sick spill opposite the dead corner (uncanny supermarket fluorescent).
+  const heroSick = new THREE.PointLight(0xb8c9a0, 7, 14, 2);
+  heroSick.position.set(18, fixtureY - 0.25, -14);
+  group.add(heroSick);
+
+  // ----- Per-frame ceiling life: fan rotation + out-of-sync dim-panel flicker + hero buzz.
   const FAN_RAD_PER_SEC = (Math.PI * 2) / 5.2;
   function update(timeMs) {
     const t = timeMs * 0.001;
@@ -2625,6 +2926,14 @@ function buildCeiling(scene, world, ceilingTex) {
     const b = 0.85 + 0.15 * Math.sin(t * 0.71 + 4.2) * Math.sin(t * 0.41);
     dimMatA.emissiveIntensity = 0.41 * (Math.sin(t * 0.161) > 0.997 ? 0.12 : a);
     dimMatB.emissiveIntensity = 0.41 * (Math.sin(t * 0.127 + 2.1) > 0.997 ? 0.12 : b);
+    // * Hero buzz: mostly stable, occasional hard brownout.
+    const buzz =
+      Math.sin(t * 0.37) > 0.992
+        ? 0.15
+        : 0.88 + 0.12 * Math.sin(t * 11.3) * Math.sin(t * 3.7 + 0.4);
+    heroBuzz.intensity = 16 * buzz;
+    heroCool.intensity = 8 + 2 * Math.sin(t * 0.55);
+    heroSick.intensity = 6.5 + 1.5 * Math.sin(t * 0.8 + 2.0);
   }
 
   // * Thin overhead slab — carts that hop high enough hit the acoustic tiles and bounce back.
@@ -2951,14 +3260,17 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const subRoomMats = {
     floor: new THREE.MeshBasicMaterial({ map: subCarpetTex, color: 0x2e2a20 }),
     glow: new THREE.MeshBasicMaterial({ color: 0x5c5544, side: THREE.DoubleSide }),
+    // * Hot lonely tube (escalator hole) — brighter than the shared dim glow.
+    glowHot: new THREE.MeshBasicMaterial({ color: 0xd4c8a0, side: THREE.DoubleSide }),
     silhouette: new THREE.MeshBasicMaterial({ color: 0x0b0a09 }),
     // Slightly lighter than deep silhouettes so looking-down hints read before a KO fall.
     nearSilhouette: new THREE.MeshBasicMaterial({ color: 0x12110f }),
   };
   const voidGroup = new THREE.Group();
   const voidGeometries = [];
-  for (const h of HOLE_CENTERS) {
-    const v = buildSquareVoid(h.x, h.z, voidShaftMat, subRoomMats);
+  for (let hi = 0; hi < HOLE_CENTERS.length; hi += 1) {
+    const h = HOLE_CENTERS[hi];
+    const v = buildSquareVoid(h.x, h.z, voidShaftMat, subRoomMats, hi);
     voidGroup.add(v.group);
     voidGeometries.push(...v.geometries);
   }
@@ -2995,24 +3307,18 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const pitDressing = menuPreview ? emptyDressing() : buildPitRingDressing(scene, world);
   const uncanny = menuPreview ? emptyDressing() : buildUncannyDetails(scene, world);
   const doorways = menuPreview ? emptyDressing() : buildDoorways(scene, wallpaperTex);
+  const floorDecals = menuPreview ? emptyDressing() : buildFloorStoryDecals(scene);
 
   // ===== Ambient fill lighting (warm; compensates for thick fog while staying dim/liminal) =====
-  const hemiLight = new THREE.HemisphereLight(0xd6c9a0, 0x33301f, 1.42);
+  const hemiLight = new THREE.HemisphereLight(0xc8c0a0, 0x2a3028, 1.38);
   scene.add(hemiLight);
-  const ambient = new THREE.AmbientLight(0x7a7358, 0.74);
+  const ambient = new THREE.AmbientLight(0x6e6c58, 0.7);
   scene.add(ambient);
 
-  // * Steel-blue rim/fill light — the arena is intentionally warm (yellowed wallpaper,
-  // * beige carpet, warm fluorescents), which lets warm-neon carts (yellow/orange) blend
-  // * into the backdrop. A single low-intensity cool DirectionalLight angled across the
-  // * play space gives carts and the furniture pile a faint cool edge without lifting
-  // * overall brightness or diluting the warm/liminal mood (kept clearly warm-dominant
-  // * versus the 1.42 hemi + 0.74 ambient above). Not a key light — no shadows, no fog/
-  // * material changes.
-  // * Near-grazing angle (low height, lifted target) keeps the rim on vertical cart
-  // * surfaces while the carpet's up-normal barely sees it — a steeper angle at 0.35
-  // * intensity washed the whole carpet with a blue sheen that read as glowing.
-  const coolRimLight = new THREE.DirectionalLight(0x7a8fc0, 0.2);
+  // * Steel-blue rim — stronger after cooler carpet/wallpaper retune so carts (esp. yellow/
+  // * orange) keep a readable cool edge without washing the floor blue.
+  // * Near-grazing angle keeps the rim on vertical cart surfaces; carpet up-normal barely sees it.
+  const coolRimLight = new THREE.DirectionalLight(0x8aa0c8, 0.28);
   coolRimLight.position.set(-ARENA_HALF * 0.6, 7, ARENA_HALF * 0.5);
   coolRimLight.target.position.set(ARENA_HALF * 0.3, 1.2, -ARENA_HALF * 0.2);
   scene.add(coolRimLight);
@@ -3048,7 +3354,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
 
   const sceneRoots = [
     floorMesh, voidGroup, pit.group, walls.group, ceiling.group, booths.group,
-    pitDressing.group, uncanny.group, doorways.group,
+    pitDressing.group, uncanny.group, doorways.group, floorDecals.group,
     furniturePile.group,
     furnitureSpotlight.spot, furnitureSpotlight.spot.target, furnitureSpotlight.fixture,
     hemiLight, ambient, coolRimLight, coolRimLight.target, spindleLight,
@@ -3058,19 +3364,22 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     floorGeo, ...voidGeometries, ...pit.geometries,
     ...walls.ownedGeometries, ...ceiling.ownedGeometries, ...booths.ownedGeometries,
     ...pitDressing.ownedGeometries, ...uncanny.ownedGeometries, ...doorways.ownedGeometries,
+    ...floorDecals.ownedGeometries,
     ...furniturePile.ownedGeometries, ...furnitureSpotlight.ownedGeometries,
   ];
   const ownedMaterials = [
-    floorMat, voidShaftMat, subRoomMats.floor, subRoomMats.glow, subRoomMats.silhouette,
-    subRoomMats.nearSilhouette,
+    floorMat, voidShaftMat, subRoomMats.floor, subRoomMats.glow, subRoomMats.glowHot,
+    subRoomMats.silhouette, subRoomMats.nearSilhouette,
     ...pit.materials,
     ...walls.ownedMaterials, ...ceiling.ownedMaterials, ...booths.ownedMaterials,
     ...pitDressing.ownedMaterials, ...uncanny.ownedMaterials, ...doorways.ownedMaterials,
+    ...floorDecals.ownedMaterials,
     ...furniturePile.ownedMaterials, ...furnitureSpotlight.ownedMaterials,
   ];
   const ownedTextures = [
     carpetTex, subCarpetTex, wallpaperTex, ceilingTex,
     ...uncanny.ownedTextures,
+    ...(floorDecals.ownedTextures ?? []),
     ...(walls.ownedTextures ?? []),
     ...(booths.ownedTextures ?? []),
     ...(furniturePile.ownedTextures ?? []),

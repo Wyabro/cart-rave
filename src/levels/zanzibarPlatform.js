@@ -421,42 +421,44 @@ function buildSkyTexture() {
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
+  // * Moodier golden-hour: deeper indigo zenith, longer dusk magenta, softer ember melt.
   const grad = ctx.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0.0, "#0b0620"); // zenith — deep blue-violet
-  grad.addColorStop(0.42, "#3a1548");
-  grad.addColorStop(0.62, "#8a2d5e");
-  grad.addColorStop(0.78, "#d95a35");
-  grad.addColorStop(0.88, "#f57a3c"); // ember band at the horizon
+  grad.addColorStop(0.0, "#060318"); // zenith — near-black indigo
+  grad.addColorStop(0.28, "#1a0a32");
+  grad.addColorStop(0.48, "#4a1538");
+  grad.addColorStop(0.62, "#8a2848");
+  grad.addColorStop(0.74, "#c94a32");
+  grad.addColorStop(0.86, "#e86830"); // long ember band
   // * Must track CONFIG.postFx.fog.zanzibar.color — the ocean fogs to that hex at
   // * distance, so a mismatched sky bottom shows as a seam at the waterline.
   grad.addColorStop(1.0, "#ff5a22"); // horizon melt color matching fog
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 256);
 
-  // Faint stratified haze bands just above the ember zone.
-  for (const [y, alpha] of [[172, 0.10], [188, 0.14], [201, 0.08]]) {
-    const band = ctx.createLinearGradient(0, y - 4, 0, y + 4);
-    band.addColorStop(0, "rgba(40,12,40,0)");
-    band.addColorStop(0.5, `rgba(40,12,40,${alpha})`);
-    band.addColorStop(1, "rgba(40,12,40,0)");
+  // Stratified haze bands — thicker, more atmospheric than the first pass.
+  for (const [y, alpha] of [[160, 0.12], [176, 0.16], [192, 0.12], [206, 0.08]]) {
+    const band = ctx.createLinearGradient(0, y - 5, 0, y + 5);
+    band.addColorStop(0, "rgba(30,8,28,0)");
+    band.addColorStop(0.5, `rgba(50,14,36,${alpha})`);
+    band.addColorStop(1, "rgba(30,8,28,0)");
     ctx.fillStyle = band;
-    ctx.fillRect(0, y - 4, 256, 8);
+    ctx.fillRect(0, y - 5, 256, 10);
   }
 
-  // Sparse early stars near the zenith.
-  for (let i = 0; i < 26; i += 1) {
-    ctx.fillStyle = `rgba(230, 224, 255, ${0.12 + Math.random() * 0.2})`;
-    ctx.fillRect(Math.random() * 256, Math.random() * 70, 1, 1);
+  // Sparse early stars near the zenith (colder, quieter than a rave sky).
+  for (let i = 0; i < 34; i += 1) {
+    ctx.fillStyle = `rgba(220, 214, 255, ${0.08 + Math.random() * 0.18})`;
+    ctx.fillRect(Math.random() * 256, Math.random() * 62, 1, 1);
   }
 
   // One old contrail catching the light, faded at both ends (avoids the UV wrap seam).
   const trail = ctx.createLinearGradient(50, 74, 208, 96);
   trail.addColorStop(0, "rgba(255,190,150,0)");
-  trail.addColorStop(0.45, "rgba(255,190,150,0.20)");
-  trail.addColorStop(0.6, "rgba(255,190,150,0.14)");
+  trail.addColorStop(0.45, "rgba(255,190,150,0.16)");
+  trail.addColorStop(0.6, "rgba(255,190,150,0.1)");
   trail.addColorStop(1, "rgba(255,190,150,0)");
   ctx.strokeStyle = trail;
-  ctx.lineWidth = 1.6;
+  ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.moveTo(50, 74);
   ctx.lineTo(208, 96);
@@ -506,29 +508,6 @@ function buildSunsetEnvTexture() {
   const tex = new THREE.CanvasTexture(canvas);
   tex.mapping = THREE.EquirectangularReflectionMapping;
   tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-/**
- * Horizontal glint streaks for the animated sun-path strip on the water.
- * @returns {THREE.CanvasTexture}
- */
-function buildGlintTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 256;
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, 128, 256);
-  for (let i = 0; i < 60; i += 1) {
-    const y = Math.random() * 256;
-    const w = 10 + Math.random() * 46;
-    const x = Math.random() * (128 - w);
-    ctx.fillStyle = `rgba(255, ${170 + Math.floor(Math.random() * 60)}, 110, ${0.12 + Math.random() * 0.3})`;
-    ctx.fillRect(x, y, w, 1.5 + Math.random() * 1.5);
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
@@ -661,38 +640,175 @@ function buildHazardStripeTexture() {
 }
 
 /**
- * Holographic glyph band wrapped around the podium hologram cylinder: segmented ticks,
- * data blocks, and a scanline — drawn transparent for additive blending.
+ * Dense holographic glyph band for the podium core: dual rulers, data blocks, tick
+ * clusters, and soft scanlines — transparent for additive blending.
  * @returns {THREE.CanvasTexture}
  */
 function buildHologlyphTexture() {
+  const w = 512;
+  const h = 128;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, 256, 64);
-  ctx.strokeStyle = "rgba(255,194,94,0.7)";
+  ctx.clearRect(0, 0, w, h);
+
+  // Soft vertical wash so the band reads as volume, not a flat strip.
+  const wash = ctx.createLinearGradient(0, 0, 0, h);
+  wash.addColorStop(0, "rgba(255,178,44,0)");
+  wash.addColorStop(0.2, "rgba(255,178,44,0.08)");
+  wash.addColorStop(0.5, "rgba(255,200,90,0.14)");
+  wash.addColorStop(0.8, "rgba(255,178,44,0.08)");
+  wash.addColorStop(1, "rgba(255,178,44,0)");
+  ctx.fillStyle = wash;
+  ctx.fillRect(0, 0, w, h);
+
+  // Outer ruler rails.
+  ctx.strokeStyle = "rgba(255,220,140,0.85)";
+  ctx.lineWidth = 1.5;
+  for (const y of [10, h - 10]) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  // Inner dashed rails.
+  ctx.strokeStyle = "rgba(255,180,60,0.45)";
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, 8);
-  ctx.lineTo(256, 8);
-  ctx.moveTo(0, 56);
-  ctx.lineTo(256, 56);
-  ctx.stroke();
-  for (let x = 2; x < 256; x += 8) {
-    if (Math.random() < 0.62) {
-      const bh = 4 + Math.random() * 34;
-      ctx.fillStyle = `rgba(255,178,44,${0.25 + Math.random() * 0.45})`;
-      ctx.fillRect(x, 50 - bh, 5, bh);
+  ctx.setLineDash([6, 5]);
+  for (const y of [28, h - 28]) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Segment ticks (major / minor).
+  for (let x = 0; x < w; x += 8) {
+    const major = x % 40 === 0;
+    ctx.fillStyle = major ? "rgba(255,236,190,0.9)" : "rgba(255,190,70,0.45)";
+    const th = major ? 14 : 7;
+    ctx.fillRect(x, 10, major ? 2 : 1, th);
+    ctx.fillRect(x, h - 10 - th, major ? 2 : 1, th);
+  }
+
+  // Data histogram blocks.
+  for (let x = 4; x < w; x += 7) {
+    if (Math.random() < 0.22) continue;
+    const bh = 8 + Math.random() * 48;
+    const alpha = 0.3 + Math.random() * 0.55;
+    ctx.fillStyle = `rgba(255,${160 + Math.floor(Math.random() * 60)},40,${alpha})`;
+    ctx.fillRect(x, (h - bh) * 0.5, 4, bh);
+  }
+
+  // Bit-packet clusters (small rect grids).
+  for (let i = 0; i < 18; i += 1) {
+    const bx = Math.floor(Math.random() * (w - 40));
+    const by = 32 + Math.floor(Math.random() * 40);
+    ctx.fillStyle = "rgba(255,240,200,0.55)";
+    for (let r = 0; r < 3; r += 1) {
+      for (let c = 0; c < 5; c += 1) {
+        if (Math.random() < 0.35) continue;
+        ctx.fillRect(bx + c * 4, by + r * 4, 3, 3);
+      }
     }
   }
-  for (let i = 0; i < 12; i += 1) {
-    ctx.fillStyle = "rgba(255,236,190,0.6)";
-    ctx.fillRect(Math.random() * 250, 12 + Math.random() * 8, 3 + Math.random() * 6, 2);
+
+  // Horizontal scanlines.
+  ctx.strokeStyle = "rgba(255,210,120,0.12)";
+  ctx.lineWidth = 1;
+  for (let y = 16; y < h - 16; y += 3) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
   }
+
+  // Station callsign chips.
+  ctx.font = "bold 11px monospace";
+  ctx.fillStyle = "rgba(255,230,180,0.7)";
+  ctx.textBaseline = "middle";
+  /** @type {Array<[string, number]>} */
+  const chips = [["SUNDIAL", 24], ["SOL-07", 180], ["GNOMON", 320], ["SYNC", 440]];
+  for (const [label, x] of chips) {
+    ctx.fillText(label, x, h * 0.5);
+  }
+
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/**
+ * Radial dial face for the hologram gnomon plate — octant ticks + concentric rings.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildHoloDialTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const c = size / 2;
+  ctx.clearRect(0, 0, size, size);
+
+  // Soft disc glow.
+  const glow = ctx.createRadialGradient(c, c, 8, c, c, c - 4);
+  glow.addColorStop(0, "rgba(255,200,90,0.35)");
+  glow.addColorStop(0.55, "rgba(255,160,40,0.12)");
+  glow.addColorStop(1, "rgba(255,140,30,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(c, c, c - 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,220,140,0.75)";
+  ctx.lineWidth = 2;
+  for (const r of [0.92, 0.68, 0.42, 0.18]) {
+    ctx.beginPath();
+    ctx.arc(c, c, c * r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 32 radial ticks (8 major).
+  for (let i = 0; i < 32; i += 1) {
+    const a = (i / 32) * Math.PI * 2;
+    const major = i % 4 === 0;
+    const r0 = c * (major ? 0.5 : 0.72);
+    const r1 = c * 0.92;
+    ctx.strokeStyle = major ? "rgba(255,236,190,0.9)" : "rgba(255,180,70,0.4)";
+    ctx.lineWidth = major ? 2.2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0);
+    ctx.lineTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1);
+    ctx.stroke();
+  }
+
+  // Octagon outline.
+  ctx.strokeStyle = "rgba(255,200,100,0.65)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i += 1) {
+    const a = Math.PI / 8 + i * (Math.PI / 4);
+    const x = c + Math.cos(a) * c * 0.88;
+    const y = c + Math.sin(a) * c * 0.88;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Center pip.
+  ctx.fillStyle = "rgba(255,240,200,0.95)";
+  ctx.beginPath();
+  ctx.arc(c, c, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -794,14 +910,16 @@ function buildSeascape(scene, circumR) {
     waterNormalTex = buildWaterNormalTexture();
     ownedTextures.push(waterNormalTex);
   }
+  // * Deep ink ocean with a warm bias — pure teal under the platform read as a cold blue
+  // * ring against sunset fog; slight amber in the base color keeps near-water coherent.
   const waterMat = createPhysicalMaterial({
-    color: 0x0d3546,
-    roughness: 0.24,
-    metalness: 0.85,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.5,
-    ...(waterNormalTex ? { normalMap: waterNormalTex, normalScale: new THREE.Vector2(0.28, 0.28) } : {}),
+    color: 0x14242c,
+    roughness: 0.22,
+    metalness: 0.82,
+    envMapIntensity: getMaterialEnvMapIntensity() * 0.58,
+    ...(waterNormalTex ? { normalMap: waterNormalTex, normalScale: new THREE.Vector2(0.22, 0.22) } : {}),
   });
-  waterMat.userData.envMapIntensityScale = 0.5;
+  waterMat.userData.envMapIntensityScale = 0.58;
   const water = new THREE.Mesh(waterGeo, waterMat);
   water.rotation.x = -Math.PI / 2;
   water.position.y = WATER_Y;
@@ -824,8 +942,8 @@ function buildSeascape(scene, circumR) {
   const sunPos = sunDir.clone().multiplyScalar(SUN_DISTANCE);
   sunPos.y = SUN_HEIGHT;
 
-  const sunGeo = new THREE.CircleGeometry(26, 40);
-  const sunMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false });
+  const sunGeo = new THREE.CircleGeometry(30, 40);
+  const sunMat = new THREE.MeshBasicMaterial({ color: 0xffe0b0, fog: false });
   const sun = new THREE.Mesh(sunGeo, sunMat);
   sun.position.copy(sunPos);
   sun.lookAt(0, SUN_HEIGHT, 0);
@@ -833,11 +951,12 @@ function buildSeascape(scene, circumR) {
   ownedGeometries.push(sunGeo);
   ownedMaterials.push(sunMat);
 
-  const haloGeo = new THREE.CircleGeometry(58, 40);
+  // * Soft multi-halo — mood over sharpness (large dim outer + hot inner).
+  const haloGeo = new THREE.CircleGeometry(72, 40);
   const haloMat = new THREE.MeshBasicMaterial({
     color: 0xff6a30,
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.32,
     fog: false,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -849,52 +968,107 @@ function buildSeascape(scene, circumR) {
   ownedGeometries.push(haloGeo);
   ownedMaterials.push(haloMat);
 
-  // Animated sun-path glint strips (skipped in Low Quality): core strip + a wider, fainter
-  // counter-scrolling layer for parallax shimmer.
-  let glintMat = null;
-  let glintTex = null;
-  let glintMat2 = null;
-  let glintTex2 = null;
+  const outerHaloGeo = new THREE.CircleGeometry(120, 32);
+  const outerHaloMat = new THREE.MeshBasicMaterial({
+    color: 0xff4a18,
+    transparent: true,
+    opacity: 0.12,
+    fog: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const outerHalo = new THREE.Mesh(outerHaloGeo, outerHaloMat);
+  outerHalo.position.copy(sunPos).add(sunDir.clone().multiplyScalar(4));
+  outerHalo.lookAt(0, SUN_HEIGHT, 0);
+  group.add(outerHalo);
+  ownedGeometries.push(outerHaloGeo);
+  ownedMaterials.push(outerHaloMat);
+
+  // * Soft god-ray shafts from the sun toward the deck — pure mood, no gameplay cost.
+  let shaftMats = /** @type {THREE.MeshBasicMaterial[]} */ ([]);
   if (!lowQ) {
-    glintTex = buildGlintTexture();
-    glintMat = new THREE.MeshBasicMaterial({
-      map: glintTex,
-      color: 0xffb36a,
+    const shaftGeo = new THREE.PlaneGeometry(18, 220, 1, 1);
+    ownedGeometries.push(shaftGeo);
+    for (let i = 0; i < 3; i += 1) {
+      const shaftMat = new THREE.MeshBasicMaterial({
+        color: 0xff8a40,
+        transparent: true,
+        opacity: 0.045 + i * 0.012,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        fog: false,
+      });
+      ownedMaterials.push(shaftMat);
+      shaftMats.push(shaftMat);
+      const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+      // Fan slightly around the sun path.
+      const yaw = -SUN_AZIMUTH + Math.PI / 2 + (i - 1) * 0.12;
+      shaft.rotation.order = "YXZ";
+      shaft.rotation.y = yaw;
+      shaft.rotation.x = -0.22;
+      shaft.position.copy(sunDir.clone().multiplyScalar(160));
+      shaft.position.y = WATER_Y + 28 + i * 4;
+      group.add(shaft);
+    }
+  }
+
+  // * Horizon mood band — soft ember cylinder hugging the waterline so sea→sky melts.
+  {
+    const hazeGeo = new THREE.CylinderGeometry(WATER_SIZE * 0.42, WATER_SIZE * 0.42, 28, 48, 1, true);
+    const hazeMat = new THREE.MeshBasicMaterial({
+      color: 0xff5a22,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.07,
+      side: THREE.BackSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+      fog: false,
     });
-    const glintGeo = new THREE.PlaneGeometry(16, 300, 1, 1);
+    const haze = new THREE.Mesh(hazeGeo, hazeMat);
+    haze.position.y = WATER_Y + 8;
+    group.add(haze);
+    ownedGeometries.push(hazeGeo);
+    ownedMaterials.push(hazeMat);
+  }
+
+  // * Soft sun-path bloom on the water (replaces hard rectangular glint strips that read
+  // * as a flat "wave patch"). Single radial-fade disc, no scrolling streak noise.
+  let glintMat = null;
+  if (!lowQ) {
+    const glintCanvas = document.createElement("canvas");
+    glintCanvas.width = glintCanvas.height = 256;
+    {
+      const gctx = glintCanvas.getContext("2d");
+      const g = gctx.createRadialGradient(128, 128, 8, 128, 128, 128);
+      g.addColorStop(0, "rgba(255, 220, 160, 0.55)");
+      g.addColorStop(0.25, "rgba(255, 170, 80, 0.22)");
+      g.addColorStop(0.55, "rgba(255, 120, 40, 0.08)");
+      g.addColorStop(1, "rgba(255, 100, 30, 0)");
+      gctx.fillStyle = g;
+      gctx.fillRect(0, 0, 256, 256);
+    }
+    const glintTex = new THREE.CanvasTexture(glintCanvas);
+    glintTex.colorSpace = THREE.SRGBColorSpace;
+    ownedTextures.push(glintTex);
+    glintMat = new THREE.MeshBasicMaterial({
+      map: glintTex,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    // * Elongated toward the sun so it reads as a light path, not a hard rectangle.
+    const glintGeo = new THREE.PlaneGeometry(95, 220, 1, 1);
     const glint = new THREE.Mesh(glintGeo, glintMat);
     glint.rotation.x = -Math.PI / 2;
     glint.rotation.z = -SUN_AZIMUTH + Math.PI / 2;
-    glint.position.copy(sunDir.clone().multiplyScalar(185));
-    glint.position.y = WATER_Y + 0.15;
+    glint.position.copy(sunDir.clone().multiplyScalar(200));
+    glint.position.y = WATER_Y + 0.12;
     group.add(glint);
     ownedGeometries.push(glintGeo);
     ownedMaterials.push(glintMat);
-    ownedTextures.push(glintTex);
-
-    glintTex2 = buildGlintTexture();
-    glintMat2 = new THREE.MeshBasicMaterial({
-      map: glintTex2,
-      color: 0xff8a4a,
-      transparent: true,
-      opacity: 0.22,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const glintGeo2 = new THREE.PlaneGeometry(30, 300, 1, 1);
-    const glint2 = new THREE.Mesh(glintGeo2, glintMat2);
-    glint2.rotation.x = -Math.PI / 2;
-    glint2.rotation.z = -SUN_AZIMUTH + Math.PI / 2;
-    glint2.position.copy(sunDir.clone().multiplyScalar(185));
-    glint2.position.y = WATER_Y + 0.12;
-    group.add(glint2);
-    ownedGeometries.push(glintGeo2);
-    ownedMaterials.push(glintMat2);
-    ownedTextures.push(glintTex2);
   }
 
   // Island silhouettes — each is two atmospheric-perspective layers (a darker, larger
@@ -1288,18 +1462,19 @@ function buildSeascape(scene, circumR) {
     group.add(gulls);
   }
 
-  // Foam ring at the station waterline (skipped in Low Quality) — sells scale + contact.
+  // Foam wake at the station waterline — warm cream (not cool blue) so it melts into sunset.
   let foamMat = null;
   let foam = null;
   if (!lowQ) {
     const foamTex = buildFoamTexture();
     foamMat = new THREE.MeshBasicMaterial({
       map: foamTex,
+      color: 0xffd2a8, // warm multiply — avoids icy blue ring under the deck
       transparent: true,
       opacity: 0.16,
       depthWrite: false,
     });
-    const foamGeo = new THREE.RingGeometry(circumR * 0.7, circumR * 1.6, 40);
+    const foamGeo = new THREE.RingGeometry(circumR * 0.78, circumR * 1.7, 48);
     foam = new THREE.Mesh(foamGeo, foamMat);
     foam.rotation.x = -Math.PI / 2;
     foam.position.y = WATER_Y + 0.08;
@@ -1319,14 +1494,20 @@ function buildSeascape(scene, circumR) {
     sun.lookAt(0, SUN_HEIGHT, 0);
     halo.position.set(sun.position.x + sunDir.x * 2, SUN_HEIGHT, sun.position.z + sunDir.z * 2);
     halo.lookAt(0, SUN_HEIGHT, 0);
-
-    if (glintTex) {
-      glintTex.offset.y = (timeMs * 0.00004) % 1;
-      if (glintMat) glintMat.opacity = 0.45 + Math.sin(timeMs * 0.0011) * 0.12;
+    outerHalo.position.set(sun.position.x + sunDir.x * 4, SUN_HEIGHT, sun.position.z + sunDir.z * 4);
+    outerHalo.lookAt(0, SUN_HEIGHT, 0);
+    // * Slow sun-breath — golden hour never sits perfectly still.
+    const sunPulse = 0.92 + 0.08 * Math.sin(timeMs * 0.00055);
+    sunMat.color.setRGB(1.0 * sunPulse, 0.88 * sunPulse, 0.69 * sunPulse);
+    haloMat.opacity = 0.28 + 0.08 * Math.sin(timeMs * 0.0007);
+    outerHaloMat.opacity = 0.1 + 0.04 * Math.sin(timeMs * 0.00045 + 1.0);
+    for (let i = 0; i < shaftMats.length; i += 1) {
+      shaftMats[i].opacity = (0.04 + i * 0.01) * (0.85 + 0.15 * Math.sin(timeMs * 0.0006 + i));
     }
-    if (glintTex2) {
-      glintTex2.offset.y = (-timeMs * 0.000023) % 1;
-      if (glintMat2) glintMat2.opacity = 0.16 + Math.sin(timeMs * 0.0007 + 1.4) * 0.06;
+
+    if (glintMat) {
+      // * Soft breath only — no UV scroll (scroll made the old strip look like crawling tiles).
+      glintMat.opacity = 0.32 + 0.08 * Math.sin(timeMs * 0.0007);
     }
     if (waterNormalTex) {
       waterNormalTex.offset.x = (timeMs * 0.0000045) % 1;
@@ -1384,7 +1565,7 @@ function buildSeascape(scene, circumR) {
       gulls.instanceMatrix.needsUpdate = true;
     }
     if (foamMat) {
-      foamMat.opacity = 0.13 + Math.sin(timeMs * 0.00055) * 0.045;
+      foamMat.opacity = 0.12 + Math.sin(timeMs * 0.00055) * 0.04;
       if (foam) foam.rotation.z = timeMs * 0.000012;
     }
   }
@@ -1620,19 +1801,73 @@ function buildDeck(scene, world, config, circumR) {
   capPlate.position.y = PODIUM_HEIGHT + 0.012;
   group.add(capPlate);
 
-  // * Unified caution-yellow/amber light scheme (2026-07-09 feedback rounds): the whole
-  // * arena — perimeter strips, booth rails, bollard caps, podium crown, guide lights —
-  // * glows in one warm hazard family. Intensity kept moderate (the first yellow pass
-  // * was "too emissive"); yellow's high luma crosses the bloom threshold easily.
+  // * Unified amber hazard scheme — moody golden-hour intensity (quieter than arcade neon).
+  // * Yellow's high luma still blooms; keep intensity moderate so dusk remains the star.
   const neonYellowMat = new THREE.MeshStandardMaterial({
     color: 0xffb400,
     emissive: 0xffb400,
-    emissiveIntensity: 1.15,
-    roughness: 0.4,
-    metalness: 0.1,
+    emissiveIntensity: 0.92,
+    roughness: 0.42,
+    metalness: 0.12,
   });
-  neonYellowMat.userData.baseEmissiveIntensity = 1.15;
+  neonYellowMat.userData.baseEmissiveIntensity = 0.92;
   ownedMaterials.push(neonYellowMat);
+
+  // * Raised service conduits along flat mid-lanes — micro-structure so steel isn't a pancake.
+  if (!lowQ) {
+    const conduitGeo = new THREE.BoxGeometry(0.38, 0.1, apothem - PODIUM_BASE_R - 5.5);
+    ownedGeometries.push(conduitGeo);
+    const conduitMat = createPhysicalMaterial({
+      map: panelTex,
+      color: 0x6a707c,
+      roughness: 0.45,
+      metalness: 0.75,
+      envMapIntensity: getMaterialEnvMapIntensity() * 0.4,
+    });
+    conduitMat.userData.envMapIntensityScale = 0.4;
+    ownedMaterials.push(conduitMat);
+    const conduits = new THREE.InstancedMesh(conduitGeo, conduitMat, OCT_SIDES);
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const a = i * (Math.PI / 4);
+      const midR = (PODIUM_BASE_R + 3.2 + apothem - 5.5) * 0.5;
+      _dummy.position.set(Math.cos(a) * midR, 0.05, Math.sin(a) * midR);
+      _dummy.rotation.set(0, -a + Math.PI / 2, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+      conduits.setMatrixAt(i, _dummy.matrix);
+    }
+    conduits.instanceMatrix.needsUpdate = true;
+    group.add(conduits);
+  }
+
+  // * Gnomon shadow — long soft radial stripe opposite the sun so the podium sells "sundial".
+  // * Visual-only; does not track sun drift (subtle enough that static is fine at ±0.9°).
+  {
+    const shadowLen = apothem - PODIUM_BASE_R - 2.5;
+    const shadowGeo = new THREE.PlaneGeometry(2.8, shadowLen, 1, 1);
+    ownedGeometries.push(shadowGeo);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x06080e,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+    });
+    ownedMaterials.push(shadowMat);
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    // Away from sun azimuth.
+    const shadowAz = SUN_AZIMUTH + Math.PI;
+    const midR = PODIUM_BASE_R + 1.2 + shadowLen * 0.5;
+    shadow.position.set(
+      Math.cos(shadowAz) * midR,
+      0.025,
+      Math.sin(shadowAz) * midR,
+    );
+    shadow.rotation.z = -shadowAz + Math.PI / 2;
+    group.add(shadow);
+  }
   const edgeLen = 2 * circumR * Math.sin(HALF_ANGLE);
   const stripGeo = new THREE.BoxGeometry(edgeLen - 1.6, 0.14, 0.22);
   ownedGeometries.push(stripGeo);
@@ -1644,6 +1879,30 @@ function buildDeck(scene, world, config, circumR) {
     strip.rotation.y = -mid + Math.PI / 2;
     group.add(strip);
     neonStripMeshes.push(strip);
+  }
+
+  // * Under-deck rim glow — warm light spill under the edge (fall danger beauty + mood).
+  {
+    const underGlowGeo = new THREE.CylinderGeometry(
+      circumR - 0.3, circumR - 1.1, 0.35, OCT_SIDES, 1, true, VERTEX_OFFSET,
+    );
+    ownedGeometries.push(underGlowGeo);
+    const underGlowMat = new THREE.MeshBasicMaterial({
+      color: 0xff7a28,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    underGlowMat.userData.baseOpacity = 0.16;
+    ownedMaterials.push(underGlowMat);
+    const underGlow = new THREE.Mesh(underGlowGeo, underGlowMat);
+    underGlow.position.y = -DECK_THICKNESS - 0.35;
+    underGlow.userData.isUnderGlow = true;
+    group.add(underGlow);
+    neonStripMeshes.push(underGlow);
   }
   const crownGeo = new THREE.TorusGeometry(PODIUM_TOP_R - 0.18, 0.09, 8, 32);
   ownedGeometries.push(crownGeo);
@@ -1671,45 +1930,209 @@ function buildDeck(scene, world, config, circumR) {
     group.add(guides);
   }
 
-  // Podium hologram — the station core: a slowly counter-rotating octagonal ring +
-  // glyph-band cylinder floating above the gnomon (skipped in Low Quality).
-  let holoRing = null;
-  let holoBand = null;
-  let holoBandMat = null;
+  // Podium hologram — layered station core: dial plate, dual glyph bands, counter-spin
+  // rings, crystal core (skipped in Low Quality).
+  /** @type {THREE.Group | null} */
   let holoGroup = null;
+  /** @type {THREE.Mesh | null} */
+  let holoRing = null;
+  /** @type {THREE.Mesh | null} */
+  let holoRingOuter = null;
+  /** @type {THREE.Mesh | null} */
+  let holoRingTilt = null;
+  /** @type {THREE.Mesh | null} */
+  let holoBand = null;
+  /** @type {THREE.Mesh | null} */
+  let holoBandInner = null;
+  /** @type {THREE.Mesh | null} */
+  let holoDial = null;
+  /** @type {THREE.Mesh | null} */
+  let holoCore = null;
+  /** @type {THREE.MeshBasicMaterial | null} */
+  let holoBandMat = null;
+  /** @type {THREE.MeshBasicMaterial | null} */
+  let holoBandInnerMat = null;
+  /** @type {THREE.MeshBasicMaterial | null} */
+  let holoCoreMat = null;
+  /** @type {THREE.MeshBasicMaterial | null} */
+  let holoDialMat = null;
   if (!lowQ) {
     holoGroup = new THREE.Group();
-    holoGroup.position.y = PODIUM_HEIGHT + 2.7;
+    holoGroup.position.y = PODIUM_HEIGHT + 2.85;
 
-    const holoRingGeo = new THREE.TorusGeometry(2.6, 0.045, 6, OCT_SIDES);
-    ownedGeometries.push(holoRingGeo);
-    const holoRingMat = new THREE.MeshBasicMaterial({
-      color: 0xffc25e,
+    const holoAdd = (color, opacity) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      ownedMaterials.push(mat);
+      return mat;
+    };
+
+    // --- Crystal core ---
+    const coreGeo = new THREE.OctahedronGeometry(0.55, 0);
+    ownedGeometries.push(coreGeo);
+    holoCoreMat = holoAdd(0xffe6b0, 0.85);
+    holoCore = new THREE.Mesh(coreGeo, holoCoreMat);
+    holoCore.position.y = 0.15;
+    holoGroup.add(holoCore);
+    // Inner spark.
+    const sparkGeo = new THREE.SphereGeometry(0.18, 10, 8);
+    ownedGeometries.push(sparkGeo);
+    const sparkMat = holoAdd(0xffffff, 0.75);
+    const spark = new THREE.Mesh(sparkGeo, sparkMat);
+    spark.position.y = 0.15;
+    holoGroup.add(spark);
+
+    // --- Sundial dial plate (horizontal) ---
+    const dialTex = buildHoloDialTexture();
+    ownedTextures.push(dialTex);
+    holoDialMat = new THREE.MeshBasicMaterial({
+      map: dialTex,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.72,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
     });
-    ownedMaterials.push(holoRingMat);
-    holoRing = new THREE.Mesh(holoRingGeo, holoRingMat);
-    holoRing.rotation.x = Math.PI / 2;
-    holoGroup.add(holoRing);
+    ownedMaterials.push(holoDialMat);
+    const dialGeo = new THREE.CircleGeometry(2.9, 48);
+    ownedGeometries.push(dialGeo);
+    holoDial = new THREE.Mesh(dialGeo, holoDialMat);
+    holoDial.rotation.x = -Math.PI / 2;
+    holoDial.position.y = -0.15;
+    holoGroup.add(holoDial);
 
+    // Gnomon fin on the dial (triangle edge pointing sun-ward for identity).
+    const finGeo = new THREE.PlaneGeometry(0.12, 2.4);
+    ownedGeometries.push(finGeo);
+    const finMat = holoAdd(0xffd090, 0.7);
+    const fin = new THREE.Mesh(finGeo, finMat);
+    fin.rotation.x = -Math.PI / 2;
+    fin.position.set(
+      Math.cos(SUN_AZIMUTH) * 1.1,
+      -0.12,
+      Math.sin(SUN_AZIMUTH) * 1.1,
+    );
+    fin.rotation.z = -SUN_AZIMUTH + Math.PI / 2;
+    holoGroup.add(fin);
+
+    // --- Dual glyph bands ---
     const glyphTex = buildHologlyphTexture();
     ownedTextures.push(glyphTex);
     holoBandMat = new THREE.MeshBasicMaterial({
       map: glyphTex,
       transparent: true,
-      opacity: 0.62,
+      opacity: 0.78,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
+      toneMapped: false,
     });
     ownedMaterials.push(holoBandMat);
-    const holoBandGeo = new THREE.CylinderGeometry(2.15, 2.15, 0.8, 24, 1, true);
+    const holoBandGeo = new THREE.CylinderGeometry(2.25, 2.25, 1.05, 40, 1, true);
     ownedGeometries.push(holoBandGeo);
     holoBand = new THREE.Mesh(holoBandGeo, holoBandMat);
+    holoBand.position.y = 0.55;
     holoGroup.add(holoBand);
+
+    // * Clone so outer/inner bands can scroll UVs in opposite directions independently.
+    const glyphTexInner = glyphTex.clone();
+    glyphTexInner.needsUpdate = true;
+    ownedTextures.push(glyphTexInner);
+    holoBandInnerMat = new THREE.MeshBasicMaterial({
+      map: glyphTexInner,
+      transparent: true,
+      opacity: 0.48,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    ownedMaterials.push(holoBandInnerMat);
+    const holoBandInnerGeo = new THREE.CylinderGeometry(1.55, 1.55, 0.7, 32, 1, true);
+    ownedGeometries.push(holoBandInnerGeo);
+    holoBandInner = new THREE.Mesh(holoBandInnerGeo, holoBandInnerMat);
+    holoBandInner.position.y = -0.55;
+    holoGroup.add(holoBandInner);
+
+    // --- Counter-rotating rings (3) ---
+    const ringMatA = holoAdd(0xffc25e, 0.7);
+    const ringMatB = holoAdd(0xff9a40, 0.55);
+    const ringMatC = holoAdd(0xffe0a0, 0.45);
+
+    const holoRingGeo = new THREE.TorusGeometry(2.7, 0.055, 8, 48);
+    ownedGeometries.push(holoRingGeo);
+    holoRing = new THREE.Mesh(holoRingGeo, ringMatA);
+    holoRing.rotation.x = Math.PI / 2;
+    holoRing.position.y = 0.55;
+    holoGroup.add(holoRing);
+
+    const outerRingGeo = new THREE.TorusGeometry(3.25, 0.04, 8, 48);
+    ownedGeometries.push(outerRingGeo);
+    holoRingOuter = new THREE.Mesh(outerRingGeo, ringMatB);
+    holoRingOuter.rotation.x = Math.PI / 2;
+    holoRingOuter.position.y = -0.45;
+    holoGroup.add(holoRingOuter);
+
+    // Tilted orbital ring for 3D silhouette (not just stacked flat discs).
+    const tiltRingGeo = new THREE.TorusGeometry(2.95, 0.035, 8, 40);
+    ownedGeometries.push(tiltRingGeo);
+    holoRingTilt = new THREE.Mesh(tiltRingGeo, ringMatC);
+    holoRingTilt.rotation.x = Math.PI / 2.6;
+    holoRingTilt.rotation.z = 0.35;
+    holoRingTilt.position.y = 0.1;
+    holoGroup.add(holoRingTilt);
+
+    // Octagon wire rim (station plate language).
+    const octPts = [];
+    for (let i = 0; i <= OCT_SIDES; i += 1) {
+      const a = VERTEX_OFFSET + (i % OCT_SIDES) * (Math.PI / 4);
+      octPts.push(new THREE.Vector3(Math.cos(a) * 3.05, 0, Math.sin(a) * 3.05));
+    }
+    const octGeo = new THREE.BufferGeometry().setFromPoints(octPts);
+    ownedGeometries.push(octGeo);
+    const octMat = new THREE.LineBasicMaterial({
+      color: 0xffd080,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    ownedMaterials.push(octMat);
+    const octLine = new THREE.Line(octGeo, octMat);
+    octLine.position.y = 0.55;
+    holoGroup.add(octLine);
+
+    // Floating radial spokes (8) — sundial hour marks in 3D.
+    const spokeGeo = new THREE.BoxGeometry(0.06, 0.06, 1.6);
+    ownedGeometries.push(spokeGeo);
+    const spokeMat = holoAdd(0xffc070, 0.5);
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const a = VERTEX_OFFSET + i * (Math.PI / 4);
+      const spoke = new THREE.Mesh(spokeGeo, spokeMat);
+      spoke.position.set(Math.cos(a) * 1.9, 0.55, Math.sin(a) * 1.9);
+      spoke.rotation.y = -a;
+      holoGroup.add(spoke);
+    }
+
+    // Vertical tick pillars around the outer ring.
+    const tickGeo = new THREE.BoxGeometry(0.08, 0.55, 0.08);
+    ownedGeometries.push(tickGeo);
+    const tickMat = holoAdd(0xffb050, 0.6);
+    for (let i = 0; i < 16; i += 1) {
+      const a = (i / 16) * Math.PI * 2;
+      const tick = new THREE.Mesh(tickGeo, tickMat);
+      tick.position.set(Math.cos(a) * 3.25, -0.45, Math.sin(a) * 3.25);
+      holoGroup.add(tick);
+    }
 
     group.add(holoGroup);
   }
@@ -1823,17 +2246,54 @@ function buildDeck(scene, world, config, circumR) {
     );
   }
 
-  // Per-frame deck animation: hologram counter-rotation + bob, beacon double-blink.
+  // Per-frame deck animation: hologram choreography + bob, beacon blink, dusk breath.
   function update(timeMs) {
     if (holoGroup) {
-      holoGroup.position.y = PODIUM_HEIGHT + 2.7 + Math.sin(timeMs * 0.0012) * 0.14;
-      if (holoRing) holoRing.rotation.z = timeMs * 0.0005;
-      if (holoBand) holoBand.rotation.y = -timeMs * 0.00032;
-      if (holoBandMat) holoBandMat.opacity = 0.52 + Math.sin(timeMs * 0.0021) * 0.12;
+      const t = timeMs * 0.001;
+      holoGroup.position.y = PODIUM_HEIGHT + 2.85 + Math.sin(t * 1.15) * 0.16;
+      // Counter-rotating layers sell depth and "live instrument" energy.
+      if (holoRing) holoRing.rotation.z = t * 0.55;
+      if (holoRingOuter) holoRingOuter.rotation.z = -t * 0.38;
+      if (holoRingTilt) {
+        holoRingTilt.rotation.z = t * 0.42;
+        holoRingTilt.rotation.x = Math.PI / 2.6 + Math.sin(t * 0.35) * 0.08;
+      }
+      if (holoBand) holoBand.rotation.y = -t * 0.32;
+      if (holoBandInner) holoBandInner.rotation.y = t * 0.48;
+      if (holoDial) holoDial.rotation.z = t * 0.12;
+      if (holoCore) {
+        holoCore.rotation.y = t * 0.9;
+        holoCore.rotation.x = t * 0.55;
+        holoCore.scale.setScalar(0.92 + 0.1 * Math.sin(t * 2.4));
+      }
+      // Opacity breathe — hot core, readable bands, soft rings.
+      if (holoBandMat) holoBandMat.opacity = 0.68 + 0.14 * Math.sin(t * 1.7);
+      if (holoBandInnerMat) holoBandInnerMat.opacity = 0.4 + 0.12 * Math.sin(t * 2.1 + 1.0);
+      if (holoCoreMat) holoCoreMat.opacity = 0.75 + 0.18 * Math.sin(t * 2.6);
+      if (holoDialMat) holoDialMat.opacity = 0.62 + 0.12 * Math.sin(t * 1.1);
+      // Scroll glyph UV for living data stream.
+      if (holoBandMat?.map) {
+        holoBandMat.map.offset.x = (t * 0.08) % 1;
+        holoBandMat.map.needsUpdate = true;
+      }
+      if (holoBandInnerMat?.map) {
+        holoBandInnerMat.map.offset.x = (-t * 0.11) % 1;
+        holoBandInnerMat.map.needsUpdate = true;
+      }
     }
     // Sharp aviation-style blink: short hot pulse, long dim tail.
     const blink = Math.pow(Math.max(0, Math.sin(timeMs * 0.0035)), 14);
-    blinkMat.emissiveIntensity = 0.5 + blink * 3.2;
+    blinkMat.emissiveIntensity = 0.4 + blink * 2.8;
+    // * Slow dusk breath on hazard amber — living station, not static paint.
+    const baseE = neonYellowMat.userData.baseEmissiveIntensity ?? 0.92;
+    neonYellowMat.emissiveIntensity = baseE * (0.88 + 0.12 * Math.sin(timeMs * 0.0007));
+    for (const mesh of neonStripMeshes) {
+      if (mesh.userData.isUnderGlow && mesh.material) {
+        const m = /** @type {THREE.MeshBasicMaterial} */ (mesh.material);
+        const base = m.userData.baseOpacity ?? 0.16;
+        m.opacity = base * (0.85 + 0.15 * Math.sin(timeMs * 0.0009 + 0.5));
+      }
+    }
   }
 
   return {
@@ -2072,13 +2532,20 @@ export function initZanzibarPlatform(scene, world, config) {
 
   // Sun light tracks the seascape's sun disc direction (see buildSeascape's update) so
   // the lighting stays coherent with the drifting sunset visual each frame.
-  const sunLight = new THREE.DirectionalLight(0xffa04e, 2.1);
-  sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(16);
+  // * Moodier golden hour: warmer key, cooler ground hemi, lower fill — longer "shadows".
+  const sunLight = new THREE.DirectionalLight(0xff9440, 1.95);
+  sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(14);
   scene.add(sunLight);
-  const hemiLight = new THREE.HemisphereLight(0xff9a5c, 0x0a1e34, 0.85);
+  const hemiLight = new THREE.HemisphereLight(0xff8a50, 0x061018, 0.78);
   scene.add(hemiLight);
-  const ambient = new THREE.AmbientLight(0x40304a, 0.6);
+  const ambient = new THREE.AmbientLight(0x2e2438, 0.48);
   scene.add(ambient);
+
+  // * Soft fill from the anti-sun side (cool teal) so carts get a moody rim without
+  // * lifting overall brightness — pure atmosphere.
+  const coolFill = new THREE.DirectionalLight(0x3a6088, 0.22);
+  coolFill.position.copy(seascape.sunDir).multiplyScalar(-50).setY(18);
+  scene.add(coolFill);
 
   const boothNeonMeshes = [...deck.neonStripMeshes];
   const boothColliderHandles = [];
@@ -2092,7 +2559,8 @@ export function initZanzibarPlatform(scene, world, config) {
   // * Center light matches the arena's warm amber scheme (2026-07-09 feedback: the old
   // * pink/cyan center clashed with the caution-yellow perimeter). The two returned
   // * colors still feed main.js's spindle color cycle — now a subtle amber↔gold breath.
-  const spindleLight = new THREE.PointLight(0xffb400, 38, 55, 2);
+  // * Slightly softer for mood — gnomon glow, not a rave spindle.
+  const spindleLight = new THREE.PointLight(0xffb400, 28, 50, 2);
   const spindleLightColorPink = new THREE.Color(0xffc14e);
   const spindleLightColorCyan = new THREE.Color(0xff9226);
   spindleLight.position.set(0, 7, 0);
@@ -2103,13 +2571,16 @@ export function initZanzibarPlatform(scene, world, config) {
 
   function update(timeMs) {
     seascape.update(timeMs);
-    sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(16);
+    sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(14);
+    // * Key intensity breathes with the seascape sun pulse (same slow period).
+    sunLight.intensity = 1.85 + 0.2 * Math.sin(timeMs * 0.00055);
+    coolFill.position.copy(seascape.sunDir).multiplyScalar(-50).setY(18);
     deck.update(timeMs);
   }
 
   const sceneRoots = [
     seascape.group, deck.group, booths.group,
-    sunLight, hemiLight, ambient, spindleLight,
+    sunLight, hemiLight, ambient, coolFill, spindleLight,
   ];
   const ownedGeometries = [
     ...seascape.ownedGeometries, ...deck.ownedGeometries, ...booths.ownedGeometries,

@@ -159,6 +159,276 @@ function buildPitSurfaceTextures() {
   return { map, normalMap, roughnessMap };
 }
 
+/**
+ * Pressed-vinyl surface maps for the dancefloor ring (albedo / normal / roughness).
+ * Designed to sit over the Reflector as a translucent detail layer so the floor stays
+ * mirror-bright while reading as real black vinyl (grooves, dust, hairline scratches).
+ *
+ * @returns {{
+ *   map: THREE.CanvasTexture,
+ *   normalMap: THREE.CanvasTexture,
+ *   roughnessMap: THREE.CanvasTexture,
+ * }}
+ */
+function buildVinylSurfaceTextures() {
+  const size = isLowQualityMode() ? 512 : 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+
+  const nCanvas = document.createElement("canvas");
+  nCanvas.width = size;
+  nCanvas.height = size;
+  const nCtx = nCanvas.getContext("2d");
+
+  const rCanvas = document.createElement("canvas");
+  rCanvas.width = size;
+  rCanvas.height = size;
+  const rCtx = rCanvas.getContext("2d");
+
+  const c = size / 2;
+  // * Near-black violet body — club vinyl, not pure void.
+  ctx.fillStyle = "#0c0818";
+  ctx.fillRect(0, 0, size, size);
+  nCtx.fillStyle = "#8080ff";
+  nCtx.fillRect(0, 0, size, size);
+  // * Mid-dark roughness: clearcoat + Reflector carry the mirror; grooves stay matte-er.
+  rCtx.fillStyle = "#5a5a5a";
+  rCtx.fillRect(0, 0, size, size);
+
+  // * Dense concentric groove rings (radial in UV: radius from center).
+  const grooveCount = isLowQualityMode() ? 90 : 160;
+  for (let i = 0; i < grooveCount; i += 1) {
+    const t = (i + 0.5) / grooveCount;
+    const rad = size * (0.08 + t * 0.42);
+    // * Alternating micro-brightness = pressed land / groove valley.
+    const bright = i % 2 === 0;
+    const a = bright ? 0.07 + (i % 7) * 0.004 : 0.03;
+    ctx.strokeStyle = bright
+      ? `rgba(62, 42, 88, ${a})`
+      : `rgba(4, 2, 10, ${0.12 + (i % 5) * 0.01})`;
+    ctx.lineWidth = bright ? 1.1 : 0.85;
+    ctx.beginPath();
+    ctx.arc(c, c, rad, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // * Normal: slight radial ridge — red/green bias on ring edges (world-up is blue).
+    if (i % 2 === 0) {
+      nCtx.strokeStyle = "rgba(140, 120, 255, 0.55)";
+      nCtx.lineWidth = 1.2;
+      nCtx.beginPath();
+      nCtx.arc(c, c, rad, 0, Math.PI * 2);
+      nCtx.stroke();
+      nCtx.strokeStyle = "rgba(100, 140, 255, 0.4)";
+      nCtx.lineWidth = 1.0;
+      nCtx.beginPath();
+      nCtx.arc(c, c, rad + 0.8, 0, Math.PI * 2);
+      nCtx.stroke();
+    }
+
+    // * Groove valleys rougher (brighter in roughness map), lands smoother.
+    rCtx.strokeStyle = bright ? "#3a3a3a" : "#787878";
+    rCtx.lineWidth = bright ? 1.0 : 1.4;
+    rCtx.beginPath();
+    rCtx.arc(c, c, rad, 0, Math.PI * 2);
+    rCtx.stroke();
+  }
+
+  // * Hairline radial scratches (play wear).
+  const scratchCount = isLowQualityMode() ? 18 : 36;
+  for (let i = 0; i < scratchCount; i += 1) {
+    const a0 = (i / scratchCount) * Math.PI * 2 + (i % 3) * 0.07;
+    const r0 = size * (0.12 + (i % 5) * 0.06);
+    const r1 = r0 + size * (0.08 + (i % 4) * 0.04);
+    ctx.strokeStyle = `rgba(180, 160, 220, ${0.04 + (i % 3) * 0.015})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a0) * r0, c + Math.sin(a0) * r0);
+    ctx.lineTo(c + Math.cos(a0) * r1, c + Math.sin(a0) * r1);
+    ctx.stroke();
+    rCtx.strokeStyle = "#9a9a9a";
+    rCtx.lineWidth = 1;
+    rCtx.beginPath();
+    rCtx.moveTo(c + Math.cos(a0) * r0, c + Math.sin(a0) * r0);
+    rCtx.lineTo(c + Math.cos(a0) * r1, c + Math.sin(a0) * r1);
+    rCtx.stroke();
+  }
+
+  // * Soft dust / fingerprint blotches (low contrast).
+  for (let i = 0; i < 28; i += 1) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = size * (0.15 + Math.random() * 0.32);
+    const x = c + Math.cos(ang) * rad;
+    const y = c + Math.sin(ang) * rad;
+    const r = 6 + Math.random() * 22;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, "rgba(40, 28, 55, 0.12)");
+    g.addColorStop(1, "rgba(40, 28, 55, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // * Specular highlight band hint (static sheen catch — Reflector does the live mirror).
+  const sheen = ctx.createRadialGradient(c * 0.72, c * 0.62, size * 0.02, c * 0.78, c * 0.68, size * 0.28);
+  sheen.addColorStop(0, "rgba(140, 110, 200, 0.1)");
+  sheen.addColorStop(0.45, "rgba(80, 50, 120, 0.04)");
+  sheen.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, size, size);
+
+  // * Inner + outer run-in grooves (label edge / rim land).
+  for (const radFrac of [0.09, 0.095, 0.48, 0.485]) {
+    ctx.strokeStyle = "rgba(90, 60, 130, 0.22)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(c, c, size * radFrac, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 4;
+  map.needsUpdate = true;
+
+  const normalMap = new THREE.CanvasTexture(nCanvas);
+  normalMap.anisotropy = 4;
+  normalMap.needsUpdate = true;
+
+  const roughnessMap = new THREE.CanvasTexture(rCanvas);
+  roughnessMap.anisotropy = 4;
+  roughnessMap.needsUpdate = true;
+
+  return { map, normalMap, roughnessMap };
+}
+
+/**
+ * Booth-side metal plate texture: panel seams, bolts, scuffs — shared across truss /
+ * speakers / platforms so spawn stages read as hardware, not flat emissive plastic.
+ *
+ * @returns {THREE.CanvasTexture}
+ */
+function buildBoothMetalTexture() {
+  const size = isLowQualityMode() ? 256 : 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#2a2a38";
+  ctx.fillRect(0, 0, size, size);
+
+  // * Plate grid.
+  const cells = 4;
+  const cell = size / cells;
+  for (let gy = 0; gy < cells; gy += 1) {
+    for (let gx = 0; gx < cells; gx += 1) {
+      const x0 = gx * cell;
+      const y0 = gy * cell;
+      const shade = 36 + ((gx * 13 + gy * 19) % 18);
+      ctx.fillStyle = `rgb(${shade},${shade + 2},${shade + 10})`;
+      ctx.fillRect(x0 + 2, y0 + 2, cell - 4, cell - 4);
+      // * Inset face.
+      ctx.fillStyle = `rgb(${shade + 10},${shade + 10},${shade + 18})`;
+      ctx.fillRect(x0 + 8, y0 + 8, cell - 16, cell - 16);
+      // * Corner bolts.
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      for (const [bx, by] of [
+        [x0 + 10, y0 + 10],
+        [x0 + cell - 10, y0 + 10],
+        [x0 + 10, y0 + cell - 10],
+        [x0 + cell - 10, y0 + cell - 10],
+      ]) {
+        ctx.beginPath();
+        ctx.arc(bx, by, size * 0.012, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(160,160,180,0.35)";
+        ctx.beginPath();
+        ctx.arc(bx - 1, by - 1, size * 0.006, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+      }
+    }
+  }
+
+  // * Seams.
+  ctx.strokeStyle = "rgba(0,0,0,0.5)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= cells; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * cell, 0);
+    ctx.lineTo(i * cell, size);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i * cell);
+    ctx.lineTo(size, i * cell);
+    ctx.stroke();
+  }
+
+  // * Scuffs / wear.
+  for (let i = 0; i < 40; i += 1) {
+    ctx.strokeStyle = `rgba(200,200,220,${0.04 + Math.random() * 0.06})`;
+    ctx.lineWidth = 1 + Math.random();
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 18);
+    ctx.stroke();
+  }
+
+  // * Grime streaks.
+  for (let i = 0; i < 12; i += 1) {
+    const x = Math.random() * size;
+    ctx.fillStyle = `rgba(0,0,0,${0.08 + Math.random() * 0.1})`;
+    ctx.fillRect(x, 0, 2 + Math.random() * 4, size);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.repeat.set(2, 2);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Speaker grille / mesh fabric — dark weave with slight gloss pores.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildBoothGrilleTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#12121c";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "#1a1a28";
+  const step = 5;
+  for (let y = 0; y < size; y += step) {
+    for (let x = 0; x < size; x += step) {
+      if (((x / step) + (y / step)) % 2 === 0) {
+        ctx.fillRect(x, y, step - 1, step - 1);
+      }
+    }
+  }
+  // * Speckle.
+  for (let i = 0; i < 400; i += 1) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.06})`;
+    ctx.fillRect(Math.random() * size, Math.random() * size, 1, 1);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.repeat.set(4, 6);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function buildRecordRingGeometry({
   outerRadius,
   innerRadius,
@@ -297,15 +567,16 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
   const rMax = rings.outerRadius;
 
   const grooveGeometries = [];
-  // * Slightly punchier groove palette so the vinyl reads under the rave overlays.
-  const ringColorA = new THREE.Color(0x3a2a48);
-  const ringColorB = new THREE.Color(0x12101a);
-  const ringColorC = new THREE.Color(0x2a1840);
+  // * Sparse geometric accents — vinyl texture owns density; these catch specular.
+  const ringColorA = new THREE.Color(0x4a3560);
+  const ringColorB = new THREE.Color(0x181420);
+  const ringColorC = new THREE.Color(0x3a2460);
+  const step = Math.max(1, Math.floor(rings.count / 48));
 
-  for (let i = 0; i < rings.count; i += 1) {
+  for (let i = 0; i < rings.count; i += step) {
     const t = (i + 0.5) / rings.count;
     const rCenter = rMin + (rMax - rMin) * t;
-    const halfW = rings.lineWidth / 2;
+    const halfW = rings.lineWidth * 0.7;
     let inner = rCenter - halfW;
     let outer = rCenter + halfW;
     inner = Math.max(inner, rMin + 0.001);
@@ -315,7 +586,7 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
     const ringGeo = new THREE.RingGeometry(inner, outer, 64);
     ringGeo.rotateX(-Math.PI / 2);
 
-    const ringColor = i % 5 === 0 ? ringColorC : (i % 2 === 0 ? ringColorA : ringColorB);
+    const ringColor = i % (step * 5) === 0 ? ringColorC : (i % (step * 2) === 0 ? ringColorA : ringColorB);
     const pos = ringGeo.attributes.position;
     const colorArray = new Float32Array(pos.count * 3);
     for (let v = 0; v < pos.count; v += 1) {
@@ -334,26 +605,28 @@ function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
   const mergedGrooves = BufferGeometryUtils.mergeGeometries(grooveGeometries, false);
   grooveGeometries.forEach((g) => g.dispose());
 
-  // * Grooves — Physical: metalness 0.55, roughness 0.5, opacity 0.6
+  // * Thin metallic groove accents over the reflective vinyl layer.
   const ringMat = createPhysicalMaterial({
     vertexColors: true,
-    roughness: 0.45,
-    metalness: 0.6,
+    roughness: 0.28,
+    metalness: 0.72,
     depthWrite: false,
     transparent: true,
-    opacity: 0.72,
+    opacity: 0.38,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.2,
   });
   const ringMesh = new THREE.Mesh(mergedGrooves, ringMat);
   ringMesh.userData.recordSurfacePart = "groove";
-  ringMesh.position.y = yBase + rings.yOffset + 0.006;
+  ringMesh.position.y = yBase + rings.yOffset + 0.007;
   ringMesh.renderOrder = 1;
   parentMesh.add(ringMesh);
   return { ringMesh, ringMat, mergedGrooves };
 }
 
 /**
- * Light rave dancefloor polish — neon race rings + label dance circle.
- * (Lanes / stickers / rim ticks / cart pips removed — too busy on the play surface.)
+ * Light rave dancefloor polish — a pair of race tracks + label dance circle.
+ * Vinyl material + Reflector carry the surface; neon is accent only (not groove filler).
  *
  * @param {THREE.Mesh} recordMesh
  * @param {object} config
@@ -382,40 +655,40 @@ function buildDancefloorRaveDecor(recordMesh, config, visualRecordThickness) {
     visualRecordThickness / 2 +
     (config.record.surface?.concentricRings?.yOffset ?? 0.3) +
     0.018;
-  // --- Neon race rings (concentric party tracks) — magenta / cyan alternate ---
-  const raceRadii = [9.2, 12.8, 16.6, 20.4, 24.2];
-  const raceRingColors = [0xff2bd6, 0x22e6ff]; // magenta, cyan
+  // --- Two neon race tracks (mid + outer) — vinyl grooves fill the rest ---
+  const raceRadii = [14.2, 22.6];
+  const raceRingColors = [0xff2bd6, 0x22e6ff];
   for (let i = 0; i < raceRadii.length; i += 1) {
-    const geo = new THREE.TorusGeometry(raceRadii[i], 0.045, 6, 96);
+    const geo = new THREE.TorusGeometry(raceRadii[i], 0.038, 10, 96);
     geos.push(geo);
     const mat = new THREE.MeshBasicMaterial({
       color: raceRingColors[i % 2],
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.48,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false,
     });
-    mat.userData.baseOpacity = 0.58;
-    mat.userData.pulsePhase = i * 0.85;
+    mat.userData.baseOpacity = 0.48;
+    mat.userData.pulsePhase = i * 1.1;
     mats.push(mat);
     pulseMats.push(mat);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = Math.PI / 2;
-    mesh.position.y = y + 0.0015 * i;
+    mesh.position.y = y + 0.002 * i;
     mesh.renderOrder = 2;
     group.add(mesh);
   }
 
   // --- Dance circle around the label (double ring) ---
   {
-    const innerGeo = new THREE.TorusGeometry(8.15, 0.07, 6, 64);
-    const outerGeo = new THREE.TorusGeometry(8.55, 0.04, 6, 64);
+    const innerGeo = new THREE.TorusGeometry(8.15, 0.06, 10, 64);
+    const outerGeo = new THREE.TorusGeometry(8.55, 0.035, 10, 64);
     geos.push(innerGeo, outerGeo);
     const matA = new THREE.MeshBasicMaterial({
       color: 0xff2bd6,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.62,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false,
@@ -423,14 +696,14 @@ function buildDancefloorRaveDecor(recordMesh, config, visualRecordThickness) {
     const matB = new THREE.MeshBasicMaterial({
       color: 0x22e6ff,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.48,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false,
     });
-    matA.userData.baseOpacity = 0.7;
+    matA.userData.baseOpacity = 0.62;
     matA.userData.pulsePhase = 0.2;
-    matB.userData.baseOpacity = 0.55;
+    matB.userData.baseOpacity = 0.48;
     matB.userData.pulsePhase = 1.7;
     mats.push(matA, matB);
     pulseMats.push(matA, matB);
@@ -459,8 +732,7 @@ function buildDancefloorRaveDecor(recordMesh, config, visualRecordThickness) {
         const mat = pulseMats[i];
         const base = typeof mat.userData.baseOpacity === "number" ? mat.userData.baseOpacity : 0.5;
         const phase = typeof mat.userData.pulsePhase === "number" ? mat.userData.pulsePhase : 0;
-        // * Staggered party breathe — race rings feel alive with the music vibe.
-        mat.opacity = base * (0.7 + 0.3 * Math.sin(t * 2.6 + phase));
+        mat.opacity = base * (0.72 + 0.28 * Math.sin(t * 2.4 + phase));
       }
     },
   };
@@ -480,32 +752,54 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     0xff6b2b,
   ];
 
-  // * Booth truss — Physical metal: leg metalness 0.85 / roughness 0.35, cross metalness 0.75 / roughness 0.4
+  // * Shared booth surface maps — plate metal + speaker grille.
+  const boothMetalTex = buildBoothMetalTexture();
+  const boothGrilleTex = buildBoothGrilleTexture();
+
+  // * Booth truss — plated steel (map) so towers read as hardware, not grey bars.
   const trussLegMat = createPhysicalMaterial({
-    color: 0x888899, roughness: 0.35, metalness: 0.85,
+    map: boothMetalTex,
+    color: 0xb0b0c4,
+    roughness: 0.38,
+    metalness: 0.88,
   });
   const trussCrossMat = createPhysicalMaterial({
-    color: 0x666677, roughness: 0.4, metalness: 0.75,
+    map: boothMetalTex,
+    color: 0x9696aa,
+    roughness: 0.42,
+    metalness: 0.8,
   });
   const trussLightGeo = new THREE.BoxGeometry(0.5, 0.3, 0.5);
   const mixerGeo = new THREE.BoxGeometry(3.0, 0.5, 1.2);
-  const mixerMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a2e, roughness: 0.6, metalness: 0.4,
+  const mixerMat = createPhysicalMaterial({
+    map: boothMetalTex,
+    color: 0x3a3a55,
+    roughness: 0.55,
+    metalness: 0.55,
   });
   const mixerPanelGeo = new THREE.BoxGeometry(2.6, 0.06, 0.8);
   const deckGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16);
   // * Booth DJ deck — Physical: metalness 0.8, roughness 0.25
   const deckMat = createPhysicalMaterial({
-    color: 0x0d0d0d, roughness: 0.25, metalness: 0.8,
+    map: boothMetalTex,
+    color: 0x222230,
+    roughness: 0.28,
+    metalness: 0.85,
   });
   const spkGeo = new THREE.BoxGeometry(0.9, 1.6, 0.9);
-  // * Booth speaker cabinets — Physical: metalness 0.65, roughness 0.35
+  // * Booth speaker cabinets — grille fabric + dark metal tint.
   const spkMat = createPhysicalMaterial({
-    color: 0x0e0e1a, roughness: 0.35, metalness: 0.65,
+    map: boothGrilleTex,
+    color: 0x4a4a66,
+    roughness: 0.72,
+    metalness: 0.35,
   });
   const coneGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.04, 12);
-  const coneMat = new THREE.MeshStandardMaterial({
-    color: 0x222233, roughness: 0.9, metalness: 0.1,
+  const coneMat = createPhysicalMaterial({
+    map: boothMetalTex,
+    color: 0x55556a,
+    roughness: 0.55,
+    metalness: 0.4,
   });
   const wooferGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 12);
   const platterGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.02, 24);
@@ -520,8 +814,8 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   const sidePanelGeo = new THREE.PlaneGeometry(B.platformDepth * 0.8, 1.0);
   const platGeo = new THREE.BoxGeometry(B.platformWidth, B.platformThickness, B.platformDepth);
   const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
-  // * 12 radial segments — 6-sided tubes faceted badly under bloom; shared geo so cost is free.
-  const UNIT_CYL = new THREE.CylinderGeometry(1, 1, 1, 12);
+  // * 16 radial segments — smoother neon tubes under bloom; shared geo so cost is free.
+  const UNIT_CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
 
   // * Per-booth neon hue is sticky: the frame loop pulses emissiveIntensity only
   // * (see main.js). Overwriting color/emissive every frame used to collapse all
@@ -548,17 +842,21 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     metalness: 0.7,
     toneMapped: false,
   }));
-  const platMats = boothColors.map((color) => new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.7,
-    metalness: 0.3,
-    emissive: color,
-    emissiveIntensity: 0.15,
-  }));
+  const platMats = boothColors.map((color) => {
+    const mat = createPhysicalMaterial({
+      map: boothMetalTex,
+      color,
+      roughness: 0.48,
+      metalness: 0.55,
+      emissive: color,
+      emissiveIntensity: 0.18,
+    });
+    return mat;
+  });
   const sidePanelMats = boothColors.map((color) => new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.12,
+    opacity: 0.14,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
@@ -571,12 +869,13 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     depthWrite: false,
     side: THREE.DoubleSide,
   }));
-  const panelMats = boothColors.map((color) => new THREE.MeshStandardMaterial({
-    color: 0x333355,
-    roughness: 0.4,
-    metalness: 0.6,
+  const panelMats = boothColors.map((color) => createPhysicalMaterial({
+    map: boothMetalTex,
+    color: 0x55557a,
+    roughness: 0.38,
+    metalness: 0.7,
     emissive: color,
-    emissiveIntensity: 0.15,
+    emissiveIntensity: 0.2,
   }));
   const dotMats = boothColors.map((color) => new THREE.MeshBasicMaterial({ color }));
 
@@ -1028,7 +1327,8 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     ],
     sharedMaterials: [
       trussLegMat, trussCrossMat, mixerMat, deckMat, spkMat, coneMat, platterMat, knobMat,
-      fogPuffTex, ...fogPuffMats, ...neonMats, ...trussLightMats, ...platMats, ...sidePanelMats,
+      fogPuffTex, boothMetalTex, boothGrilleTex,
+      ...fogPuffMats, ...neonMats, ...trussLightMats, ...platMats, ...sidePanelMats,
       ...diamondMats, ...panelMats, ...dotMats,
     ],
   };
@@ -1079,21 +1379,25 @@ export function initArena(scene, world, config, options = {}) {
     bevelSize: 0.04,
     curveSegments: 64,
   });
-  // * Vinyl dancefloor — Physical + clearcoat: metalness 0.35, roughness 0.68, clearcoat 0.4, opacity 0.7.
-  // * Always use createPhysicalMaterial so transparency can be toggled at runtime for quality changes.
-  // * When the Reflector is visible (high quality) the record is transparent; in low quality it's opaque.
-  // * Slightly richer near-black with a violet bias so the vinyl reads "club floor"
-  // * under neon rather than pure void.
+  // * Vinyl body — Physical + clearcoat. High-quality path is mostly transparent so the
+  // * Reflector carries the mirror; a separate vinyl detail ring (maps) sells grooves.
+  const vinylTex = buildVinylSurfaceTextures();
   const recordMat = createPhysicalMaterial({
-    color: 0x0a0614,
-    roughness: isLowQualityMode() ? 0.9 : 0.62,
-    metalness: isLowQualityMode() ? 0 : 0.42,
-    clearcoat: isLowQualityMode() ? 0 : 0.55,
-    clearcoatRoughness: 0.18,
+    color: 0x0c0818,
+    map: vinylTex.map,
+    roughness: isLowQualityMode() ? 0.55 : 0.38,
+    roughnessMap: isLowQualityMode() ? vinylTex.roughnessMap : undefined,
+    metalness: isLowQualityMode() ? 0.25 : 0.48,
+    clearcoat: isLowQualityMode() ? 0.2 : 0.72,
+    clearcoatRoughness: isLowQualityMode() ? 0.35 : 0.12,
     transparent: !isLowQualityMode(),
-    opacity: isLowQualityMode() ? 1.0 : 0.72,
+    opacity: isLowQualityMode() ? 1.0 : 0.55,
   });
   recordMat.depthWrite = isLowQualityMode();
+  if (!isLowQualityMode()) {
+    recordMat.normalMap = vinylTex.normalMap;
+    recordMat.normalScale = new THREE.Vector2(0.55, 0.55);
+  }
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
   recordMesh.position.set(0, visualRecordY, 0);
   recordMesh.receiveShadow = false;
@@ -1124,7 +1428,8 @@ export function initArena(scene, world, config, options = {}) {
       clipBias: 0.003,
       textureWidth: textureSize,
       textureHeight: textureSize,
-      color: 0x111111,
+      // * Slightly lifted from pure black so neon booths/carts read cleanly in the mirror.
+      color: 0x1c1528,
     });
     reflector.rotation.x = -Math.PI / 2;
     reflector.position.y = reflectorYOffset;
@@ -1138,6 +1443,37 @@ export function initArena(scene, world, config, options = {}) {
   recordReflector.visible = !isLowQualityMode();
   recordMesh.add(recordReflector);
 
+  // * Vinyl detail layer ON the reflective floor — translucent Physical so grooves/normal
+  // * read without killing the mirror. Hidden in low-quality (solid floor carries maps).
+  const vinylDetailGeo = new THREE.RingGeometry(
+    config.record.innerRadius,
+    config.record.radius,
+    128,
+    1,
+  );
+  const vinylDetailMat = createPhysicalMaterial({
+    map: vinylTex.map,
+    normalMap: vinylTex.normalMap,
+    normalScale: new THREE.Vector2(0.7, 0.7),
+    roughnessMap: vinylTex.roughnessMap,
+    color: 0xffffff,
+    roughness: 0.42,
+    metalness: 0.55,
+    clearcoat: 0.65,
+    clearcoatRoughness: 0.14,
+    transparent: true,
+    opacity: 0.42,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const vinylDetailMesh = new THREE.Mesh(vinylDetailGeo, vinylDetailMat);
+  vinylDetailMesh.rotation.x = -Math.PI / 2;
+  vinylDetailMesh.position.y = reflectorYOffset + 0.002;
+  vinylDetailMesh.renderOrder = 1;
+  vinylDetailMesh.visible = !isLowQualityMode();
+  vinylDetailMesh.userData.isVinylDetail = true;
+  recordMesh.add(vinylDetailMesh);
+
   // * Solid opaque floor ring for low-quality mode — covers the record surface when the Reflector is hidden.
   const solidFloorGeo = new THREE.RingGeometry(
     config.record.innerRadius,
@@ -1145,10 +1481,16 @@ export function initArena(scene, world, config, options = {}) {
     128,
     1,
   );
-  const solidFloorMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a1e,
-    roughness: 0.9,
-    metalness: 0,
+  const solidFloorMat = createPhysicalMaterial({
+    map: vinylTex.map,
+    normalMap: vinylTex.normalMap,
+    normalScale: new THREE.Vector2(0.65, 0.65),
+    roughnessMap: vinylTex.roughnessMap,
+    color: 0xffffff,
+    roughness: 0.48,
+    metalness: 0.4,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.25,
     side: THREE.DoubleSide,
     depthWrite: true,
   });
@@ -1182,10 +1524,11 @@ export function initArena(scene, world, config, options = {}) {
   function setReflectorVisible(visible) {
     if (recordReflector) recordReflector.visible = visible;
     if (recordSolidFloor) recordSolidFloor.visible = !visible;
+    if (vinylDetailMesh) vinylDetailMesh.visible = visible;
     // Toggle record material transparency to match.
     if (recordMat) {
-      recordMat.transparent = !visible;
-      recordMat.opacity = visible ? 0.7 : 1.0;
+      recordMat.transparent = visible;
+      recordMat.opacity = visible ? 0.55 : 1.0;
       recordMat.depthWrite = !visible;
       recordMat.needsUpdate = true;
     }
@@ -1661,24 +2004,24 @@ export function initArena(scene, world, config, options = {}) {
 
     // * Neon glow rings — thinner accent on the structural ring beams.
     const glowRingDefs = [
-      { worldY: -5.5, opacity: 0.28 },
-      { worldY: -11, opacity: 0.18 },
-      { worldY: -18, opacity: 0.11 },
-      { worldY: -27, opacity: 0.06 },
-      { worldY: -38, opacity: 0.035 },
+      { worldY: -5.5, opacity: 0.34, color: 0xc43dff },
+      { worldY: -11, opacity: 0.22, color: 0xa229e6 },
+      { worldY: -18, opacity: 0.14, color: 0x22e6ff },
+      { worldY: -27, opacity: 0.09, color: 0xa229e6 },
+      { worldY: -38, opacity: 0.05, color: 0x6611aa },
     ];
     for (const def of glowRingDefs) {
       const ringGeo = new THREE.CylinderGeometry(
         pitInnerRadius - 0.12,
         pitInnerRadius - 0.12,
-        0.35,
+        0.42,
         64,
         1,
         true,
       );
       pitDetailGeos.push(ringGeo);
       const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xa229e6,
+        color: def.color,
         transparent: true,
         opacity: def.opacity,
         blending: THREE.AdditiveBlending,
@@ -1692,7 +2035,98 @@ export function initArena(scene, world, config, options = {}) {
       ring.position.y = worldToLocalY(def.worldY);
       pitWall.add(ring);
     }
+
+    // * Layered void haze discs — stacked translucent planes sell infinite depth
+    // * without more shaft geometry (cheaper than extra cylinder segments).
+    const hazeDefs = [
+      { worldY: -8, opacity: 0.1, scale: 0.92, color: 0x4a1480 },
+      { worldY: -16, opacity: 0.14, scale: 0.86, color: 0x2a0a50 },
+      { worldY: -28, opacity: 0.18, scale: 0.78, color: 0x120428 },
+      { worldY: -42, opacity: 0.22, scale: 0.68, color: 0x080214 },
+    ];
+    const hazeGeo = new THREE.CircleGeometry(pitInnerRadius, 64);
+    pitDetailGeos.push(hazeGeo);
+    for (const def of hazeDefs) {
+      const hazeMat = new THREE.MeshBasicMaterial({
+        color: def.color,
+        transparent: true,
+        opacity: def.opacity,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        fog: false,
+        blending: THREE.NormalBlending,
+      });
+      pitDetailMats.push(hazeMat);
+      const haze = new THREE.Mesh(hazeGeo, hazeMat);
+      haze.rotation.x = -Math.PI / 2;
+      haze.position.y = worldToLocalY(def.worldY);
+      haze.scale.setScalar(def.scale);
+      haze.renderOrder = -2;
+      pitWall.add(haze);
+    }
+
+    // * Soft throat fog cylinder at the mouth — violet club haze just under the rim.
+    {
+      const throatH = 14;
+      const throatGeo = new THREE.CylinderGeometry(
+        pitInnerRadius * 0.98,
+        pitInnerRadius * 0.92,
+        throatH,
+        48,
+        1,
+        true,
+      );
+      pitDetailGeos.push(throatGeo);
+      const throatMat = new THREE.MeshBasicMaterial({
+        color: 0x7a22cc,
+        transparent: true,
+        opacity: 0.07,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        fog: false,
+        toneMapped: false,
+      });
+      pitDetailMats.push(throatMat);
+      const throat = new THREE.Mesh(throatGeo, throatMat);
+      throat.position.y = rimLocalY - throatH * 0.5 - 1.2;
+      pitWall.add(throat);
+    }
+
+    // * Depth marker numerals as simple glowing ticks (every other ring beam).
+    const tickGeo = new THREE.BoxGeometry(0.8, 0.12, 0.08);
+    pitDetailGeos.push(tickGeo);
+    const tickMat = new THREE.MeshBasicMaterial({
+      color: 0xff2bd6,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+      toneMapped: false,
+    });
+    pitDetailMats.push(tickMat);
+    for (let i = 0; i < ringBeamWorldYs.length; i += 1) {
+      const a = i * (Math.PI / 2.5);
+      const tick = new THREE.Mesh(tickGeo, tickMat);
+      tick.position.set(
+        Math.cos(a) * (pitInnerRadius - 0.55),
+        worldToLocalY(ringBeamWorldYs[i]),
+        Math.sin(a) * (pitInnerRadius - 0.55),
+      );
+      tick.lookAt(0, tick.position.y, 0);
+      pitWall.add(tick);
+    }
   }
+
+  // * Deep void uplight — magenta/violet from below so the shaft isn't pure black
+  // * when carts fall; intensity low so it stays creepy, not rave-floor.
+  const pitUplight = new THREE.PointLight(0x9911ff, 42, 55, 2);
+  pitUplight.position.set(0, -22, 0);
+  scene.add(pitUplight);
+  const pitRimFill = new THREE.PointLight(0x22e6ff, 18, 28, 2);
+  pitRimFill.position.set(0, -4.5, 0);
+  scene.add(pitRimFill);
 
   // * Top cap sits below the drain throat (-61.5) so the solid cylinder never
   // * overlaps the funnel interior; it's the final bounce for corpses that fall
@@ -1806,6 +2240,7 @@ export function initArena(scene, world, config, options = {}) {
 
   const sceneRoots = [
     recordMesh, rimMesh, edgeRingMesh, innerRimMesh, innerEdgeMesh, pitWall, spindleLight,
+    pitUplight, pitRimFill,
     ...boothBuild.boothGroups,
     ...boothBuild.fogSprites,
     ...(boothBuild.trussMeshes || []),
@@ -1819,7 +2254,7 @@ export function initArena(scene, world, config, options = {}) {
   /** @type {THREE.BufferGeometry[]} */
   const ownedGeometries = [
     recordGeo, recordLabelGeo, rimGeo, edgeRingGeo, innerRimGeo, innerEdgeGeo, pitWallGeo,
-    solidFloorGeo,
+    solidFloorGeo, vinylDetailGeo,
     ...pitDetailGeos,
     ...raveDecor.geos,
   ];
@@ -1835,6 +2270,7 @@ export function initArena(scene, world, config, options = {}) {
 
   const ownedMaterials = [
     recordMat, recordLabelMat, rimMat, edgeRingMat, innerEdgeMat, pitWallMat, solidFloorMat,
+    vinylDetailMat,
     ...pitDetailMats,
     ...raveDecor.mats,
   ];
@@ -1852,6 +2288,9 @@ export function initArena(scene, world, config, options = {}) {
     pitSurfaceTex.map,
     pitSurfaceTex.normalMap,
     pitSurfaceTex.roughnessMap,
+    vinylTex.map,
+    vinylTex.normalMap,
+    vinylTex.roughnessMap,
     ...raveDecor.textures,
   ];
 
@@ -1886,6 +2325,8 @@ export function initArena(scene, world, config, options = {}) {
     }
 
     if (scene && spindleLight) scene.remove(spindleLight);
+    if (scene && pitUplight) scene.remove(pitUplight);
+    if (scene && pitRimFill) scene.remove(pitRimFill);
     if (scene && boothNeonMeshes) {
       for (const mesh of boothNeonMeshes) {
         if (scene) scene.remove(mesh);
@@ -1966,6 +2407,13 @@ export function initArena(scene, world, config, options = {}) {
     if (spindleRingMat && typeof spindleRingMat.emissiveIntensity === "number") {
       spindleRingMat.emissiveIntensity =
         SPINDLE_RING_BASE_EMISSIVE * (0.85 + 0.2 * Math.sin(timeMs * 0.0018));
+    }
+    // * Pit void breathe — subtle so falls feel alive without washing the shaft.
+    if (pitUplight) {
+      pitUplight.intensity = 36 + 12 * Math.sin(timeMs * 0.0011);
+    }
+    if (pitRimFill) {
+      pitRimFill.intensity = 14 + 6 * Math.sin(timeMs * 0.0014 + 1.0);
     }
   }
 
