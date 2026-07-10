@@ -16,6 +16,7 @@ import { updateViewport as updateSceneViewport } from "../scene.js";
  *   composer: any,
  *   arcadePass: any,
  *   fxaaPass: any,
+ *   bloomPass?: any,
  *   labelRenderer: { setSize(width: number, height: number): void },
  *   getFpsCanvas: () => (HTMLCanvasElement | null),
  * }} deps
@@ -27,6 +28,7 @@ export function createCameraFraming({
   composer,
   arcadePass,
   fxaaPass,
+  bloomPass = null,
   labelRenderer,
   getFpsCanvas,
 }) {
@@ -48,7 +50,7 @@ export function createCameraFraming({
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(pixelRatio);
     composer.setPixelRatio(pixelRatio);
-    updateSceneViewport(renderer, camera, composer, arcadePass, fxaaPass);
+    updateSceneViewport(renderer, camera, composer, arcadePass, fxaaPass, bloomPass);
     labelRenderer.setSize(w, h);
     updateCameraFraming();
     const fpsCanvas = getFpsCanvas();

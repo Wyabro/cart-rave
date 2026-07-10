@@ -466,15 +466,27 @@ export function createComposer(renderer, scene, camera) {
   renderPass.clearColor = new THREE.Color(getFogColor());
   composer.addPass(renderPass);
 
-  // * Always create bloom and arcade passes so enable/disable works for in-place quality toggle.
+  // * Half-res bloom RTs (major bandwidth win). Strength compensated so the composite
+  // * still reads like full-res neon. Arcade/VHS/flash already share one ShaderPass.
+  const bloomScale = CONFIG.postFx?.bloomHalfRes === false ? 1 : 0.5;
+  const bloomStrengthMul = bloomScale < 1 ? (CONFIG.postFx?.bloomHalfResStrengthMul ?? 1.2) : 1;
   const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    BLOOM_CONFIG.strength,
+    new THREE.Vector2(
+      Math.max(1, Math.floor(window.innerWidth * bloomScale)),
+      Math.max(1, Math.floor(window.innerHeight * bloomScale)),
+    ),
+    BLOOM_CONFIG.strength * bloomStrengthMul,
     BLOOM_CONFIG.radius,
     BLOOM_CONFIG.threshold,
   );
   applyBloomSettings(bloomPass);
+  // * Re-apply strength with half-res compensation (applyBloomSettings overwrites strength).
+  if (bloomScale < 1) {
+    bloomPass.strength = BLOOM_CONFIG.strength * bloomStrengthMul;
+  }
   bloomPass.enabled = !isLowQualityMode();
+  // * Stash scale so updateViewport can resize internal RTs.
+  /** @type {any} */ (bloomPass).userData = { ...(/** @type {any} */ (bloomPass).userData || {}), bloomScale };
   composer.addPass(bloomPass);
 
   // * OutputPass performs tone mapping + sRGB encoding. Without it the composer wrote
@@ -515,7 +527,7 @@ export function createComposer(renderer, scene, camera) {
  * @param {ShaderPass|null|undefined} arcadePass Arcade FX shader pass.
  * @param {ShaderPass|null|undefined} fxaaPass FXAA shader pass.
  */
-export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass) {
+export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass, bloomPass = null) {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
@@ -527,6 +539,17 @@ export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass)
   if (composer) composer.setSize(w, h);
 
   if (arcadePass) arcadePass.uniforms.uResolution.value.set(w, h);
+
+  // * Keep half-res bloom RTs in sync with the window (UnrealBloomPass.resolution).
+  if (bloomPass) {
+    const scale = /** @type {any} */ (bloomPass).userData?.bloomScale ?? 0.5;
+    if (bloomPass.resolution) {
+      bloomPass.resolution.set(
+        Math.max(1, Math.floor(w * scale)),
+        Math.max(1, Math.floor(h * scale)),
+      );
+    }
+  }
 
   if (fxaaPass && renderer) {
     const pixelRatio = renderer.getPixelRatio();

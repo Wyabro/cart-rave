@@ -367,6 +367,9 @@ export const CONFIG = {
     },
 
     // * UnrealBloomPass tuning — see applyBloomSettings() in scene.js.
+    // * bloomHalfRes: internal bloom RTs at 0.5× (fill-rate win); strength mul compensates.
+    bloomHalfRes: true,
+    bloomHalfResStrengthMul: 1.2,
     bloom: {
       strength: 0.34, // unitless — bloom composite intensity
       radius: 0.34, // unitless — halo tightness (lower = crisper neon, higher = hazier)

@@ -30,6 +30,7 @@ import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { isLowQualityMode } from "../utils.js";
+import { registerLevelLodNode } from "../utils/levelLod.js";
 
 // ===== Layout constants =====
 
@@ -1484,6 +1485,12 @@ function buildSeascape(scene, circumR) {
     ownedTextures.push(foamTex);
   }
 
+  // * Stepped sunset budget — continuous sunDir/water; sun color + far decor stepped.
+  let _lastSunStepMs = -1e9;
+  let _lastDecorStepMs = -1e9;
+  const SUN_STEP_MS = 500;
+  const DECOR_STEP_MS = isLowQualityMode() ? 2000 : 0;
+
   // Per-frame seascape animation — sun drift (mutates sunDir/sun/halo in place, zero
   // allocations; initZanzibarPlatform reads sunDir afterward to keep sunLight coherent),
   // glint scroll, ripple-normal drift, rotor spin, gull orbits, foam breathing.
@@ -1496,19 +1503,21 @@ function buildSeascape(scene, circumR) {
     halo.lookAt(0, SUN_HEIGHT, 0);
     outerHalo.position.set(sun.position.x + sunDir.x * 4, SUN_HEIGHT, sun.position.z + sunDir.z * 4);
     outerHalo.lookAt(0, SUN_HEIGHT, 0);
-    // * Slow sun-breath — golden hour never sits perfectly still.
-    const sunPulse = 0.92 + 0.08 * Math.sin(timeMs * 0.00055);
-    sunMat.color.setRGB(1.0 * sunPulse, 0.88 * sunPulse, 0.69 * sunPulse);
-    haloMat.opacity = 0.28 + 0.08 * Math.sin(timeMs * 0.0007);
-    outerHaloMat.opacity = 0.1 + 0.04 * Math.sin(timeMs * 0.00045 + 1.0);
-    for (let i = 0; i < shaftMats.length; i += 1) {
-      shaftMats[i].opacity = (0.04 + i * 0.01) * (0.85 + 0.15 * Math.sin(timeMs * 0.0006 + i));
+
+    if (timeMs - _lastSunStepMs >= SUN_STEP_MS) {
+      _lastSunStepMs = timeMs;
+      const sunPulse = 0.92 + 0.08 * Math.sin(timeMs * 0.00055);
+      sunMat.color.setRGB(1.0 * sunPulse, 0.88 * sunPulse, 0.69 * sunPulse);
+      haloMat.opacity = 0.28 + 0.08 * Math.sin(timeMs * 0.0007);
+      outerHaloMat.opacity = 0.1 + 0.04 * Math.sin(timeMs * 0.00045 + 1.0);
+      for (let i = 0; i < shaftMats.length; i += 1) {
+        shaftMats[i].opacity = (0.04 + i * 0.01) * (0.85 + 0.15 * Math.sin(timeMs * 0.0006 + i));
+      }
+      if (glintMat) glintMat.opacity = 0.32 + 0.08 * Math.sin(timeMs * 0.0007);
+      if (gateDotsMat) gateDotsMat.opacity = 0.45 + Math.sin(timeMs * 0.0009) * 0.2;
+      if (foamMat) foamMat.opacity = 0.12 + Math.sin(timeMs * 0.00055) * 0.04;
     }
 
-    if (glintMat) {
-      // * Soft breath only — no UV scroll (scroll made the old strip look like crawling tiles).
-      glintMat.opacity = 0.32 + 0.08 * Math.sin(timeMs * 0.0007);
-    }
     if (waterNormalTex) {
       waterNormalTex.offset.x = (timeMs * 0.0000045) % 1;
       waterNormalTex.offset.y = (timeMs * 0.0000031) % 1;
@@ -1517,55 +1526,51 @@ function buildSeascape(scene, circumR) {
       const rotor = rotors[i];
       rotor.rotation.z = rotor.userData.phase + timeMs * rotor.userData.spin;
     }
-    if (gateDotsMat) {
-      gateDotsMat.opacity = 0.45 + Math.sin(timeMs * 0.0009) * 0.2;
-    }
-    if (ships && shipGlowGeo) {
-      const glowPos = shipGlowGeo.attributes.position;
-      for (let i = 0; i < shipStates.length; i += 1) {
-        const s = shipStates[i];
-        const a = s.phase + timeMs * s.speed;
-        const x = Math.cos(a) * s.radius;
-        const z = Math.sin(a) * s.radius;
-        const y = s.height + Math.sin(timeMs * 0.0002 + s.phase) * 3;
-        _dummy.position.set(x, y, z);
-        // Nose along the orbit tangent; slight bank into the turn.
-        _dummy.rotation.set(0, -a - Math.sign(s.speed) * (Math.PI / 2), Math.sign(s.speed) * 0.12);
-        _dummy.scale.set(1, 1, 1);
-        _dummy.updateMatrix();
-        ships.setMatrixAt(i, _dummy.matrix);
-        // Engine glow trails just behind the hull along the tangent.
-        const tx = -Math.sin(a) * Math.sign(s.speed);
-        const tz = Math.cos(a) * Math.sign(s.speed);
-        glowPos.setXYZ(i, x - tx * 4.2, y, z - tz * 4.2);
+
+    const runDecor = DECOR_STEP_MS === 0 || timeMs - _lastDecorStepMs >= DECOR_STEP_MS;
+    if (runDecor) {
+      _lastDecorStepMs = timeMs;
+      if (ships && shipGlowGeo && ships.visible !== false) {
+        const glowPos = shipGlowGeo.attributes.position;
+        for (let i = 0; i < shipStates.length; i += 1) {
+          const s = shipStates[i];
+          const a = s.phase + timeMs * s.speed;
+          const x = Math.cos(a) * s.radius;
+          const z = Math.sin(a) * s.radius;
+          const y = s.height + Math.sin(timeMs * 0.0002 + s.phase) * 3;
+          _dummy.position.set(x, y, z);
+          _dummy.rotation.set(0, -a - Math.sign(s.speed) * (Math.PI / 2), Math.sign(s.speed) * 0.12);
+          _dummy.scale.set(1, 1, 1);
+          _dummy.updateMatrix();
+          ships.setMatrixAt(i, _dummy.matrix);
+          const tx = -Math.sin(a) * Math.sign(s.speed);
+          const tz = Math.cos(a) * Math.sign(s.speed);
+          glowPos.setXYZ(i, x - tx * 4.2, y, z - tz * 4.2);
+        }
+        ships.instanceMatrix.needsUpdate = true;
+        glowPos.needsUpdate = true;
       }
-      ships.instanceMatrix.needsUpdate = true;
-      glowPos.needsUpdate = true;
-    }
-    if (gulls) {
-      for (let i = 0; i < gullStates.length; i += 1) {
-        const g = gullStates[i];
-        const a = g.phase + timeMs * g.speed;
-        _dummy.position.set(
-          Math.cos(a) * g.radius,
-          g.height + Math.sin(timeMs * 0.0004 + g.phase) * 1.2,
-          Math.sin(a) * g.radius,
-        );
-        _dummy.rotation.set(
-          -Math.PI / 2,
-          0,
-          -a + (g.speed > 0 ? 0 : Math.PI),
-        );
-        // Wing flap — quick roll oscillation around the flight axis.
-        _dummy.rotation.y = Math.sin(timeMs * 0.009 + g.flapPhase) * 0.45;
-        _dummy.scale.set(1, 1, 1);
-        _dummy.updateMatrix();
-        gulls.setMatrixAt(i, _dummy.matrix);
+      if (gulls && gulls.visible !== false) {
+        for (let i = 0; i < gullStates.length; i += 1) {
+          const g = gullStates[i];
+          const a = g.phase + timeMs * g.speed;
+          _dummy.position.set(
+            Math.cos(a) * g.radius,
+            g.height + Math.sin(timeMs * 0.0004 + g.phase) * 1.2,
+            Math.sin(a) * g.radius,
+          );
+          _dummy.rotation.set(
+            -Math.PI / 2,
+            0,
+            -a + (g.speed > 0 ? 0 : Math.PI),
+          );
+          _dummy.rotation.y = Math.sin(timeMs * 0.009 + g.flapPhase) * 0.45;
+          _dummy.scale.set(1, 1, 1);
+          _dummy.updateMatrix();
+          gulls.setMatrixAt(i, _dummy.matrix);
+        }
+        gulls.instanceMatrix.needsUpdate = true;
       }
-      gulls.instanceMatrix.needsUpdate = true;
-    }
-    if (foamMat) {
-      foamMat.opacity = 0.12 + Math.sin(timeMs * 0.00055) * 0.04;
       if (foam) foam.rotation.z = timeMs * 0.000012;
     }
   }
@@ -1579,6 +1584,7 @@ function buildSeascape(scene, circumR) {
     ownedGeometries,
     ownedMaterials,
     ownedTextures,
+    lodProps: [ships, gulls, foam].filter(Boolean),
   };
 }
 
@@ -2580,6 +2586,12 @@ export function initZanzibarPlatform(scene, world, config) {
 
   const recordMesh = new THREE.Group();
   const pitWallColliderHandle = -1;
+
+  if (Array.isArray(seascape.lodProps)) {
+    for (const prop of seascape.lodProps) {
+      registerLevelLodNode(prop, { far: 95 });
+    }
+  }
 
   function update(timeMs) {
     seascape.update(timeMs);

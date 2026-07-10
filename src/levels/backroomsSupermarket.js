@@ -20,6 +20,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
+import { registerLevelLodNode } from "../utils/levelLod.js";
 
 // ===== Tunable layout constants =====
 
@@ -3308,6 +3309,14 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const uncanny = menuPreview ? emptyDressing() : buildUncannyDetails(scene, world);
   const doorways = menuPreview ? emptyDressing() : buildDoorways(scene, wallpaperTex);
   const floorDecals = menuPreview ? emptyDressing() : buildFloorStoryDecals(scene);
+
+  // * Runtime distance LOD — atmosphere props only (no physics rebuild).
+  if (!menuPreview) {
+    registerLevelLodNode(pitDressing.group, { far: 48 });
+    registerLevelLodNode(uncanny.group, { far: 42 });
+    registerLevelLodNode(doorways.group, { far: 55 });
+    registerLevelLodNode(floorDecals.group, { far: 38 });
+  }
 
   // ===== Ambient fill lighting (warm; compensates for thick fog while staying dim/liminal) =====
   const hemiLight = new THREE.HemisphereLight(0xc8c0a0, 0x2a3028, 1.38);

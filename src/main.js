@@ -82,6 +82,7 @@ import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { updateLevelLod } from "./utils/levelLod.js";
 // * testArena constants inlined (avoid static import of heavy level module at boot).
 const TEST_ARENA_SKY = 0x586274;
 const TEST_ARENA_FOG_DENSITY = 0.0032;
@@ -1017,6 +1018,7 @@ async function main() {
     composer,
     arcadePass,
     fxaaPass,
+    bloomPass,
     labelRenderer,
     getFpsCanvas: () => fpsCanvas2d,
   });
@@ -3186,6 +3188,7 @@ async function main() {
 
     /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);
     levelUpdate?.(syncedNow);
+    updateLevelLod(camera, syncedNow);
 
     if (raveVisualsInitialized) {
       Effects.updateStageLights(syncedNow);

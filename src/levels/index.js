@@ -3,6 +3,7 @@
 import { computeSpawnRingRadius } from "../config.js";
 import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
 import { setMenuPreviewVisualLod } from "../utils/qualityMode.js";
+import { clearLevelLod } from "../utils/levelLod.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
@@ -80,6 +81,7 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   }
 
   onProgress?.(60, "Building arena geometry…");
+  clearLevelLod();
   let result;
   const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   // * Menu preview: force visual LOD gates (isLowQualityMode) for the init only —
@@ -106,12 +108,15 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
     );
   }
 
-  if (overrideRadius != null) {
+  {
     const levelDispose = result.dispose;
     result.dispose = () => {
+      clearLevelLod();
       levelDispose();
-      config.record.radius = prevRadius;
-      config.cart.spawnRingRadius = prevSpawnRing;
+      if (overrideRadius != null) {
+        config.record.radius = prevRadius;
+        config.cart.spawnRingRadius = prevSpawnRing;
+      }
     };
   }
 
