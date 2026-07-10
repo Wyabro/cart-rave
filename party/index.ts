@@ -706,6 +706,11 @@ export class CartRaveServer extends Server {
     // * handoff logic lives in exactly one place.
     this.#ensureLiveHost();
 
+    // * The reaped player may have been the only un-ready human — re-evaluate
+    // * so the remaining all-ready lobby isn't stuck waiting forever.
+    // * (#checkAllReady is a no-op outside the lobby phase / while armed.)
+    this.#checkAllReady();
+
     return slotsChanged;
   }
 
@@ -867,9 +872,10 @@ export class CartRaveServer extends Server {
       slots: this.#slots,
     });
 
-    if (wasHost) {
-      this.#checkAllReady();
-    }
+    // * Unconditional (not just wasHost): a departing non-host may have been the
+    // * only un-ready human, leaving the rest stuck showing READY! forever.
+    // * #checkAllReady is idempotent — no-op outside lobby / while armed.
+    this.#checkAllReady();
   }
 
   async onMessage(connection: Connection, message: string) {

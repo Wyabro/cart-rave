@@ -3,6 +3,8 @@
 
 import { Howl, Howler } from "howler";
 
+import { CONFIG } from "./config.js";
+
 // === Volume state (single source of truth for main.js + procedural SFX) ===
 
 import { audioStore } from "./stores/audioStore.js";
@@ -307,12 +309,25 @@ function materializeGamePlaylist(urls) {
     src: Array.isArray(url) ? url : [url],
     volume: _isMuted ? 0 : _musicVol,
     // * Only the first track preloads when the playlist materializes (enter play).
-    // * Later tracks load when Howler starts them (html5 stream).
+    // * Later tracks are loaded on demand via ensureTrackLoaded() — Howler never
+    // * calls load() itself for preload:false Howls, so .play() on them queues forever.
     preload: i === 0,
     html5: true,
     onend: function onGameTrackEnd() {
       if (!gameMusicPlaying) return;
       advanceGameTrack();
+    },
+    onloaderror: function onGameTrackLoadError(_id, err) {
+      if (CONFIG.debug.audio) {
+        // eslint-disable-next-line no-console
+        console.warn("[audioManager] game track load error", { track: i, err });
+      }
+    },
+    onplayerror: function onGameTrackPlayError(_id, err) {
+      if (CONFIG.debug.audio) {
+        // eslint-disable-next-line no-console
+        console.warn("[audioManager] game track play error", { track: i, err });
+      }
     },
   }));
   currentGameTrackIdx = -1;
@@ -353,7 +368,7 @@ export function playGameMusic() {
     _resumeGameOnVisible = true;
     return;
   }
-  gameMusicTracks[currentGameTrackIdx]?.play();
+  startGameTrack(gameMusicTracks[currentGameTrackIdx]);
 }
 
 /** @returns {void} */
@@ -362,13 +377,27 @@ export function stopGameMusic() {
     try { t?.stop(); } catch {}
   }
   gameMusicPlaying = false;
+  // * Restart the playlist from the top next match — never resume on an index
+  // * whose track may still be mid-load (or failed to load) from this match.
+  currentGameTrackIdx = 0;
+}
+
+/**
+ * Loads (if needed) and plays a game track. preload:false Howls stay "unloaded"
+ * until load() is called explicitly — Howler's play() would queue silently forever.
+ * @param {Howl | undefined} track
+ */
+function startGameTrack(track) {
+  if (!track) return;
+  if (track.state() === "unloaded") track.load();
+  track.play();
 }
 
 function advanceGameTrack() {
   if (!gameMusicTracks.length) return;
   currentGameTrackIdx = (currentGameTrackIdx + 1) % gameMusicTracks.length;
   if (gameMusicPlaying) {
-    gameMusicTracks[currentGameTrackIdx]?.play();
+    startGameTrack(gameMusicTracks[currentGameTrackIdx]);
   }
 }
 

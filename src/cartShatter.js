@@ -13,6 +13,7 @@
 
 import * as THREE from "three";
 
+import { resetCartPulseScale } from "./animations.js";
 import { getWaterDeathSurfaceY, spawnWaterDeathBurst } from "./effects/waterDeathFx.js";
 import { isLowQualityMode } from "./utils.js";
 
@@ -605,6 +606,11 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
   if (cart.isShattering) return;
 
   cart.isShattering = true;
+
+  // * A squash/boost tween in flight at KO time would leave mesh.scale mid-pulse
+  // * (cancel skips onComplete) — snap back to base before debris capture so the
+  // * shatter parts and the eventual respawn rebuild both see the true scale.
+  resetCartPulseScale(mesh);
 
   // * Safety: detach any Camera children from the cart root before the root is frozen
   // * during shatter, preventing the camera from snapping away mid-explosion.

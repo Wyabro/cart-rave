@@ -1059,17 +1059,9 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) HUD.hideAudioWidget();
-    if (hud) {
-      if (hud.timer) hud.timer.style.display = "none";
-      if (hud.scores) hud.scores.style.display = "none";
-      if (hud.readyBtn) hud.readyBtn.style.display = "none";
-      if (hud.status) hud.status.style.display = "none";
-    }
-    const feed = (hud && hud.feed) || document.querySelector(".hud-feed");
-    if (feed) {
-      feed.style.display = "none";
-      while (feed.firstChild) feed.removeChild(feed.firstChild);
-    }
+    // * Single canonical gameplay-HUD hide (timer/scores/ready/status/feed plus
+    // * combo badge, boost meter, and reconnect pill — internals main.js can't reach).
+    HUD.hideGameplayElements();
     // Stop game music before menu music starts.
     try { AudioManager.stopGameMusic(); } catch (e) {}
     try { AudioManager.playMenuMusic(); } catch (e) {}
@@ -2800,7 +2792,36 @@ async function main() {
       if (Netcode.getIsHost()) Netcode.sendHostRound();
     }
   };
-  onHostMigratedHandler = resumeCountdownAsNewHost;
+  /**
+   * * isSuddenDeathSpectator is host-local state — never synced. A client promoted
+   * * mid-Sudden-Death would otherwise run the fall loop with zero spectator flags,
+   * * re-triggering fake falls for carts parked at y=-50 and risking a false SD end.
+   * * Re-derive the flags from the synced scores: Sudden Death entry parked every
+   * * cart not sharing the top score, so the same tie definition reconstructs them.
+   * * Flag-only — the fall-loop spectator guard makes flagged carts inert.
+   */
+  function reconstructSuddenDeathSpectatorsAsNewHost() {
+    if (!Netcode.getIsHost()) return;
+    const roundState = GameState.getRoundState();
+    if (!roundState.isSuddenDeath || roundState.phase !== "running") return;
+    const carts = allCartsRef;
+    if (!carts?.length) return;
+    const scores = GameState.getRoundScores() || {};
+    let topScore = -Infinity;
+    for (let si = 0; si < 4; si += 1) {
+      topScore = Math.max(topScore, Number(scores[si] || 0));
+    }
+    for (let si = 0; si < carts.length; si += 1) {
+      const cart = carts[si];
+      if (!cart) continue;
+      if (Number(scores[si] || 0) !== topScore) cart.isSuddenDeathSpectator = true;
+    }
+  }
+
+  onHostMigratedHandler = () => {
+    resumeCountdownAsNewHost();
+    reconstructSuddenDeathSpectatorsAsNewHost();
+  };
 
   Object.assign(sessionBridgeCtx.current, {
     clearRoundCountdownTimeout,

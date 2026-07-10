@@ -227,9 +227,14 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   cart.mesh.visible = true;
   cart.mesh.updateMatrixWorld(true);
 
-  // * Preserve the stable base scale for boost pulse animations — reading
-  // * from mesh.scale.x mid-pulse would ratchet the scale upward on interruption.
-  cart.mesh.userData.baseScale = cart.mesh.scale.x;
+  // * Restore the root to the canonical base scale rather than trusting the live
+  // * scale.x — a squash/pulse tween interrupted at KO time can leave the root
+  // * mid-pulse, and capturing that here would bake the wrong size in permanently.
+  // * (userData.baseScale here is the fresh-build value merged from freshMesh above,
+  // * falling back to the live value only if no build ever recorded one.)
+  const baseScale = cart.mesh.userData.baseScale ?? cart.mesh.scale.x;
+  cart.mesh.scale.setScalar(baseScale);
+  cart.mesh.userData.baseScale = baseScale;
 
   // * Refresh the material cache — the old one referenced disposed materials.
   cart._materialCache = materialCache;

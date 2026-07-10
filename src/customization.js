@@ -353,7 +353,9 @@ export function wireCustomizationStorageSync() {
  */
 export function savePlayerCustomization(input) {
   const current = loadPlayerCustomization();
-  let colorMode = input.colorMode === "custom" ? "custom" : "preset";
+  // * Partial saves (e.g. sunglasses/pattern-only) must not downgrade a
+  // * custom-hue player back to preset — that collapses color to PALETTE[0].
+  let colorMode = (input.colorMode ?? current.colorMode) === "custom" ? "custom" : "preset";
   let color = input.color ?? current.color;
   let customHue = input.customHue ?? current.customHue;
   let pattern = normalizePatternId(input.pattern ?? current.pattern);

@@ -1714,6 +1714,24 @@ export function hideGameplayElements() {
   setHudDisplay(elements.scores, "none", "scores");
   if (elements.readyBtn) elements.readyBtn.style.display = "none";
   setHudDisplay(elements.status, "none", "status");
+  // * Widgets below are painted only by HUD.update(), which early-returns while
+  // * the menu (or podium) is up — whatever state they froze in would persist
+  // * over the menu unless explicitly cleared here.
+  if (elements.comboBadge) {
+    elements.comboBadge.classList.remove("active", "tier-1", "tier-2", "tier-3");
+    _prevComboTier = 0;
+  }
+  if (elements.boost) {
+    elements.boost.style.display = "none";
+    // * Invalidate the per-frame write cache so the next match's first
+    // * updateBoostWidget() re-shows the meter instead of skipping the write.
+    _boostDisplay = null;
+  }
+  if (elements.conn) elements.conn.style.display = "none";
+  if (elements.feed) {
+    elements.feed.style.display = "none";
+    while (elements.feed.firstChild) elements.feed.removeChild(elements.feed.firstChild);
+  }
 }
 
 export function showGameplayElements() {

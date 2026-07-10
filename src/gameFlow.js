@@ -209,6 +209,10 @@ export function updateGameFlow(deps, context) {
         const slot = netSlots[slotIndex];
         const cart = allCarts[slotIndex];
         if (!slot || !cart?.body) continue;
+        // * Skip spectator carts (frozen at y=-50 during Sudden Death) — without
+        // * this guard they re-trigger the fall/KO path every frame: feed/announcer
+        // * spam and premature or misattributed Sudden Death wins.
+        if (cart.isSuddenDeathSpectator) continue;
 
         const p = cart.body.translation();
 

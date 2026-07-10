@@ -829,6 +829,30 @@ export function scheduleKillFeedExit(row, visibleMs = 4000) {
  * @param {AnimationOptions & { scalePeak?: number }} [options]
  * @returns {JSAnimation | null}
  */
+/**
+ * Cancels any in-flight cart scale tween (boost pulse / impact squash) and snaps
+ * the mesh back to its canonical base scale. animejs cancel() skips onComplete,
+ * so without this an interrupted tween leaves mesh.scale frozen mid-pulse —
+ * which respawn then bakes in as the new baseline.
+ *
+ * @param {import('three').Object3D | null | undefined} mesh
+ * @returns {void}
+ */
+export function resetCartPulseScale(mesh) {
+  if (!mesh?.isObject3D) return;
+  const existing = cartPulseByMesh.get(mesh);
+  if (existing) {
+    try {
+      existing.cancel();
+    } catch {
+      // Animation may already be finished.
+    }
+    cartPulseByMesh.delete(mesh);
+  }
+  const base = mesh.userData.baseScale;
+  if (typeof base === "number" && base > 0) mesh.scale.setScalar(base);
+}
+
 export function animateCartBoostPulse(mesh, options = {}) {
   if (!mesh?.isObject3D) return null;
 
