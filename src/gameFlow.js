@@ -24,6 +24,7 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
  * @property {(slotIndex: number, pos: object, quat: object, vel: object, cargoBay: object | null) => void} [onSpill]
  * @property {(slotIndex: number) => void} [onCartRespawn]
  * @property {(nowMs: number, npc: object) => void} maybeTriggerNpcOpportunisticRamBoost
+ * @property {(nowMs: number, npc: object) => void} [maybeTriggerNpcOpportunisticHop]
  * @property {() => void} endRound
  * @property {(slotIndex: number) => void} [scheduleLastCartStandingFinish]
  * @property {() => void} [abortLastCartStandingFlourish]
@@ -385,6 +386,7 @@ export function updateGameFlow(deps, context) {
 
         if (slot.kind === "npc") {
           deps.maybeTriggerNpcOpportunisticRamBoost(now, cart);
+          deps.maybeTriggerNpcOpportunisticHop?.(now, cart);
         }
       }
 

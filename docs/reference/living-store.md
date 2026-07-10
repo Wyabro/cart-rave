@@ -64,8 +64,8 @@ after respawn).
   (and effective `reward.multiplier` = combo × directive) rides `falls[]`, so client
   presentation matches without directive state.
 - Spill Bonus awards go through the host `addScore` path with `lastHitBy`
-  attribution (window-checked, self-spills excluded). Presentation fan-out is a known
-  follow-up (no float/feed line yet).
+  attribution (window-checked, self-spills excluded). Presentation: `onSpillBonusAward`
+  fans out a score float + feed line (July 10 solo polish).
 
 ### Safety rails
 

@@ -111,6 +111,7 @@ function makeSuddenDeathWorld() {
     scheduleStuckRespawn: vi.fn(),
     doRespawn: vi.fn(),
     maybeTriggerNpcOpportunisticRamBoost: vi.fn(),
+    maybeTriggerNpcOpportunisticHop: vi.fn(),
     endRound: vi.fn(),
     scheduleLastCartStandingFinish: vi.fn(),
     abortLastCartStandingFlourish: vi.fn(),

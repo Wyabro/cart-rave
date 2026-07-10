@@ -50,7 +50,7 @@ let menuLevelDebounceId = null;
  * @property {() => Array<unknown> | null | undefined} getAllCartsRef
  * @property {() => boolean} isWorldBootstrapped
  * @property {() => import("@dimforge/rapier3d").World | null} getWorld
- * @property {() => Promise<void>} ensureWorldBootstrapped
+ * @property {(levelId?: string | null) => Promise<void>} ensureWorldBootstrapped
  * @property {(levelId: string, opts: { menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }) => Promise<void>} performLevelLoad
  * @property {(levelId: string) => void} [onPreviewSwapComplete]
  * @property {() => void} finalizeArenaForPlay
@@ -232,7 +232,9 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
   const selected = resolveTargetLevelId(levelId);
 
   levelRebuildPromise = (async () => {
-    await d.ensureWorldBootstrapped();
+    // * Cold-load the *selected* arena when the world is still empty — avoids
+    // * bootstrapWorldCore(default) then an immediate full swap to `selected`.
+    await d.ensureWorldBootstrapped(selected);
     const needsFullSwap = selected !== loadedLevelId || previewNeedsFullRebuild || previewMode;
     if (needsFullSwap) {
       if (import.meta.env.DEV) {
@@ -263,6 +265,8 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
       await yieldForPaint();
       isSwappingLevel = false;
     } else if (menuPreviewNeedsFinalize) {
+      // * Same level already full-quality, finalize-only: clear preview flags + promote extras.
+      // * (previewMode true always takes the full-swap branch above.)
       previewMode = false;
       menuPreviewNeedsFinalize = false;
       d.finalizeArenaForPlay();

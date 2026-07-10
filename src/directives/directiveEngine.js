@@ -43,6 +43,12 @@ import { DIRECTIVES } from "./directives.js";
  * @property {(eventId: string, data?: object) => void} announce
  * @property {(slotIndex: number, points: number) => void} addScore Host-authoritative score path.
  * @property {() => Map<number, { attackerSlotIndex: number, timestamp: number }>} getLastHitBy
+ * @property {(info: {
+ *   attackerSlotIndex: number,
+ *   victimSlotIndex: number,
+ *   points: number,
+ * }) => void} [onSpillBonusAward] Presentation fan-out after a successful Spill Bonus score
+ *   (score float, kill feed). Optional — tests may omit.
  */
 
 /** @type {DirectiveEngineDeps | null} */
@@ -262,6 +268,7 @@ export function getDirectiveKoRewardMultiplier() {
 /**
  * Host hook from the spill sites: while Spill Bonus is active, a recent rammer earns
  * points for force-spilling a victim's groceries. Self spills award nothing.
+ * Presentation (float / feed) is optional via {@link DirectiveEngineDeps.onSpillBonusAward}.
  * @param {number} victimSlotIndex
  */
 export function onHostSpill(victimSlotIndex) {
@@ -277,7 +284,16 @@ export function onHostSpill(victimSlotIndex) {
   if (!hit || Date.now() - hit.timestamp > hitWindowMs) return;
   if (hit.attackerSlotIndex === victimSlotIndex) return;
 
-  deps.addScore(hit.attackerSlotIndex, points);
+  const attackerSlotIndex = hit.attackerSlotIndex;
+  deps.addScore(attackerSlotIndex, points);
+  // * Score path is host-authoritative; fan presentation after the award so a failed
+  // * addScore (none today) would still not show a false float. Callback is optional
+  // * so unit tests stay pure number-recordings.
+  deps.onSpillBonusAward?.({
+    attackerSlotIndex,
+    victimSlotIndex,
+    points,
+  });
 }
 
 /**

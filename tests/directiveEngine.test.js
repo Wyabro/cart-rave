@@ -16,7 +16,7 @@ import {
 
 /** Recorder deps with a toggleable host flag. */
 function makeDeps() {
-  const calls = { announce: [], sent: [], scores: [] };
+  const calls = { announce: [], sent: [], scores: [], spillAwards: [] };
   const lastHitBy = new Map();
   const deps = {
     isHost: true,
@@ -25,6 +25,7 @@ function makeDeps() {
     announce: (id, data) => calls.announce.push([id, data]),
     addScore: (slot, pts) => calls.scores.push([slot, pts]),
     getLastHitBy: () => lastHitBy,
+    onSpillBonusAward: (info) => calls.spillAwards.push(info),
   };
   return { deps, calls, lastHitBy };
 }
@@ -226,21 +227,27 @@ describe("remote apply + scoring hooks", () => {
     lastHitBy.set(2, { attackerSlotIndex: 0, timestamp: Date.now() - 500 });
     onHostSpill(2);
     expect(calls.scores).toEqual([[0, 1]]);
+    expect(calls.spillAwards).toEqual([
+      { attackerSlotIndex: 0, victimSlotIndex: 2, points: 1 },
+    ]);
 
     // Stale hit outside the window: no award.
     lastHitBy.set(3, { attackerSlotIndex: 1, timestamp: Date.now() - 10000 });
     onHostSpill(3);
     expect(calls.scores).toHaveLength(1);
+    expect(calls.spillAwards).toHaveLength(1);
 
     // Self-attribution: no award.
     lastHitBy.set(1, { attackerSlotIndex: 1, timestamp: Date.now() - 100 });
     onHostSpill(1);
     expect(calls.scores).toHaveLength(1);
+    expect(calls.spillAwards).toHaveLength(1);
   });
 
   it("awards nothing while no directive is active", () => {
     lastHitBy.set(2, { attackerSlotIndex: 0, timestamp: Date.now() });
     onHostSpill(2);
     expect(calls.scores).toHaveLength(0);
+    expect(calls.spillAwards).toHaveLength(0);
   });
 });

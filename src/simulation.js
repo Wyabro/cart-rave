@@ -7,6 +7,34 @@ import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 import { getNpcPersonality } from "./npcNames.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
+import {
+  computeSoloRubberband,
+  SOLO_RUBBERBAND_NEUTRAL,
+} from "./utils/soloRubberband.js";
+
+/** When true, NPC chase/nitro use solo score rubberband (set from main for solo mode only). */
+let _soloRubberbandActive = false;
+
+/**
+ * Enables solo-only AI rubberband. Multiplayer must leave this false.
+ * @param {boolean} active
+ */
+export function setSoloRubberbandActive(active) {
+  _soloRubberbandActive = Boolean(active);
+}
+
+/**
+ * Live solo rubberband factors for NPC chase + nitro (neutral when inactive).
+ * @param {Array<object> | null | undefined} netSlots
+ * @returns {import("./utils/soloRubberband.js").SoloRubberbandFactors}
+ */
+export function getSoloRubberbandFactors(netSlots) {
+  if (!_soloRubberbandActive) return SOLO_RUBBERBAND_NEUTRAL;
+  const cfg = CONFIG.cart?.ramBoost?.soloRubberband;
+  if (cfg && cfg.enabled === false) return SOLO_RUBBERBAND_NEUTRAL;
+  const scores = GameState.getRoundState()?.scores || {};
+  return computeSoloRubberband(scores, netSlots, cfg);
+}
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
@@ -853,7 +881,14 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
     if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
       callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
     } else if (callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
-      callbacks.onLocalHitTaken(fxIntensity, isRammerBoosting);
+      // * Hit-from direction in world XZ: from victim toward rammer (where the blow came from).
+      // * HUD maps this into cart-local sides (left/right/front/rear → screen edges).
+      callbacks.onLocalHitTaken(
+        fxIntensity,
+        isRammerBoosting,
+        -_toVictim.x,
+        -_toVictim.z,
+      );
     }
     if (callbacks?.onCartImpactSquash) {
       callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
@@ -1124,6 +1159,51 @@ export function findBlockingSquareHole(fx, fz, tx, tz, extraMargin = 0) {
     }
   }
   return null;
+}
+
+/**
+ * True when an NPC is inside the near-edge band of the active level hazard model
+ * (Backrooms corner voids, open-octagon rim, classic center hole). Used by rare
+ * hop edge-saves so bots don't only juke on open floor.
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {number} [extraProximityM=3.2]
+ * @returns {boolean}
+ */
+export function isNpcNearHazardEdge(px, pz, extraProximityM = 3.2) {
+  const prox = Number.isFinite(extraProximityM) ? extraProximityM : 3.2;
+  if (_levelHazards?.arenaHalf != null) {
+    const { cheb } = nearestSquareHole(px, pz);
+    const keepOut = squareHoleKeepOutRadius(0);
+    if (cheb < keepOut + prox) return true;
+    if (_levelHazards.circularKeepOuts?.length > 0) {
+      for (let i = 0; i < _levelHazards.circularKeepOuts.length; i += 1) {
+        const ko = _levelHazards.circularKeepOuts[i];
+        if (Math.hypot(px - ko.x, pz - ko.z) < ko.radius + (ko.margin ?? 1.5) + prox * 0.75) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  if (_octagonHazards) {
+    if (octagonEdgeDistance(px, pz) > _octagonHazards.arenaHalf - prox) return true;
+    if (_octagonHazards.circularKeepOuts?.length > 0) {
+      for (let i = 0; i < _octagonHazards.circularKeepOuts.length; i += 1) {
+        const ko = _octagonHazards.circularKeepOuts[i];
+        if (Math.hypot(px - ko.x, pz - ko.z) < ko.radius + (ko.margin ?? 1.5) + prox * 0.75) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  if (CONFIG.record.centerHole?.enabled !== false) {
+    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+    if (Math.hypot(px, pz) < holeLip + prox) return true;
+  }
+  return false;
 }
 
 /**
@@ -1554,7 +1634,7 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
     const dz = hp.z - fromPos.z;
     let d2 = dx * dx + dz * dz;
 
-    // * Score Rubberbanding: prioritize leader by scaling effective distance down; handicap trailing player
+    // * Multi-human score rubberband: prioritize leader; ease off trailing humans.
     const sc = Number(roundScores[i] || 0);
     if (activeHumans > 1 && topScore > 0) {
       if (sc === topScore) {
@@ -1562,6 +1642,12 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
       } else if (sc === minScore && sc < topScore) {
         d2 *= 1.30; // Appears 30% farther → lower priority against trailing player
       }
+    }
+
+    // * Solo rubberband: single human — scale chase distance from score lead/trail.
+    if (activeHumans === 1 && _soloRubberbandActive) {
+      const solo = getSoloRubberbandFactors(netSlots);
+      if (solo.distanceMul !== 1) d2 *= solo.distanceMul;
     }
 
     if (d2 < nearestWeightedD2) {
@@ -1709,6 +1795,20 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   } else if (topScore >= 2) {
     // 2. Match Point Leader Pressure: boost chase weight by 1.25x when a player is on Match Point
     humanWeight = Math.min(0.95, humanWeight * 1.25);
+  }
+
+  // 3. Solo rubberband — ease off when the human is crushed; hunt harder when stomping.
+  if (!isSuddenDeath && _soloRubberbandActive) {
+    const solo = getSoloRubberbandFactors(netSlots);
+    if (solo.chaseMul !== 1) {
+      humanWeight = Math.min(0.97, Math.max(0.12, humanWeight * solo.chaseMul));
+      if (solo.band === "trail") {
+        // * Trailing human: slightly more patrol so the field breathes.
+        patrolWeight = Math.min(0.55, patrolWeight * 1.15);
+      } else if (solo.band === "lead") {
+        patrolWeight = Math.max(0.04, patrolWeight * 0.75);
+      }
+    }
   }
 
   if (_levelHazards?.arenaHalf != null && !isSuddenDeath) {
@@ -2109,6 +2209,28 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
       const envType = classifyEnvironmentCollision(otherHandle, callbacks);
       // * Fetch this cart's pos + linvel ONCE; shared by impact + contact-pos math.
       readRamStateInto(cart, _ramStateA);
+
+      // * Hop landing (rising-edge floor contact after takeoff). Fires even when fall
+      // * speed is below the normal floor-impact threshold so soft hops still thud.
+      // * Local cart: always (prediction + host). Remote/NPC: host only.
+      // * Suppresses the generic floor impact on the same contact to avoid double-thud.
+      let hopLandedThisContact = false;
+      if (
+        envType === "floor" &&
+        cart.hopAwaitingLand &&
+        cart.hopAirborne
+      ) {
+        cart.hopAwaitingLand = false;
+        cart.hopAirborne = false;
+        hopLandedThisContact = true;
+        const isLocal = callbacks.localCart === cart;
+        if ((isLocal || isHost) && callbacks.onHopLand) {
+          const fallSpeed = Math.max(0, -(cart._preStepLinvel?.y ?? _ramStateA.linvel.y));
+          const landI = Math.min(1, Math.max(0.22, fallSpeed / 10));
+          callbacks.onHopLand(cart, landI);
+        }
+      }
+
       const intensity = getEnvironmentImpact(cart, envType, impacts, _ramStateA);
       if (intensity == null || intensity <= impacts.minIntensity) return;
 
@@ -2116,8 +2238,10 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
 
       if (isHost) {
         if (envType === "floor") {
-          if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
-          if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
+          if (!hopLandedThisContact) {
+            if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
+            if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
+          }
         } else {
           if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
           if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
@@ -2129,7 +2253,9 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
 
       if (isHost) {
         const slotIndex = cart.slotIndex;
-        if (slotIndex >= 0) {
+        // * Hop landings never broadcast — clients already play their own predicted
+        // * landing thud, and a replayed generic floor impact would double-thud.
+        if (slotIndex >= 0 && !hopLandedThisContact) {
           queueHostCollisionEvent({
             slotA: slotIndex,
             slotB: envType === "floor" ? -1 : -2,
@@ -2175,6 +2301,9 @@ export function runFixedPhysicsStep({
   const getAiAxis = callbacks.getAiAxis || null;
 
   // Save pre-step linear velocities for collision impact calculations
+  const hopCfg = CONFIG.cart?.hop;
+  const hopLandingMaxMs = hopCfg?.landingMaxMs ?? 900;
+  const hopAirborneVy = hopCfg?.airborneVy ?? 1.15;
   for (const cart of allCarts || []) {
     if (cart && cart.body) {
       const lv = cart.body.linvel();
@@ -2182,6 +2311,16 @@ export function runFixedPhysicsStep({
       pre.x = lv.x;
       pre.y = lv.y;
       pre.z = lv.z;
+
+      // * Hop landing edge-detect: mark airborne after takeoff; time out stale awaits
+      // * so ordinary floor bumps never re-fire a thud.
+      if (cart.hopAwaitingLand) {
+        if (lv.y > hopAirborneVy) cart.hopAirborne = true;
+        if (now - (cart.lastHopAtMs || 0) > hopLandingMaxMs) {
+          cart.hopAwaitingLand = false;
+          cart.hopAirborne = false;
+        }
+      }
     }
   }
 

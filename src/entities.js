@@ -400,6 +400,10 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     boostChargeMultiplier: 1,
     chargeUpSfxId: null,
     lastHopAtMs: 0,
+    // * Hop landing one-shot: set on takeoff; cleared on rising-edge floor contact
+    // * (or landingMaxMs timeout). Prevents thud spam on ordinary floor bumps.
+    hopAwaitingLand: false,
+    hopAirborne: false,
     respawnAtMs: null,
     pendingRam: null,
     lastRamTimeMs: 0,

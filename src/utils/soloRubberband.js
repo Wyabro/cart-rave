@@ -1,0 +1,123 @@
+/**
+ * soloRubberband.js — pure solo-mode AI difficulty curve.
+ *
+ * Multiplayer is untouched (caller gates on solo). When the local human is
+ * stomping, NPCs hunt harder; when the human is getting crushed, they ease off
+ * slightly so matches stay fun without becoming free wins.
+ */
+
+/**
+ * @typedef {object} SoloRubberbandConfig
+ * @property {number} [trailBy] Score deficit that starts "ease up" (human behind by N).
+ * @property {number} [leadBy] Score lead that starts "hunt harder".
+ * @property {number} [trailChaseMul] Multiplier on human-chase weight when trailing.
+ * @property {number} [leadChaseMul] Multiplier on human-chase weight when leading.
+ * @property {number} [trailDistanceMul] Scale on human effective distance² when trailing (>1 = less chase).
+ * @property {number} [leadDistanceMul] Scale on human effective distance² when leading (<1 = more chase).
+ * @property {number} [trailNitroMul] Multiplier on NPC nitro commit when targeting human (trailing).
+ * @property {number} [leadNitroMul] Multiplier on NPC nitro commit when targeting human (leading).
+ * @property {number} [trailAimSlackDeg] Extra alignment degrees when trailing (positive = looser = fewer clean boosts).
+ * @property {number} [leadAimSlackDeg] Extra alignment degrees when leading (negative = tighter).
+ */
+
+/**
+ * @typedef {object} SoloRubberbandFactors
+ * @property {number} humanLead humanScore − bestNpcScore (positive = human winning)
+ * @property {"trail" | "lead" | "even"} band
+ * @property {number} chaseMul
+ * @property {number} distanceMul
+ * @property {number} nitroMul
+ * @property {number} aimSlackDeg
+ */
+
+/** @type {SoloRubberbandFactors} */
+export const SOLO_RUBBERBAND_NEUTRAL = Object.freeze({
+  humanLead: 0,
+  band: "even",
+  chaseMul: 1,
+  distanceMul: 1,
+  nitroMul: 1,
+  aimSlackDeg: 0,
+});
+
+/**
+ * Best NPC score among slots marked kind === "npc".
+ * @param {Record<number|string, number> | null | undefined} scores
+ * @param {Array<{ kind?: string } | null | undefined> | null | undefined} netSlots
+ * @returns {number}
+ */
+export function bestNpcScore(scores, netSlots) {
+  let best = 0;
+  const n = netSlots?.length ?? 0;
+  for (let i = 0; i < n; i += 1) {
+    if (netSlots[i]?.kind !== "npc") continue;
+    best = Math.max(best, Number(scores?.[i] || 0));
+  }
+  return best;
+}
+
+/**
+ * First human slot score (solo has exactly one human).
+ * @param {Record<number|string, number> | null | undefined} scores
+ * @param {Array<{ kind?: string, connId?: string | null } | null | undefined> | null | undefined} netSlots
+ * @returns {{ slotIndex: number, score: number } | null}
+ */
+export function firstHumanScore(scores, netSlots) {
+  const n = netSlots?.length ?? 0;
+  for (let i = 0; i < n; i += 1) {
+    const s = netSlots[i];
+    if (s?.kind === "human" && s.connId) {
+      return { slotIndex: i, score: Number(scores?.[i] || 0) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Computes solo rubberband factors from live scores.
+ * @param {Record<number|string, number> | null | undefined} scores
+ * @param {Array<object> | null | undefined} netSlots
+ * @param {SoloRubberbandConfig | null | undefined} [cfg]
+ * @returns {SoloRubberbandFactors}
+ */
+export function computeSoloRubberband(scores, netSlots, cfg) {
+  const human = firstHumanScore(scores, netSlots);
+  if (!human) return SOLO_RUBBERBAND_NEUTRAL;
+
+  const npcBest = bestNpcScore(scores, netSlots);
+  const humanLead = human.score - npcBest;
+
+  const trailBy = cfg?.trailBy ?? 2;
+  const leadBy = cfg?.leadBy ?? 3;
+
+  if (humanLead <= -trailBy) {
+    return {
+      humanLead,
+      band: "trail",
+      chaseMul: cfg?.trailChaseMul ?? 0.72,
+      distanceMul: cfg?.trailDistanceMul ?? 1.28,
+      nitroMul: cfg?.trailNitroMul ?? 0.55,
+      aimSlackDeg: cfg?.trailAimSlackDeg ?? 10,
+    };
+  }
+
+  if (humanLead >= leadBy) {
+    return {
+      humanLead,
+      band: "lead",
+      chaseMul: cfg?.leadChaseMul ?? 1.22,
+      distanceMul: cfg?.leadDistanceMul ?? 0.72,
+      nitroMul: cfg?.leadNitroMul ?? 1.28,
+      aimSlackDeg: cfg?.leadAimSlackDeg ?? -6,
+    };
+  }
+
+  return {
+    humanLead,
+    band: "even",
+    chaseMul: 1,
+    distanceMul: 1,
+    nitroMul: 1,
+    aimSlackDeg: 0,
+  };
+}

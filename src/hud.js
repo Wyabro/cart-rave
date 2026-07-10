@@ -156,6 +156,7 @@ const elements = {
   escMusicVol: null,
   escSfxVol: null,
   hitmarker: null,
+  edgeDanger: null,
   boost: null,
   boostFill: null,
   toast: null,
@@ -1171,6 +1172,18 @@ export function init(options) {
   elements.hitmarker.innerHTML = svgIcon("burst", { size: "100%" });
   elements.root.appendChild(elements.hitmarker);
 
+  // * Edge-danger telegraph — DOM vignette when skidding near a kill edge (no post-FX).
+  elements.edgeDanger = document.createElement("div");
+  elements.edgeDanger.className = "hud-edge-danger";
+  elements.edgeDanger.setAttribute("aria-hidden", "true");
+  elements.root.appendChild(elements.edgeDanger);
+  elements.root.style.setProperty("--hud-edge-danger", "0");
+  elements.root.style.setProperty("--hud-edge-t", "0");
+  elements.root.style.setProperty("--hud-edge-r", "0");
+  elements.root.style.setProperty("--hud-edge-b", "0");
+  elements.root.style.setProperty("--hud-edge-l", "0");
+  elements.root.style.setProperty("--hud-edge-danger-rgb", "255, 43, 214");
+
   // * Boost charge meter — keyboard/gamepad only; the touch BOOST button has its own flash.
   if (!touchDevice) {
     elements.boost = document.createElement("div");
@@ -1278,6 +1291,9 @@ export function init(options) {
     showKillConfirm,
     showChallengeToast,
     showScoreFloat,
+    setEdgeDanger,
+    pulseHitDirection,
+    tickHitDirection,
     noteComboPip,
     noteChipKO,
     escOverlay: elements.escOverlay,
@@ -1471,6 +1487,7 @@ export function showScoreFloat(reward, cause) {
   const labels = [];
   if (cause === "center_hole") labels.push("HOLE SHOT");
   if (cause === "corner_void") labels.push("VOID DROP");
+  if (cause === "spill_bonus") labels.push("SPILL BONUS");
   if (reward.critical > 0) labels.push("CRIT");
   if (reward.leader > 0) labels.push("LEADER DOWN");
   if ((reward.highGround ?? 0) > 0) labels.push("HIGH GROUND");
@@ -1501,6 +1518,229 @@ export function showScoreFloat(reward, cause) {
     { duration: 1100, easing: "ease-out" },
   );
   anim.onfinish = () => el.remove();
+}
+
+/** Quantized hit-vignette values last written (0.05 steps) — skip style churn. */
+let _edgeDangerQ = -1;
+let _edgeDangerTQ = -1;
+let _edgeDangerRQ = -1;
+let _edgeDangerBQ = -1;
+let _edgeDangerLQ = -1;
+/** @type {string} */
+let _edgeDangerRgb = "";
+/** @type {boolean | null} */
+let _edgeDangerActive = null;
+
+/** Active directional hit flash (decays in {@link tickHitDirection}). */
+const _hitFlash = {
+  untilMs: 0,
+  durationMs: 0,
+  intensity: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+  /** @type {string | null} */
+  colorCss: null,
+};
+
+/**
+ * @param {number} v
+ * @returns {number}
+ */
+function quantizeEdge01(v) {
+  const c = Number(v) || 0;
+  if (c <= 0) return 0;
+  if (c >= 1) return 1;
+  return Math.round(c * 20) / 20;
+}
+
+/**
+ * Parses `#rrggbb` / `#rgb` into `"r, g, b"` for CSS `rgba(var(--x), a)`.
+ * @param {string} cssHex
+ * @returns {string | null}
+ */
+function cssHexToRgbChannels(cssHex) {
+  const s = String(cssHex || "").trim();
+  let m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) {
+    const n = parseInt(m[1], 16);
+    return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  }
+  m = /^#([0-9a-f]{3})$/i.exec(s);
+  if (m) {
+    const h = m[1];
+    const r = parseInt(h[0] + h[0], 16);
+    const g = parseInt(h[1] + h[1], 16);
+    const b = parseInt(h[2] + h[2], 16);
+    return `${r}, ${g}, ${b}`;
+  }
+  return null;
+}
+
+/**
+ * Writes directional hit-vignette CSS vars (DOM only — no post-FX).
+ * @param {{
+ *   intensity?: number,
+ *   top?: number,
+ *   right?: number,
+ *   bottom?: number,
+ *   left?: number,
+ *   colorCss?: string | null,
+ * } | number} sample
+ */
+export function setEdgeDanger(sample) {
+  const el = elements.edgeDanger;
+  if (!el || !elements.root) return;
+
+  let intensity = 0;
+  let top = 0;
+  let right = 0;
+  let bottom = 0;
+  let left = 0;
+  /** @type {string | null | undefined} */
+  let colorCss;
+
+  if (typeof sample === "number") {
+    intensity = sample;
+    top = right = bottom = left = sample;
+  } else if (sample && typeof sample === "object") {
+    intensity = Number(sample.intensity) || 0;
+    top = Number(sample.top) || 0;
+    right = Number(sample.right) || 0;
+    bottom = Number(sample.bottom) || 0;
+    left = Number(sample.left) || 0;
+    colorCss = sample.colorCss;
+    if (intensity > 0 && top + right + bottom + left <= 0) {
+      top = right = bottom = left = intensity;
+    }
+  }
+
+  const q = quantizeEdge01(intensity);
+  const tq = quantizeEdge01(top);
+  const rq = quantizeEdge01(right);
+  const bq = quantizeEdge01(bottom);
+  const lq = quantizeEdge01(left);
+  const active = q > 0.015 || tq + rq + bq + lq > 0.015;
+
+  const accent = (
+    (colorCss && String(colorCss)) ||
+    elements.root.style.getPropertyValue("--hud-player-accent") ||
+    _playerAccentCss ||
+    "#22e6ff"
+  ).trim();
+  const rgb = cssHexToRgbChannels(accent) || "34, 230, 255";
+  if (rgb !== _edgeDangerRgb) {
+    _edgeDangerRgb = rgb;
+    // * Set on the vignette node itself so gradients always resolve.
+    el.style.setProperty("--hud-edge-danger-rgb", rgb);
+    elements.root.style.setProperty("--hud-edge-danger-rgb", rgb);
+  }
+
+  if (q !== _edgeDangerQ) {
+    _edgeDangerQ = q;
+    elements.root.style.setProperty("--hud-edge-danger", String(q));
+  }
+  if (tq !== _edgeDangerTQ) {
+    _edgeDangerTQ = tq;
+    el.style.setProperty("--hud-edge-t", String(tq));
+  }
+  if (rq !== _edgeDangerRQ) {
+    _edgeDangerRQ = rq;
+    el.style.setProperty("--hud-edge-r", String(rq));
+  }
+  if (bq !== _edgeDangerBQ) {
+    _edgeDangerBQ = bq;
+    el.style.setProperty("--hud-edge-b", String(bq));
+  }
+  if (lq !== _edgeDangerLQ) {
+    _edgeDangerLQ = lq;
+    el.style.setProperty("--hud-edge-l", String(lq));
+  }
+  if (active !== _edgeDangerActive) {
+    _edgeDangerActive = active;
+    el.classList.toggle("is-active", active);
+  }
+}
+
+/**
+ * Arms a one-shot directional hit vignette (where a cart rammed you from).
+ * Decays via {@link tickHitDirection}; max-of on stacked hits so doubles still read.
+ *
+ * @param {{
+ *   intensity?: number,
+ *   top?: number,
+ *   right?: number,
+ *   bottom?: number,
+ *   left?: number,
+ *   colorCss?: string | null,
+ *   durationMs?: number,
+ * }} sample
+ */
+export function pulseHitDirection(sample) {
+  if (!sample) return;
+  const now = performance.now();
+  const durationMs = Math.max(120, Number(sample.durationMs) || 320);
+  const intensity = Math.max(0, Number(sample.intensity) || 0);
+  const top = Math.max(0, Number(sample.top) || 0);
+  const right = Math.max(0, Number(sample.right) || 0);
+  const bottom = Math.max(0, Number(sample.bottom) || 0);
+  const left = Math.max(0, Number(sample.left) || 0);
+
+  // * Stacked hits: keep the stronger side weights and refresh the fade window.
+  const remaining = Math.max(0, _hitFlash.untilMs - now);
+  const keep = remaining > 40 && _hitFlash.intensity > intensity * 0.85;
+  if (keep) {
+    _hitFlash.top = Math.max(_hitFlash.top, top);
+    _hitFlash.right = Math.max(_hitFlash.right, right);
+    _hitFlash.bottom = Math.max(_hitFlash.bottom, bottom);
+    _hitFlash.left = Math.max(_hitFlash.left, left);
+    _hitFlash.intensity = Math.max(_hitFlash.intensity, intensity);
+  } else {
+    _hitFlash.top = top;
+    _hitFlash.right = right;
+    _hitFlash.bottom = bottom;
+    _hitFlash.left = left;
+    _hitFlash.intensity = intensity;
+  }
+  _hitFlash.durationMs = durationMs;
+  _hitFlash.untilMs = now + durationMs;
+  if (sample.colorCss) _hitFlash.colorCss = sample.colorCss;
+
+  setEdgeDanger({
+    intensity: _hitFlash.intensity,
+    top: _hitFlash.top,
+    right: _hitFlash.right,
+    bottom: _hitFlash.bottom,
+    left: _hitFlash.left,
+    colorCss: _hitFlash.colorCss,
+  });
+}
+
+/**
+ * Ease-out decay for the directional hit vignette. Call once per frame from visuals.
+ * @param {number} [nowMs]
+ */
+export function tickHitDirection(nowMs = performance.now()) {
+  if (_hitFlash.untilMs <= 0) return;
+  if (nowMs >= _hitFlash.untilMs) {
+    _hitFlash.untilMs = 0;
+    _hitFlash.intensity = 0;
+    setEdgeDanger(0);
+    return;
+  }
+  const dur = Math.max(1, _hitFlash.durationMs);
+  const t = Math.max(0, Math.min(1, (_hitFlash.untilMs - nowMs) / dur));
+  // * Smoothstep ease-out so the glow settles softly instead of a linear snap-off.
+  const fade = t * t * (3 - 2 * t);
+  setEdgeDanger({
+    intensity: _hitFlash.intensity * fade,
+    top: _hitFlash.top * fade,
+    right: _hitFlash.right * fade,
+    bottom: _hitFlash.bottom * fade,
+    left: _hitFlash.left * fade,
+    colorCss: _hitFlash.colorCss,
+  });
 }
 
 /**
@@ -1732,6 +1972,9 @@ export function hideGameplayElements() {
     elements.feed.style.display = "none";
     while (elements.feed.firstChild) elements.feed.removeChild(elements.feed.firstChild);
   }
+  _hitFlash.untilMs = 0;
+  _hitFlash.intensity = 0;
+  setEdgeDanger(0);
 }
 
 export function showGameplayElements() {

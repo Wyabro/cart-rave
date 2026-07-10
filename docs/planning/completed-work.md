@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### July 10, 2026 – Solo Polish Sprint (feel / load / bots)
+
+Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
+
+Solo-first juice and bot depth (no post-FX/composer changes). Death-cam “follow killer” was attempted and **reverted** (regression).
+
+| Item | What landed |
+|------|-------------|
+| **Spill Bonus presentation** | `onSpillBonusAward` in `directiveEngine.js` → float/feed in `main.js` / `hud.js` |
+| **First-Solo load hardening** | Selected-level cold-load, idle-warm suppress, cart prefetch (`bootstrap.js` / `levelManager.js`) |
+| **Directional hit vignette** | Where you were rammed from (cart-colored DOM wash) — `pulseLocalHitDirectionVignette`, `hud` edge-danger CSS, `src/utils/edgeDanger.js`, `CONFIG.ramming.fx.hitDirMinIntensity` |
+| **Solo AI rubberband** | `src/utils/soloRubberband.js` + `CONFIG.cart.ramBoost.soloRubberband`; wired in `getAiAxis` + NPC nitro commit (solo only) |
+| **Hop landing SFX/VFX** | Rising-edge floor contact after hop → distinct thud + light dust; one-shot flags `hopAwaitingLand` / `hopAirborne`; prediction replay nulls FX |
+| **NPC rare hop** | Host-sim only; threat dodge + near-edge juke; `CONFIG.cart.hop.npc`; `maybeTriggerNpcOpportunisticHop` + `isNpcNearHazardEdge` |
+
+**Tests:** `tests/edgeDanger.test.js`, `tests/soloRubberband.test.js`, `tests/hopLanding.test.js` (+ engine / SD stubs). Full suite ~188 Vitest tests at writeup time.
+
+---
+
 ## Architecture Refactors (June–July 2026)
 
 Narrative snapshot of the major refactors that shaped the current module structure. Detailed per-file entries live in the dated log below.
@@ -106,7 +125,7 @@ As-built reference: [living-store.md](../reference/living-store.md). Deferred mu
 - Presentation: critical + **focus** callouts (5.2s hold, suppress other non-critical PA); HUD `.hud-directive` chip under timer; regular callouts 25% smaller.
 - Review harden: sudden_death focus collateral fixed; focus ends on interrupt; phase-exit restore without rAF; `reward.multiplier` = combo × directive; 13 engine tests.
 
-**Known follow-up:** Spill Bonus awards correctly but has no dedicated float/feed presentation line yet.
+**Follow-up shipped (July 10 solo polish):** Spill Bonus now has dedicated float/feed presentation via `onSpillBonusAward` (see session note above).
 
 **Render / fill-rate**
 - Half-res UnrealBloom RTs (`CONFIG.postFx.bloomHalfRes`, strength compensated).

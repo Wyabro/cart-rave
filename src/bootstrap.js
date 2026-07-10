@@ -20,6 +20,13 @@ let worldBootstrapDone = false;
 /** @type {Promise<void> | null} */
 let worldBootstrapPromise = null;
 
+/**
+ * Set when the player commits to play entry (Solo / Quickplay / Friends).
+ * Stops the delayed menu idle-warm from starting a *default* arena cold-load
+ * that would then be thrown away and rebuilt for the selected level.
+ */
+let idleWorldWarmSuppressed = false;
+
 /** @type {Promise<unknown> | null} */
 let sessionCartBootstrapPromise = null;
 
@@ -77,21 +84,41 @@ export function isWorldBootstrapped() {
 }
 
 /**
+ * True once play entry has claimed the cold-load path (or the world is already warm).
+ * Menu idle-warm should no-op when this is true so it cannot race Solo with the wrong level.
+ * @returns {boolean}
+ */
+export function isIdleWorldWarmSuppressed() {
+  return idleWorldWarmSuppressed || worldBootstrapDone;
+}
+
+/**
  * Ensures Rapier WASM and the core arena are loaded (idempotent).
+ *
+ * @param {string | null | undefined} [levelIdOverride] When the world is still cold,
+ *   load this arena as the first build (avoids default-level → selected-level double load
+ *   on first Solo). Ignored once a bootstrap is already in flight or complete.
  * @returns {Promise<void>}
  */
-export async function ensureWorldBootstrapped() {
+export async function ensureWorldBootstrapped(levelIdOverride) {
   requireDeps();
   if (worldBootstrapDone) return;
   if (!worldBootstrapPromise) {
+    const levelArg =
+      levelIdOverride != null && String(levelIdOverride).trim() !== ""
+        ? resolveLevelId(levelIdOverride)
+        : undefined;
     worldBootstrapPromise = deps.ensureRapierPhysics()
       .then(async () => {
         if (!worldBootstrapDone) {
           if (import.meta.env.DEV) {
             // eslint-disable-next-line no-console
-            console.log("[bootstrap] arena core load start");
+            console.log(
+              "[bootstrap] arena core load start",
+              levelArg ?? "(storage default)",
+            );
           }
-          await deps.bootstrapWorldCore(undefined);
+          await deps.bootstrapWorldCore(levelArg);
           worldBootstrapDone = true;
           if (import.meta.env.DEV) {
             // eslint-disable-next-line no-console
@@ -224,24 +251,50 @@ export async function enterPlayMode(opts = {}) {
   }
 
   d.cancelMenuPreviewTimers?.();
-
-  const sameLevelWarm = worldBootstrapDone && levelId === d.getLoadedLevelId();
-  const needsFullRebuild = !sameLevelWarm || d.getPreviewNeedsFullRebuild?.() === true;
+  // * Play entry owns the cold-load from here — don't let delayed menu idle-warm
+  // * start a default-arena bootstrap that we'd immediately tear down.
+  idleWorldWarmSuppressed = true;
 
   activePlayBootstrapPromise = withModeEntryLoading(async (reportProgress) => {
     reportProgress(5, "Preparing…");
+
+    // * Cart GLB in parallel with arena work (previously waited until session cart bootstrap).
+    const cartPrefetch = prefetchRaveGltf().catch((err) => {
+      console.warn(
+        "[bootstrap] cart GLTF prefetch during play entry failed — procedural fallback may apply.",
+        err,
+      );
+    });
+
+    // * Claim cold load for the *selected* level ASAP so we win the race vs any
+    // * idle warm that already scheduled with the storage default.
+    void ensureWorldBootstrapped(levelId);
+
     const previewPromise = d.getMenuLevelPreviewPromise?.();
     if (previewPromise) await previewPromise;
     const rebuildPromise = d.getLevelRebuildPromise?.();
     if (rebuildPromise) await rebuildPromise;
+
+    // * Recompute after in-flight menu work — idle warm / preview may have finished
+    // * while we waited, making a full rebuild unnecessary (or newly necessary).
+    const resolvedLevel = resolveLevelId(levelId);
+    const sameLevelWarm =
+      worldBootstrapDone && resolvedLevel === d.getLoadedLevelId();
+    const needsFullRebuild =
+      !sameLevelWarm || d.getPreviewNeedsFullRebuild?.() === true;
+
     if (needsFullRebuild) {
       reportProgress(15, "Building arena…");
       await d.rebuildLevelIfNeeded(levelId, reportProgress);
-      reportProgress(95, "Warming physics…");
-      await ensureWorldBootstrapped();
-    } else if (d.getMenuPreviewNeedsFinalize?.()) {
+      reportProgress(88, "Warming physics…");
+      await ensureWorldBootstrapped(levelId);
+    } else {
+      // * Same full-quality arena: still promote deferred extras / materials / reflector.
       d.finalizeArenaForPlay();
     }
+
+    reportProgress(94, "Loading carts…");
+    await cartPrefetch;
     reportProgress(100, "Ready!");
     if (commitMenuHidden) {
       d.commitMenuHiddenForGame();

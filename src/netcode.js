@@ -175,7 +175,7 @@ let callbacks = {
   playCollisionRef: (midpoint, intensity) => {},
   spawnTrashBurstRef: (pos, vel, count) => {},
   triggerLocalRamShakeRef: (intensity) => {},
-  triggerLocalHitTakenRef: (intensity) => {},
+  triggerLocalHitTakenRef: (_intensity, _isBoosting, _hitFromX, _hitFromZ) => {},
   // * Remote-cart boost start (rising edge from host snapshots) — attenuated SFX + pulse.
   onRemoteBoostStart: (cart) => {},
   // * Impact squash replay — (rammerCart|null, victimCart, intensity) per collision event.
@@ -274,8 +274,8 @@ export function registerGameCallbacks(deps) {
     triggerLocalRamShakeRef: (intensity, isBoosting) => {
       deps.getTriggerLocalRamShake?.()?.(intensity, isBoosting);
     },
-    triggerLocalHitTakenRef: (intensity, isBoosting) => {
-      deps.getTriggerLocalHitTaken?.()?.(intensity, isBoosting);
+    triggerLocalHitTakenRef: (intensity, isBoosting, hitFromX, hitFromZ) => {
+      deps.getTriggerLocalHitTaken?.()?.(intensity, isBoosting, hitFromX, hitFromZ);
     },
     onRemoteBoostStart: (cart) => deps.onRemoteBoostStart?.(cart),
     onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {
@@ -855,7 +855,18 @@ function replayHostCollisionFx(msg, callbacks) {
   if (typeof msg.rammerSlot === "number" && msg.rammerSlot === localSlot) {
     callbacks.triggerLocalRamShakeRef(intensity, isBoosting);
   } else if (localSlot >= 0 && slotB === localSlot) {
-    callbacks.triggerLocalHitTakenRef(intensity, isBoosting);
+    // * Hit-from direction for the directional vignette — attacker relative to local cart.
+    let hitFromX = 0;
+    let hitFromZ = 0;
+    const rammerCart = typeof msg.rammerSlot === "number" ? carts?.[msg.rammerSlot] : null;
+    const victimCart = carts?.[slotB];
+    if (rammerCart?.body && victimCart?.body) {
+      const rp = rammerCart.body.translation();
+      const vp = victimCart.body.translation();
+      hitFromX = rp.x - vp.x;
+      hitFromZ = rp.z - vp.z;
+    }
+    callbacks.triggerLocalHitTakenRef(intensity, isBoosting, hitFromX, hitFromZ);
   }
 }
 

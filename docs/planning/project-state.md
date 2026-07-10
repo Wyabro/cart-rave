@@ -55,7 +55,7 @@ Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/R
 
 ### Recent work (July 9–10, 2026)
 
-Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening). Full writeups in [completed-work.md](./completed-work.md). Session plans archived under [archive/session-notes/](../archive/session-notes/).
+Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); **solo polish sprint** (Spill Bonus float/feed, first-solo load hardening, directional hit vignette, solo AI rubberband, hop landing thud, NPC rare hop — death-cam follow killer attempted and reverted). Full writeups in [completed-work.md](./completed-work.md). Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
 
 ### Key files
 
@@ -77,8 +77,10 @@ Highlights beyond the June/July refactors: progression unlocks; Sundial Station 
 | `src/ui/styles/` | hud, pause, results, global, announcer, **tokens** |
 | `src/utils/levelLod.js` | Distance-cull decorative props |
 | `src/utils/autoQuality.js` | Session low-quality step-down |
+| `src/utils/edgeDanger.js` | Hit-from / edge-danger side weights (DOM vignette math) |
+| `src/utils/soloRubberband.js` | Solo-only NPC chase/nitro difficulty curve |
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
-| `tests/` | Vitest suite (currently 145 tests) |
+| `tests/` | Vitest suite (~188 tests) |
 | `.cursorrules` | Design spec and AI guardrails |
 
 Full architecture reference: [Game_Architecture.md](../reference/Game_Architecture.md).
@@ -90,11 +92,12 @@ Full architecture reference: [Game_Architecture.md](../reference/Game_Architectu
 **Phases 1–3 largely complete; Phase 4 (Multiplayer & Infrastructure) is active.** What works today:
 
 - **Core game** — fully playable host-authoritative multiplayer with client-side rewind-and-replay prediction; solo mode (private `soloXXXXXX` room + NPCs) runs the same path.
-- **Physics & feel** — convex-hull + primitive colliders across all three arenas; July 9 feel pass (hit feedback parity, hit-stop presentation, haptics, remote boost/hop FX).
+- **Physics & feel** — convex-hull + primitive colliders across all three arenas; July 9 feel pass (hit feedback parity, hit-stop presentation, haptics, remote boost/hop FX); July 10 solo polish (directional hit vignette, hop landing thud, NPC rare hop, solo AI rubberband).
 - **Content** — three elevated arenas (Cart Rave / Classic Record, The Storerooms, Sundial Station); touch controls; daily/weekly challenges; lifetime cosmetic/level unlocks; personal-best tracking.
-- **Presentation** — Store PA announcer; center-stage HUD redesign; production-value + visual-polish + feel passes (July 7–9).
+- **Presentation** — Store PA announcer; center-stage HUD redesign; production-value + visual-polish + feel passes (July 7–9); Spill Bonus float/feed (July 10).
 - **Progression** — lifetime unlocks for patterns (incl. Bolt), sunglasses, custom color, and levels; mid-match unlock toasts; results challenge progress.
-- **Living Store** — cargo bay tracks round score (spill-rush comeback, top-heavy grip); Store PA issues mid-round directives (Flash Sale / Double Bag / Express Lane / Spill Bonus / Rush Hour) with HUD chip + focus callouts.
+- **Living Store** — cargo bay tracks round score (spill-rush comeback, top-heavy grip); Store PA issues mid-round directives (Flash Sale / Double Bag / Express Lane / Spill Bonus / Rush Hour) with HUD chip + focus callouts + Spill Bonus presentation.
+- **Solo path** — private room + 3 NPCs; first-solo cold-load hardening; score-lead rubberband for bots (solo only).
 - **Perf foundations** — lazy game music, Draco cart models, self-hosted fonts, half-res bloom, prop LOD, auto-quality watchdog, menu preview LOD.
 
 **Next / open** (full plan in [ROADMAP.md](./ROADMAP.md)):
@@ -105,7 +108,7 @@ Full architecture reference: [Game_Architecture.md](../reference/Game_Architectu
 | Black-frame flicker triage | ⬜ Open plan — [plan-flicker-fix…](./plan-flicker-fix-and-classic-audit.md) |
 | Menu overhaul + domain cutover | 🔧 In progress |
 | Deeper performance pass (level swap / menu / profiling) | ⬜ Partial foundations shipped |
-| Spill Bonus float/feed presentation | ⬜ Known follow-up (points award works; no dedicated float/feed line yet) |
+| Death cam follow killer | ⬜ Tried July 10; reverted as regression — revisit carefully |
 | Persistent leaderboard (Supabase) | ⬜ Planned |
 
 The full shipped log — including the Phase 4 bug-fix ledger — lives in [completed-work.md](./completed-work.md#phase-4-bug-fix-ledger).

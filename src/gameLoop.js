@@ -278,10 +278,15 @@ export function runPhysicsStep(loopState, deps, context) {
               onBoostRelease: null,
               onBoostCancel: null,
               onSpill: null,
+              onHopLand: null,
               triggerHopRef: (cart, nowMs) => {
                 if (!cart?.body) return;
                 if (nowMs - cart.lastHopAtMs < deps.CONFIG.cart.hop.cooldownMs) return;
                 cart.lastHopAtMs = nowMs;
+                // * Prediction-only hop: impulse + landing-edge flags, no SFX/VFX
+                // * (onHopLand is null in this replay callback set).
+                cart.hopAwaitingLand = true;
+                cart.hopAirborne = false;
                 cart.body.applyImpulse({ x: 0, y: deps.CONFIG.cart.hop.impulse, z: 0 }, true);
               },
             };

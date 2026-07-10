@@ -98,6 +98,7 @@ import {
 import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
 import { hapticPulse } from "./haptics.js";
+import { sideWeightsFromCartBasis } from "./utils/edgeDanger.js";
 import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/announcerManager.js";
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
@@ -133,6 +134,7 @@ import {
   ensureWorldBootstrapped,
   getLastSuccessfulHelloGen,
   initBootstrap,
+  isIdleWorldWarmSuppressed,
   isWorldBootstrapped,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
@@ -449,7 +451,7 @@ let allCartsRef = null;
 let getAxisRef = null;
 /** @type {(cart: any, nowMs: number) => void | null} */
 let triggerRamBoostRef = null;
-/** @type {((position: { x: number; y: number; z: number }, intensity: number) => void) | null} */
+/** @type {((position: { x: number; y: number; z: number }, intensity: number, type?: string, opts?: object) => void) | null} */
 let spawnTrashBurstRef = null;
 /** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
 let triggerLocalRamShakeRef = null;
@@ -761,23 +763,114 @@ async function main() {
       armFovPunch(8, 100);
     }
   }
-  // * Victim-side ram feedback — getting hit hard must read through the body, not just
-  // * the eyes. Shake + vignette/aberration kick only: no FOV punch (that's the attacker's
-  // * reward) and no announcer big-hit arming (close_call is rammer-flavored).
-  function triggerLocalHitTaken(intensity, isBoosting = false) {
+  // * Victim-side ram feedback — shake/post-FX only on hard hits; directional DOM
+  // * vignette arms on lighter rams too (most impulses sit below shakeMinIntensity).
+  /**
+   * @param {number} intensity
+   * @param {boolean} [isBoosting]
+   * @param {number} [hitFromX] World-XZ direction the blow came from (attacker relative to you)
+   * @param {number} [hitFromZ]
+   */
+  function triggerLocalHitTaken(intensity, isBoosting = false, hitFromX = 0, hitFromZ = 0) {
     const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
+    const clampedI = Math.min(Math.max(Number(intensity) || 0, 0), 1.35);
+
+    // * Directional hit cue first — lower floor than shake so everyday rams still read.
+    // * fxIntensity is impulse/maxImpulse; typical non-boost rams often land ~0.1–0.35.
+    const vignetteMin = fx.hitDirMinIntensity ?? 0.08;
+    if (clampedI >= vignetteMin) {
+      pulseLocalHitDirectionVignette(clampedI, hitFromX, hitFromZ);
+    }
+
     const minI = isBoosting
       ? (fx.shakeBoostMinIntensity ?? 0.24)
       : (fx.shakeMinIntensity ?? 0.38);
-    if (intensity < minI) return;
-    const clampedI = Math.min(intensity, 1.2);
+    if (clampedI < minI) return;
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
     shakeUntil = performance.now() + 150 + clampedI * 100;
-    // * Slightly harder pulse than the attacker's — receiving a hit should feel heavier
-    // * than dealing one.
     triggerImpactPulse(Math.min(clampedI * 1.15, 1.2));
     hapticPulse(clampedI * 0.85, clampedI * 0.5, 70 + clampedI * 70);
+  }
+
+  /** Scratch for hit-direction → cart-local side mapping (no per-hit allocs). */
+  const _hitDirFwd = new THREE.Vector3();
+  const _hitDirRight = new THREE.Vector3();
+  const _hitDirUp = new THREE.Vector3(0, 1, 0);
+  const _hitDirQuat = new THREE.Quaternion();
+
+  /**
+   * @param {number} clampedI Raw collision intensity (often << 1 for normal rams).
+   * @param {number} hitFromX
+   * @param {number} hitFromZ
+   */
+  function pulseLocalHitDirectionVignette(clampedI, hitFromX, hitFromZ) {
+    const cart = localCartForConnId();
+    if (!cart?.body || typeof HUD.pulseHitDirection !== "function") return;
+
+    // * Remap low impulse intensities into a readable display range (tuned +25% then +10%).
+    // * sqrt eases mid-hits up without washing out boost rams.
+    const displayI = Math.min(1, 0.46 + Math.sqrt(Math.min(clampedI, 1.2)) * 0.79);
+
+    const len = Math.hypot(hitFromX, hitFromZ);
+    let top = 0;
+    let right = 0;
+    let bottom = 0;
+    let left = 0;
+    if (len > 1e-4) {
+      const nx = hitFromX / len;
+      const nz = hitFromZ / len;
+      const rot = cart.body.rotation();
+      _hitDirQuat.set(rot.x, rot.y, rot.z, rot.w);
+      _hitDirFwd.set(0, 0, -1).applyQuaternion(_hitDirQuat);
+      _hitDirFwd.y = 0;
+      if (_hitDirFwd.lengthSq() > 1e-6) _hitDirFwd.normalize();
+      else _hitDirFwd.set(0, 0, -1);
+      _hitDirRight.crossVectors(_hitDirFwd, _hitDirUp).normalize();
+      const sides = sideWeightsFromCartBasis(
+        displayI,
+        nx,
+        nz,
+        _hitDirFwd.x,
+        _hitDirFwd.z,
+        _hitDirRight.x,
+        _hitDirRight.z,
+      );
+      top = sides.top;
+      right = sides.right;
+      bottom = sides.bottom;
+      left = sides.left;
+    } else {
+      const u = displayI * 0.45;
+      top = right = bottom = left = u;
+    }
+
+    const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+    const slot = Netcode.getNetSlots()?.[localSlot];
+    const colorCss = hud?.colorHexToCss?.(displayColorHexForSlot(slot))
+      || _playerAccentFromHud()
+      || "#22e6ff";
+
+    HUD.pulseHitDirection({
+      intensity: displayI,
+      top,
+      right,
+      bottom,
+      left,
+      colorCss,
+      durationMs: 420 + displayI * 220,
+    });
+  }
+
+  /** @returns {string | null} */
+  function _playerAccentFromHud() {
+    try {
+      return getComputedStyle(document.getElementById("hud") || document.documentElement)
+        .getPropertyValue("--hud-player-accent")
+        .trim() || null;
+    } catch {
+      return null;
+    }
   }
   // * Squash-and-stretch on impact — the victim compresses hard, the rammer flexes
   // * lightly. Fired for every collision on the host and replayed for non-hosts, so
@@ -925,6 +1018,37 @@ async function main() {
     announce,
     addScore: GameState.addScore,
     getLastHitBy: () => GameState.getLastHitBy(),
+    // * Spill Bonus used to addScore with zero ceremony — float + feed so the
+    // * directive's payoff is readable (solo/host path; multiplayer clients still
+    // * learn scores via round sync until a wire presentation lands).
+    onSpillBonusAward: ({ attackerSlotIndex, victimSlotIndex, points }) => {
+      const slots = Netcode.getNetSlots();
+      const attacker = slots?.[attackerSlotIndex];
+      const victim = slots?.[victimSlotIndex];
+      const actorName = attacker?.name || `P${attackerSlotIndex + 1}`;
+      const targetName = victim?.name || `P${victimSlotIndex + 1}`;
+      const actorColor = hud?.colorHexToCss?.(displayColorHexForSlot(attacker)) ?? null;
+      const targetColor = hud?.colorHexToCss?.(displayColorHexForSlot(victim)) ?? null;
+      hud?.addKillFeedEntry?.(actorName, actorColor, "SPILLED", targetName, targetColor, 0, 1);
+
+      const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      if (attackerSlotIndex !== localSlot) return;
+
+      hud?.showScoreFloat?.(
+        {
+          base: points,
+          critical: 0,
+          leader: 0,
+          highGround: 0,
+          multiplier: 1,
+          total: points,
+        },
+        "spill_bonus",
+      );
+      // * Lighter than a full KO confirm — just enough for the +1 to land.
+      hapticPulse(0.35, 0.25, 45);
+      SfxSynth.playKillConfirm();
+    },
   });
 
   // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
@@ -2477,6 +2601,8 @@ async function main() {
    * @param {ReturnType<typeof createCart>} cart
    */
   function getAiAxis(now, cart) {
+    // * Solo rubberband is host-local AI only — never arm it for multiplayer rooms.
+    Simulation.setSoloRubberbandActive(detectGameMode() === "solo");
     return Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
   }
 
@@ -2584,6 +2710,9 @@ async function main() {
     if (!cart?.body) return;
     if (nowMs - cart.lastHopAtMs < CONFIG.cart.hop.cooldownMs) return;
     cart.lastHopAtMs = nowMs;
+    // * Arm one-shot landing feedback (rising-edge floor contact in simulation).
+    cart.hopAwaitingLand = true;
+    cart.hopAirborne = false;
     cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
     if (cart === localCartForConnId()) {
       AudioManager.playSfx("hop");
@@ -2591,6 +2720,42 @@ async function main() {
       // * Remote humans and NPCs hop audibly too (covers host-side sim hops AND the
       // * non-host snap.h replay, which routes through this same function).
       AudioManager.playSfx("hop", undefined, { volume: 0.45 });
+    }
+  }
+
+  /**
+   * Hop landing thud + light dust. Fired once per hop on rising-edge floor contact
+   * (simulation sets hopAwaitingLand / hopAirborne). Distinct from takeoff "hop" SFX.
+   *
+   * @param {ReturnType<typeof createCart>} cart
+   * @param {number} intensity 0–1-ish from fall speed
+   */
+  function onHopLand(cart, intensity) {
+    if (!cart) return;
+    const i = Math.max(0, Math.min(1, Number(intensity) || 0.3));
+    const isLocal = cart === localCartForConnId();
+    if (isLocal) {
+      // * Floor sample as a softer/lower "thud" so it reads differently from takeoff hop.
+      AudioManager.playSfx("floor", undefined, {
+        volume: 0.5 + i * 0.4,
+        rate: 0.78 + Math.random() * 0.08,
+      });
+      hapticPulse(0.18, 0.35, 28);
+    } else {
+      // * Remote / NPC: attenuated like boost so the field stays readable without spam.
+      AudioManager.playSfx("floor", undefined, {
+        volume: 0.22 + i * 0.12,
+        rate: 0.82,
+      });
+    }
+    // * Light dust — reuse floor trash profile at low intensity (cheap pool particles).
+    if (spawnTrashBurstRef && cart.body && GameState.getRoundState().phase === "running") {
+      const p = cart.body.translation();
+      spawnTrashBurstRef(
+        { x: p.x, y: p.y - 0.35, z: p.z },
+        Math.min(0.42, 0.18 + i * 0.35),
+        "floor",
+      );
     }
   }
 
@@ -2633,9 +2798,19 @@ async function main() {
     if (!nearestTarget) return;
     const op = nearestTarget.body.translation();
 
-    // * NPC targets: commit chance based on personality profile (50% aggressor, 35% chaotic, 25% lurker/scavenger)
-    const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
-    if (!nearestIsHuman && Math.random() >= commitChance) return;
+    // * NPC-vs-NPC: personality commit chance. NPC-vs-human: always commit (legacy),
+    // * except solo rubberband can throttle when the human is far behind.
+    let aimSlackDeg = 0;
+    if (!nearestIsHuman) {
+      const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
+      if (Math.random() >= commitChance) return;
+    } else if (detectGameMode() === "solo") {
+      const solo = Simulation.getSoloRubberbandFactors(netSlots);
+      aimSlackDeg = solo.aimSlackDeg;
+      // * nitroMul is absolute vs human (base was 1.0). Trail ~0.55; lead stays 1.0.
+      const humanCommit = Math.min(1, Math.max(0.05, solo.nitroMul >= 1 ? 1 : solo.nitroMul));
+      if (Math.random() >= humanCommit) return;
+    }
 
     const dist = Math.sqrt(nearestD2);
     if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
@@ -2684,11 +2859,103 @@ async function main() {
     ramBoostForwardXZ.normalize();
     const dot = clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1);
     const angleDeg = Math.acos(dot) * (180 / Math.PI);
-    if (angleDeg > ncfg.alignmentAngleDeg) return;
+    // * Solo trailing: looser cone → fewer boosts line up; leading: tighter cone.
+    const aimLimit = Math.max(12, (ncfg.alignmentAngleDeg ?? 40) + aimSlackDeg);
+    if (angleDeg > aimLimit) return;
 
     // * NPCs use the instant nitro path — keeps bot movement responsive and avoids
     // * freezing in a 1.5s charge window mid-combat.
     triggerRamBoost(npc, nowMs, { instant: true });
+  }
+
+  /**
+   * Host-only rare NPC hop: dodge an approaching rammer, or juke near a void edge.
+   * Mirrors maybeTriggerNpcOpportunisticRamBoost safety (no hop-suicide into holes).
+   *
+   * @param {number} nowMs
+   * @param {ReturnType<typeof createCart>} npc
+   */
+  function maybeTriggerNpcOpportunisticHop(nowMs, npc) {
+    const hopCfg = CONFIG.cart.hop;
+    const ncfg = hopCfg?.npc;
+    if (!hopCfg || !ncfg?.enabled) return;
+    if (!npc?.body || npc.respawnAtMs != null || npc.isSuddenDeathSpectator) return;
+    if (GameState.getRoundState().phase !== "running") return;
+
+    const cooldownMs = ncfg.cooldownMs ?? hopCfg.cooldownMs * 5;
+    if (nowMs - (npc.lastHopAtMs || 0) < cooldownMs) return;
+
+    const p = npc.body.translation();
+    const lv = npc.body.linvel();
+    const fallYThreshold = CONFIG.fall?.yThreshold ?? -10;
+    // * Grounded-ish only — never hop while already falling / mid-air / on booth.
+    if (p.y < fallYThreshold + 3) return;
+    if (p.y > (CONFIG.booth?.platformY ?? 6) - 0.5) return;
+    if (Math.abs(lv.y) > 2.2) return;
+
+    // * Near-hazard band (edge-save). Reuse the same keep-outs as nitro / reverse gates.
+    let nearHazard = false;
+    const edgeProx = ncfg.edgeProximityM ?? 3.2;
+    nearHazard = Simulation.isNpcNearHazardEdge(p.x, p.z, edgeProx);
+    // * Classic outer rim (not in hazard helper — only center hole / level voids).
+    if (!nearHazard && CONFIG.record?.radius != null) {
+      const outer = CONFIG.record.radius - edgeProx;
+      if (Math.hypot(p.x, p.z) > outer) nearHazard = true;
+    }
+
+    // * Don't hop when the forward path already crosses a square void (Backrooms).
+    // * Pure-Y hop won't change XZ, but airborne carts steer less and can coast in.
+    const yaw = Simulation.yawFromQuaternion(npc.body.rotation());
+    Simulation.setForwardRightFromYaw(yaw, ramBoostForwardXZ, ramBoostRightXZ);
+    if (ramBoostForwardXZ.lengthSq() > 1e-8) {
+      ramBoostForwardXZ.normalize();
+      const lookX = p.x + ramBoostForwardXZ.x * 4;
+      const lookZ = p.z + ramBoostForwardXZ.z * 4;
+      if (Simulation.findBlockingSquareHole(p.x, p.z, lookX, lookZ, 0.35)) {
+        return;
+      }
+    }
+
+    const netSlots = Netcode.getNetSlots();
+    const minD = ncfg.minThreatDistance ?? 2.4;
+    const maxD = ncfg.maxThreatDistance ?? 7.5;
+    const minD2 = minD * minD;
+    const maxD2 = maxD * maxD;
+    const alignMin = ncfg.alignmentDotMin ?? 0.35;
+    const minThreatSpeed = ncfg.minThreatSpeed ?? 6;
+
+    let threatened = false;
+    for (let i = 0; i < allCarts.length; i += 1) {
+      const o = allCarts[i];
+      if (o === npc || !o?.body || o.respawnAtMs != null || o.isSuddenDeathSpectator) continue;
+      const op = o.body.translation();
+      if (op.y < fallYThreshold) continue;
+      const dx = p.x - op.x;
+      const dz = p.z - op.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < minD2 || d2 > maxD2) continue;
+      const ov = o.body.linvel();
+      const spd = Math.hypot(ov.x, ov.z);
+      if (spd < minThreatSpeed) continue;
+      // * Threat velocity points roughly toward us.
+      const invDist = 1 / Math.sqrt(d2);
+      const toNpcX = dx * invDist;
+      const toNpcZ = dz * invDist;
+      const vLen = spd || 1;
+      const vDot = (ov.x / vLen) * toNpcX + (ov.z / vLen) * toNpcZ;
+      if (vDot < alignMin) continue;
+      threatened = true;
+      break;
+    }
+
+    if (!threatened) return;
+
+    const baseChance = ncfg.chance ?? 0.11;
+    const edgeChance = ncfg.edgeSaveChance ?? 0.18;
+    const roll = Math.random();
+    if (roll >= (nearHazard ? edgeChance : baseChance)) return;
+
+    triggerHop(npc, nowMs);
   }
 
   // --- Round flow (countdown, podium, AI) ---
@@ -3074,6 +3341,7 @@ async function main() {
     scheduleStuckRespawn,
     doRespawn: Entities.doRespawn,
     maybeTriggerNpcOpportunisticRamBoost,
+    maybeTriggerNpcOpportunisticHop,
     endRound,
     scheduleLastCartStandingFinish,
     abortLastCartStandingFlourish,
@@ -3120,6 +3388,7 @@ async function main() {
     onCartImpactSquash: squashCartsOnImpact,
     onBoostRelease,
     onBoostCancel,
+    onHopLand,
     onSpill: (cart) => {
       const pos = cart.body.translation();
       const quat = cart.body.rotation();
@@ -3395,6 +3664,9 @@ function scheduleIdleWorldWarm() {
   const runWarm = () => {
     if (!menuVisible) return;
     if (isWorldBootstrapped()) return;
+    // * Solo/Quickplay already claimed the cold-load — don't start a default-arena warm
+    // * that would race and force a second full rebuild for the selected level.
+    if (isIdleWorldWarmSuppressed()) return;
     void ensureWorldBootstrapped()
       .then(() => {
         if (import.meta.env.DEV && menuVisible) {

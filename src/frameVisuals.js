@@ -18,6 +18,7 @@ import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 
+
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
 let lastResultsOverlayPhase = null;
 
@@ -48,6 +49,8 @@ const _hitStopQuat = new THREE.Quaternion();
 
 // * Living Cargo per-frame context scratch (no per-frame object literal).
 const _cargoCtx = { localSlotIndex: -1, netSlots: /** @type {Array<object>} */ ([]), roundPhase: "" };
+
+
 
 /**
  * * Fetches a cart body's translation/rotation/linvel/angvel ONCE into the module
@@ -393,6 +396,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     matchHistoryLength: deps.getMatchHistoryLength(),
     menuVisible: deps.isMenuVisible(),
   });
+  // * Decay directional hit vignette (armed by triggerLocalHitTaken on rams).
+  deps.HUD.tickHitDirection?.(now);
   deps.updateTouchControlsVisibility?.();
   if (roundState.phase === "podium" || lastResultsOverlayPhase === "podium") {
     deps.updateResultsOverlay();

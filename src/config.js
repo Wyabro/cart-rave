@@ -129,6 +129,22 @@ const physics = {
         maxTargetDistance: 12.0, // meters
       },
 
+      // * Solo-only AI rubberband (multiplayer ignores this). When the human is
+      // * crushed, bots ease off; when the human is stomping, they hunt harder.
+      soloRubberband: {
+        enabled: true,
+        trailBy: 2, // points — human behind best NPC by this much → ease up
+        leadBy: 3, // points — human ahead of best NPC by this much → hunt harder
+        trailChaseMul: 0.72, // unitless — human-chase weight scale while trailing
+        leadChaseMul: 1.22, // unitless — human-chase weight scale while leading
+        trailDistanceMul: 1.28, // unitless — effective human distance² while trailing (>1 = less chase)
+        leadDistanceMul: 0.72, // unitless — effective human distance² while leading (<1 = more chase)
+        trailNitroMul: 0.55, // unitless — nitro commit scale vs human while trailing
+        leadNitroMul: 1.28, // unitless — nitro commit scale vs human while leading
+        trailAimSlackDeg: 10, // degrees — looser aim cone while trailing (fewer clean boosts)
+        leadAimSlackDeg: -6, // degrees — tighter aim cone while leading
+      },
+
       // * Auto-Charge Boost — tap to charge, auto-releases at full charge.
       // * Replaces the instant nitro for human carts (mobile-friendly one-tap flow).
       // * NPCs keep instant boost via the instant flag on triggerRamBoost.
@@ -151,6 +167,22 @@ const physics = {
     hop: {
       impulse: 25, // N·s scale — upward hop impulse
       cooldownMs: 500, // ms — minimum time between hops
+      // * Landing thud window — rising-edge floor contact after a hop (not every bump).
+      landingMaxMs: 900, // ms — abandon hop-landing await after this long airborne
+      airborneVy: 1.15, // m/s — upward vel that counts as "left the ground" after hop
+      // * Solo/host NPC rare hop (dodge incoming ram / near-edge juke). Multiplayer:
+      // * host-sim only via gameFlow, same gate as ramBoost.npc.
+      npc: {
+        enabled: true,
+        cooldownMs: 2800, // ms — rarer than player hop so bots stay mostly grounded
+        chance: 0.11, // unitless — roll when a threat/edge condition is met
+        minThreatDistance: 2.4, // meters — ignore body-contact range (already colliding)
+        maxThreatDistance: 7.5, // meters — don't hop at distant threats
+        alignmentDotMin: 0.35, // unitless — threat must be approaching roughly toward us
+        minThreatSpeed: 6.0, // m/s — planar speed of the approaching cart
+        edgeSaveChance: 0.18, // unitless — higher chance when near a void + threatened
+        edgeProximityM: 3.2, // meters — "near hazard" band for edge-save hops
+      },
     },
   },
 
@@ -189,6 +221,8 @@ const physics = {
       shakeBoostMinIntensity: 0.22, // unitless — lower shake threshold during nitro rams
       shakePixelScale: 5.5, // px — screen shake amplitude scale
       audioBoostGain: 1.4, // unitless — collision SFX gain multiplier when boosting
+      // * Directional hit vignette (DOM) — lower than shake so everyday rams still cue.
+      hitDirMinIntensity: 0.08, // unitless — min collision intensity for hit-from vignette
     },
   },
 
