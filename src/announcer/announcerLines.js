@@ -86,6 +86,25 @@ const LINES = {
       "{victim} ATE THE FLOOR!",
       "SPILL ON AISLE {aisle}!",
     ],
+    // * Directive descriptions are deliberately generic and mechanical — the kicker
+    // * carries the flavor name; this line must state exactly what changed in game.
+    directive_flash_sale: [
+      "RAMS HIT 50% HARDER",
+    ],
+    directive_double_bag: [
+      "POINTS DOUBLED",
+    ],
+    directive_express_lane: [
+      "BOOSTS CHARGE 2X FASTER",
+    ],
+    directive_spill_bonus: [
+      "SPILL A RIVAL'S GROCERIES +1 POINT",
+    ],
+    directive_end: [
+      "BACK TO REGULAR PRICES.",
+      "PROMOTION'S OVER — KEEP SHOPPING.",
+      "THE STORE THANKS YOU FOR YOUR CHAOS.",
+    ],
     cart_overflow: [
       "{name}'S CART IS OVERFLOWING!",
       "SOMEBODY STOP {name} — THAT BASKET IS FULL!",

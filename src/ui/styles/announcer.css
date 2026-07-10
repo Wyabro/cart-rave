@@ -51,10 +51,13 @@
 }
 
 /* Kicker — a small solid sticker tag in the event's accent color, tilted like
-   it was slapped on over the headline. Ink text on pigment, zero glow. */
+   it was slapped on over the headline. Ink text on pigment, zero glow.
+   Regular callouts run 25% smaller than the original size; Living Store
+   directive callouts ([data-focus]) keep the original "feature" size so the
+   size difference itself tells players "this one changes the rules". */
 #announcer-display .announcer-kicker {
   font-family: var(--announcer-ui);
-  font-size: clamp(0.72rem, 1.8vw, 1rem);
+  font-size: clamp(0.54rem, 1.35vw, 0.75rem);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -73,7 +76,7 @@
   font-family: var(--announcer-ui);
   font-weight: 900;
   font-style: italic;
-  font-size: clamp(1.7rem, 5vw, 3.1rem);
+  font-size: clamp(1.28rem, 3.75vw, 2.33rem);
   letter-spacing: 0.02em;
   line-height: 1.08;
   text-transform: uppercase;
@@ -88,19 +91,39 @@
   word-break: break-word;
 }
 
+/* Feature size — Living Store directives own the screen while they hold. */
+#announcer-display .announcer-callout[data-focus] .announcer-kicker {
+  font-size: clamp(0.72rem, 1.8vw, 1rem);
+}
+#announcer-display .announcer-callout[data-focus] .announcer-text {
+  font-size: clamp(1.7rem, 5vw, 3.1rem);
+}
+
 /* Kicker-only callouts (no resolved subtitle line) — hide the empty main line
    so the kicker doesn't sit above a blank gap. */
 #announcer-display .announcer-text--empty {
   display: none;
 }
 
+/* Mobile — callouts must not blanket the play area. Regular callouts drop to a
+   compact strapline; directives keep their previous mobile size (already tighter
+   than desktop) so rule changes stay the one big read. */
 @media (max-width: 480px) {
   #announcer-display .announcer-callout {
     top: 24vh;
     max-width: 94vw;
   }
   #announcer-display .announcer-text {
+    font-size: clamp(1rem, 4.9vw, 1.65rem);
+  }
+  #announcer-display .announcer-kicker {
+    font-size: clamp(0.5rem, 2vw, 0.7rem);
+  }
+  #announcer-display .announcer-callout[data-focus] .announcer-text {
     font-size: clamp(1.35rem, 6.5vw, 2.2rem);
+  }
+  #announcer-display .announcer-callout[data-focus] .announcer-kicker {
+    font-size: clamp(0.62rem, 2.4vw, 0.85rem);
   }
 }
 

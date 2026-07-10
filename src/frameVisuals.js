@@ -13,6 +13,7 @@ import {
 import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { updateCargoLoad } from "./cargoLoad.js";
+import { updateDirectiveEngine, getActiveDirective } from "./directives/directiveEngine.js";
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
@@ -181,6 +182,11 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     netSlots: netSlotsForFrame,
     roundPhase: roundState.phase,
   });
+
+  // * The Living Store — host schedules/fires PA directives; every peer ticks expiry.
+  updateDirectiveEngine(now);
+  // * Directive countdown chip under the round timer (hides itself when none active).
+  deps.HUD?.setHudDirective?.(getActiveDirective(), now);
 
   const usePhysicsInterp = physicsAlpha != null;
   const visualOffset = deps.CONFIG.cart.visualOffset;

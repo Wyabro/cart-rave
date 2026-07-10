@@ -38,6 +38,7 @@ import { playAnnouncerSting } from "./announcerStings.js";
  * @property {string} accent CSS color.
  * @property {number} holdMs
  * @property {AnnouncerEventClass} cls
+ * @property {boolean} [focus] Feature-size directive callout (see AnnouncerEventDef.focus).
  */
 
 /**
@@ -89,6 +90,14 @@ let _lastEndMs = -Infinity;
 
 /** @type {QueueItem[]} */
 let _queue = [];
+
+/**
+ * Focus window deadline (performance.now()). While a `focus: true` event's callout is on
+ * screen (Living Store directives), every other non-sequence, non-critical announcement is
+ * dropped outright — not queued — so the rule change gets read uncontested and the PA
+ * doesn't feel busy. Sequence beeps and critical match-state events still cut through.
+ */
+let _focusUntilMs = -Infinity;
 
 /** @type {{ def: AnnouncerEventDef, data: AnnouncerLineData, timer: ReturnType<typeof setTimeout> } | null} */
 let _burstHold = null;
@@ -216,6 +225,7 @@ export function resetAnnouncerRound() {
   _roundCounts.clear();
   _cooldownStamps.clear();
   _newLeaderTrack = null;
+  _focusUntilMs = -Infinity;
   resetAnnouncerLineState();
 }
 
@@ -243,6 +253,7 @@ export function stopAnnouncer() {
     _active = null;
   }
   _newLeaderTrack = null;
+  _focusUntilMs = -Infinity;
 }
 
 /**
@@ -387,6 +398,18 @@ function dispatch(def, data, nowMs, opts = {}) {
     return { type: "discarded" };
   }
 
+  // * Focus window (Living Store directives): drop everything that isn't a sequence
+  // * beep, a critical match-state event, or another focus event while the directive
+  // * callout is on screen. Dropped — not queued — so nothing bursts out stale after.
+  if (
+    nowMs < _focusUntilMs &&
+    def.cls !== "sequence" &&
+    def.cls !== "critical" &&
+    !def.focus
+  ) {
+    return { type: "discarded" };
+  }
+
   if (def.cls === "sequence") {
     // * Never queued, always bypasses the gap, plays even over a busy channel.
     startAnnouncement(def, data, nowMs);
@@ -491,6 +514,12 @@ function startAnnouncement(def, data, nowMs) {
   // * everything else consumes here, at the moment it actually wins the channel.
   if (!KILL_BURST_IDS.has(def.id)) consumeGates(def, nowMs);
 
+  // * Focus events (Living Store directives) open a suppression window for the whole
+  // * on-screen hold — see the focus gate in dispatch().
+  if (def.focus) {
+    _focusUntilMs = nowMs + (def.callout?.holdMs ?? def.durationMs);
+  }
+
   if (_endTimer) {
     clearTimeout(_endTimer);
     _endTimer = null;
@@ -592,6 +621,7 @@ function playAnnouncement(def, data) {
       accent: def.callout.accent,
       holdMs: def.callout.holdMs,
       cls: def.cls,
+      focus: Boolean(def.focus),
     });
   }
 }

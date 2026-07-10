@@ -223,6 +223,19 @@ const physics = {
     spillCountMax: 12, // groceries launched at full cargo
   },
 
+  // * The Living Store — the Store PA issues short mini-mutator "directives" mid-round
+  // * (Flash Sale, Double Bag, Express Lane, Spill Bonus). Scheduling knobs live here;
+  // * the directive content table is src/directives/directives.js. Host-authored,
+  // * broadcast one-shot over the DataChannel; never fires during Sudden Death.
+  directives: {
+    enabled: true,
+    firstDelayMs: 25000, // ms after round start before the first directive can fire
+    minIntervalMs: 25000, // ms — min gap between one window's end and the next start
+    maxIntervalMs: 40000, // ms — max gap (uniform random in [min, max])
+    durationMs: 18000, // ms — default directive window length
+    minRoundRemainingMs: 8000, // ms — beat required AFTER a window fits in the round clock
+  },
+
   environmentImpacts: {
     floorFallSpeedThreshold: 3.0, // m/s — min downward pre-step speed for floor impact FX
     edgeDeltaVThreshold: 2.5, // m/s — min horizontal Δv for wall/edge impact FX

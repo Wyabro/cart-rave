@@ -252,6 +252,10 @@
    shadow rides the region (drop-shadow follows the clipped silhouette). */
 #hud .hud-region-match {
   filter: drop-shadow(4px 4px 0 var(--color-ink-deep));
+  /* Column layout so the directive chip centers under the round timer. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 #hud .hud-timer {
   position: relative;
@@ -356,6 +360,71 @@
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, var(--color-timer-ok), var(--color-cyan));
+  border-radius: var(--radius-pill);
+}
+
+/* Living Store directive chip — a kill-feed-style sticker plate attached under
+   the round timer while a directive window is active: name + seconds + drain
+   bar in the directive's accent color (set inline from setHudDirective).
+   Same plate language as .hud-feed-row (ink background, 8px radius, --hud-ui
+   caps); the hard shadow comes from the region-match drop-shadow filter.
+   margin-left offsets the timer's 22px arrow point so the chip optically
+   centers under the timer BODY, not the full clip-path footprint. */
+#hud .hud-directive {
+  --directive-accent: var(--color-cyan);
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 9px;
+  margin-left: 22px;
+  padding: 5px 10px 6px;
+  max-width: clamp(120px, 16vw, 190px);
+  background: var(--color-ink);
+  border-left: 3px solid var(--directive-accent);
+  border-radius: 8px;
+}
+
+#hud .hud-directive--active {
+  display: flex;
+}
+
+#hud .hud-directive-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(7px, 1vw, 12px);
+  font-family: var(--hud-ui);
+  letter-spacing: 0.5px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+#hud .hud-directive-name {
+  font-size: clamp(11px, 1.2vw, 13px);
+  color: var(--directive-accent);
+  white-space: nowrap;
+}
+
+#hud .hud-directive-secs {
+  font-size: clamp(11px, 1.2vw, 13px);
+  font-weight: 700;
+  color: var(--color-sticker-white);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+#hud .hud-directive-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+#hud .hud-directive-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--directive-accent);
   border-radius: var(--radius-pill);
 }
 

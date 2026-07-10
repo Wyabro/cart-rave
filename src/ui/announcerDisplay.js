@@ -20,6 +20,8 @@ import { claimStage } from "./centerStage.js";
  * @property {string} accent CSS color.
  * @property {number} holdMs
  * @property {string} [cls]
+ * @property {boolean} [focus] Feature-size directive callout — renders full-size via
+ *   announcer.css [data-focus]; regular callouts display 25% smaller.
  */
 
 const ROOT_ID = "announcer-display";
@@ -190,6 +192,10 @@ function presentCallout(payload) {
   if (elements.callout) {
     if (payload?.eventId) elements.callout.dataset.event = payload.eventId;
     else delete elements.callout.dataset.event;
+    // * Feature-size flag — directives keep the big lettering; everything else
+    // * renders 25% smaller (announcer.css sizes on [data-focus]).
+    if (payload?.focus) elements.callout.dataset.focus = "true";
+    else delete elements.callout.dataset.focus;
   }
 
   updateLiveRegion(kickerText, mainText);
@@ -235,7 +241,10 @@ function hideCallout() {
   if (!elements.root) return;
   clearScheduled();
   if (elements.inner) elements.inner.style.opacity = "0";
-  if (elements.callout) delete elements.callout.dataset.event;
+  if (elements.callout) {
+    delete elements.callout.dataset.event;
+    delete elements.callout.dataset.focus;
+  }
 }
 
 /**

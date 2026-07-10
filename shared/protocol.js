@@ -19,9 +19,11 @@ export const MSG = {
   // hostTransform: 40Hz binary host snapshot (transforms + collision/fall tails).
   // clientInput: non-host input sent to the host at physics rate.
   // spill: one-shot host->client grocery-spill VFX event.
+  // directive: one-shot host->client Living Store directive start (id + window).
   hostTransform: "host_transform",
   clientInput: "client_input",
   spill: "spill",
+  directive: "directive",
 
   // Server -> client (WebSocket control plane)
   hello: "hello",

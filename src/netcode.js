@@ -19,6 +19,7 @@ import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
 import { announce } from "./announcer/announcerManager.js";
+import { applyRemoteDirective } from "./directives/directiveEngine.js";
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
@@ -1921,6 +1922,9 @@ function handleRemoteP2PMessage(data) {
     handleRemoteHostState(data);
   } else if (data.type === MSG.spill) {
     handleRemoteSpill(data);
+  } else if (data.type === MSG.directive) {
+    // * Living Store directive start — apply the same CONFIG overrides locally.
+    applyRemoteDirective(data);
   }
 }
 

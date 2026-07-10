@@ -570,10 +570,46 @@ function updateTimer(roundState, matchHistoryLength) {
       elements.timer.classList.remove("hud-timer-urgent");
       elements.timer.classList.remove("hud-timer-warn");
     }
+    if (elements.directive) {
+      elements.directive.classList.remove("hud-directive--active");
+    }
     _lastUrgentTickSecond = null;
     _lastTimeBeatSecond = null;
     _wasSuddenDeath = false;
   }
+}
+
+/**
+ * Living Store directive chip under the round timer. Called every frame from
+ * frameVisuals with the engine's active directive (or null). Shows the directive
+ * name, whole seconds remaining, and a drain bar in the directive's accent color.
+ *
+ * @param {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null} directive
+ * @param {number} nowMs performance.now() for this frame.
+ * @returns {void}
+ */
+export function setHudDirective(directive, nowMs) {
+  const el = elements.directive;
+  if (!el) return;
+
+  if (!directive) {
+    el.classList.remove("hud-directive--active");
+    return;
+  }
+
+  const totalMs = Math.max(1, directive.untilMs - directive.startedAtMs);
+  const remainingMs = Math.max(0, directive.untilMs - nowMs);
+
+  el.classList.add("hud-directive--active");
+  el.style.setProperty("--directive-accent", directive.accent);
+  if (elements.directiveName.textContent !== directive.title) {
+    elements.directiveName.textContent = directive.title;
+  }
+  const secsText = `${Math.ceil(remainingMs / 1000)}s`;
+  if (elements.directiveSecs.textContent !== secsText) {
+    elements.directiveSecs.textContent = secsText;
+  }
+  elements.directiveFill.style.width = `${((remainingMs / totalMs) * 100).toFixed(1)}%`;
 }
 
 /**
@@ -983,6 +1019,26 @@ export function init(options) {
   elements.timer.appendChild(timerStripe);
   elements.timer.appendChild(timerBody);
 
+  // * Living Store directive chip — compact status pill under the round timer while
+  // * a directive window is active: directive name, seconds left, and a drain bar.
+  // * Driven per frame by setHudDirective() (frameVisuals → directiveEngine state).
+  elements.directive = document.createElement("div");
+  elements.directive.className = "hud-directive";
+  const directiveRow = document.createElement("div");
+  directiveRow.className = "hud-directive-row";
+  elements.directiveName = document.createElement("span");
+  elements.directiveName.className = "hud-directive-name";
+  elements.directiveSecs = document.createElement("span");
+  elements.directiveSecs.className = "hud-directive-secs";
+  directiveRow.appendChild(elements.directiveName);
+  directiveRow.appendChild(elements.directiveSecs);
+  const directiveBar = document.createElement("div");
+  directiveBar.className = "hud-directive-bar";
+  elements.directiveFill = document.createElement("i");
+  directiveBar.appendChild(elements.directiveFill);
+  elements.directive.appendChild(directiveRow);
+  elements.directive.appendChild(directiveBar);
+
   elements.scores = document.createElement("div");
   elements.scores.className = "hud-scores";
 
@@ -1069,6 +1125,7 @@ export function init(options) {
   regions.stage.appendChild(elements.status);
   regions.stage.appendChild(elements.arenaSplash);
   regions.match.appendChild(elements.timer);
+  regions.match.appendChild(elements.directive);
   regions.standings.appendChild(elements.scores);
   regions.events.appendChild(elements.feed);
   regions.pod.appendChild(elements.readyBtn);

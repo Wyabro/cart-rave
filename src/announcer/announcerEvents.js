@@ -40,6 +40,10 @@
  * @property {AnnouncerCalloutDef | null} callout Visual callout payload, or null for audio-only events.
  * @property {AnnouncerVoiceDef} voice Voice asset lookup definition.
  * @property {AnnouncerStingDef | null} sting Fallback sting definition, or null for events with no audio.
+ * @property {boolean} [focus] Living Store directive starts: while this event's callout is on
+ *   screen, the manager suppresses every other non-sequence, non-critical announcement so the
+ *   rule change can be read uncontested. The callout also renders at full "feature" size
+ *   (announcer.css [data-focus]); regular events display 25% smaller.
  */
 
 // * Voice assets resolve from `public/sounds/announcer/<locale>/<key>_<NN>.ogg|.mp3`
@@ -321,6 +325,100 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     voice: Object.freeze({ key: "cleanup_aisle", variants: 3 }),
     sting: Object.freeze({ type: "proc", name: "cleanup" }),
   }),
+  // * The Living Store — directive starts. The PA is running the match for the next
+  // * ~18s; class "high" + long callout hold so the rule change can't be missed.
+  // * Fired by directiveEngine.js (host schedules; every peer announces locally).
+  directive_flash_sale: Object.freeze({
+    id: "directive_flash_sale",
+    // * Critical class: a directive IS the ruleset changing — it interrupts whatever
+    // * callout is up and clears the queue so the announcement lands the instant the
+    // * effect starts (a queued directive would lag its own gameplay window).
+    priority: 66,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 4000,
+    interruptible: false,
+    // * Feature moment: channel + focus window reserved for the whole on-screen hold
+    // * so no other callout replaces or crowds the rule change while players read it.
+    durationMs: 5200,
+    focus: true,
+    callout: Object.freeze({ kicker: "FLASH SALE", accent: "#ff2bd6", holdMs: 5200 }),
+    voice: Object.freeze({ key: "directive_flash_sale", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
+  }),
+  directive_double_bag: Object.freeze({
+    id: "directive_double_bag",
+    priority: 66,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 4000,
+    interruptible: false,
+    // * Feature moment: channel + focus window reserved for the whole on-screen hold
+    // * so no other callout replaces or crowds the rule change while players read it.
+    durationMs: 5200,
+    focus: true,
+    callout: Object.freeze({ kicker: "DOUBLE BAG", accent: "#ffd24a", holdMs: 5200 }),
+    voice: Object.freeze({ key: "directive_double_bag", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
+  }),
+  directive_express_lane: Object.freeze({
+    id: "directive_express_lane",
+    priority: 66,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 4000,
+    interruptible: false,
+    // * Feature moment: channel + focus window reserved for the whole on-screen hold
+    // * so no other callout replaces or crowds the rule change while players read it.
+    durationMs: 5200,
+    focus: true,
+    callout: Object.freeze({ kicker: "EXPRESS LANE", accent: "#2bd6ff", holdMs: 5200 }),
+    voice: Object.freeze({ key: "directive_express_lane", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
+  }),
+  directive_spill_bonus: Object.freeze({
+    id: "directive_spill_bonus",
+    priority: 66,
+    cls: "critical",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 1,
+    ttlMs: 4000,
+    interruptible: false,
+    // * Feature moment: channel + focus window reserved for the whole on-screen hold
+    // * so no other callout replaces or crowds the rule change while players read it.
+    durationMs: 5200,
+    focus: true,
+    callout: Object.freeze({ kicker: "SPILL BONUS", accent: "#2bffb3", holdMs: 5200 }),
+    voice: Object.freeze({ key: "directive_spill_bonus", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
+  }),
+  // * Directive window lapsed — a dry PA sign-off, deliberately missable.
+  directive_end: Object.freeze({
+    id: "directive_end",
+    priority: 8,
+    cls: "ambient",
+    cooldownMs: 0,
+    oncePerRound: false,
+    maxPerRound: 0,
+    chance: 0.7,
+    ttlMs: 2000,
+    interruptible: true,
+    durationMs: 800,
+    callout: Object.freeze({ kicker: "STORE UPDATE", accent: "#9aa0b4", holdMs: 1100 }),
+    voice: Object.freeze({ key: "directive_end", variants: 3 }),
+    sting: null,
+  }),
   // * Living Cargo — a cart's bay just hit "overflowing" (round score reached
   // * CONFIG.cargo.fullScore). Fired once per slot per round from cargoLoad.js.
   cart_overflow: Object.freeze({
@@ -425,7 +523,10 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     chance: 1,
     ttlMs: 4000,
     interruptible: false,
-    durationMs: 1400,
+    // * Feature moment: channel + focus window reserved for the whole on-screen hold
+    // * so no other callout replaces or crowds the rule change while players read it.
+    durationMs: 5200,
+    focus: true,
     callout: null,
     voice: Object.freeze({ key: "sudden_death", variants: 1 }),
     sting: Object.freeze({ type: "proc", name: "suddenDeath" }),

@@ -25,6 +25,10 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  * @property {(tier: number, expiryMs: number) => void} [setLocalCombo]
  * @property {(p: { x: number, y: number, z: number }) => string | null} [classifyKillZone]
  *   Active-level kill-zone classifier ("corner_void" on Storerooms void footprints).
+ * @property {() => number} [getDirectiveKoRewardMultiplier]
+ *   Living Store directive KO-reward multiplier (1 when no directive is active).
+ *   Injected as a dep to keep this module a leaf; the falls[] wire carries the boosted
+ *   reward to clients, so non-hosts never need directive state for scoring display.
  */
 
 /**
@@ -55,7 +59,8 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  *   step when a reactor consumes it; the factory always returns false.
  * @property {number} roundTimeMs Milliseconds elapsed since round start.
  * @property {{ base: number, critical: number, leader: number, highGround?: number, multiplier: number, total: number }} reward
- *   Reward breakdown. `total` (= round((base+critical+leader+highGround)*multiplier)) is what Score adds.
+ *   Reward breakdown. `total` (= round((base+critical+leader+highGround)*multiplier*directiveMul))
+ *   is what Score adds; directiveMul is the Living Store directive boost (1 when inactive).
  * @property {string} verb Kill-feed verb (host-picked so every client renders the same word).
  */
 
@@ -162,8 +167,14 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
     }
   }
 
+  // * Living Store directive boost (e.g. Double Bag) — multiplies the whole reward on
+  // * top of the combo multiplier. 1 when no directive is active or the dep is unwired.
+  const directiveMultiplier = deps.getDirectiveKoRewardMultiplier?.() ?? 1;
+
   const rewardTotal = Math.round(
-    (rewardBase + rewardCritical + rewardLeader + rewardHighGround) * comboMultiplier,
+    (rewardBase + rewardCritical + rewardLeader + rewardHighGround)
+      * comboMultiplier
+      * directiveMultiplier,
   );
   const verb = deps.hud?.pickKillFeedVerb ? deps.hud.pickKillFeedVerb(hit) : "RAMMED";
 

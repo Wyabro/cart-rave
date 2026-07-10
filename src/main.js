@@ -81,6 +81,7 @@ import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
+import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill } from "./directives/directiveEngine.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 // * testArena constants inlined (avoid static import of heavy level module at boot).
@@ -902,10 +903,13 @@ async function main() {
     isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
     // * Mix: music dips under big PA moments so stings/voice cut through cleanly.
     onAnnouncementPlays: (def) => {
+      // * Directive events reserve the channel for their whole 5.2s on-screen hold —
+      // * cap the duck at sting length so music doesn't sag for the entire window.
+      const duckMs = Math.min(def.durationMs, 1400);
       if (def.cls === "critical") {
-        AudioManager.duckMusic(0.3, def.durationMs + 500);
+        AudioManager.duckMusic(0.3, duckMs + 500);
       } else if (def.cls === "high" || def.cls === "sequence") {
-        AudioManager.duckMusic(0.55, def.durationMs + 200);
+        AudioManager.duckMusic(0.55, duckMs + 200);
       }
     },
   });
@@ -921,6 +925,18 @@ async function main() {
   });
   // * Visual callout banner + aria-live region for announcer subtitles.
   setAnnouncerPresenter(initAnnouncerDisplay());
+
+  // * The Living Store — the Store PA as game-master. Host schedules short directive
+  // * windows (Flash Sale, Double Bag, Express Lane, Spill Bonus), broadcasts them
+  // * one-shot over the DataChannel, and every peer applies/restores the same CONFIG
+  // * overrides locally. Ticked per frame from frameVisuals.
+  initDirectiveEngine({
+    getIsHost: () => Netcode.getIsHost(),
+    sendP2PEvent: (payload) => Netcode.sendP2PEvent(payload),
+    announce,
+    addScore: GameState.addScore,
+    getLastHitBy: () => GameState.getLastHitBy(),
+  });
 
   // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
   // * mp3 fallback for Safari (see soundUrlWithFallback above).
@@ -3040,6 +3056,9 @@ async function main() {
     getLastHitBy: () => GameState.getLastHitBy(),
     // * Per-arena kill-zone classifier for buildKOEvent (Storerooms corner voids → 2×).
     classifyKillZone: Simulation.classifyLevelKillZone,
+    // * Living Store directive KO-reward boost (Double Bag). Dep-injected so koEvent.js
+    // * stays a leaf module; the falls[] wire carries the boosted reward to clients.
+    getDirectiveKoRewardMultiplier,
     getLocalCart: localCartForConnId,
     scheduleRespawn,
     scheduleStuckRespawn,
@@ -3070,6 +3089,8 @@ async function main() {
       // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
       GroceryPool.hideCargoBay(cart || cargoBay);
       armSpillBoost(cart);
+      // * Living Store "Spill Bonus" — host awards the recent rammer while active.
+      directiveOnHostSpill(slotIndex);
       triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, spillCount);
     },
     onCartRespawn: (slotIndex) => {
@@ -3098,6 +3119,8 @@ async function main() {
       GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, spillCount, cargoBay);
       GroceryPool.hideCargoBay(cart);
       armSpillBoost(cart);
+      // * Living Store "Spill Bonus" — host awards the recent rammer while active.
+      directiveOnHostSpill(cart.slotIndex);
       triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay, spillCount);
     },
     get partySocket() { return Netcode.getPartySocket(); },
