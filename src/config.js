@@ -192,6 +192,37 @@ const physics = {
     },
   },
 
+  // * Living Cargo — the cart IS the scoreboard. The cargo bay visibly fills with the
+  // * slot's round score, spilling grants a short "empty cart is a fast cart" comeback
+  // * boost, and a full cart trades a little lateral grip for swagger. Fullness derives
+  // * from synced roundScores, so host and clients agree with zero extra netcode.
+  cargo: {
+    fullScore: 8, // points — round score at which the cargo bay reads "overflowing" (fullness 1.0)
+    baseItems: 2, // count — groceries visible in the bay at score 0
+    maxItems: 12, // count — groceries visible at full cargo (2 stacked layers)
+    // * Top-heavy handling — lateral grip multiplier at FULL cargo (lerped from 1.0 when
+    // * empty). Gentle by design: a loaded leader slides wider; it never flips them.
+    gripFullFactor: 0.8, // unitless — lateral grip scale at fullness 1.0
+    // * Taste-gated experiment — raise center of mass with fullness. OFF by default:
+    // * raising CoM can flip carts into the pit; the grip slide is the shipped feel.
+    comRaise: {
+      enabled: false,
+      maxRaiseY: 0.25, // meters — CoM lift at fullness 1.0 (base CoM y is -0.55)
+    },
+    // * Spill comeback — brief speed/accel buff from the spill moment (ram spills apply
+    // * immediately; fall spills leave the tail of the window after the 600ms respawn).
+    // * Never stacks with nitro: nitro's boosted values win while a boost window is open.
+    spillBoost: {
+      durationMs: 2600, // ms — buff window from the spill moment
+      speedMul: 1.12, // × driving.maxSpeed while buffed (26.3 — still below nitro's 27)
+      accelMul: 1.35, // × driving.accel while buffed
+      restockDelayMs: 400, // ms — after the buff ends, the basket visually restocks
+    },
+    // * Spill size scales with fullness — the leader drops a BIGGER mess.
+    spillCountBase: 3, // groceries launched at empty cargo
+    spillCountMax: 12, // groceries launched at full cargo
+  },
+
   environmentImpacts: {
     floorFallSpeedThreshold: 3.0, // m/s — min downward pre-step speed for floor impact FX
     edgeDeltaVThreshold: 2.5, // m/s — min horizontal Δv for wall/edge impact FX

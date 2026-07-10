@@ -409,6 +409,13 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     comboTier: 0,
     comboExpiryMs: 0,
     cargoBay,
+    // * Living Cargo — fullness mirrors the slot's synced round score (cargoLoad.js);
+    // * read by the grip/CoM handling in simulation.js and the spill-count scaling.
+    cargoFullness01: 0,
+    // * Spill comeback — deadline for the "empty cart is a fast cart" drive buff.
+    // * Deliberately NOT cleared by resetCartTransientState: a fall spill should leave
+    // * the tail of the buff after the 600ms respawn (the comeback moment).
+    spillBoostUntilMs: 0,
   };
 }
 

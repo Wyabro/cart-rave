@@ -838,7 +838,7 @@ async function main() {
   triggerLocalHitTakenRef = triggerLocalHitTaken;
   triggerCartShatterRef = triggerCartShatter;
 
-  function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay) {
+  function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, count) {
     if (!Netcode.getIsHost()) return;
     // Send over WebRTC DataChannel instead of WebSocket
     // The host broadcasts this to all non-host peers
@@ -849,7 +849,25 @@ async function main() {
       quat,
       vel,
       cargoBay: !!cargoBay,
+      count,
     });
+  }
+
+  // * Living Cargo — a fuller cart (higher score) drops a bigger mess.
+  function spillCountForCart(cart) {
+    const cargoCfg = CONFIG.cargo;
+    if (!cargoCfg) return 6;
+    const base = cargoCfg.spillCountBase ?? 6;
+    const max = cargoCfg.spillCountMax ?? base;
+    return Math.round(base + (max - base) * (cart?.cargoFullness01 ?? 0));
+  }
+
+  // * Living Cargo — arm the "empty cart is a fast cart" comeback window at the spill
+  // * moment (read by the drive block in simulation.js). Fall spills keep the tail of
+  // * the window after respawn; resetCartTransientState deliberately leaves it alone.
+  function armSpillBoost(cart) {
+    if (!cart || !CONFIG.cargo?.spillBoost) return;
+    cart.spillBoostUntilMs = performance.now() + (CONFIG.cargo.spillBoost.durationMs ?? 0);
   }
 
   const gameCtx = createGameContext().registerModules({
@@ -3045,10 +3063,12 @@ async function main() {
     triggerCartShatter,
     onSpill: (slotIndex, pos, quat, vel, cargoBay) => {
       const cart = allCartsRef?.[slotIndex];
-      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, 6, cargoBay || cart?.cargoBay || null);
+      const spillCount = spillCountForCart(cart);
+      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, spillCount, cargoBay || cart?.cargoBay || null);
       // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
       GroceryPool.hideCargoBay(cart || cargoBay);
-      triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay);
+      armSpillBoost(cart);
+      triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, spillCount);
     },
     onCartRespawn: (slotIndex) => {
       GroceryPool.releaseByCartId(String(slotIndex));
@@ -3072,9 +3092,11 @@ async function main() {
       const quat = cart.body.rotation();
       const vel = cart.body.linvel();
       const cargoBay = cart.cargoBay;
-      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, 6, cargoBay);
+      const spillCount = spillCountForCart(cart);
+      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, spillCount, cargoBay);
       GroceryPool.hideCargoBay(cart);
-      triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay);
+      armSpillBoost(cart);
+      triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay, spillCount);
     },
     get partySocket() { return Netcode.getPartySocket(); },
     get recordColliderHandles() { return recordColliderHandles; },

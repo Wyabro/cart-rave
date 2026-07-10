@@ -18,7 +18,7 @@ const LINES = {
     countdown_3: ["3"],
     countdown_2: ["2"],
     countdown_1: ["1"],
-    go: ["GO!"],
+    go: ["GO!", "GO! GRAB A RUNNING START!"],
     first_spill: [
       "FIRST SPILL!",
       "{attacker} DRAWS FIRST SPILL!",
@@ -85,6 +85,16 @@ const LINES = {
       "CLEAN-UP ON AISLE {aisle}!",
       "{victim} ATE THE FLOOR!",
       "SPILL ON AISLE {aisle}!",
+    ],
+    cart_overflow: [
+      "{name}'S CART IS OVERFLOWING!",
+      "SOMEBODY STOP {name} — THAT BASKET IS FULL!",
+      "{name} IS SHOPPING IN BULK!",
+    ],
+    spill_rush: [
+      "CLEAN CART, FAST CART!",
+      "NOTHING LEFT TO LOSE — FLOOR IT!",
+      "TRAVELING LIGHT!",
     ],
     close_call: [
       "CLOSE ONE!",

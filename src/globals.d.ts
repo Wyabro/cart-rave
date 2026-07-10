@@ -49,6 +49,19 @@ declare global {
       getWaterDeathSurfaceY: () => number | null;
       spawnWaterDeathBurst: (x: number, z: number, neonHex: number) => void;
     };
+    /**
+     * DEV-only Living Cargo debug handle — live per-cart cargo/spill-boost state.
+     * See `updateCargoLoad()` in `src/cargoLoad.js`.
+     */
+    __cartClashCargo?: () => Array<{
+      slot: number;
+      label: string;
+      fullness: number;
+      fillCount: number | null;
+      bayVisible: boolean | null;
+      spillBoostMsLeft: number;
+      hasSpilled: boolean;
+    } | null>;
     recordMesh?: Three.Mesh;
     exportArenaFloorGLB?: () => void;
     exportPhysicsGeometry?: () => void;

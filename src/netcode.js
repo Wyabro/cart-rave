@@ -1927,19 +1927,25 @@ function handleRemoteP2PMessage(data) {
 function handleRemoteSpill(msg) {
   const carts = getAllCarts();
   const cart = carts?.[msg.slotId];
-  // * Do NOT early return if cart.hasSpilled is true. 
+  // * Do NOT early return if cart.hasSpilled is true.
   // * The host sends this exactly once. If snap.s arrived first, we still need the VFX.
   // * We only set hasSpilled if it wasn't already, to avoid stepping on respawn logic.
   if (cart && !cart.hasSpilled) cart.hasSpilled = true;
   // * Always despawn basket cargo on the wire spill (hide every bay under the cart).
   if (cart) GroceryPool.hideCargoBay(cart);
+  // * Living Cargo spill comeback — arm the "empty cart is fast" window locally so the
+  // * predicted local cart matches the host's buffed drive (and cargoLoad.js can run
+  // * the restock timer + announcer nudge on every client).
+  if (cart && CONFIG.cargo?.spillBoost) {
+    cart.spillBoostUntilMs = performance.now() + (CONFIG.cargo.spillBoost.durationMs ?? 0);
+  }
 
   GroceryPool.triggerSpill(
     String(msg.slotId),
     msg.pos,
     msg.quat,
     msg.vel,
-    6,
+    typeof msg.count === "number" && msg.count > 0 ? msg.count : 6,
     cart?.cargoBay ?? null,
   );
 }

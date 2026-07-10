@@ -321,6 +321,40 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     voice: Object.freeze({ key: "cleanup_aisle", variants: 3 }),
     sting: Object.freeze({ type: "proc", name: "cleanup" }),
   }),
+  // * Living Cargo — a cart's bay just hit "overflowing" (round score reached
+  // * CONFIG.cargo.fullScore). Fired once per slot per round from cargoLoad.js.
+  cart_overflow: Object.freeze({
+    id: "cart_overflow",
+    priority: 45,
+    cls: "medium",
+    cooldownMs: 20000,
+    oncePerRound: false,
+    maxPerRound: 2,
+    chance: 1,
+    ttlMs: 3000,
+    interruptible: true,
+    durationMs: 1100,
+    callout: Object.freeze({ kicker: "CART OVERFLOW", accent: "#ffd24a", holdMs: 1600 }),
+    voice: Object.freeze({ key: "cart_overflow", variants: 2 }),
+    sting: Object.freeze({ type: "proc", name: "newLeader" }),
+  }),
+  // * Living Cargo — the local player's spill-comeback buff kicked in ("empty cart is
+  // * a fast cart"). Ambient nudge; fired from cargoLoad.js on the buff's rising edge.
+  spill_rush: Object.freeze({
+    id: "spill_rush",
+    priority: 12,
+    cls: "ambient",
+    cooldownMs: 12000,
+    oncePerRound: false,
+    maxPerRound: 3,
+    chance: 0.75,
+    ttlMs: 1200,
+    interruptible: true,
+    durationMs: 800,
+    callout: Object.freeze({ kicker: "FRESH START", accent: "#2bffb3", holdMs: 1200 }),
+    voice: Object.freeze({ key: "spill_rush", variants: 2 }),
+    sting: null,
+  }),
   close_call: Object.freeze({
     id: "close_call",
     priority: 10,

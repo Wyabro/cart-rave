@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3210", "--strictPort"],
       "port": 3210
+    },
+    {
+      "name": "vite-alt",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3211", "--strictPort"],
+      "port": 3211
     }
   ]
 }

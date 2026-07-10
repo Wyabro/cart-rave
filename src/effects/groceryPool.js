@@ -14,6 +14,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { RAPIER } from "../physics/rapierInstance.js";
+import { CONFIG } from "../config.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -511,8 +512,10 @@ export function createCargoBay(hw, hl) {
   const halfW = hw != null ? Math.max(0.1, hw - wallPad) : 0.22;
   const halfL = hl != null ? Math.max(0.1, hl - wallPad) : 0.22;
 
-  // * Fixed 2×3 grid (plus one top-center) keeps items off the rear wall better than
-  // * pure random scatter. Fractions are of the *usable* half-extent after item size.
+  // * Fixed grid keeps items off the rear wall better than pure random scatter.
+  // * Fractions are of the *usable* half-extent after item size. Ordered by fill
+  // * priority — Living Cargo reveals items front-to-back as the slot's score climbs,
+  // * so layer-0 floor items come first and the overflowing top layers come last.
   const GRID = [
     { u: -0.55, v: -0.4, layer: 0 },
     { u: 0.55, v: -0.4, layer: 0 },
@@ -520,9 +523,18 @@ export function createCargoBay(hw, hl) {
     { u: 0.55, v: 0.35, layer: 0 },
     { u: 0.0, v: -0.05, layer: 0 },
     { u: 0.0, v: 0.05, layer: 1 },
+    { u: -0.5, v: -0.1, layer: 1 },
+    { u: 0.5, v: -0.1, layer: 1 },
+    { u: -0.45, v: 0.45, layer: 1 },
+    { u: 0.45, v: 0.45, layer: 1 },
+    { u: -0.2, v: -0.35, layer: 2 },
+    { u: 0.25, v: 0.2, layer: 2 },
   ];
 
-  for (let i = 0; i < 6; i += 1) {
+  /** @type {THREE.Mesh[]} Fill-order list consumed by {@link setCargoFill}. */
+  const cargoItems = [];
+
+  for (let i = 0; i < GRID.length; i += 1) {
     const idx = indices[i % indices.length];
     const def = MODEL_DEFS[idx];
     const scaleMul = def.cargoScaleMul ?? 1.0;
@@ -557,9 +569,42 @@ export function createCargoBay(hw, hl) {
       slot.v * reachZ + (Math.random() - 0.5) * 0.03,
     );
     group.add(mesh);
+    cargoItems.push(mesh);
   }
 
+  // * Living Cargo: expose the fill-order list and start at empty-cart fullness —
+  // * cargoLoad.js drives per-frame fullness from the synced round scores.
+  group.userData.cargoItems = cargoItems;
+  setCargoFill(group, 0);
+
   return group;
+}
+
+/**
+ * * Living Cargo — shows the first N groceries of a bay's fill-order list, where N maps
+ * * fullness 0→1 onto CONFIG.cargo.baseItems→maxItems. The cart is the scoreboard:
+ * * callers derive fullness from the synced round scores, so every client agrees.
+ * * Cheap enough to call per frame (visibility writes are skipped when unchanged).
+ *
+ * @param {THREE.Group | null | undefined} cargoBay Bay group built by {@link createCargoBay}.
+ * @param {number} fullness01 Cargo fullness in [0, 1].
+ */
+export function setCargoFill(cargoBay, fullness01) {
+  const items = cargoBay?.userData?.cargoItems;
+  if (!items || items.length === 0) return;
+
+  const cargoCfg = CONFIG.cargo;
+  const base = Math.max(0, Math.min(items.length, cargoCfg?.baseItems ?? 2));
+  const max = Math.max(base, Math.min(items.length, cargoCfg?.maxItems ?? items.length));
+  const f = Math.max(0, Math.min(1, fullness01));
+  const visibleCount = Math.round(base + (max - base) * f);
+
+  if (cargoBay.userData.cargoFillCount === visibleCount) return;
+  cargoBay.userData.cargoFillCount = visibleCount;
+
+  for (let i = 0; i < items.length; i += 1) {
+    items[i].visible = i < visibleCount;
+  }
 }
 
 /**

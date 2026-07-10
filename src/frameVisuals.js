@@ -12,6 +12,7 @@ import {
 } from "./cartThemes.js";
 import { isShatterAnimating, updateShatterEffect } from "./cartShatter.js";
 import * as GroceryPool from "./effects/groceryPool.js";
+import { updateCargoLoad } from "./cargoLoad.js";
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
@@ -172,6 +173,14 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   Effects.updateRamBoostStreaks(now);
 
   GroceryPool.update(dt, now);
+
+  // * Living Cargo — sync cargo-bay fullness (the cart IS the scoreboard), post-spill
+  // * restock, top-heavy fullness state, and cargo announcer moments from round scores.
+  updateCargoLoad(allCarts, now, {
+    localSlotIndex: localSlotIndexThisFrame,
+    netSlots: netSlotsForFrame,
+    roundPhase: roundState.phase,
+  });
 
   const usePhysicsInterp = physicsAlpha != null;
   const visualOffset = deps.CONFIG.cart.visualOffset;

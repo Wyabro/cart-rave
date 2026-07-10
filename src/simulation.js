@@ -190,9 +190,11 @@ function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffset) {
 /**
  * @param {any} body
  * @param {any} collider
- * @param {{ label?: string, hx: number, hy: number, hz: number, colliderLocalY: number }} dims
+ * @param {{ label?: string, hx: number, hy: number, hz: number, colliderLocalY: number, comY?: number }} dims
+ *   `comY` — center-of-mass height override (default -0.55 "weeble" low-CG). Only the
+ *   taste-gated Living Cargo CoM-raise experiment (CONFIG.cargo.comRaise) passes it.
  */
-export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, colliderLocalY }) {
+export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, colliderLocalY, comY = -0.55 }) {
   let baseMass = collider?.mass?.() ?? body?.mass?.() ?? 1;
   if (!Number.isFinite(baseMass) || baseMass <= 0) baseMass = 1;
 
@@ -200,8 +202,8 @@ export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, co
     collider.setDensity(0);
   }
 
-  const targetCom = new RAPIER.Vector3(0, -0.55, 0);
-  const comOffset = { x: 0, y: -0.55 - colliderLocalY, z: 0 };
+  const targetCom = new RAPIER.Vector3(0, comY, 0);
+  const comOffset = { x: 0, y: comY - colliderLocalY, z: 0 };
 
   const { ix, iy, iz } = principalInertiaForTranslatedBox(baseMass, hx, hy, hz, comOffset);
 
@@ -494,6 +496,14 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   if (nitroForward && rb.nitroGripFactor != null) {
     grip *= rb.nitroGripFactor;
   }
+  // * Living Cargo top-heavy handling — a fuller cart (higher round score) slides wider.
+  // * Fullness derives from synced roundScores (cargoLoad.js), so host and predicting
+  // * clients compute identical grip. Gentle by design; never a flip risk.
+  const cargoFullness = cart.cargoFullness01 ?? 0;
+  const cargoGripFullFactor = CONFIG.cargo?.gripFullFactor;
+  if (cargoFullness > 0 && cargoGripFullFactor != null) {
+    grip *= THREE.MathUtils.lerp(1, cargoGripFullFactor, cargoFullness);
+  }
   // * Clamp the lateral grip delta-v so it can only kill vRight, never reverse it.
   // * Without this, a large grip * dtFixed product overshoots zero and induces jitter.
   const dvRight = THREE.MathUtils.clamp(
@@ -516,6 +526,19 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
     let accelRate = nitroForward
       ? (rb.boostedAccel ?? CONFIG.driving.accel * (CONFIG.ramming.nitroAccelMultiplier ?? 1.6))
       : CONFIG.driving.accel;
+    // * Spill comeback — "empty cart is a fast cart". Short forward-drive buff after a
+    // * grocery spill (set at the spill sites in main.js / gameFlow / netcode). Nitro
+    // * always wins while its window is open; the two never stack.
+    const spillCfg = CONFIG.cargo?.spillBoost;
+    if (
+      !nitroForward &&
+      axis.forward > 0 &&
+      spillCfg != null &&
+      nowMs < (cart.spillBoostUntilMs ?? 0)
+    ) {
+      targetSpeed = CONFIG.driving.maxSpeed * (spillCfg.speedMul ?? 1);
+      accelRate = CONFIG.driving.accel * (spillCfg.accelMul ?? 1);
+    }
     if (nitroForward && rb.launchAccelMul != null && rb.launchWindowSec > 0) {
       const nitroElapsedSec = Math.max(
         0,
