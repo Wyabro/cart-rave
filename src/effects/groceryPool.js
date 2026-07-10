@@ -594,10 +594,10 @@ export function setCargoFill(cargoBay, fullness01) {
   if (!items || items.length === 0) return;
 
   const cargoCfg = CONFIG.cargo;
-  const base = Math.max(0, Math.min(items.length, cargoCfg?.baseItems ?? 2));
-  const max = Math.max(base, Math.min(items.length, cargoCfg?.maxItems ?? items.length));
-  const f = Math.max(0, Math.min(1, fullness01));
-  const visibleCount = Math.round(base + (max - base) * f);
+  const base = THREE.MathUtils.clamp(cargoCfg?.baseItems ?? 2, 0, items.length);
+  const max = THREE.MathUtils.clamp(cargoCfg?.maxItems ?? items.length, base, items.length);
+  const f = THREE.MathUtils.clamp(fullness01, 0, 1);
+  const visibleCount = Math.round(THREE.MathUtils.lerp(base, max, f));
 
   if (cargoBay.userData.cargoFillCount === visibleCount) return;
   cargoBay.userData.cargoFillCount = visibleCount;

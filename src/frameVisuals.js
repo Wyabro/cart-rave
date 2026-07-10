@@ -46,6 +46,9 @@ const _visAngvel = { x: 0, y: 0, z: 0 };
 const _hitStopPos = new THREE.Vector3();
 const _hitStopQuat = new THREE.Quaternion();
 
+// * Living Cargo per-frame context scratch (no per-frame object literal).
+const _cargoCtx = { localSlotIndex: -1, netSlots: /** @type {Array<object>} */ ([]), roundPhase: "" };
+
 /**
  * * Fetches a cart body's translation/rotation/linvel/angvel ONCE into the module
  * * visual-scratch cache. Called at the top of each per-cart sync iteration.
@@ -177,11 +180,11 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
   // * Living Cargo — sync cargo-bay fullness (the cart IS the scoreboard), post-spill
   // * restock, top-heavy fullness state, and cargo announcer moments from round scores.
-  updateCargoLoad(allCarts, now, {
-    localSlotIndex: localSlotIndexThisFrame,
-    netSlots: netSlotsForFrame,
-    roundPhase: roundState.phase,
-  });
+  // * Context rides a module scratch object (house convention — no per-frame literal).
+  _cargoCtx.localSlotIndex = localSlotIndexThisFrame;
+  _cargoCtx.netSlots = netSlotsForFrame;
+  _cargoCtx.roundPhase = roundState.phase;
+  updateCargoLoad(allCarts, now, _cargoCtx);
 
   // * The Living Store — host schedules/fires PA directives; every peer ticks expiry.
   updateDirectiveEngine(now);

@@ -549,6 +549,11 @@ function endActive(nowMs) {
   if (_active) {
     _lastEndMs = nowMs;
     _presenter?.hideCallout();
+    // * If the interrupted event owned the focus window, close it — its callout is
+    // * gone, so leaving the suppression running would mute the PA over nothing.
+    if (ANNOUNCER_EVENTS[_active.eventId]?.focus) {
+      _focusUntilMs = nowMs;
+    }
   }
   _active = null;
 }

@@ -198,7 +198,9 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
       critical: rewardCritical,
       leader: rewardLeader,
       highGround: rewardHighGround,
-      multiplier: comboMultiplier,
+      // * Effective multiplier (combo × directive) so the breakdown's parts always
+      // * reproduce `total` — the HUD float's "N×" label shows the real factor.
+      multiplier: comboMultiplier * directiveMultiplier,
       total: rewardTotal,
     },
     verb,

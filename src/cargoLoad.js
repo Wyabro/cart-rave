@@ -21,6 +21,7 @@
  */
 
 import { CONFIG } from "./config.js";
+import { clamp } from "./utils.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { gameStore } from "./stores/gameStore.js";
 import { announce } from "./announcer/announcerManager.js";
@@ -35,8 +36,33 @@ const _overflowAnnounced = new Set();
 /** Local spill-boost deadline last seen — rising edge triggers "spill_rush". */
 let _lastLocalSpillBoostUntilMs = 0;
 
-function clamp01(v) {
-  return Math.max(0, Math.min(1, v));
+/** @type {Array<object | null | undefined> | null} Latest carts for the DEV debug handle. */
+let _debugCarts = null;
+
+/**
+ * Arms the "empty cart is a fast cart" comeback window at the spill moment — read by
+ * the drive block in simulation.js. Single source for all three spill paths (host sim,
+ * gameFlow fall, and the client's MSG.spill receive in netcode.js). Deliberately NOT
+ * cleared by resetCartTransientState: a fall spill keeps the tail of the buff after
+ * the 600ms respawn (the comeback moment).
+ * @param {object | null | undefined} cart
+ */
+export function armSpillBoost(cart) {
+  if (!cart || !CONFIG.cargo?.spillBoost) return;
+  cart.spillBoostUntilMs = performance.now() + (CONFIG.cargo.spillBoost.durationMs ?? 0);
+}
+
+/**
+ * Living Cargo — a fuller cart (higher score) drops a bigger mess.
+ * @param {object | null | undefined} cart
+ * @returns {number} Grocery count for this cart's spill.
+ */
+export function spillCountForCart(cart) {
+  const cargoCfg = CONFIG.cargo;
+  if (!cargoCfg) return 6;
+  const base = cargoCfg.spillCountBase ?? 6;
+  const max = cargoCfg.spillCountMax ?? base;
+  return Math.round(base + (max - base) * (cart?.cargoFullness01 ?? 0));
 }
 
 /**
@@ -96,7 +122,7 @@ export function updateCargoLoad(allCarts, nowMs, ctx) {
   for (const cart of allCarts) {
     if (!cart) continue;
 
-    const fullness = clamp01((scores?.[cart.slotIndex] ?? 0) / fullScore);
+    const fullness = clamp((scores?.[cart.slotIndex] ?? 0) / fullScore, 0, 1);
     cart.cargoFullness01 = fullness;
 
     const bay = cart.cargoBay;
@@ -132,10 +158,13 @@ export function updateCargoLoad(allCarts, nowMs, ctx) {
 
   // * DEV-only observability — lets the console (and tuning sessions) read live cargo
   // * state without exposing carts in production: window.__cartClashCargo().
-  // * Reassigned every frame so the closure never holds stale carts across level swaps.
+  // * The module-level ref is updated each frame (no per-frame closure allocation);
+  // * the window function is defined once and reads the ref, so it never goes stale
+  // * across level swaps.
   if (import.meta.env.DEV && typeof window !== "undefined") {
-    window.__cartClashCargo = () =>
-      allCarts.map((c) =>
+    _debugCarts = allCarts;
+    window.__cartClashCargo ??= () =>
+      (_debugCarts ?? []).map((c) =>
         c
           ? {
               slot: c.slotIndex,

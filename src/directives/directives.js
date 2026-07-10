@@ -16,10 +16,9 @@
 /**
  * @typedef {object} DirectiveDef
  * @property {string} id Unique directive id — also the table key.
- * @property {string} title Short display name, used by the directive_end line tokens.
+ * @property {string} title Short display name, shown on the HUD countdown chip.
  * @property {string} announceEvent Announcer event id fired when the directive starts.
  * @property {number} weight Relative pick weight (higher = more common).
- * @property {number} [durationMs] Window length override (falls back to CONFIG.directives.durationMs).
  * @property {ReadonlyArray<DirectiveOverride>} [overrides] Temporary CONFIG mutations for the window.
  * @property {number} [koRewardMul] KO reward.total multiplier while active (host-applied
  *   in buildKOEvent via deps; the falls[] wire carries the boosted reward to clients).

@@ -16,6 +16,10 @@ export function encodeHostStateSnapshot(state) {
     collisions: state.collisions || [],
     falls: state.falls || [],
   };
+  // * Active Living Store directive ({ id, r: remainingMs }) — rides every snapshot
+  // * so a client that missed the one-shot MSG.directive (unreliable channel) or
+  // * joined mid-window self-heals from the next 40Hz frame.
+  if (state.dir) tailData.dir = state.dir;
   const jsonString = JSON.stringify(tailData);
   const jsonBytes = new TextEncoder().encode(jsonString);
   
@@ -132,6 +136,7 @@ export function decodeHostStateSnapshot(buffer) {
   // Decode JSON tail
   let collisions = [];
   let falls = [];
+  let dir = null;
   if (offset < buffer.byteLength) {
     const tailBytes = new Uint8Array(buffer, offset);
     const jsonTail = new TextDecoder().decode(tailBytes);
@@ -139,11 +144,12 @@ export function decodeHostStateSnapshot(buffer) {
       const parsed = JSON.parse(jsonTail);
       collisions = parsed.collisions || [];
       falls = parsed.falls || [];
+      dir = parsed.dir || null;
     } catch (e) {
       console.error("[binary] Failed to parse JSON tail", e);
     }
   }
-  
+
   return {
     // * Must equal the shared protocol constant so the receiver's dispatcher
     // * (handleRemoteP2PMessage) routes decoded binary snapshots to handleRemoteHostState.
@@ -152,6 +158,7 @@ export function decodeHostStateSnapshot(buffer) {
     tHost,
     carts,
     collisions,
-    falls
+    falls,
+    dir
   };
 }

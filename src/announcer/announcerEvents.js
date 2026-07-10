@@ -525,10 +525,9 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     chance: 1,
     ttlMs: 4000,
     interruptible: false,
-    // * Feature moment: channel + focus window reserved for the whole on-screen hold
-    // * so no other callout replaces or crowds the rule change while players read it.
-    durationMs: 5200,
-    focus: true,
+    // * NOT a focus event: it has no callout, so a focus window here would mute the
+    // * announcer for the opening seconds of Sudden Death with nothing on screen.
+    durationMs: 1400,
     callout: null,
     voice: Object.freeze({ key: "sudden_death", variants: 1 }),
     sting: Object.freeze({ type: "proc", name: "suddenDeath" }),

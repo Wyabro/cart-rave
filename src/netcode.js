@@ -19,7 +19,8 @@ import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
 import { announce } from "./announcer/announcerManager.js";
-import { applyRemoteDirective } from "./directives/directiveEngine.js";
+import { applyRemoteDirective, getDirectiveWireState } from "./directives/directiveEngine.js";
+import { armSpillBoost } from "./cargoLoad.js";
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
@@ -1051,6 +1052,12 @@ export function startHostSendLoop() {
     if (falls.length > 0) {
       payload.falls = falls;
     }
+    // * Active Living Store directive rides every snapshot — self-heal for a lost
+    // * one-shot MSG.directive and the catch-up path for mid-window joiners.
+    const dir = getDirectiveWireState();
+    if (dir) {
+      payload.dir = dir;
+    }
     const binaryPayload = encodeHostStateSnapshot(payload);
     P2P.sendToAll(binaryPayload);
   }, intervalMs);
@@ -1939,10 +1946,10 @@ function handleRemoteSpill(msg) {
   if (cart) GroceryPool.hideCargoBay(cart);
   // * Living Cargo spill comeback — arm the "empty cart is fast" window locally so the
   // * predicted local cart matches the host's buffed drive (and cargoLoad.js can run
-  // * the restock timer + announcer nudge on every client).
-  if (cart && CONFIG.cargo?.spillBoost) {
-    cart.spillBoostUntilMs = performance.now() + (CONFIG.cargo.spillBoost.durationMs ?? 0);
-  }
+  // * the restock timer + announcer nudge on every client). Note the window anchors to
+  // * wire-receive time, so it lags the host's by one-way latency — reconciliation
+  // * absorbs the edges (see docs/planning/living-store-test-plan.md).
+  armSpillBoost(cart);
 
   GroceryPool.triggerSpill(
     String(msg.slotId),
@@ -1972,6 +1979,12 @@ function handleRemoteHostState(state) {
       for (const ev of state.falls) {
         processHostFallEvent(ev);
       }
+    }
+    // * Directive self-heal: if the host has an active window this client doesn't
+    // * (lost one-shot, mid-window join), apply it with the remaining duration.
+    // * applyRemoteDirective no-ops when the same directive is already active.
+    if (state.dir && state.dir.id) {
+      applyRemoteDirective({ id: state.dir.id, durationMs: state.dir.r });
     }
   }
 }

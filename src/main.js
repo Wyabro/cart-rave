@@ -82,6 +82,7 @@ import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill } from "./directives/directiveEngine.js";
+import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 // * testArena constants inlined (avoid static import of heavy level module at boot).
@@ -855,22 +856,9 @@ async function main() {
     });
   }
 
-  // * Living Cargo — a fuller cart (higher score) drops a bigger mess.
-  function spillCountForCart(cart) {
-    const cargoCfg = CONFIG.cargo;
-    if (!cargoCfg) return 6;
-    const base = cargoCfg.spillCountBase ?? 6;
-    const max = cargoCfg.spillCountMax ?? base;
-    return Math.round(base + (max - base) * (cart?.cargoFullness01 ?? 0));
-  }
-
-  // * Living Cargo — arm the "empty cart is a fast cart" comeback window at the spill
-  // * moment (read by the drive block in simulation.js). Fall spills keep the tail of
-  // * the window after respawn; resetCartTransientState deliberately leaves it alone.
-  function armSpillBoost(cart) {
-    if (!cart || !CONFIG.cargo?.spillBoost) return;
-    cart.spillBoostUntilMs = performance.now() + (CONFIG.cargo.spillBoost.durationMs ?? 0);
-  }
+  // * Living Cargo spill helpers (armSpillBoost / spillCountForCart) live in
+  // * cargoLoad.js — one source shared by the host sim, gameFlow fall, and netcode
+  // * MSG.spill paths.
 
   const gameCtx = createGameContext().registerModules({
     Netcode,
@@ -903,9 +891,10 @@ async function main() {
     isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
     // * Mix: music dips under big PA moments so stings/voice cut through cleanly.
     onAnnouncementPlays: (def) => {
-      // * Directive events reserve the channel for their whole 5.2s on-screen hold —
-      // * cap the duck at sting length so music doesn't sag for the entire window.
-      const duckMs = Math.min(def.durationMs, 1400);
+      // * Focus (directive) events reserve the channel for their whole 5.2s on-screen
+      // * hold — cap THEIR duck at sting length so music doesn't sag for the window.
+      // * Non-focus events keep full-duration ducks (victory's 1600ms VO needs it).
+      const duckMs = def.focus ? Math.min(def.durationMs, 1400) : def.durationMs;
       if (def.cls === "critical") {
         AudioManager.duckMusic(0.3, duckMs + 500);
       } else if (def.cls === "high" || def.cls === "sequence") {

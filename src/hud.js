@@ -579,6 +579,10 @@ function updateTimer(roundState, matchHistoryLength) {
   }
 }
 
+/** Change-detection caches for the per-frame directive chip writes. */
+let _hudDirectiveId = null;
+let _hudDirectiveFillTenths = -1;
+
 /**
  * Living Store directive chip under the round timer. Called every frame from
  * frameVisuals with the engine's active directive (or null). Shows the directive
@@ -594,6 +598,8 @@ export function setHudDirective(directive, nowMs) {
 
   if (!directive) {
     el.classList.remove("hud-directive--active");
+    _hudDirectiveId = null;
+    _hudDirectiveFillTenths = -1;
     return;
   }
 
@@ -601,15 +607,23 @@ export function setHudDirective(directive, nowMs) {
   const remainingMs = Math.max(0, directive.untilMs - nowMs);
 
   el.classList.add("hud-directive--active");
-  el.style.setProperty("--directive-accent", directive.accent);
-  if (elements.directiveName.textContent !== directive.title) {
+  // * Accent + name are fixed for the window's life — write them only when the
+  // * directive changes (60fps caller; redundant style writes invalidate style).
+  if (_hudDirectiveId !== directive.id) {
+    _hudDirectiveId = directive.id;
+    el.style.setProperty("--directive-accent", directive.accent);
     elements.directiveName.textContent = directive.title;
   }
   const secsText = `${Math.ceil(remainingMs / 1000)}s`;
   if (elements.directiveSecs.textContent !== secsText) {
     elements.directiveSecs.textContent = secsText;
   }
-  elements.directiveFill.style.width = `${((remainingMs / totalMs) * 100).toFixed(1)}%`;
+  // * Quantize to 0.1% — a 3px bar can't show finer, and equal values skip the write.
+  const fillTenths = Math.round((remainingMs / totalMs) * 1000);
+  if (fillTenths !== _hudDirectiveFillTenths) {
+    _hudDirectiveFillTenths = fillTenths;
+    elements.directiveFill.style.width = `${fillTenths / 10}%`;
+  }
 }
 
 /**

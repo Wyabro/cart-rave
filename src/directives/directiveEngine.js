@@ -71,6 +71,16 @@ let _lastRoundStartedAtMs = 0;
  */
 export function initDirectiveEngine(d) {
   deps = d;
+  // * Phase-exit safety net that doesn't depend on the rAF tick: when the menu/pause
+  // * path freezes the game loop mid-window, updateDirectiveEngine stops running and
+  // * a phase change (quit to lobby, round end) would otherwise leave CONFIG mutated
+  // * until the next running-phase frame. Store subscriptions fire synchronously on
+  // * setState, so this restores base rules even with the loop frozen.
+  gameStore.subscribe((state) => {
+    if (active && (state.roundPhase !== RoundPhase.RUNNING || state.isSuddenDeath)) {
+      restoreActive();
+    }
+  });
 }
 
 /**
@@ -112,6 +122,13 @@ function applyDirective(def, nowMs, durationMs) {
   }
 
   active = { def, startedAtMs: nowMs, untilMs: nowMs + durationMs };
+  activeView = {
+    id: def.id,
+    title: def.title,
+    startedAtMs: nowMs,
+    untilMs: nowMs + durationMs,
+    accent: ANNOUNCER_EVENTS[def.announceEvent]?.callout?.accent ?? "#22e6ff",
+  };
   lastDirectiveId = def.id;
   deps?.announce(def.announceEvent, { title: def.title });
 }
@@ -127,6 +144,7 @@ function restoreActive() {
   }
   savedValues = [];
   active = null;
+  activeView = null;
 }
 
 /** Weighted random pick from DIRECTIVES, avoiding a back-to-back repeat. */
@@ -209,9 +227,8 @@ export function updateDirectiveEngine(nowMs) {
   const def = pickDirective();
   if (!def) return;
   scheduleIdx += 1;
-  const windowMs = def.durationMs ?? durationMs;
-  applyDirective(def, nowMs, windowMs);
-  deps.sendP2PEvent({ type: MSG.directive, id: def.id, durationMs: windowMs });
+  applyDirective(def, nowMs, durationMs);
+  deps.sendP2PEvent({ type: MSG.directive, id: def.id, durationMs });
 }
 
 /**
@@ -224,6 +241,10 @@ export function applyRemoteDirective(msg) {
   const def = msg?.id ? DIRECTIVES[msg.id] : null;
   if (!def) return;
   if (active?.def.id === def.id) return;
+  // * Late/stray packet guard: never apply outside a live running phase (a directive
+  // * landing during Sudden Death or podium would mutate CONFIG with no restore tick).
+  const state = gameStore.getState();
+  if (state.roundPhase !== RoundPhase.RUNNING || state.isSuddenDeath) return;
   const durationMs = typeof msg.durationMs === "number" && msg.durationMs > 0
     ? msg.durationMs
     : (CONFIG.directives.durationMs ?? 18000);
@@ -260,17 +281,31 @@ export function onHostSpill(victimSlotIndex) {
 }
 
 /**
+ * Cached public view of the active directive. Built ONCE per apply (all fields are
+ * stable for the window's life) so the per-frame HUD read doesn't allocate — see the
+ * scratch-object convention in frameVisuals.js/simulation.js.
+ * @type {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null}
+ */
+let activeView = null;
+
+/**
  * The active directive (or null) — for HUD/debug surfaces. `accent` mirrors the
  * directive's announcer callout color so the HUD chip matches the big callout.
  * @returns {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null}
  */
 export function getActiveDirective() {
+  return activeView;
+}
+
+/**
+ * Wire-shaped state of the active window for the host's 40Hz snapshot tail — the
+ * self-heal for a lost one-shot MSG.directive (unreliable DataChannel) and for
+ * mid-window joiners: clients that missed the start apply it from the next snapshot.
+ * `r` is remaining ms so the receiver anchors to its own clock.
+ * @returns {{ id: string, r: number } | null}
+ */
+export function getDirectiveWireState() {
   if (!active) return null;
-  return {
-    id: active.def.id,
-    title: active.def.title,
-    startedAtMs: active.startedAtMs,
-    untilMs: active.untilMs,
-    accent: ANNOUNCER_EVENTS[active.def.announceEvent]?.callout?.accent ?? "#22e6ff",
-  };
+  const remaining = Math.round(active.untilMs - performance.now());
+  return remaining > 250 ? { id: active.def.id, r: remaining } : null;
 }
