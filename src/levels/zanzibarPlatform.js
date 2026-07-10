@@ -891,8 +891,10 @@ export function getZanzibarFloorColliderSpec(circumR) {
  * @param {THREE.Scene} scene
  * @param {number} circumR Deck circumradius (sizes the foam ring).
  * @returns {{ group: THREE.Group, sunDir: THREE.Vector3,
- *   update: (timeMs: number) => void, ownedGeometries: THREE.BufferGeometry[],
- *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }}
+ *   update: (timeMs: number) => void, waterMat: THREE.Material | null,
+ *   ownedGeometries: THREE.BufferGeometry[],
+ *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[],
+ *   lodProps: (THREE.Object3D | null)[] }}
  */
 function buildSeascape(scene, circumR) {
   const lowQ = isLowQualityMode();

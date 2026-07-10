@@ -193,6 +193,7 @@ let stadiumPulseMats = [];
  *   index: number,
  *   baseColor?: THREE.Color,
  *   baseIntensity?: number,
+ *   forceOff?: boolean,
  * }[]} */
 let crowdSearchlightEntries = [];
 

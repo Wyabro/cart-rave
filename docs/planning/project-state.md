@@ -25,15 +25,21 @@ Cart Clash is a browser-based **4-player physics sumo** game. Players drive neon
 
 | Layer | Technology |
 |-------|------------|
-| Rendering | Three.js r185 (`src/`, Vite-bundled) |
-| Physics | Rapier3D (host-authoritative, client-side only) |
-| Multiplayer | partyserver Durable Object (`party/index.ts`) |
-| Build | Vite → `dist/` |
-| Hosting | Cloudflare Workers (assets + Durable Object via Wrangler) |
+| Rendering | Three.js r185 / `^0.185.1` (`src/`, Vite-bundled) |
+| Physics | Rapier3D `^0.19.3` (host-authoritative, client-side only) |
+| Multiplayer | partyserver `^0.5.8` Durable Object (`party/index.ts`) + partysocket `^1.3.0` |
+| P2P / TURN | WebRTC DataChannels; Cloudflare Calls mint TURN (`request_turn_credentials`) |
+| Build | Vite `^8.1.4` + vite-plugin-wasm → `dist/` |
+| Hosting | Cloudflare Workers (ASSETS + Durable Object via Wrangler `^4.110.0`) |
+| Quality | TypeScript 6.x `tsc --noEmit`, Vitest `^4.1.10`, knip `^6.26.0` |
 | Fonts | Self-hosted under `public/fonts/` (`npm run fonts:fetch`) |
 | Cart models | Draco GLBs under `public/models/` (masters under `art/`) |
 
+Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/README.md § Tech stack](../README.md#tech-stack).
+
 **No server-side physics.** The Durable Object relays messages only. Host snapshots stream at ~**40 Hz** on the DataChannel when P2P is up.
+
+**Tooling notes (July 10, 2026):** TypeScript stays on **6.x** (7.x deferred). Wrangler 4.108+ vs partyserver workers-types peer mismatch is handled by `.npmrc` `legacy-peer-deps=true`.
 
 ---
 

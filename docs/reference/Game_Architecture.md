@@ -32,12 +32,18 @@ At a high level, the architecture is:
 
 ## Technology stack (as referenced in docs)
 
-- **Three.js** (~r185): rendering, scene, camera, post-processing, and visuals
-- **Rapier3D**: physics (simulation runs on the host client)
-- **partyserver**: Durable Object rooms + WebSocket relay + lightweight server state on Cloudflare Workers
-- **Vite**: dev server and production build (`dist/`)
+Pinned ranges and licenses live in [CREDITS.md](./CREDITS.md) / `package.json`. Snapshot:
+
+- **Three.js** (`^0.185.1` / r185): rendering, scene, camera, post-processing, and visuals
+- **Rapier3D** (`@dimforge/rapier3d` `^0.19.3`): physics (simulation runs on the **host client** only)
+- **Zustand** (`zustand/vanilla` `^5.0.14`): UI/settings stores
+- **Howler.js** (`howler` `^2.2.4`): music/SFX; procedural stings via Web Audio helpers
+- **anime.js** (`animejs` `^4.5.0`), **Tweakpane** (`^4.0.5`), **nipplejs** (`^1.0.4`)
+- **partyserver** (`^0.5.8`) + **partysocket** (`^1.3.0`): Durable Object rooms, WebSocket control plane
+- **WebRTC DataChannels** + **Cloudflare Calls TURN** (API-minted credentials): gameplay P2P plane
+- **Vite** (`^8.1.4`) + **vite-plugin-wasm** (`^3.6.0`) → `dist/`; **Wrangler** (`^4.110.0`) deploys Worker + `ASSETS`
 - **Cloudflare Workers**: static hosting for the client + Durable Object hosting for multiplayer relay
-- **Howler.js**: music/SFX; procedural stings via Web Audio helpers
+- **Vitest** / **happy-dom** / **knip** / TypeScript **6.x** (`tsc --noEmit`) — quality gate via `npm run check`
 
 **Levels** (display names; see [brand.md](../brand.md)):
 

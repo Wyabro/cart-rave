@@ -2,26 +2,58 @@
 
 This document lists third‑party libraries, services, and assets used by **Cart Clash**.
 
-Runtime dependencies come from `package.json` and are bundled by Vite unless noted otherwise.
+**Source of truth for versions:** `package.json` ranges (and the lockfile for exact installs). Update this file when those ranges change.
+
+Runtime dependencies are bundled by Vite unless noted otherwise.
 
 ---
 
 ## Libraries (runtime + tooling)
 
+### Client
+
+| Category | Name (npm) | Where used | Version | License | Link |
+|---|---|---|---|---|---|
+| 3D Rendering | Three.js (`three`) | Client (`src/`, Vite-bundled) | `^0.185.1` | MIT | `https://github.com/mrdoob/three.js` |
+| Three types | `@types/three` | JSDoc / `tsc` typechecking | `^0.185.1` | MIT | `https://www.npmjs.com/package/@types/three` |
+| Physics | Rapier3D (`@dimforge/rapier3d`, native WASM) | Client — host-authoritative physics (`src/simulation.js`, etc.) | `^0.19.3` | Apache-2.0 | `https://github.com/dimforge/rapier` |
+| State | Zustand (`zustand/vanilla`) | UI & settings stores (`src/stores/`) | `^5.0.14` | MIT | `https://github.com/pmndrs/zustand` |
+| Audio | Howler.js (`howler`) | Music/SFX, pooling, spatial groups (`src/audio.js`) | `^2.2.4` | MIT | `https://github.com/goldfire/howler.js` |
+| Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.5.0` | MIT | `https://github.com/juliangarnier/anime` |
+| Debug UI | Tweakpane (`tweakpane`) | Neon debug & settings pane (`src/postFxDebug.js`, etc.) | `^4.0.5` | MIT | `https://github.com/cocopon/tweakpane` |
+| Touch | nipplejs (`nipplejs`) | Mobile virtual analog joystick (`src/touchControls.js`) | `^1.0.4` | MIT | `https://github.com/yoannmoinet/nipplejs` |
+| Language | JavaScript (JSDoc) + TypeScript (`typescript`) for `tsc --noEmit` | Typecheck only — not a runtime transpile | `^6.0.3` | Apache-2.0 | `https://www.typescriptlang.org/` |
+
+> **TypeScript:** intentionally on **6.x**. npm may report 7.x as latest; major upgrade is deferred.
+
+### Server & infrastructure
+
+| Category | Name (npm / product) | Where used | Version | License | Link |
+|---|---|---|---|---|---|
+| Multiplayer DO | `partyserver` | Cloudflare Worker Durable Object (`party/index.ts`) | `^0.5.8` | MIT | `https://github.com/threepointone/partyserver` |
+| WebSocket client | `partysocket` | Client control-plane WebSocket (`src/netcode.js`) | `^1.3.0` | MIT | `https://www.npmjs.com/package/partysocket` |
+| P2P transport | WebRTC DataChannels | Browser-native gameplay plane (`src/netcode/p2p.js`) | Browser native | — | — |
+| TURN relay | Cloudflare Calls | API-minted TURN tokens (`party/index.ts` → Calls TURN keys) | Account API | — | `https://developers.cloudflare.com/calls/` |
+| WASM bundling | `vite-plugin-wasm` | Rapier WASM in Vite builds | `^3.6.0` | MIT | `https://www.npmjs.com/package/vite-plugin-wasm` |
+| Build | Vite (`vite`) | Dev server + production build (`dist/`) | `^8.1.4` | MIT | `https://github.com/vitejs/vite` |
+| Deploy CLI | Wrangler (`wrangler`) | Worker bundle, local DO, asset deploy | `^4.110.0` | MIT / Apache-2.0 | `https://github.com/cloudflare/workers-sdk` |
+| Static assets | Worker `ASSETS` binding | Serves Vite `dist/` from the same Worker | — | — | `wrangler.jsonc` → `assets.directory: "dist"` |
+
+> **Wrangler peer note:** `wrangler@4.108+` optional-peers `@cloudflare/workers-types@5`, while `partyserver` still depends on workers-types **v4**. Repo uses `.npmrc` `legacy-peer-deps=true` until partyserver updates.
+
+### Testing & quality
+
+| Category | Name (npm) | Where used | Version | License | Link |
+|---|---|---|---|---|---|
+| Test runner | Vitest (`vitest`) | Unit tests (`tests/`) | `^4.1.10` | MIT | `https://vitest.dev/` |
+| DOM env | happy-dom (`happy-dom`) | Vitest DOM environment | `^20.10.6` | MIT | `https://github.com/capricorn86/happy-dom` |
+| Dead code | Knip (`knip`) | Unused export analysis (`knip.json`) | `^6.26.0` | ISC | `https://github.com/webpro/knip` |
+| Typecheck | `tsc --noEmit` | `npm run typecheck` / `npm run check` | via TypeScript `^6.0.3` | — | — |
+
+### Dev-only (not an npm dependency)
+
 | Category | Name | Where used | Version | License | Link |
 |---|---|---|---|---|---|
-| Rendering | Three.js | Client (`src/`, Vite-bundled) | `^0.185.1` | MIT | `https://github.com/mrdoob/three.js` |
-| Physics | Rapier (Rapier3D) | Client — host-authoritative physics (`src/simulation.js`, etc.) | `^0.19.3` | Apache-2.0 | `https://github.com/dimforge/rapier` |
-| Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.0.0` | MIT | `https://github.com/juliangarnier/anime` |
-| Multiplayer | `partyserver` | Cloudflare Worker DO backend (`party/index.ts`) | `^0.5.8` | MIT | `https://github.com/threepointone/partyserver` |
-| Networking | `partysocket` | Client WebSocket (`src/netcode.js`) | `^1.1.16` | MIT | `https://www.npmjs.com/package/partysocket` |
-| Build / Deploy | Wrangler | Worker bundle & asset uploader CLI | `^3.0.0` | MIT | `https://github.com/cloudflare/workers-sdk` |
-| Build | Vite | Dev server + production build (`dist/`) | `^6.3.5` | MIT | `https://github.com/vitejs/vite` |
-| Touch Controls | `nipplejs` | Mobile virtual analog joystick (`src/touchControls.js`) | `^1.0.4` | MIT | `https://github.com/yoannmoinet/nipplejs` |
-| State Management | Zustand | UI & settings state store (`src/stores/`) | `^5.0.14` | MIT | `https://github.com/pmndrs/zustand` |
-| Sound Engine | Howler.js | Audio playback, pooling, and spatial groups (`src/audio.js`) | `^2.2.4` | MIT | `https://github.com/goldfire/howler.js` |
-| Debug UI | Tweakpane | Neon debug & settings pane (`src/postFxDebug.js`, etc.) | `^4.0.5` | MIT | `https://github.com/cocopon/tweakpane` |
-| Dead-code analysis | Knip | Unused export audit tool (`knip.json`) | `^6.20.0` | ISC | `https://github.com/webpro/knip` |
 | Debug console | Eruda | Loaded from CDN on localhost / LAN only (`index.html`) | Not pinned | MIT | `https://github.com/liriliri/eruda` |
 
 **Three.js examples** (same MIT license as Three.js): `CSS2DRenderer`, `EffectComposer`, `RenderPass`, `ShaderPass`, `UnrealBloomPass`, `FXAAShader`, `RoomEnvironment`, `Reflector`, `BufferGeometryUtils` — imported from `three/examples/jsm/` in `src/`.
@@ -50,7 +82,8 @@ Fallbacks only (not shipped): system-ui, Archivo Black (CSS fallback for Bungee)
 
 | Name | Purpose | Link |
 |---|---|---|
-| Cloudflare Workers | Serverless host for assets + partyserver Durable Objects | `https://workers.cloudflare.com/` |
+| Cloudflare Workers | Serverless host for assets + partyserver Durable Objects (free tier capable) | `https://workers.cloudflare.com/` |
+| Cloudflare Calls | TURN credential minting for WebRTC P2P (env: `CF_ACCOUNT_ID`, `CF_CALLS_KEY_ID`, `CF_API_TOKEN`) | `https://developers.cloudflare.com/calls/` |
 | unpkg | CDN fallback for Eruda (local/LAN dev only) | `https://unpkg.com/` |
 | jsDelivr | CDN fallback for Eruda (local/LAN dev only) | `https://www.jsdelivr.com/` |
 
@@ -90,4 +123,4 @@ Bundled SFX ship in both `.ogg` (primary) and `.mp3` (Safari/iOS fallback) forma
 
 ---
 
-**Last Updated:** July 4, 2026
+**Last Updated:** July 10, 2026

@@ -37,7 +37,7 @@ const TELEPORT_JUMP_M = 8; // per-frame Y jump larger than this is a respawn, no
  * Soft radial disc texture.
  * @param {number} size
  * @param {{ inner?: string, mid?: string, outer?: string }} stops
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture} CanvasTexture, or 1×1 DataTexture if 2d context is unavailable
  */
 function makeSoftDiscTexture(size, stops) {
   const canvas = document.createElement("canvas");
@@ -67,7 +67,7 @@ function makeSoftDiscTexture(size, stops) {
 /**
  * Soft annular ring — foam / shockwave.
  * @param {number} size
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture} CanvasTexture, or 1×1 DataTexture if 2d context is unavailable
  */
 function makeSoftRingTexture(size) {
   const canvas = document.createElement("canvas");
@@ -120,7 +120,7 @@ function makeSoftRingTexture(size) {
 
 /**
  * Droplet / bubble soft point.
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture}
  */
 function makeDropletTexture() {
   return makeSoftDiscTexture(32, {
@@ -133,7 +133,7 @@ function makeDropletTexture() {
 /**
  * Vertical spray streak (for Points size-attenuation streaks-as-dots fallback
  * and spray sprites stretched on Y).
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture} CanvasTexture, or 1×1 DataTexture if 2d context is unavailable
  */
 function makeSprayStreakTexture() {
   const w = 32;

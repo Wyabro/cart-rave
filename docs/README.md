@@ -54,10 +54,45 @@ Three docs split cleanly by time — **past / present / future**:
 
 ## Tech stack
 
-- **Three.js** — rendering, camera, post-processing, UI/world visuals
-- **Rapier3D** — real-time physics (host-authoritative simulation). Heavy use of `convexHull` and primitive colliders after July 2026 refactor for stability and performance.
-- **partyserver** — multiplayer rooms + WebSocket Durable Object relay + server state running on Cloudflare Workers (migrated from PartyKit July 2026)
-- **Vite** — dev server and production build (`dist/`)
+Versions are the `package.json` ranges. Full credits, licenses, and services: [reference/CREDITS.md](./reference/CREDITS.md).
+
+### Client
+
+| Layer | Technology | Version |
+|-------|------------|---------|
+| 3D Rendering | Three.js (`three`) | `^0.185.1` |
+| Physics | Rapier3D (`@dimforge/rapier3d`, native WASM) | `^0.19.3` |
+| Build | Vite | `^8.1.4` |
+| State | Zustand (`zustand/vanilla`) | `^5.0.14` |
+| Audio | Howler.js (`howler`) | `^2.2.4` |
+| Animation | anime.js (`animejs`) | `^4.5.0` |
+| Debug UI | Tweakpane | `^4.0.5` |
+| Touch | nipplejs | `^1.0.4` |
+| Language | JSDoc + TypeScript for `tsc --noEmit` | `^6.0.3` (stay on 6.x; 7.x deferred) |
+
+### Server & infrastructure
+
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Runtime | Cloudflare Workers | Free-tier capable |
+| Stateful server | Durable Objects via `partyserver` | `^0.5.8` |
+| WebSocket client | `partysocket` | `^1.3.0` |
+| P2P transport | WebRTC DataChannels | Browser native |
+| TURN relay | Cloudflare Calls (API-minted) | Account secrets |
+| WASM bundling | `vite-plugin-wasm` | `^3.6.0` |
+| Deployment | Wrangler | `^4.110.0` |
+| Static assets | Worker `ASSETS` → `dist/` | `wrangler.jsonc` |
+
+### Testing & quality
+
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Test runner | Vitest | `^4.1.10` |
+| DOM environment | happy-dom | `^20.10.6` |
+| Dead code | knip | `^6.26.0` |
+| Type checking | `tsc --noEmit` | via TypeScript `^6.0.3` |
+
+**Notes:** Physics is **host-authoritative on the client** (Rapier does not run in the Worker). `partyserver` still pulls `@cloudflare/workers-types@4` while Wrangler 4.108+ optional-peers v5 — installs use `.npmrc` `legacy-peer-deps=true`.
 
 Client code lives in `src/`. `src/main.js` is the live entry point and wiring hub; core systems are modular (`netcode.js`, `simulation.js`, `bootstrap.js`, `levelManager.js`, etc.).
 

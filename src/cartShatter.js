@@ -50,7 +50,7 @@ const _ember = new THREE.Color(0xffaa55);
  * Soft radial disc — used for flash, glow shells, and smoke sprites.
  * @param {number} size
  * @param {{ inner?: string, mid?: string, outer?: string }} stops
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture} CanvasTexture, or 1×1 DataTexture if 2d context is unavailable
  */
 function makeSoftDiscTexture(size, stops) {
   const canvas = document.createElement("canvas");
@@ -80,7 +80,7 @@ function makeSoftDiscTexture(size, stops) {
 /**
  * Soft annular ring texture (shockwave) — hard center hole, soft outer falloff.
  * @param {number} size
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture} CanvasTexture, or 1×1 DataTexture if 2d context is unavailable
  */
 function makeSoftRingTexture(size) {
   const canvas = document.createElement("canvas");
@@ -121,7 +121,7 @@ function makeSoftRingTexture(size) {
 
 /**
  * Elongated spark texture (horizontal streak with soft tips).
- * @returns {THREE.CanvasTexture}
+ * @returns {THREE.Texture} CanvasTexture, or 1×1 DataTexture if 2d context is unavailable
  */
 function makeSparkTexture() {
   const w = 64;
@@ -315,7 +315,7 @@ function spawnExplosion(scene, origin, neonHex) {
   group.add(glowMesh);
 
   // --- 4. Dual shock rings (soft textured planes, staggered) ---
-  /** @type {{ mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, delayMs: number, lifeMs: number, startScale: number, endScale: number }[]} */
+  /** @type {{ mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, delayMs: number, lifeMs: number, startScale: number, endScale: number, peakOpacity: number }[]} */
   const rings = [];
   const ringSpecs = lowQ
     ? [{ delayMs: 0, lifeMs: 520, startScale: 0.5, endScale: 5.2, opacity: 0.95 }]
