@@ -66,7 +66,7 @@ function escapeHtml(text) {
  */
 function nametagHtml(name, meta, mode, isHost) {
   const hostGlyph = isHost
-    ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("antenna", { label: "Host" })}</span>`
+    ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("host", { label: "Host" })}</span>`
     : "";
   if (!meta) return `${hostGlyph}${escapeHtml(name)}`;
   const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
@@ -1910,7 +1910,7 @@ async function main() {
       if (isHost) {
         playAgain.textContent = "PLAY AGAIN";
       } else {
-        playAgain.innerHTML = `<span style="opacity:.8;margin-right:6px;">${svgIcon("antenna", { label: "Host" })}</span>WAITING FOR HOST…`;
+        playAgain.innerHTML = `<span style="opacity:.8;margin-right:6px;">${svgIcon("host", { label: "Host" })}</span>WAITING FOR HOST…`;
       }
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;

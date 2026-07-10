@@ -115,6 +115,11 @@
   --radius-card: 16px;
   --radius-btn: 6px;
 
+  /* Sticker material — "pigment on vinyl" (HUD art direction 2026-07-09) */
+  --color-sticker-white: #f2ede4; /* warm die-cut edge + big lettering fill; never a large surface */
+  --color-ink: #14101e;           /* every opaque panel surface — a step above the arena void */
+  --color-ink-deep: #08050f;      /* outlines, extrudes, hard shadows */
+
   /* HUD semantic colors (match-state grammar) */
   --color-timer-ok: #39ff14;
   --color-alert: #ff3333;

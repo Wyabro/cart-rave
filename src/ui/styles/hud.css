@@ -10,8 +10,20 @@
   --hud-player-accent: var(--color-cyan);
   --hud-pad: clamp(8px, 1.5vw, 18px);
   --hud-radius: var(--radius-panel);
-  --hud-panel-bg: rgba(0,0,0,0.75);
-  --hud-border: 2px solid var(--border-white-15);
+  --hud-panel-bg: var(--color-ink);
+  /* Die-cut sticker recipe — white contour + hard zero-blur shadow + plastic
+     inner highlight. Tiers: micro / chip / panel (edge width & shadow offset). */
+  --sticker-micro:
+    0 0 0 1.5px var(--color-sticker-white),
+    2px 2px 0 1.5px var(--color-ink-deep);
+  --sticker-chip:
+    0 0 0 2.5px var(--color-sticker-white),
+    3px 3px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+  --sticker-panel:
+    0 0 0 3px var(--color-sticker-white),
+    4px 4px 0 3px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
   --hud-timer-reserve: clamp(128px, 15vw, 208px);
   --hud-audio-reserve: clamp(48px, 6vw, 108px);
   --hud-feed-top: clamp(96px, 12vh, 120px);
@@ -20,8 +32,9 @@
   z-index: 20000;
   pointer-events: none;
   font-family: var(--hud-mono);
-  color: #ffffff;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+  color: var(--color-sticker-white);
+  /* Printed ink drop, not a soft screen glow. */
+  text-shadow: 0 1.5px 0 rgba(8, 5, 15, 0.9);
 }
 
 /* ── Screen regions — each zone owns position + stacking; children stay static ── */
@@ -76,6 +89,9 @@
   z-index: 16;
 }
 
+/* Big-moment lettering: pigment fill + ink outline + stepped hard extrude.
+   JS supplies the fill color per state; the structure lives here. A banner is
+   never perfectly level. */
 #hud .hud-status {
   font-family: var(--hud-ui);
   font-size: clamp(3.15rem, 9vw, 5.4rem);
@@ -83,20 +99,50 @@
   letter-spacing: 0.06em;
   padding: clamp(4px, 1vw, 10px) clamp(8px, 1.5vw, 14px);
   color: var(--color-magenta);
-  text-shadow: 4px 4px 0 var(--color-cyan), 0 0 24px var(--color-magenta), 0 0 42px var(--color-magenta);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.09em var(--color-ink-deep);
+  text-shadow:
+    0.05em 0.05em 0 var(--color-ink-deep),
+    0.1em 0.1em 0 var(--color-ink-deep);
+  transform: rotate(-1.5deg);
+  position: relative;
   display: none;
   white-space: nowrap;
   z-index: 10;
 }
 
-/* Arena name card — sits under the GET READY line during the countdown, fades on GO. */
+/* Sudden Death earns hazard ribbons above and below the wordmark. */
+#hud.hud-sudden-death .hud-status::before,
+#hud.hud-sudden-death .hud-status::after {
+  content: "";
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  height: 9px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-alert) 0 10px,
+    var(--color-ink-deep) 10px 20px
+  );
+  box-shadow: 0 0 0 1.5px var(--color-ink-deep);
+}
+#hud.hud-sudden-death .hud-status::before { top: -6px; }
+#hud.hud-sudden-death .hud-status::after { bottom: -6px; }
+
+/* Arena name card — an aisle-marker plate under the GET READY line during the
+   countdown; fades on GO. The skew keeps box-shadow honest (no clip-path). */
 #hud .hud-arena-splash {
   font-family: var(--hud-ui);
   font-size: clamp(1.1rem, 3vw, 1.8rem);
   font-weight: 900;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.24em;
+  padding: clamp(6px, 1vw, 10px) clamp(18px, 3vw, 30px) clamp(6px, 1vw, 10px) clamp(20px, 3.2vw, 34px);
   color: var(--color-cyan);
-  text-shadow: 2px 2px 0 var(--glow-magenta-28), 0 0 18px var(--color-cyan);
+  background: var(--color-ink);
+  box-shadow: var(--sticker-panel);
+  border-radius: 6px;
+  transform: skewX(-10deg);
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.35s ease;
@@ -107,28 +153,27 @@
   opacity: 1;
 }
 
-/* Rampage Combo HUD Badge */
+/* Rampage Combo badge — a tilted ticket slapped on from camera (momentary,
+   so it earns the tilt). Opaque ink, die-cut edge, no blur, no resting glow. */
 #hud .hud-combo-badge {
-  transform: scale(0.8);
+  transform: scale(1.18) rotate(-2deg);
   display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: clamp(6px, 1vw, 10px) clamp(16px, 2.5vw, 24px);
-  background: var(--hud-panel-bg);
-  border: var(--hud-border);
+  background: var(--color-ink);
   border-radius: var(--hud-radius);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--sticker-chip);
   pointer-events: none;
   z-index: 15;
   opacity: 0;
-  transition: opacity 180ms ease, transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: opacity 100ms ease-out, transform 160ms cubic-bezier(0.2, 1.75, 0.3, 1);
 }
 #hud .hud-combo-badge.active {
   display: flex;
   opacity: 1;
-  transform: scale(1);
+  transform: scale(1) rotate(-2deg);
 }
 #hud .hud-combo-content {
   display: flex;
@@ -142,7 +187,9 @@
   line-height: 1;
   letter-spacing: 1px;
   color: var(--color-combo-t1);
-  text-shadow: 0 0 16px #ffaa0088;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.08em var(--color-ink-deep);
+  text-shadow: 0.06em 0.06em 0 var(--color-ink-deep);
 }
 #hud .hud-combo-tier {
   font-family: var(--hud-mono);
@@ -168,47 +215,81 @@
   transform-origin: left center;
   transition: width 60ms linear;
 }
-/* Tier specific themes — tier 3 rides the brand magenta/cyan (energy event). */
-#hud .hud-combo-badge.tier-1 .hud-combo-multiplier { color: var(--color-combo-t1); text-shadow: 0 0 16px #ffaa00aa; }
-#hud .hud-combo-badge.tier-1 .hud-combo-bar-fill { background: var(--color-combo-t1); box-shadow: 0 0 8px var(--color-combo-t1); }
-#hud .hud-combo-badge.tier-2 .hud-combo-multiplier { color: var(--color-combo-t2); text-shadow: 0 0 20px #ff3366cc; }
+/* Tier themes — printed tier ink; tier 3 is the earned celebration (one glow). */
+#hud .hud-combo-badge.tier-1 .hud-combo-multiplier { color: var(--color-combo-t1); }
+#hud .hud-combo-badge.tier-1 .hud-combo-bar-fill { background: var(--color-combo-t1); }
+#hud .hud-combo-badge.tier-2 .hud-combo-multiplier { color: var(--color-combo-t2); }
 #hud .hud-combo-badge.tier-2 .hud-combo-tier { color: #ff99bb; }
-#hud .hud-combo-badge.tier-2 .hud-combo-bar-fill { background: var(--color-combo-t2); box-shadow: 0 0 10px var(--color-combo-t2); }
-#hud .hud-combo-badge.tier-3 .hud-combo-multiplier { color: var(--color-cyan); text-shadow: 0 0 24px var(--color-cyan), 0 0 40px var(--color-magenta); animation: comboPulse 0.5s ease-in-out infinite alternate; }
-#hud .hud-combo-badge.tier-3 .hud-combo-tier { color: var(--color-magenta); text-shadow: 0 0 12px var(--color-magenta); }
-#hud .hud-combo-badge.tier-3 .hud-combo-bar-fill { background: linear-gradient(90deg, var(--color-cyan), var(--color-magenta)); box-shadow: 0 0 12px var(--color-cyan); }
+#hud .hud-combo-badge.tier-2 .hud-combo-bar-fill { background: var(--color-combo-t2); }
+#hud .hud-combo-badge.tier-3 .hud-combo-multiplier {
+  color: var(--color-yellow);
+  text-shadow:
+    0.06em 0.06em 0 var(--color-magenta),
+    0.12em 0.12em 0 var(--color-ink-deep),
+    0 0 0.5em rgba(255, 43, 214, 0.45);
+  animation: comboPulse 0.5s ease-in-out infinite alternate;
+}
+#hud .hud-combo-badge.tier-3 .hud-combo-tier { color: var(--color-magenta); }
+#hud .hud-combo-badge.tier-3 .hud-combo-bar-fill { background: linear-gradient(90deg, var(--color-cyan), var(--color-magenta)); }
 
 @keyframes comboPulse {
   0% { transform: scale(1); }
   100% { transform: scale(1.06); }
 }
 
+/* Timer — a price tag: pointed left end with a punched hole; the point zone
+   carries the match state (flat green → hazard stripes as time runs out).
+   The white edge is the padded sticker-white layer under the clip; the hard
+   shadow rides the region (drop-shadow follows the clipped silhouette). */
+#hud .hud-region-match {
+  filter: drop-shadow(4px 4px 0 var(--color-ink-deep));
+}
 #hud .hud-timer {
+  position: relative;
   display: none;
   align-items: stretch;
   justify-content: flex-start;
   flex-direction: row;
-  background: var(--hud-panel-bg);
-  border: var(--hud-border);
-  border-radius: var(--hud-radius);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--color-sticker-white);
+  padding: 3px;
+  clip-path: polygon(
+    22px 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    22px 100%,
+    0 50%
+  );
   overflow: hidden;
   pointer-events: none;
-  
-  /* Added responsive scaling for the text and padding */
-  font-size: clamp(1rem, 3vw, 1.5rem); /* Scales from 16px up to 24px */
-  padding: clamp(4px, 1vw, 8px) clamp(6px, 1.5vw, 12px);
+  font-size: clamp(1rem, 3vw, 1.5rem);
 }
 
+/* Punched tag hole. */
+#hud .hud-timer::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-ink-deep);
+  box-shadow: 0 0 0 2px var(--color-sticker-white);
+}
+
+/* State zone in the tag point: flat when healthy, warehouse hazard when not. */
 #hud .hud-timer-stripe {
-  width: clamp(4px, 0.8vw, 8px);
+  width: clamp(20px, 2.4vw, 26px);
   background: var(--color-timer-ok);
-  box-shadow: 0 0 12px #39ff14aa;
   flex: 0 0 auto;
 }
 
 #hud .hud-timer-body {
+  background: var(--color-ink);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.07);
   padding: clamp(6px, 1vw, 10px) clamp(10px, 1.5vw, 20px) clamp(8px, 1vw, 12px) clamp(10px, 1vw, 16px);
   min-width: clamp(120px, 15vw, 200px);
   display: flex;
@@ -233,7 +314,6 @@
   height: 6px;
   border-radius: 50%;
   background: var(--color-timer-ok);
-  box-shadow: 0 0 6px var(--color-timer-ok);
   flex: 0 0 auto;
 }
 
@@ -249,13 +329,15 @@
   font-size: clamp(28px, 5.5vw, 54px);
   line-height: 1;
   letter-spacing: 1px;
-  color: #ffffff;
-  text-shadow: 0 0 20px rgba(57,255,20,0.4);
+  color: var(--color-sticker-white);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.06em var(--color-ink-deep);
+  text-shadow: 0.05em 0.05em 0 var(--color-ink-deep);
 }
 
 #hud .hud-timer-bar {
-  height: clamp(5px, 1vw, 6px);
-  background: rgba(255,255,255,0.1);
+  height: clamp(6px, 1.1vw, 8px);
+  background: rgba(255,255,255,0.12);
   border-radius: var(--radius-pill);
   overflow: hidden;
 }
@@ -266,7 +348,6 @@
   width: 0%;
   background: linear-gradient(90deg, var(--color-timer-ok), var(--color-cyan));
   border-radius: var(--radius-pill);
-  box-shadow: 0 0 8px #39ff1488;
 }
 
 /* Standings — separate "sticker chips" with a cart-color edge stripe. Only the
@@ -277,11 +358,13 @@
   display: none;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: clamp(6px, 0.8vw, 10px);
+  gap: clamp(9px, 1.1vw, 13px);
   align-items: center;
   justify-content: center;
   width: max-content;
   max-width: 100%;
+  /* Breathing room for die-cut edges + hard shadows. */
+  padding: 4px 6px 7px 4px;
 }
 
 #hud .hud-scoreBox {
@@ -294,13 +377,9 @@
   flex-direction: row;
   align-items: center;
   gap: clamp(4px, 0.8vw, 8px);
-  background:
-    linear-gradient(180deg, var(--surface-panel-top), var(--surface-panel-bottom)),
-    var(--hud-panel-bg);
-  border: 2px solid var(--border-white-15);
+  background: var(--color-ink);
   border-radius: var(--radius-panel);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  box-shadow: var(--sticker-chip);
   overflow: hidden;
 }
 
@@ -315,17 +394,25 @@
   background: var(--hud-glow);
 }
 
-/* Glow is earned: only YOU and the current leader light up. */
-#hud .hud-scoreBox.isLocal,
-#hud .hud-scoreBox.isLeader {
-  border-color: color-mix(in oklab, var(--hud-glow), transparent 45%);
-  box-shadow: 0 0 14px color-mix(in oklab, var(--hud-glow), transparent 70%);
+/* Rank is signaled with material, not light: the leader's die-cut edge turns
+   sticker-yellow (shelf-talker flash); YOU gets a thicker white edge. */
+#hud .hud-scoreBox.isLocal {
+  box-shadow:
+    0 0 0 3px var(--color-sticker-white),
+    3px 3px 0 3px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
 }
-#hud .hud-scoreBox.isLocal .hud-scoreRank,
-#hud .hud-scoreBox.isLeader .hud-scoreRank,
-#hud .hud-scoreBox.isLocal .hud-scoreValue,
-#hud .hud-scoreBox.isLeader .hud-scoreValue {
-  text-shadow: 0 0 8px var(--hud-glow);
+#hud .hud-scoreBox.isLeader {
+  box-shadow:
+    0 0 0 2.5px var(--color-yellow),
+    3px 3px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+}
+#hud .hud-scoreBox.isLocal.isLeader {
+  box-shadow:
+    0 0 0 3px var(--color-yellow),
+    3px 3px 0 3px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
 }
 /* YOU reads ~15% larger than the field. */
 #hud .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(14px, 1.6vw, 18px); }
@@ -350,8 +437,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ffffff;
-  text-shadow: 0 0 6px rgba(255,255,255,0.2);
+  color: var(--color-sticker-white);
 }
 
 #hud .hud-scoreValue {
@@ -367,11 +453,11 @@
   font-family: var(--hud-display);
   font-size: 10px;
   background: var(--hud-glow);
-  color: #000000;
+  color: var(--color-ink-deep);
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: 4px;
   letter-spacing: 1px;
-  box-shadow: 0 0 8px var(--hud-glow);
+  box-shadow: var(--sticker-micro);
   flex-shrink: 0;
   display: none;
 }
@@ -380,18 +466,26 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: clamp(4px, 0.8vw, 8px);
+  gap: clamp(6px, 0.9vw, 10px);
   text-align: right;
   pointer-events: none;
+  /* Room for each plate's hard shadow. */
+  padding: 2px 5px 6px 2px;
 }
 
+/* Each elimination is its own little sticker plate — the KO gets celebrated,
+   not logged. The VERB is the hero word: it's the joke. */
 #hud .hud-feed-row {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 7px;
+  padding: 4px 10px;
+  background: var(--color-ink);
+  border-radius: 8px;
+  box-shadow: var(--sticker-micro);
   font-size: clamp(11px, 1.3vw, 14px);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   opacity: 0;
   will-change: transform, opacity;
@@ -400,32 +494,31 @@
 #hud .hud-feed-icon {
   display: inline-flex;
   align-items: center;
-  font-size: clamp(12px, 1.4vw, 15px);
-  filter: drop-shadow(0 0 4px currentColor);
+  font-size: clamp(14px, 1.7vw, 18px);
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
   flex-shrink: 0;
 }
 
 #hud .hud-feed-actor {
   font-family: var(--hud-ui);
-  font-size: clamp(11px, 1.3vw, 14px);
+  font-size: clamp(11px, 1.2vw, 13px);
   color: var(--c);
-  text-shadow: 0 0 8px var(--c);
   flex-shrink: 0;
 }
 
 #hud .hud-feed-verb {
   font-family: var(--hud-ui);
-  font-size: clamp(10px, 1.1vw, 12px);
-  color: rgba(255,255,255,0.45);
-  letter-spacing: 2px;
+  font-size: clamp(12px, 1.4vw, 15px);
+  font-weight: 700;
+  color: var(--color-sticker-white);
+  letter-spacing: 0.06em;
   flex-shrink: 0;
 }
 
 #hud .hud-feed-target {
   font-family: var(--hud-ui);
-  font-size: clamp(11px, 1.3vw, 14px);
+  font-size: clamp(11px, 1.2vw, 13px);
   color: var(--c2);
-  text-shadow: 0 0 8px var(--c2);
   flex-shrink: 0;
 }
 
@@ -441,6 +534,8 @@
   font-weight: 900;
 }
 
+/* Ready button — a toy button: opaque ink, die-cut edge, presses into its own
+   shadow. Idle attractor breathes with brightness, not glow bloom. */
 #hud .hud-ready-btn {
   --btn-glow: var(--hud-player-accent);
   /* Lift within the pod so the button sits where players expect a lobby CTA. */
@@ -449,25 +544,37 @@
   font-size: clamp(1.1rem, 3vw, 1.6rem);
   letter-spacing: 0.1em;
   padding: clamp(8px, 1.5vw, 14px) clamp(20px, 4vw, 40px);
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--color-ink);
   color: var(--btn-glow);
-  border: 2px solid var(--btn-glow);
-  border-radius: 6px;
+  border: none;
+  border-radius: var(--radius-panel);
   cursor: pointer;
   pointer-events: auto;
   text-transform: uppercase;
   display: none;
   white-space: nowrap;
-  text-shadow: 0 0 10px var(--btn-glow);
-  box-shadow: 0 0 12px var(--btn-glow), 0 0 28px color-mix(in oklab, var(--btn-glow), transparent 60%);
-  transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.05em var(--color-ink-deep);
+  text-shadow: 0.06em 0.06em 0 var(--color-ink-deep);
+  box-shadow: var(--sticker-panel);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 180ms ease;
   animation: readyPulse 2s ease-in-out infinite;
 }
 
 #hud .hud-ready-btn:hover {
-  transform: translateY(-2px) scale(1.02);
-  background: rgba(0, 0, 0, 0.65);
-  box-shadow: 0 0 20px var(--btn-glow), 0 0 44px var(--btn-glow);
+  transform: translate(-1px, -1px);
+  box-shadow:
+    0 0 0 3px var(--color-sticker-white),
+    5px 5px 0 3px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+}
+
+#hud .hud-ready-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow:
+    0 0 0 3px var(--color-sticker-white),
+    2px 2px 0 3px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
 }
 
 #hud .hud-ready-btn.is-ready {
@@ -476,20 +583,14 @@
 }
 
 @keyframes readyPulse {
-  0%, 100% { box-shadow: 0 0 12px var(--btn-glow, #22e6ff), 0 0 28px color-mix(in oklab, var(--btn-glow, #22e6ff), transparent 60%); }
-  50%       { box-shadow: 0 0 20px var(--btn-glow, #22e6ff), 0 0 44px var(--btn-glow, #22e6ff); }
+  50% { filter: brightness(1.18); }
 }
 
-/* Mute-only audio widget — volume sliders live in the esc overlay. */
+/* Mute-only audio widget — the button IS the sticker; the wrapper is bare. */
 #hud .hud-audio {
   display: flex;
   align-items: center;
-  padding: clamp(4px, 1vw, 8px);
-  background: var(--hud-panel-bg);
-  border: var(--hud-border);
-  border-radius: var(--hud-radius);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  padding: 0 5px 5px 0;
   pointer-events: auto;
 }
 
@@ -497,23 +598,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(24px, 3vw, 28px);
-  height: clamp(24px, 3vw, 28px);
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(0, 0, 0, 0.4);
-  color: #ffffff;
+  width: clamp(30px, 3.4vw, 36px);
+  height: clamp(30px, 3.4vw, 36px);
+  border-radius: 9px;
+  border: none;
+  background: var(--color-ink);
+  box-shadow: var(--sticker-chip);
+  color: var(--color-sticker-white);
   cursor: pointer;
-  font-size: clamp(12px, 1.5vw, 14px);
-  transition: transform 150ms, background 150ms;
+  font-size: clamp(14px, 1.7vw, 17px);
+  transition: transform 100ms ease, box-shadow 100ms ease, background 150ms ease;
 }
 #hud .hud-mute-btn:hover {
-  transform: scale(1.08);
-  background: rgba(255, 255, 255, 0.08);
+  transform: translate(-1px, -1px);
 }
+#hud .hud-mute-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow:
+    0 0 0 2.5px var(--color-sticker-white),
+    1px 1px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+}
+/* Muted is unmistakable: the sticker turns alert-red. */
 #hud .hud-mute-btn.muted {
-  color: #888;
-  border-color: rgba(255, 80, 80, 0.3);
+  background: var(--color-alert);
+  color: var(--color-ink-deep);
 }
 
 /* Large desktops — grow to full names; ellipsize only when bar hits timer/audio bounds */
@@ -683,24 +792,26 @@
   }
 }
 
-/* Sudden Death — red timer theme */
+/* Sudden Death — red hazard-stripe tag point */
 #hud.hud-sudden-death .hud-timer-stripe {
-  background: var(--color-alert);
-  box-shadow: 0 0 12px #ff3333aa;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-alert) 0 8px,
+    var(--color-ink-deep) 8px 16px
+  );
 }
 
 #hud.hud-sudden-death .hud-timer-pip {
   background: var(--color-alert);
-  box-shadow: 0 0 6px var(--color-alert);
+  box-shadow: none;
 }
 
 #hud.hud-sudden-death .hud-timer-bar i {
   background: linear-gradient(90deg, var(--color-alert), #ff6666);
-  box-shadow: 0 0 8px #ff333388;
 }
 
 #hud.hud-sudden-death .hud-timer-num {
-  text-shadow: 0 0 20px rgba(255, 51, 51, 0.6);
+  color: var(--color-alert);
 }
 
 @keyframes suddenDeathPulse {
@@ -719,18 +830,16 @@
   min-height: 44px;
   padding: 0;
   border-radius: clamp(10px, 2.5vmin, 12px);
-  border: 2px solid rgba(34, 230, 255, 0.32);
-  background: rgba(0, 0, 0, 0.72);
-  color: rgba(255, 255, 255, 0.92);
+  border: none;
+  background: var(--color-ink);
+  box-shadow: var(--sticker-chip);
+  color: var(--color-sticker-white);
   font-size: clamp(17px, 4.5vmin, 20px);
   line-height: 1;
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
-  box-shadow: 0 0 12px rgba(34, 230, 255, 0.16);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: transform 80ms ease, border-color 80ms ease, background 80ms ease;
+  transition: transform 80ms ease, box-shadow 80ms ease;
 }
 
 #hud.hud-has-menu-btn .hud-menu-btn {
@@ -738,9 +847,11 @@
 }
 
 #hud .hud-menu-btn:active {
-  transform: scale(0.94);
-  border-color: rgba(34, 230, 255, 0.55);
-  background: rgba(34, 230, 255, 0.12);
+  transform: translate(2px, 2px);
+  box-shadow:
+    0 0 0 2.5px var(--color-sticker-white),
+    1px 1px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
 }
 
 /* Suppress HUD chrome when Esc overlay is open on touch devices. */
@@ -778,82 +889,92 @@
   }
 }
 
-/* ── Last-30-seconds warning — amber timer tint (red urgency owns the last 10) ── */
+/* ── Last-30-seconds warning — yellow hazard stripes in the tag point ───── */
 #hud .hud-timer.hud-timer-warn .hud-timer-num {
   color: var(--color-yellow);
-  text-shadow: 0 0 16px rgba(255, 229, 61, 0.5);
 }
 #hud .hud-timer.hud-timer-warn .hud-timer-stripe {
-  background: var(--color-yellow);
-  box-shadow: 0 0 10px #ffe53d88;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-yellow) 0 8px,
+    var(--color-ink-deep) 8px 16px
+  );
 }
 #hud .hud-timer.hud-timer-warn .hud-timer-pip {
   background: var(--color-yellow);
-  box-shadow: 0 0 6px var(--color-yellow);
+  box-shadow: none;
 }
 #hud .hud-timer.hud-timer-warn .hud-timer-bar i {
   background: linear-gradient(90deg, var(--color-yellow), #ffd24d);
-  box-shadow: 0 0 8px #ffe53d66;
 }
 
-/* ── Final-10-seconds urgency — red timer pulse ─────────────────────────── */
+/* ── Final-10-seconds urgency — red hazard stripes + alarm thump ────────── */
 #hud .hud-timer.hud-timer-urgent .hud-timer-num {
   color: var(--color-alert);
-  text-shadow: 0 0 20px rgba(255, 51, 51, 0.6);
-  animation: hudTimerUrgent 1s ease-in-out infinite;
+  animation: hudTimerUrgent 1s cubic-bezier(0.7, 0, 0.3, 1) infinite;
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-stripe {
-  background: var(--color-alert);
-  box-shadow: 0 0 12px #ff3333aa;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-alert) 0 8px,
+    var(--color-ink-deep) 8px 16px
+  );
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-pip {
   background: var(--color-alert);
-  box-shadow: 0 0 6px var(--color-alert);
+  box-shadow: none;
 }
 #hud .hud-timer.hud-timer-urgent .hud-timer-bar i {
   background: linear-gradient(90deg, var(--color-alert), #ff6666);
-  box-shadow: 0 0 8px #ff333388;
 }
 @keyframes hudTimerUrgent {
-  50% { filter: brightness(1.35); }
+  50% { filter: brightness(1.5); }
 }
 
-/* ── Personality badge + host glyphs (scoreboard / kill feed) ───────────── */
+/* ── Personality emblems + host mark (scoreboard / kill feed) ───────────── */
+/* Emblems are self-contained stickers (backing + ring baked into the SVG). */
 #hud .hud-scoreBadge {
   display: none;
   align-items: center;
-  font-size: 0.95em;
-  filter: drop-shadow(0 0 4px currentColor);
+  font-size: 1.15em;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
   flex-shrink: 0;
 }
-#hud .hud-scoreHost {
+/* Host = steering wheel on a small round ink sticker. Neutral, never loud. */
+#hud .hud-scoreHost,
+#hud .hud-feed-host {
   display: none;
   align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: var(--color-ink);
+  box-shadow: var(--sticker-micro);
+  color: rgba(242, 237, 228, 0.9);
   font-size: 0.85em;
-  color: rgba(255, 255, 255, 0.85);
   flex-shrink: 0;
 }
 #hud .hud-feed-host {
   display: inline-flex;
-  align-items: center;
-  font-size: 0.9em;
-  color: rgba(255, 255, 255, 0.8);
-  flex-shrink: 0;
+  font-size: 0.8em;
 }
 
-/* ── Connection pill — Secondary tier: visible only while reconnecting ──── */
+/* ── Connection pill — a solid warning sticker, only while reconnecting ─── */
 #hud .hud-conn {
   display: none;
   align-items: center;
-  padding: clamp(4px, 1vw, 8px) clamp(8px, 1.5vw, 12px);
-  background: var(--hud-panel-bg);
-  border: 1px solid color-mix(in oklab, var(--color-alert), transparent 40%);
+  padding: clamp(4px, 1vw, 8px) clamp(10px, 1.6vw, 14px);
+  background: var(--color-alert);
+  border: none;
   border-radius: var(--radius-pill);
+  box-shadow: var(--sticker-micro);
   font-family: var(--hud-mono);
   font-size: clamp(9px, 1.1vw, 11px);
   font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--color-alert);
+  letter-spacing: 0.1em;
+  color: var(--color-ink-deep);
+  text-shadow: none;
   white-space: nowrap;
   animation: hudConnPulse 1.2s ease-in-out infinite;
 }
@@ -866,9 +987,10 @@
   font-size: 0.95em;
   margin-right: 3px;
   color: var(--color-yellow);
-  filter: drop-shadow(0 0 6px #ffe53daa);
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
   display: inline-flex;
   align-items: center;
+  transform: rotate(-8deg);
 }
 #hud .hud-scorePip {
   font-family: var(--hud-mono, ui-monospace, monospace);
@@ -876,37 +998,36 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   margin-left: 4px;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
-  color: #0a0a0a;
+  color: var(--color-ink-deep);
   background: #ff8a3d;
-  box-shadow: 0 0 8px #ff8a3d88;
+  box-shadow: var(--sticker-micro);
 }
 #hud .hud-scorePip[data-tier="2"] {
   background: #ff5e3d;
-  box-shadow: 0 0 8px #ff5e3d88;
 }
 #hud .hud-scorePip[data-tier="3"] {
-  background: #ff3333;
-  box-shadow: 0 0 10px #ff3333aa;
+  background: var(--color-alert);
 }
 
-/* Dizzy stars — cartoon "knocked silly" overlay during the chip's KO dip. */
+/* Dizzy stars — cartoon "knocked silly" overlay during the chip's KO dip.
+   steps(3) = cel-animation cadence (shot on threes), not a smooth metronome. */
 #hud .hud-scoreDizzy {
   position: absolute;
   top: 2px;
   right: 4px;
   display: none;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-yellow);
-  filter: drop-shadow(0 0 4px #ffe53daa);
-  animation: hudDizzyWobble 0.5s ease-in-out infinite alternate;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+  animation: hudDizzyWobble 0.45s steps(3, end) infinite alternate;
   pointer-events: none;
 }
 @keyframes hudDizzyWobble {
-  from { transform: rotate(-14deg) scale(1); }
-  to   { transform: rotate(14deg) scale(1.15); }
+  from { transform: rotate(-17deg) scale(1); }
+  to   { transform: rotate(17deg) scale(1.2); }
 }
 
 /* ── Score-breakdown float — rises from screen center beside the hitmarker,
@@ -915,7 +1036,7 @@
   position: absolute;
   top: calc(50% + clamp(36px, 6vh, 60px));
   left: 50%;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0) rotate(-4deg);
   text-align: center;
   pointer-events: none;
   z-index: 12;
@@ -926,78 +1047,75 @@
   font-weight: 900;
   letter-spacing: 0.04em;
   color: var(--hud-player-accent);
-  text-shadow: 3px 3px 0 var(--glow-magenta-28), 0 0 22px var(--hud-player-accent);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.08em var(--color-ink-deep);
+  text-shadow:
+    0.06em 0.06em 0 var(--color-ink-deep),
+    0.12em 0.12em 0 var(--color-ink-deep);
 }
 #hud .hud-score-float-sub {
   font-family: var(--hud-mono, ui-monospace, monospace);
   font-size: clamp(0.75rem, 1.6vw, 1rem);
   font-weight: 700;
-  letter-spacing: 0.18em;
-  color: var(--color-cyan);
-  text-shadow: 0 0 12px #22e6ffaa;
+  letter-spacing: 0.14em;
+  color: var(--color-sticker-white);
   margin-top: 2px;
 }
 
-/* ── Kill-confirm hitmarker — center-screen X flash on local KO ─────────── */
+/* ── Kill-confirm — the cartoon KO burst stamps at screen center. (The old
+      4-tick X was the most FPS-idiomatic mark in the game.) Momentary, so it
+      keeps the one celebration glow. ── */
 #hud .hud-hitmarker {
   position: fixed;
   left: 50%;
   top: 50%;
-  width: clamp(36px, 5vw, 52px);
-  height: clamp(36px, 5vw, 52px);
-  transform: translate(-50%, -50%);
+  width: clamp(40px, 5.5vw, 56px);
+  height: clamp(40px, 5.5vw, 56px);
+  transform: translate(-50%, -50%) rotate(8deg);
   pointer-events: none;
   opacity: 0;
   z-index: 20040;
+  color: var(--color-sticker-white);
+  filter:
+    drop-shadow(2px 2px 0 var(--color-ink-deep))
+    drop-shadow(0 0 8px color-mix(in oklab, var(--hud-player-accent), transparent 35%));
 }
-#hud .hud-hitmarker::before,
-#hud .hud-hitmarker::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 3px;
+#hud .hud-hitmarker svg {
+  width: 100%;
   height: 100%;
-  margin-left: -1.5px;
-  border-radius: 2px;
-  /* * Gap in the middle turns each bar into two ticks — classic 4-tick marker. */
-  background: linear-gradient(180deg,
-    #ffffff 0%, #ffffff 30%,
-    transparent 30%, transparent 70%,
-    #ffffff 70%, #ffffff 100%);
-  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--hud-player-accent), transparent 10%));
 }
-#hud .hud-hitmarker::before { transform: rotate(45deg); }
-#hud .hud-hitmarker::after { transform: rotate(-45deg); }
 #hud .hud-hitmarker.hit {
-  animation: hudHitmark 280ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  animation: hudHitmark 220ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
 }
 @keyframes hudHitmark {
-  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1.55); }
-  55%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1.75); }
+  35%  { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(0.98); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(8deg) scale(0.98); }
 }
 
-/* ── Boost charge meter (keyboard/gamepad) — player pod, under combo ────── */
+/* ── Boost gauge (keyboard/gamepad) — a chunky sticker capsule with a bolt,
+      not an ability bar. Color state IS the information. ── */
 #hud .hud-boost {
   display: none;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   pointer-events: none;
+  padding: 0 5px 5px 0;
 }
 #hud .hud-boost-label {
-  font-family: var(--hud-ui);
-  font-size: clamp(9px, 1vw, 11px);
-  letter-spacing: 0.16em;
-  color: rgba(255, 255, 255, 0.55);
-  text-shadow: 0 0 8px rgba(34, 230, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  font-size: clamp(13px, 1.5vw, 16px);
+  color: var(--color-cyan);
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
 }
 #hud .hud-boost-track {
   width: clamp(120px, 14vw, 170px);
-  height: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(34, 230, 255, 0.35);
-  border-radius: 3px;
+  height: clamp(11px, 1.4vw, 14px);
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--sticker-micro);
   overflow: hidden;
 }
 #hud .hud-boost-fill {
@@ -1005,46 +1123,46 @@
   height: 100%;
   width: 100%;
   background: var(--color-cyan);
-  box-shadow: 0 0 8px rgba(34, 230, 255, 0.8);
+  border-radius: var(--radius-pill);
   transition: width 60ms linear;
 }
 #hud .hud-boost[data-state="charging"] .hud-boost-fill {
   background: var(--color-yellow);
-  box-shadow: 0 0 8px rgba(255, 229, 61, 0.85);
 }
 #hud .hud-boost[data-state="charged"] .hud-boost-fill {
-  background: #ffffff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.95);
+  background: var(--color-sticker-white);
   animation: hudBoostCharged 380ms ease-in-out infinite alternate;
 }
 #hud .hud-boost[data-state="cooldown"] .hud-boost-fill {
-  background: rgba(255, 43, 214, 0.5);
-  box-shadow: none;
+  background: rgba(255, 43, 214, 0.45);
 }
 @keyframes hudBoostCharged {
   from { filter: brightness(1); }
   to   { filter: brightness(1.7); }
 }
 
-/* ── Challenge-complete toast — Center Stage event slot ─────────────────── */
+/* ── Challenge-complete toast — a coupon slapped onto the stage: opaque ink,
+      die-cut edge, dashed inner keyline, slight tilt (momentary element). ── */
 #hud .hud-toast {
-  transform: translateY(-14px);
+  transform: translateY(-24px) rotate(1.5deg);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 18px;
-  background: var(--hud-panel-bg);
-  border: 1px solid rgba(43, 255, 122, 0.6);
+  padding: 10px 22px;
+  background: var(--color-ink);
+  border: none;
   border-radius: var(--hud-radius);
-  box-shadow: 0 0 18px rgba(43, 255, 122, 0.25);
+  box-shadow: var(--sticker-panel);
+  outline: 2px dashed rgba(242, 237, 228, 0.45);
+  outline-offset: -7px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 260ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  transition: opacity 140ms ease-out, transform 220ms cubic-bezier(0.2, 1.75, 0.3, 1);
 }
 #hud .hud-toast.active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) rotate(1.5deg);
 }
 #hud .hud-toast-kicker {
   font-family: var(--hud-ui);

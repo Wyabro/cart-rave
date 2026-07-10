@@ -990,7 +990,7 @@ export function init(options) {
     // * Host antenna — quiet neutral mark, "this player's machine runs the match".
     const host = document.createElement("span");
     host.className = "hud-scoreHost";
-    host.innerHTML = svgIcon("antenna", { label: "Host" });
+    host.innerHTML = svgIcon("host", { label: "Host" });
     host.title = "HOST — runs this match";
     host.style.display = "none";
 
@@ -1559,7 +1559,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   const makeHostGlyph = () => {
     const glyph = document.createElement("span");
     glyph.className = "hud-feed-host";
-    glyph.innerHTML = svgIcon("antenna", { label: "Host" });
+    glyph.innerHTML = svgIcon("host", { label: "Host" });
     return glyph;
   };
 
