@@ -1,7 +1,7 @@
 # Cart Pattern Re-UV — cartrave4 body (`tripo_part_0`)
 
 Goal: give the cart body a **clean second UV channel** (`TEXCOORD_1`) so the customization
-patterns (`stripes / checker / dots / waves`) read correctly, without disturbing the baked
+patterns (`stripes / checker / dots / waves / bolt`) read correctly, without disturbing the baked
 albedo or the derived neon wire-glow that live on `TEXCOORD_0`.
 
 > **Blender source lives at `art/cartrave4.blend`** (kept out of `public/` so it isn't shipped
@@ -12,8 +12,8 @@ albedo or the derived neon wire-glow that live on `TEXCOORD_0`.
 The pattern mask is a repeating texture sampled in UV space (`src/cartPatterns.js`). The
 uncompressed master `art/models/cartrave4.glb` is a Tripo auto-export whose body mesh `tripo_part_0`
 (renamed `CartFrame` at load) has a **fragmented, arbitrarily-oriented** unwrap on `TEXCOORD_0`.
-Oriented patterns shatter into noise across island seams; only `dots` survives. But that same
-`TEXCOORD_0` also carries:
+Oriented patterns shatter into noise across island seams; only roughly isotropic patterns (e.g.
+`dots`) survive on the broken unwrap. But that same `TEXCOORD_0` also carries:
 
 - the baked **1024² albedo** JPEG (`baseColorTexture`), and
 - the **wire-glow emissive**, which `buildRaveGltfWireEmissiveMask()` derives from that albedo.

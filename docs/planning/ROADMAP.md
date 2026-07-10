@@ -1,6 +1,7 @@
 # Cart Clash — Roadmap (Forward-Looking Plan)
 
-**Branch:** `cart-clash` · **Naming freeze:** [brand.md](../brand.md)
+**Branch:** `cart-clash` · **Naming freeze:** [brand.md](../brand.md)  
+**Last reviewed:** July 10, 2026
 
 > **This doc = the future** — open and planned work only. For what works *today* see
 > [project-state.md](./project-state.md); for the log of what already shipped see
@@ -19,9 +20,11 @@ production-ready. The two-browser runtime smoke test remains the Phase 4 gate.
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Menu overhaul + domain cutover | In progress | Product UI says **Cart Clash**. Legacy `cart-rave` Worker/host/storage IDs frozen until cutover — see [brand.md](../brand.md). Typography: Road Rage (titles), Russo One (UI), Goldman (mono), Michroma (timer). |
-| Cosmetic Progression & Unlock Path | Todo | Unlock cart variants through play milestones. Builds on the stabilized customization system. |
-| Performance optimization pass | Todo | Especially level swapping + menu. |
+| **Living Cargo / Living Store** | **Shipped** | Cargo scoreboard + PA directives (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour). As-built: [living-store.md](../reference/living-store.md). Deferred: two-browser smoke checklist ([living-store-test-plan.md](./living-store-test-plan.md)); Spill Bonus float/feed presentation. |
+| Menu overhaul + domain cutover | In progress | Product UI says **Cart Clash**. Legacy `cart-rave` Worker/host/storage IDs frozen until cutover — see [brand.md](../brand.md). Typography: Road Rage (titles), Russo One (UI), Goldman (mono), Bungee (HUD display). |
+| Cosmetic Progression & Unlock Path | **Shipped (core)** | Lifetime gates for patterns (incl. Bolt), sunglasses, custom color, levels — `unlockStore` / `unlockConfig`. Move further economy/XP ideas here only if reopened. |
+| Performance optimization pass | Partial / Todo | Foundations landed: boot/load, lazy music, Draco carts, self-hosted fonts, half-res bloom, prop LOD, menu preview LOD, auto-quality. Still open: level-swap cost, menu weight, profiling-driven pass. |
+| Black-frame flicker triage | Todo | Environment-first plan: [plan-flicker-fix-and-classic-audit.md](./plan-flicker-fix-and-classic-audit.md). |
 | Evaluate WebGPU Compute Shaders | Todo | Targeted use first (shatter VFX, particles). No physics rewrite. Re-evaluate after mobile perf is solid. |
 | Subtle in-game monetization / ads | Todo | Cosmetic unlocks can support a light monetization path later. |
 | V2 Shipping Checklist + Final QA | Todo | Create when closer to release. |
@@ -32,7 +35,7 @@ production-ready. The two-browser runtime smoke test remains the Phase 4 gate.
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Multiplayer runtime smoke test | Todo | Two browsers, one room: join, color pick, ready, full round, SD overtime, podium, play again, disconnect/rejoin. |
+| Multiplayer runtime smoke test | Todo | Two browsers, one room: join, color pick, ready, full round, SD overtime, podium, play again, disconnect/rejoin. Also re-verify July 9 feel/HUD parity (remote boost/hop, victim shake, NEW HOST callout). |
 | Netcode audit follow-through | Code-complete, pending smoke | Host transform, round duration, SD timeout, remote boost, slot resurrection, ram FX dedup, `isSuddenDeath`, clock-offset timer — statically verified. |
 | Deeper server-authoritative logic | Todo | Evaluate where host trust is a problem (final scores, match outcome). |
 | Persistent leaderboard (Supabase) | Todo | **Security:** a host can fabricate final scores — treat host-asserted scores as untrusted input; the Worker must validate or hold server-side truth. |

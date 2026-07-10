@@ -1,9 +1,9 @@
 # The Living Store — Living Cargo + PA Directives
 
 As-built reference for the two gameplay layers shipped 2026-07-10 (commits `03edc7c`,
-`b7ceeb2`, `70a737b` + the review-hardening commit). Design rationale lives in the
-approved workshop plan; deferred multiplayer checks in
-`docs/planning/living-store-test-plan.md`.
+`b7ceeb2`, `70a737b`, `e2dea5c`). Deferred multiplayer checks:
+[living-store-test-plan.md](../planning/living-store-test-plan.md). Sibling refs:
+[announcer.md](./announcer.md), [scoring-event-system.md](./scoring-event-system.md).
 
 North Star: the cart IS the scoreboard, and the Store PA graduates from commentator to
 game-master. Both layers change what the five core verbs (drive/boost/hop/ram/survive)

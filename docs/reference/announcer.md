@@ -57,15 +57,27 @@ detection needs no new netcode.
 | `new_leader` | Sole score lead changes hands (suppressed in final 10 s) | 35 | low | 12 s | SCOREBOARD |
 | `comeback` | New leader was ≥3 points behind earlier | 48 | medium | once/round | SCOREBOARD |
 | `cleanup_aisle` | Self/environmental KO | 20 | low | 18 s, 40% chance, ≤2/round | SELF CHECKOUT |
-| `close_call` | Local player survives a huge hit | 10 | ambient | 25 s, ≤2/round | SURVIVED |
+| `close_call` | Local player survives a huge hit *or* true near-miss (boosting opponent within range without contact) | 10 | ambient | 25 s, ≤2/round | SURVIVED |
 | `last_call` | 10 seconds remaining | 40 | low | once/round | 10 SECONDS |
-| `sudden_death` | Sudden Death begins | 95 | critical | once/round | none (HUD status owns it) |
+| `one_minute` / `thirty_seconds` | Intensity ramp time checks | medium/low | low | once/round | time-check sting + lines |
+| `critical_ko` / `leader_down` | Crit ram KO / leader KO (from KO reactor fields) | medium | medium | per-event cooldowns | kill-flavor callouts |
+| `challenge_complete` | Local challenge finished mid-match | medium | low | — | works with HUD unlock/challenge toast |
+| `new_host` | Host migration | medium | medium | — | "NEW HOST — {name} HAS THE WHEEL!" |
+| `cart_overflow` | Living Cargo: a cart's bay hits full score (`CONFIG.cargo.fullScore`) | 45 | medium | 20 s, ≤2/round | CART OVERFLOW |
+| `spill_rush` | Living Cargo: local spill-comeback buff rising edge | 12 | ambient | 12 s, ≤3/round | ambient nudge |
+| `directive_flash_sale` / `_double_bag` / `_express_lane` / `_spill_bonus` / `_rush_hour` | Living Store directive starts | critical + **focus** | critical | once per fire | feature-size callout (5.2s hold) |
+| `sudden_death` | Sudden Death begins | 95 | critical | once/round | **no callout / no focus** (HUD status owns it — focus would mute the PA over nothing) |
 | `victory` / `defeat` | Podium, local perspective | 100 | critical | once/match | none (results overlay owns it) |
 
-Deliberate cuts: **Match Point** (scoring is timer-based, no target score — `last_call`
-owns the finale), **Challenge Complete** (the existing toast + sparkle covers it; the
-announcer only talks about the match), **Last Cart Standing** (folded into the results
-overlay title + victory announcement rather than double-announcing at podium).
+**Match Point** is a HUD status (≤15s + top-two within 1 point), not a separate PA event —
+`last_call` still owns the 10-second urgency beat. **Last Cart Standing** stays on the results
+overlay title + victory announcement rather than double-announcing at podium.
+
+**Living Store PA:** cargo moments fire from `src/cargoLoad.js`; directive starts fire from
+`src/directives/directiveEngine.js`. Directive events use `focus: true` so non-critical callouts
+are dropped (not queued) for the hold window; focus ends early if the callout is interrupted.
+See [living-store.md](./living-store.md). Full event table source of truth:
+`src/announcer/announcerEvents.js`.
 
 ## Arbitration rules
 

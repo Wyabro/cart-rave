@@ -7,13 +7,13 @@ Post-jam development continues on the **`cart-clash`** branch toward **Version 2
 **Naming:** Product is **Cart Clash**. Deploy host, Worker name, and some code IDs still say `cart-rave` until a deliberate cutover — see [docs/brand.md](./docs/brand.md).
 
 **Recent (July 2026):**
-- **Production-Readiness Audit**: Full-codebase audit with 50 ranked improvements ([docs/archive/audits/production-readiness-audit-2026-07.md](./docs/archive/audits/production-readiness-audit-2026-07.md)); top 10 implemented — Safari audio fallbacks, social link previews, PWA manifest fix, runtime error reporting, centralized storage, ~25 MB of dead assets/config removed. Baseline gate: `npm run check` (typecheck + tests + knip).
-- **Core Stability**: Replaced problematic trimesh colliders on Record, Backrooms, and Zanzibar levels with precise convexHull + primitive colliders for stable physics and zero clipping.
-- **Level 3 (Zanzibar Platform)**: Floating sundeck arena set in a dynamic sunset seascape with customized AI hazards and enhanced contact shadows.
-- **Touch Controls**: Integrated virtual analog joysticks and touch buttons via `nipplejs` for portrait/landscape mobile play.
-- **Progression**: Implemented daily/weekly challenges, personal best tracking, and local stat storage.
-- **Tech Stack**: Migrated the multiplayer backend from PartyKit to raw **partyserver** running on Cloudflare Workers / Wrangler.
-- **TypeScript Resolution**: Codebase is fully typechecked with 0 errors via `npx tsc --noEmit`.
+- **Arenas**: Cart Rave (Classic Record), The Storerooms, and **Sundial Station** (level id `zanzibar`) — physics stability pass + July presentation elevation / flagship Sundial overhaul.
+- **HUD redesign**: Center-stage events, design tokens, icon system, sticker scoreboard, touch layout.
+- **Progression**: Lifetime unlocks for cart patterns (incl. Bolt), sunglasses, custom color, and levels — plus daily/weekly challenges and personal bests.
+- **Living Store**: Score-driven cargo bay (cart is the scoreboard) + mid-round PA **directives** (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour). As-built: [docs/reference/living-store.md](./docs/reference/living-store.md).
+- **Feel & presentation**: Store PA announcer, production-value / feel passes, match-stat superlatives, charge glow.
+- **Perf foundations**: Boot/load pass, self-hosted fonts, half-res bloom, level prop LOD, Draco cart models.
+- **Stack**: Three.js + Rapier + **partyserver** on Cloudflare Workers / Wrangler. Baseline gate: `npm run check` (typecheck + tests + knip).
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** July 8, 2026
+**Last Updated:** July 10, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -21,7 +21,7 @@ Narrative snapshot of the major refactors that shaped the current module structu
 - `src/levelManager.js` — level preview + swapping extracted from `main.js`
 - Knip cleanup: unused exports reduced and codebase hardened
 - 100% Type safety achieved under `npx tsc --noEmit`
-- CSS extraction: ~2600 lines of inline CSS moved from `hud.js`, `pauseOverlay.js`, `resultsOverlay.js` to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css)
+- CSS extraction: ~2600 lines of inline CSS moved from `hud.js`, `pauseOverlay.js`, `resultsOverlay.js` to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css, later `tokens.css`)
 - `.cursorrules` cleaned up (~200 lines removed, simplified guardrails)
 - **WebRTC signaling root-cause fix**: host now creates the DataChannel offer to each peer (`ensureHostPeerConnections()` in the `MSG.slots` handler) — previously `createOffer` was unreachable (only non-host no-op callers), so no channel ever opened and P2P gameplay sync was fully inert. `tests/p2p-signaling.test.js` covers the full handshake.
 - `main.js` remains the thin orchestrator and wiring hub
@@ -29,6 +29,12 @@ Narrative snapshot of the major refactors that shaped the current module structu
 - **Production value pass (July 7)** — see [audits/production-value-pass-2026-07.md](../archive/audits/production-value-pass-2026-07.md): 100-item ranked player-experience review; top 10 shipped
 - **Announcer system — "The Store PA" (July 8)** — see [announcer.md](../reference/announcer.md): production-ready, data-driven announcer framework
 - **Visual polish pass (July 8)** — see [audits/visual-audit.md](../archive/audits/visual-audit.md): targeted AAA-style rendering pass preserving the dark-arena + punchy-neon identity
+- **Progression unlocks (July 9)** — lifetime gates for patterns, sunglasses, custom color, and levels (`unlockStore.js` / `unlockConfig.js`); dev unlock-all override for agents
+- **Sundial Station flagship + arena elevation (July 9)** — Level 3 display name + presentation overhaul; Classic / Storerooms / Sundial polish
+- **HUD redesign (July 9)** — center-stage events, design tokens, icon system, sticker scoreboard, touch HUD
+- **Gameplay feel pass (July 9)** — juice, arena kill-zone scoring, match-point, haptics, remote FX parity
+- **Boot/load + render perf (July 9–10)** — lazy game music, Draco-only cart models, half-res bloom, level prop LOD
+- **Living Store (July 10)** — Living Cargo (cart = scoreboard) + PA directives (game-master mini-mutators); as-built [living-store.md](../reference/living-store.md)
 
 ---
 
@@ -81,6 +87,81 @@ Compact record of Phase 4 fixes that were tracked as one-line items. Deeper writ
 ---
 
 ## Chronological Log
+
+### July 10, 2026 – Living Store (Cargo + PA Directives) + Render LOD
+
+As-built reference: [living-store.md](../reference/living-store.md). Deferred multiplayer checks: [living-store-test-plan.md](./living-store-test-plan.md).
+
+**Living Cargo** (`03edc7c` + hardening)
+- `src/cargoLoad.js` reconciles host-synced round scores → bay fill + handling (ticked from `frameVisuals`).
+- Bay fills **2→12** groceries toward `CONFIG.cargo.fullScore` (8) so standings read off the field.
+- Surviving a spill: ~2.6s **"empty cart is a fast cart"** comeback buff (`armSpillBoost`); `count` on `MSG.spill`; never stacks with nitro.
+- Top-heavy grip slide at fullness; bigger mess on spill. CoM-raise taste-gated **off**. PA: `cart_overflow` / `spill_rush`. DEV: `window.__cartClashCargo()`.
+
+**PA Directives — Store PA as game-master** (`b7ceeb2`, `70a737b`, `e2dea5c`)
+- `src/directives/directives.js` data table + `directiveEngine.js` host scheduler (slots ~20s/55s/90s ± jitter, 18s windows, quiet last 30s, no SD, no back-to-back repeats, silent expiry).
+- Five launch directives: **Flash Sale** (ram ×1.5), **Double Bag** (KO ×2), **Express Lane** (faster boost charge), **Spill Bonus** (+1 per forced grocery spill), **Rush Hour** (base drive speed/accel up, nitro keeps headroom).
+- Net: one-shot `MSG.directive` + snapshot-tail self-heal `dir:{id,r}`; KO mul via `buildKOEvent` dep; CONFIG apply/restore on expiry / phase exit / SD.
+- Presentation: critical + **focus** callouts (5.2s hold, suppress other non-critical PA); HUD `.hud-directive` chip under timer; regular callouts 25% smaller.
+- Review harden: sudden_death focus collateral fixed; focus ends on interrupt; phase-exit restore without rAF; `reward.multiplier` = combo × directive; 13 engine tests.
+
+**Known follow-up:** Spill Bonus awards correctly but has no dedicated float/feed presentation line yet.
+
+**Render / fill-rate**
+- Half-res UnrealBloom RTs (`CONFIG.postFx.bloomHalfRes`, strength compensated).
+- Distance-cull non-gameplay Storerooms/Sundial props via `src/utils/levelLod.js` (+ `tests/levelLod.test.js`).
+- Stepped expensive Sundial seascape decor updates.
+- Green-booth bloom overexposure tamed (luma-weighted emissive fix).
+
+Session plans for related July 9 work live under [archive/session-notes/](../archive/session-notes/).
+
+### July 9, 2026 – HUD Redesign + Art Direction + Motion Slap
+
+Full session notes: [hud-redesign](../archive/session-notes/hud-redesign-2026-07-09.md), [hud-art-direction](../archive/session-notes/hud-art-direction-2026-07-09.md).
+
+- **Design tokens** — `src/ui/styles/tokens.css` (import from JS only; CSS `@import` breaks under rolldown-vite path rules).
+- **Center Stage** — `src/ui/centerStage.js` arbitrates stage-band moments (announcer > toast queue).
+- **Icons** — `src/ui/icons.js` inline-SVG glyph set; emoji crowns/notes retired on HUD.
+- **Regions** — match / standings / events / stage / pod / utility; dedicated `#hud.hud-touch` mobile layout.
+- Sticker scoreboard chips, Bungee timer, expanded kill-feed verbs, personality icons (replacing letter badges), host antenna glyph, RECONNECTING pill via `netcode.getConnectionState()`.
+- Art-direction polish + motion slap pass (countdown stamp, KO chip dizzy stars, nametags under HUD, UX fixes).
+
+### July 9, 2026 – Gameplay Production-Value Pass (Feel / Pacing / Synergy)
+
+Full session notes: [gameplay-production-value-pass](../archive/session-notes/gameplay-production-value-pass-2026-07-09.md).
+
+- Victim-side hit feedback parity (host + non-host); water-death audio; GO! FOV kick; haptics (`src/haptics.js`).
+- Remote boost/hop FX + hop wire producer; squash & stretch; music ducking under big PA / kill confirms.
+- Score-breakdown float; leader crown + rampage pips; near-miss `close_call`; Match Point status; friends rematch auto-countdown.
+- Presentation hit-stop (~80ms render-side only); arena KO flash re-enabled at reduced strength; Sudden Death ambient hue; Classic crowd cheers.
+- **Arena kill-zone scoring:** Storerooms corner voids base 2; Sundial high-ground +1 when ram from podium.
+
+### July 9, 2026 – Charge Glow, Match Stats, Auto-Quality
+
+- 3D boost-charge telegraph on the cart; menu level preview LOD with full rebuild on play.
+- `src/scoring/matchStats.js` + `matchStatsReactor` — per-match KO/death/combo spine and results superlatives.
+- Session auto-quality watchdog (`src/utils/autoQuality.js` / `qualityMode.js`).
+
+### July 9, 2026 – Sundial Station Flagship + Arena Elevation
+
+Full session notes: [plan-zanzibar-overhaul](../archive/session-notes/plan-zanzibar-overhaul.md).
+
+- Level 3 **display name** → **Sundial Station** (level id stays `zanzibar`; see [brand.md](../brand.md)).
+- Flagship overhaul: cuboid deck stability, warm-amber center accents, alien skyline, gas-giant/moon, water death FX.
+- Follow-up **arena elevation** pass across all three levels: Classic reflective vinyl + pit/sky/booths; Storerooms liminal floor storytelling + unique hole beats; Sundial golden-hour seascape/hologram polish.
+- Classic stadium seating / grocery spill polish; Storerooms boot crash + VHS tuning restore.
+
+### July 9, 2026 – Progression Unlocks, Patterns, Boot/Load, Fonts
+
+- **Lifetime unlocks** — `src/stores/unlockStore.js` + `src/unlockConfig.js`: patterns, sunglasses, custom color, levels (e.g. Storerooms after Classic KOs, Sundial after Storerooms KOs). Tab mute when document hidden. Dev unlock-all default under Vite (`CartClashDevUnlocks` / `?devUnlocks=`).
+- **Cart patterns** — pattern picker reinstated on cartrave4 body; **Bolt** 6th pattern (forking lightning). Guide: [cart-pattern-reuv.md](../guides/cart-pattern-reuv.md).
+- **Boot/load** — lazy in-match music; Worker Cache-Control for hashed bundles/media; grocery pool warm across swaps; Draco-only cart models in `public/` (masters under `art/`); idle-warm Rapier + default arena on menu. Audit: [boot-load-assets-2026-07.md](../archive/audits/boot-load-assets-2026-07.md).
+- **Fonts** — self-host latin UI fonts under `public/fonts/`; drop Google Fonts CDN. Refresh: `npm run fonts:fetch`.
+
+### July 9, 2026 – Docs Hygiene + Open Flicker Plan
+
+- Docs reorganized earlier (July 8); July 9–10: post-FX black-frame handover + flicker/Classic audit plan ([plan-flicker-fix-and-classic-audit.md](./plan-flicker-fix-and-classic-audit.md), [handover-postfx-black-frames.md](./handover-postfx-black-frames.md)).
+- Debt clean: recovery bak trees dropped; shipped session notes moved to [archive/session-notes/](../archive/session-notes/); knip back to zero new findings.
 
 ### July 8, 2026 – Visual Polish Pass (Three.js Rendering)
 

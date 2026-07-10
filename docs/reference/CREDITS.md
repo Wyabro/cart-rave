@@ -10,7 +10,7 @@ Runtime dependencies come from `package.json` and are bundled by Vite unless not
 
 | Category | Name | Where used | Version | License | Link |
 |---|---|---|---|---|---|
-| Rendering | Three.js | Client (`src/`, Vite-bundled) | `^0.164.1` | MIT | `https://github.com/mrdoob/three.js` |
+| Rendering | Three.js | Client (`src/`, Vite-bundled) | `^0.185.1` | MIT | `https://github.com/mrdoob/three.js` |
 | Physics | Rapier (Rapier3D) | Client — host-authoritative physics (`src/simulation.js`, etc.) | `^0.19.3` | Apache-2.0 | `https://github.com/dimforge/rapier` |
 | Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.0.0` | MIT | `https://github.com/juliangarnier/anime` |
 | Multiplayer | `partyserver` | Cloudflare Worker DO backend (`party/index.ts`) | `^0.5.8` | MIT | `https://github.com/threepointone/partyserver` |
@@ -73,9 +73,11 @@ Bundled SFX ship in both `.ogg` (primary) and `.mp3` (Safari/iOS fallback) forma
 
 ## 3D models & geometry
 
-**No third-party 3D models.** All cart and scene geometry is **procedurally generated in code** (`src/cart.js`, `src/arena.js`, `src/levels/`, `src/visuals.js`, etc.) using Three.js primitives and custom mesh builders.
+**Cart body (first-party asset):** the playable cart uses a project-owned GLB (`cartrave4` / related masters under `art/models/`, Draco runtime under `public/models/`). Pattern masks sample a second UV channel — see [cart-pattern-reuv.md](../guides/cart-pattern-reuv.md). Compress with `npm run compress:rave-gltf`.
 
-> **Note (July 2026):** Arena floor colliders were refactored from `Rapier.ColliderDesc.trimesh` to `convexHull` + primitive colliders (cuboids) for significantly better stability and performance. Visual geometry remains fully procedural.
+**Arenas and most scene dressing** are **procedurally built in code** (`src/arena.js`, `src/levels/`, `src/sceneExtras.js`, etc.) from Three.js primitives and custom mesh builders — not third-party marketplace packs.
+
+> **Note (July 2026):** Arena floor colliders use `convexHull` + primitive colliders (cuboids) rather than trimesh for stability and performance.
 
 ---
 

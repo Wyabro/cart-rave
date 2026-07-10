@@ -2,7 +2,7 @@
 
 **Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Clash is built**, how multiplayer works, how releases are verified, and what work remains. Product naming freeze: [brand.md](../brand.md).
 
-**Last updated context:** July 7, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. CSS extraction refactor complete. See [ROADMAP.md](../planning/ROADMAP.md) for current priorities and [project-state.md](../planning/project-state.md) for the live snapshot.
+**Last updated context:** July 10, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. HUD redesign, Sundial Station flagship, progression unlocks, and **Living Store** (cargo + PA directives) are in tree. See [ROADMAP.md](../planning/ROADMAP.md) for open priorities and [project-state.md](../planning/project-state.md) for the live snapshot.
 
 **Source material:** Derived from `docs/` (handover notes in `archive/handovers/`, audits in `archive/audits/`, and operational checklists).
 
@@ -10,7 +10,7 @@
 
 ## Executive summary
 
-**Cart Clash** is a browser-based **4‑player physics sumo** game. Players drive neon shopping carts on a club dancefloor shaped like a vinyl record (a ring with a center hole). Players score by knocking opponents off the edge or into the hole. Rounds are designed to run **150 seconds** (2.5 minutes), and the highest score wins.
+**Cart Clash** is a browser-based **4‑player physics sumo** game. Players drive neon shopping carts across three arenas (vinyl **Cart Rave** ring, liminal **Storerooms**, floating **Sundial Station**). Players score by knocking opponents off edges or into voids/holes. Rounds run **150 seconds** (2.5 minutes); highest score wins. **Living Store:** the cargo bay is a live scoreboard, and the Store PA issues short mid-round rule mutators (directives).
 
 At a high level, the architecture is:
 
@@ -26,19 +26,26 @@ At a high level, the architecture is:
 - **Primary goal:** A friend can open the live site, pick a color, join a round quickly, play multiple rounds, and want to share it.
 - **Original jam constraints (still largely true):**
   - Floor rotation is **visual-only** (no physics drag / spin forces applied to carts).
-- **Post-jam additions:** Backrooms and Zanzibar levels, touch controls, rampage combo system, grocery spill VFX, Zustand store architecture, Vite build, `bootstrap.js` / `levelManager.js` extractions. Client-side prediction is now active for non-host local carts. Server-authoritative level sync via `MSG.round`. Combo decay runs in a dedicated second pass to prevent scoring race conditions. UI CSS extracted from JS files to dedicated stylesheets in `src/ui/styles/` (hud.css, pauseOverlay.css, results.css, global.css). WebRTC signaling tests added (`tests/p2p-signaling.test.js`).
+- **Post-jam additions:** Storerooms + Sundial Station (level id `zanzibar`), touch controls, rampage combo system, grocery spill VFX, KO Event reactors, Zustand stores, Vite build, `bootstrap.js` / `levelManager.js` extractions, client-side prediction, server-authoritative level sync via `MSG.round`, UI CSS in `src/ui/styles/` (including design tokens), WebRTC P2P DataChannel gameplay sync, lifetime unlocks, center-stage HUD, Living Store (cargo + directives — [living-store.md](./living-store.md)).
 
 ---
 
 ## Technology stack (as referenced in docs)
 
-- **Three.js**: rendering, scene, camera, post-processing, and visuals
+- **Three.js** (~r185): rendering, scene, camera, post-processing, and visuals
 - **Rapier3D**: physics (simulation runs on the host client)
 - **partyserver**: Durable Object rooms + WebSocket relay + lightweight server state on Cloudflare Workers
 - **Vite**: dev server and production build (`dist/`)
 - **Cloudflare Workers**: static hosting for the client + Durable Object hosting for multiplayer relay
+- **Howler.js**: music/SFX; procedural stings via Web Audio helpers
 
-**Levels:** Classic Record (vinyl ring + center hole), Backrooms Supermarket (square floor + corner voids), Zanzibar Platform (floating octagonal sundeck in sunset seascape).
+**Levels** (display names; see [brand.md](../brand.md)):
+
+| Level id | Display name | Shape |
+|----------|--------------|--------|
+| `classicRecord` | **CART RAVE** | Vinyl ring + center hole |
+| `backrooms` | **THE STOREROOMS** | Square floor + corner voids |
+| `zanzibar` | **SUNDIAL STATION** | Floating sundeck + sunset seascape |
 
 ---
 
@@ -71,7 +78,7 @@ At a high level, the architecture is:
 - **Late-join snapshot:** On connect, the server sends a `hello` payload with the current room state:
   - host id, slot assignments, cached cart state, round/phase state, sequence counters, and metadata.
 - **Input relay:** Clients send `client_input` messages; the server forwards these **only to the host**.
-- **State broadcast:** The host emits periodic transform snapshots (documented at ~20 Hz) for all carts; the server broadcasts these to all peers.
+- **State broadcast:** The host emits periodic transform snapshots at ~**40 Hz** on the WebRTC DataChannel when P2P is open (WebSocket remains the control plane). Binary cart state is compact (~52 B/cart plus a JSON falls/collisions tail).
 - **Host migration:** If the host disconnects, the server elects a successor and broadcasts a host-migration event. Carts continue from last-known transforms rather than reinitializing.
 
 ### Smoothing and latency handling
@@ -94,11 +101,14 @@ Notes describe a phase progression along the lines of:
 
 HUD and results work shipped over time to support:
 
-- Countdown messaging
-- Running timer (150s / 2.5 min)
-- Score display per slot (P1–P4)
-- Results/podium overlay with final scores, "PLAY AGAIN" (host only), and Main Menu
-- Announcer callouts ("The Store PA") — data-driven event system layered on top of the phase model; see [announcer.md](./announcer.md)
+- Region-based HUD (match / standings / events / stage / pod / utility) with design tokens (`src/ui/styles/tokens.css`)
+- **Center Stage** (`src/ui/centerStage.js`) — one-moment-at-a-time arbiter for announcer + challenge toasts
+- Countdown messaging, running timer (150s / 2.5 min), sticker scoreboard chips, kill feed, boost charge
+- Touch-specific layout (`#hud.hud-touch`); mute-only audio chrome in-match
+- Results/podium overlay with final scores, match superlatives, challenge progress, "PLAY AGAIN" (host), Main Menu
+- Announcer callouts ("The Store PA") — see [announcer.md](./announcer.md)
+- Living Cargo bay fill as a field-readable scoreboard (`src/cargoLoad.js`)
+- PA **directives** HUD chip + focus callouts (`src/directives/`, host-scheduled mini-mutators)
 
 ---
 
@@ -108,15 +118,10 @@ The scoring system was reviewed against the design intent in a dedicated audit n
 
 - **Fall-based scoring:** A knockout is detected when a cart falls below a configured vertical threshold during the running phase on the host.
 - **Attribution:** Recent collisions/ram events are used to attribute the knockout to an attacker within a time window.
-- **Center-hole vs edge:** Planar distance from origin is used to classify center-hole knockouts versus non-center falls.
-- **Bonuses and stacking:** Bonus conditions can stack on top of base points (critical + target + combo multiplier).
-- **Rampage combo system:** A host-authoritative combo multiplier (1.5x RAMPAGE, 2.0x SAVAGE, 3.0x CARNAGE) with 5-second decay timer running in a dedicated second pass to prevent order-of-operations race conditions with fall scoring.
-
-The audit notes also emphasize:
-
-- Where the implementation matches intent
-- Where behavior differs from spec (including tie-handling, critical condition definitions, and early-end conditions)
-- What remains to align scoring outcomes with the intended ruleset
+- **Kill zones:** Center-hole (Classic), corner voids (Storerooms, elevated base), outer edge, and Sundial high-ground bonus when the crediting ram was from the podium. Classification feeds `buildKOEvent` / `reward`.
+- **Bonuses and stacking:** Critical, leader, high-ground, and combo multiplier can stack; score floats show the breakdown.
+- **Rampage combo system:** Host-authoritative combo multiplier (1.5× RAMPAGE, 2.0× SAVAGE, 3.0× CARNAGE) with 5-second decay in a dedicated second pass.
+- **Reactors:** match stats → challenges → local kill-confirm → arena VFX → kill feed → announcer. As-built: [scoring-event-system.md](./scoring-event-system.md).
 
 ---
 
@@ -172,7 +177,8 @@ The docs capture a mix of blocking issues, non-blocking issues, and “must veri
 - **Multiplayer runtime smoke test pending** (two-browser integration not yet verified).
 - **Persistent Durable Object state** across deploys may retain stale room state.
 - **Smoothing/latency tuning** (interpolation buffer and perceived non-host lag).
-- **Smoothing/latency tuning** (interpolation buffer and perceived non-host lag).
+- **Black-frame flicker** on some Windows + Chromium + NVIDIA stacks (see planning flicker plan).
+- **Living Store multiplayer** paths verified solo; two-browser checklist deferred ([living-store-test-plan.md](../planning/living-store-test-plan.md)).
 
 ---
 
@@ -193,36 +199,35 @@ The handover notes repeatedly stress process discipline for reliability:
 
 ## Roadmap themes (what's next)
 
-### Near-term (Phase 4 — active)
+### Near-term (active)
 
 **Primary source:** [ROADMAP.md](../planning/ROADMAP.md)
 
-- Multiplayer runtime smoke test (two browsers, one room)
-- Host migration hardening
-- Netcode math hardening (buffer flood, clock drift)
-- Server-authoritative options evaluation
+- Multiplayer runtime smoke test (two browsers, one room) — includes Living Store netcode checklist
+- Black-frame flicker triage
+- Menu overhaul + domain cutover
+- Deeper performance pass (level swap / menu / profiling)
 
-### Content and features (Phase 3 — complete)
+### Content and features (shipped foundations)
 
-- Touch controls (shipped)
-- Level 3: Zanzibar Platform (shipped)
-- Daily/Weekly challenges (shipped)
-- Rampage combo system (shipped)
-- Grocery spill VFX (shipped)
-- Announcer system ("The Store PA") — arbitration engine, event director, callout UI, voice-asset pipeline (shipped)
+- Touch controls; daily/weekly challenges; rampage combo
+- Level 3 **Sundial Station** (+ Classic / Storerooms elevation)
+- Announcer ("The Store PA"); center-stage HUD redesign
+- Lifetime cosmetic + level unlocks; match-stat spine
+- **Living Store** — cargo scoreboard + PA directives ([living-store.md](./living-store.md))
 
-### Technical and release (Phase 5 — deferred)
+### Technical and release (later)
 
-- Lag mitigation, performance pass
-- Menu overhaul, rename + new domain (Version 2 release)
+- Remaining perf / WebGPU experiments
+- Domain cutover after naming freeze
 - `structuredClone` performance optimization for DO broadcasts
 
-See also [ROADMAP.md](../planning/ROADMAP.md) for open post-jam priorities.
+See [ROADMAP.md](../planning/ROADMAP.md) for open post-jam priorities.
 
 ---
 
 ## Appendix: Notes on documentation provenance
 
 - This consolidated file intentionally avoids duplicating raw session narratives, commit hashes, or code-level line references unless they communicate an architectural principle.
-- For deeper implementation-specific detail, per-session handovers (`docs/handovers/`) and audits (`docs/audits/`) remain the canonical historical record.
+- For deeper implementation-specific detail, handovers (`docs/archive/handovers/`), audits (`docs/archive/audits/`), and session notes (`docs/archive/session-notes/`) remain the historical record.
 

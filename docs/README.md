@@ -4,7 +4,7 @@
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Major physics stability overhaul completed (trimesh colliders replaced with convexHull + primitive colliders on Record, Backrooms, and Zanzibar levels). See [ROADMAP.md](./planning/ROADMAP.md) for current priorities and [brand.md](./brand.md) for the naming freeze.
+**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Physics stability, three elevated arenas (Cart Rave / Storerooms / **Sundial Station**), HUD redesign, lifetime unlocks, and **Living Store** (cargo scoreboard + PA directives) are in tree. See [ROADMAP.md](./planning/ROADMAP.md) for open priorities and [brand.md](./brand.md) for the naming freeze.
 
 ---
 
@@ -22,11 +22,14 @@ Three docs split cleanly by time — **past / present / future**:
 | [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
 | [planning/project-state.md](./planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
+| [planning/living-store-test-plan.md](./planning/living-store-test-plan.md) | Deferred two-browser checklist for Living Store |
+
 ### `reference/` — how it's built
 
 | Doc | Purpose |
 |-----|---------|
 | [reference/Game_Architecture.md](./reference/Game_Architecture.md) | Consolidated architecture & design reference |
+| [reference/living-store.md](./reference/living-store.md) | Living Cargo + PA directives (as-built) |
 | [reference/scoring-event-system.md](./reference/scoring-event-system.md) | Scoring & event system (as-built) |
 | [reference/announcer.md](./reference/announcer.md) | "The Store PA" announcer system + voice asset pipeline |
 | [reference/CREDITS.md](./reference/CREDITS.md) | Third-party libraries, fonts, and assets |
@@ -37,6 +40,7 @@ Three docs split cleanly by time — **past / present / future**:
 |-----|---------|
 | [guides/preview-dev.md](./guides/preview-dev.md) | Local multiplayer dev workflow |
 | [guides/deploy-urls.md](./guides/deploy-urls.md) | Production URLs and deploy verification |
+| [guides/cart-pattern-reuv.md](./guides/cart-pattern-reuv.md) | Cart body second UV for pattern masks (Blender + compress) |
 
 ### `archive/` — frozen historical
 
@@ -110,11 +114,13 @@ npm run ship     # build + wrangler deploy (production)
 ## Gameplay basics
 
 - **Modes**: Solo (private room + NPCs), Quickplay (public room), Friends (share a `?room=` link)
-- **Levels**: 
-  - Cart Rave / Classic Record (vinyl ring + center hole; jam tribute name) — major physics stability pass July 2026
-  - Backrooms Supermarket / The Storerooms (square floor + corner voids) — major physics stability pass July 2026
-  - Zanzibar Platform (floating sundeck + sunset seascape) — added July 2026
-- **Scoring**: knock carts off the **edge** or into **voids/holes** for points (bonuses stack for big plays)
+- **Levels** (display names; level ids in code — see [brand.md](./brand.md)):
+  - **CART RAVE** / Classic Record (`classicRecord`) — vinyl ring + center hole; jam tribute
+  - **THE STOREROOMS** (`backrooms`) — square floor + corner voids
+  - **SUNDIAL STATION** (`zanzibar`) — floating sundeck + sunset seascape
+- **Scoring**: knock carts off the **edge** or into **voids/holes** for points (crit / leader / kill-zone / combo / directive bonuses stack). Living Cargo fills the bay from round score so standings read off the field.
+- **Living Store**: mid-round PA **directives** bend the rules for ~18s windows (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour) — see [living-store.md](./reference/living-store.md).
+- **Progression**: lifetime unlocks for patterns (incl. Bolt), sunglasses, custom color, and levels
 - **Multiplayer**: one player becomes **host** and runs authoritative physics; non-host clients send input and interpolate snapshots (with client-side prediction for the local cart)
 - **Round length**: 2.5 minutes standard + Sudden Death on ties
 
@@ -144,7 +150,11 @@ src/bootstrap.js    # Menu → gameplay flow
 src/levelManager.js # Level preview + swapping
 src/netcode.js      # Multiplayer + prediction
 src/simulation.js   # Host Rapier physics
-src/scoring/        # KO / scoring event system
+src/scoring/        # KO events, reactors, match stats
+src/cargoLoad.js    # Living Cargo (cart = scoreboard)
+src/directives/     # Living Store PA mini-mutators
+src/stores/         # Zustand (game, unlocks, challenges, …)
+src/ui/styles/      # HUD / pause / results / tokens CSS
 party/index.ts      # partyserver Durable Object
 docs/               # Project docs (start here)
 docs/brand.md       # Naming freeze

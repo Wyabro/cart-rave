@@ -1,6 +1,6 @@
 # Cart Clash — Naming Freeze
 
-**Last updated:** July 8, 2026  
+**Last updated:** July 10, 2026  
 **Status:** Canonical. Prefer this file when docs or comments disagree.
 
 This freezes product naming so "Cart Rave" / `next-level` thrash stops mid-V2. Infra IDs that would break deploys or wipe player data stay legacy until a deliberate cutover.

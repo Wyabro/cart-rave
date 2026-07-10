@@ -1,9 +1,11 @@
 # Scoring & Event System
 
 > **Status:** implemented (2026-07-08) — migration steps 1–5 complete and committed.
-> This is now an **as-built reference**, not a proposal. Supersedes the jam-era audit
-> [`archive/audits/step-10a-scoring-audit.md`](../archive/audits/step-10a-scoring-audit.md), which reviewed a much
-> smaller game. Sibling system docs: [`announcer.md`](announcer.md),
+> **Last refreshed:** 2026-07-10 — reactors include match stats + arena VFX; kill-zone bonuses;
+> Living Store (cargo + PA directives) noted below. This is an **as-built reference**, not a proposal.
+> Supersedes the jam-era audit
+> [`archive/audits/step-10a-scoring-audit.md`](../archive/audits/step-10a-scoring-audit.md).
+> Sibling system docs: [`announcer.md`](announcer.md),
 > [`Game_Architecture.md`](Game_Architecture.md).
 
 ## What this replaced
@@ -62,11 +64,13 @@ cart.y < fallThreshold
    ▼
 buildKOEvent()                                     ┌───────────────────────────────┐
    │                                               │  dispatchKOEvent(event, ctx)   │
-   ├─► addScore(...) at the call site (not a       │    ├─► challengeReactor        │
-   │   reactor yet — host mutates scores here)     │    ├─► localKillConfirmReactor │
-   ├─► serialize a thin subset ────────────────────┼──► ├─► killFeedReactor         │
-   │   into snapshot falls[] (JSON tail)           │    └─► announcerReactor        │
-   └─► dispatchKOEvent(event, ctx)  ───────────────┘   (Score is NOT in this list)  │
+   ├─► addScore(...) at the call site (not a       │    ├─► matchStatsReactor       │
+   │   reactor yet — host mutates scores here)     │    ├─► challengeReactor        │
+   ├─► serialize a thin subset ────────────────────┼──► ├─► localKillConfirmReactor │
+   │   into snapshot falls[] (JSON tail)           │    ├─► arenaVfxReactor         │
+   └─► dispatchKOEvent(event, ctx)  ───────────────┘    ├─► killFeedReactor         │
+                                                        └─► announcerReactor        │
+                                                   (Score is NOT in this list)      │
                                                     └───────────────────────────────┘
    non-host: netcode.js decodes falls[] ─► rebuildKOEvent(msg) ─► dispatchKOEvent()
 ```
@@ -101,41 +105,55 @@ No client reactor reads a field that isn't available to it today.
 | `comboTier` | int (0–3) | ✅ | attacker streak tier at the kill |
 | `comboMultiplier` | float | ✅ | from `CONFIG.combo.tiers[tier].multiplier` |
 | `isSuddenDeath` | bool | ❌ | host `roundState.isSuddenDeath`; client `false` |
-| `isFinalBlow` | bool | ❌ | reserved; **not populated yet** (always `false`) |
+| `isFinalBlow` | bool | ✅ (when set) | Sudden-Death-ending KOs; carried on the wire for presentation |
 | `roundTimeMs` | int | ❌ | ms since round start; host only |
-| `reward` | object | ❌ | `{ base, critical, leader, multiplier, total }`; client zeroed |
+| `reward` | object | thin / rebuilt | `{ base, critical, leader, highGround, multiplier, total }`; score float uses breakdown |
 | `verb` | string | ✅ | host-picked so every client renders the same word |
 | names / colors | — | derived | resolved per client from slots (never trusted from the wire) |
 
-**Reward breakdown** replaces a bare `points`. `reward.total = round((base + critical + leader) ×
-multiplier)` and is what the host's `addScore` adds. It keeps the score legible ("+2 center ×2
-combo = 6") and lets a future stats reactor attribute *why*, not just how many.
+**Reward breakdown** replaces a bare `points`. Base points vary by kill zone (e.g. Classic center
+hole / Storerooms corner voids at 2; perimeter edge at 1; Sundial **high ground** +1 when the
+crediting ram was from the podium). `reward.total` is what the host's `addScore` adds.
 
 ## Reactor catalog
 
-Reactors run in `DEFAULT_KO_REACTORS` order: **challenge → local kill-confirm → kill feed →
-announcer**. Each is `(koEvent, ctx) => void`; all app wiring arrives via `ctx` so the module
-stays a leaf.
+Reactors run in `DEFAULT_KO_REACTORS` order: **match stats → challenge → local kill-confirm →
+arena VFX → kill feed → announcer**. Each is `(koEvent, ctx) => void`; all app wiring arrives via
+`ctx` so the module stays a leaf.
 
-1. **`challengeReactor`** — progresses local challenge counters (`ko_void` / `ko_npc` /
+1. **`matchStatsReactor`** — per-match KO/death/combo counters (`src/scoring/matchStats.js`) for
+   results superlatives and future goals. Runs on every device for every KO dispatch.
+2. **`challengeReactor`** — progresses local challenge counters (`ko_void` / `ko_npc` /
    `ko_aggressor`) for the local player's kills, reading `victimKind` / `victimAiName` off the
    event. Runs on every device for *its own* player's kills (gated `attacker === localSlot`), so a
    KO is counted exactly once, on the attacker's machine.
-2. **`localKillConfirmReactor`** — attacker-side kill-confirm feedback (sting/hitmarker/FOV punch)
+3. **`localKillConfirmReactor`** — attacker-side kill-confirm feedback (sting/hitmarker/FOV punch)
    when the local player scored the KO.
-3. **`killFeedReactor`** — renders one feed row. Attacker + combo badge for a kill; the event's
+4. **`arenaVfxReactor`** — arena KO flash / related world reactions gated by event fields.
+5. **`killFeedReactor`** — renders one feed row. Attacker + combo badge for a kill; the event's
    `verb` with no actor for a self/environmental fall. Single verb source ⇒ host and clients show
    the same word.
-4. **`announcerReactor`** — forwards to `announcerDirectorOnFall` (first_spill, refund, rampage,
-   cleanup_aisle…).
+6. **`announcerReactor`** — forwards to `announcerDirectorOnFall` (first_spill, refund, rampage,
+   cleanup_aisle, critical_ko, leader_down…).
 
 **Score is not a reactor.** It's applied at the host fall site (`addScore`, plus the Sudden Death
 resolution and `lastScoringHitAt` tiebreak stamp). It's the one thing that mutates authoritative
 game state and only runs on the host — folding it into a reactor is possible but wasn't worth the
 indirection for V1. Combo-timer refresh similarly still lives inside `buildKOEvent`.
 
-Production/VFX and stats/analytics reactors are **future** — the schema is designed so they slot in
-as new functions reading existing fields, with no change to the fall detector.
+## Related systems (not KO reactors)
+
+Full Living Store writeup: [`living-store.md`](./living-store.md).
+
+- **Living Cargo** (`src/cargoLoad.js`) — reconciling **round score → bay fill + handling**
+  after groceries update. Overflow / spill-rush PA lines fire from cargoLoad, not from KO reactors.
+- **PA Directives** (`src/directives/`) — host mini-mutators. **Double Bag** multiplies KO
+  `reward.total` via `getDirectiveKoRewardMultiplier` injected into `buildKOEvent` (leaf stays pure);
+  effective `reward.multiplier` reports combo × directive. **Spill Bonus** awards +1 on the host
+  `addScore` path for attributed forced spills (window-checked); float/feed presentation for that
+  bonus is a known follow-up.
+- **Lifetime unlocks** — challenge/unlock progression listens to KO-derived events via existing
+  challenge/unlock stores, not a separate KO reactor.
 
 ## Non-goals / keep it simple
 
