@@ -25,22 +25,19 @@ export default defineConfig({
     // Optimize for Three.js
     rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/three/examples/jsm/")) {
-            return "three-addons";
-          }
-          if (id.includes("node_modules/@dimforge/rapier3d")) {
-            return "rapier";
-          }
-          if (id.includes("node_modules/howler")) {
-            return "howler";
-          }
-          if (id.includes("node_modules/animejs")) {
-            return "animejs";
-          }
-          if (id.includes("node_modules/three")) {
-            return "three";
-          }
+        // * codeSplitting groups (authoritative) instead of manualChunks (hints): with
+        // * manualChunks, rolldown folded three's core/module into the "animejs" chunk
+        // * (animejs/adapters/three drags three into the graph), producing a 650 kB blob
+        // * mislabeled "animejs". Ordered groups here keep three in its own cache line.
+        codeSplitting: {
+          groups: [
+            // * One honest "three" chunk: core + examples/jsm addons version together and
+            // * rolldown merges them regardless, so a single group keeps the name accurate.
+            { name: "three", test: /node_modules[/\\]three[/\\]/ },
+            { name: "rapier", test: /node_modules[/\\]@dimforge[/\\]rapier3d/ },
+            { name: "howler", test: /node_modules[/\\]howler/ },
+            { name: "animejs", test: /node_modules[/\\]animejs/ },
+          ],
         },
       },
     },

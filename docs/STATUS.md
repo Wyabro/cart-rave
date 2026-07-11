@@ -52,9 +52,10 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
 | ID | Issue | Notes |
 |----|--------|--------|
 | VFX-1 | Intermittent pure-black frames | Environment-first (NVIDIA/ANGLE); app A/B tools now available |
-| PERF-1 | Level-swap + menu weight | Foundations landed; needs measured pass |
+| PERF-1 | Level-swap + menu weight | Measured pass done (D-PERF-1..3); arena-chunk prefetch + honest `three` chunk shipped |
 | NET-1 | Two-browser full-round smoke | Code hardened; gate not closed |
 | BRAND-1 | Domain / Worker cutover | Frozen until deliberate cutover |
+| BUNDLE-1 | Menu/game code-split blocked | `index` chunk is one entangled cluster; no clean menu/game seam (see D-PERF-3) |
 
 ## Key decisions log
 
@@ -62,6 +63,9 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
 - **D-DOC-1** (2026-07-11): `AGENTS.md` restored from branch `docs/agent-config-rewrite` (never merged to `cart-clash`). STATUS did **not** replace it — STATUS = session memory; AGENTS = standing rules.
 - **D-VIS-2** (2026-07-11): Harness uses WebGL + Playwright page screenshots (not WebGPU headless recipes).
 - **D-VIS-3** (2026-07-11): `?cam=` implies freeze (camera lock). Ablation reapplied after quality toggles via `reapplyAblation()`.
+- **D-PERF-1** (2026-07-11): PERF-1 measured pass. Local dev "2s first level-swap" is a **Vite dev-transform artifact** (chunk on-demand compile), NOT a prod cost — proven by pre-warming chunks (→~0ms). Do not chase it. Added `?perf=1` (DEV) per-phase swap breakdown in `commitLevelLoad`.
+- **D-PERF-2** (2026-07-11): Shipped `prefetchLevelChunks()` (`src/levels/index.js`) — idle-warm now prefetches the two **non-selected** arena chunks so menu arena-switching never waits on a lazy `import()`. Verified: before, only selected arena warm; after, all three. Quality-neutral.
+- **D-PERF-3** (2026-07-11): `vite.config.js` now uses `codeSplitting.groups` (not `manualChunks` hints). Fixes the misleading 650 kB "animejs" chunk — it was ~92% **Three.js core** (animejs/adapters/three drags three in; manualChunks folded it there). Now: honest `three` ~gz176 + `animejs` ~gz18. **Zero bytes saved** (no dup — index/addons import three from that chunk), naming/cache-line only. **BUNDLE-1**: real menu/game code-split is blocked — `Netcode` (132 uses, incl. `resolveCartNeonHex` at menu), `HUD` (per-frame `isEscOverlayVisible`), and even "isolated" `touchControls`/`announcer` are statically imported by menu-coupled `hud.js`/`netcode.js`. No clean seam; needs full gameplay-cluster-behind-one-dynamic-boundary refactor + NET-1 smoke before it moves any bytes.
 
 ## Gotchas (append-only)
 
@@ -88,5 +92,6 @@ docs/guides/visual-qa.md    how to run
 
 ## Last updated
 
+2026-07-11 — PERF-1 measured pass: arena-chunk prefetch + honest `three`/`animejs` chunks shipped; BUNDLE-1 (menu/game split) scoped + blocked (D-PERF-1..3).  
 2026-07-11 — initial STATUS + visual QA toolchain.  
 Verified: `npm run shoot -- --shot classic` produces a clean Classic Record arena PNG (`?hud=0`).

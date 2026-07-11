@@ -96,7 +96,7 @@ import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill } from "./directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
-import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
 import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
@@ -1996,7 +1996,18 @@ async function main() {
    * @param {{ menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }} opts
    */
   async function commitLevelLoad(selected, opts) {
+    // * ?perf=1 (DEV): per-phase swap breakdown. loadLevel is the mesh/collider build;
+    // * rebuildForQualityChange re-applies the active tier after the legacy low/high split.
+    const perfOn = import.meta.env.DEV && typeof location !== "undefined"
+      && /(?:^|[?&])perf=1(?:&|$)/.test(location.search || "");
+    const pnow = () => (typeof performance !== "undefined" ? performance.now() : 0);
+    /** @type {Record<string, number>} */
+    const perfPhase = {};
+    let pMark = pnow();
+    const lap = (name) => { if (perfOn) { const t = pnow(); perfPhase[name] = +(t - pMark).toFixed(1); pMark = t; } };
+
     if (typeof disposeLevel === "function") disposeLevel();
+    lap("dispose");
     // * Grocery pool stays warm across level swaps — init() clears active spills only
     // * after the first load (no re-fetch of ~2.9 MB grocery GLBs per arena change).
     ({
@@ -2022,6 +2033,7 @@ async function main() {
       reflectorTextureSize: opts.reflectorTextureSize,
       onProgress: opts.onProgress,
     }));
+    lap("loadLevel");
 
     // * Normalize: arena.js returns recordColliderHandles (compound ring); other levels return a single recordCollider.
     if (ringHandles) {
@@ -2035,9 +2047,16 @@ async function main() {
     const groceryReady = GroceryPool.init(scene, world);
     if (import.meta.env.DEV) groceryReady.catch((err) => console.warn("[GroceryPool] init failed:", err));
     applyLoadedLevelSideEffects(selected);
+    lap("sideEffects");
     // * Levels build for the legacy low/high split internally; re-apply the active
     // * tier so medium lands correctly (reflector off, budgets right) on first load.
     await rebuildForQualityChange();
+    lap("qualityRebuild");
+    if (perfOn) {
+      const total = +Object.values(perfPhase).reduce((a, b) => a + b, 0).toFixed(1);
+      // eslint-disable-next-line no-console
+      console.log(`[perf] commitLevelLoad ${selected} menuPreview=${opts.menuPreview === true} total=${total}ms`, perfPhase);
+    }
   }
 
   async function bootstrapWorldCore(levelIdOverride) {
@@ -3965,6 +3984,9 @@ function scheduleIdleWorldWarm() {
         }
         // * Level previews only run once the world exists — nudge picker if needed.
         if (menuVisible) scheduleMenuLevelPreview();
+        // * Selected arena is now warm; fetch the other arena chunks in the background
+        // * so the first menu arena switch never waits on a lazy import round-trip.
+        void prefetchLevelChunks();
       })
       .catch((err) => {
         console.warn("[bootstrap] idle world warm failed:", err);

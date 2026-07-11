@@ -18,6 +18,27 @@ const LEVEL_IMPORTERS = {
   testArena: () => import("./testArena.js").then((m) => m.initTestArena),
 };
 
+/** Arena chunks the menu can switch between — testArena is dev-only, excluded. */
+const PREFETCHABLE_LEVEL_IDS = ["classicRecord", "backrooms", "zanzibar"];
+
+let levelChunksPrefetched = false;
+
+/**
+ * Warms the arena code chunks (network fetch + parse) so the first menu arena
+ * switch — or a play-entry into a non-default arena — never waits on a lazy
+ * `import()` round-trip. Fire-and-forget from idle; no scene/physics work here.
+ * Idempotent: the browser module cache dedupes, and we latch after the first call.
+ *
+ * @returns {Promise<void>}
+ */
+export function prefetchLevelChunks() {
+  if (levelChunksPrefetched) return Promise.resolve();
+  levelChunksPrefetched = true;
+  return Promise.allSettled(
+    PREFETCHABLE_LEVEL_IDS.map((id) => LEVEL_IMPORTERS[id]?.()),
+  ).then(() => undefined);
+}
+
 /**
  * Resolves a raw level id from storage or menu to a supported loader key.
  *
