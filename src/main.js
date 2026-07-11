@@ -1648,6 +1648,9 @@ async function main() {
       }
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
+    // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
+    // * path — reset the world and re-run the countdown, no menu round-trip.
+    onRestart: () => onHostPlayAgainClick(),
     onQualityTierChange: (tier) => handleQualityTierChange(tier),
     getQualityTier,
   });
@@ -3417,7 +3420,7 @@ async function main() {
     GameState.setRoundEndReason(null);
     Netcode.resetClientPredictionState();
     Entities.rematchResetWorld();
-    if (detectGameMode() === "solo") {
+    if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
       startCountdown(Date.now() + 3000);
       return;
     }

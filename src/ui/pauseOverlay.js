@@ -30,6 +30,7 @@ const elements = {
   escTitle: null,
   escSections: [],
   resumeBtn: null,
+  restartBtn: null,
   quitBtn: null,
   postFxBtn: null,
   lowQualityBtn: null,
@@ -39,6 +40,18 @@ const elements = {
   announcerVoiceBtn: null,
   announcerCalloutsBtn: null,
 };
+
+/**
+ * Shows RESTART only in single-player (solo / test-drive), where it's a clean
+ * local re-entry. Resolved per-open because the game mode isn't known when the
+ * overlay is built at startup.
+ */
+function syncRestartVisibility() {
+  if (!elements.restartBtn) return;
+  const mode = _options.detectGameMode ? _options.detectGameMode() : "";
+  const solo = mode === "solo" || mode === "testdrive";
+  elements.restartBtn.style.display = solo ? "" : "none";
+}
 
 /**
  * Syncs the quality cycle button label to the active (or pending) tier.
@@ -136,6 +149,32 @@ function createEscVolumeRow(labelText, onChange, ariaLabel) {
   };
   trackWrap.addEventListener("pointerup", releasePointer);
   trackWrap.addEventListener("pointercancel", releasePointer);
+
+  // * Keyboard + controller reach: arrows/Home/End nudge the value. Gamepad nav
+  // * dispatches these same ArrowLeft/Right keys when a slider is focused, so this
+  // * one handler covers keyboard a11y and d-pad adjustment.
+  const nudgeByPct = (deltaPct) => {
+    const current = parseInt(trackWrap.getAttribute("aria-valuenow") || "0", 10);
+    const next = clampInt(current + deltaPct, 0, 100);
+    const valueMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
+    setPct(next);
+    onChange(clamp((next / 100) * valueMax, 0, valueMax));
+    animateVolumeTick(val);
+    const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
+    const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
+    const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
+    updateAudioState(isMuted, musicGain, sfxVolume, valueMax);
+  };
+  trackWrap.addEventListener("keydown", (e) => {
+    let delta = 0;
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") delta = 5;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") delta = -5;
+    else if (e.key === "Home") delta = -100;
+    else if (e.key === "End") delta = 100;
+    else return;
+    e.preventDefault();
+    nudgeByPct(delta);
+  });
 
   row.appendChild(label);
   row.appendChild(trackWrap);
@@ -239,7 +278,7 @@ function resetEscOverlayAnimState(overlay) {
     section.style.transform = "translateY(10px)";
   }
 
-  for (const btn of [elements.resumeBtn, elements.quitBtn, elements.postFxBtn, elements.lowQualityBtn]) {
+  for (const btn of [elements.resumeBtn, elements.restartBtn, elements.quitBtn]) {
     if (!btn) continue;
     btn.style.opacity = "0";
     btn.style.transform = "translateY(8px)";
@@ -271,7 +310,7 @@ function animateEscOverlayShow() {
       section.style.opacity = "1";
       section.style.transform = "";
     }
-    for (const btn of [elements.resumeBtn, elements.quitBtn, elements.postFxBtn, elements.lowQualityBtn]) {
+    for (const btn of [elements.resumeBtn, elements.restartBtn, elements.quitBtn]) {
       if (!btn) continue;
       btn.style.opacity = "1";
       btn.style.transform = "";
@@ -287,23 +326,24 @@ function animateEscOverlayShow() {
     animateMenuCardEnter(panel, { duration: 300, y: 18, ease: "outBack(1.25)" });
     animateMenuReveal(title, { delay: 40, duration: 260, y: 10, ease: "outExpo" });
 
-    elements.escSections.forEach((section, i) => {
-      if (!section) return;
-      animateMenuReveal(section, {
-        delay: 90 + i * 45,
-        duration: 260,
-        y: 10,
-        ease: "outExpo",
-      });
-    });
-
-    [elements.resumeBtn, elements.quitBtn, elements.postFxBtn, elements.lowQualityBtn].forEach((btn, i) => {
+    // Hero actions lead (top of the panel), then the lower settings/reference zone.
+    [elements.resumeBtn, elements.restartBtn, elements.quitBtn].forEach((btn, i) => {
       if (!btn) return;
       animateMenuReveal(btn, {
-        delay: 210 + i * 35,
+        delay: 90 + i * 35,
         duration: 240,
         y: 8,
         ease: "outBack(1.2)",
+      });
+    });
+
+    elements.escSections.forEach((section, i) => {
+      if (!section) return;
+      animateMenuReveal(section, {
+        delay: 180 + i * 40,
+        duration: 260,
+        y: 10,
+        ease: "outExpo",
       });
     });
   }, 16);
@@ -366,6 +406,8 @@ export function show() {
 
     // * Re-sync in case the auto-quality watchdog stepped the session tier down.
     syncQualityTierButtonState();
+    // * Solo-only RESTART — resolve per-open (mode unknown at build time).
+    syncRestartVisibility();
 
     const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
     const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
@@ -591,7 +633,7 @@ export function init(options = {}, hudContext = {}) {
   announcerSection.body.appendChild(announcerRow);
 
   const scoringSection = createEscSection("◇ SCORING");
-  scoringSection.section.classList.add("esc-section--scoring", "esc-scoring-block");
+  scoringSection.section.classList.add("esc-section--scoring");
 
   const scoreList = document.createElement("ul");
   scoreList.className = "esc-score-list";
@@ -637,19 +679,38 @@ export function init(options = {}, hudContext = {}) {
   leaderHint.appendChild(document.createTextNode("Leader glows white"));
   scoringSection.body.appendChild(leaderHint);
 
+  // ── Primary actions (hero) — the decisions players open the menu to make ──
   const actions = document.createElement("div");
   actions.className = "esc-actions";
 
   elements.resumeBtn = document.createElement("button");
   elements.resumeBtn.type = "button";
-  elements.resumeBtn.className = "esc-btn cc-btn cc-btn--primary";
+  elements.resumeBtn.className = "esc-btn esc-btn--resume cc-btn cc-btn--primary";
   elements.resumeBtn.textContent = "RESUME";
+
+  elements.restartBtn = document.createElement("button");
+  elements.restartBtn.type = "button";
+  elements.restartBtn.className = "esc-btn cc-btn cc-btn--secondary";
+  elements.restartBtn.textContent = "RESTART";
+  // * Restart is a clean local re-entry only in single-player; online rematch is
+  // * host-authoritative and lives on the podium PLAY AGAIN flow. The overlay is
+  // * built once at startup before any room exists, so visibility is resolved on
+  // * every show() (see syncRestartVisibility) rather than here.
+  elements.restartBtn.style.display = "none";
 
   elements.quitBtn = document.createElement("button");
   elements.quitBtn.type = "button";
   elements.quitBtn.className = "esc-btn cc-btn cc-btn--danger";
   elements.quitBtn.textContent = "QUIT TO MENU";
 
+  const escActionsSecondary = document.createElement("div");
+  escActionsSecondary.className = "esc-actions-secondary";
+  escActionsSecondary.appendChild(elements.restartBtn);
+  escActionsSecondary.appendChild(elements.quitBtn);
+  actions.appendChild(elements.resumeBtn);
+  actions.appendChild(escActionsSecondary);
+
+  // ── DISPLAY settings — grouped with AUDIO/ANNOUNCER, out of the actions row ──
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);
   elements.postFxBtn = document.createElement("button");
   elements.postFxBtn.type = "button";
@@ -678,43 +739,65 @@ export function init(options = {}, hudContext = {}) {
     if (_options.onQualityTierChange) _options.onQualityTierChange(next);
   });
 
-  actions.appendChild(elements.resumeBtn);
-  actions.appendChild(elements.quitBtn);
-  actions.appendChild(elements.postFxBtn);
-  actions.appendChild(elements.lowQualityBtn);
+  const displaySection = createEscSection("◇ DISPLAY");
+  displaySection.section.classList.add("esc-section--display");
+  const displayRow = document.createElement("div");
+  displayRow.className = "esc-display-row";
+  displayRow.appendChild(elements.postFxBtn);
+  displayRow.appendChild(elements.lowQualityBtn);
+  displaySection.body.appendChild(displayRow);
 
   wireEscButtonFeedback(elements.resumeBtn);
+  wireEscButtonFeedback(elements.restartBtn);
   wireEscButtonFeedback(elements.quitBtn);
   wireEscButtonFeedback(elements.postFxBtn);
   wireEscButtonFeedback(elements.lowQualityBtn);
 
+  // * Entrance order = settings first (top of the lower zone), reference last.
   elements.escSections = [
-    controlsSection.section,
     audioSection.section,
     announcerSection.section,
+    displaySection.section,
+    controlsSection.section,
     scoringSection.section,
   ];
 
   elements.escPanel.appendChild(elements.escTitle);
 
+  // Priority read: actions (hero) → settings cluster → recessed reference.
   const escBody = document.createElement("div");
   escBody.className = "esc-body";
 
-  const escColPrimary = document.createElement("div");
-  escColPrimary.className = "esc-col-primary";
-  escColPrimary.appendChild(controlsSection.section);
-  escColPrimary.appendChild(audioSection.section);
-  escColPrimary.appendChild(announcerSection.section);
+  const escSettings = document.createElement("div");
+  escSettings.className = "esc-settings";
+  escSettings.appendChild(audioSection.section);
+  escSettings.appendChild(announcerSection.section);
+  escSettings.appendChild(displaySection.section);
 
-  escBody.appendChild(escColPrimary);
-  escBody.appendChild(scoringSection.section);
+  const escReference = document.createElement("div");
+  escReference.className = "esc-reference";
+  escReference.appendChild(controlsSection.section);
+  escReference.appendChild(scoringSection.section);
+
+  const escLower = document.createElement("div");
+  escLower.className = "esc-lower";
+  escLower.appendChild(escSettings);
+  escLower.appendChild(escReference);
+
   escBody.appendChild(actions);
+  escBody.appendChild(escLower);
   elements.escPanel.appendChild(escBody);
   elements.escOverlay.appendChild(elements.escBackdrop);
   elements.escOverlay.appendChild(elements.escPanel);
   document.body.appendChild(elements.escOverlay);
 
   elements.resumeBtn.addEventListener("click", hide);
+  elements.restartBtn.addEventListener("click", () => {
+    // * Close the pause overlay (restores HUD + unpauses) then re-run the match.
+    // * The 3s restart countdown absorbs the ~180ms dismiss animation.
+    hide();
+    if (typeof _options.onRestart === "function") _options.onRestart();
+  });
   elements.quitBtn.addEventListener("click", () => {
     if (typeof _options.onQuitToMenu === "function") {
       _options.onQuitToMenu();
@@ -738,6 +821,7 @@ export function init(options = {}, hudContext = {}) {
     escTitle: elements.escTitle,
     escSections: elements.escSections,
     resumeBtn: elements.resumeBtn,
+    restartBtn: elements.restartBtn,
     quitBtn: elements.quitBtn,
     postFxBtn: elements.postFxBtn,
     lowQualityBtn: elements.lowQualityBtn,

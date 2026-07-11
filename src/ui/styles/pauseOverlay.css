@@ -53,40 +53,70 @@
   flex-shrink: 0;
 }
 
+/* Priority read: hero actions pinned at top, then a scrollable lower zone
+   (settings cluster + recessed reference). */
 #esc-overlay .esc-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "primary scoring"
-    "actions actions";
+  display: flex;
+  flex-direction: column;
   gap: var(--esc-section-gap);
   min-height: 0;
   flex: 1 1 auto;
 }
 
-#esc-overlay .esc-col-primary {
-  grid-area: primary;
+/* Hero actions — RESUME leads (big), RESTART/QUIT share the row beneath it. */
+#esc-overlay .esc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.5vw, 10px);
+  flex-shrink: 0;
+}
+/* Extra class raises specificity over the base #esc-overlay .esc-btn font-size
+   (same 1-1-0 specificity, but that rule is declared later in the file). */
+#esc-overlay .esc-actions .esc-btn--resume {
+  font-size: clamp(15px, 3vw, 19px);
+  padding-block: clamp(12px, 2.2vw, 16px);
+}
+#esc-overlay .esc-actions-secondary {
+  display: flex;
+  gap: clamp(8px, 1.5vw, 10px);
+}
+#esc-overlay .esc-actions-secondary > .esc-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Lower zone: settings (primary) beside recessed reference; only this scrolls. */
+#esc-overlay .esc-lower {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esc-section-gap);
+  align-items: start;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#esc-overlay .esc-settings,
+#esc-overlay .esc-reference {
   display: flex;
   flex-direction: column;
   gap: var(--esc-section-gap);
-  min-height: 0;
   min-width: 0;
 }
-
-#esc-overlay .esc-scoring-block {
-  grid-area: scoring;
-  min-height: 0;
-  min-width: 0;
+/* Reference (controls + scoring) is tertiary mid-match — recede it (transparent
+   surface, dimmed) so the actions and settings win the read. */
+#esc-overlay .esc-reference {
+  opacity: 0.7;
 }
-
-#esc-overlay .esc-actions {
-  grid-area: actions;
+#esc-overlay .esc-reference .esc-section {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+#esc-overlay .esc-display-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: clamp(8px, 1.5vw, 10px);
-  flex-shrink: 0;
-  margin-top: clamp(8px, 2vw, 12px);
 }
 
 #esc-overlay .esc-section {
@@ -134,9 +164,6 @@
   min-height: 0;
 }
 
-#esc-overlay .esc-section--scoring .esc-section-body {
-  flex: 1 1 auto;
-}
 
 #esc-overlay .esc-ctl-list {
   display: flex;
@@ -448,19 +475,6 @@
     font-size: clamp(16px, 4.5vw, 20px);
   }
 
-  #esc-overlay .esc-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "primary"
-      "scoring"
-      "actions";
-    gap: clamp(8px, 1.5vh, 10px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
   #esc-overlay .esc-section {
     padding: clamp(10px, 2.5vw, 12px);
   }
@@ -474,81 +488,28 @@
     height: 40px;
   }
 
-  #esc-overlay .esc-actions {
-    grid-template-columns: 1fr;
-    gap: clamp(8px, 1.8vw, 10px);
-    position: sticky;
-    bottom: 0;
-    padding-top: 4px;
-    background: linear-gradient(180deg, transparent 0%, rgba(4, 4, 16, 0.92) 24%);
-  }
-
   #esc-overlay .esc-btn {
     min-height: 48px;
     font-size: clamp(13px, 3.4vw, 15px);
   }
 }
 
+/* Portrait / narrow: stack the lower zone (settings above recessed reference). */
+@media (max-width: 768px), (pointer: coarse) and (orientation: portrait) {
+  #esc-overlay .esc-lower {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Short landscape phones: keep settings | reference side-by-side (uses the width),
+   let the lower zone scroll under the pinned actions. */
 @media (pointer: coarse) and (orientation: landscape) {
-  #esc-overlay .esc-body {
-    grid-template-columns: 1.05fr 0.95fr;
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "primary scoring"
-      "actions actions";
-    overflow: hidden;
-  }
-
-  #esc-overlay .esc-col-primary {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  /* CONTROLS + AUDIO keep their natural height so the column actually scrolls;
-     without this the sections flex-shrink (min-height: 0) into each other and
-     visually overlap in the short landscape column budget */
-  #esc-overlay .esc-col-primary > .esc-section {
-    flex-shrink: 0;
-    min-height: auto;
-  }
-
-  #esc-overlay .esc-scoring-block {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  /* Same for score rows — keep natural height and let the block scroll */
-  #esc-overlay .esc-scoring-block .esc-section-body,
-  #esc-overlay .esc-scoring-block .esc-score-list {
-    flex-shrink: 0;
-    min-height: auto;
-  }
-
-  #esc-overlay .esc-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    position: static;
-    background: none;
-    padding-top: 0;
-  }
-
   #esc-overlay .esc-btn {
     min-height: 42px;
     font-size: clamp(11px, 2.2vw, 13px);
   }
-}
-
-@media (max-width: 768px) {
-  #esc-overlay .esc-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "primary"
-      "scoring"
-      "actions";
-  }
-
-  #esc-overlay .esc-actions {
-    grid-template-columns: 1fr;
+  #esc-overlay .esc-btn--resume {
+    min-height: 46px;
   }
 }
 

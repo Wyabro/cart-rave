@@ -16,8 +16,18 @@ function isElementVisible(el) {
 }
 
 function getFocusables() {
-  const elements = /** @type {HTMLElement[]} */ (Array.from(document.querySelectorAll('button, a, [role="button"], input, select, textarea')));
+  const elements = /** @type {HTMLElement[]} */ (Array.from(document.querySelectorAll('button, a, [role="button"], [role="slider"], input, select, textarea')));
   return elements.filter(isElementVisible);
+}
+
+/**
+ * Nudges a focused role="slider" via its own keyboard handler, so the d-pad
+ * adjusts the value instead of navigating away (pause volume sliders).
+ * @param {HTMLElement} el
+ * @param {"ArrowLeft"|"ArrowRight"} key
+ */
+function nudgeSlider(el, key) {
+  el.dispatchEvent(new KeyboardEvent("keydown", { key, code: key, bubbles: true }));
 }
 
 function setFocus(targetEl, focusables) {
@@ -136,10 +146,21 @@ function updateNav() {
       setFocus(target, focusables);
     }
 
+    // * A focused slider claims left/right for value adjustment; up/down still
+    // * navigate away from it to the next control.
+    const activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
+    const activeIsSlider = activeEl?.getAttribute?.("role") === "slider";
+
     if (up && !prevDpad.up) navigateSpatial("up", focusables);
     if (down && !prevDpad.down) navigateSpatial("down", focusables);
-    if (left && !prevDpad.left) navigateSpatial("left", focusables);
-    if (right && !prevDpad.right) navigateSpatial("right", focusables);
+    if (left && !prevDpad.left) {
+      if (activeIsSlider && activeEl) nudgeSlider(activeEl, "ArrowLeft");
+      else navigateSpatial("left", focusables);
+    }
+    if (right && !prevDpad.right) {
+      if (activeIsSlider && activeEl) nudgeSlider(activeEl, "ArrowRight");
+      else navigateSpatial("right", focusables);
+    }
 
     if (a && !prevDpad.a) {
       if (document.activeElement) {
