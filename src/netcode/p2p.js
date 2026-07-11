@@ -1,5 +1,8 @@
 import { MSG } from "../../shared/protocol.js";
 
+/** Grace period before treating ICE "disconnected" as a hard failure (ms). */
+const ICE_DISCONNECT_GRACE_MS = 5000;
+
 let isHost = false;
 const peerConnections = new Map();
 const dataChannels = new Map();
@@ -11,6 +14,13 @@ const pendingIceCandidates = new Map();
  * @type {Map<string, Promise<void>>}
  */
 const signalingChains = new Map();
+/**
+ * Pending ICE "disconnected" → teardown timers. Cleared on recovery or peer cleanup.
+ * @type {Map<string, ReturnType<typeof setTimeout>>}
+ */
+const iceDisconnectGraceTimers = new Map();
+/** @type {Map<string, number>} connId → Date.now() when the RTCPeerConnection was created. */
+const peerCreatedAtMs = new Map();
 let iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 let signalingSend = null;
 let onInputCallback = null;
@@ -113,6 +123,7 @@ export function setTurnServers(servers) {
 function createPeerConnection(connId) {
   const pc = new RTCPeerConnection({ iceServers });
   peerConnections.set(connId, pc);
+  peerCreatedAtMs.set(connId, Date.now());
 
   pc.onicecandidate = (event) => {
     if (event.candidate && signalingSend) {
@@ -130,13 +141,54 @@ function createPeerConnection(connId) {
   };
 
   pc.oniceconnectionstatechange = () => {
-    console.log(`[p2p] Peer ${connId} state: ${pc.iceConnectionState}`);
-    if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+    const state = pc.iceConnectionState;
+    console.log(`[p2p] Peer ${connId} state: ${state}`);
+    // * "failed" / "closed" are terminal. "disconnected" is often transient
+    // * (packet loss, network switch) — WebRTC can self-heal, so only tear
+    // * down if it stays disconnected past the grace window.
+    if (state === "failed" || state === "closed") {
       cleanupPeer(connId);
+      return;
     }
+    if (state === "disconnected") {
+      scheduleIceDisconnectCleanup(connId, pc);
+      return;
+    }
+    // * connected / completed / checking / new — ICE recovered or still negotiating.
+    clearIceDisconnectGrace(connId);
   };
 
   return pc;
+}
+
+/**
+ * @param {string} connId
+ */
+function clearIceDisconnectGrace(connId) {
+  const timer = iceDisconnectGraceTimers.get(connId);
+  if (timer != null) {
+    clearTimeout(timer);
+    iceDisconnectGraceTimers.delete(connId);
+  }
+}
+
+/**
+ * Arm a one-shot grace teardown if ICE stays in "disconnected".
+ * @param {string} connId
+ * @param {RTCPeerConnection} pc
+ */
+function scheduleIceDisconnectCleanup(connId, pc) {
+  clearIceDisconnectGrace(connId);
+  const timer = setTimeout(() => {
+    iceDisconnectGraceTimers.delete(connId);
+    const current = peerConnections.get(connId);
+    // * Only tear down if this is still the same PC and still disconnected.
+    if (current === pc && current.iceConnectionState === "disconnected") {
+      console.warn(`[p2p] ICE disconnect grace expired for peer ${connId}; tearing down`);
+      cleanupPeer(connId);
+    }
+  }, ICE_DISCONNECT_GRACE_MS);
+  iceDisconnectGraceTimers.set(connId, timer);
 }
 
 /**
@@ -144,6 +196,8 @@ function createPeerConnection(connId) {
  * @param {string} connId
  */
 function cleanupPeer(connId) {
+  clearIceDisconnectGrace(connId);
+  peerCreatedAtMs.delete(connId);
   const pc = peerConnections.get(connId);
   if (pc) {
     try { pc.close(); } catch (e) {}
@@ -152,6 +206,53 @@ function cleanupPeer(connId) {
   dataChannels.delete(connId);
   pendingIceCandidates.delete(connId);
   signalingChains.delete(connId);
+}
+
+/**
+ * Force-remove a peer so the host can re-offer (mid-match recovery).
+ * @param {string} connId
+ */
+export function forceClosePeer(connId) {
+  cleanupPeer(connId);
+}
+
+/**
+ * @typedef {"ok" | "missing" | "dead" | "disconnected" | "channel_down" | "negotiating"} PeerHealthReason
+ */
+
+/**
+ * Snapshot of whether a peer can currently carry gameplay traffic.
+ * @param {string} connId
+ * @returns {{ ok: boolean, reason: PeerHealthReason, ice: string | null, ageMs: number }}
+ */
+export function getPeerHealth(connId) {
+  const pc = peerConnections.get(connId);
+  if (!pc) {
+    return { ok: false, reason: "missing", ice: null, ageMs: 0 };
+  }
+  const ice = pc.iceConnectionState;
+  const createdAt = peerCreatedAtMs.get(connId);
+  const ageMs = createdAt != null ? Math.max(0, Date.now() - createdAt) : 0;
+  const dc = dataChannels.get(connId);
+
+  if (ice === "failed" || ice === "closed") {
+    return { ok: false, reason: "dead", ice, ageMs };
+  }
+  if (dc && dc.readyState === "open") {
+    return { ok: true, reason: "ok", ice, ageMs };
+  }
+  // * Transient ICE loss — grace timer may still recover; do not re-offer yet.
+  if (ice === "disconnected") {
+    return { ok: false, reason: "disconnected", ice, ageMs };
+  }
+  // * ICE looks fine but the DataChannel died or never bound.
+  if (
+    (ice === "connected" || ice === "completed") &&
+    (!dc || dc.readyState === "closed" || dc.readyState === "closing")
+  ) {
+    return { ok: false, reason: "channel_down", ice, ageMs };
+  }
+  return { ok: false, reason: "negotiating", ice, ageMs };
 }
 
 /**
@@ -349,7 +450,8 @@ function coerceToArrayBuffer(data) {
   if (data instanceof ArrayBuffer) return data;
   if (ArrayBuffer.isView(data)) {
     const view = /** @type {ArrayBufferView} */ (data);
-    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+    // * slice() re-types as ArrayBufferLike; DataChannel payloads are never SharedArrayBuffer.
+    return /** @type {ArrayBuffer} */ (view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
   }
   return null;
 }
@@ -454,8 +556,13 @@ export function sendToAll(data) {
  * Closes all peer connections and data channels.
  */
 export function closeAllConnections() {
+  for (const timer of iceDisconnectGraceTimers.values()) {
+    clearTimeout(timer);
+  }
+  iceDisconnectGraceTimers.clear();
+  peerCreatedAtMs.clear();
   for (const pc of peerConnections.values()) {
-    pc.close();
+    try { pc.close(); } catch (e) {}
   }
   peerConnections.clear();
   dataChannels.clear();
@@ -472,4 +579,18 @@ export function closeAllConnections() {
     resolve?.();
   }
   iceServersReady = Promise.resolve();
+}
+
+/** @returns {number} Grace period used for ICE "disconnected" before teardown (ms). */
+export function getIceDisconnectGraceMs() {
+  return ICE_DISCONNECT_GRACE_MS;
+}
+
+/**
+ * Test/debug: whether a peer PC is currently tracked.
+ * @param {string} connId
+ * @returns {boolean}
+ */
+export function hasPeerConnection(connId) {
+  return peerConnections.has(connId);
 }

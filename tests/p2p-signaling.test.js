@@ -4,10 +4,11 @@
 // netcode.js code paths: host createOffer -> sdp_offer -> client answer -> ondatachannel ->
 // DataChannel open -> binary onmessage -> netcode dispatch -> netStateBuffer.
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as P2P from "../src/netcode/p2p.js";
 import { __netcodeTestHooks as hooks } from "../src/netcode.js";
 import { MSG } from "../shared/protocol.js";
+import { CONFIG } from "../src/config.js";
 import { encodeHostStateSnapshot } from "../src/netcode/binary.js";
 
 let createdPCs = [];
@@ -275,5 +276,213 @@ describe("ICE candidate buffering (race before remote description)", () => {
     });
     expect(pc.addedIce).toHaveLength(1);
     expect(pc.addedIce[0].candidate).toContain("mid-race");
+  });
+});
+
+describe("ICE disconnect grace (transient vs terminal)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("does not tear down immediately on iceConnectionState disconnected", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    const pc = createdPCs[0];
+    expect(P2P.hasPeerConnection("clientA")).toBe(true);
+
+    pc.iceConnectionState = "disconnected";
+    pc.oniceconnectionstatechange();
+
+    expect(P2P.hasPeerConnection("clientA")).toBe(true);
+    expect(pc.closed).toBe(false);
+  });
+
+  it("tears down if disconnected persists past the grace window", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    const pc = createdPCs[0];
+
+    pc.iceConnectionState = "disconnected";
+    pc.oniceconnectionstatechange();
+    vi.advanceTimersByTime(P2P.getIceDisconnectGraceMs());
+
+    expect(P2P.hasPeerConnection("clientA")).toBe(false);
+    expect(pc.closed).toBe(true);
+  });
+
+  it("cancels grace teardown if ICE recovers to connected", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    const pc = createdPCs[0];
+
+    pc.iceConnectionState = "disconnected";
+    pc.oniceconnectionstatechange();
+    pc.iceConnectionState = "connected";
+    pc.oniceconnectionstatechange();
+    vi.advanceTimersByTime(P2P.getIceDisconnectGraceMs());
+
+    expect(P2P.hasPeerConnection("clientA")).toBe(true);
+    expect(pc.closed).toBe(false);
+  });
+
+  it("tears down immediately on iceConnectionState failed", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    const pc = createdPCs[0];
+
+    pc.iceConnectionState = "failed";
+    pc.oniceconnectionstatechange();
+
+    expect(P2P.hasPeerConnection("clientA")).toBe(false);
+    expect(pc.closed).toBe(true);
+  });
+});
+
+describe("host P2P maintain / mid-match reconnect", () => {
+  const hostSlots = (peers) => [
+    { kind: "human", connId: "H" },
+    ...peers.map((connId) => ({ kind: "human", connId })),
+    { kind: "npc", connId: null },
+  ];
+
+  beforeEach(() => {
+    hooks.clearPeerReconnectCooldowns();
+  });
+
+  it("offers to a human peer with no existing PC", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+
+    hooks.maintainHostPeerConnections();
+    await flush();
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer).map((m) => m.targetConnId)).toEqual(["C1"]);
+    expect(P2P.hasPeerConnection("C1")).toBe(true);
+  });
+
+  it("does not re-offer while a healthy DataChannel is open", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+    await P2P.initiateP2PConnection("C1");
+    const pc = createdPCs[0];
+    pc.iceConnectionState = "connected";
+    pc.dataChannels[0]._open();
+    sent.length = 0;
+
+    hooks.maintainHostPeerConnections();
+    await flush();
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(0);
+    expect(createdPCs).toHaveLength(1);
+  });
+
+  it("re-offers after ICE failed cleaned up the peer", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+    await P2P.initiateP2PConnection("C1");
+    const pc = createdPCs[0];
+    pc.iceConnectionState = "failed";
+    pc.oniceconnectionstatechange();
+    expect(P2P.hasPeerConnection("C1")).toBe(false);
+    sent.length = 0;
+
+    hooks.maintainHostPeerConnections();
+    await flush();
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(1);
+    expect(P2P.hasPeerConnection("C1")).toBe(true);
+  });
+
+  it("re-offers when ICE is up but the DataChannel is closed", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+    await P2P.initiateP2PConnection("C1");
+    const pc = createdPCs[0];
+    pc.iceConnectionState = "connected";
+    const dc = pc.dataChannels[0];
+    dc._open();
+    dc.readyState = "closed";
+    sent.length = 0;
+
+    hooks.maintainHostPeerConnections();
+    await flush();
+
+    expect(pc.closed).toBe(true);
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(1);
+    expect(P2P.hasPeerConnection("C1")).toBe(true);
+  });
+
+  it("does not re-offer during ICE disconnected grace", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+    await P2P.initiateP2PConnection("C1");
+    const pc = createdPCs[0];
+    pc.iceConnectionState = "disconnected";
+    // * Do not fire teardown; grace path leaves the PC tracked.
+    sent.length = 0;
+
+    hooks.maintainHostPeerConnections();
+    await flush();
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(0);
+    expect(P2P.hasPeerConnection("C1")).toBe(true);
+  });
+
+  it("rate-limits reconnect offers per peer", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+
+    hooks.maintainHostPeerConnections();
+    await flush();
+    hooks.maintainHostPeerConnections();
+    await flush();
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(1);
+  });
+
+  it("force-reoffers a stuck negotiation after the connecting timeout", async () => {
+    let nowMs = 1_000_000;
+    const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    try {
+      const sent = [];
+      P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+      hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+      await P2P.initiateP2PConnection("C1");
+      // * PC exists, DC still connecting — within timeout maintain must not thrash.
+      sent.length = 0;
+      hooks.maintainHostPeerConnections();
+      await flush();
+      expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(0);
+
+      const timeoutMs = CONFIG.net.p2pConnectingTimeoutMs ?? 10000;
+      nowMs += timeoutMs + 1;
+      // * Cooldown from a prior maintain must not block the stale-negotiation path.
+      hooks.clearPeerReconnectCooldowns();
+      hooks.maintainHostPeerConnections();
+      await flush();
+
+      expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(1);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it("non-host maintain is a no-op", async () => {
+    const sent = [];
+    P2P.initP2P({ host: false, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: false, youConnId: "C1", netSlots: hostSlots(["C1"]) });
+    hooks.maintainHostPeerConnections();
+    await flush();
+    expect(sent).toHaveLength(0);
+    expect(createdPCs).toHaveLength(0);
   });
 });

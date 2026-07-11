@@ -428,6 +428,30 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[0].q[3]).toBeCloseTo(1.0, 3);
     expect(decoded.carts[0].ackSeq).toBe(42);
   });
+
+  it("returns null when the buffer is shorter than the header", () => {
+    expect(decodeHostStateSnapshot(new ArrayBuffer(8))).toBeNull();
+    expect(decodeHostStateSnapshot(new ArrayBuffer(0))).toBeNull();
+  });
+
+  it("returns null when numCarts claims more payload than the buffer holds", () => {
+    // Header only, but numCarts=2 requires 16 + 2*52 bytes of cart payload.
+    const buffer = new ArrayBuffer(16);
+    const view = new DataView(buffer);
+    view.setUint8(1, 2);
+    view.setUint32(4, 1, true);
+    view.setFloat64(8, 1000, true);
+    expect(decodeHostStateSnapshot(buffer)).toBeNull();
+  });
+
+  it("returns null when numCarts exceeds the room slot max", () => {
+    const buffer = new ArrayBuffer(16 + 5 * 52);
+    const view = new DataView(buffer);
+    view.setUint8(1, 5); // > MAX_CARTS (4)
+    view.setUint32(4, 1, true);
+    view.setFloat64(8, 1000, true);
+    expect(decodeHostStateSnapshot(buffer)).toBeNull();
+  });
 });
 
 describe("binary snapshot dispatch (end-to-end into the buffer)", () => {

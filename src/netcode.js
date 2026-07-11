@@ -27,6 +27,27 @@ function getMonotonicNow() { return performance.timeOrigin + performance.now(); 
 /** Scratch quaternions for snapshot-pair slerp interpolation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
 const _interpToQ = new THREE.Quaternion();
+/** Scratch output arrays for lerpVec3Pair/slerpQuatPair — callers must drain before the next call. */
+const _lerpVec3Out = [0, 0, 0];
+const _slerpQuatOut = [0, 0, 0, 0];
+/** Scratch pair result for findSnapshotPair — callers must destructure/consume before the next call. */
+const _snapshotPairScratch = { before: null, after: null, beforeIndex: -1 };
+/** Scratch cart snapshot (extrapolation/passthrough/interpolation) — avoids a fresh object alloc per cart per frame. */
+const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, c: undefined, s: undefined };
+const _cartSnapPosOut = [0, 0, 0];
+
+/** Copies a cart snapshot's fields into a scratch object (avoids a `{...snap}` alloc). */
+function copyCartSnapIntoScratch(scratch, snap) {
+  scratch.p = snap.p;
+  scratch.q = snap.q;
+  scratch.lv = snap.lv;
+  scratch.av = snap.av;
+  scratch.b = snap.b;
+  scratch.h = snap.h;
+  scratch.c = snap.c;
+  scratch.s = snap.s;
+  return scratch;
+}
 
 /** Reads a per-slot cart snapshot from array or legacy string-keyed object payloads. */
 function getCartSnap(carts, slotIndex) {
@@ -73,6 +94,9 @@ export let pendingInputs = [];
 
 let hostSendTimer = null;
 let keepaliveTimer = null;
+
+/** @type {Map<string, number>} connId → earliest monotonic ms we may re-offer WebRTC. */
+let peerReconnectNotBeforeMs = new Map();
 
 let hostMigrationFreezeUntilMs = 0;
 
@@ -450,11 +474,12 @@ function findSnapshotPair(targetServerNowMs) {
     }
   }
   const beforeIndex = afterIndex > 0 ? afterIndex - 1 : (afterIndex === 0 ? -1 : netStateBuffer.length - 1);
-  return {
-    before: beforeIndex >= 0 ? netStateBuffer[beforeIndex] : null,
-    after: afterIndex >= 0 ? netStateBuffer[afterIndex] : null,
-    beforeIndex,
-  };
+  // * Shared scratch — every call site destructures before/after synchronously and never
+  // * holds two live results at once, so reuse is safe (see netcode.js audit notes).
+  _snapshotPairScratch.before = beforeIndex >= 0 ? netStateBuffer[beforeIndex] : null;
+  _snapshotPairScratch.after = afterIndex >= 0 ? netStateBuffer[afterIndex] : null;
+  _snapshotPairScratch.beforeIndex = beforeIndex;
+  return _snapshotPairScratch;
 }
 
 export function applySnapshotToCartBody(cart, snap) {
@@ -480,11 +505,12 @@ export function applySnapshotToCartBody(cart, snap) {
  */
 function lerpVec3Pair(b, a, alpha) {
   if (Array.isArray(b) && b.length === 3 && Array.isArray(a) && a.length === 3) {
-    return [
-      b[0] + (a[0] - b[0]) * alpha,
-      b[1] + (a[1] - b[1]) * alpha,
-      b[2] + (a[2] - b[2]) * alpha,
-    ];
+    // * Shared scratch — callers drain the array (copy into a Vector3/plain snapshot) before
+    // * the next lerpVec3Pair call, so reuse across carts/frames is safe.
+    _lerpVec3Out[0] = b[0] + (a[0] - b[0]) * alpha;
+    _lerpVec3Out[1] = b[1] + (a[1] - b[1]) * alpha;
+    _lerpVec3Out[2] = b[2] + (a[2] - b[2]) * alpha;
+    return _lerpVec3Out;
   }
   return null;
 }
@@ -498,7 +524,12 @@ function slerpQuatPair(b, a, alpha) {
     _interpFromQ.set(b[0], b[1], b[2], b[3]);
     _interpToQ.set(a[0], a[1], a[2], a[3]);
     _interpFromQ.slerp(_interpToQ, alpha);
-    return [_interpFromQ.x, _interpFromQ.y, _interpFromQ.z, _interpFromQ.w];
+    // * Shared scratch — callers drain the array before the next slerpQuatPair call.
+    _slerpQuatOut[0] = _interpFromQ.x;
+    _slerpQuatOut[1] = _interpFromQ.y;
+    _slerpQuatOut[2] = _interpFromQ.z;
+    _slerpQuatOut[3] = _interpFromQ.w;
+    return _slerpQuatOut;
   }
   return null;
 }
@@ -551,24 +582,25 @@ export function sampleAuthoritativeCartState(slotIndex, customTargetServerNowMs)
     const extrapMs = targetServerNowMs - before.serverNowMs;
     const extrapS = Math.min(extrapMs, CONFIG.net.extrapolationCapMs) / 1000;
 
-    const snap = { ...b };
+    // * Shared extrapolation scratch — caller (gameLoop) drains fields into the local cart's
+    // * body synchronously before the next sampleAuthoritativeCartState/updateRemoteCartNetTargets call.
+    copyCartSnapIntoScratch(_cartSnapScratch, b);
     if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
-      snap.p = [
-        bp[0] + blv[0] * extrapS,
-        bp[1] + blv[1] * extrapS,
-        bp[2] + blv[2] * extrapS,
-      ];
+      _cartSnapPosOut[0] = bp[0] + blv[0] * extrapS;
+      _cartSnapPosOut[1] = bp[1] + blv[1] * extrapS;
+      _cartSnapPosOut[2] = bp[2] + blv[2] * extrapS;
+      _cartSnapScratch.p = _cartSnapPosOut;
     }
-    return snap;
+    return _cartSnapScratch;
   }
 
   if (after && after.carts) {
     const a = getCartSnap(after.carts, slotIndex);
-    return a ? { ...a } : null;
+    return a ? copyCartSnapIntoScratch(_cartSnapScratch, a) : null;
   }
 
   if (lastCartsCache && lastCartsCache[slotIndex]) {
-    return { ...lastCartsCache[slotIndex] };
+    return copyCartSnapIntoScratch(_cartSnapScratch, lastCartsCache[slotIndex]);
   }
 
   return null;
@@ -579,18 +611,18 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
   const p = lerpVec3Pair(b.p, a.p, alpha) ?? a.p ?? b.p;
   const q = slerpQuatPair(b.q, a.q, alpha) ?? a.q ?? b.q;
 
-  const interpSnap = {
-    p,
-    q,
-    lv: a.lv ?? b.lv,
-    av: a.av ?? b.av,
-    b: a.b ?? b.b,
-    h: a.h ?? b.h,
-    c: a.c ?? b.c,
-    s: a.s ?? b.s,
-  };
+  // * Shared cart-snap scratch — applyCartState drains it into cart._netTarget* synchronously
+  // * before the loop in updateRemoteCartNetTargets moves to the next remote cart.
+  _cartSnapScratch.p = p;
+  _cartSnapScratch.q = q;
+  _cartSnapScratch.lv = a.lv ?? b.lv;
+  _cartSnapScratch.av = a.av ?? b.av;
+  _cartSnapScratch.b = a.b ?? b.b;
+  _cartSnapScratch.h = a.h ?? b.h;
+  _cartSnapScratch.c = a.c ?? b.c;
+  _cartSnapScratch.s = a.s ?? b.s;
 
-  applyCartState(cart, interpSnap, { interpolate: true });
+  applyCartState(cart, _cartSnapScratch, { interpolate: true });
 }
 
 /**
@@ -740,15 +772,16 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
       const cart = allCarts[slotIndex];
       if (!cart) continue;
 
-      const snap = { ...b };
+      // * Shared extrapolation scratch — applyCartState drains it into the cart's net targets
+      // * synchronously before the loop moves to the next remote cart.
+      copyCartSnapIntoScratch(_cartSnapScratch, b);
       if (Array.isArray(bp) && bp.length === 3 && Array.isArray(blv) && blv.length === 3) {
-        snap.p = [
-          bp[0] + blv[0] * extrapS,
-          bp[1] + blv[1] * extrapS,
-          bp[2] + blv[2] * extrapS,
-        ];
+        _cartSnapPosOut[0] = bp[0] + blv[0] * extrapS;
+        _cartSnapPosOut[1] = bp[1] + blv[1] * extrapS;
+        _cartSnapPosOut[2] = bp[2] + blv[2] * extrapS;
+        _cartSnapScratch.p = _cartSnapPosOut;
       }
-      applyCartState(cart, snap, { interpolate: true });
+      applyCartState(cart, _cartSnapScratch, { interpolate: true });
     }
     pruneConsumedSnapshots(beforeIndex);
     return;
@@ -980,6 +1013,10 @@ export function disconnectPartySession() {
   stopHostSendLoop();
   stopKeepaliveLoop();
   clearHostCollisionBatch();
+  // * Tear down WebRTC peers/DataChannels so menu return does not leak old
+  // * onmessage/ICE handlers or keep background peer objects alive.
+  P2P.closeAllConnections();
+  peerReconnectNotBeforeMs.clear();
 
   if (partySocket) {
     try { partySocket.close(); } catch {}
@@ -1083,7 +1120,10 @@ export function startHostSendLoop() {
     lastCartsCache = carts;
     const collisions = drainHostCollisionBatch();
     const falls = drainHostFallBatch();
-    const currentLevelId = (typeof localStorage !== "undefined" ? localStorage.getItem("cartRaveLevel") : null) || "classicRecord";
+    // * Read the store instead of localStorage — this fires at hostSendHz (~40Hz) and
+    // * settingsStore.selectedLevelId is already kept in sync with the persisted level
+    // * (see cart-rave-menu.js persistLevel / adoptAuthoritativeRoomLevel below).
+    const currentLevelId = settingsStore.getState().selectedLevelId || "classicRecord";
     const payload = {
       type: MSG.hostTransform,
       seq: hostSeq,
@@ -1155,6 +1195,9 @@ function startKeepaliveLoop() {
     if (partySocket) {
       partySocket.send(JSON.stringify({ type: MSG.keepalive, tClient: getMonotonicNow() }));
     }
+    // * Mid-match WebRTC recovery: slots only re-offer on join/migration; ICE/DC
+    // * death otherwise leaves humans frozen despite a live PartyKit socket.
+    maintainHostPeerConnections();
   }, CONFIG.net.keepaliveIntervalMs);
 }
 
@@ -1224,6 +1267,46 @@ function ensureHostPeerConnections() {
     if (slot && slot.kind === "human" && slot.connId && slot.connId !== youConnId) {
       void P2P.initiateP2PConnection(slot.connId);
     }
+  }
+}
+
+/**
+ * Host-only: re-offer WebRTC to human peers whose DataChannel/ICE is dead or missing.
+ *
+ * Unlike {@link ensureHostPeerConnections}, this tears down half-dead peers first so
+ * `initiateP2PConnection` is not stuck behind a zombie PC entry. Rate-limited per peer.
+ * Skips ICE "disconnected" (grace recovery) and short-lived negotiations.
+ */
+function maintainHostPeerConnections() {
+  if (!isHost || !youConnId) return;
+
+  const now = getMonotonicNow();
+  const cooldownMs = CONFIG.net.p2pReconnectCooldownMs ?? 3000;
+  const connectingTimeoutMs = CONFIG.net.p2pConnectingTimeoutMs ?? 10000;
+
+  for (const slot of netSlots) {
+    if (!slot || slot.kind !== "human" || !slot.connId || slot.connId === youConnId) continue;
+    const connId = slot.connId;
+    const health = P2P.getPeerHealth(connId);
+
+    if (health.ok) {
+      peerReconnectNotBeforeMs.delete(connId);
+      continue;
+    }
+    // * Let ICE self-heal during the disconnect grace window.
+    if (health.reason === "disconnected") continue;
+    // * Fresh offers still negotiating — do not thrash.
+    if (health.reason === "negotiating" && health.ageMs < connectingTimeoutMs) continue;
+
+    const notBefore = peerReconnectNotBeforeMs.get(connId) ?? 0;
+    if (now < notBefore) continue;
+
+    peerReconnectNotBeforeMs.set(connId, now + cooldownMs);
+    if (health.reason !== "missing") {
+      P2P.forceClosePeer(connId);
+    }
+    console.log(`[netcode] WebRTC recovery reconnect to peer ${connId} (${health.reason})`);
+    void P2P.initiateP2PConnection(connId);
   }
 }
 
@@ -1571,6 +1654,7 @@ export function initNetcode(roomOverride) {
       const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
 
       P2P.closeAllConnections();
+      peerReconnectNotBeforeMs.clear();
       if (youConnId) {
         P2P.initP2P({
           localId: youConnId,
@@ -1987,6 +2071,9 @@ export const __netcodeTestHooks = {
     lastCartsCache = null;
     isHost = false;
     hostId = null;
+    youConnId = null;
+    netSlots = [];
+    peerReconnectNotBeforeMs.clear();
     serverClockOffsetMs = 0;
     serverClockOffsetSamples = 0;
     serverClockSamples = [];
@@ -2011,6 +2098,8 @@ export const __netcodeTestHooks = {
     if (s !== undefined) netSlots = s;
   },
   ensureHostPeerConnections: () => ensureHostPeerConnections(),
+  maintainHostPeerConnections: () => maintainHostPeerConnections(),
+  clearPeerReconnectCooldowns: () => peerReconnectNotBeforeMs.clear(),
 };
 
 /**

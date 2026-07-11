@@ -5,6 +5,8 @@ import { MSG } from "../../shared/protocol.js";
 // * to ~42s steps, which breaks clock offset estimation and interpolation.
 const HEADER_BYTES = 16;
 const CART_BYTES = 52;
+/** Max carts on the wire (matches room slot count). Rejects garbage numCarts bytes. */
+const MAX_CARTS = 4;
 
 /**
  * Encodes a host state snapshot object into a hybrid binary payload.
@@ -98,11 +100,32 @@ function getSafeFloat64(view, offset, littleEndian) {
 /**
  * Decodes a hybrid binary payload back into a host state snapshot object.
  * @param {ArrayBuffer} buffer
- * @returns {object}
+ * @returns {object | null} Decoded snapshot, or null if the buffer is truncated/malformed.
  */
 export function decodeHostStateSnapshot(buffer) {
+  if (!buffer || buffer.byteLength < HEADER_BYTES) {
+    console.error("[binary] Buffer too small for header:", buffer?.byteLength ?? 0);
+    return null;
+  }
+
   const view = new DataView(buffer);
   const numCarts = view.getUint8(1);
+  if (numCarts > MAX_CARTS) {
+    console.error("[binary] Invalid cart count:", numCarts);
+    return null;
+  }
+
+  const expectedMinBytes = HEADER_BYTES + numCarts * CART_BYTES;
+  if (buffer.byteLength < expectedMinBytes) {
+    console.error(
+      "[binary] Buffer too small for cart count. Expected:",
+      expectedMinBytes,
+      "Got:",
+      buffer.byteLength,
+    );
+    return null;
+  }
+
   const seq = view.getUint32(4, true);
   const tHost = getSafeFloat64(view, 8, true);
   
