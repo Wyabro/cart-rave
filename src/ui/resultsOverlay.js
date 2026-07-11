@@ -353,39 +353,52 @@ export function animateResultsPodiumShow(payload) {
     });
   });
 
+  // Reward beat: after the rows settle, give the winner row a quick celebratory
+  // pop so the champion is unmistakably the peak of the panel.
+  const winnerRow = scoreRows.find((sr) => sr.isWinner)?.row;
+  if (winnerRow) {
+    tl.add(winnerRow, {
+      scale: [1, 1.05, 1],
+      duration: 460,
+      ease: "outElastic(1, 0.6)",
+    }, 220 + scoreRows.length * 55 + 120);
+  }
+
   const endBase = 220 + scoreRows.length * 90;
 
-  if (statsLine) {
-    tl.add(statsLine, {
-      opacity: [0, 1],
-      translateY: [10, 0],
-      duration: 340,
-      ease: "outQuad",
-    }, endBase + 40);
-  }
-
-  if (history) {
-    tl.add(history, {
-      opacity: [0, 1],
-      translateY: [8, 0],
-      duration: 320,
-      ease: "outQuad",
-    }, endBase + 90);
-  }
-
+  // Actions lead the lower half — the reward decision, not buried under the ledger.
   if (playAgain) {
     tl.add(playAgain, {
       opacity: [0, 1],
       translateY: [10, 0],
       duration: 300,
-      ease: "outQuad",
-    }, endBase + 140);
+      ease: "outBack(1.2)",
+    }, endBase + 40);
   }
 
   if (mainMenuBtn) {
     tl.add(mainMenuBtn, {
       opacity: [0, 1],
       translateY: [10, 0],
+      duration: 300,
+      ease: "outBack(1.2)",
+    }, endBase + 80);
+  }
+
+  // Recessed details ledger reveals last.
+  if (statsLine) {
+    tl.add(statsLine, {
+      opacity: [0, 1],
+      translateY: [10, 0],
+      duration: 320,
+      ease: "outQuad",
+    }, endBase + 150);
+  }
+
+  if (history) {
+    tl.add(history, {
+      opacity: [0, 1],
+      translateY: [8, 0],
       duration: 300,
       ease: "outQuad",
     }, endBase + 190);
@@ -460,12 +473,22 @@ export function initResultsOverlay(hooks = {}) {
 
   panel.appendChild(title);
 
+  // Reward-first order: the winner + match ranking + the PLAY AGAIN / MAIN MENU
+  // decision lead the panel; the lifetime-stats / superlatives / challenges /
+  // history ledger is recessed into a secondary details zone below. (main.js
+  // injects superlatives + challenges as siblings after statsLine, so they land
+  // inside .results-details between statsLine and history.)
   const resultsBody = document.createElement("div");
   resultsBody.className = "results-body";
   resultsBody.appendChild(finalScores);
-  resultsBody.appendChild(statsLine);
-  resultsBody.appendChild(history);
   resultsBody.appendChild(actions);
+
+  const details = document.createElement("div");
+  details.className = "results-details";
+  details.appendChild(statsLine);
+  details.appendChild(history);
+  resultsBody.appendChild(details);
+
   panel.appendChild(resultsBody);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);

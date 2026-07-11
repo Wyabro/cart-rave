@@ -658,6 +658,14 @@ async function main() {
   input = Input.setupInput(
     canvas,
     () => {
+      // * On the results/podium screen, Escape (and gamepad B, which dispatches
+      // * Escape) backs out to the MAIN MENU instead of opening the pause overlay
+      // * on top of the podium — matches the MAIN MENU button's behavior.
+      if (GameState.getRoundState().phase === "podium") {
+        podiumAutoContinue.clear();
+        gameSession.returnToMenu({ reason: "results" });
+        return;
+      }
       if (HUD.isEscOverlayVisible()) {
         HUD.hideEscOverlay();
       } else {
@@ -2257,8 +2265,9 @@ async function main() {
         if (isWinner) {
           winnerBadge = document.createElement("span");
           winnerBadge.className = "results-winner-badge";
-          winnerBadge.textContent = "\u{1F451}";
-          winnerBadge.setAttribute("aria-hidden", "true");
+          // * Purpose-built sticker crown (icons.js), not the OS emoji — matches
+          // * the HUD leader pip and colors to gold via .results-winner-badge CSS.
+          winnerBadge.innerHTML = svgIcon("crown", { label: "Winner", size: "1.15em" });
           nameEl.prepend(winnerBadge);
         }
 

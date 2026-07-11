@@ -71,17 +71,22 @@
 
 /* Winner row is the celebration moment — yellow die-cut ring on ink,
    overriding the per-slot identity ring. */
+/* Champion row is the peak of the panel — die-cut yellow sticker (contour +
+   hard offset shadow) so it stands proud of the plain runner-up rows. */
 #results-overlay .results-score-row.is-winner {
   background: var(--color-ink);
-  box-shadow: 0 0 0 2px var(--color-yellow);
+  box-shadow:
+    0 0 0 2.5px var(--color-yellow),
+    3px 3px 0 2.5px var(--color-ink-deep);
 }
 
 #results-overlay .results-winner-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   margin-right: 6px;
-  font-size: 13px;
+  font-size: 15px; /* drives the 1.15em crown SVG (icons.js, currentColor) */
   line-height: 1;
-  vertical-align: middle;
+  color: var(--color-yellow);
   filter: drop-shadow(0.03em 0.03em 0 var(--color-magenta));
   transform-origin: center center;
 }
@@ -127,6 +132,19 @@
   letter-spacing: 0.04em;
   color: var(--slot-glow, var(--color-cyan));
   flex-shrink: 0;
+}
+
+/* Recessed ledger — lifetime stats, superlatives, challenges, history. Sits
+   below the winner + actions, separated by a dashed divider and slightly dimmed
+   so the reward moment (above) reads first. */
+#results-overlay .results-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.14);
+  opacity: 0.82;
 }
 
 #results-overlay .results-stats {
@@ -373,11 +391,21 @@
     font-size: 7px;
   }
 
-  #results-overlay .results-history {
+  /* Details wraps the ledger — make IT the flex scroller so the winner + actions
+     above stay pinned while stats/superlatives/challenges/history scroll. */
+  #results-overlay .results-details {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-top: clamp(8px, 2vh, 12px);
+    padding-top: clamp(8px, 2vh, 12px);
+  }
+
+  #results-overlay .results-history {
+    flex: 0 0 auto;
     max-height: none;
-    overflow: auto;
+    overflow: visible;
     margin-bottom: 0;
     padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
     font-size: clamp(9px, 2.3vw, 10px);
