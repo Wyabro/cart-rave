@@ -55,7 +55,7 @@ Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/R
 
 ### Recent work (July 9–10, 2026)
 
-Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); **solo polish sprint** (Spill Bonus float/feed, first-solo load hardening, directional hit vignette, solo AI rubberband, hop landing thud, NPC rare hop — death-cam follow killer attempted and reverted); **July 10 regression audit** (verified non-issues logged in §5; open edges stay on ROADMAP). Full writeups in [completed-work.md](./completed-work.md). Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
+Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); **solo polish sprint** (Spill Bonus float/feed, first-solo load hardening, directional hit vignette, solo AI rubberband, hop landing thud, NPC rare hop — death-cam follow killer attempted and reverted); **July 10 regression audit** (verified non-issues logged in §5; open edges stay on ROADMAP); **netcode connection lifecycle hardening** (P2P teardown on menu leave, ICE disconnect grace, host mid-match re-offer, binary bounds, reject-pending `onClose` ownership — see [completed-work.md](./completed-work.md)). Full writeups in [completed-work.md](./completed-work.md). Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
 
 ### Key files
 
@@ -64,7 +64,9 @@ Highlights beyond the June/July refactors: progression unlocks; Sundial Station 
 | `src/main.js` | Entry point, render loop, system wiring |
 | `src/bootstrap.js` | Menu/gameplay transition |
 | `src/levelManager.js` | Level preview and hot-swap |
-| `src/netcode.js` | Multiplayer, prediction, interpolation |
+| `src/netcode.js` | Multiplayer, prediction, interpolation, host P2P maintain |
+| `src/netcode/p2p.js` | WebRTC peers/DataChannels, ICE grace, TURN wait |
+| `src/netcode/binary.js` | Host snapshot encode/decode (bounds-checked) |
 | `src/simulation.js` | Rapier physics (host) |
 | `src/levels/` | Level definitions (classic, backrooms, zanzibar/Sundial) |
 | `src/scoring/` | KO events, reactors, match stats |

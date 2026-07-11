@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### July 10, 2026 – Netcode connection lifecycle hardening
+
+Stability pass on hybrid WebSocket + WebRTC netcode (architecture notes: [Game_Architecture.md](../reference/Game_Architecture.md) multiplayer section).
+
+| Item | What landed |
+|------|-------------|
+| **Menu / session P2P teardown** | `disconnectPartySession()` calls `P2P.closeAllConnections()` so leave-to-menu does not leak RTCPeerConnections / DataChannels |
+| **ICE disconnect grace** | `"disconnected"` waits 5 s before teardown; `"failed"` / `"closed"` immediate; timers cleared on recovery and `closeAllConnections` |
+| **Mid-match P2P reconnect** | Host `maintainHostPeerConnections()` on keepalive — re-offer missing/dead/channel-down peers; cooldown + stuck-negotiation timeout in `CONFIG.net` |
+| **Binary decoder bounds** | `decodeHostStateSnapshot` returns `null` on short buffers / `numCarts > 4` / payload shorter than cart count |
+| **Reject-pending cleanup** | `#rejectPendingConn` only sends `joinRejected` + `close()`; `onClose` owns pending-picker / IP / slot cleanup |
+
+**Tests:** `tests/netcode.test.js` (truncated/invalid binary), `tests/p2p-signaling.test.js` (ICE grace, maintain/reconnect, rate limit).  
+**Deferred (not shipped):** historical remote rewind during CSP reconciliation; gating drive input on `hasSpilled` (VFX flag, not KO freeze).
+
+---
+
 ### July 10, 2026 – Production regression audit (investigation only)
 
 Focused bug sweep of Stability Pass 1 + uncommitted solo-polish tree (no feature work, no large refactors). Gate at audit: `npm run check` green — tsc, **174** Vitest tests, knip.

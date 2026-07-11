@@ -79,18 +79,29 @@ Pinned ranges and licenses live in [CREDITS.md](./CREDITS.md) / `package.json`. 
 
 ## Multiplayer message flow (partyserver ↔ clients)
 
+Hybrid topology: **WebSocket control plane** (PartyKit / `party/index.ts`) + **WebRTC gameplay plane** (`src/netcode/p2p.js`).
+
 ### Core behaviors (documented)
 
 - **Late-join snapshot:** On connect, the server sends a `hello` payload with the current room state:
   - host id, slot assignments, cached cart state, round/phase state, sequence counters, and metadata.
-- **Input relay:** Clients send `client_input` messages; the server forwards these **only to the host**.
-- **State broadcast:** The host emits periodic transform snapshots at ~**40 Hz** on the WebRTC DataChannel when P2P is open (WebSocket remains the control plane). Binary cart state is compact (~52 B/cart plus a JSON falls/collisions tail).
-- **Host migration:** If the host disconnects, the server elects a successor and broadcasts a host-migration event. Carts continue from last-known transforms rather than reinitializing.
+- **Inputs & transforms (P2P):** Non-hosts send `client_input` on the host DataChannel; the host broadcasts binary transform snapshots at ~**40 Hz** when P2P is open. The WebSocket is **not** the gameplay relay for inputs/transforms (legacy “server forwards inputs” notes are stale).
+- **State broadcast format:** Hybrid binary — 16 B header + 52 B/cart + JSON tail (`collisions` / `falls` / active directive). Decoder rejects truncated buffers and `numCarts > 4` (`src/netcode/binary.js`).
+- **Host migration:** If the host disconnects, the server elects a successor and broadcasts `host_migrated`. Clients close all peers, re-init P2P, and continue from last-known transforms.
+- **Session teardown:** `disconnectPartySession()` closes the Party socket **and** all WebRTC peers/DataChannels (menu return must not leak old channels).
+- **Join reject cleanup:** `#rejectPendingConn` only sends `joinRejected` and closes the socket; `onClose` owns map/slot cleanup so a never-assigned picker does not take the human→NPC path.
+
+### P2P connection lifecycle
+
+- **Host is the offerer:** `ensureHostPeerConnections()` on `MSG.slots` / TURN-ready opens offers to every other human peer. Non-hosts answer.
+- **ICE `"disconnected"` is transient:** 5 s grace before teardown; `"failed"` / `"closed"` tear down immediately (`p2p.js`).
+- **Mid-match recovery:** Host keepalive (~5 s) runs `maintainHostPeerConnections()` — re-offers missing/dead/channel-down peers with per-peer cooldown (`CONFIG.net.p2pReconnectCooldownMs`) and a stuck-negotiation timeout (`p2pConnectingTimeoutMs`). Does not re-offer during ICE disconnect grace.
 
 ### Smoothing and latency handling
 
-- Clients use an **interpolation buffer** to render behind the latest snapshot to trade latency for stability.
-- A documented tuning value exists for this buffer (~100 ms with intent to reduce).
+- Clients use an **interpolation buffer** to render remotes slightly in the past (`CONFIG.net.interpBufferMs`, currently **75 ms**).
+- Host applies remote inputs after a short jitter buffer (`inputJitterBufferMs`, typically 40 ms).
+- Non-host local cart: client-side prediction + rewind/replay reconciliation against host snapshots.
 
 ---
 

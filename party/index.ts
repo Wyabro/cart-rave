@@ -571,22 +571,13 @@ export class CartRaveServer extends Server {
     });
   }
 
+  /**
+   * Reject a pending picker and close the socket.
+   * Cleanup is owned by {@link onClose} — do not clear #pendingPickers / IP maps here,
+   * or onClose takes the human→NPC branch for a connection that never held a slot.
+   */
   #rejectPendingConn(conn: Connection, code: number, reason: string) {
     this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
-    this.#pendingPickers.delete(conn.id);
-    this.#pendingPickerAtMs.delete(conn.id);
-    this.#pendingNames.delete(conn.id);
-    this.#connections.delete(conn.id);
-    this.#removeFromJoinOrder(conn.id);
-    this.#lastSeenAtMs.delete(conn.id);
-    this.#connClientId.delete(conn.id);
-    this.#rateLimitWindows.delete(conn.id);
-    const ip = this.#connToIp.get(conn.id);
-    if (ip) {
-      const count = this.#ipConnectionCounts.get(ip) ?? 1;
-      this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
-      this.#connToIp.delete(conn.id);
-    }
     try {
       conn.close(code, reason);
     } catch {
