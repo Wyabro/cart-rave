@@ -176,8 +176,14 @@
 }
 
 /* Breakpoint contract (media queries can't read custom props — keep these
-   values in sync BY HAND everywhere):
-     tablet  ≤ 1024px
-     mobile  ≤ 768px  (or pointer:coarse as an orthogonal input axis)
-     tiny    ≤ 380px
-     short landscape: orientation:landscape and max-height:600px */
+   values in sync BY HAND everywhere; do not reintroduce 900/1200/480):
+     wide desktop     ≥ 1025px   (HUD: full score names / timer reserve)
+     tablet           ≤ 1024px
+     tablet compact   769–1024px (HUD: rank+score only, top bar)
+     mobile           ≤ 768px
+     tiny             ≤ 380px
+     short landscape  orientation:landscape and max-height:600px
+   Orthogonal (not width tokens):
+     pointer:coarse          — touch-first surfaces (nametags, hit targets)
+     pointer:fine + hover    — hide virtual controls
+     #hud.hud-touch          — in-match input-mode layout (not a width band) */

@@ -701,8 +701,9 @@
   color: var(--color-ink-deep);
 }
 
-/* Large desktops — grow to full names; ellipsize only when bar hits timer/audio bounds */
-@media (min-width: 1201px) {
+/* Wide desktop (≥1025) — full names; ellipsize only when the bar hits
+   timer/audio reserves. Pass 3.1: above tablet, not a free 1200px token. */
+@media (min-width: 1025px) {
   #hud {
     --hud-timer-reserve: clamp(148px, 11vw, 200px);
   }
@@ -721,8 +722,9 @@
   }
 }
 
-/* Tighter score bar on medium desktops — structural shrink, not scale hacks */
-@media (max-width: 1200px) {
+/* Tablet (≤1024) — structural shrink of the top standings strip.
+   Pass 3.1 tablet token; replaces the old max-width:1200 medium-desktop band. */
+@media (max-width: 1024px) {
   #hud {
     --hud-timer-reserve: clamp(112px, 14vw, 180px);
     --hud-feed-top: clamp(104px, 13vh, 128px);
@@ -746,8 +748,9 @@
   }
 }
 
-/* Compact top bar before dock — rank + score only when horizontal space is tight */
-@media (max-width: 1024px) and (min-width: 901px) {
+/* Tablet top bar before mobile dock (769–1024): rank + score only.
+   Closes the post-P0 gap where 769–900 kept top labels without this compact. */
+@media (max-width: 1024px) and (min-width: 769px) {
   #hud {
     --hud-timer-reserve: clamp(100px, 13vw, 160px);
     --hud-feed-top: clamp(112px, 15vh, 136px);
@@ -771,6 +774,12 @@
     --hud-feed-top: clamp(128px, 18vh, 156px);
     --hud-feed-top: clamp(128px, 18dvh, 156px);
   }
+  /* Kill feed stays top-right; cap width so rows don't grow into the timer. */
+  #hud .hud-region-events {
+    left: auto;
+    right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
+    max-width: min(48vw, 280px);
+  }
   #hud:not(.hud-touch) .hud-region-standings {
     top: auto;
     bottom: max(var(--hud-pad), env(safe-area-inset-bottom, 0px));
@@ -787,7 +796,7 @@
   #hud:not(.hud-touch) .hud-scores {
     width: 100%;
     max-width: none;
-    gap: clamp(4px, 1vw, 8px);
+    gap: clamp(8px, 2vw, 12px);
   }
   #hud:not(.hud-touch) .hud-scoreBox {
     flex: 1 1 0;
@@ -821,7 +830,9 @@
   }
 }
 
-@media (max-width: 480px) {
+/* Tiny (Pass 3.1 ≤380) — compact round timer; score labels already off in
+   the tablet compact / dock bands above. */
+@media (max-width: 380px) {
   #hud {
     --hud-feed-top: clamp(116px, 17vh, 140px);
     --hud-feed-top: clamp(116px, 17dvh, 140px);
@@ -852,6 +863,9 @@
     --hud-feed-top: clamp(52px, 14dvh, 88px);
     --hud-pad: clamp(6px, 1.2vw, 12px);
   }
+  #hud.hud-touch {
+    --hud-feed-top: clamp(80px, 24dvh, 112px);
+  }
   #hud .hud-region-stage {
     top: 12vh;
     top: 12dvh;
@@ -865,7 +879,9 @@
     padding: 4px 14px;
   }
   #hud .hud-region-events {
-    max-width: min(52vw, 360px);
+    left: auto;
+    right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
+    max-width: min(42vw, 240px);
   }
   #hud .hud-feed-row {
     flex-wrap: nowrap;
@@ -895,7 +911,7 @@
     font-size: clamp(1.35rem, 5.5vw, 2.2rem);
   }
   #hud.hud-touch .hud-region-events {
-    max-width: min(46vw, 280px);
+    max-width: min(40vw, 220px);
   }
   /* One feed row only — second row collides with stage on short landscape. */
   #hud.hud-touch .hud-feed-row:nth-child(n + 2) {
@@ -1327,12 +1343,12 @@
 }
 
 /* ── Dedicated mobile HUD (touch devices) — not a scaled desktop layout ────
-   Thumb zones (bottom corners) stay HUD-free: timer becomes a top-center pill,
-   standings a compact top-right chip strip beside the utility corner, kill feed
-   two icon-forward rows top-left. Boost state lives on the BOOST button. */
+   Thumb zones (bottom corners) stay HUD-free: timer top-left, standings a
+   compact top-right chip strip beside the utility corner, kill feed top-right
+   under utility (right-aligned). Boost on the BOOST button. */
 #hud.hud-touch {
-  --hud-feed-top: clamp(58px, 13vh, 88px);
-  --hud-feed-top: clamp(58px, 13dvh, 88px);
+  /* Below mute/menu + standings strip — needs real air, not 56px under the pad. */
+  --hud-feed-top: clamp(108px, 20dvh, 148px);
 }
 
 /* Timer — compact top-left pill: number + tier color + thin bar. The kill
@@ -1344,6 +1360,7 @@
   top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
   left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
   filter: none;
+  z-index: 10; /* timer wins if a long feed row still reaches left */
 }
 #hud.hud-touch .hud-timer {
   clip-path: none;
@@ -1411,17 +1428,19 @@
   right: calc(
     max(var(--hud-pad), env(safe-area-inset-right, 0px))
     + var(--hud-utility-width, 48px)
-    + 10px
+    + 14px
   );
   transform: none;
-  max-width: 52vw;
+  max-width: 58vw;
 }
+/* More air between rank chips — compact was 3–6px and read as one blob. */
 #hud.hud-touch .hud-scores {
-  gap: clamp(3px, 0.8vw, 6px);
+  gap: clamp(8px, 2.2vw, 12px);
+  padding: 4px 4px 6px 2px;
 }
 #hud.hud-touch .hud-scoreBox {
-  padding: clamp(4px, 1vw, 6px) clamp(6px, 1.4vw, 9px) clamp(4px, 1vw, 6px) clamp(9px, 1.8vw, 12px);
-  gap: clamp(3px, 0.6vw, 5px);
+  padding: clamp(5px, 1.2vw, 8px) clamp(8px, 1.8vw, 12px) clamp(5px, 1.2vw, 8px) clamp(10px, 2vw, 14px);
+  gap: clamp(5px, 1.2vw, 8px);
 }
 #hud.hud-touch .hud-scoreLabel,
 #hud.hud-touch .hud-scoreBadge {
@@ -1437,19 +1456,22 @@
 #hud.hud-touch .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(11px, 2.7vw, 14px); }
 #hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(14px, 3.2vw, 17px); }
 
-/* Kill feed — two icon-forward rows, top-left, reading left-to-right. */
+/* Kill feed — top-right under utility, right-aligned (desktop side).
+   Width-capped so it cannot grow across the left timer. */
 #hud.hud-touch .hud-region-events {
   top: var(--hud-feed-top);
-  left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
-  right: auto;
-  max-width: min(56vw, 360px);
+  left: auto;
+  right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
+  max-width: min(46vw, 260px);
+  z-index: 8;
 }
 #hud.hud-touch .hud-feed {
-  align-items: flex-start;
-  text-align: left;
+  align-items: flex-end;
+  text-align: right;
+  gap: clamp(8px, 1.4vw, 12px);
 }
 #hud.hud-touch .hud-feed-row {
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 #hud.hud-touch .hud-feed-row:nth-child(n + 3) {
   display: none;
