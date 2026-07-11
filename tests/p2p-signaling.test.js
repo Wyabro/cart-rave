@@ -88,11 +88,12 @@ describe("host is the offerer (createOffer is now reachable)", () => {
     const sent = [];
     P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
     await P2P.initiateP2PConnection("clientA");
-    createdPCs[0].onicecandidate({ candidate: { cand: "x" } });
+    const cand = { candidate: "candidate:1 1 udp 1 1.2.3.4 1234 typ host", sdpMid: "0", sdpMLineIndex: 0 };
+    createdPCs[0].onicecandidate({ candidate: cand });
     const ice = sent.find((m) => m.type === MSG.iceCandidate);
     expect(ice).toBeTruthy();
     expect(ice.targetConnId).toBe("clientA");
-    expect(ice.candidate).toEqual({ cand: "x" });
+    expect(ice.candidate).toEqual(cand);
   });
 
   it("host applies the peer's sdp_answer", async () => {
@@ -195,5 +196,57 @@ describe("netcode fix: host opens offers to every non-self human peer", () => {
     await flush();
     expect(sent).toHaveLength(0);
     expect(createdPCs).toHaveLength(0);
+  });
+});
+
+describe("ICE candidate buffering (race before remote description)", () => {
+  const iceInit = (label) => ({
+    candidate: `candidate:1 1 udp 1 1.2.3.4 1234 typ host ${label}`,
+    sdpMid: "0",
+    sdpMLineIndex: 0,
+  });
+
+  it("buffers ICE that arrives before the offer, then flushes on setRemoteDescription", async () => {
+    P2P.initP2P({ host: false, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+
+    // ICE races ahead of SDP — no PC yet; must not be dropped.
+    await P2P.handleSignalingMessage({
+      type: MSG.iceCandidate,
+      fromConnId: "hostA",
+      candidate: iceInit("early-1"),
+    });
+    expect(createdPCs).toHaveLength(0);
+
+    await P2P.handleSignalingMessage({
+      type: MSG.sdpOffer,
+      fromConnId: "hostA",
+      sdp: { type: "offer", sdp: "O" },
+    });
+    const pc = createdPCs[0];
+    expect(pc.remoteDescription).toEqual({ type: "offer", sdp: "O" });
+    expect(pc.addedIce).toHaveLength(1);
+    expect(pc.addedIce[0].candidate).toContain("early-1");
+  });
+
+  it("buffers ICE that arrives after PC creation but before remote description is ready", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    const pc = createdPCs[0];
+
+    // Offer is local-only so far; remote description not set yet.
+    await P2P.handleSignalingMessage({
+      type: MSG.iceCandidate,
+      fromConnId: "clientA",
+      candidate: iceInit("mid-race"),
+    });
+    expect(pc.addedIce).toHaveLength(0);
+
+    await P2P.handleSignalingMessage({
+      type: MSG.sdpAnswer,
+      fromConnId: "clientA",
+      sdp: { type: "answer", sdp: "A" },
+    });
+    expect(pc.addedIce).toHaveLength(1);
+    expect(pc.addedIce[0].candidate).toContain("mid-race");
   });
 });

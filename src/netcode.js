@@ -1484,6 +1484,10 @@ export function initNetcode(roomOverride) {
       }
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
+      // * Host is the WebRTC offerer — open DataChannels as soon as hello arrives,
+      // * not only on a later MSG.slots rebroadcast (avoids a no-P2P window where
+      // * non-host remotes sit at spawn/origin with no snapshots).
+      ensureHostPeerConnections();
 
       // * Enter game only after server hello — menu stays up while connecting.
       const colorToSend = resolveServerColorPick();

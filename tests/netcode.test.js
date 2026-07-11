@@ -264,15 +264,17 @@ describe("Clock Drift Resync", () => {
 
 describe("Binary snapshot serialization", () => {
   it("successfully round-trips a host state snapshot through encode/decode", () => {
+    // * Absolute monotonic ms (~performance.timeOrigin + now) — must survive Float64, not Float32.
+    const absoluteTHost = 1_772_345_678_901.25;
     const original = {
       seq: 12345,
-      tHost: 123456.75,
+      tHost: absoluteTHost,
       carts: [
         {
           p: [1.23, -4.56, 7.89],
           q: [0.1, 0.2, 0.3, 0.9],
           lv: [-1.1, 2.2, -3.3],
-          av: [0.5, 0, 0],
+          av: [0.1, 0.5, -0.2], // yaw (av[1]) is what the wire carries
           ackSeq: 42,
           b: true,
           h: false,
@@ -283,7 +285,7 @@ describe("Binary snapshot serialization", () => {
           p: [10.11, 12.13, 14.15],
           q: [0.5, 0.5, 0.5, 0.5],
           lv: [1.1, 2.2, 3.3],
-          av: [-0.8, 0, 0],
+          av: [0, -0.8, 0],
           ackSeq: 99,
           b: false,
           h: true,
@@ -301,12 +303,15 @@ describe("Binary snapshot serialization", () => {
 
     const buffer = encodeHostStateSnapshot(original);
     expect(buffer).toBeInstanceOf(ArrayBuffer);
+    // Header 16 + 2 * 52 cart + JSON tail
+    expect(buffer.byteLength).toBeGreaterThan(16 + 52 * 2);
 
     const decoded = decodeHostStateSnapshot(buffer);
     // Must equal the shared protocol constant so the receiver's dispatcher routes it.
     expect(decoded.type).toBe(MSG.hostTransform);
     expect(decoded.seq).toBe(original.seq);
-    expect(decoded.tHost).toBeCloseTo(original.tHost, 2);
+    // Full ms precision for absolute epoch-scale timestamps (Float32 would quantize ~42s).
+    expect(decoded.tHost).toBe(absoluteTHost);
     expect(decoded.carts).toHaveLength(2);
 
     // Cart 0 assertions
@@ -320,7 +325,9 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[0].lv[0]).toBeCloseTo(original.carts[0].lv[0], 3);
     expect(decoded.carts[0].lv[1]).toBeCloseTo(original.carts[0].lv[1], 3);
     expect(decoded.carts[0].lv[2]).toBeCloseTo(original.carts[0].lv[2], 3);
-    expect(decoded.carts[0].av[0]).toBeCloseTo(original.carts[0].av[0], 3);
+    expect(decoded.carts[0].av[0]).toBe(0);
+    expect(decoded.carts[0].av[1]).toBeCloseTo(original.carts[0].av[1], 3);
+    expect(decoded.carts[0].av[2]).toBe(0);
     expect(decoded.carts[0].ackSeq).toBe(original.carts[0].ackSeq);
     expect(decoded.carts[0].b).toBe(true);
     expect(decoded.carts[0].h).toBe(false);
@@ -331,7 +338,7 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[1].p[0]).toBeCloseTo(original.carts[1].p[0], 3);
     expect(decoded.carts[1].q[0]).toBeCloseTo(original.carts[1].q[0], 3);
     expect(decoded.carts[1].lv[0]).toBeCloseTo(original.carts[1].lv[0], 3);
-    expect(decoded.carts[1].av[0]).toBeCloseTo(original.carts[1].av[0], 3);
+    expect(decoded.carts[1].av[1]).toBeCloseTo(original.carts[1].av[1], 3);
     expect(decoded.carts[1].ackSeq).toBe(original.carts[1].ackSeq);
     expect(decoded.carts[1].b).toBe(false);
     expect(decoded.carts[1].h).toBe(true);
@@ -343,7 +350,18 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.falls).toEqual(original.falls);
   });
 
-  it("replaces non-finite float32 values with 0 on decode", () => {
+  it("preserves consecutive absolute timestamps that Float32 would collapse", () => {
+    // At ~1.77e12, Float32 ULP is ~41984ms — these two would encode to the same value.
+    const t0 = 1_772_345_678_901;
+    const t1 = t0 + 25;
+    const d0 = decodeHostStateSnapshot(encodeHostStateSnapshot({ seq: 1, tHost: t0, carts: [] }));
+    const d1 = decodeHostStateSnapshot(encodeHostStateSnapshot({ seq: 2, tHost: t1, carts: [] }));
+    expect(d0.tHost).toBe(t0);
+    expect(d1.tHost).toBe(t1);
+    expect(d1.tHost - d0.tHost).toBe(25);
+  });
+
+  it("replaces non-finite float values with 0 on decode", () => {
     const original = {
       seq: 12345,
       tHost: 100.0,
@@ -352,7 +370,7 @@ describe("Binary snapshot serialization", () => {
           p: [1.0, 2.0, 3.0],
           q: [0.0, 0.0, 0.0, 1.0],
           lv: [4.0, 5.0, 6.0],
-          av: [7.0, 0, 0],
+          av: [0, 7.0, 0],
           ackSeq: 42,
           b: false,
           h: false,
@@ -367,15 +385,14 @@ describe("Binary snapshot serialization", () => {
     const buffer = encodeHostStateSnapshot(original);
     const view = new DataView(buffer);
 
-    // Modify tHost to NaN (tHost is at offset 8)
-    view.setFloat32(8, NaN, true);
+    // tHost is Float64 at offset 8
+    view.setFloat64(8, NaN, true);
 
-    // Modify cart 0: p[0] to Infinity, q[0] to NaN, lv[0] to -Infinity, av[0] to NaN
-    // Offset for cart 0 starts at HEADER_BYTES (12)
-    view.setFloat32(12, Infinity, true); // p[0]
-    view.setFloat32(24, NaN, true); // q[0]
-    view.setFloat32(40, -Infinity, true); // lv[0]
-    view.setFloat32(52, NaN, true); // av[0]
+    // Cart 0 starts at HEADER_BYTES (16)
+    view.setFloat32(16, Infinity, true); // p[0]
+    view.setFloat32(28, NaN, true); // q[0]
+    view.setFloat32(44, -Infinity, true); // lv[0]
+    view.setFloat32(56, NaN, true); // avY
 
     const decoded = decodeHostStateSnapshot(buffer);
 
@@ -383,11 +400,12 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[0].p[0]).toBe(0);
     expect(decoded.carts[0].q[0]).toBe(0);
     expect(decoded.carts[0].lv[0]).toBe(0);
-    expect(decoded.carts[0].av[0]).toBe(0);
+    expect(decoded.carts[0].av[1]).toBe(0);
 
     // Unmodified values should remain as original
     expect(decoded.carts[0].p[1]).toBeCloseTo(2.0, 3);
     expect(decoded.carts[0].q[3]).toBeCloseTo(1.0, 3);
+    expect(decoded.carts[0].ackSeq).toBe(42);
   });
 });
 

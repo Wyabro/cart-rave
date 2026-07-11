@@ -1,6 +1,9 @@
 import { MSG } from "../../shared/protocol.js";
 
-const HEADER_BYTES = 12;
+// * Header: type(1) + numCarts(1) + pad(2) + seq(Uint32) + tHost(Float64) = 16 bytes.
+// * tHost is absolute monotonic ms (~1e12); Float32 only has ~7 digits and quantizes
+// * to ~42s steps, which breaks clock offset estimation and interpolation.
+const HEADER_BYTES = 16;
 const CART_BYTES = 52;
 
 /**
@@ -27,14 +30,14 @@ export function encodeHostStateSnapshot(state) {
   const buffer = new ArrayBuffer(bufferLength);
   const view = new DataView(buffer);
   
-  // Header: 12 bytes
+  // Header: 16 bytes
   view.setUint8(0, 0); // Unused / type byte
   view.setUint8(1, numCarts);
   view.setUint8(2, 0); // Padding
   view.setUint8(3, 0); // Padding
   
   view.setUint32(4, state.seq || 0, true);
-  view.setFloat32(8, state.tHost || 0, true);
+  view.setFloat64(8, state.tHost || 0, true);
   
   let offset = HEADER_BYTES;
   for (let i = 0; i < numCarts; i++) {
@@ -56,11 +59,13 @@ export function encodeHostStateSnapshot(state) {
     view.setFloat32(offset, lv[1] || 0, true); offset += 4;
     view.setFloat32(offset, lv[2] || 0, true); offset += 4;
     
+    // * Yaw rate (av[1]) drives caster swivel / steer visuals on remote carts.
+    // * Pitch (av[0]) and roll (av[2]) are near-zero under arcade physics.
     const av = c.av || [0, 0, 0];
-    view.setFloat32(offset, av[0] || 0, true); offset += 4;
+    view.setFloat32(offset, av[1] || 0, true); offset += 4;
     
     const ackSeq = c.ackSeq || 0;
-    view.setFloat32(offset, ackSeq, true); offset += 4;
+    view.setUint32(offset, ackSeq >>> 0, true); offset += 4;
     
     let flags = 0;
     if (c.b) flags |= 1;
@@ -80,9 +85,13 @@ export function encodeHostStateSnapshot(state) {
   return buffer;
 }
 
-// Add this helper function above decodeHostStateSnapshot
 function getSafeFloat32(view, offset, littleEndian) {
   const val = view.getFloat32(offset, littleEndian);
+  return Number.isFinite(val) ? val : 0;
+}
+
+function getSafeFloat64(view, offset, littleEndian) {
+  const val = view.getFloat64(offset, littleEndian);
   return Number.isFinite(val) ? val : 0;
 }
 
@@ -95,7 +104,7 @@ export function decodeHostStateSnapshot(buffer) {
   const view = new DataView(buffer);
   const numCarts = view.getUint8(1);
   const seq = view.getUint32(4, true);
-  const tHost = getSafeFloat32(view, 8, true);
+  const tHost = getSafeFloat64(view, 8, true);
   
   const carts = [];
   let offset = HEADER_BYTES;
@@ -113,8 +122,8 @@ export function decodeHostStateSnapshot(buffer) {
     const lvY = getSafeFloat32(view, offset, true); offset += 4;
     const lvZ = getSafeFloat32(view, offset, true); offset += 4;
     
-    const avX = getSafeFloat32(view, offset, true); offset += 4;
-    const ackSeq = getSafeFloat32(view, offset, true); offset += 4;
+    const avY = getSafeFloat32(view, offset, true); offset += 4;
+    const ackSeq = view.getUint32(offset, true); offset += 4;
     
     const flags = view.getUint8(offset); offset += 1;
     offset += 3; // padding
@@ -124,7 +133,7 @@ export function decodeHostStateSnapshot(buffer) {
       p: [pX, pY, pZ],
       q: [qX, qY, qZ, qW],
       lv: [lvX, lvY, lvZ],
-      av: [avX, 0, 0], // Assume Y and Z angvel are 0 for arcade physics
+      av: [0, avY, 0], // Yaw only; pitch/roll unused by arcade remote visuals
       ackSeq: ackSeq,
       b: (flags & 1) === 1,
       h: (flags & 2) === 2,

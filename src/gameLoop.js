@@ -190,6 +190,10 @@ export function runPhysicsStep(loopState, deps, context) {
     if (performance.timeOrigin + performance.now() < deps.getHostMigrationFreezeUntilMs()) {
       // * Hold positions until a new host's snapshots arrive after migration.
       // * Monotonic clock (matches netcode's getMonotonicNow that sets the freeze deadline).
+      // * Drain accumulator debt so the freeze window does not pile up ~300ms of
+      // * catch-up substeps (and "Physics substep cap hit" warnings) when it ends.
+      // * Do NOT touch lastT — the outer rAF loop owns frame timing.
+      loopState.accumulator = 0;
     } else {
       // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
       deps.updateRemoteCartNetTargets(localSlotIndex);
@@ -315,6 +319,7 @@ export function runPhysicsStep(loopState, deps, context) {
     // Non-host without prediction (defensive fallback): interpolate all carts from buffer.
     if (performance.timeOrigin + performance.now() < deps.getHostMigrationFreezeUntilMs()) {
       // hold (monotonic clock — matches netcode's freeze deadline)
+      loopState.accumulator = 0;
     } else {
       const localSlotIndex = localSlotIndexThisFrame;
       deps.updateRemoteCartNetTargets(-1);

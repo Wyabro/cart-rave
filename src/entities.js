@@ -369,6 +369,12 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
 
   const spawnQuat = quatFromYaw(spawnYaw);
 
+  // * Mesh is built at local origin; body is at spawn. Seed both the mesh and the
+  // * net-interp targets at spawn so non-host remotes are not frozen at (0,0,0)
+  // * (map center) while waiting for the first host snapshot / if P2P is delayed.
+  mesh.position.set(spawnFrozen.x, spawnFrozen.y, spawnFrozen.z);
+  mesh.quaternion.set(spawnQuat.x, spawnQuat.y, spawnQuat.z, spawnQuat.w);
+
   return {
     mesh,
     contactShadow,
@@ -383,8 +389,8 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     cartSunglassesStyle: sunglassesStyle,
     _materialCache: materialCache,
     _lastNetLinvel: { x: 0, y: 0, z: 0 },
-    _netTargetPos: mesh.position.clone(),
-    _netTargetQuat: mesh.quaternion.clone(),
+    _netTargetPos: new THREE.Vector3(spawnFrozen.x, spawnFrozen.y, spawnFrozen.z),
+    _netTargetQuat: new THREE.Quaternion(spawnQuat.x, spawnQuat.y, spawnQuat.z, spawnQuat.w),
     prevPosition: { x: spawnFrozen.x, y: spawnFrozen.y, z: spawnFrozen.z },
     prevRotation: { x: spawnQuat.x, y: spawnQuat.y, z: spawnQuat.z, w: spawnQuat.w },
     lastRamBoostTimeMs: Number.NEGATIVE_INFINITY,
