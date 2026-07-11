@@ -61,5 +61,13 @@ export function createCameraFraming({
     }
   }
 
+  // * Some mobile browsers fire visualViewport.resize when the URL bar toggles
+  // * without a matching window.resize — keep canvas/label sizing in sync.
+  try {
+    window.visualViewport?.addEventListener("resize", updateViewport, { passive: true });
+  } catch {
+    /* older engines */
+  }
+
   return { updateCameraFraming, updateViewport };
 }

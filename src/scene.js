@@ -662,6 +662,9 @@ export function createComposer(renderer, scene, camera) {
  * @param {ShaderPass|null|undefined} fxaaPass FXAA shader pass.
  */
 export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass, bloomPass = null) {
+  // * Layout viewport (window.inner*) — not visualViewport. Using the visual
+  // * size would desync a position:fixed full-bleed canvas when iOS offsets
+  // * the visual viewport under the URL bar; HUD density uses dvh instead.
   const w = window.innerWidth;
   const h = window.innerHeight;
 

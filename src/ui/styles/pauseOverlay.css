@@ -34,6 +34,7 @@
   pointer-events: auto;
   width: min(680px, 96vw);
   max-height: min(92vh, 720px);
+  max-height: min(92dvh, 720px);
   padding: clamp(14px, 2.5vw, 20px);
   display: flex;
   flex-direction: column;

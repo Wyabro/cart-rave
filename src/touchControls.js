@@ -40,6 +40,8 @@ let hudMutationObserver = null;
 /** @type {number | null} */
 let layoutRaf = null;
 let hudObserversBound = false;
+/** Last nipple stick diameter applied (px); recreate when zone size drifts. */
+let lastNippleSize = 0;
 
 function isElementVisible(el) {
   if (!el) return false;
@@ -52,12 +54,24 @@ function isElementVisible(el) {
 // ───── HUD layout sync ─────────────────────────────────────────────────────
 
 /**
+ * Reads the CSS zone box and returns a stick diameter that fills it.
+ * @returns {number}
+ */
+function measureJoySize() {
+  if (!joyZoneEl) return 126;
+  const rect = joyZoneEl.getBoundingClientRect();
+  const size = Math.round(Math.min(rect.width, rect.height));
+  if (!Number.isFinite(size) || size <= 0) return 126;
+  return Math.max(80, Math.min(size, 200));
+}
+
+/**
  * Measures HUD elements and sets CSS variables so controls sit above the score bar, etc.
  */
 export function syncTouchLayout() {
   if (!rootEl || rootEl.style.display === "none") return;
 
-  const vh = window.innerHeight || 0;
+  const vh = window.visualViewport?.height || window.innerHeight || 0;
   let bottomClearance = 0;
 
   const scores = document.querySelector("#hud .hud-scores");
@@ -80,9 +94,21 @@ export function syncTouchLayout() {
   rootEl.style.setProperty("--gtc-hud-bottom-clearance", `${Math.round(bottomClearance)}px`);
 
   const shortViewport = vh < 640;
-  const landscape = window.innerWidth > window.innerHeight && vh < 520;
+  // * Align short-landscape with the Pass 3 breakpoint contract (max-height: 600).
+  const landscape = window.innerWidth > window.innerHeight && vh < 600;
   rootEl.classList.toggle("gtc-compact", shortViewport);
   rootEl.classList.toggle("gtc-landscape", landscape);
+
+  // * Keep nipple stick diameter matched to the fluid CSS zone. Recreate only
+  // * when idle — resizing mid-drag would drop the current pointer gesture.
+  const nextSize = measureJoySize();
+  if (lastNippleSize === 0 || Math.abs(nextSize - lastNippleSize) >= 4) {
+    if (!joyActive) {
+      lastNippleSize = nextSize;
+      initNippleJoystick();
+      return;
+    }
+  }
 
   // * Let nipplejs recalculate its zone bounding box after layout changes.
   nippleCollection?.reposition();
@@ -145,9 +171,19 @@ function ensureHudObservers() {
   }
 }
 
+let layoutSyncBound = false;
+
 function bindLayoutSync() {
+  if (layoutSyncBound) return;
+  layoutSyncBound = true;
   window.addEventListener("resize", scheduleLayoutSync, { passive: true });
   window.addEventListener("orientationchange", scheduleLayoutSync, { passive: true });
+  try {
+    window.visualViewport?.addEventListener("resize", scheduleLayoutSync, { passive: true });
+    window.visualViewport?.addEventListener("scroll", scheduleLayoutSync, { passive: true });
+  } catch {
+    /* older engines */
+  }
 }
 
 // ───── Nipplejs joystick ────────────────────────────────────────────────────
@@ -155,17 +191,20 @@ function bindLayoutSync() {
 function initNippleJoystick() {
   if (!joyZoneEl) return;
 
-  // Destroy previous instance if re-creating (e.g. orientation change).
+  // Destroy previous instance if re-creating (e.g. orientation change / size sync).
   if (nippleCollection) {
     nippleCollection.destroy();
     nippleCollection = null;
   }
 
+  const size = lastNippleSize > 0 ? lastNippleSize : measureJoySize();
+  lastNippleSize = size;
+
   nippleCollection = nipplejs.create({
     zone: joyZoneEl,
     mode: "static",
     position: { left: "50%", top: "50%" },
-    size: 126,
+    size,
     threshold: JOY_DEADZONE,
     color: {
       front: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 55%, rgba(0,0,0,0.2))",
@@ -193,6 +232,8 @@ function initNippleJoystick() {
     touchForward = 0;
     touchTurn = 0;
     joyZoneEl?.classList.remove("is-active");
+    // * Apply any stick-size change that was deferred while the stick was held.
+    scheduleLayoutSync();
   });
 }
 
@@ -514,9 +555,14 @@ function injectTouchStyles() {
       }
     }
 
-    @media (max-height: 520px) and (orientation: landscape) {
+    /* Short landscape — Pass 3 contract max-height: 600; keep thumbs compact. */
+    @media (max-height: 600px) and (orientation: landscape) {
       #game-touch-controls {
-        --gtc-hud-bottom-clearance: max(var(--gtc-hud-bottom-clearance), 0px);
+        --gtc-joy-size: clamp(88px, 18vmin, 108px);
+        --gtc-btn-w: clamp(80px, 18vw, 100px);
+        --gtc-btn-h: clamp(40px, 8.5vw, 48px);
+        --gtc-btn-gap: 6px;
+        --gtc-edge: clamp(8px, 2vw, 14px);
       }
     }
 

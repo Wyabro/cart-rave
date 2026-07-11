@@ -34,6 +34,7 @@
 #announcer-display .announcer-callout {
   position: absolute;
   top: 26vh;
+  top: 26dvh;
   left: 50%;
   transform: translateX(-50%);
   pointer-events: none;
@@ -111,6 +112,7 @@
 @media (max-width: 768px) {
   #announcer-display .announcer-callout {
     top: 24vh;
+    top: 24dvh;
     max-width: 94vw;
   }
   #announcer-display .announcer-text {
@@ -127,11 +129,25 @@
   }
 }
 
-/* Short landscape viewports (rotated phones) — HUD pulls its feed/timer up too;
-   keep the callout under the status line without drifting into the play area. */
+/* Short landscape (Pass 3 contract max-height: 600) — sit under status, above
+   the play band; shrink copy so it doesn't collide with touch thumbs. */
 @media (orientation: landscape) and (max-height: 600px) {
   #announcer-display .announcer-callout {
-    top: 20vh;
+    top: 16vh;
+    top: 16dvh;
+    max-width: min(70vw, 480px);
+  }
+  #announcer-display .announcer-text {
+    font-size: clamp(0.9rem, 3.2vw, 1.35rem);
+  }
+  #announcer-display .announcer-kicker {
+    font-size: clamp(0.45rem, 1.6vw, 0.65rem);
+  }
+  #announcer-display .announcer-callout[data-focus] .announcer-text {
+    font-size: clamp(1.1rem, 4vw, 1.75rem);
+  }
+  #announcer-display .announcer-callout[data-focus] .announcer-kicker {
+    font-size: clamp(0.55rem, 2vw, 0.75rem);
   }
 }
 

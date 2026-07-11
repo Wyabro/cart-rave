@@ -7,7 +7,16 @@
  */
 
 /**
- * Detects touch-first mobile/tablet devices (coarse pointer, narrow viewport).
+ * Detects touch-first devices (phones, tablets, and other coarse-primary surfaces).
+ *
+ * Uses the *primary* pointer + hover capability, not a viewport-width gate:
+ * - Phones / tablets: `(pointer: coarse)` and usually `(hover: none)` → true
+ * - Hybrid laptops (Surface + mouse): primary pointer is fine + hover → false
+ * - iPad Pro landscape (≥1024 wide): still coarse-primary → true (was wrong before)
+ *
+ * Width is no longer part of the test — it flipped layout class mid-session on
+ * rotate and excluded large tablets from the touch HUD branch entirely.
+ *
  * @returns {boolean}
  */
 export function isTouchLikeDevice() {
@@ -16,8 +25,21 @@ export function isTouchLikeDevice() {
     const hasTouch =
       ("ontouchstart" in window) ||
       (navigator.maxTouchPoints || 0) > 0;
-    const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? hasTouch;
-    return hasTouch && coarsePointer && (window.innerWidth || 0) < 1024;
+    if (!hasTouch) return false;
+
+    const mm = window.matchMedia?.bind(window);
+    if (mm) {
+      // * Primary pointer is coarse → finger-first UI (HUD touch branch, virtual stick).
+      if (mm("(pointer: coarse)").matches) return true;
+      // * Fine primary pointer with hover = mouse/trackpad desktop (even if a
+      // * touchscreen exists via any-pointer: coarse). Keep keyboard HUD.
+      if (mm("(pointer: fine)").matches && mm("(hover: hover)").matches) {
+        return false;
+      }
+    }
+
+    // * Fallback when matchMedia is missing or inconclusive: any multi-touch surface.
+    return (navigator.maxTouchPoints || 0) > 0;
   } catch {
     return false;
   }

@@ -222,11 +222,32 @@ function setHudSuppressed(suppressed) {
 /** @type {number | null} */
 let hudLayoutRaf = null;
 let hudLayoutBound = false;
+/** @type {ResizeObserver | null} */
+let utilityResizeObserver = null;
 
 /**
- * Syncs root-level layout classes. The utility region (flex) now owns the
- * mute/menu corner, so the old rect-overlap "tight space" probing is gone —
- * the mute-only audio widget always fits beside the menu button.
+ * Measures the top-right utility strip (mute + optional menu) and publishes
+ * --hud-utility-width so touch standings can sit flush beside it without a
+ * magic clamp(84px…) fudge that collides when the menu button appears.
+ */
+function measureUtilityWidth() {
+  if (!elements.root) return;
+  const utility = elements.regions?.utility || elements.root.querySelector(".hud-region-utility");
+  if (!utility) {
+    elements.root.style.setProperty("--hud-utility-width", "0px");
+    return;
+  }
+  const rect = utility.getBoundingClientRect();
+  // * Include right-edge padding already in the region's position so standings
+  // * clear the whole chrome cluster, not just its content box.
+  const width = Math.max(0, Math.ceil(rect.width));
+  elements.root.style.setProperty("--hud-utility-width", `${width}px`);
+}
+
+/**
+ * Syncs root-level layout classes and measured CSS vars.
+ * Re-evaluates .hud-touch on every sync so rotate / pointer changes don't
+ * leave the HUD on the wrong layout branch for the rest of the match.
  */
 export function syncHudLayout() {
   if (!elements.root) return;
@@ -234,7 +255,21 @@ export function syncHudLayout() {
   const menuVisible = _options.getMenuVisible ? _options.getMenuVisible() : false;
   const touch = _options.getIsTouchDevice ? _options.getIsTouchDevice() : false;
   const escOpen = isEscOverlayVisible();
+
+  elements.root.classList.toggle("hud-touch", touch);
   elements.root.classList.toggle("hud-has-menu-btn", touch && !menuVisible && !escOpen);
+
+  // * Keep the menu button display in lockstep with the class (covers resize
+  // * paths that never call updateMenuButtonVisibility).
+  if (elements.menuBtn) {
+    const showMenu = touch && !menuVisible && !escOpen;
+    const nextDisplay = showMenu ? "flex" : "none";
+    if (elements.menuBtn.style.display !== nextDisplay) {
+      elements.menuBtn.style.display = nextDisplay;
+    }
+  }
+
+  measureUtilityWidth();
 }
 
 function scheduleHudLayoutSync() {
@@ -246,10 +281,26 @@ function scheduleHudLayoutSync() {
 }
 
 function bindHudLayoutSync() {
-  if (hudLayoutBound) return;
-  hudLayoutBound = true;
-  window.addEventListener("resize", scheduleHudLayoutSync, { passive: true });
-  window.addEventListener("orientationchange", scheduleHudLayoutSync, { passive: true });
+  if (!hudLayoutBound) {
+    hudLayoutBound = true;
+    window.addEventListener("resize", scheduleHudLayoutSync, { passive: true });
+    window.addEventListener("orientationchange", scheduleHudLayoutSync, { passive: true });
+    // * Mobile URL-bar show/hide often resizes visualViewport without a window resize.
+    try {
+      window.visualViewport?.addEventListener("resize", scheduleHudLayoutSync, { passive: true });
+      window.visualViewport?.addEventListener("scroll", scheduleHudLayoutSync, { passive: true });
+    } catch {
+      /* older engines */
+    }
+  }
+
+  // * Always re-bind: init() rebuilds the utility region; a one-shot observe would
+  // * point at a detached node after the second match.
+  if (typeof ResizeObserver !== "undefined" && elements.regions?.utility) {
+    utilityResizeObserver?.disconnect();
+    utilityResizeObserver = new ResizeObserver(scheduleHudLayoutSync);
+    utilityResizeObserver.observe(elements.regions.utility);
+  }
 }
 
 /**
@@ -987,8 +1038,7 @@ export function init(options) {
 
   elements.root = document.createElement("div");
   elements.root.id = "hud";
-  const touchDevice = _options.getIsTouchDevice ? _options.getIsTouchDevice() : false;
-  if (touchDevice) elements.root.classList.add("hud-touch");
+  // * .hud-touch is applied in syncHudLayout() (re-evaluated on resize/orientation).
 
   // * Screen regions — every HUD element mounts into a named zone with one job:
   // * MATCH (top-left), STANDINGS (top-center), EVENTS (top-right feed),
@@ -1194,22 +1244,22 @@ export function init(options) {
   elements.root.style.setProperty("--hud-edge-danger-rgb", "255, 43, 214");
 
   // * Boost charge meter — keyboard/gamepad only; the touch BOOST button has its own flash.
-  if (!touchDevice) {
-    elements.boost = document.createElement("div");
-    elements.boost.className = "hud-boost";
-    elements.boost.style.display = "none";
-    const boostLabel = document.createElement("span");
-    boostLabel.className = "hud-boost-label";
-    boostLabel.innerHTML = svgIcon("bolt", { label: "Boost" });
-    const boostTrack = document.createElement("div");
-    boostTrack.className = "hud-boost-track";
-    elements.boostFill = document.createElement("i");
-    elements.boostFill.className = "hud-boost-fill";
-    boostTrack.appendChild(elements.boostFill);
-    elements.boost.appendChild(boostLabel);
-    elements.boost.appendChild(boostTrack);
-    regions.pod.insertBefore(elements.boost, elements.readyBtn);
-  }
+  // * Always mount the element so a mid-session input-mode flip can show it; hide when
+  // * the current surface is touch-first (syncHudLayout also re-toggles .hud-touch).
+  elements.boost = document.createElement("div");
+  elements.boost.className = "hud-boost";
+  elements.boost.style.display = "none";
+  const boostLabel = document.createElement("span");
+  boostLabel.className = "hud-boost-label";
+  boostLabel.innerHTML = svgIcon("bolt", { label: "Boost" });
+  const boostTrack = document.createElement("div");
+  boostTrack.className = "hud-boost-track";
+  elements.boostFill = document.createElement("i");
+  elements.boostFill.className = "hud-boost-fill";
+  boostTrack.appendChild(elements.boostFill);
+  elements.boost.appendChild(boostLabel);
+  elements.boost.appendChild(boostTrack);
+  regions.pod.insertBefore(elements.boost, elements.readyBtn);
 
   // * Challenge-complete / unlock toast (top center, auto-hides).
   elements.toast = document.createElement("div");
@@ -1281,6 +1331,7 @@ export function init(options) {
   syncAudioControls();
   updateMenuButtonVisibility(_options.getMenuVisible ? _options.getMenuVisible() : true);
   bindHudLayoutSync();
+  syncHudLayout();
 
   return {
     root: elements.root,
@@ -1414,6 +1465,10 @@ function updateBoostWidget(roundState) {
 
   // * Mobile: the charge state paints the BOOST touch button itself (no meter).
   if (_options.getIsTouchDevice?.()) {
+    if (elements.boost && _boostDisplay !== "none") {
+      elements.boost.style.display = "none";
+      _boostDisplay = "none";
+    }
     updateBoostRing(show ? fillPct : null, state);
     return;
   }

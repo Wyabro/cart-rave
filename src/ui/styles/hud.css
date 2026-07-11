@@ -15,7 +15,11 @@
      tokens.css :root — shared with menus and overlays. */
   --hud-timer-reserve: clamp(128px, 15vw, 208px);
   --hud-audio-reserve: clamp(48px, 6vw, 108px);
+  /* dvh tracks the dynamic mobile viewport (URL bar show/hide); vh fallback. */
   --hud-feed-top: clamp(96px, 12vh, 120px);
+  --hud-feed-top: clamp(96px, 12dvh, 120px);
+  /* Measured by syncHudLayout() from .hud-region-utility (mute + menu). */
+  --hud-utility-width: 0px;
   position: fixed;
   inset: 0;
   z-index: 20000;
@@ -32,11 +36,11 @@
   pointer-events: none;
 }
 #hud .hud-region-match {
-  top: var(--hud-pad);
-  left: var(--hud-pad);
+  top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
+  left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
 }
 #hud .hud-region-standings {
-  top: var(--hud-pad);
+  top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -45,28 +49,32 @@
 }
 #hud .hud-region-events {
   top: var(--hud-feed-top);
-  right: var(--hud-pad);
+  right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
   max-width: calc(100% - var(--hud-pad) - var(--hud-audio-reserve));
 }
 #hud .hud-region-stage {
   top: 18vh;
+  top: 18dvh;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: clamp(10px, 2vh, 18px);
+  gap: clamp(10px, 2dvh, 18px);
   max-width: 92vw;
   z-index: 12;
 }
 #hud .hud-region-pod {
   bottom: calc(clamp(18px, 3.5vh, 36px) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(clamp(18px, 3.5dvh, 36px) + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: clamp(8px, 1.4vh, 12px);
+  gap: clamp(8px, 1.4dvh, 12px);
   z-index: 14;
 }
 #hud .hud-region-utility {
@@ -607,6 +615,7 @@
   --btn-glow: var(--hud-player-accent);
   /* Lift within the pod so the button sits where players expect a lobby CTA. */
   margin-bottom: clamp(16px, 5vh, 44px);
+  margin-bottom: clamp(16px, 5dvh, 44px);
   font-family: var(--hud-display);
   font-size: clamp(1.1rem, 3vw, 1.6rem);
   letter-spacing: 0.1em;
@@ -717,6 +726,7 @@
   #hud {
     --hud-timer-reserve: clamp(112px, 14vw, 180px);
     --hud-feed-top: clamp(104px, 13vh, 128px);
+    --hud-feed-top: clamp(104px, 13dvh, 128px);
   }
   #hud .hud-scoreBox {
     padding: clamp(4px, 1vw, 10px) clamp(6px, 1.2vw, 12px);
@@ -741,6 +751,7 @@
   #hud {
     --hud-timer-reserve: clamp(100px, 13vw, 160px);
     --hud-feed-top: clamp(112px, 15vh, 136px);
+    --hud-feed-top: clamp(112px, 15dvh, 136px);
   }
   #hud .hud-scoreBox {
     flex: 1 1 0;
@@ -757,18 +768,20 @@
 @media (max-width: 900px) {
   #hud {
     --hud-feed-top: clamp(120px, 17vh, 148px);
+    --hud-feed-top: clamp(120px, 17dvh, 148px);
   }
   #hud:not(.hud-touch) .hud-region-standings {
     top: auto;
     bottom: max(var(--hud-pad), env(safe-area-inset-bottom, 0px));
-    left: var(--hud-pad);
-    right: var(--hud-pad);
+    left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
+    right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
     transform: none;
     max-width: none;
   }
   /* Lift the player pod clear of the docked score bar. */
   #hud:not(.hud-touch) .hud-region-pod {
     bottom: calc(clamp(96px, 20vh, 132px) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(clamp(96px, 20dvh, 132px) + env(safe-area-inset-bottom, 0px));
   }
   #hud:not(.hud-touch) .hud-scores {
     width: 100%;
@@ -810,12 +823,14 @@
 @media (max-width: 768px) {
   #hud {
     --hud-feed-top: clamp(128px, 18vh, 156px);
+    --hud-feed-top: clamp(128px, 18dvh, 156px);
   }
 }
 
 @media (max-width: 480px) {
   #hud {
     --hud-feed-top: clamp(116px, 17vh, 140px);
+    --hud-feed-top: clamp(116px, 17dvh, 140px);
   }
   #hud .hud-timer-body {
     min-width: clamp(96px, 28vw, 120px);
@@ -835,15 +850,28 @@
   }
 }
 
-/* Short landscape viewports (rotated phones) — drop the kill feed below the
-   audio panel / menu button (both sit top-right, z-index 20001/20002) and keep
-   each feed row on a single ellipsized line instead of near-full-width text */
-@media (orientation: landscape) and (max-height: 480px) {
+/* Short landscape (Pass 3 contract: orientation:landscape and max-height:600px).
+   Collapse vertical chrome so stage + announcer + feed + thumbs coexist. */
+@media (orientation: landscape) and (max-height: 600px) {
   #hud {
-    --hud-feed-top: clamp(88px, 24vh, 112px);
+    --hud-feed-top: clamp(52px, 14vh, 88px);
+    --hud-feed-top: clamp(52px, 14dvh, 88px);
+    --hud-pad: clamp(6px, 1.2vw, 12px);
+  }
+  #hud .hud-region-stage {
+    top: 12vh;
+    top: 12dvh;
+    gap: clamp(4px, 1dvh, 8px);
+  }
+  #hud .hud-status {
+    font-size: clamp(1.6rem, 7vw, 2.8rem);
+  }
+  #hud .hud-arena-splash {
+    font-size: clamp(0.75rem, 2.2vw, 1.1rem);
+    padding: 4px 14px;
   }
   #hud .hud-region-events {
-    max-width: min(60vw, 420px);
+    max-width: min(52vw, 360px);
   }
   #hud .hud-feed-row {
     flex-wrap: nowrap;
@@ -856,6 +884,31 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  #hud .hud-region-pod {
+    bottom: calc(clamp(10px, 2.5dvh, 20px) + env(safe-area-inset-bottom, 0px));
+  }
+  #hud .hud-ready-btn {
+    margin-bottom: clamp(8px, 2dvh, 16px);
+    font-size: clamp(0.95rem, 2.4vw, 1.25rem);
+    padding: 6px 16px;
+  }
+  #hud.hud-touch .hud-region-stage {
+    top: 14vh;
+    top: 14dvh;
+  }
+  #hud.hud-touch .hud-status {
+    font-size: clamp(1.35rem, 5.5vw, 2.2rem);
+  }
+  #hud.hud-touch .hud-region-events {
+    max-width: min(46vw, 280px);
+  }
+  /* One feed row only — second row collides with stage on short landscape. */
+  #hud.hud-touch .hud-feed-row:nth-child(n + 2) {
+    display: none;
+  }
+  #hud.hud-touch .hud-region-standings {
+    max-width: 46vw;
   }
 }
 
@@ -1103,6 +1156,7 @@
 #hud .hud-score-float {
   position: absolute;
   top: calc(50% + clamp(36px, 6vh, 60px));
+  top: calc(50% + clamp(36px, 6dvh, 60px));
   left: 50%;
   transform: translate(-50%, 0) rotate(-4deg);
   text-align: center;
@@ -1251,6 +1305,7 @@
    two icon-forward rows top-left. Boost state lives on the BOOST button. */
 #hud.hud-touch {
   --hud-feed-top: clamp(58px, 13vh, 88px);
+  --hud-feed-top: clamp(58px, 13dvh, 88px);
 }
 
 /* Timer — compact top-left pill: number + tier color + thin bar. The kill
@@ -1320,12 +1375,17 @@
 }
 
 /* Standings — ultra-compact chip strip (rank + score), top-right beside the
-   utility corner. Personality reads from nametags on mobile, not the strip. */
+   utility corner. --hud-utility-width is measured from the mute/menu cluster
+   (syncHudLayout); gap keeps die-cut shadows from kissing. */
 #hud.hud-touch .hud-region-standings {
   top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
   bottom: auto;
   left: auto;
-  right: calc(max(var(--hud-pad), env(safe-area-inset-right, 0px)) + clamp(84px, 20vw, 104px));
+  right: calc(
+    max(var(--hud-pad), env(safe-area-inset-right, 0px))
+    + var(--hud-utility-width, 48px)
+    + 10px
+  );
   transform: none;
   max-width: 52vw;
 }
@@ -1353,7 +1413,7 @@
 /* Kill feed — two icon-forward rows, top-left, reading left-to-right. */
 #hud.hud-touch .hud-region-events {
   top: var(--hud-feed-top);
-  left: var(--hud-pad);
+  left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
   right: auto;
   max-width: min(56vw, 360px);
 }
@@ -1380,6 +1440,7 @@
 /* Center Stage — same queue, ~60% scale so banners never dwarf the arena. */
 #hud.hud-touch .hud-region-stage {
   top: 21vh;
+  top: 21dvh;
 }
 #hud.hud-touch .hud-status {
   font-size: clamp(2rem, 8vw, 3.4rem);
