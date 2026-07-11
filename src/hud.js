@@ -234,14 +234,20 @@ function measureUtilityWidth() {
   if (!elements.root) return;
   const utility = elements.regions?.utility || elements.root.querySelector(".hud-region-utility");
   if (!utility) {
-    elements.root.style.setProperty("--hud-utility-width", "0px");
+    if (elements.root.style.getPropertyValue("--hud-utility-width") !== "0px") {
+      elements.root.style.setProperty("--hud-utility-width", "0px");
+    }
     return;
   }
   const rect = utility.getBoundingClientRect();
   // * Include right-edge padding already in the region's position so standings
   // * clear the whole chrome cluster, not just its content box.
   const width = Math.max(0, Math.ceil(rect.width));
-  elements.root.style.setProperty("--hud-utility-width", `${width}px`);
+  const next = `${width}px`;
+  // * Skip no-op writes — setProperty can re-enter ResizeObserver on some engines.
+  if (elements.root.style.getPropertyValue("--hud-utility-width") !== next) {
+    elements.root.style.setProperty("--hud-utility-width", next);
+  }
 }
 
 /**
@@ -285,10 +291,10 @@ function bindHudLayoutSync() {
     hudLayoutBound = true;
     window.addEventListener("resize", scheduleHudLayoutSync, { passive: true });
     window.addEventListener("orientationchange", scheduleHudLayoutSync, { passive: true });
-    // * Mobile URL-bar show/hide often resizes visualViewport without a window resize.
+    // * URL-bar show/hide: resize only — visualViewport.scroll fires continuously
+    // * during rubber-band / chrome animation and does not change utility width.
     try {
       window.visualViewport?.addEventListener("resize", scheduleHudLayoutSync, { passive: true });
-      window.visualViewport?.addEventListener("scroll", scheduleHudLayoutSync, { passive: true });
     } catch {
       /* older engines */
     }

@@ -32,6 +32,12 @@ export function createCameraFraming({
   labelRenderer,
   getFpsCanvas,
 }) {
+  let lastW = 0;
+  let lastH = 0;
+  let lastPixelRatio = 0;
+  /** @type {number | null} */
+  let viewportRaf = null;
+
   function updateCameraFraming() {
     const aspect = window.innerWidth / window.innerHeight;
     const portraitBoost = (1 / Math.max(0.5, aspect)) - 1;
@@ -48,6 +54,17 @@ export function createCameraFraming({
     const w = window.innerWidth;
     const h = window.innerHeight;
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+    // * visualViewport.resize can fire many times per URL-bar animation with the
+    // * same window.inner* size. Re-running setSize/composer RT rebuilds every
+    // * tick hangs the main thread and can spam WebGLProgram info logs.
+    if (w === lastW && h === lastH && pixelRatio === lastPixelRatio) {
+      return;
+    }
+    lastW = w;
+    lastH = h;
+    lastPixelRatio = pixelRatio;
+
     renderer.setPixelRatio(pixelRatio);
     composer.setPixelRatio(pixelRatio);
     updateSceneViewport(renderer, camera, composer, arcadePass, fxaaPass, bloomPass);
@@ -61,10 +78,18 @@ export function createCameraFraming({
     }
   }
 
-  // * Some mobile browsers fire visualViewport.resize when the URL bar toggles
-  // * without a matching window.resize — keep canvas/label sizing in sync.
+  function scheduleViewportUpdate() {
+    if (viewportRaf != null) return;
+    viewportRaf = requestAnimationFrame(() => {
+      viewportRaf = null;
+      updateViewport();
+    });
+  }
+
+  // * Coalesce visualViewport.resize (URL bar) — never call setSize synchronously
+  // * from the event (can interleave with the rAF render loop).
   try {
-    window.visualViewport?.addEventListener("resize", updateViewport, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleViewportUpdate, { passive: true });
   } catch {
     /* older engines */
   }

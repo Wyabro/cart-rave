@@ -667,6 +667,24 @@ export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass,
   // * the visual viewport under the URL bar; HUD density uses dvh instead.
   const w = window.innerWidth;
   const h = window.innerHeight;
+  if (w < 1 || h < 1) return;
+
+  // * Skip no-op resizes (same CSS pixel box + pixel ratio). Repeated setSize
+  // * rebuilds composer RTs and can hitch hard when visualViewport spam reaches here.
+  const pr = renderer && typeof renderer.getPixelRatio === "function" ? renderer.getPixelRatio() : 1;
+  const prev = /** @type {{ _crW?: number, _crH?: number, _crPr?: number } | null} */ (renderer);
+  if (prev && prev._crW === w && prev._crH === h && prev._crPr === pr) {
+    if (camera) {
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    return;
+  }
+  if (prev) {
+    prev._crW = w;
+    prev._crH = h;
+    prev._crPr = pr;
+  }
 
   if (renderer) renderer.setSize(w, h);
   if (camera) {

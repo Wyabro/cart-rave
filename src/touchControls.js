@@ -42,6 +42,9 @@ let layoutRaf = null;
 let hudObserversBound = false;
 /** Last nipple stick diameter applied (px); recreate when zone size drifts. */
 let lastNippleSize = 0;
+/** Hysteresis state for compact/landscape class toggles (avoid size thrash). */
+let gtcCompact = false;
+let gtcLandscape = false;
 
 function isElementVisible(el) {
   if (!el) return false;
@@ -91,23 +94,30 @@ export function syncTouchLayout() {
     }
   }
 
-  rootEl.style.setProperty("--gtc-hud-bottom-clearance", `${Math.round(bottomClearance)}px`);
+  const clearancePx = Math.round(bottomClearance);
+  const prevClearance = rootEl.style.getPropertyValue("--gtc-hud-bottom-clearance");
+  if (prevClearance !== `${clearancePx}px`) {
+    rootEl.style.setProperty("--gtc-hud-bottom-clearance", `${clearancePx}px`);
+  }
 
-  const shortViewport = vh < 640;
-  // * Align short-landscape with the Pass 3 breakpoint contract (max-height: 600).
-  const landscape = window.innerWidth > window.innerHeight && vh < 600;
-  rootEl.classList.toggle("gtc-compact", shortViewport);
-  rootEl.classList.toggle("gtc-landscape", landscape);
+  // * Hysteresis around compact/landscape thresholds so visualViewport jitter
+  // * (e.g. 638↔642) doesn't toggle CSS vars → recreate nipple every frame.
+  if (!gtcCompact && vh < 620) gtcCompact = true;
+  else if (gtcCompact && vh > 660) gtcCompact = false;
+  const isLandscape = window.innerWidth > window.innerHeight;
+  if (!gtcLandscape && isLandscape && vh < 580) gtcLandscape = true;
+  else if (gtcLandscape && (!isLandscape || vh > 620)) gtcLandscape = false;
+  rootEl.classList.toggle("gtc-compact", gtcCompact);
+  rootEl.classList.toggle("gtc-landscape", gtcLandscape);
 
   // * Keep nipple stick diameter matched to the fluid CSS zone. Recreate only
   // * when idle — resizing mid-drag would drop the current pointer gesture.
+  // * Require a larger delta than CSS subpixel noise.
   const nextSize = measureJoySize();
-  if (lastNippleSize === 0 || Math.abs(nextSize - lastNippleSize) >= 4) {
-    if (!joyActive) {
-      lastNippleSize = nextSize;
-      initNippleJoystick();
-      return;
-    }
+  if (!joyActive && (lastNippleSize === 0 || Math.abs(nextSize - lastNippleSize) >= 8)) {
+    lastNippleSize = nextSize;
+    initNippleJoystick();
+    return;
   }
 
   // * Let nipplejs recalculate its zone bounding box after layout changes.
@@ -178,9 +188,9 @@ function bindLayoutSync() {
   layoutSyncBound = true;
   window.addEventListener("resize", scheduleLayoutSync, { passive: true });
   window.addEventListener("orientationchange", scheduleLayoutSync, { passive: true });
+  // * resize only — scroll fires continuously and does not change control layout.
   try {
     window.visualViewport?.addEventListener("resize", scheduleLayoutSync, { passive: true });
-    window.visualViewport?.addEventListener("scroll", scheduleLayoutSync, { passive: true });
   } catch {
     /* older engines */
   }
