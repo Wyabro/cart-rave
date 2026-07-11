@@ -289,7 +289,17 @@ export function onHostSpill(victimSlotIndex) {
   // * Score path is host-authoritative; fan presentation after the award so a failed
   // * addScore (none today) would still not show a false float. Callback is optional
   // * so unit tests stay pure number-recordings.
-  deps.onSpillBonusAward?.({
+  const award = {
+    attackerSlotIndex,
+    victimSlotIndex,
+    points,
+  };
+  deps.onSpillBonusAward?.(award);
+  // * Presentation-only wire event — clients render feed/float; scores still arrive
+  // * via host_round. Host does not receive its own sendToAll, so local callback above
+  // * covers the host machine.
+  deps.sendP2PEvent?.({
+    type: MSG.spillBonus,
     attackerSlotIndex,
     victimSlotIndex,
     points,

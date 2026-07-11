@@ -230,6 +230,17 @@ describe("remote apply + scoring hooks", () => {
     expect(calls.spillAwards).toEqual([
       { attackerSlotIndex: 0, victimSlotIndex: 2, points: 1 },
     ]);
+    // * Presentation wire for non-hosts (host still uses onSpillBonusAward locally).
+    expect(calls.sent).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "spill_bonus",
+          attackerSlotIndex: 0,
+          victimSlotIndex: 2,
+          points: 1,
+        }),
+      ]),
+    );
 
     // Stale hit outside the window: no award.
     lastHitBy.set(3, { attackerSlotIndex: 1, timestamp: Date.now() - 10000 });

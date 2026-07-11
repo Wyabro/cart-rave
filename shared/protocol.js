@@ -20,10 +20,12 @@ export const MSG = {
   // clientInput: non-host input sent to the host at physics rate.
   // spill: one-shot host->client grocery-spill VFX event.
   // directive: one-shot host->client Living Store directive start (id + window).
+  // spillBonus: presentation-only Spill Bonus award (feed/float); score rides host_round.
   hostTransform: "host_transform",
   clientInput: "client_input",
   spill: "spill",
   directive: "directive",
+  spillBonus: "spill_bonus",
 
   // Server -> client (WebSocket control plane)
   hello: "hello",

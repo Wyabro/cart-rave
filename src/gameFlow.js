@@ -13,7 +13,7 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
  * @property {() => Array<object>} getNetSlots
  * @property {() => boolean} isHost
  * @property {() => { phase: string, startedAtMs: number, countdownStartedAtMs: number, winnerSlotIndex: number | string | null, endReason: "timer" | "lastStanding" | null, scores: Record<number, number>, isSuddenDeath: boolean }} getRoundState
- * @property {() => number[]} getRoundScores
+ * @property {() => Record<number, number> | number[]} getRoundScores
  * @property {() => Map<number, object>} getLastHitBy
  * @property {object} CONFIG
  * @property {() => number} getLocalSlotIndex
@@ -45,6 +45,8 @@ import { dispatchKOEvent } from "./scoring/koReactors.js";
  * @property {(tier: number, multiplier: number) => void} [setLocalCombo]
  * @property {(eventData: object) => void} [queueHostFallEvent]
  * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number, wasCritical?: boolean, victimWasLeader?: boolean }) => void} [onAnnouncerFall]
+ * @property {(cart: object) => void} [onCartOutOfPlay] Stop charge SFX / clear local charge state when a
+ *   cart leaves play (fall start, Sudden Death spectator park). Does not schedule respawn.
  */
 
 /** @type {boolean} */
@@ -156,46 +158,7 @@ export function updateGameFlow(deps, context) {
           // * setup so carts can actually drive without being yanked back every frame.
           if (!roundState.isSuddenDeath) {
             deps.setSuddenDeath(true);
-
-            // * Sudden Death: tied carts teleport back to their spawn platforms with a
-            // * 1m Y offset so they drop cleanly past the ramp — no geometry intersection.
-            // * Rotation is reset via spawnYaw (faces arena center). Phase is already
-            // * "running" so driving is unlocked — carts can drive/jump off immediately.
-            // * Non-tied carts are dropped far below as spectators.
-            const tiedSlots = [];
-            for (let i = 0; i < 4; i += 1) {
-              if (Number(scores[i] || 0) === topScore) tiedSlots.push(i);
-            }
-            for (let i = 0; i < allCarts.length; i += 1) {
-              const cart = allCarts[i];
-              if (!cart?.body) continue;
-              if (tiedSlots.includes(i)) {
-                cart.isSuddenDeathSpectator = false;
-                cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
-                // * Face the arena center so the cart can drive out, not into the back wall.
-                const halfYaw = cart.spawnYaw / 2;
-                cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
-                cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-                cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-                cart.body.wakeUp();
-                cart.respawnAtMs = null;
-                cart.idleAnchorX = cart.spawn.x;
-                cart.idleAnchorZ = cart.spawn.z;
-                cart.idleStillSinceMs = now;
-                if (cart.mesh) cart.mesh.visible = true;
-                if (cart.collider) cart.collider.setEnabled(true);
-                // * Reset transient combat/boost state so tied carts start Sudden Death
-                // * with a clean physics slate (no stale isChargingBoost, pendingRam, etc.).
-                resetCartTransientState(cart);
-              } else {
-                cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
-                cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-                cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-                cart.body.setEnabled(false);
-                cart.isSuddenDeathSpectator = true;
-              }
-            }
-
+            layoutSuddenDeathArena(allCarts, scores, topScore, now, deps.onCartOutOfPlay);
             deps.sendHostRound();
           }
         } else {
@@ -218,6 +181,10 @@ export function updateGameFlow(deps, context) {
         const p = cart.body.translation();
 
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
+          // * Leave-play hook before SD spectator park or scheduleRespawn — SD skips
+          // * scheduleRespawn, so charge wind-up would otherwise loop until round end.
+          deps.onCartOutOfPlay?.(cart);
+
           // * Reset combo tier instantly when falling
           cart.comboTier = 0;
           cart.comboExpiryMs = 0;
@@ -445,6 +412,199 @@ export function updateGameFlow(deps, context) {
 }
 
 /**
+ * Top score across slots 0–3.
+ * @param {Record<number | string, number> | null | undefined} scores
+ * @returns {number}
+ */
+function topRoundScore(scores) {
+  let topScore = -Infinity;
+  for (let i = 0; i < 4; i += 1) {
+    topScore = Math.max(topScore, Number(scores?.[i] || 0));
+  }
+  return topScore;
+}
+
+/**
+ * True when at least two slots share the top score and that score is &gt; 0.
+ * Mirrors {@link import("./gameState.js").isScoreTied} for pure inputs.
+ * @param {Record<number | string, number> | null | undefined} scores
+ * @returns {boolean}
+ */
+export function scoresAreTiedAtTop(scores) {
+  const topScore = topRoundScore(scores);
+  if (topScore <= 0) return false;
+  let topCount = 0;
+  for (let i = 0; i < 4; i += 1) {
+    if (Number(scores?.[i] || 0) === topScore) topCount += 1;
+  }
+  return topCount > 1;
+}
+
+/**
+ * True when a human slot shares the current top score (SD only starts for human ties).
+ * @param {Record<number | string, number> | null | undefined} scores
+ * @param {Array<{ kind?: string } | null | undefined> | null | undefined} netSlots
+ * @returns {boolean}
+ */
+export function hasHumanTiedAtTop(scores, netSlots) {
+  const topScore = topRoundScore(scores);
+  if (!Number.isFinite(topScore) || topScore === -Infinity) return false;
+  for (let i = 0; i < 4; i += 1) {
+    if (Number(scores?.[i] || 0) !== topScore) continue;
+    if (netSlots?.[i]?.kind === "human") return true;
+  }
+  return false;
+}
+
+/**
+ * True if any cart already looks parked out of the arena (mid–Sudden Death geometry).
+ * Used on host promote to avoid re-teleporting everyone when only the SD flag was missed.
+ * @param {Array<object | null | undefined> | null | undefined} allCarts
+ * @param {number} [fallYThreshold=-10]
+ * @returns {boolean}
+ */
+export function anyCartLooksSuddenDeathOutOfPlay(allCarts, fallYThreshold = -10) {
+  const yCut = Number.isFinite(fallYThreshold) ? fallYThreshold : -10;
+  for (let i = 0; i < (allCarts?.length ?? 0); i += 1) {
+    const cart = allCarts[i];
+    if (!cart?.body) continue;
+    if (cart.isSuddenDeathSpectator) return true;
+    const p = typeof cart.body.translation === "function" ? cart.body.translation() : null;
+    if (p && Number.isFinite(p.y) && p.y < yCut) return true;
+    if (typeof cart.body.isEnabled === "function" && !cart.body.isEnabled()) return true;
+  }
+  return false;
+}
+
+/**
+ * Teleport layout for Sudden Death entry: tied → spawn drop-in; others → y=-50 spectators.
+ * Shared by the normal timer path and host-promote inference.
+ *
+ * @param {Array<object | null | undefined>} allCarts
+ * @param {Record<number | string, number> | ArrayLike<number> | null | undefined} scores
+ * @param {number} topScore
+ * @param {number} nowMs performance.now() for idle-watch anchors
+ * @param {(cart: object) => void} [onCartOutOfPlay]
+ */
+function layoutSuddenDeathArena(allCarts, scores, topScore, nowMs, onCartOutOfPlay) {
+  const tiedSlots = [];
+  for (let i = 0; i < 4; i += 1) {
+    if (Number(scores?.[i] || 0) === topScore) tiedSlots.push(i);
+  }
+  for (let i = 0; i < (allCarts?.length ?? 0); i += 1) {
+    const cart = allCarts[i];
+    if (!cart?.body) continue;
+    // * Stop charge wind-up before reset nulls chargeUpSfxId (tied) or parks
+    // * non-tied spectators without going through scheduleRespawn.
+    onCartOutOfPlay?.(cart);
+    if (tiedSlots.includes(i)) {
+      cart.isSuddenDeathSpectator = false;
+      cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
+      const halfYaw = (cart.spawnYaw || 0) / 2;
+      cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+      cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      cart.body.wakeUp?.();
+      if (cart.body.setEnabled) cart.body.setEnabled(true);
+      cart.respawnAtMs = null;
+      cart.idleAnchorX = cart.spawn.x;
+      cart.idleAnchorZ = cart.spawn.z;
+      cart.idleStillSinceMs = nowMs;
+      if (cart.mesh) cart.mesh.visible = true;
+      if (cart.collider) cart.collider.setEnabled(true);
+      resetCartTransientState(cart);
+    } else {
+      cart.body.setTranslation({ x: 0, y: -50, z: 0 }, true);
+      cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      cart.body.setEnabled(false);
+      cart.isSuddenDeathSpectator = true;
+    }
+  }
+}
+
+/**
+ * Host-promote Sudden Death recovery (route 2: infer from clock + human tie).
+ *
+ * When the previous host's SD `host_round` never arrived, a newly promoted host
+ * would still see phase=running + isSuddenDeath=false and could end the round on
+ * the timer. Instead: if the clock is past duration and scores are a human-involved
+ * top-score tie, arm SD immediately.
+ *
+ * - Already mid-SD geometry (bodies below fall line / disabled): flag + reconstruct
+ *   only — do **not** re-teleport (would yank fighters mid-overtime).
+ * - Fresh timer expiry (everyone still on the arena): full SD layout like the
+ *   normal timer path.
+ * - Already isSuddenDeath: reconstruct spectators only.
+ *
+ * @param {object} opts
+ * @param {string} opts.phase
+ * @param {boolean} opts.isSuddenDeath
+ * @param {number} opts.startedAtMs
+ * @param {number} opts.nowMs Date.now() wall clock (matches gameFlow timer)
+ * @param {number} opts.durationMs
+ * @param {Record<number | string, number> | null | undefined} opts.scores
+ * @param {Array<{ kind?: string } | null | undefined> | null | undefined} opts.netSlots
+ * @param {Array<object | null | undefined> | null | undefined} opts.allCarts
+ * @param {number} [opts.fallYThreshold]
+ * @param {number} [opts.nowPerfMs] performance.now() for idle anchors on full layout
+ * @param {(val: boolean) => void} opts.setSuddenDeath
+ * @param {() => void} [opts.sendHostRound]
+ * @param {(cart: object) => void} [opts.onCartOutOfPlay]
+ * @returns {"none" | "reconstruct" | "infer_mid" | "infer_enter"}
+ */
+export function ensureSuddenDeathOnHostPromote(opts) {
+  const {
+    phase,
+    isSuddenDeath,
+    startedAtMs,
+    nowMs,
+    durationMs,
+    scores,
+    netSlots,
+    allCarts,
+    fallYThreshold = -10,
+    nowPerfMs = 0,
+    setSuddenDeath,
+    sendHostRound,
+    onCartOutOfPlay,
+  } = opts;
+
+  if (phase !== "running") return "none";
+
+  if (isSuddenDeath) {
+    reconstructSuddenDeathSpectators(allCarts, scores, fallYThreshold);
+    return "reconstruct";
+  }
+
+  const duration = Number.isFinite(durationMs) ? durationMs : 60000;
+  if (!(startedAtMs > 0 && nowMs - startedAtMs >= duration)) {
+    return "none";
+  }
+
+  // * Same gates as the timer path: human-involved top-score tie only.
+  // * Untied / NPC-only ties fall through to normal gameFlow endRound next frame.
+  if (!scoresAreTiedAtTop(scores) || !hasHumanTiedAtTop(scores, netSlots)) {
+    return "none";
+  }
+
+  setSuddenDeath(true);
+
+  if (anyCartLooksSuddenDeathOutOfPlay(allCarts, fallYThreshold)) {
+    // * Mid-SD: old host already parked people; we only missed the boolean.
+    reconstructSuddenDeathSpectators(allCarts, scores, fallYThreshold);
+    sendHostRound?.();
+    return "infer_mid";
+  }
+
+  // * Timer expired, never entered SD layout — same teleports as normal entry.
+  const topScore = topRoundScore(scores);
+  layoutSuddenDeathArena(allCarts, scores, topScore, nowPerfMs, onCartOutOfPlay);
+  sendHostRound?.();
+  return "infer_enter";
+}
+
+/**
  * Clears Sudden Death spectator state on all carts.
  * Call when Sudden Death ends or a new round begins.
  *
@@ -458,5 +618,55 @@ export function cleanupSuddenDeathState(allCarts) {
     if (cart.collider) cart.collider.setEnabled(true);
     if (cart.body) cart.body.setEnabled(true);
     cart.respawnAtMs = null;
+  }
+}
+
+/**
+ * Re-derive `isSuddenDeathSpectator` after host promotion.
+ *
+ * The flag is host-local and never synced. Score-only reconstruction (non-top =
+ * spectator) is enough for SD entry non-tied parks, but **misses multi-way SD
+ * victims who still share the top score** after elimination — they sit at y=-50
+ * with bodies disabled, and without the flag the fall loop re-fires fake KOs.
+ *
+ * Flag-only: positions/bodies already match host snapshots; the fall-loop guard
+ * only needs the boolean to treat them as inert.
+ *
+ * @param {Array<object | null | undefined> | null | undefined} allCarts
+ * @param {Record<number | string, number> | null | undefined} scores
+ * @param {number} [fallYThreshold=-10]
+ */
+export function reconstructSuddenDeathSpectators(
+  allCarts,
+  scores,
+  fallYThreshold = -10,
+) {
+  if (!allCarts?.length) return;
+
+  let topScore = -Infinity;
+  for (let si = 0; si < 4; si += 1) {
+    topScore = Math.max(topScore, Number(scores?.[si] || 0));
+  }
+
+  const yCut = Number.isFinite(fallYThreshold) ? fallYThreshold : -10;
+
+  for (let si = 0; si < allCarts.length; si += 1) {
+    const cart = allCarts[si];
+    if (!cart) continue;
+
+    const notTied = Number(scores?.[si] || 0) !== topScore;
+    let outOfPlay = false;
+    const body = cart.body;
+    if (body) {
+      const p = typeof body.translation === "function" ? body.translation() : null;
+      if (p && Number.isFinite(p.y) && p.y < yCut) outOfPlay = true;
+      if (typeof body.isEnabled === "function") {
+        if (!body.isEnabled()) outOfPlay = true;
+      }
+    }
+
+    // * Standing tied survivors must be explicitly cleared — a stale true from a
+    // * prior frame/client path would leave a live cart out of the fall loop.
+    cart.isSuddenDeathSpectator = notTied || outOfPlay;
   }
 }

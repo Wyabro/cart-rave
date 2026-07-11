@@ -464,6 +464,10 @@ export function resetCartTransientState(cart) {
   cart.boostCooldownUntilMs = 0;
   cart.boostChargeMultiplier = 1;
   cart.chargeUpSfxId = null;
+  // * Hop landing one-shot — clear so mid-hop death cannot thud on the first
+  // * floor contact after respawn (timeout alone is not enough if respawn is fast).
+  cart.hopAwaitingLand = false;
+  cart.hopAirborne = false;
   // * Rampage Combo state reset
   cart.comboTier = 0;
   cart.comboExpiryMs = 0;

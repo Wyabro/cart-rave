@@ -55,7 +55,7 @@ Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/R
 
 ### Recent work (July 9–10, 2026)
 
-Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); **solo polish sprint** (Spill Bonus float/feed, first-solo load hardening, directional hit vignette, solo AI rubberband, hop landing thud, NPC rare hop — death-cam follow killer attempted and reverted). Full writeups in [completed-work.md](./completed-work.md). Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
+Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); **solo polish sprint** (Spill Bonus float/feed, first-solo load hardening, directional hit vignette, solo AI rubberband, hop landing thud, NPC rare hop — death-cam follow killer attempted and reverted); **July 10 regression audit** (verified non-issues logged in §5; open edges stay on ROADMAP). Full writeups in [completed-work.md](./completed-work.md). Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
 
 ### Key files
 
@@ -80,7 +80,7 @@ Highlights beyond the June/July refactors: progression unlocks; Sundial Station 
 | `src/utils/edgeDanger.js` | Hit-from / edge-danger side weights (DOM vignette math) |
 | `src/utils/soloRubberband.js` | Solo-only NPC chase/nitro difficulty curve |
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
-| `tests/` | Vitest suite (~188 tests) |
+| `tests/` | Vitest suite (174 tests at July 10 regression audit) |
 | `.cursorrules` | Design spec and AI guardrails |
 
 Full architecture reference: [Game_Architecture.md](../reference/Game_Architecture.md).
@@ -124,6 +124,37 @@ Current validation / risk focus:
 1. Multiplayer runtime integration smoke tests (two browsers, one room) — still the Phase 4 gate; Living Store paths deferred to [living-store-test-plan.md](./living-store-test-plan.md).
 2. Intermittent black-frame flicker on some Windows + Chromium + NVIDIA stacks (environment-first investigation).
 3. Evicting/resetting in-memory Durable Object state between server builds.
+4. Host-migration / multi-way Sudden Death edges and other deferred items — see [ROADMAP.md](./ROADMAP.md) Phase 4.
+
+### Verified healthy / non-issues (July 10 regression audit)
+
+Static code + gate review of Stability Pass 1 + solo-polish tree. **Not** a substitute for two-browser smoke. Cleared so future agents do not re-investigate as open defects:
+
+| Area | Verdict |
+|------|---------|
+| SD spectator **per-frame KO spam** (already-flagged spectators at y=-50) | Fixed in Stability Pass 1 (`77d5a52`); `gameFlowSuddenDeath` regression tests cover the fall-loop guard |
+| Gameplay music dies after track 1 | Fixed (Howler `load()` before `play()` on `preload:false` tracks) + track index reset per match |
+| Lobby stuck on READY when a **non-host** leaves/reaps | Fixed in `party/index.ts` (`#checkAllReady` on leave/reap, not host-only) |
+| Customization partial save → body color collapses to magenta | Fixed (partial saves no longer downgrade `custom-hue` → preset) |
+| Cart permanently wrong size after shatter/respawn | Fixed (cancel pulse/squash tweens; respawn uses canonical `baseScale`) |
+| Solo AI rubberband leaking into multiplayer | Safe — re-armed only when `detectGameMode() === "solo"`; consumers double-gated |
+| Hop landing double-thud on non-host clients | Safe — host suppresses floor collision broadcast on hop land; prediction replay sets `onHopLand: null` |
+| NPC rare hop in multiplayer clients | Intentional host-sim only (same pattern as NPC nitro); remote hop FX via existing snap `h` rising edge |
+| Living Store directive restore on SD / leave-running | Safe — `updateDirectiveEngine` restores CONFIG overrides immediately when not running or in SD |
+| Directive lost one-shot / mid-join catch-up | Safe — active directive rides host snapshots as `state.dir` self-heal |
+| First-solo cold-load racing menu idle-warm (wrong arena) | Hardened — idle warm suppressed on play entry; level override on cold bootstrap; worst case degrades to full rebuild |
+| Near-edge ambient “danger telegraph” missing | **Not a bug** — product cut; only directional **hit** vignette uses `#hud .hud-edge-danger` (see solo-polish session note) |
+| Customize tab “cart resize” when opening sunglasses | **Not a bug** — deliberate 1.35× camera zoom (animate later for polish) |
+| “Random arena rotation” expected at rematch | **Does not exist** as a feature (not a broken feature) |
+| Automated quality gate | `npm run check` green at audit time: tsc, **174** Vitest tests, knip |
+
+Still open after the same audit (do not treat as cleared): host tab background freezes rAF authority; full visible-tab solo drive + two-browser smoke.
+
+**Post-audit micro-passes:**
+- **Batch A:** charge SFX stop on fall/SD via `onCartOutOfPlay` → `stopChargeSfxForCart`; hop landing flags cleared in `resetCartTransientState`.
+- **Batch B:** `reconstructSuddenDeathSpectators` — multi-way SD victims by y/disabled body, not score-only.
+- **Batch C:** `ensureSuddenDeathOnHostPromote` (route 2) — infer SD on promote from clock + human tie.
+- **Batch D:** Spill Bonus presentation wire (`MSG.spillBonus` + shared `presentSpillBonusAward`); room level latch (`authoritativeRoomLevelId` on hello/round → `sendHostRound`); menu music bridge `window.__cartRaveTryStartMenuMusic` → `AudioManager.playMenuMusic`.
 
 ---
 

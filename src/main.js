@@ -164,7 +164,10 @@ import {
   updateVisualsAndEffects,
 } from "./gameLoop.js";
 import { updateGameFlow } from "./gameFlow.js";
-import { cleanupSuddenDeathState } from "./gameFlow.js";
+import {
+  cleanupSuddenDeathState,
+  ensureSuddenDeathOnHostPromote,
+} from "./gameFlow.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
@@ -604,6 +607,15 @@ async function main() {
   // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.ogg.
   AudioManager.loadMenuMusic(soundUrlWithFallback("menu.ogg"));
   if (menuVisible) AudioManager.playMenuMusic();
+  // * Menu HTML loads before main; first gesture calls this to start menu music
+  // * once Howler is wired (see cart-rave-menu.js pointerdown bridge).
+  window.__cartRaveTryStartMenuMusic = () => {
+    try {
+      AudioManager.playMenuMusic();
+    } catch {
+      /* ignore */
+    }
+  };
 
   const gameMusicFiles = ["music.ogg", "song2.ogg", "song3.ogg", "song4.ogg"];
   const _gameMusicUrls = gameMusicFiles.map(soundUrlWithFallback);
@@ -1018,38 +1030,50 @@ async function main() {
     announce,
     addScore: GameState.addScore,
     getLastHitBy: () => GameState.getLastHitBy(),
-    // * Spill Bonus used to addScore with zero ceremony — float + feed so the
-    // * directive's payoff is readable (solo/host path; multiplayer clients still
-    // * learn scores via round sync until a wire presentation lands).
-    onSpillBonusAward: ({ attackerSlotIndex, victimSlotIndex, points }) => {
-      const slots = Netcode.getNetSlots();
-      const attacker = slots?.[attackerSlotIndex];
-      const victim = slots?.[victimSlotIndex];
-      const actorName = attacker?.name || `P${attackerSlotIndex + 1}`;
-      const targetName = victim?.name || `P${victimSlotIndex + 1}`;
-      const actorColor = hud?.colorHexToCss?.(displayColorHexForSlot(attacker)) ?? null;
-      const targetColor = hud?.colorHexToCss?.(displayColorHexForSlot(victim)) ?? null;
-      hud?.addKillFeedEntry?.(actorName, actorColor, "SPILLED", targetName, targetColor, 0, 1);
-
-      const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      if (attackerSlotIndex !== localSlot) return;
-
-      hud?.showScoreFloat?.(
-        {
-          base: points,
-          critical: 0,
-          leader: 0,
-          highGround: 0,
-          multiplier: 1,
-          total: points,
-        },
-        "spill_bonus",
-      );
-      // * Lighter than a full KO confirm — just enough for the +1 to land.
-      hapticPulse(0.35, 0.25, 45);
-      SfxSynth.playKillConfirm();
-    },
+    // * Host-local presentation; non-hosts get the same path via MSG.spillBonus.
+    onSpillBonusAward: (award) => presentSpillBonusAward(award),
   });
+
+  /**
+   * Spill Bonus feed + (local attacker only) score float / light confirm.
+   * Host: onSpillBonusAward. Clients: netcode MSG.spillBonus (scores still via round).
+   * @param {{ attackerSlotIndex?: number, victimSlotIndex?: number, points?: number }} award
+   */
+  function presentSpillBonusAward(award) {
+    if (!award) return;
+    const attackerSlotIndex = Number(award.attackerSlotIndex);
+    const victimSlotIndex = Number(award.victimSlotIndex);
+    const points = Math.max(0, Number(award.points) || 0);
+    if (!Number.isFinite(attackerSlotIndex) || !Number.isFinite(victimSlotIndex) || points <= 0) {
+      return;
+    }
+    const slots = Netcode.getNetSlots();
+    const attacker = slots?.[attackerSlotIndex];
+    const victim = slots?.[victimSlotIndex];
+    const actorName = attacker?.name || `P${attackerSlotIndex + 1}`;
+    const targetName = victim?.name || `P${victimSlotIndex + 1}`;
+    const actorColor = hud?.colorHexToCss?.(displayColorHexForSlot(attacker)) ?? null;
+    const targetColor = hud?.colorHexToCss?.(displayColorHexForSlot(victim)) ?? null;
+    hud?.addKillFeedEntry?.(actorName, actorColor, "SPILLED", targetName, targetColor, 0, 1);
+
+    const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+    if (attackerSlotIndex !== localSlot) return;
+
+    hud?.showScoreFloat?.(
+      {
+        base: points,
+        critical: 0,
+        leader: 0,
+        highGround: 0,
+        multiplier: 1,
+        total: points,
+      },
+      "spill_bonus",
+    );
+    // * Lighter than a full KO confirm — just enough for the +1 to land.
+    hapticPulse(0.35, 0.25, 45);
+    SfxSynth.playKillConfirm();
+  }
 
   // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
   // * mp3 fallback for Safari (see soundUrlWithFallback above).
@@ -2269,8 +2293,8 @@ async function main() {
   // --- Carts, labels, gameplay helpers ---
   /**
    * Stops the looping charge-up SFX and clears charge state for a cart. Called on
-   * fall / stuck respawn so a charging cart does not keep playing the wind-up sound
-   * through its respawn. No-op for non-local carts (only the local cart's SFX plays).
+   * fall start (incl. Sudden Death — which skips scheduleRespawn), stuck respawn,
+   * and SD entry. Safe to call repeatedly; only local carts ever set chargeUpSfxId.
    * @param {ReturnType<typeof createCart> | null | undefined} cart
    */
   function stopChargeSfxForCart(cart) {
@@ -2286,6 +2310,7 @@ async function main() {
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
     cart.respawnAtMs = now + 1000; // * respawn after shatter VFX plays out
+    // * Charge SFX already stopped via gameFlow onCartOutOfPlay at fall start.
     if (cart === localCartForConnId()) {
       stopChargeSfxForCart(cart);
       AudioManager.playSfx("death");
@@ -2509,6 +2534,7 @@ async function main() {
     onLocalKillConfirm,
     onArenaKoFlash,
     onAnnouncerFall: announcerDirectorOnFall,
+    onSpillBonusPresentation: presentSpillBonusAward,
     colorHexForSlot: displayColorHexForSlot,
     getPendingColorKey: () => pendingColorKey,
     getPendingColorChipEl: () => pendingColorChipEl,
@@ -3060,34 +3086,33 @@ async function main() {
     }
   };
   /**
-   * * isSuddenDeathSpectator is host-local state — never synced. A client promoted
-   * * mid-Sudden-Death would otherwise run the fall loop with zero spectator flags,
-   * * re-triggering fake falls for carts parked at y=-50 and risking a false SD end.
-   * * Re-derive the flags from the synced scores: Sudden Death entry parked every
-   * * cart not sharing the top score, so the same tie definition reconstructs them.
-   * * Flag-only — the fall-loop spectator guard makes flagged carts inert.
+   * Host promote mid-round: recover Sudden Death without waiting for a lost
+   * host_round (route 2 — infer from clock + human top-score tie). Also
+   * re-derives spectator flags when already in SD. See ensureSuddenDeathOnHostPromote.
    */
-  function reconstructSuddenDeathSpectatorsAsNewHost() {
+  function ensureSuddenDeathStateAsNewHost() {
     if (!Netcode.getIsHost()) return;
     const roundState = GameState.getRoundState();
-    if (!roundState.isSuddenDeath || roundState.phase !== "running") return;
-    const carts = allCartsRef;
-    if (!carts?.length) return;
-    const scores = GameState.getRoundScores() || {};
-    let topScore = -Infinity;
-    for (let si = 0; si < 4; si += 1) {
-      topScore = Math.max(topScore, Number(scores[si] || 0));
-    }
-    for (let si = 0; si < carts.length; si += 1) {
-      const cart = carts[si];
-      if (!cart) continue;
-      if (Number(scores[si] || 0) !== topScore) cart.isSuddenDeathSpectator = true;
-    }
+    ensureSuddenDeathOnHostPromote({
+      phase: roundState.phase,
+      isSuddenDeath: roundState.isSuddenDeath,
+      startedAtMs: roundState.startedAtMs,
+      nowMs: Date.now(),
+      durationMs: CONFIG.round?.durationMs ?? 60000,
+      scores: GameState.getRoundScores() || {},
+      netSlots: Netcode.getNetSlots(),
+      allCarts: allCartsRef,
+      fallYThreshold: CONFIG.fall?.yThreshold ?? -10,
+      nowPerfMs: performance.now(),
+      setSuddenDeath: GameState.setSuddenDeath,
+      sendHostRound: () => Netcode.sendHostRound(),
+      onCartOutOfPlay: stopChargeSfxForCart,
+    });
   }
 
   onHostMigratedHandler = () => {
     resumeCountdownAsNewHost();
-    reconstructSuddenDeathSpectatorsAsNewHost();
+    ensureSuddenDeathStateAsNewHost();
   };
 
   Object.assign(sessionBridgeCtx.current, {
@@ -3340,6 +3365,7 @@ async function main() {
     scheduleRespawn,
     scheduleStuckRespawn,
     doRespawn: Entities.doRespawn,
+    onCartOutOfPlay: stopChargeSfxForCart,
     maybeTriggerNpcOpportunisticRamBoost,
     maybeTriggerNpcOpportunisticHop,
     endRound,

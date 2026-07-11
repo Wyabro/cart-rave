@@ -126,6 +126,7 @@ export function buildNetcodeGameBridge(getContext, session) {
     },
     onArenaKoFlash: (koEvent) => getContext()?.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => getContext()?.onAnnouncerFall?.(fall),
+    onSpillBonusPresentation: (msg) => getContext()?.onSpillBonusPresentation?.(msg),
     colorHexForSlot: (slot) => getContext()?.colorHexForSlot?.(slot) ?? 0x888888,
     getPendingColorKey: () => getContext()?.getPendingColorKey?.() ?? null,
     getPendingColorChipEl: () => getContext()?.getPendingColorChipEl?.() ?? null,

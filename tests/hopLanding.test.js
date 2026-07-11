@@ -1,7 +1,9 @@
+// @vitest-environment happy-dom
 // hopLanding.test.js — hop landing edge flags + NPC hop config shape.
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CONFIG } from "../src/config.js";
 import { isNpcNearHazardEdge, setLevelHazards } from "../src/simulation.js";
+import { resetCartTransientState } from "../src/entities.js";
 
 describe("CONFIG.cart.hop landing + npc", () => {
   it("exposes landing window and npc rare-hop knobs", () => {
@@ -64,6 +66,46 @@ describe("hop landing edge state machine (pure)", () => {
       cart.hopAirborne = false;
     }
     expect(cart.hopAwaitingLand).toBe(false);
+  });
+
+  it("resetCartTransientState clears hop landing flags (mid-hop death / respawn)", () => {
+    const cart = {
+      body: {
+        setLinvel: vi.fn(),
+        setAngvel: vi.fn(),
+      },
+      hopAwaitingLand: true,
+      hopAirborne: true,
+      lastHopAtMs: 1000,
+      isChargingBoost: true,
+      boostChargeStartedAtMs: 50,
+      boostCooldownUntilMs: 0,
+      boostChargeMultiplier: 1,
+      chargeUpSfxId: null,
+      pendingRam: null,
+      ramBoostActiveUntilMs: 0,
+      ramBoostStreakCarry: 0,
+      lastRamBoostTimeMs: 0,
+      comboTier: 0,
+      comboExpiryMs: 0,
+      aiNextDecisionMs: 0,
+      aiTarget: { x: 0, z: 0 },
+      aiPauseUntilMs: 0,
+      aiReverseUntilMs: 0,
+      aiSteerGain: 1.1,
+      aiLastProgressMs: 0,
+      aiLastDistToTarget: Infinity,
+      hasSpilled: false,
+      tipOverStartMs: null,
+      respawnAtMs: 123,
+      mesh: null,
+      cargoBay: null,
+    };
+
+    resetCartTransientState(cart);
+
+    expect(cart.hopAwaitingLand).toBe(false);
+    expect(cart.hopAirborne).toBe(false);
   });
 });
 

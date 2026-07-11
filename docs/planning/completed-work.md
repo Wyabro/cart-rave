@@ -13,6 +13,22 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### July 10, 2026 – Production regression audit (investigation only)
+
+Focused bug sweep of Stability Pass 1 + uncommitted solo-polish tree (no feature work, no large refactors). Gate at audit: `npm run check` green — tsc, **174** Vitest tests, knip.
+
+**Verified healthy / non-issues** (logged so they are not re-triaged as open defects) — full table in [project-state.md §5](./project-state.md#5-known-issues):
+
+- SD fall-loop spectator guard (flagged spectators), music playlist rollover fix, lobby non-host leave → all-ready, customization hue partial-save, cart scale after shatter
+- Solo rubberband double-gated (solo only); hop-land host broadcast suppress + prediction `onHopLand: null`; NPC hop host-only by design
+- Living Store: CONFIG restore on SD/phase leave; snapshot `dir` self-heal
+- First-solo load idle-warm suppress / level override (worst case = full rebuild)
+- Product non-bugs: no near-edge ambient telegraph (hit vignette only); sunglasses tab 1.35× zoom is intentional; no “random arena rotation” feature
+
+**Still open** (forward work stays on [ROADMAP.md](./ROADMAP.md) Phase 4): multi-way SD host-promote spectator reconstruction; promotion-before-SD-sync; Spill Bonus presentation host-only; SD mid-charge SFX; hop flags on respawn; rematch arena after migration; host tab rAF freeze; two-browser + visible-tab smoke.
+
+---
+
 ### July 10, 2026 – Solo Polish Sprint (feel / load / bots)
 
 Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
@@ -21,14 +37,14 @@ Solo-first juice and bot depth (no post-FX/composer changes). Death-cam “follo
 
 | Item | What landed |
 |------|-------------|
-| **Spill Bonus presentation** | `onSpillBonusAward` in `directiveEngine.js` → float/feed in `main.js` / `hud.js` |
+| **Spill Bonus presentation** | `onSpillBonusAward` in `directiveEngine.js` → float/feed in `main.js` / `hud.js` (host presentation path; multiplayer client float/feed still deferred) |
 | **First-Solo load hardening** | Selected-level cold-load, idle-warm suppress, cart prefetch (`bootstrap.js` / `levelManager.js`) |
-| **Directional hit vignette** | Where you were rammed from (cart-colored DOM wash) — `pulseLocalHitDirectionVignette`, `hud` edge-danger CSS, `src/utils/edgeDanger.js`, `CONFIG.ramming.fx.hitDirMinIntensity` |
+| **Directional hit vignette** | Where you were rammed from (cart-colored DOM wash) — `pulseLocalHitDirectionVignette`, `hud` edge-danger CSS, `src/utils/edgeDanger.js`, `CONFIG.ramming.fx.hitDirMinIntensity`. Near-edge ambient telegraph **cut** by product decision (not missing wiring). |
 | **Solo AI rubberband** | `src/utils/soloRubberband.js` + `CONFIG.cart.ramBoost.soloRubberband`; wired in `getAiAxis` + NPC nitro commit (solo only) |
-| **Hop landing SFX/VFX** | Rising-edge floor contact after hop → distinct thud + light dust; one-shot flags `hopAwaitingLand` / `hopAirborne`; prediction replay nulls FX |
+| **Hop landing SFX/VFX** | Rising-edge floor contact after hop → distinct thud + light dust; one-shot flags `hopAwaitingLand` / `hopAirborne`; prediction replay nulls FX; host suppresses floor broadcast on hop land |
 | **NPC rare hop** | Host-sim only; threat dodge + near-edge juke; `CONFIG.cart.hop.npc`; `maybeTriggerNpcOpportunisticHop` + `isNpcNearHazardEdge` |
 
-**Tests:** `tests/edgeDanger.test.js`, `tests/soloRubberband.test.js`, `tests/hopLanding.test.js` (+ engine / SD stubs). Full suite ~188 Vitest tests at writeup time.
+**Tests:** `tests/edgeDanger.test.js`, `tests/soloRubberband.test.js`, `tests/hopLanding.test.js` (+ engine / SD stubs). Suite size at later regression audit: **174** Vitest tests (`npm run check` green).
 
 ---
 
@@ -54,7 +70,7 @@ Narrative snapshot of the major refactors that shaped the current module structu
 - **Gameplay feel pass (July 9)** — juice, arena kill-zone scoring, match-point, haptics, remote FX parity
 - **Boot/load + render perf (July 9–10)** — lazy game music, Draco-only cart models, half-res bloom, level prop LOD
 - **Living Store (July 10)** — Living Cargo (cart = scoreboard) + PA directives (game-master mini-mutators); as-built [living-store.md](../reference/living-store.md)
-- **Stability Pass 1 (July 10)** — seven root-cause fixes (`77d5a52`): Sudden Death fall-loop spectator guard (fake per-frame KO events could spam the feed/announcer and end SD early with a misattributed winner — solo and MP); spectator-flag re-derivation on host migration mid-SD; gameplay playlist fix (Howler never load()s a `preload:false` track — playlist died after track 1 and stayed dead all session) + track-index reset per match; `hideGameplayElements()` consolidated as the single gameplay-HUD hide (combo badge, boost meter, conn pill, feed — replaces `initMenu`'s inline block); customization partial-save no longer downgrades custom-hue to preset (the "sunglasses reset my color to magenta" bug); cart scale tween reset at shatter + canonical baseScale on respawn rebuild (carts permanently changing size); server re-checks all-ready when a *non-host* leaves/reaps (lobby stuck on READY!). 12 regression tests added (`customization`, `audioManager`, `gameFlowSuddenDeath`) — SD + music suites verified to fail against pre-fix code. Non-bugs documented, not changed: "random arena rotation" doesn't exist (feature, not bug); customize-tab "resize" is the deliberate 1.35× sunglasses camera zoom. Deferred follow-ups: ROADMAP Phase 4.
+- **Stability Pass 1 (July 10)** — seven root-cause fixes (`77d5a52`): Sudden Death fall-loop spectator guard (fake per-frame KO events could spam the feed/announcer and end SD early with a misattributed winner — solo and MP); spectator-flag re-derivation on host migration mid-SD; gameplay playlist fix (Howler never load()s a `preload:false` track — playlist died after track 1 and stayed dead all session) + track-index reset per match; `hideGameplayElements()` consolidated as the single gameplay-HUD hide (combo badge, boost meter, conn pill, feed — replaces `initMenu`'s inline block); customization partial-save no longer downgrades custom-hue to preset (the "sunglasses reset my color to magenta" bug); cart scale tween reset at shatter + canonical baseScale on respawn rebuild (carts permanently changing size); server re-checks all-ready when a *non-host* leaves/reaps (lobby stuck on READY!). 12 regression tests added (`customization`, `audioManager`, `gameFlowSuddenDeath`) — SD + music suites verified to fail against pre-fix code. Non-bugs documented, not changed: "random arena rotation" doesn't exist (feature, not bug); customize-tab "resize" is the deliberate 1.35× sunglasses camera zoom. Deferred follow-ups: ROADMAP Phase 4. **Re-confirmed healthy** in the July 10 regression audit (see entry above + [project-state §5](./project-state.md#5-known-issues)).
 
 ---
 

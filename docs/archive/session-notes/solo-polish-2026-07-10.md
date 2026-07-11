@@ -80,12 +80,29 @@ Multi-angle review (manual + Opus subagent) before commit. Fixes applied:
    `levelManager.rebuildLevelIfNeeded` finalize branch; never-added `is-critical`
    class (hud.js + hud.css).
 
-Cleared as safe: solo rubberband gating (re-armed per `getAiAxis` call, consumers
-double-gated on `detectGameMode()`), NPC hop host-gating via gameFlow's
-`isHost && running` block, prediction-replay `onHopLand: null`, reconciliation
-hop-flag self-heal via `landingMaxMs`, bootstrap idle-warm suppression races
-(degrade to full swap at worst), netcode hit-direction (visual-only approximation).
+Cleared as safe (sprint integration + July 10 production regression audit):
 
-Gate: `npm run check` green (tsc + tests + knip) + `vite build` clean.
+- Solo rubberband gating (re-armed per `getAiAxis` call, consumers double-gated on
+  `detectGameMode() === "solo"`) — does **not** leak into multiplayer
+- NPC hop host-gating via gameFlow's `isHost && running` block (same pattern as NPC nitro)
+- Prediction-replay `onHopLand: null`; host suppresses floor collision **broadcast** on
+  hop land (no client double-thud)
+- Reconciliation hop-flag self-heal via `landingMaxMs` (note: flags still not cleared in
+  `resetCartTransientState` — residual low-priority edge if you die mid-hop)
+- Bootstrap idle-warm suppression races (degrade to full swap at worst)
+- Netcode hit-direction (visual-only approximation for remote collisions)
+- Living Store: directive CONFIG restore on SD / leave-running; snapshot `dir` self-heal
+- Stability Pass 1 items re-confirmed not regressed in tree: flagged-spectator SD fall
+  loop, music `load()` before `play()`, lobby non-host leave → `#checkAllReady`,
+  customization partial-save hue, cart `baseScale` after shatter
+
+**Not bugs (product / design):**
+
+- Near-edge ambient telegraph — deliberately cut; hit vignette only
+- Customize sunglasses-tab “resize” — intentional 1.35× camera zoom
+
+Gate: `npm run check` green (tsc, 174 tests, knip) + `vite build` clean at audit.
 Browser-verified: hit-vignette flash live via module drive; full in-game drive
 test blocked by the hidden-pane rAF freeze — visible-pane manual check pending.
+
+Canonical non-issue table for living docs: [project-state.md §5](../../planning/project-state.md#5-known-issues).

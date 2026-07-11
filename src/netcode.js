@@ -44,6 +44,14 @@ let hostId = null;
 let connectionState = "ok";
 let isHost = false;
 
+/**
+ * Last room-authoritative arena id from hello / MSG.round / host_round we sent.
+ * Prefer this over local settings when the host broadcasts so a promoted client
+ * does not rewrite the room to their menu preference on rematch.
+ * @type {string | null}
+ */
+let authoritativeRoomLevelId = null;
+
 let hostSeq = 0;
 let inputSeq = 0;
 let hostEpoch = 0;
@@ -196,6 +204,8 @@ let callbacks = {
   // * Presentation-only observer hook for the announcer director — fired for EVERY fall
   // * (host fires it from gameFlow; non-host from this falls[] replay path).
   onAnnouncerFall: (fall) => {},
+  // * Living Store Spill Bonus presentation (MSG.spillBonus) — feed/float only.
+  onSpillBonusPresentation: (_msg) => {},
   /**
    * * Wired implementations may return either a numeric hex (0xff00ff) or a CSS
    * * hex string ("#ff00ff") — the host_event_fall handler narrows on typeof.
@@ -292,6 +302,7 @@ export function registerGameCallbacks(deps) {
     onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent),
     onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
+    onSpillBonusPresentation: (msg) => deps.onSpillBonusPresentation?.(msg),
     colorHexForSlot: (slot) => deps.colorHexForSlot(slot),
     getPendingColorKey: () => deps.getPendingColorKey(),
     getPendingColorChipEl: () => deps.getPendingColorChipEl(),
@@ -1418,9 +1429,9 @@ export function initNetcode(roomOverride) {
         roundPhase: msg.round?.phase,
       });
       if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
-        try {
-          localStorage.setItem("cartRaveLevel", msg.levelId.trim());
-        } catch {}
+        // * Room level is server truth — adopt into settingsStore (not only raw
+        // * localStorage) so a later host promote does not rematch on the wrong arena.
+        adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
       }
       helloReceivedThisSession = true;
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
@@ -1711,15 +1722,10 @@ export function initNetcode(roomOverride) {
         if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "running") {
           callbacks.endCinematicCountdown?.();
         }
-        // * Server now broadcasts levelId on every MSG.round. Non-host clients apply it
-        // * so level selection stays in sync without needing a fresh MSG.hello on rematch.
+        // * Server now broadcasts levelId on every MSG.round. Clients latch it so
+        // * rematch / host promote keep the room arena (not each player's menu pick).
         if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
-          const incoming = msg.levelId.trim();
-          const stored = settingsStore.getState().selectedLevelId;
-          if (incoming !== stored) {
-            settingsStore.getState().setSelectedLevelId(incoming);
-            callbacks.onLevelIdChanged?.(incoming);
-          }
+          adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
         }
         const state = GameState.getRoundState();
         GameState.setRoundPhase(r.phase ?? state.phase);
@@ -1775,10 +1781,35 @@ export function broadcastHostTransform(carts) {
   P2P.sendToAll(encodeHostStateSnapshot(payload));
 }
 
+/**
+ * Apply a room-authoritative level id (from server hello/round or our own host_round).
+ * Updates the latch used by {@link sendHostRound} and keeps settings/localStorage aligned.
+ * @param {string | null | undefined} levelId
+ * @param {{ notify?: boolean }} [opts] When notify, fire onLevelIdChanged if the store changed.
+ */
+function adoptAuthoritativeRoomLevel(levelId, opts = {}) {
+  const incoming = typeof levelId === "string" ? levelId.trim() : "";
+  if (!incoming) return;
+  authoritativeRoomLevelId = incoming;
+  const stored = settingsStore.getState().selectedLevelId;
+  if (incoming !== stored) {
+    settingsStore.getState().setSelectedLevelId(incoming);
+    if (opts.notify !== false) {
+      callbacks.onLevelIdChanged?.(incoming);
+    }
+  }
+}
+
 export function sendHostRound() {
   if (!partySocket || !isHost) return;
   const state = GameState.getRoundState();
-  const currentLevelId = settingsStore.getState().selectedLevelId || "classicRecord";
+  // * Prefer room latch over menu preference so host migration rematch keeps the
+  // * arena everyone was playing (new host's localStorage may differ).
+  const currentLevelId =
+    authoritativeRoomLevelId
+    || settingsStore.getState().selectedLevelId
+    || "classicRecord";
+  authoritativeRoomLevelId = currentLevelId;
   partySocket.send(JSON.stringify({
     type: MSG.hostRound,
     levelId: currentLevelId,
@@ -1943,6 +1974,9 @@ function handleRemoteP2PMessage(data) {
   } else if (data.type === MSG.directive) {
     // * Living Store directive start — apply the same CONFIG overrides locally.
     applyRemoteDirective(data);
+  } else if (data.type === MSG.spillBonus) {
+    // * Presentation only — host already scored; local host uses onSpillBonusAward.
+    callbacks.onSpillBonusPresentation?.(data);
   }
 }
 

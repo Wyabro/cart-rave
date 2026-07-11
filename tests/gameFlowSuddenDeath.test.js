@@ -32,7 +32,14 @@ vi.mock("../src/scoring/koReactors.js", () => ({
   dispatchKOEvent: vi.fn(),
 }));
 
-import { updateGameFlow } from "../src/gameFlow.js";
+import {
+  updateGameFlow,
+  reconstructSuddenDeathSpectators,
+  ensureSuddenDeathOnHostPromote,
+  scoresAreTiedAtTop,
+  hasHumanTiedAtTop,
+  anyCartLooksSuddenDeathOutOfPlay,
+} from "../src/gameFlow.js";
 import { dispatchKOEvent } from "../src/scoring/koReactors.js";
 
 function makeBody(pos) {
@@ -128,6 +135,7 @@ function makeSuddenDeathWorld() {
     getYouConnId: () => "you",
     queueHostFallEvent: vi.fn(),
     onSpill: vi.fn(),
+    onCartOutOfPlay: vi.fn(),
   };
   return { carts, deps };
 }
@@ -180,5 +188,270 @@ describe("Sudden Death fall loop", () => {
     expect(deps.addScore).toHaveBeenCalledTimes(1);
     expect(deps.queueHostFallEvent).toHaveBeenCalledTimes(1);
     expect(dispatchKOEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onCartOutOfPlay when a tied cart falls in Sudden Death (no scheduleRespawn)", () => {
+    const { carts, deps } = makeSuddenDeathWorld();
+    carts[1].body._pos.y = -20;
+
+    runFrame(deps);
+
+    // * SD skips scheduleRespawn — leave-play hook is how charge SFX is stopped.
+    expect(deps.scheduleRespawn).not.toHaveBeenCalled();
+    expect(deps.onCartOutOfPlay).toHaveBeenCalledWith(carts[1]);
+  });
+});
+
+describe("reconstructSuddenDeathSpectators (host promote)", () => {
+  const fallY = -10;
+
+  function bodyAt(y, { enabled = true } = {}) {
+    return {
+      _pos: { x: 0, y, z: 0 },
+      _enabled: enabled,
+      translation() { return this._pos; },
+      isEnabled() { return this._enabled; },
+    };
+  }
+
+  it("flags non-tied carts from scores (SD entry spectators)", () => {
+    const carts = [
+      { isSuddenDeathSpectator: false, body: bodyAt(0) },
+      { isSuddenDeathSpectator: false, body: bodyAt(0) },
+      { isSuddenDeathSpectator: false, body: bodyAt(-50, { enabled: false }) },
+      { isSuddenDeathSpectator: false, body: bodyAt(-50, { enabled: false }) },
+    ];
+    // * 0+1 tied at top; 2+3 already out of the race.
+    const scores = { 0: 5, 1: 5, 2: 1, 3: 0 };
+
+    reconstructSuddenDeathSpectators(carts, scores, fallY);
+
+    expect(carts[0].isSuddenDeathSpectator).toBe(false);
+    expect(carts[1].isSuddenDeathSpectator).toBe(false);
+    expect(carts[2].isSuddenDeathSpectator).toBe(true);
+    expect(carts[3].isSuddenDeathSpectator).toBe(true);
+  });
+
+  it("flags multi-way eliminated tied carts by y / disabled body (score-only would miss them)", () => {
+    // * Three-way SD: all share top score. Slot 2 already fell (parked at y=-50).
+    // * Pre-fix score-only reconstruction left slot 2 with spectator=false.
+    const carts = [
+      { isSuddenDeathSpectator: false, body: bodyAt(0) },
+      { isSuddenDeathSpectator: false, body: bodyAt(0) },
+      { isSuddenDeathSpectator: false, body: bodyAt(-50, { enabled: false }) },
+      { isSuddenDeathSpectator: false, body: bodyAt(-50, { enabled: false }) },
+    ];
+    const scores = { 0: 4, 1: 4, 2: 4, 3: 1 };
+
+    reconstructSuddenDeathSpectators(carts, scores, fallY);
+
+    expect(carts[0].isSuddenDeathSpectator).toBe(false);
+    expect(carts[1].isSuddenDeathSpectator).toBe(false);
+    expect(carts[2].isSuddenDeathSpectator).toBe(true); // tied but out of play
+    expect(carts[3].isSuddenDeathSpectator).toBe(true); // not tied
+  });
+
+  it("clears a stale spectator flag on a still-standing tied cart", () => {
+    const carts = [
+      { isSuddenDeathSpectator: true, body: bodyAt(0.5) },
+      { isSuddenDeathSpectator: false, body: bodyAt(0) },
+    ];
+    const scores = { 0: 3, 1: 3, 2: 0, 3: 0 };
+
+    reconstructSuddenDeathSpectators(carts, scores, fallY);
+
+    expect(carts[0].isSuddenDeathSpectator).toBe(false);
+    expect(carts[1].isSuddenDeathSpectator).toBe(false);
+  });
+});
+
+describe("ensureSuddenDeathOnHostPromote (route 2: infer from clock + human tie)", () => {
+  const fallY = -10;
+  const durationMs = 60_000;
+  const startedAtMs = 1_000_000;
+  const afterTimer = startedAtMs + durationMs + 500;
+
+  function bodyAt(y, { enabled = true } = {}) {
+    return {
+      _pos: { x: 0, y, z: 0 },
+      _enabled: enabled,
+      translation() { return this._pos; },
+      isEnabled() { return this._enabled; },
+      setTranslation(p) { this._pos = { ...p }; },
+      setRotation() {},
+      setLinvel() {},
+      setAngvel() {},
+      setEnabled(v) { this._enabled = v; },
+      wakeUp() {},
+    };
+  }
+
+  function makeCart(y, opts = {}) {
+    return {
+      isSuddenDeathSpectator: false,
+      body: bodyAt(y, opts),
+      spawn: { x: 2, y: 3, z: 8 },
+      spawnYaw: 0,
+      mesh: { visible: true },
+      collider: { setEnabled() {} },
+      respawnAtMs: null,
+    };
+  }
+
+  const humanTieSlots = [
+    { kind: "human", connId: "a" },
+    { kind: "human", connId: "b" },
+    { kind: "npc" },
+    { kind: "npc" },
+  ];
+
+  it("scoresAreTiedAtTop / hasHumanTiedAtTop helpers match SD gates", () => {
+    expect(scoresAreTiedAtTop({ 0: 5, 1: 5, 2: 1, 3: 0 })).toBe(true);
+    expect(scoresAreTiedAtTop({ 0: 5, 1: 4, 2: 1, 3: 0 })).toBe(false);
+    expect(scoresAreTiedAtTop({ 0: 0, 1: 0, 2: 0, 3: 0 })).toBe(false);
+    expect(hasHumanTiedAtTop({ 0: 5, 1: 5 }, humanTieSlots)).toBe(true);
+    expect(
+      hasHumanTiedAtTop(
+        { 0: 5, 1: 5 },
+        [{ kind: "npc" }, { kind: "npc" }, { kind: "npc" }, { kind: "npc" }],
+      ),
+    ).toBe(false);
+  });
+
+  it("already in SD → reconstruct only (no setSuddenDeath churn)", () => {
+    const setSuddenDeath = vi.fn();
+    const sendHostRound = vi.fn();
+    const carts = [
+      makeCart(0),
+      makeCart(0),
+      makeCart(-50, { enabled: false }),
+      makeCart(-50, { enabled: false }),
+    ];
+    const scores = { 0: 5, 1: 5, 2: 1, 3: 0 };
+
+    const result = ensureSuddenDeathOnHostPromote({
+      phase: "running",
+      isSuddenDeath: true,
+      startedAtMs,
+      nowMs: afterTimer,
+      durationMs,
+      scores,
+      netSlots: humanTieSlots,
+      allCarts: carts,
+      fallYThreshold: fallY,
+      setSuddenDeath,
+      sendHostRound,
+    });
+
+    expect(result).toBe("reconstruct");
+    expect(setSuddenDeath).not.toHaveBeenCalled();
+    expect(sendHostRound).not.toHaveBeenCalled();
+    expect(carts[2].isSuddenDeathSpectator).toBe(true);
+  });
+
+  it("past timer + human tie + mid-SD geometry → infer_mid (flag + reconstruct, no yank)", () => {
+    const setSuddenDeath = vi.fn();
+    const sendHostRound = vi.fn();
+    // * Multi-way SD mid-fight: one eliminated tied cart already at y=-50; flag was never synced.
+    const carts = [
+      makeCart(0.2),
+      makeCart(0.1),
+      makeCart(-50, { enabled: false }),
+      makeCart(-50, { enabled: false }),
+    ];
+    const scores = { 0: 4, 1: 4, 2: 4, 3: 0 };
+    const spawnYBefore = carts[0].body.translation().y;
+
+    const result = ensureSuddenDeathOnHostPromote({
+      phase: "running",
+      isSuddenDeath: false, // missed host_round
+      startedAtMs,
+      nowMs: afterTimer,
+      durationMs,
+      scores,
+      netSlots: humanTieSlots,
+      allCarts: carts,
+      fallYThreshold: fallY,
+      setSuddenDeath,
+      sendHostRound,
+    });
+
+    expect(result).toBe("infer_mid");
+    expect(setSuddenDeath).toHaveBeenCalledWith(true);
+    expect(sendHostRound).toHaveBeenCalledTimes(1);
+    expect(anyCartLooksSuddenDeathOutOfPlay(carts, fallY)).toBe(true);
+    // * Survivors must not be teleported back to spawn.
+    expect(carts[0].body.translation().y).toBe(spawnYBefore);
+    expect(carts[2].isSuddenDeathSpectator).toBe(true);
+    expect(carts[0].isSuddenDeathSpectator).toBe(false);
+  });
+
+  it("past timer + human tie + everyone still on arena → infer_enter (full layout)", () => {
+    const setSuddenDeath = vi.fn();
+    const sendHostRound = vi.fn();
+    const onCartOutOfPlay = vi.fn();
+    const carts = [makeCart(0), makeCart(0), makeCart(0), makeCart(0)];
+    const scores = { 0: 3, 1: 3, 2: 1, 3: 0 };
+
+    const result = ensureSuddenDeathOnHostPromote({
+      phase: "running",
+      isSuddenDeath: false,
+      startedAtMs,
+      nowMs: afterTimer,
+      durationMs,
+      scores,
+      netSlots: humanTieSlots,
+      allCarts: carts,
+      fallYThreshold: fallY,
+      nowPerfMs: 5000,
+      setSuddenDeath,
+      sendHostRound,
+      onCartOutOfPlay,
+    });
+
+    expect(result).toBe("infer_enter");
+    expect(setSuddenDeath).toHaveBeenCalledWith(true);
+    expect(sendHostRound).toHaveBeenCalledTimes(1);
+    // * Tied drop in at spawn+1; non-tied parked.
+    expect(carts[0].body.translation().y).toBeCloseTo(4, 5); // spawn.y 3 + 1
+    expect(carts[2].body.translation().y).toBe(-50);
+    expect(carts[2].isSuddenDeathSpectator).toBe(true);
+    expect(onCartOutOfPlay).toHaveBeenCalled();
+  });
+
+  it("past timer but scores not tied → none (leave endRound to gameFlow)", () => {
+    const setSuddenDeath = vi.fn();
+    const result = ensureSuddenDeathOnHostPromote({
+      phase: "running",
+      isSuddenDeath: false,
+      startedAtMs,
+      nowMs: afterTimer,
+      durationMs,
+      scores: { 0: 6, 1: 2, 2: 1, 3: 0 },
+      netSlots: humanTieSlots,
+      allCarts: [makeCart(0), makeCart(0), makeCart(0), makeCart(0)],
+      fallYThreshold: fallY,
+      setSuddenDeath,
+    });
+    expect(result).toBe("none");
+    expect(setSuddenDeath).not.toHaveBeenCalled();
+  });
+
+  it("still inside round clock → none", () => {
+    const setSuddenDeath = vi.fn();
+    const result = ensureSuddenDeathOnHostPromote({
+      phase: "running",
+      isSuddenDeath: false,
+      startedAtMs,
+      nowMs: startedAtMs + 1000,
+      durationMs,
+      scores: { 0: 3, 1: 3, 2: 0, 3: 0 },
+      netSlots: humanTieSlots,
+      allCarts: [makeCart(0), makeCart(0)],
+      fallYThreshold: fallY,
+      setSuddenDeath,
+    });
+    expect(result).toBe("none");
+    expect(setSuddenDeath).not.toHaveBeenCalled();
   });
 });
