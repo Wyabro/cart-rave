@@ -42,7 +42,7 @@ Three docs split cleanly by time — **past / present / future**:
 | Doc | Purpose |
 |-----|---------|
 | [guides/preview-dev.md](./guides/preview-dev.md) | Local multiplayer dev workflow |
-| [guides/visual-qa.md](./guides/visual-qa.md) | Screenshot harness, ablation flags, black-frame battery |
+| [guides/visual-qa.md](./guides/visual-qa.md) | Screenshot harness, ablation flags, black-frame battery; `npm run qa` / `qa:visual` |
 | [guides/deploy-urls.md](./guides/deploy-urls.md) | Production URLs and deploy verification |
 | [guides/cart-pattern-reuv.md](./guides/cart-pattern-reuv.md) | Cart body second UV for pattern masks (Blender + compress) |
 

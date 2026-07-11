@@ -45,9 +45,11 @@ toward Version 2.
 - **Dev (client only):** `npm run dev` (Vite).
 - **Dev (server only):** `npm run dev:party` (`npx wrangler dev`, local Durable Object).
 - **Dev (both, preferred):** `npm run dev:local` (aliases: `dev:cart-clash`, `dev:next-level`).
-- **Gates:** `npm test` / `npx vitest run`, `npm run typecheck` (`tsc --noEmit`),
-  `npm run build` (Vite → `dist/`). `npm run check` = typecheck + test + knip.
-- **Visual QA:** `npm run shoot`, `npm run compare`, `npm run blackframes` — see
+- **Gates:** `npm run qa` (alias of `check` = typecheck + test + knip). Also
+  `npm test`, `npm run typecheck`, `npm run build` (Vite → `dist/`). CI runs `npm run qa`
+  on push/PR to `cart-clash` / `main` (`.github/workflows/check.yml`).
+- **Visual QA:** `npm run shoot`, `npm run compare`, `npm run blackframes`,
+  `npm run qa:visual` (short black-frame battery) — see
   [docs/guides/visual-qa.md](docs/guides/visual-qa.md). URL flags: `?ablate=`, `?postmin=`,
   `?shot=`, `?cam=`, `?freeze=`, `?harness=1`, `?hud=0`.
 
@@ -96,8 +98,9 @@ toward Version 2.
   is actually in HEAD.** The remote is authoritative; a local grep is not. Post-deploy, fetch
   the deployed asset and `Select-String` for the new code — local grep alone has produced
   false positives.
-- **Report gate results by number.** Run `npm test` / `npm run typecheck` / `npm run build`
-  and state the actual numbers you saw (test count drifts; do not hardcode stale totals).
+- **Report gate results by number.** Prefer `npm run qa` before claiming done. Also run
+  `npm run build` when the change touches the client bundle. State the actual numbers you
+  saw (test count drifts; do not hardcode stale totals).
 - **No unpushed claims.** If you changed something locally, call it **"unpushed"** until it
   lands on `origin/cart-clash`.
 - **Own mistakes plainly.** No apology loops, no hedging filler, no "great catch" replies to

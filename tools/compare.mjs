@@ -5,7 +5,7 @@
  *   npm run compare -- --a shots/before.png --b shots/after.png --out shots/cmp.png
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 function parseArgs(argv) {
@@ -26,50 +26,17 @@ function parseArgs(argv) {
   return out;
 }
 
-/**
- * Minimal PNG decoder for 8-bit RGBA/RGB (no interlacing). Uses browser-less inflate.
- * Falls back to dynamic import of 'pngjs' if present; otherwise uses a tiny path via
- * playwright is not available — we implement with node zlib + raw IHDR/IDAT.
- */
+/** Decode PNG via sharp (devDependency). */
 async function decodePng(path) {
-  // * Prefer sharp if installed (optional), else pngjs, else pure IHDR size + note.
-  try {
-    const sharp = (await import("sharp")).default;
-    const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    return { width: info.width, height: info.height, data: new Uint8ClampedArray(data) };
-  } catch {
-    /* optional */
-  }
-  try {
-    const { PNG } = await import("pngjs");
-    const png = PNG.sync.read(readFileSync(path));
-    return { width: png.width, height: png.height, data: png.data };
-  } catch {
-    /* optional */
-  }
-  throw new Error(
-    "Need `sharp` or `pngjs` for compare. Install one:\n  npm i -D sharp\n  # or\n  npm i -D pngjs",
-  );
+  const sharp = (await import("sharp")).default;
+  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { width: info.width, height: info.height, data: new Uint8ClampedArray(data) };
 }
 
+/** Encode RGBA buffer as PNG via sharp. */
 async function encodePng(width, height, rgba, outPath) {
-  try {
-    const sharp = (await import("sharp")).default;
-    await sharp(Buffer.from(rgba), { raw: { width, height, channels: 4 } }).png().toFile(outPath);
-    return;
-  } catch {
-    /* optional */
-  }
-  try {
-    const { PNG } = await import("pngjs");
-    const png = new PNG({ width, height });
-    png.data = Buffer.from(rgba);
-    writeFileSync(outPath, PNG.sync.write(png));
-    return;
-  } catch {
-    /* optional */
-  }
-  throw new Error("Need sharp or pngjs to write comparison PNG");
+  const sharp = (await import("sharp")).default;
+  await sharp(Buffer.from(rgba), { raw: { width, height, channels: 4 } }).png().toFile(outPath);
 }
 
 async function main() {

@@ -7,7 +7,12 @@
   "vite": {
     "config": "vite.config.js"
   },
+  "ignore": [
+    "tools/**"
+  ],
   "ignoreIssues": {
-    "src/effects/groceryPool.js": ["exports"]
+    "src/effects/groceryPool.js": ["exports"],
+    "src/utils/debugParams.js": ["exports"],
+    "src/utils/visualHarness.js": ["exports"]
   }
 }

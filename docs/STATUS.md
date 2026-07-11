@@ -40,11 +40,12 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
 
 ## Next actions
 
-1. Run `npx playwright install chromium` once on this machine if shoot tools fail to launch.
-2. Baseline black-frame battery on Classic / Storerooms / Sundial:
-   `npm run blackframes -- --shot classic --frames 60`
+1. Prefer **`npm run qa`** before claiming done (CI runs the same on push/PR).
+2. Baseline black-frame battery when touching postFX:
+   `npm run qa:visual` or `npm run blackframes -- --shot classic --frames 60`
 3. Continue flicker plan env triage ([planning/plan-flicker-fix-and-classic-audit.md](./planning/plan-flicker-fix-and-classic-audit.md)).
 4. When profiling: fixed `?shot=` + `?preset=` + `?freeze=1` before claiming a win.
+5. Multiplayer two-browser smoke checklist still open (ROADMAP Phase 4).
 
 ## Open issues (top)
 

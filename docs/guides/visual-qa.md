@@ -53,6 +53,19 @@ http://localhost:5173/?postmin=1&shot=sundial&harness=1
 
 ---
 
+## Everyday gate
+
+```bash
+npm run qa          # typecheck + vitest + knip (same as CI)
+npm run qa:visual   # short black-frame battery (needs Playwright + optional dev server)
+```
+
+CI: `.github/workflows/check.yml` runs `npm run qa` on push/PR to `cart-clash` / `main`.
+Visual shoot tools are **not** in CI yet (WebGL/headless flakiness) — run locally when
+changing postFX or arenas.
+
+---
+
 ## CLI tools
 
 ### Screenshot

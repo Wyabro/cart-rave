@@ -10,8 +10,8 @@ Everything below is Claude-Code-specific and additive — it never overrides AGE
 - **Environment is Windows + PowerShell.** Use `Select-String`, not `grep`; forward-slash
   paths are fine in the Bash tool but the primary shell is PowerShell 7+. Prefer the
   dedicated Read/Grep/Glob/Edit tools over shell equivalents.
-- **Gates:** `npm test`, `npm run typecheck`, `npm run build` / `npm run check`.
-  Report results by number (do not hardcode stale test totals).
+- **Gates:** `npm run qa` (typecheck + test + knip; same as CI). Also `npm run build` when
+  the client bundle changes. Report results by number (do not hardcode stale test totals).
 - **Remote is authoritative.** Do not claim "done"/"verified" without pulling `cart-clash`
   and confirming the change is in HEAD; post-deploy, verify against the fetched asset.
 - **Visual QA:** `npm run shoot` / `blackframes` / `compare` — [docs/guides/visual-qa.md](./docs/guides/visual-qa.md).

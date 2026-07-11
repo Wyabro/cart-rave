@@ -1,0 +1,41 @@
+# Cart Clash — PR / push gate (typecheck + tests + knip).
+# Visual QA (shoot / blackframes) stays manual or nightly; it needs a headed WebGL path.
+
+name: check
+
+on:
+  push:
+    branches:
+      - cart-clash
+      - main
+  pull_request:
+    branches:
+      - cart-clash
+      - main
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck · test · knip
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        # * .npmrc sets legacy-peer-deps=true (partyserver / workers-types peer skew).
+        run: npm ci
+
+      - name: QA gate
+        run: npm run qa
