@@ -404,7 +404,8 @@ export function resetGameLoopTiming(loopState) {
  *   netcode, host fall detection, camera follow, etc.
  * @property {(ctx: FrameContext) => void} [onVisualUpdate] Post-physics phase: mesh sync,
  *   effects, HUD, and render. Typically delegates to {@link updateVisualsAndEffects}.
- * @property {(err: unknown) => void} [onFatalError] Invoked when a frame throws; loop stops.
+ * @property {(err: unknown) => void} [onStepError] Invoked when a frame throws. The rAF
+ *   loop always continues (resilience — a bad frame should not freeze the tab).
  */
 
 /**
@@ -418,7 +419,7 @@ export function resetGameLoopTiming(loopState) {
  * @param {GameLoopCallbacks} callbacks
  */
 export function runGameLoop(loopState, callbacks) {
-  const { onFrame, onVisualUpdate, shouldSkipTiming, onFatalError } = callbacks;
+  const { onFrame, onVisualUpdate, shouldSkipTiming, onStepError } = callbacks;
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -445,9 +446,10 @@ export function runGameLoop(loopState, callbacks) {
 
       requestAnimationFrame(step);
     } catch (err) {
-      console.error("[gameLoop] Fatal step error:", err);
+      console.error("[gameLoop] Step error:", err);
       sendErrorLog(err, { context: "gameLoop" });
-      onFatalError?.(err);
+      onStepError?.(err);
+      // * Always continue — recovering next frame beats a frozen tab.
       requestAnimationFrame(step);
     }
   }

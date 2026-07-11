@@ -83,7 +83,8 @@ export class CartRaveServer extends Server {
     scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
     validated: true,
   };
-  #lastSeq: number = 0;
+  // * -1 = no host_spawn seq seen yet (room start and post-migration share this).
+  #lastSeq: number = -1;
   #countdownArmed = false;
   readonly #pendingPickers = new Set<string>();
   readonly #pendingPickerAtMs = new Map<string, number>();
@@ -345,16 +346,16 @@ export class CartRaveServer extends Server {
     return scores;
   }
 
-  #winnerFromScores(scores: Record<number, number>): number | "draw" {
+  /**
+   * Max score across the four slots. Validation only — host owns tiebreakers
+   * (client pickTimerWinner / lastScoringHitAt). Do not use this to pick a winner.
+   */
+  #maxScore(scores: Record<number, number>): number {
     let max = 0;
     for (let i = 0; i < 4; i += 1) {
       max = Math.max(max, scores[i] ?? 0);
     }
-    if (max === 0) return "draw";
-    for (let i = 0; i < 4; i += 1) {
-      if ((scores[i] ?? 0) === max) return i;
-    }
-    return 0;
+    return max;
   }
 
   #isAllowedPhaseTransition(from: RoundPhase, to: RoundPhase): boolean {
@@ -445,14 +446,15 @@ export class CartRaveServer extends Server {
         return null;
       }
 
-      const computedWinner = this.#winnerFromScores(scores);
+      const maxScore = this.#maxScore(scores);
       // * Draw: all scores zero (or host+server agree there is no scorer).
       // * Previously `winnerRaw === "draw"` was unconditionally rejected when
       // * endReason was lastStanding — and even valid 0-0 timer draws cleared
       // * endReason. That produced host-local podium + client softlock.
-      if (winnerRaw === "draw" || computedWinner === "draw") {
-        if (computedWinner !== "draw") {
-          // * Host claimed draw but scores have a unique/first leader — reject.
+      // * Host may pick any max-score slot on ties; server only checks max, not slot index.
+      if (winnerRaw === "draw" || maxScore === 0) {
+        if (maxScore !== 0) {
+          // * Host claimed draw but at least one slot has points — reject.
           return null;
         }
         // * lastStanding with a true score-draw is rare (everyone 0); allow it so
@@ -464,10 +466,7 @@ export class CartRaveServer extends Server {
       } else {
         const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
         if (!Number.isInteger(w) || w < 0 || w > 3) return null;
-        if (
-          !lastStanding
-          && (scores[w] ?? 0) < Math.max(scores[0] ?? 0, scores[1] ?? 0, scores[2] ?? 0, scores[3] ?? 0)
-        ) {
+        if (!lastStanding && (scores[w] ?? 0) < maxScore) {
           return null;
         }
         winnerSlotIndex = w;
@@ -931,6 +930,11 @@ export class CartRaveServer extends Server {
     this.#lastSeenAtMs.set(connection.id, now);
     if (now - this.#lastReapAtMs >= REAP_THROTTLE_MS) {
       this.#reapSilentConnections();
+    }
+
+    // * Keepalive: lastSeenAtMs above is the whole point; skip type dispatch.
+    if (type === MSG.keepalive) {
+      return;
     }
 
     try {

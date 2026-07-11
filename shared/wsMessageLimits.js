@@ -12,7 +12,11 @@
 
 import { MSG } from "./protocol.js";
 
-/** Absolute drop threshold before JSON.parse (bytes / UTF-16 code units of the string). */
+/**
+ * Absolute drop threshold before JSON.parse.
+ * Measured as JS string `.length` (UTF-16 code units), not UTF-8 byte length.
+ * For ASCII-only JSON these are equal; non-ASCII may undercount true wire bytes.
+ */
 export const WS_ABSOLUTE_MAX = 131_072;
 
 /** Routine control messages (join, ready, host_round, keepalive, …). */
@@ -34,11 +38,11 @@ export const WS_ELEVATED_TYPES = new Set([
 
 /**
  * Pre-parse gate: reject pathological sizes before JSON.parse.
- * @param {number} byteLength
+ * @param {number} stringLength JS string `.length` (UTF-16 code units), not UTF-8 bytes.
  * @returns {"accept" | "drop" | "close"}
  */
-export function classifyWsMessagePreParse(byteLength) {
-  const n = typeof byteLength === "number" && Number.isFinite(byteLength) ? byteLength : 0;
+export function classifyWsMessagePreParse(stringLength) {
+  const n = typeof stringLength === "number" && Number.isFinite(stringLength) ? stringLength : 0;
   if (n > WS_BOMB_CLOSE_MAX) return "close";
   if (n > WS_ABSOLUTE_MAX) return "drop";
   return "accept";
@@ -46,12 +50,12 @@ export function classifyWsMessagePreParse(byteLength) {
 
 /**
  * Post-parse gate: type-aware ceilings (signaling vs control).
- * @param {number} byteLength
+ * @param {number} stringLength JS string `.length` (UTF-16 code units), not UTF-8 bytes.
  * @param {string | undefined | null} type
  * @returns {"accept" | "drop"}
  */
-export function classifyWsMessagePostParse(byteLength, type) {
-  const n = typeof byteLength === "number" && Number.isFinite(byteLength) ? byteLength : 0;
+export function classifyWsMessagePostParse(stringLength, type) {
+  const n = typeof stringLength === "number" && Number.isFinite(stringLength) ? stringLength : 0;
   if (n > WS_ABSOLUTE_MAX) return "drop";
   const elevated = typeof type === "string" && WS_ELEVATED_TYPES.has(type);
   if (elevated) {

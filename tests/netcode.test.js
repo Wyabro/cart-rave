@@ -441,6 +441,36 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.falls).toEqual(original.falls);
   });
 
+  it("preserves quaternion w=0 (180° rotation) through encode/decode", () => {
+    // * `|| 1` would corrupt w=0 into identity; encodeF32 must keep legitimate zeros.
+    const original = {
+      seq: 7,
+      tHost: 1_000,
+      carts: [
+        {
+          p: [0, 0, 0],
+          q: [1, 0, 0, 0], // w === 0
+          lv: [0, 0, 0],
+          av: [0, 0, 0],
+          ackSeq: 0,
+          b: false,
+          h: false,
+          c: false,
+          s: false,
+        },
+      ],
+      collisions: [],
+      falls: [],
+    };
+    const decoded = decodeHostStateSnapshot(encodeHostStateSnapshot(original));
+    expect(decoded).not.toBeNull();
+    expect(decoded.carts[0].q[0]).toBeCloseTo(1, 5);
+    expect(decoded.carts[0].q[1]).toBeCloseTo(0, 5);
+    expect(decoded.carts[0].q[2]).toBeCloseTo(0, 5);
+    expect(decoded.carts[0].q[3]).toBeCloseTo(0, 5);
+    expect(decoded.carts[0].q[3]).not.toBe(1);
+  });
+
   it("preserves consecutive absolute timestamps that Float32 would collapse", () => {
     // At ~1.77e12, Float32 ULP is ~41984ms — these two would encode to the same value.
     const t0 = 1_772_345_678_901;
