@@ -17,6 +17,7 @@ import { updateBoostRing } from "./touchControls.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
 import { getConnectionState, getHostId, getNetSlots, getServerClockOffsetMs } from "./netcode.js";
+import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
 import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
@@ -208,9 +209,12 @@ function clampInt(value, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-/** Returns the client's local clock adjusted to approximate the host's wall clock. */
+/**
+ * Round-clock now adjusted by the server/host clock offset sample.
+ * Same domain as `startedAtMs` writers (getRoundClockNowMs / server startsAtMs + offset).
+ */
 function adjustedNow() {
-  return Date.now() - getServerClockOffsetMs();
+  return getRoundClockNowMs() - getServerClockOffsetMs();
 }
 
 function setHudSuppressed(suppressed) {
@@ -410,8 +414,8 @@ function isMatchPointState(roundState) {
   if (!startedAtMs) return false;
   const totalRoundMs = roundState.totalRoundMs
     ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
-  const remainingMs = totalRoundMs - (adjustedNow() - startedAtMs);
-  if (remainingMs > 15000 || remainingMs <= 0) return false;
+  const remainingMs = getRoundRemainingMs(startedAtMs, totalRoundMs, adjustedNow());
+  if (remainingMs == null || remainingMs > 15000 || remainingMs <= 0) return false;
   const scores = roundState.scores || {};
   let top = 0;
   let second = 0;
@@ -541,10 +545,11 @@ function updateTimer(roundState, matchHistoryLength) {
 
   if (roundPhase === "running") {
     const isSuddenDeath = roundState?.isSuddenDeath === true;
-    const elapsedMs = adjustedNow() - (roundStartedAtMs || 0);
     const totalRoundMs = roundState?.totalRoundMs
       ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
-    const remainingMs = isSuddenDeath ? 0 : totalRoundMs - elapsedMs;
+    const remainingMs = isSuddenDeath
+      ? 0
+      : (getRoundRemainingMs(roundStartedAtMs || 0, totalRoundMs, adjustedNow()) ?? totalRoundMs);
     const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
     const minutes = Math.floor(seconds / 60);
     const secondsPart = seconds % 60;

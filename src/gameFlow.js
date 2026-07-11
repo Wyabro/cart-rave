@@ -6,6 +6,7 @@ import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
 import { buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
+import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
 
 /**
  * @typedef {object} GameFlowDeps
@@ -117,7 +118,9 @@ function updateCartIdleWatch(deps, nowMs, cart, pos) {
  * Runs once per frame after ambient visuals and before physics substeps.
  *
  * @param {GameFlowDeps} deps Wiring from main — closures for mutable round/slow-mo state.
- * @param {{ now: number, dt: number, loopState: object }} context Frame timing from the loop.
+ * @param {{ now: number, dt: number, loopState: object, roundNowMs?: number }} context
+ *   Frame timing from the loop. `now` is rAF/performance.now(); `roundNowMs` is the
+ *   round-clock domain ({@link getRoundClockNowMs}) for timer expiry vs startedAtMs.
  */
 export function updateGameFlow(deps, context) {
   const { now, dt } = context;
@@ -129,14 +132,17 @@ export function updateGameFlow(deps, context) {
 
   if (isHost && roundState.phase === "running") {
     const netSlots = deps.getNetSlots();
-    const nowMs = Date.now();
+    // * Same domain as startedAtMs writers (main startRunningAt / game_start offset).
+    // * Do not use Date.now() — wall jumps would skew a 150s round; inject roundNowMs in tests.
+    const roundNowMs = typeof context.roundNowMs === "number" && Number.isFinite(context.roundNowMs)
+      ? context.roundNowMs
+      : getRoundClockNowMs();
     const roundDurationMs = deps.CONFIG.round?.durationMs ?? 60000;
 
     if (
       !isTestDrive
       && !roundState.isSuddenDeath
-      && roundState.startedAtMs > 0
-      && nowMs - roundState.startedAtMs >= roundDurationMs
+      && isRoundTimerExpired(roundState.startedAtMs, roundDurationMs, roundNowMs)
     ) {
       if (deps.isScoreTied()) {
         const scores = deps.getRoundScores();
@@ -204,7 +210,8 @@ export function updateGameFlow(deps, context) {
           }
 
           if (!isTestDrive) {
-            const koEvent = buildKOEvent(deps, slotIndex, p, nowMs);
+            // * roundNowMs shares startedAtMs domain (roundTimeMs = now - startedAtMs).
+            const koEvent = buildKOEvent(deps, slotIndex, p, roundNowMs);
 
             if (koEvent.isKill) {
               // * Sudden Death multi-way tie guard: when 3+ carts are tied and one
@@ -541,7 +548,7 @@ function layoutSuddenDeathArena(allCarts, scores, topScore, nowMs, onCartOutOfPl
  * @param {string} opts.phase
  * @param {boolean} opts.isSuddenDeath
  * @param {number} opts.startedAtMs
- * @param {number} opts.nowMs Date.now() wall clock (matches gameFlow timer)
+ * @param {number} opts.nowMs Round clock now ({@link getRoundClockNowMs}; matches gameFlow timer)
  * @param {number} opts.durationMs
  * @param {Record<number | string, number> | null | undefined} opts.scores
  * @param {Array<{ kind?: string } | null | undefined> | null | undefined} opts.netSlots

@@ -22,7 +22,10 @@ import { announce } from "./announcer/announcerManager.js";
 import { applyRemoteDirective, getDirectiveWireState } from "./directives/directiveEngine.js";
 import { armSpillBoost } from "./cargoLoad.js";
 
-function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
+import { getRoundClockNowMs } from "./roundClock.js";
+
+/** Same domain as round startedAtMs / server #serverNowMs (see roundClock.js). */
+function getMonotonicNow() { return getRoundClockNowMs(); }
 
 /** Scratch quaternions for snapshot-pair slerp interpolation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();

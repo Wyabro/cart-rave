@@ -186,6 +186,7 @@ import {
   cleanupSuddenDeathState,
   ensureSuddenDeathOnHostPromote,
 } from "./gameFlow.js";
+import { getRoundClockNowMs } from "./roundClock.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
@@ -1089,7 +1090,9 @@ async function main() {
     getRemainingRoundMs: () => {
       const rs = GameState.getRoundState();
       if (rs.phase !== "running" || rs.isSuddenDeath || !rs.startedAtMs) return null;
-      return (CONFIG.round?.durationMs ?? 60000) - (Date.now() - Netcode.getServerClockOffsetMs() - rs.startedAtMs);
+      const durationMs = CONFIG.round?.durationMs ?? 60000;
+      const adjusted = getRoundClockNowMs() - Netcode.getServerClockOffsetMs();
+      return durationMs - (adjusted - rs.startedAtMs);
     },
   });
   // * Visual callout banner + aria-live region for announcer subtitles.
@@ -1220,7 +1223,7 @@ async function main() {
           scores[npcIdx] = 2;
           GameState.setRoundScores(scores);
           // * Rewind round timer so only ~10s remain.
-          GameState.setRoundStartedAtMs(Date.now() - (CONFIG.round.durationMs - 10000));
+          GameState.setRoundStartedAtMs(getRoundClockNowMs() - (CONFIG.round.durationMs - 10000));
           // * Do NOT set isSuddenDeath — let the 60s round timer expire naturally
           // * and trigger the gameFlow.js tie → Sudden Death flow.
           Netcode.sendHostRound();
@@ -2060,10 +2063,10 @@ async function main() {
     showRotatePromptIfNeeded();
     if (detectGameMode() === "testdrive") {
       if (Netcode.getIsHost()) {
-        startRunningAt(Date.now());
+        startRunningAt(getRoundClockNowMs());
       } else {
         syncRoundPhase("running");
-        GameState.setRoundStartedAtMs(Date.now());
+        GameState.setRoundStartedAtMs(getRoundClockNowMs());
         GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
         GameState.setRoundWinnerSlotIndex(null);
         CameraMod.endCinematicCountdown(camera);
@@ -2073,7 +2076,7 @@ async function main() {
     const serverStartsAtMs = Number(msg?.startsAtMs);
     const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
       ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
-      : Date.now() + 3000;
+      : getRoundClockNowMs() + 3000;
     if (Netcode.getIsHost()) {
       startCountdown(startsAtLocalMs);
     } else if (GameState.getRoundState().phase !== "running") {
@@ -3208,7 +3211,7 @@ async function main() {
     }
   }
 
-  function startCountdown(startsAtLocalMs = Date.now() + 3000) {
+  function startCountdown(startsAtLocalMs = getRoundClockNowMs() + 3000) {
     if (!Netcode.getIsHost()) return;
     if (GameState.getRoundState().phase === "running") return;
     isNewPersonalBest = false;
@@ -3235,7 +3238,7 @@ async function main() {
     roundCountdownTimeoutId = setTimeout(() => {
       roundCountdownTimeoutId = null;
       if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
-    }, Math.max(0, startsAtLocalMs - Date.now()));
+    }, Math.max(0, startsAtLocalMs - getRoundClockNowMs()));
     beginRoundFlyover();
   }
 
@@ -3250,11 +3253,11 @@ async function main() {
     if (roundState.phase !== "countdown") return;
 
     clearRoundCountdownTimeout();
-    const startsAtLocalMs = (roundState.countdownStartedAtMs || Date.now()) + 3000;
-    const delayMs = Math.max(0, startsAtLocalMs - Date.now());
+    const startsAtLocalMs = (roundState.countdownStartedAtMs || getRoundClockNowMs()) + 3000;
+    const delayMs = Math.max(0, startsAtLocalMs - getRoundClockNowMs());
 
     if (delayMs === 0) {
-      if (GameState.getRoundState().phase === "countdown") startRunningAt(Date.now());
+      if (GameState.getRoundState().phase === "countdown") startRunningAt(getRoundClockNowMs());
       return;
     }
 
@@ -3289,7 +3292,7 @@ async function main() {
       phase: roundState.phase,
       isSuddenDeath: roundState.isSuddenDeath,
       startedAtMs: roundState.startedAtMs,
-      nowMs: Date.now(),
+      nowMs: getRoundClockNowMs(),
       durationMs: CONFIG.round?.durationMs ?? 60000,
       scores: GameState.getRoundScores() || {},
       netSlots: Netcode.getNetSlots(),
@@ -3472,7 +3475,7 @@ async function main() {
     Netcode.resetClientPredictionState();
     Entities.rematchResetWorld();
     if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
-      startCountdown(Date.now() + 3000);
+      startCountdown(getRoundClockNowMs() + 3000);
       return;
     }
     syncRoundPhase("lobby");
@@ -3776,7 +3779,10 @@ async function main() {
       }
     }
 
-    updateGameFlow(gameCtx.deps.gameFlow, gameCtx.makePhaseContext(dt));
+    updateGameFlow(gameCtx.deps.gameFlow, {
+      ...gameCtx.makePhaseContext(dt),
+      roundNowMs: getRoundClockNowMs(),
+    });
 
     const physicsStep = runPhysicsStep(gameCtx.loopState, gameCtx.deps.physics, { now, dt });
     frameCtx.physicsAlpha = physicsStep.alpha;
