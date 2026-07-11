@@ -761,6 +761,12 @@ html, body {
   text-align: center;
 }
 
+/* Invites the player to try the arena picker (each pick re-themes the menu). */
+.cr-levels-hint {
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 .cr-level-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1935,14 +1941,21 @@ html, body {
   margin-top: 2px;
 }
 
+/* Utility row (HOW TO PLAY / CHALLENGES / SETTINGS): real features, not
+   afterthoughts. Color-coded die-cut edge + label in each button's palette
+   accent (--glow, set per data-colorkey in applyPalette) so they read as
+   distinct and interactive, while staying ink-filled (secondary to the
+   solid-fill primaries above). No opacity dim. */
 .cr-btn--extra {
   flex: 1;
   min-width: 0;
   padding-left: clamp(6px, 1vw, 10px);
   padding-right: clamp(6px, 1vw, 10px);
   font-size: clamp(10px, 1.4vw, 12px);
-  opacity: 0.88;
-  border-width: 1.5px;
+  color: var(--glow, var(--color-sticker-white));
+  box-shadow:
+    0 0 0 2px var(--glow, var(--color-sticker-white)),
+    3px 3px 0 2px var(--color-ink-deep);
 }
 
 .cr-btn--extra .cr-btn-label {
@@ -1968,6 +1981,12 @@ html, body {
   line-height: 1.4;
   color: var(--color-ink-deep);
   pointer-events: none;
+}
+
+/* First-timer "NEW" cue — magenta attention pill (vs the white ✓N progress chip). */
+.cr-challenges-chip--new {
+  background: var(--color-magenta);
+  color: var(--color-sticker-white);
 }
 
 /* Focus visible for overlay buttons */

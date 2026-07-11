@@ -1262,20 +1262,24 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   // ─── Challenges overlay screen ─────────────────────────────────────────────
 
+  /** True once the player has opened the CHALLENGES screen this session. */
+  let _challengesViewed = false;
+
   /**
-   * Shows a "✓N" chip on the CHALLENGES menu button when N ≥ 1 challenges
-   * are complete; removes it when none are.
+   * Badges the CHALLENGES menu button: "✓N" once N ≥ 1 are complete (a progress
+   * reward), or a "NEW" attention cue when there are active objectives the player
+   * hasn't looked at yet — so first-timers discover the feature instead of only
+   * being rewarded after they've already found it.
    */
   function updateChallengesBadge() {
     const btn = document.querySelector('.cr-btn[data-action="challenges"]');
     if (!(btn instanceof HTMLElement)) return;
     const cState = challengeStore.getState();
-    const completed = [
-      ...cState.dailyChallenges,
-      ...cState.weeklyChallenges,
-    ].filter((c) => c.isComplete).length;
+    const all = [...cState.dailyChallenges, ...cState.weeklyChallenges];
+    const completed = all.filter((c) => c.isComplete).length;
+    const showNew = completed < 1 && all.length > 0 && !_challengesViewed;
     let chip = btn.querySelector('.cr-challenges-chip');
-    if (completed < 1) {
+    if (completed < 1 && !showNew) {
       chip?.remove();
       return;
     }
@@ -1285,7 +1289,13 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       chip.setAttribute('aria-hidden', 'true');
       btn.appendChild(chip);
     }
-    chip.textContent = `✓${completed}`;
+    if (completed >= 1) {
+      chip.textContent = `✓${completed}`;
+      chip.classList.remove('cr-challenges-chip--new');
+    } else {
+      chip.textContent = 'NEW';
+      chip.classList.add('cr-challenges-chip--new');
+    }
   }
 
   function openChallengesScreen() {
@@ -1293,6 +1303,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
     renderChallengesPanel();
+    // * Viewing the screen retires the first-timer "NEW" cue (progress ✓N still shows).
+    _challengesViewed = true;
+    updateChallengesBadge();
     captureOverlayOpener();
     challengesScreen.style.display = 'flex';
     challengesScreen.setAttribute('aria-hidden', 'false');
