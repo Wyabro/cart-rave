@@ -19,6 +19,9 @@ Thumbs.db
 node_modules/
 dist/
 
+# Visual QA screenshots (regenerate with npm run shoot)
+shots/
+
 # PartyKit deploy staging (copied from dist/ during ship)
 party-static/
 # Wrangler local state

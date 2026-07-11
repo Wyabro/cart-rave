@@ -22,12 +22,17 @@
     "knip": "knip",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run test && npm run knip"
+    "check": "npm run typecheck && npm run test && npm run knip",
+    "shoot": "node tools/shoot.mjs",
+    "compare": "node tools/compare.mjs",
+    "blackframes": "node tools/blackframes.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.185.1",
     "happy-dom": "^20.10.6",
     "knip": "^6.26.0",
+    "playwright": "^1.50.0",
+    "sharp": "^0.34.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.4",
     "vite-plugin-wasm": "^3.6.0",

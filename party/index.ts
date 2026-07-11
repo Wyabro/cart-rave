@@ -533,7 +533,11 @@ export class CartRaveServer extends Server {
       const ip = this.#connToIp.get(id);
       if (ip) {
         const count = this.#ipConnectionCounts.get(ip) ?? 1;
-        this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+        if (count <= 1) {
+          this.#ipConnectionCounts.delete(ip);
+        } else {
+          this.#ipConnectionCounts.set(ip, count - 1);
+        }
         this.#connToIp.delete(id);
       }
       try {
@@ -697,7 +701,11 @@ export class CartRaveServer extends Server {
       const ip = this.#connToIp.get(id);
       if (ip) {
         const count = this.#ipConnectionCounts.get(ip) ?? 1;
-        this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+        if (count <= 1) {
+          this.#ipConnectionCounts.delete(ip);
+        } else {
+          this.#ipConnectionCounts.set(ip, count - 1);
+        }
         this.#connToIp.delete(id);
       }
     }
@@ -827,7 +835,11 @@ export class CartRaveServer extends Server {
     const ip = this.#connToIp.get(conn.id);
     if (ip) {
       const count = this.#ipConnectionCounts.get(ip) ?? 1;
-      this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+      if (count <= 1) {
+        this.#ipConnectionCounts.delete(ip);
+      } else {
+        this.#ipConnectionCounts.set(ip, count - 1);
+      }
       this.#connToIp.delete(conn.id);
     }
 
@@ -965,7 +977,11 @@ export class CartRaveServer extends Server {
             const ip = this.#connToIp.get(ghostConnId);
             if (ip) {
               const count = this.#ipConnectionCounts.get(ip) ?? 1;
-              this.#ipConnectionCounts.set(ip, Math.max(0, count - 1));
+              if (count <= 1) {
+                this.#ipConnectionCounts.delete(ip);
+              } else {
+                this.#ipConnectionCounts.set(ip, count - 1);
+              }
               this.#connToIp.delete(ghostConnId);
             }
 

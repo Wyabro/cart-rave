@@ -41,6 +41,7 @@ import {
   animateMenuDismiss,
   animateMenuReveal,
   animateRerollSpin,
+  animateTogglePop,
   stagger,
   wireButtonPressFeedback,
   wireHoverFeedback,
@@ -938,7 +939,13 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     });
     sections.forEach((section) => {
       const isActive = section.dataset.section === tabId;
+      const wasHidden = section.hidden;
       section.hidden = !isActive;
+      // * Quick fade-in on the newly-revealed panel — the hard hidden-flip read
+      // * as an abrupt cut between BODY / PATTERN / SUNGLASSES.
+      if (isActive && wasHidden && section instanceof HTMLElement) {
+        animateMenuReveal(section, { duration: 200, y: 8, ease: "outQuad" });
+      }
     });
     // * Freeze auto-rotation on the Sunglasses tab so the mirror finish is readable.
     if (cartPreview) {
@@ -1713,6 +1720,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       storageSet(STORAGE_KEYS.fxPass, next ? "on" : "off");
       togglePostFx(next);
       syncGfxButtonStates();
+      animateTogglePop(gfxBtn);
     });
   }
 
@@ -1722,6 +1730,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       const next = order[(order.indexOf(getQualityTier()) + 1) % order.length];
       applyQualityTier(next);
       syncGfxButtonStates();
+      animateTogglePop(lqBtn);
     });
   }
 

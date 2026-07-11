@@ -1187,6 +1187,24 @@ export function animateMuteToggle(element, options = {}) {
 }
 
 /**
+ * Quick state-change pop for any toggle / cycle button (Post-FX, Quality,
+ * announcer, callouts). Same feel as the mute toggle but a touch subtler, so a
+ * state change registers visibly instead of only relabeling. Reduced-motion
+ * safe via animateSelectionPop's shouldAnimate guard.
+ * @param {HTMLElement | null | undefined} element
+ * @param {AnimationOptions} [options]
+ * @returns {JSAnimation | null}
+ */
+export function animateTogglePop(element, options = {}) {
+  return animateSelectionPop(element, {
+    duration: 150,
+    scalePeak: 1.08,
+    ease: "outBack(1.6)",
+    ...options,
+  });
+}
+
+/**
  * One-shot spin on the username re-roll button.
  * @param {HTMLElement | null | undefined} element
  * @param {AnimationOptions} [options]

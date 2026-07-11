@@ -591,7 +591,7 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
  * @param {THREE.WebGLRenderer} renderer Active WebGL renderer.
  * @param {THREE.Scene} scene Root scene to render.
  * @param {THREE.PerspectiveCamera} camera Active camera.
- * @returns {{ composer: EffectComposer, bloomPass: UnrealBloomPass, arcadePass: ShaderPass, fxaaPass: ShaderPass }}
+ * @returns {{ composer: EffectComposer, bloomPass: UnrealBloomPass, arcadePass: ShaderPass, fxaaPass: ShaderPass, outputPass: OutputPass }}
  */
 export function createComposer(renderer, scene, camera) {
   const composer = new EffectComposer(renderer);
@@ -649,7 +649,7 @@ export function createComposer(renderer, scene, camera) {
   fxaaPass.enabled = getQualityKnobs().fxaa;
   composer.addPass(fxaaPass);
 
-  return { composer, bloomPass, arcadePass, fxaaPass };
+  return { composer, bloomPass, arcadePass, fxaaPass, outputPass };
 }
 
 /**

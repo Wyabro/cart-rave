@@ -8,11 +8,14 @@ import { setShatterEnvironment } from "./cartShatter.js";
 import { createPhysicalMaterial } from "./scene.js";
 import { isLowQualityMode } from "./utils.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
+import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
+import { installCheapMirrorPass } from "./utils/cheapMirror.js";
 
 const REFLECTOR_TEXTURE_SIZE_FULL = 1024;
 const REFLECTOR_TEXTURE_SIZE_BOOT = 256;
 
 const VISUAL_RECORD_THICKNESS = 0.28;
+
 
 /**
  * Procedural pit-shaft panel textures (albedo / normal / roughness).
@@ -1312,6 +1315,13 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   scene.add(trussLegMesh);
   scene.add(trussBraceMesh);
 
+  // * Collapse per-booth neon rails / gear / panels into one draw per material.
+  // * Neon pulse in main.js only needs material refs (deduped via Set) — orphaned
+  // * pre-merge mesh entries in boothNeonMeshes still carry those materials.
+  for (let bi = 0; bi < boothGroups.length; bi += 1) {
+    mergeStaticMeshesByMaterial(boothGroups[bi], { deep: true });
+  }
+
   /**
    * Drifts booth fog sprites and breathes shared fog material opacity.
    * @param {number} timeMs
@@ -1458,6 +1468,8 @@ export function initArena(scene, world, config, options = {}) {
     reflector.position.y = reflectorYOffset;
     reflector.renderOrder = 0;
     reflector.userData._cartRaveTextureSize = textureSize;
+    // * Cart-first mirror: hide crowd/stadium/lasers for this pass only (no frame skip).
+    installCheapMirrorPass(reflector);
     return reflector;
   }
 

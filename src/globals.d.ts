@@ -26,6 +26,31 @@ declare global {
     __cartRaveCustomizationStorageSync?: boolean;
     __cartRaveSendErrorLog?: (error: Error) => void;
     __cartRaveMainReady?: boolean;
+    /**
+     * Visual QA harness (URL ?harness=1 / shoot tools). See src/utils/visualHarness.js.
+     */
+    __cartRave?: {
+      version: number;
+      ready: boolean;
+      worldReady: boolean;
+      error: string | null;
+      frame: number;
+      params: Record<string, unknown>;
+      stats: () => Record<string, unknown>;
+      settle: (n?: number) => Promise<void>;
+      reapplyAblation: () => string[];
+      applyCam: () => boolean;
+      sampleBlack: (opts?: { maxDim?: number; threshold?: number }) => Promise<{
+        ratio: number;
+        black: number;
+        total: number;
+        maxRun: number;
+        width: number;
+        height: number;
+      }>;
+      isCameraLocked: () => boolean;
+      ensureWorld: () => Promise<void>;
+    };
     CartRave?: any;
     /** Preferred product API alias of CartRave. */
     CartClash?: any;

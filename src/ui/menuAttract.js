@@ -22,6 +22,8 @@
  */
 
 import { isComposerBypassActive } from "../scene.js";
+import { applyDebugCameraPose, isDebugCameraLocked } from "../utils/debugParams.js";
+import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
 
 /**
  * @typedef {object} MenuAttractDeps
@@ -97,15 +99,20 @@ function step(now) {
   lastFrameMs = now;
 
   const arenaRadius = Math.max(6, d.getArenaRadius());
-  // Fixed three-quarter shot for reduced motion; slow drift otherwise.
-  const azimuth = reduced ? Math.PI * 0.28 : (now / ORBIT_PERIOD_MS) * Math.PI * 2;
-  const orbitRadius = arenaRadius * 1.55;
-  d.camera.position.set(
-    Math.cos(azimuth) * orbitRadius,
-    arenaRadius * 0.62,
-    Math.sin(azimuth) * orbitRadius,
-  );
-  d.camera.lookAt(0, arenaRadius * 0.06, 0);
+  // * Visual QA: ?cam= / ?freeze= pin pose (no orbit) so shoot tools are stable.
+  if (isDebugCameraLocked()) {
+    applyDebugCameraPose(d.camera);
+  } else {
+    // Fixed three-quarter shot for reduced motion; slow drift otherwise.
+    const azimuth = reduced ? Math.PI * 0.28 : (now / ORBIT_PERIOD_MS) * Math.PI * 2;
+    const orbitRadius = arenaRadius * 1.55;
+    d.camera.position.set(
+      Math.cos(azimuth) * orbitRadius,
+      arenaRadius * 0.62,
+      Math.sin(azimuth) * orbitRadius,
+    );
+    d.camera.lookAt(0, arenaRadius * 0.06, 0);
+  }
 
   // Same latched path as frameVisuals.js — never flip render paths here.
   if (isComposerBypassActive()) {
@@ -113,6 +120,7 @@ function step(now) {
   } else {
     d.composer.render();
   }
+  tickVisualHarnessFrame();
   setRevealed(true);
 }
 

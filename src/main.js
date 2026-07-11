@@ -5,6 +5,14 @@
 import "./utils/perfPump.js";
 
 import {
+  applyDebugBootSideEffects,
+  applyDebugCameraPose,
+  applyPostFxAblation,
+  getDebugParams,
+  isDebugCameraLocked,
+} from "./utils/debugParams.js";
+import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
+import {
   loadPlayerCustomization,
   resolveCartNeonCss,
   resolveCartNeonHex,
@@ -90,6 +98,9 @@ import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as dir
 import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { updateLevelLod } from "./utils/levelLod.js";
+import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
+import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
+
 // * testArena constants inlined (avoid static import of heavy level module at boot).
 const TEST_ARENA_SKY = 0x586274;
 const TEST_ARENA_FOG_DENSITY = 0.0032;
@@ -186,7 +197,14 @@ import {
   clamp,
   isTouchDevice,
 } from "./utils.js";
-import { getQualityTier, setQualityTier } from "./utils/qualityMode.js";
+import { getQualityTier, setQualityTier, setSessionQualityTier } from "./utils/qualityMode.js";
+
+// * URL level / quality boot side effects (must run before renderer creation in main()).
+applyDebugBootSideEffects();
+{
+  const _dbgPreset = getDebugParams().preset;
+  if (_dbgPreset) setSessionQualityTier(_dbgPreset);
+}
 import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { installGlobalErrorReporting } from "./utils/errorReporter.js";
 import { STORAGE_KEYS, storageGet, storageSet, storageGetJson, storageSetJson } from "./utils/storage.js";
@@ -1147,10 +1165,13 @@ async function main() {
 
   scene.add(audioListener);
 
-  const { composer, bloomPass, arcadePass, fxaaPass } = createComposer(renderer, scene, camera);
+  const { composer, bloomPass, arcadePass, fxaaPass, outputPass } = createComposer(renderer, scene, camera);
   fxPass = arcadePass;
   if (!bloomEnabled && bloomPass) bloomPass.enabled = false;
   if (!fxPassEnabled && fxPass) fxPass.enabled = false;
+  // * URL ablation / postmin — after user toggles so disabled flags still win for QA.
+  applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
+  if (getDebugParams().cam) applyDebugCameraPose(camera);
 
   if (import.meta.env.DEV) {
     // * Dev-only perf probe (see createRenderer): scene/camera/composer for console-driven profiling.
@@ -1558,6 +1579,8 @@ async function main() {
       bloomEnabled,
       fxPassEnabled,
     });
+    // * URL ablation wins over tier/user Post-FX re-enables (visual QA).
+    applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
 
     // * Arena visuals: reflective floor is a full second scene render — high tier only.
     if (typeof setReflectorVisible === "function") {
@@ -1867,6 +1890,8 @@ async function main() {
       fxPass.uniforms.uVhsNoise.value = vhsCfg.noise;
       fxPass.uniforms.uVhsTrackPeriod.value = vhsCfg.trackPeriodSec;
     }
+    // * ?ablate=vhs / postmin must still win after level VHS turn-on.
+    applyPostFxAblation({ bloomPass, arcadePass: fxPass, fxaaPass, outputPass });
     if (resolved === "testArena") {
       Effects.clearAmbientDust();
       setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
@@ -1923,11 +1948,16 @@ async function main() {
       for (const root of sceneExtras.sceneRoots) root.visible = wantRaveExtras;
     }
     if (wantRaveExtras && !raveVisualsInitialized) {
+      clearMirrorExcludes();
       Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
       Effects.initStage(scene, pitInnerRadius, CART_COLORS);
       Effects.initBillboard(scene, pitInnerRadius);
       Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
       raveVisualsInitialized = true;
+    }
+    // * Skybox/planets out of the vinyl RT so cart/booth reflections stay readable.
+    if (wantRaveExtras && sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+      for (const root of sceneExtras.sceneRoots) registerMirrorExclude(root);
     }
     Effects.setRaveExtrasVisible(wantRaveExtras);
     if (wantRaveExtras) Effects.applyRaveExtrasQuality(getQualityKnobs());
@@ -3669,6 +3699,9 @@ async function main() {
     const { now, loopState } = frameCtx;
     const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
 
+    // * Soft frame budget for optional cosmetics (physics/render always run).
+    beginFrameBudget(now, frameCtx.dt);
+
     if (isLevelSwapping()) {
       frameCtx.dt = dt;
       return;
@@ -3692,12 +3725,20 @@ async function main() {
 
     /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);
     levelUpdate?.(syncedNow);
-    updateLevelLod(camera, syncedNow);
+    if (frameBudgetAllow("level_lod", now)) {
+      updateLevelLod(camera, syncedNow);
+    }
 
     // * Rave dressing animation: skip entirely when the level hides it (Storerooms/
     // * test arena kept extras allocated but this math used to run anyway) and on
-    // * tiers with crowdAnimate off (Low renders the stands frozen).
-    if (raveVisualsInitialized && levelUsesRaveExtras() && getQualityKnobs().crowdAnimate) {
+    // * tiers with crowdAnimate off (Low renders the stands frozen). Yield under
+    // * frame pressure so host physics keeps the full budget.
+    if (
+      raveVisualsInitialized
+      && levelUsesRaveExtras()
+      && getQualityKnobs().crowdAnimate
+      && frameBudgetAllow("rave_anim", now)
+    ) {
       Effects.updateStageLights(syncedNow);
       Effects.updateLasers(syncedNow);
       Effects.updateCrowd(syncedNow);
@@ -3725,7 +3766,7 @@ async function main() {
 
     // * Booth neon pulse — intensity only. Hue stays on the per-booth materials so
     // * pink/green/cyan/orange spawn corners stay readable as four distinct booths.
-    if (boothNeonMeshes && boothNeonMeshes.length > 0) {
+    if (boothNeonMeshes && boothNeonMeshes.length > 0 && frameBudgetAllow("booth_pulse", now)) {
       boothNeonMatsSeen.clear();
       const pulseHz = CONFIG.booth.neonCycleSpeed;
       const nowSec = syncedNow * 0.001;
@@ -3756,11 +3797,21 @@ async function main() {
 
     // * True near-miss detection — a boosting opponent whooshing past without contact
     // * earns the local player a close_call. Cheap: three distance checks per frame.
-    announcerDirectorNearMissScan(
-      allCartsRef || [],
-      Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
-      performance.now(),
-    );
+    if (frameBudgetAllow("near_miss", now)) {
+      announcerDirectorNearMissScan(
+        allCartsRef || [],
+        Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+        performance.now(),
+      );
+    }
+
+    // * Visual QA: ?cam= / ?freeze= pin the camera (skip chase / cinematic / death).
+    if (isDebugCameraLocked()) {
+      applyDebugCameraPose(camera);
+      tickVisualHarnessFrame();
+      frameCtx.dt = dt;
+      return;
+    }
 
     // * Cinematic modes always win over death/follow. Countdown used to be nested
     // * under `localCart?.body`, so pregame fly-overs silently failed when the local
@@ -3841,6 +3892,8 @@ async function main() {
       if (bloomPass) bloomPass.enabled = next;
       if (arcadePass) arcadePass.enabled = next;
       if (fxPass) fxPass.enabled = next;
+      // * Keep URL ablation in force after menu Post-FX toggle.
+      applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
     },
     applyQualityTier: (tier) => handleQualityTierChange(tier),
   });
@@ -3852,10 +3905,48 @@ async function main() {
   window.__cartRaveCancelBootError?.();
   document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
 
+  // * Visual QA harness (Playwright shoot / blackframes) when URL flags request it.
+  const dbg = getDebugParams();
+  if (dbg.harness || dbg.freeze || dbg.cam || dbg.ablate.size || dbg.hideHud) {
+    installVisualHarness({
+      isReady: () => Boolean(window.__cartRaveMainReady),
+      isWorldReady: () => isWorldBootstrapped(),
+      getError: () => null,
+      getRenderer: () => renderer,
+      getCamera: () => camera,
+      getCanvas: () => canvas,
+      getPasses: () => ({ bloomPass, arcadePass, fxaaPass, outputPass }),
+      ensureWorld: () => ensureWorldBootstrapped(),
+      onSettleFrame: () => {
+        if (isDebugCameraLocked()) applyDebugCameraPose(camera);
+      },
+    });
+  }
+
   // * Idle warm: after menu is up, load Rapier + selected level in the background so
   // * first Solo/Quickplay skips the cold arena stack. Idempotent with enterPlayMode.
   // * Delay so menu music + cart Draco keep first dibs on bandwidth; skip when tab hidden.
-  scheduleIdleWorldWarm();
+  // * Harness path warms immediately so shoot tools do not wait on the idle delay.
+  if (dbg.harness || dbg.hideHud) {
+    void ensureWorldBootstrapped().then(() => {
+      if (getDebugParams().cam) applyDebugCameraPose(camera);
+      if (getDebugParams().hideHud) {
+        const root = document.getElementById("cr-root");
+        if (root) {
+          root.style.visibility = "hidden";
+          root.style.pointerEvents = "none";
+        }
+        // * Attract only runs while menu is "visible" — keep menuVisible true, hide DOM.
+        startMenuAttract();
+      } else {
+        startMenuAttract();
+      }
+    }).catch((err) => {
+      console.warn("[harness] world warm failed", err);
+    });
+  } else {
+    scheduleIdleWorldWarm();
+  }
 }
 
 /**

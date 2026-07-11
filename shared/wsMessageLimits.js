@@ -13,13 +13,13 @@
 import { MSG } from "./protocol.js";
 
 /** Absolute drop threshold before JSON.parse (bytes / UTF-16 code units of the string). */
-export const WS_ABSOLUTE_MAX = 32_768;
+export const WS_ABSOLUTE_MAX = 131_072;
 
 /** Routine control messages (join, ready, host_round, keepalive, …). */
 export const WS_CONTROL_MAX = 4_096;
 
 /** SDP / ICE / reliable spawn poses — larger JSON envelopes are normal. */
-export const WS_SIGNALING_MAX = 16_384;
+export const WS_SIGNALING_MAX = 65_536;
 
 /** Only sizes above this close the connection (memory/DoS bomb). */
 export const WS_BOMB_CLOSE_MAX = 262_144;

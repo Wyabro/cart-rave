@@ -242,6 +242,7 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
     await new Promise((r) => setTimeout(r, delay + 20));
     hooks.drainRemoteInputJitterBuffers();
     expect(hooks.getHostLastProcessedInputSeq("peerC")).toBe(8);
+    expect(hooks.getRemoteInputQueueLength("peerC")).toBe(0);
   });
 });
 

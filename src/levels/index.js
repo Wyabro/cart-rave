@@ -4,6 +4,7 @@ import { computeSpawnRingRadius } from "../config.js";
 import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
 import { setMenuPreviewVisualLod } from "../utils/qualityMode.js";
 import { clearLevelLod } from "../utils/levelLod.js";
+import { clearKoHitmarkers } from "../effects/koHitmarkerFx.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
@@ -83,6 +84,7 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
 
   onProgress?.(60, "Building arena geometry…");
   clearLevelLod();
+  clearKoHitmarkers();
   let result;
   const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   // * Menu preview: force visual LOD gates (isLowQualityMode) for the init only —
@@ -113,6 +115,7 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
     const levelDispose = result.dispose;
     result.dispose = () => {
       clearLevelLod();
+      clearKoHitmarkers();
       levelDispose();
       if (overrideRadius != null) {
         config.record.radius = prevRadius;

@@ -1785,6 +1785,17 @@ export function initNetcode(roomOverride) {
         for (const id of remoteNitroLatchedByConnId.keys()) {
           if (!liveConnIds.has(id)) remoteNitroLatchedByConnId.delete(id);
         }
+        for (const id of remoteInputQueuesByConnId.keys()) {
+          if (!liveConnIds.has(id)) remoteInputQueuesByConnId.delete(id);
+        }
+        for (const id of hostLastProcessedInputSeq.keys()) {
+          if (!liveConnIds.has(id)) hostLastProcessedInputSeq.delete(id);
+        }
+        for (const id of peerReconnectNotBeforeMs.keys()) {
+          if (!liveConnIds.has(id)) peerReconnectNotBeforeMs.delete(id);
+        }
+        // * Terminate WebRTC peer connections that are no longer in live slots
+        P2P.prunePeers(liveConnIds);
 
         if (callbacks.getLocalColorPicked() && youConnId) {
           const mySlot = merged.find((s) => s && s.connId === youConnId) || null;
@@ -2191,6 +2202,8 @@ function drainRemoteInputJitterBuffers() {
   for (const [connId, queue] of remoteInputQueuesByConnId) {
     if (!queue || queue.length === 0) continue;
 
+    // * Drain every frame past the jitter delay in one pass (catch-up after hitch/burst).
+    // * Continuous axes take the last sample; nitro rising-edge + hop fire per frame.
     while (queue.length > 0 && queue[0].t <= now - delay) {
       const applied = queue.shift();
 

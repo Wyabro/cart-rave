@@ -13,12 +13,15 @@
 Docs are grouped by kind. Two entry points live at the `docs/` root: this index and
 [brand.md](./brand.md) (the canonical naming freeze — prefer it when docs disagree).
 
+**Agent / session rehydration:** start with [STATUS.md](./STATUS.md) (current focus, next actions, gotchas).
+
 ### `planning/` — status & forward-looking
 
 Three docs split cleanly by time — **past / present / future**:
 
 | Doc | Purpose |
 |-----|---------|
+| [STATUS.md](./STATUS.md) | **Session source of truth** — rehydration, current focus, next actions |
 | [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
 | [planning/project-state.md](./planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
@@ -39,6 +42,7 @@ Three docs split cleanly by time — **past / present / future**:
 | Doc | Purpose |
 |-----|---------|
 | [guides/preview-dev.md](./guides/preview-dev.md) | Local multiplayer dev workflow |
+| [guides/visual-qa.md](./guides/visual-qa.md) | Screenshot harness, ablation flags, black-frame battery |
 | [guides/deploy-urls.md](./guides/deploy-urls.md) | Production URLs and deploy verification |
 | [guides/cart-pattern-reuv.md](./guides/cart-pattern-reuv.md) | Cart body second UV for pattern masks (Blender + compress) |
 

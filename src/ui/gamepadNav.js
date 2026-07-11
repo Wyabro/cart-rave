@@ -163,8 +163,17 @@ function updateNav() {
     }
 
     if (a && !prevDpad.a) {
-      if (document.activeElement) {
-        /** @type {HTMLElement} */ (document.activeElement).click();
+      const el = /** @type {HTMLElement|null} */ (document.activeElement);
+      if (el) {
+        // * Press-feedback wiring listens for pointerdown/up, which a bare
+        // * .click() never dispatches — so gamepad confirm used to skip the
+        // * squash/release. Fire them first (skip sliders, which use d-pad
+        // * left/right and would misread a synthetic pointer), then click.
+        if (el.getAttribute("role") !== "slider") {
+          el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+          el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+        }
+        el.click();
       }
     }
 

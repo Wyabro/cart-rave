@@ -581,6 +581,20 @@ export function closeAllConnections() {
   iceServersReady = Promise.resolve();
 }
 
+/**
+ * Close any peer connections not present in the live connection set.
+ * @param {string[] | Set<string>} liveConnIds
+ */
+export function prunePeers(liveConnIds) {
+  const live = new Set(liveConnIds);
+  for (const connId of [...peerConnections.keys()]) {
+    if (!live.has(connId)) {
+      console.log(`[p2p] Pruning peer connection to ${connId} (not in live slots)`);
+      cleanupPeer(connId);
+    }
+  }
+}
+
 /** @returns {number} Grace period used for ICE "disconnected" before teardown (ms). */
 export function getIceDisconnectGraceMs() {
   return ICE_DISCONNECT_GRACE_MS;

@@ -18,6 +18,7 @@ import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { updateKoHitmarkers } from "./effects/koHitmarkerFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
+import { frameBudgetAllow } from "./utils/frameBudget.js";
 import { isComposerBypassActive } from "./scene.js";
 
 
@@ -321,7 +322,10 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
   // * Water-death FX (Sundial Station): entry splashes on waterline crossings + live
   // * splash/detonation animations. Instant no-op on levels without a water plane.
-  updateWaterDeathFx(allCarts, now, dt);
+  // * Yield under frame pressure — particles keep last pose for a frame.
+  if (frameBudgetAllow("water_fx", now)) {
+    updateWaterDeathFx(allCarts, now, dt);
+  }
   updateKoHitmarkers(now, dt);
 
   // Leader glow: neon cart color at rest, brief white emissive flash at pulse peak.
@@ -414,9 +418,14 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     deps.updateResultsOverlay();
   }
   lastResultsOverlayPhase = roundState.phase;
-  deps.positionNameLabels();
+  // * Nametags: skip a frame under load (positions stay; one-frame lag is invisible).
+  if (frameBudgetAllow("labels", now)) {
+    deps.positionNameLabels();
+  }
 
-  Effects.updateAmbientParticles(dt, now);
+  if (frameBudgetAllow("ambient", now)) {
+    Effects.updateAmbientParticles(dt, now);
+  }
 
   // * Shake amplitudes are tuned in px (CONFIG.ramming.fx.shakePixelScale); convert to
   // * radians against viewport height so perceived amplitude matches the old DOM shake.
@@ -548,5 +557,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     arcadePass.uniforms.uSuddenDeath.value = _arcadeSuddenDeathSmoothed;
   }
 
-  Effects.updateTrashParticles(dt);
+  if (frameBudgetAllow("trash", now)) {
+    Effects.updateTrashParticles(dt);
+  }
 }

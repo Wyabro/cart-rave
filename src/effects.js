@@ -12,6 +12,8 @@ import { clamp } from "./utils.js";
 import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { createPhysicalMaterial } from "./scene.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
+import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
+import { registerMirrorExclude } from "./utils/cheapMirror.js";
 
 let crowdInstanceCount = 5000;
 const CROWD_SEARCHLIGHT_SPEEDS = [0.2, 0.35, 0.5, 0.25];
@@ -626,6 +628,8 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     const mesh = new THREE.InstancedMesh(variantGeos[v], mat, capacities[v]);
     mesh.count = 0;
     mesh.frustumCulled = true;
+    // * Out of the vinyl mirror so carts read cleanly (not drowned by 5k silhouettes).
+    registerMirrorExclude(mesh);
     crowdLayers.push({
       mesh,
       baseY: new Float32Array(capacities[v]),
@@ -1659,7 +1663,10 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       }
     }
 
+    // * Hundreds of shell/fascia/rib draws → a handful of merged material draws.
+    mergeStaticMeshesByMaterial(stadiumGroup, { deep: true });
     scene.add(stadiumGroup);
+    registerMirrorExclude(stadiumGroup);
   }
 
   crowdSearchlightEntries = [];
@@ -2677,6 +2684,7 @@ function addLaserBeam(scene, {
   }
   laser.rotateX(tiltX);
   scene.add(laser);
+  registerMirrorExclude(laser);
   laserEntries.push({
     mesh: laser,
     sheathMat: laserMat,
@@ -2810,6 +2818,8 @@ export function initStage(scene, pitInnerRadius, cartColors) {
   const ledScreenMat = new THREE.MeshBasicMaterial({ map: ledTex });
   const ledScreen = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 0.3), ledScreenMat);
   ledScreen.position.set(0, 9, -4);
+  // * Canvas texture is updated live — keep as its own draw.
+  ledScreen.userData.noMerge = true;
   stageGroup.add(ledScreen);
   const ledFrame = new THREE.Mesh(new THREE.BoxGeometry(16.5, 8.5, 0.2), stageFrameMat);
   ledFrame.position.set(0, 9, -4.3);
@@ -2862,6 +2872,9 @@ export function initStage(scene, pitInnerRadius, cartColors) {
   stageGroup.lookAt(0, stageGroup.position.y, 0);
   scene.add(stageGroup);
   stageGroup.updateMatrixWorld(true);
+  // * Poles/speakers/neon → few draws; LED screen stays separate (noMerge).
+  // * Stage stays IN the mirror (readable hardware silhouette on the vinyl).
+  mergeStaticMeshesByMaterial(stageGroup, { deep: true });
 }
 
 /**
@@ -3060,9 +3073,12 @@ export function initBillboard(scene, pitInnerRadius) {
     const faceAngle = face * Math.PI * 0.5;
     const faceGroup = new THREE.Group();
     const bbScreen = new THREE.Mesh(bbScreenGeo, bbScreenMat);
+    // * Live canvas texture — do not merge into static batches.
+    bbScreen.userData.noMerge = true;
     faceGroup.add(bbScreen);
     const bbScanlines = new THREE.Mesh(bbScreenGeo, bbScanMat);
     bbScanlines.position.z = 0.01;
+    bbScanlines.userData.noMerge = true;
     faceGroup.add(bbScanlines);
     for (let p = 0; p < bbFrameParts.length; p += 1) {
       const { x, y } = bbFrameParts[p];
@@ -3091,7 +3107,9 @@ export function initBillboard(scene, pitInnerRadius) {
   billboardGroup.add(bbLightR);
 
   billboardGroup.position.set(0, 15, 0);
+  mergeStaticMeshesByMaterial(billboardGroup, { deep: true });
   scene.add(billboardGroup);
+  registerMirrorExclude(billboardGroup);
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   animateMenuDismiss,
   animateMenuReveal,
   animateMuteToggle,
+  animateTogglePop,
   animateVolumeTick,
   cancelAnimationsIn,
   fadeIn,
@@ -608,6 +609,7 @@ export function init(options = {}, hudContext = {}) {
     const next = !settingsStore.getState().announcerVoiceEnabled;
     settingsStore.getState().setAnnouncerVoiceEnabled(next);
     syncAnnouncerVoiceButtonState(next);
+    animateTogglePop(elements.announcerVoiceBtn);
   });
 
   const syncAnnouncerCalloutsButtonState = (enabled) => {
@@ -623,6 +625,7 @@ export function init(options = {}, hudContext = {}) {
     const next = !settingsStore.getState().announcerCalloutsEnabled;
     settingsStore.getState().setAnnouncerCalloutsEnabled(next);
     syncAnnouncerCalloutsButtonState(next);
+    animateTogglePop(elements.announcerCalloutsBtn);
   });
 
   wireEscButtonFeedback(elements.announcerVoiceBtn);
@@ -725,6 +728,7 @@ export function init(options = {}, hudContext = {}) {
     if (bloomPass) bloomPass.enabled = next;
     if (fxPass) fxPass.enabled = next;
     syncPostFxButtonState(next);
+    animateTogglePop(elements.postFxBtn);
   });
 
   elements.lowQualityBtn = document.createElement("button");
@@ -736,6 +740,7 @@ export function init(options = {}, hudContext = {}) {
     const current = _options.getQualityTier ? _options.getQualityTier() : getQualityTier();
     const next = order[(order.indexOf(current) + 1) % order.length];
     syncQualityTierButtonState(next);
+    animateTogglePop(elements.lowQualityBtn);
     if (_options.onQualityTierChange) _options.onQualityTierChange(next);
   });
 
