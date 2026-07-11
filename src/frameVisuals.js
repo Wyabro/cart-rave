@@ -15,6 +15,7 @@ import * as GroceryPool from "./effects/groceryPool.js";
 import { updateCargoLoad } from "./cargoLoad.js";
 import { updateDirectiveEngine, getActiveDirective } from "./directives/directiveEngine.js";
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
+import { updateKoHitmarkers } from "./effects/koHitmarkerFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { isComposerBypassActive } from "./scene.js";
@@ -321,6 +322,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   // * Water-death FX (Sundial Station): entry splashes on waterline crossings + live
   // * splash/detonation animations. Instant no-op on levels without a water plane.
   updateWaterDeathFx(allCarts, now, dt);
+  updateKoHitmarkers(now, dt);
 
   // Leader glow: neon cart color at rest, brief white emissive flash at pulse peak.
   {

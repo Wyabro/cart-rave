@@ -109,6 +109,7 @@ import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
 import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
+import { spawnKoWorldHitmarker } from "./effects/koHitmarkerFx.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
@@ -953,6 +954,31 @@ async function main() {
       strength: koEvent.isKill ? 0.6 : 0.35,
       durationMs: koEvent.isKill ? 340 : 240,
     });
+    // * World hitmarker at the victim — every peer sees where the KO landed.
+    const victim = allCarts?.[koEvent.victimSlotIndex];
+    if (scene && victim) {
+      let px = 0;
+      let py = 1;
+      let pz = 0;
+      if (victim.body) {
+        const t = victim.body.translation();
+        px = t.x;
+        py = t.y + 0.55;
+        pz = t.z;
+      } else if (victim.mesh) {
+        px = victim.mesh.position.x;
+        py = victim.mesh.position.y + 0.35;
+        pz = victim.mesh.position.z;
+      }
+      spawnKoWorldHitmarker(
+        scene,
+        px,
+        py,
+        pz,
+        hex,
+        koEvent.isKill ? 1.05 : 0.6,
+      );
+    }
     // * Scoreboard rampage pips ride this reactor because it fires for every fall on
     // * every client: refresh the attacker's streak, clear the fallen victim's.
     if (koEvent.attackerSlotIndex != null && (koEvent.comboTier ?? 0) > 0) {

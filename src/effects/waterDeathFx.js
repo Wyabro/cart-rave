@@ -25,6 +25,18 @@ import * as THREE from "three";
 import { CONFIG } from "../config.js";
 import { playWaterSplash, playWaterDeathBoom } from "../sfxSynth.js";
 import { isLowQualityMode } from "../utils.js";
+import { getQualityTier } from "../utils/qualityMode.js";
+
+/**
+ * Ambient ocean caustic strength by quality tier (0 = off on low).
+ * @returns {number}
+ */
+function resolveAmbientCausticStrength() {
+  const tier = getQualityTier();
+  if (tier === "low") return 0;
+  if (tier === "medium") return 0.45;
+  return 0.85;
+}
 
 const MAX_ACTIVE_EFFECTS = 16; // hard cap — splash + overlays + burst layers can stack
 const TELEPORT_JUMP_M = 8; // per-frame Y jump larger than this is a respawn, not a fall
@@ -277,6 +289,7 @@ const rippleDataVecs = [
  * @type {{
  *   uRippleData: { value: THREE.Vector4[] },
  *   uRippleTime: { value: number },
+ *   uAmbientCaustic: { value: number },
  * } | null}
  */
 let waterRippleUniforms = null;
@@ -295,6 +308,7 @@ function patchWaterMaterialForRipples(mat) {
   waterRippleUniforms = {
     uRippleData: { value: rippleDataVecs },
     uRippleTime: { value: 0 },
+    uAmbientCaustic: { value: resolveAmbientCausticStrength() },
   };
   mat.userData.waterRippleUniforms = waterRippleUniforms;
 
@@ -302,8 +316,13 @@ function patchWaterMaterialForRipples(mat) {
   mat.onBeforeCompile = (shader, renderer) => {
     if (typeof prevOnBeforeCompile === "function") prevOnBeforeCompile(shader, renderer);
 
+    // * Refresh caustic strength at compile time from current tier.
+    const causticStr = resolveAmbientCausticStrength();
+    waterRippleUniforms.uAmbientCaustic.value = causticStr;
+
     shader.uniforms.uRippleData = waterRippleUniforms.uRippleData;
     shader.uniforms.uRippleTime = waterRippleUniforms.uRippleTime;
+    shader.uniforms.uAmbientCaustic = waterRippleUniforms.uAmbientCaustic;
 
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -327,6 +346,7 @@ function patchWaterMaterialForRipples(mat) {
           "#include <common>",
           "uniform vec4 uRippleData[4];",
           "uniform float uRippleTime;",
+          "uniform float uAmbientCaustic;",
           "varying vec3 vWaterWorldPos;",
         ].join("\n"),
       )
@@ -362,12 +382,29 @@ function patchWaterMaterialForRipples(mat) {
           "\t\tvec2 dir = dist > 1e-4 ? d / dist : vec2( 0.0 );",
           "\t\trippleN += vec3( dir.x, 0.0, dir.y ) * amp * 2.2;",
           "\t}",
+          "\t// * Always-on ambient caustic lace (cheap multi-sine; quality-scaled).",
+          "\tfloat caust = 0.0;",
+          "\tif ( uAmbientCaustic > 0.01 ) {",
+          "\t\tfloat ct = uRippleTime * 0.55;",
+          "\t\tvec2 cp = wXZ * 0.085;",
+          "\t\tfloat c1 = sin( cp.x * 3.1 + ct ) * sin( cp.y * 2.7 - ct * 0.8 );",
+          "\t\tfloat c2 = sin( ( cp.x * 0.75 - cp.y ) * 4.0 + ct * 1.25 );",
+          "\t\tfloat c3 = sin( cp.x * 5.2 + cp.y * 3.4 - ct * 0.55 );",
+          "\t\tcaust = c1 * 0.45 + c2 * 0.35 + c3 * 0.25;",
+          "\t\tcaust = pow( clamp( caust * 0.5 + 0.5, 0.0, 1.0 ), 2.4 );",
+          "\t\t// * Mild normal tilt so highlights crawl (not a second normal map).",
+          "\t\trippleN += vec3( c1, 0.0, c2 ) * ( 0.12 * uAmbientCaustic );",
+          "\t\tsheen += caust * 0.35 * uAmbientCaustic;",
+          "\t}",
           "\tif ( dot( rippleN, rippleN ) > 0.0 ) {",
           "\t\tnormal = normalize( normal + rippleN );",
           "\t}",
-          "\t// * Stash sheen on a free channel — applied after color_fragment below.",
           "\tdiffuseColor.a = clamp( diffuseColor.a + sheen * 0.01, 0.0, 1.0 );",
           "\tdiffuseColor.rgb += vec3( 0.14, 0.18, 0.2 ) * sheen * 0.55;",
+          "\t// * Warm sun-kissed caustic flecks (subtle).",
+          "\tif ( caust > 0.01 ) {",
+          "\t\tdiffuseColor.rgb += vec3( 0.12, 0.16, 0.14 ) * caust * 0.22 * uAmbientCaustic;",
+          "\t}",
           "}",
         ].join("\n"),
       );
@@ -376,7 +413,7 @@ function patchWaterMaterialForRipples(mat) {
   const prevKey = mat.customProgramCacheKey?.bind(mat);
   mat.customProgramCacheKey = () => {
     const base = typeof prevKey === "function" ? prevKey() : "";
-    return `${base}|waterRippleV1`;
+    return `${base}|waterRippleV2caustic`;
   };
   mat.needsUpdate = true;
 }

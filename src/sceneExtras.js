@@ -1,5 +1,5 @@
-// sceneExtras.js — reusable space-skybox environment: starfield, nebula, planets,
-// galaxies, UFOs, drifting spotlight system, ground disc/grid, and horizon fog.
+// sceneExtras.js — Classic Record space-skybox: neon void dome, starfield, nebula,
+// planets, galaxies, UFOs, spotlights, ground disc/grid, and horizon fog.
 //
 // Built per-level so a level switch can dispose the old extras and rebuild them against
 // the new arena's pitInnerRadius (the ground ring inner radius depends on it).
@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import { CONFIG, CART_COLORS } from "./config.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
+import { isLowQualityMode } from "./utils.js";
 
 /** Slow sky yaw (rad/s) — full turn ~7 min; reads as living void without spinning hard. */
 const SKY_YAW_RAD_PER_SEC = 0.015;
@@ -129,31 +130,165 @@ function createStarfield(ctx) {
 }
 
 /**
- * Fewer, stronger nebulae beat a wall of faint spheres. Far layer = wallpaper depth.
+ * Original neon-void sky dome for Classic Record — black + cart neon (pink/cyan/violet),
+ * slow volumetric ribbons. Inspired by the *mood* of raymarched club skies, not a port
+ * of any third-party Shadertoy listing.
+ *
+ * @param {{ addToFar: Function, disposables: object[] }} ctx
+ * @returns {THREE.ShaderMaterial} Material (uTime driven from extras update).
+ */
+function createNeonVoidSky(ctx) {
+  const lowQ = isLowQualityMode();
+  // * Large enough to sit behind star shells (r ~95–240).
+  const geo = new THREE.SphereGeometry(260, lowQ ? 24 : 40, lowQ ? 16 : 28);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      uTime: { value: 0 },
+      uPink: { value: new THREE.Color(CART_COLORS.pink.hex) },
+      uCyan: { value: new THREE.Color(CART_COLORS.blue.hex) },
+      uViolet: { value: new THREE.Color(0x7a2bff) },
+      uYellow: { value: new THREE.Color(CART_COLORS.yellow.hex) },
+      // * Match renderer fog so the lower sky seams into the arena void.
+      uVoid: { value: new THREE.Color(CONFIG.postFx.fog.color) },
+      // * 0 = fewer steps / cheaper noise; 1 = full quality.
+      uQuality: { value: lowQ ? 0 : 1 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vDir;
+      void main() {
+        // * Local sphere position = sky sample direction (mesh is not scaled non-uniformly).
+        vDir = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uPink;
+      uniform vec3 uCyan;
+      uniform vec3 uViolet;
+      uniform vec3 uYellow;
+      uniform vec3 uVoid;
+      uniform float uQuality;
+      varying vec3 vDir;
+
+      // * Cheap smooth value-ish noise from phase-offset sines (original; not a gold-ratio lattice).
+      float smoke(vec3 p) {
+        float a = sin(p.x * 1.31 + p.y * 0.77 + cos(p.z * 1.09));
+        float b = sin(p.y * 1.67 - p.z * 0.91 + cos(p.x * 1.23 + 1.7));
+        float c = sin(p.z * 1.41 + p.x * 0.83 + cos(p.y * 1.17 - 0.9));
+        return (a * b + c * 0.65) * 0.35 + 0.5;
+      }
+
+      float fbm(vec3 p) {
+        float v = 0.0;
+        float a = 0.5;
+        v += a * smoke(p); p = p * 2.07 + 3.1; a *= 0.5;
+        v += a * smoke(p); p = p * 2.11 - 1.7; a *= 0.5;
+        if (uQuality > 0.5) {
+          v += a * smoke(p);
+        }
+        return v;
+      }
+
+      void main() {
+        vec3 rd = normalize(vDir);
+        float t = uTime * 0.07;
+
+        // * Mild spin so the void feels alive even if the group yaw is slow.
+        float cs = cos(t * 0.35);
+        float sn = sin(t * 0.35);
+        vec3 d = rd;
+        d.xz = mat2(cs, -sn, sn, cs) * d.xz;
+
+        vec3 col = uVoid;
+        // * Fake volume: a few depth shells of domain-warped neon density (not a full raymarcher).
+        const int MAX_STEPS = 7;
+        int steps = uQuality > 0.5 ? MAX_STEPS : 4;
+        for (int i = 0; i < MAX_STEPS; i++) {
+          if (i >= steps) break;
+          float fi = float(i);
+          float z = 0.55 + fi * 0.42;
+          vec3 p = d * z * 2.4;
+          // * Domain warp — swirling club smoke.
+          vec3 q = p;
+          q.x += 0.45 * sin(p.z * 1.4 + t * 1.2 + fi * 0.3);
+          q.y += 0.35 * cos(p.x * 1.1 - t * 0.9);
+          q.z += 0.4 * sin(p.y * 1.3 + t * 0.7);
+
+          float n = fbm(q * 1.15 + vec3(t * 0.4, -t * 0.25, t * 0.15));
+          float n2 = fbm(q * 2.3 - vec3(t * 0.5, t * 0.2, -t * 0.3));
+          // * Ribbons / sheets: denser bands, black between.
+          float band = smoothstep(0.42, 0.72, n) * (0.35 + 0.65 * smoothstep(0.35, 0.8, n2));
+          float sheet = pow(max(0.0, 1.0 - abs(q.y * 0.55 + sin(q.x * 1.2 + t) * 0.35)), 2.2);
+          float dens = band * (0.55 + 0.45 * sheet);
+
+          // * More energy above the arena; pull to pure void near/below horizon.
+          dens *= smoothstep(-0.45, 0.55, d.y);
+
+          // * Palette cycle along the ray (pink ↔ cyan ↔ violet, tiny yellow sparks).
+          float hue = 0.5 + 0.5 * sin(fi * 0.9 + t * 1.1 + d.x * 2.5 + n * 3.0);
+          vec3 neon = mix(uPink, uCyan, hue);
+          neon = mix(neon, uViolet, smoothstep(0.35, 0.85, n2));
+          float spark = pow(max(0.0, n2 - 0.78) / 0.22, 2.0);
+          neon = mix(neon, uYellow, spark * 0.35);
+
+          // * Accumulate into black — density is the only light.
+          col += neon * dens * (0.11 + 0.04 * (1.0 - fi / float(MAX_STEPS)));
+        }
+
+        // * Soft horizon melt into fog/clear color so ground + sky don't seam.
+        float horizon = smoothstep(0.2, -0.55, d.y);
+        col = mix(col, uVoid, horizon * 0.9);
+
+        // * Gentle rolloff so bloom doesn't turn the whole sky into a white plate.
+        col = col / (vec3(1.0) + col * 0.55);
+        // * Keep a floor of void black in the darkest pockets.
+        col = max(col, uVoid * 0.15);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  mat.toneMapped = true;
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.name = "neonVoidSky";
+  mesh.renderOrder = -20;
+  mesh.frustumCulled = false;
+  ctx.addToFar(mesh);
+  ctx.disposables.push(geo, mat);
+  return mat;
+}
+
+/**
+ * Soft additive nebula blips — secondary to {@link createNeonVoidSky}, kept sparse.
  * @param {{ addToFar: Function, disposables: object[] }} ctx
  */
 function createNebulaClouds(ctx) {
-  const nebulaColors = [0x6600aa, 0xaa0066, 0x003366, 0x440066];
+  const nebulaColors = [CART_COLORS.pink.hex, CART_COLORS.blue.hex, 0x7a2bff, 0x440066];
   const sharedGeo = new THREE.SphereGeometry(1, 16, 16);
-  const count = 5;
+  const count = 3;
 
   for (let i = 0; i < count; i++) {
     const mat = new THREE.MeshBasicMaterial({
       color: nebulaColors[i % nebulaColors.length],
       transparent: true,
-      opacity: 0.1 + Math.random() * 0.07,
+      opacity: 0.06 + Math.random() * 0.04,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.BackSide,
     });
 
     const mesh = new THREE.Mesh(sharedGeo, mat);
-    const scale = 32 + Math.random() * 40;
+    const scale = 28 + Math.random() * 36;
     mesh.scale.set(scale, scale * (0.65 + Math.random() * 0.5), scale);
 
     const theta = (i / count) * Math.PI * 2 + Math.random() * 0.35;
-    const phi = 0.3 + Math.random() * 0.8;
-    const r = 150 + Math.random() * 50;
+    const phi = 0.35 + Math.random() * 0.7;
+    const r = 155 + Math.random() * 40;
     mesh.position.set(
       r * Math.sin(phi) * Math.cos(theta),
       r * Math.cos(phi),
@@ -779,6 +914,8 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
     createRadialTexture: (stops) => createRadialTexture(stops, ctx),
   };
 
+  // * Neon void dome first (behind stars); sparse nebula blips + landmarks on top.
+  const neonVoidSkyMat = createNeonVoidSky(ctx);
   createStarfield(ctx);
   createNebulaClouds(ctx);
   createPlanets(ctx);
@@ -807,6 +944,9 @@ export function initSceneExtras(scene, pitInnerRadius, options = {}) {
         return;
       }
       const t = timeMs * 0.001;
+      if (neonVoidSkyMat?.uniforms?.uTime) {
+        neonVoidSkyMat.uniforms.uTime.value = t;
+      }
       const baseYaw = t * SKY_YAW_RAD_PER_SEC;
       skyFar.rotation.y = baseYaw;
       skyMid.rotation.y = baseYaw * 1.12;

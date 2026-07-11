@@ -357,8 +357,9 @@ const ArcadeFxShader = {
         uv += dirN * hitWarp / aspect;
       }
 
-      // VHS: per-scanline micro-jitter + rare tracking band (displaces the sample).
+      // VHS: per-scanline micro-jitter + tracking band + rare hard "tear" (Storerooms).
       float trackBand = 0.0;
+      float tear = 0.0;
       if (uVhsAmount > 0.001) {
         float line = floor(vUv.y * uResolution.y);
         float lineNoise = hash(line * 0.137 + floor(uTime * 47.0) * 3.117);
@@ -370,12 +371,27 @@ const ArcadeFxShader = {
           trackBand = (1.0 - smoothstep(0.0, 0.035, abs(vUv.y - bandY))) * uVhsAmount;
           uv.x += trackBand * (7.0 / uResolution.x);
         }
+
+        // * Rare tracking tear: wider slice, bigger hold-frame displace (not always-on).
+        // * Fires briefly ~3× less often than the soft tracking band.
+        float tearClock = mod(uTime * 0.31 + 7.3, uVhsTrackPeriod * 1.65);
+        if (tearClock < 0.28) {
+          float tearY = fract(sin(floor(uTime * 0.31 + 7.3) * 12.9898) * 43758.5453);
+          float tearW = 0.045 + 0.03 * hash(floor(uTime * 2.0));
+          tear = (1.0 - smoothstep(0.0, tearW, abs(vUv.y - tearY))) * uVhsAmount;
+          float tearAge = tearClock / 0.28;
+          uv.x += tear * (22.0 / uResolution.x) * (1.0 - tearAge * 0.7);
+          // * Mild vertical roll inside the tear.
+          uv.y += tear * (3.0 / uResolution.y) * sin(uTime * 40.0);
+        }
       }
 
       // VHS: slow chroma wobble rides the aberration strength (~±35% on a ~6s cycle).
       float aberration = uAberration * (1.0 + uVhsAmount * 0.35 * sin(uTime * 1.05));
       aberration += shockRing * uFlash * 0.018;
       aberration += hitRing * uHitStrength * 0.01;
+      // * Tear gets a touch more prism (security cam glitch).
+      aberration += tear * 0.012;
       vec2 offset = dist > 1e-4 ? normalize(dir) * dist * aberration : vec2(0.0);
       float r = texture2D(tDiffuse, uv + offset).r;
       float g = texture2D(tDiffuse, uv).g;
@@ -390,6 +406,20 @@ const ArcadeFxShader = {
         float n = hash(dot(vUv * uResolution, vec2(0.129898, 0.78233)) + uTime * 60.0);
         color.rgb += (n - 0.5) * uVhsNoise * uVhsAmount;
         color.rgb += trackBand * 0.06;
+        color.rgb += tear * 0.08;
+      }
+
+      // * KO static burst on Storerooms — only while kill-flash is live (not always-on noise).
+      if (uVhsAmount > 0.001 && uFlash > 0.001) {
+        float sn = hash(dot(vUv * uResolution, vec2(0.271, 0.593)) + floor(uTime * 90.0));
+        float lineSn = hash(floor(vUv.y * uResolution.y * 0.5) + floor(uTime * 30.0) * 1.7);
+        float staticMix = uFlash * uVhsAmount * 0.72;
+        color.rgb = mix(color.rgb, vec3(sn), staticMix * 0.55);
+        // * Horizontal hold-lines during the KO static.
+        color.rgb += (lineSn - 0.5) * staticMix * 0.12;
+        // * Brief desat so it reads as tape, not rainbow noise.
+        float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+        color.rgb = mix(color.rgb, vec3(luma), staticMix * 0.35);
       }
 
       float vig = smoothstep(0.8, 0.5 * uVignette, dist * (uVignette * 0.5 + 0.5));

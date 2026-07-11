@@ -56,8 +56,45 @@ let confettiRafId = null;
 let confettiCanvas = null;
 
 /**
+ * Parse CSS color (#rgb / #rrggbb / rgb()) to [r,g,b] 0–255. Fallback: hot pink.
+ * @param {string} css
+ * @returns {[number, number, number]}
+ */
+function parseCssRgb(css) {
+  if (typeof css !== "string") return [255, 43, 214];
+  const hex = css.trim();
+  const m3 = /^#([0-9a-f]{3})$/i.exec(hex);
+  if (m3) {
+    const h = m3[1];
+    return [
+      parseInt(h[0] + h[0], 16),
+      parseInt(h[1] + h[1], 16),
+      parseInt(h[2] + h[2], 16),
+    ];
+  }
+  const m6 = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (m6) {
+    const h = m6[1];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  const mRgb = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(hex);
+  if (mRgb) {
+    return [
+      Math.round(Number(mRgb[1])),
+      Math.round(Number(mRgb[2])),
+      Math.round(Number(mRgb[3])),
+    ];
+  }
+  return [255, 43, 214];
+}
+
+/**
  * Fires a winner-colored confetti burst over the results overlay. Self-contained
- * canvas animation (~2.8s) that cleans itself up; respects reduced motion.
+ * canvas animation (~4.0s) that cleans itself up; respects reduced motion.
+ *
+ * Visual: tumbling paper chips + soft additive neon glows (Shadertoy-style gaussian
+ * blobs — original canvas impl, game palette). Overlay stays transparent so the
+ * podium UI/game still read underneath.
  *
  * @param {HTMLElement} overlay Results overlay root (position: fixed container).
  * @param {string[]} colors CSS colors — index 0 is the winner's neon (weighted heavier).
@@ -93,24 +130,34 @@ export function spawnResultsConfetti(overlay, colors) {
   }
   ctx.scale(dpr, dpr);
 
-  const DURATION_MS = 2800;
-  const COUNT = Math.round(Math.min(150, Math.max(90, w / 9)));
+  // * Club confetti palette (gold / cyan / pink / green) — winner color is mixed in.
+  const NEON_PAL = ["#fadb2e", "#33c7f5", "#f2578a", "#7aeb66"];
+  const palette = [colors[0], ...NEON_PAL, ...colors.slice(1)].filter(Boolean);
+
+  const DURATION_MS = 4000;
+  const COUNT = Math.round(Math.min(170, Math.max(100, w / 8)));
+  /** @type {{ x: number, y: number, vx: number, vy: number, rot: number, vrot: number, w: number, h: number, flutter: number, phase: number, rgb: [number, number, number], glowR: number }[]} */
   const pieces = [];
   for (let i = 0; i < COUNT; i += 1) {
-    // * Weight the winner's color ~40% of pieces, the accent palette for the rest.
-    const color = Math.random() < 0.4 ? colors[0] : colors[Math.floor(Math.random() * colors.length)];
+    // * Weight the winner's color ~40% of pieces, neon accents for the rest.
+    const colorCss = Math.random() < 0.4
+      ? colors[0]
+      : palette[Math.floor(Math.random() * palette.length)];
+    const rgb = parseCssRgb(colorCss);
     pieces.push({
       x: Math.random() * w,
       y: -20 - Math.random() * h * 0.35,
-      vx: (Math.random() - 0.5) * 110,
-      vy: 90 + Math.random() * 160,
+      vx: (Math.random() - 0.5) * 120,
+      vy: 80 + Math.random() * 170,
       rot: Math.random() * Math.PI * 2,
-      vrot: (Math.random() - 0.5) * 9,
-      w: 5 + Math.random() * 5,
-      h: 8 + Math.random() * 7,
+      vrot: (Math.random() - 0.5) * 10,
+      w: 5 + Math.random() * 6,
+      h: 8 + Math.random() * 8,
       flutter: 1.5 + Math.random() * 2.5,
       phase: Math.random() * Math.PI * 2,
-      color,
+      rgb,
+      // * Soft bloom radius (px) — larger = more Shadertoy-like glow blobs.
+      glowR: 10 + Math.random() * 16,
     });
   }
 
@@ -126,24 +173,51 @@ export function spawnResultsConfetti(overlay, colors) {
       confettiRafId = null;
       return;
     }
-    const fade = elapsed > DURATION_MS - 600 ? (DURATION_MS - elapsed) / 600 : 1;
+    const fade = elapsed > DURATION_MS - 700 ? (DURATION_MS - elapsed) / 700 : 1;
     ctx.clearRect(0, 0, w, h);
+
+    // * Additive pass — soft neon glows stack like exp(-dsq) blobs in fragment shaders.
+    ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = fade;
+
     for (const p of pieces) {
-      p.vy += 250 * dt;
+      p.vy += 240 * dt;
       p.x += (p.vx + Math.sin(p.phase + elapsed * 0.004) * p.flutter * 22) * dt;
       p.y += p.vy * dt;
       p.rot += p.vrot * dt;
-      if (p.y > h + 24) continue;
+      if (p.y > h + 40 || p.y < -80) continue;
+
+      const [r, g, b] = p.rgb;
+      // * Pulse glow slightly so the field feels alive.
+      const pulse = 0.75 + 0.25 * Math.sin(p.phase + elapsed * 0.008);
+      const gr = p.glowR * pulse;
+
+      // * Soft core: canvas radial gradient ≈ exp falloff (hot center → transparent).
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, gr);
+      grad.addColorStop(0, `rgba(${r},${g},${b},${0.95 * pulse})`);
+      grad.addColorStop(0.25, `rgba(${r},${g},${b},${0.45 * pulse})`);
+      grad.addColorStop(0.6, `rgba(${r},${g},${b},${0.12 * pulse})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, gr, 0, Math.PI * 2);
+      ctx.fill();
+
+      // * Hard confetti chip on top of the glow (readable “paper” silhouette).
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
-      // * Fold shimmer — scaling on the sine gives the classic tumbling-paper glint.
-      ctx.scale(1, 0.45 + Math.abs(Math.sin(p.phase + elapsed * 0.006)) * 0.55);
-      ctx.fillStyle = p.color;
+      const fold = 0.45 + Math.abs(Math.sin(p.phase + elapsed * 0.006)) * 0.55;
+      ctx.scale(1, fold);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      // * Specular glint on the fold.
+      ctx.fillStyle = `rgba(255,255,255,${0.35 * fold})`;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w * 0.35, p.h);
       ctx.restore();
     }
+
+    ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
     confettiRafId = requestAnimationFrame(tick);
   };
