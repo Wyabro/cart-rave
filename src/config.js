@@ -352,9 +352,14 @@ export const CONFIG = {
     clockResyncIntervalMs: 30000, // ms — periodic 3-sample median re-sync (arrests slow clock drift)
     // * Host-side delay before applying remote DataChannel inputs. Smooths packet
     // * jitter so remote carts don't stutter when arrival cadence is uneven.
+    // * ackSeq in host snapshots advances only when a frame is *applied* after this
+    // * delay (not on wire receive) so client prediction does not prune unapplied inputs.
     inputJitterBufferMs: 40,
     // * Max queued remote input frames per peer (drop oldest when exceeded).
     inputJitterQueueMax: 24,
+    // * Non-host prediction history cap (physics-rate samples). ~2s at 60 Hz.
+    // * Prevents unbounded growth when snapshots stall (ICE grace, host freeze, migration).
+    predictionPendingInputsMax: 120,
     // * How long to wait for Cloudflare TURN credentials before opening WebRTC with STUN-only.
     turnCredentialsTimeoutMs: 2500,
     // * Min time between host WebRTC re-offer attempts for the same peer (mid-match recovery).

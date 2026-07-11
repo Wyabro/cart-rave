@@ -1174,6 +1174,13 @@ export function sampleLocalInputForTick() {
     input: inputFrame,
     tClient: nowMs,
   });
+  // * Cap prediction history so a stalled snapshot stream (ICE grace, host tab
+  // * freeze, migration gap) cannot grow this list without bound. Drop oldest —
+  // * on recovery, reconcile replays only the recent window (same as a long lag spike).
+  const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
+  while (pendingInputs.length > pendingMax) {
+    pendingInputs.shift();
+  }
 
   if (hostId) {
     P2P.sendToPeer(hostId, {
@@ -2079,6 +2086,12 @@ export const __netcodeTestHooks = {
     serverClockSamples = [];
     clockResyncDueAtMs = 0;
     clockResyncSamples = [];
+    hostLastProcessedInputSeq = new Map();
+    remoteInputQueuesByConnId = new Map();
+    remoteInputsByConnId = new Map();
+    remoteNitroLatchedByConnId = new Map();
+    pendingInputs = [];
+    inputSeq = 0;
   },
   getBufferLength: () => netStateBuffer.length,
   findSnapshotPair: (t) => findSnapshotPair(t),
@@ -2100,12 +2113,37 @@ export const __netcodeTestHooks = {
   ensureHostPeerConnections: () => ensureHostPeerConnections(),
   maintainHostPeerConnections: () => maintainHostPeerConnections(),
   clearPeerReconnectCooldowns: () => peerReconnectNotBeforeMs.clear(),
+  // * Input jitter / ackSeq contract (host path).
+  handleRemoteClientInput: (input, fromConnId, seq) => handleRemoteClientInput(input, fromConnId, seq),
+  drainRemoteInputJitterBuffers: () => drainRemoteInputJitterBuffers(),
+  getHostLastProcessedInputSeq: (connId) => hostLastProcessedInputSeq.get(connId) || 0,
+  getRemoteInputQueueLength: (connId) => remoteInputQueuesByConnId.get(connId)?.length ?? 0,
+  /** Push synthetic pending prediction frames (non-host history). */
+  pushPendingInputForTest: (seq, tClient = performance.now()) => {
+    pendingInputs.push({
+      seq,
+      input: { throttle: 0, steer: 0, nitro: false, hop: false },
+      tClient,
+    });
+    const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
+    while (pendingInputs.length > pendingMax) pendingInputs.shift();
+  },
+  /** Cap helper used by sampleLocalInputForTick — tests can re-apply after bulk push. */
+  capPendingInputsForTest: () => {
+    const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
+    while (pendingInputs.length > pendingMax) pendingInputs.shift();
+  },
 };
 
 /**
  * Host receives remote client input over the unreliable DataChannel.
  * Frames are queued and applied after a short jitter delay so variable packet
  * timing does not stutter remote carts.
+ *
+ * **ackSeq contract:** `hostLastProcessedInputSeq` advances only when a frame is
+ * *applied* in {@link drainRemoteInputJitterBuffers}, not on wire receive. Snapshots
+ * advertise that seq so non-hosts prune `pendingInputs` only after the host has
+ * actually simulated the input (avoids ~jitterBufferMs systematic mis-acks).
  *
  * @param {object} input
  * @param {string} fromConnId
@@ -2120,11 +2158,6 @@ function handleRemoteClientInput(input, fromConnId, seq) {
   const nitro = Boolean(input.nitro);
   const hop = Boolean(input.hop);
   const seqNum = typeof seq === "number" && Number.isFinite(seq) ? seq : 0;
-
-  if (seqNum > 0) {
-    const existingSeq = hostLastProcessedInputSeq.get(fromConnId) || 0;
-    hostLastProcessedInputSeq.set(fromConnId, Math.max(existingSeq, seqNum));
-  }
 
   let queue = remoteInputQueuesByConnId.get(fromConnId);
   if (!queue) {
@@ -2147,6 +2180,7 @@ function handleRemoteClientInput(input, fromConnId, seq) {
  * Applies remote input frames whose age exceeds the jitter buffer delay.
  * Nitro/hop edges fire when each frame is applied (not on wire arrival), so a
  * burst of frames in one drain does not drop intermediate hops.
+ * Advances per-peer ackSeq only for applied frames (see handleRemoteClientInput).
  */
 function drainRemoteInputJitterBuffers() {
   if (!isHost) return;
@@ -2159,6 +2193,11 @@ function drainRemoteInputJitterBuffers() {
 
     while (queue.length > 0 && queue[0].t <= now - delay) {
       const applied = queue.shift();
+
+      if (applied.seq > 0) {
+        const existingSeq = hostLastProcessedInputSeq.get(connId) || 0;
+        hostLastProcessedInputSeq.set(connId, Math.max(existingSeq, applied.seq));
+      }
 
       remoteInputsByConnId.set(connId, {
         throttle: applied.throttle,

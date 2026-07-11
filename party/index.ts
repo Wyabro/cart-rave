@@ -41,6 +41,10 @@ type RoundState = {
 
 import { MSG } from '../shared/protocol.js';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
+import {
+  classifyWsMessagePostParse,
+  classifyWsMessagePreParse,
+} from '../shared/wsMessageLimits.js';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
@@ -880,9 +884,16 @@ export class CartRaveServer extends Server {
   }
 
   async onMessage(connection: Connection, message: string) {
-    // Security: Block massive payload bombs before trying to parse
-    if (message.length > 4096) {
+    // * Size policy (shared/wsMessageLimits.js): drop oversized frames; only
+    // * pathological bombs close the socket. Closing on a fat SDP used to kill
+    // * the whole WebRTC handshake for a room mid-match.
+    const pre = classifyWsMessagePreParse(message.length);
+    if (pre === "close") {
       connection.close(4009, "Payload too large");
+      return;
+    }
+    if (pre === "drop") {
+      console.warn("[cart-rave] dropping oversized WS message", message.length);
       return;
     }
 
@@ -894,6 +905,10 @@ export class CartRaveServer extends Server {
     }
 
     const type = data?.type;
+    if (classifyWsMessagePostParse(message.length, type) === "drop") {
+      console.warn("[cart-rave] dropping oversized WS message", type, message.length);
+      return;
+    }
 
     if (!this.#checkRateLimit(connection.id)) {
       connection.close(4028, "Rate limit exceeded");

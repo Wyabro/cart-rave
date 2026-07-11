@@ -174,6 +174,75 @@ describe("rewind and replay input buffering", () => {
     expect(hooks.getBufferLength()).toBe(1);
     expect(getLatestSnap()?.seq).toBe(1);
   });
+
+  it("caps pending prediction inputs so a stalled snapshot stream cannot grow unbounded", () => {
+    hooks.resetNetState();
+    const max = CONFIG.net.predictionPendingInputsMax ?? 120;
+    for (let i = 1; i <= max + 40; i += 1) {
+      hooks.pushPendingInputForTest(i);
+    }
+    expect(getPendingInputs().length).toBe(max);
+    // * Oldest frames dropped — remaining are the newest `max` seqs.
+    expect(getPendingInputs()[0].seq).toBe(41);
+    expect(getPendingInputs()[max - 1].seq).toBe(max + 40);
+  });
+});
+
+describe("host input jitter ackSeq (apply, not receive)", () => {
+  beforeEach(() => {
+    hooks.resetNetState();
+    hooks.setHostStateForTest({ isHost: true });
+  });
+
+  it("does not advance ackSeq until the jitter buffer drains the frame", () => {
+    hooks.handleRemoteClientInput(
+      { throttle: 1, steer: 0, nitro: false, hop: false },
+      "peerA",
+      7,
+    );
+    expect(hooks.getRemoteInputQueueLength("peerA")).toBe(1);
+    expect(hooks.getHostLastProcessedInputSeq("peerA")).toBe(0);
+
+    // * Immediate drain — frame is younger than inputJitterBufferMs, still queued.
+    hooks.drainRemoteInputJitterBuffers();
+    expect(hooks.getRemoteInputQueueLength("peerA")).toBe(1);
+    expect(hooks.getHostLastProcessedInputSeq("peerA")).toBe(0);
+  });
+
+  it("advances ackSeq only for frames that leave the jitter buffer", async () => {
+    const delay = CONFIG.net.inputJitterBufferMs ?? 40;
+    hooks.handleRemoteClientInput(
+      { throttle: 0.5, steer: -0.2, nitro: false, hop: false },
+      "peerB",
+      11,
+    );
+    hooks.handleRemoteClientInput(
+      { throttle: 0, steer: 1, nitro: false, hop: false },
+      "peerB",
+      12,
+    );
+    expect(hooks.getHostLastProcessedInputSeq("peerB")).toBe(0);
+
+    await new Promise((r) => setTimeout(r, delay + 20));
+    hooks.drainRemoteInputJitterBuffers();
+
+    expect(hooks.getRemoteInputQueueLength("peerB")).toBe(0);
+    expect(hooks.getHostLastProcessedInputSeq("peerB")).toBe(12);
+  });
+
+  it("acks the highest applied seq when multiple frames drain in one pass", async () => {
+    const delay = CONFIG.net.inputJitterBufferMs ?? 40;
+    for (const seq of [3, 5, 8]) {
+      hooks.handleRemoteClientInput(
+        { throttle: 1, steer: 0, nitro: false, hop: false },
+        "peerC",
+        seq,
+      );
+    }
+    await new Promise((r) => setTimeout(r, delay + 20));
+    hooks.drainRemoteInputJitterBuffers();
+    expect(hooks.getHostLastProcessedInputSeq("peerC")).toBe(8);
+  });
 });
 
 describe("declashNpcSlotColors", () => {
