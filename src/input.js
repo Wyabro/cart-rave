@@ -31,6 +31,23 @@ let _isUiMode = false;
 /** @type {'keyboard'|'gamepad'|'touch'} */
 let currentInputMode = "keyboard";
 
+/** @type {Set<(mode: 'keyboard'|'gamepad'|'touch') => void>} */
+const inputModeListeners = new Set();
+
+/**
+ * Subscribe to input-mode changes (keyboard / gamepad / touch).
+ * Used by HOW TO PLAY + Settings overlays so their controls tables rematch
+ * the live device the same way the main-menu controls box does.
+ * @param {(mode: 'keyboard'|'gamepad'|'touch') => void} fn
+ * @returns {() => void} Unsubscribe.
+ */
+export function onInputModeChange(fn) {
+  inputModeListeners.add(fn);
+  return () => {
+    inputModeListeners.delete(fn);
+  };
+}
+
 /**
  * Updates active input mode and refreshes the main menu controls panel UI if visible.
  * @param {'keyboard'|'gamepad'|'touch'} mode
@@ -39,6 +56,13 @@ export function setInputMode(mode) {
   if (currentInputMode === mode) return;
   currentInputMode = mode;
   updateControlsPanelUI(mode);
+  for (const fn of inputModeListeners) {
+    try {
+      fn(mode);
+    } catch {
+      // * Listener failures must not break input routing.
+    }
+  }
 }
 
 /** @returns {'keyboard'|'gamepad'|'touch'} */
@@ -73,7 +97,7 @@ export function updateControlsPanelUI(mode = currentInputMode, palette = null) {
       </div>
       <div class="cr-ctl-row">
         <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd>A</kbd><kbd>LT</kbd></span>
-        <span class="cr-ctl-lbl">Boost Cart</span>
+        <span class="cr-ctl-lbl">Tap fire · Hold charge</span>
       </div>
       <div class="cr-ctl-row">
         <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd>B</kbd><kbd>RT</kbd></span>
@@ -100,7 +124,7 @@ export function updateControlsPanelUI(mode = currentInputMode, palette = null) {
       </div>
       <div class="cr-ctl-row">
         <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd class="wide">BOOST</kbd></span>
-        <span class="cr-ctl-lbl">Boost Cart</span>
+        <span class="cr-ctl-lbl">Tap fire · Hold charge</span>
       </div>
       <div class="cr-ctl-row">
         <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd class="wide">HOP</kbd></span>
@@ -125,7 +149,7 @@ export function updateControlsPanelUI(mode = currentInputMode, palette = null) {
       </div>
       <div class="cr-ctl-row">
         <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd class="wide">SHIFT</kbd></span>
-        <span class="cr-ctl-lbl">Boost Cart</span>
+        <span class="cr-ctl-lbl">Tap fire · Hold charge</span>
       </div>
       <div class="cr-ctl-row">
         <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd class="wide">SPACE</kbd></span>

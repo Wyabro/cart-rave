@@ -31,7 +31,7 @@ import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
 import { setAllAudioMuted, setMusicGainValue } from "./ui/audioControls.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
-import { setInputMode, updateControlsPanelUI, getInputMode } from "./input.js";
+import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
 import {
   animateButtonPress,
   animateButtonRelease,
@@ -291,8 +291,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const lightsEl = $("cr-lights");
   const particlesEl = $("cr-particles");
   const scanEl = $("cr-scan");
-  const cartHolder = $("cr-cart-holder");
-  const cartShadow = $("cr-cart-shadow");
   const titleEl = $("cr-title");
   const customizeColorRow = $("cr-customize-color-row");
   const customizeSunglassesRow = $("cr-customize-sunglasses-row");
@@ -331,7 +329,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const settingsMuteBtn = $("cr-settings-mute-btn");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
-  let currentCartSvg = null;
   let currentCustomizeCartSvg = null;
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
   let cartPreview = null;
@@ -343,9 +340,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   );
   // NOTE: Quickplay and Friends support touch controls on mobile (see main.js updateTouchControlsVisibility).
 
-  // ─── Neon cart SVG builder ────────────────────────────────────────────────
+  // ─── Neon cart SVG builder (customize fallback when 3D preview is offline) ─
   /**
-   * Builds the large neon cart SVG shown in the menu cart stage.
+   * Builds a large neon cart SVG used as the Customize screen fallback.
    * @param {string} color Hex color for strokes, fills, and glow filter.
    * @param {string} [patternId] Optional vinyl pattern id for basket fill preview.
    * @returns {string} SVG markup string.
@@ -577,70 +574,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     }, 3200);
   }
 
-  /**
-   * On touch devices, tap the menu cart to open scoring instructions (hover unavailable).
-   */
-  function initCartTooltipTap() {
-    const cartWrap = document.querySelector('.cr-cart-wrap');
-    const cartStage = document.querySelector('.cr-cart-stage');
-    const tooltip = $('cr-cart-tooltip');
-    if (!cartWrap || !cartStage || !tooltip) return;
-
-    const coarseMq = window.matchMedia?.('(pointer: coarse)');
-    if (!coarseMq?.matches) return;
-
-    cartStage.classList.add('cr-cart-stage--tappable');
-    cartStage.setAttribute('role', 'button');
-    cartStage.setAttribute('tabindex', '0');
-    cartStage.setAttribute('aria-label', 'Show scoring instructions');
-    cartStage.setAttribute('aria-expanded', 'false');
-    cartStage.setAttribute('aria-controls', 'cr-cart-tooltip');
-
-    let backdrop = cartWrap.querySelector('.cr-cart-tooltip-backdrop');
-    if (!backdrop) {
-      backdrop = document.createElement('div');
-      backdrop.className = 'cr-cart-tooltip-backdrop';
-      backdrop.setAttribute('aria-hidden', 'true');
-      cartWrap.appendChild(backdrop);
-    }
-
-    const closeTooltip = () => {
-      cartWrap.classList.remove('cr-cart-wrap--tooltip-open');
-      cartStage.setAttribute('aria-expanded', 'false');
-    };
-
-    const openTooltip = () => {
-      cartWrap.classList.add('cr-cart-wrap--tooltip-open');
-      cartStage.setAttribute('aria-expanded', 'true');
-    };
-
-    const toggleTooltip = () => {
-      if (cartWrap.classList.contains('cr-cart-wrap--tooltip-open')) {
-        closeTooltip();
-      } else {
-        openTooltip();
-      }
-    };
-
-    cartStage.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleTooltip();
-    });
-
-    cartStage.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleTooltip();
-      }
-    });
-
-    backdrop.addEventListener('click', closeTooltip);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeTooltip();
-    });
-  }
-
   // ─── Custom color (hue-only neon; persisted via customization.js) ───────
   function getActiveColorCss() {
     if (state.colorMode === 'custom') return hueToNeonCss(state.customHue);
@@ -722,7 +655,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     buildColorChips();
     buildPatternChips();
     updateCustomHueUi();
-    renderCart();
     renderCustomizePreview();
     applyPalette();
   }
@@ -740,7 +672,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     buildColorChips();
     buildPatternChips();
     updateCustomHueUi();
-    renderCart();
     renderCustomizePreview();
     applyPalette();
   }
@@ -759,7 +690,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     }
     // * Recolor pattern mini-carts only on release (shouldSave) — avoid per-frame SVG rebuilds.
     if (shouldSave) buildPatternChips();
-    renderCart();
     renderCustomizePreview();
     applyPalette();
   }
@@ -925,7 +855,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (id === state.pattern) return;
     saveCustomization({ pattern: id });
     buildPatternChips();
-    renderCart();
     renderCustomizePreview();
   }
 
@@ -1080,7 +1009,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       container: customizeScreen,
       abortIf: () => customizeScreen.getAttribute('aria-hidden') === 'false',
     });
-    renderCart();
     applyPalette();
     restoreOverlayFocus();
   }
@@ -1131,30 +1059,41 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   // ─── How To Play overlay screen ────────────────────────────────────────────
 
   /**
-   * Renders the control rows inside the HOW TO PLAY overlay.
-   * Key labels swap to touch equivalents on touch-first devices.
+   * Renders the control rows inside the HOW TO PLAY overlay for the active
+   * input mode (keyboard / gamepad / touch). Matches Settings + main-menu
+   * controls panels; live updates while the overlay is open.
+   * Scoring / Living Store copy is static HTML so it stays in sync with design docs.
    */
   function renderHowToRows() {
     if (!howtoListEl) return;
     const p = state.palette;
-    const touch = isTouchDevice();
-    const rows = [
-      {
-        action: "MOVE",
-        keys: touch ? "LEFT STICK (JOYSTICK)" : "WASD / ARROWS",
-        color: p.secondary || "#22e6ff",
-      },
-      {
-        action: "BOOST",
-        keys: touch ? "HOLD BOOST — RELEASE TO LAUNCH" : "HOLD SHIFT — RELEASE TO LAUNCH",
-        color: p.tertiary || "#ffe53d",
-      },
-      {
-        action: "HOP",
-        keys: touch ? "TAP HOP" : "SPACE",
-        color: p.primary || "#ff2bd6",
-      },
-    ];
+    const mode = getInputMode();
+    /** @type {{ action: string, keys: string, color: string }[]} */
+    let rows;
+    if (mode === "touch") {
+      rows = [
+        { action: "MOVE", keys: "LEFT STICK (JOYSTICK)", color: p.secondary || "#22e6ff" },
+        { action: "BOOST", keys: "TAP BOOST TO FIRE · HOLD TO CHARGE", color: p.tertiary || "#ffe53d" },
+        { action: "HOP", keys: "TAP HOP", color: p.primary || "#ff2bd6" },
+      ];
+    } else if (mode === "gamepad") {
+      rows = [
+        { action: "MOVE", keys: "L-STICK / D-PAD", color: p.secondary || "#22e6ff" },
+        { action: "BOOST", keys: "A / LT — TAP TO FIRE · HOLD TO CHARGE", color: p.tertiary || "#ffe53d" },
+        { action: "HOP", keys: "B / RT", color: p.primary || "#ff2bd6" },
+      ];
+    } else {
+      rows = [
+        { action: "MOVE", keys: "WASD / ARROWS", color: p.secondary || "#22e6ff" },
+        { action: "BOOST", keys: "SHIFT — TAP TO FIRE · HOLD TO CHARGE", color: p.tertiary || "#ffe53d" },
+        { action: "HOP", keys: "SPACE", color: p.primary || "#ff2bd6" },
+      ];
+    }
+    const controlsHd = document.getElementById("cr-howto-controls-hd");
+    if (controlsHd) {
+      const badge = mode === "gamepad" ? "GAMEPAD" : mode === "touch" ? "TOUCH" : "KEYBOARD";
+      controlsHd.textContent = `◇ CONTROLS · ${badge}`;
+    }
     howtoListEl.innerHTML = "";
     rows.forEach((row) => {
       const el = document.createElement("div");
@@ -1170,6 +1109,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       el.appendChild(keys);
       howtoListEl.appendChild(el);
     });
+  }
+
+  function isHowToOpen() {
+    return howtoScreen?.style.display === "flex"
+      || howtoScreen?.getAttribute("aria-hidden") === "false";
   }
 
   function openHowToScreen() {
@@ -1219,6 +1163,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     howtoBackBtn?.addEventListener('click', () => closeHowToScreen({ userDismissed: true }));
     wireMenuPressFeedback(howtoDoneBtn);
     wireMenuPressFeedback(howtoBackBtn);
+    // * Live rematch when keyboard / gamepad / touch becomes active — same
+    // * signal the main-menu controls box uses (setInputMode), not a poll.
+    onInputModeChange(() => {
+      if (isHowToOpen()) renderHowToRows();
+      if (settingsScreen?.style.display === "flex") updateSettingsControlsUI();
+    });
   }
 
   /** @type {number|null} Pending first-run HOW TO PLAY auto-open timeout. */
@@ -1357,16 +1307,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (phase === "running" || phase === "countdown") return;
     syncSettingsAudioUi();
     updateSettingsControlsUI();
-    // * Start polling for input-mode changes while Settings is visible.
-    if (settingsInputPollId != null) clearInterval(settingsInputPollId);
-    let lastMode = getInputMode();
-    settingsInputPollId = setInterval(() => {
-      const currentMode = getInputMode();
-      if (currentMode !== lastMode) {
-        lastMode = currentMode;
-        updateSettingsControlsUI();
-      }
-    }, 300);
     captureOverlayOpener();
     settingsScreen.style.display = 'flex';
     settingsScreen.setAttribute('aria-hidden', 'false');
@@ -1383,10 +1323,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   function closeSettingsScreen() {
     if (!settingsScreen) return;
-    if (settingsInputPollId != null) {
-      clearInterval(settingsInputPollId);
-      settingsInputPollId = null;
-    }
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -1406,8 +1342,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
    * @type {{ muted: boolean, musicPct: number, musicNorm?: number } | null}
    */
   let _lastSettingsAudioSync = null;
-  /** @type {number|null} Interval ID for Settings input-mode polling. */
-  let settingsInputPollId = null;
 
   /**
    * Syncs Settings overlay mute button and volume display from main-owned audio state.
@@ -1558,17 +1492,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
         setMusicGainValue(Math.round(ratio * AUDIO_VOLUME_MAX * 100) / 100);
       });
     }
-  }
-
-  // ─── Render cart ──────────────────────────────────────────────────────────
-  /**
-   * Renders the menu cart SVG and shadow for the currently selected player color.
-   */
-  function renderCart() {
-    const color = getActiveColorCss();
-    cartHolder.innerHTML = makeCartSVG(color, state.pattern);
-    currentCartSvg = cartHolder.querySelector('svg');
-    cartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
   }
 
   // ─── Apply palette to all CSS vars / floor / title / buttons ──────────────
@@ -1787,20 +1710,14 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     } else {
       state.beat = 0;
     }
-    // Tilt
+    // Tilt (kept for ambient menu feel / future use)
     const elapsed = (now - animStart) / 1000;
     state.tilt = Math.sin(elapsed * CONFIG.tiltSpeedHz) * CONFIG.tiltAmplitude;
 
-    // Apply to cart
-    const pulse = 1 + state.beat * CONFIG.cartPulseScale;
-    const bob = Math.sin(state.beat * Math.PI) * -CONFIG.cartBobPx;
-    if (currentCartSvg) {
-      currentCartSvg.style.transform = `translateY(${bob}px) rotate(${state.tilt * CONFIG.cartTiltDeg}deg) scale(${pulse})`;
-    }
-    cartShadow.style.transform = `translateX(-50%) scale(${1 - state.beat * CONFIG.shadowBeatScale})`;
-
     // Title subtle scale pulse
-    titleEl.style.transform = `scale(${1 + state.beat * CONFIG.titleBeatScale})`;
+    if (titleEl) {
+      titleEl.style.transform = `scale(${1 + state.beat * CONFIG.titleBeatScale})`;
+    }
 
     // Floor parallax
     if (floorGrid) {
@@ -1975,11 +1892,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
     t += STAGGER * 2 + 72;
 
-    const cartWrap = document.querySelector(".cr-cart-wrap");
-    if (cartWrap instanceof HTMLElement) animateMenuReveal(cartWrap, { delay: t, duration: 380, y: 12 });
-
     const stats = $("cr-stats-local");
-    if (stats instanceof HTMLElement) animateMenuReveal(stats, { delay: t + 40, duration: 360, y: 12 });
+    if (stats instanceof HTMLElement) animateMenuReveal(stats, { delay: t, duration: 360, y: 12 });
 
     if (playerCard instanceof HTMLElement) animateMenuReveal(playerCard, { delay: t + 20, duration: 400, y: 14 });
 
@@ -2020,7 +1934,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   buildSunglassesChips();
   updateCustomHueUi();
   initLevelSelect();
-  initCartTooltipTap();
   initCustomizeScreen();
   initHowToScreen();
   initChallengesScreen();
@@ -2045,7 +1958,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     buildPatternChips();
     buildSunglassesChips();
     updateCustomHueUi();
-    renderCart();
     renderCustomizePreview();
     applyPalette();
   });
@@ -2061,7 +1973,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       closeActiveOverlay();
     }
   });
-  renderCart();
   applyPalette();
   nameText.textContent = state.name;
 
@@ -2142,7 +2053,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       updateSpotlights();
       updateParticles();
       buildColorChips();
-      renderCart();
       applyPalette();
     },
     setIntensity(n) {

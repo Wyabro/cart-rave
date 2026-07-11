@@ -570,30 +570,8 @@
 
     <!-- Main content -->
     <div class="cr-content">
-      <!-- Left column -->
+      <!-- Left column (stats only — scoring rules live on HOW TO PLAY) -->
       <div class="cr-left">
-        <div class="cr-cart-wrap">
-          <div class="cr-cart-stage">
-            <div class="cr-cart-shadow" id="cr-cart-shadow"></div>
-            <div id="cr-cart-holder"></div>
-            <span class="cr-cart-tap-hint" aria-hidden="true">?</span>
-          </div>
-          <div class="cr-tooltip" id="cr-cart-tooltip" role="tooltip">
-            <div class="cr-tooltip-hd">
-              <span>◇ HOW TO SCORE</span>
-            </div>
-            <p class="cr-tooltip-headline">Ram other carts off to score! Most points wins!</p>
-            <ul class="cr-tooltip-list">
-              <li><strong>Edge knockout:</strong> 1 point</li>
-              <li><strong>Center hole knockout:</strong> 2 points</li>
-              <li><strong>Boost ram knockout:</strong> +1 bonus</li>
-              <li><strong>Knock off the leader:</strong> +1 bonus</li>
-              <li><strong>Leader glow:</strong> The leader glows <span class="cr-tooltip-white">white</span></li>
-            </ul>
-            <p class="cr-tooltip-footer cr-tooltip-footer--keyboard">Bonuses stack — one big play scores up to 4 pts.<br>WASD drive · Shift boost · Space hop</p>
-            <p class="cr-tooltip-footer cr-tooltip-footer--touch">Bonuses stack — one big play scores up to 4 pts.<br>Use the on-screen joystick and buttons</p>
-          </div>
-        </div>
         <div class="cr-stats" id="cr-stats-local">
           <div class="cr-stats-tag">
             <i class="cr-pulse cr-pulse--stats"></i> YOUR STATS
@@ -618,7 +596,6 @@
             <span class="cr-stat-lbl">SOLO</span>
           </div>
         </div>
-
       </div>
 
       <!-- Center column -->
@@ -798,12 +775,75 @@
   <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
     <div class="cr-overlay-panel cr-overlay-panel--howto">
       <h2 class="cr-overlay-title">HOW TO PLAY</h2>
-      <p class="cr-overlay-desc">Ram rivals off the edge. Last cart rolling takes the round.</p>
-      <div class="cr-howto-list" id="cr-howto-list"></div>
-      <div class="cr-howto-scoring">
-        <span class="cr-howto-scoring-hd">◇ SCORING</span>
-        <span class="cr-howto-scoring-line">KO = 1 PT · CENTER PIT = 2 PTS · KO THE LEADER = +1 · COMBOS MULTIPLY</span>
-      </div>
+      <p class="cr-overlay-desc">
+        Chaotic shopping cart brawler. Ram rivals off the arena, stack bonuses, and
+        finish the round with the most points. Ties go to Sudden Death.
+      </p>
+
+      <section class="cr-howto-section" aria-labelledby="cr-howto-controls-hd">
+        <h3 class="cr-howto-section-hd" id="cr-howto-controls-hd">◇ CONTROLS</h3>
+        <div class="cr-howto-list" id="cr-howto-list"></div>
+      </section>
+
+      <section class="cr-howto-section" aria-labelledby="cr-howto-score-hd">
+        <h3 class="cr-howto-section-hd" id="cr-howto-score-hd">◇ HOW TO SCORE</h3>
+        <p class="cr-howto-blurb">
+          Points only count when <strong>you</strong> force another cart off —
+          self-falls score nothing. Bonuses add first, then multipliers apply.
+        </p>
+        <ul class="cr-howto-bullets">
+          <li><strong>Edge KO</strong> — 1 pt for yeeting someone off the perimeter</li>
+          <li><strong>Hazard KO</strong> — 2 pts for center pit (Cart Rave) or corner voids (Storerooms)</li>
+          <li><strong>Critical hit</strong> — +1 when the crediting ram is high-speed</li>
+          <li><strong>Leader down</strong> — +1 for knocking off the sole score leader</li>
+          <li><strong>High ground</strong> — +1 on Sundial when the kill ram came from the podium</li>
+        </ul>
+        <p class="cr-howto-note">
+          The sole leader glows. Stacked bonuses + multipliers can turn one play into a huge float.
+        </p>
+      </section>
+
+      <section class="cr-howto-section" aria-labelledby="cr-howto-combo-hd">
+        <h3 class="cr-howto-section-hd" id="cr-howto-combo-hd">◇ COMBOS</h3>
+        <p class="cr-howto-blurb">
+          Chain KOs before the streak fades (~5s). Each tier multiplies the whole reward:
+        </p>
+        <ul class="cr-howto-bullets cr-howto-bullets--compact">
+          <li><strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 · <strong>CARNAGE</strong> ×3.0</li>
+        </ul>
+      </section>
+
+      <section class="cr-howto-section" aria-labelledby="cr-howto-store-hd">
+        <h3 class="cr-howto-section-hd" id="cr-howto-store-hd">◇ LIVING STORE</h3>
+        <ul class="cr-howto-bullets">
+          <li><strong>Cargo bay</strong> — your cart fills as you score; fuller carts handle heavier and spill a bigger mess</li>
+          <li><strong>Spill rush</strong> — forced grocery spills grant a short speed/accel comeback buff</li>
+          <li><strong>PA directives</strong> — mid-round rule twists (~18s). Watch the HUD chip under the timer</li>
+        </ul>
+        <div class="cr-howto-directive-grid" role="list">
+          <div class="cr-howto-directive" role="listitem">
+            <span class="cr-howto-directive-name">FLASH SALE</span>
+            <span class="cr-howto-directive-desc">Harder rams</span>
+          </div>
+          <div class="cr-howto-directive" role="listitem">
+            <span class="cr-howto-directive-name">DOUBLE BAG</span>
+            <span class="cr-howto-directive-desc">KO rewards ×2</span>
+          </div>
+          <div class="cr-howto-directive" role="listitem">
+            <span class="cr-howto-directive-name">EXPRESS LANE</span>
+            <span class="cr-howto-directive-desc">Faster boost charge</span>
+          </div>
+          <div class="cr-howto-directive" role="listitem">
+            <span class="cr-howto-directive-name">SPILL BONUS</span>
+            <span class="cr-howto-directive-desc">+1 per forced spill</span>
+          </div>
+          <div class="cr-howto-directive" role="listitem">
+            <span class="cr-howto-directive-name">RUSH HOUR</span>
+            <span class="cr-howto-directive-desc">Everyone drives faster</span>
+          </div>
+        </div>
+      </section>
+
       <button class="cr-overlay-done" id="cr-howto-done" type="button">LET'S ROLL</button>
       <button class="cr-overlay-back" id="cr-howto-back" type="button">← BACK</button>
     </div>

@@ -62,8 +62,7 @@ html, body {
 .cr-root.cr-menu-enter-pending #cr-stats-local,
 .cr-root.cr-menu-enter-pending #cr-audio-panel,
 .cr-root.cr-menu-enter-pending #cr-controls,
-.cr-root.cr-menu-enter-pending .cr-menu-extras,
-.cr-root.cr-menu-enter-pending .cr-cart-wrap {
+.cr-root.cr-menu-enter-pending .cr-menu-extras {
   opacity: 0;
 }
 
@@ -365,224 +364,17 @@ html, body {
   box-shadow: var(--sticker-chip-pressed);
 }
 
-.cr-tooltip-footer--touch {
-  display: none;
-}
-
 @media (pointer: coarse) {
   .cr-touch { display: none; }
-  .cr-tooltip-footer--keyboard { display: none; }
-  .cr-tooltip-footer--touch { display: block; }
 }
 
 @media (pointer: fine) {
   .cr-touch { display: none; }
 }
 
-/* === LEFT COLUMN (Cart, Stats, Tooltip) === */
-.cr-cart-wrap {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-}
-
-.cr-cart-stage {
-  position: relative;
-  width: clamp(200px, 28vw, 300px); /* Slightly adjusted lower bound for small screens */
-  aspect-ratio: 1 / 1; /* Replaces fixed height for perfect scaling */
-  height: auto; /* Overrides old clamp height */
-  display: flex; align-items: center; justify-content: center;
-  cursor: help;
-}
-
-.cr-cart-shadow {
-  position: absolute;
-  bottom: -10px; left: 50%;
-  width: clamp(180px, 22vw, 240px);
-  height: clamp(30px, 4vw, 40px);
-  transform: translateX(-50%);
-  border-radius: 50%;
-  transition: transform 120ms ease-out;
-  pointer-events: none;
-  filter: blur(6px);
-}
-
-#cr-cart-holder svg {
-  transition: transform 90ms linear;
-  overflow: visible;
-  width: 100%;
-  height: 100%;
-}
-
-.cr-tooltip {
-  display: none;
-  width: 100%;
-  margin-top: var(--space-sm);
-  padding: var(--pad-panel);
-  background: var(--color-ink);
-  border: none;
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
-  font-family: var(--mono);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: clamp(10px, 1.15vw, 12px);
-  line-height: 1.55;
-  text-align: left;
-  z-index: 30;
-}
-
-@media (hover: hover) {
-  .cr-cart-wrap:hover .cr-tooltip {
-    display: block;
-    animation: cr-tooltip-in 200ms ease;
-  }
-}
-
-.cr-cart-tooltip-backdrop {
-  display: none;
-}
-
-.cr-cart-stage--tappable {
-  cursor: pointer;
-}
-
-.cr-cart-tap-hint {
-  display: none;
-}
-
-@media (pointer: coarse) {
-  .cr-cart-stage {
-    cursor: pointer;
-  }
-
-  .cr-cart-tap-hint {
-    display: flex;
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: clamp(22px, 6vw, 28px);
-    height: clamp(22px, 6vw, 28px);
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-pill);
-    background: var(--color-ink);
-    border: none;
-    color: var(--color-yellow);
-    font-family: var(--mono);
-    font-size: clamp(10px, 2.8vw, 12px);
-    font-weight: 700;
-    letter-spacing: 0;
-    box-shadow: var(--sticker-micro);
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .cr-cart-tooltip-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: rgba(4, 2, 10, 0.78);
-  }
-
-  .cr-cart-wrap--tooltip-open .cr-cart-tooltip-backdrop {
-    display: block;
-  }
-
-  .cr-cart-wrap--tooltip-open .cr-tooltip {
-    display: block;
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: min(92vw, 360px);
-    max-height: min(72dvh, 440px);
-    margin-top: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    z-index: 100;
-    animation: cr-tooltip-modal-in 200ms ease;
-  }
-}
-
-@keyframes cr-tooltip-modal-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px));
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
-}
-
-@keyframes cr-tooltip-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.cr-tooltip-hd {
-  font-family: var(--ui);
-  font-size: clamp(8px, 1vw, 9px);
-  letter-spacing: 0.22em;
-  color: rgba(255, 255, 255, 0.5);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px dashed var(--border-white-10);
-  margin-bottom: var(--gap-controls);
-}
-
-.cr-tooltip-headline {
-  /* Full sentence — use the UI face, not the Road Rage display font, which is
-     hard to read as body copy at this size. */
-  font-family: var(--ui);
-  font-size: clamp(11px, 1.35vw, 13px);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: var(--color-yellow);
-  margin: 0 0 var(--space-sm) 0;
-  line-height: 1.35;
-}
-
-.cr-tooltip-list {
-  margin: 0 0 var(--space-sm) 0;
-  padding-left: clamp(14px, 2vw, 18px);
-}
-
-.cr-tooltip-list li {
-  margin-bottom: clamp(3px, 0.5vw, 5px);
-}
-
-.cr-tooltip-list li:last-child {
-  margin-bottom: 0;
-}
-
-.cr-tooltip-list strong {
-  color: var(--color-cyan);
-  font-weight: 700;
-}
-
-.cr-tooltip-white {
-  color: var(--color-sticker-white);
-  font-weight: 700;
-}
-
-.cr-tooltip-footer {
-  margin: 0;
-  padding-top: var(--space-sm);
-  border-top: 1px dashed var(--border-white-10);
-  font-size: clamp(9px, 1.05vw, 10px);
-  color: rgba(255, 255, 255, 0.45);
-  letter-spacing: 0.04em;
-  line-height: 1.6;
-}
-
+/* === LEFT COLUMN (Stats) ===
+   Menu cart SVG + hover/tap "how to score" tooltip retired — scoring rules
+   live on HOW TO PLAY. Customize still has its own 3D/SVG cart preview. */
 .cr-stats {
   display: flex; align-items: center; gap: var(--space-2xl);
   padding: var(--space-2xl) clamp(12px, 2vw, 22px);
@@ -1662,6 +1454,7 @@ html, body {
   width: 92%;
   max-height: min(92dvh, 740px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   /* Fluid padding, floored by safe-area insets — this card runs near-full
      width/height on small viewports, close enough to notches/home
      indicators (landscape phones) to need the clearance. Shared by every
@@ -1767,7 +1560,91 @@ html, body {
   box-shadow: 0 0 0 1.5px var(--color-sticker-white);
 }
 
-/* === HOW TO PLAY CONTENT === */
+/* === HOW TO PLAY CONTENT ===
+   Expanded sections replace the old one-line scoring strip + main-menu cart
+   tooltip. Controls rows stay JS-built (input-mode aware); everything else is
+   static HTML so design-doc copy stays in one place. */
+.cr-overlay-panel--howto {
+  max-width: 600px;
+  gap: clamp(12px, 1.8vw, 18px);
+}
+
+.cr-howto-section {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vw, 8px);
+  padding: clamp(8px, 1.2vw, 12px) clamp(10px, 1.4vw, 14px);
+  background: var(--color-ink-deep);
+  border: none;
+  border-left: 3px solid var(--color-cyan);
+  border-radius: var(--radius-panel);
+}
+
+.cr-howto-section:nth-of-type(2) { border-left-color: var(--color-portal); }
+.cr-howto-section:nth-of-type(3) { border-left-color: var(--color-yellow); }
+.cr-howto-section:nth-of-type(4) { border-left-color: var(--color-magenta); }
+
+.cr-howto-section-hd {
+  margin: 0;
+  font-family: var(--ui);
+  font-size: clamp(9px, 1.15vw, 11px);
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cr-howto-blurb {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.2vw, 11px);
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.cr-howto-blurb strong {
+  color: var(--color-sticker-white);
+  font-weight: 700;
+}
+
+.cr-howto-note {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(8px, 1.05vw, 10px);
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cr-howto-bullets {
+  margin: 0;
+  padding: 0 0 0 clamp(14px, 1.8vw, 18px);
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.7vw, 6px);
+}
+
+.cr-howto-bullets--compact {
+  gap: 2px;
+}
+
+.cr-howto-bullets li {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.2vw, 11px);
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.cr-howto-bullets strong {
+  color: var(--color-cyan);
+  font-weight: 700;
+}
+
+.cr-howto-section:nth-of-type(2) .cr-howto-bullets strong { color: var(--color-portal); }
+.cr-howto-section:nth-of-type(3) .cr-howto-bullets strong { color: var(--color-yellow); }
+.cr-howto-section:nth-of-type(4) .cr-howto-bullets strong { color: var(--color-magenta); }
+
 .cr-howto-list {
   display: flex;
   flex-direction: column;
@@ -1780,7 +1657,7 @@ html, body {
   justify-content: space-between;
   gap: clamp(8px, 1.5vw, 12px);
   padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 12px);
-  background: var(--color-ink-deep);
+  background: rgba(0, 0, 0, 0.28);
   border: none;
   border-left: 3px solid var(--ac, var(--color-cyan));
   border-radius: var(--radius-panel);
@@ -1803,30 +1680,35 @@ html, body {
   text-align: right;
 }
 
-.cr-howto-scoring {
+.cr-howto-directive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(5px, 0.8vw, 8px);
+}
+
+.cr-howto-directive {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 12px);
-  background: var(--color-ink-deep);
-  border: none;
-  border-left: 3px solid var(--color-portal);
-  border-radius: var(--radius-panel);
+  gap: 2px;
+  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 10px);
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--border-white-10);
 }
 
-.cr-howto-scoring-hd {
+.cr-howto-directive-name {
   font-family: var(--ui);
-  font-size: clamp(8px, 1vw, 9px);
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: clamp(9px, 1.15vw, 11px);
+  letter-spacing: 0.1em;
+  color: var(--color-magenta);
 }
 
-.cr-howto-scoring-line {
+.cr-howto-directive-desc {
   font-family: var(--mono);
-  font-size: clamp(9px, 1.2vw, 11px);
-  line-height: 1.6;
-  letter-spacing: 0.06em;
-  color: var(--color-portal);
+  font-size: clamp(8px, 1.05vw, 10px);
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* === SETTINGS SECTIONS === */
@@ -2019,16 +1901,6 @@ html, body {
     max-width: 100%;
   }
 
-  .cr-cart-stage {
-    width: clamp(130px, 16vw, 200px);
-    height: clamp(115px, 14vw, 175px);
-  }
-
-  .cr-cart-shadow {
-    width: clamp(110px, 14vw, 170px);
-    height: clamp(22px, 2.8vw, 32px);
-  }
-
   .cr-stats {
     gap: clamp(6px, 1vw, 12px);
     padding: clamp(10px, 1.5vw, 14px) clamp(8px, 1.2vw, 14px);
@@ -2159,12 +2031,6 @@ html, body {
   .cr-level-btn-inner { gap: 3px; width: 100%; }
   .cr-level-btn-label { font-size: clamp(11px, 3.2vw, 13px); overflow-wrap: break-word; }
   .cr-level-btn-sub { font-size: clamp(9px, 2.5vw, 11px); overflow-wrap: break-word; }
-
-  .cr-cart-stage {
-    width: clamp(180px, 50vw, 240px); /* Scale up gracefully on phones */
-  }
-  .cr-cart-shadow { width: clamp(60px, 17vw, 88px); height: clamp(14px, 3.8vw, 18px); bottom: -5px; }
-  .cr-cart-tap-hint { width: clamp(20px, 5.5vw, 24px); height: clamp(20px, 5.5vw, 24px); font-size: clamp(10px, 2.8vw, 12px); }
 
   /* Stats — demoted/compacted: secondary info, not a primary-action panel,
      so it should cost less scroll height than the buttons/levels above it. */
@@ -2304,8 +2170,35 @@ html, body {
   }
 
   /* How To Play overlay — stack action + keys on narrow screens */
+  .cr-overlay-panel--howto {
+    gap: clamp(10px, 2.4vw, 14px);
+    max-height: min(90dvh, 720px);
+  }
+
   .cr-overlay-panel--howto .cr-overlay-title {
     font-size: clamp(16px, 4vw, 22px);
+  }
+
+  .cr-howto-section {
+    padding: clamp(6px, 1.5vw, 10px) clamp(8px, 2vw, 12px);
+    gap: clamp(4px, 1vw, 6px);
+  }
+
+  .cr-howto-section-hd {
+    font-size: clamp(8px, 2.2vw, 10px);
+  }
+
+  .cr-howto-blurb,
+  .cr-howto-bullets li {
+    font-size: clamp(8px, 2.2vw, 10px);
+  }
+
+  .cr-howto-note {
+    font-size: clamp(7px, 2vw, 9px);
+  }
+
+  .cr-howto-directive-grid {
+    grid-template-columns: 1fr;
   }
 
   .cr-howto-row {
@@ -2321,18 +2214,6 @@ html, body {
 
   .cr-howto-keys {
     text-align: left;
-    font-size: clamp(8px, 2.2vw, 10px);
-  }
-
-  .cr-howto-scoring {
-    padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
-  }
-
-  .cr-howto-scoring-hd {
-    font-size: clamp(7px, 1.8vw, 8px);
-  }
-
-  .cr-howto-scoring-line {
     font-size: clamp(8px, 2.2vw, 10px);
   }
 
@@ -2424,9 +2305,6 @@ html, body {
     padding: 12px;
     gap: 12px;
   }
-  .cr-cart-stage {
-    width: 160px;
-  }
 }
 
 /* ==========================================
@@ -2453,8 +2331,6 @@ html, body {
   }
 
   .cr-left { grid-column: 1; grid-row: 1; flex-direction: column; justify-content: center; gap: clamp(6px, 1.2dvh, 8px); min-width: 0; }
-  .cr-cart-stage { width: clamp(120px, 20vw, 180px); } /* Shrink cart to fit landscape height */
-  .cr-cart-shadow { width: clamp(48px, 10vh, 64px); height: clamp(10px, 2.2vh, 14px); }
 
   .cr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: clamp(12px, 2.6vh, 16px) clamp(6px, 1.6vw, 8px) clamp(8px, 1.8vh, 10px); gap: clamp(6px, 1.4vh, 8px); }
   .cr-stat-num { font-size: clamp(12px, 3.2vh, 16px); }
@@ -2595,6 +2471,41 @@ html, body {
     margin: -4px 0 0;
   }
 
+  .cr-howto-section {
+    padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
+    gap: 3px;
+  }
+
+  .cr-howto-section-hd {
+    font-size: clamp(7px, 1.6dvh, 9px);
+  }
+
+  .cr-howto-blurb,
+  .cr-howto-bullets li {
+    font-size: clamp(7px, 1.6dvh, 9px);
+  }
+
+  .cr-howto-note {
+    font-size: clamp(6px, 1.4dvh, 8px);
+  }
+
+  .cr-howto-directive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .cr-howto-directive {
+    padding: 4px 6px;
+  }
+
+  .cr-howto-directive-name {
+    font-size: clamp(7px, 1.5dvh, 9px);
+  }
+
+  .cr-howto-directive-desc {
+    font-size: clamp(6px, 1.3dvh, 8px);
+  }
+
   .cr-howto-row {
     padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
     gap: clamp(6px, 1.5vw, 10px);
@@ -2605,19 +2516,6 @@ html, body {
   }
 
   .cr-howto-keys {
-    font-size: clamp(8px, 1.8dvh, 9px);
-  }
-
-  .cr-howto-scoring {
-    padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
-    gap: 2px;
-  }
-
-  .cr-howto-scoring-hd {
-    font-size: clamp(6px, 1.4dvh, 7px);
-  }
-
-  .cr-howto-scoring-line {
     font-size: clamp(8px, 1.8dvh, 9px);
   }
 
@@ -2913,17 +2811,6 @@ html, body {
   .cr-particle,
   .cr-pulse,
   .cr-cart-preview-loading .cr-cart-preview-canvas {
-    animation: none !important;
-  }
-
-  /* Tooltip + modal reveals collapse to an instant, non-translating fade. */
-  @media (hover: hover) {
-    .cr-cart-wrap:hover .cr-tooltip {
-      animation: none !important;
-    }
-  }
-
-  .cr-cart-wrap--tooltip-open .cr-tooltip {
     animation: none !important;
   }
 
