@@ -1009,10 +1009,24 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
   }
 
+  // * Focus restoration — remember which control opened an overlay so closing it
+  // * returns focus there (keyboard + gamepad users keep their place).
+  let _lastOverlayOpener = null;
+  function captureOverlayOpener() {
+    _lastOverlayOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+  function restoreOverlayFocus() {
+    const opener = _lastOverlayOpener;
+    _lastOverlayOpener = null;
+    // * Defer so focus lands after the dismiss animation flips the screen hidden.
+    if (opener && opener.isConnected) requestAnimationFrame(() => opener.focus());
+  }
+
   function openCustomizeScreen() {
     if (!customizeScreen) return;
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
+    captureOverlayOpener();
     wireCustomHueSlider();
     updateCustomHueUi();
     mountCartPreview();
@@ -1061,6 +1075,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     });
     renderCart();
     applyPalette();
+    restoreOverlayFocus();
   }
 
   function initCustomizeScreen() {
@@ -1155,6 +1170,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
     renderHowToRows();
+    captureOverlayOpener();
     howtoScreen.style.display = 'flex';
     howtoScreen.setAttribute('aria-hidden', 'false');
     howtoDoneBtn?.focus();
@@ -1186,6 +1202,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       container: howtoScreen,
       abortIf: () => howtoScreen.getAttribute('aria-hidden') === 'false',
     });
+    // * Only restore focus on explicit user closes — the boot-time internal
+    // * closes from show() should not yank focus around.
+    if (opts?.userDismissed) restoreOverlayFocus();
   }
 
   function initHowToScreen() {
@@ -1274,6 +1293,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
     renderChallengesPanel();
+    captureOverlayOpener();
     challengesScreen.style.display = 'flex';
     challengesScreen.setAttribute('aria-hidden', 'false');
     challengesDoneBtn?.focus();
@@ -1299,6 +1319,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       abortIf: () => challengesScreen.getAttribute('aria-hidden') === 'false',
     });
     updateChallengesBadge();
+    restoreOverlayFocus();
   }
 
   function initChallengesScreen() {
@@ -1326,6 +1347,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
         updateSettingsControlsUI();
       }
     }, 300);
+    captureOverlayOpener();
     settingsScreen.style.display = 'flex';
     settingsScreen.setAttribute('aria-hidden', 'false');
     settingsDoneBtn?.focus();
@@ -1354,6 +1376,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       container: settingsScreen,
       abortIf: () => settingsScreen.getAttribute('aria-hidden') === 'false',
     });
+    restoreOverlayFocus();
   }
 
   let settingsAudioUiMuted = false;

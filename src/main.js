@@ -1423,7 +1423,39 @@ async function main() {
         if (friendsLink) friendsLink.value = roomLink;
         window.CartRave?.stopAnimations?.();
         if (menuRoot) menuRoot.style.display = "none";
-        if (friendsScreen) friendsScreen.style.display = "flex";
+        if (friendsScreen) {
+          friendsScreen.style.display = "flex";
+          friendsScreen.setAttribute("aria-hidden", "false");
+        }
+        // * Autofocus the primary action (ENTER GAME), matching how the other
+        // * overlay screens focus their primary button on open.
+        if (friendsEnter) setTimeout(() => friendsEnter.focus(), 0);
+
+        // * Bring Friends into the shared overlay contract: Escape closes it and
+        // * focus returns to the FRIENDS button that opened it. (This screen lives
+        // * in main.js, outside the menu's closeActiveOverlay set, so it needs its
+        // * own dedicated handler.) The keydown listener is removed on every exit
+        // * so repeated open/close never stacks listeners.
+        const onFriendsKeydown = (e) => {
+          if (e.key !== "Escape") return;
+          e.preventDefault();
+          e.stopPropagation();
+          closeFriendsScreen();
+        };
+        const closeFriendsScreen = () => {
+          document.removeEventListener("keydown", onFriendsKeydown);
+          if (friendsScreen) {
+            friendsScreen.style.display = "none";
+            friendsScreen.setAttribute("aria-hidden", "true");
+          }
+          window.CartRave?.show?.();
+          refreshMenuStats();
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete("room");
+          history.pushState({}, "", cleanUrl);
+          document.getElementById("cr-friends")?.focus();
+        };
+        document.addEventListener("keydown", onFriendsKeydown);
 
         if (friendsCopy) {
           friendsCopy.onclick = () => {
@@ -1434,23 +1466,15 @@ async function main() {
         }
         if (friendsEnter) {
           friendsEnter.onclick = () => {
+            document.removeEventListener("keydown", onFriendsKeydown);
             friendsScreen.style.display = "none";
+            friendsScreen.setAttribute("aria-hidden", "true");
             void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
               .then(() => bootstrapNetcodeFromMenu("Friends"))
               .catch((err) => onMenuBootstrapError("Friends", err));
           };
         }
-        if (friendsBack) {
-          friendsBack.onclick = () => {
-            friendsScreen.style.display = "none";
-            window.CartRave?.show?.();
-            refreshMenuStats();
-            // Clear the room param
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete("room");
-            history.pushState({}, "", cleanUrl);
-          };
-        }
+        if (friendsBack) friendsBack.onclick = closeFriendsScreen;
       }
     });
     }
