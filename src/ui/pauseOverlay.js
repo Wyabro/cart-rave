@@ -13,6 +13,7 @@ import {
 } from "../animations.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 import { settingsStore } from "../stores/settingsStore.js";
+import { svgIcon } from "./icons.js";
 
 
 /** Cancels in-flight Esc overlay entrance animations when reopening or closing. */
@@ -375,7 +376,12 @@ export function updateAudioState(isMuted, musicGain, sfxVolume, audioVolumeMax =
   const sfxPct = isMuted ? 0 : sfxPercent;
 
   if (elements.escMuteBtn) {
-    elements.escMuteBtn.textContent = isMuted ? "✕" : "♪";
+    // * Proper sticker speaker glyph (icons.js), matching the HUD mute — replaces
+    // * the plain ✕/♪ text so all three mute surfaces agree.
+    elements.escMuteBtn.innerHTML = svgIcon(isMuted ? "speakerMuted" : "speaker", {
+      label: isMuted ? "Unmute" : "Mute",
+      size: "1.1em",
+    });
     elements.escMuteBtn.classList.toggle("muted", isMuted);
   }
   if (elements.escMusicVol?.setPct) {

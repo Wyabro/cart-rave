@@ -539,7 +539,9 @@ html, body {
 }
 
 .cr-tooltip-headline {
-  font-family: var(--display);
+  /* Full sentence — use the UI face, not the Road Rage display font, which is
+     hard to read as body copy at this size. */
+  font-family: var(--ui);
   font-size: clamp(11px, 1.35vw, 13px);
   font-weight: 400;
   letter-spacing: 0.02em;
