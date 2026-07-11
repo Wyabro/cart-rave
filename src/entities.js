@@ -623,11 +623,18 @@ function spawnOnRingForSlot(slotIndex) {
 }
 
 /**
- * Resets every cart to spawn between rounds and broadcasts a host transform snapshot.
+ * Resets every cart to spawn between rounds and broadcasts a host transform snapshot
+ * (WebRTC + reliable PartyKit host_spawn).
  */
 export function rematchResetWorld() {
   Visuals.disposeAllRamBoostStreaks(ramBoostStreaksRef, sceneRef);
   GameState.clearAllHits();
+  // * Drop stale prediction / reconcile seq so the next host snaps are not ignored.
+  try {
+    Netcode.resetClientPredictionState?.();
+  } catch {
+    /* netcode may not be initialised in isolated unit tests */
+  }
 
   for (const cart of allCartsRef) {
     if (!cart?.body) continue;

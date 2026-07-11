@@ -2545,6 +2545,7 @@ async function main() {
     recordPodiumStats,
     onReturnToLobby: () => {
       clearPodiumPresentation();
+      Netcode.resetClientPredictionState();
       Entities.rematchResetWorld();
       GameState.setRoundEndReason(null);
       cleanupSuddenDeathState(allCartsRef || []);
@@ -2552,6 +2553,18 @@ async function main() {
     onEnterPodium: () => {
       HUD.clearFeed();
       beginPodiumPresentation();
+    },
+    onPodiumRejected: () => {
+      // * Server nack'd host_round (or reasserted running). Undo optimistic podium UI.
+      clearPodiumPresentation();
+      lastResultsOverlayKey = null;
+      if (resultsUi?.overlay) {
+        resultsUi.overlay.style.display = "none";
+        resultsUi.overlay.style.pointerEvents = "none";
+      }
+      cancelLastCartStandingFinish?.();
+      autoContinuePodiumKey = null;
+      clearAutoContinuePodiumTimeout?.();
     },
     teleportCartToSpawn,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
@@ -3277,6 +3290,7 @@ async function main() {
     lastResultsOverlayKey = null;
     clearPodiumPresentation();
     GameState.setRoundEndReason(null);
+    Netcode.resetClientPredictionState();
     Entities.rematchResetWorld();
     if (detectGameMode() === "solo") {
       startCountdown(Date.now() + 3000);

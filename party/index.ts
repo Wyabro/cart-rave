@@ -442,11 +442,21 @@ export class CartRaveServer extends Server {
       }
 
       const computedWinner = this.#winnerFromScores(scores);
-      if (computedWinner === "draw" && endReason !== "lastStanding") {
+      // * Draw: all scores zero (or host+server agree there is no scorer).
+      // * Previously `winnerRaw === "draw"` was unconditionally rejected when
+      // * endReason was lastStanding — and even valid 0-0 timer draws cleared
+      // * endReason. That produced host-local podium + client softlock.
+      if (winnerRaw === "draw" || computedWinner === "draw") {
+        if (computedWinner !== "draw") {
+          // * Host claimed draw but scores have a unique/first leader — reject.
+          return null;
+        }
+        // * lastStanding with a true score-draw is rare (everyone 0); allow it so
+        // * the room never sticks in running/overtime when the host ends the round.
         winnerSlotIndex = "draw";
-        endReason = null;
-      } else if (winnerRaw === "draw") {
-        return null;
+        if (endReason !== "timer" && endReason !== "lastStanding") {
+          endReason = null;
+        }
       } else {
         const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
         if (!Number.isInteger(w) || w < 0 || w > 3) return null;
@@ -1207,10 +1217,45 @@ export class CartRaveServer extends Server {
           this.#currentLevelId = levelId;
         }
         const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
-        if (!validated) return;
+        if (!validated) {
+          // * Host already applied phase locally (optimistic podium/SD). Echo the
+          // * authoritative round so the host rolls back instead of softlocking clients.
+          this.#sendJson(connection, {
+            v: PROTOCOL_VERSION,
+            type: MSG.round,
+            serverNowMs: this.#serverNowMs(),
+            levelId: this.#currentLevelId,
+            round: this.#safeStructuredClone(this.#round),
+            rejected: true,
+          });
+          return;
+        }
         this.#round = validated;
         if (validated.phase === "countdown") this.#countdownArmed = false;
         this.#broadcastRound();
+        return;
+      }
+
+      if (type === MSG.hostSpawn) {
+        // * Reliable spawn/rematch poses — host-only, rebroadcast to the room.
+        if (connection.id !== this.#hostId) return;
+        const carts = data?.carts;
+        if (!carts || typeof carts !== "object") return;
+        const seq = typeof data.seq === "number" && Number.isFinite(data.seq) ? data.seq : 0;
+        const tHost = typeof data.tHost === "number" && Number.isFinite(data.tHost) ? data.tHost : 0;
+        // * Keep a copy for mid-round join hello snapshots when useful.
+        if (Array.isArray(carts)) {
+          this.#carts = carts as (CartState | undefined)[];
+          this.#lastSeq = Math.max(this.#lastSeq, seq);
+        }
+        this.#broadcastJson({
+          v: PROTOCOL_VERSION,
+          type: MSG.hostSpawn,
+          serverNowMs: this.#serverNowMs(),
+          seq,
+          tHost,
+          carts,
+        });
         return;
       }
 

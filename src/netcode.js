@@ -7,7 +7,7 @@ import { CART_COLORS, CONFIG, MSG, PALETTE, WORKER_PUBLIC_HOST } from "./config.
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
-import { clearNpcCartCache } from "./gameLoop.js";
+import { clearNpcCartCache, resetReconciliationState } from "./gameLoop.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { isShatterAnimating } from "./cartShatter.js";
@@ -65,6 +65,8 @@ let lastCartsCache = null;
 let netStateBuffer = [];
 
 let remoteInputsByConnId = new Map();
+/** @type {Map<string, Array<{ seq: number, throttle: number, steer: number, nitro: boolean, hop: boolean, t: number }>>} */
+let remoteInputQueuesByConnId = new Map();
 let remoteNitroLatchedByConnId = new Map();
 let hostLastProcessedInputSeq = new Map();
 export let pendingInputs = [];
@@ -225,6 +227,8 @@ let callbacks = {
   recordPodiumStats: (winnerSlotIndex, scores) => {},
   onReturnToLobby: () => {},
   onEnterPodium: () => {},
+  // * Host optimistic podium rejected by server — tear down results/cam and resume running.
+  onPodiumRejected: () => {},
 
   // Session lifecycle
   ensureSessionReady: () => {},
@@ -313,6 +317,7 @@ export function registerGameCallbacks(deps) {
     recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
     onReturnToLobby: () => deps.onReturnToLobby?.(),
     onEnterPodium: () => deps.onEnterPodium?.(),
+    onPodiumRejected: () => deps.onPodiumRejected?.(),
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
     ensureSessionReady: () => deps.ensureSessionReady?.(),
@@ -349,7 +354,25 @@ export function getHostId() { return hostId; }
 export function getNetSlots() { return netSlots; }
 /** Coarse socket health for the HUD: "ok" | "reconnecting". */
 export function getConnectionState() { return connectionState; }
-export function getRemoteInputsByConnId() { return remoteInputsByConnId; }
+/**
+ * Returns the host-side remote input map after draining the jitter buffer.
+ * Simulation should call this once per physics substep (gameLoop already does).
+ * @returns {Map<string, { throttle: number, steer: number, nitro: boolean }>}
+ */
+export function getRemoteInputsByConnId() {
+  drainRemoteInputJitterBuffers();
+  return remoteInputsByConnId;
+}
+
+/**
+ * Clears client prediction / reconciliation state so a new host epoch or rematch
+ * cannot leave the seq gate permanently closed or replay stale inputs.
+ */
+export function resetClientPredictionState() {
+  pendingInputs = [];
+  netStateBuffer = [];
+  resetReconciliationState();
+}
 export function getHostMigrationFreezeUntilMs() { return hostMigrationFreezeUntilMs; }
 export function getServerClockOffsetMs() { return serverClockOffsetMs; }
 export function getSkipNextPhysicsStep() { return skipNextPhysicsStep; }
@@ -983,9 +1006,11 @@ export function disconnectPartySession() {
   netStateBuffer = [];
   lastCartsCache = null;
   remoteInputsByConnId = new Map();
+  remoteInputQueuesByConnId = new Map();
   remoteNitroLatchedByConnId = new Map();
   hostLastProcessedInputSeq = new Map();
   pendingInputs = [];
+  resetReconciliationState();
 }
 
 /**
@@ -1151,9 +1176,11 @@ export function setAuthorityMode(nextIsHost) {
     hostSeq = 0;
     inputSeq = 0;
     remoteInputsByConnId.clear();
+    remoteInputQueuesByConnId.clear();
     remoteNitroLatchedByConnId.clear();
     hostLastProcessedInputSeq.clear();
     pendingInputs = [];
+    resetReconciliationState();
 
     if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
     resetSimTimingRef?.current?.();
@@ -1188,14 +1215,36 @@ export function strictSlotIndexForConn(connId) {
  * the slots handler establishes connections to new peers and, after migration, from the new
  * host to all surviving peers. `initiateP2PConnection` is idempotent (skips existing peers),
  * so repeated calls are safe. Non-hosts return early.
+ *
+ * Offers wait on {@link P2P.waitForIceServers} so TURN credentials can land first.
  */
 function ensureHostPeerConnections() {
   if (!isHost || !youConnId) return;
   for (const slot of netSlots) {
     if (slot && slot.kind === "human" && slot.connId && slot.connId !== youConnId) {
-      P2P.initiateP2PConnection(slot.connId);
+      void P2P.initiateP2PConnection(slot.connId);
     }
   }
+}
+
+/**
+ * Request Cloudflare TURN credentials, then open host peer connections once ICE is ready.
+ * Safe to call multiple times; each call starts a fresh wait window.
+ */
+function requestTurnCredentialsAndOpenPeers() {
+  const timeoutMs = CONFIG.net.turnCredentialsTimeoutMs ?? 2500;
+  P2P.beginIceServersWait(timeoutMs);
+  if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+    try {
+      partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
+    } catch (e) {
+      console.warn("[netcode] requestTurnCredentials failed", e);
+    }
+  }
+  // * Host opens offers after wait; non-host only answers inbound offers (also wait-gated).
+  void P2P.waitForIceServers().then(() => {
+    if (isHost) ensureHostPeerConnections();
+  });
 }
 
 /**
@@ -1410,6 +1459,12 @@ export function initNetcode(roomOverride) {
       P2P.setTurnServers(msg.servers);
       return;
     }
+
+    if (type === MSG.hostSpawn) {
+      // * Reliable spawn/rematch poses over PartyKit (complements unreliable WebRTC).
+      applyHostSpawnSnapshot(msg);
+      return;
+    }
     if (type === MSG.sdpOffer || type === MSG.sdpAnswer || type === MSG.iceCandidate) {
       P2P.handleSignalingMessage(msg);
       return;
@@ -1449,13 +1504,9 @@ export function initNetcode(roomOverride) {
           onInput: handleRemoteClientInput,
           onState: handleP2PMessage
         });
-        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-          partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
-        }
-
-        if (hostId && youConnId !== hostId) {
-          P2P.initiateP2PConnection(hostId);
-        }
+        // * Gate WebRTC PC creation on TURN credentials (or timeout) so offers/answers
+        // * are not built STUN-only while credentials are still in flight.
+        requestTurnCredentialsAndOpenPeers();
       }
 
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
@@ -1484,10 +1535,7 @@ export function initNetcode(roomOverride) {
       }
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
-      // * Host is the WebRTC offerer — open DataChannels as soon as hello arrives,
-      // * not only on a later MSG.slots rebroadcast (avoids a no-P2P window where
-      // * non-host remotes sit at spawn/origin with no snapshots).
-      ensureHostPeerConnections();
+      // * Host peer offers are opened from requestTurnCredentialsAndOpenPeers (TURN-gated).
 
       // * Enter game only after server hello — menu stays up while connecting.
       const colorToSend = resolveServerColorPick();
@@ -1535,12 +1583,9 @@ export function initNetcode(roomOverride) {
           onInput: handleRemoteClientInput,
           onState: handleP2PMessage
         });
-        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-          partySocket.send(JSON.stringify({ type: MSG.requestTurnCredentials }));
-        }
-        if (hostId && !nextIsHost) {
-          P2P.initiateP2PConnection(hostId);
-        }
+        // * New host starts hostSeq at 0 — every client must clear the reconcile gate
+        // * and pending prediction inputs or seq > lastReconciledSnapSeq never fires.
+        requestTurnCredentialsAndOpenPeers();
       }
 
       if (nextIsHost && lastCartsCache) {
@@ -1548,10 +1593,12 @@ export function initNetcode(roomOverride) {
       }
       clearHostCollisionBatch();
       remoteInputsByConnId.clear();
+      remoteInputQueuesByConnId.clear();
       remoteNitroLatchedByConnId.clear();
       hostLastProcessedInputSeq.clear();
       pendingInputs = [];
       inputSeq = 0;
+      resetClientPredictionState();
       setAuthorityMode(nextIsHost);
       if (!nextIsHost) hostMigrationFreezeUntilMs = getMonotonicNow() + CONFIG.net.hostMigrationFreezeMs;
       hostEpoch += 1;
@@ -1683,6 +1730,11 @@ export function initNetcode(roomOverride) {
       if (r && typeof r === "object") {
         const prevPhase = GameState.getRoundState().phase;
         const newPhase = r.phase;
+        // * Server rejected an optimistic host_round (or otherwise reasserted truth).
+        // * Host may already be on podium while the room is still running — roll back.
+        if (msg.rejected === true || (prevPhase === "podium" && newPhase === "running")) {
+          callbacks.onPodiumRejected?.();
+        }
         if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "lobby") {
           callbacks.onCountdownCancelled?.();
           GameState.setRoundCountdownStartedAtMs(0);
@@ -1694,6 +1746,8 @@ export function initNetcode(roomOverride) {
           GameState.setRoundCountdownStartedAtMs(0);
           GameState.setRoundWinnerSlotIndex(null);
           GameState.setRoundEndReason(null);
+          // * Rematch/lobby return: drop stale prediction so the next round reconciles cleanly.
+          resetClientPredictionState();
           callbacks.onReturnToLobby?.();
         }
         if (typeof newPhase === "string" && prevPhase === "running" && newPhase === "podium") {
@@ -1770,19 +1824,65 @@ export function initNetcode(roomOverride) {
  * Used by the rematch reset (entities.js) to push spawn poses to clients immediately,
  * before the running-phase send loop resumes. Skips collision/fall draining on purpose.
  *
- * Uses the same binary encoder as startHostSendLoop so there is exactly one host-transform
- * wire format; the collision/fall tails are simply empty for this one-shot.
+ * Sends both:
+ * - Unreliable WebRTC binary (low latency when the channel is healthy)
+ * - Reliable PartyKit MSG.hostSpawn (survives a lost DataChannel packet during countdown)
  */
 export function broadcastHostTransform(carts) {
   if (!partySocket || !isHost) return;
   hostSeq += 1;
   lastCartsCache = carts;
+  const tHost = getMonotonicNow();
   const payload = {
     seq: hostSeq,
-    tHost: getMonotonicNow(),
+    tHost,
     carts,
   };
   P2P.sendToAll(encodeHostStateSnapshot(payload));
+
+  // * Reliable control-plane copy so clients never spend the whole countdown at old poses.
+  if (partySocket.readyState === WebSocket.OPEN) {
+    try {
+      partySocket.send(JSON.stringify({
+        type: MSG.hostSpawn,
+        seq: hostSeq,
+        tHost,
+        carts,
+      }));
+    } catch (e) {
+      console.warn("[netcode] hostSpawn send failed", e);
+    }
+  }
+
+  // * Host also resets its own reconcile gate so a later demote→promote mid-session is clean.
+  resetReconciliationState();
+  hostLastProcessedInputSeq.clear();
+  pendingInputs = [];
+}
+
+/**
+ * Applies a reliable host spawn snapshot (MSG.hostSpawn) into bodies + the interp buffer.
+ * @param {{ seq?: number, tHost?: number, carts?: unknown, serverNowMs?: number }} msg
+ */
+function applyHostSpawnSnapshot(msg) {
+  const carts = msg?.carts;
+  if (!carts || typeof carts !== "object") return;
+
+  const seq = typeof msg.seq === "number" && Number.isFinite(msg.seq) ? msg.seq : 0;
+  const tHost = typeof msg.tHost === "number" && Number.isFinite(msg.tHost) ? msg.tHost : getMonotonicNow();
+  lastCartsCache = carts;
+
+  // * Rematch/spawn is a hard pose reset — clear prediction so clients don't replay
+  // * pre-rematch inputs on top of spawn.
+  if (!isHost) {
+    pendingInputs = [];
+    resetReconciliationState();
+    applyCartsSnapshotToBodies(carts);
+    const serverNowMs = typeof msg.serverNowMs === "number" && Number.isFinite(msg.serverNowMs)
+      ? msg.serverNowMs
+      : tHost + serverClockOffsetMs;
+    bufferAuthoritativeState(serverNowMs, seq, carts, hostEpoch);
+  }
 }
 
 /**
@@ -1913,6 +2013,15 @@ export const __netcodeTestHooks = {
   ensureHostPeerConnections: () => ensureHostPeerConnections(),
 };
 
+/**
+ * Host receives remote client input over the unreliable DataChannel.
+ * Frames are queued and applied after a short jitter delay so variable packet
+ * timing does not stutter remote carts.
+ *
+ * @param {object} input
+ * @param {string} fromConnId
+ * @param {number} [seq]
+ */
 function handleRemoteClientInput(input, fromConnId, seq) {
   if (!isHost) return;
   if (!fromConnId || !input || typeof input !== "object") return;
@@ -1921,35 +2030,72 @@ function handleRemoteClientInput(input, fromConnId, seq) {
   const steer = Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? input.steer : 0));
   const nitro = Boolean(input.nitro);
   const hop = Boolean(input.hop);
+  const seqNum = typeof seq === "number" && Number.isFinite(seq) ? seq : 0;
 
-  if (typeof seq === "number") {
+  if (seqNum > 0) {
     const existingSeq = hostLastProcessedInputSeq.get(fromConnId) || 0;
-    hostLastProcessedInputSeq.set(fromConnId, Math.max(existingSeq, seq));
+    hostLastProcessedInputSeq.set(fromConnId, Math.max(existingSeq, seqNum));
   }
 
-  remoteInputsByConnId.set(fromConnId, {
+  let queue = remoteInputQueuesByConnId.get(fromConnId);
+  if (!queue) {
+    queue = [];
+    remoteInputQueuesByConnId.set(fromConnId, queue);
+  }
+  queue.push({
+    seq: seqNum,
     throttle,
     steer,
     nitro,
+    hop,
+    t: performance.now(),
   });
+  const maxQ = CONFIG.net.inputJitterQueueMax ?? 24;
+  while (queue.length > maxQ) queue.shift();
+}
 
-  const was = remoteNitroLatchedByConnId.get(fromConnId) || false;
+/**
+ * Applies remote input frames whose age exceeds the jitter buffer delay.
+ * Nitro/hop edges fire when each frame is applied (not on wire arrival), so a
+ * burst of frames in one drain does not drop intermediate hops.
+ */
+function drainRemoteInputJitterBuffers() {
+  if (!isHost) return;
+  const now = performance.now();
+  const delay = CONFIG.net.inputJitterBufferMs ?? 40;
   const allCarts = getAllCarts();
-  if (!was && nitro && allCarts && triggerRamBoostRef) {
-    const slotIndex = strictSlotIndexForConn(fromConnId);
-    if (slotIndex >= 0) {
-      const cart = allCarts[slotIndex];
-      if (cart) triggerRamBoostRef(cart, performance.now());
-    }
-  }
-  remoteNitroLatchedByConnId.set(fromConnId, nitro);
 
-  if (hop && allCarts && triggerHopRef) {
-    const slotIndex = strictSlotIndexForConn(fromConnId);
-    if (slotIndex >= 0) {
-      const cart = allCarts[slotIndex];
-      if (cart) triggerHopRef(cart, performance.now());
+  for (const [connId, queue] of remoteInputQueuesByConnId) {
+    if (!queue || queue.length === 0) continue;
+
+    while (queue.length > 0 && queue[0].t <= now - delay) {
+      const applied = queue.shift();
+
+      remoteInputsByConnId.set(connId, {
+        throttle: applied.throttle,
+        steer: applied.steer,
+        nitro: applied.nitro,
+      });
+
+      const was = remoteNitroLatchedByConnId.get(connId) || false;
+      if (!was && applied.nitro && allCarts && triggerRamBoostRef) {
+        const slotIndex = strictSlotIndexForConn(connId);
+        if (slotIndex >= 0) {
+          const cart = allCarts[slotIndex];
+          if (cart) triggerRamBoostRef(cart, now);
+        }
+      }
+      remoteNitroLatchedByConnId.set(connId, applied.nitro);
+
+      if (applied.hop && allCarts && triggerHopRef) {
+        const slotIndex = strictSlotIndexForConn(connId);
+        if (slotIndex >= 0) {
+          const cart = allCarts[slotIndex];
+          if (cart) triggerHopRef(cart, now);
+        }
+      }
     }
+    // * No ready frames yet — keep last applied continuous input (map already holds it).
   }
 }
 

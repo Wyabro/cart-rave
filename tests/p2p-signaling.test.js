@@ -40,6 +40,7 @@ class MockRTCPeerConnection {
     this.dataChannels = [];
     this.addedIce = [];
     this.closed = false;
+    this.restartIceCalls = 0;
     createdPCs.push(this);
   }
   createDataChannel(label) { const dc = new MockRTCDataChannel(label); this.dataChannels.push(dc); return dc; }
@@ -48,6 +49,8 @@ class MockRTCPeerConnection {
   async setLocalDescription(d) { this.localDescription = d; }
   async setRemoteDescription(d) { this.remoteDescription = d; }
   async addIceCandidate(c) { this.addedIce.push(c); }
+  setConfiguration(config) { this.config = config; }
+  restartIce() { this.restartIceCalls += 1; }
   close() { this.closed = true; this.iceConnectionState = "closed"; }
 }
 
@@ -140,6 +143,30 @@ describe("non-host answers and opens the channel", () => {
     expect(states[0].data).toBeInstanceOf(ArrayBuffer);
     expect(hooks.getBufferLength()).toBe(1);                 // ✓ netStateBuffer fills
     expect(hooks.getBufferLength()).toBeGreaterThan(0);
+  });
+});
+
+describe("TURN credentials applied to live peer connections", () => {
+  it("setTurnServers updates iceServers on already-created PCs", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    expect(createdPCs).toHaveLength(1);
+    const turn = [{ urls: "turn:turn.example:3478", username: "u", credential: "p" }];
+    P2P.setTurnServers(turn);
+    expect(createdPCs[0].config.iceServers).toEqual(turn);
+  });
+
+  it("beginIceServersWait gates initiate until setTurnServers or timeout", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    P2P.beginIceServersWait(50);
+    let opened = false;
+    const p = P2P.initiateP2PConnection("clientB").then(() => { opened = true; });
+    await flush();
+    expect(opened).toBe(false);
+    P2P.setTurnServers([{ urls: "stun:stun.example" }]);
+    await p;
+    expect(opened).toBe(true);
+    expect(createdPCs).toHaveLength(1);
   });
 });
 

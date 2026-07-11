@@ -12,11 +12,20 @@ let _npcCacheKey = null;
 /** @type {number} */
 let lastReconciledSnapSeq = -1;
 
+/**
+ * Resets the client reconciliation sequence gate.
+ * Must run on host migration and rematch so a new hostSeq (or continued play after
+ * a long round) cannot leave `seq > lastReconciledSnapSeq` permanently false.
+ */
+export function resetReconciliationState() {
+  lastReconciledSnapSeq = -1;
+}
+
 /** Clears cached NPC cart refs after session teardown (bodies are removed from Rapier). */
 export function clearNpcCartCache() {
   _npcCache = null;
   _npcCacheKey = null;
-  lastReconciledSnapSeq = -1;
+  resetReconciliationState();
 }
 
 /**
@@ -367,7 +376,7 @@ export function createGameLoopState() {
 export function resetGameLoopTiming(loopState) {
   loopState.lastT = performance.now();
   loopState.accumulator = 0;
-  lastReconciledSnapSeq = -1;
+  resetReconciliationState();
 }
 
 /**

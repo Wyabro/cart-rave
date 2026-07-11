@@ -344,6 +344,13 @@ export const CONFIG = {
     extrapolationCapMs: 50, // ms — max velocity extrapolation when buffer has no "after" snapshot
     hostMigrationFreezeMs: 300, // ms — non-host input freeze after host_migrated
     clockResyncIntervalMs: 30000, // ms — periodic 3-sample median re-sync (arrests slow clock drift)
+    // * Host-side delay before applying remote DataChannel inputs. Smooths packet
+    // * jitter so remote carts don't stutter when arrival cadence is uneven.
+    inputJitterBufferMs: 40,
+    // * Max queued remote input frames per peer (drop oldest when exceeded).
+    inputJitterQueueMax: 24,
+    // * How long to wait for Cloudflare TURN credentials before opening WebRTC with STUN-only.
+    turnCredentialsTimeoutMs: 2500,
 
     // * Client-side prediction (multiplayer non-host only). Host remains authoritative.
     prediction: {

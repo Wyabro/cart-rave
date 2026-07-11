@@ -22,6 +22,17 @@ let pendingInputPayload = null;
 let pendingInputTarget = null;
 
 /**
+ * Gates offer/answer PC creation until TURN credentials arrive (or timeout).
+ * Prevents building RTCPeerConnections with STUN-only config when TURN is on the way.
+ * @type {Promise<void>}
+ */
+let iceServersReady = Promise.resolve();
+/** @type {(() => void) | null} */
+let iceServersReadyResolve = null;
+/** True once setTurnServers ran or the wait timed out for this wait cycle. */
+let iceServersReadySettled = true;
+
+/**
  * Initialize P2P settings.
  * @param {object} params
  * @param {string} [params.localId]
@@ -38,12 +49,59 @@ export function initP2P({ localId, host, sendSignal, onInput, onState }) {
 }
 
 /**
- * Set the ICE/TURN servers.
+ * Begin waiting for TURN credentials before creating peer connections.
+ * Call immediately before requesting credentials from the server.
+ * @param {number} [timeoutMs=2500]
+ */
+export function beginIceServersWait(timeoutMs = 2500) {
+  iceServersReadySettled = false;
+  iceServersReady = new Promise((resolve) => {
+    iceServersReadyResolve = resolve;
+    const ms = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 2500;
+    setTimeout(() => {
+      if (!iceServersReadySettled) {
+        iceServersReadySettled = true;
+        iceServersReadyResolve = null;
+        resolve();
+      }
+    }, ms);
+  });
+}
+
+/**
+ * Wait until TURN credentials are applied (or the wait timed out / never started).
+ * @returns {Promise<void>}
+ */
+export function waitForIceServers() {
+  return iceServersReady;
+}
+
+/**
+ * Set the ICE/TURN servers and push them onto any already-created peer connections.
  * @param {any[]} servers
  */
 export function setTurnServers(servers) {
   if (servers && servers.length > 0) {
     iceServers = servers;
+    for (const pc of peerConnections.values()) {
+      try {
+        if (typeof pc.setConfiguration === "function") {
+          pc.setConfiguration({ iceServers });
+        }
+        // * Re-gather candidates with the new servers if negotiation already started.
+        if (typeof pc.restartIce === "function" && pc.remoteDescription) {
+          pc.restartIce();
+        }
+      } catch (e) {
+        console.warn("[p2p] setConfiguration/restartIce failed", e);
+      }
+    }
+  }
+  if (!iceServersReadySettled) {
+    iceServersReadySettled = true;
+    const resolve = iceServersReadyResolve;
+    iceServersReadyResolve = null;
+    resolve?.();
   }
 }
 
@@ -185,10 +243,15 @@ async function flushPendingIceCandidates(pc, connId) {
 
 /**
  * Initiates a WebRTC connection (Host-side).
+ * Waits for TURN credentials (or timeout) so the offer is not built STUN-only by accident.
  * @param {string} connId
  */
 export async function initiateP2PConnection(connId) {
   if (!isHost) return;
+  if (peerConnections.has(connId)) return;
+
+  await waitForIceServers();
+  // * Another concurrent initiate may have won the race while we waited.
   if (peerConnections.has(connId)) return;
 
   const pc = createPeerConnection(connId);
@@ -219,10 +282,15 @@ async function handleSignalingMessageInner(msg) {
 
   if (!pc) {
     if (msg.type === MSG.sdpOffer) {
-      pc = createPeerConnection(fromConnId);
-      pc.ondatachannel = (event) => {
-        setupDataChannel(event.channel, fromConnId);
-      };
+      // * Answerer also needs TURN before PC construction (symmetric NAT on both ends).
+      await waitForIceServers();
+      pc = peerConnections.get(fromConnId);
+      if (!pc) {
+        pc = createPeerConnection(fromConnId);
+        pc.ondatachannel = (event) => {
+          setupDataChannel(event.channel, fromConnId);
+        };
+      }
     } else if (msg.type === MSG.iceCandidate) {
       // * ICE can race ahead of the offer; buffer until we have a PC + remote description.
       bufferIceCandidate(fromConnId, msg.candidate);
@@ -395,4 +463,13 @@ export function closeAllConnections() {
   signalingChains.clear();
   pendingInputPayload = null;
   pendingInputTarget = null;
+  // * Leave iceServers as-is (credentials still valid); settle any in-flight wait
+  // * so a subsequent initiate is not stuck behind a closed session's promise.
+  if (!iceServersReadySettled) {
+    iceServersReadySettled = true;
+    const resolve = iceServersReadyResolve;
+    iceServersReadyResolve = null;
+    resolve?.();
+  }
+  iceServersReady = Promise.resolve();
 }

@@ -27,6 +27,11 @@ export const MSG = {
   directive: "directive",
   spillBonus: "spill_bonus",
 
+  // Host -> server -> all (WebSocket control plane — reliable, ordered)
+  // hostSpawn: one-shot spawn/rematch poses. Complements unreliable WebRTC snapshots so
+  // a single lost DataChannel packet cannot leave clients at old positions all countdown.
+  hostSpawn: "host_spawn",
+
   // Server -> client (WebSocket control plane)
   hello: "hello",
   hostMigrated: "host_migrated",

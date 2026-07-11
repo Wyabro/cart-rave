@@ -12,7 +12,9 @@ import {
   prunePendingInputs,
   getLatestSnap,
   applyCartState,
+  resetClientPredictionState,
 } from "../src/netcode.js";
+import { resetReconciliationState } from "../src/gameLoop.js";
 import { CONFIG } from "../src/config.js";
 import { MSG } from "../shared/protocol.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "../src/netcode/binary.js";
@@ -152,6 +154,25 @@ describe("rewind and replay input buffering", () => {
     prunePendingInputs(2);
     expect(getPendingInputs().length).toBe(1);
     expect(getPendingInputs()[0].seq).toBe(3);
+  });
+
+  it("resetClientPredictionState clears pending inputs and the snapshot buffer", () => {
+    // * Drain any leftover frames from prior cases (pendingInputs is module state).
+    prunePendingInputs(Number.MAX_SAFE_INTEGER);
+    getPendingInputs().push({ seq: 9, input: { throttle: 1, steer: 0 } });
+    hooks.bufferState(1000, 50, snap(1, 0, 0));
+    expect(getPendingInputs().length).toBe(1);
+    expect(hooks.getBufferLength()).toBe(1);
+
+    resetClientPredictionState();
+    resetReconciliationState();
+
+    expect(getPendingInputs().length).toBe(0);
+    expect(hooks.getBufferLength()).toBe(0);
+    // * After reset, a low seq (as after host migration hostSeq=0) is accepted again.
+    hooks.bufferState(2000, 1, snap(2, 0, 0));
+    expect(hooks.getBufferLength()).toBe(1);
+    expect(getLatestSnap()?.seq).toBe(1);
   });
 });
 
