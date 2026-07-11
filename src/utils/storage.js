@@ -32,7 +32,10 @@ export const STORAGE_KEYS = {
   /** Graphics toggles ("on"/"off", "true"/"false"). */
   bloom: "cartRaveBloom",
   fxPass: "cartRaveFx",
+  /** Legacy boolean quality flag — read once for migration to qualityTier. */
   lowQuality: "cartRaveLowQuality",
+  /** Graphics quality tier ("low" | "medium" | "high"). */
+  qualityTier: "cartRaveQualityTier",
   /** Audio persistence. */
   musicVolume: "cartRaveVolume",
   sfxVolume: "cartRaveSfxVol",

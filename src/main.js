@@ -1,5 +1,9 @@
 // === IMPORTS ===
 
+// * Self-installing rAF shim — must be the first import so it runs before anything
+// * captures requestAnimationFrame (dev+?perfPump only, no-op otherwise).
+import "./utils/perfPump.js";
+
 import {
   loadPlayerCustomization,
   resolveCartNeonCss,
@@ -21,7 +25,7 @@ import "./ui/styles/tokens.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityMode } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, isComposerBypassActive, setComposerBypassActive } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER, initRapier } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
@@ -177,10 +181,10 @@ import {
 } from "./gameSession.js";
 import {
   clamp,
-  isLowQualityMode,
   isTouchDevice,
-  setLowQualityMode,
 } from "./utils.js";
+import { getQualityTier, setQualityTier } from "./utils/qualityMode.js";
+import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { installGlobalErrorReporting } from "./utils/errorReporter.js";
 import { STORAGE_KEYS, storageGet, storageSet, storageGetJson, storageSetJson } from "./utils/storage.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
@@ -708,6 +712,22 @@ async function main() {
   // --- Renderer & scene ---
   const renderer = createRenderer(canvas);
 
+  // * WebGL context loss (iOS Safari reclaims contexts aggressively under memory
+  // * pressure/backgrounding; previously the game just froze with no recovery path).
+  // * preventDefault permits restoration; a full reload is the only state-safe
+  // * recovery for the whole app (composer RTs, instanced buffers, WASM-side refs).
+  canvas.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    console.warn("[CartRave] WebGL context lost");
+  });
+  let contextLossReloaded = false;
+  canvas.addEventListener("webglcontextrestored", () => {
+    if (contextLossReloaded) return;
+    contextLossReloaded = true;
+    console.warn("[CartRave] WebGL context restored — reloading for a clean GPU state");
+    window.location.reload();
+  });
+
   const scene = createScene();
 
   const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
@@ -1096,6 +1116,12 @@ async function main() {
   if (!fxPassEnabled && fxPass) fxPass.enabled = false;
 
   if (import.meta.env.DEV) {
+    // * Dev-only perf probe (see createRenderer): scene/camera/composer for console-driven profiling.
+    const probe = /** @type {any} */ (window);
+    probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer };
+  }
+
+  if (import.meta.env.DEV) {
     import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
       initPostFxDebugGui({
         renderer, scene, bloomPass, arcadePass, fxaaPass,
@@ -1452,43 +1478,73 @@ async function main() {
    * @returns {Promise<void>}
    */
   async function rebuildForQualityChange() {
-    const lowQuality = isLowQualityMode();
+    const knobs = getQualityKnobs();
 
-    // * Physics: update substep cap to match the new quality tier.
-    CONFIG.physics.maxSubsteps = lowQuality ? 2 : 4;
+    // * Physics substep cap + streak budget for the new tier (mirrors config.js boot logic).
+    CONFIG.physics.maxSubsteps = knobs.maxSubsteps;
+    CONFIG.physics.cart.ramBoost.streakMaxActive = knobs.streakCap;
 
-    // * Post-processing: toggle bloom + arcade passes and update renderer pixel ratio + FBO size.
-    applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality, composer);
+    // * Post-processing: apply tier passes + renderer pixel ratio + FBO size
+    // * (the user's separate Post-FX toggle still gates bloom/arcade).
+    applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, renderer, getQualityTier(), composer, {
+      bloomEnabled,
+      fxPassEnabled,
+    });
 
-    // * Arena visuals: toggle the reflective floor vs. opaque solid floor.
+    // * Arena visuals: reflective floor is a full second scene render — high tier only.
     if (typeof setReflectorVisible === "function") {
-      setReflectorVisible(!lowQuality);
+      setReflectorVisible(knobs.reflector);
+      // * Tier raised to high mid-session: make sure the RT upgrade (256²→1024²) runs.
+      if (knobs.reflector) scheduleReflectorUpgrade();
     }
 
-    // * Rave extras: show crowd, stage, lasers, and billboard only in high quality
-    // * on levels that support them (Classic Record; Backrooms hides them already).
-    const wantsExtras = levelUsesRaveExtras() && !lowQuality;
-    Effects.setRaveExtrasVisible(wantsExtras);
+    // * Rave dressing on levels that support it (Classic Record): every tier keeps the
+    // * crowd/stage/skybox silhouette so Low still reads as Cart Clash; the tier knobs
+    // * decide crowd budget, lasers, and dynamic lights.
+    const levelWantsExtras = levelUsesRaveExtras();
+    Effects.setRaveExtrasVisible(levelWantsExtras);
+    if (levelWantsExtras) Effects.applyRaveExtrasQuality(knobs);
 
-    // * Crowd size: toggle GPU draw count (800 vs 5000) without re-allocating.
-    Effects.setQualityCrowdCount(lowQuality);
-
-    // * Scene extras (skybox, planets, spotlights): only exist on levels that build them
-    // * (Classic Record); sceneRoots is empty elsewhere, so this loop is a no-op there.
+    // * Scene extras (skybox, planets, spotlights): visible at every tier on levels
+    // * that build them; sceneRoots is empty elsewhere, so this loop is a no-op there.
     if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
       for (const root of sceneExtras.sceneRoots) {
-        root.visible = wantsExtras;
+        root.visible = levelWantsExtras;
       }
+    }
+
+    // * Level-specific tier knobs (e.g. Storerooms ceiling SpotLight budget).
+    if (typeof levelApplyQualityTier === "function") {
+      levelApplyQualityTier(knobs);
+    }
+
+    // * Render-path flip (composer ↔ direct-to-canvas) changes the program cache key
+    // * (tone mapping moves in/out of shaders) — every scene program recompiles on the
+    // * first frame of the new path. Warm the target path here, behind the loading
+    // * overlay, before latching the flag the frame loop reads. compileAsync uses
+    // * KHR_parallel_shader_compile so even this warm-up avoids one giant stall.
+    if (knobs.composerBypass !== isComposerBypassActive()) {
+      try {
+        if (knobs.composerBypass) {
+          await renderer.compileAsync(scene, camera);
+          renderer.render(scene, camera);
+        } else {
+          composer.render();
+        }
+      } catch (err) {
+        console.warn("[CartRave] render-path warm-up failed:", err);
+      }
+      setComposerBypassActive(knobs.composerBypass);
     }
   }
 
   let qualityRebuildInProgress = false;
-  const handleLowQualityToggle = async (next) => {
+  const handleQualityTierChange = async (tier, { persist = true } = {}) => {
     if (qualityRebuildInProgress) return;
     qualityRebuildInProgress = true;
     // * Close Esc overlay first so it doesn't persist across the rebuild.
     HUD.hideEscOverlay();
-    setLowQualityMode(next);
+    if (persist) setQualityTier(tier);
     // * Show loading overlay with quality-apply copy, then rebuild in-place.
     showQualityApplyLoading();
     await yieldForPaint();
@@ -1500,6 +1556,14 @@ async function main() {
       qualityRebuildInProgress = false;
       dismissAllLoadingOverlays();
     }
+  };
+
+  // * Auto-quality watchdog fired (session tier already stepped down) — apply live,
+  // * without the loading overlay: mid-round the swap is quick knob flips.
+  const handleAutoQualityStepDown = () => {
+    rebuildForQualityChange().catch((err) => {
+      console.error("[CartRave] auto-quality rebuild failed:", err);
+    });
   };
 
   hud = HUD.init({
@@ -1548,7 +1612,8 @@ async function main() {
       }
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
-    onLowQualityToggle: handleLowQualityToggle,
+    onQualityTierChange: (tier) => handleQualityTierChange(tier),
+    getQualityTier,
   });
   const resultsUi = initResultsOverlay({
     onMainMenuClick: () => {
@@ -1675,6 +1740,8 @@ async function main() {
   };
   let upgradeRecordReflector = null;
   let setReflectorVisible = null;
+  /** @type {((knobs: import("./utils/qualityTiers.js").QualityKnobs) => void) | null} */
+  let levelApplyQualityTier = null;
   let raveVisualsInitialized = false;
   let sceneEnvironmentDispose = null;
   /** @type {typeof CONFIG.postFx.bloom | null} Saved bloom tuning when entering test drive. */
@@ -1779,10 +1846,10 @@ async function main() {
     disposeSceneExtras(sceneExtras);
     sceneExtras = /** @type {any} */ (initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras }));
     // * Scene extras (skybox/planets/spotlights) only built on levels that use them
-    // * (Classic Record); still hidden in low quality even when built.
-    const showSceneExtras = wantRaveExtras && !isLowQualityMode();
+    // * (Classic Record). Visible at every tier — Low sheds cost via the knob pass
+    // * below (crowd budget, lasers, dynamic lights), not by hiding the world.
     if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
-      for (const root of sceneExtras.sceneRoots) root.visible = showSceneExtras;
+      for (const root of sceneExtras.sceneRoots) root.visible = wantRaveExtras;
     }
     if (wantRaveExtras && !raveVisualsInitialized) {
       Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
@@ -1791,11 +1858,14 @@ async function main() {
       Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
       raveVisualsInitialized = true;
     }
-    Effects.setRaveExtrasVisible(showSceneExtras);
+    Effects.setRaveExtrasVisible(wantRaveExtras);
+    if (wantRaveExtras) Effects.applyRaveExtrasQuality(getQualityKnobs());
   }
 
   function scheduleReflectorUpgrade() {
     if (!upgradeRecordReflector) return;
+    // * Only the high tier renders the reflector — skip the 1024² RT upgrade elsewhere.
+    if (!getQualityKnobs().reflector) return;
     const run = () => {
       try { upgradeRecordReflector(); } catch (e) {}
     };
@@ -1842,6 +1912,7 @@ async function main() {
       dispose: disposeLevel,
       upgradeRecordReflector,
       setReflectorVisible,
+      applyQualityTier: levelApplyQualityTier = null,
     } = await loadLevel(selected, scene, world, CONFIG, {
       menuPreview: opts.menuPreview === true,
       reflectorTextureSize: opts.reflectorTextureSize,
@@ -1854,8 +1925,15 @@ async function main() {
     } else if (recordCollider) {
       recordColliderHandles = [recordCollider.handle];
     }
-    await GroceryPool.init(scene, world);
+    // * Groceries are cosmetic and unneeded until the first hit — don't block the level
+    // * swap on their ~3 MB of GLBs. init() is idempotent and pool consumers no-op
+    // * until it resolves.
+    const groceryReady = GroceryPool.init(scene, world);
+    if (import.meta.env.DEV) groceryReady.catch((err) => console.warn("[GroceryPool] init failed:", err));
     applyLoadedLevelSideEffects(selected);
+    // * Levels build for the legacy low/high split internally; re-apply the active
+    // * tier so medium lands correctly (reflector off, budgets right) on first load.
+    await rebuildForQualityChange();
   }
 
   async function bootstrapWorldCore(levelIdOverride) {
@@ -3334,6 +3412,7 @@ async function main() {
     netTargetPosScratch,
     cartLinvelScratch,
     cartAngvelScratch,
+    onAutoQualityStepDown: handleAutoQualityStepDown,
     updateCartVisuals,
     buildCartMaterialCache,
     colorHexForSlot: displayColorHexForSlot,
@@ -3532,7 +3611,10 @@ async function main() {
     levelUpdate?.(syncedNow);
     updateLevelLod(camera, syncedNow);
 
-    if (raveVisualsInitialized) {
+    // * Rave dressing animation: skip entirely when the level hides it (Storerooms/
+    // * test arena kept extras allocated but this math used to run anyway) and on
+    // * tiers with crowdAnimate off (Low renders the stands frozen).
+    if (raveVisualsInitialized && levelUsesRaveExtras() && getQualityKnobs().crowdAnimate) {
       Effects.updateStageLights(syncedNow);
       Effects.updateLasers(syncedNow);
       Effects.updateCrowd(syncedNow);
@@ -3677,7 +3759,7 @@ async function main() {
       if (arcadePass) arcadePass.enabled = next;
       if (fxPass) fxPass.enabled = next;
     },
-    toggleLowQuality: handleLowQualityToggle,
+    applyQualityTier: (tier) => handleQualityTierChange(tier),
   });
 
   window.addEventListener("resize", updateViewport);

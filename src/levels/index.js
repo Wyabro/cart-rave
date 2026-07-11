@@ -56,6 +56,7 @@ export function resolveLevelId(raw) {
  *   update?: (timeMs: number) => void,
  *   upgradeRecordReflector?: ((size: number) => void) | null,
  *   setReflectorVisible?: ((visible: boolean) => void) | null,
+ *   applyQualityTier?: ((knobs: import("../utils/qualityTiers.js").QualityKnobs) => void) | null,
  *   dispose: () => void,
  * }>}
  */

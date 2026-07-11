@@ -3,13 +3,16 @@ import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 import { isTouchLikeDevice } from "../utils/device.js";
 
-function detectDefaultLowQuality() {
-  if (typeof window === "undefined") return false;
+/** @type {ReadonlyArray<string>} */
+const VALID_TIERS = ["low", "medium", "high"];
+
+function detectDefaultQualityTier() {
+  if (typeof window === "undefined") return "high";
   try {
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    return isTouchLikeDevice() || reducedMotion;
+    return isTouchLikeDevice() || reducedMotion ? "low" : "high";
   } catch {
-    return false;
+    return "high";
   }
 }
 
@@ -19,19 +22,18 @@ function loadInitialSettings() {
   const announcerVoiceEnabled = storageGet(STORAGE_KEYS.announcerVoice) !== "off";
   const announcerCalloutsEnabled = storageGet(STORAGE_KEYS.announcerCallouts) !== "off";
 
-  let lowQuality;
-  const val = storageGet(STORAGE_KEYS.lowQuality);
-  if (val === "true") {
-    lowQuality = true;
-  } else if (val === "false") {
-    lowQuality = false;
-  } else {
-    lowQuality = detectDefaultLowQuality();
+  let qualityTier = storageGet(STORAGE_KEYS.qualityTier);
+  if (!VALID_TIERS.includes(qualityTier)) {
+    // * One-time migration from the legacy boolean flag (true→low, false→high).
+    const legacy = storageGet(STORAGE_KEYS.lowQuality);
+    if (legacy === "true") qualityTier = "low";
+    else if (legacy === "false") qualityTier = "high";
+    else qualityTier = detectDefaultQualityTier();
   }
 
   const selectedLevelId = storageGet(STORAGE_KEYS.level);
 
-  return { bloomEnabled, fxPassEnabled, lowQuality, selectedLevelId, announcerVoiceEnabled, announcerCalloutsEnabled };
+  return { bloomEnabled, fxPassEnabled, qualityTier, selectedLevelId, announcerVoiceEnabled, announcerCalloutsEnabled };
 }
 
 const initialState = loadInitialSettings();
@@ -51,10 +53,10 @@ export const settingsStore = createStore((set) => ({
     storageSet(STORAGE_KEYS.fxPass, val ? "on" : "off");
   },
 
-  setLowQuality: (enabled) => {
-    const val = Boolean(enabled);
-    set({ lowQuality: val });
-    storageSet(STORAGE_KEYS.lowQuality, val ? "true" : "false");
+  setQualityTier: (tier) => {
+    if (!VALID_TIERS.includes(tier)) return;
+    set({ qualityTier: tier });
+    storageSet(STORAGE_KEYS.qualityTier, tier);
   },
 
   setSelectedLevelId: (levelId) => {

@@ -8,16 +8,16 @@
 
 /** @type {((enabled: boolean) => void) | null} */
 let postFxHandler = null;
-/** @type {((enabled: boolean) => void) | null} */
-let lowQualityHandler = null;
+/** @type {((tier: import("../utils/qualityMode.js").QualityTier) => void) | null} */
+let qualityTierHandler = null;
 
 /**
  * Called once from main() when the composer passes and quality-rebuild flow exist.
- * @param {{ togglePostFx: (enabled: boolean) => void, toggleLowQuality: (enabled: boolean) => void }} handlers
+ * @param {{ togglePostFx: (enabled: boolean) => void, applyQualityTier: (tier: import("../utils/qualityMode.js").QualityTier) => void }} handlers
  */
-export function registerGraphicsToggleHandlers({ togglePostFx, toggleLowQuality }) {
+export function registerGraphicsToggleHandlers({ togglePostFx, applyQualityTier }) {
   postFxHandler = togglePostFx;
-  lowQualityHandler = toggleLowQuality;
+  qualityTierHandler = applyQualityTier;
 }
 
 /**
@@ -29,9 +29,9 @@ export function togglePostFx(enabled) {
 }
 
 /**
- * Applies the low-quality mode setting, rebuilding the scene in place.
- * @param {boolean} enabled
+ * Applies a quality tier to the live scene, rebuilding visuals in place.
+ * @param {import("../utils/qualityMode.js").QualityTier} tier
  */
-export function toggleLowQuality(enabled) {
-  lowQualityHandler?.(enabled);
+export function applyQualityTier(tier) {
+  qualityTierHandler?.(tier);
 }

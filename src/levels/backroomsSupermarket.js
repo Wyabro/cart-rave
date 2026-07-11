@@ -21,6 +21,7 @@ import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
 import { registerLevelLodNode } from "../utils/levelLod.js";
+import { getQualityKnobs } from "../utils/qualityTiers.js";
 
 // ===== Tunable layout constants =====
 
@@ -2681,6 +2682,7 @@ function buildDoorways(scene, wallpaperTex) {
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[],
  *   update: (timeMs: number) => void,
+ *   spots: Array<{ gx: number, gz: number, light: THREE.SpotLight }>,
  * }}
  */
 function buildCeiling(scene, world, ceilingTex) {
@@ -2745,6 +2747,12 @@ function buildCeiling(scene, world, ceilingTex) {
   const railScale = new THREE.Vector3(1, 1, 1);
   const railMatrix = new THREE.Matrix4();
 
+  // * Collected for applyQualityTier() (initBackroomsSupermarket) — the panel meshes
+  // * below are baked into per-state merged meshes and stay glowing regardless of which
+  // * of these lights end up enabled, so budgeting this array never dims the ceiling look.
+  /** @type {Array<{ gx: number, gz: number, light: THREE.SpotLight }>} */
+  const spots = [];
+
   const grid = CEILING_FIXTURE_GRID;
   const span = CEILING_FIXTURE_SPAN;
   const fixtureY = CEILING_Y - 0.22;
@@ -2796,6 +2804,7 @@ function buildCeiling(scene, world, ceilingTex) {
         spot.target.position.set(px, spotTargetY, pz);
         group.add(spot.target);
         group.add(spot);
+        spots.push({ gx, gz, light: spot });
       }
     }
   }
@@ -2951,7 +2960,7 @@ function buildCeiling(scene, world, ceilingTex) {
   );
 
   scene.add(group);
-  return { group, body: ceilingBody, ownedGeometries, ownedMaterials, update };
+  return { group, body: ceilingBody, ownedGeometries, ownedMaterials, update, spots };
 }
 
 // ===== Liminal / office spawn booths (replace neon DJ booths) =====
@@ -3173,6 +3182,7 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
  *   recordLabelMat: null,
  *   aiHazards: object,
  *   update: (timeMs: number) => void,
+ *   applyQualityTier: (knobs: import("../utils/qualityTiers.js").QualityKnobs) => void,
  *   dispose: () => void,
  * }}
  * @param {{ menuPreview?: boolean, reflectorTextureSize?: number }} [options]
@@ -3344,6 +3354,40 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   let spotlightUpdateFn = furnitureSpotlight.update;
   let ceilingUpdateFn = ceiling.update;
 
+  // ===== Real-time SpotLight budget (quality tiers) =====
+  // * This level's dominant GPU cost is its real-time SpotLights: the 7 lit ceiling-grid
+  // * cells (ceiling.spots, built deterministically by getFixtureState) plus the 1
+  // * furniture-pile spot below — 8 total, matching QUALITY_KNOBS.high.ceilingSpots. Panel
+  // * emissive materials are baked into per-state merged meshes (buildCeiling) and never
+  // * reference these light objects, so toggling `.visible` here only removes the
+  // * real-time light contribution — the fixtures keep reading as lit at every tier.
+  //
+  // * Priority order was chosen by farthest-point sampling over the 7 lit grid cells (so
+  // * any budget prefix stays spread across the room instead of clustering in one corner),
+  // * with the furniture-pile spot inserted at priority 3 — it anchors the center setpiece,
+  // * so it survives medium (budget 4) and only drops out at low (budget 2).
+  const CEILING_SPOT_PRIORITY_ORDER = [
+    [3, 4], [0, 1], /* furniture */ null, [3, 1], [1, 2], [2, 0], [2, 3], [4, 2],
+  ];
+  const spotByGridKey = new Map(ceiling.spots.map((s) => [`${s.gx},${s.gz}`, s.light]));
+  const prioritizedSpots = CEILING_SPOT_PRIORITY_ORDER.map((entry) => (
+    entry === null ? furnitureSpotlight.spot : spotByGridKey.get(`${entry[0]},${entry[1]}`)
+  )).filter((light) => light != null);
+
+  /**
+   * Enables the first `knobs.ceilingSpots` lights (priority order above) and disables the
+   * rest. Safe to call repeatedly (main.js calls it after every level load and on every
+   * live tier change).
+   * @param {import("../utils/qualityTiers.js").QualityKnobs} knobs
+   */
+  function applyQualityTier(knobs) {
+    const budget = knobs.ceilingSpots;
+    prioritizedSpots.forEach((light, i) => {
+      light.visible = i < budget;
+    });
+  }
+  applyQualityTier(getQualityKnobs());
+
   // ===== Contract stand-ins =====
   // * spindleLight is required by main.js (it lerps its color each frame). Keep it as a
   // * dim warm ambient pulse by giving both cycle endpoints near-identical muted tones,
@@ -3490,6 +3534,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
       spotlightUpdateFn(timeMs);
       ceilingUpdateFn(timeMs);
     },
+    applyQualityTier,
     dispose,
   };
 }

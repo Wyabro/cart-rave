@@ -2,11 +2,16 @@
  * autoQuality.js — session frame-time watchdog.
  *
  * If p95 frame time stays above a threshold for several seconds, step quality
- * down once for this session (no localStorage write). User toggle via
- * setLowQualityMode still wins and clears the session override.
+ * down ONE tier for this session (no localStorage write), re-arm, and allow a
+ * second step (high→medium→low at most). User tier changes via setQualityTier
+ * clear the session override and win.
+ *
+ * The caller must react to a `true` return by re-applying quality live
+ * (composer passes, pixel ratio, arena knobs) — the flag flip alone only
+ * affects per-frame readers.
  */
 
-import { isLowQualityMode, setSessionLowQuality } from "./qualityMode.js";
+import { getQualityTier, setSessionQualityTier, stepDownQualityTier } from "./qualityMode.js";
 
 const SAMPLE_CAP = 90;
 /** ms — ~45 fps threshold */
@@ -14,28 +19,31 @@ const BAD_FRAME_MS = 22;
 /** consecutive bad 1s windows before step-down */
 const BAD_WINDOWS_NEEDED = 3;
 const WINDOW_MS = 1000;
+/** max automatic tier steps per session (high→medium→low) */
+const MAX_STEPS = 2;
+/** ms of settle time after a step before sampling resumes */
+const COOLDOWN_MS = 5000;
 
 /** @type {number[]} */
 const samples = [];
 let badWindows = 0;
 let windowStartMs = 0;
-let armed = true;
-let applied = false;
+let stepsApplied = 0;
+let cooldownUntilMs = 0;
 
 /**
  * Feed one frame's delta (seconds) from the main loop.
  * @param {number} dtSec
  * @param {number} [nowMs]
- * @returns {boolean} true if this call applied a session step-down
+ * @returns {boolean} true if this call applied a session step-down (caller should re-apply quality live)
  */
 export function tickAutoQuality(dtSec, nowMs = performance.now()) {
-  if (!armed || applied) return false;
+  if (stepsApplied >= MAX_STEPS) return false;
+  if (nowMs < cooldownUntilMs) return false;
 
-  // * Already low quality (touch default, user pref, or prior session step) — stop watching.
-  if (isLowQualityMode()) {
-    armed = false;
-    return false;
-  }
+  const currentTier = getQualityTier();
+  // * Already at the floor (touch default, user pref, or prior step) — nothing to shed.
+  if (currentTier === "low") return false;
 
   const dtMs = (Number(dtSec) || 0) * 1000;
   if (!(dtMs > 0) || dtMs > 250) return false;
@@ -59,13 +67,18 @@ export function tickAutoQuality(dtSec, nowMs = performance.now()) {
 
   if (badWindows < BAD_WINDOWS_NEEDED) return false;
 
-  setSessionLowQuality(true);
-  applied = true;
-  armed = false;
+  const nextTier = stepDownQualityTier(currentTier);
+  if (!nextTier) return false;
+  setSessionQualityTier(nextTier);
+  stepsApplied += 1;
+  badWindows = 0;
+  samples.length = 0;
+  windowStartMs = 0;
+  cooldownUntilMs = nowMs + COOLDOWN_MS;
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[autoQuality] session low-quality step-down (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s)`,
+      `[autoQuality] session step-down ${currentTier}→${nextTier} (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s)`,
     );
   }
   return true;
@@ -76,6 +89,6 @@ export function resetAutoQualityForTests() {
   samples.length = 0;
   badWindows = 0;
   windowStartMs = 0;
-  armed = true;
-  applied = false;
+  stepsApplied = 0;
+  cooldownUntilMs = 0;
 }

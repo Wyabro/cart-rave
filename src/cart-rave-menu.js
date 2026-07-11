@@ -24,9 +24,10 @@ import {
 } from "./cartThemeConfig.js";
 import { CartPreview } from "./ui/cartPreview.js";
 import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
-import { isLowQualityMode, isTouchDevice } from "./utils.js";
+import { isTouchDevice } from "./utils.js";
+import { getQualityTier } from "./utils/qualityMode.js";
 import { settingsStore } from "./stores/settingsStore.js";
-import { togglePostFx, toggleLowQuality } from "./ui/graphicsToggles.js";
+import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
 import { setAllAudioMuted, setMusicGainValue } from "./ui/audioControls.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
@@ -1614,9 +1615,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const postFxOn = getPostFxEnabled();
     gfxBtn.querySelector(".cr-btn-label").textContent = postFxOn ? "POST-FX: ON" : "POST-FX: OFF";
     gfxBtn.classList.toggle("cr-btn--gfx-off", !postFxOn);
-    const lowQ = isLowQualityMode();
-    lqBtn.querySelector(".cr-btn-label").textContent = lowQ ? "LOW QUALITY: ON" : "HIGH QUALITY: ON";
-    lqBtn.classList.toggle("cr-btn--lq-on", lowQ);
+    const tier = getQualityTier();
+    lqBtn.querySelector(".cr-btn-label").textContent = `QUALITY: ${tier.toUpperCase()}`;
+    lqBtn.classList.toggle("cr-btn--lq-on", tier === "low");
   }
 
   if (gfxBtn) {
@@ -1631,8 +1632,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   if (lqBtn) {
     lqBtn.addEventListener("click", () => {
-      const next = !isLowQualityMode();
-      toggleLowQuality(next);
+      const order = /** @type {import("./utils/qualityMode.js").QualityTier[]} */ (["low", "medium", "high"]);
+      const next = order[(order.indexOf(getQualityTier()) + 1) % order.length];
+      applyQualityTier(next);
       syncGfxButtonStates();
     });
   }

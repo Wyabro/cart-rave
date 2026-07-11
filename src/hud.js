@@ -194,6 +194,8 @@ let _wasSuddenDeath = false;
 let _toastTimeoutId = null;
 /** Previous local ready state — drives ready-button toggle animation. */
 let _lastReadyState = null;
+/** Quantized (0.5%) round-timer fill last written — skip redundant per-frame style writes. */
+let _hudTimerFillHalfPct = -1;
 
 
 function clamp(value, min, max) {
@@ -473,6 +475,7 @@ function updateTimer(roundState, matchHistoryLength) {
     if (elements.timerNum) elements.timerNum.textContent = "";
     if (elements.timerRd) elements.timerRd.textContent = "";
     if (elements.timerFill) elements.timerFill.style.width = "0%";
+    _hudTimerFillHalfPct = -1;
     return;
   }
 
@@ -499,7 +502,12 @@ function updateTimer(roundState, matchHistoryLength) {
     }
     if (elements.timerFill) {
       const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
-      elements.timerFill.style.width = `${pct}%`;
+      // * Quantize to 0.5% — skip the write when it wouldn't visibly change the bar.
+      const fillHalfPct = Math.round(pct * 2);
+      if (fillHalfPct !== _hudTimerFillHalfPct) {
+        _hudTimerFillHalfPct = fillHalfPct;
+        elements.timerFill.style.width = `${fillHalfPct / 2}%`;
+      }
     }
     // * Sudden Death red theme — applied to HUD root so all timer sub-elements turn red.
     if (elements.root) {
@@ -564,6 +572,7 @@ function updateTimer(roundState, matchHistoryLength) {
     if (elements.timerNum) elements.timerNum.textContent = "";
     if (elements.timerRd) elements.timerRd.textContent = "";
     if (elements.timerFill) elements.timerFill.style.width = "0%";
+    _hudTimerFillHalfPct = -1;
     if (elements.root) {
       elements.root.classList.remove("hud-sudden-death");
     }
@@ -1371,6 +1380,8 @@ function updateConnectionPill() {
 
 /** Cached boost meter display value — avoids redundant style writes per frame. */
 let _boostDisplay = null;
+/** Quantized (0.5%) boost-meter fill last written — skip redundant per-frame style writes. */
+let _boostFillHalfPct = -1;
 
 /**
  * Updates the local player's boost charge/cooldown meter (keyboard/gamepad HUD).
@@ -1413,8 +1424,16 @@ function updateBoostWidget(roundState) {
     elements.boost.style.display = displayVal;
     _boostDisplay = displayVal;
   }
-  if (!show) return;
-  elements.boostFill.style.width = `${fillPct}%`;
+  if (!show) {
+    _boostFillHalfPct = -1;
+    return;
+  }
+  // * Quantize to 0.5% — skip the write when it wouldn't visibly change the bar.
+  const fillHalfPct = Math.round(fillPct * 2);
+  if (fillHalfPct !== _boostFillHalfPct) {
+    _boostFillHalfPct = fillHalfPct;
+    elements.boostFill.style.width = `${fillHalfPct / 2}%`;
+  }
   if (elements.boost.dataset.state !== state) elements.boost.dataset.state = state;
 }
 

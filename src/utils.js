@@ -5,7 +5,7 @@
 import { CART_COLORS, PALETTE } from "./config.js";
 // * Quality mode lives in utils/qualityMode.js (config imports it directly to avoid cycles).
 // * Re-export only the symbols existing call sites import from `utils.js`.
-export { isLowQualityMode, setLowQualityMode } from "./utils/qualityMode.js";
+export { isLowQualityMode } from "./utils/qualityMode.js";
 
 /** Reference luminance for perceptually even cart glow (pure green channel in linear sRGB). */
 const CART_EMISSIVE_REF_LUMA = 0.7152;

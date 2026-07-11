@@ -23,6 +23,7 @@ import {
   disposeCartThemeResources,
 } from "../cartThemes.js";
 import { applyRendererColorGrading, setupSceneEnvironment } from "../scene.js";
+import { getQualityKnobs } from "../utils/qualityTiers.js";
 import {
   applyPreviewPlaceholderColor,
   disposePreviewCartGltf,
@@ -251,9 +252,12 @@ export class CartPreview {
     this._stageGroup.add(shadowDisk);
     this.scene.add(this._stageGroup);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // * Preview obeys the quality tier like the main renderer: MSAA + full DPR are
+    // * a hidden cost on phones (this canvas previously ignored quality entirely).
+    const knobs = getQualityKnobs();
+    this.renderer = new THREE.WebGLRenderer({ antialias: knobs.postFx, alpha: true });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, knobs.pixelRatioCap));
     this._resizeTo(width, height);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // * Match in-game grading (scene.js OutputPass path) so carts look identical in

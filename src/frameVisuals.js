@@ -17,6 +17,7 @@ import { updateDirectiveEngine, getActiveDirective } from "./directives/directiv
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
+import { isComposerBypassActive } from "./scene.js";
 
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -149,6 +150,7 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {() => { until: number, durationMs: number, strength: number, baseVignette: number | null, baseAberration: number | null }} [getImpactPulse]
  * @property {() => { until: number, blendUntil: number }} [getHitStop] KO hit-stop window (presentation-only pose freeze).
  * @property {() => import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} [getArcadePass]
+ * @property {() => void} [onAutoQualityStepDown] Re-applies quality live after an auto-quality tier step.
  * @property {{ frames: number, last: number, canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null }} fpsState
  * @property {() => void} [updateTouchControlsVisibility]
  */
@@ -168,9 +170,13 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const netSlotsForFrame = deps.getNetSlots();
   const roundState = deps.getRoundState();
 
-  // * Session auto-quality: one-shot step-down on sustained bad frame times (no localStorage).
+  // * Session auto-quality: tiered step-down on sustained bad frame times (no localStorage).
+  // * A step-down must be applied live (composer passes, pixel ratio, arena knobs) —
+  // * the tier flip alone only affects per-frame readers.
   if (!deps.isMenuVisible?.()) {
-    tickAutoQuality(dt, now);
+    if (tickAutoQuality(dt, now)) {
+      deps.onAutoQualityStepDown?.();
+    }
   }
 
   if (roundState.phase === "running") {
@@ -424,7 +430,16 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     shakeApplied = true;
   }
 
-  deps.composer.render();
+  // * Low tier: every creative pass is disabled, so the composer would only burn two
+  // * full-screen passes (render-to-RT + OutputPass copy). Render direct instead —
+  // * renderer.toneMapping/outputColorSpace apply natively on the canvas path.
+  // * Latched flag (not live knobs): the path flip recompiles all scene programs,
+  // * so main.js only flips it behind the quality-apply overlay after a warm-up.
+  if (isComposerBypassActive()) {
+    deps.composer.renderer.render(deps.scene, deps.camera);
+  } else {
+    deps.composer.render();
+  }
   deps.labelRenderer.render(deps.scene, deps.camera);
   if (shakeApplied) deps.camera.quaternion.copy(_preShakeQuat);
 

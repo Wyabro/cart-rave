@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3211", "--strictPort"],
       "port": 3211
+    },
+    {
+      "name": "vite-perf",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3212", "--strictPort"],
+      "port": 3212
     }
   ]
 }

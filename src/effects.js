@@ -8,7 +8,8 @@ import { buildCart } from "./cart.js";
 import * as Simulation from "./simulation.js";
 import * as GameState from "./gameState.js";
 import { CONFIG } from "./config.js";
-import { clamp, isLowQualityMode } from "./utils.js";
+import { clamp } from "./utils.js";
+import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { createPhysicalMaterial } from "./scene.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
 
@@ -67,6 +68,8 @@ const TRASH_POOL_SIZE = 52;
 const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
 
 const AMBIENT_PARTICLE_COUNT = 260;
+/** Actual allocated dust count for the active tier (set in initAmbientParticles). */
+let ambientParticleCount = AMBIENT_PARTICLE_COUNT;
 const AMBIENT_PARTICLE_RADIUS = 35;
 const AMBIENT_PARTICLE_HEIGHT = 30;
 
@@ -101,6 +104,8 @@ let sceneRef = null;
 
 /** @type {THREE.Mesh[]} */
 let trashPool = [];
+/** Count of currently-visible trashPool entries — lets updateTrashParticles early-out when zero. */
+let trashActiveCount = 0;
 
 /** @type {THREE.BoxGeometry | null} */
 let trashGeo = null;
@@ -212,7 +217,7 @@ const crowdWiggleQuat = new THREE.Quaternion();
 /** @type {THREE.Group | null} */
 let stageGroup = null;
 
-/** @type {{ target: THREE.Object3D, baseX: number, index: number }[]} */
+/** @type {{ light: THREE.SpotLight, target: THREE.Object3D, baseX: number, index: number }[]} */
 let stageLightEntries = [];
 
 /** @type {CanvasRenderingContext2D | null} */
@@ -369,15 +374,17 @@ function initAmbientParticles(scene, style, cartColors) {
   ambientParticleRadius = cfg.radius;
   ambientParticleHeight = cfg.height;
 
-  const ambientParticlePositions = new Float32Array(AMBIENT_PARTICLE_COUNT * 3);
-  const ambientParticleColors = new Float32Array(AMBIENT_PARTICLE_COUNT * 3);
-  ambientParticleDrift = new Float32Array(AMBIENT_PARTICLE_COUNT * 4);
+  // * Tier-scaled density — dust keeps its read at ~1/3 count on Low.
+  ambientParticleCount = Math.max(48, Math.round(AMBIENT_PARTICLE_COUNT * getQualityKnobs().dustMul));
+  const ambientParticlePositions = new Float32Array(ambientParticleCount * 3);
+  const ambientParticleColors = new Float32Array(ambientParticleCount * 3);
+  ambientParticleDrift = new Float32Array(ambientParticleCount * 4);
   const ambientParticlePalette = getAmbientDustPalette(style, cartColors);
   const ambientParticleColor = new THREE.Color();
   const driftSpan = cfg.driftSpeedMax - cfg.driftSpeedMin;
   const vertSpan = cfg.verticalDriftMax - cfg.verticalDriftMin;
 
-  for (let i = 0; i < AMBIENT_PARTICLE_COUNT; i++) {
+  for (let i = 0; i < ambientParticleCount; i++) {
     const angle = Math.random() * Math.PI * 2;
     const radius = Math.sqrt(Math.random()) * cfg.radius;
     const p = i * 3;
@@ -490,6 +497,89 @@ function buildCrowdGlowstickGeometry() {
 }
 
 /**
+ * Low-poly wire-basket shopping-cart silhouette for crowd instancing (~480 tris),
+ * sized to the real cart's AABB. The previous approach merged the full 5,190-tri
+ * gameplay cart mesh — at 2,600 instances that was 13.5M triangles (95% of the
+ * Classic scene's vertex load, doubled again inside the floor Reflector). This
+ * rebuilds the read the real cart actually has — open wire basket (rim, corner
+ * posts, vertical wires), solid rear gate, handle, undercarriage tray, caster
+ * wheels — from thin bars, then fit-scales to the measured bounds. Iterated
+ * against side-by-side renders of buildCart() until it reads as the same cart
+ * at both closeup and stadium distance.
+ * @param {THREE.Box3} refBox Full-detail cart bounds to match.
+ * @returns {THREE.BufferGeometry}
+ */
+function buildCrowdCartSilhouetteGeometry(refBox) {
+  /** @type {THREE.BufferGeometry[]} */
+  const parts = [];
+  const _m = new THREE.Matrix4();
+  const _e = new THREE.Euler();
+  const add = (geo, x, y, z, rx = 0, rz = 0) => {
+    _e.set(rx, 0, rz);
+    _m.makeRotationFromEuler(_e).setPosition(x, y, z);
+    geo.applyMatrix4(_m);
+    parts.push(geo);
+  };
+  const bar = (w, h, l) => new THREE.BoxGeometry(w, h, l);
+  // * Basket rim (open rectangle).
+  add(bar(0.08, 0.08, 2.14), -0.68, 0.66, 0.08);
+  add(bar(0.08, 0.08, 2.14), 0.68, 0.66, 0.08);
+  add(bar(1.42, 0.08, 0.08), 0, 0.66, 1.14);
+  add(bar(1.42, 0.08, 0.08), 0, 0.66, -0.98);
+  // * Mid band (slightly inset — fakes the taper).
+  add(bar(0.06, 0.06, 1.98), -0.62, 0.12, 0.08);
+  add(bar(0.06, 0.06, 1.98), 0.62, 0.12, 0.08);
+  add(bar(1.26, 0.06, 0.06), 0, 0.12, 1.06);
+  // * Basket floor pan.
+  add(bar(1.04, 0.06, 1.7), 0, -0.42, 0.08);
+  // * Solid rear gate (child-seat panel) — anchors the cart read from behind.
+  add(bar(1.26, 0.85, 0.06), 0, 0.02, -0.94, 0.12);
+  // * Corner posts, tilted inward toward the floor.
+  for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    add(bar(0.07, 1.12, 0.07), sx * 0.64, 0.12, 0.08 + sz * 1.02, sz * 0.12, -sx * 0.09);
+  }
+  // * Vertical wires: 6 per long side + 3 across the front (the "wire basket" read).
+  for (let i = 0; i < 6; i += 1) {
+    const z = -0.7 + i * 0.335;
+    add(bar(0.04, 1.1, 0.04), -0.645, 0.11, z, 0, -0.09);
+    add(bar(0.04, 1.1, 0.04), 0.645, 0.11, z, 0, 0.09);
+  }
+  for (const x of [-0.32, 0, 0.32]) {
+    add(bar(0.04, 1.1, 0.04), x, 0.11, 1.09, 0.11);
+  }
+  // * Handle: short stubs above the rear rim + grip bar.
+  add(bar(0.07, 0.3, 0.07), -0.64, 0.72, -1.08, -0.4);
+  add(bar(0.07, 0.3, 0.07), 0.64, 0.72, -1.08, -0.4);
+  add(bar(1.44, 0.1, 0.1), 0, 0.82, -1.16);
+  // * Rear legs, undercarriage tray, front diagonal struts.
+  add(bar(0.08, 1.3, 0.08), -0.58, -0.4, -0.94, -0.05);
+  add(bar(0.08, 1.3, 0.08), 0.58, -0.4, -0.94, -0.05);
+  add(bar(0.95, 0.06, 1.4), 0, -0.78, 0);
+  add(bar(0.07, 0.65, 0.07), -0.5, -0.72, 0.8, 0.5);
+  add(bar(0.07, 0.65, 0.07), 0.5, -0.72, 0.8, 0.5);
+  // * Caster wheels (6-seg cylinders).
+  for (const [wx, wz] of [[-0.55, 0.9], [0.55, 0.9], [-0.55, -0.9], [0.55, -0.9]]) {
+    const wheel = new THREE.CylinderGeometry(0.19, 0.19, 0.12, 6);
+    wheel.rotateZ(Math.PI / 2);
+    add(wheel, wx, -0.94, wz);
+  }
+  const merged = mergeGeometries(parts, false);
+  for (const g of parts) g.dispose();
+  if (!merged) return new THREE.BoxGeometry(1.2, 0.9, 2.0);
+  // * Fit-scale the authored silhouette onto the measured cart bounds so a future
+  // * cart model swap keeps crowd proportions correct.
+  merged.computeBoundingBox();
+  const authored = /** @type {THREE.Box3} */ (merged.boundingBox);
+  const sx = (refBox.max.x - refBox.min.x) / Math.max(0.01, authored.max.x - authored.min.x);
+  const sy = (refBox.max.y - refBox.min.y) / Math.max(0.01, authored.max.y - authored.min.y);
+  const sz = (refBox.max.z - refBox.min.z) / Math.max(0.01, authored.max.z - authored.min.z);
+  merged.scale(sx, sy, sz);
+  merged.translate(0, refBox.min.y - authored.min.y * sy, 0);
+  merged.computeBoundingBox();
+  return merged;
+}
+
+/**
  * Builds instanced crowd (cart / person / glowstick variants), glow ring, searchlights,
  * and point lights around the pit.
  * @param {THREE.Scene} scene
@@ -497,16 +587,13 @@ function buildCrowdGlowstickGeometry() {
  * @param {number} pitInnerRadius Inner pit radius used for crowd placement rings.
  */
 export function initCrowd(scene, cartColors, pitInnerRadius) {
+  // * Build the real cart once only to measure its bounds, then instance a ~100-tri
+  // * silhouette in its place (see buildCrowdCartSilhouetteGeometry for the why).
   const crowdSourceCart = buildCart(0xffffff);
   crowdSourceCart.updateMatrixWorld(true);
-  const crowdCartParts = [];
-  crowdSourceCart.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !child.geometry) return;
-    crowdCartParts.push(child.geometry.clone().applyMatrix4(child.matrixWorld));
-  });
-  const cartGeo = mergeGeometries(crowdCartParts) ?? new THREE.BoxGeometry(1.2, 0.9, 2.0);
-  for (const g of crowdCartParts) g.dispose();
+  const crowdCartBox = new THREE.Box3().setFromObject(crowdSourceCart);
   disposeObject3D(crowdSourceCart);
+  const cartGeo = buildCrowdCartSilhouetteGeometry(crowdCartBox);
   const personGeo = buildCrowdPersonGeometry();
   const glowstickGeo = buildCrowdGlowstickGeometry();
 
@@ -713,18 +800,14 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     layer.mesh.setColorAt(li, baseColor);
   }
 
-  const lowQ = isLowQualityMode();
-  const lowQRatio = 800 / crowdInstanceCount;
   for (let v = 0; v < crowdLayers.length; v += 1) {
     const layer = crowdLayers[v];
     layer.fullCount = layerWriteIdx[v];
-    layer.mesh.count = lowQ
-      ? Math.max(layer.fullCount > 0 ? 1 : 0, Math.round(layer.fullCount * lowQRatio))
-      : layer.fullCount;
     layer.mesh.instanceMatrix.needsUpdate = true;
     if (layer.mesh.instanceColor) layer.mesh.instanceColor.needsUpdate = true;
     scene.add(layer.mesh);
   }
+  applyCrowdBudget(getQualityKnobs().crowdCount);
 
   // * Seating shell — modest stepped rows + muted club-plastic seats (readable
   // * grandstand, not a rainbow lathe). Crowd Y is keyed to SHELL_SURFACE_Y + cushion.
@@ -1728,23 +1811,44 @@ export function setRaveExtrasVisible(visible) {
 }
 
 /**
- * Sets the crowd InstancedMesh draw-count without reallocating GPU memory.
- * Call during quality toggle so the full capacity can be drawn in High Quality,
- * or capped proportionally (~800 total) in Low Quality.
+ * Sets the crowd InstancedMesh draw-count for a tier budget without reallocating
+ * GPU memory (full capacity is always allocated).
  *
- * @param {boolean} lowQuality
+ * @param {number} budget Total crowd instances to draw (Infinity = full capacity).
  */
-export function setQualityCrowdCount(lowQuality) {
-  if (crowdLayers.length === 0) {
-    if (!crowdCarts) return;
-    crowdCarts.count = lowQuality ? 800 : crowdInstanceCount;
-    return;
-  }
-  const ratio = lowQuality ? 800 / crowdInstanceCount : 1;
+function applyCrowdBudget(budget) {
+  const ratio = budget >= crowdInstanceCount ? 1 : Math.max(0, budget) / crowdInstanceCount;
   for (const layer of crowdLayers) {
-    layer.mesh.count = lowQuality
-      ? Math.max(layer.fullCount > 0 ? 1 : 0, Math.round(layer.fullCount * ratio))
-      : layer.fullCount;
+    layer.mesh.count = ratio >= 1
+      ? layer.fullCount
+      : Math.max(layer.fullCount > 0 ? 1 : 0, Math.round(layer.fullCount * ratio));
+  }
+}
+
+/**
+ * Applies a quality tier's Classic-Record dressing knobs. Unlike the old
+ * all-or-nothing Low mode, every tier keeps the crowd/stage/billboard silhouette;
+ * this only budgets the crowd and gates the *dynamic* costs — real-time lights,
+ * laser fans — so Low still looks like a rave, just a frozen-cheap one.
+ * Call after setRaveExtrasVisible(true); no-op while extras are hidden/unbuilt.
+ *
+ * @param {import("./utils/qualityTiers.js").QualityKnobs} knobs
+ */
+export function applyRaveExtrasQuality(knobs) {
+  applyCrowdBudget(knobs.crowdCount);
+  const lightsOn = knobs.extrasLasers;
+  for (const e of crowdSearchlightEntries) {
+    if (e.light) e.light.visible = lightsOn && !e.forceOff;
+  }
+  for (const e of crowdPointLightEntries) {
+    // * Bulb meshes stay — only the PointLight contribution is tier-gated.
+    if (e.light) e.light.visible = lightsOn;
+  }
+  for (const e of stageLightEntries) {
+    if (e.light) e.light.visible = lightsOn;
+  }
+  for (const e of laserEntries) {
+    if (e.mesh) e.mesh.visible = lightsOn;
   }
 }
 
@@ -1917,6 +2021,7 @@ export function initEffects(scene, options = {}) {
   if (ramBoostConfig) ensureStreakGeometries(ramBoostConfig);
 
   trashPool = [];
+  trashActiveCount = 0;
   trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
   trashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
 
@@ -1934,10 +2039,6 @@ export function initEffects(scene, options = {}) {
   const opt = /** @type {Record<string, any>} */ (options);
   if (opt.cartColors && opt.ambientDustStyle) {
     setAmbientDustStyle(opt.ambientDustStyle, opt.cartColors);
-  }
-
-  if (isLowQualityMode()) {
-    setRaveExtrasVisible(false);
   }
 
   return { ramBoostStreaks, ambientParticles };
@@ -2002,6 +2103,7 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
     mat.opacity = isBackroomsFloor ? 0.78 : 1;
     p.visible = true;
+    trashActiveCount += 1;
     p.userData.isDust = isBackroomsFloor;
     if (type === "floor") {
       const angle = Math.random() * Math.PI * 2;
@@ -2058,20 +2160,23 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
  * @param {number} dt Frame delta (seconds).
  */
 export function updateTrashParticles(dt) {
+  // * Pool slots vastly outnumber active particles most frames — skip the scan entirely
+  // * when nothing is visible instead of walking all TRASH_POOL_SIZE slots for nothing.
+  if (trashActiveCount <= 0) return;
+
   const isRunning = GameState.getRoundState().phase === "running";
 
   // * During podium / lobby, accelerate cleanup so particles don't freeze mid-air.
   const fadeSpeed = isRunning ? 1 : 3;
 
-  let anyVisible = false;
   for (let i = 0; i < trashPool.length; i++) {
     const p = trashPool[i];
     if (!p.visible) continue;
-    anyVisible = true;
 
     p.userData.life += dt * fadeSpeed;
     if (p.userData.life >= p.userData.maxLife) {
       p.visible = false;
+      trashActiveCount -= 1;
       continue;
     }
     const t = p.userData.life / p.userData.maxLife;
@@ -2089,9 +2194,6 @@ export function updateTrashParticles(dt) {
       ? (0.78 * (1 - t))
       : (1 - t);
   }
-
-  // * Early return only if no particles are visible at all.
-  if (!anyVisible && !isRunning) return;
 }
 
 /**
@@ -2105,7 +2207,7 @@ export function updateAmbientParticles(dt, nowMs) {
   const nowSec = nowMs * 0.001;
   const positions = ambientParticleGeometry.attributes.position.array;
 
-  for (let i = 0; i < AMBIENT_PARTICLE_COUNT; i++) {
+  for (let i = 0; i < ambientParticleCount; i++) {
     const p = i * 3;
     const d = i * 4;
     const wave = Math.sin(nowSec * 0.55 + ambientParticleDrift[d + 3]) * 0.04;
@@ -2315,6 +2417,8 @@ export function updateRamBoostStreaks(nowMs) {
 
   const pulseHz = ramBoostConfig?.streakPulseHz ?? 16;
   const glowBase = ramBoostConfig?.streakGlowOpacity ?? 0.62;
+  // * Hoisted out of the per-streak loop — round phase doesn't change mid-update.
+  const isRoundRunning = GameState.getRoundState().phase === "running";
 
   for (let i = ramBoostStreaks.length - 1; i >= 0; i -= 1) {
     const s = ramBoostStreaks[i];
@@ -2330,7 +2434,7 @@ export function updateRamBoostStreaks(nowMs) {
     const stretch = 1 + t * 0.25;
     s.group.scale.set(s.baseRadius, s.length * stretch, s.baseRadius);
 
-    const isBoosting = GameState.getRoundState().phase === "running"
+    const isBoosting = isRoundRunning
       && s.cart
       && s.cart.ramBoostActiveUntilMs > nowMs;
     const pulse = isBoosting && pulseHz > 0
@@ -2590,7 +2694,7 @@ export function initStage(scene, pitInnerRadius, cartColors) {
     target.position.set(lx, 0, 0);
     stageGroup.add(target);
     light.target = target;
-    stageLightEntries.push({ target, baseX: lx, index: i });
+    stageLightEntries.push({ light, target, baseX: lx, index: i });
   }
 
   stageGroup.position.set(stageX, stageY, stageZ);

@@ -15,7 +15,8 @@
  * Spawn ring radius and spawn height are computed after CONFIG is defined (see bottom).
  */
 
-import { isLowQualityMode } from "./utils/qualityMode.js";
+import { getQualityTier } from "./utils/qualityMode.js";
+import { QUALITY_KNOBS } from "./utils/qualityTiers.js";
 
 /** @type {string} Bump when physics or net tuning changes materially. */
 const CONFIG_VERSION = "2026.07.09";
@@ -318,10 +319,15 @@ const physics = {
 // * Legacy alias — holeAssist originally lived under record.
 physics.record.holeAssist = physics.holeAssist;
 
-// * Low Quality Mode — reduces physics and VFX for mobile / slow devices.
-if (isLowQualityMode()) {
-  physics.maxSubsteps = 2;
-  physics.cart.ramBoost.streakMaxActive = 30;
+// * Quality tier — physics substep cap and streak budget at boot; live tier changes
+// * re-apply these in main.js rebuildForQualityChange().
+{
+  const knobs = QUALITY_KNOBS[getQualityTier()];
+  physics.maxSubsteps = knobs.maxSubsteps;
+  physics.cart.ramBoost.streakMaxActive = Math.min(
+    physics.cart.ramBoost.streakMaxActive,
+    knobs.streakCap,
+  );
 }
 
 export const CONFIG = {
@@ -351,6 +357,10 @@ export const CONFIG = {
     inputJitterQueueMax: 24,
     // * How long to wait for Cloudflare TURN credentials before opening WebRTC with STUN-only.
     turnCredentialsTimeoutMs: 2500,
+    // * Min time between host WebRTC re-offer attempts for the same peer (mid-match recovery).
+    p2pReconnectCooldownMs: 3000,
+    // * If a peer PC exists but the DataChannel never opens, force teardown + re-offer after this.
+    p2pConnectingTimeoutMs: 10000,
 
     // * Client-side prediction (multiplayer non-host only). Host remains authoritative.
     prediction: {

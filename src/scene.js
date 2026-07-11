@@ -9,7 +9,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
-import { isLowQualityMode } from "./utils.js";
+import { QUALITY_KNOBS, getQualityKnobs } from "./utils/qualityTiers.js";
 
 /** Bloom tuning — edit CONFIG.postFx.bloom in config.js; applied in createComposer(). */
 const BLOOM_CONFIG = CONFIG.postFx.bloom;
@@ -371,6 +371,29 @@ export function applyRendererColorGrading(renderer) {
 }
 
 /**
+ * Latched composer-bypass state for the frame loop's render path.
+ *
+ * Deliberately NOT read live from the quality knobs: flipping the render path
+ * (composer RT vs direct-to-canvas) changes three.js's program cache key (tone
+ * mapping moves in/out of the shaders), so the first frame on the new path
+ * recompiles every scene program — a multi-second main-thread stall if it
+ * happens on the game loop's next tick, before the quality-apply overlay has
+ * painted. main.js flips this inside rebuildForQualityChange() after warming
+ * the target path behind the overlay.
+ */
+let composerBypassActive = getQualityKnobs().composerBypass;
+
+/** @returns {boolean} Whether the frame loop should skip the composer and render direct. */
+export function isComposerBypassActive() {
+  return composerBypassActive;
+}
+
+/** @param {boolean} active */
+export function setComposerBypassActive(active) {
+  composerBypassActive = active === true;
+}
+
+/**
  * Creates the WebGL renderer bound to the game canvas.
  *
  * @param {HTMLCanvasElement} canvas Target canvas element.
@@ -382,11 +405,15 @@ export function createRenderer(canvas) {
     antialias: false,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(isLowQualityMode() ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getQualityKnobs().pixelRatioCap));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(FOG_CONFIG.color, 1);
   applyRendererColorGrading(renderer);
   // * Contact grounding uses blob quads (contactShadows.js), not shadowMap — keeps GPU cost flat.
+  if (import.meta.env.DEV) {
+    // * Dev-only perf probe: lets console tooling read renderer.info (draw calls, textures, programs).
+    /** @type {any} */ (window).__cartRavePerf = { renderer };
+  }
   return renderer;
 }
 
@@ -412,21 +439,25 @@ function createCamera() {
 }
 
 /**
- * Toggles post-processing passes and renderer quality for runtime quality changes
- * without rebuilding the physics world.
+ * Applies a quality tier's composer/renderer knobs for runtime quality changes
+ * without rebuilding the physics world. The user's Post-FX toggle still gates
+ * bloom/arcade on tiers that allow them.
  *
  * @param {import("three/examples/jsm/postprocessing/UnrealBloomPass.js").UnrealBloomPass | null} bloomPass
  * @param {import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} arcadePass
  * @param {import("three/examples/jsm/postprocessing/ShaderPass.js").ShaderPass | null} fxaaPass
  * @param {THREE.WebGLRenderer | null} renderer
- * @param {boolean} lowQuality
+ * @param {import("./utils/qualityMode.js").QualityTier} tier
  * @param {EffectComposer | null} [composer]
+ * @param {{ bloomEnabled?: boolean, fxPassEnabled?: boolean }} [userFx] User Post-FX toggle state.
  */
-export function applyComposerQualityMode(bloomPass, arcadePass, fxaaPass, renderer, lowQuality, composer = null) {
-  if (bloomPass) bloomPass.enabled = !lowQuality;
-  if (arcadePass) arcadePass.enabled = !lowQuality;
+export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, renderer, tier, composer = null, userFx = {}) {
+  const knobs = QUALITY_KNOBS[tier] ?? QUALITY_KNOBS.high;
+  if (bloomPass) bloomPass.enabled = knobs.postFx && (userFx.bloomEnabled ?? true);
+  if (arcadePass) arcadePass.enabled = knobs.postFx && (userFx.fxPassEnabled ?? true);
+  if (fxaaPass) fxaaPass.enabled = knobs.fxaa;
   if (renderer) {
-    const pixelRatio = lowQuality ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap);
     renderer.setPixelRatio(pixelRatio);
     if (composer) {
       composer.setSize(window.innerWidth, window.innerHeight);
@@ -484,7 +515,7 @@ export function createComposer(renderer, scene, camera) {
   if (bloomScale < 1) {
     bloomPass.strength = BLOOM_CONFIG.strength * bloomStrengthMul;
   }
-  bloomPass.enabled = !isLowQualityMode();
+  bloomPass.enabled = getQualityKnobs().postFx;
   // * Stash scale so updateViewport can resize internal RTs.
   /** @type {any} */ (bloomPass).userData = { ...(/** @type {any} */ (bloomPass).userData || {}), bloomScale };
   composer.addPass(bloomPass);
@@ -504,7 +535,7 @@ export function createComposer(renderer, scene, camera) {
   arcadePass.uniforms.uAberration.value = arcadeCfg.aberration;
   arcadePass.uniforms.uScanlineDensity.value = arcadeCfg.scanlineDensity;
   arcadePass.uniforms.uVignette.value = arcadeCfg.vignette;
-  arcadePass.enabled = !isLowQualityMode();
+  arcadePass.enabled = getQualityKnobs().postFx;
   composer.addPass(arcadePass);
 
   const fxaaPass = new ShaderPass(FXAAShader);
@@ -513,6 +544,7 @@ export function createComposer(renderer, scene, camera) {
     1 / (window.innerWidth * pixelRatio),
     1 / (window.innerHeight * pixelRatio),
   );
+  fxaaPass.enabled = getQualityKnobs().fxaa;
   composer.addPass(fxaaPass);
 
   return { composer, bloomPass, arcadePass, fxaaPass };

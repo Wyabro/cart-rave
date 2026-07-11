@@ -8,7 +8,7 @@ import {
   fadeIn,
   wireButtonPressFeedback,
 } from "../animations.js";
-import { isLowQualityMode } from "../utils.js";
+import { getQualityTier } from "../utils/qualityMode.js";
 import { settingsStore } from "../stores/settingsStore.js";
 
 
@@ -37,6 +37,18 @@ const elements = {
   announcerVoiceBtn: null,
   announcerCalloutsBtn: null,
 };
+
+/**
+ * Syncs the quality cycle button label to the active (or pending) tier.
+ * Module-scope so show() can re-sync after auto-quality step-downs.
+ * @param {string} [tierOverride]
+ */
+function syncQualityTierButtonState(tierOverride) {
+  if (!elements.lowQualityBtn) return;
+  const tier = tierOverride ?? (_options.getQualityTier ? _options.getQualityTier() : getQualityTier());
+  elements.lowQualityBtn.textContent = `QUALITY: ${tier.toUpperCase()}`;
+  elements.lowQualityBtn.classList.toggle("esc-btn--lq-on", tier === "low");
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -350,6 +362,9 @@ export function show() {
       : (_options.getLabelRenderer ? _options.getLabelRenderer() : null);
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
 
+    // * Re-sync in case the auto-quality watchdog stepped the session tier down.
+    syncQualityTierButtonState();
+
     const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
     const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
     const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
@@ -637,19 +652,16 @@ export function init(options = {}, hudContext = {}) {
     syncPostFxButtonState(next);
   });
 
-  const syncLowQualityButtonState = (enabled) => {
-    if (!elements.lowQualityBtn) return;
-    elements.lowQualityBtn.textContent = enabled ? "LOW QUALITY: ON" : "HIGH QUALITY: ON";
-    elements.lowQualityBtn.classList.toggle("esc-btn--lq-on", enabled);
-  };
   elements.lowQualityBtn = document.createElement("button");
   elements.lowQualityBtn.type = "button";
   elements.lowQualityBtn.className = "esc-btn";
-  syncLowQualityButtonState(isLowQualityMode());
+  syncQualityTierButtonState();
   elements.lowQualityBtn.addEventListener("click", () => {
-    const next = !isLowQualityMode();
-    syncLowQualityButtonState(next);
-    if (_options.onLowQualityToggle) _options.onLowQualityToggle(next);
+    const order = ["low", "medium", "high"];
+    const current = _options.getQualityTier ? _options.getQualityTier() : getQualityTier();
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    syncQualityTierButtonState(next);
+    if (_options.onQualityTierChange) _options.onQualityTierChange(next);
   });
 
   actions.appendChild(elements.resumeBtn);
