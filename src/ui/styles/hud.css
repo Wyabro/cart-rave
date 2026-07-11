@@ -763,12 +763,13 @@
   }
 }
 
-/* Dock score bar to bottom on narrow NON-TOUCH viewports (small desktop
-   windows). Touch devices get the dedicated mobile layout further below. */
-@media (max-width: 900px) {
+/* Dock score bar to bottom on mobile NON-TOUCH viewports (narrow desktop
+   windows). Aligns with Pass 3.1 mobile token (≤768). Touch devices get the
+   dedicated .hud-touch layout further below. */
+@media (max-width: 768px) {
   #hud {
-    --hud-feed-top: clamp(120px, 17vh, 148px);
-    --hud-feed-top: clamp(120px, 17dvh, 148px);
+    --hud-feed-top: clamp(128px, 18vh, 156px);
+    --hud-feed-top: clamp(128px, 18dvh, 156px);
   }
   #hud:not(.hud-touch) .hud-region-standings {
     top: auto;
@@ -817,13 +818,6 @@
   }
   #hud .hud-feed {
     max-width: calc(100% - var(--hud-pad) * 2);
-  }
-}
-
-@media (max-width: 768px) {
-  #hud {
-    --hud-feed-top: clamp(128px, 18vh, 156px);
-    --hud-feed-top: clamp(128px, 18dvh, 156px);
   }
 }
 
@@ -986,26 +980,59 @@
   display: none !important;
 }
 
-/* Base desktop size */
+/* Sticker nametags (CSS2D) — size lives here (not inline) so media queries win.
+   Desktop keeps the bold billboard read (~22–24px); mobile/coarse is a clear
+   step down without going micro. */
 .cart-nametag {
+  font-family: "Russo One", var(--ui, sans-serif);
   font-size: 24px;
-  padding: 4px 8px;
-  white-space: nowrap; /* Ensures names don't wrap to a second line */
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 2.5px solid var(--color-cyan, #22e6ff); /* borderColor set per-cart in JS */
+  background: var(--color-ink, #14101e);
+  color: var(--color-sticker-white, #f2ede4);
+  box-shadow: 3px 3px 0 var(--color-ink-deep, #08050f);
+  text-shadow: 0 1.5px 0 var(--color-ink-deep, #08050f);
+  transform: translate(-50%, 0);
+  pointer-events: none;
 }
 
-/* Mobile scaling */
-@media (max-width: 768px) {
+/* Touch / mobile — phone landscape is often >768 wide, so width-only never
+   shrank tags on the most common mobile play mode. Coarse pointer catches it.
+   Aim: readable sticker chips, not desktop billboards and not micro text. */
+@media (max-width: 768px), (pointer: coarse) {
   .cart-nametag {
-    font-size: 12px; /* Dropped from 14px to 12px for smaller screens */
-    padding: 2px 5px;
+    font-size: 13px;
+    padding: 3px 8px;
+    border-width: 2px;
+    border-radius: 6px;
+    box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
+  }
+  .cart-nametag svg {
+    width: 1em;
+    height: 1em;
   }
 }
 
-/* Even smaller phones */
-@media (max-width: 400px) {
+/* Tiny — Pass 3.1 ≤380 */
+@media (max-width: 380px) {
   .cart-nametag {
-    font-size: 10px;
-    padding: 1px 4px;
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+}
+
+/* Short landscape — slightly tighter, still legible */
+@media (orientation: landscape) and (max-height: 600px) {
+  .cart-nametag {
+    font-size: 12px;
+    padding: 2px 7px;
+    border-width: 2px;
   }
 }
 

@@ -14,6 +14,19 @@ const _rootInv = new THREE.Matrix4();
 const _local = new THREE.Matrix4();
 
 /**
+ * Attribute + index fingerprint so BoxGeometry (rails/chevrons) and
+ * CylinderGeometry (neon tubes) under the same material don't get force-merged
+ * when Three would reject the batch (mixed index or mismatched attrs).
+ *
+ * @param {THREE.BufferGeometry} geo
+ * @returns {string}
+ */
+function geometryCompatKey(geo) {
+  const names = Object.keys(geo.attributes).sort().join(",");
+  return `${geo.index ? "idx" : "raw"}|${names}`;
+}
+
+/**
  * @param {THREE.Object3D} root Group whose static mesh descendants should be merged.
  * @param {{
  *   deep?: boolean,
@@ -57,7 +70,12 @@ export function mergeStaticMeshesByMaterial(root, opts = {}) {
   root.updateWorldMatrix(true, true);
   _rootInv.copy(root.matrixWorld).invert();
 
-  /** @type {Map<string, { material: THREE.Material, geos: THREE.BufferGeometry[], sources: THREE.Mesh[] }>} */
+  /**
+   * @type {Map<string, {
+   *   material: THREE.Material,
+   *   pairs: { geo: THREE.BufferGeometry, source: THREE.Mesh }[],
+   * }>}
+   */
   const byMat = new Map();
 
   for (const mesh of meshes) {
@@ -68,7 +86,7 @@ export function mergeStaticMeshesByMaterial(root, opts = {}) {
     const key = material.uuid;
     let bucket = byMat.get(key);
     if (!bucket) {
-      bucket = { material, geos: [], sources: [] };
+      bucket = { material, pairs: [] };
       byMat.set(key, bucket);
     }
 
@@ -76,46 +94,85 @@ export function mergeStaticMeshesByMaterial(root, opts = {}) {
     _local.copy(_rootInv).multiply(mesh.matrixWorld);
     const geo = mesh.geometry.clone();
     geo.applyMatrix4(_local);
-    bucket.geos.push(geo);
-    bucket.sources.push(mesh);
+    bucket.pairs.push({ geo, source: mesh });
   }
 
   let mergedCount = 0;
   let removedMeshes = 0;
+  /** @type {Set<THREE.Mesh>} */
+  const removed = new Set();
 
   for (const bucket of byMat.values()) {
-    if (bucket.geos.length < 2) {
-      // * Leave single-mesh materials alone; dispose the unused clone.
-      for (const g of bucket.geos) g.dispose();
+    if (bucket.pairs.length < 2) {
+      for (const p of bucket.pairs) p.geo.dispose();
       continue;
     }
 
-    const merged = BufferGeometryUtils.mergeGeometries(bucket.geos, false);
-    for (const g of bucket.geos) g.dispose();
-    if (!merged) continue;
+    // * Three's mergeGeometries requires: all indexed OR all non-indexed.
+    // * Booth neon mixes BoxGeometry chevrons + CylinderGeometry tubes under one
+    // * material — convert mixed batches to non-indexed before merge.
+    let pairs = bucket.pairs;
+    const anyIndexed = pairs.some((p) => p.geo.index != null);
+    const allIndexed = pairs.every((p) => p.geo.index != null);
+    if (anyIndexed && !allIndexed) {
+      pairs = pairs.map((p) => {
+        if (p.geo.index == null) return p;
+        const ni = p.geo.toNonIndexed();
+        p.geo.dispose();
+        return { geo: ni, source: p.source };
+      });
+    }
 
-    const mergedMesh = new THREE.Mesh(merged, bucket.material);
-    mergedMesh.name = `merged_${bucket.material.name || bucket.material.type}`;
-    mergedMesh.userData.mergedStatic = true;
-    mergedMesh.frustumCulled = true;
-    root.add(mergedMesh);
-    mergedCount += 1;
-
-    for (const src of bucket.sources) {
-      if (src.parent) src.parent.remove(src);
-      if (disposeSourceGeometry && src.geometry) {
-        // * Only dispose if no other mesh still references it (shared booth geos).
-        const geo = src.geometry;
-        let shared = false;
-        for (const other of meshes) {
-          if (other !== src && other.geometry === geo) {
-            shared = true;
-            break;
-          }
-        }
-        if (!shared) geo.dispose();
+    /** @type {Map<string, { geo: THREE.BufferGeometry, source: THREE.Mesh }[]>} */
+    const byCompat = new Map();
+    for (const p of pairs) {
+      const compatKey = geometryCompatKey(p.geo);
+      let list = byCompat.get(compatKey);
+      if (!list) {
+        list = [];
+        byCompat.set(compatKey, list);
       }
-      removedMeshes += 1;
+      list.push(p);
+    }
+
+    for (const group of byCompat.values()) {
+      if (group.length < 2) {
+        for (const p of group) p.geo.dispose();
+        continue;
+      }
+
+      const merged = BufferGeometryUtils.mergeGeometries(
+        group.map((p) => p.geo),
+        false,
+      );
+      for (const p of group) p.geo.dispose();
+      if (!merged) continue;
+
+      const mergedMesh = new THREE.Mesh(merged, bucket.material);
+      mergedMesh.name = `merged_${bucket.material.name || bucket.material.type}`;
+      mergedMesh.userData.mergedStatic = true;
+      mergedMesh.frustumCulled = true;
+      root.add(mergedMesh);
+      mergedCount += 1;
+
+      for (const p of group) {
+        const src = p.source;
+        if (removed.has(src)) continue;
+        if (src.parent) src.parent.remove(src);
+        if (disposeSourceGeometry && src.geometry) {
+          const geo = src.geometry;
+          let shared = false;
+          for (const other of meshes) {
+            if (other !== src && other.geometry === geo) {
+              shared = true;
+              break;
+            }
+          }
+          if (!shared) geo.dispose();
+        }
+        removed.add(src);
+        removedMeshes += 1;
+      }
     }
   }
 

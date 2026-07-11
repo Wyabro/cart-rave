@@ -77,14 +77,21 @@ export function setMaterialEnvMapIntensity(scene, value) {
  * MeshPhysicalMaterial with scene IBL envMapIntensity pre-applied.
  * Override envMapIntensity in params when a surface needs a custom scale.
  *
+ * Drops keys whose value is `undefined` — Three warns
+ * (`parameter 'roughnessMap' has value of undefined`) when callers pass
+ * ternary map slots like `roughnessMap: low ? tex : undefined`.
+ *
  * @param {THREE.MeshPhysicalMaterialParameters} [params]
  * @returns {THREE.MeshPhysicalMaterial}
  */
 export function createPhysicalMaterial(params = {}) {
-  return new THREE.MeshPhysicalMaterial({
-    envMapIntensity: getMaterialEnvMapIntensity(),
-    ...params,
-  });
+  /** @type {Record<string, unknown>} */
+  const cleaned = { envMapIntensity: getMaterialEnvMapIntensity() };
+  for (const key of Object.keys(params)) {
+    const v = /** @type {Record<string, unknown>} */ (params)[key];
+    if (v !== undefined) cleaned[key] = v;
+  }
+  return new THREE.MeshPhysicalMaterial(/** @type {THREE.MeshPhysicalMaterialParameters} */ (cleaned));
 }
 
 /**

@@ -1415,16 +1415,19 @@ export function initArena(scene, world, config, options = {}) {
   // * Vinyl body — Physical + clearcoat. High-quality path is mostly transparent so the
   // * Reflector carries the mirror; a separate vinyl detail ring (maps) sells grooves.
   const vinylTex = buildVinylSurfaceTextures();
+  // * High path: scalar roughness only (Reflector sells the shine). Low path:
+  // * keep the roughness map so the opaque floor still reads as vinyl grain.
+  // * Do not pass roughnessMap: undefined — Three logs a material warning.
   const recordMat = createPhysicalMaterial({
     color: 0x0c0818,
     map: vinylTex.map,
     roughness: isLowQualityMode() ? 0.55 : 0.38,
-    roughnessMap: isLowQualityMode() ? vinylTex.roughnessMap : undefined,
     metalness: isLowQualityMode() ? 0.25 : 0.48,
     clearcoat: isLowQualityMode() ? 0.2 : 0.72,
     clearcoatRoughness: isLowQualityMode() ? 0.35 : 0.12,
     transparent: !isLowQualityMode(),
     opacity: isLowQualityMode() ? 1.0 : 0.55,
+    ...(isLowQualityMode() ? { roughnessMap: vinylTex.roughnessMap } : {}),
   });
   recordMat.depthWrite = isLowQualityMode();
   if (!isLowQualityMode()) {

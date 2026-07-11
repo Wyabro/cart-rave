@@ -58,6 +58,49 @@ function resolveNpcCarts(allCarts, slots) {
 
 /** @typedef {{ now: number, dt: number, loopState: GameLoopState, physicsAlpha?: number | null }} FrameContext */
 
+/** Dev-only: last time we logged a substep-cap warning (ms). */
+let _lastSubstepCapWarnMs = 0;
+const SUBSTEP_CAP_WARN_INTERVAL_MS = 4000;
+
+/**
+ * After the fixed-step while-loop: clamp spiral-of-death debt and (in DEV)
+ * rate-limit the "substep cap hit" console warning so eruda isn't flooded when
+ * Low-tier maxSubsteps=2 and the device is chronically under 60fps.
+ *
+ * When the cap is hit with ≥1 full step still queued, drop whole leftover steps
+ * and keep only the fractional remainder for visual interpolation — otherwise
+ * every subsequent frame re-hits the cap with ~17ms "unprocessed" forever.
+ *
+ * @param {GameLoopState} loopState
+ * @param {number} substeps
+ * @param {{ fixedTimeStep: number, maxSubsteps: number }} config
+ */
+function settlePhysicsDebt(loopState, substeps, config) {
+  const dt = config.fixedTimeStep;
+  const maxDebt = dt * config.maxSubsteps;
+
+  if (substeps >= config.maxSubsteps && loopState.accumulator >= dt) {
+    if (import.meta.env.DEV) {
+      const now = performance.now();
+      if (now - _lastSubstepCapWarnMs >= SUBSTEP_CAP_WARN_INTERVAL_MS) {
+        _lastSubstepCapWarnMs = now;
+        console.warn(
+          `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
+            `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed ` +
+            `(rate-limited; device behind fixed step — debt fractionalized)`,
+        );
+      }
+    }
+    // * Keep fraction only — stops permanent catch-up thrash at the cap.
+    loopState.accumulator = loopState.accumulator % dt;
+    return;
+  }
+
+  if (loopState.accumulator > maxDebt) {
+    loopState.accumulator = maxDebt;
+  }
+}
+
 /**
  * @typedef {object} SlowMoDeps
  * @property {() => boolean} isHost
@@ -171,20 +214,7 @@ export function runPhysicsStep(loopState, deps, context) {
           substeps += 1;
           stepNow += deps.CONFIG.fixedTimeStep * 1000;
         }
-        const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
-        if (loopState.accumulator > maxDebt) {
-          loopState.accumulator = maxDebt;
-        }
-        if (
-          import.meta.env.DEV &&
-          substeps >= deps.CONFIG.maxSubsteps &&
-          loopState.accumulator >= deps.CONFIG.fixedTimeStep
-        ) {
-          console.warn(
-            `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
-              `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed`
-          );
-        }
+        settlePhysicsDebt(loopState, substeps, deps.CONFIG);
         alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
       } else {
         loopState.accumulator = 0;
@@ -234,20 +264,7 @@ export function runPhysicsStep(loopState, deps, context) {
             substeps += 1;
             stepNow += deps.CONFIG.fixedTimeStep * 1000;
           }
-          const maxDebt = deps.CONFIG.fixedTimeStep * deps.CONFIG.maxSubsteps;
-          if (loopState.accumulator > maxDebt) {
-            loopState.accumulator = maxDebt;
-          }
-          if (
-            import.meta.env.DEV &&
-            substeps >= deps.CONFIG.maxSubsteps &&
-            loopState.accumulator >= deps.CONFIG.fixedTimeStep
-          ) {
-            console.warn(
-              `[gameLoop] Physics substep cap hit with remaining debt: ${substeps} substeps, ` +
-                `${(loopState.accumulator * 1000).toFixed(1)}ms unprocessed`
-            );
-          }
+          settlePhysicsDebt(loopState, substeps, deps.CONFIG);
           alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
         } else {
           loopState.accumulator = 0;

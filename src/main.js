@@ -2517,21 +2517,9 @@ async function main() {
     const el = document.createElement("div");
     el.className = "cart-nametag";
     el.innerHTML = contentHtml;
-    // * Sticker nametag: opaque ink plate, cart-color die-cut edge, hard shadow.
-    el.style.padding = "6px 14px";
-    el.style.borderRadius = "8px";
-    el.style.background = "var(--color-ink, #14101e)";
-    el.style.color = "var(--color-sticker-white, #f2ede4)";
-    el.style.fontFamily = '"Russo One", sans-serif';
-    el.style.fontSize = "";
-    el.style.fontWeight = "700";
-    el.style.lineHeight = "1";
-    el.style.textTransform = "uppercase";
-    el.style.whiteSpace = "nowrap";
-    el.style.border = `2.5px solid ${color}`;
-    el.style.boxShadow = "3px 3px 0 var(--color-ink-deep, #08050f)";
-    el.style.textShadow = "0 1.5px 0 var(--color-ink-deep, #08050f)";
-    el.style.transform = "translate(-50%, 0)";
+    // * Layout/size live in hud.css (fluid + mobile/coarse). Only the cart-color
+    // * edge is dynamic — do not set padding/fontSize here or media queries lose.
+    el.style.borderColor = color;
 
     const label = new CSS2DObject(el);
     label.center.set(0.5, 0);

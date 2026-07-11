@@ -72,4 +72,34 @@ describe("mergeStaticMeshesByMaterial", () => {
     expect(result.mergedCount).toBe(0);
     expect(root.children.includes(inst)).toBe(true);
   });
+
+  it("merges mixed BoxGeometry + CylinderGeometry under one material (booth neon case)", () => {
+    const root = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color: 0x22e6ff });
+    // * Chevrons / rails pattern: boxes + scaled cylinders sharing neon mat.
+    for (let i = 0; i < 4; i += 1) {
+      root.add(new THREE.Mesh(new THREE.BoxGeometry(1 - i * 0.1, 0.05, 0.16), mat));
+    }
+    for (let i = 0; i < 6; i += 1) {
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 16), mat);
+      tube.scale.set(0.05, 2 + i * 0.1, 0.05);
+      tube.position.set(i, 0, 0);
+      root.add(tube);
+    }
+    root.updateMatrixWorld(true);
+
+    const before = console.error;
+    const errors = [];
+    console.error = (...args) => {
+      errors.push(args.join(" "));
+    };
+    try {
+      const result = mergeStaticMeshesByMaterial(root, { deep: true });
+      expect(result.mergedCount).toBeGreaterThanOrEqual(1);
+      expect(result.removedMeshes).toBe(10);
+      expect(errors.some((e) => e.includes("mergeGeometries"))).toBe(false);
+    } finally {
+      console.error = before;
+    }
+  });
 });
