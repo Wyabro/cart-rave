@@ -10,6 +10,62 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
 import { QUALITY_KNOBS, getQualityKnobs } from "./utils/qualityTiers.js";
+import { getDebugParams } from "./utils/debugParams.js";
+
+/**
+ * VFX-1 A/B: maps ?rtmode to composer + bloom-mip texture types. `half` (default)
+ * returns nulls so the pipeline is byte-identical to production. See debugParams.
+ * @param {"half" | "float" | "byte" | "bloombyte"} rtmode
+ * @returns {{ composerType: import("three").TextureDataType | null, bloomType: import("three").TextureDataType | null, label: string }}
+ */
+function resolveRtModeTypes(rtmode) {
+  switch (rtmode) {
+    case "float":
+      return { composerType: THREE.FloatType, bloomType: THREE.FloatType, label: "RGBA32F composer+bloom" };
+    case "byte":
+      return { composerType: THREE.UnsignedByteType, bloomType: THREE.UnsignedByteType, label: "UnsignedByte composer+bloom" };
+    case "bloombyte":
+      return { composerType: null, bloomType: THREE.UnsignedByteType, label: "HalfFloat composer + UnsignedByte bloom mips" };
+    default:
+      return { composerType: null, bloomType: null, label: "HalfFloat (default)" };
+  }
+}
+
+/**
+ * Rebuilds UnrealBloomPass mip render targets to a given texture type and
+ * re-points the composite material's blurTexture uniforms (bound once in the
+ * pass constructor). Used by ?rtmode to isolate the half-res bloom chain.
+ * @param {UnrealBloomPass} bloomPass
+ * @param {import("three").TextureDataType} type THREE texture type
+ */
+function rebuildBloomMipType(bloomPass, type) {
+  const bp = /** @type {any} */ (bloomPass);
+  /** @param {any} rt @param {string} name */
+  const remake = (rt, name) => {
+    const next = new THREE.WebGLRenderTarget(rt.width, rt.height, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type,
+    });
+    next.texture.name = name;
+    next.texture.generateMipmaps = false;
+    rt.dispose();
+    return next;
+  };
+  bp.renderTargetBright = remake(bp.renderTargetBright, "UnrealBloomPass.bright");
+  bp.renderTargetsHorizontal = bp.renderTargetsHorizontal.map(
+    (/** @type {any} */ rt, /** @type {number} */ i) => remake(rt, `UnrealBloomPass.h${i}`),
+  );
+  bp.renderTargetsVertical = bp.renderTargetsVertical.map(
+    (/** @type {any} */ rt, /** @type {number} */ i) => remake(rt, `UnrealBloomPass.v${i}`),
+  );
+  // * blurTexture1..N are bound once in the constructor — re-point after replacing RTs.
+  for (let i = 0; i < bp.renderTargetsVertical.length; i += 1) {
+    const u = bp.compositeMaterial.uniforms[`blurTexture${i + 1}`];
+    if (u) u.value = bp.renderTargetsVertical[i].texture;
+  }
+}
 
 /** Bloom tuning — edit CONFIG.postFx.bloom in config.js; applied in createComposer(). */
 const BLOOM_CONFIG = CONFIG.postFx.bloom;
@@ -601,7 +657,26 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
  * @returns {{ composer: EffectComposer, bloomPass: UnrealBloomPass, arcadePass: ShaderPass, fxaaPass: ShaderPass, outputPass: OutputPass }}
  */
 export function createComposer(renderer, scene, camera) {
-  const composer = new EffectComposer(renderer);
+  // * VFX-1 A/B (?rtmode): default "half" → composerRT undefined → EffectComposer builds
+  // * its stock HalfFloat RT (byte-identical to prod). float/byte pass a custom RT.
+  const { composerType, bloomType, label } = resolveRtModeTypes(getDebugParams().rtmode);
+  let composerRT;
+  if (composerType != null) {
+    const size = renderer.getSize(new THREE.Vector2());
+    const pr = renderer.getPixelRatio();
+    composerRT = new THREE.WebGLRenderTarget(
+      Math.max(1, Math.floor(size.x * pr)),
+      Math.max(1, Math.floor(size.y * pr)),
+      { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: composerType },
+    );
+    composerRT.texture.name = "EffectComposer.rt1";
+  }
+  if (composerType != null || bloomType != null) {
+    // eslint-disable-next-line no-console
+    console.log(`[rtmode] ${getDebugParams().rtmode} — ${label}`);
+  }
+
+  const composer = new EffectComposer(renderer, composerRT);
   const renderPass = new RenderPass(scene, camera);
   renderPass.clearColor = new THREE.Color(getFogColor());
   composer.addPass(renderPass);
@@ -627,6 +702,9 @@ export function createComposer(renderer, scene, camera) {
   bloomPass.enabled = getQualityKnobs().postFx;
   // * Stash scale so updateViewport can resize internal RTs.
   /** @type {any} */ (bloomPass).userData = { ...(/** @type {any} */ (bloomPass).userData || {}), bloomScale };
+  // * VFX-1 A/B: swap bloom mip type before first render (WebGLRenderTarget.setSize
+  // * preserves type, so this survives resizes). No-op unless ?rtmode changes it.
+  if (bloomType != null) rebuildBloomMipType(bloomPass, bloomType);
   composer.addPass(bloomPass);
 
   // * OutputPass performs tone mapping + sRGB encoding. Without it the composer wrote

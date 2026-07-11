@@ -18,6 +18,7 @@ import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { updateKoHitmarkers } from "./effects/koHitmarkerFx.js";
 import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
+import { tickBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import { frameBudgetAllow } from "./utils/frameBudget.js";
 import { isComposerBypassActive } from "./scene.js";
 
@@ -454,6 +455,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   } else {
     deps.composer.render();
   }
+  // * VFX-1 (?blackmon): sample the just-rendered WebGL buffer in-task, before the
+  // * browser composites+clears it. No-op unless the monitor is armed.
+  tickBlackFrameMonitor();
   deps.labelRenderer.render(deps.scene, deps.camera);
   if (shakeApplied) deps.camera.quaternion.copy(_preShakeQuat);
 

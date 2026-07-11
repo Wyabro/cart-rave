@@ -14,6 +14,8 @@
  *   ?harness=1                            — install visual harness hooks + warm world ASAP
  *   ?hud=0                                — hide main menu chrome (clean arena shots)
  *   ?perfPump                             — existing (utils/perfPump.js)
+ *   ?blackmon=1                           — live black-frame flicker monitor (VFX-1, real HW)
+ *   ?rtmode=half|float|byte|bloombyte     — composer RT type A/B (VFX-1 hypotheses; half=default)
  *
  * Inspired by LAAS (fable5-world-demo) process tooling — process only, not their engine.
  */
@@ -41,6 +43,8 @@
  * @property {string | null} shot
  * @property {boolean} harness
  * @property {boolean} hideHud
+ * @property {boolean} blackmon
+ * @property {"half" | "float" | "byte" | "bloombyte"} rtmode
  */
 
 /** Named review poses — used by ?shot= and tools/shoot.mjs */
@@ -157,6 +161,20 @@ export function parseDebugParams(search) {
     preset = presetRaw;
   }
 
+  const blackmon =
+    params.has("blackmon") &&
+    params.get("blackmon") !== "0" &&
+    params.get("blackmon") !== "false";
+
+  // * Composer RT type A/B for the VFX-1 HalfFloat flicker. Absent → "half" (today's
+  // * default path, byte-identical). float=RGBA32F composer; byte=UnsignedByte composer
+  // * (known stable/bad-grade control); bloombyte=HalfFloat composer + UnsignedByte
+  // * bloom mips only (half-res bloom chain suspect).
+  const rtRaw = (params.get("rtmode") || "").trim().toLowerCase();
+  /** @type {"half" | "float" | "byte" | "bloombyte"} */
+  const rtmode =
+    rtRaw === "float" || rtRaw === "byte" || rtRaw === "bloombyte" ? rtRaw : "half";
+
   return {
     ablate,
     postmin,
@@ -167,6 +185,8 @@ export function parseDebugParams(search) {
     shot: bookmark ? shot : null,
     harness: harness || Boolean(params.get("ablate")) || Boolean(cam) || postmin || hideHud,
     hideHud,
+    blackmon,
+    rtmode,
   };
 }
 

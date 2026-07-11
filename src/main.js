@@ -12,6 +12,7 @@ import {
   isDebugCameraLocked,
 } from "./utils/debugParams.js";
 import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
+import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
   loadPlayerCustomization,
   resolveCartNeonCss,
@@ -3934,6 +3935,12 @@ async function main() {
         if (isDebugCameraLocked()) applyDebugCameraPose(camera);
       },
     });
+  }
+
+  // * VFX-1: live black-frame flicker monitor on real hardware (?blackmon=1). Opt-in,
+  // * self-scheduling; logs left/right slab events + shows a counter. Zero cost otherwise.
+  if (dbg.blackmon) {
+    startBlackFrameMonitor({ getCanvas: () => canvas });
   }
 
   // * Idle warm: after menu is up, load Rapier + selected level in the background so

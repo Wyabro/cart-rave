@@ -51,7 +51,7 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
 
 | ID | Issue | Notes |
 |----|--------|--------|
-| VFX-1 | Intermittent pure-black frames | Environment-first (NVIDIA/ANGLE); app A/B tools now available |
+| VFX-1 | Intermittent pure-black frames | Real-HW probes shipped (D-VFX-1): `?blackmon=1` live monitor + `?rtmode=` A/B. Offline battery is blind (software GL). Needs Wyatt playtest data |
 | PERF-1 | Level-swap + menu weight | Measured pass done (D-PERF-1..3); arena-chunk prefetch + honest `three` chunk shipped |
 | NET-1 | Two-browser full-round smoke | Code hardened; gate not closed |
 | BRAND-1 | Domain / Worker cutover | Frozen until deliberate cutover |
@@ -65,6 +65,7 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
 - **D-VIS-3** (2026-07-11): `?cam=` implies freeze (camera lock). Ablation reapplied after quality toggles via `reapplyAblation()`.
 - **D-PERF-1** (2026-07-11): PERF-1 measured pass. Local dev "2s first level-swap" is a **Vite dev-transform artifact** (chunk on-demand compile), NOT a prod cost — proven by pre-warming chunks (→~0ms). Do not chase it. Added `?perf=1` (DEV) per-phase swap breakdown in `commitLevelLoad`.
 - **D-PERF-2** (2026-07-11): Shipped `prefetchLevelChunks()` (`src/levels/index.js`) — idle-warm now prefetches the two **non-selected** arena chunks so menu arena-switching never waits on a lazy `import()`. Verified: before, only selected arena warm; after, all three. Quality-neutral.
+- **D-VFX-1** (2026-07-11): VFX-1 real-hardware probes (offline `blackframes` battery runs software-GL SwiftShader and **cannot** reproduce the ANGLE/NVIDIA HalfFloat quirk — proven: 90 frames Storerooms, worst 0.0043). Shipped: (a) `?blackmon=1` live monitor (`src/utils/blackFrameMonitor.js`) — samples the canvas **synchronously post-render** in `frameVisuals` (separate-rAF reads the cleared buffer since `preserveDrawingBuffer:false`), splits **left vs right half** so a slab (L XOR R) is distinguished from full-black loading/countdown noise; `__blackMon.summary()`/`.stop()`. (b) `?rtmode=half|float|byte|bloombyte` composer/bloom RT A/B (`scene.js`) — half=default byte-identical; float=RGBA32F; byte=UnsignedByte control; bloombyte=HalfFloat composer + UnsignedByte bloom mips (half-res bloom suspect). All boot clean, no GL errors. **Confirmation still needs Wyatt's hardware + eyes** — do not thrash the look; A/B with screenshots. See handover-postfx-black-frames.md.
 - **D-PERF-3** (2026-07-11): `vite.config.js` now uses `codeSplitting.groups` (not `manualChunks` hints). Fixes the misleading 650 kB "animejs" chunk — it was ~92% **Three.js core** (animejs/adapters/three drags three in; manualChunks folded it there). Now: honest `three` ~gz176 + `animejs` ~gz18. **Zero bytes saved** (no dup — index/addons import three from that chunk), naming/cache-line only. **BUNDLE-1**: real menu/game code-split is blocked — `Netcode` (132 uses, incl. `resolveCartNeonHex` at menu), `HUD` (per-frame `isEscOverlayVisible`), and even "isolated" `touchControls`/`announcer` are statically imported by menu-coupled `hud.js`/`netcode.js`. No clean seam; needs full gameplay-cluster-behind-one-dynamic-boundary refactor + NET-1 smoke before it moves any bytes.
 
 ## Gotchas (append-only)
@@ -92,6 +93,7 @@ docs/guides/visual-qa.md    how to run
 
 ## Last updated
 
+2026-07-11 — VFX-1 real-HW probes shipped: `?blackmon=1` live monitor + `?rtmode=` composer/bloom A/B (D-VFX-1). Offline battery proven blind (software GL). Awaits Wyatt playtest data.  
 2026-07-11 — PERF-1 measured pass: arena-chunk prefetch + honest `three`/`animejs` chunks shipped; BUNDLE-1 (menu/game split) scoped + blocked (D-PERF-1..3).  
 2026-07-11 — initial STATUS + visual QA toolchain.  
 Verified: `npm run shoot -- --shot classic` produces a clean Classic Record arena PNG (`?hud=0`).
