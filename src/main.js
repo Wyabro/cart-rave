@@ -108,7 +108,7 @@ import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/anno
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
-import { initResultsOverlay, animateResultsPodiumShow, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
+import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
@@ -143,6 +143,7 @@ import {
   isWorldBootstrapped,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
+import { initMenuAttract, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
 import { animateCartBoostPulse, animateCartImpactSquash, crossfadeElement } from "./animations.js";
 import {
   getIsMuted,
@@ -1122,6 +1123,18 @@ async function main() {
     probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer };
   }
 
+  // * Attract-mode arena backdrop: renders the idle-warmed arena behind the
+  // * menu on its own throttled loop (the game loop skips while menuVisible).
+  initMenuAttract({
+    camera,
+    scene,
+    renderer,
+    composer,
+    isWorldBootstrapped,
+    getMenuVisible: () => menuVisible,
+    getArenaRadius: () => CONFIG.record.radius,
+  });
+
   if (import.meta.env.DEV) {
     import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
       initPostFxDebugGui({
@@ -1227,6 +1240,7 @@ async function main() {
   function initMenu() {
     menuVisible = true;
     setGamepadNavActive(true);
+    startMenuAttract();
     syncAllAudioUi();
     // * Always dismiss boot splash first — solo/quickplay paths return early below.
     void dismissInitialBootSplash();
@@ -1445,6 +1459,7 @@ async function main() {
     window.CartRave?.stopAnimations?.();
     window.CartRave?.hide?.();
     menuVisible = false;
+    stopMenuAttract();
     setGamepadNavActive(false);
     revealGameCanvas();
     const isTestDrive = detectGameMode() === "testdrive";
@@ -2357,8 +2372,7 @@ async function main() {
       lastResultsOverlayKey = null;
       clearPodiumPresentation();
       cancelResultsAnimations(overlay);
-      overlay.style.display = "none";
-      overlay.style.pointerEvents = "none";
+      animateResultsDismiss(overlay, panel);
     }
   }
 
@@ -2631,8 +2645,7 @@ async function main() {
       clearPodiumPresentation();
       lastResultsOverlayKey = null;
       if (resultsUi?.overlay) {
-        resultsUi.overlay.style.display = "none";
-        resultsUi.overlay.style.pointerEvents = "none";
+        animateResultsDismiss(resultsUi.overlay, resultsUi.panel);
       }
       cancelLastCartStandingFinish?.();
       autoContinuePodiumKey = null;

@@ -5,6 +5,7 @@ import {
   animateButtonPress,
   animateButtonRelease,
   animateMenuCardEnter,
+  animateMenuDismiss,
   animateMenuReveal,
   cancelAnimationsIn,
   countUpNumber,
@@ -154,6 +155,29 @@ export function spawnResultsConfetti(overlay, colors) {
  */
 export function cancelResultsAnimations(root) {
   if (root instanceof Element) cancelAnimationsIn(root);
+}
+
+/**
+ * Quick anticipation exit for the results overlay — a short (~120ms) panel drop,
+ * then `display:none`. No long outro: players want back into the match. Interaction
+ * is cut synchronously so nothing lands during the beat.
+ *
+ * @param {HTMLElement | null | undefined} overlay Overlay container (display-toggled).
+ * @param {HTMLElement | null | undefined} panel Podium panel to animate out.
+ * @param {{ onComplete?: () => void }} [opts]
+ * @returns {Promise<void>}
+ */
+export function animateResultsDismiss(overlay, panel, opts = {}) {
+  if (!(overlay instanceof HTMLElement)) {
+    opts.onComplete?.();
+    return Promise.resolve();
+  }
+  overlay.style.pointerEvents = "none";
+  return animateMenuDismiss(panel instanceof HTMLElement ? panel : overlay, {
+    container: overlay,
+    duration: 120,
+    onComplete: opts.onComplete,
+  });
 }
 
 /**

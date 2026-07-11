@@ -38,6 +38,7 @@ import {
   animateColorChipSelect,
   animateLevelCardSelect,
   animateMenuCardEnter,
+  animateMenuDismiss,
   animateMenuReveal,
   animateRerollSpin,
   stagger,
@@ -95,6 +96,15 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       players: ["#22e6ff", "#ffffff", "#22b6ff", "#c4f6ff", "#6a00ff"],
       primary: "#22e6ff",
       secondary: "#6a00ff",
+      tertiary: "#ffffff",
+    },
+    liminal: {
+      // The Storerooms — fluorescent-tube yellow + exit-sign green.
+      name: "Liminal",
+      bg: "#0b0a04",
+      players: ["#ff2bd6", "#22e6ff", "#2bff7a", "#ffe53d", "#ff7a1a"],
+      primary: "#f5ef6d",
+      secondary: "#59f7a8",
       tertiary: "#ffffff",
     },
   };
@@ -243,6 +253,14 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     classicRecord: { enabled: true },
     backrooms: { enabled: true },
     zanzibar: { enabled: true },
+  };
+
+  // Arena ambience — picking a level re-themes the menu backdrop/particles/
+  // spotlights so the menu previews where you're headed (Pass 3 attract mode).
+  const LEVEL_AMBIENCE = {
+    classicRecord: "classic",
+    backrooms: "liminal",
+    zanzibar: "sunset",
   };
 
   // ─── State ────────────────────────────────────────────────────────────────
@@ -503,6 +521,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (levelId === state.level) return;
     persistLevel(levelId);
     updateLevelButtons();
+    applyLevelAmbience(levelId);
     window.dispatchEvent(new CustomEvent("cartrave:level-changed"));
     if (levelRow) {
       const active = levelRow.querySelector(".cr-level-btn.active");
@@ -512,9 +531,26 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     }
   }
 
+  /**
+   * Re-themes the menu's ambient layers to match the selected arena. Ambient
+   * ONLY: the player-color roster (`palette.players`) is kept stable so cart
+   * color chips and the color sent to the server never re-roll with the arena.
+   * @param {string} levelId
+   */
+  function applyLevelAmbience(levelId) {
+    const src = PALETTES[LEVEL_AMBIENCE[levelId]];
+    if (!src) return;
+    state.palette = { ...src, players: state.palette.players };
+    CONFIG.palette = LEVEL_AMBIENCE[levelId];
+    updateSpotlights();
+    updateParticles();
+    applyPalette();
+  }
+
   function initLevelSelect() {
     persistLevel(getSavedLevel());
     updateLevelButtons();
+    applyLevelAmbience(state.level);
     if (!levelRow) return;
     levelRow.querySelectorAll('.cr-level-btn').forEach((btn) => {
       btn.addEventListener('click', () => selectLevel(btn.dataset.level));
@@ -1017,8 +1053,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       pattern: state.pattern,
       sunglassesStyle: state.sunglassesStyle,
     });
-    customizeScreen.style.display = 'none';
     customizeScreen.setAttribute('aria-hidden', 'true');
+    const panel = customizeScreen.querySelector('.cr-customize-panel');
+    animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
+      container: customizeScreen,
+      abortIf: () => customizeScreen.getAttribute('aria-hidden') === 'false',
+    });
     renderCart();
     applyPalette();
   }
@@ -1140,8 +1180,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    howtoScreen.style.display = 'none';
     howtoScreen.setAttribute('aria-hidden', 'true');
+    const panel = howtoScreen.querySelector('.cr-overlay-panel');
+    animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
+      container: howtoScreen,
+      abortIf: () => howtoScreen.getAttribute('aria-hidden') === 'false',
+    });
   }
 
   function initHowToScreen() {
@@ -1248,8 +1292,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    challengesScreen.style.display = 'none';
     challengesScreen.setAttribute('aria-hidden', 'true');
+    const panel = challengesScreen.querySelector('.cr-overlay-panel');
+    animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
+      container: challengesScreen,
+      abortIf: () => challengesScreen.getAttribute('aria-hidden') === 'false',
+    });
     updateChallengesBadge();
   }
 
@@ -1300,8 +1348,12 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    settingsScreen.style.display = 'none';
     settingsScreen.setAttribute('aria-hidden', 'true');
+    const panel = settingsScreen.querySelector('.cr-overlay-panel');
+    animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
+      container: settingsScreen,
+      abortIf: () => settingsScreen.getAttribute('aria-hidden') === 'false',
+    });
   }
 
   let settingsAudioUiMuted = false;
@@ -1485,7 +1537,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const p = state.palette;
     const pc = getActiveColorCss();
 
-    root.style.background = `radial-gradient(ellipse at center 40%, ${p.bg} 0%, #000 90%)`;
+    // * Backdrop lives on .cr-root::before (attract mode fades it) — drive the
+    // * palette color through a custom prop instead of an inline background.
+    root.style.setProperty('--menu-bg', p.bg);
 
     floorGrid.style.setProperty('--c1', p.primary);
     floorGrid.style.setProperty('--c2', p.secondary);

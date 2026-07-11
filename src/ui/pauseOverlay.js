@@ -2,6 +2,7 @@ import "./styles/tokens.css";
 import "./styles/pauseOverlay.css";
 import {
   animateMenuCardEnter,
+  animateMenuDismiss,
   animateMenuReveal,
   animateMuteToggle,
   animateVolumeTick,
@@ -394,30 +395,42 @@ export function show() {
  * Closes the Esc overlay and restores HUD and label visibility.
  */
 export function hide() {
-  if (elements.escOverlay) {
-    escEntranceToken += 1;
-    cancelAnimationsIn(elements.escOverlay);
-    elements.escOverlay.style.display = "none";
-    elements.escOverlay.classList.remove("is-open");
+  if (!elements.escOverlay) return;
+  // * Safe to call repeatedly — a fully hidden overlay is a no-op. Mid-dismiss
+  // * (still display:flex) re-entry falls through to the double-close guard in
+  // * animateMenuDismiss, which snaps it hidden.
+  if (elements.escOverlay.style.display === "none") return;
 
-    const menuVisible = _options.getMenuVisible ? _options.getMenuVisible() : false;
-    const labelRenderer = typeof _hudContext.getLabelRenderer === "function"
-      ? _hudContext.getLabelRenderer()
-      : (_options.getLabelRenderer ? _options.getLabelRenderer() : null);
-    if (labelRenderer) labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
+  escEntranceToken += 1;
+  elements.escOverlay.classList.remove("is-open");
 
-    if (typeof _hudContext.setHudSuppressed === "function") {
-      _hudContext.setHudSuppressed(false);
-    }
-    if (typeof _hudContext.updateMenuButtonVisibility === "function") {
-      _hudContext.updateMenuButtonVisibility(menuVisible);
-    }
-    if (typeof _hudContext.scheduleHudLayoutSync === "function") {
-      _hudContext.scheduleHudLayoutSync();
-    }
+  // * Gameplay unpause and HUD restore are SYNCHRONOUS — they never wait on the
+  // * exit VFX; only the panel drop + backdrop fade run over the next ~180ms.
+  const menuVisible = _options.getMenuVisible ? _options.getMenuVisible() : false;
+  const labelRenderer = typeof _hudContext.getLabelRenderer === "function"
+    ? _hudContext.getLabelRenderer()
+    : (_options.getLabelRenderer ? _options.getLabelRenderer() : null);
+  if (labelRenderer) labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
 
-    if (_options.onEscOverlayChange) _options.onEscOverlayChange(false);
+  if (typeof _hudContext.setHudSuppressed === "function") {
+    _hudContext.setHudSuppressed(false);
   }
+  if (typeof _hudContext.updateMenuButtonVisibility === "function") {
+    _hudContext.updateMenuButtonVisibility(menuVisible);
+  }
+  if (typeof _hudContext.scheduleHudLayoutSync === "function") {
+    _hudContext.scheduleHudLayoutSync();
+  }
+
+  if (_options.onEscOverlayChange) _options.onEscOverlayChange(false);
+
+  // * Animate the panel out + fade the backdrop, then flip the overlay to
+  // * display:none. If show() re-adds is-open mid-exit, abort the hide.
+  animateMenuDismiss(elements.escPanel, {
+    container: elements.escOverlay,
+    backdrop: elements.escBackdrop,
+    abortIf: () => elements.escOverlay?.classList.contains("is-open") ?? false,
+  });
 }
 
 /**

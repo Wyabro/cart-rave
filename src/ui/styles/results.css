@@ -159,7 +159,7 @@
   color: var(--color-magenta);
   border: none;
   box-shadow: 0 0 0 1.5px var(--color-magenta);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
   background: var(--color-ink);
 }
@@ -293,7 +293,11 @@
   transform: none;
 }
 
-@media (pointer: coarse) {
+/* Width-based fallback mirrors the coarse-pointer rules below: a narrow
+   pointer:fine window (e.g. a resized desktop browser) hits the same panel
+   clipping (min-width:min(420px,92vw) on .results-panel) that touch users
+   were already protected from — apply the same compaction by width. */
+@media (pointer: coarse), (max-width: 768px) {
   #results-overlay {
     align-items: stretch;
     justify-content: stretch;
@@ -398,7 +402,7 @@
   }
 }
 
-@media (pointer: coarse) and (orientation: portrait) {
+@media (pointer: coarse) and (orientation: portrait), (max-width: 768px) and (orientation: portrait) {
   #results-overlay .results-history {
     flex: 0 1 auto;
     max-height: 30vh;
@@ -407,7 +411,7 @@
   }
 }
 
-@media (pointer: coarse) and (orientation: landscape) {
+@media (pointer: coarse) and (orientation: landscape), (max-width: 768px) and (orientation: landscape) {
   #results-overlay .results-body {
     display: grid;
     grid-template-columns: 1fr 1fr;

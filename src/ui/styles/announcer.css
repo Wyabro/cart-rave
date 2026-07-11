@@ -108,7 +108,7 @@
 /* Mobile — callouts must not blanket the play area. Regular callouts drop to a
    compact strapline; directives keep their previous mobile size (already tighter
    than desktop) so rule changes stay the one big read. */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   #announcer-display .announcer-callout {
     top: 24vh;
     max-width: 94vw;
@@ -129,7 +129,7 @@
 
 /* Short landscape viewports (rotated phones) — HUD pulls its feed/timer up too;
    keep the callout under the status line without drifting into the play area. */
-@media (orientation: landscape) and (max-height: 480px) {
+@media (orientation: landscape) and (max-height: 600px) {
   #announcer-display .announcer-callout {
     top: 20vh;
   }

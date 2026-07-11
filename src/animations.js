@@ -311,8 +311,10 @@ export function animateButtonRelease(element, options = {}) {
 export function animateMenuCardEnter(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 420;
-  const ease = options.ease ?? DEFAULT_EASE_BOUNCE;
+  // * SLAP retune: travel front-loaded, a fatter outBack settle, ~1/3 shorter than
+  // * the old 420ms fade-up — the card arrives fast and squash-settles into place.
+  const duration = options.duration ?? 320;
+  const ease = options.ease ?? "outBack(1.7)";
   const delay = options.delay ?? 0;
   const y = options.y ?? 22;
   const fromOpacity = options.fromOpacity ?? 0;
@@ -356,8 +358,10 @@ export function animateMenuCardEnter(element, options = {}) {
 export function animateMenuReveal(element, options = {}) {
   if (!element) return null;
 
-  const duration = options.duration ?? 360;
-  const ease = options.ease ?? DEFAULT_EASE_SNAP;
+  // * Slap feel without the scale pop: fast arrival + a light back-settle instead of
+  // * the old plain outExpo fade-up. Callsites that pass an explicit ease keep theirs.
+  const duration = options.duration ?? 320;
+  const ease = options.ease ?? "outBack(1.3)";
   const delay = options.delay ?? 0;
   const y = options.y ?? 14;
   const fromOpacity = options.fromOpacity ?? 0;
@@ -379,6 +383,115 @@ export function animateMenuReveal(element, options = {}) {
     },
     options,
   );
+}
+
+/** @type {WeakSet<Element>} Containers with a dismiss animation in flight. */
+const dismissingContainers = new WeakSet();
+
+/**
+ * Anticipation exit for menu panels / overlays — inBack front-loads the tween so the
+ * panel first lifts and scales up a hair, then drops and fades away in one gesture
+ * ("peel up, then slap off"). Exits run FASTER than entrances (~180ms default).
+ *
+ * Resolves once the container is hidden. Skips straight to `display:none` when reduced
+ * motion is set, when the panel is not animatable, or when a dismiss is already in
+ * flight on the same container (double-close safety) — so the overlay is always
+ * guaranteed hidden even if the animation is interrupted.
+ *
+ * @param {HTMLElement | null | undefined} element Panel to animate out.
+ * @param {AnimationOptions & {
+ *   container?: HTMLElement | null,
+ *   backdrop?: HTMLElement | null,
+ *   abortIf?: () => boolean,
+ *   onComplete?: () => void,
+ * }} [options] `container` is the element switched to `display:none` afterwards
+ *   (defaults to `element`); `backdrop`, if given, fades out in parallel; `abortIf`
+ *   is polled when the exit finishes — if it returns true (e.g. the panel was
+ *   reopened mid-dismiss) the hide is cancelled and the panel is left visible.
+ * @returns {Promise<void>}
+ */
+export function animateMenuDismiss(element, options = {}) {
+  const panel = element instanceof HTMLElement ? element : null;
+  const container = options.container instanceof HTMLElement ? options.container : panel;
+  const backdrop = options.backdrop instanceof HTMLElement ? options.backdrop : null;
+
+  const clearPanelStyles = () => {
+    if (panel) {
+      panel.style.removeProperty("opacity");
+      panel.style.removeProperty("transform");
+    }
+    if (backdrop) backdrop.style.removeProperty("opacity");
+  };
+
+  const hideNow = () => {
+    if (container) {
+      container.style.display = "none";
+      dismissingContainers.delete(container);
+    }
+    clearPanelStyles();
+    options.onComplete?.();
+  };
+
+  if (!container) {
+    options.onComplete?.();
+    return Promise.resolve();
+  }
+
+  // * Double-close: a dismiss is already animating this container — snap it hidden
+  // * rather than stacking a second exit on top.
+  if (dismissingContainers.has(container)) {
+    hideNow();
+    return Promise.resolve();
+  }
+
+  if (!panel || !shouldAnimate(options)) {
+    hideNow();
+    return Promise.resolve();
+  }
+
+  dismissingContainers.add(container);
+  cancelElementAnimations(panel);
+  if (backdrop) cancelElementAnimations(backdrop);
+
+  const duration = options.duration ?? 180;
+  const ease = options.ease ?? "inBack(1.7)";
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      // * Reopened while animating out? Release the guard and leave it shown; a fresh
+      // * dismiss (or another double-close) is now responsible for hiding.
+      if (dismissingContainers.has(container) && options.abortIf?.()) {
+        dismissingContainers.delete(container);
+      } else {
+        hideNow();
+      }
+      resolve();
+    };
+
+    if (backdrop) {
+      // * Backdrop just fades — no anticipation, never slower than the panel.
+      runAnimation(
+        backdrop,
+        { opacity: [1, 0], duration: Math.min(duration, 150), ease: "outQuad" },
+        { force: true },
+      );
+    }
+
+    const anim = runAnimation(
+      panel,
+      {
+        opacity: [1, 0],
+        y: [0, 14],
+        scale: [1, 0.92],
+        duration,
+        ease,
+        onComplete: finish,
+      },
+      { force: true },
+    );
+
+    if (!anim) finish();
+  });
 }
 
 /**

@@ -11,7 +11,9 @@
   --cr-load-ui: var(--ui);
   --cr-load-mono: var(--mono);
   --cr-load-display: var(--display);
-  --cr-load-fade-ms: 420ms;
+  /* Sticker-slap dismiss: fast decisive exit (matches the boot splash). */
+  --cr-load-fade-ms: 260ms;
+  --cr-load-fade-ease: var(--ease-slap, cubic-bezier(0.1, 0.9, 0.2, 1));
   position: fixed;
   inset: 0;
   z-index: 999999;
@@ -20,13 +22,20 @@
   justify-content: center;
   overflow: hidden;
   isolation: isolate;
+  /* Notch/home-indicator clearance so the centered panel never sits under a
+     cutout on fullscreen boot/mode-entry loads. */
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
   font-family: var(--cr-load-mono);
   -webkit-font-smoothing: antialiased;
   opacity: 1;
   visibility: visible;
   transition:
-    opacity var(--cr-load-fade-ms) ease,
-    visibility var(--cr-load-fade-ms) ease;
+    opacity var(--cr-load-fade-ms) var(--cr-load-fade-ease),
+    visibility var(--cr-load-fade-ms) var(--cr-load-fade-ease);
 }
 
 .cr-load.cr-load--hidden {
@@ -79,7 +88,7 @@
   border-radius: var(--radius-panel);
   box-shadow: var(--sticker-panel);
   transform: scale(1);
-  transition: transform var(--cr-load-fade-ms) ease, opacity var(--cr-load-fade-ms) ease;
+  transition: transform var(--cr-load-fade-ms) var(--cr-load-fade-ease), opacity var(--cr-load-fade-ms) var(--cr-load-fade-ease);
 }
 
 .cr-load.cr-load--exit .cr-load__panel {
@@ -156,7 +165,7 @@
 .cr-load__progress-track {
   position: relative;
   height: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-ink-deep);
   overflow: hidden;
 }
