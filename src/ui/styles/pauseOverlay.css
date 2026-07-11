@@ -1,11 +1,11 @@
 #esc-overlay {
-  --esc-ui: "Russo One", sans-serif;
-  --esc-display: "Road Rage", "Goldman", sans-serif;
-  --esc-mono: "Goldman", ui-monospace, monospace;
-  --esc-cyan: #22e6ff;
-  --esc-magenta: #ff2bd6;
-  --esc-surface: rgba(0, 0, 0, 0.52);
-  --esc-border: rgba(255, 255, 255, 0.1);
+  --esc-ui: var(--ui);
+  --esc-display: var(--display);
+  --esc-mono: var(--mono);
+  --esc-cyan: var(--color-cyan);
+  --esc-magenta: var(--color-magenta);
+  --esc-surface: var(--surface-dark-40);
+  --esc-border: var(--border-white-10);
   --esc-section-gap: clamp(10px, 2vw, 14px);
   position: fixed;
   inset: 0;
@@ -16,19 +16,18 @@
   padding: clamp(12px, 3vw, 24px);
   pointer-events: auto;
   font-family: var(--esc-mono);
-  color: #fff;
+  color: var(--color-sticker-white);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+/* .cc-scrim (stickers.css) supplies the flat printed-dark backdrop — no blur. */
 #esc-overlay .esc-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(5, 5, 20, 0.72);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
+/* .cc-panel (stickers.css) supplies the opaque ink surface + die-cut edge. */
 #esc-overlay .esc-panel {
   position: relative;
   z-index: 1;
@@ -36,31 +35,21 @@
   width: min(680px, 96vw);
   max-height: min(92vh, 720px);
   padding: clamp(14px, 2.5vw, 20px);
-  border-radius: 18px;
-  background: linear-gradient(165deg, rgba(12, 8, 28, 0.92) 0%, rgba(4, 4, 16, 0.88) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 0 48px rgba(34, 230, 255, 0.07),
-    0 0 80px rgba(255, 43, 214, 0.05),
-    0 20px 56px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   display: flex;
   flex-direction: column;
   gap: clamp(10px, 2vw, 14px);
   overflow: hidden;
 }
 
+/* .cc-title (stickers.css) supplies stack-A lettering (sticker-white fill,
+   ink stroke, hard extrude); local rules here are size/spacing only. */
 #esc-overlay .esc-title {
-  font-family: var(--esc-ui);
-  font-size: clamp(18px, 3.6vw, 26px);
-  font-weight: 400;
-  letter-spacing: 0.08em;
+  font-family: var(--esc-display);
+  font-size: clamp(20px, 4vw, 30px);
+  letter-spacing: 0.03em;
   margin: 0;
   text-align: center;
   line-height: 1.1;
-  color: var(--esc-cyan);
-  text-shadow: 0 0 12px var(--esc-cyan), 0 0 28px color-mix(in oklab, var(--esc-cyan), transparent 50%);
   flex-shrink: 0;
 }
 
@@ -179,14 +168,13 @@
   height: clamp(24px, 5.5vw, 28px);
   padding: 0 6px;
   border-radius: 5px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1.5px solid rgba(34, 230, 255, 0.35);
+  background: var(--color-ink-deep);
+  border: none;
   font-family: var(--esc-ui);
   font-size: clamp(9px, 1.8vw, 10px);
   letter-spacing: 0.04em;
   color: var(--esc-cyan);
-  text-shadow: 0 0 8px var(--esc-cyan);
-  box-shadow: 0 0 8px rgba(34, 230, 255, 0.12);
+  box-shadow: 0 0 0 1.5px var(--esc-cyan);
 }
 
 #esc-overlay .esc-ctl-keys kbd.wide {
@@ -218,19 +206,19 @@
   width: clamp(42px, 10vw, 46px);
   height: clamp(42px, 10vw, 46px);
   flex-shrink: 0;
-  border-radius: 10px;
-  border: 2px solid rgba(255, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.45);
-  color: #ffffff;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--color-ink);
+  box-shadow: var(--sticker-micro);
+  color: var(--color-sticker-white);
   font-size: clamp(14px, 3.5vw, 16px);
   cursor: pointer;
   touch-action: manipulation;
-  transition: border-color 80ms ease, background 80ms ease;
+  transition: box-shadow 120ms var(--ease-slap), color 80ms ease;
 }
 
 #esc-overlay .esc-mute-btn.muted {
-  color: #888;
-  border-color: rgba(255, 80, 80, 0.35);
+  color: var(--color-alert);
 }
 
 #esc-overlay .esc-vol-stack {
@@ -268,8 +256,9 @@
   width: 100%;
   height: clamp(8px, 2vw, 10px);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: visible;
+  background: var(--color-ink-deep);
+  box-shadow: inset 0 0 0 1.5px var(--border-white-14);
+  overflow: hidden;
 }
 
 #esc-overlay .esc-vol-fill {
@@ -278,9 +267,8 @@
   top: 0;
   bottom: 0;
   width: 0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--esc-magenta), var(--esc-cyan));
-  box-shadow: 0 0 10px rgba(34, 230, 255, 0.35);
+  border-radius: inherit;
+  background: var(--color-cyan);
   pointer-events: none;
 }
 
@@ -293,8 +281,8 @@
   height: clamp(18px, 4.5vw, 22px);
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+  background: var(--color-sticker-white);
+  box-shadow: 0 0 0 2px var(--color-ink-deep);
   pointer-events: none;
 }
 
@@ -324,9 +312,9 @@
   justify-content: space-between;
   gap: clamp(6px, 1.5vw, 10px);
   padding: clamp(5px, 1.2vw, 7px) clamp(8px, 1.8vw, 10px);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  background: var(--color-ink-deep);
+  border: none;
 }
 
 #esc-overlay .esc-score-name {
@@ -347,7 +335,6 @@
   font-size: clamp(11px, 2.2vw, 13px);
   letter-spacing: 0.06em;
   color: var(--esc-cyan);
-  text-shadow: 0 0 8px var(--esc-cyan);
 }
 
 #esc-overlay .esc-score-icon {
@@ -389,8 +376,8 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 10px #fff, 0 0 18px rgba(255, 255, 255, 0.65);
+  background: var(--color-sticker-white);
+  box-shadow: 0 0 0 2px var(--color-ink-deep);
   flex-shrink: 0;
   animation: esc-leader-pulse 1.6s ease-in-out infinite;
 }
@@ -400,59 +387,24 @@
   50% { opacity: 1; transform: scale(1); }
 }
 
+/* Material now comes from .cc-btn (+ .cc-btn--primary/--danger/--ghost,
+   stickers.css) added alongside .esc-btn in pauseOverlay.js. These rules are
+   layout-only (full-width action grid cell) plus the dim "toggled off" state. */
 #esc-overlay .esc-btn {
   width: 100%;
   min-height: 44px;
-  padding: clamp(10px, 2vw, 12px) clamp(10px, 2vw, 14px);
-  border-radius: 8px;
   font-family: var(--esc-ui);
   font-size: clamp(12px, 2.4vw, 14px);
-  letter-spacing: 0.06em;
-  cursor: pointer;
   text-decoration: none;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--btn-glow, var(--esc-magenta));
-  background: rgba(0, 0, 0, 0.55);
-  color: var(--btn-glow, var(--esc-magenta));
-  text-shadow: 0 0 10px var(--btn-glow, var(--esc-magenta));
-  box-shadow: 0 0 12px var(--btn-glow, var(--esc-magenta)), 0 0 28px color-mix(in oklab, var(--btn-glow, var(--esc-magenta)), transparent 60%);
   touch-action: manipulation;
-  transition: background 180ms ease, box-shadow 180ms ease;
 }
 
-#esc-overlay .esc-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.35);
-  box-shadow: 0 0 20px var(--btn-glow, var(--esc-magenta)), 0 0 44px var(--btn-glow, var(--esc-magenta));
-}
-
-#esc-overlay .esc-btn--quit {
-  --btn-glow: var(--esc-cyan);
-}
-
-#esc-overlay .esc-btn--fx-off {
-  --btn-glow: rgba(255, 255, 255, 0.55);
-  color: rgba(255, 255, 255, 0.72);
-  text-shadow: none;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
-}
-
-#esc-overlay .esc-btn--lq-on {
-  --btn-glow: rgba(255, 255, 255, 0.55);
-  color: rgba(255, 255, 255, 0.72);
-  text-shadow: none;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
-}
-
-/* Generic dim/neutral "toggled off" state — shared by any esc-btn toggle
-   (currently the ANNOUNCER / CALLOUTS toggles). */
+/* Generic dim/neutral "toggled off" state — shared by the POST-FX, QUALITY,
+   ANNOUNCER and CALLOUTS toggles when their feature is disabled. */
+#esc-overlay .esc-btn--fx-off,
+#esc-overlay .esc-btn--lq-on,
 #esc-overlay .esc-btn--off {
-  --btn-glow: rgba(255, 255, 255, 0.55);
-  color: rgba(255, 255, 255, 0.72);
-  text-shadow: none;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
+  color: rgba(242, 237, 228, 0.55);
 }
 
 /* ANNOUNCER section — two compact toggles side by side instead of the
@@ -474,10 +426,6 @@
     align-items: stretch;
     justify-content: stretch;
     padding: 0;
-  }
-
-  #esc-overlay .esc-backdrop {
-    background: rgba(5, 5, 20, 0.92);
   }
 
   #esc-overlay .esc-panel {

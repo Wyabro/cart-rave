@@ -22,6 +22,7 @@ import {
 } from "./cartThemes.js";
 import "./cart-rave-menu.js";
 import "./ui/styles/tokens.css";
+import "./ui/styles/stickers.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
@@ -1308,15 +1309,8 @@ async function main() {
         btn.dataset.action = "joinroom";
         btn.dataset.colorkey = "secondary";
         btn.innerHTML =
-          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>' +
-          '<span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>' +
-          '<span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>';
+          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>';
         btnRow.insertBefore(btn, btnRow.firstChild);
-        const refGlow = btnRow.querySelector('.cr-btn[data-action="quickplay"]');
-        if (refGlow) {
-          const g = getComputedStyle(refGlow).getPropertyValue("--glow").trim();
-          if (g) btn.style.setProperty("--glow", g);
-        }
         btn.addEventListener("click", () => {
           window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
         });

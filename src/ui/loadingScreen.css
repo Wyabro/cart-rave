@@ -1,16 +1,16 @@
 /* Cart Clash — boot splash + mode-entry loading overlays */
 
 .cr-load {
-  --cr-load-magenta: #ff2bd6;
-  --cr-load-cyan: #22e6ff;
-  --cr-load-yellow: #ffe53d;
+  --cr-load-magenta: var(--color-magenta);
+  --cr-load-cyan: var(--color-cyan);
+  --cr-load-yellow: var(--color-yellow);
   --cr-load-backrooms: #c8d86a;
   --cr-load-backrooms-dim: #8a9a4a;
   --cr-load-sunset: #ff9a4a;
   --cr-load-sunset-deep: #ff5e3a;
-  --cr-load-ui: "Russo One", sans-serif;
-  --cr-load-mono: "Goldman", ui-monospace, monospace;
-  --cr-load-display: "Road Rage", "Goldman", sans-serif;
+  --cr-load-ui: var(--ui);
+  --cr-load-mono: var(--mono);
+  --cr-load-display: var(--display);
   --cr-load-fade-ms: 420ms;
   position: fixed;
   inset: 0;
@@ -63,6 +63,8 @@
   background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.65) 100%);
 }
 
+/* Opaque ink card with a die-cut edge — the title/progress cluster sits on
+   a surface instead of floating over the raw arena backdrop. */
 .cr-load__panel {
   position: relative;
   z-index: 2;
@@ -73,6 +75,9 @@
   padding: clamp(20px, 4vw, 36px);
   text-align: center;
   max-width: min(92vw, 520px);
+  background: var(--color-ink);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--sticker-panel);
   transform: scale(1);
   transition: transform var(--cr-load-fade-ms) ease, opacity var(--cr-load-fade-ms) ease;
 }
@@ -88,15 +93,19 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* Stack-A lettering: sticker-white fill, ink stroke, hard extrude — no
+   resting glow. The brightness pulse is a subtle idle beat, not a glow. */
 .cr-load__title {
   font-family: var(--cr-load-display);
   font-size: clamp(3rem, 12vw, 5.1rem);
   line-height: 0.95;
   letter-spacing: 0.04em;
-  color: #fff;
+  color: var(--color-sticker-white);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.06em var(--color-ink-deep);
   text-shadow:
-    0 0 18px rgba(255, 43, 214, 0.45),
-    0 0 32px rgba(34, 230, 255, 0.25);
+    0.04em 0.04em 0 var(--color-ink-deep),
+    0.08em 0.08em 0 var(--color-ink-deep);
   animation: cr-load-title-pulse 2.4s ease-in-out infinite;
 }
 
@@ -114,6 +123,7 @@
   margin: clamp(4px, 1vh, 8px) 0;
 }
 
+/* Structural die-cut ring only — the resting magenta glow is gone. */
 .cr-load__vinyl {
   position: absolute;
   inset: 0;
@@ -121,9 +131,7 @@
   background:
     radial-gradient(circle at center, #111 0%, #111 18%, transparent 19%),
     repeating-radial-gradient(circle at center, #1a1a1a 0 2px, #0d0d0d 2px 4px);
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.08),
-    0 0 24px rgba(255, 43, 214, 0.25);
+  box-shadow: 0 0 0 2px var(--color-sticker-white);
   animation: cr-load-spin 3.2s linear infinite;
 }
 
@@ -133,7 +141,6 @@
   inset: 38%;
   border-radius: 50%;
   background: radial-gradient(circle, var(--cr-load-magenta) 0%, #ff6be8 40%, #220018 100%);
-  box-shadow: 0 0 12px rgba(255, 43, 214, 0.6);
 }
 
 .cr-load__progress-wrap {
@@ -144,11 +151,13 @@
   align-items: stretch;
 }
 
+/* Flat printed track — hazard-yellow stripes replace the magenta/cyan glow
+   gradient (see .cc-meter--hazard, stickers.css). */
 .cr-load__progress-track {
   position: relative;
   height: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-ink-deep);
   overflow: hidden;
 }
 
@@ -156,8 +165,8 @@
   height: 100%;
   width: 0%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--cr-load-cyan), var(--cr-load-magenta));
-  box-shadow: 0 0 12px rgba(34, 230, 255, 0.45);
+  background: var(--hazard-yellow);
+  background-size: 20px 20px;
   transition: width 120ms ease-out;
 }
 
@@ -172,22 +181,12 @@
   z-index: 999995;
 }
 
-.cr-load--solo .cr-load__title {
-  text-shadow:
-    0 0 14px rgba(34, 230, 255, 0.55),
-    0 0 24px rgba(255, 43, 214, 0.2);
-}
-
 .cr-load--solo .cr-load__vinyl {
   animation-duration: 2.2s;
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.06),
-    0 0 18px rgba(34, 230, 255, 0.35);
 }
 
 .cr-load--solo .cr-load__vinyl::after {
   background: radial-gradient(circle, var(--cr-load-cyan) 0%, #66f0ff 45%, #001822 100%);
-  box-shadow: 0 0 10px rgba(34, 230, 255, 0.55);
 }
 
 .cr-load--classic .cr-load__lasers {
@@ -242,7 +241,9 @@
 
 .cr-load--backrooms .cr-load__title {
   color: #e8e4c8;
-  text-shadow: 0 0 8px rgba(200, 216, 106, 0.35);
+  text-shadow:
+    0.04em 0.04em 0 var(--color-ink-deep),
+    0.08em 0.08em 0 var(--color-ink-deep);
   animation: cr-load-backrooms-flicker 4.5s steps(1) infinite;
 }
 
@@ -272,7 +273,9 @@
 
 .cr-load--zanzibar .cr-load__title {
   color: #ffd9a0;
-  text-shadow: 0 0 10px rgba(255, 154, 74, 0.5), 0 0 26px rgba(255, 94, 58, 0.3);
+  text-shadow:
+    0.04em 0.04em 0 var(--color-ink-deep),
+    0.08em 0.08em 0 var(--color-ink-deep);
 }
 
 .cr-load--zanzibar .cr-load__subtitle {
@@ -399,34 +402,30 @@
   }
 }
 
-/* Boot splash segmented bar */
+/* Boot splash segmented bar — flat printed fill on an ink track, no resting glow. */
 .cr-seg {
   flex: 1;
   height: 100%;
   border-radius: 1px;
-  background: rgba(255,255,255,0.08);
-  transition: background-color 120ms ease, box-shadow 120ms ease;
+  background: var(--color-ink-deep);
+  transition: background-color 120ms ease;
 }
 
 .cr-seg.lit {
-  background: #ff2bd6;
-  box-shadow: 0 0 4px rgba(255,43,214,0.4);
+  background: var(--cr-load-magenta);
 }
 
 /* Theme-colored lit segments for mode-entry overlay */
 .cr-load--classic .cr-seg.lit {
   background: var(--cr-load-magenta);
-  box-shadow: 0 0 8px var(--cr-load-magenta);
 }
 
 .cr-load--backrooms .cr-seg.lit {
   background: var(--cr-load-backrooms);
-  box-shadow: 0 0 8px var(--cr-load-backrooms);
 }
 
 .cr-load--zanzibar .cr-seg.lit {
   background: var(--cr-load-sunset);
-  box-shadow: 0 0 8px var(--cr-load-sunset);
 }
 
 /* Segmented bar for mode-entry overlay */
@@ -528,7 +527,7 @@
 
 button:focus-visible, a:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible,
 button.gamepad-focused, a.gamepad-focused, [role="button"].gamepad-focused, input.gamepad-focused, select.gamepad-focused {
-  outline: 2px solid #22e6ff !important;
+  outline: 2px solid var(--color-cyan) !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 12px rgba(34, 230, 255, 0.6) !important;
   z-index: 100;

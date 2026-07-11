@@ -1,0 +1,185 @@
+/* Cart Clash — shared sticker components ("pigment on vinyl", Pass 3).
+   Depends on tokens.css vars. Loaded via JS import in main.js (rolldown-vite
+   resolves CSS @import against the project root, so JS import it is — see
+   cart-rave-menu.css header note).
+
+   These classes are ADDITIVE: screens keep their layout classes and add a
+   cc-* class for material. Family test: could you peel it off with a
+   fingernail? Opaque ink, die-cut white edge, hard offset shadow, no blur,
+   no resting glow. */
+
+/* ── Surfaces ── */
+.cc-panel {
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--sticker-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cc-billboard {
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--sticker-billboard);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cc-chip {
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sticker-chip);
+}
+/* Backdrop scrim behind any overlay: flat printed dark, never blurred. */
+.cc-scrim {
+  background: rgba(4, 2, 10, 0.78);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── Lettering ──
+   Stack A: sticker-white fill, ink stroke, 2-step hard extrude. For every
+   headline. Celebration variant only on victory/GO-tier moments. */
+.cc-title {
+  font-family: var(--display);
+  font-weight: 400; /* Road Rage has one weight; keep synthetic bold off */
+  color: var(--color-sticker-white);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.07em var(--color-ink-deep);
+  text-shadow:
+    0.05em 0.05em 0 var(--color-ink-deep),
+    0.1em 0.1em 0 var(--color-ink-deep);
+  letter-spacing: 0.02em;
+}
+.cc-title--celebrate {
+  color: var(--color-yellow);
+  text-shadow:
+    0.05em 0.05em 0 var(--color-magenta),
+    0.1em 0.1em 0 var(--color-ink-deep),
+    0 0 18px var(--glow-magenta-40); /* the ONE permitted glow layer */
+}
+/* Kicker tag — the ◆ brand mark line above titles. Solid mini-sticker. */
+.cc-kicker {
+  display: inline-block;
+  font-family: var(--ui);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-deep);
+  background: var(--color-sticker-white);
+  padding: 3px 10px;
+  border-radius: 4px;
+  box-shadow: var(--sticker-micro);
+  transform: rotate(-1.5deg);
+}
+
+/* ── Buttons — the ONE button recipe (replaces .cr-btn/.esc-btn/.results-btn
+   materials). Hover = lift, edge pops; press = pushed flat. ── */
+.cc-btn {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--ui);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-sticker-white);
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sticker-chip);
+  padding: var(--pad-btn);
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+}
+.cc-btn:hover,
+.cc-btn:focus-visible {
+  transform: translate(-1px, -2px);
+  box-shadow:
+    0 0 0 2.5px var(--color-sticker-white),
+    5px 6px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+}
+.cc-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--sticker-chip-pressed);
+}
+.cc-btn:focus-visible {
+  outline: 2px dashed var(--color-yellow);
+  outline-offset: 4px;
+}
+/* Primary — retail workhorse: yellow ink, deep-ink text. The PLAY button. */
+.cc-btn--primary {
+  background: var(--color-yellow);
+  color: var(--color-ink-deep);
+}
+/* Secondary — cyan printed accent on ink. */
+.cc-btn--secondary {
+  background: var(--color-ink);
+  color: var(--color-cyan);
+}
+/* Danger — quit/restart: red lettering + hazard underline zone, no glow. */
+.cc-btn--danger {
+  background: var(--color-ink);
+  color: var(--color-alert);
+  background-image: linear-gradient(var(--color-ink), var(--color-ink)),
+    var(--hazard-red);
+  background-clip: padding-box;
+}
+/* Ghost — back/cancel: die-cut edge only, no fill weight. */
+.cc-btn--ghost {
+  background: transparent;
+  color: var(--color-sticker-white);
+  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+}
+.cc-btn--ghost:hover,
+.cc-btn--ghost:focus-visible {
+  background: var(--color-ink);
+  transform: translate(-1px, -2px);
+  box-shadow: var(--sticker-micro);
+}
+.cc-btn--ghost:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+}
+.cc-btn[disabled],
+.cc-btn--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Meters — flat printed fills on an ink track. No neon gradients. ── */
+.cc-meter {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-ink-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.28);
+  overflow: hidden;
+}
+.cc-meter > .cc-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-cyan);
+  border-radius: inherit;
+}
+.cc-meter--hazard > .cc-meter-fill {
+  background: var(--hazard-yellow);
+  background-size: 28px 28px;
+}
+
+/* Engines without paint-order on HTML text paint the full centered stroke
+   OVER the fill — thin it so lettering degrades to "chunky", never to mud. */
+@supports not (paint-order: stroke fill) {
+  .cc-title,
+  .cc-title--celebrate {
+    -webkit-text-stroke-width: 0.02em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-btn,
+  .cc-btn:hover,
+  .cc-btn:active {
+    transition: none;
+    transform: none;
+  }
+}

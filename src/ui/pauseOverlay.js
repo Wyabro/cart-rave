@@ -1,3 +1,4 @@
+import "./styles/tokens.css";
 import "./styles/pauseOverlay.css";
 import {
   animateMenuCardEnter,
@@ -452,15 +453,15 @@ export function init(options = {}, hudContext = {}) {
   elements.escOverlay.style.display = "none";
 
   elements.escBackdrop = document.createElement("div");
-  elements.escBackdrop.className = "esc-backdrop";
+  elements.escBackdrop.className = "esc-backdrop cc-scrim";
   elements.escBackdrop.addEventListener("click", hide);
 
   elements.escPanel = document.createElement("div");
-  elements.escPanel.className = "esc-panel";
+  elements.escPanel.className = "esc-panel cc-panel";
   elements.escPanel.addEventListener("click", (e) => e.stopPropagation());
 
   elements.escTitle = document.createElement("h2");
-  elements.escTitle.className = "esc-title";
+  elements.escTitle.className = "esc-title cc-title";
   elements.escTitle.textContent = "MENU";
 
   const controlsSection = createEscSection("◇ CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
@@ -546,7 +547,7 @@ export function init(options = {}, hudContext = {}) {
   };
   elements.announcerVoiceBtn = document.createElement("button");
   elements.announcerVoiceBtn.type = "button";
-  elements.announcerVoiceBtn.className = "esc-btn";
+  elements.announcerVoiceBtn.className = "esc-btn cc-btn cc-btn--ghost";
   syncAnnouncerVoiceButtonState(settingsStore.getState().announcerVoiceEnabled);
   elements.announcerVoiceBtn.addEventListener("click", () => {
     const next = !settingsStore.getState().announcerVoiceEnabled;
@@ -561,7 +562,7 @@ export function init(options = {}, hudContext = {}) {
   };
   elements.announcerCalloutsBtn = document.createElement("button");
   elements.announcerCalloutsBtn.type = "button";
-  elements.announcerCalloutsBtn.className = "esc-btn";
+  elements.announcerCalloutsBtn.className = "esc-btn cc-btn cc-btn--ghost";
   syncAnnouncerCalloutsButtonState(settingsStore.getState().announcerCalloutsEnabled);
   elements.announcerCalloutsBtn.addEventListener("click", () => {
     const next = !settingsStore.getState().announcerCalloutsEnabled;
@@ -628,18 +629,18 @@ export function init(options = {}, hudContext = {}) {
 
   elements.resumeBtn = document.createElement("button");
   elements.resumeBtn.type = "button";
-  elements.resumeBtn.className = "esc-btn";
+  elements.resumeBtn.className = "esc-btn cc-btn cc-btn--primary";
   elements.resumeBtn.textContent = "RESUME";
 
   elements.quitBtn = document.createElement("button");
   elements.quitBtn.type = "button";
-  elements.quitBtn.className = "esc-btn esc-btn--quit";
+  elements.quitBtn.className = "esc-btn cc-btn cc-btn--danger";
   elements.quitBtn.textContent = "QUIT TO MENU";
 
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);
   elements.postFxBtn = document.createElement("button");
   elements.postFxBtn.type = "button";
-  elements.postFxBtn.className = "esc-btn";
+  elements.postFxBtn.className = "esc-btn cc-btn cc-btn--ghost";
   syncPostFxButtonState(postFxEnabled());
   elements.postFxBtn.addEventListener("click", () => {
     const next = !postFxEnabled();
@@ -654,7 +655,7 @@ export function init(options = {}, hudContext = {}) {
 
   elements.lowQualityBtn = document.createElement("button");
   elements.lowQualityBtn.type = "button";
-  elements.lowQualityBtn.className = "esc-btn";
+  elements.lowQualityBtn.className = "esc-btn cc-btn cc-btn--ghost";
   syncQualityTierButtonState();
   elements.lowQualityBtn.addEventListener("click", () => {
     const order = ["low", "medium", "high"];

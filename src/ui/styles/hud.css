@@ -11,19 +11,8 @@
   --hud-pad: clamp(8px, 1.5vw, 18px);
   --hud-radius: var(--radius-panel);
   --hud-panel-bg: var(--color-ink);
-  /* Die-cut sticker recipe — white contour + hard zero-blur shadow + plastic
-     inner highlight. Tiers: micro / chip / panel (edge width & shadow offset). */
-  --sticker-micro:
-    0 0 0 1.5px var(--color-sticker-white),
-    2px 2px 0 1.5px var(--color-ink-deep);
-  --sticker-chip:
-    0 0 0 2.5px var(--color-sticker-white),
-    3px 3px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
-  --sticker-panel:
-    0 0 0 3px var(--color-sticker-white),
-    4px 4px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  /* Die-cut sticker recipes (--sticker-micro/chip/panel/billboard) now live in
+     tokens.css :root — shared with menus and overlays. */
   --hud-timer-reserve: clamp(128px, 15vw, 208px);
   --hud-audio-reserve: clamp(48px, 6vw, 108px);
   --hud-feed-top: clamp(96px, 12vh, 120px);

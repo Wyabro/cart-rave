@@ -2,6 +2,7 @@
  * Cart Clash loading screens — initial boot splash + mode-entry overlay.
  */
 
+import "./styles/tokens.css";
 import "./loadingScreen.css";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
 import { storageGet } from "../utils/storage.js";

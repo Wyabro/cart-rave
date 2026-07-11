@@ -1328,10 +1328,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     settingsAudioUiMuted = muted;
     if (settingsVolFill) {
       settingsVolFill.style.setProperty('--vol-scale', String(muted ? 0 : norm));
-      // * Apply neon gradient + glow matching the main-menu volume fill (see applyPalette).
-      const p = state.palette;
-      settingsVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
-      settingsVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
+      // * Flat printed fill in the palette secondary (sticker material — no gradient/glow).
+      settingsVolFill.style.background = state.palette.secondary;
     }
     if (settingsVolVal) settingsVolVal.textContent = String(muted ? 'OFF' : pct);
     if (!settingsMuteBtn) return;
@@ -1529,13 +1527,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     audioEl.style.setProperty('--ag', p.secondary);
     if (!audioUiMuted) {
       muteBtn.style.setProperty('--mc', p.secondary);
-      musicVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
-      musicVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
+      musicVolFill.style.background = p.secondary;
     }
-    // * Also refresh the Settings overlay fill gradient so it stays in palette sync.
+    // * Also refresh the Settings overlay fill so it stays in palette sync.
     if (settingsVolFill) {
-      settingsVolFill.style.background = `linear-gradient(90deg, ${p.secondary}, ${p.primary})`;
-      settingsVolFill.style.boxShadow = `0 0 8px ${p.primary}`;
+      settingsVolFill.style.background = p.secondary;
     }
 
     // Controls kbd colors

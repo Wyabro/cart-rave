@@ -94,7 +94,7 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      font-family: "Space Mono", ui-monospace, monospace;
+      font-family: "Goldman", ui-monospace, monospace;
       background: radial-gradient(ellipse at center 38%, #0a0014 0%, #000 88%);
       transition: opacity 420ms ease, visibility 420ms ease;
     }
@@ -114,23 +114,33 @@
       justify-content: center;
       padding: 24px;
       background: radial-gradient(ellipse at center 38%, #0a0014 0%, #000 88%);
-      font-family: "Space Mono", ui-monospace, monospace;
-      color: #fff;
+      font-family: "Goldman", ui-monospace, monospace;
+      color: #f2ede4;
       text-align: center;
     }
     #cr-boot-error.cr-boot-error--visible { display: flex; }
+    /* Die-cut ink panel — matches the sticker material (literals: bundle CSS
+       tokens may not be loaded when a module-load failure shows this). */
+    #cr-boot-error > div {
+      background: #14101e;
+      border-radius: 10px;
+      box-shadow: 0 0 0 3px #f2ede4, 4px 4px 0 3px #08050f;
+      padding: 24px 28px;
+      max-width: 480px;
+    }
     #cr-boot-error p { margin: 0 0 12px; line-height: 1.5; }
     #cr-boot-error .cr-boot-error-detail { opacity: 0.75; font-size: 13px; max-width: 420px; }
     #cr-boot-retry {
       margin-top: 8px;
       padding: 10px 22px;
-      border: 2px solid #ff2bd6;
-      background: transparent;
-      color: #ff2bd6;
+      border: none;
+      border-radius: 6px;
+      background: #ffe53d;
+      color: #08050f;
       font-family: inherit;
       font-size: 14px;
       cursor: pointer;
-      box-shadow: 0 0 12px #ff2bd666;
+      box-shadow: 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f;
     }
     .cr-boot-panel {
       position: relative;
@@ -155,12 +165,17 @@
       letter-spacing: 0.28em;
       color: rgba(255,255,255,0.45);
     }
+    /* Road Rage stack-A: sticker-white fill, ink stroke via paint-order, hard
+       2-step extrude (literals — this renders before bundle CSS/tokens load). */
     .cr-boot-title {
-      font-family: "Bungee", "Archivo Black", sans-serif;
+      font-family: "Road Rage", "Goldman", sans-serif;
       font-size: clamp(2rem, 8vw, 3.2rem);
       line-height: 0.95;
-      color: #fff;
-      text-shadow: 0 0 18px rgba(255,43,214,0.45), 0 0 32px rgba(34,230,255,0.25);
+      color: #f2ede4;
+      paint-order: stroke fill;
+      -webkit-text-stroke: 0.06em #08050f;
+      text-shadow: 0.05em 0.05em 0 #08050f, 0.1em 0.1em 0 #08050f;
+      letter-spacing: 0.02em;
       animation: cr-boot-pulse 2.4s ease-in-out infinite;
     }
     /* ── Crash stage: full-width band, carts are the focal point ── */
@@ -260,8 +275,8 @@
       height: 8px;
     }
     /* Inline copies so the bar/message render before bundle CSS (dev first paint) */
-    #boot-seg-bar .cr-seg { flex: 1; height: 100%; border-radius: 1px; background: rgba(255,255,255,0.08); transition: background-color 120ms ease, box-shadow 120ms ease; }
-    #boot-seg-bar .cr-seg.lit { background: #ff2bd6; box-shadow: 0 0 4px rgba(255,43,214,0.4); }
+    #boot-seg-bar .cr-seg { flex: 1; height: 100%; border-radius: 1px; background: rgba(242,237,228,0.12); transition: background-color 120ms ease; }
+    #boot-seg-bar .cr-seg.lit { background: #ffe53d; }
     #cr-boot-splash .cr-boot-msg { font-size: clamp(8px, 2vw, 10px); letter-spacing: 0.18em; color: rgba(255,255,255,0.42); text-align: center; min-height: 1.2em; }
     /* ── Master timeline keyframes ── */
     @keyframes bootTravel {
@@ -618,25 +633,13 @@
 
         <div class="cr-buttons">
           <button class="cr-btn" id="cr-solo" data-action="solo" data-colorkey="primary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">SOLO</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">SOLO</span></span>          </button>
           <button class="cr-btn" id="cr-quickplay" data-action="quickplay" data-colorkey="secondary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">QUICKPLAY</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">QUICKPLAY</span></span>          </button>
           <button class="cr-btn" id="cr-friends" data-action="friends" data-colorkey="tertiary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">FRIENDS</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">FRIENDS</span></span>          </button>
           <button class="cr-btn cr-btn--customize" data-action="customize" data-colorkey="p2" type="button">
-            <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>          </button>
         </div>
 
         <div class="cr-levels" id="cr-levels">
@@ -646,26 +649,17 @@
               <span class="cr-level-btn-inner">
                 <span class="cr-level-btn-label">CART RAVE</span>
                 <span class="cr-level-btn-sub">Neon vinyl arena</span>
-              </span>
-              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-            </button>
+              </span>            </button>
             <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false">
               <span class="cr-level-btn-inner">
                 <span class="cr-level-btn-label">THE STOREROOMS</span>
                 <span class="cr-level-btn-sub">Liminal Battleground</span>
-              </span>
-              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-            </button>
+              </span>            </button>
             <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false">
               <span class="cr-level-btn-inner">
                 <span class="cr-level-btn-label">SUNDIAL STATION</span>
                 <span class="cr-level-btn-sub">Offshore sunset showdown</span>
-              </span>
-              <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-              <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-            </button>
+              </span>            </button>
           </div>
         </div>
 
@@ -748,26 +742,17 @@
         <!-- Settings / Challenges access -->
         <div class="cr-menu-extras">
           <button type="button" class="cr-btn cr-btn--extra" data-action="howto" data-colorkey="tertiary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">HOW TO PLAY</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">HOW TO PLAY</span></span>          </button>
           <button type="button" class="cr-btn cr-btn--extra" data-action="challenges" data-colorkey="secondary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">CHALLENGES</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">CHALLENGES</span></span>          </button>
           <button type="button" class="cr-btn cr-btn--extra" data-action="settings" data-colorkey="primary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">SETTINGS</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">SETTINGS</span></span>          </button>
         </div>
       </div>
     </div>
   </div>
   <div id="cr-customize-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-customize-panel">
+    <div class="cr-overlay-panel cr-customize-panel">
       <h2 class="cr-customize-title">YOUR CART</h2>
       <p class="cr-customize-desc">Pick your color and theme — preview matches in-game.</p>
 
@@ -804,8 +789,8 @@
         <div class="cr-sunglasses-row" id="cr-customize-sunglasses-row" role="radiogroup" aria-label="Choose sunglasses mirror finish"></div>
       </div>
 
-      <button class="cr-customize-done" id="cr-customize-done" type="button">DONE</button>
-      <button class="cr-customize-back" id="cr-customize-back" type="button">← BACK</button>
+      <button class="cr-overlay-done" id="cr-customize-done" type="button">DONE</button>
+      <button class="cr-overlay-back" id="cr-customize-back" type="button">← BACK</button>
     </div>
   </div>
   <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
@@ -860,15 +845,9 @@
         <div class="cr-settings-section-hd">◇ GRAPHICS</div>
         <div class="cr-graphics-btns">
           <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
-            <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>          </button>
           <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
-            <span class="cr-btn-inner"><span class="cr-btn-label">HIGH QUALITY: ON</span></span>
-            <span class="cr-btn-corner tl"></span><span class="cr-btn-corner tr"></span>
-            <span class="cr-btn-corner bl"></span><span class="cr-btn-corner br"></span>
-          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">HIGH QUALITY: ON</span></span>          </button>
         </div>
       </div>
 
@@ -883,15 +862,15 @@
     </div>
   </div>
   <div id="cr-friends-screen" style="display:none;">
-    <div class="cr-friends-panel">
+    <div class="cr-overlay-panel cr-overlay-panel--friends">
       <h2 class="cr-friends-title">INVITE FRIENDS</h2>
       <p class="cr-friends-desc">Your room link has been copied to your clipboard. Send it to your friends so they can join your game. When they open the link, they'll pick their name and color before joining your lobby.</p>
       <div class="cr-friends-link-row">
         <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Room invite link" />
         <button class="cr-friends-copy" id="cr-friends-copy">COPY</button>
       </div>
-      <button class="cr-friends-enter" id="cr-friends-enter">ENTER GAME</button>
-      <button class="cr-friends-back" id="cr-friends-back">← BACK</button>
+      <button class="cr-overlay-done" id="cr-friends-enter">ENTER GAME</button>
+      <button class="cr-overlay-back" id="cr-friends-back">← BACK</button>
     </div>
   </div>
   <canvas id="game"></canvas>

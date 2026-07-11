@@ -1,3 +1,4 @@
+import "./styles/tokens.css";
 import "./styles/results.css";
 
 import {
@@ -323,7 +324,7 @@ export function initResultsOverlay(hooks = {}) {
   overlay.setAttribute("aria-label", "Round results");
 
   const panel = document.createElement("div");
-  panel.className = "results-panel";
+  panel.className = "results-panel cc-billboard";
 
   const title = document.createElement("h2");
   title.className = "results-title";
@@ -339,14 +340,14 @@ export function initResultsOverlay(hooks = {}) {
 
   const playAgain = document.createElement("button");
   playAgain.type = "button";
-  playAgain.className = "results-btn results-btn--play";
+  playAgain.className = "results-btn cc-btn cc-btn--primary";
   playAgain.textContent = "PLAY AGAIN";
   playAgain.setAttribute("data-gamepad-focusable", "true");
   playAgain.disabled = false;
 
   const mainMenuBtn = document.createElement("button");
   mainMenuBtn.type = "button";
-  mainMenuBtn.className = "results-btn results-btn--menu";
+  mainMenuBtn.className = "results-btn cc-btn cc-btn--ghost";
   mainMenuBtn.textContent = "MAIN MENU";
   mainMenuBtn.setAttribute("data-gamepad-focusable", "true");
   mainMenuBtn.addEventListener("click", () => {

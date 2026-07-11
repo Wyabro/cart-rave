@@ -131,4 +131,53 @@
   --personality-lurker: #b366ff;
   --personality-scavenger: #4dff88;
   --personality-chaotic: #ffaa33;
+
+  /* Die-cut sticker recipe — white contour + hard zero-blur shadow + plastic
+     inner highlight. Tiers: micro / chip / panel / billboard (edge & offset).
+     Promoted from hud.css so menus and overlays share the exact material. */
+  --sticker-micro:
+    0 0 0 1.5px var(--color-sticker-white),
+    2px 2px 0 1.5px var(--color-ink-deep);
+  --sticker-chip:
+    0 0 0 2.5px var(--color-sticker-white),
+    3px 3px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+  --sticker-panel:
+    0 0 0 3px var(--color-sticker-white),
+    4px 4px 0 3px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+  --sticker-billboard:
+    0 0 0 4px var(--color-sticker-white),
+    6px 6px 0 4px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+  /* Pressed-flat variant: sticker pushed onto the surface (for :active). */
+  --sticker-chip-pressed:
+    0 0 0 2.5px var(--color-sticker-white),
+    1px 1px 0 2.5px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+
+  /* Hazard stripes — printed retail urgency (45° yellow/ink, red variant). */
+  --hazard-yellow: repeating-linear-gradient(
+    -45deg,
+    var(--color-yellow) 0 10px,
+    var(--color-ink-deep) 10px 20px
+  );
+  --hazard-red: repeating-linear-gradient(
+    -45deg,
+    var(--color-alert) 0 10px,
+    var(--color-ink-deep) 10px 20px
+  );
+
+  /* Sticker-slap motion (HUD art direction): travel lives in the first
+     30–45% of the animation, then squash/settle. */
+  --ease-slap: cubic-bezier(0.1, 0.9, 0.2, 1);
+  --duration-slap: 260ms;
+  --duration-settle: 360ms;
 }
+
+/* Breakpoint contract (media queries can't read custom props — keep these
+   values in sync BY HAND everywhere):
+     tablet  ≤ 1024px
+     mobile  ≤ 768px  (or pointer:coarse as an orthogonal input axis)
+     tiny    ≤ 380px
+     short landscape: orientation:landscape and max-height:600px */

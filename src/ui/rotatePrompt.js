@@ -23,21 +23,19 @@ function injectStyles() {
         max(16px, env(safe-area-inset-right, 0px))
         max(16px, env(safe-area-inset-bottom, 0px))
         max(16px, env(safe-area-inset-left, 0px));
-      background: rgba(5, 5, 20, 0.88);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: rgba(4, 2, 10, 0.78);
       pointer-events: auto;
-      font-family: "Space Mono", ui-monospace, monospace;
-      color: #fff;
+      font-family: var(--mono, "Goldman", ui-monospace, monospace);
+      color: #f2ede4;
     }
 
     #rotate-prompt .rp-panel {
       width: min(340px, 100%);
       padding: clamp(20px, 5vw, 28px) clamp(18px, 4.5vw, 24px);
-      border-radius: 16px;
-      border: 1px solid rgba(34, 230, 255, 0.28);
-      background: rgba(0, 0, 0, 0.65);
-      box-shadow: 0 0 32px rgba(255, 43, 214, 0.12);
+      border-radius: var(--radius-panel, 10px);
+      border: none;
+      background: var(--color-ink, #14101e);
+      box-shadow: var(--sticker-panel, 0 0 0 3px #f2ede4, 4px 4px 0 3px #08050f);
       text-align: center;
     }
 
@@ -55,7 +53,6 @@ function injectStyles() {
       height: 60px;
       border-radius: 8px;
       border: 2px solid #22e6ff;
-      box-shadow: 0 0 16px rgba(34, 230, 255, 0.35);
       position: relative;
       animation: rp-rotate-phone 2.2s ease-in-out infinite;
       transform-origin: center center;
@@ -80,11 +77,14 @@ function injectStyles() {
     }
 
     #rotate-prompt .rp-title {
-      font-family: "Bungee", "Archivo Black", sans-serif;
+      font-family: var(--display, "Road Rage", "Goldman", sans-serif);
+      font-weight: 400;
       font-size: clamp(18px, 5vw, 22px);
-      letter-spacing: 0.06em;
-      color: #22e6ff;
-      text-shadow: 0 0 12px rgba(34, 230, 255, 0.45);
+      letter-spacing: 0.02em;
+      color: #f2ede4;
+      paint-order: stroke fill;
+      -webkit-text-stroke: 0.06em #08050f;
+      text-shadow: 0.05em 0.05em 0 #08050f, 0.1em 0.1em 0 #08050f;
       margin: 0 0 8px;
     }
 
@@ -99,11 +99,12 @@ function injectStyles() {
       width: 100%;
       min-height: 44px;
       padding: 12px 18px;
-      border-radius: 8px;
-      border: 2px solid rgba(255, 43, 214, 0.45);
-      background: rgba(0, 0, 0, 0.5);
-      color: #ff2bd6;
-      font-family: "Bungee", sans-serif;
+      border-radius: var(--radius-sm, 8px);
+      border: none;
+      background: var(--color-yellow, #ffe53d);
+      color: var(--color-ink-deep, #08050f);
+      box-shadow: var(--sticker-chip, 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f);
+      font-family: var(--ui, "Russo One", sans-serif);
       font-size: clamp(12px, 3.2vw, 14px);
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -112,8 +113,8 @@ function injectStyles() {
     }
 
     #rotate-prompt .rp-btn:active {
-      transform: scale(0.98);
-      background: rgba(255, 43, 214, 0.12);
+      transform: translate(2px, 2px);
+      box-shadow: var(--sticker-chip-pressed, 0 0 0 2.5px #f2ede4, 1px 1px 0 2.5px #08050f);
     }
 
     @media (orientation: landscape) {
@@ -122,6 +123,10 @@ function injectStyles() {
 
     @media (pointer: fine) and (hover: hover) {
       #rotate-prompt { display: none !important; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #rotate-prompt .rp-phone { animation: none !important; transform: rotate(90deg); }
     }
   `;
   document.head.appendChild(style);
