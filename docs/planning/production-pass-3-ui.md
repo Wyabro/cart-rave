@@ -74,4 +74,20 @@ Rules for every screen:
 
 ## Status
 
-- 2026-07-10: audits complete, foundation + wave 1 in progress.
+- 2026-07-10: ALL WAVES SHIPPED (commits 7d37263, bdd33cc, + validation fixes).
+  Verified in-browser: menu/customize/settings/challenges/friends/pause at
+  desktop 1280, mobile portrait 390×844, mobile landscape 844×390; attract
+  mode live (solo→quit→menu path, arena swap on level pick, liminal/sunset
+  ambience). Gates green throughout (tsc, 208 vitest, knip, build).
+- Attract-mode notes: menu backdrop = .cr-root::before (fades to 0.42);
+  ui/menuAttract.js self-gates (worldCold/menuHidden/tabHidden/bootPending —
+  DEV probe: window.__menuAttractDebug). Idle warm skips hidden tabs, so the
+  Browser pane needs ?perfPump + a solo→quit cycle to see it.
+- Pending human checks: real-phone pass (Safari paint-order, safe-areas,
+  touch coarse rules), results/podium visual after a full match, attract-mode
+  perf feel on Wyatt's HW (postFX flicker bug is dodged only on Low tier's
+  direct path; composer path unchanged), two-browser multiplayer screens.
+- Deferred (see final session report): results-screen icons.js wiring,
+  pause-overlay information-density redesign, full token sweep remainder
+  (~150 px values), friends title alignment nit, ambient level.update()
+  animation during attract, SOON-tab treatment in customize.

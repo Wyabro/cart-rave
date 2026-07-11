@@ -2380,9 +2380,9 @@ html, body {
 
 /* Touch users play with the on-screen joystick/buttons — the keyboard
    controls-reference panel is desktop-specific and was the single biggest
-   remaining contributor to portrait scroll depth. No other functionality
-   lives here, so it's a hide, not a compact. */
-@media (pointer: coarse) and (orientation: portrait) {
+   contributor to portrait scroll depth and landscape right-column overflow.
+   The same reference also lives in Settings, so it's a hide, not a compact. */
+@media (pointer: coarse) {
   #cr-controls {
     display: none;
   }
@@ -2432,7 +2432,18 @@ html, body {
   .cr-stats-tag { font-size: clamp(6px, 1.6vh, 8px); top: -7px; }
 
   .cr-center { grid-column: 2; grid-row: 1; gap: clamp(5px, 1dvh, 8px); justify-content: center; min-width: 0; }
-  .cr-right { grid-column: 3; grid-row: 1; gap: clamp(6px, 1.2dvh, 10px); justify-content: center; min-width: 0; }
+  /* `safe center` + overflow-y: if the column is taller than the viewport
+     (e.g. fine-pointer windows that keep the keyboard reference), it scrolls
+     from the top instead of clipping both ends. */
+  .cr-right {
+    grid-column: 3; grid-row: 1;
+    gap: clamp(6px, 1.2dvh, 10px);
+    justify-content: safe center;
+    min-width: 0;
+    min-height: 0;
+    max-height: 100dvh;
+    overflow-y: auto;
+  }
 
   .cr-title-stack { font-size: clamp(25.875px, 6.9dvh, 40.25px); line-height: 0.81; margin: 0; }
   .cr-tagline { font-size: clamp(6px, 1.6dvh, 8px); letter-spacing: 0.12em; }
