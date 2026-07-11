@@ -15,19 +15,21 @@ import { getDebugParams } from "./utils/debugParams.js";
 /**
  * VFX-1 A/B: maps ?rtmode to composer + bloom-mip texture types. `half` (default)
  * returns nulls so the pipeline is byte-identical to production. See debugParams.
- * @param {"half" | "float" | "byte" | "bloombyte"} rtmode
- * @returns {{ composerType: import("three").TextureDataType | null, bloomType: import("three").TextureDataType | null, label: string }}
+ * @param {"half" | "float" | "byte" | "bloombyte" | "bloomfix"} rtmode
+ * @returns {{ composerType: import("three").TextureDataType | null, bloomType: import("three").TextureDataType | null, bloomAfterOutput: boolean, label: string }}
  */
 function resolveRtModeTypes(rtmode) {
   switch (rtmode) {
     case "float":
-      return { composerType: THREE.FloatType, bloomType: THREE.FloatType, label: "RGBA32F composer+bloom" };
+      return { composerType: THREE.FloatType, bloomType: THREE.FloatType, bloomAfterOutput: false, label: "RGBA32F composer+bloom" };
     case "byte":
-      return { composerType: THREE.UnsignedByteType, bloomType: THREE.UnsignedByteType, label: "UnsignedByte composer+bloom" };
+      return { composerType: THREE.UnsignedByteType, bloomType: THREE.UnsignedByteType, bloomAfterOutput: false, label: "UnsignedByte composer+bloom" };
     case "bloombyte":
-      return { composerType: null, bloomType: THREE.UnsignedByteType, label: "HalfFloat composer + UnsignedByte bloom mips" };
+      return { composerType: null, bloomType: THREE.UnsignedByteType, bloomAfterOutput: false, label: "HalfFloat composer + UnsignedByte bloom mips (pre-tonemap)" };
+    case "bloomfix":
+      return { composerType: null, bloomType: THREE.UnsignedByteType, bloomAfterOutput: true, label: "HalfFloat composer + display-referred UnsignedByte bloom (candidate fix)" };
     default:
-      return { composerType: null, bloomType: null, label: "HalfFloat (default)" };
+      return { composerType: null, bloomType: null, bloomAfterOutput: false, label: "HalfFloat (default)" };
   }
 }
 
@@ -69,6 +71,20 @@ function rebuildBloomMipType(bloomPass, type) {
 
 /** Bloom tuning — edit CONFIG.postFx.bloom in config.js; applied in createComposer(). */
 const BLOOM_CONFIG = CONFIG.postFx.bloom;
+
+/**
+ * VFX-1 bloomfix (?rtmode=bloomfix): display-referred bloom knobs. In this mode
+ * bloom runs AFTER OutputPass, so it reads the already tone-mapped 0..1 image —
+ * the HDR threshold/strength from BLOOM_CONFIG don't translate. These are a
+ * TUNABLE starting point to match the HalfFloat-era neon: raise `threshold` for
+ * emissive-only bloom, raise `strength` for punchier glow. Tweak here, hard-refresh.
+ */
+const BLOOM_DISPLAY_CONFIG = {
+  strength: 0.62,
+  radius: 0.4,
+  threshold: 0.62,
+  smoothWidth: 0.1,
+};
 
 /**
  * Applies bloom pass settings from CONFIG.postFx.bloom (or an override object).
@@ -659,7 +675,9 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
 export function createComposer(renderer, scene, camera) {
   // * VFX-1 A/B (?rtmode): default "half" → composerRT undefined → EffectComposer builds
   // * its stock HalfFloat RT (byte-identical to prod). float/byte pass a custom RT.
-  const { composerType, bloomType, label } = resolveRtModeTypes(getDebugParams().rtmode);
+  const { composerType, bloomType, bloomAfterOutput, label } = resolveRtModeTypes(getDebugParams().rtmode);
+  // * bloomfix reads the tone-mapped image, so it uses display-referred bloom knobs.
+  const bloomCfg = bloomAfterOutput ? BLOOM_DISPLAY_CONFIG : BLOOM_CONFIG;
   let composerRT;
   if (composerType != null) {
     const size = renderer.getSize(new THREE.Vector2());
@@ -690,14 +708,14 @@ export function createComposer(renderer, scene, camera) {
       Math.max(1, Math.floor(window.innerWidth * bloomScale)),
       Math.max(1, Math.floor(window.innerHeight * bloomScale)),
     ),
-    BLOOM_CONFIG.strength * bloomStrengthMul,
-    BLOOM_CONFIG.radius,
-    BLOOM_CONFIG.threshold,
+    bloomCfg.strength * bloomStrengthMul,
+    bloomCfg.radius,
+    bloomCfg.threshold,
   );
-  applyBloomSettings(bloomPass);
+  applyBloomSettings(bloomPass, bloomCfg);
   // * Re-apply strength with half-res compensation (applyBloomSettings overwrites strength).
   if (bloomScale < 1) {
-    bloomPass.strength = BLOOM_CONFIG.strength * bloomStrengthMul;
+    bloomPass.strength = bloomCfg.strength * bloomStrengthMul;
   }
   bloomPass.enabled = getQualityKnobs().postFx;
   // * Stash scale so updateViewport can resize internal RTs.
@@ -705,16 +723,25 @@ export function createComposer(renderer, scene, camera) {
   // * VFX-1 A/B: swap bloom mip type before first render (WebGLRenderTarget.setSize
   // * preserves type, so this survives resizes). No-op unless ?rtmode changes it.
   if (bloomType != null) rebuildBloomMipType(bloomPass, bloomType);
-  composer.addPass(bloomPass);
 
   // * OutputPass performs tone mapping + sRGB encoding. Without it the composer wrote
   // * linear working-space values straight to the canvas: renderer.toneMapping and
   // * toneMappingExposure were silent no-ops (three skips both when rendering into a
   // * render target), and mid-tones displayed darker/more saturated than authored.
-  // * Order: bloom thresholds linear HDR, then tone-map+encode, then the CRT-style
-  // * arcade FX and FXAA operate on the final display-referred LDR image.
   const outputPass = new OutputPass();
-  composer.addPass(outputPass);
+
+  // * Pass order. Default (HDR): bloom thresholds linear HDR, then tone-map+encode,
+  // * then arcade FX + FXAA on the display-referred LDR image. bloomfix (VFX-1):
+  // * tone-map FIRST, then bloom on the already-0..1 image — so the UnsignedByte bloom
+  // * mips (which fix the flicker) receive clamped values and don't blow HDR highlights
+  // * into plastic halos the way pre-tonemap byte bloom does.
+  if (bloomAfterOutput) {
+    composer.addPass(outputPass);
+    composer.addPass(bloomPass);
+  } else {
+    composer.addPass(bloomPass);
+    composer.addPass(outputPass);
+  }
 
   const arcadeCfg = CONFIG.postFx.arcade;
   const arcadePass = new ShaderPass(ArcadeFxShader);
