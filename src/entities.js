@@ -404,6 +404,8 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     boostChargeStartedAtMs: 0,
     boostCooldownUntilMs: 0,
     boostChargeMultiplier: 1,
+    // * When true, nitro afterimage streaks use the charged (gold-mixed) look.
+    nitroStreakCharged: false,
     chargeUpSfxId: null,
     lastHopAtMs: 0,
     // * Hop landing one-shot: set on takeoff; cleared on rising-edge floor contact
@@ -469,6 +471,7 @@ export function resetCartTransientState(cart) {
   cart.boostChargeStartedAtMs = 0;
   cart.boostCooldownUntilMs = 0;
   cart.boostChargeMultiplier = 1;
+  cart.nitroStreakCharged = false;
   cart.chargeUpSfxId = null;
   // * Hop landing one-shot — clear so mid-hop death cannot thud on the first
   // * floor contact after respawn (timeout alone is not enough if respawn is fast).

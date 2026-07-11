@@ -460,6 +460,8 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
         cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1.5 * 1000;
         cart.lastRamBoostTimeMs = nowMs;
         cart.ramBoostStreakCarry = 0;
+        // * Gold energy trails only for a near-full release; early taps stay simple cart neon.
+        cart.nitroStreakCharged = proportionalMultiplier >= 0.85;
 
         // * Launch burst impulse — forward kick scaled by mass × proportional multiplier.
         const burstMag = chargeCfg.burstImpulse * mass * proportionalMultiplier;
@@ -488,6 +490,8 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
       cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1.5 * 1000;
       cart.lastRamBoostTimeMs = nowMs;
       cart.ramBoostStreakCarry = 0;
+      // * Full auto-release always gets the gold energy trail.
+      cart.nitroStreakCharged = true;
 
       // * Launch burst impulse — forward kick scaled by mass × multiplier. Separate
       // * from the ongoing nitro accel window; gives the release a tangible punch.

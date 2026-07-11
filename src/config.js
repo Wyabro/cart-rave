@@ -110,19 +110,27 @@ const physics = {
       launchAccelMul: 1.38, // unitless — extra accel during opening burst
       launchWindowSec: 0.2, // seconds — launch burst window from nitro start
       nitroDriftMul: 1.12, // unitless — drift impulse scale while nitro active
-      streakDurationSec: 0.4, // seconds — short afterimage, blends with cart
-      streakSpawnRatePerSec: 20, // particles/s — nitro trail spawn rate
-      streakLengthMeters: 2.3, // meters — speed-line segment length
-      streakRadiusMeters: 0.015, // meters — thin core line width
+      streakDurationSec: 0.32, // seconds — snappy afterimage (shader is punchy enough)
+      streakSpawnRatePerSec: 22, // particles/s — nitro trail spawn rate
+      streakLengthMeters: 1.75, // meters — speed-line segment length
+      streakRadiusMeters: 0.022, // meters — core line width (readable at chase cam)
       streakTipRadiusScale: 0.12, // unitless — taper to point at trailing tip
-      streakGlowRadiusMul: 2.1, // unitless — subtle outer halo vs core
-      streakGlowOpacity: 0.32, // unitless — soft halo (keeps trails cart-adjacent)
-      streakCoreOpacity: 0.56, // unitless — core line transparency
-      streakSaturationMul: 1.1, // unitless — near cart color, slightly richer
-      streakBrightnessMul: 1.06, // unitless — mild lightness punch for readability
-      streakSecondaryChance: 0.15, // unitless — occasional twin streak
+      streakGlowRadiusMul: 2.8, // unitless — outer halo vs core
+      streakGlowOpacity: 0.55, // unitless — soft neon sheath
+      streakCoreOpacity: 0.85, // unitless — hot filament
+      streakSaturationMul: 1.35, // unitless — richer cart neon on trails
+      streakBrightnessMul: 1.05, // unitless — keep chroma (high L → white wash under bloom)
+      streakSecondaryChance: 0.28, // unitless — occasional twin streak
       streakMaxActive: 80, // count — global streak cap (perf guard)
-      streakPulseHz: 12, // Hz — subtle shimmer on active streaks
+      streakPulseHz: 14, // Hz — shimmer on active streaks
+      // * Placement: whole segment sits aft of the rear bumper (not under the chassis).
+      streakRearClearanceM: 0.10, // meters — gap from rear bumper to nearest streak tip
+      streakHeightM: 0.40, // meters — lift above body origin (exhaust / wake height)
+      // * Charged boost (human charge-release): ~40% solid gold filaments, rest pure cart neon.
+      // * Instant/NPC: 100% cart neon. No gold wash on cart-colored segments.
+      streakChargedIntensityMul: 1.25, // unitless — opacity / punch vs normal trails
+      streakChargedGoldHex: 0xffb020, // hex — saturated gold filament (not pale yellow)
+      streakChargedGoldChance: 0.4, // unitless — chance a charged segment is solid gold
       npc: {
         enabled: true,
         alignmentAngleDeg: 40, // degrees — aim cone toward target

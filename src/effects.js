@@ -60,6 +60,11 @@ function disposeObject3D(root) {
  *   streakSecondaryChance?: number,
  *   streakMaxActive?: number,
  *   streakPulseHz?: number,
+ *   streakRearClearanceM?: number,
+ *   streakHeightM?: number,
+ *   streakChargedIntensityMul?: number,
+ *   streakChargedGoldHex?: number,
+ *   streakChargedGoldChance?: number,
  * }} RamBoostVisualConfig */
 
 /** @typedef {Record<string, { hex: number }>} CartColorMap */
@@ -117,8 +122,8 @@ let trashMat = null;
  *   group: THREE.Group,
  *   coreMesh: THREE.Mesh,
  *   glowMesh: THREE.Mesh,
- *   coreMat: THREE.MeshBasicMaterial,
- *   glowMat: THREE.MeshBasicMaterial,
+ *   coreMat: THREE.ShaderMaterial,
+ *   glowMat: THREE.ShaderMaterial,
  *   birthMs: number,
  *   durationMs: number,
  *   cart: any,
@@ -2255,14 +2260,135 @@ function ensureStreakGeometries(rb) {
 function getAnimeStreakColor(hex, rb) {
   const satMul = rb.streakSaturationMul ?? 1.5;
   const brightMul = rb.streakBrightnessMul ?? 1.3;
-  ramBoostStreakColorScratch.setHex(hex);
+  const safeHex = Number.isFinite(hex) ? (hex >>> 0) : 0xff2bd6;
+  ramBoostStreakColorScratch.setHex(safeHex);
   ramBoostStreakColorScratch.getHSL(ramBoostStreakHslScratch);
+  // * Cap lightness so neon stays chromatic (high L + additive = white wash).
   ramBoostStreakColorScratch.setHSL(
     ramBoostStreakHslScratch.h,
-    Math.min(1, ramBoostStreakHslScratch.s * satMul),
-    Math.min(0.85, ramBoostStreakHslScratch.l * brightMul),
+    Math.min(1, Math.max(0.55, ramBoostStreakHslScratch.s * satMul)),
+    Math.min(0.62, Math.max(0.28, ramBoostStreakHslScratch.l * brightMul)),
   );
   return ramBoostStreakColorScratch;
+}
+
+/**
+ * Cart neon, or a pure gold filament for charged boost (no gold→white wash on cart color).
+ * Charged: binary pick — either full cart neon OR solid gold — so both hues read in the wake.
+ * Instant/NPC: always cart neon. Gold chance scales with charge multiplier (full charge = more gold).
+ * @param {number} hex Cart color
+ * @param {RamBoostVisualConfig} rb
+ * @param {boolean} charged Charge-release style
+ * @param {number} [chargeMul=1] 0..1 charge strength (boostChargeMultiplier)
+ * @returns {THREE.Color}
+ */
+function getStreakColorForBoost(hex, rb, charged, chargeMul = 1) {
+  const mul = Number.isFinite(chargeMul) ? clamp(chargeMul, 0, 1) : 1;
+  // * Full charge → full goldChance; weak early release → mostly cart neon only.
+  const goldChance = charged
+    ? (rb.streakChargedGoldChance ?? 0.4) * (0.15 + 0.85 * mul)
+    : 0;
+  if (goldChance > 0 && Math.random() < goldChance) {
+    const goldHex = rb.streakChargedGoldHex ?? 0xffb020;
+    ramBoostStreakColorScratch.setHex(goldHex);
+    // * Saturated gold, not pale yellow-white.
+    ramBoostStreakColorScratch.getHSL(ramBoostStreakHslScratch);
+    ramBoostStreakColorScratch.setHSL(
+      ramBoostStreakHslScratch.h,
+      Math.min(1, Math.max(0.85, ramBoostStreakHslScratch.s)),
+      Math.min(0.55, Math.max(0.42, ramBoostStreakHslScratch.l)),
+    );
+    return ramBoostStreakColorScratch;
+  }
+  return getAnimeStreakColor(hex, rb);
+}
+
+/**
+ * Nitro afterimage streak shader — scrolling energy bands on the unit cylinder shell
+ * (Y = length). NOTE: these are *hollow* shells, so every fragment sits on the outer
+ * radius — do NOT use length(position.xz) as a soft disk falloff (that zeros the trail).
+ * Additive + toneMapped off so bloom still picks them up.
+ * @param {boolean} isCore Hot white-leaning core vs soft colored sheath.
+ * @returns {THREE.ShaderMaterial}
+ */
+function createRamBoostStreakMaterial(isCore) {
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    // * Shell is thin; both sides so camera angles don't lose the filament.
+    side: THREE.DoubleSide,
+    uniforms: {
+      uColor: { value: new THREE.Color(1, 1, 1) },
+      uOpacity: { value: 1 },
+      // * 0 at spawn → 1 at death (age fraction).
+      uLife: { value: 0 },
+      uTime: { value: 0 },
+      uSeed: { value: 0 },
+      uIsCore: { value: isCore ? 1 : 0 },
+      // * 1 = charge-release energy + gold path; 0 = simple solid cart afterimage (instant/NPC).
+      uCharged: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      uniform float uLife;
+      uniform float uTime;
+      uniform float uSeed;
+      uniform float uIsCore;
+      uniform float uCharged;
+      varying vec2 vUv;
+
+      void main() {
+        float along = vUv.y;
+        float around = vUv.x;
+        float isCore = step(0.5, uIsCore);
+        float ends = smoothstep(0.0, 0.1, along) * smoothstep(1.0, 0.82, along);
+        float lifeFade = 1.0 - uLife * uLife;
+
+        // --- Instant / NPC: calm solid cart neon (no energy packets, no gold path) ---
+        if (uCharged < 0.5) {
+          float body = ends * lifeFade;
+          float gain = mix(0.9, 1.12, isCore);
+          vec3 col = uColor * gain;
+          float alpha = clamp(uOpacity * body * mix(0.95, 1.15, isCore), 0.0, 1.0);
+          gl_FragColor = vec4(col, alpha);
+          return;
+        }
+
+        // --- Charge-release: scrolling energy on cart/gold color ---
+        float t = uTime * 18.0 + uSeed;
+        float band = 0.5 + 0.5 * sin(along * 14.0 - t * 1.35 + uSeed * 0.4);
+        band = pow(clamp(band, 0.0, 1.0), 1.6);
+        float band2 = 0.5 + 0.5 * sin(along * 7.0 - t * 0.7 + around * 6.28318);
+        band2 = pow(clamp(band2, 0.0, 1.0), 2.2);
+        float crackle = 0.5 + 0.5 * sin(along * 55.0 - t * 2.8 + around * 18.0 + uSeed);
+        crackle = pow(clamp(crackle, 0.0, 1.0), 5.0);
+
+        float body = ends * lifeFade;
+        float energy = body * (0.6 + band * 0.7 + band2 * 0.35 + crackle * 0.85);
+
+        vec3 neon = uColor;
+        float gain = mix(0.95, 1.25, isCore) * (0.75 + band * 0.35 + crackle * 0.45);
+        vec3 col = neon * gain;
+        col += neon * crackle * mix(0.15, 0.35, isCore);
+
+        float alphaMul = mix(1.05, 1.35, isCore);
+        float alpha = clamp(uOpacity * energy * alphaMul, 0.0, 1.0);
+        float bloomBoost = mix(1.05, 1.35, isCore);
+        gl_FragColor = vec4(col * bloomBoost, alpha);
+      }
+    `,
+  });
+  mat.toneMapped = false;
+  return mat;
 }
 
 /**
@@ -2270,18 +2396,8 @@ function getAnimeStreakColor(hex, rb) {
  * @returns {RamBoostStreakEntry}
  */
 function buildStreakEntry() {
-  const coreMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-  const glowMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
+  const coreMat = createRamBoostStreakMaterial(true);
+  const glowMat = createRamBoostStreakMaterial(false);
   const coreMesh = new THREE.Mesh(streakCoreUnitGeo, coreMat);
   const glowMesh = new THREE.Mesh(streakGlowUnitGeo, glowMat);
   const group = new THREE.Group();
@@ -2345,28 +2461,66 @@ function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
   Simulation.setForwardRightFromYaw(yaw, ramBoostStreakScratchForward, ramBoostStreakScratchRight);
   const fwd = ramBoostStreakScratchForward;
   const rgt = ramBoostStreakScratchRight;
+
+  // * Thin tip of CylinderGeometry is +Y — point +Y rearward so the taper trails
+  // * behind the cart (thick end toward bumper, spit toward the wake).
+  fwd.negate();
   ramBoostStreakAlignQuat.setFromUnitVectors(ramBoostCylinderAxisY, fwd);
+  fwd.negate();
+
   const t = cart.body.translation();
   ramBoostStreakScratchOrigin.set(t.x, t.y, t.z);
-  const back = 0.12 + Math.random() * 0.55;
+
+  // * Charged (human charge-release): energy shader + gold filaments + intensity.
+  // * Instant/NPC: simple solid cart afterimage (different look on purpose).
+  const charged = cart.nitroStreakCharged === true;
+  const chargeMul = charged
+    ? clamp(Number(cart.boostChargeMultiplier) || 1, 0, 1)
+    : 0;
+  const chargedIntensity = rb.streakChargedIntensityMul ?? 1.25;
+  const intensityMul = charged ? 1 + (chargedIntensity - 1) * Math.max(0.35, chargeMul) : 1;
+  // * Instant trails stay a bit thinner/softer so charge release reads as the "big" one.
+  const radiusMul = charged ? 1 + 0.12 * chargeMul : 0.82;
+  const baseRadius = (rb.streakRadiusMeters ?? 0.014) * radiusMul;
+  const lengthMul = variant.lengthMul ?? 0.88 + Math.random() * 0.2;
+  // * Instant: slightly shorter segments; charged: full length.
+  const lengthScale = charged ? 1 : 0.78;
+  const streakLength = rb.streakLengthMeters * lengthMul * lengthScale;
+  const streakColor = getStreakColorForBoost(cart.cartColor, rb, charged, chargeMul);
+  const coreBase = rb.streakCoreOpacity ?? 0.52;
+  const glowBase = rb.streakGlowOpacity ?? 0.62;
+  const coreOpacity = (charged ? coreBase : coreBase * 0.72) * intensityMul;
+  const glowOpacity = (charged ? glowBase : glowBase * 0.65) * intensityMul;
+
+  // * Unit cylinder is centered on the group — place the *whole* segment behind the
+  // * rear bumper so it never reads as fire under the chassis.
+  const halfLen = (CONFIG.cart?.size?.z ?? 2.26) * 0.5;
+  const rearClearance = rb.streakRearClearanceM ?? 0.18;
+  const height = rb.streakHeightM ?? 0.28;
+  // * Forward tip of the streak (toward cart) sits just aft of the rear bumper.
+  const back = halfLen + rearClearance + streakLength * 0.5 + Math.random() * 0.1;
   const lat = variant.lateral ?? (Math.random() * 2 - 1) * 0.28;
   ramBoostStreakScratchPos
     .copy(ramBoostStreakScratchOrigin)
     .addScaledVector(fwd, -back)
     .addScaledVector(rgt, lat);
-
-  const baseRadius = rb.streakRadiusMeters ?? 0.014;
-  const lengthMul = variant.lengthMul ?? 0.88 + Math.random() * 0.2;
-  const streakLength = rb.streakLengthMeters * lengthMul;
-  const streakColor = getAnimeStreakColor(cart.cartColor, rb);
-  const coreOpacity = rb.streakCoreOpacity ?? 0.52;
-  const glowOpacity = rb.streakGlowOpacity ?? 0.62;
+  ramBoostStreakScratchPos.y += height;
 
   const entry = acquireStreakEntry(maxActive);
-  entry.coreMat.color.set(streakColor);
-  entry.coreMat.opacity = coreOpacity;
-  entry.glowMat.color.set(streakColor);
-  entry.glowMat.opacity = glowOpacity;
+  const seed = Math.random() * 1000;
+  const chargedF = charged ? 1 : 0;
+  entry.coreMat.uniforms.uColor.value.copy(streakColor);
+  entry.coreMat.uniforms.uOpacity.value = coreOpacity;
+  entry.coreMat.uniforms.uLife.value = 0;
+  entry.coreMat.uniforms.uTime.value = birthMs * 0.001;
+  entry.coreMat.uniforms.uSeed.value = seed;
+  entry.coreMat.uniforms.uCharged.value = chargedF;
+  entry.glowMat.uniforms.uColor.value.copy(streakColor);
+  entry.glowMat.uniforms.uOpacity.value = glowOpacity;
+  entry.glowMat.uniforms.uLife.value = 0;
+  entry.glowMat.uniforms.uTime.value = birthMs * 0.001;
+  entry.glowMat.uniforms.uSeed.value = seed + 17.3;
+  entry.glowMat.uniforms.uCharged.value = chargedF;
 
   entry.group.position.copy(ramBoostStreakScratchPos);
   entry.group.quaternion.copy(ramBoostStreakAlignQuat);
@@ -2438,12 +2592,19 @@ export function updateRamBoostStreaks(nowMs) {
       && s.cart
       && s.cart.ramBoostActiveUntilMs > nowMs;
     const pulse = isBoosting && pulseHz > 0
-      ? 1 + 0.12 * Math.sin(nowMs * 0.001 * Math.PI * 2 * pulseHz)
+      ? 1 + 0.22 * Math.sin(nowMs * 0.001 * Math.PI * 2 * pulseHz)
       : 1;
 
-    const coreBase = ramBoostConfig?.streakCoreOpacity ?? 0.52;
-    s.coreMat.opacity = clamp(fade * coreBase * pulse, 0, 1);
-    s.glowMat.opacity = clamp(fade * glowBase * pulse, 0, 1);
+    const coreBase = ramBoostConfig?.streakCoreOpacity ?? 0.85;
+    const timeSec = nowMs * 0.001;
+    // * Life + time drive the energy shader; opacity keeps config/pulse control.
+    // * Allow >1 opacity into the shader — additive HDR headroom for bloom.
+    s.coreMat.uniforms.uLife.value = t;
+    s.coreMat.uniforms.uTime.value = timeSec;
+    s.coreMat.uniforms.uOpacity.value = fade * coreBase * pulse;
+    s.glowMat.uniforms.uLife.value = t;
+    s.glowMat.uniforms.uTime.value = timeSec;
+    s.glowMat.uniforms.uOpacity.value = fade * glowBase * pulse;
   }
 }
 

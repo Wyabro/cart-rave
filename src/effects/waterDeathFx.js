@@ -513,6 +513,8 @@ function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
       uIntensity: { value: 0.55 + intensity * 0.55 },
       uColor: { value: _tmpColor.clone() },
       uBands: { value: lowQ ? 2.0 : 4.0 },
+      // * 1 = full Shadertoy-style caustic lace; 0 = ring crests only (low quality).
+      uCaustic: { value: lowQ ? 0.0 : 1.0 },
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -526,10 +528,30 @@ function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
       uniform float uIntensity;
       uniform vec3 uColor;
       uniform float uBands;
+      uniform float uCaustic;
       varying vec2 vUv;
+
+      // * Cheap multi-lobe water caustic (Shadertoy-flavored FBM-of-sines, no textures).
+      // * Always returns [0,1] — pow() on negatives is undefined in GLSL and can NaN
+      // * the whole framebuffer when this large additive disc covers the view.
+      float causticField(vec2 p, float t) {
+        float a = 0.0;
+        // * Two rotated lattices + a slower envelope — reads as light through chop.
+        vec2 q = p * 9.0;
+        a += sin(q.x + t * 2.1) * sin(q.y * 1.3 - t * 1.7);
+        a += sin(q.x * 1.4 - q.y + t * 2.8) * 0.65;
+        vec2 r = vec2(
+          q.x * 0.8 - q.y * 0.6,
+          q.x * 0.6 + q.y * 0.8
+        );
+        a += sin(r.x * 1.7 + t * 1.9) * sin(r.y * 1.5 - t * 2.4) * 0.55;
+        return clamp(a * 0.5 + 0.5, 0.0, 1.0);
+      }
+
       void main() {
         vec2 p = vUv - 0.5;
         float d = length(p) * 2.0;
+        float ang = atan(p.y, p.x);
         // * Soft edge of the disc so the overlay doesn't clip as a hard square.
         float disc = 1.0 - smoothstep(0.92, 1.0, d);
         float rings = 0.0;
@@ -537,18 +559,34 @@ function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
           if (i >= uBands) break;
           // * Rings born at center and expand with staggered phase.
           float phase = clamp(uProgress * 1.15 - i * 0.12, 0.0, 1.0);
-          float r = phase;
-          float band = abs(d - r);
+          float ringR = phase;
+          float band = abs(d - ringR);
           float width = 0.035 + i * 0.012 + phase * 0.02;
           float crest = exp(-band * band / (width * width));
-          // * Trailing half-crest for thickness.
-          float trail = exp(-pow(band - width * 1.4, 2.0) / (width * width * 2.5)) * 0.35;
+          // * Trailing half-crest for thickness (mul, not pow — avoids undefined pow(neg, 2.0)).
+          float trailOff = band - width * 1.4;
+          float trail = exp(-(trailOff * trailOff) / (width * width * 2.5)) * 0.35;
           rings += (crest + trail) * (1.0 - phase) * (1.0 - i * 0.18);
         }
         // * Inner damp so the center isn't a solid glow after the crest leaves.
         rings *= smoothstep(0.0, 0.12, d) * disc;
-        float alpha = rings * uIntensity * (1.0 - uProgress * 0.55);
-        gl_FragColor = vec4(uColor * (0.7 + rings * 0.8), alpha);
+
+        // * Caustic lace rides the ring energy (not a solid disc fill).
+        float caust = 0.0;
+        if (uCaustic > 0.5) {
+          float t = uProgress * 6.5;
+          float field = causticField(p * (1.0 + uProgress * 0.8), t);
+          // * Angular sparkle so crests break into wet highlights.
+          float spokes = 0.55 + 0.45 * sin(ang * 7.0 - t * 1.4 + d * 10.0);
+          caust = pow(field, 2.4) * spokes * rings;
+        }
+
+        float energy = rings + caust * 0.85;
+        float alpha = clamp(energy * uIntensity * (1.0 - uProgress * 0.55), 0.0, 1.0);
+        vec3 col = uColor * (0.7 + rings * 0.8 + caust * 0.9);
+        // * Cool white hotspots on caustic peaks.
+        col = mix(col, vec3(0.85, 0.95, 1.0), clamp(caust * 0.35, 0.0, 1.0));
+        gl_FragColor = vec4(col, alpha);
       }
     `,
   });

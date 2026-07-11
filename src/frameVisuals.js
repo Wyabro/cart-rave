@@ -51,6 +51,9 @@ const _hitStopQuat = new THREE.Quaternion();
 // * Living Cargo per-frame context scratch (no per-frame object literal).
 const _cargoCtx = { localSlotIndex: -1, netSlots: /** @type {Array<object>} */ ([]), roundPhase: "" };
 
+// * Arcade-pass Sudden Death juice smoothing — avoids hard on/off pops.
+let _arcadeSuddenDeathSmoothed = 0;
+
 
 
 /**
@@ -484,35 +487,63 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     deps.camera.updateProjectionMatrix();
   }
 
-  // * Kill-confirm flash — linear decay on the arcade pass' uFlash; cheap uniform write.
+  // * Arcade-pass event juice — uniform writes only; shader early-outs when idle.
+  const arcadePass = deps.getArcadePass?.();
+  const arcadeOn = Boolean(arcadePass?.enabled && arcadePass.uniforms);
+  const juiceNow = performance.now();
+  const juiceRunning = roundState.phase === "running";
+
+  // * Kill-confirm flash + expanding shockwave (uFlash strength, uShock 0→1 expand).
   const killFlash = deps.getKillFlash?.();
-  const flashPass = deps.getArcadePass?.();
-  if (killFlash && flashPass?.uniforms?.uFlash) {
-    const flashNow = performance.now();
-    const active = flashPass.enabled && roundState.phase === "running" && flashNow < killFlash.until;
-    flashPass.uniforms.uFlash.value = active
-      ? killFlash.strength * ((killFlash.until - flashNow) / killFlash.durationMs)
-      : 0;
+  if (killFlash && arcadePass?.uniforms?.uFlash) {
+    const active = arcadeOn && juiceRunning && juiceNow < killFlash.until;
+    if (active) {
+      const remain = (killFlash.until - juiceNow) / killFlash.durationMs;
+      arcadePass.uniforms.uFlash.value = killFlash.strength * remain;
+      if (arcadePass.uniforms.uShock) arcadePass.uniforms.uShock.value = 1 - remain;
+    } else {
+      arcadePass.uniforms.uFlash.value = 0;
+      if (arcadePass.uniforms.uShock) arcadePass.uniforms.uShock.value = 0;
+    }
   }
 
-  // * Impact pulse — brief vignette/aberration kick on hard local hits. Baselines were
-  // * captured at trigger time (main.js triggerImpactPulse); decay back and restore
-  // * exactly so live Tweakpane/config tweaks are never overwritten between pulses.
+  // * Impact pulse — vignette/aberration kick + mini cyan shock on hard local hits.
+  // * Baselines captured at trigger time (main.js triggerImpactPulse); restore exactly
+  // * so live Tweakpane/config tweaks are never overwritten between pulses.
   const pulse = deps.getImpactPulse?.();
-  const arcadePass = deps.getArcadePass?.();
-  if (pulse && arcadePass?.enabled && arcadePass.uniforms
-    && pulse.baseVignette != null && pulse.baseAberration != null) {
-    if (roundState.phase === "running" && performance.now() < pulse.until) {
-      const t = (pulse.until - performance.now()) / pulse.durationMs;
+  if (pulse && arcadePass?.uniforms) {
+    const pulseActive = arcadeOn && juiceRunning && juiceNow < pulse.until;
+    if (pulseActive && pulse.baseVignette != null && pulse.baseAberration != null) {
+      const t = (pulse.until - juiceNow) / pulse.durationMs;
       arcadePass.uniforms.uVignette.value = pulse.baseVignette + pulse.strength * 0.55 * t;
       arcadePass.uniforms.uAberration.value = pulse.baseAberration + pulse.strength * 0.011 * t;
-    } else {
+    } else if (!pulseActive && pulse.baseVignette != null && pulse.baseAberration != null) {
       arcadePass.uniforms.uVignette.value = pulse.baseVignette;
       arcadePass.uniforms.uAberration.value = pulse.baseAberration;
-      // * One-shot restore — null the baselines so the next Tweakpane change sticks.
       pulse.baseVignette = null;
       pulse.baseAberration = null;
     }
+    if (arcadePass.uniforms.uHitStrength) {
+      if (pulseActive) {
+        const remain = (pulse.until - juiceNow) / pulse.durationMs;
+        // * Weaker than KO flash so chained rams don't read as kill-confirms.
+        arcadePass.uniforms.uHitStrength.value = Math.min(pulse.strength, 1.2) * remain * 0.48;
+        if (arcadePass.uniforms.uHitShock) arcadePass.uniforms.uHitShock.value = 1 - remain;
+      } else {
+        arcadePass.uniforms.uHitStrength.value = 0;
+        if (arcadePass.uniforms.uHitShock) arcadePass.uniforms.uHitShock.value = 0;
+      }
+    }
+  }
+
+  // * Sudden Death edge heat (smoothed; post-FX gated). Nitro juice is world-space trails.
+  if (arcadePass?.uniforms?.uSuddenDeath) {
+    const sdTarget = arcadeOn && juiceRunning && roundState.isSuddenDeath === true ? 1 : 0;
+    // * dt is seconds; ~6–8 Hz ease feels snappy without a hard pop.
+    const k = Math.min(1, Math.max(0, dt) * 7);
+    _arcadeSuddenDeathSmoothed += (sdTarget - _arcadeSuddenDeathSmoothed) * k;
+    if (_arcadeSuddenDeathSmoothed < 0.001) _arcadeSuddenDeathSmoothed = 0;
+    arcadePass.uniforms.uSuddenDeath.value = _arcadeSuddenDeathSmoothed;
   }
 
   Effects.updateTrashParticles(dt);

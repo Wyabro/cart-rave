@@ -753,8 +753,9 @@ async function main() {
   let fovPunchUntil = 0;
   // * Punch amplitude in degrees — ram hits use the base 8°, kill confirms hit harder.
   let fovPunchDeg = 8;
-  // * Kill-confirm white flash on the arcade pass (uFlash uniform) — short and sharp.
-  const killFlash = { until: 0, durationMs: 110, strength: 0 };
+  // * Kill-confirm white flash + radial shockwave on the arcade pass (uFlash / uShock).
+  // * Slightly longer than a pure white pop so the expanding Shadertoy-style ring can read.
+  const killFlash = { until: 0, durationMs: 200, strength: 0 };
   // * KO hit-stop — presentation-only: rendered cart poses + the follow camera hold for
   // * ~80ms while physics/prediction/reconciliation run untouched, then blend back over
   // * ~120ms (frameVisuals consumes this). Never touches dt or the physics accumulator.
@@ -2611,6 +2612,14 @@ async function main() {
     onRemoteBoostStart: (cart) => {
       AudioManager.playSfx("boost", undefined, { volume: 0.45 });
       if (cart?.mesh) animateCartBoostPulse(cart.mesh);
+      // * Humans use charge-release (gold energy); NPCs use instant (simple cart trail).
+      const kind = Netcode.getNetSlots()?.[cart?.slotIndex]?.kind;
+      if (cart) {
+        const charged = kind !== "npc";
+        cart.nitroStreakCharged = charged;
+        // * Remotes don't carry chargeMul — full charged look for human peers.
+        cart.boostChargeMultiplier = charged ? 1 : 0;
+      }
     },
     onCartImpactSquash: squashCartsOnImpact,
     getTriggerCartShatterRef: () => triggerCartShatterRef,
@@ -2761,6 +2770,8 @@ async function main() {
       cart.isChargingBoost = true;
       cart.boostChargeStartedAtMs = nowMs;
       cart.boostChargeMultiplier = chargeCfg.boostMaxMultiplier;
+      // * Trail style is only "charged" after release — not while holding charge.
+      cart.nitroStreakCharged = false;
       const isLocal = cart === localCartForConnId();
       if (isLocal) {
         // * Looping charge-up SFX; stopped on release / interrupt via onBoostRelease or respawn.
@@ -2773,6 +2784,9 @@ async function main() {
     if (nowMs - cart.lastRamBoostTimeMs < rb.cooldownSec * 1000) return;
     cart.ramBoostActiveUntilMs = nowMs + rb.durationSec * 1000;
     cart.lastRamBoostTimeMs = nowMs;
+    // * Instant nitro = simple cart-color trail (charge release sets gold energy style).
+    cart.nitroStreakCharged = false;
+    cart.boostChargeMultiplier = 0;
     const isLocal = cart === localCartForConnId();
     if (isLocal) {
       AudioManager.playSfx("boost");

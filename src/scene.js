@@ -269,6 +269,12 @@ export function setSceneFog(scene, renderer, options = {}) {
  * luminance-only tape-noise floor, a slow chroma-aberration wobble, and a soft tracking
  * band that sweeps the frame once every uVhsTrackPeriod seconds. Amplitudes are kept
  * small so competitive readability is untouched.
+ *
+ * Event juice (all early-out when idle):
+ * - KO: uFlash + uShock radial prism shockwave
+ * - Hard ram: uHitStrength + uHitShock (smaller/weaker ring)
+ * - Sudden Death: uSuddenDeath edge heat / danger rays
+ * Nitro trail juice lives on world-space streak shaders in effects.js (not here).
  */
 const ArcadeFxShader = {
   uniforms: {
@@ -279,6 +285,13 @@ const ArcadeFxShader = {
     uScanlineDensity: { value: 1.5 },
     uVignette: { value: 1.2 },
     uFlash: { value: 0.0 },
+    // * 0 at KO start → 1 at end of kill-flash window (expanding shock ring).
+    uShock: { value: 0.0 },
+    // * Local hard-hit mini-shock (impact pulse) — weaker than KO.
+    uHitStrength: { value: 0.0 },
+    uHitShock: { value: 0.0 },
+    // * 0..1 while Sudden Death is live (edge danger heat).
+    uSuddenDeath: { value: 0.0 },
     uVhsAmount: { value: 0.0 },
     uVhsNoise: { value: 0.028 },
     uVhsTrackPeriod: { value: 26.0 },
@@ -298,6 +311,10 @@ const ArcadeFxShader = {
     uniform float uScanlineDensity;
     uniform float uVignette;
     uniform float uFlash;
+    uniform float uShock;
+    uniform float uHitStrength;
+    uniform float uHitShock;
+    uniform float uSuddenDeath;
     uniform float uVhsAmount;
     uniform float uVhsNoise;
     uniform float uVhsTrackPeriod;
@@ -310,8 +327,35 @@ const ArcadeFxShader = {
     void main() {
       vec2 uv = vUv;
       vec2 center = vec2(0.5, 0.5);
+      // * Aspect-correct radial distance so shock rings stay circular on widescreen.
+      vec2 aspect = vec2(uResolution.x / max(uResolution.y, 1.0), 1.0);
+      vec2 dirA = (uv - center) * aspect;
+      float distA = length(dirA);
       vec2 dir = uv - center;
       float dist = length(dir);
+      vec2 dirN = distA > 1e-4 ? dirA / distA : vec2(0.0, 1.0);
+
+      // * KO shockwave (Shadertoy-style): expanding ring warps sample UVs + later prism edge.
+      float shockRing = 0.0;
+      if (uFlash > 0.001 && uShock < 0.999) {
+        float radius = uShock * uShock * 0.92;
+        float band = abs(distA - radius);
+        float width = 0.028 + uShock * 0.04;
+        shockRing = exp(-band * band / (width * width));
+        float shockWarp = shockRing * uFlash * (0.012 * (1.0 - uShock * 0.55));
+        uv += dirN * shockWarp / aspect;
+      }
+
+      // * Hard-hit mini-shock — smaller radius, cyan-white, no heavy warp.
+      float hitRing = 0.0;
+      if (uHitStrength > 0.001 && uHitShock < 0.999) {
+        float radius = uHitShock * uHitShock * 0.58;
+        float band = abs(distA - radius);
+        float width = 0.022 + uHitShock * 0.03;
+        hitRing = exp(-band * band / (width * width));
+        float hitWarp = hitRing * uHitStrength * (0.006 * (1.0 - uHitShock * 0.5));
+        uv += dirN * hitWarp / aspect;
+      }
 
       // VHS: per-scanline micro-jitter + rare tracking band (displaces the sample).
       float trackBand = 0.0;
@@ -330,7 +374,9 @@ const ArcadeFxShader = {
 
       // VHS: slow chroma wobble rides the aberration strength (~±35% on a ~6s cycle).
       float aberration = uAberration * (1.0 + uVhsAmount * 0.35 * sin(uTime * 1.05));
-      vec2 offset = normalize(dir) * dist * aberration;
+      aberration += shockRing * uFlash * 0.018;
+      aberration += hitRing * uHitStrength * 0.01;
+      vec2 offset = dist > 1e-4 ? normalize(dir) * dist * aberration : vec2(0.0);
       float r = texture2D(tDiffuse, uv + offset).r;
       float g = texture2D(tDiffuse, uv).g;
       float b = texture2D(tDiffuse, uv - offset).b;
@@ -352,6 +398,32 @@ const ArcadeFxShader = {
       // Kill-confirm flash — brief lift toward white, strongest at screen center.
       float flashFalloff = 1.0 - smoothstep(0.15, 0.75, dist);
       color.rgb = mix(color.rgb, vec3(1.0), uFlash * 0.2 * flashFalloff);
+
+      // * Thin magenta/cyan prism edge on the expanding KO shock.
+      if (shockRing > 0.01) {
+        vec3 prism = mix(vec3(1.0, 0.25, 0.85), vec3(0.25, 0.9, 1.0), fract(distA * 3.0 + uShock));
+        color.rgb += prism * shockRing * uFlash * 0.55 * (1.0 - uShock * 0.35);
+      }
+
+      // * Hit ring — cooler cyan-white (reads as impact, not KO score).
+      if (hitRing > 0.01) {
+        vec3 hitPrism = mix(vec3(0.85, 0.95, 1.0), vec3(0.35, 0.85, 1.0), fract(distA * 4.0 + uHitShock));
+        color.rgb += hitPrism * hitRing * uHitStrength * 0.42 * (1.0 - uHitShock * 0.4);
+      }
+
+      // * Sudden Death — edge-only red/magenta heat + slow danger rays (center stays clean).
+      if (uSuddenDeath > 0.001) {
+        float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+        float edgeGlow = 1.0 - smoothstep(0.0, 0.16, edgeDist);
+        float pulse = 0.55 + 0.45 * sin(uTime * 3.4);
+        float ang = atan(dirA.y, dirA.x);
+        float rays = 0.5 + 0.5 * sin(ang * 10.0 + uTime * 2.2);
+        rays = pow(clamp(rays, 0.0, 1.0), 3.0);
+        float heat = edgeGlow * (0.55 + 0.45 * rays) * pulse * uSuddenDeath;
+        color.rgb += vec3(1.0, 0.1, 0.32) * heat * 0.28;
+        // * Very soft center desat lift so the frame holds its breath without hiding carts.
+        color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 0.92, 0.95), uSuddenDeath * 0.08 * (1.0 - edgeGlow));
+      }
 
       gl_FragColor = color;
     }
