@@ -40,6 +40,18 @@ html, body {
   opacity: 0.42;
 }
 
+/* Once the live arena backs the menu, the faux DOM floor/lights/particles/scan
+   are redundant and double up over it — retire them. They stay as the cold-boot
+   fallback background whenever attract mode isn't rendering (class absent).
+   !important overrides the inline opacity JS sets on floor/scan from intensity. */
+.cr-root.cr-root--attract .cr-floor,
+.cr-root.cr-root--attract .cr-lights,
+.cr-root.cr-root--attract .cr-particles,
+.cr-root.cr-root--attract .cr-scan {
+  opacity: 0 !important;
+  transition: opacity 900ms ease;
+}
+
 /* Hide entrance targets until Anime.js runs (removed when sequence completes). */
 .cr-root.cr-menu-enter-pending .cr-tagline,
 .cr-root.cr-menu-enter-pending .cr-title-word,
@@ -702,13 +714,22 @@ html, body {
   box-shadow: var(--sticker-chip-pressed);
 }
 
-/* Color grammar — yellow workhorse for the primary play action, cyan accents. */
+/* Color grammar — each play action is a solid brand-palette sticker with
+   ink-deep lettering. SOLO (yellow) leads as the primary CTA; QUICKPLAY,
+   FRIENDS and CUSTOMIZE spread cyan / green / magenta so the stack reads as a
+   colorful arcade select screen instead of one hero button over dead chrome. */
 #cr-solo {
   background: var(--color-yellow);
   color: var(--color-ink-deep);
 }
-.cr-btn[data-action="quickplay"] { color: var(--color-cyan); }
-.cr-btn[data-action="friends"] { color: var(--color-cyan); }
+.cr-btn[data-action="quickplay"] {
+  background: var(--color-cyan);
+  color: var(--color-ink-deep);
+}
+.cr-btn[data-action="friends"] {
+  background: var(--color-portal);
+  color: var(--color-ink-deep);
+}
 
 /* Press scale handled by Anime.js on .cr-btn-inner — keep outer lift only. */
 
@@ -1601,23 +1622,11 @@ html, body {
 /* .cr-customize-done / .cr-customize-back consolidated → markup now uses the
    shared .cr-overlay-done / .cr-overlay-back pair. */
 
+/* CUSTOMIZE completes the four-color set (magenta); inherits the base
+   .cr-btn hover/active sticker behavior like the other filled buttons. */
 .cr-btn--customize {
-  background: transparent;
-  color: var(--color-sticker-white);
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
-  opacity: 0.92;
-}
-
-.cr-btn--customize:hover,
-.cr-btn--customize:focus-visible {
-  background: var(--color-ink);
-  transform: translate(-1px, -2px);
-  box-shadow: var(--sticker-micro);
-}
-
-.cr-btn--customize:active {
-  transform: translate(1px, 1px);
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  background: var(--color-magenta);
+  color: var(--color-ink-deep);
 }
 
 /* === HOW TO PLAY, CHALLENGES & SETTINGS OVERLAY SCREENS === */
