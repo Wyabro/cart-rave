@@ -4,7 +4,7 @@
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Physics stability, three elevated arenas (Cart Rave / Storerooms / **Sundial Station**), HUD redesign, lifetime unlocks, and **Living Store** (cargo scoreboard + PA directives) are in tree. See [ROADMAP.md](./planning/ROADMAP.md) for open priorities and [brand.md](./brand.md) for the naming freeze.
+**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Five production passes (performance, UI/UX, gameplay/AI, VFX/audio) plus a stabilization pass are in tree alongside three elevated arenas, the HUD redesign, lifetime unlocks, and **Living Store** (cargo scoreboard + PA directives). Current health, blockers, and the next milestone: [STATUS.md](./STATUS.md). Open priorities: [ROADMAP.md](./planning/ROADMAP.md) + [BACKLOG.md](./planning/BACKLOG.md). Naming freeze: [brand.md](./brand.md).
 
 ---
 
@@ -13,47 +13,51 @@
 Docs are grouped by kind. Two entry points live at the `docs/` root: this index and
 [brand.md](./brand.md) (the canonical naming freeze — prefer it when docs disagree).
 
-**Agent / session rehydration:** start with [STATUS.md](./STATUS.md) (current focus, next actions, gotchas).
+**Read first:** [STATUS.md](./STATUS.md) — the production dashboard (health, blockers, current focus, next milestone) and session source of truth.
 
 ### `planning/` — status & forward-looking
 
-Three docs split cleanly by time — **past / present / future**:
+Core docs split by time — **past / present / future**:
 
 | Doc | Purpose |
 |-----|---------|
-| [STATUS.md](./STATUS.md) | **Session source of truth** — rehydration, current focus, next actions |
+| [STATUS.md](./STATUS.md) | **Dashboard + session source of truth** — health, focus, next actions, decision index |
 | [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
-| [planning/project-state.md](./planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
-| [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
+| [planning/production-passes.md](./planning/production-passes.md) | **Past** — one-page index of the July 2026 production passes |
+| [planning/project-state.md](./planning/project-state.md) | **Present** — architecture snapshot, known issues, verified non-issues |
+| [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — phased plan (V2 blockers, future, stretch) |
+| [planning/BACKLOG.md](./planning/BACKLOG.md) | **Future** — every open item, categorized + prioritized |
+| [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md) | Open netcode hazards (clocks, host migrate, buffers) + smoke add-ons for NET-1 |
 | [planning/living-store-test-plan.md](./planning/living-store-test-plan.md) | Deferred two-browser checklist for Living Store |
-| [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md) | Netcode landmines (clocks, host migrate, buffers) + smoke add-ons for NET-1 |
+| [planning/host-migration-test-plan.md](./planning/host-migration-test-plan.md) | Deferred live 2–3-client host-migration checklist |
 
 ### `reference/` — how it's built
 
-| Doc | Purpose |
-|-----|---------|
-| [reference/Game_Architecture.md](./reference/Game_Architecture.md) | Consolidated architecture & design reference |
-| [reference/living-store.md](./reference/living-store.md) | Living Cargo + PA directives (as-built) |
-| [reference/scoring-event-system.md](./reference/scoring-event-system.md) | Scoring & event system (as-built) |
-| [reference/announcer.md](./reference/announcer.md) | "The Store PA" announcer system + voice asset pipeline |
-| [reference/CREDITS.md](./reference/CREDITS.md) | Third-party libraries, fonts, and assets |
+| Doc | Topic | Purpose |
+|-----|-------|---------|
+| [reference/Game_Architecture.md](./reference/Game_Architecture.md) | Architecture / Networking | Consolidated architecture & design reference (incl. the multiplayer/netcode model) |
+| [reference/living-store.md](./reference/living-store.md) | Gameplay systems | Living Cargo + PA directives (as-built) |
+| [reference/scoring-event-system.md](./reference/scoring-event-system.md) | Gameplay systems | Scoring & KO event fan-out (as-built) |
+| [reference/announcer.md](./reference/announcer.md) | Audio | "The Store PA" announcer system + voice asset pipeline |
+| [reference/CREDITS.md](./reference/CREDITS.md) | Meta | Third-party libraries, fonts, and assets |
 
 ### `guides/` — operational workflow
 
-| Doc | Purpose |
-|-----|---------|
-| [guides/preview-dev.md](./guides/preview-dev.md) | Local multiplayer dev workflow |
-| [guides/visual-qa.md](./guides/visual-qa.md) | Screenshot harness, ablation flags, black-frame battery; `npm run qa` / `qa:visual` |
-| [guides/deploy-urls.md](./guides/deploy-urls.md) | Production URLs and deploy verification |
-| [guides/cart-pattern-reuv.md](./guides/cart-pattern-reuv.md) | Cart body second UV for pattern masks (Blender + compress) |
+| Doc | Topic | Purpose |
+|-----|-------|---------|
+| [guides/preview-dev.md](./guides/preview-dev.md) | Dev workflow | Local multiplayer dev workflow |
+| [guides/visual-qa.md](./guides/visual-qa.md) | Dev workflow | Screenshot harness, ablation flags, black-frame battery; `npm run qa` / `qa:visual` |
+| [guides/deploy-urls.md](./guides/deploy-urls.md) | Dev workflow | Production URLs and deploy verification |
+| [guides/cart-pattern-reuv.md](./guides/cart-pattern-reuv.md) | Art pipeline | Cart body second UV for pattern masks (Blender + compress) |
 
 ### `archive/` — frozen historical
 
 | Doc | Purpose |
 |-----|---------|
+| [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md) | Full-text July 2026 decision entries (index lives in STATUS.md) |
 | [archive/handovers/](./archive/handovers/) | Session handover notes (jam-era) |
 | [archive/audits/](./archive/audits/) | Code audits (jam-era & July 2026 passes) |
-| [archive/session-notes/](./archive/session-notes/) | Shipped July 2026 session plans (HUD, Zanzibar, production-value, etc.) |
+| [archive/session-notes/](./archive/session-notes/) | Shipped/superseded July 2026 session plans (HUD, Zanzibar, production passes, flicker investigation, etc.) |
 
 ---
 

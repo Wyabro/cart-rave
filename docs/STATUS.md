@@ -1,109 +1,136 @@
-# Cart Clash — STATUS (session source of truth)
+# Cart Clash — Production Dashboard & Session Status
+
+**What is this?** The first document anyone (human or agent) reads: project health, what's
+done, what's blocking, what happens next. It doubles as the session source of truth.
+**Why does it exist?** So nobody has to read weeks of historical docs to know where the
+project stands. **Is it current?** Last verified 2026-07-12 (`npm run qa` green: 285 tests /
+28 files, typecheck + knip clean).
 
 > **Rehydration protocol** (agent or human resuming cold):
-> 1. Read **this file** fully (session focus / next / gotchas).
+> 1. Read **this file** fully.
 > 2. Read root [AGENTS.md](../AGENTS.md) for standing rules and invariants (canonical).
-> 3. Read [planning/project-state.md](./planning/project-state.md) for architecture snapshot.
-> 4. Read [planning/ROADMAP.md](./planning/ROADMAP.md) only for open future work.
-> 5. Jump to **Current focus** and **Next actions** below — do not re-plan from scratch.
-> 6. Update this file after every meaningful step. Prefer short decision logs over new handover novels.
+> 3. Read [planning/project-state.md](./planning/project-state.md) for the architecture snapshot.
+> 4. Read [planning/ROADMAP.md](./planning/ROADMAP.md) + [planning/BACKLOG.md](./planning/BACKLOG.md) only for open future work.
+> 5. Do not re-plan from scratch; do not re-open settled decisions ([archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md)) without new evidence.
+> 6. Update this file after every meaningful step — one-line decision index entries here, long rationale in the decision log.
 >
-> Visual QA tooling: [guides/visual-qa.md](./guides/visual-qa.md)  
-> Naming freeze: [brand.md](./brand.md)
+> Doc map: [docs/README.md](./README.md) · Visual QA: [guides/visual-qa.md](./guides/visual-qa.md) · Naming freeze: [brand.md](./brand.md)
 
 ## Mission (1 paragraph)
 
 Ship **Cart Clash** Version 2: a polished solo-first 4-player shopping-cart physics brawler
-(Three.js + Rapier + PartyKit on Cloudflare). Product name is Cart Clash; Worker/host IDs may
-still say `cart-rave` until domain cutover. Prefer evidence (screenshots, black-pixel samples,
+(Three.js + Rapier + partyserver on Cloudflare). Product name is Cart Clash; Worker/host IDs
+stay `cart-rave` until domain cutover. Prefer evidence (screenshots, black-pixel samples,
 two-browser smokes) over vibes for graphics and multiplayer gates.
 
-## Hard rules digest
+## Project health — 2026-07-12
 
-- Do not re-open items listed under **Do not re-open** in project-state §5 without new evidence.
-- Naming: UI says Cart Clash; storage/Worker IDs stay `cartRave*` until deliberate migration.
-- Solo polish before deep multiplayer features (ROADMAP philosophy).
-- No silent pure-black WebGL frames as an accepted “look.”
-- Prefer quality-preserving perf fixes; measure before and after when possible.
+**Green.** All five July production passes plus the stabilization pass are implemented and
+committed; gates are green (285 tests / 28 files, typecheck, knip, build — CI runs the same);
+zero knip ignores. The engine-level black-frame flicker root cause is **found and fixed on
+Storerooms**; the fix awaits a look-check before becoming the default everywhere. The single
+biggest risk to Version 2 is unchanged: **multiplayer has never had its full two-browser
+runtime smoke** — code is hardened and unit-covered, but the live gate is not closed.
+
+| Signal | State |
+|---|---|
+| Gates (`npm run qa`) | ✅ 285 tests / 28 files, tsc clean, knip clean (2026-07-12) |
+| Unpushed work | ⚠️ 5 commits (`b9e8fb8`..`3754949`: stabilization pass + menu backdrop) — push after playtest |
+| Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
+| Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
+| Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
+
+## Major systems completed
+
+Full record: [planning/production-passes.md](./planning/production-passes.md) and
+[planning/completed-work.md](./planning/completed-work.md).
+
+- **Core game** — host-authoritative MP + rewind-and-replay prediction; solo reuses the same path (private room + 3 NPCs); 3 elevated arenas; 2.5-min rounds + Sudden Death.
+- **Presentation** — sticker-language menus/HUD/overlays, Store PA announcer, attract-mode menu, per-arena bloom, VFX/audio juice (Pass 5), distinct Defeat screen.
+- **Gameplay/AI** — Pass 4 bot fixes (stall/latch), proximity aggression, Sundial rim nav + podium contest, intensity-scaled ram SFX.
+- **Systems** — Living Store (cargo scoreboard + PA directives), scoring/KO event fan-out, lifetime unlocks, challenges, match stats.
+- **Performance** — 3-tier quality system, arena optimizations, chunk prefetch, boot/load pass, half-res bloom, LOD, auto-quality.
+- **Netcode hardening** — WebRTC P2P plane with bounds-checked binary snapshots, size gates, unit-tested host-migration handoff + `host_round` validation.
+- **Tooling** — visual QA harness (`shoot`/`compare`/`blackframes`), `?rtmode=`/`?blackmon=` probes, Tweakpane debug panel, CI gate.
 
 ## Current focus
 
-**Visual QA toolchain (LAAS-inspired process, not engine)** — landed in-tree:
+**Playtest checkpoint, then the multiplayer gate.** Implementation is ahead of validation:
+three behavior-changing batches are stacked awaiting Wyatt. Nothing new should land on top
+until the queue drains (taste calls may trigger tuning).
 
-- `docs/STATUS.md` (this file)
-- URL debug surface: `?ablate=`, `?postmin=`, `?cam=`, `?freeze=`, `?level=`, `?preset=`, `?shot=`, `?harness=1`
-- `window.__cartRave` harness (`settle`, `sampleBlack`, `stats`)
-- CLI: `npm run shoot`, `npm run compare`, `npm run blackframes` (Playwright; see visual-qa guide)
+### Wyatt playtest queue (one session can cover all of it)
 
-**Still open (game, not tooling):** black-frame flicker environment triage, profiling-driven
-perf pass, multiplayer two-browser smoke, menu/domain cutover.
+1. **Stabilization pass (unpushed)** — wheel spin direction by eye, +20% Zanzibar podium feel/AI contest, menu pacing ~700ms, grocery pile look, menu backdrop gradient.
+2. **Pass 4 (gameplay/AI)** — stall-free bots on all 3 arenas, edge-camper follow, visible podium contest, ram-SFX dynamic range.
+3. **Pass 5 (VFX/audio)** — spill juice, debris personality, Defeat screen, first-blood escalation, victory audio; aesthetic sign-off.
+4. **Bloom A/B** — per-arena pipeline (`98317c1`): confirm Storerooms look, check Classic/Sundial, then promote display-referred bloom to default (kills VFX-1 for good) or tune knobs.
 
-## Next actions
+### Next actions
 
-1. Prefer **`npm run qa`** before claiming done (CI runs the same on push/PR).
-2. Baseline black-frame battery when touching postFX:
-   `npm run qa:visual` or `npm run blackframes -- --shot classic --frames 60`
-3. Continue flicker plan env triage ([planning/plan-flicker-fix-and-classic-audit.md](./planning/plan-flicker-fix-and-classic-audit.md)).
-4. When profiling: fixed `?shot=` + `?preset=` + `?freeze=1` before claiming a win.
-5. Multiplayer two-browser smoke checklist still open (ROADMAP Phase 4). Netcode landmines for a deeper pass: [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md).
+1. Drain the playtest queue above → apply taste tuning → **push** the 5 stabilization commits.
+2. Close **NET-1**: two-browser full-round smoke ([ROADMAP](./planning/ROADMAP.md) Phase 4) + [living-store-test-plan.md](./planning/living-store-test-plan.md) + [host-migration-test-plan.md](./planning/host-migration-test-plan.md).
+3. Fix the two **Critical** static netcode hazards before/with the smoke: NET-CLK-1 (clock domains), NET-MIG-2 (null host) — [netcode-deep-dive.md](./planning/netcode-deep-dive.md).
+4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 
 ## Open issues (top)
 
-| ID | Issue | Notes |
+Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
+
+| ID | Issue | Status |
 |----|--------|--------|
-| VFX-1 | Intermittent pure-black frames | **ROOT CAUSE FOUND** (D-VFX-2): half-res float BLOOM MIPS, not composer. Candidate fix `?rtmode=bloomfix` (0 flicker; look pending Wyatt tune) |
-| PERF-1 | Level-swap + menu weight | Measured pass done (D-PERF-1..3); arena-chunk prefetch + honest `three` chunk shipped |
-| NET-1 | Two-browser full-round smoke | Code hardened; gate not closed. Deep hazards + smoke add-ons: [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
-| BRAND-1 | Domain / Worker cutover | Frozen until deliberate cutover |
-| BUNDLE-1 | Menu/game code-split blocked | `index` chunk is one entangled cluster; no clean menu/game seam (see D-PERF-3) |
-| GP-4 | Gameplay feel / combat / AI pass | **Implemented, UNPUSHED** (D-GP4-1). Bug fixes + aggression + Sundial nav + combat feel. QA green (238 tests), build clean, Sundial solo smoke ran ~90s w/ bots scoring, 0 errors. **Needs Wyatt playtest**: stall-free bots, edge-camper follow, podium contest, ram-SFX dynamics, MP parity |
+| NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
+| VFX-1 | Black-frame flicker | 🟡 Root cause = half-res float bloom mips (D-VFX-2). Fixed on Storerooms (`98317c1`); Classic/Sundial look check + promote to default pending |
+| PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
+| NET-CLK-1 | One EWMA, three clocks | ❌ Critical static hazard (countdown snap, round end skew) |
+| NET-MIG-2 | Ghost exorcism can null the host | ❌ Critical static hazard (solo refresh edge) |
+| BUNDLE-1 | Menu/game code-split | 🚫 Blocked — no clean seam (D-PERF-3); revisit only after NET-1 |
+| BRAND-1 | Domain / Worker cutover | 🧊 Frozen until deliberate cutover ([brand.md](./brand.md)) |
 
-## Key decisions log
+## Recommended next milestone
 
-- **D-VIS-1** (2026-07-11): Borrow LAAS *process* only (STATUS, shoot/compare, ablation, bookmarks). Do not port WebGPU open-world systems.
-- **D-DOC-1** (2026-07-11): `AGENTS.md` restored from branch `docs/agent-config-rewrite` (never merged to `cart-clash`). STATUS did **not** replace it — STATUS = session memory; AGENTS = standing rules.
-- **D-VIS-2** (2026-07-11): Harness uses WebGL + Playwright page screenshots (not WebGPU headless recipes).
-- **D-VIS-3** (2026-07-11): `?cam=` implies freeze (camera lock). Ablation reapplied after quality toggles via `reapplyAblation()`.
-- **D-PERF-1** (2026-07-11): PERF-1 measured pass. Local dev "2s first level-swap" is a **Vite dev-transform artifact** (chunk on-demand compile), NOT a prod cost — proven by pre-warming chunks (→~0ms). Do not chase it. Added `?perf=1` (DEV) per-phase swap breakdown in `commitLevelLoad`.
-- **D-PERF-2** (2026-07-11): Shipped `prefetchLevelChunks()` (`src/levels/index.js`) — idle-warm now prefetches the two **non-selected** arena chunks so menu arena-switching never waits on a lazy `import()`. Verified: before, only selected arena warm; after, all three. Quality-neutral.
-- **D-VFX-1** (2026-07-11): VFX-1 real-hardware probes (offline `blackframes` battery runs software-GL SwiftShader and **cannot** reproduce the ANGLE/NVIDIA HalfFloat quirk — proven: 90 frames Storerooms, worst 0.0043). Shipped: (a) `?blackmon=1` live monitor (`src/utils/blackFrameMonitor.js`) — samples the canvas **synchronously post-render** in `frameVisuals` (separate-rAF reads the cleared buffer since `preserveDrawingBuffer:false`), splits **left vs right half** so a slab (L XOR R) is distinguished from full-black loading/countdown noise; `__blackMon.summary()`/`.stop()`. (b) `?rtmode=half|float|byte|bloombyte` composer/bloom RT A/B (`scene.js`) — half=default byte-identical; float=RGBA32F; byte=UnsignedByte control; bloombyte=HalfFloat composer + UnsignedByte bloom mips (half-res bloom suspect). All boot clean, no GL errors. **Confirmation still needs Wyatt's hardware + eyes** — do not thrash the look; A/B with screenshots. See handover-postfx-black-frames.md.
-- **D-VFX-2** (2026-07-11): **VFX-1 root cause CONFIRMED** via Wyatt playtest (`?blackmon=1`, real NVIDIA/ANGLE HW, ~2min Storerooms each): default(HalfFloat composer+bloom)=**237 slabs**/good look; `float`(RGBA32F everywhere)=**271 slabs**/good look; `byte`(UnsignedByte everywhere)=**0 slabs**/bad look; `bloombyte`(HalfFloat composer + byte bloom mips)=**0 slabs**/bad look. default vs bloombyte differ ONLY in bloom-mip type → **the flicker is the half-res *float* bloom mips, NOT the composer**. 32-bit does not dodge it (float still 271 → ANGLE quirk hits all float RTs). byte bloom kills flicker but clips HDR bloom (pre-tonemap) → plastic. Candidate fix shipped: **`?rtmode=bloomfix`** = HalfFloat composer + UnsignedByte bloom mips + bloom moved AFTER OutputPass (display-referred) + `BLOOM_DISPLAY_CONFIG` starting knobs (`scene.js`). 0-flicker guaranteed (same byte mips as bloombyte); **look needs Wyatt A/B + threshold/strength tune** before promoting to default. Do NOT change default pipeline until approved.
-- **D-GP4-1** (2026-07-11): **Production Pass 4 — gameplay feel / combat / AI** implemented, UNPUSHED. Investigation (3 read-only audits) → surgical fixes, no refactor. **AI (`simulation.js`):** (A1) random-stop cut 14%→4%/7%→2%, suppressed within 9m of a human, no re-roll right after a pause — the #1 "stops for no reason" cause; (A2) fixed the `nearHazard` 60Hz thrash **latch** (branch now resets `aiLastProgressMs` + defers re-pick so `isStuck` clears); (A3) octagon-rim tangent-escape (`escapeMode:"inward"`) so wedged Sundial bots flee inward not tangent; (A4) dropped the 25% "back off when within 2.8m of target" reverse — bots press the attack; (B5) proximity aggression: human within 7m ⇒ `humanWeight≥0.9` (fixes "drives past nearby players"); (B6) `reachOuter` widens Classic chase clamp 0.88→0.92 (0.72→0.78 cautious) so bots follow edge-campers (patrol/wander insets unchanged). **Sundial (`simulation.js` + reuse of `zanzibarPlatform` podium keep-out):** (C7) `applyOctagonRimAvoidance` reactive inward push off the sole kill rim; (C8) `aiContestPodiumUntilMs` — when a human camps the podium, bots drive **onto** it (keep-out suppressed) to contest instead of fleeing — fixes the KotH camp. **Combat feel:** (D9) `playCartCrash(intensity,opts)` scales SFX volume 0.45→1.0 by hit intensity + beefier low rate on boost rams (was flat full-volume for tap==slam); (D11) ram cone `alignmentDotMin` 0.1→0.2 (~84°→~78°, cuts glance-triggered full FX); (D12) `attemptLocalHop()` grounded gate blocks human air/chain-hops (NPC/replay unchanged); (D13) local human gets only 0.4× `applySquareHoleLipAssist` so it stops fighting deliberate edge plays. **Timing (`config.js`/`announcerEvents.js`/`main.js`):** (E14) all 5 directive callout banners 5.2s→3.5s (effect window still 18s); (E15) wired dead `fall.respawnDelayMs` (→1000, was hardcoded). **Deliberately NOT changed:** D10 critical-hit basis (`speed` not `closingSpeed` is documented decision D1 — left intact); solo/MP rubberband + single-target convergence (user chose to keep the intensity, bugs only); nitro duty-cycle, `driving.braking` dead knob, `maxImpulse`-vs-boost, `airControlFactor`, readability HUD adds — all documented as follow-ups. Gates: `npm run qa` green (238 tests, 24 files), `npm run build` clean. Runtime smoke: Sundial solo ~90s w/ perfPump — bots scored KOs (RAMPRAT 3, "TWO DOWN"), 0 console errors, octagon/podium paths exercised. **Needs Wyatt production playtest** (behavior-changing): stall-free bots across all 3 arenas, edge-camper follow, visible podium contest, ram-SFX dynamic range, MP two-browser parity.
-- **D-PERF-3** (2026-07-11): `vite.config.js` now uses `codeSplitting.groups` (not `manualChunks` hints). Fixes the misleading 650 kB "animejs" chunk — it was ~92% **Three.js core** (animejs/adapters/three drags three in; manualChunks folded it there). Now: honest `three` ~gz176 + `animejs` ~gz18. **Zero bytes saved** (no dup — index/addons import three from that chunk), naming/cache-line only. **BUNDLE-1**: real menu/game code-split is blocked — `Netcode` (132 uses, incl. `resolveCartNeonHex` at menu), `HUD` (per-frame `isEscOverlayVisible`), and even "isolated" `touchControls`/`announcer` are statically imported by menu-coupled `hud.js`/`netcode.js`. No clean seam; needs full gameplay-cluster-behind-one-dynamic-boundary refactor + NET-1 smoke before it moves any bytes.
+**“Validated V2 candidate”** — everything implemented is proven, live:
+playtest queue drained → stabilization commits pushed → bloomfix promoted (or tuned) →
+NET-1 two-browser smoke green incl. host migration + Living Store checklists → the two
+Critical netcode clock/migration hazards fixed. After that milestone the remaining V2 work
+is scoped content/infra (domain cutover, ship checklist), not risk.
 
-- **D-STAB-1** (2026-07-11): **Repository stabilization pass** (bugfix + cleanup, no features). (a) **Boost bar leak fixed** — `hideGameplayElements()` now resets the mobile BOOST-ring (`updateBoostRing(null)`) and the meter caches via one `resetBoostWidget()` helper (`hud.js`); verified live on the pause-quit exit path. (b) **Wheel roll rewritten to travel-based** (`cartRaveGltf.js`): signed speed now projects corner velocity onto the wheel's live rolling direction (roll axle × up from the pivot chain) instead of the steer heading — fixes "wheels only spin while steering" + inconsistent direction; front-wheel rear-average sync deleted (it papered over the inconsistent signs). Verified live: straight cruise rolls all 4 wheels uniformly; opposite travel flips sign. (c) **Zanzibar podium +20%** — `PODIUM_BASE_R` 7.2→8.6, `PODIUM_TOP_R` 5.0→6.0; collider, AI keep-out, and scoring radius (base+0.5) all derive from the one constant; decal rings are relative offsets (follow automatically); apothem margins verified positive; geometry confirmed live in preview scene. (d) **Menu pacing** ~1060ms→~700ms entrance cascade, overlay opens 320→240ms, dismiss 180→140ms; attract reveal fade 900→600ms + framing constants hoisted. (e) **Best-effort menu music** attempt at boot-splash dismiss (autoplay-policy permitting; silent fallback to first gesture). (f) **Portrait menu hint** — CSS-only pill inside `#cr-root` for coarse-pointer short-landscape; gameplay rotate prompt untouched. (g) **Reflector**: 1024² idle upgrade now skipped on touch devices; size ladder documented (preview 128 → play 256 → idle 1024 desktop-high); kept 1024 desktop (no-visible-change rule), frame-gating stays off-limits (jitter revert). (h) **Grocery cargo**: same-layer relaxation pass kills slot-collapse interpenetration; **no GLB edits needed** — placement is fully code-driven. (i) **Cleanup**: `clamp`/`clampInt`/`lerpAngle` consolidated into `utils.js` (5 dup clamps deleted); dead `driving.braking` + `booth.neonColor1/2` config deleted; dead `src/audio.js` write-only bridge deleted; no-op `reapplyRaveGltfCartTuningOnScene` stub deleted (Tweakpane layout sliders now log the respawn-to-apply hint); knip ignores **all removed** (6 hidden dead exports fixed — knip fully clean); `fall.yThreshold` fallback literals normalized. Gates: qa green **285 tests / 28 files**, build clean, 0 console/server errors in dev smoke. **Needs Wyatt playtest**: wheel spin direction by eye, bigger podium feel/AI contest, menu pacing taste, grocery pile look.
-- **D-STAB-2** (2026-07-11): **Quickplay arena rotation deferred** (user call). Ready-made seam when wanted: pick next id from `PREFETCHABLE_LEVEL_IDS` (`src/levels/index.js:22`) at the rematch seam — solo/local: `onReturnToLobby` (`src/main.js`, rematchResetWorld call sites); online: host `sendHostRound` already broadcasts `levelId` (`src/netcode.js`) — then route through the existing `commitLevelLoad`. A masked transition needs its own reveal animation (play entry currently hides behind the loading overlay).
+## Decision index
+
+One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-STAB-2** (07-11): Quickplay arena rotation deferred; rematch-seam recipe documented.
+- **D-STAB-1** (07-11): Stabilization pass — wheel roll travel-based, boost-bar leak, podium +20%, menu pacing, dead-code purge; knip zero-ignore.
+- **D-PERF-3** (07-11): Honest `three`/`animejs` chunks via `codeSplitting.groups`; BUNDLE-1 declared blocked.
+- **D-GP4-1** (07-11): Pass 4 gameplay/AI surgical fixes; critical-hit basis + rubberband intensity deliberately kept.
+- **D-VFX-2** (07-11): Flicker root cause = half-res **float bloom mips** (Wyatt HW A/B); `bloomfix` = byte mips, display-referred bloom.
+- **D-VFX-1** (07-11): Offline blackframes battery is blind to the ANGLE quirk (software GL); live probes `?blackmon=1` + `?rtmode=` shipped.
+- **D-PERF-1/2** (07-11): Dev level-swap cost is a Vite artifact — do not chase; arena-chunk prefetch shipped.
+- **D-VIS-1/2/3, D-DOC-1** (07-11): LAAS process-only borrow; WebGL+Playwright harness; `?cam=` implies freeze; AGENTS.md restored (STATUS ≠ AGENTS).
+- *Unlogged-at-the-time (reconstructed):* Pass 5 waves 1–3; netcode test punch list closed; Rapier SIMD made opt-in after borrow error; per-arena bloom; menu backdrop gradient — see the [decision log](./archive/decision-log-2026-07.md#decisions-that-were-made-but-never-logged-in-status-reconstructed-2026-07-12).
+
+## Hard rules digest
+
+- Do not re-open items under **Verified healthy / non-issues** in [project-state.md §5](./planning/project-state.md) without new evidence.
+- Naming: UI says Cart Clash; storage/Worker IDs stay `cartRave*` until deliberate migration.
+- Solo polish before deep multiplayer features (ROADMAP philosophy).
+- No silent pure-black WebGL frames as an accepted “look”.
+- Prefer quality-preserving perf fixes; measure before and after.
+- Behavior-changing work requires a human playtest before it counts as done.
 
 ## Gotchas (append-only)
 
-- EffectComposer path: RenderPass → Bloom → OutputPass → Arcade(VHS) → FXAA. `renderer.toneMapping` is a no-op into composer RTs without OutputPass.
+- EffectComposer path: RenderPass → Bloom → OutputPass → Arcade(VHS) → FXAA. `renderer.toneMapping` is a no-op into composer RTs without OutputPass. (Storerooms now runs display-referred byte bloom after OutputPass — `98317c1`.)
 - VHS is level-gated via `uVhsAmount` (Storerooms only); `?ablate=vhs` zeros the uniform without killing arcade CRT.
 - Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.
-- Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.
+- Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it; `visibilityState: hidden` freezes the sim even with perfPump.
 - `localStorage` keys remain `cartRave*` until brand migration.
 - Playwright default headless shell can differ from full Chrome; tools request Chromium channel when available.
-
-## Architecture map (debug surface)
-
-```
-src/utils/debugParams.js    URL parse, bookmarks, ablation apply
-src/utils/visualHarness.js  window.__cartRave for automation
-src/scene.js                createComposer (+ outputPass ref for ablation)
-src/main.js                 boot side effects, harness install, cam lock in loop
-src/ui/menuAttract.js       respects freeze / locked cam
-tools/shoot.mjs             screenshot at bookmark / cam
-tools/compare.mjs           side-by-side + mean-abs
-tools/blackframes.mjs       multi-frame black-pixel battery
-docs/guides/visual-qa.md    how to run
-```
+- Rapier WASM: standard build is the default; SIMD is opt-in only (borrow error, `8174180`).
+- Concurrent agent sessions may `git add -A` — commit fast and surgically when working alongside one.
+- Debug/harness surface map lives in [guides/visual-qa.md](./guides/visual-qa.md).
 
 ## Last updated
 
-2026-07-11 — Menu backdrop simplified: faux DOM floor grid / spotlights / particles / scanlines deleted; `.cr-root::before` is now a layered palette-tinted gradient (`--menu-glow1/2` from arena ambience). Vignette kept. Attract fade path unchanged. UNPUSHED.  
-2026-07-11 — **Stabilization pass** (D-STAB-1/2): boost-bar leak fix, travel-based wheel roll, Zanzibar podium +20%, menu pacing ~700ms, best-effort menu music, portrait menu hint, reflector touch gate, grocery separation, clamp/lerpAngle consolidation, dead code/config/knip-ignore purge. qa green 285 tests, build clean. UNPUSHED. Needs Wyatt playtest (wheels / podium / pacing / cargo).  
-2026-07-11 — Netcode deep-dive hazard catalog landed (UNPUSHED docs): [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md); STATUS NET-1 + ROADMAP Phase 4 + Game_Architecture point at it.  
-2026-07-11 — **Production Pass 4 (gameplay feel / combat / AI)** implemented UNPUSHED (D-GP4-1): AI stall/latch bug fixes + proximity aggression + Sundial octagon-rim nav + podium contest + intensity-scaled ram SFX + hop/lip-assist gates + directive banner 5.2→3.5s. QA green (238 tests), build clean, Sundial solo smoke 0 errors. Needs Wyatt playtest.  
-2026-07-11 — VFX-1 real-HW probes shipped: `?blackmon=1` live monitor + `?rtmode=` composer/bloom A/B (D-VFX-1). Offline battery proven blind (software GL). Awaits Wyatt playtest data.  
-2026-07-11 — PERF-1 measured pass: arena-chunk prefetch + honest `three`/`animejs` chunks shipped; BUNDLE-1 (menu/game split) scoped + blocked (D-PERF-1..3).  
-2026-07-11 — initial STATUS + visual QA toolchain.  
-Verified: `npm run shoot -- --shot classic` produces a clean Classic Record arena PNG (`?hud=0`).
+2026-07-12 — **Documentation consolidation pass**: STATUS rewritten as production dashboard; decision-log full text archived to [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md); new [BACKLOG.md](./planning/BACKLOG.md) + [production-passes.md](./planning/production-passes.md); ROADMAP restructured; project-state refreshed to the July 11 tree; flicker plan/handover + pass 2/3 plans archived. Gates re-verified: qa green 285 tests / 28 files.
+2026-07-11 — Menu backdrop simplified to layered palette gradient (`3754949`). Stabilization pass D-STAB-1/2 (unpushed). Netcode deep-dive catalog landed. Pass 4 (D-GP4-1) + Pass 5 waves 1–3 + per-arena bloom (`98317c1`) + netcode test punch list (`1dbb48a`, `6ee9c0b`) landed and pushed. VFX-1 root cause confirmed (D-VFX-2).

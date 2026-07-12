@@ -1,4 +1,10 @@
 # Handover: Post-FX black-frame flicker vs HDR grade
+> **ARCHIVED / SUPERSEDED (2026-07-11).** Root cause confirmed on real hardware:
+> half-res *float* bloom mips (not the composer) — decision D-VFX-2 in the
+> [decision log](../decision-log-2026-07.md). The A/B findings below stay valid history;
+> the shipped fix is the per-arena bloom pipeline (`98317c1`). Do not resume this handover.
+> (Note: this file contains two concatenated versions of the handover — both preserved as-is.)
+
 
 **Date:** 2026-07-09  
 **Project:** Cart Clash (`C:\Users\wyatt\cart-rave`)  

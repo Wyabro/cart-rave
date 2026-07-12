@@ -21,13 +21,16 @@ All project docs live in [`docs/`](./docs/):
 
 | Doc | Purpose |
 |-----|---------|
+| [docs/STATUS.md](./docs/STATUS.md) | **Read first** — production dashboard: health, blockers, current focus, next milestone |
 | [docs/README.md](./docs/README.md) | Project overview, setup, controls, full doc index |
 | [docs/brand.md](./docs/brand.md) | **Naming freeze** (Cart Clash vs legacy cart-rave IDs) |
-| [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
-| [docs/planning/project-state.md](./docs/planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
+| [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) | **Future** — phased plan (V2 blockers, future, stretch) |
+| [docs/planning/BACKLOG.md](./docs/planning/BACKLOG.md) | **Future** — every open item, categorized + prioritized |
+| [docs/planning/project-state.md](./docs/planning/project-state.md) | **Present** — architecture snapshot, known issues |
 | [docs/planning/completed-work.md](./docs/planning/completed-work.md) | **Past** — historical log of shipped work |
+| [docs/planning/production-passes.md](./docs/planning/production-passes.md) | **Past** — index of the July 2026 production passes |
 | [docs/guides/preview-dev.md](./docs/guides/preview-dev.md) | Local multiplayer dev workflow |
 | [docs/reference/Game_Architecture.md](./docs/reference/Game_Architecture.md) | Consolidated architecture reference |
 | [docs/reference/CREDITS.md](./docs/reference/CREDITS.md) | Third-party libraries, fonts, and assets |
 
-Start with [docs/README.md](./docs/README.md) for setup and [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) for what we're building next.
+Start with [docs/STATUS.md](./docs/STATUS.md) for where the project stands, [docs/README.md](./docs/README.md) for setup, and [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) for what's next.

@@ -1,5 +1,12 @@
 # Plan: black-frame flicker fix + Classic Record visual audit
 
+> **ARCHIVED / SUPERSEDED (2026-07-11).** The environment triage in this plan ran to
+> completion and the root cause was **found**: half-res *float* bloom mips on the
+> ANGLE/NVIDIA stack (decision D-VFX-2, [decision log](../decision-log-2026-07.md)).
+> The fix shipped as the per-arena bloom pipeline (`98317c1`); remaining follow-up
+> (Classic/Sundial look check + promote to default) is tracked in
+> [BACKLOG.md](../../planning/BACKLOG.md). Kept for the investigation record.
+
 **Date investigated:** 2026-07-09 (late) · **Execute:** next session
 **Prior art:** `docs/planning/handover-postfx-black-frames.md` (Grok session — A/B findings valid, fixes rejected)
 

@@ -1,66 +1,83 @@
-# Cart Clash — Roadmap (Forward-Looking Plan)
+# Cart Clash — Roadmap
 
-**Branch:** `cart-clash` · **Naming freeze:** [brand.md](../brand.md)  
-**Last reviewed:** July 10, 2026
+**Branch:** `cart-clash` · **Naming freeze:** [brand.md](../brand.md) · **Last reviewed:** 2026-07-12
 
-> **This doc = the future** — open and planned work only. For what works *today* see
-> [project-state.md](./project-state.md); for the log of what already shipped see
-> [completed-work.md](./completed-work.md). **When a roadmap item ships, move its writeup
-> into completed-work.md** rather than leaving it here.
+**What is this?** The phased plan to Version 2 and beyond — what's done, what's in flight,
+what blocks the release, and what waits until after. **Who should read it?** Anyone deciding
+what to build next (pair it with [BACKLOG.md](./BACKLOG.md) for the full item-level list).
+**Related:** health + current focus in [STATUS.md](../STATUS.md); the shipped log in
+[completed-work.md](./completed-work.md); pass-by-pass record in
+[production-passes.md](./production-passes.md).
 
-**Current philosophy:** Polish a strong **solo experience** first. Multiplayer/netcode is
-intentionally deprioritized until the core game is more complete and stable.
-
-**Multiplayer status (honest):** Mostly working, but needs polish and fixes before it is
-production-ready. The two-browser runtime smoke test remains the Phase 4 gate.
+**Philosophy:** Polish a strong **solo experience** first; multiplayer runtime validation is
+the final gate, not the daily grind. **Multiplayer status (honest):** hardened and
+unit-covered, but the live two-browser smoke has never been run — until it passes, V2 is not
+ready.
 
 ---
 
-## Phase 3 — Content & Major Polish (open items)
+## ✅ Completed (through 2026-07-11)
+
+The jam shipped May 2026; June–July rebuilt it into a Version-2 candidate. Highlights — full
+detail in [production-passes.md](./production-passes.md) and [completed-work.md](./completed-work.md):
+
+- **Content & presentation:** three elevated arenas (Cart Rave / The Storerooms / Sundial Station), HUD redesign + sticker language across every screen, Store PA announcer, attract-mode menu, VFX/audio juice passes.
+- **Systems:** Living Store (cargo scoreboard + PA directives), scoring/KO event fan-out, lifetime unlocks + challenges + personal bests, match stats.
+- **Gameplay/AI:** Pass 4 bot fixes and aggression, Sundial podium contest, combat feel; solo rubberband; stabilization pass (wheel roll, podium size, pacing).
+- **Performance:** 3-tier quality system, boot/load pass, half-res bloom, LOD, chunk prefetch, auto-quality.
+- **Netcode:** WebRTC P2P gameplay plane with binary snapshots + size gates; unit-tested host migration + round validation; connection lifecycle hardening.
+- **Engine health:** black-frame flicker root-caused and fixed on Storerooms (`98317c1`); knip zero-ignore; 285-test CI gate.
+
+---
+
+## 🔄 Current — Validation checkpoint (the next milestone)
+
+Implementation is ahead of validation. Everything here exists in the tree and needs proving:
 
 | Task | Status | Notes |
 |------|--------|-------|
-| **Living Cargo / Living Store** | **Shipped** | Cargo scoreboard + PA directives (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour). As-built: [living-store.md](../reference/living-store.md). Spill Bonus float/feed shipped in July 10 solo polish. Deferred: two-browser smoke checklist ([living-store-test-plan.md](./living-store-test-plan.md)). |
-| Solo polish (feel / bots / load) | **Mostly shipped** | Spill Bonus presentation, first-solo load, directional hit vignette, solo rubberband, hop landing, NPC rare hop. Death-cam follow killer **reverted** (regression) — optional revisit. Notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md). |
-| Menu overhaul + domain cutover | In progress | Product UI says **Cart Clash**. Legacy `cart-rave` Worker/host/storage IDs frozen until cutover — see [brand.md](../brand.md). Typography: Road Rage (titles), Russo One (UI), Goldman (mono), Bungee (HUD display). Small UX note from Stability Pass 1: animate the customize sunglasses-tab camera zoom (1.35× snap reads as a cart-size glitch — testers reported it as one). |
-| Cosmetic Progression & Unlock Path | **Shipped (core)** | Lifetime gates for patterns (incl. Bolt), sunglasses, custom color, levels — `unlockStore` / `unlockConfig`. Move further economy/XP ideas here only if reopened. |
-| Performance optimization pass | Partial / Todo | Foundations landed: boot/load, lazy music, Draco carts, self-hosted fonts, half-res bloom, prop LOD, menu preview LOD, auto-quality. Still open: level-swap cost, menu weight, profiling-driven pass. |
-| Black-frame flicker triage | Todo | Environment-first plan: [plan-flicker-fix-and-classic-audit.md](./plan-flicker-fix-and-classic-audit.md). |
-| Evaluate WebGPU Compute Shaders | Todo | Targeted use first (shatter VFX, particles). No physics rewrite. Re-evaluate after mobile perf is solid. |
-| Subtle in-game monetization / ads | Todo | Cosmetic unlocks can support a light monetization path later. |
-| V2 Shipping Checklist + Final QA | Todo | Create when closer to release. |
+| Wyatt playtest queue (Passes 4/5, stabilization, bloom A/B) | ⚠️ Open | Checklist in [STATUS.md](../STATUS.md); behavior-changing work is not "done" until a human plays it |
+| Push stabilization commits | ⚠️ Blocked on playtest | `b9e8fb8`..`3754949` |
+| Promote display-referred bloom to default | 🟡 After look check | Kills VFX-1 everywhere; then remove `?rtmode` fork paths |
 
 ---
 
-## Phase 4 — Multiplayer & Infrastructure
+## 🚧 Version 2 release blockers
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Multiplayer runtime smoke test | Todo | Two browsers, one room: join, color pick, ready, full round, SD overtime, podium, play again, disconnect/rejoin. Also re-verify July 9 feel/HUD parity (remote boost/hop, victim shake, NEW HOST callout). **Add Stability Pass 1 checks:** un-ready player leaves lobby → countdown arms for the rest; host closes mid-Sudden-Death → new host continues SD with no fake-fall spam. **Deep hazards + extra smoke items:** [netcode-deep-dive.md](./netcode-deep-dive.md). |
-| Stability Pass 1 — deferred edges | Todo | Still open: Solo visible-tab drive (hidden pane freezes rAF): Force SD → no feed spam; quit mid-combo → no HUD leak; track 1 → track 2 rollover. **Shipped:** A–C (SD/charge/hop); **Batch D** — Spill Bonus `MSG.spillBonus` presentation for clients; rematch/host_round uses `authoritativeRoomLevelId` latch (hello + MSG.round); `__cartRaveTryStartMenuMusic` wired to `playMenuMusic`. **Do not re-open as bugs:** see project-state §5. |
-| Netcode audit follow-through | Code-complete, pending smoke | Prior static audit items + July 10 connection lifecycle hardening (session P2P close, ICE disconnect grace, host mid-match re-offer, binary bounds, reject-pending cleanup) — still need two-browser confirmation. See [completed-work.md](./completed-work.md) netcode entry. **Open static landmines (clocks, promote, null host, buffer timebases):** [netcode-deep-dive.md](./netcode-deep-dive.md) — fix order + IDs NET-CLK/MIG/BUF/PRES/SD. |
-| Deeper server-authoritative logic | Todo | Evaluate where host trust is a problem (final scores, match outcome). |
-| Persistent leaderboard (Supabase) | Todo | **Security:** a host can fabricate final scores — treat host-asserted scores as untrusted input; the Worker must validate or hold server-side truth. |
+| **NET-1 — multiplayer two-browser runtime smoke** | ❌ The gate | Full-round + SD + rematch + disconnect/rejoin; run with [living-store-test-plan.md](./living-store-test-plan.md) and [host-migration-test-plan.md](./host-migration-test-plan.md) |
+| Critical static netcode hazards (NET-CLK-1, NET-MIG-2) | ❌ Open | Fix before/with the smoke — [netcode-deep-dive.md](./netcode-deep-dive.md) |
+| High netcode hazards (NET-CLK-2, NET-MIG-1/3, NET-BUF-1) | ❌ Open | Same doc; order documented there |
+| VFX-1 endgame (bloom default promotion) | 🟡 In flight | See Current |
+| Menu/domain cutover (BRAND-1) | 🧊 Deliberate event | One planned ceremony: domain, Worker name, storage migration — [brand.md](../brand.md) |
+| V2 shipping checklist + final QA | ⬜ Create when close | |
 
 ---
 
-## Future Modernization
+## 🔮 Future (post-V2 window, pre-stretch)
 
-| Task | Effort | Notes |
-|------|--------|-------|
-| Improve audio via `howler.js` | Medium | Spatial audio, pooling, and volume/group management. (Howler is already in-tree for music/SFX; this is the deeper upgrade.) |
+| Task | Notes |
+|------|-------|
+| Deeper server-authoritative logic | Decide where host trust is unacceptable (final scores, outcome); prerequisite for the leaderboard |
+| Persistent leaderboard (Supabase) | Host-asserted scores are untrusted input — server must validate |
+| Recorded announcer VO + SD music + ambient bed | Asset-gated; pipeline ready ([announcer.md](../reference/announcer.md)) |
+| Pattern customize UI | Blocked on cartrave4 re-UV ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)) |
+| Quickplay arena rotation | Deferred (D-STAB-2); seam recipe in the [decision log](../archive/decision-log-2026-07.md) |
+| `structuredClone` → flat serializer (`party/index.ts`) | Only after NET-1 + profiling shows it matters (40 Hz deep-clone on a single-threaded Worker) |
+| Deeper Howler audio (spatial, pooling, groups) | |
 
 ---
 
-## Phase 5 — Optimization Candidates
+## 🌙 Stretch goals & post-launch ideas
 
-**`structuredClone` performance risk (`party/index.ts`)** — the server deep-clones state before
-every broadcast. At 40 Hz with 4–8 carts (each carrying position, quaternion, and velocity
-arrays) this can become a measurable CPU cost on single-threaded Cloudflare Workers under load.
-It is used deliberately to prevent mutation bugs where the host modifies state while the broadcast
-loop is reading it.
+- WebGPU compute shaders for targeted VFX (shatter, particles) — after mobile perf is proven; no physics rewrite.
+- BUNDLE-1 menu/game code-split — blocked on a real gameplay-cluster boundary refactor (D-PERF-3); revisit post-V2.
+- Subtle cosmetic monetization path.
+- Economy/XP progression beyond lifetime unlocks — only if deliberately reopened.
+- TypeScript 7 migration (own migration pass; ~849 JSDoc errors under the native compiler).
+- Clutch slow-mo; death-cam follow-killer revisit (was a regression).
 
-**Future fix:** replace `structuredClone` with a manual, pre-allocated flat-array serializer that
-copies primitive numbers directly into a `Uint8Array` (or a compact JSON string), bypassing V8
-deep-clone overhead while preserving safety. Do not implement until after the multiplayer smoke
-test is complete and performance profiling data exists.
+> **Convention:** when an item ships, move its writeup to
+> [completed-work.md](./completed-work.md) and delete it here. Item-level tracking with
+> priorities lives in [BACKLOG.md](./BACKLOG.md) — this doc stays phased and short.

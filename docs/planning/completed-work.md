@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** July 10, 2026
+**Last Updated:** July 12, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,32 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### July 10–11, 2026 – Production Passes 2–5, stabilization & engine health
+
+Compact record — the pass-by-pass index with commits lives in
+[production-passes.md](./production-passes.md); long rationale in the
+[decision log](../archive/decision-log-2026-07.md).
+
+| Work | Landed as | Summary |
+|------|-----------|---------|
+| **Pass 2 — Performance** | `b79f277` (+ `fe923ab`) | 3-tier quality system (`qualityTiers.js`), Classic reflector/crowd cost work, mobile budgets, CPU alloc fixes. Plan archived: [production-pass-2-performance.md](../archive/session-notes/production-pass-2-performance.md) |
+| **Pass 3 — UI/Presentation** | `7d37263`, `bdd33cc`, `ce737dd` | Sticker language on all menus/overlays, attract-mode arena menu, exit animations. Plan archived: [production-pass-3-ui.md](../archive/session-notes/production-pass-3-ui.md) |
+| **Pass 3.2/3.3 — UX flow + density** | `d5c7f45`..`1b07515`, `5ed1b69` | Pause redesign, results rebalance, Friends overlay, discoverability, viewport-fit/touch/dvh |
+| **Pass 4 — Gameplay/Combat/AI** | `73631e0` | Bot stall/latch fixes, proximity aggression, Sundial rim nav + podium contest, intensity ram SFX, hop/lip-assist gates (D-GP4-1) |
+| **Pass 5 — VFX/Audio** | `043e793`, `7146d71`, `eb924af` | Grocery-spill juice + clatter, debris personality, cargo emissive, neon envMap, comeback callout, menu clicks, distinct Defeat screen, first-blood escalation, floor/edge + victory audio |
+| **Stabilization pass** | `b9e8fb8`..`3754949` | Travel-based wheel roll, boost-bar leak fix, Zanzibar podium +20%, menu pacing ~700ms, grocery separation, clamp/lerp consolidation, dead config/code purge, knip zero-ignore, menu backdrop gradient (D-STAB-1/2) |
+| **VFX-1 flicker root cause + fix** | `98317c1` | Confirmed on hardware: half-res *float* bloom mips (D-VFX-1/2). Per-arena pipeline: display-referred byte bloom on Storerooms (0 flicker), HDR elsewhere pending look check |
+| **Netcode test punch list** | `1dbb48a`, `6ee9c0b` | `party/roundValidation.ts` + `party/hostSelection.ts` + `applyHostMigration` extracted and unit-tested (25+9 tests); P2P DataChannel frame/tail size gates (`p2pLimits.js`, 10 tests) |
+| **Physics WASM** | `9d8a69e` → `8174180` | Rapier SIMD preferred, then reverted to **opt-in** after a game-breaking borrow error; standard build is the default |
+| **Visual QA toolchain** | multiple | `npm run shoot`/`compare`/`blackframes`, `?blackmon=1`, `?rtmode=`, `?ablate=`, STATUS discipline ([visual-qa.md](../guides/visual-qa.md)) |
+| **Debug panel** | `68a0cc8` | Tweakpane expanded: stats, camera, quality/level/rtmode, announcer |
+
+Gate at the end of the run: `npm run qa` green — **285 tests / 28 files**, tsc clean, knip
+clean (zero ignores). Pending validation (not shipped-quality yet): Wyatt playtest of
+Passes 4/5 + stabilization + bloom A/B; two-browser NET-1 smoke.
 
 ---
 
@@ -213,7 +239,7 @@ Full session notes: [plan-zanzibar-overhaul](../archive/session-notes/plan-zanzi
 
 ### July 9, 2026 – Docs Hygiene + Open Flicker Plan
 
-- Docs reorganized earlier (July 8); July 9–10: post-FX black-frame handover + flicker/Classic audit plan ([plan-flicker-fix-and-classic-audit.md](./plan-flicker-fix-and-classic-audit.md), [handover-postfx-black-frames.md](./handover-postfx-black-frames.md)).
+- Docs reorganized earlier (July 8); July 9–10: post-FX black-frame handover + flicker/Classic audit plan (both since resolved and archived: [plan-flicker-fix-and-classic-audit.md](../archive/session-notes/plan-flicker-fix-and-classic-audit.md), [handover-postfx-black-frames.md](../archive/session-notes/handover-postfx-black-frames.md)).
 - Debt clean: recovery bak trees dropped; shipped session notes moved to [archive/session-notes/](../archive/session-notes/); knip back to zero new findings.
 
 ### July 8, 2026 – Visual Polish Pass (Three.js Rendering)

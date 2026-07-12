@@ -1,5 +1,9 @@
 # Production Pass 3 — UI, UX & Presentation (2026-07-10)
 
+> **ARCHIVED (shipped).** Waves landed as `7d37263` / `bdd33cc` / `ce737dd`, then the
+> Pass 3.2 UX-flow waves (`d5c7f45`..`1b07515`) and Pass 3.3 density (`5ed1b69`). See
+> [production-passes.md](../../planning/production-passes.md) for the pass index.
+
 Goal: every non-gameplay screen speaks the HUD's "pigment on vinyl" sticker language
 (see docs/archive/session-notes/hud-art-direction-2026-07-09.md). Presentation only —
 no gameplay/balance/perf work.

@@ -1,6 +1,9 @@
 # Netcode deep dive — known hazards & fix order
 
-Status: **OPEN** (static audit 2026-07-11 — **not** two-browser verified).  
+Status: **OPEN** (static audit 2026-07-11 — **not** two-browser verified). Since the audit:
+the *test* punch list closed (`1dbb48a` extracted + unit-tested `party/roundValidation.ts`,
+`party/hostSelection.ts`, `applyHostMigration`; `6ee9c0b` added P2P size gates) — the hazards
+below are **still open** and prioritized in [BACKLOG.md](./BACKLOG.md).  
 Linked from: [STATUS.md](../STATUS.md) **NET-1**, [ROADMAP.md](./ROADMAP.md) Phase 4, [Game_Architecture.md](../reference/Game_Architecture.md).
 
 > **What this is:** landmines other agents / surface reviews miss — clock domains, host
@@ -20,7 +23,7 @@ both tabs visible — hidden-tab rAF freezes the host physics loop.
 
 | Plane | Transport | Owns |
 |-------|-----------|------|
-| Control | WebSocket (`party/index.ts` DO + `partysocket`) | Lobby, slots, ready, `gameStart`, `host_round` / `MSG.round`, signaling, TURN mint, kill-feed **not** physics |
+| Control | WebSocket (`party/index.ts` DO + `partysocket`) | Lobby, slots, ready, `gameStart`, `host_round` / `MSG.round`, signaling, TURN mint — **not** physics, **not** kill-feed (falls ride the P2P snapshot tail) |
 | Gameplay | WebRTC DataChannel (`p2p.js`) unreliable unordered | Host transforms ~40 Hz binary, client input ~60 Hz, spill / directive one-shots, collision/fall JSON tails |
 | Physics | Host-only Rapier | Sole sim authority; non-hosts predict + reconcile |
 

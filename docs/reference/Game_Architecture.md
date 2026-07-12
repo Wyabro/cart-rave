@@ -2,7 +2,7 @@
 
 **Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Clash is built**, how multiplayer works, how releases are verified, and what work remains. Product naming freeze: [brand.md](../brand.md).
 
-**Last updated context:** July 10, 2026 — post-jam, Phase 4 (Multiplayer & Infrastructure), working toward Version 2. HUD redesign, Sundial Station flagship, progression unlocks, and **Living Store** (cargo + PA directives) are in tree. See [ROADMAP.md](../planning/ROADMAP.md) for open priorities and [project-state.md](../planning/project-state.md) for the live snapshot.
+**Last updated context:** July 12, 2026 — post-jam, working toward Version 2. HUD redesign, Sundial Station flagship, progression unlocks, **Living Store** (cargo + PA directives), and the July production passes (performance tiers, sticker UI, gameplay/AI, VFX/audio, stabilization) are in tree; `host_round` validation and host selection are extracted, unit-tested server modules (`party/roundValidation.ts`, `party/hostSelection.ts`); bloom runs per-arena (display-referred on Storerooms) since `98317c1`. See [STATUS.md](../STATUS.md) for health/blockers, [ROADMAP.md](../planning/ROADMAP.md) + [BACKLOG.md](../planning/BACKLOG.md) for open priorities, and [project-state.md](../planning/project-state.md) for the live snapshot.
 
 **Source material:** Derived from `docs/` (handover notes in `archive/handovers/`, audits in `archive/audits/`, and operational checklists).
 

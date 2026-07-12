@@ -2,6 +2,12 @@
 
 Date: 2026-07-10. Branch: cart-clash.
 
+> **ARCHIVED (shipped).** Landed as `b79f277` (+ `fe923ab` netcode alloc fixes); the
+> July 11 measured follow-up (arena-chunk prefetch, honest `three` chunk) is logged as
+> D-PERF-1..3 in the [decision log](../decision-log-2026-07.md). Open remainders live in
+> [BACKLOG.md](../../planning/BACKLOG.md). See
+> [production-passes.md](../../planning/production-passes.md) for the pass index.
+
 Four audit tracks (rendering, CPU, mobile, browser compat) + live headless profiling
 (dev box, 1280×720 @ DPR 1, solo mode, `?perfPump` rAF shim). Full audit reports live
 in the session scratchpad; this doc is the merged plan and, after implementation, the

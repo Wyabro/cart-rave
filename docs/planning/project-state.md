@@ -1,6 +1,6 @@
 # Cart Clash — Project State
 
-**Last updated:** July 10, 2026  
+**Last updated:** July 12, 2026  
 **Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
 **Branch:** `cart-clash` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
@@ -15,9 +15,11 @@ Cart Clash is a browser-based **4-player physics sumo** game. Players drive neon
 
 **Version 2 goal:** Polished release with strong solo feel, three presentation-elevated arenas, cosmetic/level progression, better performance, and a **domain cutover** after the naming freeze in [brand.md](../brand.md). See [ROADMAP.md](./ROADMAP.md) for open work.
 
-> **This doc = the present** — what's built and works today. Forward plans live in
-> [ROADMAP.md](./ROADMAP.md); the shipped log lives in [completed-work.md](./completed-work.md).
-> When a task here ships, move its writeup to completed-work.md.
+> **This doc = the present** — what's built and works today (architecture snapshot + known
+> issues + verified non-issues). Health and current focus live in [STATUS.md](../STATUS.md);
+> forward plans in [ROADMAP.md](./ROADMAP.md) + [BACKLOG.md](./BACKLOG.md); the shipped log
+> in [completed-work.md](./completed-work.md). When a task here ships, move its writeup to
+> completed-work.md.
 
 ---
 
@@ -53,9 +55,11 @@ Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/R
 - **KO Event system** — one fall event fans out to reactors (match stats, challenges, kill confirm, arena VFX, feed, announcer). See [scoring-event-system.md](../reference/scoring-event-system.md).
 - **Living Store (shipped)** — Living Cargo (cart = scoreboard) + host-authored PA **directives** mid-round. As-built: [living-store.md](../reference/living-store.md).
 
-### Recent work (July 9–10, 2026)
+### Recent work (July 9–11, 2026)
 
-Highlights beyond the June/July refactors: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); **solo polish sprint** (Spill Bonus float/feed, first-solo load hardening, directional hit vignette, solo AI rubberband, hop landing thud, NPC rare hop — death-cam follow killer attempted and reverted); **July 10 regression audit** (verified non-issues logged in §5; open edges stay on ROADMAP); **netcode connection lifecycle hardening** (P2P teardown on menu leave, ICE disconnect grace, host mid-match re-offer, binary bounds, reject-pending `onClose` ownership — see [completed-work.md](./completed-work.md)). Full writeups in [completed-work.md](./completed-work.md). Session notes: [solo-polish-2026-07-10.md](../archive/session-notes/solo-polish-2026-07-10.md).
+July 9–10 highlights: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); solo polish sprint; regression audit (verified non-issues logged in §5); netcode connection lifecycle hardening.
+
+July 10–11 production passes (index: [production-passes.md](./production-passes.md)): **Pass 2** 3-tier quality system; **Pass 3/3.2/3.3** sticker-language UI + UX flow + density; **Pass 4** gameplay/combat/AI fixes (`73631e0`); **Pass 5** VFX/audio waves 1–3 (`043e793`..`eb924af`); **stabilization pass** (`b9e8fb8`..`3754949`, unpushed — wheel roll, podium +20%, menu pacing, dead-code purge). Plus: **black-frame flicker root-caused and fixed on Storerooms** (half-res float bloom mips → per-arena bloom pipeline `98317c1`, D-VFX-2); **netcode test punch list closed** (`party/roundValidation.ts`, `party/hostSelection.ts`, `applyHostMigration`, P2P size gates — `1dbb48a`, `6ee9c0b`); Rapier **SIMD made opt-in** after a game-breaking borrow error (`8174180`); visual-QA toolchain (`shoot`/`compare`/`blackframes`, `?blackmon=`, `?rtmode=`). Full writeups in [completed-work.md](./completed-work.md) and the [decision log](../archive/decision-log-2026-07.md).
 
 ### Key files
 
@@ -82,7 +86,9 @@ Highlights beyond the June/July refactors: progression unlocks; Sundial Station 
 | `src/utils/edgeDanger.js` | Hit-from / edge-danger side weights (DOM vignette math) |
 | `src/utils/soloRubberband.js` | Solo-only NPC chase/nitro difficulty curve |
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
-| `tests/` | Vitest suite (174 tests at July 10 regression audit) |
+| `party/roundValidation.ts` / `hostSelection.ts` | Extracted, unit-tested `host_round` validation + promote-oldest |
+| `src/netcode/p2pLimits.js` | P2P DataChannel frame/tail size gates |
+| `tests/` | Vitest suite (285 tests / 28 files at 2026-07-12) |
 | `.cursorrules` | Design spec and AI guardrails |
 
 Full architecture reference: [Game_Architecture.md](../reference/Game_Architecture.md).
@@ -102,16 +108,16 @@ Full architecture reference: [Game_Architecture.md](../reference/Game_Architectu
 - **Solo path** — private room + 3 NPCs; first-solo cold-load hardening; score-lead rubberband for bots (solo only).
 - **Perf foundations** — lazy game music, Draco cart models, self-hosted fonts, half-res bloom, prop LOD, auto-quality watchdog, menu preview LOD.
 
-**Next / open** (full plan in [ROADMAP.md](./ROADMAP.md)):
+**Next / open** (full plan in [ROADMAP.md](./ROADMAP.md); item level in [BACKLOG.md](./BACKLOG.md)):
 
 | Item | Status |
 |------|--------|
-| Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending — includes [Living Store netcode checklist](./living-store-test-plan.md) |
-| Black-frame flicker triage | ⬜ Open plan — [plan-flicker-fix…](./plan-flicker-fix-and-classic-audit.md) |
-| Menu overhaul + domain cutover | 🔧 In progress |
-| Deeper performance pass (level swap / menu / profiling) | ⬜ Partial foundations shipped |
-| Death cam follow killer | ⬜ Tried July 10; reverted as regression — revisit carefully |
-| Persistent leaderboard (Supabase) | ⬜ Planned |
+| Wyatt playtest queue (Passes 4/5 + stabilization + bloom A/B) | ⚠️ Open — checklist in [STATUS.md](../STATUS.md) |
+| Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending — the V2 gate; includes [Living Store](./living-store-test-plan.md) + [host migration](./host-migration-test-plan.md) checklists |
+| Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote to default after look check |
+| Static netcode hazards (clocks / migration / buffers) | ⬜ Open — [netcode-deep-dive.md](./netcode-deep-dive.md) |
+| Menu overhaul + domain cutover | 🧊 Cutover frozen until deliberate event ([brand.md](../brand.md)) |
+| Persistent leaderboard (Supabase) | ⬜ Planned (post-V2) |
 
 The full shipped log — including the Phase 4 bug-fix ledger — lives in [completed-work.md](./completed-work.md#phase-4-bug-fix-ledger).
 
@@ -123,10 +129,11 @@ All primary high-priority bugs (host cart freeze, ready-up races, ready button r
 
 Current validation / risk focus:
 
-1. Multiplayer runtime integration smoke tests (two browsers, one room) — still the Phase 4 gate; Living Store paths deferred to [living-store-test-plan.md](./living-store-test-plan.md).
-2. Intermittent black-frame flicker on some Windows + Chromium + NVIDIA stacks (environment-first investigation).
-3. Evicting/resetting in-memory Durable Object state between server builds.
-4. Host-migration / multi-way Sudden Death edges and other deferred items — see [ROADMAP.md](./ROADMAP.md) Phase 4.
+1. Multiplayer runtime integration smoke tests (two browsers, one room) — still the V2 gate; Living Store paths deferred to [living-store-test-plan.md](./living-store-test-plan.md), migration feel to [host-migration-test-plan.md](./host-migration-test-plan.md).
+2. Black-frame flicker: root cause **confirmed** (half-res float bloom mips on ANGLE/NVIDIA, D-VFX-2) and fixed on Storerooms; Classic/Sundial still run HDR bloom until the look check promotes the display-referred pipeline.
+3. Static netcode hazards (clock domains, migration credit/null-host, buffer timebases) — cataloged with fix order in [netcode-deep-dive.md](./netcode-deep-dive.md).
+4. Evicting/resetting in-memory Durable Object state between server builds.
+5. Playtest debt: Passes 4/5 + stabilization are behavior-changing and human-unvalidated.
 
 ### Verified healthy / non-issues (July 10 regression audit)
 
@@ -167,7 +174,8 @@ Still open after the same audit (do not treat as cleared): host tab background f
 | `cart-clash` daily dev | `npm run dev:local` | [preview-dev.md](../guides/preview-dev.md) |
 | Production local | `npm run dev` + `npm run dev:party` | [README.md](../README.md) |
 | Deploy production | `npm run ship` | [deploy-urls.md](../guides/deploy-urls.md) |
-| Full gate | `npm run check` | typecheck + test + knip |
+| Full gate | `npm run qa` (alias of `check`) | typecheck + test + knip — same as CI |
+| Visual QA | `npm run shoot` / `compare` / `blackframes` / `qa:visual` | [visual-qa.md](../guides/visual-qa.md) |
 
 **Dev unlocks:** Vite dev treats all cosmetics/levels as unlocked by default. Force real locks with `?devUnlocks=off` or `localStorage cartRaveDevUnlocks=off`. See `unlockConfig.js` header.
 

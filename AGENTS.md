@@ -60,15 +60,18 @@ toward Version 2.
 - **Host-authoritative.** The first client in a room becomes host and runs **all** Rapier
   physics (humans + NPCs). The host is the single source of truth.
 - **The server never simulates physics.** `party/index.ts` (a `partyserver` Durable Object)
-  does validation, slot management, ready-up/round lifecycle, **WebRTC signaling**
-  (SDP/ICE relay + Cloudflare Calls TURN minting), kill-feed relay
-  (`hostEventFall` / `hostEventCollision`), **ghost exorcism**, and connection reaping.
-  Do not move collision logic server-side.
+  does validation (`party/roundValidation.ts`), slot management, ready-up/round lifecycle,
+  **WebRTC signaling** (SDP/ICE relay + Cloudflare Calls TURN minting), host selection
+  (`party/hostSelection.ts`), **ghost exorcism**, and connection reaping. Kill-feed events
+  do **not** relay through the server — falls/collisions ride the host snapshot's JSON tail
+  on the DataChannel (the old `hostEventFall`/`hostEventCollision` relays were deleted
+  2026-07-06). Do not move collision logic server-side.
 - **Real-time telemetry is peer-to-peer, not server-relayed.** Host transforms (40Hz,
   `CONFIG.net.hostSendHz`), client input (60Hz, `CONFIG.net.clientInputHz`), and spill
   events travel over WebRTC DataChannels (`src/netcode/p2p.js`): `P2P.sendToAll` from the
   host, `P2P.sendToPeer(hostId, …)` from clients. Do **not** route these back through the
-  WebSocket. The WebSocket carries only lobby, signaling, round, and kill-feed messages.
+  WebSocket. The WebSocket carries only lobby, signaling, and round-lifecycle messages;
+  kill-feed falls/collisions ride the P2P snapshot tail.
 - **Color logic uses `CART_COLORS` in `src/config.js`.** Do not modify that object or the
   `mesh.traverse()` material logic — it is the "Original Rave" source of truth
   (pink / blue / green / yellow / neonOrange).
