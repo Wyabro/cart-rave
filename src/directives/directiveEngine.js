@@ -280,7 +280,7 @@ export function onHostSpill(victimSlotIndex) {
   if (state.roundPhase !== RoundPhase.RUNNING || state.isSuddenDeath) return;
 
   const hit = deps.getLastHitBy().get(victimSlotIndex);
-  const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 2500;
+  const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 3000;
   if (!hit || Date.now() - hit.timestamp > hitWindowMs) return;
   if (hit.attackerSlotIndex === victimSlotIndex) return;
 

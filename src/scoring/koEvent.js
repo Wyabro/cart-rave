@@ -109,7 +109,7 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
   const victimAiName = allCarts?.[slotIndex]?.aiPersonality?.name ?? null;
 
   const hit = deps.getLastHitBy().get(slotIndex);
-  const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 2500;
+  const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 3000;
 
   // * No qualifying recent ram — self/environmental fall: no attribution, no points.
   if (!hit || (nowMs - hit.timestamp > hitWindowMs)) {

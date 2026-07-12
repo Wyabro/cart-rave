@@ -213,11 +213,11 @@ const physics = {
   },
 
   ramming: {
-    minSpeed: 0.8, // m/s — minimum relative speed to score a hit
+    minSpeed: 0.6, // m/s — minimum relative speed to score a hit
     strength: 2.88, // unitless — collision impulse multiplier
     maxImpulse: 200.0, // N·s — per-frame impulse clamp
     spreadSteps: 3, // count — frames over which ram impulse is applied
-    alignmentDotMin: 0.2, // unitless — min rammer→victim alignment dot (~78° cone; was 0.1/~84°, which let near-perpendicular glances trigger full crash+squash)
+    alignmentDotMin: 0.18, // unitless — min rammer→victim alignment dot (~80° cone; eased 10% from 0.2/~78°)
     boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale (intentionally unchanged)
     nitroAccelMultiplier: 1.72, // unitless — fallback drive accel when boostedAccel is null
     fx: {
@@ -409,7 +409,7 @@ export const CONFIG = {
 
   scoring: {
     criticalVelocityThreshold: 16.0, // m/s — speed for critical hit bonus (~68% of top speed; ~60% of committed hits)
-    hitWindowMs: 2500, // ms — max time after a hit to credit a fall kill
+    hitWindowMs: 3000, // ms — max time after a hit to credit a fall kill
   },
 
   combo: {
