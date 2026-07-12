@@ -25,21 +25,9 @@ type Slot = {
   isReady: boolean;
 };
 
-type RoundPhase = "lobby" | "countdown" | "running" | "podium";
-
-type RoundState = {
-  phase: RoundPhase;
-  winnerSlotIndex: number | "draw" | null;
-  startedAtMs: number;
-  countdownStartedAtMs: number;
-  scores: Record<number, number>;
-  endReason?: "timer" | "lastStanding" | null;
-  isSuddenDeath?: boolean;
-  /** Server stamped on every broadcast round payload clients may trust for stats. */
-  validated: true;
-};
-
 import { MSG } from '../shared/protocol.js';
+import { validateHostRound, type RoundState } from './roundValidation';
+import { pickNextHostId } from './hostSelection';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
 import {
   classifyWsMessagePostParse,
@@ -49,9 +37,6 @@ import {
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 
-const ROUND_DURATION_MS = 150_000;
-const MIN_RUNNING_BEFORE_PODIUM_MS = 3_000;
-const MAX_SCORE_PER_SLOT = 500;
 const PICKER_TIMEOUT_MS = 30_000;
 const RATE_LIMIT_MAX_PER_SEC = 100;
 const RATE_LIMIT_WINDOW_MS = 1_000;
@@ -227,15 +212,7 @@ export class CartRaveServer extends Server {
   }
 
   #pickNextHostId(): string | null {
-    for (const id of this.#joinOrder) {
-      if (
-        this.#connections.has(id) &&
-        this.#slots?.some((s) => s.connId === id && s.kind === "human")
-      ) {
-        return id;
-      }
-    }
-    return null;
+    return pickNextHostId(this.#joinOrder, new Set(this.#connections.keys()), this.#slots);
   }
 
   // * Repairs #hostId if it points at a connection that no longer exists in
@@ -334,171 +311,12 @@ export class CartRaveServer extends Server {
     });
   }
 
-  #sanitizeScores(raw: unknown, base: Record<number, number>): Record<number, number> {
-    const scores: Record<number, number> = { ...base };
-    if (!raw || typeof raw !== "object") return scores;
-    for (let i = 0; i < 4; i += 1) {
-      const src = (raw as Record<string, unknown>)[i] ?? (raw as Record<string, unknown>)[String(i)];
-      const n = typeof src === "number" ? src : Number(src);
-      if (!Number.isFinite(n)) continue;
-      scores[i] = Math.max(0, Math.min(MAX_SCORE_PER_SLOT, Math.floor(n)));
-    }
-    return scores;
-  }
-
   /**
-   * Max score across the four slots. Validation only — host owns tiebreakers
-   * (client pickTimerWinner / lastScoringHitAt). Do not use this to pick a winner.
+   * Validates host_round payloads; returns sanitized server round or null to reject.
+   * Delegates to the pure, unit-tested validator in ./roundValidation.
    */
-  #maxScore(scores: Record<number, number>): number {
-    let max = 0;
-    for (let i = 0; i < 4; i += 1) {
-      max = Math.max(max, scores[i] ?? 0);
-    }
-    return max;
-  }
-
-  #isAllowedPhaseTransition(from: RoundPhase, to: RoundPhase): boolean {
-    if (from === to) return true;
-    if (from === "lobby" && to === "countdown") return true;
-    if (from === "countdown" && (to === "running" || to === "lobby")) return true;
-    if (from === "running" && to === "podium") return true;
-    if (from === "podium" && to === "lobby") return true;
-    return false;
-  }
-
-  /** Validates host_round payloads; returns sanitized server round or null to reject. */
   #validateHostRound(incoming: unknown, now: number): RoundState | null {
-    if (!incoming || typeof incoming !== "object") return null;
-    const phase = (incoming as { phase?: unknown }).phase;
-    if (phase !== "lobby" && phase !== "countdown" && phase !== "running" && phase !== "podium") {
-      return null;
-    }
-    const nextPhase = phase as RoundPhase;
-    const prev = this.#round;
-
-    if (!this.#isAllowedPhaseTransition(prev.phase, nextPhase)) {
-      return null;
-    }
-
-    const startedAtMsRaw = (incoming as { startedAtMs?: unknown }).startedAtMs;
-    const countdownStartedAtMsRaw = (incoming as { countdownStartedAtMs?: unknown }).countdownStartedAtMs;
-    const winnerRaw = (incoming as { winnerSlotIndex?: unknown }).winnerSlotIndex;
-    const endReasonRaw = (incoming as { endReason?: unknown }).endReason;
-
-    let startedAtMs = prev.startedAtMs;
-    let countdownStartedAtMs = prev.countdownStartedAtMs;
-    let scores = { ...prev.scores };
-    let winnerSlotIndex: number | "draw" | null = prev.winnerSlotIndex;
-    let endReason: "timer" | "lastStanding" | null = prev.endReason ?? null;
-
-    if (nextPhase === "countdown") {
-      countdownStartedAtMs =
-        typeof countdownStartedAtMsRaw === "number" && Number.isFinite(countdownStartedAtMsRaw)
-          ? countdownStartedAtMsRaw
-          : now;
-      startedAtMs = 0;
-      winnerSlotIndex = null;
-      scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-      endReason = null;
-    }
-
-    if (nextPhase === "running") {
-      if (prev.phase !== "countdown" && prev.phase !== "running") return null;
-      startedAtMs =
-        typeof startedAtMsRaw === "number" && Number.isFinite(startedAtMsRaw) && startedAtMsRaw > 0
-          ? startedAtMsRaw
-          : (prev.phase === "running" && prev.startedAtMs > 0 ? prev.startedAtMs : now);
-      winnerSlotIndex = null;
-      if (prev.phase !== "running") {
-        scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-        endReason = null;
-      } else if (endReasonRaw === "lastStanding") {
-        endReason = "lastStanding";
-      } else if (endReasonRaw === null || endReasonRaw === undefined) {
-        endReason = null;
-      } else if (endReasonRaw === "timer") {
-        return null;
-      }
-    }
-
-    if (nextPhase === "running" || nextPhase === "podium") {
-      scores = this.#sanitizeScores((incoming as { scores?: unknown }).scores, scores);
-      for (let i = 0; i < 4; i += 1) {
-        const prevScore = prev.scores[i] ?? 0;
-        if ((scores[i] ?? 0) < prevScore) scores[i] = prevScore;
-      }
-    }
-
-    if (nextPhase === "podium") {
-      if (prev.phase !== "running") return null;
-      if (!prev.startedAtMs || now - prev.startedAtMs < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
-      if (!prev.isSuddenDeath && now - prev.startedAtMs > ROUND_DURATION_MS + 15_000) return null;
-
-      const lastStanding =
-        endReasonRaw === "lastStanding"
-        || (typeof endReasonRaw === "string" && endReasonRaw.trim() === "lastStanding");
-      if (lastStanding) {
-        endReason = "lastStanding";
-      } else if (endReasonRaw === "timer" || endReasonRaw === null || endReasonRaw === undefined) {
-        endReason = endReasonRaw === "timer" ? "timer" : null;
-      } else {
-        return null;
-      }
-
-      const maxScore = this.#maxScore(scores);
-      // * Draw: all scores zero (or host+server agree there is no scorer).
-      // * Previously `winnerRaw === "draw"` was unconditionally rejected when
-      // * endReason was lastStanding — and even valid 0-0 timer draws cleared
-      // * endReason. That produced host-local podium + client softlock.
-      // * Host may pick any max-score slot on ties; server only checks max, not slot index.
-      if (winnerRaw === "draw" || maxScore === 0) {
-        if (maxScore !== 0) {
-          // * Host claimed draw but at least one slot has points — reject.
-          return null;
-        }
-        // * lastStanding with a true score-draw is rare (everyone 0); allow it so
-        // * the room never sticks in running/overtime when the host ends the round.
-        winnerSlotIndex = "draw";
-        if (endReason !== "timer" && endReason !== "lastStanding") {
-          endReason = null;
-        }
-      } else {
-        const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
-        if (!Number.isInteger(w) || w < 0 || w > 3) return null;
-        if (!lastStanding && (scores[w] ?? 0) < maxScore) {
-          return null;
-        }
-        winnerSlotIndex = w;
-        if (!lastStanding && endReason !== "timer") {
-          endReason = "timer";
-        }
-      }
-    }
-
-    if (nextPhase === "lobby") {
-      startedAtMs = 0;
-      countdownStartedAtMs = 0;
-      winnerSlotIndex = null;
-      scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-      endReason = null;
-    }
-
-    const isSuddenDeath =
-      typeof (incoming as { isSuddenDeath?: unknown }).isSuddenDeath === "boolean"
-        ? (incoming as { isSuddenDeath?: boolean }).isSuddenDeath
-        : prev.isSuddenDeath ?? false;
-
-    return {
-      phase: nextPhase,
-      winnerSlotIndex,
-      startedAtMs,
-      countdownStartedAtMs,
-      scores,
-      endReason,
-      isSuddenDeath,
-      validated: true,
-    };
+    return validateHostRound(this.#round, incoming, now);
   }
 
   #checkRateLimit(connId: string): boolean {

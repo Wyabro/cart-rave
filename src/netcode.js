@@ -1341,6 +1341,65 @@ function requestTurnCredentialsAndOpenPeers() {
 }
 
 /**
+ * Applies a server host-migration: re-points authority to the new host, tears down and
+ * re-inits P2P, clears prediction/input state, bumps the snapshot epoch, and arms the
+ * non-host freeze. Extracted from the WebSocket message dispatcher so the handoff is
+ * unit-testable without a live socket (see tests/hostMigration.test.js).
+ * @param {{ hostId?: unknown }} msg
+ */
+function applyHostMigration(msg) {
+  hostId = typeof msg.hostId === "string" ? msg.hostId : null;
+  const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
+
+  P2P.closeAllConnections();
+  peerReconnectNotBeforeMs.clear();
+  if (youConnId) {
+    P2P.initP2P({
+      localId: youConnId,
+      host: nextIsHost,
+      sendSignal: (m) => {
+        if (partySocket && partySocket.readyState === WebSocket.OPEN) {
+          partySocket.send(JSON.stringify(m));
+        }
+      },
+      onInput: handleRemoteClientInput,
+      onState: handleP2PMessage
+    });
+    // * New host starts hostSeq at 0 — every client must clear the reconcile gate
+    // * and pending prediction inputs or seq > lastReconciledSnapSeq never fires.
+    requestTurnCredentialsAndOpenPeers();
+  }
+
+  if (nextIsHost && lastCartsCache) {
+    applyCartsSnapshotToBodies(lastCartsCache);
+  }
+  clearHostCollisionBatch();
+  remoteInputsByConnId.clear();
+  remoteInputQueuesByConnId.clear();
+  remoteNitroLatchedByConnId.clear();
+  hostLastProcessedInputSeq.clear();
+  pendingInputs = [];
+  inputSeq = 0;
+  resetClientPredictionState();
+  setAuthorityMode(nextIsHost);
+  if (!nextIsHost) hostMigrationFreezeUntilMs = getMonotonicNow() + CONFIG.net.hostMigrationFreezeMs;
+  hostEpoch += 1;
+  netStateBuffer = [];
+  // * Host migration is no longer silent — every client gets the PA callout
+  // * and the HUD host glyph moves to the new host's chip on the next frame.
+  const newHostSlot = Array.isArray(netSlots)
+    ? netSlots.find((s) => s && s.connId === hostId)
+    : null;
+  if (newHostSlot?.name) {
+    announce("new_host", { name: newHostSlot.name });
+  }
+  if (nextIsHost) {
+    const hostMigratedHandler = callbacks.getOnHostMigratedHandler?.();
+    if (hostMigratedHandler) hostMigratedHandler();
+  }
+}
+
+/**
  * Sends multiplayer color pick with the player's cosmetic neon hex.
  * @param {string} color Preset palette id for slot assignment.
  */
@@ -1660,55 +1719,7 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.hostMigrated) {
-      hostId = typeof msg.hostId === "string" ? msg.hostId : null;
-      const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
-
-      P2P.closeAllConnections();
-      peerReconnectNotBeforeMs.clear();
-      if (youConnId) {
-        P2P.initP2P({
-          localId: youConnId,
-          host: nextIsHost,
-          sendSignal: (m) => {
-            if (partySocket && partySocket.readyState === WebSocket.OPEN) {
-              partySocket.send(JSON.stringify(m));
-            }
-          },
-          onInput: handleRemoteClientInput,
-          onState: handleP2PMessage
-        });
-        // * New host starts hostSeq at 0 — every client must clear the reconcile gate
-        // * and pending prediction inputs or seq > lastReconciledSnapSeq never fires.
-        requestTurnCredentialsAndOpenPeers();
-      }
-
-      if (nextIsHost && lastCartsCache) {
-        applyCartsSnapshotToBodies(lastCartsCache);
-      }
-      clearHostCollisionBatch();
-      remoteInputsByConnId.clear();
-      remoteInputQueuesByConnId.clear();
-      remoteNitroLatchedByConnId.clear();
-      hostLastProcessedInputSeq.clear();
-      pendingInputs = [];
-      inputSeq = 0;
-      resetClientPredictionState();
-      setAuthorityMode(nextIsHost);
-      if (!nextIsHost) hostMigrationFreezeUntilMs = getMonotonicNow() + CONFIG.net.hostMigrationFreezeMs;
-      hostEpoch += 1;
-      netStateBuffer = [];
-      // * Host migration is no longer silent — every client gets the PA callout
-      // * and the HUD host glyph moves to the new host's chip on the next frame.
-      const newHostSlot = Array.isArray(netSlots)
-        ? netSlots.find((s) => s && s.connId === hostId)
-        : null;
-      if (newHostSlot?.name) {
-        announce("new_host", { name: newHostSlot.name });
-      }
-      if (nextIsHost) {
-        const hostMigratedHandler = callbacks.getOnHostMigratedHandler?.();
-        if (hostMigratedHandler) hostMigratedHandler();
-      }
+      applyHostMigration(msg);
       return;
     }
 
@@ -2116,6 +2127,9 @@ export const __netcodeTestHooks = {
   // * Drives the exact function wired as P2P onState — proves raw binary/JSON
   // * frames flow through decode → dispatch → buffer without a live DataChannel.
   dispatchP2P: (data, fromConnId) => handleP2PMessage(data, fromConnId),
+  // * Drives the exact host-migration branch of the WS dispatcher (see applyHostMigration).
+  applyHostMigration: (msg) => applyHostMigration(msg),
+  getHostEpoch: () => hostEpoch,
   setHostIdForTest: (id) => { hostId = id; },
   // * Signaling-flow validation: set host authority state, then call the exact helper
   // * the slots handler uses so tests can assert the host opens offers to the right peers.
