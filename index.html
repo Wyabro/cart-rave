@@ -559,14 +559,9 @@
     </div>
   </div>
   <div class="cr-root" id="cr-root">
-    <!-- Background layers -->
-    <div class="cr-floor" id="cr-floor">
-      <div class="cr-floor-grid" id="cr-floor-grid"></div>
-    </div>
-    <div class="cr-lights" id="cr-lights"></div>
+    <!-- Background: gradient lives on .cr-root::before (cart-rave-menu.css);
+         vignette is the only DOM layer. -->
     <div class="cr-vignette"></div>
-    <div class="cr-particles" id="cr-particles"></div>
-    <div class="cr-scan" id="cr-scan"></div>
 
     <!-- Portrait hint — CSS-only, phones in landscape on the menu (see cart-rave-menu.css).
          Lives inside #cr-root so it can never leak into gameplay. -->

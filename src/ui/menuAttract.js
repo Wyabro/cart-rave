@@ -12,10 +12,10 @@
  * pose needs to be saved or restored.
  *
  * When frames are actually being produced, `.cr-root--attract` is set on the
- * menu root — CSS turns the menu backdrop translucent to reveal the canvas
- * and dims the redundant DOM floor/particle layers. Until the world is warm
- * the class stays off and the DOM backdrop stands alone, so cold boots and
- * low-memory devices (where idle warm never runs) keep today's behavior.
+ * menu root — CSS fades the gradient backdrop (`.cr-root::before`) translucent
+ * to reveal the canvas. Until the world is warm the class stays off and the
+ * gradient stands alone, so cold boots and low-memory devices (where idle
+ * warm never runs) keep a clean backdrop.
  *
  * Reduced motion: no orbit — a fixed three-quarter shot re-rendered at a slow
  * heartbeat so level swaps still show up.

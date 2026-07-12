@@ -124,10 +124,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   // Change this key to switch palette, or call window.CartClash.setPalette(key) (alias: CartRave).
   const CONFIG = {
     palette: "classic",
-    intensity: 7,
-    showFloor: true,
-    showSpotlights: true,
-    showParticles: true,
     cartDance: true,
 
     // Beat / cart dance animation
@@ -140,32 +136,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     cartTiltDeg: 6,
     shadowBeatScale: 0.15,
     titleBeatScale: 0.015,
-    floorBeatParallaxPx: 4,
-
-    // Particles
-    particleCountBase: 12,
-    particleCountPerIntensity: 2,
-    particleSizeMin: 2,
-    particleSizeRange: 5,
-    particleDurMin: 8,
-    particleDurRange: 14,
-    particleDelayMax: 20,
-
-    // Spotlights
-    spotlightCount: 4,
-    spotlightDurBase: 5,
-    spotlightDurStep: 1.3,
-    spotlightDelayStep: -0.7,
-    spotlightLeftBase: 12,
-    spotlightLeftStep: 22,
-    spotlightOpacityBase: 0.35,
-    spotlightOpacityPerIntensity: 0.06,
-
-    // Intensity-driven scene opacity
-    floorOpacityBase: 0.3,
-    floorOpacityPerIntensity: 0.05,
-    scanOpacityBase: 0.05,
-    scanOpacityPerIntensity: 0.01,
 
     nameMaxLength: 12,
     defaultVolume: 0.25,
@@ -297,11 +267,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   // ─── DOM refs ─────────────────────────────────────────────────────────────
   const $ = (id) => document.getElementById(id);
   const root = $("cr-root");
-  const floorEl = $("cr-floor");
-  const floorGrid = $("cr-floor-grid");
-  const lightsEl = $("cr-lights");
-  const particlesEl = $("cr-particles");
-  const scanEl = $("cr-scan");
   const titleEl = $("cr-title");
   const customizeColorRow = $("cr-customize-color-row");
   const customizeSunglassesRow = $("cr-customize-sunglasses-row");
@@ -344,11 +309,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
   let cartPreview = null;
   let customHueSliderWired = false;
-  const spotlightPool = [];
-  const particlePool = [];
-  const PARTICLE_POOL_MAX = Math.round(
-    CONFIG.particleCountBase + 10 * CONFIG.particleCountPerIntensity
-  );
   // NOTE: Quickplay and Friends support touch controls on mobile (see main.js updateTouchControlsVisibility).
 
   // ─── Neon cart SVG builder (customize fallback when 3D preview is offline) ─
@@ -399,79 +359,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   <circle cx="16" cy="30" r="3.5" fill="none" stroke="${color}" stroke-width="2" />
   <circle cx="34" cy="30" r="3.5" fill="none" stroke="${color}" stroke-width="2" />
 </svg>`;
-  }
-
-  // ─── Spotlights (pooled DOM) ──────────────────────────────────────────────
-  function initSpotlights() {
-    if (!lightsEl) return;
-    lightsEl.innerHTML = '';
-    for (let i = 0; i < CONFIG.spotlightCount; i++) {
-      const el = document.createElement('div');
-      el.className = 'cr-light';
-      lightsEl.appendChild(el);
-      spotlightPool.push(el);
-    }
-  }
-
-  function updateSpotlights() {
-    if (!CONFIG.showSpotlights) {
-      spotlightPool.forEach((el) => { el.style.display = 'none'; });
-      return;
-    }
-    const p = state.palette;
-    const colors = [p.primary, p.secondary, p.tertiary, p.players[0]];
-    const opacity = CONFIG.spotlightOpacityBase + CONFIG.intensity * CONFIG.spotlightOpacityPerIntensity;
-    for (let i = 0; i < spotlightPool.length; i++) {
-      const el = spotlightPool[i];
-      el.style.display = '';
-      el.style.setProperty('--col', colors[i % colors.length]);
-      el.style.setProperty('--dur', `${CONFIG.spotlightDurBase + i * CONFIG.spotlightDurStep}s`);
-      el.style.setProperty('--delay', `${i * CONFIG.spotlightDelayStep}s`);
-      el.style.left = `${CONFIG.spotlightLeftBase + i * CONFIG.spotlightLeftStep}%`;
-      el.style.opacity = String(opacity);
-    }
-  }
-
-  // ─── Particles (pooled DOM) ───────────────────────────────────────────────
-  function initParticles() {
-    if (!particlesEl) return;
-    particlesEl.innerHTML = '';
-    for (let i = 0; i < PARTICLE_POOL_MAX; i++) {
-      const el = document.createElement('div');
-      el.className = 'cr-particle';
-      particlesEl.appendChild(el);
-      particlePool.push(el);
-    }
-  }
-
-  function updateParticles() {
-    if (!CONFIG.showParticles) {
-      particlePool.forEach((el) => { el.style.display = 'none'; });
-      return;
-    }
-    const count = Math.round(CONFIG.particleCountBase + CONFIG.intensity * CONFIG.particleCountPerIntensity);
-    const p = state.palette;
-    const colors = [p.primary, p.secondary, p.tertiary];
-    for (let i = 0; i < particlePool.length; i++) {
-      const el = particlePool[i];
-      if (i >= count) {
-        el.style.display = 'none';
-        continue;
-      }
-      el.style.display = '';
-      const left = Math.random() * 100;
-      const size = CONFIG.particleSizeMin + Math.random() * CONFIG.particleSizeRange;
-      const dur = CONFIG.particleDurMin + Math.random() * CONFIG.particleDurRange;
-      const delay = -Math.random() * CONFIG.particleDelayMax;
-      const color = colors[i % colors.length];
-      el.style.left = `${left}%`;
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.background = color;
-      el.style.boxShadow = `0 0 ${size * 2}px ${color}`;
-      el.style.animationDuration = `${dur}s`;
-      el.style.animationDelay = `${delay}s`;
-    }
   }
 
   // ─── Level selection ──────────────────────────────────────────────────────
@@ -551,8 +438,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (!src) return;
     state.palette = { ...src, players: state.palette.players };
     CONFIG.palette = LEVEL_AMBIENCE[levelId];
-    updateSpotlights();
-    updateParticles();
     applyPalette();
   }
 
@@ -1515,12 +1400,11 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     const pc = getActiveColorCss();
 
     // * Backdrop lives on .cr-root::before (attract mode fades it) — drive the
-    // * palette color through a custom prop instead of an inline background.
+    // * palette colors through custom props instead of an inline background.
+    // * --menu-glow1/2 tint the gradient's neon washes per arena.
     root.style.setProperty('--menu-bg', p.bg);
-
-    floorGrid.style.setProperty('--c1', p.primary);
-    floorGrid.style.setProperty('--c2', p.secondary);
-    floorEl.style.opacity = String(CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity);
+    root.style.setProperty('--menu-glow1', p.primary);
+    root.style.setProperty('--menu-glow2', p.secondary);
 
     titleEl.style.setProperty('--t1', p.primary);
     titleEl.style.setProperty('--t2', p.secondary);
@@ -1730,11 +1614,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       titleEl.style.transform = `scale(${1 + state.beat * CONFIG.titleBeatScale})`;
     }
 
-    // Floor parallax
-    if (floorGrid) {
-      floorGrid.style.transform = `rotateX(62deg) translateY(${state.beat * -CONFIG.floorBeatParallaxPx}px)`;
-    }
-
     animFrameId = requestAnimationFrame(animLoop);
   }
   animFrameId = requestAnimationFrame(animLoop);
@@ -1779,10 +1658,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       animFrameId = requestAnimationFrame(animLoop);
     }
   }
-
-  // ─── FX toggles via CONFIG ────────────────────────────────────────────────
-  if (!CONFIG.showFloor) floorEl.style.display = 'none';
-  scanEl.style.opacity = String(CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity);
 
   // ─── Menu motion (Anime.js) ───────────────────────────────────────────────
   let menuEntranceToken = 0;
@@ -1937,10 +1812,6 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   const savedCustomization = loadPlayerCustomization();
   applyCustomizationToState(savedCustomization);
 
-  initSpotlights();
-  initParticles();
-  updateSpotlights();
-  updateParticles();
   buildColorChips();
   buildPatternChips();
   buildSunglassesChips();
@@ -2062,17 +1933,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
       if (!PALETTES[key]) return;
       state.palette = PALETTES[key];
       CONFIG.palette = key;
-      updateSpotlights();
-      updateParticles();
       buildColorChips();
       applyPalette();
-    },
-    setIntensity(n) {
-      CONFIG.intensity = Math.max(0, Math.min(10, n));
-      updateSpotlights();
-      updateParticles();
-      scanEl.style.opacity = String(CONFIG.scanOpacityBase + CONFIG.intensity * CONFIG.scanOpacityPerIntensity);
-      floorEl.style.opacity = String(CONFIG.floorOpacityBase + CONFIG.intensity * CONFIG.floorOpacityPerIntensity);
     },
     stopAnimations() {
       stopMenuLoopsAndTimers();

@@ -99,6 +99,7 @@ docs/guides/visual-qa.md    how to run
 
 ## Last updated
 
+2026-07-11 — Menu backdrop simplified: faux DOM floor grid / spotlights / particles / scanlines deleted; `.cr-root::before` is now a layered palette-tinted gradient (`--menu-glow1/2` from arena ambience). Vignette kept. Attract fade path unchanged. UNPUSHED.  
 2026-07-11 — **Stabilization pass** (D-STAB-1/2): boost-bar leak fix, travel-based wheel roll, Zanzibar podium +20%, menu pacing ~700ms, best-effort menu music, portrait menu hint, reflector touch gate, grocery separation, clamp/lerpAngle consolidation, dead code/config/knip-ignore purge. qa green 285 tests, build clean. UNPUSHED. Needs Wyatt playtest (wheels / podium / pacing / cargo).  
 2026-07-11 — Netcode deep-dive hazard catalog landed (UNPUSHED docs): [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md); STATUS NET-1 + ROADMAP Phase 4 + Game_Architecture point at it.  
 2026-07-11 — **Production Pass 4 (gameplay feel / combat / AI)** implemented UNPUSHED (D-GP4-1): AI stall/latch bug fixes + proximity aggression + Sundial octagon-rim nav + podium contest + intensity-scaled ram SFX + hop/lip-assist gates + directive banner 5.2→3.5s. QA green (238 tests), build clean, Sundial solo smoke 0 errors. Needs Wyatt playtest.  

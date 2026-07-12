@@ -27,30 +27,26 @@ html, body {
 
 /* Opaque menu backdrop lives on ::before so attract mode can fade it — a
    gradient can't transition, but opacity can. menuAttract.js adds the class
-   only while live arena frames are rendering to the canvas underneath. */
+   only while live arena frames are rendering to the canvas underneath.
+   The backdrop is a layered gradient: dark base (palette --menu-bg) with two
+   soft neon washes tinted from the arena palette (--menu-glow1/2, set by
+   applyPalette in cart-rave-menu.js) — replaces the old faux DOM floor grid /
+   spotlights / particles / scanlines. */
 .cr-root::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   background: radial-gradient(ellipse at center 40%, var(--menu-bg, var(--color-bg-deep)) 0%, var(--color-bg-black) 90%);
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, color-mix(in srgb, var(--menu-glow1, var(--color-magenta)) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 85% 60% at 88% 105%, color-mix(in srgb, var(--menu-glow2, var(--color-cyan)) 10%, transparent), transparent 70%),
+    radial-gradient(ellipse at center 40%, var(--menu-bg, var(--color-bg-deep)) 0%, var(--color-bg-black) 90%);
   /* Attract reveal fade — paced with the ~700ms menu entrance cascade. */
   transition: opacity 600ms ease;
 }
 .cr-root.cr-root--attract::before {
   opacity: 0.42;
-}
-
-/* Once the live arena backs the menu, the faux DOM floor/lights/particles/scan
-   are redundant and double up over it — retire them. They stay as the cold-boot
-   fallback background whenever attract mode isn't rendering (class absent).
-   !important overrides the inline opacity JS sets on floor/scan from intensity. */
-.cr-root.cr-root--attract .cr-floor,
-.cr-root.cr-root--attract .cr-lights,
-.cr-root.cr-root--attract .cr-particles,
-.cr-root.cr-root--attract .cr-scan {
-  opacity: 0 !important;
-  transition: opacity 600ms ease;
 }
 
 /* Hide entrance targets until Anime.js runs (removed when sequence completes). */
@@ -113,105 +109,11 @@ html, body {
   max-width: 420px;
 }
 
-/* === EFFECTS (Floor, Lights, Particles, Vignette) === */
-.cr-floor {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 55%;
-  perspective: 700px;
-  perspective-origin: 50% 0%;
-  pointer-events: none;
-  z-index: 1;
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 25%, #000 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 25%, #000 100%);
-}
-
-.cr-floor-grid {
-  position: absolute;
-  left: -20%; right: -20%; top: 0;
-  height: 180%;
-  background-image:
-    linear-gradient(to right, var(--c1, var(--color-magenta)) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--c2, var(--color-cyan)) 1px, transparent 1px);
-  background-size: 60px 60px;
-  transform-origin: 50% 0%;
-  transform: rotateX(62deg);
-  opacity: 0.45;
-  animation: cr-floor-scroll 1.8s linear infinite;
-  filter: drop-shadow(0 0 4px var(--c1, var(--color-magenta)));
-}
-
-@keyframes cr-floor-scroll {
-  from { background-position: 0 0, 0 0; }
-  to   { background-position: 0 60px, 0 60px; }
-}
-
-.cr-lights {
-  position: absolute; inset: 0;
-  pointer-events: none; z-index: 2;
-  mix-blend-mode: screen;
-  overflow: hidden;
-}
-
-.cr-light {
-  position: absolute;
-  top: -10%;
-  width: 280px; height: 140%;
-  background: radial-gradient(ellipse at top, var(--col) 0%, transparent 60%);
-  filter: blur(18px);
-  mix-blend-mode: screen;
-  transform-origin: 50% 0%;
-  animation: cr-light-sway var(--dur) ease-in-out infinite alternate;
-  animation-delay: var(--delay);
-  will-change: transform, opacity;
-  isolation: isolate;
-}
-
-@keyframes cr-light-sway {
-  0%   { transform: rotate(-18deg) translateX(-30px); opacity: 0.5; }
-  50%  { opacity: 0.9; }
-  100% { transform: rotate(18deg) translateX(30px); opacity: 0.5; }
-}
-
+/* === EFFECTS (Vignette) === */
 .cr-vignette {
   position: absolute; inset: 0;
   pointer-events: none; z-index: 3;
   background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%);
-}
-
-.cr-scan {
-  position: absolute; inset: 0;
-  pointer-events: none; z-index: 10;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(255,255,255,0.06) 0,
-    rgba(255,255,255,0.06) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  mix-blend-mode: overlay;
-  opacity: 0.12;
-}
-
-.cr-particles {
-  position: absolute; inset: 0;
-  pointer-events: none;
-  z-index: 4;
-  overflow: hidden;
-}
-
-.cr-particle {
-  position: absolute;
-  bottom: -10px;
-  border-radius: 50%;
-  animation: cr-float linear infinite;
-}
-
-@keyframes cr-float {
-  0%   { transform: translateY(0) translateX(0); opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { transform: translateY(-110vh) translateX(30px); opacity: 0; }
 }
 
 /* === KBM TOAST === */
@@ -2857,9 +2759,6 @@ html, body {
    JS-driven menu entrances are guarded centrally in animations.js; these guards
    cover the CSS ambient loops so motion-sensitive players get a still menu. */
 @media (prefers-reduced-motion: reduce) {
-  .cr-floor-grid,
-  .cr-light,
-  .cr-particle,
   .cr-pulse,
   .cr-cart-preview-loading .cr-cart-preview-canvas {
     animation: none !important;
