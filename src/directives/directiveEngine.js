@@ -19,8 +19,8 @@
  *
  * Scheduling: a fixed per-round slot list (CONFIG.directives.fireAtMs, default three
  * slots evenly spaced across the first two minutes) with ± jitter re-rolled each round.
- * Slot times are anchored to round-elapsed time (Date.now − roundStartedAtMs), so a
- * migrated host derives the same remaining slots; stale slots (missed by more than a
+ * Slot times are anchored to round-elapsed time (getRoundClockNowMs − roundStartedAtMs),
+ * so a migrated host derives the same remaining slots; stale slots (missed by more than a
  * window, e.g. across a migration) are skipped, never fired late.
  *
  * Safety rails:
@@ -34,6 +34,7 @@
 import { CONFIG, MSG } from "../config.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { ANNOUNCER_EVENTS } from "../announcer/announcerEvents.js";
+import { getRoundClockNowMs } from "../roundClock.js";
 import { DIRECTIVES } from "./directives.js";
 
 /**
@@ -213,7 +214,8 @@ export function updateDirectiveEngine(nowMs) {
 
   const durationMs = cfg.durationMs ?? 18000;
   const slotAtMs = fireSchedule[scheduleIdx];
-  const roundElapsed = Date.now() - state.roundStartedAtMs;
+  // * Round clock only — never Date.now() (NET-CLK-3: wall jumps mis-schedule slots).
+  const roundElapsed = getRoundClockNowMs() - state.roundStartedAtMs;
   if (roundElapsed < slotAtMs) return;
 
   // * Stale slot — missed by more than a window (host migration, frozen tab). Skip it;
@@ -281,7 +283,8 @@ export function onHostSpill(victimSlotIndex) {
 
   const hit = deps.getLastHitBy().get(victimSlotIndex);
   const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 3000;
-  if (!hit || Date.now() - hit.timestamp > hitWindowMs) return;
+  // * Hit stamps use getRoundClockNowMs (gameStore.recordHit); compare in the same domain.
+  if (!hit || getRoundClockNowMs() - hit.timestamp > hitWindowMs) return;
   if (hit.attackerSlotIndex === victimSlotIndex) return;
 
   const attackerSlotIndex = hit.attackerSlotIndex;

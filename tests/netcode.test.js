@@ -351,6 +351,23 @@ describe("Clock Drift Resync", () => {
     const expectedOffset = baselineOffset * 0.8 + (-500) * 0.2;
     expect(newOffset).toBe(expectedOffset);
   });
+
+  it("keeps Party and host clock offsets independent (NET-CLK-1)", () => {
+    hooks.resetNetState();
+    // Party: local 1000, partyNow 900 => offset +100
+    hooks.updatePartyClockOffset(900, 1000);
+    hooks.updatePartyClockOffset(900, 1000);
+    hooks.updatePartyClockOffset(900, 1000);
+    // Host: local 1000, tHost 1100 => offset -100
+    hooks.updateServerClockOffset(1100, 1000);
+    hooks.updateServerClockOffset(1100, 1000);
+    hooks.updateServerClockOffset(1100, 1000);
+
+    expect(hooks.getPartyClockOffset()).toBe(100);
+    expect(hooks.getHostClockOffset()).toBe(-100);
+    // Legacy alias tracks host only.
+    expect(hooks.getServerClockOffset()).toBe(-100);
+  });
 });
 
 describe("Binary snapshot serialization", () => {
@@ -389,7 +406,12 @@ describe("Binary snapshot serialization", () => {
       ],
       falls: [
         { slotId: 1, respawnAtMs: 1234567 }
-      ]
+      ],
+      attr: {
+        h: [[2, 0, 1, 9.5, 0, 250]],
+        s: [100, 0, 0, 0],
+        c: [[0, 2, 3000]],
+      },
     };
 
     const buffer = encodeHostStateSnapshot(original);
@@ -439,6 +461,7 @@ describe("Binary snapshot serialization", () => {
     // JSON tail assertions
     expect(decoded.collisions).toEqual(original.collisions);
     expect(decoded.falls).toEqual(original.falls);
+    expect(decoded.attr).toEqual(original.attr);
   });
 
   it("preserves quaternion w=0 (180° rotation) through encode/decode", () => {

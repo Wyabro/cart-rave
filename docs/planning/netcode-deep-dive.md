@@ -38,27 +38,14 @@ IDs are stable for STATUS / commits. Severity is multiplayer player-facing impac
 
 ### NET-CLK-1 — One EWMA, three clocks
 
+**Status:** **FIXED** (2026-07-12) — dual EWMA (`partyClock` / `hostClock` in `netcode.js`).
+Party samples from WS `serverNowMs` (hello/slots/round/gameStart + keepalive ack);
+host samples from P2P `tHost` only. `gameStart` prefers same-message
+`startsAtMs − serverNowMs` delta; HUD/interp use `getHostClockOffsetMs()`.
+
 **Severity:** Critical  
-**Where:** `src/netcode.js` `updateServerClockOffset`, `handleRemoteHostState`; `src/main.js`
-`onGameStartHandler` (~`startsAtLocalMs`)
-
-**What:** `updateServerClockOffset` is only fed **host `tHost`** from P2P snapshots — never
-Party `serverNowMs` from hello / `gameStart` / keepalive. At `gameStart`, offset is usually
-**0**, so:
-
-```text
-startsAtLocalMs = serverStartsAtMs + getServerClockOffsetMs()  // ≈ raw Worker time
-```
-
-Host then stamps `startedAtMs` and ends the round with pure local `getRoundClockNowMs()`.
-HUD uses `adjustedNow = local − offset`, which later latches to **host** time mid-round.
-
-**Player sees:** countdown snap / stretch; HUD remaining fights real timer; round ends
-early/late by machine skew.
-
-**Fix direction:** Split **Party offset** (hello/keepalive `serverNowMs`) vs **host offset**
-(`tHost`). Never one EWMA. Convert `startsAtMs` with Party offset only; drive interp with host
-offset only.
+**Where:** `src/netcode.js` dual clock state; `src/main.js` `onGameStartHandler`;
+`src/hud.js` `adjustedNow`
 
 ---
 
@@ -84,32 +71,24 @@ host-local and stop age-checking against DO `now`). Widen grace only as a tempor
 
 ### NET-CLK-3 — Hit window / directives mix `Date.now` with round clock
 
+**Status:** **FIXED** (2026-07-12) — `recordHit` / `lastScoringHitAt` / directive schedule and
+Spill Bonus hit windows all use `getRoundClockNowMs()` (same domain as `buildKOEvent` /
+`startedAtMs`).
+
 **Severity:** Medium–High  
-**Where:** `gameStore.recordHit` (`timestamp: Date.now()`); `gameFlow` → `buildKOEvent(...,
-roundNowMs)`; `directiveEngine` `Date.now() - state.roundStartedAtMs`
-
-**Player sees:** rams inside 2.5s window credited as self-falls (or reverse) after NTP /
-sleep / phone clock step; Living Store slots clump, skip, or eat quiet finale.
-
-**Fix direction:** One clock for hit windows + directive schedule (`getRoundClockNowMs` or
-`performance.now()` — not mixed with wall `Date.now()` against round stamps).
+**Where:** `gameStore.js`, `directiveEngine.js`
 
 ---
 
 ### NET-MIG-1 — Promote restores poses, not kill credit
 
+**Status:** **FIXED** (2026-07-12) — host transform JSON tail carries compact `attr`
+`{ h, s, c }` (open hit ages vs `tHost`, last-scoring ages, combo remainMs). Non-hosts cache
+`lastAttributionCache`; `applyHostMigration` restores on promote.
+
 **Severity:** High  
-**Where:** `simulation.js` host-only `recordHit`; promote path `netcode.js` `host_migrated`
-+ `main.js` SD recover; wire `serializeCartToWire` (no combo / no lastHit)
-
-**What:** `lastHitBy` / `lastScoringHitAt` live only in the previous host’s Zustand store.
-Combos are cart fields not on the snapshot.
-
-**Player sees:** mid-round host drop → fall after promote is self-fall / wrong feed; timer
-ties break with empty last-hit map → lowest slot; wrong combo multipliers on new host.
-
-**Fix direction:** Compact attribution snapshot on promote (or document “open hits lost” as
-accepted until then). Optional: include combo tier on wire if needed for feed parity.
+**Where:** `netcode.js` `buildAttributionWire` / `applyAttributionSnapshot`;
+`netcode/binary.js` tail; `gameStore.replaceLastHitBy`
 
 ---
 

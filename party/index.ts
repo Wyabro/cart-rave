@@ -750,8 +750,15 @@ export class CartRaveServer extends Server {
       this.#reapSilentConnections();
     }
 
-    // * Keepalive: lastSeenAtMs above is the whole point; skip type dispatch.
+    // * Keepalive: refresh lastSeenAtMs (above) and echo Party serverNowMs so clients
+    // * can maintain a Party clock offset separate from host tHost (NET-CLK-1).
     if (type === MSG.keepalive) {
+      this.#sendJson(connection, {
+        v: PROTOCOL_VERSION,
+        type: MSG.keepalive,
+        serverNowMs: this.#serverNowMs(),
+        tClient: typeof data?.tClient === "number" ? data.tClient : undefined,
+      });
       return;
     }
 

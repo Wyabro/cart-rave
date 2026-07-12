@@ -1101,7 +1101,8 @@ async function main() {
       const rs = GameState.getRoundState();
       if (rs.phase !== "running" || rs.isSuddenDeath || !rs.startedAtMs) return null;
       const durationMs = CONFIG.round?.durationMs ?? 60000;
-      const adjusted = getRoundClockNowMs() - Netcode.getServerClockOffsetMs();
+      // * startedAtMs is host-stamped after countdown — use host clock offset (NET-CLK-1).
+      const adjusted = getRoundClockNowMs() - Netcode.getHostClockOffsetMs();
       return durationMs - (adjusted - rs.startedAtMs);
     },
   });
@@ -2117,9 +2118,18 @@ async function main() {
       return;
     }
     const serverStartsAtMs = Number(msg?.startsAtMs);
-    const startsAtLocalMs = Number.isFinite(serverStartsAtMs)
-      ? serverStartsAtMs + Netcode.getServerClockOffsetMs()
-      : getRoundClockNowMs() + 3000;
+    const partyServerNowMs = Number(msg?.serverNowMs);
+    // * startsAtMs is Party/Worker time (NET-CLK-1). Prefer same-message delta so the
+    // * countdown does not wait for 3 EWMA samples; fall back to Party offset EWMA.
+    // * Host P2P offset is for snapshot interp / host-stamped startedAtMs only.
+    let startsAtLocalMs;
+    if (Number.isFinite(serverStartsAtMs) && Number.isFinite(partyServerNowMs)) {
+      startsAtLocalMs = getRoundClockNowMs() + (serverStartsAtMs - partyServerNowMs);
+    } else if (Number.isFinite(serverStartsAtMs)) {
+      startsAtLocalMs = serverStartsAtMs + Netcode.getPartyClockOffsetMs();
+    } else {
+      startsAtLocalMs = getRoundClockNowMs() + 3000;
+    }
     if (Netcode.getIsHost()) {
       startCountdown(startsAtLocalMs);
     } else if (GameState.getRoundState().phase !== "running") {
@@ -3782,7 +3792,7 @@ async function main() {
       recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
     }
 
-    const offset = Netcode.getServerClockOffsetMs();
+    const offset = Netcode.getHostClockOffsetMs();
     const syncedNow = (offset && !Number.isNaN(offset)) ? (now - offset) : now;
 
     /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);

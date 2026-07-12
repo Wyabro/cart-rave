@@ -17,7 +17,7 @@ import { updateBoostRing } from "./touchControls.js";
 import { clamp, clampInt } from "./utils.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
-import { getConnectionState, getHostId, getNetSlots, getServerClockOffsetMs } from "./netcode.js";
+import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots } from "./netcode.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
@@ -202,11 +202,12 @@ let _hudTimerFillHalfPct = -1;
 
 
 /**
- * Round-clock now adjusted by the server/host clock offset sample.
- * Same domain as `startedAtMs` writers (getRoundClockNowMs / server startsAtMs + offset).
+ * Round-clock now adjusted by the host (P2P) clock offset.
+ * Same domain as host-stamped `startedAtMs` (getRoundClockNowMs on the host).
+ * Party offset is only for converting Worker gameStart startsAtMs (NET-CLK-1).
  */
 function adjustedNow() {
-  return getRoundClockNowMs() - getServerClockOffsetMs();
+  return getRoundClockNowMs() - getHostClockOffsetMs();
 }
 
 function setHudSuppressed(suppressed) {

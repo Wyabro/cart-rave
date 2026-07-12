@@ -1,5 +1,6 @@
 // gameStore.js — Vanilla Zustand store for match & round lifecycle state.
 import { createStore } from "zustand/vanilla";
+import { getRoundClockNowMs } from "../roundClock.js";
 
 export const RoundPhase = {
   LOBBY: "lobby",
@@ -34,7 +35,8 @@ export const gameStore = createStore((set, get) => ({
   setRoundPhase: (phase) => set({ roundPhase: phase }),
 
   startRunning: () => {
-    const now = Date.now();
+    // * Round-clock domain (same as host_round startedAtMs / hit timestamps) — not Date.now().
+    const now = getRoundClockNowMs();
     set({
       roundPhase: RoundPhase.RUNNING,
       roundStartedAtMs: now,
@@ -51,7 +53,7 @@ export const gameStore = createStore((set, get) => ({
   },
 
   startCountdown: () => {
-    const now = Date.now();
+    const now = getRoundClockNowMs();
     set({
       roundPhase: RoundPhase.COUNTDOWN,
       roundCountdownStartedAtMs: now,
@@ -85,7 +87,7 @@ export const gameStore = createStore((set, get) => ({
     let endedSuddenDeath = false;
 
     if (points > 0) {
-      const currentHits = { ...state.lastScoringHitAt, [slotIndex]: Date.now() };
+      const currentHits = { ...state.lastScoringHitAt, [slotIndex]: getRoundClockNowMs() };
       updates.lastScoringHitAt = currentHits;
 
       if (state.isSuddenDeath && state.suddenDeathWinCallback && !suppressSuddenDeathWin) {
@@ -105,9 +107,33 @@ export const gameStore = createStore((set, get) => ({
       wasCritical,
       impactSpeed,
       fromPodium,
-      timestamp: Date.now(),
+      // * Same domain as buildKOEvent(nowMs) / directive hit windows (NET-CLK-3).
+      timestamp: getRoundClockNowMs(),
     });
     set({ lastHitBy: map });
+  },
+
+  /**
+   * Host-migration restore: replace open hit attribution with wire ages applied to local now.
+   * @param {Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, fromPodium?: boolean, timestamp: number }>} map
+   */
+  replaceLastHitBy: (map) => {
+    set({ lastHitBy: map instanceof Map ? map : new Map() });
+  },
+
+  /**
+   * Host-migration restore for timer-tiebreak stamps (round-clock domain).
+   * @param {Record<number, number>} hits
+   */
+  setLastScoringHitAt: (hits) => {
+    set({
+      lastScoringHitAt: {
+        0: Number(hits?.[0]) || 0,
+        1: Number(hits?.[1]) || 0,
+        2: Number(hits?.[2]) || 0,
+        3: Number(hits?.[3]) || 0,
+      },
+    });
   },
 
   setRoundScores: (scores) => {

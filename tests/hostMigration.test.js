@@ -18,6 +18,7 @@ import {
   getHostMigrationFreezeUntilMs,
   getPendingInputs,
 } from "../src/netcode.js";
+import * as GameState from "../src/gameState.js";
 import { encodeHostStateSnapshot } from "../src/netcode/binary.js";
 
 // --- Server: promote-oldest selection --------------------------------------------------
@@ -186,5 +187,35 @@ describe("applyHostMigration (client authority handoff)", () => {
     expect(() => hooks.applyHostMigration({})).not.toThrow();
     expect(getHostId()).toBeNull();
     expect(getIsHost()).toBe(false);
+  });
+
+  it("restores open kill credit from the last attribution cache on promote (NET-MIG-1)", () => {
+    hooks.setHostStateForTest({
+      youConnId: "me",
+      netSlots: [
+        { kind: "human", connId: "me", name: "ME" },
+        { kind: "human", connId: "peer", name: "PEER" },
+      ],
+    });
+    hooks.setHostIdForTest("oldHost");
+    // * Compact wire ages: victim 1 hit by 0, 400ms ago, critical, from podium.
+    hooks.setLastAttributionCache({
+      h: [[1, 0, 1, 12.5, 1, 400]],
+      s: [0, 0, 0, 0],
+      c: [],
+    });
+
+    hooks.applyHostMigration({ hostId: "me" });
+
+    expect(getIsHost()).toBe(true);
+    const hits = GameState.getLastHitBy();
+    const hit = hits.get(1);
+    expect(hit).toBeTruthy();
+    expect(hit.attackerSlotIndex).toBe(0);
+    expect(hit.wasCritical).toBe(true);
+    expect(hit.fromPodium).toBe(true);
+    expect(hit.impactSpeed).toBeCloseTo(12.5, 5);
+    // * Re-anchored to local now: age ≈ 400ms.
+    expect(Math.abs((performance.timeOrigin + performance.now()) - hit.timestamp - 400)).toBeLessThan(50);
   });
 });

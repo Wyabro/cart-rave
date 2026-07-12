@@ -185,3 +185,23 @@ export function setLocalCombo(tier, expiryMs) {
 export function getLastHitBy() {
   return gameStore.getState().lastHitBy;
 }
+
+/**
+ * Replace open hit attribution (host-migration restore).
+ * @param {Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, fromPodium?: boolean, timestamp: number }>} map
+ */
+export function replaceLastHitBy(map) {
+  gameStore.getState().replaceLastHitBy(map);
+}
+
+/** @returns {Record<number, number>} last scoring hit stamps (round-clock domain). */
+export function getLastScoringHitAt() {
+  return { ...gameStore.getState().lastScoringHitAt };
+}
+
+/**
+ * @param {Record<number, number>} hits
+ */
+export function setLastScoringHitAt(hits) {
+  gameStore.getState().setLastScoringHitAt(hits);
+}

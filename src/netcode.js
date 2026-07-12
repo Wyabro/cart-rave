@@ -80,13 +80,27 @@ let authoritativeRoomLevelId = null;
 let hostSeq = 0;
 let inputSeq = 0;
 let hostEpoch = 0;
-let serverClockOffsetMs = 0;
-let serverClockOffsetSamples = 0;
-let serverClockSamples = [];
-let clockResyncDueAtMs = 0;
-let clockResyncSamples = [];
+
+/**
+ * Dual clock offsets (NET-CLK-1).
+ * - Party offset: local round-clock − Party `serverNowMs` (hello / gameStart / keepalive / round).
+ *   Used only to convert Worker lifecycle stamps (startsAtMs) into local round-clock.
+ * - Host offset: local round-clock − host `tHost` (P2P snapshots).
+ *   Used for snapshot interpolation and HUD remaining vs host-stamped startedAtMs.
+ * Never feed both remotes into one EWMA — that is the countdown snap / timer fight bug.
+ */
+/** @type {{ offsetMs: number, samples: number, bootstrap: number[], resyncDueAtMs: number, resyncSamples: number[] }} */
+const partyClock = { offsetMs: 0, samples: 0, bootstrap: [], resyncDueAtMs: 0, resyncSamples: [] };
+/** @type {{ offsetMs: number, samples: number, bootstrap: number[], resyncDueAtMs: number, resyncSamples: number[] }} */
+const hostClock = { offsetMs: 0, samples: 0, bootstrap: [], resyncDueAtMs: 0, resyncSamples: [] };
 
 let lastCartsCache = null;
+/**
+ * Latest compact kill-credit / combo snapshot from the host transform tail (NET-MIG-1).
+ * Non-hosts cache this every frame; a promoted host restores open hits + combos from it.
+ * @type {{ h?: unknown[], s?: number[], c?: unknown[] } | null}
+ */
+let lastAttributionCache = null;
 let netStateBuffer = [];
 
 let remoteInputsByConnId = new Map();
@@ -402,7 +416,12 @@ export function resetClientPredictionState() {
   resetReconciliationState();
 }
 export function getHostMigrationFreezeUntilMs() { return hostMigrationFreezeUntilMs; }
-export function getServerClockOffsetMs() { return serverClockOffsetMs; }
+/** Host (P2P) clock offset — local − tHost. Prefer {@link getHostClockOffsetMs}. */
+export function getServerClockOffsetMs() { return hostClock.offsetMs; }
+/** Host (sim peer) clock offset: local round-clock − host tHost. */
+export function getHostClockOffsetMs() { return hostClock.offsetMs; }
+/** Party (Worker) clock offset: local round-clock − Party serverNowMs. */
+export function getPartyClockOffsetMs() { return partyClock.offsetMs; }
 export function getSkipNextPhysicsStep() { return skipNextPhysicsStep; }
 export function setSkipNextPhysicsStep(val) { skipNextPhysicsStep = val; }
 export function getPartySocket() { return partySocket; }
@@ -447,9 +466,9 @@ export function shouldUseClientPrediction() {
 
 // === INTERPOLATION & REMOTE CARTS ===
 
-/** Server clock time used for interpolating authoritative snapshots on non-host clients. */
+/** Host-clock time used for interpolating authoritative snapshots on non-host clients. */
 function getInterpTargetServerNowMs() {
-  return getMonotonicNow() - serverClockOffsetMs - CONFIG.net.interpBufferMs;
+  return getMonotonicNow() - hostClock.offsetMs - CONFIG.net.interpBufferMs;
 }
 
 function pruneNetStateBufferForEpoch() {
@@ -1029,11 +1048,8 @@ export function disconnectPartySession() {
   hostSeq = 0;
   inputSeq = 0;
   hostEpoch += 1;
-  serverClockOffsetMs = 0;
-  serverClockOffsetSamples = 0;
-  serverClockSamples = [];
-  clockResyncDueAtMs = 0;
-  clockResyncSamples = [];
+  resetClockState(partyClock);
+  resetClockState(hostClock);
   hostMigrationFreezeUntilMs = 0;
   skipNextPhysicsStep = false;
 
@@ -1042,6 +1058,7 @@ export function disconnectPartySession() {
   lastSlotsServerMs = 0;
   netStateBuffer = [];
   lastCartsCache = null;
+  lastAttributionCache = null;
   remoteInputsByConnId = new Map();
   remoteInputQueuesByConnId = new Map();
   remoteNitroLatchedByConnId = new Map();
@@ -1123,14 +1140,16 @@ export function startHostSendLoop() {
     // * Read the store instead of localStorage — this fires at hostSendHz (~40Hz) and
     // * settingsStore.selectedLevelId is already kept in sync with the persisted level
     // * (see cart-rave-menu.js persistLevel / adoptAuthoritativeRoomLevel below).
+    // * tHost drives hostClock only (NET-CLK-1) — never the Party offset EWMA.
     const currentLevelId = settingsStore.getState().selectedLevelId || "classicRecord";
+    const tHost = getMonotonicNow();
     const payload = {
       type: MSG.hostTransform,
       seq: hostSeq,
       levelId: currentLevelId,
       // * Host monotonic clock stamp; non-host clients use it to drive snapshot
-      // * interpolation and estimate the host<->client clock offset.
-      tHost: getMonotonicNow(),
+      // * interpolation and estimate the host<->client clock offset (NET-CLK-1).
+      tHost,
       carts,
     };
     if (collisions.length > 0) {
@@ -1144,6 +1163,11 @@ export function startHostSendLoop() {
     const dir = getDirectiveWireState();
     if (dir) {
       payload.dir = dir;
+    }
+    // * Open kill credit + combos for host migration (NET-MIG-1) — ages vs tHost.
+    const attr = buildAttributionWire(tHost);
+    if (attr) {
+      payload.attr = attr;
     }
     const binaryPayload = encodeHostStateSnapshot(payload);
     P2P.sendToAll(binaryPayload);
@@ -1370,6 +1394,11 @@ function applyHostMigration(msg) {
   if (nextIsHost && lastCartsCache) {
     applyCartsSnapshotToBodies(lastCartsCache);
   }
+  // * Restore open kill credit / combos from the last host snapshot tail (NET-MIG-1).
+  // * Poses alone leave lastHitBy empty → post-promote falls mis-credit as self.
+  if (nextIsHost && lastAttributionCache) {
+    applyAttributionSnapshot(lastAttributionCache);
+  }
   clearHostCollisionBatch();
   remoteInputsByConnId.clear();
   remoteInputQueuesByConnId.clear();
@@ -1432,11 +1461,9 @@ export function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
   _suppressRetry = false;
   callbacks.setLocalColorPicked(false);
-  serverClockOffsetMs = 0;
-  serverClockOffsetSamples = 0;
-  serverClockSamples = [];
-  clockResyncDueAtMs = 0;
-  clockResyncSamples = [];
+  resetClockState(partyClock);
+  resetClockState(hostClock);
+  lastAttributionCache = null;
   let clientId = localStorage.getItem("cartRaveClientId");
   if (!clientId) {
     try {
@@ -1603,6 +1630,14 @@ export function initNetcode(roomOverride) {
 
     const type = msg.type;
     const menuVisible = callbacks.getMenuVisible();
+
+    // * Party clock samples from any control-plane stamp (NET-CLK-1) — never from host tHost.
+    maybeSamplePartyClock(msg);
+
+    if (type === MSG.keepalive) {
+      // * Server keepalive ack only carries party time for offset; no other work.
+      return;
+    }
 
     if (type === MSG.turnCredentials) {
       P2P.setTurnServers(msg.servers);
@@ -1993,7 +2028,7 @@ function applyHostSpawnSnapshot(msg) {
     applyCartsSnapshotToBodies(carts);
     const serverNowMs = typeof msg.serverNowMs === "number" && Number.isFinite(msg.serverNowMs)
       ? msg.serverNowMs
-      : tHost + serverClockOffsetMs;
+      : tHost + hostClock.offsetMs;
     bufferAuthoritativeState(serverNowMs, seq, carts, hostEpoch);
   }
 }
@@ -2052,36 +2087,195 @@ export function sendP2PEvent(payload) {
   P2P.sendToAll(payload);
 }
 
-function updateServerClockOffset(serverNowMs, nowMs = getMonotonicNow()) {
-  if (typeof serverNowMs !== "number") return;
-  const sample = nowMs - serverNowMs;
-  if (serverClockOffsetSamples < 3) {
+/**
+ * @param {{ offsetMs: number, samples: number, bootstrap: number[], resyncDueAtMs: number, resyncSamples: number[] }} clock
+ */
+function resetClockState(clock) {
+  clock.offsetMs = 0;
+  clock.samples = 0;
+  clock.bootstrap = [];
+  clock.resyncDueAtMs = 0;
+  clock.resyncSamples = [];
+}
+
+/**
+ * EWMA / 3-sample median clock offset estimator (shared by Party and host clocks).
+ * @param {{ offsetMs: number, samples: number, bootstrap: number[], resyncDueAtMs: number, resyncSamples: number[] }} clock
+ * @param {number} remoteNowMs Absolute ms from the remote domain
+ * @param {number} [nowMs=getMonotonicNow()] Local round-clock now
+ */
+function updateClockOffset(clock, remoteNowMs, nowMs = getMonotonicNow()) {
+  if (typeof remoteNowMs !== "number" || !Number.isFinite(remoteNowMs)) return;
+  const sample = nowMs - remoteNowMs;
+  if (clock.samples < 3) {
     // * Collect the first 3 samples and use their median as the baseline.
     // * A single bad first sample would otherwise poison the EWMA forever.
-    serverClockSamples.push(sample);
-    serverClockOffsetSamples += 1;
-    if (serverClockOffsetSamples === 3) {
-      const sorted = [...serverClockSamples].sort((a, b) => a - b);
-      serverClockOffsetMs = sorted[1]; // median of 3
-      serverClockSamples = []; // release the array
-      clockResyncDueAtMs = nowMs + CONFIG.net.clockResyncIntervalMs;
+    // * Provisional offset on sample 1 so gameStart conversion works before median latches.
+    clock.bootstrap.push(sample);
+    clock.samples += 1;
+    if (clock.samples === 1) clock.offsetMs = sample;
+    if (clock.samples === 3) {
+      const sorted = [...clock.bootstrap].sort((a, b) => a - b);
+      clock.offsetMs = sorted[1]; // median of 3
+      clock.bootstrap = [];
+      clock.resyncDueAtMs = nowMs + CONFIG.net.clockResyncIntervalMs;
     }
-  } else if (clockResyncDueAtMs > 0 && nowMs >= clockResyncDueAtMs) {
+  } else if (clock.resyncDueAtMs > 0 && nowMs >= clock.resyncDueAtMs) {
     // * Periodic re-bootstrap: the EWMA below rejects >500ms outliers, so a slowly
     // * drifting client clock can pull the offset unbounded over a long session.
     // * Every resync interval, take a fresh 3-sample median and blend it 20% into
     // * the running estimate — enough to arrest drift without a visible timer jump.
-    clockResyncSamples.push(sample);
-    if (clockResyncSamples.length >= 3) {
-      const sorted = [...clockResyncSamples].sort((a, b) => a - b);
-      serverClockOffsetMs = serverClockOffsetMs * 0.8 + sorted[1] * 0.2;
-      clockResyncSamples = [];
-      clockResyncDueAtMs = nowMs + CONFIG.net.clockResyncIntervalMs;
+    clock.resyncSamples.push(sample);
+    if (clock.resyncSamples.length >= 3) {
+      const sorted = [...clock.resyncSamples].sort((a, b) => a - b);
+      clock.offsetMs = clock.offsetMs * 0.8 + sorted[1] * 0.2;
+      clock.resyncSamples = [];
+      clock.resyncDueAtMs = nowMs + CONFIG.net.clockResyncIntervalMs;
     }
   } else {
-    const isClockOutlier = Math.abs(sample - serverClockOffsetMs) > 500;
+    const isClockOutlier = Math.abs(sample - clock.offsetMs) > 500;
     if (!isClockOutlier) {
-      serverClockOffsetMs += (sample - serverClockOffsetMs) * 0.1;
+      clock.offsetMs += (sample - clock.offsetMs) * 0.1;
+    }
+  }
+}
+
+function updatePartyClockOffset(serverNowMs, nowMs = getMonotonicNow()) {
+  updateClockOffset(partyClock, serverNowMs, nowMs);
+}
+
+function updateHostClockOffset(tHost, nowMs = getMonotonicNow()) {
+  updateClockOffset(hostClock, tHost, nowMs);
+}
+
+/** @deprecated Use updateHostClockOffset — kept as test-hook name for host clock. */
+function updateServerClockOffset(serverNowMs, nowMs = getMonotonicNow()) {
+  updateHostClockOffset(serverNowMs, nowMs);
+}
+
+/**
+ * Sample Party serverNowMs from any WS control-plane message that carries it.
+ * @param {unknown} msg
+ */
+function maybeSamplePartyClock(msg) {
+  if (!msg || typeof msg !== "object") return;
+  const serverNowMs = /** @type {{ serverNowMs?: unknown }} */ (msg).serverNowMs;
+  if (typeof serverNowMs === "number" && Number.isFinite(serverNowMs)) {
+    updatePartyClockOffset(serverNowMs);
+  }
+}
+
+/**
+ * Compact kill-credit / combo tail for host migration (NET-MIG-1).
+ * Ages are relative to host tHost so a new host can re-anchor to local now.
+ * @param {number} tHost
+ * @returns {{ h: number[][], s: number[], c: number[][] } | null}
+ */
+function buildAttributionWire(tHost) {
+  const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 3000;
+  const hits = GameState.getLastHitBy();
+  /** @type {number[][]} */
+  const h = [];
+  if (hits && typeof hits.forEach === "function") {
+    hits.forEach((hit, victimSlot) => {
+      if (!hit) return;
+      const ageMs = tHost - (hit.timestamp || 0);
+      if (!(ageMs >= 0) || ageMs > hitWindowMs) return;
+      h.push([
+        Number(victimSlot) | 0,
+        Number(hit.attackerSlotIndex) | 0,
+        hit.wasCritical ? 1 : 0,
+        Math.round((Number(hit.impactSpeed) || 0) * 10) / 10,
+        hit.fromPodium ? 1 : 0,
+        Math.round(ageMs),
+      ]);
+    });
+  }
+
+  const scoreAt = GameState.getLastScoringHitAt?.() ?? {};
+  /** @type {number[]} */
+  const s = [0, 1, 2, 3].map((i) => {
+    const ts = Number(scoreAt[i]) || 0;
+    if (!(ts > 0)) return 0;
+    return Math.max(0, Math.round(tHost - ts));
+  });
+
+  /** @type {number[][]} */
+  const c = [];
+  const allCarts = getAllCarts();
+  const nowPerf = performance.now();
+  if (allCarts) {
+    for (let i = 0; i < allCarts.length; i += 1) {
+      const cart = allCarts[i];
+      const tier = cart?.comboTier | 0;
+      if (tier <= 0) continue;
+      const remainMs = Math.max(0, Math.round((cart.comboExpiryMs || 0) - nowPerf));
+      if (remainMs <= 0) continue;
+      c.push([i, tier, remainMs]);
+    }
+  }
+
+  if (h.length === 0 && c.length === 0 && s.every((v) => v === 0)) return null;
+  return { h, s, c };
+}
+
+/**
+ * Restore open hits / scoring stamps / combos after host promotion.
+ * @param {{ h?: unknown[], s?: unknown[], c?: unknown[] } | null} attr
+ */
+function applyAttributionSnapshot(attr) {
+  if (!attr || typeof attr !== "object") return;
+  const now = getMonotonicNow();
+  const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 3000;
+
+  if (Array.isArray(attr.h)) {
+    const map = new Map();
+    for (const row of attr.h) {
+      if (!Array.isArray(row) || row.length < 6) continue;
+      const victim = Number(row[0]);
+      const attacker = Number(row[1]);
+      const ageMs = Number(row[5]);
+      if (!Number.isFinite(victim) || victim < 0 || victim > 3) continue;
+      if (!Number.isFinite(attacker) || attacker < 0 || attacker > 3) continue;
+      if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > hitWindowMs) continue;
+      map.set(victim | 0, {
+        attackerSlotIndex: attacker | 0,
+        wasCritical: Boolean(row[2]),
+        impactSpeed: Number(row[3]) || 0,
+        fromPodium: Boolean(row[4]),
+        timestamp: now - ageMs,
+      });
+    }
+    GameState.replaceLastHitBy(map);
+  }
+
+  if (Array.isArray(attr.s) && attr.s.length >= 4) {
+    /** @type {Record<number, number>} */
+    const hits = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    for (let i = 0; i < 4; i += 1) {
+      const age = Number(attr.s[i]) || 0;
+      hits[i] = age > 0 ? now - age : 0;
+    }
+    GameState.setLastScoringHitAt(hits);
+  }
+
+  if (Array.isArray(attr.c)) {
+    const allCarts = getAllCarts();
+    const nowPerf = performance.now();
+    const maxTier = CONFIG.combo?.maxTier ?? 3;
+    for (const row of attr.c) {
+      if (!Array.isArray(row) || row.length < 3) continue;
+      const slot = Number(row[0]) | 0;
+      const tier = Math.min(maxTier, Math.max(0, Number(row[1]) | 0));
+      const remainMs = Math.max(0, Number(row[2]) || 0);
+      const cart = allCarts?.[slot];
+      if (!cart || tier <= 0 || remainMs <= 0) continue;
+      cart.comboTier = tier;
+      cart.comboExpiryMs = nowPerf + remainMs;
+      const localIdx = youConnId ? strictSlotIndexForConn(youConnId) : -1;
+      if (slot === localIdx) {
+        GameState.setLocalCombo(tier, cart.comboExpiryMs);
+      }
     }
   }
 }
@@ -2098,16 +2292,14 @@ export const __netcodeTestHooks = {
   resetNetState: () => {
     netStateBuffer = [];
     lastCartsCache = null;
+    lastAttributionCache = null;
     isHost = false;
     hostId = null;
     youConnId = null;
     netSlots = [];
     peerReconnectNotBeforeMs.clear();
-    serverClockOffsetMs = 0;
-    serverClockOffsetSamples = 0;
-    serverClockSamples = [];
-    clockResyncDueAtMs = 0;
-    clockResyncSamples = [];
+    resetClockState(partyClock);
+    resetClockState(hostClock);
     hostLastProcessedInputSeq = new Map();
     remoteInputQueuesByConnId = new Map();
     remoteInputsByConnId = new Map();
@@ -2118,9 +2310,16 @@ export const __netcodeTestHooks = {
   getBufferLength: () => netStateBuffer.length,
   findSnapshotPair: (t) => findSnapshotPair(t),
   pruneConsumedSnapshots: (beforeIndex) => pruneConsumedSnapshots(beforeIndex),
-  updateServerClockOffset: (serverNowMs, nowMs) => updateServerClockOffset(serverNowMs, nowMs),
-  getServerClockOffset: () => serverClockOffsetMs,
-  getClockResyncDueAtMs: () => clockResyncDueAtMs,
+  updateServerClockOffset: (serverNowMs, nowMs) => updateHostClockOffset(serverNowMs, nowMs),
+  updatePartyClockOffset: (serverNowMs, nowMs) => updatePartyClockOffset(serverNowMs, nowMs),
+  getServerClockOffset: () => hostClock.offsetMs,
+  getHostClockOffset: () => hostClock.offsetMs,
+  getPartyClockOffset: () => partyClock.offsetMs,
+  getClockResyncDueAtMs: () => hostClock.resyncDueAtMs,
+  getLastAttributionCache: () => lastAttributionCache,
+  setLastAttributionCache: (attr) => { lastAttributionCache = attr; },
+  applyAttributionSnapshot: (attr) => applyAttributionSnapshot(attr),
+  buildAttributionWire: (tHost) => buildAttributionWire(tHost),
   // * Drives the exact function wired as P2P onState — proves raw binary/JSON
   // * frames flow through decode → dispatch → buffer without a live DataChannel.
   dispatchP2P: (data, fromConnId) => handleP2PMessage(data, fromConnId),
@@ -2317,9 +2516,13 @@ function handleRemoteHostState(state) {
   }
   if (!isHost) {
     const hostTime = typeof state.tHost === "number" ? state.tHost : (typeof state.serverNowMs === "number" ? state.serverNowMs : getMonotonicNow());
-    updateServerClockOffset(hostTime);
+    updateHostClockOffset(hostTime);
     const seq = typeof state.seq === "number" ? state.seq : -1;
     bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
+    // * Cache kill-credit / combo ages for host promotion (NET-MIG-1).
+    if (state.attr && typeof state.attr === "object") {
+      lastAttributionCache = state.attr;
+    }
     if (Array.isArray(state.collisions)) {
       for (const ev of state.collisions) {
         replayHostCollisionFx(ev, callbacks);

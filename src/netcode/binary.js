@@ -41,6 +41,8 @@ export function encodeHostStateSnapshot(state) {
   // * so a client that missed the one-shot MSG.directive (unreliable channel) or
   // * joined mid-window self-heals from the next 40Hz frame.
   if (state.dir) tailData.dir = state.dir;
+  // * Compact kill-credit / combo ages for host migration (NET-MIG-1).
+  if (state.attr) tailData.attr = state.attr;
   const jsonString = JSON.stringify(tailData);
   const jsonBytes = new TextEncoder().encode(jsonString);
   
@@ -181,13 +183,14 @@ export function decodeHostStateSnapshot(buffer) {
     });
   }
   
-  // Decode JSON tail (collisions/falls/dir). The tail rides the unreliable P2P DataChannel
-  // from a semi-trusted host and is parsed every frame, so it is size- and count-capped
-  // (see p2pLimits). An over-limit or malformed tail is dropped; the cart transforms above
-  // are fixed-size and always kept, so the sim still advances.
+  // Decode JSON tail (collisions/falls/dir/attr). The tail rides the unreliable P2P
+  // DataChannel from a semi-trusted host and is parsed every frame, so it is size- and
+  // count-capped (see p2pLimits). An over-limit or malformed tail is dropped; the cart
+  // transforms above are fixed-size and always kept, so the sim still advances.
   let collisions = [];
   let falls = [];
   let dir = null;
+  let attr = null;
   if (offset < buffer.byteLength) {
     const tailBytes = new Uint8Array(buffer, offset);
     if (tailBytes.byteLength > MAX_SNAPSHOT_TAIL_BYTES) {
@@ -201,6 +204,7 @@ export function decodeHostStateSnapshot(buffer) {
           : [];
         falls = Array.isArray(parsed.falls) ? parsed.falls.slice(0, MAX_TAIL_FALLS) : [];
         dir = parsed.dir || null;
+        attr = parsed.attr && typeof parsed.attr === "object" ? parsed.attr : null;
       } catch (e) {
         console.error("[binary] Failed to parse JSON tail", e);
       }
@@ -216,6 +220,7 @@ export function decodeHostStateSnapshot(buffer) {
     carts,
     collisions,
     falls,
-    dir
+    dir,
+    attr,
   };
 }

@@ -19,16 +19,16 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Pri | Item | Notes |
 |-----|------|-------|
 | **Critical** | **NET-1 — two-browser full-round runtime smoke** | The V2 gate. Join, color pick, ready, full round, SD overtime, podium, play again, disconnect/rejoin + feel/HUD parity. Run together with the [Living Store](./living-store-test-plan.md) and [host migration](./host-migration-test-plan.md) checklists. Keep every window visible (hidden tab freezes rAF); use `127.0.0.1`. |
-| **Critical** | **NET-CLK-1 — split Party vs host clock offsets** | One EWMA feeds three clock domains → countdown snap, HUD fighting the timer, skewed round end. Fix direction in [netcode-deep-dive.md](./netcode-deep-dive.md). |
 | **Critical** | **NET-MIG-2 — ghost exorcism can leave `#hostId === null`** | Solo refresh / sole-human edge wedges the room. |
 | High | VFX-1 endgame: promote display-referred bloom to default | Root cause fixed (D-VFX-2); Storerooms shipped (`98317c1`). Needs Classic/Sundial look check + threshold/strength tune with Wyatt, then delete the `?rtmode` fork paths. |
 | High | Push the stabilization commits | `b9e8fb8`..`3754949` sit unpushed pending playtest. Remote is authoritative — nothing above them counts as done. |
 | High | NET-CLK-2 — podium gate mixes host `startedAtMs` with DO `now` | Server can reject legitimate `host_round`. |
-| High | NET-MIG-1 — promote restores poses, not kill credit | Post-migration hits misattribute. |
 | High | NET-BUF-1 — spawn buffer uses DO time; live snapshots use host time | Interp buffer timebase mismatch at round start. |
 | High | NET-MIG-3 — freeze window ends before the new host's DataChannel is up | Ghost colliders / rubber-band on migration; pair with the live migration test plan. |
 | Medium | NET-PRES-1 — unreliable falls/collisions: loss and duplicate fan-out | Duplicate reactor fire is the worse half. |
-| Medium | NET-CLK-3 — hit window / directives mix `Date.now` with round clock | |
+| ✅ | NET-CLK-1 — split Party vs host clock offsets | Shipped 2026-07-12 — dual EWMA + gameStart same-message delta. |
+| ✅ | NET-CLK-3 — hit window / directives use round clock | Shipped 2026-07-12 — `getRoundClockNowMs` for hits + directives. |
+| ✅ | NET-MIG-1 — promote restores kill credit | Shipped 2026-07-12 — snapshot `attr` tail + promote restore. |
 | Medium | NET-SD-1 — SD can untie on score while the flag stays true | |
 | Medium | Deeper server-authoritative logic | Host can fabricate final scores; decide what the Worker must validate. Prerequisite for the leaderboard. |
 | Medium | `structuredClone` → flat serializer in `party/index.ts` | Deliberate deferral: only after NET-1 + profiling data (ROADMAP Phase 5). |

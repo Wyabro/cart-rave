@@ -3,7 +3,7 @@
 **What is this?** The first document anyone (human or agent) reads: project health, what's
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
-project stands. **Is it current?** Last verified 2026-07-12 (`npm run qa` green: 285 tests /
+project stands. **Is it current?** Last verified 2026-07-12 (`npm run qa` green: 287 tests /
 28 files, typecheck + knip clean).
 
 > **Rehydration protocol** (agent or human resuming cold):
@@ -26,15 +26,17 @@ two-browser smokes) over vibes for graphics and multiplayer gates.
 ## Project health — 2026-07-12
 
 **Green.** All five July production passes plus the stabilization pass are implemented and
-committed; gates are green (285 tests / 28 files, typecheck, knip, build — CI runs the same);
-zero knip ignores. The engine-level black-frame flicker root cause is **found and fixed on
-Storerooms**; the fix awaits a look-check before becoming the default everywhere. The single
-biggest risk to Version 2 is unchanged: **multiplayer has never had its full two-browser
-runtime smoke** — code is hardened and unit-covered, but the live gate is not closed.
+committed; gates are green (287 tests / 28 files, typecheck, knip, build — CI runs the same);
+zero knip ignores. NET-CLK-1 / NET-CLK-3 / NET-MIG-1 landed 2026-07-12 (clock split, round-clock
+hit windows, kill-credit on host promote). The engine-level black-frame flicker root cause is
+**found and fixed on Storerooms**; the fix awaits a look-check before becoming the default
+everywhere. The single biggest risk to Version 2 is unchanged: **multiplayer has never had
+its full two-browser runtime smoke** — code is hardened and unit-covered, but the live gate
+is not closed.
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ 285 tests / 28 files, tsc clean, knip clean (2026-07-12) |
+| Gates (`npm run qa`) | ✅ 287 tests / 28 files, tsc clean, knip clean (2026-07-12) |
 | Unpushed work | ⚠️ 5 commits (`b9e8fb8`..`3754949`: stabilization pass + menu backdrop) — push after playtest |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
@@ -70,7 +72,7 @@ until the queue drains (taste calls may trigger tuning).
 
 1. Drain the playtest queue above → apply taste tuning → **push** the 5 stabilization commits.
 2. Close **NET-1**: two-browser full-round smoke ([ROADMAP](./planning/ROADMAP.md) Phase 4) + [living-store-test-plan.md](./planning/living-store-test-plan.md) + [host-migration-test-plan.md](./planning/host-migration-test-plan.md).
-3. Fix the two **Critical** static netcode hazards before/with the smoke: NET-CLK-1 (clock domains), NET-MIG-2 (null host) — [netcode-deep-dive.md](./planning/netcode-deep-dive.md).
+3. Fix remaining **Critical** static netcode hazard before/with the smoke: NET-MIG-2 (null host) — [netcode-deep-dive.md](./planning/netcode-deep-dive.md). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped 2026-07-12 (unpushed until commit).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 
 ## Open issues (top)

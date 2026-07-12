@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CONFIG } from "../src/config.js";
 import { gameStore } from "../src/stores/gameStore.js";
+import * as roundClock from "../src/roundClock.js";
 import {
   initDirectiveEngine,
   updateDirectiveEngine,
@@ -13,6 +14,8 @@ import {
   getDirectiveKoRewardMultiplier,
   onHostSpill,
 } from "../src/directives/directiveEngine.js";
+
+const { getRoundClockNowMs } = roundClock;
 
 /** Recorder deps with a toggleable host flag. */
 function makeDeps() {
@@ -34,7 +37,8 @@ function makeDeps() {
 function setRound(elapsedMs, extra = {}) {
   gameStore.setState({
     roundPhase: "running",
-    roundStartedAtMs: Date.now() - elapsedMs,
+    // * Same domain as directiveEngine roundElapsed (getRoundClockNowMs, NET-CLK-3).
+    roundStartedAtMs: getRoundClockNowMs() - elapsedMs,
     isSuddenDeath: false,
     ...extra,
   });
@@ -129,11 +133,12 @@ describe("slot scheduling", () => {
   });
 
   it("fires all three slots across a full round, one at a time", () => {
-    // * One continuous round: freeze roundStartedAtMs and advance the Date clock, so
-    // * the engine's new-round detection never resets the schedule mid-test.
-    vi.useFakeTimers({ toFake: ["Date"] });
+    // * One continuous round: freeze roundStartedAtMs and advance the round clock, so
+    // * the engine's new-round detection never resets the schedule mid-test (NET-CLK-3).
+    const base = 1_000_000;
+    let roundNow = base;
+    const clockSpy = vi.spyOn(roundClock, "getRoundClockNowMs").mockImplementation(() => roundNow);
     try {
-      const base = Date.now();
       gameStore.setState({
         roundPhase: "running",
         roundStartedAtMs: base,
@@ -143,7 +148,7 @@ describe("slot scheduling", () => {
       updateDirectiveEngine(perf); // build schedule for this round
 
       for (const t of [21000, 56000, 91000]) {
-        vi.setSystemTime(base + t);
+        roundNow = base + t;
         perf += 40000; // any prior window has long expired on the perf clock
         updateDirectiveEngine(perf); // expire previous
         updateDirectiveEngine(perf); // fire this slot
@@ -151,7 +156,7 @@ describe("slot scheduling", () => {
       }
       expect(calls.sent).toHaveLength(3);
     } finally {
-      vi.useRealTimers();
+      clockSpy.mockRestore();
     }
   });
 });
@@ -224,7 +229,7 @@ describe("remote apply + scoring hooks", () => {
     applyRemoteDirective({ id: "spill_bonus", durationMs: 10000 });
     deps.isHost = true;
 
-    lastHitBy.set(2, { attackerSlotIndex: 0, timestamp: Date.now() - 500 });
+    lastHitBy.set(2, { attackerSlotIndex: 0, timestamp: getRoundClockNowMs() - 500 });
     onHostSpill(2);
     expect(calls.scores).toEqual([[0, 1]]);
     expect(calls.spillAwards).toEqual([
@@ -243,20 +248,20 @@ describe("remote apply + scoring hooks", () => {
     );
 
     // Stale hit outside the window: no award.
-    lastHitBy.set(3, { attackerSlotIndex: 1, timestamp: Date.now() - 10000 });
+    lastHitBy.set(3, { attackerSlotIndex: 1, timestamp: getRoundClockNowMs() - 10000 });
     onHostSpill(3);
     expect(calls.scores).toHaveLength(1);
     expect(calls.spillAwards).toHaveLength(1);
 
     // Self-attribution: no award.
-    lastHitBy.set(1, { attackerSlotIndex: 1, timestamp: Date.now() - 100 });
+    lastHitBy.set(1, { attackerSlotIndex: 1, timestamp: getRoundClockNowMs() - 100 });
     onHostSpill(1);
     expect(calls.scores).toHaveLength(1);
     expect(calls.spillAwards).toHaveLength(1);
   });
 
   it("awards nothing while no directive is active", () => {
-    lastHitBy.set(2, { attackerSlotIndex: 0, timestamp: Date.now() });
+    lastHitBy.set(2, { attackerSlotIndex: 0, timestamp: getRoundClockNowMs() });
     onHostSpill(2);
     expect(calls.scores).toHaveLength(0);
     expect(calls.spillAwards).toHaveLength(0);
