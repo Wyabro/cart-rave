@@ -234,6 +234,45 @@ export function playCrowdCheer(intensity = 0.6) {
 }
 
 /**
+ * Grocery-spill clatter (~0.4s): a low cardboard thud plus a scatter of short
+ * mid/high noise "taps" — cans, jars, and produce tumbling out of the cart. The
+ * signature "cart dumps its load" payoff, procedural so it needs no samples.
+ * Non-positional like every other sting; `count` (items spilled) scales density
+ * and level so small spills stay quiet and big ones crash.
+ *
+ * @param {number} [count] Items that spilled (1..12+); drives tap count + level.
+ * @param {number} [intensity] 0..1 ram intensity; adds a touch of level + brightness.
+ */
+export function playGrocerySpill(count = 6, intensity = 0.5) {
+  const p = resolvePlayback();
+  if (!p) return;
+  const { ctx, dest, vol, now } = p;
+  const i = Math.min(Math.max(intensity, 0), 1);
+  const n = Math.min(Math.max(count, 1), 12);
+  // * Small spills noticeably quieter than a full-cart dump.
+  const level = Math.min(0.5 + n / 12, 1);
+  const g = (0.055 + i * 0.05) * level * vol;
+
+  // * Cardboard thud: the bulk of the load hitting the floor.
+  spawnNoise(ctx, dest, "lowpass", 380, 150, 0.18, g * 1.1, now, 0.004, 0.7);
+  spawnTone(ctx, dest, "sine", 150, 70, 0.16, g * 0.5, now, 0.004);
+
+  // * Clatter: staggered short bandpass hits — cans/jars/produce scattering.
+  const taps = Math.min(2 + Math.round(n / 2), 6);
+  for (let t = 0; t < taps; t += 1) {
+    const delay = 0.01 + Math.random() * (0.05 + n * 0.012);
+    const bright = 1400 + Math.random() * 2200;
+    spawnNoise(
+      ctx, dest, "bandpass",
+      bright, bright * 0.5,
+      0.05 + Math.random() * 0.05,
+      g * (0.5 + Math.random() * 0.4),
+      now + delay, 0.002, 3.5,
+    );
+  }
+}
+
+/**
  * Light sparkle up-arpeggio E5→B5→E6 (~0.5s), triangle, for challenge completion.
  */
 export function playChallengeComplete() {

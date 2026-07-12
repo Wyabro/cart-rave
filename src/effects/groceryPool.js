@@ -15,6 +15,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { CONFIG } from "../config.js";
+import { spawnTrashBurst } from "../effects.js";
+import { playGrocerySpill } from "../sfxSynth.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -276,6 +278,23 @@ async function buildPool(scene, world) {
 
     const geometry = sourceMesh.geometry.clone();
     const material = /** @type {THREE.Material} */ (sourceMesh.material).clone();
+
+    // * Readability: give groceries a gentle self-lit glow so they read against the dark neon
+    // * arenas — both in-basket and once spilled — without brightening the scene. Emissive
+    // * follows the albedo (texture map if present, else base color) and stays well under the
+    // * bloom threshold. Applied before the cargoMat clone so both the InstancedMesh (spilled)
+    // * and the cargo-bay meshes inherit it.
+    if (/** @type {any} */ (material).isMeshStandardMaterial) {
+      const std = /** @type {THREE.MeshStandardMaterial} */ (material);
+      if (std.map) {
+        std.emissiveMap = std.map;
+        std.emissive = new THREE.Color(0xffffff);
+      } else {
+        std.emissive = std.color.clone();
+      }
+      std.emissiveIntensity = 0.28;
+      std.needsUpdate = true;
+    }
 
     // * Normalize geometry: text-to-3D models may have arbitrary scale and off-center pivots.
     geometry.computeBoundingBox();
@@ -731,6 +750,16 @@ export function triggerSpill(cartId, cartPosParam, cartQuatParam, cartLinvelPara
     slot.fadeStartMs = now + FADE_DELAY_MS;
 
     spawned += 1;
+  }
+
+  // * Signature spill juice: one supermarket-themed debris burst + procedural clatter per
+  // * spill. Fired here — the sole choke point for host, P2P `MSG.spill` replay, and the
+  // * pending-init replay — so every peer gets identical feedback with no divergence risk.
+  if (spawned > 0) {
+    const linSpeed = Math.hypot(cartLinvel.x, cartLinvel.y, cartLinvel.z);
+    const spillIntensity = Math.min(0.35 + spawned / 10 + linSpeed / 30, 1.2);
+    spawnTrashBurst({ x: cartPos.x, y: cartPos.y, z: cartPos.z }, spillIntensity, "grocery");
+    playGrocerySpill(spawned, spillIntensity);
   }
 }
 

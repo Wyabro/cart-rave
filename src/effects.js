@@ -74,6 +74,11 @@ function disposeObject3D(root) {
 const TRASH_POOL_SIZE = 52;
 const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
 
+/** Supermarket debris tones for grocery spills: paper/receipt whites, produce
+ * green/red/orange, and cardboard brown — reinforces the "cart dumps its
+ * groceries" identity instead of generic neon confetti. */
+const GROCERY_DEBRIS_COLORS = [0xfff4dc, 0xffffff, 0x6ee36e, 0xff5a5a, 0xffb03a, 0xc9924e];
+
 const AMBIENT_PARTICLE_COUNT = 260;
 /** Actual allocated dust count for the active tier (set in initAmbientParticles). */
 let ambientParticleCount = AMBIENT_PARTICLE_COUNT;
@@ -116,6 +121,12 @@ let trashActiveCount = 0;
 
 /** @type {THREE.BoxGeometry | null} */
 let trashGeo = null;
+
+/** @type {THREE.PlaneGeometry | null} Flat "receipt / paper" debris silhouette — flutters as it falls. */
+let trashGeoReceipt = null;
+
+/** @type {THREE.CylinderGeometry | null} Small "can / bottle" debris silhouette. */
+let trashGeoCan = null;
 
 /** @type {THREE.MeshBasicMaterial | null} */
 let trashMat = null;
@@ -2035,7 +2046,12 @@ export function initEffects(scene, options = {}) {
   trashPool = [];
   trashActiveCount = 0;
   trashGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-  trashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+  // * Extra debris silhouettes — shared geometries swapped per-particle at spawn so the
+  // * 52-slot pool gains cart-fragment / receipt / can personality without more particles.
+  trashGeoReceipt = new THREE.PlaneGeometry(0.2, 0.13);
+  trashGeoCan = new THREE.CylinderGeometry(0.06, 0.06, 0.16, 7);
+  // * DoubleSide so the flat receipt reads from both faces while it tumbles.
+  trashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide });
 
   for (let i = 0; i < TRASH_POOL_SIZE; i++) {
     const m = new THREE.Mesh(trashGeo, trashMat.clone());
@@ -2060,7 +2076,7 @@ export function initEffects(scene, options = {}) {
  * Spawns a burst of trash particles at `position`.
  * @param {{ x: number, y: number, z: number }} position World-space origin.
  * @param {number} intensity 0–1+ style intensity scaler.
- * @param {"cart" | "floor" | "edge"} [type] Burst profile.
+ * @param {"cart" | "floor" | "edge" | "grocery"} [type] Burst profile.
  * @param {{ isBoosting?: boolean }} [opts] Optional ram FX modifiers.
  */
 export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
@@ -2076,6 +2092,9 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
       : Math.floor(4 + clampedI * 5);
   } else if (type === "edge") {
     count = Math.floor(6 + clampedI * 10);
+  } else if (type === "grocery") {
+    // * Signature spill poof — scales with how much cargo flew (capped to spare the pool).
+    count = Math.min(Math.floor(9 + clampedI * 14), 30);
   } else {
     const base = fx.particleCountBase ?? 8;
     const perI = fx.particleCountPerIntensity ?? 16;
@@ -2087,6 +2106,7 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
   const sizeMul =
     (0.85 + clampedI * 1.05) *
     (type === "floor" ? (isBackroomsFloor ? 0.52 : 0.65) : 1.0) *
+    (type === "grocery" ? 1.25 : 1.0) *
     (isBoosting && type === "cart" ? 1.22 : 1.0);
   const velScale = (1 + clampedI * 0.45) * (isBoosting && type === "cart" ? 1.18 : 1.0)
     * (isBackroomsFloor ? 0.58 : 1.0);
@@ -2108,6 +2128,9 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
       const colors = [0xff00ff, 0x00ffff, 0xffffff];
       const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
       mat.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+    } else if (type === "grocery") {
+      const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
+      mat.color.setHex(GROCERY_DEBRIS_COLORS[Math.floor(Math.random() * GROCERY_DEBRIS_COLORS.length)]);
     } else {
       const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
       mat.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
@@ -2117,6 +2140,23 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     p.visible = true;
     trashActiveCount += 1;
     p.userData.isDust = isBackroomsFloor;
+    // * Debris silhouette: cart/edge/grocery bursts mix in receipts (paper) + cans for
+    // * supermarket personality; floor dust stays cubes. Paper flutters (see updateTrashParticles).
+    let debrisGeo = /** @type {THREE.BufferGeometry | null} */ (trashGeo);
+    let isPaper = false;
+    if (type !== "floor") {
+      const paperChance = type === "grocery" ? 0.4 : 0.28;
+      const canChance = type === "grocery" ? 0.28 : 0.2;
+      const r = Math.random();
+      if (r < paperChance) {
+        debrisGeo = trashGeoReceipt;
+        isPaper = true;
+      } else if (r < paperChance + canChance) {
+        debrisGeo = trashGeoCan;
+      }
+    }
+    if (p.geometry !== debrisGeo) p.geometry = /** @type {THREE.BufferGeometry} */ (debrisGeo);
+    p.userData.isPaper = isPaper;
     if (type === "floor") {
       const angle = Math.random() * Math.PI * 2;
       if (isBackroomsFloor) {
@@ -2142,6 +2182,13 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
         toCenter.x * (6 + Math.random() * 6) * clampedI * velScale + spreadX,
         2 + Math.random() * 4 * clampedI * velScale,
         toCenter.z * (6 + Math.random() * 6) * clampedI * velScale + spreadZ,
+      );
+    } else if (type === "grocery") {
+      // * Groceries pop up and out of the basket — a constant loft so even light spills read.
+      p.userData.vel.set(
+        (Math.random() - 0.5) * 9 * clampedI * velScale,
+        (5 + Math.random() * 6) * clampedI * velScale + 1.5,
+        (Math.random() - 0.5) * 9 * clampedI * velScale,
       );
     } else {
       p.userData.vel.set(
@@ -2195,7 +2242,14 @@ export function updateTrashParticles(dt) {
     p.position.x += p.userData.vel.x * dt;
     p.position.y += p.userData.vel.y * dt;
     p.position.z += p.userData.vel.z * dt;
-    p.userData.vel.y -= (p.userData.isDust ? 2.2 : 9.8) * dt;
+    if (p.userData.isPaper) {
+      // * Air-braked flutter: bleed horizontal speed + lighter gravity so receipts drift down.
+      p.userData.vel.x -= p.userData.vel.x * 2.6 * dt;
+      p.userData.vel.z -= p.userData.vel.z * 2.6 * dt;
+      p.userData.vel.y -= 4.4 * dt;
+    } else {
+      p.userData.vel.y -= (p.userData.isDust ? 2.2 : 9.8) * dt;
+    }
     p.rotation.x += p.userData.angVel.x * dt;
     p.rotation.y += p.userData.angVel.y * dt;
     p.rotation.z += p.userData.angVel.z * dt;
