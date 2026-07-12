@@ -37,7 +37,7 @@ is not closed.
 | Signal | State |
 |---|---|
 | Gates (`npm run qa`) | ✅ 287 tests / 28 files, tsc clean, knip clean (2026-07-12, post-audit) |
-| Unpushed work | ⚠️ Pre-playtest audit fixes in working tree (7 files, uncommitted — see Last updated). Prior stabilization stack `b9e8fb8`..`3754949` is pushed. |
+| Unpushed work | ✅ None — pre-playtest audit fixes pushed as `91e17a0` (see Last updated). |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
 | Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
@@ -140,7 +140,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-12 — **Pre-playtest production audit** (multi-agent: gameplay/netcode/UI/perf/debris + integration trace). Fixes applied (uncommitted, gates green 287 tests / 28 files, tsc + knip + build OK; solo boot smoke clean):
+2026-07-12 — **Pre-playtest production audit** (multi-agent: gameplay/netcode/UI/perf/debris + integration trace). Fixes applied and pushed (`91e17a0`, gates green 287 tests / 28 files, tsc + knip + build OK; solo boot smoke clean):
 - `gameFlow.js` — SD win no longer un-parks spectators into phantom falls mid-loop (live-phase break in fall loop); last-cart-standing scheduler gated on live running phase (SD podium no longer relabeled "LAST CART STANDING" with stray slow-mo).
 - `party/index.ts` — **NET-MIG-2 fixed**: `#ensureLiveHost()` after ghost exorcism (sole-human refresh no longer strands the room hostless for ~5–10s).
 - `netcode.js` — NET-BUF-1: reliable hostSpawn snapshot now buffered in host `tHost` domain (was Party `serverNowMs` — mispaired interp at GO/rematch); `.catch` on fire-and-forget P2P offers.
