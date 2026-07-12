@@ -10,6 +10,7 @@ import { __netcodeTestHooks as hooks } from "../src/netcode.js";
 import { MSG } from "../shared/protocol.js";
 import { CONFIG } from "../src/config.js";
 import { encodeHostStateSnapshot } from "../src/netcode/binary.js";
+import { MAX_P2P_BINARY_BYTES, MAX_P2P_JSON_CHARS } from "../src/netcode/p2pLimits.js";
 
 let createdPCs = [];
 
@@ -144,6 +145,29 @@ describe("non-host answers and opens the channel", () => {
     expect(states[0].data).toBeInstanceOf(ArrayBuffer);
     expect(hooks.getBufferLength()).toBe(1);                 // ✓ netStateBuffer fills
     expect(hooks.getBufferLength()).toBeGreaterThan(0);
+  });
+
+  it("drops oversized DataChannel frames before they reach onState/JSON.parse", async () => {
+    const states = [];
+    hooks.setHostIdForTest("hostA");
+    P2P.initP2P({
+      host: false,
+      sendSignal: () => {},
+      onInput: () => {},
+      onState: (data, connId) => { states.push({ data, connId }); },
+    });
+    await P2P.handleSignalingMessage({ type: MSG.sdpOffer, fromConnId: "hostA", sdp: { type: "offer", sdp: "O" } });
+    const pc = createdPCs[createdPCs.length - 1];
+    const dc = new MockRTCDataChannel("physics");
+    pc.ondatachannel({ channel: dc });
+    dc._open();
+
+    dc._receive(encodeHostStateSnapshot({ seq: 1, tHost: 1000, carts: cartSnap() })); // within limit — flows
+    dc._receive(new ArrayBuffer(MAX_P2P_BINARY_BYTES + 1));                            // over — dropped
+    dc._receive("x".repeat(MAX_P2P_JSON_CHARS + 1));                                   // over — dropped pre-parse
+
+    expect(states).toHaveLength(1); // only the legitimate frame reached onState
+    expect(states[0].data).toBeInstanceOf(ArrayBuffer);
   });
 });
 

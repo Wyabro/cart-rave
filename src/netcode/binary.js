@@ -1,4 +1,9 @@
 import { MSG } from "../../shared/protocol.js";
+import {
+  MAX_SNAPSHOT_TAIL_BYTES,
+  MAX_TAIL_COLLISIONS,
+  MAX_TAIL_FALLS,
+} from "./p2pLimits.js";
 
 // * Header: type(1) + numCarts(1) + pad(2) + seq(Uint32) + tHost(Float64) = 16 bytes.
 // * tHost is absolute monotonic ms (~1e12); Float32 only has ~7 digits and quantizes
@@ -176,20 +181,29 @@ export function decodeHostStateSnapshot(buffer) {
     });
   }
   
-  // Decode JSON tail
+  // Decode JSON tail (collisions/falls/dir). The tail rides the unreliable P2P DataChannel
+  // from a semi-trusted host and is parsed every frame, so it is size- and count-capped
+  // (see p2pLimits). An over-limit or malformed tail is dropped; the cart transforms above
+  // are fixed-size and always kept, so the sim still advances.
   let collisions = [];
   let falls = [];
   let dir = null;
   if (offset < buffer.byteLength) {
     const tailBytes = new Uint8Array(buffer, offset);
-    const jsonTail = new TextDecoder().decode(tailBytes);
-    try {
-      const parsed = JSON.parse(jsonTail);
-      collisions = parsed.collisions || [];
-      falls = parsed.falls || [];
-      dir = parsed.dir || null;
-    } catch (e) {
-      console.error("[binary] Failed to parse JSON tail", e);
+    if (tailBytes.byteLength > MAX_SNAPSHOT_TAIL_BYTES) {
+      console.warn("[binary] Oversized JSON tail dropped:", tailBytes.byteLength);
+    } else {
+      const jsonTail = new TextDecoder().decode(tailBytes);
+      try {
+        const parsed = JSON.parse(jsonTail);
+        collisions = Array.isArray(parsed.collisions)
+          ? parsed.collisions.slice(0, MAX_TAIL_COLLISIONS)
+          : [];
+        falls = Array.isArray(parsed.falls) ? parsed.falls.slice(0, MAX_TAIL_FALLS) : [];
+        dir = parsed.dir || null;
+      } catch (e) {
+        console.error("[binary] Failed to parse JSON tail", e);
+      }
     }
   }
 

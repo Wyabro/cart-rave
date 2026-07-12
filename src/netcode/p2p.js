@@ -1,4 +1,5 @@
 import { MSG } from "../../shared/protocol.js";
+import { isP2PBinaryWithinLimit, isP2PJsonWithinLimit } from "./p2pLimits.js";
 
 /** Grace period before treating ICE "disconnected" as a hard failure (ms). */
 const ICE_DISCONNECT_GRACE_MS = 5000;
@@ -485,6 +486,12 @@ function setupDataChannel(dc, connId) {
     try {
       const binary = coerceToArrayBuffer(event.data);
       if (binary) {
+        // * DataChannel frames come from a semi-trusted peer with no server relay; drop
+        // * anything past the size ceiling before it reaches decode/parse (see p2pLimits).
+        if (!isP2PBinaryWithinLimit(binary.byteLength)) {
+          console.warn("[p2p] Oversized binary frame dropped:", binary.byteLength);
+          return;
+        }
         // * Binary payloads are always host->client transform snapshots.
         if (!isHost && onStateCallback) {
           onStateCallback(binary, connId);
@@ -495,12 +502,22 @@ function setupDataChannel(dc, connId) {
       // * Blob fallback (binaryType not honored): async path keeps the channel alive.
       if (typeof Blob !== "undefined" && event.data instanceof Blob) {
         event.data.arrayBuffer().then((buf) => {
+          if (buf && !isP2PBinaryWithinLimit(buf.byteLength)) {
+            console.warn("[p2p] Oversized binary frame dropped:", buf.byteLength);
+            return;
+          }
           if (!isHost && onStateCallback) onStateCallback(buf, connId);
         }).catch((e) => console.error("[p2p] Blob→ArrayBuffer failed", e));
         return;
       }
 
       if (typeof event.data !== "string") return;
+
+      // * Cheap length gate before JSON.parse; oversized control/input frames are dropped.
+      if (!isP2PJsonWithinLimit(event.data.length)) {
+        console.warn("[p2p] Oversized JSON frame dropped:", event.data.length);
+        return;
+      }
 
       const data = JSON.parse(event.data);
       if (isHost) {
