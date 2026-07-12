@@ -63,6 +63,8 @@ const DRACO_DECODER_PATH = "/draco/gltf/";
  *   cargoScaleMul?: number,
  * }>}
  */
+// * These runtime GLBs are Draco+WebP compressed (npm run compress:groceries);
+// * uncompressed masters live in art/models/groceries/.
 const MODEL_DEFS = [
   { name: "milk", path: "/models/groceries/milk.glb", type: "cuboid" },
   { name: "cereal", path: "/models/groceries/cereal.glb", type: "cuboid" },

@@ -12,14 +12,15 @@ const outDir = path.join(__dirname, "..", "public", "fonts");
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+// * Only faces the app actually references (2026-07 asset audit): Michroma,
+// * Space Grotesk, and Space Mono 700 had zero call sites and were dropped.
+// * Space Mono 400 stays — touch controls + dev FPS overlay use it.
 const families = [
   "Road+Rage",
   "Russo+One",
   "Goldman:wght@400;700",
-  "Michroma",
-  "Space+Grotesk:wght@400;500;700",
   "Bungee",
-  "Space+Mono:wght@400;700",
+  "Space+Mono",
 ];
 
 const cssUrl =

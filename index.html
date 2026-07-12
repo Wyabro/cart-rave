@@ -28,18 +28,10 @@
   <link rel="manifest" href="/site.webmanifest">
   <script>
     (function() {
-      // * Defer menu audio preload — avoids competing with Vite module graph on first paint.
-      var params = new URLSearchParams(window.location.search || "");
-      if (!params.get("room") && params.get("portal") !== "true") {
-        window.setTimeout(function () {
-          var menuAudio = new Audio();
-          menuAudio.preload = "auto";
-          // * Safari cannot decode Ogg Vorbis — preload the same format Howler will pick.
-          var canOgg = menuAudio.canPlayType && menuAudio.canPlayType('audio/ogg; codecs="vorbis"');
-          menuAudio.src = canOgg ? "/sounds/menu.ogg" : "/sounds/menu.mp3";
-          try { menuAudio.load(); } catch {}
-        }, 2500);
-      }
+      // * (2026-07 audit) The old 2.5s HTMLAudio menu-music "cache warm" probe was removed:
+      // * audioManager.loadMenuMusic() already fetches eagerly at boot, and the probe's
+      // * second media request did NOT coalesce with Howler's in-flight download — every
+      // * production cold visit transferred menu.ogg twice (2 × 2.6 MB, measured).
 
       // * Eruda mobile dev console — localhost / LAN only; deferred so it cannot block boot.
       var h = window.location.hostname;
@@ -371,7 +363,9 @@
   <link rel="preconnect" href="https://cart-rave.wyabro.workers.dev">
   <link rel="preload" href="/fonts/roadrage-6NUU8F2fKAOBKjjr4ekfs8wB.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/bungee-N0bU2SZBIuF2PU_0DXR1.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/spacemono-i7dPIFZifjKcF5UAWdDRYEF8RQ.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- Goldman is the boot-splash / menu body font — preload it, not Space Mono
+       (which only styles touch controls + the dev FPS overlay). -->
+  <link rel="preload" href="/fonts/goldman-pe0uMIWbN4JFplR2HDVyBw.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/fonts/fonts.css">
 </head>
 <body class="cr-boot-pending">

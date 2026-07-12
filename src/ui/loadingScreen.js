@@ -271,7 +271,10 @@ export function dismissInitialBootSplash() {
   if (bootDismissed) return;
   bootDismissed = true;
 
-  const MIN_BOOT_MS = 3000;
+  // * Production holds the splash so the crash animation reads as intentional;
+  // * dev skips the hold — the app is typically ready in <1s and the wait only
+  // * slows iteration.
+  const MIN_BOOT_MS = import.meta.env.DEV ? 0 : 3000;
   const elapsed = performance.now() - (window.bootStartTime || 0);
   const delay = Math.max(0, MIN_BOOT_MS - elapsed);
 
