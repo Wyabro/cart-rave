@@ -698,8 +698,7 @@ async function main() {
     () => {
       if (menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      triggerHop(localCartForConnId(), performance.now());
-      Input.requestHop();
+      attemptLocalHop();
     },
     () => {
       if (menuVisible) return;
@@ -714,8 +713,7 @@ async function main() {
     onHop: () => {
       if (menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      triggerHop(localCartForConnId(), performance.now());
-      Input.requestHop();
+      attemptLocalHop();
     },
     onBoost: () => {
       if (menuVisible) return;
@@ -2511,7 +2509,7 @@ async function main() {
 
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
-    cart.respawnAtMs = now + 1000; // * respawn after shatter VFX plays out
+    cart.respawnAtMs = now + (CONFIG.fall?.respawnDelayMs ?? 1000); // * respawn after shatter VFX plays out
     // * Charge SFX already stopped via gameFlow onCartOutOfPlay at fall start.
     if (cart === localCartForConnId()) {
       stopChargeSfxForCart(cart);
@@ -2707,7 +2705,7 @@ async function main() {
     getNameLabelUpdatePending: () => nameLabelUpdatePending,
     setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
     respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
-    getPlayCollisionRef: () => (_intensity, _opts) => AudioManager.playCartCrash(),
+    getPlayCollisionRef: () => (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
     getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
@@ -2945,6 +2943,20 @@ async function main() {
       AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
       cart.chargeUpSfxId = null;
     }
+  }
+
+  // * Local-input hop with a grounded gate: blocks air-hops / chain-hops (the human path
+  // * previously gated on cooldown only — 2 hops/s each +25 N·s up). NPC and remote-replay
+  // * hops keep going through triggerHop directly and are unaffected.
+  function attemptLocalHop() {
+    const cart = localCartForConnId();
+    if (!cart?.body) return;
+    const lv = cart.body.linvel();
+    const p = cart.body.translation();
+    if (Math.abs(lv.y) > 2.2) return; // rising/falling — already mid-air
+    if (p.y > (CONFIG.booth?.platformY ?? 6) - 0.5) return; // still on the spawn booth
+    triggerHop(cart, performance.now());
+    Input.requestHop();
   }
 
   function triggerHop(cart, nowMs) {
@@ -3624,7 +3636,7 @@ async function main() {
   const hostSimCallbacks = {
     getAxis: Input.getAxis,
     getAiAxis,
-    playCollision: (_intensity, _opts) => AudioManager.playCartCrash(),
+    playCollision: (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
     spawnTrashBurst: spawnTrashBurstRef,
     onLocalRamImpact: triggerLocalRamShake,
     onLocalHitTaken: triggerLocalHitTaken,

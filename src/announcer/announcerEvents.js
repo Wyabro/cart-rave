@@ -343,9 +343,9 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     interruptible: false,
     // * Feature moment: channel + focus window reserved for the whole on-screen hold
     // * so no other callout replaces or crowds the rule change while players read it.
-    durationMs: 5200,
+    durationMs: 4000,
     focus: true,
-    callout: Object.freeze({ kicker: "FLASH SALE", accent: "#ff2bd6", holdMs: 5200 }),
+    callout: Object.freeze({ kicker: "FLASH SALE", accent: "#ff2bd6", holdMs: 4000 }),
     voice: Object.freeze({ key: "directive_flash_sale", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),
@@ -361,9 +361,9 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     interruptible: false,
     // * Feature moment: channel + focus window reserved for the whole on-screen hold
     // * so no other callout replaces or crowds the rule change while players read it.
-    durationMs: 5200,
+    durationMs: 4000,
     focus: true,
-    callout: Object.freeze({ kicker: "DOUBLE BAG", accent: "#ffd24a", holdMs: 5200 }),
+    callout: Object.freeze({ kicker: "DOUBLE BAG", accent: "#ffd24a", holdMs: 4000 }),
     voice: Object.freeze({ key: "directive_double_bag", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),
@@ -379,9 +379,9 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     interruptible: false,
     // * Feature moment: channel + focus window reserved for the whole on-screen hold
     // * so no other callout replaces or crowds the rule change while players read it.
-    durationMs: 5200,
+    durationMs: 4000,
     focus: true,
-    callout: Object.freeze({ kicker: "EXPRESS LANE", accent: "#2bd6ff", holdMs: 5200 }),
+    callout: Object.freeze({ kicker: "EXPRESS LANE", accent: "#2bd6ff", holdMs: 4000 }),
     voice: Object.freeze({ key: "directive_express_lane", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),
@@ -397,9 +397,9 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     interruptible: false,
     // * Feature moment: channel + focus window reserved for the whole on-screen hold
     // * so no other callout replaces or crowds the rule change while players read it.
-    durationMs: 5200,
+    durationMs: 4000,
     focus: true,
-    callout: Object.freeze({ kicker: "SPILL BONUS", accent: "#2bffb3", holdMs: 5200 }),
+    callout: Object.freeze({ kicker: "SPILL BONUS", accent: "#2bffb3", holdMs: 4000 }),
     voice: Object.freeze({ key: "directive_spill_bonus", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),
@@ -415,9 +415,9 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     interruptible: false,
     // * Feature moment: channel + focus window reserved for the whole on-screen hold
     // * so no other callout replaces or crowds the rule change while players read it.
-    durationMs: 5200,
+    durationMs: 4000,
     focus: true,
-    callout: Object.freeze({ kicker: "RUSH HOUR", accent: "#ff6600", holdMs: 5200 }),
+    callout: Object.freeze({ kicker: "RUSH HOUR", accent: "#ff6600", holdMs: 4000 }),
     voice: Object.freeze({ key: "directive_rush_hour", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),

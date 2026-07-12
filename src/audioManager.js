@@ -453,13 +453,19 @@ export function playSfx(key, sprite, options = {}) {
 }
 
 /**
- * Play a randomized cart-crash SFX. Each crash receives a unique playback rate
- * (0.82–1.25) so rapid collisions don't sound like the exact same sample repeated.
+ * Play a randomized cart-crash SFX. Each crash receives a unique playback rate so rapid
+ * collisions don't sound identical, and its volume scales with hit intensity so a love-tap
+ * reads as a light tick while a full-speed / boost ram reads as a slam (boost rams also drop
+ * the base rate for a beefier hit). Previously every collision played at flat full volume.
+ * @param {number} [intensity] Normalized hit intensity (~0.05 tap → ~1.0+ slam).
+ * @param {{ isBoosting?: boolean }} [opts]
  * @returns {number | null} Sound ID
  */
-export function playCartCrash() {
-  const rate = 0.82 + Math.random() * 0.43;
-  return playSfx("cartCrash", undefined, { rate });
+export function playCartCrash(intensity = 1, opts = {}) {
+  const isBoosting = Boolean(opts.isBoosting);
+  const rate = (isBoosting ? 0.72 : 0.82) + Math.random() * 0.43;
+  const volume = Math.max(0.45, Math.min(1, 0.45 + (intensity ?? 1) * 0.7));
+  return playSfx("cartCrash", undefined, { rate, volume });
 }
 
 /**

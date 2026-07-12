@@ -218,7 +218,7 @@ const physics = {
     strength: 2.88, // unitless — collision impulse multiplier
     maxImpulse: 200.0, // N·s — per-frame impulse clamp
     spreadSteps: 3, // count — frames over which ram impulse is applied
-    alignmentDotMin: 0.1, // unitless — min rammer→victim alignment dot product
+    alignmentDotMin: 0.2, // unitless — min rammer→victim alignment dot (~78° cone; was 0.1/~84°, which let near-perpendicular glances trigger full crash+squash)
     boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale (intentionally unchanged)
     nitroAccelMultiplier: 1.72, // unitless — fallback drive accel when boostedAccel is null
     fx: {
@@ -292,7 +292,7 @@ const physics = {
 
   fall: {
     yThreshold: -10, // meters — Y below arena triggers fall state
-    respawnDelayMs: 600, // ms — visible fall before respawn
+    respawnDelayMs: 1000, // ms — delay after shatter VFX plays out before booth respawn
     // * Host-only anti-wedge safeguard — no score / kill feed (geometry trap workaround).
     stuck: {
       respawnMs: 10000, // ms — idle on arena before booth respawn

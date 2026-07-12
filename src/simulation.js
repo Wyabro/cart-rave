@@ -695,13 +695,17 @@ function applySquareHoleLipAssist(cart, dtFixed) {
   if (urgency <= 0 || towardHole < 0.35) return;
 
   const mass = getBodyMass(cart.body);
-  const baseOut = (3 + urgency * 6) * mass * dtFixed;
+  // * The local human can see the void and may be committing to a deliberate edge play, so
+  // * give them only a faint safety nudge instead of a full outward shove that fights their
+  // * input. NPCs (and remote carts) keep the full assist — they rely on it to not slide in.
+  const assistScale = cart === _collisionCallbacks.localCart ? 0.4 : 1;
+  const baseOut = (3 + urgency * 6) * mass * dtFixed * assistScale;
   _impulse.x = outwardX * baseOut;
   _impulse.z = outwardZ * baseOut;
-  const boost = towardHole * 8 * mass * dtFixed;
+  const boost = towardHole * 8 * mass * dtFixed * assistScale;
   _impulse.x += outwardX * boost;
   _impulse.z += outwardZ * boost;
-  _impulse.y = urgency * 2 * mass * dtFixed;
+  _impulse.y = urgency * 2 * mass * dtFixed * assistScale;
   cart.body.applyImpulse(_impulse, true);
   cart.body.wakeUp();
 }
@@ -1446,6 +1450,29 @@ function applyClassicCenterHoleAvoidance(px, pz, dir) {
 }
 
 /**
+ * * Steers an octagon-arena NPC's heading inward when it's within the rim influence band.
+ * * Sundial Station's outer rim is the only kill edge, so — unlike a center hole — bots must
+ * * be pushed toward center. Robust across all eight flats (pushes along −position).
+ *
+ * @param {number} px Cart world X.
+ * @param {number} pz Cart world Z.
+ * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
+ */
+function applyOctagonRimAvoidance(px, pz, dir) {
+  if (!_octagonHazards) return;
+  const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
+  const band = 5.0;
+  const edgeDist = octagonEdgeDistance(px, pz);
+  if (edgeDist <= apothem - band) return;
+  const strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
+  const dist = Math.hypot(px, pz) || 1;
+  dir.x += (-px / dist) * strength * 1.2;
+  dir.z += (-pz / dist) * strength * 1.2;
+  if (dir.lengthSq() < 1e-6) dir.set(-px / dist, 0, -pz / dist);
+  dir.normalize();
+}
+
+/**
  * * True during the first 8s of a round or while any human is still on a spawn booth.
  */
 function isAiCautiousPhase(nowMs, allCarts, netSlots) {
@@ -1547,7 +1574,7 @@ function octagonEdgeDistance(x, z) {
  * * Open-octagon arenas: clamp a target inside the deck apothem (every edge is a kill
  * * zone, so the inset is wider than Backrooms' walled clamp) + circular keep-outs.
  */
-function clampOctagonAiTarget(x, z, cautious) {
+function clampOctagonAiTarget(x, z, cautious, opts = {}) {
   const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
   const edgeInset = cautious ? 4.5 : 2.5;
   const maxCoord = Math.max(1, apothem - edgeInset);
@@ -1559,6 +1586,9 @@ function clampOctagonAiTarget(x, z, cautious) {
     outX *= s;
     outZ *= s;
   }
+  // * allowPodium: keep a chase target on the high ground so bots can contest a camper
+  // * instead of being pushed off the podium keep-out.
+  if (opts.allowPodium) return { x: outX, z: outZ };
   const kept = pushPointOutOfCircularKeepOuts(outX, outZ, cautious ? 0.8 : 0.3);
   return { x: kept.x, z: kept.z };
 }
@@ -1566,7 +1596,7 @@ function clampOctagonAiTarget(x, z, cautious) {
 /**
  * * Clamps a target point into a safe annulus — tighter band during cautious phase.
  */
-function clampAiTargetAwayFromHazards(x, z, cautious) {
+function clampAiTargetAwayFromHazards(x, z, cautious, opts = {}) {
   if (_octagonHazards) {
     return clampOctagonAiTarget(x, z, cautious);
   }
@@ -1585,9 +1615,11 @@ function clampAiTargetAwayFromHazards(x, z, cautious) {
   const innerLimit = cautious
     ? CONFIG.record.innerRadius * 2.2
     : CONFIG.record.innerRadius * 1.8;
+  // * reachOuter (human chase) lets bots follow edge-campers closer to the rim; patrol and
+  // * wander keep the tighter default so idle bots don't drift into the outer kill band.
   const outerLimit = cautious
-    ? CONFIG.record.radius * 0.72
-    : CONFIG.record.radius * 0.88;
+    ? CONFIG.record.radius * (opts.reachOuter ? 0.78 : 0.72)
+    : CONFIG.record.radius * (opts.reachOuter ? 0.92 : 0.88);
   const r = clamp(dist, innerLimit, outerLimit);
   let outX = Math.cos(angle) * r;
   let outZ = Math.sin(angle) * r;
@@ -1761,6 +1793,7 @@ function ensureAiBehaviorState(cart) {
   if (cart.aiLastProgressMs == null) cart.aiLastProgressMs = 0;
   if (cart.aiLastDistToTarget == null) cart.aiLastDistToTarget = Infinity;
   if (cart.aiAvoidanceCommitUntilMs == null) cart.aiAvoidanceCommitUntilMs = 0;
+  if (cart.aiContestPodiumUntilMs == null) cart.aiContestPodiumUntilMs = 0;
   if (!cart.aiPersonality) {
     cart.aiPersonality = getNpcPersonality(cart.name ?? cart.slotIndex);
   }
@@ -1825,6 +1858,15 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
     }
   }
 
+  // * Proximity aggression: a human within ~7m gets hunted almost regardless of personality,
+  // * patrol mood, or cautious phase. Bots should turn and ram the player right next to them
+  // * instead of committing to a weighted/far target and cruising past (the "drives past
+  // * nearby players" complaint). Only ever raises chase weight — never fights Bloodhound.
+  if (humanTarget) {
+    const closeDist = Math.hypot(humanTarget.x - fromPos.x, humanTarget.z - fromPos.z);
+    if (closeDist < 7) humanWeight = Math.max(humanWeight, 0.9);
+  }
+
   if (roll < humanWeight && humanTarget) {
     if (_levelHazards?.arenaHalf != null) {
       if (!findBlockingSquareHole(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, 0.04)) {
@@ -1832,7 +1874,16 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
       }
       return routeBackroomsChaseTarget(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, cautious);
     }
-    return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious);
+    // * Sundial high-ground contest: if the human is camping the podium, drive onto it to
+    // * ram them off instead of being repelled by the keep-out. Gated to real campers so bots
+    // * don't loiter on empty high ground.
+    if (_octagonHazards && isOnPodiumHighGround(humanTarget.x, humanTarget.z)) {
+      cart.aiContestPodiumUntilMs = nowMs + 1500;
+      return clampOctagonAiTarget(humanTarget.x, humanTarget.z, cautious, { allowPodium: true });
+    }
+    // * reachOuter: when chasing a human, let the goal reach closer to the arena rim so bots
+    // * follow edge-campers instead of stopping short at the safe-annulus cap.
+    return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious, { reachOuter: true });
   }
 
   if (roll < humanWeight + patrolWeight) {
@@ -1939,10 +1990,20 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     cart.aiLastProgressMs = now;
     cart.aiLastDistToTarget = Infinity;
 
-    // * Random short stop to break up constant circling.
-    if (Math.random() < (onBackrooms ? 0.07 : 0.14)) {
-      cart.aiPauseUntilMs = now + (500 + Math.random() * 1000);
+    // * Random short stop to break up constant circling — but never freeze when a human
+    // * is close or bearing down. A bot sitting idle next to a player reads as broken, and
+    // * this pause was the #1 "AI stops for no reason" offender (was 14% every 0.15-0.95s).
+    let allowPause = true;
+    const nearHumanForPause = findNearestHumanTarget(p, allCarts, netSlots, slotIndex);
+    if (nearHumanForPause) {
+      const humanDist = Math.hypot(nearHumanForPause.x - p.x, nearHumanForPause.z - p.z);
+      if (humanDist < 9) allowPause = false;
+    }
+    if (allowPause && Math.random() < (onBackrooms ? 0.02 : 0.04)) {
+      cart.aiPauseUntilMs = now + (400 + Math.random() * 700);
       cart.aiLastProgressMs = now;
+      // * Don't re-roll a pause the instant this one ends — commit to driving for a beat.
+      cart.aiNextDecisionMs = cart.aiPauseUntilMs + (600 + Math.random() * 400);
       return { forward: 0, turn: 0 };
     }
   }
@@ -1972,12 +2033,12 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   const stuckForMs = now - cart.aiLastProgressMs;
   const isStuck = speed < 1.4 && stuckForMs > 1100;
-  const isClose = distToTarget < 2.8;
 
-  if (now >= cart.aiReverseUntilMs && (isStuck || isClose)) {
-    const reverseChance = isStuck
-      ? (stuckForMs > 2500 ? 0.90 : 0.65)
-      : 0.25;
+  // * Reverse only when genuinely wedged (isStuck). The old code also reversed 25% of the
+  // * time just for being within 2.8m of the target — which made bots back off exactly as
+  // * they closed on a player. Pressing the attack is the fun read; keep driving.
+  if (now >= cart.aiReverseUntilMs && isStuck) {
+    const reverseChance = stuckForMs > 2500 ? 0.90 : 0.65;
 
     // * Hazard proximity gate — forbid reverse when near a death edge to avoid
     // * backing the cart into a hole / void it can't see.
@@ -2021,9 +2082,14 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
     } else if (nearHazard) {
-      // * Too close to an edge to reverse — pick a target that pulls the bot away.
+      // * Too close to an edge to reverse — pick a target that pulls the bot away and
+      // * COMMIT to it. Without resetting the stuck clock + deferring the next re-pick,
+      // * `isStuck` stayed latched and this branch re-ran every 60Hz substep, thrashing
+      // * targets so the bot ground in place near the edge (the freeze-near-hazard bug).
       cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
       toTarget.set(cart.aiTarget.x - p.x, 0, cart.aiTarget.z - p.z);
+      cart.aiLastProgressMs = now;
+      cart.aiNextDecisionMs = Math.max(cart.aiNextDecisionMs, now + 450);
     }
   }
 
@@ -2038,8 +2104,14 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     applySquareHoleAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
     applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
   } else if (_octagonHazards) {
-    // * Open octagon: steer around the center podium keep-out.
-    applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
+    // * Open octagon: steer away from the outer kill rim always, and around the center
+    // * podium keep-out UNLESS this bot is actively contesting a camper on the high ground.
+    if (now < cart.aiContestPodiumUntilMs) {
+      applyOctagonRimAvoidance(p.x, p.z, toTarget);
+    } else {
+      applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
+      applyOctagonRimAvoidance(p.x, p.z, toTarget);
+    }
   } else if (CONFIG.record.centerHole?.enabled !== false) {
     // * Classic Record: reactive radial push away from the center hole.
     applyClassicCenterHoleAvoidance(p.x, p.z, toTarget);
@@ -2049,11 +2121,20 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   // * drops below 2.0 m/s (oscillating), lock it onto a tangent escape vector for 1.5s
   // * to break the loop: drive away cleanly before turning back to chase.
   let inAvoidanceBand = false;
+  let escapeMode = "tangent"; // "tangent" (circle a void) | "inward" (leave a kill rim)
   if (_levelHazards?.arenaHalf != null) {
     const { cheb } = nearestSquareHole(p.x, p.z);
     const edge = _levelHazards.half + _levelHazards.avoidMargin;
     const band = _levelHazards.influenceBand;
     inAvoidanceBand = cheb < edge + band;
+  } else if (_octagonHazards) {
+    // * Sundial octagon: the outer rim is the only kill edge, so a wedged/oscillating bot
+    // * near it must escape *inward* (toward center), not tangent along the drop.
+    const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
+    if (octagonEdgeDistance(p.x, p.z) > apothem - 5.0) {
+      inAvoidanceBand = true;
+      escapeMode = "inward";
+    }
   } else if (CONFIG.record.centerHole?.enabled !== false) {
     const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
     const band = 4.5;
@@ -2067,9 +2148,13 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   }
 
   if (now < cart.aiAvoidanceCommitUntilMs) {
-    // * Lock to tangent escape — perpendicular to radial direction from nearest hazard.
+    // * Escape vector — tangent to circle a void, or straight inward to leave a kill rim.
     let escapeX, escapeZ;
-    if (_levelHazards?.arenaHalf != null) {
+    if (escapeMode === "inward") {
+      const dist = Math.hypot(p.x, p.z) || 1;
+      escapeX = -p.x / dist;
+      escapeZ = -p.z / dist;
+    } else if (_levelHazards?.arenaHalf != null) {
       const { hole } = nearestSquareHole(p.x, p.z);
       const dx = p.x - hole.x;
       const dz = p.z - hole.z;
