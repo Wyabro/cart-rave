@@ -24,6 +24,7 @@ All project docs live in [`docs/`](./docs/):
 | [docs/STATUS.md](./docs/STATUS.md) | **Read first** — production dashboard: health, blockers, current focus, next milestone |
 | [docs/README.md](./docs/README.md) | Project overview, setup, controls, full doc index |
 | [docs/brand.md](./docs/brand.md) | **Naming freeze** (Cart Clash vs legacy cart-rave IDs) |
+| [docs/style-guide.md](./docs/style-guide.md) | **Writing standard** — brand voice, terminology, copy conventions |
 | [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) | **Future** — phased plan (V2 blockers, future, stretch) |
 | [docs/planning/BACKLOG.md](./docs/planning/BACKLOG.md) | **Future** — every open item, categorized + prioritized |
 | [docs/planning/project-state.md](./docs/planning/project-state.md) | **Present** — architecture snapshot, known issues |

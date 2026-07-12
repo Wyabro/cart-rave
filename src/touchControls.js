@@ -616,7 +616,7 @@ export function setupTouchControls(callbacks = {}) {
   boostBtn.type = "button";
   boostBtn.className = "gtc-btn gtc-btn--boost";
   boostBtn.textContent = "BOOST";
-  boostBtn.setAttribute("aria-label", "Nitro boost");
+  boostBtn.setAttribute("aria-label", "Boost");
   boostBtnEl = boostBtn;
   boostBtn.addEventListener("pointerdown", onBoostPointerDown, { passive: false });
   boostBtn.addEventListener("pointerup", onBoostPointerEnd, { passive: false });

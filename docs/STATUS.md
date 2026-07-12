@@ -101,6 +101,7 @@ is scoped content/infra (domain cutover, ship checklist), not risk.
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-TERM-1** (07-12): Terminology pass — [style-guide.md](./style-guide.md) is canonical for all wording (Arena/Round/Boost/KO/Lobby/Quickplay rulings + rationale); player copy aligned; `combo_t2` unlock hint mislabel (RAMPAGE→SAVAGE) fixed.
 - **D-STAB-2** (07-11): Quickplay arena rotation deferred; rematch-seam recipe documented.
 - **D-STAB-1** (07-11): Stabilization pass — wheel roll travel-based, boost-bar leak, podium +20%, menu pacing, dead-code purge; knip zero-ignore.
 - **D-PERF-3** (07-11): Honest `three`/`animejs` chunks via `codeSplitting.groups`; BUNDLE-1 declared blocked.
@@ -134,5 +135,6 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-12 — **Terminology & consistency pass** (D-TERM-1): new [style-guide.md](./style-guide.md) writing standard; player-copy fixes (pause-overlay Nitro→Boost, KILL STREAK→COMBO kicker, challenge/unlock copy KO-standardized + combo-tier-name bug fix, menu LEVELS→ARENAS, Friends invite copy, host tooltip); linked from AGENTS.md/READMEs. Unpushed. Gates green: 287 tests / 28 files, tsc + knip clean, build OK; menu copy verified live in browser.
 2026-07-12 — **Documentation consolidation pass**: STATUS rewritten as production dashboard; decision-log full text archived to [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md); new [BACKLOG.md](./planning/BACKLOG.md) + [production-passes.md](./planning/production-passes.md); ROADMAP restructured; project-state refreshed to the July 11 tree; flicker plan/handover + pass 2/3 plans archived. Gates re-verified: qa green 285 tests / 28 files.
 2026-07-11 — Menu backdrop simplified to layered palette gradient (`3754949`). Stabilization pass D-STAB-1/2 (unpushed). Netcode deep-dive catalog landed. Pass 4 (D-GP4-1) + Pass 5 waves 1–3 + per-arena bloom (`98317c1`) + netcode test punch list (`1dbb48a`, `6ee9c0b`) landed and pushed. VFX-1 root cause confirmed (D-VFX-2).

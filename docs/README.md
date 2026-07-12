@@ -1,6 +1,6 @@
 # Cart Clash
 
-**Cart Clash** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around arena floors — and try not to get yeeted off the edge or through a void. Matches are **2.5 minutes** of physics chaos (with Sudden Death on ties), and the cart with the **most points** takes the podium.
+**Cart Clash** is a neon-soaked **4-player shopping-cart brawler**: slam, boost-ram, and hop your way around arena floors — and try not to get yeeted off the edge or through a void. Rounds are **2.5 minutes** of physics chaos (with Sudden Death on ties), and the cart with the **most points** takes the podium.
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
@@ -10,8 +10,9 @@
 
 ## Documentation index
 
-Docs are grouped by kind. Two entry points live at the `docs/` root: this index and
-[brand.md](./brand.md) (the canonical naming freeze — prefer it when docs disagree).
+Docs are grouped by kind. Three entry points live at the `docs/` root: this index,
+[brand.md](./brand.md) (the canonical naming freeze — prefer it when docs disagree), and
+[style-guide.md](./style-guide.md) (writing & terminology standard for all copy and docs).
 
 **Read first:** [STATUS.md](./STATUS.md) — the production dashboard (health, blockers, current focus, next milestone) and session source of truth.
 

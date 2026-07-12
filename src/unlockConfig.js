@@ -27,7 +27,7 @@ export const DEV_UNLOCKS_STORAGE_KEY = "cartRaveDevUnlocks";
 
 /** Lifetime KOs on Classic to unlock The Storerooms. */
 const UNLOCK_BACKROOMS_KILLS = 15;
-/** Lifetime KOs on Storerooms to unlock Zanzibar. */
+/** Lifetime KOs on The Storerooms to unlock Sundial Station. */
 const UNLOCK_ZANZIBAR_KILLS = 25;
 
 /**
@@ -36,9 +36,10 @@ const UNLOCK_ZANZIBAR_KILLS = 25;
  */
 export const PATTERN_UNLOCKS = {
   classic: { free: true, hint: "Default look" },
-  stripes: { event: "ko_void", goal: 10, hint: "10 knockouts" },
-  checker: { event: "ko_npc", goal: 15, hint: "15 NPC knockouts" },
-  dots: { event: "combo_t2", goal: 8, hint: "Reach RAMPAGE 8 times" },
+  stripes: { event: "ko_void", goal: 10, hint: "10 KOs" },
+  checker: { event: "ko_npc", goal: 15, hint: "15 NPC KOs" },
+  // * combo_t2 fires at comboTier 2 = SAVAGE (config.js combos table), not RAMPAGE.
+  dots: { event: "combo_t2", goal: 8, hint: "Reach SAVAGE 8 times" },
   waves: { event: "combo_t3", goal: 5, hint: "Reach CARNAGE 5 times" },
   bolt: { event: "last_standing", goal: 3, hint: "3 Last Cart Standing wins" },
 };
@@ -49,18 +50,18 @@ export const PATTERN_UNLOCKS = {
  */
 export const SUNGLASSES_UNLOCKS = {
   silverMirror: { free: true, hint: "Default shades" },
-  goldMirror: { event: "ko_void", goal: 20, hint: "20 knockouts" },
+  goldMirror: { event: "ko_void", goal: 20, hint: "20 KOs" },
   blueMirror: { event: "spill", goal: 25, hint: "Cause 25 spills" },
   redMirror: { event: "sd_win", goal: 3, hint: "3 Sudden Death wins" },
   greenMirror: { event: "untouchable", goal: 1, hint: "Win without spilling" },
-  purpleMirror: { event: "ko_aggressor", goal: 5, hint: "5 Aggressor knockouts" },
+  purpleMirror: { event: "ko_aggressor", goal: 5, hint: "5 Aggressor KOs" },
 };
 
 /** Custom hue slider unlock. */
 export const CUSTOM_COLOR_UNLOCK = {
   event: "ko_void",
   goal: 40,
-  hint: "40 knockouts",
+  hint: "40 KOs",
 };
 
 /**

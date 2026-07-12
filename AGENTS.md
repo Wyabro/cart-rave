@@ -7,7 +7,8 @@ with this file about how the stack works, **this file and the code win** — go 
 the tree, then fix the other doc.
 
 **Product name is Cart Clash.** Deploy host, Worker name, and some code IDs still say
-`cart-rave` until domain cutover — see [docs/brand.md](docs/brand.md).
+`cart-rave` until domain cutover — see [docs/brand.md](docs/brand.md). All wording —
+player copy, announcer lines, docs — follows [docs/style-guide.md](docs/style-guide.md).
 
 **Session rehydration (read first when cold):** [docs/STATUS.md](docs/STATUS.md) — current
 focus, next actions, gotchas. Then this file for standing rules. Architecture snapshot:

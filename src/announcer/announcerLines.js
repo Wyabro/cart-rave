@@ -37,7 +37,7 @@ const LINES = {
     rampage: [
       "{attacker} IS ON A RAMPAGE!",
       "{attacker} IS HEATING UP!",
-      "{attacker} IS STOCKING UP ON KILLS!",
+      "{attacker} IS STOCKING UP ON KOs!",
     ],
     savage: [
       "{attacker} IS SAVAGE!",

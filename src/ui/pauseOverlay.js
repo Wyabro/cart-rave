@@ -501,7 +501,7 @@ export function init(options = {}, hudContext = {}) {
   elements.escOverlay = document.createElement("div");
   elements.escOverlay.id = "esc-overlay";
   elements.escOverlay.setAttribute("role", "dialog");
-  elements.escOverlay.setAttribute("aria-label", "Settings");
+  elements.escOverlay.setAttribute("aria-label", "Pause menu");
   elements.escOverlay.setAttribute("aria-modal", "true");
   elements.escOverlay.style.display = "none";
 
@@ -526,7 +526,7 @@ export function init(options = {}, hudContext = {}) {
     /** @type {Array<[string[], string]>} */
     const touchControls = [
       [["Stick"], "Drive"],
-      [["Boost"], "Nitro (hold)"],
+      [["Boost"], "Boost (hold to charge)"],
       [["Hop"], "Hop"],
       [["Menu"], "Open / close"],
     ];
@@ -537,7 +537,7 @@ export function init(options = {}, hudContext = {}) {
     controlsList.appendChild(createEscControlRow(["WASD / Arrows"], "Drive", true));
     /** @type {Array<[string[], string, boolean?]>} */
     const kbControls = [
-      [["Shift"], "Nitro", true],
+      [["Shift"], "Boost", true],
       [["Space"], "Hop", true],
       [["M"], "Mute"],
       [["Esc"], "Close menu"],

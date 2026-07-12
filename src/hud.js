@@ -1140,11 +1140,11 @@ export function init(options) {
     label.className = "hud-scoreLabel";
     label.textContent = `P${i + 1}`;
 
-    // * Host antenna — quiet neutral mark, "this player's machine runs the match".
+    // * Host antenna — quiet neutral mark, "this player's device runs the game".
     const host = document.createElement("span");
     host.className = "hud-scoreHost";
     host.innerHTML = svgIcon("host", { label: "Host" });
-    host.title = "HOST — runs this match";
+    host.title = "HOST — this player's device runs the game";
     host.style.display = "none";
 
     const you = document.createElement("span");
