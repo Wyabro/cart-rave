@@ -48,6 +48,38 @@
     0.08em 0.08em 0 var(--color-ink-deep);
 }
 
+/* Local-outcome treatment — .results-defeat / .results-victory are toggled on
+   #results-overlay in main.js from the local player's result. A defeat drains the
+   winner's celebration into a quieter, desaturated beat and tags the panel; a
+   victory keeps the bright color and gets its own kicker. Confetti is suppressed
+   for the local loser in JS. */
+#results-overlay.results-defeat .results-panel {
+  filter: saturate(0.42) brightness(0.86);
+}
+#results-overlay.results-defeat .results-title {
+  --title-glow: #7c8596; /* cold, drained — overrides the winner's cart color */
+}
+#results-overlay.results-defeat .results-title::before,
+#results-overlay.results-victory .results-title::before {
+  display: block;
+  font-family: var(--results-display);
+  font-size: 0.5em;
+  letter-spacing: 0.22em;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  margin-bottom: 0.35em;
+}
+#results-overlay.results-defeat .results-title::before {
+  content: "DEFEAT";
+  color: #ff5a6a;
+  opacity: 0.92;
+}
+#results-overlay.results-victory .results-title::before {
+  content: "VICTORY";
+  color: var(--color-green, #4dff88);
+  opacity: 0.95;
+}
+
 #results-overlay .results-final {
   display: flex;
   flex-direction: column;

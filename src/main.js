@@ -465,6 +465,8 @@ let autoContinuePodiumDeadlineMs = 0;
 let autoContinuePodiumKey = null;
 /** Key for the active podium camera presentation (`startedAtMs:winner`). */
 let podiumCameraKey = null;
+/** Round key (startedAtMs) whose first-blood KO has already been escalated. */
+let firstBloodRoundKey = null;
 /** performance.now() when the current podium camera presentation started. */
 let podiumPhaseEnteredAtMs = 0;
 
@@ -975,10 +977,17 @@ async function main() {
       : koEvent.victimSlotIndex;
     const slot = slots?.[colorSlotIndex];
     const hex = displayColorHexForSlot(slot);
+    // * First blood: the match's first KO gets a bigger flash + hitmarker so the opening
+    // * elimination reads as an event, not just another KO. Keyed by round so it re-arms
+    // * each round; fires for every peer (this reactor runs on all clients).
+    const roundKey = GameState.getRoundState()?.startedAtMs ?? 0;
+    const isFirstBlood = koEvent.isKill && firstBloodRoundKey !== roundKey;
+    if (isFirstBlood) firstBloodRoundKey = roundKey;
+    const fbFlashMul = isFirstBlood ? 1.45 : 1;
     // * Reduced strengths vs the original reactive mode — a punch accent, not a recolor.
     triggerArenaKoFlash(hex, {
-      strength: koEvent.isKill ? 0.6 : 0.35,
-      durationMs: koEvent.isKill ? 340 : 240,
+      strength: (koEvent.isKill ? 0.6 : 0.35) * fbFlashMul,
+      durationMs: (koEvent.isKill ? 340 : 240) * (isFirstBlood ? 1.3 : 1),
     });
     // * World hitmarker at the victim — every peer sees where the KO landed.
     const victim = allCarts?.[koEvent.victimSlotIndex];
@@ -1002,7 +1011,7 @@ async function main() {
         py,
         pz,
         hex,
-        koEvent.isKill ? 1.05 : 0.6,
+        (koEvent.isKill ? 1.05 : 0.6) * fbFlashMul,
       );
     }
     // * Scoreboard rampage pips ride this reactor because it fires for every fall on
@@ -2173,17 +2182,21 @@ async function main() {
       if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
         const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
         const isLocalWinner = mySlotIdx >= 0 && celebrationWinner === mySlotIdx;
+        // * Participated but didn't win — defeat is its own quieter beat: no winner-confetti,
+        // * no crowd roar. Spectators (mySlotIdx < 0) still see the full celebration.
+        const isLocalLoser = mySlotIdx >= 0 && !isLocalWinner;
         if (isLocalWinner) {
           announce("victory");
-        } else {
+        } else if (isLocalLoser) {
           announce("defeat");
         }
-        if (hud?.root) {
-          const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
-          spawnResultsConfetti(hud.root, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
-        }
-        // * The rave crowd roars for the winner (Classic only — see onArenaKoFlash).
-        if (getCurrentLevelId() === "classicRecord") {
+        if (!isLocalLoser) {
+          if (hud?.root) {
+            const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
+            spawnResultsConfetti(hud.root, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
+          }
+          // * Victory roar on the match's single peak beat — every arena. (The frequent
+          // * KO-time cheer stays Classic-only in onLocalKillConfirm/onArenaKoFlash.)
           SfxSynth.playCrowdCheer(1);
         }
       }
@@ -2273,12 +2286,22 @@ async function main() {
         }
       }
 
-      // * Confetti once per podium presentation, when the results panel actually appears.
+      // * Local-outcome treatment: a defeat gets a desaturated, un-celebrated panel; a win
+      // * keeps the bright party. Classes drive results.css; spectators (mySlotIdx < 0) get
+      // * neither and see the normal winner celebration.
+      const isLocalLoser = mySlotIdx >= 0
+        && typeof roundState.winnerSlotIndex === "number"
+        && roundState.winnerSlotIndex !== mySlotIdx;
+      overlay.classList.toggle("results-defeat", isLocalLoser);
+      overlay.classList.toggle("results-victory", isLocalWinner);
+
+      // * Confetti once per podium presentation, when the results panel actually appears —
+      // * suppressed for the local loser so defeat stays a quiet beat.
       const confettiKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
       if (podiumConfettiFiredKey !== confettiKey) {
         podiumConfettiFiredKey = confettiKey;
         const celebrationWinner = roundState.winnerSlotIndex;
-        if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
+        if (celebrationWinner !== "draw" && typeof celebrationWinner === "number" && !isLocalLoser) {
           const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
           spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
         }
@@ -2716,7 +2739,7 @@ async function main() {
     setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
     respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
     getPlayCollisionRef: () => (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
-    getSfx: () => ({ playFloorImpact: () => AudioManager.playSfx("floor"), playEdgeImpact: () => AudioManager.playSfx("floor") }),
+    getSfx: () => ({ playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }), playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }) }),
     getSpawnTrashBurstRef: () => spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,
@@ -3671,8 +3694,8 @@ async function main() {
     get recordColliderHandles() { return recordColliderHandles; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },
     get boothColliderHandles() { return boothColliderHandles; },
-    playFloorImpact: () => AudioManager.playSfx("floor"),
-    playEdgeImpact: () => AudioManager.playSfx("floor"),
+    playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
+    playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
     resolveCartForConn: (connId) => {
       const idx = Netcode.strictSlotIndexForConn(connId);
       return idx >= 0 ? allCartsRef[idx] : null;
