@@ -303,6 +303,10 @@ export function dismissInitialBootSplash() {
         revealAppShell();
         window.CartRave?.show?.();
         if (splash) splash.remove();
+        // * Best-effort music start as the menu appears — succeeds where the
+        // * browser's autoplay policy allows (e.g. returning users with media
+        // * engagement); otherwise the first-gesture unlock in main.js covers it.
+        window.__cartRaveTryStartMenuMusic?.();
       }, 420);
     }, 200);
   }, delay);

@@ -34,7 +34,8 @@ html, body {
   inset: 0;
   z-index: -1;
   background: radial-gradient(ellipse at center 40%, var(--menu-bg, var(--color-bg-deep)) 0%, var(--color-bg-black) 90%);
-  transition: opacity 900ms ease;
+  /* Attract reveal fade — paced with the ~700ms menu entrance cascade. */
+  transition: opacity 600ms ease;
 }
 .cr-root.cr-root--attract::before {
   opacity: 0.42;
@@ -49,7 +50,7 @@ html, body {
 .cr-root.cr-root--attract .cr-particles,
 .cr-root.cr-root--attract .cr-scan {
   opacity: 0 !important;
-  transition: opacity 900ms ease;
+  transition: opacity 600ms ease;
 }
 
 /* Hide entrance targets until Anime.js runs (removed when sequence completes). */
@@ -2305,6 +2306,56 @@ html, body {
     padding: 12px;
     gap: 12px;
   }
+}
+
+/* ==========================================
+   PORTRAIT HINT — phones holding the menu in landscape
+   ==========================================
+   CSS-only presentation lock: the menu is authored portrait-first on phones,
+   so touch devices in short landscape get a gentle non-blocking nudge. Lives
+   inside #cr-root (index.html) — hidden with the menu, never over gameplay.
+   Gameplay keeps its own landscape prompt (ui/rotatePrompt.js). */
+.cr-portrait-hint {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 3;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--color-ink, #14101e);
+  box-shadow: var(--sticker-chip, 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f);
+  font-family: var(--ui, "Russo One", sans-serif);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.cr-portrait-hint-phone {
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  border: 1.5px solid #22e6ff;
+  animation: cr-portrait-hint-rotate 2.2s ease-in-out infinite;
+}
+
+@keyframes cr-portrait-hint-rotate {
+  0%, 12% { transform: rotate(90deg); }
+  45%, 58% { transform: rotate(0deg); }
+  88%, 100% { transform: rotate(0deg); }
+}
+
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 480px) {
+  .cr-portrait-hint { display: inline-flex; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-portrait-hint-phone { animation: none; transform: rotate(0deg); }
 }
 
 /* ==========================================

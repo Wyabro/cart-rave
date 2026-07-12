@@ -8,9 +8,13 @@ import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { storageGet } from "./utils/storage.js";
 import { yieldForPaint } from "./ui/loadingScreen.js";
 
-/** Preview reflector resolution — full play uses 256 in main's load path. */
+/**
+ * Reflector resolution ladder: menu preview 128² → play entry 256² → idle
+ * upgrade to REFLECTOR_TEXTURE_SIZE_FULL in arena.js (high tier, non-touch,
+ * scheduled by scheduleReflectorUpgrade in main.js).
+ */
 const PREVIEW_REFLECTOR_SIZE = 128;
-const FULL_REFLECTOR_SIZE = 256;
+const PLAY_ENTRY_REFLECTOR_SIZE = 256;
 
 /** @type {import("./levelManager.js").LevelManagerDeps | null} */
 let deps = null;
@@ -193,7 +197,7 @@ export async function swapLoadedLevel(levelId, opts = {}) {
   const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   await d.performLevelLoad(selected, {
     menuPreview,
-    reflectorTextureSize: menuPreview ? PREVIEW_REFLECTOR_SIZE : FULL_REFLECTOR_SIZE,
+    reflectorTextureSize: menuPreview ? PREVIEW_REFLECTOR_SIZE : PLAY_ENTRY_REFLECTOR_SIZE,
     onProgress: opts.onProgress,
   });
   loadedLevelId = selected;

@@ -43,9 +43,12 @@ const VERTEX_OFFSET = HALF_ANGLE;
 const DECK_THICKNESS = 0.6; // meters — matches Classic + Storerooms floor thickness
 const DECK_FRICTION = 0.62; // unitless — grippy steel; between Classic vinyl and carpet
 
-const PODIUM_BASE_R = 7.2; // meters — circumradius of frustum base (+20% with the deck)
-const PODIUM_TOP_R = 5.0; // meters — circumradius of frustum top
-const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 2.2 run ≈ 13°, fully drivable
+// * Podium +20% (stabilization pass, 2026-07-11): base 7.2→8.6, top 5.0→6.0.
+// * Bigger contested zone for king-of-the-hill; scoring radius (base + 0.5,
+// * simulation.js isOnPodiumHighGround) and AI keep-out derive from base.
+const PODIUM_BASE_R = 8.6; // meters — circumradius of frustum base
+const PODIUM_TOP_R = 6.0; // meters — circumradius of frustum top
+const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 2.6 run ≈ 11°, fully drivable
 // * Collider-only recess of the ramp hull's base below the deck top plane. A hull face
 // * exactly coplanar with another collider makes Rapier's narrow-phase flip contact
 // * ownership frame-to-frame — visible as resting-cart jitter. Mirrors CHAMFER_TUCK.

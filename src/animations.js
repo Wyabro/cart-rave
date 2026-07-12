@@ -311,9 +311,9 @@ export function animateButtonRelease(element, options = {}) {
 export function animateMenuCardEnter(element, options = {}) {
   if (!element) return null;
 
-  // * SLAP retune: travel front-loaded, a fatter outBack settle, ~1/3 shorter than
-  // * the old 420ms fade-up — the card arrives fast and squash-settles into place.
-  const duration = options.duration ?? 320;
+  // * SLAP retune: travel front-loaded, a fatter outBack settle — the card
+  // * arrives fast and squash-settles into place.
+  const duration = options.duration ?? 240;
   const ease = options.ease ?? "outBack(1.7)";
   const delay = options.delay ?? 0;
   const y = options.y ?? 22;
@@ -360,7 +360,7 @@ export function animateMenuReveal(element, options = {}) {
 
   // * Slap feel without the scale pop: fast arrival + a light back-settle instead of
   // * the old plain outExpo fade-up. Callsites that pass an explicit ease keep theirs.
-  const duration = options.duration ?? 320;
+  const duration = options.duration ?? 240;
   const ease = options.ease ?? "outBack(1.3)";
   const delay = options.delay ?? 0;
   const y = options.y ?? 14;
@@ -391,7 +391,7 @@ const dismissingContainers = new WeakSet();
 /**
  * Anticipation exit for menu panels / overlays — inBack front-loads the tween so the
  * panel first lifts and scales up a hair, then drops and fades away in one gesture
- * ("peel up, then slap off"). Exits run FASTER than entrances (~180ms default).
+ * ("peel up, then slap off"). Exits run FASTER than entrances (~140ms default).
  *
  * Resolves once the container is hidden. Skips straight to `display:none` when reduced
  * motion is set, when the panel is not animatable, or when a dismiss is already in
@@ -453,7 +453,7 @@ export function animateMenuDismiss(element, options = {}) {
   cancelElementAnimations(panel);
   if (backdrop) cancelElementAnimations(backdrop);
 
-  const duration = options.duration ?? 180;
+  const duration = options.duration ?? 140;
   const ease = options.ease ?? "inBack(1.7)";
 
   return new Promise((resolve) => {

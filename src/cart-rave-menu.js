@@ -988,7 +988,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
-        duration: 320,
+        duration: 240,
         y: 14,
       });
     }
@@ -1140,7 +1140,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
-        duration: 320,
+        duration: 240,
         y: 14,
       });
     }
@@ -1282,7 +1282,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
-        duration: 320,
+        duration: 240,
         y: 14,
       });
     }
@@ -1326,7 +1326,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
-        duration: 320,
+        duration: 240,
         y: 14,
       });
     }
@@ -1873,55 +1873,56 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
     setMenuEntrancePending(true);
 
-    const STAGGER = 46;
+    // * Pacing: whole cascade lands in ~700ms (was ~1060ms — read as sluggish).
+    const STAGGER = 30;
     let t = 0;
 
     document.querySelectorAll(".cr-tagline").forEach((el) => {
-      if (el instanceof HTMLElement) animateMenuReveal(el, { delay: t, duration: 300, y: 10, ease: "outExpo" });
+      if (el instanceof HTMLElement) animateMenuReveal(el, { delay: t, duration: 240, y: 10, ease: "outExpo" });
     });
 
-    t += 36;
+    t += 24;
     const titleWords = Array.from(document.querySelectorAll(".cr-title-word")).filter((el) => el instanceof HTMLElement);
     if (titleWords.length > 0) {
-      animateMenuCardEnter(titleWords, { delay: stagger(32, { start: t }), duration: 340, y: 14 });
+      animateMenuCardEnter(titleWords, { delay: stagger(24, { start: t }), duration: 280, y: 14 });
     }
 
-    t += 100;
+    t += 70;
     const menuButtons = Array.from(document.querySelectorAll(".cr-buttons .cr-btn")).filter((el) => el instanceof HTMLElement);
     if (menuButtons.length > 0) {
-      animateMenuCardEnter(menuButtons, { delay: stagger(STAGGER, { start: t }), duration: 380, y: 18 });
+      animateMenuCardEnter(menuButtons, { delay: stagger(STAGGER, { start: t }), duration: 300, y: 18 });
     }
 
-    t += STAGGER * 4 + 36;
+    t += STAGGER * 4 + 24;
     const levelsHd = document.querySelector(".cr-levels-hd");
-    if (levelsHd instanceof HTMLElement) animateMenuReveal(levelsHd, { delay: t, duration: 260, y: 8 });
+    if (levelsHd instanceof HTMLElement) animateMenuReveal(levelsHd, { delay: t, duration: 220, y: 8 });
 
     const levelCards = Array.from(document.querySelectorAll(".cr-level-btn:not(.cr-level-btn--disabled)")).filter((el) => el instanceof HTMLElement);
     if (levelCards.length > 0) {
-      animateMenuCardEnter(levelCards, { delay: stagger(STAGGER, { start: t + 28 }), duration: 360, y: 16 });
+      animateMenuCardEnter(levelCards, { delay: stagger(STAGGER, { start: t + 20 }), duration: 280, y: 16 });
     }
 
-    t += STAGGER * 2 + 72;
+    t += STAGGER * 2 + 48;
 
     const stats = $("cr-stats-local");
-    if (stats instanceof HTMLElement) animateMenuReveal(stats, { delay: t, duration: 360, y: 12 });
+    if (stats instanceof HTMLElement) animateMenuReveal(stats, { delay: t, duration: 280, y: 12 });
 
-    if (playerCard instanceof HTMLElement) animateMenuReveal(playerCard, { delay: t + 20, duration: 400, y: 14 });
+    if (playerCard instanceof HTMLElement) animateMenuReveal(playerCard, { delay: t + 16, duration: 320, y: 14 });
 
     const audioPanel = $("cr-audio-panel");
-    if (audioPanel instanceof HTMLElement) animateMenuReveal(audioPanel, { delay: t + 80, duration: 320, y: 10 });
+    if (audioPanel instanceof HTMLElement) animateMenuReveal(audioPanel, { delay: t + 56, duration: 260, y: 10 });
 
     const controls = $("cr-controls");
-    if (controls instanceof HTMLElement) animateMenuReveal(controls, { delay: t + 110, duration: 320, y: 10 });
+    if (controls instanceof HTMLElement) animateMenuReveal(controls, { delay: t + 80, duration: 260, y: 10 });
 
     const menuExtras = document.querySelector(".cr-menu-extras");
-    if (menuExtras instanceof HTMLElement) animateMenuReveal(menuExtras, { delay: t + 140, duration: 300, y: 8 });
+    if (menuExtras instanceof HTMLElement) animateMenuReveal(menuExtras, { delay: t + 100, duration: 240, y: 8 });
 
     clearMenuEntranceTimeout();
     menuEntranceTimeoutId = window.setTimeout(() => {
       menuEntranceTimeoutId = null;
       if (token === menuEntranceToken) setMenuEntrancePending(false);
-    }, t + 140 + 400);
+    }, t + 100 + 320);
   }
 
   // ─── Init ─────────────────────────────────────────────────────────────────

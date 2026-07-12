@@ -90,7 +90,6 @@ function nametagHtml(name, meta, mode, isHost) {
   }
   return `${icon}${escapeHtml(name)}`;
 }
-import * as GameAudio from "./audio.js";
 import * as AudioManager from "./audioManager.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
@@ -637,9 +636,13 @@ async function main() {
   AudioManager.loadMenuMusic(soundUrlWithFallback("menu.ogg"));
   if (menuVisible) AudioManager.playMenuMusic();
   // * Menu HTML loads before main; first gesture calls this to start menu music
-  // * once Howler is wired (see cart-rave-menu.js pointerdown bridge).
+  // * once Howler is wired (see cart-rave-menu.js pointerdown bridge). Also
+  // * invoked best-effort at boot-splash dismiss — the resume() only succeeds
+  // * where autoplay policy allows, and rejections are swallowed.
   window.__cartRaveTryStartMenuMusic = () => {
     try {
+      const ctx = audioListener.context;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
       AudioManager.playMenuMusic();
     } catch {
       /* ignore */
@@ -1064,7 +1067,6 @@ async function main() {
     getIsMuted,
   });
   if (!leaderHum) leaderHum = audioSystem.leaderHum;
-  GameAudio.registerAudioRefs({ leaderHum });
   // * Procedural stings (kill confirm, victory/defeat, sudden death, timer ticks,
   // * challenge complete) share the leader-chime WebAudio path and volume gates.
   SfxSynth.initSfxSynth(audioListener, { getSfxVolume, getIsMuted });
@@ -1988,6 +1990,10 @@ async function main() {
     if (!upgradeRecordReflector) return;
     // * Only the high tier renders the reflector — skip the 1024² RT upgrade elsewhere.
     if (!getQualityKnobs().reflector) return;
+    // * Touch devices that opted into high tier keep the 256² play-entry RT —
+    // * the mirror re-renders the whole scene per frame and the res jump is
+    // * invisible on phone-sized screens.
+    if (isTouchDevice()) return;
     const run = () => {
       try { upgradeRecordReflector(); } catch (e) {}
     };
@@ -3064,7 +3070,7 @@ async function main() {
     let nearestD2 = Infinity;
     let nearestIsHuman = false;
     const p = npc.body.translation();
-    const fallYThreshold = CONFIG.fall?.yThreshold ?? -1.0;
+    const fallYThreshold = CONFIG.fall.yThreshold;
     for (let i = 0; i < allCarts.length; i += 1) {
       const o = allCarts[i];
       if (o === npc) continue;
@@ -3173,7 +3179,7 @@ async function main() {
 
     const p = npc.body.translation();
     const lv = npc.body.linvel();
-    const fallYThreshold = CONFIG.fall?.yThreshold ?? -10;
+    const fallYThreshold = CONFIG.fall.yThreshold;
     // * Grounded-ish only — never hop while already falling / mid-air / on booth.
     if (p.y < fallYThreshold + 3) return;
     if (p.y > (CONFIG.booth?.platformY ?? 6) - 0.5) return;
@@ -3362,7 +3368,7 @@ async function main() {
       scores: GameState.getRoundScores() || {},
       netSlots: Netcode.getNetSlots(),
       allCarts: allCartsRef,
-      fallYThreshold: CONFIG.fall?.yThreshold ?? -10,
+      fallYThreshold: CONFIG.fall.yThreshold,
       nowPerfMs: performance.now(),
       setSuddenDeath: GameState.setSuddenDeath,
       sendHostRound: () => Netcode.sendHostRound(),

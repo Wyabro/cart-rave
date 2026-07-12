@@ -51,6 +51,12 @@ const ORBIT_PERIOD_MS = 70000;
 const FRAME_INTERVAL_MS = 33;
 /** Reduced motion renders a static shot at a slow heartbeat (level swaps still appear). */
 const REDUCED_MOTION_INTERVAL_MS = 800;
+/** Camera framing, all relative to arena radius: orbit ring, eye height, look-at height. */
+const ORBIT_RADIUS_MUL = 1.55;
+const ORBIT_HEIGHT_MUL = 0.62;
+const LOOK_AT_HEIGHT_MUL = 0.06;
+/** Reduced-motion fixed three-quarter azimuth (rad). */
+const REDUCED_MOTION_AZIMUTH = Math.PI * 0.28;
 
 const reducedMotionQuery =
   typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -104,14 +110,14 @@ function step(now) {
     applyDebugCameraPose(d.camera);
   } else {
     // Fixed three-quarter shot for reduced motion; slow drift otherwise.
-    const azimuth = reduced ? Math.PI * 0.28 : (now / ORBIT_PERIOD_MS) * Math.PI * 2;
-    const orbitRadius = arenaRadius * 1.55;
+    const azimuth = reduced ? REDUCED_MOTION_AZIMUTH : (now / ORBIT_PERIOD_MS) * Math.PI * 2;
+    const orbitRadius = arenaRadius * ORBIT_RADIUS_MUL;
     d.camera.position.set(
       Math.cos(azimuth) * orbitRadius,
-      arenaRadius * 0.62,
+      arenaRadius * ORBIT_HEIGHT_MUL,
       Math.sin(azimuth) * orbitRadius,
     );
-    d.camera.lookAt(0, arenaRadius * 0.06, 0);
+    d.camera.lookAt(0, arenaRadius * LOOK_AT_HEIGHT_MUL, 0);
   }
 
   // Same latched path as frameVisuals.js — never flip render paths here.
