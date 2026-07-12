@@ -14,6 +14,7 @@ import {
 import { claimStage, resetStage } from "./ui/centerStage.js";
 import { svgIcon } from "./ui/icons.js";
 import { updateBoostRing } from "./touchControls.js";
+import { clamp, clampInt } from "./utils.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
 import { getConnectionState, getHostId, getNetSlots, getServerClockOffsetMs } from "./netcode.js";
@@ -199,15 +200,6 @@ let _lastReadyState = null;
 let _hudTimerFillHalfPct = -1;
 
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function clampInt(value, min, max) {
-  const v = Math.round(value);
-  if (!Number.isFinite(v)) return min;
-  return Math.max(min, Math.min(max, v));
-}
 
 /**
  * Round-clock now adjusted by the server/host clock offset sample.
@@ -1504,6 +1496,23 @@ function updateBoostWidget(roundState) {
 }
 
 /**
+ * Hides the boost meter AND clears the mobile BOOST-button ring, keeping the
+ * per-frame write caches in sync. The single reset path for every menu return —
+ * HUD.update() early-returns while the menu is up, so whatever state the widget
+ * froze in would otherwise persist (desktop meter over the menu, stale ring pct
+ * flashing on the next match's countdown).
+ */
+function resetBoostWidget() {
+  if (elements.boost) {
+    elements.boost.style.display = "none";
+    delete elements.boost.dataset.state;
+  }
+  _boostDisplay = "none";
+  _boostFillHalfPct = -1;
+  updateBoostRing(null);
+}
+
+/**
  * Cartoon KO reaction on the victim's score chip: a brief desaturate-dip with
  * dizzy stars over the rank numeral (~1s). Fired from the kill-feed reactor so
  * every client sees it for every KO.
@@ -2046,12 +2055,7 @@ export function hideGameplayElements() {
     elements.comboBadge.classList.remove("active", "tier-1", "tier-2", "tier-3");
     _prevComboTier = 0;
   }
-  if (elements.boost) {
-    elements.boost.style.display = "none";
-    // * Invalidate the per-frame write cache so the next match's first
-    // * updateBoostWidget() re-shows the meter instead of skipping the write.
-    _boostDisplay = null;
-  }
+  resetBoostWidget();
   if (elements.conn) elements.conn.style.display = "none";
   if (elements.feed) {
     elements.feed.style.display = "none";

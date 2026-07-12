@@ -552,6 +552,9 @@ export function createCargoBay(hw, hl) {
 
   /** @type {THREE.Mesh[]} Fill-order list consumed by {@link setCargoFill}. */
   const cargoItems = [];
+  /** Per-item layer + horizontal half-extent for the separation pass below. */
+  const itemLayers = [];
+  const itemHoriz = [];
 
   for (let i = 0; i < GRID.length; i += 1) {
     const idx = indices[i % indices.length];
@@ -589,6 +592,38 @@ export function createCargoBay(hw, hl) {
     );
     group.add(mesh);
     cargoItems.push(mesh);
+    itemLayers.push(slot.layer);
+    itemHoriz.push(horiz);
+  }
+
+  // * Same-layer separation: large items shrink the usable reach, which collapses
+  // * grid slots toward center and interpenetrates neighbors. A few relaxation
+  // * passes push overlapping same-layer pairs apart along XZ, clamped to the
+  // * walls. 0.72 leaves a light lean so the pile still reads as packed-in.
+  const clampToWalls = (value, horiz, half) => {
+    const limit = Math.max(0, half - horiz);
+    return Math.min(limit, Math.max(-limit, value));
+  };
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (let a = 0; a < cargoItems.length; a += 1) {
+      for (let b = a + 1; b < cargoItems.length; b += 1) {
+        if (itemLayers[a] !== itemLayers[b]) continue;
+        const pa = cargoItems[a].position;
+        const pb = cargoItems[b].position;
+        const dx = pb.x - pa.x;
+        const dz = pb.z - pa.z;
+        const dist = Math.hypot(dx, dz);
+        const minDist = (itemHoriz[a] + itemHoriz[b]) * 0.72;
+        if (dist >= minDist) continue;
+        const push = (minDist - dist) / 2;
+        const nx = dist > 1e-4 ? dx / dist : 1;
+        const nz = dist > 1e-4 ? dz / dist : 0;
+        pa.x = clampToWalls(pa.x - nx * push, itemHoriz[a], halfW);
+        pa.z = clampToWalls(pa.z - nz * push, itemHoriz[a], halfL);
+        pb.x = clampToWalls(pb.x + nx * push, itemHoriz[b], halfW);
+        pb.z = clampToWalls(pb.z + nz * push, itemHoriz[b], halfL);
+      }
+    }
   }
 
   // * Living Cargo: expose the fill-order list and start at empty-cart fullness —
@@ -851,13 +886,15 @@ export function update(_dt, now) {
 }
 
 /**
- * Full teardown (bodies, meshes, GPU resources). Prefer level-swap path via
- * {@link init} re-entry, which only clears active slots and keeps GLBs warm.
+ * Full teardown (bodies, meshes, GPU resources). Module-private on purpose:
+ * the public lifecycle is level-swap re-entry via {@link init}, which clears
+ * active slots and keeps decoded GLBs warm; only the rare physics-world
+ * replacement inside init() needs the full rebuild.
  *
  * @param {THREE.Scene | null | undefined} scene Active Three.js scene.
  * @param {import("@dimforge/rapier3d").World | null | undefined} world Active Rapier physics world.
  */
-export function dispose(scene, world) {
+function dispose(scene, world) {
   pendingSpills.length = 0;
 
   for (const im of instancedMeshes) {

@@ -22,7 +22,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { applyCartPattern } from "./cartPatterns.js";
 import { CART_THEMES, resolveSunglassesStyle } from "./cartThemeConfig.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
-import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
+import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex, lerpAngle } from "./utils.js";
 import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
 
 /** @typedef {import("./cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
@@ -73,7 +73,11 @@ const RAVE_GLTF_FRAME_MESH = "tripo_part_0";
  */
 const RAVE_GLTF_ORIENTATION_Y = Math.PI / 2;
 
-/** Keys whose changes require `reapplyRaveGltfCartTuningOnScene`. */
+/**
+ * Layout keys baked in at cart build time — changing them only affects newly
+ * built carts (respawn / level reload). The dev Tweakpane surfaces that hint
+ * via `raveGltfTuningKeysNeedVisualReapply`.
+ */
 const RAVE_GLTF_TUNING_VISUAL_KEYS = new Set([
   "scale",
   "yOffset",
@@ -498,6 +502,9 @@ const _worldPosScratch = new THREE.Vector3();
 /** @type {THREE.Quaternion} */
 const _modelInvQuat = new THREE.Quaternion();
 
+/** Scratch: wheel rolling direction (axle × up) in cart-velocity space. */
+const _wheelRollDir = new THREE.Vector3();
+
 /** @type {number} */
 let _casterCoordLogLastMs = 0;
 
@@ -587,12 +594,6 @@ function logRaveGltfCasterSourceHierarchy(scene) {
     lines.push("  legacy monolithic corners: tripo_part_0,3,4,5 (swivel only)");
   }
   console.debug(lines.join("\n"));
-}
-
-/** @param {number} a @param {number} b @param {number} t */
-function lerpAngle(a, b, t) {
-  let delta = ((b - a) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
-  return a + delta * t;
 }
 
 /**
@@ -2108,17 +2109,6 @@ export function logRaveGltfCasterPivotsOnScene(scene) {
 }
 
 /**
- * Reapplies `raveGltfTuning` on every rave GLTF cart in a scene.
- *
- * @param {THREE.Object3D} scene
- */
-export function reapplyRaveGltfCartTuningOnScene(scene) {
-  scene.traverse((obj) => {
-    // TODO: Implement per-object rave GLTF tuning reapply when tuning values change
-  });
-}
-
-/**
  * Parents sunglasses meshes into one static group so they move and tint as a unit.
  *
  * @param {THREE.Object3D} model `RaveGltfModel` (or `RaveGltfBodyScale` subtree)
@@ -2849,6 +2839,36 @@ function updateRaveGltfAxleSteerState(data, axleSteer, turnBlend, cartTurning, d
 }
 
 /**
+ * Signed ground speed along the wheel's rolling direction (m/s, forward-positive).
+ *
+ * The rolling direction is derived from the live pivot chain — the roll axle
+ * (thin bbox axis) crossed with up — so a positive value always advances the
+ * wheel the way the mesh visually rolls, regardless of authored fork yaw or
+ * current swivel angle. (Projecting onto the steer heading, the previous
+ * approach, collapsed to ~0 on a straight cruise and flipped sign with steer,
+ * because authored fork yaws are not aligned with wheel-forward.)
+ *
+ * @param {RaveGltfCasterRuntime} caster
+ * @param {{ vx: number, vz: number }} cornerVel Corner velocity in cart-velocity space.
+ * @returns {number}
+ */
+function computeRaveGltfWheelRollSignedSpeed(caster, cornerVel) {
+  const axis = caster.wheelRollAxis;
+  _wheelRollDir.set(axis === "x" ? 1 : 0, axis === "y" ? 1 : 0, axis === "z" ? 1 : 0);
+  caster.rollPivot.updateWorldMatrix(true, false);
+  _wheelRollDir
+    .transformDirection(caster.rollPivot.matrixWorld)
+    .applyQuaternion(_rootInv)
+    .applyQuaternion(_modelInvQuat);
+  // * travel = axle × up — positive roll about the axle advances the wheel this way.
+  const dirX = -_wheelRollDir.z;
+  const dirZ = _wheelRollDir.x;
+  const len = Math.hypot(dirX, dirZ);
+  if (len < 1e-4) return 0; // * degenerate (near-vertical axle) — skip roll this frame
+  return (cornerVel.vx * dirX + cornerVel.vz * dirZ) / len;
+}
+
+/**
  * Applies absolute trail heading to a swivel pivot using its authored rest offset.
  *
  * @param {RaveGltfCasterRuntime} caster
@@ -2987,7 +3007,6 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
     Math.min(maxSteer, data.rearAxleSteerSmoothed ?? 0),
   );
   const frontSharedHeading = axleMeanRests.frontMeanRest + frontPivotSteer;
-  const rearSharedHeading = axleMeanRests.rearMeanRest + rearPivotSteer;
 
   /** @type {{ frontSteerDelta: number, rearSteerDelta: number, frontMeanRest: number, rearMeanRest: number } | null} */
   const axleSteerApplied = axleSteer
@@ -3000,30 +3019,6 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
     : null;
 
   const shouldLogCoordination = raveGltfTuning.casterCoordinationLog === true;
-
-  /** Mean rear-wheel roll rate (rad/s) so front wheels stay visually in sync. */
-  let rearRollAngularVel = null;
-  {
-    let rearRollSum = 0;
-    let rearRollCount = 0;
-    for (const c of casters) {
-      const cAxle = c.axle ?? (c.hubLocalX > 0 ? "front" : "rear");
-      if (cAxle !== "rear" || !c.rollPivot) continue;
-      const cv = computeRaveGltfCasterCornerLocalVel(
-        _localVel.x,
-        _localVel.z,
-        localOmegaY,
-        c.hubLocalX,
-        c.hubLocalZ,
-      );
-      if (cv.speed < RAVE_GLTF_WHEEL_ROLL_MIN_SPEED) continue;
-      const ss =
-        cv.vx * Math.sin(c.smoothedHeading) + cv.vz * Math.cos(c.smoothedHeading);
-      rearRollSum += ss / Math.max(c.wheelRadius, 1e-4);
-      rearRollCount += 1;
-    }
-    if (rearRollCount > 0) rearRollAngularVel = rearRollSum / rearRollCount;
-  }
 
   for (const caster of casters) {
     const cornerVel = computeRaveGltfCasterCornerLocalVel(
@@ -3038,7 +3033,6 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
     const axle = caster.axle ?? (caster.hubLocalX > 0 ? "front" : "rear");
     const axleMeanRest = axle === "front" ? axleMeanRests.frontMeanRest : axleMeanRests.rearMeanRest;
     const pivotSteer = axle === "front" ? frontPivotSteer : rearPivotSteer;
-    const sharedHeading = axle === "front" ? frontSharedHeading : rearSharedHeading;
     const restDelta = Math.abs(
       pivotSteer !== 0
         ? pivotSteer
@@ -3101,19 +3095,11 @@ export function updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld 
     if (!rollEnabled || !caster.rollPivot) continue;
 
     if (cornerVel.speed >= RAVE_GLTF_WHEEL_ROLL_MIN_SPEED) {
-      if (axle === "front" && rearRollAngularVel != null) {
-        caster.wheelRoll += rearRollAngularVel * dtSec * RAVE_GLTF_WHEEL_ROLL_SPEED_MUL;
-      } else {
-        const rollHeading = (frontAxleRigid && axle === "front")
-          ? frontSharedHeading
-          : caster.smoothedHeading;
-        const signedSpeed =
-          cornerVel.vx * Math.sin(rollHeading) + cornerVel.vz * Math.cos(rollHeading);
-        caster.wheelRoll +=
-          (signedSpeed / Math.max(caster.wheelRadius, 1e-4))
-          * dtSec
-          * RAVE_GLTF_WHEEL_ROLL_SPEED_MUL;
-      }
+      const signedSpeed = computeRaveGltfWheelRollSignedSpeed(caster, cornerVel);
+      caster.wheelRoll +=
+        (signedSpeed / Math.max(caster.wheelRadius, 1e-4))
+        * dtSec
+        * RAVE_GLTF_WHEEL_ROLL_SPEED_MUL;
     }
 
     setObjectAxisRotation(
