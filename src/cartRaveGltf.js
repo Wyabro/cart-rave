@@ -388,6 +388,9 @@ const RAVE_GLTF_CASTER_CORNER_SIGNS = Object.freeze({
  */
 const RAVE_GLTF_PART_ROLES_V4 = Object.freeze({
   SunglassesVisor: "face",
+  // * Dark gap-patch behind the visor (integrateOnePieceSunglasses) — "handle" gives it
+  // * the fixed near-black trim material without a CartFrame rename or any color tint.
+  SunglassesGapPatch: "handle",
   tripo_part_0: "body",
   tripo_part_1: "wheel",
   tripo_part_2: "wheel",
@@ -2439,18 +2442,15 @@ async function integrateOnePieceSunglasses(sourceScene) {
     ? geo.boundingBox.getSize(new THREE.Vector3())
     : new THREE.Vector3(0.15, 0.22, 0.69);
 
-  // * Fit (Wyatt-tuned 2026-07-12): the basket hole matches the old frame's footprint,
-  // * which is taller than the visor's aspect and wraps around the basket sides. So:
-  // * width gets +18% over the exact box fit (overhangs the side wrap-around holes),
-  // * and height stretches independently to span the full frame box (+3% margin) —
-  // * a ~9% vertical stretch vs width, imperceptible on sunglasses. Centered on the
-  // * hole box so coverage splits evenly top/bottom.
+  // * Fit: the approved uniform width-match of the old glasses (frame 8 + lenses 9/11).
+  // * The basket (tripo_part_0) is a non-manifold wire lattice with NO geometry behind
+  // * the glasses footprint, so oversizing the visor to hide the see-through made it
+  // * "too large". Instead a dark gap-patch panel (below) seals the hole and the visor
+  // * sits at its natural size, dropped a smidge onto the sealed face.
   const widthAxis = size.x >= size.z ? "x" : "z";
   const depthAxis = widthAxis === "x" ? "z" : "x";
   const facingSign = Math.sign(center[depthAxis]) || 1;
-  const SIDE_COVER_MUL = 1.18;
-  const sxz = (size[widthAxis] / (vSize.z || 1)) * SIDE_COVER_MUL;
-  const sy = Math.max(sxz, (size.y / (vSize.y || 1)) * 1.03);
+  const scale = size[widthAxis] / (vSize.z || 1);
   const yaw = depthAxis === "x"
     ? (facingSign > 0 ? 0 : Math.PI)
     : (facingSign > 0 ? -Math.PI / 2 : Math.PI / 2);
@@ -2462,21 +2462,50 @@ async function integrateOnePieceSunglasses(sourceScene) {
   const mat = /** @type {any} */ (Array.isArray(visor.material) ? visor.material[0] : visor.material);
   if (mat) mat.map = null; // mirror finish is procedural — drop the baked base color
   visorMesh.position.copy(center);
+  // * Top-edge aligned to the old frame box, then lowered a smidge so it seats naturally
+  // * over the sealed face (the gap patch below covers whatever the visor doesn't).
+  const VISOR_LOWER = size.y * 0.12;
+  visorMesh.position.y = box.max.y - (vSize.y * scale) / 2 - VISOR_LOWER;
   // * Keep the lens plane where the old assembly's outer face was (centered geometry
   // * would otherwise recess the visor by half its depth difference).
-  visorMesh.position[depthAxis] += facingSign * (size[depthAxis] - vSize.x * sxz) / 2;
+  visorMesh.position[depthAxis] += facingSign * (size[depthAxis] - vSize.x * scale) / 2;
   visorMesh.rotation.y = yaw;
-  // * Visor local axes pre-yaw: x=depth, y=height, z=width.
-  visorMesh.scale.set(sxz, sy, sxz);
+  visorMesh.scale.setScalar(scale);
   visorMesh.userData.isFace = true;
   visorMesh.userData.raveGltfPartRole = "face";
   parent.add(visorMesh);
 
+  // * Gap patch — the basket body is a wire lattice with no geometry behind the old
+  // * glasses footprint, so the see-through shows as a hole under/around the visor. Seal
+  // * it with a dark panel sized to that footprint: role "handle" (see roles map) gives it
+  // * the fixed near-black trim material (never color-tinted, no CartFrame collision) and
+  // * body-scales it in lockstep with the visor. Reads as the glasses' inner shadow. The
+  // * long-term "real" fix is hand-modeling the lattice patch in Blender (art/models).
+  // * Narrower than the full footprint width: the basket front curves back on the sides,
+  // * so a full-width flat patch pokes past the curve as a dark bar. The see-through hole
+  // * is central, so ~0.8 width keeps the patch within the flatter front face.
+  const PATCH_W = size[widthAxis] * 0.8;
+  const PATCH_H = size.y * 0.95;
+  const patchGeo = new THREE.PlaneGeometry(PATCH_W, PATCH_H);
+  const patchMesh = new THREE.Mesh(patchGeo, new THREE.MeshStandardMaterial({ color: 0x111111 }));
+  patchMesh.name = "SunglassesGapPatch";
+  patchMesh.userData.raveGltfPartRole = "handle";
+  // * Seat at the BACK of the footprint (basket-interior side) so the wire lattice sits in
+  // * front of it — the patch shows only through the actual see-through holes, reading as a
+  // * dark basket interior rather than a floating card. Facing outward.
+  const PATCH_DEPTH_FRAC = -0.45;
+  patchMesh.position.copy(center);
+  patchMesh.position[depthAxis] += facingSign * size[depthAxis] * PATCH_DEPTH_FRAC;
+  const patchOutward = new THREE.Vector3();
+  patchOutward[depthAxis] = facingSign;
+  patchMesh.lookAt(patchMesh.position.clone().add(patchOutward));
+  parent.add(patchMesh);
+
   if (import.meta.env?.DEV) {
     console.debug(
       `[cartRaveGltf] One-piece sunglasses integrated: replaced ${oldParts.length} parts ` +
-      `(smile kept), widthAxis=${widthAxis} facing=${facingSign > 0 ? "+" : "-"}${depthAxis} ` +
-      `sxz=${sxz.toFixed(3)} sy=${sy.toFixed(3)} ` +
+      `(smile kept + gap patch), widthAxis=${widthAxis} facing=${facingSign > 0 ? "+" : "-"}${depthAxis} ` +
+      `scale=${scale.toFixed(3)} ` +
       `pos=(${visorMesh.position.x.toFixed(3)}, ${visorMesh.position.y.toFixed(3)}, ${visorMesh.position.z.toFixed(3)})`,
     );
   }
