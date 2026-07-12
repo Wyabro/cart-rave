@@ -626,6 +626,22 @@ function spawnOnRingForSlot(slotIndex) {
 }
 
 /**
+ * Recomputes every cart's spawn point + yaw from the CURRENT spawn ring. Required
+ * after a mid-session arena swap (Quickplay rotation): loadLevel applies per-level
+ * radius overrides (config.record.radiusByLevel), but cart.spawn is frozen at
+ * createCart time — respawns would otherwise land on the previous arena's ring
+ * (over the void when the new arena is smaller).
+ */
+export function refreshCartSpawnPositions() {
+  for (const cart of allCartsRef || []) {
+    if (!cart) continue;
+    const spawn = spawnOnRingForSlot(cart.slotIndex);
+    cart.spawn = spawn;
+    cart.spawnYaw = yawToCenter(spawn);
+  }
+}
+
+/**
  * Resets every cart to spawn between rounds and broadcasts a host transform snapshot
  * (WebRTC + reliable PartyKit host_spawn).
  */

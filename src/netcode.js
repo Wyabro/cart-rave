@@ -269,6 +269,9 @@ let callbacks = {
   recordPodiumStats: (winnerSlotIndex, scores) => {},
   onReturnToLobby: () => {},
   onEnterPodium: () => {},
+  // * Room-authoritative level changed mid-session (Quickplay rotation / host arena
+  // * switch). main.js rotates the loaded arena in place when in-game.
+  onLevelIdChanged: (levelId) => {},
   // * Host optimistic podium rejected by server — tear down results/cam and resume running.
   onPodiumRejected: () => {},
 
@@ -359,6 +362,7 @@ export function registerGameCallbacks(deps) {
     recordPodiumStats: (winner, scores) => deps.recordPodiumStats(winner, scores),
     onReturnToLobby: () => deps.onReturnToLobby?.(),
     onEnterPodium: () => deps.onEnterPodium?.(),
+    onLevelIdChanged: (levelId) => deps.onLevelIdChanged?.(levelId),
     onPodiumRejected: () => deps.onPodiumRejected?.(),
     getPendingMidRoundJoinRespawnConnId: () => deps.getPendingMidRoundJoinRespawnConnId(),
     setPendingMidRoundJoinRespawnConnId: (val) => deps.setPendingMidRoundJoinRespawnConnId(val),
@@ -1514,11 +1518,18 @@ export function initNetcode(roomOverride) {
       ]);
     } else {
       const npcNames = callbacks.getInitialNpcNames();
+      // * Shuffled NPC colors per session (mirrors the server-side slot shuffle) —
+      // * declashNpcSlotColors still resolves any clash with the human's pick.
+      const npcColors = ["blue", "green", "yellow"];
+      for (let i = npcColors.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [npcColors[i], npcColors[j]] = [npcColors[j], npcColors[i]];
+      }
       netSlots = declashNpcSlotColors([
         { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
-        { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: "blue" },
-        { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: "green" },
-        { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: "yellow" },
+        { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: npcColors[0] },
+        { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: npcColors[1] },
+        { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: npcColors[2] },
       ]);
     }
 
@@ -2056,6 +2067,18 @@ function adoptAuthoritativeRoomLevel(levelId, opts = {}) {
       callbacks.onLevelIdChanged?.(incoming);
     }
   }
+}
+
+/**
+ * Host-side room level change (Quickplay arena rotation). Updates the authoritative
+ * latch + settings store WITHOUT firing onLevelIdChanged — the caller performs its own
+ * arena swap. The next sendHostRound broadcasts the new id; the server latches and
+ * rebroadcasts it, and non-host clients rotate via their onLevelIdChanged.
+ * @param {string} levelId
+ */
+export function adoptRoomLevelAsHost(levelId) {
+  if (!isHost) return;
+  adoptAuthoritativeRoomLevel(levelId, { notify: false });
 }
 
 export function sendHostRound() {

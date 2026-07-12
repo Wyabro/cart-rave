@@ -129,7 +129,13 @@ export class CartRaveServer extends Server {
   #ensureInitialized() {
     if (this.#slots) return;
 
+    // * Shuffled per room so NPC color combinations vary between sessions. Uniqueness
+    // * is preserved (one preset per slot); humans can still re-pick via color_pick.
     const colors = ["pink", "blue", "green", "yellow"];
+    for (let i = colors.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [colors[i], colors[j]] = [colors[j], colors[i]];
+    }
     const npcNames = this.#drawNpcNames(4);
 
     this.#slots = ([0, 1, 2, 3] as SlotId[]).map((slotId) => ({

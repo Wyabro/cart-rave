@@ -404,15 +404,47 @@ export function resolveServerColorPick() {
 }
 
 /**
- * Pattern id for a cart mesh — local human uses saved pattern; others use classic until networked.
+ * Deterministic per-NPC look seed. Hashes the server-assigned slot name (synced to
+ * every client via `slots`), so all peers derive the SAME random-feeling cosmetics
+ * with zero extra network traffic. djb2 over the name string.
  *
- * @param {{ kind?: string, connId?: string } | null | undefined} slot
+ * @param {{ name?: string, slotId?: number } | null | undefined} slot
+ * @returns {number} Non-negative 32-bit hash.
+ */
+function npcLookSeed(slot) {
+  const name = (slot && typeof (/** @type {any} */ (slot).name) === "string")
+    ? /** @type {any} */ (slot).name
+    : "npc";
+  let h = 5381;
+  for (let i = 0; i < name.length; i += 1) {
+    h = ((h << 5) + h + name.charCodeAt(i)) | 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * NPC pattern pool — "classic" (plain) stays in the mix so not every bot looks
+ * decorated; the rest are the unlockable wireframe patterns. Deterministic pick
+ * from the slot-name seed keeps all peers in agreement.
+ * @type {ReadonlyArray<CartPatternId>}
+ */
+const NPC_PATTERN_POOL = Object.freeze(["classic", "classic", "stripes", "checker", "dots", "waves", "bolt"]);
+
+/**
+ * Pattern id for a cart mesh — local human uses saved pattern; NPCs draw a stable
+ * pseudo-random pattern from their name seed; remote humans stay classic (their
+ * pattern pick is not networked yet).
+ *
+ * @param {{ kind?: string, connId?: string, name?: string } | null | undefined} slot
  * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
  * @returns {CartPatternId}
  */
 export function resolveCartPatternForSlot(slot, ctx = {}) {
   const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
   if (isLocal) return loadPlayerCustomization().pattern;
+  if (slot?.kind === "npc") {
+    return NPC_PATTERN_POOL[npcLookSeed(slot) % NPC_PATTERN_POOL.length];
+  }
   return DEFAULT_CART_PATTERN;
 }
 
@@ -431,17 +463,22 @@ export function resolveCartThemeForSlot(_slot, _ctx = {}) {
 }
 
 /**
- * Sunglasses style id for a cart mesh — local human uses saved style; others use silver mirror.
- * Style is local-only for now (not synced via PartyKit), so remote humans and NPCs fall back to
- * the default silver mirror lens.
+ * Sunglasses style id for a cart mesh — local human uses saved style; NPCs draw a
+ * stable pseudo-random mirror style from their name seed (offset from the pattern
+ * roll so pattern/style pairings vary independently); remote humans fall back to
+ * silver mirror (style is not networked yet).
  *
- * @param {{ kind?: string, connId?: string } | null | undefined} slot
+ * @param {{ kind?: string, connId?: string, name?: string } | null | undefined} slot
  * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
  * @returns {SunglassesStyleId}
  */
 export function resolveCartSunglassesStyleForSlot(slot, ctx = {}) {
   const isLocal = ctx.isLocalHuman ?? isLocalHumanSlot(slot, ctx.youConnId);
   if (isLocal) return loadPlayerCustomization().sunglassesStyle;
+  if (slot?.kind === "npc") {
+    const idx = (npcLookSeed(slot) >>> 3) % SUNGLASSES_STYLES.length;
+    return SUNGLASSES_STYLES[idx].id;
+  }
   return DEFAULT_SUNGLASSES_STYLE;
 }
 

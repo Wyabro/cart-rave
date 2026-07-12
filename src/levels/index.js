@@ -18,8 +18,11 @@ const LEVEL_IMPORTERS = {
   testArena: () => import("./testArena.js").then((m) => m.initTestArena),
 };
 
-/** Arena chunks the menu can switch between — testArena is dev-only, excluded. */
-const PREFETCHABLE_LEVEL_IDS = ["classicRecord", "backrooms", "zanzibar"];
+/**
+ * Arena chunks the menu can switch between — testArena is dev-only, excluded.
+ * Also the Quickplay arena-rotation pool (main.js pickNextQuickplayArenaId).
+ */
+export const PREFETCHABLE_LEVEL_IDS = ["classicRecord", "backrooms", "zanzibar"];
 
 let levelChunksPrefetched = false;
 

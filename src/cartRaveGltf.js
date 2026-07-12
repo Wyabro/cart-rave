@@ -57,6 +57,13 @@ const RAVE_GLTF_URL_DRACO = "/models/cart-rave-base-draco.glb";
 /** Primary segmented rave cart — DRACO + WebP compressed (separate fork + wheel meshes per corner). */
 const RAVE_GLTF_URL = "/models/cartrave4-draco.glb";
 
+/**
+ * One-piece sunglasses visor (DRACO, master in art/models/sunglasses-visor.glb).
+ * Replaces the four segmented cartrave4 face parts at source-load time — see
+ * integrateOnePieceSunglasses(). Load failure falls back to the segmented parts.
+ */
+const SUNGLASSES_VISOR_URL = "/models/sunglasses-visor.glb";
+
 // * Uncompressed masters live under art/models/ for authoring + npm run compress:rave-gltf.
 // * They are not shipped in public/ (saves ~14 MB per deploy).
 
@@ -291,6 +298,9 @@ const RAVE_GLTF_V4_FACE_PARTS = Object.freeze([
   "tripo_part_8",
   "tripo_part_9",
   "tripo_part_11",
+  // * One-piece visor swapped in at source load (integrateOnePieceSunglasses) — listed
+  // * here so groupRaveGltfFaceAssembly still builds RaveGltfFaceGroup around it.
+  "SunglassesVisor",
 ]);
 
 /**
@@ -363,6 +373,7 @@ const RAVE_GLTF_CASTER_CORNER_SIGNS = Object.freeze({
  * @type {Readonly<Record<string, RaveGltfPartRole>>}
  */
 const RAVE_GLTF_PART_ROLES_V4 = Object.freeze({
+  SunglassesVisor: "face",
   tripo_part_0: "body",
   tripo_part_1: "wheel",
   tripo_part_2: "wheel",
@@ -2122,7 +2133,9 @@ function groupRaveGltfFaceAssembly(model) {
     const mesh = /** @type {THREE.Mesh | undefined} */ (model.getObjectByName(partName));
     if (mesh?.isMesh) meshes.push(mesh);
   }
-  if (meshes.length < 2) return;
+  // * One mesh is valid since the one-piece visor swap (group still wanted — theme
+  // * face policy toggles "RaveGltfFaceGroup" visibility).
+  if (meshes.length < 1) return;
 
   _bodyScalePivot.set(0, 0, 0);
   for (const mesh of meshes) _bodyScalePivot.add(mesh.position);
@@ -2346,6 +2359,99 @@ function loadRaveGltfFromUrl(url) {
   });
 }
 
+/**
+ * Replaces the four segmented cartrave4 sunglasses parts (frame/lenses/accent) with the
+ * one-piece visor GLB, fitted to the old assembly's bounds so the cart silhouette is
+ * unchanged. Runs ONCE on the shared source scene before any instance is cloned:
+ *
+ * - The visor mesh is named "SunglassesVisor" (mapped to role "face" in
+ *   RAVE_GLTF_PART_ROLES_V4), so every existing customization path — mirror-style
+ *   recolor, neon lens envMap, theme face policy — applies unchanged.
+ * - Placement is baked onto the MESH transform (like the old parts), NOT a wrapper
+ *   group: applyRaveGltfBodyScale reparents face meshes by their own positions, and
+ *   groupRaveGltfFaceAssembly builds "RaveGltfFaceGroup" per instance afterwards.
+ * - Its authored base-color map is dropped: face-role materials are fully procedural
+ *   (cloneRaveGltfMaterial overrides PBR with the SunglassesStyleDef mirror finish).
+ *
+ * @param {THREE.Object3D} sourceScene
+ * @returns {Promise<void>}
+ */
+async function integrateOnePieceSunglasses(sourceScene) {
+  /** @type {THREE.Mesh[]} */
+  const oldParts = [];
+  for (const name of RAVE_GLTF_V4_FACE_PARTS) {
+    const mesh = /** @type {THREE.Mesh | undefined} */ (sourceScene.getObjectByName(name));
+    if (/** @type {any} */ (mesh)?.isMesh) oldParts.push(mesh);
+  }
+  if (oldParts.length === 0) return;
+  const parent = oldParts[0].parent;
+  if (!parent) return;
+
+  const visorScene = await loadRaveGltfFromUrl(SUNGLASSES_VISOR_URL);
+  /** @type {THREE.Mesh | null} */
+  let visor = null;
+  visorScene.traverse((child) => {
+    const c = /** @type {any} */ (child);
+    if (!visor && c.isMesh) visor = c;
+  });
+  if (!visor) throw new Error(`No mesh found in ${SUNGLASSES_VISOR_URL}`);
+
+  // * Combined bounds of the segmented assembly in parent-local space. Parts carry
+  // * position-only transforms (same assumption as groupRaveGltfFaceAssembly).
+  const box = new THREE.Box3();
+  const partBox = new THREE.Box3();
+  for (const mesh of oldParts) {
+    mesh.geometry.computeBoundingBox();
+    if (!mesh.geometry.boundingBox) continue;
+    partBox.copy(mesh.geometry.boundingBox);
+    partBox.min.add(mesh.position);
+    partBox.max.add(mesh.position);
+    box.union(partBox);
+  }
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+
+  // * Visor authoring axes (Tripo export): width along Z, height Y, lenses facing ±X.
+  const geo = visor.geometry;
+  geo.center();
+  geo.computeBoundingBox();
+  const vSize = geo.boundingBox
+    ? geo.boundingBox.getSize(new THREE.Vector3())
+    : new THREE.Vector3(0.15, 0.22, 0.69);
+
+  // * Fit: match the old assembly's width axis; face outward along its depth offset.
+  const widthAxis = size.x >= size.z ? "x" : "z";
+  const depthAxis = widthAxis === "x" ? "z" : "x";
+  const facingSign = Math.sign(center[depthAxis]) || 1;
+  const scale = size[widthAxis] / (vSize.z || 1);
+  const yaw = depthAxis === "x"
+    ? (facingSign > 0 ? 0 : Math.PI)
+    : (facingSign > 0 ? -Math.PI / 2 : Math.PI / 2);
+
+  for (const mesh of oldParts) mesh.parent?.remove(mesh);
+
+  const visorMesh = new THREE.Mesh(geo, visor.material);
+  visorMesh.name = "SunglassesVisor";
+  const mat = /** @type {any} */ (Array.isArray(visor.material) ? visor.material[0] : visor.material);
+  if (mat) mat.map = null; // mirror finish is procedural — drop the baked base color
+  visorMesh.position.copy(center);
+  // * Keep the lens plane where the old assembly's outer face was (centered geometry
+  // * would otherwise recess the visor by half its depth difference).
+  visorMesh.position[depthAxis] += facingSign * (size[depthAxis] - vSize.x * scale) / 2;
+  visorMesh.rotation.y = yaw;
+  visorMesh.scale.setScalar(scale);
+  visorMesh.userData.isFace = true;
+  visorMesh.userData.raveGltfPartRole = "face";
+  parent.add(visorMesh);
+
+  if (import.meta.env?.DEV) {
+    console.debug(
+      `[cartRaveGltf] One-piece sunglasses integrated: replaced ${oldParts.length} parts, ` +
+      `widthAxis=${widthAxis} facing=${facingSign > 0 ? "+" : "-"}${depthAxis} scale=${scale.toFixed(3)}`,
+    );
+  }
+}
+
 /** @returns {Promise<{ scene: THREE.Group, url: string }>} */
 async function loadRaveGltfSourceScene() {
   /** @type {Error | null} */
@@ -2392,10 +2498,23 @@ function ensureRaveGltfSource() {
   if (_loadPromise) return _loadPromise;
 
   _loadPromise = loadRaveGltfSourceScene()
-    .then(({ scene, url }) => {
+    .then(async ({ scene, url }) => {
       scene.name = scene.name || "RaveCartGltfSource";
       _loadedUrl = url;
       _sourceLayout = detectRaveGltfLayout(scene, url);
+
+      // * One-piece sunglasses swap (cartrave4 only). Failure is non-fatal: the
+      // * segmented face parts stay in place and every downstream path still works.
+      if (_sourceLayout === "cartrave4") {
+        try {
+          await integrateOnePieceSunglasses(scene);
+        } catch (err) {
+          console.warn(
+            "[cartRaveGltf] One-piece sunglasses unavailable — keeping segmented parts:",
+            err,
+          );
+        }
+      }
 
       if (url !== RAVE_GLTF_URL) {
         console.warn(

@@ -34,6 +34,7 @@ import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
  * @property {() => boolean} isWorldBootstrapped
  * @property {() => boolean} getMenuVisible
  * @property {() => number} getArenaRadius
+ * @property {() => string} [getLevelId] Loaded arena id — per-arena camera clamps.
  */
 
 /** @type {MenuAttractDeps | null} */
@@ -45,18 +46,52 @@ let revealed = false;
 /** Last rendered frame timestamp (ms) for throttling. */
 let lastFrameMs = 0;
 
-/** Full orbit period (ms) — slow enough to read as a camera drift, not a spin. */
+/** Base orbit period (ms) — slow enough to read as a camera drift, not a spin. */
 const ORBIT_PERIOD_MS = 70000;
 /** Frame budget: ~30fps is plenty for an ambient backdrop. */
 const FRAME_INTERVAL_MS = 33;
 /** Reduced motion renders a static shot at a slow heartbeat (level swaps still appear). */
 const REDUCED_MOTION_INTERVAL_MS = 800;
-/** Camera framing, all relative to arena radius: orbit ring, eye height, look-at height. */
+/** Reduced-motion fixed three-quarter azimuth (rad). */
+const REDUCED_MOTION_AZIMUTH = Math.PI * 0.28;
+/** Reduced-motion framing (the original single-orbit shot). */
 const ORBIT_RADIUS_MUL = 1.55;
 const ORBIT_HEIGHT_MUL = 0.62;
 const LOOK_AT_HEIGHT_MUL = 0.06;
-/** Reduced-motion fixed three-quarter azimuth (rad). */
-const REDUCED_MOTION_AZIMUTH = Math.PI * 0.28;
+
+/**
+ * Attract shot list — the loop hard-cuts between these framings (arcade attract
+ * style), each drifting slowly while it holds. All values are arena-radius
+ * relative; `speedMul` scales the base ORBIT_PERIOD_MS drift and `driftDir`
+ * alternates so consecutive shots don't feel like one long orbit. Each cut
+ * starts from a fresh random azimuth for variety across menu visits.
+ *
+ * @type {ReadonlyArray<{ durMs: number, radiusMul: number, heightMul: number,
+ *   lookHeightMul: number, driftDir: 1 | -1, speedMul: number }>}
+ */
+const ATTRACT_SHOTS = Object.freeze([
+  // Wide establishing orbit (the original attract framing).
+  { durMs: 15000, radiusMul: 1.55, heightMul: 0.62, lookHeightMul: 0.06, driftDir: 1, speedMul: 1.0 },
+  // Low trackside dolly — cart-height energy, floor neon up close.
+  { durMs: 10000, radiusMul: 1.12, heightMul: 0.16, lookHeightMul: 0.1, driftDir: -1, speedMul: 1.7 },
+  // High slow sweep — reads the whole arena layout.
+  { durMs: 12000, radiusMul: 1.3, heightMul: 0.88, lookHeightMul: 0, driftDir: 1, speedMul: 0.8 },
+  // Close three-quarter push — booth / podium detail pass.
+  { durMs: 9000, radiusMul: 0.85, heightMul: 0.3, lookHeightMul: 0.14, driftDir: -1, speedMul: 1.4 },
+]);
+
+/**
+ * Per-arena camera height ceiling (meters). The Storerooms has a dropped ceiling at
+ * y=14.5 — the old fixed 0.62×radius orbit (~16.4 m) floated ABOVE it, showing the
+ * roof void. Clamp comfortably below the tiles (fixtures hang under them).
+ * @type {Readonly<Record<string, number>>}
+ */
+const LEVEL_MAX_CAM_HEIGHT_M = Object.freeze({ backrooms: 11.5 });
+
+/** Active shot index + entry timestamp + per-cut random azimuth offset. */
+let shotIndex = 0;
+let shotStartMs = 0;
+let shotBaseAzimuth = 0;
 
 const reducedMotionQuery =
   typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -105,19 +140,36 @@ function step(now) {
   lastFrameMs = now;
 
   const arenaRadius = Math.max(6, d.getArenaRadius());
+  const maxHeightM = LEVEL_MAX_CAM_HEIGHT_M[d.getLevelId?.() ?? ""] ?? Infinity;
   // * Visual QA: ?cam= / ?freeze= pin pose (no orbit) so shoot tools are stable.
   if (isDebugCameraLocked()) {
     applyDebugCameraPose(d.camera);
-  } else {
-    // Fixed three-quarter shot for reduced motion; slow drift otherwise.
-    const azimuth = reduced ? REDUCED_MOTION_AZIMUTH : (now / ORBIT_PERIOD_MS) * Math.PI * 2;
+  } else if (reduced) {
+    // Fixed three-quarter shot for reduced motion (no cuts, no drift).
     const orbitRadius = arenaRadius * ORBIT_RADIUS_MUL;
     d.camera.position.set(
-      Math.cos(azimuth) * orbitRadius,
-      arenaRadius * ORBIT_HEIGHT_MUL,
-      Math.sin(azimuth) * orbitRadius,
+      Math.cos(REDUCED_MOTION_AZIMUTH) * orbitRadius,
+      Math.min(arenaRadius * ORBIT_HEIGHT_MUL, maxHeightM),
+      Math.sin(REDUCED_MOTION_AZIMUTH) * orbitRadius,
     );
     d.camera.lookAt(0, arenaRadius * LOOK_AT_HEIGHT_MUL, 0);
+  } else {
+    // Shot-list attract: hard-cut between framings, each drifting while it holds.
+    if (shotStartMs === 0 || now - shotStartMs >= ATTRACT_SHOTS[shotIndex].durMs) {
+      shotIndex = shotStartMs === 0 ? shotIndex : (shotIndex + 1) % ATTRACT_SHOTS.length;
+      shotStartMs = now;
+      shotBaseAzimuth = Math.random() * Math.PI * 2;
+    }
+    const shot = ATTRACT_SHOTS[shotIndex];
+    const drift = ((now - shotStartMs) / ORBIT_PERIOD_MS) * Math.PI * 2 * shot.speedMul;
+    const azimuth = shotBaseAzimuth + shot.driftDir * drift;
+    const orbitRadius = arenaRadius * shot.radiusMul;
+    d.camera.position.set(
+      Math.cos(azimuth) * orbitRadius,
+      Math.min(arenaRadius * shot.heightMul, maxHeightM),
+      Math.sin(azimuth) * orbitRadius,
+    );
+    d.camera.lookAt(0, arenaRadius * shot.lookHeightMul, 0);
   }
 
   // Same latched path as frameVisuals.js — never flip render paths here.
@@ -140,6 +192,8 @@ export function startMenuAttract() {
   if (!deps || active) return;
   active = true;
   lastFrameMs = 0;
+  // * Fresh visit, fresh cut — restart the shot list from a new random azimuth.
+  shotStartMs = 0;
   rafId = requestAnimationFrame(step);
 }
 

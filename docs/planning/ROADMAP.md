@@ -69,7 +69,6 @@ table: [BACKLOG.md § Tech Debt](./BACKLOG.md#tech-debt).
 | Collapse gameState / gameStore dual surface | STORE-1 | One public state API |
 | Recorded announcer VO + SD music + ambient bed | | Asset-gated; pipeline ready ([announcer.md](../reference/announcer.md)) |
 | Pattern customize UI | | Blocked on cartrave4 re-UV ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)) |
-| Quickplay arena rotation | | Deferred (D-STAB-2); seam recipe in the [decision log](../archive/decision-log-2026-07.md) |
 | `structuredClone` → flat serializer (`party/index.ts`) | | Only after NET-1 + profiling shows it matters (40 Hz deep-clone on a single-threaded Worker) |
 | Deeper Howler audio (spatial, pooling, groups) | | |
 

@@ -128,6 +128,12 @@ let trashGeoReceipt = null;
 /** @type {THREE.CylinderGeometry | null} Small "can / bottle" debris silhouette. */
 let trashGeoCan = null;
 
+/** @type {THREE.BoxGeometry | null} Cart-basket fragment — drawn wireframe so it reads as wire mesh. */
+let trashGeoWire = null;
+
+/** @type {THREE.CircleGeometry | null} Flat neon tri-shard — additive-blended stylized spark. */
+let trashGeoShard = null;
+
 /** @type {THREE.MeshBasicMaterial | null} */
 let trashMat = null;
 
@@ -2050,6 +2056,11 @@ export function initEffects(scene, options = {}) {
   // * 52-slot pool gains cart-fragment / receipt / can personality without more particles.
   trashGeoReceipt = new THREE.PlaneGeometry(0.2, 0.13);
   trashGeoCan = new THREE.CylinderGeometry(0.06, 0.06, 0.16, 7);
+  // * Cart-clash silhouettes: a wireframe box reads as a knocked-loose wire-basket
+  // * fragment; a 3-sided circle is a flat neon shard (additive) — stylized spark
+  // * debris. Same pool, same counts: zero extra GPU budget.
+  trashGeoWire = new THREE.BoxGeometry(0.2, 0.14, 0.14);
+  trashGeoShard = new THREE.CircleGeometry(0.11, 3);
   // * DoubleSide so the flat receipt reads from both faces while it tumbles.
   trashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide });
 
@@ -2133,30 +2144,52 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
       mat.color.setHex(GROCERY_DEBRIS_COLORS[Math.floor(Math.random() * GROCERY_DEBRIS_COLORS.length)]);
     } else {
       const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
-      mat.color.setHex(TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)]);
+      // * Hard cart-on-cart hits knock cargo loose — a slice of the burst reads as
+      // * escaping groceries (produce/carton tones) instead of pure neon trash.
+      const escapingGrocery = clampedI > 0.5 && Math.random() < 0.3;
+      mat.color.setHex(
+        escapingGrocery
+          ? GROCERY_DEBRIS_COLORS[Math.floor(Math.random() * GROCERY_DEBRIS_COLORS.length)]
+          : TRASH_NEON_COLORS[Math.floor(Math.random() * TRASH_NEON_COLORS.length)],
+      );
     }
     const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
     mat.opacity = isBackroomsFloor ? 0.78 : 1;
     p.visible = true;
     trashActiveCount += 1;
     p.userData.isDust = isBackroomsFloor;
-    // * Debris silhouette: cart/edge/grocery bursts mix in receipts (paper) + cans for
-    // * supermarket personality; floor dust stays cubes. Paper flutters (see updateTrashParticles).
+    // * Debris silhouette: cart/edge bursts mix receipts (paper), cans, wire-basket
+    // * fragments (wireframe box), and additive neon tri-shards; grocery spills favor
+    // * paper + cans; floor dust stays cubes. Paper flutters (see updateTrashParticles).
     let debrisGeo = /** @type {THREE.BufferGeometry | null} */ (trashGeo);
     let isPaper = false;
+    let isShard = false;
+    let isWire = false;
     if (type !== "floor") {
-      const paperChance = type === "grocery" ? 0.4 : 0.28;
-      const canChance = type === "grocery" ? 0.28 : 0.2;
+      const paperChance = type === "grocery" ? 0.4 : 0.2;
+      const canChance = type === "grocery" ? 0.28 : 0.14;
+      const wireChance = type === "grocery" ? 0 : 0.22;
+      const shardChance = type === "grocery" ? 0.12 : 0.2;
       const r = Math.random();
       if (r < paperChance) {
         debrisGeo = trashGeoReceipt;
         isPaper = true;
       } else if (r < paperChance + canChance) {
         debrisGeo = trashGeoCan;
+      } else if (r < paperChance + canChance + wireChance) {
+        debrisGeo = trashGeoWire;
+        isWire = true;
+      } else if (r < paperChance + canChance + wireChance + shardChance) {
+        debrisGeo = trashGeoShard;
+        isShard = true;
       }
     }
     if (p.geometry !== debrisGeo) p.geometry = /** @type {THREE.BufferGeometry} */ (debrisGeo);
     p.userData.isPaper = isPaper;
+    // * Per-silhouette material state — always reset (pool slots are reused across types).
+    mat.wireframe = isWire;
+    mat.blending = isShard ? THREE.AdditiveBlending : THREE.NormalBlending;
+    mat.depthWrite = !isShard;
     if (type === "floor") {
       const angle = Math.random() * Math.PI * 2;
       if (isBackroomsFloor) {
@@ -2205,11 +2238,12 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
       (Math.random() - 0.5) * (Math.PI * 2 / (0.5 + Math.random())),
     );
     p.userData.life = 0;
-    p.userData.maxLife = type === "floor"
+    // * Shards are sparks — quicker fade keeps the additive pop readable, not smeary.
+    p.userData.maxLife = (type === "floor"
       ? (isBackroomsFloor
         ? 0.62 + Math.random() * 0.28
         : 0.35 + Math.random() * 0.15)
-      : 0.38 + Math.random() * 0.22 + clampedI * 0.08;
+      : 0.38 + Math.random() * 0.22 + clampedI * 0.08) * (isShard ? 0.72 : 1);
     spawned++;
   }
 }

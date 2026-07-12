@@ -137,6 +137,7 @@ export function buildNetcodeGameBridge(getContext, session) {
     recordPodiumStats: (winner, scores) => getContext()?.recordPodiumStats?.(winner, scores),
     onReturnToLobby: () => getContext()?.onReturnToLobby?.(),
     onEnterPodium: () => getContext()?.onEnterPodium?.(),
+    onLevelIdChanged: (levelId) => getContext()?.onLevelIdChanged?.(levelId),
     onPodiumRejected: () => getContext()?.onPodiumRejected?.(),
     getPendingMidRoundJoinRespawnConnId: () => getContext()?.getPendingMidRoundJoinRespawnConnId?.() ?? null,
     setPendingMidRoundJoinRespawnConnId: (val) => getContext()?.setPendingMidRoundJoinRespawnConnId?.(val),

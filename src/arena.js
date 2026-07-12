@@ -5,7 +5,7 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RAPIER } from "./physics/rapierInstance.js";
 import { setShatterEnvironment } from "./cartShatter.js";
-import { createPhysicalMaterial } from "./scene.js";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { isLowQualityMode } from "./utils.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
@@ -1435,6 +1435,33 @@ export function initArena(scene, world, config, options = {}) {
     recordMat.normalScale = new THREE.Vector2(0.55, 0.55);
   }
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
+
+  /**
+   * Classic floor env clamp — kills the white pool in front of the green booth.
+   *
+   * Root cause (isolated 2026-07-12 via mesh/light/env bisection): the RoomEnvironment
+   * probe's bright window sits at world +Z; at grazing angles the clearcoat floor stack
+   * (record body + vinyl detail) reflects it as a hot white sheet exactly where the
+   * camera faces the green booth. It is IBL, not a lamp: zeroing all 25 scene lights
+   * left it untouched; scene.environmentIntensity=0 (and rotating the env) removed it.
+   *
+   * material.envMapIntensity is a NO-OP for scene.environment in this three version —
+   * the per-material clamp only works when the material owns its envMap reference. So
+   * the floor materials get scene.environment as their own envMap at a low intensity.
+   * Floor-only: the record Reflector (the live mirror) and every other material keep
+   * full scene IBL, per the "reduce only that contribution" rule.
+   *
+   * @param {THREE.MeshPhysicalMaterial} mat
+   */
+  function clampFloorEnv(mat) {
+    if (!mat || !scene.environment) return;
+    const FLOOR_ENV_SCALE = 0.25; // × getMaterialEnvMapIntensity() (0.24) ⇒ ~0.06
+    mat.envMap = scene.environment;
+    mat.envMapIntensity = getMaterialEnvMapIntensity() * FLOOR_ENV_SCALE;
+    // * refreshSceneEnvironmentMaterials honors this scale, so GUI IBL tweaks keep the clamp.
+    mat.userData.envMapIntensityScale = FLOOR_ENV_SCALE;
+  }
+  clampFloorEnv(recordMat);
   recordMesh.position.set(0, visualRecordY, 0);
   recordMesh.receiveShadow = false;
   scene.add(recordMesh);
@@ -1504,6 +1531,7 @@ export function initArena(scene, world, config, options = {}) {
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+  clampFloorEnv(vinylDetailMat);
   const vinylDetailMesh = new THREE.Mesh(vinylDetailGeo, vinylDetailMat);
   vinylDetailMesh.rotation.x = -Math.PI / 2;
   vinylDetailMesh.position.y = reflectorYOffset + 0.002;

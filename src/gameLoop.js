@@ -309,10 +309,13 @@ export function runPhysicsStep(loopState, deps, context) {
               onBoostCancel: null,
               onSpill: null,
               onHopLand: null,
-              triggerHopRef: (cart, nowMs) => {
+              triggerHopRef: (cart) => {
                 if (!cart?.body) return;
-                if (nowMs - cart.lastHopAtMs < deps.CONFIG.cart.hop.cooldownMs) return;
-                cart.lastHopAtMs = nowMs;
+                // * Replay hops bypass the wall-clock cooldown: each press produces exactly
+                // * one hop:true input frame (one-shot consume in sampleLocalInputForTick),
+                // * and every reconcile pass rewinds to pre-hop host state first — the
+                // * impulse must re-apply or the predicted hop dies on the next snapshot.
+                // * lastHopAtMs is NOT restamped (it belongs to the live press-time cooldown).
                 // * Prediction-only hop: impulse + landing-edge flags, no SFX/VFX
                 // * (onHopLand is null in this replay callback set).
                 cart.hopAwaitingLand = true;

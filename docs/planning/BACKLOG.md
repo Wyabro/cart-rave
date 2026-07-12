@@ -33,7 +33,7 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Medium | Deeper server-authoritative logic | Host can fabricate final scores; decide what the Worker must validate. Prerequisite for the leaderboard. |
 | Medium | `structuredClone` → flat serializer in `party/index.ts` | Deliberate deferral: only after NET-1 + profiling data (ROADMAP Phase 5). |
 | Low | Persistent leaderboard (Supabase) | Treat host-asserted scores as untrusted input (see above). |
-| Low | Quickplay arena rotation | Deferred by Wyatt (D-STAB-2); the rematch-seam recipe is documented in the [decision log](../archive/decision-log-2026-07.md). Needs a masked-transition reveal animation. |
+| Low | Quickplay rotation live 2-browser check | ✅ Shipped 2026-07-12 (playtest-blockers pass) — host picks a random arena at the rematch seam, masked crossfade swap; still needs a live multi-client smoke (NET-1 adjacent). |
 
 ## Art
 

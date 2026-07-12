@@ -1843,15 +1843,19 @@ export function tickHitDirection(nowMs = performance.now()) {
  * custom kicker, mid-match unlocks).
  * @param {string} title
  * @param {string} [kicker] Kicker label above the title.
+ * @param {{ durationMs?: number, priority?: number }} [opts] Stage-claim overrides —
+ *   unlocks pass a longer duration + priority above announcer callouts (see main.js).
  */
-export function showChallengeToast(title, kicker = "◆ CHALLENGE COMPLETE") {
+export function showChallengeToast(title, kicker = "◆ CHALLENGE COMPLETE", opts = {}) {
   if (!elements.toast || !elements.toastTitle) return;
-  const TOAST_MS = 3200;
-  // * Center Stage routing — toasts queue behind announcer callouts (priority 3 > 2)
-  // * so the stage band shows one moment at a time; overflow beyond 2 queued drops.
+  const TOAST_MS = opts.durationMs ?? 3200;
+  // * Center Stage routing — default toasts queue behind announcer callouts
+  // * (priority 3 > 2) so the stage band shows one moment at a time; overflow beyond
+  // * 2 queued drops. Unlock toasts ride above callouts instead: they usually land on
+  // * the same KO that fires an announcer line, which used to preempt them instantly.
   claimStage({
     kind: "toast",
-    priority: 2,
+    priority: opts.priority ?? 2,
     durationMs: TOAST_MS,
     show: () => {
       if (!elements.toast || !elements.toastTitle) return;

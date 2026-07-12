@@ -97,7 +97,8 @@ import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill } from "./directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
-import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
+import { LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
 import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
@@ -1204,6 +1205,7 @@ async function main() {
     isWorldBootstrapped,
     getMenuVisible: () => menuVisible,
     getArenaRadius: () => CONFIG.record.radius,
+    getLevelId: getCurrentLevelId,
   });
 
   if (import.meta.env.DEV) {
@@ -1744,7 +1746,10 @@ async function main() {
   // * fire during play (via the KO challenge reactor) where the menu toast is
   // * invisible. Route them through the in-game HUD toast too.
   onUnlockGranted((msg) => {
-    if (!menuVisible) hud?.showChallengeToast?.(msg, "◆ UNLOCKED");
+    // * Unlocks are rare and precious: hold the stage 5s and outrank announcer
+    // * callouts (priority 4 > 3) so the KO line that lands on the same frame queues
+    // * behind the unlock instead of preempting it off-screen unread.
+    if (!menuVisible) hud?.showChallengeToast?.(msg, "◆ UNLOCKED", { durationMs: 5000, priority: 4 });
   });
 
   let prevCompletedChallengeIds = collectCompletedChallengeIds(challengeStore.getState());
@@ -2094,6 +2099,57 @@ async function main() {
       resolveLevelId(levelIdOverride ?? storageGet(LEVEL_STORAGE_KEY)),
     );
     await yieldForPaint();
+  }
+
+  // --- Quickplay arena rotation (D-STAB-2 seam recipe) ---
+  let arenaRotationInFlight = false;
+
+  /** Random next arena for Quickplay rotation — always different from the loaded one. */
+  function pickNextQuickplayArenaId() {
+    const current = getCurrentLevelId();
+    const pool = PREFETCHABLE_LEVEL_IDS.filter((id) => id !== current);
+    return pool[Math.floor(Math.random() * pool.length)] || current;
+  }
+
+  /**
+   * Mid-session arena swap for Quickplay rotation, masked by a slow canvas crossfade
+   * with a "NEXT ARENA" toast. Physics is gated (setLevelSwapping) while colliders
+   * rebuild, then cart spawn points are refreshed for the new ring radius. The host
+   * re-seats every cart via rematchResetWorld (which broadcasts the new poses);
+   * non-host clients take poses from that broadcast.
+   *
+   * Pre-session (menu / bootstrap in flight) this is a no-op — the play-entry
+   * rebuild path owns the load there.
+   *
+   * @param {string} nextLevelIdRaw
+   */
+  async function rotateLoadedArenaInPlace(nextLevelIdRaw) {
+    const nextLevelId = resolveLevelId(nextLevelIdRaw);
+    if (arenaRotationInFlight) return;
+    if (menuVisible || !isWorldBootstrapped() || !world) return;
+    if (!Array.isArray(allCartsRef) || allCartsRef.length === 0) return;
+    if (nextLevelId === getCurrentLevelId()) return;
+    arenaRotationInFlight = true;
+    setLevelSwapping(true);
+    try {
+      const label = (LEVEL_UNLOCKS[nextLevelId]?.label || nextLevelId).toUpperCase();
+      hud?.showChallengeToast?.(label, "◆ NEXT ARENA", { durationMs: 4500, priority: 4 });
+      /** @type {Promise<void>} */
+      let swapPromise = Promise.resolve();
+      const runSwap = () => {
+        swapPromise = swapLoadedLevel(nextLevelId, { menuPreview: false });
+      };
+      // * Slower than the play-entry crossfade on purpose — the reveal is the transition.
+      await crossfadeElement(canvas, runSwap, { fadeOutMs: 380, fadeInMs: 520 });
+      await swapPromise;
+      Entities.refreshCartSpawnPositions();
+      if (Netcode.getIsHost()) Entities.rematchResetWorld();
+    } catch (err) {
+      console.error("[arena-rotation] in-place swap failed:", err);
+    } finally {
+      setLevelSwapping(false);
+      arenaRotationInFlight = false;
+    }
   }
 
   window.addEventListener("cartrave:level-changed", () => {
@@ -2565,6 +2621,16 @@ async function main() {
     cart.boostChargeStartedAtMs = 0;
   }
 
+  /**
+   * Round-boundary sweep: stops any looping charge-up SFX on every cart. Charging
+   * through the running→podium transition otherwise leaks the loop forever —
+   * resetCartTransientState nulls chargeUpSfxId without stopping the sound, so the
+   * loop must be stopped BEFORE any transient reset runs.
+   */
+  function stopAllChargeSfx() {
+    for (const cart of allCartsRef || []) stopChargeSfxForCart(cart);
+  }
+
   function scheduleRespawn(cart, now) {
     if (cart.respawnAtMs !== null) return;
     cart.respawnAtMs = now + (CONFIG.fall?.respawnDelayMs ?? 1000); // * respawn after shatter VFX plays out
@@ -2799,14 +2865,26 @@ async function main() {
     recordPodiumStats,
     onReturnToLobby: () => {
       clearPodiumPresentation();
+      // * Mid-round exits can reach lobby without passing endRound/onEnterPodium; stop
+      // * charge loops before rematchResetWorld nulls chargeUpSfxId (orphaning the sound).
+      stopAllChargeSfx();
       Netcode.resetClientPredictionState();
       Entities.rematchResetWorld();
       GameState.setRoundEndReason(null);
       cleanupSuddenDeathState(allCartsRef || []);
     },
     onEnterPodium: () => {
+      // * Non-host clients end the round via this phase watcher, not endRound() —
+      // * stop a held charge loop here too or it plays through the podium.
+      stopAllChargeSfx();
       HUD.clearFeed();
       beginPodiumPresentation();
+    },
+    // * Room level changed mid-session (Quickplay rotation) — non-host clients swap
+    // * their loaded arena in place. Pre-session/menu the play-entry rebuild owns it
+    // * (rotateLoadedArenaInPlace no-ops without carts / with the menu up).
+    onLevelIdChanged: (levelId) => {
+      void rotateLoadedArenaInPlace(levelId);
     },
     onPodiumRejected: () => {
       // * Server nack'd host_round (or reasserted running). Undo optimistic podium UI.
@@ -3006,13 +3084,42 @@ async function main() {
   // * Local-input hop with a grounded gate: blocks air-hops / chain-hops (the human path
   // * previously gated on cooldown only — 2 hops/s each +25 N·s up). NPC and remote-replay
   // * hops keep going through triggerHop directly and are unaffected.
+  /** @type {any} Reused Rapier ray for the hop grounded check (allocated on first hop). */
+  let _hopGroundRay = null;
+
+  // * Grounded = static/kinematic-or-any surface within reach straight below the cart
+  // * center. Replaces the old `|lv.y| > 2.2` velocity gate, which ate legitimate hop
+  // * presses whenever vertical velocity spiked without leaving the ground — driving the
+  // * Sundial podium ramp at speed (~11° slope ⇒ lv.y ≈ 2.3+), trimesh seam micro-hops,
+  // * post-landing rebound. Do NOT exclude kinematic bodies: the Classic Record floor is
+  // * kinematicVelocityBased.
+  function isCartGrounded(cart) {
+    if (!world || !RAPIER || !cart?.body) return true; // no physics yet — don't eat input
+    const p = cart.body.translation();
+    if (!_hopGroundRay) _hopGroundRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+    _hopGroundRay.origin.x = p.x;
+    _hopGroundRay.origin.y = p.y;
+    _hopGroundRay.origin.z = p.z;
+    const maxToi = CONFIG.cart.size.y / 2 + 0.55; // resting clearance + slope/seam tolerance
+    const hit = world.castRay(
+      _hopGroundRay,
+      maxToi,
+      true,
+      undefined,
+      undefined,
+      // * Rapier handles (numbers) — same runtime-safe pattern as camera.js occlusion ray.
+      cart.collider?.handle ?? undefined,
+      cart.body.handle ?? undefined,
+    );
+    return hit != null;
+  }
+
   function attemptLocalHop() {
     const cart = localCartForConnId();
     if (!cart?.body) return;
-    const lv = cart.body.linvel();
     const p = cart.body.translation();
-    if (Math.abs(lv.y) > 2.2) return; // rising/falling — already mid-air
     if (p.y > (CONFIG.booth?.platformY ?? 6) - 0.5) return; // still on the spawn booth
+    if (!isCartGrounded(cart)) return; // mid-air — no air-hops / chain-hops
     triggerHop(cart, performance.now());
     Input.requestHop();
   }
@@ -3392,6 +3499,7 @@ async function main() {
       setSuddenDeath: GameState.setSuddenDeath,
       sendHostRound: () => Netcode.sendHostRound(),
       onCartOutOfPlay: stopChargeSfxForCart,
+      doRespawn: (c) => Entities.doRespawn(c),
     });
   }
 
@@ -3462,6 +3570,9 @@ async function main() {
     clearRoundCountdownTimeout();
     pendingMidRoundJoinRespawnConnId = null;
     resetArenaReactiveLights();
+    // * A charge held across the round-end boundary must stop looping here, before
+    // * anything downstream (cleanupSuddenDeathState/rematch resets) nulls the SFX id.
+    stopAllChargeSfx();
     const suddenDeathActive = GameState.getRoundState().isSuddenDeath;
     if (suddenDeathActive && lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
       // * Sudden Death winner — first to score wins instantly.
@@ -3567,6 +3678,15 @@ async function main() {
     if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
       startCountdown(getRoundClockNowMs() + 3000);
       return;
+    }
+    // * Quickplay arena rotation (D-STAB-2 seam): pick a fresh random arena at the
+    // * rematch boundary. Latch it BEFORE sendHostRound below so the round broadcast
+    // * carries the new levelId (server latches + rebroadcasts; non-host clients rotate
+    // * via onLevelIdChanged). Friends lobbies keep the host's deliberate arena choice.
+    if (detectGameMode() === "quickplay") {
+      const nextArenaId = pickNextQuickplayArenaId();
+      Netcode.adoptRoomLevelAsHost(nextArenaId);
+      void rotateLoadedArenaInPlace(nextArenaId);
     }
     syncRoundPhase("lobby");
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });

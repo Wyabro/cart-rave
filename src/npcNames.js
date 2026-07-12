@@ -105,6 +105,28 @@ const NAME_PERSONALITY_MAP = {
   DriftWood: "chaotic",
   LaneCrasher: "chaotic",
   CartWheel: "chaotic",
+
+  // * Cart Clash flavor expansion (shared/npcNames.js) — same four personalities.
+  RamRaider: "aggressor",
+  BasketBruiser: "aggressor",
+  ClashCart: "aggressor",
+  CartKong: "aggressor",
+  PlowLord: "aggressor",
+  DoorBuster: "aggressor",
+  BulkBasher: "aggressor",
+  FreshBruise: "aggressor",
+  GridlockGus: "lurker",
+  BuggyBandit: "lurker",
+  KartelBoss: "lurker",
+  FreezerBurn: "lurker",
+  TotalRecall: "scavenger",
+  SpillSeeker: "scavenger",
+  PalletPusher: "scavenger",
+  RackAttack: "scavenger",
+  CrashRegister: "chaotic",
+  CleanupAisle5: "chaotic",
+  SelfCheckout: "chaotic",
+  BumperCrop: "chaotic",
 };
 
 /**

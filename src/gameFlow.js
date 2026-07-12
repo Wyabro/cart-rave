@@ -164,7 +164,10 @@ export function updateGameFlow(deps, context) {
           // * setup so carts can actually drive without being yanked back every frame.
           if (!roundState.isSuddenDeath) {
             deps.setSuddenDeath(true);
-            layoutSuddenDeathArena(allCarts, scores, topScore, now, deps.onCartOutOfPlay);
+            layoutSuddenDeathArena(
+              allCarts, scores, topScore, now, deps.onCartOutOfPlay,
+              (c) => deps.doRespawn(c, deps),
+            );
             deps.sendHostRound();
           }
         } else {
@@ -501,8 +504,9 @@ export function anyCartLooksSuddenDeathOutOfPlay(allCarts, fallYThreshold = -10)
  * @param {number} topScore
  * @param {number} nowMs performance.now() for idle-watch anchors
  * @param {(cart: object) => void} [onCartOutOfPlay]
+ * @param {(cart: object) => void} [doRespawn] Entities.doRespawn-style teardown for mid-shatter carts
  */
-function layoutSuddenDeathArena(allCarts, scores, topScore, nowMs, onCartOutOfPlay) {
+function layoutSuddenDeathArena(allCarts, scores, topScore, nowMs, onCartOutOfPlay, doRespawn) {
   const tiedSlots = [];
   for (let i = 0; i < 4; i += 1) {
     if (Number(scores?.[i] || 0) === topScore) tiedSlots.push(i);
@@ -515,6 +519,11 @@ function layoutSuddenDeathArena(allCarts, scores, topScore, nowMs, onCartOutOfPl
     onCartOutOfPlay?.(cart);
     if (tiedSlots.includes(i)) {
       cart.isSuddenDeathSpectator = false;
+      // * A tied cart mid-shatter at SD entry (fell just before the timer expired) still
+      // * has its visual parts detached into the scene. respawnAtMs is nulled below and
+      // * SD blocks scheduleRespawn, so without this teardown cleanupShatter never runs
+      // * and the cart fights Sudden Death invisible.
+      if (doRespawn && (cart.isShattering || cart._shatterState)) doRespawn(cart);
       cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
       const halfYaw = (cart.spawnYaw || 0) / 2;
       cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
@@ -567,6 +576,7 @@ function layoutSuddenDeathArena(allCarts, scores, topScore, nowMs, onCartOutOfPl
  * @param {(val: boolean) => void} opts.setSuddenDeath
  * @param {() => void} [opts.sendHostRound]
  * @param {(cart: object) => void} [opts.onCartOutOfPlay]
+ * @param {(cart: object) => void} [opts.doRespawn] Shatter teardown for tied carts entering SD mid-death
  * @returns {"none" | "reconstruct" | "infer_mid" | "infer_enter"}
  */
 export function ensureSuddenDeathOnHostPromote(opts) {
@@ -584,6 +594,7 @@ export function ensureSuddenDeathOnHostPromote(opts) {
     setSuddenDeath,
     sendHostRound,
     onCartOutOfPlay,
+    doRespawn,
   } = opts;
 
   if (phase !== "running") return "none";
@@ -615,7 +626,7 @@ export function ensureSuddenDeathOnHostPromote(opts) {
 
   // * Timer expired, never entered SD layout — same teleports as normal entry.
   const topScore = topRoundScore(scores);
-  layoutSuddenDeathArena(allCarts, scores, topScore, nowPerfMs, onCartOutOfPlay);
+  layoutSuddenDeathArena(allCarts, scores, topScore, nowPerfMs, onCartOutOfPlay, doRespawn);
   sendHostRound?.();
   return "infer_enter";
 }

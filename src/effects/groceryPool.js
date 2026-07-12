@@ -53,14 +53,11 @@ const DRACO_DECODER_PATH = "/draco/gltf/";
 /**
  * * Grocery model definitions — each maps to a GLTF file and a collider shape type.
  * * Actual collider half-extents are computed dynamically from the normalized
- * * geometry bounding box in init().
- * * cargoScaleMul is an additional per-model scale multiplier applied on top of
- * * the cargoBay cargoScale (defaults to 1.0 when omitted).
+ * * geometry bounding box in init(). Sizing lives in GROCERY_SCALES below.
  * @type {Array<{
  *   name: string,
  *   path: string,
  *   type: "cuboid" | "cylinder" | "ball",
- *   cargoScaleMul?: number,
  * }>}
  */
 // * These runtime GLBs are Draco+WebP compressed (npm run compress:groceries);
@@ -71,10 +68,59 @@ const MODEL_DEFS = [
   { name: "soda", path: "/models/groceries/soda.glb", type: "cylinder" },
   { name: "soup", path: "/models/groceries/soup.glb", type: "cylinder" },
   { name: "orange", path: "/models/groceries/orange.glb", type: "ball" },
-  // * cargoScaleMul kept near 1 — 2× baguettes were longer than the basket cavity and
-  // * punched through the rear wall even after radius insets.
-  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid", cargoScaleMul: 1.05 },
+  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid" },
 ];
+
+/**
+ * ─── GROCERY SCALE TUNING — the one place to size groceries ─────────────────
+ *
+ * Two independent presentations share the same normalized geometry:
+ *
+ * 1. SPILL / loose debris: rendered at scale 1, so `sizeM` IS the world-space
+ *    longest dimension in meters. Physics colliders are derived from the scaled
+ *    geometry in init(), so collider and visual always match. Changing `sizeM`
+ *    requires a reload (geometry + colliders are baked once at pool init).
+ * 2. BASKET CARGO: rendered at `cargoScale × cargoMul` on top of the normalized
+ *    geometry. Effective cargo longest-dim ≈ sizeM × cargoScale × cargoMul.
+ *    Cargo bays are rebuilt per round, so these apply on the next cargo build.
+ *
+ * Current values (pre-tuning baseline, 2026-07-12) — all models normalize to a
+ * 0.5 m longest dimension, then cargo renders at 0.52× (≈0.26 m):
+ *
+ *   model     sizeM   spill longest-dim   cargoMul   cargo longest-dim
+ *   milk      0.50    0.50 m              1.0        0.26 m
+ *   cereal    0.50    0.50 m              1.0        0.26 m
+ *   soda      0.50    0.50 m              1.0        0.26 m
+ *   soup      0.50    0.50 m              1.0        0.26 m
+ *   orange    0.50    0.50 m              1.0        0.26 m
+ *   baguette  0.50*   0.50 m              1.05       0.27 m
+ *
+ * (*) extreme-aspect models are additionally clamped so their SHORTEST dimension
+ *     is ≥ MIN_GROCERY_DIM (0.06 m) — the baguette ends up slightly larger than
+ *     sizeM implies. cargoMul 1.05 note: 2× baguettes were longer than the basket
+ *     cavity and punched through the rear wall even after radius insets.
+ *
+ * DEV: `window.CartClashGrocery.sizes()` logs the actual effective dimensions of
+ * every loaded model (spill + cargo) so tuning sessions see real numbers.
+ */
+const GROCERY_SCALES = {
+  /** Global basket-cargo multiplier ("compact pile" factor). */
+  cargoScale: 0.52,
+  /** @type {Record<string, { sizeM: number, cargoMul: number }>} */
+  perModel: {
+    milk: { sizeM: 0.5, cargoMul: 1.0 },
+    cereal: { sizeM: 0.5, cargoMul: 1.0 },
+    soda: { sizeM: 0.5, cargoMul: 1.0 },
+    soup: { sizeM: 0.5, cargoMul: 1.0 },
+    orange: { sizeM: 0.5, cargoMul: 1.0 },
+    baguette: { sizeM: 0.5, cargoMul: 1.05 },
+  },
+};
+
+/** @param {string} name */
+function groceryScaleFor(name) {
+  return GROCERY_SCALES.perModel[name] ?? { sizeM: 0.5, cargoMul: 1.0 };
+}
 
 /**
  * * Local spawn offsets relative to the cart body (meters).
@@ -299,6 +345,7 @@ async function buildPool(scene, world) {
     }
 
     // * Normalize geometry: text-to-3D models may have arbitrary scale and off-center pivots.
+    // * Target longest dimension comes from GROCERY_SCALES (per-model spill size).
     geometry.computeBoundingBox();
     const bb = geometry.boundingBox;
     if (bb) {
@@ -306,7 +353,7 @@ async function buildPool(scene, world) {
       bb.getSize(size);
       const longestDim = Math.max(size.x, size.y, size.z);
       const shortestDim = Math.min(size.x, size.y, size.z);
-      let scaleFactor = 0.5 / longestDim;
+      let scaleFactor = groceryScaleFor(def.name).sizeM / longestDim;
       if (shortestDim * scaleFactor < MIN_GROCERY_DIM) {
         scaleFactor = MIN_GROCERY_DIM / shortestDim;
       }
@@ -528,7 +575,7 @@ export function createCargoBay(hw, hl) {
   }
 
   // * Compact pile — large enough to read, small enough to stay inside the wire cavity.
-  const cargoScale = 0.52;
+  const cargoScale = GROCERY_SCALES.cargoScale;
   const wallPad = 0.03;
   const halfW = hw != null ? Math.max(0.1, hw - wallPad) : 0.22;
   const halfL = hl != null ? Math.max(0.1, hl - wallPad) : 0.22;
@@ -561,7 +608,7 @@ export function createCargoBay(hw, hl) {
   for (let i = 0; i < GRID.length; i += 1) {
     const idx = indices[i % indices.length];
     const def = MODEL_DEFS[idx];
-    const scaleMul = def.cargoScaleMul ?? 1.0;
+    const scaleMul = groceryScaleFor(def.name).cargoMul;
     const geo = loadedGeometries[idx];
     if (!geo.boundingBox) geo.computeBoundingBox();
     if (!geo.boundingSphere) geo.computeBoundingSphere();
@@ -940,4 +987,40 @@ function dispose(scene, world) {
   initInFlight = null;
   sceneRef = null;
   worldRef = null;
+}
+
+// ─── DEV tuning aid ──────────────────────────────────────────────────────────
+// * `window.CartClashGrocery.sizes()` prints the ACTUAL effective dimensions of
+// * every loaded grocery (spill world size and basket-cargo size) so scale-tuning
+// * sessions work from real numbers, not the config's intent. `scales` exposes
+// * the live GROCERY_SCALES table for reference (edits require a reload — spill
+// * geometry + colliders bake at pool init).
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  /** @type {any} */ (window).CartClashGrocery = {
+    scales: GROCERY_SCALES,
+    sizes() {
+      if (loadedGeometries.length === 0) {
+        console.log("[CartClashGrocery] Pool not initialized yet — start a round first.");
+        return;
+      }
+      const rows = MODEL_DEFS.map((def, i) => {
+        const geo = loadedGeometries[i];
+        if (!geo) return { model: def.name, loaded: false };
+        if (!geo.boundingBox) geo.computeBoundingBox();
+        const s = new THREE.Vector3();
+        geo.boundingBox?.getSize(s);
+        const tune = groceryScaleFor(def.name);
+        const cargoMul = GROCERY_SCALES.cargoScale * tune.cargoMul;
+        const f = (n) => Number(n.toFixed(3));
+        return {
+          model: def.name,
+          "spill size (m)": `${f(s.x)} × ${f(s.y)} × ${f(s.z)}`,
+          "cargo size (m)": `${f(s.x * cargoMul)} × ${f(s.y * cargoMul)} × ${f(s.z * cargoMul)}`,
+          sizeM: tune.sizeM,
+          cargoMul: tune.cargoMul,
+        };
+      });
+      console.table(rows);
+    },
+  };
 }

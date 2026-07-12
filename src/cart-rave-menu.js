@@ -62,6 +62,7 @@ import {
 } from "./stores/unlockStore.js";
 import { LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
+import { NPC_NAME_POOL } from "./npcNames.js";
 
 (function () {
   'use strict';
@@ -145,9 +146,10 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "";
 
   const HANDLE_PARTS = [
-    ["CART", "BASS", "NEON", "TROLLEY", "WHEEL", "RAVE", "GLOW", "KICK", "BOOM", "ZAP", "DISCO", "STROBE"],
+    // * Flavor leans Cart Clash (arena brawl) with a few rave holdovers that still fit.
+    ["CART", "BASS", "NEON", "TROLLEY", "WHEEL", "CLASH", "RAM", "SLAM", "KICK", "BOOM", "ZAP", "TURBO", "CRASH", "STROBE"],
     // * Style guide §2/§8: player copy never says "kill" — keep this list KO-friendly.
-    ["LORD", "QUEEN", "BRUISER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE"],
+    ["LORD", "QUEEN", "BRUISER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE", "MENACE", "TANK", "CHAMP"],
   ];
   const rollHandle = () => {
     const a = HANDLE_PARTS[0][Math.floor(Math.random() * HANDLE_PARTS[0].length)];
@@ -185,41 +187,22 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     "DropBeat",
     "CartMosh",
     "ClubCart",
+    // * Cart Clash flavor expansion — arena-brawl handles (KO-friendly per style guide).
+    "CartClasher",
+    "AisleBrawler",
+    "CartQuake",
+    "BumperKing",
+    "SlamCart",
+    "RamRodeo",
+    "CheckMeOut",
+    "HeavyCart",
+    "LotWarrior",
+    "CartHavoc",
   ];
 
-  // Keep player names distinct from in-game NPC name pool (see CLIENT_NPC_NAME_POOL in main.js).
-  const CLIENT_NPC_NAME_SET = new Set([
-    "CartNapper",
-    "WheelSnipe",
-    "BuggyBrawler",
-    "TrolleyTerror",
-    "AisleDrifter",
-    "CartJacker",
-    "PushNPray",
-    "WobbleBot",
-    "RimRattler",
-    "BasketCase",
-    "SkidMark",
-    "BumperDumper",
-    "RollCage",
-    "HotWheelz",
-    "CurbStomp",
-    "CartBlanche",
-    "DriftWood",
-    "NitroNancy",
-    "TurboTuesday",
-    "WipeOut",
-    "SendIt",
-    "FullSend",
-    "YeetCart",
-    "NoBrakes",
-    "CartGod",
-    "Spinout",
-    "ParkingPal",
-    "LaneCrasher",
-    "CartWheel",
-    "RampRat",
-  ]);
+  // * Keep player names distinct from the in-game NPC pool — sourced from the shared
+  // * canonical list so new NPC names can never leak into the player reroll.
+  const CLIENT_NPC_NAME_SET = new Set(NPC_NAME_POOL);
 
   const rollPlayerName = () => {
     const pool = PLAYER_NAME_POOL.filter((n) => !CLIENT_NPC_NAME_SET.has(n));
@@ -453,7 +436,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   }
 
   /** Lightweight toast for lock feedback + unlock grants. */
-  function showUnlockToast(message) {
+  function showUnlockToast(message, durationMs = 3200) {
     let el = document.getElementById('cr-unlock-toast');
     if (!el) {
       el = document.createElement('div');
@@ -468,7 +451,7 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
     window.clearTimeout(prev._hideTimer);
     prev._hideTimer = window.setTimeout(() => {
       el.classList.remove('cr-unlock-toast--show');
-    }, 3200);
+    }, durationMs);
   }
 
   // ─── Custom color (hue-only neon; persisted via customization.js) ───────
@@ -1823,7 +1806,9 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
   initChallengesScreen();
   initSettingsScreen();
   onUnlockGranted((msg) => {
-    showUnlockToast(msg);
+    // * Unlock grants linger longer than lock-feedback taps — players need time to read
+    // * what they earned (matches the 5s in-game HUD unlock toast).
+    showUnlockToast(msg, 5000);
     refreshUnlockUi();
   });
   unlockStore.subscribe(() => {
