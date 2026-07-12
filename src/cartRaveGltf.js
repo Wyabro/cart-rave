@@ -2439,15 +2439,18 @@ async function integrateOnePieceSunglasses(sourceScene) {
     ? geo.boundingBox.getSize(new THREE.Vector3())
     : new THREE.Vector3(0.15, 0.22, 0.69);
 
-  // * Fit: width-match the old glasses (measured widthFit≈0.85 — the approved size;
-  // * height-matching the frame box would oversize it ~28%). The visor is shorter than
-  // * the replaced frame's box, and the basket has a hole behind that footprint, so the
-  // * visor's TOP edge is aligned to the box top below: the uncovered sliver falls at
-  // * the bottom, into the smile region where the basket face resumes.
+  // * Fit (Wyatt-tuned 2026-07-12): the basket hole matches the old frame's footprint,
+  // * which is taller than the visor's aspect and wraps around the basket sides. So:
+  // * width gets +18% over the exact box fit (overhangs the side wrap-around holes),
+  // * and height stretches independently to span the full frame box (+3% margin) —
+  // * a ~9% vertical stretch vs width, imperceptible on sunglasses. Centered on the
+  // * hole box so coverage splits evenly top/bottom.
   const widthAxis = size.x >= size.z ? "x" : "z";
   const depthAxis = widthAxis === "x" ? "z" : "x";
   const facingSign = Math.sign(center[depthAxis]) || 1;
-  const scale = size[widthAxis] / (vSize.z || 1);
+  const SIDE_COVER_MUL = 1.18;
+  const sxz = (size[widthAxis] / (vSize.z || 1)) * SIDE_COVER_MUL;
+  const sy = Math.max(sxz, (size.y / (vSize.y || 1)) * 1.03);
   const yaw = depthAxis === "x"
     ? (facingSign > 0 ? 0 : Math.PI)
     : (facingSign > 0 ? -Math.PI / 2 : Math.PI / 2);
@@ -2459,13 +2462,12 @@ async function integrateOnePieceSunglasses(sourceScene) {
   const mat = /** @type {any} */ (Array.isArray(visor.material) ? visor.material[0] : visor.material);
   if (mat) mat.map = null; // mirror finish is procedural — drop the baked base color
   visorMesh.position.copy(center);
-  // * Top-edge alignment (see fit comment above) — cover the basket hole from the top down.
-  visorMesh.position.y = box.max.y - (vSize.y * scale) / 2;
   // * Keep the lens plane where the old assembly's outer face was (centered geometry
   // * would otherwise recess the visor by half its depth difference).
-  visorMesh.position[depthAxis] += facingSign * (size[depthAxis] - vSize.x * scale) / 2;
+  visorMesh.position[depthAxis] += facingSign * (size[depthAxis] - vSize.x * sxz) / 2;
   visorMesh.rotation.y = yaw;
-  visorMesh.scale.setScalar(scale);
+  // * Visor local axes pre-yaw: x=depth, y=height, z=width.
+  visorMesh.scale.set(sxz, sy, sxz);
   visorMesh.userData.isFace = true;
   visorMesh.userData.raveGltfPartRole = "face";
   parent.add(visorMesh);
@@ -2474,7 +2476,7 @@ async function integrateOnePieceSunglasses(sourceScene) {
     console.debug(
       `[cartRaveGltf] One-piece sunglasses integrated: replaced ${oldParts.length} parts ` +
       `(smile kept), widthAxis=${widthAxis} facing=${facingSign > 0 ? "+" : "-"}${depthAxis} ` +
-      `scale=${scale.toFixed(3)} ` +
+      `sxz=${sxz.toFixed(3)} sy=${sy.toFixed(3)} ` +
       `pos=(${visorMesh.position.x.toFixed(3)}, ${visorMesh.position.y.toFixed(3)}, ${visorMesh.position.z.toFixed(3)})`,
     );
   }
