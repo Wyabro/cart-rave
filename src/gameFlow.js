@@ -176,6 +176,12 @@ export function updateGameFlow(deps, context) {
       }
     } else {
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
+        // * A Sudden Death addScore inside this loop can end the round synchronously
+        // * (endRound → cleanupSuddenDeathState un-parks spectators at y=-50 with their
+        // * guards cleared). Stop processing the moment the round leaves "running" —
+        // * later slots would be misread as fresh falls (phantom KO feed/stats/shatter
+        // * on every peer via the falls[] wire).
+        if (deps.getRoundState().phase !== "running") break;
         const slot = netSlots[slotIndex];
         const cart = allCarts[slotIndex];
         if (!slot || !cart?.body) continue;
@@ -380,7 +386,10 @@ export function updateGameFlow(deps, context) {
         }
       }
 
-      if (!isTestDrive) {
+      // * Live phase re-check: a Sudden Death win above ends the round mid-frame; the
+      // * winner would otherwise read as a sole survivor here and flip the podium's
+      // * endReason to "lastStanding" (wrong title + spurious slow-mo + extra host_round).
+      if (!isTestDrive && deps.getRoundState().phase === "running") {
         // * Last-cart-standing: sole cart not mid-fall/respawn wins after a flourish delay.
         // * Skip spectator carts (frozen during Sudden Death) — only tied carts count.
         let aliveOnArena = 0;

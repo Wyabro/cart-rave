@@ -819,6 +819,11 @@ export class CartRaveServer extends Server {
             } catch {
               // ignore
             }
+
+            // The ghost may have been the host — repair #hostId immediately instead
+            // of stranding the room until the throttled reaper runs (NET-MIG-2:
+            // sole-human refresh left the room hostless for several seconds).
+            this.#ensureLiveHost();
           }
 
           this.#connClientId.set(connection.id, clientId);

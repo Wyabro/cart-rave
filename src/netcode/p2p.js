@@ -546,14 +546,18 @@ export function sendToPeer(targetConnId, data) {
   const dc = dataChannels.get(targetConnId);
   if (dc && dc.readyState === "open") {
     const payload = data instanceof ArrayBuffer ? data : JSON.stringify(data);
-    dc.send(payload);
-    pendingInputPayload = null;
-    pendingInputTarget = null;
-  } else {
-    // Buffer the latest input. We only care about the most recent frame.
-    pendingInputPayload = data;
-    pendingInputTarget = targetConnId;
+    try {
+      dc.send(payload);
+      pendingInputPayload = null;
+      pendingInputTarget = null;
+      return;
+    } catch (e) {
+      // Channel died between the readyState check and send — fall through to buffering.
+    }
   }
+  // Buffer the latest input. We only care about the most recent frame.
+  pendingInputPayload = data;
+  pendingInputTarget = targetConnId;
 }
 
 /**
@@ -564,7 +568,11 @@ export function sendToAll(data) {
   const payload = data instanceof ArrayBuffer ? data : (typeof data === "string" ? data : JSON.stringify(data));
   for (const dc of dataChannels.values()) {
     if (dc.readyState === "open") {
-      dc.send(payload);
+      try {
+        dc.send(payload);
+      } catch (e) {
+        // A channel can close between the readyState check and send — keep serving the rest.
+      }
     }
   }
 }

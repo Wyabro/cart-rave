@@ -145,13 +145,19 @@ export async function ensureSessionCartsReady() {
   const helloGate = d.getHelloGate();
   const bootstrapGen = helloGate.getGeneration();
 
-  console.log("[bootstrap] ensureSessionCartsReady called", {
-    helloGen: bootstrapGen,
-    hasHello: helloGate.isReceived(),
-  });
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log("[bootstrap] ensureSessionCartsReady called", {
+      helloGen: bootstrapGen,
+      hasHello: helloGate.isReceived(),
+    });
+  }
 
   if (lastSuccessfulHelloGen === bootstrapGen && existing?.length) {
-    console.log("[bootstrap] Skipping ensureSessionCartsReady — carts already exist for current hello gen");
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[bootstrap] Skipping ensureSessionCartsReady — carts already exist for current hello gen");
+    }
     return existing;
   }
 
@@ -159,12 +165,18 @@ export async function ensureSessionCartsReady() {
 
   if (!sessionCartBootstrapPromise) {
     sessionCartBootstrapPromise = (async () => {
-      console.log("[bootstrap] Starting cart bootstrap (waiting for hello)...");
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log("[bootstrap] Starting cart bootstrap (waiting for hello)...");
+      }
       if (!helloGate.isReceived()) {
         await helloGate.getFirstPromise();
       }
       if (bootstrapGen !== helloGate.getGeneration()) {
-        console.log("[bootstrap] Aborting cart bootstrap — hello generation changed (race)");
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.log("[bootstrap] Aborting cart bootstrap — hello generation changed (race)");
+        }
         return null;
       }
       if (d.getAllCartsRef()?.length) return d.getAllCartsRef();
@@ -176,9 +188,12 @@ export async function ensureSessionCartsReady() {
         );
       });
       await yieldForPaint();
-      console.log("[bootstrap] Hello received, creating carts from slots", {
-        slotCount: getNetSlots()?.length,
-      });
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log("[bootstrap] Hello received, creating carts from slots", {
+          slotCount: getNetSlots()?.length,
+        });
+      }
       const created = d.bootstrapSessionCarts(bootstrapGen);
       if (bootstrapGen === helloGate.getGeneration()) {
         lastSuccessfulHelloGen = bootstrapGen;

@@ -36,8 +36,8 @@ is not closed.
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ 287 tests / 28 files, tsc clean, knip clean (2026-07-12) |
-| Unpushed work | ⚠️ 5 commits (`b9e8fb8`..`3754949`: stabilization pass + menu backdrop) — push after playtest |
+| Gates (`npm run qa`) | ✅ 287 tests / 28 files, tsc clean, knip clean (2026-07-12, post-audit) |
+| Unpushed work | ⚠️ Pre-playtest audit fixes in working tree (7 files, uncommitted — see Last updated). Prior stabilization stack `b9e8fb8`..`3754949` is pushed. |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
 | Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
@@ -72,7 +72,7 @@ until the queue drains (taste calls may trigger tuning).
 
 1. Drain the playtest queue above → apply taste tuning → **push** the 5 stabilization commits.
 2. Close **NET-1**: two-browser full-round smoke ([ROADMAP](./planning/ROADMAP.md) Phase 4) + [living-store-test-plan.md](./planning/living-store-test-plan.md) + [host-migration-test-plan.md](./planning/host-migration-test-plan.md).
-3. Fix remaining **Critical** static netcode hazard before/with the smoke: NET-MIG-2 (null host) — [netcode-deep-dive.md](./planning/netcode-deep-dive.md). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped (`a0475d6`).
+3. ~~Fix remaining **Critical** static netcode hazard~~ NET-MIG-2 fixed in the audit pass (uncommitted); verify live during the NET-1 smoke. NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped (`a0475d6`). Remaining structural netcode items: NET-MIG-3, NET-CLK-2 — [netcode-deep-dive.md](./planning/netcode-deep-dive.md).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 5. Structural debt (MAIN-1, DIR-1, GLTF-1, BRAND-1, …) is cataloged under [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) — **after** the validation gate, not instead of it.
 
@@ -85,7 +85,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 | NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
 | VFX-1 | Black-frame flicker | 🟡 Root cause = half-res float bloom mips (D-VFX-2). Fixed on Storerooms (`98317c1`); Classic/Sundial look check + promote to default pending |
 | PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
-| NET-MIG-2 | Ghost exorcism can null the host | ❌ Critical static hazard (solo refresh edge) |
+| NET-MIG-2 | Ghost exorcism can null the host | ✅ Fixed 2026-07-12 (pre-playtest audit, uncommitted): `#ensureLiveHost()` after exorcism |
 | NET-CLK-1 / CLK-3 / MIG-1 | Dual clocks, round-clock hits, kill credit on promote | ✅ Shipped `a0475d6` |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 + NET-1 (D-PERF-3) |
@@ -139,6 +139,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Debug/harness surface map lives in [guides/visual-qa.md](./guides/visual-qa.md).
 
 ## Last updated
+
+2026-07-12 — **Pre-playtest production audit** (multi-agent: gameplay/netcode/UI/perf/debris + integration trace). Fixes applied (uncommitted, gates green 287 tests / 28 files, tsc + knip + build OK; solo boot smoke clean):
+- `gameFlow.js` — SD win no longer un-parks spectators into phantom falls mid-loop (live-phase break in fall loop); last-cart-standing scheduler gated on live running phase (SD podium no longer relabeled "LAST CART STANDING" with stray slow-mo).
+- `party/index.ts` — **NET-MIG-2 fixed**: `#ensureLiveHost()` after ghost exorcism (sole-human refresh no longer strands the room hostless for ~5–10s).
+- `netcode.js` — NET-BUF-1: reliable hostSpawn snapshot now buffered in host `tHost` domain (was Party `serverNowMs` — mispaired interp at GO/rematch); `.catch` on fire-and-forget P2P offers.
+- `netcode/p2p.js` — `dc.send` guarded (channel closing between readyState check and send no longer aborts the host broadcast tick).
+- `main.js` — podium challenge records once-per-round guarded (overlay re-render could double-count `last_standing`/`sd_win`/`untouchable`); `untouchable` now also requires zero falls (was per-life `hasSpilled`, credited nearly every win).
+- `cart-rave-menu.js` — reroll handle pool `KILLER`→`BRUISER` (style-guide KO rule).
+- `bootstrap.js` — 5 cart-bootstrap logs DEV-gated.
+Open recommendations (not fixed — behavior/structural): last-cart-standing flourish unreachable in timed rounds (3s flourish vs 1s respawn — needs a taste call), NET-MIG-3 migration freeze vs re-handshake, NET-CLK-2 roundValidation cross-domain age check, SD has no timeout, podium-reject retry loop (rare), challenge daily/weekly rotation only checked at boot.
 
 2026-07-12 — **Terminology & consistency pass** (D-TERM-1): new [style-guide.md](./style-guide.md) writing standard; player-copy fixes (pause-overlay Nitro→Boost, KILL STREAK→COMBO kicker, challenge/unlock copy KO-standardized + combo-tier-name bug fix, menu LEVELS→ARENAS, Friends invite copy, host tooltip); linked from AGENTS.md/READMEs. Unpushed. Gates green: 287 tests / 28 files, tsc + knip clean, build OK; menu copy verified live in browser.
 2026-07-12 — **Documentation consolidation pass**: STATUS rewritten as production dashboard; decision-log full text archived to [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md); new [BACKLOG.md](./planning/BACKLOG.md) + [production-passes.md](./planning/production-passes.md); ROADMAP restructured; project-state refreshed to the July 11 tree; flicker plan/handover + pass 2/3 plans archived. Gates re-verified: qa green 285 tests / 28 files.

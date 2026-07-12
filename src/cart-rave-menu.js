@@ -146,7 +146,8 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
   const HANDLE_PARTS = [
     ["CART", "BASS", "NEON", "TROLLEY", "WHEEL", "RAVE", "GLOW", "KICK", "BOOM", "ZAP", "DISCO", "STROBE"],
-    ["LORD", "QUEEN", "KILLER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE"],
+    // * Style guide §2/§8: player copy never says "kill" — keep this list KO-friendly.
+    ["LORD", "QUEEN", "BRUISER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE"],
   ];
   const rollHandle = () => {
     const a = HANDLE_PARTS[0][Math.floor(Math.random() * HANDLE_PARTS[0].length)];

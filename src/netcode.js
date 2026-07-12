@@ -1296,7 +1296,9 @@ function ensureHostPeerConnections() {
   if (!isHost || !youConnId) return;
   for (const slot of netSlots) {
     if (slot && slot.kind === "human" && slot.connId && slot.connId !== youConnId) {
-      void P2P.initiateP2PConnection(slot.connId);
+      P2P.initiateP2PConnection(slot.connId).catch((e) => {
+        console.warn("[netcode] P2P offer failed (will retry via maintain loop)", e);
+      });
     }
   }
 }
@@ -1337,7 +1339,9 @@ function maintainHostPeerConnections() {
       P2P.forceClosePeer(connId);
     }
     console.log(`[netcode] WebRTC recovery reconnect to peer ${connId} (${health.reason})`);
-    void P2P.initiateP2PConnection(connId);
+    P2P.initiateP2PConnection(connId).catch((e) => {
+      console.warn("[netcode] P2P recovery offer failed (cooldown retry pending)", e);
+    });
   }
 }
 
@@ -2026,10 +2030,12 @@ function applyHostSpawnSnapshot(msg) {
     pendingInputs = [];
     resetReconciliationState();
     applyCartsSnapshotToBodies(carts);
-    const serverNowMs = typeof msg.serverNowMs === "number" && Number.isFinite(msg.serverNowMs)
-      ? msg.serverNowMs
-      : tHost + hostClock.offsetMs;
-    bufferAuthoritativeState(serverNowMs, seq, carts, hostEpoch);
+    // * Buffer in the host tHost domain — the same domain as the live 40Hz entries and
+    // * getInterpTargetServerNowMs(). msg.serverNowMs is Party (Worker) time; mixing
+    // * domains mispairs findSnapshotPair at GO/rematch (NET-BUF-1). The server relays
+    // * tHost: 0 for a malformed host message, so fall back to a local→host estimate.
+    const bufferAtMs = tHost > 0 ? tHost : getMonotonicNow() - hostClock.offsetMs;
+    bufferAuthoritativeState(bufferAtMs, seq, carts, hostEpoch);
   }
 }
 

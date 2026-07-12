@@ -54,6 +54,7 @@ import { svgIcon } from "./ui/icons.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 import { onUnlockGranted } from "./stores/unlockStore.js";
 import {
+  getMatchStats,
   matchSuperlatives,
   resetMatchStats,
   setMatchStatsLocalSlot,
@@ -2149,6 +2150,8 @@ async function main() {
   let lastPodiumCelebratedRound = null;
   /** True after confetti has fired for the current podium presentation. */
   let podiumConfettiFiredKey = null;
+  /** Round key of the last podium challenge credit — records must not re-fire on overlay re-render. */
+  let podiumChallengesRecordedKey = null;
 
   /**
    * World position of the winning cart (arena center fallback for draws / missing bodies).
@@ -2289,7 +2292,11 @@ async function main() {
 
       const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
       const isLocalWinner = mySlotIdx >= 0 && roundState.winnerSlotIndex === mySlotIdx;
-      if (isLocalWinner) {
+      // * Once per podium — the overlay re-renders whenever a key field changes (late stat
+      // * write, host flip), and challenge credit must not double-count on a re-render.
+      const challengeRoundKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
+      if (isLocalWinner && podiumChallengesRecordedKey !== challengeRoundKey) {
+        podiumChallengesRecordedKey = challengeRoundKey;
         if (roundState.endReason === "lastStanding") {
           ChallengeTracker.record("last_standing");
         }
@@ -2297,7 +2304,9 @@ async function main() {
           ChallengeTracker.record("sd_win");
         }
         const localCart = localCartForConnId();
-        if (localCart && !localCart.hasSpilled) {
+        // * "Win without spilling": hasSpilled is per-life (reset on respawn), so a fall
+        // * mid-round must also disqualify — localDeaths accumulates for the whole round.
+        if (localCart && !localCart.hasSpilled && getMatchStats().localDeaths === 0) {
           ChallengeTracker.record("untouchable");
         }
       }
