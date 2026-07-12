@@ -49,8 +49,8 @@
  * @property {{ threshold?: number, strength?: number, radius?: number, smoothWidth?: number } | null} bloomTune
  */
 
-/** Named review poses — used by ?shot= and tools/shoot.mjs */
-export const VISUAL_BOOKMARKS = {
+/** Named review poses — consumed via ?shot= (tools/shoot.mjs passes the key through the URL). */
+const VISUAL_BOOKMARKS = {
   classic: {
     level: "classicRecord",
     cam: "0,14,22,0,0.5,0",
@@ -85,7 +85,7 @@ let cached = null;
  * @param {string} raw
  * @returns {DebugCam | null}
  */
-export function parseCamString(raw) {
+function parseCamString(raw) {
   if (!raw || typeof raw !== "string") return null;
   const parts = raw.split(",").map((s) => Number(String(s).trim()));
   if (parts.length < 3 || parts.slice(0, 3).some((n) => !Number.isFinite(n))) return null;
@@ -104,7 +104,7 @@ export function parseCamString(raw) {
  * @param {string | null | undefined} [search]
  * @returns {DebugParams}
  */
-export function parseDebugParams(search) {
+function parseDebugParams(search) {
   const params = new URLSearchParams(
     search ?? (typeof window !== "undefined" ? window.location.search : ""),
   );

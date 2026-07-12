@@ -12,6 +12,7 @@ import {
   wireButtonPressFeedback,
 } from "../animations.js";
 import { getQualityTier } from "../utils/qualityMode.js";
+import { clamp, clampInt } from "../utils.js";
 import { settingsStore } from "../stores/settingsStore.js";
 import { svgIcon } from "./icons.js";
 
@@ -65,16 +66,6 @@ function syncQualityTierButtonState(tierOverride) {
   const tier = tierOverride ?? (_options.getQualityTier ? _options.getQualityTier() : getQualityTier());
   elements.lowQualityBtn.textContent = `QUALITY: ${tier.toUpperCase()}`;
   elements.lowQualityBtn.classList.toggle("esc-btn--lq-on", tier === "low");
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function clampInt(value, min, max) {
-  const v = Math.round(value);
-  if (!Number.isFinite(v)) return min;
-  return Math.max(min, Math.min(max, v));
 }
 
 /**

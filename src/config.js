@@ -199,7 +199,6 @@ const physics = {
     maxSpeed: 23.5, // m/s — forward speed cap
     reverseMaxSpeed: 8.0, // m/s — reverse speed cap
     accel: 125.0, // m/s² — drive force scaling
-    braking: 35.0, // m/s² — passive decel when throttle released
     steeringTorque: 110.0, // N·m scale — tank steer while moving
     tankYawRate: 5.6, // rad/s — in-place pivot rate
     yawResponsiveness: 22.0, // 1/s — yaw smoothing toward target
@@ -315,8 +314,6 @@ const physics = {
     railHeight: 1.8, // meters
     railThickness: 0.12, // meters
     gearEnabled: true,
-    neonColor1: 0xff2bd6, // shared pink accent (Zanzibar spindle / legacy)
-    neonColor2: 0x2bd6ff, // shared cyan accent (Zanzibar spindle / legacy)
     // * Classic Record booth neon: intensity pulse rate only (per-booth hue is sticky).
     neonCycleSpeed: 0.4, // cycles/s — booth neon emissive pulse
     friction: 1.2, // unitless

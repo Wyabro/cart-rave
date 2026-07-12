@@ -21,6 +21,7 @@ import { getCurrentLevelId } from "./levelManager.js";
 import { announce } from "./announcer/announcerManager.js";
 import { applyRemoteDirective, getDirectiveWireState } from "./directives/directiveEngine.js";
 import { armSpillBoost } from "./cargoLoad.js";
+import { clamp } from "./utils.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
 
@@ -428,10 +429,6 @@ export function resolvedPartyRoomFromUrl() {
   const params = new URLSearchParams(window.location.search || "");
   const raw = (params.get("room") || "").trim();
   return /^[A-Za-z0-9]{2,16}$/.test(raw) ? raw : "quickplay";
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
 }
 
 // === HOST / CLIENT AUTHORITY ===

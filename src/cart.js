@@ -2,7 +2,7 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { resetRaveGltfCartVisualState, updateRaveGltfCartVisuals } from "./cartRaveGltf.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
-import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
+import { cartEmissiveIntensityForHex, clamp, emissiveRefHexForNeonHex, lerpAngle } from "./utils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
 const BASKET_LENGTH = 2.1;
@@ -150,29 +150,6 @@ const SHARED_FACE_TRIM_MAT = createPhysicalMaterial({
   side: THREE.DoubleSide,
 });
 SHARED_FACE_TRIM_MAT.userData = { isSharedMaterial: true };
-
-/**
- * @param {number} value
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-/**
- * @param {number} a
- * @param {number} b
- * @param {number} t
- * @returns {number}
- */
-function lerpAngle(a, b, t) {
-  let d = b - a;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return a + d * t;
-}
 
 /**
  * @param {number} z

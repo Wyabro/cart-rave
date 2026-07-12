@@ -134,10 +134,22 @@ export function clamp(value, min, max) {
  * @param {number} max
  * @returns {number}
  */
-function clampInt(value, min, max) {
+export function clampInt(value, min, max) {
   const v = Math.round(value);
   if (!Number.isFinite(v)) return min;
   return Math.max(min, Math.min(max, v));
+}
+
+/**
+ * Interpolates between two angles (radians) along the shortest arc.
+ * @param {number} a
+ * @param {number} b
+ * @param {number} t 0–1
+ * @returns {number}
+ */
+export function lerpAngle(a, b, t) {
+  const delta = ((((b - a) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  return a + delta * t;
 }
 
 /**

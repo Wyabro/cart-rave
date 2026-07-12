@@ -28,8 +28,6 @@ import {
 /** @type {HarnessDeps | null} */
 let deps = null;
 let frameCount = 0;
-/** @type {string | null} */
-let installError = null;
 
 /**
  * @param {HarnessDeps} dependencies
@@ -38,7 +36,6 @@ let installError = null;
 export function installVisualHarness(dependencies) {
   deps = dependencies;
   frameCount = 0;
-  installError = null;
 
   const params = getDebugParams();
 
@@ -52,7 +49,7 @@ export function installVisualHarness(dependencies) {
       return Boolean(deps?.isWorldReady());
     },
     get error() {
-      return installError || deps?.getError?.() || null;
+      return deps?.getError?.() || null;
     },
     get frame() {
       return frameCount;
@@ -226,18 +223,3 @@ export function tickVisualHarnessFrame() {
   }
 }
 
-/**
- * @param {string} message
- * @returns {void}
- */
-export function setVisualHarnessError(message) {
-  installError = message;
-  if (/** @type {any} */ (window).__cartRave) {
-    // * error is a getter — store is local
-  }
-}
-
-/** @returns {boolean} */
-export function isVisualHarnessInstalled() {
-  return Boolean(deps);
-}

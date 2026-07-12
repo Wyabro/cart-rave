@@ -11,6 +11,7 @@ import {
   computeSoloRubberband,
   SOLO_RUBBERBAND_NEUTRAL,
 } from "./utils/soloRubberband.js";
+import { clamp } from "./utils.js";
 
 /** When true, NPC chase/nitro use solo score rubberband (set from main for solo mode only). */
 let _soloRubberbandActive = false;
@@ -125,10 +126,6 @@ function readRamStateInto(cart, out) {
   out.linvel.x = lv.x;
   out.linvel.y = lv.y;
   out.linvel.z = lv.z;
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
 }
 
 /**
@@ -1640,7 +1637,7 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
   let nearestWeightedD2 = Infinity;
   let nearestVel = null;
   const LEAD_TIME_S = 0.5;
-  const fallYThreshold = CONFIG.fall?.yThreshold ?? -1.0;
+  const fallYThreshold = CONFIG.fall.yThreshold;
 
   // * Rubberbanding: fetch current round scores to prioritize match leader
   const roundState = GameState.getRoundState();
