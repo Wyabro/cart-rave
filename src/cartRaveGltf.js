@@ -13,7 +13,8 @@
  *   casters (forkParts swivel at basket attach; connector=swivelHub):
  *     FR {fork:14,20 hub:19 wheel:1} FL {fork:6 hub:18 wheel:3}
  *     BL {fork:5,21 hub:12 wheel:2} BR {fork:13,22 hub:17 wheel:4}
- *   face/sunglasses=7+8+9+11 (one static assembly: accent 7 + frame 8 + lenses 9,11), handle=10, static trim=15–16/23.
+ *   face=7 (the SMILE — stays authored) + one-piece SunglassesVisor (replaces frame 8 +
+ *   lenses 9/11 at source load; see integrateOnePieceSunglasses), handle=10, static trim=15–16/23.
  */
 
 import * as THREE from "three";
@@ -290,7 +291,10 @@ const RAVE_GLTF_CASTER_SWIVEL_GROUP_OFFSETS = Object.freeze({
 const RAVE_GLTF_DARK_TRIM_HEX = 0x111111;
 
 /**
- * cartrave4 sunglasses — frame (8), lens pair (9, 11), and accent (7); one static face assembly.
+ * cartrave4 face assembly — the SMILE (7) plus the one-piece sunglasses visor that
+ * replaces the segmented frame (8) + lens pair (9, 11) at source load
+ * (integrateOnePieceSunglasses). 8/9/11 stay listed defensively for the fallback
+ * path where the visor GLB fails to load and the segmented parts remain.
  * @type {ReadonlyArray<string>}
  */
 const RAVE_GLTF_V4_FACE_PARTS = Object.freeze([
@@ -298,9 +302,19 @@ const RAVE_GLTF_V4_FACE_PARTS = Object.freeze([
   "tripo_part_8",
   "tripo_part_9",
   "tripo_part_11",
-  // * One-piece visor swapped in at source load (integrateOnePieceSunglasses) — listed
-  // * here so groupRaveGltfFaceAssembly still builds RaveGltfFaceGroup around it.
   "SunglassesVisor",
+]);
+
+/**
+ * The segmented sunglasses parts the one-piece visor REPLACES: frame (8) + lenses
+ * (9, 11). tripo_part_7 is the cart's SMILE — a separate face accent that must stay
+ * on the basket (deleting it with the glasses removed the cart's mouth).
+ * @type {ReadonlyArray<string>}
+ */
+const RAVE_GLTF_V4_SUNGLASSES_PARTS = Object.freeze([
+  "tripo_part_8",
+  "tripo_part_9",
+  "tripo_part_11",
 ]);
 
 /**
@@ -600,7 +614,7 @@ function logRaveGltfCasterSourceHierarchy(scene) {
         `  caster ${group.id} (${group.label}): hub=${group.swivelHub} wheel=${group.wheel} fork=[${group.forkParts.join(", ")}]`,
       );
     }
-    lines.push("  static: frame supports tripo_part_15,16 + sunglasses 7,8,9,11 + handle 10");
+    lines.push("  static: frame supports tripo_part_15,16 + smile 7 + SunglassesVisor + handle 10");
   } else {
     lines.push("  legacy monolithic corners: tripo_part_0,3,4,5 (swivel only)");
   }
@@ -2360,9 +2374,11 @@ function loadRaveGltfFromUrl(url) {
 }
 
 /**
- * Replaces the four segmented cartrave4 sunglasses parts (frame/lenses/accent) with the
- * one-piece visor GLB, fitted to the old assembly's bounds so the cart silhouette is
- * unchanged. Runs ONCE on the shared source scene before any instance is cloned:
+ * Replaces the segmented cartrave4 sunglasses (frame 8 + lenses 9/11) with the
+ * one-piece visor GLB, fitted to those parts' bounds so the visor sits exactly where
+ * the old glasses did. The SMILE (tripo_part_7) is untouched — it stays on the basket
+ * below the visor and keeps its face-role mirror tint. Runs ONCE on the shared source
+ * scene before any instance is cloned:
  *
  * - The visor mesh is named "SunglassesVisor" (mapped to role "face" in
  *   RAVE_GLTF_PART_ROLES_V4), so every existing customization path — mirror-style
@@ -2370,6 +2386,10 @@ function loadRaveGltfFromUrl(url) {
  * - Placement is baked onto the MESH transform (like the old parts), NOT a wrapper
  *   group: applyRaveGltfBodyScale reparents face meshes by their own positions, and
  *   groupRaveGltfFaceAssembly builds "RaveGltfFaceGroup" per instance afterwards.
+ * - The basket body (tripo_part_0) has NO geometry behind the glasses footprint — the
+ *   authored parts covered a hole. The visor must therefore cover the replaced parts'
+ *   full box on BOTH axes (width fit + height-coverage floor below), or the cart shows
+ *   an empty gap where the frame sat.
  * - Its authored base-color map is dropped: face-role materials are fully procedural
  *   (cloneRaveGltfMaterial overrides PBR with the SunglassesStyleDef mirror finish).
  *
@@ -2379,7 +2399,7 @@ function loadRaveGltfFromUrl(url) {
 async function integrateOnePieceSunglasses(sourceScene) {
   /** @type {THREE.Mesh[]} */
   const oldParts = [];
-  for (const name of RAVE_GLTF_V4_FACE_PARTS) {
+  for (const name of RAVE_GLTF_V4_SUNGLASSES_PARTS) {
     const mesh = /** @type {THREE.Mesh | undefined} */ (sourceScene.getObjectByName(name));
     if (/** @type {any} */ (mesh)?.isMesh) oldParts.push(mesh);
   }
@@ -2419,7 +2439,11 @@ async function integrateOnePieceSunglasses(sourceScene) {
     ? geo.boundingBox.getSize(new THREE.Vector3())
     : new THREE.Vector3(0.15, 0.22, 0.69);
 
-  // * Fit: match the old assembly's width axis; face outward along its depth offset.
+  // * Fit: width-match the old glasses (measured widthFit≈0.85 — the approved size;
+  // * height-matching the frame box would oversize it ~28%). The visor is shorter than
+  // * the replaced frame's box, and the basket has a hole behind that footprint, so the
+  // * visor's TOP edge is aligned to the box top below: the uncovered sliver falls at
+  // * the bottom, into the smile region where the basket face resumes.
   const widthAxis = size.x >= size.z ? "x" : "z";
   const depthAxis = widthAxis === "x" ? "z" : "x";
   const facingSign = Math.sign(center[depthAxis]) || 1;
@@ -2435,6 +2459,8 @@ async function integrateOnePieceSunglasses(sourceScene) {
   const mat = /** @type {any} */ (Array.isArray(visor.material) ? visor.material[0] : visor.material);
   if (mat) mat.map = null; // mirror finish is procedural — drop the baked base color
   visorMesh.position.copy(center);
+  // * Top-edge alignment (see fit comment above) — cover the basket hole from the top down.
+  visorMesh.position.y = box.max.y - (vSize.y * scale) / 2;
   // * Keep the lens plane where the old assembly's outer face was (centered geometry
   // * would otherwise recess the visor by half its depth difference).
   visorMesh.position[depthAxis] += facingSign * (size[depthAxis] - vSize.x * scale) / 2;
@@ -2446,8 +2472,10 @@ async function integrateOnePieceSunglasses(sourceScene) {
 
   if (import.meta.env?.DEV) {
     console.debug(
-      `[cartRaveGltf] One-piece sunglasses integrated: replaced ${oldParts.length} parts, ` +
-      `widthAxis=${widthAxis} facing=${facingSign > 0 ? "+" : "-"}${depthAxis} scale=${scale.toFixed(3)}`,
+      `[cartRaveGltf] One-piece sunglasses integrated: replaced ${oldParts.length} parts ` +
+      `(smile kept), widthAxis=${widthAxis} facing=${facingSign > 0 ? "+" : "-"}${depthAxis} ` +
+      `scale=${scale.toFixed(3)} ` +
+      `pos=(${visorMesh.position.x.toFixed(3)}, ${visorMesh.position.y.toFixed(3)}, ${visorMesh.position.z.toFixed(3)})`,
     );
   }
 }
