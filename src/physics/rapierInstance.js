@@ -1,8 +1,12 @@
 /**
  * rapierInstance.js — Shared, lazily-initialized Rapier3D WASM module.
  *
- * Prefers `@dimforge/rapier3d-simd` when the browser validates wasm simd128;
- * falls back to `@dimforge/rapier3d` on older engines or load failure.
+ * Loads the standard `@dimforge/rapier3d` by default. The `-simd` build is
+ * OPT-IN (`?rapier=simd` or localStorage `cartRaveRapierSimd=1`): at 0.19.3 the
+ * SIMD wasm trips a wasm-bindgen "recursive use of an object … unsafe aliasing"
+ * RefCell error mid-gameplay (e.g. `RigidBody.translation()` in updateGameFlow)
+ * that the standard build does not — a game-breaker on every simd-capable
+ * browser. Keep it opt-in until that build is proven stable.
  *
  * All consumers import the mutable `RAPIER` variable. The actual WASM blob
  * is deferred until `initRapier()` is called (see `ensureRapierPhysics` in
@@ -59,6 +63,27 @@ function unwrapModule(mod) {
 }
 
 /**
+ * Whether the SIMD build was explicitly opted into. Default is the standard build
+ * because the 0.19.3 `-simd` wasm throws a "recursive use / unsafe aliasing" borrow
+ * error mid-gameplay (see module docstring). Opt in with `?rapier=simd` or
+ * localStorage `cartRaveRapierSimd=1` to test the SIMD path.
+ * @returns {boolean}
+ */
+function simdRequested() {
+  try {
+    if (typeof location !== "undefined" && /[?&]rapier=simd\b/.test(location.search)) {
+      return true;
+    }
+    if (typeof localStorage !== "undefined" && localStorage.getItem("cartRaveRapierSimd") === "1") {
+      return true;
+    }
+  } catch {
+    // location/localStorage unavailable (SSR, sandbox) — fall through to standard.
+  }
+  return false;
+}
+
+/**
  * Dynamically loads Rapier on first call (SIMD when available) and returns it.
  * Idempotent — subsequent calls return the cached instance.
  *
@@ -68,7 +93,9 @@ export async function initRapier() {
   if (RAPIER) return RAPIER;
   if (!_initPromise) {
     _initPromise = (async () => {
-      const simdOk = supportsWasmSimd();
+      // * SIMD is opt-in only — the 0.19.3 -simd build breaks gameplay with a wasm
+      // * "recursive use / unsafe aliasing" RefCell error (see module docstring).
+      const simdOk = simdRequested() && supportsWasmSimd();
       if (simdOk) {
         try {
           const m = await import("@dimforge/rapier3d-simd");
@@ -86,9 +113,6 @@ export async function initRapier() {
       const m = await import("@dimforge/rapier3d");
       RAPIER = unwrapModule(m);
       _build = "standard";
-      if (!simdOk && typeof console !== "undefined" && console.info) {
-        console.info("[rapier] wasm simd128 not available; using standard build");
-      }
       return RAPIER;
     })();
   }
