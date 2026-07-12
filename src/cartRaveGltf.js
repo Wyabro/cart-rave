@@ -1679,6 +1679,10 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
     mat.roughness = style.roughness;
     mat.envMapIntensity = style.envMapIntensity;
     mat.clearcoat = style.clearcoat;
+    // * Reflect a dedicated neon env (not the neutral scene RoomEnvironment) so the mirror
+    // * lenses read as "Pit Viper" against the dark arenas. Lens-only — scene is untouched.
+    const lensEnv = getNeonLensEnvMap();
+    if (lensEnv) mat.envMap = lensEnv;
     if (mat.emissive) mat.emissive.setHex(0x000000);
     mat.userData.raveGltfSunglassesStyle = style.id;
   } else {
@@ -1697,6 +1701,68 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
   if (mat.emissive && !mat.emissiveMap && role !== "body") mat.emissive.setHex(0x000000);
 
   return mat;
+}
+
+/** @type {THREE.Texture | null} Shared neon reflection env for the sunglasses lenses. */
+let _neonLensEnvMap = null;
+
+/**
+ * Lazily builds a shared neon "arena reflection" environment used only by the sunglasses
+ * lens material. `scene.environment` is a neutral RoomEnvironment probe, so the mirror-finish
+ * lenses reflected flat grey in the dark arenas and read dead. This dedicated equirect env
+ * gives them punchy neon reflections (the "Pit Viper" look) without touching the rest of the
+ * scene or paying for a per-frame reflection probe. Authored once per session.
+ *
+ * @returns {THREE.Texture | null}
+ */
+function getNeonLensEnvMap() {
+  if (_neonLensEnvMap) return _neonLensEnvMap;
+  if (typeof document === "undefined") return null;
+  const w = 512;
+  const h = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  // * Dark base with a faint purple floor/ceiling.
+  const base = ctx.createLinearGradient(0, 0, 0, h);
+  base.addColorStop(0, "#05010a");
+  base.addColorStop(0.5, "#160b26");
+  base.addColorStop(1, "#04020a");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.globalCompositeOperation = "lighter";
+
+  // * Neon horizon band across the middle — the bright arena glow the lens sweeps as it turns.
+  const horizon = ctx.createLinearGradient(0, 0, w, 0);
+  horizon.addColorStop(0.0, "#ff2bd6");
+  horizon.addColorStop(0.25, "#00e5ff");
+  horizon.addColorStop(0.5, "#7a5cff");
+  horizon.addColorStop(0.72, "#39ff88");
+  horizon.addColorStop(1.0, "#ff2bd6");
+  ctx.fillStyle = horizon;
+  ctx.fillRect(0, h * 0.36, w, h * 0.28);
+
+  // * Vertical neon strip-lights (arena columns) — bright bars that streak across the lens.
+  const stripColors = ["#ff2bd6", "#00e5ff", "#39ff88", "#ffd23a", "#ff6a2b"];
+  for (let i = 0; i < 7; i += 1) {
+    const x = (i + 0.5) * (w / 7) + (Math.random() - 0.5) * 16;
+    const bw = 6 + Math.random() * 10;
+    ctx.fillStyle = stripColors[i % stripColors.length];
+    ctx.fillRect(x - bw / 2, h * 0.18, bw, h * 0.64);
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  _neonLensEnvMap = tex;
+  return tex;
 }
 
 /**

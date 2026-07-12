@@ -297,16 +297,19 @@ export const ANNOUNCER_EVENTS = Object.freeze({
   }),
   comeback: Object.freeze({
     id: "comeback",
-    priority: 48,
-    cls: "medium",
+    // * A clawed-back sole lead (was >=3 down) is a narrative peak — escalate it clearly above
+    // * the routine "SCOREBOARD" new_leader beat so it doesn't read as the same callout. Own
+    // * kicker, "high" tier, and a longer hold make it land; green accent keeps the positive read.
+    priority: 52,
+    cls: "high",
     cooldownMs: 0,
     oncePerRound: true,
     maxPerRound: 0,
     chance: 1,
-    ttlMs: 3000,
+    ttlMs: 3500,
     interruptible: true,
-    durationMs: 1200,
-    callout: Object.freeze({ kicker: "SCOREBOARD", accent: "#4dff88", holdMs: 1600 }),
+    durationMs: 2000,
+    callout: Object.freeze({ kicker: "COMEBACK", accent: "#4dff88", holdMs: 2200 }),
     voice: Object.freeze({ key: "comeback", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "comeback" }),
   }),

@@ -29,6 +29,7 @@ import { getQualityTier } from "./utils/qualityMode.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
 import { setAllAudioMuted, setMusicGainValue } from "./ui/audioControls.js";
+import { playUiClick } from "./sfxSynth.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
 import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
@@ -64,6 +65,16 @@ import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 
 (function () {
   'use strict';
+
+  // * Subtle UI click on any game-menu button (class contains "cr-"); Tweakpane debug
+  // * buttons (tp-*) are excluded. One delegated listener beats wiring ~20 handlers.
+  // * playUiClick is mute/volume-guarded and silent until the AudioContext is unlocked.
+  document.addEventListener('click', (e) => {
+    const btn = /** @type {HTMLElement | null} */ (e.target)?.closest?.('button');
+    if (!btn) return;
+    const cls = typeof btn.className === 'string' ? btn.className : '';
+    if (cls.includes('cr-')) playUiClick();
+  }, { passive: true });
 
   // ─── Palettes ─────────────────────────────────────────────────────────────
   const PALETTES = {

@@ -273,6 +273,20 @@ export function playGrocerySpill(count = 6, intensity = 0.5) {
 }
 
 /**
+ * Soft UI click (~35ms) for menu buttons — a short high triangle blip over a quiet
+ * sine transient. Kept subtle so rapid menu navigation never grates. Guarded/muted-aware
+ * via resolvePlayback (silent until the AudioContext is unlocked).
+ */
+export function playUiClick() {
+  const p = resolvePlayback();
+  if (!p) return;
+  const { ctx, dest, vol, now } = p;
+  const g = 0.06 * vol;
+  spawnTone(ctx, dest, "triangle", 1180, 1480, 0.035, g, now);
+  spawnTone(ctx, dest, "sine", 600, 600, 0.03, g * 0.5, now);
+}
+
+/**
  * Light sparkle up-arpeggio E5→B5→E6 (~0.5s), triangle, for challenge completion.
  */
 export function playChallengeComplete() {
