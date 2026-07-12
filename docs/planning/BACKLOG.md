@@ -64,16 +64,39 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 
 ## Tech Debt
 
-| Pri | Item | Notes |
-|-----|------|-------|
-| Medium | V2 shipping checklist + final QA doc | Create when the milestone above is in sight. |
-| Low | BUNDLE-1 — menu/game code-split | **Blocked** (D-PERF-3): no clean seam; needs a gameplay-cluster-behind-one-dynamic-boundary refactor + NET-1 smoke first. Do not chip at it piecemeal. |
-| Low | TypeScript 7 migration | Stay on TS 6.0.3 — TS 7 native flags ~849 JSDoc `object` errors; needs a real migration pass. |
+Jam-era structure that still works but accrues cost. **Do not** start full rewrites
+during the V2 validation gate (playtest + NET-1). Prefer seams and dual-path deletion
+after multiplayer is proven. Priorities below are post-gate unless noted.
+
+| Pri | ID | Item | Notes |
+|-----|----|------|-------|
+| Medium | SHIP-1 | V2 shipping checklist + final QA doc | Create when the milestone is in sight. |
+| Medium | MAIN-1 | Carve `main.js` composition seam | ~3.7k-line wiring hub (`main.js` ~163 KB). Extract boot / session / render-loop / combat-fx / net bridge so ownership is readable. **Prerequisite for BUNDLE-1** — not a rewrite; move existing modules behind one dynamic import boundary. Also shrinks the fat `callbacks`/`deps` bags into netcode/gameFlow/simulation. |
+| Medium | STORE-1 | Collapse `gameState` facade dual import | Thin `gameState.js` wrappers over Zustand `gameStore`; some call sites use the store, some the facade. Pick one public surface (store or facade) and migrate call sites. Pair with KO reactors as the only fall/score fan-out. |
+| Medium | DIR-1 | Directive modifiers without mutating `CONFIG` | Living Store temporarily patches `CONFIG` paths then restores — jam-speed side effects. Prefer a runtime multiplier / modifier stack so static config is immutable and restore bugs cannot leave rules sticky. |
+| Medium | TRUST-1 | Worker validates host-asserted outcomes | Host client runs physics (invariant — keep it). For leaderboards / anti-cheat, Worker must treat scores/outcomes as untrusted and validate enough to reject obvious fabrication. Prerequisite for Supabase leaderboard. |
+| Low | BUNDLE-1 | Menu/game code-split | **Blocked** (D-PERF-3): no clean seam until MAIN-1 + NET-1 smoke. Do not chip at it piecemeal. |
+| Low | GLTF-1 | Drop legacy cart GLTF layout path | `cartRaveGltf.js` still supports cartrave4 **and** legacy monolithic caster layout + Draco fallback URL. Once production is cartrave4-only, delete legacy mesh roles / fallback load so one layout remains. |
+| Low | DUAL-1 | Delete leftover dual-era paths | Examples: Rapier standard + SIMD packages (SIMD opt-in after borrow bug — keep opt-in but document sole default); quality comments/code that still talk about legacy low/high after the 3-tier system; removed `theme` field still silently ignored in customization storage; Howler + procedural SFX + PA layered as three eras (works — only refactor when audio ownership is the task). |
+| Low | TS-1 | TypeScript on hot paths / TS 7 | Client is ~105 `.js` files with JSDoc; `party/` is real TS. Stay on TS 6.0.3 for the gate. Later: migrate contracts for `netcode` / `scoring` / `simulation` first; full TS 7 only after clearing ~849 JSDoc `object` errors (own migration pass). |
+| Low | TOOL-1 | Tooling residue | `.npmrc` `legacy-peer-deps` for wrangler/partyserver types mismatch; agent rule files (AGENTS + `.cursorrules` + CLAUDE + GEMINI) should keep deferring to AGENTS; script aliases `dev:next-level` / dual cart-rave names — remove only with brand cutover. |
 | Low | Vite 500 kB chunk-size hint | Cosmetic build warning; unrelated to the fixed `rolldownOptions` rename. |
-| Low | Brand cutover debt | Worker name, DO class, `cartRave*` storage keys, module filenames — all intentionally frozen; see [brand.md](../brand.md) for the cutover checklist. |
+| Low | BRAND-1 | Brand / domain cutover ceremony | Worker name, DO class, `cartRave*` storage keys, Party id, asset paths, module filenames — **intentionally frozen**. One planned event only; checklist in [brand.md](../brand.md). Do not drip-rename. |
+
+### Explicitly *not* tech debt (do not “modernize” these)
+
+| Topic | Why leave it |
+|-------|----------------|
+| Host-only Rapier on a client | Architecture invariant — server never simulates physics ([AGENTS.md](../../AGENTS.md)). |
+| Zustand + KO event reactors | Current and coherent; keep extending, do not replace with a new state library. |
+| partyserver + WebRTC P2P split | Control plane vs gameplay plane is correct; fix hazards, do not collapse to server-relay transforms. |
+| Big `config.js` knob table | Fine as long as knobs stay centralized; DIR-1 should stop *mutating* it mid-round. |
 
 ## Future Ideas (post-launch)
 
 - WebGPU compute shaders for targeted VFX (shatter, particles) — re-evaluate after mobile perf is proven; no physics rewrite.
 - Economy/XP progression beyond lifetime unlocks — only if reopened deliberately.
-- Domain + full rebrand cutover ceremony (new Worker, storage migration, asset renames) as one planned event.
+- Domain + full rebrand cutover ceremony (BRAND-1: new Worker, storage migration, asset renames) as one planned event.
+- MAIN-1 → BUNDLE-1 menu/game split after V2 multiplayer is proven.
+- DIR-1 runtime modifier stack if Living Store grows more mutators.
+- GLTF-1 legacy layout deletion after cartrave4-only production sign-off.

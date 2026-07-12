@@ -221,9 +221,8 @@ The handover notes repeatedly stress process discipline for reliability:
 **Primary source:** [ROADMAP.md](../planning/ROADMAP.md)
 
 - Multiplayer runtime smoke test (two browsers, one room) — includes Living Store checklist + [netcode-deep-dive.md](../planning/netcode-deep-dive.md) hazards
-- Black-frame flicker triage
-- Menu overhaul + domain cutover
-- Deeper performance pass (level swap / menu / profiling)
+- Black-frame flicker look-check → promote display-referred bloom default
+- Remaining critical static hazard: **NET-MIG-2** (null host after ghost exorcism)
 
 ### Content and features (shipped foundations)
 
@@ -233,10 +232,22 @@ The handover notes repeatedly stress process discipline for reliability:
 - Lifetime cosmetic + level unlocks; match-stat spine
 - **Living Store** — cargo scoreboard + PA directives ([living-store.md](./living-store.md))
 
+### Structural tech debt (post-V2 gate — not release blockers)
+
+Item IDs and “do not modernize” table: [BACKLOG.md § Tech Debt](../planning/BACKLOG.md#tech-debt).
+
+- **MAIN-1** — carve `main.js` composition seam (enables **BUNDLE-1** menu/game split)
+- **DIR-1** — Living Store modifiers without mutating `CONFIG`
+- **STORE-1** — collapse `gameState` / `gameStore` dual import surface
+- **TRUST-1** — Worker validates host-asserted outcomes (for leaderboards; keep host Rapier)
+- **GLTF-1** — drop legacy cart GLTF layout once cartrave4-only
+- **BRAND-1** — domain / Worker cutover ceremony ([brand.md](../brand.md))
+- **TS-1** — TypeScript on hot paths / TS 7 (deferred)
+
 ### Technical and release (later)
 
 - Remaining perf / WebGPU experiments
-- Domain cutover after naming freeze
+- Domain cutover after naming freeze (BRAND-1)
 - `structuredClone` performance optimization for DO broadcasts
 
 See [ROADMAP.md](../planning/ROADMAP.md) for open post-jam priorities.

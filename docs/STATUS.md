@@ -72,8 +72,9 @@ until the queue drains (taste calls may trigger tuning).
 
 1. Drain the playtest queue above → apply taste tuning → **push** the 5 stabilization commits.
 2. Close **NET-1**: two-browser full-round smoke ([ROADMAP](./planning/ROADMAP.md) Phase 4) + [living-store-test-plan.md](./planning/living-store-test-plan.md) + [host-migration-test-plan.md](./planning/host-migration-test-plan.md).
-3. Fix remaining **Critical** static netcode hazard before/with the smoke: NET-MIG-2 (null host) — [netcode-deep-dive.md](./planning/netcode-deep-dive.md). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped 2026-07-12 (unpushed until commit).
+3. Fix remaining **Critical** static netcode hazard before/with the smoke: NET-MIG-2 (null host) — [netcode-deep-dive.md](./planning/netcode-deep-dive.md). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped (`a0475d6`).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
+5. Structural debt (MAIN-1, DIR-1, GLTF-1, BRAND-1, …) is cataloged under [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) — **after** the validation gate, not instead of it.
 
 ## Open issues (top)
 
@@ -84,23 +85,27 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 | NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
 | VFX-1 | Black-frame flicker | 🟡 Root cause = half-res float bloom mips (D-VFX-2). Fixed on Storerooms (`98317c1`); Classic/Sundial look check + promote to default pending |
 | PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
-| NET-CLK-1 | One EWMA, three clocks | ❌ Critical static hazard (countdown snap, round end skew) |
 | NET-MIG-2 | Ghost exorcism can null the host | ❌ Critical static hazard (solo refresh edge) |
-| BUNDLE-1 | Menu/game code-split | 🚫 Blocked — no clean seam (D-PERF-3); revisit only after NET-1 |
+| NET-CLK-1 / CLK-3 / MIG-1 | Dual clocks, round-clock hits, kill credit on promote | ✅ Shipped `a0475d6` |
+| MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) |
+| BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 + NET-1 (D-PERF-3) |
 | BRAND-1 | Domain / Worker cutover | 🧊 Frozen until deliberate cutover ([brand.md](./brand.md)) |
 
 ## Recommended next milestone
 
 **“Validated V2 candidate”** — everything implemented is proven, live:
-playtest queue drained → stabilization commits pushed → bloomfix promoted (or tuned) →
-NET-1 two-browser smoke green incl. host migration + Living Store checklists → the two
-Critical netcode clock/migration hazards fixed. After that milestone the remaining V2 work
-is scoped content/infra (domain cutover, ship checklist), not risk.
+playtest queue drained → stabilization commits pushed → bloom fix promoted (or tuned) →
+NET-1 two-browser smoke green incl. host migration + Living Store checklists → remaining
+Critical hazard **NET-MIG-2** fixed. After that milestone the remaining V2 work is scoped
+content/infra (domain cutover, ship checklist), not risk. Structural modernizations
+(MAIN-1, DIR-1, GLTF-1, TS-1) wait until this gate is green — see
+[BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-NET-CLK-MIG** (07-12): NET-CLK-1 dual Party/host clocks, NET-CLK-3 round-clock hit/directive stamps, NET-MIG-1 kill-credit `attr` on promote (`a0475d6`). Remaining structural suggestions cataloged in BACKLOG Tech Debt (MAIN-1, DIR-1, GLTF-1, …).
 - **D-TERM-1** (07-12): Terminology pass — [style-guide.md](./style-guide.md) is canonical for all wording (Arena/Round/Boost/KO/Lobby/Quickplay rulings + rationale); player copy aligned; `combo_t2` unlock hint mislabel (RAMPAGE→SAVAGE) fixed.
 - **D-STAB-2** (07-11): Quickplay arena rotation deferred; rematch-seam recipe documented.
 - **D-STAB-1** (07-11): Stabilization pass — wheel roll travel-based, boost-bar leak, podium +20%, menu pacing, dead-code purge; knip zero-ignore.

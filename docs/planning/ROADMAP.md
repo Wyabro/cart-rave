@@ -47,8 +47,8 @@ Implementation is ahead of validation. Everything here exists in the tree and ne
 | Task | Status | Notes |
 |------|--------|-------|
 | **NET-1 — multiplayer two-browser runtime smoke** | ❌ The gate | Full-round + SD + rematch + disconnect/rejoin; run with [living-store-test-plan.md](./living-store-test-plan.md) and [host-migration-test-plan.md](./host-migration-test-plan.md) |
-| Critical static netcode hazards (NET-CLK-1, NET-MIG-2) | ❌ Open | Fix before/with the smoke — [netcode-deep-dive.md](./netcode-deep-dive.md) |
-| High netcode hazards (NET-CLK-2, NET-MIG-1/3, NET-BUF-1) | ❌ Open | Same doc; order documented there |
+| Critical static netcode hazards | 🟡 Partial | **NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped** (`a0475d6`). Still open: **NET-MIG-2** (null host) — [netcode-deep-dive.md](./netcode-deep-dive.md) |
+| High netcode hazards (NET-CLK-2, NET-MIG-3, NET-BUF-1) | ❌ Open | Same doc; order documented there |
 | VFX-1 endgame (bloom default promotion) | 🟡 In flight | See Current |
 | Menu/domain cutover (BRAND-1) | 🧊 Deliberate event | One planned ceremony: domain, Worker name, storage migration — [brand.md](../brand.md) |
 | V2 shipping checklist + final QA | ⬜ Create when close | |
@@ -57,25 +57,34 @@ Implementation is ahead of validation. Everything here exists in the tree and ne
 
 ## 🔮 Future (post-V2 window, pre-stretch)
 
-| Task | Notes |
-|------|-------|
-| Deeper server-authoritative logic | Decide where host trust is unacceptable (final scores, outcome); prerequisite for the leaderboard |
-| Persistent leaderboard (Supabase) | Host-asserted scores are untrusted input — server must validate |
-| Recorded announcer VO + SD music + ambient bed | Asset-gated; pipeline ready ([announcer.md](../reference/announcer.md)) |
-| Pattern customize UI | Blocked on cartrave4 re-UV ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)) |
-| Quickplay arena rotation | Deferred (D-STAB-2); seam recipe in the [decision log](../archive/decision-log-2026-07.md) |
-| `structuredClone` → flat serializer (`party/index.ts`) | Only after NET-1 + profiling shows it matters (40 Hz deep-clone on a single-threaded Worker) |
-| Deeper Howler audio (spatial, pooling, groups) | |
+Structural / product items after the multiplayer gate. Full IDs and “do not modernize”
+table: [BACKLOG.md § Tech Debt](./BACKLOG.md#tech-debt).
+
+| Task | ID | Notes |
+|------|-----|-------|
+| Deeper server-authoritative logic | TRUST-1 | Decide where host trust is unacceptable (final scores, outcome); prerequisite for the leaderboard — **not** server-side Rapier |
+| Persistent leaderboard (Supabase) | | Host-asserted scores are untrusted input — needs TRUST-1 |
+| Carve `main.js` composition seam | MAIN-1 | Prerequisite for honest menu/game code-split; shrink callback bags |
+| Directive modifiers without mutating CONFIG | DIR-1 | Runtime multiplier stack for Living Store |
+| Collapse gameState / gameStore dual surface | STORE-1 | One public state API |
+| Recorded announcer VO + SD music + ambient bed | | Asset-gated; pipeline ready ([announcer.md](../reference/announcer.md)) |
+| Pattern customize UI | | Blocked on cartrave4 re-UV ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)) |
+| Quickplay arena rotation | | Deferred (D-STAB-2); seam recipe in the [decision log](../archive/decision-log-2026-07.md) |
+| `structuredClone` → flat serializer (`party/index.ts`) | | Only after NET-1 + profiling shows it matters (40 Hz deep-clone on a single-threaded Worker) |
+| Deeper Howler audio (spatial, pooling, groups) | | |
 
 ---
 
 ## 🌙 Stretch goals & post-launch ideas
 
 - WebGPU compute shaders for targeted VFX (shatter, particles) — after mobile perf is proven; no physics rewrite.
-- BUNDLE-1 menu/game code-split — blocked on a real gameplay-cluster boundary refactor (D-PERF-3); revisit post-V2.
+- **MAIN-1 → BUNDLE-1** menu/game code-split — blocked on a real gameplay-cluster boundary (D-PERF-3); revisit post-V2 + after MAIN-1.
+- **GLTF-1** drop legacy cart GLTF layout once cartrave4 is sole production asset.
+- **DUAL-1 / TOOL-1** dual-path and tooling residue cleanup (only when touching those areas).
+- **BRAND-1** domain + full rebrand cutover ceremony (new Worker, storage migration, asset renames) as one planned event — [brand.md](../brand.md).
 - Subtle cosmetic monetization path.
 - Economy/XP progression beyond lifetime unlocks — only if deliberately reopened.
-- TypeScript 7 migration (own migration pass; ~849 JSDoc errors under the native compiler).
+- **TS-1** TypeScript on hot paths / TS 7 migration (own pass; ~849 JSDoc errors under the native compiler).
 - Clutch slow-mo; death-cam follow-killer revisit (was a regression).
 
 > **Convention:** when an item ships, move its writeup to

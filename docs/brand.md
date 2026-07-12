@@ -52,6 +52,21 @@ This freezes product naming so "Cart Rave" / `next-level` thrash stops mid-V2. I
 
 When those change, ship: storage migration, Worker alias or dual-route, and a deploy checklist.
 
+### Cutover ceremony checklist (BRAND-1 — one planned event)
+
+Do these together; do not drip-rename mid-V2:
+
+1. New Cloudflare Worker name + production host (or custom domain) with dual-route / alias during transition.
+2. Durable Object class rename only with a Wrangler migration plan (or accept a new DO namespace).
+3. `PartySocket({ party: … })` id match on client and server.
+4. One-shot `localStorage` migration for every `cartRave*` key (`src/utils/storage.js` + raw netcode reads).
+5. Asset path renames under `/models/cart-rave-*` (and any sound URLs) + cache-bust.
+6. Module/window identifiers (`cart-rave-menu.js`, `cartRaveGltf.js`, `__cartRave*`, `window.CartRave`) only if still needed after UI already says Cart Clash.
+7. Drop deprecated script aliases (`dev:next-level`) and leftover console tags (`[CartRave]`) in the same pass.
+8. Deploy checklist + post-deploy verify: join room, ready, full round, storage still has cosmetics.
+
+Tracked as **BRAND-1** in [planning/BACKLOG.md](./planning/BACKLOG.md).
+
 ---
 
 ## History
