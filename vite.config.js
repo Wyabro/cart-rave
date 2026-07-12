@@ -4,10 +4,11 @@ import wasm from "vite-plugin-wasm";
 export default defineConfig({
   plugins: [wasm()],
 
-  // * Vitest-only: stub the Rapier wasm package so vite's import-analysis doesn't try
+  // * Vitest-only: stub Rapier wasm packages so vite's import-analysis doesn't try
   // * to resolve the wasm-pack entry during unit tests (rapierInstance never initializes there).
   test: {
     alias: {
+      "@dimforge/rapier3d-simd": new URL("./tests/stubs/rapier3d.js", import.meta.url).pathname,
       "@dimforge/rapier3d": new URL("./tests/stubs/rapier3d.js", import.meta.url).pathname,
     },
   },
@@ -34,7 +35,8 @@ export default defineConfig({
             // * One honest "three" chunk: core + examples/jsm addons version together and
             // * rolldown merges them regardless, so a single group keeps the name accurate.
             { name: "three", test: /node_modules[/\\]three[/\\]/ },
-            { name: "rapier", test: /node_modules[/\\]@dimforge[/\\]rapier3d/ },
+            // * Matches rapier3d and rapier3d-simd (SIMD is preferred at runtime).
+            { name: "rapier", test: /node_modules[/\\]@dimforge[/\\]rapier3d(?:-simd)?[/\\]/ },
             { name: "howler", test: /node_modules[/\\]howler/ },
             { name: "animejs", test: /node_modules[/\\]animejs/ },
           ],

@@ -181,6 +181,12 @@ declare module '@dimforge/rapier3d' {
   }
 }
 
+// * Same API surface as standard; loaded preferentially when wasm simd128 is available.
+declare module '@dimforge/rapier3d-simd' {
+  export * from '@dimforge/rapier3d';
+  export { default } from '@dimforge/rapier3d';
+}
+
 
 // Augment tweakpane v4 types with v3-era API methods still in use
 declare module 'tweakpane' {

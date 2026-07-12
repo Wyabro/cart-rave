@@ -37,7 +37,7 @@ import "./ui/styles/global.css";
 import * as THREE from "three";
 import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, isComposerBypassActive, setComposerBypassActive } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { RAPIER, initRapier } from "./physics/rapierInstance.js";
+import { RAPIER, initRapier, getRapierBuild } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
 import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
@@ -1807,6 +1807,10 @@ async function main() {
   async function ensureRapierPhysics() {
     if (!world) {
       await initRapier();
+      // * Dev breadcrumb for A/B: simd vs standard (see getRapierBuild).
+      if (import.meta.env?.DEV) {
+        console.info(`[rapier] loaded build: ${getRapierBuild()}`);
+      }
       world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
       eventQueue = new RAPIER.EventQueue(true);
     }
