@@ -1196,7 +1196,7 @@ async function main() {
   if (import.meta.env.DEV) {
     import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
       initPostFxDebugGui({
-        renderer, scene, bloomPass, arcadePass, fxaaPass,
+        renderer, scene, camera, bloomPass, arcadePass, fxaaPass,
         suddenDeathTest: () => {
           if (!Netcode.getIsHost()) return;
           // * Find player slot (human) and a different NPC slot.

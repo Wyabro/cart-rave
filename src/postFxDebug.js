@@ -38,6 +38,11 @@ import {
   setMaterialEnvMapIntensity,
   setSceneFog,
 } from "./scene.js";
+import { getDebugParams } from "./utils/debugParams.js";
+import { getQualityTier } from "./utils/qualityMode.js";
+import { applyQualityTier } from "./ui/graphicsToggles.js";
+import { announce, resetAnnouncerRound, stopAnnouncer } from "./announcer/announcerManager.js";
+import { ANNOUNCER_EVENTS } from "./announcer/announcerEvents.js";
 
 /** @type {Record<string, number>} */
 const TONE_MAPPING_BY_NAME = {
@@ -239,7 +244,7 @@ window.exportPhysicsGeometry = function () {
 };
 
 export function initPostFxDebugGui(deps) {
-  const { renderer, scene, bloomPass, arcadePass, fxaaPass, suddenDeathTest } = deps;
+  const { renderer, scene, camera, bloomPass, arcadePass, fxaaPass, suddenDeathTest } = deps;
   if (!renderer || !scene || !bloomPass || !arcadePass || !fxaaPass) return null;
 
   injectStyles();
@@ -311,6 +316,77 @@ export function initPostFxDebugGui(deps) {
     for (const f of allFolders) f.expanded = true;
   });
 
+  // — Stats: FPS / frame-ms + renderer.info (readonly, self-refreshing monitors) —
+  // * renderer.info.render.* is per-render-call (EffectComposer resets it each pass), so
+  // * draw calls/tris reflect the LAST pass, matching how visualHarness reads them.
+  const statsFolder = pane.addFolder({ title: "Stats", expanded: true });
+  allFolders.push(statsFolder);
+  const stats = {
+    fps: 0,
+    ms: 0,
+    drawCalls: 0,
+    triangles: 0,
+    geometries: 0,
+    textures: 0,
+    programs: 0,
+  };
+  const intFmt = (v) => String(Math.round(v));
+  statsFolder.addBinding(stats, "fps", { readonly: true, view: "graph", min: 0, max: 144, interval: 100, format: (v) => v.toFixed(0) });
+  statsFolder.addBinding(stats, "ms", { readonly: true, view: "graph", min: 0, max: 50, interval: 100, label: "frame ms", format: (v) => v.toFixed(1) });
+  statsFolder.addBinding(stats, "drawCalls", { readonly: true, interval: 250, label: "draw calls", format: intFmt });
+  statsFolder.addBinding(stats, "triangles", { readonly: true, interval: 250, format: intFmt });
+  statsFolder.addBinding(stats, "geometries", { readonly: true, interval: 500, format: intFmt });
+  statsFolder.addBinding(stats, "textures", { readonly: true, interval: 500, format: intFmt });
+  statsFolder.addBinding(stats, "programs", { readonly: true, interval: 500, format: intFmt });
+
+  // — Camera: live pose readout + copy for ?cam= / VISUAL_BOOKMARKS authoring —
+  // * pose = "x,y,z,lx,ly,lz"; the look target is along the camera's forward ray, so it
+  // * reproduces the exact orientation under debugParams.applyDebugCameraPose (lookAt).
+  const camObj = { pose: "" };
+  if (camera) {
+    const camFolder = pane.addFolder({ title: "Camera", expanded: false });
+    allFolders.push(camFolder);
+    camFolder.addBinding(camObj, "pose", { readonly: true, interval: 150, label: "?cam=" });
+    camFolder.addButton({ title: "Copy ?cam= URL → clipboard" }).on("click", () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("cam", camObj.pose);
+      const str = url.toString();
+      if (typeof navigator?.clipboard?.writeText === "function") {
+        navigator.clipboard.writeText(str).catch(() => {});
+      }
+      // eslint-disable-next-line no-console
+      console.log(`[Camera] cam="${camObj.pose}"\n${str}`);
+    });
+  }
+
+  // — Arena / Level — reloads into the chosen arena via ?level= (needs a fresh world) —
+  const LEVEL_LABELS = {
+    classicRecord: "Classic Record",
+    backrooms: "Storerooms",
+    zanzibar: "Sundial Station",
+    testArena: "Test Arena (dev)",
+  };
+  const levelFolder = pane.addFolder({ title: "Arena / Level (reload)", expanded: false });
+  allFolders.push(levelFolder);
+  let currentLevel = getDebugParams().level;
+  if (!currentLevel) {
+    try {
+      currentLevel = localStorage.getItem("cartRaveLevel");
+    } catch {
+      /* privacy mode */
+    }
+  }
+  if (!currentLevel || !LEVEL_LABELS[currentLevel]) currentLevel = "classicRecord";
+  const levelUi = { level: currentLevel };
+  levelFolder.addBinding(levelUi, "level", {
+    options: Object.fromEntries(Object.entries(LEVEL_LABELS).map(([id, label]) => [label, id])),
+    label: "arena",
+  }).on("change", (ev) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("level", ev.value);
+    window.location.href = url.toString();
+  });
+
   // — Cart Forks & Wheels (Tweakpane version) —
   allFolders.push(wireRaveGltfCartDebugTweakpane(pane, scene));
 
@@ -341,6 +417,27 @@ export function initPostFxDebugGui(deps) {
     }
   }
 
+  // — Announcer (test): audition PA lines/stings without engineering the game state —
+  // * Runs the real announce() pipeline. resetAnnouncerRound() first clears cooldown /
+  // * once-per-round gates so a line re-fires on every click (it also resets the live
+  // * match's announcer gates — fine for a dev tool). Voice audio needs the announcer
+  // * voice toggle on; on-screen callouts need an in-match presenter, so they only show
+  // * during play. A few events are chance-gated (<1) and may need a second click.
+  const announcerFolder = pane.addFolder({ title: "Announcer (test)", expanded: false });
+  allFolders.push(announcerFolder);
+  const announcerUi = { eventId: Object.keys(ANNOUNCER_EVENTS)[0] };
+  announcerFolder.addBinding(announcerUi, "eventId", {
+    options: Object.fromEntries(Object.keys(ANNOUNCER_EVENTS).map((id) => [id, id])),
+    label: "event",
+  });
+  announcerFolder.addButton({ title: "▶ Announce selected" }).on("click", () => {
+    resetAnnouncerRound();
+    announce(announcerUi.eventId);
+  });
+  announcerFolder.addButton({ title: "◼ Stop announcer" }).on("click", () => {
+    stopAnnouncer();
+  });
+
   // — Renderer —
   const rendererFolder = pane.addFolder({ title: "Renderer" });
   allFolders.push(rendererFolder);
@@ -352,6 +449,17 @@ export function initPostFxDebugGui(deps) {
   }).on("change", (ev) => {
     const mapping = TONE_MAPPING_BY_NAME[ev.value];
     if (mapping !== undefined) renderer.toneMapping = mapping;
+  });
+
+  // — Quality Tier (live in-place rebuild; persists, same path as the settings menu) —
+  const qualityFolder = pane.addFolder({ title: "Quality Tier", expanded: false });
+  allFolders.push(qualityFolder);
+  const qualityUi = { tier: getQualityTier() };
+  qualityFolder.addBinding(qualityUi, "tier", {
+    options: { low: "low", medium: "medium", high: "high" },
+    label: "tier (rebuilds)",
+  }).on("change", (ev) => {
+    applyQualityTier(ev.value);
   });
 
   // — Environment / IBL —
@@ -421,6 +529,24 @@ export function initPostFxDebugGui(deps) {
   bloomFolder.addBinding(params, "smoothWidth", { min: 0.0, max: 0.2, step: 0.005 }).on("change", (ev) => {
     bloomLive.smoothWidth = ev.value;
     syncBloom();
+  });
+
+  // — Composer / RT (VFX-1 A/B) — needs a composer rebuild, so these reload the page —
+  const rtFolder = pane.addFolder({ title: "Composer / RT (reload)", expanded: false });
+  allFolders.push(rtFolder);
+  const rtUi = { rtmode: getDebugParams().rtmode };
+  rtFolder.addBinding(rtUi, "rtmode", {
+    options: { half: "half", float: "float", byte: "byte", bloombyte: "bloombyte", bloomfix: "bloomfix" },
+    label: "rtmode",
+  }).on("change", (ev) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("rtmode", ev.value);
+    window.location.href = url.toString();
+  });
+  rtFolder.addButton({ title: "Clear rtmode (per-level default)" }).on("click", () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("rtmode");
+    window.location.href = url.toString();
   });
 
   // — Arcade FX —
@@ -589,6 +715,40 @@ export function initPostFxDebugGui(deps) {
     paneVisible = !paneVisible;
     container.classList.toggle("tp-hidden", !paneVisible);
   });
+
+  // — Live readout pump (dev-only, page-lifetime): drives the Stats + Camera monitors.
+  // * The readonly bindings self-poll their bound object at their interval; this rAF loop
+  // * just keeps that object current with a smoothed FPS and the latest camera pose.
+  const _fwd = new THREE.Vector3();
+  let _lastReadoutT = performance.now();
+  let _fpsEma = 0;
+  const _r2 = (n) => Math.round(n * 100) / 100;
+  const pumpReadouts = () => {
+    const now = performance.now();
+    const dt = now - _lastReadoutT;
+    _lastReadoutT = now;
+    if (dt > 0 && dt < 1000) {
+      const inst = 1000 / dt;
+      _fpsEma = _fpsEma ? _fpsEma * 0.9 + inst * 0.1 : inst;
+      stats.fps = _fpsEma;
+      stats.ms = dt;
+    }
+    const info = renderer.info;
+    stats.drawCalls = info?.render?.calls ?? 0;
+    stats.triangles = info?.render?.triangles ?? 0;
+    stats.geometries = info?.memory?.geometries ?? 0;
+    stats.textures = info?.memory?.textures ?? 0;
+    stats.programs = info?.programs?.length ?? 0;
+    if (camera) {
+      camera.getWorldDirection(_fwd);
+      const p = camera.position;
+      camObj.pose =
+        `${_r2(p.x)},${_r2(p.y)},${_r2(p.z)},` +
+        `${_r2(p.x + _fwd.x * 10)},${_r2(p.y + _fwd.y * 10)},${_r2(p.z + _fwd.z * 10)}`;
+    }
+    requestAnimationFrame(pumpReadouts);
+  };
+  requestAnimationFrame(pumpReadouts);
 
   return pane;
 }
