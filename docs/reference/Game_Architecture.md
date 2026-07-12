@@ -87,7 +87,7 @@ Hybrid topology: **WebSocket control plane** (PartyKit / `party/index.ts`) + **W
   - host id, slot assignments, cached cart state, round/phase state, sequence counters, and metadata.
 - **Inputs & transforms (P2P):** Non-hosts send `client_input` on the host DataChannel; the host broadcasts binary transform snapshots at ~**40 Hz** when P2P is open. The WebSocket is **not** the gameplay relay for inputs/transforms (legacy “server forwards inputs” notes are stale).
 - **State broadcast format:** Hybrid binary — 16 B header + 52 B/cart + JSON tail (`collisions` / `falls` / active directive). Decoder rejects truncated buffers and `numCarts > 4` (`src/netcode/binary.js`).
-- **Host migration:** If the host disconnects, the server elects a successor and broadcasts `host_migrated`. Clients close all peers, re-init P2P, and continue from last-known transforms.
+- **Host migration:** If the host disconnects, the server elects a successor and broadcasts `host_migrated`. Clients close all peers, re-init P2P, and continue from last-known transforms. **Known edges** (clock domains, null-host after ghost exorcism, hit-attribution not transferred, spawn vs live buffer timebases): [planning/netcode-deep-dive.md](../planning/netcode-deep-dive.md) — read before a deep multipath pass.
 - **Session teardown:** `disconnectPartySession()` closes the Party socket **and** all WebRTC peers/DataChannels (menu return must not leak old channels).
 - **Join reject cleanup:** `#rejectPendingConn` only sends `joinRejected` and closes the socket; `onClose` owns map/slot cleanup so a never-assigned picker does not take the human→NPC path.
 
@@ -220,7 +220,7 @@ The handover notes repeatedly stress process discipline for reliability:
 
 **Primary source:** [ROADMAP.md](../planning/ROADMAP.md)
 
-- Multiplayer runtime smoke test (two browsers, one room) — includes Living Store netcode checklist
+- Multiplayer runtime smoke test (two browsers, one room) — includes Living Store checklist + [netcode-deep-dive.md](../planning/netcode-deep-dive.md) hazards
 - Black-frame flicker triage
 - Menu overhaul + domain cutover
 - Deeper performance pass (level swap / menu / profiling)

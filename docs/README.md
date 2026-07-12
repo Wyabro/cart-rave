@@ -26,6 +26,7 @@ Three docs split cleanly by time — **past / present / future**:
 | [planning/project-state.md](./planning/project-state.md) | **Present** — current status, architecture snapshot, known issues |
 | [planning/ROADMAP.md](./planning/ROADMAP.md) | **Future** — forward-looking plan (Version 2 priorities) |
 | [planning/living-store-test-plan.md](./planning/living-store-test-plan.md) | Deferred two-browser checklist for Living Store |
+| [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md) | Netcode landmines (clocks, host migrate, buffers) + smoke add-ons for NET-1 |
 
 ### `reference/` — how it's built
 

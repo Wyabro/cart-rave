@@ -45,7 +45,7 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
    `npm run qa:visual` or `npm run blackframes -- --shot classic --frames 60`
 3. Continue flicker plan env triage ([planning/plan-flicker-fix-and-classic-audit.md](./planning/plan-flicker-fix-and-classic-audit.md)).
 4. When profiling: fixed `?shot=` + `?preset=` + `?freeze=1` before claiming a win.
-5. Multiplayer two-browser smoke checklist still open (ROADMAP Phase 4).
+5. Multiplayer two-browser smoke checklist still open (ROADMAP Phase 4). Netcode landmines for a deeper pass: [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md).
 
 ## Open issues (top)
 
@@ -53,7 +53,7 @@ perf pass, multiplayer two-browser smoke, menu/domain cutover.
 |----|--------|--------|
 | VFX-1 | Intermittent pure-black frames | **ROOT CAUSE FOUND** (D-VFX-2): half-res float BLOOM MIPS, not composer. Candidate fix `?rtmode=bloomfix` (0 flicker; look pending Wyatt tune) |
 | PERF-1 | Level-swap + menu weight | Measured pass done (D-PERF-1..3); arena-chunk prefetch + honest `three` chunk shipped |
-| NET-1 | Two-browser full-round smoke | Code hardened; gate not closed |
+| NET-1 | Two-browser full-round smoke | Code hardened; gate not closed. Deep hazards + smoke add-ons: [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
 | BRAND-1 | Domain / Worker cutover | Frozen until deliberate cutover |
 | BUNDLE-1 | Menu/game code-split blocked | `index` chunk is one entangled cluster; no clean menu/game seam (see D-PERF-3) |
 | GP-4 | Gameplay feel / combat / AI pass | **Implemented, UNPUSHED** (D-GP4-1). Bug fixes + aggression + Sundial nav + combat feel. QA green (238 tests), build clean, Sundial solo smoke ran ~90s w/ bots scoring, 0 errors. **Needs Wyatt playtest**: stall-free bots, edge-camper follow, podium contest, ram-SFX dynamics, MP parity |
@@ -96,6 +96,7 @@ docs/guides/visual-qa.md    how to run
 
 ## Last updated
 
+2026-07-11 — Netcode deep-dive hazard catalog landed (UNPUSHED docs): [planning/netcode-deep-dive.md](./planning/netcode-deep-dive.md); STATUS NET-1 + ROADMAP Phase 4 + Game_Architecture point at it.  
 2026-07-11 — **Production Pass 4 (gameplay feel / combat / AI)** implemented UNPUSHED (D-GP4-1): AI stall/latch bug fixes + proximity aggression + Sundial octagon-rim nav + podium contest + intensity-scaled ram SFX + hop/lip-assist gates + directive banner 5.2→3.5s. QA green (238 tests), build clean, Sundial solo smoke 0 errors. Needs Wyatt playtest.  
 2026-07-11 — VFX-1 real-HW probes shipped: `?blackmon=1` live monitor + `?rtmode=` composer/bloom A/B (D-VFX-1). Offline battery proven blind (software GL). Awaits Wyatt playtest data.  
 2026-07-11 — PERF-1 measured pass: arena-chunk prefetch + honest `three`/`animejs` chunks shipped; BUNDLE-1 (menu/game split) scoped + blocked (D-PERF-1..3).  
