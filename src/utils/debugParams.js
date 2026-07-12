@@ -45,6 +45,8 @@
  * @property {boolean} hideHud
  * @property {boolean} blackmon
  * @property {"half" | "float" | "byte" | "bloombyte" | "bloomfix"} rtmode
+ * @property {boolean} rtmodeExplicit
+ * @property {{ threshold?: number, strength?: number, radius?: number, smoothWidth?: number } | null} bloomTune
  */
 
 /** Named review poses — used by ?shot= and tools/shoot.mjs */
@@ -176,6 +178,26 @@ export function parseDebugParams(search) {
     rtRaw === "float" || rtRaw === "byte" || rtRaw === "bloombyte" || rtRaw === "bloomfix"
       ? rtRaw
       : "half";
+  // * Explicit ?rtmode forces one pipeline on every level (debug A/B); absent lets the
+  // * per-level default win (HDR everywhere, display-referred bloom on Storerooms only).
+  const rtmodeExplicit = params.has("rtmode");
+
+  // * VFX-1 bloomfix live tuning: ?bloomthr / bloomstr / bloomrad / bloomsmooth override
+  // * the active bloom knobs so display-referred bloom can be dialed in during a real
+  // * playtest without a rebuild. Any subset; absent keys keep the config value.
+  const bloomNum = (key) => {
+    const v = Number(params.get(key));
+    return params.has(key) && Number.isFinite(v) ? v : undefined;
+  };
+  const bloomTuneRaw = {
+    threshold: bloomNum("bloomthr"),
+    strength: bloomNum("bloomstr"),
+    radius: bloomNum("bloomrad"),
+    smoothWidth: bloomNum("bloomsmooth"),
+  };
+  const bloomTune = Object.values(bloomTuneRaw).some((v) => v !== undefined)
+    ? bloomTuneRaw
+    : null;
 
   return {
     ablate,
@@ -189,6 +211,8 @@ export function parseDebugParams(search) {
     hideHud,
     blackmon,
     rtmode,
+    rtmodeExplicit,
+    bloomTune,
   };
 }
 

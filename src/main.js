@@ -35,7 +35,7 @@ import "./ui/styles/stickers.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, isComposerBypassActive, setComposerBypassActive } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, setBloomPipeline, isComposerBypassActive, setComposerBypassActive } from "./scene.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER, initRapier, getRapierBuild } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
@@ -1895,6 +1895,12 @@ async function main() {
       fxPass.uniforms.uVhsAmount.value = resolved === "backrooms" ? vhsCfg.amount : 0;
       fxPass.uniforms.uVhsNoise.value = vhsCfg.noise;
       fxPass.uniforms.uVhsTrackPeriod.value = vhsCfg.trackPeriodSec;
+    }
+    // * VFX-1: Storerooms flickers with float bloom mips on some GPUs (measured on real
+    // * HW via ?blackmon); Classic/Zanzibar don't. Byte display-referred bloom there only,
+    // * HDR bloom (and its look) everywhere else. ?rtmode forces a global mode instead.
+    if (!getDebugParams().rtmodeExplicit) {
+      setBloomPipeline({ composer, bloomPass, outputPass }, resolved === "backrooms" ? "display" : "hdr");
     }
     // * ?ablate=vhs / postmin must still win after level VHS turn-on.
     applyPostFxAblation({ bloomPass, arcadePass: fxPass, fxaaPass, outputPass });

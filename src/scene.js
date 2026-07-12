@@ -80,6 +80,9 @@ const BLOOM_CONFIG = CONFIG.postFx.bloom;
  * emissive-only bloom, raise `strength` for punchier glow. Tweak here, hard-refresh.
  */
 const BLOOM_DISPLAY_CONFIG = {
+  // * Display-referred bloom for The Storerooms only (the flickering level). These are
+  // * the Wyatt-approved values for that dark, moody arena — NOT tuned for the punchy
+  // * neon levels, which stay on the HDR path. Dial live with ?bloomthr/?bloomstr/?bloomrad.
   strength: 0.62,
   radius: 0.4,
   threshold: 0.62,
@@ -656,6 +659,68 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
 }
 
 /**
+ * Reorders bloom relative to OutputPass in an existing composer's pass list.
+ * @param {EffectComposer} composer
+ * @param {import("three/examples/jsm/postprocessing/Pass.js").Pass} bloomPass
+ * @param {import("three/examples/jsm/postprocessing/Pass.js").Pass} outputPass
+ * @param {boolean} bloomAfter true = bloom runs AFTER tone-map (display-referred)
+ */
+function reorderBloomVsOutput(composer, bloomPass, outputPass, bloomAfter) {
+  const bi = composer.passes.indexOf(bloomPass);
+  const oi = composer.passes.indexOf(outputPass);
+  if (bi < 0 || oi < 0) return;
+  if (bi > oi === bloomAfter) return; // already in the requested order
+  composer.removePass(bloomPass);
+  const oiNow = composer.passes.indexOf(outputPass);
+  composer.insertPass(bloomPass, bloomAfter ? oiNow + 1 : oiNow);
+}
+
+/**
+ * Reconfigures an existing composer's bloom between the HDR pipeline (HalfFloat
+ * mips, pre-tone-map, `CONFIG.postFx.bloom`) and the display-referred pipeline
+ * (UnsignedByte mips, post-tone-map, `BLOOM_DISPLAY_CONFIG`).
+ *
+ * VFX-1: The Storerooms flickers with float bloom mips on some GPUs (measured via
+ * ?blackmon on real HW); Classic/Zanzibar do not. So only Storerooms takes the byte
+ * path, preserving the HDR bloom look everywhere else. Cheap no-op when already in
+ * the requested mode (mip rebuild + reorder are both guarded). `?rtmode` overrides
+ * this per-level logic globally (see debugParams.rtmodeExplicit).
+ *
+ * @param {{ composer: EffectComposer, bloomPass: UnrealBloomPass, outputPass: import("three/examples/jsm/postprocessing/Pass.js").Pass }} parts
+ * @param {"hdr" | "display"} mode
+ */
+export function setBloomPipeline(parts, mode) {
+  const { composer, bloomPass, outputPass } = parts;
+  if (!composer || !bloomPass || !outputPass) return;
+  const display = mode === "display";
+  const targetType = display ? THREE.UnsignedByteType : THREE.HalfFloatType;
+  const bp = /** @type {any} */ (bloomPass);
+
+  if (bp.userData?.bloomMipType !== targetType) {
+    rebuildBloomMipType(bloomPass, targetType);
+    bp.userData = { ...(bp.userData || {}), bloomMipType: targetType };
+  }
+
+  const tune = getDebugParams().bloomTune;
+  const base = display ? BLOOM_DISPLAY_CONFIG : BLOOM_CONFIG;
+  const cfg = tune
+    ? { ...base, ...Object.fromEntries(Object.entries(tune).filter(([, v]) => v !== undefined)) }
+    : base;
+  applyBloomSettings(bloomPass, cfg);
+  const bloomScale = bp.userData?.bloomScale ?? 1;
+  if (bloomScale < 1) {
+    bloomPass.strength = cfg.strength * (CONFIG.postFx?.bloomHalfResStrengthMul ?? 1.2);
+  }
+
+  reorderBloomVsOutput(composer, bloomPass, outputPass, display);
+
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log(`[bloomPipeline] ${mode} — mips=${display ? "UnsignedByte" : "HalfFloat"}, bloom ${display ? "after" : "before"} tone-map`);
+  }
+}
+
+/**
  * Builds the post-processing pipeline (render -> bloom -> arcade fx -> fxaa).
  *
  * POST-PROCESSING — recommended starting values (lock in CONFIG.postFx after tuning):
@@ -677,7 +742,19 @@ export function createComposer(renderer, scene, camera) {
   // * its stock HalfFloat RT (byte-identical to prod). float/byte pass a custom RT.
   const { composerType, bloomType, bloomAfterOutput, label } = resolveRtModeTypes(getDebugParams().rtmode);
   // * bloomfix reads the tone-mapped image, so it uses display-referred bloom knobs.
-  const bloomCfg = bloomAfterOutput ? BLOOM_DISPLAY_CONFIG : BLOOM_CONFIG;
+  // * ?bloomthr/bloomstr/bloomrad/bloomsmooth override live for tuning without rebuilds.
+  const baseBloom = bloomAfterOutput ? BLOOM_DISPLAY_CONFIG : BLOOM_CONFIG;
+  const bloomTune = getDebugParams().bloomTune;
+  const bloomCfg = bloomTune
+    ? {
+        ...baseBloom,
+        ...Object.fromEntries(Object.entries(bloomTune).filter(([, v]) => v !== undefined)),
+      }
+    : baseBloom;
+  if (bloomTune) {
+    // eslint-disable-next-line no-console
+    console.log("[bloomTune]", { threshold: bloomCfg.threshold, strength: bloomCfg.strength, radius: bloomCfg.radius, smoothWidth: bloomCfg.smoothWidth });
+  }
   let composerRT;
   if (composerType != null) {
     const size = renderer.getSize(new THREE.Vector2());
@@ -719,7 +796,12 @@ export function createComposer(renderer, scene, camera) {
   }
   bloomPass.enabled = getQualityKnobs().postFx;
   // * Stash scale so updateViewport can resize internal RTs.
-  /** @type {any} */ (bloomPass).userData = { ...(/** @type {any} */ (bloomPass).userData || {}), bloomScale };
+  /** @type {any} */ (bloomPass).userData = {
+    ...(/** @type {any} */ (bloomPass).userData || {}),
+    bloomScale,
+    // * Track mip type so setBloomPipeline() can skip a rebuild when already correct.
+    bloomMipType: bloomType != null ? bloomType : THREE.HalfFloatType,
+  };
   // * VFX-1 A/B: swap bloom mip type before first render (WebGLRenderTarget.setSize
   // * preserves type, so this survives resizes). No-op unless ?rtmode changes it.
   if (bloomType != null) rebuildBloomMipType(bloomPass, bloomType);
