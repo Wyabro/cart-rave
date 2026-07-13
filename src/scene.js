@@ -10,6 +10,8 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
 import { QUALITY_KNOBS, getQualityKnobs } from "./utils/qualityTiers.js";
+import { setSessionQualityTier } from "./utils/qualityMode.js";
+import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils/gpuCaps.js";
 import { getDebugParams } from "./utils/debugParams.js";
 
 /**
@@ -578,17 +580,61 @@ export function setComposerBypassActive(active) {
 }
 
 /**
+ * True when the live game context is a software rasterizer (SwiftShader/WARP/
+ * llvmpipe) — set during createRenderer. main.js surfaces a player-facing notice.
+ */
+let softwareRendererActive = false;
+
+/** @returns {boolean} */
+export function isSoftwareRendererActive() {
+  return softwareRendererActive;
+}
+
+/**
  * Creates the WebGL renderer bound to the game canvas.
+ *
+ * Hard floor: when the context comes back as a software rasterizer (Chrome
+ * blocklists weak/old GPUs and silently falls back to SwiftShader), force the
+ * LOW session tier BEFORE the pixel-ratio/knob reads below — a persisted "high"
+ * pref must never allocate DPR×2 HalfFloat render targets into system RAM
+ * (that's the "the game crashed my friend's browser" failure).
  *
  * @param {HTMLCanvasElement} canvas Target canvas element.
  * @returns {THREE.WebGLRenderer}
  */
 export function createRenderer(canvas) {
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: false,
-    powerPreference: "high-performance",
-  });
+  /** @type {THREE.WebGLRenderer} */
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: false,
+      powerPreference: "high-performance",
+    });
+  } catch (err) {
+    // * Feeds the boot-error overlay (index.html) with something actionable
+    // * instead of three's terse context failure.
+    throw new Error(
+      "WebGL couldn't start. Enable hardware acceleration in your browser settings "
+        + "(Chrome/Edge: Settings → System → \"Use graphics acceleration\"), then reload.",
+      { cause: err },
+    );
+  }
+
+  const gl = renderer.getContext();
+  const rendererString = readRendererString(gl);
+  const isSoftware =
+    classifyGpuRendererString(rendererString) === "software"
+    || probeGpu().gpuClass === "software"; // dev ?forcegpu=sw rides the probe override
+  if (isSoftware) {
+    softwareRendererActive = true;
+    setSessionQualityTier("low");
+    console.warn(
+      `[CartRave] Software WebGL detected ("${rendererString}") — forcing LOW quality for this session. `
+        + "Enable hardware acceleration for the full experience.",
+    );
+  }
+
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getQualityKnobs().pixelRatioCap));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(FOG_CONFIG.color, 1);

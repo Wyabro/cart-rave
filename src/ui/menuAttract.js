@@ -35,6 +35,12 @@ import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
  * @property {() => boolean} getMenuVisible
  * @property {() => number} getArenaRadius
  * @property {() => string} [getLevelId] Loaded arena id — per-arena camera clamps.
+ * @property {(renderCostSec: number, nowMs: number) => void} [onRenderCost]
+ *   Measured cost of this attract render (seconds). Main feeds it to the
+ *   auto-quality watchdog so weak machines step down at the MENU — before play —
+ *   instead of only after sustained bad in-game frames. Frame *spacing* is
+ *   useless here (the loop throttles to ~30fps by design); only the measured
+ *   render duration reflects GPU/CPU load.
  */
 
 /** @type {MenuAttractDeps | null} */
@@ -183,11 +189,13 @@ function step(now) {
   }
 
   // Same latched path as frameVisuals.js — never flip render paths here.
+  const renderStartMs = performance.now();
   if (isComposerBypassActive()) {
     d.renderer.render(d.scene, d.camera);
   } else {
     d.composer.render();
   }
+  d.onRenderCost?.((performance.now() - renderStartMs) / 1000, renderStartMs);
   tickVisualHarnessFrame();
   setRevealed(true);
 }

@@ -55,7 +55,10 @@ export function tickAutoQuality(dtSec, nowMs = performance.now()) {
   if (nowMs - windowStartMs < WINDOW_MS) return false;
   windowStartMs = nowMs;
 
-  if (samples.length < 30) return false;
+  // * 20 samples ≈ 2s of frames on a 10fps machine — enough for a stable p95;
+  // * requiring more just prolongs the suffering on exactly the devices that
+  // * need the step-down most.
+  if (samples.length < 20) return false;
 
   const sorted = samples.slice().sort((a, b) => a - b);
   const p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];

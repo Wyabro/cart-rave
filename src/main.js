@@ -35,7 +35,8 @@ import "./ui/styles/stickers.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, setBloomPipeline, isComposerBypassActive, setComposerBypassActive } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, setBloomPipeline, isComposerBypassActive, setComposerBypassActive, isSoftwareRendererActive } from "./scene.js";
+import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER, initRapier, getRapierBuild } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
@@ -765,6 +766,34 @@ async function main() {
     window.location.reload();
   });
 
+  // * Software-WebGL notice: createRenderer already floored the session to LOW;
+  // * tell the player why it looks reduced and how to fix it. Dismissible, one
+  // * per session, styled to sit under the menu without blocking anything.
+  if (isSoftwareRendererActive()) {
+    const notice = document.createElement("div");
+    notice.id = "cr-softgl-notice";
+    notice.setAttribute("role", "status");
+    notice.style.cssText =
+      "position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:20010;"
+      + "max-width:min(92vw,560px);padding:10px 40px 10px 14px;border:1px solid #ff2bd6;"
+      + "background:rgba(12,6,20,0.92);color:#f4eaff;font:12px/1.5 'Space Mono',monospace;"
+      + "border-radius:8px;box-shadow:0 0 18px rgba(255,43,214,0.35);";
+    notice.innerHTML =
+      "<strong>◆ COMPATIBILITY MODE</strong><br>"
+      + "Your browser is drawing without GPU acceleration, so graphics are set to LOW. "
+      + "For the full experience, enable hardware acceleration (Settings → System) and reload.";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.setAttribute("aria-label", "Dismiss");
+    close.textContent = "✕";
+    close.style.cssText =
+      "position:absolute;top:6px;right:8px;background:none;border:none;color:#f4eaff;"
+      + "font:14px 'Space Mono',monospace;cursor:pointer;padding:2px 6px;";
+    close.addEventListener("click", () => notice.remove(), { once: true });
+    notice.appendChild(close);
+    document.body.appendChild(notice);
+  }
+
   const scene = createScene();
 
   const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
@@ -1207,6 +1236,13 @@ async function main() {
     getMenuVisible: () => menuVisible,
     getArenaRadius: () => CONFIG.record.radius,
     getLevelId: getCurrentLevelId,
+    // * Weak machines land at the MENU first — feed measured attract render cost
+    // * to the same session watchdog the game loop uses so they step down to a
+    // * survivable tier before ever entering a round. (Frame spacing can't be
+    // * used here: the attract loop throttles to ~30fps by design.)
+    onRenderCost: (renderCostSec, nowMs) => {
+      if (tickAutoQuality(renderCostSec, nowMs)) handleAutoQualityStepDown();
+    },
   });
 
   if (import.meta.env.DEV) {

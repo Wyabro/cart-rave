@@ -8,6 +8,7 @@
 import { CONFIG } from "../config.js";
 import { clamp } from "../utils.js";
 import { updateViewport as updateSceneViewport } from "../scene.js";
+import { getQualityKnobs } from "../utils/qualityTiers.js";
 
 /**
  * @param {{
@@ -53,7 +54,10 @@ export function createCameraFraming({
   function updateViewport() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    // * Tier pixel-ratio cap must win here too — this runs at boot and on every
+    // * resize, and a hardcoded min(dpr, 2) silently overrode LOW's cap of 1 on
+    // * exactly the machines the tier system exists to save.
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, getQualityKnobs().pixelRatioCap);
 
     // * visualViewport.resize can fire many times per URL-bar animation with the
     // * same window.inner* size. Re-running setSize/composer RT rebuilds every
