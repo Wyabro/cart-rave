@@ -635,6 +635,7 @@ function patchSafeCompileAsync(renderer) {
   const compile = renderer.compile.bind(renderer);
   const properties = renderer.properties;
   const extensions = renderer.extensions;
+  const gl = renderer.getContext();
   const MAX_WAIT_MS = 8000;
 
   renderer.compileAsync = function safeCompileAsync(scene, camera, targetScene = null) {
@@ -659,6 +660,18 @@ function patchSafeCompileAsync(renderer) {
             const program = materialProperties?.currentProgram;
             // * Drop materials with no program — stock three would throw on program.isReady().
             if (!program || typeof program.isReady !== "function") {
+              materials.delete(material);
+              return;
+            }
+            // * Drop materials whose GL program was deleted mid-poll. This happens when a
+            // * menu-preview warm-up is still polling and play entry's disposeLevel() frees
+            // * the preview arena's programs (guaranteed on slow GPUs, where the parallel-
+            // * compile poll window stays open for seconds). isReady() would then call
+            // * getProgramParameter(deletedProgram, COMPLETION_STATUS_KHR) → GL_INVALID_VALUE
+            // * "glGetProgramiv: Program object expected" console spam. isProgram() reports
+            // * the freed handle as false WITHOUT emitting a GL error of its own.
+            const rawProgram = /** @type {{ program?: WebGLProgram } } */ (program).program;
+            if (rawProgram && typeof gl.isProgram === "function" && !gl.isProgram(rawProgram)) {
               materials.delete(material);
               return;
             }
