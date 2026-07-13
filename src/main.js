@@ -130,6 +130,7 @@ import {
   dismissAllLoadingOverlays,
   dismissInitialBootSplash,
   initLoadingScreen,
+  noteBootMilestone,
   revealGameCanvas,
   showQualityApplyLoading,
   yieldForPaint,
@@ -439,6 +440,8 @@ let menuNameSyncWired = false;
 let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
 let menuVisible = true;
+/** True once the menu has been presented — later initMenu calls (returning from gameplay) skip the entrance cascade. */
+let menuPresentedOnce = false;
 /** @type {boolean | null} */
 let lastTouchControlsVisible = null;
 import { AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
@@ -472,6 +475,59 @@ let podiumCameraKey = null;
 let firstBloodRoundKey = null;
 /** performance.now() when the current podium camera presentation started. */
 let podiumPhaseEnteredAtMs = 0;
+/** True once the player pressed anything during the winner cam — results reveal immediately. */
+let podiumWinnerCamSkipped = false;
+/** Rising-edge tracker for the gamepad any-button podium skip poll (starts held). */
+let podiumGamepadButtonHeld = true;
+let podiumSkipListenersOn = false;
+/** Inputs inside this window are round-end spillover (mashed boost/steer), not a skip request. */
+const PODIUM_SKIP_GRACE_MS = 450;
+
+function requestPodiumWinnerCamSkip() {
+  const camElapsed = podiumPhaseEnteredAtMs > 0 ? performance.now() - podiumPhaseEnteredAtMs : 0;
+  if (camElapsed < PODIUM_SKIP_GRACE_MS) return;
+  podiumWinnerCamSkipped = true;
+  removePodiumSkipListeners();
+}
+
+/** @param {KeyboardEvent | PointerEvent} e */
+function podiumSkipInputHandler(e) {
+  if (e.type === "keydown") {
+    const ke = /** @type {KeyboardEvent} */ (e);
+    if (ke.repeat) return; // keys still held from gameplay don't skip
+    if (ke.key === "Escape") return; // Escape keeps its exit-to-menu semantics
+  }
+  requestPodiumWinnerCamSkip();
+}
+
+function installPodiumSkipListeners() {
+  if (podiumSkipListenersOn) return;
+  podiumSkipListenersOn = true;
+  window.addEventListener("keydown", podiumSkipInputHandler, true);
+  window.addEventListener("pointerdown", podiumSkipInputHandler, true);
+}
+
+function removePodiumSkipListeners() {
+  if (!podiumSkipListenersOn) return;
+  podiumSkipListenersOn = false;
+  window.removeEventListener("keydown", podiumSkipInputHandler, true);
+  window.removeEventListener("pointerdown", podiumSkipInputHandler, true);
+}
+
+/** Polls gamepads for a fresh any-button press during the winner cam (rising edge only). */
+function pollPodiumGamepadSkip() {
+  let pressed = false;
+  const pads = navigator.getGamepads?.() ?? [];
+  for (const pad of pads) {
+    if (!pad?.connected) continue;
+    for (const b of pad.buttons) {
+      if (b?.pressed) { pressed = true; break; }
+    }
+    if (pressed) break;
+  }
+  if (pressed && !podiumGamepadButtonHeld) requestPodiumWinnerCamSkip();
+  podiumGamepadButtonHeld = pressed;
+}
 
 let nameLabelUpdatePending = null;
 
@@ -580,6 +636,8 @@ function enableModeMenuButtons() {
 async function main() {
   installGlobalErrorReporting();
   initLoadingScreen();
+  // * Bundle fetched + parsed — the dominant real unknown in boot time.
+  noteBootMilestone(45);
   // * Dismiss boot splash before scene init — initMenu() may return early on ?room= URLs.
   // * Rapier WASM is loaded lazily via dynamic import in ensureRapierPhysics, keeping
   // * the boot critical path clean.
@@ -589,9 +647,11 @@ async function main() {
   wireCustomizationStorageSync();
 
   // * Begin cartrave4-draco.glb fetch immediately so rave carts are ready before first spawn.
-  void prefetchRaveGltf().catch((err) => {
-    console.warn("[cartRaveGltf] Early prefetch failed:", err);
-  });
+  void prefetchRaveGltf()
+    .then(() => noteBootMilestone(75))
+    .catch((err) => {
+      console.warn("[cartRaveGltf] Early prefetch failed:", err);
+    });
 
   let labelRenderer = null;
   let input = null;
@@ -1337,6 +1397,8 @@ async function main() {
   function onMenuBootstrapError(mode, err) {
     console.error(`[menu] ${mode} bootstrap failed:`, err);
     dismissAllLoadingOverlays();
+    // * The player is dropped back at the menu — say why instead of failing silently.
+    window.CartRave?.showToast?.("Couldn't start the game — check your connection and try again.", 6000);
   }
 
   /** @returns {boolean} true when initNetcode was invoked without throwing. */
@@ -1367,7 +1429,9 @@ async function main() {
   }
 
   function initMenu() {
+    noteBootMilestone(90);
     menuVisible = true;
+    removePodiumSkipListeners();
     setGamepadNavActive(true);
     startMenuAttract();
     syncAllAudioUi();
@@ -1385,7 +1449,11 @@ async function main() {
     try { AudioManager.playMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
-      window.CartRave?.show?.();
+      // * First presentation gets the full entrance cascade; same-session returns
+      // * from gameplay reveal instantly — replaying the ~1s stagger read as lag.
+      if (menuPresentedOnce) window.CartRave?.revealShell?.();
+      else window.CartRave?.show?.();
+      menuPresentedOnce = true;
     }
 
     // Cosmetic: mark color chip as pending until server confirms slots.
@@ -2451,6 +2519,11 @@ async function main() {
     podiumCameraKey = key;
     podiumPhaseEnteredAtMs = performance.now();
     podiumConfettiFiredKey = null;
+    // * Any-input skip: fresh presses (not held-from-gameplay inputs) jump straight
+    // * to the results panel; the celebration VO/confetti already fired and play out.
+    podiumWinnerCamSkipped = false;
+    podiumGamepadButtonHeld = true;
+    installPodiumSkipListeners();
     CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
 
     // * Voice + a first confetti burst play over the pure winner cam, so the orbit frames
@@ -2486,6 +2559,8 @@ async function main() {
     podiumCameraKey = null;
     podiumPhaseEnteredAtMs = 0;
     podiumConfettiFiredKey = null;
+    podiumWinnerCamSkipped = false;
+    removePodiumSkipListeners();
     if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.CINEMATIC_PODIUM) {
       CameraMod.endCinematicCountdown(camera);
     }
@@ -2499,11 +2574,16 @@ async function main() {
       // * Ensure host + all clients share the same winner-cam presentation path.
       beginPodiumPresentation();
 
-      // * Hold the opaque results UI until the pure winner camera shot finishes.
+      // * Hold the opaque results UI until the pure winner camera shot finishes —
+      // * or the player skips it with any fresh input (keyboard/mouse/touch via
+      // * listeners, gamepad via the per-frame rising-edge poll below).
       const camElapsed = podiumPhaseEnteredAtMs > 0
         ? performance.now() - podiumPhaseEnteredAtMs
         : 0;
-      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS) {
+      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS && !podiumWinnerCamSkipped) {
+        pollPodiumGamepadSkip();
+      }
+      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS && !podiumWinnerCamSkipped) {
         if (overlay.style.display !== "none") {
           cancelResultsAnimations(overlay);
           overlay.style.display = "none";
@@ -2511,6 +2591,7 @@ async function main() {
         }
         return;
       }
+      removePodiumSkipListeners();
 
       overlay.style.display = "flex";
       overlay.style.pointerEvents = "auto";

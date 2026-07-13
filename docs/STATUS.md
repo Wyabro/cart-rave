@@ -61,6 +61,11 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 three behavior-changing batches are stacked awaiting Wyatt. Nothing new should land on top
 until the queue drains (taste calls may trigger tuning).
 
+**Playtest kit (2026-07-13):** [playtest/README.md](./playtest/README.md) — six-session
+plan (stability → queue drain → FTUE → edge cases → soak → NET-1 → external testers),
+category evaluation guide, blind-spot register, plus solo/MP/polish/regression checklists
+and bug/balance/fun templates. The queue below maps to Session 1; NET-1 to Session 5.
+
 ### Wyatt playtest queue (one session can cover all of it)
 
 1. **Stabilization pass (unpushed)** — wheel spin direction by eye, +20% Zanzibar podium feel/AI contest, menu pacing ~700ms, grocery pile look, menu backdrop gradient.
@@ -140,6 +145,19 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-13 — **Transition pacing & UX pass** (council items C1/C2/C3, H1/H3, N1/N2/N4; UNCOMMITTED). Gates green: 291 tests / 29 files, tsc + knip clean, build OK; solo flow verified live in-browser (`?perfPump` + temporarily shortened round; config reverted).
+- **C1 winner cam**: `PODIUM_WINNER_CAM_MS` 5000→**2400** (camera.js — purely local presentation, no netcode impact). **Any-input skip**: fresh keydown (non-repeat, non-Escape), pointerdown (mouse+touch), or gamepad rising-edge press during the winner cam reveals results immediately (main.js `requestPodiumWinnerCamSkip` + per-frame `pollPodiumGamepadSkip`); 450ms grace so round-end input mash doesn't eat the celebration; VO/confetti fire at podium begin and play out regardless. Verified: skip at 707ms → results next frame (20ms).
+- **C2 post-match**: falls out of C1 — auto-continue (quickplay 5s / friends 10s) arms when the results panel shows, so total quickplay podium drops ~10s→~7.4s with results readability unchanged. Rematch seam itself was already synchronous; 3s countdown untouched (host-authoritative; N3 deferred).
+- **C3 returning boot**: new `cartRaveBootSeen` storage key; prod splash hold 3000ms→**1300ms** for returning players (crash impact ends at 46% of the 2800ms loop, so the crash beat still reads); first-time boot unchanged; DEV still 0. Verified in built bundle.
+- **H1 countdown**: `.hud-status` countdown now renders a small sticker-white GET READY kicker above a 1.5em hero digit (hud.js structured children + hud.css); same element, same stamp animation, same magenta/cyan alternation; GO!/SUDDEN DEATH/MATCH POINT paths untouched (textContent wipes the children).
+- **H3 disconnect messaging**: `CartRave.showToast` exposed (reuses unlock-toast styling); `returnToMenu({reason:"joinRejected"})` now toasts "Couldn't join that room…"; `onMenuBootstrapError` toasts a failed-start message. User-initiated returns (esc/results) stay silent. Post-hello drops still auto-retry with the RECONNECTING pill (unchanged).
+- **N1 boot progress**: inline splash bar keeps its fake ticker but gains real-milestone floors via `window.__crBootFloor` (index.html) + `noteBootMilestone` (loadingScreen.js): main() parsed=45, cart GLB prefetched=75, initMenu=90.
+- **N2 mode-entry messages**: rotation 1800ms-interval → first swap at 1000ms then 1600ms, non-repeating; fast paths (<1s) unchanged. Verified: 5 distinct messages over a long load.
+- **N4 menu return**: same-session returns from gameplay call previously-dead `CartRave.revealShell()` (now also refreshes the challenges badge) instead of `show()` — no ~1s entrance cascade replay; first presentation unchanged. Verified: instant, buttons at opacity 1.
+- ⚠️ Pending: Wyatt eyes-on (countdown hierarchy taste, 1300ms returning boot feel, skip grace) + the usual two-browser MP check rides NET-1 (podium presentation is the same local function on host and clients; no wire changes anywhere in this pass).
+
+2026-07-13 — **Playtest kit created** ([docs/playtest/](./playtest/README.md), uncommitted). Master plan (six-session order: stability baseline → drain the Wyatt queue → FTUE with `?devUnlocks=off` → edge cases/SD → 45-min soak → NET-1 live smoke → external testers), per-category evaluation guide (evaluate / failure / record for FTUE, feel, readability, announcer, AI, progression, audio, perf, fun), blind-spot register (top: quickplay rotation never live-tested, real-locks funnel never played, SD feel, host-tab backgrounding, phone pass), plus solo/MP/polish/regression checklists and bug/balance/fun-factor templates. MP smoke wraps (not replaces) the living-store + host-migration plans. Doc map + Current focus updated. No code changes.
 
 2026-07-13 — **compileAsync GL_INVALID_VALUE spam fixed** (`fda239a`, pushed; **ship pending**). Console showed `GL_INVALID_VALUE: glGetProgramiv: Program object expected` on solo entry. Root cause proven deterministically in-browser: three's `WebGLProgram.isReady()` polls `getProgramParameter(program, COMPLETION_STATUS_KHR)`; when a menu-preview warm-up is still polling and play entry's `disposeLevel()` frees the preview arena's GL programs, the poll hits the freed handles → error 1281. **Guaranteed on slow GPUs** (parallel-compile window stays open for seconds); invisible on a 4090 (poll closes <10ms, never overlaps disposal). Fix: `patchSafeCompileAsync` (scene.js) checks `gl.isProgram(rawProgram)` before `isReady()` — `isProgram` reports a freed handle as false without emitting a GL error. Verified end-to-end vs live scene: program deleted mid-poll → zero invalid GL calls. Gates green (291 tests / 29 files, tsc + knip clean).
 

@@ -1961,11 +1961,16 @@ import { NPC_NAME_POOL } from "./npcNames.js";
         root.classList.remove('cr-menu-enter-pending');
       }
       setMenuEntrancePending(false);
+      updateChallengesBadge();
       wireAllMenuPressFeedback();
       startMenuAnimations();
     },
     wireMenuButton(btn, entranceOptions) {
       registerMenuButton(btn, entranceOptions);
+    },
+    /** Menu toast for session-flow messaging (failed joins, disconnect returns). */
+    showToast(message, durationMs = 5000) {
+      showUnlockToast(message, durationMs);
     },
     playEntrance() {
       playMenuEntrance();

@@ -193,6 +193,12 @@ export function createGameSessionController(getContext) {
     }
   }
 
+  // * Player-facing copy for non-user-initiated menu returns; user-initiated
+  // * reasons ("esc", "results") stay silent — the player chose to leave.
+  const MENU_RETURN_NOTICES = {
+    joinRejected: "Couldn't join that room — it may be full or already mid-round.",
+  };
+
   /**
    * Ends the current session and returns to the menu without a full page reload.
    *
@@ -205,6 +211,8 @@ export function createGameSessionController(getContext) {
     const ctx = getContext();
     try {
       ctx?.initMenu?.();
+      const notice = MENU_RETURN_NOTICES[opts.reason ?? ""];
+      if (notice) window.CartRave?.showToast?.(notice, 6000);
     } catch (err) {
       // ! Last-resort fallback if in-tab return fails — same behavior as legacy quit paths.
       console.warn("[gameSession] returnToMenu initMenu failed, reloading", opts.reason, err);

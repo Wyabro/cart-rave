@@ -29,6 +29,8 @@ export const STORAGE_KEYS = {
   unlocks: "cartRaveUnlocks",
   /** "1" once the first-run HOW TO PLAY overlay has been shown. */
   howtoSeen: "cartRaveHowToSeen",
+  /** "1" once a boot has completed — returning players get a shorter splash hold. */
+  bootSeen: "cartRaveBootSeen",
   /** Graphics toggles ("on"/"off", "true"/"false"). */
   bloom: "cartRaveBloom",
   fxPass: "cartRaveFx",

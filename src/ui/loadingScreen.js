@@ -5,7 +5,7 @@
 import "./styles/tokens.css";
 import "./loadingScreen.css";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
-import { storageGet } from "../utils/storage.js";
+import { storageGet, storageSet, STORAGE_KEYS } from "../utils/storage.js";
 
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
@@ -214,15 +214,30 @@ function reportProgress(pct, label) {
 function startModeMessageRotation(messages) {
   stopModeMessageRotation();
   if (!messages || messages.length === 0) return;
-  if (modeSubtitleEl) modeSubtitleEl.textContent = pickRandom(messages);
-  modeMsgIntervalId = window.setInterval(() => {
-    if (modeSubtitleEl) modeSubtitleEl.textContent = pickRandom(messages);
-  }, 1800);
+  let last = pickRandom(messages);
+  if (modeSubtitleEl) modeSubtitleEl.textContent = last;
+  const nextMessage = () => {
+    if (messages.length < 2) return last;
+    let pick = last;
+    while (pick === last) pick = pickRandom(messages);
+    last = pick;
+    return pick;
+  };
+  // * First swap comes early so loads that outlive the 720ms floor still show a
+  // * second line; the steady cadence stays readable after that. Fast paths
+  // * (<1s) are unchanged — they never reach the first swap.
+  const rotate = (delay) => {
+    modeMsgIntervalId = window.setTimeout(() => {
+      if (modeSubtitleEl) modeSubtitleEl.textContent = nextMessage();
+      rotate(1600);
+    }, delay);
+  };
+  rotate(1000);
 }
 
 function stopModeMessageRotation() {
   if (modeMsgIntervalId != null) {
-    window.clearInterval(modeMsgIntervalId);
+    window.clearTimeout(modeMsgIntervalId);
     modeMsgIntervalId = null;
   }
 }
@@ -273,8 +288,11 @@ export function dismissInitialBootSplash() {
 
   // * Production holds the splash so the crash animation reads as intentional;
   // * dev skips the hold — the app is typically ready in <1s and the wait only
-  // * slows iteration.
-  const MIN_BOOT_MS = import.meta.env.DEV ? 0 : 3000;
+  // * slows iteration. Returning players get a shorter hold: the crash impact
+  // * finishes at 46% of the 2800ms loop (~1290ms), so 1300ms keeps the crash
+  // * beat while dropping ~1.7s of artificial wait on every repeat launch.
+  const returning = storageGet(STORAGE_KEYS.bootSeen) === "1";
+  const MIN_BOOT_MS = import.meta.env.DEV ? 0 : returning ? 1300 : 3000;
   const elapsed = performance.now() - (window.bootStartTime || 0);
   const delay = Math.max(0, MIN_BOOT_MS - elapsed);
 
@@ -306,6 +324,7 @@ export function dismissInitialBootSplash() {
         revealAppShell();
         window.CartRave?.show?.();
         if (splash) splash.remove();
+        storageSet(STORAGE_KEYS.bootSeen, "1");
         // * Best-effort music start as the menu appears — succeeds where the
         // * browser's autoplay policy allows (e.g. returning users with media
         // * engagement); otherwise the first-gesture unlock in main.js covers it.
@@ -313,6 +332,19 @@ export function dismissInitialBootSplash() {
       }, 420);
     }, 200);
   }, delay);
+}
+
+/**
+ * Raises the boot splash bar to at least `pct` when a real milestone lands
+ * (bundle parsed, cart GLB prefetched, menu wired). The inline fake ticker in
+ * index.html keeps ambient motion between milestones; this only floors it so
+ * the bar tracks actual readiness instead of pure decoration.
+ * @param {number} pct
+ */
+export function noteBootMilestone(pct) {
+  if (bootDismissed) return;
+  // @ts-ignore — defined by the inline boot script in index.html.
+  window.__crBootFloor?.(pct);
 }
 
 /** Clears boot + mode-entry overlays (quit-to-menu, failed join, teardown). */

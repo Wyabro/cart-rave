@@ -463,7 +463,20 @@ function updateStatus(roundState) {
     setHudDisplay(elements.status, "block", "status");
     // * Digits alternate the brand magenta/cyan accents as they stamp in.
     elements.status.style.color = n % 2 === 0 ? "var(--color-cyan)" : "var(--color-magenta)";
-    elements.status.textContent = `GET READY  ${n}`;
+    // * The digit is the hero: a small GET READY kicker rides above a big number
+    // * (both stamp in together — the animation below targets the whole banner).
+    // * Rebuilt only when the digit changes; other phases wipe this via textContent.
+    const numEl = elements.status.querySelector(".hud-status-num");
+    if (!numEl || numEl.textContent !== String(n)) {
+      elements.status.textContent = "";
+      const kicker = document.createElement("span");
+      kicker.className = "hud-status-kicker";
+      kicker.textContent = "GET READY";
+      const num = document.createElement("span");
+      num.className = "hud-status-num";
+      num.textContent = String(n);
+      elements.status.append(kicker, num);
+    }
     setArenaSplashVisible(true);
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;

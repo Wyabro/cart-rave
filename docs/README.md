@@ -32,6 +32,17 @@ Core docs split by time — **past / present / future**:
 | [planning/living-store-test-plan.md](./planning/living-store-test-plan.md) | Deferred two-browser checklist for Living Store |
 | [planning/host-migration-test-plan.md](./planning/host-migration-test-plan.md) | Deferred live 2–3-client host-migration checklist |
 
+### `playtest/` — manual QA kit (V2 validation phase)
+
+| Doc | Purpose |
+|-----|---------|
+| [playtest/README.md](./playtest/README.md) | **Master playtest plan** — session order, category guide, blind-spot register |
+| [playtest/solo-checklist.md](./playtest/solo-checklist.md) | Solo sessions (stability, queue drain, FTUE, edge cases, soak) |
+| [playtest/multiplayer-smoke.md](./playtest/multiplayer-smoke.md) | NET-1 live smoke — wraps the two deferred plans above |
+| [playtest/polish-checklist.md](./playtest/polish-checklist.md) | Screen-by-screen presentation sweep |
+| [playtest/regression-checklist.md](./playtest/regression-checklist.md) | ~15-min pre-deploy regression pass |
+| [playtest/templates.md](./playtest/templates.md) | Bug report · balance note · fun-factor sheet |
+
 ### `reference/` — how it's built
 
 | Doc | Topic | Purpose |

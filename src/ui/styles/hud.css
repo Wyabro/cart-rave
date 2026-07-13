@@ -108,6 +108,30 @@
   z-index: 10;
 }
 
+/* Countdown hierarchy: the digit is the hero. A quiet sticker-white kicker
+   rides above a number half again the banner size; both inherit the banner's
+   stamp animation. GO!/SUDDEN DEATH/MATCH POINT stay plain text — untouched. */
+#hud .hud-status .hud-status-kicker {
+  display: block;
+  text-align: center;
+  font-size: 0.3em;
+  letter-spacing: 0.34em;
+  color: var(--color-sticker-white);
+  -webkit-text-stroke: 0.07em var(--color-ink-deep);
+  text-shadow: 0.07em 0.07em 0 var(--color-ink-deep);
+  margin-bottom: -0.15em;
+}
+#hud .hud-status .hud-status-num {
+  display: block;
+  text-align: center;
+  font-size: 1.5em;
+  line-height: 0.92;
+  -webkit-text-stroke: 0.09em var(--color-ink-deep);
+  text-shadow:
+    0.05em 0.05em 0 var(--color-ink-deep),
+    0.1em 0.1em 0 var(--color-ink-deep);
+}
+
 /* Celebration lettering — yellow pigment, magenta extrude, ONE glow layer.
    Applied only while GO! (and future victory beats) is on screen. */
 #hud .hud-status.is-celebration {

@@ -527,6 +527,14 @@
 
       let bootProgress = 0;
       const segs = bar ? bar.children : [];
+      function paintBootProgress() {
+        if (bar) bar.setAttribute('aria-valuenow', Math.round(bootProgress).toString());
+        const litCount = Math.round((bootProgress / 100) * 20);
+        for (let i = 0; i < segs.length; i++) {
+          if (i < litCount) segs[i].classList.add('lit');
+          else segs[i].classList.remove('lit');
+        }
+      }
       window.bootTimer = setInterval(() => {
         bootProgress += Math.random() * 8;
         if (bootProgress >= 90) {
@@ -534,13 +542,17 @@
           clearInterval(window.bootTimer);
           window.bootTimer = null;
         }
-        if (bar) bar.setAttribute('aria-valuenow', Math.round(bootProgress).toString());
-        const litCount = Math.round((bootProgress / 100) * 20);
-        for (let i = 0; i < segs.length; i++) {
-          if (i < litCount) segs[i].classList.add('lit');
-          else segs[i].classList.remove('lit');
-        }
+        paintBootProgress();
       }, 200);
+      // Real-milestone floor: module code (loadingScreen noteBootMilestone) raises
+      // the bar when actual boot work completes; the fake ticker keeps ambient
+      // motion between milestones.
+      window.__crBootFloor = function(pct) {
+        const target = Math.min(90, pct);
+        if (target <= bootProgress) return;
+        bootProgress = target;
+        paintBootProgress();
+      };
     })();
   </script>
   <div id="cr-boot-error" role="alert" aria-live="assertive">
