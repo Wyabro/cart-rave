@@ -27,7 +27,7 @@ two-browser smokes) over vibes for graphics and multiplayer gates.
 
 **Green.** All five July production passes plus the stabilization pass are implemented;
 gates are green (291 tests / 29 files, typecheck, knip, build — CI runs the same);
-zero knip ignores. Extreme perf pass is **local/unpushed** (see Last updated). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 landed 2026-07-12 (clock split, round-clock
+zero knip ignores. Extreme perf pass is on **origin/cart-clash** (`5f44586`). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 landed 2026-07-12 (clock split, round-clock
 hit windows, kill-credit on host promote). The engine-level black-frame flicker root cause is
 **found and fixed on Storerooms**; the fix awaits a look-check before becoming the default
 everywhere. The single biggest risk to Version 2 is unchanged: **multiplayer has never had
@@ -37,7 +37,7 @@ is not closed.
 | Signal | State |
 |---|---|
 | Gates (`npm run qa`) | ✅ 291 tests / 29 files, tsc clean, knip clean (2026-07-12, extreme perf pass) |
-| Unpushed work | ⚠️ Extreme perf pass unpushed (quality tiers + Reflector 512 + CPU dirty-gates — see Last updated). |
+| Unpushed work | ✅ None — extreme perf pass on `origin/cart-clash` as `5f44586`. |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
 | Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
@@ -141,7 +141,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-12 — **Extreme performance pass (release-blocker framing)**. Investigation first: Pass-2 isolation numbers + code-level GPU/CPU ranking (Reflector ≈60% Classic High; composer stack + DPR; Classic laser forest; Rapier/theme/matrixWorld CPU). Live headless probe (`tools/perf-profile.mjs`) added; menu-preview LOD skews tier isolation in attract — use play entry / `applyQualityTier` for true tier diffs. Gates green: **291 tests / 29 files**, tsc + knip clean, build OK. **Unpushed.**
+2026-07-12 — **Extreme performance pass (release-blocker framing)**. Investigation first: Pass-2 isolation numbers + code-level GPU/CPU ranking (Reflector ≈60% Classic High; composer stack + DPR; Classic laser forest; Rapier/theme/matrixWorld CPU). Live headless probe (`tools/perf-profile.mjs`) added; menu-preview LOD skews tier isolation in attract — use play entry / `applyQualityTier` for true tier diffs. Gates green: **291 tests / 29 files**, tsc + knip clean, build OK. Pushed as `5f44586`.
 - **Medium (iGPU default) tightened**: DPR cap 1.5→**1.25** (~30% fewer fragments), crowd 2200 (was full), laserBudget **core** (no deck rings = −20 additive beams), dust 0.5, streak 48, ceiling spots 3.
 - **High preserved look, cheaper guts**: Reflector play RT **1024²→512²** (4× bandwidth; still High-only); **FXAA off when DPR≥1.75** (full-screen pass for free at retina); laserBudget full; DPR×2 + postFX stay.
 - **Classic lasers banded** (`stage|arena|sky|deck`) + quality-gated; dead searchlight **cone meshes removed** (were built then force-hidden).
