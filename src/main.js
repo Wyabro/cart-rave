@@ -2480,6 +2480,12 @@ async function main() {
   let podiumConfettiFiredKey = null;
   /** Round key of the last podium challenge credit — records must not re-fire on overlay re-render. */
   let podiumChallengesRecordedKey = null;
+  /**
+   * Whether the round that just ended was in Sudden Death at endRound time. Captured
+   * before endRound clears roundState.isSuddenDeath, so the podium's once-per-round
+   * challenge block can still credit `sd_win` (the live flag is already false by then).
+   */
+  let lastRoundEndedInSuddenDeath = false;
 
   /**
    * World position of the winning cart (arena center fallback for draws / missing bodies).
@@ -2641,7 +2647,7 @@ async function main() {
         if (roundState.endReason === "lastStanding") {
           ChallengeTracker.record("last_standing");
         }
-        if (roundState.isSuddenDeath) {
+        if (lastRoundEndedInSuddenDeath) {
           ChallengeTracker.record("sd_win");
         }
         const localCart = localCartForConnId();
@@ -3392,9 +3398,13 @@ async function main() {
       true,
       undefined,
       undefined,
-      // * Rapier handles (numbers) — same runtime-safe pattern as camera.js occlusion ray.
-      cart.collider?.handle ?? undefined,
-      cart.body.handle ?? undefined,
+      // * Pass the Collider / RigidBody OBJECTS — Rapier's castRay reads `.handle` off
+      // * them internally (`filterExcludeCollider ? filterExcludeCollider.handle : null`).
+      // * Passing raw handle numbers makes the exclusion inert ((number).handle is
+      // * undefined), so with solid=true the ray hits the cart's OWN collider at toi 0
+      // * and this returns true unconditionally — defeating the anti-air-hop gate.
+      cart.collider ?? undefined,
+      cart.body ?? undefined,
     );
     return hit != null;
   }
@@ -3859,6 +3869,9 @@ async function main() {
     // * anything downstream (cleanupSuddenDeathState/rematch resets) nulls the SFX id.
     stopAllChargeSfx();
     const suddenDeathActive = GameState.getRoundState().isSuddenDeath;
+    // * Latch SD-at-end for the podium challenge block — endRound clears the live flag
+    // * below (SD branch), so `sd_win` would otherwise never be creditable.
+    lastRoundEndedInSuddenDeath = suddenDeathActive;
     if (suddenDeathActive && lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
       // * Sudden Death winner — first to score wins instantly.
       GameState.setRoundEndReason("timer");
@@ -3969,6 +3982,12 @@ async function main() {
     // * carries the new levelId (server latches + rebroadcasts; non-host clients rotate
     // * via onLevelIdChanged). Friends lobbies keep the host's deliberate arena choice.
     if (detectGameMode() === "quickplay") {
+      // * Re-entrancy guard: a double-fire (button + auto-continue race, or a fast
+      // * double-click) would otherwise adopt+broadcast a SECOND random arena while
+      // * its rotateLoadedArenaInPlace no-ops on the in-flight flag — leaving the host
+      // * on arena A and every client/server on arena B for the round. If a rotation
+      // * is already resolving, the first call owns this rematch; suppress the rest.
+      if (arenaRotationInFlight) return;
       const nextArenaId = pickNextQuickplayArenaId();
       Netcode.adoptRoomLevelAsHost(nextArenaId);
       void rotateLoadedArenaInPlace(nextArenaId);

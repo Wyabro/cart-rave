@@ -48,7 +48,7 @@ function makeBody(pos) {
     translation() { return this._pos; },
     rotation: () => ({ x: 0, y: 0, z: 0, w: 1 }),
     linvel: () => ({ x: 0, y: 0, z: 0 }),
-    setTranslation() {},
+    setTranslation(p) { this._pos = { ...p }; },
     setRotation() {},
     setLinvel() {},
     setAngvel() {},
@@ -188,6 +188,36 @@ describe("Sudden Death fall loop", () => {
     expect(deps.addScore).toHaveBeenCalledTimes(1);
     expect(deps.queueHostFallEvent).toHaveBeenCalledTimes(1);
     expect(dispatchKOEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-seats the tied carts instead of wedging when the last two fall on the same frame with no attacker", () => {
+    // * Deadlock regression: both remaining tied carts cross the fall line in ONE frame
+    // * with no kill credited (buildKOEvent mock → isKill:false). Each parks as a
+    // * spectator and counts 0 survivors, so no addScore runs. Without the recovery the
+    // * round would hang forever in Sudden Death (no timeout). The fix re-lays-out the
+    // * tied carts so the tiebreak replays rather than crowning anyone.
+    const { carts, deps } = makeSuddenDeathWorld();
+    carts[0].body._pos.y = -20;
+    carts[1].body._pos.y = -20; // both tied carts fall simultaneously
+
+    runFrame(deps);
+
+    // No arbitrary winner, round not ended, still in Sudden Death.
+    expect(deps.addScore).not.toHaveBeenCalled();
+    expect(deps.endRound).not.toHaveBeenCalled();
+    // Tied carts are re-seated at spawn+1 (not stranded as spectators).
+    expect(carts[0].isSuddenDeathSpectator).toBe(false);
+    expect(carts[1].isSuddenDeathSpectator).toBe(false);
+    expect(carts[0].body._pos.y).toBeCloseTo(3, 5); // spawn.y 2 + 1
+    expect(carts[1].body._pos.y).toBeCloseTo(3, 5);
+    expect(deps.sendHostRound).toHaveBeenCalled();
+
+    // Self-limiting: with the carts back on the arena, later frames don't re-trigger.
+    deps.sendHostRound.mockClear();
+    runFrame(deps);
+    runFrame(deps);
+    expect(deps.addScore).not.toHaveBeenCalled();
+    expect(deps.sendHostRound).not.toHaveBeenCalled();
   });
 
   it("calls onCartOutOfPlay when a tied cart falls in Sudden Death (no scheduleRespawn)", () => {

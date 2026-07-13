@@ -446,6 +446,11 @@ function updateStatus(roundState) {
 
   // * GO! is the round's celebration beat — the only status that earns glow.
   elements.status?.classList.toggle("is-celebration", Date.now() < _goUntilMs);
+  // * Clear any leftover inline animation up front so the Sudden Death pulse (set in the
+  // * SD branch below) can't bleed onto the next round's podium / countdown / GO! banner.
+  // * The SD branch re-stamps the same animation-name each frame, so this no-op-restarts
+  // * (only the final value reaches style recalc).
+  if (elements.status) elements.status.style.animation = "";
   if (Date.now() < _goUntilMs) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-yellow)";

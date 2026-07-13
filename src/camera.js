@@ -175,15 +175,19 @@ export function updateCamera(camera, localCart, dt, playerPos, playerRot, physic
       _cameraRay.dir.x = rayDir.x;
       _cameraRay.dir.y = rayDir.y;
       _cameraRay.dir.z = rayDir.z;
-      const excludeCollider = localCart?.collider?.handle ?? undefined;
-      const excludeRigidBody = localCart?.body?.handle ?? undefined;
+      // * Pass the Collider / RigidBody OBJECTS — Rapier's castRay reads `.handle` off
+      // * them internally (`filterExcludeCollider ? filterExcludeCollider.handle : null`).
+      // * Passing raw handle numbers makes the exclusion inert ((number).handle is
+      // * undefined), so the target cart could occlude its own camera. These carry only a
+      // * `{ handle }` shape in our types, hence the `any` cast at the Rapier boundary.
+      const excludeCollider = /** @type {any} */ (localCart?.collider ?? undefined);
+      const excludeRigidBody = /** @type {any} */ (localCart?.body ?? undefined);
       const hit = physicsWorld.castRay(
         _cameraRay,
         maxDist,
         true,
         RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC,
         undefined,
-        // @ts-expect-error - Rapier handle (number) passed where Collider type expected; safe at runtime
         excludeCollider,
         excludeRigidBody,
       );

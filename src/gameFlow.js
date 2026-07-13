@@ -407,6 +407,25 @@ export function updateGameFlow(deps, context) {
         }
         if (aliveOnArena === 1 && soleSurvivorSlot >= 0) {
           deps.scheduleLastCartStandingFinish?.(soleSurvivorSlot);
+        } else if (aliveOnArena === 0 && deps.getRoundState().isSuddenDeath) {
+          // * Simultaneous Sudden Death wipeout: the last tied carts all crossed the
+          // * fall line on the SAME frame with no attacker credited, so no addScore
+          // * ran and every tied cart is now a spectator. SD has no timeout, so the
+          // * round would hang here forever (fall loop skips spectators; this check
+          // * keeps reading 0). A mutual fall shouldn't crown anyone — re-seat the tied
+          // * carts and replay the tiebreak. Self-limiting: next frame they're back on
+          // * the arena (aliveOnArena >= 1) so this won't re-fire.
+          deps.abortLastCartStandingFlourish?.();
+          const sdScores = deps.getRoundScores();
+          let sdTopScore = -Infinity;
+          for (let si = 0; si < 4; si += 1) {
+            sdTopScore = Math.max(sdTopScore, Number(sdScores[si] || 0));
+          }
+          layoutSuddenDeathArena(
+            allCarts, sdScores, sdTopScore, now, deps.onCartOutOfPlay,
+            (c) => deps.doRespawn(c, deps),
+          );
+          deps.sendHostRound();
         } else {
           deps.abortLastCartStandingFlourish?.();
         }
