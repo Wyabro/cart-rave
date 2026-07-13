@@ -1976,11 +1976,15 @@ async function main() {
       fxPass.uniforms.uVhsNoise.value = vhsCfg.noise;
       fxPass.uniforms.uVhsTrackPeriod.value = vhsCfg.trackPeriodSec;
     }
-    // * VFX-1: Storerooms flickers with float bloom mips on some GPUs (measured on real
-    // * HW via ?blackmon); Classic/Zanzibar don't. Byte display-referred bloom there only,
-    // * HDR bloom (and its look) everywhere else. ?rtmode forces a global mode instead.
+    // * Bloom pipeline: default ?bloompipe=display keeps UnsignedByte + post-tonemap
+    // * bloom on every level (no float↔byte mip rebuild when swapping into Storerooms).
+    // * ?bloompipe=hdr restores the old split (Classic/Sundial HDR, Storerooms display).
+    // * ?rtmode still forces a global mode for VFX-1 A/B.
     if (!getDebugParams().rtmodeExplicit) {
-      setBloomPipeline({ composer, bloomPass, outputPass }, resolved === "backrooms" ? "display" : "hdr");
+      const pipe = getDebugParams().bloomPipe;
+      const mode =
+        pipe === "display" || resolved === "backrooms" ? "display" : "hdr";
+      setBloomPipeline({ composer, bloomPass, outputPass }, mode, { levelId: resolved });
     }
     // * ?ablate=vhs / postmin must still win after level VHS turn-on.
     applyPostFxAblation({ bloomPass, arcadePass: fxPass, fxaaPass, outputPass });

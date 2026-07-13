@@ -10,6 +10,7 @@ import { isLowQualityMode } from "./utils.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
 import { installCheapMirrorPass } from "./utils/cheapMirror.js";
+import { getDebugParams } from "./utils/debugParams.js";
 
 // * Play-time Reflector RT. Was 1024² (Pass 2 isolation: Reflector ≈ 60% of Classic High
 // * GPU). 512² is a 4× bandwidth cut; cart/booth silhouettes still read on the vinyl at
@@ -1415,29 +1416,44 @@ export function initArena(scene, world, config, options = {}) {
     bevelSize: 0.04,
     curveSegments: 64,
   });
-  // * Vinyl body — Physical + clearcoat. High-quality path is mostly transparent so the
-  // * Reflector carries the mirror; a separate vinyl detail ring (maps) sells grooves.
+  // * Vinyl body — High path is translucent so the Reflector carries the live mirror;
+  // * a separate vinyl detail ring (maps) sells grooves. Shipped profile is jam OG
+  // * (matte, no clearcoat, dark Reflector tint) — fixed the green-booth white pool.
+  // * Escape hatch: ?floor=v2 restores the prior Physical clearcoat stack.
   const vinylTex = buildVinylSurfaceTextures();
+  const lowQ = isLowQualityMode();
+  const floorProfile = lowQ ? "v2" : getDebugParams().floor;
+  const useOgFloor = floorProfile === "og";
+  // * High body opacity when Reflector is on — og matches jam (0.7); v2 was 0.55.
+  const recordBodyOpacityHigh = useOgFloor ? 0.7 : 0.55;
   // * High path: scalar roughness only (Reflector sells the shine). Low path:
   // * keep the roughness map so the opaque floor still reads as vinyl grain.
   // * Do not pass roughnessMap: undefined — Three logs a material warning.
   const recordMat = createPhysicalMaterial({
-    color: 0x0c0818,
+    color: useOgFloor ? 0x050006 : 0x0c0818,
     map: vinylTex.map,
-    roughness: isLowQualityMode() ? 0.55 : 0.38,
-    metalness: isLowQualityMode() ? 0.25 : 0.48,
-    clearcoat: isLowQualityMode() ? 0.2 : 0.72,
-    clearcoatRoughness: isLowQualityMode() ? 0.35 : 0.12,
-    transparent: !isLowQualityMode(),
-    opacity: isLowQualityMode() ? 1.0 : 0.55,
-    ...(isLowQualityMode() ? { roughnessMap: vinylTex.roughnessMap } : {}),
+    roughness: lowQ ? 0.55 : useOgFloor ? 0.72 : 0.38,
+    metalness: lowQ ? 0.25 : useOgFloor ? 0.35 : 0.48,
+    clearcoat: lowQ ? 0.2 : useOgFloor ? 0 : 0.72,
+    clearcoatRoughness: lowQ ? 0.35 : useOgFloor ? 1 : 0.12,
+    transparent: !lowQ,
+    opacity: lowQ ? 1.0 : recordBodyOpacityHigh,
+    ...(lowQ ? { roughnessMap: vinylTex.roughnessMap } : {}),
   });
-  recordMat.depthWrite = isLowQualityMode();
-  if (!isLowQualityMode()) {
+  recordMat.depthWrite = lowQ;
+  if (!lowQ) {
     recordMat.normalMap = vinylTex.normalMap;
-    recordMat.normalScale = new THREE.Vector2(0.55, 0.55);
+    // * OG had no normal map; keep a light groove read so maps still earn their keep.
+    recordMat.normalScale = new THREE.Vector2(
+      useOgFloor ? 0.35 : 0.55,
+      useOgFloor ? 0.35 : 0.55,
+    );
   }
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
+  if (import.meta.env.DEV && !lowQ) {
+    // eslint-disable-next-line no-console
+    console.log(`[floor] Classic High profile=${floorProfile} (?floor=og|v2)`);
+  }
 
   /**
    * Classic floor env clamp — kills the white pool in front of the green booth.
@@ -1494,8 +1510,9 @@ export function initArena(scene, world, config, options = {}) {
       clipBias: 0.003,
       textureWidth: textureSize,
       textureHeight: textureSize,
-      // * Slightly lifted from pure black so neon booths/carts read cleanly in the mirror.
-      color: 0x1c1528,
+      // * og: jam 0x111111 dark tint (crushes hot spindle/IBL in the mirror).
+      // * v2: slightly lifted purple so booths/carts read a bit brighter.
+      color: useOgFloor ? 0x111111 : 0x1c1528,
     });
     reflector.rotation.x = -Math.PI / 2;
     reflector.position.y = reflectorYOffset;
@@ -1511,8 +1528,9 @@ export function initArena(scene, world, config, options = {}) {
   recordReflector.visible = !isLowQualityMode();
   recordMesh.add(recordReflector);
 
-  // * Vinyl detail layer ON the reflective floor — translucent Physical so grooves/normal
-  // * read without killing the mirror. Hidden in low-quality (solid floor carries maps).
+  // * Vinyl detail layer ON the reflective floor — maps sell grooves without killing the
+  // * mirror. Hidden in low-quality (solid floor carries maps). og: no clearcoat so this
+  // * layer is dust/groove only; v2: Physical clearcoat sheen on top of the Reflector.
   const vinylDetailGeo = new THREE.RingGeometry(
     config.record.innerRadius,
     config.record.radius,
@@ -1522,15 +1540,15 @@ export function initArena(scene, world, config, options = {}) {
   const vinylDetailMat = createPhysicalMaterial({
     map: vinylTex.map,
     normalMap: vinylTex.normalMap,
-    normalScale: new THREE.Vector2(0.7, 0.7),
+    normalScale: new THREE.Vector2(useOgFloor ? 0.45 : 0.7, useOgFloor ? 0.45 : 0.7),
     roughnessMap: vinylTex.roughnessMap,
     color: 0xffffff,
-    roughness: 0.42,
-    metalness: 0.55,
-    clearcoat: 0.65,
-    clearcoatRoughness: 0.14,
+    roughness: useOgFloor ? 0.68 : 0.42,
+    metalness: useOgFloor ? 0.35 : 0.55,
+    clearcoat: useOgFloor ? 0 : 0.65,
+    clearcoatRoughness: useOgFloor ? 1 : 0.14,
     transparent: true,
-    opacity: 0.42,
+    opacity: useOgFloor ? 0.38 : 0.42,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
@@ -1597,7 +1615,7 @@ export function initArena(scene, world, config, options = {}) {
     // Toggle record material transparency to match.
     if (recordMat) {
       recordMat.transparent = visible;
-      recordMat.opacity = visible ? 0.55 : 1.0;
+      recordMat.opacity = visible ? recordBodyOpacityHigh : 1.0;
       recordMat.depthWrite = !visible;
       recordMat.needsUpdate = true;
     }

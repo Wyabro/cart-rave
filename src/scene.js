@@ -71,20 +71,25 @@ function rebuildBloomMipType(bloomPass, type) {
   }
 }
 
-/** Bloom tuning — edit CONFIG.postFx.bloom in config.js; applied in createComposer(). */
-const BLOOM_CONFIG = CONFIG.postFx.bloom;
+/**
+ * Active HDR bloom knobs (Classic / Sundial when ?bloompipe=hdr).
+ * Default = CONFIG.postFx.bloom (shipping). ?bloom=mid | og for A/B.
+ * @returns {{ strength: number, radius: number, threshold: number, smoothWidth: number }}
+ */
+function resolveBloomConfig() {
+  const profile = getDebugParams().bloom;
+  if (profile === "og" && CONFIG.postFx.bloomOg) return CONFIG.postFx.bloomOg;
+  if (profile === "mid" && CONFIG.postFx.bloomMid) return CONFIG.postFx.bloomMid;
+  return CONFIG.postFx.bloom;
+}
 
 /**
- * VFX-1 bloomfix (?rtmode=bloomfix): display-referred bloom knobs. In this mode
- * bloom runs AFTER OutputPass, so it reads the already tone-mapped 0..1 image —
- * the HDR threshold/strength from BLOOM_CONFIG don't translate. These are a
- * TUNABLE starting point to match the HalfFloat-era neon: raise `threshold` for
- * emissive-only bloom, raise `strength` for punchier glow. Tweak here, hard-refresh.
+ * Display-referred bloom (after OutputPass, UnsignedByte mips) — VFX-1 stable path.
+ * Used for Storerooms always under split mode, and for ALL levels when
+ * ?bloompipe=display (default experiment: no float↔byte rebuild on arena swap).
+ * Dial live with ?bloomthr/?bloomstr/?bloomrad/?bloomsmooth.
  */
-const BLOOM_DISPLAY_CONFIG = {
-  // * Display-referred bloom for The Storerooms only (the flickering level). These are
-  // * the Wyatt-approved values for that dark, moody arena — NOT tuned for the punchy
-  // * neon levels, which stay on the HDR path. Dial live with ?bloomthr/?bloomstr/?bloomrad.
+const BLOOM_DISPLAY_STOREROOMS = {
   strength: 0.62,
   radius: 0.4,
   threshold: 0.62,
@@ -92,12 +97,35 @@ const BLOOM_DISPLAY_CONFIG = {
 };
 
 /**
+ * Display-referred knobs for neon arenas (Classic / Sundial / test) when unified
+ * (?bloompipe=display, default). Wyatt-approved live tune 2026-07-13.
+ */
+const BLOOM_DISPLAY_NEON = {
+  strength: 0.25,
+  radius: 0.67,
+  threshold: 0.5,
+  smoothWidth: 0.025,
+};
+
+/** @deprecated alias — prefer resolveDisplayBloomConfig(levelId) */
+const BLOOM_DISPLAY_CONFIG = BLOOM_DISPLAY_STOREROOMS;
+
+/**
+ * @param {string | null | undefined} levelId
+ * @returns {{ strength: number, radius: number, threshold: number, smoothWidth: number }}
+ */
+function resolveDisplayBloomConfig(levelId) {
+  if (levelId === "backrooms") return BLOOM_DISPLAY_STOREROOMS;
+  return BLOOM_DISPLAY_NEON;
+}
+
+/**
  * Applies bloom pass settings from CONFIG.postFx.bloom (or an override object).
  *
  * @param {UnrealBloomPass} bloomPass
- * @param {typeof BLOOM_CONFIG} [bloomCfg]
+ * @param {{ strength: number, radius: number, threshold: number, smoothWidth?: number }} [bloomCfg]
  */
-export function applyBloomSettings(bloomPass, bloomCfg = BLOOM_CONFIG) {
+export function applyBloomSettings(bloomPass, bloomCfg = resolveBloomConfig()) {
   if (!bloomPass || !bloomCfg) return;
   bloomPass.strength = bloomCfg.strength;
   bloomPass.radius = bloomCfg.radius;
@@ -805,24 +833,25 @@ function reorderBloomVsOutput(composer, bloomPass, outputPass, bloomAfter) {
 
 /**
  * Reconfigures an existing composer's bloom between the HDR pipeline (HalfFloat
- * mips, pre-tone-map, `CONFIG.postFx.bloom`) and the display-referred pipeline
- * (UnsignedByte mips, post-tone-map, `BLOOM_DISPLAY_CONFIG`).
+ * mips, pre-tone-map, `resolveBloomConfig()`) and the display-referred pipeline
+ * (UnsignedByte mips, post-tone-map, per-level display knobs).
  *
- * VFX-1: The Storerooms flickers with float bloom mips on some GPUs (measured via
- * ?blackmon on real HW); Classic/Zanzibar do not. So only Storerooms takes the byte
- * path, preserving the HDR bloom look everywhere else. Cheap no-op when already in
- * the requested mode (mip rebuild + reorder are both guarded). `?rtmode` overrides
- * this per-level logic globally (see debugParams.rtmodeExplicit).
+ * VFX-1: float bloom mips flicker on Storerooms; display-referred bytes fix it.
+ * Unified `?bloompipe=display` (default) runs that path on every level so arena
+ * swaps never rebuild float↔byte mips. `?bloompipe=hdr` restores the old split.
+ * Cheap no-op when already in the requested mode. `?rtmode` still overrides.
  *
  * @param {{ composer: EffectComposer, bloomPass: UnrealBloomPass, outputPass: import("three/examples/jsm/postprocessing/Pass.js").Pass }} parts
  * @param {"hdr" | "display"} mode
+ * @param {{ levelId?: string | null }} [opts] levelId picks neon vs Storerooms display knobs
  */
-export function setBloomPipeline(parts, mode) {
+export function setBloomPipeline(parts, mode, opts = {}) {
   const { composer, bloomPass, outputPass } = parts;
   if (!composer || !bloomPass || !outputPass) return;
   const display = mode === "display";
   const targetType = display ? THREE.UnsignedByteType : THREE.HalfFloatType;
   const bp = /** @type {any} */ (bloomPass);
+  const levelId = opts.levelId ?? null;
 
   if (bp.userData?.bloomMipType !== targetType) {
     rebuildBloomMipType(bloomPass, targetType);
@@ -830,7 +859,7 @@ export function setBloomPipeline(parts, mode) {
   }
 
   const tune = getDebugParams().bloomTune;
-  const base = display ? BLOOM_DISPLAY_CONFIG : BLOOM_CONFIG;
+  const base = display ? resolveDisplayBloomConfig(levelId) : resolveBloomConfig();
   const cfg = tune
     ? { ...base, ...Object.fromEntries(Object.entries(tune).filter(([, v]) => v !== undefined)) }
     : base;
@@ -841,10 +870,16 @@ export function setBloomPipeline(parts, mode) {
   }
 
   reorderBloomVsOutput(composer, bloomPass, outputPass, display);
+  bp.userData = { ...(bp.userData || {}), bloomPipelineMode: mode, bloomLevelId: levelId };
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
-    console.log(`[bloomPipeline] ${mode} — mips=${display ? "UnsignedByte" : "HalfFloat"}, bloom ${display ? "after" : "before"} tone-map`);
+    console.log(
+      `[bloomPipeline] ${mode} level=${levelId ?? "?"} — mips=${display ? "UnsignedByte" : "HalfFloat"}, bloom ${display ? "after" : "before"} tone-map`,
+      display
+        ? { ...cfg, set: levelId === "backrooms" ? "storerooms" : "neon" }
+        : { ...cfg, profile: getDebugParams().bloom },
+    );
   }
 }
 
@@ -867,21 +902,39 @@ export function setBloomPipeline(parts, mode) {
  */
 export function createComposer(renderer, scene, camera) {
   // * VFX-1 A/B (?rtmode): default "half" → composerRT undefined → EffectComposer builds
-  // * its stock HalfFloat RT (byte-identical to prod). float/byte pass a custom RT.
-  const { composerType, bloomType, bloomAfterOutput, label } = resolveRtModeTypes(getDebugParams().rtmode);
-  // * bloomfix reads the tone-mapped image, so it uses display-referred bloom knobs.
-  // * ?bloomthr/bloomstr/bloomrad/bloomsmooth override live for tuning without rebuilds.
-  const baseBloom = bloomAfterOutput ? BLOOM_DISPLAY_CONFIG : BLOOM_CONFIG;
-  const bloomTune = getDebugParams().bloomTune;
+  // * its stock HalfFloat RT. Unified display pipe (?bloompipe=display, default) forces
+  // * bloom-after-Output + UnsignedByte mips unless ?rtmode is explicit.
+  const dbg = getDebugParams();
+  const rt = resolveRtModeTypes(dbg.rtmode);
+  let { composerType, bloomType, bloomAfterOutput, label } = rt;
+  if (!dbg.rtmodeExplicit && dbg.bloomPipe === "display") {
+    bloomAfterOutput = true;
+    if (bloomType == null) bloomType = THREE.UnsignedByteType;
+    label = "unified display-referred UnsignedByte bloom (all levels)";
+  }
+  // * Boot level from URL/bookmark if present so neon vs Storerooms knobs start right.
+  const bootLevel = dbg.level;
+  const baseBloom = bloomAfterOutput
+    ? resolveDisplayBloomConfig(bootLevel)
+    : resolveBloomConfig();
+  const bloomTune = dbg.bloomTune;
   const bloomCfg = bloomTune
     ? {
         ...baseBloom,
         ...Object.fromEntries(Object.entries(bloomTune).filter(([, v]) => v !== undefined)),
       }
     : baseBloom;
-  if (bloomTune) {
+  if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
-    console.log("[bloomTune]", { threshold: bloomCfg.threshold, strength: bloomCfg.strength, radius: bloomCfg.radius, smoothWidth: bloomCfg.smoothWidth });
+    console.log(
+      `[bloom] pipe=${dbg.bloomPipe}${dbg.rtmodeExplicit ? ` rtmode=${dbg.rtmode}` : ""} ${bloomAfterOutput ? "display-referred" : `HDR profile=${dbg.bloom}`}`,
+      {
+        threshold: bloomCfg.threshold,
+        strength: bloomCfg.strength,
+        radius: bloomCfg.radius,
+        smoothWidth: bloomCfg.smoothWidth,
+      },
+    );
   }
   let composerRT;
   if (composerType != null) {
@@ -894,9 +947,9 @@ export function createComposer(renderer, scene, camera) {
     );
     composerRT.texture.name = "EffectComposer.rt1";
   }
-  if (composerType != null || bloomType != null) {
+  if (import.meta.env.DEV && (dbg.rtmodeExplicit || dbg.bloomPipe === "display")) {
     // eslint-disable-next-line no-console
-    console.log(`[rtmode] ${getDebugParams().rtmode} — ${label}`);
+    console.log(`[bloomBoot] ${label}`);
   }
 
   const composer = new EffectComposer(renderer, composerRT);
@@ -924,15 +977,17 @@ export function createComposer(renderer, scene, camera) {
   }
   bloomPass.enabled = getQualityKnobs().postFx;
   // * Stash scale so updateViewport can resize internal RTs.
+  const initialMipType = bloomType != null ? bloomType : THREE.HalfFloatType;
   /** @type {any} */ (bloomPass).userData = {
     ...(/** @type {any} */ (bloomPass).userData || {}),
     bloomScale,
     // * Track mip type so setBloomPipeline() can skip a rebuild when already correct.
-    bloomMipType: bloomType != null ? bloomType : THREE.HalfFloatType,
+    bloomMipType: initialMipType,
   };
-  // * VFX-1 A/B: swap bloom mip type before first render (WebGLRenderTarget.setSize
-  // * preserves type, so this survives resizes). No-op unless ?rtmode changes it.
-  if (bloomType != null) rebuildBloomMipType(bloomPass, bloomType);
+  // * UnrealBloomPass constructs HalfFloat mips by default — rebuild when we need bytes.
+  if (initialMipType !== THREE.HalfFloatType) {
+    rebuildBloomMipType(bloomPass, initialMipType);
+  }
 
   // * OutputPass performs tone mapping + sRGB encoding. Without it the composer wrote
   // * linear working-space values straight to the canvas: renderer.toneMapping and

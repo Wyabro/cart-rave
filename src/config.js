@@ -443,16 +443,32 @@ export const CONFIG = {
 
     // * UnrealBloomPass tuning — see applyBloomSettings() in scene.js.
     // * bloomHalfRes: internal bloom RTs at 0.5× (fill-rate win); strength mul compensates.
+    // * Used when ?bloompipe=hdr (Classic/Sundial pre-tonemap path). Default experiment is
+    // * ?bloompipe=display — all levels use display-referred knobs in scene.js instead.
+    // * Default numbers = shipping emissive-biased stack. A/B: ?bloom=mid | og.
     bloomHalfRes: true,
     bloomHalfResStrengthMul: 1.2,
     bloom: {
       strength: 0.34, // unitless — bloom composite intensity
-      radius: 0.34, // unitless — halo tightness (lower = crisper neon, higher = hazier)
-      // * Lower threshold + wide knee: Rec.709 luma under-weights red/blue, so magenta
-      // * neon (luma 0.29) never crossed the old 0.86 cutoff while cyan (0.79) did.
-      // * The wide knee lets low-luma hues glow softly instead of not at all.
+      radius: 0.34, // unitless — halo tightness
+      // * Lower threshold + wide knee: Rec.709 under-weights red/blue; magenta neon
+      // * needs the knee or it never blooms while cyan does.
       threshold: 0.76, // unitless — luminance cutoff (higher = emissive-only bloom)
-      smoothWidth: 0.14, // unitless — soft knee on the high-pass (avoids hard cutoffs)
+      smoothWidth: 0.14, // unitless — soft knee on the high-pass
+    },
+    // * Middle-ground A/B — ?bloom=mid
+    bloomMid: {
+      strength: 0.42,
+      radius: 0.35,
+      threshold: 0.45,
+      smoothWidth: 0.12,
+    },
+    // * Jam main.js UnrealBloomPass(res, 0.5, 0.35) threshold default 0 — ?bloom=og
+    bloomOg: {
+      strength: 0.5,
+      radius: 0.35,
+      threshold: 0,
+      smoothWidth: 0.05,
     },
 
     arcade: {

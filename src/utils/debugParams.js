@@ -16,6 +16,14 @@
  *   ?perfPump                             — existing (utils/perfPump.js)
  *   ?blackmon=1                           — live black-frame flicker monitor (VFX-1, real HW)
  *   ?rtmode=half|float|byte|bloombyte|bloomfix — composer/bloom RT A/B (VFX-1; half=default)
+ *   ?floor=og|v2                              — Classic vinyl floor (default og = jam matte
+ *                                               + dark Reflector; v2 = old clearcoat stack)
+ *   ?bloom=v2|mid|og                          — UnrealBloom *knobs* A/B (mostly HDR path;
+ *                                               display path has its own neon/storerooms sets)
+ *   ?bloompipe=display|hdr                    — bloom pipeline. default display = all levels
+ *                                               use post-tonemap UnsignedByte mips (no rebuild
+ *                                               hitch on Storerooms swap). hdr = prior split
+ *                                               (Classic/Sundial HDR HalfFloat, Storerooms display)
  *
  * Inspired by LAAS (fable5-world-demo) process tooling — process only, not their engine.
  */
@@ -47,6 +55,9 @@
  * @property {"half" | "float" | "byte" | "bloombyte" | "bloomfix"} rtmode
  * @property {boolean} rtmodeExplicit
  * @property {{ threshold?: number, strength?: number, radius?: number, smoothWidth?: number } | null} bloomTune
+ * @property {"og" | "v2"} floor Classic High vinyl profile (see ?floor=)
+ * @property {"v2" | "mid" | "og"} bloom Bloom knob profile (see ?bloom=)
+ * @property {"display" | "hdr"} bloomPipe Unified display-referred vs split HDR (see ?bloompipe=)
  */
 
 /** Named review poses — consumed via ?shot= (tools/shoot.mjs passes the key through the URL). */
@@ -199,6 +210,24 @@ function parseDebugParams(search) {
     ? bloomTuneRaw
     : null;
 
+  // * Classic floor — default "og" (jam matte + dark Reflector; fixed white pool).
+  // * ?floor=v2 = prior Physical clearcoat stack.
+  const floorRaw = (params.get("floor") || "").trim().toLowerCase();
+  /** @type {"og" | "v2"} */
+  const floor = floorRaw === "v2" ? "v2" : "og";
+
+  // * Bloom knobs A/B. default v2 (shipping numbers); ?bloom=mid | og.
+  const bloomProfileRaw = (params.get("bloom") || "").trim().toLowerCase();
+  /** @type {"v2" | "mid" | "og"} */
+  const bloom =
+    bloomProfileRaw === "mid" || bloomProfileRaw === "og" ? bloomProfileRaw : "v2";
+
+  // * Pipeline A/B — default display (unified, no float↔byte rebuild on level swap).
+  // * ?bloompipe=hdr restores Classic/Sundial HDR + Storerooms-only display.
+  const bloomPipeRaw = (params.get("bloompipe") || "").trim().toLowerCase();
+  /** @type {"display" | "hdr"} */
+  const bloomPipe = bloomPipeRaw === "hdr" ? "hdr" : "display";
+
   return {
     ablate,
     postmin,
@@ -213,6 +242,9 @@ function parseDebugParams(search) {
     rtmode,
     rtmodeExplicit,
     bloomTune,
+    floor,
+    bloom,
+    bloomPipe,
   };
 }
 
