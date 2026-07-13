@@ -216,8 +216,8 @@ let stadiumPulseMats = [];
 
 /** @type {{
  *   target: THREE.Object3D,
- *   cone: THREE.Mesh,
- *   coneMat?: THREE.MeshBasicMaterial,
+ *   cone: THREE.Mesh | null,
+ *   coneMat?: THREE.MeshBasicMaterial | null,
  *   light: THREE.SpotLight,
  *   index: number,
  *   baseColor?: THREE.Color,
@@ -256,6 +256,7 @@ let lastLedUpdate = 0;
  *   mesh: THREE.Mesh,
  *   sheathMat?: THREE.MeshBasicMaterial,
  *   coreMat?: THREE.MeshBasicMaterial,
+ *   band?: "stage" | "arena" | "sky" | "deck",
  *   index: number,
  *   speed: number,
  *   phaseStep: number,
@@ -1732,31 +1733,12 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     searchlight.visible = !isGreenBoothMast;
     scene.add(searchlight);
 
-    // * Visual beam cones: hidden entirely — toneMapped:false additive + Reflector
-    // * HalfFloat was a pure-white reflection bomb when looking toward a mast.
-    const coneMat = new THREE.MeshBasicMaterial({
-      color: baseColor.clone(),
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      toneMapped: false,
-    });
-    coneMat.userData.baseOpacity = 0;
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(10, 24, 16, 1, true),
-      coneMat,
-    );
-    cone.position.copy(searchlight.position);
-    cone.lookAt(target.position);
-    cone.rotateX(-Math.PI / 2);
-    cone.visible = false;
-    scene.add(cone);
+    // * Beam cone meshes deliberately omitted — they were built then force-hidden
+    // * (toneMapped:false additive + Reflector white-sheet) and only burned draws/memory.
     crowdSearchlightEntries.push({
       target,
-      cone,
-      coneMat,
+      cone: null,
+      coneMat: null,
       light: searchlight,
       index: i,
       baseColor,
@@ -1866,6 +1848,8 @@ function applyCrowdBudget(budget) {
 export function applyRaveExtrasQuality(knobs) {
   applyCrowdBudget(knobs.crowdCount);
   const lightsOn = knobs.extrasLasers;
+  const laserBudget = knobs.laserBudget
+    ?? (lightsOn ? "full" : "off");
   for (const e of crowdSearchlightEntries) {
     if (e.light) e.light.visible = lightsOn && !e.forceOff;
   }
@@ -1876,8 +1860,19 @@ export function applyRaveExtrasQuality(knobs) {
   for (const e of stageLightEntries) {
     if (e.light) e.light.visible = lightsOn;
   }
+  // * laserBudget: "off" none · "core" stage+arena+sky · "full" + deck rings.
+  // * Deck rings are 20 additive sheath+core beams — large fill cost for ambient rave.
   for (const e of laserEntries) {
-    if (e.mesh) e.mesh.visible = lightsOn;
+    if (!e.mesh) continue;
+    if (laserBudget === "off") {
+      e.mesh.visible = false;
+      continue;
+    }
+    if (laserBudget === "core" && e.band === "deck") {
+      e.mesh.visible = false;
+      continue;
+    }
+    e.mesh.visible = true;
   }
 }
 
@@ -2718,6 +2713,7 @@ export function updateRamBoostStreaks(nowMs) {
  *   amplitude: number,
  *   baseQuaternion?: THREE.Quaternion,
  *   faceCenter?: boolean,
+ *   band?: "stage" | "arena" | "sky" | "deck",
  * }} opts
  */
 function addLaserBeam(scene, {
@@ -2733,6 +2729,7 @@ function addLaserBeam(scene, {
   amplitude,
   baseQuaternion,
   faceCenter = false,
+  band = "stage",
 }) {
   const laserGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
   laserGeo.translate(0, length / 2, 0);
@@ -2777,6 +2774,7 @@ function addLaserBeam(scene, {
     mesh: laser,
     sheathMat: laserMat,
     coreMat,
+    band,
     index,
     speed,
     phaseStep,
@@ -2992,6 +2990,7 @@ export function initLasers(scene, pitInnerRadius, cartColors) {
       phaseStep: 1.05,
       amplitude: 0.6,
       baseQuaternion: stageGroup.quaternion,
+      band: "stage",
     });
   }
 
@@ -3016,6 +3015,7 @@ export function initLasers(scene, pitInnerRadius, cartColors) {
       phaseStep: 0.52,
       amplitude: 0.5,
       faceCenter: true,
+      band: "arena",
     });
   }
 
@@ -3040,12 +3040,14 @@ export function initLasers(scene, pitInnerRadius, cartColors) {
       phaseStep: 0.79,
       amplitude: 0.7,
       faceCenter: true,
+      band: "sky",
     });
   }
 
   // * Deck rings — beams firing from the mid and upper deck front edges (radii/
   // * heights match the stadium decks in initCrowd) so the whole bowl joins the
   // * light show instead of just the field edge and the rim.
+  // * Gated to High via laserBudget "full" (Medium keeps stage/arena/sky only).
   const deckLaserRings = [
     { r: pitInnerRadius + 33.7, y: 12.3, count: 10, radius: 0.12, length: 90, opacity: 0.55, tiltX: -Math.PI * 0.38, speed: 0.45, phaseStep: 0.61 },
     { r: pitInnerRadius + 59.7, y: 25.3, count: 10, radius: 0.14, length: 100, opacity: 0.5, tiltX: -Math.PI * 0.42, speed: 0.35, phaseStep: 0.87 },
@@ -3070,6 +3072,7 @@ export function initLasers(scene, pitInnerRadius, cartColors) {
         phaseStep: ring.phaseStep,
         amplitude: 0.55,
         faceCenter: true,
+        band: "deck",
       });
       deckBeamIndex += 1;
     }

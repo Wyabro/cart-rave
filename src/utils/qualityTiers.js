@@ -14,15 +14,23 @@
 import { getQualityTier } from "./qualityMode.js";
 
 /**
+ * @typedef {"off" | "core" | "full"} LaserBudget
+ *   off  — no laser meshes / dynamic stand lights
+ *   core — stage + arena + sky beams (no deck rings; big fill-rate cut)
+ *   full — every beam including mid/upper deck rings
+ */
+
+/**
  * @typedef {object} QualityKnobs
  * @property {number} pixelRatioCap Max devicePixelRatio the renderer honors.
  * @property {boolean} postFx Bloom + arcade/VHS passes allowed (user Post-FX toggle still wins).
- * @property {boolean} fxaa FXAA pass enabled.
+ * @property {boolean} fxaa FXAA pass enabled (ignored when pixelRatio is already ≥1.75 — AA from pixels).
  * @property {boolean} composerBypass Skip EffectComposer entirely and render direct (all passes off).
  * @property {boolean} reflector Classic mirror-floor Reflector (full second scene render).
  * @property {number} crowdCount Classic crowd instance budget (Infinity = full capacity).
  * @property {boolean} crowdAnimate Crowd bounce/searchlight/laser animation math.
- * @property {boolean} extrasLasers Classic laser fans + searchlight/crowd point *lights*.
+ * @property {boolean} extrasLasers Classic laser fans + searchlight/crowd point *lights* (false ⇒ laserBudget "off").
+ * @property {LaserBudget} laserBudget Which laser rings draw (deck rings are the expensive ambient fill).
  * @property {number} dustMul Ambient dust particle-count multiplier.
  * @property {number} streakCap Ram-boost streak particle cap.
  * @property {number} maxSubsteps Physics substep cap (gameplay-safe: host authoritative).
@@ -37,37 +45,46 @@ export const QUALITY_KNOBS = {
     fxaa: false,
     composerBypass: true,
     reflector: false,
+    // * Enough silhouettes for the bowl to read; full 5k is pure vertex burn on potato GPUs.
     crowdCount: 800,
     crowdAnimate: false,
     extrasLasers: false,
+    laserBudget: "off",
     dustMul: 0.35,
     streakCap: 30,
     maxSubsteps: 2,
     ceilingSpots: 2,
   },
   medium: {
-    pixelRatioCap: 1.5,
+    // * iGPU default tier (gpuCaps → unknown). 1.25² vs 1.5² is ~30% fewer fragments
+    // * across the whole composer stack while still looking sharp on 1080p laptops.
+    pixelRatioCap: 1.25,
     postFx: true,
     fxaa: true,
     composerBypass: false,
     reflector: false,
-    crowdCount: Infinity,
+    // * Full personality without seating every last row — still dense from the floor.
+    crowdCount: 2200,
     crowdAnimate: true,
     extrasLasers: true,
-    dustMul: 0.7,
-    streakCap: 60,
+    // * Drop deck rings (20 additive beams × sheath+core) — stage/arena/sky keep the rave.
+    laserBudget: "core",
+    dustMul: 0.5,
+    streakCap: 48,
     maxSubsteps: 4,
-    ceilingSpots: 4,
+    ceilingSpots: 3,
   },
   high: {
     pixelRatioCap: 2,
     postFx: true,
+    // * Applied only when DPR < 1.75 — see applyComposerQualityTier (FXAA at DPR 2 is wasted).
     fxaa: true,
     composerBypass: false,
     reflector: true,
     crowdCount: Infinity,
     crowdAnimate: true,
     extrasLasers: true,
+    laserBudget: "full",
     dustMul: 1,
     streakCap: 80,
     maxSubsteps: 4,

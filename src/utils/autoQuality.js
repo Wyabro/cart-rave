@@ -14,15 +14,15 @@
 import { getQualityTier, setSessionQualityTier, stepDownQualityTier } from "./qualityMode.js";
 
 const SAMPLE_CAP = 90;
-/** ms — ~45 fps threshold */
-const BAD_FRAME_MS = 22;
-/** consecutive bad 1s windows before step-down */
-const BAD_WINDOWS_NEEDED = 3;
+/** ms — ~48 fps threshold (was 22ms/~45fps; potato machines need earlier step-down) */
+const BAD_FRAME_MS = 20.5;
+/** consecutive bad 1s windows before step-down (was 3 — ~3s of stutter before relief) */
+const BAD_WINDOWS_NEEDED = 2;
 const WINDOW_MS = 1000;
 /** max automatic tier steps per session (high→medium→low) */
 const MAX_STEPS = 2;
 /** ms of settle time after a step before sampling resumes */
-const COOLDOWN_MS = 5000;
+const COOLDOWN_MS = 4000;
 
 /** @type {number[]} */
 const samples = [];

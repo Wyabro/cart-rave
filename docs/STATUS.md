@@ -3,8 +3,8 @@
 **What is this?** The first document anyone (human or agent) reads: project health, what's
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
-project stands. **Is it current?** Last verified 2026-07-12 (`npm run qa` green: 287 tests /
-28 files, typecheck + knip clean).
+project stands. **Is it current?** Last verified 2026-07-12 (`npm run qa` green: 291 tests /
+29 files, typecheck + knip clean).
 
 > **Rehydration protocol** (agent or human resuming cold):
 > 1. Read **this file** fully.
@@ -25,9 +25,9 @@ two-browser smokes) over vibes for graphics and multiplayer gates.
 
 ## Project health — 2026-07-12
 
-**Green.** All five July production passes plus the stabilization pass are implemented and
-committed; gates are green (287 tests / 28 files, typecheck, knip, build — CI runs the same);
-zero knip ignores. NET-CLK-1 / NET-CLK-3 / NET-MIG-1 landed 2026-07-12 (clock split, round-clock
+**Green.** All five July production passes plus the stabilization pass are implemented;
+gates are green (291 tests / 29 files, typecheck, knip, build — CI runs the same);
+zero knip ignores. Extreme perf pass is **local/unpushed** (see Last updated). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 landed 2026-07-12 (clock split, round-clock
 hit windows, kill-credit on host promote). The engine-level black-frame flicker root cause is
 **found and fixed on Storerooms**; the fix awaits a look-check before becoming the default
 everywhere. The single biggest risk to Version 2 is unchanged: **multiplayer has never had
@@ -36,8 +36,8 @@ is not closed.
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ 287 tests / 28 files, tsc clean, knip clean (2026-07-12, post-audit) |
-| Unpushed work | ✅ None — pre-playtest audit fixes pushed as `91e17a0` (see Last updated). |
+| Gates (`npm run qa`) | ✅ 291 tests / 29 files, tsc clean, knip clean (2026-07-12, extreme perf pass) |
+| Unpushed work | ⚠️ Extreme perf pass unpushed (quality tiers + Reflector 512 + CPU dirty-gates — see Last updated). |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
 | Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
@@ -141,6 +141,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-12 — **Extreme performance pass (release-blocker framing)**. Investigation first: Pass-2 isolation numbers + code-level GPU/CPU ranking (Reflector ≈60% Classic High; composer stack + DPR; Classic laser forest; Rapier/theme/matrixWorld CPU). Live headless probe (`tools/perf-profile.mjs`) added; menu-preview LOD skews tier isolation in attract — use play entry / `applyQualityTier` for true tier diffs. Gates green: **291 tests / 29 files**, tsc + knip clean, build OK. **Unpushed.**
+- **Medium (iGPU default) tightened**: DPR cap 1.5→**1.25** (~30% fewer fragments), crowd 2200 (was full), laserBudget **core** (no deck rings = −20 additive beams), dust 0.5, streak 48, ceiling spots 3.
+- **High preserved look, cheaper guts**: Reflector play RT **1024²→512²** (4× bandwidth; still High-only); **FXAA off when DPR≥1.75** (full-screen pass for free at retina); laserBudget full; DPR×2 + postFX stay.
+- **Classic lasers banded** (`stage|arena|sky|deck`) + quality-gated; dead searchlight **cone meshes removed** (were built then force-hidden).
+- **CPU**: dirty-gated cart theme/leader/charge emissive writes; `updateMatrixWorld(false)` on cart roots; frameBudget allowCache reuses object (no per-frame `{}`).
+- **Auto-quality faster relief**: bad frame 22→20.5 ms, 3→2 bad windows, 5s→4s cooldown (steps down sooner on potatoes).
+- Remaining larger work (not this pass): host 40 Hz encode buffer pool; Rapier getter GC; Classic stage leftover draw-call merge; client prediction soft-reconcile; netcode Hz scale.
+- Probe: `node tools/perf-profile.mjs` · tiers: `?preset=low|medium|high` · force GPU class: `?forcegpu=sw|igpu|discrete`.
+
 2026-07-12 — **Potato hardening: friends' browsers were crashing on load** (Chrome worse than Edge — Chrome blocklists weak GPUs and silently falls back to SwiftShader software WebGL, where the high-tier DPR×2 HalfFloat RT chain allocates in system RAM and OOMs the tab). Gates green (287 tests / 28 files, tsc + knip clean, build OK). Verified live via new DEV `?forcegpu=sw|igpu|discrete` override.
 - **GPU-aware first-run tier** (`utils/gpuCaps.js` + settingsStore): software rasterizer or ≤2 GB deviceMemory → low; clearly-discrete GPU (GeForce/RTX/Radeon RX/Arc/Apple M) → high; iGPU/unknown → **medium** (was: every non-touch desktop → high). Default recomputes per visit (not persisted), so existing victims heal on next load.
 - **Software-GL hard floor** (`scene.js createRenderer`): live context classified at creation; SwiftShader/WARP/llvmpipe forces session-LOW *before* the pixel-ratio/knob reads, even over a stored "high" pref, + dismissible "COMPATIBILITY MODE" notice telling the player to enable hardware acceleration.
@@ -154,7 +163,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **First-round loading race**: solo/test-drive netcode bootstrap moved *inside* the play-entry loading overlay (`enterPlayMode` new `onArenaReady` hook → `makeSoloArenaReadyHook`); `ensureSessionCartsReady` awaits new `warmupBeforeRoundStart` dep (compileAsync of carts + arena + anchors) **before** resolving — solo game start fires off that promise, so the countdown cannot start until loading + shader warm-up complete. MP hello path gets the same warm.
 - **Menu arena-switch hitch**: swap itself was 40–90ms; the freeze was the attract loop's first render compiling the new arena. Fix: `maskMenuPreviewSwap` (main.js) — attract render-hold (`setMenuAttractRenderHold`) + rAF canvas fade + `renderer.compileAsync` before release; wired through levelManager for picker swaps (fade) and the 500ms idle finalize (hold-only, extras compile before attract sees them). Play-entry rebuild + quickplay arena rotation also warm-compile post-swap.
 - **Gotcha**: WAAPI `canvas.animate` fades never finish in hidden tabs (would have wedged `menuLevelPreviewPromise` → play entry deadlock) — canvas fade is rAF-driven with a hard setTimeout fallback.
-- Remaining known one-time hitch: reflector 1024² RT upgrade ~8s into play (pre-existing, rIC-deferred, high tier only). Heap sawtooth ~2-3 MB/s during play noted (Rapier getter allocs dominate; frame path already scratch-cached) — not addressed, no longer symptomatic.
+- Remaining known one-time hitch: reflector **512²** RT upgrade ~idle into play (rIC-deferred, high tier only; was 1024²). Heap sawtooth ~2-3 MB/s during play noted (Rapier getter allocs dominate; frame path already scratch-cached) — not addressed, no longer symptomatic.
 
 2026-07-12 — **Playtest-blockers pass** (P1 bugs + P2 polish + AI proposal). All UNCOMMITTED (sits on top of the also-uncommitted asset-audit changes). Gates green: 287 tests / 28 files, tsc + knip clean, build OK; solo boot smoke clean (61 FPS, 0 console errors).
 - **Hop (MP)**: root cause — reconciliation replay swallowed the hop impulse via its own wall-clock cooldown (`gameLoop.js` replay `triggerHopRef`); every reconcile hard-snapped to pre-hop host state and never re-applied → non-host hops died within one snapshot. Replay now always re-applies (one hop:true frame per press by construction). Host-side: `attemptLocalHop`'s `|lv.y|>2.2` gate ate presses on slopes/seams (Sundial ramp ≈2.3 at speed) — replaced with a downward Rapier raycast grounded check (`main.js isCartGrounded`; record floor is kinematic — not excluded).

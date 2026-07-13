@@ -256,7 +256,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
         c.mesh.position.lerp(deps.netTargetPosScratch, netAlpha);
       }
       if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, netAlpha);
-      c.mesh.updateMatrixWorld(true);
+      // * Pose write dirties this root; force=false still propagates to children.
+      c.mesh.updateMatrixWorld(false);
       const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
       deps.cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
       // * Remote carts: angvel is the only live Rapier fetch (linvel comes from the net
@@ -307,7 +308,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       _hitStopQuat.slerp(c.mesh.quaternion, blendAlpha);
       c.mesh.quaternion.copy(_hitStopQuat);
     }
-    c.mesh.updateMatrixWorld(true);
+    // * Pose write dirties this root; force=false still propagates to children.
+    c.mesh.updateMatrixWorld(false);
     deps.cartLinvelScratch.set(_visLinvel.x, _visLinvel.y, _visLinvel.z);
     deps.cartAngvelScratch.set(_visAngvel.x, _visAngvel.y, _visAngvel.z);
     deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now, deps.cartAngvelScratch);
@@ -365,6 +367,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
     const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
     const glowIntensity = (0.375 + glowPulse * 1.125) * 0.85;
+    // * Quantize leader pulse so dirty-gating still refreshes ~12×/s (smooth enough).
+    const glowPulseQ = Math.round(glowPulse * 12);
     const chargeCfg = deps.CONFIG?.cart?.ramBoost?.boostCharge;
     const chargeTimeMs = chargeCfg?.boostChargeTimeMs || 1500;
     const chargeEnabled = chargeCfg?.enabled !== false;
@@ -378,15 +382,25 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
       // * Priority: leader pulse > active nitro burst > charge buildup > idle tint.
       // * Charge telegraph is host-visible for any cart with isChargingBoost (solo = all humans).
+      // * Dirty-gate: idle carts keep a static tint — rewriting emissives 60×/s was free heat.
       if (isLeader) {
-        applyThemeLeaderGlow(cache, themeId, slotHex, glowPulse, glowIntensity);
+        const key = `L|${themeId}|${slotHex}|${glowPulseQ}`;
+        if (cart._themeGlowKey !== key) {
+          cart._themeGlowKey = key;
+          applyThemeLeaderGlow(cache, themeId, slotHex, glowPulse, glowIntensity);
+        }
       } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > now) {
-        applyThemeColorToCache(
-          cache,
-          themeId,
-          slotHex,
-          1.2 + 0.4 * Math.sin(now * 0.02),
-        );
+        const boostPulseQ = Math.round((1.2 + 0.4 * Math.sin(now * 0.02)) * 20);
+        const key = `B|${themeId}|${slotHex}|${boostPulseQ}`;
+        if (cart._themeGlowKey !== key) {
+          cart._themeGlowKey = key;
+          applyThemeColorToCache(
+            cache,
+            themeId,
+            slotHex,
+            1.2 + 0.4 * Math.sin(now * 0.02),
+          );
+        }
       } else if (
         chargeEnabled
         && roundState.phase === "running"
@@ -398,9 +412,18 @@ export function updateVisualsAndEffects(deps, frameCtx) {
           now,
           chargeTimeMs,
         );
-        applyThemeChargeGlow(cache, themeId, slotHex, charge01, now, chargeCfg);
+        const chargeQ = Math.round(charge01 * 24);
+        const key = `C|${themeId}|${slotHex}|${chargeQ}`;
+        if (cart._themeGlowKey !== key) {
+          cart._themeGlowKey = key;
+          applyThemeChargeGlow(cache, themeId, slotHex, charge01, now, chargeCfg);
+        }
       } else {
-        applyThemeColorToCache(cache, themeId, slotHex);
+        const key = `I|${themeId}|${slotHex}`;
+        if (cart._themeGlowKey !== key) {
+          cart._themeGlowKey = key;
+          applyThemeColorToCache(cache, themeId, slotHex);
+        }
       }
     }
   }

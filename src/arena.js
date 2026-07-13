@@ -11,7 +11,10 @@ import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
 import { installCheapMirrorPass } from "./utils/cheapMirror.js";
 
-const REFLECTOR_TEXTURE_SIZE_FULL = 1024;
+// * Play-time Reflector RT. Was 1024² (Pass 2 isolation: Reflector ≈ 60% of Classic High
+// * GPU). 512² is a 4× bandwidth cut; cart/booth silhouettes still read on the vinyl at
+// * fight distance. High tier still owns the only Reflector-on path (medium/low use solid floor).
+const REFLECTOR_TEXTURE_SIZE_FULL = 512;
 const REFLECTOR_TEXTURE_SIZE_BOOT = 256;
 
 const VISUAL_RECORD_THICKNESS = 0.28;

@@ -51,7 +51,7 @@ let budgetMs = DEFAULT_BUDGET_MS;
 let frameIndex = 0;
 let lastFrameDtMs = 16.6;
 /** @type {Partial<Record<BudgetBucket, boolean>>} */
-let allowCache = {};
+const allowCache = {};
 /** @type {Partial<Record<BudgetBucket, number>>} */
 const skipCounts = {};
 /** @type {Partial<Record<BudgetBucket, number>>} */
@@ -65,7 +65,10 @@ const runCounts = {};
 export function beginFrameBudget(nowMs, dtSec = 0.016) {
   frameStartMs = nowMs;
   frameIndex += 1;
-  allowCache = {};
+  // * Reuse the cache object — delete keys instead of allocating a fresh {} every frame.
+  for (const k of Object.keys(allowCache)) {
+    delete allowCache[/** @type {BudgetBucket} */ (k)];
+  }
 
   const dtMs = Math.min(50, Math.max(4, (Number(dtSec) || 0.016) * 1000));
   lastFrameDtMs = dtMs;
@@ -156,7 +159,7 @@ export function resetFrameBudgetForTests() {
   budgetMs = DEFAULT_BUDGET_MS;
   frameIndex = 0;
   lastFrameDtMs = 16.6;
-  allowCache = {};
+  for (const k of Object.keys(allowCache)) delete allowCache[/** @type {BudgetBucket} */ (k)];
   for (const k of Object.keys(skipCounts)) delete skipCounts[/** @type {BudgetBucket} */ (k)];
   for (const k of Object.keys(runCounts)) delete runCounts[/** @type {BudgetBucket} */ (k)];
 }

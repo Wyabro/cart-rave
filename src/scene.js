@@ -685,15 +685,17 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
   const knobs = QUALITY_KNOBS[tier] ?? QUALITY_KNOBS.high;
   if (bloomPass) bloomPass.enabled = knobs.postFx && (userFx.bloomEnabled ?? true);
   if (arcadePass) arcadePass.enabled = knobs.postFx && (userFx.fxPassEnabled ?? true);
-  if (fxaaPass) fxaaPass.enabled = knobs.fxaa;
   if (renderer) {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap);
     renderer.setPixelRatio(pixelRatio);
     if (composer) {
       composer.setSize(window.innerWidth, window.innerHeight);
     }
-    // * FXAA resolution must match the new pixel ratio.
+    // * FXAA at high DPR is a full-screen pass for almost no AA gain (pixels already dense).
+    // * Keep it on Medium (DPR≤1.25) and low-DPR High; skip when the cap lands ≥1.75.
     if (fxaaPass) {
+      const wantFxaa = knobs.fxaa && pixelRatio < 1.75;
+      fxaaPass.enabled = wantFxaa;
       const w = window.innerWidth;
       const h = window.innerHeight;
       fxaaPass.material.uniforms.resolution.value.set(
@@ -701,6 +703,8 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
         1 / (h * pixelRatio),
       );
     }
+  } else if (fxaaPass) {
+    fxaaPass.enabled = knobs.fxaa;
   }
 }
 
@@ -886,7 +890,8 @@ export function createComposer(renderer, scene, camera) {
     1 / (window.innerWidth * pixelRatio),
     1 / (window.innerHeight * pixelRatio),
   );
-  fxaaPass.enabled = getQualityKnobs().fxaa;
+  // * Same rule as applyComposerQualityTier: FXAA is wasted when pixels are already dense.
+  fxaaPass.enabled = getQualityKnobs().fxaa && pixelRatio < 1.75;
   composer.addPass(fxaaPass);
 
   return { composer, bloomPass, arcadePass, fxaaPass, outputPass };
