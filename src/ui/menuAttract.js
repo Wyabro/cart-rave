@@ -43,6 +43,13 @@ let deps = null;
 let rafId = null;
 let active = false;
 let revealed = false;
+/**
+ * While true the loop keeps running but skips rendering — the canvas holds its
+ * last frame. Set around menu arena swaps so the attract render never hits a
+ * half-built scene or compiles the new arena's shaders mid-frame (the swap path
+ * fades the canvas, swaps, warm-compiles, then releases the hold).
+ */
+let renderHold = false;
 /** Last rendered frame timestamp (ms) for throttling. */
 let lastFrameMs = 0;
 
@@ -134,6 +141,9 @@ function step(now) {
     return;
   }
 
+  // * Swap-in-progress hold: keep the last frame on the canvas, render nothing.
+  if (renderHold) return;
+
   const reduced = reducedMotionQuery?.matches === true;
   const interval = reduced ? REDUCED_MOTION_INTERVAL_MS : FRAME_INTERVAL_MS;
   if (now - lastFrameMs < interval) return;
@@ -195,6 +205,17 @@ export function startMenuAttract() {
   // * Fresh visit, fresh cut — restart the shot list from a new random azimuth.
   shotStartMs = 0;
   rafId = requestAnimationFrame(step);
+}
+
+/**
+ * Holds/releases attract rendering during menu arena swaps (see renderHold).
+ * @param {boolean} on
+ */
+export function setMenuAttractRenderHold(on) {
+  renderHold = on;
+  // * Render immediately on release so the fade-in reveals the NEW arena, not a
+  // * stale frame from before the swap.
+  if (!on) lastFrameMs = 0;
 }
 
 /** Stops the loop and restores the opaque menu backdrop. */

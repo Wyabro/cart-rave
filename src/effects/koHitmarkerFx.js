@@ -232,3 +232,56 @@ export function clearKoHitmarkers() {
   for (const fx of active) fx.teardown();
   active.length = 0;
 }
+
+/** @type {THREE.Group | null} */
+let _programWarmupGroup = null;
+
+/**
+ * Parks one live instance of each hitmarker material archetype in the scene
+ * (invisible — renderer.compile() traverses invisible objects, render skips them).
+ *
+ * Per-KO materials dispose to refcount zero, which deletes their GL programs and
+ * forces a synchronous shader recompile on the NEXT KO — a visible mid-round hitch.
+ * The anchor keeps the programs referenced forever so every spawn is a cache hit.
+ * Program-relevant params (material class, map, side, toneMapped, fog) must match
+ * spawnKoWorldHitmarker's materials; color/blending/opacity don't affect the program.
+ *
+ * @param {THREE.Scene} scene
+ */
+export function installKoHitmarkerProgramWarmup(scene) {
+  if (!scene) return;
+  if (_programWarmupGroup) {
+    if (_programWarmupGroup.parent !== scene) scene.add(_programWarmupGroup);
+    return;
+  }
+  const group = new THREE.Group();
+  group.name = "koHitmarkerProgramWarmup";
+  group.visible = false;
+  group.position.set(0, -500, 0);
+
+  // Ring (ShaderMaterial — unique source; nothing else in the scene holds it alive).
+  _color.setHex(0xff2bd6);
+  group.add(new THREE.Mesh(_planeGeo, makeRingMaterial(_color)));
+
+  // Spark points (PointsMaterial, no map, sizeAttenuation, toneMapped false).
+  const sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+  group.add(new THREE.Points(sparkGeo, new THREE.PointsMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true,
+    toneMapped: false,
+  })));
+
+  // Core flash (MeshBasicMaterial, no map, toneMapped false).
+  group.add(new THREE.Mesh(_planeGeo, new THREE.MeshBasicMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  })));
+
+  _programWarmupGroup = group;
+  scene.add(group);
+}

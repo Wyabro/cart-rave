@@ -1031,3 +1031,72 @@ export function cleanupShatter(cart, scene) {
   if (cart.mesh) cart.mesh.visible = true;
   if (cart.contactShadow) cart.contactShadow.visible = true;
 }
+
+/** @type {THREE.Group | null} */
+let _programWarmupGroup = null;
+
+/**
+ * Parks one live instance of each explosion material archetype in the scene
+ * (invisible — renderer.compile() traverses invisible objects, render skips them).
+ *
+ * cleanupShatter disposes every per-explosion material; at refcount zero three.js
+ * deletes the GL program, so the NEXT KO recompiles shaders synchronously — a
+ * visible mid-round hitch on every kill. The anchor keeps one reference per program
+ * archetype alive forever so spawnExplosion is always a program-cache hit. Also
+ * forces the lazy canvas textures to build + upload during load instead of mid-round.
+ * Program-relevant params (material class, map, side, toneMapped, fog) must match
+ * spawnExplosion's materials; color/blending/opacity don't affect the program.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {void}
+ */
+export function installShatterProgramWarmup(scene) {
+  if (!scene) return;
+  if (_programWarmupGroup) {
+    if (_programWarmupGroup.parent !== scene) scene.add(_programWarmupGroup);
+    return;
+  }
+  const tex = getExplosionTextures();
+  const group = new THREE.Group();
+  group.name = "shatterProgramWarmup";
+  group.visible = false;
+  group.position.set(0, -500, 0);
+
+  // Sprite + map (flash / flash2 / smoke).
+  group.add(new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex.flash,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })));
+
+  // MeshBasicMaterial, no map (core / glow / debris shards).
+  group.add(new THREE.Mesh(_sharedCoreGeo, new THREE.MeshBasicMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })));
+
+  // MeshBasicMaterial + map + DoubleSide (shock rings / ember disc / haze disc).
+  group.add(new THREE.Mesh(_sharedRingPlaneGeo, new THREE.MeshBasicMaterial({
+    map: tex.ring,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+  })));
+
+  // PointsMaterial + map + sizeAttenuation (ballistic sparks / ember motes).
+  const pointsGeo = new THREE.BufferGeometry();
+  pointsGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+  group.add(new THREE.Points(pointsGeo, new THREE.PointsMaterial({
+    map: tex.spark,
+    transparent: true,
+    depthWrite: false,
+    sizeAttenuation: true,
+    blending: THREE.AdditiveBlending,
+  })));
+
+  _programWarmupGroup = group;
+  scene.add(group);
+}

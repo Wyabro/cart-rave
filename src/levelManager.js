@@ -60,6 +60,12 @@ let menuLevelDebounceId = null;
  * @property {() => void} finalizeArenaForPlay
  * @property {(el: HTMLElement, fn: () => void) => Promise<void>} crossfadeElement
  * @property {() => HTMLElement | null} getCanvas
+ * @property {(runSwap: () => Promise<void>, opts?: { fade?: boolean }) => Promise<void>} [maskMenuPreviewSwap]
+ *   Wraps menu-time scene mutation in an attract-hold + shader warm-up (plus a canvas
+ *   cross-fade when `fade` is true) so the arena picker and idle finalize never freeze
+ *   the menu (main.js owns the mask implementation).
+ * @property {() => Promise<void>} [warmupAfterLevelSwap] Warm-compiles the freshly
+ *   swapped scene's programs (renderer.compileAsync) before gameplay/attract renders it.
  */
 
 /**
@@ -179,7 +185,18 @@ async function idleFinalizeMenuPreview() {
   await yieldForPaint();
   previewMode = false;
   menuPreviewNeedsFinalize = false;
-  d.finalizeArenaForPlay();
+  // * Finalize builds heavy extras (crowd/stage/lasers) — hold attract rendering and
+  // * warm their programs before the next attract frame hits them (visible menu freeze
+  // * otherwise). No fade: the hold is a ~100ms frame freeze, imperceptible at 30fps.
+  const finalize = async () => {
+    d.finalizeArenaForPlay();
+    if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap();
+  };
+  if (d.maskMenuPreviewSwap) {
+    await d.maskMenuPreviewSwap(finalize, { fade: false });
+  } else {
+    await finalize();
+  }
 }
 
 /**
@@ -266,6 +283,9 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
         runSwap();
       }
       await swapPromise;
+      // * Play entry runs behind the loading overlay — compile the new arena's
+      // * programs here so the countdown's first frame doesn't stall on them.
+      if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap();
       await yieldForPaint();
       isSwappingLevel = false;
     } else if (menuPreviewNeedsFinalize) {
@@ -319,7 +339,17 @@ async function previewMenuLevelIfNeeded(levelId) {
         }
 
         await yieldForPaint();
-        await swapLoadedLevel(selected, { menuPreview: true });
+        // * Masked swap: attract-hold + canvas fade + compileAsync so the picker tap
+        // * never freezes the menu on the new arena's first render (shader compile).
+        const runSwap = async () => {
+          await swapLoadedLevel(selected, { menuPreview: true });
+          if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap();
+        };
+        if (d.maskMenuPreviewSwap) {
+          await d.maskMenuPreviewSwap(runSwap, { fade: true });
+        } else {
+          await runSwap();
+        }
         await yieldForPaint();
       }
     } finally {

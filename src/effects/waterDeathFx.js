@@ -521,26 +521,17 @@ function flushDelayedRipples(nowMs) {
 }
 
 /**
- * Multi-band expanding ripple disc (visual complement to the water-normal distortion).
- * Reads at grazing angles where normal crests alone can disappear.
+ * Ripple overlay ShaderMaterial — factored out so the program-warmup anchor and
+ * spawnRippleOverlay create byte-identical shader source (one program cache entry).
+ * uBands/uCaustic are uniforms, not defines, so lowQ shares the same program.
  *
- * @param {THREE.Scene} scene
- * @param {number} x
- * @param {number} y
- * @param {number} z
+ * @param {boolean} lowQ
  * @param {number} intensity
- * @param {number} [neonHex]
- * @returns {void}
+ * @param {THREE.Color} color
+ * @returns {THREE.ShaderMaterial}
  */
-function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
-  const lowQ = isLowQualityMode();
-  const startMs = performance.now();
-  const durationMs = 1400 + intensity * 600;
-  const endScale = 6.5 + intensity * 5.5;
-
-  _tmpColor.setHex(neonHex).lerp(new THREE.Color(0xd8f0ff), 0.65);
-
-  const mat = new THREE.ShaderMaterial({
+function makeRippleOverlayMaterial(lowQ, intensity, color) {
+  return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -548,7 +539,7 @@ function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
     uniforms: {
       uProgress: { value: 0 },
       uIntensity: { value: 0.55 + intensity * 0.55 },
-      uColor: { value: _tmpColor.clone() },
+      uColor: { value: color.clone() },
       uBands: { value: lowQ ? 2.0 : 4.0 },
       // * 1 = full Shadertoy-style caustic lace; 0 = ring crests only (low quality).
       uCaustic: { value: lowQ ? 0.0 : 1.0 },
@@ -627,6 +618,29 @@ function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
       }
     `,
   });
+}
+
+/**
+ * Multi-band expanding ripple disc (visual complement to the water-normal distortion).
+ * Reads at grazing angles where normal crests alone can disappear.
+ *
+ * @param {THREE.Scene} scene
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @param {number} intensity
+ * @param {number} [neonHex]
+ * @returns {void}
+ */
+function spawnRippleOverlay(scene, x, y, z, intensity, neonHex = 0xc8e8ff) {
+  const lowQ = isLowQualityMode();
+  const startMs = performance.now();
+  const durationMs = 1400 + intensity * 600;
+  const endScale = 6.5 + intensity * 5.5;
+
+  _tmpColor.setHex(neonHex).lerp(new THREE.Color(0xd8f0ff), 0.65);
+
+  const mat = makeRippleOverlayMaterial(lowQ, intensity, _tmpColor);
 
   const mesh = new THREE.Mesh(_planeGeo, mat);
   mesh.rotation.x = -Math.PI / 2;
@@ -1645,4 +1659,36 @@ export function updateWaterDeathFx(allCarts, now, dt) {
       active.splice(i, 1);
     }
   }
+}
+
+/** @type {THREE.Group | null} */
+let _programWarmupGroup = null;
+
+/**
+ * Parks a live ripple-overlay ShaderMaterial in the scene (invisible —
+ * renderer.compile() traverses invisible objects, render skips them).
+ *
+ * Splash teardowns dispose their materials; at refcount zero three.js deletes the
+ * GL program, so the next water death recompiles the ripple shader synchronously —
+ * a mid-round hitch. The anchor keeps the program referenced forever. The splash's
+ * sprite/points/basic archetypes are covered by the shatter warmup (shared program
+ * cache); only the ripple shader source is unique to this module.
+ *
+ * @param {THREE.Scene} scene
+ * @returns {void}
+ */
+export function installWaterFxProgramWarmup(scene) {
+  if (!scene) return;
+  if (_programWarmupGroup) {
+    if (_programWarmupGroup.parent !== scene) scene.add(_programWarmupGroup);
+    return;
+  }
+  const group = new THREE.Group();
+  group.name = "waterFxProgramWarmup";
+  group.visible = false;
+  group.position.set(0, -500, 0);
+  _tmpColor.setHex(0xc8e8ff);
+  group.add(new THREE.Mesh(_planeGeo, makeRippleOverlayMaterial(false, 1, _tmpColor)));
+  _programWarmupGroup = group;
+  scene.add(group);
 }

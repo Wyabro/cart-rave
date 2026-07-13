@@ -44,7 +44,7 @@ import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
 import * as Entities from "./entities.js";
 import { createCart } from "./entities.js";
-import { triggerCartShatter } from "./cartShatter.js";
+import { installShatterProgramWarmup, triggerCartShatter } from "./cartShatter.js";
 import * as HUD from "./hud.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
@@ -122,7 +122,8 @@ import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
 import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
-import { spawnKoWorldHitmarker } from "./effects/koHitmarkerFx.js";
+import { installKoHitmarkerProgramWarmup, spawnKoWorldHitmarker } from "./effects/koHitmarkerFx.js";
+import { installWaterFxProgramWarmup } from "./effects/waterDeathFx.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
@@ -157,7 +158,7 @@ import {
   isWorldBootstrapped,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
-import { initMenuAttract, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
+import { initMenuAttract, setMenuAttractRenderHold, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
 import { animateCartBoostPulse, animateCartImpactSquash, crossfadeElement } from "./animations.js";
 import {
   getIsMuted,
@@ -1302,12 +1303,31 @@ async function main() {
     dismissAllLoadingOverlays();
   }
 
+  /** @returns {boolean} true when initNetcode was invoked without throwing. */
   function bootstrapNetcodeFromMenu(mode, roomOverride) {
     try {
       Netcode.initNetcode(roomOverride);
+      return true;
     } catch (err) {
       onMenuBootstrapError(mode, err);
+      return false;
     }
+  }
+
+  /**
+   * Solo/test-drive arena-ready hook for enterPlayMode: kicks netcode under the
+   * loading overlay and holds the overlay until carts exist and shader warm-up is
+   * done (ensureSessionCartsReady resolves post-warmup; the solo game start fires
+   * off that same promise — so the countdown can't begin before loading completes).
+   * @param {string} modeLabel
+   * @returns {(report: (pct: number, label: string) => void) => Promise<void>}
+   */
+  function makeSoloArenaReadyHook(modeLabel) {
+    return async (report) => {
+      report?.(96, "Rolling out carts…");
+      if (!bootstrapNetcodeFromMenu(modeLabel)) return;
+      await ensureSessionCartsReady();
+    };
   }
 
   function initMenu() {
@@ -1355,21 +1375,22 @@ async function main() {
 
     const room = Netcode.resolvedPartyRoomFromUrl();
     if (room && room.toLowerCase().startsWith("testdrive")) {
-      void enterPlayMode({ gameMode: "testdrive", levelId: "testArena" })
-        .then(() => {
-          showRotatePromptIfNeeded();
-          bootstrapNetcodeFromMenu("Test Drive");
-        })
+      void enterPlayMode({
+        gameMode: "testdrive",
+        levelId: "testArena",
+        onArenaReady: makeSoloArenaReadyHook("Test Drive"),
+      })
+        .then(() => showRotatePromptIfNeeded())
         .catch((err) => onMenuBootstrapError("Test Drive", err));
       return;
     }
 
     if (room && room.toLowerCase().startsWith("solo")) {
-      void enterPlayMode({ gameMode: "solo" })
-        .then(() => {
-          showRotatePromptIfNeeded();
-          bootstrapNetcodeFromMenu("Solo");
-        })
+      void enterPlayMode({
+        gameMode: "solo",
+        onArenaReady: makeSoloArenaReadyHook("Solo"),
+      })
+        .then(() => showRotatePromptIfNeeded())
         .catch((err) => onMenuBootstrapError("Solo", err));
       return;
     }
@@ -1430,8 +1451,10 @@ async function main() {
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
-        void enterPlayMode({ gameMode: "solo" })
-          .then(() => bootstrapNetcodeFromMenu("Solo"))
+        void enterPlayMode({
+          gameMode: "solo",
+          onArenaReady: makeSoloArenaReadyHook("Solo"),
+        })
           .catch((err) => onMenuBootstrapError("Solo", err));
       } else if (action === "quickplay") {
         const url = new URL(window.location.href);
@@ -1782,6 +1805,8 @@ async function main() {
     finalizeArenaForPlay,
     crossfadeElement,
     getCanvas: () => canvas,
+    maskMenuPreviewSwap,
+    warmupAfterLevelSwap: () => warmupActiveSceneShaders(),
   });
 
   initBootstrap({
@@ -1797,6 +1822,7 @@ async function main() {
     getPreviewNeedsFullRebuild,
     rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
+    warmupBeforeRoundStart: () => warmupActiveSceneShaders(),
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
     getHelloGate: () => /** @type {any} */ (helloGate),
@@ -2022,6 +2048,90 @@ async function main() {
   }
 
   /**
+   * Warm-compiles every program the live scene can ask for: arena + extras + carts
+   * plus the parked VFX warmup anchors (shatter explosion, KO hitmarker, water
+   * ripple — per-event materials dispose to refcount zero, which would delete their
+   * GL programs and recompile them synchronously on the NEXT KO/splash mid-round).
+   * compileAsync rides KHR_parallel_shader_compile, so awaiting it behind a loading
+   * overlay / attract hold trades one giant first-render stall for parallel links.
+   */
+  async function warmupActiveSceneShaders() {
+    try {
+      installShatterProgramWarmup(scene);
+      installKoHitmarkerProgramWarmup(scene);
+      installWaterFxProgramWarmup(scene);
+      await renderer.compileAsync(scene, camera);
+    } catch (err) {
+      // * Warm-up is an optimization — never let it block play entry.
+      console.warn("[CartRave] scene shader warm-up failed:", err);
+    }
+  }
+
+  /**
+   * Simple opacity tween for the game canvas, driven by rAF with a hard setTimeout
+   * fallback — WAAPI/compositor animations never finish in hidden tabs, and a hung
+   * fade here would wedge menuLevelPreviewPromise (and with it, play entry) forever.
+   * Instant when reduced motion is preferred.
+   * @param {number} to 0..1
+   * @param {number} ms
+   */
+  function fadeGameCanvasTo(to, ms) {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      canvas.style.opacity = String(to);
+      return Promise.resolve();
+    }
+    const from = parseFloat(canvas.style.opacity || "1");
+    const start = performance.now();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        canvas.style.opacity = String(to);
+        resolve();
+      };
+      const step = (now) => {
+        if (done) return;
+        const t = Math.min(1, (now - start) / ms);
+        const eased = 1 - (1 - t) * (1 - t);
+        canvas.style.opacity = String(from + (to - from) * eased);
+        if (t < 1) requestAnimationFrame(step);
+        else finish();
+      };
+      requestAnimationFrame(step);
+      // * Hidden-tab safety: rAF may stall; never leave the fade promise pending.
+      window.setTimeout(finish, ms + 600);
+    });
+  }
+
+  /**
+   * Menu arena-swap mask: hold attract rendering (last frame stays on canvas),
+   * optionally fade the canvas down to the menu gradient, run the swap + shader
+   * warm-up, render one fresh frame while transparent, then fade back in.
+   * Keeps the picker responsive — the swap never runs under a visible render.
+   * @param {() => Promise<void>} runSwap
+   * @param {{ fade?: boolean }} [opts]
+   */
+  async function maskMenuPreviewSwap(runSwap, opts = {}) {
+    const fade = opts.fade !== false;
+    setMenuAttractRenderHold(true);
+    try {
+      if (fade) await fadeGameCanvasTo(0, 180);
+      await runSwap();
+      if (fade) {
+        // * Release with the canvas still transparent — the attract loop draws the
+        // * new arena (programs already warm), then the fade-in reveals it.
+        setMenuAttractRenderHold(false);
+        await yieldForPaint();
+        await fadeGameCanvasTo(1, 260);
+      }
+    } finally {
+      setMenuAttractRenderHold(false);
+      if (fade) canvas.style.opacity = "1";
+    }
+  }
+
+  /**
    * Loads level meshes/colliders into the live scene (called by levelManager).
    * @param {string} selected Resolved level id.
    * @param {{ menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }} opts
@@ -2142,6 +2252,9 @@ async function main() {
       // * Slower than the play-entry crossfade on purpose — the reveal is the transition.
       await crossfadeElement(canvas, runSwap, { fadeOutMs: 380, fadeInMs: 520 });
       await swapPromise;
+      // * Compile the rotated arena's programs before the host re-seats carts —
+      // * otherwise the first post-rotation frame stalls on shader compiles mid-MP.
+      await warmupActiveSceneShaders();
       Entities.refreshCartSpawnPositions();
       if (Netcode.getIsHost()) Entities.rematchResetWorld();
     } catch (err) {

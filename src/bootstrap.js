@@ -52,6 +52,10 @@ let lastSuccessfulHelloGen = null;
  * @property {() => { getGeneration: () => number, isReceived: () => boolean, getFirstPromise: () => Promise<void> }} getHelloGate
  * @property {() => Array<object> | null | undefined} getAllCartsRef
  * @property {(expectedGen: number) => Array<object> | null} bootstrapSessionCarts
+ * @property {() => Promise<void>} [warmupBeforeRoundStart] Compiles the live scene's
+ *   shader programs (carts + arena + VFX warmup anchors) after carts exist. Solo's
+ *   game-start fires when ensureSessionCartsReady resolves, so awaiting this inside
+ *   the cart bootstrap keeps the first countdown from starting into a compile freeze.
  */
 
 /**
@@ -198,6 +202,12 @@ export async function ensureSessionCartsReady() {
       if (bootstrapGen === helloGate.getGeneration()) {
         lastSuccessfulHelloGen = bootstrapGen;
       }
+      // * Warm-compile everything now in scene (carts, arena, VFX anchors) BEFORE this
+      // * promise resolves — netcode's solo path fires game start off this resolution,
+      // * so the countdown must not begin while shader compiles would freeze the frame.
+      if (created && typeof d.warmupBeforeRoundStart === "function") {
+        await d.warmupBeforeRoundStart();
+      }
       return created;
     })().finally(() => {
       if (bootstrapGen === helloGate.getGeneration()) {
@@ -228,7 +238,11 @@ export function getLastSuccessfulHelloGen() {
  *   levelId?: string | null,
  *   commitMenuHidden?: boolean,
  *   skipBootstrap?: boolean,
+ *   onArenaReady?: (reportProgress: (pct: number, label: string) => void) => Promise<void> | void,
  * }} [opts]
+ * `onArenaReady` runs under the loading overlay after the arena + cart GLB are
+ * ready — solo/test-drive pass their netcode bootstrap here so cart creation and
+ * shader warm-up finish before the overlay dismisses (and before game start fires).
  * @returns {Promise<void>}
  */
 export async function enterPlayMode(opts = {}) {
@@ -238,6 +252,7 @@ export async function enterPlayMode(opts = {}) {
     levelId: levelIdOpt,
     commitMenuHidden: commitMenuHiddenOpt,
     skipBootstrap = false,
+    onArenaReady,
   } = opts;
 
   const gameMode = gameModeOpt ?? d.detectGameMode();
@@ -310,6 +325,11 @@ export async function enterPlayMode(opts = {}) {
 
     reportProgress(94, "Loading carts…");
     await cartPrefetch;
+    if (typeof onArenaReady === "function") {
+      // * Solo/test-drive: netcode bootstrap + cart creation + shader warm-up run
+      // * here so the overlay only lifts when the round can truly start.
+      await onArenaReady(reportProgress);
+    }
     reportProgress(100, "Ready!");
     if (commitMenuHidden) {
       d.commitMenuHiddenForGame();
