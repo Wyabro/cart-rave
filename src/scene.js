@@ -591,6 +591,81 @@ export function isSoftwareRendererActive() {
 }
 
 /**
+ * Three r185 `WebGLRenderer.compileAsync` polls `materialProperties.currentProgram.isReady()`.
+ * When `currentProgram` is undefined (material never acquired a program, multi-pass
+ * DoubleSide path edge cases, disposed mats still in the compile Set), that call throws
+ * **Uncaught** inside `setTimeout` — so `await try/catch` around compileAsync never fires
+ * and play/menu load hangs on a black screen ("Cannot read properties of undefined
+ * (reading 'isReady')").
+ *
+ * Replace with a null-safe poll that drops materials without a program and always
+ * resolves (deadline) so shader warm-up cannot block boot.
+ *
+ * @param {THREE.WebGLRenderer} renderer
+ */
+function patchSafeCompileAsync(renderer) {
+  const compile = renderer.compile.bind(renderer);
+  const properties = renderer.properties;
+  const extensions = renderer.extensions;
+  const MAX_WAIT_MS = 8000;
+
+  renderer.compileAsync = function safeCompileAsync(scene, camera, targetScene = null) {
+    /** @type {Set<THREE.Material>} */
+    let materials;
+    try {
+      materials = compile(scene, camera, targetScene);
+    } catch (err) {
+      console.warn("[CartRave] renderer.compile failed during warm-up:", err);
+      return Promise.resolve(scene);
+    }
+
+    return new Promise((resolve) => {
+      const deadline = performance.now() + MAX_WAIT_MS;
+
+      function checkMaterialsReady() {
+        try {
+          materials.forEach((material) => {
+            const materialProperties = /** @type {{ currentProgram?: { isReady?: () => boolean } | null } | undefined} */ (
+              properties.get(material)
+            );
+            const program = materialProperties?.currentProgram;
+            // * Drop materials with no program — stock three would throw on program.isReady().
+            if (!program || typeof program.isReady !== "function") {
+              materials.delete(material);
+              return;
+            }
+            if (program.isReady()) {
+              materials.delete(material);
+            }
+          });
+        } catch (err) {
+          // * Never leave boot blocked on a poll-frame exception.
+          console.warn("[CartRave] compileAsync readiness poll failed:", err);
+          materials.clear();
+        }
+
+        if (materials.size === 0 || performance.now() >= deadline) {
+          resolve(scene);
+          return;
+        }
+        setTimeout(checkMaterialsReady, 10);
+      }
+
+      try {
+        if (extensions.get("KHR_parallel_shader_compile") !== null) {
+          checkMaterialsReady();
+        } else {
+          setTimeout(checkMaterialsReady, 10);
+        }
+      } catch {
+        // * Extension probe failed — still resolve after one tick.
+        setTimeout(checkMaterialsReady, 10);
+      }
+    });
+  };
+}
+
+/**
  * Creates the WebGL renderer bound to the game canvas.
  *
  * Hard floor: when the context comes back as a software rasterizer (Chrome
@@ -620,6 +695,9 @@ export function createRenderer(canvas) {
       { cause: err },
     );
   }
+
+  // * Must run before any compileAsync (menu attract finalize / quality warm / play entry).
+  patchSafeCompileAsync(renderer);
 
   const gl = renderer.getContext();
   const rendererString = readRendererString(gl);
