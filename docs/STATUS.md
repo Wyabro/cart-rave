@@ -3,8 +3,8 @@
 **What is this?** The first document anyone (human or agent) reads: project health, what's
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
-project stands. **Is it current?** Last verified 2026-07-12 (`npm run qa` green: 291 tests /
-29 files, typecheck + knip clean).
+project stands. **Is it current?** Last verified 2026-07-13 (`npm run qa` green: 292 tests /
+29 files, typecheck + knip clean; pre-playtest hardening `b307402`).
 
 > **Rehydration protocol** (agent or human resuming cold):
 > 1. Read **this file** fully.
@@ -36,8 +36,8 @@ is not closed.
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ 291 tests / 29 files, tsc clean, knip clean (2026-07-12, extreme perf pass) |
-| Unpushed work | ✅ None — extreme perf pass on `origin/cart-clash` as `5f44586`. |
+| Gates (`npm run qa`) | ✅ 292 tests / 29 files, tsc clean, knip clean (2026-07-13, pre-playtest hardening `b307402`) |
+| Unpushed work | ⚠️ Pre-playtest hardening `b307402` committed on `cart-clash`, **unpushed**; transition-pacing & UX pass still uncommitted. |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
 | Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
@@ -110,6 +110,7 @@ content/infra (domain cutover, ship checklist), not risk. Structural modernizati
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-HARDEN-1** (07-13): Pre-playtest council hardening (`b307402`) — SD same-frame-double-fall wedge resolved by replay-tiebreak (not draw/deterministic-winner); `sd_win` latch before `endRound` clears SD; Rapier `castRay` exclude-object fix in `isCartGrounded` + camera occlusion; quickplay rematch re-entrancy gate; `suddenDeathPulse` countdown leak. Hidden-tab crossfade `setLevelSwapping` hold deferred.
 - **D-NET-CLK-MIG** (07-12): NET-CLK-1 dual Party/host clocks, NET-CLK-3 round-clock hit/directive stamps, NET-MIG-1 kill-credit `attr` on promote (`a0475d6`). Remaining structural suggestions cataloged in BACKLOG Tech Debt (MAIN-1, DIR-1, GLTF-1, …).
 - **D-TERM-1** (07-12): Terminology pass — [style-guide.md](./style-guide.md) is canonical for all wording (Arena/Round/Boost/KO/Lobby/Quickplay rulings + rationale); player copy aligned; `combo_t2` unlock hint mislabel (RAMPAGE→SAVAGE) fixed.
 - **D-STAB-2** (07-11): Quickplay arena rotation deferred; rematch-seam recipe documented.
@@ -142,9 +143,18 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Rapier WASM: standard build is the default; SIMD is opt-in only (borrow error, `8174180`).
 - Concurrent agent sessions may `git add -A` — commit fast and surgically when working alongside one.
 - Debug/harness surface map lives in [guides/visual-qa.md](./guides/visual-qa.md).
+- Rapier `world.castRay(...)` reads `.handle` **off the exclude args itself** (`filterExcludeCollider ? filterExcludeCollider.handle : null`) — pass the **Collider/RigidBody objects**, never `collider.handle`/`body.handle`. A raw handle number is truthy, so `(number).handle` → `undefined` → exclusion silently disabled; with `solid=true` the ray then self-hits at toi 0. Bit `isCartGrounded` (grounded=true always) and the camera occlusion ray (`b307402`). Our carts type collider/body as only `{ handle }`, so the object pass needs an `any` cast at the call.
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-13 — **Pre-playtest hardening** (council review, committed `b307402` on `cart-clash`; **unpushed**). A `/council` static bug-hunt (Gemini + Qwen, every finding re-verified against source) on the recently-landed, human-unvalidated code. Six confirmed fixes + one regression test; gates green (292 tests / 29 files, tsc + knip clean, build OK). Not driven live in-browser — these are the edge states the playtest itself exercises.
+- **SD permanent wedge** (gameFlow.js): two tied carts crossing the fall line on the **same frame** with no attacker credited each parked as spectator and counted 0 survivors → no `addScore` → round hung forever (SD has no timeout; only Esc escaped). Post-fall-loop recovery: when `aliveOnArena===0` during SD, re-seat the tied carts and replay the tiebreak (a mutual fall crowns no one). Self-limiting; regression test added to `gameFlowSuddenDeath.test.js`. **Design call:** chose replay-tiebreak over draw/deterministic-winner — one branch to change if Wyatt prefers otherwise.
+- **`sd_win` challenge never recorded** (main.js): `endRound` cleared `roundState.isSuddenDeath` before the podium block read it, dead-ending the `redMirror` unlock + `Clutch Winner` daily. Latched `lastRoundEndedInSuddenDeath` before the clear. Directly unblocks the Session-2 progression funnel.
+- **`isCartGrounded` anti-air-hop gate was a no-op** (main.js): passed Rapier collider/body `.handle` **numbers** to `castRay`, which reads `.handle` off the arg itself — `(number).handle` is undefined, so the exclusion was inert and the ray self-hit at toi 0, returning `grounded=true` always. Pass the objects. Same class fixed in **camera.js** occlusion ray (target cart could occlude its own camera; needed an `any` cast — our type is only `{handle}`). See new gotcha.
+- **Rematch re-entrancy arena desync** (main.js, quickplay only): a double-fire of `onHostPlayAgainClick` could latch+broadcast a second random arena while its rotation no-ops on the in-flight flag → host and clients on different arenas. Gated the quickplay block on `arenaRotationInFlight`; solo/test-drive restart path untouched.
+- **`suddenDeathPulse` CSS leak** (hud.js): infinite pulse bled onto the post-SD rematch GET READY/countdown/GO! banner. Cleared inline `animation` up front; SD branch re-stamps each frame.
+- ⚠️ **Deferred** (from the same review): hidden-tab crossfade holds `setLevelSwapping` until refocus (self-healing/time-boxed — wants the rAF+timeout fallback the menu-preview fade already uses); winner-cam skip, once-per-round challenge guard, compileAsync lifecycle, and charge-SFX cleanup all re-verified **clean**.
 
 2026-07-13 — **Transition pacing & UX pass** (council items C1/C2/C3, H1/H3, N1/N2/N4; UNCOMMITTED). Gates green: 291 tests / 29 files, tsc + knip clean, build OK; solo flow verified live in-browser (`?perfPump` + temporarily shortened round; config reverted).
 - **C1 winner cam**: `PODIUM_WINNER_CAM_MS` 5000→**2400** (camera.js — purely local presentation, no netcode impact). **Any-input skip**: fresh keydown (non-repeat, non-Escape), pointerdown (mouse+touch), or gamepad rising-edge press during the winner cam reveals results immediately (main.js `requestPodiumWinnerCamSkip` + per-frame `pollPodiumGamepadSkip`); 450ms grace so round-end input mash doesn't eat the celebration; VO/confetti fire at podium begin and play out regardless. Verified: skip at 707ms → results next frame (20ms).
