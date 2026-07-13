@@ -58,14 +58,16 @@ let menuLevelDebounceId = null;
  * @property {(levelId: string, opts: { menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }) => Promise<void>} performLevelLoad
  * @property {(levelId: string) => void} [onPreviewSwapComplete]
  * @property {() => void} finalizeArenaForPlay
+ * @property {() => void} [finalizeArenaShellForMenu]
+ *   Classic menu attract only: skybox + stadium bowl + stage (no lasers). Idempotent.
  * @property {(el: HTMLElement, fn: () => void) => Promise<void>} crossfadeElement
  * @property {() => HTMLElement | null} getCanvas
  * @property {(runSwap: () => Promise<void>, opts?: { fade?: boolean }) => Promise<void>} [maskMenuPreviewSwap]
  *   Wraps menu-time scene mutation in an attract-hold + shader warm-up (plus a canvas
- *   cross-fade when `fade` is true) so the arena picker and idle finalize never freeze
- *   the menu (main.js owns the mask implementation).
- * @property {() => Promise<void>} [warmupAfterLevelSwap] Warm-compiles the freshly
- *   swapped scene's programs (renderer.compileAsync) before gameplay/attract renders it.
+ *   cross-fade when `fade` is true) so the arena picker never freezes the menu.
+ * @property {(opts?: { forPlay?: boolean }) => Promise<void>} [warmupAfterLevelSwap]
+ *   Warm-compiles the freshly swapped scene before attract/gameplay renders it.
+ *   `forPlay: false` = menu-light (skip reinstalling VFX anchors).
  */
 
 /**
@@ -168,35 +170,21 @@ function canSafelyRebuildLevel() {
   return previewNeedsFullRebuild || previewMode;
 }
 
-function scheduleMenuPreviewFinalize() {
-  menuPreviewNeedsFinalize = true;
-  if (menuPreviewFinalizeId != null) clearTimeout(menuPreviewFinalizeId);
-  menuPreviewFinalizeId = setTimeout(() => {
-    menuPreviewFinalizeId = null;
-    if (!deps?.getMenuVisible() || !menuPreviewNeedsFinalize) return;
-    void idleFinalizeMenuPreview();
-  }, 500);
-}
-
-async function idleFinalizeMenuPreview() {
-  const d = requireDeps();
-  if (!d.getMenuVisible() || !d.isWorldBootstrapped() || !menuPreviewNeedsFinalize) return;
-  if (menuLevelPreviewPromise) await menuLevelPreviewPromise;
-  await yieldForPaint();
-  previewMode = false;
+/**
+ * After a menu preview load: ensure Classic has sky+stadium for attract (shell),
+ * without the old delayed "full juice + second compile" path that froze the menu.
+ * Shell build is idempotent — first Classic visit pays once; later swaps only toggle.
+ */
+function ensureMenuAttractShellAfterPreview() {
   menuPreviewNeedsFinalize = false;
-  // * Finalize builds heavy extras (crowd/stage/lasers) — hold attract rendering and
-  // * warm their programs before the next attract frame hits them (visible menu freeze
-  // * otherwise). No fade: the hold is a ~100ms frame freeze, imperceptible at 30fps.
-  const finalize = async () => {
-    d.finalizeArenaForPlay();
-    if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap();
-  };
-  if (d.maskMenuPreviewSwap) {
-    await d.maskMenuPreviewSwap(finalize, { fade: false });
-  } else {
-    await finalize();
+  if (menuPreviewFinalizeId != null) {
+    clearTimeout(menuPreviewFinalizeId);
+    menuPreviewFinalizeId = null;
   }
+  const d = deps;
+  if (!d?.finalizeArenaShellForMenu) return;
+  // * Only Classic uses the rave shell; other levels no-op inside the helper.
+  d.finalizeArenaShellForMenu();
 }
 
 /**
@@ -229,7 +217,8 @@ export async function swapLoadedLevel(levelId, opts = {}) {
   if (menuPreview) {
     previewNeedsFullRebuild = true;
     d.onPreviewSwapComplete?.(selected);
-    scheduleMenuPreviewFinalize();
+    // * Inside the caller's attract mask: sky + stadium for Classic (not lasers).
+    ensureMenuAttractShellAfterPreview();
     return;
   }
 
@@ -283,9 +272,8 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
         runSwap();
       }
       await swapPromise;
-      // * Play entry runs behind the loading overlay — compile the new arena's
-      // * programs here so the countdown's first frame doesn't stall on them.
-      if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap();
+      // * Play entry runs behind the loading overlay — full warm (arena + VFX anchors).
+      if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
       await yieldForPaint();
       isSwappingLevel = false;
     } else if (menuPreviewNeedsFinalize) {
@@ -294,6 +282,7 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
       previewMode = false;
       menuPreviewNeedsFinalize = false;
       d.finalizeArenaForPlay();
+      if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
     }
   })().catch((err) => {
     isSwappingLevel = false;
@@ -339,11 +328,12 @@ async function previewMenuLevelIfNeeded(levelId) {
         }
 
         await yieldForPaint();
-        // * Masked swap: attract-hold + canvas fade + compileAsync so the picker tap
-        // * never freezes the menu on the new arena's first render (shader compile).
+        // * Masked swap: attract-hold + canvas fade + light compile so the first
+        // * attract frame after reveal does not sync-compile. Menu uses light warm
+        // * (no VFX anchors — those install once at play entry).
         const runSwap = async () => {
           await swapLoadedLevel(selected, { menuPreview: true });
-          if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap();
+          if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: false });
         };
         if (d.maskMenuPreviewSwap) {
           await d.maskMenuPreviewSwap(runSwap, { fade: true });
@@ -379,7 +369,8 @@ export function scheduleMenuLevelPreview() {
     } else {
       runPreview();
     }
-  }, 120);
+  // * Slightly longer than 120ms so rapid arena cycling coalesces into one swap.
+  }, 200);
 }
 
 /**

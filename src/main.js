@@ -1839,10 +1839,11 @@ async function main() {
       Effects.setRaveExtrasVisible(levelId !== "backrooms" && levelId !== "testArena");
     },
     finalizeArenaForPlay,
+    finalizeArenaShellForMenu,
     crossfadeElement,
     getCanvas: () => canvas,
     maskMenuPreviewSwap,
-    warmupAfterLevelSwap: () => warmupActiveSceneShaders(),
+    warmupAfterLevelSwap: (opts) => warmupActiveSceneShaders(opts),
   });
 
   initBootstrap({
@@ -1858,7 +1859,7 @@ async function main() {
     getPreviewNeedsFullRebuild,
     rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
-    warmupBeforeRoundStart: () => warmupActiveSceneShaders(),
+    warmupBeforeRoundStart: () => warmupActiveSceneShaders({ forPlay: true }),
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
     getHelloGate: () => /** @type {any} */ (helloGate),
@@ -1922,7 +1923,10 @@ async function main() {
   let setReflectorVisible = null;
   /** @type {((knobs: import("./utils/qualityTiers.js").QualityKnobs) => void) | null} */
   let levelApplyQualityTier = null;
-  let raveVisualsInitialized = false;
+  /** Stadium bowl + stage + crowd instances (Classic attract needs this). */
+  let raveShellInitialized = false;
+  /** Lasers + billboard (play juice — skip on menu attract to keep swaps light). */
+  let raveJuiceInitialized = false;
   let sceneEnvironmentDispose = null;
   /** @type {typeof CONFIG.postFx.bloom | null} Saved bloom tuning when entering test drive. */
   let testDriveBloomSaved = null;
@@ -2033,30 +2037,50 @@ async function main() {
     }
   }
 
-  function initDeferredRaveVisuals() {
+  /**
+   * Classic attract shell: space skybox + stadium bowl + stage. Stadium geometry is
+   * built inside initCrowd (not a separate mesh). Lasers/billboard = play juice only.
+   * @param {{ includeJuice?: boolean }} [opts]
+   */
+  function ensureRaveAttractShell(opts = {}) {
+    const includeJuice = opts.includeJuice === true;
     const wantRaveExtras = levelUsesRaveExtras();
-    disposeSceneExtras(sceneExtras);
-    sceneExtras = /** @type {any} */ (initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras }));
-    // * Scene extras (skybox/planets/spotlights) only built on levels that use them
-    // * (Classic Record). Visible at every tier — Low sheds cost via the knob pass
-    // * below (crowd budget, lasers, dynamic lights), not by hiding the world.
-    if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+
+    // * Rebuild sky only when missing — avoid thrashing extras every picker swap.
+    if (!sceneExtras || sceneExtras.disposed) {
+      sceneExtras = /** @type {any} */ (
+        initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras })
+      );
+    } else if (Array.isArray(sceneExtras.sceneRoots)) {
       for (const root of sceneExtras.sceneRoots) root.visible = wantRaveExtras;
     }
-    if (wantRaveExtras && !raveVisualsInitialized) {
+
+    if (wantRaveExtras && !raveShellInitialized) {
       clearMirrorExcludes();
       Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
       Effects.initStage(scene, pitInnerRadius, CART_COLORS);
+      raveShellInitialized = true;
+    }
+
+    if (wantRaveExtras && includeJuice && !raveJuiceInitialized) {
       Effects.initBillboard(scene, pitInnerRadius);
       Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
-      raveVisualsInitialized = true;
+      raveJuiceInitialized = true;
     }
-    // * Skybox/planets out of the vinyl RT so cart/booth reflections stay readable.
+
     if (wantRaveExtras && sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
-      for (const root of sceneExtras.sceneRoots) registerMirrorExclude(root);
+      for (const root of sceneExtras.sceneRoots) {
+        root.visible = true;
+        registerMirrorExclude(root);
+      }
     }
+
     Effects.setRaveExtrasVisible(wantRaveExtras);
     if (wantRaveExtras) Effects.applyRaveExtrasQuality(getQualityKnobs());
+  }
+
+  function initDeferredRaveVisuals() {
+    ensureRaveAttractShell({ includeJuice: true });
   }
 
   function scheduleReflectorUpgrade() {
@@ -2077,6 +2101,19 @@ async function main() {
     }
   }
 
+  /**
+   * Menu Classic attract: sky + stadium + stage. Idempotent after first build —
+   * later picker swaps only toggle visibility (no second multi-second forest build).
+   */
+  function finalizeArenaShellForMenu() {
+    refreshSceneEnvironmentMaterials(scene);
+    ensureRaveAttractShell({ includeJuice: false });
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[bootstrap] menu attract shell (sky + stadium, no lasers)");
+    }
+  }
+
   function finalizeArenaForPlay() {
     refreshSceneEnvironmentMaterials(scene);
     initDeferredRaveVisuals();
@@ -2087,19 +2124,28 @@ async function main() {
     }
   }
 
+  /** True after VFX program anchors are parked in the scene (once per session). */
+  let vfxProgramAnchorsInstalled = false;
+
   /**
-   * Warm-compiles every program the live scene can ask for: arena + extras + carts
-   * plus the parked VFX warmup anchors (shatter explosion, KO hitmarker, water
-   * ripple — per-event materials dispose to refcount zero, which would delete their
-   * GL programs and recompile them synchronously on the NEXT KO/splash mid-round).
-   * compileAsync rides KHR_parallel_shader_compile, so awaiting it behind a loading
-   * overlay / attract hold trades one giant first-render stall for parallel links.
+   * Warm-compiles programs for the live scene.
+   * @param {{ forPlay?: boolean }} [opts]
+   *   forPlay true (default): ensure VFX anchors exist, then compileAsync — used at
+   *   play entry / round start so KO/splash never sync-recompiles mid-round.
+   *   forPlay false: menu attract path — compile current arena only; skip re-installing
+   *   anchors every picker swap (they are not needed until combat).
    */
-  async function warmupActiveSceneShaders() {
+  async function warmupActiveSceneShaders(opts = {}) {
+    const forPlay = opts.forPlay !== false;
     try {
-      installShatterProgramWarmup(scene);
-      installKoHitmarkerProgramWarmup(scene);
-      installWaterFxProgramWarmup(scene);
+      if (forPlay || !vfxProgramAnchorsInstalled) {
+        installShatterProgramWarmup(scene);
+        installKoHitmarkerProgramWarmup(scene);
+        installWaterFxProgramWarmup(scene);
+        vfxProgramAnchorsInstalled = true;
+      }
+      // * Menu path: still compileAsync so the first attract frame after a swap does not
+      // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
       await renderer.compileAsync(scene, camera);
     } catch (err) {
       // * Warm-up is an optimization — never let it block play entry.
@@ -2156,14 +2202,16 @@ async function main() {
     const fade = opts.fade !== false;
     setMenuAttractRenderHold(true);
     try {
-      if (fade) await fadeGameCanvasTo(0, 180);
+      // * Slightly longer fades than 180/260 — geometry + compile run under the
+      // * opaque gradient so the work reads as a transition, not a frozen UI.
+      if (fade) await fadeGameCanvasTo(0, 220);
       await runSwap();
       if (fade) {
         // * Release with the canvas still transparent — the attract loop draws the
         // * new arena (programs already warm), then the fade-in reveals it.
         setMenuAttractRenderHold(false);
         await yieldForPaint();
-        await fadeGameCanvasTo(1, 260);
+        await fadeGameCanvasTo(1, 300);
       }
     } finally {
       setMenuAttractRenderHold(false);
@@ -2189,6 +2237,9 @@ async function main() {
 
     if (typeof disposeLevel === "function") disposeLevel();
     lap("dispose");
+    // * Let the menu UI / attract hold paint once after dispose so the main thread
+    // * is not one continuous multi-hundred-ms block through loadLevel.
+    await yieldForPaint();
     // * Grocery pool stays warm across level swaps — init() clears active spills only
     // * after the first load (no re-fetch of ~2.9 MB grocery GLBs per arena change).
     ({
@@ -2294,7 +2345,7 @@ async function main() {
       await swapPromise;
       // * Compile the rotated arena's programs before the host re-seats carts —
       // * otherwise the first post-rotation frame stalls on shader compiles mid-MP.
-      await warmupActiveSceneShaders();
+      await warmupActiveSceneShaders({ forPlay: true });
       Entities.refreshCartSpawnPositions();
       if (Netcode.getIsHost()) Entities.rematchResetWorld();
     } catch (err) {
@@ -4088,16 +4139,18 @@ async function main() {
     // * tiers with crowdAnimate off (Low renders the stands frozen). Yield under
     // * frame pressure so host physics keeps the full budget.
     if (
-      raveVisualsInitialized
+      raveShellInitialized
       && levelUsesRaveExtras()
       && getQualityKnobs().crowdAnimate
       && frameBudgetAllow("rave_anim", now)
     ) {
       Effects.updateStageLights(syncedNow);
-      Effects.updateLasers(syncedNow);
       Effects.updateCrowd(syncedNow);
       Effects.updateStageLed(syncedNow);
-      Effects.updateBillboard(syncedNow);
+      if (raveJuiceInitialized) {
+        Effects.updateLasers(syncedNow);
+        Effects.updateBillboard(syncedNow);
+      }
     }
 
     // * Spindle/rims driven by arenaReactiveLights inside Classic Record levelUpdate.
