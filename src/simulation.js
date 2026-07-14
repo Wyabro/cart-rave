@@ -1385,6 +1385,60 @@ function applyCircularKeepOutAvoidance(px, pz, dir) {
 }
 
 /**
+ * Nearest registered circular keep-out on the active square-void level (Storerooms center
+ * furniture), by signed surface distance. `null` when the level has none. Used by the wedge
+ * break-out so a bot sawing the furniture face circles the RIGHT obstacle. (AI-2)
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @returns {{ x: number, z: number, radius: number, margin?: number } | null}
+ */
+function nearestLevelCircularKeepOut(px, pz) {
+  const zones = _levelHazards?.circularKeepOuts;
+  if (!zones?.length) return null;
+  let best = null;
+  let bestD = Infinity;
+  for (let i = 0; i < zones.length; i += 1) {
+    const ko = zones[i];
+    const d = Math.hypot(px - ko.x, pz - ko.z) - ko.radius;
+    if (d < bestD) {
+      bestD = d;
+      best = ko;
+    }
+  }
+  return best;
+}
+
+/**
+ * Tangent escape heading (unit XZ) for a cart grinding a SOLID circular keep-out — 90° to the
+ * outward radial so the bot circles the obstacle instead of sawing its near face. Of the two
+ * tangents, picks the one pointing more toward the chase target (the shorter way round). (AI-2)
+ *
+ * @param {number} px Cart X.
+ * @param {number} pz Cart Z.
+ * @param {{ x: number, z: number }} zone Keep-out center.
+ * @param {number} [targetX] Chase target X (biases which way to circle).
+ * @param {number} [targetZ] Chase target Z.
+ * @returns {{ x: number, z: number }}
+ */
+export function circularKeepOutTangentEscape(px, pz, zone, targetX, targetZ) {
+  const dx = px - zone.x;
+  const dz = pz - zone.z;
+  const dist = Math.hypot(dx, dz) || 1;
+  let tx = -dz / dist;
+  let tz = dx / dist;
+  if (typeof targetX === "number" && typeof targetZ === "number") {
+    const toTx = targetX - px;
+    const toTz = targetZ - pz;
+    if (tx * toTx + tz * toTz < 0) {
+      tx = -tx;
+      tz = -tz;
+    }
+  }
+  return { x: tx, z: tz };
+}
+
+/**
  * Blends a repulsion away from nearby square voids into an NPC's heading direction so it
  * steers around the holes instead of driving straight in. Mutates and re-normalizes `dir`.
  *
@@ -2076,16 +2130,11 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       const { cheb } = nearestSquareHole(p.x, p.z);
       const keepOut = squareHoleKeepOutRadius(0);
       nearHazard = cheb < keepOut + 3.0;
-      if (!nearHazard && _levelHazards.circularKeepOuts?.length > 0) {
-        for (let i = 0; i < _levelHazards.circularKeepOuts.length; i += 1) {
-          const ko = _levelHazards.circularKeepOuts[i];
-          const distKo = Math.hypot(p.x - ko.x, p.z - ko.z);
-          if (distKo < ko.radius + (ko.margin ?? 1.5) + 2.5) {
-            nearHazard = true;
-            break;
-          }
-        }
-      }
+      // * The center furniture is a SOLID circular keep-out, not a death void — a bot
+      // * wedged against it SHOULD reverse off (Wyatt: "reverse if touching it for >1s").
+      // * So it is deliberately excluded from the no-reverse gate here; only the corner
+      // * voids forbid reversing. Backing off the furniture heads inward toward mid-arena,
+      // * well short of the corner voids at ~holeCenter. (AI-2 Storerooms wedge)
     } else if (_octagonHazards) {
       // * Open octagon: the outer rim is the death edge — never reverse near it.
       nearHazard = octagonEdgeDistance(p.x, p.z) > _octagonHazards.arenaHalf - 3.5;
@@ -2150,11 +2199,23 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   // * to break the loop: drive away cleanly before turning back to chase.
   let inAvoidanceBand = false;
   let escapeMode = "tangent"; // "tangent" (circle a void) | "inward" (leave a kill rim)
+  let escapeKeepOut = null; // solid circular obstacle to circle, when that's the wedge (AI-2)
   if (_levelHazards?.arenaHalf != null) {
     const { cheb } = nearestSquareHole(p.x, p.z);
     const edge = _levelHazards.half + _levelHazards.avoidMargin;
     const band = _levelHazards.influenceBand;
     inAvoidanceBand = cheb < edge + band;
+    // * Center furniture (Storerooms): a solid circular obstacle a bot saws against while
+    // * chasing a human parked on the far side. Give it the same tangent-escape commit the
+    // * corner voids get so it circles the furniture instead of grinding it. (AI-2)
+    const ko = nearestLevelCircularKeepOut(p.x, p.z);
+    if (ko) {
+      const koReach = ko.radius + (ko.margin ?? 1.5) + (_levelHazards.influenceBand ?? 2);
+      if (Math.hypot(p.x - ko.x, p.z - ko.z) < koReach) {
+        inAvoidanceBand = true;
+        escapeKeepOut = ko;
+      }
+    }
   } else if (_octagonHazards) {
     // * Sundial octagon: the outer rim is the only kill edge, so a wedged/oscillating bot
     // * near it must escape *inward* (toward center), not tangent along the drop.
@@ -2178,7 +2239,14 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   if (now < cart.aiAvoidanceCommitUntilMs) {
     // * Escape vector — tangent to circle a void, or straight inward to leave a kill rim.
     let escapeX, escapeZ;
-    if (escapeMode === "inward") {
+    if (escapeKeepOut) {
+      // * Circle the solid furniture toward the chase target, not the nearest corner void.
+      const esc = circularKeepOutTangentEscape(
+        p.x, p.z, escapeKeepOut, cart.aiTarget.x, cart.aiTarget.z,
+      );
+      escapeX = esc.x;
+      escapeZ = esc.z;
+    } else if (escapeMode === "inward") {
       const dist = Math.hypot(p.x, p.z) || 1;
       escapeX = -p.x / dist;
       escapeZ = -p.z / dist;
