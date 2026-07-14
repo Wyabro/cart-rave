@@ -345,13 +345,15 @@ export function endCinematicCountdown(camera) {
  * Purely local presentation — never transmitted, safe to tune without netcode
  * impact. Any player input during the shot skips straight to results (main.js).
  */
-export const PODIUM_WINNER_CAM_MS = 2400;
+// * FEEL-1 (2026-07-14): 2400→3000 — a longer, more triumphant victory hold before
+// * the results panel covers the shot (Wyatt). Any input still skips to results.
+export const PODIUM_WINNER_CAM_MS = 3000;
 
 const DEFAULT_PODIUM_CONFIG = {
   radius: 6.0,
   height: 1.8,
   startAngle: 0,
-  // * ~0.4 rad/s ≈ 55° over PODIUM_WINNER_CAM_MS — a readable victory arc; the
+  // * ~0.4 rad/s ≈ 69° over PODIUM_WINNER_CAM_MS — a readable victory arc; the
   // * orbit keeps drifting behind the results panel afterward.
   angularSpeed: 0.4,
   lookTargetY: 0.8,

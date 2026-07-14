@@ -1987,7 +1987,9 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
     // * ram them off instead of being repelled by the keep-out. Gated to real campers so bots
     // * don't loiter on empty high ground.
     if (_octagonHazards && isOnPodiumHighGround(humanTarget.x, humanTarget.z)) {
-      cart.aiContestPodiumUntilMs = nowMs + 1500;
+      // * FEEL-2 (2026-07-14): 1500→1650 (~+10%) — bots stay committed to the high-ground
+      // * contest ~10% longer, so they fight harder for the bigger ART-4 podium zone.
+      cart.aiContestPodiumUntilMs = nowMs + 1650;
       return clampOctagonAiTarget(humanTarget.x, humanTarget.z, cautious, { allowPodium: true });
     }
     // * reachOuter: when chasing a human, let the goal reach closer to the arena rim so bots
