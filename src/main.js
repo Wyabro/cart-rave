@@ -133,6 +133,7 @@ import {
   noteBootMilestone,
   revealGameCanvas,
   showQualityApplyLoading,
+  whenModeEntryHidden,
   yieldForPaint,
 } from "./ui/loadingScreen.js";
 import {
@@ -2460,7 +2461,22 @@ async function main() {
       startsAtLocalMs = getRoundClockNowMs() + 3000;
     }
     if (Netcode.getIsHost()) {
-      startCountdown(startsAtLocalMs);
+      if (detectGameMode() === "solo") {
+        // * Solo is offline and host-timed: the game-start fires the moment carts are
+        // * ready, which is still *inside* the mode-entry loading overlay (720ms floor +
+        // * fade left to run). Starting the countdown here ticks ~1s of the 3s clock and
+        // * the fly-over reveal behind the loading screen. Hold until the overlay is gone
+        // * so loading truly ends before the round starts. MP stays server-timed (below).
+        void whenModeEntryHidden().then(() => {
+          // * A failed bootstrap can bounce to the menu while this defer is pending —
+          // * never start a countdown behind the menu.
+          if (menuVisible) return;
+          if (GameState.getRoundState().phase === "running") return;
+          startCountdown(getRoundClockNowMs() + 3000);
+        });
+      } else {
+        startCountdown(startsAtLocalMs);
+      }
     } else if (GameState.getRoundState().phase !== "running") {
       resetMatchStats();
       setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));

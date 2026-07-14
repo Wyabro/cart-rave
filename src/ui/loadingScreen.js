@@ -72,6 +72,8 @@ let modeTitleEl = null;
 let modeSubtitleEl = null;
 let modeVisualSlot = null;
 let modeEntryVisible = false;
+/** Resolvers waiting for the mode-entry overlay to finish dismissing. */
+let modeEntryHiddenWaiters = [];
 let bootDismissed = false;
 /** Nested mode-entry tasks share one overlay (level switch + play bootstrap). */
 let modeEntryDepth = 0;
@@ -389,6 +391,13 @@ function dismissModeEntryLoading() {
       modeOverlayEl.classList.add("cr-load--hidden");
       modeOverlayEl.classList.remove("cr-load--exit");
       resolve();
+      // * Release anyone gating on the overlay being gone (e.g. the solo countdown,
+      // * which must not begin ticking behind the loading screen).
+      const waiters = modeEntryHiddenWaiters;
+      modeEntryHiddenWaiters = [];
+      for (const w of waiters) {
+        try { w(); } catch { /* a waiter must never break dismissal */ }
+      }
     };
 
     if (prefersReducedMotion()) {
@@ -458,6 +467,20 @@ export async function withModeEntryLoading(task, opts = {}) {
       await dismissModeEntryLoading();
     }
   }
+}
+
+/**
+ * Resolves once the mode-entry loading overlay has fully dismissed — or immediately
+ * if it is not currently shown. Lets callers hold an action until the loading screen
+ * is gone (the solo round countdown uses this so its reveal isn't hidden behind the
+ * overlay, i.e. "loading ends before the round starts").
+ * @returns {Promise<void>}
+ */
+export function whenModeEntryHidden() {
+  if (!modeEntryVisible) return Promise.resolve();
+  return new Promise((resolve) => {
+    modeEntryHiddenWaiters.push(resolve);
+  });
 }
 
 export function initLoadingScreen() {
