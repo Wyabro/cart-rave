@@ -28,7 +28,8 @@
     "qa:visual": "node tools/blackframes.mjs --shot classic --frames 30",
     "shoot": "node tools/shoot.mjs",
     "compare": "node tools/compare.mjs",
-    "blackframes": "node tools/blackframes.mjs"
+    "blackframes": "node tools/blackframes.mjs",
+    "tabhidden": "node tools/tabhidden.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.185.1",

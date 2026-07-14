@@ -28,8 +28,11 @@ controls. **Who runs it?** Wyatt first, then external testers.
   bug. A session that ends with 15 notes found 15. Triage after.
 - **Evidence over vibes** (house rule): every bug note gets arena + mode + quality tier +
   browser; anything visual gets a screenshot or a 10s clip (Win+Alt+R).
-- **Keep every window visible.** A hidden tab freezes its rAF loop and fakes bugs. Use
-  `127.0.0.1`, never `localhost`, when the wrangler control plane is involved.
+- **Keep every window visible** *during normal testing* — a hidden tab freezes its rAF loop
+  and fakes bugs. The exception is the dedicated backgrounding pass ([solo-checklist](./solo-checklist.md)
+  §F): there you background *on purpose* at reveal moments to hunt the invisible-content trap
+  (`npm run tabhidden` automates the menu + countdown cases). Use `127.0.0.1`, never
+  `localhost`, when the wrangler control plane is involved.
 - **Test the production build** for anything perf- or feel-related (`npm run build` +
   `npm run preview`, or the deployed Worker). Vite dev has known artifacts (level-swap
   cost, dev unlocks) that will pollute findings.

@@ -9,6 +9,11 @@ deploy itself — remote is authoritative, verify against the fetched asset per 
 - [ ] `npm run qa` — report actual numbers (tests/files), typecheck + knip clean
 - [ ] `npm run build` — succeeds, no new warnings beyond the known 500 kB hint
 - [ ] `npm run qa:visual` — if the change touched postFX/rendering (black-frame battery)
+- [ ] `npm run tabhidden` — if the change touched menu/HUD/overlay reveals or entrance
+      animations (invisible-content trap; freezes rAF with the tab hidden through the
+      menu entrance + round-start countdown, asserts nothing is stranded invisible on
+      return). Local only, needs the dev server — flakes headless like the other visual
+      tools; a clean PASS is the gate, a warm/WebGL flake is not a fail.
 
 ## 1. Boot & menu (2 min)
 

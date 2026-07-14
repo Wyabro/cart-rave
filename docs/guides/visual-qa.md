@@ -96,6 +96,34 @@ npm run blackframes -- --shot storerooms --frames 48 --report shots/black-storer
 
 Fails if any frame’s black ratio ≥ `--max-ratio` (default `0.92`) or consecutive near-full-black frames exceed `--max-full` (default `2`).
 
+### Tab-hidden reveal guard
+
+```bash
+npm run tabhidden                  # both scenes: menu + round
+npm run tabhidden -- --scene round # round-start HUD only
+npm run tabhidden -- --hold 2000 --report shots/tabhidden.json
+```
+
+Automates **UI checklist rule #1** (invisible-content trap). Marks the tab hidden
+and **freezes rAF** (no `perfPump`), then returns to the foreground (resuming and
+flushing deferred frames, faithful to Chrome) and asserts nothing is stranded.
+Two scenes:
+
+- **menu** — replays the menu entrance so its cascade stalls mid-flight, then
+  asserts every `.cr-menu-enter-pending` target is visible again.
+- **round** — boots `?room=solo`, catches the live 3s countdown, freezes the rAF
+  game loop through the whole countdown → running transition, then asserts the
+  HUD caught up (timer + score boxes visible, no frozen countdown digit).
+
+Each scene first proves it actually stalled while hidden (menu targets at
+`opacity:0`; HUD stuck pre-running) — so a green run means the recovery genuinely
+worked, not that the test was a no-op. Exit 1 if anything is stranded.
+
+The **round** scene needs the arena to warm (WebGL), which flakes headless like
+`shoot`/`blackframes`; the tool pre-warms physics deps and retries once
+(`--round-timeout`, `--round-retries`). Local only — not in CI. `--hold`/`--settle`
+tune the background window; `--scene menu|round|all` picks scenes.
+
 ---
 
 ## Suggested workflow
@@ -120,3 +148,51 @@ Fails if any frame’s black ratio ≥ `--max-ratio` (default `0.92`) or consecu
 | `sundial-edge` | zanzibar | Edge / water read |
 
 Defined in `src/utils/debugParams.js` → `VISUAL_BOOKMARKS`.
+
+---
+
+## UI QA checklist (menus / HUD / overlays)
+
+Correctness rules for menu chrome, HUD, and transition overlays — the DOM/2D
+layer, not the arena render. Distilled from the anti-slop design law
+(https://pols.dev/slop.md), keeping only the objectively-checkable rules and
+dropping the marketing-page taste guidance (our look is intentionally dark +
+neon — see [[cart-rave-look-dark]], and we own our type/stickers). Run this
+before signing off any menu or HUD change.
+
+1. **Nothing gated on an animation completing.** Content must be present and
+   readable even if its entrance never fires. Reveals that start at `opacity:0`
+   / translated-away and rely on JS, WAAPI, or `animation-timeline` strand the
+   content as a blank void when a tab is backgrounded or the rAF loop is frozen
+   — a failure mode we already hit (hidden-tab rAF freeze, WAAPI never finishing
+   in hidden tabs). Animate things already on screen; never hide existence
+   behind motion. **Verify:** `npm run tabhidden` (automated — freezes rAF with
+   the tab hidden mid-entrance, then asserts nothing is stranded invisible on
+   return), or manually background the tab mid-transition and confirm nothing is
+   missing.
+
+2. **Centering is verified, not eyeballed.** HUD badges, countdown digits, KO
+   callouts, sticker glyphs. In SVG, `text-anchor:middle` only centers
+   horizontally — you still need `dominant-baseline:central` (or a measured
+   `dy`) for vertical, and a glyph's optical center ≠ its bounding-box center.
+   **Verify:** zoom into the element and check it sits dead-center.
+
+3. **Clip-paths / notches don't crop live text.** Any `clip-path`,
+   `overflow:hidden`, notched panel, or fixed-height row must clear the text
+   past the cut by more than it removes. **Verify:** zoom the clipped edge and
+   confirm no caps/descenders are shaved (podium lower-thirds, sticker frames).
+
+4. **Every control actually responds to a click.** No dead buttons, tabs, or
+   toggles that look interactive but do nothing. **Verify:** real pointer click
+   on each control in the browser (menu, arena select, customize UI).
+
+5. **Blur / gradient surfaces: no banding, no leaking shadow.** On our dark
+   surfaces a banded gradient or a boxy drop-shadow silhouette reads as broken.
+   Gradients need fine grain/noise; shadows stay tight, low-offset, and
+   directional (a bad blur is worse than no blur). **Verify:** zoom a gradient
+   panel for stripes and any glass/shadow edge for a hard rectangle behind it.
+
+6. **HUD text clears its background by a real contrast gap.** Text over a dark
+   arena with bloom is where legibility dies. **Verify:** read every HUD label
+   against the brightest and busiest arena background it can sit over — if in
+   doubt, push contrast further (a text-shadow scrim beats dim ink).

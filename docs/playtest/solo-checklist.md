@@ -84,3 +84,20 @@ Transition pacing pass (2026-07-13, new this session):
 - [ ] Audio still balanced/clean at minute 40 (no accumulation, desync, or dropouts)
 - [ ] Challenge/unlock progress accumulated across the whole sitting matches expectations
 - [ ] End-of-soak: does one MORE round still sound appealing? (fun-factor sheet)
+
+## F. Tab-backgrounding & invisible-content (required when a change touched reveals/animations)
+
+The [visual-qa](../guides/visual-qa.md) UI checklist rule #1: content must stay visible
+even if its entrance animation never fires. `npm run tabhidden` automates the **menu
+entrance** and **round-start countdown** cases headless — run it first. These manual checks
+cover what it can't: real Chrome/mobile throttling, the reveals it doesn't reach, and
+mid-transition timing. The trick is to background **during the reveal/transition itself**,
+not once everything has settled.
+
+- [ ] Menu entrance: hard-refresh the menu and Alt-tab away **during** the ~700 ms entrance cascade; return after ~3 s. Title, tagline, PLAY/mode buttons, arena cards all present and interactive — nothing stuck invisible
+- [ ] Round-start countdown: Alt-tab away the instant a solo round's GET READY / 3-2-1 appears; return after the round would have started. HUD is showing a **running** round (timer ticking, score boxes visible) — not frozen on a countdown digit or a blank HUD
+- [ ] Podium / results reveal: Alt-tab away as the round ends and the podium/results overlay is animating in; return. Every result row, button, and stat is visible and clickable (results + pause overlays use the same opacity:0→1 reveal as the menu — same trap)
+- [ ] Pause (Esc) overlay: open Esc, Alt-tab during its enter animation, return — panel fully visible; also background **while paused**, return, unpause cleanly
+- [ ] Real backgrounding, not just Alt-tab: switch to another app / minimize (harder throttling than a covered tab), and once with the machine idle long enough to sleep the tab (~5 min); return at each reveal above
+- [ ] Phone/tablet: app-switch (or lock screen) during the menu entrance, the countdown, and the podium reveal; return — no blank/stranded UI, no stuck transition (mobile Safari/Chrome throttle harder than desktop)
+- [ ] Multiplayer host tab backgrounded (known blind spot): background the HOST during a round-start / podium reveal on a 2-client session; both clients recover, no stranded HUD on the host when it returns

@@ -6,5 +6,6 @@
   "project": ["src/**/*.{js,ts}", "party/**/*.{js,ts}"],
   "vite": {
     "config": "vite.config.js"
-  }
+  },
+  "ignoreBinaries": ["taskkill"]
 }
