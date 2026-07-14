@@ -8,7 +8,7 @@
  * @param {Error | unknown} error
  * @param {Record<string, unknown>} [context]
  */
-export function sendErrorLog(error, context = {}) {
+function sendErrorLog(error, context = {}) {
   try {
     const payload = {
       message: error instanceof Error ? error.message : String(error ?? ""),
@@ -21,6 +21,13 @@ export function sendErrorLog(error, context = {}) {
 
     const body = JSON.stringify(payload);
     const endpoint = "/api/log-error";
+
+    // * DEV is served by Vite (:3000); the Worker's /api/log-error route only exists on
+    // * the wrangler origin, so a relative POST 404s — and during a hot per-frame error
+    // * loop that 404 floods the console (masking the real stack). The full error is
+    // * already in DevTools in dev, so skip the network hop. Prod is same-origin with the
+    // * Worker, so the beacon lands and persists (party/index.ts → errorLog.ts).
+    if (import.meta.env.DEV) return;
 
     if (navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
@@ -52,11 +59,14 @@ let reportsSent = 0;
 const recentReports = new Map();
 
 /**
- * Rate-limited wrapper around {@link sendErrorLog} for global handlers.
+ * Rate-limited wrapper around {@link sendErrorLog} for global handlers and the game
+ * loop's catch — a poisoned wasm world re-throws every frame, so the raw sender would
+ * beacon-flood the Worker (self-DoS) and bury the first diagnostic report. This caps at
+ * {@link MAX_REPORTS_PER_SESSION} and dedupes identical message+context within a window.
  * @param {Error | unknown} error
  * @param {Record<string, unknown>} [context]
  */
-function sendErrorLogLimited(error, context = {}) {
+export function sendErrorLogLimited(error, context = {}) {
   if (reportsSent >= MAX_REPORTS_PER_SESSION) return;
   const message = error instanceof Error ? error.message : String(error ?? "");
   const key = `${context.context ?? ""}:${message}`.slice(0, 300);

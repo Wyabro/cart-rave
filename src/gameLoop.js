@@ -1,7 +1,7 @@
 // gameLoop.js — requestAnimationFrame timing shell (fixed-timestep accumulator)
 
 import { captureCartsPhysicsPrevPoses } from "./entities.js";
-import { sendErrorLog } from "./utils/errorReporter.js";
+import { sendErrorLogLimited } from "./utils/errorReporter.js";
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
@@ -407,9 +407,44 @@ export function resetGameLoopTiming(loopState) {
  *   netcode, host fall detection, camera follow, etc.
  * @property {(ctx: FrameContext) => void} [onVisualUpdate] Post-physics phase: mesh sync,
  *   effects, HUD, and render. Typically delegates to {@link updateVisualsAndEffects}.
- * @property {(err: unknown) => void} [onStepError] Invoked when a frame throws. The rAF
- *   loop always continues (resilience — a bad frame should not freeze the tab).
+ * @property {(err: unknown) => void} [onStepError] Invoked when a frame throws a
+ *   *recoverable* fault. The rAF loop continues (a transient bad frame should not freeze
+ *   the tab).
+ * @property {(err: unknown) => void} [onFatalError] Invoked once when a frame throws an
+ *   *unrecoverable* wasm/physics fault (see {@link isUnrecoverableSimError}) or throws
+ *   continuously past {@link MAX_STEP_ERROR_STREAK}. The sim has stopped stepping; the
+ *   handler should bail to a safe state (e.g. return to menu). The outer rAF stays alive.
  */
+
+/**
+ * Wasm/Rapier faults that poison the physics world for the rest of the session: once
+ * thrown, the same body/world access re-throws on every subsequent frame. Blindly
+ * rescheduling into that dead world (the old behavior) turns a single fault into an
+ * unkillable death-loop that beacon-floods the error reporter — worse UX than a clean stop.
+ */
+const UNRECOVERABLE_SIM_ERROR_PATTERNS = [
+  "recursive use of an object",
+  "unsafe aliasing",
+  "null pointer passed to rust",
+  "already borrowed",
+  "unreachable",
+];
+
+/**
+ * @param {unknown} err
+ * @returns {boolean} True when the error indicates an unrecoverable wasm/physics fault.
+ */
+function isUnrecoverableSimError(err) {
+  if (typeof WebAssembly !== "undefined" && err instanceof WebAssembly.RuntimeError) {
+    return true;
+  }
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  const lower = message.toLowerCase();
+  return UNRECOVERABLE_SIM_ERROR_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
+/** A frame that throws this many times in a row is treated as unrecoverable (~1s at 60fps). */
+const MAX_STEP_ERROR_STREAK = 60;
 
 /**
  * Starts the requestAnimationFrame loop and manages outer timing / accumulator bookkeeping.
@@ -422,7 +457,12 @@ export function resetGameLoopTiming(loopState) {
  * @param {GameLoopCallbacks} callbacks
  */
 export function runGameLoop(loopState, callbacks) {
-  const { onFrame, onVisualUpdate, shouldSkipTiming, onStepError } = callbacks;
+  const { onFrame, onVisualUpdate, shouldSkipTiming, onStepError, onFatalError } = callbacks;
+
+  // * Unrecoverable-error tripwire. Reset on any menu/overlay frame and after any fully
+  // * successful frame, so a fresh session starts with a clean slate.
+  let stepErrorStreak = 0;
+  let fatalHandled = false;
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -432,6 +472,10 @@ export function runGameLoop(loopState, callbacks) {
 
   function step(now) {
     if (shouldSkipTiming?.()) {
+      // * Menu/overlay frame — no sim ran this tick, so clear the tripwire (a bail-to-menu
+      // * recovery lands here, and the next real session must be able to trip fresh).
+      stepErrorStreak = 0;
+      fatalHandled = false;
       requestAnimationFrame(step);
       return;
     }
@@ -447,12 +491,39 @@ export function runGameLoop(loopState, callbacks) {
       onFrame(frameCtx);
       onVisualUpdate?.(frameCtx);
 
+      // * Full frame succeeded — clear the unrecoverable-error tripwire.
+      stepErrorStreak = 0;
+      fatalHandled = false;
+
       requestAnimationFrame(step);
     } catch (err) {
+      stepErrorStreak += 1;
+      const unrecoverable = isUnrecoverableSimError(err) || stepErrorStreak >= MAX_STEP_ERROR_STREAK;
+
+      if (unrecoverable) {
+        // * A poisoned wasm world re-throws on every body access, so the old "always
+        // * reschedule" path beacon-flooded the reporter and buried the first (diagnostic)
+        // * stack. Log it once, hand off to recovery (bail to menu), and keep the outer
+        // * rAF alive so the menu still animates — once menuVisible flips true, the
+        // * shouldSkipTiming branch above stops running onFrame against the dead world.
+        if (!fatalHandled) {
+          fatalHandled = true;
+          console.error("[gameLoop] Unrecoverable sim error — bailing to menu:", err);
+          sendErrorLogLimited(err, { context: "gameLoopFatal", streak: stepErrorStreak });
+          try {
+            onFatalError?.(err);
+          } catch (recoveryErr) {
+            console.error("[gameLoop] onFatalError handler threw:", recoveryErr);
+          }
+        }
+        requestAnimationFrame(step);
+        return;
+      }
+
       console.error("[gameLoop] Step error:", err);
-      sendErrorLog(err, { context: "gameLoop" });
+      sendErrorLogLimited(err, { context: "gameLoop" });
       onStepError?.(err);
-      // * Always continue — recovering next frame beats a frozen tab.
+      // * Transient fault — recovering next frame beats a frozen tab.
       requestAnimationFrame(step);
     }
   }

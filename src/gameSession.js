@@ -197,6 +197,7 @@ export function createGameSessionController(getContext) {
   // * reasons ("esc", "results") stay silent — the player chose to leave.
   const MENU_RETURN_NOTICES = {
     joinRejected: "Couldn't join that room — it may be full or already mid-round.",
+    simError: "The match hit a physics glitch and had to stop. You're back at the menu.",
   };
 
   /**

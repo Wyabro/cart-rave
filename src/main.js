@@ -4390,6 +4390,20 @@ async function main() {
       gameCtx.setFrameCtx(frameCtx);
       updateVisualsAndEffects(gameCtx.deps.visual, gameCtx.frameCtx);
     },
+    onFatalError(err) {
+      // * The game loop hit an unrecoverable physics/wasm fault and stopped stepping the
+      // * sim. Bail to the menu so the tab isn't stuck on a dead world; returnToMenu tears
+      // * the session down and page-reloads as a last resort if re-init also fails.
+      console.error("[main] Fatal sim error — returning to menu", err);
+      try {
+        gameSession.returnToMenu({ reason: "simError" });
+      } catch (recoveryErr) {
+        console.error("[main] returnToMenu after fatal sim error failed; reloading", recoveryErr);
+        if (typeof window !== "undefined") {
+          window.location.href = new URL(window.location.href).pathname;
+        }
+      }
+    },
   });
 
   // * Register bridge functions for cart-rave-menu.js to toggle GFX/quality live.
