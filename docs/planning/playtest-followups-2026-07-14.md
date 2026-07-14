@@ -39,19 +39,28 @@ per-tier draw-call / instance counts, shadow + light budgets, post-FX. Target Wy
 
 ## P2 — AI / NPC behavior
 
-- **AI-1 (correctness): reverse off an edge = KO.** A self-inflicted fall (reversing a cart off
-  the edge) should register as a KO/elimination. Council (qwen) flagged this as **scoring
-  correctness, not polish**: if a self-fall doesn't count, round-end conditions and the `falls[]`
-  wire can disagree on who's alive → **wrong winner in Sudden Death**. Start in gameFlow.js fall
-  handling / `buildKOEvent`.
-- **AI-2: Storerooms center-furniture wedge.** NPCs get stuck ramming the central furniture a lot.
-  Wanted: more avoidance, and **reverse if touching it for >1s**. (There's an existing stuck
-  watchdog `updateCartIdleWatch` in gameFlow.js — but it *respawns* rather than steering away;
-  the ask here is navigation/avoidance behavior in the NPC AI.)
+- **AI-1 ✅ DONE (`00d497e`, unpushed) — reverse shoves off the edge now score.** Wyatt clarified
+  the ask: **backing (reversing) into an opponent to knock them off should credit YOU** with the
+  KO + points. It wasn't a self-fall issue. Root cause: cart-on-cart ram qualification read
+  *post-step* linvel, and a reverse shove (reverseMaxSpeed 8 m/s) is arrested by Rapier's contact
+  solver in the same step → reads ~0 → fails `minSpeed`/alignment → no `recordHit`, yet raw contact
+  still shoves the victim off ("FELL OFF", no points). Fix: `resolveCartRamCollision` qualifies +
+  attributes from the **pre-step** snapshot (`_preStepLinvel`). Uniform (Wyatt-approved) — forward
+  rams now also read true impact velocity, marginally punchier. **Needs live eyeball.**
+- **AI-2 ✅ DONE (`c4f2b18`, unpushed) — Storerooms center-furniture wedge.** Two backrooms-scoped
+  gaps: (1) the no-reverse gate lumped the solid circular furniture in with death voids → wedged
+  bots never backed off; excluded it (corner voids still forbid reverse). (2) the tangent-escape
+  commit that breaks corner-void grinds ignored the furniture; added it (`circularKeepOutTangentEscape`)
+  so a grinding bot circles it toward its target. **Needs live eyeball on Storerooms.**
 - **AI-3: edge caution.** Cart Rave NPCs should be more cautious of edges. Sundial rim caution
   **~+5%** (they still occasionally lemming off, "not as bad as it once was").
 - **AI-4: edge-camp punish.** Bots should punish a rim-camper **~+15% more aggressively**. Report
-  says Cart Rave and Storerooms need the **same increase as Sundial** here.
+  says Cart Rave and Storerooms need the **same increase as Sundial** here. **Lever (Wyatt, when we
+  resume): "both / not sure"** — apply a measured version of BOTH `reachOuter` (follow campers
+  closer to the rim, simulation.js:1966) AND proximity aggression (radius 7→~8m + weight 0.9→~0.95,
+  simulation.js:1948), then report exactly what changed for eyeball. NB: no Sundial-specific
+  edge-camp boost exists in the tree today, so "same as Sundial" has no distinct baseline to match —
+  treat as "make all three arenas punish campers ~+15% harder."
 - **AI-5 (likely already mitigated): occasional missed cart collisions** (Storerooms). Council read
   this as mostly a **stutter symptom** (the >66ms frame-hitch debt-drop at `gameLoop.js:95`
   teleporting carts past contacts) — the resume guard `213343c` should reduce it. Residual
