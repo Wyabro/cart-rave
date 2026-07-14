@@ -52,15 +52,13 @@ per-tier draw-call / instance counts, shadow + light budgets, post-FX. Target Wy
   bots never backed off; excluded it (corner voids still forbid reverse). (2) the tangent-escape
   commit that breaks corner-void grinds ignored the furniture; added it (`circularKeepOutTangentEscape`)
   so a grinding bot circles it toward its target. **Needs live eyeball on Storerooms.**
-- **AI-3: edge caution.** Cart Rave NPCs should be more cautious of edges. Sundial rim caution
-  **~+5%** (they still occasionally lemming off, "not as bad as it once was").
-- **AI-4: edge-camp punish.** Bots should punish a rim-camper **~+15% more aggressively**. Report
-  says Cart Rave and Storerooms need the **same increase as Sundial** here. **Lever (Wyatt, when we
-  resume): "both / not sure"** — apply a measured version of BOTH `reachOuter` (follow campers
-  closer to the rim, simulation.js:1966) AND proximity aggression (radius 7→~8m + weight 0.9→~0.95,
-  simulation.js:1948), then report exactly what changed for eyeball. NB: no Sundial-specific
-  edge-camp boost exists in the tree today, so "same as Sundial" has no distinct baseline to match —
-  treat as "make all three arenas punish campers ~+15% harder."
+- **AI-3 ✅ DONE (`ab0ed77`, unpushed) — edge caution.** Sundial rim avoidance engages ~5% sooner
+  (band 5.0→5.25) + pushes ~5% harder inward (1.2→1.26); Cart Rave/Classic idle+patrol outer-target
+  caps pulled in (0.72→0.68, 0.88→0.84). Feel literals in simulation.js. **Needs eyeball.**
+- **AI-4 ✅ DONE (`2d3f08c`, unpushed) — edge-camp punish (~+15%, both levers).** Proximity aggression
+  range 7→8m + commit 0.9→0.95 (uniform on all three arenas = the "same as Sundial" lever); Cart Rave
+  chase reachOuter caps nudged out 0.78→0.82, 0.92→0.95 (Classic-only — kill-zone arenas rely on the
+  proximity lever to avoid lemming into voids/rim). Feel literals in simulation.js. **Needs eyeball.**
 - **AI-5 (likely already mitigated): occasional missed cart collisions** (Storerooms). Council read
   this as mostly a **stutter symptom** (the >66ms frame-hitch debt-drop at `gameLoop.js:95`
   teleporting carts past contacts) — the resume guard `213343c` should reduce it. Residual
