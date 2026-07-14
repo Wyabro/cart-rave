@@ -338,3 +338,28 @@ export function getDirectiveWireState() {
   const remaining = Math.round(active.untilMs - performance.now());
   return remaining > 250 ? { id: active.def.id, r: remaining } : null;
 }
+
+/**
+ * Dev/test-only: the directive ids that can be fired manually (Tweakpane playtest tools).
+ * @returns {string[]}
+ */
+export function getDirectiveIdsForTest() {
+  return Object.keys(DIRECTIVES);
+}
+
+/**
+ * Dev/test-only: fire a directive immediately, bypassing the round schedule so a tester
+ * can see/feel each one on demand (Living Store readability checks). Only meaningful
+ * during the RUNNING phase — {@link updateDirectiveEngine} restores base rules on any
+ * non-running phase or Sudden Death, so a directive forced outside a live round reverts
+ * on the next tick. No-op for an unknown id or before the engine is initialized.
+ * @param {string} id one of {@link getDirectiveIdsForTest}
+ * @param {number} [durationMs] defaults to CONFIG.directives.durationMs
+ * @returns {boolean} whether a directive was applied
+ */
+export function forceDirectiveForTest(id, durationMs) {
+  const def = DIRECTIVES[id];
+  if (!def || !deps) return false;
+  applyDirective(def, performance.now(), durationMs ?? CONFIG.directives?.durationMs ?? 18000);
+  return true;
+}
