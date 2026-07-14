@@ -44,14 +44,15 @@ const DECK_THICKNESS = 0.6; // meters — matches Classic + Storerooms floor thi
 const DECK_FRICTION = 0.62; // unitless — grippy steel; between Classic vinyl and carpet
 
 // * Podium +20% (stabilization pass, 2026-07-11): base 7.2→8.6, top 5.0→6.0.
-// * ART-4 (2026-07-14): +~10% more — base 8.6→9.5, top 6.0→6.6 (proportional, so
-// * the drivable ~10° ramp slope is preserved). Bigger contested zone for
+// * ART-4 (2026-07-14): +~10% more — base 8.6→9.5, top 6.0→6.6 (both scaled ~×1.1).
+// * Rise (PODIUM_HEIGHT) is unchanged, so the run grows 2.6→2.9 m and the ramp gets
+// * slightly GENTLER (~11°→~9.8°) — still fully drivable. Bigger contested zone for
 // * king-of-the-hill; ONE knob (base) cascades to visual (frustum + decor rings),
 // * scoring (base + 0.5, simulation.js isOnPodiumHighGround), and AI keep-out
 // * (setLevelHazards circularKeepOuts radius) — all read PODIUM_BASE_R.
 const PODIUM_BASE_R = 9.5; // meters — circumradius of frustum base
 const PODIUM_TOP_R = 6.6; // meters — circumradius of frustum top
-const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 2.6 run ≈ 11°, fully drivable
+const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 2.9 run ≈ 9.8°, fully drivable
 // * Collider-only recess of the ramp hull's base below the deck top plane. A hull face
 // * exactly coplanar with another collider makes Rapier's narrow-phase flip contact
 // * ownership frame-to-frame — visible as resting-cart jitter. Mirrors CHAMFER_TUCK.
