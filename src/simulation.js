@@ -1717,10 +1717,12 @@ function clampAiTargetAwayFromHazards(x, z, cautious, opts = {}) {
   // * reachOuter (human chase) lets bots follow edge-campers closer to the rim; patrol and
   // * wander keep the tighter default so idle bots don't drift into the outer kill band.
   // * AI-3: Cart Rave edge caution — pulled the idle/patrol caps in (0.72→0.68, 0.88→0.84) so
-  // * non-chasing bots keep more margin from the outer rim (chase reachOuter caps set by AI-4).
+  // * non-chasing bots keep more margin from the outer rim.
+  // * AI-4: edge-camp punish — nudged the chase reachOuter caps out (0.78→0.82, 0.92→0.95) so a
+  // * bot chasing a rim-camper follows it closer to the edge before the annulus cap stops it.
   const outerLimit = cautious
-    ? CONFIG.record.radius * (opts.reachOuter ? 0.78 : 0.68)
-    : CONFIG.record.radius * (opts.reachOuter ? 0.92 : 0.84);
+    ? CONFIG.record.radius * (opts.reachOuter ? 0.82 : 0.68)
+    : CONFIG.record.radius * (opts.reachOuter ? 0.95 : 0.84);
   const r = clamp(dist, innerLimit, outerLimit);
   let outX = Math.cos(angle) * r;
   let outZ = Math.sin(angle) * r;
@@ -1959,13 +1961,16 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
     }
   }
 
-  // * Proximity aggression: a human within ~7m gets hunted almost regardless of personality,
+  // * Proximity aggression: a human within ~8m gets hunted almost regardless of personality,
   // * patrol mood, or cautious phase. Bots should turn and ram the player right next to them
   // * instead of committing to a weighted/far target and cruising past (the "drives past
   // * nearby players" complaint). Only ever raises chase weight — never fights Bloodhound.
+  // * AI-4 edge-camp punish (~+15%): widened the aggression range 7→8m and raised the commit
+  // * 0.9→0.95 so a rim-camper gets hunted harder. Uniform on every arena (Cart Rave /
+  // * Storerooms / Sundial) — the cross-arena "same increase as Sundial" lever.
   if (humanTarget) {
     const closeDist = Math.hypot(humanTarget.x - fromPos.x, humanTarget.z - fromPos.z);
-    if (closeDist < 7) humanWeight = Math.max(humanWeight, 0.9);
+    if (closeDist < 8) humanWeight = Math.max(humanWeight, 0.95);
   }
 
   if (roll < humanWeight && humanTarget) {
