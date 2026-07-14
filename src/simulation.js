@@ -129,6 +129,37 @@ function readRamStateInto(cart, out) {
 }
 
 /**
+ * * Like {@link readRamStateInto}, but takes linvel from the cart's PRE-step snapshot —
+ * * the closing velocity at the instant of contact, before Rapier's solver arrested it.
+ *
+ * Cart-on-cart ram qualification MUST read this. Post-step linvel is what the contact
+ * left behind, and a reverse shove (reverseMaxSpeed 8 m/s) carries little momentum, so
+ * the solver zeroes or bounces it in the same step — post-step reads ~0, the hit fails
+ * `minSpeed`/alignment, and no ram is credited. The victim still gets knocked off by raw
+ * contact response, so it reads "FELL OFF" with no attacker → no points (the reverse-ram
+ * bug). Pre-step velocity is the same signal the floor-thud impact already trusts
+ * (`_preStepLinvel`, populated at the top of runSimulationStep). Position stays post-step
+ * (current translation) so rammer→victim direction is measured at the contact.
+ *
+ * @param {object} cart
+ * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} out
+ * @returns {void}
+ */
+function readRamStateIntoPreStep(cart, out) {
+  const body = cart.body;
+  const p = body.translation();
+  out.pos.x = p.x;
+  out.pos.y = p.y;
+  out.pos.z = p.z;
+  // * Fall back to the live linvel if the pre-step snapshot hasn't been taken yet
+  // * (first frame a cart exists, before runSimulationStep's capture loop).
+  const lv = cart._preStepLinvel || body.linvel();
+  out.linvel.x = lv.x;
+  out.linvel.y = lv.y;
+  out.linvel.z = lv.z;
+}
+
+/**
  * * Writes planar forward/right basis vectors from a body rotation quaternion.
  * * Flattens Y so driving controls stay correct when the cart is tilted or airborne.
  */
@@ -771,7 +802,7 @@ function applyGeometryUnstick(cart, dtFixed, nowMs) {
  * @param {{ pos: { x: number, y: number, z: number }, linvel: { x: number, y: number, z: number } }} victimState
  * @returns {number}
  */
-function getRammingQualificationScore(rammerState, victimState) {
+export function getRammingQualificationScore(rammerState, victimState) {
   const rv = rammerState.linvel;
   const speed = planarSpeed(rv);
   if (speed < CONFIG.ramming.minSpeed) return 0;
@@ -806,9 +837,9 @@ function getRammingQualificationScore(rammerState, victimState) {
  * @param {object} c2
  * @returns {{ rammer: object, victim: object, rammerState: object, victimState: object } | null}
  */
-function resolveCartRamCollision(c1, c2) {
-  readRamStateInto(c1, _ramStateA);
-  readRamStateInto(c2, _ramStateB);
+export function resolveCartRamCollision(c1, c2) {
+  readRamStateIntoPreStep(c1, _ramStateA);
+  readRamStateIntoPreStep(c2, _ramStateB);
 
   const score1 = getRammingQualificationScore(_ramStateA, _ramStateB);
   const score2 = getRammingQualificationScore(_ramStateB, _ramStateA);
