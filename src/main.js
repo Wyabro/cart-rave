@@ -424,6 +424,13 @@ function syncRoundPhase(phase) {
 }
 /** @type {((msg: object) => void) | null} */
 let onGameStartHandler = null;
+/**
+ * Monotonic generation for the deferred solo countdown. Each solo game-start bumps it and
+ * captures the value; a pending whenModeEntryHidden defer only fires if its captured gen is
+ * still current — so a (rare) double game-start or a quit→restart-solo race can't let a
+ * stale waiter re-kick a newer game's countdown clock. (Council review follow-up.)
+ */
+let soloCountdownDeferGen = 0;
 /** @type {(() => void) | null} */
 let onHostMigratedHandler = null;
 /** @type {(() => void) | null} */
@@ -2467,7 +2474,12 @@ async function main() {
         // * fade left to run). Starting the countdown here ticks ~1s of the 3s clock and
         // * the fly-over reveal behind the loading screen. Hold until the overlay is gone
         // * so loading truly ends before the round starts. MP stays server-timed (below).
+        soloCountdownDeferGen += 1;
+        const deferGen = soloCountdownDeferGen;
         void whenModeEntryHidden().then(() => {
+          // * Superseded by a newer solo entry (double game-start, or quit→restart before
+          // * this waiter flushed) — the newer defer owns the countdown.
+          if (deferGen !== soloCountdownDeferGen) return;
           // * A failed bootstrap can bounce to the menu while this defer is pending —
           // * never start a countdown behind the menu.
           if (menuVisible) return;
