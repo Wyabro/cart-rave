@@ -362,9 +362,11 @@
   <!-- Self-hosted UI fonts (public/fonts/) — no Google CDN on the critical path -->
   <link rel="preconnect" href="https://cart-rave.wyabro.workers.dev">
   <link rel="preload" href="/fonts/roadrage-6NUU8F2fKAOBKjjr4ekfs8wB.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/bungee-N0bU2SZBIuF2PU_0DXR1.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Goldman is the boot-splash / menu body font — preload it, not Space Mono
-       (which only styles touch controls + the dev FPS overlay). -->
+       (which only styles touch controls + the dev FPS overlay). Bungee is NOT
+       preloaded: it's HUD-only (--hud-display), never painted on the splash/menu,
+       so a preload always trips Chrome's "preloaded but not used" warning. It
+       loads on demand via fonts.css when the HUD first mounts. -->
   <link rel="preload" href="/fonts/goldman-pe0uMIWbN4JFplR2HDVyBw.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/fonts/fonts.css">
 </head>
