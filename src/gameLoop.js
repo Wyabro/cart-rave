@@ -447,6 +447,17 @@ function isUnrecoverableSimError(err) {
 const MAX_STEP_ERROR_STREAK = 60;
 
 /**
+ * Inter-frame gap (seconds) above which the loop treats the frame as a *resume* from a
+ * pause/throttle rather than a slow frame. rAF is paused or throttled when the tab is
+ * hidden, the window is occluded/unfocused, or during a long GC — and only the tab
+ * hide/show case fires visibilitychange. Replaying that whole gap as physics catch-up is
+ * the "hard stutter on refocus" from the playtest; above this threshold we drop the debt
+ * and resume cleanly instead. 250ms is well past any legitimately slow frame (even Low
+ * tier ~15fps = 66ms) so real gameplay hitches are unaffected.
+ */
+const RESUME_GAP_S = 0.25;
+
+/**
  * Starts the requestAnimationFrame loop and manages outer timing / accumulator bookkeeping.
  *
  * Each tick runs three logical phases when not skipped:
@@ -482,8 +493,18 @@ export function runGameLoop(loopState, callbacks) {
 
     try {
       let dt = (now - loopState.lastT) / 1000;
-      dt = Math.min(dt, 0.05);
       loopState.lastT = now;
+      if (dt > RESUME_GAP_S) {
+        // * Resume from a pause/throttle (tab hidden, window occluded/unfocused, long GC).
+        // * Don't replay the gap as a physics catch-up burst — that's the hard hitch on
+        // * refocus. Drop the accumulated debt and render one fresh, motionless frame; the
+        // * next frame resumes at normal cadence. Complements the visibilitychange reset
+        // * (which only fires for true tab hide/show, not occlusion/defocus throttling).
+        loopState.accumulator = 0;
+        dt = 0;
+      } else {
+        dt = Math.min(dt, 0.05);
+      }
       loopState.accumulator += dt;
       loopState.simFrameIndex += 1;
 

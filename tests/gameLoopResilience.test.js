@@ -148,3 +148,72 @@ describe("gameLoop resilience — circuit breaker", () => {
     expect(onFatalError).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("gameLoop resilience — resume guard (tab-focus stutter)", () => {
+  /** @type {((now: number) => void)[]} */
+  let scheduled;
+  let originalRaf;
+
+  function tick(now) {
+    const cb = scheduled.pop();
+    scheduled = [];
+    cb(now);
+  }
+
+  beforeEach(() => {
+    scheduled = [];
+    originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => {
+      scheduled.push(cb);
+      return scheduled.length;
+    };
+  });
+
+  afterEach(() => {
+    globalThis.requestAnimationFrame = originalRaf;
+  });
+
+  it("drops the debt on a long stall instead of replaying it as a catch-up burst", () => {
+    /** @type {{ dt: number, acc: number }[]} */
+    const frames = [];
+    const state = createGameLoopState();
+    runGameLoop(state, {
+      shouldSkipTiming: () => false,
+      onFrame: (ctx) => {
+        // Capture accumulator AFTER the loop's dt bookkeeping (onFrame runs post-bump).
+        frames.push({ dt: ctx.dt, acc: +state.accumulator.toFixed(4) });
+      },
+    });
+
+    state.lastT = 1000; // known baseline (bypass the performance.now() seed)
+    tick(1016); // +16ms — normal frame
+    tick(6016); // +5000ms gap — resume guard must fire
+    tick(6032); // +16ms — normal cadence resumes
+
+    expect(frames[0].dt).toBeCloseTo(0.016, 3);
+    expect(frames[0].acc).toBeCloseTo(0.016, 3);
+
+    // Resume frame: dt forced to 0 and the ~5s of debt dropped (not clamped to 50ms
+    // and replayed — that would leave acc ≈ 0.066 and burst physics substeps).
+    expect(frames[1].dt).toBe(0);
+    expect(frames[1].acc).toBe(0);
+
+    // Next frame is a clean 16ms again.
+    expect(frames[2].dt).toBeCloseTo(0.016, 3);
+    expect(frames[2].acc).toBeCloseTo(0.016, 3);
+  });
+
+  it("treats a merely-slow frame (below the resume threshold) as normal, clamped time", () => {
+    /** @type {{ dt: number }[]} */
+    const frames = [];
+    const state = createGameLoopState();
+    runGameLoop(state, {
+      shouldSkipTiming: () => false,
+      onFrame: (ctx) => frames.push({ dt: ctx.dt }),
+    });
+
+    state.lastT = 1000;
+    tick(1200); // +200ms — a bad hitch but below RESUME_GAP_S (250ms): clamp, don't reset
+    expect(frames[0].dt).toBeCloseTo(0.05, 3); // clamped to the 50ms ceiling, not zeroed
+  });
+});
