@@ -977,8 +977,11 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
     GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical, impactSpeed, fromPodium);
   }
 
-  // Update combo tier for attacker and refresh local store if rammer is local player
-  if ((isHost || callbacks?.localCart === rammer) && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
+  // Update combo tier for attacker and refresh local store if rammer is local player.
+  // * Gated on fxIntensity > 0 — a real knockback impulse landed — so combo stays tied to
+  // * actual rams (its pre-fix behavior). A contactless reverse shove or a solver-arrested
+  // * head-on still credits the KO via recordHit above, but does NOT inflate the combo streak.
+  if ((isHost || callbacks?.localCart === rammer) && fxIntensity > 0 && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
     const maxTier = CONFIG.combo?.maxTier ?? 3;
     const decayMs = CONFIG.combo?.decayMs ?? 5000;
     rammer.comboTier = Math.min((rammer.comboTier || 0) + 1, maxTier);

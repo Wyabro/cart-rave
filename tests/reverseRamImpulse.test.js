@@ -62,6 +62,8 @@ describe("applyRammingImpulse — decoupled attribution vs knockback", () => {
     expect(impactSpeed).toBeCloseTo(0.1, 5);
     // No knockback impulse — raw contact already did the shoving.
     expect(victim.pendingRam).toBeUndefined();
+    // Combo stays tied to real knockback — a contactless shove must not inflate the streak.
+    expect(shover.comboTier).toBe(0);
   });
 
   it("applies a knockback impulse for a forward ram, from live velocity", () => {
@@ -75,6 +77,8 @@ describe("applyRammingImpulse — decoupled attribution vs knockback", () => {
     expect(victim.pendingRam.impulse.z).toBeLessThan(0); // pushed away, toward −Z
     const [, , , impactSpeed] = GameState.recordHit.mock.calls[0];
     expect(impactSpeed).toBeCloseTo(8, 5); // live speed, not a pre-step value
+    // A real knockback ram DOES build combo.
+    expect(rammer.comboTier).toBe(1);
   });
 
   it("derives critical from the live impact speed", () => {
