@@ -122,7 +122,7 @@ import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/anno
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
-import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti } from "./ui/resultsOverlay.js";
+import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti, spawnResultsDefeatWilt } from "./ui/resultsOverlay.js";
 import { installKoHitmarkerProgramWarmup, spawnKoWorldHitmarker } from "./effects/koHitmarkerFx.js";
 import { installWaterFxProgramWarmup } from "./effects/waterDeathFx.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
@@ -2695,13 +2695,16 @@ async function main() {
       overlay.classList.toggle("results-defeat", isLocalLoser);
       overlay.classList.toggle("results-victory", isLocalWinner);
 
-      // * Confetti once per podium presentation, when the results panel actually appears —
-      // * suppressed for the local loser so defeat stays a quiet beat.
+      // * Once per podium presentation, when the results panel actually appears: the
+      // * winner gets neon confetti; the local loser gets the "opposite of confetti" —
+      // * a field of spoiled groceries that sag and deflate (ART-3). A draw gets neither.
       const confettiKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
       if (podiumConfettiFiredKey !== confettiKey) {
         podiumConfettiFiredKey = confettiKey;
         const celebrationWinner = roundState.winnerSlotIndex;
-        if (celebrationWinner !== "draw" && typeof celebrationWinner === "number" && !isLocalLoser) {
+        if (isLocalLoser) {
+          spawnResultsDefeatWilt(overlay);
+        } else if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
           const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
           spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
         }

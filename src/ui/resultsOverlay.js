@@ -224,6 +224,174 @@ export function spawnResultsConfetti(overlay, colors) {
   confettiRafId = requestAnimationFrame(tick);
 }
 
+/** @type {number | null} rAF handle of the active defeat wilt (one at a time). */
+let wiltRafId = null;
+/** @type {HTMLCanvasElement | null} */
+let wiltCanvas = null;
+
+/**
+ * Draws a dull grocery silhouette centered at the origin, sized by `s`. Deflation
+ * (vertical squash) and droop are applied by the caller's transform before this runs,
+ * so each shape only knows its own outline. Flat fill (no glow) — the anti-confetti.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} type 0 milk carton · 1 can · 2 orange · 3 loaf
+ * @param {number} s Longest silhouette dimension in px.
+ */
+function drawSpoiledGrocery(ctx, type, s) {
+  ctx.beginPath();
+  if (type === 0) {
+    // * Milk carton — body + gable top.
+    ctx.rect(-s * 0.32, -s * 0.5, s * 0.64, s);
+    ctx.moveTo(-s * 0.32, -s * 0.5);
+    ctx.lineTo(0, -s * 0.72);
+    ctx.lineTo(s * 0.32, -s * 0.5);
+    ctx.closePath();
+    ctx.fill();
+  } else if (type === 1) {
+    // * Can — cylinder body + top ellipse.
+    ctx.rect(-s * 0.3, -s * 0.42, s * 0.6, s * 0.84);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 0.42, s * 0.3, s * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === 2) {
+    // * Orange — round.
+    ctx.arc(0, 0, s * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // * Loaf / baguette — long ellipse.
+    ctx.ellipse(0, 0, s * 0.7, s * 0.26, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Defeat counterpart to {@link spawnResultsConfetti} (ART-3): a slow field of dull,
+ * spoiled groceries that sag, deflate, and fade — the "opposite of confetti." Muted
+ * palette, no additive glow, heavy gravity; reads as the energy leaking out of the
+ * round. Self-contained canvas (~3.6s) that cleans itself up; respects reduced motion.
+ * Overlay stays transparent so the (desaturated) defeat panel reads above it.
+ *
+ * @param {HTMLElement} overlay Results overlay root (position: fixed container).
+ */
+export function spawnResultsDefeatWilt(overlay) {
+  if (!overlay) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  if (reduced) return;
+
+  // * One field at a time — cancel and remove any wilt still in flight.
+  if (wiltRafId != null) cancelAnimationFrame(wiltRafId);
+  wiltRafId = null;
+  wiltCanvas?.remove();
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "results-defeat-wilt";
+  canvas.setAttribute("aria-hidden", "true");
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = overlay.clientWidth || window.innerWidth;
+  const h = overlay.clientHeight || window.innerHeight;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;";
+  // * First child — the panel is a later sibling, so UI always paints above the field.
+  overlay.insertBefore(canvas, overlay.firstChild);
+  wiltCanvas = canvas;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    canvas.remove();
+    wiltCanvas = null;
+    return;
+  }
+  ctx.scale(dpr, dpr);
+
+  // * Spoiled-pantry palette — desaturated, sickly, no neon. Dull milk, drab cans,
+  // * browned fruit, stale bread, a little mould-green.
+  const SPOILED_PAL = [
+    [200, 198, 184], // dull off-white milk
+    [138, 122, 92],  // drab can
+    [154, 120, 63],  // browned orange
+    [122, 98, 66],   // stale loaf
+    [111, 122, 85],  // mould green
+    [107, 107, 102], // grey
+  ];
+
+  const DURATION_MS = 3600;
+  const COUNT = Math.round(Math.min(90, Math.max(46, w / 14)));
+  const WILT_MS = 900; // per-item collapse duration once it starts deflating
+
+  /** @type {{ x: number, y: number, vx: number, vy: number, rot: number, vrot: number, size: number, type: number, rgb: [number, number, number], delayMs: number, phase: number }[]} */
+  const items = [];
+  for (let i = 0; i < COUNT; i += 1) {
+    const rgb = /** @type {[number, number, number]} */ (SPOILED_PAL[i % SPOILED_PAL.length]);
+    items.push({
+      x: Math.random() * w,
+      y: -20 - Math.random() * h * 0.3,
+      vx: (Math.random() - 0.5) * 26,
+      vy: 30 + Math.random() * 60,
+      rot: (Math.random() - 0.5) * 0.6,
+      // * Droops toward lying-down rather than spinning — heavy, tired.
+      vrot: (Math.random() - 0.5) * 1.1,
+      size: 16 + Math.random() * 16,
+      type: Math.floor(Math.random() * 4),
+      rgb,
+      // * Staggered collapse so the field wilts as a cascade, not all at once.
+      delayMs: 350 + Math.random() * (DURATION_MS - WILT_MS - 700),
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+
+  let lastTs = performance.now();
+  const startTs = lastTs;
+  const tick = (ts) => {
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    const elapsed = ts - startTs;
+    if (elapsed >= DURATION_MS || !canvas.isConnected) {
+      canvas.remove();
+      if (wiltCanvas === canvas) wiltCanvas = null;
+      wiltRafId = null;
+      return;
+    }
+    const fade = elapsed > DURATION_MS - 600 ? (DURATION_MS - elapsed) / 600 : 1;
+    ctx.clearRect(0, 0, w, h);
+
+    for (const it of items) {
+      // * Gentle, heavy fall — much slower than confetti; groceries slump, they don't fly.
+      it.vy += 120 * dt;
+      it.x += (it.vx + Math.sin(it.phase + elapsed * 0.0015) * 6) * dt;
+      it.y += it.vy * dt;
+      it.rot += it.vrot * dt;
+
+      // * Deflate: once past its stagger delay, vertical scale collapses 1 → 0.12 and
+      // * the item droops sideways as it gives up.
+      const wp = it.delayMs > 0 ? (elapsed - it.delayMs) / WILT_MS : 0;
+      const wilt = wp <= 0 ? 0 : wp >= 1 ? 1 : wp * wp * (3 - 2 * wp); // smoothstep
+      const scaleY = 1 - wilt * 0.88;
+      const alpha = fade * (1 - wilt * 0.7);
+      if (alpha <= 0.01 || it.y > h + 40) continue;
+
+      const [r, g, b] = it.rgb;
+      ctx.save();
+      ctx.translate(it.x, it.y + wilt * it.size * 0.4);
+      ctx.rotate(it.rot + wilt * 0.5);
+      ctx.scale(1, scaleY);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      drawSpoiledGrocery(ctx, it.type, it.size);
+      // * Dim shading band so shapes don't read as flat stickers.
+      ctx.globalAlpha = alpha * 0.28;
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      ctx.fillRect(-it.size * 0.4, 0, it.size * 0.8, it.size * 0.5);
+      ctx.restore();
+    }
+
+    ctx.globalAlpha = 1;
+    wiltRafId = requestAnimationFrame(tick);
+  };
+  wiltRafId = requestAnimationFrame(tick);
+}
+
 /**
  * @param {Element | null | undefined} root
  */
