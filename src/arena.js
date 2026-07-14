@@ -1473,12 +1473,14 @@ export function initArena(scene, world, config, options = {}) {
    * @param {THREE.MeshPhysicalMaterial} mat
    */
   function clampFloorEnv(mat) {
-    if (!mat || !scene.environment) return;
+    if (!mat) return;
     const FLOOR_ENV_SCALE = 0.25; // × getMaterialEnvMapIntensity() (0.24) ⇒ ~0.06
-    mat.envMap = scene.environment;
-    mat.envMapIntensity = getMaterialEnvMapIntensity() * FLOOR_ENV_SCALE;
-    // * refreshSceneEnvironmentMaterials honors this scale, so GUI IBL tweaks keep the clamp.
+    // * Register the scale + intensity unconditionally so the clamp survives the deferred
+    // * PMREM bake: refreshSceneEnvironmentMaterials reapplies base × this scale when the
+    // * IBL lands (and on GUI tweaks). Only the direct envMap assignment needs the env.
     mat.userData.envMapIntensityScale = FLOOR_ENV_SCALE;
+    mat.envMapIntensity = getMaterialEnvMapIntensity() * FLOOR_ENV_SCALE;
+    if (scene.environment) mat.envMap = scene.environment;
   }
   clampFloorEnv(recordMat);
   recordMesh.position.set(0, visualRecordY, 0);
@@ -1581,6 +1583,11 @@ export function initArena(scene, world, config, options = {}) {
     side: THREE.DoubleSide,
     depthWrite: true,
   });
+  // * Medium + Low use this opaque floor (reflector knob off on both tiers), so it needs
+  // * the same IBL clamp as the reflective vinyl. Without it the shinier solid floor takes
+  // * full-intensity env (~0.24 vs the reflective floor's ~0.06) and blows out — the
+  // * "Medium/Low floor light is blown out" from the playtest report.
+  clampFloorEnv(solidFloorMat);
   const recordSolidFloor = new THREE.Mesh(solidFloorGeo, solidFloorMat);
   recordSolidFloor.rotation.x = -Math.PI / 2;
   recordSolidFloor.position.y = reflectorYOffset;
