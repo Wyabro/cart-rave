@@ -33,6 +33,13 @@ controls. **Who runs it?** Wyatt first, then external testers.
 - **Test the production build** for anything perf- or feel-related (`npm run build` +
   `npm run preview`, or the deployed Worker). Vite dev has known artifacts (level-swap
   cost, dev unlocks) that will pollute findings.
+- **Dev-only fast-forward tools.** The Tweakpane **Playtest Tools** panel (press `H`,
+  `npm run dev` only — it is *absent* from the prod build) can force Sudden Death, fire a
+  directive, grant +5/+15 KOs, and flip dev-unlocks in one click. Workflow: use a quick
+  **dev-build pre-pass** to *reach* a state fast, then **reproduce and judge the finding on
+  the production build** the session requires. `?devUnlocks=off`, `?blackmon=1`,
+  `?forcegpu=`, `?rtmode=` are URL/localStorage levers and work in prod too — only the
+  Tweakpane buttons are dev-gated.
 - **Known non-issues — do not file** (verified in [project-state.md §5](../planning/project-state.md)):
   sunglasses-tab 1.35× camera zoom (deliberate, animation backlogged); no ambient
   near-edge glow (product cut — only directional *hit* vignette exists); dev-mode level
@@ -53,7 +60,7 @@ controls. **Who runs it?** Wyatt first, then external testers.
 
 ---
 
-## Testing order — six sessions
+## Testing order — seven sessions (0–6)
 
 The order minimizes wasted hours: each session can invalidate the ones after it, so run
 them in dependency order. A crash found in Session 0 voids a Session 2 balance note; a
