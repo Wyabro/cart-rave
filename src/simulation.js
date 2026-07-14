@@ -75,6 +75,9 @@ const _scratchAngvel = { x: 0, y: 0, z: 0 };
 // * processCollisionEvents, shared by qualification scoring + impulse application.
 const _ramStateA = { pos: { x: 0, y: 0, z: 0 }, linvel: { x: 0, y: 0, z: 0 } };
 const _ramStateB = { pos: { x: 0, y: 0, z: 0 }, linvel: { x: 0, y: 0, z: 0 } };
+// * Rammer's LIVE (post-collision) state — the knockback impulse reads this so forward-ram
+// * feel matches the pre-fix game; attribution stays on the pre-step buffers above. (AI-1)
+const _ramImpulseState = { pos: { x: 0, y: 0, z: 0 }, linvel: { x: 0, y: 0, z: 0 } };
 
 /**
  * * Fetches a cart body's translation/rotation/linvel/angvel ONCE into the module
@@ -866,95 +869,106 @@ export function resolveCartRamCollision(c1, c2) {
  * @param {object} callbacks Injected helpers (FX, local cart, host broadcast).
  * @param {boolean} isHost Whether this client is the room host.
  */
-function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
+export function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
   const playCollisionRef = callbacks?.playCollision;
   const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
-  const rv = rammerState.linvel;
+
+  // * Knockback + crit read the rammer's LIVE (post-collision) velocity, so forward-ram feel
+  // * matches the pre-fix game. A near-stationary reverse shove reads ~0 here → no ram impulse
+  // * (the victim is still moved by raw contact response, exactly as before). Attribution is
+  // * DECOUPLED below: resolveCartRamCollision already qualified this pair from the PRE-step
+  // * closing velocity, so the KO credits the shover even when this live velocity is ~0. (AI-1)
+  readRamStateInto(rammer, _ramImpulseState);
+  const rv = _ramImpulseState.linvel;
   const speed = planarSpeed(rv);
-  if (speed < CONFIG.ramming.minSpeed) return;
-
-  _planarDir.set(rv.x, 0, rv.z);
-  const dirLen = _planarDir.length();
-  if (dirLen <= 1e-6) return;
-  _planarDir.multiplyScalar(1 / dirLen);
-
-  const vv = victimState.linvel;
-  const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
   const rp = rammerState.pos;
   const vp = victimState.pos;
   _toVictim.set(vp.x - rp.x, 0, vp.z - rp.z);
-  if (_toVictim.lengthSq() < 1e-6) return;
-  _toVictim.normalize();
+  const haveToVictim = _toVictim.lengthSq() >= 1e-6;
+  if (haveToVictim) _toVictim.normalize();
 
-  if (_planarDir.dot(_toVictim) < CONFIG.ramming.alignmentDotMin) return;
-
-  const impulseMagBase = Math.max(
-    0,
-    Math.min(
-      CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body),
-      CONFIG.ramming.maxImpulse
-    )
-  );
   const isRammerBoosting = nowMs <= (rammer.ramBoostActiveUntilMs || 0);
-  const boostMul = CONFIG.ramming.boostImpulseMultiplier ?? 2;
-  const impulseMag = isRammerBoosting ? impulseMagBase * boostMul : impulseMagBase;
-  const fxIntensity = Math.min(impulseMag / CONFIG.ramming.maxImpulse, 1.35);
-  const fxOpts = { isBoosting: isRammerBoosting };
+  let fxIntensity = 0;
 
-  const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
+  // * Knockback impulse — applied only with real live closing velocity aimed at the victim.
+  _planarDir.set(rv.x, 0, rv.z);
+  const dirLen = _planarDir.length();
+  if (speed >= CONFIG.ramming.minSpeed && dirLen > 1e-6 && haveToVictim) {
+    _planarDir.multiplyScalar(1 / dirLen);
+    if (_planarDir.dot(_toVictim) >= CONFIG.ramming.alignmentDotMin) {
+      const vv = victimState.linvel;
+      const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
-  // * Host plays FX locally; non-host replays the same events from host_event_collision
-  // * so prediction physics does not double-spawn bright particles (extra bloom).
-  if (isHost) {
-    if (playCollisionRef) {
-      playCollisionRef(fxIntensity, fxOpts);
-    }
-    if (spawnTrashBurstRef && GameState.getRoundState().phase === "running") {
-      const midpoint = { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 };
-      spawnTrashBurstRef(midpoint, fxIntensity, "cart", fxOpts);
-    }
-    if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
-      callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
-    } else if (callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
-      // * Hit-from direction in world XZ: from victim toward rammer (where the blow came from).
-      // * HUD maps this into cart-local sides (left/right/front/rear → screen edges).
-      callbacks.onLocalHitTaken(
-        fxIntensity,
-        isRammerBoosting,
-        -_toVictim.x,
-        -_toVictim.z,
+      const impulseMagBase = Math.max(
+        0,
+        Math.min(
+          CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body),
+          CONFIG.ramming.maxImpulse
+        )
       );
-    }
-    if (callbacks?.onCartImpactSquash) {
-      callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
+      const boostMul = CONFIG.ramming.boostImpulseMultiplier ?? 2;
+      const impulseMag = isRammerBoosting ? impulseMagBase * boostMul : impulseMagBase;
+      fxIntensity = Math.min(impulseMag / CONFIG.ramming.maxImpulse, 1.35);
+      const fxOpts = { isBoosting: isRammerBoosting };
+
+      const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
+
+      // * Host plays FX locally; non-host replays the same events from host_event_collision
+      // * so prediction physics does not double-spawn bright particles (extra bloom).
+      if (isHost) {
+        if (playCollisionRef) {
+          playCollisionRef(fxIntensity, fxOpts);
+        }
+        if (spawnTrashBurstRef && GameState.getRoundState().phase === "running") {
+          const midpoint = { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 };
+          spawnTrashBurstRef(midpoint, fxIntensity, "cart", fxOpts);
+        }
+        if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
+          callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
+        } else if (callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
+          // * Hit-from direction in world XZ: from victim toward rammer (where the blow came from).
+          // * HUD maps this into cart-local sides (left/right/front/rear → screen edges).
+          callbacks.onLocalHitTaken(
+            fxIntensity,
+            isRammerBoosting,
+            -_toVictim.x,
+            -_toVictim.z,
+          );
+        }
+        if (callbacks?.onCartImpactSquash) {
+          callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
+        }
+      }
+
+      // Spread impulse
+      const steps = CONFIG.ramming.spreadSteps;
+      if (!victim.pendingRam) {
+        victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
+      } else {
+        const appliedFraction = 1 - (victim.pendingRam.remainingSteps / victim.pendingRam.totalSteps);
+        victim.pendingRam.impulse.x = (victim.pendingRam.impulse.x * (1 - appliedFraction)) + impulse.x;
+        victim.pendingRam.impulse.y = (victim.pendingRam.impulse.y * (1 - appliedFraction)) + impulse.y;
+        victim.pendingRam.impulse.z = (victim.pendingRam.impulse.z * (1 - appliedFraction)) + impulse.z;
+        victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
+        victim.pendingRam.totalSteps = Math.max(victim.pendingRam.totalSteps, steps);
+      }
+      victim.lastRamTimeMs = nowMs;
+      rammer.lastRamTimeMs = nowMs;
     }
   }
 
-  // Spread impulse
-  const steps = CONFIG.ramming.spreadSteps;
-  const ramTimeMs = nowMs;
-  if (!victim.pendingRam) {
-    victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
-  } else {
-    const appliedFraction = 1 - (victim.pendingRam.remainingSteps / victim.pendingRam.totalSteps);
-    victim.pendingRam.impulse.x = (victim.pendingRam.impulse.x * (1 - appliedFraction)) + impulse.x;
-    victim.pendingRam.impulse.y = (victim.pendingRam.impulse.y * (1 - appliedFraction)) + impulse.y;
-    victim.pendingRam.impulse.z = (victim.pendingRam.impulse.z * (1 - appliedFraction)) + impulse.z;
-    victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
-    victim.pendingRam.totalSteps = Math.max(victim.pendingRam.totalSteps, steps);
-  }
-  victim.lastRamTimeMs = ramTimeMs;
-  rammer.lastRamTimeMs = ramTimeMs;
-
-  // Stage A: record last hit for scoring attribution (host only) and update combo tier.
+  // Stage A: record last hit for scoring attribution (host only) and update combo tier. Runs for
+  // the pre-qualified pair regardless of the live impulse above, so a reverse shove (knocked off
+  // by contact, ~0 live velocity) still credits the shover its KO + points. (AI-1)
   const nowPerf = nowMs;
   const attackerSlotIndex = rammer.slotIndex ?? -1;
   const victimSlotIndex = victim.slotIndex ?? -1;
   if (isHost && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
     // * Critical hit is velocity-based (decision D1): a fast ram, not a nitro-boosted one.
-    // * `speed` is the rammer's planar speed at contact (m/s); the KO Event carries it as
-    // * impactSpeed and derives the critical bonus from the tunable CONFIG threshold.
+    // * `speed` is the rammer's live planar speed at contact (m/s); the KO Event carries it as
+    // * impactSpeed and derives the critical bonus. A reverse shove is slow → impactSpeed ~0,
+    // * never critical (matches its gentle feel).
     const impactSpeed = speed;
     const wasCritical = impactSpeed >= (CONFIG.scoring?.criticalVelocityThreshold ?? Infinity);
     // * High-ground credit (Sundial podium): captured at contact time — the attacker
@@ -980,8 +994,9 @@ function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks
     }
   }
 
-  // Host collision FX queued for batched send on the next host_transform tick.
-  if (isHost) {
+  // Host collision FX queued for batched send — only when a knockback impulse actually landed
+  // (a scored-but-contactless reverse shove sends no ram FX, matching the pre-fix game).
+  if (isHost && fxIntensity > 0) {
     const slotA = rammer.slotIndex;
     const slotB = victim.slotIndex;
     if (slotA >= 0 && slotB >= 0) {
