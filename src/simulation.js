@@ -1558,13 +1558,15 @@ function applyClassicCenterHoleAvoidance(px, pz, dir) {
 function applyOctagonRimAvoidance(px, pz, dir) {
   if (!_octagonHazards) return;
   const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
-  const band = 5.0;
+  // * AI-3: ~+5% Sundial rim caution — engage ~5% sooner (band 5.0→5.25) and push ~5% harder
+  // * inward (1.2→1.26) so bots stop occasionally lemming off the rim.
+  const band = 5.25;
   const edgeDist = octagonEdgeDistance(px, pz);
   if (edgeDist <= apothem - band) return;
   const strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
   const dist = Math.hypot(px, pz) || 1;
-  dir.x += (-px / dist) * strength * 1.2;
-  dir.z += (-pz / dist) * strength * 1.2;
+  dir.x += (-px / dist) * strength * 1.26;
+  dir.z += (-pz / dist) * strength * 1.26;
   if (dir.lengthSq() < 1e-6) dir.set(-px / dist, 0, -pz / dist);
   dir.normalize();
 }
@@ -1714,9 +1716,11 @@ function clampAiTargetAwayFromHazards(x, z, cautious, opts = {}) {
     : CONFIG.record.innerRadius * 1.8;
   // * reachOuter (human chase) lets bots follow edge-campers closer to the rim; patrol and
   // * wander keep the tighter default so idle bots don't drift into the outer kill band.
+  // * AI-3: Cart Rave edge caution — pulled the idle/patrol caps in (0.72→0.68, 0.88→0.84) so
+  // * non-chasing bots keep more margin from the outer rim (chase reachOuter caps set by AI-4).
   const outerLimit = cautious
-    ? CONFIG.record.radius * (opts.reachOuter ? 0.78 : 0.72)
-    : CONFIG.record.radius * (opts.reachOuter ? 0.92 : 0.88);
+    ? CONFIG.record.radius * (opts.reachOuter ? 0.78 : 0.68)
+    : CONFIG.record.radius * (opts.reachOuter ? 0.92 : 0.84);
   const r = clamp(dist, innerLimit, outerLimit);
   let outX = Math.cos(angle) * r;
   let outZ = Math.sin(angle) * r;
