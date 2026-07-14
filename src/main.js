@@ -4426,6 +4426,12 @@ async function main() {
   enableModeMenuButtons();
   window.__cartRaveMainReady = true;
   window.__cartRaveBootstrapped = true;
+  // * Boot telemetry — time-to-menu-interactive from navigation start (ms). Read via
+  // * performance.getEntriesByName("cr:menu-ready")[0].startTime or the DevTools timeline.
+  // * The app had no boot marks, so load-time regressions were invisible to profiling.
+  if (typeof performance !== "undefined" && performance.mark) {
+    performance.mark("cr:menu-ready");
+  }
   window.__cartRaveCancelBootError?.();
   document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
 

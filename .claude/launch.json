@@ -24,6 +24,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3212", "--strictPort"],
       "port": 3212
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--port", "4180", "--strictPort"],
+      "port": 4180
     }
   ]
 }
