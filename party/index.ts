@@ -34,6 +34,10 @@ import {
   classifyWsMessagePreParse,
 } from '../shared/wsMessageLimits.js';
 
+// * Client crash-report sink (SQLite DO). Must be a named export of the Worker
+// * entrypoint so the runtime can construct it; wired in wrangler.jsonc.
+export { ErrorLog } from './errorLog';
+
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 
@@ -1162,14 +1166,64 @@ function withAssetCacheHeaders(request: Request, response: Response): Response {
 export default {
   async fetch(request: Request, env: Record<string, any>): Promise<Response> {
     const url = new URL(request.url);
+
+    // * Client crash reports → persist into the ErrorLog SQLite DO (singleton
+    // * instance "v1"). Bounded, queryable; replaces the old console.log-and-drop.
     if (url.pathname.includes("/api/log-error")) {
+      if (request.method !== "POST") return new Response(null, { status: 405 });
       try {
-        const body = await request.json();
-        console.log("[cart-rave] client error:", JSON.stringify(body));
+        const body = await request.text();
+        // * Cap the beacon body so a runaway client can't wedge the DO fetch.
+        if (body.length <= 100_000 && env.ERROR_LOG) {
+          const stub = env.ERROR_LOG.get(env.ERROR_LOG.idFromName("v1"));
+          await stub.fetch("https://do/store", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body,
+          });
+        } else if (!env.ERROR_LOG) {
+          // * Binding not deployed yet — keep the old visibility so nothing is lost.
+          console.log("[cart-rave] client error (no ERROR_LOG binding):", body.slice(0, 2000));
+        }
       } catch {
-        // Body may be empty or malformed; ignore.
+        // Body may be empty or malformed; ignore — never fail the beacon.
       }
       return new Response(null, { status: 204 });
+    }
+
+    // * Read/clear the crash log. Token-gated: only usable once ERROR_LOG_TOKEN is
+    // * set as a Worker secret, so error reports (UA/URL/stack) aren't world-readable.
+    if (url.pathname.includes("/api/errors")) {
+      const token = env.ERROR_LOG_TOKEN;
+      const jsonError = (msg: string, status: number) =>
+        new Response(JSON.stringify({ error: msg }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      if (!token) {
+        return jsonError(
+          "read endpoint disabled — set the ERROR_LOG_TOKEN secret (wrangler secret put ERROR_LOG_TOKEN)",
+          503,
+        );
+      }
+      const provided =
+        url.searchParams.get("token") ||
+        (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+      if (provided !== token) return new Response("forbidden", { status: 403 });
+      if (!env.ERROR_LOG) {
+        return jsonError("ERROR_LOG binding not deployed", 500);
+      }
+      const stub = env.ERROR_LOG.get(env.ERROR_LOG.idFromName("v1"));
+      if (request.method === "DELETE") {
+        await stub.fetch("https://do/clear", { method: "POST" });
+        return new Response(null, { status: 204 });
+      }
+      const limit = url.searchParams.get("limit") || "100";
+      const res = await stub.fetch("https://do/list?limit=" + encodeURIComponent(limit));
+      return new Response(res.body, {
+        status: res.status,
+        headers: { "content-type": "application/json" },
+      });
     }
 
     const isParty =

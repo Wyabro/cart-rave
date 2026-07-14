@@ -13,6 +13,10 @@
       {
         "name": "CartRaveServer",
         "class_name": "CartRaveServer"
+      },
+      {
+        "name": "ERROR_LOG",
+        "class_name": "ErrorLog"
       }
     ]
   },
@@ -20,6 +24,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["CartRaveServer"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["ErrorLog"]
     }
   ]
 }
