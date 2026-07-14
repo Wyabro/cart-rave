@@ -84,25 +84,25 @@ const MODEL_DEFS = [
  *    geometry. Effective cargo longest-dim ≈ sizeM × cargoScale × cargoMul.
  *    Cargo bays are rebuilt per round, so these apply on the next cargo build.
  *
- * A third knob, `cargoWeight`, biases how often a model is picked to fill a cargo
- * slot (default 1 = even mix). It has NO effect on spill or on physical size.
+ * Current values (2026-07-14 art pass — ART-1 baguette 4× spill, ART-2 milk +15%):
  *
- * Current values (2026-07-14 art pass — ART-1 baguette 5×, ART-2 milk +15% & milk-heavy):
- *
- *   model     sizeM   spill longest-dim   cargoMul   cargo longest-dim   cargoWeight
- *   milk      0.575   0.575 m             1.0        0.30 m              3
- *   cereal    0.50    0.50 m              1.0        0.26 m              1
- *   soda      0.50    0.50 m              1.0        0.26 m              1
- *   soup      0.50    0.50 m              1.0        0.26 m              1
- *   orange    0.50    0.50 m              1.0        0.26 m              1
- *   baguette  2.50*   2.50 m              0.21       0.27 m              1
+ *   model     sizeM   spill longest-dim   cargoMul   cargo longest-dim
+ *   milk      0.575   0.575 m             1.0        0.30 m
+ *   cereal    0.50    0.50 m              1.0        0.26 m
+ *   soda      0.50    0.50 m              1.0        0.26 m
+ *   soup      0.50    0.50 m              1.0        0.26 m
+ *   orange    0.50    0.50 m              1.0        0.26 m
+ *   baguette  2.00*   2.00 m              0.26       0.27 m
  *
  * (*) extreme-aspect models are additionally clamped so their SHORTEST dimension
- *     is ≥ MIN_GROCERY_DIM (0.06 m). ART-1 makes the *spill* baguette 5× (0.5→2.5 m)
- *     — a big comedic loaf in the mess — while cargoMul is dropped 1.05→0.21 to KEEP
+ *     is ≥ MIN_GROCERY_DIM (0.06 m). ART-1 makes the *spill* baguette 4× (0.5→2.0 m)
+ *     — a big comedic loaf in the mess — while cargoMul is dropped 1.05→0.26 to KEEP
  *     the *cargo* baguette at its old safe ~0.27 m. This decoupling is deliberate:
  *     cargo longest-dim = sizeM × cargoScale × cargoMul, and a >0.5 m cargo baguette
  *     punches through the basket rear wall even after radius insets.
+ *
+ * (Basket fill count — how MANY groceries pack the bay — is CONFIG.cargo.baseItems/
+ *  maxItems + the GRID in createCargoBay, not here.)
  *
  * DEV: `window.CartClashGrocery.sizes()` logs the actual effective dimensions of
  * every loaded model (spill + cargo) so tuning sessions see real numbers.
@@ -110,20 +110,20 @@ const MODEL_DEFS = [
 const GROCERY_SCALES = {
   /** Global basket-cargo multiplier ("compact pile" factor). */
   cargoScale: 0.52,
-  /** @type {Record<string, { sizeM: number, cargoMul: number, cargoWeight?: number }>} */
+  /** @type {Record<string, { sizeM: number, cargoMul: number }>} */
   perModel: {
-    milk: { sizeM: 0.575, cargoMul: 1.0, cargoWeight: 3 },
+    milk: { sizeM: 0.575, cargoMul: 1.0 },
     cereal: { sizeM: 0.5, cargoMul: 1.0 },
     soda: { sizeM: 0.5, cargoMul: 1.0 },
     soup: { sizeM: 0.5, cargoMul: 1.0 },
     orange: { sizeM: 0.5, cargoMul: 1.0 },
-    baguette: { sizeM: 2.5, cargoMul: 0.21 },
+    baguette: { sizeM: 2.0, cargoMul: 0.26 },
   },
 };
 
 /** @param {string} name */
 function groceryScaleFor(name) {
-  return GROCERY_SCALES.perModel[name] ?? { sizeM: 0.5, cargoMul: 1.0, cargoWeight: 1 };
+  return GROCERY_SCALES.perModel[name] ?? { sizeM: 0.5, cargoMul: 1.0 };
 }
 
 /**
@@ -568,14 +568,12 @@ export function createCargoBay(hw, hl) {
   group.name = "cargoBay";
   if (loadedGeometries.length === 0) return group;
 
-  // * Weighted model bag — each model index is repeated `cargoWeight` times (default 1)
-  // * so milk (weight 3) fills more slots and the bay reads as a milk-heavy haul (ART-2).
-  // * Shuffled, then cycled across the fixed GRID for a good random-but-milky mix.
-  const indices = [];
-  for (let k = 0; k < loadedGeometries.length; k += 1) {
-    const weight = Math.max(1, Math.round(groceryScaleFor(MODEL_DEFS[k].name).cargoWeight ?? 1));
-    for (let n = 0; n < weight; n += 1) indices.push(k);
-  }
+  // * Shuffle indices so we get a good random mix of the 6 model types, then cycle
+  // * across the fixed GRID (more slots than models → each type repeats a couple times).
+  const indices = Array.from(
+    { length: loadedGeometries.length },
+    (_, k) => k,
+  );
   for (let i = indices.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
@@ -591,19 +589,30 @@ export function createCargoBay(hw, hl) {
   // * Fractions are of the *usable* half-extent after item size. Ordered by fill
   // * priority — Living Cargo reveals items front-to-back as the slot's score climbs,
   // * so layer-0 floor items come first and the overflowing top layers come last.
+  // * 18 slots (denser floor + mid) so a full basket reads packed, not half-empty;
+  // * only 3 layers, so the extra items fill gaps without raising the pile past the rim.
   const GRID = [
+    // layer 0 — floor (fills the whole footprint: corners, edges, centre)
     { u: -0.55, v: -0.4, layer: 0 },
     { u: 0.55, v: -0.4, layer: 0 },
     { u: -0.55, v: 0.35, layer: 0 },
     { u: 0.55, v: 0.35, layer: 0 },
     { u: 0.0, v: -0.05, layer: 0 },
+    { u: 0.0, v: -0.45, layer: 0 },
+    { u: 0.0, v: 0.45, layer: 0 },
+    { u: -0.35, v: 0.1, layer: 0 },
+    { u: 0.35, v: 0.1, layer: 0 },
+    // layer 1 — mid
     { u: 0.0, v: 0.05, layer: 1 },
     { u: -0.5, v: -0.1, layer: 1 },
     { u: 0.5, v: -0.1, layer: 1 },
     { u: -0.45, v: 0.45, layer: 1 },
     { u: 0.45, v: 0.45, layer: 1 },
+    { u: 0.0, v: -0.4, layer: 1 },
+    // layer 2 — top (overflow)
     { u: -0.2, v: -0.35, layer: 2 },
     { u: 0.25, v: 0.2, layer: 2 },
+    { u: 0.0, v: -0.05, layer: 2 },
   ];
 
   /** @type {THREE.Mesh[]} Fill-order list consumed by {@link setCargoFill}. */

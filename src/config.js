@@ -240,8 +240,8 @@ const physics = {
   // * from synced roundScores, so host and clients agree with zero extra netcode.
   cargo: {
     fullScore: 8, // points — round score at which the cargo bay reads "overflowing" (fullness 1.0)
-    baseItems: 4, // count — groceries visible in the bay at score 0 (a readable partial layer, not near-empty)
-    maxItems: 12, // count — groceries visible at full cargo (2 stacked layers)
+    baseItems: 7, // count — groceries visible in the bay at score 0 (a stocked floor, not half-empty)
+    maxItems: 18, // count — groceries visible at full cargo (packed basket, all 3 layers; GRID length)
     // * Top-heavy handling — lateral grip multiplier at FULL cargo (lerped from 1.0 when
     // * empty). Gentle by design: a loaded leader slides wider; it never flips them.
     gripFullFactor: 0.8, // unitless — lateral grip scale at fullness 1.0
