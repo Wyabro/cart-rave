@@ -651,7 +651,7 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   rereadLinvelIntoScratch(cart);
   applyEnvironmentResponse(cart, dtFixed);
   rereadLinvelIntoScratch(cart);
-  applySquareHoleLipAssist(cart, dtFixed);
+  applySquareHoleLipAssist(cart, dtFixed, nowMs);
   rereadLinvelIntoScratch(cart);
   applyGeometryUnstick(cart, dtFixed, nowMs);
 
@@ -685,8 +685,14 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
  * @param {object} cart
  * @param {number} dtFixed
  */
-function applySquareHoleLipAssist(cart, dtFixed) {
+function applySquareHoleLipAssist(cart, dtFixed, nowMs) {
   if (!_levelHazards?.arenaHalf || !cart?.body || cart.respawnAtMs != null || !dtFixed) return;
+
+  // * Stand down after a qualified ram: this outward shove was fighting the shover's
+  // * kill — a rammed cart got rescued from the very hole it was knocked toward, which
+  // * read as "my hit did nothing" and made Storerooms kills feel impossible
+  // * (playtest 2026-07-15). The window comfortably outlasts the 3-step ram spread.
+  if (nowMs != null && cart.lastRammedAtMs != null && nowMs - cart.lastRammedAtMs < 1200) return;
 
   const pos = _scratchPos;
   const { cheb, hole } = nearestSquareHole(pos.x, pos.z);
@@ -954,6 +960,10 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
     // * may roll off the podium before the victim actually splashes down.
     const fromPodium = isOnPodiumHighGround(rp.x, rp.z);
     GameState.recordHit(victimSlotIndex, attackerSlotIndex, wasCritical, impactSpeed, fromPodium);
+    // * Stamped for applySquareHoleLipAssist: a just-rammed cart is being deliberately
+    // * shoved, and the lip assist must not fight the shover's kill. Set here (not at
+    // * the impulse) so solver-arrested reverse shoves count too (AI-1).
+    victim.lastRammedAtMs = nowPerf;
   }
 
   // Update combo tier for attacker and refresh local store if rammer is local player.
@@ -1529,6 +1539,41 @@ function applyClassicCenterHoleAvoidance(px, pz, dir) {
 }
 
 /**
+ * * Classic disc outer rim — inward heading push. The rim had NO reactive avoidance
+ * * (only the 0.84/0.95 target clamp), so momentum, drift impulses, and target jitter
+ * * carried bots straight off (playtest 2026-07-15: "they don't stop at the edge").
+ * * Time-to-edge gating keeps it out of the way of AI-4 edge-camper chases: a slow,
+ * * controlled approach to a rim-side target feels nothing; a bot about to fly off does.
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {{ x: number, z: number }} lv Planar linvel (module scratch).
+ * @param {THREE.Vector3} dir Heading to adjust in place.
+ */
+function applyClassicOuterRimAvoidance(px, pz, lv, dir) {
+  const dist = Math.hypot(px, pz);
+  if (dist < 1e-3) return;
+  const rx = px / dist;
+  const rz = pz / dist;
+  const gap = CONFIG.record.radius - dist;
+
+  // * Thin static band so idle drift at the lip still gets a nudge…
+  let strength = clamp((1.6 - gap) / 1.6, 0, 1);
+  // * …and a speed-aware panic that engages by time-to-edge, not distance.
+  const outwardSpeed = lv.x * rx + lv.z * rz;
+  if (outwardSpeed > 0.5) {
+    const tte = gap / outwardSpeed;
+    strength = Math.max(strength, clamp((0.55 - tte) / 0.55, 0, 1) * 1.6);
+  }
+  if (strength <= 0) return;
+
+  dir.x -= rx * strength * 1.1;
+  dir.z -= rz * strength * 1.1;
+  if (dir.lengthSq() < 1e-6) dir.set(-rx, 0, -rz);
+  dir.normalize();
+}
+
+/**
  * * Steers an octagon-arena NPC's heading inward when it's within the rim influence band.
  * * Sundial Station's outer rim is the only kill edge, so — unlike a center hole — bots must
  * * be pushed toward center. Robust across all eight flats (pushes along −position).
@@ -2024,7 +2069,17 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   // * corner voids (Backrooms) or the center hole (Classic) at round start / respawn.
   const onSpawnPlatform = p.y > CONFIG.booth.platformY - 0.5;
   if (onSpawnPlatform) {
-    cart.aiTarget = { x: 0, z: 0 };
+    // * Classic disc: "toward center" must stop SHORT of the center hole — with the
+    // * raw {0,0} target, freshly-landed bots carried a dead-center heading at speed
+    // * and dove straight in (playtest 2026-07-15). Mid-annulus point on the same
+    // * inbound line keeps the roll-off direction identical, minus the suicide.
+    if (!_levelHazards && !_octagonHazards && CONFIG.record.centerHole?.enabled !== false) {
+      const dCenter = Math.hypot(p.x, p.z) || 1;
+      const midR = CONFIG.record.radius * 0.55;
+      cart.aiTarget = { x: (p.x / dCenter) * midR, z: (p.z / dCenter) * midR };
+    } else {
+      cart.aiTarget = { x: 0, z: 0 };
+    }
     cart._aiWorkingTarget = null;
     cart.aiNextDecisionMs = now + 200;
     cart.aiLastProgressMs = now;
@@ -2172,9 +2227,13 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
         }
       }
     } else if (CONFIG.record.centerHole?.enabled !== false) {
-      // * Classic: check distance to center-hole physics lip.
+      // * Classic: check distance to center-hole physics lip AND the outer rim —
+      // * both are death edges, and blind 600-1500ms reverses walked bots straight
+      // * off the rim (playtest 2026-07-15).
       const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
-      nearHazard = Math.hypot(p.x, p.z) < holeLip + 3.0;
+      const distFromCenter = Math.hypot(p.x, p.z);
+      nearHazard = distFromCenter < holeLip + 3.0
+        || distFromCenter > CONFIG.record.radius - 3.0;
     }
 
     if (Math.random() < reverseChance && !nearHazard) {
@@ -2214,8 +2273,9 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       applyOctagonRimAvoidance(p.x, p.z, toTarget);
     }
   } else if (CONFIG.record.centerHole?.enabled !== false) {
-    // * Classic Record: reactive radial push away from the center hole.
+    // * Classic Record: reactive radial push away from the center hole + the rim.
     applyClassicCenterHoleAvoidance(p.x, p.z, toTarget);
+    applyClassicOuterRimAvoidance(p.x, p.z, lv, toTarget);
   }
 
   // * Avoidance commitment — when a bot is in the hazard avoidance band and its speed
@@ -2256,7 +2316,12 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   const lvScratch = _scratchLinvel;
   const speedCheck = Math.hypot(lvScratch.x, lvScratch.z);
-  if (inAvoidanceBand && speedCheck < 2.0 && now >= cart.aiAvoidanceCommitUntilMs) {
+  // * Solid furniture arms the escape commit at sawing speeds too — a bot grinding
+  // * the Storerooms centerpiece at 2-3 m/s never dropped under the 2.0 gate, so it
+  // * ground there forever (playtest 2026-07-15 residual of AI-2). Death voids keep
+  // * the tight gate: committing at speed near a lip would drive carts along the edge.
+  const commitSpeedCap = escapeKeepOut ? 3.2 : 2.0;
+  if (inAvoidanceBand && speedCheck < commitSpeedCap && now >= cart.aiAvoidanceCommitUntilMs) {
     cart.aiAvoidanceCommitUntilMs = now + 1500;
   }
 
@@ -2321,6 +2386,25 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     if (cheb < lip + 0.12) {
       const lipBlend = THREE.MathUtils.smoothstep(cheb, lip, lip + 0.12);
       forward = THREE.MathUtils.lerp(0.6, forward, lipBlend);
+    }
+  } else if (!_octagonHazards && CONFIG.record.centerHole?.enabled !== false) {
+    // * Classic disc time-to-death braking — bots held forward 1.0 all the way off
+    // * both edges ("doesn't stop at the edge", playtest 2026-07-15). Ease throttle
+    // * by seconds-to-edge along the current radial velocity: braking starts sooner
+    // * the faster the approach, recovers as avoidance turns the heading.
+    const distFromCenter = Math.hypot(p.x, p.z);
+    if (distFromCenter > 1e-3) {
+      const radialSpeed = (lv.x * p.x + lv.z * p.z) / distFromCenter; // + = outward
+      let secondsToEdge = Infinity;
+      if (radialSpeed > 0.5) {
+        secondsToEdge = (CONFIG.record.radius - distFromCenter) / radialSpeed;
+      } else if (radialSpeed < -0.5) {
+        const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+        secondsToEdge = (distFromCenter - holeLip) / -radialSpeed;
+      }
+      if (secondsToEdge < 0.8) {
+        forward *= clamp(secondsToEdge / 0.8, 0.3, 1);
+      }
     }
   }
   return { forward, turn };

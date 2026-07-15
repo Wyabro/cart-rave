@@ -2342,24 +2342,14 @@ function buildUncannyDetails(scene, world) {
   ownedGeometries.push(exitGeo, postGeo);
   ownedMaterials.push(exitMat, postMat);
 
-  // Freestanding post near the dead quadrant — only prop kept at the hole.
+  // Freestanding post in the pit ring past the floor edge (ARENA_HALF 38) —
+  // it lived on drivable carpet at (-27.5, 22.5) with a 0.2m collider and carts
+  // wedged on it (playtest 2026-07-15). Background dressing now: no physics.
   const exitPost = new THREE.Mesh(postGeo, postMat);
-  exitPost.position.set(-27.5, 1.6, 22.5);
+  exitPost.position.set(-39.8, 1.6, 22.5);
   group.add(exitPost);
-  {
-    const body = world.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed().setTranslation(-27.5, 1.6, 22.5),
-    );
-    world.createCollider(
-      RAPIER.ColliderDesc.cuboid(0.1, 1.6, 0.1)
-        .setFriction(0.4)
-        .setRestitution(0.25),
-      body,
-    );
-    bodies.push(body);
-  }
   const exitSign = new THREE.Mesh(exitGeo, exitMat);
-  exitSign.position.set(-27.5, 3.35, 22.5);
+  exitSign.position.set(-39.8, 3.35, 22.5);
   exitSign.rotation.y = Math.PI * 0.35;
   group.add(exitSign);
 
