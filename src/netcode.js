@@ -140,6 +140,12 @@ let lastSlotsServerMs = 0;
 let pendingHostFallEvents = [];
 
 export function queueHostFallEvent(eventData) {
+  // * Only queue what the 40Hz tick can actually drain: an active MP host send loop.
+  // * Solo/testdrive never start the loop — without this gate every solo fall would
+  // * accumulate all session and flush as phantom KO replays into the first snapshot
+  // * of a later hosted room. (The send tick additionally drops any falls queued
+  // * after the round leaves "running", e.g. the round-ending KO — see the drain site.)
+  if (!hostSendTimer) return;
   pendingHostFallEvents.push(eventData);
 }
 
@@ -252,7 +258,7 @@ let callbacks = {
   onSpillBonusPresentation: (_msg) => {},
   /**
    * * Wired implementations may return either a numeric hex (0xff00ff) or a CSS
-   * * hex string ("#ff00ff") — the host_event_fall handler narrows on typeof.
+   * * hex string ("#ff00ff") — the falls[] tail replay (processHostFallEvent) narrows on typeof.
    * @type {(slot: object | null | undefined) => number | string}
    */
   colorHexForSlot: (slot) => 0x888888,
@@ -420,8 +426,6 @@ export function resetClientPredictionState() {
   resetReconciliationState();
 }
 export function getHostMigrationFreezeUntilMs() { return hostMigrationFreezeUntilMs; }
-/** Host (P2P) clock offset — local − tHost. Prefer {@link getHostClockOffsetMs}. */
-export function getServerClockOffsetMs() { return hostClock.offsetMs; }
 /** Host (sim peer) clock offset: local round-clock − host tHost. */
 export function getHostClockOffsetMs() { return hostClock.offsetMs; }
 /** Party (Worker) clock offset: local round-clock − Party serverNowMs. */
@@ -741,8 +745,8 @@ export function applyCartState(cart, snap, options = {}) {
     // * Respawn teardown: the host says the cart is alive again and the death VFX has
     // * run its course — run the same local respawn as the host (cleanupShatter +
     // * visual rebuild + transient reset). While the animation is still playing, an
-    // * s:false snapshot is stale pre-death state (host_event_fall applies immediately
-    // * while transforms drain through the interp buffer); the shatter's own lifetime,
+    // * s:false snapshot is stale pre-death state (the falls[] tail replay applies
+    // * immediately while transforms drain through the interp buffer); the shatter's own lifetime,
     // * not this network flag, decides when the VFX ends.
     if (!snap.s && cart._shatterState && !isShatterAnimating(cart, performance.now())) {
       doRespawnRef?.(cart);
@@ -875,7 +879,8 @@ function applyCartsSnapshotToBodies(carts) {
  * Appends a host-authoritative cart snapshot to the client-side interpolation buffer.
  * Drops oldest entries when the buffer exceeds `CONFIG.net.stateBufferMaxSize`.
  *
- * @param {number} serverNowMs Server clock timestamp for the snapshot.
+ * @param {number} serverNowMs HOST-domain timestamp (snapshot tHost / hostSpawn tHost —
+ *   NET-CLK-1; the Party/Worker clock never feeds this buffer despite the legacy name).
  * @param {number} seq Monotonic sequence number from the host.
  * @param {Array<object>|Record<string, object>} carts Per-slot transform snapshot (array preferred).
  * @param {number} epoch Host epoch (increments on host migration).
@@ -1020,6 +1025,7 @@ function stopHostSendLoop() {
   if (hostSendTimer) clearInterval(hostSendTimer);
   hostSendTimer = null;
   clearHostCollisionBatch();
+  pendingHostFallEvents = [];
 }
 
 function stopKeepaliveLoop() {
@@ -1120,7 +1126,14 @@ export function startHostSendLoop() {
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
   hostSendTimer = setInterval(() => {
     const allCarts = getAllCarts();
-    if (!partySocket || !isHost || !allCarts || GameState.getRoundState().phase !== "running") return;
+    if (!partySocket || !isHost || !allCarts || GameState.getRoundState().phase !== "running") {
+      // * Falls queued in the last tick-interval of a round (or during podium — the
+      // * round-ending KO's endRound flips the phase before gameFlow queues it) would
+      // * otherwise sit here and replay as phantom KOs on every non-host at the start
+      // * of the NEXT round (kill feed, shatter, duplicate challenge/unlock credit).
+      if (pendingHostFallEvents.length > 0) pendingHostFallEvents = [];
+      return;
+    }
 
     hostSeq += 1;
     const carts = [];
@@ -1141,16 +1154,13 @@ export function startHostSendLoop() {
     lastCartsCache = carts;
     const collisions = drainHostCollisionBatch();
     const falls = drainHostFallBatch();
-    // * Read the store instead of localStorage — this fires at hostSendHz (~40Hz) and
-    // * settingsStore.selectedLevelId is already kept in sync with the persisted level
-    // * (see cart-rave-menu.js persistLevel / adoptAuthoritativeRoomLevel below).
     // * tHost drives hostClock only (NET-CLK-1) — never the Party offset EWMA.
-    const currentLevelId = settingsStore.getState().selectedLevelId || "classicRecord";
+    // * (No levelId here: the binary snapshot encoder never carried it — level truth
+    // * travels via host_round / hello / round, the quickplay-rotation design.)
     const tHost = getMonotonicNow();
     const payload = {
       type: MSG.hostTransform,
       seq: hostSeq,
-      levelId: currentLevelId,
       // * Host monotonic clock stamp; non-host clients use it to drive snapshot
       // * interpolation and estimate the host<->client clock offset (NET-CLK-1).
       tHost,
@@ -1408,6 +1418,7 @@ function applyHostMigration(msg) {
     applyAttributionSnapshot(lastAttributionCache);
   }
   clearHostCollisionBatch();
+  pendingHostFallEvents = [];
   remoteInputsByConnId.clear();
   remoteInputQueuesByConnId.clear();
   remoteNitroLatchedByConnId.clear();
@@ -2177,11 +2188,6 @@ function updateHostClockOffset(tHost, nowMs = getMonotonicNow()) {
   updateClockOffset(hostClock, tHost, nowMs);
 }
 
-/** @deprecated Use updateHostClockOffset — kept as test-hook name for host clock. */
-function updateServerClockOffset(serverNowMs, nowMs = getMonotonicNow()) {
-  updateHostClockOffset(serverNowMs, nowMs);
-}
-
 /**
  * Sample Party serverNowMs from any WS control-plane message that carries it.
  * @param {unknown} msg
@@ -2544,14 +2550,22 @@ function handleRemoteHostState(state) {
     lastCartsCache = state.carts;
   }
   if (!isHost) {
-    const hostTime = typeof state.tHost === "number" ? state.tHost : (typeof state.serverNowMs === "number" ? state.serverNowMs : getMonotonicNow());
-    updateHostClockOffset(hostTime);
+    // * Guard tHost > 0 like applyHostSpawnSnapshot does — a malformed binary header
+    // * decodes Float64 fields to 0 (getSafeFloat64), which would feed a garbage
+    // * ~1.7e12 offset sample and buffer a permanent time-0 "before" snapshot. The
+    // * old `state.serverNowMs` fallback was dead compat: hostTransform is binary-only
+    // * now and the decoder never emits that field.
+    const tHostValid = typeof state.tHost === "number" && state.tHost > 0;
+    const hostTime = tHostValid ? state.tHost : getMonotonicNow() - hostClock.offsetMs;
+    if (tHostValid) updateHostClockOffset(hostTime);
     const seq = typeof state.seq === "number" ? state.seq : -1;
     bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
-    // * Cache kill-credit / combo ages for host promotion (NET-MIG-1).
-    if (state.attr && typeof state.attr === "object") {
-      lastAttributionCache = state.attr;
-    }
+    // * Kill-credit / combo ages for host promotion (NET-MIG-1). Mirror host truth
+    // * every snapshot: the host omits `attr` once all hit windows/combos close, so
+    // * absent means EMPTY — holding the last non-empty value would resurrect
+    // * minutes-old kill credit on promote (applyAttributionSnapshot re-anchors the
+    // * cached ages to promote-time now).
+    lastAttributionCache = (state.attr && typeof state.attr === "object") ? state.attr : null;
     if (Array.isArray(state.collisions)) {
       for (const ev of state.collisions) {
         replayHostCollisionFx(ev, callbacks);
