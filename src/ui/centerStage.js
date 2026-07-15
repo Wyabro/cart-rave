@@ -17,6 +17,20 @@ const MAX_QUEUE = 2;
 const HANDOFF_GAP_MS = 60;
 
 /**
+ * Shared stage-claim priorities — the single source of truth for who preempts
+ * whom on the Center Stage band. Higher wins.
+ * - TOAST: default challenge toast — queues behind announcer callouts.
+ * - ANNOUNCER: Store PA callouts.
+ * - CRITICAL: unlock toasts + NEXT ARENA — usually land on the same KO that
+ *   fires an announcer line, which used to preempt them instantly.
+ */
+export const STAGE_PRIORITY = Object.freeze({
+  TOAST: 2,
+  ANNOUNCER: 3,
+  CRITICAL: 4,
+});
+
+/**
  * @typedef {object} StageRequest
  * @property {string} kind Client identity, e.g. "announcer" | "toast".
  * @property {number} priority Higher wins; announcer(3) > toast(2).

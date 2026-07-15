@@ -11,7 +11,7 @@ import {
   scheduleKillFeedExit,
   wireButtonPressFeedback,
 } from "./animations.js";
-import { claimStage, resetStage } from "./ui/centerStage.js";
+import { claimStage, resetStage, STAGE_PRIORITY } from "./ui/centerStage.js";
 import { svgIcon } from "./ui/icons.js";
 import { updateBoostRing } from "./touchControls.js";
 import { clamp, clampInt } from "./utils.js";
@@ -1867,13 +1867,13 @@ export function tickHitDirection(nowMs = performance.now()) {
 export function showChallengeToast(title, kicker = "◆ CHALLENGE COMPLETE", opts = {}) {
   if (!elements.toast || !elements.toastTitle) return;
   const TOAST_MS = opts.durationMs ?? 3200;
-  // * Center Stage routing — default toasts queue behind announcer callouts
-  // * (priority 3 > 2) so the stage band shows one moment at a time; overflow beyond
-  // * 2 queued drops. Unlock toasts ride above callouts instead: they usually land on
-  // * the same KO that fires an announcer line, which used to preempt them instantly.
+  // * Center Stage routing — default toasts queue behind announcer callouts so the
+  // * stage band shows one moment at a time; overflow beyond 2 queued drops. Unlock
+  // * toasts pass STAGE_PRIORITY.CRITICAL to ride above callouts instead (the scale
+  // * lives in centerStage.js).
   claimStage({
     kind: "toast",
-    priority: opts.priority ?? 2,
+    priority: opts.priority ?? STAGE_PRIORITY.TOAST,
     durationMs: TOAST_MS,
     show: () => {
       if (!elements.toast || !elements.toastTitle) return;

@@ -29,7 +29,10 @@ export type RoundState = {
   validated: true;
 };
 
-export const ROUND_DURATION_MS = 150_000;
+import { ROUND_DURATION_MS } from '../shared/roundConstants.js';
+
+// * Re-exported so existing consumers (index.ts, tests) keep one import site.
+export { ROUND_DURATION_MS };
 export const MIN_RUNNING_BEFORE_PODIUM_MS = 3_000;
 export const MAX_SCORE_PER_SLOT = 500;
 

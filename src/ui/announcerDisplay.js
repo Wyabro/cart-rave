@@ -10,7 +10,7 @@
 // announcerManager.js (replaceSameKind).
 
 import "./styles/announcer.css";
-import { claimStage } from "./centerStage.js";
+import { claimStage, STAGE_PRIORITY } from "./centerStage.js";
 
 /**
  * @typedef {object} AnnouncerCalloutPayload
@@ -163,7 +163,7 @@ function showCallout(payload) {
   const claimHoldMs = Number.isFinite(payload?.holdMs) ? Math.max(0, payload.holdMs) : DEFAULT_HOLD_MS;
   claimStage({
     kind: "announcer",
-    priority: 3,
+    priority: STAGE_PRIORITY.ANNOUNCER,
     durationMs: claimHoldMs,
     replaceSameKind: true,
     show: () => presentCallout(payload),

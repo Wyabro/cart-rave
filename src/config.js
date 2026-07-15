@@ -17,6 +17,7 @@
 
 import { getQualityTier } from "./utils/qualityMode.js";
 import { QUALITY_KNOBS } from "./utils/qualityTiers.js";
+import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 
 /** @type {string} Bump when physics or net tuning changes materially. */
 const CONFIG_VERSION = "2026.07.09";
@@ -424,7 +425,9 @@ export const CONFIG = {
   },
 
   round: {
-    durationMs: 150000, // ms — host-authoritative round length (2.5 min)
+    // * Shared with the server's podium plausibility cap — tune it in
+    // * shared/roundConstants.js, never here alone (AGENTS.md invariant).
+    durationMs: ROUND_DURATION_MS,
   },
 
   postFx: {
