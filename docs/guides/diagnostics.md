@@ -43,9 +43,10 @@ error.** Same as `netharness`, `shoot`, `blackframes`.
 are a single boolean read.
 
 - `__ccDiag.snapshot()` — run every registered probe and return
-  `{ round, score, announcer, directive, camera, boot, ai, unlocks, challenges, config, perf }`.
-  `snapshot("round")` runs just one. A throwing probe degrades to `{ error }` for that
-  namespace instead of breaking the read.
+  `{ round, score, announcer, directive, camera, boot, ai, unlocks, challenges, config, perf,
+  runtime }`. `snapshot("round")` runs just one. A throwing probe degrades to `{ error }` for
+  that namespace instead of breaking the read. The `runtime` probe carries browser/device
+  context (userAgent, GPU class + renderer, quality tier, DPR, deviceMemory, cores, viewport).
 - `__ccDiag.events(sinceSeq?)` — the bounded (512) event ring buffer. Each record is
   `{ seq, t, ch, type, …data }`. Channels: `round` (phase / sudden-death), `score`, `ko`
   (with attribution), `announcer` (every accepted PA event), `unlock`, `challenge`, `boot`,
@@ -55,6 +56,16 @@ are a single boolean read.
   QA sessions. Each reuses an existing proven production path (never a new mutation route):
   `rewindRoundClock(remainMs)` (the Force-Sudden-Death clock trick — fast-ends a running
   round), `grantKos(level, n)` (the unlock funnel), `setScores(scores)` (crown a winner).
+- `__ccDiag.captureBundle({ scenario, reason })` — assemble a self-contained **bug-capture
+  bundle**: `{ bundleVersion, scenario, reason, capturedAt (ISO), phase, flags, tail, seed,
+  eventCounts, events, snapshot }`. Pure read (never mutates); JSON-serializable so it ships to
+  disk or clipboard. `seed` is always `null` — there is no exposed gameplay RNG seed (arena pick
+  is unseeded). Two ways to trigger a capture:
+  - **In-app hotkey** — `Ctrl+Shift+D` (DEV build + `?diag` only) logs the bundle and copies its
+    JSON to the clipboard. The "player reports a bug on screen → dev presses the key" path.
+  - **Harness** — `dumpFailureBundle(page, { scenario, label })` (`tools/lib/harness.mjs`) writes
+    `<scenario>-<label>-NNN.json` + a Playwright screenshot to `.diag-captures/` (gitignored).
+    Both rigs call it automatically when a scenario's checks fail.
 
 ## Two primitives make new modules cheap
 
@@ -83,6 +94,31 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
 - **unlockFunnel** — with real locks enforced (`cartRaveDevUnlocks=off`), granting 10 KOs on
   Cart Rave unlocks The Storerooms and logs the unlock event. (Automates the §C progression
   funnel without grinding.)
+- **mpIntegration** (2-client, in `netharness`) — the netcode↔gameplay seam: host starts a
+  match, a second client joins mid-round, and the rig asserts INVARIANTS (not exact timing):
+  both stay connected with correct host/non-host roles, the joiner controls its own cart (local
+  + host-authoritative view both move), a scored round syncs across both clients, the podium
+  crowns the **same** winner on both, the PA fires the right result per client (winner→`victory`,
+  loser→`defeat`), the quickplay rematch returns both to a fresh round with reset scores, and
+  neither client logs a sim error. Run it with:
+  ```bash
+  npm run netharness -- --url http://127.0.0.1:3000/ --scenario mpIntegration
+  ```
+  (`npm run netharness` alone still runs only `spawnlock`, unchanged.)
+
+## AI stall watchdog (dev-only, `?diag`)
+
+[`src/utils/aiStallWatchdog.js`](../../src/utils/aiStallWatchdog.js) is a passive observer wired
+into the host physics frame ([`gameLoop.js`](../../src/gameLoop.js), guarded by
+`__ccDiagActive` + `phase==="running"`). It samples every NPC's horizontal speed + position and,
+when one sits with near-zero meaningful movement in the same behavior past a threshold (2.5s —
+deliberately **above** the AI's own 1.1s self-recovery window, so only unrecovered stalls flag),
+emits **one** `recordDiagEvent("ai", "stall_detected", { slot, npcId, personality, state,
+durationMs, x, z, speed, target })`, debounced per episode and re-armed on recovery. It **only
+observes — it never touches AI behavior.** The `state` string is synthesized
+(paused/reversing/contestingPodium/avoiding/seeking) because the AI has no discrete state enum.
+The `roundflow` rig logs any stalls it sees as passive evidence; query them anytime with
+`__ccDiag.events().filter(e => e.type === "stall_detected")`.
 
 ## Extending it
 
@@ -94,7 +130,7 @@ system you're instrumenting — no core change. Add a scenario as a function
 state via `__ccDiag` over scraping the DOM. Keep any new in-page instrumentation behind the
 `__ccDiagActive` guard so it stays zero-cost in production.
 
-Natural next modules on this foundation: a camera-framing assertion pass, an AI-behavior
-watchdog (stall/lemming detection off the `ai` probe), a results-screen scenario, a boot/asset
-timeline (extend the single `cr:menu-ready` mark into a `cr:*` sequence surfaced on the `boot`
-channel), and a soak scenario (N rematches, assert no growing hitch off the `perf` probe).
+Natural next modules on this foundation: a camera-framing assertion pass, a results-screen
+scenario, a boot/asset timeline (extend the single `cr:menu-ready` mark into a `cr:*` sequence
+surfaced on the `boot` channel), and a soak scenario (N rematches, assert no growing hitch off
+the `perf` probe). *(Done: the AI stall watchdog and the mpIntegration scenario above.)*

@@ -33,6 +33,7 @@ import {
   releaseKey,
   sleep,
   CheckTally,
+  dumpFailureBundle,
   CLIENT_PORT,
 } from "./lib/harness.mjs";
 
@@ -47,6 +48,7 @@ const readRound = () => /** @type {any} */ (window).__ccDiag.snapshot("round");
  */
 async function scenarioRoundflow(browser, baseUrl, tally) {
   log("[scenario] roundflow — solo round advances countdown→running→podium");
+  const mark = tally.count;
   const { context, page } = await makeClient(browser, {
     baseUrl,
     label: "solo",
@@ -130,6 +132,19 @@ async function scenarioRoundflow(browser, baseUrl, tally) {
   );
   tally.check("phase transitions logged to event buffer", phases.length >= 1, phases.join(" "));
 
+  // AI stall watchdog is passive evidence, not a pass/fail gate here: report any NPC stalls the
+  // watchdog flagged during the round so a real wedge shows up in the log (and the capture).
+  const stalls = await page.evaluate(() =>
+    /** @type {any} */ (window)
+      .__ccDiag.events()
+      .filter((e) => e.ch === "ai" && e.type === "stall_detected")
+      .map((e) => `slot${e.slot}:${e.personality}:${e.durationMs}ms@${e.state}`),
+  );
+  if (stalls.length) log(`[scenario] AI stall watchdog flagged ${stalls.length}: ${stalls.join(", ")}`);
+
+  if (tally.failedSince(mark)) {
+    await dumpFailureBundle(page, { scenario: "roundflow", label: "solo", log });
+  }
   await context.close();
 }
 
@@ -139,6 +154,7 @@ async function scenarioRoundflow(browser, baseUrl, tally) {
  */
 async function scenarioUnlockFunnel(browser, baseUrl, tally) {
   log("[scenario] unlockFunnel — KO credit crosses a real unlock gate");
+  const mark = tally.count;
   const { context, page } = await makeClient(browser, {
     baseUrl,
     label: "unlock",
@@ -189,6 +205,9 @@ async function scenarioUnlockFunnel(browser, baseUrl, tally) {
     `unlocks=[${unlockEvents.join(",")}]`,
   );
 
+  if (tally.failedSince(mark)) {
+    await dumpFailureBundle(page, { scenario: "unlockFunnel", label: "unlock", log });
+  }
   await context.close();
 }
 

@@ -3,6 +3,7 @@
 import { captureCartsPhysicsPrevPoses } from "./entities.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
+import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
@@ -217,6 +218,17 @@ export function runPhysicsStep(loopState, deps, context) {
         }
         settlePhysicsDebt(loopState, substeps, deps.CONFIG);
         alpha = loopState.accumulator / deps.CONFIG.fixedTimeStep;
+
+        // * Dev-only AI stall watchdog (host-gated by this branch). One guarded call per frame;
+        // * the property read is the only cost when ?diag is absent. Only assess a live round so
+        // * carts settling at spawn during countdown don't read as stalls.
+        if (
+          typeof window !== "undefined" &&
+          /** @type {any} */ (window).__ccDiagActive &&
+          deps.getRoundState().phase === "running"
+        ) {
+          tickAiStallWatchdog(npcCartsForFrame, stepNow);
+        }
       } else {
         loopState.accumulator = 0;
       }

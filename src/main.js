@@ -4594,6 +4594,32 @@ async function main() {
       getLevelId: () => getCurrentLevelId(),
       getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
     });
+
+    // * Dev-only bug-capture hotkey (Ctrl+Shift+D): assemble a __ccDiag capture bundle for the
+    // * moment a bug is on screen — "player reports it, dev presses the key". Logs the bundle and
+    // * copies its JSON to the clipboard. Read-only; gated behind both ?diag and a DEV build so a
+    // * production visitor can never trigger it. The harness path captures bundles on its own.
+    if (import.meta.env.DEV) {
+      window.addEventListener("keydown", (e) => {
+        if (!(e.ctrlKey && e.shiftKey && e.code === "KeyD")) return;
+        e.preventDefault();
+        try {
+          const bundle = /** @type {any} */ (window).__ccDiag.captureBundle({
+            scenario: "manual",
+            reason: "hotkey Ctrl+Shift+D",
+          });
+          const json = JSON.stringify(bundle, null, 2);
+          // eslint-disable-next-line no-console
+          console.info(`[diag] capture bundle (phase=${bundle.phase}, ${bundle.events.length} events):`, bundle);
+          navigator.clipboard?.writeText?.(json).then(
+            () => console.info("[diag] capture bundle copied to clipboard"),
+            () => {},
+          );
+        } catch (err) {
+          console.warn("[diag] capture bundle failed:", err);
+        }
+      });
+    }
   }
 
   // * VFX-1: live black-frame flicker monitor on real hardware (?blackmon=1). Opt-in,

@@ -18,6 +18,7 @@
 
 import { spawn } from "node:child_process";
 import net from "node:net";
+import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -236,6 +237,54 @@ export async function waitForState(page, predFn, opts = {}) {
   }
 }
 
+/** Default output directory for capture bundles (gitignored). */
+export const CAPTURE_DIR = resolve(process.cwd(), ".diag-captures");
+
+let captureSeq = 0;
+
+/**
+ * Capture a bug-capture bundle from a page and persist it (+ a screenshot) for offline
+ * investigation. Assembles the serializable core via the in-page __ccDiag.captureBundle(), adds
+ * a Playwright screenshot (the one artifact the page can't produce), and writes both to disk.
+ * Never throws — a capture failure must not mask the check failure that triggered it.
+ *
+ * @param {import('playwright').Page} page
+ * @param {object} o
+ * @param {string} o.scenario                     Scenario name (e.g. "mpIntegration").
+ * @param {string} [o.label]                       Which client / step failed (e.g. "joiner").
+ * @param {string} [o.reason]                       Why the bundle was captured.
+ * @param {string} [o.dir]                          Output dir (default: ./.diag-captures).
+ * @param {(...a: unknown[]) => void} [o.log]
+ * @returns {Promise<{ json: string, png: string } | null>}
+ */
+export async function dumpFailureBundle(page, o) {
+  const log = o.log || makeLogger("harness");
+  const dir = o.dir || CAPTURE_DIR;
+  captureSeq += 1;
+  const safe = (s) => String(s || "").replace(/[^a-z0-9_-]+/gi, "-");
+  const base = `${safe(o.scenario)}-${safe(o.label || "client")}-${String(captureSeq).padStart(3, "0")}`;
+  try {
+    await mkdir(dir, { recursive: true });
+    const bundle = await page.evaluate(
+      (meta) => /** @type {any} */ (window).__ccDiag?.captureBundle?.(meta) ?? null,
+      { scenario: o.scenario, reason: o.reason || "harness check failed" },
+    );
+    const jsonPath = resolve(dir, `${base}.json`);
+    const pngPath = resolve(dir, `${base}.png`);
+    await writeFile(jsonPath, JSON.stringify(bundle, null, 2), "utf8");
+    try {
+      await page.screenshot({ path: pngPath, fullPage: false });
+    } catch (e) {
+      log(`capture screenshot failed: ${e instanceof Error ? e.message : e}`);
+    }
+    log(`captured bug bundle → ${jsonPath}`);
+    return { json: jsonPath, png: pngPath };
+  } catch (e) {
+    log(`capture bundle failed: ${e instanceof Error ? e.message : e}`);
+    return null;
+  }
+}
+
 /** Dispatch a real keydown on window (drives the production input path). */
 export async function holdKey(page, code) {
   await page.evaluate((c) => {
@@ -268,6 +317,16 @@ export class CheckTally {
     this.results.push({ name, pass, detail });
     this.log(`  ${pass ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
     return pass;
+  }
+
+  /** Current result count — a cursor for {@link failedSince} so a scenario can scope its own checks. */
+  get count() {
+    return this.results.length;
+  }
+
+  /** True if any check recorded after index `n` failed (used to trigger a capture bundle). */
+  failedSince(n) {
+    return this.results.slice(n).some((r) => !r.pass);
   }
 
   /** Mark a scenario as having thrown (counts as failure for the exit code). */

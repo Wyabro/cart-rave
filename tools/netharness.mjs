@@ -28,6 +28,7 @@ import {
   maybeStartDevStack,
   ensurePlaywright,
   launchClientBrowser,
+  dumpFailureBundle,
   CLIENT_PORT,
 } from "./lib/harness.mjs";
 
@@ -37,7 +38,7 @@ const nlog = (...a) => console.log("[netharness]", ...a);
  * A client wrapper: its own browser context (isolated localStorage → distinct username),
  * one page with the netTest hook installed.
  */
-async function makeClient(browser, { username, baseUrl, label }) {
+async function makeClient(browser, { username, baseUrl, label, diag = false }) {
   const context = await browser.newContext({ viewport: { width: 900, height: 600 } });
   // * Seed identity + skip intro overlays BEFORE any page script runs, so the
   // * ?room=quickplay auto-rejoin path (main.js) fires without DOM interaction.
@@ -77,8 +78,16 @@ async function makeClient(browser, { username, baseUrl, label }) {
   // * accumulator every frame). perfPump shims rAF with a 60Hz MessageChannel loop that runs
   // * while hidden — without it BOTH sims freeze and the test measures nothing. Dev-only shim.
   url.searchParams.set("perfPump", "1");
+  // * mpIntegration also needs the gameplay diagnostics hub (?diag) for round/score/announcer
+  // * probes + the host control levers; spawnlock does NOT pass diag, so its clients are byte-for-
+  // * byte the same as before (the netcode rig stays unchanged).
+  if (diag) url.searchParams.set("diag", "1");
   await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await page.waitForFunction(() => window.__ccTest?.ready === true, undefined, { timeout: 60_000 });
+  await page.waitForFunction(
+    (needDiag) => window.__ccTest?.ready === true && (!needDiag || window.__ccDiag?.active === true),
+    diag,
+    { timeout: 60_000 },
+  );
   return { context, page, label, username };
 }
 
@@ -99,6 +108,28 @@ async function waitForState(page, predFn, { timeout = 30_000, label = "" } = {})
     if (Date.now() > deadline) {
       throw new Error(`[${label}] timed out.\n  last state: ${JSON.stringify(state)}`);
     }
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(200);
+  }
+}
+
+/**
+ * Poll a __ccDiag read (fetched into Node) until predFn is truthy or timeout. `readExpr` is a
+ * serializable page fn (e.g. `() => window.__ccDiag.snapshot("round")`) — the diagnostics analog
+ * of waitForState, used by the mpIntegration scenario for round/score/announcer assertions.
+ * @param {import('playwright').Page} page
+ * @param {() => any} readExpr
+ * @param {(v: any) => boolean} predFn
+ */
+async function pollDiag(page, readExpr, predFn, { timeout = 15_000, label = "" } = {}) {
+  const deadline = Date.now() + timeout;
+  let v = null;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    // eslint-disable-next-line no-await-in-loop
+    v = await page.evaluate(readExpr);
+    if (predFn(v)) return v;
+    if (Date.now() > deadline) throw new Error(`[${label}] timed out.\n  last: ${JSON.stringify(v)}`);
     // eslint-disable-next-line no-await-in-loop
     await sleep(200);
   }
@@ -305,6 +336,185 @@ async function scenarioSpawnLock(browserHost, browserJoiner, baseUrl) {
   await host.context.close();
 }
 
+/**
+ * Scenario: multiplayer gameplay integration — the dangerous seam where netcode and gameplay
+ * overlap. Host starts a match, a second client joins mid-round, and we assert INVARIANTS (not
+ * exact timing): both stay connected, the joiner controls its cart, a scored round syncs across
+ * both clients, the podium crowns the same winner on both, the PA fires the right result per
+ * client (winner→victory, loser→defeat), and the quickplay rematch brings both into a fresh
+ * round. Deterministic levers (diag control.setScores / rewindRoundClock) stand in for a natural
+ * KO so the run is stable; any natural KO events observed are logged as extra evidence.
+ */
+async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] mpIntegration — seat, drive, score-sync, podium, PA, rematch");
+  const mark = results.length;
+  const readRound = () => window.__ccDiag.snapshot("round");
+  const readScores = () => window.__ccDiag.snapshot("score").scores;
+  const annTypes = () => window.__ccDiag.events().filter((e) => e.ch === "announcer").map((e) => e.type);
+
+  // 1. Host reaches a running round (quickplay fills with NPCs).
+  const host = await makeClient(browserHost, { username: "MpHost", baseUrl, label: "host", diag: true });
+  await waitForState(host.page, (s) => s.phase === "running" && s.localSlotIndex >= 0, {
+    timeout: 40_000,
+    label: "host-running",
+  });
+
+  // 2. Joiner connects mid-round and seats into a slot (the overlap condition).
+  const joiner = await makeClient(browserJoiner, { username: "MpJoin", baseUrl, label: "joiner", diag: true });
+  const seated = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0 && s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 40_000, label: "joiner-seated" },
+  );
+  const joinerSlot = seated.localSlotIndex;
+  console.log(`[scenario] joiner seated at slot ${joinerSlot}`);
+
+  // 3. Both connected, correct roles, both in a live round.
+  const hostState = await host.page.evaluate(() => window.__ccTest.getState());
+  check("host is the host", hostState.isHost === true, `isHost=${hostState.isHost}`);
+  check("joiner is a non-host client", seated.isHost === false, `isHost=${seated.isHost}`);
+  check(
+    "both clients agree the round is running",
+    hostState.phase === "running" && seated.phase === "running",
+    `host=${hostState.phase} joiner=${seated.phase}`,
+  );
+
+  // Gate: confirm the DataChannel is actually delivering host snapshots (else the run is
+  // inconclusive, not a pass) — same gate the spawnlock scenario uses.
+  const snap0 = seated.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap0 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop" });
+
+  // 4. Joined player can control their cart (netcode overlap): own cart AND the host's
+  //    authoritative view of it both move on forward input. Wait for a live self-cart body
+  //    first (the cold-load can leave getSelfCart null briefly) so we assert drivability, not a
+  //    race — then drive and measure the peak displacement over a real wall-time window.
+  const before = await pollDiag(
+    joiner.page,
+    () => window.__ccTest.getSelfCart(),
+    (s) => s && s.x !== undefined,
+    { timeout: 15_000, label: "joiner-self-cart-ready" },
+  ).catch(() => null);
+  check("joiner has a live cart body to drive", Boolean(before), before ? "ready" : "self-cart null");
+  await holdKey(joiner.page, "KeyW");
+  let maxDisp = 0;
+  const t0 = Date.now();
+  while (Date.now() - t0 < 3500) {
+    // eslint-disable-next-line no-await-in-loop
+    const now = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    if (now && before) maxDisp = Math.max(maxDisp, Math.hypot(now.x - before.x, now.z - before.z));
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(100);
+  }
+  await releaseKey(joiner.page, "KeyW");
+  const hostView = await host.page.evaluate(
+    (slot) => window.__ccTest.getState().carts.find((c) => c.slot === slot) || null,
+    joinerSlot,
+  );
+  const hostDisp = hostView && before ? Math.hypot(hostView.x - before.x, hostView.z - before.z) : 0;
+  check("joiner controls its cart (moves off spawn)", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
+  check("host applies joiner input (authoritative cart moves)", hostDisp > 0.3, `host-view ${hostDisp.toFixed(2)}m`);
+
+  // 5. A scored KO → score updates + syncs. Host crowns the joiner via the diag control lever
+  //    (stands in for a natural KO deterministically); both clients must converge on the score.
+  const scored = await host.page.evaluate((slot) => {
+    const c = window.__ccDiag.control;
+    if (!c || typeof c.setScores !== "function") return false;
+    const s = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    s[slot] = 3;
+    return c.setScores(s);
+  }, joinerSlot);
+  check("host control.setScores applied (host-authoritative score)", scored === true);
+  const joinerScores = await pollDiag(joiner.page, readScores, (sc) => (sc?.[joinerSlot] ?? 0) === 3, {
+    timeout: 15_000,
+    label: "joiner-score-synced",
+  }).catch(() => null);
+  const hostScores = await host.page.evaluate(readScores);
+  check(
+    "both clients agree on the joiner's score (invariant: scores sync)",
+    hostScores[joinerSlot] === 3 && (joinerScores?.[joinerSlot] ?? 0) === 3,
+    `host=${hostScores[joinerSlot]} joiner=${joinerScores?.[joinerSlot]}`,
+  );
+
+  // 6. Winner/result sync: host fast-ends the round → both reach podium with the SAME winner.
+  const ended = await host.page.evaluate(
+    () => window.__ccDiag.control?.rewindRoundClock?.(1200) ?? false,
+  );
+  check("host control.rewindRoundClock fast-ends the round", ended === true);
+  const hostPodium = await pollDiag(host.page, readRound, (r) => r?.phase === "podium", {
+    timeout: 20_000,
+    label: "host-podium",
+  });
+  const joinerPodium = await pollDiag(joiner.page, readRound, (r) => r?.phase === "podium", {
+    timeout: 20_000,
+    label: "joiner-podium",
+  });
+  check(
+    "both clients agree on the winner slot (invariant: result syncs)",
+    hostPodium.winnerSlotIndex === joinerPodium.winnerSlotIndex && joinerPodium.winnerSlotIndex === joinerSlot,
+    `host=${hostPodium.winnerSlotIndex} joiner=${joinerPodium.winnerSlotIndex} expected=${joinerSlot}`,
+  );
+
+  // 7. Announcer correctness: the winner client fires "victory", the loser fires "defeat"
+  //    (decided locally by localSlot === winnerSlot). Poll so we don't race the reveal.
+  await pollDiag(joiner.page, annTypes, (t) => t.includes("victory") || t.includes("defeat"), {
+    timeout: 8_000,
+    label: "joiner-PA-result",
+  }).catch(() => {});
+  const joinerAnn = await joiner.page.evaluate(annTypes);
+  const hostAnn = await host.page.evaluate(annTypes);
+  check("winner (joiner) PA fires victory", joinerAnn.includes("victory"), `joiner=[${joinerAnn.slice(-6).join(",")}]`);
+  check("loser (host) PA fires defeat", hostAnn.includes("defeat"), `host=[${hostAnn.slice(-6).join(",")}]`);
+
+  // 8. Rematch: quickplay auto-continues (~5s). Both clients leave podium into a fresh round and
+  //    scores reset — the next-round invariant, without asserting exact transition timing.
+  const hostRematch = await pollDiag(
+    host.page,
+    readRound,
+    (r) => r && (r.phase === "countdown" || r.phase === "running"),
+    { timeout: 25_000, label: "host-rematch" },
+  ).catch(() => null);
+  const joinerRematch = await pollDiag(
+    joiner.page,
+    readRound,
+    (r) => r && (r.phase === "countdown" || r.phase === "running"),
+    { timeout: 25_000, label: "joiner-rematch" },
+  ).catch(() => null);
+  check(
+    "both clients advance into a fresh round (rematch works)",
+    Boolean(hostRematch) && Boolean(joinerRematch),
+    `host=${hostRematch?.phase} joiner=${joinerRematch?.phase}`,
+  );
+  const scoresAfter = await host.page.evaluate(readScores);
+  check(
+    "scores reset for the new round",
+    (scoresAfter[joinerSlot] ?? 0) === 0,
+    `joinerScore=${scoresAfter[joinerSlot]}`,
+  );
+
+  // 9. No impossible state: neither client logged a sim error over the whole scenario.
+  const hostErrors = await host.page.evaluate(() => window.__ccDiag.events().filter((e) => e.ch === "error").length);
+  const joinerErrors = await joiner.page.evaluate(() => window.__ccDiag.events().filter((e) => e.ch === "error").length);
+  check("no sim errors on host", hostErrors === 0, `errors=${hostErrors}`);
+  check("no sim errors on joiner", joinerErrors === 0, `errors=${joinerErrors}`);
+
+  // Extra evidence (not asserted): any natural KO events either client happened to log.
+  const kos = await host.page.evaluate(() => window.__ccDiag.events().filter((e) => e.ch === "ko").length);
+  if (kos) console.log(`[scenario] host logged ${kos} natural KO event(s) during the round`);
+
+  // Capture a bug bundle from BOTH clients if anything in this scenario failed.
+  if (results.slice(mark).some((r) => !r.pass)) {
+    await dumpFailureBundle(host.page, { scenario: "mpIntegration", label: "host", log: nlog });
+    await dumpFailureBundle(joiner.page, { scenario: "mpIntegration", label: "joiner", log: nlog });
+  }
+
+  await joiner.context.close();
+  await host.context.close();
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = str(args.url) || `http://127.0.0.1:${CLIENT_PORT}/`;
@@ -326,9 +536,18 @@ async function main() {
   const browserHost = await launchClientBrowser(chromium, { headed });
   const browserJoiner = await launchClientBrowser(chromium, { headed });
 
+  // * Default is spawnlock (unchanged behavior of `npm run netharness`); mpIntegration is opt-in.
+  const scenario = str(args.scenario) || "spawnlock";
+  const SCENARIOS = { spawnlock: scenarioSpawnLock, mpIntegration: scenarioMpIntegration };
+  const run = SCENARIOS[scenario];
+  if (!run) {
+    console.error(`[netharness] unknown scenario "${scenario}" (have: ${Object.keys(SCENARIOS).join(", ")})`);
+    process.exit(2);
+  }
+
   let hadError = false;
   try {
-    await scenarioSpawnLock(browserHost, browserJoiner, baseUrl);
+    await run(browserHost, browserJoiner, baseUrl);
   } catch (err) {
     hadError = true;
     console.error("[netharness] scenario error:", err instanceof Error ? err.stack : err);

@@ -31,6 +31,8 @@ import { getCameraMode } from "../camera.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "../roundClock.js";
 import { CONFIG } from "../config.js";
+import { probeGpu } from "./gpuCaps.js";
+import { settingsStore } from "../stores/settingsStore.js";
 
 /** Arena roster for level-unlock diffing (classicRecord is unlocked by default). */
 const UNLOCKABLE_LEVELS = ["backrooms", "zanzibar"];
@@ -162,6 +164,29 @@ function registerProbes(deps) {
     return {
       loop: w.__ccLoopDbg ?? null,
       visual: w.__cartRave?.stats ? safeCall(() => w.__cartRave.stats()) : null,
+    };
+  });
+
+  // * Browser/runtime/device context — pulled from the same signals telemetry + quality
+  // * detection already read (errorReporter userAgent, gpuCaps, settingsStore tier, DPR). Its
+  // * main consumer is __ccDiag.captureBundle(): a captured bug carries the device it happened
+  // * on. Each read is guarded so a missing API degrades to null rather than breaking the probe.
+  registerDiagProbe("runtime", () => {
+    const nav = typeof navigator !== "undefined" ? navigator : /** @type {any} */ ({});
+    const gpu = safeCall(() => probeGpu()) || null;
+    return {
+      userAgent: typeof nav.userAgent === "string" ? nav.userAgent.slice(0, 256) : null,
+      gpuClass: gpu?.gpuClass ?? null,
+      gpuRenderer: gpu?.rendererString ?? null,
+      qualityTier: safeCall(() => settingsStore.getState().qualityTier) ?? null,
+      devicePixelRatio: typeof window !== "undefined" ? (window.devicePixelRatio ?? null) : null,
+      deviceMemory: /** @type {any} */ (nav).deviceMemory ?? null,
+      hardwareConcurrency: nav.hardwareConcurrency ?? null,
+      viewport:
+        typeof window !== "undefined"
+          ? { w: window.innerWidth ?? null, h: window.innerHeight ?? null }
+          : null,
+      url: typeof location !== "undefined" ? location.href : null,
     };
   });
 }

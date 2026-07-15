@@ -21,6 +21,10 @@
  *                                        the round wedge at a seam?" from eyeballing into a
  *                                        queryable log.
  *
+ * On top of those, __ccDiag.captureBundle({scenario, reason}) assembles a self-contained
+ * bug-capture bundle (snapshot + event log + runtime context + timestamps) for offline
+ * investigation — triggered in-app by a DEV hotkey or by the harness on a failed check.
+ *
  * Gating:
  *   ?diag=1        — install the read surface (snapshot + events). Works in prod builds too
  *                    (read-only QA), exactly like ?nettest / ?harness. Zero cost otherwise.
@@ -54,6 +58,15 @@ const probes = new Map();
 /** Cheap monotonic timestamp; falls back to 0 outside a browser (tests). */
 function nowMs() {
   return typeof performance !== "undefined" && performance.now ? Math.round(performance.now()) : 0;
+}
+
+/** Wall-clock ISO stamp for capture bundles; null if Date is somehow unavailable. */
+function nowIso() {
+  try {
+    return new Date().toISOString();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -167,6 +180,42 @@ export function installDiagnostics(opts = {}) {
     /** Highest event seq recorded so far (a cheap "cursor" to poll deltas against). */
     get tail() {
       return seq;
+    },
+
+    /**
+     * Assemble a self-contained bug-capture bundle: everything needed to investigate a failure
+     * without reproducing it by hand. Pure read — runs every probe and copies the event log; it
+     * never mutates game state. The screenshot (Playwright) and any file write happen OUTSIDE
+     * the page (see tools/lib/harness.mjs dumpFailureBundle) — this returns the serializable core.
+     *
+     * Runtime/device info (userAgent, GPU, quality tier, DPR) rides in via the "runtime" probe
+     * registered in gameplayDiagnostics.js, so it lands under `snapshot.runtime`. There is no
+     * gameplay RNG seed to record (arena selection is unseeded Math.random) — `seed` is null.
+     *
+     * @param {{ scenario?: string, reason?: string }} [meta]
+     * @returns {Record<string, unknown>}
+     */
+    captureBundle(meta = {}) {
+      const snap = api.snapshot();
+      const evts = events.slice();
+      /** @type {Record<string, number>} */
+      const eventCounts = {};
+      for (const e of evts) eventCounts[e.ch] = (eventCounts[e.ch] || 0) + 1;
+      const round = /** @type {any} */ (snap)?.round;
+      return {
+        bundleVersion: 1,
+        scenario: meta.scenario ?? null,
+        reason: meta.reason ?? null,
+        capturedAt: nowIso(),
+        capturedAtPerfMs: nowMs(),
+        phase: round && typeof round === "object" ? (round.phase ?? null) : null,
+        flags: api.flags,
+        tail: seq,
+        seed: null, // * No exposed gameplay RNG seed exists (unseeded arena pick); documented, not a gap.
+        eventCounts,
+        events: evts,
+        snapshot: snap,
+      };
     },
 
     /** DEV-only scenario levers; null in production builds / read-only sessions. */

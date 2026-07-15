@@ -22,6 +22,9 @@ dist/
 # Visual QA screenshots (regenerate with npm run shoot)
 shots/
 
+# Diagnostic bug-capture bundles (JSON + screenshots from the harness rigs)
+.diag-captures/
+
 # PartyKit deploy staging (copied from dist/ during ship)
 party-static/
 # Wrangler local state
