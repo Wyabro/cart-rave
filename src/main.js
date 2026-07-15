@@ -35,7 +35,7 @@ import "./ui/styles/stickers.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyBloomSettings, applyComposerQualityTier, setBloomPipeline, isComposerBypassActive, setComposerBypassActive, isSoftwareRendererActive } from "./scene.js";
+import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyComposerQualityTier, setBloomPipeline, isComposerBypassActive, setComposerBypassActive, isSoftwareRendererActive } from "./scene.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER, initRapier, getRapierBuild } from "./physics/rapierInstance.js";
@@ -47,6 +47,7 @@ import * as Entities from "./entities.js";
 import { createCart } from "./entities.js";
 import { installShatterProgramWarmup, triggerCartShatter } from "./cartShatter.js";
 import * as HUD from "./hud.js";
+import { STAGE_PRIORITY } from "./ui/centerStage.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
@@ -1890,7 +1891,7 @@ async function main() {
     // * Unlocks are rare and precious: hold the stage 5s and outrank announcer
     // * callouts (priority 4 > 3) so the KO line that lands on the same frame queues
     // * behind the unlock instead of preempting it off-screen unread.
-    if (!menuVisible) hud?.showChallengeToast?.(msg, "◆ UNLOCKED", { durationMs: 5000, priority: 4 });
+    if (!menuVisible) hud?.showChallengeToast?.(msg, "◆ UNLOCKED", { durationMs: 5000, priority: STAGE_PRIORITY.CRITICAL });
   });
 
   let prevCompletedChallengeIds = collectCompletedChallengeIds(challengeStore.getState());
@@ -2010,26 +2011,6 @@ async function main() {
   /** Lasers + billboard (play juice — skip on menu attract to keep swaps light). */
   let raveJuiceInitialized = false;
   let sceneEnvironmentDispose = null;
-  /** @type {typeof CONFIG.postFx.bloom | null} Saved bloom tuning when entering test drive. */
-  let testDriveBloomSaved = null;
-
-  function applyTestDrivePostFx() {
-    if (!bloomPass || !bloomEnabled) return;
-    if (!testDriveBloomSaved) {
-      testDriveBloomSaved = { ...CONFIG.postFx.bloom };
-    }
-    applyBloomSettings(bloomPass, {
-      ...CONFIG.postFx.bloom,
-      strength: 0.28,
-      threshold: 0.94,
-    });
-  }
-
-  function restoreTestDrivePostFx() {
-    if (!testDriveBloomSaved || !bloomPass) return;
-    applyBloomSettings(bloomPass, testDriveBloomSaved);
-    testDriveBloomSaved = null;
-  }
 
   function levelUsesRaveExtras(levelId) {
     const id = levelId ?? getCurrentLevelId();
@@ -2074,19 +2055,14 @@ async function main() {
     }
     // * ?ablate=vhs / postmin must still win after level VHS turn-on.
     applyPostFxAblation({ bloomPass, arcadePass: fxPass, fxaaPass, outputPass });
+    // * Test Drive bloom rides resolveDisplayBloomConfig (BLOOM_DISPLAY_TESTDRIVE)
+    // * through the setBloomPipeline call above — the old HDR-space save/restore
+    // * override is gone (it read as no bloom under the display pipeline on entry,
+    // * and its restore stomped the next arena's knobs with HDR values on exit).
     if (resolved === "testArena") {
       Effects.clearAmbientDust();
       setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
-      applyTestDrivePostFx();
     } else {
-      // * When setBloomPipeline ran above it already applied this level's
-      // * display-referred knobs — restoring the CONFIG.postFx.bloom snapshot on top
-      // * stomped them with HDR-space values (threshold 0.76 on a tonemapped 0..1
-      // * image = weak bloom for the rest of the session after visiting Test Drive)
-      // * and lost the half-res strength compensation. Only the explicit-?rtmode
-      // * path skips setBloomPipeline and still needs the manual restore.
-      if (getDebugParams().rtmodeExplicit) restoreTestDrivePostFx();
-      else testDriveBloomSaved = null;
       Effects.setAmbientDustStyle(
         resolved === "backrooms" ? "backrooms" : resolved === "zanzibar" ? "sunset" : "rainbow",
         CART_COLORS,
@@ -2423,7 +2399,7 @@ async function main() {
     setLevelSwapping(true);
     try {
       const label = (LEVEL_UNLOCKS[nextLevelId]?.label || nextLevelId).toUpperCase();
-      hud?.showChallengeToast?.(label, "◆ NEXT ARENA", { durationMs: 4500, priority: 4 });
+      hud?.showChallengeToast?.(label, "◆ NEXT ARENA", { durationMs: 4500, priority: STAGE_PRIORITY.CRITICAL });
       /** @type {Promise<void>} */
       let swapPromise = Promise.resolve();
       const runSwap = () => {

@@ -97,7 +97,7 @@ const BLOOM_DISPLAY_STOREROOMS = {
 };
 
 /**
- * Display-referred knobs for neon arenas (Classic / Sundial / test) when unified
+ * Display-referred knobs for neon arenas (Classic / Sundial) when unified
  * (?bloompipe=display, default). Wyatt-approved live tune 2026-07-13.
  */
 const BLOOM_DISPLAY_NEON = {
@@ -108,11 +108,24 @@ const BLOOM_DISPLAY_NEON = {
 };
 
 /**
+ * Display-referred knobs for Test Drive — restrained on the flat grey arena
+ * (the old HDR-space override {0.28, thr 0.94} read as no bloom at all once
+ * the display pipeline became the default; this is its post-tonemap analog).
+ */
+const BLOOM_DISPLAY_TESTDRIVE = {
+  strength: 0.2,
+  radius: 0.5,
+  threshold: 0.7,
+  smoothWidth: 0.05,
+};
+
+/**
  * @param {string | null | undefined} levelId
  * @returns {{ strength: number, radius: number, threshold: number, smoothWidth: number }}
  */
 function resolveDisplayBloomConfig(levelId) {
   if (levelId === "backrooms") return BLOOM_DISPLAY_STOREROOMS;
+  if (levelId === "testArena") return BLOOM_DISPLAY_TESTDRIVE;
   return BLOOM_DISPLAY_NEON;
 }
 
@@ -1106,6 +1119,15 @@ export function updateViewport(renderer, camera, composer, arcadePass, fxaaPass,
 
   if (fxaaPass && renderer) {
     const pixelRatio = renderer.getPixelRatio();
+    // * Re-evaluate the DPR gate on resize too: dragging the window between a
+    // * DPR-1 and DPR-2 monitor changes the effective ratio without a tier change,
+    // * and FXAA at high DPR is a full-screen pass for almost no AA gain. Mirrors
+    // * applyComposerQualityTier; the user Post-FX toggle doesn't gate FXAA.
+    // * Visual-QA ablation must keep winning (resize used to leave `enabled` alone).
+    const dbg = getDebugParams();
+    const fxaaAblated =
+      dbg.postmin || dbg.ablate.has("fxaa") || dbg.ablate.has("aa") || dbg.ablate.has("all");
+    if (!fxaaAblated) fxaaPass.enabled = getQualityKnobs().fxaa && pixelRatio < 1.75;
     fxaaPass.material.uniforms.resolution.value.set(
       1 / (w * pixelRatio),
       1 / (h * pixelRatio),
