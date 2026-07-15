@@ -32,6 +32,14 @@ The default scenario (`spawnlock`) is the "non-host cart can't leave spawn" repo
 reaches a running round, joiner joins mid-round and seats into an ex-NPC slot, then the rig
 holds forward and asserts the joiner's cart leaves spawn.
 
+Opt-in scenarios (`--scenario <name>`): **`mpIntegration`** — the netcode↔gameplay seam
+(roles, joiner drive, score sync, same winner both clients, victory/defeat PA, quickplay
+rematch, zero sim errors); **`hostMigration`** — clean host departure (survivor promoted,
+NPCs handed off, new host drives, zero sim errors). See
+[diagnostics.md](./diagnostics.md) for what each asserts. Both rigs also preflight the dev
+stack over HTTP first, so a wedged `workerd` (port open, never answers) exits 2 with the fix
+in the message instead of a bogus scenario failure.
+
 ## How it works (and why each piece is needed)
 
 - **Two separate `chromium.launch()` processes**, *not* two contexts in one browser.

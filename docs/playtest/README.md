@@ -19,6 +19,18 @@ controls. **Who runs it?** Wyatt first, then external testers.
 
 ---
 
+## What automation already covers (don't spend human minutes here)
+
+Run the rigs green before any session — a red rig is cheaper to fix than a wasted sitting:
+`npm run gameharness` (solo round flow incl. PA callouts + PLAY-AGAIN rematch + the
+KO→unlock funnel incl. reload persistence) and `npm run netharness`
+(spawnlock; `--scenario mpIntegration` for join/drive/score-sync/winner/PA/rematch;
+`--scenario hostMigration` for clean host departure). Human time goes where the rigs are
+blind: **feel, readability, audio, fairness, silent-drop migration, host backgrounding, and
+anything that needs taste.** Guide: [../guides/diagnostics.md](../guides/diagnostics.md).
+The live checklist lives in the **Playtest Console** artifact (notes-first; export back into
+chat) — this folder holds the reference plans it was seeded from.
+
 ## Ground rules (read once)
 
 - **One pilot, one scribe.** Solo sessions: pause to write (Esc keeps the sim running —

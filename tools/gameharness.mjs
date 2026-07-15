@@ -25,6 +25,7 @@ import {
   str,
   makeLogger,
   maybeStartDevStack,
+  preflightStack,
   ensurePlaywright,
   launchClientBrowser,
   makeClient,
@@ -115,6 +116,32 @@ async function scenarioRoundflow(browser, baseUrl, tally) {
       results.includes("victory"),
       `announcer=[${results.slice(-6).join(",")}]`,
     );
+
+    // Solo rematch: PLAY AGAIN off the results panel must land in a fresh round with reset
+    // scores (the podium→rematch seam, previously human-only). The button is the production
+    // path (solo player is host, so it's enabled once the panel shows).
+    const clicked = await page
+      .click('button.results-btn:has-text("PLAY AGAIN")', { timeout: 15_000 })
+      .then(() => true)
+      .catch(() => false);
+    tally.check("PLAY AGAIN button is clickable on the results panel", clicked);
+    if (clicked) {
+      const rematch = await waitForState(
+        page,
+        (s) => s?.phase === "countdown" || s?.phase === "running",
+        { read: readRound, timeout: 20_000, label: "solo-rematch" },
+      ).catch(() => null);
+      tally.check(
+        "rematch reaches a fresh round (countdown/running)",
+        rematch?.phase === "countdown" || rematch?.phase === "running",
+        `phase=${rematch?.phase}`,
+      );
+      const rematchScores = await page.evaluate(
+        () => /** @type {any} */ (window).__ccDiag.snapshot("score").scores,
+      );
+      const allZero = rematchScores && Object.values(rematchScores).every((v) => (v ?? 0) === 0);
+      tally.check("scores reset for the rematch round", allZero === true, JSON.stringify(rematchScores));
+    }
   }
 
   // No unrecoverable/step sim errors over the whole scenario (the circuit breaker's log).
@@ -205,6 +232,17 @@ async function scenarioUnlockFunnel(browser, baseUrl, tally) {
     `unlocks=[${unlockEvents.join(",")}]`,
   );
 
+  // Persistence: the unlock must survive a full page reload (localStorage-backed progression —
+  // the "did my progress save?" player question, previously never machine-checked).
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.waitForFunction(() => Boolean(/** @type {any} */ (window).__ccDiag?.active), undefined, {
+    timeout: 60_000,
+  });
+  const persisted = await page.evaluate(
+    () => /** @type {any} */ (window).__ccDiag.snapshot("unlocks").levels.backrooms.unlocked,
+  );
+  tally.check("unlock persists across a page reload", persisted === true, `unlocked=${persisted}`);
+
   if (tally.failedSince(mark)) {
     await dumpFailureBundle(page, { scenario: "unlockFunnel", label: "unlock", log });
   }
@@ -225,8 +263,10 @@ async function main() {
   let devProc = null;
   try {
     devProc = await maybeStartDevStack(args, log);
+    await preflightStack(baseUrl, log);
   } catch (err) {
     log(err instanceof Error ? err.message : err);
+    if (devProc && !devProc.killed) devProc.kill();
     process.exit(2);
   }
 

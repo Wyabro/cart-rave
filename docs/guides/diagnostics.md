@@ -36,6 +36,12 @@ Flags: `--url <base>` (attach to a running stack; omit to auto-start `dev:local`
 **Exit codes (shared contract): `0` all checks passed, `1` a check failed, `2` harness/setup
 error.** Same as `netharness`, `shoot`, `blackframes`.
 
+Both rigs run a **stack preflight** before launching browsers: an HTTP probe of the Vite
+client and the Worker party endpoint with a 10 s timeout. A wedged `workerd` keeps its port
+open but never answers (seen 2026-07-15 — every client sat in lobby forever and the failure
+read as a game bug); the preflight turns that into a fast exit 2 with the fix in the message
+(kill all `workerd`, restart `dev:local`).
+
 ## The `window.__ccDiag` surface (read-only, `?diag=1`)
 
 `?diag=1` installs the hub and works in **prod builds too** (read-only QA), exactly like
@@ -89,11 +95,22 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
 - **roundflow** — solo round advances lobby→countdown→running→podium; the PA fires
   `countdown_3/2/1/go` at the start and `victory` for a crowned winner; the game loop stays
   alive; a round fast-ends to the expected winner; **zero sim errors** over the round; phase
-  transitions land in the event log. (Automates `solo-checklist.md` §A "no wedge at any
-  seam" and the countdown/results reveal.)
+  transitions land in the event log; and the **solo rematch seam works** — clicking the real
+  PLAY AGAIN button off the results panel lands in a fresh countdown with all scores reset.
+  (Automates `solo-checklist.md` §A "no wedge at any seam" and the countdown/results reveal.)
 - **unlockFunnel** — with real locks enforced (`cartRaveDevUnlocks=off`), granting 10 KOs on
-  Cart Rave unlocks The Storerooms and logs the unlock event. (Automates the §C progression
-  funnel without grinding.)
+  Cart Rave unlocks The Storerooms, logs the unlock event, and the unlock **survives a full
+  page reload** (persistence). (Automates the §C progression funnel without grinding.)
+- **hostMigration** (2-client, in `netharness`) — clean host departure: host + mid-round
+  joiner in quickplay, then the host context closes. Asserts the survivor is promoted to
+  host, the room lands in a sane phase, NPC slots come back under the new host (`kind ===
+  "npc"` from the net slot — `cart.isNpc` is false even on a healthy host, don't use it),
+  a round runs, the new host can drive its own cart, and no sim errors. The **silent-drop**
+  (20 s reap) case still needs the manual plan — Playwright can't kill a socket without
+  closing the page.
+  ```bash
+  npm run netharness -- --url http://127.0.0.1:3000/ --scenario hostMigration
+  ```
 - **mpIntegration** (2-client, in `netharness`) — the netcode↔gameplay seam: host starts a
   match, a second client joins mid-round, and the rig asserts INVARIANTS (not exact timing):
   both stay connected with correct host/non-host roles, the joiner controls its own cart (local

@@ -26,6 +26,7 @@ import {
   parseArgs,
   str,
   maybeStartDevStack,
+  preflightStack,
   ensurePlaywright,
   launchClientBrowser,
   dumpFailureBundle,
@@ -515,6 +516,110 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
   await host.context.close();
 }
 
+/**
+ * Scenario: host migration on clean host departure. The server must promote the surviving
+ * client to host, and the new host must actually be able to RUN the room: its sim steps as
+ * authority, its own cart drives, and NPC carts stay owned. This is the automated complement
+ * to docs/planning/host-migration-test-plan.md's "clean close" case (the silent-drop 20s reap
+ * case still needs the manual plan — Playwright can't kill a socket without closing the page).
+ */
+async function scenarioHostMigration(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] hostMigration — host leaves cleanly, survivor is promoted and playable");
+  const mark = results.length;
+
+  // 1. Host up and running; joiner seated with snapshots flowing (same bring-up as spawnlock).
+  const host = await makeClient(browserHost, { username: "MigHost", baseUrl, label: "host", diag: true });
+  await waitForState(host.page, (s) => s.phase === "running" && s.localSlotIndex >= 0, {
+    timeout: 40_000,
+    label: "host-running",
+  });
+  const joiner = await makeClient(browserJoiner, { username: "MigJoin", baseUrl, label: "joiner", diag: true });
+  const seated = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0 && s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 40_000, label: "joiner-seated" },
+  );
+  check("joiner starts as a non-host client", seated.isHost === false, `isHost=${seated.isHost}`);
+  const snap0 = seated.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap0 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop" });
+
+  // 2. The host leaves cleanly (tab close → WebSocket close → server onClose promotes the
+  //    oldest surviving connection).
+  console.log("[scenario] closing host client…");
+  await host.context.close();
+
+  // 3. Promotion: the survivor must become host.
+  const promoted = await waitForState(joiner.page, (s) => s.isHost === true, {
+    timeout: 30_000,
+    label: "joiner-promoted",
+  }).catch(() => null);
+  check("survivor is promoted to host", promoted?.isHost === true, `isHost=${promoted?.isHost}`);
+  if (!promoted) {
+    await dumpFailureBundle(joiner.page, { scenario: "hostMigration", label: "joiner", log: nlog });
+    await joiner.context.close();
+    return;
+  }
+
+  // 4. The room stays sane: a live phase (not a wedge). Allow running OR a countdown/lobby
+  //    reset — both are sane recoveries; a permanent podium/none is not.
+  const phaseOk = ["running", "countdown", "lobby"].includes(promoted.phase);
+  check("room lands in a sane phase after migration", phaseOk, `phase=${promoted.phase}`);
+
+  // 5. The new host is genuinely playable: wait until a round is running, then drive.
+  const running = await waitForState(joiner.page, (s) => s.phase === "running", {
+    timeout: 40_000,
+    label: "post-migration-running",
+  }).catch(() => null);
+  check("a round runs under the new host", Boolean(running), `phase=${running?.phase}`);
+
+  // 6. NPC slots must come back under the new host's authority (the departed host's slot and
+  //    the original NPCs). Poll — the rebuild takes a beat after promotion; a stable zero
+  //    means the bots are gone for good (survivor plays alone = real bug).
+  // * `kind` comes from the net slot record — `cart.isNpc` is false even on a healthy host's
+  // * NPC carts (verified against a running host's slots), so it is NOT the signal here.
+  const withNpcs = await waitForState(joiner.page, (s) => s.carts.some((c) => c.kind === "npc"), {
+    timeout: 20_000,
+    label: "post-migration-npcs",
+  }).catch(() => null);
+  check(
+    "NPC carts live under the new host",
+    Boolean(withNpcs),
+    withNpcs
+      ? `slots=[${withNpcs.carts.map((c) => `${c.slot}:${c.kind}`).join(",")}]`
+      : "no NPC-kind cart appeared within 20s of migration",
+  );
+  if (running) {
+    const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    await holdKey(joiner.page, "KeyW");
+    let maxDisp = 0;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 3500) {
+      // eslint-disable-next-line no-await-in-loop
+      const now = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+      if (now && before) maxDisp = Math.max(maxDisp, Math.hypot(now.x - before.x, now.z - before.z));
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(100);
+    }
+    await releaseKey(joiner.page, "KeyW");
+    check("new host drives its own cart (authority works)", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
+  }
+
+  // 6. No sim errors on the survivor across the whole handoff.
+  const errs = await joiner.page.evaluate(
+    () => window.__ccDiag.events().filter((e) => e.ch === "error").length,
+  );
+  check("no sim errors on the survivor", errs === 0, `errors=${errs}`);
+
+  if (results.slice(mark).some((r) => !r.pass)) {
+    await dumpFailureBundle(joiner.page, { scenario: "hostMigration", label: "joiner", log: nlog });
+  }
+  await joiner.context.close();
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = str(args.url) || `http://127.0.0.1:${CLIENT_PORT}/`;
@@ -522,8 +627,10 @@ async function main() {
   let devProc = null;
   try {
     devProc = await maybeStartDevStack(args, nlog);
+    await preflightStack(baseUrl, nlog);
   } catch (err) {
     console.error("[netharness]", err instanceof Error ? err.message : err);
+    if (devProc && !devProc.killed) devProc.kill();
     process.exit(2);
   }
 
@@ -538,7 +645,11 @@ async function main() {
 
   // * Default is spawnlock (unchanged behavior of `npm run netharness`); mpIntegration is opt-in.
   const scenario = str(args.scenario) || "spawnlock";
-  const SCENARIOS = { spawnlock: scenarioSpawnLock, mpIntegration: scenarioMpIntegration };
+  const SCENARIOS = {
+    spawnlock: scenarioSpawnLock,
+    mpIntegration: scenarioMpIntegration,
+    hostMigration: scenarioHostMigration,
+  };
   const run = SCENARIOS[scenario];
   if (!run) {
     console.error(`[netharness] unknown scenario "${scenario}" (have: ${Object.keys(SCENARIOS).join(", ")})`);

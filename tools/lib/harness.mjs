@@ -119,6 +119,39 @@ export async function maybeStartDevStack(args, log = makeLogger("harness")) {
   return child;
 }
 
+/**
+ * Verify both dev-stack processes actually ANSWER HTTP before spending minutes on browser
+ * scenarios. A wedged workerd keeps its port open but never responds (seen 2026-07-15: every
+ * request hung, so the host client sat in lobby forever and the failure read as a game bug).
+ * Any HTTP status — even 400 from the party endpoint, which expects a WebSocket upgrade —
+ * proves liveness; only a hang/refusal fails. Throw → the rig exits 2 (setup error, not a
+ * scenario failure), pointing at the fix.
+ *
+ * @param {string} baseUrl The client URL the rig will drive (e.g. http://127.0.0.1:3000/).
+ * @param {(...a: unknown[]) => void} [log]
+ */
+export async function preflightStack(baseUrl, log = makeLogger("harness")) {
+  const u = new URL(baseUrl);
+  const targets = [
+    [`${u.protocol}//${u.hostname}:${u.port || CLIENT_PORT}/`, "Vite client"],
+    [`${u.protocol}//${u.hostname}:${WORKER_PORT}/parties/main/preflight`, "Wrangler worker (party endpoint)"],
+  ];
+  for (const [target, what] of targets) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await fetch(target, { signal: AbortSignal.timeout(10_000) });
+    } catch (e) {
+      const why = e instanceof Error && e.name === "TimeoutError" ? "port open but hung >10s" : e?.message;
+      throw new Error(
+        `${what} is not answering HTTP at ${target} (${why}). ` +
+          "A listening-but-hung port is usually a wedged workerd: kill every workerd process " +
+          "(PowerShell: Get-Process workerd | Stop-Process -Force) and restart `npm run dev:local`.",
+      );
+    }
+  }
+  log("stack preflight OK — client + worker both answering");
+}
+
 /** Import playwright or exit(2) with an install hint. */
 export async function ensurePlaywright(log = makeLogger("harness")) {
   try {
