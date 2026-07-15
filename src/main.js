@@ -12,6 +12,7 @@ import {
   isDebugCameraLocked,
 } from "./utils/debugParams.js";
 import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
+import { installNetTestHarness } from "./utils/netTestHarness.js";
 import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
   loadPlayerCustomization,
@@ -4513,6 +4514,40 @@ async function main() {
       ensureWorld: () => ensureWorldBootstrapped(),
       onSettleFrame: () => {
         if (isDebugCameraLocked()) applyDebugCameraPose(camera);
+      },
+    });
+  }
+
+  // * Netcode E2E harness (2-client rig / tools/netharness.mjs) when ?nettest=1. Read-only
+  // * snapshot of phase + per-cart pose so an external driver can assert cross-client sync.
+  // * Input is driven by real keydown events, not this hook. Zero cost when the flag is absent.
+  if (new URLSearchParams(window.location.search || "").has("nettest")) {
+    window.__ccNetTest = true;
+    Netcode.setNetTestActive(true);
+    installNetTestHarness({
+      isReady: () => Boolean(window.__cartRaveMainReady),
+      getPhase: () => GameState.getRoundState()?.phase ?? "unknown",
+      getYouConnId: () => Netcode.getYouConnId(),
+      getHostId: () => Netcode.getHostId(),
+      getIsHost: () => Netcode.getIsHost(),
+      getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+      getCarts: () => allCartsRef,
+      getNetSlots: () => Netcode.getNetSlots(),
+      getLatestSnap: () => Netcode.getLatestSnap(),
+      getAxis: () => Input.getAxis(),
+      getPendingInputCount: () => Netcode.getPendingInputs().length,
+      getPendingMidJoinConnId: () => pendingMidRoundJoinRespawnConnId,
+      getInputCounters: () => Netcode.__netcodeTestHooks.getInputCounters(),
+      getShouldPredict: () => Netcode.shouldUseClientPrediction(),
+      getMode: () => detectGameMode(),
+      getMigFreezeRemMs: () =>
+        Netcode.getHostMigrationFreezeUntilMs() - (performance.timeOrigin + performance.now()),
+      getHostInputDebug: (connId) => {
+        const h = Netcode.__netcodeTestHooks;
+        return {
+          queueLen: h.getRemoteInputQueueLength(connId),
+          lastAckSeq: h.getHostLastProcessedInputSeq(connId),
+        };
       },
     });
   }

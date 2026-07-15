@@ -494,6 +494,16 @@ export function runGameLoop(loopState, callbacks) {
     try {
       let dt = (now - loopState.lastT) / 1000;
       loopState.lastT = now;
+      // * Netcode-harness loop-liveness counters (tools/netharness.mjs) — lets the rig tell a
+      // * starved/throttled joiner loop from a real netcode stall. Off unless ?nettest set the
+      // * flag; the guard is a single property read per frame in normal play.
+      if (typeof window !== "undefined" && window.__ccNetTest) {
+        const d = (window.__ccLoopDbg = window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, maxDt: 0, lastDt: 0 });
+        d.frames += 1;
+        d.lastDt = dt;
+        if (dt > d.maxDt) d.maxDt = dt;
+        if (dt > RESUME_GAP_S) d.resumeZeroed += 1;
+      }
       if (dt > RESUME_GAP_S) {
         // * Resume from a pause/throttle (tab hidden, window occluded/unfocused, long GC).
         // * Don't replay the gap as a physics catch-up burst — that's the hard hitch on

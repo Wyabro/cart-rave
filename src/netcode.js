@@ -110,6 +110,14 @@ let remoteNitroLatchedByConnId = new Map();
 let hostLastProcessedInputSeq = new Map();
 export let pendingInputs = [];
 
+// * Netcode-harness input-path counters (tools/netharness.mjs). Lets the 2-client rig tell
+// * "joiner never sampled/sent" from "host never drained/applied". Off (zero-cost) unless the
+// * ?nettest harness enables it via setNetTestActive — the increments are guarded by netTestOn.
+let netTestOn = false;
+const __dbgInputCounters = { drainCalls: 0, drainApplied: 0, sampleCalls: 0, sends: 0, ingest: 0 };
+/** @param {boolean} on Enable input-path counters for the netcode harness (?nettest only). */
+export function setNetTestActive(on) { netTestOn = Boolean(on); }
+
 let hostSendTimer = null;
 let keepaliveTimer = null;
 
@@ -1206,6 +1214,7 @@ export function startHostSendLoop() {
 
 export function sampleLocalInputForTick() {
   if (!partySocket || isHost || !getAxisRef) return null;
+  if (netTestOn) __dbgInputCounters.sampleCalls += 1;
 
   const axis = getAxisRef();
   const forward = Number.isFinite(axis.forward) ? axis.forward : 0;
@@ -1237,6 +1246,7 @@ export function sampleLocalInputForTick() {
   }
 
   if (hostId) {
+    if (netTestOn) __dbgInputCounters.sends += 1;
     P2P.sendToPeer(hostId, {
       type: MSG.clientInput,
       seq: inputSeq,
@@ -2393,6 +2403,7 @@ export const __netcodeTestHooks = {
   drainRemoteInputJitterBuffers: () => drainRemoteInputJitterBuffers(),
   getHostLastProcessedInputSeq: (connId) => hostLastProcessedInputSeq.get(connId) || 0,
   getRemoteInputQueueLength: (connId) => remoteInputQueuesByConnId.get(connId)?.length ?? 0,
+  getInputCounters: () => ({ ...__dbgInputCounters }),
   /** Push synthetic pending prediction frames (non-host history). */
   pushPendingInputForTest: (seq, tClient = performance.now()) => {
     pendingInputs.push({
@@ -2427,6 +2438,7 @@ export const __netcodeTestHooks = {
 function handleRemoteClientInput(input, fromConnId, seq) {
   if (!isHost) return;
   if (!fromConnId || !input || typeof input !== "object") return;
+  if (netTestOn) __dbgInputCounters.ingest += 1;
 
   const throttle = Math.max(-1, Math.min(1, Number.isFinite(input.throttle) ? input.throttle : 0));
   const steer = Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? input.steer : 0));
@@ -2459,6 +2471,7 @@ function handleRemoteClientInput(input, fromConnId, seq) {
  */
 function drainRemoteInputJitterBuffers() {
   if (!isHost) return;
+  if (netTestOn) __dbgInputCounters.drainCalls += 1;
   const now = performance.now();
   const delay = CONFIG.net.inputJitterBufferMs ?? 40;
   const allCarts = getAllCarts();
@@ -2470,6 +2483,7 @@ function drainRemoteInputJitterBuffers() {
     // * Continuous axes take the last sample; nitro rising-edge + hop fire per frame.
     while (queue.length > 0 && queue[0].t <= now - delay) {
       const applied = queue.shift();
+      if (netTestOn) __dbgInputCounters.drainApplied += 1;
 
       if (applied.seq > 0) {
         const existingSeq = hostLastProcessedInputSeq.get(connId) || 0;

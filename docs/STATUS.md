@@ -3,8 +3,9 @@
 **What is this?** The first document anyone (human or agent) reads: project health, what's
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
-project stands. **Is it current?** Last verified 2026-07-15 (`npm run qa` green: 321 tests /
-34 files, typecheck + knip clean; playtest S2 report batch).
+project stands. **Is it current?** Last verified 2026-07-15 (`npm run qa` green: 327 tests /
+35 files, typecheck + knip clean; netcode E2E harness added + quickplay "stuck cart"
+re-diagnosed as a cold-load stall).
 
 > **Rehydration protocol** (agent or human resuming cold):
 > 1. Read **this file** fully.
@@ -14,7 +15,7 @@ project stands. **Is it current?** Last verified 2026-07-15 (`npm run qa` green:
 > 5. Do not re-plan from scratch; do not re-open settled decisions ([archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md)) without new evidence.
 > 6. Update this file after every meaningful step — one-line decision index entries here, long rationale in the decision log.
 >
-> Doc map: [docs/README.md](./README.md) · Visual QA: [guides/visual-qa.md](./guides/visual-qa.md) · Naming freeze: [brand.md](./brand.md)
+> Doc map: [docs/README.md](./README.md) · Visual QA: [guides/visual-qa.md](./guides/visual-qa.md) · Netcode harness: [guides/netcode-harness.md](./guides/netcode-harness.md) · Naming freeze: [brand.md](./brand.md)
 
 ## Mission (1 paragraph)
 
@@ -87,7 +88,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 
 | ID | Issue | Status |
 |----|--------|--------|
-| NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
+| NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md). Now has an automated 2-client complement: [netcode-harness.md](./guides/netcode-harness.md) |
+| NET-2 | Quickplay join = frozen cart + slow load | 🟡 **Diagnosed, unfixed.** The "non-host cart can't leave spawn" report is NOT a netcode bug (proven by the harness — input path is sound). Cold-load main-thread stall on join starves the rAF loop → joiner samples no input → cart welded to spawn until it clears; also the user's "slow load"/"freezes a lot". Fix directions in the join-stall entry below. Repro: `node tools/netharness.mjs` |
 | VFX-1 | Black-frame flicker | 🟡 Root cause = half-res float bloom mips (D-VFX-2). Fixed on Storerooms (`98317c1`); Classic/Sundial look check + promote to default pending |
 | PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
 | NET-MIG-2 | Ghost exorcism can null the host | ✅ Fixed 2026-07-12 (pre-playtest audit, uncommitted): `#ensureLiveHost()` after exorcism |
@@ -138,6 +140,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - VHS is level-gated via `uVhsAmount` (Storerooms only); `?ablate=vhs` zeros the uniform without killing arcade CRT.
 - Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.
 - Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it; `visibilityState: hidden` freezes the sim even with perfPump.
+- **Joining quickplay mid-round runs a cold world bootstrap (Rapier + arena + shader compile) that blocks the main thread; while blocked the rAF loop is starved and the resume-guard (`gameLoop.js`, `dt>0.25s → accumulator=0`) zeroes the physics accumulator every slow frame, so the joiner never samples/sends input → cart frozen at spawn until it clears.** This is NET-2 (the "stuck cart" report), NOT a netcode bug — verified by the 2-client harness ([guides/netcode-harness.md](./guides/netcode-harness.md)). The joiner (unlike the menu path) skips the idle world-warm. The ~15s figure the harness reports is inflated by headless SwiftShader (no parallel shader compile); real hardware is faster but the freeze window is real.
+- **Netcode 2-client rig:** two clients MUST be separate `chromium.launch()` processes (not two contexts) — Chromium throttles the non-foreground page to ~3fps and starves its sim loop. Also add per-page focus emulation + `?perfPump`. Run against a persistent `npm run dev:local` via `--url`; auto-start churn leaves zombie `workerd` on :8787. See [guides/netcode-harness.md](./guides/netcode-harness.md).
 - `localStorage` keys remain `cartRave*` until brand migration.
 - Playwright default headless shell can differ from full Chrome; tools request Chromium channel when available.
 - Rapier WASM: standard build is the default; SIMD is opt-in only (borrow error, `8174180`).
@@ -147,6 +151,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-15 — **Netcode 2-client E2E harness + quickplay "stuck cart" re-diagnosed** (uncommitted at write time; on `cart-clash`, stacks on the suction-holes + S2 batch below). Gates: **327 tests / 35 files**, tsc + knip clean. Built to chase the "non-host cart can't leave spawn" quickplay report. **New tooling:** [`tools/netharness.mjs`](../tools/netharness.mjs) (Playwright rig — drives a host + mid-round joiner into the shared `quickplay` room, holds forward, asserts the joiner's cart leaves spawn and the host's authoritative copy moves) + [`src/utils/netTestHarness.js`](../src/utils/netTestHarness.js) (read-only `window.__ccTest` state hook, installed only under `?nettest=1`). Instrumentation is gated zero-cost (`Netcode.setNetTestActive` counters + `window.__ccNetTest`-guarded `__ccLoopDbg` loop counters). Guide: [guides/netcode-harness.md](./guides/netcode-harness.md). **Finding (NET-2): the report is NOT a netcode bug.** The harness proved the input path is sound — whenever the joiner's game loop is actually running, the mid-round joiner drives fine, host applies input, `ackForSelf` advances, sync holds (4/4 pass, many runs). The council's ackSeq theory never fired. The frozen cart is caused by the joiner's rAF loop being starved during the **cold-load main-thread stall on quickplay join** (Rapier + arena + shader compile); the resume-guard (`gameLoop.js`, `dt>0.25s → accumulator=0`) zeroes the accumulator every slow frame → no input sampled → cart welded to spawn until it clears. Explains all 3 user symptoms (slow load, frozen cart, freezes). **Did NOT apply** the council's ackSeq guard — valid latent hardening but not the active cause, and no repro (per "verify before you speak"). **Real fix unbuilt** (behavior-changing, needs real-hardware playtest): (a) pre-warm the world before seating a live joiner cart like the menu idle-warm; (b) show the joiner cart as spawning/ghost until `worldReady`; (c) revisit the resume-guard for a just-joined client. Caveat: the ~15s stall the harness reports is inflated by headless SwiftShader; real hardware is faster but the freeze window is real. Console errors from the report (`onsleek.ai`, `vendor.js: No Listener`, empty `three.core.js` shader log) are a browser extension + benign noise, not the game.
 
 2026-07-15 — **Storerooms suction holes v1** (uncommitted at write time; on `cart-clash`, stacks on the S2 batch below). Wyatt greenlit building the suction mechanic. Gates: **327 tests / 35 files** (+6), tsc + knip clean, build OK. Built with the proposal's recommended defaults (all named tunables): a cart in the band outside each void (Chebyshev `[half, half+2.6]`) is pulled in — `depth × 30 m/s²` + shove-in capture assist — so the **outer half is escapable at full throttle while deep capture / a shove commits**; symmetric across humans + NPCs. Replaces the outward lip rescue on Storerooms (`applySquareHoleSuction`/`computeSquareHoleSuction` in simulation.js; lip-assist kept as the else-branch for future square-void levels). NPC keep-out widened (`avoidMargin` 1.2→2.4, `influenceBand` 1.2→1.6) so bots don't self-feed. **Kill credit** host-gated keepalive re-stamps the victim's lastHitBy while suction drags a just-rammed cart in, so slow drag-to-fall still credits the shover (corner_void 2× still applies). **Visual telegraph** = pulsing additive-magenta floor annulus per void (`buildSuctionHazardRings`, Low-tier-safe). **Audio telegraph DEFERRED** (wind-suck loop needs client Howler wiring untestable in the frozen preview — add after feel sign-off). Doc: [storerooms-suction-holes-proposal.md](./planning/storerooms-suction-holes-proposal.md) now marked v1-implemented with defaults + open items. **Needs Wyatt production eyeball** — preview can't drive a round; tune `SUCTION_PEAK_ACCEL`/`HOLE_SUCTION_BAND` if capture feels cheap/unfair.
 

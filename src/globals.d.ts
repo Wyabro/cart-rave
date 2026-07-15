@@ -51,6 +51,12 @@ declare global {
       isCameraLocked: () => boolean;
       ensureWorld: () => Promise<void>;
     };
+    /** Netcode E2E harness (URL ?nettest=1). See src/utils/netTestHarness.js + tools/netharness.mjs. */
+    __ccTest?: any;
+    /** Netcode-harness active flag (?nettest=1) — gates loop-liveness counters. */
+    __ccNetTest?: boolean;
+    /** Netcode-harness loop-liveness counters (only when __ccNetTest). */
+    __ccLoopDbg?: { frames: number; resumeZeroed: number; maxDt: number; lastDt: number };
     CartRave?: any;
     /** Preferred product API alias of CartRave. */
     CartClash?: any;
