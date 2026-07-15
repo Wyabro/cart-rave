@@ -177,14 +177,6 @@ function setPlanarBasisFromRotation(rot, forward, right) {
   right.crossVectors(forward, _up).normalize();
 }
 
-function vec3ToRapier(v) {
-  return { x: v.x, y: v.y, z: v.z };
-}
-
-function rapierToVec3(v) {
-  return new THREE.Vector3(v.x, v.y, v.z);
-}
-
 function getBodyMass(body) {
   if (body && typeof body.mass === "function") return body.mass();
   return 1;
@@ -192,13 +184,6 @@ function getBodyMass(body) {
 
 function planarSpeed(v) {
   return Math.hypot(v.x, v.z);
-}
-
-function vec3PlanarDirection(v) {
-  const d = new THREE.Vector3(v.x, 0, v.z);
-  const len = d.length();
-  if (len <= 1e-6) return null;
-  return d.multiplyScalar(1 / len);
 }
 
 export function yawFromQuaternion(q) {
@@ -216,12 +201,6 @@ export function yawFromQuaternion(q) {
 export function setForwardRightFromYaw(yaw, forward, right) {
   forward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
   right.crossVectors(forward, _up).normalize();
-}
-
-/** @deprecated Prefer {@link setForwardRightFromYaw} — returns module scratch vectors. */
-function getForwardRightFromYaw(yaw) {
-  setForwardRightFromYaw(yaw, _forward, _right);
-  return { forward: _forward, right: _right };
 }
 
 function wrapAngleRad(angle) {
@@ -856,11 +835,11 @@ export function resolveCartRamCollision(c1, c2) {
 /**
  * Applies a spread ramming impulse from rammer to victim and triggers FX / host events.
  *
- * Reuses the pre-fetched ram state from {@link resolveCartRamCollision} — does not call
- * Rapier getters itself. The qualification math is recomputed here only to derive the
- * impulse direction + magnitude (alignment was already validated upstream, but the
- * direction vectors `_planarDir` / `_toVictim` are module scratch and may have been
- * overwritten by the second `getRammingQualificationScore` call, so they are rebuilt).
+ * Positions come from the pre-step state fetched by {@link resolveCartRamCollision};
+ * the knockback/crit side re-reads the rammer's LIVE post-collision velocity from
+ * Rapier (see the AI-1 decouple comment below), and the live alignment check here can
+ * fail independently of the upstream pre-step qualification — that failure is exactly
+ * the "attribution without knockback" path a reverse shove takes.
  *
  * @param {object} rammer Attacking cart entity.
  * @param {object} victim Target cart entity.
@@ -914,7 +893,7 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
 
       const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
 
-      // * Host plays FX locally; non-host replays the same events from host_event_collision
+      // * Host plays FX locally; non-host replays the same events from the snapshot collisions[] tail
       // * so prediction physics does not double-spawn bright particles (extra bloom).
       if (isHost) {
         if (playCollisionRef) {
@@ -2248,6 +2227,10 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   } else if (_octagonHazards) {
     // * Sundial octagon: the outer rim is the only kill edge, so a wedged/oscillating bot
     // * near it must escape *inward* (toward center), not tangent along the drop.
+    // * NOTE: 5.0 here pre-dates AI-3 widening the steering band in
+    // * applyOctagonRimAvoidance to 5.25 — the two describe the same conceptual rim
+    // * band and drifted. Kept at 5.0 deliberately (changing the commit trigger is a
+    // * behavior change); unify into one named constant on the next Sundial tuning pass.
     const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
     if (octagonEdgeDistance(p.x, p.z) > apothem - 5.0) {
       inAvoidanceBand = true;

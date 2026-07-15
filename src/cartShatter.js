@@ -602,7 +602,7 @@ export function triggerCartShatter(cart, scene, neonHex = 0xffffff) {
     );
     return;
   }
-  // * Guard against double-trigger (host scheduleRespawn + late host_event_fall echo).
+  // * Guard against double-trigger (host scheduleRespawn + late falls[] tail replay).
   if (cart.isShattering) return;
 
   cart.isShattering = true;
