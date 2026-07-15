@@ -12,6 +12,7 @@ import {
 } from "./customization.js";
 import { raveGltfTuning } from "./stores/cartTuningStore.js";
 import { wireRaveGltfCartDebugTweakpane } from "./raveGltfCartTweakpane.js";
+import { wireGameplayTunePane } from "./gameplayTunePane.js";
 import {
   getDefaultSfxVolumes,
   getSfxKeys,
@@ -293,7 +294,7 @@ export function initPostFxDebugGui(deps) {
   const syncBloom = () => applyBloomSettings(bloomPass, bloomLive);
 
   const pane = new Pane({
-    title: "Cart Clash Debug  (H = hide/show)",
+    title: "Cart Clash Debug  (H = hide/show · ?tune = feel)",
     expanded: true,
   });
 
@@ -305,7 +306,9 @@ export function initPostFxDebugGui(deps) {
   document.body.appendChild(container);
   container.appendChild(pane.element);
 
-  const urlWantsDebug = new URLSearchParams(window.location.search).has("debug");
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlWantsTune = urlParams.has("tune");
+  const urlWantsDebug = urlParams.has("debug") || urlWantsTune;
   let paneVisible = urlWantsDebug;
   container.classList.toggle("tp-hidden", !paneVisible);
 
@@ -389,6 +392,10 @@ export function initPostFxDebugGui(deps) {
     url.searchParams.set("level", ev.value);
     window.location.href = url.toString();
   });
+
+  // — Gameplay feel (live CONFIG tuning; ?tune focuses this) —
+  const gameplayFolder = wireGameplayTunePane(pane);
+  allFolders.push(gameplayFolder);
 
   // — Cart Forks & Wheels (Tweakpane version) —
   allFolders.push(wireRaveGltfCartDebugTweakpane(pane, scene));
@@ -780,6 +787,16 @@ export function initPostFxDebugGui(deps) {
       console.warn("[Debug] exportPhysicsGeometry() not found. Make sure the function is defined.");
     }
   });
+
+  // — ?tune: this session is about gameplay feel, not graphics. Collapse everything
+  // * else and leave only the gameplay folder open so Wyatt lands on the sliders. —
+  if (urlWantsTune) {
+    for (const f of allFolders) {
+      if (f !== gameplayFolder) f.expanded = false;
+    }
+    gameplayFolder.expanded = true;
+    gameplayFolder.element?.scrollIntoView?.({ block: "start" });
+  }
 
   // — H key toggle: fade container in/out —
   window.addEventListener("keydown", (e) => {
