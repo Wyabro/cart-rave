@@ -232,7 +232,6 @@ export class CartRaveServer extends Server {
   #ensureLiveHost() {
     if (this.#hostId === null) return;
     if (this.#connections.has(this.#hostId)) return;
-    const prevHostId = this.#hostId;
     this.#hostId = this.#pickNextHostId();
     this.#lastSeq = -1;
     if (this.#hostId) {
@@ -242,8 +241,22 @@ export class CartRaveServer extends Server {
         serverNowMs: this.#serverNowMs(),
         hostId: this.#hostId,
       });
-      this.#checkAllReady();
     }
+    // * Host loss during countdown strands clients waiting on a game_start the dead
+    // * host owned — clear the pending timer and reset to lobby so #checkAllReady
+    // * can re-arm for the successor. Lives here (not just onClose) so the reap /
+    // * ghost-exorcism / snapshot repair paths get the same protection instead of
+    // * leaning on the client-side resumeCountdownAsNewHost fallback.
+    if (this.#countdownTimerHandle !== null) {
+      clearTimeout(this.#countdownTimerHandle);
+      this.#countdownTimerHandle = null;
+    }
+    if (this.#round.phase === "countdown") {
+      this.#round = this.#freshRoundLobby();
+      this.#countdownArmed = false;
+      this.#broadcastRound();
+    }
+    if (this.#hostId) this.#checkAllReady();
   }
 
   #assignHumanToSlot(connId: string, preferredColor?: string): Slot | null {
@@ -684,29 +697,21 @@ export class CartRaveServer extends Server {
     }
     this.#cancelCountdownIfNeeded();
 
+    // * Host departure repair (pick successor + hostMigrated broadcast + countdown
+    // * reset) is centralized in #ensureLiveHost — one handoff mechanism for
+    // * close / reap / ghost-exorcism / snapshot repair alike. Carts continue from
+    // * last-known transforms; no re-init.
     const wasHost = this.#hostId === conn.id;
-    if (wasHost) {
-      if (this.#countdownTimerHandle !== null) {
-        clearTimeout(this.#countdownTimerHandle);
-        this.#countdownTimerHandle = null;
-      }
-      const prevHostId = this.#hostId;
-      this.#hostId = this.#pickNextHostId();
-      this.#lastSeq = -1;
+    this.#ensureLiveHost();
+    if (wasHost && this.#hostId === null) {
+      // * No successor (last human left): remaining pending pickers must still
+      // * learn the host is gone — #ensureLiveHost only broadcasts on success.
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.hostMigrated,
         serverNowMs: this.#serverNowMs(),
-        hostId: this.#hostId,
+        hostId: null,
       });
-      // * Carts continue from last-known transforms. No re-init.
-      // * Host loss during countdown strands clients — reset to lobby so
-      // * #checkAllReady() can re-arm game_start for the surviving host.
-      if (this.#round.phase === "countdown") {
-        this.#round = this.#freshRoundLobby();
-        this.#countdownArmed = false;
-        this.#broadcastRound();
-      }
     }
 
     this.#broadcastJson({
