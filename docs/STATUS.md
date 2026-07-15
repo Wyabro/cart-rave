@@ -3,8 +3,8 @@
 **What is this?** The first document anyone (human or agent) reads: project health, what's
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
-project stands. **Is it current?** Last verified 2026-07-13 (`npm run qa` green: 292 tests /
-29 files, typecheck + knip clean; pre-playtest hardening `b307402`).
+project stands. **Is it current?** Last verified 2026-07-14 (`npm run qa` green: 321 tests /
+34 files, typecheck + knip clean; post-sprint integration review).
 
 > **Rehydration protocol** (agent or human resuming cold):
 > 1. Read **this file** fully.
@@ -36,8 +36,8 @@ is not closed.
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ 292 tests / 29 files, tsc clean, knip clean (2026-07-13, pre-playtest hardening `b307402`) |
-| Unpushed work | ⚠️ Pre-playtest hardening `b307402` committed on `cart-clash`, **unpushed**; transition-pacing & UX pass still uncommitted. |
+| Gates (`npm run qa`) | ✅ 321 tests / 34 files, tsc clean, knip clean (2026-07-14, integration review) |
+| Unpushed work | ⚠️ Everything through `403b417` is on origin. Unpushed on `cart-clash`: `6cee66b` (tabhidden QA tool) + the 2026-07-14 integration-review fixes (see Last updated). |
 | Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
 | Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
@@ -77,7 +77,7 @@ and bug/balance/fun templates. The queue below maps to Session 1; NET-1 to Sessi
 
 1. Drain the playtest queue above → apply taste tuning → **push** the 5 stabilization commits.
 2. Close **NET-1**: two-browser full-round smoke ([ROADMAP](./planning/ROADMAP.md) Phase 4) + [living-store-test-plan.md](./planning/living-store-test-plan.md) + [host-migration-test-plan.md](./planning/host-migration-test-plan.md).
-3. ~~Fix remaining **Critical** static netcode hazard~~ NET-MIG-2 fixed in the audit pass (uncommitted); verify live during the NET-1 smoke. NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped (`a0475d6`). Remaining structural netcode items: NET-MIG-3, NET-CLK-2 — [netcode-deep-dive.md](./planning/netcode-deep-dive.md).
+3. ~~Fix remaining **Critical** static netcode hazard~~ NET-MIG-2 fixed in the audit pass (uncommitted); verify live during the NET-1 smoke. NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped (`a0475d6`); NET-CLK-2 closed 2026-07-14 (server-domain round anchor, integration review). Remaining structural netcode item: NET-MIG-3 — [netcode-deep-dive.md](./planning/netcode-deep-dive.md).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 5. Structural debt (MAIN-1, DIR-1, GLTF-1, BRAND-1, …) is cataloged under [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) — **after** the validation gate, not instead of it.
 
@@ -147,6 +147,19 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-14 — **Post-sprint integration review + cleanup** (committed on `cart-clash`, **unpushed**). Four-subagent review of the whole playtest sprint (58a0969..HEAD) as a cohesive system — regression hunt, integration seams, debt. Verdict: individual fixes compose correctly in the common paths; every confirmed defect sat in a seam BETWEEN sprint mechanisms. Gates: **321 tests / 34 files** (+5), tsc + knip clean, build OK. **Fixed (all local/server-side, zero wire-format changes):**
+- **Host fall-queue lifecycle** (netcode.js): `pendingHostFallEvents` was only drained during running phase and never cleared — solo falls accumulated all session and flushed as phantom KOs into a later hosted room's first snapshot; round-ending falls replayed as phantom KO feed/shatter/challenge-credit at next round start. Now gated on an active send loop, dropped on non-running ticks, cleared on stop/migration.
+- **NET-CLK-2 closed** (roundValidation.ts): podium age checks compared Worker `now` against HOST-stamped `startedAtMs` — a host page-clock >15s behind (wrong clock, or laptop slept with the tab open; performance.now() freezes in sleep) had every timer podium rejected, and the sprint's rejection rollback + endRound retry looped forever (round could never end). Server now latches `runningSinceServerMs` at the running commit and validates against it (startedAtMs fallback for pre-deploy rounds). +5 tests.
+- **NET-MIG-2 residual** (party/index.ts): join-time ghost exorcism with the joiner still a pending picker nulled `#hostId`, and `#ensureLiveHost` early-returns on null forever → hostless room. colorPick now repairs the host when the first human seats.
+- **Stale kill-credit on promote** (netcode.js): `lastAttributionCache` never cleared once the host omits `attr` (all windows closed) — a minutes-old hit re-anchored as fresh on migration. Cache now mirrors host truth per snapshot. Also: `tHost > 0` guard parity with the hostSpawn path; dead JSON-era `serverNowMs` fallback + never-serialized snapshot `levelId` + dead NET-CLK-1 shims removed.
+- **SwiftShader floor survived user quality change** (main.js): picking HIGH in settings cleared the session override that IS the software-GL hard floor → the exact potato tab-OOM `963c0ff` prevents. Re-clamped after setQualityTier (pref still persists for future healthy sessions).
+- **Tier changes never resized composer RTs** (scene.js): `applyComposerQualityTier` called `composer.setSize` which reuses the CACHED pixel ratio — Medium's DPR 1.25 tightening didn't reach bloom/scene buffers until an unrelated window resize. Now `composer.setPixelRatio` first.
+- **Test Drive poisoned session bloom** (main.js): leaving testArena restored HDR-space knobs OVER the display-referred set `setBloomPipeline` had just applied (weak bloom for the rest of the session). Restore now only runs on the explicit-`?rtmode` path.
+- **Quickplay rotation hidden-tab wedge** (animations.js): `crossfadeElement` got the rAF+timeout fallback the menu fade already had (the D-HARDEN-1 deferred item) — forces the swap midway exactly once, so a backgrounded host can't latch `setLevelSwapping` until refocus. Rematch double-fire guard also hoisted above `rematchResetWorld`.
+- **Watchdog vs `?preset=`** (autoQuality.js): explicit preset now pins the tier (perf-profile.mjs cells were silently relabeled mid-measure). DEV-gated the prod throwaway-context GPU probe in createRenderer. Boot milestones 75/90 un-deadened (gate on splash element, not bootDismissed). Mode-entry dismiss got a show-generation guard (stale fade no longer flushes the new session's countdown waiters). Host-promote SD teardown now releases the dead cart's groceries (parity with in-round path).
+- **Cleanup**: 4 dead module-private simulation helpers, stale `applyRammingImpulse` JSDoc (claimed pre-364b7f9 behavior), dead `BLOOM_DISPLAY_CONFIG`, 5 comments referencing the deleted `host_event_fall/collision` relays, `bufferAuthoritativeState` JSDoc clock-domain correction, STATUS drift (P2/P3/P4 stacks are PUSHED — origin at `403b417`).
+**Documented, deliberately NOT fixed** (behavior changes → Wyatt queue, or accepted): `isAiCautiousPhase`'s 0.82R rim clause holds bots in cautious phase against exactly the deep rim-campers AI-4 targets (chase cap collides at the same 0.82 — two-token fix, needs taste call); Sundial rim band 5.25/5.0 drift (cross-linked in code); solid-vs-void keep-out is arena-special-cased (a `deadly` flag on `circularKeepOuts` would generalize; Sundial podium base still forbids reverse); mixed-basis closingSpeed (council-settled non-defect); poison-wasm recovery usually degrades to page reload (working, documented); resultsOverlay confetti/wilt share ~70 duplicated lines (defer — both await Wyatt eyeball); Test Drive's own bloom reads near-dead under the display pipeline (threshold 0.94 post-tonemap — taste call); `onClose` host-departure still duplicates `#ensureLiveHost` with divergent countdown semantics (NET-MIG-3 family); round-ending KO feed still never reaches non-hosts (pre-existing; needs an endRound drain if wanted); center-stage priorities are scattered magic numbers (2/3/4).
 
 2026-07-14 — **P4 feel pass complete (FEEL-1, FEEL-2)** (`08256f5` on `cart-clash`; **unpushed**). Both feel literals, no logic change. **FEEL-1** (`camera.js`): winner cam `PODIUM_WINNER_CAM_MS` 2400→3000 ms — longer triumphant hold before the results panel covers the shot; purely local (never transmitted), any input still skips to results. **FEEL-2** (`simulation.js`): Sundial high-ground contest commitment window 1500→1650 ms (~+10%) — a bot chasing a podium camper stays committed to driving onto the keep-out-suppressed high ground ~10% longer, so bots fight harder for the bigger ART-4 zone (pairs with it). Both rAF-driven → **need Wyatt eyeball**. Also this session: dropped the Bungee font preload (`fd41566`, HUD-only → killed the "preloaded but not used" console warning) and a council-caught doc fix (`e87eb6e`, ART-4 ramp slope is gentler not "preserved"). Council (qwen + 2 Claude subagents) reviewed the P3 stack + font change: **no merge-blockers**, 4 non-blocking notes (1 actioned = the slope comment; rest are visual-QA flags). Gates: **316 tests / 34 files**, tsc + knip clean, build OK. **Playtest follow-ups P1–P4 now all cleared** — remaining open work is the live-eyeball queue (AI-1..AI-4, ART-1..ART-4, FEEL-1/2 all want Wyatt on a real screen) + the carried-over FU-1/FU-2 (menu-floor brightness, low-tier fps).
 
