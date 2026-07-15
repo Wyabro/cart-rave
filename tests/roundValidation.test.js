@@ -176,6 +176,53 @@ describe("validateHostRound — podium timing guards", () => {
   });
 });
 
+describe("validateHostRound — server-domain round anchor (NET-CLK-2)", () => {
+  it("latches runningSinceServerMs at the countdown→running commit", () => {
+    const prev = mkPrev({ phase: "countdown", countdownStartedAtMs: 900 });
+    const out = validateHostRound(prev, { phase: "running", startedAtMs: 5_555 }, 42_000);
+    expect(out.runningSinceServerMs).toBe(42_000);
+    expect(out.startedAtMs).toBe(5_555); // host stamp still committed verbatim for clients
+  });
+
+  it("carries the anchor through mid-round running→running updates", () => {
+    const prev = mkPrev({ phase: "running", startedAtMs: 5_555, runningSinceServerMs: 42_000 });
+    const out = validateHostRound(prev, { phase: "running", isSuddenDeath: true }, 60_000);
+    expect(out.runningSinceServerMs).toBe(42_000);
+  });
+
+  it("uses the server anchor, not the skewed host startedAtMs, for podium age checks", () => {
+    // Host page clock ~90s behind the Worker (laptop slept with the tab open):
+    // startedAtMs reads as ancient in the server domain. The old check
+    // (now - prev.startedAtMs > ROUND_DURATION_MS + 15s) rejected every timer
+    // podium from this host, looping the round forever.
+    const serverStart = 1_000_000;
+    const prev = mkPrev({
+      phase: "running",
+      startedAtMs: serverStart - 90_000,
+      runningSinceServerMs: serverStart,
+      scores: { 0: 5, 1: 3, 2: 0, 3: 0 },
+    });
+    const podium = { phase: "podium", winnerSlotIndex: 0, endReason: "timer" };
+    const out = validateHostRound(prev, podium, serverStart + ROUND_DURATION_MS + 1_000);
+    expect(out).not.toBeNull();
+    expect(out.phase).toBe("podium");
+  });
+
+  it("falls back to startedAtMs for rounds committed before the anchor existed", () => {
+    const startedAtMs = 1_000_000;
+    const prev = mkPrev({ phase: "running", startedAtMs, scores: { 0: 5, 1: 0, 2: 0, 3: 0 } });
+    const podium = { phase: "podium", winnerSlotIndex: 0, endReason: "timer" };
+    expect(validateHostRound(prev, podium, startedAtMs + 10_000)).not.toBeNull();
+    expect(validateHostRound(prev, podium, startedAtMs + ROUND_DURATION_MS + 15_001)).toBeNull();
+  });
+
+  it("clears the anchor on lobby reset", () => {
+    const prev = mkPrev({ phase: "podium", runningSinceServerMs: 42_000, winnerSlotIndex: 1 });
+    const out = validateHostRound(prev, { phase: "lobby" }, 99_000);
+    expect(out.runningSinceServerMs).toBe(0);
+  });
+});
+
 describe("validateHostRound — winner verification", () => {
   const startedAtMs = 1_000_000;
   const now = startedAtMs + 10_000;

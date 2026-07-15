@@ -918,6 +918,21 @@ export class CartRaveServer extends Server {
 
         if (assignedFromPending) {
           this.#cancelCountdownIfNeeded();
+          // * NET-MIG-2 residual: join-time ghost exorcism (sole human crashed and
+          // * reconnected with the same clientId) can null the host while the joiner
+          // * is still a pending picker — no human slot yet, so #pickNextHostId()
+          // * returned null, and #ensureLiveHost early-returns on null forever after.
+          // * The first human to actually seat repairs the room here.
+          if (this.#hostId === null) {
+            this.#hostId = connection.id;
+            this.#lastSeq = -1;
+            this.#broadcastJson({
+              v: PROTOCOL_VERSION,
+              type: MSG.hostMigrated,
+              serverNowMs: this.#serverNowMs(),
+              hostId: this.#hostId,
+            });
+          }
         }
 
         this.#broadcastJson({

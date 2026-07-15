@@ -17,6 +17,14 @@ export type RoundState = {
   scores: Record<number, number>;
   endReason?: "timer" | "lastStanding" | null;
   isSuddenDeath?: boolean;
+  /**
+   * Worker-clock moment the server committed the running transition (NET-CLK-2).
+   * `startedAtMs` is a HOST-local stamp (timeOrigin + performance.now()) and must
+   * never be compared against server `now` — the delta bakes in the host's
+   * wall-clock error plus any system-sleep pause. Optional so rounds validated
+   * before this field existed still pass (falls back to startedAtMs).
+   */
+  runningSinceServerMs?: number;
   /** Server stamped on every broadcast round payload clients may trust for stats. */
   validated: true;
 };
@@ -102,6 +110,7 @@ export function validateHostRound(
   let scores = { ...prev.scores };
   let winnerSlotIndex: number | "draw" | null = prev.winnerSlotIndex;
   let endReason: "timer" | "lastStanding" | null = prev.endReason ?? null;
+  let runningSinceServerMs = prev.runningSinceServerMs ?? 0;
 
   if (nextPhase === "countdown") {
     countdownStartedAtMs =
@@ -109,6 +118,7 @@ export function validateHostRound(
         ? countdownStartedAtMsRaw
         : now;
     startedAtMs = 0;
+    runningSinceServerMs = 0;
     winnerSlotIndex = null;
     scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     endReason = null;
@@ -120,6 +130,9 @@ export function validateHostRound(
       typeof startedAtMsRaw === "number" && Number.isFinite(startedAtMsRaw) && startedAtMsRaw > 0
         ? startedAtMsRaw
         : (prev.phase === "running" && prev.startedAtMs > 0 ? prev.startedAtMs : now);
+    // * Latch the server-clock round anchor on the countdown→running commit; carry it
+    // * through mid-round running→running updates (Sudden Death flag flips, score syncs).
+    runningSinceServerMs = prev.phase !== "running" ? now : (prev.runningSinceServerMs || now);
     winnerSlotIndex = null;
     if (prev.phase !== "running") {
       scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
@@ -143,8 +156,16 @@ export function validateHostRound(
 
   if (nextPhase === "podium") {
     if (prev.phase !== "running") return null;
-    if (!prev.startedAtMs || now - prev.startedAtMs < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
-    if (!prev.isSuddenDeath && now - prev.startedAtMs > ROUND_DURATION_MS + 15_000) return null;
+    // * Age checks must stay in the SERVER clock domain (NET-CLK-2): comparing
+    // * Worker `now` against the host-local startedAtMs meant a host whose page
+    // * clock ran >15s behind (wrong system clock, or a laptop sleep while the tab
+    // * was open — performance.now() freezes during sleep) had EVERY timer podium
+    // * rejected, and the client's rejection rollback → endRound retry looped
+    // * forever. startedAtMs fallback covers rounds validated before the anchor
+    // * field existed.
+    const runningAnchor = prev.runningSinceServerMs || prev.startedAtMs;
+    if (!prev.startedAtMs || !runningAnchor || now - runningAnchor < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
+    if (!prev.isSuddenDeath && now - runningAnchor > ROUND_DURATION_MS + 15_000) return null;
 
     const lastStanding =
       endReasonRaw === "lastStanding"
@@ -190,6 +211,7 @@ export function validateHostRound(
   if (nextPhase === "lobby") {
     startedAtMs = 0;
     countdownStartedAtMs = 0;
+    runningSinceServerMs = 0;
     winnerSlotIndex = null;
     scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     endReason = null;
@@ -205,6 +227,7 @@ export function validateHostRound(
     winnerSlotIndex,
     startedAtMs,
     countdownStartedAtMs,
+    runningSinceServerMs,
     scores,
     endReason,
     isSuddenDeath,
