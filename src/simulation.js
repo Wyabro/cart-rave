@@ -50,6 +50,10 @@ const _torqueImpulse = { x: 0, y: 0, z: 0 };
 const _pendingRamStepImpulse = { x: 0, y: 0, z: 0 };
 const _remoteAxis = { forward: 0, turn: 0, boostHeld: false };
 const _collisionCallbacks = { localCart: null };
+
+// * Set at the top of each runFixedPhysicsStep so sub-helpers (suction credit refresh) can
+// * host-gate authoritative-only side effects without threading isHost through every call.
+let _stepIsHost = false;
 const _holeOverhangState = {
   floorInnerR: 0,
   overhanging: false,
@@ -651,7 +655,13 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   rereadLinvelIntoScratch(cart);
   applyEnvironmentResponse(cart, dtFixed);
   rereadLinvelIntoScratch(cart);
-  applySquareHoleLipAssist(cart, dtFixed, nowMs);
+  // * Storerooms registers a suctionBand → holes pull carts in (replaces the outward rescue).
+  // * Other square-void levels (none today) fall back to the gentle lip rescue.
+  if (_levelHazards?.suctionBand) {
+    applySquareHoleSuction(cart, dtFixed, nowMs);
+  } else {
+    applySquareHoleLipAssist(cart, dtFixed, nowMs);
+  }
   rereadLinvelIntoScratch(cart);
   applyGeometryUnstick(cart, dtFixed, nowMs);
 
@@ -676,8 +686,106 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   }
 }
 
+// * Storerooms void suction (playtest 2026-07-15: the outward lip rescue made the holes feel
+// * safe and kills near-impossible). Replaces that rescue on any level that registers a
+// * `suctionBand` — a cart in the flat-floor band just outside a void is dragged toward it,
+// * pull ramping with depth so the OUTER half is escapable at full throttle while deep capture,
+// * or a shove, commits. Symmetric across humans and NPCs (asymmetric physics reads as
+// * cheating); bots keep clear via the widened keep-out in the level's aiHazards. The band
+// * WIDTH is owned by the level (`_levelHazards.suctionBand`); these are the force-feel knobs.
+const SUCTION_PEAK_ACCEL = 30; // m/s² inward at the floor lip, linear to 0 at the band's outer edge
+const SUCTION_CAPTURE_GAIN = 2.4; // extra inward m/s² per m/s of shove-in velocity (depth-scaled)
+const SUCTION_CREDIT_DEPTH = 0.4; // only keep kill-credit alive once this deep in the band
+const SUCTION_CREDIT_KEEPALIVE_MS = 2600; // recent-ram window refreshed while suction holds a cart
+const SUCTION_CREDIT_THROTTLE_MS = 500; // min gap between credit re-stamps per cart
+
+/**
+ * * Pure suction solve for a point inside a registered `suctionBand`. Returns the inward pull
+ * acceleration (m/s²) and unit direction toward the nearest void, plus band depth (0 at the
+ * outer edge → 1 at the lip), or null when outside every band or no band is registered.
+ * Exported for tests; the impulse application + credit keepalive live in applySquareHoleSuction.
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {number} vx Planar velocity X (for the shove-in capture assist).
+ * @param {number} vz Planar velocity Z.
+ * @returns {{ inwardX: number, inwardZ: number, accel: number, depth: number } | null}
+ */
+export function computeSquareHoleSuction(px, pz, vx, vz) {
+  const bandWidth = _levelHazards?.suctionBand;
+  if (!bandWidth) return null;
+  const { cheb, hole } = nearestSquareHole(px, pz);
+  const depth = clamp((_levelHazards.half + bandWidth - cheb) / bandWidth, 0, 1);
+  if (depth <= 0) return null;
+
+  const dx = px - hole.x;
+  const dz = pz - hole.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const inwardX = -dx / len;
+  const inwardZ = -dz / len;
+
+  const towardHole = vx * inwardX + vz * inwardZ; // + = already sliding / being shoved inward
+  let accel = depth * SUCTION_PEAK_ACCEL;
+  if (towardHole > 0) accel += towardHole * SUCTION_CAPTURE_GAIN * depth;
+
+  return { inwardX, inwardZ, accel, depth };
+}
+
+/**
+ * * Storerooms void suction — see the SUCTION_* block. Reads pos + linvel from the module
+ * scratch cache (populated by the caller). The force runs wherever the cart's physics is
+ * simulated (host: all carts; client: its predicted local cart) so prediction stays consistent;
+ * the kill-credit refresh is host-gated via `_stepIsHost`.
+ *
+ * @param {object} cart
+ * @param {number} dtFixed
+ * @param {number} nowMs
+ */
+function applySquareHoleSuction(cart, dtFixed, nowMs) {
+  if (!_levelHazards?.suctionBand || !cart?.body || cart.respawnAtMs != null || !dtFixed) return;
+
+  const pos = _scratchPos;
+  const lv = _scratchLinvel;
+  const s = computeSquareHoleSuction(pos.x, pos.z, lv.x, lv.z);
+  if (!s) return;
+
+  const mass = getBodyMass(cart.body);
+  const mag = s.accel * mass * dtFixed;
+  _impulse.x = s.inwardX * mag;
+  _impulse.y = 0;
+  _impulse.z = s.inwardZ * mag;
+  cart.body.applyImpulse(_impulse, true);
+  cart.body.wakeUp();
+
+  // * Kill-credit keepalive (host only): while suction drags a just-rammed cart in, keep the
+  // * shover's attribution fresh so a slow drag-to-fall still credits them, not "fell off". The
+  // * ordinary ram→fall path already fits inside hitWindowMs; this only covers lingering captures.
+  if (
+    _stepIsHost
+    && s.depth > SUCTION_CREDIT_DEPTH
+    && (cart.slotIndex ?? -1) >= 0
+    && cart.lastRammedAtMs != null
+    && nowMs - cart.lastRammedAtMs < SUCTION_CREDIT_KEEPALIVE_MS
+    && nowMs - (cart.suctionCreditStampMs ?? 0) > SUCTION_CREDIT_THROTTLE_MS
+  ) {
+    const prior = GameState.getLastHitBy().get(cart.slotIndex);
+    if (prior && prior.attackerSlotIndex >= 0 && prior.attackerSlotIndex !== cart.slotIndex) {
+      GameState.recordHit(
+        cart.slotIndex,
+        prior.attackerSlotIndex,
+        prior.wasCritical,
+        prior.impactSpeed,
+        prior.fromPodium,
+      );
+      cart.suctionCreditStampMs = nowMs;
+    }
+  }
+}
+
 /**
  * * Backrooms void lip — outward impulse so carts (especially NPCs) don't slide down chamfers.
+ * Superseded by suction on levels that register a `suctionBand` (see applyArcadeControls);
+ * retained for any future square-void level that wants the gentle rescue instead.
  *
  * Reads pos + linvel from the module scratch cache (populated by the caller); avoids
  * redundant Rapier getter allocations.
@@ -1020,6 +1128,7 @@ const AI_CAUTIOUS_MS = 8000;
  *   arenaHalf?: number,
  *   avoidMargin: number,
  *   influenceBand: number,
+ *   suctionBand?: number,
  *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number, solid?: boolean }[],
  * } | null}
  */
@@ -2592,6 +2701,7 @@ export function runFixedPhysicsStep({
 }) {
   const getAxis = callbacks.getAxis || (() => ({ forward: 0, turn: 0 }));
   const getAiAxis = callbacks.getAiAxis || null;
+  _stepIsHost = isHost;
 
   // Save pre-step linear velocities for collision impact calculations
   const hopCfg = CONFIG.cart?.hop;

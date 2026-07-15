@@ -45,6 +45,10 @@ const HOLE_SIZE = 8.5; // meters — square void side length
 const HOLE_HALF = HOLE_SIZE / 2;
 const HOLE_CENTER = 20; // meters — |x| and |z| of each void center
 const HOLE_DEPTH = 26; // meters — shaft depth; bottoms out exactly at the PIT_FLOOR_Y backstop
+// * Suction band width (meters) outside each void's floor lip — carts in it are pulled toward
+// * the void (simulation.js applySquareHoleSuction). Also drives the danger-ring decal radius
+// * and the NPC keep-out margins in aiHazards below. (playtest 2026-07-15)
+const HOLE_SUCTION_BAND = 2.6;
 // * Per-level fall KO depth (restored on dispose). Deep enough for a dramatic ~1.2s drop
 // * down a shaft, still well inside scoring's 2.5s kill-attribution window.
 const FALL_Y_THRESHOLD = -18;
@@ -3177,6 +3181,65 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
  * }}
  * @param {{ menuPreview?: boolean, reflectorTextureSize?: number }} [options]
  */
+/**
+ * Danger telegraph for the void suction bands — a pulsing neon annulus on the floor around
+ * each void, marking the zone where carts get dragged in (simulation.js applySquareHoleSuction).
+ * Unlit + additive so it reads on Low tier and glows against the dark carpet; one shared
+ * geometry + material across the four voids. Play + preview (cheap: 4 meshes, no collider).
+ *
+ * @returns {{ group: THREE.Group, ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[], update: (timeMs: number) => void }}
+ */
+function buildSuctionHazardRings() {
+  const group = new THREE.Group();
+  const outer = HOLE_HALF + HOLE_SUCTION_BAND;
+  const inner = HOLE_HALF + 0.05; // hug the lip, a hair out so it never pokes into the open void
+
+  const shape = new THREE.Shape();
+  shape.moveTo(-outer, -outer);
+  shape.lineTo(outer, -outer);
+  shape.lineTo(outer, outer);
+  shape.lineTo(-outer, outer);
+  shape.closePath();
+  const holePath = new THREE.Path();
+  holePath.moveTo(-inner, -inner);
+  holePath.lineTo(inner, -inner);
+  holePath.lineTo(inner, inner);
+  holePath.lineTo(-inner, inner);
+  holePath.closePath();
+  shape.holes.push(holePath);
+
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2); // XY shape → flat on the XZ floor plane
+
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xff2d55, // hazard magenta-red — "this edge bites"
+    transparent: true,
+    opacity: 0.16,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+
+  for (const h of HOLE_CENTERS) {
+    const ring = new THREE.Mesh(geo, mat);
+    ring.position.set(h.x, FLOOR_TOP_Y + 0.03, h.z);
+    ring.renderOrder = 2; // over the baked carpet decals
+    group.add(ring);
+  }
+
+  const OPACITY_BASE = 0.13;
+  const OPACITY_AMP = 0.11;
+  return {
+    group,
+    ownedGeometries: [geo],
+    ownedMaterials: [mat],
+    // * Slow breathing pulse — a standing hazard should read as present, not frantic.
+    update: (timeMs) => {
+      mat.opacity = OPACITY_BASE + OPACITY_AMP * (0.5 + 0.5 * Math.sin(timeMs * 0.0033));
+    },
+  };
+}
+
 export function initBackroomsSupermarket(scene, world, config, options = {}) {
   const menuPreview = options.menuPreview === true;
   const floorCells = menuPreview ? FLOOR_GRID_CELLS_PREVIEW : FLOOR_GRID_CELLS_PLAY;
@@ -3276,6 +3339,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     voidGeometries.push(...v.geometries);
   }
   scene.add(voidGroup);
+
+  // ===== Suction danger rings (telegraph for the void pull-in bands) =====
+  const suctionRings = buildSuctionHazardRings();
+  scene.add(suctionRings.group);
 
   // ===== Surrounding void pit (fills floor → wall gap with darkness) =====
   const pit = buildPit();
@@ -3404,14 +3471,15 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   ];
 
   const ownedGeometries = [
-    floorGeo, ...voidGeometries, ...pit.geometries,
+    floorGeo, ...voidGeometries, ...suctionRings.ownedGeometries, ...pit.geometries,
     ...walls.ownedGeometries, ...ceiling.ownedGeometries, ...booths.ownedGeometries,
     ...pitDressing.ownedGeometries, ...uncanny.ownedGeometries, ...doorways.ownedGeometries,
     ...floorDecals.ownedGeometries,
     ...furniturePile.ownedGeometries, ...furnitureSpotlight.ownedGeometries,
   ];
   const ownedMaterials = [
-    floorMat, voidShaftMat, subRoomMats.floor, subRoomMats.glow, subRoomMats.glowHot,
+    floorMat, voidShaftMat, ...suctionRings.ownedMaterials,
+    subRoomMats.floor, subRoomMats.glow, subRoomMats.glowHot,
     subRoomMats.silhouette, subRoomMats.nearSilhouette,
     ...pit.materials,
     ...walls.ownedMaterials, ...ceiling.ownedMaterials, ...booths.ownedMaterials,
@@ -3515,8 +3583,14 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
       half: HOLE_HALF,
       holeCenter: HOLE_CENTER,
       arenaHalf: ARENA_HALF,
-      avoidMargin: 1.2, // * wider keep-out — gives steering more time to react at speed
-      influenceBand: 1.2, // * wider steer nudge — pushes bots away from the void lip earlier
+      // * avoidMargin + influenceBand widened to clear the suctionBand: bots must steer away
+      // * BEFORE the pull grabs them (else they self-feed). Reach = half + avoidMargin +
+      // * influenceBand = 8.25m > band outer edge (half + suctionBand = 6.85m). (2026-07-15)
+      avoidMargin: 2.4, // * keep-out radius — routing/targets stay outside the suction band
+      influenceBand: 1.6, // * steer nudge starts beyond the band so the grab never surprises a bot
+      // * Inward-pull band width (meters) outside the floor lip. Consumed by simulation.js
+      // * applySquareHoleSuction; makes the four voids dangerous by proximity, not just contact.
+      suctionBand: HOLE_SUCTION_BAND,
       // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
       // * solid: center furniture is a hard obstacle, not a void — the AI-2 wedge
       // * fix (reverse-off + tangent escape) keys off this semantic, and the
@@ -3526,6 +3600,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     update: (timeMs) => {
       spotlightUpdateFn(timeMs);
       ceilingUpdateFn(timeMs);
+      suctionRings.update(timeMs);
     },
     applyQualityTier,
     dispose,
