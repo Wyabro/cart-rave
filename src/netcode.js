@@ -143,10 +143,17 @@ export function queueHostFallEvent(eventData) {
   // * Only queue what the 40Hz tick can actually drain: an active MP host send loop.
   // * Solo/testdrive never start the loop — without this gate every solo fall would
   // * accumulate all session and flush as phantom KO replays into the first snapshot
-  // * of a later hosted room. (The send tick additionally drops any falls queued
-  // * after the round leaves "running", e.g. the round-ending KO — see the drain site.)
+  // * of a later hosted room.
   if (!hostSendTimer) return;
   pendingHostFallEvents.push(eventData);
+  if (GameState.getRoundState().phase !== "running") {
+    // * The ROUND-ENDING KO: gameFlow queues the fall after addScore→endRound has
+    // * already flipped the phase, and the scheduled tick early-returns outside
+    // * "running" — so non-hosts historically never saw the winning KO's feed and
+    // * shatter. Flush it immediately with one forced snapshot (same payload shape,
+    // * same falls[] tail; clients replay falls regardless of phase).
+    hostSendTick({ force: true });
+  }
 }
 
 function drainHostFallBatch() {
@@ -1119,73 +1126,82 @@ export function serializeCartToWire(c) {
   };
 }
 
+/**
+ * One 40Hz host snapshot: serialize carts, drain collision/fall batches, encode,
+ * broadcast. `force` skips the running-phase gate for the single round-end flush
+ * (see queueHostFallEvent) — everything else is identical to a scheduled tick.
+ * @param {{ force?: boolean }} [opts]
+ */
+function hostSendTick(opts = {}) {
+  const allCarts = getAllCarts();
+  if (!partySocket || !isHost || !allCarts) return;
+  if (!opts.force && GameState.getRoundState().phase !== "running") {
+    // * Falls queued outside a running round with no flush (e.g. mid-podium after
+    // * the forced round-end tick already ran) must not sit here — they would
+    // * replay as phantom KOs on every non-host at the start of the NEXT round
+    // * (kill feed, shatter, duplicate challenge/unlock credit).
+    if (pendingHostFallEvents.length > 0) pendingHostFallEvents = [];
+    return;
+  }
+
+  hostSeq += 1;
+  const carts = [];
+
+  for (let i = 0; i < allCarts.length; i++) {
+    const c = allCarts[i];
+    if (c) {
+      const serialized = serializeCartToWire(c);
+      if (serialized) {
+        const slot = netSlots[i];
+        const connId = slot?.connId;
+        serialized.ackSeq = connId ? (hostLastProcessedInputSeq.get(connId) || 0) : 0;
+        carts[i] = serialized;
+      }
+    }
+  }
+
+  lastCartsCache = carts;
+  const collisions = drainHostCollisionBatch();
+  const falls = drainHostFallBatch();
+  // * tHost drives hostClock only (NET-CLK-1) — never the Party offset EWMA.
+  // * (No levelId here: the binary snapshot encoder never carried it — level truth
+  // * travels via host_round / hello / round, the quickplay-rotation design.)
+  const tHost = getMonotonicNow();
+  const payload = {
+    type: MSG.hostTransform,
+    seq: hostSeq,
+    // * Host monotonic clock stamp; non-host clients use it to drive snapshot
+    // * interpolation and estimate the host<->client clock offset (NET-CLK-1).
+    tHost,
+    carts,
+  };
+  if (collisions.length > 0) {
+    payload.collisions = collisions;
+  }
+  if (falls.length > 0) {
+    payload.falls = falls;
+  }
+  // * Active Living Store directive rides every snapshot — self-heal for a lost
+  // * one-shot MSG.directive and the catch-up path for mid-window joiners.
+  const dir = getDirectiveWireState();
+  if (dir) {
+    payload.dir = dir;
+  }
+  // * Open kill credit + combos for host migration (NET-MIG-1) — ages vs tHost.
+  const attr = buildAttributionWire(tHost);
+  if (attr) {
+    payload.attr = attr;
+  }
+  const binaryPayload = encodeHostStateSnapshot(payload);
+  P2P.sendToAll(binaryPayload);
+}
+
 export function startHostSendLoop() {
   stopHostSendLoop();
   if (!partySocket || !isHost || !getAllCarts()) return;
 
   const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
-  hostSendTimer = setInterval(() => {
-    const allCarts = getAllCarts();
-    if (!partySocket || !isHost || !allCarts || GameState.getRoundState().phase !== "running") {
-      // * Falls queued in the last tick-interval of a round (or during podium — the
-      // * round-ending KO's endRound flips the phase before gameFlow queues it) would
-      // * otherwise sit here and replay as phantom KOs on every non-host at the start
-      // * of the NEXT round (kill feed, shatter, duplicate challenge/unlock credit).
-      if (pendingHostFallEvents.length > 0) pendingHostFallEvents = [];
-      return;
-    }
-
-    hostSeq += 1;
-    const carts = [];
-
-    for (let i = 0; i < allCarts.length; i++) {
-      const c = allCarts[i];
-      if (c) {
-        const serialized = serializeCartToWire(c);
-        if (serialized) {
-          const slot = netSlots[i];
-          const connId = slot?.connId;
-          serialized.ackSeq = connId ? (hostLastProcessedInputSeq.get(connId) || 0) : 0;
-          carts[i] = serialized;
-        }
-      }
-    }
-
-    lastCartsCache = carts;
-    const collisions = drainHostCollisionBatch();
-    const falls = drainHostFallBatch();
-    // * tHost drives hostClock only (NET-CLK-1) — never the Party offset EWMA.
-    // * (No levelId here: the binary snapshot encoder never carried it — level truth
-    // * travels via host_round / hello / round, the quickplay-rotation design.)
-    const tHost = getMonotonicNow();
-    const payload = {
-      type: MSG.hostTransform,
-      seq: hostSeq,
-      // * Host monotonic clock stamp; non-host clients use it to drive snapshot
-      // * interpolation and estimate the host<->client clock offset (NET-CLK-1).
-      tHost,
-      carts,
-    };
-    if (collisions.length > 0) {
-      payload.collisions = collisions;
-    }
-    if (falls.length > 0) {
-      payload.falls = falls;
-    }
-    // * Active Living Store directive rides every snapshot — self-heal for a lost
-    // * one-shot MSG.directive and the catch-up path for mid-window joiners.
-    const dir = getDirectiveWireState();
-    if (dir) {
-      payload.dir = dir;
-    }
-    // * Open kill credit + combos for host migration (NET-MIG-1) — ages vs tHost.
-    const attr = buildAttributionWire(tHost);
-    if (attr) {
-      payload.attr = attr;
-    }
-    const binaryPayload = encodeHostStateSnapshot(payload);
-    P2P.sendToAll(binaryPayload);
-  }, intervalMs);
+  hostSendTimer = setInterval(hostSendTick, intervalMs);
 }
 
 export function sampleLocalInputForTick() {
