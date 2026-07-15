@@ -21,6 +21,7 @@ import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
 import { applyCartMassPropertiesOverride } from "./simulation.js";
 import { cleanupShatter } from "./cartShatter.js";
+import { applyCartPattern } from "./cartPatterns.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 
 // Module-level references
@@ -238,6 +239,14 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
 
   // * Refresh the material cache — the old one referenced disposed materials.
   cart._materialCache = materialCache;
+
+  // * Restore the slot's pattern: the fresh build bakes "classic" into the new
+  // * CartFrame material and no slots broadcast follows a respawn, so the entity
+  // * cache (set in updateCartMaterialsFromSlots) is the only carrier. Without
+  // * this, patterns vanished after the first KO (playtest 2026-07-15).
+  if (cart.cartPatternId && cart.cartPatternId !== "classic") {
+    applyCartPattern(cart.mesh, cart.cartPatternId, cart.cartColor);
+  }
 
   // * Drop any pre-shatter cargo bays first — leaving them caused double piles and
   // * spill hide only clearing the stale ref while groceries stayed visible.

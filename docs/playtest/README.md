@@ -93,7 +93,7 @@ Use [solo-checklist.md](./solo-checklist.md) §Queue.
 ### Session 2 — First-time player experience + full solo depth (~90 min)
 Fresh profile + `?devUnlocks=off` + production build. Play like a stranger: no muscle
 memory, read every screen, follow only what the game tells you. Then grind the real
-progression funnel: 15 KOs on Cart Rave → unlock Storerooms → 25 KOs there → Sundial.
+progression funnel: 10 KOs on Cart Rave → unlock Storerooms → 15 KOs there → Sundial.
 Challenges, unlock toasts, customize flow, personal bests.
 *Nobody — human or agent — has ever played the game with real locks on. This is the
 single most untested player-facing surface in the project.*
@@ -152,7 +152,7 @@ Priority tiers: 🔴 = can sink V2 · 🟡 = must be right before wide release �
 
 ### 🟡 Onboarding & menu flow
 - **Evaluate:** Menu → mode pick → customize → arena pick → round, and back, without dead ends; attract mode sells the game; menu pacing (~700 ms swaps) feels snappy not sluggish.
-- **Failure:** Any state you can't leave, any button that needs a second press, unlock hints that don't explain what to do (hints are terse — "15 KOs on Cart Rave" — is that enough?).
+- **Failure:** Any state you can't leave, any button that needs a second press, unlock hints that don't explain what to do (hints are terse — "10 KOs on Cart Rave" — is that enough?).
 - **Record:** Every misclick and every "what does this do?"; menu-to-round seconds.
 
 ### 🟡 Readability, camera & visual clarity
@@ -176,7 +176,7 @@ Priority tiers: 🔴 = can sink V2 · 🟡 = must be right before wide release �
 - **Record:** Arena + timestamp of any stall; final scores of every solo round (the spread is the rubberband data); "did the bots feel fair?" per session. AI difficulty selection is **proposal-only** ([ai-difficulty-proposal.md](../planning/ai-difficulty-proposal.md)) — evaluate the single current tuning, note where a difficulty knob is actually needed.
 
 ### 🟡 Challenges, unlocks & progression pacing
-- **Evaluate:** With real locks: are the first-hour goals visible and motivating? Unlock toasts legible mid-match (5 s, above announcer)? Daily/weekly challenges tracked correctly across matches? Is 15 KOs → Storerooms the right first gate?
+- **Evaluate:** With real locks: are the first-hour goals visible and motivating? Unlock toasts legible mid-match (5 s, above announcer)? Daily/weekly challenges tracked correctly across matches? Is 10 KOs → Storerooms the right first gate?
 - **Failure:** Progress not counting (esp. `untouchable`, `last_standing`, `sd_win` — all had double-count fixes this week), a toast missed entirely, a hint that doesn't parse, rotation not refreshing (known: only checked at boot).
 - **Record:** Each unlock: expected vs actual trigger; minutes-to-first-unlock; any challenge whose progress number surprised you.
 

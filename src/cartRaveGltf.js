@@ -291,6 +291,13 @@ const RAVE_GLTF_CASTER_SWIVEL_GROUP_OFFSETS = Object.freeze({
 const RAVE_GLTF_DARK_TRIM_HEX = 0x111111;
 
 /**
+ * Sunglasses self-tint strength (emissive in the style color). Makes styles
+ * distinguishable in the dark arenas without turning the visor into a bloom
+ * source — raise/lower here if a playtest calls the lenses flat or glowy.
+ */
+const SUNGLASSES_LENS_EMISSIVE_INTENSITY = 0.35;
+
+/**
  * cartrave4 face assembly — the SMILE (7) plus the one-piece sunglasses visor that
  * replaces the segmented frame (8) + lens pair (9, 11) at source load
  * (integrateOnePieceSunglasses). 8/9/11 stay listed defensively for the fallback
@@ -1725,7 +1732,14 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
     // * lenses read as "Pit Viper" against the dark arenas. Lens-only — scene is untouched.
     const lensEnv = getNeonLensEnvMap();
     if (lensEnv) mat.envMap = lensEnv;
-    if (mat.emissive) mat.emissive.setHex(0x000000);
+    // * Self-tint in the style color: with metalness 1.0 the albedo only shows
+    // * through reflections of the shared neon env, so every style read as
+    // * "mirror + frame color" (playtest 2026-07-15). Low intensity — a tint
+    // * that reads in the dark arenas, not a bloom source.
+    if (mat.emissive) {
+      mat.emissive.setHex(style.color);
+      mat.emissiveIntensity = SUNGLASSES_LENS_EMISSIVE_INTENSITY;
+    }
     mat.userData.raveGltfSunglassesStyle = style.id;
   } else {
     mat.userData.raveGltfHasEmissiveAccent = !!srcMat.emissiveMap;
@@ -1740,7 +1754,9 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
     }
   }
 
-  if (mat.emissive && !mat.emissiveMap && role !== "body") mat.emissive.setHex(0x000000);
+  // * "face" keeps its style self-tint (set above) — everything else without an
+  // * emissive mask is forced dark so only authored accents bloom.
+  if (mat.emissive && !mat.emissiveMap && role !== "body" && role !== "face") mat.emissive.setHex(0x000000);
 
   return mat;
 }

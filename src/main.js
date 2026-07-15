@@ -606,11 +606,12 @@ function updateCartMaterialsFromSlots(slots) {
 
     const theme = getCartTheme(themeId);
     if (theme.patternPolicy !== "disable") {
-      applyCartPattern(
-        cart.mesh,
-        resolveCartPatternForSlot(slot, { youConnId }),
-        finalHex,
-      );
+      const patternId = resolveCartPatternForSlot(slot, { youConnId });
+      applyCartPattern(cart.mesh, patternId, finalHex);
+      // * Cached like cartColor so the shatter-respawn rebuild can restore it —
+      // * no slots broadcast follows a respawn, so the entity field is the only
+      // * carrier (patterns vanished after the first KO without it).
+      cart.cartPatternId = patternId;
     }
 
     cart.cartColor = finalHex;
@@ -2741,7 +2742,16 @@ async function main() {
       finalScores.replaceChildren();
       /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null }>} */
       const scoreRows = [];
-      for (let i = 0; i < 4; i += 1) {
+      // * Winner pinned first explicitly — under lastStanding/Sudden Death they can
+      // * hold a lower score than a fallen rival, so score-desc alone isn't enough.
+      const rankedSlots = [0, 1, 2, 3].sort((a, b) => {
+        const aWin = winnerIdx !== "draw" && winnerIdx === a;
+        const bWin = winnerIdx !== "draw" && winnerIdx === b;
+        if (aWin !== bWin) return aWin ? -1 : 1;
+        const byScore = Number(scores[b] ?? 0) - Number(scores[a] ?? 0);
+        return byScore !== 0 ? byScore : a - b;
+      });
+      for (const i of rankedSlots) {
         const s = scores[i] != null ? scores[i] : 0;
         const row = document.createElement("div");
         row.className = "results-score-row";

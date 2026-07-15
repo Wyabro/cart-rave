@@ -26,9 +26,9 @@ import { DEFAULT_SUNGLASSES_STYLE } from "./cartThemeConfig.js";
 export const DEV_UNLOCKS_STORAGE_KEY = "cartRaveDevUnlocks";
 
 /** Lifetime KOs on Classic to unlock The Storerooms. */
-const UNLOCK_BACKROOMS_KILLS = 15;
+const UNLOCK_BACKROOMS_KILLS = 10;
 /** Lifetime KOs on The Storerooms to unlock Sundial Station. */
-const UNLOCK_ZANZIBAR_KILLS = 25;
+const UNLOCK_ZANZIBAR_KILLS = 15;
 
 /**
  * Pattern unlock table. `classic` is always free.

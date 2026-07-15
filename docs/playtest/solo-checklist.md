@@ -53,7 +53,7 @@ Transition pacing pass (2026-07-13, new this session):
 - [ ] Controls discoverable without being told (find Boost and hop unprompted?)
 - [ ] Goal understood after round 1 ("why did the winner win?" — answer must be right)
 - [ ] Locked arenas: presentation clear, hint parses, not demotivating
-- [ ] Grind the funnel: 15 KOs on Cart Rave → Storerooms toast + menu unlock; note minutes taken and whether it felt like progress or grind
+- [ ] Grind the funnel: 10 KOs on Cart Rave → Storerooms toast + menu unlock; note minutes taken and whether it felt like progress or grind
 - [ ] Each unlock toast: legible mid-match, correct item, 5 s hold survives announcer traffic
 - [ ] Challenges panel: today's daily + weekly understood; progress ticks live; persists across matches and reload
 - [ ] Customize: color / pattern / sunglasses each apply, save, survive reload; partial save doesn't clobber

@@ -94,7 +94,7 @@ referring to the level id. "Zanzibar" as a display name is retired.
   "KO 20 NPC carts", "Reach SAVAGE 5 times".
 - "KO" is the verb for takedowns; "knock … into the void" is fine as flavor.
 - Unlock hints are terse noun phrases: "10 KOs", "3 Sudden Death wins",
-  "15 KOs on Cart Rave".
+  "10 KOs on Cart Rave".
 - Combo goals use tier names, never tier numbers — and the name must match the tier the
   event actually fires on (`combo_t2` → SAVAGE, `combo_t3` → CARNAGE).
 

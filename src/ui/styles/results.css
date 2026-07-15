@@ -59,15 +59,20 @@
 #results-overlay.results-defeat .results-title {
   --title-glow: #7c8596; /* cold, drained — overrides the winner's cart color */
 }
+/* Headline-scale kicker (playtest 2026-07-15: 0.5em read smaller than the score
+   rows). At this size it carries the full sticker extrude like the title. */
 #results-overlay.results-defeat .results-title::before,
 #results-overlay.results-victory .results-title::before {
   display: block;
   font-family: var(--results-display);
-  font-size: 0.5em;
-  letter-spacing: 0.22em;
-  -webkit-text-stroke: 0;
-  text-shadow: none;
-  margin-bottom: 0.35em;
+  font-size: 1.1em;
+  letter-spacing: 0.12em;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.06em var(--color-ink-deep);
+  text-shadow:
+    0.04em 0.04em 0 var(--color-ink-deep),
+    0.08em 0.08em 0 var(--color-ink-deep);
+  margin-bottom: 0.3em;
 }
 #results-overlay.results-defeat .results-title::before {
   content: "DEFEAT";
