@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Normalize all SFX .ogg files in public/sounds/ to a consistent perceived loudness
+ * Normalize all SFX files in public/sounds/ to a consistent perceived loudness
  * using FFmpeg's loudnorm filter (EBU R128).
  *
  * Music files (song2, song3, song4, music, menu) are intentionally skipped.
@@ -20,11 +20,11 @@ const soundsDir = path.join(root, "public", "sounds");
 
 // * Music files — excluded from normalization.
 const MUSIC_FILES = new Set([
-  "song2.ogg",
-  "song3.ogg",
-  "song4.ogg",
-  "music.ogg",
-  "menu.ogg",
+  "song2.opus",
+  "song3.opus",
+  "song4.opus",
+  "music.opus",
+  "menu.opus",
 ]);
 
 if (!existsSync(soundsDir)) {
@@ -32,8 +32,8 @@ if (!existsSync(soundsDir)) {
   process.exit(1);
 }
 
-const allOggFiles = readdirSync(soundsDir).filter((f) => f.endsWith(".ogg"));
-const sfxFiles = allOggFiles.filter((f) => !MUSIC_FILES.has(f));
+const allOpusFiles = readdirSync(soundsDir).filter((f) => f.endsWith(".opus"));
+const sfxFiles = allOpusFiles.filter((f) => !MUSIC_FILES.has(f));
 
 if (sfxFiles.length === 0) {
   console.log("[normalize-sfx] No SFX files found to normalize.");
@@ -71,8 +71,8 @@ for (const filename of sfxFiles) {
     "-y",                          // overwrite output without prompting
     "-i", `"${inputPath}"`,        // input file
     "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",  // loudness normalization
-    "-c:a", "libvorbis",           // Ogg Vorbis encoder
-    "-q:a", "4",                   // quality 4 (reasonable balance of size/quality)
+    "-c:a", "libopus",             // Opus encoder (single shipped format)
+    "-b:a", "96k", "-vbr", "on",   // 96 kbps VBR (matches migration encode)
     `"${tempPath}"`,               // output to temp file
   ].join(" ");
 

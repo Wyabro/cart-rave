@@ -265,8 +265,8 @@ export function duckMusic(depth = 0.4, holdMs = 800) {
 /**
  * Load the looping menu music track (eager — menu should hear this as soon as
  * the shell is up; do not defer this for boot bandwidth savings).
- * @param {string | string[]} src URL(s) to the audio file — Howler picks the first
- *   format the browser can decode (Safari cannot play .ogg, so pass [ogg, mp3]).
+ * @param {string | string[]} src URL(s) to the audio file in Opus format.
+ *   Opus has universal browser support; no format fallback needed.
  */
 export function loadMenuMusic(src) {
   if (menuMusic) menuMusic.unload();

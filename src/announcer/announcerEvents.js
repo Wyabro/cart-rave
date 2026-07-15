@@ -46,7 +46,7 @@
  *   (announcer.css [data-focus]); regular events display 25% smaller.
  */
 
-// * Voice assets resolve from `public/sounds/announcer/<locale>/<key>_<NN>.ogg|.mp3`
+// * Voice assets resolve from `public/sounds/announcer/<locale>/<key>_<NN>.opus`
 // * — see docs/announcer.md for the recording/drop-in pipeline.
 
 /**

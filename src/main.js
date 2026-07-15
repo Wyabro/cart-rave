@@ -701,16 +701,14 @@ async function main() {
     muted: getIsMuted(),
   });
 
-  // * Each track is [ogg, mp3] — Safari has no Ogg Vorbis support, Howler picks
-  // * the first decodable format per browser.
-  const soundUrlWithFallback = (oggName) => [
-    new URL(`sounds/${oggName}`, window.location.href).toString(),
-    new URL(`sounds/${oggName.replace(/\.ogg$/, ".mp3")}`, window.location.href).toString(),
-  ];
+  // * Opus has universal browser support (Chrome, Firefox, Safari, Edge).
+  // * No fallback array needed — pass a single URL to Howler.
+  const soundUrl = (name) =>
+    new URL(`sounds/${name}`, window.location.href).toString();
 
   // * Menu music is eager (preload + play request) so it can start as soon as the menu is up.
-  // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.ogg.
-  AudioManager.loadMenuMusic(soundUrlWithFallback("menu.ogg"));
+  // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.opus.
+  AudioManager.loadMenuMusic(soundUrl("menu.opus"));
   if (menuVisible) AudioManager.playMenuMusic();
   // * Menu HTML loads before main; first gesture calls this to start menu music
   // * once Howler is wired (see cart-rave-menu.js pointerdown bridge). Also
@@ -726,8 +724,8 @@ async function main() {
     }
   };
 
-  const gameMusicFiles = ["music.ogg", "song2.ogg", "song3.ogg", "song4.ogg"];
-  const _gameMusicUrls = gameMusicFiles.map(soundUrlWithFallback);
+  const gameMusicFiles = ["music.opus", "song2.opus", "song3.opus", "song4.opus"];
+  const _gameMusicUrls = gameMusicFiles.map((f) => [soundUrl(f)]);
   for (let i = _gameMusicUrls.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [_gameMusicUrls[i], _gameMusicUrls[j]] = [_gameMusicUrls[j], _gameMusicUrls[i]];
@@ -1269,18 +1267,18 @@ async function main() {
     SfxSynth.playKillConfirm();
   }
 
-  // * Register all SFX via Howler (pooled, spatial-ready). Every entry carries an
-  // * mp3 fallback for Safari (see soundUrlWithFallback above).
-  AudioManager.registerSfx("cartCrash", soundUrlWithFallback("cart-crash.ogg"), { pool: 4 });
-  AudioManager.registerSfx("death", soundUrlWithFallback("Death.ogg"), { pool: 3 });
-  AudioManager.registerSfx("boost", soundUrlWithFallback("Boost.ogg"), { pool: 3 });
-  AudioManager.registerSfx("hop", soundUrlWithFallback("Hop.ogg"), { pool: 3 });
-  AudioManager.registerSfx("floor", soundUrlWithFallback("Floor.ogg"), { pool: 3 });
-  AudioManager.registerSfx("chargeUp", soundUrlWithFallback("Charge_up.ogg"), { pool: 2, loop: true });
-  AudioManager.registerSfx("countdown_3", soundUrlWithFallback("countdown_3.ogg"), { pool: 1 });
-  AudioManager.registerSfx("countdown_2", soundUrlWithFallback("countdown_2.ogg"), { pool: 1 });
-  AudioManager.registerSfx("countdown_1", soundUrlWithFallback("countdown_1.ogg"), { pool: 1 });
-  AudioManager.registerSfx("countdown_go", soundUrlWithFallback("countdown_go.ogg"), { pool: 1 });
+  // * Register all SFX via Howler (pooled, spatial-ready). Opus is the single
+  // * shipped format — universal browser support, no Safari fallback needed.
+  AudioManager.registerSfx("cartCrash", [soundUrl("cart-crash.opus")], { pool: 4 });
+  AudioManager.registerSfx("death", [soundUrl("Death.opus")], { pool: 3 });
+  AudioManager.registerSfx("boost", [soundUrl("Boost.opus")], { pool: 3 });
+  AudioManager.registerSfx("hop", [soundUrl("Hop.opus")], { pool: 3 });
+  AudioManager.registerSfx("floor", [soundUrl("Floor.opus")], { pool: 3 });
+  AudioManager.registerSfx("chargeUp", [soundUrl("Charge_up.opus")], { pool: 2, loop: true });
+  AudioManager.registerSfx("countdown_3", [soundUrl("countdown_3.opus")], { pool: 1 });
+  AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
+  AudioManager.registerSfx("countdown_1", [soundUrl("countdown_1.opus")], { pool: 1 });
+  AudioManager.registerSfx("countdown_go", [soundUrl("countdown_go.opus")], { pool: 1 });
 
   scene.add(audioListener);
 

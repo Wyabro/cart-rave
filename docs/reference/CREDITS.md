@@ -93,14 +93,14 @@ Fallbacks only (not shipped): system-ui, Archivo Black (CSS fallback for Bungee)
 
 | File | Type | Source | License / notes |
 |---|---|---|---|
-| `menu.mp3` | Music | Created with [Suno](https://suno.com/) | Licensed to project author via Suno |
-| `music.mp3` | Music | Created with Suno | Licensed to project author via Suno |
-| `song2.mp3` | Music | Created with Suno | Licensed to project author via Suno |
-| `song3.mp3` | Music | Created with Suno | Licensed to project author via Suno |
-| `song4.mp3` | Music | Created with Suno | Licensed to project author via Suno |
-| `cart-crash`, `Boost`, `Death`, `Hop`, `Floor`, `Charge_up`, `countdown_*` | SFX | Project / recorded | Shipped as `.ogg` with `.mp3` fallbacks (Safari has no Ogg Vorbis support); source not individually recorded in repo |
+| `menu.opus` | Music | Created with [Suno](https://suno.com/) | Licensed to project author via Suno |
+| `music.opus` | Music | Created with Suno | Licensed to project author via Suno |
+| `song2.opus` | Music | Created with Suno | Licensed to project author via Suno |
+| `song3.opus` | Music | Created with Suno | Licensed to project author via Suno |
+| `song4.opus` | Music | Created with Suno | Licensed to project author via Suno |
+| `cart-crash`, `Boost`, `Death`, `Hop`, `Floor`, `Charge_up`, `countdown_*` | SFX | Project / recorded | Shipped as `.opus`; source not individually recorded in repo |
 
-Bundled SFX ship in both `.ogg` (primary) and `.mp3` (Safari/iOS fallback) formats under `public/sounds/`. Some additional in-game feedback is **procedural** (Web Audio API oscillators in `src/audio.js` / `src/audioSetup.js`). Raw `.wav` masters and unused loops were removed during the July 2026 production-readiness pass.
+Bundled audio ships in a single `.opus` format under `public/sounds/` — Opus has universal browser support (Chrome, Firefox, Safari, Edge), so no format fallback is needed. Some additional in-game feedback is **procedural** (Web Audio API oscillators in `src/audio.js` / `src/audioSetup.js`). Raw `.wav` masters and unused loops were removed during the July 2026 production-readiness pass.
 
 ---
 

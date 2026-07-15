@@ -118,17 +118,18 @@ Voice recordings are **data-driven** — dropping in assets requires no engine c
 ### Directory & naming
 
 ```
-public/sounds/announcer/<locale>/<eventId>_<NN>.ogg      (+ .mp3 sibling for Safari)
-public/sounds/announcer/en/first_spill_01.ogg
-public/sounds/announcer/en/first_spill_02.ogg
-public/sounds/announcer/en/cleanup_aisle_03.mp3
+public/sounds/announcer/<locale>/<eventId>_<NN>.opus
+public/sounds/announcer/en/first_spill_01.opus
+public/sounds/announcer/en/first_spill_02.opus
+public/sounds/announcer/en/cleanup_aisle_03.opus
 ```
 
 - `<eventId>` matches the `voice.key` in `announcerEvents.js` (same as the event id).
 - `<NN>` is a zero-padded variant number `01..voice.variants` (variant counts per event
   are declared in the table; bump `variants` when recording more takes).
-- Always provide both `.ogg` and `.mp3` (Safari cannot decode Ogg Vorbis) and loudness-
-  normalize them like the existing SFX (see `loudnorm` convention in `audioManager.js`).
+- Opus is the single shipped format (universal browser support — Chrome, Firefox, Safari,
+  Edge — so no fallback sibling is needed). Loudness-normalize takes like the existing SFX
+  (see `loudnorm` convention in `audioManager.js`).
 
 ### Wiring recorded assets in
 
@@ -137,7 +138,7 @@ At boot (next to the other `AudioManager.registerSfx` calls in `main.js`):
 ```js
 // 1. Register each recorded file with Howler:
 AudioManager.registerSfx("announcer_first_spill_01",
-  soundUrlWithFallback("announcer/en/first_spill_01.ogg"), { pool: 1 });
+  [soundUrl("announcer/en/first_spill_01.opus")], { pool: 1 });
 // 2. Tell the manager which takes exist:
 registerAnnouncerVoicePack({ locale: "en", availableKeys: ["first_spill_01", /* … */] });
 ```

@@ -94,7 +94,7 @@ beforeAll(() => {
 beforeEach(() => {
   stopGameMusic();
   MockHowl.instances.length = 0;
-  setGamePlaylist(["track-a.ogg", "track-b.ogg", "track-c.ogg"]);
+  setGamePlaylist(["track-a.opus", "track-b.opus", "track-c.opus"]);
 });
 
 describe("gameplay playlist rotation", () => {
