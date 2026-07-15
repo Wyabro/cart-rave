@@ -216,4 +216,47 @@ describe("gameLoop resilience — resume guard (tab-focus stutter)", () => {
     tick(1200); // +200ms — a bad hitch but below RESUME_GAP_S (250ms): clamp, don't reset
     expect(frames[0].dt).toBeCloseTo(0.05, 3); // clamped to the 50ms ceiling, not zeroed
   });
+
+  it("keeps the sim stepping on a chronically slow device (every frame over the gap)", () => {
+    // * The NET-2 "welded to spawn" mechanism: a SwiftShader/overloaded client renders every
+    // * frame slower than RESUME_GAP_S. Zeroing the accumulator on each of those frames means
+    // * no physics substep — and non-host input sampling lives inside the substep loop — so
+    // * the player can never move. Only the FIRST over-gap frame may be treated as a resume.
+    /** @type {{ dt: number, acc: number }[]} */
+    const frames = [];
+    const state = createGameLoopState();
+    runGameLoop(state, {
+      shouldSkipTiming: () => false,
+      onFrame: (ctx) => frames.push({ dt: ctx.dt, acc: +state.accumulator.toFixed(4) }),
+    });
+
+    state.lastT = 1000;
+    tick(1300); // +300ms — first over-gap frame: genuine resume (debt dropped)
+    tick(1600); // +300ms — second consecutive: chronic slowness, must step
+    tick(1900); // +300ms — third: still stepping
+    expect(frames[0].dt).toBe(0);
+    expect(frames[0].acc).toBe(0);
+    expect(frames[1].dt).toBeCloseTo(0.05, 3); // clamped, NOT zeroed
+    expect(frames[1].acc).toBeCloseTo(0.05, 3); // accumulator grows → substeps will run
+    expect(frames[2].dt).toBeCloseTo(0.05, 3);
+    expect(frames[2].acc).toBeCloseTo(0.1, 3);
+  });
+
+  it("a normal frame re-arms the resume guard for the next genuine pause", () => {
+    /** @type {{ dt: number }[]} */
+    const frames = [];
+    const state = createGameLoopState();
+    runGameLoop(state, {
+      shouldSkipTiming: () => false,
+      onFrame: (ctx) => frames.push({ dt: ctx.dt }),
+    });
+
+    state.lastT = 1000;
+    tick(1300); // over-gap #1 → resume (dt 0)
+    tick(1316); // normal 16ms frame → streak reset
+    tick(6316); // +5s pause → must be treated as a fresh resume again
+    expect(frames[0].dt).toBe(0);
+    expect(frames[1].dt).toBeCloseTo(0.016, 3);
+    expect(frames[2].dt).toBe(0);
+  });
 });

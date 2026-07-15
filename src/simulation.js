@@ -2575,6 +2575,30 @@ function getEnvironmentContactPosition(envType, impacts, state, out) {
   return out;
 }
 
+/**
+ * Cart pairs currently in physical contact (keyed by ordered slot indexes). Rapier only
+ * emits a collision event on the STARTED/stopped edges, so ram qualification used to get
+ * exactly one attempt per touch — at the (often slow) first-contact velocity. Two carts
+ * grinding in a furball then shoved each other off with no attribution and no knockback
+ * ever qualifying (the playtest "hits do nothing" / unattributed-fall report; a 100 s
+ * 3-NPC soak produced 6 falls and ZERO attributed rams). Pairs in this map are re-offered
+ * to {@link resolveCartRamCollision} each substep, on a per-pair cooldown.
+ * @type {Map<string, { a: object, b: object, lastRamAtMs: number }>}
+ */
+const _activeCartContacts = new Map();
+
+/** Re-qualification cooldown per contact pair — one hit's spread impulse (~spreadSteps
+ *  substeps) must land and separate the pair before the same sustained contact may fire
+ *  again, or a single hard ram held in contact would machine-gun impulses. */
+const RAM_SUSTAINED_REQUALIFY_MS = 500;
+
+/** @param {object} c1 @param {object} c2 @returns {string} */
+function cartPairKey(c1, c2) {
+  const s1 = c1.slotIndex ?? -1;
+  const s2 = c2.slotIndex ?? -1;
+  return s1 <= s2 ? `${s1}|${s2}` : `${s2}|${s1}`;
+}
+
 function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, nowMs) {
   _colliderMap.clear();
   for (const c of allCarts || []) {
@@ -2586,12 +2610,23 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
   const impacts = CONFIG.environmentImpacts;
 
   eventQueue.drainCollisionEvents((h1, h2, started) => {
+    const cc1 = _colliderMap.get(h1);
+    const cc2 = _colliderMap.get(h2);
+    if (cc1 && cc2 && cc1 !== cc2 && !started) {
+      // * Cart pair separated — stop tracking it for sustained re-qualification.
+      _activeCartContacts.delete(cartPairKey(cc1, cc2));
+      return;
+    }
     if (!started) return;
-    const c1 = _colliderMap.get(h1);
-    const c2 = _colliderMap.get(h2);
+    const c1 = cc1;
+    const c2 = cc2;
 
     if (c1 && c2) {
       if (c1 !== c2) {
+        // * Track the live contact; the post-drain sweep below re-attempts qualification
+        // * while the pair stays in contact (grinding), not just on this started edge.
+        const rec = { a: c1, b: c2, lastRamAtMs: 0 };
+        _activeCartContacts.set(cartPairKey(c1, c2), rec);
         const ram = resolveCartRamCollision(c1, c2);
         if (ram) {
           applyRammingImpulse(
@@ -2603,6 +2638,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
             isHost,
             nowMs,
           );
+          rec.lastRamAtMs = nowMs; // this touch fired — cooldown before any sustained re-fire
         }
       }
     } else if (c1 || c2) {
@@ -2668,6 +2704,31 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
       }
     }
   });
+
+  // * Sustained-contact re-qualification: pairs still touching get a fresh qualification
+  // * attempt each substep (per-pair cooldown). A cart that drifted into contact slowly and
+  // * THEN accelerated/boosted into its opponent now lands a real, attributed ram instead of
+  // * silently shoving them off. Stale pairs (respawn/teardown/world rebuild) are pruned by
+  // * identity against the live collider map — separation normally removes them via the
+  // * stopped edge above.
+  for (const [key, rec] of _activeCartContacts) {
+    const { a, b } = rec;
+    if (
+      !a?.body ||
+      !b?.body ||
+      _colliderMap.get(a.collider?.handle) !== a ||
+      _colliderMap.get(b.collider?.handle) !== b
+    ) {
+      _activeCartContacts.delete(key);
+      continue;
+    }
+    if (nowMs - rec.lastRamAtMs < RAM_SUSTAINED_REQUALIFY_MS) continue;
+    const ram = resolveCartRamCollision(a, b);
+    if (ram) {
+      applyRammingImpulse(ram.rammer, ram.victim, ram.rammerState, ram.victimState, callbacks, isHost, nowMs);
+      rec.lastRamAtMs = nowMs;
+    }
+  }
 }
 
 /**

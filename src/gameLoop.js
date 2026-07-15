@@ -467,6 +467,14 @@ const MAX_STEP_ERROR_STREAK = 60;
  * the "hard stutter on refocus" from the playtest; above this threshold we drop the debt
  * and resume cleanly instead. 250ms is well past any legitimately slow frame (even Low
  * tier ~15fps = 66ms) so real gameplay hitches are unaffected.
+ *
+ * A genuine resume is ONE over-gap frame. When *every* frame is over the gap the device
+ * is chronically slow (SwiftShader compat mode, an overloaded machine, the quickplay
+ * join cold-load), not resuming — and zeroing the accumulator each frame would mean no
+ * physics substep ever runs. For a non-host client, input is sampled inside the
+ * prediction substep loop, so that failure mode is a cart permanently welded to spawn
+ * (the NET-2 "stuck joiner" mechanism). Only the FIRST over-gap frame gets resume
+ * treatment; consecutive ones step the sim with the normal clamped dt.
  */
 const RESUME_GAP_S = 0.25;
 
@@ -487,6 +495,9 @@ export function runGameLoop(loopState, callbacks) {
   // * successful frame, so a fresh session starts with a clean slate.
   let stepErrorStreak = 0;
   let fatalHandled = false;
+  // * Consecutive over-RESUME_GAP frames. 0→1 is a genuine resume (drop debt); ≥2 means
+  // * the device is chronically slow and the sim must keep stepping (see RESUME_GAP_S).
+  let overGapStreak = 0;
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -500,6 +511,8 @@ export function runGameLoop(loopState, callbacks) {
       // * recovery lands here, and the next real session must be able to trip fresh).
       stepErrorStreak = 0;
       fatalHandled = false;
+      // * The next game frame's large dt (time spent in the menu) is a fresh resume.
+      overGapStreak = 0;
       requestAnimationFrame(step);
       return;
     }
@@ -510,14 +523,19 @@ export function runGameLoop(loopState, callbacks) {
       // * Netcode-harness loop-liveness counters (tools/netharness.mjs) — lets the rig tell a
       // * starved/throttled joiner loop from a real netcode stall. Off unless ?nettest set the
       // * flag; the guard is a single property read per frame in normal play.
+      const overGap = dt > RESUME_GAP_S;
+      overGapStreak = overGap ? overGapStreak + 1 : 0;
+      const isResume = overGap && overGapStreak === 1;
       if (typeof window !== "undefined" && (window.__ccNetTest || window.__ccDiagActive)) {
-        const d = (window.__ccLoopDbg = window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, maxDt: 0, lastDt: 0 });
+        const d = (window.__ccLoopDbg =
+          window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0 });
         d.frames += 1;
         d.lastDt = dt;
         if (dt > d.maxDt) d.maxDt = dt;
-        if (dt > RESUME_GAP_S) d.resumeZeroed += 1;
+        if (isResume) d.resumeZeroed += 1;
+        else if (overGap) d.chronicSlow = (d.chronicSlow || 0) + 1;
       }
-      if (dt > RESUME_GAP_S) {
+      if (isResume) {
         // * Resume from a pause/throttle (tab hidden, window occluded/unfocused, long GC).
         // * Don't replay the gap as a physics catch-up burst — that's the hard hitch on
         // * refocus. Drop the accumulated debt and render one fresh, motionless frame; the
@@ -526,6 +544,10 @@ export function runGameLoop(loopState, callbacks) {
         loopState.accumulator = 0;
         dt = 0;
       } else {
+        // * Normal frame — or a chronically slow device where every frame is over the gap
+        // * (overGapStreak ≥ 2): clamp and keep stepping so input sampling and physics
+        // * still run (slow, not frozen). A real resume never has two over-gap frames in
+        // * a row, so the refocus-stutter fix is unaffected.
         dt = Math.min(dt, 0.05);
       }
       loopState.accumulator += dt;
