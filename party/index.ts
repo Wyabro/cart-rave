@@ -29,6 +29,7 @@ import { MSG } from '../shared/protocol.js';
 import { validateHostRound, type RoundState } from './roundValidation';
 import { pickNextHostId } from './hostSelection';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
+import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
 import {
   classifyWsMessagePostParse,
   classifyWsMessagePreParse,
@@ -132,6 +133,16 @@ export class CartRaveServer extends Server {
 
   #ensureInitialized() {
     if (this.#slots) return;
+
+    // * Quickplay: pick a random arena at room creation so the first hello carries
+    // * the room's real level. Otherwise the classicRecord default would clobber
+    // * every joiner's local pick via adoptAuthoritativeRoomLevel (client), stranding
+    // * mismatched levels loaded across peers. Friends rooms keep the default — the
+    // * host's local pick reaches everyone via the first host_round broadcast.
+    if (this.name === "quickplay" && QUICKPLAY_ARENA_IDS.length > 0) {
+      const idx = Math.floor(Math.random() * QUICKPLAY_ARENA_IDS.length);
+      this.#currentLevelId = QUICKPLAY_ARENA_IDS[idx] ?? this.#currentLevelId;
+    }
 
     // * Shuffled per room so NPC color combinations vary between sessions. Uniqueness
     // * is preserved (one preset per slot); humans can still re-pick via color_pick.

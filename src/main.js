@@ -2371,6 +2371,25 @@ async function main() {
   // --- Quickplay arena rotation (D-STAB-2 seam recipe) ---
   let arenaRotationInFlight = false;
 
+  // * Room-authoritative levelId that arrived while rotateLoadedArenaInPlace could not
+  // * yet run (menu still visible, world not bootstrapped, or carts not created — the
+  // * "joiner-lands-mid-play-entry" race). Drained from bootstrapSessionCarts once the
+  // * world+carts are ready so the joiner reconciles to the room arena instead of
+  // * silently staying on their local menu pick.
+  /** @type {string | null} */
+  let pendingArenaRotationLevelId = null;
+
+  async function drainPendingArenaRotation() {
+    if (pendingArenaRotationLevelId == null) return;
+    if (menuVisible || !isWorldBootstrapped() || !world) return;
+    if (!Array.isArray(allCartsRef) || allCartsRef.length === 0) return;
+    if (arenaRotationInFlight) return;
+    const next = resolveLevelId(pendingArenaRotationLevelId);
+    pendingArenaRotationLevelId = null;
+    if (next === getCurrentLevelId()) return;
+    await rotateLoadedArenaInPlace(next);
+  }
+
   /** Random next arena for Quickplay rotation — always different from the loaded one. */
   function pickNextQuickplayArenaId() {
     const current = getCurrentLevelId();
@@ -3104,6 +3123,12 @@ async function main() {
       getAllCarts: () => allCarts,
       getAllCartsRef: () => allCartsRef,
     });
+    // * Joiner-desync drain: a room-authoritative levelId that arrived on hello (or
+    // * an early MSG.round) while the play-entry was still tearing down the menu is
+    // * latched in pendingArenaRotationLevelId. Now that carts exist and the world is
+    // * live, retry the swap so the joiner ends up on the room's arena, not their
+    // * own menu pick.
+    void drainPendingArenaRotation();
     return carts;
   }
 
@@ -3201,11 +3226,15 @@ async function main() {
       HUD.clearFeed();
       beginPodiumPresentation();
     },
-    // * Room level changed mid-session (Quickplay rotation) — non-host clients swap
-    // * their loaded arena in place. Pre-session/menu the play-entry rebuild owns it
-    // * (rotateLoadedArenaInPlace no-ops without carts / with the menu up).
+    // * Room level changed mid-session (Quickplay rotation) or landed on hello during
+    // * a joiner's play-entry. If rotateLoadedArenaInPlace can't run yet (menu still
+    // * visible, world not bootstrapped, or carts not built) we latch the target and
+    // * drainPendingArenaRotation retries once bootstrapSessionCarts finishes — without
+    // * that latch a joiner would strand on their own local menu pick while the room
+    // * plays a different arena.
     onLevelIdChanged: (levelId) => {
-      void rotateLoadedArenaInPlace(levelId);
+      pendingArenaRotationLevelId = levelId;
+      void drainPendingArenaRotation();
     },
     onPodiumRejected: () => {
       // * Server nack'd host_round (or reasserted running). Undo optimistic podium UI.

@@ -5,6 +5,7 @@ import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
 import { setMenuPreviewVisualLod } from "../utils/qualityMode.js";
 import { clearLevelLod } from "../utils/levelLod.js";
 import { clearKoHitmarkers } from "../effects/koHitmarkerFx.js";
+import { QUICKPLAY_ARENA_IDS } from "../../shared/arenaPool.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
@@ -20,9 +21,11 @@ const LEVEL_IMPORTERS = {
 
 /**
  * Arena chunks the menu can switch between — testArena is dev-only, excluded.
- * Also the Quickplay arena-rotation pool (main.js pickNextQuickplayArenaId).
+ * Also the Quickplay arena-rotation pool (main.js pickNextQuickplayArenaId) and
+ * the server's initial-arena pool (party/index.ts). Sourced from shared/ so the
+ * Worker and client can't drift out of sync.
  */
-export const PREFETCHABLE_LEVEL_IDS = ["classicRecord", "backrooms", "zanzibar"];
+export const PREFETCHABLE_LEVEL_IDS = QUICKPLAY_ARENA_IDS;
 
 let levelChunksPrefetched = false;
 
