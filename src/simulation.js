@@ -1010,7 +1010,7 @@ const AI_CAUTIOUS_MS = 8000;
  *   arenaHalf?: number,
  *   avoidMargin: number,
  *   influenceBand: number,
- *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number }[],
+ *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number, solid?: boolean }[],
  * } | null}
  */
 let _levelHazards = null;
@@ -1023,7 +1023,7 @@ let _levelHazards = null;
  * @type {{
  *   arenaHalf?: number,
  *   circumRadius?: number,
- *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number }[],
+ *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number, solid?: boolean }[],
  * } | null}
  */
 let _octagonHazards = null;
@@ -1542,7 +1542,7 @@ function applyOctagonRimAvoidance(px, pz, dir) {
   const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
   // * AI-3: ~+5% Sundial rim caution — engage ~5% sooner (band 5.0→5.25) and push ~5% harder
   // * inward (1.2→1.26) so bots stop occasionally lemming off the rim.
-  const band = 5.25;
+  const band = OCTAGON_RIM_BAND;
   const edgeDist = octagonEdgeDistance(px, pz);
   if (edgeDist <= apothem - band) return;
   const strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
@@ -1552,6 +1552,14 @@ function applyOctagonRimAvoidance(px, pz, dir) {
   if (dir.lengthSq() < 1e-6) dir.set(-px / dist, 0, -pz / dist);
   dir.normalize();
 }
+
+/**
+ * Sundial "near the kill rim" band, meters in from the octagon apothem. One
+ * constant for BOTH the steering push (applyOctagonRimAvoidance) and the
+ * inward escape-commit trigger — these drifted apart during AI-3 (5.25 vs 5.0)
+ * and describe the same conceptual band.
+ */
+const OCTAGON_RIM_BAND = 5.25;
 
 /**
  * * True during the first 8s of a round or while any human is still on a spawn booth.
@@ -1569,7 +1577,11 @@ function isAiCautiousPhase(nowMs, allCarts, netSlots) {
     if (!cart?.body) continue;
     const pos = cart.body.translation();
     const dist = Math.hypot(pos.x, pos.z);
-    if (pos.y > CONFIG.record.y + 2.5 || dist > boothMinR) return true;
+    // * "On a spawn booth" = elevated AND out at booth radius. This was an OR: a
+    // * floor-level human parked beyond 0.82R held every bot in permanent cautious
+    // * phase, whose chase cap is ALSO 0.82R (clampAiTargetAwayFromHazards) — bots
+    // * stalled at exactly the boundary against the deep rim-campers AI-4 punishes.
+    if (pos.y > CONFIG.record.y + 2.5 && dist > boothMinR) return true;
   }
   return false;
 }
@@ -2149,6 +2161,10 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       if (!nearHazard && _octagonHazards.circularKeepOuts?.length > 0) {
         for (let i = 0; i < _octagonHazards.circularKeepOuts.length; i += 1) {
           const ko = _octagonHazards.circularKeepOuts[i];
+          // * `solid` keep-outs (Sundial podium) are drivable obstacles, not death
+          // * voids — a bot wedged against one SHOULD reverse off it, same rule as
+          // * the Storerooms center furniture (AI-2). Only true voids forbid reverse.
+          if (ko.solid) continue;
           if (Math.hypot(p.x - ko.x, p.z - ko.z) < ko.radius + (ko.margin ?? 1.5) + 2.5) {
             nearHazard = true;
             break;
@@ -2227,12 +2243,8 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   } else if (_octagonHazards) {
     // * Sundial octagon: the outer rim is the only kill edge, so a wedged/oscillating bot
     // * near it must escape *inward* (toward center), not tangent along the drop.
-    // * NOTE: 5.0 here pre-dates AI-3 widening the steering band in
-    // * applyOctagonRimAvoidance to 5.25 — the two describe the same conceptual rim
-    // * band and drifted. Kept at 5.0 deliberately (changing the commit trigger is a
-    // * behavior change); unify into one named constant on the next Sundial tuning pass.
     const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
-    if (octagonEdgeDistance(p.x, p.z) > apothem - 5.0) {
+    if (octagonEdgeDistance(p.x, p.z) > apothem - OCTAGON_RIM_BAND) {
       inAvoidanceBand = true;
       escapeMode = "inward";
     }

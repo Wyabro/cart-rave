@@ -2683,7 +2683,9 @@ export function initZanzibarPlatform(scene, world, config) {
       arenaHalf: config.record.radius,
       isOctagon: true,
       circumRadius: circumR,
-      circularKeepOuts: [{ x: 0, z: 0, radius: PODIUM_BASE_R, margin: 1.2 }],
+      // * solid: the podium is a drivable frustum, not a death void — bots may
+      // * reverse off it when wedged (simulation.js no-reverse gate skips solid).
+      circularKeepOuts: [{ x: 0, z: 0, radius: PODIUM_BASE_R, margin: 1.2, solid: true }],
     },
     update,
     dispose,

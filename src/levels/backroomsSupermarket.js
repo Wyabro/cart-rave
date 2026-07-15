@@ -3528,7 +3528,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
       avoidMargin: 1.2, // * wider keep-out — gives steering more time to react at speed
       influenceBand: 1.2, // * wider steer nudge — pushes bots away from the void lip earlier
       // * Center furniture pile — keep NPC patrol targets outside the convex-hull footprint.
-      circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7 }],
+      // * solid: center furniture is a hard obstacle, not a void — the AI-2 wedge
+      // * fix (reverse-off + tangent escape) keys off this semantic, and the
+      // * backrooms no-reverse gate already excludes it structurally.
+      circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7, solid: true }],
     },
     update: (timeMs) => {
       spotlightUpdateFn(timeMs);
