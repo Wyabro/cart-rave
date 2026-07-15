@@ -7,6 +7,7 @@ import {
   announcerReactor,
   challengeReactor,
   matchStatsReactor,
+  diagnosticsReactor,
   DEFAULT_KO_REACTORS,
 } from "../src/scoring/koReactors.js";
 
@@ -189,6 +190,7 @@ describe("dispatchKOEvent", () => {
       arenaVfxReactor,
       killFeedReactor,
       announcerReactor,
+      diagnosticsReactor,
     ]);
   });
 

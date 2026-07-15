@@ -13,6 +13,8 @@ import {
 } from "./utils/debugParams.js";
 import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
 import { installNetTestHarness } from "./utils/netTestHarness.js";
+import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
+import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
 import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
   loadPlayerCustomization,
@@ -55,7 +57,7 @@ import * as GameState from "./gameState.js";
 import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
 import { svgIcon } from "./ui/icons.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
-import { onUnlockGranted } from "./stores/unlockStore.js";
+import { onUnlockGranted, unlockStore } from "./stores/unlockStore.js";
 import {
   getMatchStats,
   matchSuperlatives,
@@ -4549,6 +4551,48 @@ async function main() {
           lastAckSeq: h.getHostLastProcessedInputSeq(connId),
         };
       },
+    });
+  }
+
+  // * Gameplay diagnostics hub (?diag → window.__ccDiag, read-only). General complement to
+  // * the netcode + visual harnesses: probes for round/score/announcer/ai/camera/boot/unlocks/
+  // * challenges + a bounded event log. Read surface works in prod builds (QA); the scenario
+  // * control levers are DEV-only. Zero cost when the flag is absent. See tools/gameharness.mjs.
+  if (diagUrlFlags().enabled) {
+    // * DEV-only scenario levers — each reuses an existing proven production path; never a new
+    // * mutation route, and never attached in a production build (players can't reach them).
+    const control = import.meta.env.DEV
+      ? {
+          // * Fast-end a running round (host only; solo is always host) by rewinding the
+          // * round-start stamp so ~remainMs remain — the exact trick suddenDeathTest uses.
+          rewindRoundClock: (remainMs = 1500) => {
+            if (!Netcode.getIsHost()) return false;
+            const s = GameState.getRoundState();
+            if (s.phase !== "running") return false;
+            GameState.setRoundStartedAtMs(getRoundClockNowMs() - (CONFIG.round.durationMs - remainMs));
+            Netcode.sendHostRound();
+            return true;
+          },
+          // * Credit N KOs on a level via the real recordKillOnLevel path (unlock funnel).
+          grantKos: (level, n) => unlockStore.getState().recordKillOnLevel(level, n),
+          // * Set round scores (host only) — same lever suddenDeathTest uses; lets a rig crown a
+          // * deterministic winner before fast-ending so it can assert the results-callout path.
+          setScores: (scores) => {
+            if (!Netcode.getIsHost()) return false;
+            GameState.setRoundScores(scores);
+            Netcode.sendHostRound();
+            return true;
+          },
+        }
+      : null;
+    installDiagnostics({ flags: diagUrlFlags(), control });
+    installGameplayDiagnostics({
+      getCarts: () => allCartsRef,
+      getNetSlots: () => Netcode.getNetSlots(),
+      getCamera: () => camera,
+      getMode: () => detectGameMode(),
+      getLevelId: () => getCurrentLevelId(),
+      getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
     });
   }
 

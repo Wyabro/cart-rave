@@ -55,8 +55,28 @@ declare global {
     __ccTest?: any;
     /** Netcode-harness active flag (?nettest=1) — gates loop-liveness counters. */
     __ccNetTest?: boolean;
-    /** Netcode-harness loop-liveness counters (only when __ccNetTest). */
+    /** Netcode-harness loop-liveness counters (only when __ccNetTest or __ccDiagActive). */
     __ccLoopDbg?: { frames: number; resumeZeroed: number; maxDt: number; lastDt: number };
+    /**
+     * Unified diagnostics hub (URL ?diag=1). Read-only probes + event log; DEV-only control
+     * levers. See src/utils/diagnostics.js + src/utils/gameplayDiagnostics.js + tools/gameharness.mjs.
+     */
+    __ccDiag?: {
+      version: number;
+      active: boolean;
+      flags: Record<string, unknown>;
+      probes: () => string[];
+      snapshot: (ns?: string) => any;
+      events: (sinceSeq?: number) => Array<{ seq: number; t: number; ch: string; type: string; [k: string]: unknown }>;
+      tail: number;
+      control: {
+        rewindRoundClock?: (remainMs?: number) => boolean;
+        grantKos?: (level: string, n: number) => void;
+        setScores?: (scores: Record<number, number>) => boolean;
+      } | null;
+    };
+    /** Diagnostics active flag (?diag=1) — gates loop-liveness counters + zero-cost event recording. */
+    __ccDiagActive?: boolean;
     CartRave?: any;
     /** Preferred product API alias of CartRave. */
     CartClash?: any;

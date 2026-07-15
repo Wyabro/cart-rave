@@ -11,6 +11,7 @@
 import { ANNOUNCER_EVENTS } from "./announcerEvents.js";
 import { getAnnouncerLine, resetAnnouncerLineState } from "./announcerLines.js";
 import { playAnnouncerSting } from "./announcerStings.js";
+import { recordDiagEvent } from "../utils/diagnostics.js";
 
 /**
  * @typedef {import("./announcerEvents.js").AnnouncerEventDef} AnnouncerEventDef
@@ -174,6 +175,9 @@ export function announce(eventId, data = {}) {
     warnMissingEventOnce(eventId);
     return;
   }
+  // * Diagnostics: log every accepted announce request (channel "announcer") so a rig can
+  // * assert the PA sequence (countdown_3→2→1→go, victory/defeat). No-op unless ?diag active.
+  recordDiagEvent("announcer", eventId, {});
   const nowMs = performance.now();
 
   if (eventId === "comeback") {

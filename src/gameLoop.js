@@ -2,6 +2,7 @@
 
 import { captureCartsPhysicsPrevPoses } from "./entities.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
+import { recordDiagEvent } from "./utils/diagnostics.js";
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
@@ -497,7 +498,7 @@ export function runGameLoop(loopState, callbacks) {
       // * Netcode-harness loop-liveness counters (tools/netharness.mjs) — lets the rig tell a
       // * starved/throttled joiner loop from a real netcode stall. Off unless ?nettest set the
       // * flag; the guard is a single property read per frame in normal play.
-      if (typeof window !== "undefined" && window.__ccNetTest) {
+      if (typeof window !== "undefined" && (window.__ccNetTest || window.__ccDiagActive)) {
         const d = (window.__ccLoopDbg = window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, maxDt: 0, lastDt: 0 });
         d.frames += 1;
         d.lastDt = dt;
@@ -541,6 +542,10 @@ export function runGameLoop(loopState, callbacks) {
           fatalHandled = true;
           console.error("[gameLoop] Unrecoverable sim error — bailing to menu:", err);
           sendErrorLogLimited(err, { context: "gameLoopFatal", streak: stepErrorStreak });
+          recordDiagEvent("error", "fatal", {
+            message: err instanceof Error ? err.message : String(err),
+            streak: stepErrorStreak,
+          });
           try {
             onFatalError?.(err);
           } catch (recoveryErr) {
@@ -553,6 +558,10 @@ export function runGameLoop(loopState, callbacks) {
 
       console.error("[gameLoop] Step error:", err);
       sendErrorLogLimited(err, { context: "gameLoop" });
+      recordDiagEvent("error", "step", {
+        message: err instanceof Error ? err.message : String(err),
+        streak: stepErrorStreak,
+      });
       onStepError?.(err);
       // * Transient fault — recovering next frame beats a frozen tab.
       requestAnimationFrame(step);

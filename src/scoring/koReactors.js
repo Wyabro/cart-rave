@@ -8,6 +8,7 @@
 // paths once the wire shape is unified. Match stats are the exception — a pure counter module.
 
 import { recordKoForMatchStats } from "./matchStats.js";
+import { recordDiagEvent } from "../utils/diagnostics.js";
 
 /**
  * @typedef {object} KOReactorCtx
@@ -128,7 +129,25 @@ export function matchStatsReactor(koEvent, ctx) {
   recordKoForMatchStats(koEvent, ctx.localSlotIndex);
 }
 
-/** Default host-side reactor order: match stats → challenges → confirm → arena VFX → feed → PA. */
+/**
+ * Diagnostics observer — records the finalized KO into the __ccDiag event log (channel "ko")
+ * with attribution, so an automated rig can assert "cart A KO'd cart B" without scraping the
+ * kill feed. Pure no-op unless ?diag installed the hub (see utils/diagnostics.js).
+ * @param {import('./koEvent.js').KOEvent} koEvent
+ * @param {KOReactorCtx} _ctx
+ */
+export function diagnosticsReactor(koEvent, _ctx) {
+  recordDiagEvent("ko", koEvent.isKill ? "kill" : "fall", {
+    victim: koEvent.victimSlotIndex,
+    attacker: koEvent.attackerSlotIndex ?? null,
+    verb: koEvent.verb ?? null,
+    comboTier: koEvent.comboTier ?? 0,
+    critical: Boolean(koEvent.wasCritical),
+    victimKind: koEvent.victimKind ?? null,
+  });
+}
+
+/** Default host-side reactor order: match stats → challenges → confirm → arena VFX → feed → PA → diag. */
 export const DEFAULT_KO_REACTORS = [
   matchStatsReactor,
   challengeReactor,
@@ -136,6 +155,7 @@ export const DEFAULT_KO_REACTORS = [
   arenaVfxReactor,
   killFeedReactor,
   announcerReactor,
+  diagnosticsReactor,
 ];
 
 /**

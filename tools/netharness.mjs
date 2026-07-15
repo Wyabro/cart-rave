@@ -17,95 +17,21 @@
  * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error.
  */
 
-import { spawn } from "node:child_process";
-import net from "node:net";
-import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+// * Shared CLI/Playwright plumbing (arg parsing, dev-stack lifecycle, browser launch, exit
+// * contract) lives in ./lib/harness.mjs — the same helpers the gameplay rig uses, so both
+// * stay consistent. The netcode-specific pieces (makeClient with the nettest hook, the
+// * __ccTest state polling, the cold-load gate) stay here.
+import {
+  parseArgs,
+  str,
+  maybeStartDevStack,
+  ensurePlaywright,
+  launchClientBrowser,
+  CLIENT_PORT,
+} from "./lib/harness.mjs";
 
-const CLIENT_PORT = 3000; // Vite (vite.config.js server.port)
-const WORKER_PORT = 8787; // Wrangler dev default; client dials hostname:8787 (netcode.js)
-
-function parseArgs(argv) {
-  /** @type {Record<string, string | boolean>} */
-  const out = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    if (!a.startsWith("--")) continue;
-    const key = a.slice(2);
-    const next = argv[i + 1];
-    if (next !== undefined && !next.startsWith("--")) {
-      out[key] = next;
-      i += 1;
-    } else {
-      out[key] = true;
-    }
-  }
-  return out;
-}
-
-const str = (v) => (typeof v === "string" ? v : undefined);
-
-/** Resolve TCP connect to host:port, false on error/timeout. */
-function probePort(port, host = "127.0.0.1", timeoutMs = 1500) {
-  return new Promise((res) => {
-    const sock = net.connect(port, host);
-    const done = (ok) => {
-      sock.destroy();
-      res(ok);
-    };
-    sock.once("connect", () => done(true));
-    sock.once("error", () => done(false));
-    sock.setTimeout(timeoutMs, () => done(false));
-  });
-}
-
-async function waitForPort(port, deadlineMs) {
-  while (Date.now() < deadlineMs) {
-    // eslint-disable-next-line no-await-in-loop
-    if (await probePort(port)) return true;
-    // eslint-disable-next-line no-await-in-loop
-    await sleep(500);
-  }
-  return false;
-}
-
-/** Auto-start `npm run dev:local` unless --url points at a running stack. */
-async function maybeStartDevStack(args) {
-  if (str(args.url)) return null;
-  const isWin = process.platform === "win32";
-  const npm = isWin ? "npm.cmd" : "npm";
-  console.log("[netharness] starting dev:local (Vite :3000 + Wrangler :8787)…");
-  const child = spawn(npm, ["run", "dev:local"], {
-    cwd: resolve(process.cwd()),
-    stdio: ["ignore", "pipe", "pipe"],
-    shell: isWin,
-    env: { ...process.env, BROWSER: "none" },
-  });
-  child.stdout?.on("data", (b) => process.env.NETHARNESS_VERBOSE && process.stdout.write(`[dev] ${b}`));
-  child.stderr?.on("data", (b) => process.env.NETHARNESS_VERBOSE && process.stderr.write(`[dev] ${b}`));
-
-  const deadline = Date.now() + 120_000;
-  const clientUp = await waitForPort(CLIENT_PORT, deadline);
-  const workerUp = await waitForPort(WORKER_PORT, deadline);
-  if (!clientUp || !workerUp) {
-    child.kill();
-    throw new Error(
-      `dev stack failed to come up (client:${CLIENT_PORT}=${clientUp} worker:${WORKER_PORT}=${workerUp}). ` +
-        "Try running `npm run dev:local` manually and re-run with --url http://127.0.0.1:3000/",
-    );
-  }
-  console.log("[netharness] dev stack ready");
-  return child;
-}
-
-async function ensurePlaywright() {
-  try {
-    return await import("playwright");
-  } catch {
-    console.error("[netharness] playwright missing. Run: npx playwright install chromium");
-    process.exit(2);
-  }
-}
+const nlog = (...a) => console.log("[netharness]", ...a);
 
 /**
  * A client wrapper: its own browser context (isolated localStorage → distinct username),
@@ -385,28 +311,20 @@ async function main() {
 
   let devProc = null;
   try {
-    devProc = await maybeStartDevStack(args);
+    devProc = await maybeStartDevStack(args, nlog);
   } catch (err) {
     console.error("[netharness]", err instanceof Error ? err.message : err);
     process.exit(2);
   }
 
-  const { chromium } = await ensurePlaywright();
-  const launchOpts = {
-    headless: args.headed !== true,
-    channel: process.env.PLAYWRIGHT_CHROME_CHANNEL || undefined,
-    // * Each client gets its OWN browser process so both have a foreground page — one shared
-    // * browser throttles the non-focused page to ~3fps and starves its sim loop. These flags
-    // * plus per-page focus emulation (see makeClient) keep both loops at full speed.
-    args: [
-      "--disable-background-timer-throttling",
-      "--disable-backgrounding-occluded-windows",
-      "--disable-renderer-backgrounding",
-      "--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling",
-    ],
-  };
-  const browserHost = await chromium.launch(launchOpts);
-  const browserJoiner = await chromium.launch(launchOpts);
+  const { chromium } = await ensurePlaywright(nlog);
+  // * Each client gets its OWN browser process so both have a foreground page — one shared
+  // * browser throttles the non-focused page to ~3fps and starves its sim loop. The launch
+  // * anti-throttle flags (see launchClientBrowser) plus per-page focus emulation keep both
+  // * loops at full speed.
+  const headed = args.headed === true;
+  const browserHost = await launchClientBrowser(chromium, { headed });
+  const browserJoiner = await launchClientBrowser(chromium, { headed });
 
   let hadError = false;
   try {
