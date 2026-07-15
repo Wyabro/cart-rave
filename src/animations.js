@@ -1264,7 +1264,23 @@ export function crossfadeElement(element, midway, options = {}) {
   };
 
   if (outAnim?.then) {
-    return outAnim.then(runMid);
+    // * Hidden-tab safety: anime.js fades are rAF-driven and never finish while the
+    // * tab is hidden — an unresolved promise here wedged quickplay arena rotation
+    // * (setLevelSwapping stayed latched until refocus; the menu-preview fade got the
+    // * same fallback earlier — see main.js fadeGameCanvasTo). The timeout forces the
+    // * midway exactly once so the swap itself always runs; the visual fade simply
+    // * catches up on refocus.
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        runMid();
+        resolve();
+      };
+      outAnim.then(settle);
+      window.setTimeout(settle, fadeOutMs + 600);
+    });
   }
 
   return new Promise((resolve) => {

@@ -107,9 +107,6 @@ const BLOOM_DISPLAY_NEON = {
   smoothWidth: 0.025,
 };
 
-/** @deprecated alias — prefer resolveDisplayBloomConfig(levelId) */
-const BLOOM_DISPLAY_CONFIG = BLOOM_DISPLAY_STOREROOMS;
-
 /**
  * @param {string | null | undefined} levelId
  * @returns {{ strength: number, radius: number, threshold: number, smoothWidth: number }}
@@ -742,9 +739,13 @@ export function createRenderer(canvas) {
 
   const gl = renderer.getContext();
   const rendererString = readRendererString(gl);
+  // * The live context's renderer string is the authoritative software signal; the
+  // * probe arm exists only so DEV ?forcegpu=sw can exercise this path (devForcedProbe
+  // * never creates a context). DEV-gated: in prod it would spin up a throwaway WebGL
+  // * context at boot for zero extra signal on machines with a stored quality pref.
   const isSoftware =
     classifyGpuRendererString(rendererString) === "software"
-    || probeGpu().gpuClass === "software"; // dev ?forcegpu=sw rides the probe override
+    || (import.meta.env.DEV && probeGpu().gpuClass === "software");
   if (isSoftware) {
     softwareRendererActive = true;
     setSessionQualityTier("low");
@@ -808,6 +809,12 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
     const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap);
     renderer.setPixelRatio(pixelRatio);
     if (composer) {
+      // * EffectComposer caches its own _pixelRatio (from construction / the resize
+      // * path's composer.setPixelRatio) — a bare setSize here kept every composer RT
+      // * at the OLD DPR until the next window resize, so tier steps (user change,
+      // * auto-quality watchdog) never actually shrank the bloom/scene buffers.
+      // * setPixelRatio() re-runs setSize internally with the new ratio.
+      composer.setPixelRatio(pixelRatio);
       composer.setSize(window.innerWidth, window.innerHeight);
     }
     // * FXAA at high DPR is a full-screen pass for almost no AA gain (pixels already dense).

@@ -1788,6 +1788,12 @@ async function main() {
     // * Close Esc overlay first so it doesn't persist across the rebuild.
     HUD.hideEscOverlay();
     if (persist) setQualityTier(tier);
+    // * setQualityTier clears the session override so user choices beat the auto-quality
+    // * watchdog — but the SwiftShader hard floor rides that same override. Re-clamp:
+    // * picking HIGH on software WebGL rebuilds the DPR×2 HalfFloat RT chain in system
+    // * RAM, the exact tab-OOM the floor exists to prevent. The pref still persists, so
+    // * a future hardware-accelerated session gets the user's choice.
+    if (isSoftwareRendererActive() && tier !== "low") setSessionQualityTier("low");
     // * Show loading overlay with quality-apply copy, then rebuild in-place.
     showQualityApplyLoading();
     await yieldForPaint();
@@ -2073,7 +2079,14 @@ async function main() {
       setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
       applyTestDrivePostFx();
     } else {
-      restoreTestDrivePostFx();
+      // * When setBloomPipeline ran above it already applied this level's
+      // * display-referred knobs — restoring the CONFIG.postFx.bloom snapshot on top
+      // * stomped them with HDR-space values (threshold 0.76 on a tonemapped 0..1
+      // * image = weak bloom for the rest of the session after visiting Test Drive)
+      // * and lost the half-res strength compensation. Only the explicit-?rtmode
+      // * path skips setBloomPipeline and still needs the manual restore.
+      if (getDebugParams().rtmodeExplicit) restoreTestDrivePostFx();
+      else testDriveBloomSaved = null;
       Effects.setAmbientDustStyle(
         resolved === "backrooms" ? "backrooms" : resolved === "zanzibar" ? "sunset" : "rainbow",
         CART_COLORS,
@@ -3825,7 +3838,11 @@ async function main() {
       setSuddenDeath: GameState.setSuddenDeath,
       sendHostRound: () => Netcode.sendHostRound(),
       onCartOutOfPlay: stopChargeSfxForCart,
-      doRespawn: (c) => Entities.doRespawn(c),
+      // * Match the in-round SD entry path (updateGameFlow deps): release the torn-down
+      // * cart's spilled groceries too, or the promoted host keeps them on the floor.
+      doRespawn: (c) => Entities.doRespawn(c, {
+        onCartRespawn: (slotIndex) => GroceryPool.releaseByCartId(String(slotIndex)),
+      }),
     });
   }
 
@@ -3994,6 +4011,13 @@ async function main() {
 
   function onHostPlayAgainClick() {
     if (!Netcode.getIsHost()) return;
+    // * Re-entrancy guard (quickplay): a double-fire (button + auto-continue race, or
+    // * a fast double-click) would adopt+broadcast a SECOND random arena while its
+    // * rotateLoadedArenaInPlace no-ops on the in-flight flag — host on arena A,
+    // * everyone else on arena B. Checked BEFORE the world-reset side effects below:
+    // * the suppressed call must not re-run rematchResetWorld mid-collider-rebuild
+    // * (it would broadcast spawn poses computed against the outgoing arena's ring).
+    if (detectGameMode() === "quickplay" && arenaRotationInFlight) return;
     cancelLastCartStandingFinish();
     autoContinuePodiumKey = currentPodiumAutoContinueKey();
     clearAutoContinuePodiumTimeout();
@@ -4013,12 +4037,6 @@ async function main() {
     // * carries the new levelId (server latches + rebroadcasts; non-host clients rotate
     // * via onLevelIdChanged). Friends lobbies keep the host's deliberate arena choice.
     if (detectGameMode() === "quickplay") {
-      // * Re-entrancy guard: a double-fire (button + auto-continue race, or a fast
-      // * double-click) would otherwise adopt+broadcast a SECOND random arena while
-      // * its rotateLoadedArenaInPlace no-ops on the in-flight flag — leaving the host
-      // * on arena A and every client/server on arena B for the round. If a rotation
-      // * is already resolving, the first call owns this rematch; suppress the rest.
-      if (arenaRotationInFlight) return;
       const nextArenaId = pickNextQuickplayArenaId();
       Netcode.adoptRoomLevelAsHost(nextArenaId);
       void rotateLoadedArenaInPlace(nextArenaId);

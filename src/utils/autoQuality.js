@@ -11,6 +11,7 @@
  * affects per-frame readers.
  */
 
+import { getDebugParams } from "./debugParams.js";
 import { getQualityTier, setSessionQualityTier, stepDownQualityTier } from "./qualityMode.js";
 
 const SAMPLE_CAP = 90;
@@ -38,6 +39,11 @@ let cooldownUntilMs = 0;
  * @returns {boolean} true if this call applied a session step-down (caller should re-apply quality live)
  */
 export function tickAutoQuality(dtSec, nowMs = performance.now()) {
+  // * An explicit ?preset= is a QA pin (tools/perf-profile.mjs measures fixed tiers;
+  // * visual-QA shots must be reproducible) — the watchdog shares the same session
+  // * override slot and would silently relabel the cell. The software-GL hard floor
+  // * still wins over a preset because createRenderer applies it after the preset.
+  if (getDebugParams().preset != null) return false;
   if (stepsApplied >= MAX_STEPS) return false;
   if (nowMs < cooldownUntilMs) return false;
 

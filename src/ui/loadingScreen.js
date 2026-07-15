@@ -75,6 +75,11 @@ let modeEntryVisible = false;
 /** Resolvers waiting for the mode-entry overlay to finish dismissing. */
 let modeEntryHiddenWaiters = [];
 let bootDismissed = false;
+// * Increments on every show — a dismiss's delayed finish() compares generations so a
+// * re-show during the ~600ms fade window can't be clobbered by the stale dismissal
+// * (which would also prematurely flush the NEW session's modeEntryHiddenWaiters,
+// * releasing the solo-countdown gate while loading is still in flight).
+let modeEntryShowGen = 0;
 /** Nested mode-entry tasks share one overlay (level switch + play bootstrap). */
 let modeEntryDepth = 0;
 /** @type {number} */
@@ -344,7 +349,11 @@ export function dismissInitialBootSplash() {
  * @param {number} pct
  */
 export function noteBootMilestone(pct) {
-  if (bootDismissed) return;
+  // * Gate on the splash ELEMENT, not bootDismissed: main.js calls
+  // * dismissInitialBootSplash (which flips bootDismissed synchronously) right after
+  // * the 45 milestone, but the splash stays visible for the boot hold + fade —
+  // * the 75 (cart GLB prefetched) and 90 (menu wired) floors land in that window.
+  if (typeof document === "undefined" || !document.getElementById("cr-boot-splash")) return;
   // @ts-ignore — defined by the inline boot script in index.html.
   window.__crBootFloor?.(pct);
 }
@@ -370,6 +379,7 @@ function showModeEntryLoading(opts = {}) {
 
   applyTheme(theme);
   modeEntryVisible = true;
+  modeEntryShowGen += 1;
   modeOverlayEl.classList.remove("cr-load--hidden", "cr-load--exit");
   modeOverlayEl.setAttribute("aria-busy", "true");
   setProgress(0, "Starting...");
@@ -384,8 +394,15 @@ function dismissModeEntryLoading() {
 
   setProgress(100, "Ready");
 
+  const dismissGen = modeEntryShowGen;
   return new Promise((resolve) => {
     const finish = () => {
+      if (dismissGen !== modeEntryShowGen) {
+        // * A newer show owns the overlay — settle this dismissal without touching
+        // * the DOM or flushing the new session's waiters.
+        resolve();
+        return;
+      }
       modeEntryVisible = false;
       modeOverlayEl.setAttribute("aria-busy", "false");
       modeOverlayEl.classList.add("cr-load--hidden");
@@ -518,4 +535,5 @@ export function showQualityApplyLoading() {
   setProgress(100, "Applying…");
   modeEntryShownAt = performance.now();
   modeEntryVisible = true;
+  modeEntryShowGen += 1;
 }
