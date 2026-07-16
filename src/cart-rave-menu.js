@@ -645,10 +645,14 @@ import { NPC_NAME_POOL } from "./npcNames.js";
       const unlocked = isSunglassesUnlocked(style.id);
       const status = getSunglassesUnlockStatus(style.id);
       const mirrorCss = previewHexToCss(style.color);
+      // * Gradient stops mirror the 3D finish (hot core → cool edge); --mc stays the
+      // * chip glow color. Stops are authored CSS hex strings in SUNGLASSES_STYLES.
+      const g = style.gradient ?? [];
+      const gradVars = `--mc-core:${g[0] ?? mirrorCss};--mc-mid:${g[1] ?? mirrorCss};--mc-edge:${g[g.length - 1] ?? mirrorCss};`;
       const title = unlocked
         ? style.label
         : `Locked — ${status.hint} (${status.progress}/${status.goal})`;
-      html += `<button type="button" class="cr-sunglasses-chip ${isActive ? 'active' : ''}${unlocked ? '' : ' cr-chip--locked'}" data-sunglasses="${style.id}" role="radio" aria-checked="${isActive}" aria-label="${title}" title="${title}" style="--mc:${mirrorCss};">
+      html += `<button type="button" class="cr-sunglasses-chip ${isActive ? 'active' : ''}${unlocked ? '' : ' cr-chip--locked'}" data-sunglasses="${style.id}" role="radio" aria-checked="${isActive}" aria-label="${title}" title="${title}" style="--mc:${mirrorCss};${gradVars}">
         <span class="cr-sunglasses-chip-swatch" aria-hidden="true"></span>
         <span class="cr-sunglasses-chip-label">${unlocked ? style.label : `🔒 ${style.label}`}</span>
       </button>`;

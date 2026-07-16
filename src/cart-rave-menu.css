@@ -1241,8 +1241,9 @@ html, body {
   transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
 }
 
-/* * Mirrored lens swatch: metallic radial sheen + top-left highlight to read as a
- * * polished mirror finish. --mc is the style's albedo hex, set inline per chip. */
+/* * Mirrored lens swatch: gradient sweep matching the 3D finish (hot core → cool edge,
+ * * the Pit Viper read) + top-left highlight. --mc-core/mid/edge are the style's
+ * * gradient stops, --mc the glow hex; all set inline per chip. */
 .cr-sunglasses-chip-swatch {
   display: block;
   width: clamp(18px, 4.5vw, 26px);
@@ -1250,7 +1251,12 @@ html, body {
   border-radius: 50%;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.15) 22%, transparent 45%),
-    linear-gradient(135deg, var(--mc, #c8c8d0) 0%, color-mix(in srgb, var(--mc, #c8c8d0) 55%, #000) 100%);
+    linear-gradient(
+      135deg,
+      var(--mc-core, var(--mc, #c8c8d0)) 0%,
+      var(--mc-mid, var(--mc, #c8c8d0)) 48%,
+      var(--mc-edge, color-mix(in srgb, var(--mc, #c8c8d0) 55%, #000)) 100%
+    );
   box-shadow:
     0 0 8px color-mix(in srgb, var(--mc, #c8c8d0) 55%, transparent),
     inset 0 0 4px rgba(255, 255, 255, 0.25);

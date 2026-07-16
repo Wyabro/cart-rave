@@ -291,11 +291,13 @@ const RAVE_GLTF_CASTER_SWIVEL_GROUP_OFFSETS = Object.freeze({
 const RAVE_GLTF_DARK_TRIM_HEX = 0x111111;
 
 /**
- * Sunglasses self-tint strength (emissive in the style color). Makes styles
- * distinguishable in the dark arenas without turning the visor into a bloom
- * source — raise/lower here if a playtest calls the lenses flat or glowy.
+ * Sunglasses self-tint strength (emissive in the style's core color). Makes styles
+ * readable in the dark arenas without turning the visor into a bloom source.
+ * Dropped 0.35 → 0.14 with the gradient-env rework (playtest 2026-07-16 "washed
+ * out"): the flat emissive wash was greying the mirror; the per-style gradient
+ * reflection now carries the color, emissive is just the dark-corner floor.
  */
-const SUNGLASSES_LENS_EMISSIVE_INTENSITY = 0.35;
+const SUNGLASSES_LENS_EMISSIVE_INTENSITY = 0.14;
 
 /**
  * cartrave4 face assembly — the SMILE (7) plus the one-piece sunglasses visor that
@@ -1730,21 +1732,22 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
     // * the frame preset so style values win over the rave frame preset defaults.
     const style = resolveSunglassesStyle(sunglassesStyle);
     mat.userData.raveGltfHasEmissiveAccent = false;
-    if (mat.color) mat.color.setHex(style.color);
+    // * White metal base — the per-style GRADIENT env map carries the hue (Pit Viper
+    // * rework, Wyatt reference 2026-07-16). The old scheme (style-tinted albedo over a
+    // * shared mostly-dark neon env) multiplied color into grey reflections → every
+    // * style read washed out. A white mirror reflecting a saturated hot-core→cool-edge
+    // * gradient gives the iridescent angle-dependent color of the reference instead.
+    if (mat.color) mat.color.setHex(0xffffff);
     mat.metalness = style.metalness;
     mat.roughness = style.roughness;
     mat.envMapIntensity = style.envMapIntensity;
     mat.clearcoat = style.clearcoat;
-    // * Reflect a dedicated neon env (not the neutral scene RoomEnvironment) so the mirror
-    // * lenses read as "Pit Viper" against the dark arenas. Lens-only — scene is untouched.
-    const lensEnv = getNeonLensEnvMap();
+    const lensEnv = getSunglassesStyleEnvMap(style) ?? getNeonLensEnvMap();
     if (lensEnv) mat.envMap = lensEnv;
-    // * Self-tint in the style color: with metalness 1.0 the albedo only shows
-    // * through reflections of the shared neon env, so every style read as
-    // * "mirror + frame color" (playtest 2026-07-15). Low intensity — a tint
-    // * that reads in the dark arenas, not a bloom source.
+    // * Emissive floor in the style's core color so the visor never goes fully black
+    // * in a dark corner — low intensity, the reflections do the talking now.
     if (mat.emissive) {
-      mat.emissive.setHex(style.color);
+      mat.emissive.set(style.gradient?.[0] ?? style.color);
       mat.emissiveIntensity = SUNGLASSES_LENS_EMISSIVE_INTENSITY;
     }
     mat.userData.raveGltfSunglassesStyle = style.id;
@@ -1766,6 +1769,72 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
   if (mat.emissive && !mat.emissiveMap && role !== "body" && role !== "face") mat.emissive.setHex(0x000000);
 
   return mat;
+}
+
+/** @type {Map<string, THREE.Texture>} Per-style gradient reflection envs, keyed by style id. */
+const _sunglassesStyleEnvMaps = new Map();
+
+/**
+ * Lazily builds the per-style "Pit Viper" reflection environment: a saturated radial
+ * gradient — hot core color at the forward horizon melting through the style's stops to
+ * a near-black rim — plus a white sun-glint and a thin horizon streak for the mirror
+ * sparkle. Because the visor is a curved metalness-1.0 mirror, this env IS the finish:
+ * face-on shows the hot core, grazing angles sweep through the cool edge stops, exactly
+ * the reference lens (Wyatt 2026-07-16). Equirect canvas, same pipeline as the neon env;
+ * one texture per style per session, shared by every cart instance using that style.
+ *
+ * @param {import("./cartThemeConfig.js").SunglassesStyleDef} style
+ * @returns {THREE.Texture | null}
+ */
+function getSunglassesStyleEnvMap(style) {
+  const stops = style?.gradient;
+  if (!stops || stops.length < 2) return null;
+  const cached = _sunglassesStyleEnvMaps.get(style.id);
+  if (cached) return cached;
+  if (typeof document === "undefined") return null;
+  const w = 256;
+  const h = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  // * Radial burst from the forward horizon point: style stops span the first 82% of
+  // * the radius, then fall to near-black so grazing angles/rim go dark like the
+  // * reference frame edges. Radius overshoots the canvas so the seam (behind the
+  // * viewer) lands in the dark tail on both sides.
+  const grad = ctx.createRadialGradient(w / 2, h * 0.5, 2, w / 2, h * 0.5, w * 0.58);
+  const span = 0.82;
+  stops.forEach((c, i) => {
+    grad.addColorStop((i / (stops.length - 1)) * span, c);
+  });
+  grad.addColorStop(1, "#05060d");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.globalCompositeOperation = "lighter";
+
+  // * Hot white sun-glint just above center — the specular ping that sells "mirror".
+  const glint = ctx.createRadialGradient(w / 2, h * 0.42, 0, w / 2, h * 0.42, w * 0.09);
+  glint.addColorStop(0, "rgba(255,255,255,0.95)");
+  glint.addColorStop(0.4, "rgba(255,255,255,0.35)");
+  glint.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glint;
+  ctx.fillRect(0, 0, w, h);
+
+  // * Thin bright horizon streak — the sharp mirror band that sweeps as the cart turns.
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
+  ctx.fillRect(0, h * 0.485, w, 3);
+
+  ctx.globalCompositeOperation = "source-over";
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  _sunglassesStyleEnvMaps.set(style.id, tex);
+  return tex;
 }
 
 /** @type {THREE.Texture | null} Shared neon reflection env for the sunglasses lenses. */
