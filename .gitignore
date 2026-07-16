@@ -41,3 +41,10 @@ __pycache__/
 .venv/
 
 .tmp-gltf-imgs/
+
+# Blender — ignore auto-backups + scratch working copies under art/, but keep the
+# tracked master (cartrave4.blend). New scratch (*fucked.blend, *revise.blend, …)
+# stays out of git without needing a rule each time.
+*.blend[0-9]
+/art/*.blend
+!/art/cartrave4.blend
