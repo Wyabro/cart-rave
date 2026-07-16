@@ -29,7 +29,7 @@ import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
 /** @typedef {import("./cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
 /** @typedef {import("./cartThemeConfig.js").SunglassesStyleDef} SunglassesStyleDef */
 
-/** @typedef {"body" | "wheel" | "fork" | "handle" | "face" | "trim" | "unknown"} RaveGltfPartRole */
+/** @typedef {"body" | "wheel" | "fork" | "handle" | "face" | "smile" | "trim" | "unknown"} RaveGltfPartRole */
 
 /** @typedef {"cartrave4" | "legacy"} RaveGltfLayoutId */
 
@@ -418,7 +418,10 @@ const RAVE_GLTF_PART_ROLES_V4 = Object.freeze({
   tripo_part_4: "wheel",
   tripo_part_5: "fork",
   tripo_part_6: "fork",
-  tripo_part_7: "face",
+  // * The SMILE — a face accent, but NOT part of the sunglasses assembly: it keeps
+  // * static glossy-black trim instead of the player-picked mirror style (playtest
+  // * 2026-07-16: the style color was tinting the mouth).
+  tripo_part_7: "smile",
   tripo_part_8: "face",
   tripo_part_9: "face",
   tripo_part_10: "handle",
@@ -461,6 +464,8 @@ const RAVE_GLTF_ROLE_MAT_PRESETS = Object.freeze({
   fork: { metalness: 0.45, roughness: 0.5, clearcoat: 0.2 },
   handle: { metalness: 0.2, roughness: 0.65, clearcoat: 0.05 },
   face: { metalness: 0.15, roughness: 0.7, clearcoat: 0.0 },
+  // * Matches the procedural cart's glossy-black face trim (cart.js SHARED_FACE_TRIM_MAT).
+  smile: { metalness: 0.88, roughness: 0.42, clearcoat: 0.4 },
   trim: {},
   unknown: {},
 });
@@ -1713,7 +1718,9 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
   } else if (role === "fork") {
     mat.userData.raveGltfHasEmissiveAccent = false;
     if (mat.emissive) mat.emissive.setHex(0x000000);
-  } else if (role === "handle") {
+  } else if (role === "handle" || role === "smile") {
+    // * Smile: static glossy-black face trim — deliberately NOT the sunglasses style
+    // * (the picked style color was tinting the mouth, playtest 2026-07-16).
     mat.userData.raveGltfHasEmissiveAccent = false;
     mat.color.setHex(RAVE_GLTF_DARK_TRIM_HEX);
     if (mat.emissive) mat.emissive.setHex(0x000000);
@@ -2057,7 +2064,7 @@ function applyRaveGltfBodyScale(model) {
     if (!c.isMesh) return;
     const role = c.userData.raveGltfPartRole || resolveRaveGltfPartRole(c);
     if (role === "wheel") wheelMeshes.push(c);
-    else if (role === "body" || role === "handle" || role === "face" || role === "trim") {
+    else if (role === "body" || role === "handle" || role === "face" || role === "smile" || role === "trim") {
       bodyMeshes.push(c);
     }
   });
@@ -2199,7 +2206,9 @@ function groupRaveGltfFaceAssembly(model) {
     mesh.parent?.remove(mesh);
     mesh.position.sub(_bodyScalePivot);
     mesh.userData.isFace = true;
-    mesh.userData.raveGltfPartRole = "face";
+    // * Preserve the smile's distinct role — a blanket "face" stamp here would opt the
+    // * mouth back into the sunglasses style treatment.
+    if (!mesh.userData.raveGltfPartRole) mesh.userData.raveGltfPartRole = "face";
     faceGroup.add(mesh);
   }
 }
@@ -2235,7 +2244,8 @@ function bindRaveGltfCartParts(root) {
       meshByName.set("CartFrame", /** @type {THREE.Mesh} */ (child));
     } else if (role === "handle") {
       child.userData.isHandle = true;
-    } else if (role === "face") {
+    } else if (role === "face" || role === "smile") {
+      // * isFace keeps theme tinting off the smile too (cartThemes skips isFace parts).
       child.userData.isFace = true;
     } else if (role === "wheel" || role === "fork") {
       animMeshes.push(/** @type {THREE.Mesh} */ (child));
@@ -2709,7 +2719,7 @@ export function buildRaveGltfMaterialCache(root) {
       seen.add(mat);
 
       const role = mat.userData?.raveGltfPartRole;
-      if (role === "wheel" || role === "fork" || role === "handle" || role === "face") continue;
+      if (role === "wheel" || role === "fork" || role === "handle" || role === "face" || role === "smile") continue;
 
       frameMats.push(mat);
       if (role === "body") frameBodyMats.push(mat);

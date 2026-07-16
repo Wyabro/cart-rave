@@ -3211,13 +3211,63 @@ function buildSuctionHazardRings() {
   const geo = new THREE.ShapeGeometry(shape);
   geo.rotateX(-Math.PI / 2); // XY shape → flat on the XZ floor plane
 
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0xff2d55, // hazard magenta-red — "this edge bites"
+  // * Animated suction vortex (playtest 2026-07-16: the flat red fill read as a debug
+  // * square and stood out too much). Spiral streaks flow INWARD toward the void so the
+  // * band reads as "pull", with the motion carrying the danger signal at a lower overall
+  // * brightness. Pure fragment math — no textures, cheap enough for Low tier (4 small
+  // * annulus meshes). Chebyshev band mask matches the square suction band exactly.
+  const mat = new THREE.ShaderMaterial({
     transparent: true,
-    opacity: 0.16,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
+    uniforms: {
+      uTime: { value: 0 },
+      uInner: { value: inner },
+      uOuter: { value: outer },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vPos;
+      void main() {
+        vPos = position.xz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uInner;
+      uniform float uOuter;
+      varying vec2 vPos;
+
+      void main() {
+        // * Band strength: 1.0 at the void lip fading to 0 at the suction band's outer
+        // * edge — Chebyshev so it hugs the square hole like the physics does.
+        float cheb = max(abs(vPos.x), abs(vPos.y));
+        float band = 1.0 - smoothstep(uInner, uOuter, cheb);
+        if (band <= 0.003) discard;
+        band = pow(band, 1.35);
+
+        float r = length(vPos);
+        float theta = atan(vPos.y, vPos.x);
+
+        // * Primary spiral: crests migrate toward the void as uTime advances (arg
+        // * constant => r shrinking). Secondary counter-spiral adds turbulence depth.
+        float spiral = 0.5 + 0.5 * sin(theta * 5.0 + r * 2.8 + uTime * 2.1);
+        spiral = pow(spiral, 2.4);
+        float counter = 0.5 + 0.5 * sin(-theta * 3.0 + r * 4.6 + uTime * 1.25);
+        counter = counter * counter * 0.35;
+
+        // * Slow breathe so the standing hazard reads as alive, not strobing.
+        float breathe = 0.82 + 0.18 * sin(uTime * 0.66);
+
+        float glow = band * (spiral * 0.6 + counter + 0.07) * breathe;
+
+        // * Deep violet base → hot magenta-red crest, same hazard family as before
+        // * but dimmer overall (the motion carries the signal now).
+        vec3 col = mix(vec3(0.30, 0.02, 0.22), vec3(1.0, 0.16, 0.33), spiral);
+        gl_FragColor = vec4(col * glow, glow * 0.5);
+      }
+    `,
   });
 
   for (const h of HOLE_CENTERS) {
@@ -3227,15 +3277,12 @@ function buildSuctionHazardRings() {
     group.add(ring);
   }
 
-  const OPACITY_BASE = 0.13;
-  const OPACITY_AMP = 0.11;
   return {
     group,
     ownedGeometries: [geo],
     ownedMaterials: [mat],
-    // * Slow breathing pulse — a standing hazard should read as present, not frantic.
     update: (timeMs) => {
-      mat.opacity = OPACITY_BASE + OPACITY_AMP * (0.5 + 0.5 * Math.sin(timeMs * 0.0033));
+      mat.uniforms.uTime.value = timeMs * 0.001;
     },
   };
 }
@@ -3468,6 +3515,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     furniturePile.group,
     furnitureSpotlight.spot, furnitureSpotlight.spot.target, furnitureSpotlight.fixture,
     hemiLight, ambient, coolRimLight, coolRimLight.target, spindleLight,
+    // ! suctionRings.group was missing here — its materials got disposed but the meshes
+    // ! stayed in the scene, so the hazard squares haunted every later arena (playtest
+    // ! 2026-07-16 "red squares persist and appear on other levels").
+    suctionRings.group,
   ];
 
   const ownedGeometries = [
