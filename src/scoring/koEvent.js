@@ -62,6 +62,8 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  *   Reward breakdown. `total` (= round((base+critical+leader+highGround)*multiplier*directiveMul))
  *   is what Score adds; directiveMul is the Living Store directive boost (1 when inactive).
  * @property {string} verb Kill-feed verb (host-picked so every client renders the same word).
+ * @property {number} [fallX] Victim X at the fall (decimeter precision) — diagnostics only.
+ * @property {number} [fallZ] Victim Z at the fall (decimeter precision) — diagnostics only.
  */
 
 /**
@@ -131,6 +133,8 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
       roundTimeMs,
       reward: { base: 0, critical: 0, leader: 0, multiplier: 1.0, total: 0 },
       verb,
+      fallX: Math.round(p.x * 10) / 10,
+      fallZ: Math.round(p.z * 10) / 10,
     };
   }
 
@@ -204,6 +208,8 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
       total: rewardTotal,
     },
     verb,
+    fallX: Math.round(p.x * 10) / 10,
+    fallZ: Math.round(p.z * 10) / 10,
   };
 }
 

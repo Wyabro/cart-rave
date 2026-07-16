@@ -693,7 +693,7 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
 // * or a shove, commits. Symmetric across humans and NPCs (asymmetric physics reads as
 // * cheating); bots keep clear via the widened keep-out in the level's aiHazards. The band
 // * WIDTH is owned by the level (`_levelHazards.suctionBand`); these are the force-feel knobs.
-const SUCTION_PEAK_ACCEL = 30; // m/s² inward at the floor lip, linear to 0 at the band's outer edge
+const SUCTION_PEAK_ACCEL = 33; // m/s² inward at the floor lip, linear to 0 at the band's outer edge (+10% per playtest 2026-07-16)
 const SUCTION_CAPTURE_GAIN = 2.4; // extra inward m/s² per m/s of shove-in velocity (depth-scaled)
 const SUCTION_CREDIT_DEPTH = 0.4; // only keep kill-credit alive once this deep in the band
 const SUCTION_CREDIT_KEEPALIVE_MS = 2600; // recent-ram window refreshed while suction holds a cart
@@ -1622,16 +1622,30 @@ function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
  * @param {number} pz Cart world Z.
  * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
  */
-function applyClassicCenterHoleAvoidance(px, pz, dir) {
+function applyClassicCenterHoleAvoidance(px, pz, lv, dir) {
   const innerR = CONFIG.record.innerRadius;
   const holeClearance = CONFIG.record.physics?.holeClearance ?? 0.45;
   const edge = innerR + holeClearance;
   const band = 4.5;
   const dist = Math.hypot(px, pz);
 
-  if (dist >= edge + band) return;
+  // * Speed-aware panic (bot-suicide triage 2026-07-16): at maxSpeed 23.5 m/s a cart
+  // * crosses the whole 4.5 m band in ~0.2 s — distance-based strength alone never
+  // * turned fast carts in time (soak: ~half of 63 unforced falls/round were the hole).
+  // * Engage by time-to-lip along the inward radial velocity, same shape as the
+  // * outer-rim time-to-edge panic below.
+  let panic = 0;
+  if (dist > 1e-3) {
+    const inwardSpeed = -(lv.x * (px / dist) + lv.z * (pz / dist));
+    if (inwardSpeed > 0.5) {
+      const tte = (dist - edge) / inwardSpeed;
+      panic = clamp((0.9 - tte) / 0.9, 0, 1) * 1.6;
+    }
+  }
 
-  const strength = clamp((edge + band - dist) / band, 0, 1.6);
+  if (dist >= edge + band && panic <= 0) return;
+
+  const strength = Math.max(clamp((edge + band - dist) / band, 0, 1.6), panic);
   let rx, rz;
   if (dist > 1e-3) {
     rx = px / dist;
@@ -1680,6 +1694,50 @@ function applyClassicOuterRimAvoidance(px, pz, lv, dir) {
   dir.z -= rz * strength * 1.1;
   if (dir.lengthSq() < 1e-6) dir.set(-rx, 0, -rz);
   dir.normalize();
+}
+
+/**
+ * * Routes a Classic-disc AI path around the center hole. Backrooms has had this since
+ * * AI-2 (routeBackroomsChaseTarget); Classic relied on the reactive radial push alone,
+ * * so any wander/chase target across the disc drew a chord straight over the hole —
+ * * at 23.5 m/s the 4.5 m reactive band gave ~0.2 s of correction, i.e. none (soak
+ * * 2026-07-16: 63 unforced NPC falls in 118 s, ~half down the hole). When the straight
+ * * segment to the target passes inside the hole's safe circle, returns a tangent-side
+ * * waypoint that clears it; null when the direct line is already safe.
+ *
+ * @param {number} fx Cart X.
+ * @param {number} fz Cart Z.
+ * @param {number} tx Target X.
+ * @param {number} tz Target Z.
+ * @returns {{ x: number, z: number } | null}
+ */
+function routeClassicHoleTarget(fx, fz, tx, tz) {
+  const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+  const safeR = holeLip + 2.4;
+  const dx = tx - fx;
+  const dz = tz - fz;
+  const len2 = dx * dx + dz * dz;
+  if (len2 < 1e-6) return null;
+  // * Closest approach of the segment to the origin (hole center).
+  const t = clamp(-(fx * dx + fz * dz) / len2, 0, 1);
+  if (t <= 0 || t >= 1) return null; // hole is behind or beyond the target — direct is fine
+  const cx = fx + dx * t;
+  const cz = fz + dz * t;
+  const d = Math.hypot(cx, cz);
+  if (d >= safeR) return null;
+  // * Waypoint: push the closest-approach point out to a clearing circle. A segment
+  // * through the exact center gets an arbitrary perpendicular side.
+  let nx, nz;
+  if (d > 1e-3) {
+    nx = cx / d;
+    nz = cz / d;
+  } else {
+    const invLen = 1 / Math.sqrt(len2);
+    nx = -dz * invLen;
+    nz = dx * invLen;
+  }
+  const wpR = safeR + 1.2;
+  return { x: nx * wpR, z: nz * wpR };
 }
 
 /**
@@ -2240,6 +2298,15 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     }
   }
 
+  // * Classic disc: proactive re-route around the center hole (working target only —
+  // * cart.aiTarget stays put so the bot resumes its real goal once past the hole).
+  if (!_levelHazards && !_octagonHazards && CONFIG.record.centerHole?.enabled !== false && !onSpawnPlatform) {
+    cart._aiWorkingTarget = routeClassicHoleTarget(
+      p.x, p.z,
+      cart.aiTarget?.x ?? p.x, cart.aiTarget?.z ?? p.z,
+    );
+  }
+
   const slotIndex = cart.slotIndex || 0;
   const onBackrooms = _levelHazards?.arenaHalf != null;
 
@@ -2383,7 +2450,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     }
   } else if (CONFIG.record.centerHole?.enabled !== false) {
     // * Classic Record: reactive radial push away from the center hole + the rim.
-    applyClassicCenterHoleAvoidance(p.x, p.z, toTarget);
+    applyClassicCenterHoleAvoidance(p.x, p.z, lv, toTarget);
     applyClassicOuterRimAvoidance(p.x, p.z, lv, toTarget);
   }
 
@@ -2513,6 +2580,13 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       }
       if (secondsToEdge < 0.8) {
         forward *= clamp(secondsToEdge / 0.8, 0.3, 1);
+      }
+      // * Emergency brake (bot-suicide triage 2026-07-16): under ~0.38 s to a death
+      // * edge with the nose still committed toward it (>~60° of yaw to recover),
+      // * throttle-trim alone cannot bleed 20+ m/s — slam reverse. Nose-direction
+      // * gate keeps this from backing a recovered cart over the edge it just left.
+      if (secondsToEdge < 0.38 && Math.abs(yawDiff) > 1.05) {
+        forward = -0.85;
       }
     }
   }

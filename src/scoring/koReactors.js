@@ -144,6 +144,10 @@ export function diagnosticsReactor(koEvent, _ctx) {
     comboTier: koEvent.comboTier ?? 0,
     critical: Boolean(koEvent.wasCritical),
     victimKind: koEvent.victimKind ?? null,
+    // * Fall location (XZ, decimeter precision) — lets soak rigs classify center-hole
+    // * vs outer-rim self-falls without positional polling (bot-suicide triage 2026-07-16).
+    fx: koEvent.fallX ?? null,
+    fz: koEvent.fallZ ?? null,
   });
 }
 
