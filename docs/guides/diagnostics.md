@@ -50,13 +50,23 @@ are a single boolean read.
 
 - `__ccDiag.snapshot()` — run every registered probe and return
   `{ round, score, announcer, directive, camera, boot, ai, unlocks, challenges, config, perf,
-  runtime }`. `snapshot("round")` runs just one. A throwing probe degrades to `{ error }` for
-  that namespace instead of breaking the read. The `runtime` probe carries browser/device
-  context (userAgent, GPU class + renderer, quality tier, DPR, deviceMemory, cores, viewport).
+  resources, runtime }`. `snapshot("round")` runs just one. A throwing probe degrades to
+  `{ error }` for that namespace instead of breaking the read. The `runtime` probe carries
+  browser/device context (userAgent, GPU class + renderer, quality tier, DPR, deviceMemory,
+  cores, viewport). The `boot` probe carries the **`cr:*` boot timeline**
+  (`play-entry` → `world-init-start` → `world-ready` → `carts-ready`, stamped via
+  `src/utils/bootTimeline.js`; `world-ready − world-init-start` = the cold-load stall window,
+  i.e. the NET-2 mechanism). The `resources` probe is the **leak sentinel** — live
+  geometry/texture/program/scene-node/Howler/heap counts (via the DEV `__cartRavePerf`
+  probe; fields are null in prod builds).
 - `__ccDiag.events(sinceSeq?)` — the bounded (512) event ring buffer. Each record is
   `{ seq, t, ch, type, …data }`. Channels: `round` (phase / sudden-death), `score`, `ko`
-  (with attribution), `announcer` (every accepted PA event), `unlock`, `challenge`, `boot`,
-  `error` (the gameLoop circuit breaker's faults). Poll `__ccDiag.tail` for a cursor.
+  (with attribution), `announcer` (every accepted PA event), `unlock`, `challenge`, `boot`
+  (one event per `markBootPhase`), `error` (the gameLoop circuit breaker's faults **plus**
+  window `error`/`unhandledrejection`, mirrored in errorReporter.js), and `assert` — the
+  **invariant watchdog**: observe-only violations of pure structural rules
+  (`src/utils/invariants.js`; today: illegal round-phase transitions, the "wedged round"
+  bug class). Poll `__ccDiag.tail` for a cursor.
 - `__ccDiag.probes()` — the registered namespaces.
 - `__ccDiag.control` — **DEV-only** scenario levers, `null` in production and in read-only
   QA sessions. Each reuses an existing proven production path (never a new mutation route):
@@ -101,6 +111,17 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
 - **unlockFunnel** — with real locks enforced (`cartRaveDevUnlocks=off`), granting 10 KOs on
   Cart Rave unlocks The Storerooms, logs the unlock event, and the unlock **survives a full
   page reload** (persistence). (Automates the §C progression funnel without grinding.)
+- **arenas** — every arena (Cart Rave / Storerooms / Sundial) cold-boots into a solo round
+  via the production menu path (localStorage `cartRaveLevel`), reaches RUNNING with the
+  right level loaded, has its boot timeline stamped, fast-ends to podium, and logs **zero
+  error events and zero invariant asserts**. (Automates the playtest kit's Session 0
+  per-arena stability baseline.)
+- **soak** — the leak sentinel: N solo rematch cycles (`--soakCycles`, default 3) with a
+  short drive each round, sampling the `resources` probe at every podium. Asserts
+  geometry/texture/program/scene-node/Howler counts **stay flat across cycles** (tolerances
+  in the scenario), plus zero errors/asserts. Every past leak (suction rings, boost rings,
+  countdown pulse, VFX dispose) would have tripped this gate. Heap is reported but not
+  gated (GC noise). (Automates the structural half of the Session 4 long-session soak.)
 - **hostMigration** (2-client, in `netharness`) — clean host departure: host + mid-round
   joiner in quickplay, then the host context closes. Asserts the survivor is promoted to
   host, the room lands in a sane phase, NPC slots come back under the new host (`kind ===
@@ -147,7 +168,13 @@ system you're instrumenting — no core change. Add a scenario as a function
 state via `__ccDiag` over scraping the DOM. Keep any new in-page instrumentation behind the
 `__ccDiagActive` guard so it stays zero-cost in production.
 
+One command runs every rig: **`npm run battery`** — see the umbrella guide,
+[dev-toolkit.md](./dev-toolkit.md), for the sweep, the surface map, and the extension
+contract (probes / events / invariants / boot phases / scenarios / rigs).
+
 Natural next modules on this foundation: a camera-framing assertion pass, a results-screen
-scenario, a boot/asset timeline (extend the single `cr:menu-ready` mark into a `cr:*` sequence
-surfaced on the `boot` channel), and a soak scenario (N rematches, assert no growing hitch off
-the `perf` probe). *(Done: the AI stall watchdog and the mpIntegration scenario above.)*
+scenario, a `--baseline` compare mode for `perf:profile` (turn the static perf snapshot into
+a regression gate), and new invariants in `src/utils/invariants.js` (score/spectator rules).
+*(Done: the AI stall watchdog, mpIntegration, the `cr:*` boot timeline, the `resources`
+leak probe + `soak` scenario, the `arenas` scenario, the phase-transition invariant
+watchdog, and the battery orchestrator.)*

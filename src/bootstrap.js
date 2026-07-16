@@ -9,6 +9,7 @@ import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { storageGet } from "./utils/storage.js";
 import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
 import { getNetSlots } from "./netcode.js";
+import { markBootPhase } from "./utils/bootTimeline.js";
 
 /** @type {import("./bootstrap.js").BootstrapDeps | null} */
 let deps = null;
@@ -112,6 +113,9 @@ export async function ensureWorldBootstrapped(levelIdOverride) {
       levelIdOverride != null && String(levelIdOverride).trim() !== ""
         ? resolveLevelId(levelIdOverride)
         : undefined;
+    // * Boot timeline: world-ready − world-init-start is the cold-load stall window
+    // * (Rapier WASM + arena build) — the NET-2 join-freeze mechanism, now measurable.
+    markBootPhase("world-init-start", { level: levelArg ?? null });
     worldBootstrapPromise = deps.ensureRapierPhysics()
       .then(async () => {
         if (!worldBootstrapDone) {
@@ -124,6 +128,7 @@ export async function ensureWorldBootstrapped(levelIdOverride) {
           }
           await deps.bootstrapWorldCore(levelArg);
           worldBootstrapDone = true;
+          markBootPhase("world-ready");
           if (import.meta.env.DEV) {
             // eslint-disable-next-line no-console
             console.log("[bootstrap] arena core load done");
@@ -208,6 +213,8 @@ export async function ensureSessionCartsReady() {
       if (created && typeof d.warmupBeforeRoundStart === "function") {
         await d.warmupBeforeRoundStart();
       }
+      // * Boot timeline: carts seated + shaders warmed — the round can truly start.
+      if (created) markBootPhase("carts-ready");
       return created;
     })().finally(() => {
       if (bootstrapGen === helloGate.getGeneration()) {
@@ -284,6 +291,7 @@ export async function enterPlayMode(opts = {}) {
   // * Play entry owns the cold-load from here — don't let delayed menu idle-warm
   // * start a default-arena bootstrap that we'd immediately tear down.
   idleWorldWarmSuppressed = true;
+  markBootPhase("play-entry", { mode: gameMode, level: levelId ?? null });
 
   activePlayBootstrapPromise = withModeEntryLoading(async (reportProgress) => {
     reportProgress(5, "Preparing…");

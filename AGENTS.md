@@ -53,6 +53,10 @@ toward Version 2.
   `npm run qa:visual` (short black-frame battery) — see
   [docs/guides/visual-qa.md](docs/guides/visual-qa.md). URL flags: `?ablate=`, `?postmin=`,
   `?shot=`, `?cam=`, `?freeze=`, `?harness=1`, `?hud=0`.
+- **Headless regression sweep:** `npm run battery` — every diagnostic rig (gameplay +
+  netcode scenarios) against one dev stack, one tally, JSON report in `.diag-captures/`.
+  Individual rigs: `npm run gameharness` / `npm run netharness` / `npm run perf:profile`.
+  Toolkit map + extension contract: [docs/guides/dev-toolkit.md](docs/guides/dev-toolkit.md).
 
 ---
 

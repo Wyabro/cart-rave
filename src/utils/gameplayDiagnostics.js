@@ -20,7 +20,10 @@
  * stable module singletons are imported directly.
  */
 
+import { Howler } from "howler";
 import { registerDiagProbe, recordDiagEvent } from "./diagnostics.js";
+import { readBootTimeline } from "./bootTimeline.js";
+import { isLegalPhaseTransition } from "./invariants.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { unlockStore, isLevelUnlocked, getLevelUnlockStatus } from "../stores/unlockStore.js";
 import { challengeStore } from "../stores/challengeStore.js";
@@ -101,14 +104,48 @@ function registerProbes(deps) {
 
   registerDiagProbe("camera", () => {
     const cam = deps.getCamera ? deps.getCamera() : null;
-    return { mode: cam ? getCameraMode(cam) : null };
+    return {
+      mode: cam ? getCameraMode(cam) : null,
+      position: cam ? { x: round2(cam.position.x), y: round2(cam.position.y), z: round2(cam.position.z) } : null,
+      fov: cam ? cam.fov : null,
+    };
   });
 
   registerDiagProbe("boot", () => ({
     worldReady: isWorldBootstrapped(),
     mainReady: Boolean(/** @type {any} */ (window).__cartRaveMainReady),
     menuReadyMs: readMenuReadyMs(),
+    // * Full cr:* mark sequence (play-entry, world-init-start, world-ready, carts-ready, …).
+    // * world-ready − world-init-start = the cold-load stall window (the NET-2 mechanism).
+    timeline: readBootTimeline(),
   }));
+
+  // * Live GPU/audio resource counts — the leak-sentinel read. Every past leak in this
+  // * codebase (suction rings, boost rings, countdown pulse, VFX dispose) would have shown
+  // * up as one of these counters growing across rematch cycles; the gameharness `soak`
+  // * scenario asserts exactly that. renderer/scene arrive via the DEV-only __cartRavePerf
+  // * probe (scene.js/main.js), so fields degrade to null in prod builds — documented.
+  registerDiagProbe("resources", () => {
+    const w = /** @type {any} */ (window);
+    const perf = w.__cartRavePerf;
+    const info = perf?.renderer?.info;
+    let sceneNodes = null;
+    if (perf?.scene) {
+      sceneNodes = 0;
+      safeCall(() => perf.scene.traverse(() => { sceneNodes += 1; }));
+    }
+    return {
+      geometries: info?.memory?.geometries ?? null,
+      textures: info?.memory?.textures ?? null,
+      programs: info?.programs?.length ?? null,
+      sceneNodes,
+      howls: safeCall(() => /** @type {any} */ (Howler)?._howls?.length) ?? null,
+      heapMB: safeCall(() => {
+        const m = /** @type {any} */ (performance).memory;
+        return m ? round2(m.usedJSHeapSize / 1048576) : null;
+      }) ?? null,
+    };
+  });
 
   registerDiagProbe("ai", () => {
     const carts = deps.getCarts ? deps.getCarts() || [] : [];
@@ -205,6 +242,11 @@ function wireStoreEvents() {
   gameStore.subscribe((state) => {
     if (state.roundPhase !== prevPhase) {
       recordDiagEvent("round", "phase", { from: prevPhase, to: state.roundPhase });
+      // * Invariant watchdog (observe-only): an illegal transition means a seam skipped a
+      // * required state — the "wedged round" bug class. Evidence, never intervention.
+      if (!isLegalPhaseTransition(prevPhase, state.roundPhase)) {
+        recordDiagEvent("assert", "phase-transition", { from: prevPhase, to: state.roundPhase });
+      }
       prevPhase = state.roundPhase;
     }
     if (state.isSuddenDeath && !prevSuddenDeath) {

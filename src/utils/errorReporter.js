@@ -1,5 +1,7 @@
 // errorReporter.js — Lightweight production error forwarder to a Cloudflare Worker endpoint.
 
+import { recordDiagEvent } from "./diagnostics.js";
+
 /**
  * Packages an error and optional context into a JSON payload and POSTs it to
  * `/api/log-error` using sendBeacon or a keepalive fetch as a fallback.
@@ -86,6 +88,13 @@ export function installGlobalErrorReporting() {
     // * Resource load errors (script/img/audio) surface as events on the target
     // * with no error object — the boot handlers in index.html own those.
     if (!(ev instanceof ErrorEvent)) return;
+    // * Diag mirror (no-op without ?diag): page errors land on the "error" channel so
+    // * capture bundles and the harness "zero errors" checks see them — the beacon path
+    // * below skips DEV entirely, so this is the only trace a rig gets.
+    recordDiagEvent("error", "window-error", {
+      message: ev.message?.slice?.(0, 300) ?? String(ev.message ?? ""),
+      source: `${ev.filename ?? ""}:${ev.lineno ?? 0}`,
+    });
     sendErrorLogLimited(ev.error ?? ev.message, {
       context: "windowError",
       source: `${ev.filename ?? ""}:${ev.lineno ?? 0}`,
@@ -93,6 +102,8 @@ export function installGlobalErrorReporting() {
   });
 
   window.addEventListener("unhandledrejection", (ev) => {
+    const reason = ev.reason instanceof Error ? ev.reason.message : String(ev.reason ?? "");
+    recordDiagEvent("error", "unhandled-rejection", { message: reason.slice(0, 300) });
     sendErrorLogLimited(ev.reason, { context: "unhandledRejection" });
   });
 }

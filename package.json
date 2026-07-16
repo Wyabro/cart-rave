@@ -31,7 +31,9 @@
     "blackframes": "node tools/blackframes.mjs",
     "tabhidden": "node tools/tabhidden.mjs",
     "netharness": "node tools/netharness.mjs",
-    "gameharness": "node tools/gameharness.mjs"
+    "gameharness": "node tools/gameharness.mjs",
+    "battery": "node tools/battery.mjs",
+    "perf:profile": "node tools/perf-profile.mjs"
   },
   "devDependencies": {
     "@types/three": "^0.185.1",
