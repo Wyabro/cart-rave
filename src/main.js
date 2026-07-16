@@ -1302,6 +1302,13 @@ async function main() {
     "comeback_01", "comeback_02",
     "last_call_01", "last_call_02",
     "sudden_death_01", "victory_01", "defeat_01",
+    // * Tier 2 — scoreboard + time beats (recorded 2026-07-16).
+    "new_leader_01", "new_leader_02",
+    "leader_down_01", "leader_down_02",
+    "one_minute_01", "one_minute_02",
+    "thirty_seconds_01", "thirty_seconds_02",
+    "critical_ko_01", "critical_ko_02",
+    "close_call_01", "close_call_02",
   ];
   for (const key of announcerVoiceKeysEn) {
     AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], { pool: 1 });

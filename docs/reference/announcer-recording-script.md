@@ -162,5 +162,12 @@ Tooling lives in `scripts/announcer/`. The workflow that shipped Tier 1:
 
 Partial packs are fine — Tier 1 shipped alone and everything else kept its stings.
 
-**Status: Tier 1 RECORDED + SHIPPED (25 takes, en).** `aisle_wipeout` gained a third
-variant (two keepers were too good to cut). Tiers 2–4 + optional countdown remain.
+**Status: Tiers 1+2 RECORDED + SHIPPED (37 takes, en).** `aisle_wipeout` gained a third
+variant (two keepers were too good to cut). Tiers 3–4 + optional countdown remain
+(`slice.mjs … tier34`).
+
+**Recut gotcha (Tier 2, encoded in recut.mjs):** same-line takes read so consistently
+that after DAW compression they out-correlate each other — a wide alignment search
+ships wrong takes/slates. Dry timestamps are the truth; xcorr only refines ±0.5 s.
+A same-workflow DAW export CAN grow by seconds (end reverb tail) while the timeline
+stays perfectly aligned — file length alone is not evidence of drift.

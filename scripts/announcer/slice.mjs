@@ -1,15 +1,53 @@
 #!/usr/bin/env node
 // slice.mjs — split a long announcer session WAV into per-take chunks on silence,
 // then emit a review.html for auditioning/assigning takes.
-// Usage: node slice.mjs "<input.wav>" "<outDir>" [noiseDb] [minSilenceSec]
+// Usage: node slice.mjs "<input.wav>" "<outDir>" [tier] [noiseDb] [minSilenceSec]
+//   tier = tier1 | tier2 | tier34 (review-page line-id dropdown; default tier1)
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const [, , inputPath, outDir, noiseDb = "-35", minSil = "0.5"] = process.argv;
-if (!inputPath || !outDir) {
-  console.error('Usage: node slice.mjs "<input.wav>" "<outDir>" [noiseDb] [minSilenceSec]');
+// * Line-id presets per recording tier — docs/reference/announcer-recording-script.md.
+const TIER_IDS = {
+  tier1: [
+    "first_spill_01", "first_spill_02", "first_spill_03",
+    "double_spill_01", "double_spill_02", "double_spill_03",
+    "aisle_wipeout_01", "aisle_wipeout_02", "aisle_wipeout_03",
+    "refund_01", "refund_02", "refund_03",
+    "sudden_death_01", "victory_01", "defeat_01",
+    "last_call_01", "last_call_02",
+    "carnage_01", "carnage_02",
+    "savage_01", "savage_02",
+    "rampage_01", "rampage_02",
+    "comeback_01", "comeback_02",
+  ],
+  tier2: [
+    "new_leader_01", "new_leader_02",
+    "leader_down_01", "leader_down_02",
+    "one_minute_01", "one_minute_02",
+    "thirty_seconds_01", "thirty_seconds_02",
+    "critical_ko_01", "critical_ko_02",
+    "close_call_01", "close_call_02",
+  ],
+  tier34: [
+    "directive_flash_sale_01", "directive_flash_sale_02",
+    "directive_double_bag_01", "directive_double_bag_02",
+    "directive_express_lane_01", "directive_express_lane_02",
+    "directive_spill_bonus_01", "directive_spill_bonus_02",
+    "directive_rush_hour_01", "directive_rush_hour_02",
+    "cleanup_aisle_01", "cleanup_aisle_02", "cleanup_aisle_03",
+    "cart_overflow_01", "cart_overflow_02",
+    "spill_rush_01", "spill_rush_02",
+    "challenge_complete_01", "challenge_complete_02",
+    "new_host_01", "go_01",
+    "countdown_3_01", "countdown_2_01", "countdown_1_01",
+  ],
+};
+
+const [, , inputPath, outDir, tier = "tier1", noiseDb = "-35", minSil = "0.5"] = process.argv;
+if (!inputPath || !outDir || !TIER_IDS[tier]) {
+  console.error('Usage: node slice.mjs "<input.wav>" "<outDir>" [tier1|tier2|tier34] [noiseDb] [minSilenceSec]');
   process.exit(1);
 }
 
@@ -76,18 +114,7 @@ segments.forEach(([a, b], i) => {
 writeFileSync(path.join(outDir, "index.json"), JSON.stringify(index, null, 2));
 
 // ---- 5. review page ------------------------------------------------------------
-const TIER1_IDS = [
-  "first_spill_01", "first_spill_02", "first_spill_03",
-  "double_spill_01", "double_spill_02", "double_spill_03",
-  "aisle_wipeout_01", "aisle_wipeout_02",
-  "refund_01", "refund_02", "refund_03",
-  "sudden_death_01", "victory_01", "defeat_01",
-  "last_call_01", "last_call_02",
-  "carnage_01", "carnage_02",
-  "savage_01", "savage_02",
-  "rampage_01", "rampage_02",
-  "comeback_01", "comeback_02",
-];
+const LINE_IDS = TIER_IDS[tier];
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>Announcer take review</title>
 <style>
@@ -107,7 +134,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><title>Announcer 
   .bar{position:sticky;top:0;background:#111;padding:.5rem 0;display:flex;gap:.6rem;align-items:center;border-bottom:1px solid #333;z-index:2}
   .hint{color:#999;font-size:12px}
 </style></head><body>
-<h1>Announcer Tier 1 — take review (${index.length} chunks)</h1>
+<h1>Announcer ${tier} — take review (${index.length} chunks)</h1>
 <div class="bar">
   <button onclick="playAll()">▶ play all in order</button>
   <button onclick="exportJson()">⇩ export picks</button>
@@ -117,7 +144,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><title>Announcer 
 <textarea id="export" placeholder="export appears here — copy/paste it back to Claude"></textarea>
 <script>
 const chunks=${JSON.stringify(index)};
-const IDS=${JSON.stringify(TIER1_IDS)};
+const IDS=${JSON.stringify(LINE_IDS)};
 const t=document.getElementById("t");
 for(const c of chunks){
   const tr=document.createElement("tr");tr.id="row"+c.n;
@@ -138,8 +165,8 @@ function samePrev(n){if(n<2)return;const p=document.querySelector("#row"+(n-1)+"
 function playAll(){let i=0;const as=[...document.querySelectorAll("audio")];function next(){if(i>=as.length)return;const a=as[i++];a.onended=next;a.play();}next();}
 function collect(){return chunks.map(c=>{const r=document.getElementById("row"+c.n);return{chunk:c.n,file:c.file,line:r.querySelector("select").value||null,keeper:r.querySelector("input").checked};});}
 function exportJson(){document.getElementById("export").value=JSON.stringify(collect().filter(x=>x.line&&x.line!=="skip"),null,1);}
-function save(){localStorage.setItem("annoucerPicks",JSON.stringify(collect()));}
-(function restore(){try{const d=JSON.parse(localStorage.getItem("annoucerPicks")||"[]");for(const x of d){const r=document.getElementById("row"+x.chunk);if(!r)continue;r.querySelector("select").value=x.line==null?"":x.line;r.querySelector("input").checked=!!x.keeper;mark(x.chunk,x.line==null?"":x.line);}}catch{}})();
+function save(){localStorage.setItem("annoucerPicks_${tier}",JSON.stringify(collect()));}
+(function restore(){try{const d=JSON.parse(localStorage.getItem("annoucerPicks_${tier}")||"[]");for(const x of d){const r=document.getElementById("row"+x.chunk);if(!r)continue;r.querySelector("select").value=x.line==null?"":x.line;r.querySelector("input").checked=!!x.keeper;mark(x.chunk,x.line==null?"":x.line);}}catch{}})();
 </script></body></html>`;
 writeFileSync(path.join(outDir, "review.html"), html);
 console.log(`Wrote ${index.length} chunks + review.html to ${outDir}`);
