@@ -313,6 +313,10 @@ export function runPhysicsStep(loopState, deps, context) {
             const allCarts = deps.getAllCartsRef();
             const replayCallbacks = {
               ...deps.getSimulationCallbacks(false),
+              // * Suppress combo tier + ChallengeTracker side effects — live prediction
+              // * already counted them; replaying unacked inputs must not inflate combo_t2
+              // * / spill challenge progress on every reconcile.
+              isReconcileReplay: true,
               playCollision: null,
               spawnTrashBurst: null,
               onLocalRamImpact: null,

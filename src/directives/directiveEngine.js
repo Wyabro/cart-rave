@@ -14,8 +14,9 @@
  *     dep; the falls[] wire already carries the boosted reward to clients, so scoring
  *     display agrees even at window edges.
  *   - Spill Bonus points are host-only awards through the same addScore path as KOs.
- *   - Host migration: engine state is local; a new host simply starts a fresh schedule.
- *     Directives are ≤20s, so at worst one window is cut short.
+ *   - Host migration: every peer restores active CONFIG mutators; scheduleIdx advances
+ *     past due/past slots so the new host cannot re-fire a mid-window directive.
+ *     Future slots still fire. Active window is cut short (≤20s by design).
  *
  * Scheduling: a fixed per-round slot list (CONFIG.directives.fireAtMs, default three
  * slots evenly spaced across the first two minutes) with ± jitter re-rolled each round.
@@ -164,6 +165,17 @@ function restoreActive() {
  */
 export function clearDirectiveOnHostMigration() {
   if (active) restoreActive();
+  // * New host's scheduleIdx was never advanced (only the previous host fires slots).
+  // * Without this, promote mid-round re-walks from idx 0 and re-fires any slot still
+  // * inside slotAtMs + durationMs (a second Flash Sale / Rush Hour within ~18s of the
+  // * original). Skip every slot that is already due or past on the round clock.
+  const state = gameStore.getState();
+  if (state.roundStartedAtMs > 0 && fireSchedule.length > 0) {
+    const roundElapsed = getRoundClockNowMs() - state.roundStartedAtMs;
+    while (scheduleIdx < fireSchedule.length && fireSchedule[scheduleIdx] <= roundElapsed) {
+      scheduleIdx += 1;
+    }
+  }
 }
 
 /** Weighted random pick from DIRECTIVES, avoiding a back-to-back repeat. */

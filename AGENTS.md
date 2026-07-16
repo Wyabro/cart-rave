@@ -77,10 +77,11 @@ toward Version 2.
   `mesh.traverse()` material logic — it is the "Original Rave" source of truth
   (pink / blue / green / yellow / neonOrange).
 - **Rounds start only via `MSG.gameStart`.** No tick-level auto-starts in `update()`.
-- **Win condition:** 150 seconds, or last-cart-standing after a 3-second flourish. Round
-  length is **single-sourced** as `ROUND_DURATION_MS` in `shared/roundConstants.js` (`150_000`);
-  both `src/config.js` (`CONFIG.round.durationMs`) and `party/roundValidation.ts` import it, so
-  client and Worker can no longer drift — do not re-introduce a hardcoded duplicate.
+- **Win condition:** 150 seconds (timer) or Sudden Death / last-standing paths. Round length
+  is **single-sourced** as `ROUND_DURATION_MS` in `shared/roundConstants.js` (`150_000`);
+  both `src/config.js` (`CONFIG.round.durationMs`) and `party/roundValidation.ts` import it —
+  do not re-introduce a hardcoded duplicate. **Last-cart-standing (3s flourish) is effectively
+  SD-only today:** timed-round respawn is 1s, so the flourish aborts when victims return.
   Ties resolve by most-recent scoring hit / Sudden Death.
 - **No camera lerp/slerp smoothing.** It was intentionally removed. Do not reintroduce it.
 - **`index.html` is canonical for menu markup.** `cart-rave-menu.html` was deleted (stale

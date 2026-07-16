@@ -240,6 +240,23 @@ describe("remote apply + scoring hooks", () => {
     expect(getActiveDirective()).toBeNull();
   });
 
+  it("clearDirectiveOnHostMigration skips due/past slots so promote cannot re-fire them", () => {
+    // * Non-host never advances scheduleIdx; on promote it becomes host mid-round.
+    // * Without skip, slot 0 (due at ~20s) would re-fire while still inside durationMs.
+    deps.isHost = false;
+    setRound(25_000);
+    updateDirectiveEngine(performance.now()); // builds schedule at round start latch
+    clearDirectiveOnHostMigration();
+
+    deps.isHost = true;
+    const sentBefore = calls.sent.length;
+    updateDirectiveEngine(performance.now());
+    // * No new directive fire — 25s is past first slot but we skipped it on migrate.
+    const directiveSends = calls.sent.slice(sentBefore).filter((m) => m?.type === "directive" || m?.id);
+    expect(getActiveDirective()).toBeNull();
+    expect(directiveSends.length).toBe(0);
+  });
+
   it("Spill Bonus pays the recent rammer, never a self-spill", () => {
     deps.isHost = false;
     setRound(30000);

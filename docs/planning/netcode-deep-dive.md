@@ -109,23 +109,25 @@ domain as the 40 Hz stream). Party `serverNowMs` stays control-plane only.
 
 ### NET-MIG-3 — Freeze ends before new host DataChannel; ghost colliders
 
-**Severity:** High (feel)  
-**Where:** `CONFIG.net.hostMigrationFreezeMs` (300); `gameLoop` prediction branch after freeze;
-`updateRemoteCartNetTargets` + `syncRemoteCartBodiesForPrediction`; promote clears
-`netStateBuffer` but **not** `lastCartsCache` / cart `_netTargetPos`
+**Status:** **PARTIAL** (2026-07-16) — freeze holds until **first post-epoch snapshot** or
+`hostMigrationFreezeMaxMs` **2000** (was fixed 300 ms). Live feel smoke still owed.
 
-**What:** 300 ms freeze is shorter than real WebRTC re-handshake (often 500 ms–2 s). After
-freeze, buffer is empty (cleared on `host_migrated`). `updateRemoteCartNetTargets` falls
-through to `lastCartsCache` (or leaves stale `_netTarget*`) and
-`syncRemoteCartBodiesForPrediction` **unconditionally** snaps remote Rapier bodies to those
-poses every frame — colliders stay live.
+**Severity:** High (feel residual)  
+**Where:** `CONFIG.net.hostMigrationFreezeMaxMs` (2000); `hostMigrationAwaitingFirstSnap`;
+`gameLoop` prediction branch after freeze; `updateRemoteCartNetTargets` +
+`syncRemoteCartBodiesForPrediction`; promote clears `netStateBuffer` but **not**
+`lastCartsCache` / cart `_netTargetPos`
 
-**Player sees:** remotes frozen at pre-migration spots; local prediction bounces off ghost
-carts; when DC opens, hard teleport + violent reconcile.
+**What (remaining):** After freeze **times out** without a snap (slow ICE >2 s), buffer is
+empty and remotes fall through to `lastCartsCache` / stale `_netTarget*` —
+`syncRemoteCartBodiesForPrediction` snaps remote Rapier bodies to those poses every frame
+while colliders stay live.
 
-**Fix direction:** Hold freeze (or “no remote sim”) until first post-epoch host snapshot **or**
-first open DC to `hostId`; clear `_netTarget*` / disable remote colliders during that window;
-optionally seed buffer from promote poses without enabling collision until live.
+**Player sees (residual):** ghost bounce only if DC stays cold past 2 s; hard teleport when
+live stream resumes.
+
+**Fix direction (remaining):** Skip remote collider sync while awaiting first snap; clear
+`_netTarget*` on migrate; optionally hold freeze until DC open, not only first snap.
 
 **Smoke:** Host tab close mid-round as non-host — watch remotes until motion resumes; note
 ghost-bounce if any.
@@ -134,26 +136,27 @@ ghost-bounce if any.
 
 ### NET-PRES-1 — Unreliable falls/collisions: loss **and** duplicate fan-out
 
-**Severity:** Medium (loss) / **High** (duplicate reactors)  
+**Status:** **PARTIAL** (2026-07-16) — falls[] **600 ms per-victim** dedupe before reactors;
+collisions[] **250 ms pair-key** FX dedupe (SFX/juice only). Loss face still open.
+
+**Severity:** Medium (loss) / **Low–Medium** residual FX (duplicates largely gated)  
 **Where:** `p2p.js` DataChannel `{ ordered: false, maxRetransmits: 0 }`;
-`handleRemoteHostState` — **seq only gates** `bufferAuthoritativeState`;
-`collisions[]` / `falls[]` always replayed; `processHostFallEvent` → `dispatchKOEvent` (feed,
-announcer, shatter, `ChallengeTracker.record`, unlock KO, match stats)
+`handleRemoteHostState` — **seq only gates** `bufferAuthoritativeState`; tails still run when
+seq rejects; `processHostFallEvent` / `replayHostCollisionFx`
 
 **What (two faces of the same hole):**
 
 1. **Drop:** score still arrives via reliable `host_round`; client misses shatter/feed — looks
    like desync.
-2. **Duplicate / late reorder (verified structure):** a retransmitted or reordered snapshot can
-   fail the seq append (`seq <= last.seq` → buffer no-op) **while still** re-running falls.
-   Same KO → double feed, double shatter, **double challenge / match-stat / unlock counters**
-   on non-hosts.
+2. **Duplicate / late reorder:** tails can re-run when seq rejects the pose buffer. Fall
+   reactors (challenges / match stats / unlock / feed / PA / shatter) early-return within
+   600 ms for the same victim. Collision FX collapse within 250 ms per pair.
 
-**Player sees:** inflated challenges/stats on results; double announcer; or missing KO VFX.
+**Player sees (residual):** missing KO VFX on drop; rare collision juice blip if reorder
+straddles the window.
 
-**Fix direction:** Fall/collision event ids (or host seq + index) with client LRU dedupe
-**before** reactors; optionally only process tails when `bufferAuthoritativeState` actually
-accepted the seq; reliable KO presentation channel if dedupe isn’t enough.
+**Fix direction (remaining):** Gate tails on “seq newly accepted,” or stamp `(seq, i)` event
+ids; reliable KO presentation channel if loss still hurts.
 
 ---
 

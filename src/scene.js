@@ -244,6 +244,12 @@ export function refreshSceneEnvironmentMaterials(scene) {
  */
 export function setEnvironmentIntensity(scene, intensity) {
   environmentIntensity = intensity;
+  // * three r152+: scene.environment is sampled via scene.environmentIntensity.
+  // * Writing only mat.envMapIntensity is a no-op for materials that inherit
+  // * scene.environment without an owned envMap (STATUS gotcha / green-booth floor).
+  if (scene && typeof intensity === "number" && Number.isFinite(intensity)) {
+    scene.environmentIntensity = intensity;
+  }
   refreshSceneEnvironmentMaterials(scene);
 }
 
@@ -283,6 +289,9 @@ export function setupSceneEnvironment(renderer, scene) {
 
   scene.environment = envTexture;
   environmentIntensity = CONFIG.postFx.environment.intensity;
+  // * Drive the scene-level IBL multiplier (see setEnvironmentIntensity). Without this,
+  // * CONFIG.postFx.environment.intensity only mutated a module var that never reached GL.
+  scene.environmentIntensity = environmentIntensity;
   refreshSceneEnvironmentMaterials(scene);
 
   return {

@@ -42,7 +42,7 @@ behavior during migration) — run these together.
 ## Per-phase migration (drop the host during each)
 
 - [ ] **Running**: new host resumes the sim; other clients freeze briefly
-      (`hostMigrationFreezeMs = 300`) then interpolate from the new host. Carts must not
+      (until first post-epoch snap or `hostMigrationFreezeMaxMs` 2000) then interpolate from the new host. Carts must not
       teleport or rubber-band beyond that window. **Scores are preserved** (never reset or
       decrease — server clamps monotonic). Round timer continues from where it was.
 - [ ] **Countdown**: promotion happens; countdown either continues or resets cleanly to a
@@ -80,7 +80,8 @@ behavior during migration) — run these together.
 
 | knob | value | affects |
 | --- | --- | --- |
-| `hostMigrationFreezeMs` | 300 | non-host input freeze after `host_migrated` |
+| `hostMigrationFreezeMs` | 300 | legacy min label only — freeze is not fixed 300 ms |
+| `hostMigrationFreezeMaxMs` | 2000 | non-host freeze after `host_migrated` until first post-epoch snap **or** this cap |
 | `interpBufferMs` | 75 | remote-cart interpolation delay (resume smoothness) |
 | `hostSendHz` | 40 | host snapshot rate (how fast the new host's stream fills) |
 | `turnCredentialsTimeoutMs` | 2500 | TURN wait before the new host opens peer offers |

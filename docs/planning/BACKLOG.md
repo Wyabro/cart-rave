@@ -22,8 +22,9 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | High | VFX-1 endgame: promote display-referred bloom to default | Root cause fixed (D-VFX-2); Storerooms shipped (`98317c1`). Needs Classic/Sundial look check + threshold/strength tune with Wyatt, then delete the `?rtmode` fork paths. |
 | High | NET-MIG-3 — freeze vs WebRTC re-handshake | **Partial 2026-07-16:** freeze until first post-epoch snap or 2s max (was fixed 300ms). Ghost poses still possible if DC never opens before max. Live feel smoke still owed. |
 | High | NET-2 residual — mid-round join cold-load hitch | Permanent weld fixed (`feaa9e0` chronic-slow resume guard); multi-second hitch remains (joiner skips menu idle-warm). Pre-warm / ghost-until-ready still unbuilt. |
-| Medium | NET-PRES-1 — unreliable falls/collisions: loss and duplicate fan-out | **Partial 2026-07-16:** falls[] 600ms victim dedupe on non-hosts. Collisions still undeduped; loss half open. |
-| Medium | Living Store + host migration CONFIG desync | **Fixed 2026-07-16:** `clearDirectiveOnHostMigration` on all peers in `applyHostMigration`. New host still starts fresh schedule (by design). |
+| Medium | NET-PRES-1 — unreliable falls/collisions: loss and duplicate fan-out | **Partial 2026-07-16:** falls[] 600ms victim dedupe; collisions[] 250ms pair FX dedupe. Loss half still open. |
+| ✅ | Living Store + host migration CONFIG desync | **Fixed 2026-07-16:** `clearDirectiveOnHostMigration` on all peers. **2026-07-16 audit:** also advances `scheduleIdx` past due/past slots so promote cannot re-fire a mid-window directive. Future slots still fire (by design). |
+| Medium | Non-host reconcile re-counted combo/spill challenges | **Fixed 2026-07-16 audit:** `isReconcileReplay` gates combo tier + ChallengeTracker in `applyRammingImpulse`. |
 | ✅ | NET-CLK-1 — split Party vs host clock offsets | Shipped 2026-07-12 — dual EWMA + gameStart same-message delta. |
 | ✅ | NET-CLK-2 — podium gate mixes host `startedAtMs` with DO `now` | Closed 2026-07-14 — `runningSinceServerMs` server-domain anchor (`e3bcb03`). |
 | ✅ | NET-CLK-3 — hit window / directives use round clock | Shipped 2026-07-12 — `getRoundClockNowMs` for hits + directives. |

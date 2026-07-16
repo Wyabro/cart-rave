@@ -954,11 +954,30 @@ function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
  * @param {object} callbacks Injected FX helpers from main.
  * @returns {void}
  */
+/** @type {Map<string, number>} NET-PRES-1 collision FX pair dedupe (performance.now). */
+const recentHostCollisionFxByPair = new Map();
+const COLLISION_FX_DEDUPE_MS = 250;
+
 function replayHostCollisionFx(msg, callbacks) {
   const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
   const mp = msg.midpoint;
   const slotB = typeof msg.slotB === "number" ? msg.slotB : 0;
   if (!mp || typeof mp.x !== "number") return;
+
+  // * NET-PRES-1 residual: collisions[] ride unordered DC and always replay even when
+  // * seq rejects the pose buffer. Short pair-key window collapses late reorder spam
+  // * (SFX / trash burst) without muting continuous combat (host already batches per tick).
+  const slotA = typeof msg.slotA === "number" ? msg.slotA : -1;
+  const pairKey = `${Math.min(slotA, slotB)}:${Math.max(slotA, slotB)}:${typeof msg.rammerSlot === "number" ? msg.rammerSlot : ""}`;
+  const nowFx = performance.now();
+  const prevFx = recentHostCollisionFxByPair.get(pairKey);
+  if (prevFx != null && nowFx - prevFx < COLLISION_FX_DEDUPE_MS) return;
+  recentHostCollisionFxByPair.set(pairKey, nowFx);
+  if (recentHostCollisionFxByPair.size > 32) {
+    for (const [k, t] of recentHostCollisionFxByPair) {
+      if (nowFx - t > 1000) recentHostCollisionFxByPair.delete(k);
+    }
+  }
 
   const carts = getAllCarts();
 
@@ -1125,6 +1144,7 @@ export function disconnectPartySession() {
   hostMigrationFreezeUntilMs = 0;
   hostMigrationAwaitingFirstSnap = false;
   recentHostFallByVictim.clear();
+  recentHostCollisionFxByPair.clear();
   skipNextPhysicsStep = false;
 
   netSlots = [];
@@ -1521,6 +1541,7 @@ function applyHostMigration(msg) {
   hostEpoch += 1;
   netStateBuffer = [];
   recentHostFallByVictim.clear();
+  recentHostCollisionFxByPair.clear();
   // * Host migration is no longer silent — every client gets the PA callout
   // * and the HUD host glyph moves to the new host's chip on the next frame.
   const newHostSlot = Array.isArray(netSlots)

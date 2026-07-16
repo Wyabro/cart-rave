@@ -1078,7 +1078,18 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
   // * Gated on fxIntensity > 0 — a real knockback impulse landed — so combo stays tied to
   // * actual rams (its pre-fix behavior). A contactless reverse shove or a solver-arrested
   // * head-on still credits the KO via recordHit above, but does NOT inflate the combo streak.
-  if ((isHost || callbacks?.localCart === rammer) && fxIntensity > 0 && attackerSlotIndex >= 0 && victimSlotIndex >= 0 && !victim.respawnAtMs && !victim.isSuddenDeathSpectator) {
+  // * isReconcileReplay: client prediction already applied combo/challenges on the live
+  // * path; replaying pending inputs must not re-increment tiers or double-count
+  // * combo_t2/t3/spill challenges (non-host reconcile at ~40 Hz).
+  if (
+    !callbacks?.isReconcileReplay
+    && (isHost || callbacks?.localCart === rammer)
+    && fxIntensity > 0
+    && attackerSlotIndex >= 0
+    && victimSlotIndex >= 0
+    && !victim.respawnAtMs
+    && !victim.isSuddenDeathSpectator
+  ) {
     const maxTier = CONFIG.combo?.maxTier ?? 3;
     const decayMs = CONFIG.combo?.decayMs ?? 5000;
     rammer.comboTier = Math.min((rammer.comboTier || 0) + 1, maxTier);
