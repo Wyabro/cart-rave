@@ -4,8 +4,15 @@
 // magnitudes and a duration, matching how shake/impulse intensity already flows.
 
 /**
- * Fires one haptic pulse on the first connected gamepad with a rumble actuator,
+ * Fires one haptic pulse on EVERY connected gamepad with any rumble capability,
  * plus a `navigator.vibrate` fallback pulse for touch devices.
+ *
+ * Playtest 2026-07-16: controller rumble read as absent. Two robustness holes fixed:
+ * (1) the old loop stopped at the FIRST pad exposing `vibrationActuator` — Chrome keeps
+ * stale/phantom entries in `getGamepads()`, so the pulse could land on a dead slot while
+ * the pad in hand stayed silent; every connected pad gets the pulse now. (2) Firefox
+ * exposes rumble via `pad.hapticActuators[0].pulse(value, duration)` (no
+ * `vibrationActuator` at all) — that spec variant is now a fallback path.
  *
  * @param {number} strong 0..1 strong-motor (low frequency) magnitude.
  * @param {number} weak 0..1 weak-motor (high frequency) magnitude.
@@ -20,13 +27,24 @@ export function hapticPulse(strong, weak, durationMs) {
     const pads = navigator.getGamepads?.() ?? [];
     for (const pad of pads) {
       if (!pad?.connected) continue;
-      const actuator = /** @type {any} */ (pad).vibrationActuator;
+      const anyPad = /** @type {any} */ (pad);
+      const actuator = anyPad.vibrationActuator;
       if (actuator?.playEffect) {
         // * playEffect returns a promise that rejects when a newer effect preempts
         // * this one — expected during rapid impacts, so swallow it.
-        actuator.playEffect("dual-rumble", { duration, strongMagnitude, weakMagnitude })
-          .catch(() => {});
-        break;
+        try {
+          actuator.playEffect("dual-rumble", { duration, strongMagnitude, weakMagnitude })
+            .catch(() => {});
+        } catch { /* per-pad — keep pulsing the others */ }
+        continue;
+      }
+      // * Firefox / older Gamepad Extensions spec: per-pad hapticActuators list.
+      const legacy = anyPad.hapticActuators?.[0];
+      if (legacy?.pulse) {
+        try {
+          const p = legacy.pulse(Math.max(strongMagnitude, weakMagnitude), duration);
+          p?.catch?.(() => {});
+        } catch { /* per-pad — keep pulsing the others */ }
       }
     }
   } catch {}
