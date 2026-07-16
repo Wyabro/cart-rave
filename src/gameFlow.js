@@ -7,6 +7,7 @@ import { getCurrentLevelId } from "./levelManager.js";
 import { buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
+import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 
 /**
  * @typedef {object} GameFlowDeps
@@ -137,7 +138,7 @@ export function updateGameFlow(deps, context) {
     const roundNowMs = typeof context.roundNowMs === "number" && Number.isFinite(context.roundNowMs)
       ? context.roundNowMs
       : getRoundClockNowMs();
-    const roundDurationMs = deps.CONFIG.round?.durationMs ?? 60000;
+    const roundDurationMs = deps.CONFIG.round?.durationMs ?? ROUND_DURATION_MS;
 
     if (
       !isTestDrive
@@ -411,7 +412,14 @@ export function updateGameFlow(deps, context) {
           aliveOnArena += 1;
           soleSurvivorSlot = si;
         }
-        if (aliveOnArena === 1 && soleSurvivorSlot >= 0) {
+        // * Last-cart-standing flourish is SD-only: timed-round respawn is 1s while the
+        // * flourish is 3s, so victims return and abort the flourish every time (AGENTS).
+        // * Scheduling mid-timed-round only spams host_round + slow-mo for nothing.
+        if (
+          aliveOnArena === 1
+          && soleSurvivorSlot >= 0
+          && deps.getRoundState().isSuddenDeath
+        ) {
           deps.scheduleLastCartStandingFinish?.(soleSurvivorSlot);
         } else if (aliveOnArena === 0 && deps.getRoundState().isSuddenDeath) {
           // * Simultaneous Sudden Death wipeout: the last tied carts all crossed the
@@ -629,7 +637,7 @@ export function ensureSuddenDeathOnHostPromote(opts) {
     return "reconstruct";
   }
 
-  const duration = Number.isFinite(durationMs) ? durationMs : 60000;
+  const duration = Number.isFinite(durationMs) ? durationMs : ROUND_DURATION_MS;
   if (!(startedAtMs > 0 && nowMs - startedAtMs >= duration)) {
     return "none";
   }

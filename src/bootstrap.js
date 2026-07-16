@@ -328,6 +328,8 @@ export async function enterPlayMode(opts = {}) {
       await ensureWorldBootstrapped(levelId);
     } else {
       // * Same full-quality arena: still promote deferred extras / materials / reflector.
+      // * Mark warm so mode-entry can skip most of the artificial min-visible floor.
+      reportProgress(88, "Arena ready…", { warm: true });
       d.finalizeArenaForPlay();
     }
 

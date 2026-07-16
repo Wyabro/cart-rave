@@ -1,5 +1,6 @@
 // gameStore.js — Vanilla Zustand store for match & round lifecycle state.
 import { createStore } from "zustand/vanilla";
+import { CONFIG } from "../config.js";
 import { getRoundClockNowMs } from "../roundClock.js";
 
 export const RoundPhase = {
@@ -28,8 +29,10 @@ export const gameStore = createStore((set, get) => ({
   localComboMultiplier: 1.0,
 
   setLocalCombo: (tier, expiryMs) => {
-    const mult = tier === 1 ? 1.5 : tier === 2 ? 2.0 : tier === 3 ? 3.0 : 1.0;
-    set({ localComboTier: tier, localComboExpiryMs: expiryMs, localComboMultiplier: mult });
+    // * Single source with scoring: CONFIG.combo.tiers (do not hardcode multipliers here).
+    const t = Math.max(0, Math.min(3, Number(tier) || 0));
+    const mult = CONFIG.combo?.tiers?.[t]?.multiplier ?? 1.0;
+    set({ localComboTier: t, localComboExpiryMs: expiryMs, localComboMultiplier: mult });
   },
 
   setRoundPhase: (phase) => set({ roundPhase: phase }),

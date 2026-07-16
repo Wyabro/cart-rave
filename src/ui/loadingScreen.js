@@ -9,8 +9,10 @@ import { storageGet, storageSet, STORAGE_KEYS } from "../utils/storage.js";
 
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
-/** Minimum time the mode-entry overlay stays up so fast paths remain visible. */
+/** Minimum time the mode-entry overlay stays up so cold paths remain visible. */
 const MIN_MODE_ENTRY_VISIBLE_MS = 720;
+/** Warm same-level path: skip most of the artificial floor (brand flash only). */
+const MIN_MODE_ENTRY_WARM_MS = 200;
 
 /** @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, subtitle: string, progress: string, messages: string[] }>} */
 const THEME_COPY = {
@@ -299,7 +301,9 @@ export function dismissInitialBootSplash() {
   // * finishes at 46% of the 2800ms loop (~1290ms), so 1300ms keeps the crash
   // * beat while dropping ~1.7s of artificial wait on every repeat launch.
   const returning = storageGet(STORAGE_KEYS.bootSeen) === "1";
-  const MIN_BOOT_MS = import.meta.env.DEV ? 0 : returning ? 1300 : 3000;
+  // * First visit still shows the crash beat (~1.3s of the loop) plus a short brand
+  // * hold; 3s was pure friction after assets were already ready.
+  const MIN_BOOT_MS = import.meta.env.DEV ? 0 : returning ? 1300 : 1600;
   const elapsed = performance.now() - (window.bootStartTime || 0);
   const delay = Math.max(0, MIN_BOOT_MS - elapsed);
 
@@ -442,12 +446,13 @@ export function yieldForPaint() {
 }
 
 /**
- * Holds the overlay until MIN_MODE_ENTRY_VISIBLE_MS has elapsed since show.
+ * Holds the overlay until the min visible budget has elapsed since show.
  * @param {number} shownAt `performance.now()` when the overlay was shown.
+ * @param {number} [minMs=MIN_MODE_ENTRY_VISIBLE_MS]
  * @returns {Promise<void>}
  */
-async function ensureMinModeEntryVisible(shownAt) {
-  const remaining = MIN_MODE_ENTRY_VISIBLE_MS - (performance.now() - shownAt);
+async function ensureMinModeEntryVisible(shownAt, minMs = MIN_MODE_ENTRY_VISIBLE_MS) {
+  const remaining = minMs - (performance.now() - shownAt);
   if (remaining > 0) {
     await new Promise((resolve) => {
       window.setTimeout(resolve, remaining);
@@ -456,14 +461,21 @@ async function ensureMinModeEntryVisible(shownAt) {
 }
 
 /**
- * @param {(reportProgress: (pct: number, label: string) => void) => Promise<void> | void} task
- * @param {{ gameMode?: string | null, levelId?: string | null, onShown?: () => void }} opts
+ * @param {(reportProgress: (pct: number, label: string, meta?: { warm?: boolean }) => void) => Promise<void> | void} task
+ * @param {{ gameMode?: string | null, levelId?: string | null, onShown?: () => void, minVisibleMs?: number | null }} opts
+ *   `minVisibleMs` — override the floor (e.g. warm path). Pass null to decide inside task via report.
  * @returns {Promise<void>}
  */
 export async function withModeEntryLoading(task, opts = {}) {
   const { gameMode, levelId, onShown } = opts;
   const isOwner = modeEntryDepth === 0;
   modeEntryDepth += 1;
+  /** @type {{ minVisibleMs: number }} */
+  const loadMeta = {
+    minVisibleMs: typeof opts.minVisibleMs === "number"
+      ? opts.minVisibleMs
+      : MIN_MODE_ENTRY_VISIBLE_MS,
+  };
 
   if (isOwner) {
     modeEntryShownAt = performance.now();
@@ -472,15 +484,26 @@ export async function withModeEntryLoading(task, opts = {}) {
     await yieldForPaint();
   }
 
+  /**
+   * Progress reporter; optional 3rd arg `{ warm: true }` shortens the min-visible floor.
+   * @param {number} pct
+   * @param {string} label
+   * @param {{ warm?: boolean }} [meta]
+   */
+  const report = (pct, label, meta) => {
+    reportProgress(pct, label);
+    if (meta?.warm) loadMeta.minVisibleMs = MIN_MODE_ENTRY_WARM_MS;
+  };
+
   try {
-    await task(reportProgress);
+    await task(report);
   } catch (err) {
     console.error("[CartClash] Mode entry bootstrap failed:", err);
     throw err;
   } finally {
     modeEntryDepth -= 1;
     if (isOwner) {
-      await ensureMinModeEntryVisible(modeEntryShownAt);
+      await ensureMinModeEntryVisible(modeEntryShownAt, loadMeta.minVisibleMs);
       await dismissModeEntryLoading();
     }
   }

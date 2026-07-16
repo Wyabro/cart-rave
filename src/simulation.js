@@ -2,7 +2,7 @@
 
 import * as THREE from "three";
 import { RAPIER } from "./physics/rapierInstance.js";
-import { CONFIG, BASELINE_CONFIG } from "./config.js";
+import { CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 import { getNpcPersonality } from "./npcNames.js";
@@ -2602,12 +2602,6 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     }
   }
   return { forward, turn };
-}
-
-// Note: roundPhase is intentionally left as external reference for now
-// (will be cleaned when gameState.js is extracted)
-export function setRoundPhase(phase) {
-  GameState.setRoundPhase(phase);
 }
 
 function ensurePreStepLinvel(cart) {

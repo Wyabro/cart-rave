@@ -87,6 +87,8 @@ export class CartRaveServer extends Server {
   readonly #lastSeenAtMs = new Map<string, number>();
   #lastReapAtMs: number = 0;
   #countdownTimerHandle: ReturnType<typeof setTimeout> | null = null;
+  /** Rematch grace before auto-ready arms countdown (lets humans unready / breathe). */
+  #rematchGraceTimerHandle: ReturnType<typeof setTimeout> | null = null;
   #npcNameDeck: string[] = [];
 
   // Security: Rate limiting state
@@ -1027,6 +1029,10 @@ export class CartRaveServer extends Server {
           clearTimeout(this.#countdownTimerHandle);
           this.#countdownTimerHandle = null;
         }
+        if (this.#rematchGraceTimerHandle !== null) {
+          clearTimeout(this.#rematchGraceTimerHandle);
+          this.#rematchGraceTimerHandle = null;
+        }
         this.#round = this.#freshRoundLobby();
         this.#countdownArmed = false;
         this.#carts = [];
@@ -1041,7 +1047,12 @@ export class CartRaveServer extends Server {
           slots: this.#slots,
         });
         this.#broadcastRound();
-        this.#checkAllReady();
+        // * 2s grace before arming countdown — kills the lobby-flash→instant-3-2-1
+        // * feel; humans can still unready or leave during the window.
+        this.#rematchGraceTimerHandle = setTimeout(() => {
+          this.#rematchGraceTimerHandle = null;
+          this.#checkAllReady();
+        }, 2000);
         return;
       }
 

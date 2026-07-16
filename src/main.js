@@ -197,6 +197,7 @@ import {
   ensureSuddenDeathOnHostPromote,
 } from "./gameFlow.js";
 import { getRoundClockNowMs } from "./roundClock.js";
+import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
@@ -422,9 +423,6 @@ async function flushPendingSessionBootstrap() {
 
 function syncRoundPhase(phase) {
   GameState.setRoundPhase(phase);
-  try {
-    Simulation.setRoundPhase(phase);
-  } catch (e) {}
 }
 /** @type {((msg: object) => void) | null} */
 let onGameStartHandler = null;
@@ -481,6 +479,15 @@ let autoContinuePodiumTimeoutId = null;
 let autoContinuePodiumDeadlineMs = 0;
 /** @type {string | null} */
 let autoContinuePodiumKey = null;
+/**
+ * Non-host local estimate of the host auto-continue deadline (same 5s/10s delays).
+ * Label-only — host may rematch earlier. Cleared when leaving podium.
+ */
+let clientPodiumAutoContinueDeadlineMs = 0;
+/** Solo/testdrive ESC pause: round-clock freeze start (getRoundClockNowMs). */
+let soloPauseStartedAtMs = null;
+/** @type {number | null} Remaining countdown ms when ESC paused mid-countdown. */
+let soloPauseCountdownRemainingMs = null;
 /** Key for the active podium camera presentation (`startedAtMs:winner`). */
 let podiumCameraKey = null;
 /** Round key (startedAtMs) whose first-blood KO has already been escalated. */
@@ -1203,7 +1210,7 @@ async function main() {
     getRemainingRoundMs: () => {
       const rs = GameState.getRoundState();
       if (rs.phase !== "running" || rs.isSuddenDeath || !rs.startedAtMs) return null;
-      const durationMs = CONFIG.round?.durationMs ?? 60000;
+      const durationMs = CONFIG.round?.durationMs ?? ROUND_DURATION_MS;
       // * startedAtMs is host-stamped after countdown — use host clock offset (NET-CLK-1).
       const adjusted = getRoundClockNowMs() - Netcode.getHostClockOffsetMs();
       return durationMs - (adjusted - rs.startedAtMs);
@@ -1439,6 +1446,23 @@ async function main() {
     };
   }
 
+  /**
+   * Multiplayer (quickplay/friends) arena-ready hook — same cold-load gate as solo:
+   * keep mode-entry overlay until netcode hello + carts + shader warm finish (NET-2).
+   * @param {string} modeLabel
+   * @param {string} [roomOverride]
+   * @returns {(report: (pct: number, label: string) => void) => Promise<void>}
+   */
+  function makeMultiplayerArenaReadyHook(modeLabel, roomOverride) {
+    return async (report) => {
+      report?.(94, "Connecting…");
+      if (!bootstrapNetcodeFromMenu(modeLabel, roomOverride)) return;
+      report?.(97, "Rolling out carts…");
+      await ensureSessionCartsReady();
+      Netcode.reapplyCachedCartsSnapshot?.();
+    };
+  }
+
   function initMenu() {
     noteBootMilestone(90);
     menuVisible = true;
@@ -1532,9 +1556,11 @@ async function main() {
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
     if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
-      void enterPlayMode({ gameMode: "quickplay", commitMenuHidden: false })
-        .then(() => bootstrapNetcodeFromMenu("Quickplay"))
-        .catch((err) => onMenuBootstrapError("Quickplay", err));
+      void enterPlayMode({
+        gameMode: "quickplay",
+        commitMenuHidden: false,
+        onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
+      }).catch((err) => onMenuBootstrapError("Quickplay", err));
       return;
     }
 
@@ -1571,9 +1597,11 @@ async function main() {
         if (!room) return;
         pendingInviteRoomFromUrl = null;
         document.getElementById("cr-btn-join-invite")?.remove();
-        void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
-          .then(() => bootstrapNetcodeFromMenu("Friends", room))
-          .catch((err) => onMenuBootstrapError("Friends", err));
+        void enterPlayMode({
+          gameMode: "friends",
+          commitMenuHidden: false,
+          onArenaReady: makeMultiplayerArenaReadyHook("Friends", room),
+        }).catch((err) => onMenuBootstrapError("Friends", err));
         return;
       }
       pendingInviteRoomFromUrl = null;
@@ -1592,9 +1620,11 @@ async function main() {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
-        void enterPlayMode({ gameMode: "quickplay", commitMenuHidden: false })
-          .then(() => bootstrapNetcodeFromMenu("Quickplay"))
-          .catch((err) => onMenuBootstrapError("Quickplay", err));
+        void enterPlayMode({
+          gameMode: "quickplay",
+          commitMenuHidden: false,
+          onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
+        }).catch((err) => onMenuBootstrapError("Quickplay", err));
       } else if (action === "friends") {
         const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
         const url = new URL(window.location.href);
@@ -1662,9 +1692,11 @@ async function main() {
             document.removeEventListener("keydown", onFriendsKeydown);
             friendsScreen.style.display = "none";
             friendsScreen.setAttribute("aria-hidden", "true");
-            void enterPlayMode({ gameMode: "friends", commitMenuHidden: false })
-              .then(() => bootstrapNetcodeFromMenu("Friends"))
-              .catch((err) => onMenuBootstrapError("Friends", err));
+            void enterPlayMode({
+              gameMode: "friends",
+              commitMenuHidden: false,
+              onArenaReady: makeMultiplayerArenaReadyHook("Friends"),
+            }).catch((err) => onMenuBootstrapError("Friends", err));
           };
         }
         if (friendsBack) friendsBack.onclick = closeFriendsScreen;
@@ -1886,6 +1918,9 @@ async function main() {
       } else {
         updateTouchControlsVisibility();
       }
+      // * Solo/testdrive: real pause (freeze sim + round clock). Online modes leave
+      // * authority running — host can't pause everyone from one client's ESC.
+      handleSoloPauseOverlay(open);
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
     // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
@@ -2748,6 +2783,16 @@ async function main() {
       if (isHost) {
         playAgain.textContent = "PLAY AGAIN";
       } else {
+        // * Arm a local auto-continue estimate so non-hosts see a countdown, not a
+        // * dead "WAITING FOR HOST…" with no sense of when the next round starts.
+        const mode = detectGameMode();
+        if (
+          (mode === "quickplay" || mode === "friends")
+          && !clientPodiumAutoContinueDeadlineMs
+        ) {
+          const delayMs = mode === "friends" ? 10000 : 5000;
+          clientPodiumAutoContinueDeadlineMs = performance.now() + delayMs;
+        }
         playAgain.innerHTML = `<span style="opacity:.8;margin-right:6px;">${svgIcon("host", { label: "Host" })}</span>WAITING FOR HOST…`;
       }
 
@@ -2839,7 +2884,7 @@ async function main() {
       const historyLimit = isTouchDevice() ? 2 : matchHistory.length;
       if (matchHistory.length === 0) {
         const emptyRow = document.createElement("div");
-        emptyRow.textContent = "No prior matches this session.";
+        emptyRow.textContent = "No prior rounds this session.";
         history.appendChild(emptyRow);
       } else {
         const startIdx = Math.max(0, matchHistory.length - historyLimit);
@@ -3154,6 +3199,8 @@ async function main() {
     // * live, retry the swap so the joiner ends up on the room's arena, not their
     // * own menu pick.
     void drainPendingArenaRotation();
+    // * NET-2: hello may have cached a spawn snapshot before bodies existed.
+    Netcode.reapplyCachedCartsSnapshot?.();
     return carts;
   }
 
@@ -3282,7 +3329,6 @@ async function main() {
     initMenu,
     resetRoundState: () => {
       GameState.resetRoundToLobby();
-      try { Simulation.setRoundPhase("lobby"); } catch (e) {}
       clearPodiumPresentation();
       CameraMod.endCinematicCountdown(camera);
     },
@@ -3869,7 +3915,7 @@ async function main() {
       isSuddenDeath: roundState.isSuddenDeath,
       startedAtMs: roundState.startedAtMs,
       nowMs: getRoundClockNowMs(),
-      durationMs: CONFIG.round?.durationMs ?? 60000,
+      durationMs: CONFIG.round?.durationMs ?? ROUND_DURATION_MS,
       scores: GameState.getRoundScores() || {},
       netSlots: Netcode.getNetSlots(),
       allCarts: allCartsRef,
@@ -3907,6 +3953,7 @@ async function main() {
     resetResultsOverlayKey: () => { lastResultsOverlayKey = null; },
     resetPodiumSessionState: () => {
       autoContinuePodiumKey = null;
+      clientPodiumAutoContinueDeadlineMs = 0;
       lastResultsOverlayKey = null;
       clearPodiumPresentation();
     },
@@ -3991,6 +4038,7 @@ async function main() {
       clearTimeout(autoContinuePodiumTimeoutId);
       autoContinuePodiumTimeoutId = null;
     }
+    clientPodiumAutoContinueDeadlineMs = 0;
   }
   podiumAutoContinue.clear = clearAutoContinuePodiumTimeout;
 
@@ -4020,13 +4068,67 @@ async function main() {
     }, delayMs);
   }
 
-  /** Ticks the host's PLAY AGAIN label ("PLAY AGAIN (7)") while an auto-continue is armed. */
+  /**
+   * Ticks rematch labels while auto-continue is armed:
+   * host → "PLAY AGAIN (n)"; non-host → "STARTING IN (n)…" (local estimate).
+   */
   function updatePlayAgainCountdownLabel(playAgain) {
-    if (!playAgain || !Netcode.getIsHost()) return;
-    if (autoContinuePodiumTimeoutId == null || !autoContinuePodiumDeadlineMs) return;
-    const secs = Math.max(0, Math.ceil((autoContinuePodiumDeadlineMs - performance.now()) / 1000));
-    const next = `PLAY AGAIN (${secs})`;
+    if (!playAgain) return;
+    if (Netcode.getIsHost()) {
+      if (autoContinuePodiumTimeoutId == null || !autoContinuePodiumDeadlineMs) return;
+      const secs = Math.max(0, Math.ceil((autoContinuePodiumDeadlineMs - performance.now()) / 1000));
+      const next = `PLAY AGAIN (${secs})`;
+      if (playAgain.textContent !== next) playAgain.textContent = next;
+      return;
+    }
+    if (!clientPodiumAutoContinueDeadlineMs) return;
+    const secs = Math.max(0, Math.ceil((clientPodiumAutoContinueDeadlineMs - performance.now()) / 1000));
+    const next = `STARTING IN (${secs})…`;
     if (playAgain.textContent !== next) playAgain.textContent = next;
+  }
+
+  /**
+   * Solo/testdrive ESC: freeze round clock + countdown timeout so pause is real.
+   * @param {boolean} open
+   */
+  function handleSoloPauseOverlay(open) {
+    const mode = detectGameMode();
+    if (mode !== "solo" && mode !== "testdrive") return;
+    if (open) {
+      if (soloPauseStartedAtMs != null) return;
+      soloPauseStartedAtMs = getRoundClockNowMs();
+      if (roundCountdownTimeoutId != null) {
+        const state = GameState.getRoundState();
+        const startsAt = (state.countdownStartedAtMs || 0) + 3000;
+        soloPauseCountdownRemainingMs = Math.max(0, startsAt - getRoundClockNowMs());
+        clearRoundCountdownTimeout();
+      }
+      return;
+    }
+    if (soloPauseStartedAtMs != null) {
+      const delta = getRoundClockNowMs() - soloPauseStartedAtMs;
+      soloPauseStartedAtMs = null;
+      if (delta > 0) {
+        const state = GameState.getRoundState();
+        if (state.phase === "running" && state.startedAtMs > 0) {
+          GameState.setRoundStartedAtMs(state.startedAtMs + delta);
+        }
+        if (state.phase === "countdown" && state.countdownStartedAtMs > 0) {
+          GameState.setRoundCountdownStartedAtMs(state.countdownStartedAtMs + delta);
+        }
+      }
+    }
+    if (soloPauseCountdownRemainingMs != null) {
+      const remaining = soloPauseCountdownRemainingMs;
+      soloPauseCountdownRemainingMs = null;
+      if (GameState.getRoundState().phase === "countdown" && Netcode.getIsHost()) {
+        const startsAtLocalMs = getRoundClockNowMs() + remaining;
+        roundCountdownTimeoutId = setTimeout(() => {
+          roundCountdownTimeoutId = null;
+          if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
+        }, remaining);
+      }
+    }
   }
 
   function currentCartSnapshot() {
@@ -4284,7 +4386,15 @@ async function main() {
   });
 
   runGameLoop(gameCtx.loopState, {
-    shouldSkipTiming: () => menuVisible,
+    shouldSkipTiming: () => {
+      if (menuVisible) return true;
+      // * Solo/testdrive ESC freezes physics + frame timing (real pause).
+      if (HUD.isEscOverlayVisible()) {
+        const mode = detectGameMode();
+        if (mode === "solo" || mode === "testdrive") return true;
+      }
+      return false;
+    },
     onFrame(frameCtx) {
     gameCtx.setFrameCtx(frameCtx);
     const isUiActive = menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium";

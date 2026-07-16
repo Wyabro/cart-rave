@@ -303,8 +303,8 @@ let callbacks = {
   // * Host optimistic podium rejected by server — tear down results/cam and resume running.
   onPodiumRejected: () => {},
 
-  // Session lifecycle
-  ensureSessionReady: () => {},
+  // Session lifecycle — may return a Promise (cart bootstrap + warm); callers await when present.
+  ensureSessionReady: () => /** @type {void | Promise<unknown>} */ (undefined),
   endCinematicCountdown: () => {},
   teleportCartToSpawn: (slotIndex) => {},
 };
@@ -911,6 +911,14 @@ function applyCartsSnapshotToBodies(carts) {
     if (!cart || !snap) continue;
     applyCartState(cart, snap, { interpolate: false });
   }
+}
+
+/**
+ * Re-applies the last hello/host carts snapshot once bodies exist (NET-2).
+ * Hello may arrive before cart bootstrap; apply is a no-op until bodies exist.
+ */
+export function reapplyCachedCartsSnapshot() {
+  if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
 }
 
 /**
@@ -1855,10 +1863,9 @@ export function initNetcode(roomOverride) {
         callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
       }
       callbacks.markFirstHelloReceived();
-      try { callbacks.ensureSessionReady(); } catch {}
-
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
+        // * Bodies may not exist yet (NET-2 cold join) — reapply after cart bootstrap.
         applyCartsSnapshotToBodies(msg.carts);
       }
 
@@ -1866,6 +1873,8 @@ export function initNetcode(roomOverride) {
       // * Host peer offers are opened from requestTurnCredentialsAndOpenPeers (TURN-gated).
 
       // * Enter game only after server hello — menu stays up while connecting.
+      // * Await cart bootstrap before hideMenu so mid-round joiners don't drive a
+      // * weld-at-spawn cart while shaders/Rapier are still compiling (NET-2 residual).
       const colorToSend = resolveServerColorPick();
       if (partySocket && partySocket.readyState === WebSocket.OPEN) {
         sendColorPick(colorToSend);
@@ -1873,24 +1882,42 @@ export function initNetcode(roomOverride) {
           callbacks.setPendingMidRoundJoinRespawnConnId(youConnId);
         }
       }
-      callbacks.hideMenuRef();
 
-      callbacks.updateCartMaterialsFromSlots(msg.slots);
-      callbacks.updateHudColorsFromSlots(msg.slots);
-      callbacks.scheduleNameLabelUpdate();
+      const finishHelloEnter = () => {
+        reapplyCachedCartsSnapshot();
+        callbacks.hideMenuRef();
+        callbacks.updateCartMaterialsFromSlots(msg.slots);
+        callbacks.updateHudColorsFromSlots(msg.slots);
+        callbacks.scheduleNameLabelUpdate();
 
-      if (!didAutoReadyOnOpen && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
-        didAutoReadyOnOpen = true;
-        setTimeout(() => {
-          if (
-            partySocket &&
-            partySocket.readyState === WebSocket.OPEN &&
-            (callbacks.detectGameMode() === "quickplay" || callbacks.detectGameMode() === "solo")
-          ) {
-            partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-          }
-        }, 400);
+        if (!didAutoReadyOnOpen && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
+          didAutoReadyOnOpen = true;
+          setTimeout(() => {
+            if (
+              partySocket &&
+              partySocket.readyState === WebSocket.OPEN &&
+              (callbacks.detectGameMode() === "quickplay" || callbacks.detectGameMode() === "solo")
+            ) {
+              partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
+            }
+          }, 400);
+        }
+      };
+
+      /** @type {unknown} */
+      let readyResult;
+      try {
+        readyResult = callbacks.ensureSessionReady();
+      } catch {
+        readyResult = null;
       }
+      const safeReady = readyResult != null && typeof (/** @type {{ then?: unknown }} */ (readyResult)).then === "function"
+        ? /** @type {Promise<unknown>} */ (readyResult)
+        : Promise.resolve();
+      void safeReady.then(finishHelloEnter).catch(() => {
+        // * Never softlock the join — enter even if cart warm fails.
+        finishHelloEnter();
+      });
       return;
     }
 

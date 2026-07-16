@@ -19,6 +19,7 @@ import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
 import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots } from "./netcode.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
+import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
 import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
@@ -360,16 +361,15 @@ export function pickKillFeedVerb(hit) {
  * @returns {string}
  */
 export function pickSelfDeathVerb() {
+  // * Prefer style-guide self-fall term; keep a short pool for variety.
   const verbs = [
+    "SELF CHECKOUT",
+    "SELF CHECKOUT",
     "FELL OFF",
     "ATE PAVEMENT",
     "TAPPED OUT",
-    "SELF-DESTRUCTED",
-    "NOPED OUT",
-    "RAGE QUIT",
     "FORGOT THE BRAKES",
     "TOOK A SHORTCUT",
-    "LEFT THE CHAT",
   ];
   return verbs[Math.floor(Math.random() * verbs.length)];
 }
@@ -406,7 +406,7 @@ function isMatchPointState(roundState) {
   const startedAtMs = roundState.startedAtMs || 0;
   if (!startedAtMs) return false;
   const totalRoundMs = roundState.totalRoundMs
-    ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
+    ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : ROUND_DURATION_MS);
   const remainingMs = getRoundRemainingMs(startedAtMs, totalRoundMs, adjustedNow());
   if (remainingMs == null || remainingMs > 15000 || remainingMs <= 0) return false;
   const scores = roundState.scores || {};
@@ -557,7 +557,7 @@ function updateTimer(roundState, matchHistoryLength) {
   if (roundPhase === "running") {
     const isSuddenDeath = roundState?.isSuddenDeath === true;
     const totalRoundMs = roundState?.totalRoundMs
-      ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : 60000);
+      ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : ROUND_DURATION_MS);
     const remainingMs = isSuddenDeath
       ? 0
       : (getRoundRemainingMs(roundStartedAtMs || 0, totalRoundMs, adjustedNow()) ?? totalRoundMs);
@@ -821,16 +821,21 @@ function syncRowIndicators(entry, isLeader) {
 function updateScores(roundState, netSlots, youConnId) {
   const roundPhase = roundState?.phase;
   const roundScores = roundState?.scores;
+  const isSolo = _options.detectGameMode?.() === "solo";
+  // * Lobby/countdown roster: show names + ready state so Friends/Quickplay aren't dark.
+  const isLobbyRoster = (roundPhase === "lobby" || roundPhase === "countdown") && !isSolo;
 
-  if (roundPhase === "running") {
+  if (roundPhase === "running" || isLobbyRoster) {
     setHudDisplay(elements.scores, "flex", "scores");
     const localIdx = netSlots ? netSlots.findIndex((s) => s && s.kind === "human" && s.connId === youConnId) : -1;
 
     let dataChanged = false;
     for (let i = 0; i < 4; i += 1) {
-      const score = Number(roundScores?.[i] ?? 0);
+      const score = isLobbyRoster
+        ? (netSlots?.[i]?.kind === "human" ? (netSlots[i].isReady ? 1 : 0) : -1)
+        : Number(roundScores?.[i] ?? 0);
       const slot = netSlots?.[i];
-      const meta = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}`;
+      const meta = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}:${slot?.isReady ? 1 : 0}`;
       if (_lastScores[i] !== score || _lastSlotMeta[i] !== meta) {
         dataChanged = true;
       }
@@ -842,8 +847,10 @@ function updateScores(roundState, netSlots, youConnId) {
       prevScoresBySlot = _lastScores.slice();
       for (let i = 0; i < 4; i += 1) {
         const slot = netSlots?.[i];
-        _lastScores[i] = Number(roundScores?.[i] ?? 0);
-        _lastSlotMeta[i] = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}`;
+        _lastScores[i] = isLobbyRoster
+          ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
+          : Number(roundScores?.[i] ?? 0);
+        _lastSlotMeta[i] = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}:${slot?.isReady ? 1 : 0}`;
       }
     }
 
@@ -853,27 +860,37 @@ function updateScores(roundState, netSlots, youConnId) {
         const slot = netSlots?.[i];
         nextRows.push({
           slotIndex: i,
-          score: Number(roundScores?.[i] ?? 0),
+          score: isLobbyRoster
+            ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
+            : Number(roundScores?.[i] ?? 0),
           slotName: slot?.name || `P${i + 1}`,
           slotColor: slot?.color || null,
           kind: slot?.kind ?? "",
           connId: slot?.connId || null,
+          isReady: Boolean(slot?.isReady),
         });
       }
-      nextRows.sort((a, b) => compareScoreboardDisplayOrder(a, b, youConnId));
+      // * Lobby: seat order (stable roster). Running: score rank order.
+      if (isLobbyRoster) {
+        nextRows.sort((a, b) => a.slotIndex - b.slotIndex);
+      } else {
+        nextRows.sort((a, b) => compareScoreboardDisplayOrder(a, b, youConnId));
+      }
       _sortedScoreRows = nextRows;
     }
     _lastLocalIdx = localIdx;
 
     if (dataChanged || localChanged) {
       const rows = _sortedScoreRows || [];
-      const ranks = scoreRanksBySlot(rows);
+      const ranks = isLobbyRoster ? null : scoreRanksBySlot(rows);
       for (let pos = 0; pos < 4; pos += 1) {
         const entry = elements.scoreBoxes[pos];
         const row = rows[pos];
         if (!entry || !row) continue;
 
-        entry.rank.textContent = String(ranks.get(row.slotIndex) ?? pos + 1);
+        entry.rank.textContent = isLobbyRoster
+          ? String(row.slotIndex + 1)
+          : String(ranks?.get(row.slotIndex) ?? pos + 1);
         entry.label.textContent = row.slotName;
 
         const slot = netSlots?.[row.slotIndex];
@@ -896,7 +913,7 @@ function updateScores(roundState, netSlots, youConnId) {
         }
 
         const isLocal = row.slotIndex === localIdx;
-        if (dataChanged && prevScoresBySlot) {
+        if (dataChanged && prevScoresBySlot && !isLobbyRoster) {
           const oldScore = Number(prevScoresBySlot[row.slotIndex] ?? 0);
           if (row.score > oldScore) {
             animateScorePop(entry.value, { isLocal });
@@ -905,7 +922,17 @@ function updateScores(roundState, netSlots, youConnId) {
             }
           }
         }
-        entry.value.textContent = String(row.score);
+        if (isLobbyRoster) {
+          if (row.kind === "human") {
+            entry.value.textContent = row.isReady ? "RDY" : "…";
+          } else if (row.kind === "npc") {
+            entry.value.textContent = "BOT";
+          } else {
+            entry.value.textContent = "—";
+          }
+        } else {
+          entry.value.textContent = String(row.score);
+        }
 
         if (slot) {
           if (!entry.box.classList.contains("hud-scoreBox")) {
@@ -1009,7 +1036,18 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
   const localSlot = netSlots?.find((s) => s && s.connId === youConnId);
   const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
   if (roundPhase === "lobby" && !menuVisible && !isSolo) {
-    const nextText = isLocalReady ? "READY!" : "READY UP!";
+    // * Roster ready count so multiplayer lobby isn't a dark button with no context.
+    let humanTotal = 0;
+    let humanReady = 0;
+    if (Array.isArray(netSlots)) {
+      for (const s of netSlots) {
+        if (!s || s.kind !== "human") continue;
+        humanTotal += 1;
+        if (s.isReady) humanReady += 1;
+      }
+    }
+    const countSuffix = humanTotal > 1 ? ` (${humanReady}/${humanTotal})` : "";
+    const nextText = (isLocalReady ? "READY!" : "READY UP!") + countSuffix;
     elements.readyBtn.style.display = "block";
     if (elements.readyBtn.textContent !== nextText) {
       elements.readyBtn.textContent = nextText;

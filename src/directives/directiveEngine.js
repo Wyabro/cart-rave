@@ -36,6 +36,7 @@ import { CONFIG, MSG } from "../config.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { ANNOUNCER_EVENTS } from "../announcer/announcerEvents.js";
 import { getRoundClockNowMs } from "../roundClock.js";
+import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { DIRECTIVES } from "./directives.js";
 
 /**
@@ -250,7 +251,7 @@ export function updateDirectiveEngine(nowMs) {
   }
 
   // * Quiet finale — the window must fully clear the protected round tail.
-  const roundDurationMs = CONFIG.round?.durationMs ?? 150000;
+  const roundDurationMs = CONFIG.round?.durationMs ?? ROUND_DURATION_MS;
   if (roundElapsed + durationMs > roundDurationMs - (cfg.quietFinaleMs ?? 30000)) {
     scheduleIdx = fireSchedule.length;
     return;

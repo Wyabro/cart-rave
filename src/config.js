@@ -7,7 +7,6 @@
  *   - CONFIG_VERSION     — bump when tuning values change materially (debug / diff aid)
  *   - CONFIG             — runtime settings (debug, net, camera, audio, scoring, physics)
  *   - CONFIG.physics     — grouped physics / arena / cart tuning (flat aliases on CONFIG.*)
- *   - BASELINE_CONFIG    — snapshot of core driving feel for A/B comparisons
  *   - CART_COLORS / PALETTE — immutable cart color palette ("Original Rave")
  *   - MSG                — wire-protocol message type strings
  *   - WORKER_PUBLIC_HOST — deployed Cloudflare Worker host
@@ -568,15 +567,6 @@ CONFIG.cart.spawnHeight =
   CONFIG.booth.platformThickness / 2 +
   CONFIG.cart.size.y / 2 +
   0.05;
-
-export const BASELINE_CONFIG = {
-  accel: CONFIG.driving.accel,
-  maxSpeed: CONFIG.driving.maxSpeed,
-  linearDamping: CONFIG.cart.linearDamping,
-  angularDamping: CONFIG.cart.angularDamping,
-  lateralGrip: CONFIG.driving.lateralGrip,
-  driftGripFactor: CONFIG.driving.driftGripFactor,
-};
 
 export const CART_COLORS = {
   pink:       { hex: 0xff00ff, css: "bg-pink" },
