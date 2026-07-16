@@ -1,6 +1,7 @@
 // gameSession.js — connect → play → teardown → in-tab menu return
 
 import * as GameState from "./gameState.js";
+import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
 
 /**
  * Mutable callback refs shared between main(), netcode, and the game loop.
@@ -79,6 +80,8 @@ export function createHelloGate() {
  */
 function stripRoomFromUrl() {
   if (typeof window === "undefined") return;
+  // * Leaving the room makes any engaged-room refresh marker stale too.
+  sessionRemove(SESSION_KEYS.engagedRoom);
   const url = new URL(window.location.href);
   if (!url.searchParams.has("room")) return;
   url.searchParams.delete("room");

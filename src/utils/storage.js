@@ -48,6 +48,61 @@ export const STORAGE_KEYS = {
 };
 
 /**
+ * sessionStorage keys (per-tab, survive reload but not new tabs). Kept separate
+ * from STORAGE_KEYS so the persistent-vs-transient split stays visible.
+ */
+export const SESSION_KEYS = {
+  /**
+   * Room id (solo/testdrive) the tab actually entered gameplay in. Presence on
+   * boot means the ?room= URL is a mid-round refresh leftover, not a deep link —
+   * recover to the menu instead of auto-entering the room again.
+   */
+  engagedRoom: "cartRaveEngagedRoom",
+};
+
+/**
+ * @param {string} key
+ * @param {string | null} [fallback]
+ * @returns {string | null}
+ */
+export function sessionGet(key, fallback = null) {
+  try {
+    if (typeof sessionStorage === "undefined") return fallback;
+    const value = sessionStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * @param {string} key
+ * @param {string} value
+ * @returns {boolean} False when storage is unavailable or the quota is full.
+ */
+export function sessionSet(key, value) {
+  try {
+    if (typeof sessionStorage === "undefined") return false;
+    sessionStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} key
+ * @returns {void}
+ */
+export function sessionRemove(key) {
+  try {
+    if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * @param {string} key
  * @param {string | null} [fallback]
  * @returns {string | null}

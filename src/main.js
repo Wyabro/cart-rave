@@ -218,7 +218,7 @@ applyDebugBootSideEffects();
 }
 import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { installGlobalErrorReporting } from "./utils/errorReporter.js";
-import { STORAGE_KEYS, storageGet, storageSet, storageGetJson, storageSetJson } from "./utils/storage.js";
+import { STORAGE_KEYS, storageGet, storageSet, storageGetJson, storageSetJson, SESSION_KEYS, sessionGet, sessionSet, sessionRemove } from "./utils/storage.js";
 import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
 import { setUiMode as setGamepadUiMode } from "./input.js";
@@ -1488,7 +1488,24 @@ async function main() {
       }
     }
 
-    const room = Netcode.resolvedPartyRoomFromUrl();
+    let room = Netcode.resolvedPartyRoomFromUrl();
+
+    // * Mid-round refresh recovery: a solo/testdrive ?room= this tab already
+    // * entered gameplay in is a stale leftover, not a deep link. Strip it and
+    // * present a clean menu (harness/deep-link boots have no sessionStorage
+    // * marker, so their auto-enter below still works).
+    if (
+      room
+      && /^(solo|testdrive)/i.test(room)
+      && sessionGet(SESSION_KEYS.engagedRoom) === room
+    ) {
+      sessionRemove(SESSION_KEYS.engagedRoom);
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("room");
+      history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}`);
+      room = null;
+    }
+
     if (room && room.toLowerCase().startsWith("testdrive")) {
       void enterPlayMode({
         gameMode: "testdrive",
@@ -1709,6 +1726,13 @@ async function main() {
     AudioManager.stopMenuMusic();
     if (!isTestDrive) {
       AudioManager.playGameMusic();
+    }
+    // * Mark solo/testdrive rooms as "engaged" so a mid-round refresh recovers to
+    // * the menu instead of auto-restarting the room from the stale ?room= URL.
+    // * (Quickplay refresh deliberately auto-rejoins — see initMenu.)
+    const engagedRoom = Netcode.resolvedPartyRoomFromUrl();
+    if (engagedRoom && /^(solo|testdrive)/i.test(engagedRoom)) {
+      sessionSet(SESSION_KEYS.engagedRoom, engagedRoom);
     }
   }
 

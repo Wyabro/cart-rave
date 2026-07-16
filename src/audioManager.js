@@ -337,6 +337,8 @@ function materializeGamePlaylist(urls) {
 
 /** @returns {void} */
 export function playMenuMusic() {
+  // * Mirror of the playGameMusic() invariant — see comment there.
+  if (gameMusicPlaying) stopGameMusic();
   _menuMusicShouldPlay = true;
   if (!menuMusic) return;
   if (!devMusicGate) return;
@@ -357,6 +359,10 @@ export function stopMenuMusic() {
 
 /** @returns {void} */
 export function playGameMusic() {
+  // * Invariant: menu music and game music never play together. Every game-entry
+  // * flow is supposed to stop the menu track first, but flows keep growing
+  // * (refresh recovery, quickplay hello races) — enforce it here too.
+  stopMenuMusic();
   if (pendingGamePlaylistUrls?.length && gameMusicTracks.length === 0) {
     materializeGamePlaylist(pendingGamePlaylistUrls);
   }

@@ -64,6 +64,9 @@ import {
   setGamePlaylist,
   playGameMusic,
   stopGameMusic,
+  loadMenuMusic,
+  playMenuMusic,
+  stopMenuMusic,
 } from "../src/audioManager.js";
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
@@ -151,5 +154,51 @@ describe("gameplay playlist rotation", () => {
     tracks[0].emitEnd();
 
     expect(tracks.every((t) => !t.isPlaying)).toBe(true);
+  });
+});
+
+// * Playtest 2026-07-16: menu music kept playing over the in-game playlist. Every
+// * game-entry flow is supposed to call stopMenuMusic() first, but new flows
+// * (refresh recovery, quickplay hello races) kept missing it — the invariant now
+// * lives inside audioManager itself: the two music contexts never overlap.
+describe("menu/game music exclusivity", () => {
+  function menuTrack() {
+    return MockHowl.instances.find((h) => !h.opts.onend);
+  }
+
+  beforeEach(() => {
+    stopMenuMusic();
+    loadMenuMusic("menu.opus");
+  });
+
+  it("playGameMusic force-stops menu music even without an explicit stopMenuMusic", () => {
+    playMenuMusic();
+    expect(menuTrack().isPlaying).toBe(true);
+
+    playGameMusic();
+
+    expect(menuTrack().isPlaying).toBe(false);
+    expect(gameTracks()[0].isPlaying).toBe(true);
+  });
+
+  it("playGameMusic clears the menu play request so a late menu-track load stays silent", () => {
+    playMenuMusic();
+    playGameMusic();
+
+    // * html5-streamed menu Howl finishing its load after game entry must not
+    // * resurrect itself via the onload replay hook.
+    menuTrack().opts.onload?.call(menuTrack());
+
+    expect(menuTrack().isPlaying).toBe(false);
+  });
+
+  it("playMenuMusic force-stops game music (menu return)", () => {
+    playGameMusic();
+    expect(gameTracks()[0].isPlaying).toBe(true);
+
+    playMenuMusic();
+
+    expect(gameTracks().every((t) => !t.isPlaying)).toBe(true);
+    expect(menuTrack().isPlaying).toBe(true);
   });
 });

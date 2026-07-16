@@ -411,10 +411,11 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
     keys.delete(e.code);
   }
 
+  // * Window-only: key events on the focused canvas bubble to window anyway.
+  // * A duplicate canvas listener made every non-Escape key fire handlers twice
+  // * when the canvas had focus (in-game) — M-unmute double-toggled to a no-op.
   window.addEventListener("keydown", onKeyDown, { passive: false });
   window.addEventListener("keyup", onKeyUp, { passive: false });
-  canvas?.addEventListener("keydown", onKeyDown, { passive: false });
-  canvas?.addEventListener("keyup", onKeyUp, { passive: false });
 
   window.addEventListener("blur", () => {
     keys.clear();
