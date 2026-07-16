@@ -156,7 +156,7 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     interruptible: false,
     durationMs: 1400,
     callout: Object.freeze({ kicker: "EVERYBODY DOWN", accent: "#ffe53d", holdMs: 1800 }),
-    voice: Object.freeze({ key: "aisle_wipeout", variants: 2 }),
+    voice: Object.freeze({ key: "aisle_wipeout", variants: 3 }),
     sting: Object.freeze({ type: "proc", name: "wipeout" }),
   }),
   rampage: Object.freeze({

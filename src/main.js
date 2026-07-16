@@ -122,7 +122,7 @@ import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
 import { hapticPulse } from "./haptics.js";
 import { sideWeightsFromCartBasis } from "./utils/edgeDanger.js";
-import { initAnnouncer, announce, setAnnouncerPresenter } from "./announcer/announcerManager.js";
+import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack } from "./announcer/announcerManager.js";
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
@@ -1286,6 +1286,27 @@ async function main() {
   AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_1", [soundUrl("countdown_1.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_go", [soundUrl("countdown_go.opus")], { pool: 1 });
+
+  // * "The Store PA" recorded voice pack (en) — Tier 1. Each key maps to
+  // * public/sounds/announcer/en/<key>.opus; the announcer manager picks a random
+  // * registered variant per event and falls back to stings for unrecorded events.
+  // * Recording/drop-in pipeline: docs/reference/announcer-recording-script.md.
+  const announcerVoiceKeysEn = [
+    "first_spill_01", "first_spill_02", "first_spill_03",
+    "double_spill_01", "double_spill_02", "double_spill_03",
+    "aisle_wipeout_01", "aisle_wipeout_02", "aisle_wipeout_03",
+    "refund_01", "refund_02", "refund_03",
+    "rampage_01", "rampage_02",
+    "savage_01", "savage_02",
+    "carnage_01", "carnage_02",
+    "comeback_01", "comeback_02",
+    "last_call_01", "last_call_02",
+    "sudden_death_01", "victory_01", "defeat_01",
+  ];
+  for (const key of announcerVoiceKeysEn) {
+    AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], { pool: 1 });
+  }
+  registerAnnouncerVoicePack({ locale: "en", availableKeys: announcerVoiceKeysEn });
 
   scene.add(audioListener);
 
