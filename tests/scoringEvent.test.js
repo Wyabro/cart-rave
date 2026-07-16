@@ -310,7 +310,19 @@ describe("rebuildKOEvent (non-host replay)", () => {
     expect(e.wasCritical).toBe(false);
     expect(e.victimWasLeader).toBe(false);
     expect(e.isFinalBlow).toBe(false);
+    expect(e.isSuddenDeath).toBe(false);
     expect(e.reward.total).toBe(0);
     expect(e.reward.multiplier).toBe(1.5);
+  });
+
+  it("carries isSuddenDeath from the wire when the host stamped it", () => {
+    const e = rebuildKOEvent(
+      { slotId: 2, attackerSlot: 0, verb: "SUDDEN DEATH", isSuddenDeath: true, isFinalBlow: true },
+      clientDeps,
+    );
+    expect(e.isSuddenDeath).toBe(true);
+    expect(e.isKill).toBe(true);
+    expect(e.isFinalBlow).toBe(true);
+    expect(e.verb).toBe("SUDDEN DEATH");
   });
 });

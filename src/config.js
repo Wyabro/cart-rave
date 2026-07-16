@@ -354,7 +354,9 @@ export const CONFIG = {
     keepaliveIntervalMs: 5000, // ms — WebSocket keepalive interval
     stateBufferMaxSize: 64, // count — max authoritative snapshots retained client-side
     extrapolationCapMs: 50, // ms — max velocity extrapolation when buffer has no "after" snapshot
-    hostMigrationFreezeMs: 300, // ms — non-host input freeze after host_migrated
+    hostMigrationFreezeMs: 300, // ms — legacy min label; freeze ends on first post-migration snap
+    // * NET-MIG-3: max hold while awaiting first post-epoch host snapshot (WebRTC re-handshake).
+    hostMigrationFreezeMaxMs: 2000,
     clockResyncIntervalMs: 30000, // ms — periodic 3-sample median re-sync (arrests slow clock drift)
     // * Host-side delay before applying remote DataChannel inputs. Smooths packet
     // * jitter so remote carts don't stutter when arrival cadence is uneven.

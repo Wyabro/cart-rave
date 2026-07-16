@@ -19,7 +19,7 @@ import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
 import { announce } from "./announcer/announcerManager.js";
-import { applyRemoteDirective, getDirectiveWireState } from "./directives/directiveEngine.js";
+import { applyRemoteDirective, clearDirectiveOnHostMigration, getDirectiveWireState } from "./directives/directiveEngine.js";
 import { armSpillBoost } from "./cargoLoad.js";
 import { clamp } from "./utils.js";
 
@@ -125,6 +125,13 @@ let keepaliveTimer = null;
 let peerReconnectNotBeforeMs = new Map();
 
 let hostMigrationFreezeUntilMs = 0;
+/** Non-host: stay frozen after promote until first post-epoch snap (or max freeze ms). */
+let hostMigrationAwaitingFirstSnap = false;
+/**
+ * Presentation dedupe for unreliable falls[] tails (NET-PRES-1 half).
+ * Keyed by victim slot → last process time; same victim cannot re-fan reactors for 600ms.
+ */
+const recentHostFallByVictim = new Map();
 
 let skipNextPhysicsStep = false;
 
@@ -440,7 +447,23 @@ export function resetClientPredictionState() {
   netStateBuffer = [];
   resetReconciliationState();
 }
-export function getHostMigrationFreezeUntilMs() { return hostMigrationFreezeUntilMs; }
+/**
+ * Deadline (round-clock ms) until which non-host prediction freezes after host_migrated.
+ * While awaiting the first post-migration snapshot, returns the max-wait deadline; once
+ * that snap arrives (or the cap expires), returns 0 so the gameLoop unfreezes.
+ */
+export function getHostMigrationFreezeUntilMs() {
+  if (hostMigrationAwaitingFirstSnap) {
+    const now = getMonotonicNow();
+    if (now >= hostMigrationFreezeUntilMs) {
+      hostMigrationAwaitingFirstSnap = false;
+      hostMigrationFreezeUntilMs = 0;
+      return 0;
+    }
+    return hostMigrationFreezeUntilMs;
+  }
+  return hostMigrationFreezeUntilMs;
+}
 /** Host (sim peer) clock offset: local round-clock − host tHost. */
 export function getHostClockOffsetMs() { return hostClock.offsetMs; }
 /** Party (Worker) clock offset: local round-clock − Party serverNowMs. */
@@ -914,6 +937,12 @@ function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
 
   netStateBuffer.push({ serverNowMs, seq, carts, epoch });
   while (netStateBuffer.length > CONFIG.net.stateBufferMaxSize) netStateBuffer.shift();
+  // * NET-MIG-3: first accepted post-migration snapshot ends the non-host freeze early
+  // * so we don't sit 2s when the new host's DC is already hot.
+  if (hostMigrationAwaitingFirstSnap) {
+    hostMigrationAwaitingFirstSnap = false;
+    hostMigrationFreezeUntilMs = 0;
+  }
 }
 
 // --- Host / client send loops ---
@@ -982,6 +1011,24 @@ function replayHostCollisionFx(msg, callbacks) {
 
 function processHostFallEvent(msg) {
   if (isHost) return;
+  // * NET-PRES-1 (partial): falls ride unreliable unordered DC. Late/reordered tails of the
+  // * same KO re-ran kill feed / PA / challenges. Victim cannot legitimately fall twice inside
+  // * the 1s respawn window — 600ms is a safe presentation dedupe without blocking post-respawn KOs.
+  const victimKey = typeof msg.slotId === "number"
+    ? msg.slotId
+    : (typeof msg.victimSlotIndex === "number" ? msg.victimSlotIndex : null);
+  if (victimKey != null) {
+    const now = performance.now();
+    const prev = recentHostFallByVictim.get(victimKey);
+    if (prev != null && now - prev < 600) return;
+    recentHostFallByVictim.set(victimKey, now);
+    if (recentHostFallByVictim.size > 16) {
+      for (const [k, t] of recentHostFallByVictim) {
+        if (now - t > 2000) recentHostFallByVictim.delete(k);
+      }
+    }
+  }
+
   const toCssHex = (n) => typeof n === "number" ? '#' + n.toString(16).padStart(6, '0') : (n ?? null);
 
   // * Non-hosts don't run buildKOEvent — rebuild the KO Event from the wire fall record and run
@@ -1076,6 +1123,8 @@ export function disconnectPartySession() {
   resetClockState(partyClock);
   resetClockState(hostClock);
   hostMigrationFreezeUntilMs = 0;
+  hostMigrationAwaitingFirstSnap = false;
+  recentHostFallByVictim.clear();
   skipNextPhysicsStep = false;
 
   netSlots = [];
@@ -1453,9 +1502,25 @@ function applyHostMigration(msg) {
   inputSeq = 0;
   resetClientPredictionState();
   setAuthorityMode(nextIsHost);
-  if (!nextIsHost) hostMigrationFreezeUntilMs = getMonotonicNow() + CONFIG.net.hostMigrationFreezeMs;
+  // * Living Store: mid-window CONFIG mutators die with the old host on every peer.
+  // * New host re-derives schedule slots from round-elapsed; clients must not keep
+  // * Rush Hour / Flash Sale overrides against base-rules host physics.
+  clearDirectiveOnHostMigration();
+  // * NET-MIG-3: freeze non-host prediction until the first post-epoch host snapshot
+  // * (or freezeMaxMs). Fixed 300ms was shorter than typical WebRTC re-handshake and
+  // * left remotes collidable from lastCartsCache ghost poses.
+  if (!nextIsHost) {
+    const maxMs = CONFIG.net.hostMigrationFreezeMaxMs
+      ?? Math.max(CONFIG.net.hostMigrationFreezeMs ?? 300, 2000);
+    hostMigrationFreezeUntilMs = getMonotonicNow() + maxMs;
+    hostMigrationAwaitingFirstSnap = true;
+  } else {
+    hostMigrationFreezeUntilMs = 0;
+    hostMigrationAwaitingFirstSnap = false;
+  }
   hostEpoch += 1;
   netStateBuffer = [];
+  recentHostFallByVictim.clear();
   // * Host migration is no longer silent — every client gets the PA callout
   // * and the HUD host glyph moves to the new host's chip on the next frame.
   const newHostSlot = Array.isArray(netSlots)
@@ -1757,6 +1822,12 @@ export function initNetcode(roomOverride) {
         }
         if (msg.round.endReason === "timer" || msg.round.endReason === "lastStanding" || msg.round.endReason == null) {
           GameState.setRoundEndReason(msg.round.endReason ?? null);
+        }
+        // * Parity with MSG.round — mid-round join during SD must latch the flag on
+        // * hello (next host_round may lag). Host-authoritative sim is unaffected;
+        // * HUD / SD presentation / promote inference read this client flag.
+        if (typeof msg.round.isSuddenDeath === "boolean") {
+          GameState.setSuddenDeath(msg.round.isSuddenDeath);
         }
       }
       if (GameState.getRoundState().phase === "running" && youConnId) {

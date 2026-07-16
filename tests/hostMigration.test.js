@@ -151,8 +151,25 @@ describe("applyHostMigration (client authority handoff)", () => {
     expect(getHostId()).toBe("newHost");
     expect(hooks.getHostEpoch()).toBe(epochBefore + 1);
     expect(hooks.getBufferLength()).toBe(0);
-    // * Non-hosts freeze briefly so the new host's first snapshots seed a fresh baseline.
+    // * Non-hosts freeze until first post-migration snap (or freezeMaxMs) — NET-MIG-3.
     expect(getHostMigrationFreezeUntilMs()).toBeGreaterThan(0);
+  });
+
+  it("ends the non-host migration freeze when the first new-host snapshot lands (NET-MIG-3)", () => {
+    hooks.setHostStateForTest({
+      youConnId: "me",
+      netSlots: [
+        { kind: "human", connId: "me", name: "ME" },
+        { kind: "human", connId: "newHost", name: "NEW" },
+      ],
+    });
+    hooks.setHostIdForTest("oldHost");
+    hooks.applyHostMigration({ hostId: "newHost" });
+    expect(getHostMigrationFreezeUntilMs()).toBeGreaterThan(0);
+
+    hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 1, tHost: 1200, carts: snap(1, 0, 0) }), "newHost");
+    expect(hooks.getBufferLength()).toBe(1);
+    expect(getHostMigrationFreezeUntilMs()).toBe(0);
   });
 
   it("re-points the trusted snapshot source: old-host stragglers rejected, new host accepted", () => {

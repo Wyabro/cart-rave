@@ -10,6 +10,7 @@ import {
   initDirectiveEngine,
   updateDirectiveEngine,
   applyRemoteDirective,
+  clearDirectiveOnHostMigration,
   getActiveDirective,
   getDirectiveKoRewardMultiplier,
   onHostSpill,
@@ -219,6 +220,23 @@ describe("remote apply + scoring hooks", () => {
   it("ignores unknown remote directive ids", () => {
     deps.isHost = false;
     applyRemoteDirective({ id: "definitely_not_real", durationMs: 5000 });
+    expect(getActiveDirective()).toBeNull();
+  });
+
+  it("clearDirectiveOnHostMigration restores CONFIG and drops the active window", () => {
+    deps.isHost = false;
+    setRound(30000);
+    updateDirectiveEngine(performance.now());
+    const baselineStrength = CONFIG.ramming.strength;
+    applyRemoteDirective({ id: "flash_sale", durationMs: 10000 });
+    expect(getActiveDirective()?.id).toBe("flash_sale");
+    expect(CONFIG.ramming.strength).toBeCloseTo(baselineStrength * 1.5, 5);
+
+    clearDirectiveOnHostMigration();
+    expect(getActiveDirective()).toBeNull();
+    expect(CONFIG.ramming.strength).toBeCloseTo(baselineStrength, 5);
+    // * Idempotent.
+    clearDirectiveOnHostMigration();
     expect(getActiveDirective()).toBeNull();
   });
 

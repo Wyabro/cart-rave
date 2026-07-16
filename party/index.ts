@@ -850,6 +850,21 @@ export class CartRaveServer extends Server {
             // of stranding the room until the throttled reaper runs (NET-MIG-2:
             // sole-human refresh left the room hostless for several seconds).
             this.#ensureLiveHost();
+            // * Residual: joiner is still a pending picker (no human slot yet), so
+            // * #pickNextHostId returned null and #ensureLiveHost early-returns on
+            // * null. Promote the reconnecting conn as host now — same fallthrough
+            // * as onConnect when the room has no host — so physics authority is not
+            // * gated on the colorPick race.
+            if (this.#hostId === null) {
+              this.#hostId = connection.id;
+              this.#lastSeq = -1;
+              this.#broadcastJson({
+                v: PROTOCOL_VERSION,
+                type: MSG.hostMigrated,
+                serverNowMs: this.#serverNowMs(),
+                hostId: this.#hostId,
+              });
+            }
           }
 
           this.#connClientId.set(connection.id, clientId);

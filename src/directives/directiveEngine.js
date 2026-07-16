@@ -154,6 +154,18 @@ function restoreActive() {
   activeView = null;
 }
 
+/**
+ * Host migration: drop any mid-window mutators on every peer immediately.
+ *
+ * New host starts a fresh schedule (engine doc + living-store-test-plan). Clients must
+ * not keep Flash Sale / Rush Hour / Express Lane CONFIG overrides after the old host
+ * dies — host physics would be base rules while non-hosts still predict with mutators
+ * until their local untilMs (up to ~18s of drive desync). Safe no-op when nothing active.
+ */
+export function clearDirectiveOnHostMigration() {
+  if (active) restoreActive();
+}
+
 /** Weighted random pick from DIRECTIVES, avoiding a back-to-back repeat. */
 function pickDirective() {
   const defs = Object.values(DIRECTIVES).filter(

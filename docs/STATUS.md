@@ -3,10 +3,9 @@
 **What is this?** The first document anyone (human or agent) reads: project health, what's
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
-project stands. **Is it current?** Last verified 2026-07-15 (`npm run qa` green: 352 tests /
-38 files, typecheck + knip clean; diagnostic-driven pre-playtest pass — chronic-slow-client
-freeze fixed, sustained-contact ram re-qualification, hostMigration scenario, harness
-preflight, playtest console updated).
+project stands. **Is it current?** Prefer **Last updated** + `git log` + code over the health table below.
+The "Project health — 2026-07-12" block is a **historical snapshot** and often lags HEAD
+(test counts, unpushed claims). For gates: run `npm run qa` yourself.
 
 > **Rehydration protocol** (agent or human resuming cold):
 > 1. Read **this file** fully.
@@ -25,24 +24,18 @@ Ship **Cart Clash** Version 2: a polished solo-first 4-player shopping-cart phys
 stay `cart-rave` until domain cutover. Prefer evidence (screenshots, black-pixel samples,
 two-browser smokes) over vibes for graphics and multiplayer gates.
 
-## Project health — 2026-07-12
+## Project health — 2026-07-16 (code-first; re-verify with `npm run qa`)
 
-**Green.** All five July production passes plus the stabilization pass are implemented;
-gates are green (291 tests / 29 files, typecheck, knip, build — CI runs the same);
-zero knip ignores. Extreme perf pass is on **origin/cart-clash** (`5f44586`). NET-CLK-1 / NET-CLK-3 / NET-MIG-1 landed 2026-07-12 (clock split, round-clock
-hit windows, kill-credit on host promote). The engine-level black-frame flicker root cause is
-**found and fixed on Storerooms**; the fix awaits a look-check before becoming the default
-everywhere. The single biggest risk to Version 2 is unchanged: **multiplayer has never had
-its full two-browser runtime smoke** — code is hardened and unit-covered, but the live gate
-is not closed.
+**Green gates, open live multiplayer proof.** Implementation is ahead of validation.
+Single biggest V2 risk: **NET-1 two-browser full-round smoke never closed** (harness ≠ that gate).
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ 321 tests / 34 files, tsc clean, knip clean (2026-07-14, integration review) |
-| Unpushed work | ⚠️ Everything through `403b417` is on origin. Unpushed on `cart-clash`: `6cee66b` (tabhidden QA tool) + the 2026-07-14 integration-review fixes (see Last updated). |
-| Wyatt playtest queue | ⚠️ Large — Passes 4 & 5, stabilization pass, bloomfix A/B all await eyes-on (see below) |
+| Gates (`npm run qa`) | Run locally — do not trust stale numbers in this table |
+| Origin HEAD (at last audit) | `2926d67` docs status; code through haptics + Pit Viper finishes |
+| Wyatt playtest queue | ⚠️ Still large — behavior-changing batches need eyes-on |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate |
-| Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote-to-default pending look check |
+| Black-frame flicker (VFX-1) | 🟡 Storerooms display bloom shipped; Classic/Sundial look-check pending |
 
 ## Major systems completed
 
@@ -104,12 +97,12 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 ## Recommended next milestone
 
 **“Validated V2 candidate”** — everything implemented is proven, live:
-playtest queue drained → stabilization commits pushed → bloom fix promoted (or tuned) →
-NET-1 two-browser smoke green incl. host migration + Living Store checklists → remaining
-Critical hazard **NET-MIG-2** fixed. After that milestone the remaining V2 work is scoped
-content/infra (domain cutover, ship checklist), not risk. Structural modernizations
-(MAIN-1, DIR-1, GLTF-1, TS-1) wait until this gate is green — see
-[BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+playtest queue drained → bloom fix promoted (or tuned) → NET-1 two-browser smoke green
+incl. host migration + Living Store checklists. Static Critical hazards (NET-MIG-2 etc.)
+are closed in code; remaining risk is live proof + NET-MIG-3 feel. After that milestone
+the remaining V2 work is scoped content/infra (domain cutover, ship checklist), not risk.
+Structural modernizations (MAIN-1, DIR-1, GLTF-1, TS-1) wait until this gate is green —
+see [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Decision index
 
@@ -157,9 +150,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-16 — **Code-first audit pass 2** (unpushed; stacks on pass-1 SD/hello/MIG-2 residual). Gates: **364 tests / 39 files**, tsc + knip clean. Did **not** trust STATUS health table / hazard catalog as truth — traced live code. **Fixed from code evidence:** (1) **Living Store × host migrate** — `clearDirectiveOnHostMigration()` on every peer in `applyHostMigration` so mid-window CONFIG mutators die with the old host (prediction no longer keeps Flash Sale/Rush Hour against base-rules new host). (2) **NET-MIG-3 partial** — non-host freeze lasts until **first post-epoch snapshot** or `hostMigrationFreezeMaxMs` 2000 (was fixed 300ms of ghost colliders). (3) **NET-PRES-1 partial** — falls[] presentation dedupe 600ms per victim slot on non-hosts. **Confirmed still open (code):** last-cart-standing flourish 3s vs respawn 1s → LCS unreachable in timed rounds (only SD spectators stay out); NET-2 join cold hitch (no pre-warm); collision FX still not deduped; VFX-1 Classic/Sundial; NET-1 live. **Doc:** STATUS header marked historical / laggy.
+
 2026-07-16 (later) — **Controller haptics hardening + Pit Viper sunglasses finishes** (**PUSHED**: `342ae5a` haptics, `dbe7856` finishes; stacks on the triage batch below — triage batch also now PUSHED as `e7a7b2a`/`c40546b`/`ec67a8e`). Gates: **361 tests / 39 files** (+6 haptics contract tests), tsc + knip + build green. **(1) Controller haptics** (`haptics.js`) — rumble was wired since `877147f` but read as absent on controller (Wyatt request). Two contract holes: the pad loop stopped at the FIRST entry exposing `vibrationActuator` (Chrome keeps stale/phantom slots in `getGamepads()`, so a dead slot could eat the pulse), and Firefox's `hapticActuators[0].pulse()` spec variant was unhandled. Every connected pad now pulses, per-pad throws don't block the rest, single-motor fallback uses max(strong,weak). Contract locked with mocked-getGamepads tests (`tests/haptics.test.js`) — **real-rumble check on Wyatt's controller still pending** (no pad on the dev box). **(2) Sunglasses finishes** (`cartThemeConfig.js`/`cartRaveGltf.js`/menu) — per Wyatt's Pit Viper reference image (orange core → gold → cyan → deep blue rim): styles gain 4-stop `gradient` arrays (ids/unlocks untouched; goldMirror = the reference colorway), a per-style equirect gradient env (`getSunglassesStyleEnvMap`, cached per id) replaces the shared dark neon env for the visor, visor albedo is now WHITE metal (the env carries the hue — tinted-albedo-over-grey-env was the washout), flat emissive 0.35→0.14 tinted to the core stop, picker chips render the true gradient sweep (`--mc-core/mid/edge`). Zero console errors across style-swap preview rebuilds; **look sign-off vs the reference = Wyatt** (console s1-33).
 
-2026-07-16 — **Senior pre-demo audit** (unpushed on `cart-clash`). Gates: **362 tests / 39 files** (+1), tsc + knip clean. Fresh eyes after usage reset — docs + commit history + architecture + cross-system seams. **No rewrite of working systems.** **Code fixes (low-risk only):** (1) SD environmental last-standing win now sets `koEvent.isKill = true` when survivor is attributed — host match-stats/challenges/PA match non-host `rebuildKOEvent` (was host `isKill:false` while wire clients counted a kill). Falls[] wire carries `isSuddenDeath`; rebuild reads it. (2) MSG.hello applies `round.isSuddenDeath` (parity with MSG.round — mid-round SD join no longer waits on next host_round for HUD). (3) NET-MIG-2 residual: after join-time ghost exorcism, if `#hostId` is still null, promote the reconnecting conn immediately (pending picker no longer waits on colorPick). **Doc hazard sync:** BACKLOG / netcode-deep-dive / ROADMAP / Game_Architecture now mark NET-CLK-2, NET-BUF-1, NET-MIG-2 **fixed**; remaining open = NET-1 live smoke, NET-MIG-3, NET-PRES-1, NET-SD-1, NET-2 residual hitch, Living Store migration CONFIG desync. **Findings intentionally not coded (medium/high):** NET-MIG-3 ghost colliders after 300ms freeze; NET-PRES-1 fall/collision event-id dedupe; Living Store new-host drops mutators while clients keep overrides; NET-2 cold-join hitch (weld fixed); VFX-1 Classic/Sundial HDR bloom pending look; NET-SD-1 flag sticky after suppress-score untie; main.js god-file / DIR-1 CONFIG mutators. **Assumptions disproved:** several docs still claimed Critical open hazards that code already closed; "round-ending KO never reaches non-hosts" is obsolete (`hostSendTick force`); NET-2 is not an input/netcode ack bug. Prefer **solo-first public demo** until NET-1 + Living Store migration smoke pass.
+2026-07-16 — **Senior pre-demo audit** (unpushed on `cart-clash`; plan approved + proceed). Gates: **362 tests / 39 files** (+1), tsc + knip clean. **Honest scope note:** this pass was a consistency/doc-drift audit more than a bug hunt — most Critical static hazards were already fixed by prior sprints; the valuable output is closed-vs-open truth + three small host/client seams. A deeper re-run should attack runtime seams (migration feel, join hitch, Living Store promote, fall dedupe) not re-read the hazard catalog. Fresh eyes after usage reset — docs + commit history + architecture + cross-system seams. **No rewrite of working systems.** **Code fixes (low-risk only):** (1) SD environmental last-standing win now sets `koEvent.isKill = true` when survivor is attributed — host match-stats/challenges/PA match non-host `rebuildKOEvent` (was host `isKill:false` while wire clients counted a kill). Falls[] wire carries `isSuddenDeath`; rebuild reads it. (2) MSG.hello applies `round.isSuddenDeath` (parity with MSG.round — mid-round SD join no longer waits on next host_round for HUD). (3) NET-MIG-2 residual: after join-time ghost exorcism, if `#hostId` is still null, promote the reconnecting conn immediately (pending picker no longer waits on colorPick). **Doc hazard sync:** BACKLOG / netcode-deep-dive / ROADMAP / Game_Architecture now mark NET-CLK-2, NET-BUF-1, NET-MIG-2 **fixed**; remaining open = NET-1 live smoke, NET-MIG-3, NET-PRES-1, NET-SD-1, NET-2 residual hitch, Living Store migration CONFIG desync. **Findings intentionally not coded (medium/high):** NET-MIG-3 ghost colliders after 300ms freeze; NET-PRES-1 fall/collision event-id dedupe; Living Store new-host drops mutators while clients keep overrides; NET-2 cold-join hitch (weld fixed); VFX-1 Classic/Sundial HDR bloom pending look; NET-SD-1 flag sticky after suppress-score untie; main.js god-file / DIR-1 CONFIG mutators. **Assumptions disproved:** several docs still claimed Critical open hazards that code already closed; "round-ending KO never reaches non-hosts" is obsolete (`hostSendTick force`); NET-2 is not an input/netcode ack bug. Prefer **solo-first public demo** until NET-1 + Living Store migration smoke pass.
 
 2026-07-16 — **Playtest-report triage: 6 fixes off Wyatt's 07-16 console export** (uncommitted at write time; on `cart-clash`). Gates: **355 tests / 38 files** (+3), tsc + knip clean; live battery `gameharness` **15/15**, `netharness` spawnlock **4/4**. **(1) Cart Rave bot suicides FIXED** (`simulation.js`) — report said 47/round; diag soak reproduced **63 unforced NPC falls in 118 s** (new `fx`/`fz` fall coords on the ko diag event made hole-vs-rim classification trivial: ~half down the center hole, half off the rim). Root cause: Classic had **no path routing around the center hole** — any wander/chase target across the disc drew a chord straight over it, and at maxSpeed 23.5 m/s the 4.5 m reactive band = ~0.2 s of correction. Fix: `routeClassicHoleTarget` waypoint routing (the Backrooms `routeBackroomsChaseTarget` pattern ported to the disc), time-to-lip panic in `applyClassicCenterHoleAvoidance` (same shape as the rim's tte panic), and an emergency brake (`forward=-0.85` when <0.38 s to a death edge with >60° of nose still committed). **Post-fix soak: 5 unforced falls per full 150 s round (63→5, zero center-hole)**. Wyatt's "easier turning" suggestion NOT taken — AI planning was the problem, not cart physics; console s1-28 counts it live. **(2) M-unmute FIXED** (`input.js`) — `setupInput` attached the same keydown handler to canvas AND window; with the canvas focused (in-game) every key fired both, so M double-toggled to a no-op (menu worked: canvas unfocused). Space/Shift double-fired hop/boost the same way. Canvas listeners deleted (keydown bubbles to window); verified live both ways. **(3) Menu music over game music FIXED two ways** (`audioManager.js`) — `playGameMusic()` now force-stops menu music and `playMenuMusic()` force-stops the playlist (hard exclusivity invariant inside the manager, +3 regression tests incl. the late-`onload` resurrection path), so no future flow can overlap them again. **(4) Refresh-mid-round phantom FIXED** (`main.js`/`gameSession.js`/`storage.js`) — reload kept `?room=soloXXX` so initMenu showed the menu AND auto-restarted solo underneath it with broken audio. New `SESSION_KEYS.engagedRoom` sessionStorage marker: set in `commitMenuHiddenForGame` for solo/testdrive rooms, checked at initMenu — marker match = refresh leftover → strip `?room` (replaceState), stay on a clean menu; no marker = deep link/harness boot → auto-enter unchanged (gameharness 15/15 proves it); marker cleared on `returnToMenu`. Quickplay auto-rejoin untouched. Verified live both directions. **(5) Storerooms suction telegraph** (`backroomsSupermarket.js`) — the flat red squares (a) **leaked onto every later arena**: `suctionRings.group` was missing from `sceneRoots`, so dispose killed its materials but left the meshes in the scene (now in the teardown list), and (b) replaced with an animated ShaderMaterial vortex — inward-flowing spiral streaks (crests migrate toward the void), Chebyshev band mask matching the physics band, dimmer than the old fill; `SUCTION_PEAK_ACCEL` 30→33 (+10% per report). Shader compiles clean on a live Storerooms round; look verdict = console s1-32. **(6) Sunglasses style tinted the smile FIXED** (`cartRaveGltf.js`) — `tripo_part_7` (the mouth) carried role `"face"`, so it got the full mirror-style treatment. New `"smile"` role: glossy-black trim (procedural `SHARED_FACE_TRIM_MAT` values), still `isFace` (theme-tint skip + face-group policy), added to the body-scale/tint-skip buckets, and `groupRaveGltfFaceAssembly` no longer stomps roles. Runtime-verified `tripo_part_7 → smile`. **Finishes look deliberately untouched** — Wyatt asked to supply a reference image first. **Console refreshed in place** (same URL/ids): FRESH FIXES s1-28..s1-33 verify-first group; s3-2/s3-14/s2-8 annotated. **Left open from the report:** comeback-callout SFX (assets), compat-mode 15–25 fps + general perf/"lags on every tab-out" (needs its own pass — report threatens WebGPU), mobile graphics quality, controller haptics (Gamepad vibrationActuator), MP non-host shatter/respawn-delay/position-hop polish, resize freeze on Sundial.
 

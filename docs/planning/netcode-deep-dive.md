@@ -27,8 +27,8 @@ both tabs visible — hidden-tab rAF freezes the host physics loop.
 | Gameplay | WebRTC DataChannel (`p2p.js`) unreliable unordered | Host transforms ~40 Hz binary, client input ~60 Hz, spill / directive one-shots, collision/fall JSON tails |
 | Physics | Host-only Rapier | Sole sim authority; non-hosts predict + reconcile |
 
-Round length: `CONFIG.round.durationMs` **and** `ROUND_DURATION_MS` in `party/index.ts` both
-`150000` — keep them equal.
+Round length: single-sourced as `ROUND_DURATION_MS` in `shared/roundConstants.js` — both
+`CONFIG.round.durationMs` and `party/roundValidation.ts` import it.
 
 ---
 
@@ -51,21 +51,13 @@ host samples from P2P `tHost` only. `gameStart` prefers same-message
 
 ### NET-CLK-2 — Podium gate mixes host `startedAtMs` with DO `now`
 
+**Status:** **FIXED** (2026-07-14) — server latches `runningSinceServerMs` at the running
+commit; podium age checks use `prev.runningSinceServerMs || prev.startedAtMs` vs Worker
+`now` (`party/roundValidation.ts`). Host wall-clock / sleep no longer rejects legitimate
+timer podiums.
+
 **Severity:** High  
-**Where:** `party/index.ts` `#validateHostRound` podium branch
-
-```text
-now - prev.startedAtMs > ROUND_DURATION_MS + 15_000  → reject (unless isSuddenDeath)
-```
-
-`startedAtMs` is host-written (often mis-converted from NET-CLK-1). `now` is DO
-`performance.timeOrigin + performance.now()`.
-
-**Player sees:** legitimate 150s end → `rejected: true` → host rollback / softlock or
-results flash then vanish. SD only bypasses upper bound if server stored `isSuddenDeath`.
-
-**Fix direction:** Stamp lifecycle in one domain (prefer server time for starts/ends, or
-host-local and stop age-checking against DO `now`). Widen grace only as a temporary band-aid.
+**Where:** `party/roundValidation.ts` podium age branch
 
 ---
 
@@ -94,34 +86,24 @@ Spill Bonus hit windows all use `getRoundClockNowMs()` (same domain as `buildKOE
 
 ### NET-MIG-2 — Ghost exorcism can leave `#hostId === null` with a live human
 
+**Status:** **FIXED** (2026-07-14 core; residual closed 2026-07-16) —
+`#ensureLiveHost()` after ghost exorcism; `colorPick` assigns host when first human seats;
+MSG.join post-exorcism promotes the reconnecting conn when still a pending picker (same
+fallthrough as onConnect). `#ensureLiveHost` still early-returns when `#hostId === null`
+and no human slot exists — that path is now healed at the call site instead.
+
 **Severity:** Critical (solo refresh / sole-human edge)  
-**Where:** `party/index.ts` `#ensureLiveHost` early `if (this.#hostId === null) return`;
-MSG.join ghost exorcism; `colorPick` never assigns host
-
-**What:** Refresh mid-session: new conn is still a **pending picker** when join exorcises the
-old host. `#pickNextHostId` only considers **human slots** → null host. Color-pick makes them
-human but does not promote. Only a later `onConnect` `if (!this.#hostId)` heals.
-
-Violates AGENTS: “on host disconnect the server promotes the oldest surviving connection.”
-
-**Player sees:** one human in room, nobody is host — no `host_round`, no physics authority.
-
-**Fix direction:** After ghost exorcism / color-pick / reap: if humans exist and `#hostId` is
-null (or dead), `#pickNextHostId()` + `host_migrated`. Do not early-return forever on null
-when live humans remain.
+**Where:** `party/index.ts` MSG.join ghost exorcism + colorPick host repair
 
 ---
 
 ### NET-BUF-1 — Spawn buffer uses DO time; live snapshots use host time
 
+**Status:** **FIXED** (2026-07-14) — `applyHostSpawnSnapshot` buffers host `tHost` (same
+domain as the 40 Hz stream). Party `serverNowMs` stays control-plane only.
+
 **Severity:** High  
-**Where:** `applyHostSpawnSnapshot` prefers `msg.serverNowMs` (DO); `handleRemoteHostState`
-buffers `tHost` (host)
-
-**Player sees:** warp / stuck remotes right at GO or rematch; worse with 3–4 peers.
-
-**Fix direction:** Buffer spawn with `tHost` (same domain as 40 Hz stream). Keep Party
-`serverNowMs` for control-plane only.
+**Where:** `src/netcode.js` `applyHostSpawnSnapshot`
 
 ---
 

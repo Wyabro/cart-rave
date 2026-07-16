@@ -131,7 +131,7 @@ Current validation / risk focus:
 
 1. Multiplayer runtime integration smoke tests (two browsers, one room) — still the V2 gate; Living Store paths deferred to [living-store-test-plan.md](./living-store-test-plan.md), migration feel to [host-migration-test-plan.md](./host-migration-test-plan.md).
 2. Black-frame flicker: root cause **confirmed** (half-res float bloom mips on ANGLE/NVIDIA, D-VFX-2) and fixed on Storerooms; Classic/Sundial still run HDR bloom until the look check promotes the display-referred pipeline.
-3. Static netcode hazards — cataloged in [netcode-deep-dive.md](./netcode-deep-dive.md). **Shipped 2026-07-12:** NET-CLK-1 (dual clocks), NET-CLK-3 (round-clock hits), NET-MIG-1 (kill credit on promote). **Still open:** NET-MIG-2, NET-CLK-2, NET-BUF-1, NET-MIG-3, NET-PRES-1, NET-SD-1.
+3. Static netcode hazards — cataloged in [netcode-deep-dive.md](./netcode-deep-dive.md). **Closed in code:** NET-CLK-1/2/3, NET-MIG-1/2, NET-BUF-1. **Still open:** NET-MIG-3, NET-PRES-1, NET-SD-1, NET-2 residual hitch, Living Store host-migration mutator desync.
 4. Evicting/resetting in-memory Durable Object state between server builds.
 5. Playtest debt: Passes 4/5 + stabilization are behavior-changing and human-unvalidated.
 6. Structural / jam-era tech debt (god-file `main.js`, CONFIG-mutating directives, legacy GLTF path, brand freeze) — tracked as MAIN-1 / DIR-1 / GLTF-1 / BRAND-1 etc. in [BACKLOG.md § Tech Debt](./BACKLOG.md#tech-debt); **not** V2 blockers.

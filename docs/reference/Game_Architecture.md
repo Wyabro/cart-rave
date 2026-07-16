@@ -222,7 +222,7 @@ The handover notes repeatedly stress process discipline for reliability:
 
 - Multiplayer runtime smoke test (two browsers, one room) — includes Living Store checklist + [netcode-deep-dive.md](../planning/netcode-deep-dive.md) hazards
 - Black-frame flicker look-check → promote display-referred bloom default
-- Remaining critical static hazard: **NET-MIG-2** (null host after ghost exorcism)
+- Critical static hazards NET-MIG-2 / NET-CLK-2 / NET-BUF-1 closed in code; remaining multiplayer risks are **NET-1 live smoke**, **NET-MIG-3** (migration ghost freeze), **NET-PRES-1** (fall/collision dedupe) — see [netcode-deep-dive.md](../planning/netcode-deep-dive.md)
 
 ### Content and features (shipped foundations)
 

@@ -298,8 +298,13 @@ export function updateGameFlow(deps, context) {
                 // * addScore fired _suddenDeathWinCallback → endRound().
                 koEvent.attackerSlotIndex = survivorSlot;
                 koEvent.isFinalBlow = true;
+                // * buildKOEvent left isKill=false (self/env path). Mirror rebuildKOEvent's
+                // * rule (attacker != null → kill) so host match-stats / challenges / PA
+                // * agree with non-host falls[] replay. Verb stays "SUDDEN DEATH".
+                koEvent.isKill = true;
               } else {
                 koEvent.attackerSlotIndex = null;
+                koEvent.isKill = false;
               }
               koEvent.verb = "SUDDEN DEATH";
             }
@@ -323,6 +328,7 @@ export function updateGameFlow(deps, context) {
                 victimWasLeader: koEvent.victimWasLeader,
                 reward: koEvent.reward,
                 isFinalBlow: koEvent.isFinalBlow,
+                isSuddenDeath: koEvent.isSuddenDeath,
               });
             }
 

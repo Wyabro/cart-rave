@@ -224,7 +224,7 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
  * default. Scores still arrive via the round sync, not `reward.total`. Derived fields
  * (victim classification) are recomputed from this client's own slot/cart state.
  *
- * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number, cause?: string, wasCritical?: boolean, victimWasLeader?: boolean, isFinalBlow?: boolean, reward?: { base: number, critical: number, leader: number, multiplier: number, total: number } }} msg
+ * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number, cause?: string, wasCritical?: boolean, victimWasLeader?: boolean, isFinalBlow?: boolean, isSuddenDeath?: boolean, reward?: { base: number, critical: number, leader: number, multiplier: number, total: number } }} msg
  * @param {{ getNetSlots?: () => Array<object>, getAllCarts?: () => Array<object> }} deps
  * @returns {KOEvent}
  */
@@ -257,7 +257,9 @@ export function rebuildKOEvent(msg, deps) {
     impactSpeed: 0,
     comboTier: msg.comboTier ?? 0,
     comboMultiplier,
-    isSuddenDeath: false,
+    // * Host stamps isSuddenDeath on the falls[] tail (gameFlow queueHostFallEvent).
+    // * Older hosts omit it — default false so reactors stay conservative.
+    isSuddenDeath: typeof msg.isSuddenDeath === "boolean" ? msg.isSuddenDeath : false,
     isFinalBlow: Boolean(msg.isFinalBlow),
     roundTimeMs: 0,
     reward: wireReward ?? { base: 0, critical: 0, leader: 0, multiplier: comboMultiplier, total: 0 },
