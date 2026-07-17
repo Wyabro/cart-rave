@@ -67,7 +67,7 @@ and bug/balance/fun templates. The queue below maps to Session 1; NET-1 to Sessi
 2. **Pass 4 (gameplay/AI)** — stall-free bots on all 3 arenas, edge-camper follow, visible podium contest, ram-SFX dynamic range.
 3. **Pass 5 (VFX/audio)** — spill juice, debris personality, Defeat screen, first-blood escalation, victory audio; aesthetic sign-off.
 4. **Bloom A/B** — per-arena pipeline (`98317c1`): confirm Storerooms look, check Classic/Sundial, then promote display-referred bloom to default (kills VFX-1 for good) or tune knobs.
-5. **Ambience ear pass (07-16)** — bed levels vs music per arena, Cart Rave crowd hype swell on KOs (does the reaction read?), Sundial gull realism, SD drone. Tune live via the dev SFX pane; regen/replace loops per [reference/ambience.md](./reference/ambience.md).
+5. **Ambience ear pass round 2 (07-16, after `15e13fa`)** — round 1 verdicts applied (Storerooms presence rebuilt up-spectrum + louder; Sundial wash pulled down, wind/gulls forward). Re-check both; SD drone still unheard. Crowd: Wyatt is sourcing a premade clip — drop it in via `node scripts/ambience/loopify.mjs <clip> classic_crowd_bed` (+ a cheering take for `classic_crowd_hype`), see [reference/ambience.md](./reference/ambience.md).
 
 ### Next actions
 
