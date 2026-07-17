@@ -32,13 +32,13 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ Green at last run — **444 tests / 49 files**, typecheck + knip clean (re-run to confirm) |
-| Automated rigs (`npm run battery`) | ✅ gameharness 41/41 · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 |
-| Origin HEAD | `0507d02` content-catalog refactor; observability platform (`84be740`) on origin **and deployed to prod** |
+| Gates (`npm run qa`) | ✅ **444 tests / 49 files**, typecheck + knip clean (verified 2026-07-17) |
+| Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness 41/41 · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-17; the mpIntegration `{ok}`-contract regression that read as a flake is now fixed — see log) |
+| Origin HEAD | `1727427` (docs de-clutter) on origin **+ deployed to prod**; local is ahead by an **unpushed stack** — Developer panel (`ff4f0ab`) + today's pizazz / rematch-grace / harness / docs commits |
 | Prod deploy (2026-07-17) | ✅ Live at cart-rave.wyabro.workers.dev — analytics DO (`AnalyticsLog`, migration v3) bound; build stamp `0507d02` in the bundle |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
-| Black-frame flicker (VFX-1) | 🟡 Storerooms display bloom shipped; Classic/Sundial look-check pending |
+| Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
 
 ## Major systems completed
 
@@ -70,7 +70,7 @@ and bug/balance/fun templates. The queue below maps to Session 1; NET-1 to Sessi
 1. **Stabilization pass (pushed)** — wheel spin direction by eye, +20% Zanzibar podium feel/AI contest, menu pacing ~700ms, grocery pile look, menu backdrop gradient.
 2. **Pass 4 (gameplay/AI)** — stall-free bots on all 3 arenas, edge-camper follow, visible podium contest, ram-SFX dynamic range.
 3. **Pass 5 (VFX/audio)** — spill juice, debris personality, Defeat screen, first-blood escalation, victory audio; aesthetic sign-off.
-4. **Bloom A/B** — per-arena pipeline (`98317c1`): confirm Storerooms look, check Classic/Sundial, then promote display-referred bloom to default (kills VFX-1 for good) or tune knobs.
+4. ~~**Bloom A/B**~~ ✅ **RESOLVED (07-17)** — display-referred byte bloom is already the all-arena default (`adea4bf`); VFX-1 closed. Optional taste pass only: real-HW `?blackmon=1` on Classic/Sundial to tune the neon knobs.
 5. **Ambience ear pass round 2 (07-16, after `15e13fa`)** — round 1 verdicts applied (Storerooms presence rebuilt up-spectrum + louder; Sundial wash pulled down, wind/gulls forward). Re-check both; SD drone still unheard. Crowd: Wyatt is sourcing a premade clip — drop it in via `node scripts/ambience/loopify.mjs <clip> classic_crowd_bed` (+ a cheering take for `classic_crowd_hype`), see [reference/ambience.md](./reference/ambience.md).
 
 ### Next actions
@@ -89,7 +89,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 |----|--------|--------|
 | NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md). Now has an automated 2-client complement: [netcode-harness.md](./guides/netcode-harness.md) |
 | NET-2 | Quickplay join = frozen cart + slow load | 🟡 **Partial + warm Solo fix (pushed `e25d555`):** Wyatt `cr:*` marks showed world warm ~0.6s but play-entry→carts-ready ~9.8s (shader `compileAsync` up to 8s). Warm same-level path now caps compile poll at **1.5s**; default cap **4s**; fine marks `play-arena-done` / `play-cart-glb-done` / `play-carts-spawned` / `play-shader-start|end`. Still needs live feel + cold/quickplay check. |
-| VFX-1 | Black-frame flicker | 🟡 Root cause = half-res float bloom mips (D-VFX-2). Fixed on Storerooms (`98317c1`); Classic/Sundial look check + promote to default pending |
+| VFX-1 | Black-frame flicker | ✅ **Closed (07-17)** — display-referred byte bloom is the all-arena default (`adea4bf`, since 07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic+sundial pass. Optional real-HW `?blackmon=1` taste pass |
 | PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
 | NET-MIG-2 | Ghost exorcism can null the host | ✅ Fixed 2026-07-14 + residual 2026-07-16 (promote reconnecting conn post-exorcism) |
 | NET-CLK-1 / CLK-2 / CLK-3 / MIG-1 / BUF-1 | Clocks, kill credit, spawn buffer domain | ✅ Closed in code (see netcode-deep-dive) |
@@ -156,11 +156,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-> **Push-state note (2026-07-17):** origin tip = `0507d02` (content-catalog refactor). Everything
-> through the observability platform (`84be740`) is on origin **and deployed to prod**. The
-> **Developer panel** (entry below) is committed locally and still **unpushed**. **Every historical
-> "unpushed" label in entries below this line is stale** unless it names the Developer panel.
-> Labels stay as history, not truth.
+> **Push-state note (2026-07-17, updated):** origin tip = `1727427` (docs de-clutter) **+ deployed
+> to prod**. Local is ahead by an **unpushed stack**: Developer panel (`ff4f0ab`) → FRONTIER/26
+> pizazz (`d42b47e`) → rematch-grace lifecycle (`34905bf`) → mpIntegration harness fix (`2dd311a`)
+> → audioManager test comment (`6ad46b2`) → this docs refresh. Nothing pushed this session
+> (commit-don't-push, Wyatt to review + push). **The pizazz and rematch-grace work that older
+> "unpushed"/"SHIPPED (uncommitted)" labels below describe is now committed** — labels stay as
+> history, not truth.
+
+2026-07-17 (tree cleanup + health honesty) — **Committed the finished-but-uncommitted tree, fixed the "flaky" mpIntegration rig (it was a real regression, not a flake), and made the health dashboard trustworthy.** Commit-don't-push — unpushed stack in the push-note above; gates re-run this session: **qa 444/49**, build clean, **battery 4/4** (gameharness 41/41 · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7). **(1) Tree cleaned:** four prior-session efforts logged "shipped" but never committed are now real commits — FRONTIER/26 pizazz (`d42b47e`: unified banner axis-punch + OKLCH ladders + P3 neon + arena hue-morph), rematch-grace timer lifecycle (`34905bf`), mpIntegration harness fix (`2dd311a`), audioManager test comment (`6ad46b2`); working tree clean. **(2) mpIntegration "flake" root-caused + fixed:** the Developer-panel refactor (`ff4f0ab`) made `__ccDiag.control.setScores`/`rewindRoundClock` return `{ok,message}` objects, but `tools/netharness.mjs` still asserted `=== true` → 2 checks failed **every** run (the dashboard's #1 "flaky" action was a deterministic regression). Fixed the assertions to `?.ok` + surfaced the message; mirrored spawnlock's 1 s steady-state settle + post-keydown probe on the joiner drive to kill the genuine `peak 0.00m` sim-starvation flake → **3/3 × 16/16** standalone + 16/16 in the battery (joiner peak 5.5–7.5 m). hostMigration 7/7 + mpIntegration also verify the rematch-grace netcode. **(3) VFX-1 closed:** display-referred byte bloom has been the all-arena default since `adea4bf` (07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic (worst 0.53) + sundial (0.007) pass; all 3 arenas render clean (`shots/smoke-*.png`). **(4) Health dashboard trustworthy:** ran `npm run perf:profile` (11 cells — **headless software-GPU numbers, not real HW**: frame-med 116–286 ms is the SwiftShader floor), cleared 3 stale harness-flake capture bundles (0 err/assert, 07-15 pre-fix era), regenerated `npm run dashboard`, republished the health artifact in place — it now leads with the real V2 gate (**NET-1**) instead of the false mpIntegration alarm; battery history's newest chip is 4/4 green. **Playtest console:** build is playtest-ready; the 23 feel/sound/FTUE/online items still need Wyatt at the controls (auto-covered floor: arenas boot clean + no black frames + netcode rigs green).
 
 2026-07-17 (ship + observability + docs cleanup) — **Observability platform deployed to prod; project docs de-cluttered.** The bug-capture / analytics / dashboard platform (`7bd6489` + `84be740`) was shipped live via `npm run ship` — prod verified end-to-end: analytics ingest `POST /api/analytics` → 204, the client bundle sends the beacons, build stamp `sha:0507d02` baked in, `AnalyticsLog` DO (migration v3) bound. **Read endpoint is dark until the `ERROR_LOG_TOKEN` secret is set on prod** (`npx wrangler secret put ERROR_LOG_TOKEN` — also unlocks the existing `/api/errors` crash-log reader, which has been unreadable this whole time). Analytics summary is empty until people play the new build. **Docs cleanup:** archived the 2026-07-14/-15 session-log entries (28 of them) to [archive/status-log-2026-07-14-to-15.md](./archive/status-log-2026-07-14-to-15.md); refreshed the health table + push note to current truth; added the observability guide + `npm run dashboard` to the doc map; playtest console rebuilt for plain-language (see [playtest/README.md](./playtest/README.md)). Gates at ship: **444 tests / 49 files**, tsc + knip + build clean.
 
