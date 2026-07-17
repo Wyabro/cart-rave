@@ -2354,6 +2354,7 @@ async function main() {
         installShatterProgramWarmup(scene);
         installKoHitmarkerProgramWarmup(scene);
         installWaterFxProgramWarmup(scene);
+        Effects.installRamStreakProgramWarmup(scene);
         vfxProgramAnchorsInstalled = true;
       }
       // * Menu path: still compileAsync so the first attract frame after a swap does not

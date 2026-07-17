@@ -2507,6 +2507,41 @@ function buildStreakEntry() {
   };
 }
 
+/** @type {THREE.Group | null} */
+let _ramStreakWarmupGroup = null;
+
+/**
+ * Parks one invisible ram-boost streak (core + glow) in the scene so its custom
+ * ShaderMaterial program compiles during play-entry warm-up (renderer.compile()
+ * traverses invisible objects) instead of synchronously on the FIRST boost mid-round.
+ *
+ * Streak entries are pool-built lazily on first spawn (buildStreakEntry), so without
+ * this the opening boost of a match triggers a program compile — a visible hitch
+ * during exactly the first 30s the round is warming up. Mirrors the shatter /
+ * hitmarker / water-death anchors. The streak program is a single source keyed on
+ * uniforms (uIsCore/uCharged are uniforms, not defines), so one anchor covers every
+ * variant. Uses a throwaway geometry so it never pre-seeds the shared unit geos
+ * (ensureStreakGeometries) with default dims before the real rb config lands.
+ *
+ * @param {THREE.Scene} scene
+ */
+export function installRamStreakProgramWarmup(scene) {
+  if (!scene) return;
+  if (_ramStreakWarmupGroup) {
+    if (_ramStreakWarmupGroup.parent !== scene) scene.add(_ramStreakWarmupGroup);
+    return;
+  }
+  const group = new THREE.Group();
+  group.name = "ramStreakProgramWarmup";
+  group.visible = false;
+  group.position.set(0, -500, 0);
+  const geo = new THREE.CylinderGeometry(0.12, 1, 1, 6, 1);
+  group.add(new THREE.Mesh(geo, createRamBoostStreakMaterial(true)));
+  group.add(new THREE.Mesh(geo, createRamBoostStreakMaterial(false)));
+  _ramStreakWarmupGroup = group;
+  scene.add(group);
+}
+
 /**
  * Gets a streak entry to (re)activate: reuse a freed entry, lazily build up to
  * `maxActive`, or — once the pool is fully built and active — recycle the
