@@ -50,7 +50,7 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Pri | Item | Notes |
 |-----|------|-------|
 | Medium | Recorded announcer VO | Pipeline is done and data-driven ([announcer.md](../reference/announcer.md)) — drop `public/sounds/announcer/<locale>/…`, zero code changes. Blocked on recordings. |
-| Medium | Sudden Death music + ambient arena bed | Pass 5 deferrals — asset-gated. |
+| Medium | Sudden Death music low-pass | The remaining Pass 5 audio deferral: Howler music + file SFX share one bus → audio-graph surgery. (The ambient arena bed + SD tension layer shipped 2026-07-16 — [ambience.md](../reference/ambience.md).) |
 | Low | Deeper Howler upgrade | Spatial audio, pooling, volume groups (ROADMAP "Future Modernization"). |
 
 ## Design / Gameplay

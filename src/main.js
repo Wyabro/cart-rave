@@ -110,6 +110,7 @@ function nametagHtml(name, meta, mode, isHost) {
   return `${icon}${escapeHtml(name)}`;
 }
 import * as AudioManager from "./audioManager.js";
+import * as ArenaAmbience from "./ambience/arenaAmbience.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
@@ -505,6 +506,8 @@ let soloPauseCountdownRemainingMs = null;
 let podiumCameraKey = null;
 /** Round key (startedAtMs) whose first-blood KO has already been escalated. */
 let firstBloodRoundKey = null;
+/** Sudden Death tension bed edge-latch — see the onFrame watcher. */
+let sdTensionLatched = false;
 /** performance.now() when the current podium camera presentation started. */
 let podiumPhaseEnteredAtMs = 0;
 /** True once the player pressed anything during the winner cam — results reveal immediately. */
@@ -1151,6 +1154,12 @@ async function main() {
     if (koEvent.isKill && getCurrentLevelId() === "classicRecord") {
       SfxSynth.playCrowdCheer(0.55 + Math.min(koEvent.comboTier ?? 0, 3) * 0.12);
     }
+    // * The crowd bed reacts too (Classic hype layer; no-op elsewhere): kills swell it,
+    // * combos and first blood push it toward a roar, plain falls nudge it.
+    ArenaAmbience.bumpCrowdExcitement(
+      (koEvent.isKill ? 0.4 + Math.min(koEvent.comboTier ?? 0, 3) * 0.12 : 0.16)
+        * (isFirstBlood ? 1.35 : 1),
+    );
   }
   triggerLocalRamShakeRef = triggerLocalRamShake;
   triggerLocalHitTakenRef = triggerLocalHitTaken;
@@ -1302,6 +1311,9 @@ async function main() {
   AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_1", [soundUrl("countdown_1.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_go", [soundUrl("countdown_go.opus")], { pool: 1 });
+  // * Arena ambience beds (crowd/hum/ocean/SD tension) — registered lazily
+  // * (preload:false): the loops only fetch at play entry, never during boot.
+  ArenaAmbience.initArenaAmbience(soundUrl);
 
   // * "The Store PA" recorded voice pack (en) — Tier 1. Each key maps to
   // * public/sounds/announcer/en/<key>.opus; the announcer manager picks a random
@@ -1539,6 +1551,7 @@ async function main() {
     HUD.hideGameplayElements();
     // Stop game music before menu music starts.
     try { AudioManager.stopGameMusic(); } catch (e) {}
+    try { ArenaAmbience.stopArenaAmbience(); } catch (e) {}
     try { AudioManager.playMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
@@ -1817,6 +1830,9 @@ async function main() {
     if (!isTestDrive) {
       AudioManager.playGameMusic();
     }
+    // * Arena atmosphere rides along in every mode (test drive included — it is the
+    // * world's sound, not the match's). Unknown arenas (testArena) stay silent.
+    ArenaAmbience.startArenaAmbience(getCurrentLevelId());
     // * Mark solo/testdrive rooms as "engaged" so a mid-round refresh recovers to
     // * the menu instead of auto-restarting the room from the stale ?room= URL.
     // * (Quickplay refresh deliberately auto-rejoins — see initMenu.)
@@ -2552,6 +2568,9 @@ async function main() {
     if (nextLevelId === getCurrentLevelId()) return;
     arenaRotationInFlight = true;
     setLevelSwapping(true);
+    // * Old arena's beds fade out under the canvas crossfade; the new arena's start
+    // * in the finally below (getCurrentLevelId() — correct even if the swap failed).
+    ArenaAmbience.stopArenaAmbience();
     try {
       const label = (LEVEL_UNLOCKS[nextLevelId]?.label || nextLevelId).toUpperCase();
       hud?.showChallengeToast?.(label, "◆ NEXT ARENA", { durationMs: 4500, priority: STAGE_PRIORITY.CRITICAL });
@@ -2573,6 +2592,9 @@ async function main() {
     } finally {
       setLevelSwapping(false);
       arenaRotationInFlight = false;
+      // * menuVisible guard: a disconnect mid-swap returns to the menu (which stops
+      // * ambience) — don't restart a bed under the menu music.
+      if (!menuVisible) ArenaAmbience.startArenaAmbience(getCurrentLevelId());
     }
   }
 
@@ -2728,6 +2750,7 @@ async function main() {
           // * Victory roar on the match's single peak beat — every arena. (The frequent
           // * KO-time cheer stays Classic-only in onLocalKillConfirm/onArenaKoFlash.)
           SfxSynth.playCrowdCheer(1);
+          ArenaAmbience.bumpCrowdExcitement(1);
         }
       }
     }
@@ -4472,6 +4495,18 @@ async function main() {
     },
     onFrame(frameCtx) {
     gameCtx.setFrameCtx(frameCtx);
+    // * Sudden Death tension bed — edge-latched here because this runs on EVERY client
+    // * (host flips isSuddenDeath locally; remotes learn it via host_round). Rising edge
+    // * also spikes the Classic crowd; falling edge (round end / SD win) fades it out.
+    {
+      const rs = GameState.getRoundState();
+      const sdNow = rs.phase === "running" && rs.isSuddenDeath === true;
+      if (sdNow !== sdTensionLatched) {
+        sdTensionLatched = sdNow;
+        ArenaAmbience.setSuddenDeathTension(sdNow);
+        if (sdNow) ArenaAmbience.bumpCrowdExcitement(0.9);
+      }
+    }
     const isUiActive = menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium";
     setGamepadUiMode(isUiActive);
     setGamepadNavActive(isUiActive);

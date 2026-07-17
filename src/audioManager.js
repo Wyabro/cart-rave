@@ -204,6 +204,7 @@ function applyAllVolumes() {
     if (t) t.volume(_isMuted ? 0 : _musicVol);
   }
   applySfxVolumes();
+  applyAmbienceVolumes();
 }
 
 /**
@@ -407,6 +408,145 @@ function advanceGameTrack() {
   }
 }
 
+// === Ambience beds (looping arena atmosphere) ===
+// Separate registry from sfxRegistry on purpose: beds hold LIVE per-instance fade
+// levels (crowd excitement, SD tension) that applySfxVolumes' howl-global
+// volume() writes would stomp. WebAudio-buffered (html5:false) so loops are gapless.
+
+/**
+ * @typedef {object} AmbienceEntry
+ * @property {Howl} howl
+ * @property {number} baseVol Authored mix level for this bed (0..1).
+ * @property {number} level Live layer level (0..1) — excitement/tension driver.
+ * @property {number | null} id Playing sound id, or null when stopped.
+ * @property {number} gen Generation token; play/stop bump it to cancel stale async starts.
+ */
+/** @type {Record<string, AmbienceEntry>} */
+const ambienceRegistry = {};
+
+/** Final Howler volume for a bed: category × authored mix × pane tweak × live layer level. */
+function ambienceTargetVol(key, entry) {
+  if (_isMuted) return 0;
+  const perVol = _sfxPerVolumes[key] ?? 1;
+  return _sfxVol * entry.baseVol * perVol * entry.level;
+}
+
+function applyAmbienceVolumes() {
+  for (const [key, entry] of Object.entries(ambienceRegistry)) {
+    if (entry.id == null) continue;
+    try { entry.howl.volume(ambienceTargetVol(key, entry), entry.id); } catch { /* mid-load */ }
+  }
+}
+
+/**
+ * Register a looping ambience bed. preload:false — beds fetch on first
+ * {@link playAmbience} (play entry), never during boot/menu.
+ * @param {string} key
+ * @param {string} src Opus loop URL.
+ * @param {number} [baseVol] Authored mix level (0..1) relative to the SFX category.
+ */
+export function registerAmbience(key, src, baseVol = 1) {
+  if (ambienceRegistry[key]) {
+    try { ambienceRegistry[key].howl.unload(); } catch { /* ignore */ }
+  }
+  ambienceRegistry[key] = {
+    howl: new Howl({ src: [src], loop: true, volume: 0, preload: false }),
+    baseVol: Math.max(0, Math.min(1, baseVol)),
+    level: 1,
+    id: null,
+    gen: 0,
+  };
+}
+
+/**
+ * Start (or re-level) an ambience bed with a fade-in. Loads on demand.
+ * @param {string} key
+ * @param {{ fadeMs?: number, level?: number }} [opts] level = initial layer level
+ *   (0 = start silent — used for the crowd-hype layer awaiting excitement).
+ */
+export function playAmbience(key, opts = {}) {
+  const entry = ambienceRegistry[key];
+  if (!entry) return;
+  const fadeMs = Math.max(10, opts.fadeMs ?? 1200);
+  entry.gen += 1;
+  const gen = entry.gen;
+  entry.level = Math.max(0, Math.min(1, opts.level ?? 1));
+  const start = () => {
+    if (gen !== entry.gen) return; // superseded by a stop/replay while loading
+    const target = ambienceTargetVol(key, entry);
+    try {
+      if (entry.id != null && entry.howl.playing(entry.id)) {
+        const vol = entry.howl.volume(entry.id);
+        entry.howl.fade(typeof vol === "number" ? vol : 0, target, fadeMs, entry.id);
+        return;
+      }
+      const id = entry.howl.play();
+      entry.id = id;
+      entry.howl.volume(0, id);
+      entry.howl.fade(0, target, fadeMs, id);
+    } catch { /* autoplay policy / mid-unload — bed stays silent */ }
+  };
+  const state = entry.howl.state();
+  if (state === "loaded") {
+    start();
+    return;
+  }
+  entry.howl.once("load", start);
+  if (state === "unloaded") entry.howl.load();
+}
+
+/**
+ * Glide a playing bed's layer level (0..1). The crowd excitement + SD tension driver.
+ * @param {string} key
+ * @param {number} level
+ * @param {number} [fadeMs]
+ */
+export function setAmbienceLevel(key, level, fadeMs = 450) {
+  const entry = ambienceRegistry[key];
+  if (!entry) return;
+  entry.level = Math.max(0, Math.min(1, level));
+  if (entry.id == null) return;
+  try {
+    const vol = entry.howl.volume(entry.id);
+    entry.howl.fade(
+      typeof vol === "number" ? vol : 0,
+      ambienceTargetVol(key, entry),
+      Math.max(10, fadeMs),
+      entry.id,
+    );
+  } catch { /* mid-load */ }
+}
+
+/**
+ * Fade a bed to silence and stop it. Safe to call when already stopped.
+ * @param {string} key
+ * @param {number} [fadeMs]
+ */
+export function stopAmbience(key, fadeMs = 600) {
+  const entry = ambienceRegistry[key];
+  if (!entry) return;
+  entry.gen += 1; // cancels any pending load→start
+  const id = entry.id;
+  entry.id = null;
+  if (id == null) return;
+  const h = entry.howl;
+  try {
+    h.once("fade", () => { try { h.stop(id); } catch { /* already gone */ } }, id);
+    const vol = h.volume(id);
+    h.fade(typeof vol === "number" ? vol : 0, 0, Math.max(10, fadeMs), id);
+  } catch {
+    try { h.stop(id); } catch { /* already gone */ }
+  }
+}
+
+/**
+ * Stop every playing ambience bed (menu return, arena swap).
+ * @param {number} [fadeMs]
+ */
+export function stopAllAmbience(fadeMs = 600) {
+  for (const key of Object.keys(ambienceRegistry)) stopAmbience(key, fadeMs);
+}
+
 // === SFX (file-based, pooled via Howler) ===
 
 /**
@@ -532,7 +672,7 @@ export function getSfxDurationMs(key) {
  * @returns {string[]}
  */
 export function getSfxKeys() {
-  return Object.keys(sfxRegistry);
+  return [...Object.keys(sfxRegistry), ...Object.keys(ambienceRegistry)];
 }
 
 /**
@@ -552,6 +692,7 @@ export function getSfxPerVolume(key) {
 export function setSfxPerVolume(key, vol) {
   _sfxPerVolumes[key] = Math.max(0, Math.min(5, vol));
   applySfxVolumes();
+  applyAmbienceVolumes();
 }
 
 /**
