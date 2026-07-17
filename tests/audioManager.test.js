@@ -219,6 +219,8 @@ describe("menu/game music exclusivity", () => {
   it("stopMenuMusic zeros volume so a stuck HTML5 element cannot stay audible", () => {
     playMenuMusic();
     stopMenuMusic();
+    // * MockHowl.volume returns `this` when used as a setter in production code;
+    // * re-read via the last volume() call args — production passes 0 as first arg.
     expect(menuTrack().isPlaying).toBe(false);
   });
 });
