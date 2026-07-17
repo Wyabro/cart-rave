@@ -44,9 +44,7 @@ import { getQualityTier } from "./utils/qualityMode.js";
 import { applyQualityTier } from "./ui/graphicsToggles.js";
 import { announce, resetAnnouncerRound, stopAnnouncer } from "./announcer/announcerManager.js";
 import { ANNOUNCER_EVENTS } from "./announcer/announcerEvents.js";
-import { forceDirectiveForTest, getDirectiveIdsForTest } from "./directives/directiveEngine.js";
-import { unlockStore } from "./stores/unlockStore.js";
-import { DEV_UNLOCKS_STORAGE_KEY } from "./unlockConfig.js";
+import { initDevPanel } from "./dev/index.js";
 
 /** @type {Record<string, number>} */
 const TONE_MAPPING_BY_NAME = {
@@ -248,7 +246,16 @@ window.exportPhysicsGeometry = function () {
 };
 
 export function initPostFxDebugGui(deps) {
-  const { renderer, scene, camera, bloomPass, arcadePass, fxaaPass, suddenDeathTest } = deps;
+  const {
+    renderer,
+    scene,
+    camera,
+    bloomPass,
+    arcadePass,
+    fxaaPass,
+    control,
+    getStatus,
+  } = deps;
   if (!renderer || !scene || !bloomPass || !arcadePass || !fxaaPass) return null;
 
   injectStyles();
@@ -630,85 +637,8 @@ export function initPostFxDebugGui(deps) {
     cartColorDebug.reloadFromStorage();
   });
 
-  // — Playtest Tools (dev): fire the game states the checklists need, on demand —
-  // * Each control maps to a specific playtest session so a tester can reach a state
-  // * in one click instead of engineering it by hand (see docs/playtest/).
-  const playtestFolder = pane.addFolder({ title: "Playtest Tools", expanded: true });
-  allFolders.push(playtestFolder);
-
-  // Game State: force a tie → Sudden Death (S3/S5). Kept here beside the other levers.
-  if (suddenDeathTest) {
-    playtestFolder.addButton({ title: "Force Sudden Death ⚡ (in-round)" }).on("click", () => {
-      suddenDeathTest();
-    });
-  }
-
-  // Directives (S1 Living Store readability): fire each without waiting for the schedule.
-  // * Only takes effect during a running round — the engine restores base rules otherwise.
-  // * MP caution: this applies the directive LOCALLY only (no host broadcast). Firing it on
-  // * a non-host client in Session 5 makes a local-only mismatch that self-reverts on the
-  // * next snapshot — it is NOT a real desync, so don't file it as one.
-  const directiveIds = getDirectiveIdsForTest();
-  if (directiveIds.length) {
-    const dirUi = { id: directiveIds[0] };
-    playtestFolder.addBinding(dirUi, "id", {
-      options: Object.fromEntries(directiveIds.map((id) => [id, id])),
-      label: "directive",
-    });
-    playtestFolder.addButton({ title: "▶ Fire directive (in-round)" }).on("click", () => {
-      if (!forceDirectiveForTest(dirUi.id)) {
-        // eslint-disable-next-line no-console
-        console.warn("[Playtest] Directive not fired — start a round first (engine idle outside RUNNING).");
-      }
-    });
-  }
-
-  // Progression (S2 unlock funnel): grant KO credit on a chosen level to reach a gate
-  // * without grinding. Runs the real recordKillOnLevel path, so genuine unlock toasts fire.
-  const koUi = { level: currentLevel };
-  playtestFolder.addBinding(koUi, "level", {
-    options: Object.fromEntries(Object.entries(LEVEL_LABELS).map(([id, label]) => [label, id])),
-    label: "KO level",
-  });
-  playtestFolder.addButton({ title: "+5 KOs on level" }).on("click", () => {
-    unlockStore.getState().recordKillOnLevel(koUi.level, 5);
-  });
-  playtestFolder.addButton({ title: "+15 KOs on level" }).on("click", () => {
-    unlockStore.getState().recordKillOnLevel(koUi.level, 15);
-  });
-
-  // Dev unlock gates (reload). Session 2 FTUE REQUIRES real locks on.
-  const setDevUnlocks = (val) => {
-    try {
-      if (val == null) localStorage.removeItem(DEV_UNLOCKS_STORAGE_KEY);
-      else localStorage.setItem(DEV_UNLOCKS_STORAGE_KEY, val);
-    } catch {
-      /* privacy mode */
-    }
-    window.location.reload();
-  };
-  playtestFolder.addButton({ title: "Real locks ON — FTUE (reload)" }).on("click", () => setDevUnlocks("off"));
-  playtestFolder.addButton({ title: "Unlock everything (reload)" }).on("click", () => setDevUnlocks("all"));
-  playtestFolder.addButton({ title: "Dev default unlocks (reload)" }).on("click", () => setDevUnlocks(null));
-
-  // Quick monitors/levers (reload) — checklist setup shortcuts.
-  const toggleUrlParam = (key, val) => {
-    const url = new URL(window.location.href);
-    if (val == null) url.searchParams.delete(key);
-    else url.searchParams.set(key, val);
-    window.location.href = url.toString();
-  };
-  const blackmonOn = new URLSearchParams(window.location.search).get("blackmon") === "1";
-  playtestFolder
-    .addButton({ title: blackmonOn ? "Black-frame monitor: ON → turn off" : "Black-frame monitor (reload)" })
-    .on("click", () => toggleUrlParam("blackmon", blackmonOn ? null : "1"));
-  const gpuUi = { forcegpu: new URLSearchParams(window.location.search).get("forcegpu") || "" };
-  playtestFolder
-    .addBinding(gpuUi, "forcegpu", {
-      options: { "(real GPU)": "", "software (sw)": "sw", "iGPU": "igpu", discrete: "discrete" },
-      label: "forcegpu (reload)",
-    })
-    .on("change", (ev) => toggleUrlParam("forcegpu", ev.value || null));
+  // — Developer actions: command registry + categorized folders share one result path. —
+  const devPanel = initDevPanel({ pane, allFolders, control, getStatus });
 
   // — Log all values —
   pane.addButton({ title: "Log all values → console" }).on("click", () => {
@@ -805,7 +735,9 @@ export function initPostFxDebugGui(deps) {
     if (e.repeat) return;
     paneVisible = !paneVisible;
     container.classList.toggle("tp-hidden", !paneVisible);
+    devPanel.setVisible(paneVisible);
   });
+  devPanel.setVisible(paneVisible);
 
   // — Live readout pump (dev-only, page-lifetime): drives the Stats + Camera monitors.
   // * The readonly bindings self-poll their bound object at their interval; this rAF loop

@@ -166,9 +166,11 @@ export function registerDiagProbe(ns, snapshotFn) {
 /**
  * @typedef {object} DiagControl DEV-only scenario levers (see gameplayDiagnostics.js). Each
  *   reuses an existing, proven production path — nothing here is a new mutation route.
- * @property {(remainMs?: number) => boolean} [rewindRoundClock] Fast-end a running round by
+ * @property {(remainMs?: number) => { ok: boolean, message: string, reason?: string }} [rewindRoundClock] Fast-end a running round by
  *   rewinding the round-start stamp so only `remainMs` remains (the Force-Sudden-Death trick).
- * @property {(level: string, n: number) => void} [grantKos] Credit N KOs on a level (unlock funnel).
+ * @property {(level: string, n: number) => { ok: boolean, message: string, reason?: string }} [grantKos] Credit N KOs on a level (unlock funnel).
+ * @property {(scores: Record<number, number>) => { ok: boolean, message: string, reason?: string }} [setScores] Replace all slot scores on the host.
+ * @property {() => { ok: boolean, message: string, reason?: string }} [forceSuddenDeath] Arm the natural timed-round Sudden Death path.
  */
 
 /**

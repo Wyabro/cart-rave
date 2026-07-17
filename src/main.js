@@ -120,7 +120,7 @@ import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill } from "./directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
-import { LEVEL_UNLOCKS } from "./unlockConfig.js";
+import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
 import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
@@ -215,7 +215,7 @@ import {
   cleanupSuddenDeathState,
   ensureSuddenDeathOnHostPromote,
 } from "./gameFlow.js";
-import { getRoundClockNowMs } from "./roundClock.js";
+import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { createGameContext } from "./gameContext.js";
 import {
@@ -1385,42 +1385,52 @@ async function main() {
     },
   });
 
+  let devControl = null;
   if (import.meta.env.DEV) {
-    import("./postFxDebug.js").then(({ initPostFxDebugGui }) => {
+    try {
+      const [{ initPostFxDebugGui }, { createDevControl }] = await Promise.all([
+        import("./postFxDebug.js"),
+        import("./dev/devControl.js"),
+      ]);
+      devControl = createDevControl({
+        getIsHost: () => Netcode.getIsHost(),
+        getRoundState: () => GameState.getRoundState(),
+        getNetSlots: () => Netcode.getNetSlots(),
+        getYouConnId: () => Netcode.getYouConnId(),
+        getLocalSlotIndex: (connId) => Netcode.strictSlotIndexForConn(connId),
+        setRoundScores: (scores) => GameState.setRoundScores(scores),
+        setRoundStartedAtMs: (startedAtMs) => GameState.setRoundStartedAtMs(startedAtMs),
+        getRoundClockNowMs,
+        sendHostRound: () => Netcode.sendHostRound(),
+        grantKos: (level, n) => unlockStore.getState().recordKillOnLevel(level, n),
+        roundDurationMs: CONFIG.round.durationMs,
+      });
+      const getDevStatus = () => {
+        const state = GameState.getRoundState();
+        const adjustedNow = getRoundClockNowMs() - Netcode.getHostClockOffsetMs();
+        let unlockOverride = null;
+        try {
+          unlockOverride = localStorage.getItem(DEV_UNLOCKS_STORAGE_KEY);
+        } catch {
+          // * Privacy modes report the default rather than blocking the panel.
+        }
+        return {
+          isHost: Netcode.getIsHost(),
+          phase: state.phase,
+          remainMs: state.phase === "running" && !state.isSuddenDeath
+            ? getRoundRemainingMs(state.startedAtMs, CONFIG.round.durationMs, adjustedNow)
+            : null,
+          unlockOverride,
+        };
+      };
       initPostFxDebugGui({
         renderer, scene, camera, bloomPass, arcadePass, fxaaPass,
-        suddenDeathTest: () => {
-          if (!Netcode.getIsHost()) return;
-          // * Find player slot (human) and a different NPC slot.
-          const slots = Netcode.getNetSlots();
-          const localIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-          let npcIdx = -1;
-          for (let i = 0; i < 4; i += 1) {
-            if (i !== localIdx && slots[i]?.kind === "npc") {
-              npcIdx = i;
-              break;
-            }
-          }
-          // * Fallback: if no NPC found (e.g. 2 humans), pick any other slot.
-          if (npcIdx < 0) {
-            for (let i = 0; i < 4; i += 1) {
-              if (i !== localIdx) { npcIdx = i; break; }
-            }
-          }
-          if (localIdx < 0 || npcIdx < 0) return;
-          // * Set player and NPC to 2 points, everyone else to 0.
-          const scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
-          scores[localIdx] = 2;
-          scores[npcIdx] = 2;
-          GameState.setRoundScores(scores);
-          // * Rewind round timer so only ~10s remain.
-          GameState.setRoundStartedAtMs(getRoundClockNowMs() - (CONFIG.round.durationMs - 10000));
-          // * Do NOT set isSuddenDeath — let the 60s round timer expire naturally
-          // * and trigger the gameFlow.js tie → Sudden Death flow.
-          Netcode.sendHostRound();
-        },
+        control: devControl,
+        getStatus: getDevStatus,
       });
-    }).catch(() => {});
+    } catch (error) {
+      console.warn("[CartClashDev] Developer panel failed to initialize:", error);
+    }
   }
 
   const fxTimer = new THREE.Timer();
@@ -4803,31 +4813,7 @@ async function main() {
   if (diagUrlFlags().enabled) {
     // * DEV-only scenario levers — each reuses an existing proven production path; never a new
     // * mutation route, and never attached in a production build (players can't reach them).
-    const control = import.meta.env.DEV
-      ? {
-          // * Fast-end a running round (host only; solo is always host) by rewinding the
-          // * round-start stamp so ~remainMs remain — the exact trick suddenDeathTest uses.
-          rewindRoundClock: (remainMs = 1500) => {
-            if (!Netcode.getIsHost()) return false;
-            const s = GameState.getRoundState();
-            if (s.phase !== "running") return false;
-            GameState.setRoundStartedAtMs(getRoundClockNowMs() - (CONFIG.round.durationMs - remainMs));
-            Netcode.sendHostRound();
-            return true;
-          },
-          // * Credit N KOs on a level via the real recordKillOnLevel path (unlock funnel).
-          grantKos: (level, n) => unlockStore.getState().recordKillOnLevel(level, n),
-          // * Set round scores (host only) — same lever suddenDeathTest uses; lets a rig crown a
-          // * deterministic winner before fast-ending so it can assert the results-callout path.
-          setScores: (scores) => {
-            if (!Netcode.getIsHost()) return false;
-            GameState.setRoundScores(scores);
-            Netcode.sendHostRound();
-            return true;
-          },
-        }
-      : null;
-    installDiagnostics({ flags: diagUrlFlags(), control });
+    installDiagnostics({ flags: diagUrlFlags(), control: devControl });
     installGameplayDiagnostics({
       getCarts: () => allCartsRef,
       getNetSlots: () => Netcode.getNetSlots(),

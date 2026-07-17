@@ -55,13 +55,31 @@ spawnlock → mpIntegration → hostMigration. Opt-in: `--visual` (blackframes),
 | Loop liveness | (either flag) | `window.__ccLoopDbg` | `frames / resumeZeroed / chronicSlow / maxDt / lastDt` |
 | Visual QA harness | `?harness=1` | `window.__cartRave` | `settle`, `stats()`, ablation for shoot/blackframes |
 | DEV perf probe | (DEV build) | `window.__cartRavePerf` | `renderer/scene/camera/composer` refs for profiling + the `resources` probe |
-| Debug panel | `?debug` / `?tune` (DEV) | Tweakpane | Playtest Tools folder (Force SD, grant KOs, directives, unlock gates), postFX + feel knobs |
+| Developer panel | `?debug` / `?tune` (DEV; `H` toggles) | Tweakpane + `window.CartClashDev` | Registry-backed Game State / Progression / Events / Systems actions plus `help` autocomplete; existing postFX + feel knobs remain |
 | Bug capture (manual) | `F8` / `Ctrl+Shift+D` (DEV + `?diag`) | — | Capture bundle → console + clipboard + downloaded .json |
 | Bug capture (auto) | (any `error`/`assert` event, `?diag`) | `__ccDiag.captures()` | Last 3 auto-assembled bundles, debounced + session-capped |
 | Gameplay analytics | on by default (`?analytics=off` opts out) | `__ccDiag.snapshot("analytics")` | Event-level batches → `/api/analytics` (prod) / console.debug (DEV) — [observability.md](./observability.md) |
 
 Namespace rule: new gameplay diagnostics belong under `__ccDiag`; netcode-specific under
 `__ccTest`; `__cartRave*` is the visual-QA family. All are inert without their flag.
+
+## In-game developer actions
+
+In a Vite DEV build, press `H` or open with `?debug` and expand **Developer**. Buttons and
+the command bar execute the same registry entries and report the same structured result.
+Start with `help`, or use `window.CartClashDev.help()` / `.run("status")` from the console.
+Core commands cover `sd`, `rewind`, `scores`, local-only `directive`, `kos`, `unlocks`,
+`announce`, `capture`, `diag`, `blackmon`, `mute`, `flags`, and `status`.
+
+Round score, clock, KO, and Sudden Death actions all use one DEV control object. The same
+object is attached as `__ccDiag.control` when `?diag=1`; the diagnostics read hub is not
+installed merely because the panel is open. `capture` therefore requires diagnostics and
+directs the developer to `diag on` when absent. Directive forcing remains local-only in
+multiplayer: a non-host mismatch self-reverts and is not evidence of a real desync.
+
+The panel owns DEV actions only. `__ccDiag` remains the probe/event/capture hub,
+`__ccTest` remains the netcode harness, and `__cartRave*` remains visual QA. The panel may
+print or toggle their URL flags but does not absorb their APIs.
 
 ## What `__ccDiag` gives you (the framework core)
 

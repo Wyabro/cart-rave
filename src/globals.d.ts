@@ -3,6 +3,14 @@
 import * as Three from 'three';
 
 declare global {
+  type CartClashDevResult =
+    | { ok: true; message: string }
+    | {
+      ok: false;
+      reason: "host-required" | "round-not-running" | "diagnostics-required" | "bad-args" | "unknown";
+      message: string;
+    };
+
   /**
    * Build identity injected by vite.config.js `define` (see src/utils/buildInfo.js).
    * Undefined in contexts without the define (unit tests, tools).
@@ -79,9 +87,10 @@ declare global {
       /** Auto-captured bundles (error/assert triggers) — bounded, newest last. */
       captures: () => Array<Record<string, unknown>>;
       control: {
-        rewindRoundClock?: (remainMs?: number) => boolean;
-        grantKos?: (level: string, n: number) => void;
-        setScores?: (scores: Record<number, number>) => boolean;
+        rewindRoundClock?: (remainMs?: number) => CartClashDevResult;
+        grantKos?: (level: string, n: number) => CartClashDevResult;
+        setScores?: (scores: Record<number, number>) => CartClashDevResult;
+        forceSuddenDeath?: () => CartClashDevResult;
       } | null;
     };
     /** Diagnostics active flag (?diag=1) — gates loop-liveness counters + zero-cost event recording. */
@@ -99,6 +108,12 @@ declare global {
       enableGates: () => void;
       clear: () => void;
       help: () => void;
+    };
+    /** DEV-only developer command registry mirror. */
+    CartClashDev?: {
+      help: (filter?: string) => string;
+      run: (line: string) => CartClashDevResult;
+      suggest: (prefix?: string) => string[];
     };
     /**
      * Agent-facing water-death FX debug handle (Sundial Station).

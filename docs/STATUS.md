@@ -157,10 +157,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 ## Last updated
 
 > **Push-state note (2026-07-17):** origin tip = `0507d02` (content-catalog refactor). Everything
-> through the observability platform (`84be740`) is on origin **and deployed to prod**. The only
-> in-flight local work is the **Developer panel** (Tweakpane/`CartClashDev`, entry below) — still
-> uncommitted. **Every historical "unpushed" label in entries below this line is stale** unless it
-> names the Developer panel. Labels stay as history, not truth.
+> through the observability platform (`84be740`) is on origin **and deployed to prod**. The
+> **Developer panel** (entry below) is committed locally and still **unpushed**. **Every historical
+> "unpushed" label in entries below this line is stale** unless it names the Developer panel.
+> Labels stay as history, not truth.
 
 2026-07-17 (ship + observability + docs cleanup) — **Observability platform deployed to prod; project docs de-cluttered.** The bug-capture / analytics / dashboard platform (`7bd6489` + `84be740`) was shipped live via `npm run ship` — prod verified end-to-end: analytics ingest `POST /api/analytics` → 204, the client bundle sends the beacons, build stamp `sha:0507d02` baked in, `AnalyticsLog` DO (migration v3) bound. **Read endpoint is dark until the `ERROR_LOG_TOKEN` secret is set on prod** (`npx wrangler secret put ERROR_LOG_TOKEN` — also unlocks the existing `/api/errors` crash-log reader, which has been unreadable this whole time). Analytics summary is empty until people play the new build. **Docs cleanup:** archived the 2026-07-14/-15 session-log entries (28 of them) to [archive/status-log-2026-07-14-to-15.md](./archive/status-log-2026-07-14-to-15.md); refreshed the health table + push note to current truth; added the observability guide + `npm run dashboard` to the doc map; playtest console rebuilt for plain-language (see [playtest/README.md](./playtest/README.md)). Gates at ship: **444 tests / 49 files**, tsc + knip + build clean.
 
