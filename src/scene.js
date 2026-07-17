@@ -638,6 +638,16 @@ export function isSoftwareRendererActive() {
 }
 
 /**
+ * Default compileAsync readiness poll budget. Callers may pass a shorter
+ * `{ maxWaitMs }` (4th arg) — warm play-entry uses ~1.5s so the mode-entry
+ * overlay cannot sit on a full multi-second poll when the arena was already
+ * compiled during idle warm / menu attract (measured ~9.8s Solo hang).
+ */
+const COMPILE_ASYNC_DEFAULT_MAX_WAIT_MS = 4000;
+/** Warm play-entry budget: arena programs already live; only carts + VFX anchors are new. */
+export const COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS = 1500;
+
+/**
  * Three r185 `WebGLRenderer.compileAsync` polls `materialProperties.currentProgram.isReady()`.
  * When `currentProgram` is undefined (material never acquired a program, multi-pass
  * DoubleSide path edge cases, disposed mats still in the compile Set), that call throws
@@ -648,6 +658,8 @@ export function isSoftwareRendererActive() {
  * Replace with a null-safe poll that drops materials without a program and always
  * resolves (deadline) so shader warm-up cannot block boot.
  *
+ * Signature: `compileAsync(scene, camera, targetScene?, opts?: { maxWaitMs?: number })`.
+ *
  * @param {THREE.WebGLRenderer} renderer
  */
 function patchSafeCompileAsync(renderer) {
@@ -655,20 +667,37 @@ function patchSafeCompileAsync(renderer) {
   const properties = renderer.properties;
   const extensions = renderer.extensions;
   const gl = renderer.getContext();
-  const MAX_WAIT_MS = 8000;
 
-  renderer.compileAsync = function safeCompileAsync(scene, camera, targetScene = null) {
+  renderer.compileAsync = function safeCompileAsync(scene, camera, targetScene = null, opts = null) {
     /** @type {Set<THREE.Material>} */
     let materials;
+    // * 3rd arg may be opts when callers skip targetScene: compileAsync(scene, camera, { maxWaitMs }).
+    let target = targetScene;
+    /** @type {{ maxWaitMs?: number } | null} */
+    let options = opts && typeof opts === "object" ? opts : null;
+    if (
+      target
+      && typeof target === "object"
+      && !/** @type {{ isObject3D?: boolean }} */ (target).isObject3D
+      && ("maxWaitMs" in /** @type {object} */ (target))
+    ) {
+      options = /** @type {{ maxWaitMs?: number }} */ (target);
+      target = null;
+    }
+    const maxWaitMs =
+      options && typeof options.maxWaitMs === "number" && Number.isFinite(options.maxWaitMs)
+        ? Math.max(0, options.maxWaitMs)
+        : COMPILE_ASYNC_DEFAULT_MAX_WAIT_MS;
+
     try {
-      materials = compile(scene, camera, targetScene);
+      materials = compile(scene, camera, target);
     } catch (err) {
       console.warn("[CartRave] renderer.compile failed during warm-up:", err);
       return Promise.resolve(scene);
     }
 
     return new Promise((resolve) => {
-      const deadline = performance.now() + MAX_WAIT_MS;
+      const deadline = performance.now() + maxWaitMs;
 
       function checkMaterialsReady() {
         try {

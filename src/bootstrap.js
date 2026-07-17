@@ -35,6 +35,12 @@ let sessionCartBootstrapPromise = null;
 let lastSuccessfulHelloGen = null;
 
 /**
+ * True when the most recent enterPlayMode skipped a full arena rebuild (same-level warm).
+ * Consumed by ensureSessionCartsReady so shader warm uses a short compileAsync budget.
+ */
+let lastPlayEntryWarm = false;
+
+/**
  * @typedef {object} BootstrapDeps
  * @property {() => string} detectGameMode
  * @property {() => boolean} getMenuVisible
@@ -53,10 +59,11 @@ let lastSuccessfulHelloGen = null;
  * @property {() => { getGeneration: () => number, isReceived: () => boolean, getFirstPromise: () => Promise<void> }} getHelloGate
  * @property {() => Array<object> | null | undefined} getAllCartsRef
  * @property {(expectedGen: number) => Array<object> | null} bootstrapSessionCarts
- * @property {() => Promise<void>} [warmupBeforeRoundStart] Compiles the live scene's
- *   shader programs (carts + arena + VFX warmup anchors) after carts exist. Solo's
+ * @property {(opts?: { warm?: boolean }) => Promise<void>} [warmupBeforeRoundStart] Compiles the live
+ *   scene's shader programs (carts + arena + VFX warmup anchors) after carts exist. Solo's
  *   game-start fires when ensureSessionCartsReady resolves, so awaiting this inside
  *   the cart bootstrap keeps the first countdown from starting into a compile freeze.
+ *   `warm: true` uses a short compileAsync budget (arena already compiled).
  */
 
 /**
@@ -207,11 +214,16 @@ export async function ensureSessionCartsReady() {
       if (bootstrapGen === helloGate.getGeneration()) {
         lastSuccessfulHelloGen = bootstrapGen;
       }
+      if (created) markBootPhase("play-carts-spawned");
       // * Warm-compile everything now in scene (carts, arena, VFX anchors) BEFORE this
       // * promise resolves — netcode's solo path fires game start off this resolution,
       // * so the countdown must not begin while shader compiles would freeze the frame.
+      // * Warm play-entry passes warm:true → short compileAsync budget (see scene.js).
       if (created && typeof d.warmupBeforeRoundStart === "function") {
-        await d.warmupBeforeRoundStart();
+        const warm = lastPlayEntryWarm;
+        markBootPhase("play-shader-start", { warm });
+        await d.warmupBeforeRoundStart({ warm });
+        markBootPhase("play-shader-end", { warm });
       }
       // * Boot timeline: carts seated + shaders warmed — the round can truly start.
       if (created) markBootPhase("carts-ready");
@@ -320,6 +332,8 @@ export async function enterPlayMode(opts = {}) {
       worldBootstrapDone && resolvedLevel === d.getLoadedLevelId();
     const needsFullRebuild =
       !sameLevelWarm || d.getPreviewNeedsFullRebuild?.() === true;
+    // * Latch for cart bootstrap shader policy (short compile wait when no full rebuild).
+    lastPlayEntryWarm = !needsFullRebuild;
 
     if (needsFullRebuild) {
       reportProgress(15, "Building arena…");
@@ -332,9 +346,14 @@ export async function enterPlayMode(opts = {}) {
       reportProgress(88, "Arena ready…", { warm: true });
       d.finalizeArenaForPlay();
     }
+    markBootPhase("play-arena-done", {
+      warm: lastPlayEntryWarm,
+      level: resolvedLevel,
+    });
 
     reportProgress(94, "Loading carts…");
     await cartPrefetch;
+    markBootPhase("play-cart-glb-done");
     if (typeof onArenaReady === "function") {
       // * Solo/test-drive: netcode bootstrap + cart creation + shader warm-up run
       // * here so the overlay only lifts when the round can truly start.

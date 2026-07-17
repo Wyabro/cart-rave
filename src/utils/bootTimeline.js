@@ -13,6 +13,10 @@
  * measurable boot instant was menu-ready. With world-init-start / world-ready /
  * carts-ready stamped, a harness or a capture bundle can report the exact stall
  * window (world-ready − world-init-start) on any device instead of eyeballing it.
+ *
+ * Play-entry sub-phases (after `play-entry`): play-arena-done → play-cart-glb-done →
+ * play-carts-spawned → play-shader-start → play-shader-end → carts-ready. Use these
+ * to split arena rebuild vs cart GLB vs shader compileAsync (the measured Solo hang).
  */
 
 import { recordDiagEvent } from "./diagnostics.js";

@@ -38,7 +38,20 @@ import "./ui/styles/stickers.css";
 import "./cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
-import { createRenderer, createScene, createComposer, setupSceneEnvironment, refreshSceneEnvironmentMaterials, setSceneFog, applyComposerQualityTier, setBloomPipeline, isComposerBypassActive, setComposerBypassActive, isSoftwareRendererActive } from "./scene.js";
+import {
+  createRenderer,
+  createScene,
+  createComposer,
+  setupSceneEnvironment,
+  refreshSceneEnvironmentMaterials,
+  setSceneFog,
+  applyComposerQualityTier,
+  setBloomPipeline,
+  isComposerBypassActive,
+  setComposerBypassActive,
+  isSoftwareRendererActive,
+  COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS,
+} from "./scene.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER, initRapier, getRapierBuild } from "./physics/rapierInstance.js";
@@ -2048,7 +2061,8 @@ async function main() {
     getPreviewNeedsFullRebuild,
     rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
-    warmupBeforeRoundStart: () => warmupActiveSceneShaders({ forPlay: true }),
+    warmupBeforeRoundStart: (opts) =>
+      warmupActiveSceneShaders({ forPlay: true, warm: opts?.warm === true }),
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
     getHelloGate: () => /** @type {any} */ (helloGate),
@@ -2300,11 +2314,13 @@ async function main() {
 
   /**
    * Warm-compiles programs for the live scene.
-   * @param {{ forPlay?: boolean }} [opts]
+   * @param {{ forPlay?: boolean, warm?: boolean, maxWaitMs?: number }} [opts]
    *   forPlay true (default): ensure VFX anchors exist, then compileAsync — used at
    *   play entry / round start so KO/splash never sync-recompiles mid-round.
    *   forPlay false: menu attract path — compile current arena only; skip re-installing
    *   anchors every picker swap (they are not needed until combat).
+   *   warm true: short compileAsync budget — arena already compiled during idle warm /
+   *   menu attract; only carts + VFX anchors are new (avoids ~8s mode-entry hang).
    */
   async function warmupActiveSceneShaders(opts = {}) {
     const forPlay = opts.forPlay !== false;
@@ -2317,7 +2333,21 @@ async function main() {
       }
       // * Menu path: still compileAsync so the first attract frame after a swap does not
       // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
-      await renderer.compileAsync(scene, camera);
+      // * Optional maxWaitMs / warm cap the readiness poll (scene.js patchSafeCompileAsync).
+      const maxWaitMs =
+        typeof opts.maxWaitMs === "number"
+          ? opts.maxWaitMs
+          : opts.warm
+            ? COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS
+            : undefined;
+      if (maxWaitMs != null) {
+        // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
+        await /** @type {(s: typeof scene, c: typeof camera, t?: unknown, o?: { maxWaitMs?: number }) => Promise<typeof scene>} */ (
+          renderer.compileAsync
+        )(scene, camera, null, { maxWaitMs });
+      } else {
+        await renderer.compileAsync(scene, camera);
+      }
     } catch (err) {
       // * Warm-up is an optimization — never let it block play entry.
       console.warn("[CartRave] scene shader warm-up failed:", err);

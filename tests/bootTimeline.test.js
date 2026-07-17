@@ -43,6 +43,26 @@ describe("bootTimeline", () => {
     expect(window.__ccDiag).toBeUndefined();
     expect(readBootTimeline().map((m) => m.name)).toContain("play-entry");
   });
+
+  it("records play-entry sub-phases in order when stamped", () => {
+    for (const name of [
+      "play-entry",
+      "play-arena-done",
+      "play-cart-glb-done",
+      "play-carts-spawned",
+      "play-shader-start",
+      "play-shader-end",
+      "carts-ready",
+    ]) {
+      markBootPhase(name);
+    }
+    const names = readBootTimeline().map((m) => m.name);
+    const idx = (n) => names.indexOf(n);
+    expect(idx("play-entry")).toBeLessThan(idx("play-arena-done"));
+    expect(idx("play-arena-done")).toBeLessThan(idx("play-carts-spawned"));
+    expect(idx("play-shader-start")).toBeLessThan(idx("play-shader-end"));
+    expect(idx("play-shader-end")).toBeLessThan(idx("carts-ready"));
+  });
 });
 
 describe("isLegalPhaseTransition (invariant table)", () => {
