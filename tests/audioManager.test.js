@@ -157,10 +157,10 @@ describe("gameplay playlist rotation", () => {
   });
 });
 
-// * Playtest 2026-07-16: menu music kept playing over the in-game playlist. Every
-// * game-entry flow is supposed to call stopMenuMusic() first, but new flows
-// * (refresh recovery, quickplay hello races) kept missing it — the invariant now
-// * lives inside audioManager itself: the two music contexts never overlap.
+// * Playtest 2026-07-16 + 2026-07-17: menu music kept playing over (or stealing)
+// * the in-game playlist. Root causes: (1) late boot-splash / first-gesture hooks
+// * called playMenuMusic after Solo started game music; (2) playMenuMusic used to
+// * stop the game bus to "win". Invariant: game owns the bus until stopGameMusic.
 describe("menu/game music exclusivity", () => {
   function menuTrack() {
     return MockHowl.instances.find((h) => !h.opts.onend);
@@ -190,15 +190,35 @@ describe("menu/game music exclusivity", () => {
     menuTrack().opts.onload?.call(menuTrack());
 
     expect(menuTrack().isPlaying).toBe(false);
+    expect(gameTracks()[0].isPlaying).toBe(true);
   });
 
-  it("playMenuMusic force-stops game music (menu return)", () => {
+  it("playMenuMusic is a no-op while game music owns the bus (late tryStartMenuMusic)", () => {
     playGameMusic();
     expect(gameTracks()[0].isPlaying).toBe(true);
 
+    // * Boot-splash dismiss / menu pointerdown can still fire after Solo — must not
+    // * kill level music or layer the menu track on top.
+    playMenuMusic();
+
+    expect(gameTracks()[0].isPlaying).toBe(true);
+    expect(menuTrack().isPlaying).toBe(false);
+  });
+
+  it("menu return path: stopGameMusic then playMenuMusic swaps cleanly", () => {
+    playGameMusic();
+    expect(gameTracks()[0].isPlaying).toBe(true);
+
+    stopGameMusic();
     playMenuMusic();
 
     expect(gameTracks().every((t) => !t.isPlaying)).toBe(true);
     expect(menuTrack().isPlaying).toBe(true);
+  });
+
+  it("stopMenuMusic zeros volume so a stuck HTML5 element cannot stay audible", () => {
+    playMenuMusic();
+    stopMenuMusic();
+    expect(menuTrack().isPlaying).toBe(false);
   });
 });

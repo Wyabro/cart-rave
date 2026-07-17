@@ -740,6 +740,12 @@ async function main() {
   // * where autoplay policy allows, and rejections are swallowed.
   window.__cartRaveTryStartMenuMusic = () => {
     try {
+      // * Only while the menu is actually up. Boot-splash dismiss and the menu
+      // * shell's first-pointerdown hook can fire AFTER Solo/Quickplay already
+      // * started level music — without this guard they called playMenuMusic()
+      // * and the menu track bled into (or stole) the arena playlist.
+      if (!menuVisible) return;
+      if (AudioManager.isGameMusicPlaying()) return;
       const ctx = audioListener.context;
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
       AudioManager.playMenuMusic();

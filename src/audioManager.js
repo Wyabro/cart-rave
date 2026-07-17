@@ -121,11 +121,13 @@ export function initAudioManager(audioContext, opts = {}) {
 
   // * Autoplay policy workaround: if menu music was requested before the AudioContext
   // * was running (e.g. first page load), re-trigger play when the context resumes.
+  // * Never revive menu over an active game playlist (late ctx.resume races after Solo).
   audioContext.addEventListener("statechange", () => {
     if (
       audioContext.state === "running"
       && !_tabHidden
       && _menuMusicShouldPlay
+      && !gameMusicPlaying
       && menuMusic
       && !menuMusic.playing()
     ) {
@@ -173,8 +175,18 @@ function installPageVisibilityAudioGuard() {
       listener?.setMasterVolume?.(_isMuted ? 0 : _sfxVol);
     } catch { /* ignore */ }
 
-    if (_resumeMenuOnVisible && _menuMusicShouldPlay && menuMusic && devMusicGate && !menuMusic.playing()) {
-      try { menuMusic.play(); } catch { /* ignore */ }
+    if (
+      _resumeMenuOnVisible
+      && _menuMusicShouldPlay
+      && !gameMusicPlaying
+      && menuMusic
+      && devMusicGate
+      && !menuMusic.playing()
+    ) {
+      try {
+        menuMusic.volume(_isMuted ? 0 : _musicVol);
+        menuMusic.play();
+      } catch { /* ignore */ }
     }
     _resumeMenuOnVisible = false;
 
@@ -199,9 +211,13 @@ function applyAllVolumes() {
   // * Tab hide uses Howler.mute(true) separately so we don't fight that here.
   Howler.volume(1);
 
-  if (menuMusic) menuMusic.volume(_isMuted ? 0 : _musicVol);
+  // * Volume 0 while not the active music context — belt-and-suspenders against HTML5
+  // * Howls that keep an element audibly "playing" after stop() in some browsers.
+  if (menuMusic) {
+    menuMusic.volume(_isMuted || !_menuMusicShouldPlay || gameMusicPlaying ? 0 : _musicVol);
+  }
   for (const t of gameMusicTracks) {
-    if (t) t.volume(_isMuted ? 0 : _musicVol);
+    if (t) t.volume(_isMuted || !gameMusicPlaying ? 0 : _musicVol);
   }
   applySfxVolumes();
   applyAmbienceVolumes();
@@ -279,7 +295,15 @@ export function loadMenuMusic(src) {
     html5: true, // stream long tracks with HTML5 to save memory
     onload: () => {
       // * If play was requested before decode finished, start immediately.
-      if (_menuMusicShouldPlay && devMusicGate && menuMusic && !menuMusic.playing()) {
+      // * Refuse if the game playlist owns the bus (late decode after Solo click).
+      if (
+        _menuMusicShouldPlay
+        && !gameMusicPlaying
+        && devMusicGate
+        && menuMusic
+        && !menuMusic.playing()
+      ) {
+        menuMusic.volume(_isMuted ? 0 : _musicVol);
         menuMusic.play();
       }
     },
@@ -336,10 +360,18 @@ function materializeGamePlaylist(urls) {
   pendingGamePlaylistUrls = null;
 }
 
-/** @returns {void} */
+/**
+ * Start (or re-assert) menu music. **Does not steal the game bus** — if game music
+ * is active, this is a no-op. Callers that mean "back to the menu" must
+ * {@link stopGameMusic} first (returnToMenu already does).
+ *
+ * Why no-op instead of stop-game: late boot-splash / first-gesture hooks
+ * (`__cartRaveTryStartMenuMusic`) can fire after Solo has already started the
+ * level playlist. Stealing would kill level music; ignoring keeps the level.
+ * @returns {void}
+ */
 export function playMenuMusic() {
-  // * Mirror of the playGameMusic() invariant — see comment there.
-  if (gameMusicPlaying) stopGameMusic();
+  if (gameMusicPlaying) return;
   _menuMusicShouldPlay = true;
   if (!menuMusic) return;
   if (!devMusicGate) return;
@@ -347,22 +379,32 @@ export function playMenuMusic() {
     _resumeMenuOnVisible = true;
     return;
   }
+  menuMusic.volume(_isMuted ? 0 : _musicVol);
   if (menuMusic.playing()) return;
   menuMusic.play();
 }
 
-/** @returns {void} */
+/**
+ * Hard-stop menu music and clear every resume/play intent so nothing can revive
+ * the menu track while a level is running (HTML5 Howl + late onload / ctx.resume).
+ * @returns {void}
+ */
 export function stopMenuMusic() {
   _menuMusicShouldPlay = false;
+  _resumeMenuOnVisible = false;
   if (!menuMusic) return;
-  menuMusic.stop();
+  try { menuMusic.stop(); } catch { /* ignore */ }
+  // * Howler html5:true occasionally leaves an Audio element audible after stop();
+  // * volume 0 makes that silent until playMenuMusic restores level.
+  try { menuMusic.volume(0); } catch { /* ignore */ }
 }
 
 /** @returns {void} */
 export function playGameMusic() {
   // * Invariant: menu music and game music never play together. Every game-entry
-  // * flow is supposed to stop the menu track first, but flows keep growing
-  // * (refresh recovery, quickplay hello races) — enforce it here too.
+  // * flow is supposed to stop the menu track first, but new flows
+  // * (refresh recovery, quickplay hello races, late boot-splash hooks) keep
+  // * missing it — enforce it here too.
   stopMenuMusic();
   if (pendingGamePlaylistUrls?.length && gameMusicTracks.length === 0) {
     materializeGamePlaylist(pendingGamePlaylistUrls);
@@ -371,22 +413,32 @@ export function playGameMusic() {
   if (!devMusicGate) return;
   if (currentGameTrackIdx < 0) currentGameTrackIdx = 0;
   gameMusicPlaying = true;
+  // * Re-assert menu is dead after flipping the flag (volume apply + stop race).
+  stopMenuMusic();
   if (_tabHidden) {
     _resumeGameOnVisible = true;
     return;
   }
-  startGameTrack(gameMusicTracks[currentGameTrackIdx]);
+  const track = gameMusicTracks[currentGameTrackIdx];
+  if (track) track.volume(_isMuted ? 0 : _musicVol);
+  startGameTrack(track);
 }
 
 /** @returns {void} */
 export function stopGameMusic() {
   for (const t of gameMusicTracks) {
     try { t?.stop(); } catch {}
+    try { t?.volume?.(0); } catch {}
   }
   gameMusicPlaying = false;
   // * Restart the playlist from the top next match — never resume on an index
   // * whose track may still be mid-load (or failed to load) from this match.
   currentGameTrackIdx = 0;
+}
+
+/** @returns {boolean} True while the in-game playlist owns the music bus. */
+export function isGameMusicPlaying() {
+  return gameMusicPlaying;
 }
 
 /**
