@@ -43,7 +43,8 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 [planning/completed-work.md](./planning/completed-work.md).
 
 - **Core game** — host-authoritative MP + rewind-and-replay prediction; solo reuses the same path (private room + 3 NPCs); 3 elevated arenas; 2.5-min rounds + Sudden Death.
-- **Presentation** — sticker-language menus/HUD/overlays, Store PA announcer (Tier 1 recorded voice pack shipped 07-16), attract-mode menu, per-arena bloom, VFX/audio juice (Pass 5), distinct Defeat screen.
+- **Presentation** — sticker-language menus/HUD/overlays, Store PA announcer (full 61-take recorded voice pack, 07-16), attract-mode menu, per-arena bloom, VFX/audio juice (Pass 5), distinct Defeat screen.
+- **Arena audio** — per-arena ambient beds + reactive Cart Rave crowd (excitement meter) + Sudden Death tension layer ([ambience.md](./reference/ambience.md)); per-arena music, multi-song-per-level, loudness-matched set ([music.md](./reference/music.md)). Both data-driven (07-16).
 - **Gameplay/AI** — Pass 4 bot fixes (stall/latch), proximity aggression, Sundial rim nav + podium contest, intensity-scaled ram SFX.
 - **Systems** — Living Store (cargo scoreboard + PA directives), scoring/KO event fan-out, lifetime unlocks, challenges, match stats.
 - **Performance** — 3-tier quality system, arena optimizations, chunk prefetch, boot/load pass, half-res bloom, LOD, auto-quality.

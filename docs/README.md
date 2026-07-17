@@ -51,6 +51,8 @@ Core docs split by time — **past / present / future**:
 | [reference/living-store.md](./reference/living-store.md) | Gameplay systems | Living Cargo + PA directives (as-built) |
 | [reference/scoring-event-system.md](./reference/scoring-event-system.md) | Gameplay systems | Scoring & KO event fan-out (as-built) |
 | [reference/announcer.md](./reference/announcer.md) | Audio | "The Store PA" announcer system + voice asset pipeline |
+| [reference/ambience.md](./reference/ambience.md) | Audio | Per-arena ambient beds + reactive crowd + SD tension; loop-gen/loopify tools |
+| [reference/music.md](./reference/music.md) | Audio | Per-arena music (multi-song-per-level) + loudness-matching recipe |
 | [reference/CREDITS.md](./reference/CREDITS.md) | Meta | Third-party libraries, fonts, and assets |
 
 ### `guides/` — operational workflow

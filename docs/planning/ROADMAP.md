@@ -67,7 +67,7 @@ table: [BACKLOG.md § Tech Debt](./BACKLOG.md#tech-debt).
 | Carve `main.js` composition seam | MAIN-1 | Prerequisite for honest menu/game code-split; shrink callback bags |
 | Directive modifiers without mutating CONFIG | DIR-1 | Runtime multiplier stack for Living Store |
 | Collapse gameState / gameStore dual surface | STORE-1 | One public state API |
-| Recorded announcer VO + SD music + ambient bed | | Asset-gated; pipeline ready ([announcer.md](../reference/announcer.md)) |
+| ~~Recorded announcer VO + ambient bed~~ | | ✅ Shipped 2026-07-16 ([announcer.md](../reference/announcer.md), [ambience.md](../reference/ambience.md), [music.md](../reference/music.md)). Remaining: SD music low-pass (audio-graph surgery, not asset-gated) |
 | Pattern customize UI | | Blocked on cartrave4 re-UV ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)) |
 | `structuredClone` → flat serializer (`party/index.ts`) | | Only after NET-1 + profiling shows it matters (40 Hz deep-clone on a single-threaded Worker) |
 | Deeper Howler audio (spatial, pooling, groups) | | |

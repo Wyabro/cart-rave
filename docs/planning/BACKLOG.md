@@ -49,8 +49,9 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | Recorded announcer VO | Pipeline is done and data-driven ([announcer.md](../reference/announcer.md)) — drop `public/sounds/announcer/<locale>/…`, zero code changes. Blocked on recordings. |
-| Medium | Sudden Death music low-pass | The remaining Pass 5 audio deferral: Howler music + file SFX share one bus → audio-graph surgery. (The ambient arena bed + SD tension layer shipped 2026-07-16 — [ambience.md](../reference/ambience.md).) |
+| ✅ Done | Recorded announcer VO | **Shipped 2026-07-16** — full 61-take pack (all events voiced, countdown replaces beeps). Pipeline data-driven ([announcer.md](../reference/announcer.md)); adding locales/takes is still drop-in. Open: taste passes only. |
+| ✅ Done | Per-arena ambient beds + per-arena music | **Shipped 2026-07-16** — beds + reactive crowd + SD tension ([ambience.md](../reference/ambience.md)); per-arena music, multi-song-per-level, loudness-matched ([music.md](../reference/music.md)). Open: Wyatt ear pass. |
+| Medium | Sudden Death music low-pass | The remaining Pass 5 audio deferral: Howler music + file SFX share one bus → audio-graph surgery. (SD gets a tension-drone layer today via ambience, but not a filter on the music itself.) |
 | Low | Deeper Howler upgrade | Spatial audio, pooling, volume groups (ROADMAP "Future Modernization"). |
 
 ## Design / Gameplay
