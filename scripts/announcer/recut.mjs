@@ -117,14 +117,19 @@ for (const p of [...picks].sort((a, b) => a.line.localeCompare(b.line))) {
     sec = c.start;
   }
 
+  // * Clamp the tail window so it can never reach the NEXT chunk — rhythmic reads
+  // * (the 3-2-1 countdown) leave <0.5s gaps, less than TAIL. 0.05s safety margin.
+  const next = byN.get(c.n + 1);
+  const tail = next ? Math.max(0.1, Math.min(TAIL, next.start - c.start - c.dur - 0.05)) : TAIL;
+
   const outFile = path.join(outDir, `${p.line}.opus`);
-  const mean = measureMeanDb(sec, c.dur + TAIL);
+  const mean = measureMeanDb(sec, c.dur + tail);
   // * Static pre-gain toward -16dB mean; clamped so a mismeasure can't blow up.
   const gain = mean === null ? 0 : Math.max(-12, Math.min(30, -16 - mean));
   const r = spawnSync("ffmpeg", [
     "-y", "-v", "error",
     "-i", wetPath,
-    "-ss", sec.toFixed(3), "-t", (c.dur + TAIL).toFixed(3),
+    "-ss", sec.toFixed(3), "-t", (c.dur + tail).toFixed(3),
     "-af", `volume=${gain.toFixed(1)}dB,${END_TRIM},loudnorm=I=-16:TP=-1.5:LRA=11`,
     "-c:a", "libopus", "-b:a", "96k", "-vbr", "on",
     outFile,

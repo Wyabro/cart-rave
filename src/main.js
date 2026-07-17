@@ -1309,6 +1309,18 @@ async function main() {
     "thirty_seconds_01", "thirty_seconds_02",
     "critical_ko_01", "critical_ko_02",
     "close_call_01", "close_call_02",
+    // * Tiers 3+4 — directives, flavor, countdown (recorded 2026-07-16).
+    // * flash_sale / express_lane / spill_bonus + rush_hour_02 await pickup
+    // * re-records; those directives keep their stings until then.
+    "directive_double_bag_01", "directive_double_bag_02",
+    "directive_rush_hour_01",
+    "cleanup_aisle_01", "cleanup_aisle_02", "cleanup_aisle_03",
+    "cart_overflow_01", "cart_overflow_02",
+    "spill_rush_01", "spill_rush_02",
+    "challenge_complete_01", "challenge_complete_02",
+    "new_host_01",
+    // * Voiced countdown + GO replace the beep stings (Wyatt's call, 2026-07-16).
+    "countdown_3_01", "countdown_2_01", "countdown_1_01", "go_01",
   ];
   for (const key of announcerVoiceKeysEn) {
     AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], { pool: 1 });
