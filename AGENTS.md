@@ -57,6 +57,11 @@ toward Version 2.
   netcode scenarios) against one dev stack, one tally, JSON report in `.diag-captures/`.
   Individual rigs: `npm run gameharness` / `npm run netharness` / `npm run perf:profile`.
   Toolkit map + extension contract: [docs/guides/dev-toolkit.md](docs/guides/dev-toolkit.md).
+- **Project health dashboard:** `npm run dashboard` — generates `.diag-captures/dashboard.html`
+  (+ `health.json`) from git + battery reports + capture bundles + STATUS/BACKLOG. Read-only,
+  never hand-edited; leads with "what should I work on next?". Bug capture (F8 / auto on
+  error+assert) + production analytics (`/api/analytics`) live in the same layer:
+  [docs/guides/observability.md](docs/guides/observability.md).
 
 ---
 
