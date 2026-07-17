@@ -4823,45 +4823,45 @@ async function main() {
       getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
     });
 
-    // * Dev-only bug-capture hotkeys (F8, or legacy Ctrl+Shift+D): assemble a __ccDiag capture
-    // * bundle for the moment a bug is on screen — "player reports it, dev presses the key".
-    // * Logs the bundle, copies its JSON to the clipboard, AND downloads it as a .json file
-    // * (clipboard alone truncates in some consoles and gets clobbered; the file is durable and
-    // * drops straight into .diag-captures/ style triage). Read-only; gated behind both ?diag and
-    // * a DEV build so a production visitor can never trigger it. The harness path captures
-    // * bundles on its own; automatic error/assert captures live under __ccDiag.captures().
-    if (import.meta.env.DEV) {
-      const manualCapture = (trigger) => {
-        try {
-          const bundle = /** @type {any} */ (window).__ccDiag.captureBundle({
-            scenario: "manual",
-            reason: `hotkey ${trigger}`,
-          });
-          const json = JSON.stringify(bundle, null, 2);
-          // eslint-disable-next-line no-console
-          console.info(`[diag] capture bundle (phase=${bundle.phase}, ${bundle.events.length} events):`, bundle);
-          navigator.clipboard?.writeText?.(json).then(
-            () => console.info("[diag] capture bundle copied to clipboard"),
-            () => {},
-          );
-          const blob = new Blob([json], { type: "application/json" });
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = `cc-capture-${bundle.phase ?? "nophase"}-${Date.now()}.json`;
-          a.click();
-          setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-        } catch (err) {
-          console.warn("[diag] capture bundle failed:", err);
-        }
-      };
-      window.addEventListener("keydown", (e) => {
-        const isF8 = e.code === "F8" && !e.ctrlKey && !e.shiftKey && !e.altKey;
-        const isLegacy = e.ctrlKey && e.shiftKey && e.code === "KeyD";
-        if (!isF8 && !isLegacy) return;
-        e.preventDefault();
-        manualCapture(isF8 ? "F8" : "Ctrl+Shift+D");
-      });
-    }
+    // * Bug-capture hotkeys (F8, or legacy Ctrl+Shift+D): assemble a __ccDiag capture bundle for
+    // * the moment a bug is on screen — "player reports it, dev presses the key". Logs the bundle,
+    // * copies its JSON to the clipboard, AND downloads it as a .json file (clipboard alone
+    // * truncates in some consoles and gets clobbered; the file is durable and drops straight into
+    // * .diag-captures/ style triage). Read-only — captureBundle() runs the probes and copies the
+    // * event log, it never mutates game state — so it's safe to ship in prod builds; the ?diag
+    // * flag is the gate (a normal player without it never installs this listener). Works during
+    // * live prod playtests, which is where "press F8 when you see it" is most useful. The harness
+    // * path captures on its own; automatic error/assert captures live under __ccDiag.captures().
+    const manualCapture = (trigger) => {
+      try {
+        const bundle = /** @type {any} */ (window).__ccDiag.captureBundle({
+          scenario: "manual",
+          reason: `hotkey ${trigger}`,
+        });
+        const json = JSON.stringify(bundle, null, 2);
+        // eslint-disable-next-line no-console
+        console.info(`[diag] capture bundle (phase=${bundle.phase}, ${bundle.events.length} events):`, bundle);
+        navigator.clipboard?.writeText?.(json).then(
+          () => console.info("[diag] capture bundle copied to clipboard"),
+          () => {},
+        );
+        const blob = new Blob([json], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `cc-capture-${bundle.phase ?? "nophase"}-${Date.now()}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      } catch (err) {
+        console.warn("[diag] capture bundle failed:", err);
+      }
+    };
+    window.addEventListener("keydown", (e) => {
+      const isF8 = e.code === "F8" && !e.ctrlKey && !e.shiftKey && !e.altKey;
+      const isLegacy = e.ctrlKey && e.shiftKey && e.code === "KeyD";
+      if (!isF8 && !isLegacy) return;
+      e.preventDefault();
+      manualCapture(isF8 ? "F8" : "Ctrl+Shift+D");
+    });
   }
 
   // * Gameplay analytics (production-safe, event-level only — see src/analytics/). Installed
