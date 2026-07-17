@@ -284,7 +284,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const howtoScreen = $("cr-howto-screen");
   const howtoDoneBtn = $("cr-howto-done");
   const howtoBackBtn = $("cr-howto-back");
-  const howtoListEl = $("cr-howto-list");
   const settingsMuteBtn = $("cr-settings-mute-btn");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
@@ -941,69 +940,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   // ─── How To Play overlay screen ────────────────────────────────────────────
 
-  /**
-   * Renders the control rows inside the HOW TO PLAY overlay for the active
-   * input mode (keyboard / gamepad / touch). Matches Settings + main-menu
-   * controls panels; live updates while the overlay is open.
-   * Scoring / Living Store copy is static HTML so it stays in sync with design docs.
-   */
-  function renderHowToRows() {
-    if (!howtoListEl) return;
-    const p = state.palette;
-    const mode = getInputMode();
-    /** @type {{ action: string, keys: string, color: string }[]} */
-    let rows;
-    if (mode === "touch") {
-      rows = [
-        { action: "MOVE", keys: "LEFT STICK (JOYSTICK)", color: p.secondary || "#22e6ff" },
-        { action: "BOOST", keys: "TAP BOOST TO FIRE · HOLD TO CHARGE", color: p.tertiary || "#ffe53d" },
-        { action: "HOP", keys: "TAP HOP", color: p.primary || "#ff2bd6" },
-      ];
-    } else if (mode === "gamepad") {
-      rows = [
-        { action: "MOVE", keys: "L-STICK / D-PAD", color: p.secondary || "#22e6ff" },
-        { action: "BOOST", keys: "A / LT — TAP TO FIRE · HOLD TO CHARGE", color: p.tertiary || "#ffe53d" },
-        { action: "HOP", keys: "B / RT", color: p.primary || "#ff2bd6" },
-      ];
-    } else {
-      rows = [
-        { action: "MOVE", keys: "WASD / ARROWS", color: p.secondary || "#22e6ff" },
-        { action: "BOOST", keys: "SHIFT — TAP TO FIRE · HOLD TO CHARGE", color: p.tertiary || "#ffe53d" },
-        { action: "HOP", keys: "SPACE", color: p.primary || "#ff2bd6" },
-      ];
-    }
-    const controlsHd = document.getElementById("cr-howto-controls-hd");
-    if (controlsHd) {
-      const badge = mode === "gamepad" ? "GAMEPAD" : mode === "touch" ? "TOUCH" : "KEYBOARD";
-      controlsHd.textContent = `◇ CONTROLS · ${badge}`;
-    }
-    howtoListEl.innerHTML = "";
-    rows.forEach((row) => {
-      const el = document.createElement("div");
-      el.className = "cr-howto-row";
-      el.style.setProperty("--ac", row.color);
-      const action = document.createElement("span");
-      action.className = "cr-howto-action";
-      action.textContent = row.action;
-      const keys = document.createElement("span");
-      keys.className = "cr-howto-keys";
-      keys.textContent = row.keys;
-      el.appendChild(action);
-      el.appendChild(keys);
-      howtoListEl.appendChild(el);
-    });
-  }
-
-  function isHowToOpen() {
-    return howtoScreen?.style.display === "flex"
-      || howtoScreen?.getAttribute("aria-hidden") === "false";
-  }
-
   function openHowToScreen() {
     if (!howtoScreen) return;
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
-    renderHowToRows();
     captureOverlayOpener();
     howtoScreen.style.display = 'flex';
     howtoScreen.setAttribute('aria-hidden', 'false');
@@ -1046,10 +986,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     howtoBackBtn?.addEventListener('click', () => closeHowToScreen({ userDismissed: true }));
     wireMenuPressFeedback(howtoDoneBtn);
     wireMenuPressFeedback(howtoBackBtn);
-    // * Live rematch when keyboard / gamepad / touch becomes active — same
-    // * signal the main-menu controls box uses (setInputMode), not a poll.
+    // * Live-rematch the Settings controls panel when keyboard / gamepad / touch
+    // * becomes active — same setInputMode signal it uses, not a poll.
     onInputModeChange(() => {
-      if (isHowToOpen()) renderHowToRows();
       if (settingsScreen?.style.display === "flex") updateSettingsControlsUI();
     });
   }
