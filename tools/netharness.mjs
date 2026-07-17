@@ -402,7 +402,17 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
     { timeout: 15_000, label: "joiner-self-cart-ready" },
   ).catch(() => null);
   check("joiner has a live cart body to drive", Boolean(before), before ? "ready" : "self-cart null");
+  // * Let reconciliation reach steady-state before driving. waitForColdLoadDone is a
+  // * loose heuristic that can declare "settled" while the rAF loop is still too
+  // * starved to sample input — the false `peak 0.00m` flake. The spawnlock scenario
+  // * (reliable 4/4) does this same 1s settle + post-keydown probe; mirror it here.
+  await sleep(1000);
   await holdKey(joiner.page, "KeyW");
+  await sleep(250);
+  const inputProbe = await joiner.page.evaluate(() => window.__ccTest.getState());
+  console.log(
+    `[scenario] joiner after keydown — axis=${JSON.stringify(inputProbe.axis)} pending=${inputProbe.pending}`,
+  );
   let maxDisp = 0;
   const t0 = Date.now();
   while (Date.now() - t0 < 3500) {
@@ -430,7 +440,11 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
     s[slot] = 3;
     return c.setScores(s);
   }, joinerSlot);
-  check("host control.setScores applied (host-authoritative score)", scored === true);
+  check(
+    "host control.setScores applied (host-authoritative score)",
+    scored?.ok === true,
+    scored?.message ?? String(scored),
+  );
   const joinerScores = await pollDiag(joiner.page, readScores, (sc) => (sc?.[joinerSlot] ?? 0) === 3, {
     timeout: 15_000,
     label: "joiner-score-synced",
@@ -446,7 +460,11 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
   const ended = await host.page.evaluate(
     () => window.__ccDiag.control?.rewindRoundClock?.(1200) ?? false,
   );
-  check("host control.rewindRoundClock fast-ends the round", ended === true);
+  check(
+    "host control.rewindRoundClock fast-ends the round",
+    ended?.ok === true,
+    ended?.message ?? String(ended),
+  );
   const hostPodium = await pollDiag(host.page, readRound, (r) => r?.phase === "podium", {
     timeout: 20_000,
     label: "host-podium",
