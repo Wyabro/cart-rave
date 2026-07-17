@@ -85,7 +85,7 @@ See [living-store.md](./living-store.md). Full event table source of truth:
 
 ## Arbitration rules
 
-1. **Single channel** — at most one announcement at a time, with a **1.5 s minimum gap**
+1. **Single channel** — at most one announcement at a time, with a **1.7 s minimum gap**
    between announcements (`MIN_GAP_MS` — the pacing taste knob, Wyatt-tuned). The channel is reserved for the **real recorded-take length**
    (via `getSfxDurationMs`) when it outruns the event's `durationMs` — the table value is
    a pacing floor, not the truth (recorded lines run 1.3–5 s vs the 0.7–1.6 s sting-era
