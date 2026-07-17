@@ -263,16 +263,32 @@ export class CartRaveServer extends Server {
     // * can re-arm for the successor. Lives here (not just onClose) so the reap /
     // * ghost-exorcism / snapshot repair paths get the same protection instead of
     // * leaning on the client-side resumeCountdownAsNewHost fallback.
-    if (this.#countdownTimerHandle !== null) {
-      clearTimeout(this.#countdownTimerHandle);
-      this.#countdownTimerHandle = null;
-    }
+    // * Also drop rematch grace: a mid-grace host flip must not leave a stale
+    // * 2s timer arming countdown against the new host's room shape.
+    this.#clearCountdownTimer();
+    this.#clearRematchGrace();
     if (this.#round.phase === "countdown") {
       this.#round = this.#freshRoundLobby();
       this.#countdownArmed = false;
       this.#broadcastRound();
     }
     if (this.#hostId) this.#checkAllReady();
+  }
+
+  /** Drop the game_start arming timer if any (does not touch phase / countdownArmed). */
+  #clearCountdownTimer() {
+    if (this.#countdownTimerHandle !== null) {
+      clearTimeout(this.#countdownTimerHandle);
+      this.#countdownTimerHandle = null;
+    }
+  }
+
+  /** Drop the post-rematch 2s grace timer if any. */
+  #clearRematchGrace() {
+    if (this.#rematchGraceTimerHandle !== null) {
+      clearTimeout(this.#rematchGraceTimerHandle);
+      this.#rematchGraceTimerHandle = null;
+    }
   }
 
   #assignHumanToSlot(connId: string, preferredColor?: string): Slot | null {
@@ -404,11 +420,17 @@ export class CartRaveServer extends Server {
     }
   }
 
-  // * Cancels the game-start countdown if the "all ready" condition is no
-  // * longer satisfied. Called after any human slot reverts to NPC to
-  // * prevent a countdown from firing with fewer players than intended.
+  // * Cancels the game-start countdown (or pending rematch grace) if the "all
+  // * ready" condition is no longer satisfied. Called after any human slot
+  // * reverts to NPC / unready so we don't arm countdown with a thinner room.
   #cancelCountdownIfNeeded() {
-    if (this.#countdownTimerHandle === null && !this.#countdownArmed) return;
+    if (
+      this.#countdownTimerHandle === null
+      && !this.#countdownArmed
+      && this.#rematchGraceTimerHandle === null
+    ) {
+      return;
+    }
     if (!this.#slots) return;
     const humanSlots = this.#slots.filter((s) => s.kind === "human");
     if (humanSlots.every((s) => s.isReady)) return;
@@ -416,13 +438,22 @@ export class CartRaveServer extends Server {
   }
 
   // * Notifies all clients when an armed game_start countdown is invalidated.
+  // * Also drops rematch grace so unready mid-breathe doesn't still auto-arm.
   #abortArmedCountdown() {
-    if (this.#countdownTimerHandle === null && !this.#countdownArmed) return;
-    if (this.#countdownTimerHandle !== null) {
-      clearTimeout(this.#countdownTimerHandle);
-      this.#countdownTimerHandle = null;
+    if (
+      this.#countdownTimerHandle === null
+      && !this.#countdownArmed
+      && this.#rematchGraceTimerHandle === null
+    ) {
+      return;
     }
+    const hadArmedCountdown =
+      this.#countdownTimerHandle !== null || this.#countdownArmed;
+    this.#clearCountdownTimer();
+    this.#clearRematchGrace();
     this.#countdownArmed = false;
+    // * Grace-only abort: no game_start was broadcast, so don't spam countdownCancel.
+    if (!hadArmedCountdown) return;
     if (this.#round.phase === "countdown") {
       this.#round = this.#freshRoundLobby();
       this.#broadcastRound();
@@ -465,9 +496,16 @@ export class CartRaveServer extends Server {
   // * Checks whether every human slot has toggled ready. If so, arms a
   // * 3-second timer and broadcasts MSG.gameStart with a startsAtMs timestamp.
   // * The timer handle acts as the one-shot guard — re-entrant calls are no-ops
-  // * until the timer fires and clears the handle.
+  // * until the timer fires and clears the handle. Rematch grace also blocks so
+  // * host-migrate / ready-toggle cannot defeat the 2s post-playAgain breathe window.
   #checkAllReady() {
-    if (this.#round.phase !== "lobby" || this.#countdownTimerHandle !== null) return;
+    if (
+      this.#round.phase !== "lobby"
+      || this.#countdownTimerHandle !== null
+      || this.#rematchGraceTimerHandle !== null
+    ) {
+      return;
+    }
     if (!this.#slots) return;
     const liveConnIds = new Set<string>();
     for (const c of this.getConnections()) {
@@ -602,10 +640,8 @@ export class CartRaveServer extends Server {
       this.#round = this.#freshRoundLobby();
       this.#carts = []; // Nuke the stale physical positions
       this.#countdownArmed = false;
-      if (this.#countdownTimerHandle) {
-        clearTimeout(this.#countdownTimerHandle);
-        this.#countdownTimerHandle = null;
-      }
+      this.#clearCountdownTimer();
+      this.#clearRematchGrace();
     }
 
     this.#pendingPickers.add(conn.id);
@@ -1028,14 +1064,8 @@ export class CartRaveServer extends Server {
 
       if (type === MSG.playAgain) {
         if (connection.id !== this.#hostId) return;
-        if (this.#countdownTimerHandle !== null) {
-          clearTimeout(this.#countdownTimerHandle);
-          this.#countdownTimerHandle = null;
-        }
-        if (this.#rematchGraceTimerHandle !== null) {
-          clearTimeout(this.#rematchGraceTimerHandle);
-          this.#rematchGraceTimerHandle = null;
-        }
+        this.#clearCountdownTimer();
+        this.#clearRematchGrace();
         this.#round = this.#freshRoundLobby();
         this.#countdownArmed = false;
         this.#carts = [];
@@ -1052,6 +1082,8 @@ export class CartRaveServer extends Server {
         this.#broadcastRound();
         // * 2s grace before arming countdown — kills the lobby-flash→instant-3-2-1
         // * feel; humans can still unready or leave during the window.
+        // * #checkAllReady is blocked while this handle is set (ready-toggle /
+        // * host-migrate cannot defeat the breathe window).
         this.#rematchGraceTimerHandle = setTimeout(() => {
           this.#rematchGraceTimerHandle = null;
           this.#checkAllReady();
