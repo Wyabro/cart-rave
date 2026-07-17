@@ -15,6 +15,7 @@ import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarn
 import { installNetTestHarness } from "./utils/netTestHarness.js";
 import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
+import { installGameplayAnalytics } from "./analytics/gameplayAnalytics.js";
 import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
   loadPlayerCustomization,
@@ -4865,18 +4866,19 @@ async function main() {
       getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
     });
 
-    // * Dev-only bug-capture hotkey (Ctrl+Shift+D): assemble a __ccDiag capture bundle for the
-    // * moment a bug is on screen — "player reports it, dev presses the key". Logs the bundle and
-    // * copies its JSON to the clipboard. Read-only; gated behind both ?diag and a DEV build so a
-    // * production visitor can never trigger it. The harness path captures bundles on its own.
+    // * Dev-only bug-capture hotkeys (F8, or legacy Ctrl+Shift+D): assemble a __ccDiag capture
+    // * bundle for the moment a bug is on screen — "player reports it, dev presses the key".
+    // * Logs the bundle, copies its JSON to the clipboard, AND downloads it as a .json file
+    // * (clipboard alone truncates in some consoles and gets clobbered; the file is durable and
+    // * drops straight into .diag-captures/ style triage). Read-only; gated behind both ?diag and
+    // * a DEV build so a production visitor can never trigger it. The harness path captures
+    // * bundles on its own; automatic error/assert captures live under __ccDiag.captures().
     if (import.meta.env.DEV) {
-      window.addEventListener("keydown", (e) => {
-        if (!(e.ctrlKey && e.shiftKey && e.code === "KeyD")) return;
-        e.preventDefault();
+      const manualCapture = (trigger) => {
         try {
           const bundle = /** @type {any} */ (window).__ccDiag.captureBundle({
             scenario: "manual",
-            reason: "hotkey Ctrl+Shift+D",
+            reason: `hotkey ${trigger}`,
           });
           const json = JSON.stringify(bundle, null, 2);
           // eslint-disable-next-line no-console
@@ -4885,12 +4887,36 @@ async function main() {
             () => console.info("[diag] capture bundle copied to clipboard"),
             () => {},
           );
+          const blob = new Blob([json], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `cc-capture-${bundle.phase ?? "nophase"}-${Date.now()}.json`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
         } catch (err) {
           console.warn("[diag] capture bundle failed:", err);
         }
+      };
+      window.addEventListener("keydown", (e) => {
+        const isF8 = e.code === "F8" && !e.ctrlKey && !e.shiftKey && !e.altKey;
+        const isLegacy = e.ctrlKey && e.shiftKey && e.code === "KeyD";
+        if (!isF8 && !isLegacy) return;
+        e.preventDefault();
+        manualCapture(isF8 ? "F8" : "Ctrl+Shift+D");
       });
     }
   }
+
+  // * Gameplay analytics (production-safe, event-level only — see src/analytics/). Installed
+  // * unconditionally: opt-out (?analytics=off / localStorage) and DEV console routing are the
+  // * core's concern. Emits match/unlock/challenge/quit/session events via store subscriptions;
+  // * nothing per-frame. Runs AFTER the diagnostics block so its `analytics` probe can register
+  // * with an installed hub (registerDiagProbe is a no-op before installDiagnostics).
+  installGameplayAnalytics({
+    getMode: () => detectGameMode(),
+    getLevelId: () => getCurrentLevelId(),
+    getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+  });
 
   // * VFX-1: live black-frame flicker monitor on real hardware (?blackmon=1). Opt-in,
   // * self-scheduling; logs left/right slab events + shows a counter. Zero cost otherwise.

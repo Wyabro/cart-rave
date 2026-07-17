@@ -33,6 +33,7 @@
     "netharness": "node tools/netharness.mjs",
     "gameharness": "node tools/gameharness.mjs",
     "battery": "node tools/battery.mjs",
+    "dashboard": "node tools/dashboard.mjs",
     "perf:profile": "node tools/perf-profile.mjs"
   },
   "devDependencies": {

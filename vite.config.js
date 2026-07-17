@@ -1,7 +1,29 @@
-import { readdirSync, unlinkSync } from "node:fs";
+import { readdirSync, unlinkSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 import wasm from "vite-plugin-wasm";
+
+// * Build identity baked into the bundle (read via src/utils/buildInfo.js). Capture bundles,
+// * crash beacons, and analytics batches all stamp this so a report is attributable to the
+// * exact build it came from. Git absence (CI tarball, fresh clone states) degrades to "unknown".
+function buildStamp() {
+  let sha = "unknown";
+  try {
+    sha = execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    /* not a git checkout */
+  }
+  let version = null;
+  try {
+    version = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version ?? null;
+  } catch {
+    /* unreadable package.json — version stays null */
+  }
+  return { version, sha, builtAt: new Date().toISOString() };
+}
 
 /**
  * Three's DRACOLoader embeds static decoder URLs that Vite emits into dist/assets/
@@ -33,6 +55,10 @@ function stripOrphanDracoBuildAssets() {
 
 export default defineConfig(({ mode }) => ({
   plugins: [wasm(), stripOrphanDracoBuildAssets()],
+
+  define: {
+    __CC_BUILD__: JSON.stringify(buildStamp()),
+  },
 
   // * Production ships the standard Rapier build only (SIMD is opt-in at runtime but
   // * broken on 0.19.3). Aliasing -simd → standard drops the duplicate ~1.6 MB wasm blob

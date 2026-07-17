@@ -45,6 +45,8 @@ export const STORAGE_KEYS = {
   /** Announcer toggles ("on"/"off"). */
   announcerVoice: "cartRaveAnnouncerVoice",
   announcerCallouts: "cartRaveAnnouncerCallouts",
+  /** Gameplay analytics opt-out ("off" disables all event collection). */
+  analytics: "cartRaveAnalytics",
 };
 
 /**

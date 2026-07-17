@@ -3,6 +3,12 @@
 import * as Three from 'three';
 
 declare global {
+  /**
+   * Build identity injected by vite.config.js `define` (see src/utils/buildInfo.js).
+   * Undefined in contexts without the define (unit tests, tools).
+   */
+  const __CC_BUILD__: { version: string | null; sha: string; builtAt: string } | undefined;
+
   // Loosen DOM query return types — this is a game, all DOM queries target HTMLElements.
   // Prevents ~160 Element vs HTMLElement narrowing errors from checkJs.
   interface ParentNode {
@@ -69,6 +75,9 @@ declare global {
       snapshot: (ns?: string) => any;
       events: (sinceSeq?: number) => Array<{ seq: number; t: number; ch: string; type: string; [k: string]: unknown }>;
       tail: number;
+      captureBundle: (meta?: { scenario?: string; reason?: string }) => Record<string, unknown>;
+      /** Auto-captured bundles (error/assert triggers) — bounded, newest last. */
+      captures: () => Array<Record<string, unknown>>;
       control: {
         rewindRoundClock?: (remainMs?: number) => boolean;
         grantKos?: (level: string, n: number) => void;

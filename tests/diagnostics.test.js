@@ -104,7 +104,10 @@ describe("diagnostics — active (?diag)", () => {
       recordDiagEvent("ko", "kill", { victim: 0, attacker: 1 });
 
       const bundle = window.__ccDiag.captureBundle({ scenario: "roundflow", reason: "unit" });
-      expect(bundle.bundleVersion).toBe(1);
+      expect(bundle.bundleVersion).toBe(2);
+      // vite `define` applies to vitest too, so the build stamp is present here; tolerate
+      // absence (tools importing the module without the define get null).
+      expect(bundle.build === null || typeof bundle.build.sha === "string").toBe(true);
       expect(bundle.scenario).toBe("roundflow");
       expect(bundle.reason).toBe("unit");
       expect(bundle.phase).toBe("podium"); // pulled from the round probe snapshot
@@ -131,6 +134,46 @@ describe("diagnostics — active (?diag)", () => {
       expect(bundle.scenario).toBeNull();
       expect(bundle.reason).toBeNull();
       expect(Array.isArray(bundle.events)).toBe(true);
+    });
+  });
+
+  describe("auto-capture (error/assert events)", () => {
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+
+    it("assembles one bundle a tick after an error event lands", async () => {
+      registerDiagProbe("round", () => ({ phase: "running" }));
+      recordDiagEvent("error", "fatal", { message: "boom" });
+      expect(window.__ccDiag.captures()).toHaveLength(0); // deferred, not synchronous
+      await settle();
+      const captures = window.__ccDiag.captures();
+      expect(captures).toHaveLength(1);
+      expect(captures[0].scenario).toBe("auto");
+      expect(captures[0].reason).toBe("error/fatal");
+      expect(captures[0].snapshot.round).toEqual({ phase: "running" });
+    });
+
+    it("captures on assert events too, but not on ordinary channels", async () => {
+      recordDiagEvent("round", "phase", { from: "lobby", to: "countdown" });
+      recordDiagEvent("assert", "phase-transition", { from: "lobby", to: "podium" });
+      await settle();
+      const captures = window.__ccDiag.captures();
+      expect(captures).toHaveLength(1);
+      expect(captures[0].reason).toBe("assert/phase-transition");
+    });
+
+    it("debounces an error burst into a single capture", async () => {
+      for (let i = 0; i < 10; i += 1) recordDiagEvent("error", "step", { i });
+      await settle();
+      expect(window.__ccDiag.captures()).toHaveLength(1);
+      // the bundle still carries the whole burst in its event log
+      expect(window.__ccDiag.captures()[0].events.filter((e) => e.ch === "error")).toHaveLength(10);
+    });
+
+    it("never captures when the hub is inactive", async () => {
+      __resetDiagnosticsForTest();
+      recordDiagEvent("error", "fatal", { message: "boom" });
+      await settle();
+      expect(window.__ccDiag).toBeUndefined();
     });
   });
 });

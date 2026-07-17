@@ -22,8 +22,12 @@
  *                                        queryable log.
  *
  * On top of those, __ccDiag.captureBundle({scenario, reason}) assembles a self-contained
- * bug-capture bundle (snapshot + event log + runtime context + timestamps) for offline
- * investigation — triggered in-app by a DEV hotkey or by the harness on a failed check.
+ * bug-capture bundle (snapshot + event log + runtime context + build stamp + timestamps)
+ * for offline investigation — triggered in-app by a DEV hotkey (F8 / Ctrl+Shift+D), by the
+ * harness on a failed check, or AUTOMATICALLY when an "error"/"assert" event lands: the hub
+ * assembles a bundle a tick later (so trailing events of the same failure are included) and
+ * keeps the last few under __ccDiag.captures(). Debounced + session-capped so an error loop
+ * can't burn CPU assembling bundles.
  *
  * Gating:
  *   ?diag=1        — install the read surface (snapshot + events). Works in prod builds too
@@ -35,8 +39,19 @@
  *   | "boot" | "error" | "scenario". Add more freely — the buffer is channel-agnostic.
  */
 
+import { readBuildInfo } from "./buildInfo.js";
+
 /** Max events retained in the ring buffer (oldest dropped first). */
 const EVENT_BUFFER_MAX = 512;
+
+/** Channels whose events auto-trigger a capture bundle (the "something is wrong" channels). */
+const AUTO_CAPTURE_CHANNELS = new Set(["error", "assert"]);
+/** Auto-captured bundles kept in memory (oldest dropped first). */
+const AUTO_CAPTURE_MAX_KEPT = 3;
+/** Hard cap per page load — an error loop must not keep assembling bundles. */
+const AUTO_CAPTURE_MAX_PER_SESSION = 5;
+/** Minimum spacing between auto-captures (one bundle per failure episode, not per event). */
+const AUTO_CAPTURE_DEBOUNCE_MS = 5000;
 
 /** @typedef {"round"|"score"|"ko"|"announcer"|"unlock"|"challenge"|"boot"|"error"|"scenario"|string} DiagChannel */
 
@@ -54,6 +69,13 @@ let seq = 0;
 const events = [];
 /** @type {Map<string, () => unknown>} */
 const probes = new Map();
+
+/** The installed api object (needed by auto-capture to call captureBundle). */
+let apiRef = null;
+/** @type {Array<Record<string, unknown>>} */
+const autoCaptures = [];
+let autoCaptureCount = 0;
+let lastAutoCaptureAtMs = -Infinity;
 
 /** Cheap monotonic timestamp; falls back to 0 outside a browser (tests). */
 function nowMs() {
@@ -93,7 +115,38 @@ export function recordDiagEvent(channel, type, data) {
   const evt = { seq, t: nowMs(), ch: channel, type, ...(data || {}) };
   events.push(evt);
   if (events.length > EVENT_BUFFER_MAX) events.shift();
+  if (AUTO_CAPTURE_CHANNELS.has(channel)) scheduleAutoCapture(channel, type);
   return seq;
+}
+
+/**
+ * Automatic bug capture: when an error/assert event lands, assemble a bundle one tick later
+ * (so trailing events of the same failure episode are included) and retain it under
+ * __ccDiag.captures(). Debounced per episode and capped per session — an error loop must
+ * never turn into a bundle-assembly loop. Capture failures are swallowed: evidence
+ * collection can never break the app it is observing.
+ *
+ * @param {string} channel
+ * @param {string} type
+ */
+function scheduleAutoCapture(channel, type) {
+  if (!apiRef) return;
+  if (autoCaptureCount >= AUTO_CAPTURE_MAX_PER_SESSION) return;
+  const now = nowMs();
+  if (now - lastAutoCaptureAtMs < AUTO_CAPTURE_DEBOUNCE_MS) return;
+  lastAutoCaptureAtMs = now;
+  autoCaptureCount += 1;
+  setTimeout(() => {
+    try {
+      const bundle = apiRef.captureBundle({ scenario: "auto", reason: `${channel}/${type}` });
+      autoCaptures.push(bundle);
+      if (autoCaptures.length > AUTO_CAPTURE_MAX_KEPT) autoCaptures.shift();
+      // eslint-disable-next-line no-console
+      console.warn(`[diag] auto-captured bundle (${channel}/${type}) — __ccDiag.captures()`);
+    } catch {
+      /* never throw from evidence collection */
+    }
+  }, 0);
 }
 
 /**
@@ -203,11 +256,12 @@ export function installDiagnostics(opts = {}) {
       for (const e of evts) eventCounts[e.ch] = (eventCounts[e.ch] || 0) + 1;
       const round = /** @type {any} */ (snap)?.round;
       return {
-        bundleVersion: 1,
+        bundleVersion: 2,
         scenario: meta.scenario ?? null,
         reason: meta.reason ?? null,
         capturedAt: nowIso(),
         capturedAtPerfMs: nowMs(),
+        build: readBuildInfo(),
         phase: round && typeof round === "object" ? (round.phase ?? null) : null,
         flags: api.flags,
         tail: seq,
@@ -218,10 +272,19 @@ export function installDiagnostics(opts = {}) {
       };
     },
 
+    /**
+     * Auto-captured bundles (newest last) — assembled automatically when error/assert
+     * events landed. Bounded to the last few; a copy, safe to inspect or serialize.
+     */
+    captures() {
+      return autoCaptures.slice();
+    },
+
     /** DEV-only scenario levers; null in production builds / read-only sessions. */
     control: opts.control || null,
   };
 
+  apiRef = api;
   /** @type {any} */ (window).__ccDiag = api;
 
   // eslint-disable-next-line no-console
@@ -254,6 +317,10 @@ export function __resetDiagnosticsForTest() {
   seq = 0;
   events.length = 0;
   probes.clear();
+  apiRef = null;
+  autoCaptures.length = 0;
+  autoCaptureCount = 0;
+  lastAutoCaptureAtMs = -Infinity;
   if (typeof window !== "undefined") {
     delete (/** @type {any} */ (window).__ccDiag);
     delete (/** @type {any} */ (window).__ccDiagActive);

@@ -1,6 +1,8 @@
 // errorReporter.js — Lightweight production error forwarder to a Cloudflare Worker endpoint.
 
 import { recordDiagEvent } from "./diagnostics.js";
+import { readBuildInfo } from "./buildInfo.js";
+import { trackEvent } from "../analytics/analytics.js";
 
 /**
  * Packages an error and optional context into a JSON payload and POSTs it to
@@ -19,6 +21,8 @@ function sendErrorLog(error, context = {}) {
       timestamp: Date.now(),
       userAgent: navigator.userAgent.slice(0, 256),
       url: location.href.slice(0, 512),
+      // * Build stamp so a crash report is attributable to the exact deploy it came from.
+      build: readBuildInfo(),
     };
 
     const body = JSON.stringify(payload);
@@ -77,6 +81,9 @@ export function sendErrorLogLimited(error, context = {}) {
   if (lastSent != null && now - lastSent < DEDUPE_WINDOW_MS) return;
   recentReports.set(key, now);
   reportsSent += 1;
+  // * Crash-frequency analytics: the count/kind of an error, not its contents — the full
+  // * message/stack goes to /api/log-error below (already rate-limited by this wrapper).
+  trackEvent("client_error", { context: String(context.context ?? "unknown") });
   sendErrorLog(error, context);
 }
 

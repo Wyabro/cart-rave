@@ -19,7 +19,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import { mkdir, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 export { sleep };
@@ -415,10 +416,45 @@ export class CheckTally {
     this.hadError = true;
   }
 
-  /** Print the tally and exit with the shared contract. Never returns. */
-  finish() {
+  /**
+   * Print the tally and exit with the shared contract. Never returns.
+   * @param {string} [tallyOut] Optional path — persist the per-check results as JSON first
+   *   (--tallyOut; the battery passes this so its report carries check-level detail instead
+   *   of only exit codes, and the dashboard renders it).
+   */
+  finish(tallyOut) {
     const failed = this.results.filter((r) => !r.pass);
     this.log(`\n${this.results.length - failed.length}/${this.results.length} checks passed`);
+    if (tallyOut) writeTallySync(tallyOut, this.name, this.results, this.hadError);
     process.exit(this.hadError || failed.length > 0 ? 1 : 0);
+  }
+}
+
+/**
+ * Persist a rig's per-check tally as JSON (synchronous — safe right before process.exit).
+ * Before this, check-level results (16/16 etc.) lived only in stdout and evaporated; the
+ * battery report and the dashboard read these files. Never throws.
+ *
+ * @param {string} file  Output path (.json).
+ * @param {string} rig   Rig/tally name.
+ * @param {{ name: string, pass: boolean, detail?: string }[]} checks
+ * @param {boolean} [hadError]  A scenario threw (counts as failure).
+ * @returns {void}
+ */
+export function writeTallySync(file, rig, checks, hadError = false) {
+  try {
+    mkdirSync(dirname(resolve(file)), { recursive: true });
+    const failed = checks.filter((r) => !r.pass).length;
+    writeFileSync(
+      resolve(file),
+      JSON.stringify(
+        { rig, when: new Date().toISOString(), passed: checks.length - failed, failed, hadError, checks },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  } catch {
+    /* tally persistence must never mask the run result */
   }
 }

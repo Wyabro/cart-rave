@@ -5,7 +5,19 @@ lever in the project, plus the rules for extending them so the toolkit stays one
 thing instead of a pile of one-offs. Deep guides:
 [diagnostics.md](./diagnostics.md) (gameplay hub + rigs) ·
 [netcode-harness.md](./netcode-harness.md) (2-client rig) ·
-[visual-qa.md](./visual-qa.md) (screenshots / black frames).
+[visual-qa.md](./visual-qa.md) (screenshots / black frames) ·
+[observability.md](./observability.md) (bug capture · analytics · living dashboard).
+
+## The health view
+
+```bash
+npm run dashboard        # generate .diag-captures/dashboard.html + health.json
+```
+
+A GENERATED project-health page — "what should I work on next?", latest battery gates
+with per-check detail, capture bundles awaiting triage (with screenshots), STATUS open
+issues / playtest queue, backlog shape, perf snapshot. Read-only; never hand-edited.
+See [observability.md](./observability.md).
 
 ## The one command
 
@@ -44,7 +56,9 @@ spawnlock → mpIntegration → hostMigration. Opt-in: `--visual` (blackframes),
 | Visual QA harness | `?harness=1` | `window.__cartRave` | `settle`, `stats()`, ablation for shoot/blackframes |
 | DEV perf probe | (DEV build) | `window.__cartRavePerf` | `renderer/scene/camera/composer` refs for profiling + the `resources` probe |
 | Debug panel | `?debug` / `?tune` (DEV) | Tweakpane | Playtest Tools folder (Force SD, grant KOs, directives, unlock gates), postFX + feel knobs |
-| Bug capture | `Ctrl+Shift+D` (DEV + `?diag`) | — | Capture bundle → console + clipboard |
+| Bug capture (manual) | `F8` / `Ctrl+Shift+D` (DEV + `?diag`) | — | Capture bundle → console + clipboard + downloaded .json |
+| Bug capture (auto) | (any `error`/`assert` event, `?diag`) | `__ccDiag.captures()` | Last 3 auto-assembled bundles, debounced + session-capped |
+| Gameplay analytics | on by default (`?analytics=off` opts out) | `__ccDiag.snapshot("analytics")` | Event-level batches → `/api/analytics` (prod) / console.debug (DEV) — [observability.md](./observability.md) |
 
 Namespace rule: new gameplay diagnostics belong under `__ccDiag`; netcode-specific under
 `__ccTest`; `__cartRave*` is the visual-QA family. All are inert without their flag.
@@ -99,7 +113,13 @@ to :5173). Natural extension: a `--baseline` compare mode to turn it into a regr
    `tools/lib/harness.mjs` helpers (`makeClient`, `waitForState`, `holdKey`, `CheckTally`,
    `dumpFailureBundle`). Read `__ccDiag`/`__ccTest`, never scrape the DOM.
 6. **New rig** → build on `tools/lib/harness.mjs` (preflight + exit contract for free) and
-   append one line to `STEPS` in `tools/battery.mjs`.
+   append one line to `STEPS` in `tools/battery.mjs`. Support `--tallyOut` (free via
+   `CheckTally.finish(path)`) so the battery report carries your per-check detail.
+7. **New analytics event** → `trackEvent(name, props)` (`src/analytics/analytics.js`) from a
+   store subscription or existing chokepoint in `gameplayAnalytics.js`. Event-level only —
+   if it could fire every frame, aggregate first (see matchStats → `match_ended`).
+8. **New dashboard section** → a collector in `tools/lib/projectHealth.mjs` (degrade to
+   null, parsers pure + unit-tested) + a render block in `tools/dashboard.mjs`.
 
 Principles (the netcode-harness philosophy — keep them): production code paths, structured
 state over DOM, deterministic control via existing proven levers, flag-gated zero-cost

@@ -22,7 +22,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   parseArgs,
@@ -137,10 +137,28 @@ async function main() {
       log(`▶ ${step.name} — ${step.note}`);
       const extra = step.urlArg ? ["--url", baseUrl] : [];
       if (step.name === "gameharness" && str(args.soakCycles)) extra.push("--soakCycles", str(args.soakCycles));
+      // * Rigs persist their per-check tally so the battery report (and the dashboard)
+      // * carries check-level detail (16/16 …) instead of only exit codes.
+      const tallyPath = step.urlArg ? resolve(CAPTURE_DIR, `tally-${step.name}.json`) : null;
+      if (tallyPath) {
+        await rm(tallyPath, { force: true }).catch(() => {});
+        extra.push("--tallyOut", tallyPath);
+      }
       // eslint-disable-next-line no-await-in-loop
       const r = await runStep(step, extra);
-      results.push({ name: step.name, note: step.note, ...r });
-      log(`${r.code === 0 ? "PASS" : r.code === 2 ? "SETUP-ERROR" : "FAIL"} ${step.name} (${(r.ms / 1000).toFixed(0)}s)\n`);
+      /** @type {{ passed: number, failed: number, checks: unknown[] } | null} */
+      let checks = null;
+      if (tallyPath) {
+        try {
+          const t = JSON.parse(await readFile(tallyPath, "utf8"));
+          checks = { passed: t.passed, failed: t.failed, checks: t.checks };
+        } catch {
+          /* rig died before writing a tally — exit code is still authoritative */
+        }
+      }
+      results.push({ name: step.name, note: step.note, ...r, ...(checks ? { checks } : {}) });
+      const checkNote = checks ? ` — ${checks.passed}/${checks.passed + checks.failed} checks` : "";
+      log(`${r.code === 0 ? "PASS" : r.code === 2 ? "SETUP-ERROR" : "FAIL"} ${step.name} (${(r.ms / 1000).toFixed(0)}s)${checkNote}\n`);
     }
   } finally {
     tearingDown = true;

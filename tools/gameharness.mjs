@@ -509,7 +509,7 @@ async function main() {
     killDevStack(devProc);
   }
 
-  tally.finish();
+  tally.finish(str(args.tallyOut));
 }
 
 main().catch((e) => {

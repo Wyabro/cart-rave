@@ -30,6 +30,7 @@ import {
   ensurePlaywright,
   launchClientBrowser,
   dumpFailureBundle,
+  writeTallySync,
   CLIENT_PORT,
   killDevStack,
 } from "./lib/harness.mjs";
@@ -671,6 +672,8 @@ async function main() {
 
   const failed = results.filter((r) => !r.pass);
   console.log(`\n[netharness] ${results.length - failed.length}/${results.length} checks passed`);
+  const tallyOut = str(args.tallyOut);
+  if (tallyOut) writeTallySync(tallyOut, `netharness:${scenario}`, results, hadError);
   if (hadError || failed.length > 0) process.exit(1);
   process.exit(0);
 }

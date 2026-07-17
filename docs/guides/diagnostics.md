@@ -77,11 +77,19 @@ are a single boolean read.
   eventCounts, events, snapshot }`. Pure read (never mutates); JSON-serializable so it ships to
   disk or clipboard. `seed` is always `null` — there is no exposed gameplay RNG seed (arena pick
   is unseeded). Two ways to trigger a capture:
-  - **In-app hotkey** — `Ctrl+Shift+D` (DEV build + `?diag` only) logs the bundle and copies its
-    JSON to the clipboard. The "player reports a bug on screen → dev presses the key" path.
+  Bundles are `bundleVersion: 2`: they carry a `build` stamp ({ sha, builtAt }, baked by
+  vite.config.js `define`) so every capture is attributable to its exact build. Three ways
+  to trigger a capture:
+  - **In-app hotkey** — `F8` (or legacy `Ctrl+Shift+D`; DEV build + `?diag` only) logs the
+    bundle, copies its JSON to the clipboard, and downloads it as a `.json` file. The
+    "player reports a bug on screen → dev presses the key" path.
+  - **Automatic** — any `error`/`assert` event auto-assembles a bundle one tick later and
+    retains the last 3 under `__ccDiag.captures()` (debounced 5 s, max 5/session, so an
+    error loop can't spin bundle assembly). After a crash, the evidence is already waiting.
   - **Harness** — `dumpFailureBundle(page, { scenario, label })` (`tools/lib/harness.mjs`) writes
     `<scenario>-<label>-NNN.json` + a Playwright screenshot to `.diag-captures/` (gitignored).
-    Both rigs call it automatically when a scenario's checks fail.
+    Both rigs call it automatically when a scenario's checks fail. Rigs also persist their
+    per-check tally via `--tallyOut <file>` (the battery passes this automatically).
 
 ## Two primitives make new modules cheap
 

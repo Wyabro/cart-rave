@@ -2,6 +2,7 @@
 
 import * as GameState from "./gameState.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
+import { trackEvent } from "./analytics/analytics.js";
 
 /**
  * Mutable callback refs shared between main(), netcode, and the game loop.
@@ -209,6 +210,12 @@ export function createGameSessionController(getContext) {
    * @param {{ reason?: string }} [opts]
    */
   function returnToMenu(opts = {}) {
+    // * Quit-location analytics: stamp the phase BEFORE teardown resets it to lobby.
+    // * "esc"/"results" are chosen exits; "simError"/"joinRejected" are forced ones.
+    trackEvent("player_quit", {
+      reason: opts.reason ?? "menu",
+      phase: GameState.getRoundState()?.phase ?? null,
+    });
     teardownGameSession();
     stripRoomFromUrl();
 
