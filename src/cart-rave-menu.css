@@ -102,19 +102,33 @@ html, body {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr; /* Slightly wider center for ultrawide cohesion */
   align-items: center;
+  /* `safe center` keeps vertical centering when the columns fit, but falls back
+     to top-align the moment a column is taller than the viewport — which is what
+     happens under high OS DPI scaling (a 1080p panel at 125% reports a ~760px
+     CSS viewport) or browser zoom. Without it, a centered-then-overflowing
+     column has its top AND bottom clipped and the overflow is unreachable even
+     with a scrollbar. Paired declaration = graceful fallback on engines that
+     don't parse the `safe` keyword. */
+  align-items: safe center;
+  align-content: safe center;
   justify-items: center;
   padding: var(--pad-content);
   gap: clamp(16px, 2.5vw, 32px); /* Tighter gap on smaller screens, wider on ultrawide */
   width: 100%;
   max-width: 1500px; /* Slightly tighter cap to prevent extreme stretching */
   margin: 0 auto;
+  /* Scroll instead of hard-clipping when the columns exceed the viewport height
+     (short windows / DPI scaling / zoom). No-op when everything fits. This is
+     the desktop safety net; the mobile + <=680px blocks already scroll. */
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .cr-left {
   display: flex; flex-direction: column;
-  align-items: center; gap: var(--gap-section);
+  gap: var(--gap-controls);
   width: 100%;
-  max-width: 360px;
+  max-width: 420px; /* mirror .cr-right so the left/right columns read as a uniform pair */
   overflow: visible;
 }
 
@@ -377,7 +391,11 @@ html, body {
 
 .cr-title-stack {
   display: flex; flex-direction: column; gap: 0;
-  font-size: clamp(80.5px, 12.94vw, 201px);
+  /* The vh term is a ceiling that only bites when the viewport is short for its
+     width — i.e. high OS DPI scaling or browser zoom, where the two-line title
+     would otherwise push the arena picker off-screen. On a full-height monitor
+     the vw term / 201px cap wins, so the established hero size is unchanged. */
+  font-size: clamp(80.5px, min(12.94vw, 21vh), 201px);
   line-height: 0.81;
   letter-spacing: 0.05em;
 }
@@ -469,7 +487,14 @@ html, body {
   gap: var(--space-sm);
   width: 100%;
   max-width: 420px;
-  margin-top: var(--space-xs);
+  /* Boxed to match the other panels (name / stats / audio / controls) — same ink
+     surface + die-cut sticker edge so the left and right columns read as one
+     cohesive system instead of a loose row of buttons. */
+  padding: var(--pad-card);
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--sticker-panel);
 }
 
 .cr-levels-hd {
@@ -1497,7 +1522,26 @@ html, body {
    static HTML so design-doc copy stays in one place. */
 .cr-overlay-panel--howto {
   max-width: 600px;
-  gap: clamp(12px, 1.8vw, 18px);
+  gap: clamp(10px, 1.4vw, 14px);
+  /* Fits the condensed howto copy without a scrollbar on desktop — the shared
+     92dvh/740px cap was clipping it. The dvh term keeps the overflow backstop
+     for short (DPI-scaled) viewports where it genuinely can't all fit. */
+  max-height: min(94dvh, 860px);
+}
+
+/* Short desktop/laptop heights — e.g. a 1080p panel at 125% DPI (≈760–800px CSS).
+   Tighten the howto panel's internal rhythm so the condensed copy clears the fold
+   without a scrollbar there too. Tall screens keep the roomier spacing above. */
+@media (min-width: 1025px) and (max-height: 820px) {
+  .cr-overlay-panel--howto { gap: clamp(6px, 0.9vh, 10px); }
+  .cr-overlay-panel--howto .cr-overlay-desc { margin-top: -4px; }
+  .cr-overlay-panel--howto .cr-howto-section {
+    gap: 4px;
+    padding: clamp(6px, 0.9vh, 9px) clamp(10px, 1.4vw, 14px);
+  }
+  .cr-overlay-panel--howto .cr-howto-bullets { gap: 3px; }
+  .cr-overlay-panel--howto .cr-howto-bullets li { line-height: 1.38; }
+  .cr-overlay-panel--howto .cr-howto-directive { padding: 5px clamp(8px, 1.2vw, 10px); }
 }
 
 .cr-howto-section {
@@ -1613,7 +1657,7 @@ html, body {
 
 .cr-howto-directive-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(5px, 0.8vw, 8px);
 }
 
@@ -2600,6 +2644,20 @@ html, body {
   }
   .cr-customize-section {
     padding: 4px 0 0;
+  }
+}
+
+/* Desktop windows that are short for their width — the signature of high OS DPI
+   scaling (a 1080p panel at 125% reports a ~760px CSS viewport) or browser zoom.
+   The title vh-ceiling already shrinks the hero so the arena picker clears the
+   fold; here we also trim the content's vertical padding so the empty bottom
+   gutter doesn't trigger a scrollbar. Full-height monitors (>860px) never enter
+   this band, so their 48px breathing room is untouched. The .cr-content scroll
+   set on the base rule remains the backstop for anything more extreme. */
+@media (min-width: 1025px) and (max-height: 860px) {
+  .cr-content {
+    padding-top: clamp(12px, 2.2vh, 32px);
+    padding-bottom: max(clamp(12px, 2.2vh, 32px), env(safe-area-inset-bottom, 0px));
   }
 }
 

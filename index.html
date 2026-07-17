@@ -580,8 +580,26 @@
 
     <!-- Main content -->
     <div class="cr-content">
-      <!-- Left column (stats only — scoring rules live on HOW TO PLAY) -->
+      <!-- Left column: player name + stats + arenas -->
       <div class="cr-left">
+        <div class="cr-player-card" id="cr-player-card">
+          <div class="cr-player-hd">
+            <span>◇ YOUR NAME</span>
+            <span class="cr-player-status">
+              <i class="cr-pulse cr-pulse--online"></i> ONLINE
+            </span>
+          </div>
+
+          <div class="cr-name-row">
+            <div class="cr-name-display" id="cr-name-display" aria-label="Your username">
+              <span class="cr-tag">@</span><span id="cr-name-text"></span>
+              <span class="cr-edit-hint">✎</span>
+            </div>
+            <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your username" />
+            <button class="cr-reroll" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
+          </div>
+        </div>
+
         <div class="cr-stats" id="cr-stats-local">
           <div class="cr-stats-tag">
             <i class="cr-pulse cr-pulse--stats"></i> YOUR STATS
@@ -606,13 +624,37 @@
             <span class="cr-stat-lbl">SOLO</span>
           </div>
         </div>
+
+        <div class="cr-levels" id="cr-levels">
+          <div class="cr-levels-hd">◇ ARENAS</div>
+          <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena">
+            <button type="button" class="cr-level-btn active" data-level="classicRecord" data-colorkey="secondary" aria-pressed="true">
+              <span class="cr-level-btn-inner">
+                <span class="cr-level-btn-label">CART RAVE</span>
+                <span class="cr-level-btn-sub">Neon vinyl arena</span>
+              </span>
+            </button>
+            <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false">
+              <span class="cr-level-btn-inner">
+                <span class="cr-level-btn-label">THE STOREROOMS</span>
+                <span class="cr-level-btn-sub">Liminal Battleground</span>
+              </span>
+            </button>
+            <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false">
+              <span class="cr-level-btn-inner">
+                <span class="cr-level-btn-label">SUNDIAL STATION</span>
+                <span class="cr-level-btn-sub">Offshore sunset showdown</span>
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Center column -->
       <div class="cr-center">
         <div class="cr-tagline">
           <span>◆</span>
-          <span>SHOPPING CART ARENA</span>
+          <span>SHOPPING CART BRAWLER</span>
           <span>◆</span>
         </div>
         <h1 class="cr-title cr-title-stack" id="cr-title">
@@ -630,50 +672,10 @@
           <button class="cr-btn cr-btn--customize" data-action="customize" data-colorkey="p2" type="button">
             <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>          </button>
         </div>
-
-        <div class="cr-levels" id="cr-levels">
-          <div class="cr-levels-hd">◇ ARENAS <span class="cr-levels-hint">choose your arena</span></div>
-          <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena">
-            <button type="button" class="cr-level-btn active" data-level="classicRecord" data-colorkey="secondary" aria-pressed="true">
-              <span class="cr-level-btn-inner">
-                <span class="cr-level-btn-label">CART RAVE</span>
-                <span class="cr-level-btn-sub">Neon vinyl arena</span>
-              </span>            </button>
-            <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false">
-              <span class="cr-level-btn-inner">
-                <span class="cr-level-btn-label">THE STOREROOMS</span>
-                <span class="cr-level-btn-sub">Liminal Battleground</span>
-              </span>            </button>
-            <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false">
-              <span class="cr-level-btn-inner">
-                <span class="cr-level-btn-label">SUNDIAL STATION</span>
-                <span class="cr-level-btn-sub">Offshore sunset showdown</span>
-              </span>            </button>
-          </div>
-        </div>
-
       </div>
 
-      <!-- Right column -->
+      <!-- Right column: audio + controls + how-to / challenges / settings -->
       <div class="cr-right">
-        <div class="cr-player-card" id="cr-player-card">
-          <div class="cr-player-hd">
-            <span>◇ YOUR NAME</span>
-            <span class="cr-player-status">
-              <i class="cr-pulse cr-pulse--online"></i> ONLINE
-            </span>
-          </div>
-
-          <div class="cr-name-row">
-            <div class="cr-name-display" id="cr-name-display" aria-label="Your username">
-              <span class="cr-tag">@</span><span id="cr-name-text"></span>
-              <span class="cr-edit-hint">✎</span>
-            </div>
-            <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your username" />
-            <button class="cr-reroll" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
-          </div>
-        </div>
-
         <div class="cr-audio-panel" id="cr-audio-panel">
           <div class="cr-audio-hd">
             <span>◇ AUDIO</span>
@@ -786,49 +788,39 @@
     <div class="cr-overlay-panel cr-overlay-panel--howto">
       <h2 class="cr-overlay-title">HOW TO PLAY</h2>
       <p class="cr-overlay-desc">
-        Chaotic shopping cart brawler. Ram rivals off the arena, stack bonuses, and
-        finish the round with the most points. Ties go to Sudden Death.
+        Chaotic shopping cart brawler — ram rivals off the arena, stack bonuses, and
+        end the round with the most points. Ties go to Sudden Death.
       </p>
-
-      <section class="cr-howto-section" aria-labelledby="cr-howto-controls-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-controls-hd">◇ CONTROLS</h3>
-        <div class="cr-howto-list" id="cr-howto-list"></div>
-      </section>
 
       <section class="cr-howto-section" aria-labelledby="cr-howto-score-hd">
         <h3 class="cr-howto-section-hd" id="cr-howto-score-hd">◇ HOW TO SCORE</h3>
         <p class="cr-howto-blurb">
-          Points only count when <strong>you</strong> force another cart off —
-          self-falls score nothing. Bonuses add first, then multipliers apply.
+          You only score when <strong>you</strong> force a rival off — self-falls count for
+          nothing. Bonuses add first, then combo multipliers apply.
         </p>
-        <ul class="cr-howto-bullets">
-          <li><strong>Edge KO</strong> — 1 pt for yeeting someone off the perimeter</li>
-          <li><strong>Hazard KO</strong> — 2 pts for center pit (Cart Rave) or corner voids (The Storerooms)</li>
-          <li><strong>Critical hit</strong> — +1 when the crediting ram is high-speed</li>
-          <li><strong>Leader down</strong> — +1 for knocking off the sole score leader</li>
-          <li><strong>High ground</strong> — +1 on Sundial when the KO ram came from the podium</li>
+        <ul class="cr-howto-bullets cr-howto-bullets--compact">
+          <li><strong>Edge KO</strong> — 1 pt, off the perimeter</li>
+          <li><strong>Hazard KO</strong> — 2 pts, into the center pit or corner voids</li>
+          <li><strong>Critical</strong> — +1 when your ram is high-speed</li>
+          <li><strong>Leader down</strong> — +1 for KOing the sole leader (they glow)</li>
+          <li><strong>High ground</strong> — +1 on Sundial from the podium</li>
         </ul>
-        <p class="cr-howto-note">
-          The sole leader glows. Stacked bonuses + multipliers can turn one play into a huge float.
-        </p>
       </section>
 
       <section class="cr-howto-section" aria-labelledby="cr-howto-combo-hd">
         <h3 class="cr-howto-section-hd" id="cr-howto-combo-hd">◇ COMBOS</h3>
         <p class="cr-howto-blurb">
-          Chain KOs before the streak fades (~5s). Each tier multiplies the whole reward:
+          Chain KOs before the ~5s streak fades — each tier multiplies the whole reward:
+          <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 · <strong>CARNAGE</strong> ×3.0
         </p>
-        <ul class="cr-howto-bullets cr-howto-bullets--compact">
-          <li><strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 · <strong>CARNAGE</strong> ×3.0</li>
-        </ul>
       </section>
 
       <section class="cr-howto-section" aria-labelledby="cr-howto-store-hd">
         <h3 class="cr-howto-section-hd" id="cr-howto-store-hd">◇ LIVING STORE</h3>
-        <ul class="cr-howto-bullets">
-          <li><strong>Cargo bay</strong> — your cart fills as you score; fuller carts handle heavier and spill a bigger mess</li>
-          <li><strong>Spill rush</strong> — forced grocery spills grant a short speed/accel comeback buff</li>
-          <li><strong>PA directives</strong> — mid-round rule twists (~18s). Watch the HUD chip under the timer</li>
+        <ul class="cr-howto-bullets cr-howto-bullets--compact">
+          <li><strong>Cargo bay</strong> — scoring fills your cart; fuller = heavier handling, bigger spill</li>
+          <li><strong>Spill rush</strong> — forcing a spill grants a short speed comeback buff</li>
+          <li><strong>PA directives</strong> — mid-round rule twists (~18s); watch the HUD chip under the timer:</li>
         </ul>
         <div class="cr-howto-directive-grid" role="list">
           <div class="cr-howto-directive" role="listitem">
