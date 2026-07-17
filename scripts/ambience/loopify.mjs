@@ -21,7 +21,10 @@ import { mkdirSync, existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { SR, CROSSFADE_S, crossfadeLoop, normalize, writeWav } from "./dsp.mjs";
+import { SR, CROSSFADE_S, dbToLin, crossfadeLoop, normalize, writeWav } from "./dsp.mjs";
+
+/** Trailing samples below this are dead air (DAW export padding), not content. */
+const TAIL_TRIM_DB = -50;
 
 const OUT_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -56,7 +59,24 @@ if (dec.status !== 0 || !dec.stdout?.length) {
 }
 
 const interleaved = new Float32Array(dec.stdout.buffer, dec.stdout.byteOffset, dec.stdout.byteLength / 4);
-const frames = Math.floor(interleaved.length / 2);
+const decodedFrames = Math.floor(interleaved.length / 2);
+
+// Trim trailing dead air BEFORE the loop math — DAW exports often pad the end with
+// silence, and blending silence into the head would put a level dip at the seam.
+// End-trim only, generous -50dB threshold: continuous ambience never legitimately
+// sits that low, so this can't eat content (cf. the announcer start-trim gotcha).
+const thr = dbToLin(TAIL_TRIM_DB);
+let frames = decodedFrames;
+while (
+  frames > 0
+  && Math.abs(interleaved[(frames - 1) * 2]) < thr
+  && Math.abs(interleaved[(frames - 1) * 2 + 1]) < thr
+) frames -= 1;
+const trimmedS = (decodedFrames - frames) / SR;
+if (trimmedS >= 0.05) {
+  console.log(`trimmed ${trimmedS.toFixed(2)}s of trailing dead air (below ${TAIL_TRIM_DB}dB)`);
+}
+
 const fadeSamples = Math.round(fadeSeconds * SR);
 const loopSamples = frames - fadeSamples;
 if (loopSamples < SR * 4) {
