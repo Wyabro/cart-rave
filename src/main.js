@@ -111,6 +111,7 @@ function nametagHtml(name, meta, mode, isHost) {
 }
 import * as AudioManager from "./audioManager.js";
 import * as ArenaAmbience from "./ambience/arenaAmbience.js";
+import { resolveLevelMusic } from "./music/levelMusic.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
@@ -747,13 +748,21 @@ async function main() {
     }
   };
 
-  const gameMusicFiles = ["music.opus", "song2.opus", "song3.opus", "song4.opus"];
-  const _gameMusicUrls = gameMusicFiles.map((f) => [soundUrl(f)]);
-  for (let i = _gameMusicUrls.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [_gameMusicUrls[i], _gameMusicUrls[j]] = [_gameMusicUrls[j], _gameMusicUrls[i]];
+  // * Music is per-arena now (src/music/levelMusic.js): each arena's own track list
+  // * is set as the playlist at play entry / arena swap. Multi-song levels shuffle +
+  // * advance; single-song levels loop. setGamePlaylist is URL-only (preload:false)
+  // * so nothing fetches until the first playGameMusic at game entry.
+  function startLevelMusic(levelId) {
+    const files = resolveLevelMusic(levelId);
+    // * Shuffle a multi-song level so the same track doesn't always open. Single-song
+    // * levels are unaffected. RNG lives here (main), not the resolvable/testable module.
+    for (let i = files.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [files[i], files[j]] = [files[j], files[i]];
+    }
+    AudioManager.setGamePlaylist(files.map((f) => [soundUrl(f)]));
+    AudioManager.playGameMusic();
   }
-  AudioManager.setGamePlaylist(_gameMusicUrls);
 
   // * Autoplay policy: unlock AudioContext on the first user gesture anywhere on the page.
   // * Registered early (before initMenu) with capture so it fires before other handlers.
@@ -1828,7 +1837,7 @@ async function main() {
     updateTouchControlsVisibility();
     AudioManager.stopMenuMusic();
     if (!isTestDrive) {
-      AudioManager.playGameMusic();
+      startLevelMusic(getCurrentLevelId());
     }
     // * Arena atmosphere rides along in every mode (test drive included — it is the
     // * world's sound, not the match's). Unknown arenas (testArena) stay silent.
@@ -2593,8 +2602,15 @@ async function main() {
       setLevelSwapping(false);
       arenaRotationInFlight = false;
       // * menuVisible guard: a disconnect mid-swap returns to the menu (which stops
-      // * ambience) — don't restart a bed under the menu music.
-      if (!menuVisible) ArenaAmbience.startArenaAmbience(getCurrentLevelId());
+      // * ambience + music) — don't restart a bed/track under the menu music.
+      if (!menuVisible) {
+        ArenaAmbience.startArenaAmbience(getCurrentLevelId());
+        // * Music is per-arena — swap to the rotated arena's playlist. stopGameMusic
+        // * first so the new playlist starts from its own track 0 (startLevelMusic →
+        // * setGamePlaylist → playGameMusic, which no-ops if not stopped).
+        AudioManager.stopGameMusic();
+        startLevelMusic(getCurrentLevelId());
+      }
     }
   }
 
