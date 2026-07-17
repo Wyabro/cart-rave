@@ -24,11 +24,18 @@ import { recordDiagEvent } from "../utils/diagnostics.js";
  * @property {() => number} getSfxVolume
  * @property {() => boolean} getIsMuted
  * @property {(key: string) => number | null} playSfx AudioManager.playSfx, passed in to avoid an import cycle.
+ * @property {(key: string, id: number) => void} [stopSfx] Hard-stop a playing SFX instance.
+ * @property {(key: string, id: number, ms?: number) => void} [fadeOutSfx] Fade-then-stop a
+ *   playing SFX instance — preferred over stopSfx for interrupts (no click on reverby voice).
+ * @property {(key: string) => number | null} [getSfxDurationMs] Real clip length of a loaded
+ *   SFX, used to reserve the channel for the actual recorded take instead of the
+ *   sting-era durationMs estimate.
  * @property {() => boolean} isVoiceEnabled Gates ALL announcer audio (voice + stings) except "sequence" events.
  * @property {() => boolean} isCalloutsEnabled
  * @property {() => string} [getLocale]
- * @property {(def: AnnouncerEventDef) => void} [onAnnouncementPlays] Mix hook fired the
- *   moment an event actually plays (main ducks music under big announcements).
+ * @property {(def: AnnouncerEventDef, voiceMs: number | null) => void} [onAnnouncementPlays]
+ *   Mix hook fired the moment an event actually plays (main ducks music under big
+ *   announcements). voiceMs is the real recorded-take length when a voice plays, else null.
  */
 
 /**
@@ -61,6 +68,8 @@ import { recordDiagEvent } from "../utils/diagnostics.js";
 
 /** Minimum silence between the END of one announcement and the START of the next (non-sequence). */
 const MIN_GAP_MS = 1200;
+/** Extra quiet after a focus (directive) window closes, so nothing piles in right as it ends. */
+const POST_FOCUS_QUIET_MS = 800;
 /** Max items held in the arbitration queue at once. */
 const QUEUE_MAX = 2;
 /** Kill-burst merge / comeback-swallow-new_leader collection window. */
@@ -82,6 +91,10 @@ let _initialized = false;
 
 /** @type {{ eventId: string, priority: number, interruptible: boolean, endMs: number } | null} */
 let _active = null;
+/** @type {{ key: string, id: number } | null} The active announcement's playing SFX instance,
+ * so an interrupt can SILENCE it — not just replace its callout (recorded voice lines are
+ * long enough to audibly ring under whatever interrupts them otherwise). */
+let _activeSound = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let _endTimer = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
@@ -253,9 +266,12 @@ export function stopAnnouncer() {
     _endTimer = null;
   }
   if (_active) {
+    // * Hard silence includes the audio — menu return should not leave a line ringing.
+    stopActiveSound();
     _presenter?.hideCallout();
     _active = null;
   }
+  _activeSound = null;
   _newLeaderTrack = null;
   _focusUntilMs = -Infinity;
 }
@@ -518,10 +534,23 @@ function startAnnouncement(def, data, nowMs) {
   // * everything else consumes here, at the moment it actually wins the channel.
   if (!KILL_BURST_IDS.has(def.id)) consumeGates(def, nowMs);
 
+  // * Resolve the voice take up front so the channel reservation can use the REAL
+  // * clip length. Sequence events resolve regardless of the voice toggle (they're
+  // * core feedback, not commentary); everything else only when audio is allowed.
+  const locale = _deps.getLocale ? _deps.getLocale() : "en";
+  const voiceKey =
+    def.cls === "sequence" || _deps.isVoiceEnabled() ? resolveVoiceKey(def, locale) : null;
+  const voiceMs = voiceKey ? (_deps.getSfxDurationMs?.(`announcer_${voiceKey}`) ?? null) : null;
+  // * Honest reservation: recorded takes outrun the sting-era durationMs estimates
+  // * (1.3–5s vs 0.7–1.6s), which let the next line start while the last was still
+  // * talking. Never shorter than the declared pacing floor.
+  const reserveMs = Math.max(def.durationMs, voiceMs ?? 0);
+
   // * Focus events (Living Store directives) open a suppression window for the whole
-  // * on-screen hold — see the focus gate in dispatch().
+  // * on-screen hold OR the full voice line, whichever runs longer, plus a beat of
+  // * air — nothing should fire right as the rule change lands or right after it.
   if (def.focus) {
-    _focusUntilMs = nowMs + (def.callout?.holdMs ?? def.durationMs);
+    _focusUntilMs = nowMs + Math.max(def.callout?.holdMs ?? 0, reserveMs) + POST_FOCUS_QUIET_MS;
   }
 
   if (_endTimer) {
@@ -532,11 +561,11 @@ function startAnnouncement(def, data, nowMs) {
     eventId: def.id,
     priority: def.priority,
     interruptible: def.interruptible,
-    endMs: nowMs + def.durationMs,
+    endMs: nowMs + reserveMs,
   };
-  playAnnouncement(def, data);
+  playAnnouncement(def, data, voiceKey, voiceMs);
   const { id } = def;
-  _endTimer = setTimeout(() => onAnnouncementEnd(id), def.durationMs);
+  _endTimer = setTimeout(() => onAnnouncementEnd(id), reserveMs);
 }
 
 /**
@@ -552,6 +581,10 @@ function endActive(nowMs) {
   }
   if (_active) {
     _lastEndMs = nowMs;
+    // * Interrupts must SILENCE the outgoing line, not just replace its callout —
+    // * otherwise the old voice keeps ringing under the new one (the directive
+    // * overlap bug). Natural completion never lands here, so tails still decay.
+    stopActiveSound();
     _presenter?.hideCallout();
     // * If the interrupted event owned the focus window, close it — its callout is
     // * gone, so leaving the suppression running would mute the PA over nothing.
@@ -560,6 +593,18 @@ function endActive(nowMs) {
     }
   }
   _active = null;
+}
+
+/**
+ * Fade-then-stop (or hard-stop) the active announcement's playing audio instance.
+ * @returns {void}
+ */
+function stopActiveSound() {
+  if (!_activeSound) return;
+  const { key, id } = _activeSound;
+  _activeSound = null;
+  if (_deps.fadeOutSfx) _deps.fadeOutSfx(key, id, 90);
+  else _deps.stopSfx?.(key, id);
 }
 
 /**
@@ -572,6 +617,9 @@ function onAnnouncementEnd(eventId) {
   if (!_active || _active.eventId !== eventId) return;
   _lastEndMs = _active.endMs;
   _active = null;
+  // * Natural end — the clip finished on its own; just drop the handle (no stop, so
+  // * any last bit of reverb tail rings out).
+  _activeSound = null;
   _endTimer = null;
   scheduleDrain();
 }
@@ -595,28 +643,35 @@ function attemptDrain() {
 // === Playback resolution (rule 10) ===
 
 /**
- * Resolves the subtitle line and audio (voice variant if registered+enabled, else
- * sting) for the winning event, and shows its callout if enabled.
+ * Plays the (already-resolved) audio for the winning event and shows its callout if
+ * enabled. The voice key is resolved in startAnnouncement so the channel reservation
+ * and this playback always agree on the same take.
  * @param {AnnouncerEventDef} def
  * @param {AnnouncerLineData} data
+ * @param {string | null} voiceKey Registered "<key>_<NN>" voice take, or null.
+ * @param {number | null} voiceMs Real clip length of that take, or null.
  * @returns {void}
  */
-function playAnnouncement(def, data) {
+function playAnnouncement(def, data, voiceKey, voiceMs) {
   const locale = _deps.getLocale ? _deps.getLocale() : "en";
   const line = getAnnouncerLine(def.id, data, locale);
 
   // * Optional mix hook — main ducks music under big announcements (by event class).
-  _deps.onAnnouncementPlays?.(def);
+  _deps.onAnnouncementPlays?.(def, voiceMs);
 
   if (def.cls === "sequence") {
-    // * Core countdown beeps always play via their sfxKey — not gated by the announcer toggle.
-    if (def.sting?.type === "sfxKey") _deps.playSfx(def.sting.key);
-  } else if (_deps.isVoiceEnabled()) {
-    const voiceKey = resolveVoiceKey(def, locale);
+    // * Core countdown feedback — never gated by the announcer toggle. A registered
+    // * voice take supersedes the beep sting (recorded countdown replaces the beeps).
     if (voiceKey) {
-      _deps.playSfx(`announcer_${voiceKey}`);
+      trackSound(`announcer_${voiceKey}`);
     } else if (def.sting?.type === "sfxKey") {
-      _deps.playSfx(def.sting.key);
+      trackSound(def.sting.key);
+    }
+  } else if (_deps.isVoiceEnabled()) {
+    if (voiceKey) {
+      trackSound(`announcer_${voiceKey}`);
+    } else if (def.sting?.type === "sfxKey") {
+      trackSound(def.sting.key);
     } else if (def.sting?.type === "proc") {
       playAnnouncerSting(def.sting.name);
     }
@@ -633,6 +688,18 @@ function playAnnouncement(def, data) {
       focus: Boolean(def.focus),
     });
   }
+}
+
+/**
+ * Plays an SFX and remembers the instance handle so an interrupt can silence it.
+ * Sequence overrides (countdown digits replacing each other) deliberately do NOT stop
+ * the previous instance — their reverb tails overlapping at the 1s cadence is the PA echo.
+ * @param {string} key
+ * @returns {void}
+ */
+function trackSound(key) {
+  const id = _deps.playSfx(key);
+  _activeSound = id != null ? { key, id } : null;
 }
 
 /**

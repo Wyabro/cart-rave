@@ -491,6 +491,40 @@ export function stopSfx(key, id) {
   }
 }
 
+/**
+ * Fade a specific playing instance to silence, then stop it. Preferred over stopSfx
+ * for interrupting announcer voice lines — a hard cut on a reverby take clicks.
+ * @param {string} key Registry key
+ * @param {number | null | undefined} id Sound ID returned by playSfx
+ * @param {number} [ms] Fade length
+ */
+export function fadeOutSfx(key, id, ms = 90) {
+  if (id == null) return;
+  const sound = sfxRegistry[key];
+  if (!sound) return;
+  try {
+    sound.once("fade", () => { try { sound.stop(id); } catch { /* already gone */ } }, id);
+    const vol = sound.volume(id);
+    sound.fade(typeof vol === "number" ? vol : sound.volume(), 0, Math.max(10, ms), id);
+  } catch {
+    try { sound.stop(id); } catch { /* already gone */ }
+  }
+}
+
+/**
+ * Real clip length of a loaded SFX in milliseconds, or null when unknown/not loaded.
+ * The announcer uses this to reserve its channel for the actual recorded take instead
+ * of the sting-era duration estimates in the event table.
+ * @param {string} key Registry key
+ * @returns {number | null}
+ */
+export function getSfxDurationMs(key) {
+  const sound = sfxRegistry[key];
+  if (!sound || sound.state() !== "loaded") return null;
+  const seconds = sound.duration();
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+}
+
 // === Per-SFX volume (dev-only: Tweakpane tuning) ===
 
 /**

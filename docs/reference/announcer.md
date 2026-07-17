@@ -75,19 +75,26 @@ overlay title + victory announcement rather than double-announcing at podium.
 
 **Living Store PA:** cargo moments fire from `src/cargoLoad.js`; directive starts fire from
 `src/directives/directiveEngine.js`. Directive events use `focus: true` so non-critical callouts
-are dropped (not queued) for the hold window; focus ends early if the callout is interrupted.
+are dropped (not queued) for the hold window — which runs to the **longer of the callout hold or
+the full voice line, plus 0.8 s of post-focus quiet** so nothing fires right after the rule change
+lands; focus ends early if the callout is interrupted.
 See [living-store.md](./living-store.md). Full event table source of truth:
 `src/announcer/announcerEvents.js`.
 
 ## Arbitration rules
 
 1. **Single channel** — at most one announcement at a time, with a **1.2 s minimum gap**
-   between announcements.
+   between announcements. The channel is reserved for the **real recorded-take length**
+   (via `getSfxDurationMs`) when it outruns the event's `durationMs` — the table value is
+   a pacing floor, not the truth (recorded lines run 1.3–5 s vs the 0.7–1.6 s sting-era
+   estimates).
 2. **`sequence`** (countdown/GO) plays immediately, bypasses the gap, is never queued,
-   and its beeps are *not* gated by the announcer toggle — the countdown is core game
-   feedback, not commentary.
+   and is *not* gated by the announcer toggle — the countdown is core game feedback,
+   not commentary. A registered voice take **supersedes** the beep sting; the beeps
+   remain the no-pack fallback.
 3. **`critical`** (sudden death, victory/defeat) interrupts the current announcement and
-   flushes the queue.
+   flushes the queue. **Interrupts silence the outgoing audio** (90 ms fade) — the old
+   line must not ring under the new one.
 4. Otherwise an incoming event interrupts only if its priority beats the active one by
    **≥ 20** *and* the active event is marked interruptible; else it queues.
 5. **Queue**: max 2 items, priority-ordered, per-event TTL (stale hype is discarded, not

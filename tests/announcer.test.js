@@ -37,6 +37,8 @@ beforeEach(async () => {
     getSfxVolume: vi.fn(() => 1),
     getIsMuted: vi.fn(() => false),
     playSfx: vi.fn(() => 1),
+    stopSfx: vi.fn(),
+    fadeOutSfx: vi.fn(),
     isVoiceEnabled: vi.fn(() => true),
     isCalloutsEnabled: vi.fn(() => true),
     getLocale: vi.fn(() => "en"),
@@ -373,6 +375,73 @@ describe("voice pack registration", () => {
 
     expect(stingsMock.playAnnouncerSting).toHaveBeenCalledWith("firstSpill");
     expect(deps.playSfx).not.toHaveBeenCalledWith(expect.stringMatching(/^announcer_/));
+  });
+});
+
+describe("recorded voice integration", () => {
+  it("sequence events play a registered voice take INSTEAD of the beep sting", () => {
+    manager.registerAnnouncerVoicePack({ locale: "en", availableKeys: ["countdown_3_01"] });
+    manager.announce("countdown_3");
+
+    expect(deps.playSfx).toHaveBeenCalledWith("announcer_countdown_3_01");
+    expect(deps.playSfx).not.toHaveBeenCalledWith("countdown_3");
+  });
+
+  it("sequence voice plays even when the announcer voice toggle is off (core feedback)", () => {
+    deps.isVoiceEnabled.mockReturnValue(false);
+    manager.registerAnnouncerVoicePack({ locale: "en", availableKeys: ["go_01"] });
+    manager.announce("go");
+
+    expect(deps.playSfx).toHaveBeenCalledWith("announcer_go_01");
+    expect(deps.playSfx).not.toHaveBeenCalledWith("countdown_go");
+  });
+
+  it("an interrupt fades out the interrupted announcement's audio", () => {
+    manager.registerAnnouncerVoicePack({ locale: "en", availableKeys: ["rampage_01"] });
+    manager.announce("rampage"); // priority 50, interruptible
+    advance(450); // burst window -> active, voice playing
+    expect(deps.playSfx).toHaveBeenCalledWith("announcer_rampage_01");
+
+    manager.announce("first_spill"); // 70 >= 50 + 20 -> interrupts
+    advance(450);
+
+    expect(deps.fadeOutSfx).toHaveBeenCalledWith("announcer_rampage_01", 1, 90);
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("first_spill");
+  });
+
+  it("natural completion does NOT stop the audio (reverb tail rings out)", () => {
+    manager.registerAnnouncerVoicePack({ locale: "en", availableKeys: ["rampage_01"] });
+    manager.announce("rampage");
+    advance(450);
+    advance(1100 + 50); // rampage's durationMs elapses -> natural end
+
+    expect(manager.getAnnouncerDebugState().activeEventId).toBeNull();
+    expect(deps.fadeOutSfx).not.toHaveBeenCalled();
+    expect(deps.stopSfx).not.toHaveBeenCalled();
+  });
+
+  it("reserves the channel for the REAL voice clip length when it outruns durationMs", () => {
+    deps.getSfxDurationMs = vi.fn(() => 3000);
+    manager.registerAnnouncerVoicePack({ locale: "en", availableKeys: ["first_spill_01"] });
+    manager.announce("first_spill"); // durationMs 1200, real take 3000
+    advance(450); // burst window -> active at t=450
+
+    advance(1200 + 100); // past the sting-era estimate — must STILL be talking
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("first_spill");
+
+    advance(3000 - 1300 + 100); // past the real clip end
+    expect(manager.getAnnouncerDebugState().activeEventId).toBeNull();
+  });
+
+  it("focus window extends to the full voice length plus post-focus quiet", () => {
+    deps.getSfxDurationMs = vi.fn(() => 5000); // voice outruns the 4000ms callout hold
+    manager.registerAnnouncerVoicePack({ locale: "en", availableKeys: ["directive_flash_sale_01"] });
+    manager.announce("directive_flash_sale"); // focus window: max(4000, 5000) + 800 = 5800
+
+    advance(5100); // voice done, but still inside the post-focus quiet
+    manager.announce("refund"); // medium -> dropped, not queued
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
+    expect(playedEventIds()).not.toContain("refund");
   });
 });
 

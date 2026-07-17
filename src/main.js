@@ -1188,14 +1188,17 @@ async function main() {
     getSfxVolume,
     getIsMuted,
     playSfx: (key) => AudioManager.playSfx(key),
+    stopSfx: (key, id) => AudioManager.stopSfx(key, id),
+    fadeOutSfx: (key, id, ms) => AudioManager.fadeOutSfx(key, id, ms),
+    getSfxDurationMs: (key) => AudioManager.getSfxDurationMs(key),
     isVoiceEnabled: () => settingsStore.getState().announcerVoiceEnabled !== false,
     isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
     // * Mix: music dips under big PA moments so stings/voice cut through cleanly.
-    onAnnouncementPlays: (def) => {
-      // * Focus (directive) events reserve the channel for their whole 5.2s on-screen
-      // * hold — cap THEIR duck at sting length so music doesn't sag for the window.
-      // * Non-focus events keep full-duration ducks (victory's 1600ms VO needs it).
-      const duckMs = def.focus ? Math.min(def.durationMs, 1400) : def.durationMs;
+    onAnnouncementPlays: (def, voiceMs) => {
+      // * Voiced events duck for the REAL clip length. Sting fallbacks keep the
+      // * sting-era estimates; focus (directive) sting ducks stay capped so music
+      // * doesn't sag through the whole 4s on-screen hold over a short sting.
+      const duckMs = voiceMs ?? (def.focus ? Math.min(def.durationMs, 1400) : def.durationMs);
       if (def.cls === "critical") {
         AudioManager.duckMusic(0.3, duckMs + 500);
       } else if (def.cls === "high" || def.cls === "sequence") {
