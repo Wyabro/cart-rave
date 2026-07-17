@@ -175,6 +175,9 @@ let _goSoundPlayed = false;
 let _prevRoundPhase = null;
 /** Last rendered countdown digit; drives pulse animation only when the number changes. */
 let _lastCountdownN = null;
+/** Last stamped big-moment banner key (countdown digit / go / sd / mp); the
+ *  "axis punch" fires once per key change so every big moment stamps in once. */
+let _lastBannerKey = null;
 /** Slot index of the local human player from the last score update. */
 let _lastLocalIdx = null;
 /** Cached score rows in display order (local → humans → NPCs); rebuilt when scores or slot metadata change. */
@@ -425,6 +428,58 @@ function isMatchPointState(roundState) {
 }
 
 /**
+ * Big-moment "axis punch" entrance for the status banner. Fakes a variable-font
+ * weight / optical-size pop using only well-supported animatable props — scale
+ * (opsz), letter-spacing (tracking), and extrude depth (weight) — so no variable
+ * font is needed. Shared by the countdown digits and the GO! / SUDDEN DEATH /
+ * MATCH POINT banners so every big moment stamps in with the same impact.
+ * No-op under reduced motion.
+ * @param {HTMLElement | null | undefined} el
+ */
+function stampInBanner(el) {
+  if (!el) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  if (reduced) return;
+  // * Rubber stamp: airborne + wide/heavy (shadow far below) → squash contact
+  // * (tracking + shadow slam flat) → settle. The tracking easing in reads as an
+  // * optical-size axis; the shadow catching up sells the weight.
+  el.animate(
+    [
+      {
+        transform: "rotate(-1.5deg) scale(1.9)",
+        letterSpacing: "0.2em",
+        opacity: 0,
+        textShadow: "0.16em 0.16em 0 var(--color-ink-deep), 0.28em 0.28em 0 var(--color-ink-deep)",
+      },
+      {
+        transform: "rotate(-1.5deg) scale(0.92)",
+        letterSpacing: "0.02em",
+        opacity: 1,
+        offset: 0.45,
+        textShadow: "0.02em 0.02em 0 var(--color-ink-deep), 0.05em 0.05em 0 var(--color-ink-deep)",
+      },
+      {
+        transform: "rotate(-1.5deg) scale(1)",
+        letterSpacing: "0.06em",
+        textShadow: "0.05em 0.05em 0 var(--color-ink-deep), 0.1em 0.1em 0 var(--color-ink-deep)",
+      },
+    ],
+    { duration: 220, easing: "cubic-bezier(0.1, 0.9, 0.2, 1)" },
+  );
+}
+
+/**
+ * Fires the axis punch once per distinct banner state. Keyed so each countdown
+ * digit re-stamps but GO! / SUDDEN DEATH / MATCH POINT stamp only on entry.
+ * @param {string} key
+ */
+function stampBannerOnce(key) {
+  if (key === _lastBannerKey) return;
+  _lastBannerKey = key;
+  stampInBanner(elements.status);
+}
+
+/**
  * Updates the center status line (GO!, countdown).
  * @param {object} roundState
  */
@@ -455,6 +510,7 @@ function updateStatus(roundState) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-yellow)";
     elements.status.textContent = "GO!";
+    stampBannerOnce("go");
   } else if (roundPhase === "countdown") {
     // * Reset GO sound gate when entering countdown from a non-countdown phase.
     if (prevPhase !== "countdown") {
@@ -486,52 +542,36 @@ function updateStatus(roundState) {
     if (_lastCountdownN !== n) {
       _lastCountdownN = n;
       if (n >= 1 && n <= 3) announce(`countdown_${n}`);
-      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-      if (!reduced) {
-        // * Rubber stamp: airborne (shadow far below) → squash contact (shadow
-        // * slammed flat) → settle. The shadow catching up sells the weight.
-        elements.status.animate(
-          [
-            {
-              transform: "rotate(-1.5deg) scale(1.9)",
-              opacity: 0,
-              textShadow: "0.16em 0.16em 0 var(--color-ink-deep), 0.28em 0.28em 0 var(--color-ink-deep)",
-            },
-            {
-              transform: "rotate(-1.5deg) scale(0.92)",
-              opacity: 1,
-              offset: 0.45,
-              textShadow: "0.02em 0.02em 0 var(--color-ink-deep), 0.05em 0.05em 0 var(--color-ink-deep)",
-            },
-            {
-              transform: "rotate(-1.5deg) scale(1)",
-              textShadow: "0.05em 0.05em 0 var(--color-ink-deep), 0.1em 0.1em 0 var(--color-ink-deep)",
-            },
-          ],
-          { duration: 200, easing: "cubic-bezier(0.1, 0.9, 0.2, 1)" },
-        );
-      }
     }
+    // * Each digit stamps in with the shared axis punch (keyed per digit).
+    stampBannerOnce(`count-${n}`);
   } else if (roundPhase === "podium") {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
+    _lastBannerKey = null;
   } else if (roundPhase === "running" && roundState?.isSuddenDeath) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-alert)";
     elements.status.textContent = "SUDDEN DEATH";
+    stampBannerOnce("sd");
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
     if (!reduced) {
-      elements.status.style.animation = "suddenDeathPulse 0.8s ease-in-out infinite";
+      // * Entrance punch first, then the pulse — the 0.22s delay lets the 220ms
+      // * stamp finish so the two don't fight over transform. Re-set every frame
+      // * with the same value, so it never restarts (see the clear at the top).
+      elements.status.style.animation = "suddenDeathPulse 0.8s ease-in-out 0.22s infinite";
     }
   } else if (roundPhase === "running" && isMatchPointState(roundState)) {
     // * Final seconds + top two within one KO: the next fall can decide the round.
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-yellow)";
     elements.status.textContent = "MATCH POINT";
+    stampBannerOnce("mp");
   } else {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
     elements.status.style.animation = "";
+    _lastBannerKey = null;
   }
   if (roundPhase !== "countdown") setArenaSplashVisible(false);
 }
@@ -1079,6 +1119,7 @@ export function init(options) {
   _sortedScoreRows = null;
   _lastLocalIdx = null;
   _lastCountdownN = null;
+  _lastBannerKey = null;
   _prevRoundPhase = null;
   _goUntilMs = 0;
   _goSoundPlayed = false;

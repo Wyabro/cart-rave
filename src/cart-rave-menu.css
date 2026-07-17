@@ -23,6 +23,16 @@ html, body {
   position: fixed; inset: 0;
   overflow: hidden;
   isolation: isolate;
+  /* Arena-switch hue morph: the registered wash props (tokens.css) tween in
+     OKLCH so the neon backdrop cross-fades on arena change instead of
+     snapping. applyPalette() sets these; the shortest-arc hue keeps it tight. */
+  transition:
+    --wash-a-l 650ms ease, --wash-a-c 650ms ease, --wash-a-h 650ms ease,
+    --wash-b-l 650ms ease, --wash-b-c 650ms ease, --wash-b-h 650ms ease,
+    --hue 650ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-root { transition: none; }
 }
 
 /* Opaque menu backdrop lives on ::before so attract mode can fade it — a
@@ -44,6 +54,18 @@ html, body {
     radial-gradient(ellipse at center 40%, var(--menu-bg, var(--color-bg-deep)) 0%, var(--color-bg-black) 90%);
   /* Attract reveal fade — paced with the ~700ms menu entrance cascade. */
   transition: opacity 600ms ease;
+}
+/* Wide-gamut / OKLCH backdrop: same two washes, but driven by the registered
+   --wash-* props so they cross-fade in OKLCH on arena switch (see .cr-root
+   transition). Falls back to the color-mix version above where oklch is
+   unsupported. */
+@supports (background: oklch(0.7 0.2 340 / 0.14)) {
+  .cr-root::before {
+    background:
+      radial-gradient(ellipse 90% 55% at 50% -10%, oklch(var(--wash-a-l) var(--wash-a-c) var(--wash-a-h) / 0.14), transparent 70%),
+      radial-gradient(ellipse 85% 60% at 88% 105%, oklch(var(--wash-b-l) var(--wash-b-c) var(--wash-b-h) / 0.10), transparent 70%),
+      radial-gradient(ellipse at center 40%, var(--menu-bg, var(--color-bg-deep)) 0%, var(--color-bg-black) 90%);
+  }
 }
 .cr-root.cr-root--attract::before {
   opacity: 0.42;

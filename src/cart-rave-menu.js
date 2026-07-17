@@ -1377,6 +1377,38 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     }
   }
 
+  // sRGB hex -> OKLCH {L, C, H(deg)}. Drives the registered --wash-* props so
+  // the backdrop cross-fades in OKLCH on arena switch (tokens.css @property +
+  // .cr-root transition). Björn Ottosson's sRGB→OKLab.
+  function hexToOklch(hex) {
+    const h = hex.replace('#', '');
+    const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    const r = lin(parseInt(h.slice(0, 2), 16));
+    const g = lin(parseInt(h.slice(2, 4), 16));
+    const b = lin(parseInt(h.slice(4, 6), 16));
+    const l_ = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    const m_ = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    const s_ = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    const L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+    const A = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+    const B = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
+    let H = Math.atan2(B, A) * 180 / Math.PI;
+    if (H < 0) H += 360;
+    return { L, C: Math.sqrt(A * A + B * B), H };
+  }
+
+  // Set a registered hue prop to the equivalent angle nearest its current
+  // value, so the CSS transition sweeps the SHORT arc (no long rainbow smear).
+  function setHueShortArc(el, prop, targetHue) {
+    const cur = parseFloat(getComputedStyle(el).getPropertyValue(prop));
+    let t = targetHue;
+    if (Number.isFinite(cur)) {
+      while (t - cur > 180) t -= 360;
+      while (t - cur < -180) t += 360;
+    }
+    el.style.setProperty(prop, t.toFixed(1));
+  }
+
   // ─── Apply palette to all CSS vars / floor / title / buttons ──────────────
   /**
    * Propagates the active palette and player color to CSS custom properties,
@@ -1392,6 +1424,19 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     root.style.setProperty('--menu-bg', p.bg);
     root.style.setProperty('--menu-glow1', p.primary);
     root.style.setProperty('--menu-glow2', p.secondary);
+
+    // Arena-switch OKLCH backdrop morph — hand the palette's wash colors to the
+    // registered @property vars; .cr-root transitions them so the neon washes
+    // cross-fade (L+C+H) instead of hard-snapping on arena change.
+    const wa = hexToOklch(p.primary);
+    const wb = hexToOklch(p.secondary);
+    root.style.setProperty('--wash-a-l', wa.L.toFixed(3));
+    root.style.setProperty('--wash-a-c', wa.C.toFixed(3));
+    setHueShortArc(root, '--wash-a-h', wa.H);
+    root.style.setProperty('--wash-b-l', wb.L.toFixed(3));
+    root.style.setProperty('--wash-b-c', wb.C.toFixed(3));
+    setHueShortArc(root, '--wash-b-h', wb.H);
+    setHueShortArc(root, '--hue', wa.H);
 
     titleEl.style.setProperty('--t1', p.primary);
     titleEl.style.setProperty('--t2', p.secondary);

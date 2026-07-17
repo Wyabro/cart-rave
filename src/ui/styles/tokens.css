@@ -3,6 +3,25 @@
    palette as the menu. Imported by cart-rave-menu.css and hud.css; :root vars
    are global once either loads. */
 
+/* ── Registered typed custom properties (FRONTIER/26 technique) ──────────
+   Unlike plain custom properties, registered <number> props can be
+   TRANSITIONED — CSS can tween them frame-by-frame. The arena-switch
+   backdrop morph (cart-rave-menu.css .cr-root) interpolates these so the
+   two neon washes cross-fade in OKLCH (lightness+chroma+hue) instead of
+   hard-snapping — the gradient limitation the backdrop comment calls out.
+   --hue is the general accent hue for hue-derived tokens (--accent-live). */
+@property --hue {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 338;
+}
+@property --wash-a-l { syntax: "<number>"; inherits: true; initial-value: 0.69; }
+@property --wash-a-c { syntax: "<number>"; inherits: true; initial-value: 0.28; }
+@property --wash-a-h { syntax: "<number>"; inherits: true; initial-value: 338; }
+@property --wash-b-l { syntax: "<number>"; inherits: true; initial-value: 0.85; }
+@property --wash-b-c { syntax: "<number>"; inherits: true; initial-value: 0.14; }
+@property --wash-b-h { syntax: "<number>"; inherits: true; initial-value: 209; }
+
 :root {
   /* Typography */
   --ui: "Russo One", sans-serif;
@@ -17,6 +36,10 @@
   --color-portal: #2bff7a;
   --color-bg-deep: #0a0014;
   --color-bg-black: #000;
+
+  /* Hue-derived live accent — follows --hue (registered @property), so it
+     re-skins with the active arena and can be smoothly animated. */
+  --accent-live: oklch(0.72 0.2 var(--hue));
 
   /* Glow / shadow RGBA (magenta) */
   --glow-magenta-10: rgba(255, 43, 214, 0.10);
@@ -173,6 +196,49 @@
   --ease-slap: cubic-bezier(0.1, 0.9, 0.2, 1);
   --duration-slap: 260ms;
   --duration-settle: 360ms;
+
+  /* ── OKLCH color-mix ladders (FRONTIER/26 technique) ───────────────────
+     Perceptually-even shade/tint steps off the two primary UI accents.
+     Mixing happens in OKLCH so lightness/hue stay stable across steps —
+     unlike sRGB mixing, which muddies toward grey. Use for button states,
+     borders, gradient stops. Base accents unchanged; these are derived. */
+  --magenta-shade-1: color-mix(in oklch, var(--color-magenta), black 28%);
+  --magenta-shade-2: color-mix(in oklch, var(--color-magenta), black 55%);
+  --magenta-shade-3: color-mix(in oklch, var(--color-magenta), black 82%);
+  --magenta-tint-1:  color-mix(in oklch, var(--color-magenta), white 28%);
+  --magenta-tint-2:  color-mix(in oklch, var(--color-magenta), white 55%);
+  --cyan-shade-1: color-mix(in oklch, var(--color-cyan), black 28%);
+  --cyan-shade-2: color-mix(in oklch, var(--color-cyan), black 55%);
+  --cyan-shade-3: color-mix(in oklch, var(--color-cyan), black 82%);
+  --cyan-tint-1:  color-mix(in oklch, var(--color-cyan), white 28%);
+  --cyan-tint-2:  color-mix(in oklch, var(--color-cyan), white 55%);
+}
+
+/* ── Wide-gamut neon (Display-P3) ──────────────────────────────────────
+   On P3 panels, re-declare the brand + semantic neons in OKLCH with the
+   SAME lightness and hue but higher chroma — the extra saturation the
+   sRGB hex simply can't reach. sRGB displays never see this block, so the
+   established look is untouched (identity: dark arenas + punchy neon, never
+   brighter). L held constant → punchier, not lighter. */
+@supports (color: oklch(0.7 0.3 340)) {
+  @media (color-gamut: p3) {
+    :root {
+      --color-magenta: oklch(0.691 0.333 338.1);
+      --color-cyan:    oklch(0.848 0.168 209.1);
+      --color-yellow:  oklch(0.916 0.206 100.0);
+      --color-portal:  oklch(0.877 0.278 149.5);
+
+      --color-timer-ok: oklch(0.871 0.337 141.5);
+      --color-alert:    oklch(0.649 0.280 27.0);
+      --color-combo-t1: oklch(0.802 0.201 73.3);
+      --color-combo-t2: oklch(0.656 0.277 13.3);
+
+      --personality-aggressor: oklch(0.673 0.253 25.0);
+      --personality-lurker:    oklch(0.666 0.261 304.2);
+      --personality-scavenger: oklch(0.885 0.254 150.1);
+      --personality-chaotic:   oklch(0.803 0.187 69.8);
+    }
+  }
 }
 
 /* Breakpoint contract (media queries can't read custom props — keep these
