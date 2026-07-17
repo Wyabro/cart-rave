@@ -11,8 +11,8 @@ atmosphere — no code changes.**
 |-----|-------|-----------|----------|
 | `classic_crowd_bed` | Cart Rave | crowd murmur + room tone | 0.22 |
 | `classic_crowd_hype` | Cart Rave | cheers/claps/whistles — level rides the excitement meter, idles at 0 | 0.5 |
-| `backrooms_bed` | The Storerooms | fluorescent ballast hum + HVAC rumble + flicker sizzle | 0.3 |
-| `zanzibar_bed` | Sundial Station | ocean wash + wind + sparse gulls | 0.32 |
+| `backrooms_bed` | The Storerooms | fluorescent ballast hum + HVAC rumble + flicker sizzle | 0.45 |
+| `zanzibar_bed` | Sundial Station | ocean wash + wind + sparse gulls | 0.24 |
 | `sd_tension` | any | beatless dark drone, fades in under Sudden Death | 0.4 |
 
 Files: `public/sounds/ambience/<key>.opus`. `testArena` is silent by design; every
@@ -56,3 +56,26 @@ announcer recut gotchas — see [announcer.md](./announcer.md)):
 
 To art-direct a bed in the DAW: `--keep-wav`, process the WAV (keep the loop length
 EXACT), re-encode `ffmpeg -i <key>.wav -c:a libopus -b:a 64k <key>.opus`, drop it in.
+
+## Using a premade clip instead (e.g. a real crowd recording)
+
+```
+node scripts/ambience/loopify.mjs <input> <key> [--fade seconds]
+node scripts/ambience/loopify.mjs crowd.wav classic_crowd_bed
+node scripts/ambience/loopify.mjs cheering.mp3 classic_crowd_hype --fade 3
+```
+
+Takes anything ffmpeg reads, makes it loop seamlessly (tail→head crossfade eats the
+last `--fade` seconds), RMS-matches it to the generated beds (−18 dB), and writes
+`public/sounds/ambience/<key>.opus` directly. Use clips ≥ ~10 s. For Cart Rave,
+replace both layers: `classic_crowd_bed` (idle murmur) and `classic_crowd_hype`
+(full cheering — the excitement meter fades this one in over the bed, so pick a
+clip that reads as "the same crowd, going nuts").
+
+## Ear-pass history
+
+- **07-16 v2** — Storerooms read as silent under music (v1 bed was almost all
+  sub-400 Hz = fully masked): energy moved up-spectrum (240–480 Hz harmonics,
+  ×3 sizzle, flicker events every ~4.5 s and bigger), base 0.3→0.45. Sundial
+  wash too loud: surf gain 1.5→0.9 + lower constant floor inside the loop,
+  base 0.32→0.24 — wind/gulls (the liked part) now carry more of the bed.

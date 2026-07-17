@@ -17,14 +17,11 @@
 //   node scripts/ambience/generate.mjs --keep-wav # leave WAVs next to the opus files
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const SR = 48000;
-const CROSSFADE_S = 2.0;
-const TARGET_RMS_DB = -18;
-const PEAK_CEIL_DB = -1;
+import { SR, CROSSFADE_S, crossfadeLoop, normalize, writeWav } from "./dsp.mjs";
 
 const OUT_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -96,74 +93,6 @@ function makeBrown(rng) {
     last = 0.998 * last + (rng() * 2 - 1) * 0.02;
     return last * 8;
   };
-}
-
-const dbToLin = (db) => Math.pow(10, db / 20);
-
-/** Equal-power blend of the extra tail into the head, returns loop-length channels. */
-function crossfadeLoop(channels, loopSamples) {
-  const fadeSamples = Math.min(Math.round(CROSSFADE_S * SR), loopSamples);
-  return channels.map((ch) => {
-    const out = new Float32Array(loopSamples);
-    out.set(ch.subarray(0, loopSamples));
-    for (let i = 0; i < fadeSamples; i += 1) {
-      const t = i / fadeSamples;
-      const inGain = Math.sin((t * Math.PI) / 2);
-      const outGain = Math.cos((t * Math.PI) / 2);
-      out[i] = ch[loopSamples + i] * outGain + ch[i] * inGain;
-    }
-    return out;
-  });
-}
-
-/** Normalize all channels together to TARGET_RMS_DB, hard-guarding the peak. */
-function normalize(channels) {
-  let sumSq = 0;
-  let n = 0;
-  let peak = 0;
-  for (const ch of channels) {
-    for (let i = 0; i < ch.length; i += 1) {
-      sumSq += ch[i] * ch[i];
-      const a = Math.abs(ch[i]);
-      if (a > peak) peak = a;
-    }
-    n += ch.length;
-  }
-  const rms = Math.sqrt(sumSq / Math.max(1, n)) || 1e-9;
-  let gain = dbToLin(TARGET_RMS_DB) / rms;
-  if (peak * gain > dbToLin(PEAK_CEIL_DB)) gain = dbToLin(PEAK_CEIL_DB) / peak;
-  for (const ch of channels) {
-    for (let i = 0; i < ch.length; i += 1) ch[i] *= gain;
-  }
-}
-
-function writeWav(filePath, channels) {
-  const numCh = channels.length;
-  const frames = channels[0].length;
-  const dataBytes = frames * numCh * 2;
-  const buf = Buffer.alloc(44 + dataBytes);
-  buf.write("RIFF", 0);
-  buf.writeUInt32LE(36 + dataBytes, 4);
-  buf.write("WAVE", 8);
-  buf.write("fmt ", 12);
-  buf.writeUInt32LE(16, 16);
-  buf.writeUInt16LE(1, 20); // PCM
-  buf.writeUInt16LE(numCh, 22);
-  buf.writeUInt32LE(SR, 24);
-  buf.writeUInt32LE(SR * numCh * 2, 28);
-  buf.writeUInt16LE(numCh * 2, 32);
-  buf.writeUInt16LE(16, 34);
-  buf.write("data", 36);
-  buf.writeUInt32LE(dataBytes, 40);
-  let o = 44;
-  for (let i = 0; i < frames; i += 1) {
-    for (let c = 0; c < numCh; c += 1) {
-      const v = Math.max(-1, Math.min(1, channels[c][i]));
-      buf.writeInt16LE(Math.round(v * 32767), o);
-      o += 2;
-    }
-  }
-  writeFileSync(filePath, buf);
 }
 
 // === renderers ===
@@ -312,27 +241,32 @@ function renderBackroomsBed() {
   let flickerCount = 0;
   for (let i = 0; i < total; i += 1) {
     const t = i / SR;
-    // Ballast hum: 120Hz + decaying harmonics, slow wobble. The wobble LFO is an
+    // Ballast hum: 120Hz + strong upper harmonics, slow wobble. The wobble LFO is an
     // integer number of cycles per loop so the seam blend has nothing to hide.
+    // * Ear-pass rebalance (07-16, "don't hear anything on backrooms"): the v1 bed was
+    // * almost all sub-400Hz — exactly where the game music masks it. The signature now
+    // * lives in the 240-480Hz harmonics + sizzle, which read under music.
     const wobble = 0.85 + 0.15 * Math.sin(2 * Math.PI * (3 / loopSeconds) * t);
-    // Occasional flicker: brief harmonic surge, like a tube about to give up.
-    if (flickerCount <= 0 && rng() < 2.2 / (SR * 8)) flickerCount = Math.round(SR * (0.08 + rng() * 0.2));
-    if (flickerCount > 0) { flickerCount -= 1; flicker = 1.9; } else flicker += (1 - flicker) * 0.001;
+    // Flicker: brief harmonic surge, like a tube about to give up — every ~4.5s,
+    // big enough to be an audible event, with a slower settle.
+    if (flickerCount <= 0 && rng() < 1 / (SR * 4.5)) flickerCount = Math.round(SR * (0.08 + rng() * 0.25));
+    if (flickerCount > 0) { flickerCount -= 1; flicker = 2.6; } else flicker += (1 - flicker) * 0.0008;
     const hum = (
-      Math.sin(2 * Math.PI * 120 * t) * 0.5
-      + Math.sin(2 * Math.PI * 240 * t) * 0.22 * flicker
-      + Math.sin(2 * Math.PI * 360 * t) * 0.08 * flicker
-    ) * 0.32 * wobble;
+      Math.sin(2 * Math.PI * 120 * t) * 0.45
+      + Math.sin(2 * Math.PI * 240 * t) * 0.32 * flicker
+      + Math.sin(2 * Math.PI * 360 * t) * 0.18 * flicker
+      + Math.sin(2 * Math.PI * 480 * t) * 0.1 * flicker
+    ) * 0.42 * wobble;
     // HVAC: brown rumble breathing at 2 cycles/loop.
     const breathe = 0.7 + 0.3 * Math.sin(2 * Math.PI * (2 / loopSeconds) * t + 1.3);
     const rumble = rumbleLp.process(brown()) * 0.85 * breathe;
-    // Fluorescent sizzle: very quiet 120Hz-gated hiss.
+    // Fluorescent sizzle: 120Hz-gated hiss — the "the lights are ON" cue.
     const gate = 0.5 + 0.5 * Math.sin(2 * Math.PI * 120 * t);
-    const sizzle = sizzleHp.process(rng() * 2 - 1) * 0.012 * gate * flicker;
+    const sizzle = sizzleHp.process(rng() * 2 - 1) * 0.035 * gate * flicker;
     const s = hum + rumble + sizzle;
     // Slight stereo decorrelation via per-channel sizzle phase.
     L[i] = s;
-    R[i] = hum + rumble + sizzleHp.process(rng() * 2 - 1) * 0.012 * gate * flicker;
+    R[i] = hum + rumble + sizzleHp.process(rng() * 2 - 1) * 0.035 * gate * flicker;
   }
   return { channels: [L, R], loopSeconds };
 }
@@ -355,9 +289,12 @@ function renderZanzibarBed() {
     Math.max(0, Math.sin(2 * Math.PI * (cycles / loopSeconds) * t + ph)) ** 1.6;
   for (let i = 0; i < total; i += 1) {
     const t = i / SR;
-    const env = 0.28 + 0.72 * (0.62 * wave(t, 3, 0) + 0.38 * wave(t, 5, 2.1));
-    L[i] = surfL.process(pinkL()) * env * 1.5;
-    R[i] = surfR.process(pinkR()) * env * 1.5;
+    // * Ear-pass rebalance (07-16, "waves/wash too loud"): surf pulled well down and
+    // * given a lower constant floor (more swell dynamics, less steady roar); wind and
+    // * gulls — the liked, realistic part — carry relatively more of the bed.
+    const env = 0.18 + 0.82 * (0.62 * wave(t, 3, 0) + 0.38 * wave(t, 5, 2.1));
+    L[i] = surfL.process(pinkL()) * env * 0.9;
+    R[i] = surfR.process(pinkR()) * env * 0.9;
     const wind = windLp.process(windSrc()) * (0.5 + 0.2 * wave(t, 2, 4.0));
     L[i] += wind * 0.55;
     R[i] += wind * 0.5;
@@ -372,7 +309,7 @@ function renderZanzibarBed() {
     let phase = 0;
     for (let j = 0; j < dur && start + j < total; j += 1) {
       const t = j / dur;
-      const env = Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 1.5 * 0.05;
+      const env = Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 1.5 * 0.065;
       const f = f0 * (1 - 0.32 * t) * (1 + 0.05 * Math.sin(2 * Math.PI * 38 * (j / SR)));
       phase += (2 * Math.PI * f) / SR;
       // Harsh-ish timbre: fundamental + strong 2nd partial + a pinch of noise.

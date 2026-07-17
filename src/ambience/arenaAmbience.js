@@ -35,8 +35,11 @@ const SD_TENSION_KEY = "sd_tension";
 const BASE_VOLUMES = {
   classic_crowd_bed: 0.22,
   classic_crowd_hype: 0.5,
-  backrooms_bed: 0.3,
-  zanzibar_bed: 0.32,
+  // * Ear-pass tune (07-16): Storerooms read as silent under music → up 0.3→0.45
+  // * (the regenerated bed also moved its energy up-spectrum); Sundial wash was
+  // * too loud → down 0.32→0.24 (surf also pulled down inside the loop).
+  backrooms_bed: 0.45,
+  zanzibar_bed: 0.24,
   sd_tension: 0.4,
 };
 
