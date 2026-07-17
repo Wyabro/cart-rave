@@ -1309,11 +1309,13 @@ async function main() {
     "thirty_seconds_01", "thirty_seconds_02",
     "critical_ko_01", "critical_ko_02",
     "close_call_01", "close_call_02",
-    // * Tiers 3+4 — directives, flavor, countdown (recorded 2026-07-16).
-    // * flash_sale / express_lane / spill_bonus + rush_hour_02 await pickup
-    // * re-records; those directives keep their stings until then.
+    // * Tiers 3+4 — directives, flavor, countdown (recorded 2026-07-16;
+    // * pickups same day — all five directives fully voiced).
+    "directive_flash_sale_01", "directive_flash_sale_02",
     "directive_double_bag_01", "directive_double_bag_02",
-    "directive_rush_hour_01",
+    "directive_express_lane_01", "directive_express_lane_02",
+    "directive_spill_bonus_01", "directive_spill_bonus_02",
+    "directive_rush_hour_01", "directive_rush_hour_02",
     "cleanup_aisle_01", "cleanup_aisle_02", "cleanup_aisle_03",
     "cart_overflow_01", "cart_overflow_02",
     "spill_rush_01", "spill_rush_02",

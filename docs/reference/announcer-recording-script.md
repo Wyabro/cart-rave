@@ -162,13 +162,13 @@ Tooling lives in `scripts/announcer/`. The workflow that shipped Tier 1:
 
 Partial packs are fine — Tier 1 shipped alone and everything else kept its stings.
 
-**Status: Tiers 1–4 RECORDED + SHIPPED (54 takes, en), minus a pickup list.** The
-voiced countdown + GO shipped and replace the beep stings. `aisle_wipeout` gained a
-third variant (two keepers were too good to cut). **Pickup re-records outstanding:**
-`directive_flash_sale` ×2, `directive_express_lane` ×2, `directive_spill_bonus` ×2
-(those three directives keep their stings until then), plus `directive_rush_hour_02`
-(optional — `_01` shipped solo, the picker handles a single variant). Record pickups
-as one short WAV → `slice.mjs … tier34` → same flow.
+**Status: COMPLETE — Tiers 1–4 + pickups RECORDED + SHIPPED (61 takes, en).** Every
+event with a voice manifest is voiced; all five Living Store directives carry both
+variants; the voiced countdown + GO replace the beep stings. `aisle_wipeout` gained a
+third variant (two keepers were too good to cut). Future additions (more variants,
+new events, other locales) follow the same flow — for two-part reads like the
+directives, slice with a longer minimum gap (`slice.mjs … tier34 -35 1.0`) so the
+mid-line pause doesn't split the take.
 
 **Recut gotcha (Tier 2, encoded in recut.mjs):** same-line takes read so consistently
 that after DAW compression they out-correlate each other — a wide alignment search
