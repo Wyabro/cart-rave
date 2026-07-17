@@ -17,6 +17,10 @@
       {
         "name": "ERROR_LOG",
         "class_name": "ErrorLog"
+      },
+      {
+        "name": "ANALYTICS_LOG",
+        "class_name": "AnalyticsLog"
       }
     ]
   },
@@ -28,6 +32,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["ErrorLog"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["AnalyticsLog"]
     }
   ]
 }

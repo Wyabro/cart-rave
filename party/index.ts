@@ -38,6 +38,9 @@ import {
 // * Client crash-report sink (SQLite DO). Must be a named export of the Worker
 // * entrypoint so the runtime can construct it; wired in wrangler.jsonc.
 export { ErrorLog } from './errorLog';
+// * Gameplay analytics sink (SQLite DO, sibling of ErrorLog) — src/analytics/ beacons
+// * event batches to /api/analytics below. Wired in wrangler.jsonc (migration v3).
+export { AnalyticsLog } from './analyticsLog';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
@@ -1277,6 +1280,58 @@ export default {
       }
       const limit = url.searchParams.get("limit") || "100";
       const res = await stub.fetch("https://do/list?limit=" + encodeURIComponent(limit));
+      return new Response(res.body, {
+        status: res.status,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    // * Gameplay analytics (see src/analytics/analytics.js → party/analyticsLog.ts).
+    // * POST = the client beacon (unauthenticated by design, like /api/log-error, but body-
+    // * capped and bounded in the DO). GET reads (summary/list) + DELETE reuse the same
+    // * observability token as /api/errors so aggregates aren't world-readable.
+    if (url.pathname.includes("/api/analytics")) {
+      if (request.method === "POST") {
+        try {
+          const body = await request.text();
+          if (body.length <= 64_000 && env.ANALYTICS_LOG) {
+            const stub = env.ANALYTICS_LOG.get(env.ANALYTICS_LOG.idFromName("v1"));
+            await stub.fetch("https://do/ingest", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body,
+            });
+          }
+        } catch {
+          // Malformed/empty beacon — never fail the sender.
+        }
+        return new Response(null, { status: 204 });
+      }
+      const token = env.ERROR_LOG_TOKEN;
+      const jsonError = (msg: string, status: number) =>
+        new Response(JSON.stringify({ error: msg }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      if (!token) {
+        return jsonError(
+          "read endpoint disabled — set the ERROR_LOG_TOKEN secret (wrangler secret put ERROR_LOG_TOKEN)",
+          503,
+        );
+      }
+      const provided =
+        url.searchParams.get("token") ||
+        (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+      if (provided !== token) return new Response("forbidden", { status: 403 });
+      if (!env.ANALYTICS_LOG) return jsonError("ANALYTICS_LOG binding not deployed", 500);
+      const stub = env.ANALYTICS_LOG.get(env.ANALYTICS_LOG.idFromName("v1"));
+      if (request.method === "DELETE") {
+        await stub.fetch("https://do/clear", { method: "POST" });
+        return new Response(null, { status: 204 });
+      }
+      const view = url.searchParams.get("view") === "list" ? "list" : "summary";
+      const limit = url.searchParams.get("limit") || "100";
+      const res = await stub.fetch(`https://do/${view}?limit=${encodeURIComponent(limit)}`);
       return new Response(res.body, {
         status: res.status,
         headers: { "content-type": "application/json" },
