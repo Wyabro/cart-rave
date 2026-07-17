@@ -143,7 +143,8 @@ describe("queue: max 2 items + priority eviction", () => {
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
 
-    // Let defeat finish (1400ms total) + the 1800ms min gap, then drain.
+    // Let defeat finish (1400ms total) + the min gap, then drain (advance overshoots
+    // MIN_GAP_MS so the knob can move under 1800 without touching this math).
     advance(1400 - 1350 + 1800 + 50);
     // Highest priority queued item drains first: aisle_wipeout (68) beats double_spill (62).
     expect(manager.getAnnouncerDebugState().activeEventId).toBe("aisle_wipeout");
@@ -169,8 +170,8 @@ describe("queue: max 2 items + priority eviction", () => {
 describe("dedupe by event id in the queue", () => {
   it("replaces a duplicate queued event id with the newer data instead of adding a second entry", () => {
     // double_spill (1100ms, non-interruptible) as a busy backdrop. new_host (ttlMs 4000)
-    // as the queued item — with the 1800ms min gap, shorter-TTL events (e.g. new_leader's
-    // 2500) legitimately expire before the drain; that expiry is its own test below.
+    // as the queued item — at the current min gap, shorter-TTL events (e.g. new_leader's
+    // 2500) can legitimately expire before the drain; that expiry is its own test below.
     manager.announce("double_spill");
     advance(450); // burst window -> becomes active
 
@@ -193,8 +194,8 @@ describe("TTL expiry", () => {
     manager.announce("last_call"); // ttlMs 1500
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
-    // defeat ends at 1400, drain fires at 1400 + 1800 = 3200 — well past last_call's
-    // expiry at 1500 — so it should never play.
+    // defeat ends at 1400, drain fires at 1400 + MIN_GAP_MS — either way well past
+    // last_call's expiry at 1500 — so it should never play.
     advance(3300);
 
     expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
@@ -239,7 +240,7 @@ describe("ambient class", () => {
 
   it("is silently discarded when the queue is non-empty, even if the channel is idle", () => {
     // double_spill (1100ms) as backdrop — new_host's ttlMs (4000) leaves headroom to
-    // survive the 1800ms min-gap wait, unlike shorter-TTL events.
+    // survive the min-gap wait, unlike shorter-TTL events.
     manager.announce("double_spill");
     advance(450);
     manager.announce("new_host", { name: "P1" }); // queues
