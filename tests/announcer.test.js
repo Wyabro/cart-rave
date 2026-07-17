@@ -143,8 +143,8 @@ describe("queue: max 2 items + priority eviction", () => {
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
 
-    // Let defeat finish (1400ms total) + the 1200ms min gap, then drain.
-    advance(1400 - 1350 + 1200 + 50);
+    // Let defeat finish (1400ms total) + the 1800ms min gap, then drain.
+    advance(1400 - 1350 + 1800 + 50);
     // Highest priority queued item drains first: aisle_wipeout (68) beats double_spill (62).
     expect(manager.getAnnouncerDebugState().activeEventId).toBe("aisle_wipeout");
     expect(playedEventIds()).toEqual(["aisle_wipeout"]);
@@ -168,19 +168,20 @@ describe("queue: max 2 items + priority eviction", () => {
 
 describe("dedupe by event id in the queue", () => {
   it("replaces a duplicate queued event id with the newer data instead of adding a second entry", () => {
-    // double_spill (1100ms, non-interruptible) as a busy backdrop — shorter than defeat so
-    // the queued new_leader (ttlMs 2500) is still valid by the time the channel drains it.
+    // double_spill (1100ms, non-interruptible) as a busy backdrop. new_host (ttlMs 4000)
+    // as the queued item — with the 1800ms min gap, shorter-TTL events (e.g. new_leader's
+    // 2500) legitimately expire before the drain; that expiry is its own test below.
     manager.announce("double_spill");
     advance(450); // burst window -> becomes active
 
-    manager.announce("new_leader", { leader: "P1" });
+    manager.announce("new_host", { name: "P1" });
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
-    manager.announce("new_leader", { leader: "P2" });
+    manager.announce("new_host", { name: "P2" });
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
-    advance(1100 + 1200 + 50); // double_spill ends, min gap elapses, queue drains
-    const call = presenter.showCallout.mock.calls.find((c) => c[0].eventId === "new_leader");
+    advance(1100 + 1800 + 50); // double_spill ends, min gap elapses, queue drains
+    const call = presenter.showCallout.mock.calls.find((c) => c[0].eventId === "new_host");
     expect(call[0].text).toContain("P2");
     expect(call[0].text).not.toContain("P1");
   });
@@ -192,9 +193,9 @@ describe("TTL expiry", () => {
     manager.announce("last_call"); // ttlMs 1500
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
-    // defeat ends at 1400, drain fires at 1400 + 1200 = 2600 — well past last_call's
+    // defeat ends at 1400, drain fires at 1400 + 1800 = 3200 — well past last_call's
     // expiry at 1500 — so it should never play.
-    advance(2700);
+    advance(3300);
 
     expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
     expect(manager.getAnnouncerDebugState().activeEventId).toBeNull();
@@ -237,15 +238,15 @@ describe("ambient class", () => {
   });
 
   it("is silently discarded when the queue is non-empty, even if the channel is idle", () => {
-    // double_spill (1100ms) as backdrop — leaves headroom under new_leader's ttlMs (2500)
-    // once it queues and later drains, unlike a long critical event such as defeat.
+    // double_spill (1100ms) as backdrop — new_host's ttlMs (4000) leaves headroom to
+    // survive the 1800ms min-gap wait, unlike shorter-TTL events.
     manager.announce("double_spill");
     advance(450);
-    manager.announce("new_leader", { leader: "P1" }); // queues
-    advance(1100 + 1200 + 50); // double_spill ends, new_leader drains and becomes active
-    expect(manager.getAnnouncerDebugState().activeEventId).toBe("new_leader");
+    manager.announce("new_host", { name: "P1" }); // queues
+    advance(1100 + 1800 + 50); // double_spill ends, new_host drains and becomes active
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("new_host");
 
-    // Queue is empty and channel is busy (new_leader itself) — still discarded via the busy check.
+    // Queue is empty and channel is busy (new_host itself) — still discarded via the busy check.
     manager.announce("close_call");
     expect(playedEventIds()).not.toContain("close_call");
   });
@@ -352,7 +353,7 @@ describe("comeback swallows new_leader", () => {
 
   it("does not swallow new_leader once the 450ms window has passed", () => {
     manager.announce("new_leader", { leader: "P1" });
-    advance(1000 + 1200 + 50); // new_leader plays to completion, gap elapses, window long expired
+    advance(1000 + 1800 + 50); // new_leader plays to completion, gap elapses, window long expired
 
     manager.announce("comeback", { leader: "P2" });
     expect(playedEventIds()).toEqual(["new_leader", "comeback"]);
@@ -460,7 +461,7 @@ describe("resetAnnouncerRound", () => {
   it("clears oncePerRound/cooldown state so gated events can fire again", () => {
     manager.announce("last_call");
     expect(playedEventIds()).toEqual(["last_call"]);
-    advance(1000 + 1200 + 50);
+    advance(1000 + 1800 + 50);
 
     manager.resetAnnouncerRound();
     manager.announce("last_call");

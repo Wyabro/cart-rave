@@ -66,8 +66,11 @@ import { recordDiagEvent } from "../utils/diagnostics.js";
 
 // === Tunables ===
 
-/** Minimum silence between the END of one announcement and the START of the next (non-sequence). */
-const MIN_GAP_MS = 1200;
+/** Minimum silence between the END of one announcement and the START of the next
+ * (non-sequence). THE pacing taste knob — raised 1200 → 1800 after Wyatt's "still a
+ * tad chatty" pass on the recorded voice pack (2026-07-16). Several announcer tests
+ * encode this value in their timing math; adjust them together. */
+const MIN_GAP_MS = 1800;
 /** Extra quiet after a focus (directive) window closes, so nothing piles in right as it ends. */
 const POST_FOCUS_QUIET_MS = 800;
 /** Max items held in the arbitration queue at once. */
