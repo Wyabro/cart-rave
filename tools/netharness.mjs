@@ -31,6 +31,7 @@ import {
   launchClientBrowser,
   dumpFailureBundle,
   CLIENT_PORT,
+  killDevStack,
 } from "./lib/harness.mjs";
 
 const nlog = (...a) => console.log("[netharness]", ...a);
@@ -630,7 +631,7 @@ async function main() {
     await preflightStack(baseUrl, nlog);
   } catch (err) {
     console.error("[netharness]", err instanceof Error ? err.message : err);
-    if (devProc && !devProc.killed) devProc.kill();
+    killDevStack(devProc);
     process.exit(2);
   }
 
@@ -665,7 +666,7 @@ async function main() {
   } finally {
     await browserHost.close();
     await browserJoiner.close();
-    if (devProc && !devProc.killed) devProc.kill();
+    killDevStack(devProc);
   }
 
   const failed = results.filter((r) => !r.pass);

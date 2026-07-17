@@ -32,6 +32,7 @@ import {
   preflightStack,
   CLIENT_PORT,
   CAPTURE_DIR,
+  killDevStack,
 } from "./lib/harness.mjs";
 
 const log = makeLogger("battery");
@@ -61,11 +62,13 @@ function runStep(step, extraArgs) {
     const t0 = Date.now();
     const [bin, ...rest] = step.cmd;
     const isWin = process.platform === "win32";
-    const child = spawn(isWin && bin === "npm" ? "npm.cmd" : bin, [...rest, ...extraArgs], {
-      cwd: process.cwd(),
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: isWin,
-    });
+    const argv = [...rest, ...extraArgs];
+    // * Only npm needs a shell on Windows; Node 24 deprecates args-array + shell:true
+    // * (DEP0190), so the shell form joins our own literal step definition into one string.
+    const child =
+      isWin && bin === "npm"
+        ? spawn([bin, ...argv].join(" "), { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"], shell: true })
+        : spawn(bin, argv, { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"] });
     const prefix = (buf) => {
       for (const line of String(buf).split(/\r?\n/)) {
         if (line.trim()) process.stdout.write(`  [${step.name}] ${line}\n`);
@@ -97,14 +100,27 @@ async function main() {
 
   const needsStack = steps.some((s) => s.urlArg || s.name === "visual");
   let devProc = null;
+  let stackDied = false;
+  let tearingDown = false;
   if (needsStack) {
     try {
       devProc = await maybeStartDevStack(args, log);
       await preflightStack(baseUrl, log);
     } catch (err) {
       log(err instanceof Error ? err.message : err);
-      if (devProc && !devProc.killed) devProc.kill();
+      killDevStack(devProc);
       process.exit(2);
+    }
+    // * If the auto-started stack dies mid-run (wrangler/workerd crash kills Vite via
+    // * dev-local.mjs), stop burning minutes on doomed steps — mark the rest and bail.
+    if (devProc) {
+      devProc.on("exit", (code) => {
+        if (tearingDown) return;
+        stackDied = true;
+        log(`!! dev stack exited mid-run (code ${code ?? "?"}) — remaining steps will be skipped.`);
+        log("   Likely a wrangler/workerd crash or port fight. Check for zombies:");
+        log("   PowerShell: Get-Process workerd | Stop-Process -Force  → then re-run.");
+      });
     }
   }
 
@@ -113,6 +129,11 @@ async function main() {
   const results = [];
   try {
     for (const step of steps) {
+      if (stackDied) {
+        results.push({ name: step.name, note: step.note, code: 2, ms: 0 });
+        log(`SKIP ${step.name} — dev stack is down\n`);
+        continue;
+      }
       log(`▶ ${step.name} — ${step.note}`);
       const extra = step.urlArg ? ["--url", baseUrl] : [];
       if (step.name === "gameharness" && str(args.soakCycles)) extra.push("--soakCycles", str(args.soakCycles));
@@ -122,7 +143,8 @@ async function main() {
       log(`${r.code === 0 ? "PASS" : r.code === 2 ? "SETUP-ERROR" : "FAIL"} ${step.name} (${(r.ms / 1000).toFixed(0)}s)\n`);
     }
   } finally {
-    if (devProc && !devProc.killed) devProc.kill();
+    tearingDown = true;
+    killDevStack(devProc);
   }
 
   // Unified tally + persisted report (next to the capture bundles the rigs may have written).

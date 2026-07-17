@@ -34,12 +34,12 @@ Open the client URL, pick a mode, and play. Ctrl+C stops both processes.
 const children = [];
 
 function spawnNpm(script) {
-  // * Windows requires shell when spawning npm.cmd — shell:false throws EINVAL on Node 24+.
-  const child = spawn(npm, ["run", script], {
-    stdio: "inherit",
-    shell: isWin,
-    env: process.env,
-  });
+  // * Windows requires shell when spawning npm — shell:false throws EINVAL on Node 24+,
+  // * and Node 24 deprecates args-array + shell:true (DEP0190), so the shell form gets
+  // * one literal command string. `script` values are our own hardcoded names.
+  const child = isWin
+    ? spawn(`npm run ${script}`, { stdio: "inherit", shell: true, env: process.env })
+    : spawn("npm", ["run", script], { stdio: "inherit", env: process.env });
   children.push(child);
   child.on("exit", (code, signal) => {
     if (signal) return;

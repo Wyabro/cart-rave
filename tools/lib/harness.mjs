@@ -16,7 +16,7 @@
  * 1 (a check failed), or 2 (harness/setup error) — same contract as the netcode rig.
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -93,15 +93,43 @@ export async function waitForPort(port, deadlineMs) {
  */
 export async function maybeStartDevStack(args, log = makeLogger("harness")) {
   if (str(args.url)) return null;
+
+  // * Pre-scan the ports BEFORE spawning. Blind-starting dev:local onto occupied ports is
+  // * how a run dies mid-flight: waitForPort/preflight pass against the OTHER process, our
+  // * own wrangler then loses the :8787 bind and exits non-zero, and dev-local.mjs kills
+  // * Vite along with it (seen live 2026-07-16 — another agent session's stack held :8787).
+  const clientHeld = await probePort(CLIENT_PORT);
+  const workerHeld = await probePort(WORKER_PORT);
+  if (clientHeld && workerHeld) {
+    log(`attaching to the already-running dev stack (:${CLIENT_PORT} + :${WORKER_PORT} both up) — not starting a new one`);
+    return null;
+  }
+  if (clientHeld || workerHeld) {
+    const held = clientHeld ? `:${CLIENT_PORT} (Vite)` : `:${WORKER_PORT} (Wrangler)`;
+    throw new Error(
+      `Half a dev stack is already running — ${held} is in use but its partner is not. ` +
+        "Starting dev:local now would lose the port race and the whole stack would die mid-run. " +
+        "Fix: kill the stray process (PowerShell: Get-Process workerd | Stop-Process -Force; " +
+        "or stop the other Vite), or attach to a FULL running stack with --url http://127.0.0.1:3000/",
+    );
+  }
+
   const isWin = process.platform === "win32";
-  const npm = isWin ? "npm.cmd" : "npm";
   log("starting dev:local (Vite :3000 + Wrangler :8787)…");
-  const child = spawn(npm, ["run", "dev:local"], {
-    cwd: resolve(process.cwd()),
-    stdio: ["ignore", "pipe", "pipe"],
-    shell: isWin,
-    env: { ...process.env, BROWSER: "none" },
-  });
+  // * Windows npm needs a shell; Node 24 deprecates args-array + shell:true (DEP0190),
+  // * so the shell form gets one literal command string (no interpolated input).
+  const child = isWin
+    ? spawn("npm run dev:local", {
+        cwd: resolve(process.cwd()),
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: true,
+        env: { ...process.env, BROWSER: "none" },
+      })
+    : spawn("npm", ["run", "dev:local"], {
+        cwd: resolve(process.cwd()),
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, BROWSER: "none" },
+      });
   child.stdout?.on("data", (b) => process.env.NETHARNESS_VERBOSE && process.stdout.write(`[dev] ${b}`));
   child.stderr?.on("data", (b) => process.env.NETHARNESS_VERBOSE && process.stderr.write(`[dev] ${b}`));
 
@@ -117,6 +145,26 @@ export async function maybeStartDevStack(args, log = makeLogger("harness")) {
   }
   log("dev stack ready");
   return child;
+}
+
+/**
+ * Kill an auto-started dev stack INCLUDING its children. On Windows, child.kill() only
+ * kills the npm shell wrapper — Vite and wrangler/workerd survive as orphans, which is the
+ * root of the chronic zombie-workerd churn (every auto-start run used to leak a full
+ * stack). taskkill /T takes the whole tree down.
+ * @param {import('node:child_process').ChildProcess | null} child
+ */
+export function killDevStack(child) {
+  if (!child || child.killed || child.exitCode !== null) return;
+  if (process.platform === "win32") {
+    try {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      return;
+    } catch {
+      /* fall through to plain kill */
+    }
+  }
+  child.kill();
 }
 
 /**

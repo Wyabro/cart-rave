@@ -2,9 +2,11 @@
 
 Cart Clash's announcer is the supermarket tannoy hijacked by the rave's MC. It celebrates
 big moments with retail-flavored barks ("FIRST SPILL!", "CLEAN-UP ON AISLE 3!", "REFUND!")
-instead of arena-shooter clichés. The system is fully data-driven and ships today with
-procedural stings + visual callouts; professionally recorded voice lines drop in later
-with **zero code changes** (see [Voice asset pipeline](#voice-asset-pipeline)).
+instead of arena-shooter clichés. The system is fully data-driven — the full **61-take
+English voice pack is recorded and shipped** (Tiers 1–4 complete, all five Living Store
+directives voiced, voiced countdown replaces beeps). Unrecorded events fall back to
+procedural stings; adding new takes is a pipeline-only change with **zero code edits**
+(see [Voice asset pipeline](#voice-asset-pipeline)).
 
 ## Architecture
 
@@ -45,8 +47,8 @@ detection needs no new netcode.
 
 | Event id | Fires when | Priority | Class | Cooldown / caps | Callout |
 |---|---|---|---|---|---|
-| `countdown_3/2/1` | Countdown digits | 90 | sequence | — | none (HUD status owns it) |
-| `go` | Round starts | 90 | sequence | — | none (HUD GO! flash) |
+| `countdown_3/2/1` | Countdown digits | 90 | sequence | — | voiced (voice supersedes beep stings; beeps are the no-pack fallback) |
+| `go` | Round starts | 90 | sequence | — | voiced (voice supersedes beep sting; beep is the no-pack fallback) |
 | `first_spill` | First attributed KO of the round | 70 | high | once/round | FIRST BLOOD |
 | `double_spill` | 2 falls within 1.4 s | 62 | high | 6 s | TWO DOWN |
 | `aisle_wipeout` | 3+ falls within 1.4 s | 68 | high | 10 s | EVERYBODY DOWN |

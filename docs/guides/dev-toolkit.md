@@ -22,6 +22,15 @@ one summary, and writes a JSON report to `.diag-captures/`. Exit contract (share
 rig): **0** all green · **1** a check failed · **2** setup error. Failed scenarios also
 auto-drop a bug-capture bundle (JSON + screenshot) in `.diag-captures/`.
 
+Stack handling (all rigs, via `maybeStartDevStack`): a **full** running stack
+(:3000 + :8787 both answering) is attached to automatically — no flag needed; **half** a
+stack (one port held — usually a zombie `workerd` or another session's server) is a fast
+exit 2 with the fix, because blind-starting `dev:local` onto a held port loses the bind
+race and `dev-local.mjs` then kills the whole stack mid-run (kill-on-child-exit is
+deliberate fail-fast for interactive dev). If the auto-started stack dies mid-battery,
+remaining steps are skipped with one clear message instead of timing out one by one.
+Zombie cleanup: `Get-Process workerd | Stop-Process -Force`.
+
 Default steps: `gameharness` (roundflow, unlockFunnel, arenas, soak) → `netharness`
 spawnlock → mpIntegration → hostMigration. Opt-in: `--visual` (blackframes), `--qa`.
 

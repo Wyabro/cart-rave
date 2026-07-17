@@ -1,6 +1,6 @@
 # Cart Clash — Project State
 
-**Last updated:** July 12, 2026  
+**Last updated:** July 16, 2026  
 **Phase:** 4 — Multiplayer & Infrastructure (post-jam, working toward Version 2)  
 **Branch:** `cart-clash` (active development) · `main` (production)  
 **Production:** https://cart-rave.wyabro.workers.dev/  
@@ -55,11 +55,13 @@ Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/R
 - **KO Event system** — one fall event fans out to reactors (match stats, challenges, kill confirm, arena VFX, feed, announcer). See [scoring-event-system.md](../reference/scoring-event-system.md).
 - **Living Store (shipped)** — Living Cargo (cart = scoreboard) + host-authored PA **directives** mid-round. As-built: [living-store.md](../reference/living-store.md).
 
-### Recent work (July 9–11, 2026)
+### Recent work (July 9–16, 2026)
 
 July 9–10 highlights: progression unlocks; Sundial Station flagship + three-arena elevation; full HUD redesign (center stage, tokens, icons); gameplay feel pass; match-stat spine + charge glow + auto-quality; boot/load + half-res bloom + level LOD; **Living Store** (cargo + directives + review hardening); solo polish sprint; regression audit (verified non-issues logged in §5); netcode connection lifecycle hardening.
 
-July 10–11 production passes (index: [production-passes.md](./production-passes.md)): **Pass 2** 3-tier quality system; **Pass 3/3.2/3.3** sticker-language UI + UX flow + density; **Pass 4** gameplay/combat/AI fixes (`73631e0`); **Pass 5** VFX/audio waves 1–3 (`043e793`..`eb924af`); **stabilization pass** (`b9e8fb8`..`3754949`, unpushed — wheel roll, podium +20%, menu pacing, dead-code purge). Plus: **black-frame flicker root-caused and fixed on Storerooms** (half-res float bloom mips → per-arena bloom pipeline `98317c1`, D-VFX-2); **netcode test punch list closed** (`party/roundValidation.ts`, `party/hostSelection.ts`, `applyHostMigration`, P2P size gates — `1dbb48a`, `6ee9c0b`); Rapier **SIMD made opt-in** after a game-breaking borrow error (`8174180`); visual-QA toolchain (`shoot`/`compare`/`blackframes`, `?blackmon=`, `?rtmode=`). Full writeups in [completed-work.md](./completed-work.md) and the [decision log](../archive/decision-log-2026-07.md).
+July 10–11 production passes (index: [production-passes.md](./production-passes.md)): **Pass 2** 3-tier quality system; **Pass 3/3.2/3.3** sticker-language UI + UX flow + density; **Pass 4** gameplay/combat/AI fixes (`73631e0`); **Pass 5** VFX/audio waves 1–3 (`043e793`..`eb924af`); **stabilization pass** (`b9e8fb8`..`3754949`, unpushed — wheel roll, podium +20%, menu pacing, dead-code purge). Plus: **black-frame flicker root-caused and fixed on Storerooms** (half-res float bloom mips → per-arena bloom pipeline `98317c1`, D-VFX-2); **netcode test punch list closed** (`party/roundValidation.ts`, `party/hostSelection.ts`, `applyHostMigration`, P2P size gates — `1dbb48a`, `6ee9c0b`); Rapier **SIMD made opt-in** after a game-breaking borrow error (`8174180`); visual-QA toolchain (`shoot`/`compare`/`blackframes`, `?blackmon=`, `?rtmode=`).
+
+July 12–16 highlights: **Store PA announcer — full recorded voice pack shipped** (61 takes en, Tiers 1–4, all 5 Living Store directives voiced, voiced countdown replaces beeps); **friction sprint A+B** (join overlay, solo pause, lobby ready, rematch copy/grace, SD-only last-standing); **diagnostics framework + gameplay E2E rig** (`?diag` → `window.__ccDiag` + `gameharness.mjs`); **netcode 2-client harness** (`netharness.mjs` — spawnlock + mpIntegration + hostMigration); **battery sweep** (`npm run battery` one-command regression); **pre-playtest hardening** (SD wedge fix, combo gate, host fall-queue lifecycle, NET-CLK-2, ghost exorcism, kill-credit promote); **potato hardening** (software-GL auto-low, GPU-aware tier); **playtest kit + console v3**; **suction holes v1** (Storerooms); **controller haptics hardening**. Full writeups in [completed-work.md](./completed-work.md) and the [decision log](../archive/decision-log-2026-07.md).
 
 ### Key files
 
@@ -88,7 +90,7 @@ July 10–11 production passes (index: [production-passes.md](./production-passe
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
 | `party/roundValidation.ts` / `hostSelection.ts` | Extracted, unit-tested `host_round` validation + promote-oldest |
 | `src/netcode/p2pLimits.js` | P2P DataChannel frame/tail size gates |
-| `tests/` | Vitest suite (285 tests / 28 files at 2026-07-12) |
+| `tests/` | Vitest suite (379 tests / 41 files at 2026-07-16) |
 | `.cursorrules` | Design spec and AI guardrails |
 
 Full architecture reference: [Game_Architecture.md](../reference/Game_Architecture.md).

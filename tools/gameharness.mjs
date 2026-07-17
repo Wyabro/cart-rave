@@ -38,6 +38,7 @@ import {
   CheckTally,
   dumpFailureBundle,
   CLIENT_PORT,
+  killDevStack,
 } from "./lib/harness.mjs";
 
 const log = makeLogger("gameharness");
@@ -487,7 +488,7 @@ async function main() {
     await preflightStack(baseUrl, log);
   } catch (err) {
     log(err instanceof Error ? err.message : err);
-    if (devProc && !devProc.killed) devProc.kill();
+    killDevStack(devProc);
     process.exit(2);
   }
 
@@ -505,7 +506,7 @@ async function main() {
     console.error("[gameharness] scenario error:", err instanceof Error ? err.stack : err);
   } finally {
     await browser.close();
-    if (devProc && !devProc.killed) devProc.kill();
+    killDevStack(devProc);
   }
 
   tally.finish();
