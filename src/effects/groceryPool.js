@@ -12,7 +12,7 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { getSharedDracoLoader } from "../loaders/sharedDracoLoader.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { CONFIG } from "../config.js";
 import { spawnTrashBurst } from "../effects.js";
@@ -46,9 +46,6 @@ const COLLIDER_RESTITUTION = 0.15;
 /** @type {number} Minimum world-units for the shortest dimension after geometry normalization.
  * * Prevents extreme-aspect-ratio models (baguette) from being paper-thin. */
 const MIN_GROCERY_DIM = 0.06;
-
-/** @type {string} Draco decoder WASM/JS path (mirrors cartRaveGltf.js). */
-const DRACO_DECODER_PATH = "/draco/gltf/";
 
 /**
  * * Grocery model definitions — each maps to a GLTF file and a collider shape type.
@@ -202,35 +199,40 @@ const _oneScale = new THREE.Vector3(1, 1, 1);
 const _dirtyMeshes = new Map();
 
 // ---------------------------------------------------------------------------
-// DRACO / GLTF loader (lazy singleton, mirrors cartRaveGltf.js pattern)
+// GLTF loader (lazy singleton; Draco decoder shared with cartRaveGltf.js)
 // ---------------------------------------------------------------------------
-
-/** @type {DRACOLoader | null} */
-let _dracoLoader = null;
 
 /** @type {GLTFLoader | null} */
 let _loader = null;
-
-/** @returns {DRACOLoader} */
-function getDracoLoader() {
-  if (!_dracoLoader) {
-    _dracoLoader = new DRACOLoader();
-    _dracoLoader.setDecoderPath(DRACO_DECODER_PATH);
-    _dracoLoader.setWorkerLimit(
-      Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 4) - 1)),
-    );
-    _dracoLoader.preload();
-  }
-  return _dracoLoader;
-}
 
 /** @returns {GLTFLoader} */
 function getLoader() {
   if (!_loader) {
     _loader = new GLTFLoader();
-    _loader.setDRACOLoader(getDracoLoader());
+    _loader.setDRACOLoader(getSharedDracoLoader());
   }
   return _loader;
+}
+
+/**
+ * Frees source GLTF GPU buffers after geometries/materials are cloned into the pool.
+ *
+ * Important: `Material.clone()` shares texture references. Do **not** dispose
+ * `map` / `normalMap` on the source — those textures still back the pool's
+ * InstancedMesh + cargo materials. Geometry was deep-cloned, so source geometry
+ * is safe to free. Material.dispose() only drops the material object (no textures).
+ * @param {THREE.Object3D} root
+ */
+function disposeLoadedGltfScene(root) {
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.geometry?.dispose();
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      mat.dispose?.();
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -398,7 +400,7 @@ async function buildPool(scene, world) {
     material.userData = { ...material.userData, isSharedMaterial: true };
     const cargoMat = material.clone();
     cargoMat.userData = { ...cargoMat.userData, isSharedMaterial: true };
-    loadedGeometries.push(geometry.clone());
+    loadedGeometries.push(geometry);
     loadedMaterials.push(cargoMat);
 
     const im = new THREE.InstancedMesh(geometry, material, PER_MODEL_POOL);
@@ -435,6 +437,7 @@ async function buildPool(scene, world) {
     }
 
     im.instanceMatrix.needsUpdate = true;
+    disposeLoadedGltfScene(gltfScene);
   }
 
   ready = true;
@@ -964,7 +967,8 @@ function dispose(scene, world) {
 
   for (const im of instancedMeshes) {
     if (scene) scene.remove(im);
-    im.geometry?.dispose();
+    // * Geometry is shared with cargo bays (loadedGeometries) — dispose once below.
+    // * Spill materials share texture maps with cargo materials; free maps once there.
     if (Array.isArray(im.material)) {
       im.material.forEach((m) => m?.dispose?.());
     } else {

@@ -19,7 +19,7 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { getSharedDracoLoader } from "./loaders/sharedDracoLoader.js";
 import { applyCartPattern } from "./cartPatterns.js";
 import { CART_THEMES, resolveSunglassesStyle } from "./cartThemeConfig.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
@@ -68,8 +68,6 @@ const SUNGLASSES_VISOR_URL = "/models/sunglasses-visor.glb";
 // * Uncompressed masters live under art/models/ for authoring + npm run compress:rave-gltf.
 // * They are not shipped in public/ (saves ~14 MB per deploy).
 
-/** WASM/JS Draco decoder served from `public/draco/gltf/`. */
-const RAVE_GLTF_DRACO_DECODER_PATH = "/draco/gltf/";
 
 /** CartFrame mesh name for the active cartrave4 export. */
 const RAVE_GLTF_FRAME_MESH = "tripo_part_0";
@@ -578,8 +576,6 @@ const _modelInvMat = new THREE.Matrix4();
 /** @type {GLTFLoader | null} */
 let _loader = null;
 
-/** @type {DRACOLoader | null} */
-let _dracoLoader = null;
 
 /** @type {THREE.Group | null} */
 let _sourceScene = null;
@@ -1399,27 +1395,11 @@ function disposeMaterialOnce(material, disposedMats) {
   }
 }
 
-/** @returns {DRACOLoader} */
-function getDracoLoader() {
-  if (!_dracoLoader) {
-    _dracoLoader = new DRACOLoader();
-    _dracoLoader.setDecoderPath(RAVE_GLTF_DRACO_DECODER_PATH);
-    // * Cap workers below hardwareConcurrency so the page stays interactive during decode.
-    _dracoLoader.setWorkerLimit(
-      Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 4) - 1)),
-    );
-    // * Preload wasm binary + worker source in parallel with GLB fetch
-    // * (avoids first-primitive stall when the GLB arrives before the worker pool is ready).
-    _dracoLoader.preload();
-  }
-  return _dracoLoader;
-}
-
 /** @returns {GLTFLoader} */
 function getLoader() {
   if (!_loader) {
     _loader = new GLTFLoader();
-    _loader.setDRACOLoader(getDracoLoader());
+    _loader.setDRACOLoader(getSharedDracoLoader());
   }
   return _loader;
 }

@@ -1,8 +1,47 @@
+import { readdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { defineConfig } from "vite";
 import wasm from "vite-plugin-wasm";
 
-export default defineConfig({
-  plugins: [wasm()],
+/**
+ * Three's DRACOLoader embeds static decoder URLs that Vite emits into dist/assets/
+ * even though runtime always calls setDecoderPath("/draco/gltf/") against public/.
+ * Strip those orphan hashed files so deploy carries one decoder copy only.
+ */
+function stripOrphanDracoBuildAssets() {
+  return {
+    name: "strip-orphan-draco-build-assets",
+    enforce: "post",
+    generateBundle(_options, bundle) {
+      for (const fileName of Object.keys(bundle)) {
+        // * Bundle keys may be bare (`draco_…`) or under assets/ depending on Vite version.
+        if (/(^|\/)draco_[^/]+$/.test(fileName)) delete bundle[fileName];
+      }
+    },
+    closeBundle() {
+      const assetsDir = join(process.cwd(), "dist", "assets");
+      try {
+        for (const name of readdirSync(assetsDir)) {
+          if (/^draco_/.test(name)) unlinkSync(join(assetsDir, name));
+        }
+      } catch {
+        /* dist/assets missing — dev-only build */
+      }
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  plugins: [wasm(), stripOrphanDracoBuildAssets()],
+
+  // * Production ships the standard Rapier build only (SIMD is opt-in at runtime but
+  // * broken on 0.19.3). Aliasing -simd → standard drops the duplicate ~1.6 MB wasm blob
+  // * from dist while dev keeps both packages for ?rapier=simd testing.
+  resolve: mode === "production" ? {
+    alias: {
+      "@dimforge/rapier3d-simd": "@dimforge/rapier3d",
+    },
+  } : undefined,
 
   // * Vitest-only: stub Rapier wasm packages so vite's import-analysis doesn't try
   // * to resolve the wasm-pack entry during unit tests (rapierInstance never initializes there).
@@ -79,4 +118,4 @@ export default defineConfig({
       "partysocket",
     ],
   },
-});
+}));

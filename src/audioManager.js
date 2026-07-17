@@ -606,7 +606,7 @@ export function stopAllAmbience(fadeMs = 600) {
  * @param {string} key Unique identifier
  * @param {string | string[]} src URL(s) to the audio file — pass [ogg, mp3] so
  *   Safari (no Ogg Vorbis support) falls back to the mp3 encode.
- * @param {{ pool?: number, sprite?: Record<string, [number, number]>, loop?: boolean, rate?: number }} [options]
+ * @param {{ pool?: number, sprite?: Record<string, [number, number]>, loop?: boolean, rate?: number, preload?: boolean }} [options]
  */
 export function registerSfx(key, src, options = {}) {
   if (sfxRegistry[key]) {
@@ -620,7 +620,7 @@ export function registerSfx(key, src, options = {}) {
     sprite: options.sprite,
     loop: Boolean(options.loop),
     rate: options.rate,
-    preload: true,
+    preload: options.preload !== false,
   });
 }
 
@@ -637,6 +637,10 @@ export function playSfx(key, sprite, options = {}) {
   const sound = sfxRegistry[key];
   if (!sound || _isMuted) return null;
   try {
+    // * preload:false Howls stay "unloaded" until load() — same trap as game music.
+    // * Howler still returns a sound id when play() queues during load, so callers
+    // * (announcer interrupt tracking) can stop/fade the instance.
+    if (sound.state() === "unloaded") sound.load();
     const id = sprite ? sound.play(sprite) : sound.play();
     if (id != null && options.rate != null) {
       sound.rate(options.rate, id);
@@ -647,6 +651,20 @@ export function playSfx(key, sprite, options = {}) {
     return id;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Starts background fetch/decode for registered SFX whose keys share a prefix.
+ * Used to warm the announcer voice pack during menu idle without blocking boot.
+ * @param {string} prefix Registry key prefix (e.g. `"announcer_"`).
+ */
+export function prefetchSfxByPrefix(prefix) {
+  for (const [key, sound] of Object.entries(sfxRegistry)) {
+    if (!key.startsWith(prefix)) continue;
+    try {
+      if (sound.state() === "unloaded") sound.load();
+    } catch { /* mid-unload */ }
   }
 }
 

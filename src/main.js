@@ -1368,7 +1368,12 @@ async function main() {
     "countdown_3_01", "countdown_2_01", "countdown_1_01", "go_01",
   ];
   for (const key of announcerVoiceKeysEn) {
-    AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], { pool: 1 });
+    AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], {
+      pool: 1,
+      // * 61 voice takes — skip boot fetch/decode (~1.7 MB network + large PCM) until
+      // * idle warm or first play (see prefetchSfxByPrefix + playSfx load-on-demand).
+      preload: false,
+    });
   }
   registerAnnouncerVoicePack({ locale: "en", availableKeys: announcerVoiceKeysEn });
 
@@ -4944,6 +4949,9 @@ function scheduleIdleWorldWarm() {
         // * Selected arena is now warm; fetch the other arena chunks in the background
         // * so the first menu arena switch never waits on a lazy import round-trip.
         void prefetchLevelChunks();
+        // * Warm announcer voice clips in the background while the menu is idle —
+        // * avoids ~1.7 MB network + tens of MB decoded PCM at boot (preload:false).
+        AudioManager.prefetchSfxByPrefix("announcer_");
       })
       .catch((err) => {
         console.warn("[bootstrap] idle world warm failed:", err);

@@ -5,6 +5,13 @@ import {
   MAX_TAIL_FALLS,
 } from "./p2pLimits.js";
 
+/** Reused across 40 Hz host encode — avoids per-tick TextEncoder allocation. */
+const _textEncoder = new TextEncoder();
+/** Reused across 40 Hz client decode — avoids per-tick TextDecoder allocation. */
+const _textDecoder = new TextDecoder();
+/** Scratch tail object for JSON.stringify — mutated in place each encode. */
+const _tailScratch = { collisions: /** @type {unknown[]} */ ([]), falls: /** @type {unknown[]} */ ([]) };
+
 // * Header: type(1) + numCarts(1) + pad(2) + seq(Uint32) + tHost(Float64) = 16 bytes.
 // * tHost is absolute monotonic ms (~1e12); Float32 only has ~7 digits and quantizes
 // * to ~42s steps, which breaks clock offset estimation and interpolation.
@@ -32,19 +39,19 @@ function encodeF32(v, fallback = 0) {
 export function encodeHostStateSnapshot(state) {
   const carts = state.carts || [];
   const numCarts = carts.length;
-  
-  const tailData = {
-    collisions: state.collisions || [],
-    falls: state.falls || [],
-  };
+
+  _tailScratch.collisions = state.collisions || [];
+  _tailScratch.falls = state.falls || [];
   // * Active Living Store directive ({ id, r: remainingMs }) — rides every snapshot
   // * so a client that missed the one-shot MSG.directive (unreliable channel) or
   // * joined mid-window self-heals from the next 40Hz frame.
-  if (state.dir) tailData.dir = state.dir;
+  if (state.dir) _tailScratch.dir = state.dir;
+  else delete _tailScratch.dir;
   // * Compact kill-credit / combo ages for host migration (NET-MIG-1).
-  if (state.attr) tailData.attr = state.attr;
-  const jsonString = JSON.stringify(tailData);
-  const jsonBytes = new TextEncoder().encode(jsonString);
+  if (state.attr) _tailScratch.attr = state.attr;
+  else delete _tailScratch.attr;
+  const jsonString = JSON.stringify(_tailScratch);
+  const jsonBytes = _textEncoder.encode(jsonString);
   
   const bufferLength = HEADER_BYTES + (numCarts * CART_BYTES) + jsonBytes.byteLength;
   const buffer = new ArrayBuffer(bufferLength);
@@ -196,7 +203,7 @@ export function decodeHostStateSnapshot(buffer) {
     if (tailBytes.byteLength > MAX_SNAPSHOT_TAIL_BYTES) {
       console.warn("[binary] Oversized JSON tail dropped:", tailBytes.byteLength);
     } else {
-      const jsonTail = new TextDecoder().decode(tailBytes);
+      const jsonTail = _textDecoder.decode(tailBytes);
       try {
         const parsed = JSON.parse(jsonTail);
         collisions = Array.isArray(parsed.collisions)
