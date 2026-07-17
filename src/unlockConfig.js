@@ -21,14 +21,11 @@
 
 import { DEFAULT_CART_PATTERN } from "./cartPatternConfig.js";
 import { DEFAULT_SUNGLASSES_STYLE } from "./cartThemeConfig.js";
+import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
+import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 
 /** localStorage key — values: `"all"` | `"off"` | absent */
 export const DEV_UNLOCKS_STORAGE_KEY = "cartRaveDevUnlocks";
-
-/** Lifetime KOs on Classic to unlock The Storerooms. */
-const UNLOCK_BACKROOMS_KILLS = 10;
-/** Lifetime KOs on The Storerooms to unlock Sundial Station. */
-const UNLOCK_ZANZIBAR_KILLS = 15;
 
 /**
  * Pattern unlock table. `classic` is always free.
@@ -36,12 +33,12 @@ const UNLOCK_ZANZIBAR_KILLS = 15;
  */
 export const PATTERN_UNLOCKS = {
   classic: { free: true, hint: "Default look" },
-  stripes: { event: "ko_void", goal: 10, hint: "10 KOs" },
-  checker: { event: "ko_npc", goal: 15, hint: "15 NPC KOs" },
+  stripes: { event: PROGRESSION_EVENTS.KO_VOID, goal: 10, hint: "10 KOs" },
+  checker: { event: PROGRESSION_EVENTS.KO_NPC, goal: 15, hint: "15 NPC KOs" },
   // * combo_t2 fires at comboTier 2 = SAVAGE (config.js combos table), not RAMPAGE.
-  dots: { event: "combo_t2", goal: 8, hint: "Reach SAVAGE 8 times" },
-  waves: { event: "combo_t3", goal: 5, hint: "Reach CARNAGE 5 times" },
-  bolt: { event: "last_standing", goal: 3, hint: "3 Last Cart Standing wins" },
+  dots: { event: PROGRESSION_EVENTS.COMBO_T2, goal: 8, hint: "Reach SAVAGE 8 times" },
+  waves: { event: PROGRESSION_EVENTS.COMBO_T3, goal: 5, hint: "Reach CARNAGE 5 times" },
+  bolt: { event: PROGRESSION_EVENTS.LAST_STANDING, goal: 3, hint: "3 Last Cart Standing wins" },
 };
 
 /**
@@ -50,16 +47,16 @@ export const PATTERN_UNLOCKS = {
  */
 export const SUNGLASSES_UNLOCKS = {
   silverMirror: { free: true, hint: "Default shades" },
-  goldMirror: { event: "ko_void", goal: 20, hint: "20 KOs" },
-  blueMirror: { event: "spill", goal: 25, hint: "Cause 25 spills" },
-  redMirror: { event: "sd_win", goal: 3, hint: "3 Sudden Death wins" },
-  greenMirror: { event: "untouchable", goal: 1, hint: "Win without spilling" },
-  purpleMirror: { event: "ko_aggressor", goal: 5, hint: "5 Aggressor KOs" },
+  goldMirror: { event: PROGRESSION_EVENTS.KO_VOID, goal: 20, hint: "20 KOs" },
+  blueMirror: { event: PROGRESSION_EVENTS.SPILL, goal: 25, hint: "Cause 25 spills" },
+  redMirror: { event: PROGRESSION_EVENTS.SUDDEN_DEATH_WIN, goal: 3, hint: "3 Sudden Death wins" },
+  greenMirror: { event: PROGRESSION_EVENTS.UNTOUCHABLE, goal: 1, hint: "Win without spilling" },
+  purpleMirror: { event: PROGRESSION_EVENTS.KO_AGGRESSOR, goal: 5, hint: "5 Aggressor KOs" },
 };
 
 /** Custom hue slider unlock. */
 export const CUSTOM_COLOR_UNLOCK = {
-  event: "ko_void",
+  event: PROGRESSION_EVENTS.KO_VOID,
   goal: 40,
   hint: "40 KOs",
 };
@@ -68,26 +65,12 @@ export const CUSTOM_COLOR_UNLOCK = {
  * Level gates (menu solo/select). Invites can still load any level at runtime.
  * @type {Record<string, { free?: boolean, killsOnLevel?: string, goal?: number, label: string, hint: string }>}
  */
-export const LEVEL_UNLOCKS = {
-  classicRecord: {
-    free: true,
-    label: "Cart Rave",
-    hint: "Always available",
-  },
-  backrooms: {
-    killsOnLevel: "classicRecord",
-    goal: UNLOCK_BACKROOMS_KILLS,
-    label: "The Storerooms",
-    hint: `${UNLOCK_BACKROOMS_KILLS} KOs on Cart Rave`,
-  },
-  zanzibar: {
-    killsOnLevel: "backrooms",
-    goal: UNLOCK_ZANZIBAR_KILLS,
-    label: "Sundial Station",
-    hint: `${UNLOCK_ZANZIBAR_KILLS} KOs on The Storerooms`,
-  },
-  testArena: { free: true, label: "Test Arena", hint: "Dev" },
-};
+export const LEVEL_UNLOCKS = Object.fromEntries(
+  ARENA_CATALOG.map((arena) => [
+    arena.id,
+    { ...arena.unlock, label: arena.displayName },
+  ]),
+);
 
 export const FREE_PATTERN = DEFAULT_CART_PATTERN;
 export const FREE_SUNGLASSES = DEFAULT_SUNGLASSES_STYLE;

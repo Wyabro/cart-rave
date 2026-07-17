@@ -5,8 +5,8 @@ big moments with retail-flavored barks ("FIRST SPILL!", "CLEAN-UP ON AISLE 3!", 
 instead of arena-shooter clichés. The system is fully data-driven — the full **61-take
 English voice pack is recorded and shipped** (Tiers 1–4 complete, all five Living Store
 directives voiced, voiced countdown replaces beeps). Unrecorded events fall back to
-procedural stings; adding new takes is a pipeline-only change with **zero code edits**
-(see [Voice asset pipeline](#voice-asset-pipeline)).
+procedural stings; adding takes requires only the files plus the event's `voice.variants`
+count — there is no separate boot manifest (see [Voice asset pipeline](#voice-asset-pipeline)).
 
 ## Architecture
 
@@ -85,7 +85,7 @@ See [living-store.md](./living-store.md). Full event table source of truth:
 
 ## Arbitration rules
 
-1. **Single channel** — at most one announcement at a time, with a **1.7 s minimum gap**
+1. **Single channel** — at most one announcement at a time, with a **1.8 s minimum gap**
    between announcements (`MIN_GAP_MS` — the pacing taste knob, Wyatt-tuned). The channel is reserved for the **real recorded-take length**
    (via `getSfxDurationMs`) when it outruns the event's `durationMs` — the table value is
    a pacing floor, not the truth (recorded lines run 1.3–5 s vs the 0.7–1.6 s sting-era
@@ -142,15 +142,9 @@ public/sounds/announcer/en/cleanup_aisle_03.opus
 
 ### Wiring recorded assets in
 
-At boot (next to the other `AudioManager.registerSfx` calls in `main.js`):
-
-```js
-// 1. Register each recorded file with Howler:
-AudioManager.registerSfx("announcer_first_spill_01",
-  [soundUrl("announcer/en/first_spill_01.opus")], { pool: 1 });
-// 2. Tell the manager which takes exist:
-registerAnnouncerVoicePack({ locale: "en", availableKeys: ["first_spill_01", /* … */] });
-```
+`src/announcer/announcerVoiceKeys.js` expands every event's `voice.key` and
+`voice.variants` into deterministic asset keys. `main.js` registers that derived list with
+Howler and the announcer manager; no second list is maintained.
 
 The manager then picks a random registered variant per announcement. **Fallback chain**
 per event: registered voice variant → declared sting (`sfxKey` or procedural) → silence
@@ -159,7 +153,7 @@ their stings.
 
 ### Localization
 
-- Subtitles: add a locale block to `LINES` in `announcerLines.js` (falls back to `en`
+- Subtitles: add a locale block to `ANNOUNCER_LINES` in `announcerLines.js` (falls back to `en`
   per event).
 - Voice: record under `public/sounds/announcer/<locale>/` and register the pack with
   that locale. `getLocale` in the manager deps selects at runtime.

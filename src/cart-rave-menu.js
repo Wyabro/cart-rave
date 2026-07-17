@@ -63,6 +63,7 @@ import {
 import { LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
+import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
 (function () {
   'use strict';
@@ -215,19 +216,17 @@ import { NPC_NAME_POOL } from "./npcNames.js";
 
   const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
   const DEFAULT_LEVEL = 'classicRecord';
-  const LEVEL_OPTIONS = {
-    classicRecord: { enabled: true },
-    backrooms: { enabled: true },
-    zanzibar: { enabled: true },
-  };
+  const LEVEL_OPTIONS = Object.fromEntries(
+    ARENA_CATALOG
+      .filter((arena) => arena.quickplay)
+      .map((arena) => [arena.id, { enabled: true }]),
+  );
 
   // Arena ambience — picking a level re-themes the menu backdrop/particles/
   // spotlights so the menu previews where you're headed (Pass 3 attract mode).
-  const LEVEL_AMBIENCE = {
-    classicRecord: "classic",
-    backrooms: "liminal",
-    zanzibar: "sunset",
-  };
+  const LEVEL_AMBIENCE = Object.fromEntries(
+    ARENA_CATALOG.map((arena) => [arena.id, arena.menuTheme]),
+  );
 
   // ─── State ────────────────────────────────────────────────────────────────
   const state = {

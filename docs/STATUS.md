@@ -110,6 +110,7 @@ see [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-CONTENT-1** (07-17): Pure-data arena catalog is the client authoring source for labels/themes/music/ambience/unlocks; explicit Vite importers, Worker arena IDs, menu markup, presentation tuning, and hazards remain in their existing ownership boundaries and are guarded by contract tests.
 - **D-HARDEN-1** (07-13): Pre-playtest council hardening (`b307402`) — SD same-frame-double-fall wedge resolved by replay-tiebreak (not draw/deterministic-winner); `sd_win` latch before `endRound` clears SD; Rapier `castRay` exclude-object fix in `isCartGrounded` + camera occlusion; quickplay rematch re-entrancy gate; `suddenDeathPulse` countdown leak. Hidden-tab crossfade `setLevelSwapping` hold deferred.
 - **D-NET-CLK-MIG** (07-12): NET-CLK-1 dual Party/host clocks, NET-CLK-3 round-clock hit/directive stamps, NET-MIG-1 kill-credit `attr` on promote (`a0475d6`). Remaining structural suggestions cataloged in BACKLOG Tech Debt (MAIN-1, DIR-1, GLTF-1, …).
 - **D-TERM-1** (07-12): Terminology pass — [style-guide.md](./style-guide.md) is canonical for all wording (Arena/Round/Boost/KO/Lobby/Quickplay rulings + rationale); player copy aligned; `combo_t2` unlock hint mislabel (RAMPAGE→SAVAGE) fixed.

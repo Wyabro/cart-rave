@@ -6,13 +6,14 @@ import { setMenuPreviewVisualLod } from "../utils/qualityMode.js";
 import { clearLevelLod } from "../utils/levelLod.js";
 import { clearKoHitmarkers } from "../effects/koHitmarkerFx.js";
 import { QUICKPLAY_ARENA_IDS } from "../../shared/arenaPool.js";
+import { ARENA_BY_ID } from "./arenaCatalog.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
 const DEFAULT_LEVEL_ID = "classicRecord";
 
 /** Lazy dynamic importers — each level ships as its own Vite chunk. */
-const LEVEL_IMPORTERS = {
+export const LEVEL_IMPORTERS = {
   classicRecord: () => import("./classicRecord.js").then((m) => m.initClassicRecord),
   backrooms: () => import("./backroomsSupermarket.js").then((m) => m.initBackroomsSupermarket),
   zanzibar: () => import("./zanzibarPlatform.js").then((m) => m.initZanzibarPlatform),
@@ -52,10 +53,9 @@ export function prefetchLevelChunks() {
  * @returns {"classicRecord" | "backrooms" | "zanzibar" | "testArena"}
  */
 export function resolveLevelId(raw) {
-  if (raw === "testArena") return "testArena";
-  if (raw === "zanzibar") return "zanzibar";
-  if (raw === "backrooms") return "backrooms";
-  if (raw === "classicRecord") return "classicRecord";
+  if (raw && ARENA_BY_ID[raw]) {
+    return /** @type {"classicRecord" | "backrooms" | "zanzibar" | "testArena"} */ (raw);
+  }
   return DEFAULT_LEVEL_ID;
 }
 

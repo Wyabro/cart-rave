@@ -17,6 +17,7 @@ import { RAPIER } from "../physics/rapierInstance.js";
 import { CONFIG } from "../config.js";
 import { spawnTrashBurst } from "../effects.js";
 import { playGrocerySpill } from "../sfxSynth.js";
+import { GROCERY_DEFINITIONS } from "./groceryDefinitions.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -25,11 +26,11 @@ import { playGrocerySpill } from "../sfxSynth.js";
 /** @type {number} Raw Rapier collision groups bitmask — group 2 membership, filter collides with everything except group 1 (carts). */
 const GROCERY_COLLISION_GROUPS = (0x0002 << 16) | 0xFFFE;
 
-/** @type {number} Instances per grocery model (6 models × 11 = 66 total). */
+/** @type {number} Instances per grocery model. */
 const PER_MODEL_POOL = 11;
 
 /** @type {number} Total pre-allocated grocery item slots. */
-const POOL_SIZE = 66;
+const POOL_SIZE = GROCERY_DEFINITIONS.length * PER_MODEL_POOL;
 
 /** @type {number} Milliseconds before auto-fade begins. */
 const FADE_DELAY_MS = 8500;
@@ -47,26 +48,9 @@ const COLLIDER_RESTITUTION = 0.15;
  * * Prevents extreme-aspect-ratio models (baguette) from being paper-thin. */
 const MIN_GROCERY_DIM = 0.06;
 
-/**
- * * Grocery model definitions — each maps to a GLTF file and a collider shape type.
- * * Actual collider half-extents are computed dynamically from the normalized
- * * geometry bounding box in init(). Sizing lives in GROCERY_SCALES below.
- * @type {Array<{
- *   name: string,
- *   path: string,
- *   type: "cuboid" | "cylinder" | "ball",
- * }>}
- */
 // * These runtime GLBs are Draco+WebP compressed (npm run compress:groceries);
 // * uncompressed masters live in art/models/groceries/.
-const MODEL_DEFS = [
-  { name: "milk", path: "/models/groceries/milk.glb", type: "cuboid" },
-  { name: "cereal", path: "/models/groceries/cereal.glb", type: "cuboid" },
-  { name: "soda", path: "/models/groceries/soda.glb", type: "cylinder" },
-  { name: "soup", path: "/models/groceries/soup.glb", type: "cylinder" },
-  { name: "orange", path: "/models/groceries/orange.glb", type: "ball" },
-  { name: "baguette", path: "/models/groceries/baguette.glb", type: "cuboid" },
-];
+const MODEL_DEFS = GROCERY_DEFINITIONS;
 
 /**
  * ─── GROCERY SCALE TUNING — the one place to size groceries ─────────────────
@@ -108,14 +92,12 @@ const GROCERY_SCALES = {
   /** Global basket-cargo multiplier ("compact pile" factor). */
   cargoScale: 0.52,
   /** @type {Record<string, { sizeM: number, cargoMul: number }>} */
-  perModel: {
-    milk: { sizeM: 0.575, cargoMul: 1.0 },
-    cereal: { sizeM: 0.5, cargoMul: 1.0 },
-    soda: { sizeM: 0.5, cargoMul: 1.0 },
-    soup: { sizeM: 0.5, cargoMul: 1.0 },
-    orange: { sizeM: 0.5, cargoMul: 1.0 },
-    baguette: { sizeM: 2.0, cargoMul: 0.26 },
-  },
+  perModel: Object.fromEntries(
+    MODEL_DEFS.map((definition) => [
+      definition.name,
+      { sizeM: definition.sizeM, cargoMul: definition.cargoMul },
+    ]),
+  ),
 };
 
 /** @param {string} name */

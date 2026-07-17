@@ -13,7 +13,7 @@
  */
 
 /** @type {Record<string, Record<string, string[]>>} */
-const LINES = {
+export const ANNOUNCER_LINES = {
   en: {
     countdown_3: ["3"],
     countdown_2: ["2"],
@@ -163,8 +163,8 @@ function fillTokens(line, data) {
  * @returns {string | null}
  */
 export function getAnnouncerLine(eventId, data = {}, locale = "en") {
-  const table = LINES[locale] ?? LINES.en;
-  const allVariants = table[eventId] ?? LINES.en[eventId];
+  const table = ANNOUNCER_LINES[locale] ?? ANNOUNCER_LINES.en;
+  const allVariants = table[eventId] ?? ANNOUNCER_LINES.en[eventId];
   if (!allVariants || allVariants.length === 0) return null;
 
   // * Prefer variants whose tokens are all satisfied by data — "{attacker} DRAWS

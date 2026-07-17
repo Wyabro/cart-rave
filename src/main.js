@@ -72,6 +72,7 @@ import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
 import { svgIcon } from "./ui/icons.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 import { onUnlockGranted, unlockStore } from "./stores/unlockStore.js";
+import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 import {
   getMatchStats,
   matchSuperlatives,
@@ -139,6 +140,8 @@ import * as SfxSynth from "./sfxSynth.js";
 import { hapticPulse } from "./haptics.js";
 import { sideWeightsFromCartBasis } from "./utils/edgeDanger.js";
 import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack } from "./announcer/announcerManager.js";
+import { ANNOUNCER_EVENTS } from "./announcer/announcerEvents.js";
+import { expandAnnouncerVoiceKeys } from "./announcer/announcerVoiceKeys.js";
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
@@ -1335,39 +1338,7 @@ async function main() {
   // * public/sounds/announcer/en/<key>.opus; the announcer manager picks a random
   // * registered variant per event and falls back to stings for unrecorded events.
   // * Recording/drop-in pipeline: docs/reference/announcer-recording-script.md.
-  const announcerVoiceKeysEn = [
-    "first_spill_01", "first_spill_02", "first_spill_03",
-    "double_spill_01", "double_spill_02", "double_spill_03",
-    "aisle_wipeout_01", "aisle_wipeout_02", "aisle_wipeout_03",
-    "refund_01", "refund_02", "refund_03",
-    "rampage_01", "rampage_02",
-    "savage_01", "savage_02",
-    "carnage_01", "carnage_02",
-    "comeback_01", "comeback_02",
-    "last_call_01", "last_call_02",
-    "sudden_death_01", "victory_01", "defeat_01",
-    // * Tier 2 — scoreboard + time beats (recorded 2026-07-16).
-    "new_leader_01", "new_leader_02",
-    "leader_down_01", "leader_down_02",
-    "one_minute_01", "one_minute_02",
-    "thirty_seconds_01", "thirty_seconds_02",
-    "critical_ko_01", "critical_ko_02",
-    "close_call_01", "close_call_02",
-    // * Tiers 3+4 — directives, flavor, countdown (recorded 2026-07-16;
-    // * pickups same day — all five directives fully voiced).
-    "directive_flash_sale_01", "directive_flash_sale_02",
-    "directive_double_bag_01", "directive_double_bag_02",
-    "directive_express_lane_01", "directive_express_lane_02",
-    "directive_spill_bonus_01", "directive_spill_bonus_02",
-    "directive_rush_hour_01", "directive_rush_hour_02",
-    "cleanup_aisle_01", "cleanup_aisle_02", "cleanup_aisle_03",
-    "cart_overflow_01", "cart_overflow_02",
-    "spill_rush_01", "spill_rush_02",
-    "challenge_complete_01", "challenge_complete_02",
-    "new_host_01",
-    // * Voiced countdown + GO replace the beep stings (Wyatt's call, 2026-07-16).
-    "countdown_3_01", "countdown_2_01", "countdown_1_01", "go_01",
-  ];
+  const announcerVoiceKeysEn = expandAnnouncerVoiceKeys(ANNOUNCER_EVENTS);
   for (const key of announcerVoiceKeysEn) {
     AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], {
       pool: 1,
@@ -2869,16 +2840,16 @@ async function main() {
       if (isLocalWinner && podiumChallengesRecordedKey !== challengeRoundKey) {
         podiumChallengesRecordedKey = challengeRoundKey;
         if (roundState.endReason === "lastStanding") {
-          ChallengeTracker.record("last_standing");
+          ChallengeTracker.record(PROGRESSION_EVENTS.LAST_STANDING);
         }
         if (lastRoundEndedInSuddenDeath) {
-          ChallengeTracker.record("sd_win");
+          ChallengeTracker.record(PROGRESSION_EVENTS.SUDDEN_DEATH_WIN);
         }
         const localCart = localCartForConnId();
         // * "Win without spilling": hasSpilled is per-life (reset on respawn), so a fall
         // * mid-round must also disqualify — localDeaths accumulates for the whole round.
         if (localCart && !localCart.hasSpilled && getMatchStats().localDeaths === 0) {
-          ChallengeTracker.record("untouchable");
+          ChallengeTracker.record(PROGRESSION_EVENTS.UNTOUCHABLE);
         }
       }
 

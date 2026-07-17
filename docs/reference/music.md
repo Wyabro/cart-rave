@@ -13,9 +13,10 @@ and switching arenas (play entry or Quickplay rotation) swaps the playlist.
 | Sundial Station (`zanzibar`) | `song3.opus`, `song4.opus` |
 | anything else (`testArena`, fallback) | `music.opus` |
 
-Files live in `public/sounds/`. The map is [`src/music/levelMusic.js`](../../src/music/levelMusic.js)
-(`LEVEL_MUSIC`), contract-tested against `shared/arenaPool.js` so every quickplay arena
-has ≥1 track and every referenced file exists on disk.
+Files live in `public/sounds/`. Assignments are authored in
+[`src/levels/arenaCatalog.js`](../../src/levels/arenaCatalog.js);
+[`src/music/levelMusic.js`](../../src/music/levelMusic.js) keeps the stable resolver API.
+Contracts ensure every quickplay arena has at least one track and every referenced file exists.
 
 ## Multiple songs per level
 
@@ -26,8 +27,7 @@ cycles to the next (`audioManager.js advanceGameTrack`), wrapping at the end. A 
 the first track of a level preloads; the rest load on demand at their turn.
 
 **To add a song to an arena:** drop the opus in `public/sounds/`, add its filename to that
-arena's array in `LEVEL_MUSIC`, and add it to the loudness set below. That's it — no other
-code changes.
+arena's `music` array in `arenaCatalog.js`, and add it to the loudness set below.
 
 ## Loudness — keep the set in sync
 
@@ -53,7 +53,9 @@ Existing tracks are ~96–105 kbps opus; encode new ones at `-b:a 96k` to match.
 
 ## Playback wiring
 
-- **`src/music/levelMusic.js`** — the map + `resolveLevelMusic(levelId)` (never empty).
+- **`src/levels/arenaCatalog.js`** — authored per-arena track lists.
+- **`src/music/levelMusic.js`** — stable `LEVEL_MUSIC` + `resolveLevelMusic(levelId)` API
+  (never empty).
 - **`main.js startLevelMusic(levelId)`** — shuffle the arena's list → `setGamePlaylist`
   (URL-only, `preload:false`, no fetch) → `playGameMusic`. Called at `commitMenuHiddenForGame`
   (every game-entry path: solo/testdrive/quickplay/refresh) and in the Quickplay

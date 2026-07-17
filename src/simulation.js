@@ -7,6 +7,7 @@ import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 import { getNpcPersonality } from "./npcNames.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
+import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 import {
   computeSoloRubberband,
   SOLO_RUBBERBAND_NEUTRAL,
@@ -1097,10 +1098,10 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
 
     if (callbacks?.localCart === rammer) {
       GameState.setLocalCombo(rammer.comboTier, rammer.comboExpiryMs);
-      if (rammer.comboTier === 2) ChallengeTracker.record('combo_t2');
-      if (rammer.comboTier === 3) ChallengeTracker.record('combo_t3');
+      if (rammer.comboTier === 2) ChallengeTracker.record(PROGRESSION_EVENTS.COMBO_T2);
+      if (rammer.comboTier === 3) ChallengeTracker.record(PROGRESSION_EVENTS.COMBO_T3);
       if (!victim.hasSpilled) {
-        ChallengeTracker.record('spill');
+        ChallengeTracker.record(PROGRESSION_EVENTS.SPILL);
       }
     }
   }

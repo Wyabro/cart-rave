@@ -1,22 +1,20 @@
 // levelMusic.js — which in-game music tracks belong to which arena.
 //
-// Music used to be one global shuffled playlist of all four songs, arena-agnostic.
-// It's now per-level: each arena has its own track list, and switching arenas
-// (play entry or Quickplay rotation) swaps the playlist. Multiple songs per level
-// are supported — a level with >1 track shuffles + advances through them, a level
-// with 1 track loops it. Add a song to an arena by dropping the opus in
-// public/sounds/ and adding its filename to that arena's array here.
+// Per-level assignments are authored in levels/arenaCatalog.js. This module keeps
+// the music API stable for callers and owns fallback/copy behavior.
+
+import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
 /**
  * Arena id → ordered list of music filenames (in public/sounds/). Every quickplay
  * arena needs at least one track — contract-tested against shared/arenaPool.js.
- * @type {Record<string, string[]>}
+ * @type {Record<string, readonly string[]>}
  */
-export const LEVEL_MUSIC = {
-  classicRecord: ["music.opus", "song2.opus"],
-  backrooms: ["storerooms.opus"],
-  zanzibar: ["song3.opus", "song4.opus"],
-};
+export const LEVEL_MUSIC = Object.fromEntries(
+  ARENA_CATALOG
+    .filter((arena) => arena.music.length > 0)
+    .map((arena) => [arena.id, arena.music]),
+);
 
 /** Fallback for any arena not in the map (e.g. testArena) — the original main track. */
 const DEFAULT_MUSIC = ["music.opus"];

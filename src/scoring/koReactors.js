@@ -9,6 +9,7 @@
 
 import { recordKoForMatchStats } from "./matchStats.js";
 import { recordDiagEvent } from "../utils/diagnostics.js";
+import { PROGRESSION_EVENTS } from "../progression/eventIds.js";
 
 /**
  * @typedef {object} KOReactorCtx
@@ -109,9 +110,11 @@ export function arenaVfxReactor(koEvent, ctx) {
  */
 export function challengeReactor(koEvent, ctx) {
   if (!koEvent.isKill || koEvent.attackerSlotIndex !== ctx.localSlotIndex) return;
-  ctx.recordChallenge?.("ko_void");
-  if (koEvent.victimKind === "npc") ctx.recordChallenge?.("ko_npc");
-  if (koEvent.victimAiName === "aggressor") ctx.recordChallenge?.("ko_aggressor");
+  ctx.recordChallenge?.(PROGRESSION_EVENTS.KO_VOID);
+  if (koEvent.victimKind === "npc") ctx.recordChallenge?.(PROGRESSION_EVENTS.KO_NPC);
+  if (koEvent.victimAiName === "aggressor") {
+    ctx.recordChallenge?.(PROGRESSION_EVENTS.KO_AGGRESSOR);
+  }
   // * Level-gated unlocks: lifetime KOs credited on the arena where the kill happened.
   if (typeof ctx.recordKillOnLevel === "function") {
     const levelId = ctx.getLevelId?.() || null;

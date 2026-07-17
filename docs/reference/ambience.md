@@ -27,8 +27,9 @@ quickplay arena must have a bed (contract-tested against `shared/arenaPool.js`).
   gapless. Rides the SFX volume slider; per-key multipliers appear in the dev SFX
   tune pane (`getSfxKeys` includes ambience keys). `preload:false` — beds fetch at
   play entry, never during boot/menu.
-- **`src/ambience/arenaAmbience.js`** — arena map, lifecycle, excitement meter
-  (exponential decay, half-life 3.5 s), SD tension latch.
+- **`src/levels/arenaCatalog.js`** — authored per-arena ambience keys.
+- **`src/ambience/arenaAmbience.js`** — stable ambience API, base mix levels, lifecycle,
+  excitement meter (exponential decay, half-life 3.5 s), and SD tension latch.
 - **main.js wiring** — start in `commitMenuHiddenForGame` (test drive included),
   stop in `initMenu`, stop/restart around `rotateLoadedArenaInPlace` (quickplay
   rotation), excitement bumps in `onArenaKoFlash` (kills 0.4 + 0.12/combo tier,

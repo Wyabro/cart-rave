@@ -11,17 +11,18 @@
 // tension drone under any arena.
 
 import * as AudioManager from "../audioManager.js";
+import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
 /**
  * Arena id → ambience layer keys. Every quickplay arena needs a bed here —
  * contract-tested against shared/arenaPool.js so a new arena can't ship silent.
  * @type {Record<string, { bed: string, hype?: string }>}
  */
-export const ARENA_AMBIENCE = {
-  classicRecord: { bed: "classic_crowd_bed", hype: "classic_crowd_hype" },
-  backrooms: { bed: "backrooms_bed" },
-  zanzibar: { bed: "zanzibar_bed" },
-};
+export const ARENA_AMBIENCE = Object.fromEntries(
+  ARENA_CATALOG
+    .filter((arena) => arena.ambience.bed)
+    .map((arena) => [arena.id, arena.ambience]),
+);
 
 /** Shared Sudden Death tension layer (any arena). */
 const SD_TENSION_KEY = "sd_tension";

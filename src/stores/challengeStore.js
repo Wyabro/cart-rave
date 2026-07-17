@@ -2,18 +2,19 @@
 import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGetJson, storageSetJson } from "../utils/storage.js";
 import { UnlockTracker } from "./unlockStore.js";
+import { PROGRESSION_EVENTS } from "../progression/eventIds.js";
 
 export const CHALLENGE_POOL = [
-  { id: 'spill_15', type: 'daily', title: 'Spill Master', description: 'Cause 15 opponent spills', goal: 15, event: 'spill' },
-  { id: 'spill_50', type: 'weekly', title: 'Wrecking Ball', description: 'Cause 50 opponent spills', goal: 50, event: 'spill' },
-  { id: 'combo_t2_5', type: 'daily', title: 'Double Impact', description: 'Reach SAVAGE 5 times', goal: 5, event: 'combo_t2' },
-  { id: 'combo_t3_10', type: 'weekly', title: 'Combo King', description: 'Reach CARNAGE 10 times', goal: 10, event: 'combo_t3' },
-  { id: 'ko_void_3', type: 'daily', title: 'Void Sender', description: 'Knock 3 opponents into the void', goal: 3, event: 'ko_void' },
-  { id: 'last_standing_2', type: 'daily', title: 'Sole Survivor', description: 'Win 2 rounds as Last Cart Standing', goal: 2, event: 'last_standing' },
-  { id: 'ko_npc_20', type: 'weekly', title: 'Bot Buster', description: 'KO 20 NPC carts', goal: 20, event: 'ko_npc' },
-  { id: 'untouchable_1', type: 'weekly', title: 'Untouchable', description: 'Win a round without spilling', goal: 1, event: 'untouchable' },
-  { id: 'sd_win_3', type: 'daily', title: 'Clutch Winner', description: 'Win 3 Sudden Death tiebreakers', goal: 3, event: 'sd_win' },
-  { id: 'ko_aggressor_5', type: 'weekly', title: 'Aggressor Hunter', description: 'KO 5 Aggressor NPCs', goal: 5, event: 'ko_aggressor' },
+  { id: 'spill_15', type: 'daily', title: 'Spill Master', description: 'Cause 15 opponent spills', goal: 15, event: PROGRESSION_EVENTS.SPILL },
+  { id: 'spill_50', type: 'weekly', title: 'Wrecking Ball', description: 'Cause 50 opponent spills', goal: 50, event: PROGRESSION_EVENTS.SPILL },
+  { id: 'combo_t2_5', type: 'daily', title: 'Double Impact', description: 'Reach SAVAGE 5 times', goal: 5, event: PROGRESSION_EVENTS.COMBO_T2 },
+  { id: 'combo_t3_10', type: 'weekly', title: 'Combo King', description: 'Reach CARNAGE 10 times', goal: 10, event: PROGRESSION_EVENTS.COMBO_T3 },
+  { id: 'ko_void_3', type: 'daily', title: 'Void Sender', description: 'Knock 3 opponents into the void', goal: 3, event: PROGRESSION_EVENTS.KO_VOID },
+  { id: 'last_standing_2', type: 'daily', title: 'Sole Survivor', description: 'Win 2 rounds as Last Cart Standing', goal: 2, event: PROGRESSION_EVENTS.LAST_STANDING },
+  { id: 'ko_npc_20', type: 'weekly', title: 'Bot Buster', description: 'KO 20 NPC carts', goal: 20, event: PROGRESSION_EVENTS.KO_NPC },
+  { id: 'untouchable_1', type: 'weekly', title: 'Untouchable', description: 'Win a round without spilling', goal: 1, event: PROGRESSION_EVENTS.UNTOUCHABLE },
+  { id: 'sd_win_3', type: 'daily', title: 'Clutch Winner', description: 'Win 3 Sudden Death tiebreakers', goal: 3, event: PROGRESSION_EVENTS.SUDDEN_DEATH_WIN },
+  { id: 'ko_aggressor_5', type: 'weekly', title: 'Aggressor Hunter', description: 'KO 5 Aggressor NPCs', goal: 5, event: PROGRESSION_EVENTS.KO_AGGRESSOR },
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;

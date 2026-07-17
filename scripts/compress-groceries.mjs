@@ -6,7 +6,7 @@
  * Same discrete, non-destructive pass chain as scripts/compress-rave-gltf.mjs
  * (resize → webp → draco) and the same rationale for NOT using
  * `gltf-transform optimize` — see that script's header comment. Output keeps
- * the master's filename so src/effects/groceryPool.js GROCERY_DEFS paths never
+ * the master's filename so src/effects/groceryDefinitions.js paths never
  * change; the pool's GLTFLoader already carries a DRACOLoader.
  *
  * Textures cap at 512px (masters are 1024²): groceries render as fist-sized
@@ -14,7 +14,7 @@
  * distance while cutting ~85% of the bytes.
  *
  * Usage:
- *   npm run compress:groceries              # all six props
+ *   npm run compress:groceries              # all registered props
  *   npm run compress:groceries -- soda      # one prop
  *   node scripts/compress-groceries.mjs [name…] [--texture-size N]
  */
@@ -24,11 +24,10 @@ import { existsSync, mkdirSync, statSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { GROCERY_NAMES } from "../src/effects/groceryDefinitions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-
-const ALL_PROPS = ["milk", "cereal", "soda", "soup", "orange", "baguette"];
 
 // ─── Parse args ──────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -50,7 +49,7 @@ for (let i = 0; i < argv.length; i += 1) {
     requested.push(a);
   }
 }
-const props = requested.length > 0 ? requested : ALL_PROPS;
+const props = requested.length > 0 ? requested : GROCERY_NAMES;
 
 const outDir = path.join(root, "public", "models", "groceries");
 mkdirSync(outDir, { recursive: true });
