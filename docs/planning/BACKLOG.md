@@ -31,6 +31,10 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | ✅ | NET-MIG-1 — promote restores kill credit | Shipped 2026-07-12 — snapshot `attr` tail + promote restore. |
 | ✅ | NET-MIG-2 — ghost exorcism can leave `#hostId === null` | Fixed 2026-07-14 + residual closed 2026-07-16: `#ensureLiveHost` after exorcism, colorPick host repair, join-path promote reconnecting conn when still pending. |
 | ✅ | NET-BUF-1 — spawn buffer uses DO time; live snapshots use host time | Fixed 2026-07-14 — `applyHostSpawnSnapshot` buffers host `tHost`. |
+| High | NET-PERF-1 — reconcile rewind-replay cost | 07-17 triage #1 hitch suspect: every host snapshot replays ALL pending inputs, each a **full Rapier `world.step`** (gameLoop.js) — MP-only CPU multiplier on top of live prediction. Options: cap/amortize replay depth, or drop predict-replay for interp-only local cart (~1 RTT input latency, matches remote carts) — scoped change, NOT a netcode rewrite. Decide from F8 bundles captured on BOTH machines during the next 2-PC session. |
+| High | NET-PERF-2 — snapshot decode GC churn | `decodeHostStateSnapshot` allocates a fresh object + 4 arrays per cart per 40 Hz snapshot (~1000+ allocs/sec). Pooling is blocked on `netStateBuffer` retaining snapshots for interpolation — needs a preallocated ring buffer, not a drive-by. (Empty-tail JSON skip already landed 07-17.) |
+| Low | NET-PERF-3 — p2p per-message buffer copy | `coerceToArrayBuffer` slices a copy for every binary DataChannel frame (p2p.js). Small; batch with NET-PERF-2. |
+| Medium | Host-reload mid-round live confirm | 07-17: menu-over-game desync guarded via play-entry generation token (`invalidateActivePlayEntry`); mechanism fix from code reading, never live-reproduced. Reload the HOST tab mid-round in the NET-1 smoke. |
 | Medium | NET-SD-1 — SD can untie on score while the flag stays true | |
 | Medium | Deeper server-authoritative logic | Host can fabricate final scores; decide what the Worker must validate. Prerequisite for the leaderboard. |
 | Medium | `structuredClone` → flat serializer in `party/index.ts` | Deliberate deferral: only after NET-1 + profiling data (ROADMAP Phase 5). |
@@ -42,6 +46,7 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Pri | Item | Notes |
 |-----|------|-------|
 | High | Bloom look sign-off (Classic/Sundial) | Art half of the VFX-1 endgame above — dark arenas + punchy neon identity must survive display-referred bloom (standing look rule: low exposure, restrained bloom — don't brighten; see [archive/audits/visual-audit.md](../archive/audits/visual-audit.md)). |
+| Medium | Wilting-groceries Defeat screen reads as "confetti / something good" | 07-17 playtest. Needs an art-direction call before code: desaturate + slower droop vs a different silhouette entirely. Deliberately not attempted blind. |
 | Medium | Pattern customize UI — blocked on cartrave4 body UVs | Pattern system fully wired except the picker tab; body UVs are fragmented. Plan: bake a 2nd UV channel in Blender ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)), then add the PATTERNS tab. |
 | Low | Asset filename rebrand (`cart-rave-base*.glb` etc.) | Separate deliberate asset pass — [brand.md](../brand.md). |
 
@@ -51,6 +56,7 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 |-----|------|-------|
 | ✅ Done | Recorded announcer VO | **Shipped 2026-07-16** — full 61-take pack (all events voiced, countdown replaces beeps). Pipeline data-driven ([announcer.md](../reference/announcer.md)); adding locales/takes is still drop-in. Open: taste passes only. |
 | ✅ Done | Per-arena ambient beds + per-arena music | **Shipped 2026-07-16** — beds + reactive crowd + SD tension ([ambience.md](../reference/ambience.md)); per-arena music, multi-song-per-level, loudness-matched ([music.md](../reference/music.md)). Open: Wyatt ear pass. |
+| Medium | Announcer re-records (Wyatt) | 07-17: shorter directive takes + the lines that "sound a bit weird." Code-side trims (2800 ms hold, no talk-over) landed; the takes themselves are the remaining half. Pipeline is drop-in ([announcer.md](../reference/announcer.md)). |
 | Medium | Sudden Death music low-pass | The remaining Pass 5 audio deferral: Howler music + file SFX share one bus → audio-graph surgery. (SD gets a tension-drone layer today via ambience, but not a filter on the music itself.) |
 | Low | Deeper Howler upgrade | Spatial audio, pooling, volume groups (ROADMAP "Future Modernization"). |
 
@@ -62,6 +68,7 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Medium | Taste-tuning follow-ups from Pass 4 | Deliberately-kept knobs listed in D-GP4-1 (nitro duty-cycle, `maxImpulse` vs boost, air control, readability HUD adds) — only reopen with playtest evidence. |
 | Medium | Clutch slow-mo (Pass 5 deferral) | Taste-gated; prototype only after the queue drains. |
 | Low | Turntable swirl force (revive prototype `applyRecordSwirlImpulsesForSubstep`) | The spinning record used to physically drag carts tangentially — strongest at the label, `max(0,1-r/falloffR)**2` falloff to the rim — making the center a high-risk zone. Deleted in `dd33c6b`; floor is now visual-only spin by deliberate design ([Game_Architecture.md](../reference/Game_Architecture.md) line ~28). Only on-theme mechanic that ties the record to gameplay. Revive **scoped**, not raw: confine to the inner label zone (pairs with `centerHole`/`holeAssist` suck), or ship as a per-arena modifier (Classic Record on, others off). Must be host-side + deterministic for netcode; implement via the DIR-1 modifier stack, not a `CONFIG` mutation. Taste-gated — prototype after the Wyatt queue drains. |
+| Low | KO "doomed" presentational cue | 07-17: "kills being confirmed feels delayed" — scoring correctly waits for the actual fall (rescues stay possible), so the fix is presentational: an early cue when a victim goes over the edge unrecoverable. Idea stage. |
 | Low | Death-cam "follow killer" revisit | Attempted 07-10, reverted as a regression — revisit carefully or drop. |
 | Low | Animate the customize sunglasses-tab camera zoom | The 1.35× snap reads as a cart-size glitch (testers reported it as a bug). |
 | Low | Subtle monetization path | Cosmetic unlocks could support it — idea stage only. |
