@@ -50,6 +50,9 @@ const _visAngvel = { x: 0, y: 0, z: 0 };
 // * toward the fresh physics pose during the post-stop blend window.
 const _hitStopPos = new THREE.Vector3();
 const _hitStopQuat = new THREE.Quaternion();
+/** Reconcile visual-offset scratch (world-Y heading twist) — see gameLoop.js capture side. */
+const _reconYawQuat = new THREE.Quaternion();
+const _yUpAxis = new THREE.Vector3(0, 1, 0);
 
 // * Living Cargo per-frame context scratch (no per-frame object literal).
 const _cargoCtx = { localSlotIndex: -1, netSlots: /** @type {Array<object>} */ ([]), roundPhase: "" };
@@ -307,6 +310,29 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       c.mesh.position.copy(_hitStopPos);
       _hitStopQuat.slerp(c.mesh.quaternion, blendAlpha);
       c.mesh.quaternion.copy(_hitStopQuat);
+    }
+    // * Reconcile visual offset (non-host local cart): render at body pose + the eased
+    // * remainder of the last corrections, decaying at the CONFIG.net.prediction rates.
+    // * The Rapier body already holds host truth — only the rendered pose is softened
+    // * (run-4 "laggy-rubberbandy"; capture side lives in gameLoop.js reconciliation).
+    const ro = c._reconcileVisOffset;
+    if (ro && !deps.isHost() && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0 || ro.yaw !== 0)) {
+      c.mesh.position.x += ro.x;
+      c.mesh.position.y += ro.y;
+      c.mesh.position.z += ro.z;
+      bodyY += ro.y;
+      if (ro.yaw !== 0) {
+        _reconYawQuat.setFromAxisAngle(_yUpAxis, ro.yaw);
+        c.mesh.quaternion.premultiply(_reconYawQuat);
+      }
+      const pcfg = deps.CONFIG.net?.prediction;
+      const posDecay = Math.exp(-(pcfg?.reconcilePosRate ?? 8) * dt);
+      const rotDecay = Math.exp(-(pcfg?.reconcileRotRate ?? 6) * dt);
+      ro.x *= posDecay; ro.y *= posDecay; ro.z *= posDecay;
+      ro.yaw *= rotDecay;
+      if (Math.abs(ro.x) + Math.abs(ro.y) + Math.abs(ro.z) < 0.001 && Math.abs(ro.yaw) < 0.001) {
+        ro.x = 0; ro.y = 0; ro.z = 0; ro.yaw = 0;
+      }
     }
     // * Pose write dirties this root; force=false still propagates to children.
     c.mesh.updateMatrixWorld(false);

@@ -13,9 +13,11 @@ const CART_EMISSIVE_REF_LUMA = 0.7152;
  * Global cart frame glow scale — tuned down from raw luminance balance.
  * Re-tuned 0.575 → 0.46 after the ACESFilmic restore (5b254aa): the old value was
  * balanced against the previous tone mapping and read "super emissive" on every
- * arena in the 07-17 run-2 playtest.
+ * arena in the 07-17 run-2 playtest. Run-4 verdict: no longer blown out but "hardly
+ * glow at all" — split the difference, 0.46 → 0.52 (blow-out was mostly the uncapped
+ * magenta/red hue boosts, which stay capped at 2.0).
  */
-const CART_EMISSIVE_MASTER = 0.46;
+const CART_EMISSIVE_MASTER = 0.52;
 /**
  * Cap on the per-hue luminance-normalization boost. Low-luma hues (magenta 2.5×,
  * red 3.4×) blew out under ACES + bloom while cyan (~0.9×) was near reference —

@@ -124,6 +124,59 @@ export function encodeHostStateSnapshot(state) {
   return buffer;
 }
 
+// * ---- Decode-side snapshot ring pool (run-4 "stuttery mess" fix) ----
+// * A non-host decodes 40 snapshots/sec and netcode's interp buffer retains up to
+// * CONFIG.net.stateBufferMaxSize (64) of them (~1.6s at 40Hz). Freshly-allocated decode
+// * output therefore SURVIVES the GC nursery, is promoted, and becomes steady old-gen
+// * garbage — the periodic ~67ms major-GC pause visible every ~1.1s in the 07-18 run-4
+// * non-host video. Reusing a fixed ring larger than the retention window removes the
+// * promoted churn entirely (encode side was already pooled; decode was not).
+// * Ring size 96 = 64 (interp-buffer cap) + 32 snapshots (~0.8s) of slack for transient
+// * refs (lastCartsCache, snapshot-pair scratch, same-frame reconcile reads). Consumers
+// * must treat decoded snapshots as immutable — entries are recycled in arrival order.
+const DECODE_RING_SIZE = 96;
+/** @type {Array<{snap: any, cartPool: any[]}>} */
+const _decodeRing = [];
+let _decodeRingIdx = 0;
+
+function nextDecodeRingEntry() {
+  let entry = _decodeRing[_decodeRingIdx];
+  if (!entry) {
+    const cartPool = [];
+    for (let i = 0; i < MAX_CARTS; i++) {
+      cartPool.push({
+        p: [0, 0, 0],
+        q: [0, 0, 0, 1],
+        lv: [0, 0, 0],
+        av: [0, 0, 0], // Yaw only; pitch/roll unused by arcade remote visuals
+        ackSeq: 0,
+        b: false,
+        h: false,
+        c: false,
+        s: false,
+      });
+    }
+    entry = {
+      snap: {
+        // * Must equal the shared protocol constant so the receiver's dispatcher
+        // * (handleRemoteP2PMessage) routes decoded binary snapshots to handleRemoteHostState.
+        type: MSG.hostTransform,
+        seq: 0,
+        tHost: 0,
+        carts: [],
+        collisions: [],
+        falls: [],
+        dir: null,
+        attr: null,
+      },
+      cartPool,
+    };
+    _decodeRing[_decodeRingIdx] = entry;
+  }
+  _decodeRingIdx = (_decodeRingIdx + 1) % DECODE_RING_SIZE;
+  return entry;
+}
+
 function getSafeFloat32(view, offset, littleEndian) {
   const val = view.getFloat32(offset, littleEndian);
   return Number.isFinite(val) ? val : 0;
@@ -165,8 +218,10 @@ export function decodeHostStateSnapshot(buffer) {
 
   const seq = view.getUint32(4, true);
   const tHost = getSafeFloat64(view, 8, true);
-  
-  const carts = [];
+
+  const ringEntry = nextDecodeRingEntry();
+  const carts = ringEntry.snap.carts;
+  carts.length = 0;
   let offset = HEADER_BYTES;
   for (let i = 0; i < numCarts; i++) {
     const pX = getSafeFloat32(view, offset, true); offset += 4;
@@ -188,18 +243,18 @@ export function decodeHostStateSnapshot(buffer) {
     const flags = view.getUint8(offset); offset += 1;
     offset += 3; // padding
     
-    // Reconstruct the object to match the original JSON structure
-    carts.push({
-      p: [pX, pY, pZ],
-      q: [qX, qY, qZ, qW],
-      lv: [lvX, lvY, lvZ],
-      av: [0, avY, 0], // Yaw only; pitch/roll unused by arcade remote visuals
-      ackSeq: ackSeq,
-      b: (flags & 1) === 1,
-      h: (flags & 2) === 2,
-      c: (flags & 4) === 4,
-      s: (flags & 8) === 8,
-    });
+    // Refill the pooled cart record in place (same shape as the original JSON structure).
+    const cart = ringEntry.cartPool[i];
+    cart.p[0] = pX; cart.p[1] = pY; cart.p[2] = pZ;
+    cart.q[0] = qX; cart.q[1] = qY; cart.q[2] = qZ; cart.q[3] = qW;
+    cart.lv[0] = lvX; cart.lv[1] = lvY; cart.lv[2] = lvZ;
+    cart.av[1] = avY;
+    cart.ackSeq = ackSeq;
+    cart.b = (flags & 1) === 1;
+    cart.h = (flags & 2) === 2;
+    cart.c = (flags & 4) === 4;
+    cart.s = (flags & 8) === 8;
+    carts.push(cart);
   }
   
   // Decode JSON tail (collisions/falls/dir/attr). The tail rides the unreliable P2P
@@ -230,16 +285,15 @@ export function decodeHostStateSnapshot(buffer) {
     }
   }
 
-  return {
-    // * Must equal the shared protocol constant so the receiver's dispatcher
-    // * (handleRemoteP2PMessage) routes decoded binary snapshots to handleRemoteHostState.
-    type: MSG.hostTransform,
-    seq,
-    tHost,
-    carts,
-    collisions,
-    falls,
-    dir,
-    attr,
-  };
+  // * Tail arrays (collisions/falls) stay freshly-parsed/allocated: they are processed
+  // * on arrival and never retained by the interp buffer, so they die young in the
+  // * nursery — only the retained cart transforms needed pooling.
+  const snap = ringEntry.snap;
+  snap.seq = seq;
+  snap.tHost = tHost;
+  snap.collisions = collisions;
+  snap.falls = falls;
+  snap.dir = dir;
+  snap.attr = attr;
+  return snap;
 }

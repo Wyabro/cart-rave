@@ -22,6 +22,8 @@ import { announce } from "./announcer/announcerManager.js";
 import { applyRemoteDirective, clearDirectiveOnHostMigration, getDirectiveWireState } from "./directives/directiveEngine.js";
 import { armSpillBoost } from "./cargoLoad.js";
 import { clamp } from "./utils.js";
+import { playSfx } from "./audioManager.js";
+import { recordDiagEvent } from "./utils/diagnostics.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
 
@@ -446,6 +448,81 @@ export function resetClientPredictionState() {
   pendingInputs = [];
   netStateBuffer = [];
   resetReconciliationState();
+  resetNetFlowStats();
+}
+
+// * ---- Net-flow stats (run-4 observability gap) ----
+// * The 07-18 "stuttery mess / rubberbandy" F8 bundles carried ZERO snapshot-cadence or
+// * reconcile-error evidence — the net probe was blind to exactly the two signals that
+// * diagnose rubberbanding. Cheap always-on counters, surfaced in the "net" probe via
+// * getNetFlowStats(); big arrival gaps additionally land in the diag event ring.
+const netFlowStats = {
+  startedMs: 0,
+  lastArriveMs: 0,
+  gapCount: 0,
+  gapSumMs: 0,
+  gapMaxMs: 0,
+  gapsOver100: 0,
+  reconcileErrLastM: 0,
+  reconcileErrMaxM: 0,
+  reconcileTeleports: 0,
+  lastGapEventMs: 0,
+};
+
+function resetNetFlowStats() {
+  netFlowStats.startedMs = performance.now();
+  netFlowStats.lastArriveMs = 0;
+  netFlowStats.gapCount = 0;
+  netFlowStats.gapSumMs = 0;
+  netFlowStats.gapMaxMs = 0;
+  netFlowStats.gapsOver100 = 0;
+  netFlowStats.reconcileErrLastM = 0;
+  netFlowStats.reconcileErrMaxM = 0;
+  netFlowStats.reconcileTeleports = 0;
+}
+
+function noteSnapshotArrival() {
+  const nowMs = performance.now();
+  if (netFlowStats.lastArriveMs > 0) {
+    const gap = nowMs - netFlowStats.lastArriveMs;
+    netFlowStats.gapCount += 1;
+    netFlowStats.gapSumMs += gap;
+    if (gap > netFlowStats.gapMaxMs) netFlowStats.gapMaxMs = gap;
+    if (gap > 100) netFlowStats.gapsOver100 += 1;
+    // * >250ms is 10+ missed 40Hz sends — worth a timestamped event, rate-limited to 1/s.
+    if (gap > 250 && nowMs - netFlowStats.lastGapEventMs > 1000) {
+      netFlowStats.lastGapEventMs = nowMs;
+      recordDiagEvent("net", "snap_gap", { gapMs: Math.round(gap) });
+    }
+  }
+  netFlowStats.lastArriveMs = nowMs;
+}
+
+/**
+ * Reconcile-error hook for gameLoop (deps.netcode — gameLoop cannot import netcode, cycle).
+ * @param {number} errM Positional error between predicted and host-authoritative pose.
+ * @param {boolean} teleported True when the correction exceeded prediction.maxCorrectionM.
+ */
+export function noteReconcileError(errM, teleported) {
+  netFlowStats.reconcileErrLastM = errM;
+  if (errM > netFlowStats.reconcileErrMaxM) netFlowStats.reconcileErrMaxM = errM;
+  if (teleported) netFlowStats.reconcileTeleports += 1;
+}
+
+/** Diag "net" probe read: snapshot cadence + reconcile error since the last prediction reset. */
+export function getNetFlowStats() {
+  return {
+    snapGapAvgMs: netFlowStats.gapCount > 0
+      ? Math.round((netFlowStats.gapSumMs / netFlowStats.gapCount) * 10) / 10
+      : null,
+    snapGapMaxMs: Math.round(netFlowStats.gapMaxMs),
+    snapGapsOver100: netFlowStats.gapsOver100,
+    snapCount: netFlowStats.gapCount,
+    reconcileErrLastM: Math.round(netFlowStats.reconcileErrLastM * 1000) / 1000,
+    reconcileErrMaxM: Math.round(netFlowStats.reconcileErrMaxM * 1000) / 1000,
+    reconcileTeleports: netFlowStats.reconcileTeleports,
+    windowMs: netFlowStats.startedMs > 0 ? Math.round(performance.now() - netFlowStats.startedMs) : 0,
+  };
 }
 /**
  * Deadline (round-clock ms) until which non-host prediction freezes after host_migrated.
@@ -1108,7 +1185,15 @@ function processHostFallEvent(msg) {
       }
     }
   }
+
+  // * The death sting lives in the host-only scheduleRespawn path (main.js), gated to the
+  // * host's own cart — so a non-host's own death was silent (run-4 playtest). Mirror the
+  // * same own-cart-only rule here off the wire fall record.
+  if (slotIdx != null && slotIdx === localSlotIdx) playSfx("death");
 }
+
+/** Last hostSendTick wall time — the setInterval burst-coalescing guard reads this. */
+let lastHostSendTickMs = 0;
 
 function stopHostSendLoop() {
   if (hostSendTimer) clearInterval(hostSendTimer);
@@ -1228,6 +1313,15 @@ function hostSendTick(opts = {}) {
     if (pendingHostFallEvents.length > 0) pendingHostFallEvents = [];
     return;
   }
+
+  // * Burst coalescing: setInterval callbacks queue while the host main thread hitches
+  // * and fire back-to-back on recovery — a burst of near-identical-tHost snapshots that
+  // * every non-host then reconciles one after another (visible as post-hitch rubberband
+  // * churn, run-4). Skip ticks that fire sooner than half the send period; the forced
+  // * round-end flush bypasses the guard.
+  const sendNowMs = performance.now();
+  if (!opts.force && sendNowMs - lastHostSendTickMs < 500 / CONFIG.net.hostSendHz) return;
+  lastHostSendTickMs = sendNowMs;
 
   hostSeq += 1;
   const carts = [];
@@ -2712,6 +2806,7 @@ function handleRemoteHostState(state) {
     const tHostValid = typeof state.tHost === "number" && state.tHost > 0;
     const hostTime = tHostValid ? state.tHost : getMonotonicNow() - hostClock.offsetMs;
     if (tHostValid) updateHostClockOffset(hostTime);
+    noteSnapshotArrival();
     const seq = typeof state.seq === "number" ? state.seq : -1;
     bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
     // * Kill-credit / combo ages for host promotion (NET-MIG-1). Mirror host truth

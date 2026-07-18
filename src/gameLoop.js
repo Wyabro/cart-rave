@@ -17,6 +17,72 @@ let lastReconciledSnapSeq = -1;
 /** Rate limiter for perf/longframe diag events (ms timestamp of last record). */
 let _lastLongFrameLogMs = 0;
 
+// * ---- Reconcile visual-offset capture (run-4 "laggy-rubberbandy" fix) ----
+// * Reconciliation hard-snaps the local Rapier body to host truth and replays unacked
+// * inputs — correct for physics, but the mesh rendered straight off the body jerked on
+// * EVERY snapshot (up to 40Hz) whenever prediction diverged at all. Instead of snapping
+// * the visual too, the pre-correction ↔ post-correction pose delta accumulates into
+// * cart._reconcileVisOffset, which frameVisuals applies to the mesh and decays to zero
+// * at CONFIG.net.prediction.reconcilePosRate/reconcileRotRate (those knobs were dead
+// * config until now). Physics stays authoritative; only the rendered pose eases.
+const _reconPre = { x: 0, y: 0, z: 0, yaw: 0 };
+
+/** Y-axis (heading) angle of a Rapier rotation quaternion. */
+function yawFromQuat(q) {
+  return Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
+}
+
+/** Wraps an angle to [-PI, PI]. */
+function wrapAngle(a) {
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+
+function clearReconcileVisOffset(cart) {
+  const off = cart?._reconcileVisOffset;
+  if (off) { off.x = 0; off.y = 0; off.z = 0; off.yaw = 0; }
+}
+
+function captureReconcilePrePose(cart) {
+  const t = cart?.body?.translation?.();
+  const r = cart?.body?.rotation?.();
+  if (!t || !r) return false;
+  _reconPre.x = t.x; _reconPre.y = t.y; _reconPre.z = t.z;
+  _reconPre.yaw = yawFromQuat(r);
+  return true;
+}
+
+/** Folds the post-correction pose delta into the cart's visual offset (see block comment). */
+function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
+  const t = cart?.body?.translation?.();
+  const r = cart?.body?.rotation?.();
+  if (!t || !r || !pcfg) return;
+  const dx = _reconPre.x - t.x;
+  const dy = _reconPre.y - t.y;
+  const dz = _reconPre.z - t.z;
+  const errM = Math.hypot(dx, dy, dz);
+  const maxM = pcfg.maxCorrectionM ?? 4.0;
+  const off = cart._reconcileVisOffset || (cart._reconcileVisOffset = { x: 0, y: 0, z: 0, yaw: 0 });
+  if (errM >= maxM) {
+    // * Teleport-scale correction (respawn, hard desync): snap the visual too.
+    off.x = 0; off.y = 0; off.z = 0; off.yaw = 0;
+    noteReconcileError?.(errM, true);
+    return;
+  }
+  off.x += dx; off.y += dy; off.z += dz;
+  if (Math.hypot(off.x, off.y, off.z) > maxM) {
+    // * Accumulated debt exceeds the teleport threshold — stop hiding it.
+    off.x = 0; off.y = 0; off.z = 0; off.yaw = 0;
+  } else {
+    off.yaw = wrapAngle(off.yaw + wrapAngle(_reconPre.yaw - yawFromQuat(r)));
+    // * A heading offset past ~86° means prediction and host disagree about which way
+    // * the cart faces — easing that reads as drunk steering; snap heading instead.
+    if (Math.abs(off.yaw) > 1.5) off.yaw = 0;
+  }
+  noteReconcileError?.(errM, false);
+}
+
 /**
  * Resets the client reconciliation sequence gate.
  * Must run on host migration and rematch so a new hostSeq (or continued play after
@@ -306,6 +372,7 @@ export function runPhysicsStep(loopState, deps, context) {
             if (!cartSnap.s && !isShatterAnimating(localCart, performance.now())) {
               deps.doRespawn(localCart);
               deps.applySnapshotToCartBody(localCart, cartSnap);
+              clearReconcileVisOffset(localCart); // Respawn teleports clean — no eased correction
               deps.prunePendingInputs(99999999); // Clear all inputs on respawn
             } else {
               const ackSeq = cartSnap.ackSeq || 0;
@@ -317,6 +384,10 @@ export function runPhysicsStep(loopState, deps, context) {
           } else {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);
+
+            // * Remember the predicted pose so the visual can ease across the correction
+            // * instead of jerking with the body snap below (run-4 rubberbanding).
+            const havePrePose = captureReconcilePrePose(localCart);
 
             // Hard-snap local cart body to host authoritative state
             deps.applySnapshotToCartBody(localCart, cartSnap);
@@ -369,6 +440,15 @@ export function runPhysicsStep(loopState, deps, context) {
                 callbacks: replayCallbacks,
                 localInputOverride: input.input,
               });
+            }
+
+            // * Post-replay: fold the correction delta into the eased visual offset.
+            if (havePrePose) {
+              accumulateReconcileVisOffset(
+                localCart,
+                deps.CONFIG.net?.prediction,
+                deps.netcode?.noteReconcileError,
+              );
             }
           }
         }
@@ -545,12 +625,19 @@ export function runGameLoop(loopState, callbacks) {
       const isResume = overGap && overGapStreak === 1;
       if (typeof window !== "undefined" && (window.__ccNetTest || window.__ccDiagActive)) {
         const d = (window.__ccLoopDbg =
-          window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0 });
+          window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0 });
         d.frames += 1;
         d.lastDt = dt;
         if (dt > d.maxDt) d.maxDt = dt;
         if (isResume) d.resumeZeroed += 1;
         else if (overGap) d.chronicSlow = (d.chronicSlow || 0) + 1;
+        // * Sub-longframe hitch counters (run-4): the non-host video showed ~67ms stalls
+        // * every ~1.1s — under the 100ms event threshold, so bundles carried no trace.
+        // * Counters are cheap and make "how hitchy was this round" a probe read.
+        if (dt > 0.033 && !isResume) {
+          d.over33 = (d.over33 || 0) + 1;
+          if (dt > 0.066) d.over66 = (d.over66 || 0) + 1;
+        }
         // * Hitch forensics: individual long frames land in the diag event ring with
         // * timestamps, so an F8 bundle shows WHEN the hitches hit relative to KOs,
         // * announcer lines, and boot phases — maxDt alone can't. Rate-limited so a

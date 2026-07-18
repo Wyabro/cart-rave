@@ -375,19 +375,25 @@ export const CONFIG = {
     p2pConnectingTimeoutMs: 10000,
 
     // * Client-side prediction (multiplayer non-host only). Host remains authoritative.
+    // * The PHYSICS reconcile is a hard body snap + input replay (gameLoop.js); these
+    // * knobs ease the RENDERED pose across each correction — the pre↔post correction
+    // * delta accumulates into cart._reconcileVisOffset (gameLoop capture), which
+    // * frameVisuals applies to the mesh (and main.js feeds to the follow camera) while
+    // * decaying it at the rates below. Run-4 "laggy-rubberbandy" fix.
     prediction: {
-      // * Positional error correction speed (1/s). Higher = snappier snap toward host truth.
+      // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
       reconcilePosRate: 8,
-      // * Rotational error correction speed (1/s). Smooths quaternion drift vs host snapshot.
+      // * Visual heading correction decay (1/s).
       reconcileRotRate: 6,
-      // * Velocity error correction speed (1/s). Aligns predicted motion with host velocities.
+      // * (Unused) velocity error correction speed — the body snap already takes host velocity.
       reconcileVelRate: 5,
-      // * Hard teleport when error exceeds this (m). Covers respawns and large desyncs.
+      // * Hard visual teleport when a single correction (or the accumulated eased debt)
+      // * exceeds this (m). Covers respawns and large desyncs.
       maxCorrectionM: 4.0,
-      // * Ignore correction below this error (m). Prevents micro-jitter on well-predicted bodies.
+      // * (Unused) legacy dead-zone from the pre-offset scheme; offsets decay to zero anyway.
       minErrorM: 0.12,
-      // * Reconcile heading only; local physics keeps pitch/roll (no popping on axes the
-      // * player never steered). Falls back to full slerp when flip state disagrees.
+      // * Ease heading only; pitch/roll corrections snap with the body (near-zero under
+      // * arcade physics, and easing them reads as wobble).
       yawOnlyReconcile: true,
     },
   },

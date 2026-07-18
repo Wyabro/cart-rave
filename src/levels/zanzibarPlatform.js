@@ -57,6 +57,9 @@ const PODIUM_HEIGHT = 0.5; // meters — 0.5 rise over 2.9 run ≈ 9.8°, fully 
 // * exactly coplanar with another collider makes Rapier's narrow-phase flip contact
 // * ownership frame-to-frame — visible as resting-cart jitter. Mirrors CHAMFER_TUCK.
 const PODIUM_TUCK = 0.02;
+// * Hologram base hover above the podium. Raised 2.85 → 3.75 (run-4 playtest): carts kept
+// * driving through the dial plate on podium contests — keep the lowest band clear of cart tops.
+const HOLO_HOVER_Y = 3.75;
 // * The ramp hull's crest sits this far below the flat cap cuboids' top plane, so carts
 // * parked on the podium rest on stable cuboid faces, never on the hull. The 2 cm step
 // * at the crest is far below the cart's 8 cm roundCuboid radius (never catches).
@@ -2087,7 +2090,7 @@ function buildDeck(scene, world, config, circumR) {
   let holoDialMat = null;
   if (!lowQ) {
     holoGroup = new THREE.Group();
-    holoGroup.position.y = PODIUM_HEIGHT + 2.85;
+    holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y;
 
     const holoAdd = (color, opacity) => {
       const mat = new THREE.MeshBasicMaterial({
@@ -2379,7 +2382,7 @@ function buildDeck(scene, world, config, circumR) {
   function update(timeMs) {
     if (holoGroup) {
       const t = timeMs * 0.001;
-      holoGroup.position.y = PODIUM_HEIGHT + 2.85 + Math.sin(t * 1.15) * 0.16;
+      holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y + Math.sin(t * 1.15) * 0.16;
       // Counter-rotating layers sell depth and "live instrument" energy.
       if (holoRing) holoRing.rotation.z = t * 0.55;
       if (holoRingOuter) holoRingOuter.rotation.z = -t * 0.38;

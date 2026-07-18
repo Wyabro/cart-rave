@@ -964,6 +964,12 @@ async function main() {
   // * ~80ms while physics/prediction/reconciliation run untouched, then blend back over
   // * ~120ms (frameVisuals consumes this). Never touches dt or the physics accumulator.
   const hitStop = { until: 0, blendUntil: 0 };
+  // * Camera-follow scratch for the reconcile-smoothed pose (non-host prediction) — the
+  // * follow camera reads body pose + _reconcileVisOffset so it never sees reconcile snaps.
+  const _camReconPosScratch = { x: 0, y: 0, z: 0 };
+  const _camReconRotScratch = new THREE.Quaternion();
+  const _camReconYawScratch = new THREE.Quaternion();
+  const _camReconYAxis = new THREE.Vector3(0, 1, 0);
   // * Post-FX impact pulse — vignette/aberration kick when the local cart takes a big hit.
   // * Baselines are captured from the live uniforms at trigger time so the pulse never
   // * fights the dev Tweakpane or config changes; frameVisuals decays and restores them.
@@ -4825,8 +4831,26 @@ async function main() {
       const inHitStop = performance.now() < hitStop.until
         && GameState.getRoundState().phase === "running";
       if (!inHitStop) {
-        const playerPos = localCart.body.translation();
-        const playerRot = localCart.body.rotation();
+        let playerPos = localCart.body.translation();
+        let playerRot = localCart.body.rotation();
+        // * Follow the reconcile-smoothed visual pose, not the raw body: reconciliation
+        // * hard-snaps the body to host truth (up to 40Hz), and this camera is rigid by
+        // * design — feeding it the raw body re-broadcasts every snap as a full-screen
+        // * jerk. _reconcileVisOffset is the eased remainder frameVisuals renders the
+        // * cart at (always zero for host/solo), so camera and cart stay glued together.
+        const ro = localCart._reconcileVisOffset;
+        if (ro && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0)) {
+          _camReconPosScratch.x = playerPos.x + ro.x;
+          _camReconPosScratch.y = playerPos.y + ro.y;
+          _camReconPosScratch.z = playerPos.z + ro.z;
+          playerPos = _camReconPosScratch;
+        }
+        if (ro && ro.yaw !== 0) {
+          _camReconYawScratch.setFromAxisAngle(_camReconYAxis, ro.yaw);
+          _camReconRotScratch.set(playerRot.x, playerRot.y, playerRot.z, playerRot.w)
+            .premultiply(_camReconYawScratch);
+          playerRot = _camReconRotScratch;
+        }
         CameraMod.updateCamera(
           camera,
           localCart,

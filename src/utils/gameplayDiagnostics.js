@@ -31,7 +31,7 @@ import { snapshotMatchStats } from "../scoring/matchStats.js";
 import { getAnnouncerDebugState } from "../announcer/announcerManager.js";
 import { getActiveDirective } from "../directives/directiveEngine.js";
 import { getCameraMode } from "../camera.js";
-import { getIsHost, getPendingInputs, getLatestSnap, getConnectionState } from "../netcode.js";
+import { getIsHost, getPendingInputs, getLatestSnap, getConnectionState, getNetFlowStats } from "../netcode.js";
 import { getAudioDebugState } from "../audioManager.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "../roundClock.js";
@@ -129,6 +129,10 @@ function registerProbes(deps) {
       lastSnapSeq: snap?.seq ?? null,
       localAckSeq: localSnap?.ackSeq ?? null,
       localDeadFlag: localSnap?.s ?? null,
+      // * Run-4 gap: "stuttery / rubberbandy" bundles had no snapshot-cadence or
+      // * reconcile-error evidence. flow = arrival-gap stats + reconcile magnitudes
+      // * since the last prediction reset (see netcode.js netFlowStats).
+      flow: getNetFlowStats(),
       ...(deps.getNetDebug ? deps.getNetDebug() : {}),
     };
   });

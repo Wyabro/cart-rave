@@ -262,6 +262,15 @@ function createBlobMesh(options = {}) {
     // * carts now occlude blobs correctly. Trade-off: on raised surfaces the
     // * floor-level blob is hidden by the platform instead of bleeding through it.
     depthTest: true,
+    // * Run-4 "shadows clip into the arena floors": at 10-30m view distances the
+    // * near-0.1/far-600 depth buffer quantizes coarser than the 4.5cm epsilon, so
+    // * blob fragments tie/lose against the floor depth and vanish in patches.
+    // * polygonOffset biases the blob's own depth a few quanta toward the camera —
+    // * decisively wins vs the coplanar floor while real occluders (carts, walls,
+    // * platforms) still sit far closer in depth and keep occluding correctly.
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -4,
     toneMapped: false,
     side: THREE.DoubleSide,
   });

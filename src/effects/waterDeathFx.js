@@ -780,13 +780,23 @@ function spawnSplash(x, z, intensity) {
   // * registered at boot only if the file is actually served); synth is the fallback.
   if (AudioManager.hasSfx("waterSplash")) {
     // * Run-2: "sells it much better ... but lacks variation and is a bit too loud."
-    // * One recording, so variation comes from playback: ±~14% rate (pitch+length,
-    // * same trick as playCartCrash) and a small random gain wobble; base level
-    // * trimmed 0.6-1.0 → 0.42-0.78.
+    // * Run-4: "a tad louder now, a bit more varied still — very close to perfect."
+    // * One recording, so variation comes from playback: rate widened ±14% → ±22%
+    // * (pitch+length, same trick as playCartCrash), gain wobble widened, base level
+    // * nudged 0.45→0.52. Big falls also layer a detuned low "body" copy slightly
+    // * behind the main hit so heavy splashes read as a different take.
     AudioManager.playSfx("waterSplash", null, {
-      rate: 0.86 + Math.random() * 0.28,
-      volume: (0.45 + intensity * 0.3) * (0.88 + Math.random() * 0.12),
+      rate: 0.78 + Math.random() * 0.44,
+      volume: (0.52 + intensity * 0.3) * (0.82 + Math.random() * 0.22),
     });
+    if (intensity > 0.4 && Math.random() < 0.65) {
+      setTimeout(() => {
+        AudioManager.playSfx("waterSplash", null, {
+          rate: 0.58 + Math.random() * 0.16,
+          volume: (0.2 + intensity * 0.14) * (0.85 + Math.random() * 0.15),
+        });
+      }, 50 + Math.random() * 90);
+    }
   } else {
     playWaterSplash(intensity);
   }

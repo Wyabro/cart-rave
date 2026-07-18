@@ -43,8 +43,11 @@ function repeatForPattern(id) {
 // * Reproduces the retired coplanar-overlay material in-shader: valley fragments blend
 // * `uPatternStrength` of the way toward a `TINT_SCALE` diffuse tint + an emissive whose
 // * radiance matches the old overlay (tint colour × `EMISSIVE_BOOST` intensity curve).
-const PATTERN_OVERLAY_TINT_SCALE = 0.15;
-const PATTERN_OVERLAY_EMISSIVE_BOOST = 0.22;
+// * Run-4 playtest: patterned carts read "way darker" than solids after the ACES master cut —
+// * valley luminance sits in the ACES toe where dimming maps ~1:1 (solids hide it in the
+// * shoulder + bloom). Lift valleys ~3×: tint 0.15 → 0.22, emissive boost 0.22 → 0.40.
+const PATTERN_OVERLAY_TINT_SCALE = 0.22;
+const PATTERN_OVERLAY_EMISSIVE_BOOST = 0.40;
 const PATTERN_OVERLAY_OPACITY = 0.95;
 
 // * customProgramCacheKey values — patterned (enabled) vs unpatterned (classic) get distinct
