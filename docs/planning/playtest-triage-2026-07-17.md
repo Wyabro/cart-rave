@@ -38,10 +38,11 @@ proximity-aggression override is unchanged.
 
 ### 5. Countdown pacing
 Was a hardcoded 3000 ms window (magic number in 9 places). Now single-sourced as
-`COUNTDOWN_MS = 4500` in shared/roundConstants.js — used by client
+`COUNTDOWN_MS` in shared/roundConstants.js — used by client
 (`CONFIG.round.countdownMs`) AND the server's game_start arming timer (they must
 agree or MP digits pace against the wrong GO). HUD digits now hold
-countdownMs/3 each (1.5 s per digit) instead of a fixed 1 s cadence.
+countdownMs/3 each instead of a fixed 1 s cadence. Went 3000→4500 in run 1
+("rushed"), then **4500→3600 in run 2** ("1.5 s is a bit too long — 1.2 s").
 
 ### 6. Announcer overlap + directive length
 - Overlap root cause: `sequence`-class clips (countdown/GO) deliberately played
@@ -159,5 +160,32 @@ scoped change, not an architecture rewrite.
 - **Announcer re-records** (weird-sounding takes, shorter directive reads).
 - **Wilting groceries reads as confetti** — needs an art direction call
   (desaturate + slower droop vs different silhouette). Not attempted blind.
-- **Countdown length taste** — 4500 ms is one knob (`COUNTDOWN_MS`) if 4.5 s
-  isn't right.
+- ~~Countdown length taste~~ — settled in run 2: `COUNTDOWN_MS = 3600` (1.2 s/digit).
+
+---
+
+## Run 2 addendum (same evening, 16/22 good, deployed `25891a7` / Version `10cfd8fd`)
+
+Validated: ram feel, boost recharge, bots, announcer overlap, music balance,
+first-join arena. Still open from run 2:
+
+- **Sundial sun** — run-2 photo showed halo geometry RIMS (flat-opacity additive
+  circles) + a bloom cross flare off the hard flat-bright disc. Reworked to
+  radial soft-falloff textures (`buildSoftDiscTexture`, zanzibarPlatform.js) +
+  exposure 1.18→1.32. **Needs eyes-on**; residual cross → tune Sundial's bloom
+  threshold next.
+- **Splash** — was firing but masked by the death-time audio stack; Wyatt's
+  recording now ships (public/sounds/water-splash.opus, HEAD-checked drop-in
+  registration in main.js, synth fallback retained).
+- **Load stall root cause (from Wyatt's F8s, RTX 4090)** — zanzibar play-shader
+  6.5 s vs 0.8 s elsewhere: fresh sunset equirect env PMREM-baked inside the
+  synchronous compile every load, + composer passes compiling on the first
+  visible frame (the round-start hitch that ate the flyover). Fixed: session-
+  cached env texture (deliberately never disposed) + one throwaway
+  `composer.render()` behind the overlay. Remaining first-load cost →
+  BOOT-PERF-1 (menu-idle selected-arena pre-warm) in BACKLOG.
+- **Non-host spawn-lock recurred** — zero captures from the locked machine, so
+  no verdict. Suspect list includes the new join-time in-place arena rotation.
+  F8 bundles now carry a `net` probe (input sampling-starved vs unacked), an
+  `audio` probe, and `perf/longframe` events — **one F8 on the locked machine
+  decides it.**

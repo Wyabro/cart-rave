@@ -56,7 +56,7 @@ spawnlock → mpIntegration → hostMigration. Opt-in: `--visual` (blackframes),
 | Visual QA harness | `?harness=1` | `window.__cartRave` | `settle`, `stats()`, ablation for shoot/blackframes |
 | DEV perf probe | (DEV build) | `window.__cartRavePerf` | `renderer/scene/camera/composer` refs for profiling + the `resources` probe |
 | Developer panel | `?debug` / `?tune` (DEV; `H` toggles) | Tweakpane + `window.CartClashDev` | Registry-backed Game State / Progression / Events / Systems actions plus `help` autocomplete; existing postFX + feel knobs remain |
-| Bug capture (manual) | `F8` / `Ctrl+Shift+D` (DEV + `?diag`) | — | Capture bundle → console + clipboard + downloaded .json |
+| Bug capture (manual) | `F8` / `Ctrl+Shift+D` (`?diag` — works in prod builds too, `31ee861`) | — | Capture bundle → console + clipboard + downloaded .json. Bundles also log `perf/longframe` events (frames >100 ms, rate-limited) for hitch forensics |
 | Bug capture (auto) | (any `error`/`assert` event, `?diag`) | `__ccDiag.captures()` | Last 3 auto-assembled bundles, debounced + session-capped |
 | Gameplay analytics | on by default (`?analytics=off` opts out) | `__ccDiag.snapshot("analytics")` | Event-level batches → `/api/analytics` (prod) / console.debug (DEV) — [observability.md](./observability.md) |
 
@@ -83,7 +83,10 @@ print or toggle their URL flags but does not absorb their APIs.
 
 ## What `__ccDiag` gives you (the framework core)
 
-- **Probes** (`__ccDiag.snapshot()`): `round, score, announcer, directive, camera, boot,
+- **Probes** (`__ccDiag.snapshot()`): `net` (pendingInputs count/age — sampling-starved vs
+  unacked —, connectionState, ack/dead flags, arena-rotation + menu gates), `audio`
+  (AudioContext state, mute, volumes, music playing, drop-in splash registered),
+  plus `round, score, announcer, directive, camera, boot,
   ai, unlocks, challenges, config, perf, resources, runtime`. Notables:
   - `boot.timeline` — the `cr:*` boot marks (`play-entry`, `world-init-start`,
     `world-ready`, `carts-ready`, `menu-ready`). `world-ready − world-init-start` is the

@@ -113,7 +113,7 @@ Two scenes:
 
 - **menu** — replays the menu entrance so its cascade stalls mid-flight, then
   asserts every `.cr-menu-enter-pending` target is visible again.
-- **round** — boots `?room=solo`, catches the live 3s countdown, freezes the rAF
+- **round** — boots `?room=solo`, catches the live countdown (COUNTDOWN_MS, shared/roundConstants.js), freezes the rAF
   game loop through the whole countdown → running transition, then asserts the
   HUD caught up (timer + score boxes visible, no frozen countdown digit).
 
