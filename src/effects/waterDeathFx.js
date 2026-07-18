@@ -24,6 +24,7 @@
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
 import { playWaterSplash, playWaterDeathBoom } from "../sfxSynth.js";
+import * as AudioManager from "../audioManager.js";
 import { isLowQualityMode } from "../utils.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 
@@ -775,7 +776,13 @@ function spawnSplash(x, z, intensity) {
   const startMs = performance.now();
   const lowQ = isLowQualityMode();
   const tex = getWaterTextures();
-  playWaterSplash(intensity);
+  // * Recorded splash wins when the drop-in asset exists (public/sounds/water-splash.ogg,
+  // * registered at boot only if the file is actually served); synth is the fallback.
+  if (AudioManager.hasSfx("waterSplash")) {
+    AudioManager.playSfx("waterSplash", null, { volume: 0.6 + intensity * 0.4 });
+  } else {
+    playWaterSplash(intensity);
+  }
 
   // * True ocean-plane distortion + multi-band visual ripple overlay.
   pushSurfaceRipple(x, z, 0.45 + intensity * 0.85, 2000 + intensity * 800);

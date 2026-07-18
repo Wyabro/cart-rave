@@ -68,6 +68,9 @@ const BOLLARD_HEIGHT = 1.6; // meters
 const BOLLARD_RING_SCALE = 0.97; // fraction of circumradius — fully on deck
 
 const WATER_Y = -6.0; // meters — carts sink ~4 m before the global -10 fall respawn
+
+/** Session-cached sunset equirect env — see the note in initZanzibarPlatform. @type {THREE.CanvasTexture | null} */
+let _sunsetEnvTex = null;
 const WATER_SIZE = 900; // meters — fog swallows the far edge
 
 const SKY_RADIUS = 480; // meters
@@ -2540,10 +2543,16 @@ export function initZanzibarPlatform(scene, world, config) {
   // Sunset IBL — swap the neutral startup RoomEnvironment for a warm equirect bake while
   // this level is loaded (restored in dispose). See USE_SUNSET_ENV for the revert switch.
   const prevEnvironment = scene.environment;
-  let sunsetEnvTex = null;
   if (USE_SUNSET_ENV) {
-    sunsetEnvTex = buildSunsetEnvTexture();
-    scene.environment = sunsetEnvTex;
+    // * Session-cached: the renderer PMREMs an equirect environment lazily inside the
+    // * first compile that references it and caches the result BY TEXTURE INSTANCE.
+    // * Rebuilding a fresh CanvasTexture per load (and disposing it on teardown) threw
+    // * that cache away, so every Sundial load re-paid the equirect→cubeUV bake inside
+    // * the synchronous play-shader compile (part of the 6.5s frozen-overlay stall in
+    // * the 07-17 run-2 F8 captures). One texture for the session keeps repeat loads on
+    // * the cached PMREM; ~few MB VRAM held while the game runs — deliberate.
+    _sunsetEnvTex ??= buildSunsetEnvTexture();
+    scene.environment = _sunsetEnvTex;
   }
 
   const seascape = buildSeascape(scene, circumR);
@@ -2663,7 +2672,7 @@ export function initZanzibarPlatform(scene, world, config) {
       scene.fog = prevFog;
       if (USE_SUNSET_ENV) scene.environment = prevEnvironment;
     }
-    if (sunsetEnvTex) sunsetEnvTex.dispose();
+    // * _sunsetEnvTex deliberately NOT disposed — see the session-cache note at assignment.
     config.record.centerHole = prevCenterHole;
   }
 

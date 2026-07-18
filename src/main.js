@@ -1359,6 +1359,17 @@ async function main() {
   AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_1", [soundUrl("countdown_1.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_go", [soundUrl("countdown_go.opus")], { pool: 1 });
+  // * Optional drop-in: a recorded Sundial splash replaces the synth splash when
+  // * public/sounds/water-splash.opus exists. Registered only after a served-file
+  // * check — Howler has no clean "missing asset" fallback, and dev's SPA fallback
+  // * answers 200 text/html for missing paths (hence the content-type guard).
+  void fetch(soundUrl("water-splash.opus"), { method: "HEAD" })
+    .then((r) => {
+      if (r.ok && (r.headers.get("content-type") ?? "").includes("audio")) {
+        AudioManager.registerSfx("waterSplash", [soundUrl("water-splash.opus")], { pool: 3 });
+      }
+    })
+    .catch(() => {});
   // * Arena ambience beds (crowd/hum/ocean/SD tension) — registered lazily
   // * (preload:false): the loops only fetch at play entry, never during boot.
   ArenaAmbience.initArenaAmbience(soundUrl);
@@ -2418,6 +2429,17 @@ async function main() {
         )(scene, camera, null, { maxWaitMs });
       } else {
         await renderer.compileAsync(scene, camera);
+      }
+      // * compileAsync covers SCENE programs only. The composer passes (bloom
+      // * bright/blur, arcade, FXAA, output) and their render targets initialize on
+      // * the first composer.render() — which, without this, is the first visible
+      // * frame after the overlay lifts, i.e. a hitch that lands exactly on the
+      // * round-start flyover (07-17 run-2: "round start hitch that happens often").
+      // * One throwaway render here absorbs it behind the loading overlay. Play-entry
+      // * only: the menu attract path renders through the composer continuously.
+      if (forPlay) {
+        if (isComposerBypassActive()) renderer.render(scene, camera);
+        else composer.render();
       }
     } catch (err) {
       // * Warm-up is an optimization — never let it block play entry.
@@ -4865,6 +4887,19 @@ async function main() {
       getMode: () => detectGameMode(),
       getLevelId: () => getCurrentLevelId(),
       getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+      // * Spawn-lock triage (07-17 run 2): main-closure state the "net" probe can't
+      // * reach — an F8 during "can't leave spawn" must show whether inputs are being
+      // * sampled at all, and whether an arena swap gate is still up.
+      getNetDebug: () => {
+        const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+        const localCart = Array.isArray(allCartsRef) ? allCartsRef[slot] : null;
+        return {
+          arenaRotationInFlight,
+          menuVisible,
+          localShatterState: Boolean(localCart?._shatterState),
+          localBodyEnabled: localCart?.body ? localCart.body.isEnabled() : null,
+        };
+      },
     });
 
     // * Bug-capture hotkeys (F8, or legacy Ctrl+Shift+D): assemble a __ccDiag capture bundle for

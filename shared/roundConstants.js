@@ -14,4 +14,4 @@ export const ROUND_DURATION_MS = 150_000;
  * client's countdown (CONFIG.round.countdownMs, HUD digit cadence) MUST agree,
  * or MP digits pace against a different window than the actual GO moment.
  */
-export const COUNTDOWN_MS = 4500;
+export const COUNTDOWN_MS = 3600;

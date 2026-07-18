@@ -446,7 +446,7 @@ export const CONFIG = {
     // * and Sundial's sunset palette lives in those mids (07-17 playtest: "sundial
     // * looks a bit too dark with acesfilmic on"). Unlisted arenas get 1.0.
     arenaExposureMul: {
-      zanzibar: 1.18,
+      zanzibar: 1.32, // 1.18 still read as too dark in run 2; artifacts near the sun under review
     },
 
     // * IBL (Image-Based Lighting) — RoomEnvironment PMREM on scene.environment.

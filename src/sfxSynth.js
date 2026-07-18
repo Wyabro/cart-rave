@@ -189,7 +189,9 @@ export function playWaterSplash(intensity = 0.5) {
   if (!p) return;
   const { ctx, dest, vol, now } = p;
   const i = Math.min(Math.max(intensity, 0), 1);
-  const g = (0.16 + i * 0.10) * vol;
+  // * Runs hot for a synth SFX: at death time it competes with the shatter crash,
+  // * underwater boom, and announcer (run-2 playtest: "isn't working or isn't audible").
+  const g = (0.22 + i * 0.10) * vol;
   // * Surface slap: a sharp broadband transient right at entry — without it the
   // * splash reads as ambience instead of an impact (07-17 playtest: "needs a
   // * sfx to sell it"; the old level also sat under the music bed).

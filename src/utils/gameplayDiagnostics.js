@@ -31,6 +31,7 @@ import { snapshotMatchStats } from "../scoring/matchStats.js";
 import { getAnnouncerDebugState } from "../announcer/announcerManager.js";
 import { getActiveDirective } from "../directives/directiveEngine.js";
 import { getCameraMode } from "../camera.js";
+import { getIsHost, getPendingInputs, getLatestSnap } from "../netcode.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "../roundClock.js";
 import { CONFIG } from "../config.js";
@@ -48,6 +49,7 @@ const UNLOCKABLE_LEVELS = ["backrooms", "zanzibar"];
  * @property {() => string} [getMode]                  detectGameMode() ("solo"|"quickplay"|…).
  * @property {() => string | null} [getLevelId]        Current arena id.
  * @property {() => number} [getLocalSlot]             Local player's slot index (-1 if unseated).
+ * @property {() => Record<string, unknown>} [getNetDebug]  Main-closure netcode state (rotation gate, menu flag, …).
  */
 
 /**
@@ -100,6 +102,29 @@ function registerProbes(deps) {
   registerDiagProbe("directive", () => {
     const d = getActiveDirective();
     return d ? { id: d.id, ...serializeShallow(d) } : null;
+  });
+
+  // * Netcode/input state — added for the run-2 "non-host can't leave spawn" report.
+  // * The load-bearing distinction an F8 must answer: pendingInputs === 0 while keys
+  // * are held means input SAMPLING is starved (rAF/accumulator side); a large,
+  // * old backlog means the host isn't ACKING (wire/host side).
+  registerDiagProbe("net", () => {
+    const pending = getPendingInputs() ?? [];
+    const snap = getLatestSnap();
+    const slot = deps.getLocalSlot ? deps.getLocalSlot() : -1;
+    const localSnap = snap && slot >= 0 ? snap.carts?.[slot] : null;
+    const oldest = pending.length > 0 ? pending[0] : null;
+    return {
+      isHost: getIsHost(),
+      pendingInputs: pending.length,
+      pendingNewestSeq: pending.length > 0 ? pending[pending.length - 1].seq : null,
+      pendingOldestAgeMs:
+        oldest?.tClient != null ? Math.round(performance.now() - oldest.tClient) : null,
+      lastSnapSeq: snap?.seq ?? null,
+      localAckSeq: localSnap?.ackSeq ?? null,
+      localDeadFlag: localSnap?.s ?? null,
+      ...(deps.getNetDebug ? deps.getNetDebug() : {}),
+    };
   });
 
   registerDiagProbe("camera", () => {

@@ -608,6 +608,16 @@ export function stopAllAmbience(fadeMs = 600) {
  *   Safari (no Ogg Vorbis support) falls back to the mp3 encode.
  * @param {{ pool?: number, sprite?: Record<string, [number, number]>, loop?: boolean, rate?: number, preload?: boolean }} [options]
  */
+/**
+ * Whether a file-based SFX is registered under `key` (e.g. optional drop-in
+ * assets that replace a procedural synth fallback when present).
+ * @param {string} key
+ * @returns {boolean}
+ */
+export function hasSfx(key) {
+  return Boolean(sfxRegistry[key]);
+}
+
 export function registerSfx(key, src, options = {}) {
   if (sfxRegistry[key]) {
     try { sfxRegistry[key].unload(); } catch {}
