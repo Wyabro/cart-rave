@@ -434,7 +434,10 @@ function dispatch(def, data, nowMs, opts = {}) {
   }
 
   if (def.cls === "sequence") {
-    // * Never queued, always bypasses the gap, plays even over a busy channel.
+    // * Never queued, always bypasses the gap. A live SPOKEN line gets cut (fast
+    // * fade via endActive) so the countdown doesn't talk over it; sibling sequence
+    // * clips still ring their tails over each other by design (trackSound).
+    if (_active && ANNOUNCER_EVENTS[_active.eventId]?.cls !== "sequence") endActive(nowMs);
     startAnnouncement(def, data, nowMs);
     return { type: "played" };
   }

@@ -40,20 +40,32 @@ export function encodeHostStateSnapshot(state) {
   const carts = state.carts || [];
   const numCarts = carts.length;
 
-  _tailScratch.collisions = state.collisions || [];
-  _tailScratch.falls = state.falls || [];
-  // * Active Living Store directive ({ id, r: remainingMs }) — rides every snapshot
-  // * so a client that missed the one-shot MSG.directive (unreliable channel) or
-  // * joined mid-window self-heals from the next 40Hz frame.
-  if (state.dir) _tailScratch.dir = state.dir;
-  else delete _tailScratch.dir;
-  // * Compact kill-credit / combo ages for host migration (NET-MIG-1).
-  if (state.attr) _tailScratch.attr = state.attr;
-  else delete _tailScratch.attr;
-  const jsonString = JSON.stringify(_tailScratch);
-  const jsonBytes = _textEncoder.encode(jsonString);
-  
-  const bufferLength = HEADER_BYTES + (numCarts * CART_BYTES) + jsonBytes.byteLength;
+  // * Most 40 Hz frames carry no collisions/falls/directive/attribution — skip the
+  // * stringify+encode (and the client's parse) entirely instead of shipping
+  // * `{"collisions":[],"falls":[]}` every tick. The decoder already treats a
+  // * missing tail as empty. Steady-state GC churn on BOTH peers, not a feature.
+  const hasTail =
+    (state.collisions?.length ?? 0) > 0 ||
+    (state.falls?.length ?? 0) > 0 ||
+    !!state.dir ||
+    !!state.attr;
+  /** @type {Uint8Array | null} */
+  let jsonBytes = null;
+  if (hasTail) {
+    _tailScratch.collisions = state.collisions || [];
+    _tailScratch.falls = state.falls || [];
+    // * Active Living Store directive ({ id, r: remainingMs }) — rides every snapshot
+    // * so a client that missed the one-shot MSG.directive (unreliable channel) or
+    // * joined mid-window self-heals from the next 40Hz frame.
+    if (state.dir) _tailScratch.dir = state.dir;
+    else delete _tailScratch.dir;
+    // * Compact kill-credit / combo ages for host migration (NET-MIG-1).
+    if (state.attr) _tailScratch.attr = state.attr;
+    else delete _tailScratch.attr;
+    jsonBytes = _textEncoder.encode(JSON.stringify(_tailScratch));
+  }
+
+  const bufferLength = HEADER_BYTES + (numCarts * CART_BYTES) + (jsonBytes ? jsonBytes.byteLength : 0);
   const buffer = new ArrayBuffer(bufferLength);
   const view = new DataView(buffer);
   
@@ -106,9 +118,9 @@ export function encodeHostStateSnapshot(state) {
     view.setUint8(offset, 0); offset += 1;
   }
   
-  // JSON tail (collisions/falls)
-  new Uint8Array(buffer, offset).set(jsonBytes);
-  
+  // JSON tail (collisions/falls) — only when there is actual tail payload.
+  if (jsonBytes) new Uint8Array(buffer, offset).set(jsonBytes);
+
   return buffer;
 }
 

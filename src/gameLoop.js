@@ -1,6 +1,7 @@
 // gameLoop.js — requestAnimationFrame timing shell (fixed-timestep accumulator)
 
 import { captureCartsPhysicsPrevPoses } from "./entities.js";
+import { isShatterAnimating } from "./cartShatter.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
@@ -293,11 +294,21 @@ export function runPhysicsStep(loopState, deps, context) {
         const cartSnap = (latestSnap.carts && localSlotIndex >= 0) ? latestSnap.carts[localSlotIndex] : null;
         if (cartSnap && Array.isArray(cartSnap.p) && cartSnap.p.length === 3) {
           if (localCart._shatterState && deps.doRespawn) {
-            deps.doRespawn(localCart);
-            deps.applySnapshotToCartBody(localCart, cartSnap);
-            const ackSeq = cartSnap.ackSeq || 0;
-            deps.prunePendingInputs(ackSeq);
-            deps.prunePendingInputs(99999999); // Clear all inputs on respawn
+            // * Mirror the remote-cart rule (netcode.js applyCartState): the shatter's
+            // * own lifetime decides when the VFX ends, not the next snapshot. The host
+            // * still reports s:true (dead) on the reconcile right after the fall event
+            // * fires — respawning here killed the local player's death shatter one
+            // * frame after it spawned (07-17 playtest: "non host deaths have no
+            // * shatter effect"). Hold until the host reports alive AND the animation
+            // * has run out.
+            if (!cartSnap.s && !isShatterAnimating(localCart, performance.now())) {
+              deps.doRespawn(localCart);
+              deps.applySnapshotToCartBody(localCart, cartSnap);
+              deps.prunePendingInputs(99999999); // Clear all inputs on respawn
+            } else {
+              const ackSeq = cartSnap.ackSeq || 0;
+              deps.prunePendingInputs(ackSeq);
+            }
           } else if (cartSnap.s === true) {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);

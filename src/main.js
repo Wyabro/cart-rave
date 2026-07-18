@@ -607,6 +607,31 @@ function teleportCartToSpawn(slotIndex) {
   cart.body.wakeUp();
 }
 
+/**
+ * Live render context for post-slots shader warm-up — wired once by main().
+ * @type {{ renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera } | null}
+ */
+let _slotsWarmupCtx = null;
+let _slotsWarmupPending = false;
+
+/**
+ * Server-driven slot looks (remote colors/patterns) can flip a cart body's program
+ * cache key (classic vs patterned uv/uv1 bodies — cartPatterns.js) AFTER the
+ * round-start warm-up compiled the default-material carts. Without this, the first
+ * frame that renders the re-skinned remote cart compiles its program synchronously
+ * mid-round — an MP-only hitch. Coalesced: one compileAsync per slots burst.
+ */
+function scheduleSlotsMaterialWarmup() {
+  if (!_slotsWarmupCtx || _slotsWarmupPending) return;
+  _slotsWarmupPending = true;
+  setTimeout(() => {
+    _slotsWarmupPending = false;
+    const ctx = _slotsWarmupCtx;
+    if (!ctx) return;
+    ctx.renderer.compileAsync(ctx.scene, ctx.camera).catch(() => {});
+  }, 0);
+}
+
 function updateCartMaterialsFromSlots(slots) {
   if (!allCartsRef || !Array.isArray(slots)) return;
 
@@ -647,6 +672,7 @@ function updateCartMaterialsFromSlots(slots) {
 
     cart.cartColor = finalHex;
   }
+  scheduleSlotsMaterialWarmup();
 }
 
 function updateHudColorsFromSlots(slots) {
@@ -923,6 +949,7 @@ async function main() {
   );
   camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
+  _slotsWarmupCtx = { renderer, scene, camera };
 
 
   let shakeUntil = 0;
@@ -940,7 +967,7 @@ async function main() {
   // * Post-FX impact pulse — vignette/aberration kick when the local cart takes a big hit.
   // * Baselines are captured from the live uniforms at trigger time so the pulse never
   // * fights the dev Tweakpane or config changes; frameVisuals decays and restores them.
-  const impactPulse = { until: 0, durationMs: 240, strength: 0, baseVignette: null, baseAberration: null };
+  const impactPulse = { until: 0, durationMs: 170, strength: 0, baseVignette: null, baseAberration: null };
   function triggerImpactPulse(strength) {
     const pass = fxPass;
     if (!pass?.enabled || !pass.uniforms) return;
@@ -949,7 +976,7 @@ async function main() {
       impactPulse.baseVignette = pass.uniforms.uVignette.value;
       impactPulse.baseAberration = pass.uniforms.uAberration.value;
     }
-    impactPulse.strength = Math.min(strength, 1.2);
+    impactPulse.strength = Math.min(strength, 0.9);
     impactPulse.until = now + impactPulse.durationMs;
   }
   // * max-of on both duration and amplitude — overlapping punches never truncate or
@@ -969,7 +996,9 @@ async function main() {
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
     shakeUntil = performance.now() + 150 + clampedI * 100;
-    triggerImpactPulse(clampedI);
+    // * Attacker-side pulse runs softer than victim-side — you need to keep aiming
+    // * through your own hit feedback (playtest 07-17: "flash too disorienting").
+    triggerImpactPulse(clampedI * 0.7);
     hapticPulse(clampedI * 0.7, clampedI * 0.4, 60 + clampedI * 60);
     if (clampedI >= 0.45 && isBoosting) {
       armFovPunch(8, 100);
@@ -1104,9 +1133,9 @@ async function main() {
       hitStop.blendUntil = hitStop.until + 120;
     }
     armFovPunch(9, 180);
-    killFlash.strength = 0.6;
+    killFlash.strength = 0.45;
     killFlash.until = performance.now() + killFlash.durationMs;
-    triggerImpactPulse(0.55);
+    triggerImpactPulse(0.4);
     hapticPulse(0.9, 0.6, 120);
     AudioManager.duckMusic(0.45, 600);
     SfxSynth.playKillConfirm();
@@ -1812,6 +1841,16 @@ async function main() {
     }
   }
 
+  // * Room-authoritative levelId that arrived while rotateLoadedArenaInPlace could not
+  // * yet run (menu still visible, world not bootstrapped, or carts not created — the
+  // * "joiner-lands-mid-play-entry" race). Drained from bootstrapSessionCarts once the
+  // * world+carts are ready so the joiner reconciles to the room arena instead of
+  // * silently staying on their local menu pick.
+  // * Declared BEFORE commitMenuHiddenForGame: that function drains it and can run
+  // * during boot for ?room= URLs, before main() reaches this point (TDZ otherwise).
+  /** @type {string | null} */
+  let pendingArenaRotationLevelId = null;
+
   function commitMenuHiddenForGame() {
     window.CartRave?.stopAnimations?.();
     window.CartRave?.hide?.();
@@ -1842,6 +1881,13 @@ async function main() {
     if (engagedRoom && /^(solo|testdrive)/i.test(engagedRoom)) {
       sessionSet(SESSION_KEYS.engagedRoom, engagedRoom);
     }
+    // * A room levelId that arrived during play-entry parks in
+    // * pendingArenaRotationLevelId, but the drain no-ops while menuVisible — and
+    // * every pre-hide retry (bootstrapSessionCarts) runs before finishHelloEnter
+    // * gets here. Without this kick the joiner stays on their local menu arena
+    // * until the next round broadcast (07-17 playtest: quickplay joiner loaded
+    // * the wrong level on first join).
+    void drainPendingArenaRotation();
   }
 
   const { refreshMenuStats } = createMenuStats({ getPersonalStats });
@@ -1978,7 +2024,7 @@ async function main() {
     detectGameMode,
     getCART_COLORS: () => CART_COLORS,
     getDefaultRoundMs: () => CONFIG.round.durationMs,
-    getCountdownMs: () => 3000,
+    getCountdownMs: () => CONFIG.round.countdownMs,
     // * GO! moment — camera punch-in + whoosh as the countdown orbit hands back to follow.
     onGoMoment: () => {
       armFovPunch(10, 220);
@@ -2174,6 +2220,12 @@ async function main() {
     const resolved = levelId ?? getCurrentLevelId();
     Simulation.setLevelHazards(levelHazards ?? null);
     setContactShadowHazards(levelHazards ?? null);
+    // * Per-arena exposure ride on the global grade (scene.js applyRendererColorGrading
+    // * stays the base). Same tone-map curve everywhere — only the exposure scalar moves,
+    // * so no program-cache rebuild on arena swap.
+    renderer.toneMappingExposure =
+      (CONFIG.postFx.toneMappingExposure ?? 1.0) *
+      (CONFIG.postFx.arenaExposureMul?.[resolved] ?? 1);
     // * VHS/security-cam layer rides the arcade pass; only The Storerooms turns it on.
     if (fxPass?.uniforms?.uVhsAmount) {
       const vhsCfg = CONFIG.postFx.vhs;
@@ -2525,14 +2577,6 @@ async function main() {
   // --- Quickplay arena rotation (D-STAB-2 seam recipe) ---
   let arenaRotationInFlight = false;
 
-  // * Room-authoritative levelId that arrived while rotateLoadedArenaInPlace could not
-  // * yet run (menu still visible, world not bootstrapped, or carts not created — the
-  // * "joiner-lands-mid-play-entry" race). Drained from bootstrapSessionCarts once the
-  // * world+carts are ready so the joiner reconciles to the room arena instead of
-  // * silently staying on their local menu pick.
-  /** @type {string | null} */
-  let pendingArenaRotationLevelId = null;
-
   async function drainPendingArenaRotation() {
     if (pendingArenaRotationLevelId == null) return;
     if (menuVisible || !isWorldBootstrapped() || !world) return;
@@ -2641,7 +2685,7 @@ async function main() {
     } else if (Number.isFinite(serverStartsAtMs)) {
       startsAtLocalMs = serverStartsAtMs + Netcode.getPartyClockOffsetMs();
     } else {
-      startsAtLocalMs = getRoundClockNowMs() + 3000;
+      startsAtLocalMs = getRoundClockNowMs() + CONFIG.round.countdownMs;
     }
     if (Netcode.getIsHost()) {
       if (detectGameMode() === "solo") {
@@ -2660,7 +2704,7 @@ async function main() {
           // * never start a countdown behind the menu.
           if (menuVisible) return;
           if (GameState.getRoundState().phase === "running") return;
-          startCountdown(getRoundClockNowMs() + 3000);
+          startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
         });
       } else {
         startCountdown(startsAtLocalMs);
@@ -2669,7 +2713,7 @@ async function main() {
       resetMatchStats();
       setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
       syncRoundPhase("countdown");
-      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
+      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
       GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
       GameState.setRoundWinnerSlotIndex(null);
       GameState.setRoundStartedAtMs(0);
@@ -3941,7 +3985,7 @@ async function main() {
     }
   }
 
-  function startCountdown(startsAtLocalMs = getRoundClockNowMs() + 3000) {
+  function startCountdown(startsAtLocalMs = getRoundClockNowMs() + CONFIG.round.countdownMs) {
     if (!Netcode.getIsHost()) return;
     if (GameState.getRoundState().phase === "running") return;
     isNewPersonalBest = false;
@@ -3953,7 +3997,7 @@ async function main() {
     setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
     syncRoundPhase("countdown");
     gameCtx.slowMo.active = false;
-    GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - 3000);
+    GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
     GameState.setRoundStartedAtMs(0);
@@ -3983,7 +4027,7 @@ async function main() {
     if (roundState.phase !== "countdown") return;
 
     clearRoundCountdownTimeout();
-    const startsAtLocalMs = (roundState.countdownStartedAtMs || getRoundClockNowMs()) + 3000;
+    const startsAtLocalMs = (roundState.countdownStartedAtMs || getRoundClockNowMs()) + CONFIG.round.countdownMs;
     const delayMs = Math.max(0, startsAtLocalMs - getRoundClockNowMs());
 
     if (delayMs === 0) {
@@ -4207,7 +4251,7 @@ async function main() {
       soloPauseStartedAtMs = getRoundClockNowMs();
       if (roundCountdownTimeoutId != null) {
         const state = GameState.getRoundState();
-        const startsAt = (state.countdownStartedAtMs || 0) + 3000;
+        const startsAt = (state.countdownStartedAtMs || 0) + CONFIG.round.countdownMs;
         soloPauseCountdownRemainingMs = Math.max(0, startsAt - getRoundClockNowMs());
         clearRoundCountdownTimeout();
       }
@@ -4279,7 +4323,7 @@ async function main() {
     Netcode.resetClientPredictionState();
     Entities.rematchResetWorld();
     if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
-      startCountdown(getRoundClockNowMs() + 3000);
+      startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
       return;
     }
     // * Quickplay arena rotation (D-STAB-2 seam): pick a fresh random arena at the

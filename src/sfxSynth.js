@@ -189,11 +189,15 @@ export function playWaterSplash(intensity = 0.5) {
   if (!p) return;
   const { ctx, dest, vol, now } = p;
   const i = Math.min(Math.max(intensity, 0), 1);
-  const g = (0.10 + i * 0.08) * vol;
+  const g = (0.16 + i * 0.10) * vol;
+  // * Surface slap: a sharp broadband transient right at entry — without it the
+  // * splash reads as ambience instead of an impact (07-17 playtest: "needs a
+  // * sfx to sell it"; the old level also sat under the music bed).
+  spawnNoise(ctx, dest, "bandpass", 2600, 900, 0.05, g * 0.9, now, 0.004);
   // * Body: spray falling into a slosh.
   spawnNoise(ctx, dest, "bandpass", 1800 + i * 600, 300, 0.26 + i * 0.08, g, now, 0.015);
   // * Droplet sprinkle riding above the body, slightly delayed.
-  spawnNoise(ctx, dest, "highpass", 3200, 2400, 0.16, g * 0.45, now + 0.05, 0.02);
+  spawnNoise(ctx, dest, "highpass", 3200, 2400, 0.16, g * 0.5, now + 0.05, 0.02);
 }
 
 /**

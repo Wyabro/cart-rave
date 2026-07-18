@@ -520,7 +520,10 @@ function updateStatus(roundState) {
       ?? (_options.getCountdownMs ? _options.getCountdownMs() : 3000);
     const elapsedMs = adjustedNow() - (roundCountdownStartedAtMs || 0);
     const remainingMs = countdownMs - elapsedMs;
-    const n = clampInt(Math.ceil(remainingMs / 1000), 1, Math.ceil(countdownMs / 1000));
+    // * Three digits share the whole window (countdownMs/3 each), so stretching the
+    // * window slows the cadence instead of adding a fourth digit.
+    const digitMs = countdownMs / 3;
+    const n = clampInt(Math.ceil(remainingMs / digitMs), 1, 3);
     setHudDisplay(elements.status, "block", "status");
     // * Digits alternate the brand magenta/cyan accents as they stamp in.
     elements.status.style.color = n % 2 === 0 ? "var(--color-cyan)" : "var(--color-magenta)";

@@ -599,7 +599,7 @@ const ArcadeFxShader = {
  * @param {THREE.WebGLRenderer} renderer
  */
 export function applyRendererColorGrading(renderer) {
-  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = CONFIG.postFx.toneMappingExposure ?? 1.0;
 }
 

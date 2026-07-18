@@ -26,6 +26,7 @@ type Slot = {
 };
 
 import { MSG } from '../shared/protocol.js';
+import { COUNTDOWN_MS } from '../shared/roundConstants.js';
 import { validateHostRound, type RoundState } from './roundValidation';
 import { pickNextHostId } from './hostSelection';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
@@ -520,7 +521,7 @@ export class CartRaveServer extends Server {
     if (humanSlots.length === 0) return;
     if (!humanSlots.every((s) => s.isReady)) return;
 
-    const startsAtMs = this.#serverNowMs() + 3000;
+    const startsAtMs = this.#serverNowMs() + COUNTDOWN_MS;
     this.#countdownArmed = true;
     this.#broadcastJson({
       v: PROTOCOL_VERSION,
@@ -531,7 +532,7 @@ export class CartRaveServer extends Server {
     this.#countdownTimerHandle = setTimeout(() => {
       this.#countdownTimerHandle = null;
       this.#countdownArmed = false;
-    }, 3000);
+    }, COUNTDOWN_MS);
   }
 
   #reconcileOrphanSlots(liveConnIds: Set<string>) {

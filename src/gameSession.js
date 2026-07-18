@@ -3,6 +3,7 @@
 import * as GameState from "./gameState.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
 import { trackEvent } from "./analytics/analytics.js";
+import { invalidateActivePlayEntry } from "./bootstrap.js";
 
 /**
  * Mutable callback refs shared between main(), netcode, and the game loop.
@@ -165,6 +166,10 @@ export function createGameSessionController(getContext) {
   function teardownGameSession() {
     if (tearingDown) return;
     tearingDown = true;
+
+    // * First: a play entry still warming up must not re-hide the menu after this
+    // * teardown's initMenu (host-reload mid-round left the menu drawn over the game).
+    invalidateActivePlayEntry();
 
     const ctx = getContext();
     try {

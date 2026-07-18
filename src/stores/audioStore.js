@@ -4,6 +4,10 @@ import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 
 export const AUDIO_VOLUME_MAX = 1.15;
 export const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
+// * Music defaults lower than SFX: music is a sustained bed while SFX/announcer are
+// * transient, so equal defaults read as "music is louder than everything" (07-17
+// * playtest). Only affects players who never touched the slider — saved settings win.
+const MUSIC_VOLUME_DEFAULT = 0.35 * AUDIO_VOLUME_MAX;
 
 /** Volumes persist as integer percentages (0–100) of AUDIO_VOLUME_MAX. */
 function loadVolumePct(key) {
@@ -16,7 +20,7 @@ function loadVolumePct(key) {
 
 function loadInitialAudioState() {
   return {
-    musicVolume: loadVolumePct(STORAGE_KEYS.musicVolume) ?? AUDIO_VOLUME_DEFAULT,
+    musicVolume: loadVolumePct(STORAGE_KEYS.musicVolume) ?? MUSIC_VOLUME_DEFAULT,
     sfxVolume: loadVolumePct(STORAGE_KEYS.sfxVolume) ?? AUDIO_VOLUME_DEFAULT,
     isMuted: storageGet(STORAGE_KEYS.muted) === "true",
   };

@@ -17,6 +17,20 @@ let deps = null;
 /** @type {Promise<void> | null} */
 let activePlayBootstrapPromise = null;
 
+/**
+ * Bumped by {@link invalidateActivePlayEntry} on session teardown. An in-flight
+ * play entry finishes its (harmless) arena work, but its deferred menu-hide must
+ * not fire after a returnToMenu — the stale commitMenuHiddenForGame would fight
+ * initMenu and strand the menu drawn over a dead/live session (host-reload
+ * mid-round stuck-menu, 07-17 playtest).
+ */
+let playEntryGeneration = 0;
+
+/** Invalidates the deferred menu-hide of any in-flight play entry. */
+export function invalidateActivePlayEntry() {
+  playEntryGeneration += 1;
+}
+
 let worldBootstrapDone = false;
 /** @type {Promise<void> | null} */
 let worldBootstrapPromise = null;
@@ -274,6 +288,7 @@ export async function enterPlayMode(opts = {}) {
     onArenaReady,
   } = opts;
 
+  const entryGen = playEntryGeneration;
   const gameMode = gameModeOpt ?? d.detectGameMode();
   const levelId = levelIdOpt ?? (d.getSelectedLevelId
     ? d.getSelectedLevelId()
@@ -293,7 +308,7 @@ export async function enterPlayMode(opts = {}) {
   // * Quickplay hello can arrive while arena warm-up is still running — piggyback.
   if (activePlayBootstrapPromise) {
     return activePlayBootstrapPromise.then(() => {
-      if (commitMenuHidden && d.getMenuVisible()) {
+      if (commitMenuHidden && playEntryGeneration === entryGen && d.getMenuVisible()) {
         d.commitMenuHiddenForGame();
       }
     });
@@ -360,7 +375,7 @@ export async function enterPlayMode(opts = {}) {
       await onArenaReady(reportProgress);
     }
     reportProgress(100, "Ready!");
-    if (commitMenuHidden) {
+    if (commitMenuHidden && playEntryGeneration === entryGen) {
       d.commitMenuHiddenForGame();
     }
   }, { gameMode, levelId }).finally(() => {

@@ -16,7 +16,7 @@
 
 import { getQualityTier } from "./utils/qualityMode.js";
 import { QUALITY_KNOBS } from "./utils/qualityTiers.js";
-import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
+import { COUNTDOWN_MS, ROUND_DURATION_MS } from "../shared/roundConstants.js";
 
 /** @type {string} Bump when physics or net tuning changes materially. */
 const CONFIG_VERSION = "2026.07.09";
@@ -162,7 +162,7 @@ const physics = {
         boostChargeTimeMs: 1500, // ms — full charge duration before auto-release
         boostMinMultiplier: 0.3, // unitless — burst scale at zero charge (reserved for early-release)
         boostMaxMultiplier: 1.0, // unitless — burst scale at full charge (auto-release)
-        boostCooldownMs: 1000, // ms — lockout after a released burst before charging again
+        boostCooldownMs: 200, // ms — lockout after a released burst before charging again (near-instant re-charge per 07-17 playtest)
         burstImpulse: 28.0, // N·s — instantaneous forward impulse at release (× mass × multiplier)
         // * 3D charge telegraph — frame emissive ramps while holding charge (HUD bar is local-only).
         glowPeakIntensityMul: 1.95, // unitless — emissive intensity at full charge vs idle
@@ -216,7 +216,7 @@ const physics = {
     minSpeed: 0.6, // m/s — minimum relative speed to score a hit
     strength: 2.88, // unitless — collision impulse multiplier
     maxImpulse: 200.0, // N·s — per-frame impulse clamp
-    spreadSteps: 3, // count — frames over which ram impulse is applied
+    spreadSteps: 1, // count — fixed steps over which ram impulse is applied; 1 = full knockback on the next step (3 read as a hit→launch delay in playtests)
     alignmentDotMin: 0.18, // unitless — min rammer→victim alignment dot (~80° cone; eased 10% from 0.2/~78°)
     boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale (intentionally unchanged)
     nitroAccelMultiplier: 1.72, // unitless — fallback drive accel when boostedAccel is null
@@ -429,6 +429,9 @@ export const CONFIG = {
     // * Shared with the server's podium plausibility cap — tune it in
     // * shared/roundConstants.js, never here alone (AGENTS.md invariant).
     durationMs: ROUND_DURATION_MS,
+    // * 3…2…1…GO window; HUD digits hold countdownMs/3 each. Single-sourced with the
+    // * server's game_start arming timer (shared/roundConstants.js).
+    countdownMs: COUNTDOWN_MS, // ms — 3000 read as rushed in the 07-17 playtest
   },
 
   postFx: {
@@ -437,6 +440,14 @@ export const CONFIG = {
     // * 0.88 was authored when exposure was silently ignored; values now display brighter.
     // * Kept deliberately low — the game's identity is dark arena + punchy neon.
     toneMappingExposure: 0.4,
+
+    // * Per-arena multiplier on toneMappingExposure, applied at level load (main.js
+    // * applyLoadedLevelSideEffects). ACESFilmic pulls mids down harder than Neutral
+    // * and Sundial's sunset palette lives in those mids (07-17 playtest: "sundial
+    // * looks a bit too dark with acesfilmic on"). Unlisted arenas get 1.0.
+    arenaExposureMul: {
+      zanzibar: 1.18,
+    },
 
     // * IBL (Image-Based Lighting) — RoomEnvironment PMREM on scene.environment.
     // * intensity scales all MeshStandardMaterial envMapIntensity; tune in postFxDebug (H / ?debug).
