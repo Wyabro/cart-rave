@@ -366,7 +366,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     }
 
     const glowPulse = (Math.sin(now * 0.001 * Math.PI * 2 * 1.0) + 1) / 2;
-    const glowIntensity = (0.375 + glowPulse * 1.125) * 0.85;
+    // * 0.85 → 0.66 with the ACES restore — the white-mix leader peak read "super
+    // * bright" on every arena (07-17 run 2). Pulse shape unchanged.
+    const glowIntensity = (0.375 + glowPulse * 1.125) * 0.66;
     // * Quantize leader pulse so dirty-gating still refreshes ~12×/s (smooth enough).
     const glowPulseQ = Math.round(glowPulse * 12);
     const chargeCfg = deps.CONFIG?.cart?.ramBoost?.boostCharge;

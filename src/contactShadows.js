@@ -256,7 +256,12 @@ function createBlobMesh(options = {}) {
     transparent: true,
     opacity: options.opacity ?? cfg?.cart?.opacity ?? 0.36,
     depthWrite: false,
-    depthTest: false,
+    // * depthTest ON (07-17 run 2 "shadows go through objects and other carts"):
+    // * transparent-pass quads with depthTest:false painted over every opaque mesh.
+    // * floorEpsilon (4.5cm) keeps the quad clear of floor z-fighting; scenery and
+    // * carts now occlude blobs correctly. Trade-off: on raised surfaces the
+    // * floor-level blob is hidden by the platform instead of bleeding through it.
+    depthTest: true,
     toneMapped: false,
     side: THREE.DoubleSide,
   });

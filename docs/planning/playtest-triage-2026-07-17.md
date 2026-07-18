@@ -189,3 +189,74 @@ first-join arena. Still open from run 2:
   F8 bundles now carry a `net` probe (input sampling-starved vs unacked), an
   `audio` probe, and `perf/longframe` events — **one F8 on the locked machine
   decides it.**
+
+---
+
+## Run 3 (Wyatt's notes header says "RUN 2", 11:18 PM, against deploy `f1b0aaf`; 18/22 good)
+
+Wyatt's 8 F8 bundles decode as ONE page session on his machine: 3 solo rounds
+(mode=solo, isHost) → menu → quickplay as non-host. That ordering *is* the repro.
+
+### Non-host spawn-lock — ROOT CAUSE FOUND, FIXED
+The run-2 probe decided it exactly as designed: `pendingInputs: 0` +
+`localAckSeq: 0` while `lastSnapSeq` climbed (1983→6041→12221) = input
+**sampling** starved, not the wire/ack path. Cause: `returnToMenu` →
+`clearNetcodeRuntimeRefs` (main.js) nulls netcode's `getAxisRef`, and only the
+one-time boot block ever wired it — so `sampleLocalInputForTick` is a permanent
+no-op for the rest of the page session after ANY menu return (`if (!getAxisRef)
+return null`), and reconcile pins the cart to the host's spawn pose. Solo → menu
+→ join quickplay = frozen every round, all session.
+- Why nothing caught it: host reads input directly (immune), solo is host-mode
+  (immune), and every harness scenario joins via `?room=` URL, skipping the menu
+  teardown entirely. The mpIntegration "peak 0.00m flake" was very likely this
+  bug through a different door.
+- Fix: `wireNetcodeRuntimeRefs()` — full ref bundle re-applied on every
+  `ensureSessionCartsReady` (which provably runs on the broken path: the
+  captures show carts spawning each round). F8 `net` probe now also carries
+  `axisWired` + `migFreezeRemMs` (the two freeze gates the run-2 probe couldn't
+  see). Follow-up chip: harness scenario that does a menu teardown before join.
+
+### Countdown "notably wonky" — decoded from the countdown F8 + fixed
+Ring buffer: lobby→countdown 952325, countdown→lobby 952440 (server's legit
+arm→abort→re-arm, near-invisible, left alone), countdown again 952979, digits
+3 (953447) and 2 (954617)… then a 6.4 s gap, and 1/GO/running all bunched at
+961021-961028 — ~4 s after the host's GO. Cause: the non-host entered play on
+its stale arena (solo leftover backrooms) and the room-arena swap (zanzibar) ran
+DURING the countdown; `isLevelSwapping` gates `onFrame`, so the frame-driven
+digits froze and burst on swap end. Fix: non-host `game_start` countdown
+application defers via `whenArenaRotationSettled()` (gen-token cancel-safe); if
+the server start time already passed when the swap settles, it drops straight
+into running (host_round reconciles startedAtMs). Result: "NEXT ARENA" crossfade
+→ honest remaining digits or straight GO, no stall-burst.
+
+### Over-emissive carts (cyan/magenta, leader white, ALL arenas) — "what changed" answered
+The ACESFilmic restore in run 1 (`5b254aa`). Cart glow constants were balanced
+against the old tone mapping: `CART_EMISSIVE_MASTER` 0.575 → 0.46, per-hue
+luminance boost capped at 2.0× (magenta was getting 2.5×, red 3.4×), leader
+white-mix peak scale 0.85 → 0.66. Needs eyes-on; all three knobs are one-line.
+
+### Sundial (needs eyes-on)
+- Sun "a bit too bright": `sunMat.opacity` 0.85 (falloff shape unchanged).
+- The remaining "cross": same class as the run-2 sun bug — flat-opacity additive
+  planes drawing their geometry edges under ACES + exposure. Horizontal arm =
+  the horizon haze cylinder (hard top edge) → vertical soft-strip alpha texture
+  (`buildSoftStripTexture`), hot at the waterline melting upward. Vertical arm =
+  the three untextured god-ray shaft planes → shared radial falloff texture.
+  Peak opacities bumped to keep the mood at the same average.
+
+### Splash "louder but repetitive"
+Playback variation on the single recording (same trick as `playCartCrash`):
+rate 0.86–1.14 + small gain wobble, base volume 0.6–1.0 → 0.42–0.78
+(waterDeathFx.js). Death-explosion re-record is Wyatt's own recording task.
+
+### Contact shadows through objects — answered + fixed
+Blob quads rendered with `depthTest: false` in the transparent pass = painted
+over every opaque mesh. Now `depthTest: true` (`floorEpsilon` 4.5 cm clears
+floor z-fighting). Trade-off: on raised surfaces the floor-level blob is
+occluded by the platform instead of bleeding through.
+
+### Solo hitches (better, residual)
+Remaining mid-round longframes in the solo F8s: 350–750 ms spikes clustering
+near first-play announcer events (lazy announcer decode is the prime suspect —
+each clip's first play decodes on the main thread), plus the known play-entry
+load stalls (BOOT-PERF-1). Not attempted this pass.

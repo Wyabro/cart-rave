@@ -1289,6 +1289,11 @@ export function startHostSendLoop() {
   hostSendTimer = setInterval(hostSendTick, intervalMs);
 }
 
+/** Diag probe: false means sampleLocalInputForTick is a no-op (the 07-17 spawn freeze). */
+export function isInputAxisWired() {
+  return Boolean(getAxisRef);
+}
+
 export function sampleLocalInputForTick() {
   if (!partySocket || isHost || !getAxisRef) return null;
   if (netTestOn) __dbgInputCounters.sampleCalls += 1;

@@ -450,6 +450,31 @@ function buildSoftDiscTexture(stops) {
 }
 
 /**
+ * Vertical soft-falloff strip texture (white, alpha-graded top→bottom) for the
+ * horizon haze band and god-ray shafts. Same run-2 lesson as the sun/halos: any
+ * flat-opacity additive plane renders its geometry edge as a visible line under
+ * ACES + the arena exposure bump — Wyatt's run-2 "cross" was the untextured haze
+ * cylinder (horizontal arm) and shaft planes (vertical arm) doing exactly that.
+ *
+ * @param {Array<[number, string]>} stops createLinearGradient stops, v=0 → v=1.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildSoftStripTexture(stops) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 2;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  // * Canvas y runs top-down; UV v runs bottom-up. Flip so stop 0 = v 0 (bottom).
+  const grad = ctx.createLinearGradient(0, 128, 0, 0);
+  for (const [t, color] of stops) grad.addColorStop(t, color);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 2, 128);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
  * Sunset gradient for the sky dome — deep indigo zenith → dusk magenta → ember horizon —
  * plus faint horizon haze bands, sparse high stars, and one fading jet contrail.
  * @returns {THREE.CanvasTexture}
@@ -995,6 +1020,9 @@ function buildSeascape(scene, circumR) {
     color: 0xffe0b0,
     map: sunTex,
     transparent: true,
+    // * Run-2 follow-up: "sun looks great now but a bit too bright" — uniform trim,
+    // * falloff shape unchanged.
+    opacity: 0.85,
     fog: false,
     depthWrite: false,
   });
@@ -1054,13 +1082,24 @@ function buildSeascape(scene, circumR) {
   // * Soft god-ray shafts from the sun toward the deck — pure mood, no gameplay cost.
   let shaftMats = /** @type {THREE.MeshBasicMaterial[]} */ ([]);
   if (!lowQ) {
+    // * Radial falloff stretched over the tall plane — the untextured flat-opacity
+    // * planes rendered their long edges as a visible vertical line through the sun
+    // * (run-2 "cross" report, vertical arm). Peak opacity up vs the flat values
+    // * because the gradient only reaches it at the center.
+    const shaftTex = buildSoftDiscTexture([
+      [0.0, "rgba(255,255,255,0.9)"],
+      [0.5, "rgba(255,255,255,0.34)"],
+      [1.0, "rgba(255,255,255,0)"],
+    ]);
+    ownedTextures.push(shaftTex);
     const shaftGeo = new THREE.PlaneGeometry(18, 220, 1, 1);
     ownedGeometries.push(shaftGeo);
     for (let i = 0; i < 3; i += 1) {
       const shaftMat = new THREE.MeshBasicMaterial({
         color: 0xff8a40,
+        map: shaftTex,
         transparent: true,
-        opacity: 0.045 + i * 0.012,
+        opacity: 0.085 + i * 0.02,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
@@ -1081,12 +1120,22 @@ function buildSeascape(scene, circumR) {
   }
 
   // * Horizon mood band — soft ember cylinder hugging the waterline so sea→sky melts.
+  // * Alpha-graded vertically (hot at the waterline, melts upward) — the flat-opacity
+  // * cylinder's hard top edge was the run-2 "cross" horizontal arm ("the distant fog
+  // * ... needs to be blended like the sun is").
   {
+    const hazeTex = buildSoftStripTexture([
+      [0.0, "rgba(255,255,255,1)"],
+      [0.35, "rgba(255,255,255,0.55)"],
+      [1.0, "rgba(255,255,255,0)"],
+    ]);
+    ownedTextures.push(hazeTex);
     const hazeGeo = new THREE.CylinderGeometry(WATER_SIZE * 0.42, WATER_SIZE * 0.42, 28, 48, 1, true);
     const hazeMat = new THREE.MeshBasicMaterial({
       color: 0xff5a22,
+      map: hazeTex,
       transparent: true,
-      opacity: 0.07,
+      opacity: 0.11,
       side: THREE.BackSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,

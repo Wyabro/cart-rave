@@ -9,8 +9,19 @@ export { isLowQualityMode } from "./utils/qualityMode.js";
 
 /** Reference luminance for perceptually even cart glow (pure green channel in linear sRGB). */
 const CART_EMISSIVE_REF_LUMA = 0.7152;
-/** Global cart frame glow scale — tuned down from raw luminance balance. */
-const CART_EMISSIVE_MASTER = 0.575;
+/**
+ * Global cart frame glow scale — tuned down from raw luminance balance.
+ * Re-tuned 0.575 → 0.46 after the ACESFilmic restore (5b254aa): the old value was
+ * balanced against the previous tone mapping and read "super emissive" on every
+ * arena in the 07-17 run-2 playtest.
+ */
+const CART_EMISSIVE_MASTER = 0.46;
+/**
+ * Cap on the per-hue luminance-normalization boost. Low-luma hues (magenta 2.5×,
+ * red 3.4×) blew out under ACES + bloom while cyan (~0.9×) was near reference —
+ * even bloom is not worth a 3× emissive on saturated pinks.
+ */
+const CART_EMISSIVE_HUE_BOOST_MAX = 2.0;
 
 /**
  * Converts a single sRGB channel to linear light.
@@ -43,7 +54,8 @@ function cartHexRelativeLuminance(hex) {
 export function cartEmissiveIntensityForHex(hex, baseIntensity = 1) {
   const lum = cartHexRelativeLuminance(hex);
   if (lum < 1e-6) return baseIntensity * CART_EMISSIVE_MASTER;
-  return baseIntensity * CART_EMISSIVE_MASTER * (CART_EMISSIVE_REF_LUMA / lum);
+  const hueBoost = Math.min(CART_EMISSIVE_REF_LUMA / lum, CART_EMISSIVE_HUE_BOOST_MAX);
+  return baseIntensity * CART_EMISSIVE_MASTER * hueBoost;
 }
 
 /**

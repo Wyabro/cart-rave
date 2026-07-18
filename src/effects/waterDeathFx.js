@@ -779,7 +779,14 @@ function spawnSplash(x, z, intensity) {
   // * Recorded splash wins when the drop-in asset exists (public/sounds/water-splash.ogg,
   // * registered at boot only if the file is actually served); synth is the fallback.
   if (AudioManager.hasSfx("waterSplash")) {
-    AudioManager.playSfx("waterSplash", null, { volume: 0.6 + intensity * 0.4 });
+    // * Run-2: "sells it much better ... but lacks variation and is a bit too loud."
+    // * One recording, so variation comes from playback: ±~14% rate (pitch+length,
+    // * same trick as playCartCrash) and a small random gain wobble; base level
+    // * trimmed 0.6-1.0 → 0.42-0.78.
+    AudioManager.playSfx("waterSplash", null, {
+      rate: 0.86 + Math.random() * 0.28,
+      volume: (0.45 + intensity * 0.3) * (0.88 + Math.random() * 0.12),
+    });
   } else {
     playWaterSplash(intensity);
   }

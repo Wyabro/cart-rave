@@ -2598,6 +2598,24 @@ async function main() {
 
   // --- Quickplay arena rotation (D-STAB-2 seam recipe) ---
   let arenaRotationInFlight = false;
+  /** Invalidation token for deferred non-host countdown application (see onGameStartHandler). */
+  let nonHostCountdownApplyGen = 0;
+
+  /**
+   * Resolves once no arena rotation is pending or in flight (bounded poll — during the
+   * swap's long synchronous chunks timers can't fire anyway, so the poll wakes right
+   * after the blocking work ends). Used to keep the non-host countdown from starting
+   * under a level swap that will freeze its frame-driven digits.
+   */
+  async function whenArenaRotationSettled(maxWaitMs = 10000) {
+    const deadlineMs = performance.now() + maxWaitMs;
+    while (
+      (arenaRotationInFlight || pendingArenaRotationLevelId != null) &&
+      performance.now() < deadlineMs
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+  }
 
   async function drainPendingArenaRotation() {
     if (pendingArenaRotationLevelId == null) return;
@@ -2732,14 +2750,33 @@ async function main() {
         startCountdown(startsAtLocalMs);
       }
     } else if (GameState.getRoundState().phase !== "running") {
-      resetMatchStats();
-      setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
-      syncRoundPhase("countdown");
-      GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
-      GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-      GameState.setRoundWinnerSlotIndex(null);
-      GameState.setRoundStartedAtMs(0);
-      beginRoundFlyover();
+      // * Menu re-entry at a rematch can land game_start while the room's arena rotation
+      // * is still pending/in flight locally (the drain no-ops behind the menu, then runs
+      // * at play-entry). Applying the countdown immediately froze it mid-digits behind
+      // * the swap's synchronous work and burst-replayed 1/GO seconds late (07-17 run 2
+      // * "countdown was notably wonky"). Defer until the swap settles; if the server
+      // * start time has already passed, drop straight into running — the host's
+      // * host_round(running) broadcast reconciles the authoritative startedAtMs.
+      nonHostCountdownApplyGen += 1;
+      const applyGen = nonHostCountdownApplyGen;
+      void whenArenaRotationSettled().then(() => {
+        if (applyGen !== nonHostCountdownApplyGen) return;
+        if (GameState.getRoundState().phase === "running") return;
+        resetMatchStats();
+        setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
+        GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
+        GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+        GameState.setRoundWinnerSlotIndex(null);
+        if (getRoundClockNowMs() >= startsAtLocalMs) {
+          syncRoundPhase("running");
+          GameState.setRoundStartedAtMs(startsAtLocalMs);
+          CameraMod.endCinematicCountdown(camera);
+        } else {
+          syncRoundPhase("countdown");
+          GameState.setRoundStartedAtMs(0);
+          beginRoundFlyover();
+        }
+      });
     }
   };
 
@@ -3355,6 +3392,10 @@ async function main() {
     pendingMidRoundJoinRespawnConnId = nextPendingMidRoundJoinRespawnConnId;
     allCarts = carts;
     allCartsRef = carts;
+    // * Full ref re-wire (not just getAllCartsRef): a prior returnToMenu cleared the
+    // * input-axis/trigger refs, and re-entering a session must restore them or the
+    // * non-host predicts with null input forever (07-17 spawn-platform freeze).
+    wireNetcodeRuntimeRefs();
     Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
     // * Slot colors are authoritative: server-provided in multiplayer (accepted verbatim),
     // * and declashed once at init for solo/testdrive. No re-derivation here.
@@ -3541,18 +3582,30 @@ async function main() {
     console.warn("[session] cart bootstrap failed", err);
   });
 
-  getAxisRef = input.getAxis;
-  triggerRamBoostRef = triggerRamBoost;
-  Netcode.setRefs({
-    getAllCartsRef: () => allCartsRef,
-    getAxisRef: input.getAxis,
-    isNitroHeldRef: input.isNitroHeld,
-    triggerRamBoostRef: triggerRamBoost,
-    triggerHopRef: triggerHop,
-    triggerCartShatterRef: triggerCartShatter,
-    resetSimTimingRef: sessionRefs.resetSimTimingRef,
-    doRespawnRef: Entities.doRespawn,
-  });
+  /**
+   * (Re)binds the netcode runtime refs (input axis, ram/hop/shatter triggers). Must run on
+   * every session cart bootstrap, not just boot: returnToMenu's clearNetcodeRuntimeRefs nulls
+   * getAxisRef, and a null axis ref makes sampleLocalInputForTick a permanent no-op — the
+   * 07-17 "non-host can't leave spawn" freeze (solo → menu → join quickplay left every
+   * later MP session with pendingInputs 0 / ackSeq 0). Host was immune (host sim reads
+   * input directly), which is why solo/host and URL-join harness runs never caught it.
+   */
+  function wireNetcodeRuntimeRefs() {
+    if (!input) return;
+    getAxisRef = input.getAxis;
+    triggerRamBoostRef = triggerRamBoost;
+    Netcode.setRefs({
+      getAllCartsRef: () => allCartsRef,
+      getAxisRef: input.getAxis,
+      isNitroHeldRef: input.isNitroHeld,
+      triggerRamBoostRef: triggerRamBoost,
+      triggerHopRef: triggerHop,
+      triggerCartShatterRef: triggerCartShatter,
+      resetSimTimingRef: sessionRefs.resetSimTimingRef,
+      doRespawnRef: Entities.doRespawn,
+    });
+  }
+  wireNetcodeRuntimeRefs();
   // * hello can arrive before input/cart refs exist; non-host input is sampled inline by the
   // * physics loop (sampleLocalInputForTick), which no-ops safely until getAxisRef is wired.
   Netcode.setAuthorityMode(Netcode.getIsHost());
@@ -4067,6 +4120,9 @@ async function main() {
   }
 
   onCountdownCancelledRef = () => {
+    // * Invalidate any rotation-deferred non-host countdown apply — a cancel between
+    // * game_start and the swap settling must not resurrect a dead countdown.
+    nonHostCountdownApplyGen += 1;
     clearRoundCountdownTimeout();
     if (GameState.getRoundState().phase === "countdown") {
       syncRoundPhase("lobby");
@@ -4898,6 +4954,13 @@ async function main() {
           menuVisible,
           localShatterState: Boolean(localCart?._shatterState),
           localBodyEnabled: localCart?.body ? localCart.body.isEnabled() : null,
+          // * The two client-freeze gates the 07-17 captures could NOT see: an unwired
+          // * axis ref (input sampling no-op) and a live host-migration freeze window.
+          axisWired: Netcode.isInputAxisWired(),
+          migFreezeRemMs: Math.max(
+            0,
+            Math.round(Netcode.getHostMigrationFreezeUntilMs() - (performance.timeOrigin + performance.now())),
+          ),
         };
       },
     });
