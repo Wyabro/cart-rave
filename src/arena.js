@@ -2002,9 +2002,46 @@ export function initArena(scene, world, config, options = {}) {
   // * pipes. Local Y: rim is at +pitWallDepth/2 on the centered cylinder mesh.
   const pitDetailMats = [];
   const pitDetailGeos = [];
+  /** @type {THREE.Texture[]} */
+  const pitDetailTextures = [];
   {
     const rimLocalY = pitWallDepth * 0.5;
     const worldToLocalY = (worldY) => worldY - pitWallCenterY;
+
+    // * Run-5 "purple light around the pit needs to be softened like the sundial":
+    // * the haze discs and throat cylinder were flat-opacity surfaces whose geometry
+    // * rims drew hard purple lines under ACES — the same failure the sundial cross
+    // * had. Same cure (dabdb6b technique): canvas-gradient alpha that reaches 0
+    // * before the geometry edge, with peak opacity nudged up since only the center
+    // * hits full alpha now.
+    const makePitFadeTex = (radial) => {
+      const c = document.createElement("canvas");
+      c.width = radial ? 128 : 2;
+      c.height = 128;
+      const g = c.getContext("2d");
+      if (g) {
+        const grad = radial
+          ? g.createRadialGradient(64, 64, 0, 64, 64, 64)
+          : g.createLinearGradient(0, 0, 0, 128);
+        if (radial) {
+          grad.addColorStop(0, "rgba(255,255,255,1)");
+          grad.addColorStop(0.62, "rgba(255,255,255,0.78)");
+          grad.addColorStop(1, "rgba(255,255,255,0)");
+        } else {
+          // * Symmetric so the cylinder's top AND bottom edges melt regardless of UV flip.
+          grad.addColorStop(0, "rgba(255,255,255,0)");
+          grad.addColorStop(0.45, "rgba(255,255,255,1)");
+          grad.addColorStop(1, "rgba(255,255,255,0)");
+        }
+        g.fillStyle = grad;
+        g.fillRect(0, 0, c.width, c.height);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      pitDetailTextures.push(tex);
+      return tex;
+    };
+    const hazeFadeTex = makePitFadeTex(true);
+    const throatFadeTex = makePitFadeTex(false);
 
     const ribMat = createPhysicalMaterial({
       color: 0x1c1528,
@@ -2133,16 +2170,19 @@ export function initArena(scene, world, config, options = {}) {
     // * Layered void haze discs — stacked translucent planes sell infinite depth
     // * without more shaft geometry (cheaper than extra cylinder segments).
     const hazeDefs = [
-      { worldY: -8, opacity: 0.1, scale: 0.92, color: 0x4a1480 },
-      { worldY: -16, opacity: 0.14, scale: 0.86, color: 0x2a0a50 },
-      { worldY: -28, opacity: 0.18, scale: 0.78, color: 0x120428 },
-      { worldY: -42, opacity: 0.22, scale: 0.68, color: 0x080214 },
+      { worldY: -8, opacity: 0.13, scale: 0.92, color: 0x4a1480 },
+      { worldY: -16, opacity: 0.18, scale: 0.86, color: 0x2a0a50 },
+      { worldY: -28, opacity: 0.23, scale: 0.78, color: 0x120428 },
+      { worldY: -42, opacity: 0.28, scale: 0.68, color: 0x080214 },
     ];
     const hazeGeo = new THREE.CircleGeometry(pitInnerRadius, 64);
     pitDetailGeos.push(hazeGeo);
     for (const def of hazeDefs) {
       const hazeMat = new THREE.MeshBasicMaterial({
         color: def.color,
+        // * Radial alpha fade kills the 64-seg circle rim line (run-5); opacities
+        // * bumped ~1.3× to keep the same perceived center density.
+        map: hazeFadeTex,
         transparent: true,
         opacity: def.opacity,
         depthWrite: false,
@@ -2173,8 +2213,11 @@ export function initArena(scene, world, config, options = {}) {
       pitDetailGeos.push(throatGeo);
       const throatMat = new THREE.MeshBasicMaterial({
         color: 0x7a22cc,
+        // * Vertical alpha fade melts the cylinder's hard top edge at the pit mouth
+        // * (run-5) — the sundial horizon-haze treatment. Peak nudged 0.07 → 0.09.
+        map: throatFadeTex,
         transparent: true,
-        opacity: 0.07,
+        opacity: 0.09,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false,
@@ -2385,6 +2428,7 @@ export function initArena(scene, world, config, options = {}) {
     vinylTex.map,
     vinylTex.normalMap,
     vinylTex.roughnessMap,
+    ...pitDetailTextures,
     ...raveDecor.textures,
   ];
 

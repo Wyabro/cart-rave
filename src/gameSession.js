@@ -120,6 +120,7 @@ export function buildNetcodeGameBridge(getContext, session) {
     getTriggerLocalRamShake: () => getContext()?.getTriggerLocalRamShake?.() ?? null,
     getTriggerLocalHitTaken: () => getContext()?.getTriggerLocalHitTaken?.() ?? null,
     onRemoteBoostStart: (cart) => getContext()?.onRemoteBoostStart?.(cart),
+    stopChargeSfxForCart: (cart) => getContext()?.stopChargeSfxForCart?.(cart),
     onCartImpactSquash: (rammerCart, victimCart, intensity) => {
       getContext()?.onCartImpactSquash?.(rammerCart, victimCart, intensity);
     },

@@ -3502,6 +3502,9 @@ async function main() {
       }
     },
     onCartImpactSquash: squashCartsOnImpact,
+    // * Non-host own-death teardown (netcode processHostFallEvent) — same helper the
+    // * host-side scheduleRespawn uses, so the chargeUp loop can't outlive the cart.
+    stopChargeSfxForCart: (cart) => stopChargeSfxForCart(cart),
     getTriggerCartShatterRef: () => triggerCartShatterRef,
     getScene: () => scene,
     getSceneRef: () => scene,

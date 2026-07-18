@@ -973,6 +973,19 @@
   50%      { opacity: 1;    transform: scale(1.06); }
 }
 
+/* Run-5: MATCH POINT was an 11-char word at the GO!-sized clamp — it swallowed the
+   screen and sat static. Smaller than the sibling banners, wider tracked, and with
+   a heartbeat that keeps the base tilt (hud.js sets the animation inline). */
+#hud .hud-status--mp {
+  font-size: clamp(1.9rem, 5.5vw, 3.2rem);
+  letter-spacing: 0.12em;
+}
+
+@keyframes matchPointPulse {
+  0%, 100% { opacity: 0.82; transform: rotate(-1.5deg) scale(1); }
+  50%      { opacity: 1;    transform: rotate(-1.5deg) scale(1.05); }
+}
+
 /* Touch-only in-game menu button (opens Esc overlay). */
 #hud .hud-menu-btn {
   display: none;

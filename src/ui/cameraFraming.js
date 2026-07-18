@@ -56,8 +56,10 @@ export function createCameraFraming({
     const h = window.innerHeight;
     // * Tier pixel-ratio cap must win here too — this runs at boot and on every
     // * resize, and a hardcoded min(dpr, 2) silently overrode LOW's cap of 1 on
-    // * exactly the machines the tier system exists to save.
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, getQualityKnobs().pixelRatioCap);
+    // * exactly the machines the tier system exists to save. renderScale (LOW 0.75,
+    // * sub-native buffer) folds in for the same reason — a resize must not undo it.
+    const knobs = getQualityKnobs();
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap) * (knobs.renderScale ?? 1);
 
     // * visualViewport.resize can fire many times per URL-bar animation with the
     // * same window.inner* size. Re-running setSize/composer RT rebuilds every

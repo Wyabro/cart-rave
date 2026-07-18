@@ -56,7 +56,13 @@ function cartHexRelativeLuminance(hex) {
 export function cartEmissiveIntensityForHex(hex, baseIntensity = 1) {
   const lum = cartHexRelativeLuminance(hex);
   if (lum < 1e-6) return baseIntensity * CART_EMISSIVE_MASTER;
-  const hueBoost = Math.min(CART_EMISSIVE_REF_LUMA / lum, CART_EMISSIVE_HUE_BOOST_MAX);
+  let hueBoost = Math.min(CART_EMISSIVE_REF_LUMA / lum, CART_EMISSIVE_HUE_BOOST_MAX);
+  // * Hues DISTINCTLY brighter than the reference (yellow is the only palette member,
+  // * luma 0.93 vs ref 0.72 → boost 0.77) still read hot under linear normalization —
+  // * run-5: "yellow with no patterns is still a bit hot". Tame them harder with a >1
+  // * exponent: yellow drops 0.77 → ~0.66 (−15%). The 0.85 gate keeps near-reference
+  // * hues (cyan ~0.9, signed off in run-5) and everything boosted ≥ 1 untouched.
+  if (hueBoost < 0.85) hueBoost = Math.pow(hueBoost, 1.6);
   return baseIntensity * CART_EMISSIVE_MASTER * hueBoost;
 }
 

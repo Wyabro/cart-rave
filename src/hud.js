@@ -501,11 +501,15 @@ function updateStatus(roundState) {
 
   // * GO! is the round's celebration beat — the only status that earns glow.
   elements.status?.classList.toggle("is-celebration", Date.now() < _goUntilMs);
-  // * Clear any leftover inline animation up front so the Sudden Death pulse (set in the
-  // * SD branch below) can't bleed onto the next round's podium / countdown / GO! banner.
-  // * The SD branch re-stamps the same animation-name each frame, so this no-op-restarts
-  // * (only the final value reaches style recalc).
-  if (elements.status) elements.status.style.animation = "";
+  // * Clear any leftover inline animation up front so the Sudden Death / Match Point
+  // * pulses (set in their branches below) can't bleed onto the next round's podium /
+  // * countdown / GO! banner. Those branches re-stamp the same animation-name each
+  // * frame, so this no-op-restarts (only the final value reaches style recalc).
+  if (elements.status) {
+    elements.status.style.animation = "";
+    // * The MP size class follows the same rule — cleared here, re-added in-branch.
+    elements.status.classList.remove("hud-status--mp");
+  }
   if (Date.now() < _goUntilMs) {
     setHudDisplay(elements.status, "block", "status");
     elements.status.style.color = "var(--color-yellow)";
@@ -566,10 +570,20 @@ function updateStatus(roundState) {
     }
   } else if (roundPhase === "running" && isMatchPointState(roundState)) {
     // * Final seconds + top two within one KO: the next fall can decide the round.
+    // * Run-5: "'match point' is too big and needs some life" — an 11-char word at
+    // * the GO!-sized clamp swallowed the screen and then sat static. The --mp class
+    // * drops it ~40% (hud.css) and it gets the SD-style sustained pulse.
     setHudDisplay(elements.status, "block", "status");
+    elements.status.classList.add("hud-status--mp");
     elements.status.style.color = "var(--color-yellow)";
     elements.status.textContent = "MATCH POINT";
     stampBannerOnce("mp");
+    const mpReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    if (!mpReduced) {
+      // * Same pattern as SD: entrance stamp first, pulse joins after 0.22s; re-set
+      // * with an identical value each frame so it never restarts (clear at top).
+      elements.status.style.animation = "matchPointPulse 0.9s ease-in-out 0.22s infinite";
+    }
   } else {
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";

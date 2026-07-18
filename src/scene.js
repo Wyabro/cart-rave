@@ -806,7 +806,12 @@ export function createRenderer(canvas) {
     );
   }
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, getQualityKnobs().pixelRatioCap));
+  {
+    // * renderScale < 1 renders the drawing buffer sub-native and lets the browser upscale
+    // * (CSS size unchanged) — LOW's last GPU lever after DPR 1 (run-5 Intel UHD host).
+    const knobs = getQualityKnobs();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap) * (knobs.renderScale ?? 1));
+  }
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(FOG_CONFIG.color, 1);
   applyRendererColorGrading(renderer);
@@ -857,7 +862,9 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
   if (bloomPass) bloomPass.enabled = knobs.postFx && (userFx.bloomEnabled ?? true);
   if (arcadePass) arcadePass.enabled = knobs.postFx && (userFx.fxPassEnabled ?? true);
   if (renderer) {
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap);
+    // * knobs.renderScale (LOW 0.75) folds into the effective ratio so tier steps shrink
+    // * the drawing buffer below native too — see qualityTiers.js.
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap) * (knobs.renderScale ?? 1);
     renderer.setPixelRatio(pixelRatio);
     if (composer) {
       // * EffectComposer caches its own _pixelRatio (from construction / the resize

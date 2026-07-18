@@ -295,9 +295,16 @@ export async function enterPlayMode(opts = {}) {
     : resolveSelectedLevelId(null));
   const commitMenuHidden = commitMenuHiddenOpt ?? (gameMode === "solo" || gameMode === "testdrive");
 
-  // * Immediately hide main menu HTML overlay if requested (prevent UI overlap while loading screen warms up)
-  if (commitMenuHidden && d.getMenuVisible()) {
-    d.commitMenuHiddenForGame();
+  // * Run-5 "attract → loading is rough": hiding the menu HERE hard-cut to a bare
+  // * canvas frame before the overlay had faded in. Instead let the overlay fade in
+  // * OVER the menu (260ms CSS fade) and drop the menu once it's opaque; the
+  // * end-of-task commit below stays as the idempotent backstop for fast loads.
+  if (commitMenuHidden && d.getMenuVisible() && !skipBootstrap) {
+    window.setTimeout(() => {
+      if (playEntryGeneration === entryGen && d.getMenuVisible()) {
+        d.commitMenuHiddenForGame();
+      }
+    }, 320);
   }
 
   if (skipBootstrap) {

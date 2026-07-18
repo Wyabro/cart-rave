@@ -2295,67 +2295,10 @@ function buildUncannyDetails(scene, world) {
   const ownedTextures = [];
   const arrowRng = makeRng(0xa2207001);
 
-  // Blocky EXIT glyph (no system fonts — always a fixture, never desktop text).
-  const exitCanvas = document.createElement("canvas");
-  exitCanvas.width = 256;
-  exitCanvas.height = 96;
-  {
-    const ctx = exitCanvas.getContext("2d");
-    ctx.fillStyle = "#0c0d0a";
-    ctx.fillRect(0, 0, 256, 96);
-    ctx.fillStyle = "#3f8f55";
-    ctx.beginPath();
-    ctx.moveTo(14, 48);
-    ctx.lineTo(48, 22);
-    ctx.lineTo(48, 74);
-    ctx.closePath();
-    ctx.fill();
-    const glyph = (ox, bits) => {
-      for (let row = 0; row < 7; row += 1) {
-        for (let col = 0; col < 5; col += 1) {
-          if (bits[row] & (1 << (4 - col))) {
-            ctx.fillRect(ox + col * 7, 22 + row * 8, 6, 7);
-          }
-        }
-      }
-    };
-    glyph(64, [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f]);
-    glyph(104, [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11]);
-    glyph(144, [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x1f]);
-    glyph(184, [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04]);
-    const grad = ctx.createLinearGradient(120, 0, 256, 0);
-    grad.addColorStop(0, "rgba(0,0,0,0)");
-    grad.addColorStop(1, "rgba(0,0,0,0.55)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(120, 0, 136, 96);
-  }
-  const exitTex = new THREE.CanvasTexture(exitCanvas);
-  ownedTextures.push(exitTex);
-  const exitGeo = new THREE.BoxGeometry(1.55, 0.58, 0.1);
-  const exitMat = new THREE.MeshStandardMaterial({
-    color: 0x161613,
-    emissiveMap: exitTex,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.85,
-    roughness: 0.7,
-  });
-  const postMat = new THREE.MeshStandardMaterial({
-    color: 0x3a3830, roughness: 0.85, metalness: 0.15,
-  });
-  const postGeo = new THREE.BoxGeometry(0.14, 3.2, 0.14);
-  ownedGeometries.push(exitGeo, postGeo);
-  ownedMaterials.push(exitMat, postMat);
-
-  // Freestanding post in the pit ring past the floor edge (ARENA_HALF 38) —
-  // it lived on drivable carpet at (-27.5, 22.5) with a 0.2m collider and carts
-  // wedged on it (playtest 2026-07-15). Background dressing now: no physics.
-  const exitPost = new THREE.Mesh(postGeo, postMat);
-  exitPost.position.set(-39.8, 1.6, 22.5);
-  group.add(exitPost);
-  const exitSign = new THREE.Mesh(exitGeo, exitMat);
-  exitSign.position.set(-39.8, 3.35, 22.5);
-  exitSign.rotation.y = Math.PI * 0.35;
-  group.add(exitSign);
+  // * The freestanding EXIT sign + post were removed entirely (run-5: "exit sign on
+  // * storerooms needs to be removed"). History: it originally lived on drivable
+  // * carpet with a collider and wedged carts (playtest 2026-07-15), was demoted to
+  // * background dressing past the floor edge, and never earned its keep.
 
   // Faded painted arrows on the carpet edge band (away from the EXIT hole).
   const arrowCanvas = document.createElement("canvas");
@@ -3262,10 +3205,13 @@ function buildSuctionHazardRings() {
 
         float glow = band * (spiral * 0.6 + counter + 0.07) * breathe;
 
-        // * Deep violet base → hot magenta-red crest, same hazard family as before
-        // * but dimmer overall (the motion carries the signal now).
-        vec3 col = mix(vec3(0.30, 0.02, 0.22), vec3(1.0, 0.16, 0.33), spiral);
-        gl_FragColor = vec4(col * glow, glow * 0.5);
+        // * Run-5: the magenta-red hazard read off-palette for the Storerooms (its
+        // * world is sodium fluorescents / sickly green / olive carpet — no rave
+        // * neon). Recolored into that family: dim sickly-olive base → hot sodium
+        // * amber crest, and the whole effect pulled ~20% softer — the motion still
+        // * carries the danger signal.
+        vec3 col = mix(vec3(0.14, 0.12, 0.03), vec3(1.0, 0.62, 0.18), spiral);
+        gl_FragColor = vec4(col * glow * 0.85, glow * 0.4);
       }
     `,
   });

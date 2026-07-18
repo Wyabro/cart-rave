@@ -426,10 +426,15 @@ function dismissModeEntryLoading() {
       return;
     }
 
+    // * Run-5 "loading → level is rough": the old cadence (exit at 180ms, opacity
+    // * fade only after a further FADE_MS) left a dead, panel-less dark overlay on
+    // * screen for ~400ms. Overlap instead — the panel slap-exit starts almost
+    // * immediately and the whole-overlay fade begins mid-slap, so the level
+    // * resolves in continuous motion (~540ms total instead of ~860ms).
     window.setTimeout(() => {
       modeOverlayEl.classList.add("cr-load--exit");
-      window.setTimeout(finish, FADE_MS);
-    }, 180);
+      window.setTimeout(finish, 160);
+    }, 120);
   });
 }
 

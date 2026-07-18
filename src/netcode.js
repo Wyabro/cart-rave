@@ -260,6 +260,9 @@ let callbacks = {
   triggerLocalHitTakenRef: (_intensity, _isBoosting, _hitFromX, _hitFromZ) => {},
   // * Remote-cart boost start (rising edge from host snapshots) — attenuated SFX + pulse.
   onRemoteBoostStart: (cart) => {},
+  // * Local-cart death teardown on the NON-host fall path (run-5: charge loop kept
+  // * repeating after death — host-side scheduleRespawn stops it, this path must too).
+  stopChargeSfxForCart: (cart) => {},
   // * Impact squash replay — (rammerCart|null, victimCart, intensity) per collision event.
   onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {},
   playFloorImpactRef: (intensity) => {},
@@ -367,6 +370,7 @@ export function registerGameCallbacks(deps) {
       deps.getTriggerLocalHitTaken?.()?.(intensity, isBoosting, hitFromX, hitFromZ);
     },
     onRemoteBoostStart: (cart) => deps.onRemoteBoostStart?.(cart),
+    stopChargeSfxForCart: (cart) => deps.stopChargeSfxForCart?.(cart),
     onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {
       deps.onCartImpactSquash?.(rammerCart, victimCart, intensity);
     },
@@ -483,6 +487,9 @@ function resetNetFlowStats() {
 
 function noteSnapshotArrival() {
   const nowMs = performance.now();
+  // * Direct-join paths reach the first snapshot without a prediction reset — anchor the
+  // * stats window on first arrival so flow.windowMs is honest (run-5 bundles showed 0).
+  if (netFlowStats.startedMs === 0) netFlowStats.startedMs = nowMs;
   if (netFlowStats.lastArriveMs > 0) {
     const gap = nowMs - netFlowStats.lastArriveMs;
     netFlowStats.gapCount += 1;
@@ -1188,8 +1195,13 @@ function processHostFallEvent(msg) {
 
   // * The death sting lives in the host-only scheduleRespawn path (main.js), gated to the
   // * host's own cart — so a non-host's own death was silent (run-4 playtest). Mirror the
-  // * same own-cart-only rule here off the wire fall record.
-  if (slotIdx != null && slotIdx === localSlotIdx) playSfx("death");
+  // * same own-cart-only rule here off the wire fall record. Run-5: also mirror the charge
+  // * teardown — dying with nitro held never fires onBoostRelease, so the chargeUp loop
+  // * kept repeating until the round-boundary sweep.
+  if (slotIdx != null && slotIdx === localSlotIdx) {
+    callbacks.stopChargeSfxForCart(getAllCarts()?.[slotIdx] ?? null);
+    playSfx("death");
+  }
 }
 
 /** Last hostSendTick wall time — the setInterval burst-coalescing guard reads this. */

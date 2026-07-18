@@ -23,6 +23,7 @@ import { getQualityTier } from "./qualityMode.js";
 /**
  * @typedef {object} QualityKnobs
  * @property {number} pixelRatioCap Max devicePixelRatio the renderer honors.
+ * @property {number} renderScale Sub-native drawing-buffer scale (multiplies the capped DPR; 1 = native).
  * @property {boolean} postFx Bloom + arcade/VHS passes allowed (user Post-FX toggle still wins).
  * @property {boolean} fxaa FXAA pass enabled (ignored when pixelRatio is already ≥1.75 — AA from pixels).
  * @property {boolean} composerBypass Skip EffectComposer entirely and render direct (all passes off).
@@ -41,6 +42,11 @@ import { getQualityTier } from "./qualityMode.js";
 export const QUALITY_KNOBS = {
   low: {
     pixelRatioCap: 1,
+    // * Run-5: an Intel UHD host at LOW/DPR-1 still spent 54% of frames >33ms rendering
+    // * ~1910×915 native — LOW's floor was native resolution. Sub-native render scale is
+    // * the biggest remaining GPU lever: 0.75² ≈ 44% fewer fragments; the canvas is
+    // * upscaled by the browser (CSS size unchanged). Medium/high stay native.
+    renderScale: 0.75,
     postFx: false,
     fxaa: false,
     composerBypass: true,
@@ -59,6 +65,7 @@ export const QUALITY_KNOBS = {
     // * iGPU default tier (gpuCaps → unknown). 1.25² vs 1.5² is ~30% fewer fragments
     // * across the whole composer stack while still looking sharp on 1080p laptops.
     pixelRatioCap: 1.25,
+    renderScale: 1,
     postFx: true,
     fxaa: true,
     composerBypass: false,
@@ -76,6 +83,7 @@ export const QUALITY_KNOBS = {
   },
   high: {
     pixelRatioCap: 2,
+    renderScale: 1,
     postFx: true,
     // * Applied only when DPR < 1.75 — see applyComposerQualityTier (FXAA at DPR 2 is wasted).
     fxaa: true,

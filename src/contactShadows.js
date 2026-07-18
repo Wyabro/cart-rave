@@ -268,9 +268,13 @@ function createBlobMesh(options = {}) {
     // * polygonOffset biases the blob's own depth a few quanta toward the camera —
     // * decisively wins vs the coplanar floor while real occluders (carts, walls,
     // * platforms) still sit far closer in depth and keep occluding correctly.
+    // * Run-5: patches still dropped out over sloped chamfers and raised floor decor
+    // * at long view distances (-2/-4 was under the quantum there) — factor -4 covers
+    // * the slope term, units -32 is still centimeters-equivalent at 100m, far less
+    // * than any real occluder's separation.
     polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -4,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -32,
     toneMapped: false,
     side: THREE.DoubleSide,
   });

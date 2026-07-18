@@ -136,13 +136,13 @@ export function playKillConfirm() {
   const p = resolvePlayback();
   if (!p) return;
   const { ctx, dest, vol, now } = p;
-  const g = 0.16 * vol;
+  // * Run-5: "kill confirm could use a subtle sound effect" — it HAD one, but 0.16×vol
+  // * disappeared under music/crowd at real-world SFX sliders (~0.2). Louder and cleaner:
+  // * gain up ~2×, square body dropped (it read as fizz, not punch at low volume).
+  const g = 0.3 * vol;
   // * Lead: triangle sweep up, then a higher confirm blip overlapping its tail.
   spawnTone(ctx, dest, "triangle", 880, 1175, 0.06, g, now);
   spawnTone(ctx, dest, "triangle", 1320, 1320, 0.07, g, now + 0.055);
-  // * Body: square layer one octave down at half the lead's gain.
-  spawnTone(ctx, dest, "square", 440, 587.5, 0.06, g * 0.5, now);
-  spawnTone(ctx, dest, "square", 660, 660, 0.07, g * 0.5, now + 0.055);
 }
 
 // * Victory fanfare, defeat sting, and Sudden Death tension hit moved to
