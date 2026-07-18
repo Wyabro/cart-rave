@@ -84,7 +84,9 @@ print or toggle their URL flags but does not absorb their APIs.
 ## What `__ccDiag` gives you (the framework core)
 
 - **Probes** (`__ccDiag.snapshot()`): `net` (pendingInputs count/age — sampling-starved vs
-  unacked —, connectionState, ack/dead flags, arena-rotation + menu gates), `audio`
+  unacked —, connectionState, ack/dead flags, arena-rotation + menu gates, plus `axisWired`
+  = is the input-axis ref live [`false` = the 07-17 menu-return input freeze] and
+  `migFreezeRemMs` = host-migration freeze window remaining), `audio`
   (AudioContext state, mute, volumes, music playing, drop-in splash registered),
   plus `round, score, announcer, directive, camera, boot,
   ai, unlocks, challenges, config, perf, resources, runtime`. Notables:

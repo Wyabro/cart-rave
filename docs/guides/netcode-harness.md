@@ -32,6 +32,13 @@ The default scenario (`spawnlock`) is the "non-host cart can't leave spawn" repo
 reaches a running round, joiner joins mid-round and seats into an ex-NPC slot, then the rig
 holds forward and asserts the joiner's cart leaves spawn.
 
+> **Coverage gap (07-18):** every scenario joins via a `?room=` URL, which skips the menu
+> teardown. That structurally hid the real 07-17 spawn-lock — `returnToMenu` nulls netcode's
+> input-axis ref and only boot re-wired it, so a human going solo → menu → join froze
+> (fixed in `dabdb6b` via `wireNetcodeRuntimeRefs()` on every `ensureSessionCartsReady`).
+> A menu-teardown-before-join scenario is the open follow-up; until it lands, this class is
+> not regression-covered here.
+
 Opt-in scenarios (`--scenario <name>`): **`mpIntegration`** — the netcode↔gameplay seam
 (roles, joiner drive, score sync, same winner both clients, victory/defeat PA, quickplay
 rematch, zero sim errors); **`hostMigration`** — clean host departure (survivor promoted,
