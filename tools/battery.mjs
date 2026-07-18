@@ -47,6 +47,7 @@ const STEPS = [
   { name: "spawnlock", cmd: ["node", "tools/netharness.mjs", "--scenario", "spawnlock"], urlArg: true, note: "2-client: joiner drives off spawn (NET-2 probe)" },
   { name: "mpIntegration", cmd: ["node", "tools/netharness.mjs", "--scenario", "mpIntegration"], urlArg: true, note: "2-client: netcode↔gameplay seam" },
   { name: "hostMigration", cmd: ["node", "tools/netharness.mjs", "--scenario", "hostMigration"], urlArg: true, note: "2-client: clean host departure" },
+  { name: "teardownRejoin", cmd: ["node", "tools/netharness.mjs", "--scenario", "teardownRejoin"], urlArg: true, note: "2-client: menu-return teardown before rejoin (07-17 axis-unwire freeze)" },
   { name: "visual", cmd: ["node", "tools/blackframes.mjs", "--shot", "classic", "--frames", "30"], optIn: "visual", note: "black-frame battery (qa:visual)" },
   { name: "qa", cmd: ["npm", "run", "qa"], optIn: "qa", note: "typecheck + vitest + knip" },
 ];

@@ -15,6 +15,7 @@ import { commandFail, commandOk } from "./commandRegistry.js";
  * @property {() => void} sendHostRound
  * @property {(level: string, n: number) => void} grantKos
  * @property {number} roundDurationMs
+ * @property {(reason?: string) => void} [returnToMenu]  Non-host session teardown → menu (07-17 freeze repro).
  */
 
 /**
@@ -120,6 +121,23 @@ export function createDevControl(deps) {
       // * The normal timer-expiry path enters Sudden Death; this never sets the flag directly.
       deps.sendHostRound();
       return commandOk("Sudden Death setup armed: tied leaders with about 10 seconds left.");
+    },
+
+    /**
+     * Drives the real returnToMenu teardown so a 2-client harness can reproduce the 07-17
+     * non-host input freeze: teardown runs clearNetcodeRuntimeRefs (nulls netcode's getAxisRef),
+     * and only re-entering a session (ensureSessionCartsReady → wireNetcodeRuntimeRefs) re-wires
+     * it. Unlike the round levers this is deliberately NOT host-gated — the freeze only bit
+     * non-host clients, so the repro must run on the joiner. See tools/netharness.mjs
+     * (scenario teardownRejoin).
+     * @param {string} [reason]
+     */
+    returnToMenu(reason = "esc") {
+      if (typeof deps.returnToMenu !== "function") {
+        return commandFail("unknown", "returnToMenu is not wired in this build.");
+      }
+      deps.returnToMenu(String(reason));
+      return commandOk(`Returned to menu (reason: ${reason}).`);
     },
   };
 }

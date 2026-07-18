@@ -12,6 +12,7 @@
  *   node tools/netharness.mjs --headed        # visible browser (debug / if headless WebRTC flaky)
  *   node tools/netharness.mjs --url http://127.0.0.1:3000/   # reuse already-running dev stack
  *   node tools/netharness.mjs --scenario spawnlock           # (default) mid-round joiner drives
+ *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)
  *
  * Requires: Playwright Chromium (`npx playwright install chromium`).
  * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error.
@@ -640,6 +641,141 @@ async function scenarioHostMigration(browserHost, browserJoiner, baseUrl) {
   await joiner.context.close();
 }
 
+/**
+ * Scenario: menu teardown BEFORE a mid-round join — the door every other scenario skipped.
+ *
+ * The 07-17 non-host input freeze (dabdb6b): `returnToMenu` → `clearNetcodeRuntimeRefs` nulls
+ * netcode's `getAxisRef`, so `sampleLocalInputForTick` becomes a permanent no-op, and only
+ * re-entering a session (`ensureSessionCartsReady` → `wireNetcodeRuntimeRefs`) re-wires it. The
+ * bug was invisible to spawnlock/mpIntegration/hostMigration because they all join straight from
+ * a `?room=` URL and never exercise the menu-return teardown. Here the seated joiner returns to
+ * the menu (the real path, via the diag control lever), re-joins the SAME quickplay room, and
+ * must still drive: cart leaves spawn AND inputs are sampled+queued (pendingInputs > 0). The F8
+ * `net` probe's `axisWired` is asserted across all three states — wired → unwired → re-wired —
+ * so the assertion pins the exact root cause, not just a symptom. Pre-fix, re-entry left the axis
+ * null and every check after the teardown fails.
+ */
+async function scenarioTeardownRejoin(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] teardownRejoin — joiner returns to menu, re-joins, must still drive (07-17 axis-unwire freeze)");
+  const mark = results.length;
+  const readNet = () => window.__ccDiag.snapshot("net");
+
+  // 1. Host reaches a running round (quickplay fills with NPCs). Host needs no diag hooks.
+  const host = await makeClient(browserHost, { username: "TrHost", baseUrl, label: "host" });
+  await waitForState(host.page, (s) => s.phase === "running" && s.localSlotIndex >= 0, {
+    timeout: 40_000,
+    label: "host-running",
+  });
+  console.log("[scenario] host is running");
+
+  // 2. Joiner connects mid-round and seats, snapshots flow, cold-load settles (spawnlock bring-up).
+  //    diag:true so the F8 `net` probe (axisWired / pendingInputs) and control lever are available.
+  const joiner = await makeClient(browserJoiner, { username: "TrJoin", baseUrl, label: "joiner", diag: true });
+  const seated = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0 && s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 40_000, label: "joiner-seated" },
+  );
+  check("joiner is a non-host client", seated.isHost === false, `isHost=${seated.isHost}`);
+  const snap0 = seated.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap0 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop-1" });
+
+  // 3. Baseline: a fresh URL-join wires the input axis (the control the old scenarios stopped at).
+  const net0 = await joiner.page.evaluate(readNet);
+  console.log(`[scenario] first join — axisWired=${net0.axisWired} pendingInputs=${net0.pendingInputs}`);
+  check("input axis wired on first join", net0.axisWired === true, `axisWired=${net0.axisWired}`);
+
+  // 4. Teardown: the joiner returns to the menu via the real path (clearNetcodeRuntimeRefs nulls
+  //    getAxisRef). Confirm the axis actually goes unwired — otherwise the rest proves nothing.
+  const left = await joiner.page.evaluate(() => window.__ccDiag.control?.returnToMenu?.("esc") ?? false);
+  check("joiner returnToMenu lever applied", left?.ok === true, left?.message ?? String(left));
+  const unwired = await pollDiag(joiner.page, readNet, (n) => n && n.axisWired === false, {
+    timeout: 8_000,
+    label: "joiner-axis-unwired",
+  }).catch(() => null);
+  check(
+    "teardown unwires the input axis (root cause reproduced)",
+    unwired?.axisWired === false,
+    `axisWired=${unwired?.axisWired}`,
+  );
+
+  // 5. Re-enter: start quickplay again → rejoin the SAME room the host still holds. This is the
+  //    dispatch the menu button fires; it re-adds ?room=quickplay and runs the full play entry.
+  console.log("[scenario] joiner re-entering quickplay…");
+  await joiner.page.evaluate(() =>
+    window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "quickplay" } })),
+  );
+  const reseated = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0 && s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 45_000, label: "joiner-reseated" },
+  );
+  check("joiner re-seats as a non-host client after rejoin", reseated.isHost === false, `isHost=${reseated.isHost}`);
+  const snap1 = reseated.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap1 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots-2",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop-2" });
+
+  // 6. THE fix assertion: re-entry must re-wire the input axis (ensureSessionCartsReady →
+  //    wireNetcodeRuntimeRefs). Pre-dabdb6b this stayed false and the cart froze for the session.
+  const netRe = await pollDiag(joiner.page, readNet, (n) => n && n.axisWired === true, {
+    timeout: 8_000,
+    label: "joiner-axis-rewired",
+  }).catch(() => joiner.page.evaluate(readNet));
+  check("re-entry re-wires the input axis", netRe?.axisWired === true, `axisWired=${netRe?.axisWired}`);
+
+  // 7. Drive: hold forward and assert both the effect (cart leaves spawn) AND the mechanism
+  //    (inputs are sampled + queued, pendingInputs > 0). With the axis unwired both stay at zero.
+  await sleep(1000);
+  const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+  await holdKey(joiner.page, "KeyW");
+  await sleep(250);
+  const probe = await joiner.page.evaluate(readNet);
+  console.log(`[scenario] after keydown — pendingInputs=${probe.pendingInputs} axisWired=${probe.axisWired}`);
+  let maxDisp = 0;
+  let maxPending = typeof probe.pendingInputs === "number" ? probe.pendingInputs : 0;
+  const t0 = Date.now();
+  while (Date.now() - t0 < 3500) {
+    // eslint-disable-next-line no-await-in-loop
+    const now = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    if (now && before) maxDisp = Math.max(maxDisp, Math.hypot(now.x - before.x, now.z - before.z));
+    // eslint-disable-next-line no-await-in-loop
+    const n = await joiner.page.evaluate(readNet);
+    if (n && typeof n.pendingInputs === "number") maxPending = Math.max(maxPending, n.pendingInputs);
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(100);
+  }
+  await releaseKey(joiner.page, "KeyW");
+  const after = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+  const dispSelf = after && before ? Math.hypot(after.x - before.x, after.z - before.z) : 0;
+  console.log(
+    `[scenario] post-rejoin drive — peak ${maxDisp.toFixed(2)}m, final ${dispSelf.toFixed(2)}m, maxPending ${maxPending}`,
+  );
+
+  check(
+    "joiner cart moves off spawn after menu→rejoin",
+    maxDisp > 0.5,
+    `peak displacement ${maxDisp.toFixed(2)}m (need > 0.5m)`,
+  );
+  check(
+    "joiner input is sampled + queued after rejoin (pendingInputs > 0)",
+    maxPending > 0,
+    `peak pendingInputs ${maxPending} (need > 0)`,
+  );
+
+  if (results.slice(mark).some((r) => !r.pass)) {
+    await dumpFailureBundle(joiner.page, { scenario: "teardownRejoin", label: "joiner", log: nlog });
+  }
+  await joiner.context.close();
+  await host.context.close();
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = str(args.url) || `http://127.0.0.1:${CLIENT_PORT}/`;
@@ -669,6 +805,7 @@ async function main() {
     spawnlock: scenarioSpawnLock,
     mpIntegration: scenarioMpIntegration,
     hostMigration: scenarioHostMigration,
+    teardownRejoin: scenarioTeardownRejoin,
   };
   const run = SCENARIOS[scenario];
   if (!run) {

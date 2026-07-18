@@ -1444,6 +1444,9 @@ async function main() {
         sendHostRound: () => Netcode.sendHostRound(),
         grantKos: (level, n) => unlockStore.getState().recordKillOnLevel(level, n),
         roundDurationMs: CONFIG.round.durationMs,
+        // * Non-host session teardown lever — drives the real menu-return path so the
+        // * netharness teardownRejoin scenario can reproduce the 07-17 axis-unwire freeze.
+        returnToMenu: (reason) => gameSession.returnToMenu({ reason }),
       });
       const getDevStatus = () => {
         const state = GameState.getRoundState();
