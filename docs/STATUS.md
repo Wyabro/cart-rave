@@ -34,8 +34,8 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **444 tests / 49 files**, typecheck + knip clean (verified 2026-07-17) |
 | Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness 41/41 · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-17; the mpIntegration `{ok}`-contract regression that read as a flake is now fixed — see log) |
-| Origin HEAD | Local ↔ origin/cart-clash in sync; today's session stack pushed **and deployed to prod** (Developer panel + pizazz / rematch-grace / harness / docs — SHAs in the push-state note) |
-| Prod deploy (2026-07-17) | ✅ Live at cart-rave.wyabro.workers.dev — **build stamp `88e0a9e`** (verified in the served bundle), Version `7aea00a0`; analytics DO (`AnalyticsLog`, migration v3) bound, `POST /api/analytics` → 204. No new migration this deploy (v3 already applied) |
+| Origin HEAD | Local ↔ origin/cart-clash in sync at `25c1dd9` — 07-17 playtest triage stack (`5b254aa` code + `6ed9f24` triage doc + `25c1dd9` backlog) pushed **and deployed to prod** |
+| Prod deploy (2026-07-17 evening) | ✅ Live at cart-rave.wyabro.workers.dev — **build stamp `25c1dd9`** (verified in the served bundle `index-CcKW3pnM.js`), Version `4a9df430`; Worker redeployed with the shared `COUNTDOWN_MS` (server game_start now 4.5 s). No new DO migration. Note: the edge can serve a stale cached index.html for a bit right after deploy — verify with a cache-buster |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -157,6 +157,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+> **Push-state note (2026-07-17 evening, updated):** the 07-17 playtest-triage stack
+> (`5b254aa` + `6ed9f24` + `25c1dd9`) is **pushed and deployed** — prod build stamp `25c1dd9`,
+> Version `4a9df430`, verified in the served bundle. The playtest console artifact is refreshed
+> for run 2 (fresh v5 sheet, CHANGED hints, F8-on-both-machines instructions). Earlier note kept
+> below for history:
+>
 > **Push-state note (2026-07-17, updated):** the full session stack is **pushed** to
 > origin/cart-clash (local ↔ origin in sync) **and deployed to prod** at build stamp `88e0a9e`:
 > Developer panel (`ff4f0ab`) → FRONTIER/26 pizazz (`d42b47e`) → rematch-grace lifecycle
