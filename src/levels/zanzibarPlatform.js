@@ -423,6 +423,33 @@ function buildGrilleTexture() {
 }
 
 /**
+ * Radial soft-falloff texture for the sun disc and halos. The old flat-opacity
+ * additive circles rendered their geometry rims as visible rings once ACES + the
+ * arena exposure bump brightened the sky (07-17 run-2 photo: "circles behind the
+ * sun"), and the hard flat-bright disc fed the bloom pass a saturated plate whose
+ * separable blur streaks read as a cross flare. Gradient RGB multiplies the
+ * material color, so each layer keeps its authored tint.
+ *
+ * @param {Array<[number, string]>} stops createRadialGradient color stops.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildSoftDiscTexture(stops) {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const c = size / 2;
+  const grad = ctx.createRadialGradient(c, c, 0, c, c, c);
+  for (const [t, color] of stops) grad.addColorStop(t, color);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
  * Sunset gradient for the sky dome — deep indigo zenith → dusk magenta → ember horizon —
  * plus faint horizon haze bands, sparse high stars, and one fading jet contrail.
  * @returns {THREE.CanvasTexture}
@@ -955,21 +982,47 @@ function buildSeascape(scene, circumR) {
   const sunPos = sunDir.clone().multiplyScalar(SUN_DISTANCE);
   sunPos.y = SUN_HEIGHT;
 
-  const sunGeo = new THREE.CircleGeometry(30, 40);
-  const sunMat = new THREE.MeshBasicMaterial({ color: 0xffe0b0, fog: false });
+  // * Soft-limbed disc: white-hot core melting to transparent, so the bloom pass sees
+  // * a falloff instead of a saturated hard-edged plate (the run-2 cross flare).
+  const sunTex = buildSoftDiscTexture([
+    [0.0, "#ffffff"],
+    [0.62, "#fff2d8"],
+    [0.78, "rgba(255,224,165,0.6)"],
+    [1.0, "rgba(255,200,120,0)"],
+  ]);
+  const sunGeo = new THREE.CircleGeometry(34, 40);
+  const sunMat = new THREE.MeshBasicMaterial({
+    color: 0xffe0b0,
+    map: sunTex,
+    transparent: true,
+    fog: false,
+    depthWrite: false,
+  });
   const sun = new THREE.Mesh(sunGeo, sunMat);
   sun.position.copy(sunPos);
   sun.lookAt(0, SUN_HEIGHT, 0);
   group.add(sun);
   ownedGeometries.push(sunGeo);
   ownedMaterials.push(sunMat);
+  ownedTextures.push(sunTex);
 
-  // * Soft multi-halo — mood over sharpness (large dim outer + hot inner).
+  // * Soft multi-halo — mood over sharpness (large dim outer + hot inner). Shared
+  // * white-falloff texture; material color supplies each layer's tint. Peak opacity
+  // * sits slightly above the old flat values because the gradient only reaches it
+  // * at the center.
+  const haloTex = buildSoftDiscTexture([
+    [0.0, "rgba(255,255,255,1)"],
+    [0.4, "rgba(255,255,255,0.45)"],
+    [0.75, "rgba(255,255,255,0.12)"],
+    [1.0, "rgba(255,255,255,0)"],
+  ]);
+  ownedTextures.push(haloTex);
   const haloGeo = new THREE.CircleGeometry(72, 40);
   const haloMat = new THREE.MeshBasicMaterial({
     color: 0xff6a30,
+    map: haloTex,
     transparent: true,
-    opacity: 0.32,
+    opacity: 0.42,
     fog: false,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -984,8 +1037,9 @@ function buildSeascape(scene, circumR) {
   const outerHaloGeo = new THREE.CircleGeometry(120, 32);
   const outerHaloMat = new THREE.MeshBasicMaterial({
     color: 0xff4a18,
+    map: haloTex,
     transparent: true,
-    opacity: 0.12,
+    opacity: 0.18,
     fog: false,
     depthWrite: false,
     blending: THREE.AdditiveBlending,

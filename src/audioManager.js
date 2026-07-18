@@ -618,6 +618,24 @@ export function hasSfx(key) {
   return Boolean(sfxRegistry[key]);
 }
 
+/**
+ * Read-only audio state for the diag "audio" probe — enough to answer "why was
+ * that sound silent" from an F8 bundle: a suspended AudioContext, mute, a slider
+ * at zero, or a drop-in asset that never registered.
+ * @returns {Record<string, unknown>}
+ */
+export function getAudioDebugState() {
+  return {
+    ctxState: Howler.ctx?.state ?? null,
+    muted: _isMuted,
+    musicVol: Math.round(_musicVol * 1000) / 1000,
+    sfxVol: Math.round(_sfxVol * 1000) / 1000,
+    gameMusicPlaying: isGameMusicPlaying(),
+    registeredSfxCount: Object.keys(sfxRegistry).length,
+    waterSplashRegistered: Boolean(sfxRegistry.waterSplash),
+  };
+}
+
 export function registerSfx(key, src, options = {}) {
   if (sfxRegistry[key]) {
     try { sfxRegistry[key].unload(); } catch {}

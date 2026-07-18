@@ -14,6 +14,8 @@ let _npcCache = null;
 let _npcCacheKey = null;
 /** @type {number} */
 let lastReconciledSnapSeq = -1;
+/** Rate limiter for perf/longframe diag events (ms timestamp of last record). */
+let _lastLongFrameLogMs = 0;
 
 /**
  * Resets the client reconciliation sequence gate.
@@ -549,6 +551,14 @@ export function runGameLoop(loopState, callbacks) {
         if (dt > d.maxDt) d.maxDt = dt;
         if (isResume) d.resumeZeroed += 1;
         else if (overGap) d.chronicSlow = (d.chronicSlow || 0) + 1;
+        // * Hitch forensics: individual long frames land in the diag event ring with
+        // * timestamps, so an F8 bundle shows WHEN the hitches hit relative to KOs,
+        // * announcer lines, and boot phases — maxDt alone can't. Rate-limited so a
+        // * hitch storm can't flush the ring.
+        if (dt > 0.1 && now - _lastLongFrameLogMs > 500) {
+          _lastLongFrameLogMs = now;
+          recordDiagEvent("perf", "longframe", { dtMs: Math.round(dt * 1000), resume: isResume });
+        }
       }
       if (isResume) {
         // * Resume from a pause/throttle (tab hidden, window occluded/unfocused, long GC).

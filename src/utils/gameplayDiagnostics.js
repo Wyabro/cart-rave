@@ -31,7 +31,8 @@ import { snapshotMatchStats } from "../scoring/matchStats.js";
 import { getAnnouncerDebugState } from "../announcer/announcerManager.js";
 import { getActiveDirective } from "../directives/directiveEngine.js";
 import { getCameraMode } from "../camera.js";
-import { getIsHost, getPendingInputs, getLatestSnap } from "../netcode.js";
+import { getIsHost, getPendingInputs, getLatestSnap, getConnectionState } from "../netcode.js";
+import { getAudioDebugState } from "../audioManager.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "../roundClock.js";
 import { CONFIG } from "../config.js";
@@ -99,6 +100,10 @@ function registerProbes(deps) {
 
   registerDiagProbe("announcer", () => getAnnouncerDebugState());
 
+  // * Added alongside the net probe (07-17 run 2): "the splash isn't audible" class
+  // * of reports needs the audio stack's actual state in the bundle, not a guess.
+  registerDiagProbe("audio", () => getAudioDebugState());
+
   registerDiagProbe("directive", () => {
     const d = getActiveDirective();
     return d ? { id: d.id, ...serializeShallow(d) } : null;
@@ -116,6 +121,7 @@ function registerProbes(deps) {
     const oldest = pending.length > 0 ? pending[0] : null;
     return {
       isHost: getIsHost(),
+      connectionState: getConnectionState(),
       pendingInputs: pending.length,
       pendingNewestSeq: pending.length > 0 ? pending[pending.length - 1].seq : null,
       pendingOldestAgeMs:
