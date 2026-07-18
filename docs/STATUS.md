@@ -24,7 +24,7 @@ Ship **Cart Clash** Version 2: a polished solo-first 4-player shopping-cart phys
 stay `cart-rave` until domain cutover. Prefer evidence (screenshots, black-pixel samples,
 two-browser smokes) over vibes for graphics and multiplayer gates.
 
-## Project health — 2026-07-17 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
+## Project health — 2026-07-18 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
 
 **Green gates, deployed, ready for the playtest checkpoint.** Implementation is ahead of
 validation. Single biggest V2 risk: **NET-1 two-browser full-round smoke never closed by a
@@ -32,9 +32,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ **444 tests / 49 files**, typecheck + knip clean (verified 2026-07-17) |
-| Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness 41/41 · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-17; the mpIntegration `{ok}`-contract regression that read as a flake is now fixed — see log) |
-| Origin HEAD | Local ↔ origin/cart-clash in sync at `25c1dd9` — 07-17 playtest triage stack (`5b254aa` code + `6ed9f24` triage doc + `25c1dd9` backlog) pushed **and deployed to prod** |
+| Gates (`npm run qa`) | ✅ **444 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-3 fixes) |
+| Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
+| Origin HEAD | Local ↔ origin/cart-clash in sync at `dabdb6b` — **07-17 run-3 triage fixes pushed, ⚠️ NOT YET DEPLOYED** (`npm run ship` needed before the next 2-PC playtest; prod still serves stamp `25891a7` / Version `10cfd8fd`, which still has the non-host input freeze) |
 | Prod deploy (2026-07-17 late) | ✅ Live at cart-rave.wyabro.workers.dev — **build stamp `25891a7`** (verified in served bundle `index-QNvXlOSX.js`), Version `10cfd8fd`; includes run-2 triage (`369083e`: 1.2s countdown digits, Sundial exposure 1.32, env session-cache + composer warm, net/audio/longframe F8 probes) + sun rework and the recorded splash (`water-splash.opus` confirmed served as audio/ogg, so the drop-in registration fires in prod). No new DO migration. Edge may serve stale index.html briefly post-deploy — verify with a cache-buster |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
@@ -71,7 +71,7 @@ and bug/balance/fun templates. The queue below maps to Session 1; NET-1 to Sessi
 2. **Pass 4 (gameplay/AI)** — stall-free bots on all 3 arenas, edge-camper follow, visible podium contest, ram-SFX dynamic range.
 3. **Pass 5 (VFX/audio)** — spill juice, debris personality, Defeat screen, first-blood escalation, victory audio; aesthetic sign-off.
 4. ~~**Bloom A/B**~~ ✅ **RESOLVED (07-17)** — display-referred byte bloom is already the all-arena default (`adea4bf`); VFX-1 closed. Optional taste pass only: real-HW `?blackmon=1` on Classic/Sundial to tune the neon knobs.
-5. **07-17 run-3 checks (newest — run 2 validated 16/22)** — remaining eyes/ears items: **Sundial sun rework** (halo rings + cross flare fix, exposure 1.32 — taste call), **recorded splash** now live on water deaths, countdown at 1.2 s/digit, Sundial **second** load in a session should be much faster (first load still slowest — BOOT-PERF-1). MP: if the non-host spawn-lock recurs, **F8 on the locked machine** — the bundle's new `net` probe (plus `audio` + `perf/longframe`) decides the diagnosis; general hitching still wants F8 on BOTH machines. Full map + run-2 addendum: [planning/playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md).
+5. **07-18 run-4 checks (newest — run-3 notes triaged, all 4 "needs work" items fixed in `dabdb6b`)** — the big one: **MP as non-host after visiting a menu** (solo first, then quickplay — the exact broken flow; the spawn-lock root cause was `returnToMenu` killing the input-axis ref forever). Also: countdown at first join / rotation should show honest digits or straight GO (no stall-then-burst), cart glow rebalanced under ACES on all arenas (cyan/magenta/leader-white — taste call), Sundial sun −15% + the two "cross" line artifacts soft-blended, splash now pitch/gain-varied and quieter, contact shadows occluded by scenery/carts (trade-off: hidden under raised platforms). If the spawn-lock somehow recurs: F8 — the `net` probe now carries `axisWired` + `migFreezeRemMs`, the two gates the run-2 probe couldn't see. Full run-3 decode: [planning/playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md).
 6. **Ambience ear pass round 2 (07-16, after `15e13fa`)** — round 1 verdicts applied (Storerooms presence rebuilt up-spectrum + louder; Sundial wash pulled down, wind/gulls forward). Re-check both; SD drone still unheard. Crowd: Wyatt is sourcing a premade clip — drop it in via `node scripts/ambience/loopify.mjs <clip> classic_crowd_bed` (+ a cheering take for `classic_crowd_hype`), see [reference/ambience.md](./reference/ambience.md).
 
 ### Next actions
