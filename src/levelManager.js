@@ -364,8 +364,11 @@ export function scheduleMenuLevelPreview() {
     if (levelId === loadedLevelId) return;
     const runPreview = () => { void previewMenuLevelIfNeeded(); };
     // * Run geometry swap on idle so picker taps never block the menu UI thread.
+    // * Run-6: timeout 900→2000 — the forced-at-900ms swap landed exactly while the
+    // * player was still clicking through the picker (the multi-second lobby stalls in
+    // * the captures); a longer leash waits for genuine idle far more often.
     if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(runPreview, { timeout: 900 });
+      requestIdleCallback(runPreview, { timeout: 2000 });
     } else {
       runPreview();
     }

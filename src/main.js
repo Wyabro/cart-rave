@@ -117,7 +117,7 @@ import { resolveLevelMusic } from "./music/levelMusic.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
-import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill } from "./directives/directiveEngine.js";
+import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy } from "./directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
@@ -504,6 +504,8 @@ let autoContinuePodiumKey = null;
  */
 let clientPodiumAutoContinueDeadlineMs = 0;
 /** Solo/testdrive ESC pause: round-clock freeze start (getRoundClockNowMs). */
+/** Renderer handle for the module-level idle warm (set once in main()). */
+let idleWarmRenderer = null;
 let soloPauseStartedAtMs = null;
 /** @type {number | null} Remaining countdown ms when ESC paused mid-countdown. */
 let soloPauseCountdownRemainingMs = null;
@@ -888,6 +890,7 @@ async function main() {
 
   // --- Renderer & scene ---
   const renderer = createRenderer(canvas);
+  idleWarmRenderer = renderer;
 
   // * WebGL context loss (iOS Safari reclaims contexts aggressively under memory
   // * pressure/backgrounding; previously the game just froze with no recovery path).
@@ -1144,7 +1147,7 @@ async function main() {
     triggerImpactPulse(0.4);
     hapticPulse(0.9, 0.6, 120);
     AudioManager.duckMusic(0.45, 600);
-    SfxSynth.playKillConfirm();
+    AudioManager.playSfx("killConfirm");
     hud?.showKillConfirm?.();
     if (koEvent?.reward) hud?.showScoreFloat?.(koEvent.reward, koEvent.cause);
   }
@@ -1365,6 +1368,10 @@ async function main() {
   AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_1", [soundUrl("countdown_1.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_go", [soundUrl("countdown_go.opus")], { pool: 1 });
+  // * Run-6: recorded hit-impact kill confirm (Wyatt-supplied). Rides the Howler bus —
+  // * the synth sting applied the SFX slider twice (listener gain × recipe vol) and
+  // * vanished at low sliders; file SFX apply it once.
+  AudioManager.registerSfx("killConfirm", [soundUrl("kill-confirm.opus")], { pool: 2 });
   // * Optional drop-in: a recorded Sundial splash replaces the synth splash when
   // * public/sounds/water-splash.opus exists. Registered only after a served-file
   // * check — Howler has no clean "missing asset" fallback, and dev's SPA fallback
@@ -1432,12 +1439,14 @@ async function main() {
   });
 
   let devControl = null;
-  if (import.meta.env.DEV) {
+  // * Run-6: control levers also attach in PROD when ?diag=1 is present — Wyatt needs
+  // * forceSuddenDeath/setScores on the live site to reproduce MP-only round-end bugs
+  // * (still host-gated + running-round-gated inside devControl). Trade-off accepted:
+  // * a player who adds ?diag=1 as quickplay host could cheat scores; revisit before
+  // * any public launch.
+  if (import.meta.env.DEV || diagUrlFlags().enabled) {
     try {
-      const [{ initPostFxDebugGui }, { createDevControl }] = await Promise.all([
-        import("./postFxDebug.js"),
-        import("./dev/devControl.js"),
-      ]);
+      const { createDevControl } = await import("./dev/devControl.js");
       devControl = createDevControl({
         getIsHost: () => Netcode.getIsHost(),
         getRoundState: () => GameState.getRoundState(),
@@ -1454,6 +1463,13 @@ async function main() {
         // * netharness teardownRejoin scenario can reproduce the 07-17 axis-unwire freeze.
         returnToMenu: (reason) => gameSession.returnToMenu({ reason }),
       });
+    } catch (error) {
+      console.warn("[CartClashDev] Dev control levers failed to initialize:", error);
+    }
+  }
+  if (import.meta.env.DEV) {
+    try {
+      const { initPostFxDebugGui } = await import("./postFxDebug.js");
       const getDevStatus = () => {
         const state = GameState.getRoundState();
         const adjustedNow = getRoundClockNowMs() - Netcode.getHostClockOffsetMs();
@@ -2044,6 +2060,7 @@ async function main() {
     detectGameMode,
     getCART_COLORS: () => CART_COLORS,
     getDefaultRoundMs: () => CONFIG.round.durationMs,
+    getHostStallMs: () => Netcode.getHostStallMs(),
     getCountdownMs: () => CONFIG.round.countdownMs,
     // * GO! moment — camera punch-in + whoosh as the countdown orbit hands back to follow.
     onGoMoment: () => {
@@ -2136,6 +2153,7 @@ async function main() {
     detectGameMode,
     getMenuVisible: () => menuVisible,
     commitMenuHiddenForGame,
+    stopMenuMusicForPlay: () => AudioManager.stopMenuMusic(),
     getLoadedLevelId: getCurrentLevelId,
     getSelectedLevelId: () => resolveLevelId(storageGet(LEVEL_STORAGE_KEY)),
     cancelMenuPreviewTimers,
@@ -4054,8 +4072,9 @@ async function main() {
   }
 
   // --- Round flow (countdown, podium, AI) ---
+  // * Mute gate only — synth recipes carry the slider themselves (see audioControls).
   if (audioListener && typeof audioListener.setMasterVolume === "function") {
-    audioListener.setMasterVolume(getIsMuted() ? 0 : getSfxVolume());
+    audioListener.setMasterVolume(getIsMuted() ? 0 : 1);
   }
 
   canvas.addEventListener("pointerdown", () => {
@@ -4262,10 +4281,15 @@ async function main() {
     // * Latch SD-at-end for the podium challenge block — endRound clears the live flag
     // * below (SD branch), so `sd_win` would otherwise never be creditable.
     lastRoundEndedInSuddenDeath = suddenDeathActive;
-    if (suddenDeathActive && lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
-      // * Sudden Death winner — first to score wins instantly.
+    if (suddenDeathActive) {
+      // * Sudden Death winner — first to score wins instantly. A null slot here is the
+      // * run-6 stalemate timeout: nobody forced a KO, resolve by the standard
+      // * most-recent-scoring-hit tiebreak instead of hanging forever.
       GameState.setRoundEndReason("timer");
-      GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
+      const sdWinner = lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)
+        ? lastStandingWinnerSlot
+        : GameState.pickTimerWinner(GameState.getRoundScores());
+      GameState.setRoundWinnerSlotIndex(sdWinner);
       GameState.setSuddenDeath(false);
       cleanupSuddenDeathState(allCartsRef || []);
     } else if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
@@ -4371,6 +4395,9 @@ async function main() {
         if (state.phase === "countdown" && state.countdownStartedAtMs > 0) {
           GameState.setRoundCountdownStartedAtMs(state.countdownStartedAtMs + delta);
         }
+        // * Run-6: the PA directive window rides performance.now(), not the round
+        // * clock — shift it too or the chip drains/expires behind the Esc menu.
+        shiftDirectiveTimersBy(delta);
       }
     }
     if (soloPauseCountdownRemainingMs != null) {
@@ -4385,6 +4412,38 @@ async function main() {
       }
     }
   }
+
+  // * Run-6: host tab hidden freezes the sim (rAF stops) while the wall-clock round
+  // * timer keeps counting — non-hosts watch a frozen world with a live countdown, and
+  // * on return the host instantly fires timer-end/Sudden-Death for the whole hidden
+  // * gap. Shift the running anchor by the gap so the round resumes where it froze;
+  // * sendHostRound resyncs every client's HUD anchor (their local hold — see
+  // * getHostStallMs — hands off to the shifted anchor). Solo benefits identically.
+  let hostHiddenAtMs = null;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      const st = GameState.getRoundState();
+      if (
+        hostHiddenAtMs == null
+        && soloPauseStartedAtMs == null // Esc pause already owns the compensation
+        && Netcode.getIsHost()
+        && st.phase === "running"
+      ) {
+        hostHiddenAtMs = getRoundClockNowMs();
+      }
+      return;
+    }
+    if (hostHiddenAtMs == null) return;
+    const delta = getRoundClockNowMs() - hostHiddenAtMs;
+    hostHiddenAtMs = null;
+    if (!(delta > 0) || !Netcode.getIsHost()) return;
+    const state = GameState.getRoundState();
+    if (state.phase === "running" && state.startedAtMs > 0) {
+      GameState.setRoundStartedAtMs(state.startedAtMs + delta);
+      shiftDirectiveTimersBy(delta);
+      Netcode.sendHostRound();
+    }
+  });
 
   function currentCartSnapshot() {
     const carts = [];
@@ -4976,8 +5035,9 @@ async function main() {
   // * challenges + a bounded event log. Read surface works in prod builds (QA); the scenario
   // * control levers are DEV-only. Zero cost when the flag is absent. See tools/gameharness.mjs.
   if (diagUrlFlags().enabled) {
-    // * DEV-only scenario levers — each reuses an existing proven production path; never a new
-    // * mutation route, and never attached in a production build (players can't reach them).
+    // * Scenario levers — each reuses an existing proven production path; never a new
+    // * mutation route. Run-6: also attached in prod builds under ?diag=1 (host-gated;
+    // * see the devControl creation note) so live MP round-end bugs are reproducible.
     installDiagnostics({ flags: diagUrlFlags(), control: devControl });
     installGameplayDiagnostics({
       getCarts: () => allCartsRef,
@@ -5116,7 +5176,16 @@ function scheduleIdleWorldWarm() {
         if (menuVisible) scheduleMenuLevelPreview();
         // * Selected arena is now warm; fetch the other arena chunks in the background
         // * so the first menu arena switch never waits on a lazy import round-trip.
-        void prefetchLevelChunks();
+        // * Run-6: after the chunks land, also pre-bake the Sundial sunset env PMREM —
+        // * without it the first Zanzibar browse of a session pays the equirect→cubeUV
+        // * bake inside a synchronous multi-second stall (lobby longframe captures).
+        void prefetchLevelChunks().then(async () => {
+          if (!menuVisible || !idleWarmRenderer) return;
+          try {
+            const { warmSunsetEnv } = await import("./levels/zanzibarPlatform.js");
+            warmSunsetEnv(idleWarmRenderer);
+          } catch { /* warm-only — play entry bakes it lazily as before */ }
+        });
         // * Warm announcer voice clips in the background while the menu is idle —
         // * avoids ~1.7 MB network + tens of MB decoded PCM at boot (preload:false).
         AudioManager.prefetchSfxByPrefix("announcer_");

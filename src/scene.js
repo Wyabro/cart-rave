@@ -9,7 +9,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
-import { QUALITY_KNOBS, getQualityKnobs } from "./utils/qualityTiers.js";
+import { QUALITY_KNOBS, getQualityKnobs, getSessionRenderScaleMul } from "./utils/qualityTiers.js";
 import { setSessionQualityTier } from "./utils/qualityMode.js";
 import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils/gpuCaps.js";
 import { getDebugParams } from "./utils/debugParams.js";
@@ -810,7 +810,10 @@ export function createRenderer(canvas) {
     // * renderScale < 1 renders the drawing buffer sub-native and lets the browser upscale
     // * (CSS size unchanged) — LOW's last GPU lever after DPR 1 (run-5 Intel UHD host).
     const knobs = getQualityKnobs();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap) * (knobs.renderScale ?? 1));
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap)
+      * (knobs.renderScale ?? 1) * getSessionRenderScaleMul(),
+    );
   }
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(FOG_CONFIG.color, 1);
@@ -863,8 +866,10 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
   if (arcadePass) arcadePass.enabled = knobs.postFx && (userFx.fxPassEnabled ?? true);
   if (renderer) {
     // * knobs.renderScale (LOW 0.75) folds into the effective ratio so tier steps shrink
-    // * the drawing buffer below native too — see qualityTiers.js.
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap) * (knobs.renderScale ?? 1);
+    // * the drawing buffer below native too — see qualityTiers.js. The session mul is
+    // * the watchdog's below-LOW relief valve (run-6).
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap)
+      * (knobs.renderScale ?? 1) * getSessionRenderScaleMul();
     renderer.setPixelRatio(pixelRatio);
     if (composer) {
       // * EffectComposer caches its own _pixelRatio (from construction / the resize

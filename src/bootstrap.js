@@ -60,6 +60,8 @@ let lastPlayEntryWarm = false;
  * @property {() => boolean} getMenuVisible
  * @property {() => void} commitMenuHiddenForGame
  * @property {() => string} getLoadedLevelId
+ * @property {() => void} [stopMenuMusicForPlay] Synchronous menu-music stop at play
+ *   entry — must run before the deferred menu-hide (bleed race, run-6).
  * @property {() => string | null | undefined} [getSelectedLevelId]
  * @property {() => void} [cancelMenuPreviewTimers]
  * @property {() => Promise<void> | null | undefined} [getMenuLevelPreviewPromise]
@@ -294,6 +296,12 @@ export async function enterPlayMode(opts = {}) {
     ? d.getSelectedLevelId()
     : resolveSelectedLevelId(null));
   const commitMenuHidden = commitMenuHiddenOpt ?? (gameMode === "solo" || gameMode === "testdrive");
+
+  // * Run-6 bleed fix: the menu-music stop must NOT ride the 320ms visual deferral
+  // * below — that window is exactly the race a53f231 closed (late ctx.resume /
+  // * onload replays start the menu track before commitMenuHiddenForGame stops it).
+  // * Kill the music synchronously at the click; the deferral stays visual-only.
+  d.stopMenuMusicForPlay?.();
 
   // * Run-5 "attract → loading is rough": hiding the menu HERE hard-cut to a bare
   // * canvas frame before the overlay had faded in. Instead let the overlay fade in

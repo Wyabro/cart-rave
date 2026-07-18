@@ -119,7 +119,7 @@ const physics = {
       streakGlowOpacity: 0.55, // unitless — soft neon sheath
       streakCoreOpacity: 0.85, // unitless — hot filament
       streakSaturationMul: 1.35, // unitless — richer cart neon on trails
-      streakBrightnessMul: 1.05, // unitless — keep chroma (high L → white wash under bloom)
+      streakBrightnessMul: 0.95, // unitless — keep chroma (high L → white wash under bloom; run-6: 1.05 still washed white)
       streakSecondaryChance: 0.28, // unitless — occasional twin streak
       streakMaxActive: 80, // count — global streak cap (perf guard)
       streakPulseHz: 14, // Hz — shimmer on active streaks
@@ -165,10 +165,12 @@ const physics = {
         boostCooldownMs: 200, // ms — lockout after a released burst before charging again (near-instant re-charge per 07-17 playtest)
         burstImpulse: 28.0, // N·s — instantaneous forward impulse at release (× mass × multiplier)
         // * 3D charge telegraph — frame emissive ramps while holding charge (HUD bar is local-only).
-        glowPeakIntensityMul: 1.95, // unitless — emissive intensity at full charge vs idle
+        // * Run-6: peak + white-mix pulled down — the ready glow was reading white/hot
+        // * instead of the cart's own color under ACES + bloom.
+        glowPeakIntensityMul: 1.6, // unitless — emissive intensity at full charge vs idle
         glowReadyThreshold: 0.92, // unitless — charge01 above this gets a ready white-pulse
-        glowReadyWhiteMixMin: 0.08, // unitless — white mix floor when ready
-        glowReadyWhiteMixMax: 0.26, // unitless — white mix peak of ready pulse
+        glowReadyWhiteMixMin: 0.04, // unitless — white mix floor when ready
+        glowReadyWhiteMixMax: 0.12, // unitless — white mix peak of ready pulse
         glowReadyPulseHz: 6, // Hz — ready-state shimmer rate
       },
     },
@@ -435,6 +437,10 @@ export const CONFIG = {
     // * Shared with the server's podium plausibility cap — tune it in
     // * shared/roundConstants.js, never here alone (AGENTS.md invariant).
     durationMs: ROUND_DURATION_MS,
+    // * Run-6: Sudden Death stalemate cap — SD only ends on a resolving KO, so two
+    // * cagey drivers on a solid floor could circle forever (live MP capture). After
+    // * this window the host ends the round via the most-recent-scoring-hit tiebreak.
+    suddenDeathMaxMs: 45000, // ms — max SD length before tiebreak resolution
     // * 3…2…1…GO window; HUD digits hold countdownMs/3 each. Single-sourced with the
     // * server's game_start arming timer (shared/roundConstants.js).
     countdownMs: COUNTDOWN_MS, // ms — 3000 read as rushed in the 07-17 playtest
@@ -533,20 +539,15 @@ export const CONFIG = {
     floorEpsilon: 0.045,
     textureSize: 128,
     textureSoftness: 0.92, // outer gradient radius — higher = wider soft falloff
-    // * Visual-only directional bias (meters at ground level) — nudges cart blobs away
-    // * from the arena's key light for a subliminal depth cue. Only Zanzibar has a
-    // * strong directional sun (SUN_AZIMUTH = π·0.78 → sunDir ≈ (-0.77, 0.64)); the
-    // * overhead-lit arenas keep centered blobs. Scaled by the airborne fade factor.
-    directionalBias: {
-      zanzibar: { x: 0.27, z: -0.22 },
-    },
     cart: {
-      footprintRadiusX: 0.8, // meters — half cart width + caster margin (local X → world X at yaw 0)
-      footprintRadiusZ: 1.16, // meters — half cart length + margin (local Y → world Z at yaw 0)
+      // * Run-6 ruling (Wyatt): every cart gets the SAME flat circle, centered, pinned to
+      // * the arena floor — no ellipse, no height shrink, no per-arena light bias.
+      footprintRadiusX: 1.0, // meters — equal radii = a true circle
+      footprintRadiusZ: 1.0,
       opacity: 0.58,
       heightFadeStart: 0.3,
       heightFadeEnd: 4.8,
-      minAirborneScale: 0.55,
+      minAirborneScale: 1.0, // 1.0 = constant size regardless of height (opacity still fades)
     },
     static: {
       opacity: 0.44,

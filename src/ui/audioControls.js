@@ -58,10 +58,12 @@ export function syncAllAudioUi() {
   });
   const hud = deps.getHud();
   if (hud?.syncAudioControls) hud.syncAudioControls();
-  // * Keep Three.js listener gain in sync (procedural SFX uses audioListener.gain).
+  // * Listener gain is a MUTE GATE only (run-6): synth recipes already multiply by
+  // * getSfxVolume(), so also scaling the listener applied the slider twice
+  // * (quadratic — at slider 0.08 stings played at 0.6% amplitude, "inaudible").
   const audioListener = deps.getAudioListener();
   if (audioListener && typeof audioListener.setMasterVolume === "function") {
-    audioListener.setMasterVolume(isMuted ? 0 : sfxVolume);
+    audioListener.setMasterVolume(isMuted ? 0 : 1);
   }
   try { deps.getLeaderHum()?.resyncVolume?.(); } catch (e) {}
 }

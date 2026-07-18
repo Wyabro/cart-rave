@@ -8,7 +8,7 @@
 import { CONFIG } from "../config.js";
 import { clamp } from "../utils.js";
 import { updateViewport as updateSceneViewport } from "../scene.js";
-import { getQualityKnobs } from "../utils/qualityTiers.js";
+import { getQualityKnobs, getSessionRenderScaleMul } from "../utils/qualityTiers.js";
 
 /**
  * @param {{
@@ -59,7 +59,8 @@ export function createCameraFraming({
     // * exactly the machines the tier system exists to save. renderScale (LOW 0.75,
     // * sub-native buffer) folds in for the same reason — a resize must not undo it.
     const knobs = getQualityKnobs();
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap) * (knobs.renderScale ?? 1);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap)
+      * (knobs.renderScale ?? 1) * getSessionRenderScaleMul();
 
     // * visualViewport.resize can fire many times per URL-bar animation with the
     // * same window.inner* size. Re-running setSize/composer RT rebuilds every

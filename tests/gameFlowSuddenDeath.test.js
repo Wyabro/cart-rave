@@ -39,6 +39,7 @@ import {
   scoresAreTiedAtTop,
   hasHumanTiedAtTop,
   anyCartLooksSuddenDeathOutOfPlay,
+  resetSuddenDeathStalemateForTest,
 } from "../src/gameFlow.js";
 import { dispatchKOEvent } from "../src/scoring/koReactors.js";
 
@@ -483,5 +484,40 @@ describe("ensureSuddenDeathOnHostPromote (route 2: infer from clock + human tie)
     });
     expect(result).toBe("none");
     expect(setSuddenDeath).not.toHaveBeenCalled();
+  });
+});
+
+// * Run-6: SD only ends on a resolving KO — a live MP capture sat 24s past round
+// * expiry with two cagey drivers circling a solid floor forever. The stalemate cap
+// * ends the round via the standard tiebreak (endRound with no scorer).
+describe("sudden death stalemate cap", () => {
+  beforeEach(() => resetSuddenDeathStalemateForTest());
+
+  it("ends the round after suddenDeathMaxMs with no resolving KO", () => {
+    const { deps } = makeSuddenDeathWorld();
+    deps.CONFIG.round.suddenDeathMaxMs = 45000;
+    const t0 = 1_000_000;
+
+    updateGameFlow(deps, { now: performance.now(), dt: 16, loopState: {}, roundNowMs: t0 });
+    expect(deps.endRound).not.toHaveBeenCalled();
+
+    updateGameFlow(deps, { now: performance.now(), dt: 16, loopState: {}, roundNowMs: t0 + 44_000 });
+    expect(deps.endRound).not.toHaveBeenCalled();
+
+    updateGameFlow(deps, { now: performance.now(), dt: 16, loopState: {}, roundNowMs: t0 + 45_000 });
+    expect(deps.endRound).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not arm the cap outside Sudden Death", () => {
+    const { deps } = makeSuddenDeathWorld();
+    deps.getRoundState().isSuddenDeath = false;
+    deps.CONFIG.round.suddenDeathMaxMs = 45000;
+    // * Keep the timer un-expired so the normal end path stays quiet too.
+    deps.getRoundState().startedAtMs = 1_000_000;
+    const t0 = 1_000_100;
+
+    updateGameFlow(deps, { now: performance.now(), dt: 16, loopState: {}, roundNowMs: t0 });
+    updateGameFlow(deps, { now: performance.now(), dt: 16, loopState: {}, roundNowMs: t0 + 100_000 });
+    expect(deps.endRound).not.toHaveBeenCalled();
   });
 });

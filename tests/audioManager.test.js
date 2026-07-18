@@ -17,6 +17,7 @@ vi.mock("howler", () => {
       this._state = opts.preload === false ? "unloaded" : "loaded";
       this.loadCalls = 0;
       this.playCalls = 0;
+      this.fadeCalls = [];
       this.isPlaying = false;
       MockHowl.instances.push(this);
     }
@@ -33,15 +34,24 @@ vi.mock("howler", () => {
       // * that as a silent no-op.
       if (this._state !== "loaded") return null;
       this.isPlaying = true;
+      this.opts.onplay?.call(this);
       return 1;
     }
     stop() { this.isPlaying = false; return this; }
     pause() { this.isPlaying = false; return this; }
     playing() { return this.isPlaying; }
     volume() { return this; }
-    fade() { return this; }
+    fade(...args) { this.fadeCalls.push(args); return this; }
     unload() { return this; }
     emitEnd() { this.opts.onend?.call(this); }
+    /**
+     * Howler html5 _playLock race: the media element's play() promise resolves AFTER
+     * stop() ran, restarting playback. Model as playback flipping on + onplay firing.
+     */
+    emitLatePlay() {
+      this.isPlaying = true;
+      this.opts.onplay?.call(this);
+    }
   }
   MockHowl.instances = [];
   const Howler = {
@@ -67,6 +77,7 @@ import {
   loadMenuMusic,
   playMenuMusic,
   stopMenuMusic,
+  duckMusic,
 } from "../src/audioManager.js";
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
@@ -222,5 +233,38 @@ describe("menu/game music exclusivity", () => {
     // * MockHowl.volume returns `this` when used as a setter in production code;
     // * re-read via the last volume() call args — production passes 0 as first arg.
     expect(menuTrack().isPlaying).toBe(false);
+  });
+
+  // * Run-6 regression: the 320ms deferred menu-hide (run-5 transition overlap) let a
+  // * pending HTML5 play() promise resolve AFTER stopMenuMusic — the menu track
+  // * restarted under the level playlist. The Howl-level onplay guard is the terminal
+  // * backstop: playback that starts while intent flags say "silent" dies instantly.
+  it("a late play() resolution after game entry is killed by the onplay guard", () => {
+    playMenuMusic();
+    playGameMusic();
+    expect(menuTrack().isPlaying).toBe(false);
+
+    menuTrack().emitLatePlay();
+
+    expect(menuTrack().isPlaying).toBe(false);
+    expect(gameTracks()[0].isPlaying).toBe(true);
+  });
+
+  it("duck release never fades the stopped menu track back up mid-game", () => {
+    vi.useFakeTimers();
+    try {
+      playMenuMusic();
+      playGameMusic();
+      menuTrack().fadeCalls.length = 0;
+
+      duckMusic(0.4, 50);
+      vi.advanceTimersByTime(1000);
+
+      // * Game track ducks and releases; the menu Howl must be untouched — a fade
+      // * back to _musicVol on a "stopped" html5 element re-arms the bleed.
+      expect(menuTrack().fadeCalls).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

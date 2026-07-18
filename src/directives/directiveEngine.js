@@ -365,6 +365,25 @@ export function getDirectiveWireState() {
 }
 
 /**
+ * Shifts the active directive window forward by `deltaMs` — the solo Esc-pause
+ * compensation (run-6). The window anchors live in the performance.now() domain,
+ * which keeps advancing while the paused loop stops sampling; without this shift
+ * the directive silently drains (or expires) behind the pause menu.
+ * @param {number} deltaMs
+ */
+export function shiftDirectiveTimersBy(deltaMs) {
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
+  if (active) {
+    active.startedAtMs += deltaMs;
+    active.untilMs += deltaMs;
+  }
+  if (activeView) {
+    activeView.startedAtMs += deltaMs;
+    activeView.untilMs += deltaMs;
+  }
+}
+
+/**
  * Dev/test-only: the directive ids that can be fired manually (Tweakpane playtest tools).
  * @returns {string[]}
  */

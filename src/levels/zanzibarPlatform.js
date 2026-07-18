@@ -74,6 +74,38 @@ const WATER_Y = -6.0; // meters — carts sink ~4 m before the global -10 fall r
 
 /** Session-cached sunset equirect env — see the note in initZanzibarPlatform. @type {THREE.CanvasTexture | null} */
 let _sunsetEnvTex = null;
+
+/**
+ * Run-6: pre-bakes the sunset environment's cubeUV (PMREM) during menu idle. The
+ * renderer converts an equirect environment lazily inside the first compile/render
+ * that references it, cached BY TEXTURE INSTANCE — so the first Sundial browse of a
+ * session paid the bake inside a synchronous multi-second main-thread stall (the
+ * 3.5–4.3s lobby longframes in the run-6 captures). A 4×4 offscreen render of a
+ * one-quad scene referencing the shared texture seeds the same renderer cache.
+ * @param {import("three").WebGLRenderer} renderer
+ */
+export function warmSunsetEnv(renderer) {
+  if (!USE_SUNSET_ENV || !renderer) return;
+  _sunsetEnvTex ??= buildSunsetEnvTexture();
+  const scene = new THREE.Scene();
+  scene.environment = _sunsetEnvTex;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial());
+  scene.add(mesh);
+  const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 10);
+  cam.position.z = 2;
+  const rt = new THREE.WebGLRenderTarget(4, 4);
+  const prevTarget = renderer.getRenderTarget();
+  try {
+    renderer.setRenderTarget(rt);
+    renderer.render(scene, cam);
+  } finally {
+    renderer.setRenderTarget(prevTarget);
+    rt.dispose();
+    mesh.geometry.dispose();
+    mesh.material.dispose();
+    scene.environment = null;
+  }
+}
 const WATER_SIZE = 900; // meters — fog swallows the far edge
 
 const SKY_RADIUS = 480; // meters

@@ -96,6 +96,22 @@
   opacity: 0;
 }
 
+/* Run-6 handoff polish: the exit beat used to hold the opaque backdrop at full
+   strength until the whole-overlay fade kicked in (+280ms) — a dead dark stall
+   right before the countdown reveal. Fade the backdrop layers WITH the panel so
+   the live arena crossfades in the moment the exit starts. */
+.cr-load__bg,
+.cr-load__scan,
+.cr-load__vignette {
+  transition: opacity 320ms var(--cr-load-fade-ease);
+}
+
+.cr-load.cr-load--exit .cr-load__bg,
+.cr-load.cr-load--exit .cr-load__scan,
+.cr-load.cr-load--exit .cr-load__vignette {
+  opacity: 0;
+}
+
 .cr-load__tag {
   font-size: clamp(9px, 2.2vw, 11px);
   letter-spacing: 0.28em;

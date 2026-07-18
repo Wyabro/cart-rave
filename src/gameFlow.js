@@ -10,6 +10,19 @@ import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 
 /**
+ * Host-local: round-clock stamp of the first frame this host saw Sudden Death
+ * active (survives host promotion by re-arming on the promoted host's first SD
+ * frame). Drives the run-6 stalemate cap in updateGameFlow.
+ * @type {number | null}
+ */
+let suddenDeathEnteredAtMs = null;
+
+/** Test-only: clears the stalemate clock (module state persists across vitest cases). */
+export function resetSuddenDeathStalemateForTest() {
+  suddenDeathEnteredAtMs = null;
+}
+
+/**
  * @typedef {object} GameFlowDeps
  * @property {() => Array<object>} getAllCarts
  * @property {() => Array<object>} getNetSlots
@@ -139,6 +152,21 @@ export function updateGameFlow(deps, context) {
       ? context.roundNowMs
       : getRoundClockNowMs();
     const roundDurationMs = deps.CONFIG.round?.durationMs ?? ROUND_DURATION_MS;
+
+    // * Run-6: Sudden Death stalemate cap. SD only ends on a resolving KO — on a
+    // * solid-floor arena two cagey drivers can circle forever (live MP capture sat
+    // * 24s past expiry and counting). After the cap, resolve by the standard
+    // * most-recent-scoring-hit tiebreak (endRound with no scorer).
+    if (roundState.isSuddenDeath) {
+      if (suddenDeathEnteredAtMs == null) suddenDeathEnteredAtMs = roundNowMs;
+      const sdMaxMs = deps.CONFIG.round?.suddenDeathMaxMs ?? 45000;
+      if (roundNowMs - suddenDeathEnteredAtMs >= sdMaxMs) {
+        suddenDeathEnteredAtMs = null;
+        deps.endRound();
+      }
+    } else {
+      suddenDeathEnteredAtMs = null;
+    }
 
     if (
       !isTestDrive

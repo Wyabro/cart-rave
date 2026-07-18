@@ -3187,6 +3187,10 @@ function buildSuctionHazardRings() {
         // * edge — Chebyshev so it hugs the square hole like the physics does.
         float cheb = max(abs(vPos.x), abs(vPos.y));
         float band = 1.0 - smoothstep(uInner, uOuter, cheb);
+        // * Fade back OUT toward the void lip too (run-6: the full-strength inner edge
+        // * drew a hard amber square against the black hole interior) — peak sits
+        // * mid-band, zero at both boundaries.
+        band *= smoothstep(uInner, uInner + 0.9, cheb);
         if (band <= 0.003) discard;
         band = pow(band, 1.35);
 

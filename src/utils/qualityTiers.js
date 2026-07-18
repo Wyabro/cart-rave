@@ -107,3 +107,35 @@ export const QUALITY_KNOBS = {
 export function getQualityKnobs() {
   return QUALITY_KNOBS[getQualityTier()];
 }
+
+// * Run-6: session render-scale override — the auto-quality watchdog's relief valve
+// * BELOW the LOW tier floor. Run-6 captures: the Intel UHD host still dropped ~30%
+// * of frames >33ms at LOW/0.75×, and a hitching HOST is every peer's rubber-banding.
+// * Multiplies the tier's renderScale at the three pixel-ratio apply sites; steps
+// * 1 → 0.85 → 0.7 (LOW effective 0.75 → 0.64 → 0.53). Session-only, no persistence.
+const RENDER_SCALE_MUL_STEPS = [1, 0.85, 0.7];
+let sessionRenderScaleMul = 1;
+
+/** @returns {number} current session multiplier on the tier's renderScale */
+export function getSessionRenderScaleMul() {
+  return sessionRenderScaleMul;
+}
+
+/** @returns {boolean} whether another render-scale step-down remains */
+export function canStepDownSessionRenderScale() {
+  return RENDER_SCALE_MUL_STEPS.indexOf(sessionRenderScaleMul) < RENDER_SCALE_MUL_STEPS.length - 1;
+}
+
+/** @returns {boolean} true if a step was applied (caller must re-apply pixel ratio live) */
+export function stepDownSessionRenderScale() {
+  const idx = RENDER_SCALE_MUL_STEPS.indexOf(sessionRenderScaleMul);
+  const next = RENDER_SCALE_MUL_STEPS[idx + 1];
+  if (!(next > 0)) return false;
+  sessionRenderScaleMul = next;
+  return true;
+}
+
+/** Test/reset helper. */
+export function resetSessionRenderScaleForTests() {
+  sessionRenderScaleMul = 1;
+}

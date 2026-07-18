@@ -202,6 +202,8 @@ let _toastTimeoutId = null;
 let _lastReadyState = null;
 /** Quantized (0.5%) round-timer fill last written — skip redundant per-frame style writes. */
 let _hudTimerFillHalfPct = -1;
+/** Non-zero while the host-stall toast for the current stall has been shown (run-6). */
+let _hudHostStallToastAtMs = 0;
 
 
 
@@ -615,9 +617,20 @@ function updateTimer(roundState, matchHistoryLength) {
     const isSuddenDeath = roundState?.isSuddenDeath === true;
     const totalRoundMs = roundState?.totalRoundMs
       ?? (_options.getDefaultRoundMs ? _options.getDefaultRoundMs() : ROUND_DURATION_MS);
+    // * Run-6: while the host is silent (minimized tab), the world is frozen but this
+    // * wall-clock countdown kept running — hold it by backing the clock up by the
+    // * stall. The host shifts its round anchor by the hidden gap on return, so the
+    // * held value and the resynced anchor agree.
+    const hostStallMs = _options.getHostStallMs?.() ?? 0;
+    if (hostStallMs > 0 && _hudHostStallToastAtMs === 0) {
+      _hudHostStallToastAtMs = performance.now();
+      window.CartRave?.showToast?.("Host connection stalled — hang tight…", 4000);
+    } else if (hostStallMs === 0 && _hudHostStallToastAtMs !== 0) {
+      _hudHostStallToastAtMs = 0;
+    }
     const remainingMs = isSuddenDeath
       ? 0
-      : (getRoundRemainingMs(roundStartedAtMs || 0, totalRoundMs, adjustedNow()) ?? totalRoundMs);
+      : (getRoundRemainingMs(roundStartedAtMs || 0, totalRoundMs, adjustedNow() - hostStallMs) ?? totalRoundMs);
     const seconds = clampInt(Math.ceil(remainingMs / 1000), 0, Math.ceil(totalRoundMs / 1000));
     const minutes = Math.floor(seconds / 60);
     const secondsPart = seconds % 60;

@@ -22,6 +22,7 @@
 
 import { Howler } from "howler";
 import { registerDiagProbe, recordDiagEvent } from "./diagnostics.js";
+import { getSessionRenderScaleMul } from "./qualityTiers.js";
 import { readBootTimeline } from "./bootTimeline.js";
 import { isLegalPhaseTransition } from "./invariants.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
@@ -251,6 +252,9 @@ function registerProbes(deps) {
       gpuClass: gpu?.gpuClass ?? null,
       gpuRenderer: gpu?.rendererString ?? null,
       qualityTier: safeCall(() => settingsStore.getState().qualityTier) ?? null,
+      // * Run-6: effective sub-native scale (tier renderScale × session watchdog mul) —
+      // * next capture from the Intel host shows whether the relief valve engaged.
+      renderScaleMul: safeCall(() => getSessionRenderScaleMul()) ?? null,
       devicePixelRatio: typeof window !== "undefined" ? (window.devicePixelRatio ?? null) : null,
       deviceMemory: /** @type {any} */ (nav).deviceMemory ?? null,
       hardwareConcurrency: nav.hardwareConcurrency ?? null,

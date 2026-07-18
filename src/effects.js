@@ -1694,31 +1694,29 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
   // * (toneMapped:false) also wrote HDR white into the Reflector.
   crowdSearchlightSourceRadius = pitInnerRadius + 30;
   crowdSearchlightTargetRadius = pitInnerRadius + 35;
-  /** Fixed lamp behind the green spawn booth (angles[1] === π/2). */
-  const GREEN_BOOTH_SEARCHLIGHT_INDEX = 1;
-  // * Distance to outer vinyl edge from a stand mast ≈ |sourceR − recordR|.
-  // * Cap range so stand lamps light the crowd only — never the dancefloor.
-  const standOnlyRange = Math.max(12, crowdSearchlightSourceRadius - 40);
+  // * Run-6: the dancefloor sweep is BACK (Wyatt: "the moving colored spotlights over
+  // * the arena have been missing"). 4b8d5d5 re-aimed these into the stands to kill the
+  // * green-booth white sheet — but that sheet came from a FIXED lamp heading raking the
+  // * Reflector plus the additive cone meshes. Both are gone: cones were deleted and the
+  // * targets sweep now, so no standing hot spot can park on the mirror. Intensity sits
+  // * below the old 28 as extra margin against Reflector blowout.
   for (let i = 0; i < 4; i += 1) {
     const angle = i * Math.PI * 0.5;
     const target = new THREE.Object3D();
-    // * Aim into the stands (outward), not across the vinyl toward the center.
+    // * Initial aim on the vinyl — updateCrowd owns the sweep from frame one.
     target.position.set(
-      Math.cos(angle) * (crowdSearchlightSourceRadius + 8),
-      4,
-      Math.sin(angle) * (crowdSearchlightSourceRadius + 8),
+      Math.cos(angle) * (12 + i * 8),
+      -3,
+      Math.sin(angle) * (12 + i * 8),
     );
     scene.add(target);
 
     const baseColor = new THREE.Color(CROWD_SEARCHLIGHT_COLORS[i]);
-    const isGreenBoothMast = i === GREEN_BOOTH_SEARCHLIGHT_INDEX;
-    // * Green-booth unit fully off (was the directional white sheet). Others keep
-    // * stand punch but no longer reach the record surface.
-    const searchlightBaseIntensity = isGreenBoothMast ? 0 : 28;
+    const searchlightBaseIntensity = 22;
     const searchlight = new THREE.SpotLight(
       CROWD_SEARCHLIGHT_COLORS[i],
       searchlightBaseIntensity,
-      standOnlyRange,
+      crowdSearchlightSourceRadius * 2,
       Math.PI * 0.28,
       0.85,
       1.5,
@@ -1729,8 +1727,6 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       Math.sin(angle) * crowdSearchlightSourceRadius,
     );
     searchlight.target = target;
-    // * Green-booth lamp stays in the scene graph but never contributes light.
-    searchlight.visible = !isGreenBoothMast;
     scene.add(searchlight);
 
     // * Beam cone meshes deliberately omitted — they were built then force-hidden
@@ -1744,7 +1740,7 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       baseColor,
       baseIntensity: searchlightBaseIntensity,
       /** When true, updateCrowd must not re-enable this lamp. */
-      forceOff: isGreenBoothMast,
+      forceOff: false,
     });
   }
 
@@ -1898,12 +1894,13 @@ export function updateCrowd(nowMs) {
         if (entry.cone) entry.cone.visible = false;
         continue;
       }
-      // * Targets stay in the stands (outward), not sweeping across the vinyl.
+      // * Run-6: sweep circles rake the vinyl at staggered radii (layered disco pass);
+      // * slow radial breathe keeps the pattern from reading as a fixed carousel.
       const speed = CROWD_SEARCHLIGHT_SPEEDS[entry.index % CROWD_SEARCHLIGHT_SPEEDS.length] || 0.3;
       const angle = nowSec * speed + entry.index * Math.PI * 0.5;
-      const aimR = crowdSearchlightSourceRadius + 8;
+      const aimR = (12 + entry.index * 8) * (0.85 + 0.15 * Math.sin(nowSec * 0.4 + entry.index * 2.1));
       entry.target.position.x = Math.cos(angle) * aimR;
-      entry.target.position.y = 4;
+      entry.target.position.y = -3;
       entry.target.position.z = Math.sin(angle) * aimR;
       entry.target.updateMatrix();
       if (entry.cone) {
@@ -2446,7 +2443,7 @@ function createRamBoostStreakMaterial(isCore) {
         // --- Instant / NPC: calm solid cart neon (no energy packets, no gold path) ---
         if (uCharged < 0.5) {
           float body = ends * lifeFade;
-          float gain = mix(0.9, 1.12, isCore);
+          float gain = mix(0.85, 1.0, isCore);
           vec3 col = uColor * gain;
           float alpha = clamp(uOpacity * body * mix(0.95, 1.15, isCore), 0.0, 1.0);
           gl_FragColor = vec4(col, alpha);
@@ -2466,13 +2463,15 @@ function createRamBoostStreakMaterial(isCore) {
         float energy = body * (0.6 + band * 0.7 + band2 * 0.35 + crackle * 0.85);
 
         vec3 neon = uColor;
-        float gain = mix(0.95, 1.25, isCore) * (0.75 + band * 0.35 + crackle * 0.45);
+        // * Run-6: core gain + bloomBoost trimmed — the >1 radiance stack bloomed the
+        // * core to white; the streak should stay the cart's neon.
+        float gain = mix(0.95, 1.12, isCore) * (0.75 + band * 0.35 + crackle * 0.45);
         vec3 col = neon * gain;
         col += neon * crackle * mix(0.15, 0.35, isCore);
 
         float alphaMul = mix(1.05, 1.35, isCore);
         float alpha = clamp(uOpacity * energy * alphaMul, 0.0, 1.0);
-        float bloomBoost = mix(1.05, 1.35, isCore);
+        float bloomBoost = mix(1.0, 1.15, isCore);
         gl_FragColor = vec4(col * bloomBoost, alpha);
       }
     `,

@@ -516,6 +516,21 @@ export function noteReconcileError(errM, teleported) {
   if (teleported) netFlowStats.reconcileTeleports += 1;
 }
 
+/**
+ * How long the host has been silent beyond a 2.5s grace, in ms (0 = healthy).
+ * Non-host only — drives the HUD's "hold the countdown while the host is away"
+ * behavior (run-6: a minimized host froze everyone's world while the wall-clock
+ * timer kept counting). Grace absorbs ordinary hitches; the excess-over-grace
+ * shape means the display never jumps backward when the hold engages.
+ * @returns {number}
+ */
+export function getHostStallMs() {
+  if (getIsHost()) return 0;
+  if (!(netFlowStats.lastArriveMs > 0)) return 0;
+  const gap = performance.now() - netFlowStats.lastArriveMs;
+  return gap > 2500 ? gap - 2500 : 0;
+}
+
 /** Diag "net" probe read: snapshot cadence + reconcile error since the last prediction reset. */
 export function getNetFlowStats() {
   return {

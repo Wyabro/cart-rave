@@ -172,7 +172,9 @@ function installPageVisibilityAudioGuard() {
     applyAllVolumes();
     try {
       const listener = _getAudioListener?.();
-      listener?.setMasterVolume?.(_isMuted ? 0 : _sfxVol);
+      // * Mute gate only — synth recipes carry the SFX slider themselves (run-6:
+      // * scaling here too applied the slider twice, see audioControls.js).
+      listener?.setMasterVolume?.(_isMuted ? 0 : 1);
     } catch { /* ignore */ }
 
     if (
@@ -242,7 +244,9 @@ let _duckTimer = null;
 /** Currently playing music Howls (menu + active game track). */
 function activeMusicHowls() {
   const list = [];
-  if (menuMusic) list.push(menuMusic);
+  // * Menu track only while it is ALLOWED to play — the duck-release fade must never
+  // * ramp a stopped menu Howl back up mid-game (run-6 bleed amplifier).
+  if (menuMusic && _menuMusicShouldPlay && !gameMusicPlaying) list.push(menuMusic);
   const track = gameMusicTracks[currentGameTrackIdx];
   if (track) list.push(track);
   return list;
@@ -305,6 +309,16 @@ export function loadMenuMusic(src) {
       ) {
         menuMusic.volume(_isMuted ? 0 : _musicVol);
         menuMusic.play();
+      }
+    },
+    onplay: () => {
+      // * Terminal bleed guard (run-6): an HTML5 Howl's play() promise can resolve
+      // * AFTER stopMenuMusic() ran (Howler _playLock), reviving the menu track under
+      // * the level playlist. If playback actually starts while the intent flags say
+      // * "menu must be silent", kill it on the spot.
+      if ((!_menuMusicShouldPlay || gameMusicPlaying) && menuMusic) {
+        try { menuMusic.stop(); } catch { /* ignore */ }
+        try { menuMusic.volume(0); } catch { /* ignore */ }
       }
     },
   });

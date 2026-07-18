@@ -13,6 +13,11 @@
 
 import { getDebugParams } from "./debugParams.js";
 import { getQualityTier, setSessionQualityTier, stepDownQualityTier } from "./qualityMode.js";
+import {
+  canStepDownSessionRenderScale,
+  getSessionRenderScaleMul,
+  stepDownSessionRenderScale,
+} from "./qualityTiers.js";
 
 const SAMPLE_CAP = 90;
 /** ms — ~48 fps threshold (was 22ms/~45fps; potato machines need earlier step-down) */
@@ -44,12 +49,17 @@ export function tickAutoQuality(dtSec, nowMs = performance.now()) {
   // * override slot and would silently relabel the cell. The software-GL hard floor
   // * still wins over a preset because createRenderer applies it after the preset.
   if (getDebugParams().preset != null) return false;
-  if (stepsApplied >= MAX_STEPS) return false;
   if (nowMs < cooldownUntilMs) return false;
 
   const currentTier = getQualityTier();
-  // * Already at the floor (touch default, user pref, or prior step) — nothing to shed.
-  if (currentTier === "low") return false;
+  // * Run-6: at the LOW floor the watchdog keeps working — further relief comes from
+  // * sub-native render-scale steps instead of tier steps (an Intel UHD host still
+  // * dropped ~30% of frames >33ms at LOW/0.75×, and a hitching host is every peer's
+  // * rubber-banding). Tier steps stay capped at MAX_STEPS; scale steps cap in
+  // * qualityTiers (1 → 0.85 → 0.7).
+  const atFloor = currentTier === "low";
+  if (!atFloor && stepsApplied >= MAX_STEPS) return false;
+  if (atFloor && !canStepDownSessionRenderScale()) return false;
 
   const dtMs = (Number(dtSec) || 0) * 1000;
   if (!(dtMs > 0) || dtMs > 250) return false;
@@ -76,10 +86,17 @@ export function tickAutoQuality(dtSec, nowMs = performance.now()) {
 
   if (badWindows < BAD_WINDOWS_NEEDED) return false;
 
-  const nextTier = stepDownQualityTier(currentTier);
-  if (!nextTier) return false;
-  setSessionQualityTier(nextTier);
-  stepsApplied += 1;
+  let stepDesc;
+  if (atFloor) {
+    if (!stepDownSessionRenderScale()) return false;
+    stepDesc = `low renderScale ×${getSessionRenderScaleMul()}`;
+  } else {
+    const nextTier = stepDownQualityTier(currentTier);
+    if (!nextTier) return false;
+    setSessionQualityTier(nextTier);
+    stepsApplied += 1;
+    stepDesc = `${currentTier}→${nextTier}`;
+  }
   badWindows = 0;
   samples.length = 0;
   windowStartMs = 0;
@@ -87,7 +104,7 @@ export function tickAutoQuality(dtSec, nowMs = performance.now()) {
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[autoQuality] session step-down ${currentTier}→${nextTier} (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s)`,
+      `[autoQuality] session step-down ${stepDesc} (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s)`,
     );
   }
   return true;

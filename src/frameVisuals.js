@@ -418,16 +418,14 @@ export function updateVisualsAndEffects(deps, frameCtx) {
           applyThemeLeaderGlow(cache, themeId, slotHex, glowPulse, glowIntensity);
         }
       } else if (roundState.phase === "running" && cart.ramBoostActiveUntilMs > now) {
-        const boostPulseQ = Math.round((1.2 + 0.4 * Math.sin(now * 0.02)) * 20);
+        // * Run-6: 1.2–1.6× pushed bright neons past the ACES shoulder into white —
+        // * lower peak keeps the pulse reading as the cart's own color.
+        const boostPulse = 1.1 + 0.25 * Math.sin(now * 0.02);
+        const boostPulseQ = Math.round(boostPulse * 20);
         const key = `B|${themeId}|${slotHex}|${boostPulseQ}`;
         if (cart._themeGlowKey !== key) {
           cart._themeGlowKey = key;
-          applyThemeColorToCache(
-            cache,
-            themeId,
-            slotHex,
-            1.2 + 0.4 * Math.sin(now * 0.02),
-          );
+          applyThemeColorToCache(cache, themeId, slotHex, boostPulse);
         }
       } else if (
         chargeEnabled
