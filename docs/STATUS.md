@@ -34,8 +34,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (verified 2026-07-19 on the run-7 combat stack) |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `49c5f1a` — combat code `1a2f242` (skip-replay only on long snap gap) |
-| Prod deploy (2026-07-19 skip-gap) | ✅ Live — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`). Combat retest pending (queue 2d′) |
+| Origin HEAD | Local ↔ origin/cart-clash at `67b3cf5` — probe `19e5cd9` + rtmode drop |
+| Prod deploy (2026-07-19 host-send probe) | ✅ Live — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9` build stamp; markers `sendGapsOver100`/`host_send_gap` verified in served bytes) |
+| Prod deploy (2026-07-19 skip-gap) | ✅ superseded — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`) |
 | Prod deploy (2026-07-19 eve, observability) | ✅ superseded — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | Prod deploy (2026-07-19 phantom) | ✅ superseded — **`index-t3FG6KVX.js`** / `eeeef76e` (`732e2d6` phantom clear). Soft feel only; no F8 (free-tier wall). |
 | Prod deploy (2026-07-19 combat-hold) | ✅ superseded — **`index-iKVEUst7.js`** / `4f795c70`. Hits better; phantom after respawn. |
@@ -61,7 +62,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 - **Systems** — Living Store (cargo scoreboard + PA directives), scoring/KO event fan-out, lifetime unlocks, challenges, match stats.
 - **Performance** — 3-tier quality system, arena optimizations, chunk prefetch, boot/load pass, half-res bloom, LOD, auto-quality.
 - **Netcode hardening** — WebRTC P2P plane with bounds-checked binary snapshots, size gates, unit-tested host-migration handoff + `host_round` validation.
-- **Tooling** — visual QA harness (`shoot`/`compare`/`blackframes`), `?rtmode=`/`?blackmon=` probes, Tweakpane debug panel, netcode 2-client rig (`netharness` — `spawnlock` + `mpIntegration` + `hostMigration`), gameplay diagnostics framework (`?diag` → `__ccDiag` + `gameharness` — `roundflow`/`unlockFunnel`/`arenas`/`soak`), bug-capture bundles (`captureBundle` / F8 / auto-capture on error+assert / `.diag-captures/`), dev-only AI stall watchdog, `cr:*` boot timeline, `resources` leak probe, phase-invariant watchdog, **`npm run battery` one-command sweep** ([guides/dev-toolkit.md](./guides/dev-toolkit.md)), CI gate, **observability platform** — production gameplay analytics (`src/analytics/` → `/api/analytics` DO) + **`npm run dashboard`** generated health view ([guides/observability.md](./guides/observability.md)).
+- **Tooling** — visual QA harness (`shoot`/`compare`/`blackframes`), `?bloompipe=`/`?blackmon=` probes, Tweakpane debug panel, netcode 2-client rig (`netharness` — `spawnlock` + `mpIntegration` + `hostMigration`), gameplay diagnostics framework (`?diag` → `__ccDiag` + `gameharness` — `roundflow`/`unlockFunnel`/`arenas`/`soak`), bug-capture bundles (`captureBundle` / F8 / auto-capture on error+assert / `.diag-captures/`), dev-only AI stall watchdog, `cr:*` boot timeline, `resources` leak probe, phase-invariant watchdog, **`npm run battery` one-command sweep** ([guides/dev-toolkit.md](./guides/dev-toolkit.md)), CI gate, **observability platform** — production gameplay analytics (`src/analytics/` → `/api/analytics` DO) + **`npm run dashboard`** generated health view ([guides/observability.md](./guides/observability.md)).
 
 ## Current focus
 
@@ -81,7 +82,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
 | 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **In progress** — dig done (cap-16/17). Host early post-GO 303/526ms real; mid-round non-host `snapGapsOver100` confounded by Intel client hitches. Host **send cadence probe unpushed**. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Probe live** — dig done; host send cadence on **`index-pavOdoEG.js`** (`19e5cd9`). Next: Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | 3 | Match B (Intel hosts) only if needed | locked until 2e |
 | 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -94,8 +95,8 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **2e only** — read [planning/handoff-next-window.md](./planning/handoff-next-window.md).
-2. Ship host send cadence probe on Wyatt “ship it” (local/unpushed; qa 459/51). Match A F8 **both**; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
+1. **2e only** — Match A retest on **`index-pavOdoEG.js`**: F8 **both** machines; hard-refresh if HTML lags.
+2. Decode host F8: `sendGapsOver100` / `sendGapMaxMs` / `net/host_send_gap` vs non-host `snapGapsOver100`.
 3. One behavior lever after that evidence (likely announcer warm-before-countdown if early stalls remain; do not stack levers).
 4. Pass bar: non-host sees the hit that earns a KO; host longframe + **host sendGap** rate drop.
 5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -176,7 +177,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (2e forensics dig) — Cap list still tops at #17 (no newer F8). Cap-17 host: early post-GO **303/526ms** only, then clean mid-round (`over33=27`/`over66=3`). Cap-16 non-host `snapGapsOver100=52` is **confounded** by Intel `over33=444` (arrival measured on client main thread). **One card (unpushed):** host `sendGap*` counters + `net/host_send_gap` events in `netcode.js`. Gates **459/51**. Next: ship probe → Match A F8 both. Handoff updated.
+2026-07-19 (2e host-send probe **shipped**) — **`19e5cd9`** / live **`index-pavOdoEG.js`** / Version `28e48ede`. Served bytes verified: `sendGapsOver100`, `host_send_gap`, build sha `19e5cd9`. Also pushed `67b3cf5` (rtmode drop that was already in the ship tree from a parallel session). **Next:** Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
+
+2026-07-19 (VFX-1 fork-path cleanup, separate Claude session) — Deleted the legacy `?rtmode` A/B machinery (`resolveRtModeTypes` + float/byte composer-RT branch in scene.js, debugParams parsing, Tweakpane Composer/RT folder, main.js `rtmodeExplicit` guard). `?bloompipe=display|hdr` is the one remaining pipeline lever; `?bloomthr/str/rad/smooth` live-tune keeps working. Behavior-identical by construction (default and hdr paths resolve to the same types as before). Also made the inert-IBL-knob situation honest in comments (config.js/scene.js): `materialEnvMapIntensity` only drives owned-envMap materials (floor, lens); call-site scales kept as design intent. Gates: **qa 459/51 green**, build clean, blackframes classic **PASS** (0 black) + sundial **PASS** (0 black; first run hit the stale vite-dep-cache trap, cleared `.vite` and green). Committed as `67b3cf5` when the host-send probe ship baked it into the client bundle.
+
+2026-07-19 (2e forensics dig) — Cap list still tops at #17 (no newer F8). Cap-17 host: early post-GO **303/526ms** only, then clean mid-round (`over33=27`/`over66=3`). Cap-16 non-host `snapGapsOver100=52` is **confounded** by Intel `over33=444` (arrival measured on client main thread). Host send probe card → shipped as entry above.
 
 2026-07-19 (doc staleness sweep, separate Claude session — no code changes) — Fixed stale docs repo-wide: VFX-1/bloom-promotion marked closed in ROADMAP/BACKLOG/project-state/playtest docs (`?rtmode=bloomfix` A/B retired; toggle is `?bloompipe`); local worker port 1999→8787 in preview-dev/deploy-urls; `/parties/main/`→`/parties/cart-rave-server/`; CREDITS `src/audio.js`→real modules + dropped Michroma/Space Grotesk font rows; living-store cargo 2→12 → 7→18; `.cursorrules` version pins; this file's duplicate gates/deploy rows consolidated. `handoff-next-window.md` untouched.
 

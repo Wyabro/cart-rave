@@ -69,7 +69,7 @@ The old Claude.ai “Playtest Console” artifact is **retired** — do not use 
   directive, grant +5/+15 KOs, and flip dev-unlocks in one click. Workflow: use a quick
   **dev-build pre-pass** to *reach* a state fast, then **reproduce and judge the finding on
   the production build** the session requires. `?devUnlocks=off`, `?blackmon=1`,
-  `?forcegpu=`, `?rtmode=` are URL/localStorage levers and work in prod too — only the
+  `?forcegpu=`, `?bloompipe=` are URL/localStorage levers and work in prod too — only the
   Tweakpane buttons are dev-gated.
 - **Known non-issues — do not file** (verified in [project-state.md §5](../planning/project-state.md)):
   sunglasses-tab 1.35× camera zoom (deliberate, animation backlogged); no ambient

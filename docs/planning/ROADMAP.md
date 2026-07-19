@@ -38,7 +38,7 @@ Implementation is ahead of validation. Everything here exists in the tree and ne
 |------|--------|-------|
 | Wyatt playtest queue (Passes 4/5, stabilization) | ⚠️ Open | Checklist in [STATUS.md](../STATUS.md); behavior-changing work is not "done" until a human plays it |
 | Push stabilization commits | ⚠️ Blocked on playtest | `b9e8fb8`..`3754949` |
-| Promote display-referred bloom to default | ✅ Done (07-17) | Shipped `adea4bf` — all-arena default, VFX-1 closed; HDR split is `?bloompipe=hdr`-only. Optional: real-HW `?blackmon=1` taste pass, then delete the legacy fork paths |
+| Promote display-referred bloom to default | ✅ Done (07-17) | Shipped `adea4bf` — all-arena default, VFX-1 closed; HDR split is `?bloompipe=hdr`-only. Legacy `?rtmode` forks deleted 07-19; optional real-HW `?blackmon=1` taste pass remains |
 
 ---
 

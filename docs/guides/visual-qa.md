@@ -32,7 +32,7 @@ npx playwright install chromium
 | `?hud=0` | Hide main menu chrome (clean arena shots) |
 | `?perfPump` | DEV: keep rAF ticking in hidden tabs |
 | `?blackmon=1` | VFX-1: live black-frame monitor (L/R slab split); `__blackMon.summary()` |
-| `?rtmode=half\|float\|byte\|bloombyte` | VFX-1: composer/bloom RT A/B (half=default) |
+| `?bloompipe=display\|hdr` | Bloom pipeline (display=default, the VFX-1 fix; hdr=legacy split) |
 | `?nettest=1` | Install `window.__ccTest` (netcode 2-client rig — [netcode-harness.md](./netcode-harness.md)) |
 | `?diag=1` | Install `window.__ccDiag` gameplay diagnostics (probes + event log — [diagnostics.md](./diagnostics.md)) |
 
