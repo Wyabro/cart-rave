@@ -4,6 +4,17 @@
   "main": "party/index.ts",
   "compatibility_date": "2026-06-30",
   "compatibility_flags": ["nodejs_compat"],
+  // * Workers Logs — DO exceptions / console / request outcomes in the dashboard
+  // * (paid plan; complements F8 CaptureLog + client analytics). 100% sample is fine
+  // * at playtest traffic; dial head_sampling_rate down if log volume ever gets noisy.
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
   "assets": {
     "directory": "dist",
     "binding": "ASSETS"
