@@ -10,12 +10,26 @@ controls. **Who runs it?** Wyatt first, then external testers.
 
 | Doc | Use it when |
 |-----|-------------|
+| **[console.html](./console.html)** | **Primary — open in a browser.** Repo-owned playtest console: one active task, Match A/B host-role isolation first, export markdown for the agent. Replaces the old Claude artifact (retired). |
 | This file | Planning a session; deciding what to test next |
 | [solo-checklist.md](./solo-checklist.md) | Any solo session (Sessions 0–4) |
 | [multiplayer-smoke.md](./multiplayer-smoke.md) | The NET-1 session (Session 5) — wraps the existing [living-store](../planning/living-store-test-plan.md) + [host-migration](../planning/host-migration-test-plan.md) plans |
 | [polish-checklist.md](./polish-checklist.md) | A dedicated screen-by-screen presentation sweep |
 | [regression-checklist.md](./regression-checklist.md) | Before every deploy (`npm run ship`) from now on |
 | [templates.md](./templates.md) | During ANY session — bug report, balance note, fun-factor sheet |
+
+### Playtest console (current)
+
+Open **[console.html](./console.html)** locally (double-click or “Open with Live Server” — no build step). State lives in browser `localStorage`.
+
+**Process that failed before (do not repeat):** dump 10+ needs-work items → one mega fix batch → ship → mixed host roles → performance feels random.
+
+**Process now:**
+
+1. Run the console cards **in order**. Match **A** (strong machine hosts) then Match **B** (weak machine hosts) before any look/audio cards.
+2. At the **Gate** card, copy the export into chat + attach the four F8 JSONs.
+3. Agent triages **one** next action (fix *or* next validation card). No 10-item dumps.
+4. Only after A/B are decoded: P1 one-at-a-time checks (host minimize, SD cap, music bleed, …).
 
 ---
 
@@ -28,8 +42,9 @@ KO→unlock funnel incl. reload persistence) and `npm run netharness`
 `--scenario hostMigration` for clean host departure). Human time goes where the rigs are
 blind: **feel, readability, audio, fairness, silent-drop migration, host backgrounding, and
 anything that needs taste.** Guide: [../guides/diagnostics.md](../guides/diagnostics.md).
-The live checklist lives in the **Playtest Console** artifact (notes-first; export back into
-chat) — this folder holds the reference plans it was seeded from.
+The live checklist is **[console.html](./console.html)** (repo-owned; export back into
+chat). This folder also holds the longer reference plans the console was seeded from.
+The old Claude.ai “Playtest Console” artifact is **retired** — do not use it.
 
 ## Ground rules (read once)
 
@@ -114,9 +129,8 @@ single most untested player-facing surface in the project.*
 Everything a real player does that a checklist doesn't: alt-tab mid-round (incl. as
 host), refresh mid-round, resize/zoom the window, spam every input during countdown/
 podium/SD, quit-to-menu from every phase, replay immediately, phone rotate mid-round,
-touch-control edge reach. Force Sudden Death deliberately (tie the score) — SD has had
-two bug fixes this week and **has no timeout** (documented open item; observe what a
-long SD actually feels like).
+touch-control edge reach. Force Sudden Death deliberately (tie the score) — SD now has a **45s stalemate cap**
+(run-6: `suddenDeathMaxMs`); still observe feel and confirm the cap ends the round.
 
 ### Session 4 — Long-session soak (~45+ min continuous)
 One sitting, many rematches, no refresh. Watch for: degradation (heap sawtooth ~2–3 MB/s

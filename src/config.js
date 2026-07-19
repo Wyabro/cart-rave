@@ -366,9 +366,12 @@ export const CONFIG = {
     inputJitterBufferMs: 40,
     // * Max queued remote input frames per peer (drop oldest when exceeded).
     inputJitterQueueMax: 24,
-    // * Non-host prediction history cap (physics-rate samples). ~2s at 60 Hz.
-    // * Prevents unbounded growth when snapshots stall (ICE grace, host freeze, migration).
-    predictionPendingInputsMax: 120,
+    // * Non-host prediction history cap (physics-rate samples). ~400 ms at 60 Hz.
+    // * Run-7 Match A: 120 (~2s) fed a reconcile death spiral on the Intel non-host
+    // * (pending hit the cap → 120 Rapier steps/snap → snapHz 40→13 + 72 m teleports)
+    // * while the 4090 host stayed clean. Keep this in the same ballpark as
+    // * prediction.reconcileReplayMaxSteps.
+    predictionPendingInputsMax: 24,
     // * How long to wait for Cloudflare TURN credentials before opening WebRTC with STUN-only.
     turnCredentialsTimeoutMs: 2500,
     // * Min time between host WebRTC re-offer attempts for the same peer (mid-match recovery).
@@ -397,6 +400,11 @@ export const CONFIG = {
       // * Ease heading only; pitch/roll corrections snap with the body (near-zero under
       // * arcade physics, and easing them reads as wobble).
       yawOnlyReconcile: true,
+      // * NET-PERF-1 (run-7 Match A): max Rapier fixed-steps per host snapshot on the
+      // * non-host. After the body hard-snaps to host truth, only the newest N unacked
+      // * inputs are replayed (older ones are dropped). 8 ≈ 133 ms at 60 Hz — enough
+      // * to hide normal RTT, hard-caps the 120-step death spiral on potato non-hosts.
+      reconcileReplayMaxSteps: 8,
     },
   },
 

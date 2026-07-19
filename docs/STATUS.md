@@ -59,34 +59,43 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtest checkpoint, then the multiplayer gate.** Implementation is ahead of validation:
-three behavior-changing batches are stacked awaiting Wyatt. Nothing new should land on top
-until the queue drains (taste calls may trigger tuning).
+**Run 7 — controlled host-role playtest, then one-at-a-time triage.**
+Stop mega-batching. Open the repo playtest console, finish Match A then Match B, export,
+and let the agent take **one** next action.
 
-**Playtest kit (2026-07-13):** [playtest/README.md](./playtest/README.md) — six-session
-plan (stability → queue drain → FTUE → edge cases → soak → NET-1 → external testers),
-category evaluation guide, blind-spot register, plus solo/MP/polish/regression checklists
-and bug/balance/fun templates. The queue below maps to Session 1; NET-1 to Session 5.
+**Playtest console (canonical):** [playtest/console.html](./playtest/console.html) —
+open in a browser (no build). One purple “NOW” card; export markdown for chat. The old
+Claude.ai playtest-console artifact is **retired**. Longer reference plans still live under
+[playtest/README.md](./playtest/README.md).
 
-### Wyatt playtest queue (one session can cover all of it)
+**Why this order:** run-5/6 F8s showed the weak Intel host is the smoothness floor; when it
+hosts, the 4090 inherits multi-second snap gaps. Match A (4090 hosts) vs Match B (Intel
+hosts) separates **HOST-ROLE-1** from remaining code cost (**NET-PERF-1** only if A is still
+bad). **NET-PERF-2** (decode ring pool) already shipped run-4 — do not re-solve.
 
-1. **Stabilization pass (pushed)** — wheel spin direction by eye, +20% Zanzibar podium feel/AI contest, menu pacing ~700ms, grocery pile look, menu backdrop gradient.
-2. **Pass 4 (gameplay/AI)** — stall-free bots on all 3 arenas, edge-camper follow, visible podium contest, ram-SFX dynamic range.
-3. **Pass 5 (VFX/audio)** — spill juice, debris personality, Defeat screen, first-blood escalation, victory audio; aesthetic sign-off.
-4. ~~**Bloom A/B**~~ ✅ **RESOLVED (07-17)** — display-referred byte bloom is already the all-arena default (`adea4bf`); VFX-1 closed. Optional taste pass only: real-HW `?blackmon=1` on Classic/Sundial to tune the neon knobs.
-5. **07-18 run-7 checks (newest — run-6 notes triaged, all 10 needs-work items + lobby stalls addressed; full decode + run-7 checklist: [playtest-triage-2026-07-18-run6.md](./planning/playtest-triage-2026-07-18-run6.md))** — headlines: **the Intel machine HOSTED the run-6 MP matches** (its 27–33% >33ms frames became the 4090's 5–7s snap gaps + teleports — have the 4090 create the room next time; auto-quality now also steps renderScale below the LOW floor, probe `runtime.renderScaleMul`), host-minimize now shifts the round anchor on return + non-hosts hold the countdown ("host stalled" toast), SD gets a 45s stalemate cap + `?diag=1` prod control levers (`forceSuddenDeath`), menu-music bleed root-caused to run-5's own 320ms menu-hide deferral (sync stop + Howl-level onplay guard + duck-release fix + 2 regression tests), hit marker = **SFX slider applied twice to synth stings** (quadratic; now linear) + Wyatt's hit-impact.ogg shipped as the Howler-bus `killConfirm`, Esc-pause now shifts the directive window, spotlights restored to sweeping the Cart Rave floor (4b8d5d5 had re-aimed them into the stands), vortex inner-edge fade, blob shadow = uniform flat circle (no ellipse/bias/height-shrink), overlay dismiss crossfades (no 280ms dark beat), Storerooms song 5:08→3:00 loop-able (−1.5MB), Sundial env PMREM pre-baked at menu idle + preview idle timeout 900→2000ms (the 3.5–4.3s lobby click stalls).
-6. **07-18 run-6 checks (run-5 notes triaged; full decode: [playtest-triage-2026-07-18-run5.md](./planning/playtest-triage-2026-07-18-run5.md))** — the headline: **the host PC (Intel UHD iGPU, already at LOW tier) is the smoothness floor — 54% of its frames were >33ms; the 4090 non-host is locally clean (over33=2). Run-4's "GC metronome" video attribution was wrong — the metronome was the Intel machine's chronic hitching.** LOW tier now renders at 0.75× native (new `renderScale` knob) — the Intel machine's next F8 `perf.loop.over33` is the verdict; if still bad, next levers are a lower scale / tier-gating IBL. Also fixed: boost-charge loop stuck after non-host death (parity gap from the run-4 sting fix), yellow cart tamed (over-luma exponent), blob shadow offsets -4/-32 (sloped/decorated floor at distance), Cart Rave pit haze soft-gradients (sundial cure), Storerooms vortex recolored to sodium amber + EXIT sign removed, attract→loading→level transitions overlapped, MATCH POINT smaller + heartbeat pulse, kill-confirm sting audible at real volume sliders.
-7. **07-18 run-5 checks (run-4 notes triaged, all 6 "needs work" items shipped in `7e67fe2`, deployed Version `d42534f4`; full decode: [playtest-triage-2026-07-18.md](./planning/playtest-triage-2026-07-18.md))** — the big one was: **MP smoothness on both PCs**. Run-4's "stuttery mess / laggy-rubberbandy" root-caused to three client-side mechanisms (NOT transport — a VPS would change nothing, game traffic is P2P): (a) local-cart reconcile was a hard body snap+replay up to 40Hz with the `CONFIG.net.prediction` knobs dead — now the correction eases visually (offset decay) and the follow camera tracks the smoothed pose; (b) snapshot decode allocated ~900 objs/sec that the interp buffer promoted to old-gen → the ~67ms GC pause every ~1.1s visible in Wyatt's non-host video (ffmpeg freezedetect) — decode is now ring-pooled; (c) host send bursts after main-thread hitches — now coalesced. Verify: two-PC round, both screens; if still rough, F8 now carries `net.flow` (snap-gap avg/max/over-100, reconcile err/teleports), `net/snap_gap` events, and `over33`/`over66` hitch counters — the run-4 bundles were blind to all of these. Also re-check: cart glow (master 0.46→0.52, pattern valleys ~3× — patterned carts were reading way darker in the ACES toe), contact shadows (polygonOffset kills the floor z-fight patches), splash (louder + wider variation + low layer on big falls), non-host own-death now plays the death sting, Sundial hologram raised 0.9m clear of podium contests.
-8. **07-18 run-4 checks (run-3 notes triaged, all 4 "needs work" items fixed in `dabdb6b`)** — the big one: **MP as non-host after visiting a menu** (solo first, then quickplay — the exact broken flow; the spawn-lock root cause was `returnToMenu` killing the input-axis ref forever). Also: countdown at first join / rotation should show honest digits or straight GO (no stall-then-burst), cart glow rebalanced under ACES on all arenas (cyan/magenta/leader-white — taste call), Sundial sun −15% + the two "cross" line artifacts soft-blended, splash now pitch/gain-varied and quieter, contact shadows occluded by scenery/carts (trade-off: hidden under raised platforms). If the spawn-lock somehow recurs: F8 — the `net` probe now carries `axisWired` + `migFreezeRemMs`, the two gates the run-2 probe couldn't see. Full run-3 decode: [planning/playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md).
-9. **Ambience ear pass round 2 (07-16, after `15e13fa`)** — round 1 verdicts applied (Storerooms presence rebuilt up-spectrum + louder; Sundial wash pulled down, wind/gulls forward). Re-check both; SD drone still unheard. Crowd: Wyatt is sourcing a premade clip — drop it in via `node scripts/ambience/loopify.mjs <clip> classic_crowd_bed` (+ a cheering take for `classic_crowd_hype`), see [reference/ambience.md](./reference/ambience.md).
+### Active queue (strict)
+
+| # | What | Status |
+|---|------|--------|
+| 1 | Run 7 Match A (Strong hosts) + F8s | ✅ Done 2026-07-19 — **A FAIL** (not host-role alone) |
+| **2** | **NET-PERF-1 reconcile replay cap** (one change) — retest Match A only on Intel non-host | ▶️ **Code ready, needs ship + eyes** |
+| 3 | Match B only if needed after #2; else skip | locked |
+| 4 | P1 one-at-a-time (host minimize, SD, music, …) | locked until A feels honest |
+| 5 | NET-1 full two-human smoke | after perf story is honest |
+| 6 | P0-2 menu choppy on 4090 High | parked (separate from MP spiral) |
+
+Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md),
+[playtest-triage-2026-07-18.md](./planning/playtest-triage-2026-07-18.md),
+[playtest-triage-2026-07-18-run5.md](./planning/playtest-triage-2026-07-18-run5.md),
+[playtest-triage-2026-07-18-run6.md](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. Drain the playtest queue above → apply taste tuning. (Everything is pushed — the queue is eyes-on validation, not landing work.)
-2. Close **NET-1**: two-browser full-round smoke ([ROADMAP](./planning/ROADMAP.md) Phase 4) + [living-store-test-plan.md](./planning/living-store-test-plan.md) + [host-migration-test-plan.md](./planning/host-migration-test-plan.md).
-3. ~~Fix remaining **Critical** static netcode hazard~~ NET-MIG-2 fixed in the audit pass (on origin); verify live during the NET-1 smoke. NET-CLK-1 / NET-CLK-3 / NET-MIG-1 shipped (`a0475d6`); NET-CLK-2 closed 2026-07-14 (server-domain round anchor, integration review). Remaining structural netcode item: NET-MIG-3 — [netcode-deep-dive.md](./planning/netcode-deep-dive.md).
+1. **Wyatt:** open `docs/playtest/console.html` → Run 7 → stop at Gate → paste export + F8s.
+2. **Agent:** one-item triage only (no 10-fix dumps). Prefer host-role product guidance over VPS talk.
+3. Close **NET-1** after the perf story is honest ([ROADMAP](./planning/ROADMAP.md) Phase 4).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
-5. Structural debt (MAIN-1, DIR-1, GLTF-1, BRAND-1, …) is cataloged under [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) — **after** the validation gate, not instead of it.
+5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
 
@@ -94,6 +103,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 
 | ID | Issue | Status |
 |----|--------|--------|
+| HOST-ROLE-1 | Weak host poisons every peer | ⚠️ **Run-5/6 evidence.** First-joiner hosts; Intel hitch → everyone's snap gaps. Run-7 Match A/B isolates. Not a VPS issue. |
 | NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md). Now has an automated 2-client complement: [netcode-harness.md](./guides/netcode-harness.md) |
 | NET-2 | Quickplay join = frozen cart + slow load | 🟡 **Partial + warm Solo fix (pushed `e25d555`):** Wyatt `cr:*` marks showed world warm ~0.6s but play-entry→carts-ready ~9.8s (shader `compileAsync` up to 8s). Warm same-level path now caps compile poll at **1.5s**; default cap **4s**; fine marks `play-arena-done` / `play-cart-glb-done` / `play-carts-spawned` / `play-shader-start|end`. Still needs live feel + cold/quickplay check. |
 | VFX-1 | Black-frame flicker | ✅ **Closed (07-17)** — display-referred byte bloom is the all-arena default (`adea4bf`, since 07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic+sundial pass. Optional real-HW `?blackmon=1` taste pass |
@@ -162,6 +172,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-19 (Run 7 Match A decode → one fix) — **Match A FAILED with 4090 host.** Host F8: `over33` 3/10323, High, scale 1 — clean. Intel non-host timeline: early `snapHz≈40` + `pending=4` (wire fine) → mid `pending=120` + `snapHz≈18` + `reconcileErrMaxM=72.8m` + 14 teleports → late `snapHz≈13`. Death spiral = unbounded Rapier replay on a GPU-bound non-host, **not** host-role-only and **not** VPS. **One change:** `predictionPendingInputsMax` 120→24 + `reconcileReplayMaxSteps: 8` + F8 `reconcileReplayDrops` (+tests). **Next:** ship, retest **Match A only** (4090 hosts, Intel non-host F8). Skip Match B until A improves. Menu choppy on 4090 (P0-2) parked.
+
+2026-07-18 (playtest process reset) — **Repo-owned playtest console + one-at-a-time protocol.** New [playtest/console.html](./playtest/console.html) replaces the Claude artifact (retired mid run-6 update). Run 7 = Match A (strong hosts) → Match B (weak hosts) → Gate export → agent takes **one** next item. BACKLOG: **NET-PERF-2 marked shipped** (run-4 ring pool); **HOST-ROLE-1** added; NET-PERF-1 only if Match A still rough. STATUS active queue rewritten off the mega “run-7 checks” dump. Docs only — no gameplay change.
 
 > **Push-state note (2026-07-17 evening, updated):** the 07-17 playtest-triage stack
 > (`5b254aa` + `6ed9f24` + `25c1dd9`) is **pushed and deployed** — prod build stamp `25c1dd9`,

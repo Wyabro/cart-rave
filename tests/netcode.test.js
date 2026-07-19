@@ -177,7 +177,7 @@ describe("rewind and replay input buffering", () => {
 
   it("caps pending prediction inputs so a stalled snapshot stream cannot grow unbounded", () => {
     hooks.resetNetState();
-    const max = CONFIG.net.predictionPendingInputsMax ?? 120;
+    const max = CONFIG.net.predictionPendingInputsMax ?? 24;
     for (let i = 1; i <= max + 40; i += 1) {
       hooks.pushPendingInputForTest(i);
     }

@@ -470,6 +470,10 @@ const netFlowStats = {
   reconcileErrLastM: 0,
   reconcileErrMaxM: 0,
   reconcileTeleports: 0,
+  // * NET-PERF-1: how many unacked inputs were dropped because reconcileReplayMaxSteps
+  // * capped the Rapier replay (run-7 Match A death spiral).
+  reconcileReplayDrops: 0,
+  reconcileReplayTrimEvents: 0,
   lastGapEventMs: 0,
 };
 
@@ -483,6 +487,8 @@ function resetNetFlowStats() {
   netFlowStats.reconcileErrLastM = 0;
   netFlowStats.reconcileErrMaxM = 0;
   netFlowStats.reconcileTeleports = 0;
+  netFlowStats.reconcileReplayDrops = 0;
+  netFlowStats.reconcileReplayTrimEvents = 0;
 }
 
 function noteSnapshotArrival() {
@@ -517,6 +523,17 @@ export function noteReconcileError(errM, teleported) {
 }
 
 /**
+ * Count unacked inputs dropped by gameLoop's reconcileReplayMaxSteps cap.
+ * @param {number} dropped
+ */
+export function noteReconcileReplayTruncate(dropped) {
+  const n = Number(dropped) || 0;
+  if (n <= 0) return;
+  netFlowStats.reconcileReplayDrops += n;
+  netFlowStats.reconcileReplayTrimEvents += 1;
+}
+
+/**
  * How long the host has been silent beyond a 2.5s grace, in ms (0 = healthy).
  * Non-host only — drives the HUD's "hold the countdown while the host is away"
  * behavior (run-6: a minimized host froze everyone's world while the wall-clock
@@ -543,6 +560,8 @@ export function getNetFlowStats() {
     reconcileErrLastM: Math.round(netFlowStats.reconcileErrLastM * 1000) / 1000,
     reconcileErrMaxM: Math.round(netFlowStats.reconcileErrMaxM * 1000) / 1000,
     reconcileTeleports: netFlowStats.reconcileTeleports,
+    reconcileReplayDrops: netFlowStats.reconcileReplayDrops,
+    reconcileReplayTrimEvents: netFlowStats.reconcileReplayTrimEvents,
     windowMs: netFlowStats.startedMs > 0 ? Math.round(performance.now() - netFlowStats.startedMs) : 0,
   };
 }

@@ -5,6 +5,7 @@ import { isShatterAnimating } from "./cartShatter.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
+import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
@@ -392,8 +393,13 @@ export function runPhysicsStep(loopState, deps, context) {
             // Hard-snap local cart body to host authoritative state
             deps.applySnapshotToCartBody(localCart, cartSnap);
 
-            // Replay outstanding inputs in sequence
+            // Replay outstanding inputs in sequence (bounded — see trimPendingForReconcileReplay).
             const pendingInputs = deps.getPendingInputs ? deps.getPendingInputs() : [];
+            const replayMax = deps.CONFIG.net?.prediction?.reconcileReplayMaxSteps ?? 8;
+            const dropped = trimPendingForReconcileReplay(pendingInputs, replayMax);
+            if (dropped > 0 && deps.netcode?.noteReconcileReplayTruncate) {
+              deps.netcode.noteReconcileReplayTruncate(dropped);
+            }
             const allCarts = deps.getAllCartsRef();
             const replayCallbacks = {
               ...deps.getSimulationCallbacks(false),
