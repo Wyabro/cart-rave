@@ -1,5 +1,4 @@
-// @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   dispatchKOEvent,
   killFeedReactor,
@@ -11,10 +10,6 @@ import {
   diagnosticsReactor,
   DEFAULT_KO_REACTORS,
 } from "../src/scoring/koReactors.js";
-import {
-  installDiagnostics,
-  __resetDiagnosticsForTest,
-} from "../src/utils/diagnostics.js";
 
 function makeCtx(overrides = {}) {
   const calls = { killFeed: [], announcer: [], localConfirm: [], challenge: [], arenaFlash: [] };
@@ -171,14 +166,9 @@ describe("challengeReactor", () => {
 });
 
 describe("dispatchKOEvent", () => {
-  beforeEach(() => {
-    __resetDiagnosticsForTest();
-  });
-
   it("runs the default reactors for a kill", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
-    const slices = dispatchKOEvent(KILL, ctx);
-    expect(slices).toBeNull(); // diag off — no timing payload
+    dispatchKOEvent(KILL, ctx);
     expect(calls.challenge).toEqual(["ko_void"]);
     expect(calls.localConfirm).toEqual([[3, 2]]);
     expect(calls.killFeed).toHaveLength(1);
@@ -208,17 +198,5 @@ describe("dispatchKOEvent", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 0 });
     dispatchKOEvent(SELF, ctx);
     expect(calls.arenaFlash).toHaveLength(1);
-  });
-
-  it("when diag is active, returns per-reactor ms slices (P0 ko_path)", () => {
-    installDiagnostics({ flags: { enabled: true } });
-    const { ctx } = makeCtx({ localSlotIndex: 1 });
-    const slices = dispatchKOEvent(KILL, ctx);
-    expect(slices).not.toBeNull();
-    expect(slices).toHaveProperty("matchStatsReactor");
-    expect(slices).toHaveProperty("announcerReactor");
-    expect(slices).toHaveProperty("arenaVfxReactor");
-    expect(typeof slices.matchStatsReactor).toBe("number");
-    expect(slices.matchStatsReactor).toBeGreaterThanOrEqual(0);
   });
 });

@@ -8,7 +8,7 @@
 // paths once the wire shape is unified. Match stats are the exception — a pure counter module.
 
 import { recordKoForMatchStats } from "./matchStats.js";
-import { isDiagActive, recordDiagEvent } from "../utils/diagnostics.js";
+import { recordDiagEvent } from "../utils/diagnostics.js";
 import { PROGRESSION_EVENTS } from "../progression/eventIds.js";
 
 /**
@@ -167,35 +167,10 @@ export const DEFAULT_KO_REACTORS = [
 
 /**
  * Fans a finalized KO Event out to each reactor in order.
- *
- * Run-7 P0: when `?diag` is active, times each reactor and returns ms-per-name so a
- * host multi-second freeze on a KO cascade can name the hot slice (announcer vs
- * arena VFX vs kill-feed vs …). Production path is still a plain loop (no timing).
- *
  * @param {import('./koEvent.js').KOEvent} koEvent
  * @param {KOReactorCtx} ctx
  * @param {Array<(koEvent: object, ctx: KOReactorCtx) => void>} [reactors]
- * @returns {Record<string, number> | null} reactor name → ms, or null when diag off
  */
 export function dispatchKOEvent(koEvent, ctx, reactors = DEFAULT_KO_REACTORS) {
-  if (!isDiagActive()) {
-    for (const reactor of reactors) reactor(koEvent, ctx);
-    return null;
-  }
-  /** @type {Record<string, number>} */
-  const slices = {};
-  for (let i = 0; i < reactors.length; i += 1) {
-    const reactor = reactors[i];
-    const name =
-      (typeof reactor.name === "string" && reactor.name.length > 0
-        ? reactor.name
-        : `reactor_${i}`
-      ).slice(0, 48);
-    const t0 = performance.now();
-    reactor(koEvent, ctx);
-    // * Same name twice (tests) — keep max so a slow second pass isn't erased.
-    const ms = Math.round(performance.now() - t0);
-    slices[name] = Math.max(slices[name] || 0, ms);
-  }
-  return slices;
+  for (const reactor of reactors) reactor(koEvent, ctx);
 }
