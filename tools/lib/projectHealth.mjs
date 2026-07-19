@@ -225,36 +225,88 @@ async function collectBattery(dir) {
   return { latest, history };
 }
 
-/** @param {string} dir Capture bundles (scenario-label-NNN.json + .png). */
+/**
+ * Capture bundles from BOTH surfaces: harness/local bundles at the top of `.diag-captures/`
+ * (scenario-label-NNN.json + .png) and remote F8 uploads pulled into
+ * `.diag-captures/playtest/` by tools/pull-captures.mjs (cap-N-label.json + cap-N-meta.json
+ * server sidecars). The playtest subdir was previously invisible to the dashboard.
+ * @param {string} dir
+ */
 async function collectCaptures(dir) {
-  let files;
-  try {
-    files = await readdir(dir);
-  } catch {
-    return [];
-  }
-  const bundles = files.filter((f) => f.endsWith(".json") && !f.startsWith("battery-") && !f.startsWith("tally-") && f !== "health.json");
-  const out = [];
-  for (const f of bundles.sort().reverse().slice(0, 20)) {
+  const isBundle = (f) =>
+    f.endsWith(".json") &&
+    !f.startsWith("battery-") &&
+    !f.startsWith("tally-") &&
+    !f.endsWith("-meta.json") &&
+    f !== "health.json";
+
+  /** @type {Map<string, any>} rel bundle path → server sidecar */
+  const sidecars = new Map();
+  /** @type {Array<{ rel: string, hasPng: boolean, mtime: Date }>} */
+  const candidates = [];
+
+  for (const sub of ["", "playtest"]) {
+    const surface = sub ? join(dir, sub) : dir;
+    let files;
     try {
-      const filePath = join(dir, f);
-      const raw = JSON.parse(await readFile(filePath, "utf8"));
-      const png = f.replace(/\.json$/, ".png");
-      const mtime = (await stat(filePath)).mtime.toISOString();
+      files = await readdir(surface);
+    } catch {
+      continue;
+    }
+    // * Sidecars (pull-captures writeOne) are merged into their bundle's card,
+    // * never rendered as their own bundle.
+    for (const f of files.filter((x) => x.endsWith("-meta.json"))) {
+      try {
+        const meta = JSON.parse(await readFile(join(surface, f), "utf8"));
+        if (meta?.file) sidecars.set(sub ? `${sub}/${meta.file}` : meta.file, meta);
+      } catch {
+        /* unreadable sidecar — skip */
+      }
+    }
+    for (const f of files.filter(isBundle)) {
+      try {
+        candidates.push({
+          rel: sub ? `${sub}/${f}` : f,
+          hasPng: files.includes(f.replace(/\.json$/, ".png")),
+          mtime: (await stat(join(surface, f))).mtime,
+        });
+      } catch {
+        /* raced delete — skip */
+      }
+    }
+  }
+
+  // * Order by mtime, newest first — filename sort breaks past cap-9 ("cap-16" < "cap-9"
+  // * as strings), which buried the newest F8 pulls mid-list.
+  candidates.sort((a, b) => b.mtime - a.mtime);
+
+  const out = [];
+  for (const { rel, hasPng, mtime } of candidates.slice(0, 20)) {
+    try {
+      const raw = JSON.parse(await readFile(join(dir, rel), "utf8"));
+      const meta = sidecars.get(rel) ?? null;
       out.push({
-        file: f,
-        png: files.includes(png) ? png : null,
-        scenario: raw?.scenario ?? null,
+        file: rel,
+        png: hasPng ? rel.replace(/\.json$/, ".png") : null,
+        scenario: raw?.scenario ?? meta?.label ?? null,
         reason: raw?.reason ?? null,
-        phase: raw?.phase ?? null,
-        capturedAt: raw?.capturedAt ?? mtime,
+        phase: raw?.phase ?? meta?.phase ?? null,
+        capturedAt: raw?.capturedAt ?? meta?.received ?? mtime.toISOString(),
         build: raw?.build ?? null,
+        // * The triage question is always "which build was this from?" — bundle stamp
+        // * first (baked by vite define), server sidecar as fallback for F8 uploads.
+        buildSha: raw?.build?.sha ?? meta?.build ?? null,
+        serverId: meta?.id ?? null,
+        isHost: meta?.is_host ?? null,
+        qualityTier: meta?.quality_tier ?? null,
         errorEvents: Array.isArray(raw?.events) ? raw.events.filter((e) => e.ch === "error" || e.ch === "assert").length : null,
       });
     } catch {
       /* not a bundle — skip */
     }
   }
+  // * capturedAt refines mtime ordering (pull time ≠ capture time for F8 uploads).
+  out.sort((a, b) => String(b.capturedAt).localeCompare(String(a.capturedAt)));
   return out;
 }
 

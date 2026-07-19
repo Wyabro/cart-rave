@@ -90,17 +90,28 @@ function renderHtml(h) {
     .map((e) => `<span class="chip ${e.green === e.total ? "pass" : "fail"}" title="${esc(e.file)}">${e.green}/${e.total}</span>`)
     .join(" ");
 
+  // * The first triage question is "which build?" — green when the stamp matches the
+  // * NEWEST captured build (i.e. "is this from the build being retested right now?").
+  // * git HEAD is the wrong reference: docs/test commits advance it past the deployed sha.
+  const newestSha = (h.captures ?? []).find((c) => c.buildSha)?.buildSha ?? null;
   const captureCards = (h.captures ?? [])
-    .map(
-      (c) => `<div class="card">
+    .map((c) => {
+      const buildChip =
+        c.buildSha == null
+          ? `<span class="chip warn">build ?</span>`
+          : `<span class="chip ${newestSha && c.buildSha === newestSha ? "pass" : "warn"}" title="newest captured build: ${esc(newestSha ?? "?")} · dashboard HEAD: ${esc(h.git?.head ?? "?")}">build ${esc(c.buildSha)}</span>`;
+      const role = c.isHost == null ? "" : c.isHost ? " · host" : " · non-host";
+      const tier = c.qualityTier ? ` · ${esc(c.qualityTier)}` : "";
+      const serverId = c.serverId != null ? `<span class="dim">#${esc(c.serverId)}</span> ` : "";
+      return `<div class="card">
         ${c.png ? `<a href="${esc(c.png)}"><img src="${esc(c.png)}" alt="capture screenshot" loading="lazy"></a>` : ""}
         <div class="cardbody">
-          <b>${esc(c.scenario ?? "?")}</b> <span class="dim">${esc(c.phase ?? "")}</span><br>
-          <span class="dim">${esc(c.reason ?? "")}</span><br>
+          ${serverId}<b>${esc(c.scenario ?? "?")}</b> <span class="dim">${esc(c.phase ?? "")}${role}${tier}</span><br>
+          ${buildChip}${c.reason ? ` <span class="dim">${esc(c.reason)}</span>` : ""}<br>
           <a href="${esc(c.file)}">${esc(c.file)}</a> · ${esc(ago(c.capturedAt))}${c.errorEvents != null ? ` · ${c.errorEvents} err/assert evt` : ""}
         </div>
-      </div>`,
-    )
+      </div>`;
+    })
     .join("\n");
 
   const issueRows = (h.issues?.open ?? [])
@@ -161,6 +172,7 @@ function renderHtml(h) {
   .chip { display:inline-block; padding:1px 8px; border-radius:6px; font-size:12px; margin-right:2px; }
   .chip.pass { background:rgba(61,220,132,.12); color:var(--green); }
   .chip.fail { background:rgba(255,93,93,.12); color:var(--red); }
+  .chip.warn { background:rgba(255,194,75,.12); color:var(--amber); }
   .dim { color:var(--dim); }
   .fails { color:var(--red); font-size:12px; margin-top:4px; }
   ol.next { background:var(--panel); border:1px solid var(--edge); border-left:4px solid var(--neon);
@@ -234,9 +246,13 @@ async function main() {
 
   const latest = health.battery?.latest;
   const failing = latest?.results?.filter((r) => r.code !== 0).length ?? 0;
+  const newest = health.captures?.[0];
+  const newestNote = newest
+    ? ` (newest ${newest.serverId != null ? `#${newest.serverId}` : newest.file} build=${newest.buildSha ?? "?"} ${ago(newest.capturedAt)})`
+    : "";
   log(
     `summary: battery ${latest ? `${(latest.results?.length ?? 0) - failing}/${latest.results?.length ?? 0} green (${ago(latest.when)})` : "never run"}` +
-      ` · ${health.captures?.length ?? 0} capture(s) · ${health.issues?.open?.length ?? 0} open issue(s)`,
+      ` · ${health.captures?.length ?? 0} capture(s)${newestNote} · ${health.issues?.open?.length ?? 0} open issue(s)`,
   );
 }
 
