@@ -34,9 +34,10 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
 | Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
-| Origin HEAD | Local ↔ origin/cart-clash at `f0c10ba` — run-7 NET-PERF-1 reconcile replay cap pushed **and deployed** |
-| Gates (`npm run qa`) | ✅ **453 tests / 50 files**, typecheck + knip clean (post run-7 cap +4 tests) |
-| Prod deploy (2026-07-19) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-eo1T1CJF.js`**, Version `3c985b44`; markers `reconcileReplayMaxSteps`/`reconcileReplayDrops`/`f0c10ba` verified in served bytes. No new DO migration. **Next: Match A retest only** (4090 hosts, Intel non-host F8). |
+| Origin HEAD | Local ↔ origin/cart-clash at `efdca62` — hit-delay replay-order fix shipped |
+| Gates (`npm run qa`) | ✅ **457 tests / 51 files**, typecheck + knip clean |
+| Prod deploy (2026-07-19 night) | ✅ Live — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62`: keep **oldest** unacked on reconcile, steps 12). **Next: Match A combat retest** (4090 hosts, ram both ways on Intel). Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Prod deploy (2026-07-19 eve) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
 | Prod deploy (2026-07-18 eve) | ✅ superseded — bundle `index-9RzsBOgc.js`, Version `23499d21` (run-6 stack) |
 | Prod deploy (2026-07-18 pm) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-JHMFE-UK.js`** (cache-buster verified; markers `snap_gap`/`_reconcileVisOffset`/`over66` present in served bytes), Version `d42534f4`; includes the run-4 fixes: MP reconcile visual easing + camera smoothed-pose, snapshot decode ring pool, host send burst guard, `net.flow` probe + over33/66 counters, glow master 0.52 + pattern-valley lift, contact-shadow polygonOffset, splash tune + layer, non-host death sting, Sundial holo +0.9. No new DO migration. Edge served stale index.html for ~30s post-deploy (again) — cache-buster until the new bundle name appears |
 | Prod deploy (2026-07-18 am) | ✅ superseded — bundle `index-BzZeIE-M.js`, Version `1a58bdf7` (run-3 fixes: non-host input-freeze root cause, countdown-under-swap defer, ACES cart-emissive rebalance, Sundial sun/cross, splash variation, contact-shadow depthTest) |
@@ -61,30 +62,22 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 — controlled host-role playtest, then one-at-a-time triage.**
-Stop mega-batching. Open the repo playtest console, finish Match A then Match B, export,
-and let the agent take **one** next action.
+**Run 7 — one-at-a-time.** Full cold handoff for a **new agent window:**
+[planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
-**Playtest console (canonical):** [playtest/console.html](./playtest/console.html) —
-open in a browser (no build). One purple “NOW” card; export markdown for chat. The old
-Claude.ai playtest-console artifact is **retired**. Longer reference plans still live under
-[playtest/README.md](./playtest/README.md).
-
-**Why this order:** run-5/6 F8s showed the weak Intel host is the smoothness floor; when it
-hosts, the 4090 inherits multi-second snap gaps. Match A (4090 hosts) vs Match B (Intel
-hosts) separates **HOST-ROLE-1** from remaining code cost (**NET-PERF-1** only if A is still
-bad). **NET-PERF-2** (decode ring pool) already shipped run-4 — do not re-solve.
+Playtest console: [playtest/console.html](./playtest/console.html).  
+F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
 ### Active queue (strict)
 
 | # | What | Status |
 |---|------|--------|
-| 1 | Run 7 Match A (Strong hosts) + F8s | ✅ Done 2026-07-19 — **A FAIL** (not host-role alone) |
-| **2** | **NET-PERF-1 reconcile replay cap** — shipped `f0c10ba` / `index-eo1T1CJF.js` — **retest Match A only** (4090 hosts, Intel F8) | ▶️ **Eyes-on** |
-| 3 | Match B only if needed after #2; else skip | locked |
-| 4 | P1 one-at-a-time (host minimize, SD, music, …) | locked until A feels honest |
-| 5 | NET-1 full two-human smoke | after perf story is honest |
-| 6 | P0-2 menu choppy on 4090 High | parked (separate from MP spiral) |
+| 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` — Intel snapHz ~40, over33 ~2% |
+| **2** | **Match A combat timing** — hit-delay fix `efdca62` / `index-XByafoNI.js` | ▶️ **Eyes-on: ram both ways on Intel** |
+| 3 | Match B (Intel hosts) only if needed | locked |
+| 4 | P1 console cards one-at-a-time | locked until #2 pass |
+| 5 | NET-1 two-human smoke | after perf honest |
+| 6 | P0-2 menu choppy on 4090 High | parked |
 
 Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md),
 [playtest-triage-2026-07-18.md](./planning/playtest-triage-2026-07-18.md),
@@ -175,7 +168,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (Run 7 Match A decode → one fix) — **Match A FAILED with 4090 host.** Host F8: `over33` 3/10323, High, scale 1 — clean. Intel non-host timeline: early `snapHz≈40` + `pending=4` (wire fine) → mid `pending=120` + `snapHz≈18` + `reconcileErrMaxM=72.8m` + 14 teleports → late `snapHz≈13`. Death spiral = unbounded Rapier replay on a GPU-bound non-host, **not** host-role-only and **not** VPS. **One change:** `predictionPendingInputsMax` 120→24 + `reconcileReplayMaxSteps: 8` + F8 `reconcileReplayDrops` (+tests). **Next:** ship, retest **Match A only** (4090 hosts, Intel non-host F8). Skip Match B until A improves. Menu choppy on 4090 (P0-2) parked.
+2026-07-19 (hit-delay + window handoff) — **Shipped `efdca62` / bundle `index-XByafoNI.js` / Version `11e93226`:** reconcile trim keeps **oldest** unacked (continuous after host ack), drops newest; `reconcileReplayMaxSteps` 8→12. Cap had fixed smoothness but wrong drop order made combat feel ~1s late. **Next eyes:** Match A ram both ways on Intel. **New-window handoff:** [planning/handoff-next-window.md](./planning/handoff-next-window.md). F8 remote pull live (`/api/captures` + `npm run captures:pull`).
+
+2026-07-19 (Run 7 Match A decode → one fix) — **Match A FAILED with 4090 host.** Death spiral = unbounded Rapier replay. **Shipped `f0c10ba`:** pending max 120→24 + replay step cap. Retest: smoothness **much better**; combat still late → hit-delay fix above.
 
 2026-07-18 (playtest process reset) — **Repo-owned playtest console + one-at-a-time protocol.** New [playtest/console.html](./playtest/console.html) replaces the Claude artifact (retired mid run-6 update). Run 7 = Match A (strong hosts) → Match B (weak hosts) → Gate export → agent takes **one** next item. BACKLOG: **NET-PERF-2 marked shipped** (run-4 ring pool); **HOST-ROLE-1** added; NET-PERF-1 only if Match A still rough. STATUS active queue rewritten off the mega “run-7 checks” dump. Docs only — no gameplay change.
 
