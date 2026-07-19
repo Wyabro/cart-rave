@@ -1,8 +1,9 @@
 # Handoff — next agent window (Run 7 · P0 mid-flight)
 
-**Date:** 2026-07-19 (end of session — Wyatt bed)  
+**Date:** 2026-07-19 (P0 menu card coded — unpushed)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`5bfe7e5`** (+ docs deploy record if present)  
+**Origin HEAD:** **`5bfe7e5`** (prod still this until ship)  
+**Local:** unpushed idle-shader warm in `bootstrapWorldCore` (see P0 below)  
 **Prod:** https://cart-rave.wyabro.workers.dev  
 **Live client bundle:** **`index-D3QXm4Qq.js`** (Version `f94266c2`, build sha **`5bfe7e5`**)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
@@ -70,13 +71,20 @@ F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
 
 ### P0 — Host multi-second freezes under 2-human load (focused 4090)
 
-**Status:** Open. Attributed as main-thread `unknown|window`; fall-path not the multi-s slice when freezes don’t fire.
+**Status:** Open. Menu sub-card **coded unpushed**.
 
-**Next dig candidates (pick one):**
+**Menu multi-s (this window — done in tree, not shipped):**
 
-1. **Menu multi-s longtasks** (1.7–4s pre play-entry) — reproducible on host alone; may share root with mid-round.  
-2. **Post-fall frame** (physics done → visuals/render/audio) — KO-aligned 0.2–0.4s longtasks sit outside fall path.  
-3. If multi-s **returns** on friend 2-human: measure with existing longtask/`lt[]` only; no new probe until one lever is chosen.
+- Caps **45–51**: multi-s longtasks (`unknown|window` 1.7–4.2s) start **~5ms after `world-ready`**, long before `play-entry`.  
+- Cause: `isWorldBootstrapped()` un-gates menu attract → first `composer.render` compiles arena + postFX. Idle warm loaded geometry but did **not** `compileAsync` / prime composer before ready.  
+- Fix (local): `bootstrapWorldCore` → `idle-shader-start` → `warmupActiveSceneShaders({ forPlay:false })` (always primes composer now) → `idle-shader-end` → then promise resolves → `world-ready`. Attract stays on gradient until warm finishes.  
+- Gates: **514 tests / 55 files**, typecheck + knip clean.  
+- **Still possible after ship:** post-ready `prefetchLevelChunks` + `warmSunsetEnv` (cap-47 ~4s LT ~14s after ready); announcer fire-and-forget decode on menu — separate cards if F8 still shows multi-s after world-ready.
+
+**Next dig candidates after menu retest:**
+
+1. **Post-fall / mid-round frame** — cap-47: 2.3–2.5s longtask on KO cascade + announcer burst; fall path already cleared (0 ko_path).  
+2. If multi-s **returns** on friend 2-human with warm menu: longtask/`lt[]` only; no new probe until one lever.
 
 **Pass:** No multi-s host_send_gap / friend tHost snap_gap mid-round; friend errMax/tele drop.
 
@@ -123,9 +131,8 @@ No F8 color fields. Separate from P0. Both machines same build first.
 > Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
 > Continue Run 7 **one item at a time** from P0→P6.  
 > Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-open skip-replay/phantom; do not re-add ko_path without evidence.  
-> Landed: longtask probe live (`index-D3QXm4Qq.js` / `5bfe7e5`); ko_path rolled back.  
-> Caps 31–51 decoded. Start P0: menu multi-s longtasks **or** post-fall frame — one card.  
-> Pull F8s if Wyatt played; ship only on “ship it.”
+> Prod still `index-D3QXm4Qq.js` / `5bfe7e5`. Local unpushed: menu idle-shader warm before world-ready.  
+> On “ship it”: ship, hard-refresh, F8 menu sit + round; then post-fall card if mid-round multi-s remains.
 
 ---
 

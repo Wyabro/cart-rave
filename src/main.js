@@ -125,6 +125,7 @@ import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
 import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
+import { markBootPhase } from "./utils/bootTimeline.js";
 
 // * testArena constants inlined (avoid static import of heavy level module at boot).
 const TEST_ARENA_SKY = 0x586274;
@@ -2475,15 +2476,11 @@ async function main() {
       }
       // * compileAsync covers SCENE programs only. The composer passes (bloom
       // * bright/blur, arcade, FXAA, output) and their render targets initialize on
-      // * the first composer.render() — which, without this, is the first visible
-      // * frame after the overlay lifts, i.e. a hitch that lands exactly on the
-      // * round-start flyover (07-17 run-2: "round start hitch that happens often").
-      // * One throwaway render here absorbs it behind the loading overlay. Play-entry
-      // * only: the menu attract path renders through the composer continuously.
-      if (forPlay) {
-        if (isComposerBypassActive()) renderer.render(scene, camera);
-        else composer.render();
-      }
+      // * the first composer.render(). Play-entry used to be the only prime site;
+      // * menu attract then paid multi-s longtasks on the first post-world-ready
+      // * frame (Run-7 caps 45–51: LT start ≈ world-ready + 5ms). Always prime here.
+      if (isComposerBypassActive()) renderer.render(scene, camera);
+      else composer.render();
     } catch (err) {
       // * Warm-up is an optimization — never let it block play entry.
       console.warn("[CartRave] scene shader warm-up failed:", err);
@@ -2636,6 +2633,14 @@ async function main() {
     await swapLoadedLevel(
       resolveLevelId(levelIdOverride ?? storageGet(LEVEL_STORAGE_KEY)),
     );
+    // * Run-7 P0 (menu multi-s): world-ready un-gates menu attract. Caps 45–51 show
+    // * 1.7–4.2s longtasks starting ~5ms after world-ready — first attract
+    // * composer.render compiling arena + postFX programs. Warm *before* the
+    // * bootstrap promise resolves so isWorldBootstrapped stays false and attract
+    // * keeps the gradient. Marks: idle-shader-start/end (world-ready − start = cost).
+    markBootPhase("idle-shader-start");
+    await warmupActiveSceneShaders({ forPlay: false });
+    markBootPhase("idle-shader-end");
     await yieldForPaint();
   }
 

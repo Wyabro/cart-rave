@@ -18,6 +18,10 @@
  * play-carts-spawned → play-shader-start → play-shader-end → carts-ready. Use these
  * to split arena rebuild vs cart GLB vs shader compileAsync (the measured Solo hang).
  * `play-shader-start|end` also brackets awaited announcer pack warm (2e host hitch).
+ *
+ * Idle-warm sub-phases (inside world bootstrap, before `world-ready`):
+ * idle-shader-start → idle-shader-end — menu attract must not un-gate until these
+ * complete (Run-7 P0: multi-s longtasks were first attract compiles after ready).
  */
 
 import { recordDiagEvent } from "./diagnostics.js";
