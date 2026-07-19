@@ -400,11 +400,12 @@ export const CONFIG = {
       // * Ease heading only; pitch/roll corrections snap with the body (near-zero under
       // * arcade physics, and easing them reads as wobble).
       yawOnlyReconcile: true,
-      // * NET-PERF-1 (run-7 Match A): max Rapier fixed-steps per host snapshot on the
-      // * non-host. After the body hard-snaps to host truth, only the newest N unacked
-      // * inputs are replayed (older ones are dropped). 8 ≈ 133 ms at 60 Hz — enough
-      // * to hide normal RTT, hard-caps the 120-step death spiral on potato non-hosts.
-      reconcileReplayMaxSteps: 8,
+      // * NET-PERF-1 (run-7): max Rapier fixed-steps per host snapshot on the non-host.
+      // * After the body hard-snaps to host truth, only the oldest N unacked inputs are
+      // * replayed (continuous extension of host; newer ones dropped). 12 ≈ 200 ms at
+      // * 60 Hz — covers normal RTT with headroom; Intel retest had ~3% over33 so we can
+      // * afford more than the initial 8 that still felt "hit 1s late".
+      reconcileReplayMaxSteps: 12,
     },
   },
 
