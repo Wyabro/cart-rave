@@ -34,9 +34,10 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
 | Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
-| Origin HEAD | origin at `2977af2` / code `4a9f7f8`. **Local unpushed:** phantom-pending clear after combat-hold retest |
+| Origin HEAD | Local ↔ origin/cart-clash at `732e2d6` — phantom-pending clear |
 | Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean |
-| Prod deploy (2026-07-19 combat-hold) | ✅ Live — **`index-iKVEUst7.js`** / `4f795c70`. Retest: combat better (localKos 1, errMax 28→4m); **phantom move after respawn**. Fix unpushed. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Prod deploy (2026-07-19 phantom) | ✅ Live — **bundle `index-t3FG6KVX.js`**, Version `eeeef76e` (`732e2d6`: no sample during hold; clear pending on death/skip-replay; force doRespawn if s:false+hasSpilled). **Next: die/respawn retest.** Host multi-s freezes are **not** explained by unfocus — see Last updated. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Prod deploy (2026-07-19 combat-hold) | ✅ superseded — **`index-iKVEUst7.js`** / `4f795c70`. Hits better; phantom after respawn. |
 | Prod deploy (2026-07-19 night) | ✅ superseded — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62` hit-delay order). Match A combat FAIL partial. |
 | Prod deploy (2026-07-19 eve) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
 | Prod deploy (2026-07-18 eve) | ✅ superseded — bundle `index-9RzsBOgc.js`, Version `23499d21` (run-6 stack) |
@@ -76,7 +77,8 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` — Intel snapHz ~40, over33 ~2% |
 | 2 | Match A combat — hit-delay order `efdca62` | ❌ **FAIL partial** (feel + F8 cap-6/7): host 10× multi-s freezes; ghost predict; death pose wrong |
 | 2b | Combat hold | ✅ Live — partial pass (hits better; errMax 4m) |
-| **2c** | **Phantom move after respawn** (pending stream after hold/skip) | ⏳ **Unpushed** — clear pending on death/skip; no sample during hold |
+| **2c** | **Phantom move after respawn** | ▶️ **Live `index-t3FG6KVX.js`** — die/respawn retest |
+| 2d | Host multi-s freezes while focused | open — resume:true ≠ alt-tab; clusters near KO/announcer |
 | 3 | Match B (Intel hosts) only if needed | locked |
 | 4 | P1 console cards one-at-a-time | locked until #2 pass |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -89,7 +91,7 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **Wyatt:** `ship it` for phantom-pending clear → Match A die/respawn retest with **4090 focused**.
+1. **Wyatt:** hard-refresh both to **`index-t3FG6KVX.js`** → die/respawn on Intel; note if phantom gone. Host freezes still open (focused confirmed).
 2. **Agent:** one-item only; do not re-triage run-1…6. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 3. Close **NET-1** after the perf story is honest ([ROADMAP](./planning/ROADMAP.md) Phase 4).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
@@ -171,7 +173,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (combat-hold retest → phantom pending, unpushed) — F8 cap-8/9 `4a9f7f8`: Intel errMax **28→4.2m**, teleports 4→1, skips=6, localKos 1 (hits land). Host still **6× multi-s resume freezes** (snapGapMax 6.5s). Feel: better hits; **phantom move after respawn**. Root: hold still **sampled inputs into pending**, skip-replay left that stream; next healthy snap replayed silence-era throttle. **Fix unpushed:** no sample during hold; clear all pending on death + skip-replay; force `doRespawn` if s:false while hasSpilled. Gates 458/51. **Next:** ship + die/respawn retest.
+2026-07-19 (phantom-pending **shipped**) — **`732e2d6` / bundle `index-t3FG6KVX.js` / Version `eeeef76e`**. No sample during hold; clear pending on death + skip-replay; force doRespawn on s:false+hasSpilled. **Wyatt note (believed):** host window was focused whole fight — multi-s `resume:true` longframes are **not** alt-tab. Probe only means a single rAF gap >250ms (main-thread block / scheduler), not document.hidden. Cap-9 freezes (0.5–8s) sit near countdown/go and KO+announcer bursts — next work after phantom retest is host hitch forensics, not "keep focused" product nag. **Next eyes:** die/respawn phantom gone?
+
+2026-07-19 (combat-hold retest → phantom pending) — F8 cap-8/9 `4a9f7f8`: errMax 28→4.2m, localKos 1; phantom after respawn. Fix shipped as entry above.
 
 2026-07-19 (combat-hold **shipped**) — **`4a9f7f8` / bundle `index-iKVEUst7.js` / Version `4f795c70`** live. Hold on silence/dead; skip-replay overload; death pose snap. Retest → entry above.
 

@@ -23,8 +23,9 @@ F8 both machines → `npm run captures:pull` on the repo PC → agent reads `.di
 | Match A smoothness (4090 hosts) | ✅ Death spiral fixed (`f0c10ba`). |
 | Hit-delay order fix | ✅ `efdca62` keep-oldest / steps 12. **Partial** on Intel — better, not enough. |
 | Match A combat retest (`efdca62` F8s cap-6/7) | ❌ **FAIL** — see decode below. |
-| Combat hold ship | ✅ Live `4a9f7f8` / **`index-iKVEUst7.js`**. Retest: hits better; **phantom move after respawn**. |
-| Phantom pending clear | ⏳ **Unpushed** — stop sampling during hold; clear pending on death + skip-replay; force doRespawn if s:false + hasSpilled. |
+| Combat hold | ✅ Live `4a9f7f8` / was `index-iKVEUst7.js` — hits better; phantom after respawn. |
+| Phantom pending clear | ✅ **Live** `732e2d6` / **`index-t3FG6KVX.js`** / Version `eeeef76e`. |
+| Host multi-s freezes | **Open** — Wyatt focused host whole time. `resume:true` = rAF gap >250ms, **not** alt-tab. Cap-9 clusters near KO/announcer. |
 | Match B (Intel hosts) | **Not required** until Match A combat feels honest. |
 | HOST-ROLE-1 | **Live in Match A F8s** — 4090 host had **10× multi-second `resume:true` longframes** (1–7s). That *is* the snap-gap source. Keep host window focused; later: host background pump. |
 | NET-PERF-2 | **Done** run-4. Do not re-solve. |
@@ -49,14 +50,14 @@ Root: host freezes starve snaps; non-host kept predicting a ghost world + death 
 
 ## Next human action (only this)
 
-1. **Ship** when Wyatt says go — phantom-pending clear is **unpushed**.
-2. Hard-refresh both to the **new** bundle (not `index-iKVEUst7.js`).
-3. `?diag=1`. **4090 creates room**; **keep 4090 focused** (host still shows multi-s resume freezes in F8s).
-4. Intel: die + respawn a few times; watch for ghost throttle after spawn.
-5. F8 + feel.
+1. Both PCs hard-refresh until **`index-t3FG6KVX.js`**.
+2. `?diag=1`. **4090 creates room** (host). Focus still good practice; freezes are **not** blamed on unfocus anymore.
+3. Intel: die + respawn several times; watch for ghost throttle after spawn.
+4. F8 both → pull → paste feel.
 
-**Pass:** no free-slide after respawn / host stall recovery; hits still land.  
-**Fail:** still phantom with host focused → decode pending age + skips; host freeze pump next.
+**Pass:** no free-slide after respawn; hits still land.  
+**Fail phantom:** decode pending/skips.  
+**After pass (or in parallel note):** host multi-s freezes while focused — next one-item is hitch forensics (KO/announcer path), not focus nag.
 
 ---
 
