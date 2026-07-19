@@ -34,8 +34,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **514 tests / 55 files**, typecheck + knip clean (verified 2026-07-19 on P0 longtask probe) |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `8f17aba` — P0 longtask probe |
-| Prod deploy (2026-07-19 P0 longtask) | ✅ Live — **bundle `index-DGKCMA2w.js`**, Version `2729f45e` (`8f17aba` + `longtask`/`ltN`/`focused` verified in served bytes) |
+| Origin HEAD | Local ↔ origin/cart-clash at `be8eba3` — P0 ko_path timing |
+| Prod deploy (2026-07-19 P0 ko_path) | ✅ Live — **bundle `index-BwzBNELn.js`**, Version `ec6d2928` (`be8eba3` + `ko_path`/`spillMs`/`dispatchMs` verified in served bytes) |
+| Prod deploy (2026-07-19 P0 longtask) | ✅ superseded — **bundle `index-DGKCMA2w.js`**, Version `2729f45e` (`8f17aba`) |
 | Prod deploy (2026-07-19 tHost arrival) | ✅ superseded — **bundle `index-CHXFyLNA.js`**, Version `2c88c7d9` (`1adef95`) |
 | Prod deploy (2026-07-19 announcer warm) | ✅ superseded — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`) |
 | Prod deploy (2026-07-19 host-send probe) | ✅ superseded — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9`) |
@@ -81,7 +82,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **ko_path timing unpushed** — caps 42–47: focused main-thread `unknown\|window` on KO cascades; next F8 needs `perf/ko_path` slices |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **ko_path live** `index-BwzBNELn.js` / `be8eba3` — F8 host after multi-s KO; decode `perf/ko_path` slices |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -95,7 +96,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Ship ko_path** on “ship it” → hard-refresh → 2-human F8 host after multi-s KO freeze.
+1. **Hard-refresh both** (`index-BwzBNELn.js`) → 2-human F8 **host** after multi-s KO freeze.
 2. Decode `perf/ko_path` (`spillMs`/`scoreMs`/`dispatchMs`/`shatterMs`/`hot`/`reactors`) next to the longtask.
 3. One behavior lever from the hot slice — not a blind death rewrite.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -176,7 +177,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (P0 ko_path timing — **unpushed**) — Cap 42–47 retest (4090 host + **Intel Low** non-host): freezes are focused main-thread longtasks `unknown|window` (2.3–2.5s) on KO cascades; menu also had 3–4s longtasks. KO path more sus than menu for mid-round poison. **Lever:** `perf/ko_path` slices (spill/score/dispatch/shatter + per-reactor ms). Gates: **qa 515/55**. Ship on “ship it”.
+2026-07-19 (P0 ko_path timing **shipped**) — **`be8eba3` / bundle `index-BwzBNELn.js` / Version `ec6d2928`**. Served: sha + `ko_path`/`spillMs`/`dispatchMs`. Cap 42–47: focused `unknown|window` on KO cascades. **Next:** hard-refresh → F8 host after multi-s KO → decode `hot`/`reactors`.
 
 2026-07-19 (P0 longtask probe **shipped**) — **`8f17aba` / bundle `index-DGKCMA2w.js` / Version `2729f45e`**. Served bytes: sha `8f17aba`, `longtask`, `ltN`, `focused`, `PerformanceObserver`.
 

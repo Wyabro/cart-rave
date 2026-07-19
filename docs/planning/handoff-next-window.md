@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-19 (friend 2-human + friend solo F8 decode)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`8f17aba`** (P0 longtask probe)  
+**Origin HEAD:** **`be8eba3`** (P0 ko_path timing)  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-DGKCMA2w.js`** (Version `2729f45e`, build sha `8f17aba`)  
+**Live client bundle:** **`index-BwzBNELn.js`** (Version `ec6d2928`, build sha `be8eba3`)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
@@ -34,7 +34,8 @@ F8 both (or solo) → `npm run captures:pull` → `.diag-captures/playtest/`.
 | Host send cadence probe | ✅ `19e5cd9` (`sendGapsOver100`, `host_send_gap`) |
 | Await announcer pack at play-entry | ✅ `716ec2f` — dual-PC clean pair (cap-29/30) host freezes gone |
 | Snap gap + silence use host **tHost** | ✅ `1adef95` — stops client wall-clock false gaps |
-| P0 longtask + longframe focus stamps | ✅ `8f17aba` / live **`index-DGKCMA2w.js`** — measure only; behavior lever still open |
+| P0 longtask + longframe focus stamps | ✅ `8f17aba` / was `index-DGKCMA2w.js` |
+| P0 host KO path slice timing | ✅ `be8eba3` / live **`index-BwzBNELn.js`** — `perf/ko_path`; behavior lever still open |
 | TURN / Paid / Logs | ✅ secrets + Workers Paid |
 
 **2e lab conclusion (same-room dual PC):** host send ~25ms; after warm + tHost honesty, clean pair had **0** snapGapsOver100 both sides. Residual 2e is **not** “constant host 100–500ms starve.”
@@ -121,7 +122,7 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 
 **Retest 42–47 (`8f17aba`):** 4090 host + Intel Low non-host. Multi-s freezes = focused + `lt:[{d:N,n:"unknown|window"}]` matching KO cascades. Menu also had 3–4s longtasks (less P0-critical).
 
-**Next lever (unpushed):** `perf/ko_path` on host falls ≥32ms — `spillMs` / `scoreMs` / `dispatchMs` / `shatterMs` / `hot` / `reactors{}`. Names the slice inside the 2s longtask. Longframe `lt[]` also falls back to `performance.getEntriesByType("longtask")` (cap-47 observer race).
+**Probe live (`be8eba3` / `index-BwzBNELn.js`):** `perf/ko_path` on host falls ≥32ms — `spillMs` / `scoreMs` / `dispatchMs` / `shatterMs` / `hot` / `reactors{}`. Longframe `lt[]` falls back to `getEntriesByType("longtask")` (cap-47 race).
 
 **Still open:** one **behavior** fix after ko_path names the hot slice.
 
@@ -199,9 +200,9 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 ## Suggested next window paste (Wyatt → new agent)
 
 > Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
-> Continue Run 7 **P0 only**: probe is **live** (`index-DGKCMA2w.js` / `8f17aba`). Pull F8s if Wyatt retested; decode host longframe `lt[]`/`focused`; one behavior lever from evidence.  
+> Continue Run 7 **P0 only**: ko_path is **live** (`index-BwzBNELn.js` / `be8eba3`). Pull F8s; decode host `perf/ko_path` + longframe `lt[]` after multi-s KO freeze; one behavior lever from hot slice.  
 > Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-open skip-replay/phantom; do not jump to P1 until P0 attributed.  
-> Caps 31–41 already decoded.
+> Caps 31–47 already decoded.
 
 ---
 
