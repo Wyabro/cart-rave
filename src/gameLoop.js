@@ -443,14 +443,17 @@ export function runPhysicsStep(loopState, deps, context) {
             if (dropped > 0 && deps.netcode?.noteReconcileReplayTruncate) {
               deps.netcode.noteReconcileReplayTruncate(dropped);
             }
-            // * Skip-replay-on-overload (run-7 combat): when the step cap drops inputs, or
-            // * the snap that just arrived crossed a multi-tick host silence (≥500ms),
-            // * replaying a truncated/stale stream reconstructs the wrong fight. Host
-            // * pose alone is more honest; live prediction restarts next frames.
+            // * Skip-replay only after multi-tick host silence (≥500ms). Cap-13 combat
+            // * (errMax 5.3m, 4 skips, 3 drops): skip-on-any-truncate hard-snapped the
+            // * body, cleared pending, and zeroed vis offset — "hit then reverse hard".
+            // * After efdca62 (keep oldest N), a truncate still leaves a continuous
+            // * stream from host ack; replaying that is correct. Skip only when the
+            // * snap itself crossed a long gap (stale hold-era pending / desync).
             const arrivalGapMs = typeof deps.netcode?.getLastSnapshotArrivalGapMs === "function"
               ? deps.netcode.getLastSnapshotArrivalGapMs()
               : 0;
-            const skipReplay = dropped > 0 || arrivalGapMs >= 500;
+            const skipReplayGapMs = predCfg?.skipReplayAfterSnapGapMs ?? 500;
+            const skipReplay = skipReplayGapMs > 0 && arrivalGapMs >= skipReplayGapMs;
             if (skipReplay) {
               deps.netcode?.noteReconcileReplaySkip?.();
               // * Drop the untrusted pending stream — leaving it caused post-stall

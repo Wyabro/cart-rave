@@ -474,11 +474,11 @@ const netFlowStats = {
   // * capped the Rapier replay (run-7 Match A death spiral).
   reconcileReplayDrops: 0,
   reconcileReplayTrimEvents: 0,
-  // * How many reconciles skipped Rapier replay after a truncate (run-7 combat hold).
+  // * How many reconciles skipped Rapier replay after a long snap gap (run-7 combat).
   reconcileReplaySkips: 0,
   lastGapEventMs: 0,
-  // * Most recent inter-arrival gap (ms). gameLoop reads this to skip replay after a
-  // * long host silence so truncated oldest-N replay does not reconstruct ghost combat.
+  // * Most recent inter-arrival gap (ms). gameLoop skips replay only when this exceeds
+  // * prediction.skipReplayAfterSnapGapMs (long host silence) — not on oldest-N truncate.
   lastArrivalGapMs: 0,
 };
 

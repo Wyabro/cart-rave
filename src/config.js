@@ -412,6 +412,10 @@ export const CONFIG = {
       // * where I was". 150 ms ≈ 6 missed 40 Hz ticks — past normal jitter, before multi-
       // * second host stalls. Below this, live prediction still runs for input feel.
       holdAfterSnapGapMs: 150,
+      // * Reconcile skip-replay threshold (ms since previous snap arrival). Only long
+      // * silences hard-snap without replaying; truncating newest under
+      // * reconcileReplayMaxSteps still replays the continuous oldest-N (cap-13).
+      skipReplayAfterSnapGapMs: 500,
     },
   },
 

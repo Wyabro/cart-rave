@@ -43,4 +43,13 @@ describe("CONFIG.net prediction caps (run-7)", () => {
     expect(CONFIG.net.prediction.holdAfterSnapGapMs).toBeGreaterThanOrEqual(100);
     expect(CONFIG.net.prediction.holdAfterSnapGapMs).toBeLessThanOrEqual(300);
   });
+
+  it("skip-replay is gap-gated (not truncate-gated) after oldest-N keep", () => {
+    // * Cap-13: skip-on-any-drop caused hard reverses on nearly-full pending.
+    // * Truncate still leaves continuous oldest-N; only long snap gaps skip replay.
+    expect(CONFIG.net.prediction.skipReplayAfterSnapGapMs).toBeGreaterThanOrEqual(500);
+    expect(CONFIG.net.prediction.skipReplayAfterSnapGapMs).toBeGreaterThan(
+      CONFIG.net.prediction.holdAfterSnapGapMs,
+    );
+  });
 });

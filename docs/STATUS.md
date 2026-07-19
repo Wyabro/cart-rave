@@ -78,9 +78,10 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` |
 | 2 | Hit-delay order `efdca62` | ✅ shipped; combat still FAIL partial |
 | 2b | Combat hold `4a9f7f8` | ✅ partial pass (errMax 4m, localKos 1) |
-| 2c | Phantom pending clear `732e2d6` | ✅ live — **needs F8 retest** (soft feel only so far) |
-| **2d** | **Match A combat/phantom eyes-on** (Paid + F8 path live) | ▶️ **Next** — bundle `index-C560wli8.js` |
-| 2e | Host multi-s freezes while focused | open after 2d — KO/announcer hitch forensics |
+| 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
+| 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
+| **2d′** | **Skip-replay only on snap gap** (not on oldest-N truncate) | ▶️ **unpushed** — cap-13: `dropped>0` forced hard-snap reverse; lever in `gameLoop.js` |
+| 2e | Host multi-s freezes while focused | open after combat retest — KO/announcer hitch forensics |
 | 3 | Match B (Intel hosts) only if needed | locked |
 | 4 | P1 console cards one-at-a-time | locked until combat honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -93,8 +94,8 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **Wyatt:** hard-refresh both to **`index-C560wli8.js`** → Match A ram + die/respawn → F8 both → pull → feel. Workers Paid + captures live again.
-2. **Agent (new window):** read [planning/handoff-next-window.md](./planning/handoff-next-window.md); one-item only; no run-1…6 re-triage.
+1. **Ship** skip-replay gap-only fix when Wyatt says ship → Match A combat retest (hits reverse?) → F8 both → pull.
+2. Pass metric: non-host `reconcileReplaySkips` near 0 unless real multi-s gap; errMax down; hits land without hard reverse.
 3. After combat pass: host hitch forensics (2e), then P1 cards, then NET-1.
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -174,6 +175,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-19 (combat path) — Cap-12/13: P2P OK after TURN secrets; reverse hard = **skip-replay on any oldest-N truncate**. One lever **unpushed**: skip only when `arrivalGapMs >= skipReplayAfterSnapGapMs` (500). Gate **459 tests / 51 files**. Ship + F8 retest next.
 
 2026-07-19 (gate re-verify, next window) — Full automated suite re-run on the combat stack: **qa 458/51 green** + **battery 5/5 green** (first battery since `f0c10ba..732e2d6` touched gameLoop — all 2-client rigs pass with the replay cap/silence hold/phantom clear live; teardownRejoin now in the sweep). Dashboard regenerated. Capture server checked: **no F8s newer than `4a9f7f8`** — the Match A combat/phantom retest on `index-C560wli8.js` remains the pending gate. No code changes this entry.
 
