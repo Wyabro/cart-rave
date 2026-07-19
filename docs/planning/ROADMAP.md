@@ -36,9 +36,9 @@ Implementation is ahead of validation. Everything here exists in the tree and ne
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Wyatt playtest queue (Passes 4/5, stabilization, bloom A/B) | ⚠️ Open | Checklist in [STATUS.md](../STATUS.md); behavior-changing work is not "done" until a human plays it |
+| Wyatt playtest queue (Passes 4/5, stabilization) | ⚠️ Open | Checklist in [STATUS.md](../STATUS.md); behavior-changing work is not "done" until a human plays it |
 | Push stabilization commits | ⚠️ Blocked on playtest | `b9e8fb8`..`3754949` |
-| Promote display-referred bloom to default | 🟡 After look check | Kills VFX-1 everywhere; then remove `?rtmode` fork paths |
+| Promote display-referred bloom to default | ✅ Done (07-17) | Shipped `adea4bf` — all-arena default, VFX-1 closed; HDR split is `?bloompipe=hdr`-only. Optional: real-HW `?blackmon=1` taste pass, then delete the legacy fork paths |
 
 ---
 
@@ -49,7 +49,7 @@ Implementation is ahead of validation. Everything here exists in the tree and ne
 | **NET-1 — multiplayer two-browser runtime smoke** | ❌ The gate | Full-round + SD + rematch + disconnect/rejoin; run with [living-store-test-plan.md](./living-store-test-plan.md) and [host-migration-test-plan.md](./host-migration-test-plan.md) |
 | Critical static netcode hazards | 🟢 Closed in code | NET-CLK-1/2/3, NET-MIG-1/2, NET-BUF-1 shipped — [netcode-deep-dive.md](./netcode-deep-dive.md). Still open for feel/live: **NET-MIG-3**, **NET-PRES-1**, **NET-SD-1**, **NET-2 residual hitch**. |
 | High netcode hazards (NET-MIG-3, NET-2 hitch) | ❌ Open | Ghost freeze after promote; mid-round join cold-load hitch |
-| VFX-1 endgame (bloom default promotion) | 🟡 In flight | See Current |
+| VFX-1 endgame (bloom default promotion) | ✅ Closed (07-17) | Display-referred byte bloom is the all-arena default (`adea4bf`); optional real-HW `?blackmon=1` taste pass remains |
 | Menu/domain cutover (BRAND-1) | 🧊 Deliberate event | One planned ceremony: domain, Worker name, storage migration — [brand.md](../brand.md) |
 | V2 shipping checklist + final QA | ⬜ Create when close | |
 

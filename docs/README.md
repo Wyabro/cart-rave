@@ -98,7 +98,7 @@ Versions are the `package.json` ranges. Full credits, licenses, and services: [r
 
 | Layer | Technology | Version |
 |-------|------------|---------|
-| Runtime | Cloudflare Workers | Free-tier capable |
+| Runtime | Cloudflare Workers | Paid plan (since 2026-07-19 — capture/analytics DO SQL reads exceed the free tier) |
 | Stateful server | Durable Objects via `partyserver` | `^0.5.8` |
 | WebSocket client | `partysocket` | `^1.3.0` |
 | P2P transport | WebRTC DataChannels | Browser native |

@@ -18,7 +18,7 @@ Runtime dependencies are bundled by Vite unless noted otherwise.
 | Three types | `@types/three` | JSDoc / `tsc` typechecking | `^0.185.1` | MIT | `https://www.npmjs.com/package/@types/three` |
 | Physics | Rapier3D (`@dimforge/rapier3d`, native WASM) | Client — host-authoritative physics (`src/simulation.js`, etc.) | `^0.19.3` | Apache-2.0 | `https://github.com/dimforge/rapier` |
 | State | Zustand (`zustand/vanilla`) | UI & settings stores (`src/stores/`) | `^5.0.14` | MIT | `https://github.com/pmndrs/zustand` |
-| Audio | Howler.js (`howler`) | Music/SFX, pooling, spatial groups (`src/audio.js`) | `^2.2.4` | MIT | `https://github.com/goldfire/howler.js` |
+| Audio | Howler.js (`howler`) | Music/SFX, pooling, spatial groups (`src/audioManager.js`) | `^2.2.4` | MIT | `https://github.com/goldfire/howler.js` |
 | Animation | anime.js (`animejs`) | Client UI animations (`src/animations.js`) | `^4.5.0` | MIT | `https://github.com/juliangarnier/anime` |
 | Debug UI | Tweakpane (`tweakpane`) | Neon debug & settings pane (`src/postFxDebug.js`, etc.) | `^4.0.5` | MIT | `https://github.com/cocopon/tweakpane` |
 | Touch | nipplejs (`nipplejs`) | Mobile virtual analog joystick (`src/touchControls.js`) | `^1.0.4` | MIT | `https://github.com/yoannmoinet/nipplejs` |
@@ -68,11 +68,9 @@ Self-hosted under `public/fonts/` (`fonts.css` + latin woff2). Refresh with `npm
 |---|---|---|---|
 | Road Rage | Display / titles | SIL OFL-1.1 | `https://fonts.google.com/specimen/Road+Rage` |
 | Russo One | UI headers | SIL OFL-1.1 | `https://fonts.google.com/specimen/Russo+One` |
-| Goldman | Mono / body UI (400, 700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Goldman` |
-| Michroma | HUD timer | SIL OFL-1.1 | `https://fonts.google.com/specimen/Michroma` |
-| Space Grotesk | HUD labels (400–700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Space+Grotesk` |
+| Goldman | Mono / body UI incl. HUD timer (400, 700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Goldman` |
 | Bungee | Boot splash / kill feed | SIL OFL-1.1 | `https://fonts.google.com/specimen/Bungee` |
-| Space Mono | Boot mono / debug (400, 700) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Space+Mono` |
+| Space Mono | Boot mono / debug (400) | SIL OFL-1.1 | `https://fonts.google.com/specimen/Space+Mono` |
 
 Fallbacks only (not shipped): system-ui, Archivo Black (CSS fallback for Bungee).
 
@@ -100,7 +98,7 @@ Fallbacks only (not shipped): system-ui, Archivo Black (CSS fallback for Bungee)
 | `song4.opus` | Music | Created with Suno | Licensed to project author via Suno |
 | `cart-crash`, `Boost`, `Death`, `Hop`, `Floor`, `Charge_up`, `countdown_*` | SFX | Project / recorded | Shipped as `.opus`; source not individually recorded in repo |
 
-Bundled audio ships in a single `.opus` format under `public/sounds/` — Opus has universal browser support (Chrome, Firefox, Safari, Edge), so no format fallback is needed. Some additional in-game feedback is **procedural** (Web Audio API oscillators in `src/audio.js` / `src/audioSetup.js`). Raw `.wav` masters and unused loops were removed during the July 2026 production-readiness pass.
+Bundled audio ships in a single `.opus` format under `public/sounds/` — Opus has universal browser support (Chrome, Firefox, Safari, Edge), so no format fallback is needed. Some additional in-game feedback is **procedural** (Web Audio API oscillators in `src/sfxSynth.js` / `src/announcer/announcerStings.js`). Raw `.wav` masters and unused loops were removed during the July 2026 production-readiness pass.
 
 ---
 

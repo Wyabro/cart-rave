@@ -34,9 +34,8 @@ Pass 5 (VFX/audio):
 - [ ] Defeat screen distinct from Victory; first-blood escalation; victory audio
 - [ ] Comeback callout fires and reads
 
-Bloom A/B (all three arenas, judge against "dark + punchy neon, don't brighten"):
-- [ ] Default vs `?rtmode=bloomfix` — pick per arena; note any threshold/strength tuning
-- [ ] Decision recorded: promote bloomfix to default? (kills VFX-1)
+Bloom (settled 07-17 — display-referred is the all-arena default, VFX-1 closed):
+- [ ] Optional taste pass on real HW: each arena still reads "dark + punchy neon, don't brighten"; note any threshold/strength tuning (`?blackmon=1` if flicker is suspected)
 
 Transition pacing pass (2026-07-13, new this session):
 - [ ] Countdown: GET READY kicker + big hero digit read clearly at a glance, doesn't feel cramped at any window size; GO!/SUDDEN DEATH/MATCH POINT unaffected

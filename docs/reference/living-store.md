@@ -19,7 +19,7 @@ with zero extra netcode.
 
 | Mechanic | How | Where |
 |---|---|---|
-| Cart = scoreboard | Bay shows `baseItems→maxItems` (2→12) groceries as score approaches `fullScore` | `GroceryPool.setCargoFill` (visibility toggles on a 12-slot GRID, fill-order list in `group.userData.cargoItems`) |
+| Cart = scoreboard | Bay shows `baseItems→maxItems` (7→18) groceries as score approaches `fullScore` | `GroceryPool.setCargoFill` (visibility toggles on an 18-slot GRID, fill-order list in `group.userData.cargoItems`) |
 | Spill comeback | ~2.6s speed/accel buff from the spill moment; never stacks with nitro | `armSpillBoost(cart)` (exported here, used by main.js spill sites + netcode `handleRemoteSpill`) → drive block in `simulation.js` |
 | Top-heavy | Lateral grip × `lerp(1, gripFullFactor, fullness)` | `applyArcadeControls` in `simulation.js`; fullness set here as `cart.cargoFullness01` |
 | Bigger mess | Spill count 3→12 scales with fullness; `count` rides `MSG.spill` | `spillCountForCart(cart)` (exported here) |

@@ -84,7 +84,7 @@ The old Claude.ai “Playtest Console” artifact is **retired** — do not use 
 | Incognito window / clear `cartRave*` localStorage keys | Fresh-player profile |
 | `?preset=low\|medium\|high` | Force a quality tier |
 | `?forcegpu=sw\|igpu\|discrete` (DEV) | Fake GPU class for tier-assignment testing |
-| `?rtmode=bloomfix` | Display-referred bloom pipeline (the VFX-1 A/B) |
+| `?bloompipe=hdr` | Legacy HDR bloom split (display-referred is the shipped default; VFX-1 closed 07-17) |
 | `?blackmon=1` | Live black-frame monitor |
 | chrome://settings/system → hardware acceleration OFF | The real potato repro (expect COMPATIBILITY MODE notice) |
 | `node tools/perf-profile.mjs` | Headless perf probe |
@@ -109,9 +109,8 @@ never had its real repro). DevTools console open the whole time — **zero error
 ### Session 1 — Drain the validation debt (~60–90 min)
 The existing Wyatt queue from [STATUS.md](../STATUS.md): stabilization pass feel (wheel
 roll, podium +20%, menu pacing), Pass 4 (bot stalls, edge-camper follow, podium contest,
-ram-SFX range), Pass 5 (spill juice, debris, Defeat screen, victory audio), the
-**bloom A/B** on all three arenas (`?rtmode=bloomfix` vs default — the dark-arenas +
-punchy-neon identity must survive), and the **transition pacing pass** (winner-cam length
+ram-SFX range), Pass 5 (spill juice, debris, Defeat screen, victory audio), and the
+**transition pacing pass** (winner-cam length
 + any-input skip, countdown hierarchy, returning-player boot hold, disconnect toasts —
 [solo-checklist.md](./solo-checklist.md) §B new section).
 *This goes before deep solo testing because its outcome is taste-tuning: any knob turned

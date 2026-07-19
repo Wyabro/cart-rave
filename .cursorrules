@@ -20,8 +20,8 @@
 
 - **Runtime**: Cloudflare Workers with Durable Objects (NOT PartyKit — migrated July 2026)
 - **Server library**: `partyserver` (`^0.5.8`) — open-source `Server` base class + `routePartykitRequest`
-- **Client WebSocket**: `partysocket` (`^1.1.16`) — browser WebSocket client on the same protocol
-- **Deployment**: Wrangler (`^4.107.x`) — `npx wrangler dev` for local, `npx wrangler deploy` for prod
+- **Client WebSocket**: `partysocket` (`^1.3.0`) — browser WebSocket client on the same protocol
+- **Deployment**: Wrangler (`^4.110.x`) — `npx wrangler dev` for local, `npx wrangler deploy` for prod
 - **Build**: Vite (`^8.x`) — `npm run dev` for client, `npm run dev:party` for server
 - **3D**: Three.js (`^0.185.x`), **Physics**: Rapier3D (`@dimforge/rapier3d`), **State**: Zustand (`^5.0.14`)
 - **Server entry**: `party/index.ts` (deployed as a Worker via `wrangler.jsonc`)

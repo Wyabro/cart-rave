@@ -76,7 +76,7 @@ are a single boolean read.
   bundle**: `{ bundleVersion, scenario, reason, capturedAt (ISO), phase, flags, tail, seed,
   eventCounts, events, snapshot }`. Pure read (never mutates); JSON-serializable so it ships to
   disk or clipboard. `seed` is always `null` — there is no exposed gameplay RNG seed (arena pick
-  is unseeded). Two ways to trigger a capture:
+  is unseeded).
   Bundles are `bundleVersion: 2`: they carry a `build` stamp ({ sha, builtAt }, baked by
   vite.config.js `define`) so every capture is attributable to its exact build. Three ways
   to trigger a capture:

@@ -155,7 +155,7 @@ The scoring system was reviewed against the design intent in a dedicated audit n
 The partyserver realtime URL shape is:
 
 - `wss://<host>/parties/<party>/<room>`
-- For example: `wss://cart-rave.wyabro.workers.dev/parties/main/quickplay`
+- For example: `wss://cart-rave.wyabro.workers.dev/parties/cart-rave-server/quickplay` (the client's party id is `cart-rave-server`, matching the `CartRaveServer` DO)
 
 ### Verification guidance (documented practice)
 

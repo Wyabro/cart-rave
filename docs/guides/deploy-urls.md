@@ -11,7 +11,7 @@ In the raw **partyserver** setup, a single Cloudflare Worker hosts both the stat
 | Resource | URL | Role |
 |----------|-----|------|
 | **Production Game URL** | `https://cart-rave.wyabro.workers.dev/` | Serves client assets (HTML/JS/CSS/SFX) and acts as the WebSocket endpoint |
-| **Durable Object Room** | `wss://cart-rave.wyabro.workers.dev/parties/main/<room>` | Real-time game room socket (`main` Durable Object class) |
+| **Durable Object Room** | `wss://cart-rave.wyabro.workers.dev/parties/cart-rave-server/<room>` | Real-time game room socket (`CartRaveServer` Durable Object) |
 | **Error Log Endpoint** | `https://cart-rave.wyabro.workers.dev/api/log-error` | Receives client-side exception forwarder payloads |
 
 ---
@@ -19,8 +19,8 @@ In the raw **partyserver** setup, a single Cloudflare Worker hosts both the stat
 ## Client Wiring (`src/netcode.js`)
 
 The client automatically detects its hosting context:
-- On `localhost` / `127.0.0.1`, it points to `localhost:1999` using `ws://`.
-- In production, it connects to `wss://cart-rave.wyabro.workers.dev/parties/main/<room>` (`?room=` value from URL query, defaulting to `quickplay`).
+- On `localhost` / `127.0.0.1`, it points to `<hostname>:8787` using `ws://`.
+- In production, it connects to `wss://cart-rave.wyabro.workers.dev/parties/cart-rave-server/<room>` (`?room=` value from URL query, defaulting to `quickplay`).
 
 ---
 

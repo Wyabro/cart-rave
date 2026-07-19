@@ -90,7 +90,7 @@ July 12–16 highlights: **Store PA announcer — full recorded voice pack shipp
 | `party/index.ts` | partyserver Durable Object (relay + room state) |
 | `party/roundValidation.ts` / `hostSelection.ts` | Extracted, unit-tested `host_round` validation + promote-oldest |
 | `src/netcode/p2pLimits.js` | P2P DataChannel frame/tail size gates |
-| `tests/` | Vitest suite (379 tests / 41 files at 2026-07-16) |
+| `tests/` | Vitest suite (458 tests / 51 files at 2026-07-19; count drifts — trust `npm run qa`) |
 | `.cursorrules` | Design spec and AI guardrails |
 
 Full architecture reference: [Game_Architecture.md](../reference/Game_Architecture.md).
@@ -114,9 +114,9 @@ Full architecture reference: [Game_Architecture.md](../reference/Game_Architectu
 
 | Item | Status |
 |------|--------|
-| Wyatt playtest queue (Passes 4/5 + stabilization + bloom A/B) | ⚠️ Open — checklist in [STATUS.md](../STATUS.md) |
+| Wyatt playtest queue (Passes 4/5 + stabilization) | ⚠️ Open — checklist in [STATUS.md](../STATUS.md) |
 | Multiplayer runtime smoke test (two browsers, one room) | ⬜ Pending — the V2 gate; includes [Living Store](./living-store-test-plan.md) + [host migration](./host-migration-test-plan.md) checklists |
-| Black-frame flicker (VFX-1) | 🟡 Root cause fixed on Storerooms (`98317c1`); promote to default after look check |
+| Black-frame flicker (VFX-1) | ✅ Closed 07-17 — display-referred byte bloom is the all-arena default (`adea4bf`) |
 | Static netcode hazards (clocks / migration / buffers) | ⬜ Open — [netcode-deep-dive.md](./netcode-deep-dive.md) |
 | Menu overhaul + domain cutover | 🧊 Cutover frozen until deliberate event ([brand.md](../brand.md)) |
 | Persistent leaderboard (Supabase) | ⬜ Planned (post-V2) |
@@ -132,8 +132,8 @@ All primary high-priority bugs (host cart freeze, ready-up races, ready button r
 Current validation / risk focus:
 
 1. Multiplayer runtime integration smoke tests (two browsers, one room) — still the V2 gate; Living Store paths deferred to [living-store-test-plan.md](./living-store-test-plan.md), migration feel to [host-migration-test-plan.md](./host-migration-test-plan.md).
-2. Black-frame flicker: root cause **confirmed** (half-res float bloom mips on ANGLE/NVIDIA, D-VFX-2) and fixed on Storerooms; Classic/Sundial still run HDR bloom until the look check promotes the display-referred pipeline.
-3. Static netcode hazards — cataloged in [netcode-deep-dive.md](./netcode-deep-dive.md). **Closed in code:** NET-CLK-1/2/3, NET-MIG-1/2, NET-BUF-1. **Still open:** NET-MIG-3, NET-PRES-1, NET-SD-1, NET-2 residual hitch, Living Store host-migration mutator desync.
+2. Black-frame flicker (VFX-1): **closed 07-17** — root cause (half-res float bloom mips on ANGLE/NVIDIA, D-VFX-2) fixed by the display-referred byte bloom pipeline, now the all-arena default (`adea4bf`); the old HDR split survives only behind `?bloompipe=hdr`.
+3. Static netcode hazards — cataloged in [netcode-deep-dive.md](./netcode-deep-dive.md). **Closed in code:** NET-CLK-1/2/3, NET-MIG-1/2, NET-BUF-1, Living Store host-migration mutator desync (fixed 2026-07-16). **Still open:** NET-MIG-3, NET-PRES-1, NET-SD-1, NET-2 residual hitch.
 4. Evicting/resetting in-memory Durable Object state between server builds.
 5. Playtest debt: Passes 4/5 + stabilization are behavior-changing and human-unvalidated.
 6. Structural / jam-era tech debt (god-file `main.js`, CONFIG-mutating directives, legacy GLTF path, brand freeze) — tracked as MAIN-1 / DIR-1 / GLTF-1 / BRAND-1 etc. in [BACKLOG.md § Tech Debt](./BACKLOG.md#tech-debt); **not** V2 blockers.
