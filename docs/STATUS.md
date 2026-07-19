@@ -34,8 +34,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (verified 2026-07-19 on the run-7 combat stack) |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `67b3cf5` — probe `19e5cd9` + rtmode drop |
-| Prod deploy (2026-07-19 host-send probe) | ✅ Live — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9` build stamp; markers `sendGapsOver100`/`host_send_gap` verified in served bytes) |
+| Origin HEAD | Local ↔ origin/cart-clash at `716ec2f` — announcer warm await |
+| Prod deploy (2026-07-19 announcer warm) | ✅ Live — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`; markers `announcer warm` / `sendGapsOver100` verified) |
+| Prod deploy (2026-07-19 host-send probe) | ✅ superseded — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9`) |
 | Prod deploy (2026-07-19 skip-gap) | ✅ superseded — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`) |
 | Prod deploy (2026-07-19 eve, observability) | ✅ superseded — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | Prod deploy (2026-07-19 phantom) | ✅ superseded — **`index-t3FG6KVX.js`** / `eeeef76e` (`732e2d6` phantom clear). Soft feel only; no F8 (free-tier wall). |
@@ -82,7 +83,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
 | 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Announcer warm await unpushed** — cap-23/24: host send fine (avg 26ms, only resume freezes 0.6–2s); non-host snapGaps confounded. Lever: await announcer pack under play-entry overlay (`prefetchSfxByPrefixAsync`). Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Announcer warm live** — **`716ec2f` / `index-B1V-NCgO.js`**. Next: Match A F8 both (focused host); pass = fewer mid-round resume / host_send_gap 600–2000ms vs cap-23. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | 3 | Match B (Intel hosts) only if needed | locked until 2e |
 | 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -95,9 +96,9 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **2e only** — ship announcer warm await on Wyatt “ship it”; Match A F8 both (focused host).
-2. Pass bar: host mid-round `resume` longframes / `host_send_gap` 600–2000ms drop; `sendGapAvg` stays ~25–27ms.
-3. Residual after that: non-host arrival false-trips (separate lever) if still needed.
+1. **2e only** — Match A retest on **`index-B1V-NCgO.js`**: F8 both, focused 4090 host.
+2. Pass bar: mid-round host resume / `host_send_gap` 600–2000ms drop vs cap-23; `sendGapAvg` ~25–27ms.
+3. Residual: non-host arrival false-trips (separate lever) if still needed after host freezes drop.
 4. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
@@ -178,7 +179,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 2026-07-19 (dashboard capture triage, separate Claude session — tools only) — `npm run dashboard` now sees remote F8 pulls: `collectCaptures` scans `.diag-captures/playtest/` (previously invisible — the dashboard showed 1 local soak bundle while 20+ pulled caps sat unseen), merges the `cap-N-meta.json` server sidecars into cards (id, host/non-host, tier, build) instead of rendering them as junk, and orders by mtime+capturedAt (filename sort buried cap-10+ under cap-9). Cards get a **build chip** — green when the stamp matches the newest captured build ("from the retest build?"), amber when older; git HEAD deliberately not the reference (docs commits outrun deploys). Summary line prints the newest cap id/build/age. Verified live: 20 caps, newest #24 `19e5cd9`, 7 green / 13 amber.
 
-2026-07-19 (2e announcer warm **unpushed**) — Cap-23/24: host send healthy (avg 26ms; only 3 resume freezes 0.6–2s) vs non-host snapGapsOver100=47 (client inflate). **Lever:** await `prefetchSfxByPrefixAsync("announcer_")` during play-entry warmup (was fire-and-forget). Gates **498/53**. Ship on go → retest mid-round host freezes.
+2026-07-19 (2e announcer warm **shipped**) — **`716ec2f` / `index-B1V-NCgO.js` / Version `1dce77ac`**. Await announcer pack at play-entry. Served sha `716ec2f` verified. **Next:** Match A F8 both; compare host mid-round freezes to cap-23.
 
 2026-07-19 (test coverage, separate Claude session — tests only, no runtime changes) — Two new suites (+35 tests): `tests/debugParams.test.js` (URL flag parsing — defaults, bookmarks/aliases, implied harness/freeze, `?bloompipe` + live-tune, retired-`?rtmode`-stays-retired guard, boot side effects) and `tests/cargoLoad.test.js` (Living Cargo — score→fullness, spill-count lerp, comeback window, restock timing, cart_overflow/spill_rush once-per-round edges; grocery/announcer/simulation mocked, real CONFIG+gameStore). Gates: **qa 494/53 green**, knip clean.
 

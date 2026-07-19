@@ -1,10 +1,10 @@
 # Handoff — next agent window (Run 7 · **2e host hitch**)
 
-**Date:** 2026-07-19 (2e host send probe **live**)  
+**Date:** 2026-07-19 (2e announcer warm **live**)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`67b3cf5`** (probe `19e5cd9` + rtmode drop)  
+**Origin HEAD:** **`716ec2f`** (await announcer pack at play-entry)  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-pavOdoEG.js`** (Version `28e48ede` — host send cadence probe)  
+**Live client bundle:** **`index-B1V-NCgO.js`** (Version `1dce77ac`)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
@@ -33,7 +33,7 @@ F8 both machines → `npm run captures:pull` → read `.diag-captures/playtest/`
 | Workers **Paid** + Logs | ✅ Paid; `observability` on (`601b8e8`). |
 | Skip-replay only on long snap gap | ✅ **`1a2f242` / `index-Cw19iE04.js`** — not on oldest-N truncate. |
 | Match A combat reverse | ✅ **Pass enough** — Wyatt feel better; cap-16 **skips=0**, localKos **2**, snapGapMax **181ms** (was 3665). |
-| **Host hitch / invisible kills** | ▶️ **Announcer warm await unpushed** — cap-23/24 prove host send OK between resume freezes; lever awaits pack decode at play-entry |
+| **Host hitch / invisible kills** | ▶️ **Announcer warm live** — `716ec2f` / `index-B1V-NCgO.js`; awaiting Match A F8 retest |
 | Match B (Intel hosts) | Locked until 2e honest enough. |
 | NET-PERF-2 | Done run-4. Do not re-solve. |
 
@@ -117,15 +117,15 @@ Lobby/countdown silence does **not** inflate the first running gap (anchor reset
 
 Host’s 3 send gaps = three `resume:true` longframes (2040 / 789 / 617ms). Non-host’s other ~44 snapGapsOver100 are **client inflate** (over33=742). Steady host 40Hz is fine.
 
-## Behavior lever (**unpushed**)
+## Behavior lever (**shipped** `716ec2f` / `index-B1V-NCgO.js`)
 
-`prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 })` awaited inside `warmupActiveSceneShaders` (play entry) in parallel with `compileAsync`. Idle menu still uses fire-and-forget `prefetchSfxByPrefix`. Gates: **498 tests / 53 files**.
+`prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 })` awaited inside `warmupActiveSceneShaders` (play entry) in parallel with `compileAsync`. Idle menu still uses fire-and-forget `prefetchSfxByPrefix`.
 
 ## Next agent work (2e only)
 
-1. Ship warm await on Wyatt “ship it” → Match A F8 both, focused host.  
+1. Match A F8 both on **`index-B1V-NCgO.js`**, focused 4090 host.  
 2. Pass: mid-round host `host_send_gap` / resume LF in the 600–2000ms band drop vs cap-23; `sendGapAvg` stays ~25–27.  
-3. Do **not** stack non-host silence-hold changes in the same ship.  
+3. Do **not** stack non-host silence-hold changes until host freezes retested.  
 4. If mid-round freezes remain after warm, dig non-audio main-thread (GC / first VFX) with new F8 timestamps.
 
 **Out of scope this window unless F8s regress:** prediction order, skip-replay policy, phantom pending, Match B, P1 cards, NET-1, menu choppy (P0-2), NET-PERF-2.
