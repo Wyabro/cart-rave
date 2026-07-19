@@ -27,9 +27,10 @@ Open **[console.html](./console.html)** locally (double-click or “Open with Li
 **Process now:**
 
 1. Run the console cards **in order**. Match **A** (strong machine hosts) then Match **B** (weak machine hosts) before any look/audio cards.
-2. At the **Gate** card, copy the export into chat + attach the four F8 JSONs.
-3. Agent triages **one** next action (fix *or* next validation card). No 10-item dumps.
-4. Only after A/B are decoded: P1 one-at-a-time checks (host minimize, SD cap, music bleed, …).
+2. **F8 on both machines** — each upload hits prod `/api/captures` automatically (still downloads a local JSON too). Optional label: `?diag=1&captureLabel=run7-A-intel`.
+3. On the repo machine: `npm run captures:pull` → files land in `.diag-captures/playtest/` (needs `ERROR_LOG_TOKEN` in `.env.local` once). Paste the console export into chat; tell the agent to pull (or pull yourself first).
+4. Agent triages **one** next action. No 10-item dumps.
+5. Only after A/B are decoded: P1 one-at-a-time checks.
 
 ---
 

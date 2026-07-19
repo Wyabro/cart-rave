@@ -5070,14 +5070,12 @@ async function main() {
 
     // * Bug-capture hotkeys (F8, or legacy Ctrl+Shift+D): assemble a __ccDiag capture bundle for
     // * the moment a bug is on screen — "player reports it, dev presses the key". Logs the bundle,
-    // * copies its JSON to the clipboard, AND downloads it as a .json file (clipboard alone
-    // * truncates in some consoles and gets clobbered; the file is durable and drops straight into
-    // * .diag-captures/ style triage). Read-only — captureBundle() runs the probes and copies the
-    // * event log, it never mutates game state — so it's safe to ship in prod builds; the ?diag
-    // * flag is the gate (a normal player without it never installs this listener). Works during
-    // * live prod playtests, which is where "press F8 when you see it" is most useful. The harness
-    // * path captures on its own; automatic error/assert captures live under __ccDiag.captures().
-    const manualCapture = (trigger) => {
+    // * copies its JSON to the clipboard, downloads a .json, AND POSTs to /api/captures so both
+    // * playtest machines land in one place (pull with `npm run captures:pull` — no email hop).
+    // * Read-only on the game — captureBundle() never mutates state. Safe in prod under ?diag.
+    // * The harness path captures on its own; automatic error/assert captures live under
+    // * __ccDiag.captures() (auto path does not upload — only the intentional F8).
+    const manualCapture = async (trigger) => {
       try {
         const bundle = /** @type {any} */ (window).__ccDiag.captureBundle({
           scenario: "manual",
@@ -5096,6 +5094,19 @@ async function main() {
         a.download = `cc-capture-${bundle.phase ?? "nophase"}-${Date.now()}.json`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+
+        // * Optional override: ?captureLabel=run7-A-nonhost-weak (console + playtest cards).
+        const labelParam = new URLSearchParams(location.search).get("captureLabel");
+        const { uploadCaptureBundle } = await import("./utils/captureUpload.js");
+        const up = await uploadCaptureBundle(bundle, {
+          label: labelParam || undefined,
+        });
+        if (up.ok) {
+          // eslint-disable-next-line no-console
+          console.info(`[diag] capture uploaded → /api/captures id=${up.id} (pull: npm run captures:pull)`);
+        } else {
+          console.warn("[diag] capture upload failed:", up.error);
+        }
       } catch (err) {
         console.warn("[diag] capture bundle failed:", err);
       }

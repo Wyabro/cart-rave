@@ -21,6 +21,10 @@
       {
         "name": "ANALYTICS_LOG",
         "class_name": "AnalyticsLog"
+      },
+      {
+        "name": "CAPTURE_LOG",
+        "class_name": "CaptureLog"
       }
     ]
   },
@@ -36,6 +40,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["AnalyticsLog"]
+    },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": ["CaptureLog"]
     }
   ]
 }

@@ -23,9 +23,25 @@ baked by vite.config.js: git sha + build time). `bundleVersion: 2`.
 | Trigger | Gate | Where it lands |
 |---|---|---|
 | **Automatic** — any `error` or `assert` event (gameLoop fatal/step faults, window errors, unhandled rejections, invariant violations) | `?diag` active | `__ccDiag.captures()` — in-memory, last 3, assembled one tick after the trigger so trailing events are included. Debounced (5 s) + session-capped (5) so an error loop can't spin bundle assembly. |
-| **Manual** — `F8` (or legacy `Ctrl+Shift+D`) | DEV build + `?diag` | Console + clipboard + a downloaded `cc-capture-<phase>-<ts>.json` |
+| **Manual** — `F8` (or legacy `Ctrl+Shift+D`) | `?diag` (prod + dev) | Console + clipboard + downloaded `cc-capture-*.json` **+ POST `/api/captures`** (CaptureLog DO, migration v4). Optional `?captureLabel=run7-A-intel` overrides the auto label. |
 | **Harness** — any failed check | rigs | `.diag-captures/<scenario>-<label>-NNN.json` + `.png` (unchanged, `dumpFailureBundle`) |
 | **Production crash** | always | `/api/log-error` beacon (errorReporter.js) — now carries the build stamp; full bundles stay a `?diag` feature |
+
+### Pulling remote F8s (no email hop)
+
+Both playtest machines upload on F8. On the machine with the repo:
+
+```bash
+# one-time: put the same token as the Worker secret into a gitignored file
+# ERROR_LOG_TOKEN=…   →  .env.local
+
+npm run captures:pull            # last 20 → .diag-captures/playtest/
+npm run captures:pull -- --list  # metadata only
+npm run captures:pull -- --id 12 # one bundle
+```
+
+Token-gated `GET /api/captures` (same `ERROR_LOG_TOKEN` as `/api/errors`). Agent reads
+`.diag-captures/playtest/` after you pull (or runs the pull itself if the token is in env).
 
 A future player-facing "Report problem" button is one call: `captureBundle({scenario:
 "player-report"})` + a beacon POST — the format and transport both already exist.

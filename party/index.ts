@@ -42,6 +42,9 @@ export { ErrorLog } from './errorLog';
 // * Gameplay analytics sink (SQLite DO, sibling of ErrorLog) — src/analytics/ beacons
 // * event batches to /api/analytics below. Wired in wrangler.jsonc (migration v3).
 export { AnalyticsLog } from './analyticsLog';
+// * F8 / ?diag capture bundles — both playtest machines POST here so the agent can
+// * pull without emailing JSONs (migration v4).
+export { CaptureLog } from './captureLog';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
@@ -1312,6 +1315,118 @@ export default {
         return new Response(null, { status: 204 });
       }
       const limit = url.searchParams.get("limit") || "100";
+      const res = await stub.fetch("https://do/list?limit=" + encodeURIComponent(limit));
+      return new Response(res.body, {
+        status: res.status,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    // * Playtest capture bundles (F8 / ?diag). POST = unauthenticated size-capped upload
+    // * (like /api/log-error). GET list/get + DELETE reuse ERROR_LOG_TOKEN.
+    if (url.pathname.includes("/api/captures")) {
+      if (request.method === "POST") {
+        try {
+          const body = await request.text();
+          // * Full F8 bundles are typically 5–40 KB; hard-cap well above that.
+          if (body.length > 0 && body.length <= 350_000 && env.CAPTURE_LOG) {
+            let parsed: Record<string, unknown> = {};
+            try {
+              parsed = JSON.parse(body) as Record<string, unknown>;
+            } catch {
+              return new Response(JSON.stringify({ ok: false, error: "bad_json" }), {
+                status: 400,
+                headers: { "content-type": "application/json" },
+              });
+            }
+            // * Accept either a wrapped { label, body } envelope or a raw capture bundle
+            // * (body = the whole JSON). Extract light metadata for the list index.
+            const isWrapped = parsed && typeof parsed.body === "string";
+            const bundle = isWrapped
+              ? (() => {
+                  try {
+                    return JSON.parse(String(parsed.body)) as Record<string, unknown>;
+                  } catch {
+                    return null;
+                  }
+                })()
+              : parsed;
+            const snap = (bundle?.snapshot ?? null) as Record<string, unknown> | null;
+            const runtime = (snap?.runtime ?? null) as Record<string, unknown> | null;
+            const net = (snap?.net ?? null) as Record<string, unknown> | null;
+            const buildObj = (bundle?.build ?? null) as Record<string, unknown> | null;
+            const buildSha =
+              (buildObj && typeof buildObj.sha === "string" && buildObj.sha) ||
+              (typeof bundle?.build === "string" ? bundle.build : "") ||
+              "";
+            const storeBody = JSON.stringify({
+              label: isWrapped ? parsed.label : (parsed.label ?? null),
+              phase: bundle?.phase ?? null,
+              build: buildSha,
+              isHost: net?.isHost ?? null,
+              qualityTier: runtime?.qualityTier ?? null,
+              gpu: runtime?.gpuRenderer ?? runtime?.gpuClass ?? null,
+              body: isWrapped ? parsed.body : body,
+              userAgent: request.headers.get("user-agent") || "",
+              url: typeof parsed.url === "string" ? parsed.url : url.origin,
+              clientTs: typeof parsed.clientTs === "number" ? parsed.clientTs : Date.now(),
+            });
+            const stub = env.CAPTURE_LOG.get(env.CAPTURE_LOG.idFromName("v1"));
+            const res = await stub.fetch("https://do/store", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: storeBody,
+            });
+            return new Response(res.body, {
+              status: res.status,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          if (!env.CAPTURE_LOG) {
+            return new Response(JSON.stringify({ ok: false, error: "no_binding" }), {
+              status: 503,
+              headers: { "content-type": "application/json" },
+            });
+          }
+        } catch {
+          // never fail the capture path hard
+        }
+        return new Response(JSON.stringify({ ok: false, error: "rejected" }), {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      const token = env.ERROR_LOG_TOKEN;
+      const jsonError = (msg: string, status: number) =>
+        new Response(JSON.stringify({ error: msg }), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
+      if (!token) {
+        return jsonError(
+          "read endpoint disabled — set the ERROR_LOG_TOKEN secret (wrangler secret put ERROR_LOG_TOKEN)",
+          503,
+        );
+      }
+      const provided =
+        url.searchParams.get("token") ||
+        (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+      if (provided !== token) return new Response("forbidden", { status: 403 });
+      if (!env.CAPTURE_LOG) return jsonError("CAPTURE_LOG binding not deployed", 500);
+      const stub = env.CAPTURE_LOG.get(env.CAPTURE_LOG.idFromName("v1"));
+      if (request.method === "DELETE") {
+        await stub.fetch("https://do/clear", { method: "POST" });
+        return new Response(null, { status: 204 });
+      }
+      const id = url.searchParams.get("id");
+      if (id) {
+        const res = await stub.fetch("https://do/get?id=" + encodeURIComponent(id));
+        return new Response(res.body, {
+          status: res.status,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      const limit = url.searchParams.get("limit") || "40";
       const res = await stub.fetch("https://do/list?limit=" + encodeURIComponent(limit));
       return new Response(res.body, {
         status: res.status,

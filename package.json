@@ -34,6 +34,7 @@
     "gameharness": "node tools/gameharness.mjs",
     "battery": "node tools/battery.mjs",
     "dashboard": "node tools/dashboard.mjs",
+    "captures:pull": "node tools/pull-captures.mjs",
     "perf:profile": "node tools/perf-profile.mjs"
   },
   "devDependencies": {
