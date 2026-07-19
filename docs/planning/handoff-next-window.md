@@ -119,7 +119,11 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 | `lt[]` has multi-s `d` | main-thread task — name/attribution next lever |
 | `lt:[]` + focused + visible | rAF starved without longtask (GPU/compositor/Chrome schedule) |
 
-**Still open:** one **behavior** lever after probe retest — do not ship a guess fix yet.
+**Retest 42–47 (`8f17aba`):** 4090 host + Intel Low non-host. Multi-s freezes = focused + `lt:[{d:N,n:"unknown|window"}]` matching KO cascades. Menu also had 3–4s longtasks (less P0-critical).
+
+**Next lever (unpushed):** `perf/ko_path` on host falls ≥32ms — `spillMs` / `scoreMs` / `dispatchMs` / `shatterMs` / `hot` / `reactors{}`. Names the slice inside the 2s longtask. Longframe `lt[]` also falls back to `performance.getEntriesByType("longtask")` (cap-47 observer race).
+
+**Still open:** one **behavior** fix after ko_path names the hot slice.
 
 **Pass:** Friend F8: no multi-second `snap_gap` matching host resume LF; host `sendGapMax` not multi-second mid-round; friend errMax/tele drop.
 

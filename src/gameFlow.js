@@ -8,6 +8,10 @@ import { buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
+import { isDiagActive, recordDiagEvent } from "./utils/diagnostics.js";
+
+/** Min host fall-path total (ms) to emit perf/ko_path — keeps normal KOs off the ring. */
+const KO_PATH_LOG_MIN_MS = 32;
 
 /**
  * Host-local: round-clock stamp of the first frame this host saw Sudden Death
@@ -225,6 +229,20 @@ export function updateGameFlow(deps, context) {
         const p = cart.body.translation();
 
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
+          // * Run-7 P0: host multi-s freezes often start on a KO cascade (cap-47 longtask
+          // * unknown|window = 2.3–2.5s on double-kill frames). Slice the fall path so the
+          // * next F8 names spill / score / reactors / shatter instead of guessing.
+          const koPathOn = isDiagActive();
+          const koPathT0 = koPathOn ? performance.now() : 0;
+          let koPathSpillMs = 0;
+          let koPathScoreMs = 0;
+          let koPathDispatchMs = 0;
+          let koPathShatterMs = 0;
+          /** @type {Record<string, number> | null} */
+          let koPathReactors = null;
+          /** @type {boolean | null} */
+          let koPathIsKill = null;
+
           // * Leave-play hook before SD spectator park or scheduleRespawn — SD skips
           // * scheduleRespawn, so charge wind-up would otherwise loop until round end.
           deps.onCartOutOfPlay?.(cart);
@@ -246,6 +264,7 @@ export function updateGameFlow(deps, context) {
             deps.onSpill?.(cart.slotIndex, spillPos, spillQuat, spillVel, cart.cargoBay);
             cart.hasSpilled = true;
           }
+          if (koPathOn) koPathSpillMs = Math.round(performance.now() - koPathT0);
 
           if (!isTestDrive) {
             // * roundNowMs shares startedAtMs domain (roundTimeMs = now - startedAtMs).
@@ -361,10 +380,16 @@ export function updateGameFlow(deps, context) {
               });
             }
 
+            if (koPathOn) {
+              koPathScoreMs = Math.round(performance.now() - koPathT0) - koPathSpillMs;
+              koPathIsKill = Boolean(koEvent.isKill);
+            }
+
             // * Fan the finalized KO Event out to the presentation reactors — challenges, local
             // * kill-confirm, kill feed, and the announcer director. Host runs this directly;
             // * non-host clients run the same dispatch from the falls[] replay path (netcode.js).
-            dispatchKOEvent(koEvent, {
+            const dispatchT0 = koPathOn ? performance.now() : 0;
+            koPathReactors = dispatchKOEvent(koEvent, {
               netSlots,
               localSlotIndex: localSlotIndexThisFrame,
               hud: deps.hud,
@@ -376,21 +401,53 @@ export function updateGameFlow(deps, context) {
               getLevelId: () => getCurrentLevelId(),
               recordKillOnLevel: UnlockTracker.recordKillOnLevel,
             });
+            if (koPathOn) koPathDispatchMs = Math.round(performance.now() - dispatchT0);
 
             deps.getLastHitBy().delete(slotIndex);
           }
 
           // * Trigger the shatter + explosion VFX on the host (non-host clients replay
           // * it from the snapshot falls[] tail so everyone sees the same pop).
+          const shatterT0 = koPathOn ? performance.now() : 0;
           if (deps.triggerCartShatter && deps.getScene && cart.mesh) {
             const scene = deps.getScene();
             if (scene) deps.triggerCartShatter(cart, scene, deps.colorHexForSlot(slot));
           }
+          if (koPathOn) koPathShatterMs = Math.round(performance.now() - shatterT0);
 
           // * Block respawn during Sudden Death — the falling cart stays dead
           // * and the round ends immediately via the other tied cart's score.
           if (!deps.getRoundState().isSuddenDeath) {
             deps.scheduleRespawn(cart, now);
+          }
+
+          if (koPathOn) {
+            const totalMs = Math.round(performance.now() - koPathT0);
+            if (totalMs >= KO_PATH_LOG_MIN_MS) {
+              // * Pick the hottest named reactor for a one-glance F8 scan.
+              let hot = null;
+              let hotMs = 0;
+              if (koPathReactors) {
+                for (const [name, ms] of Object.entries(koPathReactors)) {
+                  if (ms > hotMs) {
+                    hotMs = ms;
+                    hot = name;
+                  }
+                }
+              }
+              recordDiagEvent("perf", "ko_path", {
+                victim: slotIndex,
+                isKill: koPathIsKill,
+                totalMs,
+                spillMs: koPathSpillMs,
+                scoreMs: Math.max(0, koPathScoreMs),
+                dispatchMs: koPathDispatchMs,
+                shatterMs: koPathShatterMs,
+                hot,
+                hotMs,
+                reactors: koPathReactors,
+              });
+            }
           }
         }
 

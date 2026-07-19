@@ -176,6 +176,9 @@ export function getFocusSnapshot() {
 
 /**
  * Compact long-task list for embedding on a longframe event (bounded size).
+ * Cap-47 race: rAF longframe sometimes logs a few ms before PerformanceObserver
+ * delivers into our ring — fall back to the browser entry buffer so multi-s
+ * freezes still carry `lt[]` on the longframe row.
  * @param {number} gapStartMs performance.now at the start of the rAF gap
  * @param {number} gapEndMs performance.now when the long frame was observed
  * @param {number} [max=6]
@@ -183,7 +186,23 @@ export function getFocusSnapshot() {
  */
 export function longTasksForGap(gapStartMs, gapEndMs, max = 6) {
   const pad = 50;
-  const hits = getRecentLongTasks(gapStartMs - pad, gapEndMs + pad);
+  /** @type {LongTaskSample[]} */
+  let hits = getRecentLongTasks(gapStartMs - pad, gapEndMs + pad);
+  if (hits.length === 0 && typeof performance !== "undefined" && typeof performance.getEntriesByType === "function") {
+    try {
+      const entries = performance.getEntriesByType("longtask");
+      for (let i = 0; i < entries.length; i += 1) {
+        const e = entries[i];
+        const start = e.startTime;
+        const durMs = Math.round(e.duration);
+        const end = start + durMs;
+        if (end < gapStartMs - pad || start > gapEndMs + pad) continue;
+        hits.push({ t: end, start, durMs, name: nameFromEntry(e) });
+      }
+    } catch {
+      /* */
+    }
+  }
   // * Largest first — multi-second freezes care about the big one, not 50ms noise.
   hits.sort((a, b) => b.durMs - a.durMs);
   return hits.slice(0, max).map((h) => ({ d: h.durMs, n: h.name }));
