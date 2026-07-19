@@ -335,8 +335,10 @@ export function runPhysicsStep(loopState, deps, context) {
       const peekLocal = (peekSnap?.carts && localSlotIndex >= 0)
         ? peekSnap.carts[localSlotIndex]
         : null;
+      // * s:true / shatter = host-dead. Do NOT key off hasSpilled alone — cargo spill
+      // * can set that flag without a KO, and a sticky hasSpilled after a bad respawn
+      // * path would freeze prediction forever.
       const hostSaysDead = peekLocal?.s === true
-        || Boolean(localCart?.hasSpilled)
         || Boolean(localCart?._shatterState);
       const holdPrediction = hostSaysDead || (holdGapMs > 0 && silenceMs > holdGapMs);
 
@@ -372,12 +374,10 @@ export function runPhysicsStep(loopState, deps, context) {
         }
       } else {
         // * Drain debt so a long hold does not burst-catch-up when snaps resume.
+        // * Do NOT sample/send axes while held (silence or dead): filling pending during
+        // * a multi-second host freeze then replaying them after skip-snap caused
+        // * post-respawn / post-stall "phantom throttle" on Intel (run-7 retest).
         loopState.accumulator = 0;
-        // * Still sample+send axes while held (host needs continuous input). Skip when
-        // * host already reports us dead — no authority work left for this body.
-        if (deps.getRoundState().phase === "running" && !hostSaysDead) {
-          deps.netcode.sampleLocalInputForTick?.();
-        }
       }
 
       // 4. Reconciliation: client-side rewind and replay prediction.
@@ -400,24 +400,34 @@ export function runPhysicsStep(loopState, deps, context) {
               clearReconcileVisOffset(localCart); // Respawn teleports clean — no eased correction
               deps.prunePendingInputs(99999999); // Clear all inputs on respawn
             } else {
-              const ackSeq = cartSnap.ackSeq || 0;
-              deps.prunePendingInputs(ackSeq);
               // * Keep death pose glued to host while shatter plays (prediction is held).
+              // * Drop ALL pending — pre-death throttle must not survive into respawn replay.
+              deps.prunePendingInputs(99999999);
               if (cartSnap.s === true) {
                 deps.applySnapshotToCartBody(localCart, cartSnap);
                 clearReconcileVisOffset(localCart);
               }
             }
           } else if (cartSnap.s === true) {
-            const ackSeq = cartSnap.ackSeq || 0;
-            deps.prunePendingInputs(ackSeq);
             // * Host says dead: hard-snap body so the next fall shatter (or residual
             // * mesh) is at host death pose, not the last predicted drive-through.
+            // * Clear pending so respawn does not inherit a ghost throttle stream.
+            deps.prunePendingInputs(99999999);
             deps.applySnapshotToCartBody(localCart, cartSnap);
             clearReconcileVisOffset(localCart);
           } else {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);
+
+            // * Host revived us without a local shatter path (missed fall tail / spill-only
+            // * s flip): force the same cleanup as shatter-complete respawn so sticky
+            // * hasSpilled / boost / pendingRam cannot keep driving a "phantom" cart.
+            if (localCart.hasSpilled && deps.doRespawn) {
+              deps.doRespawn(localCart);
+              deps.applySnapshotToCartBody(localCart, cartSnap);
+              clearReconcileVisOffset(localCart);
+              deps.prunePendingInputs(99999999);
+            } else {
 
             // * Remember the predicted pose so the visual can ease across the correction
             // * instead of jerking with the body snap below (run-4 rubberbanding).
@@ -443,6 +453,10 @@ export function runPhysicsStep(loopState, deps, context) {
             const skipReplay = dropped > 0 || arrivalGapMs >= 500;
             if (skipReplay) {
               deps.netcode?.noteReconcileReplaySkip?.();
+              // * Drop the untrusted pending stream — leaving it caused post-stall
+              // * "phantom movement" when the next healthy snap replayed silence-era
+              // * throttle (Intel retest after 4a9f7f8).
+              deps.prunePendingInputs(99999999);
               // * Record pre→host error for F8 probes, then clear visual offset so a
               // * multi-meter post-stall correction does not ease-slide across the arena.
               if (havePrePose) {
@@ -511,7 +525,8 @@ export function runPhysicsStep(loopState, deps, context) {
                 );
               }
             }
-          }
+            } // hasSpilled forced-respawn else
+          } // cartSnap.s alive branch
         }
       }
     }

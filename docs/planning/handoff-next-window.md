@@ -23,7 +23,8 @@ F8 both machines → `npm run captures:pull` on the repo PC → agent reads `.di
 | Match A smoothness (4090 hosts) | ✅ Death spiral fixed (`f0c10ba`). |
 | Hit-delay order fix | ✅ `efdca62` keep-oldest / steps 12. **Partial** on Intel — better, not enough. |
 | Match A combat retest (`efdca62` F8s cap-6/7) | ❌ **FAIL** — see decode below. |
-| Combat hold ship | ✅ **Live** `4a9f7f8` / bundle **`index-iKVEUst7.js`** / Version `4f795c70`. Markers verified in served bytes. |
+| Combat hold ship | ✅ Live `4a9f7f8` / **`index-iKVEUst7.js`**. Retest: hits better; **phantom move after respawn**. |
+| Phantom pending clear | ⏳ **Unpushed** — stop sampling during hold; clear pending on death + skip-replay; force doRespawn if s:false + hasSpilled. |
 | Match B (Intel hosts) | **Not required** until Match A combat feels honest. |
 | HOST-ROLE-1 | **Live in Match A F8s** — 4090 host had **10× multi-second `resume:true` longframes** (1–7s). That *is* the snap-gap source. Keep host window focused; later: host background pump. |
 | NET-PERF-2 | **Done** run-4. Do not re-solve. |
@@ -48,13 +49,14 @@ Root: host freezes starve snaps; non-host kept predicting a ghost world + death 
 
 ## Next human action (only this)
 
-1. Both PCs hard-refresh until bundle **`index-iKVEUst7.js`** (not `index-XByafoNI.js`).
-2. `?diag=1`. **4090 creates room** (host). **Keep 4090 Chrome focused** the whole fight (no alt-tab / other-window on host PC).
-3. Intel: ram + get rammed / die a few times (~1–2 min).
-4. F8 both → `npm run captures:pull` on 4090 → paste feel.
+1. **Ship** when Wyatt says go — phantom-pending clear is **unpushed**.
+2. Hard-refresh both to the **new** bundle (not `index-iKVEUst7.js`).
+3. `?diag=1`. **4090 creates room**; **keep 4090 focused** (host still shows multi-s resume freezes in F8s).
+4. Intel: die + respawn a few times; watch for ghost throttle after spawn.
+5. F8 + feel.
 
-**Pass:** hits don't reverse after feedback; deaths appear near the real impact (RTT lag OK; multi-second ghost fail).  
-**Fail:** still reverse-hits / late death with host focused → decode `reconcileReplaySkips` + snap gaps; next lever only if host longframes are gone.
+**Pass:** no free-slide after respawn / host stall recovery; hits still land.  
+**Fail:** still phantom with host focused → decode pending age + skips; host freeze pump next.
 
 ---
 
