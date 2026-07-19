@@ -33,7 +33,7 @@ F8 both machines → `npm run captures:pull` → read `.diag-captures/playtest/`
 | Workers **Paid** + Logs | ✅ Paid; `observability` on (`601b8e8`). |
 | Skip-replay only on long snap gap | ✅ **`1a2f242` / `index-Cw19iE04.js`** — not on oldest-N truncate. |
 | Match A combat reverse | ✅ **Pass enough** — Wyatt feel better; cap-16 **skips=0**, localKos **2**, snapGapMax **181ms** (was 3665). |
-| **Host hitch / invisible kills** | ▶️ **Announcer warm live** — `716ec2f` / `index-B1V-NCgO.js`; awaiting Match A F8 retest |
+| **Host hitch / invisible kills** | ▶️ **Warm live + tHost arrival unpushed** — cap-25 host pass; non-host gap inflate lever uses host stamps |
 | Match B (Intel hosts) | Locked until 2e honest enough. |
 | NET-PERF-2 | Done run-4. Do not re-solve. |
 
@@ -121,12 +121,24 @@ Host’s 3 send gaps = three `resume:true` longframes (2040 / 789 / 617ms). Non-
 
 `prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 })` awaited inside `warmupActiveSceneShaders` (play entry) in parallel with `compileAsync`. Idle menu still uses fire-and-forget `prefetchSfxByPrefix`.
 
+## Cap-25/26 (warm retest — pass host)
+
+| | Cap-23 host | **Cap-25 host** | Cap-24 NH | **Cap-26 NH** |
+|--|-------------|-----------------|-----------|---------------|
+| send/snap max | 2047 | **209** | 2041 | **207** |
+| gaps>100 | send 3 | **send 1** | snap 47 | snap 31 |
+| mid-round LF | 2040/789/617 | **200** | — | — |
+| combat drops | — | — | 43 | **0** |
+
+## tHost arrival honesty (**unpushed**)
+
+`noteSnapshotArrival(tHost)` gaps + `getSnapshotSilenceMs` / skip-replay gap prefer host stamps. Wall fallback only without tHost. +5 tests. Gates **503/54**.
+
 ## Next agent work (2e only)
 
-1. Match A F8 both on **`index-B1V-NCgO.js`**, focused 4090 host.  
-2. Pass: mid-round host `host_send_gap` / resume LF in the 600–2000ms band drop vs cap-23; `sendGapAvg` stays ~25–27.  
-3. Do **not** stack non-host silence-hold changes until host freezes retested.  
-4. If mid-round freezes remain after warm, dig non-audio main-thread (GC / first VFX) with new F8 timestamps.
+1. Ship tHost arrival on Wyatt “ship it” → Match A F8 both.  
+2. Pass: non-host `snapGapsOver100` nearer host `sendGapsOver100`; hold false-trips drop.  
+3. If still off after that, 2e is residual feel only — do not stack more levers.
 
 **Out of scope this window unless F8s regress:** prediction order, skip-replay policy, phantom pending, Match B, P1 cards, NET-1, menu choppy (P0-2), NET-PERF-2.
 

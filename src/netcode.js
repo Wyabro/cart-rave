@@ -461,13 +461,15 @@ export function resetClientPredictionState() {
 // * diagnose rubberbanding. Cheap always-on counters, surfaced in the "net" probe via
 // * getNetFlowStats(); big arrival gaps additionally land in the diag event ring.
 // *
-// * Run-7 2e: non-host snapGaps* is measured at noteSnapshotArrival wall time — an Intel
-// * client that hitches mid-message processing inflates gaps even when the host send
-// * loop is healthy (cap-16: snapGapsOver100=52 while host over66=3). Host-side
-// * sendGap* counters below are the ground truth for "did the 4090 starve hostSendTick?".
+// * Run-7 2e: wall-clock noteSnapshotArrival inflated snapGaps* on hitchy non-hosts
+// * (cap-16/24: dozens of gaps>100 while host sendGapsOver100 was 1–3). Gaps + silence
+// * now prefer host tHost domain so hold/skip-replay track host send, not client rAF.
+// * Host-side sendGap* counters remain the ground truth on the host F8.
 const netFlowStats = {
   startedMs: 0,
   lastArriveMs: 0,
+  // * Last accepted snapshot tHost (host monotonic domain). Gap/silence source of truth.
+  lastTHost: 0,
   gapCount: 0,
   gapSumMs: 0,
   gapMaxMs: 0,
@@ -482,8 +484,8 @@ const netFlowStats = {
   // * How many reconciles skipped Rapier replay after a long snap gap (run-7 combat).
   reconcileReplaySkips: 0,
   lastGapEventMs: 0,
-  // * Most recent inter-arrival gap (ms). gameLoop skips replay only when this exceeds
-  // * prediction.skipReplayAfterSnapGapMs (long host silence) — not on oldest-N truncate.
+  // * Most recent inter-arrival gap (ms). Prefer tHost delta; wall fallback without tHost.
+  // * gameLoop skips replay only when this exceeds prediction.skipReplayAfterSnapGapMs.
   lastArrivalGapMs: 0,
   // * Host-only: inter-send gaps of hostSendTick (setInterval @ hostSendHz). Independent
   // * of client receive path — use these on the host F8 for hitch forensics (2e).
@@ -498,6 +500,7 @@ const netFlowStats = {
 function resetNetFlowStats() {
   netFlowStats.startedMs = performance.now();
   netFlowStats.lastArriveMs = 0;
+  netFlowStats.lastTHost = 0;
   netFlowStats.gapCount = 0;
   netFlowStats.gapSumMs = 0;
   netFlowStats.gapMaxMs = 0;
@@ -545,13 +548,31 @@ function noteHostSendTick(nowMs) {
   }
 }
 
-function noteSnapshotArrival() {
+/**
+ * Record a non-host snapshot arrival for cadence / silence stats.
+ * Prefer host `tHost` deltas so client main-thread delay does not look like host silence
+ * (run-7 2e cap-24: 47 wall snapGaps>100 vs host sendGapsOver100=3).
+ * @param {number} [tHost] Host monotonic stamp from the snapshot (0/omit → wall fallback).
+ */
+function noteSnapshotArrival(tHost) {
   const nowMs = performance.now();
   // * Direct-join paths reach the first snapshot without a prediction reset — anchor the
   // * stats window on first arrival so flow.windowMs is honest (run-5 bundles showed 0).
   if (netFlowStats.startedMs === 0) netFlowStats.startedMs = nowMs;
-  if (netFlowStats.lastArriveMs > 0) {
-    const gap = nowMs - netFlowStats.lastArriveMs;
+
+  const tHostValid = typeof tHost === "number" && Number.isFinite(tHost) && tHost > 0;
+  let gap = 0;
+  let haveGap = false;
+  if (tHostValid && netFlowStats.lastTHost > 0) {
+    gap = tHost - netFlowStats.lastTHost;
+    // * Positive only — reorders / host-migration epoch jumps must not inflate max.
+    if (gap > 0) haveGap = true;
+  } else if (!tHostValid && netFlowStats.lastArriveMs > 0) {
+    gap = nowMs - netFlowStats.lastArriveMs;
+    haveGap = gap > 0;
+  }
+
+  if (haveGap) {
     netFlowStats.lastArrivalGapMs = gap;
     netFlowStats.gapCount += 1;
     netFlowStats.gapSumMs += gap;
@@ -560,25 +581,40 @@ function noteSnapshotArrival() {
     // * >250ms is 10+ missed 40Hz sends — worth a timestamped event, rate-limited to 1/s.
     if (gap > 250 && nowMs - netFlowStats.lastGapEventMs > 1000) {
       netFlowStats.lastGapEventMs = nowMs;
-      recordDiagEvent("net", "snap_gap", { gapMs: Math.round(gap) });
+      recordDiagEvent("net", "snap_gap", { gapMs: Math.round(gap), via: tHostValid ? "tHost" : "wall" });
     }
   }
+
   netFlowStats.lastArriveMs = nowMs;
+  // * Advance lastTHost only on first stamp or forward progress — reorders must not
+  // * rewrite the anchor (otherwise a late older packet poisons the next gap).
+  if (tHostValid && (netFlowStats.lastTHost <= 0 || tHost > netFlowStats.lastTHost)) {
+    netFlowStats.lastTHost = tHost;
+  }
 }
 
 /**
- * ms since the last host snapshot arrived (0 if none yet). Non-host prediction holds
- * when this exceeds prediction.holdAfterSnapGapMs so a silent host cannot be fought
- * as a ghost world (run-7 Match A combat retest).
+ * ms since the last host snapshot in the **host clock domain** (0 if none yet).
+ * Non-host prediction holds when this exceeds prediction.holdAfterSnapGapMs so a
+ * silent host cannot be fought as a ghost world (run-7 Match A combat retest).
+ *
+ * Uses `tHost` + hostClock offset rather than wall time since onmessage, so an
+ * Intel client that stalls processing does not false-trip the hold while the
+ * host keeps sending (2e residual after announcer warm).
  * @returns {number}
  */
 export function getSnapshotSilenceMs() {
   if (getIsHost()) return 0;
+  if (netFlowStats.lastTHost > 0 && hostClock.samples > 0) {
+    const hostNow = getMonotonicNow() - hostClock.offsetMs;
+    return Math.max(0, hostNow - netFlowStats.lastTHost);
+  }
+  // * Pre-clock-lock / missing tHost: wall since last handler (legacy).
   if (!(netFlowStats.lastArriveMs > 0)) return 0;
   return Math.max(0, performance.now() - netFlowStats.lastArriveMs);
 }
 
-/** Most recent inter-arrival gap at the last noteSnapshotArrival (ms). */
+/** Most recent inter-arrival gap at the last noteSnapshotArrival (ms; host tHost when available). */
 export function getLastSnapshotArrivalGapMs() {
   return netFlowStats.lastArrivalGapMs;
 }
@@ -616,12 +652,12 @@ export function noteReconcileReplaySkip() {
  * behavior (run-6: a minimized host froze everyone's world while the wall-clock
  * timer kept counting). Grace absorbs ordinary hitches; the excess-over-grace
  * shape means the display never jumps backward when the hold engages.
+ * Uses the same host-domain silence as prediction hold (2e).
  * @returns {number}
  */
 export function getHostStallMs() {
   if (getIsHost()) return 0;
-  if (!(netFlowStats.lastArriveMs > 0)) return 0;
-  const gap = performance.now() - netFlowStats.lastArriveMs;
+  const gap = getSnapshotSilenceMs();
   return gap > 2500 ? gap - 2500 : 0;
 }
 
@@ -2773,6 +2809,9 @@ export const __netcodeTestHooks = {
   getRemoteInputQueueLength: (connId) => remoteInputQueuesByConnId.get(connId)?.length ?? 0,
   getInputCounters: () => ({ ...__dbgInputCounters }),
   /** Push synthetic pending prediction frames (non-host history). */
+  /** 2e: host-domain snap gap / silence unit tests. */
+  noteSnapshotArrivalForTest: (tHost) => noteSnapshotArrival(tHost),
+  resetNetFlowStatsForTest: () => resetNetFlowStats(),
   pushPendingInputForTest: (seq, tClient = performance.now()) => {
     pendingInputs.push({
       seq,
@@ -2956,7 +2995,8 @@ function handleRemoteHostState(state) {
     const tHostValid = typeof state.tHost === "number" && state.tHost > 0;
     const hostTime = tHostValid ? state.tHost : getMonotonicNow() - hostClock.offsetMs;
     if (tHostValid) updateHostClockOffset(hostTime);
-    noteSnapshotArrival();
+    // * Pass tHost so gap/silence stats are host-domain (2e non-host arrival honesty).
+    noteSnapshotArrival(tHostValid ? hostTime : 0);
     const seq = typeof state.seq === "number" ? state.seq : -1;
     bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
     // * Kill-credit / combo ages for host promotion (NET-MIG-1). Mirror host truth

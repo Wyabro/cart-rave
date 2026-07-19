@@ -411,9 +411,11 @@ export const CONFIG = {
       // * 1–5s produced snap gaps + 28 m teleports + "hit then it reverses / death pops
       // * where I was". 150 ms ≈ 6 missed 40 Hz ticks — past normal jitter, before multi-
       // * second host stalls. Below this, live prediction still runs for input feel.
+      // * Silence is measured in the host tHost domain (not client onmessage wall time)
+      // * so a hitchy non-host does not false-trip hold while the host keeps sending (2e).
       holdAfterSnapGapMs: 150,
-      // * Reconcile skip-replay threshold (ms since previous snap arrival). Only long
-      // * silences hard-snap without replaying; truncating newest under
+      // * Reconcile skip-replay threshold (ms between snapshot tHost stamps). Only long
+      // * host silences hard-snap without replaying; truncating newest under
       // * reconcileReplayMaxSteps still replays the continuous oldest-N (cap-13).
       skipReplayAfterSnapGapMs: 500,
     },

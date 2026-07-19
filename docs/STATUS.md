@@ -83,7 +83,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
 | 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Announcer warm live** — **`716ec2f` / `index-B1V-NCgO.js`**. Next: Match A F8 both (focused host); pass = fewer mid-round resume / host_send_gap 600–2000ms vs cap-23. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Announcer warm live** (`716ec2f` pass on cap-25). **tHost arrival honesty unpushed** — non-host snap gap/hold use host stamps not client wall time. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | 3 | Match B (Intel hosts) only if needed | locked until 2e |
 | 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -96,10 +96,9 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **2e only** — Match A retest on **`index-B1V-NCgO.js`**: F8 both, focused 4090 host.
-2. Pass bar: mid-round host resume / `host_send_gap` 600–2000ms drop vs cap-23; `sendGapAvg` ~25–27ms.
-3. Residual: non-host arrival false-trips (separate lever) if still needed after host freezes drop.
-4. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+1. **2e only** — ship tHost arrival honesty on Wyatt “ship it”; Match A F8 both.
+2. Pass: non-host `snapGapsOver100` closer to host `sendGapsOver100`; combat hold false-trips drop; host still clean.
+3. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
 
@@ -179,7 +178,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 2026-07-19 (dashboard capture triage, separate Claude session — tools only) — `npm run dashboard` now sees remote F8 pulls: `collectCaptures` scans `.diag-captures/playtest/` (previously invisible — the dashboard showed 1 local soak bundle while 20+ pulled caps sat unseen), merges the `cap-N-meta.json` server sidecars into cards (id, host/non-host, tier, build) instead of rendering them as junk, and orders by mtime+capturedAt (filename sort buried cap-10+ under cap-9). Cards get a **build chip** — green when the stamp matches the newest captured build ("from the retest build?"), amber when older; git HEAD deliberately not the reference (docs commits outrun deploys). Summary line prints the newest cap id/build/age. Verified live: 20 caps, newest #24 `19e5cd9`, 7 green / 13 amber.
 
-2026-07-19 (2e announcer warm **shipped**) — **`716ec2f` / `index-B1V-NCgO.js` / Version `1dce77ac`**. Await announcer pack at play-entry. Served sha `716ec2f` verified. **Next:** Match A F8 both; compare host mid-round freezes to cap-23.
+2026-07-19 (2e tHost arrival **unpushed**) — Cap-25 host warm **pass** (send max 209, mid-round LF only 200ms). Residual non-host snapGaps 31 vs host sendGaps 1. **Lever:** snap gap + prediction silence/skip use host `tHost` domain, not onmessage wall time. Gates **503/54**. Ship on go.
+
+2026-07-19 (2e announcer warm **shipped**) — **`716ec2f` / `index-B1V-NCgO.js` / Version `1dce77ac`**. Cap-25/26: host mid-round freezes gone; combat drops 43→0.
 
 2026-07-19 (test coverage, separate Claude session — tests only, no runtime changes) — Two new suites (+35 tests): `tests/debugParams.test.js` (URL flag parsing — defaults, bookmarks/aliases, implied harness/freeze, `?bloompipe` + live-tune, retired-`?rtmode`-stays-retired guard, boot side effects) and `tests/cargoLoad.test.js` (Living Cargo — score→fullness, spill-count lerp, comeback window, restock timing, cart_overflow/spill_rush once-per-round edges; grocery/announcer/simulation mocked, real CONFIG+gameStore). Gates: **qa 494/53 green**, knip clean.
 
