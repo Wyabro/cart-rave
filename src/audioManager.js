@@ -699,6 +699,8 @@ export function playSfx(key, sprite, options = {}) {
 /**
  * Starts background fetch/decode for registered SFX whose keys share a prefix.
  * Used to warm the announcer voice pack during menu idle without blocking boot.
+ * Fire-and-forget — does not wait for decode. Prefer {@link prefetchSfxByPrefixAsync}
+ * under the play-entry loading overlay so first-decode does not land mid-round.
  * @param {string} prefix Registry key prefix (e.g. `"announcer_"`).
  */
 export function prefetchSfxByPrefix(prefix) {
@@ -708,6 +710,88 @@ export function prefetchSfxByPrefix(prefix) {
       if (sound.state() === "unloaded") sound.load();
     } catch { /* mid-unload */ }
   }
+}
+
+/**
+ * Fetch + decode every registered SFX under `prefix`, resolving when all are loaded
+ * or `maxWaitMs` elapses. Run-7 2e: fire-and-forget prefetch left Howler decode to
+ * complete mid-round as 600–2000ms host resume freezes (cap-23: send gaps 2047/814/640
+ * after first callouts). Awaiting this during play-entry warmup keeps those stalls
+ * behind the loading overlay.
+ *
+ * @param {string} prefix Registry key prefix (e.g. `"announcer_"`).
+ * @param {{ maxWaitMs?: number }} [opts] Cap wait so a hung fetch cannot block play forever.
+ * @returns {Promise<{ loaded: number, total: number, timedOut: boolean }>}
+ */
+export function prefetchSfxByPrefixAsync(prefix, opts = {}) {
+  const maxWaitMs = typeof opts.maxWaitMs === "number" ? opts.maxWaitMs : 8000;
+  const entries = Object.entries(sfxRegistry).filter(([key]) => key.startsWith(prefix));
+  const total = entries.length;
+  if (total === 0) {
+    return Promise.resolve({ loaded: 0, total: 0, timedOut: false });
+  }
+
+  const waitOne = (/** @type {import("howler").Howl} */ sound) =>
+    new Promise((resolve) => {
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        resolve(ok);
+      };
+      try {
+        if (sound.state() === "loaded") {
+          finish(true);
+          return;
+        }
+        // * Howler: once('load'|'loaderror') — works whether load is already in flight
+        // * (idle warm) or we kick it here.
+        if (typeof sound.once === "function") {
+          sound.once("load", () => finish(true));
+          sound.once("loaderror", () => finish(false));
+        }
+        if (sound.state() === "unloaded") sound.load();
+        // * Sync loaders (tests / already-buffered) may flip state before once attaches
+        // * after a prior load() — re-check.
+        if (sound.state() === "loaded") {
+          finish(true);
+          return;
+        }
+        // * No once API and still not loaded — best-effort kick only.
+        if (typeof sound.once !== "function") {
+          finish(sound.state() === "loaded");
+        }
+      } catch {
+        finish(false);
+      }
+    });
+
+  const allLoaded = Promise.all(entries.map(([, sound]) => waitOne(sound))).then(
+    (results) => results.filter(Boolean).length,
+  );
+
+  const timeout = new Promise((resolve) => {
+    const ms = Math.max(0, maxWaitMs);
+    if (ms === 0) {
+      resolve("timeout");
+      return;
+    }
+    setTimeout(() => resolve("timeout"), ms);
+  });
+
+  return Promise.race([
+    allLoaded.then((loaded) => ({ loaded, total, timedOut: false })),
+    timeout.then(() => {
+      // * Recount loaded at timeout — partial warm is still a win.
+      let loaded = 0;
+      for (const [, sound] of entries) {
+        try {
+          if (sound.state() === "loaded") loaded += 1;
+        } catch { /* ignore */ }
+      }
+      return { loaded, total, timedOut: loaded < total };
+    }),
+  ]);
 }
 
 /**

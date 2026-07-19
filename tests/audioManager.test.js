@@ -19,13 +19,39 @@ vi.mock("howler", () => {
       this.playCalls = 0;
       this.fadeCalls = [];
       this.isPlaying = false;
+      /** @type {Record<string, Array<() => void>>} */
+      this._once = {};
+      /** When true, load() stays "loading" until emitLoad() (async warm tests). */
+      this.deferLoad = false;
       MockHowl.instances.push(this);
     }
     state() { return this._state; }
+    once(event, fn) {
+      (this._once[event] ||= []).push(fn);
+      return this;
+    }
     load() {
       this.loadCalls += 1;
+      if (this.deferLoad) {
+        this._state = "loading";
+        return this;
+      }
       this._state = "loaded";
+      this._emitOnce("load");
       return this;
+    }
+    /** Complete a deferred load() — mirrors Howler async decode. */
+    emitLoad() {
+      this._state = "loaded";
+      this._emitOnce("load");
+    }
+    emitLoadError() {
+      this._emitOnce("loaderror");
+    }
+    _emitOnce(event) {
+      const list = this._once[event] || [];
+      this._once[event] = [];
+      for (const fn of list) fn();
     }
     play() {
       this.playCalls += 1;
@@ -78,6 +104,9 @@ import {
   playMenuMusic,
   stopMenuMusic,
   duckMusic,
+  registerSfx,
+  prefetchSfxByPrefix,
+  prefetchSfxByPrefixAsync,
 } from "../src/audioManager.js";
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
@@ -266,5 +295,75 @@ describe("menu/game music exclusivity", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// * Run-7 2e: host mid-round resume freezes from late announcer decode. Play-entry
+// * must await pack load, not only kick load().
+describe("prefetchSfxByPrefixAsync (announcer warm)", () => {
+  beforeEach(() => {
+    // * Unique keys each test so registry grows but filters stay precise.
+  });
+
+  it("sync load resolves loaded=total without waiting on the network", async () => {
+    registerSfx("announcer_warm_a_01", ["a.opus"], { preload: false });
+    registerSfx("announcer_warm_a_02", ["b.opus"], { preload: false });
+    registerSfx("other_sfx", ["c.opus"], { preload: false });
+
+    const result = await prefetchSfxByPrefixAsync("announcer_warm_a_");
+    expect(result.total).toBe(2);
+    expect(result.loaded).toBe(2);
+    expect(result.timedOut).toBe(false);
+
+    const warmed = MockHowl.instances.filter((h) =>
+      (h.opts.src || []).some((s) => s === "a.opus" || s === "b.opus"),
+    );
+    expect(warmed.every((h) => h.state() === "loaded")).toBe(true);
+    expect(warmed.every((h) => h.loadCalls >= 1)).toBe(true);
+  });
+
+  it("waits for deferred decode then resolves", async () => {
+    registerSfx("announcer_warm_b_01", ["d.opus"], { preload: false });
+    const howl = MockHowl.instances[MockHowl.instances.length - 1];
+    howl.deferLoad = true;
+
+    const pending = prefetchSfxByPrefixAsync("announcer_warm_b_");
+    // * Kick has started; still loading until emitLoad.
+    expect(howl.loadCalls).toBe(1);
+    expect(howl.state()).toBe("loading");
+
+    howl.emitLoad();
+    const result = await pending;
+    expect(result).toEqual({ loaded: 1, total: 1, timedOut: false });
+    expect(howl.state()).toBe("loaded");
+  });
+
+  it("times out with partial loaded count when decode never finishes", async () => {
+    vi.useFakeTimers();
+    try {
+      registerSfx("announcer_warm_c_01", ["e.opus"], { preload: false });
+      const howl = MockHowl.instances[MockHowl.instances.length - 1];
+      howl.deferLoad = true;
+
+      const pending = prefetchSfxByPrefixAsync("announcer_warm_c_", { maxWaitMs: 50 });
+      expect(howl.state()).toBe("loading");
+
+      await vi.advanceTimersByTimeAsync(60);
+      const result = await pending;
+      expect(result.total).toBe(1);
+      expect(result.loaded).toBe(0);
+      expect(result.timedOut).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fire-and-forget prefetch still kicks load without awaiting", () => {
+    registerSfx("announcer_warm_d_01", ["f.opus"], { preload: false });
+    const howl = MockHowl.instances[MockHowl.instances.length - 1];
+    expect(howl.state()).toBe("unloaded");
+    prefetchSfxByPrefix("announcer_warm_d_");
+    expect(howl.loadCalls).toBe(1);
+    expect(howl.state()).toBe("loaded");
   });
 });

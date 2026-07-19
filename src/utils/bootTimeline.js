@@ -17,6 +17,7 @@
  * Play-entry sub-phases (after `play-entry`): play-arena-done → play-cart-glb-done →
  * play-carts-spawned → play-shader-start → play-shader-end → carts-ready. Use these
  * to split arena rebuild vs cart GLB vs shader compileAsync (the measured Solo hang).
+ * `play-shader-start|end` also brackets awaited announcer pack warm (2e host hitch).
  */
 
 import { recordDiagEvent } from "./diagnostics.js";

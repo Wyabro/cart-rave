@@ -33,7 +33,7 @@ F8 both machines → `npm run captures:pull` → read `.diag-captures/playtest/`
 | Workers **Paid** + Logs | ✅ Paid; `observability` on (`601b8e8`). |
 | Skip-replay only on long snap gap | ✅ **`1a2f242` / `index-Cw19iE04.js`** — not on oldest-N truncate. |
 | Match A combat reverse | ✅ **Pass enough** — Wyatt feel better; cap-16 **skips=0**, localKos **2**, snapGapMax **181ms** (was 3665). |
-| **Host hitch / invisible kills** | ▶️ **2e probe live** — dig done; host send cadence on **`index-pavOdoEG.js`**; awaiting Match A F8 both |
+| **Host hitch / invisible kills** | ▶️ **Announcer warm await unpushed** — cap-23/24 prove host send OK between resume freezes; lever awaits pack decode at play-entry |
 | Match B (Intel hosts) | Locked until 2e honest enough. |
 | NET-PERF-2 | Done run-4. Do not re-solve. |
 
@@ -106,14 +106,27 @@ Lobby/countdown silence does **not** inflate the first running gap (anchor reset
 
 ---
 
+## Cap-23/24 decode (probe worked)
+
+| | Host 4090 (23) | Non-host Intel (24) |
+|--|----------------|---------------------|
+| avg gap | **send 26.3ms** | **snap 26.2ms** |
+| max | send **2047** | snap **2041** (matched) |
+| >100 count | send **3** / ~86s | snap **47** / ~77s |
+| combat | — | skips 3, drops 43, errMax 0.35 |
+
+Host’s 3 send gaps = three `resume:true` longframes (2040 / 789 / 617ms). Non-host’s other ~44 snapGapsOver100 are **client inflate** (over33=742). Steady host 40Hz is fine.
+
+## Behavior lever (**unpushed**)
+
+`prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 })` awaited inside `warmupActiveSceneShaders` (play entry) in parallel with `compileAsync`. Idle menu still uses fire-and-forget `prefetchSfxByPrefix`. Gates: **498 tests / 53 files**.
+
 ## Next agent work (2e only)
 
-1. Match A retest with F8 **both** machines on **`index-pavOdoEG.js`** (hard-refresh / cache-bust if HTML lags).  
-2. Decode **new** host F8: compare `sendGapsOver100` / `sendGapMaxMs` / `host_send_gap` events vs non-host `snapGapsOver100`.  
-   - If host `sendGapsOver100` ≈ 0 mid-round → mid-round invisible kills are mostly **client arrival / hold false-trips** (or network), not 4090 send starvation. Next lever = silence/hold honesty or client hitch, not host encode.  
-   - If host `sendGapsOver100` tracks non-host gaps → real host send stalls; dig main-thread cost at those timestamps (announcer first, then sim/render).  
-3. **Likely first behavior lever (only after retest, one at a time):** await / prioritize announcer warm before countdown so post-GO 300–500ms resumes die. Do **not** stack with silence-hold changes in the same ship.  
-4. Pass bar unchanged: non-host sees the hit that earns a KO; host longframe + **host sendGap** rate drop; non-host gap rate only trusted when host send metrics confirm.
+1. Ship warm await on Wyatt “ship it” → Match A F8 both, focused host.  
+2. Pass: mid-round host `host_send_gap` / resume LF in the 600–2000ms band drop vs cap-23; `sendGapAvg` stays ~25–27.  
+3. Do **not** stack non-host silence-hold changes in the same ship.  
+4. If mid-round freezes remain after warm, dig non-audio main-thread (GC / first VFX) with new F8 timestamps.
 
 **Out of scope this window unless F8s regress:** prediction order, skip-replay policy, phantom pending, Match B, P1 cards, NET-1, menu choppy (P0-2), NET-PERF-2.
 

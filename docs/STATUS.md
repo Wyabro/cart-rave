@@ -82,7 +82,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
 | 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Probe live** — dig done; host send cadence on **`index-pavOdoEG.js`** (`19e5cd9`). Next: Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Announcer warm await unpushed** — cap-23/24: host send fine (avg 26ms, only resume freezes 0.6–2s); non-host snapGaps confounded. Lever: await announcer pack under play-entry overlay (`prefetchSfxByPrefixAsync`). Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | 3 | Match B (Intel hosts) only if needed | locked until 2e |
 | 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -95,11 +95,10 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **2e only** — Match A retest on **`index-pavOdoEG.js`**: F8 **both** machines; hard-refresh if HTML lags.
-2. Decode host F8: `sendGapsOver100` / `sendGapMaxMs` / `net/host_send_gap` vs non-host `snapGapsOver100`.
-3. One behavior lever after that evidence (likely announcer warm-before-countdown if early stalls remain; do not stack levers).
-4. Pass bar: non-host sees the hit that earns a KO; host longframe + **host sendGap** rate drop.
-5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+1. **2e only** — ship announcer warm await on Wyatt “ship it”; Match A F8 both (focused host).
+2. Pass bar: host mid-round `resume` longframes / `host_send_gap` 600–2000ms drop; `sendGapAvg` stays ~25–27ms.
+3. Residual after that: non-host arrival false-trips (separate lever) if still needed.
+4. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
 
@@ -177,9 +176,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-19 (dashboard capture triage, separate Claude session — tools only) — `npm run dashboard` now sees remote F8 pulls: `collectCaptures` scans `.diag-captures/playtest/` (previously invisible — the dashboard showed 1 local soak bundle while 20+ pulled caps sat unseen), merges the `cap-N-meta.json` server sidecars into cards (id, host/non-host, tier, build) instead of rendering them as junk, and orders by mtime+capturedAt (filename sort buried cap-10+ under cap-9). Cards get a **build chip** — green when the stamp matches the newest captured build ("from the retest build?"), amber when older; git HEAD deliberately not the reference (docs commits outrun deploys). Summary line prints the newest cap id/build/age. Verified live: 20 caps, newest #24 `19e5cd9`, 7 green / 13 amber.
+
+2026-07-19 (2e announcer warm **unpushed**) — Cap-23/24: host send healthy (avg 26ms; only 3 resume freezes 0.6–2s) vs non-host snapGapsOver100=47 (client inflate). **Lever:** await `prefetchSfxByPrefixAsync("announcer_")` during play-entry warmup (was fire-and-forget). Gates **498/53**. Ship on go → retest mid-round host freezes.
+
 2026-07-19 (test coverage, separate Claude session — tests only, no runtime changes) — Two new suites (+35 tests): `tests/debugParams.test.js` (URL flag parsing — defaults, bookmarks/aliases, implied harness/freeze, `?bloompipe` + live-tune, retired-`?rtmode`-stays-retired guard, boot side effects) and `tests/cargoLoad.test.js` (Living Cargo — score→fullness, spill-count lerp, comeback window, restock timing, cart_overflow/spill_rush once-per-round edges; grocery/announcer/simulation mocked, real CONFIG+gameStore). Gates: **qa 494/53 green**, knip clean.
 
-2026-07-19 (2e host-send probe **shipped**) — **`19e5cd9`** / live **`index-pavOdoEG.js`** / Version `28e48ede`. Served bytes verified: `sendGapsOver100`, `host_send_gap`, build sha `19e5cd9`. Also pushed `67b3cf5` (rtmode drop that was already in the ship tree from a parallel session). **Next:** Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
+2026-07-19 (2e host-send probe **shipped**) — **`19e5cd9`** / live **`index-pavOdoEG.js`** / Version `28e48ede`. Cap-23/24 retest → announcer warm lever above.
 
 2026-07-19 (VFX-1 fork-path cleanup, separate Claude session) — Deleted the legacy `?rtmode` A/B machinery (`resolveRtModeTypes` + float/byte composer-RT branch in scene.js, debugParams parsing, Tweakpane Composer/RT folder, main.js `rtmodeExplicit` guard). `?bloompipe=display|hdr` is the one remaining pipeline lever; `?bloomthr/str/rad/smooth` live-tune keeps working. Behavior-identical by construction (default and hdr paths resolve to the same types as before). Also made the inert-IBL-knob situation honest in comments (config.js/scene.js): `materialEnvMapIntensity` only drives owned-envMap materials (floor, lens); call-site scales kept as design intent. Gates: **qa 459/51 green**, build clean, blackframes classic **PASS** (0 black) + sundial **PASS** (0 black; first run hit the stale vite-dep-cache trap, cleared `.vite` and green). Committed as `67b3cf5` when the host-send probe ship baked it into the client bundle.
 

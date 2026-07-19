@@ -2436,18 +2436,17 @@ async function main() {
         Effects.installRamStreakProgramWarmup(scene);
         vfxProgramAnchorsInstalled = true;
       }
+      // * Announcer pack (preload:false): start fetch/decode under the loading overlay
+      // * in parallel with compileAsync. Cap-23 host: mid-round resume freezes 600–2000ms
+      // * lined up with first callouts when warm was fire-and-forget (decode completed
+      // * mid-round on the main thread). Awaiting the pack here keeps those stalls off
+      // * the running-phase host send loop. maxWaitMs caps a hung network.
+      /** @type {Promise<{ loaded: number, total: number, timedOut: boolean }> | null} */
+      let announcerWarmPromise = null;
       if (forPlay) {
-        // * Announcer warm-up anchor (mirrors the VFX anchors above). The 61 voice takes
-        // * register preload:false, so each one fetches + decodes on its FIRST play. The
-        // * menu idle-warm prefetch (scheduleIdleWorldWarm) is suppressed once play claims
-        // * the cold-load — i.e. it never runs for Solo/Quickplay — so those first plays
-        // * land mid-round as ~350-750ms longframes clustering on the earliest callouts
-        // * (spill_rush / cleanup_aisle / new_leader — 07-17 run-3 solo F8 captures).
-        // * Kicked here, under the loading overlay and before the countdown, the decodes
-        // * finish during warm-up + countdown so no announcer clip decodes mid-round.
-        // * Fire-and-forget: prefetchSfxByPrefix only starts async loads — never blocks
-        // * play entry — and is idempotent (skips already-loaded/loading Howls).
-        AudioManager.prefetchSfxByPrefix("announcer_");
+        announcerWarmPromise = AudioManager.prefetchSfxByPrefixAsync("announcer_", {
+          maxWaitMs: 8000,
+        });
       }
       // * Menu path: still compileAsync so the first attract frame after a swap does not
       // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
@@ -2465,6 +2464,13 @@ async function main() {
         )(scene, camera, null, { maxWaitMs });
       } else {
         await renderer.compileAsync(scene, camera);
+      }
+      if (announcerWarmPromise) {
+        try {
+          await announcerWarmPromise;
+        } catch (err) {
+          console.warn("[CartRave] announcer warm failed:", err);
+        }
       }
       // * compileAsync covers SCENE programs only. The composer passes (bloom
       // * bright/blur, arcade, FXAA, output) and their render targets initialize on
