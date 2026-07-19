@@ -201,7 +201,6 @@ const physics = {
     maxSpeed: 23.5, // m/s — forward speed cap
     reverseMaxSpeed: 8.0, // m/s — reverse speed cap
     accel: 125.0, // m/s² — drive force scaling
-    steeringTorque: 110.0, // N·m scale — tank steer while moving
     tankYawRate: 5.6, // rad/s — in-place pivot rate
     yawResponsiveness: 22.0, // 1/s — yaw smoothing toward target
     lateralGrip: 20.0, // force scale — sideways slip resistance
@@ -209,9 +208,6 @@ const physics = {
     driftImpulseStrength: 0.55, // unitless — extra impulse during drift
     airControlFactor: 0.15, // unitless — steering authority while airborne
     extraYawDamping: 12.0, // 1/s — straight-line yaw torque damping when not steering
-    groundVerticalVelThreshold: 2.0, // m/s — |vy| below this counts as grounded
-    steerDeadzone: 0.01, // unitless — axis magnitude below this skips steer/drift
-    driftMinSpeed: 0.25, // m/s — minimum |vForward| before drift impulse applies
   },
 
   ramming: {
@@ -230,7 +226,6 @@ const physics = {
       shakeMinIntensity: 0.38, // unitless — min intensity for local ram screen shake
       shakeBoostMinIntensity: 0.22, // unitless — lower shake threshold during nitro rams
       shakePixelScale: 5.5, // px — screen shake amplitude scale
-      audioBoostGain: 1.4, // unitless — collision SFX gain multiplier when boosting
       // * Directional hit vignette (DOM) — lower than shake so everyday rams still cue.
       hitDirMinIntensity: 0.08, // unitless — min collision intensity for hit-from vignette
     },
@@ -298,7 +293,8 @@ const physics = {
     stuck: {
       respawnMs: 10000, // ms — idle on arena before booth respawn
       positionRadiusM: 0.45, // meters — XZ movement that resets the idle timer
-      maxPlanarSpeedMps: 0.65, // m/s — must stay below this to count as stuck
+      // * (Speed gate is hardcoded in gameFlow's idle watch: planar speed > 2.0 m/s
+      // * resets the timer — there is no config knob for it.)
       unstickAfterMs: 2000, // ms — earlier physics nudge before forced respawn
     },
   },
@@ -308,10 +304,7 @@ const physics = {
     platformWidth: 7.0, // meters
     platformDepth: 5.0, // meters
     platformThickness: 0.6, // meters
-    rampLength: 0, // meters — ramp removed; gap jump only
-    rampWidth: 5.0, // meters
-    rampEndY: 0.1, // meters
-    rampThickness: 0.3, // meters
+    rampLength: 0, // meters — ramp removed; gap jump only (kept: still read as a 0 offset)
     gapDistance: 1.5, // meters — booth platform to dancefloor gap
     railHeight: 1.8, // meters
     railThickness: 0.12, // meters
@@ -342,8 +335,6 @@ export const CONFIG = {
   backgroundColor: 0x070010,
 
   debug: {
-    input: false,
-    velocity: false,
     arenaTrimesh: false,
     audio: false,
   },
@@ -351,7 +342,7 @@ export const CONFIG = {
   net: {
     interpBufferMs: 75, // ms — remote cart interpolation delay (non-host)
     hostSendHz: 40, // Hz — host transform broadcast rate
-    clientInputHz: 60, // Hz — client input send rate to host
+    // * (Client input has no Hz knob — sends ride the 60Hz fixed-step input sample.)
     keepaliveIntervalMs: 5000, // ms — WebSocket keepalive interval
     stateBufferMaxSize: 64, // count — max authoritative snapshots retained client-side
     extrapolationCapMs: 50, // ms — max velocity extrapolation when buffer has no "after" snapshot
@@ -388,18 +379,13 @@ export const CONFIG = {
     prediction: {
       // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
       reconcilePosRate: 8,
-      // * Visual heading correction decay (1/s).
+      // * Visual heading correction decay (1/s). Heading is the only eased rotation
+      // * axis — pitch/roll snap with the body (hardcoded in frameVisuals; easing
+      // * them reads as wobble under arcade physics).
       reconcileRotRate: 6,
-      // * (Unused) velocity error correction speed — the body snap already takes host velocity.
-      reconcileVelRate: 5,
       // * Hard visual teleport when a single correction (or the accumulated eased debt)
       // * exceeds this (m). Covers respawns and large desyncs.
       maxCorrectionM: 4.0,
-      // * (Unused) legacy dead-zone from the pre-offset scheme; offsets decay to zero anyway.
-      minErrorM: 0.12,
-      // * Ease heading only; pitch/roll corrections snap with the body (near-zero under
-      // * arcade physics, and easing them reads as wobble).
-      yawOnlyReconcile: true,
       // * NET-PERF-1 (run-7): max Rapier fixed-steps per host snapshot on the non-host.
       // * After the body hard-snaps to host truth, only the oldest N unacked inputs are
       // * replayed (continuous extension of host; newer ones dropped). 12 ≈ 200 ms at

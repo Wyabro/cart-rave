@@ -585,7 +585,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   function buildColorChips() {
     if (!customizeColorRow) return;
     customizeColorRow.setAttribute('role', 'radiogroup');
-    customizeColorRow.setAttribute('aria-label', 'Player Color Selection');
     const p = state.palette;
     const customCss = hueToNeonCss(state.customHue);
     let html = "";
@@ -636,7 +635,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   function buildSunglassesChips() {
     if (!customizeSunglassesRow) return;
     customizeSunglassesRow.setAttribute('role', 'radiogroup');
-    customizeSunglassesRow.setAttribute('aria-label', 'Sunglasses Mirror Finish Selection');
     let html = '';
     for (const style of SUNGLASSES_STYLES) {
       const isActive = state.sunglassesStyle === style.id;
@@ -693,7 +691,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   function buildPatternChips() {
     if (!customizePatternRow) return;
     customizePatternRow.setAttribute('role', 'radiogroup');
-    customizePatternRow.setAttribute('aria-label', 'Cart Pattern Selection');
     const colorCss = getActiveColorCss();
     let html = '';
     for (const id of CART_PATTERN_IDS) {

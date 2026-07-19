@@ -198,6 +198,19 @@ export function yawFromQuaternion(q) {
 }
 
 /**
+ * * Ground-projected forward heading — where the cart's -Z nose actually points on
+ * * the floor plane. Identical to the visual pipeline's YXZ Euler yaw
+ * * (contactShadows.yawFromQuaternion), exact under any pitch/roll. Distinct from
+ * * yawFromQuaternion above, whose cos term (z²) drifts under steep tilt — steering
+ * * and AI are tuned against that one, so the two must not be merged.
+ * @param {{ x: number, y: number, z: number, w: number }} q
+ * @returns {number}
+ */
+export function headingYawFromQuat(q) {
+  return Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
+}
+
+/**
  * * Writes planar forward/right unit vectors from a yaw angle (Y-up, -Z forward at yaw 0).
  * @param {number} yaw
  * @param {THREE.Vector3} forward Out — mutated in place.
@@ -208,7 +221,7 @@ export function setForwardRightFromYaw(yaw, forward, right) {
   right.crossVectors(forward, _up).normalize();
 }
 
-function wrapAngleRad(angle) {
+export function wrapAngleRad(angle) {
   let a = angle;
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;

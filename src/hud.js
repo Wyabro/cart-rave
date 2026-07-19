@@ -482,6 +482,27 @@ function stampBannerOnce(key) {
 }
 
 /**
+ * Fires the round-start GO! beat: 500ms banner flash + "go" VO + main's FOV
+ * punch/whoosh. Normally driven by the countdown→running phase flip below, but a
+ * non-host that applies game_start after the server start time has already passed
+ * drops lobby→running directly — main calls this so that player still gets a start
+ * cue instead of silently gaining control. The direct path passes resetGate — its
+ * round skipped the countdown entry that normally re-arms the sound gate, and it
+ * can't double-fire because the phase flip it bypassed never happens.
+ * @param {{ resetGate?: boolean }} [opts]
+ */
+export function triggerGoBeat({ resetGate = false } = {}) {
+  if (resetGate) _goSoundPlayed = false;
+  _goUntilMs = Date.now() + 500;
+  if (!_goSoundPlayed) {
+    _goSoundPlayed = true;
+    announce("go");
+    // * Round-start kick — camera punch-in + whoosh live in main (they own the FOV rig).
+    _options.onGoMoment?.();
+  }
+}
+
+/**
  * Updates the center status line (GO!, countdown).
  * @param {object} roundState
  */
@@ -491,13 +512,7 @@ function updateStatus(roundState) {
 
   const prevPhase = _prevRoundPhase;
   if (prevPhase === "countdown" && roundPhase === "running") {
-    _goUntilMs = Date.now() + 500;
-    if (!_goSoundPlayed) {
-      _goSoundPlayed = true;
-      announce("go");
-      // * Round-start kick — camera punch-in + whoosh live in main (they own the FOV rig).
-      _options.onGoMoment?.();
-    }
+    triggerGoBeat();
   }
   _prevRoundPhase = roundPhase;
 
@@ -971,7 +986,9 @@ function updateScores(roundState, netSlots, youConnId) {
             if (entry.badge.dataset.icon !== info.icon) {
               entry.badge.dataset.icon = info.icon;
               entry.badge.innerHTML = svgIcon(info.icon, { label: info.label });
-              entry.badge.title = info.label;
+              // * Native tooltip is sentence case (style guide §4); the on-chip
+              // * label keeps its all-caps HUD styling.
+              entry.badge.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
             }
             entry.badge.style.color = info.color;
             entry.badge.style.display = "inline-flex";

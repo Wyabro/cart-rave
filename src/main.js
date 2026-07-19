@@ -141,7 +141,7 @@ import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
 import { hapticPulse } from "./haptics.js";
 import { sideWeightsFromCartBasis } from "./utils/edgeDanger.js";
-import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack } from "./announcer/announcerManager.js";
+import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack, stopAnnouncer } from "./announcer/announcerManager.js";
 import { ANNOUNCER_EVENTS } from "./announcer/announcerEvents.js";
 import { expandAnnouncerVoiceKeys } from "./announcer/announcerVoiceKeys.js";
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
@@ -443,6 +443,13 @@ async function flushPendingSessionBootstrap() {
 }
 
 function syncRoundPhase(phase) {
+  // * Countdown/running entries here are always fresh-round boundaries (host
+  // * startCountdown/startRunningAt, non-host game_start apply). Clear any leftover
+  // * Rampage combo: an immediate solo RESTART can land inside the previous round's
+  // * 5s combo window, and the badge widget renders whenever tier>0 && !expired —
+  // * it flashed over the new 3-2-1. (The store's own startCountdown()/startRunning()
+  // * actions would do this, but round starts never route through them.)
+  if (phase === "countdown" || phase === "running") GameState.setLocalCombo(0, 0);
   GameState.setRoundPhase(phase);
 }
 /** @type {((msg: object) => void) | null} */
@@ -1715,7 +1722,7 @@ async function main() {
         btn.dataset.action = "joinroom";
         btn.dataset.colorkey = "secondary";
         btn.innerHTML =
-          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN ROOM</span></span>';
+          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN LOBBY</span></span>';
         btnRow.insertBefore(btn, btnRow.firstChild);
         btn.addEventListener("click", () => {
           window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
@@ -2819,6 +2826,10 @@ async function main() {
           syncRoundPhase("running");
           GameState.setRoundStartedAtMs(startsAtLocalMs);
           CameraMod.endCinematicCountdown(camera);
+          // * Server start time already passed (high-latency apply / arena-rotation
+          // * defer): the HUD's countdown→running flip never happens, so without this
+          // * the player gains control with no GO! flash, VO, or FOV punch.
+          HUD.triggerGoBeat({ resetGate: true });
         } else {
           syncRoundPhase("countdown");
           GameState.setRoundStartedAtMs(0);
@@ -2913,6 +2924,12 @@ async function main() {
           SfxSynth.playCrowdCheer(1);
           ArenaAmbience.bumpCrowdExcitement(1);
         }
+      } else {
+        // * Draw: no victory/defeat VO fires, so nothing interrupts an in-flight
+        // * callout ("10 SECONDS" / "SCOREBOARD" can hold ~2s over the podium cam).
+        // * Hard-silence so the podium opens clean; lobby entry would do this later
+        // * anyway (announcerDirector phase watcher).
+        stopAnnouncer();
       }
     }
   }

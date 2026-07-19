@@ -26,9 +26,11 @@ import { playSfx } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
+import { devLog } from "./utils/devLog.js";
 
 /** Same domain as round startedAtMs / server #serverNowMs (see roundClock.js). */
 function getMonotonicNow() { return getRoundClockNowMs(); }
+
 
 /** Scratch quaternions for snapshot-pair slerp interpolation (zero per-frame allocs). */
 const _interpFromQ = new THREE.Quaternion();
@@ -1740,7 +1742,7 @@ function maintainHostPeerConnections() {
     if (health.reason !== "missing") {
       P2P.forceClosePeer(connId);
     }
-    console.log(`[netcode] WebRTC recovery reconnect to peer ${connId} (${health.reason})`);
+    devLog(`[netcode] WebRTC recovery reconnect to peer ${connId} (${health.reason})`);
     P2P.initiateP2PConnection(connId).catch((e) => {
       console.warn("[netcode] P2P recovery offer failed (cooldown retry pending)", e);
     });
@@ -2000,14 +2002,14 @@ export function initNetcode(roomOverride) {
   };
 
   partySocket.addEventListener("close", (ev) => {
-    console.log("[netcode] Socket closed", {
+    devLog("[netcode] Socket closed", {
       didSendJoin,
       helloReceivedThisSession,
       code: ev?.code,
       reason: ev?.reason,
     });
     if (helloReceivedThisSession) {
-      console.log("[netcode] Socket closed after successful hello (will retry with backoff)");
+      devLog("[netcode] Socket closed after successful hello (will retry with backoff)");
       connectionState = "reconnecting";
     }
     if (_suppressRetry) return;
@@ -2019,12 +2021,12 @@ export function initNetcode(roomOverride) {
   });
 
   partySocket.addEventListener("error", () => {
-    console.log("[netcode] Socket error", {
+    devLog("[netcode] Socket error", {
       didSendJoin,
       helloReceivedThisSession,
     });
     if (helloReceivedThisSession) {
-      console.log("[netcode] Socket error after successful hello (will retry with backoff)");
+      devLog("[netcode] Socket error after successful hello (will retry with backoff)");
       connectionState = "reconnecting";
     }
     if (_suppressRetry) return;
@@ -2042,7 +2044,7 @@ export function initNetcode(roomOverride) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       localStorage.setItem("cartRaveUsername", savedUsername);
     }
-    console.log("[netcode] Sending MSG.join", { name: savedUsername, clientId });
+    devLog("[netcode] Sending MSG.join", { name: savedUsername, clientId });
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
     didSendJoin = true;
     sendColorPick(resolveServerColorPick());
@@ -2091,7 +2093,7 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.hello) {
-      console.log("[netcode] Received MSG.hello", {
+      devLog("[netcode] Received MSG.hello", {
         youConnId: msg.youConnId,
         hostId: msg.hostId,
         levelId: msg.levelId,

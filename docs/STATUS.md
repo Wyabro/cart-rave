@@ -32,7 +32,7 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean at last probe work (**515/55** on ko_path ship; rollback delete-only) — re-run `npm run qa` if claiming green after edits |
+| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **522/57** after the 07-19 polish pass (adds yawExtraction + gameFlowTimerExpiry suites) — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
 | Origin HEAD | Local ↔ origin/cart-clash at **`5bfe7e5`** — ko_path rolled back; longtask kept |
 | Prod deploy (2026-07-19 P0 land) | ✅ Live — **bundle `index-D3QXm4Qq.js`**, Version `f94266c2` (`5bfe7e5`; `longtask`/`ltN` present, `ko_path` **absent** in served bytes) |
@@ -83,7 +83,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Next window** — longtask live `index-D3QXm4Qq.js`; ko_path gone. Dig menu multi-s **or** post-fall frame (one card) |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu card coded (unpushed)** — first attract compile after `world-ready` (caps 45–51). Idle warm now `compileAsync`+composer prime **before** world-ready. Retest F8; mid-round/post-fall still open |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -97,9 +97,9 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. New agent: read [planning/handoff-next-window.md](./planning/handoff-next-window.md) — **P0 one card** (menu multi-s longtasks **or** post-fall frame).
-2. Both machines hard-refresh **`index-D3QXm4Qq.js`**; F8 host after multi-s hitch; pull captures.
-3. Non-host wrong color: parked (no F8 fields); same-build first.
+1. Wyatt: **ship it** when ready (menu idle-shader warm) → hard-refresh both machines → F8 host after sitting on menu ~15s + one round; pull captures. Expect: `idle-shader-start/end` before `world-ready`; no multi-s longtask *after* world-ready from first attract.
+2. If menu clean but mid-round multi-s remains → **post-fall frame** card (cap-47 KO cascade 2.3–2.5s; fall path already cleared).
+3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
@@ -178,7 +178,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (session end — **landed + shipped**) — **`5bfe7e5` / bundle `index-D3QXm4Qq.js` / Version `f94266c2`**. ko_path removed; longtask/`lt[]` kept (served verified). Handoff rewritten for next chat: [planning/handoff-next-window.md](./planning/handoff-next-window.md). **Next: P0 menu multi-s or post-fall frame (one card).**
+2026-07-19 (pre-release polish pass, separate Claude session — **unpushed**, additive to and distinct from the P0 menu card below; P0 hunks in `main.js`/`bootTimeline.js` untouched) — Quality sweep before public showing. Logic: same-frame KO at timer expiry now scores + presents before `endRound` (gameFlow fall-pass/expiry reorder; `tests/gameFlowTimerExpiry.test.js`); stale Rampage badge cleared at countdown/running entry (solo RESTART flash); draw podium hard-silences in-flight PA callout; late non-host `game_start` apply fires the GO! beat (`HUD.triggerGoBeat`); gameLoop's private yaw/wrap copies deduped into `simulation.headingYawFromQuat`/`wrapAngleRad` — **behavior preserved**: the x² cos form is the exact ground-projected heading matching the visual pipeline's YXZ yaw; it must NOT be merged with steering's z² `yawFromQuaternion` (`tests/yawExtraction.test.js` pins both). Copy (style guide): "KOS THIS ROUND", "JOIN LOBBY", lobby/round menu-return notices, Esc scoring table renamed to match HOW TO PLAY + missing High ground row, player-appropriate boot-error copy (dev recipe → console), sentence-case aria-labels/tooltips, `QUALITY: HIGH` placeholder, ellipsis normalization. Hygiene: netcode/p2p/gamepad lifecycle logs DEV-gated; **15 dead config keys deleted** (verified zero readers; incl. `net.clientInputHz` — AGENTS.md §invariants corrected: client input sends ride the 60Hz fixed-step sample, no Hz knob); party log DOs share new `party/logUtil.ts`. Deliberately not changed: eruda CDN load on LAN hostnames (audit #34 — workflow call), non-host ":00" hold (inherent to host authority), cartThemes non-rave dead branches (post-gate), `connectionState:"ok"` before first socket (diag cosmetic). Gates: **qa 522/57 green**, knip clean, build OK, **battery 5/5** (report `.diag-captures/battery-2026-07-19T09-42-14-826Z.json`), blackframes classic PASS (worst 0.52).
+
+2026-07-19 (Run-7 P0 menu card — **unpushed**) — Caps 45–51: multi-s longtasks start ~5ms after `world-ready` (attract un-gates; first `composer.render` compiles). Fix: `bootstrapWorldCore` awaits `warmupActiveSceneShaders({ forPlay:false })` + always prime composer; boot marks `idle-shader-start/end`. Gates: **514/55** green. **Not shipped** — wait for “ship it.” Still open: post-ready chunk/`warmSunsetEnv` multi-s, mid-round KO freezes (P0 remainder).
+
+2026-07-19 (session end — **landed + shipped**) — **`5bfe7e5` / bundle `index-D3QXm4Qq.js` / Version `f94266c2`**. ko_path removed; longtask/`lt[]` kept (served verified). Handoff rewritten for next chat: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 2026-07-19 (P0 ko_path rolled back then shipped) — Cap 48–51: 30 KOs → 0 `ko_path`; fall path not multi-s. Was temporarily live as `index-BwzBNELn.js` / `be8eba3`.
 

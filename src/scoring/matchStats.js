@@ -121,7 +121,8 @@ export function matchSuperlatives(s = stats) {
   /** @type {string[]} */
   const lines = [];
   if (s.localKos > 0) {
-    lines.push(s.localKos === 1 ? "1 KO THIS MATCH" : `${s.localKos} KOS THIS MATCH`);
+    // * "ROUND", not "MATCH" — rounds are the only scored unit (style guide §2/§8).
+    lines.push(s.localKos === 1 ? "1 KO THIS ROUND" : `${s.localKos} KOS THIS ROUND`);
   }
   if (s.maxComboTier >= 2) {
     const label = s.maxComboTier >= 3 ? "CARNAGE" : "RAMPAGE";

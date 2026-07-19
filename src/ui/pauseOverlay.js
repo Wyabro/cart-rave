@@ -637,11 +637,14 @@ export function init(options = {}, hudContext = {}) {
 
   const scoreList = document.createElement("ul");
   scoreList.className = "esc-score-list";
+  // * Names must match HOW TO PLAY (index.html) — same events, same vocabulary
+  // * (style guide §8: Edge KO / Hazard KO are the scoring terms).
   [
-    ["Edge knockout", "◆", "+1"],
-    ["Center hole", "◆◆", "+2"],
-    ["High-speed hit", "◆◆◆", "+1 bonus"],
-    ["Hit the leader", "◆◆◆◆", "+1 bonus"],
+    ["Edge KO", "◆", "+1"],
+    ["Hazard KO", "◆◆", "+2"],
+    ["Critical", "◆◆◆", "+1 bonus"],
+    ["Leader down", "◆◆◆◆", "+1 bonus"],
+    ["High ground (Sundial)", "◆◆◆◆◆", "+1 bonus"],
   ].forEach(([name, icon, pts]) => {
     const item = document.createElement("li");
     item.className = "esc-score-row";
@@ -667,7 +670,7 @@ export function init(options = {}, hudContext = {}) {
 
   const scoreFootnote = document.createElement("p");
   scoreFootnote.className = "esc-score-footnote";
-  scoreFootnote.textContent = "Bonuses stack — up to 4 pts per play";
+  scoreFootnote.textContent = "Bonuses stack on top of the base KO points";
   scoringSection.body.appendChild(scoreFootnote);
 
   const leaderHint = document.createElement("p");

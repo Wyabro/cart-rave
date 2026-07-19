@@ -7,6 +7,7 @@ import { recordDiagEvent } from "./utils/diagnostics.js";
 import { getFocusSnapshot, longTasksForGap } from "./utils/longTaskProbe.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
+import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
 
 export { updateVisualsAndEffects } from "./frameVisuals.js";
 
@@ -29,17 +30,6 @@ let _lastLongFrameLogMs = 0;
 // * config until now). Physics stays authoritative; only the rendered pose eases.
 const _reconPre = { x: 0, y: 0, z: 0, yaw: 0 };
 
-/** Y-axis (heading) angle of a Rapier rotation quaternion. */
-function yawFromQuat(q) {
-  return Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
-}
-
-/** Wraps an angle to [-PI, PI]. */
-function wrapAngle(a) {
-  while (a > Math.PI) a -= 2 * Math.PI;
-  while (a < -Math.PI) a += 2 * Math.PI;
-  return a;
-}
 
 function clearReconcileVisOffset(cart) {
   const off = cart?._reconcileVisOffset;
@@ -51,7 +41,7 @@ function captureReconcilePrePose(cart) {
   const r = cart?.body?.rotation?.();
   if (!t || !r) return false;
   _reconPre.x = t.x; _reconPre.y = t.y; _reconPre.z = t.z;
-  _reconPre.yaw = yawFromQuat(r);
+  _reconPre.yaw = headingYawFromQuat(r);
   return true;
 }
 
@@ -77,7 +67,7 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
     // * Accumulated debt exceeds the teleport threshold — stop hiding it.
     off.x = 0; off.y = 0; off.z = 0; off.yaw = 0;
   } else {
-    off.yaw = wrapAngle(off.yaw + wrapAngle(_reconPre.yaw - yawFromQuat(r)));
+    off.yaw = wrapAngleRad(off.yaw + wrapAngleRad(_reconPre.yaw - headingYawFromQuat(r)));
     // * A heading offset past ~86° means prediction and host disagree about which way
     // * the cart faces — easing that reads as drunk steering; snap heading instead.
     if (Math.abs(off.yaw) > 1.5) off.yaw = 0;

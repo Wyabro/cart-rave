@@ -503,7 +503,8 @@ export async function withModeEntryLoading(task, opts = {}) {
   try {
     await task(report);
   } catch (err) {
-    console.error("[CartClash] Mode entry bootstrap failed:", err);
+    // * Console tags stay [CartRave] until the brand cutover (style guide §7).
+    console.error("[CartRave] Mode entry bootstrap failed:", err);
     throw err;
   } finally {
     modeEntryDepth -= 1;

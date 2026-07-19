@@ -225,7 +225,7 @@ export function setUiMode(enabled) {
 // * Guarded for non-browser contexts (vitest imports this module transitively via netcode.js).
 if (typeof window !== "undefined") {
   window.addEventListener("gamepadconnected", (e) => {
-    console.log("Gamepad connected:", e.gamepad.id);
+    if (import.meta.env.DEV) console.log("[CartRave] Gamepad connected:", e.gamepad.id);
     gamepadIndex = e.gamepad.index;
   });
   window.addEventListener("gamepaddisconnected", (e) => {

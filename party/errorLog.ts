@@ -14,6 +14,8 @@
 // minimal structural type for ctx.storage.sql so it needs no `cloudflare:workers`
 // ambient types (this repo types its Worker through partyserver, not workers-types).
 
+import { clampStr as clamp, jsonResponse } from "./logUtil";
+
 /** Ring-buffer cap — oldest rows are pruned past this so the DO can't grow unbounded. */
 const MAX_ROWS = 2000;
 
@@ -42,18 +44,6 @@ type ErrorPayload = {
   userAgent?: unknown;
   url?: unknown;
 };
-
-function clamp(v: unknown, max: number): string {
-  const s = v == null ? "" : typeof v === "string" ? v : JSON.stringify(v);
-  return s.length > max ? s.slice(0, max) : s;
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 export class ErrorLog {
   #ctx: DoState;

@@ -508,16 +508,16 @@
       }
       const msgEl = document.getElementById('cr-boot-msg');
       const messages = [
-        "Strapping in...",
-        "Rolling out...",
-        "Welding cart frame...",
-        "Inflating front wheels...",
-        "Charging the boost...",
-        "Tightening loose bolts...",
-        "Unjamming the steering...",
-        "Polishing sunglasses...",
-        "Aligning front wheels...",
-        "Revving the engine..."
+        "Strapping in…",
+        "Rolling out…",
+        "Welding cart frame…",
+        "Inflating front wheels…",
+        "Charging the boost…",
+        "Tightening loose bolts…",
+        "Unjamming the steering…",
+        "Polishing sunglasses…",
+        "Aligning front wheels…",
+        "Revving the engine…"
       ];
       let msgIdx = 0;
       function updateMsg() {
@@ -561,7 +561,7 @@
     <div>
       <p><strong>Could not load Cart Clash</strong></p>
       <p class="cr-boot-error-detail" id="cr-boot-error-detail">
-        The dev server interrupted while loading (common during hot reload). Try Retry, or restart with Ctrl+C then <code>npm run dev:local</code>.
+        Cart Clash couldn't finish loading. Check your connection and hit Retry, or reload the page.
       </p>
       <button type="button" id="cr-boot-retry">RETRY</button>
     </div>
@@ -637,7 +637,7 @@
             <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false">
               <span class="cr-level-btn-inner">
                 <span class="cr-level-btn-label">THE STOREROOMS</span>
-                <span class="cr-level-btn-sub">Liminal Battleground</span>
+                <span class="cr-level-btn-sub">Liminal battleground</span>
               </span>
             </button>
             <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false">
@@ -891,7 +891,7 @@
           <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
             <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>          </button>
           <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
-            <span class="cr-btn-inner"><span class="cr-btn-label">HIGH QUALITY: ON</span></span>          </button>
+            <span class="cr-btn-inner"><span class="cr-btn-label">QUALITY: HIGH</span></span>          </button>
         </div>
       </div>
 
@@ -979,6 +979,10 @@
         if (bootErrorTimer) clearTimeout(bootErrorTimer);
         bootErrorTimer = setTimeout(function () {
           if (window.__cartRaveBootstrapped) return;
+          // * Panel copy is player-facing — the dev recovery recipe lives here instead.
+          console.error(
+            "[CartRave] Boot did not complete. Dev: hot-reload interruptions are common — restart with Ctrl+C then `npm run dev:local`."
+          );
           window.__cartRaveShowBootError(detail);
         }, delayMs || 12000);
       }
@@ -1035,7 +1039,7 @@
             { context: "bootScriptError", src: t.src || "" }
           );
           scheduleBootError(
-            "Failed to load game module. Hard refresh (Ctrl+Shift+R) or restart: npm run dev:local",
+            "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
             8000
           );
         }
@@ -1049,7 +1053,7 @@
             context: "bootDynamicImportError",
           });
           ev.preventDefault();
-          scheduleBootError(msg || "Module load failed. Hard refresh or restart dev server.", 8000);
+          scheduleBootError(msg || "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page.", 8000);
         }
       });
 

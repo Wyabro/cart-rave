@@ -1,5 +1,6 @@
 import { MSG } from "../../shared/protocol.js";
 import { isP2PBinaryWithinLimit, isP2PJsonWithinLimit } from "./p2pLimits.js";
+import { devLog } from "../utils/devLog.js";
 
 /** Grace period before treating ICE "disconnected" as a hard failure (ms). */
 const ICE_DISCONNECT_GRACE_MS = 5000;
@@ -143,7 +144,7 @@ function createPeerConnection(connId) {
 
   pc.oniceconnectionstatechange = () => {
     const state = pc.iceConnectionState;
-    console.log(`[p2p] Peer ${connId} state: ${state}`);
+    devLog(`[p2p] Peer ${connId} state: ${state}`);
     // * "failed" / "closed" are terminal. "disconnected" is often transient
     // * (packet loss, network switch) — WebRTC can self-heal, so only tear
     // * down if it stays disconnected past the grace window.
@@ -467,7 +468,7 @@ function setupDataChannel(dc, connId) {
   dc.binaryType = "arraybuffer"; // Force binary for performance
   
   dc.onopen = () => {
-    console.log(`[p2p] DataChannel open with ${connId}`);
+    devLog(`[p2p] DataChannel open with ${connId}`);
     // Flush buffered input immediately to prevent input drop during migration
     if (pendingInputPayload && pendingInputTarget === connId) {
       try {
@@ -480,7 +481,7 @@ function setupDataChannel(dc, connId) {
     }
   };
 
-  dc.onclose = () => console.log(`[p2p] DataChannel closed with ${connId}`);
+  dc.onclose = () => devLog(`[p2p] DataChannel closed with ${connId}`);
   
   dc.onmessage = (event) => {
     try {
@@ -614,7 +615,7 @@ export function prunePeers(liveConnIds) {
   const live = new Set(liveConnIds);
   for (const connId of [...peerConnections.keys()]) {
     if (!live.has(connId)) {
-      console.log(`[p2p] Pruning peer connection to ${connId} (not in live slots)`);
+      devLog(`[p2p] Pruning peer connection to ${connId} (not in live slots)`);
       cleanupPeer(connId);
     }
   }

@@ -168,45 +168,13 @@ export function updateGameFlow(deps, context) {
       suddenDeathEnteredAtMs = null;
     }
 
-    if (
-      !isTestDrive
-      && !roundState.isSuddenDeath
-      && isRoundTimerExpired(roundState.startedAtMs, roundDurationMs, roundNowMs)
-    ) {
-      if (deps.isScoreTied()) {
-        const scores = deps.getRoundScores();
-        let topScore = -Infinity;
-        for (let i = 0; i < 4; i += 1) {
-          topScore = Math.max(topScore, Number(scores[i] || 0));
-        }
-        // * Only enter Sudden Death if at least one tied slot is a human player.
-        let hasHumanTied = false;
-        for (let i = 0; i < 4; i += 1) {
-          const slot = netSlots[i];
-          if (Number(scores[i] || 0) === topScore && slot?.kind === "human") {
-            hasHumanTied = true;
-            break;
-          }
-        }
-        if (hasHumanTied) {
-          // * One-shot guard: once Sudden Death is active, skip the teleport
-          // * setup so carts can actually drive without being yanked back every frame.
-          if (!roundState.isSuddenDeath) {
-            deps.setSuddenDeath(true);
-            layoutSuddenDeathArena(
-              allCarts, scores, topScore, now, deps.onCartOutOfPlay,
-              (c) => deps.doRespawn(c, deps),
-            );
-            deps.sendHostRound();
-          }
-        } else {
-          // * NPC-only tie — resolve normally via standard tiebreaker.
-          deps.endRound();
-        }
-      } else {
-        deps.endRound();
-      }
-    } else {
+    // * Falls are processed BEFORE the timer-expiry check (below, after this block).
+    // * The old order skipped the entire fall/KO loop on the exact frame the timer
+    // * expired, so a last-frame KO — victim visibly off the arena as the clock hit
+    // * 0:00 — was silently swallowed: no feed row, no shatter, no score, and a
+    // * would-be tiebreak could crown the wrong cart. Falls land first now; the
+    // * expiry check reads post-KO scores.
+    {
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
         // * A Sudden Death addScore inside this loop can end the round synchronously
         // * (endRound → cleanupSuddenDeathState un-parks spectators at y=-50 with their
@@ -471,6 +439,49 @@ export function updateGameFlow(deps, context) {
         } else {
           deps.abortLastCartStandingFlourish?.();
         }
+      }
+    }
+
+    // * Timer expiry — evaluated AFTER the fall pass so a same-frame KO counts.
+    // * Fresh state read: the fall loop may have ended the round (Sudden Death win)
+    // * or broken the tie with a last-frame score.
+    const postFallState = deps.getRoundState();
+    if (
+      !isTestDrive
+      && postFallState.phase === "running"
+      && !postFallState.isSuddenDeath
+      && isRoundTimerExpired(postFallState.startedAtMs, roundDurationMs, roundNowMs)
+    ) {
+      if (deps.isScoreTied()) {
+        const scores = deps.getRoundScores();
+        let topScore = -Infinity;
+        for (let i = 0; i < 4; i += 1) {
+          topScore = Math.max(topScore, Number(scores[i] || 0));
+        }
+        // * Only enter Sudden Death if at least one tied slot is a human player.
+        let hasHumanTied = false;
+        for (let i = 0; i < 4; i += 1) {
+          const slot = netSlots[i];
+          if (Number(scores[i] || 0) === topScore && slot?.kind === "human") {
+            hasHumanTied = true;
+            break;
+          }
+        }
+        if (hasHumanTied) {
+          // * postFallState guarantees SD is not already active, so the teleport
+          // * setup runs exactly once per SD entry (carts aren't re-yanked later).
+          deps.setSuddenDeath(true);
+          layoutSuddenDeathArena(
+            allCarts, scores, topScore, now, deps.onCartOutOfPlay,
+            (c) => deps.doRespawn(c, deps),
+          );
+          deps.sendHostRound();
+        } else {
+          // * NPC-only tie — resolve normally via standard tiebreaker.
+          deps.endRound();
+        }
+      } else {
+        deps.endRound();
       }
     }
   }

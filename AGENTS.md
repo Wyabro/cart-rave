@@ -77,7 +77,7 @@ toward Version 2.
   on the DataChannel (the old `hostEventFall`/`hostEventCollision` relays were deleted
   2026-07-06). Do not move collision logic server-side.
 - **Real-time telemetry is peer-to-peer, not server-relayed.** Host transforms (40Hz,
-  `CONFIG.net.hostSendHz`), client input (60Hz, `CONFIG.net.clientInputHz`), and spill
+  `CONFIG.net.hostSendHz`), client input (sent per 60Hz fixed-step sample — no Hz knob), and spill
   events travel over WebRTC DataChannels (`src/netcode/p2p.js`): `P2P.sendToAll` from the
   host, `P2P.sendToPeer(hostId, …)` from clients. Do **not** route these back through the
   WebSocket. The WebSocket carries only lobby, signaling, and round-lifecycle messages;

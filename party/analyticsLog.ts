@@ -9,6 +9,8 @@
 // are extracted into real columns at ingest so /summary is plain GROUP BY SQL — no JSON
 // parsing at read time. Everything else stays in the props JSON column.
 
+import { clampStrOrNull as clampStr, jsonResponse } from "./logUtil";
+
 /** Ring-buffer cap — oldest rows pruned past this so the DO can't grow unbounded. */
 const MAX_ROWS = 20_000;
 
@@ -47,21 +49,8 @@ type AnalyticsBatch = {
   events?: unknown;
 };
 
-function clampStr(v: unknown, max: number): string | null {
-  if (v == null) return null;
-  const s = typeof v === "string" ? v : JSON.stringify(v);
-  return s.length > max ? s.slice(0, max) : s;
-}
-
 function asIntOrNull(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 export class AnalyticsLog {

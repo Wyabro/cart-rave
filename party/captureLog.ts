@@ -7,6 +7,8 @@
 // Singleton instance "v1". Ring-buffered. Internal-only HTTP surface — party/index.ts
 // owns public auth.
 
+import { clampStr as clamp, jsonResponse } from "./logUtil";
+
 /** Ring-buffer cap — full bundles are ~5–40 KB; keep the last N. */
 const MAX_ROWS = 80;
 
@@ -42,17 +44,6 @@ type StorePayload = {
   clientTs?: unknown;
 };
 
-function clamp(v: unknown, max: number): string {
-  const s = v == null ? "" : typeof v === "string" ? v : JSON.stringify(v);
-  return s.length > max ? s.slice(0, max) : s;
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 export class CaptureLog {
   #ctx: DoState;
