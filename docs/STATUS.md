@@ -32,11 +32,12 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ **514 tests / 55 files**, typecheck + knip clean (verified 2026-07-19 on P0 longtask probe) |
-| Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `be8eba3` — P0 ko_path timing |
-| Prod deploy (2026-07-19 P0 ko_path) | ✅ Live — **bundle `index-BwzBNELn.js`**, Version `ec6d2928` (`be8eba3` + `ko_path`/`spillMs`/`dispatchMs` verified in served bytes) |
-| Prod deploy (2026-07-19 P0 longtask) | ✅ superseded — **bundle `index-DGKCMA2w.js`**, Version `2729f45e` (`8f17aba`) |
+| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean at last probe work (**515/55** on ko_path ship; rollback delete-only) — re-run `npm run qa` if claiming green after edits |
+| Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
+| Origin HEAD | Local ↔ origin/cart-clash at **`5bfe7e5`** — ko_path rolled back; longtask kept |
+| Prod deploy (2026-07-19 P0 land) | ✅ Live — **bundle `index-D3QXm4Qq.js`**, Version `f94266c2` (`5bfe7e5`; `longtask`/`ltN` present, `ko_path` **absent** in served bytes) |
+| Prod deploy (2026-07-19 P0 ko_path) | ✅ superseded — **`index-BwzBNELn.js`** / `ec6d2928` |
+| Prod deploy (2026-07-19 P0 longtask) | ✅ superseded — **`index-DGKCMA2w.js`** / `2729f45e` |
 | Prod deploy (2026-07-19 tHost arrival) | ✅ superseded — **bundle `index-CHXFyLNA.js`**, Version `2c88c7d9` (`1adef95`) |
 | Prod deploy (2026-07-19 announcer warm) | ✅ superseded — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`) |
 | Prod deploy (2026-07-19 host-send probe) | ✅ superseded — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9`) |
@@ -82,7 +83,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **ko_path rolled back (unpushed)** — 0 signal on 30 KOs; keep longtask/`lt[]` only. Caps 48–51: mid-round clean-ish; menu multi-s still |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Next window** — longtask live `index-D3QXm4Qq.js`; ko_path gone. Dig menu multi-s **or** post-fall frame (one card) |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -96,9 +97,9 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Ship ko_path rollback** on “ship it” so prod drops dead fall-path timing (longtask probe stays).
-2. P0 next dig: **menu multi-s longtasks** and/or **post-fall frame** (fall path itself is &lt;32ms when multi-s doesn’t fire).
-3. Non-host wrong color: separate card (no color in F8); both hard-refresh same build.
+1. New agent: read [planning/handoff-next-window.md](./planning/handoff-next-window.md) — **P0 one card** (menu multi-s longtasks **or** post-fall frame).
+2. Both machines hard-refresh **`index-D3QXm4Qq.js`**; F8 host after multi-s hitch; pull captures.
+3. Non-host wrong color: parked (no F8 fields); same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
@@ -177,9 +178,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (P0 ko_path **rolled back, unpushed**) — Cap 48–51 retest: host `be8eba3`, non-host still `8f17aba` (skew). Mid-round max ~0.4s; **30 KOs → 0 `ko_path` events** (fall path &lt;32ms). Expensive work not in spill→shatter. Removed fall-path/reactor timing; **kept** longtask + longframe focus/`lt[]`.
+2026-07-19 (session end — **landed + shipped**) — **`5bfe7e5` / bundle `index-D3QXm4Qq.js` / Version `f94266c2`**. ko_path removed; longtask/`lt[]` kept (served verified). Handoff rewritten for next chat: [planning/handoff-next-window.md](./planning/handoff-next-window.md). **Next: P0 menu multi-s or post-fall frame (one card).**
 
-2026-07-19 (P0 ko_path timing was live) — **`be8eba3` / was `index-BwzBNELn.js`**. Superseded by rollback above.
+2026-07-19 (P0 ko_path rolled back then shipped) — Cap 48–51: 30 KOs → 0 `ko_path`; fall path not multi-s. Was temporarily live as `index-BwzBNELn.js` / `be8eba3`.
 
 2026-07-19 (P0 longtask probe **shipped**) — **`8f17aba` / bundle `index-DGKCMA2w.js` / Version `2729f45e`**. Served bytes: sha `8f17aba`, `longtask`, `ltN`, `focused`, `PerformanceObserver`.
 

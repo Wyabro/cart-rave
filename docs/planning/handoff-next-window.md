@@ -1,100 +1,68 @@
-# Handoff — next agent window (Run 7 · **post friend playtest**)
+# Handoff — next agent window (Run 7 · P0 mid-flight)
 
-**Date:** 2026-07-19 (friend 2-human + friend solo F8 decode)  
+**Date:** 2026-07-19 (end of session — Wyatt bed)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** expect post-rollback commit (ko_path removed; longtask kept) — prod may still be `index-BwzBNELn.js` until ship  
+**Origin HEAD:** **`5bfe7e5`** (+ docs deploy record if present)  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle (until ship):** **`index-BwzBNELn.js`** still has dead `ko_path`  
+**Live client bundle:** **`index-D3QXm4Qq.js`** (Version `f94266c2`, build sha **`5bfe7e5`**)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
 **Do not** re-solve NET-PERF-2 (decode ring pool).  
-**Do not** re-open combat skip-replay / phantom pending / hit-delay order unless new F8s prove regression.  
-**Do not** multi-lever dump — one card at a time.
+**Do not** re-open combat skip-replay / phantom / hit-delay order unless new F8s prove regression.  
+**Do not** re-add `ko_path` fall-path timing without new evidence (rolled back: 0 signal).  
+**Do not** multi-lever dump — one card at a time.  
+**Ship only on Wyatt “ship it.”**
 
 ---
 
 ## One rule
 
 **One change (or one forensics card) at a time.**  
-Playtest console: [docs/playtest/console.html](../playtest/console.html).  
-F8 both (or solo) → `npm run captures:pull` → `.diag-captures/playtest/`.
+If a probe gets zero signal on retest, **roll it back** before stacking another.  
+Playtest: [docs/playtest/console.html](../playtest/console.html).  
+F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
 
 ---
 
-## What already shipped this arc (do not redo)
-
-| Item | State |
-|------|--------|
-| Match A death spiral (replay cap) | ✅ `f0c10ba` |
-| Hit-delay oldest unacked | ✅ `efdca62` |
-| Combat hold + death pose | ✅ `4a9f7f8` |
-| Phantom pending clear | ✅ `732e2d6` |
-| Skip-replay only on long snap gap | ✅ `1a2f242` / combat pass-enough on Intel |
-| Host send cadence probe | ✅ `19e5cd9` (`sendGapsOver100`, `host_send_gap`) |
-| Await announcer pack at play-entry | ✅ `716ec2f` — dual-PC clean pair (cap-29/30) host freezes gone |
-| Snap gap + silence use host **tHost** | ✅ `1adef95` — stops client wall-clock false gaps |
-| P0 longtask + longframe focus stamps | ✅ `8f17aba` / was `index-DGKCMA2w.js` |
-| P0 host KO path slice timing | ❌ rolled back after 0 signal (was `be8eba3` / `index-BwzBNELn.js`) |
-| TURN / Paid / Logs | ✅ secrets + Workers Paid |
-
-**2e lab conclusion (same-room dual PC):** host send ~25ms; after warm + tHost honesty, clean pair had **0** snapGapsOver100 both sides. Residual 2e is **not** “constant host 100–500ms starve.”
-
----
-
-## Friend playtest evidence (authoritative for next work)
-
-### A) 2-human Quickplay — caps **31–40** (`1adef95`)
-
-| Role | GPU | Caps |
-|------|-----|------|
-| **Host** | RTX **4090** High | 32, 35, 38 |
-| **Non-host** | AMD **RX 9070 XT** High | 31, 33, 34, 36, 37, 39, 40 |
-
-Same long round; later F8s = longer window of same session.
-
-**End state (host #38 / friend #40):**
-
-| | Host | Friend |
-|--|------|--------|
-| Cadence | send avg 26.4, o100=**6**, max **4145** | snap avg 30.5, o100=**117**, max **4145**, ~33 Hz |
-| Combat | — | errMax **11.2 m**, tele **15**, skips **13**, drops **1857** |
-| Local KOs | — | **localKos = 0** (localDeaths 7) |
-| Pending | — | 21 inputs, oldest age **1.6 s** |
-
-**Big freezes match 1:1 (tHost honest):**
-
-| Host longframe / host_send_gap | Friend snap_gap via tHost |
-|--------------------------------|---------------------------|
-| **4127 / 4145** ms | **4145** |
-| 437 | 437 |
-| **2361 / 2395** | **2395** |
-| + 270–480 ms band late | same band |
-
-Host also had **1103** + **2709** ms resume longframes around countdown→GO.
-
-**Late-round divergence:** host only **6** sendGapsOver100 total, friend ends **117** tHost gaps (many 250–800 ms in a row after ~t=225s). Not Intel wall inflate — **missed/delayed P2P snaps and/or host under-delivery under 2-human load**.
-
-Progressive friend combat: drops 355→1857, tele 1→15, errMax 5.9→**11.2**.
-
-No error/assert events. `connectionState: ok`. Not no-TURN (thousands of snaps).
-
-### B) Friend solo — cap **41** (`1adef95`)
+## Where we landed (truth)
 
 | | |
 |--|--|
-| GPU | AMD **9070 XT** High |
-| URL | `?diag=1&room=soloqpjlik` · mode **solo** · Classic |
-| Content | Full R1 (Defeat) + rematch R2; F8 mid-R2 |
-| Errors | **0** |
-| Loop | over33=**3**, over66=2 — GPU fine mid-round |
-| AI probe | **`count:0, npcs:[]`** mid-fight while NPCs scoring — **diag blind spot** |
-| Local feel | Many unforced rim/void falls; R1: 3 KOs then Defeat; R2 to F8: **0** local KOs, several deaths |
-| Rematch hitch | **~8 s** resume longframe after 2nd `carts-ready` (shader only ~116 ms) |
-| First entry hitch | **~4.4 s** after first carts-ready |
-| Net flow empty | **Expected** solo (no peers) |
+| Code | Longtask observer + longframe `hidden`/`vis`/`focused`/`lt[]` **kept** (`8f17aba` arc). `ko_path` **removed** (`5bfe7e5`). |
+| Prod | **`index-D3QXm4Qq.js`** — served: sha `5bfe7e5`, `longtask`/`ltN` present, **`ko_path` absent**. |
+| Gates last known | qa **515/55** on ko_path ship; rollback is delete-only — re-run `npm run qa` if unsure. |
 
-Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
+### Diag that helped (keep)
+
+- Under `?diag=1`: `PerformanceObserver("longtask")` + longframe stamps.
+- Multi-s freezes are **`resume:true`**, **`focused:true`**, **`hidden:false`**, longtask name **`unknown|window`** — main-thread, not alt-tab.
+
+### Diag that did not help (gone)
+
+- Host fall-path `perf/ko_path` (spill/score/dispatch/shatter + per-reactor ms). Cap **48–51**: **30 KOs → 0 events** (every fall path &lt;32ms). Cost was outside that timer.
+
+---
+
+## F8 evidence (do not re-decode from scratch)
+
+### Friend 2-human — caps **31–40** (`1adef95`) — still authoritative pain
+
+| Role | GPU | Caps |
+|------|-----|------|
+| Host | RTX **4090** High | 32, 35, 38 |
+| Non-host | AMD **RX 9070 XT** High | 31, 33, 34, 36, 37, 39, 40 |
+
+- Multi-s host freezes (2.4–4.1s) = friend tHost snap gaps 1:1.  
+- Late friend snap o100 **117** vs host send o100 **6** → **P1** (locked until P0).  
+- Friend combat errMax **11.2 m**, tele **15**, localKos **0**.  
+- Solo cap-**41** (9070): rematch ~8s hitch; AI probe empty mid-fight — **P4/P5/P6**.
+
+### Match B / Intel retests — caps **42–47** (`8f17aba`), **48–51** (host `be8eba3` / non-host **`8f17aba` skew**)
+
+- **42–47:** multi-s host longtasks `unknown|window` on KO cascades + menu; Intel Low non-host.  
+- **48–51:** host mid-round **cleaner** (worst ~0.4s); menu still **1.7–1.9s** longtasks; non-host **wrong color** (no color fields in F8); **build skew** (Intel never hard-refreshed).  
+- Both humans hard-refresh same build next session.
 
 ---
 
@@ -102,85 +70,39 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 
 ### P0 — Host multi-second freezes under 2-human load (focused 4090)
 
-**Why first:** Every multi-second host stall freezes authority for the friend (matched tHost gaps). Explains rubberband, reverse hits, teleports more than any non-host knob.
+**Status:** Open. Attributed as main-thread `unknown|window`; fall-path not the multi-s slice when freezes don’t fire.
 
-**Evidence:** cap-38 longframes 2709 / 4127 / 2361 + send gaps 4145 / 2395; friend #40 mirrors.
+**Next dig candidates (pick one):**
 
-**Forensics (2026-07-19):**
-- Multi-s freezes are **`resume:true` rAF gaps** (not chronic slow frames: over33=20 / over66=3 whole match).
-- Freeze *starts* (end − dtMs) line up with: GO transition (~2.7s), first host KO burst (~4.1s), one NPC fall (~2.4s).
-- **Counter-evidence:** second host death @ t≈156649 (bigger announcer stack) had **no** multi-s longframe → not “every death/shatter is 4s.”
-- Lab dual-PC (cap-29/30) after announcer warm: maxDt ~0.27s, sendGapMax 84 — clean. Friend WAN/load path still freezes.
-- No F8s newer than #41 on pull (pre-probe).
+1. **Menu multi-s longtasks** (1.7–4s pre play-entry) — reproducible on host alone; may share root with mid-round.  
+2. **Post-fall frame** (physics done → visuals/render/audio) — KO-aligned 0.2–0.4s longtasks sit outside fall path.  
+3. If multi-s **returns** on friend 2-human: measure with existing longtask/`lt[]` only; no new probe until one lever is chosen.
 
-**Probe live (`8f17aba` / `index-DGKCMA2w.js`):** under `?diag=1` — `PerformanceObserver("longtask")` + longframe fields `hidden` / `vis` / `focused` / `lt[]` / `ltN`. Decode next host F8:
-| longframe shape | meaning |
-|---|---|
-| `hidden:true` or `focused:false` | occlusion / unfocus (not “focused freeze”) |
-| `lt[]` has multi-s `d` | main-thread task — name/attribution next lever |
-| `lt:[]` + focused + visible | rAF starved without longtask (GPU/compositor/Chrome schedule) |
-
-**Retest 42–47 (`8f17aba`):** 4090 host + Intel Low non-host. Multi-s freezes = focused + `lt:[{d:N,n:"unknown|window"}]` matching KO cascades. Menu also had 3–4s longtasks (less P0-critical).
-
-**ko_path rolled back (unpushed):** Cap 48–51 — 30 KOs, **zero** `ko_path` (every fall path &lt;32ms). Mid-round multi-s did not reproduce; KO-aligned longtasks were 0.2–0.4s **outside** the fall timer. Fall-path/reactor timing removed; longtask + focus/`lt[]` **kept**.
-
-**Still open:** menu multi-s longtasks; post-fall frame cost if multi-s returns; non-host wrong color (no F8 fields).
-
-**Pass:** Friend F8: no multi-second `snap_gap` matching host resume LF; host `sendGapMax` not multi-second mid-round; friend errMax/tele drop.
+**Pass:** No multi-s host_send_gap / friend tHost snap_gap mid-round; friend errMax/tele drop.
 
 ---
 
-### P1 — Late-round P2P delivery / cadence under 2-human load
+### P1 — Late-round P2P gap storm (friend o100 117 vs host o100 6)
 
-**Why second:** Host send o100 stays low while friend tHost o100 explodes late → lost or delayed DataChannel snaps (or host send not fully reflected). Pending age 1.6s, drops 1.8k.
+Locked until P0. Do not re-solve decode ring pool.
 
-**Evidence:** host o100=6 vs friend o100=117; late friend snap_gaps 250–800 ms via tHost every few hundred ms.
+### P2 — Non-host `localKos: 0` in friend MP
 
-**Work:** Only after P0 or in parallel forensics if P0 freezes are rare. Check P2P send failures, channel bufferedAmount, ICE reconnect, snapshot force rate under load. Do **not** re-solve decode ring pool.
+Re-check after stream stable.
 
-**Pass:** Friend snapHz ~40 full match; snapGapsOver100 tracks host sendGapsOver100 within noise; pending age not multi-second.
+### P3 — Friend join ~58s resume hitch
 
----
+NET-2 class.
 
-### P2 — Non-host combat credit / feel (`localKos: 0` in friend MP)
+### P4 — Solo rematch ~8s hitch (9070, cap-41)
 
-**Why third:** Friend `localKos: 0` entire MP session while host scores and kills fire. Feels like “hits don’t count.”
+### P5 — Solo bot / rim death feel
 
-**Evidence:** cap-40 match.localKos=0, kosBySlot host-side credit exists; deaths 7.
+### P6 — AI diag probe empty mid-round (tooling)
 
-**Work:** Trace non-host KO credit path (falls[] tail, challenges, match stats) — may improve after P0/P1 if stream was too broken to credit. Re-check after stream stable before large credit rewrites.
+### Side — Non-host wrong cart color (cap 48–51 report)
 
-**Pass:** Friend localKos increments when they land KOs; kill feed matches feel.
-
----
-
-### P3 — Friend join / cold-play hitch (MP)
-
-**Evidence:** non-host longframe **58 s** resume at join (cap-31 family). Axis wired after; not permanent freeze.
-
-**Work:** Join prewarm / don’t start round feel until joiner ready; measure `cr:*` on joiner. Related NET-2 class, different from host mid-round freeze.
-
----
-
-### P4 — Solo rematch / play-entry hitch (9070 XT)
-
-**Evidence:** cap-41 first entry ~4.4 s LF; rematch ~**8 s** LF despite warm shader ~116 ms.
-
-**Work:** Profile solo rematch path (what runs between carts-ready and steady rAF). Lower priority than 2-human poison.
-
----
-
-### P5 — Solo bot / rim death feel (taste + AI)
-
-**Evidence:** cap-41 many SELF CHECKOUT / void falls; NPCs dominate KOs. Prior bot-suicide work was Classic routing — may need friend-machine taste or aggression tune.
-
-**Not** a netcode bug per F8.
-
----
-
-### P6 — Diag: AI probe empty mid-round
-
-**Evidence:** cap-41 `snapshot.ai.count === 0` while NPCs active. Tooling only. Fix when touching diagnostics; don’t block gameplay P0–P2.
+No F8 color fields. Separate from P0. Both machines same build first.
 
 ---
 
@@ -188,11 +110,10 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 
 | Claim | Verdict |
 |-------|---------|
-| Constant host 100–500 ms send starve (lab) | ❌ Closed by send probe + cap-29/30 |
-| Client wall-clock gap inflation | ✅ Mitigated by `1adef95` tHost gaps/silence |
-| No TURN / snapCount 0 | ❌ Friend had thousands of snaps |
-| Weak-host Intel only | ❌ Friend 9070 XT High still dies when host freezes |
-| Solo net rubberband | ❌ Cap-41 clean net path |
+| Constant host 100–500 ms send starve (lab) | ❌ Closed (send probe + cap-29/30) |
+| Client wall-clock gap inflation | ✅ Mitigated (`1adef95` tHost) |
+| Fall path is the multi-s block (when freezes absent) | ❌ Cap 48–51: falls &lt;32ms, 0 ko_path |
+| Alt-tab only | ❌ focused + visible + longtask |
 | Re-solve NET-PERF-2 | ❌ Forbidden without new evidence |
 
 ---
@@ -200,9 +121,11 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 ## Suggested next window paste (Wyatt → new agent)
 
 > Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
-> Continue Run 7 **P0**: ko_path rolled back (unpushed) — ship rollback on “ship it”. Keep longtask probe. Next: menu multi-s and/or post-fall frame if freezes return.  
-> Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-open skip-replay/phantom.  
-> Caps 31–51 decoded.
+> Continue Run 7 **one item at a time** from P0→P6.  
+> Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-open skip-replay/phantom; do not re-add ko_path without evidence.  
+> Landed: longtask probe live (`index-D3QXm4Qq.js` / `5bfe7e5`); ko_path rolled back.  
+> Caps 31–51 decoded. Start P0: menu multi-s longtasks **or** post-fall frame — one card.  
+> Pull F8s if Wyatt played; ship only on “ship it.”
 
 ---
 
@@ -211,7 +134,7 @@ Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 ```bash
 npm run qa
 npm run ship                    # only on Wyatt "ship it"
-npm run captures:pull           # .diag-captures/playtest/
+npm run captures:pull
 npm run captures:pull -- --list
 ```
 
@@ -219,7 +142,8 @@ npm run captures:pull -- --list
 
 ## Agent hygiene
 
-- After each ship: STATUS one-liner + this handoff if **next action** changed.  
+- After each ship: STATUS one-liner + this handoff if next action changed.  
 - Report gates by number.  
 - Never claim verified without pull + post-deploy served-bundle marker.  
-- Behavior-changing ships need human playtest (ideally 2-human) before “done.”
+- Behavior-changing ships need human playtest before “done.”  
+- **Probe discipline:** zero-signal cards get rolled back, not left in the tree.
