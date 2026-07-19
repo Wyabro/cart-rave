@@ -1,10 +1,12 @@
 # Handoff — next agent window (Run 7 continuation)
 
-**Date:** 2026-07-19  
+**Date:** 2026-07-19 (end of combat + infra session)  
 **Branch:** `cart-clash`  
+**Origin HEAD:** `601b8e8` (observability config) · combat code at `732e2d6`  
 **Prod:** https://cart-rave.wyabro.workers.dev  
+**Live client bundle:** **`index-C560wli8.js`** (Version `9dc41a2f` — same combat code as phantom ship, plus Workers Logs on)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
-**Do not** re-read the full playtest-triage stack unless a finding points there.
+**Do not** re-triage run-1…run-6 from scratch. Do not re-solve NET-PERF-2 (decode ring pool).
 
 ---
 
@@ -20,73 +22,91 @@ F8 both machines → `npm run captures:pull` on the repo PC → agent reads `.di
 
 | Item | State |
 |------|--------|
-| Match A smoothness (4090 hosts) | ✅ Death spiral fixed (`f0c10ba`). |
-| Hit-delay order fix | ✅ `efdca62` keep-oldest / steps 12. **Partial** on Intel — better, not enough. |
-| Match A combat retest (`efdca62` F8s cap-6/7) | ❌ **FAIL** — see decode below. |
-| Combat hold | ✅ Live `4a9f7f8` / was `index-iKVEUst7.js` — hits better; phantom after respawn. |
-| Phantom pending clear | ✅ **Live** `732e2d6` / **`index-t3FG6KVX.js`** / Version `eeeef76e`. |
-| Host multi-s freezes | **Open** — Wyatt focused host whole time. `resume:true` = rAF gap >250ms, **not** alt-tab. Cap-9 clusters near KO/announcer. |
-| Match B (Intel hosts) | **Not required** until Match A combat feels honest. |
-| HOST-ROLE-1 | **Live in Match A F8s** — 4090 host had **10× multi-second `resume:true` longframes** (1–7s). That *is* the snap-gap source. Keep host window focused; later: host background pump. |
-| NET-PERF-2 | **Done** run-4. Do not re-solve. |
-| Capture upload | Live: F8 → `POST /api/captures`. Pull: `npm run captures:pull` (`ERROR_LOG_TOKEN` in `.env.local`). |
+| Match A smoothness (4090 hosts) | ✅ Death spiral fixed (`f0c10ba` replay cap). |
+| Hit-delay order (keep oldest unacked) | ✅ `efdca62` / was `index-XByafoNI.js`. Partial feel win only. |
+| Combat hold (silence hold + skip-replay + death pose) | ✅ `4a9f7f8` — hits better (errMax 28→**4.2 m**); phantom after respawn. |
+| Phantom pending clear | ✅ `732e2d6` live (no sample during hold; clear pending on death/skip; force doRespawn if s:false+hasSpilled). Soft feel: **maybe better**, hits still register — **no post-phantom F8s** (infra wall mid-session). |
+| Host multi-s freezes while **focused** | ❌ **Open** — not alt-tab. `resume:true` = rAF gap >250 ms. Cap-9 clusters near KO/announcer. Next **code** lever after combat retest numbers. |
+| Workers **Paid** plan | ✅ Wyatt upgraded mid-session. DO free-tier wall is gone. |
+| DO free-tier wall (historical) | Hit **5M SQL row reads/day** — CaptureLog + CartRaveServer:quickplay threw `Exceeded allowed rows read in Durable Objects free tier`. F8 pull was 500; rooms flaky. **Paid unblocked** — `captures:pull --list` works again (count=9, last builds still `4a9f7f8` until new F8s). |
+| Workers Logs | ✅ `wrangler.jsonc` `observability.enabled: true`, sample 1.0, invocation logs on (`601b8e8`). Dashboard → cart-rave → Observability. |
+| Match B (Intel hosts) | Locked until Match A combat is honest. |
+| NET-PERF-2 | Done run-4. Do not re-solve. |
+| Capture upload | F8 → `POST /api/captures`. Pull: `npm run captures:pull` (`.env.local` `ERROR_LOG_TOKEN`). |
 
-### Match A combat decode (`efdca62`, cap-6 Intel / cap-7 4090)
+### Combat F8 scoreboard (do not re-decode from scratch)
 
-Feel (Wyatt): hit NPC → feedback then **changes**; killed by NPC → **don't see it**, death anim **where I was**.
+| Build | Intel errMax | teleports | drops / skips | localKos | Host resume freezes | Feel |
+|-------|--------------|-----------|---------------|----------|---------------------|------|
+| `efdca62` hit-delay (cap-6/7) | **28.6 m** | 4 | 113 / — | 0 | **10× (1–7s)** | Hit then reverse; death where predicted |
+| `4a9f7f8` combat-hold (cap-8/9) | **4.2 m** | 1 | 40 / **6** | **1** | **6× (0.5–8s)** | Hits better; **phantom after respawn** |
+| `732e2d6` phantom clear | — | — | — | — | — | Soft: maybe better; **no F8** (quota wall) |
 
-| | Host 4090 | Non-host Intel |
-|--|--|--|
-| build | efdca62 | efdca62 |
-| over33 | 6 / 15k (~0%) | 58 / 6k (~1%) |
-| snapGapMax / over100 | n/a (sender) | **4746 ms** / 28 |
-| reconcileErrMaxM | — | **28.6 m** |
-| teleports / replay drops | — | 4 / 113 |
-| host longframe resume:true | **10× (1–7s)** | 2 early only |
+**Phantom root (fixed in `732e2d6`):** hold still sampled axes into `pendingInputs`; skip-replay left that stream; next healthy snap replayed silence-era throttle → free-slide after respawn/stall.
 
-Root: host freezes starve snaps; non-host kept predicting a ghost world + death shatter used predicted pose. Oldest-input order was not the remaining bug.
+**Host freezes (still open):** Wyatt kept 4090 focused entire fights. Probe is **not** `document.hidden`. Cap-9 longframes near countdown/GO and KO+announcer bursts — forensics target is **host main-thread hitch**, not focus nag / VPS.
 
 ---
 
 ## Next human action (only this)
 
-1. Both PCs hard-refresh until **`index-t3FG6KVX.js`**.
-2. `?diag=1`. **4090 creates room** (host). Focus still good practice; freezes are **not** blamed on unfocus anymore.
-3. Intel: die + respawn several times; watch for ghost throttle after spawn.
-4. F8 both → pull → paste feel.
+1. Both PCs hard-refresh until bundle **`index-C560wli8.js`** (or newer if you ship again).
+2. `?diag=1`. **4090 creates room** (host). Intel joins. Match A.
+3. ~1–2 min: ram both ways + **die/respawn a few times** on Intel (phantom check).
+4. F8 **both** machines mid/end of round.
+5. On 4090: `npm run captures:pull` → paste feel into chat.
 
-**Pass:** no free-slide after respawn; hits still land.  
-**Fail phantom:** decode pending/skips.  
-**After pass (or in parallel note):** host multi-s freezes while focused — next one-item is hitch forensics (KO/announcer path), not focus nag.
+**Pass combat/phantom:** hits land without big reverse; no free-slide after respawn; death near real impact (RTT lag OK).  
+**Fail:** decode newest F8s only (`build` sha ≥ `732e2d6`); one lever next.
+
+After pass (or if combat OK but freezes still dominate feel): **one item = host hitch forensics** (what blocks 5–8 s near KO/PA on 4090) — not another prediction knob dump.
 
 ---
 
-## After combat retest passes
+## After Match A combat is honest
 
 Strict queue (still one at a time):
 
-1. Optional Match B (Intel hosts) — product note only if poison returns.  
-2. P1 cards in console: host minimize, SD 45s, music bleed, kill-confirm, Esc directive, looks, storerooms loop.  
-3. NET-1 full two-human smoke.
+1. Optional Match B (Intel hosts) — only if weak-host poison returns.  
+2. P1 console cards: host minimize, SD 45s, music bleed, kill-confirm, Esc directive, looks, storerooms loop.  
+3. NET-1 two-human full-round smoke.
 
-Parked: menu choppy on 4090 High (P0-2); taste debt (Pass 4/5); VPS talk (not indicated); host background sim pump (if focused retest still shows host freezes).
+Parked: menu choppy on 4090 High (P0-2); taste debt (Pass 4/5); VPS talk (not indicated). Host background sim pump only if forensics say tab-throttle, not main-thread block.
 
 ---
 
-## Commands the agent should know
+## Infra notes (agent)
+
+- **Paid plan** is required for this DO-heavy stack (AnalyticsLog 20k ring + ErrorLog + CaptureLog + room SQLite). Free tier daily cliff is real — do not burn reads with useless list/pull loops.
+- Workers Logs ≠ F8 combat metrics. Use dashboard for Worker/DO exceptions; F8 for `net.flow` / pending / freezes.
+- Cloudflare Calls / TURN may still log missing credentials if secrets unset — separate from Paid.
+- `tools/browser/` may be untracked local junk — do not commit unless asked.
+
+---
+
+## Commands
 
 ```bash
 npm run qa
 npm run ship                    # only on Wyatt "ship it"
 npm run captures:pull           # .diag-captures/playtest/
 npm run captures:pull -- --list
+npx wrangler tail cart-rave     # live Worker/DO exceptions (or use dashboard Observability)
 ```
 
 ---
 
-## Window hygiene (Wyatt + agent)
+## Window paste (Wyatt → new Grok)
 
-- **New Grok window** when the session is long / edge is dull — paste:  
-  *“Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md`. Continue Run 7 one item at a time.”*
-- After each ship: one-line STATUS update + refresh this handoff if the **next action** changed.
-- Agent: do **not** re-triage run-1…run-6 from scratch; code + this handoff win.
+> Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
+> Continue Run 7 one item at a time. Do not re-triage run-1..6 from scratch.  
+> Pull F8s if I played; next gate is Match A combat/phantom retest on `index-C560wli8.js` (or current bundle).
+
+---
+
+## Agent hygiene
+
+- After each ship: one-line STATUS update + refresh this handoff if **next action** changed.  
+- Report gates by number (`npm run qa`).  
+- Never claim verified without pull + (post-deploy) served-bundle marker check.  
+- Behavior-changing ships need human playtest before “done.”

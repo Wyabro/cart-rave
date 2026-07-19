@@ -34,9 +34,10 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
 | Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
-| Origin HEAD | Local ↔ origin/cart-clash at `732e2d6` — phantom-pending clear |
-| Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean |
-| Prod deploy (2026-07-19 phantom) | ✅ Live — **bundle `index-t3FG6KVX.js`**, Version `eeeef76e` (`732e2d6`: no sample during hold; clear pending on death/skip-replay; force doRespawn if s:false+hasSpilled). **Next: die/respawn retest.** Host multi-s freezes are **not** explained by unfocus — see Last updated. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Origin HEAD | Local ↔ origin/cart-clash at `601b8e8` — Workers Logs on; combat code `732e2d6` |
+| Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (last full gate this session) |
+| Prod deploy (2026-07-19 eve) | ✅ Live — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Prod deploy (2026-07-19 phantom) | ✅ superseded — **`index-t3FG6KVX.js`** / `eeeef76e` (`732e2d6` phantom clear). Soft feel only; no F8 (free-tier wall). |
 | Prod deploy (2026-07-19 combat-hold) | ✅ superseded — **`index-iKVEUst7.js`** / `4f795c70`. Hits better; phantom after respawn. |
 | Prod deploy (2026-07-19 night) | ✅ superseded — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62` hit-delay order). Match A combat FAIL partial. |
 | Prod deploy (2026-07-19 eve) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
@@ -74,13 +75,14 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 
 | # | What | Status |
 |---|------|--------|
-| 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` — Intel snapHz ~40, over33 ~2% |
-| 2 | Match A combat — hit-delay order `efdca62` | ❌ **FAIL partial** (feel + F8 cap-6/7): host 10× multi-s freezes; ghost predict; death pose wrong |
-| 2b | Combat hold | ✅ Live — partial pass (hits better; errMax 4m) |
-| **2c** | **Phantom move after respawn** | ▶️ **Live `index-t3FG6KVX.js`** — die/respawn retest |
-| 2d | Host multi-s freezes while focused | open — resume:true ≠ alt-tab; clusters near KO/announcer |
+| 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` |
+| 2 | Hit-delay order `efdca62` | ✅ shipped; combat still FAIL partial |
+| 2b | Combat hold `4a9f7f8` | ✅ partial pass (errMax 4m, localKos 1) |
+| 2c | Phantom pending clear `732e2d6` | ✅ live — **needs F8 retest** (soft feel only so far) |
+| **2d** | **Match A combat/phantom eyes-on** (Paid + F8 path live) | ▶️ **Next** — bundle `index-C560wli8.js` |
+| 2e | Host multi-s freezes while focused | open after 2d — KO/announcer hitch forensics |
 | 3 | Match B (Intel hosts) only if needed | locked |
-| 4 | P1 console cards one-at-a-time | locked until #2 pass |
+| 4 | P1 console cards one-at-a-time | locked until combat honest |
 | 5 | NET-1 two-human smoke | after perf honest |
 | 6 | P0-2 menu choppy on 4090 High | parked |
 
@@ -91,9 +93,9 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **Wyatt:** hard-refresh both to **`index-t3FG6KVX.js`** → die/respawn on Intel; note if phantom gone. Host freezes still open (focused confirmed).
-2. **Agent:** one-item only; do not re-triage run-1…6. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
-3. Close **NET-1** after the perf story is honest ([ROADMAP](./planning/ROADMAP.md) Phase 4).
+1. **Wyatt:** hard-refresh both to **`index-C560wli8.js`** → Match A ram + die/respawn → F8 both → pull → feel. Workers Paid + captures live again.
+2. **Agent (new window):** read [planning/handoff-next-window.md](./planning/handoff-next-window.md); one-item only; no run-1…6 re-triage.
+3. After combat pass: host hitch forensics (2e), then P1 cards, then NET-1.
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
@@ -173,7 +175,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (phantom-pending **shipped**) — **`732e2d6` / bundle `index-t3FG6KVX.js` / Version `eeeef76e`**. No sample during hold; clear pending on death + skip-replay; force doRespawn on s:false+hasSpilled. **Wyatt note (believed):** host window was focused whole fight — multi-s `resume:true` longframes are **not** alt-tab. Probe only means a single rAF gap >250ms (main-thread block / scheduler), not document.hidden. Cap-9 freezes (0.5–8s) sit near countdown/go and KO+announcer bursts — next work after phantom retest is host hitch forensics, not "keep focused" product nag. **Next eyes:** die/respawn phantom gone?
+2026-07-19 (session handoff) — Full cold handoff rewritten: [planning/handoff-next-window.md](./planning/handoff-next-window.md). Stack: combat `732e2d6` + observability `601b8e8` / live **`index-C560wli8.js`**. Workers **Paid** on; captures pull green again. Soft phantom retest only (no F8). **Next window:** Match A F8 retest then host hitch forensics if freezes still dominate.
+
+2026-07-19 (Workers Logs) — **`601b8e8`**: `observability.enabled` + logs + invocation_logs, sample 1.0. Version `9dc41a2f`, bundle `index-C560wli8.js`.
+
+2026-07-19 (DO free-tier wall → Paid) — Hit 5M SQL row reads/day; CaptureLog + quickplay DO threw. Wyatt upgraded Workers Paid; pull works. Historical, not re-open free-tier chasing.
+
+2026-07-19 (phantom-pending **shipped**) — **`732e2d6` / was `index-t3FG6KVX.js`**. Host freezes while focused still open (not alt-tab).
 
 2026-07-19 (combat-hold retest → phantom pending) — F8 cap-8/9 `4a9f7f8`: errMax 28→4.2m, localKos 1; phantom after respawn. Fix shipped as entry above.
 
