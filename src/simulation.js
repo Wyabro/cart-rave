@@ -6,6 +6,7 @@ import { CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 import { getNpcPersonality } from "./npcNames.js";
+import { getRoundClockNowMs } from "./roundClock.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 import {
@@ -1801,10 +1802,16 @@ const OCTAGON_RIM_BAND = 5.25;
 /**
  * * True during the first 8s of a round or while any human is still on a spawn booth.
  */
-function isAiCautiousPhase(nowMs, allCarts, netSlots) {
+function isAiCautiousPhase(allCarts, netSlots) {
   const round = GameState.getRoundState();
   if (round.phase !== "running" || !round.startedAtMs) return true;
-  if (nowMs - round.startedAtMs < AI_CAUTIOUS_MS) return true;
+  // * startedAtMs lives in the getRoundClockNowMs() domain (timeOrigin +
+  // * performance.now()); the physics-step `now` handed to getAiAxis is bare
+  // * performance.now(). Subtracting the two gave ≈ -timeOrigin (~-1.75e12),
+  // * which is always < AI_CAUTIOUS_MS, so bots were pinned in cautious phase for
+  // * the ENTIRE match — the reachOuter/booth tuning past the first 8s never ran.
+  // * Read the round clock in its own domain instead.
+  if (getRoundClockNowMs() - round.startedAtMs < AI_CAUTIOUS_MS) return true;
 
   const boothMinR = CONFIG.record.radius * 0.82;
   for (let i = 0; i < (netSlots?.length ?? 0); i += 1) {
@@ -2129,7 +2136,12 @@ function ensureAiBehaviorState(cart) {
   if (cart.aiAvoidanceCommitUntilMs == null) cart.aiAvoidanceCommitUntilMs = 0;
   if (cart.aiContestPodiumUntilMs == null) cart.aiContestPodiumUntilMs = 0;
   if (!cart.aiPersonality) {
-    cart.aiPersonality = getNpcPersonality(cart.name ?? cart.slotIndex);
+    // * Carts carry their NPC name on `.label` (createCart), never `.name` — the old
+    // * `cart.name` was always undefined, so every bot fell back to slotIndex%4
+    // * behavior while the HUD/nametag badge resolved personality from the name. The
+    // * two disagreed (a bot badged AGGRESSOR drove like a lurker; solo never had an
+    // * aggressor at all). Read `.label` so behavior matches the shown badge.
+    cart.aiPersonality = getNpcPersonality(cart.label ?? cart.slotIndex);
   }
 }
 
@@ -2146,7 +2158,7 @@ function ensureAiBehaviorState(cart) {
 function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   ensureAiBehaviorState(cart);
   const personality = cart.aiPersonality;
-  const cautious = isAiCautiousPhase(nowMs, allCarts, netSlots);
+  const cautious = isAiCautiousPhase(allCarts, netSlots);
   const humanTarget = findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex);
   const roll = Math.random();
 

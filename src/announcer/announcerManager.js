@@ -445,6 +445,19 @@ function dispatch(def, data, nowMs, opts = {}) {
   if (def.cls === "critical") {
     if (_active) endActive(nowMs);
     _queue = [];
+    // * Also drop any pending kill-burst and its drain timer. A burst collected on
+    // * the round-ending KO would otherwise fire its held timer AFTER victory/defeat
+    // * started and re-enqueue behind the critical, surfacing a stale "FIRST BLOOD"
+    // * callout over the podium. stopAnnouncer() clears these on menu return; the
+    // * critical (victory/defeat) that opens the podium must clear them too.
+    if (_burstHold) {
+      clearTimeout(_burstHold.timer);
+      _burstHold = null;
+    }
+    if (_drainTimer) {
+      clearTimeout(_drainTimer);
+      _drainTimer = null;
+    }
     startAnnouncement(def, data, nowMs);
     return { type: "played" };
   }

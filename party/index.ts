@@ -392,11 +392,14 @@ export class CartRaveServer extends Server {
     return true;
   }
 
-  #reapStalePendingPickers() {
+  /** @returns true if at least one stale pending picker was removed. */
+  #reapStalePendingPickers(): boolean {
     const now = this.#serverNowMs();
+    let reapedAny = false;
     for (const id of [...this.#pendingPickers]) {
       const joinedAt = this.#pendingPickerAtMs.get(id) ?? 0;
       if (now - joinedAt <= PICKER_TIMEOUT_MS) continue;
+      reapedAny = true;
       this.#pendingPickers.delete(id);
       this.#pendingNames.delete(id);
       this.#pendingPickerAtMs.delete(id);
@@ -422,6 +425,7 @@ export class CartRaveServer extends Server {
         // ignore
       }
     }
+    return reapedAny;
   }
 
   // * Cancels the game-start countdown (or pending rematch grace) if the "all
@@ -568,8 +572,19 @@ export class CartRaveServer extends Server {
     }
 
     this.#lastReapAtMs = now;
-    this.#reapStalePendingPickers();
-    if (reapedIds.length === 0) return false;
+    const reapedPicker = this.#reapStalePendingPickers();
+    if (reapedIds.length === 0) {
+      // * A stale pending picker can BE the host: onConnect's empty-room fallback
+      // * assigns #hostId to a connection that has not seated yet, and a later
+      // * joiner can't displace it (#hostId is non-null, so the seat-time promote
+      // * is skipped). Reaping it above removed the connection but left #hostId
+      // * dangling at a closed socket — and because pending pickers are excluded
+      // * from reapedIds, we'd return here without ever reaching the #ensureLiveHost
+      // * repair below, stranding the remaining seated humans in a hostless room
+      // * (no physics authority, round can't progress) until someone new connects.
+      if (reapedPicker) this.#ensureLiveHost();
+      return false;
+    }
 
     let slotsChanged = false;
     for (const id of reapedIds) {

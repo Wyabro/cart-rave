@@ -434,26 +434,40 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
 
   // 5. A scored KO → score updates + syncs. Host crowns the joiner via the diag control lever
   //    (stands in for a natural KO deterministically); both clients must converge on the score.
-  const scored = await host.page.evaluate((slot) => {
+  // * CROWN_SCORE must be UNREACHABLE by natural NPC play during the seconds between this
+  // * lever and the rewindRoundClock fast-end below. It used to be 3, which quietly relied on
+  // * the bots being passive — and they were, because isAiCautiousPhase compared a
+  // * performance.now() value against a timeOrigin-domain startedAtMs and pinned every bot in
+  // * cautious phase forever. With that clock-domain bug fixed the bots actually fight, an NPC
+  // * out-scored the scripted 3 mid-window, and this scenario failed on a winner-slot mismatch
+  // * (host and joiner still AGREED — result sync was never broken, only the assumption that
+  // * nothing else scores). Keep the margin wide so the crown stays deterministic.
+  const CROWN_SCORE = 60;
+  const scored = await host.page.evaluate(([slot, crown]) => {
     const c = window.__ccDiag.control;
     if (!c || typeof c.setScores !== "function") return false;
     const s = { 0: 0, 1: 0, 2: 0, 3: 0 };
-    s[slot] = 3;
+    s[slot] = crown;
     return c.setScores(s);
-  }, joinerSlot);
+  }, [joinerSlot, CROWN_SCORE]);
   check(
     "host control.setScores applied (host-authoritative score)",
     scored?.ok === true,
     scored?.message ?? String(scored),
   );
-  const joinerScores = await pollDiag(joiner.page, readScores, (sc) => (sc?.[joinerSlot] ?? 0) === 3, {
-    timeout: 15_000,
-    label: "joiner-score-synced",
-  }).catch(() => null);
+  // * >= not ===: the joiner can also land a natural KO on top of the scripted crown.
+  const joinerScores = await pollDiag(
+    joiner.page,
+    readScores,
+    (sc) => (sc?.[joinerSlot] ?? 0) >= CROWN_SCORE,
+    { timeout: 15_000, label: "joiner-score-synced" },
+  ).catch(() => null);
   const hostScores = await host.page.evaluate(readScores);
   check(
     "both clients agree on the joiner's score (invariant: scores sync)",
-    hostScores[joinerSlot] === 3 && (joinerScores?.[joinerSlot] ?? 0) === 3,
+    hostScores[joinerSlot] >= CROWN_SCORE
+      && (joinerScores?.[joinerSlot] ?? 0) >= CROWN_SCORE
+      && hostScores[joinerSlot] === (joinerScores?.[joinerSlot] ?? -1),
     `host=${hostScores[joinerSlot]} joiner=${joinerScores?.[joinerSlot]}`,
   );
 

@@ -758,11 +758,17 @@ async function main() {
     getAudioListener: () => audioListener,
   });
 
-  // * Restore saved volume state (loaded from localStorage by audioControls at module scope).
+  // * Sync AudioManager to the volumes audioStore already loaded from localStorage
+  // * at module scope. These are store-domain values (0..AUDIO_VOLUME_MAX); the
+  // * setState-backed setters re-persist them as the same pct, so the round-trip is
+  // * idempotent. Do NOT divide by AUDIO_VOLUME_MAX here — that shrank sfx/music
+  // * into 0..1, and because the setters immediately saved the shrunken value back,
+  // * every page load quietly decayed saved volume by ~1/AUDIO_VOLUME_MAX until the
+  // * player touched a slider (trended toward silence over ~15 reloads).
   AudioManager.restoreVolumeState({
-    master: getMusicVolume() / AUDIO_VOLUME_MAX,
-    sfx: getSfxVolume() / AUDIO_VOLUME_MAX,
-    music: getMusicVolume() / AUDIO_VOLUME_MAX,
+    master: getMusicVolume(),
+    sfx: getSfxVolume(),
+    music: getMusicVolume(),
     muted: getIsMuted(),
   });
 
@@ -3905,6 +3911,12 @@ async function main() {
     const rb = CONFIG.cart.ramBoost;
     const ncfg = rb.npc;
     if (!rb.enabled || !ncfg.enabled) return;
+    // * Self-guard, mirroring maybeTriggerNpcOpportunisticHop. The host fall loop
+    // * calls this every frame for NPC slots including ones already knocked out, and
+    // * the target scan below only rejects *other* dead carts. Range is planar (dx/dz),
+    // * so a bot tumbling 10-15m below the arena still "reaches" a live cart and fires
+    // * a boost whoosh + mesh pulse from a corpse mid-shatter — right on the death beat.
+    if (!npc?.body || npc.respawnAtMs != null || npc.isSuddenDeathSpectator) return;
     if (nowMs <= npc.ramBoostActiveUntilMs) return;
     const roundState = GameState.getRoundState();
     const cooldownMs = roundState?.isSuddenDeath ? (rb.cooldownSec * 500) : (rb.cooldownSec * 1000);
@@ -4510,6 +4522,15 @@ async function main() {
     Netcode.resetClientPredictionState();
     Entities.rematchResetWorld();
     if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
+      // * RESTART is reachable mid-round from the pause menu, where the round is
+      // * still phase==="running" (solo pause only freezes the clock, never changes
+      // * phase). startCountdown() bails out on phase==="running" to block
+      // * double-starts — so without dropping the abandoned round to lobby first,
+      // * rematchResetWorld() above would snap the carts to spawn but no countdown,
+      // * no score reset, and the stale round would keep ticking. Clearing to lobby
+      // * lets startCountdown run its full reset (scores/winner/startedAt + 3-2-1).
+      syncRoundPhase("lobby");
+      GameState.setRoundStartedAtMs(0);
       startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
       return;
     }
