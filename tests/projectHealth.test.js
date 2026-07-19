@@ -10,6 +10,10 @@ import {
   parseListItems,
   parseStatusOpenIssues,
   parseBacklogSections,
+  captureTimeMs,
+  captureRankMs,
+  normalizeCapturedAt,
+  preferCaptureLabel,
 } from "../tools/lib/projectHealth.mjs";
 
 const STATUS_FIXTURE = `# Cart Clash — Status
@@ -117,5 +121,49 @@ describe("parseBacklogSections", () => {
     expect(sections.map((s) => s.title)).toEqual(["Engineering", "Tech Debt"]);
     expect(sections[0].counts).toEqual({ Critical: 1, Low: 1 });
     expect(sections[1].rows[0].id).toBe("MAIN-1");
+  });
+});
+
+describe("capture triage helpers (F1/F2)", () => {
+  it("captureTimeMs accepts epoch ms and ISO", () => {
+    expect(captureTimeMs(1_700_000_000_000)).toBe(1_700_000_000_000);
+    expect(captureTimeMs("2026-07-18T12:00:00.000Z")).toBe(Date.parse("2026-07-18T12:00:00.000Z"));
+    expect(captureTimeMs(null)).toBeNull();
+    expect(captureTimeMs("not-a-date")).toBeNull();
+  });
+
+  it("captureRankMs prefers sidecar received over mtime (bulk pull safety)", () => {
+    const pullMtime = new Date("2026-07-19T23:00:00.000Z");
+    const olderReceived = Date.parse("2026-07-10T12:00:00.000Z");
+    expect(captureRankMs({ received: olderReceived }, pullMtime)).toBe(olderReceived);
+    expect(captureRankMs(null, pullMtime)).toBe(pullMtime.getTime());
+    expect(captureRankMs({ client_ts: olderReceived }, pullMtime)).toBe(olderReceived);
+  });
+
+  it("normalizeCapturedAt never leaves a bare epoch number for sorting", () => {
+    const iso = normalizeCapturedAt(null, 1_700_000_000_000, new Date("2020-01-01T00:00:00.000Z"));
+    expect(iso).toBe(new Date(1_700_000_000_000).toISOString());
+    expect(Date.parse(iso)).toBe(1_700_000_000_000);
+  });
+
+  it("preferCaptureLabel uses meta label over F8 scenario manual", () => {
+    expect(preferCaptureLabel("manual", "running-host-high")).toBe("running-host-high");
+    expect(preferCaptureLabel("roundflow", null)).toBe("roundflow");
+    expect(preferCaptureLabel("manual", "  ")).toBe("manual");
+    expect(preferCaptureLabel(null, null)).toBeNull();
+  });
+
+  it("rank-then-slice prefers true capture time over fresher mtime", () => {
+    // * Simulates: bulk pull rewrote 20 old F8 mtimes; one local harness is older on disk
+    // * but newer by capture time (and has no sidecar → rank = mtime of harness).
+    // * Old F8s keep low rankMs via received even if mtime is "now".
+    const now = Date.parse("2026-07-19T20:00:00.000Z");
+    const rows = [
+      { id: "old-f8", rankMs: captureRankMs({ received: now - 86_400_000 }, new Date(now)) },
+      { id: "local", rankMs: captureRankMs(null, new Date(now - 60_000)) },
+      { id: "new-f8", rankMs: captureRankMs({ received: now - 10_000 }, new Date(now)) },
+    ];
+    rows.sort((a, b) => b.rankMs - a.rankMs);
+    expect(rows.map((r) => r.id)).toEqual(["new-f8", "local", "old-f8"]);
   });
 });

@@ -226,6 +226,62 @@ async function collectBattery(dir) {
 }
 
 /**
+ * Epoch ms from a capture-time field (ISO string, epoch ms, or Date).
+ * @param {unknown} v
+ * @returns {number | null}
+ */
+export function captureTimeMs(v) {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (v instanceof Date) {
+    const t = v.getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+  const t = Date.parse(String(v));
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Rank key for dashboard top-N: prefer server/capture time over file mtime so a bulk
+ * `captures:pull` (rewrites playtest/* mtimes) cannot crowd out newer real captures.
+ * @param {{ received?: unknown, client_ts?: unknown } | null | undefined} meta
+ * @param {Date | number} mtime
+ * @returns {number}
+ */
+export function captureRankMs(meta, mtime) {
+  const fromMeta = captureTimeMs(meta?.received) ?? captureTimeMs(meta?.client_ts);
+  if (fromMeta != null) return fromMeta;
+  const mt = captureTimeMs(mtime);
+  return mt ?? 0;
+}
+
+/**
+ * Normalize any capture-time source to ISO for stable Date.parse sorting.
+ * @param {unknown} primary  bundle capturedAt
+ * @param {unknown} secondary  meta.received / meta.client_ts
+ * @param {Date | number} mtimeFallback
+ * @returns {string}
+ */
+export function normalizeCapturedAt(primary, secondary, mtimeFallback) {
+  const ms = captureTimeMs(primary) ?? captureTimeMs(secondary) ?? captureTimeMs(mtimeFallback) ?? Date.now();
+  return new Date(ms).toISOString();
+}
+
+/**
+ * Card title: F8 bundles hardcode scenario "manual"; triage identity lives on the
+ * pull-captures sidecar label (?captureLabel / deriveDefaultLabel).
+ * @param {unknown} scenario
+ * @param {unknown} metaLabel
+ * @returns {string | null}
+ */
+export function preferCaptureLabel(scenario, metaLabel) {
+  const label = metaLabel != null && String(metaLabel).trim() !== "" ? String(metaLabel).trim() : null;
+  if (label) return label;
+  if (scenario == null || scenario === "") return null;
+  return String(scenario);
+}
+
+/**
  * Capture bundles from BOTH surfaces: harness/local bundles at the top of `.diag-captures/`
  * (scenario-label-NNN.json + .png) and remote F8 uploads pulled into
  * `.diag-captures/playtest/` by tools/pull-captures.mjs (cap-N-label.json + cap-N-meta.json
@@ -242,7 +298,7 @@ async function collectCaptures(dir) {
 
   /** @type {Map<string, any>} rel bundle path → server sidecar */
   const sidecars = new Map();
-  /** @type {Array<{ rel: string, hasPng: boolean, mtime: Date }>} */
+  /** @type {Array<{ rel: string, hasPng: boolean, mtime: Date, meta: any, rankMs: number }>} */
   const candidates = [];
 
   for (const sub of ["", "playtest"]) {
@@ -265,10 +321,16 @@ async function collectCaptures(dir) {
     }
     for (const f of files.filter(isBundle)) {
       try {
+        const rel = sub ? `${sub}/${f}` : f;
+        const mtime = (await stat(join(surface, f))).mtime;
+        const meta = sidecars.get(rel) ?? null;
         candidates.push({
-          rel: sub ? `${sub}/${f}` : f,
+          rel,
           hasPng: files.includes(f.replace(/\.json$/, ".png")),
-          mtime: (await stat(join(surface, f))).mtime,
+          mtime,
+          meta,
+          // * Capture/server time decides membership in the top-20 — not pull mtime.
+          rankMs: captureRankMs(meta, mtime),
         });
       } catch {
         /* raced delete — skip */
@@ -276,22 +338,19 @@ async function collectCaptures(dir) {
     }
   }
 
-  // * Order by mtime, newest first — filename sort breaks past cap-9 ("cap-16" < "cap-9"
-  // * as strings), which buried the newest F8 pulls mid-list.
-  candidates.sort((a, b) => b.mtime - a.mtime);
+  candidates.sort((a, b) => b.rankMs - a.rankMs);
 
   const out = [];
-  for (const { rel, hasPng, mtime } of candidates.slice(0, 20)) {
+  for (const { rel, hasPng, mtime, meta } of candidates.slice(0, 20)) {
     try {
       const raw = JSON.parse(await readFile(join(dir, rel), "utf8"));
-      const meta = sidecars.get(rel) ?? null;
       out.push({
         file: rel,
         png: hasPng ? rel.replace(/\.json$/, ".png") : null,
-        scenario: raw?.scenario ?? meta?.label ?? null,
+        scenario: preferCaptureLabel(raw?.scenario, meta?.label),
         reason: raw?.reason ?? null,
         phase: raw?.phase ?? meta?.phase ?? null,
-        capturedAt: raw?.capturedAt ?? meta?.received ?? mtime.toISOString(),
+        capturedAt: normalizeCapturedAt(raw?.capturedAt, meta?.received ?? meta?.client_ts, mtime),
         build: raw?.build ?? null,
         // * The triage question is always "which build was this from?" — bundle stamp
         // * first (baked by vite define), server sidecar as fallback for F8 uploads.
@@ -305,8 +364,8 @@ async function collectCaptures(dir) {
       /* not a bundle — skip */
     }
   }
-  // * capturedAt refines mtime ordering (pull time ≠ capture time for F8 uploads).
-  out.sort((a, b) => String(b.capturedAt).localeCompare(String(a.capturedAt)));
+  // * Re-rank after full parse (bundle capturedAt is authoritative when present).
+  out.sort((a, b) => (captureTimeMs(b.capturedAt) ?? 0) - (captureTimeMs(a.capturedAt) ?? 0));
   return out;
 }
 
