@@ -33,7 +33,7 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 | Signal | State |
 |---|---|
 | Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
-| Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
+| Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
 | Origin HEAD | Local ↔ origin/cart-clash at `601b8e8` — Workers Logs on; combat code `732e2d6` |
 | Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (last full gate this session) |
 | Prod deploy (2026-07-19 eve) | ✅ Live — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
@@ -174,6 +174,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-19 (gate re-verify, next window) — Full automated suite re-run on the combat stack: **qa 458/51 green** + **battery 5/5 green** (first battery since `f0c10ba..732e2d6` touched gameLoop — all 2-client rigs pass with the replay cap/silence hold/phantom clear live; teardownRejoin now in the sweep). Dashboard regenerated. Capture server checked: **no F8s newer than `4a9f7f8`** — the Match A combat/phantom retest on `index-C560wli8.js` remains the pending gate. No code changes this entry.
 
 2026-07-19 (session handoff) — Full cold handoff rewritten: [planning/handoff-next-window.md](./planning/handoff-next-window.md). Stack: combat `732e2d6` + observability `601b8e8` / live **`index-C560wli8.js`**. Workers **Paid** on; captures pull green again. Soft phantom retest only (no F8). **Next window:** Match A F8 retest then host hitch forensics if freezes still dominate.
 
