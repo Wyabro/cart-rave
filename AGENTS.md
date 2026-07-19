@@ -15,6 +15,13 @@ focus, next actions, gotchas. Then this file for standing rules. Architecture sn
 [docs/planning/project-state.md](docs/planning/project-state.md). Deep reference:
 [docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
 
+**Before any cross-module change, read
+[docs/reference/control-flow.md](docs/reference/control-flow.md).** Most high-traffic edges in this
+codebase are *not* imports — they run through injected `callbacks`/`deps` objects, the string-keyed
+`MSG.*` wire protocol, and zustand subscriptions. Grep alone will tell you a live function is
+dead, and `main.js` is a single 4,500-line closure holding ~84 unexported inner functions. That
+file is the map.
+
 Cart Clash is a browser-based **4-player shopping-cart physics sumo** game. Neon shopping
 carts battle on arena floors; ram opponents off the edge or into voids to score.
 Rounds run **150 seconds**; highest score wins (Sudden Death on ties). Production:

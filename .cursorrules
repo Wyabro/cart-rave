@@ -1,3 +1,9 @@
+## Canonical rules
+
+- **`AGENTS.md` at the repo root is the canonical rules file.** This file carries brand/stack extras only; if the two disagree, `AGENTS.md` and the code win.
+- **Before any cross-module edit, read `docs/reference/control-flow.md`.** Most edges here are not imports — they run through injected `callbacks`/`deps` objects, the `MSG.*` wire protocol, and zustand subscriptions. Grep will call live functions dead, and `src/main.js` is one 4,500-line closure holding ~84 unexported inner functions.
+- Session state: `docs/STATUS.md`.
+
 ## Brand (read first)
 
 - **Product name:** Cart Clash
