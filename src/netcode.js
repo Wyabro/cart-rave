@@ -460,6 +460,11 @@ export function resetClientPredictionState() {
 // * reconcile-error evidence — the net probe was blind to exactly the two signals that
 // * diagnose rubberbanding. Cheap always-on counters, surfaced in the "net" probe via
 // * getNetFlowStats(); big arrival gaps additionally land in the diag event ring.
+// *
+// * Run-7 2e: non-host snapGaps* is measured at noteSnapshotArrival wall time — an Intel
+// * client that hitches mid-message processing inflates gaps even when the host send
+// * loop is healthy (cap-16: snapGapsOver100=52 while host over66=3). Host-side
+// * sendGap* counters below are the ground truth for "did the 4090 starve hostSendTick?".
 const netFlowStats = {
   startedMs: 0,
   lastArriveMs: 0,
@@ -480,6 +485,14 @@ const netFlowStats = {
   // * Most recent inter-arrival gap (ms). gameLoop skips replay only when this exceeds
   // * prediction.skipReplayAfterSnapGapMs (long host silence) — not on oldest-N truncate.
   lastArrivalGapMs: 0,
+  // * Host-only: inter-send gaps of hostSendTick (setInterval @ hostSendHz). Independent
+  // * of client receive path — use these on the host F8 for hitch forensics (2e).
+  sendGapCount: 0,
+  sendGapSumMs: 0,
+  sendGapMaxMs: 0,
+  sendGapsOver100: 0,
+  sendCount: 0,
+  lastSendGapEventMs: 0,
 };
 
 function resetNetFlowStats() {
@@ -496,6 +509,40 @@ function resetNetFlowStats() {
   netFlowStats.reconcileReplayTrimEvents = 0;
   netFlowStats.reconcileReplaySkips = 0;
   netFlowStats.lastArrivalGapMs = 0;
+  netFlowStats.sendGapCount = 0;
+  netFlowStats.sendGapSumMs = 0;
+  netFlowStats.sendGapMaxMs = 0;
+  netFlowStats.sendGapsOver100 = 0;
+  netFlowStats.sendCount = 0;
+  netFlowStats.lastSendGapEventMs = 0;
+}
+
+/**
+ * Host-only: record wall time between successful hostSendTick broadcasts.
+ * Call only after the burst-coalesce guard accepts a tick (so skipped coalesced
+ * intervals don't look like healthy 12ms micro-gaps).
+ * @param {number} nowMs performance.now() at send
+ */
+function noteHostSendTick(nowMs) {
+  netFlowStats.sendCount += 1;
+  // * Anchor the flow window on first host send too (host never notes arrivals).
+  if (netFlowStats.startedMs === 0) netFlowStats.startedMs = nowMs;
+  if (lastHostSendTickMs > 0) {
+    const gap = nowMs - lastHostSendTickMs;
+    netFlowStats.sendGapCount += 1;
+    netFlowStats.sendGapSumMs += gap;
+    if (gap > netFlowStats.sendGapMaxMs) netFlowStats.sendGapMaxMs = gap;
+    if (gap > 100) netFlowStats.sendGapsOver100 += 1;
+    // * >250ms = 10+ missed 40Hz ticks — timestamped for KO/announcer correlation.
+    if (gap > 250 && nowMs - netFlowStats.lastSendGapEventMs > 1000) {
+      netFlowStats.lastSendGapEventMs = nowMs;
+      const phase = GameState.getRoundState?.()?.phase ?? null;
+      recordDiagEvent("net", "host_send_gap", {
+        gapMs: Math.round(gap),
+        phase,
+      });
+    }
+  }
 }
 
 function noteSnapshotArrival() {
@@ -587,6 +634,13 @@ export function getNetFlowStats() {
     snapGapMaxMs: Math.round(netFlowStats.gapMaxMs),
     snapGapsOver100: netFlowStats.gapsOver100,
     snapCount: netFlowStats.gapCount,
+    // * Host-only send cadence (2e). Non-host F8s leave these at 0.
+    sendGapAvgMs: netFlowStats.sendGapCount > 0
+      ? Math.round((netFlowStats.sendGapSumMs / netFlowStats.sendGapCount) * 10) / 10
+      : null,
+    sendGapMaxMs: Math.round(netFlowStats.sendGapMaxMs),
+    sendGapsOver100: netFlowStats.sendGapsOver100,
+    sendCount: netFlowStats.sendCount,
     reconcileErrLastM: Math.round(netFlowStats.reconcileErrLastM * 1000) / 1000,
     reconcileErrMaxM: Math.round(netFlowStats.reconcileErrMaxM * 1000) / 1000,
     reconcileTeleports: netFlowStats.reconcileTeleports,
@@ -1288,6 +1342,7 @@ let lastHostSendTickMs = 0;
 function stopHostSendLoop() {
   if (hostSendTimer) clearInterval(hostSendTimer);
   hostSendTimer = null;
+  lastHostSendTickMs = 0;
   clearHostCollisionBatch();
   pendingHostFallEvents = [];
 }
@@ -1401,6 +1456,9 @@ function hostSendTick(opts = {}) {
     // * replay as phantom KOs on every non-host at the start of the NEXT round
     // * (kill feed, shatter, duplicate challenge/unlock credit).
     if (pendingHostFallEvents.length > 0) pendingHostFallEvents = [];
+    // * 2e: don't let lobby/countdown silence count as one giant host_send_gap when
+    // * the first running tick fires — reset the inter-send anchor.
+    lastHostSendTickMs = 0;
     return;
   }
 
@@ -1411,6 +1469,8 @@ function hostSendTick(opts = {}) {
   // * round-end flush bypasses the guard.
   const sendNowMs = performance.now();
   if (!opts.force && sendNowMs - lastHostSendTickMs < 500 / CONFIG.net.hostSendHz) return;
+  // * 2e: record inter-send gap BEFORE stamping lastHostSendTickMs (uses prior stamp).
+  noteHostSendTick(sendNowMs);
   lastHostSendTickMs = sendNowMs;
 
   hostSeq += 1;

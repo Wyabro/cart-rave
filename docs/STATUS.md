@@ -81,7 +81,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
 | 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Next** — 100–500ms stalls → snap gaps → invisible non-host kills. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **In progress** — dig done (cap-16/17). Host early post-GO 303/526ms real; mid-round non-host `snapGapsOver100` confounded by Intel client hitches. Host **send cadence probe unpushed**. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | 3 | Match B (Intel hosts) only if needed | locked until 2e |
 | 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -94,10 +94,10 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **New agent window:** 2e only — read [planning/handoff-next-window.md](./planning/handoff-next-window.md). Pull F8s if Wyatt played.
-2. Dig host main-thread / send stalls on focused 4090 (cap-17: post-GO 303/526ms; cap-16: ~33 snapGapsOver100/min). One lever after evidence.
-3. Pass bar: non-host sees the hit that earns a KO; host longframe + non-host gap rate drop.
-4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
+1. **2e only** — read [planning/handoff-next-window.md](./planning/handoff-next-window.md).
+2. Ship host send cadence probe on Wyatt “ship it” (local/unpushed; qa 459/51). Match A F8 **both**; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
+3. One behavior lever after that evidence (likely announcer warm-before-countdown if early stalls remain; do not stack levers).
+4. Pass bar: non-host sees the hit that earns a KO; host longframe + **host sendGap** rate drop.
 5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
@@ -175,6 +175,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-19 (2e forensics dig) — Cap list still tops at #17 (no newer F8). Cap-17 host: early post-GO **303/526ms** only, then clean mid-round (`over33=27`/`over66=3`). Cap-16 non-host `snapGapsOver100=52` is **confounded** by Intel `over33=444` (arrival measured on client main thread). **One card (unpushed):** host `sendGap*` counters + `net/host_send_gap` events in `netcode.js`. Gates **459/51**. Next: ship probe → Match A F8 both. Handoff updated.
 
 2026-07-19 (doc staleness sweep, separate Claude session — no code changes) — Fixed stale docs repo-wide: VFX-1/bloom-promotion marked closed in ROADMAP/BACKLOG/project-state/playtest docs (`?rtmode=bloomfix` A/B retired; toggle is `?bloompipe`); local worker port 1999→8787 in preview-dev/deploy-urls; `/parties/main/`→`/parties/cart-rave-server/`; CREDITS `src/audio.js`→real modules + dropped Michroma/Space Grotesk font rows; living-store cargo 2→12 → 7→18; `.cursorrules` version pins; this file's duplicate gates/deploy rows consolidated. `handoff-next-window.md` untouched.
 
