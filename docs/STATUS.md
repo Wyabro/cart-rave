@@ -50,9 +50,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **522/57** after the 07-19 polish pass (adds yawExtraction + gameFlowTimerExpiry suites) — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at **`c3f3ad0`** — countdown audio warm |
-| Prod deploy (2026-07-19 night, P0 countdown audio) | ✅ Live — **bundle `index-BUszG7M2.js`**, Version `6c62a3c5` (sha `c3f3ad0`; served: `play-entry audio warm failed` + sha stamp + `idle-shader-start`). Play-entry warms music+ambience+countdown SFX (cap-54). **F8 through 3-2-1 = open gate.** |
-| Prior deploys (07-17 → 07-19) | ✅ superseded — incl. menu warm `index-CEjuO4Z7.js`/`be5c1fb1`/`67059ad`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
+| Origin HEAD | Local ↔ origin/cart-clash at **`03218fa`** — countdown abort + start-tick stack |
+| Prod deploy (2026-07-19 night, P0 countdown residual) | ✅ Live — **bundle `index-CRQwILqC.js`**, Version `5a1caee0` (sha `03218fa`; served: new bundle in index + sha). Live-only cancel + HUD digit reset + MP audio pre-roll + rAF-deferred startCountdown (cap-56). **F8 3-2-1 retest = open gate.** |
+| Prior deploys (07-17 → 07-19) | ✅ superseded — incl. audio warm `index-BUszG7M2.js`/`6c62a3c5`/`c3f3ad0`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -96,7 +96,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu ✅**. **Countdown audio SHIPPED** (`c3f3ad0`/`BUszG7M2`). Cap-56: 1.3s gone; residual **~400ms + abort** → **follow-up coded (unpushed)**: live-only cancel, HUD digit reset, pre-roll MP audio, rAF-defer startCountdown. F8 retest after ship |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu ✅**. **Countdown stack SHIPPED** (`5a1caee0` / `index-CRQwILqC.js` / `03218fa`) — abort+400ms fixes live. **F8 retest pending**; mid-round still open if friend 2-human freezes |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -110,7 +110,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **ship it** (countdown abort / ~400ms stack) → hard-refresh → quickplay 2-human through **3-2-1**. Expect: single countdown (no lobby bounce), `countdown_3` on every arm, no multi-s LT; sub-200ms residual OK.
+1. Wyatt: **F8 retest** — hard-refresh until `index-CRQwILqC.js`, quickplay 2-human through **3-2-1**, F8, pull. Expect: single countdown (no lobby bounce), `countdown_3` every arm, no multi-s LT.
 2. If countdown clean but friend 2-human still multi-s mid-round → **post-fall frame** card (cap-47).
 3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -191,7 +191,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (P0 countdown residual — **unpushed**) — Cap-56 (`c3f3ad0`) forensics after audio-warm ship: multi-s hitch **gone** (`over1000:0`, `countdown_3` present) but (1) **~407ms LT** stacked menu-hide+audio-start+startCountdown on one turn, (2) **countdown→lobby→countdown** abort ~0.5s in, second arm skipped “3” (`_lastCountdownN` sticky). Fixes: server `#cancelCountdownIfNeeded` filters **live** humans only (match `#checkAllReady` — orphan slots false-aborted); HUD resets digit/banner latch on countdown re-entry; MP pre-rolls music+ambience at carts-ready; host `startCountdown` deferred one rAF after game_start. Gates: **qa 554/57**. Needs ship + F8.
+2026-07-19 (SHIPPED — P0 countdown residual) — **`03218fa` pushed + deployed** as bundle **`index-CRQwILqC.js`** / Version **`5a1caee0`**. Served-bytes verified: new bundle in index.html + sha stamp. Cap-56 follow-up live: live-only ready cancel, HUD digit reset, MP audio pre-roll, rAF-deferred host startCountdown. Gates at prior qa **554/57**. **Next: F8 through 3-2-1** (next-action #1).
+
+2026-07-19 (P0 countdown residual — coded then shipped above) — Cap-56 after audio-warm: multi-s gone; residual ~407ms start-tick stack + countdown abort + skipped “3” on re-arm.
 
 2026-07-19 (SHIPPED — P0 countdown audio warm) — **`c3f3ad0` pushed + deployed** as bundle **`index-BUszG7M2.js`** / Version **`6c62a3c5`**. Served-bytes verified: new bundle in index.html, warn string `play-entry audio warm failed`, sha `c3f3ad0`, `idle-shader-start`. Cap-54 root cause fixed: play-entry awaits music+ambience+countdown SFX warm (with announcer) so first countdown decode is not a host LT. Gates at ship: qa **554/57**.
 
