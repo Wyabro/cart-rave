@@ -1,10 +1,10 @@
 # Handoff — next agent window (Run 7 · **2e host hitch**)
 
-**Date:** 2026-07-19 (2e announcer warm **live**)  
+**Date:** 2026-07-19 (2e tHost arrival **live**)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`716ec2f`** (await announcer pack at play-entry)  
+**Origin HEAD:** **`1adef95`** (host-domain snap gaps + silence)  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-B1V-NCgO.js`** (Version `1dce77ac`)  
+**Live client bundle:** **`index-CHXFyLNA.js`** (Version `2c88c7d9`)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
@@ -33,7 +33,7 @@ F8 both machines → `npm run captures:pull` → read `.diag-captures/playtest/`
 | Workers **Paid** + Logs | ✅ Paid; `observability` on (`601b8e8`). |
 | Skip-replay only on long snap gap | ✅ **`1a2f242` / `index-Cw19iE04.js`** — not on oldest-N truncate. |
 | Match A combat reverse | ✅ **Pass enough** — Wyatt feel better; cap-16 **skips=0**, localKos **2**, snapGapMax **181ms** (was 3665). |
-| **Host hitch / invisible kills** | ▶️ **Warm live + tHost arrival unpushed** — cap-25 host pass; non-host gap inflate lever uses host stamps |
+| **Host hitch / invisible kills** | ▶️ **tHost arrival live** — `1adef95` / `index-CHXFyLNA.js`; awaiting F8 retest |
 | Match B (Intel hosts) | Locked until 2e honest enough. |
 | NET-PERF-2 | Done run-4. Do not re-solve. |
 
@@ -130,14 +130,14 @@ Host’s 3 send gaps = three `resume:true` longframes (2040 / 789 / 617ms). Non-
 | mid-round LF | 2040/789/617 | **200** | — | — |
 | combat drops | — | — | 43 | **0** |
 
-## tHost arrival honesty (**unpushed**)
+## tHost arrival honesty (**shipped** `1adef95` / `index-CHXFyLNA.js`)
 
-`noteSnapshotArrival(tHost)` gaps + `getSnapshotSilenceMs` / skip-replay gap prefer host stamps. Wall fallback only without tHost. +5 tests. Gates **503/54**.
+`noteSnapshotArrival(tHost)` gaps + `getSnapshotSilenceMs` / skip-replay gap prefer host stamps. Wall fallback only without tHost. +5 tests.
 
 ## Next agent work (2e only)
 
-1. Ship tHost arrival on Wyatt “ship it” → Match A F8 both.  
-2. Pass: non-host `snapGapsOver100` nearer host `sendGapsOver100`; hold false-trips drop.  
+1. Match A F8 both on **`index-CHXFyLNA.js`** (hard-refresh).  
+2. Pass: non-host `snapGapsOver100` nearer host `sendGapsOver100`; hold false-trips drop; host still clean.  
 3. If still off after that, 2e is residual feel only — do not stack more levers.
 
 **Out of scope this window unless F8s regress:** prediction order, skip-replay policy, phantom pending, Match B, P1 cards, NET-1, menu choppy (P0-2), NET-PERF-2.

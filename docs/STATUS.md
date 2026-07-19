@@ -34,8 +34,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (verified 2026-07-19 on the run-7 combat stack) |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `716ec2f` — announcer warm await |
-| Prod deploy (2026-07-19 announcer warm) | ✅ Live — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`; markers `announcer warm` / `sendGapsOver100` verified) |
+| Origin HEAD | Local ↔ origin/cart-clash at `1adef95` — tHost arrival honesty |
+| Prod deploy (2026-07-19 tHost arrival) | ✅ Live — **bundle `index-CHXFyLNA.js`**, Version `2c88c7d9` (`1adef95` verified in served bytes) |
+| Prod deploy (2026-07-19 announcer warm) | ✅ superseded — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`) |
 | Prod deploy (2026-07-19 host-send probe) | ✅ superseded — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9`) |
 | Prod deploy (2026-07-19 skip-gap) | ✅ superseded — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`) |
 | Prod deploy (2026-07-19 eve, observability) | ✅ superseded — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
@@ -83,7 +84,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
 | 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Announcer warm live** (`716ec2f` pass on cap-25). **tHost arrival honesty unpushed** — non-host snap gap/hold use host stamps not client wall time. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **tHost arrival live** — **`1adef95` / `index-CHXFyLNA.js`**. Next: Match A F8 both; non-host snapGaps should track host sendGaps. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | 3 | Match B (Intel hosts) only if needed | locked until 2e |
 | 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -96,8 +97,8 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **2e only** — ship tHost arrival honesty on Wyatt “ship it”; Match A F8 both.
-2. Pass: non-host `snapGapsOver100` closer to host `sendGapsOver100`; combat hold false-trips drop; host still clean.
+1. **2e only** — Match A F8 both on **`index-CHXFyLNA.js`** (hard-refresh).
+2. Pass: non-host `snapGapsOver100` nearer host `sendGapsOver100`; host still clean mid-round.
 3. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
@@ -178,7 +179,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 2026-07-19 (dashboard capture triage, separate Claude session — tools only) — `npm run dashboard` now sees remote F8 pulls: `collectCaptures` scans `.diag-captures/playtest/` (previously invisible — the dashboard showed 1 local soak bundle while 20+ pulled caps sat unseen), merges the `cap-N-meta.json` server sidecars into cards (id, host/non-host, tier, build) instead of rendering them as junk, and orders by mtime+capturedAt (filename sort buried cap-10+ under cap-9). Cards get a **build chip** — green when the stamp matches the newest captured build ("from the retest build?"), amber when older; git HEAD deliberately not the reference (docs commits outrun deploys). Summary line prints the newest cap id/build/age. Verified live: 20 caps, newest #24 `19e5cd9`, 7 green / 13 amber.
 
-2026-07-19 (2e tHost arrival **unpushed**) — Cap-25 host warm **pass** (send max 209, mid-round LF only 200ms). Residual non-host snapGaps 31 vs host sendGaps 1. **Lever:** snap gap + prediction silence/skip use host `tHost` domain, not onmessage wall time. Gates **503/54**. Ship on go.
+2026-07-19 (2e tHost arrival **shipped**) — **`1adef95` / `index-CHXFyLNA.js` / Version `2c88c7d9`**. Snap gaps + silence/hold/skip use host `tHost` domain. Served sha verified. **Next:** Match A F8 both.
 
 2026-07-19 (2e announcer warm **shipped**) — **`716ec2f` / `index-B1V-NCgO.js` / Version `1dce77ac`**. Cap-25/26: host mid-round freezes gone; combat drops 43→0.
 
