@@ -474,7 +474,12 @@ const netFlowStats = {
   // * capped the Rapier replay (run-7 Match A death spiral).
   reconcileReplayDrops: 0,
   reconcileReplayTrimEvents: 0,
+  // * How many reconciles skipped Rapier replay after a truncate (run-7 combat hold).
+  reconcileReplaySkips: 0,
   lastGapEventMs: 0,
+  // * Most recent inter-arrival gap (ms). gameLoop reads this to skip replay after a
+  // * long host silence so truncated oldest-N replay does not reconstruct ghost combat.
+  lastArrivalGapMs: 0,
 };
 
 function resetNetFlowStats() {
@@ -489,6 +494,8 @@ function resetNetFlowStats() {
   netFlowStats.reconcileTeleports = 0;
   netFlowStats.reconcileReplayDrops = 0;
   netFlowStats.reconcileReplayTrimEvents = 0;
+  netFlowStats.reconcileReplaySkips = 0;
+  netFlowStats.lastArrivalGapMs = 0;
 }
 
 function noteSnapshotArrival() {
@@ -498,6 +505,7 @@ function noteSnapshotArrival() {
   if (netFlowStats.startedMs === 0) netFlowStats.startedMs = nowMs;
   if (netFlowStats.lastArriveMs > 0) {
     const gap = nowMs - netFlowStats.lastArriveMs;
+    netFlowStats.lastArrivalGapMs = gap;
     netFlowStats.gapCount += 1;
     netFlowStats.gapSumMs += gap;
     if (gap > netFlowStats.gapMaxMs) netFlowStats.gapMaxMs = gap;
@@ -509,6 +517,23 @@ function noteSnapshotArrival() {
     }
   }
   netFlowStats.lastArriveMs = nowMs;
+}
+
+/**
+ * ms since the last host snapshot arrived (0 if none yet). Non-host prediction holds
+ * when this exceeds prediction.holdAfterSnapGapMs so a silent host cannot be fought
+ * as a ghost world (run-7 Match A combat retest).
+ * @returns {number}
+ */
+export function getSnapshotSilenceMs() {
+  if (getIsHost()) return 0;
+  if (!(netFlowStats.lastArriveMs > 0)) return 0;
+  return Math.max(0, performance.now() - netFlowStats.lastArriveMs);
+}
+
+/** Most recent inter-arrival gap at the last noteSnapshotArrival (ms). */
+export function getLastSnapshotArrivalGapMs() {
+  return netFlowStats.lastArrivalGapMs;
 }
 
 /**
@@ -531,6 +556,11 @@ export function noteReconcileReplayTruncate(dropped) {
   if (n <= 0) return;
   netFlowStats.reconcileReplayDrops += n;
   netFlowStats.reconcileReplayTrimEvents += 1;
+}
+
+/** Count a reconcile that hard-snapped without replaying (overload / long snap gap). */
+export function noteReconcileReplaySkip() {
+  netFlowStats.reconcileReplaySkips += 1;
 }
 
 /**
@@ -562,6 +592,7 @@ export function getNetFlowStats() {
     reconcileTeleports: netFlowStats.reconcileTeleports,
     reconcileReplayDrops: netFlowStats.reconcileReplayDrops,
     reconcileReplayTrimEvents: netFlowStats.reconcileReplayTrimEvents,
+    reconcileReplaySkips: netFlowStats.reconcileReplaySkips,
     windowMs: netFlowStats.startedMs > 0 ? Math.round(performance.now() - netFlowStats.startedMs) : 0,
   };
 }
@@ -1154,7 +1185,13 @@ function replayHostCollisionFx(msg, callbacks) {
   }
 }
 
-function processHostFallEvent(msg) {
+/**
+ * @param {object} msg Fall wire record
+ * @param {object[] | null | undefined} [cartsSnap] Same-snapshot cart poses (optional).
+ *   When present, the victim body is hard-snapped to host death pose BEFORE shatter so the
+ *   pop is not at the non-host's predicted "where I was still driving" pose (run-7 combat).
+ */
+function processHostFallEvent(msg, cartsSnap) {
   if (isHost) return;
   // * NET-PRES-1 (partial): falls ride unreliable unordered DC. Late/reordered tails of the
   // * same KO re-ran kill feed / PA / challenges. Victim cannot legitimately fall twice inside
@@ -1210,6 +1247,13 @@ function processHostFallEvent(msg) {
   if (slotIdx != null) {
     const carts = getAllCarts();
     const victimCart = carts?.[slotIdx];
+    // * Snap victim to the host pose that rode this same snapshot before detaching mesh
+    // * parts — otherwise local prediction keeps driving past the true death point and the
+    // * shatter plays "on the arena where I still was" (Intel Match A combat retest).
+    const deathSnap = cartsSnap?.[slotIdx];
+    if (victimCart?.body && deathSnap && Array.isArray(deathSnap.p) && deathSnap.p.length === 3) {
+      applySnapshotToCartBody(victimCart, deathSnap);
+    }
     if (victimCart?.mesh) {
       const scene = callbacks.getSceneRef?.();
       if (scene) {
@@ -2868,7 +2912,7 @@ function handleRemoteHostState(state) {
     }
     if (Array.isArray(state.falls)) {
       for (const ev of state.falls) {
-        processHostFallEvent(ev);
+        processHostFallEvent(ev, state.carts);
       }
     }
     // * Directive self-heal: if the host has an active window this client doesn't

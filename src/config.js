@@ -406,6 +406,12 @@ export const CONFIG = {
       // * 60 Hz — covers normal RTT with headroom; Intel retest had ~3% over33 so we can
       // * afford more than the initial 8 that still felt "hit 1s late".
       reconcileReplayMaxSteps: 12,
+      // * Run-7 combat retest (efdca62): when host snaps go silent longer than this (ms),
+      // * non-host prediction freezes instead of driving a ghost world. Host freezes of
+      // * 1–5s produced snap gaps + 28 m teleports + "hit then it reverses / death pops
+      // * where I was". 150 ms ≈ 6 missed 40 Hz ticks — past normal jitter, before multi-
+      // * second host stalls. Below this, live prediction still runs for input feel.
+      holdAfterSnapGapMs: 150,
     },
   },
 

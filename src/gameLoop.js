@@ -322,8 +322,26 @@ export function runPhysicsStep(loopState, deps, context) {
       // 2. Align remote physics bodies so prediction collides against current net poses.
       deps.syncRemoteCartBodiesForPrediction(localSlotIndex);
 
+      // * Hold live prediction when the host is silent or already reports us dead.
+      // * Run-7 efdca62 retest: multi-second host freezes left Intel driving a ghost
+      // * arena (hit feedback then reverse; death shatter at the predicted "still here"
+      // * pose). Silence threshold = prediction.holdAfterSnapGapMs (default 150).
+      const predCfg = deps.CONFIG.net?.prediction;
+      const holdGapMs = predCfg?.holdAfterSnapGapMs ?? 150;
+      const silenceMs = typeof deps.netcode?.getSnapshotSilenceMs === "function"
+        ? deps.netcode.getSnapshotSilenceMs()
+        : 0;
+      const peekSnap = deps.getLatestSnap ? deps.getLatestSnap() : null;
+      const peekLocal = (peekSnap?.carts && localSlotIndex >= 0)
+        ? peekSnap.carts[localSlotIndex]
+        : null;
+      const hostSaysDead = peekLocal?.s === true
+        || Boolean(localCart?.hasSpilled)
+        || Boolean(localCart?._shatterState);
+      const holdPrediction = hostSaysDead || (holdGapMs > 0 && silenceMs > holdGapMs);
+
       // 3. Prediction: step Rapier locally with the player's input (instant feel).
-      if (deps.getRoundState().phase === "running") {
+      if (deps.getRoundState().phase === "running" && !holdPrediction) {
         const allCarts = deps.getAllCartsRef();
         if (Array.isArray(allCarts)) {
           let stepNow = performance.now();
@@ -353,7 +371,13 @@ export function runPhysicsStep(loopState, deps, context) {
           loopState.accumulator = 0;
         }
       } else {
+        // * Drain debt so a long hold does not burst-catch-up when snaps resume.
         loopState.accumulator = 0;
+        // * Still sample+send axes while held (host needs continuous input). Skip when
+        // * host already reports us dead — no authority work left for this body.
+        if (deps.getRoundState().phase === "running" && !hostSaysDead) {
+          deps.netcode.sampleLocalInputForTick?.();
+        }
       }
 
       // 4. Reconciliation: client-side rewind and replay prediction.
@@ -378,10 +402,19 @@ export function runPhysicsStep(loopState, deps, context) {
             } else {
               const ackSeq = cartSnap.ackSeq || 0;
               deps.prunePendingInputs(ackSeq);
+              // * Keep death pose glued to host while shatter plays (prediction is held).
+              if (cartSnap.s === true) {
+                deps.applySnapshotToCartBody(localCart, cartSnap);
+                clearReconcileVisOffset(localCart);
+              }
             }
           } else if (cartSnap.s === true) {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);
+            // * Host says dead: hard-snap body so the next fall shatter (or residual
+            // * mesh) is at host death pose, not the last predicted drive-through.
+            deps.applySnapshotToCartBody(localCart, cartSnap);
+            clearReconcileVisOffset(localCart);
           } else {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);
@@ -395,66 +428,88 @@ export function runPhysicsStep(loopState, deps, context) {
 
             // Replay outstanding inputs in sequence (bounded — see trimPendingForReconcileReplay).
             const pendingInputs = deps.getPendingInputs ? deps.getPendingInputs() : [];
-            const replayMax = deps.CONFIG.net?.prediction?.reconcileReplayMaxSteps ?? 8;
+            const replayMax = predCfg?.reconcileReplayMaxSteps ?? 8;
             const dropped = trimPendingForReconcileReplay(pendingInputs, replayMax);
             if (dropped > 0 && deps.netcode?.noteReconcileReplayTruncate) {
               deps.netcode.noteReconcileReplayTruncate(dropped);
             }
-            const allCarts = deps.getAllCartsRef();
-            const replayCallbacks = {
-              ...deps.getSimulationCallbacks(false),
-              // * Suppress combo tier + ChallengeTracker side effects — live prediction
-              // * already counted them; replaying unacked inputs must not inflate combo_t2
-              // * / spill challenge progress on every reconcile.
-              isReconcileReplay: true,
-              playCollision: null,
-              spawnTrashBurst: null,
-              onLocalRamImpact: null,
-              onLocalHitTaken: null,
-              onCartImpactSquash: null,
-              onBoostRelease: null,
-              onBoostCancel: null,
-              onSpill: null,
-              onHopLand: null,
-              triggerHopRef: (cart) => {
-                if (!cart?.body) return;
-                // * Replay hops bypass the wall-clock cooldown: each press produces exactly
-                // * one hop:true input frame (one-shot consume in sampleLocalInputForTick),
-                // * and every reconcile pass rewinds to pre-hop host state first — the
-                // * impulse must re-apply or the predicted hop dies on the next snapshot.
-                // * lastHopAtMs is NOT restamped (it belongs to the live press-time cooldown).
-                // * Prediction-only hop: impulse + landing-edge flags, no SFX/VFX
-                // * (onHopLand is null in this replay callback set).
-                cart.hopAwaitingLand = true;
-                cart.hopAirborne = false;
-                cart.body.applyImpulse({ x: 0, y: deps.CONFIG.cart.hop.impulse, z: 0 }, true);
-              },
-            };
+            // * Skip-replay-on-overload (run-7 combat): when the step cap drops inputs, or
+            // * the snap that just arrived crossed a multi-tick host silence (≥500ms),
+            // * replaying a truncated/stale stream reconstructs the wrong fight. Host
+            // * pose alone is more honest; live prediction restarts next frames.
+            const arrivalGapMs = typeof deps.netcode?.getLastSnapshotArrivalGapMs === "function"
+              ? deps.netcode.getLastSnapshotArrivalGapMs()
+              : 0;
+            const skipReplay = dropped > 0 || arrivalGapMs >= 500;
+            if (skipReplay) {
+              deps.netcode?.noteReconcileReplaySkip?.();
+              // * Record pre→host error for F8 probes, then clear visual offset so a
+              // * multi-meter post-stall correction does not ease-slide across the arena.
+              if (havePrePose) {
+                accumulateReconcileVisOffset(
+                  localCart,
+                  predCfg,
+                  deps.netcode?.noteReconcileError,
+                );
+              }
+              clearReconcileVisOffset(localCart);
+            } else {
+              const allCarts = deps.getAllCartsRef();
+              const replayCallbacks = {
+                ...deps.getSimulationCallbacks(false),
+                // * Suppress combo tier + ChallengeTracker side effects — live prediction
+                // * already counted them; replaying unacked inputs must not inflate combo_t2
+                // * / spill challenge progress on every reconcile.
+                isReconcileReplay: true,
+                playCollision: null,
+                spawnTrashBurst: null,
+                onLocalRamImpact: null,
+                onLocalHitTaken: null,
+                onCartImpactSquash: null,
+                onBoostRelease: null,
+                onBoostCancel: null,
+                onSpill: null,
+                onHopLand: null,
+                triggerHopRef: (cart) => {
+                  if (!cart?.body) return;
+                  // * Replay hops bypass the wall-clock cooldown: each press produces exactly
+                  // * one hop:true input frame (one-shot consume in sampleLocalInputForTick),
+                  // * and every reconcile pass rewinds to pre-hop host state first — the
+                  // * impulse must re-apply or the predicted hop dies on the next snapshot.
+                  // * lastHopAtMs is NOT restamped (it belongs to the live press-time cooldown).
+                  // * Prediction-only hop: impulse + landing-edge flags, no SFX/VFX
+                  // * (onHopLand is null in this replay callback set).
+                  cart.hopAwaitingLand = true;
+                  cart.hopAirborne = false;
+                  cart.body.applyImpulse({ x: 0, y: deps.CONFIG.cart.hop.impulse, z: 0 }, true);
+                },
+              };
 
-            for (let i = 0; i < pendingInputs.length; i++) {
-              const input = pendingInputs[i];
-              deps.runFixedPhysicsStep({
-                world: deps.world,
-                eventQueue: deps.eventQueue,
-                allCarts,
-                localCart,
-                remoteInputs: null,
-                npcs: [],
-                dt: deps.CONFIG.fixedTimeStep,
-                now: input.tClient,
-                isHost: false,
-                callbacks: replayCallbacks,
-                localInputOverride: input.input,
-              });
-            }
+              for (let i = 0; i < pendingInputs.length; i++) {
+                const input = pendingInputs[i];
+                deps.runFixedPhysicsStep({
+                  world: deps.world,
+                  eventQueue: deps.eventQueue,
+                  allCarts,
+                  localCart,
+                  remoteInputs: null,
+                  npcs: [],
+                  dt: deps.CONFIG.fixedTimeStep,
+                  now: input.tClient,
+                  isHost: false,
+                  callbacks: replayCallbacks,
+                  localInputOverride: input.input,
+                });
+              }
 
-            // * Post-replay: fold the correction delta into the eased visual offset.
-            if (havePrePose) {
-              accumulateReconcileVisOffset(
-                localCart,
-                deps.CONFIG.net?.prediction,
-                deps.netcode?.noteReconcileError,
-              );
+              // * Post-replay: fold the correction delta into the eased visual offset.
+              if (havePrePose) {
+                accumulateReconcileVisOffset(
+                  localCart,
+                  predCfg,
+                  deps.netcode?.noteReconcileError,
+                );
+              }
             }
           }
         }

@@ -36,4 +36,11 @@ describe("CONFIG.net prediction caps (run-7)", () => {
       CONFIG.net.predictionPendingInputsMax,
     );
   });
+
+  it("holds live prediction after a short host silence (combat ghost-world guard)", () => {
+    // * Below normal multi-tick jitter (40Hz ≈ 25ms) would freeze feel; multi-second
+    // * host freezes (Match A F8 snapGapMax 1–5s) must trip the hold.
+    expect(CONFIG.net.prediction.holdAfterSnapGapMs).toBeGreaterThanOrEqual(100);
+    expect(CONFIG.net.prediction.holdAfterSnapGapMs).toBeLessThanOrEqual(300);
+  });
 });

@@ -20,38 +20,42 @@ F8 both machines → `npm run captures:pull` on the repo PC → agent reads `.di
 
 | Item | State |
 |------|--------|
-| Match A (4090 **hosts**, Intel non-host) | Death spiral **fixed** (`f0c10ba` replay cap). Smoothness improved hard. |
-| Hit delay ~1s both ways on Intel | Root-caused: cap dropped **oldest** inputs (wrong). **Shipped** `efdca62` — keep oldest, drop newest; steps 8→12. Bundle **`index-XByafoNI.js`**, Version `11e93226`. |
+| Match A smoothness (4090 hosts) | ✅ Death spiral fixed (`f0c10ba`). |
+| Hit-delay order fix | ✅ `efdca62` keep-oldest / steps 12. **Partial** on Intel — better, not enough. |
+| Match A combat retest (`efdca62` F8s cap-6/7) | ❌ **FAIL** — see decode below. |
+| Combat hold ship (this window) | ⏳ **Unpushed** local: hold prediction on snap silence / host-dead; skip-replay on overload or ≥500ms gap; shatter snaps to host death pose. Needs `ship` + retest. |
 | Match B (Intel hosts) | **Not required** until Match A combat feels honest. |
-| HOST-ROLE-1 | Real when weak hosts; not Match A failure mode. |
-| NET-PERF-2 | **Done** run-4 (decode ring pool). Do not re-solve. |
-| Capture upload | Live: F8 → `POST /api/captures`. Pull: `npm run captures:pull` needs `ERROR_LOG_TOKEN` in `.env.local` (gitignored; already set on Wyatt’s 4090). |
-| Token | Rotated 2026-07-19 into `.env.local` + Worker secret. |
+| HOST-ROLE-1 | **Live in Match A F8s** — 4090 host had **10× multi-second `resume:true` longframes** (1–7s). That *is* the snap-gap source. Keep host window focused; later: host background pump. |
+| NET-PERF-2 | **Done** run-4. Do not re-solve. |
+| Capture upload | Live: F8 → `POST /api/captures`. Pull: `npm run captures:pull` (`ERROR_LOG_TOKEN` in `.env.local`). |
 
-### Match A numbers (post-cap, pre hit-delay fix)
+### Match A combat decode (`efdca62`, cap-6 Intel / cap-7 4090)
+
+Feel (Wyatt): hit NPC → feedback then **changes**; killed by NPC → **don't see it**, death anim **where I was**.
 
 | | Host 4090 | Non-host Intel |
 |--|--|--|
-| over33 | ~0.1% | ~1.6–3% |
-| snapHz | n/a (sender) | **~38–40** (was ~13 in spiral) |
-| reconcileErrMaxM | — | 1.6 → 8.3 m (second capture) |
-| teleports | — | 0 → 4 |
-| pending age | — | ~80–130 ms |
-| replay trims | — | heavy (cap engaged) |
+| build | efdca62 | efdca62 |
+| over33 | 6 / 15k (~0%) | 58 / 6k (~1%) |
+| snapGapMax / over100 | n/a (sender) | **4746 ms** / 28 |
+| reconcileErrMaxM | — | **28.6 m** |
+| teleports / replay drops | — | 4 / 113 |
+| host longframe resume:true | **10× (1–7s)** | 2 early only |
+
+Root: host freezes starve snaps; non-host kept predicting a ghost world + death shatter used predicted pose. Oldest-input order was not the remaining bug.
 
 ---
 
 ## Next human action (only this)
 
-1. Both PCs hard-refresh until bundle **`index-XByafoNI.js`**.
-2. `?diag=1`. **4090 creates room** (host). Intel joins.
-3. Play ~1–2 min; **deliberately ram and get rammed** a few times on Intel.
-4. F8 both if still wrong (or once mid-round if good).
-5. On 4090: `npm run captures:pull`
-6. Paste console export / feel note into chat.
+1. **Ship** when Wyatt says go (`npm run ship`) — unpushed combat-hold until then.
+2. Both PCs hard-refresh to the **new** bundle name (not `index-XByafoNI.js`).
+3. `?diag=1`. **4090 creates room** (host). **Keep 4090 Chrome focused** the whole fight (no alt-tab / other-window on host PC).
+4. Intel: ram + get rammed / die a few times (~1–2 min).
+5. F8 both → `npm run captures:pull` on 4090 → paste feel.
 
-**Pass:** hits feel near-immediate on Intel (some host-auth RTT OK; full second is fail).  
-**Fail:** still ~1s late → decode F8; next levers (one only): raise `reconcileReplayMaxSteps` further, or skip-replay-on-overload (snap only), not look polish.
+**Pass:** hits don't reverse after feedback; deaths appear near the real impact (RTT lag OK; multi-second ghost fail).  
+**Fail:** still reverse-hits / late death with host focused → decode `reconcileReplaySkips` + snap gaps; next lever only if host longframes are gone.
 
 ---
 
@@ -63,7 +67,7 @@ Strict queue (still one at a time):
 2. P1 cards in console: host minimize, SD 45s, music bleed, kill-confirm, Esc directive, looks, storerooms loop.  
 3. NET-1 full two-human smoke.
 
-Parked: menu choppy on 4090 High (P0-2); taste debt (Pass 4/5); VPS talk (not indicated).
+Parked: menu choppy on 4090 High (P0-2); taste debt (Pass 4/5); VPS talk (not indicated); host background sim pump (if focused retest still shows host freezes).
 
 ---
 

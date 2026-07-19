@@ -34,9 +34,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
 | Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
-| Origin HEAD | Local ↔ origin/cart-clash at `efdca62` — hit-delay replay-order fix shipped |
-| Gates (`npm run qa`) | ✅ **457 tests / 51 files**, typecheck + knip clean |
-| Prod deploy (2026-07-19 night) | ✅ Live — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62`: keep **oldest** unacked on reconcile, steps 12). **Next: Match A combat retest** (4090 hosts, ram both ways on Intel). Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Origin HEAD | origin/cart-clash at `efdca62` (hit-delay). **Local unpushed:** combat-hold (skip-replay on overload / silence hold / death-pose snap) |
+| Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (post combat-hold) |
+| Prod deploy (2026-07-19 night) | ✅ Live — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62`). **Match A combat FAIL** on that ship (partial). Next ship = combat-hold when Wyatt says go. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | Prod deploy (2026-07-19 eve) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
 | Prod deploy (2026-07-18 eve) | ✅ superseded — bundle `index-9RzsBOgc.js`, Version `23499d21` (run-6 stack) |
 | Prod deploy (2026-07-18 pm) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-JHMFE-UK.js`** (cache-buster verified; markers `snap_gap`/`_reconcileVisOffset`/`over66` present in served bytes), Version `d42534f4`; includes the run-4 fixes: MP reconcile visual easing + camera smoothed-pose, snapshot decode ring pool, host send burst guard, `net.flow` probe + over33/66 counters, glow master 0.52 + pattern-valley lift, contact-shadow polygonOffset, splash tune + layer, non-host death sting, Sundial holo +0.9. No new DO migration. Edge served stale index.html for ~30s post-deploy (again) — cache-buster until the new bundle name appears |
@@ -73,7 +73,8 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | # | What | Status |
 |---|------|--------|
 | 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` — Intel snapHz ~40, over33 ~2% |
-| **2** | **Match A combat timing** — hit-delay fix `efdca62` / `index-XByafoNI.js` | ▶️ **Eyes-on: ram both ways on Intel** |
+| 2 | Match A combat — hit-delay order `efdca62` | ❌ **FAIL partial** (feel + F8 cap-6/7): host 10× multi-s freezes; ghost predict; death pose wrong |
+| **2b** | **Combat hold** (silence hold + skip-replay overload + death snap) | ⏳ **Unpushed** — ship + retest with **4090 focused** |
 | 3 | Match B (Intel hosts) only if needed | locked |
 | 4 | P1 console cards one-at-a-time | locked until #2 pass |
 | 5 | NET-1 two-human smoke | after perf honest |
@@ -86,8 +87,8 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **Wyatt:** open `docs/playtest/console.html` → Run 7 → stop at Gate → paste export + F8s.
-2. **Agent:** one-item triage only (no 10-fix dumps). Prefer host-role product guidance over VPS talk.
+1. **Wyatt:** `ship it` for combat-hold when ready → Match A retest with **4090 host window focused** → feel + F8.
+2. **Agent:** one-item only; do not re-triage run-1…6. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 3. Close **NET-1** after the perf story is honest ([ROADMAP](./planning/ROADMAP.md) Phase 4).
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -168,7 +169,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (hit-delay + window handoff) — **Shipped `efdca62` / bundle `index-XByafoNI.js` / Version `11e93226`:** reconcile trim keeps **oldest** unacked (continuous after host ack), drops newest; `reconcileReplayMaxSteps` 8→12. Cap had fixed smoothness but wrong drop order made combat feel ~1s late. **Next eyes:** Match A ram both ways on Intel. **New-window handoff:** [planning/handoff-next-window.md](./planning/handoff-next-window.md). F8 remote pull live (`/api/captures` + `npm run captures:pull`).
+2026-07-19 (Match A combat FAIL → combat-hold, unpushed) — Wyatt retest on `efdca62` / `index-XByafoNI.js`: better on Intel but not much; hit feedback then reverses; NPC kill invisible then death anim where predicted. F8 **cap-6/7 build efdca62**: Intel `snapGapMaxMs=4746`, `reconcileErrMaxM=28.6m`, drops 113; **4090 host 10× resume longframes 1–7s** (authority freeze = everyone's late combat). **Local fix (unpushed):** non-host holds prediction when snap silence >150ms or host-dead; skip Rapier replay when cap drops inputs or arrival gap ≥500ms; fall shatter hard-snaps victim to same-snap host pose. Gates **458/51**. **Next:** ship + retest with host focused. Handoff updated.
+
+2026-07-19 (hit-delay + window handoff) — **Shipped `efdca62` / bundle `index-XByafoNI.js` / Version `11e93226`:** reconcile trim keeps **oldest** unacked (continuous after host ack), drops newest; `reconcileReplayMaxSteps` 8→12. Cap had fixed smoothness but wrong drop order made combat feel ~1s late. Combat retest → FAIL partial (entry above).
 
 2026-07-19 (Run 7 Match A decode → one fix) — **Match A FAILED with 4090 host.** Death spiral = unbounded Rapier replay. **Shipped `f0c10ba`:** pending max 120→24 + replay step cap. Retest: smoothness **much better**; combat still late → hit-delay fix above.
 
