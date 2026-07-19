@@ -481,10 +481,13 @@ export const CONFIG = {
     },
 
     // * IBL (Image-Based Lighting) — RoomEnvironment PMREM on scene.environment.
-    // * intensity scales all MeshStandardMaterial envMapIntensity; tune in postFxDebug (H / ?debug).
+    // * intensity drives scene.environmentIntensity — the only knob that scales IBL for
+    // * materials inheriting scene.environment (three r152+ ignores their envMapIntensity).
+    // * materialEnvMapIntensity only affects materials with an OWNED envMap reference
+    // * (arena floor clampFloorEnv, sunglasses lens) — see the STATUS gotcha before tuning.
     environment: {
-      intensity: 0.6, // unitless — global IBL multiplier
-      materialEnvMapIntensity: 0.4, // unitless — base per-material reflectivity (× intensity)
+      intensity: 0.6, // unitless — global IBL multiplier (scene.environmentIntensity)
+      materialEnvMapIntensity: 0.4, // unitless — base reflectivity for owned-envMap materials only
     },
 
     // * UnrealBloomPass tuning — see applyBloomSettings() in scene.js.

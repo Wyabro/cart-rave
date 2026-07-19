@@ -2274,13 +2274,9 @@ async function main() {
     // * Bloom pipeline: default ?bloompipe=display keeps UnsignedByte + post-tonemap
     // * bloom on every level (no float↔byte mip rebuild when swapping into Storerooms).
     // * ?bloompipe=hdr restores the old split (Classic/Sundial HDR, Storerooms display).
-    // * ?rtmode still forces a global mode for VFX-1 A/B.
-    if (!getDebugParams().rtmodeExplicit) {
-      const pipe = getDebugParams().bloomPipe;
-      const mode =
-        pipe === "display" || resolved === "backrooms" ? "display" : "hdr";
-      setBloomPipeline({ composer, bloomPass, outputPass }, mode, { levelId: resolved });
-    }
+    const bloomPipeMode =
+      getDebugParams().bloomPipe === "display" || resolved === "backrooms" ? "display" : "hdr";
+    setBloomPipeline({ composer, bloomPass, outputPass }, bloomPipeMode, { levelId: resolved });
     // * ?ablate=vhs / postmin must still win after level VHS turn-on.
     applyPostFxAblation({ bloomPass, arcadePass: fxPass, fxaaPass, outputPass });
     // * Test Drive bloom rides resolveDisplayBloomConfig (BLOOM_DISPLAY_TESTDRIVE)

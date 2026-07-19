@@ -548,24 +548,6 @@ export function initPostFxDebugGui(deps) {
     syncBloom();
   });
 
-  // — Composer / RT (VFX-1 A/B) — needs a composer rebuild, so these reload the page —
-  const rtFolder = pane.addFolder({ title: "Composer / RT (reload)", expanded: false });
-  allFolders.push(rtFolder);
-  const rtUi = { rtmode: getDebugParams().rtmode };
-  rtFolder.addBinding(rtUi, "rtmode", {
-    options: { half: "half", float: "float", byte: "byte", bloombyte: "bloombyte", bloomfix: "bloomfix" },
-    label: "rtmode",
-  }).on("change", (ev) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("rtmode", ev.value);
-    window.location.href = url.toString();
-  });
-  rtFolder.addButton({ title: "Clear rtmode (per-level default)" }).on("click", () => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("rtmode");
-    window.location.href = url.toString();
-  });
-
   // — Arcade FX —
   const arcadeFolder = pane.addFolder({ title: "Arcade FX" });
   allFolders.push(arcadeFolder);

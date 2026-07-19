@@ -15,7 +15,6 @@
  *   ?hud=0                                — hide main menu chrome (clean arena shots)
  *   ?perfPump                             — existing (utils/perfPump.js)
  *   ?blackmon=1                           — live black-frame flicker monitor (VFX-1, real HW)
- *   ?rtmode=half|float|byte|bloombyte|bloomfix — composer/bloom RT A/B (VFX-1; half=default)
  *   ?floor=og|v2                              — Classic vinyl floor (default og = jam matte
  *                                               + dark Reflector; v2 = old clearcoat stack)
  *   ?bloom=v2|mid|og                          — UnrealBloom *knobs* A/B (mostly HDR path;
@@ -52,8 +51,6 @@
  * @property {boolean} harness
  * @property {boolean} hideHud
  * @property {boolean} blackmon
- * @property {"half" | "float" | "byte" | "bloombyte" | "bloomfix"} rtmode
- * @property {boolean} rtmodeExplicit
  * @property {{ threshold?: number, strength?: number, radius?: number, smoothWidth?: number } | null} bloomTune
  * @property {"og" | "v2"} floor Classic High vinyl profile (see ?floor=)
  * @property {"v2" | "mid" | "og"} bloom Bloom knob profile (see ?bloom=)
@@ -179,21 +176,7 @@ function parseDebugParams(search) {
     params.get("blackmon") !== "0" &&
     params.get("blackmon") !== "false";
 
-  // * Composer RT type A/B for the VFX-1 HalfFloat flicker. Absent → "half" (today's
-  // * default path, byte-identical). float=RGBA32F composer; byte=UnsignedByte composer
-  // * (known stable/bad-grade control); bloombyte=HalfFloat composer + UnsignedByte
-  // * bloom mips only (half-res bloom chain suspect).
-  const rtRaw = (params.get("rtmode") || "").trim().toLowerCase();
-  /** @type {"half" | "float" | "byte" | "bloombyte" | "bloomfix"} */
-  const rtmode =
-    rtRaw === "float" || rtRaw === "byte" || rtRaw === "bloombyte" || rtRaw === "bloomfix"
-      ? rtRaw
-      : "half";
-  // * Explicit ?rtmode forces one pipeline on every level (debug A/B); absent lets the
-  // * per-level default win (HDR everywhere, display-referred bloom on Storerooms only).
-  const rtmodeExplicit = params.has("rtmode");
-
-  // * VFX-1 bloomfix live tuning: ?bloomthr / bloomstr / bloomrad / bloomsmooth override
+  // * Display-referred bloom live tuning: ?bloomthr / bloomstr / bloomrad / bloomsmooth override
   // * the active bloom knobs so display-referred bloom can be dialed in during a real
   // * playtest without a rebuild. Any subset; absent keys keep the config value.
   const bloomNum = (key) => {
@@ -239,8 +222,6 @@ function parseDebugParams(search) {
     harness: harness || Boolean(params.get("ablate")) || Boolean(cam) || postmin || hideHud,
     hideHud,
     blackmon,
-    rtmode,
-    rtmodeExplicit,
     bloomTune,
     floor,
     bloom,

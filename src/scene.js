@@ -15,30 +15,9 @@ import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils
 import { getDebugParams } from "./utils/debugParams.js";
 
 /**
- * VFX-1 A/B: maps ?rtmode to composer + bloom-mip texture types. `half` (default)
- * returns nulls so the pipeline is byte-identical to production. See debugParams.
- * @param {"half" | "float" | "byte" | "bloombyte" | "bloomfix"} rtmode
- * @returns {{ composerType: import("three").TextureDataType | null, bloomType: import("three").TextureDataType | null, bloomAfterOutput: boolean, label: string }}
- */
-function resolveRtModeTypes(rtmode) {
-  switch (rtmode) {
-    case "float":
-      return { composerType: THREE.FloatType, bloomType: THREE.FloatType, bloomAfterOutput: false, label: "RGBA32F composer+bloom" };
-    case "byte":
-      return { composerType: THREE.UnsignedByteType, bloomType: THREE.UnsignedByteType, bloomAfterOutput: false, label: "UnsignedByte composer+bloom" };
-    case "bloombyte":
-      return { composerType: null, bloomType: THREE.UnsignedByteType, bloomAfterOutput: false, label: "HalfFloat composer + UnsignedByte bloom mips (pre-tonemap)" };
-    case "bloomfix":
-      return { composerType: null, bloomType: THREE.UnsignedByteType, bloomAfterOutput: true, label: "HalfFloat composer + display-referred UnsignedByte bloom (candidate fix)" };
-    default:
-      return { composerType: null, bloomType: null, bloomAfterOutput: false, label: "HalfFloat (default)" };
-  }
-}
-
-/**
  * Rebuilds UnrealBloomPass mip render targets to a given texture type and
  * re-points the composite material's blurTexture uniforms (bound once in the
- * pass constructor). Used by ?rtmode to isolate the half-res bloom chain.
+ * pass constructor). Used by setBloomPipeline to swap HalfFloat↔UnsignedByte mips.
  * @param {UnrealBloomPass} bloomPass
  * @param {import("three").TextureDataType} type THREE texture type
  */
@@ -164,6 +143,12 @@ let materialEnvMapIntensityLive = CONFIG.postFx.environment.materialEnvMapIntens
  * Per-material envMapIntensity = materialEnvMapIntensity × environmentIntensity.
  * Used by cart frame glow and scene-wide material refresh.
  *
+ * NOTE (three r152+): this value is only LIVE for materials with an owned envMap
+ * reference (arena floor clampFloorEnv, sunglasses lens). Materials inheriting
+ * scene.environment ignore their envMapIntensity — scene.environmentIntensity is
+ * the knob that scales them (see setEnvironmentIntensity / STATUS gotcha). Call
+ * sites keep the per-surface scales as design intent, but they render inert.
+ *
  * @returns {number}
  */
 export function getMaterialEnvMapIntensity() {
@@ -218,6 +203,8 @@ export function getEnvironmentIntensity() {
 
 /**
  * Updates envMapIntensity on all scene materials that support it.
+ * Only materials with an owned envMap actually respond (see getMaterialEnvMapIntensity
+ * note); the rest take the write but three ignores it against scene.environment.
  *
  * @param {THREE.Scene} scene
  */
@@ -922,7 +909,7 @@ function reorderBloomVsOutput(composer, bloomPass, outputPass, bloomAfter) {
  * VFX-1: float bloom mips flicker on Storerooms; display-referred bytes fix it.
  * Unified `?bloompipe=display` (default) runs that path on every level so arena
  * swaps never rebuild float↔byte mips. `?bloompipe=hdr` restores the old split.
- * Cheap no-op when already in the requested mode. `?rtmode` still overrides.
+ * Cheap no-op when already in the requested mode.
  *
  * @param {{ composer: EffectComposer, bloomPass: UnrealBloomPass, outputPass: import("three/examples/jsm/postprocessing/Pass.js").Pass }} parts
  * @param {"hdr" | "display"} mode
@@ -984,17 +971,12 @@ export function setBloomPipeline(parts, mode, opts = {}) {
  * @returns {{ composer: EffectComposer, bloomPass: UnrealBloomPass, arcadePass: ShaderPass, fxaaPass: ShaderPass, outputPass: OutputPass }}
  */
 export function createComposer(renderer, scene, camera) {
-  // * VFX-1 A/B (?rtmode): default "half" → composerRT undefined → EffectComposer builds
-  // * its stock HalfFloat RT. Unified display pipe (?bloompipe=display, default) forces
-  // * bloom-after-Output + UnsignedByte mips unless ?rtmode is explicit.
+  // * Unified display pipe (?bloompipe=display, default): bloom after OutputPass with
+  // * UnsignedByte mips on every level (the VFX-1 fix). ?bloompipe=hdr restores the old
+  // * split — HalfFloat mips, bloom pre-tonemap (per-level mode set via setBloomPipeline).
   const dbg = getDebugParams();
-  const rt = resolveRtModeTypes(dbg.rtmode);
-  let { composerType, bloomType, bloomAfterOutput, label } = rt;
-  if (!dbg.rtmodeExplicit && dbg.bloomPipe === "display") {
-    bloomAfterOutput = true;
-    if (bloomType == null) bloomType = THREE.UnsignedByteType;
-    label = "unified display-referred UnsignedByte bloom (all levels)";
-  }
+  const bloomAfterOutput = dbg.bloomPipe === "display";
+  const bloomType = bloomAfterOutput ? THREE.UnsignedByteType : null;
   // * Boot level from URL/bookmark if present so neon vs Storerooms knobs start right.
   const bootLevel = dbg.level;
   const baseBloom = bloomAfterOutput
@@ -1010,7 +992,7 @@ export function createComposer(renderer, scene, camera) {
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.log(
-      `[bloom] pipe=${dbg.bloomPipe}${dbg.rtmodeExplicit ? ` rtmode=${dbg.rtmode}` : ""} ${bloomAfterOutput ? "display-referred" : `HDR profile=${dbg.bloom}`}`,
+      `[bloom] pipe=${dbg.bloomPipe} ${bloomAfterOutput ? "display-referred" : `HDR profile=${dbg.bloom}`}`,
       {
         threshold: bloomCfg.threshold,
         strength: bloomCfg.strength,
@@ -1019,23 +1001,7 @@ export function createComposer(renderer, scene, camera) {
       },
     );
   }
-  let composerRT;
-  if (composerType != null) {
-    const size = renderer.getSize(new THREE.Vector2());
-    const pr = renderer.getPixelRatio();
-    composerRT = new THREE.WebGLRenderTarget(
-      Math.max(1, Math.floor(size.x * pr)),
-      Math.max(1, Math.floor(size.y * pr)),
-      { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: composerType },
-    );
-    composerRT.texture.name = "EffectComposer.rt1";
-  }
-  if (import.meta.env.DEV && (dbg.rtmodeExplicit || dbg.bloomPipe === "display")) {
-    // eslint-disable-next-line no-console
-    console.log(`[bloomBoot] ${label}`);
-  }
-
-  const composer = new EffectComposer(renderer, composerRT);
+  const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   renderPass.clearColor = new THREE.Color(getFogColor());
   composer.addPass(renderPass);
@@ -1078,11 +1044,12 @@ export function createComposer(renderer, scene, camera) {
   // * render target), and mid-tones displayed darker/more saturated than authored.
   const outputPass = new OutputPass();
 
-  // * Pass order. Default (HDR): bloom thresholds linear HDR, then tone-map+encode,
-  // * then arcade FX + FXAA on the display-referred LDR image. bloomfix (VFX-1):
-  // * tone-map FIRST, then bloom on the already-0..1 image — so the UnsignedByte bloom
-  // * mips (which fix the flicker) receive clamped values and don't blow HDR highlights
-  // * into plastic halos the way pre-tonemap byte bloom does.
+  // * Pass order. HDR split (?bloompipe=hdr): bloom thresholds linear HDR, then
+  // * tone-map+encode, then arcade FX + FXAA on the display-referred LDR image.
+  // * Display pipe (default, the VFX-1 fix): tone-map FIRST, then bloom on the
+  // * already-0..1 image — so the UnsignedByte bloom mips (which fix the flicker)
+  // * receive clamped values and don't blow HDR highlights into plastic halos the
+  // * way pre-tonemap byte bloom does.
   if (bloomAfterOutput) {
     composer.addPass(outputPass);
     composer.addPass(bloomPass);
