@@ -1,11 +1,11 @@
 # Handoff — next agent window (Run 7 · P0 mid-flight)
 
-**Date:** 2026-07-19 (P0 menu card coded — unpushed)  
+**Date:** 2026-07-19 (P0 menu card SHIPPED — F8 retest pending)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`5bfe7e5`** (prod still this until ship)  
-**Local:** unpushed idle-shader warm in `bootstrapWorldCore` (see P0 below)  
+**Origin HEAD:** **`67059ad`** (deployed)  
+**Local:** clean — nothing unpushed  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-D3QXm4Qq.js`** (Version `f94266c2`, build sha **`5bfe7e5`**)  
+**Live client bundle:** **`index-CEjuO4Z7.js`** (Version `be5c1fb1`, build sha **`67059ad`**; `idle-shader-start` verified in served bytes)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
@@ -71,7 +71,7 @@ F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
 
 ### P0 — Host multi-second freezes under 2-human load (focused 4090)
 
-**Status:** Open. Menu sub-card **coded unpushed**.
+**Status:** Open. Menu sub-card **SHIPPED** (`be5c1fb1` / `index-CEjuO4Z7.js`) — **F8 retest is the next step** (menu sit ~15s + one round, both machines hard-refreshed).
 
 **Menu multi-s (this window — done in tree, not shipped):**
 

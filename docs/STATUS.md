@@ -51,8 +51,8 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **522/57** after the 07-19 polish pass (adds yawExtraction + gameFlowTimerExpiry suites) — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
 | Origin HEAD | Local ↔ origin/cart-clash at **`5bfe7e5`** — ko_path rolled back; longtask kept |
-| Prod deploy (2026-07-19 P0 land) | ✅ Live — **bundle `index-D3QXm4Qq.js`**, Version `f94266c2` (`5bfe7e5`; `longtask`/`ltN` present, `ko_path` **absent** in served bytes) |
-| Prior deploys (07-17 → 07-19) | ✅ superseded — ~15 ships; per-ship bundle/Version/sha + what each carried live in the dated log entries below and [archive/](./archive/README.md). Only the row above is current truth. |
+| Prod deploy (2026-07-19 night, P0 menu warm) | ✅ Live — **bundle `index-CEjuO4Z7.js`**, Version `be5c1fb1` (sha `67059ad`; served bytes verified: `idle-shader-start` present + sha stamp). Carries the full pending stack: P0 menu idle-shader warm (`ebf4c9d`), RC bug-hunt 7 fixes (`7dba78d`), pre-release polish (`2cbc7d2`), netharness readiness-poll (`f5ab8db`), Command Center v3 (`67059ad`, tooling/docs only). **F8 menu retest = the open gate.** |
+| Prior deploys (07-17 → 07-19) | ✅ superseded — ~16 ships; per-ship bundle/Version/sha + what each carried live in the dated log entries below and [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -95,7 +95,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu card coded (unpushed)** — first attract compile after `world-ready` (caps 45–51). Idle warm now `compileAsync`+composer prime **before** world-ready. Retest F8; mid-round/post-fall still open |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu card SHIPPED** (`be5c1fb1` / `index-CEjuO4Z7.js`) — idle warm `compileAsync`+composer prime before world-ready. **F8 retest pending**; mid-round/post-fall still open |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -109,7 +109,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **ship it** when ready (menu idle-shader warm) → hard-refresh both machines → F8 host after sitting on menu ~15s + one round; pull captures. Expect: `idle-shader-start/end` before `world-ready`; no multi-s longtask *after* world-ready from first attract.
+1. Wyatt: **F8 retest on the new build** — hard-refresh both machines until `index-CEjuO4Z7.js` is served, sit on menu ~15s, F8 host, then one round + F8 again; `npm run captures:pull`. Expect: `idle-shader-start/end` before `world-ready`; no multi-s longtask *after* world-ready from first attract.
 2. If menu clean but mid-round multi-s remains → **post-fall frame** card (cap-47 KO cascade 2.3–2.5s; fall path already cleared).
 3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -190,7 +190,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (analytics-view + leaderboard re-flag — docs only, **unpushed**, additive to the merge below) — Wyatt asked whether player analytics + Supabase leaderboard were noted. Analytics harness is **already shipped/live** (observability §2); gap = no reading surface → new **ANLX-VIEW-1** (Medium: `npm run analytics` CLI and/or Command Center panel). Leaderboard was filed Low/post-launch in 4 docs → bumped **Medium** with the TRUST-1 chain intact; **scope call open for Wyatt** (ship-with vs launch-follow-up); `match_ended` analytics noted as the stats starting point.
+2026-07-19 (SHIPPED — P0 menu warm + RC stack + Command Center v3) — **`67059ad` pushed to origin/cart-clash; deployed as bundle `index-CEjuO4Z7.js` / Version `be5c1fb1`.** Served-bytes verified: new bundle in index.html, `idle-shader-start` marker + `67059ad` stamp present. This deploy takes live everything that was waiting: P0 menu idle-shader warm (`ebf4c9d`), RC bug-hunt fixes incl. the 3 behavior-changing ones (`7dba78d` — AI cautious-phase, RESTART, host-reap; **human MP validation still owed**), pre-release polish (`2cbc7d2`), Command Center v3 + backlog merge (`67059ad`, no runtime effect). Gates at ship: qa **549/57** green. **Next: the F8 menu retest** (next-action #1); `.claudeignore` left untracked (not this session's file).
+
+2026-07-19 (analytics-view + leaderboard re-flag — docs only, additive to the merge below) — Wyatt asked whether player analytics + Supabase leaderboard were noted. Analytics harness is **already shipped/live** (observability §2); gap = no reading surface → new **ANLX-VIEW-1** (Medium: `npm run analytics` CLI and/or Command Center panel). Leaderboard was filed Low/post-launch in 4 docs → bumped **Medium** with the TRUST-1 chain intact; **scope call open for Wyatt** (ship-with vs launch-follow-up); `match_ended` analytics noted as the stats starting point.
 
 2026-07-19 (personal pre-ship backlog merged — docs only, **unpushed**) — Wyatt's 18-item gameplay/UX/polish list merged into [BACKLOG.md](./planning/BACKLOG.md) with his High/Med/Low tiers, tagged *(pre-ship 07-19)*; new **UI / UX** section. Highlights: CARGO-WT-1 grocery weight risk/reward (+ CARGO-VIS-1 basket visuals), AI-DIFF-1 difficulty modes (promotes the existing proposal), HIT-FEEL-1, INPUT-KB-1 keyboard parity, RESULTS-1, MP-FX-1 non-host VFX (folds into queue P2 evidence). Deduped against existing rows — controller-nav row absorbs the RC-hunt gamepad modal-scoping bug; ESC-panel row notes the 07-19 partial refresh. **Parked, not queued** — Run 7 mission unchanged; pickup is the Release-candidate phase.
 
