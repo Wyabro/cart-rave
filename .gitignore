@@ -25,6 +25,9 @@ shots/
 # Diagnostic bug-capture bundles (JSON + screenshots from the harness rigs)
 .diag-captures/
 
+# Grok's local browser-automation scratch (not part of the toolchain)
+tools/browser/
+
 # PartyKit deploy staging (copied from dist/ during ship)
 party-static/
 # Wrangler local state
