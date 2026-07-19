@@ -15,6 +15,7 @@ import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarn
 import { installNetTestHarness } from "./utils/netTestHarness.js";
 import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
+import { installLongTaskProbe } from "./utils/longTaskProbe.js";
 import { installGameplayAnalytics } from "./analytics/gameplayAnalytics.js";
 import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
@@ -5041,6 +5042,9 @@ async function main() {
     // * mutation route. Run-6: also attached in prod builds under ?diag=1 (host-gated;
     // * see the devControl creation note) so live MP round-end bugs are reproducible.
     installDiagnostics({ flags: diagUrlFlags(), control: devControl });
+    // * Run-7 P0: Long Task observer so multi-second host freezes attribute to a
+    // * main-thread task (or empty lt[] + focus flags) on the next friend F8.
+    installLongTaskProbe();
     installGameplayDiagnostics({
       getCarts: () => allCartsRef,
       getNetSlots: () => Netcode.getNetSlots(),

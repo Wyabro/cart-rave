@@ -68,38 +68,36 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 — one-at-a-time.** Full cold handoff for a **new agent window:**
+**Run 7 — post friend playtest.** Cold handoff (priority P0→P6):
 [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
-### Active queue (strict)
+### Active queue (strict — one at a time)
 
 | # | What | Status |
 |---|------|--------|
-| 1 | Match A smoothness (4090 hosts) — death spiral | ✅ Fixed `f0c10ba` |
-| 2 | Hit-delay order `efdca62` | ✅ shipped; combat still FAIL partial |
-| 2b | Combat hold `4a9f7f8` | ✅ partial pass (errMax 4m, localKos 1) |
-| 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
-| 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
-| 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
-| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **tHost arrival live** — **`1adef95` / `index-CHXFyLNA.js`**. Next: Match A F8 both; non-host snapGaps should track host sendGaps. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
-| 3 | Match B (Intel hosts) only if needed | locked until 2e |
-| 4 | P1 console cards one-at-a-time | locked until hitches honest |
-| 5 | NET-1 two-human smoke | after perf honest |
-| 6 | P0-2 menu choppy on 4090 High | parked |
+| 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
+| 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Forensics + longtask probe unpushed** — cap-38: multi-s `resume` gaps (not chronic GPU); 2nd host death clean so not pure death path; next F8 needs `lt[]`/`focused` |
+| P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
+| P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
+| P3 | Friend MP join 58s resume hitch | after stream honest |
+| P4 | Solo rematch ~8s hitch (9070, cap-41) | after 2-human |
+| P5 | Solo bot/rim death feel | taste / AI |
+| P6 | AI diag probe empty mid-round | tooling only |
+| NET-1 | Two-human full-round smoke | after P0–P1 green |
+| Match B / P1 cards / P0-2 menu | locked / parked | |
 
-Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md),
-[playtest-triage-2026-07-18.md](./planning/playtest-triage-2026-07-18.md),
-[playtest-triage-2026-07-18-run5.md](./planning/playtest-triage-2026-07-18-run5.md),
-[playtest-triage-2026-07-18-run6.md](./planning/playtest-triage-2026-07-18-run6.md).
+Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **2e only** — Match A F8 both on **`index-CHXFyLNA.js`** (hard-refresh).
-2. Pass: non-host `snapGapsOver100` nearer host `sendGapsOver100`; host still clean mid-round.
-3. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+1. **Ship P0 longtask probe** on Wyatt “ship it” → hard-refresh both → short 2-human retest with F8 on host after any multi-s hitch.
+2. Decode host longframe: `hidden`/`focused` + `lt[]` (Long Tasks during gap). Then **one** lever from evidence (not guess).
+3. Pass: no multi-second host_send_gap / friend snap_gap mid-round; friend combat errMax/tele drop.
+4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
 
@@ -177,9 +175,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (dashboard capture triage, separate Claude session — tools only) — `npm run dashboard` now sees remote F8 pulls: `collectCaptures` scans `.diag-captures/playtest/` (previously invisible — the dashboard showed 1 local soak bundle while 20+ pulled caps sat unseen), merges the `cap-N-meta.json` server sidecars into cards (id, host/non-host, tier, build) instead of rendering them as junk, and orders by mtime+capturedAt (filename sort buried cap-10+ under cap-9). Cards get a **build chip** — green when the stamp matches the newest captured build ("from the retest build?"), amber when older; git HEAD deliberately not the reference (docs commits outrun deploys). Summary line prints the newest cap id/build/age. Verified live: 20 caps, newest #24 `19e5cd9`, 7 green / 13 amber.
+2026-07-19 (P0 forensics — **unpushed**) — Cap-38 dig: freezes are multi-s `resume:true` rAF gaps (over33 only 20 whole match — not chronic GPU). Starts align with GO + first host KO + one NPC fall, but **2nd host death at t=156649 had no multi-s freeze** → not a pure death/shatter path. No F8s newer than #41. **Lever:** `?diag` Long Task observer + longframe stamps `hidden`/`vis`/`focused`/`lt[]` (`src/utils/longTaskProbe.js`). Gates: **qa 514/55** green. **Not shipped** — await “ship it”, then friend retest F8.
 
-2026-07-19 (2e tHost arrival **shipped**) — **`1adef95` / `index-CHXFyLNA.js` / Version `2c88c7d9`**. Snap gaps + silence/hold/skip use host `tHost` domain. Served sha verified. **Next:** Match A F8 both.
+2026-07-19 (friend playtest decode + handoff) — 2-human caps **31–40** (4090 host / 9070 XT non-host): multi-s host freezes = friend tHost gaps; late friend snap o100 **117** vs host send o100 **6**; combat errMax **11.2 m**, tele **15**, localKos **0**. Solo cap-**41**: no net desync; rematch ~8s hitch; AI probe empty. Handoff **P0→P6**: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
+
+2026-07-19 (dashboard capture triage, separate Claude session — tools only) — `npm run dashboard` now sees remote F8 pulls: `collectCaptures` scans `.diag-captures/playtest/`, merges `cap-N-meta.json` sidecars, mtime order, build chip vs newest capture.
+
+2026-07-19 (2e tHost arrival **shipped**) — **`1adef95` / `index-CHXFyLNA.js` / Version `2c88c7d9`**. Lab dual-PC pass; friend 2-human still fails (entry above).
 
 2026-07-19 (2e announcer warm **shipped**) — **`716ec2f` / `index-B1V-NCgO.js` / Version `1dce77ac`**. Cap-25/26: host mid-round freezes gone; combat drops 43→0.
 

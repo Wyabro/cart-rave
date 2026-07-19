@@ -22,6 +22,7 @@
 
 import { Howler } from "howler";
 import { registerDiagProbe, recordDiagEvent } from "./diagnostics.js";
+import { getLongTaskStats } from "./longTaskProbe.js";
 import { getSessionRenderScaleMul } from "./qualityTiers.js";
 import { readBootTimeline } from "./bootTimeline.js";
 import { isLegalPhaseTransition } from "./invariants.js";
@@ -237,6 +238,8 @@ function registerProbes(deps) {
     return {
       loop: w.__ccLoopDbg ?? null,
       visual: w.__cartRave?.stats ? safeCall(() => w.__cartRave.stats()) : null,
+      // * Run-7 P0: Long Task observer counters (empty until installLongTaskProbe).
+      longtask: safeCall(() => getLongTaskStats()) ?? null,
     };
   });
 

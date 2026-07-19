@@ -4,6 +4,7 @@ import { captureCartsPhysicsPrevPoses } from "./entities.js";
 import { isShatterAnimating } from "./cartShatter.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
+import { getFocusSnapshot, longTasksForGap } from "./utils/longTaskProbe.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 
@@ -721,9 +722,24 @@ export function runGameLoop(loopState, callbacks) {
         // * timestamps, so an F8 bundle shows WHEN the hitches hit relative to KOs,
         // * announcer lines, and boot phases — maxDt alone can't. Rate-limited so a
         // * hitch storm can't flush the ring.
+        // * Run-7 P0: also stamp focus/visibility + overlapping Long Tasks so the next
+        // * friend F8 can separate main-thread blocks (lt[]) from alt-tab/occlusion
+        // * (hidden/focused) and empty-lt scheduled gaps (Chrome/GPU wait).
         if (dt > 0.1 && now - _lastLongFrameLogMs > 500) {
           _lastLongFrameLogMs = now;
-          recordDiagEvent("perf", "longframe", { dtMs: Math.round(dt * 1000), resume: isResume });
+          const dtMs = Math.round(dt * 1000);
+          const gapStart = now - dt * 1000;
+          const focus = getFocusSnapshot();
+          const lt = longTasksForGap(gapStart, now);
+          recordDiagEvent("perf", "longframe", {
+            dtMs,
+            resume: isResume,
+            hidden: focus.hidden,
+            vis: focus.vis,
+            focused: focus.focused,
+            lt,
+            ltN: lt.length,
+          });
         }
       }
       if (isResume) {

@@ -1,167 +1,202 @@
-# Handoff — next agent window (Run 7 · **2e host hitch**)
+# Handoff — next agent window (Run 7 · **post friend playtest**)
 
-**Date:** 2026-07-19 (2e tHost arrival **live**)  
+**Date:** 2026-07-19 (friend 2-human + friend solo F8 decode)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`1adef95`** (host-domain snap gaps + silence)  
+**Origin HEAD:** expect **`1adef95`** on remote; **P0 longtask probe unpushed** locally  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-CHXFyLNA.js`** (Version `2c88c7d9`)  
+**Live client bundle:** **`index-CHXFyLNA.js`** (Version `2c88c7d9`, build sha `1adef95`) — no longtask fields until ship  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
 **Do not** re-solve NET-PERF-2 (decode ring pool).  
-**Do not** dump another prediction/reconcile knob pass unless new F8s prove combat reverse is back.
+**Do not** re-open combat skip-replay / phantom pending / hit-delay order unless new F8s prove regression.  
+**Do not** multi-lever dump — one card at a time.
 
 ---
 
-## One rule for this phase
+## One rule
 
-**One change (or one validation / forensics card) at a time.** No multi-lever dumps.  
+**One change (or one forensics card) at a time.**  
 Playtest console: [docs/playtest/console.html](../playtest/console.html).  
-F8 both machines → `npm run captures:pull` → read `.diag-captures/playtest/`.
+F8 both (or solo) → `npm run captures:pull` → `.diag-captures/playtest/`.
 
 ---
 
-## Where we are (truth)
+## What already shipped this arc (do not redo)
 
 | Item | State |
 |------|--------|
-| Match A smoothness (4090 hosts) | ✅ Death spiral fixed (`f0c10ba` replay cap). |
-| Hit-delay order (oldest unacked) | ✅ `efdca62` |
+| Match A death spiral (replay cap) | ✅ `f0c10ba` |
+| Hit-delay oldest unacked | ✅ `efdca62` |
 | Combat hold + death pose | ✅ `4a9f7f8` |
 | Phantom pending clear | ✅ `732e2d6` |
-| TURN secrets on prod | ✅ `CF_ACCOUNT_ID` / `CF_CALLS_KEY_ID` / `CF_API_TOKEN` + `ERROR_LOG_TOKEN` (cap-10 was `snapCount:0` until secrets set). |
-| Workers **Paid** + Logs | ✅ Paid; `observability` on (`601b8e8`). |
-| Skip-replay only on long snap gap | ✅ **`1a2f242` / `index-Cw19iE04.js`** — not on oldest-N truncate. |
-| Match A combat reverse | ✅ **Pass enough** — Wyatt feel better; cap-16 **skips=0**, localKos **2**, snapGapMax **181ms** (was 3665). |
-| **Host hitch / invisible kills** | ▶️ **tHost arrival live** — `1adef95` / `index-CHXFyLNA.js`; awaiting F8 retest |
-| Match B (Intel hosts) | Locked until 2e honest enough. |
-| NET-PERF-2 | Done run-4. Do not re-solve. |
+| Skip-replay only on long snap gap | ✅ `1a2f242` / combat pass-enough on Intel |
+| Host send cadence probe | ✅ `19e5cd9` (`sendGapsOver100`, `host_send_gap`) |
+| Await announcer pack at play-entry | ✅ `716ec2f` — dual-PC clean pair (cap-29/30) host freezes gone |
+| Snap gap + silence use host **tHost** | ✅ `1adef95` — stops client wall-clock false gaps |
+| TURN / Paid / Logs | ✅ secrets + Workers Paid |
 
-### Combat F8 scoreboard (do not re-decode from scratch)
-
-| Build | Cap | Intel errMax | teleports | drops / **skips** | localKos | snapGapMax | Host longframes | Feel |
-|-------|-----|--------------|-----------|-------------------|----------|------------|-----------------|------|
-| `efdca62` | 6/7 | **28.6 m** | 4 | 113 / — | 0 | large | **10× (1–7s)** | Hit reverse; death where predicted |
-| `4a9f7f8` | 8/9 | **4.2 m** | 1 | 40 / **6** | 1 | large | **6× (0.5–8s)** | Better hits; phantom after respawn |
-| `601b8e8` no TURN | 10 | — | — | — / — | 0 | — | — | **snapCount 0** — host invisible, NPCs frozen (WS ok) |
-| `601b8e8` + TURN | 12/13 | **5.3 m** | 1 | 3 / **4** | 0 | **3665** | host 7.3s shader + mid 200–300ms | Reverse hard mid-fight |
-| **`1a2f242`** | **16/17** | 7.4 (1 tele) | 1 | 12 / **0** | **2** | **181** | host post-GO **303/526ms**; over33=27 | **Combat better**; residual hitch feel; **invisible kills** |
-
-**Cap-16 combat fix proof:** `reconcileReplaySkips: 0` (was 4). Truncate still drops newest under max steps but **replays** continuous oldest-N. Steady snapHz ~full.
-
-**Invisible kill (Wyatt):** non-host scored KO (`localKos`) but **never saw the hit**. Expected under host silence ≥~150ms: prediction holds → host resolves ram on buffered inputs → fall/kill credit arrives on next snaps without a local impact beat. Forensics target is **host main-thread / send stall**, not another reconcile order tweak — but see **confound below**.
-
-### Host hitch forensics (2026-07-19 dig — cap-16/17 only; no newer F8s)
-
-**Not** `document.hidden` / alt-tab. Wyatt keeps 4090 focused. Remote list still tops at #17.
-
-#### Cap-17 (4090 host, High, classicRecord, `1a2f242`)
-
-| t (perf ms) | Event | Notes |
-|-------------|--------|--------|
-| 11741 | carts-ready | shader warm only ~200ms (fine vs cap-15's 7.3s) |
-| 11800 | longframe **229ms** resume=false | first frames after overlay |
-| 14443 | longframe **131ms** | beside countdown_2 VO |
-| 15865/15871 | running + GO | |
-| 17080 | longframe **303ms** resume=true | ~1.2s after GO |
-| 18806 | longframe **526ms** resume=true | ~3s after GO |
-| 21130+ | first KO / PA flood | **zero** further longframes for rest of ~2 min (33 KO, 60 announcer) |
-
-Probe: `over33=27`, `over66=3`, `resumeZeroed=2`, `maxDt=526ms`. Mid-round rAF on the 4090 is **mild** — not multi-hundred-ms storms.
-
-#### Cap-16 (Intel non-host, Low)
-
-- `snapGapsOver100=52` in ~94s (~**33/min**), max **181ms**, avg **25ms**, snapHz ≈ **40**
-- Client loop hitchy: **`over33=444`**, `over66=16`, resume longframes at join (20s / 650ms)
-- Combat: skips=0, localKos=2
-
-#### Critical confound (do not treat snapGapsOver100 as pure host truth)
-
-`noteSnapshotArrival` stamps **non-host main-thread wall time** when the DataChannel handler runs. An Intel client that stalls delays that stamp → **inflates** `snapGapsOver100` even when host send is healthy. Cap-16's 52 gaps vs host `over66=3` is inconsistent with "host alone caused every gap."
-
-`holdAfterSnapGapMs: 150` / `getSnapshotSilenceMs` use the same arrival stamp — **local client hitches can false-trip prediction hold**, which feels like invisible kills even if the 4090 kept sending.
-
-#### Early host stalls (real, focused 4090)
-
-Post-GO **303 + 526ms** `resume:true` are genuine main-thread blocks. Strongest code lead already documented in `main.js`: announcer pack is `preload:false`; `prefetchSfxByPrefix("announcer_")` is **fire-and-forget** at play entry and may not finish before GO → first decode/load can land as multi-hundred-ms frames (comment cites 350–750ms on earliest callouts). Cap-17 longframes sit **before** the first combat PA events — consistent with background decode completing, not only on-play.
-
-#### What we still cannot prove without a new probe
-
-Mid-round host **send** cadence was invisible on host F8s (`snapCount:0` on host — host never receives its own snaps). Needed: host-side inter-`hostSendTick` gaps.
-
-### Instrumentation card (**shipped**)
-
-**One card:** host send-cadence counters in `src/netcode.js` (no gameplay change):
-
-| Probe field | Meaning |
-|-------------|---------|
-| `net.flow.sendCount` | Host broadcasts accepted this window |
-| `net.flow.sendGapAvgMs` / `sendGapMaxMs` | Inter-send wall gaps (after burst coalesce accepts) |
-| `net.flow.sendGapsOver100` | Host send gaps >100ms |
-| event `net/host_send_gap` | Rate-limited when gap >250ms (+ phase) |
-
-Lobby/countdown silence does **not** inflate the first running gap (anchor reset when phase ≠ running).
-
-**Live:** commit `19e5cd9`, bundle **`index-pavOdoEG.js`**, Version `28e48ede` — markers verified in served bytes (`sendGapsOver100`, `host_send_gap`, sha `19e5cd9`).
+**2e lab conclusion (same-room dual PC):** host send ~25ms; after warm + tHost honesty, clean pair had **0** snapGapsOver100 both sides. Residual 2e is **not** “constant host 100–500ms starve.”
 
 ---
 
-## Cap-23/24 decode (probe worked)
+## Friend playtest evidence (authoritative for next work)
 
-| | Host 4090 (23) | Non-host Intel (24) |
-|--|----------------|---------------------|
-| avg gap | **send 26.3ms** | **snap 26.2ms** |
-| max | send **2047** | snap **2041** (matched) |
-| >100 count | send **3** / ~86s | snap **47** / ~77s |
-| combat | — | skips 3, drops 43, errMax 0.35 |
+### A) 2-human Quickplay — caps **31–40** (`1adef95`)
 
-Host’s 3 send gaps = three `resume:true` longframes (2040 / 789 / 617ms). Non-host’s other ~44 snapGapsOver100 are **client inflate** (over33=742). Steady host 40Hz is fine.
+| Role | GPU | Caps |
+|------|-----|------|
+| **Host** | RTX **4090** High | 32, 35, 38 |
+| **Non-host** | AMD **RX 9070 XT** High | 31, 33, 34, 36, 37, 39, 40 |
 
-## Behavior lever (**shipped** `716ec2f` / `index-B1V-NCgO.js`)
+Same long round; later F8s = longer window of same session.
 
-`prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 })` awaited inside `warmupActiveSceneShaders` (play entry) in parallel with `compileAsync`. Idle menu still uses fire-and-forget `prefetchSfxByPrefix`.
+**End state (host #38 / friend #40):**
 
-## Cap-25/26 (warm retest — pass host)
+| | Host | Friend |
+|--|------|--------|
+| Cadence | send avg 26.4, o100=**6**, max **4145** | snap avg 30.5, o100=**117**, max **4145**, ~33 Hz |
+| Combat | — | errMax **11.2 m**, tele **15**, skips **13**, drops **1857** |
+| Local KOs | — | **localKos = 0** (localDeaths 7) |
+| Pending | — | 21 inputs, oldest age **1.6 s** |
 
-| | Cap-23 host | **Cap-25 host** | Cap-24 NH | **Cap-26 NH** |
-|--|-------------|-----------------|-----------|---------------|
-| send/snap max | 2047 | **209** | 2041 | **207** |
-| gaps>100 | send 3 | **send 1** | snap 47 | snap 31 |
-| mid-round LF | 2040/789/617 | **200** | — | — |
-| combat drops | — | — | 43 | **0** |
+**Big freezes match 1:1 (tHost honest):**
 
-## tHost arrival honesty (**shipped** `1adef95` / `index-CHXFyLNA.js`)
+| Host longframe / host_send_gap | Friend snap_gap via tHost |
+|--------------------------------|---------------------------|
+| **4127 / 4145** ms | **4145** |
+| 437 | 437 |
+| **2361 / 2395** | **2395** |
+| + 270–480 ms band late | same band |
 
-`noteSnapshotArrival(tHost)` gaps + `getSnapshotSilenceMs` / skip-replay gap prefer host stamps. Wall fallback only without tHost. +5 tests.
+Host also had **1103** + **2709** ms resume longframes around countdown→GO.
 
-## Next agent work (2e only)
+**Late-round divergence:** host only **6** sendGapsOver100 total, friend ends **117** tHost gaps (many 250–800 ms in a row after ~t=225s). Not Intel wall inflate — **missed/delayed P2P snaps and/or host under-delivery under 2-human load**.
 
-1. Match A F8 both on **`index-CHXFyLNA.js`** (hard-refresh).  
-2. Pass: non-host `snapGapsOver100` nearer host `sendGapsOver100`; hold false-trips drop; host still clean.  
-3. If still off after that, 2e is residual feel only — do not stack more levers.
+Progressive friend combat: drops 355→1857, tele 1→15, errMax 5.9→**11.2**.
 
-**Out of scope this window unless F8s regress:** prediction order, skip-replay policy, phantom pending, Match B, P1 cards, NET-1, menu choppy (P0-2), NET-PERF-2.
+No error/assert events. `connectionState: ok`. Not no-TURN (thousands of snaps).
+
+### B) Friend solo — cap **41** (`1adef95`)
+
+| | |
+|--|--|
+| GPU | AMD **9070 XT** High |
+| URL | `?diag=1&room=soloqpjlik` · mode **solo** · Classic |
+| Content | Full R1 (Defeat) + rematch R2; F8 mid-R2 |
+| Errors | **0** |
+| Loop | over33=**3**, over66=2 — GPU fine mid-round |
+| AI probe | **`count:0, npcs:[]`** mid-fight while NPCs scoring — **diag blind spot** |
+| Local feel | Many unforced rim/void falls; R1: 3 KOs then Defeat; R2 to F8: **0** local KOs, several deaths |
+| Rematch hitch | **~8 s** resume longframe after 2nd `carts-ready` (shader only ~116 ms) |
+| First entry hitch | **~4.4 s** after first carts-ready |
+| Net flow empty | **Expected** solo (no peers) |
+
+Solo does **not** show MP rubberband metrics. Separate from friend MP pain.
 
 ---
 
-## After 2e is honest enough
+## Priority queue (high → low) — one at a time
 
-Strict queue (still one at a time):
+### P0 — Host multi-second freezes under 2-human load (focused 4090)
 
-1. Optional Match B (Intel hosts) — only if weak-host poison returns.  
-2. P1 console cards: host minimize, SD 45s, music bleed, kill-confirm, Esc directive, looks, storerooms loop.  
-3. NET-1 two-human full-round smoke.
+**Why first:** Every multi-second host stall freezes authority for the friend (matched tHost gaps). Explains rubberband, reverse hits, teleports more than any non-host knob.
 
-Parked: menu choppy on 4090 High (P0-2); taste debt (Pass 4/5); VPS (not indicated). Background sim pump only if forensics prove tab-throttle, not main-thread block.
+**Evidence:** cap-38 longframes 2709 / 4127 / 2361 + send gaps 4145 / 2395; friend #40 mirrors.
+
+**Forensics (2026-07-19, unpushed probe):**
+- Multi-s freezes are **`resume:true` rAF gaps** (not chronic slow frames: over33=20 / over66=3 whole match).
+- Freeze *starts* (end − dtMs) line up with: GO transition (~2.7s), first host KO burst (~4.1s), one NPC fall (~2.4s).
+- **Counter-evidence:** second host death @ t≈156649 (bigger announcer stack) had **no** multi-s longframe → not “every death/shatter is 4s.”
+- Lab dual-PC (cap-29/30) after announcer warm: maxDt ~0.27s, sendGapMax 84 — clean. Friend WAN/load path still freezes.
+- No F8s newer than #41 on pull.
+
+**Lever (measure, not fix):** under `?diag=1` only — `PerformanceObserver("longtask")` + longframe fields `hidden` / `vis` / `focused` / `lt[]` / `ltN` (`src/utils/longTaskProbe.js`, `gameLoop` enrich, `perf.longtask` probe). Decode next host F8:
+| longframe shape | meaning |
+|---|---|
+| `hidden:true` or `focused:false` | occlusion / unfocus (not “focused freeze”) |
+| `lt[]` has multi-s `d` | main-thread task — name/attribution next lever |
+| `lt:[]` + focused + visible | rAF starved without longtask (GPU/compositor/Chrome schedule) |
+
+**Still open:** one **behavior** lever after probe retest — do not ship a guess fix yet.
+
+**Pass:** Friend F8: no multi-second `snap_gap` matching host resume LF; host `sendGapMax` not multi-second mid-round; friend errMax/tele drop.
 
 ---
 
-## Infra notes (agent)
+### P1 — Late-round P2P delivery / cadence under 2-human load
 
-- **Paid plan** required for this DO-heavy stack. Do not burn CaptureLog with useless list/pull loops.
-- TURN secrets must stay set or P2P dies again (`snapCount:0`, timer still syncs via WS).
-- Workers Logs ≠ F8 combat metrics. Dashboard for Worker/DO; F8 for `net.flow` / longframes.
-- `tools/browser/` may be untracked local junk — do not commit unless asked.
+**Why second:** Host send o100 stays low while friend tHost o100 explodes late → lost or delayed DataChannel snaps (or host send not fully reflected). Pending age 1.6s, drops 1.8k.
+
+**Evidence:** host o100=6 vs friend o100=117; late friend snap_gaps 250–800 ms via tHost every few hundred ms.
+
+**Work:** Only after P0 or in parallel forensics if P0 freezes are rare. Check P2P send failures, channel bufferedAmount, ICE reconnect, snapshot force rate under load. Do **not** re-solve decode ring pool.
+
+**Pass:** Friend snapHz ~40 full match; snapGapsOver100 tracks host sendGapsOver100 within noise; pending age not multi-second.
+
+---
+
+### P2 — Non-host combat credit / feel (`localKos: 0` in friend MP)
+
+**Why third:** Friend `localKos: 0` entire MP session while host scores and kills fire. Feels like “hits don’t count.”
+
+**Evidence:** cap-40 match.localKos=0, kosBySlot host-side credit exists; deaths 7.
+
+**Work:** Trace non-host KO credit path (falls[] tail, challenges, match stats) — may improve after P0/P1 if stream was too broken to credit. Re-check after stream stable before large credit rewrites.
+
+**Pass:** Friend localKos increments when they land KOs; kill feed matches feel.
+
+---
+
+### P3 — Friend join / cold-play hitch (MP)
+
+**Evidence:** non-host longframe **58 s** resume at join (cap-31 family). Axis wired after; not permanent freeze.
+
+**Work:** Join prewarm / don’t start round feel until joiner ready; measure `cr:*` on joiner. Related NET-2 class, different from host mid-round freeze.
+
+---
+
+### P4 — Solo rematch / play-entry hitch (9070 XT)
+
+**Evidence:** cap-41 first entry ~4.4 s LF; rematch ~**8 s** LF despite warm shader ~116 ms.
+
+**Work:** Profile solo rematch path (what runs between carts-ready and steady rAF). Lower priority than 2-human poison.
+
+---
+
+### P5 — Solo bot / rim death feel (taste + AI)
+
+**Evidence:** cap-41 many SELF CHECKOUT / void falls; NPCs dominate KOs. Prior bot-suicide work was Classic routing — may need friend-machine taste or aggression tune.
+
+**Not** a netcode bug per F8.
+
+---
+
+### P6 — Diag: AI probe empty mid-round
+
+**Evidence:** cap-41 `snapshot.ai.count === 0` while NPCs active. Tooling only. Fix when touching diagnostics; don’t block gameplay P0–P2.
+
+---
+
+## Closed / not the bug
+
+| Claim | Verdict |
+|-------|---------|
+| Constant host 100–500 ms send starve (lab) | ❌ Closed by send probe + cap-29/30 |
+| Client wall-clock gap inflation | ✅ Mitigated by `1adef95` tHost gaps/silence |
+| No TURN / snapCount 0 | ❌ Friend had thousands of snaps |
+| Weak-host Intel only | ❌ Friend 9070 XT High still dies when host freezes |
+| Solo net rubberband | ❌ Cap-41 clean net path |
+| Re-solve NET-PERF-2 | ❌ Forbidden without new evidence |
+
+---
+
+## Suggested next window paste (Wyatt → new agent)
+
+> Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
+> Continue Run 7 **P0 only**: longtask probe is **unpushed** — ship on “ship it”, then friend 2-human F8 host after multi-s hitch; decode `lt[]`/`focused` on longframes.  
+> Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-open skip-replay/phantom; do not jump to P1 until P0 attributed.  
+> Caps 31–41 already decoded.
 
 ---
 
@@ -172,25 +207,13 @@ npm run qa
 npm run ship                    # only on Wyatt "ship it"
 npm run captures:pull           # .diag-captures/playtest/
 npm run captures:pull -- --list
-npx wrangler secret list        # expect CF_* + ERROR_LOG_TOKEN
-npx wrangler tail cart-rave     # optional live Worker/DO exceptions
 ```
-
----
-
-## Window paste (Wyatt → new Grok)
-
-> Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
-> Continue Run 7 **2e host hitch forensics** only — one item at a time.  
-> Do not re-triage run-1…6, do not re-solve NET-PERF-2, do not re-open combat skip-replay unless F8s show skips/reverse back.  
-> Combat pass-enough on prior build. Residual: host stalls → snap gaps → invisible kills.  
-> Probe **live** `index-pavOdoEG.js` (`19e5cd9`). Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
 
 ---
 
 ## Agent hygiene
 
-- After each ship: one-line STATUS update + refresh this handoff if **next action** changed.  
-- Report gates by number (`npm run qa`).  
-- Never claim verified without pull + (post-deploy) served-bundle marker check.  
-- Behavior-changing ships need human playtest before “done.”
+- After each ship: STATUS one-liner + this handoff if **next action** changed.  
+- Report gates by number.  
+- Never claim verified without pull + post-deploy served-bundle marker.  
+- Behavior-changing ships need human playtest (ideally 2-human) before “done.”
