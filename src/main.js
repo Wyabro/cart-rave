@@ -803,9 +803,21 @@ async function main() {
 
   // * Music is per-arena now (src/music/levelMusic.js): each arena's own track list
   // * is set as the playlist at play entry / arena swap. Multi-song levels shuffle +
-  // * advance; single-song levels loop. setGamePlaylist is URL-only (preload:false)
-  // * so nothing fetches until the first playGameMusic at game entry.
-  function startLevelMusic(levelId) {
+  // * advance; single-song levels loop. setGamePlaylist is URL-only until materialize;
+  // * play-entry warm materializes + decodes track 0 so countdown does not pay first play.
+  /** @type {string | null} Level id whose playlist is already shuffled + materialized. */
+  let preparedLevelMusicId = null;
+
+  /**
+   * Shuffle + register (+ materialize) the arena playlist without starting playback.
+   * Idempotent per level so play-entry warm and commitMenuHidden share one track order.
+   * @param {string | null | undefined} levelId
+   */
+  function prepareLevelMusic(levelId) {
+    if (!levelId) return;
+    if (preparedLevelMusicId === levelId && AudioManager.hasMaterializedGamePlaylist()) {
+      return;
+    }
     const files = resolveLevelMusic(levelId);
     // * Shuffle a multi-song level so the same track doesn't always open. Single-song
     // * levels are unaffected. RNG lives here (main), not the resolvable/testable module.
@@ -814,6 +826,13 @@ async function main() {
       [files[i], files[j]] = [files[j], files[i]];
     }
     AudioManager.setGamePlaylist(files.map((f) => [soundUrl(f)]));
+    AudioManager.materializeGamePlaylistIfPending();
+    preparedLevelMusicId = levelId;
+  }
+
+  /** @param {string | null | undefined} levelId */
+  function startLevelMusic(levelId) {
+    prepareLevelMusic(levelId);
     AudioManager.playGameMusic();
   }
 
@@ -1633,6 +1652,7 @@ async function main() {
     HUD.hideGameplayElements();
     // Stop game music before menu music starts.
     try { AudioManager.stopGameMusic(); } catch (e) {}
+    preparedLevelMusicId = null;
     try { ArenaAmbience.stopArenaAmbience(); } catch (e) {}
     try { AudioManager.playMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
@@ -2451,17 +2471,29 @@ async function main() {
         Effects.installRamStreakProgramWarmup(scene);
         vfxProgramAnchorsInstalled = true;
       }
-      // * Announcer pack (preload:false): start fetch/decode under the loading overlay
-      // * in parallel with compileAsync. Cap-23 host: mid-round resume freezes 600–2000ms
-      // * lined up with first callouts when warm was fire-and-forget (decode completed
-      // * mid-round on the main thread). Awaiting the pack here keeps those stalls off
-      // * the running-phase host send loop. maxWaitMs caps a hung network.
-      /** @type {Promise<{ loaded: number, total: number, timedOut: boolean }> | null} */
-      let announcerWarmPromise = null;
+      // * Audio pack warm (forPlay): fetch/decode under the loading overlay in parallel
+      // * with compileAsync so first play is not a main-thread hitch.
+      // * - Announcer (cap-23): mid-round 600–2000ms freezes on first callouts when warm
+      // *   was fire-and-forget.
+      // * - Ambience + game music + countdown (cap-54): MP commitMenuHidden starts beds
+      // *   and playlist on the same tick as startCountdown — ~1.3s host LT swallowed
+      // *   countdown_3. maxWaitMs caps a hung network.
+      /** @type {Promise<unknown>[]} */
+      const audioWarmPromises = [];
       if (forPlay) {
-        announcerWarmPromise = AudioManager.prefetchSfxByPrefixAsync("announcer_", {
-          maxWaitMs: 8000,
-        });
+        const levelId = getCurrentLevelId();
+        prepareLevelMusic(levelId);
+        audioWarmPromises.push(
+          AudioManager.prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 }),
+          AudioManager.prefetchGameMusicAsync({ maxWaitMs: 6000 }),
+          AudioManager.prefetchAmbienceAsync(ArenaAmbience.ambienceKeysForArena(levelId), {
+            maxWaitMs: 6000,
+          }),
+          AudioManager.prefetchSfxKeysAsync(
+            ["countdown_3", "countdown_2", "countdown_1", "countdown_go"],
+            { maxWaitMs: 4000 },
+          ),
+        );
       }
       // * Menu path: still compileAsync so the first attract frame after a swap does not
       // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
@@ -2480,11 +2512,11 @@ async function main() {
       } else {
         await renderer.compileAsync(scene, camera);
       }
-      if (announcerWarmPromise) {
+      if (audioWarmPromises.length) {
         try {
-          await announcerWarmPromise;
+          await Promise.all(audioWarmPromises);
         } catch (err) {
-          console.warn("[CartRave] announcer warm failed:", err);
+          console.warn("[CartRave] play-entry audio warm failed:", err);
         }
       }
       // * compileAsync covers SCENE programs only. The composer passes (bloom

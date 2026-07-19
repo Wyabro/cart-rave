@@ -18,6 +18,7 @@ vi.mock("../src/audioManager.js", () => ({
 import * as AudioManager from "../src/audioManager.js";
 import {
   ARENA_AMBIENCE,
+  ambienceKeysForArena,
   createExcitementMeter,
   initArenaAmbience,
   startArenaAmbience,
@@ -38,6 +39,17 @@ describe("arena coverage", () => {
     for (const id of QUICKPLAY_ARENA_IDS) {
       expect(ARENA_AMBIENCE[id]?.bed, `arena ${id} has no ambience bed`).toBeTruthy();
     }
+  });
+
+  it("ambienceKeysForArena lists bed (+ hype when present) and empty for unknown", () => {
+    expect(ambienceKeysForArena("classicRecord")).toEqual(
+      expect.arrayContaining([ARENA_AMBIENCE.classicRecord.bed]),
+    );
+    expect(ambienceKeysForArena("classicRecord")).toContain(
+      ARENA_AMBIENCE.classicRecord.hype,
+    );
+    expect(ambienceKeysForArena("testArena")).toEqual([]);
+    expect(ambienceKeysForArena(null)).toEqual([]);
   });
 
   it("registers every layer key (beds + hype + sd_tension) under sounds/ambience/", () => {

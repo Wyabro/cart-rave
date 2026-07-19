@@ -84,7 +84,8 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 Run 7 closes — and the Release-candidate phase starts — when every box checks:
 
 - [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
-- [ ] P0 host freezes: menu warm shipped + clean F8 retest (no multi-s longtask after `world-ready`)
+- [x] P0 menu freezes: idle-shader warm shipped + F8 caps 52–54 (shader before world-ready; no multi-s LT after WR)
+- [ ] P0 countdown hitch: play-entry audio warm (music/ambience/countdown) coded — F8 retest pending (cap-54 ~1.3s)
 - [ ] P1 late-round gap storm resolved or re-scoped with fresh F8s (locked until P0)
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -95,7 +96,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu card SHIPPED** (`be5c1fb1` / `index-CEjuO4Z7.js`) — idle warm `compileAsync`+composer prime before world-ready. **F8 retest pending**; mid-round/post-fall still open |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu ✅** (F8 52–54). **Countdown card coded (unpushed)** — warm music+ambience+countdown SFX under play-entry (cap-54 ~1.3s LT ate `countdown_3`). Mid-round/post-fall still open if friend 2-human still freezes |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -109,8 +110,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **F8 retest on the new build** — hard-refresh both machines until `index-CEjuO4Z7.js` is served, sit on menu ~15s, F8 host, then one round + F8 again; `npm run captures:pull`. Expect: `idle-shader-start/end` before `world-ready`; no multi-s longtask *after* world-ready from first attract.
-2. If menu clean but mid-round multi-s remains → **post-fall frame** card (cap-47 KO cascade 2.3–2.5s; fall path already cleared).
+1. Wyatt: **ship it** when ready (countdown audio warm) → hard-refresh → quickplay host F8 through **3-2-1** + one round. Expect: `countdown_3` present; no ≥1s longtask between countdown phase and `go`.
+2. If countdown clean but friend 2-human still multi-s mid-round → **post-fall frame** card (cap-47).
 3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
@@ -190,7 +191,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (SHIPPED — P0 menu warm + RC stack + Command Center v3) — **`67059ad` pushed to origin/cart-clash; deployed as bundle `index-CEjuO4Z7.js` / Version `be5c1fb1`.** Served-bytes verified: new bundle in index.html, `idle-shader-start` marker + `67059ad` stamp present. This deploy takes live everything that was waiting: P0 menu idle-shader warm (`ebf4c9d`), RC bug-hunt fixes incl. the 3 behavior-changing ones (`7dba78d` — AI cautious-phase, RESTART, host-reap; **human MP validation still owed**), pre-release polish (`2cbc7d2`), Command Center v3 + backlog merge (`67059ad`, no runtime effect). Gates at ship: qa **549/57** green. **Next: the F8 menu retest** (next-action #1); `.claudeignore` left untracked (not this session's file).
+2026-07-19 (P0 countdown audio warm — **unpushed**, local) — Cap-54 forensics: menu warm OK; only ≥1s host LT was **1286ms** right after countdown phase (missing `countdown_3`). Root cause: MP `commitMenuHiddenForGame` starts **game music + arena ambience** on the same tick as `startCountdown` while those assets were still cold (preload:false beds / first playlist materialize). Fix: play-entry `warmupActiveSceneShaders({forPlay})` now also `prepareLevelMusic` + awaits `prefetchGameMusicAsync` / `prefetchAmbienceAsync` / countdown SFX keys in parallel with announcer warm (same pattern as cap-23). Gates: **qa 554/57** green. **Not shipped** — needs Wyatt “ship it” + F8 through 3-2-1.
+
+2026-07-19 (SHIPPED — P0 menu warm + RC stack + Command Center v3) — **`67059ad` pushed to origin/cart-clash; deployed as bundle `index-CEjuO4Z7.js` / Version `be5c1fb1`.** Served-bytes verified: new bundle in index.html, `idle-shader-start` marker + `67059ad` stamp present. This deploy takes live everything that was waiting: P0 menu idle-shader warm (`ebf4c9d`), RC bug-hunt fixes incl. the 3 behavior-changing ones (`7dba78d` — AI cautious-phase, RESTART, host-reap; **human MP validation still owed**), pre-release polish (`2cbc7d2`), Command Center v3 + backlog merge (`67059ad`, no runtime effect). Gates at ship: qa **549/57** green. **Menu F8 retest (caps 52–54): PASS.**
 
 2026-07-19 (analytics-view + leaderboard re-flag — docs only, additive to the merge below) — Wyatt asked whether player analytics + Supabase leaderboard were noted. Analytics harness is **already shipped/live** (observability §2); gap = no reading surface → new **ANLX-VIEW-1** (Medium: `npm run analytics` CLI and/or Command Center panel). Leaderboard was filed Low/post-launch in 4 docs → bumped **Medium** with the TRUST-1 chain intact; **scope call open for Wyatt** (ship-with vs launch-follow-up); `match_ended` analytics noted as the stats starting point.
 

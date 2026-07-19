@@ -105,8 +105,14 @@ import {
   stopMenuMusic,
   duckMusic,
   registerSfx,
+  registerAmbience,
   prefetchSfxByPrefix,
   prefetchSfxByPrefixAsync,
+  prefetchSfxKeysAsync,
+  prefetchGameMusicAsync,
+  prefetchAmbienceAsync,
+  materializeGamePlaylistIfPending,
+  hasMaterializedGamePlaylist,
 } from "../src/audioManager.js";
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
@@ -356,6 +362,59 @@ describe("prefetchSfxByPrefixAsync (announcer warm)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// * Cap-54: first music/ambience/countdown decode at countdown start ~1.3s host LT.
+// * Play-entry warm must materialize + await these before commitMenuHidden plays them.
+describe("play-entry audio warm (music / ambience / countdown keys)", () => {
+  it("materializeGamePlaylistIfPending builds tracks without playing", () => {
+    // * beforeEach may already have materialized a default playlist — replace it.
+    setGamePlaylist([["warm-track-0.opus"], ["warm-track-1.opus"]]);
+    materializeGamePlaylistIfPending();
+    expect(hasMaterializedGamePlaylist()).toBe(true);
+    const tracks = MockHowl.instances.filter((h) =>
+      (h.opts.src || []).some((s) => String(s).startsWith("warm-track-")),
+    );
+    expect(tracks.length).toBeGreaterThanOrEqual(2);
+    expect(tracks.every((h) => h.playCalls === 0)).toBe(true);
+  });
+
+  it("prefetchGameMusicAsync loads track 0", async () => {
+    setGamePlaylist([["warm-music-a.opus"]]);
+    const result = await prefetchGameMusicAsync();
+    expect(result.total).toBe(1);
+    expect(result.loaded).toBe(1);
+    expect(result.timedOut).toBe(false);
+    const track = MockHowl.instances.find((h) =>
+      (h.opts.src || []).includes("warm-music-a.opus"),
+    );
+    expect(track?.state()).toBe("loaded");
+    expect(track?.playCalls ?? 0).toBe(0);
+  });
+
+  it("prefetchAmbienceAsync loads beds without playing", async () => {
+    registerAmbience("warm_bed", "warm-bed.opus", 0.3);
+    const result = await prefetchAmbienceAsync(["warm_bed", "missing_key"]);
+    expect(result.total).toBe(1);
+    expect(result.loaded).toBe(1);
+    expect(result.timedOut).toBe(false);
+    const bed = MockHowl.instances.find((h) =>
+      (h.opts.src || []).includes("warm-bed.opus"),
+    );
+    expect(bed?.state()).toBe("loaded");
+    expect(bed?.playCalls ?? 0).toBe(0);
+  });
+
+  it("prefetchSfxKeysAsync warms only the listed keys", async () => {
+    registerSfx("countdown_warm_3", ["cw3.opus"], { preload: false });
+    registerSfx("countdown_warm_skip", ["cws.opus"], { preload: false });
+    const result = await prefetchSfxKeysAsync(["countdown_warm_3", "nope"]);
+    expect(result).toEqual({ loaded: 1, total: 1, timedOut: false });
+    const hit = MockHowl.instances.find((h) => (h.opts.src || []).includes("cw3.opus"));
+    const skip = MockHowl.instances.find((h) => (h.opts.src || []).includes("cws.opus"));
+    expect(hit?.loadCalls).toBeGreaterThanOrEqual(1);
+    expect(skip?.loadCalls ?? 0).toBe(0);
   });
 
   it("fire-and-forget prefetch still kicks load without awaiting", () => {

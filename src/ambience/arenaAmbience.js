@@ -92,6 +92,19 @@ const excitement = createExcitementMeter();
 const HYPE_TICK_MS = 600;
 
 /**
+ * Ambience registry keys to warm for an arena (bed + optional hype). Empty for
+ * unknown / silent arenas (testArena). Used by play-entry warm so first
+ * {@link startArenaAmbience} does not decode on the countdown frame.
+ * @param {string | null | undefined} arenaId
+ * @returns {string[]}
+ */
+export function ambienceKeysForArena(arenaId) {
+  const layers = arenaId ? ARENA_AMBIENCE[arenaId] : null;
+  if (!layers) return [];
+  return [layers.bed, layers.hype].filter(Boolean);
+}
+
+/**
  * Register every bed with the AudioManager (preload:false — beds fetch at play entry).
  * Call once at boot after initAudioManager.
  * @param {(name: string) => string} soundUrl Resolver, same one main.js uses for SFX.

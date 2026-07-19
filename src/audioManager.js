@@ -420,9 +420,7 @@ export function playGameMusic() {
   // * (refresh recovery, quickplay hello races, late boot-splash hooks) keep
   // * missing it — enforce it here too.
   stopMenuMusic();
-  if (pendingGamePlaylistUrls?.length && gameMusicTracks.length === 0) {
-    materializeGamePlaylist(pendingGamePlaylistUrls);
-  }
+  materializeGamePlaylistIfPending();
   if (!gameMusicTracks.length || gameMusicPlaying) return;
   if (!devMusicGate) return;
   if (currentGameTrackIdx < 0) currentGameTrackIdx = 0;
@@ -697,6 +695,89 @@ export function playSfx(key, sprite, options = {}) {
 }
 
 /**
+ * Wait until a Howl is loaded (or fails). Kicks load() when still unloaded.
+ * @param {import("howler").Howl} sound
+ * @returns {Promise<boolean>}
+ */
+function waitHowlLoaded(sound) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      resolve(ok);
+    };
+    try {
+      if (sound.state() === "loaded") {
+        finish(true);
+        return;
+      }
+      // * Howler: once('load'|'loaderror') — works whether load is already in flight
+      // * (idle warm) or we kick it here.
+      if (typeof sound.once === "function") {
+        sound.once("load", () => finish(true));
+        sound.once("loaderror", () => finish(false));
+      }
+      if (sound.state() === "unloaded") sound.load();
+      // * Sync loaders (tests / already-buffered) may flip state before once attaches
+      // * after a prior load() — re-check.
+      if (sound.state() === "loaded") {
+        finish(true);
+        return;
+      }
+      // * No once API and still not loaded — best-effort kick only.
+      if (typeof sound.once !== "function") {
+        finish(sound.state() === "loaded");
+      }
+    } catch {
+      finish(false);
+    }
+  });
+}
+
+/**
+ * Fetch + decode a list of Howls, resolving when all are loaded or `maxWaitMs` elapses.
+ * @param {import("howler").Howl[]} howls
+ * @param {{ maxWaitMs?: number }} [opts]
+ * @returns {Promise<{ loaded: number, total: number, timedOut: boolean }>}
+ */
+function prefetchHowlsAsync(howls, opts = {}) {
+  const maxWaitMs = typeof opts.maxWaitMs === "number" ? opts.maxWaitMs : 8000;
+  const list = howls.filter(Boolean);
+  const total = list.length;
+  if (total === 0) {
+    return Promise.resolve({ loaded: 0, total: 0, timedOut: false });
+  }
+
+  const allLoaded = Promise.all(list.map((sound) => waitHowlLoaded(sound))).then(
+    (results) => results.filter(Boolean).length,
+  );
+
+  const timeout = new Promise((resolve) => {
+    const ms = Math.max(0, maxWaitMs);
+    if (ms === 0) {
+      resolve("timeout");
+      return;
+    }
+    setTimeout(() => resolve("timeout"), ms);
+  });
+
+  return Promise.race([
+    allLoaded.then((loaded) => ({ loaded, total, timedOut: false })),
+    timeout.then(() => {
+      // * Recount loaded at timeout — partial warm is still a win.
+      let loaded = 0;
+      for (const sound of list) {
+        try {
+          if (sound.state() === "loaded") loaded += 1;
+        } catch { /* ignore */ }
+      }
+      return { loaded, total, timedOut: loaded < total };
+    }),
+  ]);
+}
+
+/**
  * Starts background fetch/decode for registered SFX whose keys share a prefix.
  * Used to warm the announcer voice pack during menu idle without blocking boot.
  * Fire-and-forget — does not wait for decode. Prefer {@link prefetchSfxByPrefixAsync}
@@ -724,74 +805,68 @@ export function prefetchSfxByPrefix(prefix) {
  * @returns {Promise<{ loaded: number, total: number, timedOut: boolean }>}
  */
 export function prefetchSfxByPrefixAsync(prefix, opts = {}) {
-  const maxWaitMs = typeof opts.maxWaitMs === "number" ? opts.maxWaitMs : 8000;
   const entries = Object.entries(sfxRegistry).filter(([key]) => key.startsWith(prefix));
-  const total = entries.length;
-  if (total === 0) {
-    return Promise.resolve({ loaded: 0, total: 0, timedOut: false });
-  }
-
-  const waitOne = (/** @type {import("howler").Howl} */ sound) =>
-    new Promise((resolve) => {
-      let settled = false;
-      const finish = (ok) => {
-        if (settled) return;
-        settled = true;
-        resolve(ok);
-      };
-      try {
-        if (sound.state() === "loaded") {
-          finish(true);
-          return;
-        }
-        // * Howler: once('load'|'loaderror') — works whether load is already in flight
-        // * (idle warm) or we kick it here.
-        if (typeof sound.once === "function") {
-          sound.once("load", () => finish(true));
-          sound.once("loaderror", () => finish(false));
-        }
-        if (sound.state() === "unloaded") sound.load();
-        // * Sync loaders (tests / already-buffered) may flip state before once attaches
-        // * after a prior load() — re-check.
-        if (sound.state() === "loaded") {
-          finish(true);
-          return;
-        }
-        // * No once API and still not loaded — best-effort kick only.
-        if (typeof sound.once !== "function") {
-          finish(sound.state() === "loaded");
-        }
-      } catch {
-        finish(false);
-      }
-    });
-
-  const allLoaded = Promise.all(entries.map(([, sound]) => waitOne(sound))).then(
-    (results) => results.filter(Boolean).length,
+  return prefetchHowlsAsync(
+    entries.map(([, sound]) => sound),
+    opts,
   );
+}
 
-  const timeout = new Promise((resolve) => {
-    const ms = Math.max(0, maxWaitMs);
-    if (ms === 0) {
-      resolve("timeout");
-      return;
-    }
-    setTimeout(() => resolve("timeout"), ms);
-  });
+/**
+ * Fetch + decode specific SFX keys (e.g. countdown_3…go). Missing keys are skipped.
+ * @param {string[]} keys
+ * @param {{ maxWaitMs?: number }} [opts]
+ * @returns {Promise<{ loaded: number, total: number, timedOut: boolean }>}
+ */
+export function prefetchSfxKeysAsync(keys, opts = {}) {
+  const list = (Array.isArray(keys) ? keys : [])
+    .map((k) => sfxRegistry[k])
+    .filter(Boolean);
+  return prefetchHowlsAsync(list, opts);
+}
 
-  return Promise.race([
-    allLoaded.then((loaded) => ({ loaded, total, timedOut: false })),
-    timeout.then(() => {
-      // * Recount loaded at timeout — partial warm is still a win.
-      let loaded = 0;
-      for (const [, sound] of entries) {
-        try {
-          if (sound.state() === "loaded") loaded += 1;
-        } catch { /* ignore */ }
-      }
-      return { loaded, total, timedOut: loaded < total };
-    }),
-  ]);
+/**
+ * Build Howls for {@link setGamePlaylist} without starting playback. Safe to call
+ * repeatedly; no-ops when already materialized.
+ * @returns {void}
+ */
+export function materializeGamePlaylistIfPending() {
+  if (pendingGamePlaylistUrls?.length && gameMusicTracks.length === 0) {
+    materializeGamePlaylist(pendingGamePlaylistUrls);
+  }
+}
+
+/** @returns {boolean} True when game-track Howls exist (warm or prior play). */
+export function hasMaterializedGamePlaylist() {
+  return gameMusicTracks.length > 0;
+}
+
+/**
+ * Fetch + decode the opening game track so first play at countdown is not a
+ * main-thread decode hitch. Call after {@link setGamePlaylist} (+ materialize).
+ * @param {{ maxWaitMs?: number }} [opts]
+ * @returns {Promise<{ loaded: number, total: number, timedOut: boolean }>}
+ */
+export function prefetchGameMusicAsync(opts = {}) {
+  materializeGamePlaylistIfPending();
+  // * Track 0 preloads when materializing; later tracks stay on-demand.
+  const track = gameMusicTracks[0];
+  return prefetchHowlsAsync(track ? [track] : [], opts);
+}
+
+/**
+ * Fetch + decode ambience beds by registry key without starting playback.
+ * Cap-54: MP hides the menu + starts beds at the same frame as countdown — first
+ * WebAudio decode of classic_crowd_bed (~85–290KB opus) landed as a ~1.3s host LT.
+ * @param {string[]} keys
+ * @param {{ maxWaitMs?: number }} [opts]
+ * @returns {Promise<{ loaded: number, total: number, timedOut: boolean }>}
+ */
+export function prefetchAmbienceAsync(keys, opts = {}) {
+  const list = (Array.isArray(keys) ? keys : [])
+    .map((k) => ambienceRegistry[k]?.howl)
+    .filter(Boolean);
+  return prefetchHowlsAsync(list, opts);
 }
 
 /**
