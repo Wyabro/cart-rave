@@ -24,7 +24,7 @@ Ship **Cart Clash** Version 2: a polished solo-first 4-player shopping-cart phys
 stay `cart-rave` until domain cutover. Prefer evidence (screenshots, black-pixel samples,
 two-browser smokes) over vibes for graphics and multiplayer gates.
 
-## Project health — 2026-07-18 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
+## Project health — 2026-07-19 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
 
 **Green gates, deployed, ready for the playtest checkpoint.** Implementation is ahead of
 validation. Single biggest V2 risk: **NET-1 two-browser full-round smoke never closed by a
@@ -32,15 +32,15 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
+| Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (verified 2026-07-19 on the run-7 combat stack) |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `601b8e8` — Workers Logs on; combat code `732e2d6` |
-| Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (last full gate this session) |
-| Prod deploy (2026-07-19 eve) | ✅ Live — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| Origin HEAD | Local ↔ origin/cart-clash at `49c5f1a` — combat code `1a2f242` (skip-replay only on long snap gap) |
+| Prod deploy (2026-07-19 skip-gap) | ✅ Live — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`). Combat retest pending (queue 2d′) |
+| Prod deploy (2026-07-19 eve, observability) | ✅ superseded — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
 | Prod deploy (2026-07-19 phantom) | ✅ superseded — **`index-t3FG6KVX.js`** / `eeeef76e` (`732e2d6` phantom clear). Soft feel only; no F8 (free-tier wall). |
 | Prod deploy (2026-07-19 combat-hold) | ✅ superseded — **`index-iKVEUst7.js`** / `4f795c70`. Hits better; phantom after respawn. |
 | Prod deploy (2026-07-19 night) | ✅ superseded — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62` hit-delay order). Match A combat FAIL partial. |
-| Prod deploy (2026-07-19 eve) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
+| Prod deploy (2026-07-19 caps) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
 | Prod deploy (2026-07-18 eve) | ✅ superseded — bundle `index-9RzsBOgc.js`, Version `23499d21` (run-6 stack) |
 | Prod deploy (2026-07-18 pm) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-JHMFE-UK.js`** (cache-buster verified; markers `snap_gap`/`_reconcileVisOffset`/`over66` present in served bytes), Version `d42534f4`; includes the run-4 fixes: MP reconcile visual easing + camera smoothed-pose, snapshot decode ring pool, host send burst guard, `net.flow` probe + over33/66 counters, glow master 0.52 + pattern-valley lift, contact-shadow polygonOffset, splash tune + layer, non-host death sting, Sundial holo +0.9. No new DO migration. Edge served stale index.html for ~30s post-deploy (again) — cache-buster until the new bundle name appears |
 | Prod deploy (2026-07-18 am) | ✅ superseded — bundle `index-BzZeIE-M.js`, Version `1a58bdf7` (run-3 fixes: non-host input-freeze root cause, countdown-under-swap defer, ACES cart-emissive rebalance, Sundial sun/cross, splash variation, contact-shadow depthTest) |
@@ -80,10 +80,10 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | 2b | Combat hold `4a9f7f8` | ✅ partial pass (errMax 4m, localKos 1) |
 | 2c | Phantom pending clear `732e2d6` | ✅ live under `601b8e8` / `index-C560wli8.js` |
 | 2d | Match A combat F8 (cap-12/13) | P2P OK (snapCount 1.6k); combat FAIL — errMax **5.3m**, skips 4 / drops 3; reverse hard |
-| **2d′** | **Skip-replay only on snap gap** `1a2f242` | ✅ **shipped** — bundle **`index-Cw19iE04.js`** / Version `4b585641`. Combat retest next |
-| 2e | Host multi-s freezes while focused | open after combat retest — KO/announcer hitch forensics |
-| 3 | Match B (Intel hosts) only if needed | locked |
-| 4 | P1 console cards one-at-a-time | locked until combat honest |
+| 2d′ | Skip-replay only on snap gap `1a2f242` | ✅ **shipped** — `index-Cw19iE04.js`. Cap-16: **skips=0**, localKos **2**, snapGapMax **181ms** — combat pass-enough |
+| **2e** | **Host hitch forensics** (focused 4090) | ▶️ **Next** — 100–500ms stalls → snap gaps → invisible non-host kills. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
+| 3 | Match B (Intel hosts) only if needed | locked until 2e |
+| 4 | P1 console cards one-at-a-time | locked until hitches honest |
 | 5 | NET-1 two-human smoke | after perf honest |
 | 6 | P0-2 menu choppy on 4090 High | parked |
 
@@ -94,9 +94,9 @@ Historical run-3…run-6 decode docs remain: [playtest-triage-2026-07-17.md](./p
 
 ### Next actions
 
-1. **Wyatt:** hard-refresh both to **`index-Cw19iE04.js`** → Match A combat retest → F8 both → pull + feel.
-2. Pass: hits without hard reverse; non-host `reconcileReplaySkips` near 0 unless multi-s gap; errMax down vs 5.3m.
-3. Fail / freezes dominate → **2e host hitch forensics** next (one item).
+1. **New agent window:** 2e only — read [planning/handoff-next-window.md](./planning/handoff-next-window.md). Pull F8s if Wyatt played.
+2. Dig host main-thread / send stalls on focused 4090 (cap-17: post-GO 303/526ms; cap-16: ~33 snapGapsOver100/min). One lever after evidence.
+3. Pass bar: non-host sees the hit that earns a KO; host longframe + non-host gap rate drop.
 4. Prefer `npm run qa` before claiming done; baseline `npm run qa:visual` when touching postFX.
 5. Structural debt stays post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
@@ -176,7 +176,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (combat skip-gap **shipped**) — **`1a2f242` / bundle `index-Cw19iE04.js` / Version `4b585641`**. skip-replay only on long snap gap (not oldest-N truncate). Markers `skipReplayAfterSnapGapMs` + sha in served bytes. **Retest combat reverse** → F8; if not helping → 2e host hitch.
+2026-07-19 (doc staleness sweep, separate Claude session — no code changes) — Fixed stale docs repo-wide: VFX-1/bloom-promotion marked closed in ROADMAP/BACKLOG/project-state/playtest docs (`?rtmode=bloomfix` A/B retired; toggle is `?bloompipe`); local worker port 1999→8787 in preview-dev/deploy-urls; `/parties/main/`→`/parties/cart-rave-server/`; CREDITS `src/audio.js`→real modules + dropped Michroma/Space Grotesk font rows; living-store cargo 2→12 → 7→18; `.cursorrules` version pins; this file's duplicate gates/deploy rows consolidated. `handoff-next-window.md` untouched.
+
+2026-07-19 (2e handoff) — Combat pass-enough (cap-16 skips=0, localKos=2). Residual: host hitches + invisible non-host kills. Handoff rewritten for **2e only**: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
+
+2026-07-19 (combat skip-gap **shipped**) — **`1a2f242` / bundle `index-Cw19iE04.js` / Version `4b585641`**. Cap-16 retest: skips 0, combat better; host hitch next.
 
 2026-07-19 (combat path) — Cap-12/13: P2P OK after TURN secrets; reverse hard = **skip-replay on any oldest-N truncate**. Lever implemented then shipped as entry above.
 
