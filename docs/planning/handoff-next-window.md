@@ -1,10 +1,10 @@
 # Handoff — next agent window (Run 7 · **2e host hitch**)
 
-**Date:** 2026-07-19 (2e forensics dig + host send cadence probe)  
+**Date:** 2026-07-19 (2e host send probe **live**)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** combat code **`1a2f242`** still live; **host send probe is local/unpushed** until ship  
+**Origin HEAD:** **`67b3cf5`** (probe `19e5cd9` + rtmode drop)  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-Cw19iE04.js`** (Version `4b585641` — skip-replay gap-only)  
+**Live client bundle:** **`index-pavOdoEG.js`** (Version `28e48ede` — host send cadence probe)  
 **Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
 
 **Do not** re-triage run-1…run-6 from scratch.  
@@ -33,7 +33,7 @@ F8 both machines → `npm run captures:pull` → read `.diag-captures/playtest/`
 | Workers **Paid** + Logs | ✅ Paid; `observability` on (`601b8e8`). |
 | Skip-replay only on long snap gap | ✅ **`1a2f242` / `index-Cw19iE04.js`** — not on oldest-N truncate. |
 | Match A combat reverse | ✅ **Pass enough** — Wyatt feel better; cap-16 **skips=0**, localKos **2**, snapGapMax **181ms** (was 3665). |
-| **Host hitch / invisible kills** | ▶️ **2e in progress** — forensics dig done; host send probe **unpushed** |
+| **Host hitch / invisible kills** | ▶️ **2e probe live** — dig done; host send cadence on **`index-pavOdoEG.js`**; awaiting Match A F8 both |
 | Match B (Intel hosts) | Locked until 2e honest enough. |
 | NET-PERF-2 | Done run-4. Do not re-solve. |
 
@@ -89,7 +89,7 @@ Post-GO **303 + 526ms** `resume:true` are genuine main-thread blocks. Strongest 
 
 Mid-round host **send** cadence was invisible on host F8s (`snapCount:0` on host — host never receives its own snaps). Needed: host-side inter-`hostSendTick` gaps.
 
-### Instrumentation card (this window — **unpushed**)
+### Instrumentation card (**shipped**)
 
 **One card:** host send-cadence counters in `src/netcode.js` (no gameplay change):
 
@@ -102,19 +102,17 @@ Mid-round host **send** cadence was invisible on host F8s (`snapCount:0` on host
 
 Lobby/countdown silence does **not** inflate the first running gap (anchor reset when phase ≠ running).
 
-**Gates:** `npm run qa` → **459 tests / 51 files**, typecheck + knip clean (local).
-
-**Not shipped.** Ship only on Wyatt "ship it."
+**Live:** commit `19e5cd9`, bundle **`index-pavOdoEG.js`**, Version `28e48ede` — markers verified in served bytes (`sendGapsOver100`, `host_send_gap`, sha `19e5cd9`).
 
 ---
 
 ## Next agent work (2e only)
 
-1. **Ship** the host send probe when Wyatt says so → Match A retest with F8 **both** machines.  
+1. Match A retest with F8 **both** machines on **`index-pavOdoEG.js`** (hard-refresh / cache-bust if HTML lags).  
 2. Decode **new** host F8: compare `sendGapsOver100` / `sendGapMaxMs` / `host_send_gap` events vs non-host `snapGapsOver100`.  
    - If host `sendGapsOver100` ≈ 0 mid-round → mid-round invisible kills are mostly **client arrival / hold false-trips** (or network), not 4090 send starvation. Next lever = silence/hold honesty or client hitch, not host encode.  
    - If host `sendGapsOver100` tracks non-host gaps → real host send stalls; dig main-thread cost at those timestamps (announcer first, then sim/render).  
-3. **Likely first behavior lever (only after ship+retest, one at a time):** await / prioritize announcer warm before countdown so post-GO 300–500ms resumes die. Do **not** stack with silence-hold changes in the same ship.  
+3. **Likely first behavior lever (only after retest, one at a time):** await / prioritize announcer warm before countdown so post-GO 300–500ms resumes die. Do **not** stack with silence-hold changes in the same ship.  
 4. Pass bar unchanged: non-host sees the hit that earns a KO; host longframe + **host sendGap** rate drop; non-host gap rate only trusted when host send metrics confirm.
 
 **Out of scope this window unless F8s regress:** prediction order, skip-replay policy, phantom pending, Match B, P1 cards, NET-1, menu choppy (P0-2), NET-PERF-2.
@@ -160,8 +158,8 @@ npx wrangler tail cart-rave     # optional live Worker/DO exceptions
 > Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
 > Continue Run 7 **2e host hitch forensics** only — one item at a time.  
 > Do not re-triage run-1…6, do not re-solve NET-PERF-2, do not re-open combat skip-replay unless F8s show skips/reverse back.  
-> Combat `1a2f242` / bundle `index-Cw19iE04.js` is pass-enough. Residual: host stalls → snap gaps → invisible kills.  
-> Latest: forensics dig + host send cadence probe (unpushed). Ship probe on "ship it", then Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
+> Combat pass-enough on prior build. Residual: host stalls → snap gaps → invisible kills.  
+> Probe **live** `index-pavOdoEG.js` (`19e5cd9`). Match A F8 both; compare host `sendGapsOver100` vs non-host `snapGapsOver100`.
 
 ---
 
