@@ -32,10 +32,11 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ **458 tests / 51 files**, typecheck + knip clean (verified 2026-07-19 on the run-7 combat stack) |
+| Gates (`npm run qa`) | ✅ **514 tests / 55 files**, typecheck + knip clean (verified 2026-07-19 on P0 longtask probe) |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** — gameharness · spawnlock · mpIntegration · hostMigration · teardownRejoin 8/8 (verified 2026-07-19 **with the full run-7 combat stack in tree** — replay cap + silence hold + phantom clear break no rig invariant; report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at `1adef95` — tHost arrival honesty |
-| Prod deploy (2026-07-19 tHost arrival) | ✅ Live — **bundle `index-CHXFyLNA.js`**, Version `2c88c7d9` (`1adef95` verified in served bytes) |
+| Origin HEAD | Local ↔ origin/cart-clash at `8f17aba` — P0 longtask probe |
+| Prod deploy (2026-07-19 P0 longtask) | ✅ Live — **bundle `index-DGKCMA2w.js`**, Version `2729f45e` (`8f17aba` + `longtask`/`ltN`/`focused` verified in served bytes) |
+| Prod deploy (2026-07-19 tHost arrival) | ✅ superseded — **bundle `index-CHXFyLNA.js`**, Version `2c88c7d9` (`1adef95`) |
 | Prod deploy (2026-07-19 announcer warm) | ✅ superseded — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`) |
 | Prod deploy (2026-07-19 host-send probe) | ✅ superseded — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9`) |
 | Prod deploy (2026-07-19 skip-gap) | ✅ superseded — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`) |
@@ -80,7 +81,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Forensics + longtask probe unpushed** — cap-38: multi-s `resume` gaps (not chronic GPU); 2nd host death clean so not pure death path; next F8 needs `lt[]`/`focused` |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Probe live** `index-DGKCMA2w.js` / `8f17aba` — retest 2-human F8 host; decode `lt[]`/`focused` on multi-s longframes |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -94,8 +95,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Ship P0 longtask probe** on Wyatt “ship it” → hard-refresh both → short 2-human retest with F8 on host after any multi-s hitch.
-2. Decode host longframe: `hidden`/`focused` + `lt[]` (Long Tasks during gap). Then **one** lever from evidence (not guess).
+1. **Hard-refresh both** (`index-DGKCMA2w.js`) → short 2-human retest with F8 on **host** after any multi-s hitch.
+2. Decode host longframe: `hidden`/`focused` + `lt[]`. Then **one** lever from evidence (not guess).
 3. Pass: no multi-second host_send_gap / friend snap_gap mid-round; friend combat errMax/tele drop.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
@@ -175,7 +176,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (P0 forensics — **unpushed**) — Cap-38 dig: freezes are multi-s `resume:true` rAF gaps (over33 only 20 whole match — not chronic GPU). Starts align with GO + first host KO + one NPC fall, but **2nd host death at t=156649 had no multi-s freeze** → not a pure death/shatter path. No F8s newer than #41. **Lever:** `?diag` Long Task observer + longframe stamps `hidden`/`vis`/`focused`/`lt[]` (`src/utils/longTaskProbe.js`). Gates: **qa 514/55** green. **Not shipped** — await “ship it”, then friend retest F8.
+2026-07-19 (P0 longtask probe **shipped**) — **`8f17aba` / bundle `index-DGKCMA2w.js` / Version `2729f45e`**. Served bytes: sha `8f17aba`, `longtask`, `ltN`, `focused`, `PerformanceObserver`. Cap-38 dig stands (multi-s `resume` gaps; not pure death path). **Next:** hard-refresh both → 2-human F8 host after multi-s hitch → decode `lt[]`/`focused`.
 
 2026-07-19 (friend playtest decode + handoff) — 2-human caps **31–40** (4090 host / 9070 XT non-host): multi-s host freezes = friend tHost gaps; late friend snap o100 **117** vs host send o100 **6**; combat errMax **11.2 m**, tele **15**, localKos **0**. Solo cap-**41**: no net desync; rematch ~8s hitch; AI probe empty. Handoff **P0→P6**: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
