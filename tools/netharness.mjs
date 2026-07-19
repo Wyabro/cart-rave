@@ -170,6 +170,42 @@ async function waitForColdLoadDone(page, { timeout = 60_000, label = "" } = {}) 
   throw new Error(`[${label}] cold load never settled. last: ${JSON.stringify(last)}`);
 }
 
+/**
+ * Waits until the client has actually SAMPLED the held input (queued >= 1 pending
+ * input) instead of trusting a fixed sleep before the drive-measurement window.
+ *
+ * This replaces the `sleep(250)` that was the single largest source of battery
+ * noise. waitForColdLoadDone is a loose heuristic and can declare the loop
+ * "settled" while it is still starved enough that the fixed-step accumulator
+ * keeps resetting (gameLoop: dt>0.25s → accumulator=0), so the client never
+ * samples input at all. The 3500ms window then measured a cart nobody asked to
+ * move and the rig reported a bare `peak 0.00m` — indistinguishable from a real
+ * netcode regression, and it landed on a different rig every run.
+ *
+ * Deliberately does NOT throw on timeout: the existing displacement/pending
+ * checks stay the sole arbiters of pass/fail, so this can only remove a race,
+ * never invent a new failure. On a healthy client it also returns as soon as
+ * input is flowing, which is faster than the fixed sleep it replaces.
+ *
+ * @returns {Promise<number>} pendingInputs observed (0 = never sampled → starved).
+ */
+async function waitForInputSampled(page, { label = "input-sampled", timeout = 12_000 } = {}) {
+  const readPending = () => {
+    const s = window.__ccTest.getState();
+    const n = typeof s.pending === "number" ? s.pending : Number(s.pendingInputs ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const seen = await pollDiag(page, readPending, (n) => (n ?? 0) > 0, { timeout, label })
+    .catch(() => 0);
+  if (!seen) {
+    console.log(
+      `[diag] ${label}: client never sampled the held input within ${timeout}ms — ` +
+        `loop starved (NET-2 class). Any 0.00m displacement below is that, not a netcode regression.`,
+    );
+  }
+  return seen ?? 0;
+}
+
 /** Dispatch a real keydown/keyup on window (drives the production input path). */
 async function holdKey(page, code) {
   await page.evaluate((c) => {
@@ -258,7 +294,9 @@ async function scenarioSpawnLock(browserHost, browserJoiner, baseUrl) {
 
   // 3. Drive forward for 1.6s.
   await holdKey(joiner.page, "KeyW");
-  await sleep(250);
+  // * Wait for the input to actually be sampled rather than a fixed 250ms — see
+  // * waitForInputSampled. Removes the `peak 0.00m` starvation flake.
+  await waitForInputSampled(joiner.page, { label: "spawnlock-joiner-input" });
   const probe = await joiner.page.evaluate(() => window.__ccTest.getState());
   console.log(`[scenario] after keydown — axis=${JSON.stringify(probe.axis)} pending=${probe.pending}`);
   const t0 = Date.now();
@@ -409,7 +447,7 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
   // * (reliable 4/4) does this same 1s settle + post-keydown probe; mirror it here.
   await sleep(1000);
   await holdKey(joiner.page, "KeyW");
-  await sleep(250);
+  await waitForInputSampled(joiner.page, { label: "mpIntegration-joiner-input" });
   const inputProbe = await joiner.page.evaluate(() => window.__ccTest.getState());
   console.log(
     `[scenario] joiner after keydown — axis=${JSON.stringify(inputProbe.axis)} pending=${inputProbe.pending}`,
@@ -749,7 +787,7 @@ async function scenarioTeardownRejoin(browserHost, browserJoiner, baseUrl) {
   await sleep(1000);
   const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
   await holdKey(joiner.page, "KeyW");
-  await sleep(250);
+  await waitForInputSampled(joiner.page, { label: "teardownRejoin-joiner-input" });
   const probe = await joiner.page.evaluate(readNet);
   console.log(`[scenario] after keydown — pendingInputs=${probe.pendingInputs} axisWired=${probe.axisWired}`);
   let maxDisp = 0;
