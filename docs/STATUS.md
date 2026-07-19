@@ -34,8 +34,10 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ **449 tests / 49 files**, typecheck + knip clean (verified 2026-07-18, post run-6 fixes — +5 regression tests: music bleed ×2, SD stalemate ×2 net, autoQuality floor behavior) |
 | Automated rigs (`npm run battery`) | ✅ **4/4 green** — gameharness · spawnlock 4/4 · mpIntegration 16/16 · hostMigration 7/7 (verified 2026-07-18 with the run-3 MP fixes in tree; note the old "peak 0.00m flake" was very likely the now-fixed menu-teardown input freeze, which URL-joining harnesses structurally cannot reproduce) |
-| Origin HEAD | Local ↔ origin/cart-clash at `6b51959` — 07-18 run-6 triage stack (`06b86a3` code + `6b51959` docs) pushed **and deployed to prod** |
-| Prod deploy (2026-07-18 eve) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-9RzsBOgc.js`**, Version `23499d21`; markers `suddenDeathMaxMs`/`stopMenuMusicForPlay`/`renderScaleMul`/`kill-confirm.opus` verified in served bytes; `sounds/storerooms.opus` serves the trimmed 2,356,097-byte 3:00 file; `sounds/kill-confirm.opus` live (audio/ogg). No new DO migration. Run-6 fix batch — see the 07-18 run-6 log entry + [planning/playtest-triage-2026-07-18-run6.md](./planning/playtest-triage-2026-07-18-run6.md) |
+| Origin HEAD | Local ↔ origin/cart-clash at `f0c10ba` — run-7 NET-PERF-1 reconcile replay cap pushed **and deployed** |
+| Gates (`npm run qa`) | ✅ **453 tests / 50 files**, typecheck + knip clean (post run-7 cap +4 tests) |
+| Prod deploy (2026-07-19) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-eo1T1CJF.js`**, Version `3c985b44`; markers `reconcileReplayMaxSteps`/`reconcileReplayDrops`/`f0c10ba` verified in served bytes. No new DO migration. **Next: Match A retest only** (4090 hosts, Intel non-host F8). |
+| Prod deploy (2026-07-18 eve) | ✅ superseded — bundle `index-9RzsBOgc.js`, Version `23499d21` (run-6 stack) |
 | Prod deploy (2026-07-18 pm) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-JHMFE-UK.js`** (cache-buster verified; markers `snap_gap`/`_reconcileVisOffset`/`over66` present in served bytes), Version `d42534f4`; includes the run-4 fixes: MP reconcile visual easing + camera smoothed-pose, snapshot decode ring pool, host send burst guard, `net.flow` probe + over33/66 counters, glow master 0.52 + pattern-valley lift, contact-shadow polygonOffset, splash tune + layer, non-host death sting, Sundial holo +0.9. No new DO migration. Edge served stale index.html for ~30s post-deploy (again) — cache-buster until the new bundle name appears |
 | Prod deploy (2026-07-18 am) | ✅ superseded — bundle `index-BzZeIE-M.js`, Version `1a58bdf7` (run-3 fixes: non-host input-freeze root cause, countdown-under-swap defer, ACES cart-emissive rebalance, Sundial sun/cross, splash variation, contact-shadow depthTest) |
 | Prod deploy (2026-07-17 late) | ✅ Live at cart-rave.wyabro.workers.dev — **build stamp `25891a7`** (verified in served bundle `index-QNvXlOSX.js`), Version `10cfd8fd`; includes run-2 triage (`369083e`: 1.2s countdown digits, Sundial exposure 1.32, env session-cache + composer warm, net/audio/longframe F8 probes) + sun rework and the recorded splash (`water-splash.opus` confirmed served as audio/ogg, so the drop-in registration fires in prod). No new DO migration. Edge may serve stale index.html briefly post-deploy — verify with a cache-buster |
@@ -78,7 +80,7 @@ bad). **NET-PERF-2** (decode ring pool) already shipped run-4 — do not re-solv
 | # | What | Status |
 |---|------|--------|
 | 1 | Run 7 Match A (Strong hosts) + F8s | ✅ Done 2026-07-19 — **A FAIL** (not host-role alone) |
-| **2** | **NET-PERF-1 reconcile replay cap** (one change) — retest Match A only on Intel non-host | ▶️ **Code ready, needs ship + eyes** |
+| **2** | **NET-PERF-1 reconcile replay cap** — shipped `f0c10ba` / `index-eo1T1CJF.js` — **retest Match A only** (4090 hosts, Intel F8) | ▶️ **Eyes-on** |
 | 3 | Match B only if needed after #2; else skip | locked |
 | 4 | P1 one-at-a-time (host minimize, SD, music, …) | locked until A feels honest |
 | 5 | NET-1 full two-human smoke | after perf story is honest |
