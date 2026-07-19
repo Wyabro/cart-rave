@@ -1631,6 +1631,18 @@ async function main() {
       report?.(97, "Rolling out carts…");
       await ensureSessionCartsReady();
       Netcode.reapplyCachedCartsSnapshot?.();
+      // * Cap-56: game_start used to stack menu-hide + first music/ambience play +
+      // * startCountdown teleports into one ~400ms host LT. Play-entry already
+      // * decoded those packs (audio warm); roll playback under the loading overlay
+      // * so the start tick mostly reveals the canvas. Safe if game_start never
+      // * comes — initMenu stops game music on return.
+      try {
+        AudioManager.stopMenuMusic();
+        startLevelMusic(getCurrentLevelId());
+        ArenaAmbience.startArenaAmbience(getCurrentLevelId());
+      } catch {
+        /* non-fatal — game_start path still starts audio in commitMenuHiddenForGame */
+      }
     };
   }
 
@@ -2840,7 +2852,17 @@ async function main() {
           startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
         });
       } else {
-        startCountdown(startsAtLocalMs);
+        // * Cap-56: menu-hide (skipBootstrap) + startCountdown used to run in one
+        // * turn (~400ms LT before phase=countdown). Yield one frame so paint/hide
+        // * settle; startsAtLocalMs is absolute so digit pacing still tracks server GO.
+        const starts = startsAtLocalMs;
+        requestAnimationFrame(() => {
+          if (menuVisible) return;
+          const phase = GameState.getRoundState().phase;
+          // * Already running, or a prior startCountdown this tick — don't double-arm.
+          if (phase === "running" || phase === "countdown") return;
+          startCountdown(starts);
+        });
       }
     } else if (GameState.getRoundState().phase !== "running") {
       // * Menu re-entry at a rematch can land game_start while the room's arena rotation

@@ -431,6 +431,11 @@ export class CartRaveServer extends Server {
   // * Cancels the game-start countdown (or pending rematch grace) if the "all
   // * ready" condition is no longer satisfied. Called after any human slot
   // * reverts to NPC / unready so we don't arm countdown with a thinner room.
+  // *
+  // * MUST use the same live-conn filter as #checkAllReady. Cap-56: abort ~0.5s
+  // * into countdown then re-arm — orphan/stale human slots (isReady false, dead
+  // * connId) were included here but ignored by arm, so a room that correctly
+  // * armed would immediately cancel on the next ready/slots reconcile.
   #cancelCountdownIfNeeded() {
     if (
       this.#countdownTimerHandle === null
@@ -440,8 +445,16 @@ export class CartRaveServer extends Server {
       return;
     }
     if (!this.#slots) return;
-    const humanSlots = this.#slots.filter((s) => s.kind === "human");
-    if (humanSlots.every((s) => s.isReady)) return;
+    const liveConnIds = new Set<string>();
+    for (const c of this.getConnections()) {
+      liveConnIds.add(c.id);
+    }
+    const humanSlots = this.#slots.filter(
+      (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
+    );
+    // * No live humans (or any live human unready) → abort. Empty every() is true
+    // * in JS — do not treat "zero humans" as "all ready".
+    if (humanSlots.length > 0 && humanSlots.every((s) => s.isReady)) return;
     this.#abortArmedCountdown();
   }
 

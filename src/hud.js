@@ -533,9 +533,16 @@ function updateStatus(roundState) {
     elements.status.textContent = "GO!";
     stampBannerOnce("go");
   } else if (roundPhase === "countdown") {
-    // * Reset GO sound gate when entering countdown from a non-countdown phase.
+    // * Reset GO sound gate + digit latch when entering countdown from a non-countdown
+    // * phase. Cap-56: abort (countdown→lobby) then re-arm left `_lastCountdownN === 3`,
+    // * so the second countdown skipped announce(`countdown_3`) and only fired 2→1→GO.
     if (prevPhase !== "countdown") {
       _goSoundPlayed = false;
+      _lastCountdownN = null;
+      // * Allow "count-3" banner stamp to fire again on a re-armed countdown.
+      if (typeof _lastBannerKey === "string" && _lastBannerKey.startsWith("count-")) {
+        _lastBannerKey = null;
+      }
     }
     const countdownMs = roundState?.countdownMs
       ?? (_options.getCountdownMs ? _options.getCountdownMs() : 3000);
