@@ -23,7 +23,7 @@
     "knip": "knip",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run test && npm run knip",
+    "check": "npm run status:size && npm run typecheck && npm run test && npm run knip",
     "qa": "npm run check",
     "qa:visual": "node tools/blackframes.mjs --shot classic --frames 30",
     "shoot": "node tools/shoot.mjs",
@@ -34,6 +34,7 @@
     "gameharness": "node tools/gameharness.mjs",
     "battery": "node tools/battery.mjs",
     "dashboard": "node tools/dashboard.mjs",
+    "status:size": "node tools/status-size.mjs",
     "captures:pull": "node tools/pull-captures.mjs",
     "perf:profile": "node tools/perf-profile.mjs"
   },

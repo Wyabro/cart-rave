@@ -15,6 +15,12 @@ focus, next actions, gotchas. Then this file for standing rules. Architecture sn
 [docs/planning/project-state.md](docs/planning/project-state.md). Deep reference:
 [docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
 
+**History lives in [docs/archive/](docs/archive/README.md), not in STATUS.md.** STATUS.md
+carries only the current session window; older session logs and full-text decisions are rolled
+into dated archive files indexed by [archive/README.md](docs/archive/README.md). When you need
+the *why* behind past work, grep the archive for the symbol or date — do not read those files
+whole, and do not assume STATUS.md is the complete record.
+
 **Before any cross-module change, read
 [docs/reference/control-flow.md](docs/reference/control-flow.md).** Most high-traffic edges in this
 codebase are *not* imports — they run through injected `callbacks`/`deps` objects, the string-keyed
