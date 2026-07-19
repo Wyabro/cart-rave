@@ -120,6 +120,111 @@ export function parseStatusOpenIssues(statusMd) {
 }
 
 /**
+ * Attention state of a queue row, derived from its status cell. Drives how much
+ * visual weight the Command Center gives it: exactly one row should be "active";
+ * "done" rows collapse; "locked" rows are explicit do-not-touch; the rest wait.
+ * @param {string} status
+ * @returns {"active" | "done" | "locked" | "waiting"}
+ */
+export function queueRowState(status) {
+  const s = String(status ?? "");
+  if (s.includes("▶")) return "active";
+  if (/\blocked\b|\bparked\b|🚫|🧊/iu.test(s)) return "locked";
+  if (/^\s*✅/u.test(s)) return "done";
+  return "waiting";
+}
+
+/**
+ * STATUS.md playtest/active queue → structured rows. Current format is the
+ * "### Active queue" table (| # | What | Status |); the pre-run-7
+ * "### Wyatt playtest queue" numbered list is kept as a fallback so an old
+ * STATUS revision still renders (as state "waiting" rows).
+ * @param {string} statusMd
+ * @returns {Array<{ id: string, what: string, status: string, state: string }>}
+ */
+export function parseStatusPlaytestQueue(statusMd) {
+  const table = extractSection(statusMd, "### Active queue");
+  if (table) {
+    const rows = parseMarkdownTable(table)
+      .map((r) => {
+        const cell = (v) => String(v ?? "").replace(/\*\*/g, "").trim();
+        const id = cell(r.col0);
+        const what = cell(r.what);
+        const status = cell(r.status);
+        // * The lock marker sometimes lives in the What column ("Match B … | locked / parked | |").
+        return { id, what, status, state: queueRowState(`${status} ${what}`) };
+      })
+      .filter((r) => r.id !== "" || r.what !== "");
+    if (rows.length > 0) return rows;
+  }
+  return parseListItems(extractSection(statusMd, "### Wyatt playtest queue") ?? "").map((text) => ({
+    id: "",
+    what: text,
+    status: "",
+    state: "waiting",
+  }));
+}
+
+/**
+ * STATUS.md "## Current focus" first line → the mission banner.
+ * "**Run 7 — post friend playtest.** Cold handoff …" → headline + detail.
+ * @param {string} statusMd
+ * @returns {{ headline: string, detail: string | null } | null}
+ */
+export function parseStatusCurrentFocus(statusMd) {
+  const section = extractSection(statusMd, "## Current focus");
+  if (!section) return null;
+  const line = section
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l !== "" && !l.startsWith("#") && !l.startsWith("|"));
+  if (!line) return null;
+  const clean = line
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*/g, "")
+    .trim();
+  const m = clean.match(/^(.+?[.!?])\s+(.+)$/);
+  const headline = (m ? m[1] : clean).replace(/[.:\s]+$/, "");
+  const detail = m ? m[2].replace(/[:\s]+$/, "") : null;
+  return { headline, detail: detail || null };
+}
+
+/**
+ * Compress a STATUS issue-status cell for at-a-glance reading: markdown links →
+ * text, bold stripped, whitespace collapsed, truncated at a word boundary.
+ * The full cell stays available in health.json — this is a view helper.
+ * @param {string} status
+ * @param {number} [max]
+ * @returns {string}
+ */
+export function compressIssueStatus(status, max = 170) {
+  const clean = String(status ?? "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 40))}…`;
+}
+
+/**
+ * Bucket a STATUS issue by its leading state emoji so the Command Center can
+ * foreground open work and shelve closed/frozen history.
+ * @param {string} status
+ * @returns {"open" | "partial" | "warn" | "closed" | "parked" | "other"}
+ */
+export function issueState(status) {
+  const s = String(status ?? "").trim();
+  if (s.startsWith("❌")) return "open";
+  if (s.startsWith("🟡")) return "partial";
+  if (s.startsWith("⚠️") || s.startsWith("⚠")) return "warn";
+  if (s.startsWith("✅")) return "closed";
+  if (/^(🚫|🧊|📋)/u.test(s)) return "parked";
+  return "other";
+}
+
+/**
  * BACKLOG.md → per-discipline sections with their table rows and priority counts.
  * @param {string} backlogMd
  * @returns {Array<{ title: string, rows: Array<Record<string, string>>, counts: Record<string, number> }>}
@@ -142,6 +247,160 @@ export function parseBacklogSections(backlogMd) {
     out.push({ title: h[1].trim(), rows, counts });
   }
   return out;
+}
+
+/**
+ * STATUS.md "### Release phases" list → the release-brain strip. Markers:
+ * ✅ done · ▶ current · ⬜ todo. Anything else is ignored (prose lines).
+ * @param {string} statusMd
+ * @returns {Array<{ name: string, state: "done" | "current" | "todo" }>}
+ */
+export function parseStatusReleasePhases(statusMd) {
+  const section = extractSection(statusMd, "### Release phases");
+  if (!section) return [];
+  const out = [];
+  for (const item of parseListItems(section)) {
+    const m = item.match(/^(✅|▶|⬜)\s*(.+)$/u);
+    if (!m) continue;
+    const state = m[1] === "✅" ? "done" : m[1] === "▶" ? "current" : "todo";
+    out.push({ name: m[2].trim(), state });
+  }
+  return out;
+}
+
+/**
+ * STATUS.md "### Done when" checkbox list → the mission's definition of done.
+ * @param {string} statusMd
+ * @returns {Array<{ text: string, done: boolean }>}
+ */
+export function parseStatusDoneWhen(statusMd) {
+  const section = extractSection(statusMd, "### Done when");
+  if (!section) return [];
+  const out = [];
+  for (const line of section.split(/\r?\n/)) {
+    const m = line.match(/^\s*[-*]\s*\[([ xX])\]\s+(.+)$/);
+    if (!m) continue;
+    out.push({
+      text: m[2].replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*/g, "").trim(),
+      done: m[1].toLowerCase() === "x",
+    });
+  }
+  return out;
+}
+
+/**
+ * STATUS.md "## Last updated" first entry → the session-continuity blurb.
+ * Entries open with "2026-07-19 (label — …) — body…".
+ * @param {string} statusMd
+ * @returns {{ when: string | null, label: string | null, summary: string } | null}
+ */
+export function parseStatusLastUpdated(statusMd) {
+  const section = extractSection(statusMd, "## Last updated");
+  if (!section) return null;
+  const lines = section.split(/\r?\n/);
+  let start = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].trim() !== "") {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0) return null;
+  const para = [];
+  for (let i = start; i < lines.length; i += 1) {
+    if (lines[i].trim() === "") break;
+    para.push(lines[i].trim());
+  }
+  const text = para.join(" ");
+  const head = text.match(/^(\d{4}-\d{2}-\d{2})\s*\(([^)]*)\)\s*[—-]?\s*(.*)$/);
+  const when = head ? head[1] : null;
+  const label = head ? head[2].replace(/\*\*/g, "").trim() : null;
+  const body = (head ? head[3] : text).replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*/g, "");
+  return { when, label, summary: compressIssueStatus(body, 240) };
+}
+
+/**
+ * Backticked tokens across the given texts → deduped "symbols in play" list for
+ * the AI digest (files, functions, bundles, flags mentioned by the live docs).
+ * @param {...(string | null | undefined)} texts
+ * @returns {string[]}
+ */
+export function extractBacktickSymbols(...texts) {
+  const out = [];
+  for (const t of texts) {
+    for (const m of String(t ?? "").matchAll(/`([^`\n]{2,60})`/g)) {
+      const sym = m[1].trim();
+      if (sym && !out.includes(sym)) out.push(sym);
+    }
+  }
+  return out.slice(0, 12);
+}
+
+/**
+ * The ONE next action, derived from the full health model. Priority: a red battery
+ * gate beats everything; then STATUS next-action #1 (split on "Expect:" into the
+ * pass condition); then the active queue card. Captures are deliberately NOT a
+ * source — evidence, not todos. Shared by the Command Center render and the
+ * health.json digest so humans and agents get the same answer.
+ * @param {any} h partial health model (battery/issues at minimum)
+ * @returns {{ tag: string, kind: string, text: string, expect: string | null }}
+ */
+export function deriveNextAction(h) {
+  const stripLinks = (s) => String(s ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  const failing = (h.battery?.latest?.results ?? []).filter((r) => r.code !== 0);
+  if (failing.length > 0) {
+    return {
+      tag: "RED GATE",
+      kind: "gate",
+      text: `Fix the failing battery step${failing.length > 1 ? "s" : ""}: ${failing.map((r) => r.name).join(" + ")} — nothing ships over a red gate`,
+      expect: failing[0].note ?? null,
+    };
+  }
+  const next = h.issues?.nextActions?.[0];
+  if (next) {
+    const split = stripLinks(next).split(/\s*Expect:\s*/);
+    return { tag: "DO THIS NOW", kind: "plan", text: split[0].replace(/[;.\s]+$/, ""), expect: split[1] ?? null };
+  }
+  const active = (h.issues?.playtestQueue ?? []).find((q) => q.state === "active");
+  if (active) {
+    return { tag: "DO THIS NOW", kind: "queue", text: `${active.id} — ${active.what}`, expect: active.status || null };
+  }
+  return { tag: "NO ACTIVE CARD", kind: "none", text: "Nothing derivable — open docs/STATUS.md § Current focus and pick the next card", expect: null };
+}
+
+/**
+ * docs/planning/handoff-next-window.md → the agent-briefing block: title, the
+ * `**Key:** value` fact lines from the header, and the bold "Do not" rules.
+ * Tolerant of missing pieces; returns null only when the doc has none of them.
+ * @param {string} handoffMd
+ * @returns {{ title: string | null, facts: Array<{ key: string, value: string }>, doNots: string[] } | null}
+ */
+export function parseHandoffBriefing(handoffMd) {
+  const md = String(handoffMd ?? "");
+  if (md.trim() === "") return null;
+  const title = md.match(/^# +(.+)$/m)?.[1]?.trim() ?? null;
+  // * Facts and do-nots both live above the first --- rule; scoping there keeps
+  // * bold labels deeper in the doc (F8 tables etc.) out of the briefing.
+  const header = md.split(/^---$/m)[0];
+  const facts = [];
+  const doNots = [];
+  for (const line of header.split(/\r?\n/)) {
+    const doNot = line.match(/^\*\*Do not\*\*\s+(.*)$/i) ?? line.match(/^\*\*(Ship only[^*]*)\*\*\.?\s*$/i);
+    if (doNot) {
+      doNots.push(doNot[1].replace(/\*\*/g, "").replace(/\s+$/, "").replace(/\.$/, "").trim());
+      continue;
+    }
+    const fact = line.match(/^\*\*(.+?):\*\*\s+(.*?)\s*$/);
+    if (fact) {
+      const value = fact[2]
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // markdown links → text
+        .replace(/\*\*/g, "")
+        .trim();
+      facts.push({ key: fact[1].trim(), value });
+    }
+  }
+  if (title == null && facts.length === 0 && doNots.length === 0) return null;
+  return { title, facts, doNots };
 }
 
 // ---------------------------------------------------------------------------
@@ -409,6 +668,7 @@ export async function collectProjectHealth(opts = {}) {
 
   let statusMd = "";
   let backlogMd = "";
+  let handoffMd = "";
   try {
     statusMd = await readFile(resolve(cwd, "docs/STATUS.md"), "utf8");
   } catch {
@@ -419,6 +679,11 @@ export async function collectProjectHealth(opts = {}) {
   } catch {
     /* no BACKLOG.md */
   }
+  try {
+    handoffMd = await readFile(resolve(cwd, "docs/planning/handoff-next-window.md"), "utf8");
+  } catch {
+    /* no handoff doc */
+  }
 
   const [battery, captures, perf] = await Promise.all([
     collectBattery(captureDir),
@@ -426,18 +691,58 @@ export async function collectProjectHealth(opts = {}) {
     collectPerf(resolve(cwd, "shots")),
   ]);
 
+  const git = collectGit(cwd);
+  const mission = parseStatusCurrentFocus(statusMd);
+  const issues = {
+    open: parseStatusOpenIssues(statusMd),
+    nextActions: parseListItems(extractSection(statusMd, "### Next actions") ?? ""),
+    playtestQueue: parseStatusPlaytestQueue(statusMd),
+  };
+  const handoff = parseHandoffBriefing(handoffMd);
+  const phases = parseStatusReleasePhases(statusMd);
+  const doneWhen = parseStatusDoneWhen(statusMd);
+  const lastSession = parseStatusLastUpdated(statusMd);
+
+  // * The AI cold-start digest — everything an agent (or a returning human) needs
+  // * before opening any other doc. Summarizes; STATUS.md stays the detail source.
+  const activeRow = issues.playtestQueue.find((q) => q.state === "active") ?? null;
+  const localFact = (handoff?.facts ?? []).find((f) => f.key.toLowerCase().startsWith("local"))?.value ?? null;
+  const commits = git?.commits ?? [];
+  const digest = {
+    phase: phases.find((p) => p.state === "current")?.name ?? null,
+    mission: mission?.headline ?? null,
+    now: deriveNextAction({ battery, issues }),
+    doneWhen,
+    recentlyCompleted: [
+      ...issues.playtestQueue.filter((q) => q.state === "done").map((q) => `${q.id} ${q.what}`.trim()),
+      ...commits.slice(0, 3).map((c) => c.subject),
+    ],
+    inProgress: [activeRow ? `${activeRow.id} — ${activeRow.what} (${activeRow.status})` : null, localFact ? `local/unpushed: ${localFact}` : null].filter(Boolean),
+    blockers: issues.open.filter((i) => issueState(i.status) === "open").map((i) => ({ id: i.id, issue: i.issue })),
+    avoid: handoff?.doNots ?? [],
+    symbolsInPlay: extractBacktickSymbols(
+      localFact,
+      activeRow ? `${activeRow.what} ${activeRow.status}` : null,
+      (issues.nextActions ?? []).slice(0, 2).join(" "),
+      lastSession?.summary,
+    ),
+    recentRegressions: commits.filter((c) => /revert|rollback|regress/i.test(c.subject)).map((c) => c.subject),
+    lastSession,
+  };
+
   return {
-    healthVersion: 1,
+    healthVersion: 3,
     generatedAt: new Date().toISOString(),
-    git: collectGit(cwd),
+    git,
     battery,
     captures,
     perf,
-    issues: {
-      open: parseStatusOpenIssues(statusMd),
-      nextActions: parseListItems(extractSection(statusMd, "### Next actions") ?? ""),
-      playtestQueue: parseListItems(extractSection(statusMd, "### Wyatt playtest queue") ?? ""),
-    },
+    mission,
+    phases,
+    doneWhen,
+    issues,
     backlog: parseBacklogSections(backlogMd),
+    handoff,
+    digest,
   };
 }

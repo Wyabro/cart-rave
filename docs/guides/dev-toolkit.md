@@ -8,16 +8,19 @@ thing instead of a pile of one-offs. Deep guides:
 [visual-qa.md](./visual-qa.md) (screenshots / black frames) ·
 [observability.md](./observability.md) (bug capture · analytics · living dashboard).
 
-## The health view
+## The Command Center (the health view)
 
 ```bash
 npm run dashboard        # generate .diag-captures/dashboard.html + health.json
 ```
 
-A GENERATED project-health page — "what should I work on next?", latest battery gates
-with per-check detail, capture bundles awaiting triage (with screenshots), STATUS open
-issues / playtest queue, backlog shape, perf snapshot. Read-only; never hand-edited.
-See [observability.md](./observability.md).
+A GENERATED project command center — "what should I work on next?", the agent briefing
+(handoff facts + do-not list + cold-start read order), latest battery gates with
+per-check detail, capture bundles awaiting triage (with screenshots), STATUS open
+issues / active queue, backlog shape, perf snapshot, recent commits, and links to every
+other tool (playtest console, guides). Read-only; never hand-edited — the markdown it
+parses (STATUS / BACKLOG / handoff) stays canonical. Agents read `health.json` (same
+model). See [observability.md](./observability.md).
 
 ## The one command
 

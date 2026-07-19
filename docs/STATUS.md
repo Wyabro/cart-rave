@@ -4,8 +4,11 @@
 done, what's blocking, what happens next. It doubles as the session source of truth.
 **Why does it exist?** So nobody has to read weeks of historical docs to know where the
 project stands. **Is it current?** The health table is refreshed per-session but can still
-lag HEAD — prefer `git log` + `npm run qa` for the last word. For a live, auto-generated
-view (gates, open captures, what to work on next), run **`npm run dashboard`**.
+lag HEAD — prefer `git log` + `npm run qa` for the last word. For the live, auto-generated
+view of everything at once — gates, open captures, active queue, agent briefing, what to
+work on next — run **`npm run dashboard`** (the **Command Center**,
+`.diag-captures/dashboard.html` + `health.json` for agents). This file stays canonical;
+the Command Center is the generated first-stop view of it.
 
 > **Rehydration protocol** (agent or human resuming cold):
 > 1. Read **this file** fully.
@@ -24,6 +27,19 @@ Ship **Cart Clash** Version 2: a polished solo-first 4-player shopping-cart phys
 stay `cart-rave` until domain cutover. Prefer evidence (screenshots, black-pixel samples,
 two-browser smokes) over vibes for graphics and multiplayer gates.
 
+### Release phases
+
+Orientation only — advance the ▶ marker when a phase's exit condition is met (Command
+Center renders this strip; one ▶ at a time).
+
+- ✅ Foundation — engine, arenas, carts, physics
+- ✅ Core gameplay — KOs, scoring, Living Store, solo AI
+- ✅ Multiplayer — P2P netcode, host authority, migration
+- ✅ Production systems — passes 1–5, tooling, observability
+- ▶ Playtesting & stabilization — Run 7, one card at a time
+- ⬜ Release candidate — queue drained, NET-1 green, tech-debt triage
+- ⬜ Ship — domain cutover, external testers, wide URL
+
 ## Project health — 2026-07-19 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
 
 **Green gates, deployed, ready for the playtest checkpoint.** Implementation is ahead of
@@ -36,21 +52,7 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
 | Origin HEAD | Local ↔ origin/cart-clash at **`5bfe7e5`** — ko_path rolled back; longtask kept |
 | Prod deploy (2026-07-19 P0 land) | ✅ Live — **bundle `index-D3QXm4Qq.js`**, Version `f94266c2` (`5bfe7e5`; `longtask`/`ltN` present, `ko_path` **absent** in served bytes) |
-| Prod deploy (2026-07-19 P0 ko_path) | ✅ superseded — **`index-BwzBNELn.js`** / `ec6d2928` |
-| Prod deploy (2026-07-19 P0 longtask) | ✅ superseded — **`index-DGKCMA2w.js`** / `2729f45e` |
-| Prod deploy (2026-07-19 tHost arrival) | ✅ superseded — **bundle `index-CHXFyLNA.js`**, Version `2c88c7d9` (`1adef95`) |
-| Prod deploy (2026-07-19 announcer warm) | ✅ superseded — **bundle `index-B1V-NCgO.js`**, Version `1dce77ac` (`716ec2f`) |
-| Prod deploy (2026-07-19 host-send probe) | ✅ superseded — **bundle `index-pavOdoEG.js`**, Version `28e48ede` (`19e5cd9`) |
-| Prod deploy (2026-07-19 skip-gap) | ✅ superseded — **bundle `index-Cw19iE04.js`**, Version `4b585641` (`1a2f242`) |
-| Prod deploy (2026-07-19 eve, observability) | ✅ superseded — **bundle `index-C560wli8.js`**, Version `9dc41a2f` (`601b8e8` observability + phantom combat stack). **Workers Paid** on; captures pull works. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md) |
-| Prod deploy (2026-07-19 phantom) | ✅ superseded — **`index-t3FG6KVX.js`** / `eeeef76e` (`732e2d6` phantom clear). Soft feel only; no F8 (free-tier wall). |
-| Prod deploy (2026-07-19 combat-hold) | ✅ superseded — **`index-iKVEUst7.js`** / `4f795c70`. Hits better; phantom after respawn. |
-| Prod deploy (2026-07-19 night) | ✅ superseded — **bundle `index-XByafoNI.js`**, Version `11e93226` (`efdca62` hit-delay order). Match A combat FAIL partial. |
-| Prod deploy (2026-07-19 caps) | ✅ superseded — `index-Ctx1OH4e.js` (F8 upload + earlier cap) / `index-eo1T1CJF.js` (first cap) |
-| Prod deploy (2026-07-18 eve) | ✅ superseded — bundle `index-9RzsBOgc.js`, Version `23499d21` (run-6 stack) |
-| Prod deploy (2026-07-18 pm) | ✅ Live at cart-rave.wyabro.workers.dev — **served bundle `index-JHMFE-UK.js`** (cache-buster verified; markers `snap_gap`/`_reconcileVisOffset`/`over66` present in served bytes), Version `d42534f4`; includes the run-4 fixes: MP reconcile visual easing + camera smoothed-pose, snapshot decode ring pool, host send burst guard, `net.flow` probe + over33/66 counters, glow master 0.52 + pattern-valley lift, contact-shadow polygonOffset, splash tune + layer, non-host death sting, Sundial holo +0.9. No new DO migration. Edge served stale index.html for ~30s post-deploy (again) — cache-buster until the new bundle name appears |
-| Prod deploy (2026-07-18 am) | ✅ superseded — bundle `index-BzZeIE-M.js`, Version `1a58bdf7` (run-3 fixes: non-host input-freeze root cause, countdown-under-swap defer, ACES cart-emissive rebalance, Sundial sun/cross, splash variation, contact-shadow depthTest) |
-| Prod deploy (2026-07-17 late) | ✅ Live at cart-rave.wyabro.workers.dev — **build stamp `25891a7`** (verified in served bundle `index-QNvXlOSX.js`), Version `10cfd8fd`; includes run-2 triage (`369083e`: 1.2s countdown digits, Sundial exposure 1.32, env session-cache + composer warm, net/audio/longframe F8 probes) + sun rework and the recorded splash (`water-splash.opus` confirmed served as audio/ogg, so the drop-in registration fires in prod). No new DO migration. Edge may serve stale index.html briefly post-deploy — verify with a cache-buster |
+| Prior deploys (07-17 → 07-19) | ✅ superseded — ~15 ships; per-ship bundle/Version/sha + what each carried live in the dated log entries below and [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -76,6 +78,16 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
+
+### Done when (this mission)
+
+Run 7 closes — and the Release-candidate phase starts — when every box checks:
+
+- [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
+- [ ] P0 host freezes: menu warm shipped + clean F8 retest (no multi-s longtask after `world-ready`)
+- [ ] P1 late-round gap storm resolved or re-scoped with fresh F8s (locked until P0)
+- [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
+- [ ] NET-1 two-human full-round smoke green (the V2 gate)
 
 ### Active queue (strict — one at a time)
 
@@ -177,6 +189,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-19 (analytics-view + leaderboard re-flag — docs only, **unpushed**, additive to the merge below) — Wyatt asked whether player analytics + Supabase leaderboard were noted. Analytics harness is **already shipped/live** (observability §2); gap = no reading surface → new **ANLX-VIEW-1** (Medium: `npm run analytics` CLI and/or Command Center panel). Leaderboard was filed Low/post-launch in 4 docs → bumped **Medium** with the TRUST-1 chain intact; **scope call open for Wyatt** (ship-with vs launch-follow-up); `match_ended` analytics noted as the stats starting point.
+
+2026-07-19 (personal pre-ship backlog merged — docs only, **unpushed**) — Wyatt's 18-item gameplay/UX/polish list merged into [BACKLOG.md](./planning/BACKLOG.md) with his High/Med/Low tiers, tagged *(pre-ship 07-19)*; new **UI / UX** section. Highlights: CARGO-WT-1 grocery weight risk/reward (+ CARGO-VIS-1 basket visuals), AI-DIFF-1 difficulty modes (promotes the existing proposal), HIT-FEEL-1, INPUT-KB-1 keyboard parity, RESULTS-1, MP-FX-1 non-host VFX (folds into queue P2 evidence). Deduped against existing rows — controller-nav row absorbs the RC-hunt gamepad modal-scoping bug; ESC-panel row notes the 07-19 partial refresh. **Parked, not queued** — Run 7 mission unchanged; pickup is the Release-candidate phase.
+
+2026-07-19 (Command Center v3 — daily-OS workflow pass, same arc as v1/v2 below, tools + docs only, **unpushed**, no runtime changes; **final redesign** — no further iterations unless real usage exposes problems) — Release brain: STATUS gains canonical **### Release phases** (✅/▶/⬜ strip; Playtesting current) + **### Done when** mission checklist (1/5 checked — combat validated; P0 retest, P1, MP validation of RC fixes, NET-1 open); Command Center renders both (phase strip + DONE WHEN beside the mission). Session continuity: **Last session / Resume** bar (parsed from this section's newest entry + active queue card + console state). Playtest panel → **control room**: 8-step flow strip (mission → launch prod `?diag=1` → console cards → F8 → pull → review → fix one lever → retest). **Not Today** panel (parked/locked + "recording an idea ≠ changing priorities" → BACKLOG). View-time **staleness banner** (>12h old page warns to regenerate). `health.json` gains **`digest`** (phase, mission, now, done-when, recently-completed, in-progress, blockers, avoid, symbols-in-play, regressions, last-session) — `healthVersion` 3; AGENTS rehydration unchanged (dashboard/health.json first). New parsers + tests: phases, done-when, last-updated, symbols, shared `deriveNextAction` (render + digest give identical answers); live-doc canaries pin the new STATUS sections (exactly one ▶ phase enforced). Gates: **qa 549/57 green**, typecheck + knip clean.
+
+2026-07-19 (Command Center v2 — attention-first redesign, same session as the consolidation below, tools + docs only, **unpushed**, no runtime changes) — The v1 page was a status report; v2 is organized by decision frequency, not data source. Top: **mission banner** (STATUS § Current focus, huge), **the ONE next action** (red battery gate > STATUS next-action #1 > active queue card — captures deliberately removed as a todo source; they're evidence, not work), **do-not / parked firewall** (handoff do-nots + locked queue rows + 🚫🧊📋 issues). Middle: queue (done collapsed / active glowing / waiting dim), **playtest panel** — reads the console's localStorage at VIEW time in the browser (same-browser, no generate-time copy; console stays the single source), bugs radar (✅/parked rows shelved, status cells compressed), build health, recent commits. Bottom: everything else in collapsed `<details>` (captures, perf with a SwiftShader caveat, battery history with a flake warning, backlog, agent briefing, links). New parsers `parseStatusCurrentFocus`/`queueRowState`/`compressIssueStatus`/`issueState`; `healthVersion` 2 (queue rows now structured objects). Console got a ⌂ Command Center pill; AGENTS.md rehydration now starts at `npm run dashboard`/health.json. Gates: **qa 537/57 green**, typecheck + knip clean.
+
+2026-07-19 (Command Center consolidation, separate Claude session — tools + docs only, **unpushed**, no runtime changes) — `npm run dashboard` output promoted to the **Command Center**: new **Agent briefing** section (facts + do-not list + read order parsed from `handoff-next-window.md`), **Recent commits**, links row to every tool/doc, and the **Active queue** section un-broken (parser still read the pre-run-7 `### Wyatt playtest queue` heading → section was silently empty; now parses the Active-queue table with legacy fallback). New **live-doc canary tests** pin the real STATUS/BACKLOG/handoff against the parsers so heading drift breaks `npm run qa` instead of silently emptying sections. This file: ~15 superseded deploy rows collapsed to one (dated entries below remain the per-ship record; size gate now ~9.5k/12k). Deleted `scripts/dev-next-level.mjs` (deprecated shim, zero references). Pointers updated: AGENTS.md, docs/README.md, dev-toolkit.md, observability.md. Playtest console + all rigs untouched. Gates: **qa 531/57 green** (adds 9 parser/canary tests), typecheck + knip clean.
 
 2026-07-19 (RC bug-hunt pass, separate Claude session — **unpushed**, additive to the polish pass + P0 menu card below; those hunks untouched) — Systematic break-the-game sweep (7 subsystem sub-agents + manual trace/verify). **7 confirmed bugs fixed** (every finding re-verified against the code by hand before edit; gates: **qa 522/57 green, typecheck + knip clean**; battery re-run pending). ⚠️ **3 of the 7 are behavior-changing → need a human playtest before "done" / ship.**
 1. **[High] AI stuck in "cautious phase" the entire match** (`simulation.js` `isAiCautiousPhase`) — clock-domain mismatch: bots got `performance.now()` (page-load ms) compared against `startedAtMs` in `getRoundClockNowMs()` (timeOrigin+now, ~1.75e12), so `now-startedAtMs ≈ -1.75e12 < 8000` **always** → cautious forever. Two shipped tuning passes (reachOuter 0.82→0.95, booth OR→AND) never ran. Fixed to read the round clock in its own domain. **Behavior-changing** (bots now reach rim-campers, less mid-disc huddling).

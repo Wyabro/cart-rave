@@ -81,21 +81,29 @@ session counts). `&view=list` for raw rows, `DELETE` to clear. Same token secret
 **Deploy note:** first deploy after this lands applies DO migration `v3`
 (`AnalyticsLog`) — automatic with `npm run ship`, no action needed.
 
-## 3. Living dashboard (`npm run dashboard`)
+## 3. Command Center (`npm run dashboard`)
 
 `tools/dashboard.mjs` + `tools/lib/projectHealth.mjs` generate
 **`.diag-captures/dashboard.html`** (+ `health.json`, the same model as JSON for agents)
 from artifacts the project already produces — **nothing on it is hand-maintained**:
 
-- **What should I work on next?** — derived: failing battery steps → untriaged capture
-  bundles → open ❌ issues → STATUS next actions.
+- **Attention-first layout (v2):** mission banner (STATUS § Current focus) → the ONE
+  next action (red battery gate beats STATUS next-action #1 beats the active queue card)
+  → do-not / parked firewall → queue → playtest → pulse (bugs radar · build health ·
+  recent commits) → reference, collapsed. Captures are deliberately **not** a todo
+  source — they're evidence for the active card. Playtest progress is read from the
+  console's localStorage **in the browser at view time** (same browser as console.html),
+  never collected at generate time — no second copy of playtest truth.
 - **Gates** — latest `battery-*.json` with **per-check detail** (rigs now write
   `--tallyOut` tallies; the battery embeds them as `results[].checks`) + pass-ratio history.
 - **Captures awaiting triage** — bundle cards with screenshot thumbnails (same dir, so
   relative `<img>` just works).
-- **Open issues / playtest queue / next actions** — parsed live from `docs/STATUS.md`;
-  **backlog shape** from `docs/planning/BACKLOG.md`. The markdown stays canonical — the
-  dashboard is a *view*, deliberately not a second issue database.
+- **Open issues / active queue / next actions** — parsed live from `docs/STATUS.md`;
+  **backlog shape** from `docs/planning/BACKLOG.md`; **agent briefing** (window facts,
+  do-not list, read order) from `docs/planning/handoff-next-window.md`. The markdown
+  stays canonical — the dashboard is a *view*, deliberately not a second issue database.
+  Live-doc canary tests (`tests/projectHealth.test.js`) pin the real docs against the
+  parsers, so a heading rename breaks `npm run qa` instead of silently emptying a section.
 - **Perf snapshot** — latest `shots/perf-profile-*.json`, worst GPU cells first.
 
 Parsers are pure + unit-tested (`tests/projectHealth.test.js`) so a STATUS format drift

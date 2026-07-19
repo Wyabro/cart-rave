@@ -12,6 +12,11 @@ ships · **Medium** = V2-window polish, ship-without-it acceptable · **Low** = 
 opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 [completed-work.md](./completed-work.md)); do not re-add them.
 
+**2026-07-19:** merged Wyatt's personal pre-ship backlog (gameplay feel, controls, UI/UX
+polish, customization) — rows tagged *(pre-ship 07-19)*; added the **UI / UX** section.
+These are parked, not queued: the Run-7 mission and its Done-when checklist stay the
+active work; these get picked up in the Release-candidate phase.
+
 ---
 
 ## Engineering
@@ -38,9 +43,14 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Low | NET-PERF-3 — p2p per-message buffer copy | `coerceToArrayBuffer` slices a copy for every binary DataChannel frame (p2p.js). Small; only batch if F8 shows alloc pressure after NET-PERF-1 decision. |
 | Medium | Host-reload mid-round live confirm | 07-17: menu-over-game desync guarded via play-entry generation token (`invalidateActivePlayEntry`); mechanism fix from code reading, never live-reproduced. Reload the HOST tab mid-round in the NET-1 smoke. |
 | Medium | NET-SD-1 — SD can untie on score while the flag stays true | |
+| Medium | ANLX-VIEW-1 — player-analytics view for Wyatt *(pre-ship 07-19)* | The capture harness is SHIPPED and live (src/analytics/ → `/api/analytics` DO — [observability.md](../guides/observability.md) §2); what's missing is the reading surface: today it's a raw token-gated GET. Add `npm run analytics` (CLI reader mirroring `captures:pull`, `ERROR_LOG_TOKEN` from `.env.local`: aggregates + `--list` rows) and/or a Command Center reference panel (generate-time fetch, degrade offline — projectHealth collector contract §8). No new capture events needed. |
+| High | MP-FX-1 — non-host players miss gameplay VFX *(pre-ship 07-19)* | Boost trails (and audit for others) don't render for non-host players. Audit which effects are host-local side effects vs driven by replicated state / P2P events. Adjacent run-7 evidence: non-host `localKos 0` (queue P2), "NPC kill invisible" reports, NET-PRES-1 loss half — fold this audit into the P2 dig. |
+| Medium | Customize screen performance pass *(pre-ship 07-19)* | Rendering cost, asset loading, effects, UI perf, memory on the customize screen. Measure before tuning (`?diag=1` perf/resources probes; `perf:profile` has no customize scene — capture live). |
+| Medium | ARENA-COL-1 — Cart Rave pit/kill-zone reliability *(pre-ship 07-19)* | Center-hole KO detection inconsistent. Check collider placement, `centerHole`/`holeAssist` detection path, edge cases near the boundary. |
+| Low | Countdown timer survives menu return *(pre-ship 07-19)* | Stale countdown UI visible back on the main menu. Same lifecycle family as the stale-Rampage-badge fix (07-19 polish pass) — check timer teardown across the quit-to-menu transitions. |
 | Medium | Deeper server-authoritative logic | Host can fabricate final scores; decide what the Worker must validate. Prerequisite for the leaderboard. |
 | Medium | `structuredClone` → flat serializer in `party/index.ts` | Deliberate deferral: only after NET-1 + profiling data (ROADMAP Phase 5). |
-| Low | Persistent leaderboard (Supabase) | Treat host-asserted scores as untrusted input (see above). |
+| Medium | Persistent leaderboard / player stats (Supabase or similar) *(re-flagged 07-19)* | Wyatt re-flagged pre-ship; was filed post-launch. Chain: TRUST-1 (Worker validates host-asserted outcomes) → then the board. `match_ended` analytics already lands per-match stats server-side (arena, duration, result, KOs) — a stats page can start from that data before a trusted competitive board exists. Scope call for Wyatt: ship-with (needs TRUST-1 in the RC window) vs launch-follow-up. |
 | Low | Quickplay rotation live 2-browser check | ✅ Shipped 2026-07-12 (playtest-blockers pass) — host picks a random arena at the rematch seam, masked crossfade swap; still needs a live multi-client smoke (NET-1 adjacent). |
 
 ## Art
@@ -50,6 +60,8 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | High | Bloom look sign-off (Classic/Sundial) | Art half of the VFX-1 endgame above — dark arenas + punchy neon identity must survive display-referred bloom (standing look rule: low exposure, restrained bloom — don't brighten; see [archive/audits/visual-audit.md](../archive/audits/visual-audit.md)). |
 | Medium | Wilting-groceries Defeat screen reads as "confetti / something good" | 07-17 playtest. Needs an art-direction call before code: desaturate + slower droop vs a different silhouette entirely. Deliberately not attempted blind. |
 | Medium | Pattern customize UI — blocked on cartrave4 body UVs | Pattern system fully wired except the picker tab; body UVs are fragmented. Plan: bake a 2nd UV channel in Blender ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)), then add the PATTERNS tab. |
+| Medium | CARGO-VIS-1 — groceries visibly fill the basket *(pre-ship 07-19)* | Groceries float / don't sit naturally. Want: rest on the basket floor, stack up and out as load grows, a full cart reads obviously overflowing — the basket IS the load readout. Visual half of CARGO-WT-1 (Design). Sealed-basket master + fragmented cartrave4 UVs may constrain placement. |
+| Low | Sunglasses finish materials broken *(pre-ship 07-19)* | Finish/material variants not displaying correctly. Check material assignment vs shader compatibility vs asset pipeline; the re-authored one-piece visor (playtest blind-spot #7) is the suspect surface. |
 | Low | Asset filename rebrand (`cart-rave-base*.glb` etc.) | Separate deliberate asset pass — [brand.md](../brand.md). |
 
 ## Audio
@@ -74,6 +86,22 @@ opportunistic. Resolved items were removed in the 2026-07-12 audit (they live in
 | Low | Death-cam "follow killer" revisit | Attempted 07-10, reverted as a regression — revisit carefully or drop. |
 | Low | Animate the customize sunglasses-tab camera zoom | The 1.35× snap reads as a cart-size glitch (testers reported it as a bug). |
 | Low | Subtle monetization path | Cosmetic unlocks could support it — idea stage only. |
+| High | CARGO-WT-1 — grocery weight as risk/reward *(pre-ship 07-19)* | Empty cart = faster, more agile, easier to launch; full cart = slower, heavier handling, stronger rams; KOs add load, getting spilled sheds it. Today cargo fullness mirrors SCORE (Living Cargo = scoreboard) — coupling handling to load also couples it to score lead: evaluate the rubberband interaction + MP balance before committing, and decide physics-only vs abilities. Host-side physics (netcode-safe) but re-tunes AI. Visual half: CARGO-VIS-1 (Art). |
+| High | AI-DIFF-1 — NPC difficulty modes (Easy / Medium / Hard) *(pre-ship 07-19)* | Promotes [ai-difficulty-proposal.md](./ai-difficulty-proposal.md) from proposal to pre-ship item. Levers: aggression, target selection, driving skill, hazard avoidance, recovery after hits. Baseline just moved — RC fix #1 un-stuck the always-cautious phase — so re-baseline solo feel (queue P5) before tuning tiers. |
+| High | HIT-FEEL-1 — hit feedback: weak normals, noisy incoming *(pre-ship 07-19)* | Two halves: (1) non-boost collisions lack weight — SFX, camera, particles, hit reactions, impulse readability; (2) getting hit is visually overwhelming — cut screen noise, keep the impact. Ties into the Pass-4 kept-knobs row + intensity-scaled ram SFX; judge audio at Wyatt's usual low SFX volume. |
+| High | INPUT-KB-1 — keyboard parity with controller *(pre-ship 07-19)* | Controller feels significantly better than keyboard. Investigate steering responsiveness, input buffering, drift control, and acceleration feel on digital axes; consider accessibility options. Input sends ride the 60 Hz fixed-step sample (no Hz knob). |
+| Medium | ARENA-BAL-1 — self-KO rate on Sundial + Storerooms *(pre-ship 07-19)* | Players fall off unforced too often. Separate geometry vs pit-collider bounds vs physics tuning vs "arena is deliberately punishing". Overlaps queue P5 (solo rim-death feel); collect arena + position notes per playtest ground rules. |
+| Low | Controller vibration strength *(pre-ship 07-19)* | Haptics work but feel too subtle — raise impact without becoming annoying; match the touch-haptics quality bar. |
+
+## UI / UX
+
+| Pri | Item | Notes |
+|-----|------|-------|
+| High | RESULTS-1 — results screen layout redesign *(pre-ship 07-19)* | Too tall; doesn't fit comfortably across desktop resolutions. Make it compact/square-ish and match the Esc-menu visual language for cross-screen consistency. |
+| Medium | Controller menu navigation polish *(pre-ship 07-19)* | Main menu + customize: focus states, selection feedback, navigation consistency. Known concrete bug (RC hunt, reported-not-fixed): `ui/gamepadNav.js getFocusables` is document-wide — a pad can activate buttons behind an open overlay (incl. PLAY) + per-frame focus re-yank while a pad is connected. Fix modal scoping first. |
+| Medium | UI-FRAME-1 — premium frame/panel styling pass *(pre-ship 07-19)* | Box edges, panel framing, cohesive menu/HUD styling; kill placeholder-looking components. Wording per [style-guide.md](../style-guide.md); keep-it-dark identity. |
+| Medium | ESC scoring panel refresh *(pre-ship 07-19)* | 07-19 polish aligned naming + added the High ground row, but the panel still predates challenges / announcer-era systems — audit against current scoring + mechanics and fill the gaps. |
+| Low | Main-menu SFX slider *(pre-ship 07-19)* | Volume sliders exist in the Esc overlay (persistence just fixed — raw-store restore); add main-menu access to master SFX and verify both synth and file buses respond (bus gotcha: listener = mute gate only). |
 
 ## Tech Debt
 

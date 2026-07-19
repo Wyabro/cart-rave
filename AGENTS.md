@@ -10,10 +10,12 @@ the tree, then fix the other doc.
 `cart-rave` until domain cutover — see [docs/brand.md](docs/brand.md). All wording —
 player copy, announcer lines, docs — follows [docs/style-guide.md](docs/style-guide.md).
 
-**Session rehydration (read first when cold):** [docs/STATUS.md](docs/STATUS.md) — current
-focus, next actions, gotchas. Then this file for standing rules. Architecture snapshot:
-[docs/planning/project-state.md](docs/planning/project-state.md). Deep reference:
-[docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
+**Session rehydration (read first when cold):** run **`npm run dashboard`** and read
+`.diag-captures/health.json` (or the `dashboard.html` **Command Center** it generates) —
+mission, the one next action, do-not list, blockers, gates, all pre-digested. Then
+[docs/STATUS.md](docs/STATUS.md) for full context and gotchas, then this file for standing
+rules. Architecture snapshot: [docs/planning/project-state.md](docs/planning/project-state.md).
+Deep reference: [docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
 
 **History lives in [docs/archive/](docs/archive/README.md), not in STATUS.md.** STATUS.md
 carries only the current session window; older session logs and full-text decisions are rolled
@@ -70,11 +72,13 @@ toward Version 2.
   netcode scenarios) against one dev stack, one tally, JSON report in `.diag-captures/`.
   Individual rigs: `npm run gameharness` / `npm run netharness` / `npm run perf:profile`.
   Toolkit map + extension contract: [docs/guides/dev-toolkit.md](docs/guides/dev-toolkit.md).
-- **Project health dashboard:** `npm run dashboard` — generates `.diag-captures/dashboard.html`
-  (+ `health.json`) from git + battery reports + capture bundles + STATUS/BACKLOG. Read-only,
-  never hand-edited; leads with "what should I work on next?". Bug capture (F8 / auto on
-  error+assert) + production analytics (`/api/analytics`) live in the same layer:
-  [docs/guides/observability.md](docs/guides/observability.md).
+- **Command Center:** `npm run dashboard` — generates `.diag-captures/dashboard.html`
+  (+ `health.json`, the same model for agents) from git + battery reports + capture bundles +
+  STATUS/BACKLOG + the agent-briefing handoff. Read-only, never hand-edited; leads with
+  "what should I work on next?" and carries the cold-start read order + do-not list. **The
+  first place to look before starting work** — the markdown it reads stays canonical. Bug
+  capture (F8 / auto on error+assert) + production analytics (`/api/analytics`) live in the
+  same layer: [docs/guides/observability.md](docs/guides/observability.md).
 
 ---
 
