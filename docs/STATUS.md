@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Pick next card** (Wyatt): NET-1 residual (join/leave/migration) · P5 · or named. Color/pattern MP **PASS**. Charge SFX closed. NH-HIT residual parked.
+1. **NET-1 S1 residual (Run7 third-round edge spawn)** — lever coded **unpushed**: reapply only spawn-tagged `lastCartsCache` (not stale live snaps). Awaiting Wyatt playtest / "ship it".
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -199,6 +199,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-20 (Run7 decode → NET-1 S1 residual lever) — A: 4090 host; host feel good; non-host playable; **third-round edge spawn death** (no F8 on `72227b7` in capture log). B: HOST-ROLE-1 rebalanced to 4090 → same as A (not weak-host isolation). Lever: spawn-tag lastCartsCache so reapply never stomps ring seats with stale live poses. Unpushed.
 
 2026-07-20 (PASS color/pattern MP) — Wyatt **pass** on prod `index-DcKjB-hY.js` / `72227b7`. Card closed.
 

@@ -103,6 +103,15 @@ const hostClock = { offsetMs: 0, samples: 0, bootstrap: [], resyncDueAtMs: 0, re
 
 let lastCartsCache = null;
 /**
+ * True only when {@link lastCartsCache} came from MSG.hostSpawn / host rematch
+ * broadcastHostTransform — not from a mid-round 40Hz snap or hello.
+ * NET-1 S1 residual (Run7 third-round edge death): non-host rotate ends with
+ * rematchResetWorld (good ring) then reapplyCachedCartsSnapshot(); if the cache
+ * is still the previous round's live pose (off-edge / void), reapply stomps the
+ * ring seat and the joiner dies at GO. Only reapply spawn-tagged caches.
+ */
+let lastCartsCacheIsSpawn = false;
+/**
  * Latest compact kill-credit / combo snapshot from the host transform tail (NET-MIG-1).
  * Non-hosts cache this every frame; a promoted host restores open hits + combos from it.
  * @type {{ h?: unknown[], s?: number[], c?: unknown[] } | null}
@@ -1250,9 +1259,10 @@ function applyCartsSnapshotToBodies(carts) {
  * Hello may arrive before cart bootstrap; apply is a no-op until bodies exist.
  * Quickplay rematch: non-host also calls this after arena rotation so host_spawn
  * poses that landed mid-collider-rebuild are restored before GO.
+ * Only spawn-tagged caches (see lastCartsCacheIsSpawn) — never a stale live snap.
  */
 export function reapplyCachedCartsSnapshot() {
-  if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
+  if (lastCartsCache && lastCartsCacheIsSpawn) applyCartsSnapshotToBodies(lastCartsCache);
 }
 
 /**
@@ -1555,6 +1565,7 @@ export function disconnectPartySession() {
   lastSlotsServerMs = 0;
   netStateBuffer = [];
   lastCartsCache = null;
+  lastCartsCacheIsSpawn = false;
   lastAttributionCache = null;
   remoteInputsByConnId = new Map();
   remoteInputQueuesByConnId = new Map();
@@ -1574,6 +1585,7 @@ function resetNetcodeReconnectState() {
   netStateBuffer = [];
   hostEpoch += 1;
   lastCartsCache = null;
+  lastCartsCacheIsSpawn = false;
 }
 
 /**
@@ -1665,6 +1677,7 @@ function hostSendTick(opts = {}) {
   }
 
   lastCartsCache = carts;
+  lastCartsCacheIsSpawn = false;
   const collisions = drainHostCollisionBatch();
   const falls = drainHostFallBatch();
   // * tHost drives hostClock only (NET-CLK-1) — never the Party offset EWMA.
@@ -2351,6 +2364,9 @@ export function initNetcode(roomOverride) {
       callbacks.markFirstHelloReceived();
       if (msg.carts && typeof msg.carts === "object") {
         lastCartsCache = msg.carts;
+        // * Hello carts are seat/spawn poses for cold join — tag so reapply after
+        // * bootstrap still restores them (NET-2). Live 40Hz snaps clear the tag.
+        lastCartsCacheIsSpawn = true;
         // * Bodies may not exist yet (NET-2 cold join) — reapply after cart bootstrap.
         applyCartsSnapshotToBodies(msg.carts);
       }
@@ -2658,6 +2674,7 @@ export function broadcastHostTransform(carts) {
   if (!partySocket || !isHost) return;
   hostSeq += 1;
   lastCartsCache = carts;
+  lastCartsCacheIsSpawn = true;
   const tHost = getMonotonicNow();
   const payload = {
     seq: hostSeq,
@@ -2697,6 +2714,7 @@ function applyHostSpawnSnapshot(msg) {
   const seq = typeof msg.seq === "number" && Number.isFinite(msg.seq) ? msg.seq : 0;
   const tHost = typeof msg.tHost === "number" && Number.isFinite(msg.tHost) ? msg.tHost : getMonotonicNow();
   lastCartsCache = carts;
+  lastCartsCacheIsSpawn = true;
 
   // * Rematch/spawn is a hard pose reset — clear prediction so clients don't replay
   // * pre-rematch inputs on top of spawn.
@@ -2979,6 +2997,7 @@ export const __netcodeTestHooks = {
   resetNetState: () => {
     netStateBuffer = [];
     lastCartsCache = null;
+    lastCartsCacheIsSpawn = false;
     lastAttributionCache = null;
     isHost = false;
     hostId = null;
@@ -3056,8 +3075,12 @@ export const __netcodeTestHooks = {
   },
   // * NET-1 rematch spawn reapply (host_spawn mid-arena-swap).
   applyHostSpawnSnapshot: (msg) => applyHostSpawnSnapshot(msg),
-  setLastCartsCache: (carts) => { lastCartsCache = carts; },
+  setLastCartsCache: (carts, isSpawn = false) => {
+    lastCartsCache = carts;
+    lastCartsCacheIsSpawn = Boolean(isSpawn) && carts != null;
+  },
   getLastCartsCache: () => lastCartsCache,
+  getLastCartsCacheIsSpawn: () => lastCartsCacheIsSpawn,
 };
 
 /**
@@ -3238,6 +3261,7 @@ function handleRemoteSpill(msg) {
 function handleRemoteHostState(state) {
   if (state.carts && typeof state.carts === "object") {
     lastCartsCache = state.carts;
+    lastCartsCacheIsSpawn = false;
   }
   if (!isHost) {
     // * Guard tHost > 0 like applyHostSpawnSnapshot does — a malformed binary header

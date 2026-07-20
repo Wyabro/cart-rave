@@ -52,6 +52,7 @@ describe("reapplyCachedCartsSnapshot (NET-1 rematch S1)", () => {
     // * host_spawn lands before/during swap (host finished rotation first).
     hooks.applyHostSpawnSnapshot({ seq: 7, tHost: 5000, carts: spawnCarts });
     expect(hooks.getLastCartsCache()).toBeTruthy();
+    expect(hooks.getLastCartsCacheIsSpawn()).toBe(true);
     expect(carts[0].body.translation().x).toBeCloseTo(10, 5);
 
     // * Collider rebuild wipe — bodies at garbage positions.
@@ -72,5 +73,21 @@ describe("reapplyCachedCartsSnapshot (NET-1 rematch S1)", () => {
     expect(hooks.getLastCartsCache()).toBeNull();
     reapplyCachedCartsSnapshot();
     expect(carts[0].body.translation().x).toBe(99);
+  });
+
+  it("does not reapply a stale live snap over ring seats (S1 residual)", () => {
+    // * Previous-round live pose (off-edge) landed in lastCartsCache via 40Hz path.
+    const staleLive = [
+      { p: [40, -8, 40], q: [0, 0, 0, 1], lv: [0, 0, 0], av: [0, 0, 0] },
+    ];
+    hooks.setLastCartsCache(staleLive, false);
+    expect(hooks.getLastCartsCacheIsSpawn()).toBe(false);
+
+    // * rematchResetWorld already seated the local ring before reapply.
+    carts[0].body.setTranslation({ x: 10, y: 1, z: 0 });
+    reapplyCachedCartsSnapshot();
+    // * Must keep ring seat — reapplying stale live would throw cart into the void.
+    expect(carts[0].body.translation().x).toBeCloseTo(10, 5);
+    expect(carts[0].body.translation().y).toBeCloseTo(1, 5);
   });
 });
