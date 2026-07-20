@@ -1,32 +1,16 @@
-# Handoff — NET-1 S1 rematch spawn (coded unpushed)
+# Handoff — NET-1 S1 rematch spawn retest
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod (still):** **`index-DWDp_cX_.js`** / **`80ecbf6`**  
-**Local:** rematch spawn fix **unpushed** — **do not `git add -A`**
-
----
-
-## Root cause
-
-Quickplay rematch:
-1. Host `rematchResetWorld()` → `host_spawn` on **old** arena ring  
-2. Host rotates arena async (shader warm = multi-second snap gap)  
-3. Host `rematchResetWorld()` again on **new** ring  
-4. Non-host: mid-swap `host_spawn` applies then **collider rebuild wipes bodies**; no reapply → void/edge at GO  
-
-## Fix (one lever)
-
-- `onHostPlayAgainClick`: skip pre-rotation `rematchResetWorld` for quickplay  
-- `rotateLoadedArenaInPlace` non-host: local seat + `reapplyCachedCartsSnapshot()`  
-- Tests: `tests/rematchSpawnReapply.test.js`
+**Prod:** **`index-C-kQeNwM.js`** / sha **`2a6d9ae`**
 
 ## DO THIS NOW
 
-1. Wyatt **“ship it”** → commit only S1 files → `npm run ship`  
-2. Retest: quickplay rematch **×3** both clients — no edge death at GO; F8 if fail  
+1. Hard-refresh both clients on prod.  
+2. Quickplay · 4090 host preferred · rematch **×3**.  
+3. Pass = no non-host spawn-off-edge / instant death at GO.  
+4. Fail → F8 both + `captures:pull`.
 
-## Do not
+## Fix shipped
 
-- Multi-lever dump  
-- Re-open NET-PERF-2 / NH-HIT residual  
+Skip pre-rotation `rematchResetWorld` on quickplay rematch; non-host re-seats + `reapplyCachedCartsSnapshot` after arena swap.

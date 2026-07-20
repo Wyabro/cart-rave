@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 S1 rematch spawn fix coded unpushed** — skip pre-rotation host_spawn; non-host reapply after arena swap. **Ship on “ship it”** → rematch×3 retest (no edge death at GO).
+1. **NET-1 S1 retest** on `index-C-kQeNwM.js` / `2a6d9ae`: quickplay rematch ×3 both clients — no spawn-off-edge at GO. F8 if fail.
 2. Cap-47 LT / NH-HIT residual parked.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NET-1 S1 rematch spawn coded — **unpushed**) — Root: quickplay rematch `rematchResetWorld` before arena rotate broadcast wrong ring; non-host mid-swap `host_spawn` wiped by collider rebuild and never reapplied → edge death at GO. Fix: skip pre-rotation broadcast on host; after rotate non-host `rematchResetWorld` (local) + `reapplyCachedCartsSnapshot`. Tests: `rematchSpawnReapply.test.js` +2. qa **1188** green. **No ship until “ship it.”**
+2026-07-20 (SHIPPED — NET-1 S1 rematch spawn) — **`2a6d9ae` / `index-C-kQeNwM.js`**. Served sha verified. Skip pre-rotation host_spawn; non-host reapply after arena swap. **Retest open:** rematch ×3 no edge death.
+
+2026-07-20 (NET-1 S1 rematch spawn coded) — Root: pre-rotation host_spawn + mid-swap wipe.
 
 2026-07-20 (NET-1 A+B decode complete) — Caps **95–103** / `80ecbf6`. Soft-pass both; S1 rematch spawn dig → coded above.
 
