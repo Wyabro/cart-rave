@@ -141,10 +141,34 @@ function registerProbes(deps) {
 
   registerDiagProbe("camera", () => {
     const cam = deps.getCamera ? deps.getCamera() : null;
+    // * CAM-1: prove follow vs freeze — need local body pos next to camera pos.
+    const localSlot = deps.getLocalSlot ? deps.getLocalSlot() : -1;
+    const carts = deps.getCarts ? deps.getCarts() : null;
+    const local = (localSlot >= 0 && Array.isArray(carts)) ? carts[localSlot] : null;
+    let bodyPos = null;
+    if (local?.body?.translation) {
+      const t = local.body.translation();
+      bodyPos = { x: round2(t.x), y: round2(t.y), z: round2(t.z) };
+    }
+    let displayPos = null;
+    if (local?._displayPos) {
+      displayPos = {
+        x: round2(local._displayPos.x),
+        y: round2(local._displayPos.y),
+        z: round2(local._displayPos.z),
+      };
+    }
     return {
       mode: cam ? getCameraMode(cam) : null,
       position: cam ? { x: round2(cam.position.x), y: round2(cam.position.y), z: round2(cam.position.z) } : null,
       fov: cam ? cam.fov : null,
+      isHost: getIsHost(),
+      localSlot,
+      bodyPos,
+      displayReady: Boolean(local?._displayReady),
+      displayPos,
+      isShattering: Boolean(local?.isShattering),
+      isSdSpectator: Boolean(local?.isSuddenDeathSpectator),
     };
   });
 

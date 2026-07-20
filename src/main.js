@@ -5096,16 +5096,26 @@ async function main() {
       if (!inHitStop) {
         let playerPos = localCart.body.translation();
         let playerRot = localCart.body.rotation();
-        // * NH-SMOOTH v3: follow the display pose (low-passed mesh) when present so the
-        // * camera does not re-broadcast 40Hz body hard-snaps. Falls back to body +
-        // * legacy reconcile offset if display has not seeded yet this frame.
-        if (localCart._displayReady && localCart._displayPos && localCart._displayQuat) {
+        // * NH-SMOOTH v3: non-host only — follow the display pose (low-passed mesh) so the
+        // * camera does not re-broadcast 40Hz body hard-snaps. frameVisuals only *updates*
+        // * `_displayPos` for non-host local; if we still read it after host promote (or
+        // * any stale flag), the camera freezes while the body drives on (cart moves,
+        // * view stuck). Host always tracks the live body (+ optional reconcile offset).
+        const useDisplayPose = !Netcode.getIsHost()
+          && localCart._displayReady
+          && localCart._displayPos
+          && localCart._displayQuat;
+        if (useDisplayPose) {
           _camReconPosScratch.x = localCart._displayPos.x;
           _camReconPosScratch.y = localCart._displayPos.y - (CONFIG.cart?.visualOffset ?? 0);
           _camReconPosScratch.z = localCart._displayPos.z;
           playerPos = _camReconPosScratch;
           playerRot = localCart._displayQuat;
         } else {
+          // * Host promote / respawn: drop stale non-host display so a later demote reseeds.
+          if (Netcode.getIsHost() && localCart._displayReady) {
+            localCart._displayReady = false;
+          }
           const ro = localCart._reconcileVisOffset;
           if (ro && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0)) {
             _camReconPosScratch.x = playerPos.x + ro.x;

@@ -1,8 +1,9 @@
-# Handoff — next agent window (RC-1 behavior-change MP validation)
+# Handoff — next agent window (CAM-1 host camera freeze)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-BxIgTxPx.js`** / sha **`24f49da`**  
+**Prod (still live):** **`index-BxIgTxPx.js`** / sha **`24f49da`**  
+**Local (unpushed):** CAM-1 fix in working tree — host camera no longer follows stale non-host `_displayPos`  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
@@ -14,73 +15,46 @@
 
 | Card | Verdict |
 |------|---------|
-| P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · charge SFX · color/pattern | ✅ |
-| NET-1 core A+B · S1 rematch · S1 residual · residual leave/migrate/join-score | ✅ |
-| P5 solo bot/rim death feel | ✅ **PASS** (no code) |
-| **LS-1 Living Store two-browser smoke** | ✅ **PASS** (Wyatt 2026-07-20; caps 108–111 / `24f49da`) |
-| NH-HIT residual · NH-SMOOTH | 🧊 parked |
+| P0–P4 · NH stack · charge SFX · color/pattern · NET-1 · P5 · LS-1 | ✅ |
+| **RC-1 A** AI cautious MP | ✅ **PASS** (Wyatt) |
+| **RC-1 C** READY-SET rematch | ✅ **PASS** (Wyatt) |
+| **RC-1 B** host-reap | ⬜ skipped (repro unclear to Wyatt — optional later) |
+| **CAM-1** host camera stop-follow | ▶️ **ACTIVE** — fix coded, needs ship + retest |
 
-### LS-1 notes (closed)
+### CAM-1 root cause (coded, unpushed)
 
-- Continuous non-host got all three schedule slots (spill_bonus → rush_hour → flash_sale) + active HUD chip (cap-108).
-- Mid-round rejoin does **not** replay past directives (by design); snapshot catch-up only if window still active.
-- Strong machine rejoin mid-round does **not** steal host until lobby/rematch — HOST-ROLE-1 is lobby-only (expected).
+NH-SMOOTH v3 display pose is **non-host only** in `frameVisuals`, but `main.js` camera still read `_displayReady` while host. After promote (or any stale flag), cart body drives on and camera freezes on the last display sample.  
+**Lever:** host always tracks body; clear `_displayReady` on host promote (`setAuthorityMode`). F8 camera probe now includes `bodyPos` / `displayReady` / `displayPos`.
+
+**Evidence:** cap-112 host `24f49da` (mode=follow, local deaths 3). Only one new upload found (user reported 2 bad + 1 refresh-good).
 
 ### Do not re-open without new evidence
 
-P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HIT residual · charge SFX · color/pattern · NET-1 · P5 · **LS-1**
+P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-1 · P5 · LS-1 · RC-1 A · RC-1 C
 
 ---
 
-## Active card: RC-1 — behavior-changing MP validation
+## Active card: CAM-1 — ship + retest
 
-**Mode:** validation-first (code already in prod via older RC stack + READY-SET).  
-**Prod:** `index-BxIgTxPx.js` / `24f49da`  
-**Solo already accepted** for AI #1 / personality / RESTART (2026-07-19). This card is **MP-only** gaps.
-
-### A — AI cautious-phase #1 (MP bot feel) ~5 min
-
-1. Two browsers, quickplay, both visible, hard refresh to `index-BxIgTxPx.js`.  
-2. Play ~60s of a round with 2 NPCs.  
-3. **PASS if:** bots chase rim/edge humans after the first ~8s (not mid-disc huddle forever); aggressor badge bots actually press; host + non-host both see bots moving/KO’ing (host runs AI).  
-4. **FAIL if:** bots look glued mid-arena the whole round, or never contest a rim camper.
-
-### B — Host-reap #6 (HOST-REAP-1) ~2 min + 30s wait
-
-1. Browser A opens room, **stays on color picker ~35s without seating** (first joiner = host, unseated).  
-2. Browser B joins, **does** pick color / seat.  
-3. After ~30s picker reap: room must **not** freeze forever.  
-4. **PASS if:** B can play (physics moves) — host repaired to a live seated conn (or promote works).  
-5. **FAIL if:** B seated but cart frozen / no host / no physics until a third person joins.
-
-### C — READY-SET rematch ~3 min
-
-1. Two humans finish a quickplay round → podium → play again.  
-2. Optionally: one tab hard-refresh mid-lobby rematch.  
-3. **PASS if:** countdown arms without a 30–60s stall; both re-ready cleanly.  
-4. **FAIL if:** lobby stuck unready / silent until someone toggles READY by hand.
-
-**One FAIL → one lever; no batch.** Order A → C → B is fine (B is the awkward repro).
-
-### F8
-If something breaks: F8 both host + non-host, confirm upload, `npm run captures:pull`.
+1. On “ship it”: `npm run qa` → `npm run ship` → verify bundle.  
+2. Two-browser: become non-host first, then host (leave/rejoin or quality rebalance), drive — camera must stick to local cart.  
+3. F8 if fail: new probe shows `bodyPos` vs `camera.position` + `displayReady`.
 
 ---
 
-## DO THIS NOW
+## RC-1 B (optional, not blocking)
 
-1. Run RC-1 A (MP bots) then C (rematch); B if time.  
-2. Report pass/fail per letter; code only if named fail.
+**What it was:** idle on color picker ~35s as first joiner while a second player seats — room must not go hostless after the 30s pending-picker reap.  
+**Skip OK** unless you want to prove HOST-REAP-1 live.
 
 ---
 
-## Suggested next window paste (Wyatt → new Grok)
+## Suggested next window paste
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-BxIgTxPx.js`** / sha **`24f49da`**.  
-> **Closed:** P0–P4 · NH stack · charge SFX · color/pattern · NET-1 · P5 · **LS-1 PASS**.  
-> **Active:** **RC-1** behavior-changing MP validation (AI cautious-phase · host-reap · READY-SET).  
-> One card/lever. Ship only on “ship it.” Do not `git add -A`.
+> Branch `cart-clash`. Prod **`index-BxIgTxPx.js`** / `24f49da` until CAM-1 ships.  
+> **Closed:** LS-1 · RC-1 A · RC-1 C. **Active:** **CAM-1** host camera freeze (fix unpushed).  
+> Ship only on “ship it.” Do not `git add -A`.
 
 ---
 

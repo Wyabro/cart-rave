@@ -1818,7 +1818,13 @@ export function setAuthorityMode(nextIsHost) {
     resetSimTimingRef?.current?.();
     skipNextPhysicsStep = true;
 
-    for (const cart of getAllCarts() || []) cart.body?.wakeUp?.();
+    for (const cart of getAllCarts() || []) {
+      cart.body?.wakeUp?.();
+      // * CAM-1: non-host display pose must not survive host promote — main.js used to
+      // * keep following a frozen `_displayPos` while the body drove on (cart moves,
+      // * camera stuck). frameVisuals only refreshes display for non-host local.
+      if (cart) cart._displayReady = false;
+    }
     startHostSendLoop();
     return;
   }

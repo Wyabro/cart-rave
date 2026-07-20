@@ -98,7 +98,8 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
 - [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
 - [ ] P6 AI diag probe empty mid-round — tooling only
-- [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6, READY-SET)
+- [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** host-reap optional/skip
+- [ ] **CAM-1** host camera follow freeze (stale `_displayPos` after host promote) — fix unpushed
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
 - [x] **LS-1** Living Store two-browser companion — Wyatt **PASS** 2026-07-20 (caps 108–111 / `24f49da`; #3 continuous peer + schedule verified)
 
@@ -116,14 +117,17 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **NET-1** | **Two-human full-round + residual** | ✅ core soft-pass · residual **PASS** `24f49da` |
 | **P5** | Solo bot/rim death feel | ✅ **PASS** (Wyatt 2026-07-20) |
 | **LS-1** | Living Store two-browser companion smoke | ✅ **PASS** (Wyatt 2026-07-20; caps 108–111) |
-| **RC-1** | RC behavior-changing MP validation (AI cautious-phase #1, host-reap #6, READY-SET) | ▶️ **NEXT** |
+| **RC-1 A** | AI cautious-phase MP feel | ✅ **PASS** (Wyatt 2026-07-20) |
+| **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
+| **RC-1 B** | Host-reap #6 | ⬜ optional (repro awkward; skip unless named) |
+| **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ▶️ **ACTIVE** — fix **unpushed** |
 | P6 | AI diag probe empty mid-round | tooling only |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **RC-1** — human-validate the three still-open behavior-changing MP fixes (AI cautious-phase #1, host-reap #6, READY-SET). One card at a time if any fails.
+1. **CAM-1** — ship host-camera fix on “ship it”, then two-browser retest (especially after host promote).
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
