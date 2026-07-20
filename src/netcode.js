@@ -24,6 +24,9 @@ import { armSpillBoost } from "./cargoLoad.js";
 import { clamp } from "./utils.js";
 import { playSfx } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
+import { computeLocalHostCapabilityScore } from "./utils/hostCapability.js";
+import { probeGpu } from "./utils/gpuCaps.js";
+import { getQualityTier } from "./utils/qualityMode.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
 import { devLog } from "./utils/devLog.js";
@@ -1910,7 +1913,7 @@ function requestTurnCredentialsAndOpenPeers() {
  * re-inits P2P, clears prediction/input state, bumps the snapshot epoch, and arms the
  * non-host freeze. Extracted from the WebSocket message dispatcher so the handoff is
  * unit-testable without a live socket (see tests/hostMigration.test.js).
- * @param {{ hostId?: unknown }} msg
+ * @param {{ hostId?: unknown, reason?: unknown }} msg
  */
 function applyHostMigration(msg) {
   hostId = typeof msg.hostId === "string" ? msg.hostId : null;
@@ -1980,6 +1983,24 @@ function applyHostMigration(msg) {
     : null;
   if (newHostSlot?.name) {
     announce("new_host", { name: newHostSlot.name });
+  }
+  // * HOST-ROLE-1 lobby rebalance: plain-language toast so players know why
+  // * the host glyph moved without a disconnect.
+  if (msg?.reason === "host_quality") {
+    try {
+      const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
+      if (typeof toast === "function") {
+        if (nextIsHost) {
+          toast("You're hosting — stronger machine for smoother multiplayer.", 4500);
+        } else if (newHostSlot?.name) {
+          toast(`Host moved to ${newHostSlot.name} for smoother multiplayer.`, 4500);
+        } else {
+          toast("Host reassigned for smoother multiplayer.", 4500);
+        }
+      }
+    } catch {
+      // * Presentation-only.
+    }
   }
   if (nextIsHost) {
     const hostMigratedHandler = callbacks.getOnHostMigratedHandler?.();
@@ -2180,8 +2201,19 @@ export function initNetcode(roomOverride) {
       savedUsername = "PLAYER" + Math.floor(Math.random() * 9000 + 1000);
       localStorage.setItem("cartRaveUsername", savedUsername);
     }
-    devLog("[netcode] Sending MSG.join", { name: savedUsername, clientId });
-    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId }));
+    // * NH-HIT lever 3 / HOST-ROLE-1: report host capability so lobby can rebalance
+    // * toward a clearly stronger peer (not a hard ban on weak hosts).
+    let hostScore = 50;
+    try {
+      hostScore = computeLocalHostCapabilityScore({
+        probeGpu,
+        getQualityTier,
+      });
+    } catch {
+      hostScore = 50;
+    }
+    devLog("[netcode] Sending MSG.join", { name: savedUsername, clientId, hostScore });
+    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId, hostScore }));
     didSendJoin = true;
     sendColorPick(resolveServerColorPick());
     startKeepaliveLoop();

@@ -28,7 +28,11 @@ type Slot = {
 import { MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS } from '../shared/roundConstants.js';
 import { validateHostRound, type RoundState } from './roundValidation';
-import { pickNextHostId } from './hostSelection';
+import {
+  pickNextHostId,
+  pickPreferredHostId,
+  shouldMigrateToPreferredHost,
+} from './hostSelection';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
 import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
 import {
@@ -67,6 +71,8 @@ export class CartRaveServer extends Server {
   readonly #connections = new Map<string, Connection>();
   readonly #joinOrder: string[] = [];
   readonly #connClientId = new Map<string, string>();
+  /** NH-HIT lever 3: client-reported host capability 0–100 (join hostScore). */
+  readonly #hostScores = new Map<string, number>();
 
   #hostId: string | null = null;
   #currentLevelId: string = "classicRecord";
@@ -245,6 +251,44 @@ export class CartRaveServer extends Server {
     return pickNextHostId(this.#joinOrder, new Set(this.#connections.keys()), this.#slots);
   }
 
+  /**
+   * NH-HIT lever 3 / HOST-ROLE-1: in lobby only, migrate host to a clearly
+   * stronger peer when one has seated. Not a ban on weak hosts — alone they
+   * keep authority; ties stay on the first joiner (margin gate).
+   */
+  #maybeRebalanceHostForQuality() {
+    if (this.#round.phase !== "lobby") return;
+    // * Don't yank host mid-countdown arming; rematch grace is still lobby and OK.
+    if (this.#countdownArmed) return;
+    const live = new Set(this.#connections.keys());
+    const preferred = pickPreferredHostId(
+      this.#joinOrder,
+      live,
+      this.#slots,
+      this.#hostScores,
+    );
+    if (!shouldMigrateToPreferredHost(this.#hostId, preferred, this.#hostScores)) {
+      return;
+    }
+    this.#hostId = preferred;
+    this.#lastSeq = -1;
+    this.#broadcastJson({
+      v: PROTOCOL_VERSION,
+      type: MSG.hostMigrated,
+      serverNowMs: this.#serverNowMs(),
+      hostId: this.#hostId,
+      reason: "host_quality",
+    });
+  }
+
+  /** Parse join/capability hostScore (0–100); missing → leave prior or skip. */
+  #setHostScoreFromPayload(connId: string, data: { hostScore?: unknown } | null | undefined) {
+    const raw = data?.hostScore;
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return;
+    const score = Math.max(0, Math.min(100, Math.round(raw)));
+    this.#hostScores.set(connId, score);
+  }
+
   // * Repairs #hostId if it points at a connection that no longer exists in
   // * #connections (e.g. onClose never fired for the host due to crash/network
   // * drop). Must be called after any operation that may have removed the host
@@ -408,6 +452,7 @@ export class CartRaveServer extends Server {
       this.#removeFromJoinOrder(id);
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
+      this.#hostScores.delete(id);
       this.#rateLimitWindows.delete(id);
       const ip = this.#connToIp.get(id);
       if (ip) {
@@ -614,6 +659,7 @@ export class CartRaveServer extends Server {
       this.#removeFromJoinOrder(id);
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
+      this.#hostScores.delete(id);
       this.#rateLimitWindows.delete(id);
       if (this.#pendingPickers.has(id)) {
         this.#pendingPickers.delete(id);
@@ -771,6 +817,7 @@ export class CartRaveServer extends Server {
     this.#removeFromJoinOrder(conn.id);
     this.#lastSeenAtMs.delete(conn.id);
     this.#connClientId.delete(conn.id);
+    this.#hostScores.delete(conn.id);
     this.#rateLimitWindows.delete(conn.id);
     if (this.#pendingPickers.has(conn.id)) {
       this.#pendingPickers.delete(conn.id);
@@ -866,6 +913,8 @@ export class CartRaveServer extends Server {
         // Optional client metadata; server already assigned a slot on connect.
         const name = typeof data?.name === "string" ? data.name.trim() : "";
         const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
+        // * NH-HIT lever 3: host capability score for lobby rebalance.
+        this.#setHostScoreFromPayload(connection.id, data);
         if (name) {
           this.#ensureInitialized();
           if (this.#pendingPickers.has(connection.id)) {
@@ -900,6 +949,7 @@ export class CartRaveServer extends Server {
             this.#removeFromJoinOrder(ghostConnId);
             this.#lastSeenAtMs.delete(ghostConnId);
             this.#connClientId.delete(ghostConnId);
+            this.#hostScores.delete(ghostConnId);
 
             // Cleanup IP tracking on ghost exorcism
             const ip = this.#connToIp.get(ghostConnId);
@@ -1037,6 +1087,8 @@ export class CartRaveServer extends Server {
               hostId: this.#hostId,
             });
           }
+          // * HOST-ROLE-1: after seating, prefer a clearly stronger peer as host.
+          this.#maybeRebalanceHostForQuality();
         }
 
         this.#broadcastJson({
@@ -1105,6 +1157,8 @@ export class CartRaveServer extends Server {
         for (const slot of (this.#slots ?? [])) {
           if (slot.kind === "human") slot.isReady = true;
         }
+        // * HOST-ROLE-1: re-evaluate host quality before the next countdown.
+        this.#maybeRebalanceHostForQuality();
         this.#broadcastJson({
           v: PROTOCOL_VERSION,
           type: MSG.slots,
