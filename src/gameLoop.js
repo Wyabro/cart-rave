@@ -73,16 +73,34 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
     noteReconcileError?.(errM, true);
     return;
   }
-  off.x += dx; off.y += dy; off.z += dz;
-  if (Math.hypot(off.x, off.y, off.z) > maxM) {
-    // * Accumulated debt exceeds the teleport threshold — stop hiding it.
-    off.x = 0; off.y = 0; off.z = 0; off.yaw = 0;
-  } else {
-    off.yaw = wrapAngleRad(off.yaw + wrapAngleRad(_reconPre.yaw - headingYawFromQuat(r)));
-    // * A heading offset past ~86° means prediction and host disagree about which way
-    // * the cart faces — easing that reads as drunk steering; snap heading instead.
-    if (Math.abs(off.yaw) > 1.5) off.yaw = 0;
+  // * NH-SMOOTH v2 (cap-82): cap how much one snap may add to the ease debt. Full dx on
+  // * combat rams piled debt until it hit maxM and hard-cleared — a full-screen pop while
+  // * snap cadence stayed healthy. Overflow of residual debt is clamped (not zeroed).
+  let adx = dx;
+  let ady = dy;
+  let adz = dz;
+  const addCap = pcfg.reconcileVisAddCapM ?? 0.45;
+  const addLen = Math.hypot(adx, ady, adz);
+  if (addCap > 0 && addLen > addCap) {
+    const s = addCap / addLen;
+    adx *= s;
+    ady *= s;
+    adz *= s;
   }
+  off.x += adx;
+  off.y += ady;
+  off.z += adz;
+  const debt = Math.hypot(off.x, off.y, off.z);
+  if (debt > maxM && debt > 1e-8) {
+    const s = maxM / debt;
+    off.x *= s;
+    off.y *= s;
+    off.z *= s;
+  }
+  off.yaw = wrapAngleRad(off.yaw + wrapAngleRad(_reconPre.yaw - headingYawFromQuat(r)));
+  // * A heading offset past ~86° means prediction and host disagree about which way
+  // * the cart faces — easing that reads as drunk steering; snap heading instead.
+  if (Math.abs(off.yaw) > 1.5) off.yaw = 0;
   noteReconcileError?.(errM, false);
 }
 

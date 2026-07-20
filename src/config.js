@@ -376,10 +376,9 @@ export const CONFIG = {
     // * delta accumulates into cart._reconcileVisOffset (gameLoop capture), which
     // * frameVisuals applies to the mesh (and main.js feeds to the follow camera) while
     // * decaying it at the rates below. Run-4 "laggy-rubberbandy" fix.
-    // * NH-SMOOTH (cap-78/79): rates were 8/6 — half-life ~90ms, read as rubberband on
-    // * a clean 4090 joiner. Lower = longer glide toward host truth (mesh sticks to
-    // * prediction path; physics hard-snap unchanged). Pair with gameLoop
-    // * snapPhysicsPrevToBody after reconcile.
+    // * NH-SMOOTH (cap-78/79→82): rates 8/6→3.2/2.5 + snapPhysicsPrevToBody helped but
+    // * combat still janky (cap-82 errMax 12m, 2 teleports). v2: per-snap add cap, debt
+    // * clamp (not zero), speed-capped ease — physics hard-snap unchanged.
     prediction: {
       // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
       reconcilePosRate: 3.2,
@@ -387,9 +386,15 @@ export const CONFIG = {
       // * axis — pitch/roll snap with the body (hardcoded in frameVisuals; easing
       // * them reads as wobble under arcade physics).
       reconcileRotRate: 2.5,
-      // * Hard visual teleport when a single correction (or the accumulated eased debt)
-      // * exceeds this (m). Covers respawns and large desyncs.
-      maxCorrectionM: 4.0,
+      // * NH-SMOOTH v2: max mesh correction speed (m/s) while eating visual debt.
+      reconcilePosMaxMps: 5,
+      // * NH-SMOOTH v2: max heading correction speed (rad/s).
+      reconcileYawMaxRadPs: 4,
+      // * NH-SMOOTH v2: max meters of ease debt one snapshot may add (rest shows immediately).
+      reconcileVisAddCapM: 0.45,
+      // * Hard visual teleport when a *single* correction exceeds this (m). Accumulated
+      // * debt is clamped to this (not zeroed) so slow rates cannot pop-clear.
+      maxCorrectionM: 6.0,
       // * NET-PERF-1 (run-7): max Rapier fixed-steps per host snapshot on the non-host.
       // * After the body hard-snaps to host truth, only the oldest N unacked inputs are
       // * replayed (continuous extension of host; newer ones dropped). 12 ≈ 200 ms at

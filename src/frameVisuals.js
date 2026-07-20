@@ -315,6 +315,8 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     // * remainder of the last corrections, decaying at the CONFIG.net.prediction rates.
     // * The Rapier body already holds host truth — only the rendered pose is softened
     // * (run-4 "laggy-rubberbandy"; capture side lives in gameLoop.js reconciliation).
+    // * NH-SMOOTH v2: expo decay is speed-capped so large combat debt eases linearly
+    // * instead of yanking the first frames (cap-82 errMax 12m / 2 teleports, still janky).
     const ro = c._reconcileVisOffset;
     if (ro && !deps.isHost() && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0 || ro.yaw !== 0)) {
       c.mesh.position.x += ro.x;
@@ -326,10 +328,43 @@ export function updateVisualsAndEffects(deps, frameCtx) {
         c.mesh.quaternion.premultiply(_reconYawQuat);
       }
       const pcfg = deps.CONFIG.net?.prediction;
-      const posDecay = Math.exp(-(pcfg?.reconcilePosRate ?? 8) * dt);
-      const rotDecay = Math.exp(-(pcfg?.reconcileRotRate ?? 6) * dt);
-      ro.x *= posDecay; ro.y *= posDecay; ro.z *= posDecay;
-      ro.yaw *= rotDecay;
+      const posRate = pcfg?.reconcilePosRate ?? 3.2;
+      const rotRate = pcfg?.reconcileRotRate ?? 2.5;
+      const maxMps = pcfg?.reconcilePosMaxMps ?? 5;
+      const maxYawPs = pcfg?.reconcileYawMaxRadPs ?? 4;
+      const posLen = Math.hypot(ro.x, ro.y, ro.z);
+      if (posLen > 1e-8) {
+        const expoKeep = Math.exp(-posRate * dt);
+        let nx = ro.x * expoKeep;
+        let ny = ro.y * expoKeep;
+        let nz = ro.z * expoKeep;
+        const stepX = ro.x - nx;
+        const stepY = ro.y - ny;
+        const stepZ = ro.z - nz;
+        const stepLen = Math.hypot(stepX, stepY, stepZ);
+        const maxStep = maxMps * dt;
+        if (maxMps > 0 && stepLen > maxStep && stepLen > 1e-8) {
+          const s = maxStep / stepLen;
+          ro.x -= stepX * s;
+          ro.y -= stepY * s;
+          ro.z -= stepZ * s;
+        } else {
+          ro.x = nx;
+          ro.y = ny;
+          ro.z = nz;
+        }
+      }
+      if (ro.yaw !== 0) {
+        const rotKeep = Math.exp(-rotRate * dt);
+        let nyaw = ro.yaw * rotKeep;
+        const yawStep = Math.abs(ro.yaw - nyaw);
+        const maxYawStep = maxYawPs * dt;
+        if (maxYawPs > 0 && yawStep > maxYawStep) {
+          ro.yaw -= Math.sign(ro.yaw) * maxYawStep;
+        } else {
+          ro.yaw = nyaw;
+        }
+      }
       if (Math.abs(ro.x) + Math.abs(ro.y) + Math.abs(ro.z) < 0.001 && Math.abs(ro.yaw) < 0.001) {
         ro.x = 0; ro.y = 0; ro.z = 0; ro.yaw = 0;
       }
