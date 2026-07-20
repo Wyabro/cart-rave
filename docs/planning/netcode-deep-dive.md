@@ -149,18 +149,14 @@ playtest evidence that loss hurts.
 
 ### NET-SD-1 — SD can untie on score while flag stays true
 
-**Severity:** Medium  
-**Where:** `gameFlow.js` multi-way suppress path still `addScore(...)`; self-fall awards only
-when `survivingTied === 1` at **current** top score
+**Status:** **CLOSED** (2026-07-20) — sole-leader self-fall / untied wipeout crowns
+`pickSuddenDeathFallbackWinner` (best standing, else second place by score). Multi-way
+suppress continue (A vs C after B dies) kept; tied same-frame wipeout still re-seats.
 
-**What:** After 3-way SD, A can become sole score leader while `isSuddenDeath` remains. Sole
-leader self-fall → `survivingTied === 0` → no win. Last-cart-standing only helps if exactly
-one body remains on arena.
+**Where:** `gameFlow.js` self-fall path + `aliveOnArena === 0` wipeout; helper exported for tests.
 
-**Player sees:** overtime softlock until another scoring path ends the round.
-
-**Fix direction:** On suppress kill, re-evaluate tie / exit SD if untied; or sole-leader
-self-fall awards next-highest standing human / ends via last-standing consistently.
+**Player sees:** no more overtime softlock when the score leader yeets themselves after a
+multi-way suppress kill.
 
 ---
 
@@ -217,8 +213,8 @@ Use alongside ROADMAP Phase 4 full-round smoke. Checkboxes for when you run it.
 
 ### Sudden Death
 
-- [ ] 3-way human tie → one kill suppress → remaining fight ends cleanly (no softlock NET-SD-1)
-- [ ] Sole leader self-fall in SD (if reachable) ends round via standing / award path
+- [x] 3-way human tie → one kill suppress → remaining fight ends cleanly (no softlock NET-SD-1)
+- [x] Sole leader self-fall in SD ends round via fallback winner (NET-SD-1)
 
 ### Attribution / wire
 
@@ -237,7 +233,7 @@ Use alongside ROADMAP Phase 4 full-round smoke. Checkboxes for when you run it.
 6. **NET-PRES-1** — ✅ eid dedupe for falls/collisions (duplicate face); loss residual accepted
 7. **NET-MIG-1** — Attribution transfer (or explicit product decision)
 8. **NET-CLK-3** — One clock for hits + directives
-9. **NET-SD-1** — SD untie / sole-leader fall
+9. **NET-SD-1** — ✅ sole-leader self-fall / untied wipeout fallback winner
 
 ---
 

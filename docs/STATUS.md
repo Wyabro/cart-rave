@@ -81,6 +81,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 - [x] **NET-2** quickplay/mid-join cart driveable without long freeze — Wyatt PASS (~3s to drive)
 - [x] **NET-MIG-3** host-migration ghost feel — Wyatt PASS + live deploy verified
 - [x] **NET-PRES-1** fall/collision event-id dedupe (duplicate face) — code landed; loss-on-drop residual accepted
+- [x] **NET-SD-1** sole-leader SD self-fall / untied wipeout — crowns fallback winner
 - [ ] Stabilization residual named by Wyatt (or explicit “no active card / wait”)
 - [ ] Phase exit only on Wyatt instruction → Release candidate
 
@@ -93,6 +94,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | **NET-2** | Quickplay join frozen cart / slow load | ✅ PASS ~3s driveable |
 | **NET-MIG-3** | Freeze / ghost colliders after host migrate | ✅ PASS + live |
 | **NET-PRES-1** | Fall/collision event-id dedupe | ✅ DONE (dup face; loss residual) |
+| **NET-SD-1** | SD untie / sole-leader self-fall softlock | ✅ DONE |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -102,17 +104,16 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 
 ### Next actions
 
-1. Wait for Wyatt to name the next card (NET-SD-1, tech-debt, or phase advance). Do not auto-start.
+1. Wait for Wyatt to name the next card (or phase advance → RC). Do not auto-start.
 
 ## Open issues (top)
 
 Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).  
-Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, HOST-ROLE-1, VFX-1, PLAY-1, …) live in
+Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, PLAY-1, …) live in
 [completed-work.md](./planning/completed-work.md) — not here.
 
 | ID | Issue | Status |
 |----|--------|--------|
-| NET-SD-1 | SD can untie on score while the flag stays true | ⚠️ Open |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 Frozen until deliberate cutover ([brand.md](./brand.md)) |
@@ -120,8 +121,8 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, HOST-ROLE-1, VFX-1, PLAY-1, …
 ## Recommended next milestone
 
 **Stabilize in place** — keep Playtesting & stabilization until Wyatt advances. Completed
-evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1) stays on the board as proof, not as RC entry.
-When named: NET-SD-1 or other residual, then RC exit criteria in [ROADMAP.md](./planning/ROADMAP.md).
+evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1) stays on the board as proof, not as RC entry.
+When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMAP.md).
 
 ## Decision index
 
@@ -171,6 +172,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 
 ## Last updated
+
+2026-07-20 (NET-SD-1) — Sole-leader self-fall / untied wipeout crowns fallback winner.
+**Unpushed** with NET-PRES-1 until ship.
 
 2026-07-20 (NET-PRES-1) — Event-id presentation dedupe: host stamps `eid` on falls/collisions;
 clients skip seen ids. Loss-on-drop residual accepted. **Unpushed** until ship.

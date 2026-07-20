@@ -13,11 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
-### July 20, 2026 – NET-PRES-1 event-id presentation dedupe
+### July 20, 2026 – NET-PRES-1 + NET-SD-1
 
 | Work | Summary |
 |------|---------|
 | **NET-PRES-1** | Host stamps `eid` (`f{seq}.{i}` / `c{seq}.{i}`) on drained snapshot tails; non-hosts skip already-seen eids before KO reactors / collision FX. Module: `src/netcode/presentationDedupe.js`. Legacy 600ms victim + 250ms pair-key kept as fallback + NH-HIT echo. Loss-on-drop remains an unreliable-channel residual (score via `host_round`). |
+| **NET-SD-1** | Sole-leader self-fall / untied wipeout crowns `pickSuddenDeathFallbackWinner` (best standing else second place). Suppress multi-way continue kept; tied wipeout still re-seats. |
 
 ---
 

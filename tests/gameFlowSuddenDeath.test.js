@@ -39,6 +39,7 @@ import {
   scoresAreTiedAtTop,
   hasHumanTiedAtTop,
   anyCartLooksSuddenDeathOutOfPlay,
+  pickSuddenDeathFallbackWinner,
   resetSuddenDeathStalemateForTest,
 } from "../src/gameFlow.js";
 import { dispatchKOEvent } from "../src/scoring/koReactors.js";
@@ -230,6 +231,61 @@ describe("Sudden Death fall loop", () => {
     // * SD skips scheduleRespawn — leave-play hook is how charge SFX is stopped.
     expect(deps.scheduleRespawn).not.toHaveBeenCalled();
     expect(deps.onCartOutOfPlay).toHaveBeenCalledWith(carts[1]);
+  });
+
+  it("NET-SD-1: sole score leader self-fall crowns the best standing trailer", () => {
+    // * After a multi-way suppress kill, A can lead on score while SD stays true.
+    // * A self-falling used to find survivingTied===0 and award nobody.
+    const { carts, deps } = makeSuddenDeathWorld();
+    deps.getRoundScores = () => ({ 0: 8, 1: 5, 2: 1, 3: 0 });
+    carts[0].body._pos.y = -20; // sole leader falls
+    // * slot 1 still standing at lower score
+
+    runFrame(deps);
+
+    expect(deps.addScore).toHaveBeenCalledTimes(1);
+    expect(deps.addScore).toHaveBeenCalledWith(1, 1);
+    expect(carts[0].isSuddenDeathSpectator).toBe(true);
+  });
+
+  it("NET-SD-1: sole leader alone on arena self-fall crowns second place (no re-seat loop)", () => {
+    const { carts, deps } = makeSuddenDeathWorld();
+    deps.getRoundScores = () => ({ 0: 8, 1: 5, 2: 1, 3: 0 });
+    carts[0].body._pos.y = -20;
+    carts[1].isSuddenDeathSpectator = true;
+    carts[1].body._pos.y = -50;
+
+    runFrame(deps);
+
+    expect(deps.addScore).toHaveBeenCalledTimes(1);
+    expect(deps.addScore).toHaveBeenCalledWith(1, 1);
+    // * Must not re-seat the sole leader (that was the softlock loop).
+    expect(carts[0].isSuddenDeathSpectator).toBe(true);
+    expect(carts[0].body._pos.y).toBe(-50);
+  });
+});
+
+describe("pickSuddenDeathFallbackWinner (NET-SD-1)", () => {
+  it("prefers the highest-scoring standing cart", () => {
+    const carts = [
+      makeCart(0, -50, { spectator: true }),
+      makeCart(1, 0),
+      makeCart(2, 0),
+      makeCart(3, -50, { spectator: true }),
+    ];
+    const scores = { 0: 10, 1: 4, 2: 7, 3: 1 };
+    expect(pickSuddenDeathFallbackWinner(carts, scores, 0, -10)).toBe(2);
+  });
+
+  it("falls back to second place by score when nobody is standing", () => {
+    const carts = [
+      makeCart(0, -50, { spectator: true }),
+      makeCart(1, -50, { spectator: true }),
+      makeCart(2, -50, { spectator: true }),
+      makeCart(3, -50, { spectator: true }),
+    ];
+    const scores = { 0: 10, 1: 6, 2: 3, 3: 1 };
+    expect(pickSuddenDeathFallbackWinner(carts, scores, 0, -10)).toBe(1);
   });
 });
 

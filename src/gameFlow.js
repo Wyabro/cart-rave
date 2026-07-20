@@ -175,6 +175,9 @@ export function updateGameFlow(deps, context) {
     // * would-be tiebreak could crown the wrong cart. Falls land first now; the
     // * expiry check reads post-KO scores.
     {
+      // * NET-SD-1: fall-path awards that end SD must suppress the same-frame wipeout
+      // * fallback (tests mock addScore without flipping phase).
+      let suddenDeathResolvedThisFrame = false;
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
         // * A Sudden Death addScore inside this loop can end the round synchronously
         // * (endRound → cleanupSuddenDeathState un-parks spectators at y=-50 with their
@@ -292,6 +295,7 @@ export function updateGameFlow(deps, context) {
 
               if (survivingTied === 1 && survivorSlot >= 0) {
                 deps.addScore(survivorSlot, 1);
+                suddenDeathResolvedThisFrame = true;
                 // * addScore fired _suddenDeathWinCallback → endRound().
                 koEvent.attackerSlotIndex = survivorSlot;
                 koEvent.isFinalBlow = true;
@@ -299,6 +303,30 @@ export function updateGameFlow(deps, context) {
                 // * rule (attacker != null → kill) so host match-stats / challenges / PA
                 // * agree with non-host falls[] replay. Verb stays "SUDDEN DEATH".
                 koEvent.isKill = true;
+              } else if (
+                survivingTied === 0
+                && !scoresAreTiedAtTop(scores)
+              ) {
+                // * NET-SD-1: suppress-kill can leave a sole score leader while SD stays
+                // * true. That leader self-falling finds survivingTied===0 at top and used
+                // * to award nobody — wipeout then re-seated them forever. Crown the best
+                // * standing trailer (or second place if nobody is up).
+                const fallbackSlot = pickSuddenDeathFallbackWinner(
+                  allCarts,
+                  scores,
+                  slotIndex,
+                  deps.CONFIG.fall.yThreshold,
+                );
+                if (fallbackSlot >= 0) {
+                  deps.addScore(fallbackSlot, 1);
+                  suddenDeathResolvedThisFrame = true;
+                  koEvent.attackerSlotIndex = fallbackSlot;
+                  koEvent.isFinalBlow = true;
+                  koEvent.isKill = true;
+                } else {
+                  koEvent.attackerSlotIndex = null;
+                  koEvent.isKill = false;
+                }
               } else {
                 koEvent.attackerSlotIndex = null;
                 koEvent.isKill = false;
@@ -425,17 +453,31 @@ export function updateGameFlow(deps, context) {
           // * keeps reading 0). A mutual fall shouldn't crown anyone — re-seat the tied
           // * carts and replay the tiebreak. Self-limiting: next frame they're back on
           // * the arena (aliveOnArena >= 1) so this won't re-fire.
+          // * NET-SD-1: if scores are already untied (sole leader wiped themselves with
+          // * nobody else up), re-seating would loop forever — crown second place instead.
           deps.abortLastCartStandingFlourish?.();
           const sdScores = deps.getRoundScores();
-          let sdTopScore = -Infinity;
-          for (let si = 0; si < 4; si += 1) {
-            sdTopScore = Math.max(sdTopScore, Number(sdScores[si] || 0));
+          if (!suddenDeathResolvedThisFrame && !scoresAreTiedAtTop(sdScores)) {
+            const fallbackSlot = pickSuddenDeathFallbackWinner(
+              allCarts,
+              sdScores,
+              -1,
+              deps.CONFIG.fall.yThreshold,
+            );
+            if (fallbackSlot >= 0) {
+              deps.addScore(fallbackSlot, 1);
+            }
+          } else if (!suddenDeathResolvedThisFrame) {
+            let sdTopScore = -Infinity;
+            for (let si = 0; si < 4; si += 1) {
+              sdTopScore = Math.max(sdTopScore, Number(sdScores[si] || 0));
+            }
+            layoutSuddenDeathArena(
+              allCarts, sdScores, sdTopScore, now, deps.onCartOutOfPlay,
+              (c) => deps.doRespawn(c, deps),
+            );
+            deps.sendHostRound();
           }
-          layoutSuddenDeathArena(
-            allCarts, sdScores, sdTopScore, now, deps.onCartOutOfPlay,
-            (c) => deps.doRespawn(c, deps),
-          );
-          deps.sendHostRound();
         } else {
           deps.abortLastCartStandingFlourish?.();
         }
@@ -504,7 +546,7 @@ export function updateGameFlow(deps, context) {
 
 /**
  * Top score across slots 0–3.
- * @param {Record<number | string, number> | null | undefined} scores
+ * @param {Record<number | string, number> | ArrayLike<number> | null | undefined} scores
  * @returns {number}
  */
 function topRoundScore(scores) {
@@ -518,7 +560,7 @@ function topRoundScore(scores) {
 /**
  * True when at least two slots share the top score and that score is &gt; 0.
  * Mirrors {@link import("./gameState.js").isScoreTied} for pure inputs.
- * @param {Record<number | string, number> | null | undefined} scores
+ * @param {Record<number | string, number> | ArrayLike<number> | null | undefined} scores
  * @returns {boolean}
  */
 export function scoresAreTiedAtTop(scores) {
@@ -529,6 +571,54 @@ export function scoresAreTiedAtTop(scores) {
     if (Number(scores?.[i] || 0) === topScore) topCount += 1;
   }
   return topCount > 1;
+}
+
+/**
+ * NET-SD-1 — when Sudden Death is no longer a top-score tie (suppress kill untied the
+ * field, or the sole leader self-fell), pick who should win.
+ * Prefers the highest-scoring cart still standing on the arena; if nobody is standing
+ * (sole-leader wipeout), the highest score among non-victim slots (second place).
+ *
+ * @param {Array<object | null | undefined> | null | undefined} allCarts
+ * @param {Record<number | string, number> | ArrayLike<number> | null | undefined} scores
+ * @param {number} victimSlotIndex Falling cart (excluded).
+ * @param {number} [fallYThreshold=-10]
+ * @returns {number} Slot index, or -1 if none.
+ */
+export function pickSuddenDeathFallbackWinner(
+  allCarts,
+  scores,
+  victimSlotIndex,
+  fallYThreshold = -10,
+) {
+  const yCut = Number.isFinite(fallYThreshold) ? fallYThreshold : -10;
+  let bestStanding = -1;
+  let bestStandingScore = -Infinity;
+  for (let si = 0; si < 4; si += 1) {
+    if (si === victimSlotIndex) continue;
+    const c = allCarts?.[si];
+    if (!c?.body || c.isSuddenDeathSpectator) continue;
+    const pos = typeof c.body.translation === "function" ? c.body.translation() : null;
+    if (!pos || !(pos.y >= yCut)) continue;
+    const sc = Number(scores?.[si] || 0);
+    if (sc > bestStandingScore || (sc === bestStandingScore && (bestStanding < 0 || si < bestStanding))) {
+      bestStandingScore = sc;
+      bestStanding = si;
+    }
+  }
+  if (bestStanding >= 0) return bestStanding;
+
+  let bestAny = -1;
+  let bestAnyScore = -Infinity;
+  for (let si = 0; si < 4; si += 1) {
+    if (si === victimSlotIndex) continue;
+    const sc = Number(scores?.[si] || 0);
+    if (sc > bestAnyScore || (sc === bestAnyScore && (bestAny < 0 || si < bestAny))) {
+      bestAnyScore = sc;
+      bestAny = si;
+    }
+  }
+  return bestAny;
 }
 
 /**
