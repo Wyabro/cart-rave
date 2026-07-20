@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod (still):** **`index-DpO_n0oI.js`** / sha **`c07949a`** (lever 1)  
-**Local:** lever 3 host-quality **coded unpushed** + possible unrelated WIP — **do not `git add -A`**  
+**Prod:** **`index-DWDp_cX_.js`** / sha **`80ecbf6`** (NH-HIT lever 3)  
+**Local:** clean of lever-3 WIP; **do not `git add -A`** if other dirt appears  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Do not** re-open P0–P4 / NH-STATS / NH-BOOST / NET-PERF-2 / ko_path without new evidence.  
@@ -24,9 +24,9 @@ F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
 
 | | |
 |--|--|
-| Mission | Run 7 — **NH-HIT lever 3** (host-quality advisory/migrate) |
-| Lever 1 | **FAIL** retest caps **91–94** on `c07949a` (still late on non-host) |
-| Lever 3 | **Coded unpushed** — lobby rebalance toward stronger peer |
+| Mission | Run 7 — **NH-HIT lever 3 retest** (host-quality lobby rebalance) |
+| Lever 1 | **FAIL** caps **91–94** on `c07949a` (kept) |
+| Lever 3 | **SHIPPED** `80ecbf6` / `index-DWDp_cX_.js` — **retest open** |
 
 ### Closed / parked
 
@@ -57,10 +57,10 @@ Lever 3 does **not** claim to fix structural RTT delay when a strong peer alread
 
 ## DO THIS NOW
 
-1. Wyatt **“ship it”** → commit only lever-3 files (not gamepad WIP / not `-A`) → `npm run ship`.  
-2. Dual lobby retest: **Intel creates room first** → 4090 joins/seats → expect host glyph + toast move to 4090.  
-3. Then joiner ram feel recheck (optional F8).  
-4. Pass → partial-close HOST-ROLE-1 / note NH-HIT residual. Fail → F8 + dig one lever.
+1. Hard-refresh **both** clients on prod `index-DWDp_cX_.js`.  
+2. **Intel creates room first** → 4090 joins + seats → host glyph/toast should move to 4090.  
+3. Pass → note HOST-ROLE-1 partial close; optional joiner ram feel recheck.  
+4. Fail → F8 both + `captures:pull` (one lever).
 
 ---
 

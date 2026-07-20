@@ -94,7 +94,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
 - [x] **NH-SMOOTH** non-host driven cart glides — v4 partial (visual better); residual parked
-- [ ] **NH-HIT** non-host hit delay — lever 1 **FAIL** retest (caps 91–94); lever 3 host-quality **coded unpushed** — lobby rebalance + toast
+- [ ] **NH-HIT** non-host hit delay — lever 1 **FAIL** (caps 91–94); lever 3 **SHIPPED** `80ecbf6` / `index-DWDp_cX_.js` — lobby retest open
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -109,7 +109,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
 | **NH-SMOOTH** | **Non-host driven-cart glide** | ✅ **partial** v4 (visual better) — residual parked |
-| **NH-HIT** | **Non-host hit delay (ram FX late)** | ▶️ lever 1 **FAIL** (caps 91–94); **lever 3 coded unpushed** (lobby host-quality rebalance) |
+| **NH-HIT** | **Non-host hit delay (ram FX late)** | ▶️ lever 1 FAIL; lever 3 **SHIPPED** `80ecbf6` / `index-DWDp_cX_.js` — **lobby retest open** |
 | **NET-1** | **Two-human full-round smoke** | after NH-HIT |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
@@ -118,8 +118,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Ship NH-HIT lever 3** on Wyatt “ship it” (host-quality lobby rebalance) — then dual-client lobby retest: Intel creates room → 4090 joins → host should move to 4090 (toast + glyph).
-2. After ship: joiner hit-feel recheck (lever 1 still partial; lever 3 helps HOST-ROLE-1 cases).
+1. **NH-HIT lever 3 lobby retest** on `index-DWDp_cX_.js` / `80ecbf6`: Intel creates room first → 4090 joins/seats → host glyph + toast move to 4090?
+2. Then joiner ram feel recheck (optional F8).
 3. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -128,7 +128,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 
 | ID | Issue | Status |
 |----|--------|--------|
-| HOST-ROLE-1 | Weak host poisons every peer | 🟡 **Lever 3 coded unpushed** — lobby migrates host toward higher capability score (margin 20); not a weak-host ban. Disconnect promote still oldest. |
+| HOST-ROLE-1 | Weak host poisons every peer | 🟡 **Lever 3 shipped** `80ecbf6` / `index-DWDp_cX_.js` — lobby retest open (machine score, not network). |
 | NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md). Now has an automated 2-client complement: [netcode-harness.md](./guides/netcode-harness.md) |
 | NET-2 | Quickplay join = frozen cart + slow load | 🟡 **Partial + warm Solo fix (pushed `e25d555`):** Wyatt `cr:*` marks showed world warm ~0.6s but play-entry→carts-ready ~9.8s (shader `compileAsync` up to 8s). Warm same-level path now caps compile poll at **1.5s**; default cap **4s**; fine marks `play-arena-done` / `play-cart-glb-done` / `play-carts-spawned` / `play-shader-start|end`. Still needs live feel + cold/quickplay check. |
 | VFX-1 | Black-frame flicker | ✅ **Closed (07-17)** — display-referred byte bloom is the all-arena default (`adea4bf`, since 07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic+sundial pass. Optional real-HW `?blackmon=1` taste pass |
@@ -198,7 +198,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-HIT lever 3 coded — **unpushed**) — Host-quality lobby rebalance (HOST-ROLE-1). Clients send `hostScore` on join; server migrates host in lobby when preferred ≥ current+20; toast `reason: host_quality`. Disconnect promote unchanged. Lever 1 FAIL caps 91–94. Gates: typecheck + tests + knip green (**1161** tests this tree+worktree run). **No ship until “ship it.”**
+2026-07-20 (SHIPPED — NH-HIT lever 3) — **`80ecbf6` / `index-DWDp_cX_.js`**. Served sha + `hostScore` + `host_quality` verified. Lobby host rebalance (machine capability). **Retest open:** Intel creates room → 4090 joins → host moves. Also pushed gamepad-nav `1f0ce58` (rides same ship).
+
+2026-07-20 (NH-HIT lever 3 coded) — Host-quality lobby rebalance (HOST-ROLE-1).
 
 2026-07-20 (NH-HIT lever 1 FAIL retest) — Caps **91–94** / `c07949a`: Match A 4090 joiner+Intel host clean net still bad hit feel; Match B Intel joiner dirty snaps. Structural residual.
 
