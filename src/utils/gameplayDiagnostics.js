@@ -212,11 +212,14 @@ function registerProbes(deps) {
     const carts = deps.getCarts ? deps.getCarts() || [] : [];
     const slots = deps.getNetSlots ? deps.getNetSlots() || [] : [];
     const now = performance.now();
+    const hostSim = Boolean(getIsHost());
     /** @type {Array<object>} */
     const npcs = [];
     for (let i = 0; i < carts.length; i += 1) {
       const c = carts[i];
-      if (!c || !c.isNpc) continue;
+      // * NPC identity is net-slot kind — cart.isNpc is never set on live carts
+      // * (gameLoop resolveNpcCarts, netharness hostMigration, diagnostics.md).
+      if (!c || slots[i]?.kind !== "npc") continue;
       npcs.push({
         slot: i,
         name: slots[i]?.name ?? null,
@@ -227,7 +230,9 @@ function registerProbes(deps) {
         personality: c.aiPersonality?.name ?? c.aiPersonality ?? null,
       });
     }
-    return { count: npcs.length, npcs };
+    // * Decision fields (target/pause/personality) update only on the host AI tick.
+    // * Non-host still returns count + slot/name so the probe is not empty mid-round.
+    return { count: npcs.length, npcs, hostSim };
   });
 
   registerDiagProbe("unlocks", () => {
