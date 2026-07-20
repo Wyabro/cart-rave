@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Pick next card** (Wyatt): color/pattern MP glitch (caps 104–105) · NET-1 remaining smoke (join/leave/migration) · P5 · or named. Charge SFX closed. NH-HIT residual parked.
+1. **Color/pattern MP (caps 104–105)** — lever coded **unpushed**: `finishHelloEnter` applies live `netSlots` not stale hello `msg.slots`. Awaiting Wyatt playtest / "ship it".
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -199,6 +199,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-20 (color/pattern MP lever coded — unpushed) — Cap-104/105: `finishHelloEnter` stomped materials with hello-time slots after color_pick/lookHex arrived during ensureSessionReady. Color re-synced per-frame (frameVisuals); pattern uniforms stuck. Fix: apply live `netSlots`.
 
 2026-07-20 (PASS charge SFX orphan) — Wyatt **pass** on prod `index-CMq4BRaz.js` / `2ef67f3`. Card closed.
 

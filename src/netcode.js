@@ -2372,8 +2372,15 @@ export function initNetcode(roomOverride) {
       const finishHelloEnter = () => {
         reapplyCachedCartsSnapshot();
         callbacks.hideMenuRef();
-        callbacks.updateCartMaterialsFromSlots(msg.slots);
-        callbacks.updateHudColorsFromSlots(msg.slots);
+        // * Cap-104/105: use live netSlots, not the hello snapshot. color_pick /
+        // * cart_look rebroadcasts land during ensureSessionReady (often 1s+ of
+        // * shader compile); materials applied from msg.slots stomped correct
+        // * looks. frameVisuals re-tints base color every frame → "color fixes"
+        // * while pattern uniforms stay stale ("pattern stuck" / blue valleys).
+        // * Host is less exposed (hello already has own lookHex; shorter warm).
+        const liveSlots = Array.isArray(netSlots) ? netSlots : msg.slots;
+        callbacks.updateCartMaterialsFromSlots(liveSlots);
+        callbacks.updateHudColorsFromSlots(liveSlots);
         callbacks.scheduleNameLabelUpdate();
 
         setTimeout(maybeAutoReadyLobby, 400);
