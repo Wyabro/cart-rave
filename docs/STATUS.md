@@ -73,7 +73,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 → RC gate** — playtest queue largely drained; LS-1 closed. Cold handoff:
+**Close Run 7 mission** — last two open boxes: **P6** (tooling) then **RC-1 B** (host-reap live proof). Cold handoff:
 [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
@@ -97,8 +97,9 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-HIT lever 3** host-quality lobby rebalance — **PASS** on `80ecbf6` / `index-DWDp_cX_.js` (HOST-ROLE-1)
 - [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
 - [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
-- [ ] P6 AI diag probe empty mid-round — tooling only
-- [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** host-reap optional/skip
+- [ ] **P6** AI diag probe empty mid-round — tooling only ▶️ **NEXT**
+- [ ] **RC-1 B** host-reap #6 live proof (HOST-REAP-1) — after P6
+- [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** still open
 - [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`**, Wyatt **PASS**
 - [x] **HUD-MENU-1** menu leftover HUD — shipped **`8d904de`** / **`index-DhaNywQc.js`**, Wyatt **PASS**
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
@@ -120,17 +121,17 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **LS-1** | Living Store two-browser companion smoke | ✅ **PASS** (Wyatt 2026-07-20; caps 108–111) |
 | **RC-1 A** | AI cautious-phase MP feel | ✅ **PASS** (Wyatt 2026-07-20) |
 | **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
-| **RC-1 B** | Host-reap #6 | ⬜ optional (repro awkward; skip unless named) |
 | **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
 | **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ✅ **PASS** `8d904de` / `index-DhaNywQc.js` |
-| P6 | AI diag probe empty mid-round | tooling only |
+| **P6** | AI diag probe empty mid-round | ▶️ **NEXT** — tooling only |
+| **RC-1 B** | Host-reap #6 (HOST-REAP-1) | ▶️ after P6 — live 2-client proof |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. Queue drained for playtest cards (CAM-1 · HUD-MENU-1 · LS-1 · RC-1 A/C · NET-1 residual). Optional: RC-1 B host-reap, P6 tooling, RC MP polish backlog.
-2. Cap-47 LT parked unless multi-s freezes return.
+1. **P6** — fix `snapshot("ai")` empty mid-round (`src/utils/gameplayDiagnostics.js` filters `c.isNpc`). Tooling only; ship only on “ship it.”
+2. **RC-1 B** — two-browser host-reap smoke (first joiner idles color pick ~35s; peer seats; room not hostless).
 
 ## Open issues (top)
 
