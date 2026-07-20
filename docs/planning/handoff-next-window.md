@@ -1,73 +1,47 @@
-# Handoff — next agent window (Run 7 · NH-HIT lever 3)
+# Handoff — next agent window (post lever-3 PASS)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-DWDp_cX_.js`** / sha **`80ecbf6`** (NH-HIT lever 3)  
-**Local:** clean of lever-3 WIP; **do not `git add -A`** if other dirt appears  
+**Prod:** **`index-DWDp_cX_.js`** / sha **`80ecbf6`**  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
-**Do not** re-open P0–P4 / NH-STATS / NH-BOOST / NET-PERF-2 / ko_path without new evidence.  
-**Do not** multi-lever dump.  
-**Ship only on Wyatt “ship it.”**
-
----
-
-## One rule
-
-**One change (or one forensics card) at a time.**  
-Playtest: [docs/playtest/console.html](../playtest/console.html).  
-F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
+**Do not** re-open P0–P4 / NH-STATS / NH-BOOST / HOST-ROLE-1 / NET-PERF-2 / ko_path without new evidence.  
+**Ship only on Wyatt “ship it.”** Do not `git add -A`.
 
 ---
 
 ## Where we landed
 
-| | |
-|--|--|
-| Mission | Run 7 — **NH-HIT lever 3 retest** (host-quality lobby rebalance) |
-| Lever 1 | **FAIL** caps **91–94** on `c07949a` (kept) |
-| Lever 3 | **SHIPPED** `80ecbf6` / `index-DWDp_cX_.js` — **retest open** |
-
-### Closed / parked
-
 | Card | Verdict |
 |------|---------|
-| P0–P4 | ✅ |
-| NH-STATS / NH-BOOST | ✅ |
+| P0–P4 · NH-STATS · NH-BOOST | ✅ |
 | NH-SMOOTH | ✅ partial |
-| Lever 1 optimistic FX | shipped; **FAIL** live (keep code) |
+| **HOST-ROLE-1 / NH-HIT lever 3** | ✅ **PASS** `80ecbf6` / `index-DWDp_cX_.js` |
+| NH-HIT lever 1 optimistic FX | shipped; **FAIL** live (caps 91–94) — residual structural delay |
+| NET-1 | open (V2 gate) |
 
-### Lever 3 design (what shipped code does)
+### Lever 3 (done)
 
-- Client: `computeLocalHostCapabilityScore` → `hostScore` on `MSG.join`  
-- Server: store scores; **lobby only** `#maybeRebalanceHostForQuality` after seat + on `playAgain`  
-- Migrate if preferred score ≥ current + **20** (not a weak-host ban; ties stay first joiner)  
-- `host_migrated` + `reason: "host_quality"` → toast  
-- Disconnect promote still **oldest human** (`pickNextHostId`)  
-- Files: `src/utils/hostCapability.js`, `party/hostSelection.ts`, `party/index.ts`, `src/netcode.js`, `tests/hostCapability.test.js`
+Lobby rebalance to **stronger machine** (GPU/tier/cores/RAM score), not connection quality.  
+Intel creates room → 4090 joins → host moves (Wyatt pass).
 
-### Evidence seed (lever 1 fail)
+### Residual (if pursued)
 
-- Cap **91/92** — 4090 joiner / Intel host; clean o100; hit feel still bad  
-- Cap **93/94** — Intel joiner only F8s; dirty snaps / pending age  
-
-Lever 3 does **not** claim to fix structural RTT delay when a strong peer already hosts. It fixes **HOST-ROLE-1** (weak first-joiner hosts forever).
+Non-host hit delay when a strong peer already hosts: RTT + input jitter + 40Hz. Lever 1 presentation alone was not enough. No next lever assigned — Wyatt picks.
 
 ---
 
 ## DO THIS NOW
 
-1. Hard-refresh **both** clients on prod `index-DWDp_cX_.js`.  
-2. **Intel creates room first** → 4090 joins + seats → host glyph/toast should move to 4090.  
-3. Pass → note HOST-ROLE-1 partial close; optional joiner ram feel recheck.  
-4. Fail → F8 both + `captures:pull` (one lever).
+1. Wyatt names next card: **NET-1** · NH-HIT residual · P5/P6 · or other.  
+2. One card only.
 
 ---
 
-## Commands
+## Suggested next window paste
 
-```bash
-npm run qa
-npm run ship   # only on "ship it"
-npm run captures:pull
-```
+> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
+> Branch `cart-clash`. Prod **`index-DWDp_cX_.js`** / sha **`80ecbf6`**.  
+> **P0–P4 + NH-STATS + NH-BOOST + HOST-ROLE-1 (lever 3) CLOSED.** NH-SMOOTH partial.  
+> NH-HIT lever 1 FAIL residual (structural delay) parked unless named.  
+> Next: Wyatt picks (NET-1 / residual / P5 / other). One card. Ship only on “ship it.” No `git add -A`.
