@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Color/pattern MP (caps 104–105)** — lever coded **unpushed**: `finishHelloEnter` applies live `netSlots` not stale hello `msg.slots`. Awaiting Wyatt playtest / "ship it".
+1. **Color/pattern MP** — shipped `72227b7` / `index-DcKjB-hY.js`. Wyatt MP retest (non-host join cold). Then pick next card.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (color/pattern MP lever coded — unpushed) — Cap-104/105: `finishHelloEnter` stomped materials with hello-time slots after color_pick/lookHex arrived during ensureSessionReady. Color re-synced per-frame (frameVisuals); pattern uniforms stuck. Fix: apply live `netSlots`.
+2026-07-20 (SHIPPED — color/pattern MP) — **`72227b7` / `index-DcKjB-hY.js`**. Served sha verified. `finishHelloEnter` uses live `netSlots` (no hello-slot stomp).
+
+2026-07-20 (color/pattern MP lever coded) — Cap-104/105: hello-time `msg.slots` stomped materials after lookHex during ensureSessionReady.
 
 2026-07-20 (PASS charge SFX orphan) — Wyatt **pass** on prod `index-CMq4BRaz.js` / `2ef67f3`. Card closed.
 
