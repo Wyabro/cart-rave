@@ -1,14 +1,14 @@
-# Handoff — Cursor (post NET-MIG-3 PASS)
+# Handoff — Cursor (RC polish; NET-MIG-3 live)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod (until ship):** **`index-CzDt6R8Q.js`** / sha **`a42e42c`** — **does not** include NET-MIG-3 residual  
+**Prod:** **`index-DGodTO_i.js`** / sha **`f3a9943`** (NET-MIG-3 live + PASS)  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
-**One card / one lever at a time.**
+**One card / one lever at a time.** **No active ship card** — wait for Wyatt to name next.
 
-**Dashboard:** mission + done-when come from STATUS `## Current focus` / `### Done when`. After doc edits always run `npm run dashboard`.
+**Dashboard:** mission + done-when from STATUS `## Current focus` / `### Done when`. Run `npm run dashboard` after STATUS edits.
 
 ---
 
@@ -17,64 +17,40 @@
 | Card | Verdict |
 |------|---------|
 | **Run 7** | ✅ CLOSED |
-| **NET-2** join freeze | ✅ **PASS** ~3s driveable (prod) |
-| **NET-MIG-3** host-migrate ghost feel | ✅ **PASS** local (Wyatt 2026-07-20) — lever in tree |
+| **NET-2** | ✅ **PASS** ~3s driveable |
+| **NET-MIG-3** | ✅ **PASS** + live `f3a9943` / `index-DGodTO_i.js` |
 | NET-PRES-1 | 🟡 partial polish (optional) |
 | MAIN-1 / BUNDLE-1 / BRAND-1 | post-gate / frozen |
 
 ### Do not re-open without new evidence
 
-Run 7 · NET-1 · NET-2 · NET-MIG-3 · parked NH-HIT / NH-SMOOTH · HUD-MENU-1 · CAM-1 · RC-1 A/B/C
+Run 7 · NET-1 · NET-2 · NET-MIG-3 · parked NH-HIT / NH-SMOOTH · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6
 
-**UI:** color/look = **main-menu Customize**, not a pre-round color step.
+**UI:** color/look = **main-menu Customize**.
 
 ---
 
-## DO THIS NOW (Cursor)
+## DO THIS NOW
 
-### 1. Ship NET-MIG-3 residual (when Wyatt says “ship it”)
+**Nothing auto-started.** Ask Wyatt.
 
-Files:
-
-- `src/netcode.js` — ghost guard past freeze max; no lastCartsCache while awaiting first snap; remotes `setEnabled(false)` until first post-epoch snap  
-- `tests/hostMigration.test.js` — freeze-max-0 still awaits first snap  
-
-```bash
-npm run qa
-# on "ship it":
-# git add only the intended paths (not -A)
-# commit + push origin cart-clash
-npm run ship
-# record new index-*.js + sha in STATUS; hard-refresh prod
-```
-
-### 2. After ship — no auto next card
-
-Ask Wyatt. Candidates:
+Candidates:
 
 | ID | Mode |
 |----|------|
 | NET-PRES-1 | polish — event-id dedupe on falls/collisions |
-| Tech-debt triage | MAIN-1 only if Wyatt pulls it forward |
-| Ship checklist | domain / external testers — BRAND-1 still frozen |
-
----
-
-## NET-MIG-3 lever summary (for reviewers)
-
-**Before:** freeze ended at `hostMigrationFreezeMaxMs` (2s) and cleared `awaitingFirstSnap` → remotes re-armed from `lastCartsCache` → ghost bounce.  
-**After:** `awaitingFirstSnap` clears only on first new-host snap; freeze may end earlier for local drive; remotes stay collider-off until that snap.
+| Tech-debt | MAIN-1 only if Wyatt pulls it |
+| Ship checklist | BRAND-1 still frozen |
 
 ---
 
 ## Suggested paste (Wyatt → Cursor)
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod still **`index-CzDt6R8Q.js`** / **`a42e42c`** until NET-MIG-3 ships.  
-> **Closed:** Run 7 · NET-2 · **NET-MIG-3 PASS** (local).  
-> **Do now:** ship NET-MIG-3 residual on “ship it” (netcode.js + hostMigration test); update STATUS prod row.  
-> Then wait for named next card (NET-PRES-1 optional).  
-> One card/lever. Do not `git add -A`.
+> Branch `cart-clash`. Prod **`index-DGodTO_i.js`** / sha **`f3a9943`**.  
+> **Closed:** Run 7 · NET-2 · **NET-MIG-3 PASS + live**.  
+> **Active:** none — name next card (NET-PRES-1 optional).  
+> One card/lever. Ship only on “ship it.” Do not `git add -A`.
 
 ---
 
