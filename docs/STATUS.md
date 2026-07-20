@@ -42,18 +42,18 @@ Center renders this strip; one ▶ at a time).
 
 ## Project health — 2026-07-20 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
 
-**Run 7 closed; phase = Release candidate.** Gates green, prod live. Remaining open risk is
-residual polish / rare paths (**NET-MIG-3** migration feel, event-id dedupe) — not an unvalidated
-playtest mountain. NET-1 human smoke and NET-2 join feel are closed.
+**Run 7 closed; phase = Release candidate.** Gates green. Player-risk residuals **NET-2** and
+**NET-MIG-3** are PASS. Remaining RC work is polish / tech-debt (NET-PRES-1 event-id dedupe,
+MAIN-1) — not a playtest mountain.
 
 | Signal | State |
 |---|---|
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — re-run after edits |
 | Automated rigs (`npm run battery`) | ✅ last full run green (see `.diag-captures/battery-*.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash — see prod row |
-| Prod deploy (2026-07-20 P6) | ✅ Live — **bundle `index-CzDt6R8Q.js`**, sha **`a42e42c`**. Hard-refresh required. |
+| Origin HEAD | Local ↔ origin/cart-clash — see commits (NET-MIG-3 residual in tree) |
+| Prod deploy (2026-07-20 P6) | ✅ Live — **bundle `index-CzDt6R8Q.js`**, sha **`a42e42c`**. **NET-MIG-3 residual not on prod until ship.** |
 | Prior deploys | ✅ superseded — incl. `index-DhaNywQc.js`/`8d904de` (HUD-MENU-1); archive for older. |
-| Multiplayer live smoke (NET-1) | ✅ PASS residual `24f49da` · LS-1 PASS · NET-2 join ~**3s** driveable (Wyatt 2026-07-20) |
+| Multiplayer live smoke | ✅ NET-1 residual · NET-2 ~3s · NET-MIG-3 clean-close feel (local PASS 2026-07-20) |
 | Black-frame flicker (VFX-1) | ✅ Closed (display-referred byte bloom default) |
 
 ## Major systems completed
@@ -72,7 +72,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Release candidate residual triage.** Run 7 is archive; close remaining player-risk cards one at a time. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
+**Release candidate polish.** Player-risk residuals closed (NET-2 · NET-MIG-3). Ship NET-MIG-3 lever to prod if still unpushed; then polish / tech-debt only when named. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
@@ -80,8 +80,8 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 ### Done when (Release candidate)
 
 - [x] Run 7 playtest mission closed (P0–P6 · NH · NET-1 · LS-1 · RC-1 A/B/C · CAM-1 · HUD-MENU-1)
-- [x] **NET-2** quickplay/mid-join cart driveable without long freeze — Wyatt **PASS** ~**3s** to drive (2026-07-20; was multi-second stall / frozen)
-- [ ] **NET-MIG-3** host-migration feel — freeze ends before new host DC (ghost colliders / rubber-band) live-named PASS or park
+- [x] **NET-2** quickplay/mid-join cart driveable without long freeze — Wyatt **PASS** ~**3s** to drive (2026-07-20)
+- [x] **NET-MIG-3** host-migration ghost feel — residual lever + Wyatt **PASS** local clean-close (2026-07-20); **deploy to prod on ship**
 - [ ] RC tech-debt triage pass (MAIN-1 / BUNDLE-1 stay post-gate unless Wyatt pulls them forward)
 - [ ] Ship checklist ready when residuals drained (domain cutover is separate BRAND-1 freeze)
 
@@ -91,16 +91,17 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 |---|------|--------|
 | **Run 7** | Full playtest mission | ✅ **CLOSED** 2026-07-20 |
 | **NET-2** | Quickplay join frozen cart / slow load | ✅ **PASS** ~3s driveable (Wyatt 2026-07-20) |
-| **NET-MIG-3** | Freeze ends before new host DataChannel | ▶️ **NEXT** if named — live feel |
-| NET-PRES-1 | Fall/collision event-id dedupe | 🟡 partial — polish |
+| **NET-MIG-3** | Freeze / ghost colliders after host migrate | ✅ **PASS** local (Wyatt 2026-07-20); code in tree — **ship to prod** |
+| NET-PRES-1 | Fall/collision event-id dedupe | 🟡 partial — polish (optional next) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
-Historical Run 7 cards: [playtest-triage](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md). Full checked list archived under prior STATUS windows / handoff.
+Historical Run 7 cards: [playtest-triage](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **NET-MIG-3** (recommended) — two-browser host leave mid-round; survivor keeps playing without long ghost/rubber-band. Or name a different RC card.
+1. **Ship NET-MIG-3** residual (`src/netcode.js`) on Wyatt “ship it” — prod still `index-CzDt6R8Q.js` / `a42e42c` without the lever.  
+2. Then optional: **NET-PRES-1** polish or tech-debt triage — only if named.
 
 ## Open issues (top)
 
@@ -112,10 +113,10 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 | NET-1 | Two-browser full-round smoke | ✅ **PASS** core A+B + residual leave/migrate/join-score (`24f49da`). Automated complement: [netcode-harness.md](./guides/netcode-harness.md). Catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
 | NET-2 | Quickplay join = frozen cart + slow load | ✅ **PASS** 2026-07-20 — Wyatt ~**3s** to driveable on prod (code path `e25d555` + caps). No long freeze. |
 | VFX-1 | Black-frame flicker | ✅ **Closed (07-17)** — display-referred byte bloom is the all-arena default (`adea4bf`, since 07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic+sundial pass. Optional real-HW `?blackmon=1` taste pass |
-| PLAY-1 | Playtest debt | ✅ **Run 7 closed** 2026-07-20 — residual RC cards only (NET-MIG-3, polish) |
+| PLAY-1 | Playtest debt | ✅ **Run 7 closed** 2026-07-20 — RC polish only |
 | NET-MIG-2 | Ghost exorcism can null the host | ✅ Fixed 2026-07-14 + residual 2026-07-16 (promote reconnecting conn post-exorcism) |
 | NET-CLK-1 / CLK-2 / CLK-3 / MIG-1 / BUF-1 | Clocks, kill credit, spawn buffer domain | ✅ Closed in code (see netcode-deep-dive) |
-| NET-MIG-3 | Freeze ends before new host DataChannel | ❌ Open — ghost colliders / rubber-band feel |
+| NET-MIG-3 | Freeze ends before new host DataChannel | ✅ **PASS** 2026-07-20 — ghost guard past freeze max + remotes collider-off until first snap; Wyatt local clean-close. **Ship to prod** if not yet deployed. |
 | NET-PRES-1 | Fall/collision tail not event-deduped | 🟡 Partial — falls[] 600ms per-victim dedupe + collision FX 250ms pair-key dedupe shipped (07-16 audits); proper event-id dedupe still open |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt) |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 + NET-1 (D-PERF-3) |
@@ -123,13 +124,10 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 
 ## Recommended next milestone
 
-**“Validated V2 candidate”** — everything implemented is proven, live:
-playtest queue drained → bloom fix promoted (or tuned) → NET-1 two-browser smoke green
-incl. host migration + Living Store checklists. Static Critical hazards (NET-MIG-2 etc.)
-are closed in code; remaining risk is live proof + NET-MIG-3 feel. After that milestone
-the remaining V2 work is scoped content/infra (domain cutover, ship checklist), not risk.
-Structural modernizations (MAIN-1, DIR-1, GLTF-1, TS-1) wait until this gate is green —
-see [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+**“Validated V2 candidate”** — playtest queue drained; NET-1 / NET-2 / NET-MIG-3 live-proven.
+Remaining: ship any unpushed residual to prod, optional polish (NET-PRES-1), tech-debt triage,
+then ship checklist + BRAND-1 domain cutover. Structural modernizations (MAIN-1, BUNDLE-1, …)
+stay post-gate unless named — see [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Decision index
 

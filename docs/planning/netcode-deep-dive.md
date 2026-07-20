@@ -109,28 +109,18 @@ domain as the 40 Hz stream). Party `serverNowMs` stays control-plane only.
 
 ### NET-MIG-3 — Freeze ends before new host DataChannel; ghost colliders
 
-**Status:** **PARTIAL** (2026-07-16) — freeze holds until **first post-epoch snapshot** or
-`hostMigrationFreezeMaxMs` **2000** (was fixed 300 ms). Live feel smoke still owed.
+**Status:** **PASS** (2026-07-20) — freeze until first post-epoch snap or
+`hostMigrationFreezeMaxMs` **2000**; residual ghost guard: `awaitingFirstSnap` is **not**
+cleared on freeze max (only on first snap); while awaiting: no `lastCartsCache` fallback,
+no `syncRemoteCartBodiesForPrediction`, remotes `setEnabled(false)` until first snap.
+Wyatt local clean-close feel PASS. Deploy residual to prod if not yet shipped.
 
-**Severity:** High (feel residual)  
-**Where:** `CONFIG.net.hostMigrationFreezeMaxMs` (2000); `hostMigrationAwaitingFirstSnap`;
-`gameLoop` prediction branch after freeze; `updateRemoteCartNetTargets` +
-`syncRemoteCartBodiesForPrediction`; promote clears `netStateBuffer` but **not**
-`lastCartsCache` / cart `_netTargetPos`
+**Severity:** Closed (feel)  
+**Where:** `CONFIG.net.hostMigrationFreezeMaxMs`; `hostMigrationAwaitingFirstSnap`;
+`getHostMigrationFreezeUntilMs` / `clearHostMigrationFirstSnapWait`;
+`updateRemoteCartNetTargets` + `syncRemoteCartBodiesForPrediction`
 
-**What (remaining):** After freeze **times out** without a snap (slow ICE >2 s), buffer is
-empty and remotes fall through to `lastCartsCache` / stale `_netTarget*` —
-`syncRemoteCartBodiesForPrediction` snaps remote Rapier bodies to those poses every frame
-while colliders stay live.
-
-**Player sees (residual):** ghost bounce only if DC stays cold past 2 s; hard teleport when
-live stream resumes.
-
-**Fix direction (remaining):** Skip remote collider sync while awaiting first snap; clear
-`_netTarget*` on migrate; optionally hold freeze until DC open, not only first snap.
-
-**Smoke:** Host tab close mid-round as non-host — watch remotes until motion resumes; note
-ghost-bounce if any.
+**Smoke:** Host tab close mid-round — short hitch, no ghost bounce off frozen remotes.
 
 ---
 

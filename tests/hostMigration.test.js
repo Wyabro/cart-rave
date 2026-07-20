@@ -16,10 +16,12 @@ import {
   getIsHost,
   getHostId,
   getHostMigrationFreezeUntilMs,
+  isHostMigrationAwaitingFirstSnap,
   getPendingInputs,
 } from "../src/netcode.js";
 import * as GameState from "../src/gameState.js";
 import { encodeHostStateSnapshot } from "../src/netcode/binary.js";
+import { CONFIG } from "../src/config.js";
 
 // --- Server: promote-oldest selection --------------------------------------------------
 
@@ -166,10 +168,38 @@ describe("applyHostMigration (client authority handoff)", () => {
     hooks.setHostIdForTest("oldHost");
     hooks.applyHostMigration({ hostId: "newHost" });
     expect(getHostMigrationFreezeUntilMs()).toBeGreaterThan(0);
+    expect(isHostMigrationAwaitingFirstSnap()).toBe(true);
 
     hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 1, tHost: 1200, carts: snap(1, 0, 0) }), "newHost");
     expect(hooks.getBufferLength()).toBe(1);
     expect(getHostMigrationFreezeUntilMs()).toBe(0);
+    expect(isHostMigrationAwaitingFirstSnap()).toBe(false);
+  });
+
+  it("keeps ghost-guard after freeze max without a snap (NET-MIG-3 residual)", () => {
+    // * Freeze cap 0 → prediction unfreezes immediately, but awaitingFirstSnap stays
+    // * true so lastCartsCache / remote colliders cannot ghost until a real snap.
+    const prevMax = CONFIG.net.hostMigrationFreezeMaxMs;
+    CONFIG.net.hostMigrationFreezeMaxMs = 0;
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "newHost", name: "NEW" },
+        ],
+      });
+      hooks.setHostIdForTest("oldHost");
+      hooks.applyHostMigration({ hostId: "newHost" });
+      expect(getHostMigrationFreezeUntilMs()).toBe(0);
+      expect(isHostMigrationAwaitingFirstSnap()).toBe(true);
+
+      hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 1, tHost: 1200, carts: snap(1, 0, 0) }), "newHost");
+      expect(isHostMigrationAwaitingFirstSnap()).toBe(false);
+      expect(getHostMigrationFreezeUntilMs()).toBe(0);
+    } finally {
+      CONFIG.net.hostMigrationFreezeMaxMs = prevMax;
+    }
   });
 
   it("re-points the trusted snapshot source: old-host stragglers rejected, new host accepted", () => {

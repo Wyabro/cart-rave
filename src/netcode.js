@@ -141,7 +141,12 @@ let keepaliveTimer = null;
 let peerReconnectNotBeforeMs = new Map();
 
 let hostMigrationFreezeUntilMs = 0;
-/** Non-host: stay frozen after promote until first post-epoch snap (or max freeze ms). */
+/**
+ * Non-host after host_migrated: true until the first post-epoch snapshot is buffered.
+ * Cleared only by that snap (or disconnect / becoming host) — NOT by freeze max timeout.
+ * Freeze prediction may end earlier (hostMigrationFreezeMaxMs); this flag still blocks
+ * lastCartsCache ghost poses and remote collider sync (NET-MIG-3 residual).
+ */
 let hostMigrationAwaitingFirstSnap = false;
 /**
  * Presentation dedupe for unreliable falls[] tails (NET-PRES-1 half).
@@ -737,20 +742,62 @@ export function getNetFlowStats() {
 }
 /**
  * Deadline (round-clock ms) until which non-host prediction freezes after host_migrated.
- * While awaiting the first post-migration snapshot, returns the max-wait deadline; once
- * that snap arrives (or the cap expires), returns 0 so the gameLoop unfreezes.
+ * While awaiting the first post-migration snapshot, returns the max-wait deadline until
+ * that snap arrives **or** hostMigrationFreezeMaxMs elapses — then returns 0 so the
+ * gameLoop unfreezes local prediction. Ghost guard (`hostMigrationAwaitingFirstSnap`)
+ * stays true past the freeze cap until the first snap (NET-MIG-3).
  */
 export function getHostMigrationFreezeUntilMs() {
-  if (hostMigrationAwaitingFirstSnap) {
-    const now = getMonotonicNow();
-    if (now >= hostMigrationFreezeUntilMs) {
-      hostMigrationAwaitingFirstSnap = false;
-      hostMigrationFreezeUntilMs = 0;
-      return 0;
-    }
-    return hostMigrationFreezeUntilMs;
-  }
+  if (!hostMigrationAwaitingFirstSnap) return 0;
+  const now = getMonotonicNow();
+  if (now >= hostMigrationFreezeUntilMs) return 0;
   return hostMigrationFreezeUntilMs;
+}
+
+/** True until first post-migration host snap (ghost-collider guard). */
+export function isHostMigrationAwaitingFirstSnap() {
+  return hostMigrationAwaitingFirstSnap;
+}
+
+/**
+ * Local human slot index for this client (-1 if unseated / unknown).
+ * @returns {number}
+ */
+function localSlotIndexForYou() {
+  if (!youConnId || !Array.isArray(netSlots)) return -1;
+  return netSlots.findIndex((s) => s && s.connId === youConnId);
+}
+
+/**
+ * Enable/disable remote cart Rapier bodies during migration ghost guard.
+ * Local cart stays enabled so the player can still drive after freeze cap.
+ * @param {boolean} enabled
+ */
+function setRemoteBodiesEnabledForMigration(enabled) {
+  const allCarts = getAllCarts();
+  if (!allCarts) return;
+  const localIdx = localSlotIndexForYou();
+  for (let i = 0; i < allCarts.length; i += 1) {
+    if (i === localIdx) continue;
+    const cart = allCarts[i];
+    if (!cart) continue;
+    try {
+      if (cart.body?.setEnabled) cart.body.setEnabled(enabled);
+      if (cart.collider?.setEnabled) cart.collider.setEnabled(enabled);
+    } catch {
+      // * Body may already be disposed mid-teardown.
+    }
+  }
+}
+
+/**
+ * End the post-migration first-snap wait (called when a new-host snap buffers).
+ */
+function clearHostMigrationFirstSnapWait() {
+  if (!hostMigrationAwaitingFirstSnap) return;
+  hostMigrationAwaitingFirstSnap = false;
+  hostMigrationFreezeUntilMs = 0;
+  setRemoteBodiesEnabledForMigration(true);
 }
 /** Host (sim peer) clock offset: local round-clock − host tHost. */
 export function getHostClockOffsetMs() { return hostClock.offsetMs; }
@@ -991,6 +1038,10 @@ export function sampleAuthoritativeCartState(slotIndex, customTargetServerNowMs)
     return a ? copyCartSnapIntoScratch(_cartSnapScratch, a) : null;
   }
 
+  // * NET-MIG-3: never feed pre-migration lastCartsCache poses while waiting for the
+  // * new host's first snap — those become collidable ghost targets after freeze max.
+  if (hostMigrationAwaitingFirstSnap) return null;
+
   if (lastCartsCache && lastCartsCache[slotIndex]) {
     return copyCartSnapIntoScratch(_cartSnapScratch, lastCartsCache[slotIndex]);
   }
@@ -1193,6 +1244,9 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
     return;
   }
 
+  // * NET-MIG-3: empty buffer after promote must not paint remotes from lastCartsCache.
+  if (hostMigrationAwaitingFirstSnap) return;
+
   const carts = (after && after.carts) || lastCartsCache;
   if (!carts) return;
   for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
@@ -1212,6 +1266,9 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
  * @param {number} localSlotIndex Slot index of the local human player (skipped).
  */
 export function syncRemoteCartBodiesForPrediction(localSlotIndex) {
+  // * NET-MIG-3: remotes stay collider-disabled until first post-epoch snap; do not
+  // * re-arm them by snapping bodies to stale _netTarget* / lastCartsCache poses.
+  if (hostMigrationAwaitingFirstSnap) return;
   const allCarts = getAllCarts();
   if (!allCarts) return;
   for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
@@ -1289,12 +1346,8 @@ function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
 
   netStateBuffer.push({ serverNowMs, seq, carts, epoch });
   while (netStateBuffer.length > CONFIG.net.stateBufferMaxSize) netStateBuffer.shift();
-  // * NET-MIG-3: first accepted post-migration snapshot ends the non-host freeze early
-  // * so we don't sit 2s when the new host's DC is already hot.
-  if (hostMigrationAwaitingFirstSnap) {
-    hostMigrationAwaitingFirstSnap = false;
-    hostMigrationFreezeUntilMs = 0;
-  }
+  // * NET-MIG-3: first accepted post-migration snapshot ends freeze + re-enables remotes.
+  clearHostMigrationFirstSnapWait();
 }
 
 // --- Host / client send loops ---
@@ -1981,17 +2034,19 @@ function applyHostMigration(msg) {
   // * New host re-derives schedule slots from round-elapsed; clients must not keep
   // * Rush Hour / Flash Sale overrides against base-rules host physics.
   clearDirectiveOnHostMigration();
-  // * NET-MIG-3: freeze non-host prediction until the first post-epoch host snapshot
-  // * (or freezeMaxMs). Fixed 300ms was shorter than typical WebRTC re-handshake and
-  // * left remotes collidable from lastCartsCache ghost poses.
+  // * NET-MIG-3: freeze non-host prediction until first post-epoch snap (or freezeMaxMs).
+  // * Past the freeze cap, keep awaitingFirstSnap so lastCartsCache / remote colliders
+  // * cannot ghost-bounce until the new host's DC actually delivers a snap.
   if (!nextIsHost) {
     const maxMs = CONFIG.net.hostMigrationFreezeMaxMs
       ?? Math.max(CONFIG.net.hostMigrationFreezeMs ?? 300, 2000);
     hostMigrationFreezeUntilMs = getMonotonicNow() + maxMs;
     hostMigrationAwaitingFirstSnap = true;
+    setRemoteBodiesEnabledForMigration(false);
   } else {
     hostMigrationFreezeUntilMs = 0;
     hostMigrationAwaitingFirstSnap = false;
+    setRemoteBodiesEnabledForMigration(true);
   }
   hostEpoch += 1;
   netStateBuffer = [];
