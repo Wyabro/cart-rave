@@ -119,9 +119,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Charge SFX retest** on `index-CMq4BRaz.js` / `2ef67f3`: hold charge, release, rematch — loop must stop. F8 if stuck.
-2. **Color/pattern MP glitch** (caps 104–105) — separate card when named.
-3. S1 rematch edge death: no early fall on cap-106; snap_gap ~4.9s still during arena warm.
+1. **Pick next card** (Wyatt): color/pattern MP glitch (caps 104–105) · NET-1 remaining smoke (join/leave/migration) · P5 · or named. Charge SFX closed. NH-HIT residual parked.
+2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
 
@@ -201,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (SHIPPED — charge SFX orphan) — **`2ef67f3` / `index-CMq4BRaz.js`**. Served sha verified. stopAllSfx(chargeUp) + stop before rematch; cancel path fixed. **Retest open.**
+2026-07-20 (PASS charge SFX orphan) — Wyatt **pass** on prod `index-CMq4BRaz.js` / `2ef67f3`. Card closed.
+
+2026-07-20 (SHIPPED — charge SFX orphan) — **`2ef67f3` / `index-CMq4BRaz.js`**.
 
 2026-07-20 (charge SFX orphan coded) — Cap-104–107: stuck chargeUp; rematchResetWorld orphaned Howler id.
 
