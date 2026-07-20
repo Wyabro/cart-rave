@@ -200,9 +200,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-20 (PASS NH-HIT lever 3 / HOST-ROLE-1) — Wyatt **pass** on prod `index-DWDp_cX_.js` / `80ecbf6` (Intel creates → 4090 steals host). Card closed. NH-HIT residual (lever 1 structural delay) stays separate if pursued.
+
 2026-07-20 (READY-SET fix — closes the rematch-seam card from the crown-race entry below) — mpIntegration quickplay rematch stall (1-in-6, lobby held ~48s) root-caused + fixed: idempotent ready SET (D-READY-1). `party/index.ts` readyToggle SET semantics + `src/netcode.js` lobby ready-reconcile. Verified: 5× battery mpIntegration 18/18 green (a toggle-based v1 failed 3/3 — the toggle race is real, not theoretical); qa 568/568. **Behavior-changing (quickplay/solo ready path) → needs the standard human MP playtest + prod deploy.**
 
-2026-07-20 (SHIPPED — NH-HIT lever 3) — **`80ecbf6` / `index-DWDp_cX_.js`**. Served sha + `hostScore` + `host_quality` verified. Lobby host rebalance (machine capability). **Retest open:** Intel creates room → 4090 joins → host moves. Also pushed gamepad-nav `1f0ce58` (rides same ship).
+2026-07-20 (SHIPPED — NH-HIT lever 3) — **`80ecbf6` / `index-DWDp_cX_.js`**. Served sha + `hostScore` + `host_quality` verified. Also pushed gamepad-nav `1f0ce58`.
 
 2026-07-20 (NH-HIT lever 3 coded) — Host-quality lobby rebalance (HOST-ROLE-1).
 
