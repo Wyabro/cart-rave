@@ -93,7 +93,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
-- [ ] **NH-SMOOTH** non-host driven cart glides — v2 fail cap-83; **v3 coded unpushed** (display pose chase)
+- [ ] **NH-SMOOTH** non-host driven cart glides — v3 shipped `8c3ba22` / `index-wn0Z0cFw.js`; **retest open**
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -107,7 +107,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
-| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v3 coded unpushed** (v2 fail cap-83) |
+| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v3 shipped** `8c3ba22` / `index-wn0Z0cFw.js` — **retest open** |
 | **NET-1** | **Two-human full-round smoke** | after NH-SMOOTH |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
@@ -116,7 +116,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NH-SMOOTH v3:** ship on “ship it” → hard-refresh → joiner drive/combat pass/fail.
+1. **NH-SMOOTH v3 retest:** hard-refresh on `index-wn0Z0cFw.js`; joiner drive + combat pass/fail (F8 if fail).
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
 3. After NH-SMOOTH pass: NET-1.
 
@@ -196,7 +196,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-SMOOTH v3 coded — **unpushed**) — v2 **FAIL** (video 0456 + cap-83): still janky. Cap-83: snapGapMax **3478ms**, errMax **14.6m**, 1 teleport, 1 skip — host silence class + residual jank. v3: display-pose low-pass (mesh+camera chase body; hard snap only past maxCorrectionM).
+2026-07-20 (SHIPPED — NH-SMOOTH v3) — **`8c3ba22` / `index-wn0Z0cFw.js`**. Served sha verified. Display-pose low-pass mesh+camera. **Retest open.** Claude harness WIP left unstaged.
+
+2026-07-20 (NH-SMOOTH v3 coded) — v2 FAIL cap-83 (snapGapMax 3478ms, errMax 14.6m). Display chase lever.
 
 2026-07-20 (SHIPPED — NH-SMOOTH v2) — **`af011cc` / `index-Czk-Iu0n.js`**. Soft visual debt. **FAIL** retest.
 
