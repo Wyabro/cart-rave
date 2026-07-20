@@ -50,9 +50,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **554/57** last known at countdown residual ship — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at **`8d904de`** — HUD-MENU-1 full menu HUD clear |
-| Prod deploy (2026-07-20 HUD-MENU-1) | ✅ Live — **bundle `index-DhaNywQc.js`**, sha **`8d904de`** (served: index.html → new bundle). Hard-refresh required. |
-| Prior deploys | ✅ superseded — incl. `index-0O6jq9wn.js`/`5fade5b` (CAM-1), `index-BxIgTxPx.js`/`24f49da`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
+| Origin HEAD | Local ↔ origin/cart-clash at **`a42e42c`** — P6 AI diag probe |
+| Prod deploy (2026-07-20 P6) | ✅ Live — **bundle `index-CzDt6R8Q.js`**, sha **`a42e42c`** (served: index.html → new bundle). Hard-refresh required. |
+| Prior deploys | ✅ superseded — incl. `index-DhaNywQc.js`/`8d904de` (HUD-MENU-1), `index-0O6jq9wn.js`/`5fade5b` (CAM-1); dated log + [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ✅ PASS residual `24f49da` · LS-1 PASS same deploy |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -97,8 +97,8 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-HIT lever 3** host-quality lobby rebalance — **PASS** on `80ecbf6` / `index-DWDp_cX_.js` (HOST-ROLE-1)
 - [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
 - [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
-- [ ] **P6** AI diag probe empty mid-round — tooling only ▶️ **NEXT**
-- [ ] **RC-1 B** host-reap #6 live proof (HOST-REAP-1) — after P6
+- [x] **P6** AI diag probe empty mid-round — tooling; filter `slots[i].kind === "npc"` (not dead `cart.isNpc`); Wyatt local PASS `count:3 hostSim:true`
+- [ ] **RC-1 B** host-reap #6 live proof (HOST-REAP-1) ▶️ **NEXT**
 - [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** still open
 - [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`**, Wyatt **PASS**
 - [x] **HUD-MENU-1** menu leftover HUD — shipped **`8d904de`** / **`index-DhaNywQc.js`**, Wyatt **PASS**
@@ -123,15 +123,14 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
 | **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
 | **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ✅ **PASS** `8d904de` / `index-DhaNywQc.js` |
-| **P6** | AI diag probe empty mid-round | ▶️ **NEXT** — tooling only |
-| **RC-1 B** | Host-reap #6 (HOST-REAP-1) | ▶️ after P6 — live 2-client proof |
+| **P6** | AI diag probe empty mid-round | ✅ **PASS** `a42e42c` / `index-CzDt6R8Q.js` |
+| **RC-1 B** | Host-reap #6 (HOST-REAP-1) | ▶️ **NEXT** — live 2-client proof |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **P6** — fix `snapshot("ai")` empty mid-round (`src/utils/gameplayDiagnostics.js` filters `c.isNpc`). Tooling only; ship only on “ship it.”
-2. **RC-1 B** — two-browser host-reap smoke (first joiner idles color pick ~35s; peer seats; room not hostless).
+1. **RC-1 B** — two-browser host-reap smoke (first joiner idles seating ~35s; peer seats; room not hostless). Color/look is **main-menu Customize**, not a pre-round gate.
 
 ## Open issues (top)
 
