@@ -1,10 +1,10 @@
 # Living Store — deferred netcode test plan
 
-Status: **TODO** (deferred by Wyatt 2026-07-10 — "test fully later"). Solo-mode behavior
-for everything below is already verified in-browser; this checklist covers the paths that
-only exist with a real second client. Feature commits: `03edc7c` (Living Cargo),
-`b7ceeb2` (directive engine + presentation), plus the scheduling/Rush Hour tuning commit
-that follows it.
+Status: **PASS** (Wyatt 2026-07-20 — LS-1 two-browser companion on prod
+`index-BxIgTxPx.js` / `24f49da`; F8 caps 108–111). Solo-mode was already verified earlier.
+Priority smoke (cargo · remote spill · directive fire · mutator · migrate notes) closed;
+full checkbox detail below may still be useful for regressions. Feature commits: `03edc7c`
+(Living Cargo), `b7ceeb2` (directive engine + presentation), plus scheduling/Rush Hour tuning.
 
 ## Setup
 

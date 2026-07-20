@@ -54,7 +54,7 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 | Prod deploy (2026-07-19 night, hold actually wired) | ✅ Live — **bundle `index-BQhnh1Z_.js`**, sha **`60d773e`** (served: index.html → new bundle; sha + `isSessionPlayReady` present). Cap-63: bridge now forwards ready gate so countdown hold runs. **Joiner F8 retest = open gate.** |
 | Prior deploys (07-17 → 07-19) | ✅ superseded — incl. `index-CRQwILqC.js`/`5a1caee0`/`03218fa`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
-| Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
+| Multiplayer live smoke (NET-1) | ✅ PASS residual `24f49da` · LS-1 PASS same deploy |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
 
 ## Major systems completed
@@ -73,7 +73,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 — NH-HIT** (non-host hit delay; lever 1 optimistic FX). Cold handoff:
+**Run 7 → RC gate** — playtest queue largely drained; LS-1 closed. Cold handoff:
 [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
@@ -100,7 +100,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [ ] P6 AI diag probe empty mid-round — tooling only
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6, READY-SET)
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
-- [ ] Living Store two-browser companion checklist — **next card**
+- [x] **LS-1** Living Store two-browser companion — Wyatt **PASS** 2026-07-20 (caps 108–111 / `24f49da`; #3 continuous peer + schedule verified)
 
 ### Active queue (strict — one at a time)
 
@@ -115,14 +115,15 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **NH-HIT** | **Non-host hit delay (ram FX late)** | lever 3 **PASS**; residual **parked** (not 100% — no more levers unless named) |
 | **NET-1** | **Two-human full-round + residual** | ✅ core soft-pass · residual **PASS** `24f49da` |
 | **P5** | Solo bot/rim death feel | ✅ **PASS** (Wyatt 2026-07-20) |
-| **LS-1** | **Living Store two-browser companion smoke** | ▶️ **NEXT** — [living-store-test-plan.md](./planning/living-store-test-plan.md) |
+| **LS-1** | Living Store two-browser companion smoke | ✅ **PASS** (Wyatt 2026-07-20; caps 108–111) |
+| **RC-1** | RC behavior-changing MP validation (AI cautious-phase #1, host-reap #6, READY-SET) | ▶️ **NEXT** |
 | P6 | AI diag probe empty mid-round | tooling only |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **LS-1 Living Store two-browser smoke** (next Grok window) — validation-first against [living-store-test-plan.md](./planning/living-store-test-plan.md). Prod `index-BxIgTxPx.js` / `24f49da`. One fail → one lever.
+1. **RC-1** — human-validate the three still-open behavior-changing MP fixes (AI cautious-phase #1, host-reap #6, READY-SET). One card at a time if any fails.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -132,7 +133,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 | ID | Issue | Status |
 |----|--------|--------|
 | HOST-ROLE-1 | Weak host poisons every peer | ✅ **Lever 3 PASS** `80ecbf6` / `index-DWDp_cX_.js` — lobby migrates to stronger machine (not network). |
-| NET-1 | Two-browser full-round smoke | ❌ **The V2 gate.** Code hardened + unit-covered (`1dbb48a`, `6ee9c0b`); live checks never run. Hazard catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md). Now has an automated 2-client complement: [netcode-harness.md](./guides/netcode-harness.md) |
+| NET-1 | Two-browser full-round smoke | ✅ **PASS** core A+B + residual leave/migrate/join-score (`24f49da`). Automated complement: [netcode-harness.md](./guides/netcode-harness.md). Catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
 | NET-2 | Quickplay join = frozen cart + slow load | 🟡 **Partial + warm Solo fix (pushed `e25d555`):** Wyatt `cr:*` marks showed world warm ~0.6s but play-entry→carts-ready ~9.8s (shader `compileAsync` up to 8s). Warm same-level path now caps compile poll at **1.5s**; default cap **4s**; fine marks `play-arena-done` / `play-cart-glb-done` / `play-carts-spawned` / `play-shader-start|end`. Still needs live feel + cold/quickplay check. |
 | VFX-1 | Black-frame flicker | ✅ **Closed (07-17)** — display-referred byte bloom is the all-arena default (`adea4bf`, since 07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic+sundial pass. Optional real-HW `?blackmon=1` taste pass |
 | PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
