@@ -39,6 +39,8 @@ const _reconPre = { x: 0, y: 0, z: 0, yaw: 0 };
 function clearReconcileVisOffset(cart) {
   const off = cart?._reconcileVisOffset;
   if (off) { off.x = 0; off.y = 0; off.z = 0; off.yaw = 0; }
+  // * NH-SMOOTH v3: force display pose re-seed from the next body pose (respawn / death).
+  if (cart) cart._displayReady = false;
 }
 
 /** Keep physics-alpha mesh interp from stretching across a reconcile hard-snap. */

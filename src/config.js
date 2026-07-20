@@ -376,9 +376,9 @@ export const CONFIG = {
     // * delta accumulates into cart._reconcileVisOffset (gameLoop capture), which
     // * frameVisuals applies to the mesh (and main.js feeds to the follow camera) while
     // * decaying it at the rates below. Run-4 "laggy-rubberbandy" fix.
-    // * NH-SMOOTH (cap-78/79→82): rates 8/6→3.2/2.5 + snapPhysicsPrevToBody helped but
-    // * combat still janky (cap-82 errMax 12m, 2 teleports). v2: per-snap add cap, debt
-    // * clamp (not zero), speed-capped ease — physics hard-snap unchanged.
+    // * NH-SMOOTH: v1 prev-pose+rates, v2 soft debt — both failed live (cap-82/83).
+    // * v3: display-pose low-pass for non-host local mesh+camera (frameVisuals / main).
+    // * Physics hard-snap unchanged. Legacy offset knobs remain for metrics / fallback.
     prediction: {
       // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
       reconcilePosRate: 3.2,
@@ -392,8 +392,11 @@ export const CONFIG = {
       reconcileYawMaxRadPs: 4,
       // * NH-SMOOTH v2: max meters of ease debt one snapshot may add (rest shows immediately).
       reconcileVisAddCapM: 0.45,
-      // * Hard visual teleport when a *single* correction exceeds this (m). Accumulated
-      // * debt is clamped to this (not zeroed) so slow rates cannot pop-clear.
+      // * NH-SMOOTH v3: display pose chase rates (1/s) toward physics mesh pose.
+      displayPosRate: 14,
+      displayRotRate: 12,
+      // * Hard visual teleport when display lags body by more than this (m), or a single
+      // * reconcile correction exceeds it. Accumulated debt is clamped (not zeroed).
       maxCorrectionM: 6.0,
       // * NET-PERF-1 (run-7): max Rapier fixed-steps per host snapshot on the non-host.
       // * After the body hard-snaps to host truth, only the oldest N unacked inputs are

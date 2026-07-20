@@ -1,49 +1,41 @@
-# Handoff — next agent window (Run 7 · NH-SMOOTH v2 retest)
+# Handoff — next agent window (Run 7 · NH-SMOOTH v3)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Ship code:** **`af011cc`**  
-**Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-Czk-Iu0n.js`** (build sha **`af011cc`**)  
-**Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
+**Prod still:** **`index-Czk-Iu0n.js`** / **`af011cc`** (v2 — **FAIL**)  
+**Local:** NH-SMOOTH **v3 coded unpushed**  
+**Read order:** dashboard → health.json → this → STATUS → AGENTS  
 
-**Do not** re-open P0–P4 / NH-STATS / NH-BOOST / NET-PERF-2 / ko_path without new evidence.  
-**One card at a time. Ship only on Wyatt “ship it.”**
+**Do not** re-open P0–P4 / NH-STATS / NH-BOOST / NET-PERF-2 / ko_path.  
+**One card. Ship only on “ship it.”**
 
 ---
 
-## Active: NH-SMOOTH v2 — retest open
+## Active: NH-SMOOTH v3 — coded, await ship + retest
 
-**Player bar:** non-host driven cart glides (drive + combat), not drunk/jank.
+**Bar:** non-host driven cart glides (drive + combat).
 
-| Ship | Bundle / sha | What |
-|------|----------------|------|
-| v1 | `34b240d` / `index-CaoV7WsD.js` | prev-pose snap + rates 3.2/2.5 — better, still janky (cap-82) |
-| **v2** | **`af011cc` / `index-Czk-Iu0n.js`** | per-snap add cap 0.45m · debt clamp not zero · speed ease 5 m/s / 4 rad/s · maxCorrectionM 6 |
+| Ship | Result |
+|------|--------|
+| v1 `34b240d` / `index-CaoV7WsD.js` | better, still janky |
+| v2 `af011cc` / `index-Czk-Iu0n.js` | **FAIL** cap-83 + video 0456 |
+| **v3** unpushed | display-pose low-pass mesh+camera |
 
-**Seed fail:** cap-82 errMax 12.3m, 2 teleports, clean snap cadence.
+**cap-83 (v2 fail):** snapAvg 26.7 · **snapGapMax 3478ms** · errMax **14.6m** · tele 1 · skip 1 · joiner 4090 HIGH · zanzibar
+
+**v3 lever:** `frameVisuals` — non-host local mesh chases body via `_displayPos/_displayQuat` (rates 14/12); hard snap only if lag ≥ maxCorrectionM. `main` camera follows display. `clearReconcileVisOffset` reseeds display. Physics unchanged.
 
 ### DO THIS NOW
 
-1. Hard-refresh both → confirm `index-Czk-Iu0n.js`  
-2. Joiner: drive + **combat**  
-3. Pass → close NH-SMOOTH; next NET-1  
-4. Fail → F8 + pull → one lever only  
+1. “ship it” → qa → ship → verify bundle+sha  
+2. Hard-refresh dual → joiner drive+combat  
+3. Pass → close; next NET-1  
+4. Fail → F8+pull → one lever (host stall path if gapMax multi-s again)
 
 ### Closed
 
 P0–P4 · NH-STATS · NH-BOOST  
 
-### Parked
+### Note
 
-NET-1 after pass · Cap-47 LT · kill-credit zeros (not this card)
-
----
-
-## Paste for next window
-
-> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-Czk-Iu0n.js`** / sha **`af011cc`**.  
-> **Active: NH-SMOOTH v2 retest** (joiner drive/combat glide).  
-> First action: hard-refresh dual clients; joiner drive + combat pass/fail. F8 + pull if fail.  
-> One card. Ship only on “ship it.”
+Multi-second snapGapMax is **host silence** (HOST-ROLE-1 class) — display chase softens recovery; does not fix a frozen host.

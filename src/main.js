@@ -5070,23 +5070,29 @@ async function main() {
       if (!inHitStop) {
         let playerPos = localCart.body.translation();
         let playerRot = localCart.body.rotation();
-        // * Follow the reconcile-smoothed visual pose, not the raw body: reconciliation
-        // * hard-snaps the body to host truth (up to 40Hz), and this camera is rigid by
-        // * design — feeding it the raw body re-broadcasts every snap as a full-screen
-        // * jerk. _reconcileVisOffset is the eased remainder frameVisuals renders the
-        // * cart at (always zero for host/solo), so camera and cart stay glued together.
-        const ro = localCart._reconcileVisOffset;
-        if (ro && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0)) {
-          _camReconPosScratch.x = playerPos.x + ro.x;
-          _camReconPosScratch.y = playerPos.y + ro.y;
-          _camReconPosScratch.z = playerPos.z + ro.z;
+        // * NH-SMOOTH v3: follow the display pose (low-passed mesh) when present so the
+        // * camera does not re-broadcast 40Hz body hard-snaps. Falls back to body +
+        // * legacy reconcile offset if display has not seeded yet this frame.
+        if (localCart._displayReady && localCart._displayPos && localCart._displayQuat) {
+          _camReconPosScratch.x = localCart._displayPos.x;
+          _camReconPosScratch.y = localCart._displayPos.y - (CONFIG.cart?.visualOffset ?? 0);
+          _camReconPosScratch.z = localCart._displayPos.z;
           playerPos = _camReconPosScratch;
-        }
-        if (ro && ro.yaw !== 0) {
-          _camReconYawScratch.setFromAxisAngle(_camReconYAxis, ro.yaw);
-          _camReconRotScratch.set(playerRot.x, playerRot.y, playerRot.z, playerRot.w)
-            .premultiply(_camReconYawScratch);
-          playerRot = _camReconRotScratch;
+          playerRot = localCart._displayQuat;
+        } else {
+          const ro = localCart._reconcileVisOffset;
+          if (ro && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0)) {
+            _camReconPosScratch.x = playerPos.x + ro.x;
+            _camReconPosScratch.y = playerPos.y + ro.y;
+            _camReconPosScratch.z = playerPos.z + ro.z;
+            playerPos = _camReconPosScratch;
+          }
+          if (ro && ro.yaw !== 0) {
+            _camReconYawScratch.setFromAxisAngle(_camReconYAxis, ro.yaw);
+            _camReconRotScratch.set(playerRot.x, playerRot.y, playerRot.z, playerRot.w)
+              .premultiply(_camReconYawScratch);
+            playerRot = _camReconRotScratch;
+          }
         }
         CameraMod.updateCamera(
           camera,

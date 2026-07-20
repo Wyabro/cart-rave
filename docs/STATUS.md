@@ -93,7 +93,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
-- [ ] **NH-SMOOTH** non-host driven cart glides — v2 shipped `af011cc` / `index-Czk-Iu0n.js`; **retest open**
+- [ ] **NH-SMOOTH** non-host driven cart glides — v2 fail cap-83; **v3 coded unpushed** (display pose chase)
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -107,7 +107,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
-| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v2 shipped** `af011cc` / `index-Czk-Iu0n.js` — **retest open** |
+| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v3 coded unpushed** (v2 fail cap-83) |
 | **NET-1** | **Two-human full-round smoke** | after NH-SMOOTH |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
@@ -116,7 +116,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NH-SMOOTH v2 retest:** hard-refresh on `index-Czk-Iu0n.js`; joiner drive + combat pass/fail (F8 if fail).
+1. **NH-SMOOTH v3:** ship on “ship it” → hard-refresh → joiner drive/combat pass/fail.
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
 3. After NH-SMOOTH pass: NET-1.
 
@@ -196,7 +196,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (SHIPPED — NH-SMOOTH v2) — **`af011cc` / `index-Czk-Iu0n.js`**. Served sha verified. Soft visual debt (add cap + clamp + speed ease). **Retest open.**
+2026-07-20 (NH-SMOOTH v3 coded — **unpushed**) — v2 **FAIL** (video 0456 + cap-83): still janky. Cap-83: snapGapMax **3478ms**, errMax **14.6m**, 1 teleport, 1 skip — host silence class + residual jank. v3: display-pose low-pass (mesh+camera chase body; hard snap only past maxCorrectionM).
+
+2026-07-20 (SHIPPED — NH-SMOOTH v2) — **`af011cc` / `index-Czk-Iu0n.js`**. Soft visual debt. **FAIL** retest.
+
+2026-07-20 (NH-SMOOTH v2 coded) — Cap-82 still janky: errMax 12.3m, 2 teleports. Soft debt lever.
 
 2026-07-20 (NH-SMOOTH v2 coded) — Cap-82 still janky: errMax 12.3m, 2 teleports. Soft debt lever.
 
@@ -290,7 +294,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 | `mpIntegration` | FAIL (winner slot — real, AI-caused) | PASS | **FAIL 0.00m** (upstream) | **PASS 16/16** |
 | `teardownRejoin` | **FAIL 0.00m** | **FAIL 0.00m** | PASS 18.48m | — |
 
-Consequences: a 5/5 proves less than it looks, and a red rig is not evidence of a regression — the only way I could separate a real AI-caused failure from noise was A/B-ing against a **stashed baseline**. `gameharness` + `hostMigration` were stable across all runs. This is the *same* mechanism as the tracked NET-2 gotcha, so it may be the rigs honestly reporting a real product weakness rather than pure test flake — decide which before trusting the gate. Suggested fix (unstarted, needs Wyatt's go-ahead): make the 2-client rigs poll for an actual readiness condition (joiner `pendingInputs > 0`) instead of a fixed `sleep(1000)` before driving, failing loudly on timeout. **Do that BEFORE any parallelization** (`--only`/`--skip` already exist; full sweep ≈10.2 min, `gameharness` alone is 45%).
+Consequences: a 5/5 proves less than it looks, and a red rig is not evidence of a regression — the only way I could separate a real AI-caused failure from noise was A/B-ing against a **stashed baseline**. `gameharness` + `hostMigration` were stable across all runs. This is the *same* mechanism as the tracked NET-2 gotcha, so it may be the rigs honestly reporting a real product weakness rather than pure test flake — decide which before trusting the gate. **RESOLVED in two steps:** `f5ab8db` shipped the readiness poll (`waitForInputSampled`) — post-`f5ab8db` reports proved it insufficient (the `0.00m` red kept roaming, runs 19:29–20:30 on 07-19); the 2026-07-20 INCONCLUSIVE-verdict pass (see dated entry) shipped the missing half: retry once, then report **exit 3 / INCONCLUSIVE** instead of FAIL when the loop never samples, so **red = regression** (sampled-but-frozen stays red; starved = inconclusive). **Do any parallelization only AFTER trusting this** (`--only`/`--skip` already exist; full sweep ≈10.2 min, `gameharness` alone is 45%).
 
 Sub-agent coverage: match-flow (truncated by session limit — its lead became #3, manually traced), player-state, netcode-client, party-server, UI/FX, AI, audio. **Validation done:** qa green (522/57, typecheck + knip) after each fix batch; battery A/B as above. **Validation pending:** human playtest of the 3 behavior-changing fixes (esp. #1 difficulty). **Reported but NOT fixed:** gamepad nav not modal-scoped (controller can activate buttons behind an open overlay, incl. PLAY — `ui/gamepadNav.js getFocusables` is document-wide) + per-frame focus re-yank when a pad is connected; host trusts a silent peer's last input forever (no staleness timeout on `remoteInputsByConnId`); unbounded client ICE buffer for a never-negotiating peer; degenerate zero quaternion reaching Rapier `setRotation`; fall path non-idempotent if a KO reactor throws (latent, no reachable throw found); in-flight VFX freeze into the attract backdrop when quitting within ~1s of a KO.
 
