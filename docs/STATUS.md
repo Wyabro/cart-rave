@@ -92,6 +92,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P3 friend join resume hitch closed (Wyatt N — not felt on `60d773e`)
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
+- [ ] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 shipped `0be4cd5` / `index-CDlK3jio.js`; **retest open**
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -101,20 +102,21 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | # | What | Status |
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
-| 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
+| 2e lab | Host hitch + tHost honesty | ✅ lab pass |
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
-| **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** live `b92d87f` / `index-BgZqxXtu.js` |
-| P5 | Solo bot/rim death feel | taste / AI |
+| **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
+| **NH-BOOST** | **Non-host boosts / bar / SFX** | ▶️ **v3 shipped** `0be4cd5` / `index-CDlK3jio.js` — **retest open** (v2 cap-77 flaky) |
+| P5 | Solo bot/rim death feel | after NH-BOOST |
 | P6 | AI diag probe empty mid-round | tooling only |
-| NET-1 | Two-human full-round smoke | **ready** — V2 gate candidate |
+| NET-1 | Two-human full-round smoke | after NH-BOOST pass |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. Pick next: **NET-1** full-round smoke · **P5** bot/rim · name another residual non-host symptom.
+1. **NH-BOOST retest:** hard-refresh dual clients on `index-CDlK3jio.js`; joiner several full + early boosts; pass/fail (F8 + pull if fail).
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
-3. Missed-fall undercount (cap 54 vs 55): parked unless KO chips still short.
+3. After pass: NET-1 or named residual non-host.
 
 ## Open issues (top)
 
@@ -192,7 +194,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (SHIPPED — NH-BOOST v3) — **`0be4cd5` / `index-CDlK3jio.js`**. Served sha verified. Local snap.b + no replay cancel + host nitro OR. **Playtest:** several joiner boosts.
+2026-07-20 (handoff → NH-BOOST retest) — Command Center + handoff refreshed for next Grok. Prod **`index-CDlK3jio.js` / `0be4cd5`**. Active: joiner boost consistency retest. P0–P4 + NH-STATS closed.
+
+2026-07-20 (SHIPPED — NH-BOOST v3) — **`0be4cd5` / `index-CDlK3jio.js`**. Served sha verified. Local snap.b + no replay cancel + host nitro OR.
 
 2026-07-20 (NH-BOOST consistency coded) — Cap-77 flaky fire. v3 fixes above.
 
