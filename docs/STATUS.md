@@ -91,7 +91,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P2 non-host localKos:0 closed (Wyatt: can get kills; F8 69/71 localKos≥1) — other non-host feel issues stay separate cards
 - [x] P3 friend join resume hitch closed (Wyatt N — not felt on `60d773e`)
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
-- [ ] **NH-STATS** non-host “my stats” broken in MP (**active**)
+- [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -102,19 +102,19 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** this session |
-| **NH-STATS** | **Non-host “my stats” broken in MP** | ▶️ **ACTIVE** — results YOUR STATS / superlatives / lifetime; forensics in progress |
+| **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
+| **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** live `b92d87f` / `index-BgZqxXtu.js` |
 | P5 | Solo bot/rim death feel | taste / AI |
 | P6 | AI diag probe empty mid-round | tooling only |
-| NET-1 | Two-human full-round smoke | ready when Wyatt wants |
+| NET-1 | Two-human full-round smoke | **ready** — V2 gate candidate |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **NH-STATS active:** confirm which surface (lifetime WINS/PLAYED/POINTS vs this-round superlatives chips) → one fix. Code map: `recordPodiumStats` / `matchSuperlatives` / non-host `MSG.round` `validated` early-return.
+1. Pick next: **NET-1** full-round smoke · **P5** bot/rim · name another residual non-host symptom.
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
-3. NET-1 when ready.
+3. Missed-fall undercount (cap 54 vs 55): parked unless KO chips still short.
 
 ## Open issues (top)
 
