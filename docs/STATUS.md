@@ -73,7 +73,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 — post friend playtest.** Cold handoff (priority P0→P6):
+**Run 7 — NH-SMOOTH** (non-host driven-cart glide). Cold handoff:
 [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
@@ -92,7 +92,8 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P3 friend join resume hitch closed (Wyatt N — not felt on `60d773e`)
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
-- [ ] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 shipped `0be4cd5` / `index-CDlK3jio.js`; **retest open**
+- [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
+- [ ] **NH-SMOOTH** non-host driven cart glides (not drunk/slop) — coded, **unpushed**, await retest
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -105,18 +106,19 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass |
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
-| **NH-BOOST** | **Non-host boosts / bar / SFX** | ▶️ **v3 shipped** `0be4cd5` / `index-CDlK3jio.js` — **retest open** (v2 cap-77 flaky) |
-| P5 | Solo bot/rim death feel | after NH-BOOST |
+| **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
+| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **coded unpushed** — retest after ship |
+| **NET-1** | **Two-human full-round smoke** | after NH-SMOOTH |
+| P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
-| NET-1 | Two-human full-round smoke | after NH-BOOST pass |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **NH-BOOST retest:** hard-refresh dual clients on `index-CDlK3jio.js`; joiner several full + early boosts; pass/fail (F8 + pull if fail).
+1. **NH-SMOOTH:** ship on “ship it” → hard-refresh dual clients → joiner drive feel pass/fail (F8 if fail).
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
-3. After pass: NET-1 or named residual non-host.
+3. After NH-SMOOTH pass: NET-1.
 
 ## Open issues (top)
 
@@ -193,6 +195,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-20 (NH-SMOOTH coded — **unpushed**) — Joiner drive “slop” on clean net (cap-78/79). Lever: after reconcile, snap physics prev pose to body (stop alpha fight vs vis offset) + slower vis settle rates 8/6→3.2/2.5. Awaiting “ship it” + retest.
+
+2026-07-20 (PASS NH-BOOST) — Wyatt **pass** on prod `index-CDlK3jio.js` / `0be4cd5` (joiner bar / fire / trails / SFX consistent). Card closed.
 
 2026-07-20 (handoff → NH-BOOST retest) — Command Center + handoff refreshed for next Grok. Prod **`index-CDlK3jio.js` / `0be4cd5`**. Active: joiner boost consistency retest. P0–P4 + NH-STATS closed.
 

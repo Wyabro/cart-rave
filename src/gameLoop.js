@@ -28,12 +28,23 @@ let _lastLongFrameLogMs = 0;
 // * cart._reconcileVisOffset, which frameVisuals applies to the mesh and decays to zero
 // * at CONFIG.net.prediction.reconcilePosRate/reconcileRotRate (those knobs were dead
 // * config until now). Physics stays authoritative; only the rendered pose eases.
+// *
+// * NH-SMOOTH: after the body hard-snaps, also refresh prevPosition/prevRotation to the
+// * post-reconcile body. frameVisuals lerps prev→body with physics alpha; leaving prev on
+// * the pre-snap prediction made that lerp fight the visual offset every snap (~40Hz) —
+// * joiner drive read as "drunk/slop" even with clean net (cap-78/79: errMax ~1.4m, 0 teleports).
 const _reconPre = { x: 0, y: 0, z: 0, yaw: 0 };
 
 
 function clearReconcileVisOffset(cart) {
   const off = cart?._reconcileVisOffset;
   if (off) { off.x = 0; off.y = 0; off.z = 0; off.yaw = 0; }
+}
+
+/** Keep physics-alpha mesh interp from stretching across a reconcile hard-snap. */
+function snapPhysicsPrevToBody(cart) {
+  if (!cart?.body) return;
+  captureCartsPhysicsPrevPoses([cart]);
 }
 
 function captureReconcilePrePose(cart) {
@@ -390,6 +401,7 @@ export function runPhysicsStep(loopState, deps, context) {
               deps.doRespawn(localCart);
               deps.applySnapshotToCartBody(localCart, cartSnap);
               clearReconcileVisOffset(localCart); // Respawn teleports clean — no eased correction
+              snapPhysicsPrevToBody(localCart);
               deps.prunePendingInputs(99999999); // Clear all inputs on respawn
             } else {
               // * Keep death pose glued to host while shatter plays (prediction is held).
@@ -398,6 +410,7 @@ export function runPhysicsStep(loopState, deps, context) {
               if (cartSnap.s === true) {
                 deps.applySnapshotToCartBody(localCart, cartSnap);
                 clearReconcileVisOffset(localCart);
+                snapPhysicsPrevToBody(localCart);
               }
             }
           } else if (cartSnap.s === true) {
@@ -407,6 +420,7 @@ export function runPhysicsStep(loopState, deps, context) {
             deps.prunePendingInputs(99999999);
             deps.applySnapshotToCartBody(localCart, cartSnap);
             clearReconcileVisOffset(localCart);
+            snapPhysicsPrevToBody(localCart);
           } else {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);
@@ -418,6 +432,7 @@ export function runPhysicsStep(loopState, deps, context) {
               deps.doRespawn(localCart);
               deps.applySnapshotToCartBody(localCart, cartSnap);
               clearReconcileVisOffset(localCart);
+              snapPhysicsPrevToBody(localCart);
               deps.prunePendingInputs(99999999);
             } else {
 
@@ -462,6 +477,7 @@ export function runPhysicsStep(loopState, deps, context) {
                 );
               }
               clearReconcileVisOffset(localCart);
+              snapPhysicsPrevToBody(localCart);
             } else {
               const allCarts = deps.getAllCartsRef();
               const liveSim = deps.getSimulationCallbacks(false);
@@ -526,6 +542,8 @@ export function runPhysicsStep(loopState, deps, context) {
                   deps.netcode?.noteReconcileError,
                 );
               }
+              // * NH-SMOOTH: kill prev→body alpha stretch across the hard snap (see block comment).
+              snapPhysicsPrevToBody(localCart);
             }
             } // hasSpilled forced-respawn else
           } // cartSnap.s alive branch

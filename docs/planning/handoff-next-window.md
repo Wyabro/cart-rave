@@ -1,18 +1,17 @@
-# Handoff — next agent window (Run 7 · NH-BOOST v3 retest)
+# Handoff — next agent window (Run 7 · NH-SMOOTH)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`8207ec2`** (docs) — ship code **`0be4cd5`**  
-**Local:** clean aside from optional untracked `.claudeignore`  
+**Ship code on prod:** **`0be4cd5`** / **`index-CDlK3jio.js`** (NH-BOOST v3)  
+**Local:** NH-SMOOTH coded — **unpushed** until Wyatt “ship it”  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-CDlK3jio.js`** (build sha **`0be4cd5`**)  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Do not** re-triage run-1…run-6 from scratch.  
 **Do not** re-solve NET-PERF-2 without new evidence.  
 **Do not** re-open combat skip-replay / phantom / hit-delay unless new F8s prove regression.  
 **Do not** re-add `ko_path` without new evidence.  
-**Do not** re-open P0 countdown / P1 gap storm / P2 localKos / P3 join / P4 rematch / NH-STATS without new evidence.  
+**Do not** re-open P0–P4 / NH-STATS / **NH-BOOST** without new evidence.  
 **Do not** multi-lever dump — one card at a time.  
 **Ship only on Wyatt “ship it.”**
 
@@ -32,83 +31,71 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 
 | | |
 |--|--|
-| Mission | Run 7 — **NH-BOOST v3 retest** (joiner boost bar / fire / trails / SFX) |
-| Prod | **`index-CDlK3jio.js`** / sha **`0be4cd5`** |
-| Gates last known | **561/57** green at v3 ship; re-run after edits |
-| Browser | Desktop **Cart Clash Test (Chrome Clean)** when muddy |
+| Mission | Run 7 — **NH-SMOOTH** (non-host driven cart glides smoothly) |
+| Prod | still **`index-CDlK3jio.js`** / **`0be4cd5`** until NH-SMOOTH ships |
+| Evidence | Video `0432`/`0433` + F8 **78/79** (joiner 4090 HIGH, clean net, felt “slop”) |
+| Gates | re-run after ship |
 
 ### Closed this arc
 
 | Card | Verdict |
 |------|---------|
-| P0 countdown hold | ✅ F8 64–67 / `60d773e` |
-| P1 late-round gap storm | ✅ F8 68–71 re-scope |
-| P2 non-host localKos:0 | ✅ kills work |
-| P3 friend join hitch | ✅ Wyatt N |
-| P4 solo rematch | ✅ F8 72–74 |
-| **NH-STATS** my stats MP | ✅ PASS `b92d87f` / `index-BgZqxXtu.js` |
+| P0–P4 | ✅ |
+| **NH-STATS** | ✅ PASS `b92d87f` |
+| **NH-BOOST** | ✅ PASS `0be4cd5` / `index-CDlK3jio.js` |
 
-### Active: NH-BOOST — **shipped v3, await human retest**
+### Active: NH-SMOOTH — **coded, unpushed, await ship + retest**
 
-| Ship | Bundle / sha | What |
-|------|----------------|------|
-| v1 | `5cf2a5e` / `index-wTIBrAQX.js` | wire `b` from timer; nitro sample + gamepad; charge SFX stop on reconcile |
-| v2 | `917af54` / `index-Xu1vuW5T.js` | re-arm charge while held; silent replay re-arm; remote full trail latch |
-| **v3** | **`0be4cd5` / `index-CDlK3jio.js`** | local reconcile applies host `snap.b`; no charge cancel on replay `nitro:false`; host drain ORs nitro across batch |
+**Player bar:** non-host cart you drive glides across the screen ≈ host/solo — not drunk/rubberband/amateur.
 
-**Prior fail evidence:** F8 75–76 (v1 fail); cap-**77** joiner on v2 — “works but not consistent” (reconcile errMax ~9m).  
-**Pass criteria:** as **non-host**, boost bar fills reliably; full charge + early release fire consistently; trails visible on self + peers; charge SFX no loop; no multi-s freezes required for this card.
+**One lever (NH-SMOOTH):**
+1. `gameLoop.js` — after local reconcile hard-snap (+ death/respawn snaps), `snapPhysicsPrevToBody` so physics-alpha mesh interp does not stretch across the snap (was fighting `_reconcileVisOffset` at ~40 Hz).
+2. `config.js` — `reconcilePosRate` 8→**3.2**, `reconcileRotRate` 6→**2.5** (longer visual glide to host truth).
+
+**F8 seed:** cap-78/79 — snapGapAvg 25.5, errMax ~1.4 m, teleports 0, over33 0 — net was fine; feel was presentation.
 
 ### Parked
 
+- NET-1 full-round smoke — after NH-SMOOTH pass  
 - Cap-47 mid-round post-fall LT — only if multi-s freezes return  
-- Missed-fall undercount (54 vs 55) — only if KO chips still short after NH-STATS  
-- Wrong cart color — same-build hard-refresh first  
+- Kill-credit all-null / scores 0 on 78–79 — **not** this card (Wyatt D = feel)  
 - NET-PERF-2 / ko_path — no re-solve without new evidence  
-- P5 bot/rim · P6 AI diag · NET-1 full-round smoke — after NH-BOOST pass  
-
-### Diag keepers
-
-- `?diag=1` · F8 · `npm run captures:pull`  
-- Net flow o100 / reconcile err / teleports  
-- Boot marks + longtask/longframe  
+- P5 / P6 — later  
 
 ---
 
 ## DO THIS NOW
 
-1. **NH-BOOST retest only** on prod `index-CDlK3jio.js` / `0be4cd5`.  
-2. Hard-refresh **both** clients. Joiner (non-host) focus.  
-3. Several boosts: full charge → fire; early release; under combat if possible.  
-4. Feel: bar · trails (self + peer) · SFX once · fire consistency.  
-5. If fail: F8 joiner (+ host if useful) → `captures:pull` → one lever only.  
-6. If pass: close NH-BOOST in STATUS/handoff; next card = NET-1 or named residual.
+1. On **“ship it”:** `npm run qa` → `npm run ship` → verify served bundle + sha.  
+2. Hard-refresh **both** clients. Joiner focus.  
+3. Drive: turns, boosts, combat, near holes — does the cart **glide**?  
+4. Pass → close NH-SMOOTH; next = NET-1.  
+5. Fail → F8 joiner (+ host if useful) → `captures:pull` → **one** follow-up lever only.
 
 ---
 
-## Priority queue (high → low)
+## Priority queue
 
-### P0–P4 · NH-STATS — CLOSED
+### P0–P4 · NH-STATS · NH-BOOST — CLOSED
 
-### NH-BOOST — non-host boosts / bar / SFX ▶️
+### NH-SMOOTH — non-host driven-cart glide ▶️
 
-**Status:** **SHIPPED v3 — retest open**  
-**Prod:** `index-CDlK3jio.js` / `0be4cd5`  
-**Code map:** `src/netcode.js` (serialize `b`, `applySnapshotToCartBody` local `b`, drain nitro OR), `src/simulation.js` (re-arm + no replay cancel), `src/input.js` (gamepad nitro), `src/gameLoop.js` (silent re-arm), `src/main.js` (`triggerRamBoost` silent)
+**Status:** coded unpushed  
+**Files:** `src/gameLoop.js`, `src/config.js`
 
-### P5 / P6 / NET-1
+### NET-1
 
-After NH-BOOST pass.
+After NH-SMOOTH pass — [multiplayer-smoke.md](../playtest/multiplayer-smoke.md)
 
 ---
 
 ## Suggested next window paste (Wyatt → new Grok)
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-CDlK3jio.js`** / sha **`0be4cd5`**.  
-> **P0–P4 + NH-STATS CLOSED.** **Active: NH-BOOST v3 retest** (joiner boost consistency).  
-> First action: hard-refresh dual clients; joiner several full + early boosts; pass/fail. F8 + pull if fail.  
-> One card at a time. Do not re-open P0–P4 / NH-STATS / NET-PERF-2 / ko_path.  
+> Branch `cart-clash`. Prod still **`index-CDlK3jio.js`** / **`0be4cd5`** until NH-SMOOTH ships.  
+> **P0–P4 + NH-STATS + NH-BOOST CLOSED.** **Active: NH-SMOOTH** (joiner drive glide) — coded unpushed.  
+> First action: ship on “ship it” or retest if already shipped; joiner drive pass/fail.  
+> One card at a time. Do not re-open closed cards / NET-PERF-2 / ko_path.  
 > Ship only on “ship it.”
 
 ---

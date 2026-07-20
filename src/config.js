@@ -376,13 +376,17 @@ export const CONFIG = {
     // * delta accumulates into cart._reconcileVisOffset (gameLoop capture), which
     // * frameVisuals applies to the mesh (and main.js feeds to the follow camera) while
     // * decaying it at the rates below. Run-4 "laggy-rubberbandy" fix.
+    // * NH-SMOOTH (cap-78/79): rates were 8/6 — half-life ~90ms, read as rubberband on
+    // * a clean 4090 joiner. Lower = longer glide toward host truth (mesh sticks to
+    // * prediction path; physics hard-snap unchanged). Pair with gameLoop
+    // * snapPhysicsPrevToBody after reconcile.
     prediction: {
       // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
-      reconcilePosRate: 8,
+      reconcilePosRate: 3.2,
       // * Visual heading correction decay (1/s). Heading is the only eased rotation
       // * axis — pitch/roll snap with the body (hardcoded in frameVisuals; easing
       // * them reads as wobble under arcade physics).
-      reconcileRotRate: 6,
+      reconcileRotRate: 2.5,
       // * Hard visual teleport when a single correction (or the accumulated eased debt)
       // * exceeds this (m). Covers respawns and large desyncs.
       maxCorrectionM: 4.0,
