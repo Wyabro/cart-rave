@@ -314,6 +314,14 @@ let callbacks = {
   ensureSessionReady: () => /** @type {void | Promise<unknown>} */ (undefined),
   endCinematicCountdown: () => {},
   teleportCartToSpawn: (slotIndex) => {},
+  /**
+   * Non-host play-entry complete (carts + shader warm). Default true so tests /
+   * hosts without the hook still apply countdown. Cap-59: main wires isSessionCartsReady.
+   * @returns {boolean}
+   */
+  isSessionPlayReady: () => true,
+  /** @returns {boolean} Non-host game_start waiter is mid carts-ready gate. */
+  hasPendingNonHostCountdownApply: () => false,
 };
 
 function registerCallbacks(cb) {
@@ -405,6 +413,8 @@ export function registerGameCallbacks(deps) {
     ensureSessionReady: () => deps.ensureSessionReady?.(),
     endCinematicCountdown: () => deps.endCinematicCountdown?.(),
     teleportCartToSpawn: (slotIndex) => deps.teleportCartToSpawn?.(slotIndex),
+    isSessionPlayReady: () => deps.isSessionPlayReady?.() ?? true,
+    hasPendingNonHostCountdownApply: () => deps.hasPendingNonHostCountdownApply?.() ?? false,
   });
 }
 
@@ -2346,6 +2356,19 @@ export function initNetcode(roomOverride) {
           GameState.setRoundCountdownStartedAtMs(0);
           GameState.setRoundStartedAtMs(0);
         }
+        // * Cap-59 hold: local phase stayed lobby while room counted then aborted.
+        // * Still invalidate the deferred game_start waiter so we don't re-apply a dead arm.
+        if (
+          !isHost
+          && typeof newPhase === "string"
+          && newPhase === "lobby"
+          && prevPhase === "lobby"
+          && callbacks.hasPendingNonHostCountdownApply?.()
+        ) {
+          callbacks.onCountdownCancelled?.();
+          GameState.setRoundCountdownStartedAtMs(0);
+          GameState.setRoundStartedAtMs(0);
+        }
         if (typeof newPhase === "string" && prevPhase === "podium" && newPhase === "lobby") {
           GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
           GameState.setRoundStartedAtMs(0);
@@ -2392,7 +2415,18 @@ export function initNetcode(roomOverride) {
           adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
         }
         const state = GameState.getRoundState();
-        GameState.setRoundPhase(r.phase ?? state.phase);
+        // * Cap-59: non-host host_round(countdown) during play-entry applied phase
+        // * mid-shader and the HUD/announcer ran behind a multi-10s longframe.
+        // * Adopt clocks/scores so the deferred game_start apply stays in sync, but
+        // * keep local phase off countdown until isSessionPlayReady (carts-ready).
+        const holdCountdownPhase =
+          !isHost
+          && newPhase === "countdown"
+          && typeof callbacks.isSessionPlayReady === "function"
+          && !callbacks.isSessionPlayReady();
+        if (!holdCountdownPhase) {
+          GameState.setRoundPhase(r.phase ?? state.phase);
+        }
         GameState.setRoundStartedAtMs(r.startedAtMs ?? state.startedAtMs);
         GameState.setRoundCountdownStartedAtMs(r.countdownStartedAtMs ?? state.countdownStartedAtMs);
         GameState.setRoundWinnerSlotIndex(r.winnerSlotIndex ?? null);

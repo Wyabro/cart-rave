@@ -167,6 +167,26 @@ export async function ensureWorldBootstrapped(levelIdOverride) {
 }
 
 /**
+ * True once session carts exist and any in-flight cart/shader bootstrap has finished.
+ * Cap-59: non-host must not surface countdown UI mid play-shader (Intel/Firefox multi-s freeze).
+ * @returns {boolean}
+ */
+export function isSessionCartsReady() {
+  try {
+    const d = requireDeps();
+    // * In-flight bootstrap still includes play-shader warm — not ready yet.
+    if (sessionCartBootstrapPromise) return false;
+    const carts = d.getAllCartsRef?.();
+    if (!Array.isArray(carts) || carts.length === 0) return false;
+    const helloGate = d.getHelloGate?.();
+    if (helloGate && !helloGate.isReceived()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Ensures slot carts exist after the first server hello (idempotent).
  * @returns {Promise<Array<object> | null | undefined>}
  */

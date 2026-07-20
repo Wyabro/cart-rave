@@ -96,7 +96,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Menu ✅**. **Countdown stack SHIPPED** (`5a1caee0` / `index-CRQwILqC.js` / `03218fa`) — abort+400ms fixes live. **F8 retest pending**; mid-round still open if friend 2-human freezes |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ Host countdown stack SHIPPED (`03218fa`). Cap-59 non-host rough: **hold countdown until carts-ready** coded (unpushed). Mid-round still open if friend 2-human freezes |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -110,7 +110,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **F8 retest** — hard-refresh until `index-CRQwILqC.js`, quickplay 2-human through **3-2-1**, F8, pull. Expect: single countdown (no lobby bounce), `countdown_3` every arm, no multi-s LT.
+1. Wyatt: **ship it** (non-host countdown hold until carts-ready) → hard-refresh → Intel/weak joiner F8 through 3-2-1. Expect: no countdown phase before `carts-ready`; no multi-10s longframe under digits.
 2. If countdown clean but friend 2-human still multi-s mid-round → **post-fall frame** card (cap-47).
 3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -191,7 +191,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (SHIPPED — P0 countdown residual) — **`03218fa` pushed + deployed** as bundle **`index-CRQwILqC.js`** / Version **`5a1caee0`**. Served-bytes verified: new bundle in index.html + sha stamp. Cap-56 follow-up live: live-only ready cancel, HUD digit reset, MP audio pre-roll, rAF-deferred host startCountdown. Gates at prior qa **554/57**. **Next: F8 through 3-2-1** (next-action #1).
+2026-07-19 (non-host countdown hold — **unpushed**) — Cap-59: joiner (Intel/Firefox) applied countdown mid play-shader → **~66s longframe**, digits during load. Fix: non-host `game_start` awaits `ensureSessionCartsReady` (after arena settle); `host_round` countdown **does not set local phase** until `isSessionCartsReady`; abort while held invalidates pending waiter. Gates: **qa 554/57**. Needs ship + joiner F8.
+
+2026-07-19 (SHIPPED — P0 countdown residual) — **`03218fa` pushed + deployed** as bundle **`index-CRQwILqC.js`** / Version **`5a1caee0`**. Cap-56 follow-up live. Cap-58 host felt good; cap-59 non-host still rough (above).
 
 2026-07-19 (P0 countdown residual — coded then shipped above) — Cap-56 after audio-warm: multi-s gone; residual ~407ms start-tick stack + countdown abort + skipped “3” on re-arm.
 

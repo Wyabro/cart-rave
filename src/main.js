@@ -183,6 +183,7 @@ import {
   getLastSuccessfulHelloGen,
   initBootstrap,
   isIdleWorldWarmSuppressed,
+  isSessionCartsReady,
   isWorldBootstrapped,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
@@ -465,6 +466,12 @@ let soloCountdownDeferGen = 0;
 let onHostMigratedHandler = null;
 /** @type {(() => void) | null} */
 let onCountdownCancelledRef = null;
+/**
+ * Non-host game_start is waiting on arena swap + carts-ready before applying
+ * countdown. Used so a room abort (host_round lobby) while we still show lobby
+ * can invalidate the waiter (Cap-59 hold — local phase never left lobby).
+ */
+let nonHostCountdownApplyPending = false;
 /** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
 let _localColorPicked = false;
 /** @type {HTMLElement | null} */
@@ -2869,14 +2876,31 @@ async function main() {
       // * is still pending/in flight locally (the drain no-ops behind the menu, then runs
       // * at play-entry). Applying the countdown immediately froze it mid-digits behind
       // * the swap's synchronous work and burst-replayed 1/GO seconds late (07-17 run 2
-      // * "countdown was notably wonky"). Defer until the swap settles; if the server
-      // * start time has already passed, drop straight into running — the host's
-      // * host_round(running) broadcast reconciles the authoritative startedAtMs.
+      // * "countdown was notably wonky"). Defer until the swap settles.
+      // *
+      // * Cap-59: also wait for ensureSessionCartsReady (carts + play-shader warm).
+      // * Joiner game_start during play-entry applied countdown mid-compile → ~60s
+      // * longframe on Intel/Firefox and ate the 3-2-1. If the server start time has
+      // * already passed, drop straight into running — host_round(running) reconciles.
       nonHostCountdownApplyGen += 1;
       const applyGen = nonHostCountdownApplyGen;
-      void whenArenaRotationSettled().then(() => {
+      nonHostCountdownApplyPending = true;
+      void (async () => {
+        try {
+          await whenArenaRotationSettled();
+          if (applyGen !== nonHostCountdownApplyGen) return;
+          await ensureSessionCartsReady();
+        } catch (err) {
+          console.warn("[CartRave] non-host countdown gate failed:", err);
+        }
         if (applyGen !== nonHostCountdownApplyGen) return;
-        if (GameState.getRoundState().phase === "running") return;
+        if (GameState.getRoundState().phase === "running") {
+          nonHostCountdownApplyPending = false;
+          return;
+        }
+        // * Cancel while we waited left phase lobby and bumped applyGen — if gen still
+        // * matches we're the live arm.
+        nonHostCountdownApplyPending = false;
         resetMatchStats();
         setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
         GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
@@ -2891,11 +2915,15 @@ async function main() {
           // * the player gains control with no GO! flash, VO, or FOV punch.
           HUD.triggerGoBeat({ resetGate: true });
         } else {
-          syncRoundPhase("countdown");
+          // * host_round may already have stamped countdown clocks while we held phase;
+          // * still enter countdown + flyover now that the scene can take it.
+          if (GameState.getRoundState().phase !== "countdown") {
+            syncRoundPhase("countdown");
+          }
           GameState.setRoundStartedAtMs(0);
           beginRoundFlyover();
         }
-      });
+      })();
     }
   };
 
@@ -3574,6 +3602,9 @@ async function main() {
     getOnHostMigratedHandler: () => onHostMigratedHandler,
     onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
     endCinematicCountdown: () => { CameraMod.endCinematicCountdown(camera); },
+    // * Cap-59: netcode holds host_round countdown phase until carts/shaders ready.
+    isSessionPlayReady: () => isSessionCartsReady(),
+    hasPendingNonHostCountdownApply: () => nonHostCountdownApplyPending,
     getMenuVisible: () => menuVisible,
     invokeHideMenu: () => {
       void enterPlayMode({
@@ -4255,9 +4286,10 @@ async function main() {
   }
 
   onCountdownCancelledRef = () => {
-    // * Invalidate any rotation-deferred non-host countdown apply — a cancel between
-    // * game_start and the swap settling must not resurrect a dead countdown.
+    // * Invalidate any rotation/carts-ready deferred non-host countdown apply — a
+    // * cancel between game_start and the gate settling must not resurrect a dead countdown.
     nonHostCountdownApplyGen += 1;
+    nonHostCountdownApplyPending = false;
     clearRoundCountdownTimeout();
     if (GameState.getRoundState().phase === "countdown") {
       syncRoundPhase("lobby");
