@@ -324,6 +324,15 @@ describe("deriveNextAction", () => {
     expect(deriveNextAction({ issues: { nextActions: [], playtestQueue: [active] } }).text).toBe("P0 — Host freezes");
     expect(deriveNextAction({ issues: { nextActions: [], playtestQueue: [] } }).kind).toBe("none");
   });
+  it("an INCONCLUSIVE rig (code 3, starved environment) never fabricates a RED GATE", () => {
+    const h = {
+      battery: { latest: { results: [{ name: "teardownRejoin", code: 3, note: "starved" }, { name: "spawnlock", code: 0, note: "" }] } },
+      issues: { nextActions: ["Retest the card."], playtestQueue: [] },
+    };
+    const now = deriveNextAction(h);
+    expect(now.tag).toBe("DO THIS NOW");
+    expect(now.text).toBe("Retest the card");
+  });
 });
 
 // * Anti-drift canaries: the fixtures above pin parser BEHAVIOR; these pin the REAL

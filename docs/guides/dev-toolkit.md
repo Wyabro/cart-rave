@@ -34,8 +34,10 @@ npm run battery -- --visual --qa                  # opt-in: black-frame battery 
 `tools/battery.mjs` runs every headless rig **sequentially against one shared dev stack**
 (they share the quickplay room — never parallelize them), aggregates the exit codes, prints
 one summary, and writes a JSON report to `.diag-captures/`. Exit contract (shared by every
-rig): **0** all green · **1** a check failed · **2** setup error. Failed scenarios also
-auto-drop a bug-capture bundle (JSON + screenshot) in `.diag-captures/`.
+rig): **0** all green · **1** a check failed · **2** setup error · **3** inconclusive (the
+2-client rigs only: client loop starved even after a recovery retry — no evidence either
+way; the battery prints INCONCLUSIVE and does **not** fail the sweep, so red = regression).
+Failed scenarios also auto-drop a bug-capture bundle (JSON + screenshot) in `.diag-captures/`.
 
 Stack handling (all rigs, via `maybeStartDevStack`): a **full** running stack
 (:3000 + :8787 both answering) is attached to automatically — no flag needed; **half** a

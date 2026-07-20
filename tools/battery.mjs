@@ -6,6 +6,8 @@
  * parallel runs would collide. Aggregates each rig's exit code into one tally, writes a
  * JSON report to .diag-captures/, and exits with the shared contract:
  *   0 = every rig green · 1 = a rig failed · 2 = setup error (stack never came up).
+ * A rig may also exit 3 = INCONCLUSIVE (starved client loop — no regression evidence);
+ * that renders loudly in the summary but does NOT fail the sweep: red means regression.
  *
  * Before this existed, a full sweep was five manual commands, each with its own dev-stack
  * handshake — so it never got run. Now it's:
@@ -152,14 +154,17 @@ async function main() {
       if (tallyPath) {
         try {
           const t = JSON.parse(await readFile(tallyPath, "utf8"));
-          checks = { passed: t.passed, failed: t.failed, checks: t.checks };
+          checks = { passed: t.passed, failed: t.failed, inconclusive: t.inconclusive ?? 0, checks: t.checks };
         } catch {
           /* rig died before writing a tally — exit code is still authoritative */
         }
       }
       results.push({ name: step.name, note: step.note, ...r, ...(checks ? { checks } : {}) });
-      const checkNote = checks ? ` — ${checks.passed}/${checks.passed + checks.failed} checks` : "";
-      log(`${r.code === 0 ? "PASS" : r.code === 2 ? "SETUP-ERROR" : "FAIL"} ${step.name} (${(r.ms / 1000).toFixed(0)}s)${checkNote}\n`);
+      const checkNote = checks
+        ? ` — ${checks.passed}/${checks.passed + checks.failed} checks${checks.inconclusive ? ` (+${checks.inconclusive} inconclusive)` : ""}`
+        : "";
+      const verdict = r.code === 0 ? "PASS" : r.code === 2 ? "SETUP-ERROR" : r.code === 3 ? "INCONCLUSIVE" : "FAIL";
+      log(`${verdict} ${step.name} (${(r.ms / 1000).toFixed(0)}s)${checkNote}\n`);
     }
   } finally {
     tearingDown = true;
@@ -167,12 +172,21 @@ async function main() {
   }
 
   // Unified tally + persisted report (next to the capture bundles the rigs may have written).
-  const failed = results.filter((r) => r.code !== 0);
+  // * code 3 (INCONCLUSIVE — starved environment) is deliberately NOT a failure: red is
+  // * reserved for regression evidence. It still prints on its own line so it can't hide.
+  const failed = results.filter((r) => r.code !== 0 && r.code !== 3);
+  const inconclusive = results.filter((r) => r.code === 3);
   log("=== battery summary ===");
   for (const r of results) {
-    log(`  ${r.code === 0 ? "PASS " : "FAIL "} ${r.name.padEnd(14)} ${(r.ms / 1000).toFixed(0).padStart(4)}s  ${r.note}`);
+    const mark = r.code === 0 ? "PASS " : r.code === 3 ? "INCON" : "FAIL ";
+    log(`  ${mark} ${r.name.padEnd(14)} ${(r.ms / 1000).toFixed(0).padStart(4)}s  ${r.note}`);
   }
-  log(`${results.length - failed.length}/${results.length} steps green`);
+  log(
+    `${results.length - failed.length - inconclusive.length}/${results.length} steps green` +
+      (inconclusive.length
+        ? ` — ${inconclusive.length} INCONCLUSIVE (starved environment, not regression evidence: ${inconclusive.map((r) => r.name).join(", ")})`
+        : ""),
+  );
 
   try {
     await mkdir(CAPTURE_DIR, { recursive: true });

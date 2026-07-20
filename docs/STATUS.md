@@ -196,6 +196,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-20 (battery INCONCLUSIVE verdict — tools/tests/docs only, no runtime; separate Claude session, the "harness WIP" the NH-SMOOTH entry saw unstaged) — `f5ab8db`'s readiness poll did NOT kill the `0.00m` flake (kept roaming across rigs, reports 19:29–20:30); the missing half was the **verdict**. 2-client rigs now retry once after starvation then exit **3 = INCONCLUSIVE** (new contract in `resolveExitCode`, tally `inconclusive` field; battery/Command Center render it warn — `deriveNextAction` can no longer fabricate a RED GATE from it). Split: input **never sampled** = environment (NET-2 class) → inconclusive; **sampled-but-frozen** = spawn-lock signature → stays red. hostMigration deliberately keeps the plain drive (promoted host consumes own input; pendingInputs 0 by design — sampled-poll was a live-verified 25s no-op there, rolled back). Gates **568/58** green (+7 contract tests); live sweep 4/4 (`battery-2026-07-20T05-05-48-661Z.json`) + hostMigration re-run 7/7. Exit-3 path pinned by unit tests (not yet observed live — next starved run is the live proof). Docs: netcode-harness/dev-toolkit/diagnostics exit contract + the reliability block above. Residual separate flake: mpIntegration crown race still alive post-CROWN_SCORE=60 (19:41 report — NPC out-scored 60; filed as background-task chip, unfixed).
+
 2026-07-20 (SHIPPED — NH-SMOOTH v3) — **`8c3ba22` / `index-wn0Z0cFw.js`**. Served sha verified. Display-pose low-pass mesh+camera. **Retest open.** Claude harness WIP left unstaged.
 
 2026-07-20 (NH-SMOOTH v3 coded) — v2 FAIL cap-83 (snapGapMax 3478ms, errMax 14.6m). Display chase lever.

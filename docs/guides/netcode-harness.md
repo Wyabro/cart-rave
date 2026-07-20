@@ -26,7 +26,12 @@ node tools/netharness.mjs --url http://127.0.0.1:3000/
 
 Flags: `--headed` (visible browsers, for debugging), `--url <base>` (attach to an already-
 running stack; omit to auto-start `dev:local`). Exit code `0` = all checks passed, `1` =
-a check failed, `2` = harness/setup error. `NETHARNESS_VERBOSE=1` streams dev-server output.
+a check failed, `2` = harness/setup error, `3` = **inconclusive** — no failures, but a drive
+check was skipped because the client loop stayed starved even after one recovery retry
+(NET-2-class cold-load; environment noise, not regression evidence — the battery renders it
+INCONCLUSIVE and stays green). The split: input **never sampled** (pendingInputs 0) + cart
+still = inconclusive; input **sampled but cart still** = the real spawn-lock signature, red.
+`NETHARNESS_VERBOSE=1` streams dev-server output.
 
 The default scenario (`spawnlock`) is the "non-host cart can't leave spawn" report: host
 reaches a running round, joiner joins mid-round and seats into an ex-NPC slot, then the rig

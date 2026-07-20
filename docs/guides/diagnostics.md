@@ -34,7 +34,9 @@ node tools/gameharness.mjs --url http://127.0.0.1:3000/ --scenario roundflow
 Flags: `--url <base>` (attach to a running stack; omit to auto-start `dev:local`),
 `--scenario roundflow|unlockFunnel` (default: all), `--headed` (visible browser).
 **Exit codes (shared contract): `0` all checks passed, `1` a check failed, `2` harness/setup
-error.** Same as `netharness`, `shoot`, `blackframes`.
+error.** Same as `netharness`, `shoot`, `blackframes`. The 2-client netcode rigs may also
+exit `3` = inconclusive (starved client loop — see
+[netcode-harness.md](./netcode-harness.md)); the battery reports it without going red.
 
 Both rigs run a **stack preflight** before launching browsers: an HTTP probe of the Vite
 client and the Worker party endpoint with a 10 s timeout. A wedged `workerd` keeps its port

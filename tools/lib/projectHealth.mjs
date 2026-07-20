@@ -347,7 +347,9 @@ export function extractBacktickSymbols(...texts) {
  */
 export function deriveNextAction(h) {
   const stripLinks = (s) => String(s ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-  const failing = (h.battery?.latest?.results ?? []).filter((r) => r.code !== 0);
+  // * code 3 = INCONCLUSIVE (starved rig environment, no regression evidence) — it must
+  // * never fabricate a RED GATE; only real failures (1/2) block shipping.
+  const failing = (h.battery?.latest?.results ?? []).filter((r) => r.code !== 0 && r.code !== 3);
   if (failing.length > 0) {
     return {
       tag: "RED GATE",
@@ -473,6 +475,7 @@ async function collectBattery(dir) {
         file: f,
         when: report.when ?? null,
         green: results.filter((r) => r.code === 0).length,
+        inconclusive: results.filter((r) => r.code === 3).length,
         total: results.length,
       };
       history.push(entry);

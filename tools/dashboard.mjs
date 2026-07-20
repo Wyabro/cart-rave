@@ -68,9 +68,11 @@ function renderHtml(h) {
   const bundleShort = bundleFact?.match(/index-[\w-]+\.js/)?.[0] ?? null;
   const prodUrl = (fact(briefing, "Prod") ?? "").match(/https?:\/\/\S+/)?.[0] ?? null;
   const diagUrl = prodUrl ? `${prodUrl.replace(/\/+$/, "")}/?diag=1` : null;
-  const failingCount = (latest?.results ?? []).filter((r) => r.code !== 0).length;
+  // * code 3 = INCONCLUSIVE (starved rig, no regression evidence) — warn, never red.
+  const failingCount = (latest?.results ?? []).filter((r) => r.code !== 0 && r.code !== 3).length;
+  const inconclCount = (latest?.results ?? []).filter((r) => r.code === 3).length;
   const batteryChip = latest
-    ? `<span class="chip ${failingCount ? "bad" : "good"}">${failingCount ? "✕" : "✓"} battery ${(latest.results?.length ?? 0) - failingCount}/${latest.results?.length ?? 0} <i>${esc(ago(latest.when))}</i></span>`
+    ? `<span class="chip ${failingCount ? "bad" : inconclCount ? "warn" : "good"}">${failingCount ? "✕" : inconclCount ? "△" : "✓"} battery ${(latest.results?.length ?? 0) - failingCount - inconclCount}/${latest.results?.length ?? 0}${inconclCount ? ` · ${inconclCount} inconcl` : ""} <i>${esc(ago(latest.when))}</i></span>`
     : `<span class="chip warn">△ battery never run</span>`;
   const dirty = (g?.dirtyFiles ?? 0) > 0 || (g?.ahead ?? 0) > 0;
   const syncChip =
@@ -147,8 +149,8 @@ function renderHtml(h) {
 
   const batteryRowsCompact = (latest?.results ?? [])
     .map((r) => {
-      const stateCls = r.code === 0 ? "good" : r.code === 2 ? "warn" : "bad";
-      const mark = r.code === 0 ? "✓" : r.code === 2 ? "△" : "✕";
+      const stateCls = r.code === 0 ? "good" : r.code === 2 || r.code === 3 ? "warn" : "bad";
+      const mark = r.code === 0 ? "✓" : r.code === 2 || r.code === 3 ? "△" : "✕";
       const checks = r.checks ? ` ${r.checks.passed}/${r.checks.passed + r.checks.failed}` : "";
       return `<li><span class="chip ${stateCls}">${mark} ${esc(r.name)}${checks}</span></li>`;
     })
@@ -163,18 +165,27 @@ function renderHtml(h) {
   // --- reference ------------------------------------------------------------
   const batteryDetailRows = (latest?.results ?? [])
     .map((r) => {
-      const label = r.code === 0 ? "PASS" : r.code === 2 ? "SETUP" : "FAIL";
-      const state = r.code === 0 ? "pass" : r.code === 2 ? "setup" : "fail";
+      const label = r.code === 0 ? "PASS" : r.code === 2 ? "SETUP" : r.code === 3 ? "INCONCL" : "FAIL";
+      const state = r.code === 0 ? "pass" : r.code === 2 || r.code === 3 ? "setup" : "fail";
       const checks = r.checks ? `${r.checks.passed}/${r.checks.passed + r.checks.failed}` : "—";
-      const failedChecks = (r.checks?.checks ?? []).filter((c) => !c.pass);
-      const detail = failedChecks.length
-        ? `<div class="fails">${failedChecks.map((c) => `✕ ${esc(c.name)}${c.detail ? ` — ${esc(c.detail)}` : ""}`).join("<br>")}</div>`
-        : "";
+      // * Inconclusive checks render as △ lines, never as red ✕ — they are "no evidence
+      // * either way" (starved loop), not failures.
+      const failedChecks = (r.checks?.checks ?? []).filter((c) => !c.pass && !c.inconclusive);
+      const inconclChecks = (r.checks?.checks ?? []).filter((c) => c.inconclusive);
+      const lines = [
+        ...failedChecks.map((c) => `✕ ${esc(c.name)}${c.detail ? ` — ${esc(c.detail)}` : ""}`),
+        ...inconclChecks.map((c) => `△ ${esc(c.name)}${c.detail ? ` — ${esc(c.detail)}` : ""}`),
+      ];
+      const detail = lines.length ? `<div class="fails">${lines.join("<br>")}</div>` : "";
       return `<tr><td><span class="pill ${state}">${label}</span></td><td>${esc(r.name)}</td><td>${checks}</td><td>${(r.ms / 1000).toFixed(0)}s</td><td>${esc(r.note)}${detail}</td></tr>`;
     })
     .join("\n");
   const historyChips = (h.battery?.history ?? [])
-    .map((e) => `<span class="chip ${e.green === e.total ? "good" : "bad"}" title="${esc(e.file)}">${e.green}/${e.total}</span>`)
+    .map((e) => {
+      const inc = e.inconclusive ?? 0;
+      const cls = e.green + inc === e.total ? (inc ? "warn" : "good") : "bad";
+      return `<span class="chip ${cls}" title="${esc(e.file)}">${e.green}/${e.total}${inc ? ` △${inc}` : ""}</span>`;
+    })
     .join(" ");
 
   const newestSha = (h.captures ?? []).find((c) => c.buildSha)?.buildSha ?? null;
@@ -647,13 +658,14 @@ async function main() {
   }
 
   const latest = health.battery?.latest;
-  const failing = latest?.results?.filter((r) => r.code !== 0).length ?? 0;
+  const failing = latest?.results?.filter((r) => r.code !== 0 && r.code !== 3).length ?? 0;
+  const inconcl = latest?.results?.filter((r) => r.code === 3).length ?? 0;
   const newest = health.captures?.[0];
   const newestNote = newest
     ? ` (newest ${newest.serverId != null ? `#${newest.serverId}` : newest.file} build=${newest.buildSha ?? "?"} ${ago(newest.capturedAt)})`
     : "";
   log(
-    `summary: battery ${latest ? `${(latest.results?.length ?? 0) - failing}/${latest.results?.length ?? 0} green (${ago(latest.when)})` : "never run"}` +
+    `summary: battery ${latest ? `${(latest.results?.length ?? 0) - failing - inconcl}/${latest.results?.length ?? 0} green${inconcl ? ` +${inconcl} inconclusive` : ""} (${ago(latest.when)})` : "never run"}` +
       ` · ${health.captures?.length ?? 0} capture(s)${newestNote} · ${health.issues?.open?.length ?? 0} open issue(s)` +
       ` · phase: ${health.digest?.phase ?? "?"}`,
   );

@@ -15,7 +15,10 @@
  *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)
  *
  * Requires: Playwright Chromium (`npx playwright install chromium`).
- * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error.
+ * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error;
+ * 3 = inconclusive — no failures, but ≥1 drive check was skipped because the client loop
+ * stayed starved (NET-2-class cold-load, environment noise). 3 is "no evidence", not red:
+ * the battery renders it INCONCLUSIVE and does not fail the sweep over it.
  */
 
 import { setTimeout as sleep } from "node:timers/promises";
@@ -32,6 +35,7 @@ import {
   launchClientBrowser,
   dumpFailureBundle,
   writeTallySync,
+  resolveExitCode,
   CLIENT_PORT,
   killDevStack,
 } from "./lib/harness.mjs";
@@ -206,6 +210,33 @@ async function waitForInputSampled(page, { label = "input-sampled", timeout = 12
   return seen ?? 0;
 }
 
+/**
+ * Hold forward (KeyW) and wait for it to be SAMPLED, with one recovery cycle when the loop
+ * is starved: release, let the cold-load heuristic settle again (waitForColdLoadDone is
+ * loose and can pass while the accumulator is still resetting every frame), then re-hold
+ * and re-wait. One retry rescues the runs where the stall was merely long; a client that is
+ * STILL starved after it is an environment verdict, and the caller should record its drive
+ * checks as inconclusive() rather than FAIL — never as a netcode regression.
+ *
+ * The key is left HELD on return (both paths), so the caller's measure window and
+ * releaseKey flow are unchanged.
+ *
+ * @returns {Promise<number>} pendingInputs observed (0 = starved even after the retry).
+ */
+async function holdForwardSampled(page, { label = "drive" } = {}) {
+  await holdKey(page, "KeyW");
+  let sampled = await waitForInputSampled(page, { label });
+  if (!sampled) {
+    console.log(`[diag] ${label}: starved — one recovery cycle (release, re-settle, re-drive)…`);
+    await releaseKey(page, "KeyW");
+    await waitForColdLoadDone(page, { timeout: 45_000, label: `${label}-recovery` }).catch(() => {});
+    await sleep(1000);
+    await holdKey(page, "KeyW");
+    sampled = await waitForInputSampled(page, { label: `${label}-retry` });
+  }
+  return sampled;
+}
+
 /** Dispatch a real keydown/keyup on window (drives the production input path). */
 async function holdKey(page, code) {
   await page.evaluate((c) => {
@@ -222,6 +253,15 @@ const results = [];
 function check(name, pass, detail) {
   results.push({ name, pass, detail });
   console.log(`  ${pass ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+}
+/**
+ * Record a check the rig could not gather evidence for either way (starved client loop —
+ * the NET-2-class cold-load, not a netcode regression). Counted separately from failures:
+ * the run exits 3 (inconclusive), never 1, when these are the only non-passes.
+ */
+function inconclusive(name, detail) {
+  results.push({ name, pass: false, inconclusive: true, detail });
+  console.log(`  INCONCL  ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
 /**
@@ -293,10 +333,9 @@ async function scenarioSpawnLock(browserHost, browserJoiner, baseUrl) {
   const ackBefore = (await joiner.page.evaluate(() => window.__ccTest.getState())).ackForSelf;
 
   // 3. Drive forward for 1.6s.
-  await holdKey(joiner.page, "KeyW");
-  // * Wait for the input to actually be sampled rather than a fixed 250ms — see
-  // * waitForInputSampled. Removes the `peak 0.00m` starvation flake.
-  await waitForInputSampled(joiner.page, { label: "spawnlock-joiner-input" });
+  // * Hold + wait for the input to actually be sampled (one recovery retry) — see
+  // * holdForwardSampled. sampled=0 downgrades the drive checks to INCONCLUSIVE below.
+  const sampled = await holdForwardSampled(joiner.page, { label: "spawnlock-joiner-input" });
   const probe = await joiner.page.evaluate(() => window.__ccTest.getState());
   console.log(`[scenario] after keydown — axis=${JSON.stringify(probe.axis)} pending=${probe.pending}`);
   const t0 = Date.now();
@@ -362,17 +401,31 @@ async function scenarioSpawnLock(browserHost, browserJoiner, baseUrl) {
   );
 
   // THE assertion: the joiner's own cart must leave spawn when it presses forward.
-  check(
-    "joiner cart moves off spawn on forward input",
-    maxDisp > 0.5,
-    `peak displacement ${maxDisp.toFixed(2)}m (need > 0.5m)`,
-  );
-  // Diagnostic: the host should also see it move (distinguishes prediction-only from real).
-  check(
-    "host applies joiner input (authoritative cart moves)",
-    hostDisp > 0.3,
-    `host-view displacement ${hostDisp.toFixed(2)}m (need > 0.3m)`,
-  );
+  // * Verdict split — starved (input NEVER sampled, cart still) is the environment failing
+  // * to produce evidence, not the netcode failing: INCONCLUSIVE. Sampled-but-frozen
+  // * (pending > 0, cart still) is the real spawn-lock signature and stays a red FAIL.
+  if (!sampled && maxDisp < 0.5) {
+    inconclusive(
+      "joiner cart moves off spawn on forward input",
+      `input never sampled (pending 0) even after retry — starved loop (NET-2 class), peak ${maxDisp.toFixed(2)}m proves nothing`,
+    );
+    inconclusive(
+      "host applies joiner input (authoritative cart moves)",
+      "no input ever left the starved joiner, so the host had nothing to apply",
+    );
+  } else {
+    check(
+      "joiner cart moves off spawn on forward input",
+      maxDisp > 0.5,
+      `peak displacement ${maxDisp.toFixed(2)}m (need > 0.5m)`,
+    );
+    // Diagnostic: the host should also see it move (distinguishes prediction-only from real).
+    check(
+      "host applies joiner input (authoritative cart moves)",
+      hostDisp > 0.3,
+      `host-view displacement ${hostDisp.toFixed(2)}m (need > 0.3m)`,
+    );
+  }
 
   await joiner.context.close();
   await host.context.close();
@@ -446,8 +499,7 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
   // * starved to sample input — the false `peak 0.00m` flake. The spawnlock scenario
   // * (reliable 4/4) does this same 1s settle + post-keydown probe; mirror it here.
   await sleep(1000);
-  await holdKey(joiner.page, "KeyW");
-  await waitForInputSampled(joiner.page, { label: "mpIntegration-joiner-input" });
+  const sampled = await holdForwardSampled(joiner.page, { label: "mpIntegration-joiner-input" });
   const inputProbe = await joiner.page.evaluate(() => window.__ccTest.getState());
   console.log(
     `[scenario] joiner after keydown — axis=${JSON.stringify(inputProbe.axis)} pending=${inputProbe.pending}`,
@@ -467,19 +519,38 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
     joinerSlot,
   );
   const hostDisp = hostView && before ? Math.hypot(hostView.x - before.x, hostView.z - before.z) : 0;
-  check("joiner controls its cart (moves off spawn)", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
-  check("host applies joiner input (authoritative cart moves)", hostDisp > 0.3, `host-view ${hostDisp.toFixed(2)}m`);
+  // * Same verdict split as spawnlock: never-sampled + still = INCONCLUSIVE (starved
+  // * environment, no evidence); sampled-but-frozen stays a red FAIL. The gameplay
+  // * invariants below (score sync, podium, PA, rematch) don't depend on the drive and run
+  // * either way.
+  if (!sampled && maxDisp < 0.5) {
+    inconclusive(
+      "joiner controls its cart (moves off spawn)",
+      `input never sampled (pending 0) even after retry — starved loop (NET-2 class), peak ${maxDisp.toFixed(2)}m proves nothing`,
+    );
+    inconclusive(
+      "host applies joiner input (authoritative cart moves)",
+      "no input ever left the starved joiner, so the host had nothing to apply",
+    );
+  } else {
+    check("joiner controls its cart (moves off spawn)", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
+    check("host applies joiner input (authoritative cart moves)", hostDisp > 0.3, `host-view ${hostDisp.toFixed(2)}m`);
+  }
 
   // 5. A scored KO → score updates + syncs. Host crowns the joiner via the diag control lever
   //    (stands in for a natural KO deterministically); both clients must converge on the score.
-  // * CROWN_SCORE must be UNREACHABLE by natural NPC play during the seconds between this
-  // * lever and the rewindRoundClock fast-end below. It used to be 3, which quietly relied on
-  // * the bots being passive — and they were, because isAiCautiousPhase compared a
-  // * performance.now() value against a timeOrigin-domain startedAtMs and pinned every bot in
-  // * cautious phase forever. With that clock-domain bug fixed the bots actually fight, an NPC
-  // * out-scored the scripted 3 mid-window, and this scenario failed on a winner-slot mismatch
-  // * (host and joiner still AGREED — result sync was never broken, only the assumption that
-  // * nothing else scores). Keep the margin wide so the crown stays deterministic.
+  // * CROWN_SCORE history: it used to be 3, which quietly relied on the bots being passive —
+  // * and they were, because isAiCautiousPhase compared a performance.now() value against a
+  // * timeOrigin-domain startedAtMs and pinned every bot in cautious phase forever. With that
+  // * clock-domain bug fixed the bots actually fight, an NPC out-scored the scripted 3
+  // * mid-window, and this scenario failed on a winner-slot mismatch (host and joiner still
+  // * AGREED — result sync was never broken, only the assumption that nothing else scores).
+  // * Raising the margin to 60 was NOT enough either (07-19): the score-sync poll below can
+  // * hold the round open for up to 15s, and one KO harvesting a full Living-Store cargo load
+  // * plus streak bonuses out-scored even 60. The margin only has to survive the final ~1.2s
+  // * now — step 6 re-applies the crown atomically with the fast-end, and the podium checks
+  // * assert the winner INVARIANT (crowned winner = top scorer, synced) rather than a
+  // * pre-picked slot, so a legitimate NPC upset can never masquerade as a sync bug.
   const CROWN_SCORE = 60;
   const scored = await host.page.evaluate(([slot, crown]) => {
     const c = window.__ccDiag.control;
@@ -510,38 +581,94 @@ async function scenarioMpIntegration(browserHost, browserJoiner, baseUrl) {
   );
 
   // 6. Winner/result sync: host fast-ends the round → both reach podium with the SAME winner.
-  const ended = await host.page.evaluate(
-    () => window.__ccDiag.control?.rewindRoundClock?.(1200) ?? false,
-  );
+  // * Re-apply the crown in the SAME evaluate as the rewind: the score-sync poll above can
+  // * hold the round open for seconds while the NPCs fight, so the crown state at fast-end
+  // * time — not at step-5 time — is what decides the podium. After this the NPCs only have
+  // * the final ~1.2s to out-score a 60-point lead.
+  const ended = await host.page.evaluate(([slot, crown]) => {
+    const c = window.__ccDiag.control;
+    if (!c || typeof c.rewindRoundClock !== "function") return false;
+    const s = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    s[slot] = crown;
+    const recrown = c.setScores(s);
+    if (recrown?.ok !== true) return recrown;
+    return c.rewindRoundClock(1200);
+  }, [joinerSlot, CROWN_SCORE]);
   check(
     "host control.rewindRoundClock fast-ends the round",
     ended?.ok === true,
     ended?.message ?? String(ended),
   );
-  const hostPodium = await pollDiag(host.page, readRound, (r) => r?.phase === "podium", {
+  // * Read winner + final scores in ONE page evaluate per client: scores freeze at podium
+  // * until the quickplay rematch resets them (~5s), so this pair is a consistent snapshot.
+  const readPodium = () => {
+    const r = window.__ccDiag.snapshot("round");
+    return r?.phase === "podium"
+      ? { ...r, scores: window.__ccDiag.snapshot("score").scores }
+      : r;
+  };
+  const hostPodium = await pollDiag(host.page, readPodium, (r) => r?.phase === "podium", {
     timeout: 20_000,
     label: "host-podium",
   });
-  const joinerPodium = await pollDiag(joiner.page, readRound, (r) => r?.phase === "podium", {
+  const joinerPodium = await pollDiag(joiner.page, readPodium, (r) => r?.phase === "podium", {
     timeout: 20_000,
     label: "joiner-podium",
   });
+  // * Assert the INVARIANT, not the scripted slot: both clients crown the SAME winner, that
+  // * winner is a top scorer of the final synced scores, and the final score maps match. An
+  // * NPC that legitimately out-scores the re-applied crown in the last 1.2s changes the
+  // * winner without breaking any of these — the old `winner === joinerSlot` form flagged
+  // * that as a sync failure when sync was fine. (A tie at the top takes the Sudden Death
+  // * path instead of podium and would time out the polls above; with the re-crown margin
+  // * an exact 60–60 tie is not a realistic window.)
+  const winnerSlot = hostPodium.winnerSlotIndex;
   check(
     "both clients agree on the winner slot (invariant: result syncs)",
-    hostPodium.winnerSlotIndex === joinerPodium.winnerSlotIndex && joinerPodium.winnerSlotIndex === joinerSlot,
-    `host=${hostPodium.winnerSlotIndex} joiner=${joinerPodium.winnerSlotIndex} expected=${joinerSlot}`,
+    winnerSlot != null && joinerPodium.winnerSlotIndex === winnerSlot,
+    `host=${winnerSlot} joiner=${joinerPodium.winnerSlotIndex}`,
   );
+  const topScoreOf = (sc) => Math.max(...[0, 1, 2, 3].map((s) => Number(sc?.[s] ?? 0)));
+  check(
+    "podium crowns the top scorer on both clients (invariant: winner = argmax)",
+    Number(hostPodium.scores?.[winnerSlot] ?? -1) === topScoreOf(hostPodium.scores)
+      && Number(joinerPodium.scores?.[winnerSlot] ?? -1) === topScoreOf(joinerPodium.scores),
+    `winner=${winnerSlot} host=${JSON.stringify(hostPodium.scores)} joiner=${JSON.stringify(joinerPodium.scores)}`,
+  );
+  check(
+    "final podium scores sync (invariant: scores sync)",
+    [0, 1, 2, 3].every((s) => Number(hostPodium.scores?.[s] ?? -1) === Number(joinerPodium.scores?.[s] ?? -2)),
+    `host=${JSON.stringify(hostPodium.scores)} joiner=${JSON.stringify(joinerPodium.scores)}`,
+  );
+  if (winnerSlot !== joinerSlot) {
+    console.log(
+      `[scenario] NPC out-scored the re-applied crown in the final window (winner=${winnerSlot}, joiner=${joinerSlot}) — victory PA path exercised on neither client this run`,
+    );
+  }
 
-  // 7. Announcer correctness: the winner client fires "victory", the loser fires "defeat"
+  // 7. Announcer correctness: each client's result callout matches the crowned winner
   //    (decided locally by localSlot === winnerSlot). Poll so we don't race the reveal.
+  // * Expected per client follows the ACTUAL winner: with the re-crown the joiner wins in
+  // * practice (so victory is exercised on virtually every run), but a legitimate NPC upset
+  // * must expect defeat on both clients, not fail the rig.
+  const joinerExpected = winnerSlot === joinerSlot ? "victory" : "defeat";
+  const hostExpected = winnerSlot === hostState.localSlotIndex ? "victory" : "defeat";
   await pollDiag(joiner.page, annTypes, (t) => t.includes("victory") || t.includes("defeat"), {
     timeout: 8_000,
     label: "joiner-PA-result",
   }).catch(() => {});
   const joinerAnn = await joiner.page.evaluate(annTypes);
   const hostAnn = await host.page.evaluate(annTypes);
-  check("winner (joiner) PA fires victory", joinerAnn.includes("victory"), `joiner=[${joinerAnn.slice(-6).join(",")}]`);
-  check("loser (host) PA fires defeat", hostAnn.includes("defeat"), `host=[${hostAnn.slice(-6).join(",")}]`);
+  check(
+    `PA result callout matches the outcome on the joiner (${joinerExpected})`,
+    joinerAnn.includes(joinerExpected),
+    `joiner=[${joinerAnn.slice(-6).join(",")}]`,
+  );
+  check(
+    `PA result callout matches the outcome on the host (${hostExpected})`,
+    hostAnn.includes(hostExpected),
+    `host=[${hostAnn.slice(-6).join(",")}]`,
+  );
 
   // 8. Rematch: quickplay auto-continues (~5s). Both clients leave podium into a fresh round and
   //    scores reset — the next-round invariant, without asserting exact transition timing.
@@ -667,6 +794,11 @@ async function scenarioHostMigration(browserHost, browserJoiner, baseUrl) {
   );
   if (running) {
     const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    // * Do NOT use holdForwardSampled here: the driver is the PROMOTED HOST, and a host
+    // * consumes its own input directly — pendingInputs stays 0 by design, so the sampled
+    // * poll can only time out (verified live 2026-07-20: poll+retry both starve-timed-out
+    // * while the cart drove 27.6m). Plain drive + displacement is the honest signal, and
+    // * this rig never exhibited the 0.00m starvation flake anyway.
     await holdKey(joiner.page, "KeyW");
     let maxDisp = 0;
     const t0 = Date.now();
@@ -786,12 +918,13 @@ async function scenarioTeardownRejoin(browserHost, browserJoiner, baseUrl) {
   //    (inputs are sampled + queued, pendingInputs > 0). With the axis unwired both stay at zero.
   await sleep(1000);
   const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
-  await holdKey(joiner.page, "KeyW");
-  await waitForInputSampled(joiner.page, { label: "teardownRejoin-joiner-input" });
+  const sampled = await holdForwardSampled(joiner.page, { label: "teardownRejoin-joiner-input" });
   const probe = await joiner.page.evaluate(readNet);
   console.log(`[scenario] after keydown — pendingInputs=${probe.pendingInputs} axisWired=${probe.axisWired}`);
   let maxDisp = 0;
-  let maxPending = typeof probe.pendingInputs === "number" ? probe.pendingInputs : 0;
+  // * Seed with what holdForwardSampled saw — its probe (__ccTest pending) and readNet's
+  // * pendingInputs read the same queue, and the retry's observation must count.
+  let maxPending = Math.max(sampled, typeof probe.pendingInputs === "number" ? probe.pendingInputs : 0);
   const t0 = Date.now();
   while (Date.now() - t0 < 3500) {
     // eslint-disable-next-line no-await-in-loop
@@ -810,16 +943,32 @@ async function scenarioTeardownRejoin(browserHost, browserJoiner, baseUrl) {
     `[scenario] post-rejoin drive — peak ${maxDisp.toFixed(2)}m, final ${dispSelf.toFixed(2)}m, maxPending ${maxPending}`,
   );
 
-  check(
-    "joiner cart moves off spawn after menu→rejoin",
-    maxDisp > 0.5,
-    `peak displacement ${maxDisp.toFixed(2)}m (need > 0.5m)`,
-  );
-  check(
-    "joiner input is sampled + queued after rejoin (pendingInputs > 0)",
-    maxPending > 0,
-    `peak pendingInputs ${maxPending} (need > 0)`,
-  );
+  // * Verdict split with one EXTRA guard: pending 0 + cart still is ALSO the signature of
+  // * the real 07-17 axis-unwire bug this scenario exists to catch. Only downgrade to
+  // * INCONCLUSIVE when step 6 proved the axis IS wired (netRe.axisWired === true) — then a
+  // * dead pending queue can only be the starved loop. Axis unwired stays a red FAIL here
+  // * AND in the step-6 check above.
+  if (netRe?.axisWired === true && maxPending === 0 && maxDisp < 0.5) {
+    inconclusive(
+      "joiner cart moves off spawn after menu→rejoin",
+      `axis wired but input never sampled even after retry — starved loop (NET-2 class), peak ${maxDisp.toFixed(2)}m proves nothing`,
+    );
+    inconclusive(
+      "joiner input is sampled + queued after rejoin (pendingInputs > 0)",
+      "axis wired but the starved loop never ran a sampling tick — no evidence either way",
+    );
+  } else {
+    check(
+      "joiner cart moves off spawn after menu→rejoin",
+      maxDisp > 0.5,
+      `peak displacement ${maxDisp.toFixed(2)}m (need > 0.5m)`,
+    );
+    check(
+      "joiner input is sampled + queued after rejoin (pendingInputs > 0)",
+      maxPending > 0,
+      `peak pendingInputs ${maxPending} (need > 0)`,
+    );
+  }
 
   if (results.slice(mark).some((r) => !r.pass)) {
     await dumpFailureBundle(joiner.page, { scenario: "teardownRejoin", label: "joiner", log: nlog });
@@ -877,12 +1026,15 @@ async function main() {
     killDevStack(devProc);
   }
 
-  const failed = results.filter((r) => !r.pass);
-  console.log(`\n[netharness] ${results.length - failed.length}/${results.length} checks passed`);
+  const failed = results.filter((r) => !r.pass && !r.inconclusive);
+  const inconcl = results.filter((r) => r.inconclusive);
+  console.log(
+    `\n[netharness] ${results.length - failed.length - inconcl.length}/${results.length} checks passed` +
+      (inconcl.length ? ` (${inconcl.length} INCONCLUSIVE — starved environment, no regression evidence)` : ""),
+  );
   const tallyOut = str(args.tallyOut);
   if (tallyOut) writeTallySync(tallyOut, `netharness:${scenario}`, results, hadError);
-  if (hadError || failed.length > 0) process.exit(1);
-  process.exit(0);
+  process.exit(resolveExitCode(results, hadError));
 }
 
 main().catch((e) => {

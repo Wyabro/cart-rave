@@ -13,7 +13,9 @@
  *   - a pass/fail tally + the exit-code contract CheckTally  (0 pass / 1 fail / 2 setup error)
  *
  * Every rig prints "[<name>] …" via {@link makeLogger} and exits 0 (all checks passed),
- * 1 (a check failed), or 2 (harness/setup error) — same contract as the netcode rig.
+ * 1 (a check failed), 2 (harness/setup error), or 3 (inconclusive — zero real failures but
+ * ≥1 check was skipped because the client loop was starved; see resolveExitCode). Battery
+ * treats 3 as "no regression evidence", not as red.
  */
 
 import { spawn, spawnSync } from "node:child_process";
@@ -435,20 +437,33 @@ export class CheckTally {
  * Before this, check-level results (16/16 etc.) lived only in stdout and evaporated; the
  * battery report and the dashboard read these files. Never throws.
  *
+ * A check may carry `inconclusive: true` (with pass:false): the rig could not gather
+ * evidence either way (starved client loop — NET-2 class), so it counts in the separate
+ * `inconclusive` field, NOT in `failed`. Red stays reserved for regression evidence.
+ *
  * @param {string} file  Output path (.json).
  * @param {string} rig   Rig/tally name.
- * @param {{ name: string, pass: boolean, detail?: string }[]} checks
+ * @param {{ name: string, pass: boolean, inconclusive?: boolean, detail?: string }[]} checks
  * @param {boolean} [hadError]  A scenario threw (counts as failure).
  * @returns {void}
  */
 export function writeTallySync(file, rig, checks, hadError = false) {
   try {
     mkdirSync(dirname(resolve(file)), { recursive: true });
-    const failed = checks.filter((r) => !r.pass).length;
+    const failed = checks.filter((r) => !r.pass && !r.inconclusive).length;
+    const inconclusive = checks.filter((r) => r.inconclusive).length;
     writeFileSync(
       resolve(file),
       JSON.stringify(
-        { rig, when: new Date().toISOString(), passed: checks.length - failed, failed, hadError, checks },
+        {
+          rig,
+          when: new Date().toISOString(),
+          passed: checks.length - failed - inconclusive,
+          failed,
+          inconclusive,
+          hadError,
+          checks,
+        },
         null,
         2,
       ),
@@ -457,4 +472,23 @@ export function writeTallySync(file, rig, checks, hadError = false) {
   } catch {
     /* tally persistence must never mask the run result */
   }
+}
+
+/**
+ * The shared exit-code verdict, as a pure function so it is unit-testable:
+ *   1 — a real check failed or a scenario threw (regression evidence);
+ *   3 — no real failures, but ≥1 check was inconclusive (starved environment:
+ *       no evidence either way — the battery must not paint this red);
+ *   0 — everything passed.
+ * Setup errors (exit 2) never reach this — rigs exit 2 before running checks.
+ *
+ * @param {{ pass: boolean, inconclusive?: boolean }[]} results
+ * @param {boolean} [hadError]
+ * @returns {0 | 1 | 3}
+ */
+export function resolveExitCode(results, hadError = false) {
+  const failed = results.filter((r) => !r.pass && !r.inconclusive).length;
+  if (hadError || failed > 0) return 1;
+  if (results.some((r) => r.inconclusive)) return 3;
+  return 0;
 }
