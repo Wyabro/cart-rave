@@ -1,8 +1,8 @@
 # Handoff — next agent window (Run 7 · NH-STATS)
 
 **Date:** 2026-07-20  
-**Ship in prod:** **`60d773e`** / **`index-BQhnh1Z_.js`**  
-**Active card:** **NH-STATS** — non-host “my stats” broken in MP  
+**Ship in prod:** **`b92d87f`** / **`index-BgZqxXtu.js`**  
+**Active card:** **NH-STATS** — shipped; **await MP podium retest** (joiner YOUR STATS + chips)  
 **Do not** re-open P0–P4 / NET-PERF-2 / ko_path without new evidence.  
 **Ship only on Wyatt “ship it.”** One card at a time.
 
