@@ -2426,8 +2426,10 @@ export function initNetcode(roomOverride) {
           }
           callbacks.onEnterPodium?.();
           callbacks.setPendingMidRoundJoinRespawnConnId(null);
-          if (!isHost) {
-            if (r.validated !== true) return;
+          // * Lifetime YOUR STATS (wins/played/points) for non-hosts: only count
+          // * server-validated podium rounds. Do NOT early-return the whole MSG.round
+          // * handler when unvalidated — that skipped phase clocks/apply (NH-STATS).
+          if (!isHost && r.validated === true) {
             const w = r.winnerSlotIndex;
             const winnerSlotIndex =
               w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;

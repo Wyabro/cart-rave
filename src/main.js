@@ -357,16 +357,35 @@ let isNewPersonalBest = false;
 
 
 
+/** @type {string | null} Dedupe key so host endRound + redelivered MSG.round never double-count. */
+let lastPodiumStatsRoundKey = null;
+
 /**
  * Records end-of-round match history and local personal stats at the moment a round transitions into podium.
  * @param {number | "draw" | null} winnerSlotIndex
  * @param {Record<number, number> | null | undefined} scoresSrc
  */
 function recordPodiumStats(winnerSlotIndex, scoresSrc) {
+  const startedAtMs = Number(GameState.getRoundState()?.startedAtMs) || 0;
+  const winKey =
+    winnerSlotIndex === "draw"
+      ? "draw"
+      : typeof winnerSlotIndex === "number" && Number.isFinite(winnerSlotIndex)
+        ? String(winnerSlotIndex)
+        : "0";
+  // * Once per round clock — redelivered running→podium must not inflate PLAYED/WINS.
+  if (startedAtMs > 0) {
+    const key = `${startedAtMs}:${winKey}`;
+    if (lastPodiumStatsRoundKey === key) return;
+    lastPodiumStatsRoundKey = key;
+  }
+
   /** @type {Record<number, number>} */
   const scores = {};
   for (let i = 0; i < 4; i += 1) {
-    scores[i] = Number(scoresSrc?.[i] ?? 0);
+    // * Wire scores sometimes arrive as string keys; coerce both.
+    const raw = scoresSrc?.[i] ?? /** @type {any} */ (scoresSrc)?.[String(i)];
+    scores[i] = Number(raw ?? 0);
   }
 
   matchHistory.push({

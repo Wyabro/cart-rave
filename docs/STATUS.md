@@ -87,7 +87,12 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P0 menu freezes: idle-shader warm + F8 caps 52–54
 - [x] P0 countdown host path: audio warm + abort/400ms stack shipped; host F8 58 felt good
 - [x] P0 non-host countdown hold: shipped `60d773e` / `index-BQhnh1Z_.js` — **PASS F8 64–67** (countdown only after `carts-ready`; full 3-2-1 both sides; 0 LF during countdown)
-- [ ] P1 late-round gap storm resolved or re-scoped with fresh F8s (**active** — P0 countdown closed)
+- [x] P1 late-round gap storm re-scoped (F8 **68–71** / `60d773e`: receive ≈ send; no o100 117 storm)
+- [x] P2 non-host localKos:0 closed (Wyatt: can get kills; F8 69/71 localKos≥1) — other non-host feel issues stay separate cards
+- [x] P3 friend join resume hitch closed (Wyatt N — not felt on `60d773e`)
+- [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
+- [ ] **NH-STATS** non-host “my stats” broken in MP (**active**)
+- [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
 
@@ -97,24 +102,19 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ✅ Countdown path **PASS** (F8 64–67 / `60d773e`). Mid-round parked (cap-47) unless freezes return |
-| **P1** | **Late-round P2P gap storm** (friend o100 117 vs host send o100 6) | ▶️ **ACTIVE** — need fresh F8s on `60d773e` (seed: caps 31–40) |
-| P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
-| P3 | Friend MP join 58s resume hitch | after stream honest |
-| P4 | Solo rematch ~8s hitch (9070, cap-41) | after 2-human |
+| **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** this session |
+| **NH-STATS** | **Non-host “my stats” broken in MP** | ▶️ **ACTIVE** — results YOUR STATS / superlatives / lifetime; forensics in progress |
 | P5 | Solo bot/rim death feel | taste / AI |
 | P6 | AI diag probe empty mid-round | tooling only |
-| NET-1 | Two-human full-round smoke | after P0–P1 green |
-| Match B / P1 cards / P0-2 menu | locked / parked | |
+| NET-1 | Two-human full-round smoke | ready when Wyatt wants |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **P1 active:** 2-human full-ish round on prod `index-BQhnh1Z_.js`, F8 both sides late-round / when stream feels wrong → `captures:pull` → compare host vs joiner `snapGapsOver100` / send gaps (seed caps 31–40).
+1. **NH-STATS active:** confirm which surface (lifetime WINS/PLAYED/POINTS vs this-round superlatives chips) → one fix. Code map: `recordPodiumStats` / `matchSuperlatives` / non-host `MSG.round` `validated` early-return.
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
-3. Non-host wrong color: parked; same-build first.
-4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+3. NET-1 when ready.
 
 ## Open issues (top)
 
@@ -191,6 +191,18 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-20 (NH-STATS fix **unpushed**) — Both lifetime + chips. (1) Superlative combo/crit/leader only when attacker===local (`matchStats.js`). (2) Non-host `MSG.round` no longer early-returns whole handler on unvalidated; only skip stats write. (3) `recordPodiumStats` once-per-round + string score keys. Tests matchStats 7 pass. **Not shipped** — wait for “ship it” + MP podium retest.
+
+2026-07-20 (NH-STATS active) — Wyatt residual non-host: **“my stats” broken in MP**. P0–P4 stay closed. Dig: results YOUR STATS lifetime + superlatives global bleed + incomplete non-host falls.
+
+2026-07-20 (P4 closed) — Solo rematch F8 **72–74** / `60d773e`: Wyatt felt good. Cap-72 rematch clean. **P0–P4 closed.**
+
+2026-07-20 (P3 closed → P4) — Wyatt **N**: friend join resume hitch not felt. P3 closed.
+
+2026-07-20 (P2 closed → P3) — Wyatt: non-host can get kills; P2 localKos:0 closed (F8 69/71 localKos≥1). Residual non-host issues stay separate.
+
+2026-07-20 (P1 closed → P2) — F8 **68–71** / `60d773e`: P1 gap storm **not reproduced** (pair A 4090-host snap/send o100 0; pair B Intel-host send o100 5 ≈ joiner snap 6). Re-scoped closed.
 
 2026-07-19 (handoff → P1) — Command Center + handoff refreshed. **P0 countdown CLOSED** (F8 64–67). **Active card: P1** late-round P2P gap storm. Mid-round/post-fall parked. Next Grok: fresh dual F8 late-round on `60d773e`, score o100 host vs joiner.
 

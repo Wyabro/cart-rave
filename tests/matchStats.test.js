@@ -47,13 +47,35 @@ describe("matchStats", () => {
     expect(s.localDeaths).toBe(1);
   });
 
-  it("tracks max combo and criticals", () => {
+  it("tracks max combo and criticals for local kills only", () => {
     recordKoForMatchStats(ko({ comboTier: 2, wasCritical: true }));
     recordKoForMatchStats(ko({ comboTier: 3, victimWasLeader: true }));
     const s = getMatchStats();
     expect(s.maxComboTier).toBe(3);
     expect(s.criticalKos).toBe(1);
     expect(s.leaderDowns).toBe(1);
+  });
+
+  it("does not attribute peer/NPC combo or criticals to local superlatives", () => {
+    // * Local is slot 0; peer kill on slot 1 must not mint RAMPAGE/CRITICAL chips.
+    recordKoForMatchStats(
+      ko({
+        attackerSlotIndex: 1,
+        victimSlotIndex: 2,
+        comboTier: 3,
+        wasCritical: true,
+        victimWasLeader: true,
+      }),
+    );
+    const s = getMatchStats();
+    expect(s.kos).toBe(1);
+    expect(s.localKos).toBe(0);
+    expect(s.maxComboTier).toBe(0);
+    expect(s.criticalKos).toBe(0);
+    expect(s.leaderDowns).toBe(0);
+    expect(matchSuperlatives(s).some((l) => /RAMPAGE|CARNAGE|CRITICAL|LEADER/i.test(l))).toBe(
+      false,
+    );
   });
 
   it("snapshot is isolated from later resets", () => {

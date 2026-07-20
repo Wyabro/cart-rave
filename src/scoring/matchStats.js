@@ -103,13 +103,17 @@ export function recordKoForMatchStats(koEvent, localSlot = localSlotIndex) {
   if (attacker != null && Number.isFinite(attacker) && attacker >= 0 && attacker < 4) {
     stats.kos += 1;
     stats.kosBySlot[attacker] += 1;
-    if (attacker === localSlot) stats.localKos += 1;
+    if (attacker === localSlot) {
+      stats.localKos += 1;
+      // * Combo / critical / leader-down chips on results are framed as *your* story
+      // * (next to YOUR STATS). Counting every peer/NPC kill made non-host podium
+      // * chips show RAMPAGE/CRITICALS the local player never earned (NH-STATS).
+      const tier = Number(koEvent.comboTier) || 0;
+      if (tier > stats.maxComboTier) stats.maxComboTier = tier;
+      if (koEvent.wasCritical) stats.criticalKos += 1;
+      if (koEvent.victimWasLeader) stats.leaderDowns += 1;
+    }
   }
-
-  const tier = Number(koEvent.comboTier) || 0;
-  if (tier > stats.maxComboTier) stats.maxComboTier = tier;
-  if (koEvent.wasCritical) stats.criticalKos += 1;
-  if (koEvent.victimWasLeader) stats.leaderDowns += 1;
 }
 
 /**
