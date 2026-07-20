@@ -13,6 +13,7 @@ import { settingsStore } from "./stores/settingsStore.js";
 import { isShatterAnimating } from "./cartShatter.js";
 import * as P2P from "./netcode/p2p.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/binary.js";
+import { stampTailEventIds, markPresentationEid } from "./netcode/presentationDedupe.js";
 import { rebuildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
@@ -149,10 +150,15 @@ let hostMigrationFreezeUntilMs = 0;
  */
 let hostMigrationAwaitingFirstSnap = false;
 /**
- * Presentation dedupe for unreliable falls[] tails (NET-PRES-1 half).
- * Keyed by victim slot → last process time; same victim cannot re-fan reactors for 600ms.
+ * Presentation dedupe for unreliable falls[] tails (NET-PRES-1).
+ * Primary: `eid` seen-set (`f{seq}.{i}`). Fallback: victim slot → last process time (600ms)
+ * when the host omitted eid (legacy / partial deploy).
  */
 const recentHostFallByVictim = new Map();
+/** @type {Map<string, number>} NET-PRES-1 fall eid → last-seen ms */
+const seenFallPresentationEids = new Map();
+/** @type {Map<string, number>} NET-PRES-1 collision eid → last-seen ms */
+const seenCollisionPresentationEids = new Map();
 
 let skipNextPhysicsStep = false;
 
@@ -1398,17 +1404,17 @@ function replayHostCollisionFx(msg, callbacks) {
   const slotB = typeof msg.slotB === "number" ? msg.slotB : 0;
   if (!mp || typeof mp.x !== "number") return;
 
-  // * NET-PRES-1 residual: collisions[] ride unordered DC and always replay even when
-  // * seq rejects the pose buffer. Short pair-key window collapses late reorder spam
-  // * (SFX / trash burst) without muting continuous combat (host already batches per tick).
-  // * NH-HIT also stamps this map on optimistic local rams so host echo stays quiet.
+  // * NET-PRES-1: collisions[] ride unordered DC and always replay even when seq rejects
+  // * the pose buffer. Prefer eid (`c{seq}.{i}`); pair-key still covers NH-HIT optimistic
+  // * local rams (no shared eid) and hosts that omit eid.
+  const nowFx = performance.now();
+  if (markPresentationEid(seenCollisionPresentationEids, msg.eid, nowFx)) return;
   const slotA = typeof msg.slotA === "number" ? msg.slotA : -1;
   const pairKey = collisionFxPairKey(
     slotA,
     slotB,
     typeof msg.rammerSlot === "number" ? msg.rammerSlot : "",
   );
-  const nowFx = performance.now();
   const prevFx = recentHostCollisionFxByPair.get(pairKey);
   if (prevFx != null && nowFx - prevFx < COLLISION_FX_DEDUPE_MS) return;
   recentHostCollisionFxByPair.set(pairKey, nowFx);
@@ -1475,20 +1481,24 @@ function replayHostCollisionFx(msg, callbacks) {
  */
 function processHostFallEvent(msg, cartsSnap) {
   if (isHost) return;
-  // * NET-PRES-1 (partial): falls ride unreliable unordered DC. Late/reordered tails of the
-  // * same KO re-ran kill feed / PA / challenges. Victim cannot legitimately fall twice inside
-  // * the 1s respawn window — 600ms is a safe presentation dedupe without blocking post-respawn KOs.
-  const victimKey = typeof msg.slotId === "number"
-    ? msg.slotId
-    : (typeof msg.victimSlotIndex === "number" ? msg.victimSlotIndex : null);
-  if (victimKey != null) {
-    const now = performance.now();
-    const prev = recentHostFallByVictim.get(victimKey);
-    if (prev != null && now - prev < 600) return;
-    recentHostFallByVictim.set(victimKey, now);
-    if (recentHostFallByVictim.size > 16) {
-      for (const [k, t] of recentHostFallByVictim) {
-        if (now - t > 2000) recentHostFallByVictim.delete(k);
+  // * NET-PRES-1: falls ride unreliable unordered DC. Prefer stamped eid (`f{seq}.{i}`) so
+  // * late/reordered copies of the same KO do not re-fan reactors. Legacy hosts without eid
+  // * keep the 600ms per-victim window (victim cannot legitimately fall twice inside respawn).
+  const now = performance.now();
+  if (typeof msg.eid === "string" && msg.eid.length > 0) {
+    if (markPresentationEid(seenFallPresentationEids, msg.eid, now)) return;
+  } else {
+    const victimKey = typeof msg.slotId === "number"
+      ? msg.slotId
+      : (typeof msg.victimSlotIndex === "number" ? msg.victimSlotIndex : null);
+    if (victimKey != null) {
+      const prev = recentHostFallByVictim.get(victimKey);
+      if (prev != null && now - prev < 600) return;
+      recentHostFallByVictim.set(victimKey, now);
+      if (recentHostFallByVictim.size > 16) {
+        for (const [k, t] of recentHostFallByVictim) {
+          if (now - t > 2000) recentHostFallByVictim.delete(k);
+        }
       }
     }
   }
@@ -1611,6 +1621,8 @@ export function disconnectPartySession() {
   hostMigrationAwaitingFirstSnap = false;
   recentHostFallByVictim.clear();
   recentHostCollisionFxByPair.clear();
+  seenFallPresentationEids.clear();
+  seenCollisionPresentationEids.clear();
   skipNextPhysicsStep = false;
 
   netSlots = [];
@@ -1733,6 +1745,8 @@ function hostSendTick(opts = {}) {
   lastCartsCacheIsSpawn = false;
   const collisions = drainHostCollisionBatch();
   const falls = drainHostFallBatch();
+  // * NET-PRES-1: stamp (seq, i) eids so non-hosts can dedupe late/reordered tails.
+  stampTailEventIds(hostSeq, falls, collisions);
   // * tHost drives hostClock only (NET-CLK-1) — never the Party offset EWMA.
   // * (No levelId here: the binary snapshot encoder never carried it — level truth
   // * travels via host_round / hello / round, the quickplay-rotation design.)
@@ -2052,6 +2066,9 @@ function applyHostMigration(msg) {
   netStateBuffer = [];
   recentHostFallByVictim.clear();
   recentHostCollisionFxByPair.clear();
+  // * New host resets hostSeq — clear eid sets so f1.0 from the new host is not a false dup.
+  seenFallPresentationEids.clear();
+  seenCollisionPresentationEids.clear();
   // * Host migration is no longer silent — every client gets the PA callout
   // * and the HUD host glyph moves to the new host's chip on the next frame.
   const newHostSlot = Array.isArray(netSlots)
@@ -3089,6 +3106,10 @@ export const __netcodeTestHooks = {
     remoteNitroLatchedByConnId = new Map();
     pendingInputs = [];
     inputSeq = 0;
+    recentHostFallByVictim.clear();
+    recentHostCollisionFxByPair.clear();
+    seenFallPresentationEids.clear();
+    seenCollisionPresentationEids.clear();
   },
   getBufferLength: () => netStateBuffer.length,
   findSnapshotPair: (t) => findSnapshotPair(t),

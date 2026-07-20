@@ -22,12 +22,12 @@
 | **NET-1** | ✅ PASS |
 | **NET-2** | ✅ PASS ~3s driveable |
 | **NET-MIG-3** | ✅ PASS + live |
-| NET-PRES-1 | 🟡 optional polish |
+| NET-PRES-1 | ✅ DONE (dup face) |
 | MAIN-1 / BUNDLE-1 / BRAND-1 | post-gate / frozen |
 
 ### Do not re-open without new evidence
 
-Run 7 · NET-1 · NET-2 · NET-MIG-3 · parked NH-HIT / NH-SMOOTH · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6
+Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · parked NH-HIT / NH-SMOOTH · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6
 
 **UI:** color/look = **main-menu Customize**.
 
@@ -41,7 +41,7 @@ Candidates:
 
 | ID | Mode |
 |----|------|
-| NET-PRES-1 | polish — event-id dedupe on falls/collisions |
+| NET-SD-1 | bug — SD untie while flag stays true |
 | Tech-debt | MAIN-1 only if Wyatt pulls it |
 | Phase advance | Release candidate only on Wyatt instruction |
 

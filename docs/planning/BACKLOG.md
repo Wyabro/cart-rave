@@ -11,7 +11,7 @@ Priorities: **Critical** = blocks Version 2 · **High** = should land before V2 
 **Medium** = V2-window polish · **Low** = post-launch / opportunistic.
 
 Completed rows are **not** kept here — move them to [completed-work.md](./completed-work.md).
-Do not re-add closed IDs (NET-1, NET-2, NET-MIG-3, HOST-ROLE-1, VFX-1, NET-CLK-*, NET-BUF-1, …)
+Do not re-add closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, HOST-ROLE-1, VFX-1, NET-CLK-*, NET-BUF-1, …)
 without new evidence.
 
 **Pre-ship 07-19 rows** tagged *(pre-ship 07-19)* are parked polish — pick up when Wyatt
@@ -23,7 +23,6 @@ names them; they do not auto-queue over STATUS.
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | NET-PRES-1 — unreliable falls/collisions: loss and duplicate fan-out | Partial: falls[] 600ms victim dedupe; collisions[] 250ms pair FX dedupe. Proper event-id dedupe still open. |
 | Medium | NET-SD-1 — SD can untie on score while the flag stays true | |
 | High | BOOT-PERF-1 — pre-warm the selected arena during menu idle | Remaining first-load cost wants idle warm of SELECTED arena shaders. Gate on tab-visible. |
 | 🟡 Partial | NET-PERF-1 — reconcile rewind-replay cost | Caps shipped; residual if retest still rubber-bands. |

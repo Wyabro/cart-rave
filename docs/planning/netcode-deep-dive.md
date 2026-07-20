@@ -126,27 +126,24 @@ Wyatt local clean-close feel PASS. Deploy residual to prod if not yet shipped.
 
 ### NET-PRES-1 — Unreliable falls/collisions: loss **and** duplicate fan-out
 
-**Status:** **PARTIAL** (2026-07-16) — falls[] **600 ms per-victim** dedupe before reactors;
-collisions[] **250 ms pair-key** FX dedupe (SFX/juice only). Loss face still open.
+**Status:** **CLOSED (duplicate face)** (2026-07-20) — host stamps `eid` = `f{seq}.{i}` /
+`c{seq}.{i}` on drained tails; clients skip already-seen eids before reactors / FX.
+Legacy hosts without eid keep falls[] **600 ms per-victim** + collisions[] **250 ms pair-key**
+(also covers NH-HIT optimistic vs host echo). **Loss face** (dropped packet → miss shatter/feed;
+score still via `host_round`) remains an unreliable-channel residual — not event-id scope.
 
-**Severity:** Medium (loss) / **Low–Medium** residual FX (duplicates largely gated)  
-**Where:** `p2p.js` DataChannel `{ ordered: false, maxRetransmits: 0 }`;
-`handleRemoteHostState` — **seq only gates** `bufferAuthoritativeState`; tails still run when
-seq rejects; `processHostFallEvent` / `replayHostCollisionFx`
+**Severity (residual):** Low — missing KO VFX on pure drop only  
+**Where:** `presentationDedupe.js` + `hostSendTick` stamp; `processHostFallEvent` /
+`replayHostCollisionFx` seen-sets (cleared on disconnect / host migrate)
 
-**What (two faces of the same hole):**
+**What was fixed:** Late/reordered copies of the same `(seq, i)` tail no longer re-fan kill
+feed / PA / challenges / collision juice when pose buffering rejects seq.
 
-1. **Drop:** score still arrives via reliable `host_round`; client misses shatter/feed — looks
-   like desync.
-2. **Duplicate / late reorder:** tails can re-run when seq rejects the pose buffer. Fall
-   reactors (challenges / match stats / unlock / feed / PA / shatter) early-return within
-   600 ms for the same victim. Collision FX collapse within 250 ms per pair.
+**Player sees (residual):** rare miss of KO shatter/feed if that one snapshot is dropped;
+scores still sync via reliable round messages.
 
-**Player sees (residual):** missing KO VFX on drop; rare collision juice blip if reorder
-straddles the window.
-
-**Fix direction (remaining):** Gate tails on “seq newly accepted,” or stamp `(seq, i)` event
-ids; reliable KO presentation channel if loss still hurts.
+**Not doing now:** reliable KO presentation channel / multi-tick fall echo — reopen only with
+playtest evidence that loss hurts.
 
 ---
 
@@ -215,8 +212,8 @@ Use alongside ROADMAP Phase 4 full-round smoke. Checkboxes for when you run it.
 
 - [ ] Rematch / GO — remotes not frozen or teleported for >1 frame (NET-BUF-1)
 - [ ] Kill on client under lossy network — score always lands; note any missing shatter/feed
-      (NET-PRES-1 drop)
-- [ ] Same kill never double-feeds / double-challenge on client (NET-PRES-1 duplicate)
+- [ ] Same kill never double-feeds / double-challenge on client (NET-PRES-1 duplicate — eid shipped; confirm live)
+- [ ] Missing KO shatter/feed on dropped snapshot only (NET-PRES-1 loss residual)
 
 ### Sudden Death
 
@@ -237,7 +234,7 @@ Use alongside ROADMAP Phase 4 full-round smoke. Checkboxes for when you run it.
 3. **NET-MIG-2** — Never leave live humans with null host (exorcism + color-pick + ensureLiveHost)
 4. **NET-MIG-3** — Freeze / no-remote-collision until first post-epoch host snap (or open DC)
 5. **NET-BUF-1** — Spawn buffer on `tHost`
-6. **NET-PRES-1** — Event-id dedupe for falls/collisions before reactors (loss + duplicate)
+6. **NET-PRES-1** — ✅ eid dedupe for falls/collisions (duplicate face); loss residual accepted
 7. **NET-MIG-1** — Attribution transfer (or explicit product decision)
 8. **NET-CLK-3** — One clock for hits + directives
 9. **NET-SD-1** — SD untie / sole-leader fall

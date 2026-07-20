@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** July 12, 2026
+**Last Updated:** July 20, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,14 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### July 20, 2026 – NET-PRES-1 event-id presentation dedupe
+
+| Work | Summary |
+|------|---------|
+| **NET-PRES-1** | Host stamps `eid` (`f{seq}.{i}` / `c{seq}.{i}`) on drained snapshot tails; non-hosts skip already-seen eids before KO reactors / collision FX. Module: `src/netcode/presentationDedupe.js`. Legacy 600ms victim + 250ms pair-key kept as fallback + NH-HIT echo. Loss-on-drop remains an unreliable-channel residual (score via `host_round`). |
 
 ---
 
