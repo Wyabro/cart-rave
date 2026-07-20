@@ -465,6 +465,21 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   const rb = CONFIG.cart.ramBoost;
   const chargeCfg = rb.boostCharge;
 
+  // * Re-arm charge while boost is held and we are not already charging / in nitro.
+  // * Non-host reconcile replays older nitro:false frames which cancel charge; keydown
+  // * only fires once, so the bar stayed dead until re-press (NH-BOOST retest). Host
+  // * remotes already re-arm via rising-edge drain → triggerRamBoost.
+  if (
+    chargeCfg?.enabled
+    && axis.boostHeld
+    && !cart.isChargingBoost
+    && typeof callbacks?.triggerRamBoost === "function"
+  ) {
+    callbacks.triggerRamBoost(cart, nowMs, {
+      silent: Boolean(callbacks.isReconcileReplay),
+    });
+  }
+
   // * Auto-Charge Boost: while charging, standard nitro is suppressed. The cart still
   // * drives normally (grip/yaw/drift untouched). Three release paths:
   // *   1. Early release > 100ms — proportional burst (tap = small dash, hold = big boom).

@@ -3825,6 +3825,12 @@ async function main() {
    * @param {number} nowMs
    * @param {{ instant?: boolean }} [opts]
    */
+  /**
+   * @param {ReturnType<typeof createCart>} cart
+   * @param {number} nowMs
+   * @param {{ instant?: boolean, silent?: boolean }} [opts]
+   *   silent — skip charge SFX (reconcile replay re-arms without stacking loops).
+   */
   function triggerRamBoost(cart, nowMs, opts = {}) {
     if (!cart?.body) return;
     const rb = CONFIG.cart.ramBoost;
@@ -3844,7 +3850,7 @@ async function main() {
       // * Trail style is only "charged" after release — not while holding charge.
       cart.nitroStreakCharged = false;
       const isLocal = cart === localCartForConnId();
-      if (isLocal) {
+      if (isLocal && !opts.silent) {
         // * Stop any orphaned charge loop before starting a new one (reconcile used to
         // * clear isChargingBoost without stopping SFX — re-press stacked loops).
         if (cart.chargeUpSfxId != null) {
@@ -4793,6 +4799,8 @@ async function main() {
     onLocalRamImpact: triggerLocalRamShake,
     onLocalHitTaken: triggerLocalHitTaken,
     onCartImpactSquash: squashCartsOnImpact,
+    // * Sim re-arms charge while boostHeld after reconcile cancel (NH-BOOST).
+    triggerRamBoost,
     onBoostRelease,
     onBoostCancel,
     onHopLand,

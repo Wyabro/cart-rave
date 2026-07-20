@@ -1017,10 +1017,15 @@ export function applyCartState(cart, snap, options = {}) {
     cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
   }
 
+  const nowBoostMs = performance.now();
   if (snap.b) {
-    // * Continuously extend the timer while the host holds the nitro button.
-    // * This prevents the VFX from cutting out if the host holds it longer than durationSec.
-    cart.ramBoostActiveUntilMs = performance.now() + 150;
+    // * Keep trails alive across 40Hz snaps (and brief drops). Rising edge also latches
+    // * a full charge-boost window so a single true bit isn't a 150ms flash (NH-BOOST).
+    const keepAliveMs = 280;
+    cart.ramBoostActiveUntilMs = Math.max(
+      Number(cart.ramBoostActiveUntilMs) || 0,
+      nowBoostMs + keepAliveMs,
+    );
   }
   // * Rising-edge boost FX for remote carts (non-host clients only reach this path).
   // * Guarded to running phase so migration/hello snapshot replays stay silent, and to
@@ -1028,6 +1033,15 @@ export function applyCartState(cart, snap, options = {}) {
   if (snap.b && !cart._prevRemoteBoosting
     && GameState.getRoundState().phase === "running"
     && cart.slotIndex !== strictSlotIndexForConn(youConnId)) {
+    const rb = CONFIG.cart?.ramBoost;
+    const boostWindowMs = Math.max(
+      400,
+      (Number(rb?.durationSec) || 1.7) * 1.5 * 1000,
+    );
+    cart.ramBoostActiveUntilMs = Math.max(
+      Number(cart.ramBoostActiveUntilMs) || 0,
+      nowBoostMs + boostWindowMs,
+    );
     callbacks.onRemoteBoostStart(cart);
   }
   cart.isRamBoosting = snap.b;

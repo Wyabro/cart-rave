@@ -464,8 +464,9 @@ export function runPhysicsStep(loopState, deps, context) {
               clearReconcileVisOffset(localCart);
             } else {
               const allCarts = deps.getAllCartsRef();
+              const liveSim = deps.getSimulationCallbacks(false);
               const replayCallbacks = {
-                ...deps.getSimulationCallbacks(false),
+                ...liveSim,
                 // * Suppress combo tier + ChallengeTracker side effects — live prediction
                 // * already counted them; replaying unacked inputs must not inflate combo_t2
                 // * / spill challenge progress on every reconcile.
@@ -475,6 +476,10 @@ export function runPhysicsStep(loopState, deps, context) {
                 onLocalRamImpact: null,
                 onLocalHitTaken: null,
                 onCartImpactSquash: null,
+                // * Re-arm charge silently during replay (no stacked chargeUp loops).
+                triggerRamBoost: (cart, nowMs) => {
+                  liveSim.triggerRamBoost?.(cart, nowMs, { silent: true });
+                },
                 // * Must still stop chargeUp loops. Nulling these left isChargingBoost=false
                 // * after replay release/cancel while chargeUp SFX kept looping (NH-BOOST).
                 onBoostRelease: (cart) => { deps.stopChargeSfxForCart?.(cart); },
