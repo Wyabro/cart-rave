@@ -1,9 +1,8 @@
-# Handoff — next agent window (CAM-1 host camera freeze)
+# Handoff — next agent window (CAM-1 retest)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod (still live):** **`index-BxIgTxPx.js`** / sha **`24f49da`**  
-**Local (unpushed):** CAM-1 fix in working tree — host camera no longer follows stale non-host `_displayPos`  
+**Prod:** **`index-0O6jq9wn.js`** / sha **`5fade5b`**  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
@@ -16,45 +15,36 @@
 | Card | Verdict |
 |------|---------|
 | P0–P4 · NH stack · charge SFX · color/pattern · NET-1 · P5 · LS-1 | ✅ |
-| **RC-1 A** AI cautious MP | ✅ **PASS** (Wyatt) |
-| **RC-1 C** READY-SET rematch | ✅ **PASS** (Wyatt) |
-| **RC-1 B** host-reap | ⬜ skipped (repro unclear to Wyatt — optional later) |
-| **CAM-1** host camera stop-follow | ▶️ **ACTIVE** — fix coded, needs ship + retest |
+| RC-1 A AI cautious · RC-1 C READY-SET | ✅ PASS |
+| RC-1 B host-reap | ⬜ optional skip |
+| **CAM-1** host camera freeze | ✅ **shipped** `5fade5b` / `index-0O6jq9wn.js` — ▶️ **retest** |
 
-### CAM-1 root cause (coded, unpushed)
+### CAM-1 fix (in prod)
 
-NH-SMOOTH v3 display pose is **non-host only** in `frameVisuals`, but `main.js` camera still read `_displayReady` while host. After promote (or any stale flag), cart body drives on and camera freezes on the last display sample.  
-**Lever:** host always tracks body; clear `_displayReady` on host promote (`setAuthorityMode`). F8 camera probe now includes `bodyPos` / `displayReady` / `displayPos`.
+Host camera no longer follows stale NH-SMOOTH `_displayPos` (non-host-only display path). Host tracks body; `_displayReady` cleared on promote. F8 camera probe: `bodyPos`, `displayReady`, `displayPos`, `isSdSpectator`.
 
-**Evidence:** cap-112 host `24f49da` (mode=follow, local deaths 3). Only one new upload found (user reported 2 bad + 1 refresh-good).
+Gates at ship: qa typecheck + **1192** tests + knip green. Served-bytes: bundle in index.html; `isSdSpectator` + `bodyPos` present.
 
 ### Do not re-open without new evidence
 
-P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-1 · P5 · LS-1 · RC-1 A · RC-1 C
+P0–P4 · NH stack · NET-1 · P5 · LS-1 · RC-1 A · RC-1 C · CAM-1 code (unless retest FAIL)
 
 ---
 
-## Active card: CAM-1 — ship + retest
+## DO THIS NOW
 
-1. On “ship it”: `npm run qa` → `npm run ship` → verify bundle.  
-2. Two-browser: become non-host first, then host (leave/rejoin or quality rebalance), drive — camera must stick to local cart.  
-3. F8 if fail: new probe shows `bodyPos` vs `camera.position` + `displayReady`.
-
----
-
-## RC-1 B (optional, not blocking)
-
-**What it was:** idle on color picker ~35s as first joiner while a second player seats — room must not go hostless after the 30s pending-picker reap.  
-**Skip OK** unless you want to prove HOST-REAP-1 live.
+1. Hard refresh both browsers → confirm `index-0O6jq9wn.js`.  
+2. Reproduce path: non-host first, then become host (peer leave or rematch rebalance), drive hard.  
+3. **PASS** if camera sticks to local cart. **FAIL** → F8, pull, one lever.
 
 ---
 
 ## Suggested next window paste
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-BxIgTxPx.js`** / `24f49da` until CAM-1 ships.  
-> **Closed:** LS-1 · RC-1 A · RC-1 C. **Active:** **CAM-1** host camera freeze (fix unpushed).  
-> Ship only on “ship it.” Do not `git add -A`.
+> Branch `cart-clash`. Prod **`index-0O6jq9wn.js`** / sha **`5fade5b`**.  
+> **Closed:** LS-1 · RC-1 A/C · CAM-1 **shipped**. **Active:** **CAM-1 retest**.  
+> One card/lever. Ship only on “ship it.” Do not `git add -A`.
 
 ---
 

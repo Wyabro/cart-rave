@@ -50,9 +50,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **554/57** last known at countdown residual ship — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at **`60d773e`** — wire isSessionPlayReady (cap-63) |
-| Prod deploy (2026-07-19 night, hold actually wired) | ✅ Live — **bundle `index-BQhnh1Z_.js`**, sha **`60d773e`** (served: index.html → new bundle; sha + `isSessionPlayReady` present). Cap-63: bridge now forwards ready gate so countdown hold runs. **Joiner F8 retest = open gate.** |
-| Prior deploys (07-17 → 07-19) | ✅ superseded — incl. `index-CRQwILqC.js`/`5a1caee0`/`03218fa`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
+| Origin HEAD | Local ↔ origin/cart-clash at **`5fade5b`** — CAM-1 host camera freeze |
+| Prod deploy (2026-07-20 CAM-1) | ✅ Live — **bundle `index-0O6jq9wn.js`**, sha **`5fade5b`** (served: index.html → new bundle; `isSdSpectator` + `bodyPos` probe fields present). Hard-refresh required. |
+| Prior deploys | ✅ superseded — incl. `index-BxIgTxPx.js`/`24f49da`, earlier 07-19 stacks; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ✅ PASS residual `24f49da` · LS-1 PASS same deploy |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -99,7 +99,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
 - [ ] P6 AI diag probe empty mid-round — tooling only
 - [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** host-reap optional/skip
-- [ ] **CAM-1** host camera follow freeze (stale `_displayPos` after host promote) — fix unpushed
+- [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`** (retest open)
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
 - [x] **LS-1** Living Store two-browser companion — Wyatt **PASS** 2026-07-20 (caps 108–111 / `24f49da`; #3 continuous peer + schedule verified)
 
@@ -120,14 +120,14 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **RC-1 A** | AI cautious-phase MP feel | ✅ **PASS** (Wyatt 2026-07-20) |
 | **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
 | **RC-1 B** | Host-reap #6 | ⬜ optional (repro awkward; skip unless named) |
-| **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ▶️ **ACTIVE** — fix **unpushed** |
+| **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ shipped **`5fade5b`** / **`index-0O6jq9wn.js`** — ▶️ retest |
 | P6 | AI diag probe empty mid-round | tooling only |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **CAM-1** — ship host-camera fix on “ship it”, then two-browser retest (especially after host promote).
+1. **CAM-1 retest** — hard refresh both tabs to `index-0O6jq9wn.js`; non-host then promote to host (or quality rebalance); camera must stick. F8 if fail (`camera.bodyPos` vs `camera.position`).
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
