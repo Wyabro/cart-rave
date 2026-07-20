@@ -113,13 +113,21 @@ export function claimStage(req) {
 }
 
 /**
- * Clears occupancy and the queue without calling hide() — for HUD teardown or
- * round transitions where the DOM is being rebuilt anyway.
+ * Clears occupancy and the queue. Calls the current occupant's hide() so DOM
+ * (toast / callout) is not left painted — menu return skips the game loop, so
+ * timeouts alone are not a reliable cleanup path.
  */
 export function resetStage() {
   if (_drainTimer) {
     clearTimeout(_drainTimer);
     _drainTimer = null;
+  }
+  if (_occupant?.hide) {
+    try {
+      _occupant.hide();
+    } catch {
+      /* presenter/DOM may already be torn down */
+    }
   }
   _occupant = null;
   _pending = [];

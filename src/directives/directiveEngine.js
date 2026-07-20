@@ -179,6 +179,15 @@ export function clearDirectiveOnHostMigration() {
   }
 }
 
+/**
+ * Drop any active mutator without schedule rewinds — menu return / session teardown.
+ * updateDirectiveEngine only restores on non-running while the game loop is ticking;
+ * menu frames skip the loop, so Flash Sale etc. would stick in CONFIG until next play.
+ */
+export function clearActiveDirective() {
+  if (active) restoreActive();
+}
+
 /** Weighted random pick from DIRECTIVES, avoiding a back-to-back repeat. */
 function pickDirective() {
   const defs = Object.values(DIRECTIVES).filter(

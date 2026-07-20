@@ -1,58 +1,52 @@
-# Handoff — next agent window (CAM-1 retest)
+# Handoff — next agent window (HUD-MENU-1 ready to ship)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-0O6jq9wn.js`** / sha **`5fade5b`**  
-**Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
-
-**Ship only on Wyatt “ship it.”** Do not `git add -A`.  
-**One card / one lever at a time.**
+**Prod:** **`index-0O6jq9wn.js`** / **`5fade5b`** (CAM-1 PASS)  
+**Local (unpushed):** HUD-MENU-1 full menu-HUD audit  
+**Ship only on Wyatt “ship it.”** Do not `git add -A`.
 
 ---
 
-## Where we landed
+## CAM-1
 
-| Card | Verdict |
-|------|---------|
-| P0–P4 · NH stack · charge SFX · color/pattern · NET-1 · P5 · LS-1 | ✅ |
-| RC-1 A AI cautious · RC-1 C READY-SET | ✅ PASS |
-| RC-1 B host-reap | ⬜ optional skip |
-| **CAM-1** host camera freeze | ✅ **shipped** `5fade5b` / `index-0O6jq9wn.js` — ▶️ **retest** |
+✅ **PASS** on prod.
 
-### CAM-1 fix (in prod)
+## HUD-MENU-1 — why leftovers happen
 
-Host camera no longer follows stale NH-SMOOTH `_displayPos` (non-host-only display path). Host tracks body; `_displayReady` cleared on promote. F8 camera probe: `bodyPos`, `displayReady`, `displayPos`, `isSdSpectator`.
+Two paint paths stop on menu:
 
-Gates at ship: qa typecheck + **1192** tests + knip green. Served-bytes: bundle in index.html; `isSdSpectator` + `bodyPos` present.
+1. `HUD.update()` early-returns when `menuVisible`  
+2. Game loop `shouldSkipTiming` → no `frameVisuals` / `setHudDirective` / hit-vignette tick  
 
-### Do not re-open without new evidence
+Anything mid-window/mid-animation must be cleared in `hideGameplayElements()` (+ `initMenu` extras).
 
-P0–P4 · NH stack · NET-1 · P5 · LS-1 · RC-1 A · RC-1 C · CAM-1 code (unless retest FAIL)
+### Audit (after splash + directive repros)
+
+| Element | Sticky risk | Cleared now |
+|---------|-------------|-------------|
+| timer / scores / ready / status | was OK | yes |
+| combo / boost / conn / feed | was OK | yes (+ feed anim cancel) |
+| edge danger / hit flash | was OK | yes (full zero) |
+| **arena splash** | high (reported) | yes |
+| **directive chip** | high (reported) | yes |
+| **score floats** | med (mid-KO leave) | yes — remove DOM |
+| **hitmarker** | med | yes — drop `.hit` |
+| **challenge toast** | med | yes — + `resetStage()` calls hide |
+| status residue (SD/MP/GO classes) | low | yes |
+| score-chip pip/crown/dizzy | low (parent hidden) | yes |
+| **PA callout** | med | `stopAnnouncer()` in initMenu |
+| **directive CONFIG mutators** | med | `clearActiveDirective()` in initMenu |
 
 ---
 
 ## DO THIS NOW
 
-1. Hard refresh both browsers → confirm `index-0O6jq9wn.js`.  
-2. Reproduce path: non-host first, then become host (peer leave or rematch rebalance), drive hard.  
-3. **PASS** if camera sticks to local cart. **FAIL** → F8, pull, one lever.
+On “ship it”: `npm run qa` → commit HUD-MENU-1 files → `npm run ship` → hard refresh → multi-quickplay leave mid-countdown / mid-directive / mid-KO → clean menu.
 
 ---
 
-## Suggested next window paste
+## Suggested paste
 
-> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-0O6jq9wn.js`** / sha **`5fade5b`**.  
-> **Closed:** LS-1 · RC-1 A/C · CAM-1 **shipped**. **Active:** **CAM-1 retest**.  
-> One card/lever. Ship only on “ship it.” Do not `git add -A`.
-
----
-
-## Commands
-
-```bash
-npm run dashboard
-npm run captures:pull
-npm run qa
-npm run ship   # only on "ship it"
-```
+> Branch `cart-clash`. Prod until ship: `index-0O6jq9wn.js` / `5fade5b`.  
+> **Closed:** CAM-1 PASS. **Active:** HUD-MENU-1 unpushed (full menu HUD clear). Ship only on “ship it.”

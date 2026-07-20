@@ -2199,14 +2199,56 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   scheduleKillFeedExit(row);
 }
 
+/**
+ * Full gameplay-HUD teardown for menu / podium / testdrive.
+ *
+ * Two independent paint paths exist:
+ *   1. HUD.update() — early-returns while menuVisible
+ *   2. frameVisuals (setHudDirective, tickHitDirection, edge danger) — skipped
+ *      when the game loop shouldSkipTiming on menu
+ *
+ * Anything that can be mid-animation or mid-window when the player returns to
+ * the title screen MUST be cleared here. Audit 2026-07-20 after arena splash +
+ * directive chip stuck on multi-quickplay → menu.
+ */
 export function hideGameplayElements() {
   setHudDisplay(elements.timer, "none", "timer");
   setHudDisplay(elements.scores, "none", "scores");
-  if (elements.readyBtn) elements.readyBtn.style.display = "none";
+  if (elements.readyBtn) {
+    elements.readyBtn.style.display = "none";
+    elements.readyBtn.classList.remove("is-ready");
+  }
   setHudDisplay(elements.status, "none", "status");
-  // * Widgets below are painted only by HUD.update(), which early-returns while
-  // * the menu (or podium) is up — whatever state they froze in would persist
-  // * over the menu unless explicitly cleared here.
+  if (elements.status) {
+    elements.status.textContent = "";
+    elements.status.classList.remove("hud-status--mp", "is-celebration");
+    elements.status.style.animation = "";
+  }
+  if (elements.root) {
+    elements.root.classList.remove("hud-sudden-death");
+  }
+  if (elements.timer) {
+    elements.timer.classList.remove("hud-timer-urgent", "hud-timer-warn");
+  }
+  // * Countdown aisle plate — only toggled in updateStatus (path 1).
+  setArenaSplashVisible(false);
+  // * Living Store directive chip — only driven from frameVisuals (path 2).
+  setHudDirective(null, 0);
+  // * Center Stage: toast + any staged event; hide() runs so opacity class drops.
+  resetStage();
+  if (_toastTimeoutId) {
+    clearTimeout(_toastTimeoutId);
+    _toastTimeoutId = null;
+  }
+  elements.toast?.classList.remove("active");
+  // * Momentary KO FX that self-time via CSS/WAAPI — kill immediately on menu.
+  elements.hitmarker?.classList.remove("hit");
+  if (elements.root) {
+    for (const el of elements.root.querySelectorAll(".hud-score-float")) {
+      if (el instanceof HTMLElement) cancelElementAnimations(el);
+      el.remove();
+    }
+  }
   if (elements.comboBadge) {
     elements.comboBadge.classList.remove("active", "tier-1", "tier-2", "tier-3");
     _prevComboTier = 0;
@@ -2215,11 +2257,37 @@ export function hideGameplayElements() {
   if (elements.conn) elements.conn.style.display = "none";
   if (elements.feed) {
     elements.feed.style.display = "none";
-    while (elements.feed.firstChild) elements.feed.removeChild(elements.feed.firstChild);
+    while (elements.feed.firstChild) {
+      const child = elements.feed.firstChild;
+      if (child instanceof HTMLElement) {
+        cancelKillFeedExitTimer(child);
+        cancelElementAnimations(child);
+      }
+      elements.feed.removeChild(child);
+    }
+  }
+  // * Score-chip KO doodads (hidden with scores, but stop dangling timers).
+  if (elements.scoreBoxes) {
+    for (const entry of elements.scoreBoxes) {
+      if (entry.dizzyTimeoutId) {
+        clearTimeout(entry.dizzyTimeoutId);
+        entry.dizzyTimeoutId = null;
+      }
+      if (entry.dizzy) entry.dizzy.style.display = "none";
+      if (entry.pip) entry.pip.style.display = "none";
+      if (entry.crown) entry.crown.style.display = "none";
+    }
   }
   _hitFlash.untilMs = 0;
   _hitFlash.intensity = 0;
+  _hitFlash.top = 0;
+  _hitFlash.right = 0;
+  _hitFlash.bottom = 0;
+  _hitFlash.left = 0;
   setEdgeDanger(0);
+  _lastBannerKey = null;
+  _lastCountdownN = null;
+  _goUntilMs = 0;
 }
 
 export function showGameplayElements() {

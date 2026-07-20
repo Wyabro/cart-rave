@@ -118,7 +118,7 @@ import { resolveLevelMusic } from "./music/levelMusic.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
-import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy } from "./directives/directiveEngine.js";
+import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
@@ -1685,9 +1685,14 @@ async function main() {
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
     if (hudAudio) HUD.hideAudioWidget();
-    // * Single canonical gameplay-HUD hide (timer/scores/ready/status/feed plus
-    // * combo badge, boost meter, and reconnect pill — internals main.js can't reach).
+    // * Single canonical gameplay-HUD hide (timer/scores/status/feed/splash/
+    // * directive/toast/hitmarker/floats/… — full audit in hideGameplayElements).
+    // * Menu skips the game loop so frameVisuals + HUD.update never self-clear.
     HUD.hideGameplayElements();
+    clearActiveDirective();
+    // * Lobby-phase store watch usually stopAnnouncer on LOBBY; belt-and-suspenders
+    // * so a mid-callout return does not leave the PA plate over the title.
+    stopAnnouncer();
     // Stop game music before menu music starts.
     try { AudioManager.stopGameMusic(); } catch (e) {}
     preparedLevelMusicId = null;

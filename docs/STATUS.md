@@ -99,7 +99,8 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
 - [ ] P6 AI diag probe empty mid-round — tooling only
 - [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** host-reap optional/skip
-- [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`** (retest open)
+- [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`**, Wyatt **PASS**
+- [ ] **HUD-MENU-1** menu leftover HUD (full hideGameplay audit) — fix **unpushed**
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
 - [x] **LS-1** Living Store two-browser companion — Wyatt **PASS** 2026-07-20 (caps 108–111 / `24f49da`; #3 continuous peer + schedule verified)
 
@@ -120,14 +121,15 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **RC-1 A** | AI cautious-phase MP feel | ✅ **PASS** (Wyatt 2026-07-20) |
 | **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
 | **RC-1 B** | Host-reap #6 | ⬜ optional (repro awkward; skip unless named) |
-| **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ shipped **`5fade5b`** / **`index-0O6jq9wn.js`** — ▶️ retest |
+| **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
+| **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ▶️ **ACTIVE** — full audit fix **unpushed** |
 | P6 | AI diag probe empty mid-round | tooling only |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **CAM-1 retest** — hard refresh both tabs to `index-0O6jq9wn.js`; non-host then promote to host (or quality rebalance); camera must stick. F8 if fail (`camera.bodyPos` vs `camera.position`).
+1. **HUD-MENU-1** — ship on “ship it” (qa → commit → deploy).
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
