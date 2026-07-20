@@ -34,16 +34,33 @@ P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HI
 
 ## Active card: RC-1 — behavior-changing MP validation
 
-**Mode:** validation-first (code already shipped; prove live).  
-**Prod:** `index-BxIgTxPx.js` / `24f49da`
+**Mode:** validation-first (code already in prod via older RC stack + READY-SET).  
+**Prod:** `index-BxIgTxPx.js` / `24f49da`  
+**Solo already accepted** for AI #1 / personality / RESTART (2026-07-19). This card is **MP-only** gaps.
 
-Three remaining “done when” MP eyes-on items (pick one per sit if any fails):
+### A — AI cautious-phase #1 (MP bot feel) ~5 min
 
-1. **AI cautious-phase #1** — bots don’t look broken / stuck cautious in MP  
-2. **Host-reap #6** — ghost/host reap path doesn’t leave a dead room  
-3. **READY-SET** — rematch / auto-ready doesn’t stall (D-READY-1 already in code)
+1. Two browsers, quickplay, both visible, hard refresh to `index-BxIgTxPx.js`.  
+2. Play ~60s of a round with 2 NPCs.  
+3. **PASS if:** bots chase rim/edge humans after the first ~8s (not mid-disc huddle forever); aggressor badge bots actually press; host + non-host both see bots moving/KO’ing (host runs AI).  
+4. **FAIL if:** bots look glued mid-arena the whole round, or never contest a rim camper.
 
-**One FAIL → one lever; no batch.**
+### B — Host-reap #6 (HOST-REAP-1) ~2 min + 30s wait
+
+1. Browser A opens room, **stays on color picker ~35s without seating** (first joiner = host, unseated).  
+2. Browser B joins, **does** pick color / seat.  
+3. After ~30s picker reap: room must **not** freeze forever.  
+4. **PASS if:** B can play (physics moves) — host repaired to a live seated conn (or promote works).  
+5. **FAIL if:** B seated but cart frozen / no host / no physics until a third person joins.
+
+### C — READY-SET rematch ~3 min
+
+1. Two humans finish a quickplay round → podium → play again.  
+2. Optionally: one tab hard-refresh mid-lobby rematch.  
+3. **PASS if:** countdown arms without a 30–60s stall; both re-ready cleanly.  
+4. **FAIL if:** lobby stuck unready / silent until someone toggles READY by hand.
+
+**One FAIL → one lever; no batch.** Order A → C → B is fine (B is the awkward repro).
 
 ### F8
 If something breaks: F8 both host + non-host, confirm upload, `npm run captures:pull`.
@@ -52,8 +69,8 @@ If something breaks: F8 both host + non-host, confirm upload, `npm run captures:
 
 ## DO THIS NOW
 
-1. Run RC-1 smoke on the three bullets (or Wyatt names which first).  
-2. Report pass/fail; code only if named fail.
+1. Run RC-1 A (MP bots) then C (rematch); B if time.  
+2. Report pass/fail per letter; code only if named fail.
 
 ---
 
