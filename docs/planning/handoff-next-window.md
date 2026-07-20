@@ -1,41 +1,41 @@
-# Handoff — next agent window (NET-1 active)
+# Handoff — NET-1 Match A decoded · Match B next
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-DWDp_cX_.js`** / sha **`80ecbf6`**  
-**Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
-
-**Active card: NET-1** (two-human full-round smoke — the V2 gate).  
-**Do not** re-open NH-HIT residual / closed cards without Wyatt naming them.  
-**Ship only on “ship it.”** No `git add -A`.
+**Prod:** **`index-DWDp_cX_.js`** / **`80ecbf6`**  
+**Active:** NET-1 · **Match B next** (no code until B decoded)
 
 ---
 
-## Checklist
+## Match A (4090 host / Intel joiner) — decoded
 
-Full: [playtest/multiplayer-smoke.md](../playtest/multiplayer-smoke.md)  
-Companions (same sitting if energy): living-store · host-migration.
+| Cap | Role | Notes |
+|-----|------|--------|
+| 95 | 4090 host mid | send clean |
+| 96 | 4090 host podium | classic |
+| 97–100 | Intel joiner continuum + 99 host pair | multi-rematch session |
 
-### §A core loop first (2 clients, prod)
+**Host:** felt great; send o100≈0–1; over33 low.  
+**Joiner:** playable not great (known residual — parked).  
+**Countdown:** first-round abort visible on host (countdown→lobby→countdown); later rounds better/in sync.  
+**S1 anomaly:** rematch → running → joiner fall **~1.5s after GO** (`TOOK A SHORTCUT`, cap-100 t≈366482, slot 1). Countdown had **snap_gap 4148ms** immediately before GO. Scores/teleports: cap-98 errMax 27.7m / tele 1 early that round.  
+**Stray:** Storerooms bots furniture stick — AI taste, not NET-1 wire.
 
-Both windows **visible**. Hard-refresh. Prefer **4090 creates room** (HOST-ROLE-1 already green; still better host).
+**Not** HOST-ROLE-1 (strong hosted). **Not** NET-PERF-2 reopen. Strong host clean → not NET-PERF-1 primary.
 
-1. Friends: share `?room=` · both carts/colors  
-2. Ready → countdown simultaneous  
-3. Non-host drive/boost/hop feel  
-4. Rams 10+ · scores/kill feed agree  
-5. Full 150s → same podium  
-6. Rematch ×3 + arena rotation  
-7. SD if you can force a tie  
-
-Fail → F8 both · `npm run captures:pull` · one fix only.
-
-Pass criteria (gate close): zero wedges, feel parity, scores agree, silent consoles + companions green — otherwise file S1/S2 and keep gate open.
+**A-4 Wyatt:** shippable but wouldn't feel great. Gate still open (Match B + S1).
 
 ---
 
-## Suggested paste
+## DO THIS NOW
 
-> NET-1 active. Prod `index-DWDp_cX_.js` / `80ecbf6`.  
-> Read `docs/playtest/multiplayer-smoke.md` §A. Dual clients visible.  
-> Pass/fail + notes; F8 both on fail.
+1. **Match B** — Intel creates room, 4090 joins. Same §A core loop. F8 both.  
+2. Only after B: pick **one** card (likely rematch spawn S1 if B reproduces / independent).
+
+---
+
+## Do not
+
+- Fix batch before Match B  
+- Re-open NET-PERF-2 / NH-HIT residual / closed cards  
+- Multi-lever dump  

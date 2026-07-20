@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 active:** two real humans on prod `index-DWDp_cX_.js` / `80ecbf6`. Checklist: [playtest/multiplayer-smoke.md](./playtest/multiplayer-smoke.md). Start §A core loop; F8 both on any fail.
+1. **NET-1 Match A decoded** (4090 host / Intel joiner, `80ecbf6`, caps 95–100). Soft-pass feel; **S1:** rematch non-host spawn-off-edge (cap-100 fall ~1.5s after GO). **Next human step: Match B** (Intel hosts) before any code.
 2. Cap-47 LT / NH-HIT residual parked.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NET-1 active) — Wyatt chose NET-1 now. Prod `index-DWDp_cX_.js` / `80ecbf6`. Human full multiplayer smoke — [multiplayer-smoke.md](./playtest/multiplayer-smoke.md).
+2026-07-20 (NET-1 Match A decode) — Caps **95–100** / `80ecbf6`. 4090 host felt great; Intel joiner playable-not-great. Countdown abort once then OK. **Anomaly:** rematch round 3 classic — joiner SELF CHECKOUT/TOOK A SHORTCUT ~1.5s after GO (cap-100 t≈366482; prior snap_gap 4148ms in countdown). Host send clean. Match B not run. **No code until Match B** (console rule). One S1 candidate: rematch spawn pose.
+
+2026-07-20 (NET-1 active) — Wyatt chose NET-1. Prod `index-DWDp_cX_.js` / `80ecbf6`.
 
 2026-07-20 (NH-HIT residual parked) — Wyatt not 100% on non-host hit feel; move on. No more NH-HIT levers unless named.
 
