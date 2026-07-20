@@ -1119,7 +1119,15 @@ export class CartRaveServer extends Server {
         const slot = this.#slots?.find((s) => s.connId === connection.id);
         if (!slot || slot.kind !== "human") return;
 
-        slot.isReady = !slot.isReady;
+        // * Additive protocol: `ready: boolean` = idempotent SET (quickplay/solo
+        // * auto-ready reconcile), absent = legacy toggle (friends READY button).
+        // * Toggle semantics race server-side auto-ready: a SET-less auto-ready sent
+        // * while playAgain's ready-all was in flight flipped the sender back to
+        // * unready and stalled the quickplay rematch lobby (07-20). A no-op SET
+        // * must return before the broadcast/cancel path below — it changed nothing.
+        const desired = typeof data?.ready === "boolean" ? data.ready : !slot.isReady;
+        if (desired === slot.isReady) return;
+        slot.isReady = desired;
 
         // Reconcile orphan human slots before checking ready state.
         // On hard refresh, the old connection may not have been cleaned up

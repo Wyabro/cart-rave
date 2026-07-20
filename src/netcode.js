@@ -2127,7 +2127,29 @@ export function initNetcode(roomOverride) {
     return;
   }
 
-  let didAutoReadyOnOpen = false;
+  // * Quickplay/solo ready reconcile (replaces the old one-shot auto-ready). A
+  // * mid-session reconnect re-seats this client isReady=false AFTER the server's
+  // * playAgain auto-ready pass, and these modes have no manual READY button — the
+  // * room's #checkAllReady then waits forever (07-20 mpIntegration 48s lobby stall).
+  // * Re-run from every hello/slots/round while in lobby so readiness converges.
+  // * MUST send the idempotent SET form (`ready: true`), never a bare toggle: a
+  // * toggle crossing playAgain's server-side ready-all flips the sender back to
+  // * unready and re-creates the stall deterministically (07-20 v1 regression).
+  let lastAutoReadySendAtMs = 0;
+  const maybeAutoReadyLobby = () => {
+    const mode = callbacks.detectGameMode();
+    if (mode !== "quickplay" && mode !== "solo") return;
+    if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
+    if (GameState.getRoundState().phase !== "lobby") return;
+    const mySlot = Array.isArray(netSlots)
+      ? netSlots.find((s) => s && s.connId === youConnId)
+      : null;
+    if (!mySlot || mySlot.kind !== "human" || mySlot.isReady) return;
+    const now = getMonotonicNow();
+    if (now - lastAutoReadySendAtMs < 1200) return;
+    lastAutoReadySendAtMs = now;
+    partySocket.send(JSON.stringify({ type: MSG.readyToggle, ready: true }));
+  };
 
   let resolvedRoom = resolvedPartyRoomFromUrl();
   if (roomOverride != null && String(roomOverride).trim() !== "") {
@@ -2352,18 +2374,7 @@ export function initNetcode(roomOverride) {
         callbacks.updateHudColorsFromSlots(msg.slots);
         callbacks.scheduleNameLabelUpdate();
 
-        if (!didAutoReadyOnOpen && (modeAtConnect === "quickplay" || modeAtConnect === "solo")) {
-          didAutoReadyOnOpen = true;
-          setTimeout(() => {
-            if (
-              partySocket &&
-              partySocket.readyState === WebSocket.OPEN &&
-              (callbacks.detectGameMode() === "quickplay" || callbacks.detectGameMode() === "solo")
-            ) {
-              partySocket.send(JSON.stringify({ type: MSG.readyToggle }));
-            }
-          }, 400);
-        }
+        setTimeout(maybeAutoReadyLobby, 400);
       };
 
       /** @type {unknown} */
@@ -2500,6 +2511,7 @@ export function initNetcode(roomOverride) {
         }
         callbacks.scheduleNameLabelUpdate();
         callbacks.respawnLocalMidRoundJoinRef();
+        maybeAutoReadyLobby();
       }
       return;
     }
@@ -2598,6 +2610,7 @@ export function initNetcode(roomOverride) {
         }
         if (r.scores && typeof r.scores === "object") GameState.setRoundScores(r.scores);
         if (typeof r.isSuddenDeath === "boolean") GameState.setSuddenDeath(r.isSuddenDeath);
+        maybeAutoReadyLobby();
       }
       return;
     }
@@ -2609,6 +2622,7 @@ export function initNetcode(roomOverride) {
         GameState.setRoundCountdownStartedAtMs(0);
         GameState.setRoundStartedAtMs(0);
       }
+      maybeAutoReadyLobby();
       return;
     }
 
