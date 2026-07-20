@@ -119,8 +119,9 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 S1 retest** on `index-C-kQeNwM.js` / `2a6d9ae`: quickplay rematch ×3 both clients — no spawn-off-edge at GO. F8 if fail.
-2. Cap-47 LT / NH-HIT residual parked.
+1. **Charge SFX orphan fix coded unpushed** — stopAllSfx("chargeUp") + stop before rematchResetWorld; onBoostCancel no longer gates on localCart identity. **Ship on “ship it.”**
+2. **Color/pattern MP glitch** (caps 104–105) — separate card; not in this fix.
+3. S1 rematch edge death: no early fall on cap-106 rematch (spawn fix looks good); snap_gap ~4.9s still expected during arena warm.
 
 ## Open issues (top)
 
@@ -200,7 +201,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (SHIPPED — NET-1 S1 rematch spawn) — **`2a6d9ae` / `index-C-kQeNwM.js`**. Served sha verified. Skip pre-rotation host_spawn; non-host reapply after arena swap. **Retest open:** rematch ×3 no edge death.
+2026-07-20 (charge SFX orphan coded — **unpushed**) — Cap-104–107 retest notes: no edge death after rematch (S1 better); stuck chargeUp loop. Root: rematchResetWorld nulls chargeUpSfxId without Howler stop + onBoostCancel gated isLocal. Fix: stopAllSfx + stop before rematch seat. Color/pattern wrong-then-right separate. qa **1190**.
+
+2026-07-20 (SHIPPED — NET-1 S1 rematch spawn) — **`2a6d9ae` / `index-C-kQeNwM.js`**. Served sha verified. Retest: edge death not seen; charge SFX stuck reported.
 
 2026-07-20 (NET-1 S1 rematch spawn coded) — Root: pre-rotation host_spawn + mid-swap wipe.
 

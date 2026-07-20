@@ -903,6 +903,22 @@ export function stopSfx(key, id) {
 }
 
 /**
+ * Stop every playing instance of a registered SFX key (Howler stop-all for that Howl).
+ * Use when a loop id may have been orphaned (e.g. rematchResetWorld nulls chargeUpSfxId
+ * without stopping the Howler instance).
+ * @param {string} key Registry key
+ */
+export function stopAllSfx(key) {
+  const sound = sfxRegistry[key];
+  if (!sound) return;
+  try {
+    sound.stop();
+  } catch {
+    // Sound may have already ended or been unloaded.
+  }
+}
+
+/**
  * Fade a specific playing instance to silence, then stop it. Preferred over stopSfx
  * for interrupting announcer voice lines — a hard cut on a reverby take clicks.
  * @param {string} key Registry key

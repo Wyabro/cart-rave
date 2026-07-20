@@ -2804,6 +2804,8 @@ async function main() {
       // * otherwise the first post-rotation frame stalls on shader compiles mid-MP.
       await warmupActiveSceneShaders({ forPlay: true });
       Entities.refreshCartSpawnPositions();
+      // * Stop charge loops BEFORE rematchResetWorld nulls chargeUpSfxId (orphans Howler).
+      stopAllChargeSfx();
       if (Netcode.getIsHost()) {
         Entities.rematchResetWorld();
       } else {
@@ -3430,6 +3432,10 @@ async function main() {
    */
   function stopAllChargeSfx() {
     for (const cart of allCartsRef || []) stopChargeSfxForCart(cart);
+    // * Nuclear: rematchResetWorld / resetCartTransientState null chargeUpSfxId without
+    // * stopping Howler — any missed stop path leaves chargeUp looping forever (NET-1
+    // * rematch + mid-round cancel when localCart identity is briefly wrong).
+    AudioManager.stopAllSfx?.("chargeUp");
   }
 
   function scheduleRespawn(cart, now) {
@@ -3927,9 +3933,10 @@ async function main() {
    * @param {ReturnType<typeof createCart>} cart
    */
   function onBoostCancel(cart) {
-    const isLocal = cart === localCartForConnId();
-    if (!isLocal) return;
-    if (cart.chargeUpSfxId != null) {
+    // * Always stop by id when present — only the local cart ever sets chargeUpSfxId.
+    // * Gating on localCartForConnId() first left orphan loops when identity briefly
+    // * mismatched after respawn/rebuild (charge cancelled, SFX kept looping).
+    if (cart?.chargeUpSfxId != null) {
       AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
       cart.chargeUpSfxId = null;
     }
@@ -4653,6 +4660,7 @@ async function main() {
     clearPodiumPresentation();
     GameState.setRoundEndReason(null);
     Netcode.resetClientPredictionState();
+    stopAllChargeSfx();
     // * NET-1 S1 (caps 98–102): quickplay rematch used to rematchResetWorld() HERE
     // * (old arena ring) then rotate async and rematchResetWorld again. Non-hosts got a
     // * wrong host_spawn, a multi-second snap gap during the swap, and sometimes sat
