@@ -96,9 +96,11 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-SMOOTH** non-host driven cart glides — v4 partial (visual better); residual parked
 - [x] **NH-HIT lever 3** host-quality lobby rebalance — **PASS** on `80ecbf6` / `index-DWDp_cX_.js` (HOST-ROLE-1)
 - [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
-- [ ] P5/P6 taste — later
+- [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
+- [ ] P6 AI diag probe empty mid-round — tooling only
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6, READY-SET)
-- [ ] NET-1 two-human full-round smoke green (the V2 gate) — **near last**, after churn stops
+- [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
+- [ ] Living Store two-browser companion checklist — **next card**
 
 ### Active queue (strict — one at a time)
 
@@ -111,15 +113,16 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
 | **NH-SMOOTH** | **Non-host driven-cart glide** | ✅ **partial** v4 (visual better) — residual parked |
 | **NH-HIT** | **Non-host hit delay (ram FX late)** | lever 3 **PASS**; residual **parked** (not 100% — no more levers unless named) |
-| **NET-1** | **Two-human full-round smoke** | ▶️ **active** — Wyatt chose now; core loop on prod first |
-| P5 | Solo bot/rim death feel | after NET-1 or named |
+| **NET-1** | **Two-human full-round + residual** | ✅ core soft-pass · residual **PASS** `24f49da` |
+| **P5** | Solo bot/rim death feel | ✅ **PASS** (Wyatt 2026-07-20) |
+| **LS-1** | **Living Store two-browser companion smoke** | ▶️ **NEXT** — [living-store-test-plan.md](./planning/living-store-test-plan.md) |
 | P6 | AI diag probe empty mid-round | tooling only |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **Pick next card** (Wyatt): P5 · Living Store companion smoke · or named. **NET-1 residual closed** (leave · migrate · mid-join score). Core A+B soft-pass earlier.
+1. **LS-1 Living Store two-browser smoke** (next Grok window) — validation-first against [living-store-test-plan.md](./planning/living-store-test-plan.md). Prod `index-BxIgTxPx.js` / `24f49da`. One fail → one lever.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -199,6 +202,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-20 (handoff → LS-1 Living Store) — P5 **PASS** (Wyatt). NET-1 residual closed. Next window: Living Store two-browser companion smoke. Prod `index-BxIgTxPx.js` / `24f49da`.
+
+2026-07-20 (PASS P5) — Wyatt **pass** solo bot/rim death feel. Card closed (no code).
 
 2026-07-20 (PASS NET-1 residual) — Wyatt **pass** mid-join score zero on `index-BxIgTxPx.js` / `24f49da`. Leave + migrate already PASS. **NET-1 residual closed.**
 
