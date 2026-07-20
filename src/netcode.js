@@ -329,6 +329,23 @@ function registerCallbacks(cb) {
 }
 
 /**
+ * Cap-59 / cap-61: non-host must not enter local countdown phase until
+ * carts + play-shader warm (isSessionPlayReady). Clocks/scores still apply;
+ * deferred game_start or a later host_round flips phase once ready.
+ * @param {unknown} newPhase
+ * @param {boolean} clientIsHost
+ * @returns {boolean}
+ */
+function shouldHoldNonHostCountdownPhase(newPhase, clientIsHost) {
+  return (
+    !clientIsHost
+    && newPhase === "countdown"
+    && typeof callbacks.isSessionPlayReady === "function"
+    && !callbacks.isSessionPlayReady()
+  );
+}
+
+/**
  * Binds main-game hooks into netcode message handlers (slots, collisions, color pick, podium, etc.).
  * Call once during bootstrap before initNetcode(); deps supply live refs to main.js state.
  * @param {object} deps
@@ -2139,7 +2156,14 @@ export function initNetcode(roomOverride) {
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
       if (msg.round && typeof msg.round === "object") {
         const state = GameState.getRoundState();
-        GameState.setRoundPhase(msg.round.phase ?? state.phase);
+        // * Cap-61: hello used to stamp countdown before carts-ready (hold only lived
+        // * on MSG.round). isHost is not updated until setAuthorityMode below — use
+        // * the same hostId/youConnId pair we just adopted.
+        const helloIsHost = Boolean(hostId && youConnId && hostId === youConnId);
+        const helloPhase = msg.round.phase ?? state.phase;
+        if (!shouldHoldNonHostCountdownPhase(helloPhase, helloIsHost)) {
+          GameState.setRoundPhase(helloPhase);
+        }
         GameState.setRoundStartedAtMs(msg.round.startedAtMs ?? state.startedAtMs);
         GameState.setRoundCountdownStartedAtMs(msg.round.countdownStartedAtMs ?? state.countdownStartedAtMs);
         GameState.setRoundWinnerSlotIndex(msg.round.winnerSlotIndex ?? state.winnerSlotIndex);
@@ -2419,12 +2443,8 @@ export function initNetcode(roomOverride) {
         // * mid-shader and the HUD/announcer ran behind a multi-10s longframe.
         // * Adopt clocks/scores so the deferred game_start apply stays in sync, but
         // * keep local phase off countdown until isSessionPlayReady (carts-ready).
-        const holdCountdownPhase =
-          !isHost
-          && newPhase === "countdown"
-          && typeof callbacks.isSessionPlayReady === "function"
-          && !callbacks.isSessionPlayReady();
-        if (!holdCountdownPhase) {
+        // * Cap-61: same gate on MSG.hello (see shouldHoldNonHostCountdownPhase).
+        if (!shouldHoldNonHostCountdownPhase(newPhase, isHost)) {
           GameState.setRoundPhase(r.phase ?? state.phase);
         }
         GameState.setRoundStartedAtMs(r.startedAtMs ?? state.startedAtMs);
@@ -2834,6 +2854,12 @@ export const __netcodeTestHooks = {
     if (h !== undefined) isHost = h;
     if (y !== undefined) youConnId = y;
     if (s !== undefined) netSlots = s;
+  },
+  /** Cap-61 unit seam: countdown hold predicate (hello + MSG.round). */
+  shouldHoldNonHostCountdownPhase: (newPhase, clientIsHost) =>
+    shouldHoldNonHostCountdownPhase(newPhase, clientIsHost),
+  setIsSessionPlayReadyForTest: (fn) => {
+    registerCallbacks({ isSessionPlayReady: typeof fn === "function" ? fn : () => true });
   },
   ensureHostPeerConnections: () => ensureHostPeerConnections(),
   maintainHostPeerConnections: () => maintainHostPeerConnections(),

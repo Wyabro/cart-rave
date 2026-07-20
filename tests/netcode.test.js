@@ -188,6 +188,30 @@ describe("rewind and replay input buffering", () => {
   });
 });
 
+describe("non-host countdown hold (cap-59/61)", () => {
+  beforeEach(() => {
+    hooks.resetNetState();
+    hooks.setIsSessionPlayReadyForTest(() => true);
+  });
+
+  it("holds countdown for non-host when session play is not ready", () => {
+    hooks.setIsSessionPlayReadyForTest(() => false);
+    expect(hooks.shouldHoldNonHostCountdownPhase("countdown", false)).toBe(true);
+  });
+
+  it("does not hold when carts-ready (session play ready)", () => {
+    hooks.setIsSessionPlayReadyForTest(() => true);
+    expect(hooks.shouldHoldNonHostCountdownPhase("countdown", false)).toBe(false);
+  });
+
+  it("does not hold for host, or for non-countdown phases", () => {
+    hooks.setIsSessionPlayReadyForTest(() => false);
+    expect(hooks.shouldHoldNonHostCountdownPhase("countdown", true)).toBe(false);
+    expect(hooks.shouldHoldNonHostCountdownPhase("lobby", false)).toBe(false);
+    expect(hooks.shouldHoldNonHostCountdownPhase("running", false)).toBe(false);
+  });
+});
+
 describe("host input jitter ackSeq (apply, not receive)", () => {
   beforeEach(() => {
     hooks.resetNetState();

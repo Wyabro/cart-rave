@@ -192,6 +192,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-19 (code — cap-61 hello hold, **unpushed**) — Cap-60/61 on `af89f3c`: host PASS; joiner FAIL (phase `lobby→countdown` before `carts-ready` via **MSG.hello** unguarded `setRoundPhase`). Fixed: shared `shouldHoldNonHostCountdownPhase` on hello + MSG.round. Gates **557/57**. **Not shipped** — need “ship it” then F8 retest.
+
 2026-07-19 (handoff + Command Center refresh) — Wyatt retesting joiner on `index-STjeavro.js`. Handoff rewritten for next Grok (`docs/planning/handoff-next-window.md`); `npm run dashboard` regenerated. **Next agent: pull F8s, score non-host countdown-after-carts-ready, then one card only.**
 
 2026-07-19 (SHIPPED — non-host countdown hold) — **`af89f3c` pushed + deployed** as bundle **`index-STjeavro.js`** / Version **`4e78d849`**. Served-bytes verified: new bundle in index.html, sha `af89f3c`, warn `non-host countdown gate failed`. Cap-59: joiner waits for carts-ready before countdown phase. Gates at prior qa **554/57**. **Joiner F8 retest in flight.**
