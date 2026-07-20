@@ -1,17 +1,18 @@
-# Handoff — next agent window (Run 7 · P0 countdown arc)
+# Handoff — next agent window (Run 7 · P1 late-round gap storm)
 
-**Date:** 2026-07-19 (late)  
+**Date:** 2026-07-19 (end)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`60d773e`** — isSessionPlayReady bridge wire (hold actually runs)  
+**Origin HEAD:** **`09f5653`** (docs F8 pass) — ship **`60d773e`**  
 **Local:** clean aside from optional untracked `.claudeignore`  
 **Prod:** https://cart-rave.wyabro.workers.dev  
 **Live client bundle:** **`index-BQhnh1Z_.js`** (build sha **`60d773e`**)  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Do not** re-triage run-1…run-6 from scratch.  
-**Do not** re-solve NET-PERF-2 (decode ring pool).  
+**Do not** re-solve NET-PERF-2 (decode ring pool) without new evidence.  
 **Do not** re-open combat skip-replay / phantom / hit-delay order unless new F8s prove regression.  
 **Do not** re-add `ko_path` fall-path timing without new evidence (rolled back: 0 signal).  
+**Do not** re-open P0 countdown / hello hold / bridge wire — **PASS F8 64–67**.  
 **Do not** multi-lever dump — one card at a time.  
 **Ship only on Wyatt “ship it.”**
 
@@ -31,86 +32,73 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 
 | | |
 |--|--|
-| Mission | Run 7 playtesting — P0 host freezes (countdown sub-cards) |
+| Mission | Run 7 playtesting — **P1 late-round P2P gap storm** |
 | Prod | **`index-BQhnh1Z_.js`** / sha **`60d773e`** |
-| Gates last known | **qa 559/57** green (hold wired ship) |
-| Browser tooling | Clean Chrome profile for playtests: Desktop **Cart Clash Test (Chrome Clean)**; RTX 4090 pinned High Performance for chrome/msedge |
+| Gates last known | **qa 559/57** green (hold-wired ship); re-run after edits |
+| Browser tooling | Desktop **Cart Clash Test (Chrome Clean)**; RTX 4090 High Performance for chrome/msedge |
 
-### P0 countdown stack — what shipped this session (in order)
+### P0 countdown arc — **CLOSED** (do not re-open)
 
-| Ship | Bundle / Version / sha | What |
-|------|------------------------|------|
-| Menu idle-shader warm | `index-CEjuO4Z7.js` / `be5c1fb1` / `67059ad` | `compileAsync` + composer prime **before** `world-ready` |
-| Audio warm at play-entry | `index-BUszG7M2.js` / `6c62a3c5` / `c3f3ad0` | music + ambience + countdown SFX + announcer await under overlay |
-| Abort + ~400ms start tick | `index-CRQwILqC.js` / `5a1caee0` / `03218fa` | live-only ready cancel; HUD digit reset; MP audio pre-roll; rAF-defer host `startCountdown` |
-| Non-host hold until carts-ready | `index-STjeavro.js` / `af89f3c` | host_round hold only — **hello still stamped countdown** (cap-61) |
-| Hello hold (cap-61) | `index-B2klJ-qK.js` / `17b6d53` | same hold on **MSG.hello** — still dead (bridge) |
-| Hold actually wired (cap-63) | **`index-BQhnh1Z_.js` / `60d773e`** | bridge forwards `isSessionPlayReady`; mid-bootstrap destroy no longer clears promise |
+| Ship | Bundle / sha | What |
+|------|----------------|------|
+| Menu idle-shader warm | `67059ad` | compile before world-ready |
+| Audio warm | `c3f3ad0` | music+ambience+countdown at play-entry |
+| Abort + 400ms start | `03218fa` | live cancel + rAF defer |
+| Hold logic | `af89f3c` → `17b6d53` | host_round + hello hold |
+| **Hold wired** | **`60d773e` / `index-BQhnh1Z_.js`** | bridge forwards `isSessionPlayReady` (was always true) |
 
-### F8 evidence (this session — do not re-decode from scratch)
+**F8 64–67 (`60d773e`):** joiner + host — countdown **only after** `carts-ready`; full 3-2-1→GO; **0** LFs during countdown; LT over1000:0.  
+(Joiner 126s resume LF at carts-ready = ~2 min menu sit — not a fail.)
 
-| Caps | Build | Result |
-|------|-------|--------|
-| **52–54** | `67059ad` | Menu warm **PASS** — shader before WR; no multi-s LT after WR on 4090 |
-| **54** | `67059ad` | Host residual: **~1.3s LT** at countdown start, missing `countdown_3` → audio-warm card |
-| **56–57** | `c3f3ad0` | Multi-s **gone** (`over1000:0`, `countdown_3` present); ~407ms start stack + countdown→lobby abort |
-| **58** | `03218fa` host 4090 Chrome | Wyatt: **host felt good**. Full 3-2-1 on re-arm; still one abort then clean second arm; max LT ~633ms |
-| **59** | `03218fa` non-host **Intel + Firefox** low | Wyatt: **joiner rough**. Countdown applied **before** `carts-ready`; longframe **~66s**; LT observer off on Firefox |
-| **60** | `af89f3c` host 4090 | Host PASS — full 3-2-1 re-arm; over1000:0 |
-| **61** | `af89f3c` non-host Intel | FAIL — `lobby→countdown` **before** `carts-ready` (MSG.hello gap); 18s/12s longframes outside countdown; 2nd arm only ~117ms LF |
-| **62** | `17b6d53` host 4090 | Host partial — full 3-2-1 re-arm; 1.6s LT on abort (`over1000:1`) |
-| **63** | `17b6d53` non-host Intel UHD | FAIL — still early countdown; root = **hold always true** (bridge omitted ready) |
+### Older pain still authoritative
 
-### Older pain still authoritative for later cards
-
-- Friend 2-human caps **31–40** (`1adef95`): multi-s host freezes ↔ friend tHost gaps; late snap o100 **117** vs host send **6** → **P1** (locked until P0 closed).  
-- Cap-**47**: mid-round KO cascade ~2.3–2.5s LT — **post-fall card** after countdown path is green.  
+- Friend 2-human caps **31–40** (`1adef95`): multi-s host freezes ↔ friend tHost gaps; late snap **o100 117** vs host send **o100 6** → **P1** (active).  
+- Cap-**47**: mid-round KO cascade ~2.3–2.5s LT — **parked** (post-fall). Re-open only if friend multi-s freezes return mid-round.  
 - Cap-**41** solo 9070: rematch ~8s — **P4**.  
-- Fall path is **not** the multi-s block (cap 48–51: 0 `ko_path` signal; rolled back).
+- Fall path is **not** the multi-s block (cap 48–51: 0 `ko_path`; rolled back).
 
 ### Diag that helped (keep)
 
 - `?diag=1` → longtask + longframe (`resume` / `focused` / `hidden` / `lt[]`).  
 - Boot marks: `idle-shader-*`, `play-shader-*`, `carts-ready`, `play-entry`.  
+- Net flow: `snapGapsOver100` / `sendGapsOver100` / `snapGapMaxMs` on both sides.  
 - Multi-s freezes when real: **`resume:true`**, **`focused:true`**, **`hidden:false`**, name **`unknown|window`**.
 
 ---
 
 ## DO THIS NOW
 
-1. Wyatt: hard-refresh until **`index-BQhnh1Z_.js`** / sha **`60d773e`**, 2-human quickplay, F8 both sides.  
-2. Agent: `npm run captures:pull` → score:
-   - Non-host: **no** `lobby→countdown` (or digits) **before** `carts-ready`.  
-   - Non-host: no multi-10s longframe **while** countdown phase is active.  
-   - Host: still clean 3-2-1.  
-3. If pass → mark countdown sub-cards done; next card **post-fall / mid-round** (cap-47) or friend 2-human P0 closeout.  
-4. If fail → one forensics card only; do not stack levers.
+1. **P1 card only:** late-round P2P gap storm (friend snap o100 ≫ host send o100).  
+2. Fresh evidence on current prod (`60d773e`): 2-human full-ish round, F8 **both** sides near end of round or when stream feels wrong.  
+3. Pull + compare host vs non-host:
+   - `net.flow.snapGapsOver100` / `sendGapsOver100` / gap max  
+   - reconcile err / teleports / replay skips  
+   - longtask/longframe (host vs joiner)  
+4. One forensics lever from that evidence — do not stack.  
+5. Mid-round freezes (cap-47 class): **parked** unless new F8s show multi-s during KO cascade.
 
 ---
 
 ## Priority queue (high → low) — one at a time
 
-### P0 — Host multi-second freezes under 2-human (4090) + joiner load
+### P0 — Host multi-second freezes + joiner countdown load
 
-**Status:** Menu ✅ · audio warm ✅ · abort/400ms ✅ · hold logic ✅ · **ready gate SHIPPED `60d773e` — F8 retest open**  
+**Status:** ✅ **CLOSED** (countdown path PASS F8 64–67). Mid-round parked if it returns.
 
-**Pass for this sub-card:** Joiner F8 on `BQhnh1Z_` / `60d773e` meets criteria above.  
+### P1 — Late-round P2P gap storm (friend o100 117 vs host send o100 6) ▶️
 
-**After pass:**  
-- Friend 2-human mid-round multi-s still open if it returns → post-fall / longtask only (no new probe until one lever).  
-- Then unlock **P1**.
-
-### P1 — Late-round P2P gap storm (friend o100 117 vs host o100 6)
-
-Locked until P0 closed.
+**Status:** **UNLOCKED — active card**  
+**Evidence seed:** caps 31–40 (`1adef95`) — stale build; need fresh F8s on `60d773e`.  
+**Pass:** non-host late-round snap gaps no longer storm relative to host send (or re-scoped with honest metrics + one fix validated).  
+**Likely code map (verify, don't assume):** `src/netcode/p2p.js`, `src/netcode.js` snapshot buffer / `noteSnapshotArrival`, host send loop Hz, prediction prune / ackSeq.
 
 ### P2 — Non-host `localKos: 0` in friend MP
 
-Re-check after stream stable.
+Re-check after stream stable (P1).
 
 ### P3 — Friend join ~58s resume hitch (NET-2 class)
 
-Partially addressed by carts-ready hold; re-measure after joiner F8.
+Partially addressed by carts-ready hold + wire; re-measure if still felt.
 
 ### P4 / P5 / P6 — Solo rematch hitch · bot feel · AI diag
 
@@ -120,31 +108,21 @@ After 2-human path.
 
 Parked; same-build hard-refresh first.
 
+### Parked — post-fall mid-round LT (cap-47)
+
+Only if friend multi-s freezes return mid-round.
+
 ---
 
 ## Closed / not the bug
 
 | Claim | Verdict |
 |-------|---------|
-| Menu multi-s right after `world-ready` (attract compile) | ✅ Fixed + F8 52–54 |
-| Countdown 1.3s / missing `countdown_3` (cold music+ambience) | ✅ Fixed `c3f3ad0` + F8 56 |
+| Menu multi-s after world-ready | ✅ Fixed F8 52–54 |
+| Countdown 1.3s / missing countdown_3 | ✅ Fixed F8 56 |
+| Joiner countdown before carts-ready | ✅ Fixed F8 64–67 (hold was unwired) |
 | Fall path is the multi-s block | ❌ Cap 48–51 zero `ko_path` |
-| Alt-tab only | ❌ focused + visible + longtask |
 | Re-solve NET-PERF-2 | ❌ Forbidden without new evidence |
-| Joiner roughness = host countdown regression | ❌ Cap 58 host good / 59 is cold-join load |
-
----
-
-## Code map (for the open card)
-
-| Concern | Where |
-|---------|--------|
-| Non-host countdown defer | `src/main.js` `onGameStartHandler` → `ensureSessionCartsReady` |
-| Hold `host_round` countdown phase | `src/netcode.js` `holdCountdownPhase` + `isSessionPlayReady` |
-| Carts-ready predicate | `src/bootstrap.js` `isSessionCartsReady` |
-| Live-only ready cancel | `party/index.ts` `#cancelCountdownIfNeeded` |
-| Play-entry audio warm | `src/main.js` `warmupActiveSceneShaders` + `src/audioManager.js` prefetch* |
-| Menu idle shader warm | `bootstrapWorldCore` / idle warm path |
 
 ---
 
@@ -152,8 +130,9 @@ Parked; same-build hard-refresh first.
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
 > Branch `cart-clash`. Prod **`index-BQhnh1Z_.js`** / sha **`60d773e`**.  
-> **First action:** pull F8s after Wyatt’s joiner retest; score non-host countdown-after-carts-ready (hold finally wired).  
-> One card at a time. Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-add ko_path.  
+> **P0 countdown CLOSED** (F8 64–67). **Active card: P1** late-round P2P gap storm.  
+> First action: fresh 2-human F8s late-round on current build, pull, compare host vs joiner `snapGapsOver100` / send gaps.  
+> One card at a time. Do not re-open countdown hold; do not re-solve NET-PERF-2; do not re-add ko_path.  
 > Ship only on “ship it.”
 
 ---
