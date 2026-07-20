@@ -1,17 +1,13 @@
-# Handoff — NH-BOOST v2 shipped, await retest
+# Handoff — NH-BOOST v3 shipped
 
-**Prod:** **`917af54`** / **`index-Xu1vuW5T.js`**  
-**Active:** NH-BOOST — joiner boost bar / trails / SFX retest  
+**Prod:** **`0be4cd5`** / **`index-CDlK3jio.js`**  
+**Active:** NH-BOOST consistency retest (joiner multi-boost)
 
-**Do not** re-open P0–P4 / NH-STATS without new evidence. Ship only on “ship it.”
+## v3
 
-## What shipped (v2)
+1. Local reconcile applies host `snap.b` (nitro window + trails)  
+2. No charge cancel on reconcile `nitro:false`  
+3. Host input drain ORs nitro across batch while charging  
 
-- Wire `b` from `ramBoostActiveUntilMs` (v1)
-- Nitro sample includes gamepad (v1)
-- Charge SFX stop on reconcile (v1)
-- **v2:** re-arm charge while `boostHeld` after reconcile cancel; silent replay re-arm; remote trail full-window latch on rising edge
-
-## Retest
-
-Joiner hard-refresh → hold charge → bar fills → release → trails + one SFX. Peer trails visible.
+Retest: joiner hard-refresh → several full + early releases.  
+Ship only on “ship it.”

@@ -192,9 +192,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-BOOST consistency **unpushed**) — Cap-77 joiner: working-but-inconsistent. Fixes: (1) apply local snap.b on reconcile so host nitro windows latch trails; (2) skip charge cancel on reconcile nitro:false; (3) host input drain ORs nitro across batch. Await ship it.
+2026-07-20 (SHIPPED — NH-BOOST v3) — **`0be4cd5` / `index-CDlK3jio.js`**. Served sha verified. Local snap.b + no replay cancel + host nitro OR. **Playtest:** several joiner boosts.
 
-2026-07-20 (SHIPPED — NH-BOOST v2) — **`917af54` / `index-Xu1vuW5T.js`**. Re-arm + trail latch. Wyatt: works but not consistent (cap-77).
+2026-07-20 (NH-BOOST consistency coded) — Cap-77 flaky fire. v3 fixes above.
+
+2026-07-20 (SHIPPED — NH-BOOST v2) — **`917af54` / `index-Xu1vuW5T.js`**. Works but not consistent (cap-77).
 
 2026-07-20 (NH-BOOST retest fail) — F8 75/76 on `5cf2a5e`: still broken. Root 2: reconcile cancel never re-arms.
 
