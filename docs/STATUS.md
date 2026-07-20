@@ -93,7 +93,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
-- [ ] **NH-SMOOTH** non-host driven cart glides — v3 fail cap-84 (spill froze drive); **v4 coded unpushed** (s≠dead)
+- [ ] **NH-SMOOTH** non-host driven cart glides — v4 shipped `6b5a9df` / `index-CM5S_sme.js`; **retest open**
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -107,7 +107,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
-| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v4 coded unpushed** (v3 fail cap-84: s=hasSpilled froze drive) |
+| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v4 shipped** `6b5a9df` / `index-CM5S_sme.js` — **retest open** |
 | **NET-1** | **Two-human full-round smoke** | after NH-SMOOTH |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
@@ -116,7 +116,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NH-SMOOTH v4:** ship on “ship it” → hard-refresh → joiner tip/spill + drive (must not freeze) + combat feel.
+1. **NH-SMOOTH v4 retest:** hard-refresh on `index-CM5S_sme.js`; tip/spill without fall (must still drive) + combat glide.
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
 3. After NH-SMOOTH pass: NET-1.
 
@@ -196,7 +196,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-SMOOTH v4 coded — **unpushed**) — v3 **FAIL** video 0507 + cap-84: good ~5s then lag then **can't drive / stuck circling**. Cap-84: snap.s **true**, localDeaths **0**, pending 0. Root: wire `s`=hasSpilled (tip/ram grocery too) treated as dead → holdPrediction froze input. Fix: hold/death-reconcile only on shatter or respawnAtMs.
+2026-07-20 (SHIPPED — NH-SMOOTH v4) — **`6b5a9df` / `index-CM5S_sme.js`**. Served sha verified. holdPrediction not keyed off hasSpilled `s`. **Retest open** (tip/spill must still drive).
+
+2026-07-20 (NH-SMOOTH v4 coded) — v3 FAIL cap-84: s=hasSpilled froze non-host drive.
 
 2026-07-20 (battery INCONCLUSIVE verdict — tools/tests/docs only, no runtime; separate Claude session, the "harness WIP" the NH-SMOOTH entry saw unstaged) — `f5ab8db`'s readiness poll did NOT kill the `0.00m` flake (kept roaming across rigs, reports 19:29–20:30); the missing half was the **verdict**. 2-client rigs now retry once after starvation then exit **3 = INCONCLUSIVE** (new contract in `resolveExitCode`, tally `inconclusive` field; battery/Command Center render it warn — `deriveNextAction` can no longer fabricate a RED GATE from it). Split: input **never sampled** = environment (NET-2 class) → inconclusive; **sampled-but-frozen** = spawn-lock signature → stays red. hostMigration deliberately keeps the plain drive (promoted host consumes own input; pendingInputs 0 by design — sampled-poll was a live-verified 25s no-op there, rolled back). Gates **568/58** green (+7 contract tests); live sweep 4/4 (`battery-2026-07-20T05-05-48-661Z.json`) + hostMigration re-run 7/7. Exit-3 path pinned by unit tests (not yet observed live — next starved run is the live proof). Docs: netcode-harness/dev-toolkit/diagnostics exit contract + the reliability block above. Residual separate flake: mpIntegration crown race still alive post-CROWN_SCORE=60 (19:41 report — NPC out-scored 60; filed as background-task chip, unfixed).
 
