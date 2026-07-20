@@ -95,10 +95,10 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
 - [x] **NH-SMOOTH** non-host driven cart glides — v4 partial (visual better); residual parked
 - [x] **NH-HIT lever 3** host-quality lobby rebalance — **PASS** on `80ecbf6` / `index-DWDp_cX_.js` (HOST-ROLE-1)
-- [ ] **NH-HIT residual** non-host hit delay — lever 1 still FAIL (caps 91–94); structural RTT path remains
+- [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
 - [ ] P5/P6 taste — later
-- [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
-- [ ] NET-1 two-human full-round smoke green (the V2 gate)
+- [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6, READY-SET)
+- [ ] NET-1 two-human full-round smoke green (the V2 gate) — **near last**, after churn stops
 
 ### Active queue (strict — one at a time)
 
@@ -110,8 +110,8 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
 | **NH-SMOOTH** | **Non-host driven-cart glide** | ✅ **partial** v4 (visual better) — residual parked |
-| **NH-HIT** | **Non-host hit delay (ram FX late)** | lever 3 **PASS** (HOST-ROLE-1); lever 1 FAIL residual — structural delay when strong peer already hosts |
-| **NET-1** | **Two-human full-round smoke** | after NH-HIT |
+| **NH-HIT** | **Non-host hit delay (ram FX late)** | lever 3 **PASS**; residual **parked** (not 100% — no more levers unless named) |
+| **NET-1** | **Two-human full-round smoke** | near last (after behavior churn) |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
 
@@ -119,8 +119,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Pick next card** (Wyatt): NH-HIT residual (structural hit delay) · **NET-1** full-round smoke · P5/P6 · or named.
-2. Cap-47 LT parked unless multi-s freezes return. **Freeze-forensics caveat (07-20):** in 2-client harness bundles, a joiner-side `snap_gap ≈8.4s via tHost` spanning podium→lobby is an ARTIFACT, not a host main-thread freeze — the host legitimately stops P2P snapshots for the whole podium phase (measured podium→lobby ~8.2–8.4s vs the nominal 5s auto-continue, every run), and the joiner logs that whole span as one gap when snapshots resume. Only trust freeze evidence from `phase=running` gaps (host-side `host_send_gap`) or corroborating host-side longframe/perf events.
+1. **Pick next card** (Wyatt): READY-SET human MP playtest · NET-2 feel · P5/P6 · or named. **Not NET-1 yet** (near last). NH-HIT residual parked.
+2. Cap-47 LT parked unless multi-s freezes return. **Freeze-forensics caveat (07-20):** joiner `snap_gap ≈8.4s` podium→lobby in harness is an artifact (host stops P2P snaps on podium); only trust `phase=running` gaps / host longframes.
 
 ## Open issues (top)
 
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (PASS NH-HIT lever 3 / HOST-ROLE-1) — Wyatt **pass** on prod `index-DWDp_cX_.js` / `80ecbf6` (Intel creates → 4090 steals host). Card closed. NH-HIT residual (lever 1 structural delay) stays separate if pursued.
+2026-07-20 (NH-HIT residual parked) — Wyatt not 100% on non-host hit feel; **move on**. No more NH-HIT levers unless named. NET-1 stays near-last.
+
+2026-07-20 (PASS NH-HIT lever 3 / HOST-ROLE-1) — Wyatt **pass** on prod `index-DWDp_cX_.js` / `80ecbf6` (Intel creates → 4090 steals host).
 
 2026-07-20 (READY-SET fix — closes the rematch-seam card from the crown-race entry below) — mpIntegration quickplay rematch stall (1-in-6, lobby held ~48s) root-caused + fixed: idempotent ready SET (D-READY-1). `party/index.ts` readyToggle SET semantics + `src/netcode.js` lobby ready-reconcile. Verified: 5× battery mpIntegration 18/18 green (a toggle-based v1 failed 3/3 — the toggle race is real, not theoretical); qa 568/568. **Behavior-changing (quickplay/solo ready path) → needs the standard human MP playtest + prod deploy.**
 
