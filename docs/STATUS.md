@@ -196,6 +196,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-20 (mpIntegration crown race FIXED — rig-only) — closes the 19:41-report chip (NPC out-scored CROWN_SCORE=60 mid-window; host+joiner AGREED, only the rig's pre-picked winner slot was wrong). `tools/netharness.mjs`: crown re-applied atomically with `rewindRoundClock` (NPC scoring window 15s → 1.2s) + podium now asserts the INVARIANT — same winner on both clients, winner = top scorer of the final synced scores, full score-map equality (sync checks strengthened, not weakened) — + PA expectation follows the actual winner. 6 live runs vs dev:local: winner/score/PA checks **6/6** (run 1 caught an NPC scoring 3 pts INSIDE the 1.2s window — race is real, now absorbed); qa **568/58** green. Code landed in `a7b6992` alongside the INCONCLUSIVE-verdict card. Residual seen once (run 2, separate class): post-podium quickplay auto-continue stalled ~48s in lobby → "rematch works" FAIL — pre-existing rematch-seam flake, spun off as its own card.
+
 2026-07-20 (SHIPPED — NH-SMOOTH v4) — **`6b5a9df` / `index-CM5S_sme.js`**. Served sha verified. holdPrediction not keyed off hasSpilled `s`. **Retest open** (tip/spill must still drive).
 
 2026-07-20 (NH-SMOOTH v4 coded) — v3 FAIL cap-84: s=hasSpilled froze non-host drive.
