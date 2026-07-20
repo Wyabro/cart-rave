@@ -129,6 +129,23 @@ describe("validateHostRound — scores (sanitize + monotonic)", () => {
     expect(out.scores[0]).toBe(10);
   });
 
+  it("accepts zero on a slot the server already cleared (mid-round human seat)", () => {
+    // * party #assignHumanToSlot zeros the seat score before host_round; monotonic
+    // * clamp uses that prev — host echo of 0 must stick (not re-inflate NPC points).
+    const prev = mkPrev({
+      phase: "running",
+      startedAtMs: 500,
+      scores: { 0: 0, 1: 4, 2: 12, 3: 0 },
+    });
+    const out = validateHostRound(
+      prev,
+      { phase: "running", scores: { 0: 0, 1: 4, 2: 12, 3: 0 } },
+      1000,
+    );
+    expect(out.scores[0]).toBe(0);
+    expect(out.scores[2]).toBe(12);
+  });
+
   it("accepts a legitimate increase", () => {
     const out = validateHostRound(prevRunning(), { phase: "running", scores: { 0: 25 } }, 1000);
     expect(out.scores[0]).toBe(25);

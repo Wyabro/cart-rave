@@ -2455,12 +2455,28 @@ export function initNetcode(roomOverride) {
         );
 
         if (isHost && Array.isArray(netSlots) && netSlots.length > 0) {
+          /** @type {number[]} */
+          const seatedFromNpc = [];
           for (let i = 0; i < merged.length; i += 1) {
             const wasNpc = netSlots[i]?.kind === "npc";
             const isHumanNow = merged[i]?.kind === "human";
             if (wasNpc && isHumanNow) {
               callbacks.teleportCartToSpawn?.(i);
+              seatedFromNpc.push(i);
             }
+          }
+          // * NET-1 residual: joiner must not inherit the replaced NPC's slot score.
+          // * Server zeros on assign + broadcasts round; host also zeros so the next
+          // * host_round doesn't re-inflate (monotonic clamp vs prev=0 allows increase).
+          const phase = GameState.getRoundState().phase;
+          if (
+            seatedFromNpc.length > 0
+            && (phase === "running" || phase === "countdown")
+          ) {
+            const scores = GameState.getRoundScores();
+            for (const i of seatedFromNpc) scores[i] = 0;
+            GameState.setRoundScores(scores);
+            sendHostRound();
           }
         }
 

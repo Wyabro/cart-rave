@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 residual — validation card** (not a code dig until something fails). Prod `index-BcDjbSZd.js` / `dc1bdac`. One pass: join mid-round · leave · host tab-close migrate. Pass → NET-1 core closed; Fail → one lever from F8.
+1. **NET-1 residual — mid-round join score inherit** — lever coded **unpushed**: zero slot score on NPC→human seat (server + host). Leave + host migrate **PASS**. Awaiting ship it + retest.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NET-1 residual active) — Wyatt chose residual. **Validation-first** (join/leave/migration). Core A+B already soft-pass; full gate not closed until this smoke.
+2026-07-20 (NET-1 residual join-score lever) — Validation: leave PASS · host migrate PASS · mid-join cart/drive PASS but **inherits NPC score**. Fix unpushed: `#assignHumanToSlot` zeros slot during running/countdown + host mirrors on wasNpc→human.
+
+2026-07-20 (NET-1 residual active) — Wyatt chose residual. **Validation-first** (join/leave/migration).
 
 2026-07-20 (PASS NET-1 S1 residual) — Wyatt **pass** on prod `index-BcDjbSZd.js` / `dc1bdac`. Card closed.
 

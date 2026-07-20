@@ -360,6 +360,16 @@ export class CartRaveServer extends Server {
     npcSlot.connId = connId;
     npcSlot.isReady = false;
     // Keep npcSlot.name until client sends join with a name.
+    // * Mid-round seat: scores are slot-keyed. The NPC's points must not become the
+    // * joiner's. Zero before the next host_round — validateHostRound's monotonic
+    // * clamp would otherwise reject a host decrease (NET-1 residual join).
+    if (this.#round.phase === "running" || this.#round.phase === "countdown") {
+      const sid = npcSlot.slotId;
+      this.#round = {
+        ...this.#round,
+        scores: { ...this.#round.scores, [sid]: 0 },
+      };
+    }
     return npcSlot;
   }
 
@@ -1089,6 +1099,11 @@ export class CartRaveServer extends Server {
           }
           // * HOST-ROLE-1: after seating, prefer a clearly stronger peer as host.
           this.#maybeRebalanceHostForQuality();
+          // * Publish zeroed mid-round seat score (see #assignHumanToSlot) so hello
+          // * snapshots and peers don't keep showing the replaced NPC's points.
+          if (this.#round.phase === "running" || this.#round.phase === "countdown") {
+            this.#broadcastRound();
+          }
         }
 
         this.#broadcastJson({
