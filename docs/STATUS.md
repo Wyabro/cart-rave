@@ -192,7 +192,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (SHIPPED — NH-STATS) — **`b92d87f` pushed + deployed** as **`index-BgZqxXtu.js`**. Served-bytes verified: sha `b92d87f`, index → new bundle (not `BQhnh1Z_`). Local-only superlatives + non-host podium lifetime path + once-per-round dedupe. Gates **560/57**. **Playtest:** MP as joiner → podium YOUR STATS + chips.
+2026-07-20 (PASS NH-STATS) — Wyatt **pass** on prod `index-BgZqxXtu.js` / `b92d87f`. Card closed. Next: NET-1 · P5 · or named residual.
+
+2026-07-20 (SHIPPED — NH-STATS) — **`b92d87f` pushed + deployed** as **`index-BgZqxXtu.js`**. Served-bytes verified: sha `b92d87f`. Local-only superlatives + non-host podium lifetime path. Gates **560/57**.
 
 2026-07-20 (NH-STATS active) — Wyatt residual non-host: **“my stats” broken in MP**. P0–P4 stay closed. Dig: results YOUR STATS lifetime + superlatives global bleed + incomplete non-host falls.
 
