@@ -1,8 +1,8 @@
-# Handoff — next agent window (post color/pattern PASS)
+# Handoff — next agent window (post NET-1 S1 residual ship)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-DcKjB-hY.js`** / sha **`72227b7`**  
+**Prod:** **`index-BcDjbSZd.js`** / sha **`dc1bdac`**  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
@@ -16,20 +16,16 @@
 |------|---------|
 | P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 (lever 3) | ✅ |
 | NH-SMOOTH | ✅ partial |
-| NH-HIT residual | 🧊 parked (not 100% — no levers unless named) |
-| NET-1 S1 rematch spawn (edge death) | ✅ shipped `2a6d9ae` |
-| Charge SFX orphan loop | ✅ PASS `2ef67f3` / `index-CMq4BRaz.js` |
-| **Color/pattern MP (caps 104–105)** | ✅ **PASS** `72227b7` / `index-DcKjB-hY.js` |
-| NET-1 full gate | Soft-pass A+B core; join/leave/migration still open if pursued |
+| NH-HIT residual | 🧊 parked |
+| Charge SFX · color/pattern MP | ✅ PASS |
+| NET-1 S1 rematch spawn (first ship) | ✅ `2a6d9ae` |
+| **NET-1 S1 residual (Run7 third-round edge)** | ✅ **shipped** `dc1bdac` / `index-BcDjbSZd.js` — **retest open** |
 
-### Recent ships
+### Run7 decode (brief)
 
-| Sha | Bundle | What |
-|-----|--------|------|
-| `80ecbf6` | `index-DWDp_cX_.js` | Host-quality lobby rebalance |
-| `2a6d9ae` | `index-C-kQeNwM.js` | Rematch host_spawn reapply |
-| `2ef67f3` | `index-CMq4BRaz.js` | Charge SFX orphan stop |
-| `72227b7` | **`index-DcKjB-hY.js`** | **Color/pattern live netSlots (PASS)** |
+- Match A: 4090 host; soft-pass; anomaly = non-host edge spawn death on third rematch.
+- Match B: HOST-ROLE-1 moved host to 4090 → not a weak-host sample.
+- Lever: `reapplyCachedCartsSnapshot` only uses spawn-tagged `lastCartsCache` (not stale live snaps).
 
 ### Do not re-open without new evidence
 
@@ -37,40 +33,17 @@ P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HI
 
 ---
 
-## Open / pick next
-
-| Option | Notes |
-|--------|--------|
-| **NET-1 residual** | Join/leave/migration/Living Store companions if full gate wanted |
-| **P5 / P6** | Taste / tooling |
-| **Named** | Whatever Wyatt says |
-
-**NET-1 Match B note:** lever 3 always moves host to strong machine — weak-host isolation needs a force-host probe if retested.
-
----
-
 ## DO THIS NOW
 
-1. Wyatt names next card (or stop).  
-2. One card only.
+1. Wyatt retests 3+ quickplay rematches (non-host no edge death).  
+2. Pass/fail → next card.
 
 ---
 
-## Suggested next window paste (Wyatt → new Grok)
+## Suggested next window paste
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-DcKjB-hY.js`** / sha **`72227b7`**.  
-> **Closed:** P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · charge SFX · rematch spawn S1 · color/pattern MP. NH-HIT residual parked. NH-SMOOTH partial.  
-> **Next:** Wyatt names card (NET-1 residual, P5, or other).  
+> Branch `cart-clash`. Prod **`index-BcDjbSZd.js`** / sha **`dc1bdac`**.  
+> **Closed:** P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · charge SFX · color/pattern · S1 first ship.  
+> **Open retest:** NET-1 S1 residual (spawn-tagged reapply).  
 > One card/lever. Ship only on “ship it.” Do not `git add -A`.
-
----
-
-## Commands
-
-```bash
-npm run dashboard
-npm run captures:pull
-npm run qa
-npm run ship   # only on "ship it"
-```

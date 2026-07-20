@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 S1 residual (Run7 third-round edge spawn)** — lever coded **unpushed**: reapply only spawn-tagged `lastCartsCache` (not stale live snaps). Awaiting Wyatt playtest / "ship it".
+1. **NET-1 S1 residual** — shipped `dc1bdac` / `index-BcDjbSZd.js`. Wyatt retest: 3+ quickplay rematches, non-host no edge death. Then pass/fail.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (Run7 decode → NET-1 S1 residual lever) — A: 4090 host; host feel good; non-host playable; **third-round edge spawn death** (no F8 on `72227b7` in capture log). B: HOST-ROLE-1 rebalanced to 4090 → same as A (not weak-host isolation). Lever: spawn-tag lastCartsCache so reapply never stomps ring seats with stale live poses. Unpushed.
+2026-07-20 (SHIPPED — NET-1 S1 residual) — **`dc1bdac` / `index-BcDjbSZd.js`**. Spawn-tagged cart cache reapply only. Retest open.
+
+2026-07-20 (Run7 decode → NET-1 S1 residual lever) — A: 4090 host; third-round edge spawn death. B: host rebalanced to 4090. Lever: spawn-tag lastCartsCache.
 
 2026-07-20 (PASS color/pattern MP) — Wyatt **pass** on prod `index-DcKjB-hY.js` / `72227b7`. Card closed.
 
