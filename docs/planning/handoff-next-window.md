@@ -1,12 +1,12 @@
-# Handoff — next agent window (RC-1 B — close Run 7)
+# Handoff — next agent window (Run 7 closed → Release candidate)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-CzDt6R8Q.js`** / sha **`a42e42c`** (P6 live + local PASS)  
+**Prod:** **`index-CzDt6R8Q.js`** / sha **`a42e42c`** (P6)  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
-**One card / one lever at a time.** Active: **RC-1 B** only.
+**One card / one lever at a time.** **No active Run 7 card** — wait for Wyatt to name the next focus.
 
 ---
 
@@ -15,52 +15,37 @@
 | Card | Verdict |
 |------|---------|
 | P0–P4 · NH stack · charge SFX · color/pattern · NET-1 residual | ✅ |
-| P5 · LS-1 · RC-1 A · RC-1 C · CAM-1 · HUD-MENU-1 | ✅ **PASS** |
-| **P6** AI diag empty mid-round | ✅ **PASS** + live `a42e42c` / `index-CzDt6R8Q.js` — `slots[i].kind === "npc"`; `count:3 hostSim:true` |
+| P5 · LS-1 · RC-1 A · RC-1 B · RC-1 C · CAM-1 · HUD-MENU-1 | ✅ **PASS** |
+| **P6** AI diag empty mid-round | ✅ **PASS** live `a42e42c` / `index-CzDt6R8Q.js` |
 | NH-HIT residual · NH-SMOOTH | 🧊 parked |
-| **RC-1 B** host-reap #6 | ▶️ **NEXT** (closes RC MP validation / Run 7) |
+| **Run 7 mission** | ✅ **CLOSED** 2026-07-20 |
 
 ### Do not re-open without new evidence
 
-P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-1 · P5 · LS-1 · RC-1 A · RC-1 C · CAM-1 · HUD-MENU-1 · **P6** · charge SFX · color/pattern
+P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-1 · P5 · LS-1 · RC-1 A/B/C · CAM-1 · HUD-MENU-1 · P6 · charge SFX · color/pattern
 
-**UI note:** cart color/look is set on the **main-menu Customize** screen — not a pre-round color picker step for solo.
-
----
-
-## Active card: RC-1 B — Host-reap #6
-
-**Mode:** validation-first (fix already in prod via RC stack `7dba78d` / later deploys).  
-**Bug fixed in code:** `party/index.ts` — `#reapStalePendingPickers` left `#hostId` dangling; now repairs via `#ensureLiveHost` on early-return.
-
-### Repro (~2 min + 30s wait)
-
-1. **Browser A:** open friends/quickplay room, land on **seating / join flow**, do **not** seat for ~35s (first joiner = host, unseated).  
-2. **Browser B:** join, **seat**.  
-3. After ~30s picker reap: B must still get physics (cart moves, room has a live host).  
-4. **PASS:** B can play. **FAIL:** B frozen / no host until a third join.  
-5. On FAIL: F8 both, `npm run captures:pull`, one lever in `party/index.ts` reap path.
-
-Both tabs **visible**. Prod post-P6 deploy (hard-refresh).
+**UI note:** cart color/look is **main-menu Customize** — not a pre-round color step for solo.
 
 ---
 
-## Mission close condition
+## Phase
 
-Run 7 “done when” fully checks when:
+STATUS release strip advanced:
 
-- [x] everything already checked in STATUS  
-- [x] **P6** closed  
-- [ ] **RC-1 B** PASS (or named N/A with evidence)
-
-Then advance phase marker toward Release candidate (STATUS release strip) if Wyatt agrees.
+- ✅ Playtesting & stabilization — Run 7 closed  
+- ▶ **Release candidate** — queue drained, NET-1 green, tech-debt triage  
 
 ---
 
-## DO THIS NOW
+## Active card
 
-1. **RC-1 B** — two-browser host-reap smoke; report pass/fail.  
-2. Update STATUS + this handoff when it closes.
+**None.** Ask Wyatt before starting work. Candidate residuals (not ordered):
+
+| ID | What | Notes |
+|----|------|--------|
+| NET-2 | Quickplay mid-join freeze / load feel | Partial warm Solo fix in tree; still needs live feel + cold/quickplay |
+| NET-MIG-3 | Freeze ends before new host DataChannel | Feel / rubber-band after host leave |
+| Tech debt | MAIN-1 / BUNDLE-1 / … | Blocked or post-gate — see BACKLOG |
 
 ---
 
@@ -68,8 +53,8 @@ Then advance phase marker toward Release candidate (STATUS release strip) if Wya
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
 > Branch `cart-clash`. Prod **`index-CzDt6R8Q.js`** / sha **`a42e42c`**.  
-> **Closed:** P0–P4 · NH stack · NET-1 residual · P5 · LS-1 · RC-1 A/C · CAM-1 · HUD-MENU-1 · **P6 PASS**.  
-> **Active:** **RC-1 B** host-reap #6 live proof — last Run 7 box.  
+> **Closed:** Run 7 (P0–P4 · NH · NET-1 · P5 · LS-1 · RC-1 A/B/C · CAM-1 · HUD-MENU-1 · P6).  
+> **Phase:** Release candidate. **Active:** none — name next card.  
 > One card/lever. Ship only on “ship it.” Do not `git add -A`.
 
 ---

@@ -36,8 +36,8 @@ Center renders this strip; one ▶ at a time).
 - ✅ Core gameplay — KOs, scoring, Living Store, solo AI
 - ✅ Multiplayer — P2P netcode, host authority, migration
 - ✅ Production systems — passes 1–5, tooling, observability
-- ▶ Playtesting & stabilization — Run 7, one card at a time
-- ⬜ Release candidate — queue drained, NET-1 green, tech-debt triage
+- ✅ Playtesting & stabilization — Run 7 closed 2026-07-20 (P6 + RC-1 B)
+- ▶ Release candidate — queue drained, NET-1 green, tech-debt triage
 - ⬜ Ship — domain cutover, external testers, wide URL
 
 ## Project health — 2026-07-19 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
@@ -73,15 +73,13 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Close Run 7 mission** — last two open boxes: **P6** (tooling) then **RC-1 B** (host-reap live proof). Cold handoff:
+**Run 7 closed** (2026-07-20) — P6 + RC-1 B PASS. Phase → **Release candidate**. Cold handoff:
 [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
-### Done when (this mission)
-
-Run 7 closes — and the Release-candidate phase starts — when every box checks:
+### Done when (Run 7 — complete)
 
 - [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
 - [x] P0 menu freezes: idle-shader warm + F8 caps 52–54
@@ -97,9 +95,9 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] **NH-HIT lever 3** host-quality lobby rebalance — **PASS** on `80ecbf6` / `index-DWDp_cX_.js` (HOST-ROLE-1)
 - [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
 - [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
-- [x] **P6** AI diag probe empty mid-round — tooling; filter `slots[i].kind === "npc"` (not dead `cart.isNpc`); Wyatt local PASS `count:3 hostSim:true`
-- [ ] **RC-1 B** host-reap #6 live proof (HOST-REAP-1) ▶️ **NEXT**
-- [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** still open
+- [x] **P6** AI diag probe empty mid-round — tooling; filter `slots[i].kind === "npc"` (not dead `cart.isNpc`); Wyatt PASS `count:3 hostSim:true`; live `a42e42c` / `index-CzDt6R8Q.js`
+- [x] **RC-1 B** host-reap #6 live proof (HOST-REAP-1) — Wyatt **PASS** 2026-07-20 on prod
+- [x] RC behavior-changing MP validation — **A** AI cautious + **B** host-reap + **C** READY-SET all **PASS**
 - [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`**, Wyatt **PASS**
 - [x] **HUD-MENU-1** menu leftover HUD — shipped **`8d904de`** / **`index-DhaNywQc.js`**, Wyatt **PASS**
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
@@ -124,13 +122,13 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
 | **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ✅ **PASS** `8d904de` / `index-DhaNywQc.js` |
 | **P6** | AI diag probe empty mid-round | ✅ **PASS** `a42e42c` / `index-CzDt6R8Q.js` |
-| **RC-1 B** | Host-reap #6 (HOST-REAP-1) | ▶️ **NEXT** — live 2-client proof |
+| **RC-1 B** | Host-reap #6 (HOST-REAP-1) | ✅ **PASS** (Wyatt 2026-07-20) |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **RC-1 B** — two-browser host-reap smoke (first joiner idles seating ~35s; peer seats; room not hostless). Color/look is **main-menu Customize**, not a pre-round gate.
+1. **Release candidate** — pick next card with Wyatt (open residual: **NET-2** join feel, **NET-MIG-3** post-migration freeze feel, tech-debt triage). No auto-start without a named card.
 
 ## Open issues (top)
 
