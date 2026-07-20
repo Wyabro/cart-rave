@@ -1,12 +1,12 @@
-# Handoff — next agent window (Run 7 · P0 mid-flight)
+# Handoff — next agent window (Run 7 · P0 countdown arc)
 
-**Date:** 2026-07-19 (P0 menu card SHIPPED — F8 retest pending)  
+**Date:** 2026-07-19 (late)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`67059ad`** (deployed)  
-**Local:** clean — nothing unpushed  
+**Origin HEAD:** **`795002a`** (docs) — fix ship **`af89f3c`**  
+**Local:** clean aside from optional untracked `.claudeignore`  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-CEjuO4Z7.js`** (Version `be5c1fb1`, build sha **`67059ad`**; `idle-shader-start` verified in served bytes)  
-**Read order:** this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)  
+**Live client bundle:** **`index-STjeavro.js`** (Version **`4e78d849`**, build sha **`af89f3c`**)  
+**Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Do not** re-triage run-1…run-6 from scratch.  
 **Do not** re-solve NET-PERF-2 (decode ring pool).  
@@ -22,7 +22,8 @@
 **One change (or one forensics card) at a time.**  
 If a probe gets zero signal on retest, **roll it back** before stacking another.  
 Playtest: [docs/playtest/console.html](../playtest/console.html).  
-F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
+F8 → `npm run captures:pull` → `.diag-captures/playtest/`.  
+Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `health.json`.
 
 ---
 
@@ -30,87 +31,89 @@ F8 → `npm run captures:pull` → `.diag-captures/playtest/`.
 
 | | |
 |--|--|
-| Code | Longtask observer + longframe `hidden`/`vis`/`focused`/`lt[]` **kept** (`8f17aba` arc). `ko_path` **removed** (`5bfe7e5`). |
-| Prod | **`index-D3QXm4Qq.js`** — served: sha `5bfe7e5`, `longtask`/`ltN` present, **`ko_path` absent**. |
-| Gates last known | qa **515/55** on ko_path ship; rollback is delete-only — re-run `npm run qa` if unsure. |
+| Mission | Run 7 playtesting — P0 host freezes (countdown sub-cards) |
+| Prod | **`index-STjeavro.js`** / Version **`4e78d849`** / sha **`af89f3c`** |
+| Gates last known | **qa 554/57** green (countdown residual ship); re-run after edits |
+| Browser tooling | Clean Chrome profile for playtests: Desktop **Cart Clash Test (Chrome Clean)**; RTX 4090 pinned High Performance for chrome/msedge |
+
+### P0 countdown stack — what shipped this session (in order)
+
+| Ship | Bundle / Version / sha | What |
+|------|------------------------|------|
+| Menu idle-shader warm | `index-CEjuO4Z7.js` / `be5c1fb1` / `67059ad` | `compileAsync` + composer prime **before** `world-ready` |
+| Audio warm at play-entry | `index-BUszG7M2.js` / `6c62a3c5` / `c3f3ad0` | music + ambience + countdown SFX + announcer await under overlay |
+| Abort + ~400ms start tick | `index-CRQwILqC.js` / `5a1caee0` / `03218fa` | live-only ready cancel; HUD digit reset; MP audio pre-roll; rAF-defer host `startCountdown` |
+| Non-host hold until carts-ready | **`index-STjeavro.js` / `4e78d849` / `af89f3c`** | joiner does **not** surface countdown phase mid play-shader |
+
+### F8 evidence (this session — do not re-decode from scratch)
+
+| Caps | Build | Result |
+|------|-------|--------|
+| **52–54** | `67059ad` | Menu warm **PASS** — shader before WR; no multi-s LT after WR on 4090 |
+| **54** | `67059ad` | Host residual: **~1.3s LT** at countdown start, missing `countdown_3` → audio-warm card |
+| **56–57** | `c3f3ad0` | Multi-s **gone** (`over1000:0`, `countdown_3` present); ~407ms start stack + countdown→lobby abort |
+| **58** | `03218fa` host 4090 Chrome | Wyatt: **host felt good**. Full 3-2-1 on re-arm; still one abort then clean second arm; max LT ~633ms |
+| **59** | `03218fa` non-host **Intel + Firefox** low | Wyatt: **joiner rough**. Countdown applied **before** `carts-ready`; longframe **~66s**; LT observer off on Firefox |
+
+### Older pain still authoritative for later cards
+
+- Friend 2-human caps **31–40** (`1adef95`): multi-s host freezes ↔ friend tHost gaps; late snap o100 **117** vs host send **6** → **P1** (locked until P0 closed).  
+- Cap-**47**: mid-round KO cascade ~2.3–2.5s LT — **post-fall card** after countdown path is green.  
+- Cap-**41** solo 9070: rematch ~8s — **P4**.  
+- Fall path is **not** the multi-s block (cap 48–51: 0 `ko_path` signal; rolled back).
 
 ### Diag that helped (keep)
 
-- Under `?diag=1`: `PerformanceObserver("longtask")` + longframe stamps.
-- Multi-s freezes are **`resume:true`**, **`focused:true`**, **`hidden:false`**, longtask name **`unknown|window`** — main-thread, not alt-tab.
-
-### Diag that did not help (gone)
-
-- Host fall-path `perf/ko_path` (spill/score/dispatch/shatter + per-reactor ms). Cap **48–51**: **30 KOs → 0 events** (every fall path &lt;32ms). Cost was outside that timer.
+- `?diag=1` → longtask + longframe (`resume` / `focused` / `hidden` / `lt[]`).  
+- Boot marks: `idle-shader-*`, `play-shader-*`, `carts-ready`, `play-entry`.  
+- Multi-s freezes when real: **`resume:true`**, **`focused:true`**, **`hidden:false`**, name **`unknown|window`**.
 
 ---
 
-## F8 evidence (do not re-decode from scratch)
+## DO THIS NOW
 
-### Friend 2-human — caps **31–40** (`1adef95`) — still authoritative pain
-
-| Role | GPU | Caps |
-|------|-----|------|
-| Host | RTX **4090** High | 32, 35, 38 |
-| Non-host | AMD **RX 9070 XT** High | 31, 33, 34, 36, 37, 39, 40 |
-
-- Multi-s host freezes (2.4–4.1s) = friend tHost snap gaps 1:1.  
-- Late friend snap o100 **117** vs host send o100 **6** → **P1** (locked until P0).  
-- Friend combat errMax **11.2 m**, tele **15**, localKos **0**.  
-- Solo cap-**41** (9070): rematch ~8s hitch; AI probe empty mid-fight — **P4/P5/P6**.
-
-### Match B / Intel retests — caps **42–47** (`8f17aba`), **48–51** (host `be8eba3` / non-host **`8f17aba` skew**)
-
-- **42–47:** multi-s host longtasks `unknown|window` on KO cascades + menu; Intel Low non-host.  
-- **48–51:** host mid-round **cleaner** (worst ~0.4s); menu still **1.7–1.9s** longtasks; non-host **wrong color** (no color fields in F8); **build skew** (Intel never hard-refreshed).  
-- Both humans hard-refresh same build next session.
+1. **Pull Wyatt’s joiner F8s** for build **`af89f3c` / `index-STjeavro.js`**:  
+   `npm run captures:pull`  
+2. **Judge pass criteria:**
+   - Non-host: **no** `lobby→countdown` (or countdown digits) **before** `carts-ready` in boot timeline.  
+   - Non-host: no multi-10s longframe **while** countdown phase is active.  
+   - Host: still clean 3-2-1 (regression check).  
+3. If pass → mark countdown sub-cards done in STATUS; next card is **post-fall / mid-round** (cap-47) or friend 2-human P0 closeout.  
+4. If fail → one forensics card only; do not stack levers.
 
 ---
 
 ## Priority queue (high → low) — one at a time
 
-### P0 — Host multi-second freezes under 2-human load (focused 4090)
+### P0 — Host multi-second freezes under 2-human (4090) + joiner load
 
-**Status:** Open. Menu sub-card **SHIPPED** (`be5c1fb1` / `index-CEjuO4Z7.js`) — **F8 retest is the next step** (menu sit ~15s + one round, both machines hard-refreshed).
+**Status:** Menu ✅ · audio warm ✅ · abort/400ms ✅ (host feel good on 58) · **non-host hold SHIPPED — F8 in flight**  
 
-**Menu multi-s (this window — done in tree, not shipped):**
+**Pass for this sub-card:** Joiner F8 on `STjeavro` meets criteria above.  
 
-- Caps **45–51**: multi-s longtasks (`unknown|window` 1.7–4.2s) start **~5ms after `world-ready`**, long before `play-entry`.  
-- Cause: `isWorldBootstrapped()` un-gates menu attract → first `composer.render` compiles arena + postFX. Idle warm loaded geometry but did **not** `compileAsync` / prime composer before ready.  
-- Fix (local): `bootstrapWorldCore` → `idle-shader-start` → `warmupActiveSceneShaders({ forPlay:false })` (always primes composer now) → `idle-shader-end` → then promise resolves → `world-ready`. Attract stays on gradient until warm finishes.  
-- Gates: **514 tests / 55 files**, typecheck + knip clean.  
-- **Still possible after ship:** post-ready `prefetchLevelChunks` + `warmSunsetEnv` (cap-47 ~4s LT ~14s after ready); announcer fire-and-forget decode on menu — separate cards if F8 still shows multi-s after world-ready.
-
-**Next dig candidates after menu retest:**
-
-1. **Post-fall / mid-round frame** — cap-47: 2.3–2.5s longtask on KO cascade + announcer burst; fall path already cleared (0 ko_path).  
-2. If multi-s **returns** on friend 2-human with warm menu: longtask/`lt[]` only; no new probe until one lever.
-
-**Pass:** No multi-s host_send_gap / friend tHost snap_gap mid-round; friend errMax/tele drop.
-
----
+**After pass:**  
+- Friend 2-human mid-round multi-s still open if it returns → post-fall / longtask only (no new probe until one lever).  
+- Then unlock **P1**.
 
 ### P1 — Late-round P2P gap storm (friend o100 117 vs host o100 6)
 
-Locked until P0. Do not re-solve decode ring pool.
+Locked until P0 closed.
 
 ### P2 — Non-host `localKos: 0` in friend MP
 
 Re-check after stream stable.
 
-### P3 — Friend join ~58s resume hitch
+### P3 — Friend join ~58s resume hitch (NET-2 class)
 
-NET-2 class.
+Partially addressed by carts-ready hold; re-measure after joiner F8.
 
-### P4 — Solo rematch ~8s hitch (9070, cap-41)
+### P4 / P5 / P6 — Solo rematch hitch · bot feel · AI diag
 
-### P5 — Solo bot / rim death feel
+After 2-human path.
 
-### P6 — AI diag probe empty mid-round (tooling)
+### Side — Non-host wrong cart color
 
-### Side — Non-host wrong cart color (cap 48–51 report)
-
-No F8 color fields. Separate from P0. Both machines same build first.
+Parked; same-build hard-refresh first.
 
 ---
 
@@ -118,31 +121,45 @@ No F8 color fields. Separate from P0. Both machines same build first.
 
 | Claim | Verdict |
 |-------|---------|
-| Constant host 100–500 ms send starve (lab) | ❌ Closed (send probe + cap-29/30) |
-| Client wall-clock gap inflation | ✅ Mitigated (`1adef95` tHost) |
-| Fall path is the multi-s block (when freezes absent) | ❌ Cap 48–51: falls &lt;32ms, 0 ko_path |
+| Menu multi-s right after `world-ready` (attract compile) | ✅ Fixed + F8 52–54 |
+| Countdown 1.3s / missing `countdown_3` (cold music+ambience) | ✅ Fixed `c3f3ad0` + F8 56 |
+| Fall path is the multi-s block | ❌ Cap 48–51 zero `ko_path` |
 | Alt-tab only | ❌ focused + visible + longtask |
 | Re-solve NET-PERF-2 | ❌ Forbidden without new evidence |
+| Joiner roughness = host countdown regression | ❌ Cap 58 host good / 59 is cold-join load |
 
 ---
 
-## Suggested next window paste (Wyatt → new agent)
+## Code map (for the open card)
 
-> Read `docs/planning/handoff-next-window.md` then `docs/STATUS.md` and `AGENTS.md`.  
-> Continue Run 7 **one item at a time** from P0→P6.  
-> Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-open skip-replay/phantom; do not re-add ko_path without evidence.  
-> Prod still `index-D3QXm4Qq.js` / `5bfe7e5`. Local unpushed: menu idle-shader warm before world-ready.  
-> On “ship it”: ship, hard-refresh, F8 menu sit + round; then post-fall card if mid-round multi-s remains.
+| Concern | Where |
+|---------|--------|
+| Non-host countdown defer | `src/main.js` `onGameStartHandler` → `ensureSessionCartsReady` |
+| Hold `host_round` countdown phase | `src/netcode.js` `holdCountdownPhase` + `isSessionPlayReady` |
+| Carts-ready predicate | `src/bootstrap.js` `isSessionCartsReady` |
+| Live-only ready cancel | `party/index.ts` `#cancelCountdownIfNeeded` |
+| Play-entry audio warm | `src/main.js` `warmupActiveSceneShaders` + `src/audioManager.js` prefetch* |
+| Menu idle shader warm | `bootstrapWorldCore` / idle warm path |
+
+---
+
+## Suggested next window paste (Wyatt → new Grok)
+
+> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
+> Branch `cart-clash`. Prod **`index-STjeavro.js`** / sha **`af89f3c`**.  
+> **First action:** `npm run captures:pull` and score the joiner F8 for non-host countdown-after-carts-ready.  
+> One card at a time. Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-add ko_path.  
+> Ship only on “ship it.”
 
 ---
 
 ## Commands
 
 ```bash
+npm run dashboard               # Command Center + health.json
+npm run captures:pull
 npm run qa
 npm run ship                    # only on Wyatt "ship it"
-npm run captures:pull
-npm run captures:pull -- --list
 ```
 
 ---
@@ -153,4 +170,5 @@ npm run captures:pull -- --list
 - Report gates by number.  
 - Never claim verified without pull + post-deploy served-bundle marker.  
 - Behavior-changing ships need human playtest before “done.”  
-- **Probe discipline:** zero-signal cards get rolled back, not left in the tree.
+- **Probe discipline:** zero-signal cards get rolled back, not left in the tree.  
+- Prefer **Desktop → Cart Clash Test (Chrome Clean)** for host playtests when “browser vs game” is muddy.

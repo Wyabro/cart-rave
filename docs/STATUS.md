@@ -48,7 +48,7 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **522/57** after the 07-19 polish pass (adds yawExtraction + gameFlowTimerExpiry suites) — re-run `npm run qa` if claiming green after edits |
+| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **554/57** last known at countdown residual ship — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
 | Origin HEAD | Local ↔ origin/cart-clash at **`af89f3c`** — non-host countdown hold |
 | Prod deploy (2026-07-19 night, non-host countdown hold) | ✅ Live — **bundle `index-STjeavro.js`**, Version `4e78d849` (sha `af89f3c`; served: new bundle + sha + gate warn string). Joiner holds countdown until carts-ready (cap-59). **Joiner F8 retest = open gate.** |
@@ -84,8 +84,9 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 Run 7 closes — and the Release-candidate phase starts — when every box checks:
 
 - [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
-- [x] P0 menu freezes: idle-shader warm shipped + F8 caps 52–54 (shader before world-ready; no multi-s LT after WR)
-- [ ] P0 countdown hitch: play-entry audio warm (music/ambience/countdown) coded — F8 retest pending (cap-54 ~1.3s)
+- [x] P0 menu freezes: idle-shader warm + F8 caps 52–54
+- [x] P0 countdown host path: audio warm + abort/400ms stack shipped; host F8 58 felt good
+- [ ] P0 non-host countdown hold: shipped `af89f3c` / `index-STjeavro.js` — **joiner F8 retest in flight**
 - [ ] P1 late-round gap storm resolved or re-scoped with fresh F8s (locked until P0)
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -191,9 +192,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (SHIPPED — non-host countdown hold) — **`af89f3c` pushed + deployed** as bundle **`index-STjeavro.js`** / Version **`4e78d849`**. Served-bytes verified: new bundle in index.html, sha `af89f3c`, warn `non-host countdown gate failed`. Cap-59: joiner waits for carts-ready before countdown phase. Gates at prior qa **554/57**. **Next: joiner F8 retest.**
+2026-07-19 (handoff + Command Center refresh) — Wyatt retesting joiner on `index-STjeavro.js`. Handoff rewritten for next Grok (`docs/planning/handoff-next-window.md`); `npm run dashboard` regenerated. **Next agent: pull F8s, score non-host countdown-after-carts-ready, then one card only.**
 
-2026-07-19 (non-host countdown hold — coded then shipped above) — Cap-59 ~66s longframe mid-digits; hold until `ensureSessionCartsReady` + hold `host_round` countdown phase.
+2026-07-19 (SHIPPED — non-host countdown hold) — **`af89f3c` pushed + deployed** as bundle **`index-STjeavro.js`** / Version **`4e78d849`**. Served-bytes verified: new bundle in index.html, sha `af89f3c`, warn `non-host countdown gate failed`. Cap-59: joiner waits for carts-ready before countdown phase. Gates at prior qa **554/57**. **Joiner F8 retest in flight.**
 
 2026-07-19 (SHIPPED — P0 countdown residual) — **`03218fa` pushed + deployed** as bundle **`index-CRQwILqC.js`** / Version **`5a1caee0`**. Cap-56 follow-up live. Cap-58 host felt good; cap-59 non-host still rough (above).
 
