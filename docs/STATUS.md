@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 A+B decoded.** Same topology after lever 3 (always 4090 host). Soft-pass both verdicts. **One next card:** rematch spawn / countdown snap_gap (S1 edge death). Match B weak-host isolation blocked by host-quality rebalance.
+1. **NET-1 S1 rematch spawn fix coded unpushed** — skip pre-rotation host_spawn; non-host reapply after arena swap. **Ship on “ship it”** → rematch×3 retest (no edge death at GO).
 2. Cap-47 LT / NH-HIT residual parked.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NET-1 A+B decode complete) — Caps **95–103** / `80ecbf6`. Match B host-rebalanced Intel→4090 (B-0 expected). No weak-host-running F8s. A and B same topology → same soft-pass. **S1 (one card):** rematch countdown snap_gap 2.8–4.4s + joiner edge death ~1.5s after GO (A); B jank = joiner errMax 16 / tele 6 (cap-102) under 4090 host. Countdown abort still once (countdown→lobby→countdown). Propose dig rematch spawn/host_spawn next — not feel polish.
+2026-07-20 (NET-1 S1 rematch spawn coded — **unpushed**) — Root: quickplay rematch `rematchResetWorld` before arena rotate broadcast wrong ring; non-host mid-swap `host_spawn` wiped by collider rebuild and never reapplied → edge death at GO. Fix: skip pre-rotation broadcast on host; after rotate non-host `rematchResetWorld` (local) + `reapplyCachedCartsSnapshot`. Tests: `rematchSpawnReapply.test.js` +2. qa **1188** green. **No ship until “ship it.”**
+
+2026-07-20 (NET-1 A+B decode complete) — Caps **95–103** / `80ecbf6`. Soft-pass both; S1 rematch spawn dig → coded above.
 
 2026-07-20 (NET-1 Match A decode) — Caps **95–100**. S1 rematch edge spawn noted; Match B then run.
 

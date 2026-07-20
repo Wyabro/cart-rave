@@ -2804,7 +2804,15 @@ async function main() {
       // * otherwise the first post-rotation frame stalls on shader compiles mid-MP.
       await warmupActiveSceneShaders({ forPlay: true });
       Entities.refreshCartSpawnPositions();
-      if (Netcode.getIsHost()) Entities.rematchResetWorld();
+      if (Netcode.getIsHost()) {
+        Entities.rematchResetWorld();
+      } else {
+        // * NET-1 S1: host_spawn often lands mid-swap (host is the fast machine). Bodies
+        // * are rebuilt during swapLoadedLevel so that apply is wiped. Seat on the new
+        // * ring first (broadcast no-ops for non-host), then re-apply last host poses.
+        Entities.rematchResetWorld();
+        Netcode.reapplyCachedCartsSnapshot();
+      }
     } catch (err) {
       console.error("[arena-rotation] in-place swap failed:", err);
     } finally {
@@ -4645,7 +4653,15 @@ async function main() {
     clearPodiumPresentation();
     GameState.setRoundEndReason(null);
     Netcode.resetClientPredictionState();
-    Entities.rematchResetWorld();
+    // * NET-1 S1 (caps 98–102): quickplay rematch used to rematchResetWorld() HERE
+    // * (old arena ring) then rotate async and rematchResetWorld again. Non-hosts got a
+    // * wrong host_spawn, a multi-second snap gap during the swap, and sometimes sat
+    // * on void coords at GO. Skip the pre-rotation broadcast; rotateLoadedArenaInPlace
+    // * re-seats + broadcasts after refreshCartSpawnPositions on the NEW ring.
+    const isQuickplayRematch = detectGameMode() === "quickplay";
+    if (!isQuickplayRematch) {
+      Entities.rematchResetWorld();
+    }
     if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
       // * RESTART is reachable mid-round from the pause menu, where the round is
       // * still phase==="running" (solo pause only freezes the clock, never changes
@@ -4663,7 +4679,7 @@ async function main() {
     // * rematch boundary. Latch it BEFORE sendHostRound below so the round broadcast
     // * carries the new levelId (server latches + rebroadcasts; non-host clients rotate
     // * via onLevelIdChanged). Friends lobbies keep the host's deliberate arena choice.
-    if (detectGameMode() === "quickplay") {
+    if (isQuickplayRematch) {
       const nextArenaId = pickNextQuickplayArenaId();
       Netcode.adoptRoomLevelAsHost(nextArenaId);
       void rotateLoadedArenaInPlace(nextArenaId);

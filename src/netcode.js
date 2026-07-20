@@ -1246,8 +1246,10 @@ function applyCartsSnapshotToBodies(carts) {
 }
 
 /**
- * Re-applies the last hello/host carts snapshot once bodies exist (NET-2).
+ * Re-applies the last hello/host carts snapshot once bodies exist (NET-2 + NET-1 S1).
  * Hello may arrive before cart bootstrap; apply is a no-op until bodies exist.
+ * Quickplay rematch: non-host also calls this after arena rotation so host_spawn
+ * poses that landed mid-collider-rebuild are restored before GO.
  */
 export function reapplyCachedCartsSnapshot() {
   if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
@@ -3045,6 +3047,10 @@ export const __netcodeTestHooks = {
     const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
     while (pendingInputs.length > pendingMax) pendingInputs.shift();
   },
+  // * NET-1 rematch spawn reapply (host_spawn mid-arena-swap).
+  applyHostSpawnSnapshot: (msg) => applyHostSpawnSnapshot(msg),
+  setLastCartsCache: (carts) => { lastCartsCache = carts; },
+  getLastCartsCache: () => lastCartsCache,
 };
 
 /**
