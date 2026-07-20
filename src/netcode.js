@@ -1295,6 +1295,35 @@ function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
 const recentHostCollisionFxByPair = new Map();
 const COLLISION_FX_DEDUPE_MS = 250;
 
+/**
+ * Collision FX pair key shared by host-tail replay and NH-HIT optimistic local rams.
+ * @param {number} slotA
+ * @param {number} slotB
+ * @param {number | string} [rammerSlot]
+ */
+function collisionFxPairKey(slotA, slotB, rammerSlot = "") {
+  return `${Math.min(slotA, slotB)}:${Math.max(slotA, slotB)}:${rammerSlot ?? ""}`;
+}
+
+/**
+ * NH-HIT: mark a pair as already presented (optimistic local ram FX) so the host
+ * collisions[] tail does not double-fire SFX/particles within the dedupe window.
+ * @param {number} slotA
+ * @param {number} slotB
+ * @param {number} [rammerSlot]
+ */
+export function noteOptimisticCollisionFx(slotA, slotB, rammerSlot) {
+  if (typeof slotA !== "number" || typeof slotB !== "number") return;
+  const nowFx = performance.now();
+  const pairKey = collisionFxPairKey(slotA, slotB, typeof rammerSlot === "number" ? rammerSlot : slotA);
+  recentHostCollisionFxByPair.set(pairKey, nowFx);
+  if (recentHostCollisionFxByPair.size > 32) {
+    for (const [k, t] of recentHostCollisionFxByPair) {
+      if (nowFx - t > 1000) recentHostCollisionFxByPair.delete(k);
+    }
+  }
+}
+
 function replayHostCollisionFx(msg, callbacks) {
   const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
   const mp = msg.midpoint;
@@ -1304,8 +1333,13 @@ function replayHostCollisionFx(msg, callbacks) {
   // * NET-PRES-1 residual: collisions[] ride unordered DC and always replay even when
   // * seq rejects the pose buffer. Short pair-key window collapses late reorder spam
   // * (SFX / trash burst) without muting continuous combat (host already batches per tick).
+  // * NH-HIT also stamps this map on optimistic local rams so host echo stays quiet.
   const slotA = typeof msg.slotA === "number" ? msg.slotA : -1;
-  const pairKey = `${Math.min(slotA, slotB)}:${Math.max(slotA, slotB)}:${typeof msg.rammerSlot === "number" ? msg.rammerSlot : ""}`;
+  const pairKey = collisionFxPairKey(
+    slotA,
+    slotB,
+    typeof msg.rammerSlot === "number" ? msg.rammerSlot : "",
+  );
   const nowFx = performance.now();
   const prevFx = recentHostCollisionFxByPair.get(pairKey);
   if (prevFx != null && nowFx - prevFx < COLLISION_FX_DEDUPE_MS) return;

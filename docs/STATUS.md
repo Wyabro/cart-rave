@@ -73,7 +73,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 — NH-SMOOTH** (non-host driven-cart glide). Cold handoff:
+**Run 7 — NH-HIT** (non-host hit delay; lever 1 optimistic FX). Cold handoff:
 [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
@@ -93,7 +93,8 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
-- [ ] **NH-SMOOTH** non-host driven cart glides — v4 shipped `6b5a9df` / `index-CM5S_sme.js`; **retest open**
+- [x] **NH-SMOOTH** non-host driven cart glides — v4 partial (visual better); residual parked
+- [ ] **NH-HIT** non-host hit delay — lever 1 optimistic local ram FX **coded unpushed**; then lever 3 host-quality
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -107,8 +108,9 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
-| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **v4 shipped** `6b5a9df` / `index-CM5S_sme.js` — **retest open** |
-| **NET-1** | **Two-human full-round smoke** | after NH-SMOOTH |
+| **NH-SMOOTH** | **Non-host driven-cart glide** | ✅ **partial** v4 (visual better) — residual parked |
+| **NH-HIT** | **Non-host hit delay (ram FX late)** | ▶️ **lever 1 coded unpushed** (optimistic local ram FX); then lever 3 |
+| **NET-1** | **Two-human full-round smoke** | after NH-HIT |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
 
@@ -116,9 +118,9 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NH-SMOOTH v4 retest:** hard-refresh on `index-CM5S_sme.js`; tip/spill without fall (must still drive) + combat glide.
-2. Cap-47 post-fall mid-round LT: parked unless freezes return.
-3. After NH-SMOOTH pass: NET-1.
+1. **NH-HIT lever 1:** ship on “ship it” → hard-refresh → joiner ram NPCs — hits should *feel* immediate (SFX/shake/burst).
+2. After lever 1 retest: lever 3 host-quality advisory/migrate if still needed.
+3. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
 
@@ -196,9 +198,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-20 (gamepad nav modal scoping — **unpushed**, separate Claude session, solo/UI only, zero netcode) — Closes the RC-hunt reported-not-fixed pair (BACKLOG UI/UX controller-nav row): `ui/gamepadNav.js` focusables + B-button back query now scope to the topmost open overlay (`#esc-overlay` > `#results-overlay` > howto/challenges/settings > customize/friends > document; open = inline `display:flex`, same contract as `closeActiveOverlay`) — a pad can no longer click PLAY behind an open overlay; idle-frame focus re-yank removed (focus is reclaimed only on an actual press, press 1 reveals / press 2 acts — name-edit input no longer loses its caret while a pad is connected); dead `.cr-esc-resume` B selector → real `.esc-btn--resume` (B on pause now clicks RESUME instead of falling through to Escape) + hidden-back-button guard (B on main menu no longer clicks the invisible customize back). New `tests/gamepadNav.test.js` (12 tests, rAF-stepped happy-dom harness, first mock of `src/input.js`; 10/12 red on pre-fix code). **Behavior-changing UI → needs Wyatt's pad-in-hand check** (menu/customize/settings/pause/podium); deliberate feel change: focus ring appears on first press after connect, and podium's first A-press seeds focus (second activates) since results never auto-focuses. Gates: qa green **1151/118** (typecheck + knip clean; count includes concurrent-session test files in the tree), build OK.
+
+2026-07-20 (NH-HIT lever 1 coded — **unpushed**) — Hit delay still bad with 4090 host (cap-89/90). Optimistic local ram FX on non-host prediction; collision dedupe stamps so host tail does not double-fire. Lever 3 after retest.
+
 2026-07-20 (mpIntegration crown race FIXED — rig-only) — closes the 19:41-report chip (NPC out-scored CROWN_SCORE=60 mid-window; host+joiner AGREED, only the rig's pre-picked winner slot was wrong). `tools/netharness.mjs`: crown re-applied atomically with `rewindRoundClock` (NPC scoring window 15s → 1.2s) + podium now asserts the INVARIANT — same winner on both clients, winner = top scorer of the final synced scores, full score-map equality (sync checks strengthened, not weakened) — + PA expectation follows the actual winner. 6 live runs vs dev:local: winner/score/PA checks **6/6** (run 1 caught an NPC scoring 3 pts INSIDE the 1.2s window — race is real, now absorbed); qa **568/58** green. Code landed in `a7b6992` alongside the INCONCLUSIVE-verdict card. Residual seen once (run 2, separate class): post-podium quickplay auto-continue stalled ~48s in lobby → "rematch works" FAIL — pre-existing rematch-seam flake, spun off as its own card.
 
-2026-07-20 (SHIPPED — NH-SMOOTH v4) — **`6b5a9df` / `index-CM5S_sme.js`**. Served sha verified. holdPrediction not keyed off hasSpilled `s`. **Retest open** (tip/spill must still drive).
+2026-07-20 (SHIPPED — NH-SMOOTH v4) — **`6b5a9df` / `index-CM5S_sme.js`**. holdPrediction not keyed off hasSpilled `s`. Visual smoother (partial).
 
 2026-07-20 (NH-SMOOTH v4 coded) — v3 FAIL cap-84: s=hasSpilled froze non-host drive.
 

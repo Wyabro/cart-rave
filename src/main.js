@@ -4799,6 +4799,8 @@ async function main() {
     onLocalRamImpact: triggerLocalRamShake,
     onLocalHitTaken: triggerLocalHitTaken,
     onCartImpactSquash: squashCartsOnImpact,
+    // * NH-HIT: prediction rams on non-host stamp collision FX dedupe (see simulation.js).
+    noteOptimisticCollisionFx: (a, b, r) => Netcode.noteOptimisticCollisionFx(a, b, r),
     // * Sim re-arms charge while boostHeld after reconcile cancel (NH-BOOST).
     triggerRamBoost,
     onBoostRelease,

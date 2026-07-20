@@ -1041,9 +1041,18 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
 
       const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
 
-      // * Host plays FX locally; non-host replays the same events from the snapshot collisions[] tail
-      // * so prediction physics does not double-spawn bright particles (extra bloom).
-      if (isHost) {
+      // * Host plays FX locally; non-host normally replays from the snapshot collisions[] tail
+      // * so prediction did not double-spawn particles. NH-HIT: non-host still feels late
+      // * rams vs NPCs (RTT + input jitter + 40Hz snap) even with a strong host (cap-89/90).
+      // * When the local cart is the rammer on the live prediction path, fire presentation
+      // * immediately; note the pair into the collision FX dedupe so the host tail is quiet
+      // * for ~250ms (same window as NET-PRES-1). Reconcile replay keeps FX null.
+      const localRammerOptimistic =
+        !isHost
+        && !callbacks?.isReconcileReplay
+        && callbacks?.localCart === rammer
+        && fxIntensity > 0;
+      if (isHost || localRammerOptimistic) {
         if (playCollisionRef) {
           playCollisionRef(fxIntensity, fxOpts);
         }
@@ -1053,9 +1062,10 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
         }
         if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
           callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
-        } else if (callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
+        } else if (isHost && callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
           // * Hit-from direction in world XZ: from victim toward rammer (where the blow came from).
           // * HUD maps this into cart-local sides (left/right/front/rear → screen edges).
+          // * Host-only here — non-host victim feedback still comes from the collision tail.
           callbacks.onLocalHitTaken(
             fxIntensity,
             isRammerBoosting,
@@ -1065,6 +1075,13 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
         }
         if (callbacks?.onCartImpactSquash) {
           callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
+        }
+        if (localRammerOptimistic) {
+          const slotA = rammer.slotIndex;
+          const slotB = victim.slotIndex;
+          if (typeof slotA === "number" && typeof slotB === "number") {
+            callbacks.noteOptimisticCollisionFx?.(slotA, slotB, slotA);
+          }
         }
       }
 

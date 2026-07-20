@@ -1,31 +1,41 @@
-# Handoff — next agent window (Run 7 · NH-SMOOTH v4 retest)
+# Handoff — next agent window (Run 7 · NH-HIT lever 1)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Ship code:** **`6b5a9df`**  
-**Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-CM5S_sme.js`** (build sha **`6b5a9df`**)  
-**Ship only on “ship it.”** One card at a time.
+**Prod still:** **`index-CM5S_sme.js`** / **`6b5a9df`**  
+**Local:** NH-HIT lever 1 **coded unpushed**  
+**Ship only on “ship it.”** One lever at a time.
 
 ---
 
-## Active: NH-SMOOTH v4 — retest open
+## Active: NH-HIT — non-host hit delay
 
-**Bar:** non-host glides; **tip/grocery spill must not freeze drive**.
+**Bar:** joiner rams NPCs/players and **feels** the hit now (SFX/shake/particles), not a beat late.
 
-| Ship | Bundle / sha | Result |
-|------|----------------|--------|
-| v3 | `8c3ba22` / `index-wn0Z0cFw.js` | **FAIL** cap-84 (s=hasSpilled froze input) |
-| **v4** | **`6b5a9df` / `index-CM5S_sme.js`** | hold only on shatter/respawnAtMs — **retest open** |
+| Step | Status |
+|------|--------|
+| **1 — optimistic local ram FX** | coded unpushed |
+| **3 — host quality advisory/migrate** | after lever 1 retest |
+
+### Evidence
+
+- Cap-87/88 weak host + 89/90 strong host: delay remained. Structural (RTT + 40ms jitter + 40Hz), not only HOST-ROLE-1.
+- NH-SMOOTH v4 visual: better (partial).
+
+### Lever 1 files
+
+- `src/simulation.js` — non-host live path plays collision FX when local is rammer  
+- `src/netcode.js` — `noteOptimisticCollisionFx` stamps pair dedupe  
+- `src/main.js` — wires callback  
+- `tests/optimisticLocalHitFx.test.js`
 
 ### DO THIS NOW
 
-1. Hard-refresh both → confirm `index-CM5S_sme.js`  
-2. Joiner: **tip/spill groceries without falling** — must still steer  
-3. Drive + combat glide  
-4. Pass → close NH-SMOOTH; next NET-1  
-5. Fail → F8 + pull  
+1. Ship on “ship it”  
+2. Same room dual client; joiner rams NPCs  
+3. Pass feel → try lever 3 if authority lag still ugly  
+4. Fail → F8 both + pull  
 
-### Closed
+### Closed / partial
 
-P0–P4 · NH-STATS · NH-BOOST  
+P0–P4 · NH-STATS · NH-BOOST · NH-SMOOTH (visual partial)  
