@@ -487,9 +487,13 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   // *   3. Full charge ≥ boostChargeTimeMs — max burst auto-release (existing behavior).
   if (chargeCfg?.enabled && cart.isChargingBoost) {
     const chargeElapsedMs = nowMs - cart.boostChargeStartedAtMs;
+    // * Reconcile replays older nitro:false samples that would cancel a live hold and
+    // * reset charge progress (inconsistent fire). Only honor release/cancel on live ticks;
+    // * full-charge auto-release still runs in replay so host-matched windows can complete.
+    const honorRelease = !callbacks?.isReconcileReplay;
 
     // * Early-release: player let go of the boost button before full charge.
-    if (!axis.boostHeld) {
+    if (!axis.boostHeld && honorRelease) {
       if (chargeElapsedMs > 100) {
         // Proportional burst — tap for a small dash, hold for the big boom.
         const proportionalMultiplier = clamp(
@@ -525,7 +529,7 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
           callbacks.onBoostCancel(cart);
         }
       }
-    } else if (chargeElapsedMs >= chargeCfg.boostChargeTimeMs) {
+    } else if (axis.boostHeld && chargeElapsedMs >= chargeCfg.boostChargeTimeMs) {
       // * Full-charge auto-release: maximum burst.
       cart.isChargingBoost = false;
       cart.boostChargeMultiplier = chargeCfg.boostMaxMultiplier;

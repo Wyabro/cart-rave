@@ -838,6 +838,45 @@ export function applySnapshotToCartBody(cart, snap) {
   if (Array.isArray(av) && av.length === 3) {
     cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
   }
+
+  // * Local-cart boost authority (NH-BOOST consistency). Transforms-only snap left
+  // * isChargingBoost / ramBoostActiveUntilMs as pure client prediction, so host fire
+  // * time and client fire time diverged (bar/SFX/trails "sometimes" only).
+  const nowBoostMs = performance.now();
+  if (snap.b) {
+    if (cart.isChargingBoost) {
+      callbacks.stopChargeSfxForCart?.(cart);
+      cart.isChargingBoost = false;
+      cart.boostChargeStartedAtMs = 0;
+    }
+    const rb = CONFIG.cart?.ramBoost;
+    const keepAliveMs = 280;
+    const fullWindowMs = Math.max(
+      400,
+      (Number(rb?.durationSec) || 1.7) * 1.5 * 1000,
+    );
+    if (!cart._localHostBoostLatched) {
+      cart._localHostBoostLatched = true;
+      cart.ramBoostActiveUntilMs = Math.max(
+        Number(cart.ramBoostActiveUntilMs) || 0,
+        nowBoostMs + fullWindowMs,
+      );
+      // * Trails: host already in nitro — use charged look (human path).
+      cart.nitroStreakCharged = true;
+      cart.boostChargeMultiplier = 1;
+    } else {
+      cart.ramBoostActiveUntilMs = Math.max(
+        Number(cart.ramBoostActiveUntilMs) || 0,
+        nowBoostMs + keepAliveMs,
+      );
+    }
+    cart.isRamBoosting = true;
+    cart.isBoosting = true;
+  } else {
+    cart._localHostBoostLatched = false;
+    cart.isRamBoosting = false;
+    cart.isBoosting = false;
+  }
 }
 
 /**
@@ -2987,21 +3026,28 @@ function drainRemoteInputJitterBuffers() {
     if (!queue || queue.length === 0) continue;
 
     // * Drain every frame past the jitter delay in one pass (catch-up after hitch/burst).
-    // * Continuous axes take the last sample; nitro rising-edge + hop fire per frame.
+    // * Continuous axes take the last sample; nitro uses OR across the batch so a single
+    // * false in a multi-frame catch-up cannot cancel an in-progress charge (NH-BOOST).
+    // * Rising-edge + hop still fire per frame.
+    let lastThrottle = 0;
+    let lastSteer = 0;
+    let nitroAny = false;
+    let nitroLast = false;
+    let appliedAny = false;
     while (queue.length > 0 && queue[0].t <= now - delay) {
       const applied = queue.shift();
       if (netTestOn) __dbgInputCounters.drainApplied += 1;
+      appliedAny = true;
 
       if (applied.seq > 0) {
         const existingSeq = hostLastProcessedInputSeq.get(connId) || 0;
         hostLastProcessedInputSeq.set(connId, Math.max(existingSeq, applied.seq));
       }
 
-      remoteInputsByConnId.set(connId, {
-        throttle: applied.throttle,
-        steer: applied.steer,
-        nitro: applied.nitro,
-      });
+      lastThrottle = applied.throttle;
+      lastSteer = applied.steer;
+      nitroLast = Boolean(applied.nitro);
+      if (nitroLast) nitroAny = true;
 
       const was = remoteNitroLatchedByConnId.get(connId) || false;
       if (!was && applied.nitro && allCarts && triggerRamBoostRef) {
@@ -3011,7 +3057,8 @@ function drainRemoteInputJitterBuffers() {
           if (cart) triggerRamBoostRef(cart, now);
         }
       }
-      remoteNitroLatchedByConnId.set(connId, applied.nitro);
+      // * Provisional latch — final sticky value applied after the drain batch.
+      remoteNitroLatchedByConnId.set(connId, Boolean(applied.nitro));
 
       if (applied.hop && allCarts && triggerHopRef) {
         const slotIndex = strictSlotIndexForConn(connId);
@@ -3020,6 +3067,19 @@ function drainRemoteInputJitterBuffers() {
           if (cart) triggerHopRef(cart, now);
         }
       }
+    }
+    if (appliedAny) {
+      // * Prefer OR for nitro so charge hold survives one dropped false in a burst.
+      const slotIndex = strictSlotIndexForConn(connId);
+      const cart = slotIndex >= 0 ? allCarts?.[slotIndex] : null;
+      const stickyNitro = nitroAny || (Boolean(cart?.isChargingBoost) && nitroLast);
+      const nitroHeld = Boolean(stickyNitro || nitroLast);
+      remoteInputsByConnId.set(connId, {
+        throttle: lastThrottle,
+        steer: lastSteer,
+        nitro: nitroHeld,
+      });
+      remoteNitroLatchedByConnId.set(connId, nitroHeld);
     }
     // * No ready frames yet — keep last applied continuous input (map already holds it).
   }
