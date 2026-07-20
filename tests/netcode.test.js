@@ -188,7 +188,7 @@ describe("rewind and replay input buffering", () => {
   });
 });
 
-describe("non-host countdown hold (cap-59/61)", () => {
+describe("non-host countdown hold (cap-59/61/63)", () => {
   beforeEach(() => {
     hooks.resetNetState();
     hooks.setIsSessionPlayReadyForTest(() => true);
@@ -209,6 +209,31 @@ describe("non-host countdown hold (cap-59/61)", () => {
     expect(hooks.shouldHoldNonHostCountdownPhase("countdown", true)).toBe(false);
     expect(hooks.shouldHoldNonHostCountdownPhase("lobby", false)).toBe(false);
     expect(hooks.shouldHoldNonHostCountdownPhase("running", false)).toBe(false);
+  });
+});
+
+describe("netcode game bridge wires session play ready (cap-63)", () => {
+  it("forwards isSessionPlayReady from context (was missing → hold always true)", async () => {
+    const { buildNetcodeGameBridge } = await import("../src/gameSession.js");
+    let ready = false;
+    const bridge = buildNetcodeGameBridge(
+      () => ({
+        isSessionPlayReady: () => ready,
+        hasPendingNonHostCountdownApply: () => true,
+      }),
+      { returnToMenu: () => {} },
+    );
+    expect(bridge.isSessionPlayReady()).toBe(false);
+    ready = true;
+    expect(bridge.isSessionPlayReady()).toBe(true);
+    expect(bridge.hasPendingNonHostCountdownApply()).toBe(true);
+  });
+
+  it("fails closed when context is null (hold engages)", async () => {
+    const { buildNetcodeGameBridge } = await import("../src/gameSession.js");
+    const bridge = buildNetcodeGameBridge(() => null, { returnToMenu: () => {} });
+    expect(bridge.isSessionPlayReady()).toBe(false);
+    expect(bridge.hasPendingNonHostCountdownApply()).toBe(false);
   });
 });
 

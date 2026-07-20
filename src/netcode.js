@@ -430,8 +430,16 @@ export function registerGameCallbacks(deps) {
     ensureSessionReady: () => deps.ensureSessionReady?.(),
     endCinematicCountdown: () => deps.endCinematicCountdown?.(),
     teleportCartToSpawn: (slotIndex) => deps.teleportCartToSpawn?.(slotIndex),
-    isSessionPlayReady: () => deps.isSessionPlayReady?.() ?? true,
-    hasPendingNonHostCountdownApply: () => deps.hasPendingNonHostCountdownApply?.() ?? false,
+    // * Cap-63: default false when dep missing so hold engages; tests that need
+    // * "always ready" set the hook via setIsSessionPlayReadyForTest / registerCallbacks.
+    isSessionPlayReady: () => (
+      typeof deps.isSessionPlayReady === "function" ? deps.isSessionPlayReady() : false
+    ),
+    hasPendingNonHostCountdownApply: () => (
+      typeof deps.hasPendingNonHostCountdownApply === "function"
+        ? deps.hasPendingNonHostCountdownApply()
+        : false
+    ),
   });
 }
 

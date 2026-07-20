@@ -150,6 +150,21 @@ export function buildNetcodeGameBridge(getContext, session) {
     ensureSessionReady: () => getContext()?.ensureSessionReady?.(),
     endCinematicCountdown: () => getContext()?.endCinematicCountdown?.(),
     teleportCartToSpawn: (slotIndex) => getContext()?.teleportCartToSpawn?.(slotIndex),
+    // * Cap-63: these were never forwarded — registerGameCallbacks fell through to
+    // * `?? true` / `?? false`, so non-host countdown hold never engaged (hello +
+    // * host_round stamped countdown before carts-ready). Fail closed when ctx missing.
+    isSessionPlayReady: () => {
+      const ctx = getContext();
+      if (ctx && typeof ctx.isSessionPlayReady === "function") return ctx.isSessionPlayReady();
+      return false;
+    },
+    hasPendingNonHostCountdownApply: () => {
+      const ctx = getContext();
+      if (ctx && typeof ctx.hasPendingNonHostCountdownApply === "function") {
+        return ctx.hasPendingNonHostCountdownApply();
+      }
+      return false;
+    },
   };
 }
 

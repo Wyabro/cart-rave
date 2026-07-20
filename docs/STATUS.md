@@ -192,6 +192,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-19 (code — cap-63 hold was dead, **unpushed**) — Cap-62/63 on `17b6d53`: joiner still early `lobby→countdown`. Root: `buildNetcodeGameBridge` never forwarded `isSessionPlayReady` → netcode `?? true` → hold always off. Also: `bootstrapSessionCarts` called `destroySessionCarts` which nulls in-flight bootstrap promise mid-warm. Fixed bridge + mid-bootstrap destroy. Gates **559/57**. **Not shipped** — need “ship it” + F8.
+
 2026-07-19 (SHIPPED — cap-61 hello hold) — **`17b6d53` pushed + deployed** as bundle **`index-B2klJ-qK.js`** (sha `17b6d53`). Served-bytes verified: index.html → new bundle, build sha + `shouldHoldNonHostCountdownPhase`. Cap-60/61: host PASS; joiner failed on unguarded hello phase — fixed. Gates **557/57**. **Joiner F8 retest open.**
 
 2026-07-19 (handoff + Command Center refresh) — Wyatt retesting joiner on `index-STjeavro.js`. Handoff rewritten for next Grok (`docs/planning/handoff-next-window.md`); `npm run dashboard` regenerated. **Next agent: pull F8s, score non-host countdown-after-carts-ready, then one card only.**

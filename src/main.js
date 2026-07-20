@@ -3519,7 +3519,15 @@ async function main() {
     if (expectedGen != null && expectedGen !== helloGate.getGeneration()) {
       return null;
     }
-    destroySessionCarts();
+    // * Cap-63: do not call destroySessionCarts() here — that resetSessionCartBootstrap()
+    // * nulls the in-flight ensureSessionCartsReady promise mid-warm so isSessionCartsReady
+    // * flipped true as soon as carts existed (before play-shader / carts-ready). Tear down
+    // * cart bodies only; leave the bootstrap promise latch intact.
+    Entities.destroyCarts({ scene, nameLabels });
+    clearNpcCartCache();
+    allCarts = [];
+    allCartsRef = null;
+    sessionRefs.clearSessionCallbackRefs();
 
     const { allCarts: carts, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
       scene,
