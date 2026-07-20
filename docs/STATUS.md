@@ -192,9 +192,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-BOOST retest fail → fix **unpushed**) — F8 75/76 on `5cf2a5e`: still broken. Root 2: reconcile cancels charge on stale nitro:false and never re-arms while held (bar dead). Fix: `applyArcadeControls` re-calls `triggerRamBoost` while boostHeld; silent re-arm in replay; remote trail latch full boost window on rising edge. **Not shipped.**
+2026-07-20 (SHIPPED — NH-BOOST v2) — **`917af54` / `index-Xu1vuW5T.js`**. Served sha verified. Re-arm charge while held after reconcile cancel + full remote trail latch. **Playtest:** joiner bar/trails/SFX.
 
-2026-07-20 (SHIPPED — NH-BOOST) — **`5cf2a5e` / `index-wTIBrAQX.js`**. Wire `b` + nitro sample + charge SFX stop. **FAIL** live retest (Wyatt + F8 75/76).
+2026-07-20 (NH-BOOST retest fail) — F8 75/76 on `5cf2a5e`: still broken. Root 2: reconcile cancel never re-arms.
+
+2026-07-20 (SHIPPED — NH-BOOST v1) — **`5cf2a5e` / `index-wTIBrAQX.js`**. **FAIL** live retest.
 
 2026-07-20 (NH-BOOST fix coded) — Non-host boosts invisible / bar dead / charge SFX loop.
 
