@@ -345,7 +345,7 @@ export function runPhysicsStep(loopState, deps, context) {
       // 2. Align remote physics bodies so prediction collides against current net poses.
       deps.syncRemoteCartBodiesForPrediction(localSlotIndex);
 
-      // * Hold live prediction when the host is silent or already reports us dead.
+      // * Hold live prediction when the host is silent or we are in a true death path.
       // * Run-7 efdca62 retest: multi-second host freezes left Intel driving a ghost
       // * arena (hit feedback then reverse; death shatter at the predicted "still here"
       // * pose). Silence threshold = prediction.holdAfterSnapGapMs (default 150).
@@ -354,15 +354,12 @@ export function runPhysicsStep(loopState, deps, context) {
       const silenceMs = typeof deps.netcode?.getSnapshotSilenceMs === "function"
         ? deps.netcode.getSnapshotSilenceMs()
         : 0;
-      const peekSnap = deps.getLatestSnap ? deps.getLatestSnap() : null;
-      const peekLocal = (peekSnap?.carts && localSlotIndex >= 0)
-        ? peekSnap.carts[localSlotIndex]
-        : null;
-      // * s:true / shatter = host-dead. Do NOT key off hasSpilled alone — cargo spill
-      // * can set that flag without a KO, and a sticky hasSpilled after a bad respawn
-      // * path would freeze prediction forever.
-      const hostSaysDead = peekLocal?.s === true
-        || Boolean(localCart?._shatterState);
+      // * Wire `s` is hasSpilled — also set by tip-over / big-ram grocery spill WITHOUT a
+      // * KO (simulation.js). Cap-84 (NH-SMOOTH v3): s:true, localDeaths 0, pending 0,
+      // * can't drive / stuck circling — holdPrediction keyed off s froze input forever.
+      // * True death = shatter anim or respawn timer, NOT s alone.
+      const hostSaysDead = Boolean(localCart?._shatterState)
+        || (localCart != null && localCart.respawnAtMs != null);
       const holdPrediction = hostSaysDead || (holdGapMs > 0 && silenceMs > holdGapMs);
 
       // 3. Prediction: step Rapier locally with the player's input (instant feel).
@@ -409,6 +406,10 @@ export function runPhysicsStep(loopState, deps, context) {
         lastReconciledSnapSeq = latestSnap.seq;
         const cartSnap = (latestSnap.carts && localSlotIndex >= 0) ? latestSnap.carts[localSlotIndex] : null;
         if (cartSnap && Array.isArray(cartSnap.p) && cartSnap.p.length === 3) {
+          // * True KO/respawn path (not tip-spill). Wire s=hasSpilled is shared with grocery
+          // * spill — only treat as death when shatter/respawn timer says so (cap-84).
+          const localTrulyDead = Boolean(localCart._shatterState)
+            || localCart.respawnAtMs != null;
           if (localCart._shatterState && deps.doRespawn) {
             // * Mirror the remote-cart rule (netcode.js applyCartState): the shatter's
             // * own lifetime decides when the VFX ends, not the next snapshot. The host
@@ -433,10 +434,12 @@ export function runPhysicsStep(loopState, deps, context) {
                 snapPhysicsPrevToBody(localCart);
               }
             }
-          } else if (cartSnap.s === true) {
-            // * Host says dead: hard-snap body so the next fall shatter (or residual
-            // * mesh) is at host death pose, not the last predicted drive-through.
-            // * Clear pending so respawn does not inherit a ghost throttle stream.
+          } else if (cartSnap.s === true && localTrulyDead) {
+            // * Host says spilled AND we are on a real death path: hard-snap body so the
+            // * fall shatter (or residual mesh) is at host death pose, not a predicted
+            // * drive-through. Clear pending so respawn does not inherit ghost throttle.
+            // * Tip-over grocery spill alone (s:true, no shatter/respawn) must NOT enter
+            // * here — that froze non-host drive (cap-84).
             deps.prunePendingInputs(99999999);
             deps.applySnapshotToCartBody(localCart, cartSnap);
             clearReconcileVisOffset(localCart);
@@ -445,10 +448,10 @@ export function runPhysicsStep(loopState, deps, context) {
             const ackSeq = cartSnap.ackSeq || 0;
             deps.prunePendingInputs(ackSeq);
 
-            // * Host revived us without a local shatter path (missed fall tail / spill-only
-            // * s flip): force the same cleanup as shatter-complete respawn so sticky
-            // * hasSpilled / boost / pendingRam cannot keep driving a "phantom" cart.
-            if (localCart.hasSpilled && deps.doRespawn) {
+            // * Host revived us without a local shatter path (missed fall tail): force
+            // * the same cleanup as shatter-complete respawn. Only when we were on a
+            // * death path — tip-spill hasSpilled must not call doRespawn every snap.
+            if (localCart.hasSpilled && localTrulyDead && deps.doRespawn) {
               deps.doRespawn(localCart);
               deps.applySnapshotToCartBody(localCart, cartSnap);
               clearReconcileVisOffset(localCart);

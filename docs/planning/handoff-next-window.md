@@ -1,41 +1,45 @@
-# Handoff — next agent window (Run 7 · NH-SMOOTH v3 retest)
+# Handoff — next agent window (Run 7 · NH-SMOOTH v4)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Ship code:** **`8c3ba22`**  
-**Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-wn0Z0cFw.js`** (build sha **`8c3ba22`**)  
-**Read order:** dashboard → health.json → this → STATUS → AGENTS  
-
-**Do not** re-open P0–P4 / NH-STATS / NH-BOOST / NET-PERF-2 / ko_path.  
-**One card. Ship only on “ship it.”**  
-**Note:** unstaged Claude harness/dashboard WIP may exist — do not `git add -A`.
+**Prod still:** **`index-wn0Z0cFw.js`** / **`8c3ba22`** (v3 — **FAIL** cap-84)  
+**Local:** NH-SMOOTH **v4 coded unpushed** (spill≠dead hold fix)  
+**Do not** `git add -A` — other agent tool WIP may be dirty.  
+**Ship only on “ship it.”**
 
 ---
 
-## Active: NH-SMOOTH v3 — retest open
+## Active: NH-SMOOTH v4
 
-**Bar:** non-host driven cart glides (drive + combat).
+**Bar:** non-host glides **and** never freezes after tip/grocery spill.
 
-| Ship | Bundle / sha | Result |
-|------|----------------|--------|
-| v1 | `34b240d` / `index-CaoV7WsD.js` | better, still janky |
-| v2 | `af011cc` / `index-Czk-Iu0n.js` | **FAIL** cap-83 (gapMax 3478ms) |
-| **v3** | **`8c3ba22` / `index-wn0Z0cFw.js`** | display-pose low-pass — **retest open** |
+| Ship | Result |
+|------|--------|
+| v1–v2 | partial / fail jank |
+| v3 `8c3ba22` / `index-wn0Z0cFw.js` | **FAIL** cap-84 — 5s good → lag → **can't drive / circle** |
+| **v4** unpushed | holdPrediction / death-reconcile **not** keyed off wire `s` |
 
-**v3 lever:** mesh+camera chase body (`displayPosRate` 14 / `displayRotRate` 12); hard snap only if lag ≥ maxCorrectionM.
+### cap-84 truth
+
+- Build `8c3ba22`, joiner, backrooms  
+- `localDeadFlag` / snap.s **true**, **localDeaths 0**, pending **0**  
+- Net clean (errMax 0.98m, gapMax 100)  
+- Wire `s` = `hasSpilled` (tip-over + ram grocery + fall)  
+- Hold used `s:true` as dead → stopped input sample → residual spin = circle  
+
+### v4 lever (`gameLoop.js` only)
+
+- `hostSaysDead` = shatter **or** `respawnAtMs` — **not** snap.s  
+- Death hard-snap branch only when truly dead  
+- Tip-spill keeps prediction + normal reconcile  
 
 ### DO THIS NOW
 
-1. Hard-refresh both → confirm `index-wn0Z0cFw.js`  
-2. Joiner: drive + combat  
-3. Pass → close; next NET-1  
-4. Fail → F8 + pull → one lever  
+1. “ship it” → deploy  
+2. Retest: tip/spill groceries **without** falling — must still drive  
+3. Then combat + glide feel  
+4. Fail → F8 + pull  
 
 ### Closed
 
 P0–P4 · NH-STATS · NH-BOOST  
-
-### Paste
-
-> Prod **`index-wn0Z0cFw.js`** / **`8c3ba22`**. Active: **NH-SMOOTH v3 retest**. Hard-refresh; joiner drive+combat pass/fail. Ship only on “ship it.”
