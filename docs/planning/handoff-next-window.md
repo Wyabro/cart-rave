@@ -1,41 +1,51 @@
-# Handoff — NET-1 Match A decoded · Match B next
+# Handoff — NET-1 A+B decoded · one S1 next
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
 **Prod:** **`index-DWDp_cX_.js`** / **`80ecbf6`**  
-**Active:** NET-1 · **Match B next** (no code until B decoded)
+**Active:** NET-1 soft-pass · **one S1** if coding: rematch spawn / countdown snap_gap
 
 ---
 
-## Match A (4090 host / Intel joiner) — decoded
+## A vs B (decoded)
 
-| Cap | Role | Notes |
-|-----|------|--------|
-| 95 | 4090 host mid | send clean |
-| 96 | 4090 host podium | classic |
-| 97–100 | Intel joiner continuum + 99 host pair | multi-rematch session |
+| | Match A | Match B |
+|--|---------|---------|
+| Intent | 4090 host | Intel host |
+| Actual host mid-round | 4090 | **4090** (lever 3 stole host at seat) |
+| Host feel | Great | Great (same machine hosting) |
+| Joiner feel | Playable not great | About the same (Wyatt) |
+| Verdict | Soft-pass | Soft-pass |
 
-**Host:** felt great; send o100≈0–1; over33 low.  
-**Joiner:** playable not great (known residual — parked).  
-**Countdown:** first-round abort visible on host (countdown→lobby→countdown); later rounds better/in sync.  
-**S1 anomaly:** rematch → running → joiner fall **~1.5s after GO** (`TOOK A SHORTCUT`, cap-100 t≈366482, slot 1). Countdown had **snap_gap 4148ms** immediately before GO. Scores/teleports: cap-98 errMax 27.7m / tele 1 early that round.  
-**Stray:** Storerooms bots furniture stick — AI taste, not NET-1 wire.
+**HOST-ROLE-1 product path works** — Match B never stressed weak-host-poison. Console “Weak hosts” card is obsolete unless we add a force-weak-host probe.
 
-**Not** HOST-ROLE-1 (strong hosted). **Not** NET-PERF-2 reopen. Strong host clean → not NET-PERF-1 primary.
+### Caps
 
-**A-4 Wyatt:** shippable but wouldn't feel great. Gate still open (Match B + S1).
+| Caps | Role |
+|------|------|
+| 95–100 | Match A session |
+| 98/99 | classic rematch pair |
+| 100 | backrooms mid · A edge-death history in event log |
+| 101 | B joiner “lost control” · drops 23 · countdown abort |
+| 102/103 | B classic rematch pair · joiner tele 6 errMax 16 · host clean |
+
+### S1 evidence (one card)
+
+- Rematch: **snap_gap 2.8–4.4s** on joiner at/near countdown→running (arena swap / host_spawn window).  
+- Match A: joiner fall **~1.5s after GO** (`TOOK A SHORTCUT`) after 4148ms gap.  
+- Host send stays clean (not NET-PERF-1 / not NET-PERF-2).
+
+Not this batch: NH-HIT residual, bot furniture AI, full NET-1 close (still open until S1 + optional join/leave/migration).
 
 ---
 
 ## DO THIS NOW
 
-1. **Match B** — Intel creates room, 4090 joins. Same §A core loop. F8 both.  
-2. Only after B: pick **one** card (likely rematch spawn S1 if B reproduces / independent).
-
----
+1. Wyatt: **go dig rematch spawn S1** or park NET-1 as soft-pass.  
+2. If dig: one lever only — host_spawn / rematch pose apply on non-host after arena rotation.
 
 ## Do not
 
-- Fix batch before Match B  
-- Re-open NET-PERF-2 / NH-HIT residual / closed cards  
-- Multi-lever dump  
+- Multi-fix batch  
+- Re-open NET-PERF-2  
+- Assume Match B tested weak host (it didn’t)
