@@ -120,7 +120,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 1. **NH-HIT lever 3 lobby retest** on `index-DWDp_cX_.js` / `80ecbf6`: Intel creates room first → 4090 joins/seats → host glyph + toast move to 4090?
 2. Then joiner ram feel recheck (optional F8).
-3. Cap-47 LT parked unless multi-s freezes return.
+3. Cap-47 LT parked unless multi-s freezes return. **Freeze-forensics caveat (07-20):** in 2-client harness bundles, a joiner-side `snap_gap ≈8.4s via tHost` spanning podium→lobby is an ARTIFACT, not a host main-thread freeze — the host legitimately stops P2P snapshots for the whole podium phase (measured podium→lobby ~8.2–8.4s vs the nominal 5s auto-continue, every run), and the joiner logs that whole span as one gap when snapshots resume. Only trust freeze evidence from `phase=running` gaps (host-side `host_send_gap`) or corroborating host-side longframe/perf events.
 
 ## Open issues (top)
 
