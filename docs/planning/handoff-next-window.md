@@ -1,9 +1,8 @@
 # Handoff — next agent window (Run 7 · NH-BOOST)
 
 **Date:** 2026-07-20  
-**Ship in prod:** still **`b92d87f`** / **`index-BgZqxXtu.js`** until next ship  
-**Local HEAD:** NH-BOOST fix **unpushed** (or unshipped)  
-**Active card:** **NH-BOOST** — non-host boosts not visible · bar dead · charge SFX loops  
+**Ship in prod:** **`5cf2a5e`** / **`index-wTIBrAQX.js`**  
+**Active card:** **NH-BOOST** — shipped; **await joiner retest** (bar · trails · SFX)  
 
 **Do not** re-open P0–P4 / NH-STATS / NET-PERF-2 / ko_path without new evidence.  
 **Ship only on Wyatt “ship it.”**

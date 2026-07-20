@@ -192,7 +192,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-BOOST fix **unpushed**) — Non-host boosts invisible / bar dead / charge SFX loop. Root: (1) wire `b` never set — host only has `ramBoostActiveUntilMs`; (2) `isNitroHeld` omitted gamepad; (3) reconcile nulled onBoostRelease → charge SFX orphaned. Files: netcode serialize + sampleInput, input.js, gameLoop replay, main triggerRamBoost. **Not shipped** — wait for “ship it”.
+2026-07-20 (SHIPPED — NH-BOOST) — **`5cf2a5e` pushed + deployed** as **`index-wTIBrAQX.js`**. Served sha verified. Wire `b` from timer + nitro sample + charge SFX reconcile stop. Gates **561/57**. **Playtest:** joiner bar/trails/SFX.
+
+2026-07-20 (NH-BOOST fix coded) — Non-host boosts invisible / bar dead / charge SFX loop.
 
 2026-07-20 (PASS NH-STATS) — Wyatt **pass** on prod `index-BgZqxXtu.js` / `b92d87f`. Card closed. Next: NET-1 · P5 · or named residual.
 
