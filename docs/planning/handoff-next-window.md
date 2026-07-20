@@ -1,4 +1,4 @@
-# Handoff — next agent window (post color/pattern MP ship)
+# Handoff — next agent window (post color/pattern PASS)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
@@ -19,7 +19,7 @@
 | NH-HIT residual | 🧊 parked (not 100% — no levers unless named) |
 | NET-1 S1 rematch spawn (edge death) | ✅ shipped `2a6d9ae` |
 | Charge SFX orphan loop | ✅ PASS `2ef67f3` / `index-CMq4BRaz.js` |
-| **Color/pattern MP (caps 104–105)** | ✅ **shipped** `72227b7` / `index-DcKjB-hY.js` — retest open |
+| **Color/pattern MP (caps 104–105)** | ✅ **PASS** `72227b7` / `index-DcKjB-hY.js` |
 | NET-1 full gate | Soft-pass A+B core; join/leave/migration still open if pursued |
 
 ### Recent ships
@@ -29,11 +29,11 @@
 | `80ecbf6` | `index-DWDp_cX_.js` | Host-quality lobby rebalance |
 | `2a6d9ae` | `index-C-kQeNwM.js` | Rematch host_spawn reapply |
 | `2ef67f3` | `index-CMq4BRaz.js` | Charge SFX orphan stop |
-| `72227b7` | **`index-DcKjB-hY.js`** | **Color/pattern: live netSlots after hello warm** |
+| `72227b7` | **`index-DcKjB-hY.js`** | **Color/pattern live netSlots (PASS)** |
 
 ### Do not re-open without new evidence
 
-P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HIT residual · charge SFX · color/pattern MP (unless retest fails)
+P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HIT residual · charge SFX · color/pattern MP
 
 ---
 
@@ -41,7 +41,6 @@ P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HI
 
 | Option | Notes |
 |--------|--------|
-| **Color/pattern retest** | Non-host cold join: looks correct at carts-ready; no late blue / stuck pattern |
 | **NET-1 residual** | Join/leave/migration/Living Store companions if full gate wanted |
 | **P5 / P6** | Taste / tooling |
 | **Named** | Whatever Wyatt says |
@@ -52,7 +51,7 @@ P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HI
 
 ## DO THIS NOW
 
-1. Wyatt playtests color/pattern on prod (or names next card).  
+1. Wyatt names next card (or stop).  
 2. One card only.
 
 ---
@@ -61,8 +60,8 @@ P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HI
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
 > Branch `cart-clash`. Prod **`index-DcKjB-hY.js`** / sha **`72227b7`**.  
-> **Closed:** P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · charge SFX · rematch spawn S1 · color/pattern MP (shipped; retest open). NH-HIT residual parked. NH-SMOOTH partial.  
-> **Next:** color/pattern retest pass/fail, or Wyatt names next card (NET-1 residual, P5, or other).  
+> **Closed:** P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · charge SFX · rematch spawn S1 · color/pattern MP. NH-HIT residual parked. NH-SMOOTH partial.  
+> **Next:** Wyatt names card (NET-1 residual, P5, or other).  
 > One card/lever. Ship only on “ship it.” Do not `git add -A`.
 
 ---
