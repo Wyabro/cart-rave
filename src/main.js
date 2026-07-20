@@ -3845,6 +3845,12 @@ async function main() {
       cart.nitroStreakCharged = false;
       const isLocal = cart === localCartForConnId();
       if (isLocal) {
+        // * Stop any orphaned charge loop before starting a new one (reconcile used to
+        // * clear isChargingBoost without stopping SFX — re-press stacked loops).
+        if (cart.chargeUpSfxId != null) {
+          AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
+          cart.chargeUpSfxId = null;
+        }
         // * Looping charge-up SFX; stopped on release / interrupt via onBoostRelease or respawn.
         cart.chargeUpSfxId = AudioManager.playSfx("chargeUp");
       }
@@ -4849,6 +4855,8 @@ async function main() {
     getLatestSnap: () => Netcode.getLatestSnap(),
     applySnapshotToCartBody: (cart, snap) => Netcode.applySnapshotToCartBody(cart, snap),
     doRespawn: Entities.doRespawn,
+    // * Reconcile replay ends charge without boost fanfare (SFX stop only).
+    stopChargeSfxForCart: (cart) => stopChargeSfxForCart(cart),
     netcode: Netcode,
   };
 

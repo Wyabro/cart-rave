@@ -1497,10 +1497,20 @@ export function serializeCartToWire(c) {
   const r = c.body.rotation();
   const lv = c.body.linvel();
   const av = c.body.angvel();
-  const isBoosting = Boolean(c.isRamBoosting || c._isBoosting || c.isBoosting);
+  // * Host never latches isRamBoosting/isBoosting — those flags are only set on non-hosts
+  // * when applying snap.b. Authoritative nitro window is ramBoostActiveUntilMs (charge
+  // * release + instant NPC boost). Without it, b is always false on the wire → non-hosts
+  // * never get remote trails / onRemoteBoostStart (NH-BOOST / MP-FX-1).
+  const nowMs = performance.now();
+  const isBoosting = Boolean(
+    c.isRamBoosting
+    || c._isBoosting
+    || c.isBoosting
+    || (Number(c.ramBoostActiveUntilMs) > 0 && nowMs <= c.ramBoostActiveUntilMs),
+  );
   // * Hop has no persistent flag — derive from trigger-time freshness (triggerHop stamps
   // * lastHopAtMs) so snapshots can't miss the rising edge; same window trick as snap.b.
-  const isHopping = performance.now() - (c.lastHopAtMs || 0) < 150;
+  const isHopping = nowMs - (c.lastHopAtMs || 0) < 150;
 
   return {
     p: [round3(t.x), round3(t.y), round3(t.z)],
@@ -1618,7 +1628,11 @@ export function sampleLocalInputForTick() {
   const axis = getAxisRef();
   const forward = Number.isFinite(axis.forward) ? axis.forward : 0;
   const turn = Number.isFinite(axis.turn) ? axis.turn : 0;
-  const nitroHeld = isNitroHeldRef ? isNitroHeldRef() : false;
+  // * Prefer getAxis().boostHeld (keyboard + touch + gamepad). Fall back to isNitroHeldRef
+  // * only if axis lacks boostHeld (legacy test stubs).
+  const nitroHeld = typeof axis.boostHeld === "boolean"
+    ? axis.boostHeld
+    : (isNitroHeldRef ? isNitroHeldRef() : false);
   const hopRequested = consumeHopRequest();
 
   inputSeq += 1;

@@ -13,6 +13,7 @@ import {
   getLatestSnap,
   applyCartState,
   resetClientPredictionState,
+  serializeCartToWire,
 } from "../src/netcode.js";
 import { resetReconciliationState } from "../src/gameLoop.js";
 import { CONFIG } from "../src/config.js";
@@ -511,6 +512,38 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.collisions).toEqual(original.collisions);
     expect(decoded.falls).toEqual(original.falls);
     expect(decoded.attr).toEqual(original.attr);
+  });
+
+  it("serializeCartToWire sets b from ramBoostActiveUntilMs (NH-BOOST)", () => {
+    // * Host never latches isBoosting flags — only the nitro timer is authoritative.
+    const body = {
+      translation: () => ({ x: 0, y: 1, z: 0 }),
+      rotation: () => ({ x: 0, y: 0, z: 0, w: 1 }),
+      linvel: () => ({ x: 0, y: 0, z: 0 }),
+      angvel: () => ({ x: 0, y: 0, z: 0 }),
+    };
+    const idle = {
+      body,
+      isRamBoosting: false,
+      isBoosting: false,
+      ramBoostActiveUntilMs: 0,
+      lastHopAtMs: 0,
+      cargoBay: { visible: true },
+      hasSpilled: false,
+    };
+    expect(serializeCartToWire(idle)?.b).toBe(false);
+
+    const boosting = {
+      ...idle,
+      ramBoostActiveUntilMs: performance.now() + 500,
+    };
+    expect(serializeCartToWire(boosting)?.b).toBe(true);
+
+    const expired = {
+      ...idle,
+      ramBoostActiveUntilMs: performance.now() - 10,
+    };
+    expect(serializeCartToWire(expired)?.b).toBe(false);
   });
 
   it("preserves quaternion w=0 (180° rotation) through encode/decode", () => {

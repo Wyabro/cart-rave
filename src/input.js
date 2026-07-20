@@ -426,7 +426,10 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
 
   return {
     getAxis,
-    isNitroHeld: () => localNitroHeld || isBoostHeld(),
+    // * Must match getAxis().boostHeld — sampleLocalInputForTick / non-host prediction
+    // * used to omit gamepadBoostHeld, so LT/A started charge SFX once then never held
+    // * boostHeld (bar stuck, charge cancelled or orphaned loop) (NH-BOOST).
+    isNitroHeld: () => localNitroHeld || isBoostHeld() || gamepadBoostHeld,
   };
 }
 

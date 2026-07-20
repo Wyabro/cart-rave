@@ -220,6 +220,7 @@ export function applySlowMoToDt(deps, dt) {
  * @property {() => object | null} [getLatestSnap]
  * @property {(cart: object, snap: object) => void} [applySnapshotToCartBody]
  * @property {(cart: object) => void} [doRespawn]
+ * @property {(cart: object) => void} [stopChargeSfxForCart] Stop chargeUp loop (reconcile release/cancel).
  * @property {object} netcode Netcode module.
  */
 
@@ -474,8 +475,10 @@ export function runPhysicsStep(loopState, deps, context) {
                 onLocalRamImpact: null,
                 onLocalHitTaken: null,
                 onCartImpactSquash: null,
-                onBoostRelease: null,
-                onBoostCancel: null,
+                // * Must still stop chargeUp loops. Nulling these left isChargingBoost=false
+                // * after replay release/cancel while chargeUp SFX kept looping (NH-BOOST).
+                onBoostRelease: (cart) => { deps.stopChargeSfxForCart?.(cart); },
+                onBoostCancel: (cart) => { deps.stopChargeSfxForCart?.(cart); },
                 onSpill: null,
                 onHopLand: null,
                 triggerHopRef: (cart) => {
