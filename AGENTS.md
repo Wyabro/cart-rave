@@ -61,9 +61,11 @@ toward Version 2.
 - **Dev (client only):** `npm run dev` (Vite).
 - **Dev (server only):** `npm run dev:party` (`npx wrangler dev`, local Durable Object).
 - **Dev (both, preferred):** `npm run dev:local` (aliases: `dev:cart-clash`, `dev:next-level`).
-- **Gates:** `npm run qa` (alias of `check` = typecheck + test + knip). Also
-  `npm test`, `npm run typecheck`, `npm run build` (Vite → `dist/`). CI runs `npm run qa`
-  on push/PR to `cart-clash` / `main` (`.github/workflows/check.yml`).
+- **Gates:** `npm run qa` (alias of `check` = typecheck + test + knip +
+  `status:size` + `health:check`). Also `npm test`, `npm run typecheck`,
+  `npm run build` (Vite → `dist/`). CI runs `npm run qa` + production build on
+  push/PR to `cart-clash` / `main`. Exact-HEAD release gate (complete battery
+  evidence): `npm run release:check` — battery stays out of ordinary PR CI.
 - **Visual QA:** `npm run shoot`, `npm run compare`, `npm run blackframes`,
   `npm run qa:visual` (short black-frame battery) — see
   [docs/guides/visual-qa.md](docs/guides/visual-qa.md). URL flags: `?ablate=`, `?postmin=`,

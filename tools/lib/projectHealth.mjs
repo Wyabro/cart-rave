@@ -16,6 +16,7 @@
 import { execFileSync } from "node:child_process";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { resolve, join } from "node:path";
+import { classifyBatteryEvidence, REQUIRED_CORE_STEPS } from "./batteryPlan.mjs";
 
 // ---------------------------------------------------------------------------
 // Pure markdown helpers (exported for tests)
@@ -338,18 +339,20 @@ export function extractBacktickSymbols(...texts) {
 
 /**
  * The ONE next action, derived from the full health model. Priority: a red battery
- * gate beats everything; then STATUS next-action #1 (split on "Expect:" into the
- * pass condition); then the active queue card. Captures are deliberately NOT a
- * source — evidence, not todos. Shared by the Command Center render and the
- * health.json digest so humans and agents get the same answer.
+ * gate beats everything; then the active queue card; then STATUS next-action #1.
+ * Captures and handoff titles are deliberately NOT sources — evidence, not todos.
  * @param {any} h partial health model (battery/issues at minimum)
  * @returns {{ tag: string, kind: string, text: string, expect: string | null }}
  */
 export function deriveNextAction(h) {
   const stripLinks = (s) => String(s ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-  // * code 3 = INCONCLUSIVE (starved rig environment, no regression evidence) — it must
-  // * never fabricate a RED GATE; only real failures (1/2) block shipping.
-  const failing = (h.battery?.latest?.results ?? []).filter((r) => r.code !== 0 && r.code !== 3);
+  // * Prefer exact-HEAD complete assessment when present; fall back to latest targeted.
+  const latestResults =
+    h.observed?.battery?.latestTargeted?.results ??
+    h.battery?.latestTargeted?.results ??
+    h.battery?.latest?.results ??
+    [];
+  const failing = latestResults.filter((r) => r.code !== 0 && r.code !== 3);
   if (failing.length > 0) {
     return {
       tag: "RED GATE",
@@ -358,16 +361,19 @@ export function deriveNextAction(h) {
       expect: failing[0].note ?? null,
     };
   }
-  const next = h.issues?.nextActions?.[0];
-  if (next) {
-    const split = stripLinks(next).split(/\s*Expect:\s*/);
-    return { tag: "DO THIS NOW", kind: "plan", text: split[0].replace(/[;.\s]+$/, ""), expect: split[1] ?? null };
-  }
-  const active = (h.issues?.playtestQueue ?? []).find((q) => q.state === "active");
+  const active = (h.issues?.playtestQueue ?? h.declared?.queue ?? []).find((q) => q.state === "active");
   if (active) {
     return { tag: "DO THIS NOW", kind: "queue", text: `${active.id} — ${active.what}`, expect: active.status || null };
   }
-  return { tag: "NO ACTIVE CARD", kind: "none", text: "Nothing derivable — open docs/STATUS.md § Current focus and pick the next card", expect: null };
+  const next = h.issues?.nextActions?.[0] ?? h.declared?.nextActions?.[0];
+  if (next) {
+    const split = stripLinks(next).split(/\s*Expect:\s*/);
+    // * Soft "wait / ask Wyatt" lines are not a fake active card.
+    if (!/^\s*(wait|ask|nothing|optional)/i.test(split[0])) {
+      return { tag: "DO THIS NOW", kind: "plan", text: split[0].replace(/[;.\s]+$/, ""), expect: split[1] ?? null };
+    }
+  }
+  return { tag: "NO ACTIVE CARD", kind: "none", text: "Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md", expect: null };
 }
 
 /**
@@ -455,36 +461,95 @@ function collectGit(cwd) {
   };
 }
 
-/** @param {string} dir @returns {Promise<{ latest: any, history: any[] } | null>} */
-async function collectBattery(dir) {
+/**
+ * Enrich a battery report with classification + file name.
+ * @param {string} file
+ * @param {any} report
+ * @param {{ headFull?: string | null }} ctx
+ */
+function assessBatteryReport(file, report, ctx) {
+  const classification = classifyBatteryEvidence(report, ctx);
+  const results = Array.isArray(report.results) ? report.results : [];
+  return {
+    file,
+    ...report,
+    classification,
+    green: results.filter((r) => r.code === 0).length,
+    inconclusive: results.filter((r) => r.code === 3).length,
+    total: results.length,
+    scopeLabel: classification.scopeLabel,
+  };
+}
+
+/**
+ * @param {string} dir
+ * @param {{ headFull?: string | null }} [ctx]
+ * @returns {Promise<{
+ *   latest: any,
+ *   latestTargeted: any,
+ *   latestComplete: any,
+ *   latestCompleteExactHead: any,
+ *   history: any[],
+ * } | null>}
+ */
+async function collectBattery(dir, ctx = {}) {
   let files;
   try {
     files = (await readdir(dir)).filter((f) => /^battery-.*\.json$/.test(f)).sort().reverse();
   } catch {
     return null;
   }
-  if (files.length === 0) return { latest: null, history: [] };
+  if (files.length === 0) {
+    return {
+      latest: null,
+      latestTargeted: null,
+      latestComplete: null,
+      latestCompleteExactHead: null,
+      history: [],
+    };
+  }
   /** @type {any[]} */
   const history = [];
-  let latest = null;
-  for (const f of files.slice(0, 8)) {
+  /** @type {any[]} */
+  const assessed = [];
+  for (const f of files.slice(0, 24)) {
     try {
       const report = JSON.parse(await readFile(join(dir, f), "utf8"));
-      const results = Array.isArray(report.results) ? report.results : [];
-      const entry = {
+      const entry = assessBatteryReport(f, report, ctx);
+      assessed.push(entry);
+      history.push({
         file: f,
         when: report.when ?? null,
-        green: results.filter((r) => r.code === 0).length,
-        inconclusive: results.filter((r) => r.code === 3).length,
-        total: results.length,
-      };
-      history.push(entry);
-      if (!latest) latest = { file: f, ...report };
+        green: entry.green,
+        inconclusive: entry.inconclusive,
+        total: entry.total,
+        complete: entry.classification.complete,
+        class: entry.classification.class,
+        scopeLabel: entry.scopeLabel,
+        hasProvenance: entry.classification.hasProvenance,
+      });
     } catch {
       /* unreadable report — skip */
     }
   }
-  return { latest, history };
+  const latestTargeted = assessed[0] ?? null;
+  const latestComplete = assessed.find((a) => a.classification.complete) ?? null;
+  const latestCompleteExactHead =
+    assessed.find(
+      (a) =>
+        a.classification.complete &&
+        a.classification.hasProvenance &&
+        !a.classification.reasons.includes("head-mismatch"),
+    ) ?? null;
+  // * Legacy alias: `latest` = latest targeted (may be partial).
+  return {
+    latest: latestTargeted,
+    latestTargeted,
+    latestComplete,
+    latestCompleteExactHead,
+    history: history.slice(0, 8),
+    coreRequired: REQUIRED_CORE_STEPS,
+  };
 }
 
 /**
@@ -668,76 +733,193 @@ async function collectPerf(shotsDir) {
 export async function collectProjectHealth(opts = {}) {
   const cwd = opts.cwd ?? process.cwd();
   const captureDir = resolve(cwd, ".diag-captures");
+  /** @type {string[]} */
+  const collectorErrors = [];
 
   let statusMd = "";
   let backlogMd = "";
   let handoffMd = "";
+  /** @type {Record<string, string | null>} */
+  const sourceFreshness = {
+    statusMd: null,
+    backlogMd: null,
+    handoffMd: null,
+    batteryDir: null,
+  };
   try {
-    statusMd = await readFile(resolve(cwd, "docs/STATUS.md"), "utf8");
-  } catch {
-    /* no STATUS.md */
+    const p = resolve(cwd, "docs/STATUS.md");
+    statusMd = await readFile(p, "utf8");
+    sourceFreshness.statusMd = (await stat(p)).mtime.toISOString();
+  } catch (e) {
+    collectorErrors.push(`STATUS.md: ${e instanceof Error ? e.message : e}`);
   }
   try {
-    backlogMd = await readFile(resolve(cwd, "docs/planning/BACKLOG.md"), "utf8");
-  } catch {
-    /* no BACKLOG.md */
+    const p = resolve(cwd, "docs/planning/BACKLOG.md");
+    backlogMd = await readFile(p, "utf8");
+    sourceFreshness.backlogMd = (await stat(p)).mtime.toISOString();
+  } catch (e) {
+    collectorErrors.push(`BACKLOG.md: ${e instanceof Error ? e.message : e}`);
   }
   try {
-    handoffMd = await readFile(resolve(cwd, "docs/planning/handoff-next-window.md"), "utf8");
-  } catch {
-    /* no handoff doc */
+    const p = resolve(cwd, "docs/planning/handoff-next-window.md");
+    handoffMd = await readFile(p, "utf8");
+    sourceFreshness.handoffMd = (await stat(p)).mtime.toISOString();
+  } catch (e) {
+    collectorErrors.push(`handoff-next-window.md: ${e instanceof Error ? e.message : e}`);
   }
-
-  const [battery, captures, perf] = await Promise.all([
-    collectBattery(captureDir),
-    collectCaptures(captureDir),
-    collectPerf(resolve(cwd, "shots")),
-  ]);
 
   const git = collectGit(cwd);
+  if (git) {
+    try {
+      git.headFull = execFileSync("git", ["rev-parse", "HEAD"], { cwd, stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .trim();
+    } catch {
+      git.headFull = null;
+    }
+  }
+  let battery = null;
+  let captures = [];
+  let perf = null;
+  try {
+    battery = await collectBattery(captureDir, { headFull: git?.headFull ?? null });
+    if (battery?.latestTargeted?.when) sourceFreshness.batteryDir = battery.latestTargeted.when;
+  } catch (e) {
+    collectorErrors.push(`battery: ${e instanceof Error ? e.message : e}`);
+  }
+  try {
+    captures = await collectCaptures(captureDir);
+  } catch (e) {
+    collectorErrors.push(`captures: ${e instanceof Error ? e.message : e}`);
+    captures = [];
+  }
+  try {
+    perf = await collectPerf(resolve(cwd, "shots"));
+  } catch (e) {
+    collectorErrors.push(`perf: ${e instanceof Error ? e.message : e}`);
+  }
+
   const mission = parseStatusCurrentFocus(statusMd);
+  const allIssues = parseStatusOpenIssues(statusMd);
+  const openIssues = allIssues.filter((i) => {
+    const st = issueState(i.status);
+    return st === "open" || st === "warn" || st === "partial";
+  });
+  const playtestQueue = parseStatusPlaytestQueue(statusMd);
+  const nextActions = parseListItems(extractSection(statusMd, "### Next actions") ?? "");
   const issues = {
-    open: parseStatusOpenIssues(statusMd),
-    nextActions: parseListItems(extractSection(statusMd, "### Next actions") ?? ""),
-    playtestQueue: parseStatusPlaytestQueue(statusMd),
+    all: allIssues,
+    open: openIssues,
+    // * Legacy alias used by older dashboard/tests — open-only radar set.
+    nextActions,
+    playtestQueue,
   };
   const handoff = parseHandoffBriefing(handoffMd);
   const phases = parseStatusReleasePhases(statusMd);
   const doneWhen = parseStatusDoneWhen(statusMd);
   const lastSession = parseStatusLastUpdated(statusMd);
+  const currentPhase = phases.find((p) => p.state === "current") ?? null;
+  const activeRow = playtestQueue.find((q) => q.state === "active") ?? null;
 
-  // * The AI cold-start digest — everything an agent (or a returning human) needs
-  // * before opening any other doc. Summarizes; STATUS.md stays the detail source.
-  const activeRow = issues.playtestQueue.find((q) => q.state === "active") ?? null;
-  const localFact = (handoff?.facts ?? []).find((f) => f.key.toLowerCase().startsWith("local"))?.value ?? null;
-  const commits = git?.commits ?? [];
+  const declared = {
+    phase: currentPhase?.name ?? null,
+    phases,
+    mission,
+    doneWhen,
+    queue: playtestQueue,
+    activeCard: activeRow,
+    nextActions,
+    blockers: openIssues.filter((i) => issueState(i.status) === "open"),
+  };
+
+  const targetedClass = battery?.latestTargeted?.classification ?? null;
+  const completeClass = battery?.latestComplete?.classification ?? null;
+  const exactClass = battery?.latestCompleteExactHead?.classification ?? null;
+
+  const observed = {
+    git,
+    battery: {
+      latestTargeted: battery?.latestTargeted ?? null,
+      latestComplete: battery?.latestComplete ?? null,
+      latestCompleteExactHead: battery?.latestCompleteExactHead ?? null,
+      history: battery?.history ?? [],
+      coreRequired: REQUIRED_CORE_STEPS,
+    },
+    captures,
+    perf,
+  };
+
+  const dirty = (git?.dirtyFiles ?? 0) > 0;
+  const behind = (git?.behind ?? 0) > 0;
+  const ahead = (git?.ahead ?? 0) > 0;
+  const inSync = git != null && !dirty && !behind && !ahead;
+
+  // * Release ready requires exact-HEAD complete green battery + clean tree + in sync.
+  const exactGreen = exactClass?.class === "green";
+  const releaseReady = Boolean(exactGreen && inSync && !dirty);
+
+  const readiness = {
+    releaseReady,
+    batteryClass: targetedClass?.class ?? "unknown",
+    batteryScope: targetedClass?.scopeLabel ?? "0/5",
+    completeBatteryClass: completeClass?.class ?? null,
+    exactHeadBatteryClass: exactClass?.class ?? null,
+    inSync,
+    dirty,
+    reasons: [
+      ...(exactGreen ? [] : ["no-exact-head-complete-green-battery"]),
+      ...(inSync ? [] : ["git-not-in-sync"]),
+      ...(dirty ? ["dirty-tree"] : []),
+      ...(targetedClass && targetedClass.class !== "green" ? [`latest-targeted:${targetedClass.class}`] : []),
+    ],
+  };
+
+  const checks = {
+    collectorErrors,
+    sourceFreshness,
+  };
+
   const digest = {
-    phase: phases.find((p) => p.state === "current")?.name ?? null,
+    phase: declared.phase,
     mission: mission?.headline ?? null,
-    now: deriveNextAction({ battery, issues }),
+    now: deriveNextAction({ battery, issues, observed, declared }),
     doneWhen,
     recentlyCompleted: [
-      ...issues.playtestQueue.filter((q) => q.state === "done").map((q) => `${q.id} ${q.what}`.trim()),
-      ...commits.slice(0, 3).map((c) => c.subject),
+      ...playtestQueue.filter((q) => q.state === "done").map((q) => `${q.id} ${q.what}`.trim()),
+      ...(git?.commits ?? []).slice(0, 3).map((c) => c.subject),
     ],
-    inProgress: [activeRow ? `${activeRow.id} — ${activeRow.what} (${activeRow.status})` : null, localFact ? `local/unpushed: ${localFact}` : null].filter(Boolean),
-    blockers: issues.open.filter((i) => issueState(i.status) === "open").map((i) => ({ id: i.id, issue: i.issue })),
+    inProgress: [
+      activeRow ? `${activeRow.id} — ${activeRow.what} (${activeRow.status})` : null,
+    ].filter(Boolean),
+    blockers: declared.blockers.map((i) => ({ id: i.id, issue: i.issue })),
     avoid: handoff?.doNots ?? [],
     symbolsInPlay: extractBacktickSymbols(
-      localFact,
       activeRow ? `${activeRow.what} ${activeRow.status}` : null,
-      (issues.nextActions ?? []).slice(0, 2).join(" "),
+      nextActions.slice(0, 2).join(" "),
       lastSession?.summary,
     ),
-    recentRegressions: commits.filter((c) => /revert|rollback|regress/i.test(c.subject)).map((c) => c.subject),
+    recentRegressions: (git?.commits ?? []).filter((c) => /revert|rollback|regress/i.test(c.subject)).map((c) => c.subject),
     lastSession,
+    readiness: { releaseReady, batteryClass: readiness.batteryClass, batteryScope: readiness.batteryScope },
   };
 
   return {
-    healthVersion: 3,
+    healthVersion: 4,
     generatedAt: new Date().toISOString(),
+    declared,
+    observed,
+    checks,
+    readiness,
+    // * Back-compat surface for dashboard / older tests
     git,
-    battery,
+    battery: {
+      latest: battery?.latestTargeted ?? null,
+      latestTargeted: battery?.latestTargeted ?? null,
+      latestComplete: battery?.latestComplete ?? null,
+      latestCompleteExactHead: battery?.latestCompleteExactHead ?? null,
+      history: battery?.history ?? [],
+      coreRequired: REQUIRED_CORE_STEPS,
+    },
     captures,
     perf,
     mission,

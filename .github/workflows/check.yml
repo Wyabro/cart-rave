@@ -1,5 +1,6 @@
-# Cart Clash — PR / push gate (typecheck + tests + knip).
-# Visual QA (shoot / blackframes) stays manual or nightly; it needs a headed WebGL path.
+# Cart Clash — PR / push gate (typecheck + tests + knip + health + production build).
+# Visual QA (shoot / blackframes) and full battery stay manual — not ordinary PR CI.
+# Exact-HEAD release gate: npm run release:check (includes complete battery evidence).
 
 name: check
 
@@ -19,9 +20,9 @@ concurrency:
 
 jobs:
   check:
-    name: typecheck · test · knip
+    name: typecheck · test · knip · health · build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -39,3 +40,6 @@ jobs:
 
       - name: QA gate
         run: npm run qa
+
+      - name: Production build
+        run: npm run build

@@ -1,25 +1,28 @@
-# Handoff — Cursor (RC polish; NET-MIG-3 live)
+# Handoff — active window (Playtesting & stabilization)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-DGodTO_i.js`** / sha **`f3a9943`** (NET-MIG-3 live + PASS)  
-**Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
+**Prod:** `index-DGodTO_i.js` / sha `f3a9943` (NET-MIG-3 live + PASS)  
+**Read order:** `npm run dashboard` → `.diag-captures/health.json` → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
 **One card / one lever at a time.** **No active ship card** — wait for Wyatt to name next.
 
-**Dashboard:** mission + done-when from STATUS `## Current focus` / `### Done when`. Run `npm run dashboard` after STATUS edits.
+**Declared phase:** Playtesting & stabilization (STATUS owns the ▶ marker).  
+**Dashboard:** regenerate with `npm run dashboard` after STATUS edits. Evidence ≠ phase advance.  
+**Battery:** complete core **5/5 green** (`battery-2026-07-20T20-11-15-661Z.json`) — dirty-tree run; re-run clean after push for exact-HEAD readiness.
 
 ---
 
-## Where we landed
+## Where we landed (evidence, not phase exit)
 
 | Card | Verdict |
 |------|---------|
 | **Run 7** | ✅ CLOSED |
-| **NET-2** | ✅ **PASS** ~3s driveable |
-| **NET-MIG-3** | ✅ **PASS** + live `f3a9943` / `index-DGodTO_i.js` |
-| NET-PRES-1 | 🟡 partial polish (optional) |
+| **NET-1** | ✅ PASS |
+| **NET-2** | ✅ PASS ~3s driveable |
+| **NET-MIG-3** | ✅ PASS + live |
+| NET-PRES-1 | 🟡 optional polish |
 | MAIN-1 / BUNDLE-1 / BRAND-1 | post-gate / frozen |
 
 ### Do not re-open without new evidence
@@ -40,16 +43,16 @@ Candidates:
 |----|------|
 | NET-PRES-1 | polish — event-id dedupe on falls/collisions |
 | Tech-debt | MAIN-1 only if Wyatt pulls it |
-| Ship checklist | BRAND-1 still frozen |
+| Phase advance | Release candidate only on Wyatt instruction |
 
 ---
 
-## Suggested paste (Wyatt → Cursor)
+## Suggested paste (Wyatt → agent)
 
-> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-DGodTO_i.js`** / sha **`f3a9943`**.  
-> **Closed:** Run 7 · NET-2 · **NET-MIG-3 PASS + live**.  
-> **Active:** none — name next card (NET-PRES-1 optional).  
+> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/STATUS.md`, `AGENTS.md`.  
+> Branch `cart-clash`. Declared phase: **Playtesting & stabilization**.  
+> **Closed evidence:** Run 7 · NET-1 · NET-2 · NET-MIG-3.  
+> **Active:** none — name next card. Do not advance phase without explicit instruction.  
 > One card/lever. Ship only on “ship it.” Do not `git add -A`.
 
 ---

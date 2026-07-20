@@ -154,3 +154,38 @@ describe("analytics — queue + batching", () => {
     expect(sink.batches[0].reason).toBe("pagehide");
   });
 });
+
+describe("gameplayAnalytics — challenge_completed from isComplete", () => {
+  it("emits exactly one challenge_completed on isComplete transition (no duplicate on later updates)", async () => {
+    const sink = memorySink();
+    initAnalytics({ sink });
+
+    const { installGameplayAnalytics } = await import("../src/analytics/gameplayAnalytics.js");
+    const { challengeStore, CHALLENGE_POOL } = await import("../src/stores/challengeStore.js");
+    const { PROGRESSION_EVENTS } = await import("../src/progression/eventIds.js");
+
+    const meta = CHALLENGE_POOL.find((c) => c.id === "spill_15");
+    expect(meta).toBeTruthy();
+    challengeStore.setState({
+      dailyChallenges: [{ id: "spill_15", progress: meta.goal - 1, isComplete: false }],
+      weeklyChallenges: [],
+    });
+
+    installGameplayAnalytics({});
+
+    challengeStore.getState().record(PROGRESSION_EVENTS.SPILL, 1);
+    flushAnalytics("test");
+    const completed = sink.batches.flatMap((b) => b.events).filter((e) => e.name === "challenge_completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0].id).toBe("spill_15");
+
+    challengeStore.getState().record(PROGRESSION_EVENTS.SPILL, 1);
+    challengeStore.setState({
+      dailyChallenges: [{ id: "spill_15", progress: meta.goal, isComplete: true }],
+      weeklyChallenges: [],
+    });
+    flushAnalytics("test2");
+    const again = sink.batches.flatMap((b) => b.events).filter((e) => e.name === "challenge_completed");
+    expect(again).toHaveLength(1);
+  });
+});

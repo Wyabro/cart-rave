@@ -1,5 +1,8 @@
 # Playtest triage — 2026-07-18 run 6
 
+> **Historical / superseded.** Run 7 closed 2026-07-20. Live queue and phase live in
+> [STATUS.md](../STATUS.md). Keep for forensics only.
+
 Notes: "Overall: Good, just a few fixes" — 16/26 checks passed, 10 needs-work.
 Evidence: 34 F8 capture bundles (3 zips: `solo and lobby` = 4090 solo session,
 `multi` = 4090 side of two MP matches, `reeeeeeee` = Intel UHD side), a 5.5s MP

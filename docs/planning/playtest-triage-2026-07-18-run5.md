@@ -1,5 +1,8 @@
 # Playtest triage — 2026-07-18 (run 5)
 
+> **Historical / superseded.** Run 7 closed 2026-07-20. Live queue and phase live in
+> [STATUS.md](../STATUS.md). Keep for forensics only.
+
 Run-5 notes: 20/25 good ("Good, just a few fixes"), **5 needs-work** + a 7-item general
 list. This run's captures carried the new `net.flow` / `over33`/`over66` instrumentation
 from run-4 — and they materially changed the diagnosis.

@@ -1,5 +1,8 @@
 # Playtest triage — 2026-07-17 (evening notes)
 
+> **Historical / superseded.** Run 7 closed 2026-07-20. Live queue and phase live in
+> [STATUS.md](../STATUS.md). Keep this file for forensics only — do not treat open rows as current.
+
 Source: Wyatt's playtest console dump, 7/17 5:06 PM. 12 NEEDS WORK items + general
 notes. This doc maps each item to root cause → change shipped this pass → what's
 left. The multiplayer performance assessment is at the bottom — read it; it is

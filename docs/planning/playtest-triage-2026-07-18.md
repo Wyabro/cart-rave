@@ -1,5 +1,8 @@
 # Playtest triage — 2026-07-18 (run 4)
 
+> **Historical / superseded.** Run 7 closed 2026-07-20. Live queue and phase live in
+> [STATUS.md](../STATUS.md). Keep for forensics only.
+
 Run-4 notes: 19/25 good, **6 needs-work** + 2 general notes. All 8 addressed in `7e67fe2`,
 deployed as Version `d42534f4` (bundle `index-JHMFE-UK.js`). This file is the decode — what
 the evidence showed, what changed, and what run 5 should confirm.

@@ -251,7 +251,7 @@ function registerProbes(deps) {
     const st = challengeStore.getState();
     const shape = (list) =>
       Array.isArray(list)
-        ? list.map((c) => ({ id: c.id, progress: c.progress, goal: c.goal, done: Boolean(c.completed) }))
+        ? list.map((c) => ({ id: c.id, progress: c.progress, goal: c.goal, done: Boolean(c.isComplete) }))
         : [];
     return { daily: shape(st.dailyChallenges), weekly: shape(st.weeklyChallenges) };
   });
@@ -369,7 +369,7 @@ function readMenuReadyMs() {
 
 /** @param {any} state */
 function countCompleted(state) {
-  const count = (list) => (Array.isArray(list) ? list.filter((c) => c?.completed).length : 0);
+  const count = (list) => (Array.isArray(list) ? list.filter((c) => c?.isComplete).length : 0);
   return count(state?.dailyChallenges) + count(state?.weeklyChallenges);
 }
 

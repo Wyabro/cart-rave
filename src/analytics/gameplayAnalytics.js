@@ -144,7 +144,8 @@ function completedChallengeIds(state) {
   const done = new Set();
   for (const list of [state?.dailyChallenges, state?.weeklyChallenges]) {
     if (!Array.isArray(list)) continue;
-    for (const c of list) if (c?.completed && c.id) done.add(String(c.id));
+    // * Canonical field from challengeStore is `isComplete` (not `completed`).
+    for (const c of list) if (c?.isComplete && c.id) done.add(String(c.id));
   }
   return done;
 }

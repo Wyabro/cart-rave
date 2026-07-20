@@ -76,6 +76,15 @@ export default defineConfig(({ mode }) => ({
       "@dimforge/rapier3d-simd": new URL("./tests/stubs/rapier3d.js", import.meta.url).pathname,
       "@dimforge/rapier3d": new URL("./tests/stubs/rapier3d.js", import.meta.url).pathname,
     },
+    // * Worktrees under .claude/ mirror the suite and double Vitest discovery — exclude them.
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.claude/worktrees/**",
+      "**/cypress/**",
+      "**/.{idea,git,cache,output,temp}/**",
+      "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*",
+    ],
   },
 
   // Base public path when served in production

@@ -57,30 +57,46 @@ function fact(briefing, keyPrefix) {
 /** @param {any} h @returns {string} */
 function renderHtml(h) {
   const now = deriveNextAction(h);
-  const mission = h.mission;
+  const mission = h.mission ?? h.declared?.mission;
   const briefing = h.handoff;
-  const latest = h.battery?.latest;
-  const g = h.git;
+  const latest = h.battery?.latestTargeted ?? h.battery?.latest;
+  const g = h.git ?? h.observed?.git;
   const digest = h.digest ?? {};
+  const readiness = h.readiness ?? {};
+  const targetedClass = latest?.classification?.class ?? readiness.batteryClass ?? "unknown";
+  const scopeLabel = latest?.classification?.scopeLabel ?? readiness.batteryScope ?? "?/?";
 
   // --- hero chips -----------------------------------------------------------
-  const bundleFact = fact(briefing, "Live client bundle");
-  const bundleShort = bundleFact?.match(/index-[\w-]+\.js/)?.[0] ?? null;
+  const bundleFact = fact(briefing, "Prod") ?? fact(briefing, "Live client bundle");
+  const bundleShort = String(bundleFact ?? "").match(/index-[\w-]+\.js/)?.[0] ?? null;
   const prodUrl = (fact(briefing, "Prod") ?? "").match(/https?:\/\/\S+/)?.[0] ?? null;
   const diagUrl = prodUrl ? `${prodUrl.replace(/\/+$/, "")}/?diag=1` : null;
-  // * code 3 = INCONCLUSIVE (starved rig, no regression evidence) — warn, never red.
   const failingCount = (latest?.results ?? []).filter((r) => r.code !== 0 && r.code !== 3).length;
   const inconclCount = (latest?.results ?? []).filter((r) => r.code === 3).length;
+  // * Never paint battery green when evidence is partial/stale/mismatched/legacy.
+  const batteryChipCls =
+    targetedClass === "green" && failingCount === 0 && inconclCount === 0
+      ? "good"
+      : failingCount > 0 || targetedClass === "red"
+        ? "bad"
+        : "warn";
+  const batteryMark = batteryChipCls === "good" ? "✓" : batteryChipCls === "bad" ? "✕" : "△";
   const batteryChip = latest
-    ? `<span class="chip ${failingCount ? "bad" : inconclCount ? "warn" : "good"}">${failingCount ? "✕" : inconclCount ? "△" : "✓"} battery ${(latest.results?.length ?? 0) - failingCount - inconclCount}/${latest.results?.length ?? 0}${inconclCount ? ` · ${inconclCount} inconcl` : ""} <i>${esc(ago(latest.when))}</i></span>`
+    ? `<span class="chip ${batteryChipCls}" title="class=${esc(targetedClass)}">${batteryMark} battery ${esc(scopeLabel)} · ${esc(targetedClass)} <i>${esc(ago(latest.when))}</i></span>`
     : `<span class="chip warn">△ battery never run</span>`;
-  const dirty = (g?.dirtyFiles ?? 0) > 0 || (g?.ahead ?? 0) > 0;
+  const dirty = (g?.dirtyFiles ?? 0) > 0 || (g?.ahead ?? 0) > 0 || (g?.behind ?? 0) > 0 || readiness.dirty;
   const syncChip =
     g == null
       ? ""
-      : dirty
-        ? `<span class="chip warn">△ unpushed — ${g.dirtyFiles} dirty · ${g.ahead ?? "?"} ahead</span>`
+      : dirty || readiness.inSync === false
+        ? `<span class="chip warn">△ git drift — ${g.dirtyFiles ?? 0} dirty · ${g.ahead ?? "?"} ahead · ${g.behind ?? "?"} behind</span>`
         : `<span class="chip good">✓ in sync with origin/${esc(g.branch)}</span>`;
+  const readyChip = readiness.releaseReady
+    ? `<span class="chip good">✓ release ready</span>`
+    : `<span class="chip warn">△ not release-ready</span>`;
+  const phaseChip = h.declared?.phase
+    ? `<span class="chip neutral">▶ ${esc(String(h.declared.phase).split("—")[0].trim())}</span>`
+    : "";
   const prodChip = bundleShort
     ? `<span class="chip neutral" title="${esc(bundleFact)}">${prodUrl ? `<a href="${esc(prodUrl)}">` : ""}prod ${esc(bundleShort)}${prodUrl ? "</a>" : ""}</span>`
     : "";
@@ -112,7 +128,8 @@ function renderHtml(h) {
   const doNots = (briefing?.doNots ?? []).map((d) => `<li>${esc(d)}</li>`).join("\n");
   const queue = h.issues?.playtestQueue ?? [];
   const lockedRows = queue.filter((q) => q.state === "locked");
-  const parkedIssues = (h.issues?.open ?? []).filter((i) => issueState(i.status) === "parked");
+  const allIssues = h.issues?.all ?? h.issues?.open ?? [];
+  const parkedIssues = allIssues.filter((i) => issueState(i.status) === "parked");
   const notToday = [
     ...lockedRows.map((q) => `<li><b>${esc(q.id || "·")}</b> ${esc(q.what)} <i>${esc(compressIssueStatus(q.status, 60))}</i></li>`),
     ...parkedIssues.map((i) => `<li><b>${esc(i.id)}</b> ${esc(i.issue)}</li>`),
@@ -123,13 +140,13 @@ function renderHtml(h) {
   const doneRows = queue.filter((q) => q.state === "done");
   const waitingRows = queue.filter((q) => q.state === "waiting");
   const doneLine = doneRows.length
-    ? `<div class="q-done">✓ Shipped this run: ${doneRows.map((q) => `<b>${esc(q.id)}</b> ${esc(q.what)}`).join(" · ")}</div>`
+    ? `<div class="q-done">✓ Closed evidence this phase: ${doneRows.map((q) => `<b>${esc(q.id)}</b> ${esc(q.what)}`).join(" · ")}</div>`
     : "";
   const activeCard = activeRow
     ? `<div class="q-active"><span class="q-badge">▶ ACTIVE</span><span class="q-id">${esc(activeRow.id)}</span>
        <div class="q-what">${esc(activeRow.what)}</div>
        <div class="q-status">${esc(activeRow.status.replace(/^▶️\s*/u, ""))}</div></div>`
-    : "";
+    : `<div class="empty">No active card — wait for Wyatt to name one.</div>`;
   const waitingList = waitingRows.length
     ? `<ol class="q-wait">${waitingRows.map((q) => `<li><b>${esc(q.id)}</b> ${esc(q.what)} <i>${esc(compressIssueStatus(q.status, 70))}</i></li>`).join("\n")}</ol>`
     : "";
@@ -145,7 +162,7 @@ function renderHtml(h) {
       return `<li class="r-${i.state}"><span class="r-dot">${dot}</span><b>${esc(i.id)}</b> ${esc(i.issue)}<div class="r-note">${esc(compressIssueStatus(i.status, 140))}</div></li>`;
     })
     .join("\n");
-  const shelved = (h.issues?.open ?? []).length - radar.length;
+  const shelved = Math.max(0, allIssues.length - radar.length);
 
   const batteryRowsCompact = (latest?.results ?? [])
     .map((r) => {
@@ -168,8 +185,6 @@ function renderHtml(h) {
       const label = r.code === 0 ? "PASS" : r.code === 2 ? "SETUP" : r.code === 3 ? "INCONCL" : "FAIL";
       const state = r.code === 0 ? "pass" : r.code === 2 || r.code === 3 ? "setup" : "fail";
       const checks = r.checks ? `${r.checks.passed}/${r.checks.passed + r.checks.failed}` : "—";
-      // * Inconclusive checks render as △ lines, never as red ✕ — they are "no evidence
-      // * either way" (starved loop), not failures.
       const failedChecks = (r.checks?.checks ?? []).filter((c) => !c.pass && !c.inconclusive);
       const inconclChecks = (r.checks?.checks ?? []).filter((c) => c.inconclusive);
       const lines = [
@@ -182,9 +197,9 @@ function renderHtml(h) {
     .join("\n");
   const historyChips = (h.battery?.history ?? [])
     .map((e) => {
-      const inc = e.inconclusive ?? 0;
-      const cls = e.green + inc === e.total ? (inc ? "warn" : "good") : "bad";
-      return `<span class="chip ${cls}" title="${esc(e.file)}">${e.green}/${e.total}${inc ? ` △${inc}` : ""}</span>`;
+      const cls = e.class === "green" ? "good" : e.class === "red" ? "bad" : "warn";
+      const scope = e.scopeLabel ? ` ${e.scopeLabel}` : ` ${e.green}/${e.total}`;
+      return `<span class="chip ${cls}" title="${esc(e.file)} · ${esc(e.class ?? "")}">${esc(e.class ?? "?")}${scope}</span>`;
     })
     .join(" ");
 
@@ -422,7 +437,7 @@ function renderHtml(h) {
     <h1>CART <span class="neon">CLASH</span><span class="cc">COMMAND CENTER</span></h1>
     <div class="stamp">generated <span id="gen-ago">${esc(ago(h.generatedAt))}</span> · <span class="mono">npm run dashboard</span> to refresh</div>
   </div>
-  <div class="chips">${prodChip}${syncChip}${batteryChip}${blockerChip}<span class="chip neutral" id="pt-chip" hidden></span></div>
+  <div class="chips">${phaseChip}${prodChip}${syncChip}${readyChip}${batteryChip}${blockerChip}<span class="chip neutral" id="pt-chip" hidden></span></div>
 </header>
 
 ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</nav>` : ""}
@@ -430,7 +445,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
 <section class="mission">
   <div>
     <div class="k">Current mission</div>
-    <div class="mission-head">${esc(mission?.headline ?? briefing?.title ?? "No mission parsed — check STATUS.md § Current focus")}</div>
+    <div class="mission-head">${esc(mission?.headline ?? "No mission parsed — check STATUS.md § Current focus")}</div>
     ${mission?.detail ? `<div class="mission-detail">${esc(mission.detail)} — <a href="../docs/planning/handoff-next-window.md">full handoff</a></div>` : ""}
   </div>
   <div class="dw">
@@ -477,7 +492,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
 
 <section class="block panel">
   <div class="k">The queue — strict, one card at a time</div>
-  ${doneLine}${activeCard}${waitingList || (activeCard ? "" : `<div class="empty">Queue not parsed from STATUS.md.</div>`)}
+  ${doneLine}${activeCard}${waitingList}
 </section>
 
 <section class="block pt" id="pt-panel">
@@ -528,7 +543,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
     <div><h4>Recent regressions / rollbacks</h4>${digestList(digest.recentRegressions)}</div>
     <div><h4>Symbols in play</h4>${symbolChips || `<div class="empty">none</div>`}</div>
   </div>
-  <div class="note">Read order: <a href="../docs/planning/handoff-next-window.md">handoff</a> → <a href="../docs/STATUS.md">STATUS.md</a> → <a href="../AGENTS.md">AGENTS.md</a> · gates by number · ship <b>only</b> on Wyatt's "ship it".</div>
+  <div class="note">Read order: <a href="../.diag-captures/dashboard.html">dashboard</a> → <a href="health.json">health.json</a> → <a href="../docs/STATUS.md">STATUS.md</a> → <a href="../AGENTS.md">AGENTS.md</a> · gates by number · ship <b>only</b> on Wyatt's "ship it". Declared phase ≠ release readiness.</div>
 </div></details>
 
 <details class="ref"><summary>Battery detail &amp; history ${latest ? `(${esc(latest.file)})` : "(never run)"}</summary><div class="inner">
@@ -657,17 +672,20 @@ async function main() {
     log(`dashboard    → ${htmlPath}`);
   }
 
-  const latest = health.battery?.latest;
+  const latest = health.battery?.latestTargeted ?? health.battery?.latest;
   const failing = latest?.results?.filter((r) => r.code !== 0 && r.code !== 3).length ?? 0;
   const inconcl = latest?.results?.filter((r) => r.code === 3).length ?? 0;
   const newest = health.captures?.[0];
   const newestNote = newest
     ? ` (newest ${newest.serverId != null ? `#${newest.serverId}` : newest.file} build=${newest.buildSha ?? "?"} ${ago(newest.capturedAt)})`
     : "";
+  const scope = latest?.classification?.scopeLabel ?? "?/?";
+  const bclass = latest?.classification?.class ?? "unknown";
   log(
-    `summary: battery ${latest ? `${(latest.results?.length ?? 0) - failing - inconcl}/${latest.results?.length ?? 0} green${inconcl ? ` +${inconcl} inconclusive` : ""} (${ago(latest.when)})` : "never run"}` +
+    `summary: battery ${latest ? `${scope} ${bclass}${inconcl ? ` +${inconcl} inconclusive` : ""} (${ago(latest.when)})` : "never run"}` +
+      ` · ready=${health.readiness?.releaseReady ? "yes" : "no"}` +
       ` · ${health.captures?.length ?? 0} capture(s)${newestNote} · ${health.issues?.open?.length ?? 0} open issue(s)` +
-      ` · phase: ${health.digest?.phase ?? "?"}`,
+      ` · phase: ${health.declared?.phase ?? health.digest?.phase ?? "?"}`,
   );
 }
 

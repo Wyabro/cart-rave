@@ -18,7 +18,8 @@ match the date first, then grep inside.
 
 | Date range | File |
 |---|---|
-| 2026-07-19 → present | **live** in [STATUS.md](../STATUS.md) |
+| 2026-07-20 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-07-19 → 07-20 | [status-log-2026-07-19-to-20.md](./status-log-2026-07-19-to-20.md) |
 | 2026-07-16 → 07-18 | [status-log-2026-07-16-to-18.md](./status-log-2026-07-16-to-18.md) |
 | 2026-07-14 → 07-15 | [status-log-2026-07-14-to-15.md](./status-log-2026-07-14-to-15.md) |
 

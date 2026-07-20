@@ -1,0 +1,10 @@
+# Files Claude Code tools may not read, regardless of instruction source.
+# Hard boundary enforced before execution — not a judgment call.
+
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+secrets/

@@ -310,6 +310,14 @@ describe("deriveNextAction", () => {
     expect(now.tag).toBe("RED GATE");
     expect(now.text).toContain("spawnlock");
   });
+  it("prefers the active queue card over fallback next actions", () => {
+    const active = { id: "P0", what: "Host freezes", status: "▶️ coded", state: "active" };
+    const now = deriveNextAction({
+      issues: { nextActions: ["Optional polish."], playtestQueue: [active] },
+    });
+    expect(now.kind).toBe("queue");
+    expect(now.text).toBe("P0 — Host freezes");
+  });
   it("splits next-action #1 on Expect: and strips links", () => {
     const h = {
       battery: { latest: { results: [{ name: "x", code: 0, note: "" }] } },
@@ -318,6 +326,12 @@ describe("deriveNextAction", () => {
     const now = deriveNextAction(h);
     expect(now.text).toBe("Ship the card then retest");
     expect(now.expect).toBe("no multi-s longtask.");
+  });
+  it("treats wait/ask next-actions as no active card", () => {
+    const now = deriveNextAction({
+      issues: { nextActions: ["Wait for Wyatt to name the next card."], playtestQueue: [] },
+    });
+    expect(now.kind).toBe("none");
   });
   it("falls back to the active queue card, then to a pointer at STATUS", () => {
     const active = { id: "P0", what: "Host freezes", status: "▶️ coded", state: "active" };
@@ -384,6 +398,39 @@ describe("live-doc canaries (real docs/ vs parsers)", () => {
     const b = parseHandoffBriefing(read("docs/planning/handoff-next-window.md"));
     expect(b).not.toBeNull();
     expect(b.facts.length).toBeGreaterThan(0);
+  });
+});
+
+describe("STATUS semantic contracts (Truth Reset)", () => {
+  const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8");
+
+  it("phase order is done → current → todo with ≤1 active card and open-only issues", async () => {
+    const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");
+    const statusMd = read("docs/STATUS.md");
+    const handoffMd = read("docs/planning/handoff-next-window.md");
+    const result = evaluateProjectHealth({ statusMd, handoffMd });
+    const errors = result.findings.filter((f) => f.severity === "error");
+    expect(errors.map((e) => e.code)).toEqual([]);
+    const phases = parseStatusReleasePhases(statusMd);
+    expect(phases.filter((p) => p.state === "current")[0].name).toMatch(/Playtesting/i);
+    expect(parseStatusPlaytestQueue(statusMd).filter((q) => q.state === "active")).toHaveLength(0);
+    for (const i of parseStatusOpenIssues(statusMd)) {
+      expect(issueState(i.status)).not.toBe("closed");
+    }
+  });
+
+  it("STATUS Project health does not hand-claim origin HEAD or qa green", () => {
+    const md = read("docs/STATUS.md");
+    const health = extractSection(md, "## Project health") ?? "";
+    expect(health).not.toMatch(/Gates\s*\(`npm run qa`\)\s*\|\s*✅/i);
+    expect(health).not.toMatch(/origin\/cart-clash\b.*`[0-9a-f]{7,}`/i);
+  });
+
+  it("mission agrees with Playtesting phase (not RC)", () => {
+    const md = read("docs/STATUS.md");
+    const mission = parseStatusCurrentFocus(md);
+    expect(mission?.headline).toMatch(/stabil/i);
+    expect(mission?.headline).not.toMatch(/^Release candidate/i);
   });
 });
 

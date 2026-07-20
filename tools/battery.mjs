@@ -1,29 +1,19 @@
 /**
  * battery.mjs — the one-command regression sweep for Cart Clash.
  *
- * Runs every headless diagnostic rig against a SINGLE shared dev stack (started once, or
- * attached via --url), sequentially — the rigs share the quickplay room and the Worker, so
- * parallel runs would collide. Aggregates each rig's exit code into one tally, writes a
- * JSON report to .diag-captures/, and exits with the shared contract:
- *   0 = every rig green · 1 = a rig failed · 2 = setup error (stack never came up).
- * A rig may also exit 3 = INCONCLUSIVE (starved client loop — no regression evidence);
- * that renders loudly in the summary but does NOT fail the sweep: red means regression.
+ * Runs diagnostic rigs against a SINGLE shared dev stack (started once, or attached via
+ * --url), sequentially. Writes a versioned JSON report with git provenance + completeness.
+ * Exit: 0 = every selected rig green · 1 = a rig failed · 2 = setup error · code 3 from a
+ * child = INCONCLUSIVE (does not fail the sweep).
  *
- * Before this existed, a full sweep was five manual commands, each with its own dev-stack
- * handshake — so it never got run. Now it's:
- *
- *   npm run battery                              # auto-start dev:local, run everything
- *   npm run battery -- --url http://127.0.0.1:3000/    # attach to a running stack (faster)
- *   npm run battery -- --only gameharness              # one rig
- *   npm run battery -- --skip hostMigration,soak       # drop steps by name
- *   npm run battery -- --visual                        # also run the black-frame battery
- *
- * Add a step by appending to STEPS — any command that honors the 0/1/2 exit contract and
- * accepts --url (or needs no stack) slots in. Keep new rigs on tools/lib/harness.mjs so
- * they inherit preflight + the contract for free.
+ *   npm run battery
+ *   npm run battery -- --url http://127.0.0.1:3000/
+ *   npm run battery -- --only gameharness
+ *   npm run battery -- --skip hostMigration
+ *   npm run battery -- --visual
  */
 
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -36,26 +26,45 @@ import {
   CAPTURE_DIR,
   killDevStack,
 } from "./lib/harness.mjs";
+import {
+  BATTERY_STEPS,
+  BATTERY_SUITE_ID,
+  BATTERY_REPORT_VERSION,
+  REQUIRED_CORE_STEPS,
+  selectBatterySteps,
+  omittedCoreSteps,
+  isCompleteCoreSelection,
+} from "./lib/batteryPlan.mjs";
 
 const log = makeLogger("battery");
 
-/**
- * The sweep, in order. `name` doubles as the --only/--skip key. `urlArg` steps get the
- * shared stack's --url appended; `optIn` steps only run behind their flag.
- * @type {Array<{ name: string, cmd: string[], urlArg?: boolean, optIn?: string, note: string }>}
- */
-const STEPS = [
-  { name: "gameharness", cmd: ["node", "tools/gameharness.mjs"], urlArg: true, note: "solo gameplay: roundflow + unlockFunnel + arenas + soak" },
-  { name: "spawnlock", cmd: ["node", "tools/netharness.mjs", "--scenario", "spawnlock"], urlArg: true, note: "2-client: joiner drives off spawn (NET-2 probe)" },
-  { name: "mpIntegration", cmd: ["node", "tools/netharness.mjs", "--scenario", "mpIntegration"], urlArg: true, note: "2-client: netcode↔gameplay seam" },
-  { name: "hostMigration", cmd: ["node", "tools/netharness.mjs", "--scenario", "hostMigration"], urlArg: true, note: "2-client: clean host departure" },
-  { name: "teardownRejoin", cmd: ["node", "tools/netharness.mjs", "--scenario", "teardownRejoin"], urlArg: true, note: "2-client: menu-return teardown before rejoin (07-17 axis-unwire freeze)" },
-  { name: "visual", cmd: ["node", "tools/blackframes.mjs", "--shot", "classic", "--frames", "30"], optIn: "visual", note: "black-frame battery (qa:visual)" },
-  { name: "qa", cmd: ["npm", "run", "qa"], optIn: "qa", note: "typecheck + vitest + knip" },
-];
+/** @param {string[]} argv @returns {string | null} */
+function git(argv) {
+  try {
+    return execFileSync("git", argv, { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return null;
+  }
+}
+
+function collectGitProvenance() {
+  const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+  const headFull = git(["rev-parse", "HEAD"]);
+  const head = git(["rev-parse", "--short", "HEAD"]);
+  const dirtyRaw = git(["status", "--porcelain"]);
+  const dirtyFiles = dirtyRaw ? dirtyRaw.split("\n").filter(Boolean) : [];
+  return {
+    branch,
+    head,
+    headFull,
+    dirty: dirtyFiles.length > 0,
+    dirtyFiles: dirtyFiles.length,
+  };
+}
 
 /**
- * Run one step as a child process, streaming its output with a [name] prefix.
  * @param {{ name: string, cmd: string[] }} step
  * @param {string[]} extraArgs
  * @returns {Promise<{ code: number, ms: number }>}
@@ -66,8 +75,6 @@ function runStep(step, extraArgs) {
     const [bin, ...rest] = step.cmd;
     const isWin = process.platform === "win32";
     const argv = [...rest, ...extraArgs];
-    // * Only npm needs a shell on Windows; Node 24 deprecates args-array + shell:true
-    // * (DEP0190), so the shell form joins our own literal step definition into one string.
     const child =
       isWin && bin === "npm"
         ? spawn([bin, ...argv].join(" "), { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"], shell: true })
@@ -87,18 +94,27 @@ function runStep(step, extraArgs) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = str(args.url) || `http://127.0.0.1:${CLIENT_PORT}/`;
-  const only = str(args.only)?.split(",").map((s) => s.trim()).filter(Boolean);
-  const skip = new Set(str(args.skip)?.split(",").map((s) => s.trim()).filter(Boolean) ?? []);
+  const only = str(args.only)?.split(",").map((s) => s.trim()).filter(Boolean) ?? null;
+  const skipList = str(args.skip)?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  const skip = new Set(skipList);
 
-  const steps = STEPS.filter((s) => {
-    if (only) return only.includes(s.name);
-    if (skip.has(s.name)) return false;
-    if (s.optIn) return args[s.optIn] === true;
-    return true;
-  });
+  const steps = selectBatterySteps({ only, skip, flags: args });
   if (steps.length === 0) {
-    log("nothing to run (check --only/--skip names:", STEPS.map((s) => s.name).join(", ") + ")");
+    log("nothing to run (check --only/--skip names:", BATTERY_STEPS.map((s) => s.name).join(", ") + ")");
     process.exit(2);
+  }
+
+  const selectedNames = steps.map((s) => s.name);
+  const omitted = omittedCoreSteps(selectedNames);
+  const complete = isCompleteCoreSelection(selectedNames);
+  const gitProv = collectGitProvenance();
+  const startedAt = new Date().toISOString();
+
+  if (!complete) {
+    log(
+      `⚠ partial suite — selected ${selectedNames.filter((n) => REQUIRED_CORE_STEPS.includes(n)).length}/${REQUIRED_CORE_STEPS.length} core steps` +
+        (omitted.length ? ` (omitted: ${omitted.join(", ")})` : ""),
+    );
   }
 
   const needsStack = steps.some((s) => s.urlArg || s.name === "visual");
@@ -114,15 +130,11 @@ async function main() {
       killDevStack(devProc);
       process.exit(2);
     }
-    // * If the auto-started stack dies mid-run (wrangler/workerd crash kills Vite via
-    // * dev-local.mjs), stop burning minutes on doomed steps — mark the rest and bail.
     if (devProc) {
       devProc.on("exit", (code) => {
         if (tearingDown) return;
         stackDied = true;
         log(`!! dev stack exited mid-run (code ${code ?? "?"}) — remaining steps will be skipped.`);
-        log("   Likely a wrangler/workerd crash or port fight. Check for zombies:");
-        log("   PowerShell: Get-Process workerd | Stop-Process -Force  → then re-run.");
       });
     }
   }
@@ -140,8 +152,6 @@ async function main() {
       log(`▶ ${step.name} — ${step.note}`);
       const extra = step.urlArg ? ["--url", baseUrl] : [];
       if (step.name === "gameharness" && str(args.soakCycles)) extra.push("--soakCycles", str(args.soakCycles));
-      // * Rigs persist their per-check tally so the battery report (and the dashboard)
-      // * carries check-level detail (16/16 …) instead of only exit codes.
       const tallyPath = step.urlArg ? resolve(CAPTURE_DIR, `tally-${step.name}.json`) : null;
       if (tallyPath) {
         await rm(tallyPath, { force: true }).catch(() => {});
@@ -156,7 +166,7 @@ async function main() {
           const t = JSON.parse(await readFile(tallyPath, "utf8"));
           checks = { passed: t.passed, failed: t.failed, inconclusive: t.inconclusive ?? 0, checks: t.checks };
         } catch {
-          /* rig died before writing a tally — exit code is still authoritative */
+          /* rig died before writing a tally */
         }
       }
       results.push({ name: step.name, note: step.note, ...r, ...(checks ? { checks } : {}) });
@@ -171,11 +181,9 @@ async function main() {
     killDevStack(devProc);
   }
 
-  // Unified tally + persisted report (next to the capture bundles the rigs may have written).
-  // * code 3 (INCONCLUSIVE — starved environment) is deliberately NOT a failure: red is
-  // * reserved for regression evidence. It still prints on its own line so it can't hide.
   const failed = results.filter((r) => r.code !== 0 && r.code !== 3);
   const inconclusive = results.filter((r) => r.code === 3);
+  const finishedAt = new Date().toISOString();
   log("=== battery summary ===");
   for (const r of results) {
     const mark = r.code === 0 ? "PASS " : r.code === 3 ? "INCON" : "FAIL ";
@@ -184,18 +192,29 @@ async function main() {
   log(
     `${results.length - failed.length - inconclusive.length}/${results.length} steps green` +
       (inconclusive.length
-        ? ` — ${inconclusive.length} INCONCLUSIVE (starved environment, not regression evidence: ${inconclusive.map((r) => r.name).join(", ")})`
-        : ""),
+        ? ` — ${inconclusive.length} INCONCLUSIVE (${inconclusive.map((r) => r.name).join(", ")})`
+        : "") +
+      (complete ? " · complete suite" : ` · partial ${REQUIRED_CORE_STEPS.filter((n) => selectedNames.includes(n)).length}/${REQUIRED_CORE_STEPS.length}`),
   );
 
   try {
     await mkdir(CAPTURE_DIR, { recursive: true });
-    const reportPath = resolve(CAPTURE_DIR, `battery-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
-    await writeFile(
-      reportPath,
-      JSON.stringify({ when: new Date().toISOString(), baseUrl, results }, null, 2),
-      "utf8",
-    );
+    const reportPath = resolve(CAPTURE_DIR, `battery-${finishedAt.replace(/[:.]/g, "-")}.json`);
+    const report = {
+      reportVersion: BATTERY_REPORT_VERSION,
+      suiteId: BATTERY_SUITE_ID,
+      when: finishedAt,
+      startedAt,
+      finishedAt,
+      baseUrl,
+      git: gitProv,
+      selectedSteps: selectedNames,
+      omittedCoreSteps: omitted,
+      complete,
+      coreRequired: REQUIRED_CORE_STEPS,
+      results,
+    };
+    await writeFile(reportPath, JSON.stringify(report, null, 2), "utf8");
     log(`report → ${reportPath}`);
   } catch (e) {
     log(`report write failed: ${e instanceof Error ? e.message : e}`);
