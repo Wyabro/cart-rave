@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Pick next card** (Wyatt): NET-1 residual (join/leave/migration) · P5 · or named. S1 residual **PASS**. Color/pattern PASS. NH-HIT residual parked.
+1. **NET-1 residual — validation card** (not a code dig until something fails). Prod `index-BcDjbSZd.js` / `dc1bdac`. One pass: join mid-round · leave · host tab-close migrate. Pass → NET-1 core closed; Fail → one lever from F8.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -199,6 +199,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-OWNED `envMap` reference actually scales IBL. `CONFIG.postFx.environment.materialEnvMapIntensity` / `refreshSceneEnvironmentMaterials` (scene.js) are silently inert as a result. Found while fixing the green-booth floor reflection (`arena.js clampFloorEnv` — floor mats get their own `envMap` at 0.25× to work around it); the rest of the scene still rides the dead per-material knob.
 
 ## Last updated
+
+2026-07-20 (NET-1 residual active) — Wyatt chose residual. **Validation-first** (join/leave/migration). Core A+B already soft-pass; full gate not closed until this smoke.
 
 2026-07-20 (PASS NET-1 S1 residual) — Wyatt **pass** on prod `index-BcDjbSZd.js` / `dc1bdac`. Card closed.
 
