@@ -1,40 +1,30 @@
-# Handoff — next agent window (Run 7 · NH-HIT lever 1)
+# Handoff — next agent window (Run 7 · NH-HIT lever 1 retest)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod still:** **`index-CM5S_sme.js`** / **`6b5a9df`**  
-**Local:** NH-HIT lever 1 **coded unpushed**  
+**Ship code:** **`c07949a`**  
+**Prod:** https://cart-rave.wyabro.workers.dev  
+**Live client bundle:** **`index-DpO_n0oI.js`** (build sha **`c07949a`**)  
 **Ship only on “ship it.”** One lever at a time.
 
 ---
 
-## Active: NH-HIT — non-host hit delay
+## Active: NH-HIT lever 1 — retest open
 
-**Bar:** joiner rams NPCs/players and **feels** the hit now (SFX/shake/particles), not a beat late.
+**Bar:** joiner rams NPCs — **crash SFX / shake / particles on contact**, not a beat late.
 
 | Step | Status |
 |------|--------|
-| **1 — optimistic local ram FX** | coded unpushed |
-| **3 — host quality advisory/migrate** | after lever 1 retest |
-
-### Evidence
-
-- Cap-87/88 weak host + 89/90 strong host: delay remained. Structural (RTT + 40ms jitter + 40Hz), not only HOST-ROLE-1.
-- NH-SMOOTH v4 visual: better (partial).
-
-### Lever 1 files
-
-- `src/simulation.js` — non-host live path plays collision FX when local is rammer  
-- `src/netcode.js` — `noteOptimisticCollisionFx` stamps pair dedupe  
-- `src/main.js` — wires callback  
-- `tests/optimisticLocalHitFx.test.js`
+| **1 — optimistic local ram FX** | **shipped** `c07949a` / `index-DpO_n0oI.js` |
+| **3 — host quality** | after lever 1 retest |
 
 ### DO THIS NOW
 
-1. Ship on “ship it”  
-2. Same room dual client; joiner rams NPCs  
-3. Pass feel → try lever 3 if authority lag still ugly  
-4. Fail → F8 both + pull  
+1. Hard-refresh both → confirm `index-DpO_n0oI.js`  
+2. Same room; joiner rams NPCs hard  
+3. Feel: hit feedback **now**? Double SFX?  
+4. Pass → consider lever 3 or close NH-HIT  
+5. Fail → F8 both + pull  
 
 ### Closed / partial
 
