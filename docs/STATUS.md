@@ -118,8 +118,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NH-HIT lever 1 retest:** hard-refresh on `index-DpO_n0oI.js`; joiner ram NPCs — SFX/shake/burst on contact.
-2. After lever 1: lever 3 host-quality if still needed.
+1. **NH-HIT lever 1 retest:** hard-refresh dual clients on `index-DpO_n0oI.js` / `c07949a`; same room; joiner ram NPCs — SFX/shake/burst on contact (watch double SFX). Pass/fail.
+2. After lever 1 pass: **lever 3** host-quality advisory/migrate (not “strong hosts only”).
 3. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
