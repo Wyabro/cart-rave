@@ -50,9 +50,9 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **522/57** after the 07-19 polish pass (adds yawExtraction + gameFlowTimerExpiry suites) — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at **`03218fa`** — countdown abort + start-tick stack |
-| Prod deploy (2026-07-19 night, P0 countdown residual) | ✅ Live — **bundle `index-CRQwILqC.js`**, Version `5a1caee0` (sha `03218fa`; served: new bundle in index + sha). Live-only cancel + HUD digit reset + MP audio pre-roll + rAF-deferred startCountdown (cap-56). **F8 3-2-1 retest = open gate.** |
-| Prior deploys (07-17 → 07-19) | ✅ superseded — incl. audio warm `index-BUszG7M2.js`/`6c62a3c5`/`c3f3ad0`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
+| Origin HEAD | Local ↔ origin/cart-clash at **`af89f3c`** — non-host countdown hold |
+| Prod deploy (2026-07-19 night, non-host countdown hold) | ✅ Live — **bundle `index-STjeavro.js`**, Version `4e78d849` (sha `af89f3c`; served: new bundle + sha + gate warn string). Joiner holds countdown until carts-ready (cap-59). **Joiner F8 retest = open gate.** |
+| Prior deploys (07-17 → 07-19) | ✅ superseded — incl. `index-CRQwILqC.js`/`5a1caee0`/`03218fa`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
 | Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
@@ -96,7 +96,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ Host countdown stack SHIPPED (`03218fa`). Cap-59 non-host rough: **hold countdown until carts-ready** coded (unpushed). Mid-round still open if friend 2-human freezes |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ Host stack + **non-host countdown hold SHIPPED** (`4e78d849` / `index-STjeavro.js` / `af89f3c`). **Joiner F8 retest pending**; mid-round still open if friend 2-human freezes |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -110,7 +110,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **ship it** (non-host countdown hold until carts-ready) → hard-refresh → Intel/weak joiner F8 through 3-2-1. Expect: no countdown phase before `carts-ready`; no multi-10s longframe under digits.
+1. Wyatt: **F8 retest on joiner** — hard-refresh until `index-STjeavro.js`, 2-human quickplay, F8 both sides, pull. Expect: non-host no countdown phase before `carts-ready`; no multi-10s longframe under 3-2-1.
 2. If countdown clean but friend 2-human still multi-s mid-round → **post-fall frame** card (cap-47).
 3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -191,7 +191,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (non-host countdown hold — **unpushed**) — Cap-59: joiner (Intel/Firefox) applied countdown mid play-shader → **~66s longframe**, digits during load. Fix: non-host `game_start` awaits `ensureSessionCartsReady` (after arena settle); `host_round` countdown **does not set local phase** until `isSessionCartsReady`; abort while held invalidates pending waiter. Gates: **qa 554/57**. Needs ship + joiner F8.
+2026-07-19 (SHIPPED — non-host countdown hold) — **`af89f3c` pushed + deployed** as bundle **`index-STjeavro.js`** / Version **`4e78d849`**. Served-bytes verified: new bundle in index.html, sha `af89f3c`, warn `non-host countdown gate failed`. Cap-59: joiner waits for carts-ready before countdown phase. Gates at prior qa **554/57**. **Next: joiner F8 retest.**
+
+2026-07-19 (non-host countdown hold — coded then shipped above) — Cap-59 ~66s longframe mid-digits; hold until `ensureSessionCartsReady` + hold `host_round` countdown phase.
 
 2026-07-19 (SHIPPED — P0 countdown residual) — **`03218fa` pushed + deployed** as bundle **`index-CRQwILqC.js`** / Version **`5a1caee0`**. Cap-56 follow-up live. Cap-58 host felt good; cap-59 non-host still rough (above).
 
