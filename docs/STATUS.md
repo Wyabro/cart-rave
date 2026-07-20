@@ -93,7 +93,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
 - [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
 - [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
-- [ ] **NH-SMOOTH** non-host driven cart glides (not drunk/slop) — coded, **unpushed**, await retest
+- [ ] **NH-SMOOTH** non-host driven cart glides — shipped `34b240d` / `index-CaoV7WsD.js`; **retest open**
 - [ ] P5/P6 taste — later
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -107,7 +107,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
 | **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
-| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **coded unpushed** — retest after ship |
+| **NH-SMOOTH** | **Non-host driven-cart glide** | ▶️ **shipped** `34b240d` / `index-CaoV7WsD.js` — **retest open** |
 | **NET-1** | **Two-human full-round smoke** | after NH-SMOOTH |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
@@ -116,7 +116,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NH-SMOOTH:** ship on “ship it” → hard-refresh dual clients → joiner drive feel pass/fail (F8 if fail).
+1. **NH-SMOOTH retest:** hard-refresh dual clients on `index-CaoV7WsD.js`; joiner drive (turns/boosts/combat) — pass/fail (F8 if fail).
 2. Cap-47 post-fall mid-round LT: parked unless freezes return.
 3. After NH-SMOOTH pass: NET-1.
 
@@ -196,7 +196,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-SMOOTH coded — **unpushed**) — Joiner drive “slop” on clean net (cap-78/79). Lever: after reconcile, snap physics prev pose to body (stop alpha fight vs vis offset) + slower vis settle rates 8/6→3.2/2.5. Awaiting “ship it” + retest.
+2026-07-20 (SHIPPED — NH-SMOOTH) — **`34b240d` / `index-CaoV7WsD.js`**. Served sha verified. Prev-pose snap after reconcile + vis rates 3.2/2.5. **Retest open.**
+
+2026-07-20 (NH-SMOOTH coded) — Joiner drive “slop” on clean net (cap-78/79). Lever: after reconcile, snap physics prev pose to body + slower vis settle rates 8/6→3.2/2.5.
 
 2026-07-20 (PASS NH-BOOST) — Wyatt **pass** on prod `index-CDlK3jio.js` / `0be4cd5` (joiner bar / fire / trails / SFX consistent). Card closed.
 
