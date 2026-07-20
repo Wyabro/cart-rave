@@ -111,7 +111,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
 | **NH-SMOOTH** | **Non-host driven-cart glide** | ✅ **partial** v4 (visual better) — residual parked |
 | **NH-HIT** | **Non-host hit delay (ram FX late)** | lever 3 **PASS**; residual **parked** (not 100% — no more levers unless named) |
-| **NET-1** | **Two-human full-round smoke** | near last (after behavior churn) |
+| **NET-1** | **Two-human full-round smoke** | ▶️ **active** — Wyatt chose now; core loop on prod first |
 | P5 | Solo bot/rim death feel | after NET-1 or named |
 | P6 | AI diag probe empty mid-round | tooling only |
 
@@ -119,8 +119,8 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **Pick next card** (Wyatt): READY-SET human MP playtest · NET-2 feel · P5/P6 · or named. **Not NET-1 yet** (near last). NH-HIT residual parked.
-2. Cap-47 LT parked unless multi-s freezes return. **Freeze-forensics caveat (07-20):** joiner `snap_gap ≈8.4s` podium→lobby in harness is an artifact (host stops P2P snaps on podium); only trust `phase=running` gaps / host longframes.
+1. **NET-1 active:** two real humans on prod `index-DWDp_cX_.js` / `80ecbf6`. Checklist: [playtest/multiplayer-smoke.md](./playtest/multiplayer-smoke.md). Start §A core loop; F8 both on any fail.
+2. Cap-47 LT / NH-HIT residual parked.
 
 ## Open issues (top)
 
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NH-HIT residual parked) — Wyatt not 100% on non-host hit feel; **move on**. No more NH-HIT levers unless named. NET-1 stays near-last.
+2026-07-20 (NET-1 active) — Wyatt chose NET-1 now. Prod `index-DWDp_cX_.js` / `80ecbf6`. Human full multiplayer smoke — [multiplayer-smoke.md](./playtest/multiplayer-smoke.md).
+
+2026-07-20 (NH-HIT residual parked) — Wyatt not 100% on non-host hit feel; move on. No more NH-HIT levers unless named.
 
 2026-07-20 (PASS NH-HIT lever 3 / HOST-ROLE-1) — Wyatt **pass** on prod `index-DWDp_cX_.js` / `80ecbf6` (Intel creates → 4090 steals host).
 
