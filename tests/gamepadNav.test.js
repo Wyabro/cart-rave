@@ -1,0 +1,229 @@
+// @vitest-environment happy-dom
+// Gamepad UI nav scoping + focus reclaim (RC bug-hunt 07-19, reported-not-fixed pair):
+// (1) getFocusables was document-wide, so a pad could navigate to and click
+//     buttons BEHIND an open overlay — including main-menu PLAY.
+// (2) updateNav re-seized focus every idle frame whenever document.activeElement
+//     was outside the focusables list (stole focus from the name-edit input).
+// Also pinned here: the B-button back query is layer-scoped and no longer
+// clicks hidden back buttons (old query hit the invisible customize back on
+// the main menu, and used the dead `.cr-esc-resume` selector on pause).
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// * Feed the nav loop a hand-built pad; the real input.js touches
+// * navigator.getGamepads + the controls panel DOM.
+const padRef = vi.hoisted(() => ({ pad: /** @type {any} */ (null) }));
+vi.mock("../src/input.js", () => ({
+  getActiveGamepad: () => padRef.pad,
+  setInputMode: vi.fn(),
+}));
+
+const BTN = { a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 };
+
+function makePad(pressed = []) {
+  return {
+    buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: pressed.includes(i), value: 0 })),
+    axes: [0, 0],
+  };
+}
+
+// * Fixture mirrors the real ids/classes gamepadNav scopes and queries by.
+// * #hud-note is focusable via tabindex but outside the nav selector set.
+const FIXTURE = `
+<div id="cr-root">
+  <button id="play-btn">PLAY</button>
+  <button id="customize-btn">CUSTOMIZE</button>
+  <div id="hud-note" tabindex="0"></div>
+  <input id="cr-name-input" style="display:none" />
+</div>
+<div id="cr-customize-screen" style="display:none">
+  <button class="cr-overlay-back" id="cr-customize-back">BACK</button>
+</div>
+<div id="cr-settings-screen" style="display:none">
+  <button class="cr-overlay-back" id="cr-settings-back">BACK</button>
+  <button id="cr-settings-done">DONE</button>
+</div>
+<div id="esc-overlay" style="display:none">
+  <button class="esc-btn esc-btn--resume" id="esc-resume">RESUME</button>
+  <button id="esc-quit">QUIT</button>
+</div>
+`;
+
+let scheduled = [];
+
+// Runs exactly one updateNav tick (the loop re-schedules itself each frame).
+function frame() {
+  const cbs = scheduled;
+  scheduled = [];
+  for (const cb of cbs) cb(performance.now());
+}
+
+// Rising edge + release so the next press edges again.
+function press(button) {
+  padRef.pad = makePad([button]);
+  frame();
+  padRef.pad = makePad();
+  frame();
+}
+
+function idleFrames(n) {
+  padRef.pad = makePad();
+  for (let i = 0; i < n; i++) frame();
+}
+
+function show(id) {
+  document.getElementById(id).style.display = "flex";
+}
+
+function hide(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+function clickSpy(id) {
+  const spy = vi.fn();
+  document.getElementById(id).addEventListener("click", spy);
+  return spy;
+}
+
+beforeEach(async () => {
+  scheduled = [];
+  padRef.pad = makePad();
+  vi.stubGlobal("requestAnimationFrame", (cb) => {
+    scheduled.push(cb);
+    return scheduled.length;
+  });
+  if (typeof globalThis.PointerEvent === "undefined") {
+    // eslint-disable-next-line no-undef
+    globalThis.PointerEvent = globalThis.MouseEvent;
+  }
+
+  // * happy-dom lacks Element.checkVisibility, and its zeroed layout would make
+  // * the getBoundingClientRect fallback report everything invisible. Polyfill
+  // * from inline display — the overlays' actual open/closed contract — so
+  // * tests never depend on layout. (Zero rects also mean navigateSpatial
+  // * always takes its linear DOM-order wrap fallback: down/right = +1.)
+  Element.prototype.checkVisibility = function () {
+    for (let el = this; el; el = el.parentElement) {
+      if (el.style && el.style.display === "none") return false;
+    }
+    return true;
+  };
+
+  document.body.innerHTML = FIXTURE;
+
+  // * Module holds top-level nav state (navIndex, prevDpad, lastScope) and
+  // * self-schedules rAF — fresh module per test, stepped manually via frame().
+  vi.resetModules();
+  const { startGamepadUiNav } = await import("../src/ui/gamepadNav.js");
+  startGamepadUiNav();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete Element.prototype.checkVisibility;
+  document.body.innerHTML = "";
+});
+
+describe("modal scoping", () => {
+  it("keeps focus inside an open overlay — menu buttons behind it are unreachable", () => {
+    show("cr-settings-screen");
+    press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
+    const active = document.activeElement;
+    expect(active && active.closest("#cr-settings-screen")).toBeTruthy();
+    expect(document.getElementById("play-btn").classList.contains("gamepad-focused")).toBe(false);
+  });
+
+  it("A press cannot click PLAY behind an open overlay", () => {
+    show("cr-settings-screen");
+    const playSpy = clickSpy("play-btn");
+    const backSpy = clickSpy("cr-settings-back");
+    press(BTN.down); // seed focus inside the overlay
+    press(BTN.a);
+    expect(backSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the whole document when no overlay is open", () => {
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  });
+
+  it("topmost layer wins when multiple overlays are open", () => {
+    show("cr-settings-screen");
+    show("esc-overlay");
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("esc-resume"));
+  });
+});
+
+describe("B button", () => {
+  it("clicks the open overlay's own back button, not another layer's", () => {
+    show("cr-settings-screen");
+    const settingsBack = clickSpy("cr-settings-back");
+    const customizeBack = clickSpy("cr-customize-back");
+    press(BTN.b);
+    expect(settingsBack).toHaveBeenCalledTimes(1);
+    expect(customizeBack).not.toHaveBeenCalled();
+  });
+
+  it("clicks RESUME on the pause overlay (old .cr-esc-resume selector was dead)", () => {
+    show("esc-overlay");
+    const resumeSpy = clickSpy("esc-resume");
+    press(BTN.b);
+    expect(resumeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("dispatches Escape on the main menu instead of clicking a hidden back button", () => {
+    const customizeBack = clickSpy("cr-customize-back");
+    const keys = [];
+    window.addEventListener("keydown", (e) => keys.push(e.key));
+    press(BTN.b);
+    expect(customizeBack).not.toHaveBeenCalled();
+    expect(keys).toEqual(["Escape"]);
+  });
+});
+
+describe("focus re-yank", () => {
+  it("never steals focus on idle frames while a pad is connected", () => {
+    const note = document.getElementById("hud-note");
+    note.focus();
+    idleFrames(5);
+    expect(document.activeElement).toBe(note);
+  });
+
+  it("leaves the name-edit input alone while it is visible and focused", () => {
+    const input = document.getElementById("cr-name-input");
+    input.style.display = "";
+    input.focus();
+    idleFrames(5);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("a press after lost focus seeds focus and is consumed (no navigation)", () => {
+    document.getElementById("hud-note").focus();
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  });
+
+  it("restores the remembered navIndex within the same scope", () => {
+    press(BTN.down); // seed → PLAY
+    press(BTN.down); // → CUSTOMIZE
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+    document.getElementById("hud-note").focus();
+    idleFrames(3);
+    press(BTN.down); // reclaim → CUSTOMIZE again, not PLAY
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+  });
+
+  it("resets stale navIndex when the scope layer changes", () => {
+    press(BTN.down);
+    press(BTN.down); // menu navIndex now 1 (CUSTOMIZE)
+    show("cr-settings-screen");
+    press(BTN.down); // scope change → seed from index 0 inside settings
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+    hide("cr-settings-screen");
+    press(BTN.down); // back to document scope, seed from index 0
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  });
+});

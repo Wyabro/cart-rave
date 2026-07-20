@@ -4,6 +4,36 @@ let _navActive = true;
 let navIndex = 0;
 let prevDpad = { up: false, down: false, left: false, right: false, a: false, b: false };
 
+// * Overlay containers that scope gamepad nav while open, topmost z-order
+// * first (esc 26000 > results 25000 > menu screens 1002 > 1001). They all
+// * share the same open contract — inline style.display === "flex" — the
+// * check closeActiveOverlay() in cart-rave-menu.js also relies on. Keep this
+// * list in sync when adding an overlay, or a pad will reach buttons under it.
+const OVERLAY_SCOPE_SELECTORS = [
+  "#esc-overlay",
+  "#results-overlay",
+  "#cr-howto-screen",
+  "#cr-challenges-screen",
+  "#cr-settings-screen",
+  "#cr-customize-screen",
+  "#cr-friends-screen",
+];
+
+let lastScope = /** @type {HTMLElement|Document|null} */ (null);
+
+/**
+ * The container gamepad nav may reach: the topmost open overlay, or the
+ * whole document when none is open (main menu / HUD).
+ * @returns {HTMLElement|Document}
+ */
+function getNavScope() {
+  for (const sel of OVERLAY_SCOPE_SELECTORS) {
+    const el = /** @type {HTMLElement|null} */ (document.querySelector(sel));
+    if (el && el.style.display === "flex") return el;
+  }
+  return document;
+}
+
 function isElementVisible(el) {
   if (el.disabled) return false;
   if (typeof el.checkVisibility === "function") {
@@ -15,8 +45,11 @@ function isElementVisible(el) {
   return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
 }
 
-function getFocusables() {
-  const elements = /** @type {HTMLElement[]} */ (Array.from(document.querySelectorAll('button, a, [role="button"], [role="slider"], input, select, textarea')));
+/**
+ * @param {HTMLElement|Document} scope
+ */
+function getFocusables(scope) {
+  const elements = /** @type {HTMLElement[]} */ (Array.from(scope.querySelectorAll('button, a, [role="button"], [role="slider"], input, select, textarea')));
   return elements.filter(isElementVisible);
 }
 
@@ -32,7 +65,9 @@ function nudgeSlider(el, key) {
 
 function setFocus(targetEl, focusables) {
   if (!targetEl) return;
-  focusables.forEach(el => el.classList.remove('gamepad-focused'));
+  // * Sweep document-wide, not just the current focusables — a ring left on a
+  // * button behind a newly opened overlay is outside the scoped list.
+  document.querySelectorAll('.gamepad-focused').forEach(el => el.classList.remove('gamepad-focused'));
   targetEl.classList.add('gamepad-focused');
   try {
     targetEl.focus({ focusVisible: true });
@@ -134,52 +169,71 @@ function updateNav() {
     setInputMode("gamepad");
   }
 
-  const focusables = getFocusables();
+  const scope = getNavScope();
+  if (scope !== lastScope) {
+    // * Layer changed (overlay opened/closed): navIndex from the old list is
+    // * meaningless in the new one. Overlays focus their primary button on
+    // * open, so the adopt branch below re-derives the right index.
+    navIndex = 0;
+    lastScope = scope;
+  }
+
+  const focusables = getFocusables(scope);
   if (focusables.length > 0) {
-    if (document.activeElement && focusables.includes(/** @type {HTMLElement} */ (document.activeElement))) {
-      const activeIdx = focusables.indexOf(/** @type {HTMLElement} */ (document.activeElement));
-      if (activeIdx !== -1) {
-        navIndex = activeIdx;
-      }
-    } else {
-      const target = focusables[navIndex] || focusables[0];
-      setFocus(target, focusables);
-    }
-
-    // * A focused slider claims left/right for value adjustment; up/down still
-    // * navigate away from it to the next control.
     const activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
-    const activeIsSlider = activeEl?.getAttribute?.("role") === "slider";
-
-    if (up && !prevDpad.up) navigateSpatial("up", focusables);
-    if (down && !prevDpad.down) navigateSpatial("down", focusables);
-    if (left && !prevDpad.left) {
-      if (activeIsSlider && activeEl) nudgeSlider(activeEl, "ArrowLeft");
-      else navigateSpatial("left", focusables);
+    const focusInScope = !!activeEl && focusables.includes(activeEl);
+    if (focusInScope && activeEl) {
+      navIndex = focusables.indexOf(activeEl);
+    } else if (
+      (up && !prevDpad.up) || (down && !prevDpad.down) ||
+      (left && !prevDpad.left) || (right && !prevDpad.right) ||
+      (a && !prevDpad.a)
+    ) {
+      // * Focus lives outside the nav set (name input mid-edit, or nothing).
+      // * Reclaim it only on an actual press — re-seizing every idle frame
+      // * stole focus while a pad sat connected. The press is consumed as the
+      // * reveal; navigation/confirm start from the next press.
+      setFocus(focusables[navIndex] || focusables[0], focusables);
     }
-    if (right && !prevDpad.right) {
-      if (activeIsSlider && activeEl) nudgeSlider(activeEl, "ArrowRight");
-      else navigateSpatial("right", focusables);
-    }
 
-    if (a && !prevDpad.a) {
-      const el = /** @type {HTMLElement|null} */ (document.activeElement);
-      if (el) {
-        // * Press-feedback wiring listens for pointerdown/up, which a bare
-        // * .click() never dispatches — so gamepad confirm used to skip the
-        // * squash/release. Fire them first (skip sliders, which use d-pad
-        // * left/right and would misread a synthetic pointer), then click.
-        if (el.getAttribute("role") !== "slider") {
-          el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-          el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+    if (focusInScope && activeEl) {
+      // * A focused slider claims left/right for value adjustment; up/down still
+      // * navigate away from it to the next control.
+      const activeIsSlider = activeEl.getAttribute?.("role") === "slider";
+
+      if (up && !prevDpad.up) navigateSpatial("up", focusables);
+      if (down && !prevDpad.down) navigateSpatial("down", focusables);
+      if (left && !prevDpad.left) {
+        if (activeIsSlider) nudgeSlider(activeEl, "ArrowLeft");
+        else navigateSpatial("left", focusables);
+      }
+      if (right && !prevDpad.right) {
+        if (activeIsSlider) nudgeSlider(activeEl, "ArrowRight");
+        else navigateSpatial("right", focusables);
+      }
+
+      if (a && !prevDpad.a) {
+        const el = /** @type {HTMLElement|null} */ (document.activeElement);
+        if (el) {
+          // * Press-feedback wiring listens for pointerdown/up, which a bare
+          // * .click() never dispatches — so gamepad confirm used to skip the
+          // * squash/release. Fire them first (skip sliders, which use d-pad
+          // * left/right and would misread a synthetic pointer), then click.
+          if (el.getAttribute("role") !== "slider") {
+            el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+            el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+          }
+          el.click();
         }
-        el.click();
       }
     }
 
+    // * Back is focus-independent, but must respect the active layer: query
+    // * within scope and skip hidden matches (document scope would otherwise
+    // * click an invisible overlay back button).
     if (b && !prevDpad.b) {
-      const activeClose = /** @type {HTMLElement|null} */ (document.querySelector('.cr-customize-back, .cr-overlay-back, .cr-esc-resume, [data-action="back"]'));
-      if (activeClose) {
+      const activeClose = /** @type {HTMLElement|null} */ (scope.querySelector('.cr-overlay-back, .esc-btn--resume, [data-action="back"]'));
+      if (activeClose && isElementVisible(activeClose)) {
         activeClose.click();
       } else {
         window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", key: "Escape", bubbles: true }));
