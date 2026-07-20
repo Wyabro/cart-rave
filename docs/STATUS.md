@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 residual — mid-round join score inherit** — lever coded **unpushed**: zero slot score on NPC→human seat (server + host). Leave + host migrate **PASS**. Awaiting ship it + retest.
+1. **NET-1 residual — mid-round join score** — shipped `24f49da` / `index-BxIgTxPx.js`. Retest: joiner score = 0 (not NPC inherit). Leave + migrate already PASS.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (NET-1 residual join-score lever) — Validation: leave PASS · host migrate PASS · mid-join cart/drive PASS but **inherits NPC score**. Fix unpushed: `#assignHumanToSlot` zeros slot during running/countdown + host mirrors on wasNpc→human.
+2026-07-20 (SHIPPED — NET-1 mid-round join score) — **`24f49da` / `index-BxIgTxPx.js`**. Zero slot score on NPC→human seat. Retest open.
+
+2026-07-20 (NET-1 residual join-score lever) — leave PASS · migrate PASS · mid-join inherits NPC score → fix above.
 
 2026-07-20 (NET-1 residual active) — Wyatt chose residual. **Validation-first** (join/leave/migration).
 

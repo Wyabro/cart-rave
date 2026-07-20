@@ -1,8 +1,8 @@
-# Handoff — next agent window (post NET-1 S1 residual PASS)
+# Handoff — next agent window (post mid-round join score ship)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
-**Prod:** **`index-BcDjbSZd.js`** / sha **`dc1bdac`**  
+**Prod:** **`index-BxIgTxPx.js`** / sha **`24f49da`**  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Ship only on Wyatt “ship it.”** Do not `git add -A`.  
@@ -14,61 +14,26 @@
 
 | Card | Verdict |
 |------|---------|
-| P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 (lever 3) | ✅ |
-| NH-SMOOTH | ✅ partial |
-| NH-HIT residual | 🧊 parked |
-| Charge SFX · color/pattern MP | ✅ PASS |
-| NET-1 S1 rematch spawn (first ship) | ✅ `2a6d9ae` |
-| **NET-1 S1 residual (Run7 third-round edge)** | ✅ **PASS** `dc1bdac` / `index-BcDjbSZd.js` |
-| NET-1 full gate | Soft-pass A+B core; join/leave/migration still open if pursued |
+| Core NET-1 A+B soft-pass · S1 rematch · S1 residual · color/pattern · charge SFX | ✅ |
+| Leave mid-round · host tab-close migrate | ✅ PASS (validation) |
+| **Mid-round join score inherit** | ✅ **shipped** `24f49da` / `index-BxIgTxPx.js` — **retest open** |
 
-### Recent ships
+### Lever
 
-| Sha | Bundle | What |
-|-----|--------|------|
-| `72227b7` | `index-DcKjB-hY.js` | Color/pattern live netSlots (PASS) |
-| `dc1bdac` | **`index-BcDjbSZd.js`** | **S1 residual: spawn-tagged reapply (PASS)** |
-
-### Do not re-open without new evidence
-
-P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · NET-PERF-2 · ko_path · NH-HIT residual · charge SFX · color/pattern MP · NET-1 S1 residual
-
----
-
-## Open / pick next
-
-| Option | Notes |
-|--------|--------|
-| **NET-1 residual** | Join/leave/migration/Living Store companions if full gate wanted |
-| **P5 / P6** | Taste / tooling |
-| **Named** | Whatever Wyatt says |
-
-**NET-1 Match B note:** lever 3 always moves host to strong machine — weak-host isolation needs a force-host probe if retested.
+Zero slot score when NPC→human seats mid-round (`party` `#assignHumanToSlot` + host mirror on slots). Monotonic clamp needs server prev=0 first.
 
 ---
 
 ## DO THIS NOW
 
-1. Wyatt names next card (or stop).  
-2. One card only.
+1. Wyatt retests mid-round join: joiner scoreboard = **0**.  
+2. Pass → NET-1 residual closed; fail → one lever.
 
 ---
 
-## Suggested next window paste (Wyatt → new Grok)
+## Suggested next window paste
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-BcDjbSZd.js`** / sha **`dc1bdac`**.  
-> **Closed:** P0–P4 · NH-STATS · NH-BOOST · HOST-ROLE-1 · charge SFX · rematch spawn S1 · color/pattern · S1 residual. NH-HIT residual parked. NH-SMOOTH partial.  
-> **Next:** Wyatt names card (NET-1 residual, P5, or other).  
+> Branch `cart-clash`. Prod **`index-BxIgTxPx.js`** / sha **`24f49da`**.  
+> **Open retest:** mid-round join score zero. Leave + migrate PASS.  
 > One card/lever. Ship only on “ship it.” Do not `git add -A`.
-
----
-
-## Commands
-
-```bash
-npm run dashboard
-npm run captures:pull
-npm run qa
-npm run ship   # only on "ship it"
-```
