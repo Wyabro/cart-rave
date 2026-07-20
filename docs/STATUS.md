@@ -40,22 +40,21 @@ Center renders this strip; one ▶ at a time).
 - ▶ Release candidate — queue drained, NET-1 green, tech-debt triage
 - ⬜ Ship — domain cutover, external testers, wide URL
 
-## Project health — 2026-07-19 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
+## Project health — 2026-07-20 (code-first; re-verify with `npm run qa` / `npm run dashboard`)
 
-**Green gates, deployed, ready for the playtest checkpoint.** Implementation is ahead of
-validation. Single biggest V2 risk: **NET-1 two-browser full-round smoke never closed by a
-human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren't that gate).
+**Run 7 closed; phase = Release candidate.** Gates green, prod live. Remaining open risk is
+residual polish / rare paths (**NET-MIG-3** migration feel, event-id dedupe) — not an unvalidated
+playtest mountain. NET-1 human smoke and NET-2 join feel are closed.
 
 | Signal | State |
 |---|---|
-| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **554/57** last known at countdown residual ship — re-run `npm run qa` if claiming green after edits |
-| Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at **`a42e42c`** — P6 AI diag probe |
-| Prod deploy (2026-07-20 P6) | ✅ Live — **bundle `index-CzDt6R8Q.js`**, sha **`a42e42c`** (served: index.html → new bundle). Hard-refresh required. |
-| Prior deploys | ✅ superseded — incl. `index-DhaNywQc.js`/`8d904de` (HUD-MENU-1), `index-0O6jq9wn.js`/`5fade5b` (CAM-1); dated log + [archive/](./archive/README.md). Only the row above is current truth. |
-| Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
-| Multiplayer live smoke (NET-1) | ✅ PASS residual `24f49da` · LS-1 PASS same deploy |
-| Black-frame flicker (VFX-1) | ✅ Display-referred byte bloom is the all-arena default (`adea4bf`); blackframes classic+sundial pass (07-17). Optional real-HW `?blackmon=1` taste pass |
+| Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — re-run after edits |
+| Automated rigs (`npm run battery`) | ✅ last full run green (see `.diag-captures/battery-*.json`) |
+| Origin HEAD | Local ↔ origin/cart-clash — see prod row |
+| Prod deploy (2026-07-20 P6) | ✅ Live — **bundle `index-CzDt6R8Q.js`**, sha **`a42e42c`**. Hard-refresh required. |
+| Prior deploys | ✅ superseded — incl. `index-DhaNywQc.js`/`8d904de` (HUD-MENU-1); archive for older. |
+| Multiplayer live smoke (NET-1) | ✅ PASS residual `24f49da` · LS-1 PASS · NET-2 join ~**3s** driveable (Wyatt 2026-07-20) |
+| Black-frame flicker (VFX-1) | ✅ Closed (display-referred byte bloom default) |
 
 ## Major systems completed
 
@@ -73,62 +72,35 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Run 7 closed** (2026-07-20) — P6 + RC-1 B PASS. Phase → **Release candidate**. Cold handoff:
-[planning/handoff-next-window.md](./planning/handoff-next-window.md).
+**Release candidate residual triage.** Run 7 is archive; close remaining player-risk cards one at a time. Handoff: [planning/handoff-next-window.md](./planning/handoff-next-window.md).
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
-### Done when (Run 7 — complete)
+### Done when (Release candidate)
 
-- [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
-- [x] P0 menu freezes: idle-shader warm + F8 caps 52–54
-- [x] P0 countdown host path: audio warm + abort/400ms stack shipped; host F8 58 felt good
-- [x] P0 non-host countdown hold: shipped `60d773e` / `index-BQhnh1Z_.js` — **PASS F8 64–67** (countdown only after `carts-ready`; full 3-2-1 both sides; 0 LF during countdown)
-- [x] P1 late-round gap storm re-scoped (F8 **68–71** / `60d773e`: receive ≈ send; no o100 117 storm)
-- [x] P2 non-host localKos:0 closed (Wyatt: can get kills; F8 69/71 localKos≥1) — other non-host feel issues stay separate cards
-- [x] P3 friend join resume hitch closed (Wyatt N — not felt on `60d773e`)
-- [x] P4 solo rematch hitch closed (Wyatt “pretty good” + F8 72–74: no rematch 8s LF; seed was cap-41 8s)
-- [x] **NH-STATS** non-host "my stats" broken in MP — shipped `b92d87f` / `index-BgZqxXtu.js`, Wyatt **PASS**
-- [x] **NH-BOOST** non-host boost bar/fire/trails/SFX — v3 `0be4cd5` / `index-CDlK3jio.js`, Wyatt **PASS**
-- [x] **NH-SMOOTH** non-host driven cart glides — v4 partial (visual better); residual parked
-- [x] **NH-HIT lever 3** host-quality lobby rebalance — **PASS** on `80ecbf6` / `index-DWDp_cX_.js` (HOST-ROLE-1)
-- [x] **NH-HIT** — lever 3 PASS (HOST-ROLE-1); lever 1 kept; residual hit-feel **parked** (Wyatt not 100% happy — revisit only if named)
-- [x] **P5** solo bot/rim death feel — Wyatt **PASS** (named 2026-07-20)
-- [x] **P6** AI diag probe empty mid-round — tooling; filter `slots[i].kind === "npc"` (not dead `cart.isNpc`); Wyatt PASS `count:3 hostSim:true`; live `a42e42c` / `index-CzDt6R8Q.js`
-- [x] **RC-1 B** host-reap #6 live proof (HOST-REAP-1) — Wyatt **PASS** 2026-07-20 on prod
-- [x] RC behavior-changing MP validation — **A** AI cautious + **B** host-reap + **C** READY-SET all **PASS**
-- [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`**, Wyatt **PASS**
-- [x] **HUD-MENU-1** menu leftover HUD — shipped **`8d904de`** / **`index-DhaNywQc.js`**, Wyatt **PASS**
-- [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
-- [x] **LS-1** Living Store two-browser companion — Wyatt **PASS** 2026-07-20 (caps 108–111 / `24f49da`; #3 continuous peer + schedule verified)
+- [x] Run 7 playtest mission closed (P0–P6 · NH · NET-1 · LS-1 · RC-1 A/B/C · CAM-1 · HUD-MENU-1)
+- [x] **NET-2** quickplay/mid-join cart driveable without long freeze — Wyatt **PASS** ~**3s** to drive (2026-07-20; was multi-second stall / frozen)
+- [ ] **NET-MIG-3** host-migration feel — freeze ends before new host DC (ghost colliders / rubber-band) live-named PASS or park
+- [ ] RC tech-debt triage pass (MAIN-1 / BUNDLE-1 stay post-gate unless Wyatt pulls them forward)
+- [ ] Ship checklist ready when residuals drained (domain cutover is separate BRAND-1 freeze)
 
 ### Active queue (strict — one at a time)
 
 | # | What | Status |
 |---|------|--------|
-| 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
-| 2e lab | Host hitch + tHost honesty | ✅ lab pass |
-| **P0–P4** | countdown · gap storm · localKos · join hitch · rematch | ✅ **CLOSED** |
-| **NH-STATS** | **Non-host "my stats" broken in MP** | ✅ **PASS** `b92d87f` / `index-BgZqxXtu.js` |
-| **NH-BOOST** | **Non-host boosts / bar / SFX** | ✅ **PASS** `0be4cd5` / `index-CDlK3jio.js` |
-| **NH-SMOOTH** | **Non-host driven-cart glide** | ✅ **partial** v4 (visual better) — residual parked |
-| **NH-HIT** | **Non-host hit delay (ram FX late)** | lever 3 **PASS**; residual **parked** (not 100% — no more levers unless named) |
-| **NET-1** | **Two-human full-round + residual** | ✅ core soft-pass · residual **PASS** `24f49da` |
-| **P5** | Solo bot/rim death feel | ✅ **PASS** (Wyatt 2026-07-20) |
-| **LS-1** | Living Store two-browser companion smoke | ✅ **PASS** (Wyatt 2026-07-20; caps 108–111) |
-| **RC-1 A** | AI cautious-phase MP feel | ✅ **PASS** (Wyatt 2026-07-20) |
-| **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
-| **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
-| **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ✅ **PASS** `8d904de` / `index-DhaNywQc.js` |
-| **P6** | AI diag probe empty mid-round | ✅ **PASS** `a42e42c` / `index-CzDt6R8Q.js` |
-| **RC-1 B** | Host-reap #6 (HOST-REAP-1) | ✅ **PASS** (Wyatt 2026-07-20) |
+| **Run 7** | Full playtest mission | ✅ **CLOSED** 2026-07-20 |
+| **NET-2** | Quickplay join frozen cart / slow load | ✅ **PASS** ~3s driveable (Wyatt 2026-07-20) |
+| **NET-MIG-3** | Freeze ends before new host DataChannel | ▶️ **NEXT** if named — live feel |
+| NET-PRES-1 | Fall/collision event-id dedupe | 🟡 partial — polish |
+| MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
+| BRAND-1 | Domain cutover | 🧊 frozen |
 
-Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
+Historical Run 7 cards: [playtest-triage](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md). Full checked list archived under prior STATUS windows / handoff.
 
 ### Next actions
 
-1. **Release candidate** — pick next card with Wyatt (open residual: **NET-2** join feel, **NET-MIG-3** post-migration freeze feel, tech-debt triage). No auto-start without a named card.
+1. **NET-MIG-3** (recommended) — two-browser host leave mid-round; survivor keeps playing without long ghost/rubber-band. Or name a different RC card.
 
 ## Open issues (top)
 
@@ -138,9 +110,9 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md).
 |----|--------|--------|
 | HOST-ROLE-1 | Weak host poisons every peer | ✅ **Lever 3 PASS** `80ecbf6` / `index-DWDp_cX_.js` — lobby migrates to stronger machine (not network). |
 | NET-1 | Two-browser full-round smoke | ✅ **PASS** core A+B + residual leave/migrate/join-score (`24f49da`). Automated complement: [netcode-harness.md](./guides/netcode-harness.md). Catalog: [netcode-deep-dive.md](./planning/netcode-deep-dive.md) |
-| NET-2 | Quickplay join = frozen cart + slow load | 🟡 **Partial + warm Solo fix (pushed `e25d555`):** Wyatt `cr:*` marks showed world warm ~0.6s but play-entry→carts-ready ~9.8s (shader `compileAsync` up to 8s). Warm same-level path now caps compile poll at **1.5s**; default cap **4s**; fine marks `play-arena-done` / `play-cart-glb-done` / `play-carts-spawned` / `play-shader-start|end`. Still needs live feel + cold/quickplay check. |
+| NET-2 | Quickplay join = frozen cart + slow load | ✅ **PASS** 2026-07-20 — Wyatt ~**3s** to driveable on prod (code path `e25d555` + caps). No long freeze. |
 | VFX-1 | Black-frame flicker | ✅ **Closed (07-17)** — display-referred byte bloom is the all-arena default (`adea4bf`, since 07-13); the flickery half-res float path is `?bloompipe=hdr`-only. `blackframes` classic+sundial pass. Optional real-HW `?blackmon=1` taste pass |
-| PLAY-1 | Playtest debt | ⚠️ Passes 4/5 + stabilization all behavior-changing and unvalidated by a human |
+| PLAY-1 | Playtest debt | ✅ **Run 7 closed** 2026-07-20 — residual RC cards only (NET-MIG-3, polish) |
 | NET-MIG-2 | Ghost exorcism can null the host | ✅ Fixed 2026-07-14 + residual 2026-07-16 (promote reconnecting conn post-exorcism) |
 | NET-CLK-1 / CLK-2 / CLK-3 / MIG-1 / BUF-1 | Clocks, kill credit, spawn buffer domain | ✅ Closed in code (see netcode-deep-dive) |
 | NET-MIG-3 | Freeze ends before new host DataChannel | ❌ Open — ghost colliders / rubber-band feel |
