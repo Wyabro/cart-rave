@@ -86,7 +86,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
 - [x] P0 menu freezes: idle-shader warm + F8 caps 52–54
 - [x] P0 countdown host path: audio warm + abort/400ms stack shipped; host F8 58 felt good
-- [ ] P0 non-host countdown hold: shipped `60d773e` / `index-BQhnh1Z_.js` (hold wired) — **joiner F8 retest open**
+- [x] P0 non-host countdown hold: shipped `60d773e` / `index-BQhnh1Z_.js` — **PASS F8 64–67** (countdown only after `carts-ready`; full 3-2-1 both sides; 0 LF during countdown)
 - [ ] P1 late-round gap storm resolved or re-scoped with fresh F8s (locked until P0)
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -97,7 +97,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Hold actually wired** (`index-BQhnh1Z_.js` / `60d773e`). Cap-63: bridge never forwarded `isSessionPlayReady` (hold always true). **F8 retest open**; mid-round still open if friend freezes |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ Countdown path **PASS** (F8 64–67 / `60d773e`). Mid-round / friend multi-s still open if it returns (cap-47 post-fall) |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -111,10 +111,9 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **F8 retest on joiner** — hard-refresh until `index-BQhnh1Z_.js` / sha `60d773e`, 2-human quickplay, F8 both sides, pull. Expect: non-host no `lobby→countdown` before `carts-ready`; no multi-10s longframe under 3-2-1.
-2. If countdown clean but friend 2-human still multi-s mid-round → **post-fall frame** card (cap-47).
-3. Non-host wrong color: parked; same-build first.
-4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
+1. Countdown sub-card closed (F8 64–67). Next P0 slice: **post-fall / mid-round multi-s** if friend 2-human freezes return (cap-47), else unlock **P1** gap storm with fresh F8s.
+2. Non-host wrong color: parked; same-build first.
+3. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
 
 ## Open issues (top)
 
@@ -192,7 +191,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (SHIPPED — cap-63 hold wired) — **`60d773e` pushed + deployed** as bundle **`index-BQhnh1Z_.js`**. Served-bytes verified: sha `60d773e` + `isSessionPlayReady`. Root: bridge never forwarded ready gate (hold always true). Gates **559/57**. **Joiner F8 retest open.**
+2026-07-19 (PASS F8 — cap-63 hold wired) — Caps **64–67** on `60d773e` / `index-BQhnh1Z_.js`: joiner + host **countdown only after `carts-ready`**; full **3-2-1→GO**; **0 longframes during countdown**; LT over1000:0. Joiner had 126s resume LF at carts-ready (menu sit ~2m — not mid-countdown). **Countdown sub-card closed.** Next: mid-round/post-fall or P1.
+
+2026-07-19 (SHIPPED — cap-63 hold wired) — **`60d773e` pushed + deployed** as bundle **`index-BQhnh1Z_.js`**. Served-bytes verified: sha `60d773e` + `isSessionPlayReady`. Root: bridge never forwarded ready gate (hold always true). Gates **559/57**.
 
 2026-07-19 (SHIPPED — cap-61 hello hold) — **`17b6d53` pushed + deployed** as bundle **`index-B2klJ-qK.js`** (sha `17b6d53`). Served-bytes verified: index.html → new bundle, build sha + `shouldHoldNonHostCountdownPhase`. Cap-60/61: host PASS; joiner failed on unguarded hello phase — fixed. Gates **557/57**. **Joiner F8 retest open.**
 
