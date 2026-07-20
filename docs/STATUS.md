@@ -119,7 +119,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. **NET-1 S1 residual** — shipped `dc1bdac` / `index-BcDjbSZd.js`. Wyatt retest: 3+ quickplay rematches, non-host no edge death. Then pass/fail.
+1. **Pick next card** (Wyatt): NET-1 residual (join/leave/migration) · P5 · or named. S1 residual **PASS**. Color/pattern PASS. NH-HIT residual parked.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)
@@ -200,7 +200,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-20 (SHIPPED — NET-1 S1 residual) — **`dc1bdac` / `index-BcDjbSZd.js`**. Spawn-tagged cart cache reapply only. Retest open.
+2026-07-20 (PASS NET-1 S1 residual) — Wyatt **pass** on prod `index-BcDjbSZd.js` / `dc1bdac`. Card closed.
+
+2026-07-20 (SHIPPED — NET-1 S1 residual) — **`dc1bdac` / `index-BcDjbSZd.js`**. Spawn-tagged cart cache reapply only.
 
 2026-07-20 (Run7 decode → NET-1 S1 residual lever) — A: 4090 host; third-round edge spawn death. B: host rebalanced to 4090. Lever: spawn-tag lastCartsCache.
 
