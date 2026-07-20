@@ -50,8 +50,8 @@ human** (the automated `mpIntegration`/`hostMigration` rigs pass, but they aren'
 |---|---|
 | Gates (`npm run qa`) | ✅ typecheck + tests + knip clean — **554/57** last known at countdown residual ship — re-run `npm run qa` if claiming green after edits |
 | Automated rigs (`npm run battery`) | ✅ **5/5 green** last full run 2026-07-19 combat stack (report `.diag-captures/battery-2026-07-19T03-48-42-410Z.json`) |
-| Origin HEAD | Local ↔ origin/cart-clash at **`17b6d53`** — MSG.hello countdown hold (cap-61) |
-| Prod deploy (2026-07-19 night, hello hold) | ✅ Live — **bundle `index-B2klJ-qK.js`**, sha **`17b6d53`** (served: index.html → new bundle; client build sha `17b6d53`; `shouldHoldNonHostCountdownPhase` present). Cap-61: hello holds countdown until carts-ready. **Joiner F8 retest = open gate.** |
+| Origin HEAD | Local ↔ origin/cart-clash at **`60d773e`** — wire isSessionPlayReady (cap-63) |
+| Prod deploy (2026-07-19 night, hold actually wired) | ✅ Live — **bundle `index-BQhnh1Z_.js`**, sha **`60d773e`** (served: index.html → new bundle; sha + `isSessionPlayReady` present). Cap-63: bridge now forwards ready gate so countdown hold runs. **Joiner F8 retest = open gate.** |
 | Prior deploys (07-17 → 07-19) | ✅ superseded — incl. `index-CRQwILqC.js`/`5a1caee0`/`03218fa`; dated log + [archive/](./archive/README.md). Only the row above is current truth. |
 | Wyatt playtest queue | ⚠️ Behavior-changing batches still need eyes-on (see queue below) — resuming 2026-07-18 |
 | Multiplayer live smoke (NET-1) | ❌ Open — the Version 2 gate (two real humans, full round) |
@@ -86,7 +86,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [x] Combat stack validated live (cap-16 retest: skips 0, hits land, localKos > 0)
 - [x] P0 menu freezes: idle-shader warm + F8 caps 52–54
 - [x] P0 countdown host path: audio warm + abort/400ms stack shipped; host F8 58 felt good
-- [ ] P0 non-host countdown hold: shipped `17b6d53` / `index-B2klJ-qK.js` (hello path) — **joiner F8 retest open**
+- [ ] P0 non-host countdown hold: shipped `60d773e` / `index-BQhnh1Z_.js` (hold wired) — **joiner F8 retest open**
 - [ ] P1 late-round gap storm resolved or re-scoped with fresh F8s (locked until P0)
 - [ ] RC behavior-changing fixes human-validated in MP (AI cautious-phase #1, host-reap #6)
 - [ ] NET-1 two-human full-round smoke green (the V2 gate)
@@ -97,7 +97,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 |---|------|--------|
 | 1…2d′ | Prior combat stack | ✅ shipped (death spiral → skip-gap) |
 | 2e lab | Host hitch + tHost honesty | ✅ lab pass (announcer warm `716ec2f`, tHost `1adef95`, clean dual-PC 29/30) |
-| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ Host stack + hold on host_round + **hello hold SHIPPED** (`index-B2klJ-qK.js` / `17b6d53`). Cap-60/61 showed hello gap; **F8 retest open**; mid-round still open if friend freezes |
+| **P0** | **Host multi-s freezes under 2-human** (4090) | ▶️ **Hold actually wired** (`index-BQhnh1Z_.js` / `60d773e`). Cap-63: bridge never forwarded `isSessionPlayReady` (hold always true). **F8 retest open**; mid-round still open if friend freezes |
 | P1 | Late-round P2P gap storm (friend o100 117 vs host send o100 6) | locked until P0 |
 | P2 | Non-host localKos 0 in friend MP | re-check after P0/P1 |
 | P3 | Friend MP join 58s resume hitch | after stream honest |
@@ -111,7 +111,7 @@ Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-1
 
 ### Next actions
 
-1. Wyatt: **F8 retest on joiner** — hard-refresh until `index-B2klJ-qK.js` / sha `17b6d53`, 2-human quickplay, F8 both sides, pull. Expect: non-host no `lobby→countdown` before `carts-ready`; no multi-10s longframe under 3-2-1.
+1. Wyatt: **F8 retest on joiner** — hard-refresh until `index-BQhnh1Z_.js` / sha `60d773e`, 2-human quickplay, F8 both sides, pull. Expect: non-host no `lobby→countdown` before `carts-ready`; no multi-10s longframe under 3-2-1.
 2. If countdown clean but friend 2-human still multi-s mid-round → **post-fall frame** card (cap-47).
 3. Non-host wrong color: parked; same-build first.
 4. Structural debt post-gate — [BACKLOG Tech Debt](./planning/BACKLOG.md#tech-debt).
@@ -192,7 +192,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-19 (code — cap-63 hold was dead, **unpushed**) — Cap-62/63 on `17b6d53`: joiner still early `lobby→countdown`. Root: `buildNetcodeGameBridge` never forwarded `isSessionPlayReady` → netcode `?? true` → hold always off. Also: `bootstrapSessionCarts` called `destroySessionCarts` which nulls in-flight bootstrap promise mid-warm. Fixed bridge + mid-bootstrap destroy. Gates **559/57**. **Not shipped** — need “ship it” + F8.
+2026-07-19 (SHIPPED — cap-63 hold wired) — **`60d773e` pushed + deployed** as bundle **`index-BQhnh1Z_.js`**. Served-bytes verified: sha `60d773e` + `isSessionPlayReady`. Root: bridge never forwarded ready gate (hold always true). Gates **559/57**. **Joiner F8 retest open.**
 
 2026-07-19 (SHIPPED — cap-61 hello hold) — **`17b6d53` pushed + deployed** as bundle **`index-B2klJ-qK.js`** (sha `17b6d53`). Served-bytes verified: index.html → new bundle, build sha + `shouldHoldNonHostCountdownPhase`. Cap-60/61: host PASS; joiner failed on unguarded hello phase — fixed. Gates **557/57**. **Joiner F8 retest open.**
 

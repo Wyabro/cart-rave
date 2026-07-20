@@ -2,10 +2,10 @@
 
 **Date:** 2026-07-19 (late)  
 **Branch:** `cart-clash`  
-**Origin HEAD:** **`17b6d53`** — hello countdown hold  
+**Origin HEAD:** **`60d773e`** — isSessionPlayReady bridge wire (hold actually runs)  
 **Local:** clean aside from optional untracked `.claudeignore`  
 **Prod:** https://cart-rave.wyabro.workers.dev  
-**Live client bundle:** **`index-B2klJ-qK.js`** (build sha **`17b6d53`**)  
+**Live client bundle:** **`index-BQhnh1Z_.js`** (build sha **`60d773e`**)  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
 **Do not** re-triage run-1…run-6 from scratch.  
@@ -32,8 +32,8 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 | | |
 |--|--|
 | Mission | Run 7 playtesting — P0 host freezes (countdown sub-cards) |
-| Prod | **`index-B2klJ-qK.js`** / sha **`17b6d53`** |
-| Gates last known | **qa 557/57** green (hello hold ship) |
+| Prod | **`index-BQhnh1Z_.js`** / sha **`60d773e`** |
+| Gates last known | **qa 559/57** green (hold wired ship) |
 | Browser tooling | Clean Chrome profile for playtests: Desktop **Cart Clash Test (Chrome Clean)**; RTX 4090 pinned High Performance for chrome/msedge |
 
 ### P0 countdown stack — what shipped this session (in order)
@@ -44,7 +44,8 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 | Audio warm at play-entry | `index-BUszG7M2.js` / `6c62a3c5` / `c3f3ad0` | music + ambience + countdown SFX + announcer await under overlay |
 | Abort + ~400ms start tick | `index-CRQwILqC.js` / `5a1caee0` / `03218fa` | live-only ready cancel; HUD digit reset; MP audio pre-roll; rAF-defer host `startCountdown` |
 | Non-host hold until carts-ready | `index-STjeavro.js` / `af89f3c` | host_round hold only — **hello still stamped countdown** (cap-61) |
-| Hello hold (cap-61) | **`index-B2klJ-qK.js` / `17b6d53`** | same hold on **MSG.hello** + shared helper |
+| Hello hold (cap-61) | `index-B2klJ-qK.js` / `17b6d53` | same hold on **MSG.hello** — still dead (bridge) |
+| Hold actually wired (cap-63) | **`index-BQhnh1Z_.js` / `60d773e`** | bridge forwards `isSessionPlayReady`; mid-bootstrap destroy no longer clears promise |
 
 ### F8 evidence (this session — do not re-decode from scratch)
 
@@ -57,6 +58,8 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 | **59** | `03218fa` non-host **Intel + Firefox** low | Wyatt: **joiner rough**. Countdown applied **before** `carts-ready`; longframe **~66s**; LT observer off on Firefox |
 | **60** | `af89f3c` host 4090 | Host PASS — full 3-2-1 re-arm; over1000:0 |
 | **61** | `af89f3c` non-host Intel | FAIL — `lobby→countdown` **before** `carts-ready` (MSG.hello gap); 18s/12s longframes outside countdown; 2nd arm only ~117ms LF |
+| **62** | `17b6d53` host 4090 | Host partial — full 3-2-1 re-arm; 1.6s LT on abort (`over1000:1`) |
+| **63** | `17b6d53` non-host Intel UHD | FAIL — still early countdown; root = **hold always true** (bridge omitted ready) |
 
 ### Older pain still authoritative for later cards
 
@@ -75,7 +78,7 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 
 ## DO THIS NOW
 
-1. Wyatt: hard-refresh until **`index-B2klJ-qK.js`** / sha **`17b6d53`**, 2-human quickplay, F8 both sides.  
+1. Wyatt: hard-refresh until **`index-BQhnh1Z_.js`** / sha **`60d773e`**, 2-human quickplay, F8 both sides.  
 2. Agent: `npm run captures:pull` → score:
    - Non-host: **no** `lobby→countdown` (or digits) **before** `carts-ready`.  
    - Non-host: no multi-10s longframe **while** countdown phase is active.  
@@ -89,9 +92,9 @@ Command Center: `npm run dashboard` → `.diag-captures/dashboard.html` + `healt
 
 ### P0 — Host multi-second freezes under 2-human (4090) + joiner load
 
-**Status:** Menu ✅ · audio warm ✅ · abort/400ms ✅ · host_round hold ✅ · **hello hold SHIPPED `17b6d53` — F8 retest open**  
+**Status:** Menu ✅ · audio warm ✅ · abort/400ms ✅ · hold logic ✅ · **ready gate SHIPPED `60d773e` — F8 retest open**  
 
-**Pass for this sub-card:** Joiner F8 on `B2klJ-qK` / `17b6d53` meets criteria above.  
+**Pass for this sub-card:** Joiner F8 on `BQhnh1Z_` / `60d773e` meets criteria above.  
 
 **After pass:**  
 - Friend 2-human mid-round multi-s still open if it returns → post-fall / longtask only (no new probe until one lever).  
@@ -148,8 +151,8 @@ Parked; same-build hard-refresh first.
 ## Suggested next window paste (Wyatt → new Grok)
 
 > Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
-> Branch `cart-clash`. Prod **`index-B2klJ-qK.js`** / sha **`17b6d53`**.  
-> **First action:** pull F8s after Wyatt’s joiner retest; score non-host countdown-after-carts-ready (hello hold).  
+> Branch `cart-clash`. Prod **`index-BQhnh1Z_.js`** / sha **`60d773e`**.  
+> **First action:** pull F8s after Wyatt’s joiner retest; score non-host countdown-after-carts-ready (hold finally wired).  
 > One card at a time. Do not re-triage run-1…6; do not re-solve NET-PERF-2; do not re-add ko_path.  
 > Ship only on “ship it.”
 
