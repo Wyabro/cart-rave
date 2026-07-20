@@ -100,7 +100,7 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 - [ ] P6 AI diag probe empty mid-round — tooling only
 - [x] RC behavior-changing MP validation — **A** AI cautious + **C** READY-SET **PASS** (Wyatt 2026-07-20); **B** host-reap optional/skip
 - [x] **CAM-1** host camera follow freeze — shipped **`5fade5b`** / **`index-0O6jq9wn.js`**, Wyatt **PASS**
-- [x] **HUD-MENU-1** menu leftover HUD — shipped **`8d904de`** / **`index-DhaNywQc.js`** (retest open)
+- [x] **HUD-MENU-1** menu leftover HUD — shipped **`8d904de`** / **`index-DhaNywQc.js`**, Wyatt **PASS**
 - [x] **NET-1** two-human smoke (core A+B soft-pass + residual leave/migrate/mid-join score) — residual **PASS** `24f49da`
 - [x] **LS-1** Living Store two-browser companion — Wyatt **PASS** 2026-07-20 (caps 108–111 / `24f49da`; #3 continuous peer + schedule verified)
 
@@ -122,14 +122,14 @@ Run 7 closes — and the Release-candidate phase starts — when every box check
 | **RC-1 C** | READY-SET rematch | ✅ **PASS** (Wyatt 2026-07-20) |
 | **RC-1 B** | Host-reap #6 | ⬜ optional (repro awkward; skip unless named) |
 | **CAM-1** | Host camera stop-follow (stale NH-SMOOTH display pose) | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
-| **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ✅ shipped **`8d904de`** / **`index-DhaNywQc.js`** — ▶️ retest |
+| **HUD-MENU-1** | Menu leftovers (splash · directive · toast · floats · hitmarker · PA) | ✅ **PASS** `8d904de` / `index-DhaNywQc.js` |
 | P6 | AI diag probe empty mid-round | tooling only |
 
 Historical: [playtest-triage-2026-07-17.md](./planning/playtest-triage-2026-07-17.md) … [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
 
-1. **HUD-MENU-1 retest** — hard refresh to `index-DhaNywQc.js`; multi-quickplay leave mid-countdown + mid-directive + mid-KO → clean title menu.
+1. Queue drained for playtest cards (CAM-1 · HUD-MENU-1 · LS-1 · RC-1 A/C · NET-1 residual). Optional: RC-1 B host-reap, P6 tooling, RC MP polish backlog.
 2. Cap-47 LT parked unless multi-s freezes return.
 
 ## Open issues (top)

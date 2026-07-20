@@ -1,11 +1,12 @@
-# Handoff — next agent window (HUD-MENU-1 retest)
+# Handoff — next agent window (queue drained)
 
 **Date:** 2026-07-20  
 **Branch:** `cart-clash`  
 **Prod:** **`index-DhaNywQc.js`** / sha **`8d904de`**  
 **Read order:** `npm run dashboard` → `.diag-captures/health.json` → this file → [STATUS.md](../STATUS.md) → [AGENTS.md](../../AGENTS.md)
 
-**Ship only on Wyatt “ship it.”** Do not `git add -A`.
+**Ship only on Wyatt “ship it.”** Do not `git add -A`.  
+**One card / one lever at a time.**
 
 ---
 
@@ -13,32 +14,53 @@
 
 | Card | Verdict |
 |------|---------|
-| CAM-1 host camera | ✅ PASS `5fade5b` / `index-0O6jq9wn.js` |
-| **HUD-MENU-1** menu HUD leftovers | ✅ **shipped** `8d904de` / `index-DhaNywQc.js` — ▶️ **retest** |
-| LS-1 · RC-1 A/C · NET-1 residual | ✅ |
-
-### HUD-MENU-1 (in prod)
-
-`hideGameplayElements` now clears splash, directive chip, toast/stage, score floats, hitmarker, status residue, edge flash, score doodads. `initMenu` also `clearActiveDirective` + `stopAnnouncer`. `resetStage` calls occupant `hide()`.
-
-Gates: qa typecheck + **1192** tests + knip. Served: `index-DhaNywQc.js`.
+| P0–P4 · NH stack · charge SFX · color/pattern · NET-1 residual | ✅ |
+| P5 · LS-1 · RC-1 A (AI cautious) · RC-1 C (READY-SET) | ✅ PASS |
+| CAM-1 host camera freeze | ✅ **PASS** `5fade5b` / `index-0O6jq9wn.js` |
+| **HUD-MENU-1** menu HUD leftovers | ✅ **PASS** `8d904de` / `index-DhaNywQc.js` |
+| RC-1 B host-reap | ⬜ optional skip |
+| NH-HIT residual · NH-SMOOTH | 🧊 parked |
 
 ### Do not re-open without new evidence
 
-CAM-1 · HUD-MENU-1 code (unless retest FAIL) · LS-1 · RC-1 A/C · NET-1 residual
+P0–P4 · NH stack · NET-1 · P5 · LS-1 · RC-1 A/C · CAM-1 · **HUD-MENU-1**
+
+---
+
+## Active card
+
+**None named.** Playtest stabilization queue for this window is drained.
+
+Optional next (Wyatt pick one):
+
+1. **RC-1 B** host-reap (color-picker idle ~35s) — optional  
+2. **P6** AI diag probe empty mid-round — tooling only  
+3. BACKLOG pre-ship polish / RC phase items  
 
 ---
 
 ## DO THIS NOW
 
-1. Hard refresh → confirm **`index-DhaNywQc.js`**.  
-2. Multi-quickplay: leave mid-countdown, mid-directive, mid-KO → title must be clean (no SUNDIAL plate, no directive chip, no +score float, no PA plate).  
-3. Report pass/fail.
+1. Wyatt names the next card, or stop.  
+2. No code without a named FAIL or new card.
 
 ---
 
-## Suggested paste
+## Suggested next window paste
 
-> Branch `cart-clash`. Prod **`index-DhaNywQc.js`** / **`8d904de`**.  
-> **Closed:** CAM-1 PASS · HUD-MENU-1 **shipped**. **Active:** HUD-MENU-1 retest.  
-> Ship only on “ship it.” Do not `git add -A`.
+> Run `npm run dashboard` and read `.diag-captures/health.json`, then `docs/planning/handoff-next-window.md`, `docs/STATUS.md`, `AGENTS.md`.  
+> Branch `cart-clash`. Prod **`index-DhaNywQc.js`** / sha **`8d904de`**.  
+> **Closed:** CAM-1 PASS · **HUD-MENU-1 PASS** · LS-1 · RC-1 A/C · NET-1 residual.  
+> **Active:** none named — queue drained.  
+> One card/lever. Ship only on “ship it.” Do not `git add -A`.
+
+---
+
+## Commands
+
+```bash
+npm run dashboard
+npm run captures:pull
+npm run qa
+npm run ship   # only on "ship it"
+```
