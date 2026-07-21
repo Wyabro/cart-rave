@@ -121,18 +121,27 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
    per-frame issue — closer to the existing BOOT-PERF-1 backlog item than to a host-selection
    problem. **Both sessions had the 4090 as host and Intel as non-host** — party server keeps
    picking the same machine as host (first-connection-wins), so the original "Intel iGPU as
-   host" scenario still has zero fresh captures. Next: either force a host-role swap for one
-   capture, or treat the early-round 4090 stall cluster as its own lead and profile round
-   start instead of waiting further for an Intel-host sample.
-3. **A2 — INPUT-KB-1 tuned toward a snappier middle ground, deploy pending.** First pass
-   (0.14s attack / 0.09s release) read as "a tad too controller-y" after Wyatt's playtest —
-   halved to **0.07s attack / 0.05s release** in `src/input.js`, still removing the literal
-   instant-full-lock snap but much closer to keyboard-native response. The internal per-call
-   dt safety clamp (protects against a real gap — tab hidden, breakpoint — resolving as one
-   giant ease step) was also tightened from 0.1s to 0.05s so it stays below the new,
-   shorter attack window. Tests updated to the new constants (`tests/input.test.js`, still
-   7 cases, exact ramp-timing math). `npm run qa` 641/641, `npm run build` clean. **Still a
-   feel change — needs Wyatt's playtest**, not self-certifiable; ready for another round.
+   host" scenario still has zero fresh captures.
+
+   **Round 3 (build `e46db94`, 07-21):** cap-117 (4090, host) reproduces the *same*
+   early-round stall shape as round 2 — a cluster at t≈11-13s (2613ms/383ms/1406ms) with
+   real Long Task backing (1515ms+1020ms on the biggest one) — now a **repeated pattern
+   across two separate sessions**, strengthening the boot/init-cost lead. Both captures'
+   *entire* session event history was retained (ring buffer well under its 512 cap, no
+   eviction) up to each F8 press (~116s / ~125s into their respective sessions).
+
+   Wyatt also mentioned tabbing away from the host for a few seconds mid-session — a
+   real-world test of the `hiddenDuringGap` fix — but **neither capture shows it**: no
+   longframe event past t≈14.5s in cap-117, and the non-host's own peer-side view of host
+   reliability (cap-118 `net.flow.snapGapMaxMs: 856` over a 106s window) shows nothing
+   multi-second either. Given the full session history was retained in both bundles, this
+   most likely means the tab-out happened *after* these two F8 presses (both only cover the
+   first ~2 minutes) rather than the latch failing to catch it — but that's not confirmed.
+   **Ask:** next time, press F8 shortly after tabbing back in so the ring still holds it —
+   that's the clean way to actually validate the fix against a real backgrounding event.
+3. **A2 — INPUT-KB-1 done, confirmed good.** Wyatt confirmed the tuned 0.07s attack / 0.05s
+   release ramp feels right after the "too controller-y" first pass (0.14s/0.09s). No further
+   action unless new feedback comes in.
 
 ## Open issues (top)
 
