@@ -14,6 +14,7 @@ import {
 import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
 import { installNetTestHarness } from "./utils/netTestHarness.js";
 import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
+import { logBuildBanner, refreshBuildFreshness } from "./utils/buildFreshness.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
 import { installLongTaskProbe } from "./utils/longTaskProbe.js";
 import { installGameplayAnalytics } from "./analytics/gameplayAnalytics.js";
@@ -5322,6 +5323,11 @@ async function main() {
     });
   }
 
+  // * Build identity banner + stale-cache guard — UNCONDITIONAL (not ?diag-gated) so every
+  // * tab prints its bundle to the console and shouts if it's running an old cached bundle
+  // * while a newer one is deployed. Root cause of the 07-21 "fixes never ran" playtest.
+  logBuildBanner();
+
   // * Gameplay diagnostics hub (?diag → window.__ccDiag, read-only). General complement to
   // * the netcode + visual harnesses: probes for round/score/announcer/ai/camera/boot/unlocks/
   // * challenges + a bounded event log. Read surface works in prod builds (QA); the scenario
@@ -5372,6 +5378,18 @@ async function main() {
     // * __ccDiag.captures() (auto path does not upload — only the intentional F8).
     const manualCapture = async (trigger) => {
       try {
+        // * Re-verify loaded-vs-deployed RIGHT NOW so this F8 carries current truth, not the
+        // * boot-time snapshot. If stale, shout before capturing — a bug "reproduced" on an old
+        // * cached bundle is not a bug in the deployed build (07-21 root cause).
+        const fresh = await refreshBuildFreshness();
+        if (fresh.ok && fresh.stale) {
+          console.warn(
+            `%c[diag] ⚠ STALE BUNDLE — capturing anyway%c  tab=index-${fresh.loaded}.js  deployed=index-${fresh.live}.js.\n` +
+              `This F8 does NOT reflect the deployed build. Hard-reload (Ctrl+Shift+R) and re-capture.`,
+            "font-weight:bold;color:#f14c4c",
+            "color:inherit",
+          );
+        }
         const bundle = /** @type {any} */ (window).__ccDiag.captureBundle({
           scenario: "manual",
           reason: `hotkey ${trigger}`,

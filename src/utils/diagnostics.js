@@ -40,6 +40,7 @@
  */
 
 import { readBuildInfo } from "./buildInfo.js";
+import { getCachedFreshness } from "./buildFreshness.js";
 
 /** Max events retained in the ring buffer (oldest dropped first). */
 const EVENT_BUFFER_MAX = 512;
@@ -264,6 +265,10 @@ export function installDiagnostics(opts = {}) {
         capturedAt: nowIso(),
         capturedAtPerfMs: nowMs(),
         build: readBuildInfo(),
+        // * Stale-cache verdict (loaded bundle vs live-deployed). { checked:false } if the
+        // * boot check hasn't resolved yet; manualCapture awaits a fresh check before this.
+        // * A capture with buildFreshness.stale===true was taken on an OLD bundle — discount it.
+        buildFreshness: getCachedFreshness(),
         phase: round && typeof round === "object" ? (round.phase ?? null) : null,
         flags: api.flags,
         tail: seq,
