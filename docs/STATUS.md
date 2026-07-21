@@ -259,6 +259,49 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-21 (FIX — COUNTDOWN-ABORT-1: quickplay is continuous, seat humans ready) — Cancel
+attribution (caps 175/176) named the trigger conclusively: `round_msg_lobby` aborts with
+BOTH humans `isReady:true`, correlated with slot0 NPC↔human churn as the frozen non-host
+(`8a8d0b`, 22s load freeze) re-seated. Root cause: `#assignHumanToSlot` seated a (re)joining
+human `isReady:false` ([party/index.ts:361](../party/index.ts)), and the server aborts the
+armed countdown on ANY live-human-unready ([party/index.ts #cancelCountdownIfNeeded](../party/index.ts)).
+Since **quickplay is a continuous mode with no manual ready-up**, seating unready + waiting on
+a client `ready` the frozen peer can't send is the bug. Fix (server): new `shared/readiness.js`
+policy — `seatReadyState()` seats continuous-mode (quickplay) humans READY by definition (the
+core fix), and restores readiness for a non-continuous connId that was ready before a reseat
+blip (B); `#cancelCountdownIfNeeded` now grace-debounces the abort (`COUNTDOWN_ABORT_GRACE_MS`
+1500ms) instead of nuking on every roster flicker (A), with `#readyConnIds` maintained in
+readyToggle / onClose / playAgain. Not the clock (SYNC-1 stays correct); not the freeze
+(hardware-bound, separate). Gates: `npm run qa` **661** (+7 readiness), typecheck/knip clean.
+**Needs Wyatt's paired quickplay playtest: next countdown F8s should show ZERO `countdownAbort`
+events even with the non-host mid load-freeze.**
+
+2026-07-21 (FINDING — REFRAME: countdown jank = phase-abort thrash, NOT the clock;
+non-host freeze = hardware-bound) — Intel new-build countdown F8s (caps 157/160, build
+`9bbfa27`, both `buildFreshness.stale:false`) overturned two prior theories:
+• **Countdown "jank" is round-phase thrashing.** cap-160 round log: `lobby→countdown`
+  then `countdown→lobby→countdown→lobby` (t=13028–13030), 7s in lobby, then `→countdown`
+  again (t=20163) → `countdown_3` announced twice, 7.9s apart. cap-157 shows the same abort.
+  The `countdown` probe math is self-consistent (digitN/elapsed/remaining line up) — **SYNC-1
+  was correct; the clock was never the bug.** Non-host follows host `phase:lobby` at
+  netcode.js:2650; host holds countdown on `isSessionPlayReady` (Cap-59, main.js:3729).
+• **PERF-WARM-1 shader-warm theory REFUTED by its own instrumentation.** `warmupCompile`
+  events: sync `compile()` = 66–145ms, `parallelCompile:true`, 167–446 programs — NOT a
+  3.3s block. Freezes are focused/visible/main-thread-IDLE rAF gaps (cap-157: 2050ms,
+  ltSum=0; cap-160: 10962ms, ltSum=1251) whose size does NOT track shader warm (3.4s warm→2s
+  freeze; 1.1s warm→11s freeze). Intel Edge GPU report: Gen11 iGPU, **7GB RAM / 9GB commit /
+  8 cores**, `Software Rendering:No`, `msaa_is_slow` workaround, HLSL compiles recurring
+  through the session. Signature = OS paging / memory pressure + repeated shader compiles →
+  substantially hardware-bound.
+• **Unified cause:** the multi-second non-host freeze starves the network → host sees peer
+  unready → aborts countdown → restart on recovery = the visible jank.
+New IDs: **COUNTDOWN-ABORT-1** (make countdown resilient to a transient peer freeze — the
+real shippable fix; extends the Cap-59 readiness hold) and **freeze mitigation** (secondary:
+audit composer MSAA + per-round variant recompiles; hardware-bound, won't fully fix a 7GB
+Gen11). Secondary lead: `hostClockOffsetMs:0` on non-host — verify it's meant to be nonzero.
+**Blocked on: a HOST-side countdown F8 (same round as a non-host one) to confirm WHY the host
+sends `phase:lobby` (peer-unready vs server reassert) before writing COUNTDOWN-ABORT-1.**
+
 2026-07-21 (SHIPPED — DIAG-STALE-1 + F8 coverage gaps) — **`71185b1`→`7a0333b`** pushed
 + deployed as bundle **`index-CPME-kfx.js`** / Version **`0554247b-74b3-4522-a261-0b044248ca68`**.
 Served-bytes verified in-browser: live site self-reported `sha 7a0333b`, freshness

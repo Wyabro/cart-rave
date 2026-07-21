@@ -27,6 +27,7 @@ type Slot = {
 
 import { MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS } from '../shared/roundConstants.js';
+import { COUNTDOWN_ABORT_GRACE_MS, isContinuousModeRoom, seatReadyState } from '../shared/readiness.js';
 import { validateHostRound, type RoundState } from './roundValidation';
 import {
   pickNextHostId,
@@ -102,6 +103,12 @@ export class CartRaveServer extends Server {
   #countdownTimerHandle: ReturnType<typeof setTimeout> | null = null;
   /** Rematch grace before auto-ready arms countdown (lets humans unready / breathe). */
   #rematchGraceTimerHandle: ReturnType<typeof setTimeout> | null = null;
+  // * COUNTDOWN-ABORT-1: connIds that have signalled ready, preserved across an
+  // * orphan-reconcile → reseat blip so a slow/flapping peer's slot doesn't drop to
+  // * unready and abort an armed countdown (fix B). Continuous mode ignores this.
+  readonly #readyConnIds = new Set<string>();
+  // * Grace timer: an armed countdown tolerates a brief unready blip before aborting (fix A).
+  #countdownAbortGraceHandle: ReturnType<typeof setTimeout> | null = null;
   #npcNameDeck: string[] = [];
 
   // Security: Rate limiting state
@@ -325,6 +332,7 @@ export class CartRaveServer extends Server {
 
   /** Drop the game_start arming timer if any (does not touch phase / countdownArmed). */
   #clearCountdownTimer() {
+    this.#clearCountdownAbortGrace();
     if (this.#countdownTimerHandle !== null) {
       clearTimeout(this.#countdownTimerHandle);
       this.#countdownTimerHandle = null;
@@ -358,7 +366,13 @@ export class CartRaveServer extends Server {
 
     npcSlot.kind = "human";
     npcSlot.connId = connId;
-    npcSlot.isReady = false;
+    // * COUNTDOWN-ABORT-1: continuous mode (quickplay) has no ready-up → seated = ready;
+    // * other modes restore readiness if this connId was ready before a reseat blip (B).
+    npcSlot.isReady = seatReadyState({
+      continuousMode: this.#isContinuousMode(),
+      connId,
+      readyConnIds: this.#readyConnIds,
+    });
     // Keep npcSlot.name until client sends join with a name.
     // * Mid-round seat: scores are slot-keyed. The NPC's points must not become the
     // * joiner's. Zero before the next host_round — validateHostRound's monotonic
@@ -509,13 +523,58 @@ export class CartRaveServer extends Server {
     );
     // * No live humans (or any live human unready) → abort. Empty every() is true
     // * in JS — do not treat "zero humans" as "all ready".
-    if (humanSlots.length > 0 && humanSlots.every((s) => s.isReady)) return;
+    if (humanSlots.length > 0 && humanSlots.every((s) => s.isReady)) {
+      this.#clearCountdownAbortGrace();
+      return;
+    }
+    // * COUNTDOWN-ABORT-1 (fix A): tolerate a transient unready (a reseat/orphan blip from a
+    // * slow peer) — re-check after a short grace and abort only if STILL failing, instead of
+    // * nuking the countdown on every roster flicker. Continuous mode never reaches here
+    // * (seated humans are always ready), so this only guards friends/private READY rooms.
+    if (this.#countdownAbortGraceHandle === null) {
+      this.#countdownAbortGraceHandle = setTimeout(() => {
+        this.#countdownAbortGraceHandle = null;
+        this.#reevaluateCountdownAfterGrace();
+      }, COUNTDOWN_ABORT_GRACE_MS);
+    }
+  }
+
+  /** Continuous modes (quickplay) have no manual ready-up — a seated human is ready by
+   *  definition. Friends/private rooms keep the explicit READY gate. */
+  #isContinuousMode(): boolean {
+    return isContinuousModeRoom(this.name);
+  }
+
+  #clearCountdownAbortGrace() {
+    if (this.#countdownAbortGraceHandle !== null) {
+      clearTimeout(this.#countdownAbortGraceHandle);
+      this.#countdownAbortGraceHandle = null;
+    }
+  }
+
+  /** Grace expired: abort the armed countdown only if a live human is STILL unready. */
+  #reevaluateCountdownAfterGrace() {
+    if (
+      this.#countdownTimerHandle === null
+      && !this.#countdownArmed
+      && this.#rematchGraceTimerHandle === null
+    ) {
+      return;
+    }
+    if (!this.#slots) return;
+    const liveConnIds = new Set<string>();
+    for (const c of this.getConnections()) liveConnIds.add(c.id);
+    const humanSlots = this.#slots.filter(
+      (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
+    );
+    if (humanSlots.length > 0 && humanSlots.every((s) => s.isReady)) return; // recovered
     this.#abortArmedCountdown();
   }
 
   // * Notifies all clients when an armed game_start countdown is invalidated.
   // * Also drops rematch grace so unready mid-breathe doesn't still auto-arm.
   #abortArmedCountdown() {
+    this.#clearCountdownAbortGrace();
     if (
       this.#countdownTimerHandle === null
       && !this.#countdownArmed
@@ -836,6 +895,8 @@ export class CartRaveServer extends Server {
     } else {
       this.#convertHumanSlotToNpc(conn.id);
     }
+    // * Genuine departure: forget this connId's ready memory (a reconnect gets a new connId).
+    this.#readyConnIds.delete(conn.id);
     this.#cancelCountdownIfNeeded();
 
     // * Host departure repair (pick successor + hostMigrated broadcast + countdown
@@ -1143,6 +1204,10 @@ export class CartRaveServer extends Server {
         const desired = typeof data?.ready === "boolean" ? data.ready : !slot.isReady;
         if (desired === slot.isReady) return;
         slot.isReady = desired;
+        // * COUNTDOWN-ABORT-1 (B): remember ready connIds so a same-connId reseat after an
+        // * orphan-reconcile blip restores readiness instead of dropping to unready.
+        if (desired) this.#readyConnIds.add(connection.id);
+        else this.#readyConnIds.delete(connection.id);
 
         // Reconcile orphan human slots before checking ready state.
         // On hard refresh, the old connection may not have been cleaned up
@@ -1178,7 +1243,10 @@ export class CartRaveServer extends Server {
         this.#carts = [];
         // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
         for (const slot of (this.#slots ?? [])) {
-          if (slot.kind === "human") slot.isReady = true;
+          if (slot.kind === "human") {
+            slot.isReady = true;
+            if (slot.connId) this.#readyConnIds.add(slot.connId);
+          }
         }
         // * HOST-ROLE-1: re-evaluate host quality before the next countdown.
         this.#maybeRebalanceHostForQuality();
