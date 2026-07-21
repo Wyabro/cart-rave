@@ -492,6 +492,24 @@ export function getYouConnId() { return youConnId; }
 export function getIsHost() { return isHost; }
 export function getHostId() { return hostId; }
 export function getNetSlots() { return netSlots; }
+
+/**
+ * COUNTDOWN-ABORT-1 forensics: whenever a countdown tears down to lobby, record WHY (which
+ * code path asserted lobby) plus the per-slot readiness snapshot at that instant. The 07-21
+ * paired host+non-host captures proved the countdown thrashes (abort→restart) but not which
+ * signal triggers it — this names the branch and shows whether a peer (e.g. a frozen non-host)
+ * was un-ready when the abort fired. Inert until ?diag installs the hub.
+ * @param {string} reason  which branch fired ("round_msg_lobby" | "pending_apply_lobby" | "countdown_cancel_msg")
+ * @param {Record<string, unknown>} [extra]
+ */
+function recordCountdownAbort(reason, extra = {}) {
+  const slotsReady = Array.isArray(netSlots)
+    ? netSlots.map((s, i) =>
+        s ? { slot: s.slotIndex ?? i, kind: s.kind ?? null, ready: s.isReady ?? null, conn: s.connId ? String(s.connId).slice(0, 6) : null } : null,
+      )
+    : null;
+  recordDiagEvent("round", "countdownAbort", { reason, isHost, slotsReady, ...extra });
+}
 /** Coarse socket health for the HUD: "ok" | "reconnecting". */
 export function getConnectionState() { return connectionState; }
 /**
@@ -2648,6 +2666,7 @@ export function initNetcode(roomOverride) {
           callbacks.onPodiumRejected?.();
         }
         if (typeof newPhase === "string" && prevPhase === "countdown" && newPhase === "lobby") {
+          recordCountdownAbort("round_msg_lobby", { prevPhase, newPhase, rejected: msg.rejected === true });
           callbacks.onCountdownCancelled?.();
           GameState.setRoundCountdownStartedAtMs(0);
           GameState.setRoundStartedAtMs(0);
@@ -2661,6 +2680,7 @@ export function initNetcode(roomOverride) {
           && prevPhase === "lobby"
           && callbacks.hasPendingNonHostCountdownApply?.()
         ) {
+          recordCountdownAbort("pending_apply_lobby", { prevPhase, newPhase });
           callbacks.onCountdownCancelled?.();
           GameState.setRoundCountdownStartedAtMs(0);
           GameState.setRoundStartedAtMs(0);
@@ -2736,6 +2756,7 @@ export function initNetcode(roomOverride) {
 
     if (type === MSG.countdownCancel) {
       if (GameState.getRoundState().phase === "countdown") {
+        recordCountdownAbort("countdown_cancel_msg", { prevPhase: "countdown" });
         callbacks.onCountdownCancelled?.();
         GameState.setRoundPhase("lobby");
         GameState.setRoundCountdownStartedAtMs(0);
