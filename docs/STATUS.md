@@ -259,6 +259,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-21 (VERIFIED — COUNTDOWN-ABORT-1 fixed) — Fresh quickplay countdown F8s on `cbb0c7f`
+(caps 180/181 connecting, 184/185 after-round, both machines): **ZERO `countdownAbort`
+events**, no countdown→lobby thrash (only legitimate next-round starts). Digit cadence clean —
+non-host EVEN (1369/1198/1310ms) despite still hitting a 22s load freeze; host 2→1→GO even
+(1200/1205). Held with both peers mid load-freeze — the exact flap condition. Countdown jank
+CLOSED across 5 sessions. Residual (cosmetic, NOT the abort): a round-start load freeze
+(cap-184 host: 1426ms main-thread at play-shader, ltSum=1403) can compress the first 3→2 gap
+(209ms) — that's PERF-WARM (hardware-bound), tracked separately, no restart.
+
 2026-07-21 (FIX — COUNTDOWN-ABORT-1: quickplay is continuous, seat humans ready) — Cancel
 attribution (caps 175/176) named the trigger conclusively: `round_msg_lobby` aborts with
 BOTH humans `isReady:true`, correlated with slot0 NPC↔human churn as the frozen non-host
