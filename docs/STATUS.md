@@ -197,9 +197,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-20 (SHIPPED — SHIP-1 + A1 gap-focus latch) — **`2293b57` pushed + deployed** as
+bundle **`index-CDVlu6Eb.js`** / Version **`3e5a0468-520f-4c8f-adef-fa4bd363e2c8`**.
+Served-bytes verified: fetched the deployed bundle, `hiddenDuringGap` present. Gates at
+ship: `npm run qa` **628/65**, `npm run build` clean. **Playtest requested to exercise the
+new A1 latch fields on a real focused-vs-backgrounded host freeze** — next F8 pull after
+should give the first real verdict on the host-hitch hypothesis (see D-HOSTHITCH-1).
+
 2026-07-20 (SHIP-1) — Shipping checklist + pre-ship tier ordering created
 ([planning/SHIP-1.md](./planning/SHIP-1.md)); BACKLOG rows tagged `[SHIP-1 A–E]`; new IDs
-HOST-CAP-1 / SRV-TEST-1 / NET-SIM-1 / CART-MODEL-1 / ONBOARD-1. **Unpushed** until ship.
+HOST-CAP-1 / SRV-TEST-1 / NET-SIM-1 / CART-MODEL-1 / ONBOARD-1.
 
 2026-07-20 (NET-SD-1) — Sole-leader self-fall / untied wipeout crowns fallback winner.
 **Unpushed** with NET-PRES-1 until ship.
