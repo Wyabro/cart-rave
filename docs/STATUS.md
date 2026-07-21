@@ -104,7 +104,24 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 
 ### Next actions
 
-1. Wait for Wyatt to name the next card (or phase advance → RC). Do not auto-start.
+1. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
+2. **A1 in progress.** Offline forensics on existing `.diag-captures/playtest/` F8 bundles
+   (Intel-iGPU host, low tier, 9 captures) found the `perf/longframe` diagnostic itself was
+   ambiguous: `hidden`/`focused` are sampled *after* a stall ends, so a real backgrounded tab
+   and a genuine focused freeze both report `hidden:false, focused:true`. Cross-checked
+   against `PerformanceObserver("longtask")` coverage: the multi-second `resume:true` gaps
+   (3.4s, 8.2s, one 6.6min) have only 0.3–26% Long Task coverage — the main thread was
+   mostly idle, not busy — consistent with backgrounding/occlusion, not a genuine focused
+   CPU/GPU stall. The *real* focused-and-running stalls in this dataset are smaller
+   (100–500ms) with 94–106% Long Task coverage. **Fix landed** (unpushed):
+   `src/utils/longTaskProbe.js` now latches hidden/blur state across the gap
+   (`installFocusGapLatch` / `readAndResetGapFocusLatch`) instead of sampling only at
+   resume; `src/gameLoop.js` stamps `hiddenDuringGap`/`blurredDuringGap` on every
+   `perf/longframe` event alongside the existing instantaneous fields. Tests added
+   (`tests/longTaskProbe.test.js`, +5). `npm run qa` green (628/628) + `npm run build` clean.
+   **Not yet a verdict** — needs a fresh F8 pass with the new fields to actually separate
+   the two hypotheses; old captures can't be reprocessed (the latch fields didn't exist
+   when they were recorded).
 
 ## Open issues (top)
 
@@ -128,6 +145,13 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-HOSTHITCH-1** (07-20): A1 forensics on existing captures found the "1–8s host freeze
+  while focused" residual may be partly a measurement artifact — `hidden`/`focused` sample
+  after the stall, not during it. Long Task coverage on the multi-second gaps is 0.3–26%
+  (idle, not busy) vs 94–106% on genuine sub-second stalls. Latched `hiddenDuringGap`/
+  `blurredDuringGap` added to `perf/longframe` events; verdict needs a fresh F8 capture, not
+  yet available. Do not treat "GPU-bound host" as confirmed until that retest.
+- **D-SHIP-1** (07-20): SHIP-1 created as a living finish line — pre-ship tiers A–E ([planning/SHIP-1.md](./planning/SHIP-1.md)); full backlog ships (no cut-down RC); new findings slot into tiers; no netcode/god-file rewrites pre-ship.
 - **D-TRUTH-1** (07-20): Command Center Truth Reset — STATUS owns declared phase only; evidence never auto-advances phase; collectors own HEAD/gates; battery reports carry provenance + completeness.
 - **D-READY-1** (07-20): Lobby readiness is an idempotent **SET** on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile.
 - **D-CONTENT-1** (07-17): Pure-data arena catalog is the client authoring source for labels/themes/music/ambience/unlocks.
@@ -172,6 +196,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 
 ## Last updated
+
+2026-07-20 (SHIP-1) — Shipping checklist + pre-ship tier ordering created
+([planning/SHIP-1.md](./planning/SHIP-1.md)); BACKLOG rows tagged `[SHIP-1 A–E]`; new IDs
+HOST-CAP-1 / SRV-TEST-1 / NET-SIM-1 / CART-MODEL-1 / ONBOARD-1. **Unpushed** until ship.
 
 2026-07-20 (NET-SD-1) — Sole-leader self-fall / untied wipeout crowns fallback winner.
 **Unpushed** with NET-PRES-1 until ship.

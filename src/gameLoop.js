@@ -4,7 +4,7 @@ import { captureCartsPhysicsPrevPoses } from "./entities.js";
 import { isShatterAnimating } from "./cartShatter.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
-import { getFocusSnapshot, longTasksForGap } from "./utils/longTaskProbe.js";
+import { getFocusSnapshot, longTasksForGap, readAndResetGapFocusLatch } from "./utils/longTaskProbe.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
@@ -743,6 +743,11 @@ export function runGameLoop(loopState, callbacks) {
       overGapStreak = overGap ? overGapStreak + 1 : 0;
       const isResume = overGap && overGapStreak === 1;
       if (typeof window !== "undefined" && (window.__ccNetTest || window.__ccDiagActive)) {
+        // * Read+reset every gated frame (not just longframe ones) so the latch reflects
+        // * "hidden/blurred during THIS gap" — reading it only inside the dt>0.1 branch
+        // * below would let a hide/blur from an unrelated earlier frame leak onto a later,
+        // * unrelated long frame.
+        const { hiddenDuringGap, blurredDuringGap } = readAndResetGapFocusLatch();
         const d = (window.__ccLoopDbg =
           window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0 });
         d.frames += 1;
@@ -764,6 +769,12 @@ export function runGameLoop(loopState, callbacks) {
         // * Run-7 P0: also stamp focus/visibility + overlapping Long Tasks so the next
         // * friend F8 can separate main-thread blocks (lt[]) from alt-tab/occlusion
         // * (hidden/focused) and empty-lt scheduled gaps (Chrome/GPU wait).
+        // * `hidden`/`focused` are instantaneous — sampled now, after rAF resumed — so a
+        // * genuinely backgrounded gap and a genuine focused stall both read
+        // * hidden:false/focused:true here (the tab flips back before this code runs).
+        // * `hiddenDuringGap`/`blurredDuringGap` are the latched versions: true if the tab
+        // * was hidden or unfocused at ANY point during this specific gap, which is what
+        // * actually disambiguates the two.
         if (dt > 0.1 && now - _lastLongFrameLogMs > 500) {
           _lastLongFrameLogMs = now;
           const dtMs = Math.round(dt * 1000);
@@ -776,6 +787,8 @@ export function runGameLoop(loopState, callbacks) {
             hidden: focus.hidden,
             vis: focus.vis,
             focused: focus.focused,
+            hiddenDuringGap,
+            blurredDuringGap,
             lt,
             ltN: lt.length,
           });

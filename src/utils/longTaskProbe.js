@@ -38,6 +38,18 @@ let installed = false;
 /** @type {PerformanceObserver | null} */
 let observer = null;
 let lastEventAtMs = -Infinity;
+/**
+ * Latches for `getFocusSnapshot()`'s blind spot: it reads document state at the moment
+ * a long frame is *observed* (after rAF resumes), not during the gap. A genuinely
+ * backgrounded/occluded tab flips `hidden`/`focused` back to normal before this code runs,
+ * so a real background pause and a true focused main-thread stall both report
+ * `hidden:false, focused:true`. These latch `true` the instant either fires and are read +
+ * cleared once per rAF frame (see {@link readAndResetGapFocusLatch}), so a longframe event
+ * can say "was hidden/blurred at any point since the last frame" instead of "is it hidden now".
+ */
+let hiddenSinceLastFrame = false;
+let blurredSinceLastFrame = false;
+let focusListenersInstalled = false;
 
 function emptyStats() {
   return { count: 0, maxMs: 0, sumMs: 0, over100: 0, over500: 0, over1000: 0 };
@@ -102,6 +114,7 @@ export function noteLongTask(sample) {
 export function installLongTaskProbe() {
   if (installed) return Boolean(observer);
   installed = true;
+  installFocusGapLatch();
 
   if (typeof PerformanceObserver === "undefined") return false;
   try {
@@ -150,6 +163,39 @@ export function getLongTaskStats() {
     installed,
     observing: Boolean(observer),
   };
+}
+
+/**
+ * Install `visibilitychange`/`blur` listeners that latch {@link hiddenSinceLastFrame} /
+ * {@link blurredSinceLastFrame}. Idempotent, no-op outside a browser. Called from
+ * {@link installLongTaskProbe} so one diag-init call wires both forensics layers.
+ */
+export function installFocusGapLatch() {
+  if (focusListenersInstalled) return;
+  focusListenersInstalled = true;
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) hiddenSinceLastFrame = true;
+  });
+  window.addEventListener("blur", () => {
+    blurredSinceLastFrame = true;
+  });
+}
+
+/**
+ * Reads whether the tab was hidden or unfocused at any point since the last call, then
+ * clears the latch. Call exactly once per rAF frame (before/alongside the dt gap check) so
+ * the returned flags describe "during this gap", not "right now" — see the module-doc note
+ * on {@link hiddenSinceLastFrame} for why the instantaneous read in {@link getFocusSnapshot}
+ * cannot tell a real background pause from a genuine focused stall.
+ * @returns {{ hiddenDuringGap: boolean, blurredDuringGap: boolean }}
+ */
+export function readAndResetGapFocusLatch() {
+  const hiddenDuringGap = hiddenSinceLastFrame;
+  const blurredDuringGap = blurredSinceLastFrame;
+  hiddenSinceLastFrame = false;
+  blurredSinceLastFrame = false;
+  return { hiddenDuringGap, blurredDuringGap };
 }
 
 /**
@@ -222,4 +268,7 @@ export function __resetLongTaskProbeForTest() {
   recent = [];
   stats = emptyStats();
   lastEventAtMs = -Infinity;
+  hiddenSinceLastFrame = false;
+  blurredSinceLastFrame = false;
+  focusListenersInstalled = false;
 }
