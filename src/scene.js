@@ -12,6 +12,7 @@ import { CONFIG } from "./config.js";
 import { QUALITY_KNOBS, getQualityKnobs, effectivePixelRatio } from "./utils/qualityTiers.js";
 import { setSessionQualityTier } from "./utils/qualityMode.js";
 import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils/gpuCaps.js";
+import { recordDiagEvent } from "./utils/diagnostics.js";
 import { getDebugParams } from "./utils/debugParams.js";
 
 /**
@@ -790,6 +791,37 @@ export function createRenderer(canvas) {
 
   const gl = renderer.getContext();
   const rendererString = readRendererString(gl);
+
+  // * GPU context-loss reporter. A mid-session context loss (driver TDR/reset, or the WARP
+  // * software fallback caught 07-21) otherwise leaves NO timestamped trace — the renderer
+  // * string silently changes and the tab just gets slow. Emit diag events so an F8 can pin
+  // * a multi-second freeze to a GPU drop instead of guessing. recordDiagEvent is inert
+  // * until ?diag installs the hub; the listeners are cheap to always attach. We do NOT
+  // * preventDefault — three's own WebGLRenderer handler owns restore.
+  canvas.addEventListener(
+    "webglcontextlost",
+    () => {
+      recordDiagEvent("perf", "gpucontextlost", { renderer: rendererString });
+      // eslint-disable-next-line no-console
+      console.warn("[CartRave] WebGL context LOST — the GPU dropped the rendering context.");
+    },
+    false,
+  );
+  canvas.addEventListener(
+    "webglcontextrestored",
+    () => {
+      let restored = rendererString;
+      try {
+        restored = readRendererString(renderer.getContext());
+      } catch {
+        /* context may still be settling */
+      }
+      recordDiagEvent("perf", "gpucontextrestored", { renderer: restored });
+      // eslint-disable-next-line no-console
+      console.info("[CartRave] WebGL context restored →", restored);
+    },
+    false,
+  );
   // * The live context's renderer string is the authoritative software signal; the
   // * probe arm exists only so DEV ?forcegpu=sw can exercise this path (devForcedProbe
   // * never creates a context). DEV-gated: in prod it would spin up a throwaway WebGL

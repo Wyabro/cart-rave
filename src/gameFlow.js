@@ -1,6 +1,7 @@
 // gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
 import { resetCartTransientState } from "./entities.js";
+import { mark } from "./utils/perfSpans.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
@@ -380,7 +381,9 @@ export function updateGameFlow(deps, context) {
           // * it from the snapshot falls[] tail so everyone sees the same pop).
           if (deps.triggerCartShatter && deps.getScene && cart.mesh) {
             const scene = deps.getScene();
-            if (scene) deps.triggerCartShatter(cart, scene, deps.colorHexForSlot(slot));
+            // * Named span: cart-shatter VFX is the prime suspect for KO-adjacent host
+            // * freezes (mesh/geometry build). Attributes into longframe.spans.
+            if (scene) mark("vfx.shatter", () => deps.triggerCartShatter(cart, scene, deps.colorHexForSlot(slot)));
           }
 
           // * Block respawn during Sudden Death — the falling cart stays dead

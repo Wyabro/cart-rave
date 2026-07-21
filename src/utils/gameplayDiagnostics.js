@@ -33,7 +33,15 @@ import { snapshotMatchStats } from "../scoring/matchStats.js";
 import { getAnnouncerDebugState } from "../announcer/announcerManager.js";
 import { getActiveDirective } from "../directives/directiveEngine.js";
 import { getCameraMode } from "../camera.js";
-import { getIsHost, getPendingInputs, getLatestSnap, getConnectionState, getNetFlowStats } from "../netcode.js";
+import {
+  getIsHost,
+  getPendingInputs,
+  getLatestSnap,
+  getConnectionState,
+  getNetFlowStats,
+  getHostClockOffsetMs,
+  getPartyClockOffsetMs,
+} from "../netcode.js";
 import { getAudioDebugState } from "../audioManager.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "../roundClock.js";
@@ -87,6 +95,41 @@ function registerProbes(deps) {
       mode: deps.getMode ? deps.getMode() : null,
       levelId: deps.getLevelId ? deps.getLevelId() : null,
       localSlotIndex: deps.getLocalSlot ? deps.getLocalSlot() : null,
+    };
+  });
+
+  // * COUNTDOWN-SYNC probe: records the exact clock-domain inputs the HUD digit math
+  // * consumes, so a single F8 during "3…2…1" proves whether the non-host countdown is
+  // * anchored in the host clock domain (the 07-21 SYNC-1 fix) or drifting. Without this
+  // * the fix is unverifiable from a capture — you'd only see the announcer digit events,
+  // * not the clock math behind them. Mirrors hud.js updateStatus()/adjustedNow() exactly.
+  registerDiagProbe("countdown", () => {
+    const s = gameStore.getState();
+    const countdownStartedAtMs = s.roundCountdownStartedAtMs || 0;
+    const countdownMs = CONFIG.round?.countdownMs ?? 3000;
+    const hostClockOffsetMs = getHostClockOffsetMs();
+    const partyClockOffsetMs = getPartyClockOffsetMs();
+    const roundClockNowMs = getRoundClockNowMs();
+    // * Host-domain "now" — the precise value hud.js feeds the digit math (getRoundClockNowMs
+    // * − hostClockOffset). On a correctly-anchored non-host this tracks the host's GO.
+    const adjustedNowMs = roundClockNowMs - hostClockOffsetMs;
+    const elapsedMs = adjustedNowMs - countdownStartedAtMs;
+    const remainingMs = countdownMs - elapsedMs;
+    const inCountdown = s.roundPhase === RoundPhase.COUNTDOWN;
+    return {
+      isHost: getIsHost(),
+      phase: s.roundPhase,
+      // Raw clock-domain inputs (SYNC-1 changed how countdownStartedAtMs is anchored):
+      countdownStartedAtMs,
+      countdownMs,
+      hostClockOffsetMs,
+      partyClockOffsetMs,
+      roundClockNowMs,
+      // Derived exactly as the HUD does — what the banner should read right now:
+      adjustedNowMs,
+      elapsedMs,
+      remainingMs,
+      digitN: inCountdown ? Math.max(1, Math.min(3, Math.ceil(remainingMs / (countdownMs / 3)))) : null,
     };
   });
 

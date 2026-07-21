@@ -5,6 +5,7 @@ import { isShatterAnimating } from "./cartShatter.js";
 import { sendErrorLogLimited } from "./utils/errorReporter.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import { getFocusSnapshot, longTasksForGap, readAndResetGapFocusLatch } from "./utils/longTaskProbe.js";
+import { spansOverlapping } from "./utils/perfSpans.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
@@ -781,6 +782,10 @@ export function runGameLoop(loopState, callbacks) {
           const gapStart = now - dt * 1000;
           const focus = getFocusSnapshot();
           const lt = longTasksForGap(gapStart, now);
+          // * Named-span attribution: when lt[] is the usual "unknown|window", these say
+          // * WHICH instrumented system (vfx.shatter / pa.sting / physics.step) ran inside
+          // * the frozen window. Empty spans + empty lt on a focused freeze ⇒ GC / GPU wait.
+          const spans = spansOverlapping(gapStart, now);
           recordDiagEvent("perf", "longframe", {
             dtMs,
             resume: isResume,
@@ -791,6 +796,8 @@ export function runGameLoop(loopState, callbacks) {
             blurredDuringGap,
             lt,
             ltN: lt.length,
+            spans,
+            spanN: spans.length,
           });
         }
       }

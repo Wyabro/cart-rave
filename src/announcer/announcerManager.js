@@ -9,6 +9,7 @@
 // once real voice assets drop in via registerAnnouncerVoicePack().
 
 import { ANNOUNCER_EVENTS } from "./announcerEvents.js";
+import { mark } from "../utils/perfSpans.js";
 import { getAnnouncerLine, resetAnnouncerLineState } from "./announcerLines.js";
 import { playAnnouncerSting } from "./announcerStings.js";
 import { recordDiagEvent } from "../utils/diagnostics.js";
@@ -692,7 +693,11 @@ function playAnnouncement(def, data, voiceKey, voiceMs) {
     } else if (def.sting?.type === "sfxKey") {
       trackSound(def.sting.key);
     } else if (def.sting?.type === "proc") {
-      playAnnouncerSting(def.sting.name);
+      // * Named span: procedural PA sting synthesis is the audio-side suspect for the
+      // * "freeze near PA" reports. Attributes into longframe.spans. Bind the name in the
+      // * narrowed scope — TS loses the `type === "proc"` narrowing inside the closure.
+      const stingName = def.sting.name;
+      mark("pa.sting", () => playAnnouncerSting(stingName));
     }
   }
 

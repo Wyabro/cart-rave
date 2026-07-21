@@ -1,6 +1,7 @@
 // simulation.js — core physics + arcade driving simulation (extracted)
 
 import * as THREE from "three";
+import { mark } from "./utils/perfSpans.js";
 import { RAPIER } from "./physics/rapierInstance.js";
 import { CONFIG } from "./config.js";
 import * as GameState from "./gameState.js";
@@ -3019,7 +3020,9 @@ export function runFixedPhysicsStep({
 
   // 5. Step world
   if (world && eventQueue) {
-    world.step(eventQueue);
+    // * Named span so a KO-adjacent host freeze can be attributed to (or ruled out of)
+    // * the Rapier step vs shatter VFX / PA audio (perfSpans → longframe.spans).
+    mark("physics.step", () => world.step(eventQueue));
     Object.assign(_collisionCallbacks, callbacks);
     _collisionCallbacks.localCart = localCart;
     processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost, now);
