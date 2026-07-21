@@ -259,6 +259,28 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-21 (SHIPPED — DIAG-STALE-1 + F8 coverage gaps) — **`71185b1`→`7a0333b`** pushed
++ deployed as bundle **`index-CPME-kfx.js`** / Version **`0554247b-74b3-4522-a261-0b044248ca68`**.
+Served-bytes verified in-browser: live site self-reported `sha 7a0333b`, freshness
+`stale:false`. Two concerns: (1) **build-stamp banner + stale-cache guard** — boot console
++ `window.__ccBuild` + red STALE warning when a tab's loaded `index-*.js` ≠ live-deployed;
+F8 stamps `buildFreshness{stale,loaded,live}` and warns at capture time. Root-caused the
+07-21 AM "fixes never ran" playtest (both machines had served OLD cached bundles). (2)
+**three F8 coverage gaps closed** — `countdown` probe (clock-domain inputs behind the HUD
+digit math, makes SYNC-1 verifiable from one countdown-phase F8); `longframe.spans[]` named
+attribution via `perfSpans.mark()` around `vfx.shatter`/`pa.sting`/`physics.step`;
+`gpucontextlost`/`restored` perf events. Gates: `npm run qa` **654**, build clean.
+**FINDING (post-deploy F8s, caps 149–152, both machines confirmed `stale:false` on
+CPME-kfx):** non-host "bad perf" + "countdown jank" share ONE root cause →
+**round-start load stall**. Non-host (Intel UHD) spends **4.87s** at play-entry→carts-ready,
+**3.9s of it in `play-shader-start→end` (warm=true)**, blocking the main thread ~3.3s
+(`longframe dt=3328, ltSum=3223, spans=[]` — NOT physics/shatter/pa). Host (4090) = 628ms
+total / 316ms shader-warm. The non-host freeze overlaps the countdown window → uneven digit
+render (3→2 gap 1969ms vs host's even 1154/1204ms). SYNC-1 clock math looks correct; the
+jank is the load freeze, not the clock. New ID **PERF-WARM-1** (shader warm-up blocks round
+start on weak iGPU). **Next: one COUNTDOWN-phase F8 on non-host (new build) to read the
+`countdown` probe live and rule the clock in/out.**
+
 2026-07-21 (SHIPPED — COUNTDOWN-SYNC-1 clock-domain) — **`276d123`** pushed + deployed as
 bundle **`index-C1uycOJX.js`** / Version **`9276ba3f-ea8d-4feb-bd40-6718028da55a`**.
 Non-host `game_start` now anchors `countdownStartedAtMs` with

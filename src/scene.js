@@ -13,6 +13,7 @@ import { QUALITY_KNOBS, getQualityKnobs, effectivePixelRatio } from "./utils/qua
 import { setSessionQualityTier } from "./utils/qualityMode.js";
 import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils/gpuCaps.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
+import { mark } from "./utils/perfSpans.js";
 import { getDebugParams } from "./utils/debugParams.js";
 
 /**
@@ -690,11 +691,33 @@ function patchSafeCompileAsync(renderer) {
         ? Math.max(0, options.maxWaitMs)
         : COMPILE_ASYNC_DEFAULT_MAX_WAIT_MS;
 
+    let compileMs = 0;
     try {
-      materials = compile(scene, camera, target);
+      // * PERF-WARM-1: this synchronous compile() is the whole cost of compileAsync — the
+      // * poll below never blocks. On the Intel iGPU it's a ~3.3s single-frame freeze that
+      // * overlaps the host-driven countdown. `mark` names it in longframe.spans; the event
+      // * exposes whether KHR_parallel_shader_compile is present (if true + slow, the cost is
+      // * ANGLE's CPU-bound GLSL→HLSL translation per program, not GPU link) and how many
+      // * programs are being built in one frame.
+      const t0 = performance.now();
+      materials = mark("warm.compile", () => compile(scene, camera, target));
+      compileMs = performance.now() - t0;
     } catch (err) {
       console.warn("[CartRave] renderer.compile failed during warm-up:", err);
       return Promise.resolve(scene);
+    }
+    if (compileMs >= 50) {
+      let parallelCompile = false;
+      try {
+        parallelCompile = extensions.get("KHR_parallel_shader_compile") !== null;
+      } catch {
+        /* probe failed — leave false */
+      }
+      recordDiagEvent("perf", "warmupCompile", {
+        compileMs: Math.round(compileMs),
+        materials: materials?.size ?? 0,
+        parallelCompile,
+      });
     }
 
     return new Promise((resolve) => {

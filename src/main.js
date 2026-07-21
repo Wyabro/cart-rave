@@ -15,6 +15,7 @@ import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarn
 import { installNetTestHarness } from "./utils/netTestHarness.js";
 import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
 import { logBuildBanner, refreshBuildFreshness } from "./utils/buildFreshness.js";
+import { mark } from "./utils/perfSpans.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
 import { installLongTaskProbe } from "./utils/longTaskProbe.js";
 import { installGameplayAnalytics } from "./analytics/gameplayAnalytics.js";
@@ -2605,8 +2606,12 @@ async function main() {
       // * the first composer.render(). Play-entry used to be the only prime site;
       // * menu attract then paid multi-s longtasks on the first post-world-ready
       // * frame (Run-7 caps 45–51: LT start ≈ world-ready + 5ms). Always prime here.
-      if (isComposerBypassActive()) renderer.render(scene, camera);
-      else composer.render();
+      // * PERF-WARM-1: first composer.render can finalize freshly-linked programs on the
+      // * driver — named so a round-start freeze attributes to compile vs first-render.
+      mark("warm.render.default", () => {
+        if (isComposerBypassActive()) renderer.render(scene, camera);
+        else composer.render();
+      });
 
       // * The countdown fly-over (beginRoundFlyover) hard-cuts to a wide, high orbit the
       // * default-camera warm-up above never renders from — first use of that framing (new
@@ -2631,8 +2636,10 @@ async function main() {
           // * trusting it survived the wait.
           await compileSceneAsync();
           seatWarmupPose();
-          if (isComposerBypassActive()) renderer.render(scene, camera);
-          else composer.render();
+          mark("warm.render.flyover", () => {
+            if (isComposerBypassActive()) renderer.render(scene, camera);
+            else composer.render();
+          });
         } finally {
           camera.position.copy(savedPos);
           camera.quaternion.copy(savedQuat);
