@@ -105,23 +105,33 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 ### Next actions
 
 1. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
-2. **A1 in progress.** Offline forensics on existing `.diag-captures/playtest/` F8 bundles
-   (Intel-iGPU host, low tier, 9 captures) found the `perf/longframe` diagnostic itself was
-   ambiguous: `hidden`/`focused` are sampled *after* a stall ends, so a real backgrounded tab
-   and a genuine focused freeze both report `hidden:false, focused:true`. Cross-checked
-   against `PerformanceObserver("longtask")` coverage: the multi-second `resume:true` gaps
-   (3.4s, 8.2s, one 6.6min) have only 0.3–26% Long Task coverage — the main thread was
-   mostly idle, not busy — consistent with backgrounding/occlusion, not a genuine focused
-   CPU/GPU stall. The *real* focused-and-running stalls in this dataset are smaller
-   (100–500ms) with 94–106% Long Task coverage. **Fix landed** (unpushed):
-   `src/utils/longTaskProbe.js` now latches hidden/blur state across the gap
-   (`installFocusGapLatch` / `readAndResetGapFocusLatch`) instead of sampling only at
-   resume; `src/gameLoop.js` stamps `hiddenDuringGap`/`blurredDuringGap` on every
-   `perf/longframe` event alongside the existing instantaneous fields. Tests added
-   (`tests/longTaskProbe.test.js`, +5). `npm run qa` green (628/628) + `npm run build` clean.
-   **Not yet a verdict** — needs a fresh F8 pass with the new fields to actually separate
-   the two hypotheses; old captures can't be reprocessed (the latch fields didn't exist
-   when they were recorded).
+2. **A1 in progress, live.** Offline forensics on existing `.diag-captures/playtest/` F8
+   bundles (Intel-iGPU host, low tier, 9 captures) found the `perf/longframe` diagnostic
+   itself was ambiguous: `hidden`/`focused` are sampled *after* a stall ends, so a real
+   backgrounded tab and a genuine focused freeze both report `hidden:false, focused:true`.
+   Cross-checked against `PerformanceObserver("longtask")` coverage: the multi-second
+   `resume:true` gaps (3.4s, 8.2s, one 6.6min) have only 0.3–26% Long Task coverage — the
+   main thread was mostly idle, not busy — consistent with backgrounding/occlusion, not a
+   genuine focused CPU/GPU stall. The *real* focused-and-running stalls in this dataset are
+   smaller (100–500ms) with 94–106% Long Task coverage. Fix (`hiddenDuringGap`/
+   `blurredDuringGap` latch, `src/utils/longTaskProbe.js` + `src/gameLoop.js`) is **pushed +
+   deployed** as `index-CDVlu6Eb.js`. **Not yet a verdict** — needs a fresh F8 pass with the
+   new fields; old captures can't be reprocessed. Wyatt is running that playtest now.
+3. **A2 done, unpushed pending Wyatt's playtest.** INPUT-KB-1 keyboard parity — two gaps:
+   (a) arrow keys had zero menu/overlay navigation (only native Tab order; gamepad has full
+   D-pad/stick spatial nav). Added a keyboard listener in `src/ui/gamepadNav.js`
+   (`onKeyboardNav`) reusing the exact same scope/focus/spatial-nav engine the gamepad poll
+   loop already uses, gated on the same `_navActive` flag main.js drives from `isUiActive` —
+   verified live in the dev preview (sequential Arrow presses moved focus + ring correctly
+   across the main menu). (b) Found a real pre-existing parity bug while investigating:
+   `setUiMode(true)` already zeroes the **gamepad** driving axis while a menu/ESC overlay is
+   open (MP round physics keeps stepping behind ESC — see `isUiActive` in main.js), but
+   keyboard's `getAxis()` had no equivalent — holding W/A/S/D while paused kept driving the
+   cart in the background. Fixed in `src/input.js` (`getAxis()` now zeroes the keyboard axis
+   under the same `_isUiMode` flag). Tests: `tests/gamepadNav.test.js` +5, new
+   `tests/input.test.js` +3. `npm run qa` green (637/637), `npm run build` clean. **Held back
+   from deploy** — do not `npm run ship` while Wyatt's live A1 playtest is running on the
+   current build; this needs its own playtest pass once free.
 
 ## Open issues (top)
 

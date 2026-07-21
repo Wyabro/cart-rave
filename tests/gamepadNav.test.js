@@ -84,6 +84,13 @@ function clickSpy(id) {
   return spy;
 }
 
+function pressKey(code) {
+  window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true, cancelable: true }));
+}
+
+/** @type {typeof import("../src/ui/gamepadNav.js")} */
+let navModule;
+
 beforeEach(async () => {
   scheduled = [];
   padRef.pad = makePad();
@@ -113,11 +120,15 @@ beforeEach(async () => {
   // * Module holds top-level nav state (navIndex, prevDpad, lastScope) and
   // * self-schedules rAF — fresh module per test, stepped manually via frame().
   vi.resetModules();
-  const { startGamepadUiNav } = await import("../src/ui/gamepadNav.js");
-  startGamepadUiNav();
+  navModule = await import("../src/ui/gamepadNav.js");
+  navModule.startGamepadUiNav();
 });
 
 afterEach(() => {
+  // * Each test imports a fresh module instance but window.addEventListener persists
+  // * across tests on the shared happy-dom window — undo the keydown listener or a later
+  // * test's key press would also run this test's stale-closure handler.
+  navModule?.__teardownGamepadUiNavForTest?.();
   vi.unstubAllGlobals();
   delete Element.prototype.checkVisibility;
   document.body.innerHTML = "";
@@ -225,5 +236,56 @@ describe("focus re-yank", () => {
     hide("cr-settings-screen");
     press(BTN.down); // back to document scope, seed from index 0
     expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  });
+});
+
+// * INPUT-KB-1: arrow keys had zero menu-navigation effect before this — only native Tab
+// * order worked. These pin the keyboard path onto the same engine the gamepad tests above
+// * already cover (scoping, seed-on-first-press, focus re-yank), so only the
+// * keyboard-specific wiring (gating, preventDefault, typing targets) needs its own cases.
+describe("keyboard arrow-key navigation", () => {
+  it("ArrowDown seeds focus, a second ArrowDown navigates to the next control", () => {
+    pressKey("ArrowDown");
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    pressKey("ArrowDown");
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+  });
+
+  it("respects overlay scoping exactly like the gamepad path", () => {
+    show("cr-settings-screen");
+    pressKey("ArrowDown");
+    const active = document.activeElement;
+    expect(active && active.closest("#cr-settings-screen")).toBeTruthy();
+    expect(document.getElementById("play-btn").classList.contains("gamepad-focused")).toBe(false);
+  });
+
+  it("does nothing while nav is inactive (driving) and does not preventDefault", () => {
+    navModule.setGamepadNavActive(false);
+    const evt = new KeyboardEvent("keydown", { code: "ArrowDown", bubbles: true, cancelable: true });
+    window.dispatchEvent(evt);
+    expect(document.activeElement).not.toBe(document.getElementById("play-btn"));
+    expect(evt.defaultPrevented).toBe(false);
+  });
+
+  it("leaves a focused text input alone (typing, not navigating)", () => {
+    const input = document.getElementById("cr-name-input");
+    input.style.display = "";
+    input.focus();
+    const evt = new KeyboardEvent("keydown", { code: "ArrowLeft", bubbles: true, cancelable: true });
+    window.dispatchEvent(evt);
+    expect(document.activeElement).toBe(input);
+    expect(evt.defaultPrevented).toBe(false);
+  });
+
+  it("non-arrow keys are ignored (no preventDefault, e.g. typed letters elsewhere)", () => {
+    const evt = new KeyboardEvent("keydown", { code: "KeyW", bubbles: true, cancelable: true });
+    window.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(false);
+  });
+
+  it("gamepad presses and keyboard presses share the same navIndex/focus state", () => {
+    pressKey("ArrowDown"); // seed → PLAY
+    press(BTN.down); // gamepad continues the same sequence → CUSTOMIZE
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
 });

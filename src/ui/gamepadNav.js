@@ -245,8 +245,65 @@ function updateNav() {
   requestAnimationFrame(updateNav);
 }
 
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable === true;
+}
+
+const ARROW_DIRS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+
+/**
+ * INPUT-KB-1: keyboard had no menu/overlay navigation at all beyond native Tab order (no
+ * arrow-key movement, unlike the gamepad's full D-pad/stick spatial nav below). Reuses the
+ * exact same scope/focus/spatial-nav engine as the gamepad poll loop, gated on the same
+ * `_navActive` flag main.js already drives from `isUiActive` — so arrow keys navigate
+ * menus while a menu is open and steer the cart otherwise, exactly like the gamepad split.
+ * @param {KeyboardEvent} e
+ */
+function onKeyboardNav(e) {
+  if (!_navActive) return;
+  const dir = ARROW_DIRS[e.code];
+  if (!dir) return;
+  if (isTypingTarget(document.activeElement)) return;
+
+  const scope = getNavScope();
+  if (scope !== lastScope) {
+    navIndex = 0;
+    lastScope = scope;
+  }
+  const focusables = getFocusables(scope);
+  if (focusables.length === 0) return;
+
+  const activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
+  const focusInScope = !!activeEl && focusables.includes(activeEl);
+
+  // * A focused slider already handles real arrow keys itself (unlike the gamepad path,
+  // * which must synthesize a keydown since a pad has no native key semantics) — leave it
+  // * alone rather than risk double-stepping its value.
+  if (focusInScope && activeEl?.getAttribute?.("role") === "slider" && (dir === "left" || dir === "right")) {
+    return;
+  }
+
+  e.preventDefault();
+  setInputMode("keyboard");
+
+  if (!focusInScope) {
+    // * Mirrors the gamepad "first press seeds focus, doesn't navigate yet" behavior.
+    setFocus(focusables[navIndex] || focusables[0], focusables);
+    return;
+  }
+  navigateSpatial(dir, focusables);
+}
+
+let _keydownNavInstalled = false;
+
 export function startGamepadUiNav() {
   requestAnimationFrame(updateNav);
+  if (!_keydownNavInstalled) {
+    _keydownNavInstalled = true;
+    window.addEventListener("keydown", onKeyboardNav, { passive: false });
+  }
 }
 
 export function setGamepadNavActive(active) {
@@ -254,5 +311,12 @@ export function setGamepadNavActive(active) {
   if (!active) {
     document.querySelectorAll('.gamepad-focused').forEach(el => el.classList.remove('gamepad-focused'));
   }
+}
+
+/** Test-only: undoes {@link startGamepadUiNav}'s keydown listener so resetModules-based
+ * tests don't leak a stale-closure handler onto the shared happy-dom window. */
+export function __teardownGamepadUiNavForTest() {
+  window.removeEventListener("keydown", onKeyboardNav);
+  _keydownNavInstalled = false;
 }
 

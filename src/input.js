@@ -446,10 +446,16 @@ export function getAxis() {
     (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
     (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
 
-  const keyboard = {
-    forward: Math.max(-1, Math.min(1, forward)),
-    turn: Math.max(-1, Math.min(1, turn)),
-  };
+  // * UI-active parity with gamepad (INPUT-KB-1): setUiMode(true) already zeroes
+  // * gamepadAxis so a controller can't steer while a menu/overlay is open (MP round
+  // * physics keeps stepping behind ESC — see main.js isUiActive). Keyboard had no
+  // * equivalent, so holding W/A/S/D while paused kept driving the cart in the background.
+  const keyboard = _isUiMode
+    ? { forward: 0, turn: 0 }
+    : {
+        forward: Math.max(-1, Math.min(1, forward)),
+        turn: Math.max(-1, Math.min(1, turn)),
+      };
 
   const touch = getTouchAxis();
   const boostHeld = localNitroHeld || isBoostHeld() || gamepadBoostHeld;
