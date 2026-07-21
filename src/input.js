@@ -196,6 +196,8 @@ export function setUiMode(enabled) {
   if (enabled) {
     gamepadAxis = { forward: 0, turn: 0 };
     gamepadBoostHeld = false;
+    keyboardForwardEased = 0;
+    keyboardTurnEased = 0;
   } else if (transitioningFromUi) {
     gamepadAxis = { forward: 0, turn: 0 };
     gamepadBoostHeld = false;
@@ -341,6 +343,36 @@ let localNitroHeld = false;
 /** @type {boolean} One-shot hop flag consumed by the client input send loop. */
 let hopRequested = false;
 
+// * Keyboard axis is inherently digital (a key is either fully pressed or not), but the
+// * drive physics (simulation.js: desiredYawRate, drift grip, drift impulse) all read
+// * axis.turn/forward directly as if it were an analog stick deflection — a gamepad player
+// * dials in a gentle turn by how far they push the stick; a keyboard player's every A/D
+// * tap was instantly a full-lock max-rate turn with full drift grip. That mismatch, not a
+// * wiring gap, is why keyboard driving feels harsh next to a gamepad. Ramping the raw
+// * -1/0/1 key target toward its value over a short time — attack (key down) and release
+// * (key up) — gives keyboard the same "ease in, snap stop" feel as an analog stick,
+// * without touching gamepad/touch (already analog) or the physics tuning itself.
+const KEY_AXIS_ATTACK_S = 0.14; // time to ramp from center to full deflection while held
+const KEY_AXIS_RELEASE_S = 0.09; // time to ramp back to center after release — snappier stop
+let keyboardForwardEased = 0;
+let keyboardTurnEased = 0;
+let lastAxisEaseMs = /** @type {number|null} */ (null);
+
+/**
+ * Moves `current` toward `target` (one of -1, 0, 1) at the attack rate while a key is held
+ * (target !== 0) or the release rate once it's let go (target === 0).
+ * @param {number} current
+ * @param {number} target
+ * @param {number} dtS Elapsed seconds since the last ease step.
+ */
+function easeKeyAxis(current, target, dtS) {
+  const rampS = target === 0 ? KEY_AXIS_RELEASE_S : KEY_AXIS_ATTACK_S;
+  const maxDelta = rampS > 0 ? dtS / rampS : 1;
+  if (current < target) return Math.min(target, current + maxDelta);
+  if (current > target) return Math.max(target, current - maxDelta);
+  return current;
+}
+
 /** Marks a hop press for the next outgoing `client_input` packet (non-host only). */
 export function requestHop() {
   hopRequested = true;
@@ -438,13 +470,22 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
  * @returns {{ forward: number, turn: number, boostHeld: boolean }} Each axis in [-1, 1].
  */
 export function getAxis() {
-  const forward =
+  const targetForward =
     (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) +
     (keys.has("KeyS") || keys.has("ArrowDown") ? -1 : 0);
 
-  const turn =
+  const targetTurn =
     (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) +
     (keys.has("KeyD") || keys.has("ArrowRight") ? -1 : 0);
+
+  // * Wall-clock, not a passed-in dt: getAxis() is a public read (physics substep, HUD,
+  // * netTestHarness) with no shared per-frame dt to thread through. Clamp the gap so a
+  // * long pause (tab hidden, breakpoint) can't be replayed as one giant ease step.
+  const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const dtS = lastAxisEaseMs == null ? 0 : Math.min(0.1, Math.max(0, (nowMs - lastAxisEaseMs) / 1000));
+  lastAxisEaseMs = nowMs;
+  keyboardForwardEased = easeKeyAxis(keyboardForwardEased, Math.max(-1, Math.min(1, targetForward)), dtS);
+  keyboardTurnEased = easeKeyAxis(keyboardTurnEased, Math.max(-1, Math.min(1, targetTurn)), dtS);
 
   // * UI-active parity with gamepad (INPUT-KB-1): setUiMode(true) already zeroes
   // * gamepadAxis so a controller can't steer while a menu/overlay is open (MP round
@@ -452,10 +493,7 @@ export function getAxis() {
   // * equivalent, so holding W/A/S/D while paused kept driving the cart in the background.
   const keyboard = _isUiMode
     ? { forward: 0, turn: 0 }
-    : {
-        forward: Math.max(-1, Math.min(1, forward)),
-        turn: Math.max(-1, Math.min(1, turn)),
-      };
+    : { forward: keyboardForwardEased, turn: keyboardTurnEased };
 
   const touch = getTouchAxis();
   const boostHeld = localNitroHeld || isBoostHeld() || gamepadBoostHeld;
@@ -478,6 +516,13 @@ export function getAxis() {
   }
 
   return { forward: finalForward, turn: finalTurn, boostHeld };
+}
+
+/** Test-only: clears keyboard-axis ease state (module-level, persists across tests). */
+export function __resetInputAxisEaseForTest() {
+  keyboardForwardEased = 0;
+  keyboardTurnEased = 0;
+  lastAxisEaseMs = null;
 }
 
 export { setupTouchControls, setTouchControlsVisible };

@@ -105,33 +105,38 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 ### Next actions
 
 1. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
-2. **A1 in progress, live.** Offline forensics on existing `.diag-captures/playtest/` F8
-   bundles (Intel-iGPU host, low tier, 9 captures) found the `perf/longframe` diagnostic
-   itself was ambiguous: `hidden`/`focused` are sampled *after* a stall ends, so a real
-   backgrounded tab and a genuine focused freeze both report `hidden:false, focused:true`.
-   Cross-checked against `PerformanceObserver("longtask")` coverage: the multi-second
-   `resume:true` gaps (3.4s, 8.2s, one 6.6min) have only 0.3–26% Long Task coverage — the
-   main thread was mostly idle, not busy — consistent with backgrounding/occlusion, not a
-   genuine focused CPU/GPU stall. The *real* focused-and-running stalls in this dataset are
-   smaller (100–500ms) with 94–106% Long Task coverage. Fix (`hiddenDuringGap`/
-   `blurredDuringGap` latch, `src/utils/longTaskProbe.js` + `src/gameLoop.js`) is **pushed +
-   deployed** as `index-CDVlu6Eb.js`. **Not yet a verdict** — needs a fresh F8 pass with the
-   new fields; old captures can't be reprocessed. Wyatt is running that playtest now.
-3. **A2 done, unpushed pending Wyatt's playtest.** INPUT-KB-1 keyboard parity — two gaps:
-   (a) arrow keys had zero menu/overlay navigation (only native Tab order; gamepad has full
-   D-pad/stick spatial nav). Added a keyboard listener in `src/ui/gamepadNav.js`
-   (`onKeyboardNav`) reusing the exact same scope/focus/spatial-nav engine the gamepad poll
-   loop already uses, gated on the same `_navActive` flag main.js drives from `isUiActive` —
-   verified live in the dev preview (sequential Arrow presses moved focus + ring correctly
-   across the main menu). (b) Found a real pre-existing parity bug while investigating:
-   `setUiMode(true)` already zeroes the **gamepad** driving axis while a menu/ESC overlay is
-   open (MP round physics keeps stepping behind ESC — see `isUiActive` in main.js), but
-   keyboard's `getAxis()` had no equivalent — holding W/A/S/D while paused kept driving the
-   cart in the background. Fixed in `src/input.js` (`getAxis()` now zeroes the keyboard axis
-   under the same `_isUiMode` flag). Tests: `tests/gamepadNav.test.js` +5, new
-   `tests/input.test.js` +3. `npm run qa` green (637/637), `npm run build` clean. **Held back
-   from deploy** — do not `npm run ship` while Wyatt's live A1 playtest is running on the
-   current build; this needs its own playtest pass once free.
+2. **A1 — first real verdict in, still incomplete.** Wyatt ran a playtest on the
+   `hiddenDuringGap`/`blurredDuringGap` build and `npm run captures:pull` gave 2 fresh
+   captures on that exact build (`2293b57`): cap-113 (Intel iGPU, non-host this round) and
+   cap-114 (RTX 4090, host this round — role swapped from prior sessions). cap-113 shows a
+   genuine **22.1s** freeze: `hiddenDuringGap:false, blurredDuringGap:false` — the tab was
+   *never* hidden/blurred during the gap, so this **rules out** the "just a backgrounded tab
+   mislabeled" hypothesis from the offline forensics pass. Long Task coverage was still only
+   ~4.5% (1001ms of 22138ms) — the main thread was mostly *idle*, not busy running JS/physics
+   — so it's not "too much synchronous work" either. Even the strong 4090-as-host showed the
+   same shape at smaller scale (372ms gap, 0 Long Tasks, not hidden/blurred). Working theory
+   now: a GPU-driver/OS-scheduling stall (rAF simply isn't scheduled), not CPU-bound work —
+   consistent with, and now better evidence for, "weak host machine" as the mechanism, just
+   not the mechanism originally guessed. **Only one match's worth of data (2 captures, Intel
+   was non-host this time)** — treat as a strong lead, not a closed case. Next: capture an
+   Intel-iGPU-as-host round on this build before committing to HOST-CAP-1.
+3. **A2 — INPUT-KB-1 keyboard parity, done + pushed, deploy pending.** Wyatt clarified the
+   ask was about *driving feel*, not menu access. Root cause found in `simulation.js`:
+   `desiredYawRate`, drift grip, and drift impulse all read `axis.turn`/`axis.forward`
+   directly as an analog deflection — gamepad's stick gives continuous -1..1 values, but
+   keyboard's `getAxis()` gave literal -1/0/1 with no in-between, so every A/D tap was
+   instantly a full-lock max-rate turn with full drift grip. `src/input.js` now ramps the
+   raw keyboard target toward its value over 0.14s (attack, held) / 0.09s (release) of
+   wall-clock time — a "digital-to-analog ease" — instead of snapping, matching the
+   gamepad's "ease in, snap stop" feel. Also landed in this pass: arrow-key menu navigation
+   (`src/ui/gamepadNav.js`, reuses the gamepad spatial-nav engine) and a related bug fix —
+   `setUiMode(true)` already zeroed the *gamepad* driving axis while a menu/ESC overlay is
+   open in MP (round physics keeps stepping behind ESC), keyboard had no equivalent and kept
+   driving in the background; both now share one suppression path. Tests: +5
+   `gamepadNav.test.js`, +7 `input.test.js` (exact ramp-timing math, UI-mode reset,
+   direction-reversal, large-gap clamp). `npm run qa` 641/641, `npm run build` clean.
+   **This is a subjective feel change — needs Wyatt's own playtest, not something to
+   self-certify.**
 
 ## Open issues (top)
 
