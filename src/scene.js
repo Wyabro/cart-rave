@@ -9,7 +9,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
-import { QUALITY_KNOBS, getQualityKnobs, getSessionRenderScaleMul } from "./utils/qualityTiers.js";
+import { QUALITY_KNOBS, getQualityKnobs, effectivePixelRatio } from "./utils/qualityTiers.js";
 import { setSessionQualityTier } from "./utils/qualityMode.js";
 import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils/gpuCaps.js";
 import { getDebugParams } from "./utils/debugParams.js";
@@ -618,10 +618,23 @@ export function setComposerBypassActive(active) {
  * llvmpipe) — set during createRenderer. main.js surfaces a player-facing notice.
  */
 let softwareRendererActive = false;
+/** Unmasked renderer string that tripped the software classification (for the player notice). */
+let softwareRendererName = "";
 
 /** @returns {boolean} */
 export function isSoftwareRendererActive() {
   return softwareRendererActive;
+}
+
+/**
+ * The renderer string behind {@link isSoftwareRendererActive} — e.g. "Microsoft
+ * Basic Render Driver" (no GPU driver / VM) vs "SwiftShader" (accel toggled off).
+ * Lets the player notice name the adapter and point at the right fix. "" when
+ * hardware-accelerated.
+ * @returns {string}
+ */
+export function getSoftwareRendererName() {
+  return softwareRendererName;
 }
 
 /**
@@ -786,6 +799,7 @@ export function createRenderer(canvas) {
     || (import.meta.env.DEV && probeGpu().gpuClass === "software");
   if (isSoftware) {
     softwareRendererActive = true;
+    softwareRendererName = rendererString;
     setSessionQualityTier("low");
     console.warn(
       `[CartRave] Software WebGL detected ("${rendererString}") — forcing LOW quality for this session. `
@@ -796,10 +810,9 @@ export function createRenderer(canvas) {
   {
     // * renderScale < 1 renders the drawing buffer sub-native and lets the browser upscale
     // * (CSS size unchanged) — LOW's last GPU lever after DPR 1 (run-5 Intel UHD host).
-    const knobs = getQualityKnobs();
+    // * effectivePixelRatio also applies the software-rasterizer absolute long-edge cap.
     renderer.setPixelRatio(
-      Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap)
-      * (knobs.renderScale ?? 1) * getSessionRenderScaleMul(),
+      effectivePixelRatio(window.innerWidth, window.innerHeight, softwareRendererActive),
     );
   }
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -854,9 +867,11 @@ export function applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, render
   if (renderer) {
     // * knobs.renderScale (LOW 0.75) folds into the effective ratio so tier steps shrink
     // * the drawing buffer below native too — see qualityTiers.js. The session mul is
-    // * the watchdog's below-LOW relief valve (run-6).
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap)
-      * (knobs.renderScale ?? 1) * getSessionRenderScaleMul();
+    // * the watchdog's below-LOW relief valve (run-6); the software long-edge cap folds
+    // * in here too so a tier re-apply can't undo the potato floor.
+    const pixelRatio = effectivePixelRatio(
+      window.innerWidth, window.innerHeight, softwareRendererActive, knobs,
+    );
     renderer.setPixelRatio(pixelRatio);
     if (composer) {
       // * EffectComposer caches its own _pixelRatio (from construction / the resize

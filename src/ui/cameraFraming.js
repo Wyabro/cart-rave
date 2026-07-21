@@ -7,8 +7,8 @@
 
 import { CONFIG } from "../config.js";
 import { clamp } from "../utils.js";
-import { updateViewport as updateSceneViewport } from "../scene.js";
-import { getQualityKnobs, getSessionRenderScaleMul } from "../utils/qualityTiers.js";
+import { updateViewport as updateSceneViewport, isSoftwareRendererActive } from "../scene.js";
+import { effectivePixelRatio } from "../utils/qualityTiers.js";
 
 /**
  * @param {{
@@ -58,9 +58,9 @@ export function createCameraFraming({
     // * resize, and a hardcoded min(dpr, 2) silently overrode LOW's cap of 1 on
     // * exactly the machines the tier system exists to save. renderScale (LOW 0.75,
     // * sub-native buffer) folds in for the same reason — a resize must not undo it.
-    const knobs = getQualityKnobs();
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, knobs.pixelRatioCap)
-      * (knobs.renderScale ?? 1) * getSessionRenderScaleMul();
+    // * effectivePixelRatio also re-applies the software-rasterizer long-edge cap so a
+    // * window resize on a no-GPU machine can't inflate the buffer back to megapixels.
+    const pixelRatio = effectivePixelRatio(w, h, isSoftwareRendererActive());
 
     // * visualViewport.resize can fire many times per URL-bar animation with the
     // * same window.inner* size. Re-running setSize/composer RT rebuilds every

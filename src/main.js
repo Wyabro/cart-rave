@@ -52,6 +52,7 @@ import {
   isComposerBypassActive,
   setComposerBypassActive,
   isSoftwareRendererActive,
+  getSoftwareRendererName,
   COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS,
 } from "./scene.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
@@ -968,32 +969,62 @@ async function main() {
     window.location.reload();
   });
 
-  // * Software-WebGL notice: createRenderer already floored the session to LOW;
-  // * tell the player why it looks reduced and how to fix it. Dismissible, one
-  // * per session, styled to sit under the menu without blocking anything.
+  // * Software-WebGL notice: createRenderer already floored the session to LOW,
+  // * but LOW cannot rescue a CPU rasterizer — the game will still crawl. A quiet
+  // * bottom strip let frustrated playtesters miss it entirely, so this is a
+  // * center-stage first-entry modal that names the cause and the *right* fix.
+  // * The two software causes need opposite fixes:
+  // *   - "Basic Render Driver" / WARP → Windows loaded NO GPU driver (or it's a
+  // *     VM / remote desktop). Toggling browser accel does nothing; the fix is a
+  // *     driver install. Multiple browsers all failing is this case.
+  // *   - SwiftShader / llvmpipe → a real GPU exists but the browser has hardware
+  // *     acceleration turned off (or blocklisted the GPU). Browser-setting fix.
   if (isSoftwareRendererActive()) {
-    const notice = document.createElement("div");
-    notice.id = "cr-softgl-notice";
-    notice.setAttribute("role", "status");
-    notice.style.cssText =
-      "position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:20010;"
-      + "max-width:min(92vw,560px);padding:10px 40px 10px 14px;border:1px solid #ff2bd6;"
-      + "background:rgba(12,6,20,0.92);color:#f4eaff;font:12px/1.5 'Space Mono',monospace;"
-      + "border-radius:8px;box-shadow:0 0 18px rgba(255,43,214,0.35);";
-    notice.innerHTML =
-      "<strong>◆ COMPATIBILITY MODE</strong><br>"
-      + "Your browser is drawing without GPU acceleration, so graphics are set to LOW. "
-      + "For the full experience, enable hardware acceleration (Settings → System) and reload.";
-    const close = document.createElement("button");
-    close.type = "button";
-    close.setAttribute("aria-label", "Dismiss");
-    close.textContent = "✕";
-    close.style.cssText =
-      "position:absolute;top:6px;right:8px;background:none;border:none;color:#f4eaff;"
-      + "font:14px 'Space Mono',monospace;cursor:pointer;padding:2px 6px;";
-    close.addEventListener("click", () => notice.remove(), { once: true });
-    notice.appendChild(close);
-    document.body.appendChild(notice);
+    const adapter = getSoftwareRendererName();
+    const noDriver = /basic render|warp\b/i.test(adapter);
+    const fixHtml = noDriver
+      ? "Windows isn't loading a graphics driver for your GPU, so the game is running on "
+        + "the CPU and will be <strong>very slow</strong>.<br><br>"
+        + "<strong>To fix:</strong> update your graphics driver — Device Manager → Display "
+        + "adapters → Update driver, or grab the latest from your GPU maker (NVIDIA / AMD / "
+        + "Intel). If this is a remote-desktop or cloud PC, it may have no GPU at all."
+      : "Your browser is drawing without GPU acceleration, so the game is running on the "
+        + "CPU and will be <strong>very slow</strong>.<br><br>"
+        + "<strong>To fix:</strong> turn on hardware acceleration — Settings → System → "
+        + "“Use graphics acceleration when available” — then reload. If it's already "
+        + "on, updating your graphics driver usually clears it.";
+
+    const backdrop = document.createElement("div");
+    backdrop.id = "cr-softgl-notice";
+    backdrop.setAttribute("role", "alertdialog");
+    backdrop.setAttribute("aria-modal", "true");
+    backdrop.style.cssText =
+      "position:fixed;inset:0;z-index:20010;display:flex;align-items:center;justify-content:center;"
+      + "padding:16px;background:rgba(4,2,8,0.72);backdrop-filter:blur(2px);";
+
+    const card = document.createElement("div");
+    card.style.cssText =
+      "position:relative;max-width:min(92vw,480px);padding:22px 22px 20px;border:1px solid #ff2bd6;"
+      + "background:rgba(12,6,20,0.97);color:#f4eaff;font:13px/1.6 'Space Mono',monospace;"
+      + "border-radius:10px;box-shadow:0 0 32px rgba(255,43,214,0.45);text-align:left;";
+    card.innerHTML =
+      "<div style=\"font-size:15px;letter-spacing:0.04em;color:#ff2bd6;margin-bottom:10px;\">"
+      + "◆ GRAPHICS RUNNING IN SOFTWARE MODE</div>"
+      + "<div>" + fixHtml + "</div>"
+      + "<div style=\"margin-top:14px;font-size:10px;opacity:0.5;word-break:break-word;\">"
+      + "Detected adapter: " + adapter.replace(/</g, "&lt;") + "</div>";
+
+    const play = document.createElement("button");
+    play.type = "button";
+    play.textContent = "PLAY ANYWAY";
+    play.style.cssText =
+      "margin-top:16px;width:100%;padding:9px 12px;border:1px solid #ff2bd6;border-radius:7px;"
+      + "background:rgba(255,43,214,0.14);color:#f4eaff;font:12px 'Space Mono',monospace;"
+      + "letter-spacing:0.08em;cursor:pointer;";
+    play.addEventListener("click", () => backdrop.remove(), { once: true });
+    card.appendChild(play);
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
   }
 
   const scene = createScene();

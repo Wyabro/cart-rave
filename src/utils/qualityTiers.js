@@ -121,6 +121,61 @@ export function getSessionRenderScaleMul() {
   return sessionRenderScaleMul;
 }
 
+// * Software-rasterizer resolution floor (potato path). The tier renderScale is a
+// * MULTIPLIER on window size, so on a 2560-wide display LOW still hands the CPU a
+// * ~1900px buffer — the exact "runs at 5fps on a machine with no GPU driver" case
+// * (Hawaii playtest, WARP renderer). This is an ABSOLUTE long-edge cap on the
+// * drawing buffer, applied only when a software rasterizer is driving: the browser
+// * upscales the tiny buffer to the canvas (CSS size unchanged), the same trick as
+// * renderScale but pinned to a fixed pixel count regardless of display size.
+// * Tunable; a real GPU never sees this. Live-tune via ?softedge=NNN for playtests.
+const SOFTWARE_MAX_DRAW_LONG_EDGE_DEFAULT = 720;
+/** @type {number | null} */
+let cachedSoftwareLongEdge = null;
+
+/** @returns {number} the active software long-edge cap (URL override or default). */
+function softwareMaxDrawLongEdge() {
+  if (cachedSoftwareLongEdge !== null) return cachedSoftwareLongEdge;
+  let value = SOFTWARE_MAX_DRAW_LONG_EDGE_DEFAULT;
+  try {
+    if (typeof location !== "undefined") {
+      const raw = new URLSearchParams(location.search || "").get("softedge");
+      const n = raw != null ? Number(raw) : NaN;
+      // * Clamp to a sane band: below 240 is unreadable, above 1600 defeats the point.
+      if (Number.isFinite(n) && n >= 240 && n <= 1600) value = n;
+    }
+  } catch {
+    // * Bad/absent URL — keep the default.
+  }
+  cachedSoftwareLongEdge = value;
+  return value;
+}
+
+/**
+ * Effective drawing-buffer pixel ratio for the in-game renderer. Caps DPR to the
+ * tier, folds in sub-native renderScale (tier × the watchdog session mul), then —
+ * only when a software rasterizer is driving — clamps to {@link softwareMaxDrawLongEdge}
+ * so a large display cannot hand the CPU a multi-megapixel buffer. Shared by all
+ * three apply sites (createRenderer, tier re-apply, resize) so they never diverge.
+ *
+ * @param {number} cssW CSS width (window.innerWidth).
+ * @param {number} cssH CSS height (window.innerHeight).
+ * @param {boolean} [softwareActive=false] True when the live context is a software rasterizer.
+ * @param {QualityKnobs} [knobs] Explicit tier knobs; defaults to the active tier.
+ * @returns {number}
+ */
+export function effectivePixelRatio(cssW, cssH, softwareActive = false, knobs = getQualityKnobs()) {
+  const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+  let pixelRatio =
+    Math.min(dpr, knobs.pixelRatioCap) * (knobs.renderScale ?? 1) * getSessionRenderScaleMul();
+  if (softwareActive) {
+    const longEdge = Math.max(cssW || 1, cssH || 1);
+    const cap = softwareMaxDrawLongEdge() / longEdge;
+    if (cap < pixelRatio) pixelRatio = cap;
+  }
+  return pixelRatio;
+}
+
 /** @returns {boolean} whether another render-scale step-down remains */
 export function canStepDownSessionRenderScale() {
   return RENDER_SCALE_MUL_STEPS.indexOf(sessionRenderScaleMul) < RENDER_SCALE_MUL_STEPS.length - 1;
