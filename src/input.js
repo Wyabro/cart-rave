@@ -352,8 +352,14 @@ let hopRequested = false;
 // * -1/0/1 key target toward its value over a short time — attack (key down) and release
 // * (key up) — gives keyboard the same "ease in, snap stop" feel as an analog stick,
 // * without touching gamepad/touch (already analog) or the physics tuning itself.
-const KEY_AXIS_ATTACK_S = 0.14; // time to ramp from center to full deflection while held
-const KEY_AXIS_RELEASE_S = 0.09; // time to ramp back to center after release — snappier stop
+// * 07-21 playtest: full 0.14s/0.09s ramp read as "too controller-y" — halved toward a
+// * middle ground between the original instant snap and a full analog feel.
+const KEY_AXIS_ATTACK_S = 0.07; // time to ramp from center to full deflection while held
+const KEY_AXIS_RELEASE_S = 0.05; // time to ramp back to center after release — snappier stop
+// * Per-call ease-step cap, so a real gap (tab hidden, breakpoint) can't be replayed as one
+// * giant step — kept below KEY_AXIS_ATTACK_S so a single anomalous frame still leaves
+// * visible ramp progress rather than resolving straight to full deflection.
+const KEY_AXIS_MAX_DT_S = 0.05;
 let keyboardForwardEased = 0;
 let keyboardTurnEased = 0;
 let lastAxisEaseMs = /** @type {number|null} */ (null);
@@ -482,7 +488,8 @@ export function getAxis() {
   // * netTestHarness) with no shared per-frame dt to thread through. Clamp the gap so a
   // * long pause (tab hidden, breakpoint) can't be replayed as one giant ease step.
   const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
-  const dtS = lastAxisEaseMs == null ? 0 : Math.min(0.1, Math.max(0, (nowMs - lastAxisEaseMs) / 1000));
+  const dtS =
+    lastAxisEaseMs == null ? 0 : Math.min(KEY_AXIS_MAX_DT_S, Math.max(0, (nowMs - lastAxisEaseMs) / 1000));
   lastAxisEaseMs = nowMs;
   keyboardForwardEased = easeKeyAxis(keyboardForwardEased, Math.max(-1, Math.min(1, targetForward)), dtS);
   keyboardTurnEased = easeKeyAxis(keyboardTurnEased, Math.max(-1, Math.min(1, targetTurn)), dtS);

@@ -10,15 +10,16 @@
 // physics (simulation.js) reads axis.turn/forward as if it were an analog stick deflection
 // — every A/D tap used to be an instant full-lock max-rate turn, which is why keyboard felt
 // harsh next to a gamepad. getAxis() now ramps the raw -1/0/1 key target toward its value
-// over KEY_AXIS_ATTACK_S (held, 0.14s) / KEY_AXIS_RELEASE_S (released, 0.09s) of wall-clock
-// time, capped per-call at 0.1s so a real gap (tab hidden, breakpoint) can't be replayed as
-// one giant ease step — tests step in ~10ms increments to match real per-frame calling.
+// over KEY_AXIS_ATTACK_S (held) / KEY_AXIS_RELEASE_S (released) of wall-clock time, capped
+// per-call at 0.1s so a real gap (tab hidden, breakpoint) can't be replayed as one giant
+// ease step — tests step in ~10ms increments to match real per-frame calling.
+// 07-21: halved from the original 0.14s/0.09s — full ramp read as "too controller-y".
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setupInput, getAxis, setUiMode, __resetInputAxisEaseForTest } from "../src/input.js";
 
-const ATTACK_S = 0.14;
-const RELEASE_S = 0.09;
+const ATTACK_S = 0.07;
+const RELEASE_S = 0.05;
 const STEP_MS = 10;
 
 function keydown(code) {
@@ -143,10 +144,11 @@ describe("input.js getAxis", () => {
     it("clamps a large wall-clock gap (e.g. a tab-hidden pause) instead of jumping instantly", () => {
       keydown("KeyW");
       // * A single multi-second gap must not resolve as "already at full" in one ease
-      // * step — the internal 0.1s-per-call dt clamp caps how much ground one call crosses,
-      // * regardless of how much real time actually passed.
+      // * step — the internal per-call dt clamp (below the attack window) caps how much
+      // * ground one call crosses, regardless of how much real time actually passed.
+      const MAX_DT_S = 0.05;
       const afterGap = tick(5000).forward;
-      expect(afterGap).toBeCloseTo(0.1 / ATTACK_S, 2);
+      expect(afterGap).toBeCloseTo(MAX_DT_S / ATTACK_S, 2);
       expect(afterGap).toBeLessThan(1);
     });
   });

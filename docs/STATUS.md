@@ -105,38 +105,34 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 ### Next actions
 
 1. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
-2. **A1 — first real verdict in, still incomplete.** Wyatt ran a playtest on the
-   `hiddenDuringGap`/`blurredDuringGap` build and `npm run captures:pull` gave 2 fresh
-   captures on that exact build (`2293b57`): cap-113 (Intel iGPU, non-host this round) and
-   cap-114 (RTX 4090, host this round — role swapped from prior sessions). cap-113 shows a
-   genuine **22.1s** freeze: `hiddenDuringGap:false, blurredDuringGap:false` — the tab was
-   *never* hidden/blurred during the gap, so this **rules out** the "just a backgrounded tab
-   mislabeled" hypothesis from the offline forensics pass. Long Task coverage was still only
-   ~4.5% (1001ms of 22138ms) — the main thread was mostly *idle*, not busy running JS/physics
-   — so it's not "too much synchronous work" either. Even the strong 4090-as-host showed the
-   same shape at smaller scale (372ms gap, 0 Long Tasks, not hidden/blurred). Working theory
-   now: a GPU-driver/OS-scheduling stall (rAF simply isn't scheduled), not CPU-bound work —
-   consistent with, and now better evidence for, "weak host machine" as the mechanism, just
-   not the mechanism originally guessed. **Only one match's worth of data (2 captures, Intel
-   was non-host this time)** — treat as a strong lead, not a closed case. Next: capture an
-   Intel-iGPU-as-host round on this build before committing to HOST-CAP-1.
-3. **A2 — INPUT-KB-1 keyboard parity, done + pushed, deploy pending.** Wyatt clarified the
-   ask was about *driving feel*, not menu access. Root cause found in `simulation.js`:
-   `desiredYawRate`, drift grip, and drift impulse all read `axis.turn`/`axis.forward`
-   directly as an analog deflection — gamepad's stick gives continuous -1..1 values, but
-   keyboard's `getAxis()` gave literal -1/0/1 with no in-between, so every A/D tap was
-   instantly a full-lock max-rate turn with full drift grip. `src/input.js` now ramps the
-   raw keyboard target toward its value over 0.14s (attack, held) / 0.09s (release) of
-   wall-clock time — a "digital-to-analog ease" — instead of snapping, matching the
-   gamepad's "ease in, snap stop" feel. Also landed in this pass: arrow-key menu navigation
-   (`src/ui/gamepadNav.js`, reuses the gamepad spatial-nav engine) and a related bug fix —
-   `setUiMode(true)` already zeroed the *gamepad* driving axis while a menu/ESC overlay is
-   open in MP (round physics keeps stepping behind ESC), keyboard had no equivalent and kept
-   driving in the background; both now share one suppression path. Tests: +5
-   `gamepadNav.test.js`, +7 `input.test.js` (exact ramp-timing math, UI-mode reset,
-   direction-reversal, large-gap clamp). `npm run qa` 641/641, `npm run build` clean.
-   **This is a subjective feel change — needs Wyatt's own playtest, not something to
-   self-certify.**
+2. **A1 — two rounds of data now, still no Intel-as-host capture, and a new lead.**
+   Round 1 (build `2293b57`): cap-113 (Intel, non-host) showed a genuine **22.1s** freeze
+   with `hiddenDuringGap:false, blurredDuringGap:false` — rules out "mislabeled backgrounded
+   tab". Long Task coverage only ~4.5% — rules out "too much synchronous JS/physics work"
+   too. Round 2 (build `b63788f`, 07-21): cap-115 (Intel, non-host) was much milder this time
+   (max 438ms, real session-to-session variance) — but cap-116 (**RTX 4090, host**) showed a
+   serious cluster of stalls **early in the round** (first ~14s of the capture): four
+   overlapping longframe events (8221ms, 1612ms, 2361ms, 869ms), this time with a single Long
+   Task up to **2361ms** and much higher Long Task coverage (up to ~99% for the 1612ms gap) —
+   real, attributable main-thread blocking, unlike the earlier low-coverage mystery gaps.
+   After that initial burst the same 14-minute session ran clean (only three 120–143ms blips
+   the rest of the way). The early-round timing + high attribution points at a **one-time
+   boot/init cost** (shader compile, WASM/physics init, decode) rather than a chronic
+   per-frame issue — closer to the existing BOOT-PERF-1 backlog item than to a host-selection
+   problem. **Both sessions had the 4090 as host and Intel as non-host** — party server keeps
+   picking the same machine as host (first-connection-wins), so the original "Intel iGPU as
+   host" scenario still has zero fresh captures. Next: either force a host-role swap for one
+   capture, or treat the early-round 4090 stall cluster as its own lead and profile round
+   start instead of waiting further for an Intel-host sample.
+3. **A2 — INPUT-KB-1 tuned toward a snappier middle ground, deploy pending.** First pass
+   (0.14s attack / 0.09s release) read as "a tad too controller-y" after Wyatt's playtest —
+   halved to **0.07s attack / 0.05s release** in `src/input.js`, still removing the literal
+   instant-full-lock snap but much closer to keyboard-native response. The internal per-call
+   dt safety clamp (protects against a real gap — tab hidden, breakpoint — resolving as one
+   giant ease step) was also tightened from 0.1s to 0.05s so it stays below the new,
+   shorter attack window. Tests updated to the new constants (`tests/input.test.js`, still
+   7 cases, exact ramp-timing math). `npm run qa` 641/641, `npm run build` clean. **Still a
+   feel change — needs Wyatt's playtest**, not self-certifiable; ready for another round.
 
 ## Open issues (top)
 
