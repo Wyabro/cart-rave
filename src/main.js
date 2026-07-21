@@ -3006,7 +3006,8 @@ async function main() {
         nonHostCountdownApplyPending = false;
         resetMatchStats();
         setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
-        GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
+        // * Stores the countdown anchor in the host clock domain used by HUD adjustedNow().
+        GameState.setRoundCountdownStartedAtMs(getRoundClockNowMs() - Netcode.getHostClockOffsetMs());
         GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
         GameState.setRoundWinnerSlotIndex(null);
         if (getRoundClockNowMs() >= startsAtLocalMs) {

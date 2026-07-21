@@ -94,7 +94,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 |---|------|--------|
 | **A1** host hitch forensics | `hiddenDuringGap` latch shipped + validated (real 6.55s tab-out caught cleanly) | ✅ instrumentation proven |
 | **A1** COUNTDOWN-WARM-1 | fly-over camera shader/composer stall | ✅ fixed, needs Wyatt playtest |
-| **A1** COUNTDOWN-SYNC-1 | countdown beat desync/skip under a stall | ✅ fixed, needs Wyatt playtest |
+| **A1** COUNTDOWN-SYNC-1 | non-host countdown clock-domain sync | ✅ catch-up + host-domain anchor fixed; needs Wyatt playtest + F8 |
 | **A1** Intel-as-host capture | original chronic-freeze question | ⏳ still 0/5 sessions — party server keeps picking the 4090 |
 | **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
@@ -185,6 +185,12 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-COUNTDOWN-SYNC-1-CLOCK** (07-21): The non-host `game_start` path initially
+  stamped `countdownStartedAtMs` in the Party-clock domain, while HUD `adjustedNow()` uses
+  the host-clock domain. It now anchors the timestamp with
+  `getRoundClockNowMs() - Netcode.getHostClockOffsetMs()`; the Party-based
+  `startsAtLocalMs` remains the already-past-GO gate. COUNTDOWN-SYNC-1 catch-up stays as
+  the stall safety net. Needs Wyatt's multiplayer playtest + countdown-phase F8 capture.
 - **D-COUNTDOWN-WARM-1** (07-21): Round-start/countdown jank root-caused — the fly-over
   camera hard-cuts to a never-before-rendered wide/high orbit right at countdown start,
   paying a real shader/composer cost the existing warm-up (from the menu/follow camera only)
@@ -252,6 +258,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 
 ## Last updated
+
+2026-07-21 (COUNTDOWN-SYNC-1 clock-domain follow-up — **unpushed**) — Non-host
+`game_start` stored `countdownStartedAtMs` in a Party-clock local domain, but HUD measures
+it against the host-clock domain. The initial anchor now uses
+`getRoundClockNowMs() - Netcode.getHostClockOffsetMs()`; Party-derived
+`startsAtLocalMs` still controls the already-past-GO gate. Catch-up remains intact.
+**Needs Wyatt's multiplayer playtest + countdown-phase F8 capture.**
 
 2026-07-21 (SHIPPED — SHIP-1 Tier A session, 4 deploys) — Full session working SHIP-1 Tier A
 against Wyatt's live playtests, each pushed + deployed + served-bytes verified in order:
