@@ -259,12 +259,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-21 (COUNTDOWN-SYNC-1 clock-domain follow-up — **unpushed**) — Non-host
-`game_start` stored `countdownStartedAtMs` in a Party-clock local domain, but HUD measures
-it against the host-clock domain. The initial anchor now uses
-`getRoundClockNowMs() - Netcode.getHostClockOffsetMs()`; Party-derived
-`startsAtLocalMs` still controls the already-past-GO gate. Catch-up remains intact.
-**Needs Wyatt's multiplayer playtest + countdown-phase F8 capture.**
+2026-07-21 (SHIPPED — COUNTDOWN-SYNC-1 clock-domain) — **`276d123`** pushed + deployed as
+bundle **`index-C1uycOJX.js`** / Version **`9276ba3f-ea8d-4feb-bd40-6718028da55a`**.
+Non-host `game_start` now anchors `countdownStartedAtMs` with
+`getRoundClockNowMs() - Netcode.getHostClockOffsetMs()` (host domain for HUD
+`adjustedNow()`); Party `startsAtLocalMs` still gates already-past-GO. Catch-up safety
+net kept. **Needs Wyatt's multiplayer playtest + countdown-phase F8.**
 
 2026-07-21 (SHIPPED — SHIP-1 Tier A session, 4 deploys) — Full session working SHIP-1 Tier A
 against Wyatt's live playtests, each pushed + deployed + served-bytes verified in order:
