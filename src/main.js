@@ -2318,18 +2318,24 @@ async function main() {
   }
 
   /**
-   * Pre-round camera fly-over, sized to the active arena. The default 28 m orbit was
-   * authored for the 26.4 m Classic deck; Sundial Station's enlarged octagon (deck
-   * circumradius ≈ radius / cos 22.5°) needs a wider, slightly higher orbit or the
-   * camera would sweep inside the deck edge.
+   * Per-arena fly-over sizing. The default 28 m orbit was authored for the 26.4 m Classic
+   * deck; Sundial Station's enlarged octagon (deck circumradius ≈ radius / cos 22.5°) needs
+   * a wider, slightly higher orbit or the camera would sweep inside the deck edge. Shared by
+   * {@link beginRoundFlyover} and the shader/composer warm-up pass so both agree on the
+   * exact framing the countdown camera will actually use.
+   * @returns {{ radius: number, height: number } | undefined}
    */
-  function beginRoundFlyover() {
-    let overrides;
+  function resolveCinematicCountdownOverrides() {
     if (getCurrentLevelId() === "zanzibar") {
       const circumR = CONFIG.record.radius / Math.cos(Math.PI / 8);
-      overrides = { radius: circumR + 4, height: 16 };
+      return { radius: circumR + 4, height: 16 };
     }
-    CameraMod.beginCinematicCountdown(camera, overrides);
+    return undefined;
+  }
+
+  /** Pre-round camera fly-over, sized to the active arena (see {@link resolveCinematicCountdownOverrides}). */
+  function beginRoundFlyover() {
+    CameraMod.beginCinematicCountdown(camera, resolveCinematicCountdownOverrides());
   }
 
   function applyLoadedLevelSideEffects(levelId) {
@@ -2547,14 +2553,14 @@ async function main() {
           : opts.warm
             ? COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS
             : undefined;
-      if (maxWaitMs != null) {
-        // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
-        await /** @type {(s: typeof scene, c: typeof camera, t?: unknown, o?: { maxWaitMs?: number }) => Promise<typeof scene>} */ (
-          renderer.compileAsync
-        )(scene, camera, null, { maxWaitMs });
-      } else {
-        await renderer.compileAsync(scene, camera);
-      }
+      // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
+      const compileSceneAsync = () =>
+        maxWaitMs != null
+          ? /** @type {(s: typeof scene, c: typeof camera, t?: unknown, o?: { maxWaitMs?: number }) => Promise<typeof scene>} */ (
+              renderer.compileAsync
+            )(scene, camera, null, { maxWaitMs })
+          : renderer.compileAsync(scene, camera);
+      await compileSceneAsync();
       if (audioWarmPromises.length) {
         try {
           await Promise.all(audioWarmPromises);
@@ -2569,6 +2575,38 @@ async function main() {
       // * frame (Run-7 caps 45–51: LT start ≈ world-ready + 5ms). Always prime here.
       if (isComposerBypassActive()) renderer.render(scene, camera);
       else composer.render();
+
+      // * The countdown fly-over (beginRoundFlyover) hard-cuts to a wide, high orbit the
+      // * default-camera warm-up above never renders from — first use of that framing (new
+      // * shader variants / draw calls only it exercises, e.g. previously off-screen arena
+      // * geometry) was stalling the countdown itself, not just an ordinary slow frame.
+      // * Prime it here too, hidden behind the loading overlay, then restore the camera
+      // * exactly as it was — this must never leak into the visible frame.
+      if (forPlay) {
+        const pose = CameraMod.getCinematicCountdownWarmupPose(resolveCinematicCountdownOverrides());
+        const savedPos = camera.position.clone();
+        const savedQuat = camera.quaternion.clone();
+        const seatWarmupPose = () => {
+          camera.position.copy(pose.position);
+          camera.lookAt(pose.lookAt);
+          camera.updateMatrixWorld(true);
+        };
+        try {
+          seatWarmupPose();
+          // * await yields to the event loop — the main rAF loop's follow-camera update
+          // * could run in between and overwrite camera.position/quaternion before the
+          // * render call below, so re-seat the pose right after each await rather than
+          // * trusting it survived the wait.
+          await compileSceneAsync();
+          seatWarmupPose();
+          if (isComposerBypassActive()) renderer.render(scene, camera);
+          else composer.render();
+        } finally {
+          camera.position.copy(savedPos);
+          camera.quaternion.copy(savedQuat);
+          camera.updateMatrixWorld(true);
+        }
+      }
     } catch (err) {
       // * Warm-up is an optimization — never let it block play entry.
       console.warn("[CartRave] scene shader warm-up failed:", err);

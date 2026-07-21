@@ -105,40 +105,48 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 ### Next actions
 
 1. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
-2. **A1 — two rounds of data now, still no Intel-as-host capture, and a new lead.**
-   Round 1 (build `2293b57`): cap-113 (Intel, non-host) showed a genuine **22.1s** freeze
-   with `hiddenDuringGap:false, blurredDuringGap:false` — rules out "mislabeled backgrounded
-   tab". Long Task coverage only ~4.5% — rules out "too much synchronous JS/physics work"
-   too. Round 2 (build `b63788f`, 07-21): cap-115 (Intel, non-host) was much milder this time
-   (max 438ms, real session-to-session variance) — but cap-116 (**RTX 4090, host**) showed a
-   serious cluster of stalls **early in the round** (first ~14s of the capture): four
-   overlapping longframe events (8221ms, 1612ms, 2361ms, 869ms), this time with a single Long
-   Task up to **2361ms** and much higher Long Task coverage (up to ~99% for the 1612ms gap) —
-   real, attributable main-thread blocking, unlike the earlier low-coverage mystery gaps.
-   After that initial burst the same 14-minute session ran clean (only three 120–143ms blips
-   the rest of the way). The early-round timing + high attribution points at a **one-time
-   boot/init cost** (shader compile, WASM/physics init, decode) rather than a chronic
-   per-frame issue — closer to the existing BOOT-PERF-1 backlog item than to a host-selection
-   problem. **Both sessions had the 4090 as host and Intel as non-host** — party server keeps
-   picking the same machine as host (first-connection-wins), so the original "Intel iGPU as
-   host" scenario still has zero fresh captures.
+2. **A1 — history (rounds 1–3), condensed.** Round 1 (`2293b57`): a genuine 22.1s Intel-
+   non-host freeze with `hiddenDuringGap:false` ruled out mislabeled backgrounding; ~4.5%
+   Long Task coverage ruled out sync JS/physics work. Rounds 2–3 (`b63788f`/`e46db94`,
+   07-21) both reproduced the *same* early-round (t≈11-14s) stall cluster on the **4090 as
+   host** — real, well-attributed Long Tasks up to 2.4s, then clean for the rest of long
+   sessions — pointing at a one-time boot/init cost, not a chronic per-frame issue. All 3
+   sessions had the 4090 as host; still zero Intel-as-host captures (party server keeps
+   picking the same machine first).
 
-   **Round 3 (build `e46db94`, 07-21):** cap-117 (4090, host) reproduces the *same*
-   early-round stall shape as round 2 — a cluster at t≈11-13s (2613ms/383ms/1406ms) with
-   real Long Task backing (1515ms+1020ms on the biggest one) — now a **repeated pattern
-   across two separate sessions**, strengthening the boot/init-cost lead. Both captures'
-   *entire* session event history was retained (ring buffer well under its 512 cap, no
-   eviction) up to each F8 press (~116s / ~125s into their respective sessions).
+   **Round 4 (07-21): tab-out fix VALIDATED, and the round-start jank is now fixed.**
+   cap-122 (4090, host) caught a real 6.55s tab-out cleanly:
+   `hiddenDuringGap:true, blurredDuringGap:true, hidden:true` — confirms the A1
+   instrumentation works correctly, which retroactively validates every earlier "not
+   backgrounding" reading. Separately, Wyatt confirmed the round-start jank he'd noticed
+   (countdown never lands in sync) is real and asked to chase it — cap-119
+   (`countdown`-phase capture, 4090 host) showed 3 well-attributed stalls during the
+   countdown itself (251/269/103ms, 62–100% Long Task coverage).
 
-   Wyatt also mentioned tabbing away from the host for a few seconds mid-session — a
-   real-world test of the `hiddenDuringGap` fix — but **neither capture shows it**: no
-   longframe event past t≈14.5s in cap-117, and the non-host's own peer-side view of host
-   reliability (cap-118 `net.flow.snapGapMaxMs: 856` over a 106s window) shows nothing
-   multi-second either. Given the full session history was retained in both bundles, this
-   most likely means the tab-out happened *after* these two F8 presses (both only cover the
-   first ~2 minutes) rather than the latch failing to catch it — but that's not confirmed.
-   **Ask:** next time, press F8 shortly after tabbing back in so the ring still holds it —
-   that's the clean way to actually validate the fix against a real backgrounding event.
+   **Root cause found:** `warmupActiveSceneShaders()` (main.js) already primes shaders +
+   composer before every round via `renderer.compileAsync` + one prime render — but only
+   from the *current* (menu/follow) camera. `beginRoundFlyover()` then hard-cuts the camera
+   to a wide/high orbit (radius 28, height 14 — much more of the arena in view) that this
+   warm-up never rendered from, so the first frame from that framing pays a real,
+   synchronous cost (new shader variants / draw calls) right as the countdown clock and
+   audio are trying to stay in sync.
+
+   **Fix (not Wyatt's 2s-camera-delay idea — a more targeted version of the same instinct):**
+   added a second warm-up pass in `warmupActiveSceneShaders` that temporarily repositions
+   the camera to a representative point on the fly-over orbit (`camera.js
+   getCinematicCountdownWarmupPose` — pure, no camera/state mutation, same math as the real
+   fly-over), runs `compileAsync` + a prime render from there, then restores the camera
+   exactly. All hidden behind the existing loading overlay — zero added *visible* round-start
+   delay, unlike a straight 2s camera-dwell extension, which would only have helped if the
+   camera cut itself were also moved earlier (this fixes the actual cost instead of just
+   relocating it before a timer). Guarded against the main render loop's follow-camera
+   update interleaving mid-`await` (re-seats the pose after each yield). Tests: `camera.test.js`
+   +4 (pure pose math). `npm run qa` 645/645, `npm run build` clean. Verified live in a dev
+   preview: round reached running phase, camera cleanly returned to `follow` mode with a
+   sane position, no console errors — but the *timing* numbers from that headless run are
+   inflated by the automated tab being backgrounded (matches the documented harness blind
+   spot) and prove nothing about the real fix. **Needs Wyatt's own playtest + a fresh
+   `countdown`-phase F8 capture to confirm the stall is actually gone.**
 3. **A2 — INPUT-KB-1 done, confirmed good.** Wyatt confirmed the tuned 0.07s attack / 0.05s
    release ramp feels right after the "too controller-y" first pass (0.14s/0.09s). No further
    action unless new feedback comes in.
@@ -165,6 +173,16 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-COUNTDOWN-WARM-1** (07-21): Round-start/countdown jank root-caused — the fly-over
+  camera hard-cuts to a never-before-rendered wide/high orbit right at countdown start,
+  paying a real shader/composer cost the existing warm-up (from the menu/follow camera only)
+  never covered. Fixed with a second, hidden warm-up pass from that framing
+  (`camera.js getCinematicCountdownWarmupPose` + `main.js warmupActiveSceneShaders`)
+  instead of Wyatt's proposed 2s-camera-delay — same instinct (move the cost off the
+  timing-critical path), more targeted (fixes it at the source, adds no visible round-start
+  delay). Tab-out latch (`hiddenDuringGap`) independently confirmed working on a real 6.55s
+  backgrounding event this round — validates all prior A1 "not backgrounding" readings.
+  Needs Wyatt's playtest + a countdown-phase F8 to confirm the stall is actually gone.
 - **D-HOSTHITCH-1** (07-20): A1 forensics on existing captures found the "1–8s host freeze
   while focused" residual may be partly a measurement artifact — `hidden`/`focused` sample
   after the stall, not during it. Long Task coverage on the multi-second gaps is 0.3–26%

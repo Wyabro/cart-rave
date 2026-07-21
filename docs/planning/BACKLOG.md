@@ -28,6 +28,7 @@ post-launch unless Wyatt pulls them forward.
 | Pri | Item | Notes |
 |-----|------|-------|
 | Medium | BOOT-PERF-1 — pre-warm the selected arena during menu idle | Remaining first-load cost wants idle warm of SELECTED arena shaders. Gate on tab-visible. |
+| 🟡 Partial | COUNTDOWN-WARM-1 — round-start/countdown jank `[SHIP-1 A1]` | Root cause: fly-over camera hard-cuts to a never-warmed wide/high orbit right at countdown start. Fixed with a second hidden warm-up pass from that framing (`camera.js` + `main.js warmupActiveSceneShaders`, 07-21). Needs Wyatt's playtest + a countdown-phase F8 to confirm. |
 | 🟡 Partial | NET-PERF-1 — reconcile rewind-replay cost | Caps shipped; residual if retest still rubber-bands. |
 | Low | NET-PERF-3 — p2p per-message buffer copy | Only batch if F8 shows alloc pressure after NET-PERF-1. |
 | Medium | Host-reload mid-round live confirm | Reload HOST tab mid-round once in a live smoke. |

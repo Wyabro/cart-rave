@@ -281,6 +281,27 @@ export function beginCinematicCountdown(camera, configOverrides) {
   camera.userData.cinematicState = state;
 }
 
+/**
+ * A representative pose along the countdown fly-over orbit — any single point works, since
+ * the whole circle shares the same radius/height framing — for the shader/composer warm-up
+ * pass to render from once before the countdown camera ever shows it live for real. That
+ * hard-cut to a wide, high, previously-never-rendered vantage point is what was stalling the
+ * countdown (new shader variants / draw calls only that framing exercises). Pure: does not
+ * touch `camera` or its `userData`.
+ * @param {Partial<CinematicCountdownConfig>} [configOverrides]
+ * @returns {{ position: THREE.Vector3, lookAt: THREE.Vector3 }}
+ */
+export function getCinematicCountdownWarmupPose(configOverrides) {
+  const config = { ...DEFAULT_CINEMATIC_CONFIG, ...configOverrides };
+  const position = new THREE.Vector3(
+    Math.cos(config.startAngle) * config.radius,
+    config.height,
+    Math.sin(config.startAngle) * config.radius,
+  );
+  const lookAt = new THREE.Vector3(0, config.lookTargetY, 0);
+  return { position, lookAt };
+}
+
 // * Shared world-up / aim scratch for cinematic look matrices — avoid per-frame alloc.
 const _cinematicUp = new THREE.Vector3(0, 1, 0);
 const _cinematicAim = new THREE.Vector3();
