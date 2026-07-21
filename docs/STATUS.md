@@ -87,6 +87,22 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 
 ### Active queue (strict — one at a time)
 
+Run 7 mission (below) is historical evidence, superseded as the live queue by
+[planning/SHIP-1.md](./planning/SHIP-1.md) tiers — 07-21 session worked Tier A:
+
+| # | What | Status |
+|---|------|--------|
+| **A1** host hitch forensics | `hiddenDuringGap` latch shipped + validated (real 6.55s tab-out caught cleanly) | ✅ instrumentation proven |
+| **A1** COUNTDOWN-WARM-1 | fly-over camera shader/composer stall | ✅ fixed, needs Wyatt playtest |
+| **A1** COUNTDOWN-SYNC-1 | countdown beat desync/skip under a stall | ✅ fixed, needs Wyatt playtest |
+| **A1** Intel-as-host capture | original chronic-freeze question | ⏳ still 0/5 sessions — party server keeps picking the 4090 |
+| **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
+| MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
+| BRAND-1 | Domain cutover | 🧊 frozen |
+
+No ▶ active card unless Wyatt names one — SHIP-1 items above are self-directed within the
+declared phase, not a phase-exit trigger. Historical Run 7 evidence (closed):
+
 | # | What | Status |
 |---|------|--------|
 | **Run 7** | Full playtest mission | ✅ CLOSED |
@@ -95,11 +111,8 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 | **NET-MIG-3** | Freeze / ghost colliders after host migrate | ✅ PASS + live |
 | **NET-PRES-1** | Fall/collision event-id dedupe | ✅ DONE (dup face; loss residual) |
 | **NET-SD-1** | SD untie / sole-leader self-fall softlock | ✅ DONE |
-| MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
-| BRAND-1 | Domain cutover | 🧊 frozen |
 
-No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are superseded:
-[playtest-triage-2026-07-17](./planning/playtest-triage-2026-07-17.md) …
+Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-2026-07-17.md) …
 [run6](./planning/playtest-triage-2026-07-18-run6.md).
 
 ### Next actions
@@ -239,6 +252,22 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 
 ## Last updated
+
+2026-07-21 (SHIPPED — SHIP-1 Tier A session, 4 deploys) — Full session working SHIP-1 Tier A
+against Wyatt's live playtests, each pushed + deployed + served-bytes verified in order:
+`c2a1b3c`→`b63788f` (INPUT-KB-1: menu nav + UI-active driving suppression, then the
+digital-to-analog keyboard ease Wyatt confirmed feels right) → `5622741` (COUNTDOWN-WARM-1:
+fly-over camera shader/composer warm-up) → `77969ad` bundle **`index-CIPz778_.js`**
+(COUNTDOWN-SYNC-1: retroactive catch-up beat for a skipped countdown digit — the actual
+root cause behind "countdown never in sync"). A1's `hiddenDuringGap` latch (07-20) was
+independently validated this session: a real 6.55s tab-out was caught cleanly, confirming
+the instrumentation and retroactively validating every earlier "not backgrounding" reading.
+A concurrent session (Opus, unrelated SOFTGL-1 fix for a no-GPU-driver machine) pushed
+`b5bcc36` mid-session — merged cleanly, no conflict, flagged in D-COUNTDOWN-SYNC-1 area.
+Gates at each ship: `npm run qa` green (637→649 across the session), `npm run build` clean.
+**Open:** COUNTDOWN-WARM-1 + COUNTDOWN-SYNC-1 both need Wyatt's next playtest to confirm;
+A1's original chronic-host-freeze question (Intel-as-host) still has zero captures after
+5 sessions — party server keeps picking the 4090 first.
 
 2026-07-20 (SHIPPED — SHIP-1 + A1 gap-focus latch) — **`2293b57` pushed + deployed** as
 bundle **`index-CDVlu6Eb.js`** / Version **`3e5a0468-520f-4c8f-adef-fa4bd363e2c8`**.
