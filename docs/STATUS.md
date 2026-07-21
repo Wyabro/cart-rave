@@ -105,48 +105,47 @@ No ▶ active card unless Wyatt names one. Historical Run 7 triage docs are supe
 ### Next actions
 
 1. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
-2. **A1 — history (rounds 1–3), condensed.** Round 1 (`2293b57`): a genuine 22.1s Intel-
-   non-host freeze with `hiddenDuringGap:false` ruled out mislabeled backgrounding; ~4.5%
-   Long Task coverage ruled out sync JS/physics work. Rounds 2–3 (`b63788f`/`e46db94`,
-   07-21) both reproduced the *same* early-round (t≈11-14s) stall cluster on the **4090 as
-   host** — real, well-attributed Long Tasks up to 2.4s, then clean for the rest of long
-   sessions — pointing at a one-time boot/init cost, not a chronic per-frame issue. All 3
-   sessions had the 4090 as host; still zero Intel-as-host captures (party server keeps
-   picking the same machine first).
+2. **A1 — history, condensed.** Rounds 1–3: a genuine 22.1s Intel-non-host freeze with
+   `hiddenDuringGap:false` ruled out mislabeled backgrounding; a repeated early-round
+   (t≈11-14s) Long-Task-backed stall cluster on the 4090-as-host pointed at a one-time
+   boot/init cost. Round 4: **tab-out latch VALIDATED** — a real 6.55s backgrounding was
+   caught cleanly (`hiddenDuringGap:true`), confirming the A1 instrumentation works and
+   retroactively validating every earlier "not backgrounding" reading. Also landed
+   COUNTDOWN-WARM-1 (fly-over camera shader/composer warm-up, `5622741`) targeting the
+   round-start stall cluster — but see round 5 below, that wasn't the real complaint.
+   All 4 sessions had the 4090 as host; still zero Intel-as-host captures.
 
-   **Round 4 (07-21): tab-out fix VALIDATED, and the round-start jank is now fixed.**
-   cap-122 (4090, host) caught a real 6.55s tab-out cleanly:
-   `hiddenDuringGap:true, blurredDuringGap:true, hidden:true` — confirms the A1
-   instrumentation works correctly, which retroactively validates every earlier "not
-   backgrounding" reading. Separately, Wyatt confirmed the round-start jank he'd noticed
-   (countdown never lands in sync) is real and asked to chase it — cap-119
-   (`countdown`-phase capture, 4090 host) showed 3 well-attributed stalls during the
-   countdown itself (251/269/103ms, 62–100% Long Task coverage).
+   **Round 5 (07-21): the real bug — countdown BEAT TIMING desyncs, not frame stutter.**
+   Wyatt: "countdown is still jank... just not in sync... one machine pretty much always
+   skips the countdown." Real captures (host NVIDIA + non-host Intel, same round, build
+   `b5bcc36`) show all 4 countdown beats (3/2/1/GO) *do* fire, but wildly unevenly spaced —
+   expected ~1200ms apart (`COUNTDOWN_MS=3600`/3 digits): host measured
+   [1580, 768, 1207]ms, non-host **[2582, 1201, 97]ms** — the last gap (digit "1" → GO)
+   collapsing to ~90ms, twice, in two different non-host captures from two different
+   rounds. Root cause in `hud.js updateStatus()`: the digit shown/announced is computed by
+   **polling** `remainingMs` each frame and firing `announce("countdown_N")` only when N
+   changes — but "GO" fires on an **edge-detected phase transition**
+   (`countdown`→`running`), independent of the digit branch. A stall spanning the
+   countdown's last ~1200ms window lets the phase flip to `running` before the polling
+   loop ever gets a frame to observe `n===1` — so "1" is skipped entirely and GO fires
+   immediately after whatever was last shown. Fix: `updateStatus` now detects this
+   (`_lastCountdownN !== 1` at the countdown→running edge) and retroactively fires the
+   missed "1" beat, staggered `MISSED_COUNTDOWN_CATCHUP_MS` (220ms) before GO — purely
+   presentational (gameplay unlock is already gated on `phase === "running"`, not this
+   banner, so the round's actual start timing is untouched); generation- and phase-guarded
+   against a stale deferred beat firing over a newer/aborted countdown. `npm run qa`
+   649/649, build clean. Verified live: a normal (unstalled) countdown still fires
+   3/2/1/GO at clean ~1200ms spacing (catch-up path doesn't fire, no regression) — could
+   not force a real stall to exercise the catch-up path itself headlessly; no automated
+   test added (`hud.js update()` pulls in ~8 modules with zero existing test coverage —
+   not proportionate to this fix). **Needs Wyatt's playtest**, specifically watching
+   whether the 1→GO gap stays ≥~200ms instead of collapsing, plus fresh captures.
 
-   **Root cause found:** `warmupActiveSceneShaders()` (main.js) already primes shaders +
-   composer before every round via `renderer.compileAsync` + one prime render — but only
-   from the *current* (menu/follow) camera. `beginRoundFlyover()` then hard-cuts the camera
-   to a wide/high orbit (radius 28, height 14 — much more of the arena in view) that this
-   warm-up never rendered from, so the first frame from that framing pays a real,
-   synchronous cost (new shader variants / draw calls) right as the countdown clock and
-   audio are trying to stay in sync.
-
-   **Fix (not Wyatt's 2s-camera-delay idea — a more targeted version of the same instinct):**
-   added a second warm-up pass in `warmupActiveSceneShaders` that temporarily repositions
-   the camera to a representative point on the fly-over orbit (`camera.js
-   getCinematicCountdownWarmupPose` — pure, no camera/state mutation, same math as the real
-   fly-over), runs `compileAsync` + a prime render from there, then restores the camera
-   exactly. All hidden behind the existing loading overlay — zero added *visible* round-start
-   delay, unlike a straight 2s camera-dwell extension, which would only have helped if the
-   camera cut itself were also moved earlier (this fixes the actual cost instead of just
-   relocating it before a timer). Guarded against the main render loop's follow-camera
-   update interleaving mid-`await` (re-seats the pose after each yield). Tests: `camera.test.js`
-   +4 (pure pose math). `npm run qa` 645/645, `npm run build` clean. Verified live in a dev
-   preview: round reached running phase, camera cleanly returned to `follow` mode with a
-   sane position, no console errors — but the *timing* numbers from that headless run are
-   inflated by the automated tab being backgrounded (matches the documented harness blind
-   spot) and prove nothing about the real fix. **Needs Wyatt's own playtest + a fresh
-   `countdown`-phase F8 capture to confirm the stall is actually gone.**
+   Note: while pulling captures, found a **concurrent session** (co-authored Claude Opus
+   4.8) had pushed `b5bcc36` (SOFTGL-1 — software-render resolution floor for a "Hawaii
+   playtest" machine with no GPU driver) directly to `origin/cart-clash`, already merged
+   into the local tree cleanly by the time this session noticed. Unrelated to A1; flagging
+   only because two agents were active on this branch concurrently.
 3. **A2 — INPUT-KB-1 done, confirmed good.** Wyatt confirmed the tuned 0.07s attack / 0.05s
    release ramp feels right after the "too controller-y" first pass (0.14s/0.09s). No further
    action unless new feedback comes in.
@@ -183,6 +182,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
   delay). Tab-out latch (`hiddenDuringGap`) independently confirmed working on a real 6.55s
   backgrounding event this round — validates all prior A1 "not backgrounding" readings.
   Needs Wyatt's playtest + a countdown-phase F8 to confirm the stall is actually gone.
+- **D-COUNTDOWN-SYNC-1** (07-21): The real countdown complaint ("skips", "never in sync")
+  was beat-timing desync, not the frame-stutter COUNTDOWN-WARM-1 fixed — GO fires on an
+  edge-detected phase transition independent of the frame-polled digit display, so a stall
+  spanning the last digit-window skips announcing "1" entirely. Fixed in `hud.js
+  updateStatus()`: retroactively fires the missed beat 220ms before GO, generation/phase-
+  guarded. Presentational only — round-start timing (gameplay unlock) untouched.
 - **D-HOSTHITCH-1** (07-20): A1 forensics on existing captures found the "1–8s host freeze
   while focused" residual may be partly a measurement artifact — `hidden`/`focused` sample
   after the stall, not during it. Long Task coverage on the multi-second gaps is 0.3–26%

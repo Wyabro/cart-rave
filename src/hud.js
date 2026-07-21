@@ -175,6 +175,12 @@ let _goSoundPlayed = false;
 let _prevRoundPhase = null;
 /** Last rendered countdown digit; drives pulse animation only when the number changes. */
 let _lastCountdownN = null;
+/** Generation bumped every fresh countdown entry — guards a deferred catch-up beat
+ *  (see updateStatus) from firing against a LATER, unrelated countdown. */
+let _countdownGeneration = 0;
+/** Minimum perceptible gap between a retroactively-fired missed digit and the GO beat
+ *  that follows it — see updateStatus's countdown→running catch-up branch. */
+const MISSED_COUNTDOWN_CATCHUP_MS = 220;
 /** Last stamped big-moment banner key (countdown digit / go / sd / mp); the
  *  "axis punch" fires once per key change so every big moment stamps in once. */
 let _lastBannerKey = null;
@@ -512,7 +518,27 @@ function updateStatus(roundState) {
 
   const prevPhase = _prevRoundPhase;
   if (prevPhase === "countdown" && roundPhase === "running") {
-    triggerGoBeat();
+    if (_lastCountdownN !== 1) {
+      // * A stall spanning the countdown's last digit-window can flip the round phase to
+      // * "running" before the frame-polled digit branch below ever gets to observe
+      // * n===1 — the countdown then feels like it jumps straight from "2" (or worse) to
+      // * GO. Retroactively beat the missed "1", staggered just enough to read as a real
+      // * beat, before firing GO. Purely presentational: the round already started on the
+      // * host-synced clock (gameplay unlock is gated on phase === "running", not on this
+      // * banner), so delaying only this cosmetic catch-up beat is safe.
+      _lastCountdownN = 1;
+      announce("countdown_1");
+      const generation = _countdownGeneration;
+      setTimeout(() => {
+        // * A newer countdown (or an abort back to lobby) since this was scheduled owns
+        // * its own GO beat now — this stale catch-up must not fire on top of it.
+        if (_countdownGeneration !== generation) return;
+        if (gameStore.getState().roundPhase !== "running") return;
+        triggerGoBeat();
+      }, MISSED_COUNTDOWN_CATCHUP_MS);
+    } else {
+      triggerGoBeat();
+    }
   }
   _prevRoundPhase = roundPhase;
 
@@ -539,6 +565,7 @@ function updateStatus(roundState) {
     if (prevPhase !== "countdown") {
       _goSoundPlayed = false;
       _lastCountdownN = null;
+      _countdownGeneration += 1;
       // * Allow "count-3" banner stamp to fire again on a re-armed countdown.
       if (typeof _lastBannerKey === "string" && _lastBannerKey.startsWith("count-")) {
         _lastBannerKey = null;
