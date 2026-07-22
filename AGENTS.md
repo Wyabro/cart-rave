@@ -10,12 +10,25 @@ the tree, then fix the other doc.
 `cart-rave` until domain cutover — see [docs/brand.md](docs/brand.md). All wording —
 player copy, announcer lines, docs — follows [docs/style-guide.md](docs/style-guide.md).
 
-**Session rehydration (read first when cold):** run **`npm run dashboard`** and read
-`.diag-captures/health.json` (or the `dashboard.html` **Command Center** it generates) —
-mission, the one next action, do-not list, blockers, gates, all pre-digested. Then
-[docs/STATUS.md](docs/STATUS.md) for full context and gotchas, then this file for standing
-rules. Architecture snapshot: [docs/planning/project-state.md](docs/planning/project-state.md).
+**Session rehydration (read first when cold):** read [docs/BRIEFING.md](docs/BRIEFING.md) —
+generated from STATUS.md, **committed to git so every tool sees it without running anything**:
+phase, the one active item, waiting-on-Wyatt vs agent work, do-nots, gates. Then this file,
+then [docs/STATUS.md](docs/STATUS.md) for full context and gotchas. If you can run npm,
+**`npm run dashboard`** adds the observed-evidence Command Center (git HEAD, gate/battery
+results, captures) — see Commands below. The full numbered protocol lives **once** in
+STATUS.md's rehydration block; link it, never restate it.
+Architecture snapshot: [docs/planning/project-state.md](docs/planning/project-state.md).
 Deep reference: [docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
+
+**Paste-able session opener** — for any tool that does not auto-read repo files (Grok Build,
+fresh web chats), paste this verbatim to start a session:
+
+```text
+You are working on Cart Clash (repo cart-rave, branch cart-clash). Read docs/BRIEFING.md,
+then AGENTS.md, then the top of docs/STATUS.md, and follow them. One card / one lever at a
+time. Gates: npm run qa — report results by number. Ship only on Wyatt's explicit "ship it";
+never git add -A. Never claim "done" without pulling cart-clash and verifying HEAD.
+```
 
 **History lives in [docs/archive/](docs/archive/README.md), not in STATUS.md.** STATUS.md
 carries only the current session window; older session logs and full-text decisions are rolled
@@ -61,8 +74,8 @@ toward Version 2.
 - **Dev (client only):** `npm run dev` (Vite).
 - **Dev (server only):** `npm run dev:party` (`npx wrangler dev`, local Durable Object).
 - **Dev (both, preferred):** `npm run dev:local` (aliases: `dev:cart-clash`, `dev:next-level`).
-- **Gates:** `npm run qa` (alias of `check` = typecheck + test + knip +
-  `status:size` + `health:check`). Also `npm test`, `npm run typecheck`,
+- **Gates:** `npm run qa` (alias of `check` = `status:size` + typecheck + test + knip +
+  `briefing` + `health:check`). Also `npm test`, `npm run typecheck`,
   `npm run build` (Vite → `dist/`). CI runs `npm run qa` + production build on
   push/PR to `cart-clash` / `main`. Exact-HEAD release gate (complete battery
   evidence): `npm run release:check` — battery stays out of ordinary PR CI.
@@ -74,11 +87,12 @@ toward Version 2.
   netcode scenarios) against one dev stack, one tally, JSON report in `.diag-captures/`.
   Individual rigs: `npm run gameharness` / `npm run netharness` / `npm run perf:profile`.
   Toolkit map + extension contract: [docs/guides/dev-toolkit.md](docs/guides/dev-toolkit.md).
-- **Command Center:** `npm run dashboard` — generates `.diag-captures/dashboard.html`
-  (+ `health.json`, the same model for agents) from git + battery reports + capture bundles +
-  STATUS/BACKLOG + the agent-briefing handoff. Read-only, never hand-edited; leads with
-  "what should I work on next?" and carries the cold-start read order + do-not list. **The
-  first place to look before starting work** — the markdown it reads stays canonical. Bug
+- **Command Center:** `npm run dashboard` — regenerates `docs/BRIEFING.md` then
+  `.diag-captures/dashboard.html` (+ `health.json`, the same model for agents) from git +
+  battery reports + capture bundles + STATUS/BACKLOG. Read-only, never hand-edited; leads
+  with "what should I work on next?". **BRIEFING.md is the committed cold-start door; the
+  dashboard adds observed evidence** — the markdown it reads stays canonical.
+  `npm run briefing` alone refreshes BRIEFING.md; `health:check` fails when it lags STATUS.md. Bug
   capture (F8 / auto on error+assert) + production analytics (`/api/analytics`) live in the
   same layer: [docs/guides/observability.md](docs/guides/observability.md).
 
@@ -153,6 +167,29 @@ toward Version 2.
 
 ---
 
+## HOW WORK IS EXECUTED
+
+The same loop in every tool — Cursor, Antigravity, Grok, Claude, terminal. This exists
+because a full day was once lost grinding one task; the loop caps that at ~45 minutes.
+
+- **One card / one lever at a time.** Exactly one active item, one change, one retest.
+  New ideas go to [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing
+  priorities.
+- **Timebox: ~45 minutes or 3 failed attempts on one approach — whichever hits first, STOP.**
+  Before attempt #4, write a 5-line findings entry to STATUS.md: what was tried, what is now
+  ruled out, current best hypothesis, evidence for it, and the next cheapest test. Grinding
+  past this point without writing it down is how a day disappears.
+- **Escalation ladder, in order:** (1) the timeboxed attempts → (2) the findings write-up →
+  (3) switch approach from knob-turning to root-cause forensics (instrument, capture,
+  attribute — the PERF-WARM lesson: spans named the owner; guessing at levers got reverted) →
+  (4) hand off per MODEL / TOOL ROUTING below, or ask Wyatt. Handing off with a findings
+  write-up is a success, not a failure.
+- **Definition of done:** gates green **by number** + pushed + pulled-and-verified in
+  `origin/cart-clash` HEAD + `npm run briefing` fresh + STATUS.md updated. Behavior changes
+  additionally need Wyatt's playtest on production before they count.
+
+---
+
 ## MODEL / TOOL ROUTING
 
 How Wyatt routes work across agents:
@@ -161,7 +198,9 @@ How Wyatt routes work across agents:
 - **Cursor (Fable)** — cross-file refactors.
 - **DeepSeek** — mechanical known-file / known-line edits, diagnostics.
 - **Antigravity** — exploratory agentic tasks.
-- **Grok / other** — same standing rules; rehydrate via `docs/STATUS.md` + this file.
+- **Grok / other** — same standing rules; rehydrate via `docs/BRIEFING.md` + this file
+  (`GROK.md` at the root is the thin pointer; if the tool can't auto-read files, use the
+  paste-able session opener at the top of this document).
 
 Any prompt written **for** an agent goes in its own fenced code block. Confirm options with
 Wyatt before writing long prompts. For new gameplay systems, player-facing features, or
@@ -173,9 +212,12 @@ before starting.
 ## WHAT'S OFF-LIMITS
 
 - **`docs/archive/handovers/` and `docs/archive/audits/` are historical archives — do not edit.**
-- **`CLAUDE.md` / `GEMINI.md` are pointer files.** Real rules live here in `AGENTS.md`.
-  Keep the pointers thin. `.cursorrules` may carry brand/stack extras — keep them consistent
-  with this file.
+- **`CLAUDE.md` / `GEMINI.md` / `GROK.md` / `.cursorrules` / `.cursor/rules/cart-clash.mdc`
+  are pointer files.** Real rules live here in `AGENTS.md`; do not restate the stack table,
+  invariants, or gate chain in them (they rot independently — the gate description already
+  did once). Tool-specific extras only.
+- **`docs/BRIEFING.md` is generated** (`npm run briefing`) — never hand-edit it; edit
+  STATUS.md and regenerate.
 - **Do not recreate deleted files** — notably `cart-rave-menu.html` (see the menu-markup
   invariant) and the legacy `partykit.*.json` files.
 - **Do not port open-world WebGPU engines** into this game. Visual QA *process* tools are fine;

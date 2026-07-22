@@ -14,7 +14,7 @@ Docs are grouped by kind. Three entry points live at the `docs/` root: this inde
 [brand.md](./brand.md) (the canonical naming freeze — prefer it when docs disagree), and
 [style-guide.md](./style-guide.md) (writing & terminology standard for all copy and docs).
 
-**Read first:** [STATUS.md](./STATUS.md) — the production dashboard (health, blockers, current focus, next milestone) and session source of truth. For the generated all-at-once view (gates · captures · queue · agent briefing), run `npm run dashboard` — the **Command Center** (`.diag-captures/dashboard.html`).
+**Read first:** [BRIEFING.md](./BRIEFING.md) — generated, committed cold-start briefing (phase · active item · do-nots), then [STATUS.md](./STATUS.md), the session source of truth (health, blockers, current focus, next milestone; the full read order lives in its rehydration block). For the generated all-at-once evidence view (gates · captures · queue), run `npm run dashboard` — the **Command Center** (`.diag-captures/dashboard.html`).
 
 ### `planning/` — status & forward-looking
 
@@ -22,6 +22,7 @@ Core docs split by time — **past / present / future**:
 
 | Doc | Purpose |
 |-----|---------|
+| [BRIEFING.md](./BRIEFING.md) | **Generated cold-start briefing** (`npm run briefing`) — phase, active item, do-nots; never hand-edit |
 | [STATUS.md](./STATUS.md) | **Dashboard + session source of truth** — health, focus, next actions, decision index |
 | [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
 | [planning/production-passes.md](./planning/production-passes.md) | **Past** — one-page index of the July 2026 production passes |

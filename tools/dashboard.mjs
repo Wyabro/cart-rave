@@ -48,17 +48,13 @@ function stripMdLinks(s) {
   return String(s ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
 }
 
-/** Pull a fact value out of the handoff briefing by key prefix. @param {any} briefing @param {string} keyPrefix */
-function fact(briefing, keyPrefix) {
-  const f = (briefing?.facts ?? []).find((x) => x.key.toLowerCase().startsWith(keyPrefix.toLowerCase()));
-  return f ? f.value : null;
-}
+/** Stable prod origin (docs/guides/deploy-urls.md) — the bundle name is observed, never hand-tracked. */
+const PROD_URL = "https://cart-rave.wyabro.workers.dev/";
 
 /** @param {any} h @returns {string} */
 function renderHtml(h) {
   const now = deriveNextAction(h);
   const mission = h.mission ?? h.declared?.mission;
-  const briefing = h.handoff;
   const latest = h.battery?.latestTargeted ?? h.battery?.latest;
   const g = h.git ?? h.observed?.git;
   const digest = h.digest ?? {};
@@ -67,9 +63,7 @@ function renderHtml(h) {
   const scopeLabel = latest?.classification?.scopeLabel ?? readiness.batteryScope ?? "?/?";
 
   // --- hero chips -----------------------------------------------------------
-  const bundleFact = fact(briefing, "Prod") ?? fact(briefing, "Live client bundle");
-  const bundleShort = String(bundleFact ?? "").match(/index-[\w-]+\.js/)?.[0] ?? null;
-  const prodUrl = (fact(briefing, "Prod") ?? "").match(/https?:\/\/\S+/)?.[0] ?? null;
+  const prodUrl = PROD_URL;
   const diagUrl = prodUrl ? `${prodUrl.replace(/\/+$/, "")}/?diag=1` : null;
   const failingCount = (latest?.results ?? []).filter((r) => r.code !== 0 && r.code !== 3).length;
   const inconclCount = (latest?.results ?? []).filter((r) => r.code === 3).length;
@@ -97,9 +91,7 @@ function renderHtml(h) {
   const phaseChip = h.declared?.phase
     ? `<span class="chip neutral">▶ ${esc(String(h.declared.phase).split("—")[0].trim())}</span>`
     : "";
-  const prodChip = bundleShort
-    ? `<span class="chip neutral" title="${esc(bundleFact)}">${prodUrl ? `<a href="${esc(prodUrl)}">` : ""}prod ${esc(bundleShort)}${prodUrl ? "</a>" : ""}</span>`
-    : "";
+  const prodChip = `<span class="chip neutral"><a href="${esc(prodUrl)}">prod</a></span>`;
   const openBugs = (h.issues?.open ?? []).filter((i) => issueState(i.status) === "open");
   const blockerChip = openBugs.length ? `<span class="chip bad">✕ ${openBugs.length} open blocker${openBugs.length > 1 ? "s" : ""}</span>` : "";
 
@@ -125,7 +117,7 @@ function renderHtml(h) {
   const activeRow = (h.issues?.playtestQueue ?? []).find((q) => q.state === "active") ?? null;
 
   // --- firewall / not today -------------------------------------------------
-  const doNots = (briefing?.doNots ?? []).map((d) => `<li>${esc(d)}</li>`).join("\n");
+  const doNots = (h.doNots ?? digest.avoid ?? []).map((d) => `<li>${esc(d)}</li>`).join("\n");
   const queue = h.issues?.playtestQueue ?? [];
   const lockedRows = queue.filter((q) => q.state === "locked");
   const allIssues = h.issues?.all ?? h.issues?.open ?? [];
@@ -177,7 +169,6 @@ function renderHtml(h) {
     .slice(0, 6)
     .map((c) => `<li><span class="mono dim">${esc(c.sha)}</span> ${esc(c.subject)}</li>`)
     .join("\n");
-  const localFact = fact(briefing, "Local");
 
   // --- reference ------------------------------------------------------------
   const batteryDetailRows = (latest?.results ?? [])
@@ -446,7 +437,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
   <div>
     <div class="k">Current mission</div>
     <div class="mission-head">${esc(mission?.headline ?? "No mission parsed — check STATUS.md § Current focus")}</div>
-    ${mission?.detail ? `<div class="mission-detail">${esc(mission.detail)} — <a href="../docs/planning/handoff-next-window.md">full handoff</a></div>` : ""}
+    ${mission?.detail ? `<div class="mission-detail">${esc(mission.detail)} — <a href="../docs/BRIEFING.md">briefing</a></div>` : ""}
   </div>
   <div class="dw">
     <div class="k">Done when (${doneCount}/${doneWhen.length})</div>
@@ -481,7 +472,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
 <div class="twocol">
   <section class="panel firewall">
     <div class="k">⛔ Do not — side-quest firewall</div>
-    ${doNots ? `<ul>${doNots}</ul>` : `<div class="empty">No standing prohibitions in the handoff.</div>`}
+    ${doNots ? `<ul>${doNots}</ul>` : `<div class="empty">No standing prohibitions — add a ### Do not list to STATUS.md.</div>`}
   </section>
   <section class="panel nottoday">
     <div class="k">🅿 Not today — parked on purpose</div>
@@ -526,8 +517,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
     <section class="panel">
       <div class="k">What changed</div>
       <ul>${commitRows || `<li class="empty">git log unavailable</li>`}</ul>
-      ${localFact ? `<div class="note">△ local: ${esc(localFact)}</div>` : ""}
-      ${bundleFact ? `<div class="note">live: ${esc(bundleFact)}</div>` : ""}
+      <div class="note">live bundle: check the in-app build stamp (<span class="mono">window.__ccBuild</span>) — never hand-tracked here.</div>
     </section>
   </div>
 </div>
@@ -543,7 +533,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
     <div><h4>Recent regressions / rollbacks</h4>${digestList(digest.recentRegressions)}</div>
     <div><h4>Symbols in play</h4>${symbolChips || `<div class="empty">none</div>`}</div>
   </div>
-  <div class="note">Read order: <a href="../.diag-captures/dashboard.html">dashboard</a> → <a href="health.json">health.json</a> → <a href="../docs/STATUS.md">STATUS.md</a> → <a href="../AGENTS.md">AGENTS.md</a> · gates by number · ship <b>only</b> on Wyatt's "ship it". Declared phase ≠ release readiness.</div>
+  <div class="note">Read order: <a href="../docs/BRIEFING.md">BRIEFING.md</a> → <a href="../AGENTS.md">AGENTS.md</a> → <a href="../docs/STATUS.md">STATUS.md</a> → <a href="health.json">health.json</a> (observed evidence) · gates by number · ship <b>only</b> on Wyatt's "ship it". Declared phase ≠ release readiness.</div>
 </div></details>
 
 <details class="ref"><summary>Battery detail &amp; history ${latest ? `(${esc(latest.file)})` : "(never run)"}</summary><div class="inner">
@@ -568,7 +558,7 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
 <details class="ref"><summary>Docs &amp; tools</summary><div class="inner links">
   <a href="../docs/STATUS.md">STATUS.md</a>
   <a href="../AGENTS.md">AGENTS.md</a>
-  <a href="../docs/planning/handoff-next-window.md">handoff</a>
+  <a href="../docs/BRIEFING.md">BRIEFING.md</a>
   <a href="../docs/playtest/console.html">playtest console</a>
   <a href="../docs/planning/BACKLOG.md">BACKLOG</a>
   <a href="../docs/planning/ROADMAP.md">ROADMAP</a>
@@ -580,7 +570,7 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
 </div></details>
 
 <footer>
-  Sources: git · battery reports · capture bundles · perf profiles · docs/STATUS.md (mission · phases · done-when · queue · issues · last-updated) · docs/planning/BACKLOG.md · docs/planning/handoff-next-window.md · playtest console (view-time, this browser).<br>
+  Sources: git · battery reports · capture bundles · perf profiles · docs/STATUS.md (mission · phases · done-when · queue · issues · do-not · last-updated) · docs/planning/BACKLOG.md · playtest console (view-time, this browser).<br>
   Generated ${esc(h.generatedAt)} — read-only; the markdown stays canonical. Agents: <a href="health.json">health.json</a> (digest included).
 </footer>
 

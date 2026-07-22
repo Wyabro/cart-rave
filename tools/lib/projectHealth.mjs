@@ -377,38 +377,16 @@ export function deriveNextAction(h) {
 }
 
 /**
- * docs/planning/handoff-next-window.md → the agent-briefing block: title, the
- * `**Key:** value` fact lines from the header, and the bold "Do not" rules.
- * Tolerant of missing pieces; returns null only when the doc has none of them.
- * @param {string} handoffMd
- * @returns {{ title: string | null, facts: Array<{ key: string, value: string }>, doNots: string[] } | null}
+ * STATUS.md "### Do not" list → standing prohibitions for the briefing / dashboard
+ * firewall. Lives in STATUS (the declared source of truth) since the retirement of
+ * docs/planning/handoff-next-window.md, which carried these and went stale.
+ * @param {string} statusMd
+ * @returns {string[]}
  */
-export function parseHandoffBriefing(handoffMd) {
-  const md = String(handoffMd ?? "");
-  if (md.trim() === "") return null;
-  const title = md.match(/^# +(.+)$/m)?.[1]?.trim() ?? null;
-  // * Facts and do-nots both live above the first --- rule; scoping there keeps
-  // * bold labels deeper in the doc (F8 tables etc.) out of the briefing.
-  const header = md.split(/^---$/m)[0];
-  const facts = [];
-  const doNots = [];
-  for (const line of header.split(/\r?\n/)) {
-    const doNot = line.match(/^\*\*Do not\*\*\s+(.*)$/i) ?? line.match(/^\*\*(Ship only[^*]*)\*\*\.?\s*$/i);
-    if (doNot) {
-      doNots.push(doNot[1].replace(/\*\*/g, "").replace(/\s+$/, "").replace(/\.$/, "").trim());
-      continue;
-    }
-    const fact = line.match(/^\*\*(.+?):\*\*\s+(.*?)\s*$/);
-    if (fact) {
-      const value = fact[2]
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // markdown links → text
-        .replace(/\*\*/g, "")
-        .trim();
-      facts.push({ key: fact[1].trim(), value });
-    }
-  }
-  if (title == null && facts.length === 0 && doNots.length === 0) return null;
-  return { title, facts, doNots };
+export function parseStatusDoNots(statusMd) {
+  return parseListItems(extractSection(statusMd, "### Do not") ?? "").map((item) =>
+    item.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").trim(),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -738,12 +716,10 @@ export async function collectProjectHealth(opts = {}) {
 
   let statusMd = "";
   let backlogMd = "";
-  let handoffMd = "";
   /** @type {Record<string, string | null>} */
   const sourceFreshness = {
     statusMd: null,
     backlogMd: null,
-    handoffMd: null,
     batteryDir: null,
   };
   try {
@@ -760,14 +736,6 @@ export async function collectProjectHealth(opts = {}) {
   } catch (e) {
     collectorErrors.push(`BACKLOG.md: ${e instanceof Error ? e.message : e}`);
   }
-  try {
-    const p = resolve(cwd, "docs/planning/handoff-next-window.md");
-    handoffMd = await readFile(p, "utf8");
-    sourceFreshness.handoffMd = (await stat(p)).mtime.toISOString();
-  } catch (e) {
-    collectorErrors.push(`handoff-next-window.md: ${e instanceof Error ? e.message : e}`);
-  }
-
   const git = collectGit(cwd);
   if (git) {
     try {
@@ -814,7 +782,7 @@ export async function collectProjectHealth(opts = {}) {
     nextActions,
     playtestQueue,
   };
-  const handoff = parseHandoffBriefing(handoffMd);
+  const doNots = parseStatusDoNots(statusMd);
   const phases = parseStatusReleasePhases(statusMd);
   const doneWhen = parseStatusDoneWhen(statusMd);
   const lastSession = parseStatusLastUpdated(statusMd);
@@ -892,7 +860,7 @@ export async function collectProjectHealth(opts = {}) {
       activeRow ? `${activeRow.id} — ${activeRow.what} (${activeRow.status})` : null,
     ].filter(Boolean),
     blockers: declared.blockers.map((i) => ({ id: i.id, issue: i.issue })),
-    avoid: handoff?.doNots ?? [],
+    avoid: doNots,
     symbolsInPlay: extractBacktickSymbols(
       activeRow ? `${activeRow.what} ${activeRow.status}` : null,
       nextActions.slice(0, 2).join(" "),
@@ -927,7 +895,7 @@ export async function collectProjectHealth(opts = {}) {
     doneWhen,
     issues,
     backlog: parseBacklogSections(backlogMd),
-    handoff,
+    doNots,
     digest,
   };
 }

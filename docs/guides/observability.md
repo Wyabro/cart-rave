@@ -98,9 +98,10 @@ from artifacts the project already produces — **nothing on it is hand-maintain
   `--tallyOut` tallies; the battery embeds them as `results[].checks`) + pass-ratio history.
 - **Captures awaiting triage** — bundle cards with screenshot thumbnails (same dir, so
   relative `<img>` just works).
-- **Open issues / active queue / next actions** — parsed live from `docs/STATUS.md`;
-  **backlog shape** from `docs/planning/BACKLOG.md`; **agent briefing** (window facts,
-  do-not list, read order) from `docs/planning/handoff-next-window.md`. The markdown
+- **Open issues / active queue / next actions / do-not list** — parsed live from
+  `docs/STATUS.md` (the do-nots come from its `### Do not` section, which also feeds the
+  committed `docs/BRIEFING.md` via `npm run briefing`);
+  **backlog shape** from `docs/planning/BACKLOG.md`. The markdown
   stays canonical — the dashboard is a *view*, deliberately not a second issue database.
   Live-doc canary tests (`tests/projectHealth.test.js`) pin the real docs against the
   parsers, so a heading rename breaks `npm run qa` instead of silently emptying a section.

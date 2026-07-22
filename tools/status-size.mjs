@@ -29,7 +29,14 @@ const log = makeLogger("status-size");
 const CHARS_PER_TOKEN = 4;
 
 /** Over this, STATUS.md is costing more than it earns on a cold read. */
-export const BUDGET_TOKENS = 12_000;
+export const BUDGET_TOKENS = 8_000;
+
+/**
+ * A single date window with more entries than this is a log regrowing inside the
+ * snapshot (2026-07-21 hit 11 entries while staying under the token budget —
+ * condense or archive; the keep-recent rule alone never catches a busy day).
+ */
+export const MAX_ENTRIES_PER_DATE = 6;
 
 /** Never suggest cutting into the most recent N date windows — that's live work. */
 const KEEP_RECENT_DATES = 2;
@@ -53,15 +60,18 @@ export function analyzeStatus(text) {
   const keep = dates.slice(0, KEEP_RECENT_DATES);
   const archivable = dates.slice(KEEP_RECENT_DATES);
   const firstArchivable = entries.find((e) => archivable.includes(e.date));
+  const denseDates = dates.filter((d) => entries.filter((e) => e.date === d).length > MAX_ENTRIES_PER_DATE);
 
   return {
     tokens,
     budget: BUDGET_TOKENS,
-    overBudget: tokens > BUDGET_TOKENS,
+    overBudget: tokens > BUDGET_TOKENS || denseDates.length > 0,
     lines: lines.length,
     entryCount: entries.length,
     liveDates: keep,
     archivableDates: archivable,
+    denseDates,
+    maxEntriesPerDate: MAX_ENTRIES_PER_DATE,
     cutFromLine: firstArchivable ? firstArchivable.line : null,
   };
 }
@@ -92,7 +102,10 @@ if (isMain) {
     process.exit(0);
   }
 
-  log(`STATUS.md ~${r.tokens.toLocaleString()} tokens — over the ${r.budget.toLocaleString()} budget.`);
+  if (r.tokens > r.budget) log(`STATUS.md ~${r.tokens.toLocaleString()} tokens — over the ${r.budget.toLocaleString()} budget.`);
+  for (const d of r.denseDates) {
+    log(`STATUS.md date window ${d} has more than ${r.maxEntriesPerDate} entries — the session log is regrowing inside the snapshot. Condense the window to a few entries, or roll it to docs/archive/ (procedure: docs/archive/README.md).`);
+  }
   log(`  ${r.entryCount} dated entries across ${r.liveDates.length + r.archivableDates.length} date windows.`);
   log(`  live (keep):  ${r.liveDates.join(", ") || "(none)"}`);
 

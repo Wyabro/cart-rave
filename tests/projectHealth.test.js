@@ -20,7 +20,7 @@ import {
   parseStatusLastUpdated,
   extractBacktickSymbols,
   deriveNextAction,
-  parseHandoffBriefing,
+  parseStatusDoNots,
   parseBacklogSections,
   captureTimeMs,
   captureRankMs,
@@ -144,25 +144,6 @@ const STATUS_ACTIVE_QUEUE_FIXTURE = `# Cart Clash — Status
 1. Ship it.
 `;
 
-const HANDOFF_FIXTURE = `# Handoff — next agent window (Run 7 · P0 mid-flight)
-
-**Date:** 2026-07-19 (P0 menu card coded — unpushed)
-**Branch:** \`cart-clash\`
-**Origin HEAD:** **\`5bfe7e5\`** (prod still this until ship)
-**Prod:** https://cart-rave.wyabro.workers.dev
-**Read order:** this file → STATUS.md → AGENTS.md
-
-**Do not** re-triage run-1…run-6 from scratch.
-**Do not** multi-lever dump — one card at a time.
-**Ship only on Wyatt "ship it."**
-
----
-
-## One rule
-
-**Do not** get parsed — this is below the fold.
-`;
-
 describe("parseStatusPlaytestQueue", () => {
   it("parses the run-7 Active queue table into structured rows with states", () => {
     const q = parseStatusPlaytestQueue(STATUS_ACTIVE_QUEUE_FIXTURE);
@@ -233,23 +214,17 @@ describe("compressIssueStatus / issueState", () => {
   });
 });
 
-describe("parseHandoffBriefing", () => {
-  it("extracts title, header facts, and do-not rules (header only)", () => {
-    const b = parseHandoffBriefing(HANDOFF_FIXTURE);
-    expect(b.title).toBe("Handoff — next agent window (Run 7 · P0 mid-flight)");
-    expect(b.facts.find((f) => f.key === "Origin HEAD").value).toContain("5bfe7e5");
-    expect(b.doNots).toEqual([
-      "re-triage run-1…run-6 from scratch",
-      "multi-lever dump — one card at a time",
-      'Ship only on Wyatt "ship it."',
+describe("parseStatusDoNots", () => {
+  it("extracts the ### Do not list with links flattened, scoped to its section", () => {
+    const md = `## Current focus\n\n### Do not\n\nProse intro.\n\n- Ship only on Wyatt's "ship it" — never \`git add -A\`.\n- One card at a time; ideas go to [BACKLOG](./planning/BACKLOG.md).\n\n### Done when\n\n- [ ] not a do-not\n`;
+    expect(parseStatusDoNots(md)).toEqual([
+      `Ship only on Wyatt's "ship it" — never \`git add -A\`.`,
+      "One card at a time; ideas go to BACKLOG.",
     ]);
-    // below-the-fold bold "Do not" must not leak into the briefing
-    expect(b.doNots.join(" ")).not.toContain("below the fold");
   });
 
-  it("degrades to null on an empty/absent doc", () => {
-    expect(parseHandoffBriefing("")).toBeNull();
-    expect(parseHandoffBriefing(null)).toBeNull();
+  it("degrades to [] without the section", () => {
+    expect(parseStatusDoNots("# empty doc")).toEqual([]);
   });
 });
 
@@ -394,10 +369,13 @@ describe("live-doc canaries (real docs/ vs parsers)", () => {
     expect(parseBacklogSections(read("docs/planning/BACKLOG.md")).length).toBeGreaterThan(0);
   });
 
-  it("handoff-next-window.md still yields a briefing", () => {
-    const b = parseHandoffBriefing(read("docs/planning/handoff-next-window.md"));
-    expect(b).not.toBeNull();
-    expect(b.facts.length).toBeGreaterThan(0);
+  it("STATUS.md ### Do not list parses non-empty (feeds BRIEFING.md + dashboard firewall)", () => {
+    expect(parseStatusDoNots(read("docs/STATUS.md")).length).toBeGreaterThan(0);
+  });
+
+  it("docs/BRIEFING.md exists and carries a source digest (freshness is health:check's job)", async () => {
+    const { extractBriefingDigest } = await import("../tools/lib/briefing.mjs");
+    expect(extractBriefingDigest(read("docs/BRIEFING.md"))).toMatch(/^[0-9a-f]{8}$/);
   });
 });
 
@@ -407,8 +385,7 @@ describe("STATUS semantic contracts (Truth Reset)", () => {
   it("phase order is done → current → todo with ≤1 active card and open-only issues", async () => {
     const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");
     const statusMd = read("docs/STATUS.md");
-    const handoffMd = read("docs/planning/handoff-next-window.md");
-    const result = evaluateProjectHealth({ statusMd, handoffMd });
+    const result = evaluateProjectHealth({ statusMd });
     const errors = result.findings.filter((f) => f.severity === "error");
     expect(errors.map((e) => e.code)).toEqual([]);
     const phases = parseStatusReleasePhases(statusMd);
@@ -431,6 +408,40 @@ describe("STATUS semantic contracts (Truth Reset)", () => {
     const mission = parseStatusCurrentFocus(md);
     expect(mission?.headline).toMatch(/stabil/i);
     expect(mission?.headline).not.toMatch(/^Release candidate/i);
+  });
+});
+
+describe("briefing render + freshness contract", () => {
+  const STATUS = `# S\n\n### Release phases\n\n- ✅ Foundation — engine\n- ▶ Playtesting — stabilize\n- ⬜ Ship\n\n## Current focus\n\n**Stabilize.** One card at a time.\n\n### Do not\n\n- Ship only on "ship it".\n\n### Active queue\n\n| # | What | Status |\n|---|------|--------|\n| A1 | Countdown fix | ✅ needs Wyatt playtest |\n| A2 | Forensics | ⏳ capture pending |\n\n### Next actions\n\n1. Wait for Wyatt.\n`;
+
+  it("renders a briefing whose digest round-trips through the rendered markdown", async () => {
+    const { renderBriefingMd, renderBriefingBody, briefingSourceDigest, extractBriefingDigest } = await import("../tools/lib/briefing.mjs");
+    const md = renderBriefingMd(STATUS, { branch: "cart-clash", head: "abc1234", date: "2026-07-21" });
+    expect(extractBriefingDigest(md)).toBe(briefingSourceDigest(STATUS));
+    expect(md).toContain("▶ Playtesting — stabilize");
+    expect(md).toContain("Stabilize");
+    expect(md).toContain('Ship only on "ship it".');
+    // A1 waits on a human; A2 is agent-side — the split must be visible
+    expect(renderBriefingBody(STATUS)).toContain("Waiting on Wyatt");
+  });
+
+  it("digest changes when STATUS declarations change, not when the git header does", async () => {
+    const { renderBriefingMd, briefingSourceDigest, extractBriefingDigest } = await import("../tools/lib/briefing.mjs");
+    const a = renderBriefingMd(STATUS, { head: "abc1234" });
+    const b = renderBriefingMd(STATUS, { head: "fff9999" });
+    expect(extractBriefingDigest(a)).toBe(extractBriefingDigest(b));
+    expect(briefingSourceDigest(STATUS.replace("Stabilize.", "Ship RC."))).not.toBe(briefingSourceDigest(STATUS));
+  });
+
+  it("evaluateProjectHealth errors on a missing or stale briefing, passes on a fresh one", async () => {
+    const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");
+    const { renderBriefingMd } = await import("../tools/lib/briefing.mjs");
+    const codes = (r) => r.findings.filter((f) => f.severity === "error").map((f) => f.code);
+    expect(codes(evaluateProjectHealth({ statusMd: STATUS, briefingMd: "" }))).toContain("BRIEFING_MISSING");
+    const stale = renderBriefingMd(STATUS.replace("Stabilize.", "Old mission."), {});
+    expect(codes(evaluateProjectHealth({ statusMd: STATUS, briefingMd: stale }))).toContain("BRIEFING_STALE");
+    const fresh = renderBriefingMd(STATUS, {});
+    expect(codes(evaluateProjectHealth({ statusMd: STATUS, briefingMd: fresh }))).toEqual([]);
   });
 });
 

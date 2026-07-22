@@ -12,8 +12,9 @@ Thumbs.db
 # Editor/IDE
 .vscode/
 
-# Cursor
-.cursor/
+# Cursor (local state stays ignored; shared rules are committed)
+.cursor/*
+!.cursor/rules/
 
 # Node / Vite
 node_modules/

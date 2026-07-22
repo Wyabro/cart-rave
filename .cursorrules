@@ -1,8 +1,9 @@
 ## Canonical rules
 
-- **`AGENTS.md` at the repo root is the canonical rules file.** This file carries brand/stack extras only; if the two disagree, `AGENTS.md` and the code win.
+- **Cold start:** read `docs/BRIEFING.md` (generated, committed — phase · active item · do-nots), then `AGENTS.md`.
+- **`AGENTS.md` at the repo root is the canonical rules file** — stack facts, architecture invariants, standing behavioral rules, how work is executed (one card · timebox · escalation), gates, and what's off-limits live THERE, not here. If anything disagrees, `AGENTS.md` and the code win. Do not restate its content in this file — the copies rot (the gate description already did once).
 - **Before any cross-module edit, read `docs/reference/control-flow.md`.** Most edges here are not imports — they run through injected `callbacks`/`deps` objects, the `MSG.*` wire protocol, and zustand subscriptions. Grep will call live functions dead, and `src/main.js` is one 4,500-line closure holding ~84 unexported inner functions.
-- Session state: `docs/STATUS.md`.
+- Session state: `docs/STATUS.md`. Gates: `npm run qa` (chain defined in AGENTS.md § Commands); CI runs qa plus a production build.
 
 ## Brand (read first)
 
@@ -22,45 +23,9 @@
 - Production never auto-unlocks; do not rely on gates being open in prod builds.
 - Lifetime progress still accumulates under `cartRaveUnlocks` while dev-unlock is on.
 
-## Stack
-
-- **Runtime**: Cloudflare Workers with Durable Objects (NOT PartyKit — migrated July 2026)
-- **Server library**: `partyserver` (`^0.5.8`) — open-source `Server` base class + `routePartykitRequest`
-- **Client WebSocket**: `partysocket` (`^1.3.0`) — browser WebSocket client on the same protocol
-- **Deployment**: Wrangler (`^4.110.x`) — `npx wrangler dev` for local, `npx wrangler deploy` for prod
-- **Build**: Vite (`^8.x`) — `npm run dev` for client, `npm run dev:party` for server
-- **3D**: Three.js (`^0.185.x`), **Physics**: Rapier3D (`@dimforge/rapier3d`), **State**: Zustand (`^5.0.14`)
-- **Server entry**: `party/index.ts` (deployed as a Worker via `wrangler.jsonc`)
-- **Static assets**: `dist/` directory served via `ASSETS` binding in the Worker
-- **Worker name** (legacy until domain cutover): `cart-rave` → `https://cart-rave.wyabro.workers.dev/`
-
-## Dev commands
-
-```
-npm run dev            # Vite dev server (client only)
-npm run dev:local      # Vite + Wrangler local multiplayer (preferred)
-npm run dev:cart-clash # alias of dev:local
-npm run dev:next-level # deprecated alias of dev:local
-npm run dev:party      # Wrangler dev server (Worker + Durable Objects)
-npm run build          # Vite production build → dist/
-npm run ship           # Build + wrangler deploy
-npm run test           # Vitest
-npm run check          # typecheck + test + knip
-```
-
-## Architecture invariants
-
-1. **NO SERVER-SIDE PHYSICS**: The server (`party/index.ts`) never simulates physics. It is a signaling relay + lobby manager. The host client runs all Rapier3D physics.
-2. **WebRTC DataChannels**: Real-time host transforms, client input, and spill events go peer-to-peer over WebRTC DataChannels (`src/netcode/p2p.js`), not through the WebSocket relay.
-3. **HOST-AUTHORITATIVE**: The first player in a room is the physics host. Client-side prediction is active for the local human cart on non-host clients.
-4. **COLOR IMMUTABILITY**: All color logic uses `CART_COLORS` in `src/config.js`. Do not modify that object or the traverse material logic.
-5. **TARGETED EDITS ONLY**: Do not rewrite entire files. Make targeted, namespaced edits and show the diff before applying.
-6. **MENU MARKUP**: `index.html` is the canonical menu markup. `cart-rave-menu.html` has been deleted — do not recreate it.
-7. **NO CAMERA LERP/SLERP**: Camera smoothing has been intentionally removed. Do not re-introduce it.
-
 ## Cursor notes
 
-- Cursor is used primarily for cross-file refactors.
+- Cursor is used primarily for cross-file refactors (see AGENTS.md § Model / tool routing).
 - Durable Object state persists across `wrangler deploy` — deploys do NOT reset in-memory server state.
 - Use PowerShell for commands (`Select-String`, not `grep`; single-line commit messages with `-m "..."`).
 - Behavior-changing diffs require human playtest on production before proceeding.

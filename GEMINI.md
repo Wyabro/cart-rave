@@ -1,7 +1,9 @@
-Read [AGENTS.md](./AGENTS.md) at the repo root first. It is the canonical rules file for this project.
+This file serves **Antigravity and any Gemini-family tool**.
 
-AGENTS.md holds the stack facts, architecture invariants, standing behavioral rules,
-model/tool routing, and what's off-limits. Session memory: docs/STATUS.md.
+Cold start: read docs/BRIEFING.md (generated, committed — phase · active item · do-nots),
+then [AGENTS.md](./AGENTS.md). AGENTS.md is the canonical rules file: stack facts,
+architecture invariants, standing behavioral rules, how work is executed, model/tool
+routing, and what's off-limits. Session memory: docs/STATUS.md.
 Architecture: docs/reference/Game_Architecture.md.
 Everything below is Antigravity-specific and additive — it never overrides AGENTS.md.
 

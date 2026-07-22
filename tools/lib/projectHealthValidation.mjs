@@ -6,7 +6,8 @@
  * deterministically when docs/tools drift.
  */
 
-import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseHandoffBriefing, extractSection, parseListItems } from "./projectHealth.mjs";
+import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseStatusDoNots, extractSection, parseListItems } from "./projectHealth.mjs";
+import { extractBriefingDigest, briefingSourceDigest } from "./briefing.mjs";
 
 /** Canonical phase order (STATUS ### Release phases). */
 export const PHASE_ORDER = [
@@ -39,10 +40,9 @@ export function normalizePhaseName(name) {
 /**
  * Validate declared STATUS semantics (phase ordering, active card, open-only issues, …).
  * @param {string} statusMd
- * @param {string} [handoffMd]
  * @returns {HealthFinding[]}
  */
-export function validateStatusSemantics(statusMd, handoffMd = "") {
+export function validateStatusSemantics(statusMd) {
   /** @type {HealthFinding[]} */
   const findings = [];
   const phases = parseStatusReleasePhases(statusMd);
@@ -150,18 +150,12 @@ export function validateStatusSemantics(statusMd, handoffMd = "") {
     });
   }
 
-  const handoff = parseHandoffBriefing(handoffMd);
-  if (handoffMd.trim()) {
-    const keys = new Set((handoff?.facts ?? []).map((f) => f.key.toLowerCase()));
-    for (const required of ["date", "branch"]) {
-      if (![...keys].some((k) => k.startsWith(required))) {
-        findings.push({
-          code: "HANDOFF_MISSING_KEY",
-          severity: "error",
-          message: `handoff-next-window.md missing required fact: ${required}`,
-        });
-      }
-    }
+  if (parseStatusDoNots(statusMd).length === 0) {
+    findings.push({
+      code: "STATUS_DONOTS_MISSING",
+      severity: "warn",
+      message: "STATUS.md has no ### Do not list — briefing/dashboard firewall renders empty",
+    });
   }
 
   // Next-actions list may exist; empty is fine.
@@ -194,12 +188,41 @@ export function validateReadinessSemantics(health) {
 }
 
 /**
+ * Validate the committed cold-start briefing (docs/BRIEFING.md) against STATUS.md.
+ * Pass `briefingMd` only when the caller intends the contract (health:check does);
+ * omitting it skips the check so pure-STATUS callers stay usable.
+ * @param {string} statusMd
+ * @param {string} briefingMd
+ * @returns {HealthFinding[]}
+ */
+export function validateBriefingFreshness(statusMd, briefingMd) {
+  if (String(briefingMd ?? "").trim() === "") {
+    return [{
+      code: "BRIEFING_MISSING",
+      severity: "error",
+      message: "docs/BRIEFING.md missing — run `npm run briefing` (it is the committed cold-start door)",
+    }];
+  }
+  const embedded = extractBriefingDigest(briefingMd);
+  const expected = briefingSourceDigest(statusMd);
+  if (embedded !== expected) {
+    return [{
+      code: "BRIEFING_STALE",
+      severity: "error",
+      message: `docs/BRIEFING.md digest ${embedded ?? "(none)"} lags STATUS.md (${expected}) — run \`npm run briefing\``,
+    }];
+  }
+  return [];
+}
+
+/**
  * Run all validators. Exit-worthy errors are severity === "error".
- * @param {{ statusMd: string, handoffMd?: string, health?: any }} input
+ * @param {{ statusMd: string, briefingMd?: string, health?: any }} input
  */
 export function evaluateProjectHealth(input) {
   const findings = [
-    ...validateStatusSemantics(input.statusMd, input.handoffMd ?? ""),
+    ...validateStatusSemantics(input.statusMd),
+    ...(input.briefingMd !== undefined ? validateBriefingFreshness(input.statusMd, input.briefingMd) : []),
     ...(input.health ? validateReadinessSemantics(input.health) : []),
   ];
   return {

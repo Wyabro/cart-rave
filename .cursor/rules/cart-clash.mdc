@@ -1,0 +1,19 @@
+---
+description: Cart Clash canonical-rules pointer — read order, gates, and where the real rules live
+alwaysApply: true
+---
+
+Cold start: read `docs/BRIEFING.md` (generated, committed — phase · the one active item ·
+do-nots), then `AGENTS.md` at the repo root. **AGENTS.md is the canonical rules file** —
+stack facts, architecture invariants, standing behavioral rules, how work is executed
+(one card at a time · ~45-min/3-attempt timebox · escalation ladder), model/tool routing,
+and what's off-limits. If anything disagrees, AGENTS.md and the code win.
+
+Session memory: `docs/STATUS.md`. Brand/dev-unlock extras: `.cursorrules` (legacy twin of
+this file — keep both as thin pointers). Before any cross-module edit, read
+`docs/reference/control-flow.md` — most edges are injected callbacks / `MSG.*` wire
+messages / zustand subscriptions, not imports.
+
+Gates: `npm run qa` (chain defined in AGENTS.md § Commands) — report results by number.
+Ship only on Wyatt's explicit "ship it"; never `git add -A`. Never claim "done" without
+pulling `cart-clash` and verifying HEAD.

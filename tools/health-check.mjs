@@ -17,14 +17,14 @@ const log = makeLogger("health:check");
 async function main() {
   const cwd = process.cwd();
   const statusMd = await readFile(resolve(cwd, "docs/STATUS.md"), "utf8");
-  let handoffMd = "";
+  let briefingMd = "";
   try {
-    handoffMd = await readFile(resolve(cwd, "docs/planning/handoff-next-window.md"), "utf8");
+    briefingMd = await readFile(resolve(cwd, "docs/BRIEFING.md"), "utf8");
   } catch {
-    /* optional */
+    /* missing → BRIEFING_MISSING finding */
   }
   const health = await collectProjectHealth({ cwd });
-  const result = evaluateProjectHealth({ statusMd, handoffMd, health });
+  const result = evaluateProjectHealth({ statusMd, briefingMd, health });
   for (const f of result.findings) {
     const tag = f.severity === "error" ? "ERR" : "WARN";
     log(`${tag} ${f.code}: ${f.message}`);
