@@ -40,6 +40,7 @@
     "gameharness": "node tools/gameharness.mjs",
     "battery": "node tools/battery.mjs",
     "dashboard": "node tools/briefing.mjs && node tools/architecture.mjs && node tools/dashboard.mjs",
+    "refresh": "node tools/refresh.mjs",
     "cc": "npm run dashboard && node tools/open-cc.mjs",
     "status:size": "node tools/status-size.mjs",
     "captures:pull": "node tools/pull-captures.mjs",
