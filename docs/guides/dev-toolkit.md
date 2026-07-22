@@ -35,13 +35,18 @@ npm run battery -- --visual --qa                  # opt-in: black-frame battery 
 
 ```bash
 npm test                 # prepare:party-do + Vitest projects (unit + party-do)
-npm run test:party-do    # Workers pool only — CartRaveServer WebSocket smoke (A5b)
+npm run test:party-do    # Workers pool only — CartRaveServer WebSocket smoke (A5b/A6a)
 ```
 
 `vitest.config.js` defines two projects: **unit** (Node / happy-dom under `tests/`, excluding
 `tests/party-do/`) and **party-do** (`vitest.party.config.js` + `@cloudflare/vitest-pool-workers`).
 `prepare:party-do` ensures a minimal `dist/index.html` so wrangler ASSETS boots; party WS routes
 never fetch ASSETS.
+
+**Reap overrides (test-only):** `setReapOverrides({ timeoutMs, throttleMs })` in
+[`party/constants.ts`](../../party/constants.ts) shortens the silent-connection reaper for
+party-do tests (production stays 20s / 5s). Pass `null` to clear. Do not call from production
+paths. Covered in `tests/party-do/cartRaveServer.test.js` (silent-drop + ghost 4010).
 
 `tools/battery.mjs` runs every headless rig **sequentially against one shared dev stack**
 (they share the quickplay room — never parallelize them), aggregates the exit codes, prints
@@ -61,7 +66,8 @@ remaining steps are skipped with one clear message instead of timing out one by 
 Zombie cleanup: `Get-Process workerd | Stop-Process -Force`.
 
 Default steps: `gameharness` (roundflow, unlockFunnel, arenas, soak) → `netharness`
-spawnlock → mpIntegration → hostMigration. Opt-in: `--visual` (blackframes), `--qa`.
+spawnlock → mpIntegration → hostMigration → hostReload → teardownRejoin. Opt-in:
+`--visual` (blackframes), `--qa`.
 
 ## Surface map
 
@@ -133,6 +139,8 @@ print or toggle their URL flags but does not absorb their APIs.
 | `spawnlock` — mid-round joiner drives off spawn | netharness | NET-2 report probe |
 | `mpIntegration` — roles, score sync, same winner, victory/defeat PA, rematch | netharness | 2-browser smoke complement |
 | `hostMigration` — clean host departure, survivor promoted, NPCs handed back | netharness | migration plan (clean-close half) |
+| `hostReload` — mid-round host tab reload; survivor host; old host rejoins as client | netharness | A6b / host-reload mid-round |
+| `teardownRejoin` — menu-return teardown before rejoin (axis re-wire) | netharness | 07-17 input freeze |
 
 Static perf snapshots (draw calls / GPU ms per arena × tier): `npm run perf:profile`
 (`tools/perf-profile.mjs`, predates the shared lib — attach with `--url`, note it defaults

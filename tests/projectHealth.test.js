@@ -326,7 +326,7 @@ describe("deriveNextAction", () => {
       issues: { nextActions: ["Retest the card."], playtestQueue: [] },
     };
     const now = deriveNextAction(h);
-    expect(now.tag).toBe("DO THIS NOW");
+    expect(now.tag).toBe("ACTIVE CARD");
     expect(now.text).toBe("Retest the card");
   });
 });

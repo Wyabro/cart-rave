@@ -65,7 +65,7 @@ Eligibility checklist (STATUS `### Done when` is the live copy):
 
 1. `npm run qa` green on the release HEAD.
 2. Production `npm run build` green.
-3. **Complete** battery (all five core steps) on the **exact** release HEAD, provenance present.
+3. **Complete** battery (all six core steps) on the **exact** release HEAD, provenance present.
 4. STATUS RC `### Done when` items checked.
 5. Deploy evidence for behavior-changing ships (served bundle + sha).
 6. Use `npm run release:check` as the aggregated gate (battery stays out of ordinary PR CI).

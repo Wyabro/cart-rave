@@ -11,12 +11,13 @@ import { analyzeStatus, BUDGET_TOKENS } from "../tools/status-size.mjs";
 import { readFileSync } from "node:fs";
 
 describe("batteryPlan", () => {
-  it("requires the five core steps", () => {
+  it("requires the six core steps", () => {
     expect(REQUIRED_CORE_STEPS).toEqual([
       "gameharness",
       "spawnlock",
       "mpIntegration",
       "hostMigration",
+      "hostReload",
       "teardownRejoin",
     ]);
   });
@@ -25,7 +26,7 @@ describe("batteryPlan", () => {
     const steps = selectBatterySteps({ only: ["mpIntegration"] });
     expect(steps.map((s) => s.name)).toEqual(["mpIntegration"]);
     expect(isCompleteCoreSelection(steps.map((s) => s.name))).toBe(false);
-    expect(omittedCoreSteps(steps.map((s) => s.name))).toHaveLength(4);
+    expect(omittedCoreSteps(steps.map((s) => s.name))).toHaveLength(5);
   });
 
   it("classifies legacy reports without provenance as unknown (never green)", () => {
@@ -37,7 +38,7 @@ describe("batteryPlan", () => {
     expect(c.complete).toBe(true);
     expect(c.hasProvenance).toBe(false);
     expect(c.class).toBe("unknown");
-    expect(c.scopeLabel).toBe("5/5");
+    expect(c.scopeLabel).toBe("6/6");
   });
 
   it("classifies a targeted 1-step run as partial", () => {
@@ -52,7 +53,7 @@ describe("batteryPlan", () => {
     };
     const c = classifyBatteryEvidence(report, { headFull: "abc" });
     expect(c.class).toBe("partial");
-    expect(c.scopeLabel).toBe("1/5");
+    expect(c.scopeLabel).toBe("1/6");
   });
 
   it("classifies complete exact-HEAD all-green as green", () => {

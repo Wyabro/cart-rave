@@ -30,9 +30,10 @@ fresh web chats), paste this verbatim to start a session:
 
 ```text
 You are working on Cart Clash (repo cart-rave, branch cart-clash). Read docs/BRIEFING.md,
-then AGENTS.md, then the top of docs/STATUS.md, and follow them. One card / one lever at a
-time. Gates: npm run qa — report results by number. Ship only on Wyatt's explicit "ship it";
-never git add -A. Never claim "done" without pulling cart-clash and verifying HEAD.
+then AGENTS.md, then the top of docs/STATUS.md, and follow them. Plan → Wyatt ack → apply
+before any edit (ACTIVE CARD names the card, not permission to code). One card / one lever
+at a time. Gates: npm run qa — report results by number. Ship only on Wyatt's explicit
+"ship it"; never git add -A. Never claim "done" without pulling cart-clash and verifying HEAD.
 ```
 
 **History lives in [docs/archive/](docs/archive/README.md), not in STATUS.md.** STATUS.md
@@ -171,7 +172,8 @@ toward Version 2.
 - **PowerShell environment:** `Select-String`, not `grep`; single-line commit messages
   (`-m "…"`). `room.getConnections()` returns an **iterator** — use spread or `for…of`,
   never `.map().join()`.
-- **Diff before apply.** Prefer targeted, isolated diffs; wait for ack, then apply.
+- **Diff before apply.** Same as HOW WORK step 0: plan → Wyatt ack → apply. No exception
+  for "the card was obvious" or "BRIEFING said ACTIVE CARD."
 - **Update `docs/STATUS.md`** after meaningful steps (focus / next / gotchas / decisions).
 - **Visual bugs:** use ablation + shoot/blackframes before large postFX rewrites
   ([docs/guides/visual-qa.md](docs/guides/visual-qa.md)).
@@ -183,6 +185,10 @@ toward Version 2.
 The same loop in every tool — Cursor, Antigravity, Grok, Claude, terminal. This exists
 because a full day was once lost grinding one task; the loop caps that at ~45 minutes.
 
+- **0. Plan → ack → apply.** Before any multi-file or behavior-changing edit: write a short
+  plan (goal · files · asserts · risks), wait for Wyatt's **explicit ack**, then apply.
+  BRIEFING's **ACTIVE CARD** names the card — it is **not** permission to code. Reading the
+  card and starting to edit is a process bug.
 - **One card / one lever at a time.** Exactly one active item, one change, one retest.
   New ideas go to [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing
   priorities.

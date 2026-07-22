@@ -80,6 +80,9 @@ export function renderBriefingBody(statusMd) {
     ``,
     `${now.text}${now.expect ? `\nPass looks like: ${now.expect}` : ""}`,
   ];
+  if (now.kind === "queue" || now.kind === "plan") {
+    lines.push(``, `Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.`);
+  }
   if (active.length === 0 && agentActionable.length > 0) {
     lines.push(``, `Self-directed queue (one at a time, within the declared phase):`, ...agentActionable.map(row));
   }
@@ -120,7 +123,7 @@ export function renderBriefingMd(statusMd, git = {}) {
     ``,
     `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`,
     ``,
-    `**Before you touch code:** read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — the generated codebase map (every file's owning system, dependency edges, and a \`do_not_break\` block). The active item below tells you *what* to do; the manifest tells you *what not to break* where.`,
+    `**Before you touch code:** (1) Plan → Wyatt ack → apply — BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) Read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — owning system, edges, \`do_not_break\`.`,
     ``,
     body,
     ``,

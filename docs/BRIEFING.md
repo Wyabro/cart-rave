@@ -1,12 +1,12 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `009277c` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `52c32c76`
+> Generated 2026-07-22 at commit `67e6bea` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `676d9d18`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
-**Before you touch code:** read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — the generated codebase map (every file's owning system, dependency edges, and a `do_not_break` block). The active item below tells you *what* to do; the manifest tells you *what not to break* where.
+**Before you touch code:** (1) Plan → Wyatt ack → apply — BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) Read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — owning system, edges, `do_not_break`.
 
 ## Phase (declared — Wyatt moves the marker)
 
@@ -14,14 +14,14 @@
 
 ## Mission
 
-Playtesting and stabilization — SRV-TEST-1 / A5 done (unpushed): A5a pure helpers + A5b DO harness (`tests/party-do/`, Workers Vitest pool); Vitest 707→739 (+32, +4.5%). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22). COUNTDOWN-QUICKPLAY-1 in BACKLOG.
+Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). A6a done (unpushed): `setReapOverrides` + party-do silent-reap + ghost-exorcism (4010). A6b done (unpushed): netharness `hostReload` (promote + rejoin-as-client + menu-not-stuck). A5 pushed (`67e6bea`). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22).
 
-## NO ACTIVE CARD
+## ACTIVE CARD
 
-Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md
+A6 NET-SIM-1 — Reconnect / socket-lifecycle sims
+Pass looks like: ▶ A6a+A6b done (party-do silent-reap/ghost 4010 + netharness `hostReload`); waiting Wyatt ack to close A6
 
-Self-directed queue (one at a time, within the declared phase):
-- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
+Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
@@ -32,6 +32,7 @@ Self-directed queue (one at a time, within the declared phase):
 
 ## Do not
 
+- Plan → Wyatt ack → apply. BRIEFING's active-card heading names the card — it is not a green light to edit. No multi-file or behavior-changing work without an explicit ack, even when the card looks obvious.
 - Ship only on Wyatt's explicit "ship it" — and never `git add -A` (concurrent agent sessions).
 - One card / one lever at a time; new ideas go to BACKLOG, not into scope.
 - Do not advance the ▶ phase marker — Wyatt only; agents report eligibility.

@@ -142,6 +142,14 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
   ```bash
   npm run netharness -- --url http://127.0.0.1:3000/ --scenario hostMigration
   ```
+- **hostReload** (2-client, in `netharness`) — mid-round **host tab reload** (A6b): same
+  bring-up as hostMigration, then `page.reload()` on the host (not context close). Asserts
+  the survivor is promoted and playable, the reloaded tab auto-rejoins as a **non-host**
+  (sole-host invariant), `menuVisible === false` / `axisWired === true` (07-17 menu-over-
+  game race), the rejoined client drives, and zero sim errors on both clients.
+  ```bash
+  npm run netharness -- --url http://127.0.0.1:3000/ --scenario hostReload
+  ```
 - **mpIntegration** (2-client, in `netharness`) — the netcode↔gameplay seam: host starts a
   match, a second client joins mid-round, and the rig asserts INVARIANTS (not exact timing):
   both stay connected with correct host/non-host roles, the joiner controls its own cart (local

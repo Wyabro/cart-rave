@@ -12,6 +12,7 @@
  *   node tools/netharness.mjs --headed        # visible browser (debug / if headless WebRTC flaky)
  *   node tools/netharness.mjs --url http://127.0.0.1:3000/   # reuse already-running dev stack
  *   node tools/netharness.mjs --scenario spawnlock           # (default) mid-round joiner drives
+ *   node tools/netharness.mjs --scenario hostReload          # mid-round host tab reload (A6b)
  *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)
  *
  * Requires: Playwright Chromium (`npx playwright install chromium`).
@@ -826,6 +827,194 @@ async function scenarioHostMigration(browserHost, browserJoiner, baseUrl) {
 }
 
 /**
+ * Scenario: mid-round HOST tab reload (A6b / NET-SIM-1).
+ *
+ * Distinct from hostMigration (`context.close` — host never returns). Here the host
+ * `page.reload()`s while a joiner is seated: WebSocket close promotes the survivor, then
+ * the same tab auto-rejoins `?room=quickplay` with the same `cartRaveClientId`. Asserts:
+ * survivor is sole host, reloaded client seats as non-host, menu is not stuck over the
+ * game (07-17 #12 play-entry race), both can drive, zero sim errors.
+ */
+async function scenarioHostReload(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] hostReload — host tab reloads mid-round; survivor promotes; old host rejoins as client");
+  const mark = results.length;
+  const readNet = () => window.__ccDiag.snapshot("net");
+
+  // 1. Host + mid-round joiner (same bring-up as hostMigration).
+  const host = await makeClient(browserHost, { username: "ReloadHost", baseUrl, label: "host", diag: true });
+  await waitForState(host.page, (s) => s.phase === "running" && s.localSlotIndex >= 0, {
+    timeout: 40_000,
+    label: "host-running",
+  });
+  const joiner = await makeClient(browserJoiner, { username: "ReloadJoin", baseUrl, label: "joiner", diag: true });
+  const seated = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0 && s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 40_000, label: "joiner-seated" },
+  );
+  check("joiner starts as a non-host client", seated.isHost === false, `isHost=${seated.isHost}`);
+  const snap0 = seated.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap0 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop" });
+
+  // 2. Reload the HOST tab (keeps context/localStorage/clientId; URL still has ?room=quickplay).
+  console.log("[scenario] reloading host tab…");
+  await host.page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+
+  // 3. Promotion: survivor becomes host while the reloaded tab is still booting.
+  const promoted = await waitForState(joiner.page, (s) => s.isHost === true, {
+    timeout: 30_000,
+    label: "joiner-promoted",
+  }).catch(() => null);
+  check("survivor is promoted to host after host reload", promoted?.isHost === true, `isHost=${promoted?.isHost}`);
+  if (!promoted) {
+    await dumpFailureBundle(joiner.page, { scenario: "hostReload", label: "joiner", log: nlog });
+    await host.context.close().catch(() => {});
+    await joiner.context.close();
+    return;
+  }
+
+  const phaseOk = ["running", "countdown", "lobby"].includes(promoted.phase);
+  check("room lands in a sane phase after host reload", phaseOk, `phase=${promoted.phase}`);
+
+  const running = await waitForState(joiner.page, (s) => s.phase === "running", {
+    timeout: 40_000,
+    label: "post-reload-running",
+  }).catch(() => null);
+  check("a round runs under the promoted host", Boolean(running), `phase=${running?.phase}`);
+
+  const withNpcs = await waitForState(joiner.page, (s) => s.carts.some((c) => c.kind === "npc"), {
+    timeout: 20_000,
+    label: "post-reload-npcs",
+  }).catch(() => null);
+  check(
+    "NPC carts live under the promoted host",
+    Boolean(withNpcs),
+    withNpcs
+      ? `slots=[${withNpcs.carts.map((c) => `${c.slot}:${c.kind}`).join(",")}]`
+      : "no NPC-kind cart appeared within 20s of reload migration",
+  );
+
+  // 4. Promoted host drives (plain hold — host pendingInputs stays 0 by design).
+  if (running) {
+    const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    await holdKey(joiner.page, "KeyW");
+    let maxDisp = 0;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 3500) {
+      // eslint-disable-next-line no-await-in-loop
+      const now = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+      if (now && before) maxDisp = Math.max(maxDisp, Math.hypot(now.x - before.x, now.z - before.z));
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(100);
+    }
+    await releaseKey(joiner.page, "KeyW");
+    check("promoted host drives its own cart", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
+  }
+
+  // 5. Reloaded tab finishes boot and auto-rejoins as a non-host client (same clientId).
+  await host.page
+    .waitForFunction(
+      () => window.__ccTest?.ready === true && window.__ccDiag?.active === true,
+      { timeout: 60_000 },
+    )
+    .catch(() => null);
+  const reseated = await waitForState(
+    host.page,
+    (s) =>
+      s.phase === "running" &&
+      s.isHost === false &&
+      s.localSlotIndex >= 0 &&
+      s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 60_000, label: "reloaded-host-reseated" },
+  ).catch(() => null);
+  check(
+    "reloaded host rejoins as a non-host client",
+    Boolean(reseated) && reseated.isHost === false,
+    reseated ? `isHost=${reseated.isHost} slot=${reseated.localSlotIndex}` : "never reseated",
+  );
+
+  if (reseated) {
+    const sole = await waitForState(
+      joiner.page,
+      (s) => s.isHost === true && s.hostId === s.youConnId && s.hostId === reseated.hostId,
+      { timeout: 10_000, label: "sole-host" },
+    ).catch(() => null);
+    check(
+      "survivor remains the sole host after rejoin",
+      Boolean(sole),
+      sole
+        ? `hostId=${sole.hostId}`
+        : `joiner.isHost / hostId mismatch (reloaded hostId=${reseated.hostId})`,
+    );
+
+    // * 07-17 #12: play-entry vs returnToMenu race left menuVisible true over a live round.
+    await waitForColdLoadDone(host.page, { label: "reloaded-host-loop" }).catch(() => {});
+    const netOk = await pollDiag(
+      host.page,
+      readNet,
+      (n) => n && n.menuVisible === false && n.axisWired === true,
+      { timeout: 15_000, label: "reloaded-menu-hidden" },
+    ).catch(() => host.page.evaluate(readNet));
+    check(
+      "reloaded host has menu hidden for game (not stuck over game)",
+      netOk?.menuVisible === false,
+      `menuVisible=${netOk?.menuVisible}`,
+    );
+    check("reloaded host input axis is wired", netOk?.axisWired === true, `axisWired=${netOk?.axisWired}`);
+
+    const snap1 = reseated.latestSnapSeq ?? 0;
+    await waitForState(host.page, (s) => (s.latestSnapSeq ?? 0) > snap1 + 3, {
+      timeout: 15_000,
+      label: "reloaded-receiving-snapshots",
+    }).catch(() => null);
+
+    // 6. Reloaded client drives as non-host (sampled input path).
+    await sleep(1000);
+    const beforeR = await host.page.evaluate(() => window.__ccTest.getSelfCart());
+    const sampled = await holdForwardSampled(host.page, { label: "hostReload-rejoined-input" });
+    let maxDispR = 0;
+    const t1 = Date.now();
+    while (Date.now() - t1 < 3500) {
+      // eslint-disable-next-line no-await-in-loop
+      const now = await host.page.evaluate(() => window.__ccTest.getSelfCart());
+      if (now && beforeR) maxDispR = Math.max(maxDispR, Math.hypot(now.x - beforeR.x, now.z - beforeR.z));
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(100);
+    }
+    await releaseKey(host.page, "KeyW");
+    if (!sampled && maxDispR < 0.5) {
+      inconclusive(
+        "reloaded host drives as non-host after rejoin",
+        `peak ${maxDispR.toFixed(2)}m (input never sampled — starved environment)`,
+      );
+    } else {
+      check("reloaded host drives as non-host after rejoin", maxDispR > 0.5, `peak ${maxDispR.toFixed(2)}m`);
+    }
+  }
+
+  // 7. No sim errors on either client across reload + rejoin.
+  const errsJ = await joiner.page.evaluate(
+    () => window.__ccDiag.events().filter((e) => e.ch === "error").length,
+  );
+  const errsH = await host.page
+    .evaluate(() => window.__ccDiag?.events?.().filter((e) => e.ch === "error").length ?? 0)
+    .catch(() => 0);
+  check("no sim errors on survivor", errsJ === 0, `errors=${errsJ}`);
+  check("no sim errors on reloaded host", errsH === 0, `errors=${errsH}`);
+
+  if (results.slice(mark).some((r) => !r.pass && !r.inconclusive)) {
+    await dumpFailureBundle(joiner.page, { scenario: "hostReload", label: "joiner", log: nlog });
+    await dumpFailureBundle(host.page, { scenario: "hostReload", label: "host", log: nlog }).catch(() => {});
+  }
+  await host.context.close().catch(() => {});
+  await joiner.context.close();
+}
+
+/**
  * Scenario: menu teardown BEFORE a mid-round join — the door every other scenario skipped.
  *
  * The 07-17 non-host input freeze (dabdb6b): `returnToMenu` → `clearNetcodeRuntimeRefs` nulls
@@ -1006,6 +1195,7 @@ async function main() {
     spawnlock: scenarioSpawnLock,
     mpIntegration: scenarioMpIntegration,
     hostMigration: scenarioHostMigration,
+    hostReload: scenarioHostReload,
     teardownRejoin: scenarioTeardownRejoin,
   };
   const run = SCENARIOS[scenario];

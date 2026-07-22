@@ -363,14 +363,14 @@ export function deriveNextAction(h) {
   }
   const active = (h.issues?.playtestQueue ?? h.declared?.queue ?? []).find((q) => q.state === "active");
   if (active) {
-    return { tag: "DO THIS NOW", kind: "queue", text: `${active.id} — ${active.what}`, expect: active.status || null };
+    return { tag: "ACTIVE CARD", kind: "queue", text: `${active.id} — ${active.what}`, expect: active.status || null };
   }
   const next = h.issues?.nextActions?.[0] ?? h.declared?.nextActions?.[0];
   if (next) {
     const split = stripLinks(next).split(/\s*Expect:\s*/);
     // * Soft "wait / ask Wyatt" lines are not a fake active card.
     if (!/^\s*(wait|ask|nothing|optional)/i.test(split[0])) {
-      return { tag: "DO THIS NOW", kind: "plan", text: split[0].replace(/[;.\s]+$/, ""), expect: split[1] ?? null };
+      return { tag: "ACTIVE CARD", kind: "plan", text: split[0].replace(/[;.\s]+$/, ""), expect: split[1] ?? null };
     }
   }
   return { tag: "NO ACTIVE CARD", kind: "none", text: "Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md", expect: null };

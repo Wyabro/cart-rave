@@ -1,7 +1,7 @@
 /**
  * batteryPlan.mjs — canonical battery suite identity + completeness helpers.
  *
- * The five core steps are the required regression suite. Opt-in steps (visual, qa)
+ * The six core steps are the required regression suite. Opt-in steps (visual, qa)
  * never count toward "complete." Targeted runs (--only/--skip) remain valid history
  * but are classified partial and cannot be green readiness evidence.
  */
@@ -46,6 +46,13 @@ export const BATTERY_STEPS = [
     urlArg: true,
     core: true,
     note: "2-client: clean host departure",
+  },
+  {
+    name: "hostReload",
+    cmd: ["node", "tools/netharness.mjs", "--scenario", "hostReload"],
+    urlArg: true,
+    core: true,
+    note: "2-client: mid-round host tab reload (A6b)",
   },
   {
     name: "teardownRejoin",
@@ -136,7 +143,7 @@ export function classifyBatteryEvidence(report, ctx = {}) {
       hasProvenance: false,
       coreSelected: 0,
       coreTotal: REQUIRED_CORE_STEPS.length,
-      scopeLabel: "0/5",
+      scopeLabel: `0/${REQUIRED_CORE_STEPS.length}`,
       reasons: ["missing-report"],
     };
   }

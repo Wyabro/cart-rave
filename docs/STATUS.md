@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** SRV-TEST-1 / A5 done (unpushed): A5a pure helpers + A5b DO harness (`tests/party-do/`, Workers Vitest pool); Vitest 707→739 (+32, +4.5%). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22). COUNTDOWN-QUICKPLAY-1 in BACKLOG.
+**Playtesting and stabilization.** ▶ **A6 / NET-SIM-1** (reconnect / socket-lifecycle sims). A6a done (unpushed): `setReapOverrides` + party-do silent-reap + ghost-exorcism (4010). A6b done (unpushed): netharness `hostReload` (promote + rejoin-as-client + menu-not-stuck). A5 pushed (`67e6bea`). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -79,6 +79,7 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 
 Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command Center firewall.
 
+- **Plan → Wyatt ack → apply.** BRIEFING's active-card heading names the card — it is **not** a green light to edit. No multi-file or behavior-changing work without an explicit ack, even when the card looks obvious.
 - Ship only on Wyatt's explicit "ship it" — and never `git add -A` (concurrent agent sessions).
 - One card / one lever at a time; new ideas go to [BACKLOG](./planning/BACKLOG.md), not into scope.
 - Do not advance the ▶ phase marker — Wyatt only; agents report eligibility.
@@ -110,11 +111,11 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | **A4** ARENA-COL-1 | Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent) |
 | **A5** SRV-TEST-1 | Direct tests for party decision cores | ✅ **done** (A5a helpers + A5b DO harness; 739 tests) |
+| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ▶ **A6a+A6b done** (party-do silent-reap/ghost 4010 + netharness `hostReload`); waiting Wyatt ack to close A6 |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
-No ▶ active card unless Wyatt names one — next Tier A self-directed: **A6** (reconnect sims) or **A7**. Historical
-Run 7 evidence (closed):
+Historical Run 7 evidence (closed):
 
 | # | What | Status |
 |---|------|--------|
@@ -248,6 +249,18 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 
 ## Last updated
+
+2026-07-22 (process — plan→ack→apply firewall) — Cold-start docs made the A6b skip
+impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit
+"not permission to edit"; STATUS Do-not #1; AGENTS HOW WORK step 0; paste-able opener.
+Lesson: buried STANDING bullets lose to a loud "do this now" heading.
+
+2026-07-22 (A6b — netharness `hostReload`) — Mid-round host tab reload scenario:
+survivor promotes, reloaded tab rejoins as non-host (sole-host), menu not stuck over game
+(`menuVisible`/`axisWired`), both drive, zero sim errors. **13/13 live.** Wired into battery
+core (now 6/6). Blocker fixed en route: COUNTDOWN-ABORT-1 seated quickplay `isReady:true`
+but `colorPick` never called `#checkAllReady()` → forever lobby (client auto-ready no-ops);
+party-do covers continuous-mode `game_start`. A6a+A6b unpushed; A6 waiting Wyatt ack to close.
 
 2026-07-21 (ARCH — living architecture intelligence layer) — Extends the Command Center with a
 generated codebase map, both machine- and human-facing. New `npm run arch` (in `qa` + dashboard

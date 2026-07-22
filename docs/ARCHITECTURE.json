@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T07:51:47.749Z",
-    "commit": "009277c"
+    "at": "2026-07-22T08:34:41.556Z",
+    "commit": "67e6bea"
   },
-  "source_digest": "c2268504",
+  "source_digest": "ede302da",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — SRV-TEST-1 / A5 done (unpushed): A5a pure helpers + A5b DO harness (`tests/party-do/`, Workers Vitest pool); Vitest 707→739 (+32, +4.5%). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22). COUNTDOWN-QUICKPLAY-1 in BACKLOG.",
+    "mission": "Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). A6a done (unpushed): `setReapOverrides` + party-do silent-reap + ghost-exorcism (4010). A6b done (unpushed): netharness `hostReload` (promote + rejoin-as-client + menu-not-stuck). A5 pushed (`67e6bea`). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -889,6 +889,12 @@
         "state": "done"
       },
       {
+        "id": "A6 NET-SIM-1",
+        "what": "Reconnect / socket-lifecycle sims",
+        "status": "▶ A6a+A6b done (party-do silent-reap/ghost 4010 + netharness `hostReload`); waiting Wyatt ack to close A6",
+        "state": "active"
+      },
+      {
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
@@ -977,7 +983,7 @@
           {
             "pri": "Medium",
             "item": "Host-reload mid-round live confirm",
-            "notes": "Reload HOST tab mid-round once in a live smoke.",
+            "notes": "Automated half: netharness `hostReload` (A6b). Optional: one live HOST-tab reload smoke for feel.",
             "ship1": null
           },
           {
@@ -1025,7 +1031,7 @@
           {
             "pri": "Medium",
             "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
-            "notes": "Mid-round host reload; drop-without-close; P2P zombie recovery; reconnect-cooldown lifecycle.",
+            "notes": "**A6a done (unpushed):** party-do silent-reap + ghost 4010. **A6b done (unpushed):** netharness `hostReload`. P2P zombie + reconnect cooldown already unit-covered.",
             "ship1": "A6"
           },
           {
@@ -1389,12 +1395,12 @@
           {
             "col0": "A5",
             "item": "Server test coverage (biggest gap)",
-            "notes": "**Done 07-22** (unpushed): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739."
+            "notes": "**Done 07-22** (pushed `67e6bea`): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739."
           },
           {
             "col0": "A6",
             "item": "Reconnection / socket-lifecycle sims",
-            "notes": "Extend `netharness` scenarios: mid-round host reload, socket drop without close (the reaper's reason to exist), P2P zombie-peer recovery, `peerReconnectNotBeforeMs` cooldown lifecycle."
+            "notes": "**A6a done (unpushed):** party-do silent-reap (`setReapOverrides`) + same-`clientId` ghost 4010. **A6b done (unpushed):** netharness `hostReload` (mid-round host tab reload → promote + rejoin as non-host + menu-not-stuck). P2P zombie + reconnect cooldown already unit-covered in `p2p-signaling.test.js`."
           },
           {
             "col0": "A7",
@@ -1526,6 +1532,7 @@
       "npm run dashboard — observed evidence (git HEAD, gates, captures) when you can run npm."
     ],
     "execution_loop": [
+      "0. Plan → ack → apply. Before any multi-file or behavior-changing edit: write a short",
       "One card / one lever at a time. Exactly one active item, one change, one retest.",
       "Timebox: ~45 minutes or 3 failed attempts on one approach — whichever hits first, STOP.",
       "Escalation ladder, in order: (1) the timeboxed attempts → (2) the findings write-up →",
@@ -1561,6 +1568,7 @@
       "Do not port open-world WebGPU engines into this game. Visual QA *process* tools are fine;"
     ],
     "do_nots": [
+      "Plan → Wyatt ack → apply. BRIEFING's active-card heading names the card — it is not a green light to edit. No multi-file or behavior-changing work without an explicit ack, even when the card looks obvious.",
       "Ship only on Wyatt's explicit \"ship it\" — and never `git add -A` (concurrent agent sessions).",
       "One card / one lever at a time; new ideas go to BACKLOG, not into scope.",
       "Do not advance the ▶ phase marker — Wyatt only; agents report eligibility.",

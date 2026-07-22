@@ -47,10 +47,12 @@ holds forward and asserts the joiner's cart leaves spawn.
 Opt-in scenarios (`--scenario <name>`): **`mpIntegration`** — the netcode↔gameplay seam
 (roles, joiner drive, score sync, same winner both clients, victory/defeat PA, quickplay
 rematch, zero sim errors); **`hostMigration`** — clean host departure (survivor promoted,
-NPCs handed off, new host drives, zero sim errors). See
-[diagnostics.md](./diagnostics.md) for what each asserts. Both rigs also preflight the dev
-stack over HTTP first, so a wedged `workerd` (port open, never answers) exits 2 with the fix
-in the message instead of a bogus scenario failure.
+NPCs handed off, new host drives, zero sim errors); **`hostReload`** — mid-round host tab
+reload (survivor promoted, reloaded tab rejoins as non-host, menu not stuck over game);
+**`teardownRejoin`** — menu-return teardown before rejoin. See
+[diagnostics.md](./diagnostics.md) for what each asserts. Both rigs also preflight the
+dev stack over HTTP first, so a wedged `workerd` (port open, never answers) exits 2 with
+the fix in the message instead of a bogus scenario failure.
 
 ## How it works (and why each piece is needed)
 
@@ -104,6 +106,14 @@ symptoms: slow load, frozen cart, "freezes a lot."
 > on real hardware; that still wants a human two-browser check.
 
 Follow-up (the real fix, not yet built) is tracked in STATUS under the join-stall item.
+
+## Server-side lifecycle (party-do, not this Playwright rig)
+
+Silent-drop reaper + same-`clientId` ghost exorcism live in the Workers DO harness
+(`npm run test:party-do`, `tests/party-do/cartRaveServer.test.js`). Shorten reap knobs in
+tests via `setReapOverrides` in `party/constants.ts` (test-only; see
+[control-flow.md](../reference/control-flow.md) § wire protocol). CDP “Offline” silent-drop
+in this Playwright rig stays deferred (~20s wall clock).
 
 ## Extending the rig
 

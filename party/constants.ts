@@ -23,3 +23,32 @@ export const REAP_THROTTLE_MS = 5_000;
 
 /** Pending color-pickers that never seat are closed after this. */
 export const PICKER_TIMEOUT_MS = 30_000;
+
+// ── Test-only reap overrides ──────────────────────────────────────────────
+// Used by tests/party-do to exercise silent-drop without waiting 20s.
+// Production never calls setReapOverrides. Pass null to clear.
+let reapTimeoutOverrideMs: number | null = null;
+let reapThrottleOverrideMs: number | null = null;
+
+/** Test-only. Shorten silence / throttle thresholds. Pass null to clear both. */
+export function setReapOverrides(
+  opts: { timeoutMs?: number; throttleMs?: number } | null,
+): void {
+  if (opts == null) {
+    reapTimeoutOverrideMs = null;
+    reapThrottleOverrideMs = null;
+    return;
+  }
+  if (typeof opts.timeoutMs === "number") reapTimeoutOverrideMs = opts.timeoutMs;
+  if (typeof opts.throttleMs === "number") reapThrottleOverrideMs = opts.throttleMs;
+}
+
+/** Effective silence threshold (override ?? REAP_TIMEOUT_MS). */
+export function getReapTimeoutMs(): number {
+  return reapTimeoutOverrideMs ?? REAP_TIMEOUT_MS;
+}
+
+/** Effective reap throttle (override ?? REAP_THROTTLE_MS). */
+export function getReapThrottleMs(): number {
+  return reapThrottleOverrideMs ?? REAP_THROTTLE_MS;
+}

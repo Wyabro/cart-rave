@@ -34,7 +34,7 @@ import {
   pickPreferredHostId,
   shouldMigrateToPreferredHost,
 } from './hostSelection';
-import { REAP_THROTTLE_MS } from './constants';
+import { getReapThrottleMs, getReapTimeoutMs } from './constants';
 import { advanceRateLimit } from './rateLimit';
 import {
   listSilentConnectionsToReap,
@@ -690,6 +690,7 @@ export class CartRaveServer extends Server {
       this.#lastSeenAtMs,
       this.#pendingPickers,
       now,
+      getReapTimeoutMs(),
     );
 
     this.#lastReapAtMs = now;
@@ -957,7 +958,7 @@ export class CartRaveServer extends Server {
 
     const now = this.#serverNowMs();
     this.#lastSeenAtMs.set(connection.id, now);
-    if (now - this.#lastReapAtMs >= REAP_THROTTLE_MS) {
+    if (now - this.#lastReapAtMs >= getReapThrottleMs()) {
       this.#reapSilentConnections();
     }
 
@@ -1167,6 +1168,12 @@ export class CartRaveServer extends Server {
           serverNowMs: this.#serverNowMs(),
           slots: this.#slots,
         });
+        // * Continuous-mode (quickplay) seats isReady:true, so the client's
+        // * maybeAutoReadyLobby no-ops (already ready) and never sends readyToggle.
+        // * Arm countdown here or the lobby waits forever after COUNTDOWN-ABORT-1.
+        if (assignedFromPending) {
+          this.#checkAllReady();
+        }
         return;
       }
 

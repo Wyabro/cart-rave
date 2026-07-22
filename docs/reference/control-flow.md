@@ -113,6 +113,14 @@ preference):
 
 Kill-feed falls/collisions ride the **JSON tail of the host snapshot**, not a message of their own.
 
+**Reap overrides (test-only):** silent-connection reap uses `getReapTimeoutMs()` /
+`getReapThrottleMs()` from [`party/constants.ts`](../../party/constants.ts) (defaults
+`REAP_TIMEOUT_MS` 20s · `REAP_THROTTLE_MS` 5s). Party-do tests call
+`setReapOverrides({ timeoutMs, throttleMs })` so a joiner keepalive can trigger reap without
+waiting 20s; `setReapOverrides(null)` restores production defaults. Production never calls the
+setter. Both the onMessage throttle gate and `#reapSilentConnections` → `listSilentConnectionsToReap`
+5th arg read the getters (onConnect calls the same method).
+
 ### 5. Zustand stores: mutation → reaction
 
 Six stores in `src/stores/` (`gameStore`, `audioStore`, `settingsStore`, `challengeStore`,

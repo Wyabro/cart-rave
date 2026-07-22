@@ -32,7 +32,7 @@ post-launch unless Wyatt pulls them forward.
 | Low | COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case | In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22). |
 | 🟡 Partial | NET-PERF-1 — reconcile rewind-replay cost | Caps shipped; residual if retest still rubber-bands. |
 | Low | NET-PERF-3 — p2p per-message buffer copy | Only batch if F8 shows alloc pressure after NET-PERF-1. |
-| Medium | Host-reload mid-round live confirm | Reload HOST tab mid-round once in a live smoke. |
+| Medium | Host-reload mid-round live confirm | Automated half: netharness `hostReload` (A6b). Optional: one live HOST-tab reload smoke for feel. |
 | Medium | ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]` | Capture harness shipped; missing reading surface (`npm run analytics` and/or Command Center panel). |
 | Done | MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]` | PASS (07-22 Wyatt playtest): charge glow via `ch` bit 16 + remote hop land thud/dust; collision/shatter already on snapshot tail. |
 | Medium | Customize screen performance pass *(pre-ship 07-19)* | Measure before tuning. |
@@ -40,7 +40,7 @@ post-launch unless Wyatt pulls them forward.
 | Low | Countdown timer survives menu return *(pre-ship 07-19)* | Stale countdown UI on main menu. |
 | High | HOST-CAP-1 — capability-based host preference `[SHIP-1 A1]` | After host-hitch forensics: strongest machine wins host (`party/hostSelection.ts` + hostCapability); weak-host warning; residual = min-spec fact. |
 | High | SRV-TEST-1 — direct tests for `party/index.ts` `[SHIP-1 A5]` | **Done** (A5a pure helpers + A5b DO harness). Extend scenarios under A6. |
-| Medium | NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]` | Mid-round host reload; drop-without-close; P2P zombie recovery; reconnect-cooldown lifecycle. |
+| Medium | NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]` | **A6a done (unpushed):** party-do silent-reap + ghost 4010. **A6b done (unpushed):** netharness `hostReload`. P2P zombie + reconnect cooldown already unit-covered. |
 | Medium | Deeper server-authoritative logic (TRUST-1) `[SHIP-1 D1]` | Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. |
 | Medium | `structuredClone` → flat serializer in `party/index.ts` | Only after profiling shows it matters. |
 | Medium | Persistent leaderboard / player stats `[SHIP-1 D2]` | Needs TRUST-1. |

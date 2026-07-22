@@ -22,7 +22,7 @@ In order, all required:
 
 1. **Tiers A–E below drained** (or an item explicitly moved to Post-launch by Wyatt).
 2. **RC exit criteria green** — as defined in [ROADMAP.md § Release candidate](./ROADMAP.md#release-candidate--exit-criteria):
-   `npm run qa` + production build on release HEAD, complete 5/5 battery on **exact** HEAD
+   `npm run qa` + production build on release HEAD, complete 6/6 battery on **exact** HEAD
    with provenance, STATUS RC checklist checked, deploy evidence. Aggregated via
    `npm run release:check`.
 3. **External-tester pass** — strangers on the wide URL, judged with ANLX-VIEW-1 evidence
@@ -41,8 +41,8 @@ Phase advancement stays manual: agents report eligibility; only Wyatt moves the 
 | A2 | INPUT-KB-1 — keyboard parity | **Done, confirmed good 07-21.** Tuned ramp (0.07s attack / 0.05s release) feels right per Wyatt's playtest after the first pass (0.14s/0.09s) read as too controller-y. Root cause: `simulation.js` reads `axis.turn`/`axis.forward` as an analog deflection — gamepad's stick is continuous, keyboard was literal -1/0/1. Also landed: arrow-key menu nav (`gamepadNav.js`) and a UI-active driving-suppression parity fix. Tests: `gamepadNav.test.js` +5, `input.test.js` +7. No further action pending new feedback. |
 | A3 | MP-FX-1 — non-host gameplay VFX | **PASS 07-22** — opponent charge glow + hop land dust/thud on non-host (Wyatt playtest). |
 | A4 | ARENA-COL-1 — Cart Rave pit KO detection | **PASS 07-22** (Wyatt playtest) — rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) at `FALL_ENTRY_Y = -2.0` via `{ classifyPos, creditTimeMs }` into `buildKOEvent`. |
-| A5 | Server test coverage (biggest gap) | **Done 07-22** (unpushed): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739. |
-| A6 | Reconnection / socket-lifecycle sims | Extend `netharness` scenarios: mid-round host reload, socket drop without close (the reaper's reason to exist), P2P zombie-peer recovery, `peerReconnectNotBeforeMs` cooldown lifecycle. |
+| A5 | Server test coverage (biggest gap) | **Done 07-22** (pushed `67e6bea`): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739. |
+| A6 | Reconnection / socket-lifecycle sims | **A6a done (unpushed):** party-do silent-reap (`setReapOverrides`) + same-`clientId` ghost 4010. **A6b done (unpushed):** netharness `hostReload` (mid-round host tab reload → promote + rejoin as non-host + menu-not-stuck). P2P zombie + reconnect cooldown already unit-covered in `p2p-signaling.test.js`. |
 | A7 | ANLX-VIEW-1 — analytics reading surface | Needed to judge later playtests and the external-tester pass with evidence. |
 
 **Rendering coverage — handled differently, not skipped.** `scene.js`, `cartRaveGltf.js`,
