@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `67e6bea` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `676d9d18`
+> Generated 2026-07-22 at commit `2eedc04` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `d5968345`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,12 +14,12 @@
 
 ## Mission
 
-Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). A6a done (unpushed): `setReapOverrides` + party-do silent-reap + ghost-exorcism (4010). A6b done (unpushed): netharness `hostReload` (promote + rejoin-as-client + menu-not-stuck). A5 pushed (`67e6bea`). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22).
+Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). Cap-200 fixed (unpushed): A6b’s first `hostReload` pass was a false green (`menuVisible` only); boot-splash late `CartRave.show` + host-MP countdown defer + DOM harness assert. A6a done (unpushed). A5 pushed (`67e6bea`). Waiting Wyatt smoke + ack to close A6.
 
 ## ACTIVE CARD
 
 A6 NET-SIM-1 — Reconnect / socket-lifecycle sims
-Pass looks like: ▶ A6a+A6b done (party-do silent-reap/ghost 4010 + netharness `hostReload`); waiting Wyatt ack to close A6
+Pass looks like: ▶ Cap-200 fix unpushed (A6b false-green on Cap-200; boot guard + host-MP countdown defer + DOM assert; netharness hostReload 13/13). Waiting Wyatt smoke + ack to close A6
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

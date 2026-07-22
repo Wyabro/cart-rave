@@ -2835,6 +2835,8 @@ async function main() {
   let arenaRotationInFlight = false;
   /** Invalidation token for deferred non-host countdown application (see onGameStartHandler). */
   let nonHostCountdownApplyGen = 0;
+  /** Cap-200: invalidation token for deferred host-MP countdown (continuous-mode seat arm). */
+  let hostMpCountdownDeferGen = 0;
 
   /**
    * Resolves once no arena rotation is pending or in flight (bounded poll — during the
@@ -2992,17 +2994,34 @@ async function main() {
           startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
         });
       } else {
-        // * Cap-56: menu-hide (skipBootstrap) + startCountdown used to run in one
-        // * turn (~400ms LT before phase=countdown). Yield one frame so paint/hide
-        // * settle; startsAtLocalMs is absolute so digit pacing still tracks server GO.
+        // * Cap-200 / Cap-59 sibling: continuous-mode arms game_start at seat while
+        // * play-entry load is still up. Keep absolute startsAtLocalMs; defer apply
+        // * until overlay + carts/shader warm so 3-2-1 is visible (or GO if past).
+        hostMpCountdownDeferGen += 1;
+        const deferGen = hostMpCountdownDeferGen;
         const starts = startsAtLocalMs;
-        requestAnimationFrame(() => {
-          if (menuVisible) return;
+        void (async () => {
+          try {
+            await whenModeEntryHidden();
+            if (deferGen !== hostMpCountdownDeferGen) return;
+            await ensureSessionCartsReady();
+          } catch (err) {
+            console.warn("[CartClash] host MP countdown gate failed:", err);
+          }
+          if (deferGen !== hostMpCountdownDeferGen) return;
+          if (menuVisible) return; // quit during wait
           const phase = GameState.getRoundState().phase;
-          // * Already running, or a prior startCountdown this tick — don't double-arm.
           if (phase === "running" || phase === "countdown") return;
-          startCountdown(starts);
-        });
+          if (getRoundClockNowMs() >= starts) {
+            // * Cap-200: past-start — startRunningAt(starts) anchors host clock at absolute
+            // * starts (peer of non-host syncRoundPhase("running")+setRoundStartedAtMs).
+            // * Do not call startCountdown(starts) here.
+            startRunningAt(starts);
+            HUD.triggerGoBeat({ resetGate: true });
+          } else {
+            startCountdown(starts);
+          }
+        })();
       }
     } else if (GameState.getRoundState().phase !== "running") {
       // * Menu re-entry at a rematch can land game_start while the room's arena rotation
@@ -4451,6 +4470,8 @@ async function main() {
     // * cancel between game_start and the gate settling must not resurrect a dead countdown.
     nonHostCountdownApplyGen += 1;
     nonHostCountdownApplyPending = false;
+    // * Cap-200: same for deferred host-MP countdown apply.
+    hostMpCountdownDeferGen += 1;
     clearRoundCountdownTimeout();
     if (GameState.getRoundState().phase === "countdown") {
       syncRoundPhase("lobby");
@@ -5387,6 +5408,13 @@ async function main() {
         return {
           arenaRotationInFlight,
           menuVisible,
+          // * Cap-200: DOM truth next to the flag — late CartRave.show() after hide left
+          // * menuVisible false while #cr-root was visible (harness false green).
+          crRootDisplay: (() => {
+            const el = document.getElementById("cr-root");
+            if (!el) return null;
+            return el.style.display || getComputedStyle(el).display;
+          })(),
           localShatterState: Boolean(localCart?._shatterState),
           localBodyEnabled: localCart?.body ? localCart.body.isEnabled() : null,
           // * The two client-freeze gates the 07-17 captures could NOT see: an unwired

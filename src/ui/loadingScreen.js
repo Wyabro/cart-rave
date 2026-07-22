@@ -291,6 +291,18 @@ function revealAppShell() {
   if (canvas) canvas.style.opacity = "1";
 }
 
+/**
+ * Cap-200: whether the deferred boot-splash finish may call CartRave.show().
+ * Returns false when play already hid #cr-root (or root is missing) so a late
+ * show() cannot resurrect the DOM while menuVisible stays false.
+ * @param {HTMLElement | null} [root]
+ * @returns {boolean}
+ */
+export function shouldBootRevealMenu(root = document.getElementById("cr-root")) {
+  if (!root) return false;
+  return getComputedStyle(root).display !== "none";
+}
+
 export function dismissInitialBootSplash() {
   if (bootDismissed) return;
   bootDismissed = true;
@@ -333,7 +345,9 @@ export function dismissInitialBootSplash() {
       }
       setTimeout(() => {
         revealAppShell();
-        window.CartRave?.show?.();
+        // * Cap-200: commitMenuHiddenForGame may have already CartRave.hide()'d;
+        // * unconditional show() resurrects DOM while menuVisible stays false (false green).
+        if (shouldBootRevealMenu()) window.CartRave?.show?.();
         if (splash) splash.remove();
         storageSet(STORAGE_KEYS.bootSeen, "1");
         // * Best-effort music start as the menu appears — succeeds where the

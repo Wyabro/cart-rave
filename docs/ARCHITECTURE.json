@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T08:34:41.556Z",
-    "commit": "67e6bea"
+    "at": "2026-07-22T09:03:07.795Z",
+    "commit": "2eedc04"
   },
-  "source_digest": "ede302da",
+  "source_digest": "ada7f629",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). A6a done (unpushed): `setReapOverrides` + party-do silent-reap + ghost-exorcism (4010). A6b done (unpushed): netharness `hostReload` (promote + rejoin-as-client + menu-not-stuck). A5 pushed (`67e6bea`). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22).",
+    "mission": "Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). Cap-200 fixed (unpushed): A6b’s first `hostReload` pass was a false green (`menuVisible` only); boot-splash late `CartRave.show` + host-MP countdown defer + DOM harness assert. A6a done (unpushed). A5 pushed (`67e6bea`). Waiting Wyatt smoke + ack to close A6.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -891,7 +891,7 @@
       {
         "id": "A6 NET-SIM-1",
         "what": "Reconnect / socket-lifecycle sims",
-        "status": "▶ A6a+A6b done (party-do silent-reap/ghost 4010 + netharness `hostReload`); waiting Wyatt ack to close A6",
+        "status": "▶ Cap-200 fix unpushed (A6b false-green on Cap-200; boot guard + host-MP countdown defer + DOM assert; netharness hostReload 13/13). Waiting Wyatt smoke + ack to close A6",
         "state": "active"
       },
       {
@@ -917,7 +917,7 @@
       }
     ],
     "next_actions": [
-      "Wait for Wyatt to name the next card (Tier A leftover: A6 reconnect sims / A7 ANLX-VIEW-1), or say go.",
+      "Wyatt Cap-200 smoke (host reload / quickplay): menu stays `#cr-root display:none`; countdown 3-2-1 or honest GO when late — then ack to close A6.",
       "Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline)."
     ],
     "open_issues": [
@@ -1400,7 +1400,7 @@
           {
             "col0": "A6",
             "item": "Reconnection / socket-lifecycle sims",
-            "notes": "**A6a done (unpushed):** party-do silent-reap (`setReapOverrides`) + same-`clientId` ghost 4010. **A6b done (unpushed):** netharness `hostReload` (mid-round host tab reload → promote + rejoin as non-host + menu-not-stuck). P2P zombie + reconnect cooldown already unit-covered in `p2p-signaling.test.js`."
+            "notes": "**Cap-200 fix unpushed** — A6b first pass was false green (Cap-200: `menuVisible` only). Boot-splash `shouldBootRevealMenu` + host-MP countdown defer + harness `#cr-root display:none`. netharness hostReload 13/13 with DOM. Waiting Wyatt smoke to close A6."
           },
           {
             "col0": "A7",

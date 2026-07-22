@@ -838,7 +838,6 @@ async function scenarioHostMigration(browserHost, browserJoiner, baseUrl) {
 async function scenarioHostReload(browserHost, browserJoiner, baseUrl) {
   console.log("[scenario] hostReload — host tab reloads mid-round; survivor promotes; old host rejoins as client");
   const mark = results.length;
-  const readNet = () => window.__ccDiag.snapshot("net");
 
   // 1. Host + mid-round joiner (same bring-up as hostMigration).
   const host = await makeClient(browserHost, { username: "ReloadHost", baseUrl, label: "host", diag: true });
@@ -952,17 +951,35 @@ async function scenarioHostReload(browserHost, browserJoiner, baseUrl) {
     );
 
     // * 07-17 #12: play-entry vs returnToMenu race left menuVisible true over a live round.
+    // * Cap-200: also assert #cr-root DOM — late CartRave.show() after hide left the flag
+    // * false while the shell was visible (harness false green on menuVisible alone).
     await waitForColdLoadDone(host.page, { label: "reloaded-host-loop" }).catch(() => {});
+    const readMenuShell = () => {
+      const net = window.__ccDiag?.snapshot?.("net");
+      const el = document.getElementById("cr-root");
+      const cs = el ? getComputedStyle(el) : null;
+      const display = el?.style.display || cs?.display || null;
+      return {
+        menuVisible: net?.menuVisible,
+        axisWired: net?.axisWired,
+        crRootDisplay: net?.crRootDisplay ?? display,
+        display,
+      };
+    };
     const netOk = await pollDiag(
       host.page,
-      readNet,
-      (n) => n && n.menuVisible === false && n.axisWired === true,
+      readMenuShell,
+      (n) =>
+        n &&
+        n.menuVisible === false &&
+        n.axisWired === true &&
+        n.display === "none",
       { timeout: 15_000, label: "reloaded-menu-hidden" },
-    ).catch(() => host.page.evaluate(readNet));
+    ).catch(() => host.page.evaluate(readMenuShell));
     check(
       "reloaded host has menu hidden for game (not stuck over game)",
-      netOk?.menuVisible === false,
-      `menuVisible=${netOk?.menuVisible}`,
+      netOk?.menuVisible === false && netOk?.display === "none",
+      `menuVisible=${netOk?.menuVisible} display=${netOk?.display} crRootDisplay=${netOk?.crRootDisplay}`,
     );
     check("reloaded host input axis is wired", netOk?.axisWired === true, `axisWired=${netOk?.axisWired}`);
 

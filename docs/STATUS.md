@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** ▶ **A6 / NET-SIM-1** (reconnect / socket-lifecycle sims). A6a done (unpushed): `setReapOverrides` + party-do silent-reap + ghost-exorcism (4010). A6b done (unpushed): netharness `hostReload` (promote + rejoin-as-client + menu-not-stuck). A5 pushed (`67e6bea`). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22).
+**Playtesting and stabilization.** ▶ **A6 / NET-SIM-1** (reconnect / socket-lifecycle sims). Cap-200 fixed (unpushed): A6b’s first `hostReload` pass was a **false green** (`menuVisible` only); boot-splash late `CartRave.show` + host-MP countdown defer + DOM harness assert. A6a done (unpushed). A5 pushed (`67e6bea`). Waiting Wyatt smoke + ack to close A6.
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -111,7 +111,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | **A4** ARENA-COL-1 | Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent) |
 | **A5** SRV-TEST-1 | Direct tests for party decision cores | ✅ **done** (A5a helpers + A5b DO harness; 739 tests) |
-| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ▶ **A6a+A6b done** (party-do silent-reap/ghost 4010 + netharness `hostReload`); waiting Wyatt ack to close A6 |
+| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ▶ **Cap-200 fix unpushed** (A6b false-green on Cap-200; boot guard + host-MP countdown defer + DOM assert; netharness hostReload 13/13). Waiting Wyatt smoke + ack to close A6 |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -131,7 +131,7 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Wait for Wyatt to name the next card (Tier A leftover: **A6** reconnect sims / **A7** ANLX-VIEW-1), or say go.
+1. Wyatt Cap-200 smoke (host reload / quickplay): menu stays `#cr-root display:none`; countdown 3-2-1 or honest GO when late — then ack to close A6.
 2. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
 
 ## Open issues (top)
@@ -250,6 +250,14 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-22 (Cap-200 — A6b false green) — Cap-200 (2eedc04, reloader, 4090) showed
+`menuVisible:false` while DOM menu resurrected: boot-splash late `CartRave.show()` after
+`commitMenuHiddenForGame`. Continuous-mode `colorPick` arm also truncated host countdown to
+1/GO. Fix (unpushed): `shouldBootRevealMenu` guard; host-MP `hostMpCountdownDeferGen` defer
+(absolute `startsAtMs`; past-start → `startRunningAt`+GO); harness + `crRootDisplay` assert
+`#cr-root display===none`. Unit +qa 746; netharness hostReload **13/13** with DOM. Waiting
+Wyatt smoke before closing A6.
+
 2026-07-22 (process — plan→ack→apply firewall) — Cold-start docs made the A6b skip
 impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit
 "not permission to edit"; STATUS Do-not #1; AGENTS HOW WORK step 0; paste-able opener.
@@ -257,10 +265,9 @@ Lesson: buried STANDING bullets lose to a loud "do this now" heading.
 
 2026-07-22 (A6b — netharness `hostReload`) — Mid-round host tab reload scenario:
 survivor promotes, reloaded tab rejoins as non-host (sole-host), menu not stuck over game
-(`menuVisible`/`axisWired`), both drive, zero sim errors. **13/13 live.** Wired into battery
-core (now 6/6). Blocker fixed en route: COUNTDOWN-ABORT-1 seated quickplay `isReady:true`
-but `colorPick` never called `#checkAllReady()` → forever lobby (client auto-ready no-ops);
-party-do covers continuous-mode `game_start`. A6a+A6b unpushed; A6 waiting Wyatt ack to close.
+(`menuVisible`/`axisWired`), both drive, zero sim errors. **13/13 live** — later **false
+green** on Cap-200 (flag-only assert); see Cap-200 entry above. Continuous-mode lobby arm
+kept. A6a+A6b still unpushed pending Cap-200 smoke.
 
 2026-07-21 (ARCH — living architecture intelligence layer) — Extends the Command Center with a
 generated codebase map, both machine- and human-facing. New `npm run arch` (in `qa` + dashboard

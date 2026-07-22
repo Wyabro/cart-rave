@@ -5,7 +5,34 @@ import {
   withModeEntryLoading,
   whenModeEntryHidden,
   initLoadingScreen,
+  shouldBootRevealMenu,
 } from "../src/ui/loadingScreen.js";
+
+describe("shouldBootRevealMenu", () => {
+  afterEach(() => {
+    document.getElementById("cr-root")?.remove();
+  });
+
+  it("returns false when #cr-root is missing", () => {
+    expect(shouldBootRevealMenu(null)).toBe(false);
+    expect(shouldBootRevealMenu()).toBe(false);
+  });
+
+  it("returns false when #cr-root is display:none (play already hid menu)", () => {
+    const root = document.createElement("div");
+    root.id = "cr-root";
+    root.style.display = "none";
+    document.body.appendChild(root);
+    expect(shouldBootRevealMenu(root)).toBe(false);
+  });
+
+  it("returns true when #cr-root is visible (empty display)", () => {
+    const root = document.createElement("div");
+    root.id = "cr-root";
+    document.body.appendChild(root);
+    expect(shouldBootRevealMenu(root)).toBe(true);
+  });
+});
 
 // * whenModeEntryHidden() is the gate the solo countdown holds on so it can't begin
 // * ticking behind the loading overlay ("loading ends before the round starts").
