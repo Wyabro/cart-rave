@@ -34,6 +34,18 @@ import {
   pickPreferredHostId,
   shouldMigrateToPreferredHost,
 } from './hostSelection';
+import { REAP_THROTTLE_MS } from './constants';
+import { advanceRateLimit } from './rateLimit';
+import {
+  listSilentConnectionsToReap,
+  listStalePendingPickers,
+} from './connectionReaper';
+import { planHostRearm } from './hostRearm';
+import {
+  findNpcSlotForHuman,
+  listOrphanHumanConnIds,
+  nextFreePaletteColor,
+} from './slotReconcile';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
 import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
 import {
@@ -54,19 +66,10 @@ export { CaptureLog } from './captureLog';
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 
-const PICKER_TIMEOUT_MS = 30_000;
-const RATE_LIMIT_MAX_PER_SEC = 100;
-const RATE_LIMIT_WINDOW_MS = 1_000;
 // * Host collision/fall events travel in the WebRTC binary snapshot's collisions[]/falls[]
 // * JSON tail (host-authored, client-replayed) — there is no server relay for them, so the
 // * server-side validators/whitelist that once guarded those relays have been removed.
-
-// * Activity-based connection reaper thresholds. PartyKit's onClose is not
-// * guaranteed to fire (tab crash, airplane mode, phone sleep, dead socket not
-// * yet detected by the runtime) so we track lastSeenAtMs per connection and
-// * forcibly remove any that hasn't spoken in REAP_TIMEOUT_MS.
-const REAP_TIMEOUT_MS = 20_000;
-const REAP_THROTTLE_MS = 5_000;
+// * Rate-limit / reap / picker thresholds live in ./constants (shared with pure helpers).
 
 export class CartRaveServer extends Server {
   readonly #connections = new Map<string, Connection>();
@@ -300,10 +303,17 @@ export class CartRaveServer extends Server {
   // * #connections (e.g. onClose never fired for the host due to crash/network
   // * drop). Must be called after any operation that may have removed the host
   // * from #connections, and before hostId is surfaced to clients.
+  // * Decision plan is pure (./hostRearm); side effects stay here.
   #ensureLiveHost() {
-    if (this.#hostId === null) return;
-    if (this.#connections.has(this.#hostId)) return;
-    this.#hostId = this.#pickNextHostId();
+    const plan = planHostRearm(
+      this.#hostId,
+      new Set(this.#connections.keys()),
+      this.#joinOrder,
+      this.#slots,
+      this.#round.phase,
+    );
+    if (!plan.hostWasDead) return;
+    this.#hostId = plan.nextHostId;
     this.#lastSeq = -1;
     if (this.#hostId) {
       this.#broadcastJson({
@@ -322,7 +332,7 @@ export class CartRaveServer extends Server {
     // * 2s timer arming countdown against the new host's room shape.
     this.#clearCountdownTimer();
     this.#clearRematchGrace();
-    if (this.#round.phase === "countdown") {
+    if (plan.resetCountdownToLobby) {
       this.#round = this.#freshRoundLobby();
       this.#countdownArmed = false;
       this.#broadcastRound();
@@ -357,11 +367,7 @@ export class CartRaveServer extends Server {
     if (existing) return existing;
 
     // Prefer the NPC holding the picked color so the human inherits booth position.
-    let npcSlot =
-      preferredColor
-        ? slots.find((s) => s.kind === "npc" && s.color === preferredColor)
-        : undefined;
-    if (!npcSlot) npcSlot = slots.find((s) => s.kind === "npc");
+    const npcSlot = findNpcSlotForHuman(slots, preferredColor);
     if (!npcSlot) return null;
 
     npcSlot.kind = "human";
@@ -398,13 +404,7 @@ export class CartRaveServer extends Server {
     slot.isReady = false;
     slot.name = this.#drawNpcName();
     // Reassign color to avoid collisions with other slots.
-    const usedColors = new Set(
-      slots
-        .filter((s) => s !== slot)
-        .map((s) => s.color)
-    );
-    const nextColor = PALETTE.find((c) => !usedColors.has(c)) ?? slot.color;
-    slot.color = nextColor;
+    slot.color = nextFreePaletteColor(slots, slot, PALETTE);
     slot.lookHex = null;
   }
 
@@ -448,25 +448,24 @@ export class CartRaveServer extends Server {
 
   #checkRateLimit(connId: string): boolean {
     const now = this.#serverNowMs();
-    let bucket = this.#rateLimitWindows.get(connId);
-    if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
-      bucket = { count: 0, windowStart: now };
-      this.#rateLimitWindows.set(connId, bucket);
-    }
-    bucket.count += 1;
-    if (bucket.count > RATE_LIMIT_MAX_PER_SEC) {
-      return false;
-    }
-    return true;
+    const { allowed, nextBucket } = advanceRateLimit(
+      this.#rateLimitWindows.get(connId),
+      now,
+    );
+    this.#rateLimitWindows.set(connId, nextBucket);
+    return allowed;
   }
 
   /** @returns true if at least one stale pending picker was removed. */
   #reapStalePendingPickers(): boolean {
     const now = this.#serverNowMs();
+    const staleIds = listStalePendingPickers(
+      this.#pendingPickers,
+      this.#pendingPickerAtMs,
+      now,
+    );
     let reapedAny = false;
-    for (const id of [...this.#pendingPickers]) {
-      const joinedAt = this.#pendingPickerAtMs.get(id) ?? 0;
-      if (now - joinedAt <= PICKER_TIMEOUT_MS) continue;
+    for (const id of staleIds) {
       reapedAny = true;
       this.#pendingPickers.delete(id);
       this.#pendingNames.delete(id);
@@ -672,31 +671,26 @@ export class CartRaveServer extends Server {
   #reconcileOrphanSlots(liveConnIds: Set<string>) {
     this.#ensureInitialized();
     if (!this.#slots) return false;
-    let changed = false;
-    for (const slot of this.#slots) {
-      if (slot.kind === "human" && slot.connId && !liveConnIds.has(slot.connId)) {
-        this.#convertHumanSlotToNpc(slot.connId);
-        changed = true;
-      }
+    const orphans = listOrphanHumanConnIds(this.#slots, liveConnIds);
+    for (const connId of orphans) {
+      this.#convertHumanSlotToNpc(connId);
     }
-    return changed;
+    return orphans.length > 0;
   }
 
   // * Removes connections that haven't sent a message in REAP_TIMEOUT_MS.
   // * Intended as a safety net for when onClose doesn't fire (crash, network
   // * drop, platform bug, phantom tabs). Host handoff is delegated to
   // * #ensureLiveHost() so we don't duplicate the migration broadcast logic.
+  // * Stale-id selection is pure (./connectionReaper); close/delete stays here.
   #reapSilentConnections() {
     const now = this.#serverNowMs();
-    const reapedIds: string[] = [];
-
-    for (const id of this.#connections.keys()) {
-      if (this.#pendingPickers.has(id)) continue;
-      const lastSeen = this.#lastSeenAtMs.get(id) ?? 0;
-      if (now - lastSeen > REAP_TIMEOUT_MS) {
-        reapedIds.push(id);
-      }
-    }
+    const reapedIds = listSilentConnectionsToReap(
+      this.#connections.keys(),
+      this.#lastSeenAtMs,
+      this.#pendingPickers,
+      now,
+    );
 
     this.#lastReapAtMs = now;
     const reapedPicker = this.#reapStalePendingPickers();

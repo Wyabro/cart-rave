@@ -68,11 +68,9 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Countdown stack (COUNTDOWN-WARM-1 & COUNTDOWN-SYNC-1) and Intel host capture confirmed PASS by Wyatt (07-22). Empty quickplay edge case documented in BACKLOG (COUNTDOWN-QUICKPLAY-1).
+**Playtesting and stabilization.** SRV-TEST-1 / A5 done (unpushed): A5a pure helpers + A5b DO harness (`tests/party-do/`, Workers Vitest pool); Vitest 707→739 (+32, +4.5%). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22). COUNTDOWN-QUICKPLAY-1 in BACKLOG.
 
-Run 7 mission closed; player-risk residuals NET-2 and NET-MIG-3 passed live; NET-PRES-1
-event-id dedupe landed (loss-on-drop residual accepted). Stay in this phase until Wyatt
-advances the marker — tech-debt triage does not auto-promote to Release candidate.
+Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
@@ -111,11 +109,12 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
 | **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | **A4** ARENA-COL-1 | Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent) |
+| **A5** SRV-TEST-1 | Direct tests for party decision cores | ✅ **done** (A5a helpers + A5b DO harness; 739 tests) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
-No ▶ active card unless Wyatt names one — SHIP-1 items above are self-directed within the
-declared phase, not a phase-exit trigger. Historical Run 7 evidence (closed):
+No ▶ active card unless Wyatt names one — next Tier A self-directed: **A6** (reconnect sims) or **A7**. Historical
+Run 7 evidence (closed):
 
 | # | What | Status |
 |---|------|--------|
@@ -131,53 +130,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Wait for Wyatt's playtest verdicts on COUNTDOWN-WARM-1 / COUNTDOWN-SYNC-1 / COUNTDOWN-ABORT-1 plus an
-   Intel-as-host capture — no agent-actionable card until then; pre-ship ordering lives in
-   [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
-2. **A1 — history, condensed.** Rounds 1–3: a genuine 22.1s Intel-non-host freeze with
-   `hiddenDuringGap:false` ruled out mislabeled backgrounding; a repeated early-round
-   (t≈11-14s) Long-Task-backed stall cluster on the 4090-as-host pointed at a one-time
-   boot/init cost. Round 4: **tab-out latch VALIDATED** — a real 6.55s backgrounding was
-   caught cleanly (`hiddenDuringGap:true`), confirming the A1 instrumentation works and
-   retroactively validating every earlier "not backgrounding" reading. Also landed
-   COUNTDOWN-WARM-1 (fly-over camera shader/composer warm-up, `5622741`) targeting the
-   round-start stall cluster — but see round 5 below, that wasn't the real complaint.
-   All 4 sessions had the 4090 as host; still zero Intel-as-host captures.
-
-   **Round 5 (07-21): the real bug — countdown BEAT TIMING desyncs, not frame stutter.**
-   Wyatt: "countdown is still jank... just not in sync... one machine pretty much always
-   skips the countdown." Real captures (host NVIDIA + non-host Intel, same round, build
-   `b5bcc36`) show all 4 countdown beats (3/2/1/GO) *do* fire, but wildly unevenly spaced —
-   expected ~1200ms apart (`COUNTDOWN_MS=3600`/3 digits): host measured
-   [1580, 768, 1207]ms, non-host **[2582, 1201, 97]ms** — the last gap (digit "1" → GO)
-   collapsing to ~90ms, twice, in two different non-host captures from two different
-   rounds. Root cause in `hud.js updateStatus()`: the digit shown/announced is computed by
-   **polling** `remainingMs` each frame and firing `announce("countdown_N")` only when N
-   changes — but "GO" fires on an **edge-detected phase transition**
-   (`countdown`→`running`), independent of the digit branch. A stall spanning the
-   countdown's last ~1200ms window lets the phase flip to `running` before the polling
-   loop ever gets a frame to observe `n===1` — so "1" is skipped entirely and GO fires
-   immediately after whatever was last shown. Fix: `updateStatus` now detects this
-   (`_lastCountdownN !== 1` at the countdown→running edge) and retroactively fires the
-   missed "1" beat, staggered `MISSED_COUNTDOWN_CATCHUP_MS` (220ms) before GO — purely
-   presentational (gameplay unlock is already gated on `phase === "running"`, not this
-   banner, so the round's actual start timing is untouched); generation- and phase-guarded
-   against a stale deferred beat firing over a newer/aborted countdown. `npm run qa`
-   649/649, build clean. Verified live: a normal (unstalled) countdown still fires
-   3/2/1/GO at clean ~1200ms spacing (catch-up path doesn't fire, no regression) — could
-   not force a real stall to exercise the catch-up path itself headlessly; no automated
-   test added (`hud.js update()` pulls in ~8 modules with zero existing test coverage —
-   not proportionate to this fix). **Needs Wyatt's playtest**, specifically watching
-   whether the 1→GO gap stays ≥~200ms instead of collapsing, plus fresh captures.
-
-   Note: while pulling captures, found a **concurrent session** (co-authored Claude Opus
-   4.8) had pushed `b5bcc36` (SOFTGL-1 — software-render resolution floor for a "Hawaii
-   playtest" machine with no GPU driver) directly to `origin/cart-clash`, already merged
-   into the local tree cleanly by the time this session noticed. Unrelated to A1; flagging
-   only because two agents were active on this branch concurrently.
-3. **A2 — INPUT-KB-1 done, confirmed good.** Wyatt confirmed the tuned 0.07s attack / 0.05s
-   release ramp feels right after the "too controller-y" first pass (0.14s/0.09s). No further
-   action unless new feedback comes in.
+1. Wait for Wyatt to name the next card (Tier A leftover: **A6** reconnect sims / **A7** ANLX-VIEW-1), or say go.
+2. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
 
 ## Open issues (top)
 

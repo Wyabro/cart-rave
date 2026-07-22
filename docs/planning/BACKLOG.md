@@ -39,7 +39,7 @@ post-launch unless Wyatt pulls them forward.
 | Done | ARENA-COL-1 — Cart Rave pit/kill-zone reliability `[SHIP-1 A4]` | PASS (07-22 Wyatt playtest): rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) → `buildKOEvent` via `{ classifyPos, creditTimeMs }`. Tests: `scoringEvent.test.js` +2. |
 | Low | Countdown timer survives menu return *(pre-ship 07-19)* | Stale countdown UI on main menu. |
 | High | HOST-CAP-1 — capability-based host preference `[SHIP-1 A1]` | After host-hitch forensics: strongest machine wins host (`party/hostSelection.ts` + hostCapability); weak-host warning; residual = min-spec fact. |
-| High | SRV-TEST-1 — direct tests for `party/index.ts` `[SHIP-1 A5]` | Extract reaper/re-arm/rate-limit/NPC-slot logic into tested helpers, then DO harness tests over `onMessage`/`onClose` sequences. |
+| High | SRV-TEST-1 — direct tests for `party/index.ts` `[SHIP-1 A5]` | **Done** (A5a pure helpers + A5b DO harness). Extend scenarios under A6. |
 | Medium | NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]` | Mid-round host reload; drop-without-close; P2P zombie recovery; reconnect-cooldown lifecycle. |
 | Medium | Deeper server-authoritative logic (TRUST-1) `[SHIP-1 D1]` | Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. |
 | Medium | `structuredClone` → flat serializer in `party/index.ts` | Only after profiling shows it matters. |

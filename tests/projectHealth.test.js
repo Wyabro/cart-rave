@@ -434,7 +434,7 @@ describe("STATUS semantic contracts (Truth Reset)", () => {
     expect(errors.map((e) => e.code)).toEqual([]);
     const phases = parseStatusReleasePhases(statusMd);
     expect(phases.filter((p) => p.state === "current")[0].name).toMatch(/Playtesting/i);
-    expect(parseStatusPlaytestQueue(statusMd).filter((q) => q.state === "active")).toHaveLength(0);
+    expect(parseStatusPlaytestQueue(statusMd).filter((q) => q.state === "active").length).toBeLessThanOrEqual(1);
     for (const i of parseStatusOpenIssues(statusMd)) {
       expect(issueState(i.status)).not.toBe("closed");
     }

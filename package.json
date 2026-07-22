@@ -21,7 +21,9 @@
     "compress:groceries": "node scripts/compress-groceries.mjs",
     "fonts:fetch": "node scripts/fetch-fonts.mjs",
     "knip": "knip",
-    "test": "vitest run",
+    "prepare:party-do": "node scripts/prepare-party-do.mjs",
+    "test:party-do": "npm run prepare:party-do && vitest run --project party-do",
+    "test": "npm run prepare:party-do && vitest run",
     "typecheck": "tsc --noEmit",
     "check": "npm run status:size && npm run typecheck && npm run test && npm run knip && npm run briefing && npm run arch && npm run health:check",
     "qa": "npm run check",
@@ -44,6 +46,7 @@
     "perf:profile": "node tools/perf-profile.mjs"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.7",
     "@types/three": "^0.185.1",
     "happy-dom": "^20.10.6",
     "knip": "^6.26.0",

@@ -31,6 +31,18 @@ npm run battery -- --only gameharness             # one rig · --skip soak,hostM
 npm run battery -- --visual --qa                  # opt-in: black-frame battery + typecheck/tests/knip
 ```
 
+### Unit tests + Workers DO harness
+
+```bash
+npm test                 # prepare:party-do + Vitest projects (unit + party-do)
+npm run test:party-do    # Workers pool only — CartRaveServer WebSocket smoke (A5b)
+```
+
+`vitest.config.js` defines two projects: **unit** (Node / happy-dom under `tests/`, excluding
+`tests/party-do/`) and **party-do** (`vitest.party.config.js` + `@cloudflare/vitest-pool-workers`).
+`prepare:party-do` ensures a minimal `dist/index.html` so wrangler ASSETS boots; party WS routes
+never fetch ASSETS.
+
 `tools/battery.mjs` runs every headless rig **sequentially against one shared dev stack**
 (they share the quickplay room — never parallelize them), aggregates the exit codes, prints
 one summary, and writes a JSON report to `.diag-captures/`. Exit contract (shared by every

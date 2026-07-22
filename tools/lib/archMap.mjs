@@ -152,11 +152,20 @@ export const SYSTEMS = [
     responsibility:
       "The partyserver Durable Object: room + WebSocket lifecycle, slot management, ready-up/round lifecycle, WebRTC signaling + TURN minting, host selection, round validation, connection reaping.",
     entry: ["party/index.ts"],
-    members: ["party/index.ts", "party/hostSelection.ts", "party/roundValidation.ts"],
+    members: [
+      "party/index.ts",
+      "party/constants.ts",
+      "party/hostSelection.ts",
+      "party/roundValidation.ts",
+      "party/rateLimit.ts",
+      "party/connectionReaper.ts",
+      "party/hostRearm.ts",
+      "party/slotReconcile.ts",
+    ],
     notes: [
       "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts ~line 801, ~450 lines) is a flat if(type===MSG.x) chain with bodies inlined.",
       "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
-      "hostSelection.ts / roundValidation.ts are the unit-tested pure helpers; index.ts itself has no direct tests (SRV-TEST-1 / SHIP-1 A5).",
+      "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool).",
     ],
     edges: [
       { to: "networking-client", via: "msg-wire", detail: "server broadcasts MSG.gameStart / hostSpawn / lobby + relays SDP/ICE back to clients over the WebSocket." },
@@ -463,7 +472,7 @@ export const IMPORTANT_FILES = [
   { path: "src/hud.js", role: "In-game HUD; updateStatus() owns the countdown beat display (COUNTDOWN-SYNC-1). No unit tests — visual-QA gated." },
   { path: "src/stores/gameStore.js", role: "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change." },
   { path: "src/gameState.js", role: "Facade over gameStore — the dual-import surface tracked as STORE-1; do not deepen the duplication." },
-  { path: "party/index.ts", role: "partyserver Durable Object CartRaveServer; onMessage flat MSG.* chain (~801). Relay/room state only — never physics. ~1.6k LOC, no direct tests (A5)." },
+  { path: "party/index.ts", role: "partyserver Durable Object CartRaveServer; onMessage flat MSG.* chain (~801). Relay/room state only — never physics. Pure helpers unit-tested (A5a); DO harness in tests/party-do/ (A5b)." },
   { path: "shared/roundConstants.js", role: "ROUND_DURATION_MS single source (150_000) imported by both config.js and roundValidation.ts." },
   { path: "shared/protocol.js", role: "MSG.* wire keys — the single cross-plane contract; the only shared function surface is these constants." },
 ];

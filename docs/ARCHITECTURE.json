@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T07:22:25.742Z",
-    "commit": "9d5c1e8"
+    "at": "2026-07-22T07:51:47.749Z",
+    "commit": "009277c"
   },
-  "source_digest": "45e79d70",
+  "source_digest": "c2268504",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Countdown stack (COUNTDOWN-WARM-1 & COUNTDOWN-SYNC-1) and Intel host capture confirmed PASS by Wyatt (07-22). Empty quickplay edge case documented in BACKLOG (COUNTDOWN-QUICKPLAY-1).",
+    "mission": "Playtesting and stabilization — SRV-TEST-1 / A5 done (unpushed): A5a pure helpers + A5b DO harness (`tests/party-do/`, Workers Vitest pool); Vitest 707→739 (+32, +4.5%). Countdown/MP-FX/ARENA-COL/Intel-as-host PASS (07-22). COUNTDOWN-QUICKPLAY-1 in BACKLOG.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -219,11 +219,16 @@
         "party/index.ts"
       ],
       "files": [
+        "party/connectionReaper.ts",
+        "party/constants.ts",
+        "party/hostRearm.ts",
         "party/hostSelection.ts",
         "party/index.ts",
-        "party/roundValidation.ts"
+        "party/rateLimit.ts",
+        "party/roundValidation.ts",
+        "party/slotReconcile.ts"
       ],
-      "file_count": 3,
+      "file_count": 8,
       "edges": [
         {
           "to": "networking-client",
@@ -239,7 +244,7 @@
       "notes": [
         "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts ~line 801, ~450 lines) is a flat if(type===MSG.x) chain with bodies inlined.",
         "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
-        "hostSelection.ts / roundValidation.ts are the unit-tested pure helpers; index.ts itself has no direct tests (SRV-TEST-1 / SHIP-1 A5)."
+        "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool)."
       ]
     },
     {
@@ -769,7 +774,7 @@
     },
     {
       "path": "party/index.ts",
-      "role": "partyserver Durable Object CartRaveServer; onMessage flat MSG.* chain (~801). Relay/room state only — never physics. ~1.6k LOC, no direct tests (A5)."
+      "role": "partyserver Durable Object CartRaveServer; onMessage flat MSG.* chain (~801). Relay/room state only — never physics. Pure helpers unit-tested (A5a); DO harness in tests/party-do/ (A5b)."
     },
     {
       "path": "shared/roundConstants.js",
@@ -878,6 +883,12 @@
         "state": "done"
       },
       {
+        "id": "A5 SRV-TEST-1",
+        "what": "Direct tests for party decision cores",
+        "status": "✅ done (A5a helpers + A5b DO harness; 739 tests)",
+        "state": "done"
+      },
+      {
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
@@ -900,9 +911,8 @@
       }
     ],
     "next_actions": [
-      "Wait for Wyatt's playtest verdicts on COUNTDOWN-WARM-1 / COUNTDOWN-SYNC-1 / COUNTDOWN-ABORT-1 plus an",
-      "A1 — history, condensed. Rounds 1–3: a genuine 22.1s Intel-non-host freeze with",
-      "A2 — INPUT-KB-1 done, confirmed good. Wyatt confirmed the tuned 0.07s attack / 0.05s"
+      "Wait for Wyatt to name the next card (Tier A leftover: A6 reconnect sims / A7 ANLX-VIEW-1), or say go.",
+      "Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline)."
     ],
     "open_issues": [
       {
@@ -1009,7 +1019,7 @@
           {
             "pri": "High",
             "item": "SRV-TEST-1 — direct tests for `party/index.ts` `[SHIP-1 A5]`",
-            "notes": "Extract reaper/re-arm/rate-limit/NPC-slot logic into tested helpers, then DO harness tests over `onMessage`/`onClose` sequences.",
+            "notes": "**Done** (A5a pure helpers + A5b DO harness). Extend scenarios under A6.",
             "ship1": "A5"
           },
           {
@@ -1379,7 +1389,7 @@
           {
             "col0": "A5",
             "item": "Server test coverage (biggest gap)",
-            "notes": "`party/index.ts` (~1.6k LOC) has no direct tests. **A5a:** extract pure decision logic (reaper eviction, host re-arm, rate-limit accounting, NPC-slot reconciliation) into tested helpers — pattern proven with `hostSelection.ts` / `roundValidation.ts`. **A5b:** DO harness tests driving `onMessage`/`onClose` sequences (join→drop→reap, host crash→re-arm→migrate, malformed/oversized vs rate limits)."
+            "notes": "**Done 07-22** (unpushed): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739."
           },
           {
             "col0": "A6",
