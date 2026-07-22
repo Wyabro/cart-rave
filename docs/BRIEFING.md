@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `8646dae` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `6df31aa1`
+> Generated 2026-07-22 at commit `e08e5f5` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `624c7c5d`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,14 +14,14 @@
 
 ## Mission
 
-Playtesting and stabilization — ▶ COUNTDOWN-ARM-1 (play-ready-gated continuous arm). Cap-200 shipped (`8646dae`): menu DOM desync + host defer + harness truth — Wyatt smoke menu PASS. A6 NET-SIM-1 hostReload green; close pending Wyatt ack. Residual Cap-203 truncation fixed by COUNTDOWN-ARM-1 (unpushed).
+Playtesting and stabilization — COUNTDOWN-ARM-1 ✅ PASS (Wyatt smoke 07-22 — two-browser quickplay full 3-2-1 on `e08e5f5`). Cap-200 ✅ PASS (menu). A6 NET-SIM-1 ✅ closed. No active card — waiting Wyatt for next (Tier A leftover: A7 ANLX-VIEW-1) or “wait”.
 
-## ACTIVE CARD
+## NO ACTIVE CARD
 
-COUNTDOWN-ARM-1 — Play-ready-gated continuous `game_start`
-Pass looks like: ▶ unpushed — `MSG.clientPlayReady` + 12s ceiling; party-do 10/10
+Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md
 
-Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+Self-directed queue (one at a time, within the declared phase):
+- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)
 

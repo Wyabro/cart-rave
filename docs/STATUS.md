@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** ▶ **COUNTDOWN-ARM-1** (play-ready-gated continuous arm). Cap-200 shipped (`8646dae`): menu DOM desync + host defer + harness truth — Wyatt smoke menu PASS. A6 NET-SIM-1 hostReload green; close pending Wyatt ack. Residual Cap-203 truncation fixed by COUNTDOWN-ARM-1 (unpushed).
+**Playtesting and stabilization.** COUNTDOWN-ARM-1 ✅ PASS (Wyatt smoke 07-22 — two-browser quickplay full 3-2-1 on `e08e5f5`). Cap-200 ✅ PASS (menu). A6 NET-SIM-1 ✅ closed. No active card — waiting Wyatt for next (Tier A leftover: **A7** ANLX-VIEW-1) or “wait”.
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -111,8 +111,8 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | **A4** ARENA-COL-1 | Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent) |
 | **A5** SRV-TEST-1 | Direct tests for party decision cores | ✅ **done** (A5a helpers + A5b DO harness; 739 tests) |
-| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | Cap-200 shipped (`8646dae`); hostReload DOM assert green; waiting Wyatt ack to close A6 |
-| **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ▶ **unpushed** — `MSG.clientPlayReady` + 12s ceiling; party-do 10/10 |
+| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ✅ **closed** (Cap-200 shipped + menu PASS; hostReload 13/13) |
+| **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ✅ **PASS** (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -132,9 +132,9 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Wyatt smoke COUNTDOWN-ARM-1: two-browser quickplay cold — both hear full 3-2-1; hung client arms by ~12s.
-2. Ack to close A6 if Cap-200 menu smoke stays good.
-3. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
+1. Waiting on Wyatt to name the next card (Tier A leftover: **A7** ANLX-VIEW-1) or say wait.
+2. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
+3. Optional: re-run battery for exact-HEAD 6/6 (spawnlock `countdown_3` assert flaked under load once — drive path was green).
 
 ## Open issues (top)
 
@@ -252,11 +252,14 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-22 (COUNTDOWN-ARM-1 PASS) — Wyatt two-browser quickplay smoke on `e08e5f5`:
+full 3-2-1. Cap-200 menu PASS earlier. A6 closed. Battery was 5/6 (spawnlock only —
+`countdown_3` miss under load after gameharness; drive checks green). No active card.
+
 2026-07-22 (COUNTDOWN-ARM-1) — Continuous-mode server waits for `MSG.clientPlayReady`
 (post-`ensureSessionCartsReady`) before minting `startsAtMs`, with
 `PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window (timeout A). Cap-200
-client defer stays as straggler safety net. party-do 10/10 (seat≠arm; playReady; timeout;
-reset). Unpushed — waiting Wyatt two-browser smoke.
+client defer stays as straggler safety net. Shipped `e08e5f5`.
 
 2026-07-22 (Cap-200 — A6b false green) — Cap-200 (2eedc04, reloader, 4090) showed
 `menuVisible:false` while DOM menu resurrected: boot-splash late `CartRave.show()` after

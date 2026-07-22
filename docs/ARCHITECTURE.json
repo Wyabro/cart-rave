@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T09:33:00.499Z",
-    "commit": "8646dae"
+    "at": "2026-07-22T16:46:45.313Z",
+    "commit": "e08e5f5"
   },
-  "source_digest": "c83c8633",
+  "source_digest": "f85f94c2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — ▶ COUNTDOWN-ARM-1 (play-ready-gated continuous arm). Cap-200 shipped (`8646dae`): menu DOM desync + host defer + harness truth — Wyatt smoke menu PASS. A6 NET-SIM-1 hostReload green; close pending Wyatt ack. Residual Cap-203 truncation fixed by COUNTDOWN-ARM-1 (unpushed).",
+    "mission": "Playtesting and stabilization — COUNTDOWN-ARM-1 ✅ PASS (Wyatt smoke 07-22 — two-browser quickplay full 3-2-1 on `e08e5f5`). Cap-200 ✅ PASS (menu). A6 NET-SIM-1 ✅ closed. No active card — waiting Wyatt for next (Tier A leftover: A7 ANLX-VIEW-1) or “wait”.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -891,14 +891,14 @@
       {
         "id": "A6 NET-SIM-1",
         "what": "Reconnect / socket-lifecycle sims",
-        "status": "Cap-200 shipped (`8646dae`); hostReload DOM assert green; waiting Wyatt ack to close A6",
-        "state": "waiting"
+        "status": "✅ closed (Cap-200 shipped + menu PASS; hostReload 13/13)",
+        "state": "done"
       },
       {
         "id": "COUNTDOWN-ARM-1",
         "what": "Play-ready-gated continuous `game_start`",
-        "status": "▶ unpushed — `MSG.clientPlayReady` + 12s ceiling; party-do 10/10",
-        "state": "active"
+        "status": "✅ PASS (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1)",
+        "state": "done"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -923,9 +923,9 @@
       }
     ],
     "next_actions": [
-      "Wyatt smoke COUNTDOWN-ARM-1: two-browser quickplay cold — both hear full 3-2-1; hung client arms by ~12s.",
-      "Ack to close A6 if Cap-200 menu smoke stays good.",
-      "Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md)."
+      "Waiting on Wyatt to name the next card (Tier A leftover: A7 ANLX-VIEW-1) or say wait.",
+      "Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).",
+      "Optional: re-run battery for exact-HEAD 6/6 (spawnlock `countdown_3` assert flaked under load once — drive path was green)."
     ],
     "open_issues": [
       {
@@ -1407,12 +1407,12 @@
           {
             "col0": "A6",
             "item": "Reconnection / socket-lifecycle sims",
-            "notes": "Cap-200 shipped (`8646dae`); hostReload DOM assert. Waiting Wyatt ack to close A6."
+            "notes": "✅ Closed (Cap-200 + hostReload)."
           },
           {
             "col0": "COUNTDOWN-ARM-1",
             "item": "Play-ready-gated continuous arm",
-            "notes": "**Unpushed** — `clientPlayReady` + `PLAY_READY_TIMEOUT_MS=12s` fresh arm; fixes Cap-203 joiner truncation. Cap-200 remains safety net."
+            "notes": "✅ **PASS** Wyatt smoke 07-22 (`e08e5f5`) — full 3-2-1."
           },
           {
             "col0": "A7",
