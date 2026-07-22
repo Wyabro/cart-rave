@@ -2547,10 +2547,14 @@ async function main() {
     const forPlay = opts.forPlay !== false;
     try {
       if (forPlay || !vfxProgramAnchorsInstalled) {
-        installShatterProgramWarmup(scene);
-        installKoHitmarkerProgramWarmup(scene);
-        installWaterFxProgramWarmup(scene);
-        Effects.installRamStreakProgramWarmup(scene);
+        // * PERF-WARM: attribute the ~1.4s play-entry freeze — this VFX-anchor install re-runs
+        // * every play-entry (forPlay). Names it in longframe.spans if it's the cost.
+        mark("warm.anchors", () => {
+          installShatterProgramWarmup(scene);
+          installKoHitmarkerProgramWarmup(scene);
+          installWaterFxProgramWarmup(scene);
+          Effects.installRamStreakProgramWarmup(scene);
+        });
         vfxProgramAnchorsInstalled = true;
       }
       // * Audio pack warm (forPlay): fetch/decode under the loading overlay in parallel
@@ -2564,18 +2568,22 @@ async function main() {
       const audioWarmPromises = [];
       if (forPlay) {
         const levelId = getCurrentLevelId();
-        prepareLevelMusic(levelId);
-        audioWarmPromises.push(
-          AudioManager.prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 }),
-          AudioManager.prefetchGameMusicAsync({ maxWaitMs: 6000 }),
-          AudioManager.prefetchAmbienceAsync(ArenaAmbience.ambienceKeysForArena(levelId), {
-            maxWaitMs: 6000,
-          }),
-          AudioManager.prefetchSfxKeysAsync(
-            ["countdown_3", "countdown_2", "countdown_1", "countdown_go"],
-            { maxWaitMs: 4000 },
-          ),
-        );
+        // * PERF-WARM: audio kickoff is synchronous up to the network/decode await — if
+        // * prepareLevelMusic or a prefetch does sync decode/Howler work, it lands here.
+        mark("warm.audioKickoff", () => {
+          prepareLevelMusic(levelId);
+          audioWarmPromises.push(
+            AudioManager.prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 }),
+            AudioManager.prefetchGameMusicAsync({ maxWaitMs: 6000 }),
+            AudioManager.prefetchAmbienceAsync(ArenaAmbience.ambienceKeysForArena(levelId), {
+              maxWaitMs: 6000,
+            }),
+            AudioManager.prefetchSfxKeysAsync(
+              ["countdown_3", "countdown_2", "countdown_1", "countdown_go"],
+              { maxWaitMs: 4000 },
+            ),
+          );
+        });
       }
       // * Menu path: still compileAsync so the first attract frame after a swap does not
       // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
