@@ -31,6 +31,12 @@ import { getQualityTier } from "./utils/qualityMode.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
 import { devLog } from "./utils/devLog.js";
+import {
+  DEFAULT_SOLO,
+  normalizeDifficulty,
+  resolveRoomDifficulty,
+  setActiveAiDifficulty,
+} from "./aiDifficulty.js";
 
 /** Same domain as round startedAtMs / server #serverNowMs (see roundClock.js). */
 function getMonotonicNow() { return getRoundClockNowMs(); }
@@ -85,6 +91,13 @@ let isHost = false;
  * @type {string | null}
  */
 let authoritativeRoomLevelId = null;
+
+/**
+ * Room-authoritative AI difficulty — mirrors authoritativeRoomLevelId.
+ * Starts null; adopted on hello / MSG.round / host adopt. Never cleared on leave.
+ * @type {import("./aiDifficulty.js").AiDifficulty | null}
+ */
+let authoritativeRoomAiDifficulty = null;
 
 let hostSeq = 0;
 let inputSeq = 0;
@@ -2470,6 +2483,9 @@ export function initNetcode(roomOverride) {
         // * localStorage) so a later host promote does not rematch on the wrong arena.
         adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
       }
+      if (msg.aiDifficulty != null) {
+        adoptAuthoritativeRoomAiDifficulty(msg.aiDifficulty);
+      }
       helloReceivedThisSession = true;
       youConnId = typeof msg.youConnId === "string" ? msg.youConnId : null;
       hostId = typeof msg.hostId === "string" ? msg.hostId : null;
@@ -2803,6 +2819,9 @@ export function initNetcode(roomOverride) {
         if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
           adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
         }
+        if (msg.aiDifficulty != null) {
+          adoptAuthoritativeRoomAiDifficulty(msg.aiDifficulty);
+        }
         const state = GameState.getRoundState();
         // * Cap-59: non-host host_round(countdown) during play-entry applied phase
         // * mid-shader and the HUD/announcer ran behind a multi-10s longframe.
@@ -2939,6 +2958,18 @@ function adoptAuthoritativeRoomLevel(levelId, opts = {}) {
 }
 
 /**
+ * Adopt room AI difficulty into the latch + active brain difficulty.
+ * Does not write settingsStore (Quickplay medium must not overwrite Solo preference).
+ * @param {unknown} difficulty
+ */
+function adoptAuthoritativeRoomAiDifficulty(difficulty) {
+  const raw = typeof difficulty === "string" ? difficulty.trim().toLowerCase() : "";
+  if (raw !== "easy" && raw !== "medium" && raw !== "hard") return;
+  authoritativeRoomAiDifficulty = raw;
+  setActiveAiDifficulty(raw);
+}
+
+/**
  * Host-side room level change (Quickplay arena rotation). Updates the authoritative
  * latch + settings store WITHOUT firing onLevelIdChanged — the caller performs its own
  * arena swap. The next sendHostRound broadcasts the new id; the server latches and
@@ -2948,6 +2979,35 @@ function adoptAuthoritativeRoomLevel(levelId, opts = {}) {
 export function adoptRoomLevelAsHost(levelId) {
   if (!isHost) return;
   adoptAuthoritativeRoomLevel(levelId, { notify: false });
+}
+
+/**
+ * Host adopts room AI difficulty at enter / rematch (mirrors adoptRoomLevelAsHost).
+ * Quickplay resolves to medium without touching the persisted Solo preference.
+ * @param {"solo" | "friends" | "quickplay" | "testdrive" | string} mode
+ */
+export function adoptRoomAiDifficultyAsHost(mode) {
+  const stored = settingsStore.getState().aiDifficulty;
+  const resolved = resolveRoomDifficulty(mode === "testdrive" ? "solo" : mode, stored);
+  authoritativeRoomAiDifficulty = resolved;
+  setActiveAiDifficulty(resolved);
+}
+
+/**
+ * First-time host latch only — does not overwrite an existing room latch (hello / rematch).
+ * @param {"solo" | "friends" | "quickplay" | "testdrive" | string} mode
+ */
+export function ensureHostAiDifficultyLatched(mode) {
+  if (authoritativeRoomAiDifficulty != null) return;
+  adoptRoomAiDifficultyAsHost(mode);
+}
+
+/** @returns {import("./aiDifficulty.js").AiDifficulty} */
+export function getActiveRoomAiDifficulty() {
+  return (
+    authoritativeRoomAiDifficulty
+    || normalizeDifficulty(settingsStore.getState().aiDifficulty, DEFAULT_SOLO)
+  );
 }
 
 export function sendHostRound() {
@@ -2960,9 +3020,15 @@ export function sendHostRound() {
     || settingsStore.getState().selectedLevelId
     || "classicRecord";
   authoritativeRoomLevelId = currentLevelId;
+  const currentAiDifficulty =
+    authoritativeRoomAiDifficulty
+    || normalizeDifficulty(settingsStore.getState().aiDifficulty, DEFAULT_SOLO);
+  authoritativeRoomAiDifficulty = currentAiDifficulty;
+  setActiveAiDifficulty(currentAiDifficulty);
   partySocket.send(JSON.stringify({
     type: MSG.hostRound,
     levelId: currentLevelId,
+    aiDifficulty: currentAiDifficulty,
     round: {
       phase: state.phase,
       startedAtMs: state.startedAtMs,

@@ -3,6 +3,7 @@ import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 import { isTouchLikeDevice } from "../utils/device.js";
 import { probeGpu } from "../utils/gpuCaps.js";
+import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
 
 /** @type {ReadonlyArray<string>} */
 const VALID_TIERS = ["low", "medium", "high"];
@@ -48,8 +49,17 @@ function loadInitialSettings() {
   }
 
   const selectedLevelId = storageGet(STORAGE_KEYS.level);
+  const aiDifficulty = normalizeDifficulty(storageGet(STORAGE_KEYS.aiDifficulty), DEFAULT_SOLO);
 
-  return { bloomEnabled, fxPassEnabled, qualityTier, selectedLevelId, announcerVoiceEnabled, announcerCalloutsEnabled };
+  return {
+    bloomEnabled,
+    fxPassEnabled,
+    qualityTier,
+    selectedLevelId,
+    aiDifficulty,
+    announcerVoiceEnabled,
+    announcerCalloutsEnabled,
+  };
 }
 
 const initialState = loadInitialSettings();
@@ -78,6 +88,12 @@ export const settingsStore = createStore((set) => ({
   setSelectedLevelId: (levelId) => {
     set({ selectedLevelId: levelId });
     if (levelId) storageSet(STORAGE_KEYS.level, levelId);
+  },
+
+  setAiDifficulty: (difficulty) => {
+    const val = normalizeDifficulty(difficulty, DEFAULT_SOLO);
+    set({ aiDifficulty: val });
+    storageSet(STORAGE_KEYS.aiDifficulty, val);
   },
 
   setAnnouncerVoiceEnabled: (enabled) => {

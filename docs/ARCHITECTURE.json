@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T17:47:30.592Z",
-    "commit": "9258d14"
+    "at": "2026-07-22T23:05:56.870Z",
+    "commit": "2dc0282"
   },
-  "source_digest": "c2321b75",
+  "source_digest": "27e87e96",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — A7 ANLX-VIEW-1 ✅ PASS (Wyatt smoke 07-22). Tier A reading surface landed. No active card — waiting Wyatt for next or “wait”. Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained (A7 ANLX-VIEW-1 ✅). B1 AI-DIFF-1 implemented unpushed — Easy/Med/Hard decision tiers (Medium = current baseline identity; Solo default Easy; Quickplay forced Medium; Friends host pick via menu). Awaiting Wyatt Solo/QP/Friends playtest before ship. Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -152,12 +152,14 @@
       "name": "AI bots (virtual)",
       "responsibility": "Solo NPC support. Only the rubberband assist has its own module; the actual bot decision logic is embedded in simulation.js and gameFlow.js, not extracted.",
       "entry": [
-        "src/utils/soloRubberband.js"
+        "src/utils/soloRubberband.js",
+        "src/aiDifficulty.js"
       ],
       "files": [
+        "src/aiDifficulty.js",
         "src/utils/soloRubberband.js"
       ],
-      "file_count": 1,
+      "file_count": 2,
       "edges": [
         {
           "to": "physics-simulation",

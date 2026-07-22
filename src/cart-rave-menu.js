@@ -27,6 +27,7 @@ import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
 import { isTouchDevice } from "./utils.js";
 import { getQualityTier } from "./utils/qualityMode.js";
 import { settingsStore } from "./stores/settingsStore.js";
+import { DEFAULT_SOLO, normalizeDifficulty } from "./aiDifficulty.js";
 import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
 import { setAllAudioMuted, setMusicGainValue } from "./ui/audioControls.js";
 import { playUiClick } from "./sfxSynth.js";
@@ -263,6 +264,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const customHueSlider = /** @type {HTMLInputElement | null} */ ($("cr-custom-hue-slider"));
   const customHueVal = $("cr-custom-hue-val");
   const levelRow = $("cr-level-row");
+  const diffRow = $("cr-diff-row");
   const playerCard = $("cr-player-card");
   const nameDisplay = $("cr-name-display");
   const nameText = $("cr-name-text");
@@ -430,6 +432,47 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (!levelRow) return;
     levelRow.querySelectorAll('.cr-level-btn').forEach((btn) => {
       btn.addEventListener('click', () => selectLevel(btn.dataset.level));
+    });
+  }
+
+  function updateDiffButtons() {
+    if (!diffRow) return;
+    const current = normalizeDifficulty(
+      settingsStore.getState().aiDifficulty,
+      DEFAULT_SOLO,
+    );
+    diffRow.querySelectorAll(".cr-diff-btn").forEach((btn) => {
+      const id = btn.dataset.difficulty || "";
+      const isActive = id === current;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
+  function selectDifficulty(difficulty) {
+    const next = normalizeDifficulty(difficulty, DEFAULT_SOLO);
+    const prev = normalizeDifficulty(
+      settingsStore.getState().aiDifficulty,
+      DEFAULT_SOLO,
+    );
+    if (next === prev) return;
+    settingsStore.getState().setAiDifficulty(next);
+    updateDiffButtons();
+    if (diffRow) {
+      const active = diffRow.querySelector(".cr-diff-btn.active");
+      if (active) animateLevelCardSelect(getMenuPressTarget(active));
+    }
+  }
+
+  function initDiffSelect() {
+    // * Ensure store+localStorage have a normalized value (default Easy).
+    settingsStore.getState().setAiDifficulty(
+      normalizeDifficulty(settingsStore.getState().aiDifficulty, DEFAULT_SOLO),
+    );
+    updateDiffButtons();
+    if (!diffRow) return;
+    diffRow.querySelectorAll(".cr-diff-btn").forEach((btn) => {
+      btn.addEventListener("click", () => selectDifficulty(btn.dataset.difficulty));
     });
   }
 
@@ -1406,6 +1449,11 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       btn.style.setProperty('--glow', String(resolveGlow(btn.dataset.colorkey)));
     });
 
+    // Bot difficulty cards
+    document.querySelectorAll('.cr-diff-btn').forEach(btn => {
+      btn.style.setProperty('--glow', String(resolveGlow(btn.dataset.colorkey)));
+    });
+
     // Audio widget
     audioEl.style.setProperty('--ag', p.secondary);
     if (!audioUiMuted) {
@@ -1641,7 +1689,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
    * @returns {HTMLElement}
    */
   function getMenuPressTarget(btn) {
-    const inner = btn.querySelector(".cr-btn-inner, .cr-level-btn-inner");
+    const inner = btn.querySelector(".cr-btn-inner, .cr-level-btn-inner, .cr-diff-btn-inner");
     return /** @type {HTMLElement} */ (inner || btn);
   }
 
@@ -1681,7 +1729,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   function wireAllMenuPressFeedback() {
     document.querySelectorAll(
-      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-diff-btn, .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
     ).forEach((btn) => {
       wireMenuPressFeedback(btn);
     });
@@ -1745,6 +1793,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       animateMenuCardEnter(levelCards, { delay: stagger(STAGGER, { start: t + 20 }), duration: 280, y: 16 });
     }
 
+    const diffHd = document.querySelector(".cr-diff-hd");
+    if (diffHd instanceof HTMLElement) animateMenuReveal(diffHd, { delay: t + 40, duration: 200, y: 6 });
+
+    const diffCards = Array.from(document.querySelectorAll(".cr-diff-btn")).filter((el) => el instanceof HTMLElement);
+    if (diffCards.length > 0) {
+      animateMenuCardEnter(diffCards, { delay: stagger(STAGGER, { start: t + 56 }), duration: 260, y: 14 });
+    }
+
     t += STAGGER * 2 + 48;
 
     const stats = $("cr-stats-local");
@@ -1785,6 +1841,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   buildSunglassesChips();
   updateCustomHueUi();
   initLevelSelect();
+  initDiffSelect();
   initCustomizeScreen();
   initHowToScreen();
   initChallengesScreen();

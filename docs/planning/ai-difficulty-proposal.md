@@ -1,12 +1,14 @@
 # AI Difficulty Proposal — Easy / Medium / Hard
 
-**Status:** proposal only (playtest-blockers pass, 2026-07-12). No implementation yet — per
-Wyatt's brief: *"produce a short design proposal before implementation."*
+**Status:** implemented as SHIP-1 **B1 AI-DIFF-1** (2026-07-22). Medium = current
+baseline identity; Easy dials down; Hard dials up + Hard-only tactics. See
+`src/aiDifficulty.js`.
 
 ## Goal
 
-Introduce Medium and Hard as **decision-quality tiers**, not stat cheats. Easy is the
-current shipped AI (Pass 4 tuning) and must not change. All tiers share the same physics,
+Introduce Medium and Hard as **decision-quality tiers**, not stat cheats. **Medium** is the
+current shipped AI feel (post–cautious-fix baseline) and is the identity row. Easy dials
+down for Solo-as-tutorial. All tiers share the same physics,
 top speed, impulses, and scoring — a Hard bot wins by choosing better, not by moving faster.
 
 ## Where difficulty plugs in

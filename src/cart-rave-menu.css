@@ -77,6 +77,8 @@ html, body {
 .cr-root.cr-menu-enter-pending .cr-buttons .cr-btn,
 .cr-root.cr-menu-enter-pending .cr-levels-hd,
 .cr-root.cr-menu-enter-pending .cr-level-btn:not(.cr-level-btn--disabled),
+.cr-root.cr-menu-enter-pending .cr-diff-hd,
+.cr-root.cr-menu-enter-pending .cr-diff-btn,
 .cr-root.cr-menu-enter-pending #cr-player-card,
 .cr-root.cr-menu-enter-pending #cr-stats-local,
 .cr-root.cr-menu-enter-pending #cr-audio-panel,
@@ -596,6 +598,75 @@ html, body {
   color: rgba(255, 255, 255, 0.45);
 }
 
+.cr-diff-hd {
+  font-family: var(--mono);
+  font-size: clamp(8px, 1vw, 9px);
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  margin-top: 2px;
+}
+
+.cr-diff-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-buttons);
+  width: 100%;
+  min-width: 0;
+}
+
+.cr-diff-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 14px);
+  background: var(--color-ink);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-sticker-white);
+  font-family: var(--ui);
+  cursor: pointer;
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+  box-shadow: var(--sticker-micro);
+  text-align: center;
+}
+
+.cr-diff-btn-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+  z-index: 1;
+  transform-origin: center center;
+}
+
+.cr-diff-btn-label {
+  font-size: clamp(9px, 1.35vw, 11px);
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  color: var(--color-sticker-white);
+}
+
+.cr-diff-btn:hover {
+  transform: translate(-1px, -2px);
+  box-shadow:
+    0 0 0 1.5px var(--color-sticker-white),
+    4px 5px 0 1.5px var(--color-ink-deep);
+}
+
+.cr-diff-btn.active {
+  box-shadow:
+    0 0 0 2px var(--color-yellow),
+    3px 3px 0 2px var(--color-ink-deep),
+    inset 0 2px 0 rgba(255,255,255,0.07);
+}
+
+.cr-diff-btn.active .cr-diff-btn-label {
+  color: var(--color-yellow);
+}
+
 .cr-level-soon {
   color: var(--color-yellow) !important;
   font-weight: 700;
@@ -612,7 +683,7 @@ html, body {
   width: 100%;
 }
 
-.cr-player-hd, .cr-audio-hd, .cr-controls-hd, .cr-levels-hd {
+.cr-player-hd, .cr-audio-hd, .cr-controls-hd, .cr-levels-hd, .cr-diff-hd {
   display: flex; justify-content: space-between; align-items: center;
   font-family: var(--ui);
   font-size: clamp(9px, 1.1vw, 10px);

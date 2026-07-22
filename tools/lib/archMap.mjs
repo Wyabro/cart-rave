@@ -112,8 +112,8 @@ export const SYSTEMS = [
     name: "AI bots (virtual)",
     responsibility:
       "Solo NPC support. Only the rubberband assist has its own module; the actual bot decision logic is embedded in simulation.js and gameFlow.js, not extracted.",
-    entry: ["src/utils/soloRubberband.js"],
-    members: ["src/utils/soloRubberband.js"],
+    entry: ["src/utils/soloRubberband.js", "src/aiDifficulty.js"],
+    members: ["src/utils/soloRubberband.js", "src/aiDifficulty.js"],
     notes: [
       "bot logic lives inside simulation.js and gameFlow.js — there is no bots module",
       "soloRubberband is solo-gated; it must not leak into multiplayer (verified-healthy item in project-state §5).",

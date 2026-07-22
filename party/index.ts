@@ -85,6 +85,7 @@ export class CartRaveServer extends Server {
 
   #hostId: string | null = null;
   #currentLevelId: string = "classicRecord";
+  #currentAiDifficulty: string = "easy";
   #slots: Slot[] | null = null;
   #carts: (CartState | undefined)[] = [];
   #round: RoundState = {
@@ -174,6 +175,7 @@ export class CartRaveServer extends Server {
     if (this.name === "quickplay" && QUICKPLAY_ARENA_IDS.length > 0) {
       const idx = Math.floor(Math.random() * QUICKPLAY_ARENA_IDS.length);
       this.#currentLevelId = QUICKPLAY_ARENA_IDS[idx] ?? this.#currentLevelId;
+      this.#currentAiDifficulty = "medium";
     }
 
     // * Shuffled per room so NPC color combinations vary between sessions. Uniqueness
@@ -256,6 +258,7 @@ export class CartRaveServer extends Server {
       v: PROTOCOL_VERSION,
       roomId: this.name,
       levelId: this.#currentLevelId,
+      aiDifficulty: this.#currentAiDifficulty,
       serverNowMs: this.#serverNowMs(),
       hostId: this.#hostId,
       slots: this.#slots,
@@ -446,6 +449,7 @@ export class CartRaveServer extends Server {
       type: MSG.round,
       serverNowMs: this.#serverNowMs(),
       levelId: this.#currentLevelId,
+      aiDifficulty: this.#currentAiDifficulty,
       round: this.#safeStructuredClone(this.#round),
     });
   }
@@ -1455,6 +1459,11 @@ export class CartRaveServer extends Server {
         if (levelId) {
           this.#currentLevelId = levelId;
         }
+        // * Top-level beside levelId — not inside round / roundValidation.
+        const aiRaw = typeof data?.aiDifficulty === "string" ? data.aiDifficulty.trim().toLowerCase() : "";
+        if (aiRaw === "easy" || aiRaw === "medium" || aiRaw === "hard") {
+          this.#currentAiDifficulty = aiRaw;
+        }
         const validated = this.#validateHostRound(data?.round, this.#serverNowMs());
         if (!validated) {
           // * Host already applied phase locally (optimistic podium/SD). Echo the
@@ -1464,6 +1473,7 @@ export class CartRaveServer extends Server {
             type: MSG.round,
             serverNowMs: this.#serverNowMs(),
             levelId: this.#currentLevelId,
+            aiDifficulty: this.#currentAiDifficulty,
             round: this.#safeStructuredClone(this.#round),
             rejected: true,
           });

@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** A7 ANLX-VIEW-1 ✅ PASS (Wyatt smoke 07-22). Tier A reading surface landed. No active card — waiting Wyatt for next or “wait”. **Before public/external playtest: reset analytics DO** (see Gotchas).
+**Playtesting and stabilization.** Tier A drained (A7 ANLX-VIEW-1 ✅). **B1 AI-DIFF-1** implemented **unpushed** — Easy/Med/Hard decision tiers (Medium = current baseline identity; Solo default Easy; Quickplay forced Medium; Friends host pick via menu). Awaiting Wyatt Solo/QP/Friends playtest before ship. **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -253,6 +253,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
+
+2026-07-22 (B1 AI-DIFF-1 — implemented, unpushed) — Easy/Med/Hard NPC decision tiers.
+Medium = identity (current baseline). Solo default Easy + menu picker under Arenas
+(`cr-diff-btn`); Quickplay forced Medium; Friends host pick via store + `host_round.aiDifficulty`
+latch (mirrors `levelId`; no `roundValidation` touch). Hard `steerGainMax` capped at 1.85.
+Gates: `npm run qa` green (767 tests). Awaiting Wyatt playtest before ship.
 
 2026-07-22 (A7 ANLX-VIEW-1 PASS) — Wyatt smoke: `analytics:pull` + Command Center Analytics
 panel. Reading surface closed. Reminder: clear analytics DO before public playtest

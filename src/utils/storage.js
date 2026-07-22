@@ -21,6 +21,8 @@ export const STORAGE_KEYS = {
   bestScore: "cartRaveBestScore",
   /** Selected level id. */
   level: "cartRaveLevel",
+  /** NPC AI difficulty ("easy" | "medium" | "hard") — Solo default Easy; Quickplay forces medium. */
+  aiDifficulty: "cartRaveAiDifficulty",
   /** Cart look preferences JSON (color/pattern/sunglasses). */
   customization: "cartRaveCustomization",
   /** Daily/weekly challenge progress JSON. */

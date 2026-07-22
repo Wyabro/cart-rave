@@ -64,6 +64,13 @@ import { updateCartVisuals } from "./cart.js";
 import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
+import {
+  getActiveAiDifficulty,
+  getBoostAlignmentAngleDeg,
+  getEdgeSaveHopChance,
+  getHopAlignmentDotMin,
+  isHardTactics,
+} from "./aiDifficulty.js";
 import * as Entities from "./entities.js";
 import { createCart } from "./entities.js";
 import { installShatterProgramWarmup, triggerCartShatter } from "./cartShatter.js";
@@ -3947,6 +3954,8 @@ async function main() {
   function getAiAxis(now, cart) {
     // * Solo rubberband is host-local AI only — never arm it for multiplayer rooms.
     Simulation.setSoloRubberbandActive(detectGameMode() === "solo");
+    // * Latch room difficulty once for the host brain (Quickplay → medium; Solo/Friends → store).
+    Netcode.ensureHostAiDifficultyLatched(detectGameMode());
     return Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
   }
 
@@ -4275,7 +4284,10 @@ async function main() {
     const dot = clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1);
     const angleDeg = Math.acos(dot) * (180 / Math.PI);
     // * Solo trailing: looser cone → fewer boosts line up; leading: tighter cone.
-    const aimLimit = Math.max(12, (ncfg.alignmentAngleDeg ?? 40) + aimSlackDeg);
+    const aimLimit = Math.max(
+      12,
+      getBoostAlignmentAngleDeg(ncfg.alignmentAngleDeg ?? 40, getActiveAiDifficulty()) + aimSlackDeg,
+    );
     if (angleDeg > aimLimit) return;
 
     // * NPCs use the instant nitro path — keeps bot movement responsive and avoids
@@ -4336,8 +4348,9 @@ async function main() {
     const maxD = ncfg.maxThreatDistance ?? 7.5;
     const minD2 = minD * minD;
     const maxD2 = maxD * maxD;
-    const alignMin = ncfg.alignmentDotMin ?? 0.35;
+    const alignMin = getHopAlignmentDotMin(ncfg.alignmentDotMin ?? 0.35, getActiveAiDifficulty());
     const minThreatSpeed = ncfg.minThreatSpeed ?? 6;
+    const hard = isHardTactics(getActiveAiDifficulty());
 
     let threatened = false;
     for (let i = 0; i < allCarts.length; i += 1) {
@@ -4351,7 +4364,10 @@ async function main() {
       if (d2 < minD2 || d2 > maxD2) continue;
       const ov = o.body.linvel();
       const spd = Math.hypot(ov.x, ov.z);
-      if (spd < minThreatSpeed) continue;
+      // * Hard: defensive hop vs boosting closer — lower speed gate when they are boosting.
+      const boosting = hard && nowMs <= (o.ramBoostActiveUntilMs || 0);
+      const speedGate = boosting ? Math.min(minThreatSpeed, 3.5) : minThreatSpeed;
+      if (spd < speedGate) continue;
       // * Threat velocity points roughly toward us.
       const invDist = 1 / Math.sqrt(d2);
       const toNpcX = dx * invDist;
@@ -4366,7 +4382,7 @@ async function main() {
     if (!threatened) return;
 
     const baseChance = ncfg.chance ?? 0.11;
-    const edgeChance = ncfg.edgeSaveChance ?? 0.18;
+    const edgeChance = getEdgeSaveHopChance(ncfg.edgeSaveChance ?? 0.18, getActiveAiDifficulty());
     const roll = Math.random();
     if (roll >= (nearHazard ? edgeChance : baseChance)) return;
 
@@ -4818,6 +4834,7 @@ async function main() {
     if (isQuickplayRematch) {
       const nextArenaId = pickNextQuickplayArenaId();
       Netcode.adoptRoomLevelAsHost(nextArenaId);
+      Netcode.adoptRoomAiDifficultyAsHost("quickplay");
       void rotateLoadedArenaInPlace(nextArenaId);
     }
     syncRoundPhase("lobby");

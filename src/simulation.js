@@ -15,6 +15,16 @@ import {
   SOLO_RUBBERBAND_NEUTRAL,
 } from "./utils/soloRubberband.js";
 import { clamp } from "./utils.js";
+import {
+  applyPersonalityMods,
+  getActiveAiDifficulty,
+  getPodiumContestMs,
+  getRandomStopChance,
+  getReachOuter,
+  getStuckWindowMs,
+  getTrailChaseMul,
+  isHardTactics,
+} from "./aiDifficulty.js";
 
 /** When true, NPC chase/nitro use solo score rubberband (set from main for solo mode only). */
 let _soloRubberbandActive = false;
@@ -37,7 +47,13 @@ export function getSoloRubberbandFactors(netSlots) {
   const cfg = CONFIG.cart?.ramBoost?.soloRubberband;
   if (cfg && cfg.enabled === false) return SOLO_RUBBERBAND_NEUTRAL;
   const scores = GameState.getRoundState()?.scores || {};
-  return computeSoloRubberband(scores, netSlots, cfg);
+  const factors = computeSoloRubberband(scores, netSlots, cfg);
+  // * Hard: slightly less forgiving trail ease-off (stacks on rubberband).
+  if (factors.band === "trail" && factors.chaseMul !== 1) {
+    const scaled = getTrailChaseMul(factors.chaseMul, getActiveAiDifficulty());
+    return { ...factors, chaseMul: scaled };
+  }
+  return factors;
 }
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
@@ -1996,8 +2012,8 @@ function clampAiTargetAwayFromHazards(x, z, cautious, opts = {}) {
   // * AI-4: edge-camp punish — nudged the chase reachOuter caps out (0.78→0.82, 0.92→0.95) so a
   // * bot chasing a rim-camper follows it closer to the edge before the annulus cap stops it.
   const outerLimit = cautious
-    ? CONFIG.record.radius * (opts.reachOuter ? 0.82 : 0.68)
-    : CONFIG.record.radius * (opts.reachOuter ? 0.95 : 0.84);
+    ? CONFIG.record.radius * (opts.reachOuter ? getReachOuter(0.82, getActiveAiDifficulty()) : 0.68)
+    : CONFIG.record.radius * (opts.reachOuter ? getReachOuter(0.95, getActiveAiDifficulty()) : 0.84);
   const r = clamp(dist, innerLimit, outerLimit);
   let outX = Math.cos(angle) * r;
   let outZ = Math.sin(angle) * r;
@@ -2011,6 +2027,39 @@ function clampAiTargetAwayFromHazards(x, z, cautious, opts = {}) {
     outZ = kept.z;
   }
   return { x: outX, z: outZ };
+}
+
+/**
+ * Hard-only: 0..1 how close a point is to a death edge (higher = nearer hazard).
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+function hardEdgeVictimBias(x, z) {
+  if (_levelHazards?.arenaHalf != null) {
+    const { cheb } = nearestSquareHole(x, z);
+    const keepOut = squareHoleKeepOutRadius(0);
+    const band = 4.0;
+    if (cheb < keepOut + band) return clamp(1 - (cheb - keepOut) / band, 0, 1);
+    return 0;
+  }
+  if (_octagonHazards) {
+    const edgeDist = octagonEdgeDistance(x, z);
+    const half = _octagonHazards.arenaHalf;
+    const fromRim = half - edgeDist;
+    if (fromRim < 4.0) return clamp(1 - fromRim / 4.0, 0, 1);
+    return 0;
+  }
+  if (CONFIG.record.centerHole?.enabled !== false) {
+    const dist = Math.hypot(x, z);
+    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+    const outer = CONFIG.record.radius;
+    let bias = 0;
+    if (dist < holeLip + 4) bias = Math.max(bias, clamp(1 - (dist - holeLip) / 4, 0, 1));
+    if (dist > outer - 4) bias = Math.max(bias, clamp(1 - (outer - dist) / 4, 0, 1));
+    return bias;
+  }
+  return 0;
 }
 
 function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
@@ -2064,6 +2113,12 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
       if (solo.distanceMul !== 1) d2 *= solo.distanceMul;
     }
 
+    // * Hard-only: prefer victims near an edge / void (appear closer → higher chase priority).
+    if (isHardTactics(getActiveAiDifficulty())) {
+      const edgeBias = hardEdgeVictimBias(hp.x, hp.z);
+      if (edgeBias > 0) d2 *= 1 - Math.min(0.35, edgeBias);
+    }
+
     if (d2 < nearestWeightedD2) {
       nearestWeightedD2 = d2;
       nearestPos = hp;
@@ -2090,13 +2145,19 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
     }
 
     // 2. Outward edge push: if target is near an edge/void and NPC is inside, push target point toward edge
+    // * Hard Sudden Death: bias inward instead — they don't self-KO to aggression.
     const distToCenter = Math.hypot(nearestPos.x, nearestPos.z);
     const npcDistToCenter = Math.hypot(fromPos.x, fromPos.z);
     if (npcDistToCenter < distToCenter) {
       const outDirX = nearestPos.x / (distToCenter || 1);
       const outDirZ = nearestPos.z / (distToCenter || 1);
-      targetX += outDirX * 2.0;
-      targetZ += outDirZ * 2.0;
+      if (isHardTactics(getActiveAiDifficulty())) {
+        targetX -= outDirX * 2.0;
+        targetZ -= outDirZ * 2.0;
+      } else {
+        targetX += outDirX * 2.0;
+        targetZ += outDirZ * 2.0;
+      }
     }
   }
 
@@ -2172,13 +2233,18 @@ function ensureAiBehaviorState(cart) {
   if (cart.aiLastDistToTarget == null) cart.aiLastDistToTarget = Infinity;
   if (cart.aiAvoidanceCommitUntilMs == null) cart.aiAvoidanceCommitUntilMs = 0;
   if (cart.aiContestPodiumUntilMs == null) cart.aiContestPodiumUntilMs = 0;
-  if (!cart.aiPersonality) {
+  if (!cart.aiPersonalityBase) {
     // * Carts carry their NPC name on `.label` (createCart), never `.name` — the old
     // * `cart.name` was always undefined, so every bot fell back to slotIndex%4
     // * behavior while the HUD/nametag badge resolved personality from the name. The
     // * two disagreed (a bot badged AGGRESSOR drove like a lurker; solo never had an
     // * aggressor at all). Read `.label` so behavior matches the shown badge.
-    cart.aiPersonality = getNpcPersonality(cart.label ?? cart.slotIndex);
+    cart.aiPersonalityBase = getNpcPersonality(cart.label ?? cart.slotIndex);
+  }
+  const diff = getActiveAiDifficulty();
+  if (cart.aiDifficultyApplied !== diff || !cart.aiPersonality) {
+    cart.aiPersonality = applyPersonalityMods(cart.aiPersonalityBase, diff);
+    cart.aiDifficultyApplied = diff;
   }
 }
 
@@ -2262,11 +2328,13 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
     }
     // * Sundial high-ground contest: if the human is camping the podium, drive onto it to
     // * ram them off instead of being repelled by the keep-out. Gated to real campers so bots
-    // * don't loiter on empty high ground.
+    // * don't loiter on empty high ground. Hard also contests whenever the podium scores
+    // * (human on high ground counts — same allowPodium path).
     if (_octagonHazards && isOnPodiumHighGround(humanTarget.x, humanTarget.z)) {
       // * FEEL-2 (2026-07-14): 1500→1650 (~+10%) — bots stay committed to the high-ground
       // * contest ~10% longer, so they fight harder for the bigger ART-4 podium zone.
-      cart.aiContestPodiumUntilMs = nowMs + 1650;
+      const contestMs = getPodiumContestMs(1650, getActiveAiDifficulty());
+      cart.aiContestPodiumUntilMs = nowMs + contestMs;
       return clampOctagonAiTarget(humanTarget.x, humanTarget.z, cautious, { allowPodium: true });
     }
     // * reachOuter: when chasing a human, let the goal reach closer to the arena rim so bots
@@ -2406,7 +2474,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       const humanDist = Math.hypot(nearHumanForPause.x - p.x, nearHumanForPause.z - p.z);
       if (humanDist < 9) allowPause = false;
     }
-    if (allowPause && Math.random() < (onBackrooms ? 0.02 : 0.04)) {
+    if (allowPause && Math.random() < getRandomStopChance(onBackrooms, getActiveAiDifficulty())) {
       cart.aiPauseUntilMs = now + (400 + Math.random() * 700);
       cart.aiLastProgressMs = now;
       // * Don't re-roll a pause the instant this one ends — commit to driving for a beat.
@@ -2439,7 +2507,24 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   cart.aiLastDistToTarget = distToTarget;
 
   const stuckForMs = now - cart.aiLastProgressMs;
-  const isStuck = speed < 1.4 && stuckForMs > 1100;
+  const isStuck = speed < 1.4 && stuckForMs > getStuckWindowMs(getActiveAiDifficulty());
+
+  // * Hard: after a failed close-range ram grind, disengage via short tangent escape
+  // * instead of reversing into the same line (reuse avoidance-commit window).
+  if (
+    isHardTactics(getActiveAiDifficulty())
+    && isStuck
+    && now >= (cart.aiAvoidanceCommitUntilMs || 0)
+  ) {
+    const nearHuman = findNearestHumanTarget(p, allCarts, netSlots, slotIndex);
+    if (nearHuman) {
+      const dHuman = Math.hypot(nearHuman.x - p.x, nearHuman.z - p.z);
+      if (dHuman < 6) {
+        cart.aiAvoidanceCommitUntilMs = now + 700;
+        cart.aiLastProgressMs = now;
+      }
+    }
+  }
 
   // * Reverse only when genuinely wedged (isStuck). The old code also reversed 25% of the
   // * time just for being within 2.8m of the target — which made bots back off exactly as
