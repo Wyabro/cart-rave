@@ -109,7 +109,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A1** COUNTDOWN-SYNC-1 | non-host countdown clock-domain sync | ✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG) |
 | **A1** Intel-as-host capture | original chronic-freeze question | ✅ PASS (Wyatt confirmed 07-22) |
 | **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
-| **A3** MP-FX-1 | non-host gameplay VFX parity | 🟡 In Progress (charge `ch` + hop-land heuristic wired; hop bridge fixed 07-22 — needs Wyatt 2-browser playtest) |
+| **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -199,6 +199,8 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-MPFX-1** (07-22): Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX.
 
 - **D-COUNTDOWN-1** (07-22): Countdown sync (COUNTDOWN-SYNC-1), flyover warm-up (COUNTDOWN-WARM-1), and Intel host capture confirmed PASS by Wyatt. Empty quickplay countdown edge case (COUNTDOWN-QUICKPLAY-1) documented and parked in BACKLOG.
 

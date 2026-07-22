@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T06:57:49.404Z",
-    "commit": "e767934"
+    "at": "2026-07-22T07:04:46.395Z",
+    "commit": "c5d2f6f"
   },
-  "source_digest": "a5779096",
+  "source_digest": "305c9b58",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -868,8 +868,8 @@
       {
         "id": "A3 MP-FX-1",
         "what": "non-host gameplay VFX parity",
-        "status": "🟡 In Progress (charge `ch` + hop-land heuristic wired; hop bridge fixed 07-22 — needs Wyatt 2-browser playtest)",
-        "state": "waiting"
+        "status": "✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)",
+        "state": "done"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -922,10 +922,10 @@
         "title": "Engineering",
         "counts": {
           "Medium": 9,
-          "Done": 1,
+          "Done": 2,
           "Low": 4,
           "Partial": 1,
-          "High": 3
+          "High": 2
         },
         "rows": [
           {
@@ -971,9 +971,9 @@
             "ship1": "A7"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]`",
-            "notes": "Audit host-local vs replicated effects (in progress — proposal in review).",
+            "notes": "PASS (07-22 Wyatt playtest): charge glow via `ch` bit 16 + remote hop land thud/dust; collision/shatter already on snapshot tail.",
             "ship1": "A3"
           },
           {
@@ -1363,7 +1363,7 @@
           {
             "col0": "A3",
             "item": "MP-FX-1 — non-host gameplay VFX",
-            "notes": "Visible quality hole for 3 of 4 players."
+            "notes": "**PASS 07-22** — opponent charge glow + hop land dust/thud on non-host (Wyatt playtest)."
           },
           {
             "col0": "A4",
@@ -1595,6 +1595,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-MPFX-1",
+        "date": "07-22",
+        "text": "Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX."
+      },
       {
         "id": "D-COUNTDOWN-1",
         "date": "07-22",
