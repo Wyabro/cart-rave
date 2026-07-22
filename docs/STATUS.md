@@ -259,6 +259,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-21 (WRAP — PERF-WARM play-entry freeze parked, handover written) — Two-turn chase
+concluded. Ruled OUT (with span evidence, build `af0c936`): shader compile (`warm.compile`
+4–23ms, `parallelCompile:true`), VFX anchors (all idempotent, `warm.anchors` <4ms), audio
+kickoff (`warm.audioKickoff` <4ms). The residual host freeze is variable/cache-dependent
+(cap-189: 400ms AFTER `carts-ready`, i.e. the first live round-start render, not the warm
+block) and the non-host's is hardware-bound (7GB Gen11). LOW priority — countdown unaffected.
+Attribution spans left in place (cheap, useful). Full context + next steps + capture recipe:
+**[planning/PERF-WARM-handover.md](planning/PERF-WARM-handover.md)**.
+
 2026-07-21 (VERIFIED — COUNTDOWN-ABORT-1 fixed) — Fresh quickplay countdown F8s on `cbb0c7f`
 (caps 180/181 connecting, 184/185 after-round, both machines): **ZERO `countdownAbort`
 events**, no countdown→lobby thrash (only legitimate next-round starts). Digit cadence clean —
