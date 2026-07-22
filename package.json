@@ -43,6 +43,8 @@
     "cc": "npm run dashboard && node tools/open-cc.mjs",
     "status:size": "node tools/status-size.mjs",
     "captures:pull": "node tools/pull-captures.mjs",
+    "analytics:pull": "node tools/pull-analytics.mjs",
+    "analytics": "node tools/pull-analytics.mjs",
     "perf:profile": "node tools/perf-profile.mjs"
   },
   "devDependencies": {

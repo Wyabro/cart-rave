@@ -73,10 +73,22 @@ session correlation, no PII. Kill switches: `?analytics=off` or
 **Backend abstraction:** transport is a sink — `initAnalytics({ sink: { name, send(payload) } })`.
 Swapping to Supabase/PlayFab/Steam/file later touches zero gameplay code.
 
-**Reading it:** `GET /api/analytics?token=<ERROR_LOG_TOKEN>` → aggregates (matches by
-arena/mode, avg duration, avg KOs, result split, quits by phase/reason, error contexts,
-session counts). `&view=list` for raw rows, `DELETE` to clear. Same token secret as
-`/api/errors`.
+**Reading it:**
+
+- **API:** `GET /api/analytics?token=<ERROR_LOG_TOKEN>` → aggregates (matches by
+  arena/mode, avg duration, avg KOs, result split, quits by phase/reason, error contexts,
+  session counts). `&view=list` for raw rows, `DELETE` to clear. Same token secret as
+  `/api/errors`.
+- **CLI:** `npm run analytics:pull` (alias `npm run analytics`) — prints the summary and
+  writes `.diag-captures/analytics-summary.json` (`{ pulledAt, url, summary }`). Needs
+  `ERROR_LOG_TOKEN` in env or `.env.local` / `.dev.vars` (same as `captures:pull`).
+  Exit codes match captures: **0** ok · **2** missing token · **1** HTTP/other failure.
+  Empty DO: summary object is valid; `window` may be undefined — CLI null-guards it.
+- **Command Center:** after a pull, `npm run dashboard` shows the **Analytics** panel
+  (Reference section, next to Capture bundles) from the cache file — no token in HTML.
+- **Before public / external playtest:** clear the DO so evidence is strangers-only —
+  `DELETE /api/analytics?token=<ERROR_LOG_TOKEN>` (same token). Then play, then
+  `npm run analytics:pull` + dashboard.
 
 **Deploy note:** first deploy after this lands applies DO migration `v3`
 (`AnalyticsLog`) — automatic with `npm run ship`, no action needed.

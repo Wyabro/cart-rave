@@ -33,7 +33,7 @@ post-launch unless Wyatt pulls them forward.
 | 🟡 Partial | NET-PERF-1 — reconcile rewind-replay cost | Caps shipped; residual if retest still rubber-bands. |
 | Low | NET-PERF-3 — p2p per-message buffer copy | Only batch if F8 shows alloc pressure after NET-PERF-1. |
 | Medium | Host-reload mid-round live confirm | Automated half: netharness `hostReload` (A6b). Optional: one live HOST-tab reload smoke for feel. |
-| Medium | ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]` | Capture harness shipped; missing reading surface (`npm run analytics` and/or Command Center panel). |
+| Medium | ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]` | ✅ PASS 07-22 — `npm run analytics:pull` + CC Analytics panel. **Before public playtest: `DELETE /api/analytics`.** |
 | Done | MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]` | PASS (07-22 Wyatt playtest): charge glow via `ch` bit 16 + remote hop land thud/dust; collision/shatter already on snapshot tail. |
 | Medium | Customize screen performance pass *(pre-ship 07-19)* | Measure before tuning. |
 | Done | ARENA-COL-1 — Cart Rave pit/kill-zone reliability `[SHIP-1 A4]` | PASS (07-22 Wyatt playtest): rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) → `buildKOEvent` via `{ classifyPos, creditTimeMs }`. Tests: `scoringEvent.test.js` +2. |

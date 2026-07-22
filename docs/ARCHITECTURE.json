@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T16:46:45.313Z",
-    "commit": "e08e5f5"
+    "at": "2026-07-22T17:47:30.592Z",
+    "commit": "9258d14"
   },
-  "source_digest": "f85f94c2",
+  "source_digest": "c2321b75",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — COUNTDOWN-ARM-1 ✅ PASS (Wyatt smoke 07-22 — two-browser quickplay full 3-2-1 on `e08e5f5`). Cap-200 ✅ PASS (menu). A6 NET-SIM-1 ✅ closed. No active card — waiting Wyatt for next (Tier A leftover: A7 ANLX-VIEW-1) or “wait”.",
+    "mission": "Playtesting and stabilization — A7 ANLX-VIEW-1 ✅ PASS (Wyatt smoke 07-22). Tier A reading surface landed. No active card — waiting Wyatt for next or “wait”. Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -836,7 +836,8 @@
     "Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.",
     "`MSG.readyToggle` without a `ready` field is a TOGGLE — programmatic ready must send `{ ready: true }`.",
     "`material.envMapIntensity` is a no-op against `scene.environment` in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.",
-    "Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs."
+    "Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.",
+    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window."
   ],
   "workstreams": {
     "queue": [
@@ -901,6 +902,12 @@
         "state": "done"
       },
       {
+        "id": "A7 ANLX-VIEW-1",
+        "what": "analytics reading surface (`analytics:pull` + CC panel)",
+        "status": "✅ PASS (Wyatt smoke 07-22)",
+        "state": "done"
+      },
+      {
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
@@ -923,9 +930,9 @@
       }
     ],
     "next_actions": [
-      "Waiting on Wyatt to name the next card (Tier A leftover: A7 ANLX-VIEW-1) or say wait.",
-      "Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).",
-      "Optional: re-run battery for exact-HEAD 6/6 (spawnlock `countdown_3` assert flaked under load once — drive path was green)."
+      "Waiting on Wyatt to name the next card (Tier A drained except reminders) or say wait / advance phase.",
+      "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.",
+      "Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md)."
     ],
     "open_issues": [
       {
@@ -996,7 +1003,7 @@
           {
             "pri": "Medium",
             "item": "ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]`",
-            "notes": "Capture harness shipped; missing reading surface (`npm run analytics` and/or Command Center panel).",
+            "notes": "✅ PASS 07-22 — `npm run analytics:pull` + CC Analytics panel. **Before public playtest: `DELETE /api/analytics`.**",
             "ship1": "A7"
           },
           {
@@ -1417,7 +1424,7 @@
           {
             "col0": "A7",
             "item": "ANLX-VIEW-1 — analytics reading surface",
-            "notes": "Needed to judge later playtests and the external-tester pass with evidence."
+            "notes": "✅ **PASS** 07-22. Clear DO before public playtest (`DELETE /api/analytics`)."
           }
         ]
       },

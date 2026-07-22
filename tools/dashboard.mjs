@@ -46,6 +46,57 @@ function stripMdLinks(s) {
   return String(s ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
 }
 
+/**
+ * Analytics pulse panel HTML from cached `npm run analytics:pull` payload.
+ * Null-guards `summary.window` (empty DO). Reuses chip/table/empty classes.
+ * @param {{ pulledAt: string, url: string, summary: Record<string, unknown> } | null | undefined} analytics
+ */
+function renderAnalyticsPanel(analytics) {
+  if (!analytics) {
+    return `<div class="empty">No analytics cache — run <span class="mono">npm run analytics:pull</span> (needs ERROR_LOG_TOKEN).</div>`;
+  }
+  const s = analytics.summary ?? {};
+  const w = s.window && typeof s.window === "object" ? /** @type {Record<string, unknown>} */ (s.window) : null;
+  const windowLine = w
+    ? `rows=${esc(String(w.rows ?? "?"))} · oldest=${esc(String(w.oldest ?? "?"))} · newest=${esc(String(w.newest ?? "?"))}`
+    : "no data yet (empty DO)";
+  const countTable = (rows, keyField) => {
+    if (!Array.isArray(rows) || rows.length === 0) return `<div class="empty">none</div>`;
+    const body = rows
+      .map((r) => `<tr><td>${esc(String(r?.[keyField] ?? r?.name ?? "?"))}</td><td>${esc(String(r?.n ?? 0))}</td></tr>`)
+      .join("");
+    return `<table><tr><th></th><th>n</th></tr>${body}</table>`;
+  };
+  const arenaRows = Array.isArray(s.matchesByArena) ? s.matchesByArena : [];
+  const arenaTable = arenaRows.length
+    ? `<table><tr><th>arena</th><th>n</th><th>avg ms</th><th>avg KOs</th></tr>${arenaRows
+        .map(
+          (r) =>
+            `<tr><td>${esc(String(r?.arena ?? "?"))}</td><td>${esc(String(r?.n ?? 0))}</td><td>${esc(String(r?.avgDurationMs ?? "—"))}</td><td>${esc(String(r?.avgKos ?? "—"))}</td></tr>`,
+        )
+        .join("")}</table>`
+    : `<div class="empty">none</div>`;
+  const quitRows = Array.isArray(s.quitsByPhase) ? s.quitsByPhase : [];
+  const quitTable = quitRows.length
+    ? `<table><tr><th>phase</th><th>reason</th><th>n</th></tr>${quitRows
+        .map(
+          (r) =>
+            `<tr><td>${esc(String(r?.phase ?? "?"))}</td><td>${esc(String(r?.reason ?? "?"))}</td><td>${esc(String(r?.n ?? 0))}</td></tr>`,
+        )
+        .join("")}</table>`
+    : `<div class="empty">none</div>`;
+  return `<div class="note">pulled ${esc(ago(analytics.pulledAt))} · <span class="mono">${esc(analytics.url)}</span> · sessions=${esc(String(s.sessions ?? 0))} · clients=${esc(String(s.clients ?? 0))} · ${windowLine}</div>
+<div class="digrid">
+  <div><h4>Matches by arena</h4>${arenaTable}</div>
+  <div><h4>Result split</h4>${countTable(s.resultSplit, "result")}</div>
+  <div><h4>Quits</h4>${quitTable}</div>
+  <div><h4>Errors by context</h4>${countTable(s.errorsByContext, "context")}</div>
+  <div><h4>By event name</h4>${countTable(s.byName, "name")}</div>
+  <div><h4>Matches by mode</h4>${countTable(s.matchesByMode, "mode")}</div>
+</div>
+<div class="note">Refresh: <span class="mono">npm run analytics:pull</span> then <span class="mono">npm run dashboard</span>. Alias: <span class="mono">npm run analytics</span>.</div>`;
+}
+
 /** Stable prod origin (docs/guides/deploy-urls.md) — the bundle name is observed, never hand-tracked. */
 const PROD_URL = "https://cart-rave.wyabro.workers.dev/";
 
@@ -211,6 +262,8 @@ function renderHtml(h) {
       </div>`;
     })
     .join("\n");
+
+  const analyticsBlock = renderAnalyticsPanel(h.analytics);
 
   const perfRows = (h.perf?.rows ?? [])
     .slice()
@@ -539,6 +592,10 @@ ${captureCards ? `<div class="cards">${captureCards}</div>` : `<div class="empty
 <div class="note">F8 uploads land via <span class="mono">npm run captures:pull</span>; harness failures auto-drop bundles.</div>
 </div></details>
 
+<details class="ref" id="analytics"><summary>Analytics ${h.analytics ? `(pulled ${esc(ago(h.analytics.pulledAt))})` : "(no cache)"} — playtest evidence, not vibes</summary><div class="inner">
+${analyticsBlock}
+</div></details>
+
 <details class="ref"><summary>Perf snapshot ${h.perf ? `(${esc(h.perf.file)}, ${esc(ago(h.perf.when))})` : "(none)"}</summary><div class="inner">
 ${perfRows ? `<table><tr><th>arena</th><th>tier</th><th>gpu ms</th><th>frame ms</th><th>draws</th></tr>${perfRows}</table>` : `<div class="empty">No perf-profile reports — run \`npm run perf:profile\`.</div>`}
 <div class="note">Headless magnitudes (SwiftShader) — mechanisms are real, absolute ms are not. Judge feel on real hardware.</div>
@@ -563,7 +620,7 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
 </div></details>
 
 <footer>
-  Sources: git · battery reports · capture bundles · perf profiles · docs/STATUS.md (mission · phases · done-when · queue · issues · do-not · last-updated) · docs/planning/BACKLOG.md · playtest console (view-time, this browser).<br>
+  Sources: git · battery reports · capture bundles · analytics-summary.json · perf profiles · docs/STATUS.md (mission · phases · done-when · queue · issues · do-not · last-updated) · docs/planning/BACKLOG.md · playtest console (view-time, this browser).<br>
   Generated ${esc(h.generatedAt)} — read-only; the markdown stays canonical. Agents: <a href="health.json">health.json</a> (digest included).
 </footer>
 

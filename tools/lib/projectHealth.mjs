@@ -2,10 +2,11 @@
  * projectHealth.mjs — collect the project-health model the dashboard renders.
  *
  * One principle: the dashboard is GENERATED from artifacts the project already produces —
- * git, battery reports + per-check tallies + capture bundles (.diag-captures/), perf
- * profiles (shots/), and the existing markdown sources of truth (docs/STATUS.md open
- * issues / next actions, docs/planning/BACKLOG.md). Nothing here is a new database to
- * hand-maintain; the markdown stays canonical and this module just reads it.
+ * git, battery reports + per-check tallies + capture bundles (.diag-captures/),
+ * analytics-summary.json (from npm run analytics:pull), perf profiles (shots/), and the
+ * existing markdown sources of truth (docs/STATUS.md open issues / next actions,
+ * docs/planning/BACKLOG.md). Nothing here is a new database to hand-maintain; the
+ * markdown stays canonical and this module just reads it.
  *
  * Every collector degrades independently — a missing directory, unparseable table, or
  * absent git remote turns into a `null`/`error` field, never a thrown run.
@@ -822,6 +823,40 @@ async function collectPerf(shotsDir) {
 }
 
 /**
+ * Normalize / validate the analytics cache payload written by tools/pull-analytics.mjs.
+ * Schema: `{ pulledAt, url, summary }` — `summary.window` may be undefined (empty DO).
+ * Corrupt / partial JSON → null (dashboard empty state).
+ *
+ * @param {unknown} raw
+ * @returns {{ pulledAt: string, url: string, summary: Record<string, unknown> } | null}
+ */
+export function parseAnalyticsCache(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = /** @type {Record<string, unknown>} */ (raw);
+  if (typeof obj.pulledAt !== "string" || typeof obj.url !== "string") return null;
+  if (!obj.summary || typeof obj.summary !== "object") return null;
+  return {
+    pulledAt: obj.pulledAt,
+    url: obj.url,
+    summary: /** @type {Record<string, unknown>} */ (obj.summary),
+  };
+}
+
+/**
+ * Read `.diag-captures/analytics-summary.json` if present. Degrades to null.
+ * @param {string} captureDir absolute path to `.diag-captures`
+ * @returns {Promise<{ pulledAt: string, url: string, summary: Record<string, unknown> } | null>}
+ */
+export async function collectAnalyticsSummary(captureDir) {
+  try {
+    const text = await readFile(join(captureDir, "analytics-summary.json"), "utf8");
+    return parseAnalyticsCache(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Assemble the full health model.
  * @param {{ cwd?: string }} [opts]
  * @returns {Promise<Record<string, any>>}
@@ -866,6 +901,7 @@ export async function collectProjectHealth(opts = {}) {
   }
   let battery = null;
   let captures = [];
+  let analytics = null;
   let perf = null;
   try {
     battery = await collectBattery(captureDir, { headFull: git?.headFull ?? null });
@@ -878,6 +914,12 @@ export async function collectProjectHealth(opts = {}) {
   } catch (e) {
     collectorErrors.push(`captures: ${e instanceof Error ? e.message : e}`);
     captures = [];
+  }
+  try {
+    analytics = await collectAnalyticsSummary(captureDir);
+  } catch (e) {
+    collectorErrors.push(`analytics: ${e instanceof Error ? e.message : e}`);
+    analytics = null;
   }
   try {
     perf = await collectPerf(resolve(cwd, "shots"));
@@ -932,6 +974,7 @@ export async function collectProjectHealth(opts = {}) {
       coreRequired: REQUIRED_CORE_STEPS,
     },
     captures,
+    analytics,
     perf,
   };
 
@@ -1007,6 +1050,7 @@ export async function collectProjectHealth(opts = {}) {
       coreRequired: REQUIRED_CORE_STEPS,
     },
     captures,
+    analytics,
     perf,
     mission,
     phases,

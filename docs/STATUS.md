@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** COUNTDOWN-ARM-1 ✅ PASS (Wyatt smoke 07-22 — two-browser quickplay full 3-2-1 on `e08e5f5`). Cap-200 ✅ PASS (menu). A6 NET-SIM-1 ✅ closed. No active card — waiting Wyatt for next (Tier A leftover: **A7** ANLX-VIEW-1) or “wait”.
+**Playtesting and stabilization.** A7 ANLX-VIEW-1 ✅ PASS (Wyatt smoke 07-22). Tier A reading surface landed. No active card — waiting Wyatt for next or “wait”. **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -113,6 +113,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A5** SRV-TEST-1 | Direct tests for party decision cores | ✅ **done** (A5a helpers + A5b DO harness; 739 tests) |
 | **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ✅ **closed** (Cap-200 shipped + menu PASS; hostReload 13/13) |
 | **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ✅ **PASS** (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1) |
+| **A7** ANLX-VIEW-1 | analytics reading surface (`analytics:pull` + CC panel) | ✅ **PASS** (Wyatt smoke 07-22) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -132,9 +133,9 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Waiting on Wyatt to name the next card (Tier A leftover: **A7** ANLX-VIEW-1) or say wait.
-2. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
-3. Optional: re-run battery for exact-HEAD 6/6 (spawnlock `countdown_3` assert flaked under load once — drive path was green).
+1. Waiting on Wyatt to name the next card (Tier A drained except reminders) or say wait / advance phase.
+2. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
+3. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
 
 ## Open issues (top)
 
@@ -249,8 +250,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
+- **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
+
+2026-07-22 (A7 ANLX-VIEW-1 PASS) — Wyatt smoke: `analytics:pull` + Command Center Analytics
+panel. Reading surface closed. Reminder: clear analytics DO before public playtest
+(`DELETE /api/analytics`). Unpushed until Wyatt ships.
 
 2026-07-22 (COUNTDOWN-ARM-1 PASS) — Wyatt two-browser quickplay smoke on `e08e5f5`:
 full 3-2-1. Cap-200 menu PASS earlier. A6 closed. Battery was 5/6 (spawnlock only —

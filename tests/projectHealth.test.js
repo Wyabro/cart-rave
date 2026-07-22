@@ -33,6 +33,7 @@ import {
   parseBacklogNotTechDebt,
   parseShip1Tiers,
   parseProjectStateHealthy,
+  parseAnalyticsCache,
 } from "../tools/lib/projectHealth.mjs";
 
 const STATUS_FIXTURE = `# Cart Clash — Status
@@ -584,6 +585,22 @@ describe("parseProjectStateHealthy", () => {
   });
   it("degrades to [] without the section", () => {
     expect(parseProjectStateHealthy("# none")).toEqual([]);
+  });
+});
+
+describe("parseAnalyticsCache", () => {
+  it("accepts schema with optional window", () => {
+    const raw = {
+      pulledAt: "2026-07-22T00:00:00.000Z",
+      url: "https://example.test",
+      summary: { sessions: 0, clients: 0 },
+    };
+    expect(parseAnalyticsCache(raw)).toEqual(raw);
+    expect(parseAnalyticsCache(raw)?.summary.window).toBeUndefined();
+  });
+
+  it("rejects corrupt cache", () => {
+    expect(parseAnalyticsCache({ pulledAt: "x", url: "y", summary: null })).toBeNull();
   });
 });
 

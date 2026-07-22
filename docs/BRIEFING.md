@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `e08e5f5` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `624c7c5d`
+> Generated 2026-07-22 at commit `9258d14` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `acaa6184`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,7 +14,7 @@
 
 ## Mission
 
-Playtesting and stabilization — COUNTDOWN-ARM-1 ✅ PASS (Wyatt smoke 07-22 — two-browser quickplay full 3-2-1 on `e08e5f5`). Cap-200 ✅ PASS (menu). A6 NET-SIM-1 ✅ closed. No active card — waiting Wyatt for next (Tier A leftover: A7 ANLX-VIEW-1) or “wait”.
+Playtesting and stabilization — A7 ANLX-VIEW-1 ✅ PASS (Wyatt smoke 07-22). Tier A reading surface landed. No active card — waiting Wyatt for next or “wait”. Before public/external playtest: reset analytics DO (see Gotchas).
 
 ## NO ACTIVE CARD
 

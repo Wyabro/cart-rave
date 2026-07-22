@@ -26,7 +26,8 @@ In order, all required:
    with provenance, STATUS RC checklist checked, deploy evidence. Aggregated via
    `npm run release:check`.
 3. **External-tester pass** — strangers on the wide URL, judged with ANLX-VIEW-1 evidence
-   (analytics + captures), not vibes.
+   (analytics + captures), not vibes. **Reset analytics DO first** (`DELETE /api/analytics`)
+   so the window is strangers-only.
 4. **BRAND-1 domain cutover ceremony** ([brand.md](../brand.md)).
 
 Phase advancement stays manual: agents report eligibility; only Wyatt moves the ▶ marker.
@@ -44,7 +45,7 @@ Phase advancement stays manual: agents report eligibility; only Wyatt moves the 
 | A5 | Server test coverage (biggest gap) | **Done 07-22** (pushed `67e6bea`): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739. |
 | A6 | Reconnection / socket-lifecycle sims | ✅ Closed (Cap-200 + hostReload). |
 | COUNTDOWN-ARM-1 | Play-ready-gated continuous arm | ✅ **PASS** Wyatt smoke 07-22 (`e08e5f5`) — full 3-2-1. |
-| A7 | ANLX-VIEW-1 — analytics reading surface | Needed to judge later playtests and the external-tester pass with evidence. |
+| A7 | ANLX-VIEW-1 — analytics reading surface | ✅ **PASS** 07-22. Clear DO before public playtest (`DELETE /api/analytics`). |
 
 **Rendering coverage — handled differently, not skipped.** `scene.js`, `cartRaveGltf.js`,
 `hud.js`, `sceneExtras.js`, `cartShatter.js` have zero unit tests; unit tests are the wrong
