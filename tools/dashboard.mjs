@@ -22,6 +22,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { collectProjectHealth, compressIssueStatus, issueState, deriveNextAction } from "./lib/projectHealth.mjs";
+import { expandSystems, movedSystems } from "./lib/archModel.mjs";
+import { SYSTEMS } from "./lib/archMap.mjs";
 import { parseArgs, makeLogger, CAPTURE_DIR } from "./lib/harness.mjs";
 import { ROOT_TOKENS, BASE_CSS, esc, crossNav } from "./lib/ccStyle.mjs";
 
@@ -302,6 +304,11 @@ ${BASE_CSS}
   .now-expect { color:var(--dim); font-size:13px; } .now-expect b { color:var(--good); font-weight:700; }
   .now-after { margin-top:10px; padding-top:10px; border-top:1px solid var(--edge); font-size:13px; color:var(--dim); }
   .now-after ol { margin:4px 0 0; padding-left:20px; } .now-after li { margin:3px 0; }
+  .now-moved { margin-top:12px; padding-top:10px; border-top:1px solid var(--edge); display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .now-moved .nm-k { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin-right:2px; }
+  .now-moved .nm-chip { cursor:pointer; } .now-moved .nm-chip i { font-style:normal; color:var(--dim); }
+  .now-moved .nm-chip:hover { border-color:var(--cyan); text-decoration:none; }
+  .now-moved .nm-more { font-size:11px; color:var(--dim); margin-left:2px; } .now-moved .nm-more:hover { color:var(--cyan); }
 
   /* session bar */
   .session { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
@@ -433,6 +440,14 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
           .slice(1, 4)
           .map((a) => `<li>${esc(stripMdLinks(a))}</li>`)
           .join("")}</ol></div>`
+      : ""
+  }
+  ${
+    (h.movedThisWeek ?? []).length
+      ? `<div class="now-moved"><span class="nm-k">Moved this week</span>${h.movedThisWeek
+          .slice(0, 8)
+          .map((m) => `<a class="chip neutral nm-chip" href="architecture.html#card-${esc(m.id)}" title="Open ${esc(m.name)} in the architecture map">${esc(m.name)} <i>${m.commits}×</i></a>`)
+          .join("")}<a class="nm-more" href="architecture.html#section-priorities">full map ↗</a></div>`
       : ""
   }
 </section>
@@ -627,7 +642,16 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const health = await collectProjectHealth({ cwd: process.cwd() });
+  const cwd = process.cwd();
+  const health = await collectProjectHealth({ cwd });
+  // * "What moved this week" — same per-system churn the architecture page shows, so the two
+  // * surfaces tell one continuous story. Never fatal (reporter): failure leaves it empty.
+  try {
+    const expansion = await expandSystems(cwd, SYSTEMS);
+    health.movedThisWeek = movedSystems(cwd, expansion.bySystem, SYSTEMS);
+  } catch {
+    health.movedThisWeek = [];
+  }
   await mkdir(CAPTURE_DIR, { recursive: true });
 
   const jsonPath = resolve(CAPTURE_DIR, "health.json");

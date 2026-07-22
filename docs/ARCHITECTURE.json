@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T05:55:59.868Z",
-    "commit": "bdf939e"
+    "at": "2026-07-22T06:20:56.107Z",
+    "commit": "49ef6fa"
   },
-  "source_digest": "25feabb1",
+  "source_digest": "9bdf7144",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Countdown stack fixed; awaiting Wyatt's playtest verdicts + an Intel-as-host capture.",
+    "mission": "Playtesting and stabilization — Countdown stack (COUNTDOWN-WARM-1 & COUNTDOWN-SYNC-1) and Intel host capture confirmed PASS by Wyatt (07-22). Empty quickplay edge case documented in BACKLOG (COUNTDOWN-QUICKPLAY-1).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -844,20 +844,20 @@
       {
         "id": "A1 COUNTDOWN-WARM-1",
         "what": "fly-over camera shader/composer stall",
-        "status": "✅ fixed, needs Wyatt playtest",
+        "status": "✅ PASS (Wyatt playtest 07-22)",
         "state": "done"
       },
       {
         "id": "A1 COUNTDOWN-SYNC-1",
         "what": "non-host countdown clock-domain sync",
-        "status": "✅ catch-up + host-domain anchor fixed; needs Wyatt playtest + F8",
+        "status": "✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG)",
         "state": "done"
       },
       {
         "id": "A1 Intel-as-host capture",
         "what": "original chronic-freeze question",
-        "status": "⏳ still 0/5 sessions — party server keeps picking the 4090",
-        "state": "waiting"
+        "status": "✅ PASS (Wyatt confirmed 07-22)",
+        "state": "done"
       },
       {
         "id": "A2 INPUT-KB-1",
@@ -869,7 +869,16 @@
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
-        "state": "waiting"
+        "state": "waiting",
+        "touches_systems": [
+          {
+            "id": "boot-and-orchestration",
+            "name": "Boot & orchestration",
+            "files": [
+              "src/main.js"
+            ]
+          }
+        ]
       },
       {
         "id": "BRAND-1",
@@ -908,8 +917,8 @@
         "counts": {
           "Medium": 9,
           "Done": 1,
-          "Partial": 2,
-          "Low": 3,
+          "Low": 4,
+          "Partial": 1,
           "High": 3
         },
         "rows": [
@@ -921,15 +930,15 @@
           },
           {
             "pri": "Done",
-            "item": "COUNTDOWN-WARM-1 — round-start shader/composer stall `[SHIP-1 A1]`",
-            "notes": "Fly-over camera hard-cuts to a never-warmed wide/high orbit right at countdown start. Fixed with a second hidden warm-up pass from that framing (`camera.js` + `main.js warmupActiveSceneShaders`, 07-21). Real but distinct from COUNTDOWN-SYNC-1 below — this was frame-stutter, not beat timing.",
+            "item": "COUNTDOWN-SYNC-1 — countdown beat desync / \"skips\" `[SHIP-1 A1]`",
+            "notes": "Fixed (07-21): retroactively fire missed \"1\" beat, staggered 220ms before GO + host-domain clock sync. Confirmed good by Wyatt in playtest (07-22).",
             "ship1": "A1"
           },
           {
-            "pri": "🟡 Partial",
-            "item": "COUNTDOWN-SYNC-1 — countdown beat desync / \"skips\" `[SHIP-1 A1]`",
-            "notes": "The actual complaint: 3/2/1/GO beats fire but wildly unevenly spaced — non-host measured the 1→GO gap collapsing to ~90ms (should be ~1200ms), twice, across two rounds. Root cause: `hud.js updateStatus()` computes the shown digit by polling each frame, but GO fires on an edge-detected phase transition independent of it — a stall spanning the last digit-window lets phase flip to `running` before the digit branch ever observes n===1, skipping it. Fixed (07-21): retroactively fire the missed \"1\" beat, staggered 220ms before GO, generation/phase-guarded. Presentational only (gameplay unlock already gated on phase, not this banner). Needs Wyatt's playtest — could not force a real stall to verify the catch-up path headlessly.",
-            "ship1": "A1"
+            "pri": "Low",
+            "item": "COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case",
+            "notes": "In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22).",
+            "ship1": null
           },
           {
             "pri": "🟡 Partial",
@@ -1580,6 +1589,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-COUNTDOWN-1",
+        "date": "07-22",
+        "text": "Countdown sync (COUNTDOWN-SYNC-1), flyover warm-up (COUNTDOWN-WARM-1), and Intel host capture confirmed PASS by Wyatt. Empty quickplay countdown edge case (COUNTDOWN-QUICKPLAY-1) documented and parked in BACKLOG."
+      },
       {
         "id": "D-ARCH-1",
         "date": "07-21",

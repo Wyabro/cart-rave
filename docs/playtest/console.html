@@ -4,29 +4,76 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cart Clash — Playtest Console</title>
+  <!-- tokens mirror tools/lib/ccStyle.mjs — keep in sync (this file is static and cannot import the JS module) -->
   <style>
     :root {
-      --bg: #0c0d12;
-      --panel: #14161f;
-      --panel2: #1a1d29;
-      --border: #2a2f42;
-      --text: #e8eaf2;
-      --muted: #8b92a8;
-      --accent: #ff2d95;
-      --accent2: #00e5ff;
-      --good: #3dd68c;
-      --bad: #ff5c7a;
-      --warn: #ffc14d;
-      --now: #7c5cff;
+      /* canonical Command Center tokens (from ccStyle.mjs ROOT_TOKENS) */
+      --bg: #0a0a11;
+      --panel: #13131c;
+      --panel2: #191926;
+      --edge: #252538;
+      --edge2: #383854;
+      --text: #f0eff8;
+      --dim: #a4a4c4;
+      --neon: #ff2d95;
+      --cyan: #27e0e6;
+      --violet: #7c5cff;
+      --good: #3ddc84;
+      --bad: #ff5d5d;
+      --warn: #ffc24b;
+      /* legacy aliases used by this page's own component CSS below */
+      --border: var(--edge);
+      --muted: var(--dim);
+      --accent: var(--neon);
+      --accent2: var(--cyan);
+      --now: var(--violet);
       --radius: 12px;
       --font: "Segoe UI", system-ui, -apple-system, sans-serif;
       --mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
-    body { min-height: 100vh; }
+    body {
+      min-height: 100vh;
+      background-image: radial-gradient(1100px 500px at 50% -180px, rgba(255,45,149,.11), transparent 65%),
+                        radial-gradient(700px 400px at 88% -40px, rgba(39,224,230,.07), transparent 60%);
+    }
+    body::before {
+      content: ""; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 200;
+      background: linear-gradient(90deg, var(--neon), var(--violet), var(--cyan)); opacity: .85;
+    }
     a { color: var(--accent2); }
-    .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 80px; }
+
+    /* Sticky top bar — mirrors tools/dashboard.mjs .sticky-bar / .nav-brand */
+    .sticky-bar {
+      position: sticky; top: 0; z-index: 100; background: rgba(10,10,15,0.94);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--edge); padding: 10px 0; margin-bottom: 4px;
+    }
+    .sticky-inner {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+      max-width: 920px; margin: 0 auto; padding: 0 16px;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px;
+      letter-spacing: 2px; text-decoration: none; color: var(--text);
+    }
+    .nav-brand .neon { color: var(--neon); text-shadow: 0 0 12px rgba(255,45,149,0.6); }
+
+    /* Cross-surface switcher — copied verbatim from ccStyle.mjs BASE_CSS */
+    .cc-switch { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .cc-switch a { display:inline-flex; align-items:center; gap:7px; padding:9px 17px; border-radius:10px;
+                   border:1px solid var(--edge2); background:var(--panel2); color:var(--text);
+                   font-size:14px; font-weight:700; letter-spacing:.4px; text-decoration:none; white-space:nowrap;
+                   transition:border-color .15s, color .15s, box-shadow .15s; }
+    .cc-switch a:hover { border-color:var(--cyan); color:var(--cyan); text-decoration:none; }
+    .cc-switch a.active { border-color:var(--neon); color:#fff; cursor:default;
+                          background:linear-gradient(180deg, rgba(255,45,149,.22), rgba(124,92,255,.14));
+                          box-shadow:0 0 0 1px rgba(255,45,149,.35), 0 0 14px rgba(255,45,149,.25); }
+    .cc-switch a.active:hover { border-color:var(--neon); color:#fff; }
+    .cc-switch .sw-ico { font-size:15px; line-height:1; }
+
+    .wrap { max-width: 920px; margin: 0 auto; padding: 16px 16px 80px; }
     header {
       display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-start;
       justify-content: space-between; margin-bottom: 18px;
@@ -42,9 +89,10 @@
     }
     .pill strong { color: var(--text); font-weight: 600; }
     .rules {
-      background: linear-gradient(135deg, #1a1230, #121826);
-      border: 1px solid #3a2a6a; border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(124,92,255,.10), var(--panel) 60%);
+      border: 1px solid rgba(124,92,255,.35); border-radius: var(--radius);
       padding: 14px 16px; margin-bottom: 18px; font-size: 0.9rem; line-height: 1.45;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     }
     .rules h2 { margin: 0 0 8px; font-size: 0.85rem; color: var(--now); text-transform: uppercase; letter-spacing: 0.08em; }
     .rules ol { margin: 0; padding-left: 1.2rem; color: var(--text); }
@@ -97,6 +145,7 @@
     .card {
       background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
       padding: 14px 16px; margin-bottom: 10px; opacity: 0.55; transition: opacity 0.15s, border-color 0.15s;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     }
     .card.now {
       opacity: 1; border-color: var(--now);
@@ -154,7 +203,7 @@
     .gate p { margin: 0; color: var(--muted); font-size: 0.88rem; line-height: 1.4; }
     .export-box {
       background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 14px 16px; margin-top: 24px;
+      padding: 14px 16px; margin-top: 24px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     }
     .export-box h2 { margin: 0 0 8px; font-size: 0.95rem; }
     .export-box p { margin: 0 0 10px; color: var(--muted); font-size: 0.85rem; line-height: 1.4; }
@@ -171,7 +220,7 @@
     }
     .machine {
       background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 12px;
+      padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     }
     .machine h3 { margin: 0 0 8px; font-size: 0.85rem; color: var(--accent2); }
     .machine label { font-size: 0.7rem; }
@@ -179,6 +228,20 @@
   </style>
 </head>
 <body>
+  <!-- Sticky Navigation Bar — mirrors the generated Command Center surfaces -->
+  <div class="sticky-bar">
+    <div class="sticky-inner">
+      <a href="#" class="nav-brand">CART <span class="neon">CLASH</span> PLAYTEST</a>
+      <nav class="cc-switch" aria-label="Command Center surfaces">
+        <a href="../../.diag-captures/dashboard.html"
+           title="Generated Command Center (run `npm run dashboard` first). Reads this console's progress from localStorage in this browser."><span class="sw-ico">🛒</span>Command Center</a>
+        <a href="../../.diag-captures/architecture.html"
+           title="Generated architecture map (run `npm run arch` or `npm run dashboard` first)."><span class="sw-ico">🗺</span>Architecture</a>
+        <a class="active" aria-current="page"><span class="sw-ico">🎮</span>Playtest Console</a>
+      </nav>
+    </div>
+  </div>
+
   <div class="wrap">
     <header>
       <div>
@@ -192,10 +255,6 @@
         <span class="pill">Run <strong id="runLabel">7</strong></span>
         <span class="pill">Build <strong id="buildLabel">prod + ?diag=1</strong></span>
         <span class="pill">Storage <strong>local</strong></span>
-        <a class="pill" href="../../.diag-captures/dashboard.html"
-           title="Generated Command Center (run `npm run dashboard` first). Reads this console's progress from localStorage in this browser.">🛒 Command Center</a>
-        <a class="pill" href="../../.diag-captures/architecture.html"
-           title="Generated architecture map (run `npm run arch` or `npm run dashboard` first).">🗺 Architecture</a>
       </div>
     </header>
 

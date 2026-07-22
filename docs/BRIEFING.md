@@ -1,10 +1,12 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `b8e5047` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `7cb92a95`
+> Generated 2026-07-22 at commit `49ef6fa` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `3942eccd`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
+
+**Before you touch code:** read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — the generated codebase map (every file's owning system, dependency edges, and a `do_not_break` block). The active item below tells you *what* to do; the manifest tells you *what not to break* where.
 
 ## Phase (declared — Wyatt moves the marker)
 
@@ -12,20 +14,19 @@
 
 ## Mission
 
-Playtesting and stabilization — Countdown stack fixed; awaiting Wyatt's playtest verdicts + an Intel-as-host capture.
+Playtesting and stabilization — Countdown stack (COUNTDOWN-WARM-1 & COUNTDOWN-SYNC-1) and Intel host capture confirmed PASS by Wyatt (07-22). Empty quickplay edge case documented in BACKLOG (COUNTDOWN-QUICKPLAY-1).
 
 ## NO ACTIVE CARD
 
 Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md
 
 Self-directed queue (one at a time, within the declared phase):
-- **A1 Intel-as-host capture** original chronic-freeze question — ⏳ still 0/5 sessions — party server keeps picking the 4090
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)
 
-- **A1 COUNTDOWN-WARM-1** fly-over camera shader/composer stall — ✅ fixed, needs Wyatt playtest
-- **A1 COUNTDOWN-SYNC-1** non-host countdown clock-domain sync — ✅ catch-up + host-domain anchor fixed; needs Wyatt playtest + F8
+- **A1 COUNTDOWN-WARM-1** fly-over camera shader/composer stall — ✅ PASS (Wyatt playtest 07-22)
+- **A1 COUNTDOWN-SYNC-1** non-host countdown clock-domain sync — ✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG)
 
 ## Do not
 

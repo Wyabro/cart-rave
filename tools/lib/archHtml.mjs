@@ -194,8 +194,15 @@ function renderFlowMap(systems, accentOf) {
  * @returns {string}
  */
 export function renderArchHtml(ctx) {
-  const { manifest, model, git, generatedAt, commits30d, movedThisWeek } = ctx;
+  const { manifest, model, git, generatedAt, commits30d, movedThisWeek, blobBase } = ctx;
   const systems = manifest.systems ?? [];
+  // * Deep-link a repo-relative path into its web source view (GitHub blob). When the remote
+  // * can't be resolved (blobBase null) every path renders plain — the page still works offline.
+  const blobHref = (f) => (blobBase ? `${blobBase}/${f}` : null);
+  const fileLink = (f) => {
+    const h = blobHref(f);
+    return h ? `<a class="flink" href="${esc(h)}" target="_blank" rel="noopener" title="Open ${esc(f)} on GitHub">${esc(f)}</a>` : esc(f);
+  };
   const lineCounts = model.lineCounts ?? {};
   const perSystem = model.churn?.perSystem ?? {};
   const perFile = model.churn?.perFile ?? {};
@@ -276,7 +283,7 @@ export function renderArchHtml(ctx) {
         .map((f) => {
           const ln = lineCounts[f];
           const ch = perFile[f]?.commits ?? 0;
-          return `<tr class="file-row" data-filepath="${esc(f)}"><td class="mono fpath">${esc(f)} <button type="button" class="copy-btn" data-copy="${esc(f)}" title="Copy file path">📋</button></td><td class="num">${ln == null ? "—" : fmt(ln)}</td><td class="num">${ch ? `${ch}×` : "·"}</td></tr>`;
+          return `<tr class="file-row" data-filepath="${esc(f)}"><td class="mono fpath">${fileLink(f)} <button type="button" class="copy-btn" data-copy="${esc(f)}" title="Copy file path">📋</button></td><td class="num">${ln == null ? "—" : fmt(ln)}</td><td class="num">${ch ? `${ch}×` : "·"}</td></tr>`;
         })
         .join("");
       const edgeRows = (s.edges ?? [])
@@ -295,7 +302,7 @@ export function renderArchHtml(ctx) {
         <h3>${esc(s.name)}</h3>
         ${isHot ? `<span class="chip hot" title="top-churn system (30d)">🔥 HOT</span>` : ""}
         ${isFragile ? `<span class="chip caution" title="fragile — silent-failure surface">⚠ FRAGILE</span>` : ""}
-        <span class="scard-entry mono" title="entry point">${esc((s.entry ?? [])[0] ?? "—")}</span>
+        <span class="scard-entry mono" title="entry point">${(s.entry ?? [])[0] ? fileLink(s.entry[0]) : "—"}</span>
       </header>
       <p class="scard-resp">${esc(s.responsibility)}</p>
       <div class="tel">
@@ -354,7 +361,12 @@ export function renderArchHtml(ctx) {
   const queueRows = activeQueue
     .map((q) => {
       const cls = q.state === "active" ? "q-active" : "q-wait";
-      return `<li class="${cls}"><b>${esc(q.id)}</b> ${esc(q.what)} <i>${esc(q.status)}</i></li>`;
+      // * touches_systems (archRender) links the card in flight to the systems it names — the
+      // * what-to-do → what-not-to-break hop. Chips jump to the system card (and its fragility).
+      const touches = (q.touches_systems ?? [])
+        .map((t) => `<button type="button" class="chip touches dep-link" data-jump="${esc(t.id)}" style="--accent:${accentOf[t.id] ?? "var(--dim)"}">${esc(nameOf[t.id] ?? t.id)}</button>`)
+        .join("");
+      return `<li class="${cls}"><b>${esc(q.id)}</b> ${esc(q.what)} <i>${esc(q.status)}</i>${touches ? `<div class="touch-row"><span class="touch-lbl">touches</span>${touches}</div>` : ""}</li>`;
     })
     .join("");
   const movedChips = (movedThisWeek ?? []).length
@@ -581,6 +593,12 @@ ${BASE_CSS}
   button.chip.moved:hover { text-decoration:none; border-color:var(--accent); background:rgba(255,255,255,0.06); }
   .moved-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); }
   button.chip.moved i { color:var(--dim); }
+  .flink { color:var(--cyan); text-decoration:none; } .flink:hover { text-decoration:underline; }
+  .touch-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
+  .touch-lbl { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); }
+  button.chip.touches { cursor:pointer; font-size:11px; padding:2px 9px; border-color:var(--edge2);
+                        border-left:3px solid var(--accent); color:#c9c7da; }
+  button.chip.touches:hover { text-decoration:none; border-color:var(--accent); background:rgba(255,255,255,0.06); }
 
   footer { margin-top:40px; padding-top:20px; border-top:1px solid var(--edge); color:var(--dim); font-size:12px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
   footer .links { display:flex; gap:16px; }

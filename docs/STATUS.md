@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Countdown stack fixed; awaiting Wyatt's playtest verdicts + an Intel-as-host capture.
+**Playtesting and stabilization.** Countdown stack (COUNTDOWN-WARM-1 & COUNTDOWN-SYNC-1) and Intel host capture confirmed PASS by Wyatt (07-22). Empty quickplay edge case documented in BACKLOG (COUNTDOWN-QUICKPLAY-1).
 
 Run 7 mission closed; player-risk residuals NET-2 and NET-MIG-3 passed live; NET-PRES-1
 event-id dedupe landed (loss-on-drop residual accepted). Stay in this phase until Wyatt
@@ -105,9 +105,9 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | # | What | Status |
 |---|------|--------|
 | **A1** host hitch forensics | `hiddenDuringGap` latch shipped + validated (real 6.55s tab-out caught cleanly) | ✅ instrumentation proven |
-| **A1** COUNTDOWN-WARM-1 | fly-over camera shader/composer stall | ✅ fixed, needs Wyatt playtest |
-| **A1** COUNTDOWN-SYNC-1 | non-host countdown clock-domain sync | ✅ catch-up + host-domain anchor fixed; needs Wyatt playtest + F8 |
-| **A1** Intel-as-host capture | original chronic-freeze question | ⏳ still 0/5 sessions — party server keeps picking the 4090 |
+| **A1** COUNTDOWN-WARM-1 | fly-over camera shader/composer stall | ✅ PASS (Wyatt playtest 07-22) |
+| **A1** COUNTDOWN-SYNC-1 | non-host countdown clock-domain sync | ✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG) |
+| **A1** Intel-as-host capture | original chronic-freeze question | ✅ PASS (Wyatt confirmed 07-22) |
 | **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
@@ -198,6 +198,8 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-COUNTDOWN-1** (07-22): Countdown sync (COUNTDOWN-SYNC-1), flyover warm-up (COUNTDOWN-WARM-1), and Intel host capture confirmed PASS by Wyatt. Empty quickplay countdown edge case (COUNTDOWN-QUICKPLAY-1) documented and parked in BACKLOG.
 
 - **D-ARCH-1** (07-21): Living architecture layer — `npm run arch` generates committed
   `docs/ARCHITECTURE.json` (agent manifest: 18-system taxonomy claiming every src/party/shared

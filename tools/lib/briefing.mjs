@@ -120,6 +120,8 @@ export function renderBriefingMd(statusMd, git = {}) {
     ``,
     `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`,
     ``,
+    `**Before you touch code:** read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — the generated codebase map (every file's owning system, dependency edges, and a \`do_not_break\` block). The active item below tells you *what* to do; the manifest tells you *what not to break* where.`,
+    ``,
     body,
     ``,
     `## Gates`,

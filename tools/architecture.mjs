@@ -21,7 +21,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildArchManifest, extractArchDigest } from "./lib/archRender.mjs";
-import { buildArchModel } from "./lib/archModel.mjs";
+import { buildArchModel, movedSystems, repoBlobBase } from "./lib/archModel.mjs";
 import { SYSTEMS } from "./lib/archMap.mjs";
 import { renderArchHtml } from "./lib/archHtml.mjs";
 import { parseArgs, makeLogger, CAPTURE_DIR } from "./lib/harness.mjs";
@@ -35,39 +35,6 @@ function git(argv) {
   } catch {
     return null;
   }
-}
-
-/**
- * Systems touched by src/ · party/ · shared/ commits in the last `days` days, mapped by changed
- * file path → claiming system. Returns [{ id, name, commits }] sorted by commit count desc.
- * @param {string} cwd
- * @param {Map<string, string[]>} bySystem
- * @param {any[]} systems
- * @param {number} [days]
- */
-function movedSystems(cwd, bySystem, systems, days = 7) {
-  const fileToSys = new Map();
-  for (const [id, files] of bySystem.entries()) for (const f of files) fileToSys.set(f, id);
-  const nameOf = Object.fromEntries(systems.map((s) => [s.id, s.name]));
-  const raw = git(["log", `--since=${days}.days`, "--name-only", "--pretty=format:%H", "--", "src", "party", "shared"]);
-  if (raw == null) return [];
-  /** @type {Map<string, Set<string>>} */
-  const perSys = new Map();
-  let commit = null;
-  for (const line of raw.split(/\r?\n/)) {
-    const t = line.trim();
-    if (t === "") continue;
-    if (/^[0-9a-f]{40}$/.test(t)) {
-      commit = t;
-      continue;
-    }
-    const sys = fileToSys.get(t);
-    if (!sys || !commit) continue;
-    (perSys.get(sys) ?? perSys.set(sys, new Set()).get(sys)).add(commit);
-  }
-  return [...perSys.entries()]
-    .map(([id, set]) => ({ id, name: nameOf[id] ?? id, commits: set.size }))
-    .sort((a, b) => b.commits - a.commits);
 }
 
 async function main() {
@@ -118,6 +85,7 @@ async function main() {
       generatedAt: new Date().toISOString(),
       commits30d,
       movedThisWeek: movedSystems(cwd, model.expansion.bySystem, SYSTEMS),
+      blobBase: repoBlobBase(cwd),
     });
     mkdirSync(CAPTURE_DIR, { recursive: true });
     const htmlPath = resolve(CAPTURE_DIR, "architecture.html");

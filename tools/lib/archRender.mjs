@@ -34,10 +34,11 @@ import {
   AGENT_READ_ORDER,
   REQUIRED_VALIDATION,
 } from "./archMap.mjs";
-import { expandSystems } from "./archModel.mjs";
+import { expandSystems, symbolsToSystems } from "./archModel.mjs";
 import {
   extractSection,
   parseListItems,
+  extractBacktickSymbols,
   parseStatusCurrentFocus,
   parseStatusReleasePhases,
   parseStatusPlaytestQueue,
@@ -119,6 +120,18 @@ export function assembleManifestBody(sources) {
     };
   });
 
+  // * touches_systems: resolve the file-shaped tokens a queue card names (backticked or bare
+  // * *.js/.ts/.css) to their owning systems — the what-to-do → what-not-to-break hop. Derived
+  // * only from the card text + the taxonomy (both already digest inputs), so it stays deterministic.
+  const fileTokens = (text) => {
+    const bare = String(text ?? "").match(/[A-Za-z0-9_./-]+\.(?:js|ts|css)\b/g) ?? [];
+    return [...new Set([...extractBacktickSymbols(text), ...bare])];
+  };
+  const queue = parseStatusPlaytestQueue(statusMd).map((q) => {
+    const touches = symbolsToSystems(fileTokens(`${q.what} ${q.status}`), expansion.bySystem, SYSTEMS);
+    return touches.length ? { ...q, touches_systems: touches } : q;
+  });
+
   const backlogSections = parseBacklogSections(backlogMd).map((sec) => ({
     title: sec.title,
     counts: sec.counts,
@@ -141,7 +154,7 @@ export function assembleManifestBody(sources) {
     safe_modification: SAFE_MODIFICATION,
     pitfalls: parseStatusGotchas(statusMd),
     workstreams: {
-      queue: parseStatusPlaytestQueue(statusMd),
+      queue,
       next_actions: parseListItems(extractSection(statusMd, "### Next actions") ?? ""),
       open_issues: parseStatusOpenIssues(statusMd),
     },
