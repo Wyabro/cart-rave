@@ -74,14 +74,17 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  *
  * @param {KOEventDeps} deps
  * @param {number} slotIndex Victim slot.
- * @param {{ x: number, y: number, z: number }} p Victim body translation at the fall.
- * @param {number} nowMs Date.now() — for the hit window and round-time math.
+ * @param {{ x: number, y: number, z: number }} p Victim body translation at the fall (depth position).
+ * @param {number} nowMs Date.now() / roundNowMs — for the hit window and round-time math.
+ * @param {{ classifyPos?: { x: number, y: number, z: number }, creditTimeMs?: number }} [options]
  * @returns {KOEvent}
  */
-export function buildKOEvent(deps, slotIndex, p, nowMs) {
+export function buildKOEvent(deps, slotIndex, p, nowMs, options = {}) {
   const roundState = deps.getRoundState();
   const roundTimeMs = roundState.startedAtMs > 0 ? nowMs - roundState.startedAtMs : 0;
   const isSuddenDeath = Boolean(roundState.isSuddenDeath);
+  const classifyPos = options.classifyPos || p;
+  const creditTimeMs = options.creditTimeMs ?? nowMs;
 
   // * Leader scan is read-only and independent of attribution, so a self-fall by the current
   // * leader still reports victimWasLeader. Sole leader only — a tie means no leader, matching
@@ -114,7 +117,8 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
   const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 3000;
 
   // * No qualifying recent ram — self/environmental fall: no attribution, no points.
-  if (!hit || (nowMs - hit.timestamp > hitWindowMs)) {
+  // * Evaluates creditTimeMs (captured at platform rim entry) against hit.timestamp.
+  if (!hit || (creditTimeMs - hit.timestamp > hitWindowMs)) {
     const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : SELF_DEATH_VERB_FALLBACK;
     return {
       victimSlotIndex: slotIndex,
@@ -141,13 +145,14 @@ export function buildKOEvent(deps, slotIndex, p, nowMs) {
   // * Center-hole bonus only applies on levels that actually have a hole. Solid-floor levels
   // * (Backrooms, Zanzibar, Test Arena) set centerHole.enabled = false — without this gate a
   // * near-origin edge fall on a small platform would wrongly score the +2 center bonus.
-  const distOriginXZ = Math.hypot(p.x, p.z);
+  // * Kill-zone classification uses classifyPos (captured at rim entry) to prevent 30m shaft drift misclassification.
+  const distOriginXZ = Math.hypot(classifyPos.x, classifyPos.z);
   const holeEnabled = deps.CONFIG.record?.centerHole?.enabled !== false;
   const isCenterHole = holeEnabled && distOriginXZ < deps.CONFIG.record.innerRadius + 2;
 
   // * Per-arena signature kill zone (Storerooms corner voids) — same 2× template as the
   // * Classic center hole, classified by the active level's hazard data.
-  const isCornerVoid = !isCenterHole && deps.classifyKillZone?.(p) === "corner_void";
+  const isCornerVoid = !isCenterHole && deps.classifyKillZone?.(classifyPos) === "corner_void";
 
   const rewardBase = isCenterHole || isCornerVoid ? 2 : 1;
   const rewardCritical = hit.wasCritical ? 1 : 0;

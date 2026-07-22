@@ -248,6 +248,31 @@ describe("buildKOEvent", () => {
     expect(e.isKill).toBe(false);
     expect(e.impactSpeed).toBe(0);
   });
+
+  it("classifies center_hole via classifyPos at origin even when depth p has drifted outside innerRadius + 2", () => {
+    const deps = makeDeps({
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: NOW }),
+    });
+    const depthPos = { x: 10, y: -30, z: 0 }; // dist 10 > 5+2 -> outer edge if using depth p
+    const rimEntryPos = { x: 0, y: -2, z: 0 }; // dist 0 < 7 -> center hole
+    const e = buildKOEvent(deps, 2, depthPos, NOW, { classifyPos: rimEntryPos });
+    expect(e.cause).toBe("center_hole");
+    expect(e.reward.base).toBe(2);
+    expect(e.fallX).toBe(10); // preserves depth coords for diagnostics
+  });
+
+  it("credits a kill when creditTimeMs is inside the hit window even if nowMs has passed it", () => {
+    const hitTime = 1000;
+    const rimEntryTime = 3000; // 3000 - 1000 = 2000ms <= 2500ms hitWindowMs
+    const depthReachTime = 5000; // 5000 - 1000 = 4000ms > 2500ms hitWindowMs
+    const deps = makeDeps({
+      getLastHitBy: () => hitMap(2, { attackerSlotIndex: 1, wasCritical: false, timestamp: hitTime }),
+    });
+    const e = buildKOEvent(deps, 2, OUTER, depthReachTime, { creditTimeMs: rimEntryTime });
+    expect(e.isKill).toBe(true);
+    expect(e.attackerSlotIndex).toBe(1);
+    expect(e.cause).toBe("outer_edge");
+  });
 });
 
 describe("rebuildKOEvent (non-host replay)", () => {

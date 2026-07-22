@@ -444,6 +444,9 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     // * Deliberately NOT cleared by resetCartTransientState: a fall spill should leave
     // * the tail of the buff after the 600ms respawn (the comeback moment).
     spillBoostUntilMs: 0,
+    // * Rim entry state — captured when dropping below FALL_ENTRY_Y for accurate KO classification/attribution.
+    fallEntryPos: null,
+    fallEntryTimeMs: null,
   };
 }
 
@@ -473,6 +476,8 @@ export function resetCartTransientState(cart) {
   cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   cart.respawnAtMs = null;
+  cart.fallEntryPos = null;
+  cart.fallEntryTimeMs = null;
   cart.pendingRam = null;
   cart.ramBoostActiveUntilMs = 0;
   cart.ramBoostStreakCarry = 0;

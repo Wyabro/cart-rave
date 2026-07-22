@@ -288,6 +288,7 @@ const physics = {
 
   fall: {
     yThreshold: -10, // meters — Y below arena triggers fall state
+    entryYThreshold: -2.0, // meters — Y below platform rim where fall entry position/time is recorded
     respawnDelayMs: 1000, // ms — delay after shatter VFX plays out before booth respawn
     // * Host-only anti-wedge safeguard — no score / kill feed (geometry trap workaround).
     stuck: {

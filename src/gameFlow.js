@@ -179,6 +179,8 @@ export function updateGameFlow(deps, context) {
       // * NET-SD-1: fall-path awards that end SD must suppress the same-frame wipeout
       // * fallback (tests mock addScore without flipping phase).
       let suddenDeathResolvedThisFrame = false;
+      const FALL_ENTRY_Y = deps.CONFIG.fall?.entryYThreshold ?? -2.0;
+
       for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
         // * A Sudden Death addScore inside this loop can end the round synchronously
         // * (endRound → cleanupSuddenDeathState un-parks spectators at y=-50 with their
@@ -195,6 +197,19 @@ export function updateGameFlow(deps, context) {
         if (cart.isSuddenDeathSpectator) continue;
 
         const p = cart.body.translation();
+
+        // * Track rim entry pose + round-clock timestamp as soon as cart drops below platform rim.
+        // * Used by buildKOEvent to classify kill zone (classifyPos) and score attribution (creditTimeMs)
+        // * before 30m vertical drop drift / wall ricochets corrupt the sample.
+        if (p.y < FALL_ENTRY_Y && p.y >= deps.CONFIG.fall.yThreshold) {
+          if (!cart.fallEntryPos) {
+            cart.fallEntryPos = { x: p.x, y: p.y, z: p.z };
+            cart.fallEntryTimeMs = roundNowMs;
+          }
+        } else if (p.y >= FALL_ENTRY_Y) {
+          cart.fallEntryPos = null;
+          cart.fallEntryTimeMs = null;
+        }
 
         if (p.y < deps.CONFIG.fall.yThreshold && cart.respawnAtMs === null) {
           // * Leave-play hook before SD spectator park or scheduleRespawn — SD skips
@@ -221,7 +236,10 @@ export function updateGameFlow(deps, context) {
 
           if (!isTestDrive) {
             // * roundNowMs shares startedAtMs domain (roundTimeMs = now - startedAtMs).
-            const koEvent = buildKOEvent(deps, slotIndex, p, roundNowMs);
+            // * ARENA-COL-1: pass rim entry pose & timestamp for accurate kill-zone classification and attribution.
+            const classifyPos = cart.fallEntryPos || p;
+            const creditTimeMs = cart.fallEntryTimeMs ?? roundNowMs;
+            const koEvent = buildKOEvent(deps, slotIndex, p, roundNowMs, { classifyPos, creditTimeMs });
 
             if (koEvent.isKill) {
               // * Sudden Death multi-way tie guard: when 3+ carts are tied and one
@@ -255,6 +273,8 @@ export function updateGameFlow(deps, context) {
                   cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
                   cart.body.setEnabled(false);
                   cart.isSuddenDeathSpectator = true;
+                  cart.fallEntryPos = null;
+                  cart.fallEntryTimeMs = null;
                 }
               }
               const suddenDeathEnded = deps.addScore(koEvent.attackerSlotIndex, koEvent.reward.total, suppressSuddenDeathWin);
@@ -275,6 +295,8 @@ export function updateGameFlow(deps, context) {
               cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
               cart.body.setEnabled(false);
               cart.isSuddenDeathSpectator = true;
+              cart.fallEntryPos = null;
+              cart.fallEntryTimeMs = null;
 
               const scores = deps.getRoundScores();
               let topScore = -Infinity;

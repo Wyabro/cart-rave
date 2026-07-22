@@ -110,6 +110,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A1** Intel-as-host capture | original chronic-freeze question | ✅ PASS (Wyatt confirmed 07-22) |
 | **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
 | **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
+| **A4** ARENA-COL-1 | Cart Rave pit KO detection & kill-zone reliability | 📋 unpushed (rim entry pose/time options in buildKOEvent; tests 27/27 pass; awaiting Wyatt playtest) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
