@@ -78,7 +78,7 @@ post-launch unless Wyatt pulls them forward.
 | Low | Animate the customize sunglasses-tab camera zoom | |
 | Low | Subtle monetization path | Idea stage only. |
 | High | CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]` | Host-side physics; evaluate rubberband + MP balance. |
-| High | AI-DIFF-1 — NPC difficulty modes `[SHIP-1 B1]` | Re-baseline after cautious-phase fix before tiers. Also sharpens Solo-as-tutorial. |
+| Done | AI-DIFF-1 — NPC difficulty modes `[SHIP-1 B1]` | Shipped 07-22 (`49bfc2a`). Medium = baseline; Solo Easy default + menu; Quickplay Medium; Friends host pick. |
 | High | HIT-FEEL-1 — hit feedback `[SHIP-1 B3]` | Weak normals + noisy incoming. |
 | High | INPUT-KB-1 — keyboard parity with controller `[SHIP-1 A2]` | |
 | Medium | ARENA-BAL-1 — self-KO rate on Sundial + Storerooms `[SHIP-1 B3]` | |

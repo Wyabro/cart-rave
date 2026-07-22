@@ -56,11 +56,11 @@ opportunistically when touched — no dedicated refactor pass.
 
 ## Tier B — Gameplay depth
 
-| # | Item |
-|---|------|
-| B1 | AI-DIFF-1 — NPC difficulty tiers (also sharpens Solo-as-tutorial) |
-| B2 | CARGO-WT-1 — grocery weight risk/reward |
-| B3 | HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate |
+| # | Item | Notes |
+|---|------|-------|
+| B1 | AI-DIFF-1 — NPC difficulty tiers (also sharpens Solo-as-tutorial) | **Shipped 07-22** (`49bfc2a`) — Easy/Med/Hard; Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick. |
+| B2 | CARGO-WT-1 — grocery weight risk/reward | |
+| B3 | HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate | |
 
 ## Tier C — Cart model → patterns (one workstream, Wyatt-led art)
 

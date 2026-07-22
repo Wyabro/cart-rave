@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained (A7 ANLX-VIEW-1 ✅). **B1 AI-DIFF-1** implemented **unpushed** — Easy/Med/Hard decision tiers (Medium = current baseline identity; Solo default Easy; Quickplay forced Medium; Friends host pick via menu). Awaiting Wyatt Solo/QP/Friends playtest before ship. **Before public/external playtest: reset analytics DO** (see Gotchas).
+**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -253,6 +253,11 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
+
+2026-07-22 (B1 AI-DIFF-1 SHIPPED) — `49bfc2a` / `index-Dxyw7U08.js` / Version `4e33515b`.
+Easy/Med/Hard NPC decision tiers on prod. Medium = baseline identity; Solo default Easy +
+Arenas picker; Quickplay forced Medium; Friends host pick via `host_round.aiDifficulty`.
+Playtest-tuned Easy −15% / Hard +15% vs first pass. Hard `steerGainMax` ≤ 1.85.
 
 2026-07-22 (B1 AI-DIFF-1 — implemented, unpushed) — Easy/Med/Hard NPC decision tiers.
 Medium = identity (current baseline). Solo default Easy + menu picker under Arenas

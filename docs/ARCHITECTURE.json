@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T23:05:56.870Z",
-    "commit": "2dc0282"
+    "at": "2026-07-22T23:07:58.241Z",
+    "commit": "49bfc2a"
   },
-  "source_digest": "27e87e96",
+  "source_digest": "b5356929",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained (A7 ANLX-VIEW-1 ✅). B1 AI-DIFF-1 implemented unpushed — Easy/Med/Hard decision tiers (Medium = current baseline identity; Solo default Easy; Quickplay forced Medium; Friends host pick via menu). Awaiting Wyatt Solo/QP/Friends playtest before ship. Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -1160,7 +1160,8 @@
         "counts": {
           "Medium": 3,
           "Low": 6,
-          "High": 4
+          "High": 3,
+          "Done": 1
         },
         "rows": [
           {
@@ -1212,9 +1213,9 @@
             "ship1": "B2"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "AI-DIFF-1 — NPC difficulty modes `[SHIP-1 B1]`",
-            "notes": "Re-baseline after cautious-phase fix before tiers. Also sharpens Solo-as-tutorial.",
+            "notes": "Shipped 07-22 (`49bfc2a`). Medium = baseline; Solo Easy default + menu; Quickplay Medium; Friends host pick.",
             "ship1": "B1"
           },
           {
@@ -1436,15 +1437,18 @@
         "rows": [
           {
             "col0": "B1",
-            "item": "AI-DIFF-1 — NPC difficulty tiers (also sharpens Solo-as-tutorial)"
+            "item": "AI-DIFF-1 — NPC difficulty tiers (also sharpens Solo-as-tutorial)",
+            "notes": "**Shipped 07-22** (`49bfc2a`) — Easy/Med/Hard; Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick."
           },
           {
             "col0": "B2",
-            "item": "CARGO-WT-1 — grocery weight risk/reward"
+            "item": "CARGO-WT-1 — grocery weight risk/reward",
+            "notes": ""
           },
           {
             "col0": "B3",
-            "item": "HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate"
+            "item": "HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate",
+            "notes": ""
           }
         ]
       },

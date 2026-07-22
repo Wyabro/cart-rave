@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `2dc0282` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `ddd78dd1`
+> Generated 2026-07-22 at commit `49bfc2a` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `d1e42511`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,7 +14,7 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained (A7 ANLX-VIEW-1 ✅). B1 AI-DIFF-1 implemented unpushed — Easy/Med/Hard decision tiers (Medium = current baseline identity; Solo default Easy; Quickplay forced Medium; Friends host pick via menu). Awaiting Wyatt Solo/QP/Friends playtest before ship. Before public/external playtest: reset analytics DO (see Gotchas).
+Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. Before public/external playtest: reset analytics DO (see Gotchas).
 
 ## NO ACTIVE CARD
 
