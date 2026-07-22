@@ -2997,11 +2997,29 @@ async function main() {
         // * settle; startsAtLocalMs is absolute so digit pacing still tracks server GO.
         const starts = startsAtLocalMs;
         requestAnimationFrame(() => {
-          if (menuVisible) return;
-          const phase = GameState.getRoundState().phase;
-          // * Already running, or a prior startCountdown this tick — don't double-arm.
-          if (phase === "running" || phase === "countdown") return;
-          startCountdown(starts);
+          void (async () => {
+            // * PERF-WARM: a quickplay arena rotation can still be draining when game_start
+            // * lands (the room's arena differs from the local play-entry pick). Its
+            // * full-budget warmupActiveSceneShaders render — warm.render.default.play-full,
+            // * 128ms warm → ~1.9s cold (cap-196 F8) — is a main-thread block that, when it
+            // * overlaps the countdown, eats the 3-2-1 ("game just started, no countdown").
+            // * The non-host apply path already waits on this gate; mirror it on the host so
+            // * the rotation's block lands BEFORE the countdown, not during it. Bounded poll,
+            // * so it is a no-op microtask when no rotation is pending (the common case, and
+            // * the cap-56 one-frame yield above is preserved). startsAtLocalMs is absolute
+            // * server time — a late start only shortens the visible countdown (strictly
+            // * better than a frozen one) and never desyncs the GO beat.
+            try {
+              await whenArenaRotationSettled();
+            } catch (err) {
+              console.warn("[CartRave] host countdown arena-rotation gate failed:", err);
+            }
+            if (menuVisible) return;
+            const phase = GameState.getRoundState().phase;
+            // * Already running, or a prior startCountdown this tick — don't double-arm.
+            if (phase === "running" || phase === "countdown") return;
+            startCountdown(starts);
+          })();
         });
       }
     } else if (GameState.getRoundState().phase !== "running") {
