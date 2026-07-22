@@ -436,6 +436,7 @@ describe("Binary snapshot serialization", () => {
           ackSeq: 42,
           b: true,
           h: false,
+          ch: true,
           c: true,
           s: false,
         },
@@ -494,6 +495,7 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[0].ackSeq).toBe(original.carts[0].ackSeq);
     expect(decoded.carts[0].b).toBe(true);
     expect(decoded.carts[0].h).toBe(false);
+    expect(decoded.carts[0].ch).toBe(true);
     expect(decoded.carts[0].c).toBe(true);
     expect(decoded.carts[0].s).toBe(false);
 
@@ -505,6 +507,7 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[1].ackSeq).toBe(original.carts[1].ackSeq);
     expect(decoded.carts[1].b).toBe(false);
     expect(decoded.carts[1].h).toBe(true);
+    expect(decoded.carts[1].ch).toBe(false);
     expect(decoded.carts[1].c).toBe(false);
     expect(decoded.carts[1].s).toBe(true);
 
@@ -532,6 +535,13 @@ describe("Binary snapshot serialization", () => {
       hasSpilled: false,
     };
     expect(serializeCartToWire(idle)?.b).toBe(false);
+    expect(serializeCartToWire(idle)?.ch).toBe(false);
+
+    const charging = {
+      ...idle,
+      isChargingBoost: true,
+    };
+    expect(serializeCartToWire(charging)?.ch).toBe(true);
 
     const boosting = {
       ...idle,

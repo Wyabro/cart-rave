@@ -3782,6 +3782,8 @@ async function main() {
       }
     },
     onCartImpactSquash: squashCartsOnImpact,
+    // * MP-FX-1: netcode applyCartState remote hop-land → same onHopLand as host sim.
+    onHopLand,
     // * Non-host own-death teardown (netcode processHostFallEvent) — same helper the
     // * host-side scheduleRespawn uses, so the chargeUp loop can't outlive the cart.
     stopChargeSfxForCart: (cart) => stopChargeSfxForCart(cart),

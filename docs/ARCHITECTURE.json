@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T06:20:56.107Z",
-    "commit": "49ef6fa"
+    "at": "2026-07-22T06:57:49.404Z",
+    "commit": "e767934"
   },
-  "source_digest": "9bdf7144",
+  "source_digest": "a5779096",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,6 +866,12 @@
         "state": "done"
       },
       {
+        "id": "A3 MP-FX-1",
+        "what": "non-host gameplay VFX parity",
+        "status": "🟡 In Progress (charge `ch` + hop-land heuristic wired; hop bridge fixed 07-22 — needs Wyatt 2-browser playtest)",
+        "state": "waiting"
+      },
+      {
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
@@ -967,7 +973,7 @@
           {
             "pri": "High",
             "item": "MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]`",
-            "notes": "Audit host-local vs replicated effects.",
+            "notes": "Audit host-local vs replicated effects (in progress — proposal in review).",
             "ship1": "A3"
           },
           {

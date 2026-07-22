@@ -421,6 +421,8 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     // * (or landingMaxMs timeout). Prevents thud spam on ordinary floor bumps.
     hopAwaitingLand: false,
     hopAirborne: false,
+    // * Non-host hop-land anchor (netcode applyCartState); cleared on land/timeout/respawn.
+    takeoffPy: undefined,
     respawnAtMs: null,
     pendingRam: null,
     lastRamTimeMs: 0,
@@ -486,6 +488,7 @@ export function resetCartTransientState(cart) {
   // * floor contact after respawn (timeout alone is not enough if respawn is fast).
   cart.hopAwaitingLand = false;
   cart.hopAirborne = false;
+  cart.takeoffPy = undefined;
   // * Rampage Combo state reset
   cart.comboTier = 0;
   cart.comboExpiryMs = 0;

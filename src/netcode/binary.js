@@ -111,6 +111,7 @@ export function encodeHostStateSnapshot(state) {
     if (c.h) flags |= 2;
     if (c.c) flags |= 4;
     if (c.s) flags |= 8;
+    if (c.ch) flags |= 16;
     view.setUint8(offset, flags); offset += 1;
     // 3 bytes padding
     view.setUint8(offset, 0); offset += 1;
@@ -254,6 +255,7 @@ export function decodeHostStateSnapshot(buffer) {
     cart.h = (flags & 2) === 2;
     cart.c = (flags & 4) === 4;
     cart.s = (flags & 8) === 8;
+    cart.ch = (flags & 16) === 16;
     carts.push(cart);
   }
   

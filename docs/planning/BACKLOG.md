@@ -34,7 +34,7 @@ post-launch unless Wyatt pulls them forward.
 | Low | NET-PERF-3 — p2p per-message buffer copy | Only batch if F8 shows alloc pressure after NET-PERF-1. |
 | Medium | Host-reload mid-round live confirm | Reload HOST tab mid-round once in a live smoke. |
 | Medium | ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]` | Capture harness shipped; missing reading surface (`npm run analytics` and/or Command Center panel). |
-| High | MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]` | Audit host-local vs replicated effects. |
+| High | MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]` | Audit host-local vs replicated effects (in progress — proposal in review). |
 | Medium | Customize screen performance pass *(pre-ship 07-19)* | Measure before tuning. |
 | Medium | ARENA-COL-1 — Cart Rave pit/kill-zone reliability `[SHIP-1 A4]` | Center-hole KO detection inconsistent. |
 | Low | Countdown timer survives menu return *(pre-ship 07-19)* | Stale countdown UI on main menu. |

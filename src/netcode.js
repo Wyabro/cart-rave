@@ -45,7 +45,7 @@ const _slerpQuatOut = [0, 0, 0, 0];
 /** Scratch pair result for findSnapshotPair — callers must destructure/consume before the next call. */
 const _snapshotPairScratch = { before: null, after: null, beforeIndex: -1 };
 /** Scratch cart snapshot (extrapolation/passthrough/interpolation) — avoids a fresh object alloc per cart per frame. */
-const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, c: undefined, s: undefined };
+const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, ch: undefined, c: undefined, s: undefined };
 const _cartSnapPosOut = [0, 0, 0];
 
 /** Copies a cart snapshot's fields into a scratch object (avoids a `{...snap}` alloc). */
@@ -56,6 +56,7 @@ function copyCartSnapIntoScratch(scratch, snap) {
   scratch.av = snap.av;
   scratch.b = snap.b;
   scratch.h = snap.h;
+  scratch.ch = snap.ch;
   scratch.c = snap.c;
   scratch.s = snap.s;
   return scratch;
@@ -421,6 +422,7 @@ export function registerGameCallbacks(deps) {
     },
     onRemoteBoostStart: (cart) => deps.onRemoteBoostStart?.(cart),
     stopChargeSfxForCart: (cart) => deps.stopChargeSfxForCart?.(cart),
+    onHopLandRef: (cart, intensity) => deps.onHopLand?.(cart, intensity),
     onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {
       deps.onCartImpactSquash?.(rammerCart, victimCart, intensity);
     },
@@ -1086,6 +1088,7 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
   _cartSnapScratch.av = a.av ?? b.av;
   _cartSnapScratch.b = a.b ?? b.b;
   _cartSnapScratch.h = a.h ?? b.h;
+  _cartSnapScratch.ch = a.ch ?? b.ch;
   _cartSnapScratch.c = a.c ?? b.c;
   _cartSnapScratch.s = a.s ?? b.s;
 
@@ -1174,10 +1177,48 @@ export function applyCartState(cart, snap, options = {}) {
   cart.isBoosting = snap.b;
   cart._prevRemoteBoosting = Boolean(snap.b);
 
+  if (typeof snap.ch === "boolean") {
+    cart.isChargingBoost = snap.ch;
+    if (snap.ch && !cart.boostChargeStartedAtMs) {
+      cart.boostChargeStartedAtMs = nowBoostMs;
+    } else if (!snap.ch) {
+      cart.boostChargeStartedAtMs = 0;
+    }
+  }
+
   if (snap.h && !cart._prevRemoteHopping) {
     if (triggerHopRef) triggerHopRef(cart, performance.now());
+    cart.takeoffPy = Array.isArray(snap.p) ? snap.p[1] : 0;
   }
   cart._prevRemoteHopping = Boolean(snap.h);
+
+  if (cart.hopAwaitingLand && !isHost && cart.slotIndex !== strictSlotIndexForConn(youConnId)) {
+    const vy = Array.isArray(snap.lv) ? snap.lv[1] : 0;
+    const py = Array.isArray(snap.p) ? snap.p[1] : 0;
+    const airborneVy = CONFIG.cart?.hop?.airborneVy ?? 1.15;
+    const landingMaxMs = CONFIG.cart?.hop?.landingMaxMs ?? 900;
+    const timeSinceHop = nowBoostMs - (cart.lastHopAtMs || 0);
+
+    if (vy > airborneVy) {
+      cart.hopAirborne = true;
+    }
+    if (
+      cart.hopAirborne
+      && vy < 0
+      && Number.isFinite(cart.takeoffPy)
+      && py <= cart.takeoffPy + 0.1
+    ) {
+      const intensity = Math.min(1, Math.max(0.22, (-vy) / 10));
+      callbacks.onHopLandRef?.(cart, intensity);
+      cart.hopAwaitingLand = false;
+      cart.hopAirborne = false;
+      cart.takeoffPy = undefined;
+    } else if (timeSinceHop > landingMaxMs) {
+      cart.hopAwaitingLand = false;
+      cart.hopAirborne = false;
+      cart.takeoffPy = undefined;
+    }
+  }
 
   if (typeof snap.c === "boolean" && cart.cargoBay) {
     // Only update visibility if the cart has NOT spilled locally.
@@ -1706,6 +1747,7 @@ export function serializeCartToWire(c) {
     av: [round3(av.x), round3(av.y), round3(av.z)],
     b: isBoosting,
     h: isHopping,
+    ch: Boolean(c.isChargingBoost),
     c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
     s: Boolean(c.hasSpilled),
   };

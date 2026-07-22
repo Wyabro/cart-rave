@@ -109,6 +109,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A1** COUNTDOWN-SYNC-1 | non-host countdown clock-domain sync | ✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG) |
 | **A1** Intel-as-host capture | original chronic-freeze question | ✅ PASS (Wyatt confirmed 07-22) |
 | **A2** INPUT-KB-1 | keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
+| **A3** MP-FX-1 | non-host gameplay VFX parity | 🟡 In Progress (charge `ch` + hop-land heuristic wired; hop bridge fixed 07-22 — needs Wyatt 2-browser playtest) |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 

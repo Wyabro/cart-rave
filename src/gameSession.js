@@ -121,6 +121,8 @@ export function buildNetcodeGameBridge(getContext, session) {
     getTriggerLocalHitTaken: () => getContext()?.getTriggerLocalHitTaken?.() ?? null,
     onRemoteBoostStart: (cart) => getContext()?.onRemoteBoostStart?.(cart),
     stopChargeSfxForCart: (cart) => getContext()?.stopChargeSfxForCart?.(cart),
+    // * MP-FX-1: non-host remote hop land thud/dust — registerGameCallbacks reads deps.onHopLand.
+    onHopLand: (cart, intensity) => getContext()?.onHopLand?.(cart, intensity),
     onCartImpactSquash: (rammerCart, victimCart, intensity) => {
       getContext()?.onCartImpactSquash?.(rammerCart, victimCart, intensity);
     },
