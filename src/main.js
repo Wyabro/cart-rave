@@ -215,6 +215,7 @@ import {
   runGameLoop,
   runPhysicsStep,
   updateVisualsAndEffects,
+  armRoundStartRenderProbe,
 } from "./gameLoop.js";
 import { updateGameFlow } from "./gameFlow.js";
 import {
@@ -2368,6 +2369,11 @@ async function main() {
 
   /** Pre-round camera fly-over, sized to the active arena (see {@link resolveCinematicCountdownOverrides}). */
   function beginRoundFlyover() {
+    // * PERF-WARM (§4): the round-start freeze lands AFTER carts-ready, on the first live
+    // * render at this fly-over pose — outside every warm.* span. Arm the render probe so
+    // * the next few frames' composer.render() is timed as `render.roundStart`; an F8
+    // * longframe on those frames then names the render as the freeze owner.
+    armRoundStartRenderProbe(8);
     CameraMod.beginCinematicCountdown(camera, resolveCinematicCountdownOverrides());
   }
 

@@ -21,6 +21,7 @@ import { tickAutoQuality } from "./utils/autoQuality.js";
 import { tickBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import { frameBudgetAllow } from "./utils/frameBudget.js";
 import { isComposerBypassActive } from "./scene.js";
+import { mark } from "./utils/perfSpans.js";
 
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -59,6 +60,25 @@ const _cargoCtx = { localSlotIndex: -1, netSlots: /** @type {Array<object>} */ (
 
 // * Arcade-pass Sudden Death juice smoothing — avoids hard on/off pops.
 let _arcadeSuddenDeathSmoothed = 0;
+
+// * PERF-WARM: round-start render probe. The post-`carts-ready` freeze (§4 of the
+// * PERF-WARM handover) is unattributed by any warm.* span — the leading suspect is the
+// * FIRST live round-start render at the wide fly-over pose (new render-target state /
+// * draw calls that pose exercises), which none of the pre-warm spans cover. beginRoundFlyover
+// * arms this counter; while >0 we wrap the frame's composer.render() in a named
+// * `render.roundStart` span so an F8 longframe that lands on those frames names the render
+// * as the owner. Drains to 0 after N frames — zero cost (not even a perf.now pair) all game.
+let _roundStartRenderFrames = 0;
+
+/**
+ * Arm the round-start render probe: time composer.render() as `render.roundStart` for the
+ * next `frames` visual frames. Called by beginRoundFlyover so the window covers the first
+ * live fly-over render(s) where the post-`carts-ready` freeze is suspected to live.
+ * @param {number} [frames]
+ */
+export function armRoundStartRenderProbe(frames = 8) {
+  _roundStartRenderFrames = Math.max(0, frames | 0);
+}
 
 
 
@@ -513,7 +533,21 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   // * renderer.toneMapping/outputColorSpace apply natively on the canvas path.
   // * Latched flag (not live knobs): the path flip recompiles all scene programs,
   // * so main.js only flips it behind the quality-apply overlay after a warm-up.
-  if (isComposerBypassActive()) {
+  // * PERF-WARM: for the first N frames of a round (armed by beginRoundFlyover), time the
+  // * render pass under a named span so a longframe on the fly-over entry frame attributes
+  // * the freeze to `render.roundStart` instead of the usual "unknown|window". The common
+  // * path (counter drained) stays the bare, closure-free render() it always was — the
+  // * probe branch allocates a closure only for those first N frames, never during play.
+  if (_roundStartRenderFrames > 0) {
+    _roundStartRenderFrames -= 1;
+    mark("render.roundStart", () => {
+      if (isComposerBypassActive()) {
+        deps.composer.renderer.render(deps.scene, deps.camera);
+      } else {
+        deps.composer.render();
+      }
+    });
+  } else if (isComposerBypassActive()) {
     deps.composer.renderer.render(deps.scene, deps.camera);
   } else {
     deps.composer.render();

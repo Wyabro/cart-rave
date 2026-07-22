@@ -10,7 +10,7 @@ import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
 
-export { updateVisualsAndEffects } from "./frameVisuals.js";
+export { updateVisualsAndEffects, armRoundStartRenderProbe } from "./frameVisuals.js";
 
 /** @type {object[] | null} */
 let _npcCache = null;
