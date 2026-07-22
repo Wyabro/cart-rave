@@ -1,5 +1,14 @@
 # Cart Clash — Game Architecture & Design Notes (Consolidated)
 
+> **For the live, per-file view use the generated layer, not this doc.**
+> [`docs/ARCHITECTURE.json`](../ARCHITECTURE.json) (agent-readable manifest: every file's
+> owning system, dependency edges, fragile systems, pitfalls, `do_not_break`) and the
+> architecture map on the Command Center (`npm run dashboard`) are generated from the tree
+> and gated against drift by `npm run arch` / `health:check`. This document is the
+> **narrative/design companion** — the why and the prose history — and is hand-maintained,
+> so treat its specifics as potentially stale where the two disagree (the generated layer and
+> the code win).
+
 **Document purpose:** A single, professional reference that consolidates the working notes in `docs/` into a coherent view of **how Cart Clash is built**, how multiplayer works, how releases are verified, and what work remains. Product naming freeze: [brand.md](../brand.md).
 
 **Last updated context:** July 16, 2026 — post-jam, working toward Version 2. HUD redesign, Sundial Station flagship, progression unlocks, **Living Store** (cargo + PA directives), the July production passes (performance tiers, sticker UI, gameplay/AI, VFX/audio, stabilization), and the full **Store PA announcer voice pack** (61 recorded takes, en — voiced countdown, all 5 directives, Tiers 1–4) are in tree. `host_round` validation and host selection are extracted, unit-tested server modules (`party/roundValidation.ts`, `party/hostSelection.ts`); bloom runs per-arena (display-referred on Storerooms) since `98317c1`. Friction sprint A+B (`6882a96`) shipped: join overlay, solo pause, lobby ready, rematch copy/grace. Diagnostics framework (`?diag` → `window.__ccDiag`) + gameplay E2E rig (`gameharness.mjs`) + 2-client netcode harness (`netharness.mjs`) + battery sweep (`npm run battery`) all operational. See [STATUS.md](../STATUS.md) for health/blockers, [ROADMAP.md](../planning/ROADMAP.md) + [BACKLOG.md](../planning/BACKLOG.md) for open priorities, and [project-state.md](../planning/project-state.md) for the live snapshot.

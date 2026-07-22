@@ -199,6 +199,14 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-ARCH-1** (07-21): Living architecture layer — `npm run arch` generates committed
+  `docs/ARCHITECTURE.json` (agent manifest: 18-system taxonomy claiming every src/party/shared
+  file exactly once, dependency edges from control-flow.md, fragile systems, pitfalls,
+  `do_not_break`) + `.diag-captures/architecture.html` (human map on the Command Center).
+  Taxonomy curated in `tools/lib/archMap.mjs`; stats (lines/churn) live in HTML only, never
+  the digested JSON. Drift gates in health:check: `ARCH_UNMAPPED_FILE` (new unclaimed file),
+  `ARCH_MISSING_FILE`, `ARCH_DUPLICATE_CLAIM`, `ARCH_STALE`. `Game_Architecture.md` demoted to
+  narrative companion. Runs inside `npm run qa`.
 - **D-PARITY-1** (07-21): Operational parity across AI tools — new generated+committed
   `docs/BRIEFING.md` (from STATUS.md, `npm run briefing`, digest-gated by `health:check`)
   replaces the retired `handoff-next-window.md` as the cold-start door every tool can read;
@@ -279,6 +287,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 
 ## Last updated
+
+2026-07-21 (ARCH — living architecture intelligence layer) — Extends the Command Center with a
+generated codebase map, both machine- and human-facing. New `npm run arch` (in `qa` + dashboard
+chains) builds committed `docs/ARCHITECTURE.json` (agent manifest) + `.diag-captures/architecture.html`
+(interactive map: SVG flow graph with typed edges, per-system telemetry cards, file→system lookup,
+risk/debt + priorities panels). 18-system taxonomy in `tools/lib/archMap.mjs` claims all 163
+src/party/shared files exactly once — a new unclaimed file red-gates `health:check`
+(`ARCH_UNMAPPED_FILE`), so the map stays live. Digest excludes line/churn stats (HTML-only) so the
+committed JSON doesn't churn every commit. `qa` 705 green. See D-ARCH-1.
 
 2026-07-21 (PARITY — unified cold-start across AI tools) — Root cause of "every tool behaves
 differently": each entered through a different, differently-stale door (gitignored dashboard,

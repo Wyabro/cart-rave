@@ -26,6 +26,13 @@ import {
   captureRankMs,
   normalizeCapturedAt,
   preferCaptureLabel,
+  parseStatusGotchas,
+  parseAgentsSection,
+  parseStatusDecisionIndex,
+  extractShip1Tag,
+  parseBacklogNotTechDebt,
+  parseShip1Tiers,
+  parseProjectStateHealthy,
 } from "../tools/lib/projectHealth.mjs";
 
 const STATUS_FIXTURE = `# Cart Clash — Status
@@ -377,6 +384,43 @@ describe("live-doc canaries (real docs/ vs parsers)", () => {
     const { extractBriefingDigest } = await import("../tools/lib/briefing.mjs");
     expect(extractBriefingDigest(read("docs/BRIEFING.md"))).toMatch(/^[0-9a-f]{8}$/);
   });
+
+  it("STATUS.md ## Gotchas parses non-empty (feeds ARCHITECTURE.json pitfalls)", () => {
+    expect(parseStatusGotchas(read("docs/STATUS.md")).length).toBeGreaterThan(0);
+  });
+
+  it("STATUS.md ## Decision index parses D-* rows non-empty", () => {
+    const d = parseStatusDecisionIndex(read("docs/STATUS.md"));
+    expect(d.length).toBeGreaterThan(0);
+    expect(d[0].id).toMatch(/^D-/);
+  });
+
+  it("AGENTS.md invariants / off-limits / execution / routing sections all parse non-empty", () => {
+    const md = read("AGENTS.md");
+    expect(parseAgentsSection(md, "## ARCHITECTURE INVARIANTS").length).toBeGreaterThan(0);
+    expect(parseAgentsSection(md, "## WHAT'S OFF-LIMITS").length).toBeGreaterThan(0);
+    expect(parseAgentsSection(md, "## HOW WORK IS EXECUTED").length).toBeGreaterThan(0);
+    expect(parseAgentsSection(md, "## MODEL / TOOL ROUTING").length).toBeGreaterThan(0);
+  });
+
+  it("BACKLOG.md guardrail table + at least one [SHIP-1 X] tag still parse", () => {
+    const md = read("docs/planning/BACKLOG.md");
+    expect(parseBacklogNotTechDebt(md).length).toBeGreaterThan(0);
+    const tagged = parseBacklogSections(md)
+      .flatMap((s) => s.rows)
+      .some((r) => extractShip1Tag(`${r.item ?? ""} ${r.notes ?? ""}`));
+    expect(tagged).toBe(true);
+  });
+
+  it("SHIP-1.md tiers parse into A–E with rows", () => {
+    const tiers = parseShip1Tiers(read("docs/planning/SHIP-1.md"));
+    expect(tiers.map((t) => t.tier)).toEqual(["A", "B", "C", "D", "E"]);
+    expect(tiers.every((t) => t.rows.length > 0)).toBe(true);
+  });
+
+  it("project-state.md §5 verified-healthy table parses non-empty", () => {
+    expect(parseProjectStateHealthy(read("docs/planning/project-state.md")).length).toBeGreaterThan(0);
+  });
 });
 
 describe("STATUS semantic contracts (Truth Reset)", () => {
@@ -451,6 +495,95 @@ describe("parseBacklogSections", () => {
     expect(sections.map((s) => s.title)).toEqual(["Engineering", "Tech Debt"]);
     expect(sections[0].counts).toEqual({ Critical: 1, Low: 1 });
     expect(sections[1].rows[0].id).toBe("MAIN-1");
+  });
+});
+
+describe("parseStatusGotchas", () => {
+  it("pulls the append-only gotchas list, flattening links", () => {
+    const md = `# S\n\n## Gotchas (append-only)\n\n- EffectComposer path: RenderPass → Bloom → OutputPass.\n- Levels load via [LEVEL_IMPORTERS](./x.md), not a barrel.\n\n## Last updated\n\n- not a gotcha\n`;
+    expect(parseStatusGotchas(md)).toEqual([
+      "EffectComposer path: RenderPass → Bloom → OutputPass.",
+      "Levels load via LEVEL_IMPORTERS, not a barrel.",
+    ]);
+  });
+  it("degrades to [] without the section", () => {
+    expect(parseStatusGotchas("# empty")).toEqual([]);
+  });
+});
+
+describe("parseAgentsSection", () => {
+  const md = `# AGENTS\n\n## ARCHITECTURE INVARIANTS\n\n- **Host-authoritative.** The first client runs Rapier.\n- The server never simulates physics — see [x](./x.md).\n\n## WHAT'S OFF-LIMITS\n\n- Do not recreate deleted files.\n`;
+  it("reads a heading's bullets generically, links flattened + bold stripped", () => {
+    expect(parseAgentsSection(md, "## ARCHITECTURE INVARIANTS")).toEqual([
+      "Host-authoritative. The first client runs Rapier.",
+      "The server never simulates physics — see x.",
+    ]);
+    expect(parseAgentsSection(md, "## WHAT'S OFF-LIMITS")).toEqual(["Do not recreate deleted files."]);
+  });
+  it("degrades to [] on an absent heading", () => {
+    expect(parseAgentsSection(md, "## NOPE")).toEqual([]);
+  });
+});
+
+describe("parseStatusDecisionIndex", () => {
+  it("parses `- **D-X** (MM-DD): text` rows into id/date/text", () => {
+    const md = `# S\n\n## Decision index\n\nNewest first.\n\n- **D-PARITY-1** (07-21): Operational parity across [tools](./x.md).\n- **D-SHIP-1** (07-20): SHIP-1 living finish line.\n\n## Hard rules\n`;
+    const d = parseStatusDecisionIndex(md);
+    expect(d).toHaveLength(2);
+    expect(d[0]).toEqual({ id: "D-PARITY-1", date: "07-21", text: "Operational parity across tools." });
+    expect(d[1].id).toBe("D-SHIP-1");
+  });
+  it("degrades to [] without the section", () => {
+    expect(parseStatusDecisionIndex("# none")).toEqual([]);
+  });
+});
+
+describe("extractShip1Tag", () => {
+  it("returns the tier token or null", () => {
+    expect(extractShip1Tag("MP-FX-1 — non-host VFX `[SHIP-1 A3]`")).toBe("A3");
+    expect(extractShip1Tag("TRUST-1 [SHIP-1 D1]")).toBe("D1");
+    expect(extractShip1Tag("untagged row")).toBeNull();
+  });
+});
+
+describe("parseBacklogNotTechDebt", () => {
+  it("parses the guardrail table into topic/why rows", () => {
+    const md = `# B\n\n### Explicitly *not* tech debt (do not "modernize" these)\n\n| Topic | Why leave it |\n|-------|----------------|\n| Host-only Rapier | Architecture invariant — [AGENTS.md](../x.md). |\n| Zustand + KO reactors | Current and coherent. |\n\n## Future\n`;
+    expect(parseBacklogNotTechDebt(md)).toEqual([
+      { topic: "Host-only Rapier", why: "Architecture invariant — AGENTS.md." },
+      { topic: "Zustand + KO reactors", why: "Current and coherent." },
+    ]);
+  });
+  it("degrades to [] without the section", () => {
+    expect(parseBacklogNotTechDebt("# none")).toEqual([]);
+  });
+});
+
+describe("parseShip1Tiers", () => {
+  it("collects each `## Tier X — title` heading with its first table", () => {
+    const md = `# SHIP-1\n\n## Tier A — Stability & reach\n\n| # | Item | Notes |\n|---|------|-------|\n| A1 | Host hitch | forensics |\n| A2 | INPUT-KB-1 | keyboard |\n\n## Tier B — Depth\n\n| # | Item |\n|---|------|\n| B1 | AI-DIFF-1 |\n\n## Post-launch\n`;
+    const tiers = parseShip1Tiers(md);
+    expect(tiers.map((t) => t.tier)).toEqual(["A", "B"]);
+    expect(tiers[0].title).toBe("Stability & reach");
+    expect(tiers[0].rows).toHaveLength(2);
+    expect(tiers[0].rows[0].item).toBe("Host hitch");
+    expect(tiers[1].rows[0].item).toBe("AI-DIFF-1");
+  });
+  it("degrades to [] without tier headings", () => {
+    expect(parseShip1Tiers("# no tiers")).toEqual([]);
+  });
+});
+
+describe("parseProjectStateHealthy", () => {
+  it("parses the §5 verified-healthy table into area/verdict", () => {
+    const md = `# PS\n\n## 5. Verified healthy / non-issues\n\nProse.\n\n| Area | Verdict |\n|------|---------|\n| SD spectator KO spam | Fixed; regression tests cover it |\n| Solo AI rubberband in MP | Safe — solo-gated |\n\n## 6. Dev workflow\n`;
+    expect(parseProjectStateHealthy(md)).toEqual([
+      { area: "SD spectator KO spam", verdict: "Fixed; regression tests cover it" },
+      { area: "Solo AI rubberband in MP", verdict: "Safe — solo-gated" },
+    ]);
+  });
+  it("degrades to [] without the section", () => {
+    expect(parseProjectStateHealthy("# none")).toEqual([]);
   });
 });
 

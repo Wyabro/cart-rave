@@ -389,6 +389,124 @@ export function parseStatusDoNots(statusMd) {
   );
 }
 
+/**
+ * STATUS.md "## Gotchas (append-only)" bullet list → the pitfalls feed. Markdown links are
+ * flattened; bold markup is stripped by parseListItems. Order is preserved (append-only log).
+ * @param {string} statusMd
+ * @returns {string[]}
+ */
+export function parseStatusGotchas(statusMd) {
+  return parseListItems(extractSection(statusMd, "## Gotchas") ?? "").map((item) =>
+    item.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").trim(),
+  );
+}
+
+/**
+ * Generic AGENTS.md section reader: pull a heading's top-level bullet list into flat strings.
+ * Used for ARCHITECTURE INVARIANTS, WHAT'S OFF-LIMITS, HOW WORK IS EXECUTED, MODEL / TOOL
+ * ROUTING, STANDING BEHAVIORAL RULES — parse AGENTS.md rather than duplicating its content.
+ * Links flattened, bold stripped, whitespace collapsed.
+ * @param {string} md
+ * @param {string} heading e.g. "## ARCHITECTURE INVARIANTS" (matches suffix text too).
+ * @returns {string[]}
+ */
+export function parseAgentsSection(md, heading) {
+  return parseListItems(extractSection(md, heading) ?? "").map((item) =>
+    item
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
+/**
+ * STATUS.md "## Decision index" bullets → structured settled-decision rows.
+ * Format: `- **D-X** (MM-DD): summary text…` (summary may wrap across lines).
+ * @param {string} statusMd
+ * @returns {Array<{ id: string, date: string | null, text: string }>}
+ */
+export function parseStatusDecisionIndex(statusMd) {
+  const section = extractSection(statusMd, "## Decision index");
+  if (!section) return [];
+  const out = [];
+  for (const item of parseListItems(section)) {
+    const m = item.match(/^(D-[A-Z0-9-]+)\s*(?:\(([^)]*)\))?\s*[:：-]?\s*(.*)$/);
+    if (!m) continue;
+    const text = m[3]
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
+    out.push({ id: m[1], date: m[2]?.trim() || null, text });
+  }
+  return out;
+}
+
+/**
+ * Extract the `[SHIP-1 <tier>]` tag from a backlog row's text, if present.
+ * Handles `[SHIP-1 A1]`, `[SHIP-1 D2]`, `[SHIP-1 Tier X]`, `[SHIP-1 A–E]`.
+ * @param {string} itemText
+ * @returns {string | null} the tier token (e.g. "A1", "Tier X") or null.
+ */
+export function extractShip1Tag(itemText) {
+  const m = String(itemText ?? "").match(/\[SHIP-1 ([^\]]+)\]/);
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * BACKLOG.md "### Explicitly *not* tech debt" guardrail table → {topic, why} rows. This is the
+ * "do not modernize these" firewall that has no other machine-readable home.
+ * @param {string} backlogMd
+ * @returns {Array<{ topic: string, why: string }>}
+ */
+export function parseBacklogNotTechDebt(backlogMd) {
+  const section = extractSection(backlogMd, "### Explicitly");
+  if (!section) return [];
+  return parseMarkdownTable(section)
+    .map((r) => ({
+      topic: (r.topic ?? "").replace(/\*\*/g, "").trim(),
+      why: (r.why_leave_it ?? r.why ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*/g, "").trim(),
+    }))
+    .filter((r) => r.topic);
+}
+
+/**
+ * SHIP-1.md tier sections → the pre-ship ordering. Each `## Tier X — title` heading with its
+ * first table becomes { tier, title, rows }. Rows keep their raw table cells (# / item / notes).
+ * @param {string} ship1Md
+ * @returns {Array<{ tier: string, title: string, rows: Array<Record<string, string>> }>}
+ */
+export function parseShip1Tiers(ship1Md) {
+  const md = String(ship1Md ?? "");
+  const out = [];
+  for (const h of md.matchAll(/^## +Tier +([A-Z]) +[—-] +(.+)$/gm)) {
+    const section = extractSection(md, `## Tier ${h[1]}`);
+    if (!section) continue;
+    out.push({
+      tier: h[1],
+      title: h[2].replace(/\s+/g, " ").trim(),
+      rows: parseMarkdownTable(section),
+    });
+  }
+  return out;
+}
+
+/**
+ * project-state.md "## 5. Verified healthy / non-issues" table → {area, verdict} rows. The list
+ * of statically-cleared items future agents must not re-investigate without new evidence.
+ * @param {string} projectStateMd
+ * @returns {Array<{ area: string, verdict: string }>}
+ */
+export function parseProjectStateHealthy(projectStateMd) {
+  const section = extractSection(projectStateMd, "## 5. Verified healthy");
+  if (!section) return [];
+  return parseMarkdownTable(section)
+    .map((r) => ({
+      area: (r.area ?? "").replace(/\*\*/g, "").trim(),
+      verdict: (r.verdict ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*/g, "").trim(),
+    }))
+    .filter((r) => r.area);
+}
+
 // ---------------------------------------------------------------------------
 // Collectors (filesystem / git) — each degrades to null on failure
 // ---------------------------------------------------------------------------

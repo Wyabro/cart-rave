@@ -17,6 +17,11 @@ then [docs/STATUS.md](docs/STATUS.md) for full context and gotchas. If you can r
 **`npm run dashboard`** adds the observed-evidence Command Center (git HEAD, gate/battery
 results, captures) — see Commands below. The full numbered protocol lives **once** in
 STATUS.md's rehydration block; link it, never restate it.
+**Codebase map:** [docs/ARCHITECTURE.json](docs/ARCHITECTURE.json) — generated + committed
+machine-readable manifest: every file's owning system, dependency edges, fragile systems,
+pitfalls, and a `do_not_break` block. Read it before touching an unfamiliar system;
+`npm run dashboard` also renders the human-facing architecture map (link on the Command
+Center). Regenerate with `npm run arch` after structural changes — `health:check` fails if it drifts.
 Architecture snapshot: [docs/planning/project-state.md](docs/planning/project-state.md).
 Deep reference: [docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
 
@@ -95,6 +100,12 @@ toward Version 2.
   `npm run briefing` alone refreshes BRIEFING.md; `health:check` fails when it lags STATUS.md. Bug
   capture (F8 / auto on error+assert) + production analytics (`/api/analytics`) live in the
   same layer: [docs/guides/observability.md](docs/guides/observability.md).
+- **Architecture layer:** `npm run arch` — regenerates the committed `docs/ARCHITECTURE.json`
+  manifest (write-only-on-change; agents read it) and `.diag-captures/architecture.html` (the
+  human map, linked from the dashboard). The system taxonomy is curated in
+  `tools/lib/archMap.mjs`; a new file under `src/`/`party/`/`shared/` that no system claims
+  fails `health:check` with `ARCH_UNMAPPED_FILE` until you assign it there. Runs inside
+  `npm run qa`, so the map can't silently rot.
 
 ---
 

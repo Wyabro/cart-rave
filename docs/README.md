@@ -23,6 +23,7 @@ Core docs split by time — **past / present / future**:
 | Doc | Purpose |
 |-----|---------|
 | [BRIEFING.md](./BRIEFING.md) | **Generated cold-start briefing** (`npm run briefing`) — phase, active item, do-nots; never hand-edit |
+| [ARCHITECTURE.json](./ARCHITECTURE.json) | **Generated codebase manifest** (`npm run arch`) — per-file system map, edges, pitfalls, `do_not_break`; human map on the Command Center; never hand-edit |
 | [STATUS.md](./STATUS.md) | **Dashboard + session source of truth** — health, focus, next actions, decision index |
 | [planning/completed-work.md](./planning/completed-work.md) | **Past** — historical log of shipped work |
 | [planning/production-passes.md](./planning/production-passes.md) | **Past** — one-page index of the July 2026 production passes |

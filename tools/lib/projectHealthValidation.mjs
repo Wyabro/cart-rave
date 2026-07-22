@@ -8,6 +8,7 @@
 
 import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseStatusDoNots, extractSection, parseListItems } from "./projectHealth.mjs";
 import { extractBriefingDigest, briefingSourceDigest } from "./briefing.mjs";
+import { extractArchDigest } from "./archRender.mjs";
 
 /** Canonical phase order (STATUS ### Release phases). */
 export const PHASE_ORDER = [
@@ -216,14 +217,89 @@ export function validateBriefingFreshness(statusMd, briefingMd) {
 }
 
 /**
+ * Validate the taxonomy's coverage of the real tree (the Living Architecture liveness mechanism).
+ * An unmapped file is a hard error — it is the whole point: a new file forces a taxonomy update.
+ * @param {{ unmapped?: string[], missing?: string[], duplicates?: Array<{ file: string, systems: string[] }> }} expansion
+ *   the result of archModel.expandSystems.
+ * @returns {HealthFinding[]}
+ */
+export function validateArchitectureMap(expansion) {
+  /** @type {HealthFinding[]} */
+  const findings = [];
+  const unmapped = expansion?.unmapped ?? [];
+  const missing = expansion?.missing ?? [];
+  const duplicates = expansion?.duplicates ?? [];
+  if (unmapped.length > 0) {
+    findings.push({
+      code: "ARCH_UNMAPPED_FILE",
+      severity: "error",
+      message: `${unmapped.length} file(s) under src/ party/ shared/ claimed by no system — add to tools/lib/archMap.mjs: ${unmapped.join(", ")}`,
+      detail: unmapped,
+    });
+  }
+  if (missing.length > 0) {
+    findings.push({
+      code: "ARCH_MISSING_FILE",
+      severity: "error",
+      message: `tools/lib/archMap.mjs references ${missing.length} path(s) that no longer exist — remove or fix: ${missing.join(", ")}`,
+      detail: missing,
+    });
+  }
+  if (duplicates.length > 0) {
+    findings.push({
+      code: "ARCH_DUPLICATE_CLAIM",
+      severity: "error",
+      message: `${duplicates.length} file(s) claimed by more than one system in tools/lib/archMap.mjs: ${duplicates.map((d) => `${d.file} (${d.systems.join(" + ")})`).join(", ")}`,
+      detail: duplicates,
+    });
+  }
+  return findings;
+}
+
+/**
+ * Validate the committed architecture manifest (docs/ARCHITECTURE.json) against the live digest.
+ * Same contract as validateBriefingFreshness. Pass `archJsonText` only when the caller intends
+ * the check (health:check does); omitting archInput skips it entirely.
+ * @param {string} archJsonText  the committed docs/ARCHITECTURE.json ("" if absent)
+ * @param {string} liveDigest    archRender.archSourceDigest of a freshly built manifest body
+ * @returns {HealthFinding[]}
+ */
+export function validateArchitectureFreshness(archJsonText, liveDigest) {
+  if (String(archJsonText ?? "").trim() === "") {
+    return [{
+      code: "ARCH_MISSING",
+      severity: "error",
+      message: "docs/ARCHITECTURE.json missing — run `npm run arch` (the committed agent-facing architecture map)",
+    }];
+  }
+  const embedded = extractArchDigest(archJsonText);
+  if (embedded !== liveDigest) {
+    return [{
+      code: "ARCH_STALE",
+      severity: "error",
+      message: `docs/ARCHITECTURE.json digest ${embedded ?? "(none)"} lags the tree/docs (${liveDigest}) — run \`npm run arch\``,
+    }];
+  }
+  return [];
+}
+
+/**
  * Run all validators. Exit-worthy errors are severity === "error".
- * @param {{ statusMd: string, briefingMd?: string, health?: any }} input
+ * @param {{
+ *   statusMd: string,
+ *   briefingMd?: string,
+ *   health?: any,
+ *   archInput?: { expansion?: any, archJsonText?: string, liveDigest?: string },
+ * }} input
  */
 export function evaluateProjectHealth(input) {
+  const arch = input.archInput;
   const findings = [
     ...validateStatusSemantics(input.statusMd),
     ...(input.briefingMd !== undefined ? validateBriefingFreshness(input.statusMd, input.briefingMd) : []),
     ...(input.health ? validateReadinessSemantics(input.health) : []),
+    ...(arch?.expansion ? validateArchitectureMap(arch.expansion) : []),
+    ...(arch?.liveDigest !== undefined ? validateArchitectureFreshness(arch.archJsonText ?? "", arch.liveDigest) : []),
   ];
   return {
     ok: findings.every((f) => f.severity !== "error"),
