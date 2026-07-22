@@ -52,7 +52,7 @@
     }
     .sticky-inner {
       display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
-      max-width: 920px; margin: 0 auto; padding: 0 16px;
+      max-width: 1040px; margin: 0 auto; padding: 0 16px;
     }
     .nav-brand {
       display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px;
@@ -73,14 +73,17 @@
     .cc-switch a.active:hover { border-color:var(--neon); color:#fff; }
     .cc-switch .sw-ico { font-size:15px; line-height:1; }
 
-    .wrap { max-width: 920px; margin: 0 auto; padding: 16px 16px 80px; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 24px 80px; }
     header {
       display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-start;
       justify-content: space-between; margin-bottom: 18px;
       border-bottom: 1px solid var(--border); padding-bottom: 16px;
     }
-    h1 { margin: 0; font-size: 1.35rem; letter-spacing: 0.02em; }
-    h1 span { color: var(--accent); }
+    /* Wordmark + stamp mirror the generated Command Center / Architecture headers. */
+    h1 { margin: 0; font-size: 20px; letter-spacing: 3px; font-weight: 800; }
+    h1 .neon { color: var(--neon); text-shadow: 0 0 12px rgba(255,45,149,0.6); }
+    h1 .cc { color: var(--dim); margin-left: 10px; font-size: 12px; letter-spacing: 3px; font-weight: 700; }
+    .stamp { color: var(--dim); font-size: 12px; margin-top: 5px; }
     .sub { color: var(--muted); font-size: 0.9rem; margin-top: 4px; max-width: 52ch; line-height: 1.4; }
     .pills { display: flex; flex-wrap: wrap; gap: 6px; }
     .pill {
@@ -245,14 +248,15 @@
   <div class="wrap">
     <header>
       <div>
-        <h1>Cart Clash <span>Playtest Console</span></h1>
+        <h1>CART <span class="neon">CLASH</span><span class="cc">PLAYTEST CONSOLE</span></h1>
+        <div class="stamp">repo-owned · one active card · progress saved in this browser</div>
         <p class="sub">
-          Repo-owned. One active task. Export after each phase and paste into chat —
+          Export after each phase and paste into chat —
           the agent triages <strong>one finding at a time</strong>, not a 10-item batch.
         </p>
       </div>
       <div class="pills">
-        <span class="pill">Run <strong id="runLabel">7</strong></span>
+        <span class="pill">Run <strong id="runLabel">8</strong></span>
         <span class="pill">Build <strong id="buildLabel">prod + ?diag=1</strong></span>
         <span class="pill">Storage <strong>local</strong></span>
       </div>
@@ -262,7 +266,7 @@
       <h2>How this session works</h2>
       <ol>
         <li><strong>One card is live</strong> (purple). Do only that. Mark PASS / FAIL / SKIP, optional note, then Next unlocks.</li>
-        <li><strong>Match A then Match B first</strong> — they answer whether MP jank is host-machine poison or a remaining code bug. Do not skip ahead to look/audio cards until those are done.</li>
+        <li><strong>Countdown regression first</strong> — the 07-22 countdown fixes are confirmed; phase R re-verifies they hold before you chase the open items (MP-FX-1, ARENA-COL-1).</li>
         <li><strong>F8 on both machines</strong> when a card says so. Keep the downloaded JSON; attach or zip when you export.</li>
         <li><strong>No mid-session fix thrash.</strong> Log it. Export. Agent takes the next single item. Exception: hard wedge (can't play at all).</li>
         <li>Prod only for feel/perf: <code>https://cart-rave.wyabro.workers.dev/?diag=1</code> — hard-refresh until the served bundle is current.</li>
@@ -324,7 +328,7 @@
     <div class="export-box">
       <h2>Export preview</h2>
       <p>
-        After Match A+B (or whenever you stop), copy this into chat. The agent will
+        After each phase (or whenever you stop), copy this into chat. The agent will
         pick the single highest-value next fix — not a 10-item batch.
       </p>
       <div class="toolbar">
@@ -337,16 +341,15 @@
     <p class="footer-note">
       State saves to <code>localStorage</code> key <code>cartClashPlaytestConsole_v1</code>.
       Source of truth in repo: <code>docs/playtest/console.html</code>.
-      Prior Claude artifact is retired — do not use it.
-      Reference plans: <code>docs/playtest/README.md</code> · triage:
-      <code>docs/planning/playtest-triage-2026-07-18-run6.md</code>.
+      Session target lives in <code>docs/STATUS.md</code> (SHIP-1 tier A) and
+      <code>docs/planning/SHIP-1.md</code>. Reference plan: <code>docs/playtest/README.md</code>.
     </p>
   </div>
 
   <script>
 /**
  * Cart Clash Playtest Console v1 (repo-owned)
- * One-task-at-a-time. Match A/B first to isolate host-machine poison.
+ * One-task-at-a-time. Countdown regression first, then the open Tier-A items.
  */
 (function () {
   const STORAGE_KEY = "cartClashPlaytestConsole_v1";
@@ -367,226 +370,109 @@
 
   /** @type {Task[]} */
   const TASKS = [
-    // ── Phase 0: preflight ──────────────────────────────────────────
+    // ── P0: preflight ───────────────────────────────────────────────
     {
       id: "P0-1",
       phase: "P0",
-      title: "Open prod with diagnostics",
-      do: "On BOTH machines: hard-refresh https://cart-rave.wyabro.workers.dev/?diag=1 until the page is the current deploy (not a stale edge index). Confirm DevTools has no red errors on boot to menu.",
-      expect: "Menu loads. ?diag=1 active. Zero boot errors.",
+      title: "Open prod with diagnostics (both machines)",
+      do: "On BOTH machines hard-refresh https://cart-rave.wyabro.workers.dev/?diag=1 until the served bundle is the current deploy (not a stale edge index). Confirm boot to menu with zero red console errors.",
+      expect: "Menu loads on both. ?diag=1 active. No boot errors.",
     },
     {
       id: "P0-2",
       phase: "P0",
-      title: "Fill machine cards above",
-      do: "Fill GPU/browser/tier for Strong and Weak. Optional: open console and note quality tier from the UI or F8 runtime probe later.",
-      expect: "Both machine cards filled enough to tell them apart in notes.",
+      title: "Fill the machine cards above",
+      do: "Fill GPU / browser / quality tier for Strong and Weak so their F8 bundles are tellable apart later.",
+      expect: "Both machine cards filled.",
       requiresNote: true,
-      notePrompt: "Any boot weirdness? Bundle name if you checked network tab?",
+      notePrompt: "Any boot weirdness? Served bundle name if you checked the network tab?",
     },
 
-    // ── Phase A: 4090 hosts (clean baseline) ────────────────────────
+    // ── R: countdown regression (the 07-22 fixes must hold) ──────────
     {
-      id: "A-0",
-      phase: "A",
-      title: "SETUP — Strong machine creates the room",
-      do: "On the STRONG machine (4090): Friends / Quickplay — create or enter a fresh room FIRST so it becomes host. On the WEAK machine: join that room second. Confirm lobby: Strong = host, Weak = non-host. Do not reverse this.",
-      expect: "Strong hosts. Weak joined. Both ready for a round.",
+      id: "R-0",
+      phase: "R",
+      title: "SETUP — Strong hosts a quickplay room",
+      do: "Strong machine (4090) enters Quickplay FIRST so it becomes host. Weak joins second. Confirm lobby: Strong = host, Weak = non-host.",
+      expect: "Strong hosts, Weak joined.",
       requiresNote: true,
-      notePrompt: "Room code / how you joined (friends vs quickplay)?",
+      notePrompt: "Confirmed host = Strong?",
     },
     {
-      id: "A-1",
-      phase: "A",
-      title: "Play ~1–2 minutes both screens (Strong host)",
-      do: "Start a round. Drive both carts. Watch BOTH screens for rubber-band, teleports, freezes. Do not minimize host. Stay on one arena if possible.",
-      expect: "Playable on both. Strong should feel smooth. Weak may still hitch locally (iGPU) but should not see multi-second teleports if host is healthy.",
+      id: "R-1",
+      phase: "R",
+      title: "Countdown cadence — both screens",
+      do: "Start a round and watch the 3 · 2 · 1 · GO countdown on BOTH screens. It should tick evenly (~1.2s per beat) with no skipped digit and no double-beat, on host and non-host alike.",
+      expect: "Even 3/2/1/GO on both, no skipped 1 and no GO-jump — the COUNTDOWN-WARM-1 + SYNC-1 fixes holding.",
+      f8: "Press F8 on the NON-HOST during / just after the countdown.\nRead later: countdown probe (digitN / elapsed / remaining), longframe spans at round start.",
       requiresNote: true,
-      notePrompt: "Feel on Strong screen? Feel on Weak screen? Any rubber-band?",
+      notePrompt: "Even on both? Any skip / jump? Which machine if so?",
     },
     {
-      id: "A-2",
-      phase: "A",
-      title: "F8 on HOST (Strong) mid-round",
-      do: "Still mid-round or just after a hitch window: on the STRONG (host) machine press F8. Save the JSON. Label the file something like run7-A-host-strong.json",
-      expect: "Bundle downloads. Prefer during/after active play so counters filled.",
-      f8: "Read later: perf.loop.over33 / over66, frames\nruntime.qualityTier, runtime.renderScaleMul\nnet.flow (if present)",
-    },
-    {
-      id: "A-3",
-      phase: "A",
-      title: "F8 on NON-HOST (Weak) mid-round",
-      do: "On the WEAK (non-host) machine press F8. Save as run7-A-nonhost-weak.json",
-      expect: "Bundle downloads.",
-      f8: "Key fields: net.flow.snapGapAvgMs, snapGapMaxMs, snapGapsOver100\nreconcileErrMaxM, reconcileTeleports\nperf.loop.over33 / over66\nnet.axisWired (must be true)",
-    },
-    {
-      id: "A-4",
-      phase: "A",
-      title: "Match A verdict",
-      do: "With both screens in mind: is multiplayer with a STRONG host good enough to ship-feel, or still broken?",
-      expect: "PASS = smooth enough on Strong + no multi-second teleports on Weak. FAIL = still rubber-band/teleport hell with Strong hosting.",
+      id: "R-2",
+      phase: "R",
+      title: "Empty-quickplay countdown edge (COUNTDOWN-QUICKPLAY-1)",
+      do: "Have the host sit alone in a fresh Quickplay room through a countdown (no second human yet), then let Weak join. Watch for a countdown that aborts, restarts, or skips across the empty→filled transition.",
+      expect: "No phantom abort / restart from the empty-then-filled transition. Log anything odd for the BACKLOG item.",
       requiresNote: true,
-      notePrompt: "One sentence verdict + worst moment.",
+      notePrompt: "Clean, or did the empty-room countdown misbehave? Describe.",
     },
 
-    // ── Phase B: Intel hosts (poison test) ──────────────────────────
+    // ── FX: MP-FX-1 (Tier A) — non-host gameplay VFX parity ──────────
     {
-      id: "B-0",
-      phase: "B",
-      title: "SETUP — Weak machine creates the room",
-      do: "Leave previous room / new room. On the WEAK machine (Intel): create/enter room FIRST so it hosts. Strong joins second. Confirm Weak = host.",
-      expect: "Weak hosts. Strong is non-host.",
+      id: "FX-1",
+      phase: "FX",
+      title: "Non-host VFX parity — the 3-of-4-players hole",
+      do: "Mid-round, on the WEAK (non-host) screen, deliberately trigger effects: ram an opponent hard (ram streaks), KO a cart off an edge (trash burst / shatter), spill groceries, and take a pit / water death. Compare what the non-host SEES to the host screen for the same events.",
+      expect: "Non-host should see the same KO bursts / ram streaks / grocery spill / death FX the host shows. Missing or muted effects on the non-host = MP-FX-1, the visible quality hole for 3 of 4 players.",
+      f8: "F8 on the NON-HOST after a few KOs.",
       requiresNote: true,
-      notePrompt: "Confirmed host machine?",
-    },
-    {
-      id: "B-1",
-      phase: "B",
-      title: "Play ~1–2 minutes both screens (Weak host)",
-      do: "Start a round. Watch BOTH screens — especially Strong (non-host). This is the poison test: does Weak host hitching become everyone's rubber-band?",
-      expect: "Likely worse than Match A on the Strong non-host if host-role theory holds.",
-      requiresNote: true,
-      notePrompt: "Strong non-host feel vs Match A? Weak host local feel?",
-    },
-    {
-      id: "B-2",
-      phase: "B",
-      title: "F8 on HOST (Weak) mid-round",
-      do: "F8 on WEAK host. Save run7-B-host-weak.json",
-      expect: "Bundle downloads. Expect elevated over33 vs Strong host.",
-      f8: "perf.loop.over33 / over66 (should be high)\nruntime.renderScaleMul (0.85 or 0.7 if auto-scale engaged after ~10s)\nruntime.qualityTier",
-    },
-    {
-      id: "B-3",
-      phase: "B",
-      title: "F8 on NON-HOST (Strong) mid-round",
-      do: "F8 on STRONG non-host. Save run7-B-nonhost-strong.json",
-      expect: "Bundle downloads.",
-      f8: "net.flow.snapGapMaxMs, snapGapsOver100 (often huge if host stalls)\nreconcileErrMaxM, reconcileTeleports\nperf.loop.over33 (may be low — local loop clean, snaps bad)",
-    },
-    {
-      id: "B-4",
-      phase: "B",
-      title: "Match B verdict + compare to A",
-      do: "Compare A vs B. Did flipping who hosts flip how smooth MP felt for everyone?",
-      expect: "PASS = you completed the comparison (not that B felt good). Note which setup was playable.",
-      requiresNote: true,
-      notePrompt: "A better / B better / both bad / both fine? One sentence.",
+      notePrompt: "Which effects are missing / weaker on the non-host vs the host?",
     },
 
-    // ── Gate: stop and export ───────────────────────────────────────
+    // ── KO: ARENA-COL-1 (Tier A) — Cart Rave pit KO detection ────────
+    {
+      id: "KO-1",
+      phase: "KO",
+      title: "Cart Rave pit / edge KO detection",
+      do: "Load the CART RAVE (classic) arena. Ram carts off every edge and into any pit / void. Confirm each fall registers as a KO + score, on both host and non-host.",
+      expect: "Every genuine fall = one KO + score. No missed pit detections, no double-counts, no host/non-host disagreement. Mismatches = ARENA-COL-1.",
+      requiresNote: true,
+      notePrompt: "Any fall that did NOT score, or scored twice? Which edge / pit?",
+    },
+
+    // ── G: gate / export ────────────────────────────────────────────
     {
       id: "G-1",
       phase: "G",
-      title: "STOP — export Match A+B to the agent",
-      do: "Click “Copy export for agent” below. Paste into chat with the four F8 JSONs (or a zip). Do NOT continue to P1 until the agent says which single issue to fix or which validation card to run next.",
-      expect: "Export pasted. Agent responds with one next action.",
+      title: "STOP — export this session to the agent",
+      do: "Click Copy export for agent below and paste into chat with the F8 JSONs. Do not start a fix — the agent triages ONE finding at a time.",
+      expect: "Export pasted; agent responds with the single next action.",
       requiresNote: true,
-      notePrompt: "Anything else before triage (video? clip timestamps)?",
-    },
-
-    // ── Phase P1: one-at-a-time validations (run only after agent greenlight) ──
-    {
-      id: "P1-1",
-      phase: "P1",
-      title: "Host minimize (Strong host preferred)",
-      do: "Strong hosts a round. Mid-round: minimize/hide the HOST tab ~10s. Watch non-host: timer should hold + “Host connection stalled” toast. Restore host tab: both resume where they froze (not jump to timer-end).",
-      expect: "Non-host holds timer during stall; resume is continuous, not SD/end burst.",
-      requiresNote: true,
-      notePrompt: "Toast seen? Timer held? Resume clean?",
-    },
-    {
-      id: "P1-2",
-      phase: "P1",
-      title: "Sudden Death 45s stalemate cap",
-      do: "On HOST with ?diag=1: force SD via console `__ccDiag.control.forceSuddenDeath()` (host + round running). Or natural tie. If nobody scores, round should end via tiebreak within ~45s.",
-      expect: "SD does not run forever. Ends with a winner/tiebreak, SD flag clears into podium.",
-      requiresNote: true,
-      notePrompt: "How entered SD? Ended how? ~how many seconds?",
-    },
-    {
-      id: "P1-3",
-      phase: "P1",
-      title: "Menu music does not bleed into game",
-      do: "Solo: from menu enter play several times (fast clicks and slow). Listen for menu track under level music. Return to menu → re-enter once more.",
-      expect: "Only level music (and beds) in-game. No menu track layered under.",
-      requiresNote: true,
-      notePrompt: "Bleed? Which entry path?",
-    },
-    {
-      id: "P1-4",
-      phase: "P1",
-      title: "Kill confirm at your real SFX slider",
-      do: "Set SFX to your normal low level (even ~8%). Score a KO. Listen for the hit-impact / kill-confirm.",
-      expect: "Audible short confirm on KO without blowing the mix.",
-      requiresNote: true,
-      notePrompt: "Slider % if known? Heard it?",
-    },
-    {
-      id: "P1-5",
-      phase: "P1",
-      title: "Esc pause preserves PA directive timer (solo)",
-      do: "Solo: wait for a Living Store directive banner. Esc pause ~10s mid-directive. Resume. Directive should resume remaining time, not already be dead.",
-      expect: "Directive window shifts with pause; does not silently expire behind Esc.",
-      requiresNote: true,
-      notePrompt: "What happened to the directive?",
-    },
-    {
-      id: "P1-6",
-      phase: "P1",
-      title: "Looks smoke (one pass, note-only)",
-      do: "Quick visual pass only — do not deep-tune: boost glow = cart color (not white-hot)? Cart Rave searchlights sweep floor on medium/high? Storerooms vortex inner edge soft? Shadows same flat circle under every cart? Loading dismiss no dark beat?",
-      expect: "Note only what is still wrong. PASS if nothing blocks play.",
-      requiresNote: true,
-      notePrompt: "List only residuals (or 'all fine').",
-    },
-    {
-      id: "P1-7",
-      phase: "P1",
-      title: "Storerooms song loop seam",
-      do: "Play Storerooms long enough to hear the ~3:00 loop (or idle on podium).",
-      expect: "Loop acceptable, not a harsh cut.",
-      requiresNote: true,
-      notePrompt: "Seam OK / harsh / not heard?",
-    },
-
-    // ── Close ───────────────────────────────────────────────────────
-    {
-      id: "Z-1",
-      phase: "Z",
-      title: "Final export for this run",
-      do: "Copy full export. Attach remaining F8s. Tell the agent you are done with the run.",
-      expect: "Agent has a complete report for one-at-a-time triage.",
-      requiresNote: true,
-      notePrompt: "Overall: better / same / worse than last run?",
+      notePrompt: "Overall vs last run: better / same / worse? Worst moment?",
     },
   ];
 
   const PHASE_META = {
     P0: {
       title: "P0 · Preflight",
-      why: "Prove you are on the right build before burning a two-machine session.",
+      why: "Prove both machines are on the current deploy before burning a two-machine session.",
     },
-    A: {
-      title: "Match A · Strong hosts",
-      why: "Clean MP baseline. If this is still garbage, the bug is code (or Strong machine). If this is fine, host role is the story.",
+    R: {
+      title: "R · Countdown regression",
+      why: "The 07-22 countdown fixes (WARM-1 + SYNC-1) are confirmed — this re-verifies they hold and checks the empty-quickplay edge logged to BACKLOG.",
     },
-    B: {
-      title: "Match B · Weak hosts",
-      why: "Poison test. Same build, flipped host. Compares to A so we stop guessing.",
+    FX: {
+      title: "FX · Non-host VFX (MP-FX-1)",
+      why: "Open Tier-A item: 3 of 4 players are non-host — if they miss gameplay VFX, that is a visible quality hole.",
+    },
+    KO: {
+      title: "KO · Cart Rave pit detection (ARENA-COL-1)",
+      why: "Open Tier-A item and the only one that can touch progression — every fall must score.",
     },
     G: {
       title: "Gate · Export & stop",
-      why: "Agent decodes A vs B before any more validation cards. Prevents another 10-item fix dump.",
-    },
-    P1: {
-      title: "P1 · One-at-a-time checks",
-      why: "Run only after the agent greenlights. Still one card at a time — stop and export if something fails hard.",
-    },
-    Z: {
-      title: "Close",
-      why: "Full export for the run record.",
+      why: "One export, one finding at a time. Prevents a 10-item fix dump.",
     },
   };
 
@@ -734,7 +620,7 @@
         const gate = document.createElement("div");
         gate.className = "gate";
         gate.innerHTML =
-          "<h3>Hard gate</h3><p>Match A + B answers “is it the host machine?”. Pasting the export here is the whole point of this console. Do not batch-fix look items until the agent replies.</p>";
+          "<h3>Hard gate</h3><p>Pasting the export here is the whole point of this console — the agent triages one finding at a time. Do not batch-fix until the agent replies.</p>";
         sec.appendChild(gate);
       }
 
@@ -893,11 +779,11 @@
     lines.push("");
     lines.push("## Agent instructions (from console)");
     lines.push("");
-    lines.push("1. Decode Match A vs Match B **before** proposing any fix batch.");
+    lines.push("1. Triage **one finding at a time** — do not propose a fix batch.");
     lines.push("2. Propose **at most one** code change (or one validation card) next.");
-    lines.push("3. If Strong-host (A) is fine and Weak-host (B) is bad → host-role product issue, not a VPS.");
-    lines.push("4. If Strong-host (A) is still bad → dig NET-PERF-1 / local hitch with F8 numbers, not look polish.");
-    lines.push("5. Do not re-open NET-PERF-2 (decode ring pool already shipped run-4).");
+    lines.push("3. Countdown regressions (phase R) or a hard wedge outrank the open Tier-A items.");
+    lines.push("4. Otherwise the open Tier-A items are MP-FX-1 (non-host VFX) then ARENA-COL-1 (Cart Rave pit KO).");
+    lines.push("5. Log the COUNTDOWN-QUICKPLAY-1 edge to BACKLOG; do not re-open closed NET-* / countdown items without new evidence.");
     lines.push("");
 
     for (const phase of phaseOrder()) {
@@ -918,10 +804,8 @@
 
     lines.push("## F8 attachments expected");
     lines.push("");
-    lines.push("- run7-A-host-strong.json");
-    lines.push("- run7-A-nonhost-weak.json");
-    lines.push("- run7-B-host-weak.json");
-    lines.push("- run7-B-nonhost-strong.json");
+    lines.push("- run8-R-countdown-nonhost.json  (R-1, during/after the countdown)");
+    lines.push("- run8-FX-nonhost.json           (FX-1, after a few KOs)");
     lines.push("");
     lines.push("_Generated by docs/playtest/console.html_");
     return lines.join("\n");
