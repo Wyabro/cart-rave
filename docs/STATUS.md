@@ -259,6 +259,28 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-21 (PERF-WARM — root cause CONFIRMED; host-countdown-gate fix TRIED & REVERTED) —
+The round-start freeze that eats the 3-2-1 is now attributed with certainty, and the
+"first live fly-over render" theory from the prior WRAP entry is **wrong** (that probe,
+`render.roundStart`, is 5.6ms — exonerated). New per-call-site render spans (build `936477a`)
+name the owner: **`warm.render.default.play-full`** — a **quickplay arena-rotation warmup**
+(`warmupActiveSceneShaders({forPlay:true})`, full compile budget, no `warm` flag, no loading
+overlay; [main.js ~2901](../src/main.js) `rotateLoadedArenaInPlace` + [levelManager.js:276/285](../src/levelManager.js)).
+Its first `composer.render()` (**128ms warm 4090 → 1921ms cold**, cap-190/196) runs a
+main-thread block that **overlaps the already-running countdown** (cap-196: `lobby→countdown`
+at t=25920, block at t=27126, between `countdown_2` and `countdown_1`; `countdown_3` dropped).
+Trigger: the room's arena differs from the local play-entry pick, so a rotation drains right
+after `carts-ready` — concurrent with the countdown. Non-host case stays hardware-bound (Gen11,
+34–38s, mostly non-JS paging).
+**Fix attempted (`04c714e`) and REVERTED (`c8df8fd`):** gating the host MP countdown on
+`whenArenaRotationSettled()` (mirroring the non-host apply path). It **regressed first-join** —
+brought back the ready-up screen (which is meant to be gone) and/or the round starting with no
+countdown at all. **DO NOT re-try the host-countdown gate.** Net code state now = session start
+(`2a927b9`) **+ diagnostics only** (behavior-identical; verified by diff). Live spans added:
+`render.roundStart`, `warm.render.default{.play-warm|.play-full|.menu}`, `warm.render.flyover{…}`.
+If a future fix is wanted, the lever is **pre-warming the room's arena programs before the
+countdown** (so the rotation render is cheap), NOT delaying countdown start. Deployed `c8df8fd`.
+
 2026-07-21 (WRAP — PERF-WARM play-entry freeze parked, handover written) — Two-turn chase
 concluded. Ruled OUT (with span evidence, build `af0c936`): shader compile (`warm.compile`
 4–23ms, `parallelCompile:true`), VFX anchors (all idempotent, `warm.anchors` <4ms), audio
