@@ -2551,6 +2551,14 @@ async function main() {
    */
   async function warmupActiveSceneShaders(opts = {}) {
     const forPlay = opts.forPlay !== false;
+    // * PERF-WARM disambiguation: the round-start freeze is a forPlay warmup's render pair
+    // * (warm.render.default + warm.render.flyover) running DURING the countdown, after
+    // * carts-ready — which the play-entry warm:true warmup cannot be (it completes before
+    // * carts-ready). The two forPlay:true call sites differ only by the warm flag:
+    // * play-entry passes warm:true (".play-warm"); quickplay arena rotation (main.js ~2901)
+    // * passes no warm (".play-full", full compile budget, no loading overlay). Tag the
+    // * render spans so ONE F8 tells us which call site owns the freeze. Menu path (".menu").
+    const warmTag = forPlay ? (opts.warm ? ".play-warm" : ".play-full") : ".menu";
     try {
       if (forPlay || !vfxProgramAnchorsInstalled) {
         // * PERF-WARM: attribute the ~1.4s play-entry freeze — this VFX-anchor install re-runs
@@ -2622,7 +2630,7 @@ async function main() {
       // * frame (Run-7 caps 45–51: LT start ≈ world-ready + 5ms). Always prime here.
       // * PERF-WARM-1: first composer.render can finalize freshly-linked programs on the
       // * driver — named so a round-start freeze attributes to compile vs first-render.
-      mark("warm.render.default", () => {
+      mark(`warm.render.default${warmTag}`, () => {
         if (isComposerBypassActive()) renderer.render(scene, camera);
         else composer.render();
       });
@@ -2650,7 +2658,7 @@ async function main() {
           // * trusting it survived the wait.
           await compileSceneAsync();
           seatWarmupPose();
-          mark("warm.render.flyover", () => {
+          mark(`warm.render.flyover${warmTag}`, () => {
             if (isComposerBypassActive()) renderer.render(scene, camera);
             else composer.render();
           });
