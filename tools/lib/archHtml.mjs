@@ -10,7 +10,7 @@
  * interactive edge tracing, file-path copy-to-clipboard, real-time search-as-you-type, category filters, and file lookup.
  */
 
-import { ROOT_TOKENS, BASE_CSS, esc } from "./ccStyle.mjs";
+import { ROOT_TOKENS, BASE_CSS, esc, crossNav } from "./ccStyle.mjs";
 
 /** CART_COLORS (src/config.js) as CSS hex — per-system accent hues only. */
 const CART_ACCENTS = ["#ff2d95", "#00f3ff", "#39ff14", "#ffe600", "#ff6600", "#a855f7"];
@@ -594,6 +594,7 @@ ${BASE_CSS}
 <div class="sticky-bar">
   <div class="sticky-inner">
     <a href="#" class="nav-brand">CART <span class="neon">CLASH</span> MAP</a>
+    ${crossNav("architecture")}
     <nav class="nav-links">
       <a href="#section-flow">Flow Map</a>
       <a href="#section-explorer">File Explorer</a>
@@ -711,7 +712,6 @@ ${legend}
 <footer>
   <div>Sources: <span class="mono">tools/lib/archMap.mjs</span> (curated taxonomy) · live tree (file counts · line totals · git churn) · docs/STATUS.md.</div>
   <div class="links">
-    <a href="dashboard.html">🛒 Command Center</a>
     <a href="../docs/BRIEFING.md">BRIEFING.md</a>
     <a href="../docs/ARCHITECTURE.json">ARCHITECTURE.json</a>
     <a href="../docs/reference/control-flow.md">control-flow.md</a>

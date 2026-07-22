@@ -23,7 +23,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { collectProjectHealth, compressIssueStatus, issueState, deriveNextAction } from "./lib/projectHealth.mjs";
 import { parseArgs, makeLogger, CAPTURE_DIR } from "./lib/harness.mjs";
-import { ROOT_TOKENS, BASE_CSS, esc } from "./lib/ccStyle.mjs";
+import { ROOT_TOKENS, BASE_CSS, esc, crossNav } from "./lib/ccStyle.mjs";
 
 const log = makeLogger("dashboard");
 
@@ -385,6 +385,7 @@ ${BASE_CSS}
 <div class="sticky-bar">
   <div class="sticky-inner">
     <a href="#" class="nav-brand">CART <span class="neon">CLASH</span> CENTER</a>
+    ${crossNav("command-center")}
     <nav class="nav-links">
       <a href="#section-mission">Mission</a>
       <a href="#section-now">Now</a>
@@ -393,7 +394,7 @@ ${BASE_CSS}
       <a href="#section-radar">Bugs & Build</a>
       <a href="#section-ref">Reference</a>
     </nav>
-    <div class="chips">${phaseChip}${prodChip}<span class="chip neutral">🗺 <a href="architecture.html">architecture</a></span>${syncChip}${readyChip}${batteryChip}${blockerChip}<span class="chip neutral" id="pt-chip" hidden></span></div>
+    <div class="chips">${phaseChip}${prodChip}${syncChip}${readyChip}${batteryChip}${blockerChip}<span class="chip neutral" id="pt-chip" hidden></span></div>
   </div>
 </div>
 

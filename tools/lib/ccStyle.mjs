@@ -67,9 +67,53 @@ export const BASE_CSS = `  * { box-sizing:border-box; }
   .pill.fail { background:rgba(255,93,93,.15); color:var(--bad); }
   .pill.setup { background:rgba(255,194,75,.15); color:var(--warn); }
   .links { display:flex; flex-wrap:wrap; gap:8px; }
-  .links a { background:var(--panel2); border:1px solid var(--edge); border-radius:6px; padding:5px 12px; font-size:13px; }`;
+  .links a { background:var(--panel2); border:1px solid var(--edge); border-radius:6px; padding:5px 12px; font-size:13px; }
+
+  /* Cross-surface switcher — the SAME prominent nav on every Command Center surface
+     (dashboard · architecture · playtest console) so switching between them is one obvious
+     click, never a hunt. Rendered top-of-page by crossNav(); styled once here so the pages
+     cannot drift. */
+  .cc-switch { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .cc-switch a { display:inline-flex; align-items:center; gap:7px; padding:9px 17px; border-radius:10px;
+                 border:1px solid var(--edge2); background:var(--panel2); color:var(--text);
+                 font-size:14px; font-weight:700; letter-spacing:.4px; text-decoration:none; white-space:nowrap;
+                 transition:border-color .15s, color .15s, box-shadow .15s; }
+  .cc-switch a:hover { border-color:var(--cyan); color:var(--cyan); text-decoration:none; }
+  .cc-switch a.active { border-color:var(--neon); color:#fff; cursor:default;
+                        background:linear-gradient(180deg, rgba(255,45,149,.22), rgba(124,92,255,.14));
+                        box-shadow:0 0 0 1px rgba(255,45,149,.35), 0 0 14px rgba(255,45,149,.25); }
+  .cc-switch a.active:hover { border-color:var(--neon); color:#fff; }
+  .cc-switch .sw-ico { font-size:15px; line-height:1; }`;
 
 /** The single HTML-escaper both generated pages use. @param {unknown} s */
 export function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+/**
+ * The three Command Center surfaces, in fixed order. The generated pages (dashboard,
+ * architecture) both sit in `.diag-captures/`, so the defaults are correct for them; the
+ * static playtest console (docs/playtest/console.html) links back with its own relative paths.
+ */
+export const CC_SURFACES = [
+  { id: "command-center", icon: "🛒", label: "Command Center", href: "dashboard.html" },
+  { id: "architecture", icon: "🗺", label: "Architecture", href: "architecture.html" },
+  { id: "playtest", icon: "🎮", label: "Playtest Console", href: "../docs/playtest/console.html" },
+];
+
+/**
+ * Render the shared cross-surface switcher. `active` is the current surface's id (rendered as
+ * a non-link highlighted button); `hrefs` optionally overrides paths for a page whose relative
+ * location differs from `.diag-captures/`.
+ * @param {"command-center"|"architecture"|"playtest"} active
+ * @param {{ [id: string]: string }} [hrefs]
+ * @returns {string}
+ */
+export function crossNav(active, hrefs = {}) {
+  return `<nav class="cc-switch" aria-label="Command Center surfaces">${CC_SURFACES.map((s) => {
+    const label = `<span class="sw-ico">${s.icon}</span>${s.label}`;
+    return s.id === active
+      ? `<a class="active" aria-current="page">${label}</a>`
+      : `<a href="${esc(hrefs[s.id] ?? s.href)}">${label}</a>`;
+  }).join("")}</nav>`;
 }
