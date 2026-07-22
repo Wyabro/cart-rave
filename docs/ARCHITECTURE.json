@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T07:15:16.336Z",
-    "commit": "7fdedf6"
+    "at": "2026-07-22T07:22:25.742Z",
+    "commit": "9d5c1e8"
   },
-  "source_digest": "36ae2258",
+  "source_digest": "45e79d70",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -874,8 +874,8 @@
       {
         "id": "A4 ARENA-COL-1",
         "what": "Cart Rave pit KO detection & kill-zone reliability",
-        "status": "📋 unpushed (rim entry pose/time options in buildKOEvent; tests 27/27 pass; awaiting Wyatt playtest)",
-        "state": "waiting"
+        "status": "✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)",
+        "state": "done"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -928,10 +928,9 @@
         "title": "Engineering",
         "counts": {
           "Medium": 8,
-          "Done": 2,
+          "Done": 3,
           "Low": 4,
           "Partial": 1,
-          "Landed": 1,
           "High": 2
         },
         "rows": [
@@ -990,9 +989,9 @@
             "ship1": null
           },
           {
-            "pri": "📋 Landed",
+            "pri": "Done",
             "item": "ARENA-COL-1 — Cart Rave pit/kill-zone reliability `[SHIP-1 A4]`",
-            "notes": "Rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) passed to `buildKOEvent` via options object. Tests: `scoringEvent.test.js` +2 (27/27 pass). Awaiting Wyatt playtest.",
+            "notes": "PASS (07-22 Wyatt playtest): rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) → `buildKOEvent` via `{ classifyPos, creditTimeMs }`. Tests: `scoringEvent.test.js` +2.",
             "ship1": "A4"
           },
           {
@@ -1375,7 +1374,7 @@
           {
             "col0": "A4",
             "item": "ARENA-COL-1 — Cart Rave pit KO detection",
-            "notes": "📋 **Landed locally (unpushed)** — rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) captured at `FALL_ENTRY_Y = -2.0` passed via `{ classifyPos, creditTimeMs }` options object to `buildKOEvent`. Prevents 30m drop drift misclassification and deep-shaft attribution expiry. Tests: `scoringEvent.test.js` +2 (27/27 pass). Awaiting Wyatt playtest."
+            "notes": "**PASS 07-22** (Wyatt playtest) — rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) at `FALL_ENTRY_Y = -2.0` via `{ classifyPos, creditTimeMs }` into `buildKOEvent`."
           },
           {
             "col0": "A5",
@@ -1602,6 +1601,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-ARENA-COL-1",
+        "date": "07-22",
+        "text": "Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed."
+      },
       {
         "id": "D-MPFX-1",
         "date": "07-22",

@@ -36,7 +36,7 @@ post-launch unless Wyatt pulls them forward.
 | Medium | ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]` | Capture harness shipped; missing reading surface (`npm run analytics` and/or Command Center panel). |
 | Done | MP-FX-1 — non-host players miss gameplay VFX `[SHIP-1 A3]` | PASS (07-22 Wyatt playtest): charge glow via `ch` bit 16 + remote hop land thud/dust; collision/shatter already on snapshot tail. |
 | Medium | Customize screen performance pass *(pre-ship 07-19)* | Measure before tuning. |
-| 📋 Landed | ARENA-COL-1 — Cart Rave pit/kill-zone reliability `[SHIP-1 A4]` | Rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) passed to `buildKOEvent` via options object. Tests: `scoringEvent.test.js` +2 (27/27 pass). Awaiting Wyatt playtest. |
+| Done | ARENA-COL-1 — Cart Rave pit/kill-zone reliability `[SHIP-1 A4]` | PASS (07-22 Wyatt playtest): rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) → `buildKOEvent` via `{ classifyPos, creditTimeMs }`. Tests: `scoringEvent.test.js` +2. |
 | Low | Countdown timer survives menu return *(pre-ship 07-19)* | Stale countdown UI on main menu. |
 | High | HOST-CAP-1 — capability-based host preference `[SHIP-1 A1]` | After host-hitch forensics: strongest machine wins host (`party/hostSelection.ts` + hostCapability); weak-host warning; residual = min-spec fact. |
 | High | SRV-TEST-1 — direct tests for `party/index.ts` `[SHIP-1 A5]` | Extract reaper/re-arm/rate-limit/NPC-slot logic into tested helpers, then DO harness tests over `onMessage`/`onClose` sequences. |
