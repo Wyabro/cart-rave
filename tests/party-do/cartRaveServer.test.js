@@ -9,13 +9,20 @@ import {
   REAP_TIMEOUT_MS,
   getReapThrottleMs,
   getReapTimeoutMs,
+  setPlayReadyTimeoutOverride,
   setReapOverrides,
 } from "../../party/constants.ts";
 import { MSG } from "../../shared/protocol.js";
+import { COUNTDOWN_MS } from "../../shared/roundConstants.js";
 import { connectAndSeat, openPartyClient } from "./wsClient.js";
 
 function uniqueRoom(label) {
   return `a6a-${label}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+/** Continuous-policy room with an isolated DO (not the shared public "quickplay"). */
+function uniqueContinuousRoom(label) {
+  return `quickplay__${label}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 6)}`;
 }
 
 function sleep(ms) {
@@ -230,10 +237,11 @@ describe("CartRaveServer DO harness", () => {
     replacement.close();
   });
 
-  it("arms game_start when the first human seats in quickplay (continuous mode)", async () => {
-    // * Room name MUST be exactly "quickplay" — isContinuousModeRoom is a strict equality.
-    // * Isolated Workers pool per file, so this does not collide with live netharness.
-    const { client, youConnId } = await connectAndSeat("quickplay", {
+
+  it("does not arm game_start on seat alone in continuous mode; arms after clientPlayReady", async () => {
+    // * COUNTDOWN-ARM-1: seat sets isReady but not isPlayReady — no game_start until warm signal.
+    const room = uniqueContinuousRoom("seat-arm");
+    const { client, youConnId } = await connectAndSeat(room, {
       name: "QP1",
       color: "blue",
       clientId: "cid-qp-seat",
@@ -246,11 +254,115 @@ describe("CartRaveServer DO harness", () => {
       .flatMap((m) => m.slots ?? [])
       .find((s) => s && s.connId === youConnId && s.kind === "human");
     expect(seated?.isReady).toBe(true);
+    expect(seated?.isPlayReady).toBe(false);
 
+    expect(client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+    client.sendJson({ type: MSG.clientPlayReady });
     const start = await client.awaitType(MSG.gameStart, 3000);
     expect(start.startsAtMs).toEqual(expect.any(Number));
     expect(start.serverNowMs).toEqual(expect.any(Number));
+    expect(start.startsAtMs - start.serverNowMs).toBeGreaterThanOrEqual(COUNTDOWN_MS - 500);
+
+    // * Idempotent re-send must not double-arm / error.
+    client.sendJson({ type: MSG.clientPlayReady });
+    await sleep(50);
+    expect(client.messages.filter((m) => m.type === MSG.gameStart)).toHaveLength(1);
 
     client.close();
+  });
+
+  it("arms game_start after playReady timeout when clientPlayReady never arrives", async () => {
+    setPlayReadyTimeoutOverride(250);
+    try {
+      const room = uniqueContinuousRoom("timeout");
+      const { client, youConnId } = await connectAndSeat(room, {
+        name: "QP-TO",
+        color: "green",
+        clientId: "cid-qp-timeout",
+        ip: "10.0.3.2",
+        hostScore: 70,
+      });
+      expect(youConnId).toEqual(expect.any(String));
+      expect(client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+      const start = await client.awaitType(MSG.gameStart, 3000);
+      expect(start.startsAtMs).toEqual(expect.any(Number));
+      client.close();
+    } finally {
+      setPlayReadyTimeoutOverride(null);
+    }
+  });
+
+  it("waits for both humans' clientPlayReady before arming in continuous mode", async () => {
+    const room = uniqueContinuousRoom("both");
+    const host = await connectAndSeat(room, {
+      name: "QP-H",
+      color: "pink",
+      clientId: "cid-qp-h",
+      ip: "10.0.3.3",
+      hostScore: 90,
+    });
+    const joiner = await connectAndSeat(room, {
+      name: "QP-J",
+      color: "blue",
+      clientId: "cid-qp-j",
+      ip: "10.0.3.4",
+      hostScore: 40,
+    });
+
+    expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+    host.client.sendJson({ type: MSG.clientPlayReady });
+    await sleep(100);
+    expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+    const startPromise = host.client.awaitType(MSG.gameStart, 3000);
+    joiner.client.sendJson({ type: MSG.clientPlayReady });
+    const start = await startPromise;
+    expect(start.startsAtMs).toEqual(expect.any(Number));
+
+    host.client.close();
+    joiner.client.close();
+  });
+
+  it("resets playReady timeout when a new human seats mid-wait", async () => {
+    setPlayReadyTimeoutOverride(400);
+    try {
+      const room = uniqueContinuousRoom("reset");
+      const host = await connectAndSeat(room, {
+        name: "QP-R1",
+        color: "pink",
+        clientId: "cid-qp-r1",
+        ip: "10.0.3.5",
+        hostScore: 90,
+      });
+      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+      // * Burn most of the first ceiling — joiner seating must reset it.
+      await sleep(280);
+      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+      const joiner = await connectAndSeat(room, {
+        name: "QP-R2",
+        color: "blue",
+        clientId: "cid-qp-r2",
+        ip: "10.0.3.6",
+        hostScore: 40,
+      });
+      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+      // * Old deadline would fire soon; reset means still no arm after a short wait.
+      await sleep(200);
+      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+
+      const start = await host.client.awaitType(MSG.gameStart, 3000);
+      expect(start.startsAtMs).toEqual(expect.any(Number));
+
+      host.client.close();
+      joiner.client.close();
+    } finally {
+      setPlayReadyTimeoutOverride(null);
+    }
   });
 });

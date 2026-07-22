@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T09:03:07.795Z",
-    "commit": "2eedc04"
+    "at": "2026-07-22T09:33:00.499Z",
+    "commit": "8646dae"
   },
-  "source_digest": "ada7f629",
+  "source_digest": "c83c8633",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). Cap-200 fixed (unpushed): A6b’s first `hostReload` pass was a false green (`menuVisible` only); boot-splash late `CartRave.show` + host-MP countdown defer + DOM harness assert. A6a done (unpushed). A5 pushed (`67e6bea`). Waiting Wyatt smoke + ack to close A6.",
+    "mission": "Playtesting and stabilization — ▶ COUNTDOWN-ARM-1 (play-ready-gated continuous arm). Cap-200 shipped (`8646dae`): menu DOM desync + host defer + harness truth — Wyatt smoke menu PASS. A6 NET-SIM-1 hostReload green; close pending Wyatt ack. Residual Cap-203 truncation fixed by COUNTDOWN-ARM-1 (unpushed).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -891,7 +891,13 @@
       {
         "id": "A6 NET-SIM-1",
         "what": "Reconnect / socket-lifecycle sims",
-        "status": "▶ Cap-200 fix unpushed (A6b false-green on Cap-200; boot guard + host-MP countdown defer + DOM assert; netharness hostReload 13/13). Waiting Wyatt smoke + ack to close A6",
+        "status": "Cap-200 shipped (`8646dae`); hostReload DOM assert green; waiting Wyatt ack to close A6",
+        "state": "waiting"
+      },
+      {
+        "id": "COUNTDOWN-ARM-1",
+        "what": "Play-ready-gated continuous `game_start`",
+        "status": "▶ unpushed — `MSG.clientPlayReady` + 12s ceiling; party-do 10/10",
         "state": "active"
       },
       {
@@ -917,8 +923,9 @@
       }
     ],
     "next_actions": [
-      "Wyatt Cap-200 smoke (host reload / quickplay): menu stays `#cr-root display:none`; countdown 3-2-1 or honest GO when late — then ack to close A6.",
-      "Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline)."
+      "Wyatt smoke COUNTDOWN-ARM-1: two-browser quickplay cold — both hear full 3-2-1; hung client arms by ~12s.",
+      "Ack to close A6 if Cap-200 menu smoke stays good.",
+      "Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md)."
     ],
     "open_issues": [
       {
@@ -1400,7 +1407,12 @@
           {
             "col0": "A6",
             "item": "Reconnection / socket-lifecycle sims",
-            "notes": "**Cap-200 fix unpushed** — A6b first pass was false green (Cap-200: `menuVisible` only). Boot-splash `shouldBootRevealMenu` + host-MP countdown defer + harness `#cr-root display:none`. netharness hostReload 13/13 with DOM. Waiting Wyatt smoke to close A6."
+            "notes": "Cap-200 shipped (`8646dae`); hostReload DOM assert. Waiting Wyatt ack to close A6."
+          },
+          {
+            "col0": "COUNTDOWN-ARM-1",
+            "item": "Play-ready-gated continuous arm",
+            "notes": "**Unpushed** — `clientPlayReady` + `PLAY_READY_TIMEOUT_MS=12s` fresh arm; fixes Cap-203 joiner truncation. Cap-200 remains safety net."
           },
           {
             "col0": "A7",

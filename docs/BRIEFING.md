@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `2eedc04` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `d5968345`
+> Generated 2026-07-22 at commit `8646dae` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `6df31aa1`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,12 +14,12 @@
 
 ## Mission
 
-Playtesting and stabilization — ▶ A6 / NET-SIM-1 (reconnect / socket-lifecycle sims). Cap-200 fixed (unpushed): A6b’s first `hostReload` pass was a false green (`menuVisible` only); boot-splash late `CartRave.show` + host-MP countdown defer + DOM harness assert. A6a done (unpushed). A5 pushed (`67e6bea`). Waiting Wyatt smoke + ack to close A6.
+Playtesting and stabilization — ▶ COUNTDOWN-ARM-1 (play-ready-gated continuous arm). Cap-200 shipped (`8646dae`): menu DOM desync + host defer + harness truth — Wyatt smoke menu PASS. A6 NET-SIM-1 hostReload green; close pending Wyatt ack. Residual Cap-203 truncation fixed by COUNTDOWN-ARM-1 (unpushed).
 
 ## ACTIVE CARD
 
-A6 NET-SIM-1 — Reconnect / socket-lifecycle sims
-Pass looks like: ▶ Cap-200 fix unpushed (A6b false-green on Cap-200; boot guard + host-MP countdown defer + DOM assert; netharness hostReload 13/13). Waiting Wyatt smoke + ack to close A6
+COUNTDOWN-ARM-1 — Play-ready-gated continuous `game_start`
+Pass looks like: ▶ unpushed — `MSG.clientPlayReady` + 12s ceiling; party-do 10/10
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

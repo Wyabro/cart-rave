@@ -23,10 +23,16 @@ type Slot = {
   /** Client-synced neon frame hex (0–0xffffff); preset slot color is assignment only. */
   lookHex?: number | null;
   isReady: boolean;
+  /**
+   * COUNTDOWN-ARM-1: carts + play-shader warm acknowledged via MSG.clientPlayReady.
+   * Continuous mode requires this (or PLAY_READY_TIMEOUT_MS) before game_start.
+   */
+  isPlayReady: boolean;
 };
 
 import { MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS } from '../shared/roundConstants.js';
+import { getPlayReadyTimeoutMs, getReapThrottleMs, getReapTimeoutMs } from './constants';
 import { COUNTDOWN_ABORT_GRACE_MS, isContinuousModeRoom, seatReadyState } from '../shared/readiness.js';
 import { validateHostRound, type RoundState } from './roundValidation';
 import {
@@ -34,7 +40,6 @@ import {
   pickPreferredHostId,
   shouldMigrateToPreferredHost,
 } from './hostSelection';
-import { getReapThrottleMs, getReapTimeoutMs } from './constants';
 import { advanceRateLimit } from './rateLimit';
 import {
   listSilentConnectionsToReap,
@@ -112,6 +117,8 @@ export class CartRaveServer extends Server {
   readonly #readyConnIds = new Set<string>();
   // * Grace timer: an armed countdown tolerates a brief unready blip before aborting (fix A).
   #countdownAbortGraceHandle: ReturnType<typeof setTimeout> | null = null;
+  // * COUNTDOWN-ARM-1: continuous lobby ceiling waiting for clientPlayReady.
+  #playReadyWaitHandle: ReturnType<typeof setTimeout> | null = null;
   #npcNameDeck: string[] = [];
 
   // Security: Rate limiting state
@@ -185,6 +192,7 @@ export class CartRaveServer extends Server {
       name: npcNames[slotId] ?? `NPC-${slotId}`,
       color: colors[slotId] ?? `slot-${slotId}`,
       isReady: false,
+      isPlayReady: false,
     }));
   }
 
@@ -343,6 +351,7 @@ export class CartRaveServer extends Server {
   /** Drop the game_start arming timer if any (does not touch phase / countdownArmed). */
   #clearCountdownTimer() {
     this.#clearCountdownAbortGrace();
+    this.#clearPlayReadyWait();
     if (this.#countdownTimerHandle !== null) {
       clearTimeout(this.#countdownTimerHandle);
       this.#countdownTimerHandle = null;
@@ -379,6 +388,8 @@ export class CartRaveServer extends Server {
       connId,
       readyConnIds: this.#readyConnIds,
     });
+    // * COUNTDOWN-ARM-1: warm signal is per seat — never inherit from the NPC slot.
+    npcSlot.isPlayReady = false;
     // Keep npcSlot.name until client sends join with a name.
     // * Mid-round seat: scores are slot-keyed. The NPC's points must not become the
     // * joiner's. Zero before the next host_round — validateHostRound's monotonic
@@ -402,6 +413,7 @@ export class CartRaveServer extends Server {
     slot.kind = "npc";
     slot.connId = null;
     slot.isReady = false;
+    slot.isPlayReady = false;
     slot.name = this.#drawNpcName();
     // Reassign color to avoid collisions with other slots.
     slot.color = nextFreePaletteColor(slots, slot, PALETTE);
@@ -504,6 +516,9 @@ export class CartRaveServer extends Server {
   // * into countdown then re-arm — orphan/stale human slots (isReady false, dead
   // * connId) were included here but ignored by arm, so a room that correctly
   // * armed would immediately cancel on the next ready/slots reconcile.
+  // *
+  // * Do not inspect isPlayReady here. Abort is COUNTDOWN-ABORT-1 / isReady-only.
+  // * A clientPlayReady bit must never cancel an armed countdown.
   #cancelCountdownIfNeeded() {
     if (
       this.#countdownTimerHandle === null
@@ -627,8 +642,9 @@ export class CartRaveServer extends Server {
     return true;
   }
 
-  // * Checks whether every human slot has toggled ready. If so, arms a
-  // * 3-second timer and broadcasts MSG.gameStart with a startsAtMs timestamp.
+  // * Checks whether every human slot has toggled ready (and, in continuous mode,
+  // * acknowledged play-ready / warm). If so, arms a 3-second timer and broadcasts
+  // * MSG.gameStart with a startsAtMs timestamp.
   // * The timer handle acts as the one-shot guard — re-entrant calls are no-ops
   // * until the timer fires and clears the handle. Rematch grace also blocks so
   // * host-migrate / ready-toggle cannot defeat the 2s post-playAgain breathe window.
@@ -654,6 +670,25 @@ export class CartRaveServer extends Server {
     if (humanSlots.length === 0) return;
     if (!humanSlots.every((s) => s.isReady)) return;
 
+    // * COUNTDOWN-ARM-1: continuous mode also needs clientPlayReady (or the 12s ceiling).
+    if (this.#isContinuousMode() && !humanSlots.every((s) => s.isPlayReady)) {
+      this.#schedulePlayReadyWait({ reset: false });
+      return;
+    }
+
+    this.#armGameStart();
+  }
+
+  /** Mint a fresh absolute countdown window and broadcast MSG.gameStart. */
+  #armGameStart() {
+    if (
+      this.#round.phase !== "lobby"
+      || this.#countdownTimerHandle !== null
+      || this.#rematchGraceTimerHandle !== null
+    ) {
+      return;
+    }
+    this.#clearPlayReadyWait();
     const startsAtMs = this.#serverNowMs() + COUNTDOWN_MS;
     this.#countdownArmed = true;
     this.#broadcastJson({
@@ -666,6 +701,59 @@ export class CartRaveServer extends Server {
       this.#countdownTimerHandle = null;
       this.#countdownArmed = false;
     }, COUNTDOWN_MS);
+  }
+
+  #clearPlayReadyWait() {
+    if (this.#playReadyWaitHandle !== null) {
+      clearTimeout(this.#playReadyWaitHandle);
+      this.#playReadyWaitHandle = null;
+    }
+  }
+
+  /**
+   * Continuous lobby: start/reset the PLAY_READY_TIMEOUT_MS ceiling while waiting
+   * for clientPlayReady. `reset: true` on new seat so a late joiner gets a full 12s.
+   */
+  #schedulePlayReadyWait(opts: { reset: boolean }) {
+    if (!this.#isContinuousMode()) {
+      this.#clearPlayReadyWait();
+      return;
+    }
+    if (
+      this.#round.phase !== "lobby"
+      || this.#countdownTimerHandle !== null
+      || this.#countdownArmed
+      || this.#rematchGraceTimerHandle !== null
+    ) {
+      this.#clearPlayReadyWait();
+      return;
+    }
+    if (!this.#slots) {
+      this.#clearPlayReadyWait();
+      return;
+    }
+    const liveConnIds = new Set<string>();
+    for (const c of this.getConnections()) {
+      liveConnIds.add(c.id);
+    }
+    const humanSlots = this.#slots.filter(
+      (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
+    );
+    if (
+      humanSlots.length === 0
+      || !humanSlots.every((s) => s.isReady)
+      || humanSlots.every((s) => s.isPlayReady)
+    ) {
+      this.#clearPlayReadyWait();
+      return;
+    }
+    if (!opts.reset && this.#playReadyWaitHandle !== null) return;
+    this.#clearPlayReadyWait();
+    this.#playReadyWaitHandle = setTimeout(() => {
+      this.#playReadyWaitHandle = null;
+      // * Timeout A: arm a fresh full COUNTDOWN_MS window; Cap-200 handles stragglers.
+      this.#armGameStart();
+    }, getPlayReadyTimeoutMs());
   }
 
   #reconcileOrphanSlots(liveConnIds: Set<string>) {
@@ -1170,10 +1258,22 @@ export class CartRaveServer extends Server {
         });
         // * Continuous-mode (quickplay) seats isReady:true, so the client's
         // * maybeAutoReadyLobby no-ops (already ready) and never sends readyToggle.
-        // * Arm countdown here or the lobby waits forever after COUNTDOWN-ABORT-1.
+        // * COUNTDOWN-ARM-1: #checkAllReady no longer arms on seat alone — it starts
+        // * the playReady wait (reset on new seater so joiners get a full 12s ceiling).
         if (assignedFromPending) {
+          this.#schedulePlayReadyWait({ reset: true });
           this.#checkAllReady();
         }
+        return;
+      }
+
+      if (type === MSG.clientPlayReady) {
+        const slot = this.#slots?.find((s) => s.connId === connection.id);
+        if (!slot || slot.kind !== "human") return;
+        // * Idempotent — rematch lobby heartbeats may re-send.
+        if (slot.isPlayReady) return;
+        slot.isPlayReady = true;
+        this.#checkAllReady();
         return;
       }
 
@@ -1243,12 +1343,15 @@ export class CartRaveServer extends Server {
         this.#countdownArmed = false;
         this.#carts = [];
         // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
+        // * COUNTDOWN-ARM-1: clear playReady so clients re-signal (usually instant — carts warm).
         for (const slot of (this.#slots ?? [])) {
           if (slot.kind === "human") {
             slot.isReady = true;
+            slot.isPlayReady = false;
             if (slot.connId) this.#readyConnIds.add(slot.connId);
           }
         }
+        this.#clearPlayReadyWait();
         // * HOST-ROLE-1: re-evaluate host quality before the next countdown.
         this.#maybeRebalanceHostForQuality();
         this.#broadcastJson({

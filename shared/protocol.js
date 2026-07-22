@@ -14,6 +14,8 @@ export const MSG = {
   cartLook: "cart_look",
   readyToggle: "ready_toggle",
   playAgain: "play_again",
+  /** Client → server: carts + play-shader warm done (COUNTDOWN-ARM-1). */
+  clientPlayReady: "client_play_ready",
 
   // Host <-> client (WebRTC DataChannel gameplay plane)
   // hostTransform: 40Hz binary host snapshot (transforms + collision/fall tails).

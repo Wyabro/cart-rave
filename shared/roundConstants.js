@@ -15,3 +15,10 @@ export const ROUND_DURATION_MS = 150_000;
  * or MP digits pace against a different window than the actual GO moment.
  */
 export const COUNTDOWN_MS = 3600;
+
+/**
+ * ms — continuous-mode ceiling waiting for clientPlayReady before arming
+ * game_start anyway (fresh full COUNTDOWN_MS window). Invisible when all
+ * humans warm in 1–3s; only bounds hung clients.
+ */
+export const PLAY_READY_TIMEOUT_MS = 12_000;

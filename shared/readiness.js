@@ -14,9 +14,11 @@
  *  window is tolerated, so a flapping peer no longer bounces everyone back to lobby (fix A). */
 export const COUNTDOWN_ABORT_GRACE_MS = 1500;
 
-/** Room names that are continuous (no manual ready-up). Quickplay is the shared public room. */
+/** Room names that are continuous (no manual ready-up). Quickplay is the shared public room.
+ *  `quickplay__*` is a party-do harness prefix so continuous-policy tests get isolated DOs. */
 export function isContinuousModeRoom(roomName) {
-  return roomName === "quickplay";
+  if (roomName === "quickplay") return true;
+  return typeof roomName === "string" && roomName.startsWith("quickplay__");
 }
 
 /**

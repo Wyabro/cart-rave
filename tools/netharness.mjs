@@ -274,11 +274,20 @@ async function scenarioSpawnLock(browserHost, browserJoiner, baseUrl) {
   console.log("[scenario] spawnlock — mid-round joiner drives forward");
 
   // 1. Host enters first and reaches a running round (quickplay fills with NPCs).
-  const host = await makeClient(browserHost, { username: "HostBot", baseUrl, label: "host" });
+  // * diag: COUNTDOWN-ARM-1 — assert host heard countdown_3 (arm after playReady, not seat).
+  const host = await makeClient(browserHost, { username: "HostBot", baseUrl, label: "host", diag: true });
   await waitForState(host.page, (s) => s.phase === "running" && s.localSlotIndex >= 0, {
     timeout: 40_000,
     label: "host-running",
   });
+  const hostAnn = await host.page.evaluate(() =>
+    window.__ccDiag.events().filter((e) => e.ch === "announcer").map((e) => e.type),
+  );
+  check(
+    "host heard countdown_3 before running (playReady arm)",
+    hostAnn.includes("countdown_3"),
+    `announcer=${hostAnn.join(",") || "none"}`,
+  );
   console.log("[scenario] host is running");
 
   // Sanity: is the host sim actually stepping? Drive the host's OWN cart (pure local sim +

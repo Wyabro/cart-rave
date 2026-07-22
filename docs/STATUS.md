@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** ▶ **A6 / NET-SIM-1** (reconnect / socket-lifecycle sims). Cap-200 fixed (unpushed): A6b’s first `hostReload` pass was a **false green** (`menuVisible` only); boot-splash late `CartRave.show` + host-MP countdown defer + DOM harness assert. A6a done (unpushed). A5 pushed (`67e6bea`). Waiting Wyatt smoke + ack to close A6.
+**Playtesting and stabilization.** ▶ **COUNTDOWN-ARM-1** (play-ready-gated continuous arm). Cap-200 shipped (`8646dae`): menu DOM desync + host defer + harness truth — Wyatt smoke menu PASS. A6 NET-SIM-1 hostReload green; close pending Wyatt ack. Residual Cap-203 truncation fixed by COUNTDOWN-ARM-1 (unpushed).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -111,7 +111,8 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A3** MP-FX-1 | non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | **A4** ARENA-COL-1 | Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent) |
 | **A5** SRV-TEST-1 | Direct tests for party decision cores | ✅ **done** (A5a helpers + A5b DO harness; 739 tests) |
-| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ▶ **Cap-200 fix unpushed** (A6b false-green on Cap-200; boot guard + host-MP countdown defer + DOM assert; netharness hostReload 13/13). Waiting Wyatt smoke + ack to close A6 |
+| **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | Cap-200 shipped (`8646dae`); hostReload DOM assert green; waiting Wyatt ack to close A6 |
+| **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ▶ **unpushed** — `MSG.clientPlayReady` + 12s ceiling; party-do 10/10 |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -131,8 +132,9 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Wyatt Cap-200 smoke (host reload / quickplay): menu stays `#cr-root display:none`; countdown 3-2-1 or honest GO when late — then ack to close A6.
-2. Pre-ship ordering lives in [planning/SHIP-1.md](./planning/SHIP-1.md) (tiers A–E; no deadline).
+1. Wyatt smoke COUNTDOWN-ARM-1: two-browser quickplay cold — both hear full 3-2-1; hung client arms by ~12s.
+2. Ack to close A6 if Cap-200 menu smoke stays good.
+3. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
 
 ## Open issues (top)
 
@@ -250,13 +252,17 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-22 (COUNTDOWN-ARM-1) — Continuous-mode server waits for `MSG.clientPlayReady`
+(post-`ensureSessionCartsReady`) before minting `startsAtMs`, with
+`PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window (timeout A). Cap-200
+client defer stays as straggler safety net. party-do 10/10 (seat≠arm; playReady; timeout;
+reset). Unpushed — waiting Wyatt two-browser smoke.
+
 2026-07-22 (Cap-200 — A6b false green) — Cap-200 (2eedc04, reloader, 4090) showed
 `menuVisible:false` while DOM menu resurrected: boot-splash late `CartRave.show()` after
 `commitMenuHiddenForGame`. Continuous-mode `colorPick` arm also truncated host countdown to
-1/GO. Fix (unpushed): `shouldBootRevealMenu` guard; host-MP `hostMpCountdownDeferGen` defer
-(absolute `startsAtMs`; past-start → `startRunningAt`+GO); harness + `crRootDisplay` assert
-`#cr-root display===none`. Unit +qa 746; netharness hostReload **13/13** with DOM. Waiting
-Wyatt smoke before closing A6.
+1/GO. Fix shipped `8646dae`: `shouldBootRevealMenu` guard; host-MP defer; harness +
+`crRootDisplay`. Wyatt smoke: menu PASS; countdown better but Cap-203 residual → COUNTDOWN-ARM-1.
 
 2026-07-22 (process — plan→ack→apply firewall) — Cold-start docs made the A6b skip
 impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit

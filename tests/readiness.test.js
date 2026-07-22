@@ -6,6 +6,9 @@ describe("isContinuousModeRoom", () => {
   it("treats quickplay as continuous (no manual ready-up)", () => {
     expect(isContinuousModeRoom("quickplay")).toBe(true);
   });
+  it("treats quickplay__* harness rooms as continuous (isolated DO)", () => {
+    expect(isContinuousModeRoom("quickplay__seat-arm-abc")).toBe(true);
+  });
   it("treats private/friends rooms as ready-up modes", () => {
     expect(isContinuousModeRoom("A1B2C3")).toBe(false);
     expect(isContinuousModeRoom("")).toBe(false);

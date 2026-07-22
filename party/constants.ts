@@ -6,6 +6,8 @@
 // happens, promote the type here (or to a tiny party/types.ts if constants is the
 // wrong home) and name the consumers in a comment on the export.
 
+import { PLAY_READY_TIMEOUT_MS } from "../shared/roundConstants.js";
+
 /** Max WS messages accepted per connection per RATE_LIMIT_WINDOW_MS. */
 export const RATE_LIMIT_MAX_PER_SEC = 100;
 
@@ -51,4 +53,18 @@ export function getReapTimeoutMs(): number {
 /** Effective reap throttle (override ?? REAP_THROTTLE_MS). */
 export function getReapThrottleMs(): number {
   return reapThrottleOverrideMs ?? REAP_THROTTLE_MS;
+}
+
+// ── Test-only play-ready wait override (COUNTDOWN-ARM-1) ───────────────────
+// Production never calls setPlayReadyTimeoutOverride. Pass null to clear.
+let playReadyTimeoutOverrideMs: number | null = null;
+
+/** Test-only. Shorten continuous playReady wait. Pass null to clear. */
+export function setPlayReadyTimeoutOverride(ms: number | null): void {
+  playReadyTimeoutOverrideMs = ms;
+}
+
+/** Effective playReady ceiling (override ?? PLAY_READY_TIMEOUT_MS). */
+export function getPlayReadyTimeoutMs(): number {
+  return playReadyTimeoutOverrideMs ?? PLAY_READY_TIMEOUT_MS;
 }

@@ -2304,6 +2304,28 @@ export function initNetcode(roomOverride) {
     partySocket.send(JSON.stringify({ type: MSG.readyToggle, ready: true }));
   };
 
+  // * COUNTDOWN-ARM-1: tell the DO carts+warm are done so continuous mode can mint
+  // * startsAtMs. Server handler is idempotent; rematch lobby may re-send.
+  let lastPlayReadySendAtMs = 0;
+  const sendClientPlayReady = () => {
+    if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
+    const mode = callbacks.detectGameMode();
+    if (mode === "solo" || mode === "testdrive") return;
+    const now = getMonotonicNow();
+    if (now - lastPlayReadySendAtMs < 1200) return;
+    lastPlayReadySendAtMs = now;
+    partySocket.send(JSON.stringify({ type: MSG.clientPlayReady }));
+  };
+
+  /** Rematch / lobby heartbeat: re-signal playReady when session carts are already warm. */
+  const maybeSendPlayReadyLobby = () => {
+    if (GameState.getRoundState().phase !== "lobby") return;
+    if (typeof callbacks.isSessionPlayReady === "function" && !callbacks.isSessionPlayReady()) {
+      return;
+    }
+    sendClientPlayReady();
+  };
+
   let resolvedRoom = resolvedPartyRoomFromUrl();
   if (roomOverride != null && String(roomOverride).trim() !== "") {
     const r = String(roomOverride).trim();
@@ -2538,6 +2560,7 @@ export function initNetcode(roomOverride) {
         callbacks.scheduleNameLabelUpdate();
 
         setTimeout(maybeAutoReadyLobby, 400);
+        setTimeout(maybeSendPlayReadyLobby, 400);
       };
 
       /** @type {unknown} */
@@ -2550,9 +2573,14 @@ export function initNetcode(roomOverride) {
       const safeReady = readyResult != null && typeof (/** @type {{ then?: unknown }} */ (readyResult)).then === "function"
         ? /** @type {Promise<unknown>} */ (readyResult)
         : Promise.resolve();
-      void safeReady.then(finishHelloEnter).catch(() => {
+      void safeReady.then(() => {
+        finishHelloEnter();
+        sendClientPlayReady();
+      }).catch(() => {
         // * Never softlock the join — enter even if cart warm fails.
         finishHelloEnter();
+        // * Still signal so continuous lobby cannot wait the full 12s ceiling.
+        sendClientPlayReady();
       });
       return;
     }
@@ -2691,6 +2719,7 @@ export function initNetcode(roomOverride) {
         callbacks.scheduleNameLabelUpdate();
         callbacks.respawnLocalMidRoundJoinRef();
         maybeAutoReadyLobby();
+        maybeSendPlayReadyLobby();
       }
       return;
     }
@@ -2792,6 +2821,7 @@ export function initNetcode(roomOverride) {
         if (r.scores && typeof r.scores === "object") GameState.setRoundScores(r.scores);
         if (typeof r.isSuddenDeath === "boolean") GameState.setSuddenDeath(r.isSuddenDeath);
         maybeAutoReadyLobby();
+        maybeSendPlayReadyLobby();
       }
       return;
     }
@@ -2805,6 +2835,7 @@ export function initNetcode(roomOverride) {
         GameState.setRoundStartedAtMs(0);
       }
       maybeAutoReadyLobby();
+      maybeSendPlayReadyLobby();
       return;
     }
 

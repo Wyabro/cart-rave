@@ -42,7 +42,8 @@ Phase advancement stays manual: agents report eligibility; only Wyatt moves the 
 | A3 | MP-FX-1 — non-host gameplay VFX | **PASS 07-22** — opponent charge glow + hop land dust/thud on non-host (Wyatt playtest). |
 | A4 | ARENA-COL-1 — Cart Rave pit KO detection | **PASS 07-22** (Wyatt playtest) — rim entry pose (`fallEntryPos`) & round-clock timestamp (`fallEntryTimeMs`) at `FALL_ENTRY_Y = -2.0` via `{ classifyPos, creditTimeMs }` into `buildKOEvent`. |
 | A5 | Server test coverage (biggest gap) | **Done 07-22** (pushed `67e6bea`): A5a `party/constants.ts` + pure helpers; A5b Workers DO harness (`vitest.party.config.js`, `tests/party-do/`) covering hello / join+seat+keepalive / onClose host migration. Vitest 707→739. |
-| A6 | Reconnection / socket-lifecycle sims | **Cap-200 fix unpushed** — A6b first pass was false green (Cap-200: `menuVisible` only). Boot-splash `shouldBootRevealMenu` + host-MP countdown defer + harness `#cr-root display:none`. netharness hostReload 13/13 with DOM. Waiting Wyatt smoke to close A6. |
+| A6 | Reconnection / socket-lifecycle sims | Cap-200 shipped (`8646dae`); hostReload DOM assert. Waiting Wyatt ack to close A6. |
+| COUNTDOWN-ARM-1 | Play-ready-gated continuous arm | **Unpushed** — `clientPlayReady` + `PLAY_READY_TIMEOUT_MS=12s` fresh arm; fixes Cap-203 joiner truncation. Cap-200 remains safety net. |
 | A7 | ANLX-VIEW-1 — analytics reading surface | Needed to judge later playtests and the external-tester pass with evidence. |
 
 **Rendering coverage — handled differently, not skipped.** `scene.js`, `cartRaveGltf.js`,
