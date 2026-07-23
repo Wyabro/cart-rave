@@ -11,8 +11,10 @@
 - **Design source:** `~/Downloads/Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` +
   `Menu Redesign Concepts.dc.html`. The README's 7a–7g section carries the per-screen prose; the
   `.dc.html` carries the exact measurements. Extract it — the plan does *not* restate every number.
-- **State: every surface is built — 7a–7g, 6a HUD, and now 3a main menu.** What remains is the
-  **owed verifications** below, all of which need a real browser and a real match.
+- **State: every surface is built — 7a–7g, 6a HUD, 3a main menu, and both loading screens.** What
+  remains is the **owed verifications** below, all of which need a real browser and a real match.
+- **The loading screens were outside the design source** (it covers 3a / 6a / 7a–7g only). Don't go
+  hunting for a mock — their language is derived from the shared shell, screen by screen.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything
   was verified via DOM + computed-style + scripted-interaction introspection, **never by eye**. Only
   7a, 7c and 3a have had a visual sign-off (Wyatt looked at those in a real browser).
@@ -30,6 +32,7 @@
 | 7f Pause | ✅ re-laid out + **three review rounds with Wyatt** — the only screen that stays a centred panel (860px) |
 | **6a HUD** | ✅ reworked in 3 cuts + 2 review rounds — top strip, standings, feed, nameplates, boost, coupon, clock |
 | **3a Menu** | ✅ diffed to its mock + reviewed — hover skew/ring, title lean + size, NEW pill, plate buttons, hint bar, arena picker |
+| **Loading** | ✅ boot splash + mode-entry overlay onto the shell — **no mock exists for these**, the language is derived from `.cr-screen` |
 
 ## ⚠️ READ FIRST — seven traps that have each bitten more than once
 
@@ -160,7 +163,7 @@ Grep a screen for `[hidden]` and assert `display === "none"` on each before sign
 ## Locked decisions
 
 1. **One branch**, all parts; commit per cut.
-2. **Slab material** replaces the white die-cut contour on panels/chips/buttons **game-wide** (kept only on emblems + Road Rage lettering).
+2. **Slab material** replaces the white die-cut contour on panels/chips/buttons **game-wide** (kept only on emblems + Road Rage lettering). The loading screens and the boot-error card were the last holdouts — swept in `5e8585e` / `9f669ba`. "Game-wide" means surfaces nobody thinks of as screens too; grep for `sticker-panel`, `sticker-micro` and literal `#f2ede4` ring shadows before believing it is done.
 3. **Human emblem** = cart-color "shopper" glyph via shared `emblemForSlot(slot)`; host/leader/YOU stay **separate pips**.
 4. **Results** = podium + receipt. `EXPRESS LANE HELD` is **not tracked → dropped**. Spills *were* added as new instrumentation at review (see below).
 5. **Friends** = **model B** (post-enter full-screen lobby, reuse netcode lifecycle) with **start-rule B1** (rounds auto-arm on all-ready; **no host START button**).
@@ -206,6 +209,8 @@ Grep a screen for `[hidden]` and assert `display === "none"` on each before sign
 | `3240e6e` | 6a review 2 | Clock was Bungee (proportional digits) → resized every tick; now Goldman + an em floor. |
 | `e228636` | **3a Menu** | Hover kept the sticker ring + flattened the row; title lean died to the rAF beat write; title to 170/0.78/no-stroke; rings off re-roll + diff chips; NEW pill moved onto the row's own `.cr-cmd-new`; hero top-anchored + hint-bar reserve (it overlapped at 1280×720); plate name plain + twin 36px ✎/⟲; hint bar SVG chip + sha fallback; title band rules moved into the 3a block. |
 | `f279b08` | 3a review | The arena radiogroup was never actually hidden (author `display` beat `[hidden]`) — three cards on top of the pager; QUICKPLAY's arena picker dropped (matchmaking picks). |
+| `5e8585e` | **Loading 1/2** | Mode-entry overlay onto the shell — die-cut card + vinyl ring + scanlines out, title glow-only, 20-seg bar → boost-meter slab, store-voice kickers, boot-error card to slab material. |
+| `9f669ba` | **Loading 2/2** | Boot splash onto the shell in literal hexes — same header/strip/meter, `THE STORE IS NOW OPENING`, `#boot-seg-bar` becomes the track, cart-crash animation untouched. |
 
 ## Key implementation facts (so you don't re-derive)
 
@@ -226,6 +231,11 @@ Grep a screen for `[hidden]` and assert `display === "none"` on each before sign
 - **HUD (6a) specifics:** `hud.js` owns the ONE leader rule and exports `getLeaderSlotIndex()` — the cart crown and the scoreboard's magenta tag read the same value, so they cannot disagree. The kill-feed receipt hides itself via a **MutationObserver** on its rows, because `animations.js`'s exit timer removes rows and hud.js has no completion hook (`:has()` was rejected: Vite's default target still includes browsers without it). Directive copy (`blurb`) is **placeholder** and lives in `directives/directives.js`. The clock's fixed width comes from an em `min-width` floor, NOT from `tabular-nums` — Goldman doesn't ship tabular figures.
 - **Pause overlay (7f) specifics:** the panel carries its own material (no `.cc-panel`/`.cc-title` — both fought the mock); `createEscSection` returns `{section, hd, body}` so the mute chip can mount on the AUDIO header line; the CONTROLS chart mirrors the Settings one row for row (`W A S D` split, wide `SHIFT`/`SPACE`, per-action `--esc-kc` accent) but uses **fixed palette tokens**, because Settings tints from the live arena palette inside `cart-rave-menu.js`'s closure and this module can't reach it. Unifying them is a shared-module extraction, deliberately not done.
 - **main.js rewrites the results button labels at runtime** (rematch countdown, "WAITING FOR HOST…") — any decoration inside those buttons must live in CSS pseudo-elements, not child spans.
+- **Loading screens are two separate surfaces with two separate constraints.** The **mode-entry overlay** (`#cr-mode-load`) is built by `src/ui/loadingScreen.js` and styled from `src/ui/loadingScreen.css`, which imports tokens — so it uses the token layer. The **boot splash** (`#cr-boot-splash`) is markup + `<style>` inline in `index.html` and paints *before any bundle CSS exists*: every value there must be a **literal hex**, never a token. Same rule for `#cr-boot-error`, which shows when a module fails to load. Keeping the two in sync is manual.
+- **Both re-express `.cr-screen` rather than reusing it** — same bundle-order reason as the 7e lobby. `.cr-load__shell/-hd/-kicker/-title/-stage/-strip/-meter` mirrors the shell's values; `.cr-boot-shell/-hd/-kicker/-title/-stage/-strip/-meter` mirrors them again in literals. Change one and you must change all three (shell, overlay, splash) or they drift apart.
+- **Loading progress is the boost-meter slab.** Both bars are track + fill now, not lit segments. `#boot-seg-bar` **kept its id and `role="progressbar"`** but is the *track* — `paintBootProgress()` (inline) and `dismissInitialBootSplash()` (loadingScreen.js) both write `#cr-boot-fill`'s width and `#cr-boot-pct`'s text. `setProgress()` does the same for `.cr-load__fill` / `.cr-load__pct`. Anything that used to add `.lit` is gone.
+- **The boot splash cannot be measured in place** — it is removed from the DOM the moment boot completes. To inspect it, fetch `/index.html`, mount its `<style>` and the `#cr-boot-splash` subtree yourself, then measure. `showQualityApplyLoading()` is the one loading entry point that is fully synchronous, so it is the only one the pane can drive end to end (`withModeEntryLoading` awaits rAF and stalls there).
+- **A dynamic `import()` of loadingScreen.js from the console creates a SECOND module instance** with its own `#cr-mode-load` — `document.getElementById` then returns the app's, which never updates, and it looks like the code did nothing. Query `document.querySelectorAll('#cr-mode-load')` and remove the duplicate when you're done.
 
 ## Remaining work
 
@@ -240,6 +250,18 @@ real browser and a real match, which is exactly the work the pane cannot do.
 4. **Golden visual baselines** are still invalidated — regen (`npm run shoot`) once the review signs off.
 5. **Every `[hidden]` on the menu** — assert the computed `display` is actually `none` (trap 7). Only
    `#cr-level-row`, `#cr-context-arena`, `#cr-diff-row` and `#cr-cmd-new-pill` were checked.
+6. **Finish the decision-2 sweep.** A grep after the loading cuts still finds **22** die-cut ring
+   usages in `cart-rave-menu.css` and **5** in `hud.css` (`--sticker-panel`, `--sticker-micro`,
+   `0 0 0 Npx var(--color-sticker-white)`). Most are base rules that a rebuilt screen overrides —
+   `.cr-reroll` and `.cr-diff-btn` were exactly that, and both still painted the ring until 3a
+   pinned them — so each one needs checking against a surface that actually renders it, not just
+   reading. Results / pause / stickers / announcer / index.html are already clean.
+7. **Both loading screens, in their real moment.** The **boot splash** was measured by remounting the
+   served markup — it is ripped out of the DOM before any probe can reach it, so nobody has seen the
+   real first paint or its exit beat. The **mode-entry overlay** has never had `applyTheme` run
+   against it: the per-arena decor inside the new centre stage (vinyl / furniture pile / seaside) and
+   the entrance + exit beats are all unseen, because `withModeEntryLoading` stalls on rAF in the pane.
+   Watch a cold boot, then enter each of the three arenas.
 
 **Known-but-parked:**
 - `.results-defeat .results-title { --title-glow }` **never applies** — main.js sets that custom property inline and no stylesheet rule can outrank it. Cosmetic only (the panel filter desaturates anyway). Pre-existing.
@@ -270,21 +292,25 @@ READ IN THIS ORDER before touching anything:
    actually see.
 2. The design source: extract ~/Downloads/"Game Menu UI Refinement.zip" and read
    design_handoff_main_menu/README.md plus "Menu Redesign Concepts.dc.html". The README has the
-   per-screen prose, the .dc.html has the exact numbers. The plan does not restate them.
+   per-screen prose, the .dc.html has the exact numbers. The plan does not restate them. It covers
+   3a / 6a / 7a-7g ONLY — the loading screens have no mock and never did.
 3. `git log --oneline -30` on the branch.
 
-State: EVERY surface is built — 7a-7g, 6a HUD, and 3a main menu (e228636 + f279b08). The
-construction phase is over. What is left is verification, and almost all of it needs a real
-browser and a real match, which is exactly what the Browser pane on this host cannot do.
+State: EVERY surface is built — 7a-7g, 6a HUD, 3a main menu (e228636 + f279b08) and both loading
+screens (5e8585e + 9f669ba). The construction phase is over. What is left is verification, and
+almost all of it needs a real browser and a real match, which is exactly what the Browser pane on
+this host cannot do.
 
 Only 7a, 7c and 3a have ever been looked at by a human. Everything else was signed off on DOM
-geometry and computed styles alone. Treat "verified" in this doc as "measured", not "seen".
+geometry and computed styles alone. Treat "verified" in this doc as "measured", not "seen" — and
+the loading screens are the worst case: the boot splash is torn out of the DOM before a probe can
+reach it, and the mode-entry overlay has never had applyTheme run against it at all.
 
 Ask me what to work on — do not pick a card yourself. The owed list is in the handover's
 "Remaining work": a live match for the HUD and results on a finished round, a two-client friends
-lobby (the CHECKOUT LINE has NEVER rendered), the responsive sweep, an audit that every [hidden]
-on the menu actually computes display:none, and a golden-baseline regen (`npm run shoot`) once I
-sign off.
+lobby (the CHECKOUT LINE has NEVER rendered), a cold boot plus one entry into each of the three
+arenas for the loading screens, the responsive sweep, an audit that every [hidden] on the menu
+actually computes display:none, and a golden-baseline regen (`npm run shoot`) once I sign off.
 
 Rules of engagement:
 - plan -> my ack -> apply. One item per cut.
