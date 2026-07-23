@@ -28,6 +28,9 @@ const GLYPHS = {
   // Host — steering wheel: "the driver of the cart", never "the server".
   // Fat strokes so it survives ~10px kill-feed scale without mushing.
   host: '<circle cx="12" cy="12" r="8.3" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 14.6 V20 M9.8 10.6 L4.8 7.6 M14.2 10.6 L19.2 7.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+  // Shopper — the HUMAN player emblem (NPCs get personality marks). Chunky cart
+  // silhouette; drawn in currentColor so it tints to the player's cart color.
+  shopper: '<path d="M2 4.5 H5 L6.6 7.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.4 7.2 H21 L18.7 15.4 H9.1 Z" fill="currentColor"/><circle cx="10.6" cy="18.8" r="1.9" fill="currentColor"/><circle cx="17.2" cy="18.8" r="1.9" fill="currentColor"/>',
 
   // ── Personality emblems — collectible sticker set ──────────────────────
   // Aggressor: red impact burst ("SMASH"), white star punch.

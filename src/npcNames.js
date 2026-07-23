@@ -1,6 +1,7 @@
 // * Canonical NPC name pool lives in shared/ (single source of truth for client + server).
 // * Re-exported here so existing `./npcNames.js` importers keep working unchanged.
 export { NPC_NAME_POOL } from "../shared/npcNames.js";
+import { CART_COLORS } from "./config.js";
 
 /**
  * Player-facing presentation for each personality — one source for the HUD
@@ -146,4 +147,47 @@ export function getNpcPersonality(identifier) {
   ];
   const idx = typeof identifier === "number" ? Math.abs(identifier) % profiles.length : 0;
   return profiles[idx];
+}
+
+/**
+ * Cart-color key / css class / hex → a css color string, defensively (slot
+ * color may arrive as a PALETTE key like "pink", a "bg-pink" class, a "#hex",
+ * or a 0xRRGGBB number depending on the source).
+ * @param {string|number|null|undefined} color
+ * @returns {string}
+ */
+function cartColorCss(color) {
+  if (color == null) return "#f2ede4";
+  if (typeof color === "number") return "#" + (color >>> 0).toString(16).padStart(6, "0").slice(-6);
+  if (typeof color === "string") {
+    if (color[0] === "#") return color;
+    const key = color.startsWith("bg-") ? color.slice(3) : color;
+    const entry = CART_COLORS[key];
+    if (entry) return "#" + entry.hex.toString(16).padStart(6, "0");
+    return color; // already a css color name/value
+  }
+  return "#f2ede4";
+}
+
+/**
+ * Uniform emblem descriptor for ANY player slot — the single resolver every
+ * roster / scoreboard / podium / nameplate uses so humans and NPCs render the
+ * same way. Shape mirrors PERSONALITY_META: `{ icon, color, label }`.
+ *  - NPC   → its personality emblem (baked color + white die-cut contour).
+ *  - human → the cart-color "shopper" glyph, tinted by the slot's cart color.
+ *  - empty → null.
+ * Host / leader / YOU stay as SEPARATE pips (not baked here), matching the mocks.
+ * @param {{ kind?: string, name?: string, color?: string|number }|null|undefined} slot
+ * @returns {{ icon: string, color: string, label: string }|null}
+ */
+export function emblemForSlot(slot) {
+  if (!slot) return null;
+  if (slot.kind === "npc") {
+    const p = getNpcPersonality(slot.name);
+    return p ? PERSONALITY_META[p.name] : null;
+  }
+  if (slot.kind === "human") {
+    return { icon: "shopper", color: cartColorCss(slot.color), label: "SHOPPER" };
+  }
+  return null;
 }

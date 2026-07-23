@@ -1,35 +1,38 @@
-/* Cart Clash — shared sticker components ("pigment on vinyl", Pass 3).
+/* Cart Clash — shared surface components.
    Depends on tokens.css vars. Loaded via JS import in main.js (rolldown-vite
    resolves CSS @import against the project root, so JS import it is — see
    cart-rave-menu.css header note).
 
-   These classes are ADDITIVE: screens keep their layout classes and add a
-   cc-* class for material. Family test: could you peel it off with a
-   fingernail? Opaque ink, die-cut white edge, hard offset shadow, no blur,
-   no resting glow. */
+   "Fight Night" redesign (2026-07): the shared panels/chips/buttons moved from
+   the die-cut white-contour *sticker* material to the *slab* material —
+   ink surface + hairline border + hard ink extrude + plastic inner highlight,
+   NO white contour. The white die-cut edge now survives ONLY on personality
+   emblems (icons.js), big Road Rage lettering (.cc-title), and the CUSTOM
+   color chip / hue knobs. These classes stay ADDITIVE: screens keep their
+   layout classes and add a cc-* class for material. */
 
 /* ── Surfaces ── */
 .cc-panel {
   background: var(--color-ink);
-  border: none;
+  border: 1px solid var(--border-white-12);
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 .cc-billboard {
   background: var(--color-ink);
-  border: none;
+  border: 1px solid var(--border-white-12);
   border-radius: var(--radius-lg);
-  box-shadow: var(--sticker-billboard);
+  box-shadow: var(--slab-shadow);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 .cc-chip {
   background: var(--color-ink);
-  border: none;
+  border: 1px solid var(--border-white-12);
   border-radius: var(--radius-sm);
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow-sm);
 }
 /* Backdrop scrim behind any overlay: flat printed dark, never blurred. */
 .cc-scrim {
@@ -38,9 +41,39 @@
   -webkit-backdrop-filter: none;
 }
 
+/* ── Slab helpers — the interactive skew + price-tag variants the redesign
+   leans on (menu command rows, HUD price tags, roster rows). Container skews
+   -8°, content counter-skews +8° so text stays upright. ── */
+.cc-slab {
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+}
+.cc-slab--skew { transform: skewX(-8deg); }
+.cc-slab__content { transform: skewX(8deg); }
+/* Price-tag silhouette: rounded "nose" corner + punched hole at the nose. */
+.cc-slab--tag {
+  position: relative;
+  border-radius: 8px 8px 8px 22px;
+}
+.cc-slab--tag::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--color-ink-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
+}
+
 /* ── Lettering ──
    Stack A: sticker-white fill, ink stroke, 2-step hard extrude. For every
-   headline. Celebration variant only on victory/GO-tier moments. */
+   headline. Celebration variant only on victory/GO-tier moments. The ink
+   text-stroke IS a contour, but on lettering it stays (per the redesign). */
 .cc-title {
   font-family: var(--display);
   font-weight: 400; /* Road Rage has one weight; keep synthetic bold off */
@@ -59,7 +92,8 @@
     0.1em 0.1em 0 var(--color-ink-deep),
     0 0 18px var(--glow-magenta-40); /* the ONE permitted glow layer */
 }
-/* Kicker tag — the ◆ brand mark line above titles. Solid mini-sticker. */
+/* Kicker tag — the ◆ brand mark line above titles. Solid mini-sticker, now
+   with an ink extrude instead of a white die-cut ring. */
 .cc-kicker {
   display: inline-block;
   font-family: var(--ui);
@@ -69,7 +103,7 @@
   background: var(--color-sticker-white);
   padding: 3px 10px;
   border-radius: 4px;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-extrude-sm);
   transform: rotate(-1.5deg);
 }
 
@@ -83,23 +117,20 @@
   letter-spacing: 0.06em;
   color: var(--color-sticker-white);
   background: var(--color-ink);
-  border: none;
+  border: 1px solid var(--border-white-12);
   border-radius: var(--radius-sm);
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   padding: var(--pad-btn);
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
 }
 .cc-btn:hover,
 .cc-btn:focus-visible {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 .cc-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 .cc-btn:focus-visible {
   outline: 2px dashed var(--color-yellow);
@@ -123,21 +154,22 @@
     var(--hazard-red);
   background-clip: padding-box;
 }
-/* Ghost — back/cancel: die-cut edge only, no fill weight. */
+/* Ghost — back/cancel: hairline edge only, no fill weight, no extrude. */
 .cc-btn--ghost {
   background: transparent;
   color: var(--color-sticker-white);
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  border-color: var(--border-white-20);
+  box-shadow: none;
 }
 .cc-btn--ghost:hover,
 .cc-btn--ghost:focus-visible {
   background: var(--color-ink);
   transform: translate(-1px, -2px);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
 }
 .cc-btn--ghost:active {
   transform: translate(1px, 1px);
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  box-shadow: none;
 }
 .cc-btn[disabled],
 .cc-btn--disabled {
