@@ -974,13 +974,6 @@ html, body {
   color: #888;
 }
 
-.cr-vol-stack {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  gap: var(--space-xs);
-  min-width: 0;
-}
 
 .cr-vol-row {
   display: flex;
@@ -1004,6 +997,59 @@ html, body {
   border-radius: 3px;
   cursor: pointer;
   overflow: hidden;
+}
+
+/* ─── 7c sliders: named label, 8px track, white knob riding the fill ───────
+   The knob sits on the TRACK (not inside the fill) — the fill is scaleX'd, and
+   a child of it would be stretched with it. --vol-scale is mirrored onto the
+   track in syncSettingsAudioUi so the knob can follow. */
+.cr-settings-panel .cr-vol-row {
+  gap: clamp(10px, 1.2vw, 16px);
+}
+
+.cr-settings-panel .cr-vol-label {
+  width: clamp(44px, 4.6vw, 70px);
+  text-align: left;
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.05vw, 12px);
+  letter-spacing: 0.14em;
+  color: rgba(242, 237, 228, 0.7);
+}
+
+.cr-settings-panel .cr-vol-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  overflow: visible;
+}
+
+.cr-settings-panel .cr-vol-fill {
+  border-radius: 4px;
+  background: var(--vol-accent, var(--color-cyan));
+}
+
+.cr-settings-panel .cr-vol-track::after {
+  content: "";
+  position: absolute;
+  left: clamp(0%, calc(var(--vol-scale, 0.25) * 100%), 100%);
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--color-sticker-white);
+  box-shadow: 2px 2px 0 var(--color-ink-deep);
+  pointer-events: none;
+}
+
+.cr-settings-panel .cr-vol-val {
+  width: 36px;
+  min-width: 36px;
+  font-weight: 700;
+  font-size: clamp(10px, 1.05vw, 12px);
+  color: var(--vol-accent, var(--color-cyan));
 }
 
 .cr-vol-fill {
@@ -1081,9 +1127,6 @@ html, body {
 }
 
 /* === GRAPHICS TOGGLES === */
-.cr-graphics-btns {
-  display: flex; gap: var(--gap-buttons);
-}
 
 .cr-btn--graphics {
   flex: 1;
@@ -1359,6 +1402,141 @@ html, body {
   backdrop-filter: blur(6px);
   max-height: 100%;
   overflow-y: auto;
+}
+
+/* Panels variant (7c and friends): no rail/stage — the body row is a grid of
+   equal cards spanning the full width. */
+.cr-screen--panels {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cr-screen-panels {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(12px, 1.6vw, 24px);
+  width: 100%;
+  max-width: 1176px; /* mock: two 560px panels + 24px gap */
+  margin-top: clamp(8px, 3vh, 48px);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cr-screen-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.2vw, 18px);
+  padding: clamp(16px, 1.8vw, 28px) clamp(18px, 2vw, 32px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+}
+
+/* Reference cards (e.g. CONTROLS) run the full width under the accent pair. */
+.cr-screen-card--wide {
+  grid-column: 1 / -1;
+}
+
+.cr-screen-card-hd {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Label ── control row, the shared line pattern inside a card. */
+.cr-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cr-settings-row--rule {
+  margin-top: auto;
+  padding-top: clamp(12px, 1.2vw, 18px);
+  border-top: 1px solid var(--border-white-10);
+}
+
+.cr-settings-row-lbl {
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.05vw, 12px);
+  letter-spacing: 0.14em;
+  color: rgba(242, 237, 228, 0.7);
+  white-space: nowrap;
+}
+
+/* Chip form shared by MUTE ALL and POST-FX — same silhouette as .cr-seg-chip so
+   every control on this screen reads as one family. */
+.cr-settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 5px 14px;
+  border: 1px solid var(--border-white-18, rgba(255, 255, 255, 0.18));
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-muted);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+
+.cr-settings-chip:hover { color: var(--color-sticker-white); }
+
+/* ON is the active state → the screen's yellow, matching the quality segment. */
+.cr-btn--graphics.cr-settings-chip {
+  background: var(--color-yellow);
+  border-color: transparent;
+  color: var(--color-ink);
+}
+
+.cr-btn--graphics.cr-settings-chip.cr-btn--gfx-off {
+  background: transparent;
+  border-color: var(--border-white-18, rgba(255, 255, 255, 0.18));
+  color: var(--color-muted);
+}
+
+.cr-btn--graphics.cr-settings-chip .cr-btn-inner,
+.cr-btn--graphics.cr-settings-chip .cr-btn-label {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: inherit;
+  letter-spacing: 0.06em;
+  color: inherit;
+}
+
+/* Muted reads as alert, not as "active". */
+.cr-mute-btn.cr-settings-chip.muted {
+  border-color: var(--color-alert);
+  color: var(--color-alert);
+}
+
+.cr-mute-state {
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.cr-settings-footnote {
+  margin: auto 0 0;
+  padding-top: clamp(12px, 1.2vw, 18px);
+  border-top: 1px solid var(--border-white-10);
+  font-family: var(--mono);
+  font-size: clamp(8px, 0.9vw, 10px);
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  color: rgba(242, 237, 228, 0.35);
 }
 
 .cr-screen-actions {
@@ -1803,10 +1981,6 @@ html, body {
   box-shadow: var(--slab-shadow);
 }
 
-.cr-overlay-panel--settings {
-  gap: clamp(6px, 1vw, 10px);
-  padding: clamp(10px, 1.8vw, 16px) clamp(10px, 1.8vw, 16px);
-}
 
 .cr-overlay-title {
   font-family: var(--display);
@@ -2126,17 +2300,6 @@ html, body {
 }
 
 /* Settings audio */
-.cr-settings-audio {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  width: 100%;
-  box-sizing: border-box;
-  padding: var(--pad-audio);
-  background: var(--color-ink-deep);
-  border: none;
-  border-radius: var(--radius-panel);
-}
 
 /* Settings controls */
 .cr-settings-controls {
@@ -2464,40 +2627,8 @@ html, body {
   .cr-vol-label { width: auto; min-width: 18px; font-size: clamp(12px, 3.2vw, 14px); }
   .cr-vol-val { font-size: clamp(10px, 2.6vw, 12px); min-width: 28px; }
 
-  /* Settings overlay — prevent overflow on mobile */
-  .cr-overlay-panel--settings {
-    gap: clamp(6px, 1.2dvh, 8px);
-    padding: clamp(8px, 2vw, 12px) clamp(8px, 2vw, 12px);
-    max-height: 88dvh;
-  }
-
-  .cr-overlay-panel--settings .cr-overlay-title {
-    font-size: clamp(16px, 4vw, 22px);
-  }
-
-  /* Graphics buttons — stack vertically on narrow screens */
-  .cr-overlay-panel--settings .cr-graphics-btns {
-    flex-direction: column;
-    gap: clamp(6px, 1.2dvh, 8px);
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics {
-    flex: none;
-    width: 100%;
-    min-height: 44px;
-    padding: 0;
-    font-size: clamp(10px, 2.8vw, 12px);
-    border-width: 2px;
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics .cr-btn-inner {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 12px;
-  }
-
+  /* Settings screen — one card column on mobile */
+  .cr-screen-panels { grid-template-columns: minmax(0, 1fr); }
 
   /* Controls — single column on mobile */
   .cr-settings-controls {
@@ -2788,36 +2919,9 @@ html, body {
   .cr-vol-track { height: 8px; min-height: 8px; min-width: 48px; }
   .cr-vol-val { font-size: clamp(8px, 2vh, 10px); min-width: 24px; }
 
-  /* Settings overlay — compact for landscape phones */
-  .cr-overlay-panel--settings {
-    gap: clamp(4px, 0.8dvh, 6px);
-    padding: clamp(6px, 1.4vh, 8px) clamp(6px, 2vw, 8px);
-    max-height: 94dvh;
-  }
-
-  .cr-overlay-panel--settings .cr-overlay-title {
-    font-size: clamp(13px, 2.8dvh, 16px);
-    margin: 0;
-  }
-
-  .cr-overlay-panel--settings .cr-graphics-btns {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: clamp(4px, 1vw, 6px);
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 34px;
-    font-size: clamp(8px, 1.6dvh, 10px);
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics .cr-btn-inner {
-    min-height: 34px;
-    padding: 6px 8px;
-  }
-
+  /* Settings screen — compact for landscape phones */
+  .cr-screen-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cr-screen-card { padding: clamp(8px, 1.6vh, 12px) clamp(10px, 1.4vw, 14px); gap: 6px; }
 
   .cr-settings-section {
     padding: clamp(3px, 0.8vh, 4px) clamp(4px, 1.2vw, 6px);
@@ -3474,19 +3578,6 @@ html, body {
 }
 
 /* Settings — segmented QUALITY control (LOW/MED/HIGH; active = yellow, 7c). */
-.cr-gfx-seg-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-.cr-gfx-seg-label {
-  font-family: var(--mono);
-  font-size: clamp(10px, 1.1vw, 12px);
-  letter-spacing: 0.14em;
-  color: var(--color-muted);
-  text-transform: uppercase;
-}
 .cr-quality-seg { display: flex; gap: 6px; }
 .cr-seg-chip {
   font-family: var(--mono);

@@ -1187,7 +1187,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     settingsScreen.style.display = 'flex';
     settingsScreen.setAttribute('aria-hidden', 'false');
     settingsDoneBtn?.focus();
-    const panel = settingsScreen.querySelector('.cr-overlay-panel');
+    const panel = settingsScreen.querySelector('.cr-settings-panel');
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
@@ -1203,7 +1203,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       document.activeElement.blur();
     }
     settingsScreen.setAttribute('aria-hidden', 'true');
-    const panel = settingsScreen.querySelector('.cr-overlay-panel');
+    const panel = settingsScreen.querySelector('.cr-settings-panel');
     animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
       container: settingsScreen,
       abortIf: () => settingsScreen.getAttribute('aria-hidden') === 'false',
@@ -1236,6 +1236,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     settingsAudioUiMuted = muted;
     if (settingsVolFill) {
       settingsVolFill.style.setProperty('--vol-scale', String(muted ? 0 : norm));
+      settingsVolFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', state.palette.primary);
+      settingsVolTrackEl?.style.setProperty('--vol-scale', String(muted ? 0 : norm));
       // * Flat printed fill (slab material — no gradient/glow). MUSIC rides the
       // * palette primary (brand/magenta), SFX the secondary (support/cyan), so the
       // * two rows read apart while still morphing with the arena palette.
@@ -1244,6 +1246,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (settingsVolVal) settingsVolVal.textContent = String(muted ? 'OFF' : pct);
     if (settingsSfxFill) {
       settingsSfxFill.style.setProperty('--vol-scale', String(muted ? 0 : sfxNorm));
+      settingsSfxFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', state.palette.secondary);
+      settingsSfxTrackEl?.style.setProperty('--vol-scale', String(muted ? 0 : sfxNorm));
       settingsSfxFill.style.background = state.palette.secondary;
     }
     if (settingsSfxVal) settingsSfxVal.textContent = String(muted ? 'OFF' : sfxPct);
@@ -1252,18 +1256,18 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (!settingsMuteBtn) return;
     if (muted) {
       settingsMuteBtn.classList.add('muted');
-      settingsMuteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      settingsMuteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M11 5 6 9H3v6h3l5 4z"/>
         <line x1="22" y1="9" x2="16" y2="15"/>
         <line x1="16" y1="9" x2="22" y2="15"/>
-      </svg>`;
+      </svg><span class="cr-mute-state">ON</span>`;
     } else {
       settingsMuteBtn.classList.remove('muted');
-      settingsMuteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      settingsMuteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M11 5 6 9H3v6h3l5 4z"/>
         <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
         <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
-      </svg>`;
+      </svg><span class="cr-mute-state">OFF</span>`;
     }
   }
 
@@ -1286,7 +1290,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
     if (header) {
       const badge = mode === "gamepad" ? "GAMEPAD" : mode === "touch" ? "TOUCH" : "KEYBOARD";
-      header.innerHTML = `&#9671; CONTROLS <span class="cr-settings-ctl-badge">${badge}</span>`;
+      // * No ◇ prefix — card headers on the 7c screen are plain (AUDIO / GRAPHICS).
+      header.innerHTML = `CONTROLS <span class="cr-settings-ctl-badge">${badge}</span>`;
     }
 
     if (mode === "gamepad") {
@@ -1588,7 +1593,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   function syncGfxButtonStates() {
     if (gfxBtn) {
       const postFxOn = getPostFxEnabled();
-      gfxBtn.querySelector(".cr-btn-label").textContent = postFxOn ? "POST-FX: ON" : "POST-FX: OFF";
+      gfxBtn.querySelector(".cr-btn-label").textContent = postFxOn ? "ON" : "OFF";
       gfxBtn.classList.toggle("cr-btn--gfx-off", !postFxOn);
     }
     const seg = document.getElementById("cr-quality-seg");

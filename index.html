@@ -825,62 +825,81 @@
     </div>
   </div>
   <div id="cr-settings-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel cr-overlay-panel--settings">
-      <h2 class="cr-overlay-title">SETTINGS</h2>
+    <div class="cr-screen cr-screen--panels cr-settings-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">STORE PREFERENCES</span>
+        <h2 class="cr-screen-title">SETTINGS</h2>
+      </header>
 
-      <div class="cr-settings-section">
-        <div class="cr-settings-section-hd">◇ AUDIO</div>
-        <div class="cr-settings-audio" id="cr-settings-audio">
-          <button class="cr-mute-btn" id="cr-settings-mute-btn" title="Mute" aria-label="Toggle mute">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 5 6 9H3v6h3l5 4z"/>
-              <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-              <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
-            </svg>
-          </button>
-          <div class="cr-vol-stack">
-            <div class="cr-vol-row">
-              <span class="cr-vol-label">♫</span>
-              <div class="cr-vol-track" id="cr-settings-vol-track" role="slider" tabindex="0" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
-                <div class="cr-vol-fill" id="cr-settings-vol-fill"></div>
-              </div>
-              <span class="cr-vol-val" id="cr-settings-vol-val">25</span>
+      <div class="cr-screen-panels">
+        <section class="cr-screen-card cr-settings-section" id="cr-settings-audio" aria-labelledby="cr-settings-audio-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-audio-hd">AUDIO</div>
+
+          <div class="cr-vol-row cr-vol-row--music">
+            <span class="cr-vol-label">MUSIC</span>
+            <div class="cr-vol-track" id="cr-settings-vol-track" role="slider" tabindex="0" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
+              <div class="cr-vol-fill" id="cr-settings-vol-fill"></div>
             </div>
-            <div class="cr-vol-row">
-              <span class="cr-vol-label">⚡</span>
-              <div class="cr-vol-track" id="cr-settings-sfx-track" role="slider" tabindex="0" aria-label="Sound effects volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
-                <div class="cr-vol-fill" id="cr-settings-sfx-fill"></div>
-              </div>
-              <span class="cr-vol-val" id="cr-settings-sfx-val">25</span>
-            </div>
+            <span class="cr-vol-val" id="cr-settings-vol-val">25</span>
           </div>
-        </div>
-      </div>
 
-      <div class="cr-settings-section">
-        <div class="cr-settings-section-hd">◇ GRAPHICS</div>
-        <div class="cr-graphics-btns">
-          <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
-            <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>          </button>
-          <div class="cr-gfx-seg-row">
-            <span class="cr-gfx-seg-label">QUALITY</span>
+          <div class="cr-vol-row cr-vol-row--sfx">
+            <span class="cr-vol-label">SFX</span>
+            <div class="cr-vol-track" id="cr-settings-sfx-track" role="slider" tabindex="0" aria-label="Sound effects volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
+              <div class="cr-vol-fill" id="cr-settings-sfx-fill"></div>
+            </div>
+            <span class="cr-vol-val" id="cr-settings-sfx-val">25</span>
+          </div>
+
+          <div class="cr-settings-row cr-settings-row--rule">
+            <span class="cr-settings-row-lbl">MUTE ALL</span>
+            <button class="cr-mute-btn cr-settings-chip" id="cr-settings-mute-btn" title="Mute" aria-label="Toggle mute">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5 6 9H3v6h3l5 4z"/>
+                <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+                <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+              </svg><span class="cr-mute-state">OFF</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="cr-screen-card cr-settings-section" aria-labelledby="cr-settings-gfx-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-gfx-hd">GRAPHICS</div>
+
+          <div class="cr-settings-row">
+            <span class="cr-settings-row-lbl">QUALITY</span>
             <div class="cr-quality-seg" id="cr-quality-seg" role="radiogroup" aria-label="Graphics quality">
               <button type="button" class="cr-seg-chip" data-tier="low" role="radio" aria-checked="false">LOW</button>
               <button type="button" class="cr-seg-chip" data-tier="medium" role="radio" aria-checked="false">MEDIUM</button>
               <button type="button" class="cr-seg-chip" data-tier="high" role="radio" aria-checked="false">HIGH</button>
             </div>
           </div>
-        </div>
+
+          <div class="cr-settings-row">
+            <span class="cr-settings-row-lbl">POST-FX</span>
+            <button type="button" class="cr-btn cr-btn--graphics cr-settings-chip" id="cr-gfx-btn" data-action="toggle-postfx">
+              <span class="cr-btn-inner"><span class="cr-btn-label">ON</span></span>
+            </button>
+          </div>
+
+          <p class="cr-settings-footnote">AUTO-QUALITY MAY STEP DOWN DURING HEAVY FRAMES</p>
+        </section>
+
+        <section class="cr-screen-card cr-settings-section cr-screen-card--wide" aria-labelledby="cr-settings-ctl-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-ctl-hd">CONTROLS</div>
+          <div class="cr-settings-controls" id="cr-settings-controls"></div>
+          <p class="cr-settings-footnote">Key remapping not supported yet.</p>
+        </section>
       </div>
 
-      <div class="cr-settings-section">
-        <div class="cr-settings-section-hd" id="cr-settings-ctl-hd">◇ CONTROLS</div>
-        <div class="cr-settings-controls" id="cr-settings-controls"></div>
-        <p class="cr-settings-ctl-note">Key remapping not supported yet.</p>
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-settings-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-settings-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">DONE</span></span></button>
       </div>
 
-      <button class="cr-overlay-done" id="cr-settings-done" type="button">DONE</button>
-      <button class="cr-overlay-back" id="cr-settings-back" type="button">← BACK</button>
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
     </div>
   </div>
   <div id="cr-friends-screen" style="display:none;" role="dialog" aria-modal="true" aria-label="Invite friends" aria-hidden="true">
