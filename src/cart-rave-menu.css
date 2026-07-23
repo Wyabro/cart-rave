@@ -700,7 +700,6 @@ html, body {
 .cr-name-display:hover { border-color: rgba(255,255,255,0.2); }
 
 .cr-tag { opacity: 0.6; margin-right: 2px; }
-.cr-edit-hint { font-family: var(--mono); font-size: clamp(9px, 1.1vw, 11px); opacity: 0.4; margin-left: var(--space-xs); }
 
 .cr-name-input {
   flex: 1;
@@ -2373,30 +2372,9 @@ html, body {
   overflow-wrap: break-word;
 }
 
-/* Completed-challenges count chip on the CHALLENGES menu button */
-.cr-challenges-chip {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  z-index: 2;
-  padding: 1px 5px;
-  background: var(--color-sticker-white);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-pill);
-  font-family: var(--mono);
-  font-size: clamp(7px, 0.9vw, 8px);
-  letter-spacing: 0.08em;
-  line-height: 1.4;
-  color: var(--color-ink-deep);
-  pointer-events: none;
-}
-
-/* First-timer "NEW" cue — magenta attention pill (vs the white ✓N progress chip). */
-.cr-challenges-chip--new {
-  background: var(--color-magenta);
-  color: var(--color-sticker-white);
-}
+/* The CHALLENGES badge (NEW / ✓N) is the command row's own `.cr-cmd-new` pill in
+   the Fight Night 3a block — the retired absolutely-positioned sticker chip that
+   used to sit here was never counter-skewed, so it rode the -8deg row slanted. */
 
 /* Focus visible for overlay buttons */
 .cr-btn:focus-visible,
@@ -2445,7 +2423,8 @@ html, body {
   }
 
   .cr-stat-div { height: clamp(18px, 2.5vw, 24px); }
-  .cr-title-stack { font-size: clamp(63.25px, 10.78vw, 138px); }
+  /* Title band rules moved to the 3a block's own responsive section — the 3a rule
+     is later in the file, so no override up here can reach the lockup. */
   .cr-buttons, .cr-levels { max-width: 100%; }
 }
 
@@ -2487,13 +2466,7 @@ html, body {
     gap: clamp(6px, 1.6vw, 8px);
   }
 
-  .cr-title { margin: 0 0 clamp(2px, 0.6dvh, 6px); }
-
-  .cr-title-stack {
-    font-size: clamp(40.25px, 10.35dvh, 74.75px);
-    line-height: 0.82;
-  }
-  .cr-title-stack .cr-title-word:nth-child(2) { margin-top: -0.08em; }
+  /* Title band rules live in the 3a block's responsive section (see ≤1024). */
 
   .cr-buttons, .cr-levels {
     width: 100%;
@@ -2581,6 +2554,8 @@ html, body {
   .cr-player-hd { font-size: clamp(8px, 2.2vw, 10px); margin-bottom: clamp(8px, 1.6dvh, 10px); }
   .cr-name-row { margin-bottom: clamp(10px, 2dvh, 12px); gap: clamp(8px, 2.2vw, 10px); }
   .cr-name-display, .cr-name-input { font-size: clamp(15px, 4.2vw, 19px); line-height: 1.25; }
+  /* The matching ✎ touch target is in the 3a block's ≤768 band — a rule up here
+     cannot outrank `.cr-plate .cr-plate-btn`, which is later in the file. */
   .cr-reroll { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: clamp(14px, 3.6vw, 16px); }
 
   .cr-customize-tab { min-height: 44px; padding: 10px 12px; font-size: clamp(11px, 3vw, 13px); }
@@ -2846,7 +2821,7 @@ html, body {
     overflow-y: auto;
   }
 
-  .cr-title-stack { font-size: clamp(25.875px, 6.9dvh, 40.25px); line-height: 0.81; margin: 0; }
+  /* Title sizing for this band is in the 3a block's responsive section. */
   .cr-tagline { font-size: clamp(6px, 1.6dvh, 8px); letter-spacing: 0.12em; }
 
   .cr-buttons { flex-direction: row; flex-wrap: nowrap; width: 100%; gap: clamp(6px, 1.2dvh, 8px); }
@@ -3310,13 +3285,19 @@ html, body {
    ═════════════════════════════════════════════════════════════════════════ */
 
 /* ── LEFT hero: tagline · title lockup · command list ── */
+.cr-content { --cr-hint-h: 64px; }
 .cr-hero {
   position: absolute;
   left: clamp(24px, 5vw, 96px);
-  top: 0; bottom: 0;
+  /* Top-anchored like the mock (96px in, 60px down), and the box stops ABOVE the
+     hint bar: centring it over the full height slid SETTINGS under the bar on any
+     short window (1280x720 put the last row 14px under it) while looking fine at
+     1080. The vertical rhythm below is vh-aware for the same reason. */
+  top: 0; bottom: var(--cr-hint-h);
   width: min(480px, 44vw);
-  display: flex; flex-direction: column; justify-content: center;
-  gap: clamp(6px, 1.2vh, 14px);
+  display: flex; flex-direction: column; justify-content: flex-start;
+  padding-top: clamp(20px, 5.6vh, 60px);
+  gap: 0;
   z-index: 22;
 }
 .cr-hero .cr-tagline {
@@ -3330,8 +3311,19 @@ html, body {
 }
 .cr-hero .cr-title-stack {
   align-items: center; text-align: center; width: 100%;
-  transform: skewX(-4deg);
-  margin: clamp(6px, 1vh, 18px) 0 clamp(18px, 3.4vh, 44px);
+  /* Mock 3a: 170px @1920, line-height 0.78, no tracking. Same clamp shape as the
+     base rule — the vh term is the short-window ceiling — scaled to the mock cap. */
+  font-size: clamp(68px, min(10.94vw, 16.8vh), 170px);
+  line-height: 0.78;
+  letter-spacing: 0;
+  /* Glow only: the ink die-cut stroke that .cr-title carries is retired here. */
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  /* The beat pulse arrives as a scalar custom property (animLoop). NOTHING may
+     write `transform` on this node — an inline transform wipes the -4deg lean,
+     which is exactly how the lockup lost it (the rAF write set `scale()`). */
+  transform: skewX(-4deg) scale(var(--cr-title-beat, 1));
+  margin: clamp(8px, 1.9vh, 20px) 0 clamp(20px, 4.8vh, 52px);
 }
 .cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
   color: var(--color-sticker-white);
@@ -3352,7 +3344,10 @@ html, body {
   position: relative;
   display: flex; align-items: center; gap: 16px;
   width: 100%;
-  padding: 15px 30px;
+  /* Mock's 15px at 1080. Seven rows make this the biggest vertical lever on a
+     short window, so the padding is vh-aware — it holds the mock's rhythm at
+     full height and compresses before the list can reach the hint bar. */
+  padding: clamp(9px, 1.4vh, 15px) 30px;
   background: transparent; border: none; border-radius: 0; box-shadow: none;
   transform: skewX(-8deg);
   margin-left: -8px;
@@ -3384,11 +3379,25 @@ html, body {
   font-family: var(--ui); font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
   padding: 3px 8px; border-radius: 3px;
 }
+/* Same pill carries the ✓N progress count once a challenge completes — portal
+   green is the completion voice everywhere else (7b's REDEEMED stamp). */
+.cr-cmd-new--done { background: var(--color-portal); }
 .cr-cmd-new[hidden] { display: none; }
 .cr-cmd:hover .cr-btn-label { color: var(--color-sticker-white); }
+/* A command row is NOT a sticker button. `.cr-btn:hover/:focus-visible/:active`
+   (0,2,0) outranks `.cr-cmd` (0,1,0), so hover was repainting the retired white
+   die-cut ring AND replacing skewX(-8deg) with a translate — the row went flat
+   while its label kept the counter-skew. Hover is selection here, so this fired
+   constantly. Two classes so no single-class band rule can outrank it either. */
+.cr-btn.cr-cmd:hover,
+.cr-btn.cr-cmd:focus-visible,
+.cr-btn.cr-cmd:active {
+  transform: skewX(-8deg);
+  box-shadow: none;
+}
 .cr-cmd.is-selected {
   background: linear-gradient(90deg, rgba(255,229,61,0.92), rgba(255,229,61,0.75) 60%, transparent 98%);
-  padding: 16px 30px;
+  padding: clamp(10px, 1.5vh, 16px) 30px;
 }
 .cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(22px, 2.3vw, 30px); }
 .cr-cmd.is-selected .cr-cmd-qual { opacity: 1; }
@@ -3420,19 +3429,29 @@ html, body {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--ui); font-weight: 700; font-size: clamp(26px, 3vw, 36px);
   color: var(--color-sticker-white); letter-spacing: 0.02em; cursor: pointer;
+  /* Mock 3a: the name is plain type. The retired rename affordance (inset pad +
+     dashed contour) is gone — the pencil button beside it carries that job. */
+  padding: 0; border: 0;
 }
-.cr-plate .cr-name-display .cr-edit-hint { font-size: 15px; color: #b5afc0; }
 .cr-plate .cr-name-input {
   flex: 1; min-width: 0; font-family: var(--ui); font-weight: 700; font-size: clamp(24px, 2.6vw, 32px);
   color: var(--color-sticker-white); background: transparent;
   border: none; border-bottom: 1px solid var(--border-white-20); outline: none;
 }
-.cr-plate .cr-reroll {
-  margin-left: auto; width: 36px; height: 36px; flex-shrink: 0;
-  border-radius: 8px; border: 1px solid var(--border-white-15);
-  background: transparent; color: #b5afc0; cursor: pointer; font-size: 15px;
+/* Twin 36px hairline buttons: ✎ rename (the mock's) + ⟲ re-roll (kept). The
+   two-class scope also clears the white die-cut ring `.cr-reroll` inherits from
+   --sticker-micro, which the mock's panel style does not have. */
+.cr-plate .cr-plate-btn {
+  width: 36px; height: 36px; flex: 0 0 36px;
+  display: grid; place-items: center;
+  border-radius: 8px; border: 1px solid var(--border-white-20);
+  background: transparent; box-shadow: none;
+  color: #b5afc0; font-size: 15px; line-height: 1; cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
 }
-.cr-plate .cr-reroll:hover { color: var(--color-sticker-white); border-color: var(--border-white-20); }
+.cr-plate .cr-plate-btn:hover { color: var(--color-sticker-white); border-color: var(--border-white-20); }
+.cr-plate #cr-name-edit { margin-left: auto; }
+.cr-plate .cr-reroll { margin-left: 0; }
 .cr-plate .cr-stats {
   display: flex; margin-top: 16px; padding: 14px 0 0;
   background: none; border: none; border-top: 1px solid var(--border-white-10);
@@ -3448,7 +3467,9 @@ html, body {
   display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em;
   color: var(--color-muted); margin-top: 2px;
 }
-.cr-plate .cr-stat-div { width: 1px; align-self: stretch; background: var(--border-white-10); }
+/* `height: auto` is load-bearing: the base rule's fixed clamp beat align-self
+   and left the separators 28px tall inside a ~40px strip. */
+.cr-plate .cr-stat-div { width: 1px; height: auto; align-self: stretch; background: var(--border-white-10); }
 
 /* ── Context panel — driven by the highlighted command ── */
 .cr-context {
@@ -3486,15 +3507,23 @@ html, body {
 .cr-context .cr-diff-row {
   display: flex; gap: 8px; margin-top: 16px;
 }
+/* box-shadow:none in all three states — the base `.cr-diff-btn` chip is sticker
+   material (white ring on hover, yellow 2px ring + 3px extrude when active) and
+   the mock's chips are a flat hairline / solid yellow with neither. */
 .cr-context .cr-diff-btn {
   flex: 1; text-align: center; padding: 9px; cursor: pointer;
   border-radius: 6px; border: 1px solid var(--border-white-14); background: transparent;
   font-family: var(--ui); font-weight: 700; font-size: 12px; letter-spacing: 0.1em;
   color: var(--color-muted);
+  box-shadow: none;
 }
 .cr-context .cr-diff-btn .cr-diff-btn-label { color: inherit; }
+.cr-context .cr-diff-btn:hover {
+  transform: none; box-shadow: none; color: var(--color-sticker-white);
+}
 .cr-context .cr-diff-btn.active {
   background: rgba(255, 229, 61, 0.9); border-color: transparent; color: var(--color-ink);
+  box-shadow: none;
 }
 .cr-context .cr-diff-btn.active .cr-diff-btn-label { color: var(--color-ink); }
 
@@ -3536,19 +3565,43 @@ html, body {
     position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;
     width: min(480px, 94vw);
   }
-  .cr-hero { justify-content: flex-start; }
+  /* padding-top is the desktop column's 60px top anchor — the stacked band gets
+     its spacing from .cr-content's padding, so drop it or it doubles up. */
+  .cr-hero { justify-content: flex-start; padding-top: 0; }
   .cr-context { order: 3; }
 }
 @media (max-width: 768px) {
   .cr-hintbar { gap: 12px; padding: 12px 16px; font-size: 11px; }
   .cr-hint-meta { display: none; }
   .cr-plate .cr-stats { margin-top: 12px; }
+  /* Both plate buttons take the 44px touch target: the shared band forces ⟲ to 44
+     via min-width/min-height, so ✎ has to match or the pair reads lopsided. */
+  .cr-plate .cr-plate-btn { width: 44px; height: 44px; flex-basis: 44px; }
 }
 @media (max-width: 380px) {
   .cr-cmd { padding: 12px 20px; }
   .cr-cmd.is-selected { padding: 13px 20px; }
   .cr-cmd .cr-btn-label { font-size: 18px; }
   .cr-cmd-qual { white-space: normal; }
+}
+
+/* Title lockup across the bands. These were single-class `.cr-title-stack` rules
+   up in the shared responsive section; the 3a rule above is two classes AND later
+   in the file, so nothing up there could reach the lockup any more. Same values,
+   same breakpoints — moved, not changed. Order matches the original file. */
+@media (max-width: 1024px) {
+  .cr-hero .cr-title-stack { font-size: clamp(63.25px, 10.78vw, 138px); }
+}
+@media (max-width: 768px), (max-width: 1024px) and (pointer: coarse) {
+  .cr-hero .cr-title-stack {
+    font-size: clamp(40.25px, 10.35dvh, 74.75px);
+    line-height: 0.82;
+    margin: 0 0 clamp(2px, 0.6dvh, 6px);
+  }
+  .cr-hero .cr-title-stack .cr-title-word:nth-child(2) { margin-top: -0.08em; }
+}
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
+  .cr-hero .cr-title-stack { font-size: clamp(25.875px, 6.9dvh, 40.25px); line-height: 0.81; margin: 0; }
 }
 
 /* Settings — segmented QUALITY control (LOW/MED/HIGH; active = yellow, 7c). */

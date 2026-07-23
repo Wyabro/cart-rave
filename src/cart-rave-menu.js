@@ -1106,30 +1106,22 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
    * being rewarded after they've already found it.
    */
   function updateChallengesBadge() {
-    const btn = document.querySelector('.cr-btn[data-action="challenges"]');
-    if (!(btn instanceof HTMLElement)) return;
+    // * Renders into the command row's own pill (3a): it is a flow child of the
+    // * skewed row and counter-skewed in CSS. The retired chip this replaced was
+    // * absolutely positioned with no counter-skew, so it rode the row slanted.
+    const pill = $("cr-cmd-new-pill");
+    if (!(pill instanceof HTMLElement)) return;
     const cState = challengeStore.getState();
     const all = [...cState.dailyChallenges, ...cState.weeklyChallenges];
     const completed = all.filter((c) => c.isComplete).length;
     const showNew = completed < 1 && all.length > 0 && !_challengesViewed;
-    let chip = btn.querySelector('.cr-challenges-chip');
     if (completed < 1 && !showNew) {
-      chip?.remove();
+      pill.hidden = true;
       return;
     }
-    if (!chip) {
-      chip = document.createElement('span');
-      chip.className = 'cr-challenges-chip';
-      chip.setAttribute('aria-hidden', 'true');
-      btn.appendChild(chip);
-    }
-    if (completed >= 1) {
-      chip.textContent = `✓${completed}`;
-      chip.classList.remove('cr-challenges-chip--new');
-    } else {
-      chip.textContent = 'NEW';
-      chip.classList.add('cr-challenges-chip--new');
-    }
+    pill.hidden = false;
+    pill.textContent = completed >= 1 ? `✓${completed}` : "NEW";
+    pill.classList.toggle("cr-cmd-new--done", completed >= 1);
   }
 
   function openChallengesScreen() {
@@ -1566,6 +1558,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   nameDisplay.addEventListener('click', startNameEdit);
+  $("cr-name-edit")?.addEventListener('click', startNameEdit);
   nameInput.addEventListener('blur', finishNameEdit);
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') finishNameEdit();
@@ -1694,6 +1687,16 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     settings:   { kicker: "STORE PREFERENCES",      desc: "Audio, graphics and controls.",                              arena: false, diff: false },
   };
 
+  // Device chip glyphs — inline SVG per project convention (the mock's ⌨/🎮 are
+  // emoji placeholders; 7d's gamepad line set the precedent). Static markup.
+  const HINT_ICON_KBD =
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>';
+  const HINT_ICON_PAD =
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M6 12h4M8 10v4"/><circle cx="15" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>' +
+    '<path d="M17.3 6H6.7A4.7 4.7 0 0 0 2 10.7v2.6A4.7 4.7 0 0 0 6.7 18c1.3 0 2-.6 2.6-1.3l.6-.7h4.2l.6.7c.6.7 1.3 1.3 2.6 1.3a4.7 4.7 0 0 0 4.7-4.7v-2.6A4.7 4.7 0 0 0 17.3 6z"/></svg>';
+
   let cmdButtons = [];
   let cmdIndex = 0;
   let lastNavTick = 0;
@@ -1787,7 +1790,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     const deviceEl = $("cr-hint-device");
     const keysEl = $("cr-hint-keys");
     const metaEl = $("cr-hint-meta");
-    if (deviceEl) deviceEl.textContent = mode === "gamepad" ? "🎮 GAMEPAD" : "⌨ KEYBOARD";
+    if (deviceEl) deviceEl.innerHTML = mode === "gamepad" ? `${HINT_ICON_PAD}GAMEPAD` : `${HINT_ICON_KBD}KEYBOARD`;
     const cap = (t) => `<span class="cr-key">${t}</span>`;
     if (keysEl) {
       keysEl.innerHTML = mode === "gamepad"
@@ -1795,8 +1798,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
         : `<span class="cr-hint-item">${cap("W")}${cap("S")}&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("↵")}&nbsp; SELECT</span><span class="cr-hint-item">${cap("◂")}${cap("▸")}&nbsp; ARENA</span><span class="cr-hint-item">${cap("M")}&nbsp; MUTE</span>`;
     }
     if (metaEl) {
+      // * The mock's `v0.9.2 · US-EAST · 24 MS` — region and ping have no data
+      // * behind them (netcode measures neither), so the slot carries build
+      // * identity only. `version` is null unless the build defines one, which
+      // * left the line rendering empty; fall back to the short sha.
       const build = readBuildInfo();
-      metaEl.textContent = build?.version ? `v${build.version}` : "";
+      metaEl.textContent = build?.version
+        ? `v${build.version}`
+        : (build?.sha ? `BUILD ${build.sha}` : "");
     }
   }
 
@@ -1865,9 +1874,11 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     const elapsed = (now - animStart) / 1000;
     state.tilt = Math.sin(elapsed * CONFIG.tiltSpeedHz) * CONFIG.tiltAmplitude;
 
-    // Title subtle scale pulse
+    // Title subtle scale pulse. The 3a lockup is skewed in CSS (skewX(-4deg)), and
+    // an inline `transform` here would beat that rule and flatten the lean on the
+    // very first frame — so the beat is handed to CSS as a scalar instead.
     if (titleEl) {
-      titleEl.style.transform = `scale(${1 + state.beat * CONFIG.titleBeatScale})`;
+      titleEl.style.setProperty("--cr-title-beat", String(1 + state.beat * CONFIG.titleBeatScale));
     }
 
     animFrameId = requestAnimationFrame(animLoop);
@@ -1975,7 +1986,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   function wireAllMenuPressFeedback() {
     document.querySelectorAll(
-      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-diff-btn, .cr-color-chip, .cr-reroll, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-diff-btn, .cr-color-chip, .cr-reroll, .cr-plate-btn, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
     ).forEach((btn) => {
       wireMenuPressFeedback(btn);
     });
