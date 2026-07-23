@@ -170,7 +170,8 @@
   padding: clamp(6px, 1vw, 10px) clamp(18px, 3vw, 30px) clamp(6px, 1vw, 10px) clamp(20px, 3.2vw, 34px);
   color: var(--color-cyan);
   background: var(--color-ink);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   border-radius: 6px;
   transform: skewX(-10deg);
   white-space: nowrap;
@@ -194,7 +195,8 @@
   padding: clamp(6px, 1vw, 10px) clamp(16px, 2.5vw, 24px);
   background: var(--color-ink);
   border-radius: var(--hud-radius);
-  box-shadow: var(--sticker-chip);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   pointer-events: none;
   z-index: 15;
   opacity: 0;
@@ -272,7 +274,8 @@
    The white edge is the padded sticker-white layer under the clip; the hard
    shadow rides the region (drop-shadow follows the clipped silhouette). */
 #hud .hud-region-match {
-  filter: drop-shadow(4px 4px 0 var(--color-ink-deep));
+  /* Fight Night: each slab carries its own extrude (box-shadow); no region-wide drop-shadow. */
+  filter: none;
   /* Column layout so the directive chip centers under the round timer. */
   display: flex;
   flex-direction: column;
@@ -284,48 +287,36 @@
   align-items: stretch;
   justify-content: flex-start;
   flex-direction: row;
-  background: var(--color-sticker-white);
-  padding: 3px;
-  clip-path: polygon(
-    22px 0,
-    calc(100% - 8px) 0,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    22px 100%,
-    0 50%
-  );
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
   overflow: hidden;
   pointer-events: none;
   font-size: clamp(1rem, 3vw, 1.5rem);
 }
 
-/* Punched tag hole. */
-#hud .hud-timer::after {
+/* Hazard-stripe header band (replaces the die-cut tag point + hole). */
+#hud .hud-timer::before {
   content: "";
   position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-ink-deep);
-  box-shadow: 0 0 0 2px var(--color-sticker-white);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--hazard-yellow);
+  z-index: 2;
 }
+#hud .hud-timer::after { content: none; }
 
-/* State zone in the tag point: flat when healthy, warehouse hazard when not. */
-#hud .hud-timer-stripe {
-  width: clamp(20px, 2.4vw, 26px);
-  background: var(--color-timer-ok);
-  flex: 0 0 auto;
-}
+#hud .hud-timer-stripe { display: none; }
 
 #hud .hud-timer-body {
-  background: var(--color-ink);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,0.07);
-  padding: clamp(6px, 1vw, 10px) clamp(10px, 1.5vw, 20px) clamp(8px, 1vw, 12px) clamp(10px, 1vw, 16px);
-  min-width: clamp(120px, 15vw, 200px);
+  background: transparent;
+  transform: skewX(8deg);
+  padding: clamp(12px, 1.7vw, 16px) clamp(14px, 2vw, 24px) clamp(8px, 1vw, 12px);
+  min-width: clamp(150px, 15vw, 200px);
   display: flex;
   flex-direction: column;
   gap: clamp(4px, 0.8vw, 8px);
@@ -403,6 +394,7 @@
   background: var(--color-ink);
   border-left: 3px solid var(--directive-accent);
   border-radius: 8px;
+  box-shadow: var(--slab-shadow);
 }
 
 #hud .hud-directive--active {
@@ -477,8 +469,10 @@
   align-items: center;
   gap: clamp(4px, 0.8vw, 8px);
   background: var(--color-ink);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-chip);
+  border-radius: 8px 8px 8px 22px;
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
   overflow: hidden;
 }
 
@@ -492,26 +486,38 @@
   width: 4px;
   background: var(--hud-glow);
 }
+/* Counter-skew the contents so text stays upright inside the skewed tag. */
+#hud .hud-scoreBox > * { transform: skewX(8deg); }
+/* Punched tag hole at the nose. */
+#hud .hud-scoreBox::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-ink-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
+  z-index: 1;
+}
 
 /* Rank is signaled with material, not light: the leader's die-cut edge turns
    sticker-yellow (shelf-talker flash); YOU gets a thicker white edge. */
+/* Rank is signaled by border color + a soft glow (no white/yellow contour):
+   YOU = cyan, the leader = magenta (6a). */
 #hud .hud-scoreBox.isLocal {
-  box-shadow:
-    0 0 0 3px var(--color-sticker-white),
-    3px 3px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  border-color: rgba(34, 230, 255, 0.55);
+  box-shadow: var(--slab-shadow), 0 0 22px var(--glow-cyan-24);
 }
 #hud .hud-scoreBox.isLeader {
-  box-shadow:
-    0 0 0 2.5px var(--color-yellow),
-    3px 3px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  border-color: rgba(255, 43, 214, 0.6);
+  box-shadow: var(--slab-shadow), 0 0 22px var(--glow-magenta-16);
 }
 #hud .hud-scoreBox.isLocal.isLeader {
-  box-shadow:
-    0 0 0 3px var(--color-yellow),
-    3px 3px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  border-color: rgba(255, 43, 214, 0.6);
+  box-shadow: var(--slab-shadow), 0 0 22px var(--glow-magenta-16);
 }
 /* YOU reads ~15% larger than the field. */
 #hud .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(14px, 1.6vw, 18px); }
@@ -556,7 +562,8 @@
   padding: 2px 5px;
   border-radius: 4px;
   letter-spacing: 1px;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   flex-shrink: 0;
   display: none;
 }
@@ -582,7 +589,8 @@
   padding: 4px 10px;
   background: var(--color-ink);
   border-radius: 8px;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   font-size: clamp(11px, 1.3vw, 14px);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -656,7 +664,8 @@
   paint-order: stroke fill;
   -webkit-text-stroke: 0.05em var(--color-ink-deep);
   text-shadow: 0.06em 0.06em 0 var(--color-ink-deep);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   transition: transform 120ms ease, box-shadow 120ms ease, filter 180ms ease;
   animation: readyPulse 2s ease-in-out infinite;
 }
@@ -703,7 +712,8 @@
   border-radius: 9px;
   border: none;
   background: var(--color-ink);
-  box-shadow: var(--sticker-chip);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   color: var(--color-sticker-white);
   cursor: pointer;
   font-size: clamp(14px, 1.7vw, 17px);
@@ -999,7 +1009,8 @@
   border-radius: clamp(10px, 2.5vmin, 12px);
   border: none;
   background: var(--color-ink);
-  box-shadow: var(--sticker-chip);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   color: var(--color-sticker-white);
   font-size: clamp(17px, 4.5vmin, 20px);
   line-height: 1;
@@ -1151,7 +1162,8 @@
   height: 1.5em;
   border-radius: 50%;
   background: var(--color-ink);
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   color: rgba(242, 237, 228, 0.9);
   font-size: 0.85em;
   flex-shrink: 0;
@@ -1169,7 +1181,8 @@
   background: var(--color-alert);
   border: none;
   border-radius: var(--radius-pill);
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   font-family: var(--hud-mono);
   font-size: clamp(9px, 1.1vw, 11px);
   font-weight: 700;
@@ -1203,7 +1216,8 @@
   border-radius: 4px;
   color: var(--color-ink-deep);
   background: #ff8a3d;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
 }
 #hud .hud-scorePip[data-tier="2"] {
   background: #ff5e3d;
@@ -1317,7 +1331,8 @@
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-pill);
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   overflow: hidden;
 }
 #hud .hud-boost-fill {
@@ -1355,7 +1370,8 @@
   background: var(--color-ink);
   border: none;
   border-radius: var(--hud-radius);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   outline: 2px dashed rgba(242, 237, 228, 0.45);
   outline-offset: -7px;
   opacity: 0;

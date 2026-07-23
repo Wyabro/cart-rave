@@ -22,7 +22,7 @@ import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
-import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
+import { emblemForSlot } from "./npcNames.js";
 import { isWorldBootstrapped } from "./bootstrap.js";
 import {
   show as showPauseOverlay,
@@ -1013,22 +1013,19 @@ function updateScores(roundState, netSlots, youConnId) {
         entry.label.textContent = row.slotName;
 
         const slot = netSlots?.[row.slotIndex];
-        if (slot && slot.kind === "npc") {
-          const p = getNpcPersonality(slot.name);
-          const info = p ? PERSONALITY_META[p.name] : null;
-          if (info) {
-            if (entry.badge.dataset.icon !== info.icon) {
-              entry.badge.dataset.icon = info.icon;
-              entry.badge.innerHTML = svgIcon(info.icon, { label: info.label });
-              // * Native tooltip is sentence case (style guide §4); the on-chip
-              // * label keeps its all-caps HUD styling.
-              entry.badge.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
-            }
-            entry.badge.style.color = info.color;
-            entry.badge.style.display = "inline-flex";
-          } else {
-            entry.badge.style.display = "none";
+        // * One resolver for everyone: NPCs get their personality emblem, humans
+        // * get the cart-color shopper glyph, empty slots get nothing.
+        const info = emblemForSlot(slot);
+        if (info) {
+          if (entry.badge.dataset.icon !== info.icon) {
+            entry.badge.dataset.icon = info.icon;
+            entry.badge.innerHTML = svgIcon(info.icon, { label: info.label });
+            // * Native tooltip is sentence case (style guide §4); the on-chip
+            // * label keeps its all-caps HUD styling.
+            entry.badge.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
           }
+          entry.badge.style.color = info.color;
+          entry.badge.style.display = "inline-flex";
         } else {
           entry.badge.style.display = "none";
         }

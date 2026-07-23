@@ -28,9 +28,14 @@ const GLYPHS = {
   // Host — steering wheel: "the driver of the cart", never "the server".
   // Fat strokes so it survives ~10px kill-feed scale without mushing.
   host: '<circle cx="12" cy="12" r="8.3" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 14.6 V20 M9.8 10.6 L4.8 7.6 M14.2 10.6 L19.2 7.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
-  // Shopper — the HUMAN player emblem (NPCs get personality marks). Chunky cart
-  // silhouette; drawn in currentColor so it tints to the player's cart color.
-  shopper: '<path d="M2 4.5 H5 L6.6 7.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.4 7.2 H21 L18.7 15.4 H9.1 Z" fill="currentColor"/><circle cx="10.6" cy="18.8" r="1.9" fill="currentColor"/><circle cx="17.2" cy="18.8" r="1.9" fill="currentColor"/>',
+  // Shopper — the HUMAN player emblem (NPCs get personality marks). A collectible
+  // sticker in the emblem family: cart-color round backing (currentColor, so it
+  // tints per cart) + sticker-white die-cut ring + ink cart mark on top.
+  shopper:
+    `<circle cx="12" cy="12" r="9.5" fill="currentColor" stroke="${STICKER_WHITE}" stroke-width="1.5"/>` +
+    `<path d="M6.8 8.9 H8.4 L9.15 11 H16.9 L15.6 14.9 H10.35 Z" fill="none" stroke="${INK_DEEP}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` +
+    `<circle cx="10.9" cy="16.5" r="1.15" fill="${INK_DEEP}"/>` +
+    `<circle cx="15" cy="16.5" r="1.15" fill="${INK_DEEP}"/>`,
 
   // ── Personality emblems — collectible sticker set ──────────────────────
   // Aggressor: red impact burst ("SMASH"), white star punch.
