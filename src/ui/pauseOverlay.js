@@ -31,6 +31,7 @@ const elements = {
   escBackdrop: null,
   escPanel: null,
   escTitle: null,
+  escContext: null,
   escSections: [],
   resumeBtn: null,
   restartBtn: null,
@@ -54,6 +55,24 @@ function syncRestartVisibility() {
   const mode = _options.detectGameMode ? _options.detectGameMode() : "";
   const solo = mode === "solo" || mode === "testdrive";
   elements.restartBtn.style.display = solo ? "" : "none";
+}
+
+/**
+ * Fills the sub-title context line with the live round + clock.
+ *
+ * Read straight off the HUD timer's own DOM rather than re-deriving from the
+ * round store — the HUD is suppressed (not destroyed) while paused, so its
+ * last painted "RD n" / ":37" is exactly the frozen state the player left, and
+ * the round-duration source stays single-sourced in hud.js.
+ */
+function syncPauseContext() {
+  if (!elements.escContext) return;
+  const rd = document.querySelector(".hud-timer-rd")?.textContent?.trim() || "";
+  const clock = document.querySelector(".hud-timer-num")?.textContent?.trim() || "";
+  // * HUD renders sub-minute time as ":37" and longer as "1:23".
+  const clockText = clock.startsWith(":") ? `${clock.slice(1)}S LEFT` : `${clock} LEFT`;
+  const parts = [rd, clock ? clockText : ""].filter(Boolean);
+  elements.escContext.textContent = parts.length ? parts.join(" · ") : "MATCH HELD";
 }
 
 /**
@@ -264,6 +283,7 @@ function resetEscOverlayAnimState(overlay) {
     panel.style.transform = "translateY(18px) scale(0.96)";
   }
   if (title) title.style.opacity = "0";
+  if (elements.escContext) elements.escContext.style.opacity = "0";
 
   for (const section of elements.escSections) {
     if (!section) continue;
@@ -298,6 +318,7 @@ function animateEscOverlayShow() {
     panel.style.opacity = "1";
     panel.style.transform = "";
     if (title) title.style.opacity = "1";
+    if (elements.escContext) elements.escContext.style.opacity = "1";
     for (const section of elements.escSections) {
       if (!section) continue;
       section.style.opacity = "1";
@@ -318,6 +339,7 @@ function animateEscOverlayShow() {
 
     animateMenuCardEnter(panel, { duration: 300, y: 18, ease: "outBack(1.25)" });
     animateMenuReveal(title, { delay: 40, duration: 260, y: 10, ease: "outExpo" });
+    animateMenuReveal(elements.escContext, { delay: 70, duration: 240, y: 8, ease: "outExpo" });
 
     // Hero actions lead (top of the panel), then the lower settings/reference zone.
     [elements.resumeBtn, elements.restartBtn, elements.quitBtn].forEach((btn, i) => {
@@ -404,6 +426,8 @@ export function show() {
 
     // * Re-sync in case the auto-quality watchdog stepped the session tier down.
     syncQualityTierButtonState();
+    // * Freeze-frame the round/time the player paused on.
+    syncPauseContext();
     // * Solo-only RESTART — resolve per-open (mode unknown at build time).
     syncRestartVisibility();
 
@@ -515,7 +539,13 @@ export function init(options = {}, hudContext = {}) {
 
   elements.escTitle = document.createElement("h2");
   elements.escTitle.className = "esc-title cc-title";
-  elements.escTitle.textContent = "MENU";
+  elements.escTitle.textContent = "PAUSED";
+
+  // * Round/time context under the title — the HUD is suppressed while paused,
+  // * so this is the only place the frozen clock is still readable.
+  elements.escContext = document.createElement("p");
+  elements.escContext.className = "esc-context";
+  elements.escContext.textContent = "MATCH HELD";
 
   const controlsSection = createEscSection("◇ CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
   controlsSection.section.classList.add("esc-section--controls");
@@ -585,13 +615,14 @@ export function init(options = {}, hudContext = {}) {
   escAudioRow.appendChild(escVolStack);
   audioSection.body.appendChild(escAudioRow);
 
-  // * Store PA announcer toggles — own compact section rather than crowding
-  // * AUDIO further; ANNOUNCER gates all announcer audio (voice + stings),
-  // * CALLOUTS gates only the on-screen banner (announcerDisplay.js).
-  const announcerSection = createEscSection("◇ ANNOUNCER");
-  announcerSection.section.classList.add("esc-section--announcer");
-  const announcerRow = document.createElement("div");
-  announcerRow.className = "esc-announcer-row";
+  // * 7f: the four in-match toggles share ONE 2×2 grid (QUALITY / POST-FX /
+  // * ANNOUNCER / CALLOUTS) instead of separate ANNOUNCER + DISPLAY sections.
+  // * ANNOUNCER gates all announcer audio (voice + stings); CALLOUTS gates only
+  // * the on-screen banner (announcerDisplay.js).
+  const togglesSection = createEscSection("◇ OPTIONS");
+  togglesSection.section.classList.add("esc-section--toggles");
+  const togglesGrid = document.createElement("div");
+  togglesGrid.className = "esc-toggle-grid";
 
   const syncAnnouncerVoiceButtonState = (enabled) => {
     if (!elements.announcerVoiceBtn) return;
@@ -627,10 +658,6 @@ export function init(options = {}, hudContext = {}) {
 
   wireEscButtonFeedback(elements.announcerVoiceBtn);
   wireEscButtonFeedback(elements.announcerCalloutsBtn);
-
-  announcerRow.appendChild(elements.announcerVoiceBtn);
-  announcerRow.appendChild(elements.announcerCalloutsBtn);
-  announcerSection.body.appendChild(announcerRow);
 
   const scoringSection = createEscSection("◇ SCORING");
   scoringSection.section.classList.add("esc-section--scoring");
@@ -694,17 +721,18 @@ export function init(options = {}, hudContext = {}) {
   elements.restartBtn = document.createElement("button");
   elements.restartBtn.type = "button";
   elements.restartBtn.className = "esc-btn cc-btn cc-btn--secondary";
-  elements.restartBtn.textContent = "RESTART";
+  elements.restartBtn.textContent = "RESTART ROUND";
   // * Restart is a clean local re-entry only in single-player; online rematch is
   // * host-authoritative and lives on the podium PLAY AGAIN flow. The overlay is
   // * built once at startup before any room exists, so visibility is resolved on
   // * every show() (see syncRestartVisibility) rather than here.
   elements.restartBtn.style.display = "none";
 
+  // * 7f: leaving the match is the recessive choice — ghost, not danger red.
   elements.quitBtn = document.createElement("button");
   elements.quitBtn.type = "button";
-  elements.quitBtn.className = "esc-btn cc-btn cc-btn--danger";
-  elements.quitBtn.textContent = "QUIT TO MENU";
+  elements.quitBtn.className = "esc-btn cc-btn cc-btn--ghost";
+  elements.quitBtn.textContent = "MAIN MENU";
 
   const escActionsSecondary = document.createElement("div");
   escActionsSecondary.className = "esc-actions-secondary";
@@ -744,13 +772,12 @@ export function init(options = {}, hudContext = {}) {
     if (_options.onQualityTierChange) _options.onQualityTierChange(next);
   });
 
-  const displaySection = createEscSection("◇ DISPLAY");
-  displaySection.section.classList.add("esc-section--display");
-  const displayRow = document.createElement("div");
-  displayRow.className = "esc-display-row";
-  displayRow.appendChild(elements.postFxBtn);
-  displayRow.appendChild(elements.lowQualityBtn);
-  displaySection.body.appendChild(displayRow);
+  // * Grid order reads left→right, top→bottom: QUALITY · POST-FX / ANNOUNCER · CALLOUTS.
+  togglesGrid.appendChild(elements.lowQualityBtn);
+  togglesGrid.appendChild(elements.postFxBtn);
+  togglesGrid.appendChild(elements.announcerVoiceBtn);
+  togglesGrid.appendChild(elements.announcerCalloutsBtn);
+  togglesSection.body.appendChild(togglesGrid);
 
   wireEscButtonFeedback(elements.resumeBtn);
   wireEscButtonFeedback(elements.restartBtn);
@@ -761,13 +788,13 @@ export function init(options = {}, hudContext = {}) {
   // * Entrance order = settings first (top of the lower zone), reference last.
   elements.escSections = [
     audioSection.section,
-    announcerSection.section,
-    displaySection.section,
+    togglesSection.section,
     controlsSection.section,
     scoringSection.section,
   ];
 
   elements.escPanel.appendChild(elements.escTitle);
+  elements.escPanel.appendChild(elements.escContext);
 
   // Priority read: actions (hero) → settings cluster → recessed reference.
   const escBody = document.createElement("div");
@@ -776,8 +803,7 @@ export function init(options = {}, hudContext = {}) {
   const escSettings = document.createElement("div");
   escSettings.className = "esc-settings";
   escSettings.appendChild(audioSection.section);
-  escSettings.appendChild(announcerSection.section);
-  escSettings.appendChild(displaySection.section);
+  escSettings.appendChild(togglesSection.section);
 
   const escReference = document.createElement("div");
   escReference.className = "esc-reference";

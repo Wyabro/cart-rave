@@ -46,11 +46,24 @@
    ink stroke, hard extrude); local rules here are size/spacing only. */
 #esc-overlay .esc-title {
   font-family: var(--esc-display);
-  font-size: clamp(20px, 4vw, 30px);
+  /* 7f: PAUSED is the screen's headline — Road Rage at display scale (the
+     mock's 72px, floored to what a mid-match panel can spend). */
+  font-size: clamp(32px, 6vw, 56px);
   letter-spacing: 0.03em;
   margin: 0;
   text-align: center;
-  line-height: 1.1;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Round + frozen clock under the headline (the HUD timer is suppressed). */
+#esc-overlay .esc-context {
+  margin: -2px 0 0;
+  text-align: center;
+  font-family: var(--mono, monospace);
+  font-size: clamp(9px, 1.6vw, 11px);
+  letter-spacing: 0.22em;
+  color: rgba(242, 237, 228, 0.5);
   flex-shrink: 0;
 }
 
@@ -114,10 +127,19 @@
   background: transparent;
   border-color: rgba(255, 255, 255, 0.06);
 }
-#esc-overlay .esc-display-row {
+/* 7f: one 2×2 toggle grid — QUALITY · POST-FX / ANNOUNCER · CALLOUTS. */
+#esc-overlay .esc-toggle-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: clamp(8px, 1.5vw, 10px);
+}
+
+#esc-overlay .esc-toggle-grid .esc-btn {
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+  font-size: clamp(9px, 1.5vw, 11px);
+  white-space: nowrap;
 }
 
 #esc-overlay .esc-section {
@@ -433,20 +455,6 @@
 #esc-overlay .esc-btn--lq-on,
 #esc-overlay .esc-btn--off {
   color: rgba(242, 237, 228, 0.55);
-}
-
-/* ANNOUNCER section — two compact toggles side by side instead of the
-   full-width esc-btn treatment used in the bottom actions bar. */
-#esc-overlay .esc-announcer-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(8px, 1.6vw, 10px);
-}
-
-#esc-overlay .esc-announcer-row .esc-btn {
-  flex: 1 1 140px;
-  width: auto;
-  min-height: 40px;
 }
 
 @media (pointer: coarse) {
