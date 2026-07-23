@@ -172,6 +172,7 @@ const elements = {
   edgeDanger: null,
   boost: null,
   boostFill: null,
+  boostValue: null,
   toast: null,
   toastTitle: null,
 };
@@ -216,6 +217,13 @@ let _wasSuddenDeath = false;
 let _toastTimeoutId = null;
 /** Previous local ready state — drives ready-button toggle animation. */
 let _lastReadyState = null;
+/**
+ * Slot index of the sole leader (top score, non-zero, no tie), or -1.
+ * The world-space nameplates read this so the crown rule lives in exactly one
+ * place — the scoreboard's `isLeader` and the cart's crown can never disagree.
+ */
+let _leaderSlotIndex = -1;
+
 /** Watches the transaction-log rows so the receipt hides itself when empty. */
 let _feedRowObserver = null;
 /** Revert timeout for the lobby COPY button's "COPIED!" confirmation. */
@@ -1089,6 +1097,7 @@ function updateScores(roundState, netSlots, youConnId) {
     // * Crown + rampage pips refresh every frame — pips decay on a timer (not on score
     // * changes), and the crown derives from the same rows the boxes already show.
     const rowsNow = _sortedScoreRows || [];
+    _leaderSlotIndex = -1;
     let topScore = 0;
     let topCount = 0;
     for (const r of rowsNow) {
@@ -1121,6 +1130,7 @@ function updateScores(roundState, netSlots, youConnId) {
         }
       }
       const isLeader = Boolean(row && topScore > 0 && topCount === 1 && row.score === topScore);
+      if (isLeader && row) _leaderSlotIndex = row.slotIndex;
       entry.box.classList.toggle("isLeader", isLeader);
       // * Host glyph follows the host slot every frame so migration moves it immediately.
       if (entry.host) {
@@ -1349,6 +1359,7 @@ export function init(options) {
   _goUntilMs = 0;
   _goSoundPlayed = false;
   _lastReadyState = null;
+  _leaderSlotIndex = -1;
   _lastUrgentTickSecond = null;
   _lastTimeBeatSecond = null;
   _wasSuddenDeath = false;
@@ -1801,16 +1812,26 @@ export function init(options) {
   elements.boost = document.createElement("div");
   elements.boost.className = "hud-boost";
   elements.boost.style.display = "none";
+  // * Mock 6a: a cart-handle slab — "BOOST" in words, the track with its hazard
+  // * overcharge zone, and the charge printed as a number. The slab owns the
+  // * skew; an inner wrapper owns the counter-skew.
+  const boostInner = document.createElement("div");
+  boostInner.className = "hud-boost-inner";
   const boostLabel = document.createElement("span");
   boostLabel.className = "hud-boost-label";
-  boostLabel.innerHTML = svgIcon("bolt", { label: "Boost" });
+  boostLabel.textContent = "BOOST";
   const boostTrack = document.createElement("div");
   boostTrack.className = "hud-boost-track";
   elements.boostFill = document.createElement("i");
   elements.boostFill.className = "hud-boost-fill";
   boostTrack.appendChild(elements.boostFill);
-  elements.boost.appendChild(boostLabel);
-  elements.boost.appendChild(boostTrack);
+  elements.boostValue = document.createElement("span");
+  elements.boostValue.className = "hud-boost-value";
+  elements.boostValue.textContent = "0";
+  boostInner.appendChild(boostLabel);
+  boostInner.appendChild(boostTrack);
+  boostInner.appendChild(elements.boostValue);
+  elements.boost.appendChild(boostInner);
   regions.pod.insertBefore(elements.boost, elements.readyBtn);
 
   // * Challenge-complete / unlock toast (top center, auto-hides).
@@ -2049,6 +2070,11 @@ function updateBoostWidget(roundState) {
   if (fillHalfPct !== _boostFillHalfPct) {
     _boostFillHalfPct = fillHalfPct;
     elements.boostFill.style.width = `${fillHalfPct / 2}%`;
+    // * Whole percent only — the readout shares the bar's quantised source.
+    if (elements.boostValue) {
+      const pctText = String(Math.round(fillHalfPct / 2));
+      if (elements.boostValue.textContent !== pctText) elements.boostValue.textContent = pctText;
+    }
   }
   if (elements.boost.dataset.state !== state) elements.boost.dataset.state = state;
 }
@@ -2513,6 +2539,14 @@ export function refreshScoreBoxGlows(slots, youConnId) {
     }
     applyHudScoreBoxGlow(entry.box, slot, youConnId);
   });
+}
+
+/**
+ * Slot index of the sole leader, or -1 when the round is tied or scoreless.
+ * @returns {number}
+ */
+export function getLeaderSlotIndex() {
+  return _leaderSlotIndex;
 }
 
 export function syncColors(slots) {

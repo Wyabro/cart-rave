@@ -109,17 +109,22 @@ function escapeHtml(text) {
  * @param {boolean} isHost
  * @returns {string}
  */
-function nametagHtml(name, meta, mode, isHost) {
+function nametagHtml(name, meta, mode, isHost, isLeader = false) {
   const hostGlyph = isHost
     ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("host", { label: "Host" })}</span>`
     : "";
-  if (!meta) return `${hostGlyph}${escapeHtml(name)}`;
+  // * Mock 6a puts the crown on the leader's plate, same mark as the scoreboard.
+  // * Who leads comes from HUD.getLeaderSlotIndex() — one rule, not two.
+  const crown = isLeader
+    ? `<span class="cart-nametag-crown">${svgIcon("crown", { label: "Leader" })}</span>`
+    : "";
+  if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}`;
   const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
   if (mode === "intro") {
     // * Countdown teach-moment: icon + personality word, collapses to icon-only at GO.
-    return `${icon}<span style="color:${meta.color};">${meta.label}</span>`;
+    return `${icon}<span style="color:${meta.color};">${meta.label}</span>${crown}`;
   }
-  return `${icon}${escapeHtml(name)}`;
+  return `${icon}${escapeHtml(name)}${crown}`;
 }
 import * as AudioManager from "./audioManager.js";
 import * as ArenaAmbience from "./ambience/arenaAmbience.js";
@@ -3651,9 +3656,11 @@ async function main() {
     const el = document.createElement("div");
     el.className = "cart-nametag";
     el.innerHTML = contentHtml;
-    // * Layout/size live in hud.css (fluid + mobile/coarse). Only the cart-color
-    // * edge is dynamic — do not set padding/fontSize here or media queries lose.
-    el.style.borderColor = color;
+    // * Layout/size live in hud.css (fluid + mobile/coarse). Only the cart color
+    // * is dynamic — do not set padding/fontSize here or media queries lose.
+    // * 6a demotes it from a 2.5px neon edge to the punched hole's ring: the
+    // * plate is a hairline price tag, identity rides the tag's own hardware.
+    el.style.setProperty("--nt", color);
 
     const label = new CSS2DObject(el);
     label.center.set(0.5, 0);
@@ -3663,6 +3670,7 @@ async function main() {
   let allCarts = [];
 
   function updateNameLabels() {
+    const leaderSlot = HUD.getLeaderSlotIndex();
     for (let i = 0; i < allCarts.length; i++) {
       const slot = Netcode.getNetSlots()[i];
       const cart = allCarts[i];
@@ -3678,7 +3686,7 @@ async function main() {
       const mode = detectGameMode();
       const hostGlyphEligible = mode !== "solo" && mode !== "testdrive";
       const isHostSlot = hostGlyphEligible && Boolean(slot.connId && slot.connId === Netcode.getHostId());
-      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot);
+      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot, i === leaderSlot);
 
       if (nameLabels[i]) {
         if (
@@ -3686,7 +3694,7 @@ async function main() {
           nameLabels[i]._labelColor !== colorCSS
         ) {
           nameLabels[i].element.innerHTML = contentHtml;
-          nameLabels[i].element.style.borderColor = colorCSS;
+          nameLabels[i].element.style.setProperty("--nt", colorCSS);
           nameLabels[i]._labelHtml = contentHtml;
           nameLabels[i]._labelColor = colorCSS;
         }

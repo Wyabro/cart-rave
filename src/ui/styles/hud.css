@@ -1137,23 +1137,56 @@
 /* Sticker nametags (CSS2D) — size lives here (not inline) so media queries win.
    Desktop keeps the bold billboard read (~22–24px); mobile/coarse is a clear
    step down without going micro. */
+/* World-space nameplate = mini price tag (mock 6a): tag nose, punched hole,
+   hairline edge, 2px extrude. The cart colour moved OFF the border (a 2.5px
+   neon edge on four carts was the loudest thing on screen) and onto the hole's
+   ring, which is where a real tag carries its hardware. `--nt` is set per cart
+   in main.js. */
 .cart-nametag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: "Russo One", var(--ui, sans-serif);
   font-size: 24px;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 2.5px solid var(--color-cyan, #22e6ff); /* borderColor set per-cart in JS */
+  padding: 5px 14px 5px 20px;
+  border-radius: 5px 5px 5px 14px;
+  border: 1px solid var(--border-white-12, rgba(255, 255, 255, 0.12));
   background: var(--color-ink, #14101e);
   color: var(--color-sticker-white, #f2ede4);
-  box-shadow: 3px 3px 0 var(--color-ink-deep, #08050f);
+  box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
   text-shadow: 0 1.5px 0 var(--color-ink-deep, #08050f);
   transform: translate(-50%, 0);
   pointer-events: none;
+}
+
+/* Punched hole at the nose — its ring is the cart's colour. */
+.cart-nametag::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--color-bg-black, #05030a);
+  box-shadow: inset 0 0 0 1.5px var(--nt, rgba(242, 237, 228, 0.35));
+}
+
+/* Leader crown — same mark as the scoreboard, gated by HUD.getLeaderSlotIndex(). */
+.cart-nametag-crown {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.55em;
+  color: var(--color-yellow, #ffe53d);
+  transform: rotate(-8deg);
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep, #08050f));
 }
 
 /* Touch / mobile — phone landscape is often >768 wide, so width-only never
@@ -1162,10 +1195,16 @@
 @media (max-width: 768px), (pointer: coarse) {
   .cart-nametag {
     font-size: 13px;
-    padding: 3px 8px;
-    border-width: 2px;
-    border-radius: 6px;
+    gap: 6px;
+    padding: 3px 9px 3px 15px;
+    border-width: 1px;
+    border-radius: 4px 4px 4px 11px;
     box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
+  }
+  .cart-nametag::before {
+    left: 5px;
+    width: 5px;
+    height: 5px;
   }
   .cart-nametag svg {
     width: 1em;
@@ -1401,29 +1440,68 @@
 
 /* ── Boost gauge (keyboard/gamepad) — a chunky sticker capsule with a bolt,
       not an ability bar. Color state IS the information. ── */
+/* Boost = the cart handle (mock 6a): a 360px ink slab carrying the word, the
+   track and the charge readout. Slab owns the skew, inner owns the counter. */
 #hud .hud-boost {
   display: none;
-  align-items: center;
-  gap: 9px;
   pointer-events: none;
-  padding: 0 5px 5px 0;
+  width: clamp(240px, 26vw, 360px);
+  padding: 10px 20px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: 6px;
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
+}
+#hud .hud-boost-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: skewX(8deg);
 }
 #hud .hud-boost-label {
-  display: inline-flex;
-  align-items: center;
-  font-size: clamp(13px, 1.5vw, 16px);
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 10px);
+  letter-spacing: 0.18em;
   color: var(--color-cyan);
-  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+  white-space: nowrap;
+}
+#hud .hud-boost-value {
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(11px, 1.2vw, 12px);
+  color: var(--color-cyan);
+  min-width: 2.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 #hud .hud-boost-track {
-  width: clamp(120px, 14vw, 170px);
-  height: clamp(11px, 1.4vw, 14px);
-  background: var(--color-ink);
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border-white-12);
-  box-shadow: var(--slab-shadow-sm);
+  box-shadow: none;
   overflow: hidden;
+}
+/* Overcharge zone — the top slice of the track is hazard-taped, so the moment
+   the charge is worth spending is a place on the bar, not a number to watch. */
+#hud .hud-boost-track::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 22%;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 229, 61, 0.35) 0 5px,
+    transparent 5px 10px
+  );
+  pointer-events: none;
 }
 #hud .hud-boost-fill {
   display: block;
@@ -1431,6 +1509,7 @@
   width: 100%;
   background: var(--color-cyan);
   border-radius: var(--radius-pill);
+  box-shadow: 0 0 12px var(--glow-cyan-50, rgba(34, 230, 255, 0.5));
   transition: width 60ms linear;
 }
 #hud .hud-boost[data-state="charging"] .hud-boost-fill {
