@@ -797,11 +797,12 @@ let _hudDirectiveId = null;
 let _hudDirectiveFillTenths = -1;
 
 /**
- * Living Store directive chip under the round timer. Called every frame from
- * frameVisuals with the engine's active directive (or null). Shows the directive
- * name, whole seconds remaining, and a drain bar in the directive's accent color.
+ * Living Store directive tag under the round timer. Called every frame from
+ * frameVisuals with the engine's active directive (or null). The tag is a price
+ * slab in the directive's own accent: title, whole seconds remaining, the
+ * store-voice rule line, and a drain bar.
  *
- * @param {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null} directive
+ * @param {{ id: string, title: string, blurb?: string, startedAtMs: number, untilMs: number, accent: string } | null} directive
  * @param {number} nowMs performance.now() for this frame.
  * @returns {void}
  */
@@ -826,6 +827,12 @@ export function setHudDirective(directive, nowMs) {
     _hudDirectiveId = directive.id;
     el.style.setProperty("--directive-accent", directive.accent);
     elements.directiveName.textContent = directive.title;
+    // * Store-voice rule line (mock 6a) — fixed for the window, written with the name.
+    if (elements.directiveBlurb) {
+      const blurb = directive.blurb || "";
+      elements.directiveBlurb.textContent = blurb;
+      elements.directiveBlurb.style.display = blurb ? "" : "none";
+    }
   }
   const secsText = `${Math.ceil(remainingMs / 1000)}s`;
   if (elements.directiveSecs.textContent !== secsText) {
@@ -1444,11 +1451,14 @@ export function init(options) {
   elements.directiveSecs.className = "hud-directive-secs";
   directiveRow.appendChild(elements.directiveName);
   directiveRow.appendChild(elements.directiveSecs);
+  elements.directiveBlurb = document.createElement("span");
+  elements.directiveBlurb.className = "hud-directive-blurb";
   const directiveBar = document.createElement("div");
   directiveBar.className = "hud-directive-bar";
   elements.directiveFill = document.createElement("i");
   directiveBar.appendChild(elements.directiveFill);
   elements.directive.appendChild(directiveRow);
+  elements.directive.appendChild(elements.directiveBlurb);
   elements.directive.appendChild(directiveBar);
 
   elements.scores = document.createElement("div");

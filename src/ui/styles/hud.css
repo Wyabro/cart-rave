@@ -342,11 +342,22 @@
   flex: 0 0 auto;
 }
 
+/* "RD n" over "TO CLOSE" (mock 6a). The second line is a pseudo-element so the
+   per-frame textContent write on this node can't wipe it, and :not(:empty)
+   keeps it from lingering when the timer clears between rounds. */
 #hud .hud-timer-rd {
   margin-left: auto;
   color: rgba(255,255,255,0.55);
   font-size: clamp(10px, 1.1vw, 12px);
   letter-spacing: 1px;
+  text-align: right;
+  line-height: 1.25;
+}
+
+#hud .hud-timer-rd:not(:empty)::after {
+  content: "TO CLOSE";
+  display: block;
+  letter-spacing: 0.16em;
 }
 
 #hud .hud-timer-num {
@@ -382,20 +393,28 @@
    caps); the hard shadow comes from the region-match drop-shadow filter.
    margin-left offsets the timer's 22px arrow point so the chip optically
    centers under the timer BODY, not the full clip-path footprint. */
+/* Directive tag (mock 6a): a price-tag slab in the directive's OWN accent, not
+   the mock's fixed yellow — five directives share this chip and the accent is
+   how you tell which one is running at a glance. Ink lettering on the accent,
+   the store-voice rule line beneath, drain bar along the bottom. */
 #hud .hud-directive {
   --directive-accent: var(--color-cyan);
   display: none;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 9px;
-  margin-left: 22px;
-  padding: 5px 10px 6px;
-  max-width: clamp(120px, 16vw, 190px);
-  background: var(--color-ink);
-  border-left: 3px solid var(--directive-accent);
-  border-radius: 8px;
-  box-shadow: var(--slab-shadow);
+  gap: 3px;
+  margin-top: 10px;
+  margin-left: 14px;
+  padding: 7px 16px 8px;
+  max-width: clamp(150px, 20vw, 250px);
+  background: var(--directive-accent);
+  border: none;
+  border-radius: 6px;
+  transform: skewX(-8deg) rotate(-1.5deg);
+  box-shadow: var(--slab-extrude), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
+
+/* Counter-skew the contents so the copy stays upright inside the slanted tag. */
+#hud .hud-directive > * { transform: skewX(8deg); }
 
 #hud .hud-directive--active {
   display: flex;
@@ -414,21 +433,38 @@
 
 #hud .hud-directive-name {
   font-size: clamp(11px, 1.2vw, 13px);
-  color: var(--directive-accent);
+  color: var(--color-ink-deep);
   white-space: nowrap;
 }
 
 #hud .hud-directive-secs {
+  font-family: var(--hud-mono);
   font-size: clamp(11px, 1.2vw, 13px);
   font-weight: 700;
-  color: var(--color-sticker-white);
+  color: var(--color-ink-deep);
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
 }
 
+/* Store-voice rule line under the title (mock 6a). Placeholder copy lives in
+   directives.js `blurb`. */
+#hud .hud-directive-blurb {
+  font-family: var(--hud-mono);
+  font-size: clamp(7px, 0.75vw, 8px);
+  letter-spacing: 0.22em;
+  line-height: 1.3;
+  color: rgba(8, 5, 15, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The window draining, printed INTO the tag — ink on the accent, not the other
+   way round now that the slab carries the colour. */
 #hud .hud-directive-bar {
   height: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  margin-top: 2px;
+  background: rgba(8, 5, 15, 0.22);
   border-radius: var(--radius-pill);
   overflow: hidden;
 }
@@ -437,7 +473,7 @@
   display: block;
   height: 100%;
   width: 100%;
-  background: var(--directive-accent);
+  background: var(--color-ink-deep);
   border-radius: var(--radius-pill);
 }
 
@@ -707,14 +743,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(30px, 3.4vw, 36px);
-  height: clamp(30px, 3.4vw, 36px);
-  border-radius: 9px;
-  border: none;
+  /* Mock 6a: a 48px ink slab on the top strip's height rhythm. */
+  width: clamp(38px, 3.4vw, 48px);
+  height: clamp(38px, 3.4vw, 48px);
+  border-radius: 8px;
   background: var(--color-ink);
   border: 1px solid var(--border-white-12);
   box-shadow: var(--slab-shadow);
-  color: var(--color-sticker-white);
+  color: rgba(242, 237, 228, 0.55);
   cursor: pointer;
   font-size: clamp(14px, 1.7vw, 17px);
   transition: transform 100ms ease, box-shadow 100ms ease, background 150ms ease;
