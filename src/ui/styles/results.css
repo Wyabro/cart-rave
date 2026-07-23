@@ -22,21 +22,31 @@
 #results-overlay .results-panel {
   pointer-events: auto;
   min-width: min(420px, 92vw);
-  max-width: 520px;
-  width: 90%;
-  padding: 36px 32px 28px;
+  /* 7g: the 4-column podium needs more width than the old stacked score list. */
+  max-width: 620px;
+  width: 92%;
+  padding: 28px 32px 24px;
+  max-height: 94dvh;
+  overflow-y: auto;
 }
 
 /* Stack-A lettering with a per-outcome fill (--title-glow, set in JS: winner's
    cart color, yellow for a draw, white for round-complete) — hard extrude,
    never a soft glow, matching the HUD's .hud-status recipe. */
+/* PA callout header (7g): store-voice kicker over the announcer headline. */
+#results-overlay .results-kicker {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 8px;
+}
+
 #results-overlay .results-title {
   font-family: var(--results-display);
   font-size: clamp(24.2px, 5.5vw, 35.2px);
   font-weight: 400;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  margin: 0 0 18px;
+  margin: 0 0 6px;
   min-height: 1.2em;
   text-align: center;
   line-height: 1.15;
@@ -46,6 +56,19 @@
   text-shadow:
     0.04em 0.04em 0 var(--color-ink-deep),
     0.08em 0.08em 0 var(--color-ink-deep);
+}
+
+/* The round's actual verdict — recessed under the PA headline now that the
+   podium below carries who won. */
+#results-overlay .results-verdict {
+  margin: 0 0 16px;
+  text-align: center;
+  font-family: var(--results-mono);
+  font-size: clamp(10px, 2.2vw, 12px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  min-height: 1.2em;
 }
 
 /* Local-outcome treatment — .results-defeat / .results-victory are toggled on
@@ -85,37 +108,170 @@
   opacity: 0.95;
 }
 
+/* ─── 7g podium — four columns, block height by finish ──────────────────────
+   Winner reads magenta + crown, the local player cyan, everyone else hairline.
+   Heights come from --podium-h (set per column in main.js from the design's
+   250/170/120/80 ratios, scaled to the panel). */
 #results-overlay .results-final {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
   gap: 8px;
   margin-bottom: 16px;
 }
 
-/* Flat printed chip per player row — identity color (--slot-glow, set in JS
-   per cart) reads as a thin printed ring, not a resting glow. */
-#results-overlay .results-score-row {
+#results-overlay .results-podium-col {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 16px;
-  border-radius: var(--radius-sm);
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px var(--slot-glow, var(--border-white-10));
-  transition: box-shadow 180ms ease, background 180ms ease;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
 }
 
-/* Winner row is the celebration moment — yellow die-cut ring on ink,
-   overriding the per-slot identity ring. */
-/* Champion row is the peak of the panel — die-cut yellow sticker (contour +
-   hard offset shadow) so it stands proud of the plain runner-up rows. */
-#results-overlay .results-score-row.is-winner {
-  background: var(--color-ink);
-  box-shadow:
-    0 0 0 2.5px var(--color-yellow),
-    3px 3px 0 2.5px var(--color-ink-deep);
+#results-overlay .results-podium-cap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
 }
+
+#results-overlay .results-podium-emblem {
+  display: inline-flex;
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* Ancestor in the selector so this beats the shared .results-score-name rule
+   further down the file (same specificity would otherwise let it win). */
+#results-overlay .results-podium-col .results-podium-name {
+  display: block;
+  width: 100%;
+  flex: none;
+  text-align: center;
+  font-size: clamp(9px, 2vw, 11px);
+  letter-spacing: 0.06em;
+}
+
+#results-overlay .results-podium-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  /* Design height, capped so short viewports don't push the panel into a scroll. */
+  height: min(var(--podium-h, 48px), 21vh);
+  padding: 6px 4px;
+  background: var(--color-ink-deep);
+  border: 1px solid var(--border-white-10);
+  border-radius: 6px 6px 0 0;
+  box-shadow: var(--slab-shadow-sm);
+}
+
+#results-overlay .results-podium-col.is-you .results-podium-block {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 0 1px var(--color-cyan) inset, var(--slab-shadow-sm);
+}
+
+/* Winner outranks YOU — magenta, the brand accent, plus a lift. */
+#results-overlay .results-podium-col.is-winner .results-podium-block {
+  background: var(--color-ink);
+  border-color: var(--color-magenta);
+  box-shadow:
+    0 0 0 1px var(--color-magenta) inset,
+    0 0 16px -4px var(--color-magenta),
+    var(--slab-shadow-sm);
+}
+
+#results-overlay .results-podium-rank {
+  font-family: var(--results-ui);
+  font-size: clamp(20px, 5vw, 30px);
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+#results-overlay .results-podium-col.is-winner .results-podium-rank {
+  color: var(--color-magenta);
+}
+
+#results-overlay .results-podium-col.is-you .results-podium-rank {
+  color: var(--color-cyan);
+}
+
+/* ─── Match receipt — printed till slip, existing stats only ──────────────── */
+#results-overlay .results-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 16px;
+  padding: 12px 14px 10px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--slab-shadow-sm);
+}
+
+#results-overlay .results-receipt-hd,
+#results-overlay .results-receipt-foot {
+  text-align: center;
+  font-family: var(--results-mono);
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+#results-overlay .results-receipt-foot {
+  margin-top: 2px;
+}
+
+#results-overlay .results-receipt-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--results-mono);
+  font-size: clamp(9px, 2vw, 11px);
+  letter-spacing: 0.08em;
+}
+
+#results-overlay .results-receipt-lbl {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+#results-overlay .results-receipt-val {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 700;
+}
+
+#results-overlay .results-receipt-total {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--border-white-15, rgba(255, 255, 255, 0.15));
+}
+
+#results-overlay .results-receipt-total .results-receipt-lbl,
+#results-overlay .results-receipt-total .results-receipt-val {
+  color: var(--color-yellow);
+}
+
+/* Printed barcode strip — pure CSS stripes, no asset. */
+#results-overlay .results-receipt-barcode {
+  height: 16px;
+  margin: 6px 0 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(242, 237, 228, 0.85) 0 2px,
+    transparent 2px 4px,
+    rgba(242, 237, 228, 0.85) 4px 5px,
+    transparent 5px 9px
+  );
+  opacity: 0.5;
+}
+
+/* (.results-score-row retired in 7g — the ranked list is now the podium.) */
 
 #results-overlay .results-winner-badge {
   display: inline-flex;
@@ -163,10 +319,12 @@
   100% { transform: scale(1.08); }
 }
 
+/* Podium footer line: "1st · 12 PTS" in the slot's identity color. */
 #results-overlay .results-score-val {
-  font-family: var(--results-ui);
-  font-size: clamp(14px, 3.4vw, 18px);
-  letter-spacing: 0.04em;
+  font-family: var(--results-mono);
+  font-size: clamp(8px, 1.8vw, 10px);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
   color: var(--slot-glow, var(--color-cyan));
   flex-shrink: 0;
 }
@@ -401,17 +559,21 @@
     flex-shrink: 0;
   }
 
-  #results-overlay .results-score-row {
-    padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
-    gap: 8px;
+  #results-overlay .results-podium-block {
+    padding: clamp(4px, 1.2vw, 6px) 3px;
   }
 
   #results-overlay .results-score-name {
-    font-size: clamp(10px, 2.6vw, 11px);
+    font-size: clamp(9px, 2.4vw, 10px);
   }
 
   #results-overlay .results-score-val {
-    font-size: clamp(14px, 3.6vw, 16px);
+    font-size: clamp(8px, 2.2vw, 9px);
+  }
+
+  #results-overlay .results-receipt {
+    margin-bottom: clamp(8px, 2vw, 12px);
+    padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
   }
 
   #results-overlay .results-stats {

@@ -425,7 +425,9 @@ export function animateResultsDismiss(overlay, panel, opts = {}) {
  *   overlay: HTMLElement,
  *   panel: HTMLElement,
  *   title: HTMLElement,
- *   scoreRows: Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge?: HTMLElement | null }>,
+ *   verdict?: HTMLElement | null,
+ *   scoreRows: Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge?: HTMLElement | null, format?: (n: number) => string }>,
+ *   receiptLines?: HTMLElement[] | null,
  *   statsLine?: HTMLElement | null,
  *   history?: HTMLElement | null,
  *   playAgain?: HTMLElement | null,
@@ -437,7 +439,9 @@ export function animateResultsPodiumShow(payload) {
     overlay,
     panel,
     title,
+    verdict,
     scoreRows,
+    receiptLines,
     statsLine,
     history,
     playAgain,
@@ -446,23 +450,29 @@ export function animateResultsPodiumShow(payload) {
 
   const token = ++resultsEntranceToken;
   cancelResultsAnimations(overlay);
+  // * Default score formatting stays "N pts"; the podium passes its own
+  // * "1st · N PTS" formatter per column.
+  const fmt = (sr, n) => (sr.format ? sr.format(n) : `${Math.round(n)} pts`);
 
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
   if (reduced) {
-    scoreRows.forEach(({ valEl, score }) => {
-      valEl.textContent = `${score} pts`;
+    scoreRows.forEach((sr) => {
+      sr.valEl.textContent = fmt(sr, sr.score);
     });
+    if (receiptLines) receiptLines.forEach((line) => { line.style.opacity = "1"; });
     return;
   }
 
   overlay.style.opacity = "0";
   panel.style.opacity = "0";
   title.style.opacity = "0";
-  scoreRows.forEach(({ row, valEl, badge }) => {
-    row.style.opacity = "0";
-    valEl.textContent = "0 pts";
-    if (badge) badge.style.opacity = "0";
+  if (verdict) verdict.style.opacity = "0";
+  scoreRows.forEach((sr) => {
+    sr.row.style.opacity = "0";
+    sr.valEl.textContent = fmt(sr, 0);
+    if (sr.badge) sr.badge.style.opacity = "0";
   });
+  if (receiptLines) receiptLines.forEach((line) => { line.style.opacity = "0"; });
   if (statsLine) statsLine.style.opacity = "0";
   if (history) history.style.opacity = "0";
   if (playAgain) playAgain.style.opacity = "0";
@@ -488,6 +498,15 @@ export function animateResultsPodiumShow(payload) {
     ease: "outBack(1.3)",
   }, 160);
 
+  if (verdict) {
+    tl.add(verdict, {
+      opacity: [0, 1],
+      translateY: [8, 0],
+      duration: 280,
+      ease: "outQuad",
+    }, 210);
+  }
+
   const rowEls = scoreRows.map((sr) => sr.row).filter(Boolean);
   if (rowEls.length > 0) {
     tl.add(rowEls, {
@@ -500,7 +519,8 @@ export function animateResultsPodiumShow(payload) {
     }, 220);
   }
 
-  scoreRows.forEach(({ valEl, score, isWinner, badge }, i) => {
+  scoreRows.forEach((sr, i) => {
+    const { valEl, score, isWinner, badge } = sr;
     if (isWinner && badge) {
       tl.add(badge, {
         opacity: [0, 1],
@@ -514,9 +534,22 @@ export function animateResultsPodiumShow(payload) {
     countUpNumber(valEl, score, 520, {
       delay: 220 + i * 90,
       ease: "outExpo",
-      formatter: (n) => `${Math.round(n)} pts`,
+      formatter: (n) => fmt(sr, n),
     });
   });
+
+  // * Receipt prints line by line on the SAME 220 + i*90ms cadence as the
+  // * count-ups — the ledger reads like a till slip feeding out.
+  if (receiptLines) {
+    receiptLines.forEach((line, i) => {
+      tl.add(line, {
+        opacity: [0, 1],
+        translateX: [-6, 0],
+        duration: 200,
+        ease: "outQuad",
+      }, 220 + i * 90);
+    });
+  }
 
   // Reward beat: after the rows settle, give the winner row a quick celebratory
   // pop so the champion is unmistakably the peak of the panel.
@@ -577,8 +610,11 @@ export function animateResultsPodiumShow(payload) {
  * @returns {{
  *   overlay: HTMLDivElement,
  *   panel: HTMLDivElement,
+ *   kicker: HTMLDivElement,
  *   title: HTMLHeadingElement,
+ *   verdict: HTMLParagraphElement,
  *   finalScores: HTMLDivElement,
+ *   receipt: HTMLDivElement,
  *   history: HTMLDivElement,
  *   playAgain: HTMLButtonElement,
  *   statsLine: HTMLDivElement,
@@ -602,11 +638,27 @@ export function initResultsOverlay(hooks = {}) {
   const panel = document.createElement("div");
   panel.className = "results-panel cc-billboard";
 
+  // * PA callout header (7g): store-voice kicker over the announcer headline; the
+  // * per-round verdict ("NAME wins — 12 pts") drops to its own line beneath, since
+  // * the podium below now carries who won.
+  const kicker = document.createElement("div");
+  kicker.className = "results-kicker cc-kicker";
+  kicker.textContent = "◆ STORE PA";
+
   const title = document.createElement("h2");
   title.className = "results-title";
+  title.textContent = "THE STORE IS NOW CLOSED";
+
+  const verdict = document.createElement("p");
+  verdict.className = "results-verdict";
 
   const finalScores = document.createElement("div");
   finalScores.className = "results-final";
+
+  // * Match receipt — printed ledger of THIS round, filled by main.js from
+  // * snapshotMatchStats(). Lines print on the podium count-up schedule.
+  const receipt = document.createElement("div");
+  receipt.className = "results-receipt";
 
   const history = document.createElement("div");
   history.className = "results-history";
@@ -636,7 +688,9 @@ export function initResultsOverlay(hooks = {}) {
   const statsLine = document.createElement("div");
   statsLine.className = "results-stats";
 
+  panel.appendChild(kicker);
   panel.appendChild(title);
+  panel.appendChild(verdict);
 
   // Reward-first order: the winner + match ranking + the PLAY AGAIN / MAIN MENU
   // decision lead the panel; the lifetime-stats / superlatives / challenges /
@@ -646,6 +700,7 @@ export function initResultsOverlay(hooks = {}) {
   const resultsBody = document.createElement("div");
   resultsBody.className = "results-body";
   resultsBody.appendChild(finalScores);
+  resultsBody.appendChild(receipt);
   resultsBody.appendChild(actions);
 
   const details = document.createElement("div");
@@ -661,5 +716,5 @@ export function initResultsOverlay(hooks = {}) {
   wireResultsButtonFeedback(playAgain);
   wireResultsButtonFeedback(mainMenuBtn);
 
-  return { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn };
+  return { overlay, panel, kicker, title, verdict, finalScores, receipt, history, playAgain, statsLine, mainMenuBtn };
 }

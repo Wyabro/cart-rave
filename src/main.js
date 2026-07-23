@@ -79,7 +79,7 @@ import { STAGE_PRIORITY } from "./ui/centerStage.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
-import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
+import { getNpcPersonality, PERSONALITY_META, emblemForSlot } from "./npcNames.js";
 import { svgIcon } from "./ui/icons.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 import { onUnlockGranted, unlockStore } from "./stores/unlockStore.js";
@@ -3195,7 +3195,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
+    const { overlay, panel, title, verdict, finalScores, receipt, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
       // * Ensure host + all clients share the same winner-cam presentation path.
@@ -3322,9 +3322,12 @@ async function main() {
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
+      // * 7g: the headline is the PA callout ("THE STORE IS NOW CLOSED", set once
+      // * in initResultsOverlay); the per-round verdict lives on its own line and
+      // * the winner's color still drives --title-glow on the headline.
       const winnerIdx = roundState.winnerSlotIndex;
       if (winnerIdx === "draw") {
-        title.textContent = "DRAW";
+        verdict.textContent = "DRAW";
         title.style.setProperty("--title-glow", "#ffe53d");
       } else {
         const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
@@ -3341,19 +3344,19 @@ async function main() {
           }
           const tieSuffix = tiedAtTop > 1 ? " (TIEBREAK)" : "";
           if (roundState.endReason === "lastStanding") {
-            title.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
+            verdict.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
           } else {
-            title.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
+            verdict.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
           }
           title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
         } else {
-          title.textContent = "ROUND COMPLETE";
+          verdict.textContent = "ROUND COMPLETE";
           title.style.setProperty("--title-glow", "#ffffff");
         }
       }
 
       finalScores.replaceChildren();
-      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null }>} */
+      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null, format?: (n: number) => string }>} */
       const scoreRows = [];
       // * Winner pinned first explicitly — under lastStanding/Sudden Death they can
       // * hold a lower score than a fallen rival, so score-desc alone isn't enough.
@@ -3364,20 +3367,42 @@ async function main() {
         const byScore = Number(scores[b] ?? 0) - Number(scores[a] ?? 0);
         return byScore !== 0 ? byScore : a - b;
       });
-      for (const i of rankedSlots) {
+      // * 7g podium — one column per slot, block height by finish (design ratios
+      // * 250/170/120/80 scaled to the panel). Winner reads magenta + crown, the
+      // * local player cyan, everyone else a hairline.
+      const PODIUM_HEIGHTS = [150, 102, 72, 48];
+      const RANK_LABELS = ["1st", "2nd", "3rd", "4th"];
+      const myPodiumSlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      rankedSlots.forEach((i, rank) => {
         const s = scores[i] != null ? scores[i] : 0;
-        const row = document.createElement("div");
-        row.className = "results-score-row";
+        const netSlot = Netcode.getNetSlots()[i];
+        const col = document.createElement("div");
+        col.className = "results-podium-col";
         const isWinner = winnerIdx !== "draw" && winnerIdx === i;
-        if (isWinner) row.classList.add("is-winner");
-        row.style.setProperty("--slot-glow", displayCssColorForSlot(Netcode.getNetSlots()[i]));
+        if (isWinner) col.classList.add("is-winner");
+        if (i === myPodiumSlotIdx) col.classList.add("is-you");
+        col.style.setProperty("--slot-glow", displayCssColorForSlot(netSlot));
+        col.style.setProperty("--podium-h", `${PODIUM_HEIGHTS[rank] ?? 48}px`);
+
+        const cap = document.createElement("div");
+        cap.className = "results-podium-cap";
+
+        // * Same resolver as the HUD roster: NPCs get their personality emblem,
+        // * humans the cart-color shopper glyph.
+        const emblemInfo = emblemForSlot(netSlot);
+        if (emblemInfo) {
+          const emblemEl = document.createElement("span");
+          emblemEl.className = "results-podium-emblem";
+          emblemEl.innerHTML = svgIcon(emblemInfo.icon, { label: emblemInfo.label });
+          emblemEl.style.color = emblemInfo.color;
+          cap.appendChild(emblemEl);
+        }
 
         const nameEl = document.createElement("span");
-        nameEl.className = "results-score-name";
+        nameEl.className = "results-score-name results-podium-name";
         nameEl.textContent = slotDisplayName(i);
 
-        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-        if (i === mySlotIdx && isNewPersonalBest) {
+        if (i === myPodiumSlotIdx && isNewPersonalBest) {
           const pbBadge = document.createElement("span");
           pbBadge.className = "pb-badge";
           pbBadge.textContent = "NEW PB!";
@@ -3391,17 +3416,101 @@ async function main() {
           // * Purpose-built sticker crown (icons.js), not the OS emoji — matches
           // * the HUD leader pip and colors to gold via .results-winner-badge CSS.
           winnerBadge.innerHTML = svgIcon("crown", { label: "Winner", size: "1.15em" });
-          nameEl.prepend(winnerBadge);
+          cap.prepend(winnerBadge);
         }
+        cap.appendChild(nameEl);
+
+        const block = document.createElement("div");
+        block.className = "results-podium-block";
+
+        const rankEl = document.createElement("span");
+        rankEl.className = "results-podium-rank";
+        rankEl.textContent = String(rank + 1);
 
         const valEl = document.createElement("span");
         valEl.className = "results-score-val";
-        valEl.textContent = `${s} pts`;
+        const rankLabel = RANK_LABELS[rank] ?? `${rank + 1}th`;
+        const formatScore = (n) => `${rankLabel} · ${Math.round(n)} PTS`;
+        valEl.textContent = formatScore(s);
 
-        row.appendChild(nameEl);
-        row.appendChild(valEl);
-        finalScores.appendChild(row);
-        scoreRows.push({ row, valEl, score: s, isWinner, badge: winnerBadge });
+        block.appendChild(rankEl);
+        block.appendChild(valEl);
+        col.appendChild(cap);
+        col.appendChild(block);
+        finalScores.appendChild(col);
+        scoreRows.push({ row: col, valEl, score: s, isWinner, badge: winnerBadge, format: formatScore });
+      });
+
+      // ── Match receipt (7g) — this round's till slip, existing stats only ──
+      /** @type {HTMLElement[]} */
+      const receiptLines = [];
+      if (receipt) {
+        receipt.replaceChildren();
+        const snap = snapshotMatchStats();
+        const comboLabel = snap.maxComboTier >= 3
+          ? "CARNAGE"
+          : snap.maxComboTier >= 2
+            ? "RAMPAGE"
+            : snap.maxComboTier >= 1
+              ? "STREAK"
+              : "—";
+        const myScore = myPodiumSlotIdx >= 0 ? Number(scores[myPodiumSlotIdx] ?? 0) : 0;
+
+        const hd = document.createElement("div");
+        hd.className = "results-receipt-hd";
+        hd.textContent = "— MATCH RECEIPT —";
+        receipt.appendChild(hd);
+        receiptLines.push(hd);
+
+        // * EXPRESS LANE HELD is deliberately absent — nothing tracks it (see plan
+        // * 7g); leaderDowns rides along only when the player actually earned one.
+        /** @type {Array<[string, string]>} */
+        const lines = [
+          ["BODIES", String(snap.localKos)],
+          ["BEST COMBO", comboLabel],
+          ["TIMES BODIED", String(snap.localDeaths)],
+        ];
+        if (snap.leaderDowns > 0) lines.push(["LEADER DOWNS", String(snap.leaderDowns)]);
+        if (snap.criticalKos > 0) lines.push(["CRITICALS", String(snap.criticalKos)]);
+
+        for (const [label, value] of lines) {
+          const line = document.createElement("div");
+          line.className = "results-receipt-line";
+          const lbl = document.createElement("span");
+          lbl.className = "results-receipt-lbl";
+          lbl.textContent = label;
+          const val = document.createElement("span");
+          val.className = "results-receipt-val";
+          val.textContent = value;
+          line.appendChild(lbl);
+          line.appendChild(val);
+          receipt.appendChild(line);
+          receiptLines.push(line);
+        }
+
+        const total = document.createElement("div");
+        total.className = "results-receipt-line results-receipt-total";
+        const totalLbl = document.createElement("span");
+        totalLbl.className = "results-receipt-lbl";
+        totalLbl.textContent = "TOTAL";
+        const totalVal = document.createElement("span");
+        totalVal.className = "results-receipt-val";
+        totalVal.textContent = `${myScore} PTS`;
+        total.appendChild(totalLbl);
+        total.appendChild(totalVal);
+        receipt.appendChild(total);
+        receiptLines.push(total);
+
+        const barcode = document.createElement("div");
+        barcode.className = "results-receipt-barcode";
+        barcode.setAttribute("aria-hidden", "true");
+        receipt.appendChild(barcode);
+
+        const foot = document.createElement("div");
+        foot.className = "results-receipt-foot";
+        foot.textContent = "THANK YOU FOR SHOPPING";
+        receipt.appendChild(foot);
+        receiptLines.push(foot);
       }
 
       history.replaceChildren();
@@ -3520,7 +3629,9 @@ async function main() {
         overlay,
         panel,
         title,
+        verdict,
         scoreRows,
+        receiptLines,
         statsLine,
         history,
         playAgain,
