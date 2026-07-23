@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-22T23:07:58.241Z",
-    "commit": "49bfc2a"
+    "at": "2026-07-23T03:12:59.010Z",
+    "commit": "f504b9a"
   },
-  "source_digest": "b5356929",
+  "source_digest": "963269db",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 implemented (unpushed) — life-scoped cargo weight (boss/glass): spawn baseline = today's feel; score this life → slower + harder to launch; spill → stripped fast/glass until next score; respawn → baseline (round score HUD unchanged). Gates 772 tests green. Next: Wyatt Solo playtest, then MP snowball check. Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -910,6 +910,12 @@
         "state": "done"
       },
       {
+        "id": "B2 CARGO-WT-1",
+        "what": "life-scoped grocery weight (boss/glass)",
+        "status": "🔧 code done (unpushed) — Solo playtest next",
+        "state": "waiting"
+      },
+      {
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
@@ -932,9 +938,9 @@
       }
     ],
     "next_actions": [
-      "Waiting on Wyatt to name the next card (Tier A drained except reminders) or say wait / advance phase.",
-      "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.",
-      "Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md)."
+      "B2 CARGO-WT-1 Solo playtest — spawn = today; score → boss (slower / hard to launch); spill → glass/fast until score again; die → baseline despite high round score.",
+      "MP smoke after Solo (boss chaseable, not immortal). Ship only on Wyatt \"ship it\".",
+      "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas."
     ],
     "open_issues": [
       {
@@ -1209,7 +1215,7 @@
           {
             "pri": "High",
             "item": "CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]`",
-            "notes": "Host-side physics; evaluate rubberband + MP balance.",
+            "notes": "**Code done 07-22 (unpushed)** — life-scoped; Solo playtest next.",
             "ship1": "B2"
           },
           {
@@ -1443,7 +1449,7 @@
           {
             "col0": "B2",
             "item": "CARGO-WT-1 — grocery weight risk/reward",
-            "notes": ""
+            "notes": "**Code done 07-22 (unpushed)** — life-scoped boss/glass; Wyatt Solo playtest next"
           },
           {
             "col0": "B3",

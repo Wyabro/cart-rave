@@ -1454,34 +1454,43 @@ html, body {
    full-screen rebuild — CUSTOMIZE is a .cr-screen now, not a centred card.
    .cr-customize-title only adds the screen-title hooks .cr-screen-title lacks.) */
 
-/* Actions inside the full-screen shell: DONE is the screen's single yellow
-   parallelogram (mock right/bottom), BACK stays a ghost beside it. */
-.cr-screen-actions .cr-overlay-done {
+/* Actions inside the full-screen shell. Every interactive slab on this screen is
+   the SAME parallelogram — DONE (yellow, primary) and BACK (ghost) differ only in
+   weight, never in geometry, so nothing pops between slanted and straight. */
+.cr-screen-actions .cr-overlay-done,
+.cr-screen-actions .cr-overlay-back {
   width: auto;
-  padding: 16px clamp(24px, 2.5vw, 48px);
-  border: none;
+  padding: 16px clamp(20px, 2.5vw, 48px);
   border-radius: var(--radius-sm);
   transform: skewX(-8deg);
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+}
+
+.cr-screen-actions .cr-overlay-done {
+  border: none;
   box-shadow: var(--slab-extrude), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-.cr-screen-actions .cr-overlay-done > * {
+/* Same three-layer split as the tabs: inner = press target, label = counter-skew. */
+.cr-screen-btn-inner {
+  display: inline-block;
+}
+
+.cr-screen-btn-label {
   display: inline-block;
   transform: skewX(8deg);
 }
 
 .cr-screen-actions .cr-overlay-done:hover,
-.cr-screen-actions .cr-overlay-done:focus-visible {
+.cr-screen-actions .cr-overlay-done:focus-visible,
+.cr-screen-actions .cr-overlay-back:hover,
+.cr-screen-actions .cr-overlay-back:focus-visible {
   transform: skewX(-8deg) translate(-1px, -2px);
 }
 
-.cr-screen-actions .cr-overlay-done:active {
+.cr-screen-actions .cr-overlay-done:active,
+.cr-screen-actions .cr-overlay-back:active {
   transform: skewX(-8deg) translate(2px, 2px);
-}
-
-.cr-screen-actions .cr-overlay-back {
-  order: -1;
-  width: auto;
 }
 
 /* 7a centre stage: the cart owns the middle of the screen (mock 520×420) with a
@@ -1561,11 +1570,12 @@ html, body {
   50% { filter: brightness(1.08); }
 }
 
-.cr-customize-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xs);
-}
+/* NOTE: .cr-customize-tabs deliberately declares NO display/direction — the tab
+   strip is a .cr-screen-rail now and the rail owns its layout (column on
+   desktop, row ≤768). The old `display: grid; repeat(3, 1fr)` from the modal
+   layout survived the 7a rebuild and beat the rail's flex rule on source order:
+   the three tabs laid out side by side, overflowed the 242px rail, and PATTERN
+   ended up underneath the centre stage — which ate its clicks. */
 
 /* 7a tab rail: the command-list parallelogram, not a chip. Idle rows are bare
    (no slab) exactly like the menu list; the active row is the screen's yellow. */
@@ -1585,8 +1595,15 @@ html, body {
   transition: color 120ms var(--ease-slap), background 140ms var(--ease-slap);
 }
 
-/* Counter-skew keeps the label upright inside the skewed row. */
+/* Three layers, on purpose: the row owns the skew, the INNER is the press
+   target (kept transform-free so anime.js can scale it without clobbering
+   anything), and the LABEL carries the counter-skew that keeps text upright.
+   Collapsing these is what makes a slab flash from slanted to straight. */
 .cr-customize-tab-inner {
+  display: inline-block;
+}
+
+.cr-customize-tab-label {
   display: inline-block;
   transform: skewX(8deg);
 }
@@ -3265,7 +3282,10 @@ html, body {
   text-align: left;
   transition: background 130ms var(--ease-slap), padding 130ms var(--ease-slap);
 }
-.cr-cmd .cr-btn-inner { justify-content: flex-start; transform: skewX(8deg); gap: 0; }
+.cr-cmd .cr-btn-inner { justify-content: flex-start; gap: 0; }
+/* Counter-skew lives on the label, NOT on .cr-btn-inner — inner is the press
+   target (getMenuPressTarget) and anime.js overwrites its transform. */
+.cr-cmd .cr-btn-label { display: inline-block; transform: skewX(8deg); }
 .cr-cmd .cr-btn-label {
   font-family: var(--ui); font-weight: 700;
   font-size: clamp(18px, 1.9vw, 24px);

@@ -1898,7 +1898,13 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
    * @returns {HTMLElement}
    */
   function getMenuPressTarget(btn) {
-    const inner = btn.querySelector(".cr-btn-inner, .cr-level-btn-inner, .cr-diff-btn-inner");
+    // * Press feedback animates the INNER element, never the outer one: anime.js
+    // * writes `transform` inline, which would wipe an outer skewX() and make a
+    // * slanted slab snap flat for the duration of the press. Any skewed control
+    // * must therefore expose an inner node here.
+    const inner = btn.querySelector(
+      ".cr-btn-inner, .cr-level-btn-inner, .cr-diff-btn-inner, .cr-customize-tab-inner, .cr-screen-btn-inner",
+    );
     return /** @type {HTMLElement} */ (inner || btn);
   }
 

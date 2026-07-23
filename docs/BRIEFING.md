@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-22 at commit `49bfc2a` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `d1e42511`
+> Generated 2026-07-23 at commit `f504b9a` on `redesign/fight-night-ui`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `59efa49f`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,13 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. Before public/external playtest: reset analytics DO (see Gotchas).
+Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 implemented (unpushed) — life-scoped cargo weight (boss/glass): spawn baseline = today's feel; score this life → slower + harder to launch; spill → stripped fast/glass until next score; respawn → baseline (round score HUD unchanged). Gates 772 tests green. Next: Wyatt Solo playtest, then MP snowball check. Before public/external playtest: reset analytics DO (see Gotchas).
 
-## NO ACTIVE CARD
+## ACTIVE CARD
 
-Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md
+B2 CARGO-WT-1 Solo playtest — spawn = today; score → boss (slower / hard to launch); spill → glass/fast until score again; die → baseline despite high round score
+
+Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
+- **B2 CARGO-WT-1** life-scoped grocery weight (boss/glass) — 🔧 code done (unpushed) — Solo playtest next
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)
