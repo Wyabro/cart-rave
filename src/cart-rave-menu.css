@@ -2268,29 +2268,7 @@ html, body {
   color: rgba(255, 255, 255, 0.45);
 }
 
-/* === SETTINGS SECTIONS === */
-.cr-settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: clamp(6px, 1vw, 10px) clamp(8px, 1.2vw, 12px);
-  background: var(--color-ink-deep);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-panel);
-}
 
-.cr-settings-section-hd {
-  font-family: var(--ui);
-  font-size: clamp(8px, 1vw, 9px);
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.6);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px dashed var(--border-white-10);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 
 .cr-settings-ctl-badge {
   font-family: var(--mono);
@@ -2657,16 +2635,8 @@ html, body {
     font-size: clamp(7px, 1.8vw, 9px);
   }
 
-  .cr-settings-section {
-    padding: clamp(4px, 1vw, 6px) clamp(6px, 1.2vw, 8px);
-    gap: var(--space-xs);
-  }
-
-  .cr-settings-section-hd {
-    font-size: clamp(7px, 1.8vw, 8px);
-    padding-bottom: 2px;
-  }
-
+  
+  
   .cr-settings-ctl-note {
     font-size: clamp(6px, 1.5vw, 7px);
     margin: 1px 0 0;
@@ -2923,16 +2893,8 @@ html, body {
   .cr-screen-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .cr-screen-card { padding: clamp(8px, 1.6vh, 12px) clamp(10px, 1.4vw, 14px); gap: 6px; }
 
-  .cr-settings-section {
-    padding: clamp(3px, 0.8vh, 4px) clamp(4px, 1.2vw, 6px);
-    gap: 2px;
-  }
-
-  .cr-settings-section-hd {
-    font-size: clamp(6px, 1.3dvh, 7px);
-    padding-bottom: 1px;
-  }
-
+  
+  
   .cr-settings-controls {
     grid-template-columns: 1fr 1fr;
     gap: 2px clamp(3px, 1vw, 4px);
