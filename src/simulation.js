@@ -10,6 +10,7 @@ import { getNpcPersonality } from "./npcNames.js";
 import { getRoundClockNowMs } from "./roundClock.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
+import { recordLocalSpillForMatchStats } from "./scoring/matchStats.js";
 import {
   computeSoloRubberband,
   SOLO_RUBBERBAND_NEUTRAL,
@@ -1217,6 +1218,7 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
       if (rammer.comboTier === 3) ChallengeTracker.record(PROGRESSION_EVENTS.COMBO_T3);
       if (!victim.hasSpilled) {
         ChallengeTracker.record(PROGRESSION_EVENTS.SPILL);
+        recordLocalSpillForMatchStats();
       }
     }
   }

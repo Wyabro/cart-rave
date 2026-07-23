@@ -428,8 +428,6 @@ export function animateResultsDismiss(overlay, panel, opts = {}) {
  *   verdict?: HTMLElement | null,
  *   scoreRows: Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge?: HTMLElement | null, format?: (n: number) => string }>,
  *   receiptLines?: HTMLElement[] | null,
- *   statsLine?: HTMLElement | null,
- *   history?: HTMLElement | null,
  *   playAgain?: HTMLElement | null,
  *   mainMenuBtn?: HTMLElement | null,
  * }} payload
@@ -442,8 +440,6 @@ export function animateResultsPodiumShow(payload) {
     verdict,
     scoreRows,
     receiptLines,
-    statsLine,
-    history,
     playAgain,
     mainMenuBtn,
   } = payload;
@@ -473,8 +469,6 @@ export function animateResultsPodiumShow(payload) {
     if (sr.badge) sr.badge.style.opacity = "0";
   });
   if (receiptLines) receiptLines.forEach((line) => { line.style.opacity = "0"; });
-  if (statsLine) statsLine.style.opacity = "0";
-  if (history) history.style.opacity = "0";
   if (playAgain) playAgain.style.opacity = "0";
   if (mainMenuBtn) mainMenuBtn.style.opacity = "0";
 
@@ -583,24 +577,6 @@ export function animateResultsPodiumShow(payload) {
     }, endBase + 80);
   }
 
-  // Recessed details ledger reveals last.
-  if (statsLine) {
-    tl.add(statsLine, {
-      opacity: [0, 1],
-      translateY: [10, 0],
-      duration: 320,
-      ease: "outQuad",
-    }, endBase + 150);
-  }
-
-  if (history) {
-    tl.add(history, {
-      opacity: [0, 1],
-      translateY: [8, 0],
-      duration: 300,
-      ease: "outQuad",
-    }, endBase + 190);
-  }
 }
 
 /**
@@ -615,9 +591,7 @@ export function animateResultsPodiumShow(payload) {
  *   verdict: HTMLParagraphElement,
  *   finalScores: HTMLDivElement,
  *   receipt: HTMLDivElement,
- *   history: HTMLDivElement,
  *   playAgain: HTMLButtonElement,
- *   statsLine: HTMLDivElement,
  *   mainMenuBtn: HTMLButtonElement,
  * }}
  */
@@ -662,9 +636,6 @@ export function initResultsOverlay(hooks = {}) {
   const receipt = document.createElement("div");
   receipt.className = "results-receipt";
 
-  const history = document.createElement("div");
-  history.className = "results-history";
-
   const actions = document.createElement("div");
   actions.className = "results-actions";
 
@@ -687,29 +658,20 @@ export function initResultsOverlay(hooks = {}) {
   actions.appendChild(playAgain);
   actions.appendChild(mainMenuBtn);
 
-  const statsLine = document.createElement("div");
-  statsLine.className = "results-stats";
-
   panel.appendChild(kicker);
   panel.appendChild(title);
   panel.appendChild(verdict);
 
-  // Reward-first order: the winner + match ranking + the PLAY AGAIN / MAIN MENU
-  // decision lead the panel; the lifetime-stats / superlatives / challenges /
-  // history ledger is recessed into a secondary details zone below. (main.js
-  // injects superlatives + challenges as siblings after statsLine, so they land
-  // inside .results-details between statsLine and history.)
+  // Podium + receipt + the PLAY AGAIN / MAIN MENU decision, and nothing else.
+  // (The recessed ledger — lifetime stats, superlatives, per-challenge progress,
+  // session history — was cut at review: clutter under the reward moment. What
+  // survived is the receipt's CHALLENGE line, which reports objectives finished
+  // during THIS round.)
   const resultsBody = document.createElement("div");
   resultsBody.className = "results-body";
   resultsBody.appendChild(finalScores);
   resultsBody.appendChild(receipt);
   resultsBody.appendChild(actions);
-
-  const details = document.createElement("div");
-  details.className = "results-details";
-  details.appendChild(statsLine);
-  details.appendChild(history);
-  resultsBody.appendChild(details);
 
   panel.appendChild(resultsBody);
   overlay.appendChild(panel);
@@ -718,5 +680,5 @@ export function initResultsOverlay(hooks = {}) {
   wireResultsButtonFeedback(playAgain);
   wireResultsButtonFeedback(mainMenuBtn);
 
-  return { overlay, panel, kicker, title, verdict, finalScores, receipt, history, playAgain, statsLine, mainMenuBtn };
+  return { overlay, panel, kicker, title, verdict, finalScores, receipt, playAgain, mainMenuBtn };
 }

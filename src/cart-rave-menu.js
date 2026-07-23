@@ -1384,8 +1384,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   /**
-   * Wires one Settings volume track: click/drag-free position → normalized gain,
-   * plus ←/→ keyboard steps for the slider role.
+   * Wires one Settings volume track: press-and-drag anywhere along the track →
+   * normalized gain, plus ←/→ keyboard steps for the slider role.
    * @param {HTMLElement | null} track
    * @param {(v: number) => void} setValue
    */
@@ -1395,10 +1395,35 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       const clamped = Math.max(0, Math.min(1, ratio));
       setValue(Math.round(clamped * AUDIO_VOLUME_MAX * 100) / 100);
     };
-    track.addEventListener('click', (e) => {
+    const applyFromEvent = (clientX) => {
       const rect = track.getBoundingClientRect();
-      applyRatio((e.clientX - rect.left) / rect.width);
+      if (!rect.width) return;
+      applyRatio((clientX - rect.left) / rect.width);
+    };
+    // * Drag state is an explicit id rather than hasPointerCapture(): capture is a
+    // * best-effort nicety (it keeps tracking once the cursor leaves the 8px
+    // * track) and setPointerCapture throws for any pointer the browser isn't
+    // * already tracking — which must not take the value update down with it.
+    /** @type {number | null} */
+    let dragPointerId = null;
+    track.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      e.preventDefault();
+      dragPointerId = e.pointerId;
+      applyFromEvent(e.clientX);
+      try { track.setPointerCapture?.(e.pointerId); } catch { /* no captured pointer — drag still works */ }
     });
+    track.addEventListener('pointermove', (e) => {
+      if (dragPointerId !== e.pointerId) return;
+      applyFromEvent(e.clientX);
+    });
+    const endDrag = (e) => {
+      if (dragPointerId !== e.pointerId) return;
+      dragPointerId = null;
+      try { track.releasePointerCapture?.(e.pointerId); } catch { /* never captured */ }
+    };
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
     track.addEventListener('keydown', (e) => {
       const step = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 0.05
         : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -0.05

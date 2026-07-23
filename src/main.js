@@ -86,7 +86,6 @@ import { onUnlockGranted, unlockStore } from "./stores/unlockStore.js";
 import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 import {
   getMatchStats,
-  matchSuperlatives,
   resetMatchStats,
   setMatchStatsLocalSlot,
   snapshotMatchStats,
@@ -3213,7 +3212,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, panel, title, verdict, finalScores, receipt, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
+    const { overlay, panel, title, verdict, finalScores, receipt, playAgain, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
       // * Ensure host + all clients share the same winner-cam presentation path.
@@ -3420,6 +3419,15 @@ async function main() {
         nameEl.className = "results-score-name results-podium-name";
         nameEl.textContent = slotDisplayName(i);
 
+        // * 7g: the cyan YOU pill next to your own name — the podium's cyan block
+        // * border alone doesn't say which cart was yours.
+        if (i === myPodiumSlotIdx) {
+          const youPill = document.createElement("span");
+          youPill.className = "results-you-pill";
+          youPill.textContent = "YOU";
+          nameEl.appendChild(youPill);
+        }
+
         if (i === myPodiumSlotIdx && isNewPersonalBest) {
           const pbBadge = document.createElement("span");
           pbBadge.className = "pb-badge";
@@ -3485,6 +3493,7 @@ async function main() {
         /** @type {Array<[string, string]>} */
         const lines = [
           ["BODIES", String(snap.localKos)],
+          ["SPILLS CAUSED", String(snap.localSpills)],
           ["BEST COMBO", comboLabel],
           ["TIMES BODIED", String(snap.localDeaths)],
         ];
@@ -3505,6 +3514,33 @@ async function main() {
           receipt.appendChild(line);
           receiptLines.push(line);
         }
+
+        // * Challenges finished DURING this round — diffed against the snapshot
+        // * taken at countdown, so an objective completed last week never prints.
+        const chNow = challengeStore.getState();
+        const completedThisMatch = [...(chNow.dailyChallenges || []), ...(chNow.weeklyChallenges || [])]
+          .filter((c) => c?.isComplete && !challengesCompleteAtRoundStart.has(c.id))
+          .map((c) => CHALLENGE_POOL.find((meta) => meta.id === c.id)?.title)
+          .filter(Boolean);
+        const challengeLine = document.createElement("div");
+        challengeLine.className = "results-receipt-line results-receipt-challenge";
+        const chLbl = document.createElement("span");
+        chLbl.className = "results-receipt-lbl";
+        chLbl.textContent = "CHALLENGE";
+        const chVal = document.createElement("span");
+        chVal.className = "results-receipt-val";
+        if (completedThisMatch.length > 0) {
+          challengeLine.classList.add("is-complete");
+          chVal.textContent = completedThisMatch.length > 1
+            ? `✓ ${completedThisMatch.length} REDEEMED`
+            : `✓ ${completedThisMatch[0]}`;
+        } else {
+          chVal.textContent = "—";
+        }
+        challengeLine.appendChild(chLbl);
+        challengeLine.appendChild(chVal);
+        receipt.appendChild(challengeLine);
+        receiptLines.push(challengeLine);
 
         const total = document.createElement("div");
         total.className = "results-receipt-line results-receipt-total";
@@ -3531,118 +3567,6 @@ async function main() {
         receiptLines.push(foot);
       }
 
-      history.replaceChildren();
-      const historyLimit = isTouchDevice() ? 2 : matchHistory.length;
-      if (matchHistory.length === 0) {
-        const emptyRow = document.createElement("div");
-        emptyRow.textContent = "No prior rounds this session.";
-        history.appendChild(emptyRow);
-      } else {
-        const startIdx = Math.max(0, matchHistory.length - historyLimit);
-        for (let i = matchHistory.length - 1; i >= startIdx; i -= 1) {
-          const m = matchHistory[i];
-          const row = document.createElement("div");
-          row.className = "results-history-row";
-          const parts = [0, 1, 2, 3]
-            .map((j) => `${slotDisplayName(j)} ${m.scores[j] ?? 0}`)
-            .join(" · ");
-          row.textContent =
-            m.winnerSlotIndex === "draw"
-              ? `DRAW — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`
-              : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
-          history.appendChild(row);
-        }
-      }
-
-      // Update personal stats display
-      if (statsLine) {
-        const ps = getPersonalStats();
-        statsLine.replaceChildren();
-
-        const tag = document.createElement("div");
-        tag.className = "results-stats-tag";
-        const pulse = document.createElement("i");
-        pulse.style.cssText =
-          "display:inline-block;width:5px;height:5px;border-radius:50%;" +
-          "background:#ff00ff;box-shadow:0 0 4px #ff00ff;flex-shrink:0";
-        tag.appendChild(pulse);
-        tag.appendChild(document.createTextNode("\u00a0YOUR STATS"));
-        statsLine.appendChild(tag);
-
-        const statDefs = [
-          { num: String(ps.wins), lbl: "WINS" },
-          { num: String(ps.matches), lbl: "PLAYED" },
-          { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
-          { num: String(ps.soloGames || 0), lbl: "SOLO" },
-        ];
-        statDefs.forEach((def, idx) => {
-          if (idx > 0) {
-            const sep = document.createElement("div");
-            sep.className = "results-stats-div";
-            statsLine.appendChild(sep);
-          }
-          const item = document.createElement("div");
-          item.className = "results-stats-item";
-          const numEl = document.createElement("span");
-          numEl.className = "results-stats-num";
-          numEl.textContent = def.num;
-          const lblEl = document.createElement("span");
-          lblEl.className = "results-stats-lbl";
-          lblEl.textContent = def.lbl;
-          item.appendChild(numEl);
-          item.appendChild(lblEl);
-          statsLine.appendChild(item);
-        });
-
-        // * This-match superlatives (matchStats spine) — local-focused solo retention beat.
-        const matchSnap = snapshotMatchStats();
-        const supers = matchSuperlatives(matchSnap);
-        if (supers.length > 0) {
-          let superLine = statsLine.parentElement?.querySelector?.(".results-superlatives") ?? null;
-          if (!superLine) {
-            superLine = document.createElement("div");
-            superLine.className = "results-superlatives";
-            statsLine.insertAdjacentElement("afterend", superLine);
-          }
-          superLine.replaceChildren();
-          for (const line of supers) {
-            const chip = document.createElement("span");
-            chip.className = "results-superlative";
-            chip.textContent = line;
-            superLine.appendChild(chip);
-          }
-        }
-
-        // * Challenge progress — the results screen is the reward moment, so daily/
-        // * weekly progress earned this match finally shows up right here.
-        let challengesLine = statsLine.parentElement?.querySelector?.(".results-challenges") ?? null;
-        if (!challengesLine) {
-          challengesLine = document.createElement("div");
-          challengesLine.className = "results-challenges";
-          statsLine.insertAdjacentElement("afterend", challengesLine);
-        }
-        challengesLine.replaceChildren();
-        const chState = challengeStore.getState();
-        const challengeRows = [...(chState.dailyChallenges || []), ...(chState.weeklyChallenges || [])];
-        for (const ch of challengeRows) {
-          const meta = CHALLENGE_POOL.find((c) => c.id === ch.id);
-          if (!meta) continue;
-          const row = document.createElement("div");
-          row.className = `results-challenge-row${ch.isComplete ? " complete" : ""}`;
-          const nameEl2 = document.createElement("span");
-          nameEl2.className = "results-challenge-name";
-          nameEl2.textContent = meta.title;
-          const progEl = document.createElement("span");
-          progEl.className = "results-challenge-prog";
-          progEl.textContent = ch.isComplete
-            ? "✓ DONE"
-            : `${Math.min(ch.progress ?? 0, meta.goal)}/${meta.goal}`;
-          row.appendChild(nameEl2);
-          row.appendChild(progEl);
-          challengesLine.appendChild(row);
-        }
-      }
-
       animateResultsPodiumShow({
         overlay,
         panel,
@@ -3650,8 +3574,6 @@ async function main() {
         verdict,
         scoreRows,
         receiptLines,
-        statsLine,
-        history,
         playAgain,
         mainMenuBtn,
       });

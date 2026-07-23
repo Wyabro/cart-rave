@@ -43,8 +43,9 @@
   overflow: hidden;
 }
 
-/* Podium left, receipt + actions right; the recessed ledger tucks under the
-   podium so the reward moment still owns the upper half. */
+/* Podium bottom-left, receipt + actions in the right rail. That is the whole
+   screen now — the recessed ledger (lifetime stats, superlatives, per-challenge
+   progress, session history) was cut at review as clutter under the reward. */
 #results-overlay .results-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(280px, 30vw, 440px);
@@ -56,7 +57,7 @@
 
 #results-overlay .results-final {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / -1;
   align-self: end;
   justify-self: start;
 }
@@ -73,17 +74,10 @@
   align-self: end;
 }
 
-#results-overlay .results-details {
-  grid-column: 1;
-  grid-row: 2;
-  max-height: clamp(120px, 26vh, 260px);
-  overflow-y: auto;
-}
-
 /* Short windows with a fine pointer (a landscape 812x375, a squat laptop window)
    reach neither the coarse nor the <=768 band, and the two-column composition
-   needs more height than they have — podium, receipt, ledger and actions all
-   overflowed their rows and landed on each other. Stack and scroll instead. */
+   needs more height than they have — podium, receipt and actions overflowed
+   their rows and landed on each other. Stack and scroll instead. */
 @media (max-height: 640px) and (min-width: 769px) and (pointer: fine) {
   #results-overlay .results-panel {
     grid-template-rows: auto auto auto auto;
@@ -92,13 +86,12 @@
 
   #results-overlay .results-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto auto;
   }
 
   #results-overlay .results-final,
   #results-overlay .results-receipt,
-  #results-overlay .results-actions,
-  #results-overlay .results-details {
+  #results-overlay .results-actions {
     grid-column: 1;
     align-self: stretch;
     justify-self: stretch;
@@ -107,7 +100,6 @@
   #results-overlay .results-final { grid-row: 1; }
   #results-overlay .results-receipt { grid-row: 2; }
   #results-overlay .results-actions { grid-row: 3; }
-  #results-overlay .results-details { grid-row: 4; max-height: none; }
 }
 
 /* Stack-A lettering with a per-outcome fill (--title-glow, set in JS: winner's
@@ -359,6 +351,12 @@
   font-weight: 700;
 }
 
+/* Challenge line — portal green only when something was actually redeemed this
+   round; otherwise it prints a dash like any other unearned stat. */
+#results-overlay .results-receipt-challenge.is-complete .results-receipt-val {
+  color: var(--color-portal);
+}
+
 #results-overlay .results-receipt-total {
   margin-top: 4px;
   padding-top: 5px;
@@ -411,6 +409,20 @@
   align-items: center;
 }
 
+/* Cyan YOU pill beside your own podium name (mock 7g). */
+#results-overlay .results-you-pill {
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-cyan);
+  color: var(--color-ink-deep);
+  font-family: var(--results-mono);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
 /* Solid-green badge is already on-model — keep it, drop the resting glow. */
 #results-overlay .pb-badge {
   font-family: var(--results-mono);
@@ -442,159 +454,6 @@
   flex-shrink: 0;
 }
 
-/* Recessed ledger — lifetime stats, superlatives, challenges, history. Sits
-   below the winner + actions, separated by a dashed divider and slightly dimmed
-   so the reward moment (above) reads first. */
-#results-overlay .results-details {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.14);
-  opacity: 0.82;
-}
-
-#results-overlay .results-stats {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px var(--border-white-10);
-  border-radius: var(--radius-lg);
-  margin: 0 0 14px;
-  position: relative;
-}
-
-/* Challenge progress block — daily/weekly rows under YOUR STATS. */
-#results-overlay .results-superlatives {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  justify-content: center;
-  margin: 6px 0 4px;
-}
-
-/* Personal-highlight chip — celebratory, so magenta stays, but flat and
-   printed (no blur, no resting glow). */
-#results-overlay .results-superlative {
-  font-family: var(--results-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  color: var(--color-magenta);
-  border: none;
-  box-shadow: 0 0 0 1.5px var(--color-magenta);
-  border-radius: var(--radius-pill);
-  padding: 3px 10px;
-  background: var(--color-ink);
-}
-
-#results-overlay .results-challenges {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 18px 10px;
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px var(--border-white-10);
-  border-radius: var(--radius-lg);
-  margin: 0 0 14px;
-}
-#results-overlay .results-challenge-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  font-family: var(--results-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.75);
-}
-#results-overlay .results-challenge-row.complete {
-  color: var(--color-portal);
-}
-#results-overlay .results-challenge-prog {
-  font-weight: 700;
-  color: var(--color-cyan);
-}
-#results-overlay .results-challenge-row.complete .results-challenge-prog {
-  color: var(--color-portal);
-}
-
-#results-overlay .results-stats-tag {
-  position: absolute;
-  top: -8px; left: 14px;
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 1px 8px;
-  background: var(--color-ink);
-  box-shadow: var(--slab-shadow-sm);
-  border-radius: var(--radius-sm);
-  font-family: var(--results-mono);
-  font-size: 8px;
-  letter-spacing: 0.22em;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-#results-overlay .results-stats-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-}
-
-/* Stats numbers are printed data, not celebration — sticker-white, no glow.
-   Magenta is reserved for the winner moment (title, badge, superlatives). */
-#results-overlay .results-stats-num {
-  font-family: var(--results-ui);
-  font-size: 22px;
-  line-height: 1;
-  color: var(--color-sticker-white);
-  letter-spacing: 0.02em;
-}
-
-#results-overlay .results-stats-lbl {
-  font-family: var(--results-mono);
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
-}
-
-#results-overlay .results-stats-div {
-  width: 1px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.12);
-  flex-shrink: 0;
-}
-
-#results-overlay .results-history {
-  min-height: 72px;
-  max-height: 160px;
-  overflow: auto;
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: var(--radius-lg);
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px var(--border-white-10);
-  font-family: var(--results-mono);
-  font-size: 11px;
-  line-height: 1.65;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-#results-overlay .results-history-row {
-  margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-}
-
-#results-overlay .results-history-row:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
 
 #results-overlay .results-actions {
   display: flex;
@@ -724,8 +583,7 @@
      shrink each block to its content. Put them back to full width. */
   #results-overlay .results-final,
   #results-overlay .results-receipt,
-  #results-overlay .results-actions,
-  #results-overlay .results-details {
+  #results-overlay .results-actions {
     align-self: stretch;
     justify-self: stretch;
   }
@@ -756,49 +614,15 @@
     font-size: clamp(8px, 2.2vw, 9px);
   }
 
+  /* The receipt is the flex scroller now that the ledger below it is gone, so a
+     long round's extra lines never push the actions off a phone screen. */
   #results-overlay .results-receipt {
-    margin-bottom: clamp(8px, 2vw, 12px);
-    padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
-  }
-
-  #results-overlay .results-stats {
-    margin: 0;
-    padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
-    flex-shrink: 0;
-  }
-
-  #results-overlay .results-stats-num {
-    font-size: clamp(16px, 4vw, 18px);
-  }
-
-  #results-overlay .results-stats-lbl {
-    font-size: 7px;
-  }
-
-  /* Details wraps the ledger — make IT the flex scroller so the winner + actions
-     above stay pinned while stats/superlatives/challenges/history scroll. */
-  #results-overlay .results-details {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    margin-top: clamp(8px, 2vh, 12px);
-    padding-top: clamp(8px, 2vh, 12px);
-  }
-
-  #results-overlay .results-history {
-    flex: 0 0 auto;
-    max-height: none;
-    overflow: visible;
-    margin-bottom: 0;
-    padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px);
-    font-size: clamp(9px, 2.3vw, 10px);
-    line-height: 1.45;
-  }
-
-  #results-overlay .results-history-row {
-    margin-bottom: 4px;
-    padding-bottom: 4px;
+    margin-bottom: clamp(8px, 2vw, 12px);
+    padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
   }
 
   #results-overlay .results-actions {
@@ -814,24 +638,16 @@
   }
 }
 
-@media (pointer: coarse) and (orientation: portrait), (max-width: 768px) and (orientation: portrait) {
-  #results-overlay .results-history {
-    flex: 0 1 auto;
-    max-height: 30vh;
-    max-height: 30dvh;
-    font-size: clamp(12px, 3.4vw, 14px);
-    line-height: 1.55;
-  }
-}
-
+/* Landscape phones: podium across the top, receipt and actions sharing the row
+   beneath. (The old "history" and "stats" areas went with the ledger.) */
 @media (pointer: coarse) and (orientation: landscape), (max-width: 768px) and (orientation: landscape) {
   #results-overlay .results-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
-      "scores history"
-      "stats actions";
+      "scores scores"
+      "receipt actions";
     gap: clamp(6px, 1.2vw, 10px);
   }
 
@@ -841,16 +657,14 @@
     overflow: hidden;
   }
 
-  #results-overlay .results-stats {
-    grid-area: stats;
-  }
-
-  #results-overlay .results-history {
-    grid-area: history;
+  #results-overlay .results-receipt {
+    grid-area: receipt;
+    margin-bottom: 0;
   }
 
   #results-overlay .results-actions {
     grid-area: actions;
+    align-self: end;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: clamp(6px, 1.2vw, 8px);
