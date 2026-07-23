@@ -2666,16 +2666,18 @@ html, body {
   gap: 3px;
   padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 10px);
   border-radius: var(--radius-panel);
-  background: var(--color-ink-deep);
-  border: none;
-  box-shadow: var(--sticker-micro);
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   transition: box-shadow 150ms ease;
 }
 
 .challenge-row.is-complete {
-  box-shadow:
-    0 0 0 1.5px var(--color-portal),
-    2px 2px 0 1.5px var(--color-ink-deep);
+  border-color: rgba(43, 255, 122, 0.45);
+}
+.challenge-row.is-complete .challenge-name {
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 .challenge-header {
@@ -2714,10 +2716,14 @@ html, body {
   border: 1px solid rgba(255, 43, 214, 0.35);
 }
 
+/* Completed = a tilted portal-green "REDEEMED" rubber stamp. */
 .challenge-row.is-complete .challenge-badge {
-  background: rgba(43, 255, 122, 0.2);
+  background: transparent;
   color: var(--color-portal);
-  border: 1px solid rgba(43, 255, 122, 0.5);
+  border: 2px solid var(--color-portal);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  transform: rotate(-6deg);
 }
 
 .challenge-desc {

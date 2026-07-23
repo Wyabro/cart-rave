@@ -2044,7 +2044,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
       const badge = document.createElement("span");
       badge.className = `challenge-badge type-${meta.type}`;
-      badge.textContent = item.isComplete ? "✓ DONE" : meta.type;
+      badge.textContent = item.isComplete ? "REDEEMED" : meta.type;
 
       header.appendChild(name);
       header.appendChild(badge);
