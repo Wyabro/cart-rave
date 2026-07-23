@@ -56,15 +56,22 @@
 
 /* .cc-title (stickers.css) supplies stack-A lettering (sticker-white fill,
    ink stroke, hard extrude); local rules here are size/spacing only. */
+/* PAUSED wears the same treatment as every other 7x screen title: flat warm
+   white with one magenta glow — no die-cut stroke, no hard extrude (which is
+   why the element no longer carries .cc-title). */
 #esc-overlay .esc-title {
   font-family: var(--esc-display);
+  font-weight: 400;
   /* 7f: PAUSED is the screen's headline — Road Rage at the mock's 72px, floored
      to what a mid-match panel can spend. */
   font-size: clamp(32px, 6vw, 72px);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   margin: 0;
   line-height: 1;
   flex-shrink: 0;
+  color: var(--color-sticker-white);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0 40px var(--glow-magenta-30, rgba(255, 43, 214, 0.3));
   transform: skewX(-4deg);
   transform-origin: left center;
   white-space: nowrap;
@@ -136,15 +143,17 @@
   padding-block: clamp(12px, 2.2vw, 16px);
 }
 
-/* Shown only when RESTART is hidden — it explains an absence. */
-#esc-overlay .esc-restart-note {
-  margin: 0;
-  flex-shrink: 0;
-  text-align: center;
-  font-family: var(--esc-mono);
-  font-size: clamp(8px, 1.5vw, 9px);
-  letter-spacing: 0.14em;
-  color: rgba(242, 237, 228, 0.3);
+/* Mock 7f's RESTART/MAIN MENU are quiet next to the yellow: cyan hairline and
+   muted grey respectively, not white lettering. */
+#esc-overlay .esc-actions .cc-btn--secondary {
+  background: transparent;
+  border-color: rgba(34, 230, 255, 0.4);
+  box-shadow: none;
+  color: var(--esc-cyan);
+}
+
+#esc-overlay .esc-actions .cc-btn--ghost {
+  color: var(--color-muted);
 }
 /* 7f: one 2×2 toggle grid — QUALITY · POST-FX / ANNOUNCER · CALLOUTS. */
 #esc-overlay .esc-toggle-grid {
@@ -153,12 +162,29 @@
   gap: clamp(8px, 1.5vw, 10px);
 }
 
+/* Quiet hairline chips (mock 7f) — these are status readouts you can click, not
+   calls to action; the yellow/ghost slab weight belonged to the actions row. */
 #esc-overlay .esc-toggle-grid .esc-btn {
   width: auto;
   min-width: 0;
-  min-height: 40px;
-  font-size: clamp(9px, 1.5vw, 11px);
+  min-height: 0;
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+  font-family: var(--esc-mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1.5vw, 10px);
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
   white-space: nowrap;
+}
+
+#esc-overlay .esc-toggle-grid .esc-btn:hover,
+#esc-overlay .esc-toggle-grid .esc-btn:focus-visible {
+  color: var(--color-sticker-white);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
 }
 
 #esc-overlay .esc-section {
@@ -173,13 +199,13 @@
   min-width: 0;
 }
 
+/* Plain label, no dashed rule — the mock's cards are open, and the 7c settings
+   cards read the same way. */
 #esc-overlay .esc-section-hd {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding-bottom: clamp(4px, 1vw, 6px);
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
 }
 
@@ -248,8 +274,18 @@
   font-weight: 400;
   font-size: clamp(11px, 1.3vw, 14px);
   letter-spacing: 0.04em;
-  color: var(--color-sticker-white);
+  color: var(--esc-kc, var(--color-sticker-white));
 }
+
+/* Per-action lettering accent, matching the Settings chart's --kc. Settings
+   pulls these from the live arena palette; this module can't reach that
+   closure, so it uses the palette's own default accents. MENU's orange has no
+   token — it mirrors the `p.players[4]` fallback in cart-rave-menu.js. */
+#esc-overlay .esc-ctl-row--move { --esc-kc: var(--esc-cyan); }
+#esc-overlay .esc-ctl-row--boost { --esc-kc: var(--color-yellow); }
+#esc-overlay .esc-ctl-row--hop { --esc-kc: var(--esc-magenta); }
+#esc-overlay .esc-ctl-row--mute { --esc-kc: var(--color-portal); }
+#esc-overlay .esc-ctl-row--menu { --esc-kc: #ff7a1a; }
 
 #esc-overlay .esc-ctl-keys kbd.wide {
   min-width: 64px;
@@ -303,22 +339,31 @@
   min-width: 0;
 }
 
+/* Mock 7f: word labels, a flat accent bar, and the value in the accent — no
+   knob. The row is still a full pointer/keyboard slider underneath. */
 #esc-overlay .esc-vol-row {
+  --esc-vol-accent: var(--esc-cyan);
   display: grid;
-  grid-template-columns: clamp(18px, 4vw, 22px) 1fr clamp(28px, 7vw, 36px);
+  grid-template-columns: clamp(44px, 9vw, 56px) 1fr clamp(24px, 5vw, 30px);
   align-items: center;
-  gap: clamp(6px, 1.5vw, 8px);
+  gap: clamp(8px, 1.8vw, 14px);
 }
+
+#esc-overlay .esc-vol-row--music { --esc-vol-accent: var(--esc-magenta); }
+#esc-overlay .esc-vol-row--sfx { --esc-vol-accent: var(--esc-cyan); }
 
 #esc-overlay .esc-vol-label {
-  text-align: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: clamp(11px, 2.6vw, 12px);
+  text-align: left;
+  color: rgba(242, 237, 228, 0.7);
+  font-size: clamp(9px, 1.8vw, 11px);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
 }
 
+/* The wrap keeps a tall hit area (touch) while the printed bar stays 6px. */
 #esc-overlay .esc-vol-track-wrap {
   position: relative;
-  height: clamp(34px, 8vw, 40px);
+  height: clamp(28px, 6vw, 32px);
   display: flex;
   align-items: center;
   touch-action: none;
@@ -328,10 +373,10 @@
 #esc-overlay .esc-vol-track {
   position: relative;
   width: 100%;
-  height: clamp(8px, 2vw, 10px);
-  border-radius: var(--radius-pill);
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px var(--border-white-14);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -342,21 +387,7 @@
   bottom: 0;
   width: 0%;
   border-radius: inherit;
-  background: var(--color-cyan);
-  pointer-events: none;
-}
-
-#esc-overlay .esc-vol-track-wrap::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: var(--esc-vol-thumb, 0%);
-  width: clamp(18px, 4.5vw, 22px);
-  height: clamp(18px, 4.5vw, 22px);
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: var(--color-sticker-white);
-  box-shadow: 0 0 0 2px var(--color-ink-deep);
+  background: var(--esc-vol-accent);
   pointer-events: none;
 }
 
@@ -364,7 +395,7 @@
   font-family: var(--esc-mono);
   font-size: clamp(10px, 2.2vw, 11px);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--esc-vol-accent);
   text-align: right;
   letter-spacing: 0.04em;
 }

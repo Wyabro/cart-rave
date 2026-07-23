@@ -35,7 +35,6 @@ const elements = {
   escSections: [],
   resumeBtn: null,
   restartBtn: null,
-  restartNote: null,
   quitBtn: null,
   postFxBtn: null,
   lowQualityBtn: null,
@@ -56,8 +55,6 @@ function syncRestartVisibility() {
   const mode = _options.detectGameMode ? _options.detectGameMode() : "";
   const solo = mode === "solo" || mode === "testdrive";
   elements.restartBtn.style.display = solo ? "" : "none";
-  // * The note explains an ABSENCE — in solo the button is right there.
-  if (elements.restartNote) elements.restartNote.style.display = solo ? "none" : "";
 }
 
 /**
@@ -95,10 +92,11 @@ function syncQualityTierButtonState(tierOverride) {
  * @param {string} labelText
  * @param {(gain: number) => void} onChange
  * @param {string} ariaLabel
+ * @param {string} [variant] Row modifier ("music" / "sfx") — drives the accent.
  */
-function createEscVolumeRow(labelText, onChange, ariaLabel) {
+function createEscVolumeRow(labelText, onChange, ariaLabel, variant = "") {
   const row = document.createElement("div");
-  row.className = "esc-vol-row";
+  row.className = variant ? `esc-vol-row esc-vol-row--${variant}` : "esc-vol-row";
 
   const label = document.createElement("span");
   label.className = "esc-vol-label";
@@ -274,13 +272,20 @@ function createEscSection(label, tag = "") {
 
 /**
  * Builds a controls reference row with keycaps and a label.
+ *
+ * Mirrors the SETTINGS controls chart (`.cr-settings-ctl-*`, 7c) exactly: the
+ * same key splits, the same all-caps labels, and a per-action accent on the
+ * lettering. The accent comes from a row modifier in CSS rather than an inline
+ * `--kc` like Settings uses, because Settings tints from the live arena palette
+ * in the menu module's closure, which this module can't reach.
  * @param {string|string[]} keys
  * @param {string} labelText
  * @param {boolean} [wide=false]
+ * @param {string} [action] Row modifier ("move"/"boost"/"hop"/"mute"/"menu").
  */
-function createEscControlRow(keys, labelText, wide = false) {
+function createEscControlRow(keys, labelText, wide = false, action = "") {
   const row = document.createElement("div");
-  row.className = "esc-ctl-row";
+  row.className = action ? `esc-ctl-row esc-ctl-row--${action}` : "esc-ctl-row";
 
   const keysEl = document.createElement("span");
   keysEl.className = "esc-ctl-keys";
@@ -327,10 +332,12 @@ function resetEscOverlayAnimState(overlay) {
     section.style.transform = "translateY(10px)";
   }
 
+  // * Opacity ONLY on the action slabs. They carry their skew in CSS `transform`,
+  // * and anime.js writes `transform` inline — a translateY reveal here silently
+  // * flattened the parallelograms and left their counter-skewed labels slanted.
   for (const btn of [elements.resumeBtn, elements.restartBtn, elements.quitBtn]) {
     if (!btn) continue;
     btn.style.opacity = "0";
-    btn.style.transform = "translateY(8px)";
   }
 }
 
@@ -363,7 +370,6 @@ function animateEscOverlayShow() {
     for (const btn of [elements.resumeBtn, elements.restartBtn, elements.quitBtn]) {
       if (!btn) continue;
       btn.style.opacity = "1";
-      btn.style.transform = "";
     }
     return;
   }
@@ -377,15 +383,17 @@ function animateEscOverlayShow() {
     animateMenuReveal(title, { delay: 40, duration: 260, y: 10, ease: "outExpo" });
     animateMenuReveal(elements.escContext, { delay: 70, duration: 240, y: 8, ease: "outExpo" });
 
-    // Hero actions lead (top of the panel), then the lower settings/reference zone.
+    // Action slabs fade in staggered — deliberately NOT animateMenuReveal, which
+    // writes `transform` inline and would overwrite their CSS skew (see the
+    // reset above). Nothing may animate transform on these buttons. fadeIn has
+    // no delay of its own, so the stagger is a timer (token-guarded like the
+    // rest of the entrance).
     [elements.resumeBtn, elements.restartBtn, elements.quitBtn].forEach((btn, i) => {
       if (!btn) return;
-      animateMenuReveal(btn, {
-        delay: 90 + i * 35,
-        duration: 240,
-        y: 8,
-        ease: "outBack(1.2)",
-      });
+      window.setTimeout(() => {
+        if (token !== escEntranceToken) return;
+        fadeIn(btn, 240, { ease: "outQuad" });
+      }, 90 + i * 35);
     });
 
     elements.escSections.forEach((section, i) => {
@@ -574,7 +582,9 @@ export function init(options = {}, hudContext = {}) {
   elements.escPanel.addEventListener("click", (e) => e.stopPropagation());
 
   elements.escTitle = document.createElement("h2");
-  elements.escTitle.className = "esc-title cc-title";
+  // * No .cc-title: the mock's PAUSED is the same flat warm-white + magenta glow
+  // * as every other 7x screen title, not the die-cut stroke + hard extrude.
+  elements.escTitle.className = "esc-title";
   elements.escTitle.textContent = "PAUSED";
 
   // * Round/time context under the title — the HUD is suppressed while paused,
@@ -583,38 +593,34 @@ export function init(options = {}, hudContext = {}) {
   elements.escContext.className = "esc-context";
   elements.escContext.textContent = "MATCH HELD";
 
-  const controlsSection = createEscSection("◇ CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
+  const controlsSection = createEscSection("CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
   controlsSection.section.classList.add("esc-section--controls");
   const controlsList = document.createElement("div");
   controlsList.className = "esc-ctl-list";
 
-  if (touchDevice) {
-    /** @type {Array<[string[], string]>} */
-    const touchControls = [
-      [["Stick"], "Drive"],
-      [["Boost"], "Boost (hold to charge)"],
-      [["Hop"], "Hop"],
-      [["Menu"], "Open / close"],
+  // * Key splits, casing and wording track the SETTINGS chart row for row — a
+  // * player who reads the keys there and then pauses must see one chart.
+  /** @type {Array<[string[], string, boolean, string]>} */
+  const escControls = touchDevice
+    ? [
+      [["STICK"], "MOVE", true, "move"],
+      [["BOOST"], "BOOST", true, "boost"],
+      [["HOP"], "HOP", true, "hop"],
+      [["MENU"], "MENU", true, "menu"],
+    ]
+    : [
+      [["W", "A", "S", "D"], "MOVE", false, "move"],
+      [["SHIFT"], "BOOST", true, "boost"],
+      [["SPACE"], "HOP", true, "hop"],
+      [["M"], "MUTE", false, "mute"],
+      [["ESC"], "MENU", false, "menu"],
     ];
-    touchControls.forEach(([keys, labelText]) => {
-      controlsList.appendChild(createEscControlRow(keys, labelText));
-    });
-  } else {
-    controlsList.appendChild(createEscControlRow(["WASD / Arrows"], "Drive", true));
-    /** @type {Array<[string[], string, boolean?]>} */
-    const kbControls = [
-      [["Shift"], "Boost", true],
-      [["Space"], "Hop", true],
-      [["M"], "Mute"],
-      [["Esc"], "Close menu"],
-    ];
-    kbControls.forEach(([keys, labelText, wide]) => {
-      controlsList.appendChild(createEscControlRow(keys, labelText, wide));
-    });
-  }
+  escControls.forEach(([keys, labelText, wide, action]) => {
+    controlsList.appendChild(createEscControlRow(keys, labelText, wide, action));
+  });
   controlsSection.body.appendChild(controlsList);
 
-  const audioSection = createEscSection("◇ AUDIO");
+  const audioSection = createEscSection("AUDIO");
   audioSection.section.classList.add("esc-section--audio");
   const escAudioRow = document.createElement("div");
   escAudioRow.className = "esc-audio-row";
@@ -636,12 +642,13 @@ export function init(options = {}, hudContext = {}) {
   });
   wireButtonPressFeedback(elements.escMuteBtn, { scale: 0.92 });
 
-  elements.escMusicVol = createEscVolumeRow("♫", (v) => {
+  // * Mock 7f labels these in words, not glyphs — same as the SETTINGS sliders.
+  elements.escMusicVol = createEscVolumeRow("MUSIC", (v) => {
     if (_options.setMusicGain) _options.setMusicGain(v);
-  }, "Music volume");
-  elements.escSfxVol = createEscVolumeRow("⚡", (v) => {
+  }, "Music volume", "music");
+  elements.escSfxVol = createEscVolumeRow("SFX", (v) => {
     if (_options.setSfxVolume) _options.setSfxVolume(v);
-  }, "SFX volume");
+  }, "SFX volume", "sfx");
 
   const escVolStack = document.createElement("div");
   escVolStack.className = "esc-vol-stack";
@@ -714,12 +721,6 @@ export function init(options = {}, hudContext = {}) {
   actions.appendChild(elements.restartBtn);
   actions.appendChild(elements.quitBtn);
 
-  // * Only worth saying when the button ISN'T there: in solo it sits right above
-  // * this line. syncRestartVisibility() owns when it shows.
-  elements.restartNote = document.createElement("p");
-  elements.restartNote.className = "esc-restart-note";
-  elements.restartNote.textContent = "RESTART IS SOLO ONLY — ONLINE REMATCHES RUN FROM THE PODIUM";
-
   // ── DISPLAY settings — grouped with AUDIO/ANNOUNCER, out of the actions row ──
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);
   elements.postFxBtn = document.createElement("button");
@@ -785,7 +786,6 @@ export function init(options = {}, hudContext = {}) {
 
   elements.escPanel.appendChild(escBody);
   elements.escPanel.appendChild(actions);
-  elements.escPanel.appendChild(elements.restartNote);
   elements.escOverlay.appendChild(elements.escBackdrop);
   elements.escOverlay.appendChild(elements.escPanel);
   document.body.appendChild(elements.escOverlay);
