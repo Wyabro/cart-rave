@@ -740,58 +740,61 @@
         end the round with the most points. Ties go to Sudden Death.
       </p>
 
-      <section class="cr-howto-section" aria-labelledby="cr-howto-score-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-score-hd">◇ HOW TO SCORE</h3>
-        <p class="cr-howto-blurb">
-          You only score when <strong>you</strong> force a rival off — self-falls count for
-          nothing. Bonuses add first, then combo multipliers apply.
-        </p>
-        <ul class="cr-howto-bullets cr-howto-bullets--compact">
-          <li><strong>Edge KO</strong> — 1 pt, off the perimeter</li>
-          <li><strong>Hazard KO</strong> — 2 pts, into the center pit or corner voids</li>
-          <li><strong>Critical</strong> — +1 when your ram is high-speed</li>
-          <li><strong>Leader down</strong> — +1 for KOing the sole leader (they glow)</li>
-          <li><strong>High ground</strong> — +1 on Sundial from the podium</li>
-        </ul>
-      </section>
+      <div class="cr-howto-aisles">
+        <section class="cr-howto-aisle cr-howto-aisle--1" aria-labelledby="cr-howto-aisle1-hd">
+          <span class="cr-howto-aisle-no">AISLE 1</span>
+          <h3 class="cr-howto-aisle-name" id="cr-howto-aisle1-hd">RAM THEM OUT</h3>
+          <p class="cr-howto-aisle-body">
+            You only score when <strong>you</strong> force a rival off — self-falls count for
+            nothing. Steer with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, close the gap on
+            <kbd>SHIFT</kbd>, and time a <kbd>SPACE</kbd> hop over the pit.
+          </p>
+        </section>
 
-      <section class="cr-howto-section" aria-labelledby="cr-howto-combo-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-combo-hd">◇ COMBOS</h3>
-        <p class="cr-howto-blurb">
-          Chain KOs before the ~5s streak fades — each tier multiplies the whole reward:
-          <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 · <strong>CARNAGE</strong> ×3.0
-        </p>
-      </section>
+        <section class="cr-howto-aisle cr-howto-aisle--2" aria-labelledby="cr-howto-aisle2-hd">
+          <span class="cr-howto-aisle-no">AISLE 2</span>
+          <h3 class="cr-howto-aisle-name" id="cr-howto-aisle2-hd">CHAIN COMBOS</h3>
+          <p class="cr-howto-aisle-body">
+            Bonuses add first, then the combo multiplier hits the whole reward. Chain KOs before the
+            ~5s streak fades: <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 ·
+            <strong>CARNAGE</strong> ×3.0.
+          </p>
+        </section>
 
-      <section class="cr-howto-section" aria-labelledby="cr-howto-store-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-store-hd">◇ LIVING STORE</h3>
-        <ul class="cr-howto-bullets cr-howto-bullets--compact">
-          <li><strong>Cargo bay</strong> — scoring fills your cart; fuller = heavier handling, bigger spill</li>
-          <li><strong>Spill rush</strong> — forcing a spill grants a short speed comeback buff</li>
-          <li><strong>PA directives</strong> — mid-round rule twists (~18s); watch the HUD chip under the timer:</li>
-        </ul>
-        <div class="cr-howto-directive-grid" role="list">
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">FLASH SALE</span>
-            <span class="cr-howto-directive-desc">Harder rams</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">DOUBLE BAG</span>
-            <span class="cr-howto-directive-desc">KO rewards ×2</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">EXPRESS LANE</span>
-            <span class="cr-howto-directive-desc">Faster boost charge</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">SPILL BONUS</span>
-            <span class="cr-howto-directive-desc">+1 per forced spill</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">RUSH HOUR</span>
-            <span class="cr-howto-directive-desc">Everyone drives faster</span>
-          </div>
+        <section class="cr-howto-aisle cr-howto-aisle--3" aria-labelledby="cr-howto-aisle3-hd">
+          <span class="cr-howto-aisle-no">AISLE 3</span>
+          <h3 class="cr-howto-aisle-name" id="cr-howto-aisle3-hd">THE LIVING STORE</h3>
+          <p class="cr-howto-aisle-body">
+            Scoring fills your <strong>cargo bay</strong> — fuller means heavier handling and a
+            bigger spill. Forcing a spill grants a short speed buff. Every ~18s the PA calls a
+            directive: <strong>FLASH SALE</strong> · <strong>DOUBLE BAG</strong> ·
+            <strong>EXPRESS LANE</strong> · <strong>SPILL BONUS</strong> ·
+            <strong>RUSH HOUR</strong>.
+          </p>
+        </section>
+      </div>
+
+      <section class="cr-howto-strip" aria-labelledby="cr-howto-score-hd">
+        <h3 class="cr-howto-strip-hd" id="cr-howto-score-hd">SCORING</h3>
+        <div class="cr-howto-price-row" role="list">
+          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">EDGE KO</span><span class="cr-howto-price-val">1</span></span>
+          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HAZARD KO</span><span class="cr-howto-price-val">2</span></span>
+          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">CRITICAL</span><span class="cr-howto-price-val">+1</span></span>
+          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">LEADER DOWN</span><span class="cr-howto-price-val">+1</span></span>
+          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HIGH GROUND</span><span class="cr-howto-price-val">+1</span></span>
         </div>
+      </section>
+
+      <section class="cr-howto-strip" aria-labelledby="cr-howto-ctl-hd">
+        <h3 class="cr-howto-strip-hd" id="cr-howto-ctl-hd">FULL CONTROLS</h3>
+        <div class="cr-howto-ctl-row" role="list">
+          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="cr-howto-ctl-lbl">MOVE</span></span>
+          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SHIFT</kbd></span><span class="cr-howto-ctl-lbl">BOOST</span></span>
+          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SPACE</kbd></span><span class="cr-howto-ctl-lbl">HOP</span></span>
+          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>M</kbd></span><span class="cr-howto-ctl-lbl">MUTE</span></span>
+          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>ESC</kbd></span><span class="cr-howto-ctl-lbl">MENU</span></span>
+        </div>
+        <p class="cr-howto-note">Gamepad — L-stick or d-pad steers · A boost · B hop · START menu.</p>
       </section>
 
       <button class="cr-overlay-done" id="cr-howto-done" type="button">LET'S ROLL</button>
