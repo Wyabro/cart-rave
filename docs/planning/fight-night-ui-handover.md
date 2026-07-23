@@ -11,7 +11,8 @@
 - **Design source:** `~/Downloads/Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` +
   `Menu Redesign Concepts.dc.html`. The README's 7a–7g section carries the per-screen prose; the
   `.dc.html` carries the exact measurements. Extract it — the plan does *not* restate every number.
-- **State: the full-screen rebuild is 6 of 7 done.** Only **7e Friends** is left. 7f Pause is a trim.
+- **State: the full-screen rebuild is 6 of 7 done, plus 7e.** Only **7f Pause** is left — and it is a
+  *trim*, not a rebuild: the mock keeps it a centred 860px panel.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything
   was verified via DOM + computed-style + scripted-interaction introspection, **never by eye**. No
   screen has had a visual sign-off except 7a and 7c (Wyatt looked at those in a real browser).
@@ -25,8 +26,8 @@
 | 7b Challenges | ✅ rebuilt — 2-col price-tag grid, live restock kicker |
 | 7d How To | ✅ rebuilt — three aisle tags across + SCORING / FULL CONTROLS strips |
 | 7g Results | ✅ rebuilt + reviewed — podium left / receipt right, ledger cut, YOU pill, spill + challenge lines |
-| **7e Friends** | ⬜ **NEXT** — room code left / CHECKOUT LINE roster right + region·ping footer |
-| 7f Pause | ⬜ **stays a centred 860px panel** (mock says so) — only needs right-aligned round/time context, 860px width, and the extra SCORING section dropped |
+| 7e Friends | ✅ rebuilt — invite chrome on the shell + full-screen CHECKOUT LINE lobby (netcode seam untouched) |
+| **7f Pause** | ⬜ **NEXT** — **stays a centred 860px panel** (mock says so): only needs right-aligned round/time context, 860px width, and the extra SCORING section dropped |
 
 ## ⚠️ READ FIRST — three traps that have each bitten more than once
 
@@ -116,6 +117,8 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 | `561007d` | **7d full-screen** | HOW TO PLAY — three aisle tags across, accent moved into the Road Rage number, strips → single rows, gamepad line hard-right w/ inline SVG. |
 | `a7cf110` | **7g full-screen** | RESULTS — podium bottom-left (250/170/120/80, winner 2nd-from-left via flex `order`), receipt + actions right rail, PA pill + 52px skewed headline, skew on a `::before` so main.js label rewrites survive. |
 | `d8e3c8b` | 7g review | YOU pill; SPILLS CAUSED + CHALLENGE receipt lines; **ledger removed**; Settings sliders made draggable. |
+| `26d6fa3` | **7e menu side** | FRIENDS invite chrome onto the shell — ROOM CODE card (36px cyan + hairline COPY + link + share hint) beside the host BOT DIFFICULTY card; retired modal CSS + both band blocks deleted; `main.js` untouched. |
+| `50b0af7` | **7e lobby side** | CHECKOUT LINE — title top-left, ROOM CODE slab + READY/LEAVE left, 560px roster right, hint bar. Gate/resolver/READY-proxy unchanged. |
 
 ## Key implementation facts (so you don't re-derive)
 
@@ -123,7 +126,10 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 - **`.cr-screen` shell** (`cart-rave-menu.css` ~1315): Road Rage title top-left over a Goldman kicker; named regions `-rail` / `-stage` / `-panel` / `-panels` / `-actions` / `-hint`; collapse at 1024 and 768. Rebuilding a screen is markup restructure + region contents, not a new layout system.
 - **Arena picker** is a pager (`#cr-arena-prev/next`) backed by the **hidden `.cr-level-btn` radiogroup** — the buttons stay the data model.
 - **emblemForSlot(slot)** (npcNames.js): NPC → personality emblem; human → shopper glyph tinted by cart colour; empty → null.
-- **Roster model (7e — read this before starting):** `buildRosterRows(netSlots, roundScores, isLobbyRoster)` in hud.js is the ONE slot→row resolver — compact scoreboard and CHECKOUT LINE both read it. The lobby READY button is a **proxy** that clicks `elements.readyBtn`; never add a second `MSG.readyToggle` send. The lobby element is mounted on `document.body` and forced hidden in the menu-visible and `suppressHud` branches. Full-screen gate is **`phase === "lobby"` && friends** only — `isLobbyRoster` (`lobby || countdown`) would cover the 3-2-1.
+- **Roster model (7e — still true after the rebuild):** `buildRosterRows(netSlots, roundScores, isLobbyRoster)` in hud.js is the ONE slot→row resolver — compact scoreboard and CHECKOUT LINE both read it. The lobby READY button is a **proxy** that clicks `elements.readyBtn`; never add a second `MSG.readyToggle` send. The lobby element is mounted on `document.body` and forced hidden in the menu-visible and `suppressHud` branches. Full-screen gate is **`phase === "lobby"` && friends** only — `isLobbyRoster` (`lobby || countdown`) would cover the 3-2-1.
+- **The lobby deliberately does NOT use `.cr-screen`.** It re-expresses the same geometry under `.hud-lobby-*` in `hud.css`, because a hud.css override of a cart-rave-menu.css shell class is settled by **bundle order** — trap #1 with two stylesheets in play. Copy the pattern if another HUD-side surface needs the shell look.
+- **Skewed slabs need three layers, not two.** `wireButtonPressFeedback` writes `transform` inline on press, so the press target must be an inner node: outer (`skewX(-8deg)`) / `-inner` (press target, `getTarget`) / `-label` (`skewX(8deg)`). Two-class rules against `.cc-btn` keep the skew through its own `:hover`/`:active` transforms. Menu side uses `.cr-screen-btn-inner/-label`; lobby side `.hud-lobby-btn-inner/-label` + `lobbyPressTarget()`.
+- **Emblems are self-contained stickers** — backing and ring are baked into the SVG (and off-limits). Size the 1em glyph, never draw a second ring around it (the 7e mock's drawn-on ring was dropped for this reason).
 - **Difficulty chips:** `updateDiffButtons`/`initDiffSelect` drive **every** `.cr-diff-row .cr-diff-btn` in the document — one write path to `settingsStore.aiDifficulty`, no new wiring needed for a new row.
 - **Results DOM** is built in `resultsOverlay.js` and returns `{overlay, panel, kicker, title, verdict, finalScores, receipt, playAgain, mainMenuBtn}` — `statsLine`/`history` are **gone**. `.results-body` is podium / receipt / actions and nothing else.
 - **Results stats** (`matchStats.js` → `snapshotMatchStats()`): BODIES=`localKos`, SPILLS CAUSED=`localSpills` (recorded in simulation.js beside the SPILL progression event), BEST COMBO=`maxComboTier`, TIMES BODIED=`localDeaths`, plus optional `leaderDowns`/`criticalKos`. The CHALLENGE receipt line diffs against `challengesCompleteAtRoundStart`, snapshotted at countdown in main.js.
@@ -131,13 +137,15 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 
 ## Remaining work
 
-**7e Friends (the last screen).** Two pieces, per the plan:
-1. **Menu invite chrome** (`#cr-friends-screen`) onto the `.cr-screen` shell: ROOM CODE Goldman cyan ~36px nowrap + hairline COPY + share hint; host BOT DIFFICULTY row (already wired); action stays ENTER GAME.
-2. **Full-screen CHECKOUT LINE lobby** — already exists from `2ccabef`/`de6797f` as its own layout; decide whether it adopts `.cr-screen` too, or stays as-is. Roster rows are price tags: emblem, name, HOST pip cyan, status (READY portal-green / "PICKING CART…" 40%); empty slots dashed with "WAITING FOR SHOPPER…". Footer meta: region · ping.
+**7f Pause (the last screen) — a trim, not a rebuild.** `src/ui/pauseOverlay.js` + `pauseOverlay.css`
+(`.esc-*`) already carry the PAUSED headline and the 2×2 OPTIONS grid from `2192461`. Per the mock:
+860px centred panel, round/time context **right-aligned** in the header, and the extra SCORING
+section dropped. Actions stay RESUME (yellow) / RESTART ROUND (cyan, solo-only via
+`syncRestartVisibility`) / MAIN MENU (ghost).
 
 **Owed verifications (need a visible browser — `npm run dev:local`, not the pane):**
 1. **A real match** → the whole **HUD** (6a), then **results on a finished round**: count-up + receipt print cadence, the new SPILLS/CHALLENGE lines with real data, defeat/victory treatments, PLAY AGAIN host gating.
-2. **A live friends room, two clients** → roster/ready streaming, the **lobby→countdown handoff**, **rematch** re-entry, LEAVE ROOM teardown, `?room=` JOIN.
+2. **A live friends room, two clients** → the rebuilt CHECKOUT LINE has **never rendered** (mode entry never completes in the pane; it was verified by mounting its structure and measuring). Check roster/ready streaming, the **lobby→countdown handoff**, **rematch** re-entry, LEAVE ROOM teardown, `?room=` JOIN, and the new COPY button.
 3. **Responsive sweep** at 1025 / 1024 / 768 / 380 + `prefers-reduced-motion`.
 4. **Golden visual baselines** are still invalidated — regen (`npm run shoot`) once the review signs off.
 
@@ -146,6 +154,8 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 - `?room=` JOIN rehome — FRIENDS row → "JOIN LOBBY" → `enterPlayMode`; still on main.js's old ad-hoc path.
 - Part-1 polish (item 7 above).
 - The REDEEMED stamp on 7b has only been probed synthetically — no challenge has actually completed.
+- **Region · ping** (the 7e mock's footer meta) has no data behind it: netcode tracks no region and no RTT. The lobby hint bar carries `LINK OK` / `RECONNECTING…` from `getConnectionState()` in that slot; region·ping stays with the Part-1 polish until something measures it.
+- **"PICKING CART…"** (mock 7e per-slot status) implies a pending-picker state the game doesn't have — not-ready humans read `IN LINE`.
 
 ## How to continue / verify
 
@@ -163,11 +173,10 @@ current state, the three traps that have each bitten more than once, and what my
 lies about. Then the design source (design_handoff_main_menu/README.md + "Menu Redesign
 Concepts.dc.html" inside ~/Downloads/Game Menu UI Refinement.zip) and `git log --oneline`.
 
-Six of seven sub-screens are rebuilt as full-screen surfaces on the shared .cr-screen shell.
-7e FRIENDS is the last one and the riskiest — it crosses the netcode↔HUD↔menu seam. Read the
-"Roster model (7e)" bullet and the plan's 7e section before touching anything: there must stay
-exactly one slot→row resolver and one MSG.readyToggle send, and the full-screen gate is
-phase === "lobby" && friends, never isLobbyRoster.
+7a–7e and 7g are rebuilt as full-screen surfaces on the shared .cr-screen shell. 7f PAUSE is the
+last one and it is a TRIM, not a rebuild — the mock keeps it a centred 860px panel: right-align
+the round/time context in the header, hold 860px, drop the extra SCORING section. Read the plan's
+7f section and the "Known-but-parked" list before touching anything.
 
 Rules of engagement: plan → my ack → apply. One screen per cut. Commit by EXPLICIT path and
 `git diff` your own files right before committing — a second agent session shares this checkout
