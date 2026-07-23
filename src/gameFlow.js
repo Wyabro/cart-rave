@@ -9,6 +9,7 @@ import { buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
+import { grantLifeCargoForSlot } from "./cargoLoad.js";
 
 /**
  * Host-local: round-clock stamp of the first frame this host saw Sudden Death
@@ -278,6 +279,7 @@ export function updateGameFlow(deps, context) {
                 }
               }
               const suddenDeathEnded = deps.addScore(koEvent.attackerSlotIndex, koEvent.reward.total, suppressSuddenDeathWin);
+              grantLifeCargoForSlot(allCarts, koEvent.attackerSlotIndex, koEvent.reward.total);
               if (suddenDeathEnded) {
                 koEvent.isFinalBlow = true;
               } else {
@@ -318,6 +320,7 @@ export function updateGameFlow(deps, context) {
 
               if (survivingTied === 1 && survivorSlot >= 0) {
                 deps.addScore(survivorSlot, 1);
+                grantLifeCargoForSlot(allCarts, survivorSlot, 1);
                 suddenDeathResolvedThisFrame = true;
                 // * addScore fired _suddenDeathWinCallback → endRound().
                 koEvent.attackerSlotIndex = survivorSlot;
@@ -342,6 +345,7 @@ export function updateGameFlow(deps, context) {
                 );
                 if (fallbackSlot >= 0) {
                   deps.addScore(fallbackSlot, 1);
+                  grantLifeCargoForSlot(allCarts, fallbackSlot, 1);
                   suddenDeathResolvedThisFrame = true;
                   koEvent.attackerSlotIndex = fallbackSlot;
                   koEvent.isFinalBlow = true;
@@ -489,8 +493,9 @@ export function updateGameFlow(deps, context) {
               -1,
               deps.CONFIG.fall.yThreshold,
             );
-            if (fallbackSlot >= 0) {
+              if (fallbackSlot >= 0) {
               deps.addScore(fallbackSlot, 1);
+              grantLifeCargoForSlot(allCarts, fallbackSlot, 1);
             }
           } else if (!suddenDeathResolvedThisFrame) {
             let sdTopScore = -Infinity;

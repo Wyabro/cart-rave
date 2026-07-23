@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-23T03:12:59.010Z",
-    "commit": "f504b9a"
+    "at": "2026-07-23T04:33:27.929Z",
+    "commit": "2e5c625"
   },
-  "source_digest": "963269db",
+  "source_digest": "7f11fd62",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 implemented (unpushed) — life-scoped cargo weight (boss/glass): spawn baseline = today's feel; score this life → slower + harder to launch; spill → stripped fast/glass until next score; respawn → baseline (round score HUD unchanged). Gates 772 tests green. Next: Wyatt Solo playtest, then MP snowball check. Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 — life-scoped cargo weight (boss/glass) + louder boss tune + readable bay count ramp; feel still iterating. CARGO-VIS-1 queued (full-bay + rim overflow look). Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -912,7 +912,13 @@
       {
         "id": "B2 CARGO-WT-1",
         "what": "life-scoped grocery weight (boss/glass)",
-        "status": "🔧 code done (unpushed) — Solo playtest next",
+        "status": "🔧 in tree — Solo/MP feel tune open",
+        "state": "waiting"
+      },
+      {
+        "id": "C2 CARGO-VIS-1",
+        "what": "full-bay fill + rim overflow look",
+        "status": "📋 pre-ship (High) — count ramp exists; layout/scale wrong",
         "state": "waiting"
       },
       {
@@ -938,8 +944,8 @@
       }
     ],
     "next_actions": [
-      "B2 CARGO-WT-1 Solo playtest — spawn = today; score → boss (slower / hard to launch); spill → glass/fast until score again; die → baseline despite high round score.",
-      "MP smoke after Solo (boss chaseable, not immortal). Ship only on Wyatt \"ship it\".",
+      "B2 CARGO-WT-1 — continue Solo/MP feel tune; ship only on Wyatt \"ship it\".",
+      "CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).",
       "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas."
     ],
     "open_issues": [
@@ -1085,8 +1091,8 @@
       {
         "title": "Art",
         "counts": {
-          "High": 2,
-          "Medium": 3,
+          "High": 3,
+          "Medium": 2,
           "Low": 2
         },
         "rows": [
@@ -1115,9 +1121,9 @@
             "ship1": "C3"
           },
           {
-            "pri": "Medium",
-            "item": "CARGO-VIS-1 — groceries visibly fill the basket `[SHIP-1 C2]`",
-            "notes": "Visual half of CARGO-WT-1; follows the new basket.",
+            "pri": "High",
+            "item": "CARGO-VIS-1 — basket fill + overflow look `[SHIP-1 C2]`",
+            "notes": "Pre-ship: groceries must **fill the full basket** and **overflow the top** at boss/full life-cargo. Count ramp exists (CARGO-WT-1); layout/scale/pile still wrong. Prefer after C1 new basket; can prototype on current bay if needed.",
             "ship1": "C2"
           },
           {
@@ -1215,7 +1221,7 @@
           {
             "pri": "High",
             "item": "CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]`",
-            "notes": "**Code done 07-22 (unpushed)** — life-scoped; Solo playtest next.",
+            "notes": "**In tree 07-22** — life-scoped boss/glass; feel tune open.",
             "ship1": "B2"
           },
           {
@@ -1449,7 +1455,7 @@
           {
             "col0": "B2",
             "item": "CARGO-WT-1 — grocery weight risk/reward",
-            "notes": "**Code done 07-22 (unpushed)** — life-scoped boss/glass; Wyatt Solo playtest next"
+            "notes": "**In tree 07-22** — life-scoped boss/glass; feel tune open; bay **count** ramp shipped (look → CARGO-VIS-1)"
           },
           {
             "col0": "B3",
@@ -1468,7 +1474,7 @@
           },
           {
             "col0": "C2",
-            "item": "CARGO-VIS-1 — groceries visibly fill the (new) basket"
+            "item": "CARGO-VIS-1 — basket fill + overflow look (full bay; pile overflows the rim at boss/full)"
           },
           {
             "col0": "C3",

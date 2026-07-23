@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. **Before public/external playtest: reset analytics DO** (see Gotchas).
+**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a`). **B2 CARGO-WT-1** — life-scoped cargo weight (boss/glass) + louder boss tune + readable bay count ramp; feel still iterating. **CARGO-VIS-1** queued (full-bay + rim overflow look). **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -114,6 +114,8 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ✅ **closed** (Cap-200 shipped + menu PASS; hostReload 13/13) |
 | **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ✅ **PASS** (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1) |
 | **A7** ANLX-VIEW-1 | analytics reading surface (`analytics:pull` + CC panel) | ✅ **PASS** (Wyatt smoke 07-22) |
+| **B2** CARGO-WT-1 | life-scoped grocery weight (boss/glass) | 🔧 **in tree** — Solo/MP feel tune open |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 pre-ship (High) — count ramp exists; layout/scale wrong |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -133,9 +135,9 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Waiting on Wyatt to name the next card (Tier A drained except reminders) or say wait / advance phase.
-2. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
-3. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
+1. **B2 CARGO-WT-1** — continue Solo/MP feel tune; ship only on Wyatt "ship it".
+2. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
+3. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
 
 ## Open issues (top)
 

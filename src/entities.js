@@ -20,6 +20,10 @@ import * as Visuals from "./visuals.js";
 import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
 import { applyCartMassPropertiesOverride } from "./simulation.js";
+import {
+  baselineLifeCargoPoints,
+  clearCargoOverflowForSlot,
+} from "./cargoLoad.js";
 import { cleanupShatter } from "./cartShatter.js";
 import { applyCartPattern } from "./cartPatterns.js";
 import * as GroceryPool from "./effects/groceryPool.js";
@@ -364,6 +368,8 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
   const body = createCartBody(world, spawnFrozen, spawnYaw);
   const { collider, hx, hyPhys, hz, colliderLocalY } = createCartCollider(world, body);
   applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, colliderLocalY });
+  const baseMass = body.mass?.() ?? 1;
+  const cargoBaseMass = Number.isFinite(baseMass) && baseMass > 0 ? baseMass : 1;
 
   const cargoParams = getBasketCargoParams(mesh);
   const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
@@ -389,6 +395,7 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     contactShadow,
     body,
     collider,
+    _cargoBaseMass: cargoBaseMass,
     spawn: spawnFrozen,
     spawnYaw,
     slotIndex,
@@ -437,12 +444,12 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     comboTier: 0,
     comboExpiryMs: 0,
     cargoBay,
-    // * Living Cargo — fullness mirrors the slot's synced round score (cargoLoad.js);
-    // * read by the grip/CoM handling in simulation.js and the spill-count scaling.
-    cargoFullness01: 0,
-    // * Spill comeback — deadline for the "empty cart is a fast cart" drive buff.
-    // * Deliberately NOT cleared by resetCartTransientState: a fall spill should leave
-    // * the tail of the buff after the 600ms respawn (the comeback moment).
+    // * Living Cargo (CARGO-WT-1) — life-scoped points; HUD round score is separate.
+    // * weight01 = lifeCargoPoints / fullScore drives grip / drive / ram-incoming / bay.
+    lifeCargoPoints: baselineLifeCargoPoints(),
+    cargoFullness01: baselineLifeCargoPoints() / Math.max(1, CONFIG.cargo?.fullScore ?? 8),
+    // * Spill announce window — deliberately NOT cleared by resetCartTransientState so a
+    // * fall spill can still fire spill_rush after the 600ms respawn.
     spillBoostUntilMs: 0,
     // * Rim entry state — captured when dropping below FALL_ENTRY_Y for accurate KO classification/attribution.
     fallEntryPos: null,
@@ -507,6 +514,12 @@ export function resetCartTransientState(cart) {
   cart.aiLastDistToTarget = Infinity;
   cart.hasSpilled = false;
   cart.tipOverStartMs = null;
+  // * Life-scoped cargo — respawn / rematch return to baseline stocked (today's feel).
+  cart.lifeCargoPoints = baselineLifeCargoPoints();
+  cart.cargoFullness01 =
+    cart.lifeCargoPoints / Math.max(1, CONFIG.cargo?.fullScore ?? 8);
+  cart._cargoWeightApplied = undefined;
+  clearCargoOverflowForSlot(cart.slotIndex);
   // * Restore cargoBay mesh visibility on respawn (hidden during spill VFX).
   // * Prefer the live child on the mesh so a stale ref can't leave groceries gone.
   const liveBay = cart.mesh?.getObjectByName?.("cargoBay") || cart.cargoBay;

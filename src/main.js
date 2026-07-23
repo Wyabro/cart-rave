@@ -129,7 +129,7 @@ import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
-import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
+import { armSpillBoost, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
@@ -1411,6 +1411,7 @@ async function main() {
     sendP2PEvent: (payload) => Netcode.sendP2PEvent(payload),
     announce,
     addScore: GameState.addScore,
+    getAllCarts: () => allCartsRef,
     getLastHitBy: () => GameState.getLastHitBy(),
     // * Host-local presentation; non-hosts get the same path via MSG.spillBonus.
     onSpillBonusAward: (award) => presentSpillBonusAward(award),
@@ -5065,6 +5066,7 @@ async function main() {
       GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, spillCount, cargoBay || cart?.cargoBay || null);
       // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
       GroceryPool.hideCargoBay(cart || cargoBay);
+      stripLifeCargo(cart);
       armSpillBoost(cart);
       // * Living Store "Spill Bonus" — host awards the recent rammer while active.
       directiveOnHostSpill(slotIndex);
@@ -5100,6 +5102,7 @@ async function main() {
       const spillCount = spillCountForCart(cart);
       GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, spillCount, cargoBay);
       GroceryPool.hideCargoBay(cart);
+      stripLifeCargo(cart);
       armSpillBoost(cart);
       // * Living Store "Spill Bonus" — host awards the recent rammer while active.
       directiveOnHostSpill(cart.slotIndex);

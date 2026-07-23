@@ -264,13 +264,20 @@ function principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffset) {
 /**
  * @param {any} body
  * @param {any} collider
- * @param {{ label?: string, hx: number, hy: number, hz: number, colliderLocalY: number, comY?: number }} dims
- *   `comY` — center-of-mass height override (default -0.55 "weeble" low-CG). Only the
- *   taste-gated Living Cargo CoM-raise experiment (CONFIG.cargo.comRaise) passes it.
+ * @param {{ label?: string, hx: number, hy: number, hz: number, colliderLocalY: number, comY?: number, massMul?: number, baseMass?: number }} dims
+ *   `comY` — center-of-mass height override (default -0.55 "weeble" low-CG).
+ *   `massMul` / `baseMass` — optional life-cargo mass scale (CARGO-WT-1); pass stored
+ *   base mass so repeated applies do not compound.
  */
-export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, colliderLocalY, comY = -0.55 }) {
-  let baseMass = collider?.mass?.() ?? body?.mass?.() ?? 1;
+export function applyCartMassPropertiesOverride(
+  body,
+  collider,
+  { hx, hy, hz, colliderLocalY, comY = -0.55, massMul = 1, baseMass: baseMassOpt },
+) {
+  let baseMass = baseMassOpt ?? collider?.mass?.() ?? body?.mass?.() ?? 1;
   if (!Number.isFinite(baseMass) || baseMass <= 0) baseMass = 1;
+  const mul = Number.isFinite(massMul) && massMul > 0 ? massMul : 1;
+  const mass = baseMass * mul;
 
   if (typeof collider?.setDensity === "function") {
     collider.setDensity(0);
@@ -279,10 +286,10 @@ export function applyCartMassPropertiesOverride(body, collider, { hx, hy, hz, co
   const targetCom = new RAPIER.Vector3(0, comY, 0);
   const comOffset = { x: 0, y: comY - colliderLocalY, z: 0 };
 
-  const { ix, iy, iz } = principalInertiaForTranslatedBox(baseMass, hx, hy, hz, comOffset);
+  const { ix, iy, iz } = principalInertiaForTranslatedBox(mass, hx, hy, hz, comOffset);
 
   body.setAdditionalMassProperties(
-    baseMass,
+    mass,
     targetCom,
     new RAPIER.Vector3(ix, iy, iz),
     RAPIER.RotationOps.identity(),
@@ -594,12 +601,16 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
     grip *= rb.nitroGripFactor;
   }
   // * Living Cargo top-heavy handling — a fuller cart (higher round score) slides wider.
-  // * Fullness derives from synced roundScores (cargoLoad.js), so host and predicting
-  // * clients compute identical grip. Gentle by design; never a flip risk.
-  const cargoFullness = cart.cargoFullness01 ?? 0;
+  // * Life-cargo weight (cargoLoad.js): baseline grip stays 1.0; boss slides wider.
+  const cargoWeight01 = cart.cargoFullness01 ?? 0;
   const cargoGripFullFactor = CONFIG.cargo?.gripFullFactor;
-  if (cargoFullness > 0 && cargoGripFullFactor != null) {
-    grip *= THREE.MathUtils.lerp(1, cargoGripFullFactor, cargoFullness);
+  if (cargoGripFullFactor != null && cargoWeight01 > 0) {
+    const full = Math.max(1, CONFIG.cargo?.fullScore ?? 8);
+    const baselineW = (CONFIG.cargo?.baselinePoints ?? 3) / full;
+    if (cargoWeight01 > baselineW && baselineW < 1) {
+      const t = (cargoWeight01 - baselineW) / (1 - baselineW);
+      grip *= THREE.MathUtils.lerp(1, cargoGripFullFactor, t);
+    }
   }
   // * Clamp the lateral grip delta-v so it can only kill vRight, never reverse it.
   // * Without this, a large grip * dtFixed product overshoots zero and induces jitter.
@@ -623,18 +634,35 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
     let accelRate = nitroForward
       ? (rb.boostedAccel ?? CONFIG.driving.accel * (CONFIG.ramming.nitroAccelMultiplier ?? 1.6))
       : CONFIG.driving.accel;
-    // * Spill comeback — "empty cart is a fast cart". Short forward-drive buff after a
-    // * grocery spill (set at the spill sites in main.js / gameFlow / netcode). Nitro
-    // * always wins while its window is open; the two never stack.
-    const spillCfg = CONFIG.cargo?.spillBoost;
-    if (
-      !nitroForward &&
-      axis.forward > 0 &&
-      spillCfg != null &&
-      nowMs < (cart.spillBoostUntilMs ?? 0)
-    ) {
-      targetSpeed = CONFIG.driving.maxSpeed * (spillCfg.speedMul ?? 1);
-      accelRate = CONFIG.driving.accel * (spillCfg.accelMul ?? 1);
+    // * Life-cargo drive curve — stripped is fast/glass, boss is slower/chaseable.
+    // * Baseline (spawn) stays at 1.0. Nitro always wins while its window is open.
+    if (!nitroForward && axis.forward > 0) {
+      const cargoCfg = CONFIG.cargo;
+      if (cargoCfg) {
+        const w = cart.cargoFullness01 ?? 0;
+        const full = Math.max(1, cargoCfg.fullScore ?? 8);
+        const baselineW = (cargoCfg.baselinePoints ?? 3) / full;
+        const speedAt0 = cargoCfg.driveSpeedAtStripped ?? 1;
+        const speedAt1 = cargoCfg.driveSpeedAtBoss ?? 1;
+        const accelAt0 = cargoCfg.driveAccelAtStripped ?? 1;
+        const accelAt1 = cargoCfg.driveAccelAtBoss ?? 1;
+        let speedMul = 1;
+        let accelMul = 1;
+        if (baselineW <= 1e-6) {
+          speedMul = THREE.MathUtils.lerp(speedAt0, speedAt1, w);
+          accelMul = THREE.MathUtils.lerp(accelAt0, accelAt1, w);
+        } else if (w <= baselineW) {
+          const t = w / baselineW;
+          speedMul = THREE.MathUtils.lerp(speedAt0, 1, t);
+          accelMul = THREE.MathUtils.lerp(accelAt0, 1, t);
+        } else {
+          const t = (w - baselineW) / (1 - baselineW);
+          speedMul = THREE.MathUtils.lerp(1, speedAt1, t);
+          accelMul = THREE.MathUtils.lerp(1, accelAt1, t);
+        }
+        targetSpeed = CONFIG.driving.maxSpeed * speedMul;
+        accelRate = CONFIG.driving.accel * accelMul;
+      }
     }
     if (nitroForward && rb.launchAccelMul != null && rb.launchWindowSec > 0) {
       const nitroElapsedSec = Math.max(
@@ -1044,10 +1072,30 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
       const vv = victimState.linvel;
       const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
+      const victimWeight01 = victim.cargoFullness01 ?? 0;
+      const cargoCfg = CONFIG.cargo;
+      let cargoRamIncoming = 1;
+      if (cargoCfg) {
+        const full = Math.max(1, cargoCfg.fullScore ?? 8);
+        const baselineW = (cargoCfg.baselinePoints ?? 3) / full;
+        const at0 = cargoCfg.ramIncomingAtStripped ?? 1;
+        const at1 = cargoCfg.ramIncomingAtBoss ?? 1;
+        if (baselineW <= 1e-6) {
+          cargoRamIncoming = THREE.MathUtils.lerp(at0, at1, victimWeight01);
+        } else if (victimWeight01 <= baselineW) {
+          cargoRamIncoming = THREE.MathUtils.lerp(at0, 1, victimWeight01 / baselineW);
+        } else {
+          cargoRamIncoming = THREE.MathUtils.lerp(
+            1,
+            at1,
+            (victimWeight01 - baselineW) / (1 - baselineW),
+          );
+        }
+      }
       const impulseMagBase = Math.max(
         0,
         Math.min(
-          CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body),
+          CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body) * cargoRamIncoming,
           CONFIG.ramming.maxImpulse
         )
       );

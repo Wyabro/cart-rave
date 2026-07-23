@@ -38,6 +38,7 @@ import { ANNOUNCER_EVENTS } from "../announcer/announcerEvents.js";
 import { getRoundClockNowMs } from "../roundClock.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { DIRECTIVES } from "./directives.js";
+import { grantLifeCargoForSlot } from "../cargoLoad.js";
 
 /**
  * @typedef {object} DirectiveEngineDeps
@@ -45,6 +46,7 @@ import { DIRECTIVES } from "./directives.js";
  * @property {(payload: object) => void} sendP2PEvent
  * @property {(eventId: string, data?: object) => void} announce
  * @property {(slotIndex: number, points: number) => void} addScore Host-authoritative score path.
+ * @property {() => Array<object | null | undefined> | null | undefined} [getAllCarts] For life-cargo grants.
  * @property {() => Map<number, { attackerSlotIndex: number, timestamp: number }>} getLastHitBy
  * @property {(info: {
  *   attackerSlotIndex: number,
@@ -323,6 +325,7 @@ export function onHostSpill(victimSlotIndex) {
 
   const attackerSlotIndex = hit.attackerSlotIndex;
   deps.addScore(attackerSlotIndex, points);
+  grantLifeCargoForSlot(deps.getAllCarts?.() ?? null, attackerSlotIndex, points);
   // * Score path is host-authoritative; fan presentation after the award so a failed
   // * addScore (none today) would still not show a false float. Callback is optional
   // * so unit tests stay pure number-recordings.

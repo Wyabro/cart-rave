@@ -75,10 +75,14 @@ const GROUPS = [
   {
     title: "🛒 Cargo & spill",
     rows: [
-      ["cargo.gripFullFactor", "Full-cart grip ×", 0.4, 1, 0.01],
-      ["cargo.spillBoost.durationMs", "Spill boost window (ms)", 0, 6000, 100],
-      ["cargo.spillBoost.speedMul", "Spill speed ×", 1, 1.6, 0.01],
-      ["cargo.spillBoost.accelMul", "Spill accel ×", 1, 2.5, 0.05],
+      ["cargo.baselinePoints", "Baseline life cargo", 0, 8, 1],
+      ["cargo.gripFullFactor", "Boss grip ×", 0.4, 1, 0.01],
+      ["cargo.driveSpeedAtStripped", "Stripped speed ×", 1, 1.4, 0.01],
+      ["cargo.driveAccelAtStripped", "Stripped accel ×", 1, 2, 0.05],
+      ["cargo.driveSpeedAtBoss", "Boss speed ×", 0.6, 1, 0.01],
+      ["cargo.driveAccelAtBoss", "Boss accel ×", 0.5, 1, 0.01],
+      ["cargo.ramIncomingAtStripped", "Stripped ram in ×", 1, 1.5, 0.01],
+      ["cargo.ramIncomingAtBoss", "Boss ram in ×", 0.5, 1, 0.01],
     ],
   },
   {
