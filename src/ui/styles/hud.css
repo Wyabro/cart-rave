@@ -390,15 +390,25 @@
   letter-spacing: 0.16em;
 }
 
+/* Goldman, not Bungee (mock 6a): Bungee's digits are proportional, so the clock
+   re-laid itself out on every tick and dragged the round meta with it. Goldman
+   + tabular figures makes each digit the same box, and the em-based floor holds
+   the width across the 1:00 boundary too, where the string loses a character. */
 #hud .hud-timer-num {
-  font-family: var(--hud-display);
-  font-size: clamp(28px, 5.5vw, 54px);
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(28px, 5.5vw, 46px);
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 0.02em;
   color: var(--color-sticker-white);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.06em var(--color-ink-deep);
-  text-shadow: 0.05em 0.05em 0 var(--color-ink-deep);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  /* Goldman does not actually ship tabular figures — "0" measures wider than
+     "2" — so the floor, not the font, is what guarantees a fixed box. Sized
+     above the widest 4-character clock the formatter can produce. */
+  min-width: 2.95em;
 }
 
 #hud .hud-timer-bar {
