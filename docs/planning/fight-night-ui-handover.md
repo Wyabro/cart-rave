@@ -10,9 +10,70 @@
   (full 3a/6a/7a–7g specs, locked decisions, verification, risks). This handover is the *progress log*; the plan is the *spec*.
 - **Design source:** `Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` + `Menu Redesign Concepts.dc.html`
   (approved badges: **3a** menu, **6a** HUD, **7a–7g** sub-screens/ESC/results). The plan captures every measurement.
-- **Progress:** **12 cuts committed** — Foundation, menu 3a, HUD 6a, overlay shell, challenges REDEEMED, settings segmented, **settings SFX (7c), customize (7a), how-to (7d), pause (7f), results podium+receipt (7g), Friends lobby + invite chrome (7e)**. Every screen in the plan now has its path-A pass. What remains: the **joint visual review**, the **full-screen 7a–7g rebuild decision**, Part-1 polish, and the in-match verifications listed below.
+- **Progress (superseded — see READ FIRST above):** 12 path-A cuts — Foundation, menu 3a, HUD 6a, overlay shell, challenges REDEEMED, settings segmented, **settings SFX (7c), customize (7a), how-to (7d), pause (7f), results podium+receipt (7g), Friends lobby + invite chrome (7e)**. Every screen in the plan now has its path-A pass. What remains: the **joint visual review**, the **full-screen 7a–7g rebuild decision**, Part-1 polish, and the in-match verifications listed below.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything was verified via DOM + computed-style + scripted-interaction introspection (`javascript_tool`, `window.CartClash.openX`), **never by eye**. No visual/pixel review has happened yet. The user wants a joint visual review once the full system is in.
 - **Second caveat (new):** mode entry **cannot complete** while the Browser pane is hidden — the loading pipeline stalls before a round runs (rAF throttling), so **no in-match surface has been exercised**: HUD, results-in-match, and a live friends room are all still theory. `npm run dev:local` on a visible browser is the way to close these.
+
+## ⚠️ READ FIRST — the full-screen rebuild is now the active work
+
+At the 2026-07-22 joint review Wyatt's verdict was: **the main menu (3a) is close to the
+design; every other screen is not.** Cause: locked decision #6 built the sub-screens as
+path-A restyled *centred modal cards*, while the mock specifies **full-screen surfaces**.
+That deferral is now **reversed** — sub-screens get the literal 7a–7g layouts.
+
+**The shared shell exists**: `.cr-screen` in `cart-rave-menu.css` (Road Rage screen title
+top-left over a Goldman store-voice kicker · named grid regions `-rail` / `-stage` /
+`-panel` / `-panels` / `-actions` / `-hint` · named collapse at 1024 and 768). Rebuilding a
+screen is now *markup restructure + its own region contents*, not a new layout system.
+
+| Screen | State |
+|---|---|
+| 7a Customize | ✅ rebuilt + Wyatt-approved ("looks and works great") |
+| 7c Settings | ✅ rebuilt; cards match the mock after `6a1757a` |
+| 7b Challenges | ⬜ 2-col price-tag card grid — reuses `.cr-screen--panels` |
+| 7d How To | ⬜ three tag cards ACROSS + Road Rage AISLE headers + SCORING / FULL CONTROLS strips |
+| 7e Friends | ⬜ room code left / CHECKOUT LINE roster right + region·ping footer |
+| 7g Results | ⬜ podium LEFT (4 × 200px, 250/170/120/80) + receipt RIGHT |
+| 7f Pause | ⬜ **stays a centred 860px panel** (mock says so) — only needs right-aligned round/time context, 860px width, and the extra SCORING section dropped |
+
+### The bug pattern that has now bitten three times — check it FIRST
+
+Retired modal-era CSS keeps beating the new shell rules: same specificity (one class each),
+and the old rule sits **later in the file**, so it wins on source order.
+
+1. `.cr-customize-tabs { display: grid }` beat `.cr-screen-rail`'s flex → tabs laid out
+   side by side, overflowed the rail, and **PATTERN landed under the cart preview, which ate
+   its clicks** (looked like "the Patterns tab is broken"). Fixed in `0d20900`.
+2. `.cr-settings-section` beat `.cr-screen-card` → the settings boxes rendered with the
+   **retired white die-cut contour**, ink-deep background and 10px padding. Fixed in `6a1757a`.
+
+**So: when you rebuild a screen, DELETE its old modal rules — don't just add new ones.**
+Verify with `getComputedStyle` on the real element, and if it disagrees with your CSS,
+compare against a fresh probe element carrying the same classes (see the debugging note below).
+
+### Verifying through the Browser pane — what lies
+
+This host runs the pane with `document.visibilityState === "hidden"`, which freezes rAF and
+WAAPI. Consequences, all **preview artifacts, not bugs**:
+
+- Entrance animations never advance → panels sit at their pre-state (`opacity: 0`,
+  `translateY(14px)`). Neutralise with `el.style.opacity='1'; el.style.transform='none'`
+  before measuring geometry.
+- Toggle animations (`animateTogglePop`) freeze at their `fill: backwards` start keyframe and
+  **pin the old colour** — this made a correctly-styled POST-FX chip read as yellow when off.
+  Check animated state on a **fresh probe element** with the same classes instead.
+- Mode entry never completes (loading pipeline stalls), so nothing in-match can be reached.
+
+`Object.defineProperty(document,'visibilityState',{get:()=>'visible'})` + a `visibilitychange`
+event does wake WAAPI mid-session (proved), but not the already-suspended boot path.
+
+### Repo hygiene — a second agent session shares this checkout
+
+The branch does **not** isolate the working directory. During this session another session's
+B2 CARGO-WT-1 work (cargoLoad / simulation / netcode / tests) appeared as uncommitted changes
+in the same tree. **Never `git add -A`** (STATUS says so); commit by explicit path. Verified:
+no foreign source landed in any fight-night commit, but the pre-commit hook does sweep the
+regenerated `docs/BRIEFING.md` + `docs/ARCHITECTURE.json` in.
 
 ## Locked decisions (from plan review + in-session Q&A)
 
@@ -40,6 +101,10 @@
 | `2192461` | 3g Pause (7f) | Title → **PAUSED** (Road Rage, clamp→56px) + `.esc-context` round/time read off the HUD timer DOM; ANNOUNCER+DISPLAY → one **2×2 OPTIONS grid**; RESTART→"RESTART ROUND" (cyan), QUIT→"MAIN MENU" (ghost). |
 | `3e6b927` | 3h Results (7g) | PA header (`◆ STORE PA` + "THE STORE IS NOW CLOSED") with the verdict on its own line; ranked list → **4-column podium** (150/102/72/48, winner magenta + crown, YOU cyan) ; **match receipt** (BODIES/BEST COMBO/TIMES BODIED + optional LEADER DOWNS/CRITICALS, yellow TOTAL, CSS barcode) printing on the count-up schedule. |
 | `2ccabef` | 4 Friends lobby (7e) | `buildRosterRows()` factored out of `updateScores`; new full-screen **CHECKOUT LINE** (`updateLobbyScreen`) gated on `phase==="lobby" && friends`; READY proxies `hud-ready-btn` (no START button); LEAVE ROOM → existing `returnToMenu` teardown via new `onLeaveRoom` option. |
+| `f504b9a` | **7a full-screen** | Shared `.cr-screen` shell (title top-left + kicker + grid regions + hint bar, named collapse) and CUSTOMIZE rebuilt onto it: left tab rail as command-list parallelograms, cart preview owning the centre at 520×420, right chip panel, single yellow DONE. |
+| `0d20900` | 7a fixes | PATTERN tab was unclickable (stale `.cr-customize-tabs` grid put it under the stage); skew flashing fixed by splitting every skewed control into outer(skew) / inner(press target) / label(counter-skew) — also fixed the same latent flaw on `.cr-cmd` menu rows. |
+| `7115b63` | **7c full-screen** | SETTINGS onto the shell's panels variant: AUDIO + GRAPHICS accent cards, CONTROLS kept as a wide reference card, named MUSIC/SFX sliders with the mock's 8px track + 16px white knob, MUTE ALL / POST-FX as chips, auto-quality footnote. |
+| `6a1757a` | 7c fix | Cards were still wearing the retired white die-cut sticker material (`.cr-settings-section` beat `.cr-screen-card` on source order). |
 | `de6797f` | 4b Invite chrome (7e) | ROOM CODE slab + host BOT DIFFICULTY row on `#cr-friends-screen`; `updateDiffButtons`/`initDiffSelect` now drive **every** `.cr-diff-row`, so invite + context panel share one controller over `settingsStore.aiDifficulty`. |
 
 ## Verified this session (DOM/interaction only — NOT visual)
@@ -99,18 +164,20 @@
 
 ```text
 Continue the "Fight Night" UI redesign on branch redesign/fight-night-ui (repo cart-rave).
-Read docs/planning/fight-night-ui-handover.md, then the plan at
-~/.claude/plans/c-users-wyatt-downloads-game-menu-ui-re-snazzy-floyd.md, then `git log --oneline`
-on the branch. All 12 cuts are committed and `npm run qa` is green (767 tests) — every screen
-has had its path-A pass, nothing is half-built.
+START with the "READ FIRST" section of docs/planning/fight-night-ui-handover.md — it has the
+current state, the CSS trap that has caused every bug so far, and what my Browser pane lies
+about. Then the design source (design_handoff_main_menu/README.md + "Menu Redesign
+Concepts.dc.html" inside ~/Downloads/Game Menu UI Refinement.zip) and `git log --oneline`.
 
-What's left is verification and the review, not more building:
-1. Run the game in a VISIBLE browser (`npm run dev:local`, load the client from 127.0.0.1 —
-   a hidden Browser pane stalls mode entry, so nothing in-match has ever been seen).
-2. Walk the surfaces with me: menu, HUD in a real match, results podium+receipt on a finished
-   round (force it with CartClashDev.run("scores 7 4 2 9") then run("rewind 800")), pause,
-   customize, how-to, settings, challenges, and a two-client friends room (CHECKOUT LINE →
-   countdown handoff → rematch).
-3. Then decide per screen whether it stays a restyled centered card or gets the full-screen
-   7a–7g layout, and regen the golden baselines (`npm run shoot`).
+Context: the sub-screens were first built as restyled centre cards (path A); at review Wyatt
+ruled they must be the mock's FULL-SCREEN layouts. The shared .cr-screen shell is built and
+7a Customize + 7c Settings are done and approved. Next screen is 7b Challenges (2-col
+price-tag card grid, reuses .cr-screen--panels), then 7d How To, 7e Friends, 7g Results;
+7f Pause stays a centred 860px panel and only needs a trim.
+
+Rules of engagement: one screen per cut, commit by EXPLICIT path (another agent session
+shares this checkout — never `git add -A`), delete the old modal CSS for each screen you
+rebuild rather than layering over it, and check computed styles against a fresh probe element
+before believing a "bug". Nothing in-match (HUD, results on a real round, a live friends
+lobby) has ever been seen — that still needs a visible browser via `npm run dev:local`.
 ```
