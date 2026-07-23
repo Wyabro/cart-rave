@@ -759,7 +759,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       const title = unlocked
         ? meta.description
         : `Locked — ${status.hint} (${status.progress}/${status.goal})`;
-      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}${unlocked ? '' : ' cr-chip--locked'}" data-pattern="${id}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${title}">
+      // * --pc is the chip's colour hook (border / glow / selected pip) — the same
+      // * value the mini-cart SVG below is drawn in, so the shelf matches the preview.
+      html += `<button type="button" class="cr-pattern-chip ${isActive ? 'active' : ''}${unlocked ? '' : ' cr-chip--locked'}" data-pattern="${id}" role="radio" aria-checked="${isActive}" aria-label="${meta.label}" title="${title}" style="--pc:${colorCss}">
         ${makePatternMiniCartSvg(id, colorCss)}
         <span class="cr-pattern-chip-label">${unlocked ? meta.label : `🔒 ${meta.label}`}</span>
       </button>`;

@@ -884,28 +884,14 @@ html, body {
     var(--slab-shadow-sm);
 }
 
-/* CUSTOM keeps the die-cut white ring (KEEP spec) — it reads as the odd one
-   out on purpose, purple slab under a white contour. */
+/* CUSTOM is a chip like the others: ink card with its hue in the border and
+   glow, never a filled swatch. The mock drew it as a solid purple slab under a
+   white die-cut ring, which read as the odd one out on the shelf (Wyatt, review).
+   Only the resting hue is declared here — hover/active come from the base rules,
+   so it can never drift from its five siblings again. `--cc` is the family's
+   colour hook; the hue picker overwrites it inline once a custom hue is chosen. */
 .cr-color-chip--custom {
-  background: color-mix(in oklab, var(--personality-lurker), var(--color-ink) 82%);
-  border-color: transparent;
-  /* KEEP the die-cut contour — one of the four exceptions the token comment
-     names (emblems, Road Rage lettering, the CUSTOM chip, the hue knobs). */
-  box-shadow: var(--sticker-micro);
-}
-
-.cr-color-chip--custom:hover {
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white),
-    3px 3px 0 1.5px var(--color-ink-deep);
-}
-
-.cr-color-chip--custom.active {
-  background: color-mix(in oklab, var(--cc), var(--color-ink) 80%);
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white),
-    2px 2px 0 1.5px var(--color-ink-deep),
-    0 0 14px -2px var(--cc);
+  --cc: var(--personality-lurker);
 }
 
 .cr-color-chip.active::after {
@@ -1819,20 +1805,25 @@ html, body {
   margin-bottom: 0;
 }
 
+/* Same recipe as .cr-color-chip — geometry, resting border, hover and selected
+   state all come from the colour-chip family so the three tabs read as one shelf.
+   `--chip-c` is the per-family colour hook: each finish sets `--mc` inline. */
 .cr-sunglasses-chip {
+  --chip-c: var(--mc, var(--color-cyan));
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 2px 4px;
   background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
+  border: 1px solid color-mix(in oklab, var(--chip-c), transparent 60%);
   box-shadow: var(--slab-shadow-sm);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
+  transition: var(--transition-interactive);
 }
 
 /* * Mirrored lens swatch: gradient sweep matching the 3D finish (hot core → cool edge,
@@ -1857,15 +1848,30 @@ html, body {
 }
 
 .cr-sunglasses-chip:hover {
-  transform: translate(-1px, -2px);
+  border-color: var(--chip-c);
+  box-shadow: var(--slab-shadow-hover);
+  transform: var(--transform-hover-lift-sm);
 }
 
+/* Selected = brighter border + glow in the item's own colour, per the 7a spec.
+   It was a flat yellow ring, but yellow is already the active rail tab AND the
+   DONE button on this screen — three yellows competing for "this one". */
 .cr-sunglasses-chip.active {
-  /* Yellow ring = the selected item (selection law); the swatch keeps its own hue. */
-  border-color: var(--color-yellow);
+  border-color: var(--chip-c);
+  background: color-mix(in oklab, var(--chip-c), var(--color-ink) 88%);
   box-shadow:
-    0 0 0 1px var(--color-yellow) inset,
+    0 0 0 1px var(--chip-c) inset,
+    0 0 12px -2px var(--chip-c),
     var(--slab-shadow-sm);
+}
+
+.cr-sunglasses-chip.active::after {
+  content: ""; position: absolute;
+  top: 3px; right: 3px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--chip-c);
+  box-shadow: 0 0 var(--space-xs) var(--chip-c);
 }
 
 .cr-sunglasses-chip-label {
@@ -1885,7 +1891,12 @@ html, body {
   margin-bottom: 0;
 }
 
+/* Same recipe as .cr-color-chip (see .cr-sunglasses-chip). `--pc` is set inline
+   per chip to the live cart colour — the same value its mini-cart SVG is drawn
+   in — so the shelf agrees with the preview. */
 .cr-pattern-chip {
+  --chip-c: var(--pc, var(--color-magenta));
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1894,11 +1905,11 @@ html, body {
   min-height: 44px;
   padding: var(--space-xs);
   background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
+  border: 1px solid color-mix(in oklab, var(--chip-c), transparent 60%);
   box-shadow: var(--slab-shadow-sm);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
+  transition: var(--transition-interactive);
 }
 
 .cr-pattern-chip svg {
@@ -1906,15 +1917,27 @@ html, body {
 }
 
 .cr-pattern-chip:hover {
-  transform: translate(-1px, -2px);
+  border-color: var(--chip-c);
+  box-shadow: var(--slab-shadow-hover);
+  transform: var(--transform-hover-lift-sm);
 }
 
 .cr-pattern-chip.active {
-  /* Yellow ring = the selected item (selection law); the swatch keeps its own hue. */
-  border-color: var(--color-yellow);
+  border-color: var(--chip-c);
+  background: color-mix(in oklab, var(--chip-c), var(--color-ink) 88%);
   box-shadow:
-    0 0 0 1px var(--color-yellow) inset,
+    0 0 0 1px var(--chip-c) inset,
+    0 0 12px -2px var(--chip-c),
     var(--slab-shadow-sm);
+}
+
+.cr-pattern-chip.active::after {
+  content: ""; position: absolute;
+  top: 3px; right: 3px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--chip-c);
+  box-shadow: 0 0 var(--space-xs) var(--chip-c);
 }
 
 .cr-pattern-chip-label {
